@@ -269,3 +269,5 @@ sketch
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,java,react,nextjs,visualstudiocode
+# Claude Code 로컬 설정
+.claude/
