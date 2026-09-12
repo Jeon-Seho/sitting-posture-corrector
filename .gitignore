@@ -269,3 +269,8 @@ sketch
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,java,react,nextjs,visualstudiocode
+# Claude Code 로컬 설정
+.claude/
+
+# 위쪽 Python 규칙의 lib/ 가 프론트엔드 소스까지 지워버려서 되살린다
+!frontend/src/lib/
