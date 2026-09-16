@@ -1,3 +1,4 @@
+import { ArrowCounterClockwise } from '@phosphor-icons/react'
 import { DEFAULT_RULES, MODEL_VERSION } from '../data/posture'
 import { Card, DemoNote, Switch } from '../components/ui'
 
@@ -36,9 +37,10 @@ function Slider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          style={{ width: 150, accentColor: 'var(--accent)' }}
+          aria-label={name}
+          style={{ width: 160 }}
         />
-        <span className="num" style={{ minWidth: 62, textAlign: 'right', fontWeight: 600 }}>
+        <span className="slider-value">
           {value}
           {unit}
         </span>
@@ -75,12 +77,13 @@ export function SettingsPage({
           </p>
         </div>
         <button className="btn" onClick={() => onRules(DEFAULT_RULES)}>
+          <ArrowCounterClockwise size={17} weight="bold" className="icon" />
           기본값으로 되돌리기
         </button>
       </div>
 
       <div className="grid g2" style={{ alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="stack">
           <Card title="알림">
             <div className="setting-row">
               <div>
@@ -137,8 +140,8 @@ export function SettingsPage({
           </Card>
         </div>
 
-        <div style={{ display: 'grid', gap: 14 }}>
-          <Card title="운영 정보" note="배포 버전을 식별할 수 있도록 화면에 남겨 둡니다.">
+        <div className="stack">
+          <Card title="운영 정보" note="배포 버전을 식별할 수 있도록 화면에 남겨 둡니다." dark>
             <div className="setting-row">
               <div className="setting-name">추론 모델 버전</div>
               <span className="mono">{MODEL_VERSION}</span>
@@ -157,7 +160,7 @@ export function SettingsPage({
             </div>
             <div className="setting-row">
               <div className="setting-name">최근 오류</div>
-              <span className="muted" style={{ fontSize: 12 }}>
+              <span className="muted" style={{ fontSize: 13 }}>
                 없음
               </span>
             </div>

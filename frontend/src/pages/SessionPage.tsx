@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowCounterClockwise,
+  BellSlash,
+  ChartBar,
+  FastForward,
+  House,
+  Pause,
+  Play,
+  Question,
+  Stop,
+  WarningOctagon,
+} from '@phosphor-icons/react'
+import {
   COLLAPSE_LABEL,
   DEFAULT_RULES,
   MODEL_VERSION,
@@ -7,7 +19,7 @@ import {
 } from '../data/posture'
 import { useSession, type CollapseEvent, type SessionPhase } from '../hooks/useSession'
 import { PoseStage } from '../components/PoseStage'
-import { Card, FeatureRow, Meter, Ring, Stat, StateBadge } from '../components/ui'
+import { Card, FeatureRow, Ledger, Meter, Rate, Stat } from '../components/ui'
 import {
   formatClock,
   formatDuration,
@@ -61,6 +73,7 @@ export function SessionPage({
 
   const keepRate = ratio(live.goodSeconds, live.validSeconds)
   const perHour = live.validSeconds > 0 ? live.events.length / (live.validSeconds / 3600) : null
+  const overThreshold = live.collapseProb >= rules.threshold
 
   const { intervals, recoveries, mutedCount } = useMemo(() => {
     const starts = [...live.events].map((e) => e.startAt).sort((a, b) => a - b)
@@ -94,35 +107,39 @@ export function SessionPage({
                 setPhase('running')
               }}
             >
+              <ArrowCounterClockwise size={17} weight="bold" className="icon" />
               다시 측정
             </button>
             <button className="btn btn-primary" onClick={onDashboard}>
+              <ChartBar size={17} weight="bold" className="icon" />
               대시보드 보기
             </button>
           </div>
         </div>
 
-        <div className="grid g4" style={{ marginBottom: 14 }}>
-          <Stat
-            label="유효 측정 시간"
-            value={formatDuration(live.validSeconds)}
-            sub={`전체 ${formatDuration(live.totalSeconds)}`}
-          />
-          <Stat
-            label="바른 자세 유지율"
-            value={formatPercent(keepRate)}
-            sub={`바른 자세 ${formatDuration(live.goodSeconds)}`}
-            tone={keepRate !== null && keepRate >= 0.75 ? 'good' : undefined}
-          />
-          <Stat
-            label="붕괴 이벤트"
-            value={`${live.events.length}건`}
-            sub={`알림 ${live.events.reduce((a, e) => a + e.alerts, 0)}회`}
-          />
-          <Stat label="시간당 붕괴 횟수" value={formatRate(perHour, '회')} />
+        <div className="gap-top">
+          <Ledger cols={4}>
+            <Stat
+              label="유효 측정 시간"
+              value={formatDuration(live.validSeconds)}
+              sub={`전체 ${formatDuration(live.totalSeconds)}`}
+            />
+            <Stat
+              label="바른 자세 유지율"
+              value={formatPercent(keepRate)}
+              sub={`바른 자세 ${formatDuration(live.goodSeconds)}`}
+              tone={keepRate !== null && keepRate >= 0.75 ? 'good' : undefined}
+            />
+            <Stat
+              label="붕괴 이벤트"
+              value={`${live.events.length}건`}
+              sub={`알림 ${live.events.reduce((a, e) => a + e.alerts, 0)}회`}
+            />
+            <Stat label="시간당 붕괴 횟수" value={formatRate(perHour, '회')} />
+          </Ledger>
         </div>
 
-        <div className="grid g2" style={{ marginBottom: 14 }}>
+        <div className="grid g2 gap-top">
           <Card title="붕괴 발생 간격" note="같은 세션 안에서 연속된 이벤트 시작 시각의 차이입니다.">
             <SampleStat label="평균" value={formatDuration(mean(intervals))} />
             <SampleStat label="중앙값" value={formatDuration(median(intervals))} />
@@ -138,14 +155,17 @@ export function SessionPage({
           </Card>
         </div>
 
-        <div className="grid g3" style={{ marginBottom: 14 }}>
-          <Stat
-            label="판정 불가 (집계 제외)"
-            value={formatDuration(live.unknownSeconds)}
-            sub="자리 비움 · 부분 가림"
-          />
-          <Stat label="일시정지 (집계 제외)" value={formatDuration(live.pausedSeconds)} />
-          <Stat label="모델 버전" value={MODEL_VERSION} sub="추론에 사용된 버전" />
+        <div className="gap-top">
+          <Ledger cols={3}>
+            <Stat
+              label="판정 불가 (집계 제외)"
+              value={formatDuration(live.unknownSeconds)}
+              sub="자리 비움 · 부분 가림"
+              small
+            />
+            <Stat label="일시정지 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
+            <Stat label="모델 버전" value={MODEL_VERSION} sub="추론에 사용된 버전" small />
+          </Ledger>
         </div>
 
         <Card title="이벤트 기록" note={`총 ${live.events.length}건`}>
@@ -165,26 +185,25 @@ export function SessionPage({
             이어질 때만 이벤트로 확정합니다.
           </p>
         </div>
-        <div className="row">
-          <span className="badge accent">
-            <i className="pip" />
-            시연 배속 {speed}x
-          </span>
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              className="chip"
-              aria-pressed={speed === s}
-              onClick={() => setSpeed(s)}
-            >
-              {s}x
-            </button>
-          ))}
+        <div className="row" role="group" aria-label="시연 배속">
+          <span className="stat-label">시연 배속</span>
+          <div className="segmented">
+            {SPEEDS.map((s) => (
+              <button
+                key={s}
+                className="chip num"
+                aria-pressed={speed === s}
+                onClick={() => setSpeed(s)}
+              >
+                {s}x
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="session-grid">
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="stack">
           <div className="stage">
             <PoseStage
               keypoints={live.keypoints}
@@ -195,16 +214,17 @@ export function SessionPage({
             <div className="stage-overlay">
               <div className="stage-top">
                 <span className="stage-tag">
-                  {phase === 'running' ? <i className="rec-dot" /> : null}
+                  {phase === 'running' ? <i className="rec-dot" /> : <Pause size={13} weight="fill" />}
                   {phase === 'running' ? '측정 중' : '일시정지'}
                   <span className="num muted">{formatClock(live.totalSeconds)}</span>
                 </span>
                 <span className="stage-tag">
-                  검출 신뢰도 <b className="num">{(live.confidence * 100).toFixed(0)}%</b>
+                  <span className="muted">검출 신뢰도</span>
+                  <b className="num">{(live.confidence * 100).toFixed(0)}%</b>
                 </span>
               </div>
 
-              <div className="stage-bottom">
+              <div className="stage-bottom" aria-live="polite">
                 {live.state === 'collapse' && !live.alerting && (
                   <div className="hold-bar">
                     <div className="label">
@@ -216,13 +236,13 @@ export function SessionPage({
                         {rules.holdSeconds.toFixed(1)}초
                       </span>
                     </div>
-                    <Meter value={live.holdProgress} color="var(--warn)" />
+                    <Meter value={live.holdProgress} color="var(--warn-hi)" />
                   </div>
                 )}
 
                 {live.state === 'unknown' && (
                   <div className="alert-banner notice">
-                    <span className="alert-icon gray">?</span>
+                    <Question size={22} weight="bold" className="icon alert-icon gray" />
                     <div>
                       <div className="alert-title">판정 불가 구간</div>
                       <div className="alert-desc">
@@ -234,7 +254,7 @@ export function SessionPage({
 
                 {live.alerting && alertsOn && (
                   <div className="alert-banner">
-                    <span className="alert-icon">!</span>
+                    <WarningOctagon size={22} weight="fill" className="icon alert-icon" />
                     <div style={{ flex: 1 }}>
                       <div className="alert-title">
                         자세를 교정해 주세요
@@ -260,7 +280,7 @@ export function SessionPage({
 
                 {live.alerting && !alertsOn && (
                   <div className="alert-banner notice">
-                    <span className="alert-icon gray">✕</span>
+                    <BellSlash size={22} weight="bold" className="icon alert-icon gray" />
                     <div>
                       <div className="alert-title">알림이 꺼져 있습니다</div>
                       <div className="alert-desc">
@@ -273,19 +293,25 @@ export function SessionPage({
             </div>
           </div>
 
-          <div className="row spread" style={{ flexWrap: 'wrap' }}>
+          <div className="controls">
             <div className="row">
               <button
                 className="btn"
                 onClick={() => setPhase(phase === 'paused' ? 'running' : 'paused')}
               >
+                {phase === 'paused' ? (
+                  <Play size={17} weight="fill" className="icon" />
+                ) : (
+                  <Pause size={17} weight="fill" className="icon" />
+                )}
                 {phase === 'paused' ? '측정 재개' : '일시정지'}
               </button>
               <button className="btn btn-danger" onClick={() => setPhase('ended')}>
+                <Stop size={17} weight="fill" className="icon" />
                 측정 종료
               </button>
             </div>
-            <div className="row">
+            <div className="row" style={{ flexWrap: 'wrap' }}>
               <button
                 className="chip"
                 aria-pressed={showSkeleton}
@@ -294,41 +320,47 @@ export function SessionPage({
                 키포인트 표시
               </button>
               <button className="btn btn-sm" onClick={seekNext}>
+                <FastForward size={15} weight="fill" className="icon" />
                 다음 구간으로
               </button>
               <button className="btn btn-sm" onClick={onFinish}>
+                <House size={15} weight="bold" className="icon" />
                 홈으로
               </button>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 14 }}>
-          <Card title="현재 판정">
-            <div className="row spread" style={{ marginBottom: 12 }}>
-              <StateBadge
-                state={live.state}
-                detail={live.collapse ? COLLAPSE_LABEL[live.collapse] : null}
-              />
-              <span className="muted" style={{ fontSize: 11.5 }}>
-                {STATE_LABEL[live.state]} 유지 중
+        <div className="stack">
+          <Card title="현재 판정" dark>
+            <div className="verdict" aria-live="polite">
+              <span key={`${live.state}-${live.collapse ?? ''}`} className={`verdict-word ${live.state}`}>
+                {live.state === 'collapse' && live.collapse
+                  ? COLLAPSE_LABEL[live.collapse]
+                  : STATE_LABEL[live.state]}
               </span>
+              <span className="verdict-sub">{STATE_LABEL[live.state]} 유지 중</span>
             </div>
-            <div className="stat-label row spread" style={{ marginBottom: 5 }}>
-              <span>LSTM 붕괴 확률</span>
-              <span className="num">{(live.collapseProb * 100).toFixed(0)}%</span>
+
+            <div className="prob">
+              <span className="rate-label" style={{ color: 'var(--panel-muted)' }}>
+                LSTM 붕괴 확률
+              </span>
+              <span className={`figure ${overThreshold ? 'over' : ''}`}>
+                {(live.collapseProb * 100).toFixed(0)}%
+              </span>
             </div>
             <Meter
               value={live.collapseProb}
-              color={live.collapseProb >= rules.threshold ? 'var(--bad)' : 'var(--good)'}
+              color={overThreshold ? 'var(--accent)' : 'var(--good-fill)'}
             />
-            <p className="card-note" style={{ marginTop: 6 }}>
+            <p className="card-note" style={{ marginTop: 8 }}>
               임계값 {(rules.threshold * 100).toFixed(0)}% · {rules.holdSeconds}초 지속 시 확정
             </p>
 
             <div className="divider" />
-            <div className="row" style={{ gap: 16 }}>
-              <Ring value={keepRate} label="유지율" size={92} />
+            <div className="row" style={{ gap: 24, alignItems: 'flex-start' }}>
+              <Rate value={keepRate} label="유지율" />
               <div style={{ flex: 1 }}>
                 <MiniRow label="유효 측정" value={formatDuration(live.validSeconds)} />
                 <MiniRow label="바른 자세" value={formatDuration(live.goodSeconds)} />
@@ -344,35 +376,36 @@ export function SessionPage({
               value={live.features.neckForward}
               unit="°"
               ratio={live.features.neckForward / 40}
-              color={live.features.neckForward > 25 ? 'var(--bad)' : 'var(--good)'}
+              color={live.features.neckForward > 25 ? 'var(--bad-fill)' : 'var(--good-fill)'}
             />
             <FeatureRow
               name="어깨 기울기"
               value={live.features.shoulderTilt}
               unit="°"
               ratio={live.features.shoulderTilt / 15}
-              color={live.features.shoulderTilt > 8 ? 'var(--bad)' : 'var(--good)'}
+              color={live.features.shoulderTilt > 8 ? 'var(--bad-fill)' : 'var(--good-fill)'}
             />
             <FeatureRow
               name="상체 기울기"
               value={live.features.trunkTilt}
               unit="°"
               ratio={live.features.trunkTilt / 20}
-              color={live.features.trunkTilt > 12 ? 'var(--bad)' : 'var(--good)'}
+              color={live.features.trunkTilt > 12 ? 'var(--bad-fill)' : 'var(--good-fill)'}
             />
             <FeatureRow
               name="좌우 균형"
               value={live.features.lateralBalance}
               unit="%"
               ratio={live.features.lateralBalance / 100}
-              color={live.features.lateralBalance < 80 ? 'var(--bad)' : 'var(--good)'}
+              color={live.features.lateralBalance < 80 ? 'var(--bad-fill)' : 'var(--good-fill)'}
             />
           </Card>
 
           <Card title="붕괴 이벤트" note={`${live.events.length}건 기록됨`}>
             {live.events.length === 0 ? (
-              <p className="muted" style={{ fontSize: 12.5 }}>
-                아직 확정된 이벤트가 없습니다.
+              <p className="muted" style={{ fontSize: 14 }}>
+                아직 확정된 이벤트가 없습니다. 붕괴가 {rules.holdSeconds}초 이상 이어지면 여기에
+                기록됩니다.
               </p>
             ) : (
               <div className="list">
@@ -386,9 +419,12 @@ export function SessionPage({
       </div>
 
       {toast && (
-        <div className="toast">
-          <div className="alert-title">자세 교정 알림</div>
-          <div className="alert-desc">{toast}</div>
+        <div className="toast" role="status">
+          <WarningOctagon size={22} weight="fill" className="icon" />
+          <div>
+            <div className="alert-title">자세 교정 알림</div>
+            <div className="alert-desc">{toast}</div>
+          </div>
         </div>
       )}
     </>
@@ -397,7 +433,7 @@ export function SessionPage({
 
 function MiniRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="feature-row" style={{ gridTemplateColumns: '1fr auto', padding: '5px 0' }}>
+    <div className="feature-row" style={{ gridTemplateColumns: '1fr auto', padding: '6px 0' }}>
       <span className="feature-name">{label}</span>
       <span className="feature-value">{value}</span>
     </div>
@@ -417,8 +453,9 @@ function EventItem({ event: e, muted }: { event: CollapseEvent; muted: boolean }
   return (
     <div className="event-item">
       <div className="top">
-        <span style={{ fontWeight: 600 }}>
-          #{e.id} {COLLAPSE_LABEL[e.type]}
+        <span>
+          <span className="figure">#{e.id}</span>
+          {COLLAPSE_LABEL[e.type]}
         </span>
         {e.endAt === null ? (
           <span className="badge collapse">
@@ -442,7 +479,7 @@ function EventItem({ event: e, muted }: { event: CollapseEvent; muted: boolean }
         <span>지속 {e.endAt === null ? '—' : formatDuration(e.durationSec)}</span>
         <span>알림 {e.alerts}회</span>
         <span>회복 {e.recoverySec === null ? '—' : formatDuration(e.recoverySec)}</span>
-        {muted && <span style={{ color: 'var(--warn)' }}>알림 꺼짐</span>}
+        {muted && <span className="warn">알림 꺼짐</span>}
       </div>
     </div>
   )
@@ -451,7 +488,7 @@ function EventItem({ event: e, muted }: { event: CollapseEvent; muted: boolean }
 function EventTable({ events, muted }: { events: CollapseEvent[]; muted: Set<number> }) {
   if (events.length === 0) {
     return (
-      <p className="muted" style={{ fontSize: 12.5 }}>
+      <p className="muted" style={{ fontSize: 14 }}>
         기록된 이벤트가 없습니다.
       </p>
     )

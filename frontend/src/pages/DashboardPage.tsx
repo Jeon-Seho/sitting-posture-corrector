@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { EARLY_PERIOD, HISTORY, RECENT_PERIOD, type DayRecord, type Period } from '../data/history'
-import { Card, ComboChart, Legend, Stat } from '../components/ui'
+import { Card, ComboChart, Ledger, Legend, Stat } from '../components/ui'
 import {
   delta,
   formatDuration,
@@ -60,7 +60,7 @@ export function DashboardPage() {
             모든 비율은 유효 측정 시간 기준이며, 판정 불가 구간은 집계에서 제외했습니다.
           </p>
         </div>
-        <div className="row">
+        <div className="segmented" role="group" aria-label="보기 전환">
           {(
             [
               ['daily', '일별 기록'],
@@ -75,7 +75,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid g4" style={{ marginBottom: 14 }}>
+      <div className="gap-top">
+      <Ledger cols={4}>
         <Stat
           label="오늘 유지율"
           value={formatPercent(tDay.keepRate)}
@@ -97,6 +98,7 @@ export function DashboardPage() {
           value={formatDuration(all.excluded)}
           sub={`전체 대비 ${((all.excluded / (all.valid + all.excluded)) * 100).toFixed(1)}%`}
         />
+      </Ledger>
       </div>
 
       {tab === 'daily' && (
@@ -104,7 +106,6 @@ export function DashboardPage() {
           <Card
             title="일별 유효 측정 시간과 유지율"
             note="막대는 유효 측정 시간, 선은 바른 자세 유지율입니다."
-            className="grid"
           >
             <ComboChart
               bars={HISTORY.map((d) => ({
@@ -118,13 +119,13 @@ export function DashboardPage() {
             />
             <Legend
               items={[
-                { color: 'var(--accent)', label: '유효 측정 시간' },
-                { color: 'var(--good)', label: '바른 자세 유지율' },
+                { color: 'var(--ink)', label: '유효 측정 시간' },
+                { color: 'var(--accent)', label: '바른 자세 유지율' },
               ]}
             />
           </Card>
 
-          <div style={{ height: 14 }} />
+          <div style={{ height: 22 }} />
 
           <Card title="일별 붕괴 이벤트" note="막대는 이벤트 수, 선은 시간당 붕괴 횟수입니다.">
             <ComboChart
@@ -132,18 +133,18 @@ export function DashboardPage() {
               line={HISTORY.map((d) => d.events / (d.validSeconds / 3600))}
               barUnit="건"
               lineUnit="회"
-              barColor="var(--bad)"
+              barColor="var(--bad-fill)"
               lineColor="var(--warn)"
             />
             <Legend
               items={[
-                { color: 'var(--bad)', label: '붕괴 이벤트 수' },
+                { color: 'var(--bad-fill)', label: '붕괴 이벤트 수' },
                 { color: 'var(--warn)', label: '시간당 붕괴 횟수' },
               ]}
             />
           </Card>
 
-          <div style={{ height: 14 }} />
+          <div style={{ height: 22 }} />
 
           <Card title="일별 상세" note={`${HISTORY.length}일 기록`}>
             <div className="scroll-x">
@@ -172,12 +173,7 @@ export function DashboardPage() {
                         <td className="t-right">{d.sessions}</td>
                         <td className="t-right">{formatDuration(d.validSeconds)}</td>
                         <td className="t-right muted">{formatDuration(d.excludedSeconds)}</td>
-                        <td
-                          className="t-right"
-                          style={{
-                            color: r !== null && r >= 0.75 ? 'var(--good)' : 'var(--warn)',
-                          }}
-                        >
+                        <td className={`t-right ${r !== null && r >= 0.75 ? 't-good' : 't-warn'}`}>
                           {formatPercent(r)}
                         </td>
                         <td className="t-right">{d.events}</td>
@@ -202,7 +198,7 @@ export function DashboardPage() {
           <Card title="지난 주" note={`${prevWeek[0].label} ~ ${prevWeek[prevWeek.length - 1].label}`}>
             <WeekBody s={tPrev} />
           </Card>
-          <Card title="주간 변화" className="g2" note="지난 주 대비 증감입니다.">
+          <Card title="주간 변화" note="지난 주 대비 증감입니다." dark className="span-2">
             <DeltaRow
               name="바른 자세 유지율"
               now={formatPercent(tWeek.keepRate)}
@@ -311,7 +307,7 @@ export function DashboardPage() {
             </div>
           </Card>
 
-          <div style={{ height: 14 }} />
+          <div style={{ height: 22 }} />
 
           <div className="grid g2">
             <PeriodMeta period={EARLY_PERIOD} />

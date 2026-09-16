@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Check, Play, VideoCameraSlash, WarningCircle } from '@phosphor-icons/react'
 import { POSES } from '../data/posture'
 import { PoseStage } from '../components/PoseStage'
 import { Card, DemoNote, Meter } from '../components/ui'
@@ -89,11 +90,12 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
           </p>
         </div>
         <button className="btn" onClick={onCancel}>
+          <ArrowLeft size={17} weight="bold" className="icon" />
           홈으로
         </button>
       </div>
 
-      <div className="grid g2" style={{ alignItems: 'start' }}>
+      <div className="grid split">
         <Card title="미리보기" note="시연용 화면이라 실제 카메라를 켜지 않습니다.">
           <div className="stage">
             <PoseStage
@@ -107,11 +109,12 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
                 className="stage-overlay"
                 style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}
               >
-                <div>
-                  <div style={{ fontWeight: 650, marginBottom: 4 }}>
+                <div className="preview-block">
+                  <VideoCameraSlash size={40} weight="bold" className="icon" />
+                  <div className="preview-title">
                     {permission === 'denied' ? '카메라 권한 없음' : '카메라를 찾을 수 없음'}
                   </div>
-                  <div className="muted" style={{ fontSize: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--panel-muted)' }}>
                     {permission === 'denied'
                       ? '브라우저 설정에서 권한을 허용해 주세요.'
                       : '카메라 연결 상태를 확인해 주세요.'}
@@ -122,10 +125,10 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
           </div>
 
           <div className="divider" />
-          <div className="stat-label" style={{ marginBottom: 6 }}>
+          <div className="stat-label" style={{ marginBottom: 10 }}>
             권한 상태 전환 (시연용)
           </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
+          <div className="segmented" role="group" aria-label="권한 상태 전환">
             {(
               [
                 ['granted', '권한 허용'],
@@ -145,14 +148,20 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
           </div>
         </Card>
 
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="stack">
           <Card title="준비 단계">
             {steps.map((s, i) => (
               <div className="step" key={s.title}>
                 <span
                   className={`step-mark ${s.state === 'idle' ? '' : s.state}`}
                 >
-                  {s.state === 'done' ? '✓' : s.state === 'fail' ? '!' : i + 1}
+                  {s.state === 'done' ? (
+                    <Check size={26} weight="bold" aria-label="완료" />
+                  ) : s.state === 'fail' ? (
+                    <WarningCircle size={28} weight="bold" aria-label="실패" />
+                  ) : (
+                    i + 1
+                  )}
                 </span>
                 <div>
                   <div className="step-title">{s.title}</div>
@@ -179,20 +188,20 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
 
           <Card title="기준 자세 보정">
             <div className="row spread" style={{ marginBottom: 8 }}>
-              <span className="muted" style={{ fontSize: 12 }}>
+              <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>
                 {calibrated
                   ? '보정 완료'
                   : running
                     ? '자세를 유지해 주세요...'
                     : `바르게 앉은 뒤 ${CALIBRATE_SECONDS}초간 유지`}
               </span>
-              <span className="num" style={{ fontSize: 12 }}>
+              <span className="figure" style={{ fontSize: 26 }}>
                 {Math.round(progress * 100)}%
               </span>
             </div>
             <Meter
               value={progress}
-              color={calibrated ? 'var(--good)' : 'var(--accent)'}
+              color={calibrated ? 'var(--good-fill)' : 'var(--accent)'}
             />
             <button
               className="btn"
@@ -213,6 +222,7 @@ export function SetupPage({ onStart, onCancel }: { onStart: () => void; onCancel
             disabled={!ok || !calibrated}
             onClick={onStart}
           >
+            <Play size={18} weight="fill" className="icon" />
             측정 시작
           </button>
 
