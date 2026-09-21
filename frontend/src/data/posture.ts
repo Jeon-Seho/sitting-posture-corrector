@@ -33,7 +33,7 @@ export const STATE_LABEL: Record<PostureState, string> = {
 }
 
 export const COLLAPSE_LABEL: Record<CollapseType, string> = {
-  forwardHead: '거북목',
+  forwardHead: '머리·상체 변화',
   tilt: '기울어짐',
 }
 
@@ -219,4 +219,4 @@ export const DEFAULT_RULES = {
   threshold: 0.7,
 }
 
-export const MODEL_VERSION = 'lstm-v0.3.1'
+export const MODEL_VERSION = 'demo-scenario-v1'

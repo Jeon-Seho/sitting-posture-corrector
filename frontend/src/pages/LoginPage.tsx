@@ -26,7 +26,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             >
               <div>
                 <h2>로그인</h2>
-                <p className="lead">측정 기록은 계정별로 분리되어 저장됩니다.</p>
+                <p className="lead">프로토타입 체험용 로그인입니다. 기록은 저장되지 않습니다.</p>
               </div>
 
               <div className="field">

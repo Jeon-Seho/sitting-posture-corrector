@@ -18,6 +18,13 @@ import {
   STATE_LABEL,
 } from '../data/posture'
 import { useSession, type CollapseEvent, type SessionPhase } from '../hooks/useSession'
+import type { CollectionController } from '../hooks/useCollection'
+import { postureScore } from '../lib/postureScore'
+import { VisualControls } from '../components/VisualControls'
+import { cameraSample } from '../lib/cameraSample'
+import type { CameraController } from '../hooks/useCamera'
+import { CollectionPanel } from '../components/CollectionPanel'
+import { CameraStage } from '../components/CameraStage'
 import { PoseStage } from '../components/PoseStage'
 import { Card, FeatureRow, Ledger, Meter, Rate, Stat } from '../components/ui'
 import {
@@ -37,23 +44,37 @@ export function SessionPage({
   alertsOn,
   onFinish,
   onDashboard,
+  onPrepare,
+  camera,
+  mode,
+  collection,
 }: {
+  collection: CollectionController
   rules: typeof DEFAULT_RULES
   alertsOn: boolean
   onFinish: () => void
   onDashboard: () => void
+  onPrepare: () => void
+  camera: CameraController
+  mode: 'camera' | 'demo'
 }) {
   const [phase, setPhase] = useState<SessionPhase>('running')
   const [speed, setSpeed] = useState(4)
   const [showSkeleton, setShowSkeleton] = useState(true)
-  const { live, reset, seekNext } = useSession(phase, speed, rules)
-
-  // 알림을 꺼둔 동안 시작된 이벤트는 회복 시간 집계에서 따로 표시한다
-  const muted = useRef<Set<number>>(new Set())
+  const isCamera = mode === 'camera'
+  const { live, reset, seekNext } = useSession(phase, speed, rules, isCamera ? () => cameraSample(camera) : undefined, alertsOn)
+  const current = camera.current.current
+  const baseline = camera.baseline
+  useEffect(() => { collection.setPhase(isCamera ? phase : 'inactive') }, [phase, isCamera, collection.setPhase])
+  useEffect(() => () => collection.setPhase('inactive'), [collection.setPhase])
+  useEffect(() => { if (phase === 'ended' && isCamera) camera.stop() }, [phase])
   useEffect(() => {
-    if (alertsOn) return
-    for (const e of live.events) if (e.endAt === null) muted.current.add(e.id)
-  }, [alertsOn, live.events])
+    const hidden = () => { if (document.hidden) setPhase(p => p === 'running' ? 'paused' : p) }
+    document.addEventListener('visibilitychange', hidden)
+    return () => document.removeEventListener('visibilitychange', hidden)
+  }, [])
+
+  const muted = useMemo(() => new Set(live.events.filter(e => e.alerts === 0).map(e => e.id)), [live.events])
 
   // 알림이 울린 순간에만 토스트를 띄운다
   const [toast, setToast] = useState<string | null>(null)
@@ -61,7 +82,7 @@ export function SessionPage({
   useEffect(() => {
     if (live.alertTick === lastTick.current) return
     lastTick.current = live.alertTick
-    if (!alertsOn) return
+    if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
     setToast(
       live.collapse
         ? `${COLLAPSE_LABEL[live.collapse]} 상태가 ${rules.holdSeconds}초 이상 이어졌습니다.`
@@ -69,22 +90,25 @@ export function SessionPage({
     )
     const t = setTimeout(() => setToast(null), 3600)
     return () => clearTimeout(t)
-  }, [live.alertTick, live.collapse, alertsOn, rules.holdSeconds])
+  }, [live.alertTick])
+  useEffect(() => { if (phase !== 'running' || live.state === 'unknown' || !alertsOn) setToast(null) }, [phase, live.state, alertsOn])
 
   const keepRate = ratio(live.goodSeconds, live.validSeconds)
   const perHour = live.validSeconds > 0 ? live.events.length / (live.validSeconds / 3600) : null
+  const displayScore = postureScore(live.state === 'unknown' || phase === 'paused' ? null : live.collapseProb)
+  const warningScore = postureScore(rules.threshold)!
   const overThreshold = live.collapseProb >= rules.threshold
 
   const { intervals, recoveries, mutedCount } = useMemo(() => {
-    const starts = [...live.events].map((e) => e.startAt).sort((a, b) => a - b)
-    const gaps = starts.slice(1).map((v, i) => v - starts[i])
+    const starts = [...live.events].sort((a, b) => a.startAt - b.startAt)
+    const gaps = starts.slice(1).flatMap((event, i) => event.blockId === starts[i].blockId ? [event.startAt - starts[i].startAt] : [])
     const rec = live.events.filter(
-      (e) => e.recovered && e.recoverySec !== null && !muted.current.has(e.id),
+      (e) => e.recovered && e.recoverySec !== null && !muted.has(e.id),
     )
     return {
       intervals: gaps,
       recoveries: rec.map((e) => e.recoverySec as number),
-      mutedCount: live.events.filter((e) => muted.current.has(e.id)).length,
+      mutedCount: live.events.filter((e) => muted.has(e.id)).length,
     }
   }, [live.events])
 
@@ -95,14 +119,15 @@ export function SessionPage({
           <div>
             <h1 className="page-title">측정 종료</h1>
             <p className="page-desc">
-              유효 측정 시간은 전체 시간에서 일시정지와 판정 불가 구간을 뺀 값입니다.
+              이번 측정 결과입니다. 화면을 떠나면 사라지며, 대시보드에는 예시 기록이 표시됩니다.
             </p>
           </div>
           <div className="row">
             <button
               className="btn"
               onClick={() => {
-                muted.current.clear()
+                if (isCamera) { onPrepare(); return }
+                lastTick.current = 0
                 reset()
                 setPhase('running')
               }}
@@ -112,11 +137,12 @@ export function SessionPage({
             </button>
             <button className="btn btn-primary" onClick={onDashboard}>
               <ChartBar size={17} weight="bold" className="icon" />
-              대시보드 보기
+              예시 대시보드 보기
             </button>
           </div>
         </div>
 
+        {isCamera && <CollectionPanel collection={collection} />}
         <div className="gap-top">
           <Ledger cols={4}>
             <Stat
@@ -140,7 +166,7 @@ export function SessionPage({
         </div>
 
         <div className="grid g2 gap-top">
-          <Card title="붕괴 발생 간격" note="같은 세션 안에서 연속된 이벤트 시작 시각의 차이입니다.">
+          <Card title="붕괴 발생 간격" note="같은 연속 측정 구간의 이벤트 시작 간격입니다. 휴식·판정 불가 전후는 연결하지 않습니다.">
             <SampleStat label="평균" value={formatDuration(mean(intervals))} />
             <SampleStat label="중앙값" value={formatDuration(median(intervals))} />
             <SampleStat label="표본 수" value={`${intervals.length}개`} />
@@ -164,12 +190,12 @@ export function SessionPage({
               small
             />
             <Stat label="일시정지 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
-            <Stat label="모델 버전" value={MODEL_VERSION} sub="추론에 사용된 버전" small />
+            <Stat label="모델 버전" value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION} sub={isCamera ? '개인 기준 비교 · LSTM 미연결' : '합성 시연 데이터'} small />
           </Ledger>
         </div>
 
         <Card title="이벤트 기록" note={`총 ${live.events.length}건`}>
-          <EventTable events={live.events} muted={muted.current} />
+          <EventTable events={live.events} muted={muted} />
         </Card>
       </>
     )
@@ -181,11 +207,11 @@ export function SessionPage({
         <div>
           <h1 className="page-title">실시간 측정</h1>
           <p className="page-desc">
-            붕괴 확률이 임계값 {rules.threshold.toFixed(2)} 이상으로 {rules.holdSeconds}초 이상
+            자세 점수가 {warningScore}점 이하로 {rules.holdSeconds}초 이상
             이어질 때만 이벤트로 확정합니다.
           </p>
         </div>
-        <div className="row" role="group" aria-label="시연 배속">
+        {!isCamera && <div className="row" role="group" aria-label="시연 배속">
           <span className="stat-label">시연 배속</span>
           <div className="segmented">
             {SPEEDS.map((s) => (
@@ -199,33 +225,34 @@ export function SessionPage({
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
 
       <div className="session-grid">
         <div className="stack">
           <div className="stage">
-            <PoseStage
+            {isCamera ? <CameraStage camera={camera} showSkeleton={showSkeleton} /> : <PoseStage
               keypoints={live.keypoints}
               state={live.state}
               confidence={live.confidence}
               showSkeleton={showSkeleton}
-            />
+            />}
             <div className="stage-overlay">
               <div className="stage-top">
                 <span className="stage-tag">
                   {phase === 'running' ? <i className="rec-dot" /> : <Pause size={13} weight="fill" />}
-                  {phase === 'running' ? '측정 중' : '일시정지'}
+                  {phase === 'running' ? isCamera ? '웹캠 측정 중' : '합성 시연 중' : '일시정지'}
                   <span className="num muted">{formatClock(live.totalSeconds)}</span>
                 </span>
                 <span className="stage-tag">
+                  {isCamera && <span>{camera.metrics.fps.toFixed(0)} FPS · {camera.metrics.inferenceMs.toFixed(0)}ms · {camera.metrics.delegate}</span>}
                   <span className="muted">검출 신뢰도</span>
                   <b className="num">{(live.confidence * 100).toFixed(0)}%</b>
                 </span>
               </div>
 
               <div className="stage-bottom" aria-live="polite">
-                {live.state === 'collapse' && !live.alerting && (
+                {phase === 'running' && live.state === 'collapse' && !live.alerting && (
                   <div className="hold-bar">
                     <div className="label">
                       <span>
@@ -240,7 +267,7 @@ export function SessionPage({
                   </div>
                 )}
 
-                {live.state === 'unknown' && (
+                {phase === 'running' && live.state === 'unknown' && (
                   <div className="alert-banner notice">
                     <Question size={22} weight="bold" className="icon alert-icon gray" />
                     <div>
@@ -252,7 +279,7 @@ export function SessionPage({
                   </div>
                 )}
 
-                {live.alerting && alertsOn && (
+                {phase === 'running' && live.state !== 'unknown' && live.alerting && alertsOn && (
                   <div className="alert-banner">
                     <WarningOctagon size={22} weight="fill" className="icon alert-icon" />
                     <div style={{ flex: 1 }}>
@@ -261,9 +288,7 @@ export function SessionPage({
                         {live.collapse ? ` · ${COLLAPSE_LABEL[live.collapse]}` : ''}
                       </div>
                       <div className="alert-desc">
-                        {live.collapse === 'forwardHead'
-                          ? '턱을 당기고 뒤통수를 뒤로 밀어 귀와 어깨를 한 줄에 맞춰 주세요.'
-                          : '양쪽 어깨 높이를 맞추고 모니터가 정면에 오도록 앉아 주세요.'}
+                        등록한 기준에서 자세 변화가 이어지고 있어요. 편안하게 앉아 자세를 확인해 주세요.
                       </div>
                       <div className="event-meta" style={{ marginTop: 6 }}>
                         <span>
@@ -278,7 +303,7 @@ export function SessionPage({
                   </div>
                 )}
 
-                {live.alerting && !alertsOn && (
+                {phase === 'running' && live.state !== 'unknown' && live.alerting && !alertsOn && (
                   <div className="alert-banner notice">
                     <BellSlash size={22} weight="bold" className="icon alert-icon gray" />
                     <div>
@@ -319,43 +344,44 @@ export function SessionPage({
               >
                 키포인트 표시
               </button>
-              <button className="btn btn-sm" onClick={seekNext}>
+              {!isCamera && <button className="btn btn-sm" onClick={seekNext}>
                 <FastForward size={15} weight="fill" className="icon" />
                 다음 구간으로
-              </button>
+              </button>}
               <button className="btn btn-sm" onClick={onFinish}>
                 <House size={15} weight="bold" className="icon" />
                 홈으로
               </button>
             </div>
           </div>
+          {isCamera && <VisualControls camera={camera} />}
+          {isCamera && <CollectionPanel collection={collection} />}
         </div>
 
         <div className="stack">
           <Card title="현재 판정" dark>
             <div className="verdict" aria-live="polite">
               <span key={`${live.state}-${live.collapse ?? ''}`} className={`verdict-word ${live.state}`}>
-                {live.state === 'collapse' && live.collapse
-                  ? COLLAPSE_LABEL[live.collapse]
-                  : STATE_LABEL[live.state]}
+                {phase === 'paused' ? '휴식 중' : live.state === 'collapse' && live.collapse
+                  ? COLLAPSE_LABEL[live.collapse] : STATE_LABEL[live.state]}
               </span>
-              <span className="verdict-sub">{STATE_LABEL[live.state]} 유지 중</span>
+              <span className="verdict-sub">{phase === 'paused' ? '휴식 시간은 집계에서 제외합니다' : `${STATE_LABEL[live.state]} · ${isCamera ? '규칙 기반 판정' : '합성 시연'}`}</span>
             </div>
 
             <div className="prob">
               <span className="rate-label" style={{ color: 'var(--panel-muted)' }}>
-                LSTM 붕괴 확률
+                {isCamera ? '자세 점수' : '자세 점수 · 시연'}
               </span>
               <span className={`figure ${overThreshold ? 'over' : ''}`}>
-                {(live.collapseProb * 100).toFixed(0)}%
+                {displayScore === null ? '—' : `${displayScore.toFixed(1)}점`}
               </span>
             </div>
             <Meter
-              value={live.collapseProb}
-              color={overThreshold ? 'var(--accent)' : 'var(--good-fill)'}
+              value={(displayScore ?? 0) / 100}
+              color={displayScore === null ? 'var(--muted)' : overThreshold ? 'var(--accent)' : 'var(--good-fill)'}
             />
             <p className="card-note" style={{ marginTop: 8 }}>
-              임계값 {(rules.threshold * 100).toFixed(0)}% · {rules.holdSeconds}초 지속 시 확정
+              100점에 가까울수록 기준 자세와 비슷합니다. {warningScore}점 이하가 {rules.holdSeconds}초 이어지면 알립니다. {isCamera ? '의학적 점수나 정확도가 아닙니다.' : '합성 시연 점수입니다.'}
             </p>
 
             <div className="divider" />
@@ -370,7 +396,12 @@ export function SessionPage({
             </div>
           </Card>
 
-          <Card title="자세 특징값" note="어깨 중심 기준으로 정규화한 값입니다.">
+          {isCamera ? <Card title="기준 대비 특징 변화" note="어깨 너비로 나눈 무단위 차이입니다. 실제 관절 각도가 아닙니다.">
+            <MiniRow label="머리 높이 변화" value={current && baseline && live.state !== 'unknown' ? Math.abs(current.headGap - baseline.headGap).toFixed(3) : '—'} />
+            <MiniRow label="좌우 치우침 변화" value={current && baseline && live.state !== 'unknown' ? Math.abs(current.offset - baseline.offset).toFixed(3) : '—'} />
+            <MiniRow label="어깨 기울기 변화" value={current && baseline && live.state !== 'unknown' ? Math.abs(current.tilt - baseline.tilt).toFixed(3) : '—'} />
+          </Card> : <>
+          <Card title="자세 특징값" note="아래 각도와 비율은 발표용 합성 수치입니다.">
             <FeatureRow
               name="목 전방 이동"
               value={live.features.neckForward}
@@ -401,6 +432,8 @@ export function SessionPage({
             />
           </Card>
 
+          </>}
+
           <Card title="붕괴 이벤트" note={`${live.events.length}건 기록됨`}>
             {live.events.length === 0 ? (
               <p className="muted" style={{ fontSize: 14 }}>
@@ -410,7 +443,7 @@ export function SessionPage({
             ) : (
               <div className="list">
                 {live.events.map((e) => (
-                  <EventItem key={e.id} event={e} muted={muted.current.has(e.id)} />
+                  <EventItem key={e.id} event={e} muted={muted.has(e.id)} />
                 ))}
               </div>
             )}
@@ -418,7 +451,7 @@ export function SessionPage({
         </div>
       </div>
 
-      {toast && (
+      {toast && phase === 'running' && live.state !== 'unknown' && alertsOn && (
         <div className="toast" role="status">
           <WarningOctagon size={22} weight="fill" className="icon" />
           <div>
@@ -462,10 +495,10 @@ function EventItem({ event: e, muted }: { event: CollapseEvent; muted: boolean }
             <i className="pip" />
             진행 중
           </span>
-        ) : e.endedBySession ? (
+        ) : e.endReason ? (
           <span className="badge unknown">
             <i className="pip" />
-            세션 종료로 중단
+            {e.endReason === 'paused' ? '휴식으로 중단' : e.endReason === 'unknown' ? '측정 불가로 중단' : '세션 종료로 중단'}
           </span>
         ) : (
           <span className="badge good">
@@ -525,8 +558,8 @@ function EventTable({ events, muted }: { events: CollapseEvent[]; muted: Set<num
                   {e.recoverySec === null ? '—' : formatDuration(e.recoverySec)}
                 </td>
                 <td>
-                  {e.endedBySession
-                    ? '세션 종료로 중단'
+                  {e.endReason
+                    ? e.endReason === 'paused' ? '휴식으로 중단' : e.endReason === 'unknown' ? '측정 불가로 중단' : '세션 종료로 중단'
                     : e.recovered
                       ? muted.has(e.id)
                         ? '복귀 (알림 꺼짐)'

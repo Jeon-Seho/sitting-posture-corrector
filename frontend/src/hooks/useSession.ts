@@ -1,76 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEFAULT_RULES } from '../data/posture'
-import {
-  EMPTY_LIVE,
-  closeOpenEvent,
-  newMachine,
-  sampleAt,
-  seekNextSegment,
-  snapshot,
-  step,
-  type LiveState,
-  type Machine,
-  type Rules,
-  type SessionPhase,
-} from '../lib/engine'
+import { EMPTY_LIVE, closeOpenEvent, newMachine, sampleAt, seekNextSegment, snapshot, step,
+  type LiveState, type Machine, type Rules, type Sample, type SessionPhase } from '../lib/engine'
 
 export type { CollapseEvent, LiveState, SessionPhase } from '../lib/engine'
 
-const UI_INTERVAL = 1000 / 30
-
-/**
- * 가짜 웹캠 세션. 카메라도 모델도 없이 시나리오를 반복 재생하면서
- * engine의 판정 규칙을 실시간으로 돌린다.
- */
-export function useSession(phase: SessionPhase, speed: number, rules: Rules = DEFAULT_RULES) {
+/** Demo and real camera share the same timing and event policies. */
+export function useSession(phase: SessionPhase, speed: number, rules: Rules = DEFAULT_RULES,
+  source?: () => Sample, alertsOn = true) {
   const [live, setLive] = useState<LiveState>(EMPTY_LIVE)
   const m = useRef<Machine>(newMachine())
-  const raf = useRef(0)
-  const lastTs = useRef(0)
-  const lastUi = useRef(0)
-  const phaseRef = useRef(phase)
+  const lastSample = useRef<Sample>(sampleAt(0))
+  const input = useRef({ phase, speed, rules, source, alertsOn })
+  input.current = { phase, speed, rules, source, alertsOn }
+  const lastTs = useRef<number | null>(null)
 
   useEffect(() => {
-    if (phase === 'ended' && phaseRef.current !== 'ended') {
-      closeOpenEvent(m.current)
-      setLive(snapshot(m.current, sampleAt(m.current.loop), rules))
-    }
-    phaseRef.current = phase
-  }, [phase, rules])
+    if (phase === 'ended') closeOpenEvent(m.current)
+    else if (phase === 'paused') step(m.current, 0, phase, rules, source?.(), false)
+    setLive(snapshot(m.current, lastSample.current, rules))
+  }, [phase])
 
   useEffect(() => {
-    if (phase === 'ended') {
-      lastTs.current = 0
-      return
-    }
-
+    let raf = 0
     const tick = (ts: number) => {
-      raf.current = requestAnimationFrame(tick)
-      const real = lastTs.current ? Math.min((ts - lastTs.current) / 1000, 0.25) : 0
+      raf = requestAnimationFrame(tick)
+      const current = input.current
+      const dt = lastTs.current === null ? 0 : Math.max(0, (ts - lastTs.current) / 1000)
+      if (dt < 0.05 && lastTs.current !== null) return
       lastTs.current = ts
-
-      const sample = step(m.current, real * speed, phase, rules)
-
-      if (ts - lastUi.current >= UI_INTERVAL) {
-        lastUi.current = ts
-        setLive(snapshot(m.current, sample, rules))
+      if (current.phase === 'ended') return
+      let s: Sample
+      if (dt > 1.5 && current.phase === 'running') {
+        // A background/scheduling gap is not a valid observation interval.
+        s = step(m.current, dt, 'running', current.rules,
+          { ...lastSample.current, state: 'unknown', notice: '입력이 잠시 중단되었습니다.', prob: 0, confidence: 0 }, false)
+      } else {
+        s = step(m.current, dt * (current.source ? 1 : current.speed), current.phase,
+          current.rules, current.source?.(), current.alertsOn)
       }
+      lastSample.current = s
+      setLive(snapshot(m.current, s, current.rules))
     }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [phase, speed, rules])
-
-  const seekNext = () => {
-    seekNextSegment(m.current)
-  }
-
-  const reset = () => {
-    m.current = newMachine()
-    lastTs.current = 0
-    lastUi.current = 0
-    setLive(EMPTY_LIVE)
-  }
-
-  return { live, reset, seekNext }
+  const reset = () => { m.current = newMachine(); lastTs.current = null; lastSample.current = sampleAt(0); setLive(EMPTY_LIVE) }
+  return { live, reset, seekNext: () => { if (!input.current.source) seekNextSegment(m.current) } }
 }

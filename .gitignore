@@ -278,3 +278,45 @@ sketch
 
 # 디자인 점검 스크린샷
 .impeccable/
+
+### Project data and local artifacts (never commit participant data) ###
+/data/
+/artifacts/
+/runs/
+/checkpoints/
+*.mp4
+*.mov
+*.avi
+*.webm
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.task
+*.npy
+*.npz
+*.parquet
+*.pkl
+*.pickle
+*.sqlite
+*.sqlite3
+*.db
+*.key
+.env.*
+!.env.example
+
+# Nested frontend builds
+**/.next/
+**/coverage/
+
+# Downloaded MediaPipe runtime/model assets and browser QA output
+/frontend/public/mediapipe/
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/.qa/
+
+# Browser pilot exports contain personal motion features
+posture-pilot-*.csv
+
+# Local participant files and private analysis
+/database/temp/

@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise } from '@phosphor-icons/react'
-import { DEFAULT_RULES, MODEL_VERSION } from '../data/posture'
+import { postureScore } from '../lib/postureScore'
+import { DEFAULT_RULES } from '../data/posture'
 import { Card, DemoNote, Switch } from '../components/ui'
 
 type Rules = typeof DEFAULT_RULES
@@ -128,14 +129,14 @@ export function SettingsPage({
 
           <Card title="판정">
             <Slider
-              name="붕괴 판정 임계값"
-              desc="모델이 내놓은 붕괴 확률이 이 값을 넘어야 붕괴 후보로 봅니다."
-              value={rules.threshold}
-              min={0.5}
-              max={0.95}
-              step={0.01}
-              unit=""
-              onChange={(v) => set({ threshold: v })}
+              name="자세 점수 알림 기준"
+              desc="자세 점수가 이 값 이하로 지속되면 알립니다. 높일수록 작은 변화에도 알림이 생깁니다."
+              value={postureScore(rules.threshold)!}
+              min={5}
+              max={50}
+              step={1}
+              unit="점"
+              onChange={(v) => set({ threshold: Math.round((1 - v / 100) * 100) / 100 })}
             />
           </Card>
         </div>
@@ -143,16 +144,16 @@ export function SettingsPage({
         <div className="stack">
           <Card title="운영 정보" note="배포 버전을 식별할 수 있도록 화면에 남겨 둡니다." dark>
             <div className="setting-row">
-              <div className="setting-name">추론 모델 버전</div>
-              <span className="mono">{MODEL_VERSION}</span>
+              <div className="setting-name">실제 웹캠 판정</div>
+              <span className="mono">{'reference-rules-v0.1'}</span>
             </div>
             <div className="setting-row">
               <div className="setting-name">전처리 설정 버전</div>
-              <span className="mono">prep-v0.3.0</span>
+              <span className="mono">shoulder-normalized-v0.1</span>
             </div>
             <div className="setting-row">
-              <div className="setting-name">입력 시간 윈도우</div>
-              <span className="mono">4.0s / 30fps</span>
+              <div className="setting-name">현재 판정 방식</div>
+              <span className="mono">프레임 규칙 / 5초 기준 등록</span>
             </div>
             <div className="setting-row">
               <div className="setting-name">키포인트 추출</div>
@@ -161,7 +162,7 @@ export function SettingsPage({
             <div className="setting-row">
               <div className="setting-name">최근 오류</div>
               <span className="muted" style={{ fontSize: 13 }}>
-                없음
+                오류는 카메라 화면에서 표시
               </span>
             </div>
           </Card>

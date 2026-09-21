@@ -20,19 +20,21 @@ const JOINTS = Object.keys(POSES.upright.keypoints) as (keyof Keypoints)[]
 export type CollapseEvent = {
   id: number
   type: CollapseType
-  /** 붕괴 확률이 임계값을 넘은 시각 */
+  /** 변화 점수(시연에서는 합성 점수)가 임계값을 넘은 시각 */
   startAt: number
   /** 지속 조건을 충족해 이벤트로 확정된 시각 */
   confirmedAt: number
   endAt: number | null
   durationSec: number
   alerts: number
-  firstAlertAt: number
+  firstAlertAt: number | null
   recovered: boolean
   /** 최초 알림부터 정상 복귀까지 */
   recoverySec: number | null
   /** 측정 종료로 끊긴 이벤트인지 */
   endedBySession: boolean
+  endReason: 'paused' | 'unknown' | 'ended' | null
+  blockId: number
 }
 
 export type Machine = {
@@ -50,6 +52,8 @@ export type Machine = {
   nextId: number
   lastAlertAt: number
   alertTick: number
+  blockId: number
+  interrupted: boolean
 }
 
 export function newMachine(): Machine {
@@ -68,6 +72,8 @@ export function newMachine(): Machine {
     nextId: 1,
     lastAlertAt: 0,
     alertTick: 0,
+    blockId: 0,
+    interrupted: false,
   }
 }
 
@@ -120,79 +126,72 @@ export function sampleAt(loop: number): Sample {
 
 /**
  * 한 프레임 진행. 계획서의 이벤트 규칙을 그대로 돌린다.
- * 붕괴 확률이 임계값 이상으로 지속 시간을 채워야 이벤트가 확정되고,
+ * 변화 점수(시연에서는 합성 점수)가 임계값 이상으로 지속 시간을 채워야 이벤트가 확정되고,
  * 재알림은 간격만큼 눌러 두며, 판정 불가 구간에서는 판정을 멈춘다.
  */
-export function step(m: Machine, dt: number, phase: SessionPhase, rules: Rules): Sample {
-  m.total += dt
-  if (phase === 'paused') m.paused += dt
-  else m.loop = (m.loop + dt) % SCENARIO_SECONDS
-
-  const s = sampleAt(m.loop)
-  if (phase !== 'running') return s
-
-  if (s.state === 'unknown') m.unknown += dt
-  else if (s.state === 'good') m.good += dt
-  else m.collapse += dt
-
-  if (s.state === 'unknown') {
-    // 판정 불가 구간에서는 붕괴 판정도 복귀 판정도 하지 않는다
-    m.hold = 0
-    m.recover = 0
+export function step(m: Machine, dt: number, phase: SessionPhase, rules: Rules, external?: Sample, alertsOn = true): Sample {
+  const raw = external ?? sampleAt((m.loop + (phase === 'running' ? Math.max(0, dt) : 0)) % SCENARIO_SECONDS)
+  const s: Sample = { ...raw, state: raw.state === 'unknown' ? 'unknown' : raw.prob >= rules.threshold ? 'collapse' : 'good' }
+  if (!Number.isFinite(dt) || dt < 0 || phase === 'ended') return s
+  if (!external && phase === 'running') m.loop = (m.loop + dt) % SCENARIO_SECONDS
+  if (phase === 'paused') {
+    interrupt(m, 'paused')
+    m.total += dt
+    m.paused += dt
     return s
   }
+  if (s.state === 'unknown') {
+    interrupt(m, 'unknown')
+    m.total += dt
+    m.unknown += dt
+    return s
+  }
+  m.total += dt
+  m.interrupted = false
+  if (s.state === 'good') m.good += dt
+  else m.collapse += dt
 
   if (s.prob >= rules.threshold) {
     m.recover = 0
-    if (m.onsetAt === null) m.onsetAt = m.total
+    if (m.onsetAt === null) m.onsetAt = Math.max(0, m.total - dt)
     m.hold += dt
-
-    if (!m.active && m.hold >= rules.holdSeconds) {
+    if (!m.active && m.hold + 1e-8 >= rules.holdSeconds) {
       const ev: CollapseEvent = {
-        id: m.nextId++,
-        type: s.collapse ?? 'forwardHead',
-        startAt: m.onsetAt,
-        confirmedAt: m.total,
-        endAt: null,
-        durationSec: 0,
-        alerts: 1,
-        firstAlertAt: m.total,
-        recovered: false,
-        recoverySec: null,
-        endedBySession: false,
+        id: m.nextId++, type: s.collapse ?? 'forwardHead', startAt: m.onsetAt,
+        confirmedAt: m.total, endAt: null, durationSec: 0, alerts: 0, firstAlertAt: null,
+        recovered: false, recoverySec: null, endedBySession: false, endReason: null, blockId: m.blockId,
       }
       m.active = ev
-      m.events = [ev, ...m.events].slice(0, 40)
-      m.lastAlertAt = m.total
-      m.alertTick += 1
-    } else if (m.active && m.total - m.lastAlertAt >= rules.realertSeconds) {
-      const bumped = { ...m.active, alerts: m.active.alerts + 1 }
+      m.events = [ev, ...m.events]
+    }
+    if (m.active && alertsOn && (m.active.firstAlertAt === null || m.total - m.lastAlertAt >= rules.realertSeconds)) {
+      const bumped = { ...m.active, alerts: m.active.alerts + 1, firstAlertAt: m.active.firstAlertAt ?? m.total }
       m.active = bumped
-      m.events = m.events.map((e) => (e.id === bumped.id ? bumped : e))
+      m.events = m.events.map(e => e.id === bumped.id ? bumped : e)
       m.lastAlertAt = m.total
-      m.alertTick += 1
+      m.alertTick++
     }
     return s
   }
-
   m.hold = 0
   m.onsetAt = null
   if (m.active) {
     m.recover += dt
-    if (m.recover >= rules.recoverSeconds) {
-      const closed: CollapseEvent = {
-        ...m.active,
-        endAt: m.total,
-        durationSec: m.total - m.active.startAt,
-        recovered: true,
-        recoverySec: m.total - m.active.firstAlertAt,
-      }
-      m.events = m.events.map((e) => (e.id === closed.id ? closed : e))
+    if (m.recover + 1e-8 >= rules.recoverSeconds) {
+      const closed: CollapseEvent = { ...m.active, endAt: m.total, durationSec: m.total - m.active.startAt,
+        recovered: true, recoverySec: m.active.firstAlertAt === null ? null : m.total - m.active.firstAlertAt }
+      m.events = m.events.map(e => e.id === closed.id ? closed : e)
       m.active = null
       m.recover = 0
     }
   }
   return s
+}
+
+function interrupt(m: Machine, reason: 'paused' | 'unknown') {
+  closeOpenEvent(m, reason)
+  if (!m.interrupted) m.blockId++
+  m.interrupted = true
 }
 
 /**
@@ -212,18 +211,16 @@ export function seekNextSegment(m: Machine) {
 }
 
 /** 측정 종료 시점에 열려 있던 이벤트는 세션 종료로 끊긴 것으로 남긴다 */
-export function closeOpenEvent(m: Machine) {
-  if (!m.active) return
-  const ev: CollapseEvent = {
-    ...m.active,
-    endAt: m.total,
-    durationSec: m.total - m.active.startAt,
-    recovered: false,
-    recoverySec: null,
-    endedBySession: true,
+export function closeOpenEvent(m: Machine, reason: 'paused' | 'unknown' | 'ended' = 'ended') {
+  if (m.active) {
+    const ev: CollapseEvent = { ...m.active, endAt: m.total, durationSec: m.total - m.active.startAt,
+      recovered: false, recoverySec: null, endedBySession: reason === 'ended', endReason: reason }
+    m.events = m.events.map(e => e.id === ev.id ? ev : e)
+    m.active = null
   }
-  m.events = m.events.map((e) => (e.id === ev.id ? ev : e))
-  m.active = null
+  m.hold = 0
+  m.recover = 0
+  m.onsetAt = null
 }
 
 function blendKeypoints(a: Keypoints, b: Keypoints, t: number, time: number): Keypoints {

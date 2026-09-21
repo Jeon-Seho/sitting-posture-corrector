@@ -57,7 +57,7 @@ export function DashboardPage() {
         <div>
           <h1 className="page-title">대시보드</h1>
           <p className="page-desc">
-            모든 비율은 유효 측정 시간 기준이며, 판정 불가 구간은 집계에서 제외했습니다.
+            발표용 예시 데이터입니다. 실제 웹캠 측정 결과와 연결되지 않았습니다.
           </p>
         </div>
         <div className="segmented" role="group" aria-label="보기 전환">

@@ -27,7 +27,7 @@ export function HomePage({
         <div className="page-head">
           <div>
             <h1 className="page-title">홈</h1>
-            <p className="page-desc">측정 기록이 쌓이면 요약 통계가 여기에 표시됩니다.</p>
+            <p className="page-desc">기록이 없는 상태의 시연 화면입니다. 현재 측정 결과는 저장되지 않습니다.</p>
           </div>
         </div>
         <div className="empty">
@@ -49,7 +49,7 @@ export function HomePage({
       <div className="page-head">
         <div>
           <h1 className="page-title">홈</h1>
-          <p className="page-desc">최근 7일 요약입니다. 유효 측정 시간 기준으로 계산했습니다.</p>
+          <p className="page-desc">발표용 예시 기록입니다. 실제 웹캠 측정 결과는 이 화면에 저장되지 않습니다.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={onStart}>
           <Play size={18} weight="fill" className="icon" />
