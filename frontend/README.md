@@ -1,7 +1,7 @@
 # PoseGood 웹캠 프로토타입
 
 `feature/retro-redesign`의 기존 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합했다.
-MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 5초 개인 기준과 비교하는 실험용 규칙으로 상태를 표시한다.
+MediaPipe Pose Landmarker Lite로 상체를 추적하고, 5초 개인 기준과 비교하는 실험용 규칙으로 상태를 표시한다.
 학습된 LSTM, 서버 인증, 서버 기록 저장은 아직 연결되지 않았다. 좌표·라벨 CSV는 명시적으로 수집·다운로드할 수 있다.
 
 ## 실행

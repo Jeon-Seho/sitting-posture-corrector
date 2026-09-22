@@ -14,7 +14,7 @@ try {
   const existing = await readFile(model);
   if (hash(existing) === metadata.sha256) { console.log('MediaPipe assets ready (verified SHA-256).'); process.exit(0); }
 } catch { /* Download absent or invalid model. */ }
-console.log('Downloading official Pose Landmarker Heavy model...');
+console.log(`Downloading official MediaPipe model: ${metadata.filename}...`);
 const response = await fetch(metadata.url, { signal: AbortSignal.timeout(120000) });
 if (!response.ok) throw new Error(`Model download failed: ${response.status}`);
 const bytes = Buffer.from(await response.arrayBuffer());

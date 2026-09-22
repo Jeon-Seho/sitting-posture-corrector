@@ -63,7 +63,7 @@ describe('pilot collection', () => {
     expect(JSON.parse(String(row.landmarks_json))).toHaveLength(33)
     expect(JSON.parse(String(row.landmarks_json))[0]).toMatchObject({ index: 0, x: 0, visibility: .1 })
     expect(JSON.parse(String(row.world_landmarks_json))[1].x).toBeCloseTo(2 / 33)
-    expect(row.pose_model).toContain('heavy')
+    expect(row.pose_model).toContain('lite')
     expect(toCsv(c.rows)).toContain('""visibility""')
   })
   it('does not infer absence from a missing pose and can confirm absence without inventing features', () => {

@@ -254,7 +254,7 @@ export function SetupPage({ camera, mode, onMode, onStart, onCollect, onCancel }
     {mode === 'demo' ? <DemoSetupPage onStart={onStart} onCancel={onCancel} /> : <>
       <div className="page-head"><div><h1 className="page-title">측정 준비</h1><p className="page-desc">얼굴과 양쪽 어깨가 보이도록 앉고, 편안한 기준 자세를 등록하세요.</p></div><button className="btn" onClick={onCancel}><ArrowLeft size={17} weight="bold" />홈으로</button></div>
       <div className="grid split">
-        <Card title="실제 웹캠 미리보기" note="MediaPipe Heavy · 준비 중에는 저장하지 않습니다. 라벨 수집에서 시작하면 좌표만 기기에 저장합니다.">
+        <Card title="실제 웹캠 미리보기" note="MediaPipe Lite · 준비 중에는 저장하지 않습니다. 라벨 수집에서 시작하면 좌표만 기기에 저장합니다.">
           <div className="stage"><CameraStage camera={camera} /></div>
           <VisualControls camera={camera} />
           <p className="capture-note">{camera.state === 'on' ? `실제 추적 ${camera.metrics.fps.toFixed(0)} FPS · 추론 ${camera.metrics.inferenceMs.toFixed(0)}ms · ${camera.metrics.delegate}` : '연결 후 실제 추적 속도가 표시됩니다'}</p>

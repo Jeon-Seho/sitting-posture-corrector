@@ -82,7 +82,7 @@ export default function App() {
 
         <div className="sidebar-foot">
           <span>{mode === 'camera' ? '개인 기준 규칙 v0.1 · LSTM 미연결' : `시연 데이터 ${MODEL_VERSION}`}</span>
-          <span>{mode === 'camera' ? 'MediaPipe Heavy · 좌표 수집은 직접 시작' : '발표용 합성 시나리오'}</span>
+          <span>{mode === 'camera' ? 'MediaPipe Lite · 좌표 수집은 직접 시작' : '발표용 합성 시나리오'}</span>
           <button
             className="btn btn-sm"
             style={{ marginTop: 10 }}

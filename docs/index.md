@@ -2,7 +2,7 @@
 
 현재 상태: **하네스 + 웹캠 프론트 프로토타입 / LSTM·서버 구현 전**.
 
-현재 수집: [Heavy 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [전환 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md).
+현재 수집: [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md). Heavy 도입 배경과 당시 검증은 [이전 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md)에 남긴다.
 
 [프로토타입 실행·사용 안내](../frontend/README.md), [프로토타입 기술 결정](decisions/0002-webcam-prototype.md).
 
