@@ -1,11 +1,24 @@
-import { useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { ArrowRight } from '@phosphor-icons/react'
 import { Rings } from '../components/ui'
 
-export function LoginPage({ onLogin }: { onLogin: () => void }) {
-  const [id, setId] = useState('')
-  const [pw, setPw] = useState('')
-
+export function LoginPage({
+  title,
+  lead,
+  submitLabel,
+  fine,
+  onSubmit,
+  children,
+  footer,
+}: {
+  title: string
+  lead: string
+  submitLabel: string
+  fine?: ReactNode
+  onSubmit: () => void
+  children: ReactNode
+  footer?: ReactNode
+}) {
   return (
     <div className="cover-page">
       <div className="cover">
@@ -19,48 +32,25 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
 
             <form
               className="cover-form"
-              onSubmit={(e) => {
+              onSubmit={(e: FormEvent) => {
                 e.preventDefault()
-                onLogin()
+                onSubmit()
               }}
             >
               <div>
-                <h2>로그인</h2>
-                <p className="lead">프로토타입 체험용 로그인입니다. 기록은 저장되지 않습니다.</p>
+                <h2>{title}</h2>
+                <p className="lead">{lead}</p>
               </div>
 
-              <div className="field">
-                <label htmlFor="login-id">아이디</label>
-                <input
-                  id="login-id"
-                  className="input"
-                  value={id}
-                  onChange={(e) => setId(e.target.value)}
-                  placeholder="user@example.com"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="login-pw">비밀번호</label>
-                <input
-                  id="login-pw"
-                  className="input"
-                  type="password"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="off"
-                />
-              </div>
+              {children}
 
               <button type="submit" className="btn btn-lg" style={{ width: '100%' }}>
-                로그인
+                {submitLabel}
                 <ArrowRight size={18} weight="bold" className="icon" />
               </button>
 
-              <p className="fine">
-                UI 시연용 화면입니다. 인증은 동작하지 않으며 아무 값이나 입력해도 들어갑니다.
-              </p>
+              {fine && <p className="fine">{fine}</p>}
+              {footer}
             </form>
           </div>
 

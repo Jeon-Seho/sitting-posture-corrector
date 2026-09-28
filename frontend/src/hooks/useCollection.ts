@@ -29,8 +29,8 @@ export function useCollection(camera: CameraController, rules: Rules) {
     const c = capture.current
     if (!c || stageRef.current === 'review') return
     finishCapture(c, reason); setStopReason(reason); setStage('review'); setCount(c.rows.length); setSecondsLeft(0)
-    setMessage(reason === 'completed' ? '촬영을 마쳤습니다. 실제 수행한 자세와 재석 상태를 확인하세요.'
-      : '촬영이 중단되었습니다. 이 구간은 학습용으로 확정할 수 없습니다. 제외 후 다시 촬영하세요.')
+    setMessage(reason === 'completed' ? '촬영을 마쳤어요. 방금 어떤 자세였는지 골라 주세요.'
+      : '촬영이 중간에 멈췄어요. 이 기록은 학습에 쓸 수 없으니 제외한 뒤 다시 찍어 주세요.')
   }, [setStage])
   const setPhase = useCallback((next: SessionPhase | 'inactive') => {
     phaseRef.current = next; updatePhase(next)
@@ -91,8 +91,8 @@ export function useCollection(camera: CameraController, rules: Rules) {
     try {
       reviewCapture(capture.current, accepted, label, presence)
       setReview(capture.current.review); setDownloaded(false)
-      setMessage(accepted ? '수행 내용 확인 완료. 자세 미지정 구간은 자세 분류 학습 대상에 포함되지 않습니다.' : '제외 표시 완료. 내려받아 원인을 분석하거나 다시 촬영할 수 있습니다.')
-    } catch (error) { setMessage(error instanceof Error ? error.message : '라벨을 확인해 주세요.') }
+      setMessage(accepted ? '확인했어요. 자세를 ‘확인 불가’로 고른 기록은 자세 구별 학습에는 쓰이지 않아요.' : '제외했어요. ‘다음 자세 찍기’로 다시 찍을 수 있어요.')
+    } catch (error) { setMessage(error instanceof Error ? error.message : '고른 자세를 확인해 주세요.') }
   }
   const download = () => {
     if (stageRef.current !== 'review' || !capture.current?.rows.length || capture.current.review === 'pending') return
@@ -102,7 +102,7 @@ export function useCollection(camera: CameraController, rules: Rules) {
     link.href = url; link.download = `posture-pilot-${c.participant}-${c.id}.csv`
     link.hidden = true; document.body.appendChild(link); link.click(); link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 10000); setDownloaded(true)
-    setMessage('CSV 다운로드를 요청했습니다. 브라우저 다운로드 목록에서 파일을 확인하세요.')
+    setMessage('파일을 내려받았어요. 브라우저의 다운로드 목록에서 확인해 주세요.')
   }
   const clear = () => {
     if (['countdown', 'recording'].includes(stageRef.current)) return
