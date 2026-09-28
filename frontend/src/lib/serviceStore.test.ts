@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { newMachine } from './engine'
 import { DEFAULT_RULES } from '../data/posture'
 import {
-  KEYS, parseDraft, parseMode, parseProfile, parseRecords, parseRules, recordFromDraft, resumeMachine, summary, upsertRecord, validateProfile,
+  KEYS, parseDraft, parseProfile, parseRecords, parseRules, recordFromDraft, resumeMachine, summary, upsertRecord, validateProfile,
   type RecordItem,
 } from './serviceStore'
 const item: RecordItem = { id: 'one', startedAt: '2026-09-28T00:00:00Z', endedAt: '2026-09-28T01:00:00Z', mode: 'demo', valid: 100, good: 90, total: 100, events: [] }
@@ -21,8 +21,8 @@ describe('service records', () => {
     expect(restored.total).toBe(50); expect(restored.good).toBe(40); expect(restored.hold).toBe(0); expect(restored.onsetAt).toBe(null)
     expect(machine.hold).toBe(2)
   })
-  it('local data deletion also clears the remembered measurement mode', () => {
-    expect(Object.values(KEYS)).toContain('posegood.v2.mode')
+  it('local data deletion also clears the example-records switch', () => {
+    expect(Object.values(KEYS)).toContain('posegood.v2.demo')
   })
   it('trims profile input and rejects missing fields or out-of-range age', () => {
     expect(validateProfile({ name: ' 합성 ', age: 30, occupation: ' 테스트 ' })).toEqual({ name: '합성', age: 30, occupation: '테스트' })
@@ -58,6 +58,5 @@ describe('stored value parsing', () => {
     const machine = newMachine()
     expect(parseDraft({ id: 'd', startedAt: 's', mode: 'demo', machine })).toMatchObject({ id: 'd', rules: DEFAULT_RULES })
     expect(parseDraft({ id: 'd', startedAt: 's', mode: 'demo', machine: { total: 1 } })).toBe(null)
-    expect(parseMode('demo')).toBe('demo'); expect(parseMode('unknown')).toBe('camera')
   })
 })
