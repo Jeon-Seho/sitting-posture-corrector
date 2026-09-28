@@ -2,7 +2,7 @@ import type { LiveState, Machine, Rules } from './engine'
 export type Profile = { name: string; age: number; occupation: string }
 export type RecordItem = { id: string; startedAt: string; endedAt: string; mode: 'camera' | 'demo'; valid: number; good: number; total: number; events: LiveState['events'] }
 export type Draft = { id: string; startedAt: string; mode: 'camera' | 'demo'; rules: Rules; machine: Machine }
-export const KEYS = { profile: 'posegood.v2.profile', records: 'posegood.v2.records', draft: 'posegood.v2.draft', settings: 'posegood.v2.settings' }
+export const KEYS = { profile: 'posegood.v2.profile', records: 'posegood.v2.records', draft: 'posegood.v2.draft', settings: 'posegood.v2.settings', mode: 'posegood.v2.mode' }
 export function readLocal<T>(key: string, fallback: T): T {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback } catch { return fallback }
 }

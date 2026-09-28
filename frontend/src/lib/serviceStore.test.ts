@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { newMachine } from './engine'
-import { resumeMachine, summary, upsertRecord, type RecordItem } from './serviceStore'
+import { KEYS, resumeMachine, summary, upsertRecord, type RecordItem } from './serviceStore'
 const item: RecordItem = { id: 'one', startedAt: '2026-09-28T00:00:00Z', endedAt: '2026-09-28T01:00:00Z', mode: 'demo', valid: 100, good: 90, total: 100, events: [] }
 describe('service records', () => {
   it('retries replace the same session instead of duplicating it', () => {
@@ -16,5 +16,8 @@ describe('service records', () => {
     const restored = resumeMachine(machine)
     expect(restored.total).toBe(50); expect(restored.good).toBe(40); expect(restored.hold).toBe(0); expect(restored.onsetAt).toBe(null)
     expect(machine.hold).toBe(2)
+  })
+  it('local data deletion also clears the remembered measurement mode', () => {
+    expect(Object.values(KEYS)).toContain('posegood.v2.mode')
   })
 })
