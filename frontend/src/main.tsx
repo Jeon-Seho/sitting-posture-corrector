@@ -4,7 +4,9 @@ import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css'
 import '@fontsource/anton/latin-400.css'
 import '@fontsource/black-han-sans/400.css'
 import '@fontsource/stardos-stencil/latin-700.css'
-import App from './App'
+import ResearchApp from './App'
+import ServiceApp from './ServiceApp'
+const App = new URLSearchParams(window.location.search).has('research') ? ResearchApp : ServiceApp
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(

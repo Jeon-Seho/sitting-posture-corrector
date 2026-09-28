@@ -57,7 +57,9 @@ export function SettingsPage({
   onAlerts,
   hasHistory,
   onHasHistory,
+  serviceMode = false,
 }: {
+  serviceMode?: boolean
   rules: Rules
   onRules: (r: Rules) => void
   alertsOn: boolean
@@ -93,7 +95,7 @@ export function SettingsPage({
                   꺼도 붕괴 이벤트는 계속 기록되며, 해당 구간은 회복 시간 집계에서 따로 표시됩니다.
                 </div>
               </div>
-              <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
+              {serviceMode ? <span>화면 알림 유지 · 소리는 측정 화면에서 설정</span> : <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />}
             </div>
             <Slider
               name="붕괴 확정 지속 시간"
@@ -175,7 +177,7 @@ export function SettingsPage({
                   끄면 기록이 없는 신규 사용자 화면으로 바뀝니다.
                 </div>
               </div>
-              <Switch checked={hasHistory} onChange={onHasHistory} label="홈에 기록 표시" />
+              {serviceMode ? <span>저장된 기록을 자동 표시합니다</span> : <Switch checked={hasHistory} onChange={onHasHistory} label="홈에 기록 표시" />}
             </div>
           </Card>
 

@@ -1,3 +1,5 @@
+import type { LiveState, Machine } from '../lib/engine'
+import { enableSound, playCorrection } from '../lib/sound'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowCounterClockwise,
@@ -48,7 +50,9 @@ export function SessionPage({
   camera,
   mode,
   collection,
+  service,
 }: {
+  service?: { active: boolean; initial?: Machine; onCheckpoint: (m: Machine) => void; onEnded: (live: LiveState) => void; saveMessage: string; onRetry: () => void }
   collection: CollectionController
   rules: typeof DEFAULT_RULES
   alertsOn: boolean
@@ -58,21 +62,48 @@ export function SessionPage({
   camera: CameraController
   mode: 'camera' | 'demo'
 }) {
-  const [phase, setPhase] = useState<SessionPhase>('running')
+  const [phase, setPhase] = useState<SessionPhase>(service?.initial ? 'paused' : 'running')
   const [speed, setSpeed] = useState(4)
   const [showSkeleton, setShowSkeleton] = useState(true)
+  const [sessionRules] = useState(rules)
+  if (service) rules = sessionRules
+  const [soundOn, setSoundOn] = useState(false)
+  const [soundError, setSoundError] = useState('')
+  const [pauseReason, setPauseReason] = useState(service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '')
+  const notifiedEnd = useRef(false)
   const isCamera = mode === 'camera'
-  const { live, reset, seekNext } = useSession(phase, speed, rules, isCamera ? () => cameraSample(camera) : undefined, alertsOn)
+  const { live, reset, seekNext } = useSession(phase, speed, rules, isCamera ? () => cameraSample(camera) : undefined, alertsOn, service ? { initial: service.initial, checkpoint: service.onCheckpoint, interrupted: () => { setPauseReason('관측 입력이 중단됐습니다. 준비 후 직접 재개해 주세요.'); setPhase('paused') } } : undefined)
   const current = camera.current.current
   const baseline = camera.baseline
   useEffect(() => { collection.setPhase(isCamera ? phase : 'inactive') }, [phase, isCamera, collection.setPhase])
   useEffect(() => () => collection.setPhase('inactive'), [collection.setPhase])
   useEffect(() => { if (phase === 'ended' && isCamera) camera.stop() }, [phase])
   useEffect(() => {
+    if (service) {
+      if (!service.active) setPhase(p => p === 'running' ? 'paused' : p)
+      return
+    }
     const hidden = () => { if (document.hidden) setPhase(p => p === 'running' ? 'paused' : p) }
     document.addEventListener('visibilitychange', hidden)
     return () => document.removeEventListener('visibilitychange', hidden)
-  }, [])
+  }, [service?.active])
+  useEffect(() => {
+    if (!service || !isCamera || phase !== 'running') return
+    const timer = setInterval(() => {
+      if (camera.state !== 'on' || performance.now() - camera.lastFrame.current > 1500) {
+        setPauseReason('카메라 입력이 끊겼습니다. 카메라 준비를 확인하고 직접 재개해 주세요.')
+        setPhase('paused')
+      }
+    }, 250)
+    return () => clearInterval(timer)
+  }, [service, isCamera, phase, camera.state])
+  useEffect(() => {
+    if (phase === 'ended' && service && !notifiedEnd.current && live.events.every(e => e.endAt !== null)) {
+      notifiedEnd.current = true
+      service.onEnded(live)
+    }
+  }, [phase, live, service])
+
 
   const muted = useMemo(() => new Set(live.events.filter(e => e.alerts === 0).map(e => e.id)), [live.events])
 
@@ -83,12 +114,13 @@ export function SessionPage({
     if (live.alertTick === lastTick.current) return
     lastTick.current = live.alertTick
     if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
+    if (soundOn && !playCorrection()) setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
     setToast(
       live.collapse
         ? `${COLLAPSE_LABEL[live.collapse]} 상태가 ${rules.holdSeconds}초 이상 이어졌습니다.`
         : '자세 붕괴가 감지되었습니다.',
     )
-    const t = setTimeout(() => setToast(null), 3600)
+    const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [live.alertTick])
   useEffect(() => { if (phase !== 'running' || live.state === 'unknown' || !alertsOn) setToast(null) }, [phase, live.state, alertsOn])
@@ -119,14 +151,14 @@ export function SessionPage({
           <div>
             <h1 className="page-title">측정 종료</h1>
             <p className="page-desc">
-              이번 측정 결과입니다. 화면을 떠나면 사라지며, 대시보드에는 예시 기록이 표시됩니다.
+              {service ? service.saveMessage : '이번 측정 결과입니다. 연구 모드 결과는 별도로 보관해 주세요.'}
             </p>
           </div>
           <div className="row">
             <button
               className="btn"
               onClick={() => {
-                if (isCamera) { onPrepare(); return }
+                if (isCamera || service) { onPrepare(); return }
                 lastTick.current = 0
                 reset()
                 setPhase('running')
@@ -137,12 +169,13 @@ export function SessionPage({
             </button>
             <button className="btn btn-primary" onClick={onDashboard}>
               <ChartBar size={17} weight="bold" className="icon" />
-              예시 대시보드 보기
+              대시보드 보기
             </button>
           </div>
         </div>
 
-        {isCamera && <CollectionPanel collection={collection} />}
+        {service && <button className="btn" onClick={service.onRetry}>저장 다시 시도</button>}
+        {isCamera && !service && <CollectionPanel collection={collection} />}
         <div className="gap-top">
           <Ledger cols={4}>
             <Stat
@@ -231,7 +264,7 @@ export function SessionPage({
       <div className="session-grid">
         <div className="stack">
           <div className="stage">
-            {isCamera ? <CameraStage camera={camera} showSkeleton={showSkeleton} /> : <PoseStage
+            {isCamera ? (!service || service.active) && <CameraStage camera={camera} showSkeleton={showSkeleton} /> : <PoseStage
               keypoints={live.keypoints}
               state={live.state}
               confidence={live.confidence}
@@ -246,8 +279,7 @@ export function SessionPage({
                 </span>
                 <span className="stage-tag">
                   {isCamera && <span>{camera.metrics.fps.toFixed(0)} FPS · {camera.metrics.inferenceMs.toFixed(0)}ms · {camera.metrics.delegate}</span>}
-                  <span className="muted">검출 신뢰도</span>
-                  <b className="num">{(live.confidence * 100).toFixed(0)}%</b>
+
                 </span>
               </div>
 
@@ -318,11 +350,18 @@ export function SessionPage({
             </div>
           </div>
 
+          {pauseReason && <p role="status">{pauseReason}</p>}
+          {phase === 'paused' && isCamera && (!camera.baseline || camera.state !== 'on') && <button className="btn" onClick={onPrepare}>카메라 준비 다시 확인</button>}
           <div className="controls">
             <div className="row">
+              <button className="btn" aria-pressed={soundOn} onClick={async () => {
+                if (soundOn) { setSoundOn(false); return }
+                try { await enableSound(); setSoundOn(true); setSoundError('') } catch { setSoundError('이 브라우저에서 소리를 켜지 못했습니다.') }
+              }}>{soundOn ? '소리 켜짐 · 음소거' : '소리 꺼짐 · 켜기'}</button>
               <button
                 className="btn"
-                onClick={() => setPhase(phase === 'paused' ? 'running' : 'paused')}
+                disabled={phase === 'paused' && isCamera && (!camera.baseline || camera.state !== 'on' || !camera.quality)}
+                onClick={() => { setPauseReason(''); setPhase(phase === 'paused' ? 'running' : 'paused') }}
               >
                 {phase === 'paused' ? (
                   <Play size={17} weight="fill" className="icon" />
@@ -354,8 +393,9 @@ export function SessionPage({
               </button>
             </div>
           </div>
+          {soundError && <p role="status">{soundError}</p>}
           {isCamera && <VisualControls camera={camera} />}
-          {isCamera && <CollectionPanel collection={collection} />}
+          {isCamera && !service && <CollectionPanel collection={collection} />}
         </div>
 
         <div className="stack">

@@ -16,7 +16,7 @@ const CAMERAS = [
 
 const CALIBRATE_SECONDS = 3
 
-function DemoSetupPage({ onStart, onCancel }: { onStart: () => void; onCancel: () => void }) {
+function DemoSetupPage({ onStart, onCancel, startLabel }: { startLabel: string; onStart: () => void; onCancel: () => void }) {
   const [permission, setPermission] = useState<Permission>('granted')
   const [camera, setCamera] = useState(CAMERAS[0].id)
   const [progress, setProgress] = useState(0)
@@ -226,7 +226,7 @@ function DemoSetupPage({ onStart, onCancel }: { onStart: () => void; onCancel: (
             onClick={onStart}
           >
             <Play size={18} weight="fill" className="icon" />
-            측정 시작
+            {startLabel}
           </button>
 
           <DemoNote>
@@ -239,7 +239,8 @@ function DemoSetupPage({ onStart, onCancel }: { onStart: () => void; onCancel: (
 }
 
 
-export function SetupPage({ camera, mode, onMode, onStart, onCollect, onCancel }: {
+export function SetupPage({ camera, mode, onMode, onStart, onCollect, onCancel, startLabel = '측정 시작' }: {
+  startLabel?: string
   camera: CameraController; mode: 'camera' | 'demo'; onMode: (mode: 'camera' | 'demo') => void;
   onStart: () => void; onCollect: () => void; onCancel: () => void;
 }) {
@@ -251,7 +252,7 @@ export function SetupPage({ camera, mode, onMode, onStart, onCollect, onCancel }
       </div>
       <span className="stat-label">{mode === 'camera' ? 'MediaPipe + 개인 기준 비교 · LSTM 미연결' : '합성 시나리오 · 실제 카메라 미사용'}</span>
     </div>
-    {mode === 'demo' ? <DemoSetupPage onStart={onStart} onCancel={onCancel} /> : <>
+    {mode === 'demo' ? <DemoSetupPage startLabel={startLabel} onStart={onStart} onCancel={onCancel} /> : <>
       <div className="page-head"><div><h1 className="page-title">측정 준비</h1><p className="page-desc">얼굴과 양쪽 어깨가 보이도록 앉고, 편안한 기준 자세를 등록하세요.</p></div><button className="btn" onClick={onCancel}><ArrowLeft size={17} weight="bold" />홈으로</button></div>
       <div className="grid split">
         <Card title="실제 웹캠 미리보기" note="MediaPipe Lite · 준비 중에는 저장하지 않습니다. 라벨 수집에서 시작하면 좌표만 기기에 저장합니다.">
@@ -277,7 +278,7 @@ export function SetupPage({ camera, mode, onMode, onStart, onCollect, onCancel }
             <Meter value={camera.baseline ? 1 : camera.progress ?? 0} />
             <button className="btn" style={{ width: '100%', marginTop: 12 }} disabled={camera.state !== 'on' || !camera.quality || camera.progress !== null} onClick={camera.calibrate}>{camera.baseline ? '다시 보정' : '기준 등록 시작'}</button>
           </Card>
-          <button className="btn btn-primary btn-lg" disabled={!camera.baseline || camera.state !== 'on'} onClick={onStart}><Play size={18} weight="fill" />측정 시작</button>
+          <button className="btn btn-primary btn-lg" disabled={!camera.baseline || camera.state !== 'on'} onClick={onStart}><Play size={18} weight="fill" />{startLabel}</button>
           <button className="btn btn-lg" disabled={!camera.baseline || camera.state !== 'on'} onClick={onCollect}>라벨 수집으로 이동</button>
           <DemoNote>실제 웹캠은 학습된 LSTM 대신 개인 기준과의 위치 차이를 비교합니다. 알림 기본값은 3초 지속·60초 재알림이며 설정에서 변경할 수 있습니다.</DemoNote>
         </div>

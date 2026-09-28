@@ -13,7 +13,7 @@ export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stream = useRef<MediaStream | null>(null), detector = useRef<PoseLandmarker | null>(null);
-  const generation = useRef(0), raf = useRef(0), current = useRef<Features | null>(null);
+  const generation = useRef(0), raf = useRef<ReturnType<typeof setTimeout> | null>(null), current = useRef<Features | null>(null);
   const lastFrame = useRef(0);
   const [visual, updateVisual] = useState<VisualOptions>(() => ({ mode: 'skeleton', enabled: true,
     reducedMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, startedAt: 0 }));
@@ -41,7 +41,7 @@ export function useCamera() {
   const [progress, setProgress] = useState<number | null>(null);
 
   const release = useCallback(() => {
-    generation.current++; cancelAnimationFrame(raf.current);
+    generation.current++; if (raf.current !== null) clearTimeout(raf.current);
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     detector.current?.close(); detector.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -139,9 +139,9 @@ export function useCamera() {
             inferenceMs: frameCount ? inferenceSum / frameCount : 0, delegate });
           metricStart = time; frameCount = 0; inferenceSum = 0;
         }
-        raf.current = requestAnimationFrame(render);
+        raf.current = setTimeout(() => render(performance.now()), 33);
       };
-      raf.current = requestAnimationFrame(render);
+      raf.current = setTimeout(() => render(performance.now()), 33);
     } catch (cause) {
       if (generation.current !== token) return;
       release(); setState('error'); setQuality(false);
