@@ -1,0 +1,2 @@
+# Harness only; application and ML dependencies are intentionally undecided.
+jsonschema==4.23.0

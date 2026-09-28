@@ -1,0 +1,42 @@
+# develop 브랜치 룰셋이 CodeQL 스캔 결과를 요구해서 추가한 워크플로.
+name: CodeQL
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # 매주 월요일 새벽에 한 번 더 돌린다
+    - cron: '21 5 * * 1'
+
+jobs:
+  analyze:
+    name: CodeQL 분석 (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: CodeQL 초기화
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # 프론트엔드는 빌드 없이 소스만 분석한다
+          build-mode: none
+
+      - name: CodeQL 분석
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

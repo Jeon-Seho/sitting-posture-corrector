@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp_ms": 3000,
+  "status": "normal",
+  "deviation_type": null,
+  "confidence": 0.9,
+  "measurement_quality": "good",
+  "duration_ms": 0
+}
