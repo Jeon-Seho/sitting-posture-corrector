@@ -172,17 +172,17 @@ export function SettingsPage({
           <Card title="시연 옵션" note="발표 중 화면을 전환할 때 사용합니다.">
             <div className="setting-row">
               <div>
-                <div className="setting-name">홈에 기록 표시</div>
+                <div className="setting-name">발표용 예시 기록 표시</div>
                 <div className="setting-desc">
-                  끄면 기록이 없는 신규 사용자 화면으로 바뀝니다.
+                  켜면 홈·대시보드에 발표용 예시 기록을, 끄면 이 브라우저에 저장된 실제 측정 기록을 보여줍니다.
                 </div>
               </div>
-              {serviceMode ? <span>저장된 기록을 자동 표시합니다</span> : <Switch checked={hasHistory} onChange={onHasHistory} label="홈에 기록 표시" />}
+              <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
             </div>
           </Card>
 
           <DemoNote>
-            이 화면의 값은 브라우저 메모리에만 남습니다. 새로고침하면 기본값으로 돌아갑니다.
+            이 화면의 값은 이 브라우저에만 저장됩니다. 서버와 연결되어 있지 않습니다.
           </DemoNote>
         </div>
       </div>

@@ -7,13 +7,15 @@
 - 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
 
 
-현재 상태: **하네스 + 웹캠 프론트 프로토타입 / LSTM·서버 구현 전**.
+현재 상태: **하네스 + 웹캠 프론트 단일 앱 프로토타입(로컬 저장) / LSTM·서버 구현 전**.
 
-현재 수집: [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md). Heavy 도입 배경과 당시 검증은 [이전 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md)에 남긴다.
+현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md), [서비스 미리보기 완료 기록](plans/completed/0008-service-preview.md).
+
+현재 수집(화면 이름 `자세 등록`): [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md). Heavy 도입 배경과 당시 검증은 [이전 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md)에 남긴다.
 
 [프로토타입 실행·사용 안내](../frontend/README.md), [프로토타입 기술 결정](decisions/0002-webcam-prototype.md).
 
-최근 완료: [기존 PoseGood 프론트에 웹캠 연결](plans/completed/0004-retro-webcam-integration.md), [통합 결정](decisions/0003-retro-integration.md).
+이전 완료: [기존 PoseGood 프론트에 웹캠 연결](plans/completed/0004-retro-webcam-integration.md), [통합 결정](decisions/0003-retro-integration.md).
 
 이전 완료: [웹캠 프론트 프로토타입](plans/completed/0003-frontend-prototype.md).
 자료 반영: [현재 계획서 참고 반영](plans/completed/0002-reference-current-proposal.md).
@@ -26,7 +28,7 @@
 | --- | --- |
 | 무엇을 만드는가? | [제품 범위](product-spec.md) |
 | 어디에 구현하는가? | [아키텍처와 경계](architecture.md) |
-| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md), [Windows 포함 검증 진입점](decisions/0008-cross-platform-dev-entry.md) |
+| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md), [Windows 포함 검증 진입점](decisions/0009-cross-platform-dev-entry.md) |
 | 무엇을 통과해야 하는가? | [품질 기준](quality.md) |
 | AI 출력은 무엇인가? | [출력 계약](../contracts/README.md) |
 | 연구를 어떻게 비교하는가? | [연구 프로토콜](research/protocol.md) |
