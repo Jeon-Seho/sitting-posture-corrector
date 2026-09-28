@@ -26,7 +26,7 @@
 | --- | --- |
 | 무엇을 만드는가? | [제품 범위](product-spec.md) |
 | 어디에 구현하는가? | [아키텍처와 경계](architecture.md) |
-| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md) |
+| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md), [Windows 포함 검증 진입점](decisions/0008-cross-platform-dev-entry.md) |
 | 무엇을 통과해야 하는가? | [품질 기준](quality.md) |
 | AI 출력은 무엇인가? | [출력 계약](../contracts/README.md) |
 | 연구를 어떻게 비교하는가? | [연구 프로토콜](research/protocol.md) |

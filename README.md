@@ -13,6 +13,8 @@ make setup
 make dev
 ```
 
+`make`가 없는 Windows에서는 `python tools/dev.py setup`, `python tools/dev.py dev`를 사용한다.
+
 [로컬 화면](http://127.0.0.1:5173/) → 로그인 → 측정 준비 → 카메라 켜기 → 5초 기준 등록 → 측정 시작.
 실제 로그인 정보는 필요 없다. 웹캠 권한을 지원하는 브라우저에서 실행한다.
 

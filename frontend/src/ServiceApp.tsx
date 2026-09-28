@@ -4,10 +4,10 @@ import { useCollection } from './hooks/useCollection'
 import { SetupPage } from './pages/SetupPage'
 import { SessionPage } from './pages/SessionPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { DEFAULT_RULES } from './data/posture'
 import type { LiveState, Machine, Rules } from './lib/engine'
 import {
   KEYS, readLocal, writeLocal, upsertRecord, resumeMachine, recordFromDraft, validateProfile,
+  parseDraft, parseMode, parseProfile, parseRecords, parseRules,
   type Draft, type Mode, type Profile, type RecordItem,
 } from './lib/serviceStore'
 import { EMPTY_PROFILE } from './service/ProfileFields'
@@ -22,16 +22,16 @@ type Session = { id: string; startedAt: string; mode: Mode; rules: Rules; initia
 /** 로컬 서비스 미리보기. 화면은 service/ 컴포넌트에 두고, 여기서는 상태·저장·측정 수명을 조립한다. */
 export default function ServiceApp() {
   const camera = useCamera()
-  const [profile, setProfile] = useState<Profile | null>(() => readLocal(KEYS.profile, null))
+  const [profile, setProfile] = useState<Profile | null>(() => parseProfile(readLocal(KEYS.profile, null)))
   const [form, setForm] = useState<Profile>(() => profile ?? EMPTY_PROFILE)
   const [authed, setAuthed] = useState(false)
   const [page, setPage] = useState<ServicePage>('home')
-  const [records, setRecords] = useState<RecordItem[]>(() => readLocal(KEYS.records, []))
-  const [rules, setRules] = useState<Rules>(() => readLocal(KEYS.settings, DEFAULT_RULES))
-  const [mode, setMode] = useState<Mode>(() => readLocal<string>(KEYS.mode, 'camera') === 'demo' ? 'demo' : 'camera')
+  const [records, setRecords] = useState<RecordItem[]>(() => parseRecords(readLocal(KEYS.records, null)))
+  const [rules, setRules] = useState<Rules>(() => parseRules(readLocal(KEYS.settings, null)))
+  const [mode, setMode] = useState<Mode>(() => parseMode(readLocal(KEYS.mode, null)))
   const collection = useCollection(camera, rules)
   const [session, setSession] = useState<Session | null>(null)
-  const [draft, setDraft] = useState<Draft | null>(() => readLocal(KEYS.draft, null))
+  const [draft, setDraft] = useState<Draft | null>(() => parseDraft(readLocal(KEYS.draft, null)))
   const [saveMessage, setSaveMessage] = useState('이 브라우저에 결과를 저장하고 있습니다.')
   const pending = useRef<RecordItem | null>(null)
   const [error, setError] = useState('')
@@ -59,7 +59,7 @@ export default function ServiceApp() {
   }
   function exit() {
     if (pending.current) { setError('결과 저장을 완료한 뒤 나가 주세요.'); return }
-    camera.stop(); setAuthed(false); setSession(null); setDraft(readLocal(KEYS.draft, null))
+    camera.stop(); setAuthed(false); setSession(null); setDraft(parseDraft(readLocal(KEYS.draft, null)))
   }
   function withdraw() {
     try {
@@ -77,7 +77,7 @@ export default function ServiceApp() {
   }
   function saveResult(record: RecordItem) {
     try {
-      const next = upsertRecord(readLocal<RecordItem[]>(KEYS.records, []), record)
+      const next = upsertRecord(parseRecords(readLocal(KEYS.records, null)), record)
       writeLocal(KEYS.records, next); localStorage.removeItem(KEYS.draft)
       setRecords(next); setDraft(null); pending.current = null
       setSaveMessage('이 브라우저에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
@@ -120,11 +120,12 @@ export default function ServiceApp() {
           <button className="btn btn-sm" disabled={camera.state === 'loading'} onClick={() => camera.state === 'on' ? camera.stop() : void camera.connect()}>
             {camera.state === 'on' ? '카메라 끄기' : '카메라 켜기'}
           </button>
+          <button className="btn btn-sm" aria-current={page === 'profile'} onClick={() => go('profile')}>{profile?.name} · 프로필 설정</button>
         </div>
         {error && <p role="status" className="service-notice">{error}</p>}
         {draft && !session && <DraftCard onRestore={restore} onSave={() => saveResult(recordFromDraft(draft, new Date().toISOString()))} />}
         {(page === 'home' || page === 'dashboard') && (
-          <RecordsPage scope={page} name={profile?.name ?? ''} records={records} mode={mode} measuring={measuring}
+          <RecordsPage scope={page} name={profile?.name ?? ''} records={records} measuring={measuring}
             onStart={() => go(measuring ? 'session' : 'setup')} onReRegister={() => { setRegistration(true); go('setup') }} />
         )}
         {page === 'setup' && (
@@ -159,7 +160,6 @@ export default function ServiceApp() {
             onCancel={() => { setForm(profile ?? EMPTY_PROFILE); setError('변경을 취소했습니다.') }} />
         )}
       </main>
-      <button className="profile-dock" onClick={() => go('profile')}>{profile?.name} · 프로필 설정</button>
     </div>
   )
 }

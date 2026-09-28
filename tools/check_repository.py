@@ -19,7 +19,7 @@ REQUIRED = (
     "docs/references/posture_ai_paper_one_page.md", "contracts/README.md",
     "contracts/posture-status.v1.schema.json", "contracts/examples/normal.json",
     "contracts/examples/deviation.json", "contracts/examples/unmeasurable.json",
-    "tools/check_repository.py", "tools/validate_contract.py",
+    "tools/check_repository.py", "tools/validate_contract.py", "tools/dev.py",
     "tests/test_contracts.py", "tests/test_repository.py", ".github/workflows/harness.yml",
 )
 PRIVATE_ROOTS = {"data", "artifacts", "runs", "checkpoints"}

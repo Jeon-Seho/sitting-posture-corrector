@@ -1,22 +1,23 @@
 import { Card, Ledger, Stat } from '../components/ui'
 import { formatDuration, formatPercent } from '../lib/stats'
-import { summary, type Mode, type RecordItem } from '../lib/serviceStore'
+import { summary, type RecordItem } from '../lib/serviceStore'
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE')
 
-/** 홈은 오늘, 대시보드는 이 브라우저 전체 기록을 현재 모드 기준으로 집계한다. */
-export function RecordsPage({ scope, name, records, mode, measuring, onStart, onReRegister }: {
+/**
+ * 홈은 오늘, 대시보드는 이 브라우저 전체 기록을 집계한다. 계정 구분이 없는 미리보기라
+ * 실제 웹캠·합성 시연 기록을 합산하고, 기록별 행에 입력 종류를 표시한다.
+ */
+export function RecordsPage({ scope, name, records, measuring, onStart, onReRegister }: {
   scope: 'home' | 'dashboard'
   name: string
   records: RecordItem[]
-  mode: Mode
   measuring: boolean
   onStart: () => void
   onReRegister: () => void
 }) {
   const today = day(new Date().toISOString())
-  const modeRecords = records.filter(r => r.mode === mode)
-  const shown = scope === 'home' ? modeRecords.filter(r => day(r.endedAt) === today) : modeRecords
+  const shown = scope === 'home' ? records.filter(r => day(r.endedAt) === today) : records
   const stats = summary(shown)
   return (
     <>
@@ -24,7 +25,7 @@ export function RecordsPage({ scope, name, records, mode, measuring, onStart, on
         <div>
           <h1 className="page-title">{scope === 'home' ? `${name}님의 오늘` : '측정 기록'}</h1>
           <p className="page-desc">
-            {today} 기준 · {scope === 'home' ? '오늘' : '이 브라우저 전체'} 기록 · {mode === 'camera' ? '실제 웹캠 기록만 집계' : '합성 시연 기록만 집계'}
+            {today} 기준 · {scope === 'home' ? '오늘' : '이 브라우저 전체'} 기록 · 실제 웹캠·합성 시연 합산
           </p>
         </div>
         <button className="btn btn-primary" onClick={onStart}>{measuring ? '진행 중인 측정으로' : '측정 시작'}</button>
