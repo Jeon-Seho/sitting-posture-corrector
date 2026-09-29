@@ -53,3 +53,5 @@
 
 - [번호 기반 공용 작업 흐름](areas/devops/numbered-workflow.md)
 - [단계별 프로젝트 여정](areas/frontend/project-journey.md)
+
+- [팀 기능25개와 기존 카드 대응표](areas/devops/team-feature-cards.md)
