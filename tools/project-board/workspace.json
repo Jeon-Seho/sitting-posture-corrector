@@ -1677,12 +1677,12 @@
       "category": "프론트",
       "source": "docs/team-requirements.md",
       "body": "실제 가입 필드·동의·입력 검증·중복/실패/진행 상태·로그인 이동을 구현한다. 현재 LoginPage는 이름·나이·직업 로컬 프로필 입력이므로 가입 화면 완료가 아니다.",
-      "status": "planned",
+      "status": "review",
       "author": "",
       "assignees": [],
-      "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "agent": "klaod-tech_GPT",
+      "result": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기.",
+      "updated": "2026-09-29T10:22:27.459302+00:00",
       "log": [
         {
           "at": "2026-09-29T03:15:19.079405+00:00",
@@ -1695,6 +1695,18 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        },
+        {
+          "at": "2026-09-29T10:21:50.072525+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "회원가입 FE 미리보기 작업 착수. 실제 인증 API는 별도 카드 범위."
+        },
+        {
+          "at": "2026-09-29T10:22:27.459302+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기."
         }
       ],
       "stage": "service",
@@ -1755,12 +1767,12 @@
       "category": "프론트",
       "source": "docs/team-requirements.md",
       "body": "실제 인증 입력·오류·진행 상태와 회원가입 이동을 구현한다. 기존 로컬 프로필 진입 UI는 레이아웃만 재사용한다.",
-      "status": "planned",
+      "status": "review",
       "author": "",
       "assignees": [],
-      "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "agent": "klaod-tech_GPT",
+      "result": "후속 요청 반영: 첫 화면 미리보기 안내 제거, 로그인 버튼 소셜과 동일 크기. Edge 실측 4개 버튼 모두 380x44px 확인. 작은 문구/CSS 수정으로 전체 테스트 재실행 생략.",
+      "updated": "2026-09-29T10:24:51.606389+00:00",
       "log": [
         {
           "at": "2026-09-29T03:15:19.079405+00:00",
@@ -1773,6 +1785,24 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        },
+        {
+          "at": "2026-09-29T10:21:50.260153+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "아이디/비밀번호 및 소셜 버튼 로그인 UI 착수. GP-0011 미확정 계약에 의존하는 서버 연결 제외."
+        },
+        {
+          "at": "2026-09-29T10:22:27.674858+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기."
+        },
+        {
+          "at": "2026-09-29T10:24:51.606389+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "후속 요청 반영: 첫 화면 미리보기 안내 제거, 로그인 버튼 소셜과 동일 크기. Edge 실측 4개 버튼 모두 380x44px 확인. 작은 문구/CSS 수정으로 전체 테스트 재실행 생략."
         }
       ],
       "stage": "service",
@@ -2383,5 +2413,5 @@
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 63
+  "nextNumber": 64
 }

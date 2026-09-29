@@ -15,7 +15,7 @@ export function LoginPage({
   lead: string
   submitLabel: string
   fine?: ReactNode
-  onSubmit: () => void
+  onSubmit: (form: HTMLFormElement) => void
   children: ReactNode
   footer?: ReactNode
 }) {
@@ -32,9 +32,9 @@ export function LoginPage({
 
             <form
               className="cover-form"
-              onSubmit={(e: FormEvent) => {
+              onSubmit={(e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault()
-                onSubmit()
+                onSubmit(e.currentTarget)
               }}
             >
               <div>
@@ -44,7 +44,7 @@ export function LoginPage({
 
               {children}
 
-              <button type="submit" className="btn btn-lg" style={{ width: '100%' }}>
+              <button type="submit" className="btn auth-submit" style={{ width: '100%' }}>
                 {submitLabel}
                 <ArrowRight size={18} weight="bold" className="icon" />
               </button>
