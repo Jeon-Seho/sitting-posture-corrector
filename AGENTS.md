@@ -48,6 +48,6 @@
 ## 검증과 완료 기준
 
 - 최초 환경 준비: `make setup`
-- 기본 검증: `make check`
+- 기본 검증: `make check` (`make`가 없는 Windows: `python tools/dev.py check`)
 - 세부 기준: [품질 기준](docs/quality.md), [연구 프로토콜](docs/research/protocol.md)
 - 프레임워크 설치, 원격 푸시, 배포는 현재 하네스 작업의 완료 조건이 아니다.

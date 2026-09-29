@@ -5,6 +5,7 @@
 - **작업 관리판:** [웹·AI 운영 규칙](project-board.md), [팀원](team.md) — 루트의 `바른자세_관리판.bat`으로 문서 검색·진행 보드·담당 배정·메모를 연다.
 
 - **팀 공유:** [서비스 요구사항](team-requirements.md) — 최신 기능·역할·완료 조건·협의 항목을 한 문서로 확인한다.
+- **lee_dev4 변경 요약:** [lee_md](lee_md.md) — main 대비 로직·문구 변경, 임시값, 검증 결과.
 - **개인 검토:** [페르소나 메모](persona-flow-review.md) — 사용자 행동과 다음 할 일만 남긴다.
 - 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
 
@@ -28,7 +29,7 @@
 | --- | --- |
 | 무엇을 만드는가? | [제품 범위](product-spec.md) |
 | 어디에 구현하는가? | [아키텍처와 경계](architecture.md) |
-| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md) |
+| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md), [Windows 포함 검증 진입점](decisions/0009-cross-platform-dev-entry.md) |
 | 무엇을 통과해야 하는가? | [품질 기준](quality.md) |
 | AI 출력은 무엇인가? | [출력 계약](../contracts/README.md) |
 | 연구를 어떻게 비교하는가? | [연구 프로토콜](research/protocol.md) |
@@ -49,3 +50,6 @@
 제품 범위는 `product-spec.md`, 경계는 `architecture.md`, 인터페이스는 `contracts/`, 연구 규칙은
 `research/protocol.md`에서 관리한다. 변경 시 해당 문서와 예제를 함께 갱신하고, 중요한 결정은 ADR에 남긴다.
 원문은 수정하지 않으며 외부 문헌의 수치·주장은 별도 문헌 검토 전까지 검증된 사실로 인용하지 않는다.
+
+- [번호 기반 공용 작업 흐름](areas/devops/numbered-workflow.md)
+- [단계별 프로젝트 여정](areas/frontend/project-journey.md)

@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import sys
 import threading
 import unittest
 import urllib.request
@@ -13,6 +14,35 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location("project_board_server", Path(__file__).resolve().parents[1] / "tools/project-board/server.py")
 board = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(board)
+with patch.dict(sys.modules, {"server": board}):
+    WORK_SPEC = importlib.util.spec_from_file_location("project_board_work", SPEC.origin.replace("server.py", "work.py"))
+    work = importlib.util.module_from_spec(WORK_SPEC)
+    WORK_SPEC.loader.exec_module(work)
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_audit_rejects_unregistered_docs_and_uncategorized_work(self):
+        card = dict(item(), number="GP-0001", category="프론트", stage="prototype")
+        doc = dict(path=card["source"], body="- 분야: 프론트\n- 작업: GP-0001", task="GP-0001", status="")
+        self.assertEqual(work.audit({"cards": [card]}, [doc], set()), [])
+        doc["task"] = "GP-9999"
+        self.assertTrue(any("등록된 작업 번호" in p for p in work.audit({"cards": [card]}, [doc], set())))
+        doc["task"] = "GP-0001"
+        card["stage"] = "unclassified"
+        self.assertTrue(any("프로젝트 단계" in p for p in work.audit({"cards": [card]}, [doc], set())))
+
+    def test_new_user_feedback_reopens_ai_inbox(self):
+        card = {"log": [{"kind": "user"}, {"kind": "ai"}]}
+        self.assertFalse(work.unseen(card))
+        card["log"].append({"kind": "user"})
+        self.assertTrue(work.unseen(card))
+        card["log"].append({"kind": "ai"})
+        self.assertFalse(work.unseen(card))
+
+    def test_stage_is_validated_before_save(self):
+        card = dict(item(), stage="does-not-exist")
+        with self.assertRaisesRegex(ValueError, "프로젝트 단계"):
+            board.validate(dict(cards=[card], notes=[], assignments={}))
 
 
 def item():

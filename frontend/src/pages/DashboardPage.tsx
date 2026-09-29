@@ -343,7 +343,7 @@ function WeekBody({ s }: { s: ReturnType<typeof summarize> }) {
   )
 }
 
-function Row({ name, value }: { name: string; value: string }) {
+export function Row({ name, value }: { name: string; value: string }) {
   return (
     <div className="feature-row" style={{ gridTemplateColumns: '1fr auto' }}>
       <span className="feature-name">{name}</span>
@@ -377,7 +377,7 @@ function DeltaRow({
   )
 }
 
-function CompareRow({
+export function CompareRow({
   name,
   a,
   b,

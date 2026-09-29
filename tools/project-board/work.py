@@ -9,7 +9,7 @@ import urllib.request
 import urllib.error
 import uuid
 
-from server import ROOT, HERE, CATEGORIES, STATUSES, documents, read_store, git_activity, validate_ai
+from server import ROOT, HERE, CATEGORIES, STATUSES, STAGES, documents, read_store, git_activity, validate_ai
 
 URL = "http://127.0.0.1:8774"
 FOLDERS = dict(zip(CATEGORIES, ("frontend", "backend", "devops", "server", "machine-learning", "paper", "database")))
@@ -58,6 +58,8 @@ def audit(data, docs, legacy):
     by_number = {c.get("number"): c for c in data["cards"]}
     paths = {d["path"] for d in docs}
     for card in data["cards"]:
+        if card.get("stage") not in {s["id"] for s in STAGES}:
+            problems.append(card.get("number", "?") + ": 프로젝트 단계 지정 필요")
         if not card.get("number") or card.get("category") not in CATEGORIES:
             problems.append(card["id"] + ": 작업 번호/분야 누락")
         if card["source"] and card["source"] not in paths:
@@ -94,6 +96,7 @@ def main():
     sub.add_parser("show").add_argument("number")
     sync = sub.add_parser("sync-plans", help="Register existing MD plans once without duplicates")
     sync.add_argument("--by", required=True)
+    sync.add_argument("--stage", required=True, choices=[s["id"] for s in STAGES])
     add = sub.add_parser("add")
     add.add_argument("--title", required=True)
     add.add_argument("--category", choices=CATEGORIES, required=True)
@@ -106,6 +109,8 @@ def main():
     create.add_argument("--slug", required=True)
     create.add_argument("--by", required=True)
     create.add_argument("--body", default="요구사항과 완료 기준을 구체화한다.")
+    for command in (add, create):
+        command.add_argument("--stage", required=True, choices=[s["id"] for s in STAGES])
     for name in ("move", "log", "link"):
         cmd = sub.add_parser(name)
         cmd.add_argument("number")
@@ -144,7 +149,9 @@ def main():
             if not doc["status"] or doc["path"] in sources: continue
             card = new_card(doc["title"], doc["group"], doc["path"], "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.", args.by, doc["status"])
             card["assignees"] = data["assignments"].get(doc["path"], [])
+            if card["status"] == "completed": card["evidence"] = "기존 완료 계획: " + doc["path"]
             card["plan"] = True
+            card["stage"] = args.stage
             data["cards"].append(card)
         if len(data["cards"]) == initial_count:
             print("계획 등록 상태 확인 완료")
@@ -158,6 +165,7 @@ def main():
             target = safe_path(source)
             if target.exists(): raise ValueError("이미 존재하는 문서입니다. 기존 작업을 조회해서 이어가세요.")
         card = new_card(args.title, args.category, source, args.body, args.by)
+        card["stage"] = args.stage
         data["cards"].append(card)
     else:
         if args.version != version: raise ValueError("다른 변경이 있습니다. show로 원문과 최신 버전을 다시 확인하세요.")

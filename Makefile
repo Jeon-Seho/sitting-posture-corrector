@@ -1,36 +1,39 @@
+# Every target runs tools/dev.py so Windows, macOS and Linux share one implementation.
+# Without make: python tools/dev.py <target>
+ifeq ($(OS),Windows_NT)
+PYTHON ?= python
+else
 PYTHON ?= python3
-VENV_PYTHON := .venv/bin/python
+endif
 
 .PHONY: setup setup-python setup-frontend check check-repo test check-frontend check-board dev board
 
-setup: setup-python setup-frontend
+setup:
+	$(PYTHON) tools/dev.py setup
 
 setup-python:
-	$(PYTHON) -m venv .venv
-	$(VENV_PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) tools/dev.py setup-python
 
 setup-frontend:
-	npm --prefix frontend ci
-	npm --prefix frontend run assets
+	$(PYTHON) tools/dev.py setup-frontend
 
-check: check-repo test check-frontend check-board
-
-board:
-	$(PYTHON) tools/project-board/launch.py
-
-check-board:
-	node --check tools/project-board/app.js
-	$(PYTHON) tools/project-board/work.py check
-
-check-frontend:
-	npm --prefix frontend run check
-
-dev:
-	npm --prefix frontend run dev
+check:
+	$(PYTHON) tools/dev.py check
 
 check-repo:
-	$(PYTHON) tools/check_repository.py
+	$(PYTHON) tools/dev.py check-repo
 
 test:
-	@test -x $(VENV_PYTHON) || (echo "Run make setup first"; exit 1)
-	$(VENV_PYTHON) -m unittest discover -s tests -v
+	$(PYTHON) tools/dev.py test
+
+check-frontend:
+	$(PYTHON) tools/dev.py check-frontend
+
+dev:
+	$(PYTHON) tools/dev.py dev
+
+board:
+	$(PYTHON) tools/dev.py board
+
+check-board:
+	$(PYTHON) tools/dev.py check-board

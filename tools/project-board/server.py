@@ -20,6 +20,7 @@ LOCK = Lock()
 STATUSES = ("planned", "in_progress", "review", "blocked", "completed")
 MEMBERS = ("우진", "동욱", "세호", "유진", "지성", "홍규")
 CATEGORIES = ("프론트", "백엔드", "데브옵스", "서버", "머신러닝", "논문", "DB")
+STAGES = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
 SKIP = {".git", ".venv", "node_modules", "dist", "build", "__pycache__", "outputs", "data", "artifacts", "runs", "checkpoints"}
 
 
@@ -93,6 +94,7 @@ def validate(data):
             if not item["id"] or item["id"] in ids or not item["title"].strip(): raise ValueError("제목 또는 식별자 오류")
             ids.add(item["id"])
             if kind == "cards":
+                if item.get("stage", "unclassified") not in {s["id"] for s in STAGES} | {"unclassified"}: raise ValueError("프로젝트 단계 오류")
                 number = item.get("number")
                 if number is not None:
                     if not isinstance(number, str) or not re.fullmatch(r"GP-\d{4,}", number) or number in numbers: raise ValueError("작업 번호 중복 또는 형식 오류")
@@ -160,10 +162,10 @@ def prepare_cards(data, previous, actor="user", by="사용자", message=""):
         card.setdefault("category", "데브옵스")
         for key, default in (("priority", 0), ("size", 1), ("order", int(card["number"][3:])), ("dependsOn", []), ("priorityNote", ""), ("evidence", ""), ("performedBy", "")):
             card.setdefault(key, default)
-        if card["status"] == "completed" and before and before["status"] != "completed" and not card["evidence"].strip():
+        if card["status"] == "completed" and (not before or before["status"] != "completed") and not card["evidence"].strip():
             raise ValueError("완료한 내용과 검증·커밋 등 완료 근거를 기록하세요. 담당 배정은 필수가 아닙니다.")
         card["log"] = list(before.get("log", [])) if before else list(card.get("log", []))
-        changed = not before or any(card.get(k) != before.get(k) for k in ("title", "body", "status", "source", "assignees", "category", "result", "priority", "size", "order", "dependsOn", "priorityNote", "evidence", "performedBy"))
+        changed = not before or any(card.get(k) != before.get(k) for k in ("title", "body", "status", "source", "assignees", "category", "stage", "result", "priority", "size", "order", "dependsOn", "priorityNote", "evidence", "performedBy"))
         if changed or (message and card.get("updated") != (before or {}).get("updated")):
             card["log"].append(dict(at=stamp, by=by, kind=actor, text=message or ("작업 등록" if not before else "작업 내용·상태 수정")))
             card["updated"] = stamp
@@ -229,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/health": return self.send(200, {"app": IDENTITY, "root": str(ROOT)})
             if path == "/api/documents": return self.send(200, {"documents": documents()})
+            if path == "/api/stages": return self.send(200, {"stages": STAGES})
             if path == "/api/activity": return self.send(200, git_activity())
             if path == "/api/collaboration":
                 import collaboration

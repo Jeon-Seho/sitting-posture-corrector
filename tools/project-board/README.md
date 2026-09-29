@@ -1,7 +1,7 @@
 # 바른자세 로컬 관리판
 
 아르케 관리판의 현황·보드·메모 흐름을 바른자세 저장소에 맞춰 구현한 독립 개발 도구다.
-MD 본문 검색·읽기, 계획서 자동 집계, 6명 팀원 배정, 카드·AI 메모 파일 저장을 제공한다.
+단계별 프로젝트 여정, MD 본문 검색·읽기, 번호 카드 집계, 6명 팀원 배정, 카드·AI 메모 파일 저장을 제공한다.
 
 ## 실행
 
@@ -20,10 +20,13 @@ MD 본문 검색·읽기, 계획서 자동 집계, 6명 팀원 배정, 카드·A
 | index.html / style.css / app.js | 화면, 안전한 MD 렌더링, 필터, 팀 배정, 편집·백업 |
 | workspace.json | cards, notes, assignments의 파일 정본 |
 | board_cli.py | AI 접수함 조회와 처리 결과 추가 |
+| work.py / docs.py | 번호 작업 수명주기와 범위를 좁힌 문서 지도 |
+| collaboration.py | 원격 브랜치 갱신·미커밋 파일 겹침 알림 |
+| stages.json | 프로젝트 단계와 완료 기준·주요 문서 |
 | fonts/ | Pretendard 가변 폰트와 SIL Open Font License |
 | team.json | 사용자 확인 GitHub 계정과 커밋 작성자 별칭 |
 
-GET `/api/health`, `/api/documents`, `/api/workspace`, `/api/activity`.
+GET `/api/health`, `/api/documents`, `/api/workspace`, `/api/activity`, `/api/stages`, `/api/collaboration`.
 POST `/api/workspace`는 같은 Origin과 `{data, version}`을 요구한다. 버전이 다르면 409.
 읽기·쓰기 모두 승인된 Host만 받는다. 문서 본문은 텍스트로 읽고 HTML을 실행하지 않는다.
 저장 도중 서버 장애 등으로 .tmp가 남아도 정본을 임의 교체하지 않는다.
@@ -33,5 +36,5 @@ POST `/api/workspace`는 같은 Origin과 `{data, version}`을 요구한다. 버
 `python -m unittest discover -s tests -p test_project_board.py -v`
 
 Node가 있으면 `node --check tools/project-board/app.js`로 문법도 검사한다.
-전체 저장소 검증은 `make check`. Windows에서 make가 없으면 각 대응 명령 결과를 따로 보고한다.
+전체 저장소 검증은 `make check`. Windows에서 make가 없으면 `python tools/dev.py check`를 사용한다.
 상세 규칙·팀 배정·AI 명령은 [관리판 운영](../../docs/project-board.md)을 따른다.

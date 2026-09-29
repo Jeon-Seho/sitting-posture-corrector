@@ -8,8 +8,8 @@
 재부팅 후에는 다시 실행한다. 로그는 `%TEMP%/goodpose-project-board.log`다.
 다른 체크아웃이 8774를 사용하면 자동 교체하지 않고 오류를 표시한다.
 
-- 한눈에 보기: 문서 수, 진행·완료 계획 수, 미처리 메모, 활성 계획, 주요 문서.
-- 문서 라이브러리: 저장소 MD 제목·본문·경로 검색, 분야별 분류, 표·체크리스트·코드·목차·원문 보기.
+- 한눈에 보기: 문서 수, 진행·완료 작업 수, 미처리 메모, 진행 카드, 주요 문서.
+- 프로젝트 여정: 단계별 완료·진행·선행 대기와 다음 실행 후보, 해당 단계의 근거 문서. 전체 MD 검색·분야 필터·원문 보기도 유지한다.
 - 진행 보드: 결정·확인 필요 / 할 일 / 진행 중 / 검수 대기 / 완료. 출처·담당·검색으로 필터링.
 - 팀원: 우진·동욱·세호·유진·지성·홍규의 배정된 작업과 상태별 건수.
 - Git 이력: [팀 계정 연결](team.md)을 기준으로 현재 브랜치 최근 100개 커밋의 작성자·제목·해시·날짜를 표시하고 사람별로 필터링한다.
@@ -117,8 +117,8 @@ python tools/project-board/work.py check
 새 작업은 기존 번호를 검색한 뒤 중복이 없을 때 등록한다.
 
 ```sh
-python tools/project-board/work.py add --title "작업 제목" --category 프론트 --source docs/team-requirements.md --body "완료 기준" --by Lellon_GPT
-python tools/project-board/work.py create-doc --title "설계 제목" --category 프론트 --slug baseline-flow --body "완료 기준" --by Lellon_GPT
+python tools/project-board/work.py add --title "작업 제목" --category 프론트 --stage service --source docs/team-requirements.md --body "완료 기준" --by Lellon_GPT
+python tools/project-board/work.py create-doc --title "설계 제목" --category 프론트 --stage service --slug baseline-flow --body "완료 기준" --by Lellon_GPT
 ```
 
 `create-doc`은 분야별 MD와 카드 번호를 함께 만든다. 기존 정본을 수정할 때는 새 문서를 중복 생성하지 않는다.
@@ -133,7 +133,7 @@ python tools/project-board/work.py create-doc --title "설계 제목" --category
 - ★★ 가지: 다른 작업에 영향을 주지만 독립 진행도 가능한 구현.
 - ★ 잎: 독립적인 개선·최종 산출물. ☆는 미분류이며 중요하지 않다는 뜻이 아니다.
 - ● / ●● / ●●●: 예상 작업 규모 작음 / 보통 / 큼. 날짜나 정확한 시간 추정이 아니다.
-- `dependsOn`: 선행 GP 번호. 누락·순환 관계는 저장을 거부한다. `order`: 진행 순서. 보드에서 선행 관계를 먼저 배치한다.
+- `dependsOn`: 선행 GP 번호. 누락·순환 관계는 저장을 거부한다. `order`: 배치 순서. 10·20·30은 작업 번호가 아니라 중간에 15 같은 항목을 넣기 위한 정렬 간격이다. 보드에서 선행 관계를 먼저 배치한다.
 
 같은 칸 안에서 선행 작업·순서를 따르며, 상태가 다른 칸에서는 선행 대기 번호를 표시한다.
 팀이 별·규모·순서를 수정할 수 있다. 자동으로 사람을 배정하지 않는다.
@@ -174,3 +174,16 @@ python tools/project-board/docs.py --task GP-0010
 GP 번호는 저장소 데이터의 다음 번호로 발급한다. 다른 PC는 최신 브랜치를 받은 뒤 등록하고 카드 변경을 공유해야 한다.
 서로 다른 오프라인 브랜치가 같은 번호를 발급한 경우 병합 검사에서 중복을 거부한다. 충돌을 숨기거나 자동으로 번호를 바꾸지 말고, 양쪽 기록과 MD 링크를 확인해 팀과 정리한다.
 이 관리판은 중앙 서버 없이 Git으로 공유하는 로컬 도구다. 웹 주소만 다른 PC에 보내면 공동 접속되는 구조는 아니다.
+
+
+## 프로젝트 여정의 단계
+
+단계 정본은 [stages.json](../tools/project-board/stages.json), 각 카드의 소속은 `stage`다.
+기반(foundation) → 로컬 프로토타입(prototype) → 정책·계약(contracts) → 데이터·모델(data) → 서비스 연결(service) → 검증(validation) → 논문·발표(delivery)로 살펴본다.
+관리판·스킬·공통 도구는 상시 운영(operations)에 둔다. 단계는 병행할 수 있고 실제 착수 가능 여부는 선행 GP 번호를 따른다.
+
+단계 완료 수는 해당 카드 중 completed 개수다. 문서 수·체크박스·커밋 수로 완료를 추정하지 않는다.
+제품 작업 집계에서 상시 운영을 제외하며, 이 비율을 서비스 품질·연구 성과 달성률로 읽지 않는다.
+단계 클릭 시 작업, 완료 기준, 다음 실행 후보, 선행 대기와 근거 문서를 함께 확인한다. 전체 문서 탐색으로 단계에 묶이지 않은 문서도 찾는다.
+새 카드 생성 시 웹에서 단계를 고르거나 CLI의 `--stage`로 지정한다. `sync-plans --by <계정_AI> --stage <단계>`는 기존 계획을 일괄 등록할 때 사용하며 이후 카드별 단계를 확인한다.
+AI는 새 카드·문서를 추가할 때 분야뿐 아니라 단계도 지정하고, `work.py check`로 누락을 검사한다.

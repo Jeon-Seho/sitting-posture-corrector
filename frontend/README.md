@@ -14,6 +14,7 @@ make dev
 ```
 
 `http://127.0.0.1:5173/`에서 연다. 프론트만 준비하려면 `make setup-frontend`, 검증은 `make check`.
+`make`가 없는 Windows에서는 `python tools/dev.py setup` / `dev` / `check`로 같은 대상을 실행한다.
 웹캠은 localhost 또는 HTTPS에서 사용한다. 내장 미리보기에서 권한을 지원하지 않으면 Chrome에서 같은 주소를 연다.
 최초 설치 시 npm 패키지와 공식 Google 모델을 받는다. `model-asset.json`의 SHA-256으로 모델을 검증하며
 모델·WASM은 Git에서 제외한 `public/mediapipe/`에 둔다. 이후 실행은 로컬 자산을 재사용한다.

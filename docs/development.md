@@ -10,6 +10,9 @@ make check      # CI와 동일한 진입점
 make dev        # 웹캠/데모 프론트 프로토타입
 ```
 
+`make`가 없는 Windows에서는 같은 대상을 `python tools/dev.py <대상>`으로 실행한다(예: `python tools/dev.py setup`, `python tools/dev.py check`).
+`Makefile`은 이 스크립트를 호출만 하므로 두 방법의 결과는 같다. 근거는 [ADR 0009](decisions/0009-cross-platform-dev-entry.md).
+
 Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구성한다.
 프론트는 Node.js 24 이상과 npm을 사용한다. `make setup`이 npm lockfile 기준으로 설치하고 MediaPipe 모델을 준비한다.
 `make check-frontend`는 상태 전이·품질 테스트, 타입 검사, 빌드를 실행한다. `make check`에도 포함된다.

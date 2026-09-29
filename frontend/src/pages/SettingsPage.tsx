@@ -1,7 +1,7 @@
 import { ArrowCounterClockwise } from '@phosphor-icons/react'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
-import { Card, DemoNote, Switch } from '../components/ui'
+import { Card, Switch } from '../components/ui'
 
 type Rules = typeof DEFAULT_RULES
 
@@ -180,10 +180,6 @@ export function SettingsPage({
               <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
             </div>
           </Card>
-
-          <DemoNote>
-            이 화면의 값은 이 브라우저에만 저장됩니다. 서버와 연결되어 있지 않습니다.
-          </DemoNote>
         </div>
       </div>
     </>
