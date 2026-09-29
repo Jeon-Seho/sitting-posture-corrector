@@ -145,7 +145,7 @@ python tools/project-board/work.py create-doc --title "설계 제목" --category
 작업 중 다른 사람이 수정하면 버전 충돌로 저장을 중단하고 최신 요청을 다시 확인한다.
 
 기록 작성자는 `<GitHub 계정>_GPT` / `<GitHub 계정>_CL`이다. 우진은 요청에 따라 `Lellon_GPT` / `Lellon_CL`을 사용한다.
-동욱 `klaod-tech_GPT/CL`, 세호 `Jeon-Seho_GPT/CL`, 지성 `HJisung_GPT/CL`. 유진·홍규 계정은 확인 후 등록한다.
+동욱 `klaod-tech_GPT/CL`, 세호 `Jeon-Seho_GPT/CL`, 지성 `HJisung_GPT/CL`. 유진 `sunshine-yj_GPT/CL`, 홍규 `ghdrb1246_GPT/CL`. 6명 모두 계정 연결을 마쳤다.
 서버가 등록된 표기를 검사한다. 다른 사람의 AI를 우진 표기로 기록하지 않는다.
 이번 대화의 옛 `Codex` 기록은 작성 주체가 확인되어 `Lellon_GPT`로 연결했고 `legacyBy`에 이전 표기를 보존했다.
 

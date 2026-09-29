@@ -150,7 +150,9 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(board.author_member("Leo", "x@example.com", team), "동욱")
         self.assertEqual(board.author_member("HJisung", "x@example.com", team), "지성")
         self.assertIsNone(board.author_member("jisung", "unknown@example.com", team))
-        self.assertIsNone(board.author_member("홍규", "unknown@example.com", team))
+        self.assertEqual(board.author_member("ghdrb1246", "unknown@example.com", team), "홍규")
+        self.assertEqual(board.author_member("other", "123+sunshine-yj@users.noreply.github.com", team), "유진")
+        self.assertIsNone(board.author_member("sunshine", "unknown@example.com", team))
         self.assertIsNone(board.author_member("lellon", "shared@example.com", team, {"shared@example.com": {"우진", "세호"}}))
 
     def test_document_shelves_include_shared_topics(self):
@@ -203,6 +205,8 @@ class BoardTests(unittest.TestCase):
     def test_ai_identity_requires_confirmed_owner(self):
         board.validate_ai("Lellon_GPT")
         board.validate_ai("klaod-tech_CL")
+        for prefix in ("ghdrb1246", "sunshine-yj"):
+            for suffix in ("GPT", "CL"): board.validate_ai(prefix + "_" + suffix)
         for name in ("Codex", "GPT", "홍규_GPT"):
             with self.subTest(name=name), self.assertRaises(ValueError): board.validate_ai(name)
 

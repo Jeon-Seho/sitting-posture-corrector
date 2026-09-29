@@ -364,8 +364,8 @@
       "author": "",
       "assignees": [],
       "agent": "Lellon_GPT",
-      "result": "요청한 관리판 운영·단계 화면 구현 완료. 제품 실환경 검증은 GP-0033에서 별도 진행.",
-      "updated": "2026-09-29T03:02:43.437687+00:00",
+      "result": "홍규 ghdrb1246·유진 sunshine-yj 연결 완료. 총6명 GitHub 작성자 분류와 GPT/CL AI 표기 지원.",
+      "updated": "2026-09-29T03:20:14.851381+00:00",
       "log": [
         {
           "at": "2026-09-29T02:30:59.807825+00:00",
@@ -392,6 +392,18 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "공통 검사·스킬·브라우저 확인 후 GP-0010/0043 완료. 배치 순서 안내와 개발 브랜치 통합 반영."
+        },
+        {
+          "at": "2026-09-29T03:19:45.388382+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자가 확인한 나머지 팀원2명의 계정 연결 착수."
+        },
+        {
+          "at": "2026-09-29T03:20:14.851381+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "확인된 두 계정·별칭·AI 표기와 운영 문서 갱신 및 검증 완료."
         }
       ],
       "number": "GP-0010",
@@ -400,7 +412,7 @@
       "order": 10,
       "dependsOn": [],
       "priorityNote": "모든 후속 AI 작업의 기록·문서·검증 체계를 제공한다.",
-      "evidence": "2026-09-29 python tools/dev.py check 통과: Python29, 프론트40, 타입·빌드·JS·문서. 스킬4개 검증 및 브라우저 단계·카드·메뉴 확인.",
+      "evidence": "2026-09-29 python tools/dev.py check 통과: Python29, 프론트40, 타입·빌드·JS·문서. 스킬4개 검증 및 브라우저 단계·카드·메뉴 확인.\n추가 계정 연결: Python29/프론트40·타입·빌드·문서 검사 통과. 실서버 activity API에 두 계정 반영 확인.",
       "performedBy": "우진",
       "stage": "operations"
     },
