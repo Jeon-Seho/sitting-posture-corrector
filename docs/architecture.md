@@ -49,11 +49,5 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 `useCamera.subscribe`는 새 추론 프레임의 평활화 전 특징과 33개 영상/world 좌표를 전달한다.
 `useCollection`은 명시적 시작 후 준비 시간을 제외한 관측만 최대 10Hz로 버퍼링한다.
 안내 과제·실제 자세·재석 상태·측정 품질을 분리하고 촬영 후 자기 보고 검토를 거쳐 v2 CSV로 내보낸다.
-전용 수집 화면(사용자 표시명 `자세 등록`, 코드상 `CollectionPage`)은 교정 알림을 실행하지 않는다. 영상·음성 저장/업로드는 없다.
-
-## 프론트 진입과 로컬 저장
-
-프론트 진입점은 `frontend/src/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
-서버가 없는 동안 프로필·설정·측정 요약·중간 저장·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
-이는 서버 저장 API를 대체하는 임시 경계이며, 백엔드 연결 시 같은 지점에서 교체한다.
+전용 라벨 수집 화면은 교정 알림을 실행하지 않는다. 영상·음성 저장/업로드는 없다.
 [수집 v2 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.

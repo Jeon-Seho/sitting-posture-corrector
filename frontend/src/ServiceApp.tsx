@@ -17,7 +17,6 @@ import { KEYS, readLocal, writeLocal, upsertRecord, summary, resumeMachine, type
 
 type Page = 'home' | 'setup' | 'session' | 'collection' | 'dashboard' | 'settings' | 'profile'
 const NAV: [Page, string, Icon][] = [['home','홈',House],['setup','측정 준비',Crosshair],['session','실시간 측정',Record],['collection','자세 등록',Tag],['dashboard','대시보드',ChartBar],['settings','설정',GearSix],['profile','프로필 설정',UserCircle]]
-const CAMERA_PAGES: Page[] = ['setup', 'session', 'collection']
 const SUB_TABS:Partial<Record<Page, Page[]>> = { session: ['setup', 'session'], profile: ['settings', 'profile'] }
 type Session = { id: string; startedAt: string; mode: 'camera' | 'demo'; rules: Rules; initial?: Machine }
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE')
@@ -43,14 +42,16 @@ export default function ServiceApp() {
   const [consent, setConsent] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const ended = useRef(false)
-  const measuring = !!session && !ended.current
-  // 카메라는 측정 준비에서 직접 켜고, 카메라가 필요 없는 화면으로 나가면 끈다. 진행 중인 측정은 유지한다.
-  const go = (next: Page) => { setError(''); if (!CAMERA_PAGES.includes(next) && !measuring) camera.stop(); setPage(next) }
+  useEffect(() => {
+    if (authed) void camera.connect()
+  }, [authed])
+  const go = (next: Page) => { setError(''); setPage(next) }
   function openCollection() {
-    if (measuring) { setError('진행 중인 측정을 종료한 뒤 자세 등록으로 이동해 주세요.'); return }
+    if (session && !ended.current) { setError('진행 중인 측정을 종료한 뒤 자세 등록으로 이동해 주세요.'); return }
     if (mode !== 'camera') { camera.stop(); setMode('camera') }
     go('collection')
   }
+  const measuring = !!session && !ended.current
   function saveProfile() {
     if (!name.trim() || !occupation.trim() || age < 1 || age > 120) { setError('이름·나이·직업을 확인해 주세요.'); return false }
     const next = { name: name.trim(), age, occupation: occupation.trim() }
@@ -92,7 +93,7 @@ export default function ServiceApp() {
     <label className="field">나이<input className="input" type="number" min={1} max={120} value={age} onChange={e => setAge(Number(e.target.value))} required/></label>
     <label className="field">직업<input className="input" value={occupation} onChange={e => setOccupation(e.target.value)} required maxLength={80}/></label>
   </>
-  if (!authed) return <LoginPage title={profile ? `${profile.name}님, 다시 오셨네요` : '시작하기'} lead="계정 서버 연결 전 미리보기입니다. 프로필과 측정 요약은 이 브라우저에만 저장합니다." submitLabel={profile ? '내 프로필로 시작' : '프로필 만들고 시작'} fine="카메라는 ‘측정 준비’에서 직접 켤 때만 사용합니다. 카메라 없이도 홈과 시연을 이용할 수 있습니다." onSubmit={() => { if (saveProfile()) { setAuthed(true); setRegistration(!profile); setPage(profile ? 'home' : 'setup') } }} footer={error && <p role="alert" className="fine">{error}</p>}>{profileFields}</LoginPage>
+  if (!authed) return <LoginPage title={profile ? `${profile.name}님, 다시 오셨네요` : '시작하기'} lead="계정 서버 연결 전 미리보기입니다. 프로필과 측정 요약은 이 브라우저에만 저장합니다." submitLabel={profile ? '내 프로필로 시작' : '프로필 만들고 시작'} fine="시작하면 카메라 준비를 요청합니다. 허용하지 않아도 홈과 시연을 이용할 수 있습니다." onSubmit={() => { if (saveProfile()) { setAuthed(true); setRegistration(!profile); setPage(profile ? 'home' : 'setup') } }} footer={error && <p role="alert" className="fine">{error}</p>}>{profileFields}</LoginPage>
   const today = day(new Date().toISOString())
   const modeRecords = records.filter(r => r.mode === mode)
   const currentRecords = modeRecords.filter(r => day(r.endedAt) === today)
@@ -104,6 +105,7 @@ export default function ServiceApp() {
       <div className="sidebar-foot"><span>개인 기준 규칙 v0.1 · LSTM 미연결</span><span>로컬 미리보기 · 서버 미연결</span><button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => { if (pending.current) { setError('결과 저장을 완료한 뒤 나가 주세요.'); return } camera.stop(); setAuthed(false); setSession(null); setDraft(readLocal(KEYS.draft, null)) }}><SignOut size={16} weight="bold" className="icon"/>로그아웃</button></div>
     </aside>
     <main className="main service-main">
+      <div className="service-status"><span>{camera.state === 'on' ? '카메라 사용 중' : camera.state === 'loading' ? '카메라 준비 중' : '카메라 꺼짐'}</span><button className="btn btn-sm" disabled={camera.state === 'loading'} onClick={() => camera.state === 'on' ? camera.stop() : void camera.connect()}>{camera.state === 'on' ? '카메라 끄기' : '카메라 켜기'}</button></div>
       {error && <p role="status" className="service-notice">{error}</p>}
       {draft && !session && <Card title="중단된 측정이 있습니다"><p>마지막 저장 지점까지 복구합니다. 복구 후 직접 측정 재개를 눌러 주세요.</p><button className="btn btn-primary" onClick={restore}>이어하기</button><button className="btn" onClick={() => { const m = draft.machine; saveResult({ id: draft.id, startedAt: draft.startedAt, endedAt: new Date().toISOString(), mode: draft.mode, total: m.total, valid: Math.max(0,m.total-m.paused-m.unknown),good:m.good,events:resumeMachine(m).events }); }}>여기까지 종료·저장</button></Card>}
       {showDemo && page === 'home' && <HomePage hasHistory onStart={() => go(measuring ? 'session' : 'setup')} onDashboard={() => go('dashboard')}/>}

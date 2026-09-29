@@ -1,7 +1,7 @@
 PYTHON ?= python3
 VENV_PYTHON := .venv/bin/python
 
-.PHONY: setup setup-python setup-frontend check check-repo test check-frontend dev
+.PHONY: setup setup-python setup-frontend check check-repo test check-frontend check-board dev board
 
 setup: setup-python setup-frontend
 
@@ -13,7 +13,14 @@ setup-frontend:
 	npm --prefix frontend ci
 	npm --prefix frontend run assets
 
-check: check-repo test check-frontend
+check: check-repo test check-frontend check-board
+
+board:
+	$(PYTHON) tools/project-board/launch.py
+
+check-board:
+	node --check tools/project-board/app.js
+	$(PYTHON) tools/project-board/work.py check
 
 check-frontend:
 	npm --prefix frontend run check
