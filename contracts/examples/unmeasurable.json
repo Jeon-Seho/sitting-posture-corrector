@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "timestamp_ms": 9000,
+  "status": "unmeasurable",
+  "deviation_type": null,
+  "confidence": null,
+  "measurement_quality": "poor",
+  "duration_ms": 0
+}

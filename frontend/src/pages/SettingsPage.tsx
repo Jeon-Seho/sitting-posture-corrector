@@ -1,5 +1,7 @@
-import { DEFAULT_RULES, MODEL_VERSION } from '../data/posture'
-import { Card, DemoNote, Switch } from '../components/ui'
+import { ArrowCounterClockwise } from '@phosphor-icons/react'
+import { postureScore } from '../lib/postureScore'
+import { DEFAULT_RULES } from '../data/posture'
+import { Card, Switch } from '../components/ui'
 
 type Rules = typeof DEFAULT_RULES
 
@@ -36,9 +38,10 @@ function Slider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          style={{ width: 150, accentColor: 'var(--accent)' }}
+          aria-label={name}
+          style={{ width: 160 }}
         />
-        <span className="num" style={{ minWidth: 62, textAlign: 'right', fontWeight: 600 }}>
+        <span className="slider-value">
           {value}
           {unit}
         </span>
@@ -54,7 +57,9 @@ export function SettingsPage({
   onAlerts,
   hasHistory,
   onHasHistory,
+  serviceMode = false,
 }: {
+  serviceMode?: boolean
   rules: Rules
   onRules: (r: Rules) => void
   alertsOn: boolean
@@ -75,12 +80,13 @@ export function SettingsPage({
           </p>
         </div>
         <button className="btn" onClick={() => onRules(DEFAULT_RULES)}>
+          <ArrowCounterClockwise size={17} weight="bold" className="icon" />
           기본값으로 되돌리기
         </button>
       </div>
 
       <div className="grid g2" style={{ alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="stack">
           <Card title="알림">
             <div className="setting-row">
               <div>
@@ -89,7 +95,7 @@ export function SettingsPage({
                   꺼도 붕괴 이벤트는 계속 기록되며, 해당 구간은 회복 시간 집계에서 따로 표시됩니다.
                 </div>
               </div>
-              <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
+              {serviceMode ? <span>화면 알림 유지 · 소리는 측정 화면에서 설정</span> : <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />}
             </div>
             <Slider
               name="붕괴 확정 지속 시간"
@@ -125,31 +131,31 @@ export function SettingsPage({
 
           <Card title="판정">
             <Slider
-              name="붕괴 판정 임계값"
-              desc="모델이 내놓은 붕괴 확률이 이 값을 넘어야 붕괴 후보로 봅니다."
-              value={rules.threshold}
-              min={0.5}
-              max={0.95}
-              step={0.01}
-              unit=""
-              onChange={(v) => set({ threshold: v })}
+              name="자세 점수 알림 기준"
+              desc="자세 점수가 이 값 이하로 지속되면 알립니다. 높일수록 작은 변화에도 알림이 생깁니다."
+              value={postureScore(rules.threshold)!}
+              min={5}
+              max={50}
+              step={1}
+              unit="점"
+              onChange={(v) => set({ threshold: Math.round((1 - v / 100) * 100) / 100 })}
             />
           </Card>
         </div>
 
-        <div style={{ display: 'grid', gap: 14 }}>
-          <Card title="운영 정보" note="배포 버전을 식별할 수 있도록 화면에 남겨 둡니다.">
+        <div className="stack">
+          <Card title="운영 정보" note="배포 버전을 식별할 수 있도록 화면에 남겨 둡니다." dark>
             <div className="setting-row">
-              <div className="setting-name">추론 모델 버전</div>
-              <span className="mono">{MODEL_VERSION}</span>
+              <div className="setting-name">실제 웹캠 판정</div>
+              <span className="mono">{'reference-rules-v0.1'}</span>
             </div>
             <div className="setting-row">
               <div className="setting-name">전처리 설정 버전</div>
-              <span className="mono">prep-v0.3.0</span>
+              <span className="mono">shoulder-normalized-v0.1</span>
             </div>
             <div className="setting-row">
-              <div className="setting-name">입력 시간 윈도우</div>
-              <span className="mono">4.0s / 30fps</span>
+              <div className="setting-name">현재 판정 방식</div>
+              <span className="mono">프레임 규칙 / 5초 기준 등록</span>
             </div>
             <div className="setting-row">
               <div className="setting-name">키포인트 추출</div>
@@ -157,8 +163,8 @@ export function SettingsPage({
             </div>
             <div className="setting-row">
               <div className="setting-name">최근 오류</div>
-              <span className="muted" style={{ fontSize: 12 }}>
-                없음
+              <span className="muted" style={{ fontSize: 13 }}>
+                오류는 카메라 화면에서 표시
               </span>
             </div>
           </Card>
@@ -166,18 +172,14 @@ export function SettingsPage({
           <Card title="시연 옵션" note="발표 중 화면을 전환할 때 사용합니다.">
             <div className="setting-row">
               <div>
-                <div className="setting-name">홈에 기록 표시</div>
+                <div className="setting-name">발표용 예시 기록 표시</div>
                 <div className="setting-desc">
-                  끄면 기록이 없는 신규 사용자 화면으로 바뀝니다.
+                  켜면 홈·대시보드에 발표용 예시 기록을, 끄면 이 브라우저에 저장된 실제 측정 기록을 보여줍니다.
                 </div>
               </div>
-              <Switch checked={hasHistory} onChange={onHasHistory} label="홈에 기록 표시" />
+              <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
             </div>
           </Card>
-
-          <DemoNote>
-            이 화면의 값은 브라우저 메모리에만 남습니다. 새로고침하면 기본값으로 돌아갑니다.
-          </DemoNote>
         </div>
       </div>
     </>

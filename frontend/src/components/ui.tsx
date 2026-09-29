@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Info } from '@phosphor-icons/react'
 import { STATE_LABEL, type PostureState } from '../data/posture'
 
 export function Card({
@@ -6,16 +7,18 @@ export function Card({
   note,
   action,
   children,
+  dark = false,
   className = '',
 }: {
   title?: string
   note?: string
   action?: ReactNode
   children: ReactNode
+  dark?: boolean
   className?: string
 }) {
   return (
-    <section className={`card ${className}`}>
+    <section className={`card ${dark ? 'dark' : ''} ${className}`}>
       {(title || action) && (
         <div className="card-head">
           <div>
@@ -30,29 +33,36 @@ export function Card({
   )
 }
 
+export function Ledger({ cols, children }: { cols: 3 | 4; children: ReactNode }) {
+  return <div className={`ledger g${cols}`}>{children}</div>
+}
+
 export function Stat({
   label,
   value,
   sub,
   hint,
   tone,
+  small = false,
 }: {
   label: string
   value: string
   sub?: string
   hint?: string
-  tone?: 'good' | 'bad' | 'muted'
+  tone?: 'good' | 'bad'
+  small?: boolean
 }) {
-  const color = tone === 'good' ? 'var(--good)' : tone === 'bad' ? 'var(--bad)' : undefined
   return (
-    <div className="card">
+    <div className="stat">
       <div className="stat-label">
         {label}
-        {hint && <span title={hint} className="muted">ⓘ</span>}
+        {hint && (
+          <span title={hint} className="muted">
+            <Info size={14} weight="bold" className="icon" />
+          </span>
+        )}
       </div>
-      <div className="stat-value" style={{ color }}>
-        {value}
-      </div>
+      <div className={`stat-value ${small ? 'sm' : ''} ${tone ?? ''}`}>{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   )
@@ -103,67 +113,28 @@ export function FeatureRow({
   )
 }
 
-export function Ring({
-  value,
-  label,
-  size = 108,
-}: {
-  value: number | null
-  label: string
-  size?: number
-}) {
-  const r = 44
-  const c = 2 * Math.PI * r
-  const v = value ?? 0
-  const color = v >= 0.8 ? 'var(--good)' : v >= 0.6 ? 'var(--warn)' : 'var(--bad)'
+export function Rate({ value, label }: { value: number | null; label: string }) {
+  const tone = value === null ? 'empty' : value >= 0.8 ? 'good' : value >= 0.6 ? 'warn' : 'bad'
   return (
-    <div style={{ display: 'grid', placeItems: 'center', gap: 6 }}>
-      <svg width={size} height={size} viewBox="0 0 110 110">
-        <circle cx="55" cy="55" r={r} fill="none" stroke="var(--panel-3)" strokeWidth="9" />
-        {value !== null && (
-          <circle
-            cx="55"
-            cy="55"
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeDasharray={`${c * v} ${c}`}
-            transform="rotate(-90 55 55)"
-            style={{ transition: 'stroke-dasharray 0.3s' }}
-          />
-        )}
-        <text
-          x="55"
-          y="52"
-          textAnchor="middle"
-          fill="var(--text)"
-          fontSize={value === null ? 12 : 21}
-          fontWeight="680"
-        >
-          {value === null ? '계산 불가' : `${Math.round(v * 100)}%`}
-        </text>
-        <text x="55" y="68" textAnchor="middle" fill="var(--muted)" fontSize="9.5">
-          {label}
-        </text>
-      </svg>
+    <div className="rate">
+      <span className="rate-label">{label}</span>
+      <span className={`figure ${tone}`}>
+        {value === null ? '계산 불가' : `${Math.round(value * 100)}%`}
+      </span>
+      <Meter value={value ?? 0} color={`var(--${tone === 'empty' ? 'unknown' : tone}-fill)`} />
     </div>
   )
 }
 
 export type Bar = { label: string; sub?: string; value: number }
 
-/**
- * 막대 + 보조 꺾은선 조합 차트. 대시보드의 일별 비교에 쓴다.
- */
 export function ComboChart({
   bars,
   line,
   barUnit,
   lineUnit,
-  barColor = 'var(--accent)',
-  lineColor = 'var(--good)',
+  barColor = 'var(--ink)',
+  lineColor = 'var(--accent)',
 }: {
   bars: Bar[]
   line?: number[]
@@ -175,8 +146,8 @@ export function ComboChart({
   const n = bars.length
   const step = 46
   const W = n * step
-  const H = 172
-  const base = 126
+  const H = 176
+  const base = 128
   const top = 16
   const barMax = Math.max(...bars.map((b) => b.value), 1)
   const lineMax = line ? Math.max(...line, 0.001) : 1
@@ -193,37 +164,29 @@ export function ComboChart({
             x2={W}
             y1={base - g * (base - top)}
             y2={base - g * (base - top)}
-            stroke="var(--line-soft)"
-            strokeWidth="1"
+            stroke={g === 0 ? 'var(--ink)' : 'var(--rule)'}
+            strokeWidth={g === 0 ? 1.5 : 1}
           />
         ))}
         {bars.map((b, i) => {
           const h = (b.value / barMax) * (base - top)
           return (
             <g key={b.label + i}>
-              <rect
-                x={x(i) - 11}
-                y={base - h}
-                width="22"
-                height={Math.max(h, 1.5)}
-                rx="3"
-                fill={barColor}
-                opacity="0.82"
-              >
+              <rect x={x(i) - 12} y={base - h} width="24" height={Math.max(h, 1.5)} fill={barColor}>
                 <title>{`${b.label} · ${b.value.toFixed(1)}${barUnit}`}</title>
               </rect>
-              <text x={x(i)} y={base + 15} textAnchor="middle" fill="var(--muted)" fontSize="10">
+              <text
+                x={x(i)}
+                y={base + 17}
+                textAnchor="middle"
+                fill="var(--ink-2)"
+                fontSize="11"
+                fontWeight="600"
+              >
                 {b.label}
               </text>
               {b.sub && (
-                <text
-                  x={x(i)}
-                  y={base + 28}
-                  textAnchor="middle"
-                  fill="var(--muted)"
-                  fontSize="9.5"
-                  opacity="0.75"
-                >
+                <text x={x(i)} y={base + 31} textAnchor="middle" fill="var(--muted)" fontSize="10">
                   {b.sub}
                 </text>
               )}
@@ -238,7 +201,7 @@ export function ComboChart({
                 .join(' ')}
               fill="none"
               stroke={lineColor}
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinejoin="round"
             />
             {line.map((v, i) => (
@@ -246,10 +209,10 @@ export function ComboChart({
                 key={i}
                 cx={x(i)}
                 cy={base - (v / lineMax) * (base - top)}
-                r="2.6"
+                r="3.4"
                 fill={lineColor}
-                stroke="var(--panel)"
-                strokeWidth="1.2"
+                stroke="var(--paper-2)"
+                strokeWidth="1.5"
               >
                 <title>{`${bars[i]?.label ?? ''} · ${(v * (lineUnit === '%' ? 100 : 1)).toFixed(
                   1,
@@ -299,8 +262,18 @@ export function Switch({
 export function DemoNote({ children }: { children: ReactNode }) {
   return (
     <div className="demo-note">
-      <span>▲</span>
+      <Info size={18} weight="bold" className="icon" />
       <span>{children}</span>
+    </div>
+  )
+}
+
+export function Rings({ count = 4 }: { count?: number }) {
+  return (
+    <div className="rings" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <i key={i} />
+      ))}
     </div>
   )
 }

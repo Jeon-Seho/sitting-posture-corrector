@@ -1,9 +1,9 @@
 import { BONES, type Keypoints, type PostureState } from '../data/posture'
 
 const STATE_COLOR: Record<PostureState, string> = {
-  good: '#35d6a4',
-  collapse: '#ff6b6e',
-  unknown: '#8794a8',
+  good: '#6fc2af',
+  collapse: '#ee6a86',
+  unknown: '#a39d90',
 }
 
 type Props = {
@@ -40,26 +40,26 @@ export function PoseStage({ keypoints: k, state, confidence, showSkeleton = true
       aria-label="자세 추정 미리보기">
       <defs>
         <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#141b24" />
-          <stop offset="55%" stopColor="#0d131a" />
-          <stop offset="100%" stopColor="#080c11" />
+          <stop offset="0%" stopColor="#221f1b" />
+          <stop offset="55%" stopColor="#171512" />
+          <stop offset="100%" stopColor="#0e0d0b" />
         </linearGradient>
         <radialGradient id="vignette" cx="50%" cy="45%" r="72%">
           <stop offset="55%" stopColor="rgba(0,0,0,0)" />
           <stop offset="100%" stopColor="rgba(0,0,0,0.62)" />
         </radialGradient>
         <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b4757" />
-          <stop offset="100%" stopColor="#252e3a" />
+          <stop offset="0%" stopColor="#58524a" />
+          <stop offset="100%" stopColor="#36322d" />
         </linearGradient>
       </defs>
 
       <rect x="-17" y="0" width="134" height="100" fill="url(#room)" />
       {/* 뒤쪽 벽과 책상 라인 */}
-      <line x1="-17" y1="62" x2="117" y2="62" stroke="#1a222c" strokeWidth="0.6" />
-      <rect x="-17" y="88" width="134" height="12" fill="#11171f" />
+      <line x1="-17" y1="62" x2="117" y2="62" stroke="#2e2a25" strokeWidth="0.6" />
+      <rect x="-17" y="88" width="134" height="12" fill="#1a1815" />
       {/* 의자 등받이 */}
-      <rect x="28" y="52" width="44" height="42" rx="8" fill="#141a22" />
+      <rect x="28" y="52" width="44" height="42" rx="8" fill="#1f1c19" />
 
       <g opacity={faded ? 0.45 : 1}>
         {/* 목 */}
@@ -116,7 +116,7 @@ export function PoseStage({ keypoints: k, state, confidence, showSkeleton = true
             />
           ))}
           {Object.values(k).map(([x, y], i) => (
-            <circle key={i} cx={x} cy={y} r="1.25" fill={color} stroke="#0b1015"
+            <circle key={i} cx={x} cy={y} r="1.25" fill={color} stroke="#0e0d0b"
               strokeWidth="0.35" />
           ))}
         </g>
