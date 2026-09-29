@@ -2409,9 +2409,87 @@
       ],
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "c1b7276d-7188-4371-9c58-80a6d49e0a10",
+      "title": "Electron 1단계: React 화면을 PC 창에서 실행",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "lee_app1에서 기존 화면을 Electron 창에 표시. 설치 파일·내장 화면·자동 실행은 후속 단계.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "사용자 요청: 개발 서버 방식 유지, 바탕화면 PoseGood (개발) 바로가기 생성. launch-dev.mjs로 전용5174 서버와 Electron 실행, 앱 종료 시 서버 종료. 문법 검사 통과. 전체 검증은 이번 실행기 변경에서 재실행하지 않음.",
+      "updated": "2026-09-29T11:00:10.197152+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T10:45:12.243068+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-09-29T10:48:41.914546+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "lee_app1 개발용 Electron 1단계 완료. main.cjs와 desktop:dev, README 학습 설명 추가."
+        },
+        {
+          "at": "2026-09-29T11:00:10.197152+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: 개발 서버 방식 유지, 바탕화면 PoseGood (개발) 바로가기 생성. launch-dev.mjs로 전용5174 서버와 Electron 실행, 앱 종료 시 서버 종료. 문법 검사 통과. 전체 검증은 이번 실행기 변경에서 재실행하지 않음."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0064",
+      "priority": 0,
+      "size": 1,
+      "order": 64,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "Electron 44.4.5 실제 창에서 로그인 화면/임시 진입/로그아웃/격리 설정 확인. 프론트40개·타입·빌드 통과. 전체 check는 기존 venv 실행 실패, work check는 기존 _board-bundle 문서 누락 실패. 카메라·설치·내장 화면·자동 실행은 이번 단계 제외.",
+      "performedBy": "klaod-tech_GPT"
+    },
+    {
+      "id": "1dd041c8-e847-4070-8349-f70abecd9feb",
+      "title": "Electron 2단계: 개발 서버 없이 내장 화면 실행",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "빌드 파일을 내부 프로토콜로 제공하고 서버 없이 화면/합성 카메라 자산을 검증한다. 경로 경계 테스트를 check에 연결. 설치 파일 배포는 다음 단계.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "사용자 요청으로 2단계 내장 화면 구현 전부 철회. bundle 파일과 실행 명령/검사 제거. 다음 단계 진행하지 않음.",
+      "updated": "2026-09-29T11:00:10.030401+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T10:56:20.904268+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-09-29T11:00:10.030401+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "사용자 요청으로 2단계 내장 화면 구현 전부 철회. bundle 파일과 실행 명령/검사 제거. 다음 단계 진행하지 않음."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0065",
+      "priority": 0,
+      "size": 1,
+      "order": 65,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 64
+  "nextNumber": 66
 }

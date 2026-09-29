@@ -6,6 +6,36 @@ MediaPipe Pose Landmarker Lite로 상체를 추적하고, 5초 개인 기준과 
 
 ## 실행
 
+### Electron 학습 1단계 — GP-0064 (`lee_app1`)
+
+기존 React 화면을 PC 창에서 실행하는 개발용 진입점을 추가했다. Electron 44.4.5를 고정했다.
+이 단계는 개발 서버가 필요하며, 설치 파일이나 서버 없이 실행하는 배포본은 아직 아니다.
+자동 실행·트레이·아이디 기억·실제 인증은 다음 단계에서 다룬다.
+
+저장소 루트에서 두 터미널을 사용한다. 이미 웹 개발 서버가 실행 중이면 첫 명령은 생략한다.
+
+```sh
+# 터미널 1: React 화면을 제공하는 개발 서버
+npm --prefix frontend run dev
+# 터미널 2: 그 화면을 보여 주는 PC 앱 창
+npm --prefix frontend run desktop:dev
+```
+
+읽을 코드: [electron/main.cjs](electron/main.cjs).
+`app.whenReady()`는 Electron 준비 완료를 기다리고, `BrowserWindow`는 PC 창을 만든다.
+`window.loadURL()`은 현재 React 화면을 연다. React의 `src/main.tsx`는 계속 화면 렌더링을 담당한다.
+`.cjs`는 CommonJS JavaScript 파일이며, Electron 진입점을 별도 TypeScript 빌드 없이 실행하기 위해 사용한다.
+화면의 Node.js 접근을 끄고 격리·샌드박스를 켰다. 외부 페이지 이동과 새 창은 막아 두었다.
+Windows에서 창을 닫으면 앱도 종료한다. 서버가 꺼져 있으면 실행 안내 후 앱이 종료된다.
+
+다음 단계는 개발 서버 없이 빌드된 화면을 앱 안에서 여는 것이다.
+
+사용자 요청으로 내장 화면 전환은 보류하고 개발 서버 방식을 유지한다.
+현재 PC 바탕화면의 `PoseGood (개발)` 바로가기는 `electron/launch-dev.mjs`를 실행한다.
+전용 개발 서버(127.0.0.1:5174)를 켠 뒤 앱을 열고, 앱 종료 시 이 서버도 종료한다.
+일반 웹 개발 서버(5173)는 별개다. 이 바로가기는 현재 저장소·Node·Electron 설치 경로를
+사용하므로 배포용 설치 파일은 아니다. 같은 바로가기는 앱을 닫은 뒤 다시 실행한다.
+
 Node.js 24 이상, npm, Python 3.9 이상을 준비한다. 저장소 루트에서:
 
 ```sh
