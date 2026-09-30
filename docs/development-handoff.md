@@ -59,12 +59,14 @@ FastAPI 점수는 규칙 기반이며 학습 모델·보정 확률이 아니다.
 ## 원격 쓰기 장애
 
 Mac Git의 `Dev-jisung` 계정은 이전 push에서 저장소 권한 403이 발생했다.
-후속 `gh auth status`는 같은 계정의 인증도 유효하지 않다고 보고했다.
+제한된 실행 환경의 인증 실패 표시는 정상 네트워크 경로에서 재확인했다.
+`gh auth status`의 로그인은 유효하며, 저장소 읽기 API의 `permissions.push=false`로 Write 권한 부재를 확인했다.
 연결 앱도 이전 쓰기 요청에서 `Resource not accessible by integration` 403이 발생했다.
 반복 push나 다른 인증 경로를 통한 우회는 하지 않았다.
 
-사용자가 `gh auth login -h github.com`으로 사용할 계정을 직접 인증하고,
-저장소 소유자가 그 계정에 Write 권한을 부여했는지 확인해야 한다(필요하면 초대 수락).
+저장소 소유자가 현재 `Dev-jisung` 계정에 Write 권한을 부여하고 사용자가 초대를 수락해야 한다.
+또는 이미 Write 권한이 있는 본인 계정으로 사용자가 `gh auth login -h github.com`을 직접 수행한다.
+읽기 API에서 해당 계정의 저장소 `permissions.push=true`가 확인될 때까지 push를 보류한다.
 Git CLI 인증과 앱 통합 권한은 별개다. 앱을 쓰려면 소유자의 해당 저장소 Contents 쓰기 권한 승인도 필요하다.
 정상 쓰기 경로가 확인되면 다음 브랜치만 push하고 원격 SHA를 로컬 HEAD와 대조한다.
 
