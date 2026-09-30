@@ -7,12 +7,13 @@ export type { CollapseEvent, LiveState, SessionPhase } from '../lib/engine'
 
 /** Demo and real camera share the same timing and event policies. */
 export function useSession(phase: SessionPhase, speed: number, rules: Rules = DEFAULT_RULES,
-  source?: () => Sample, alertsOn = true, lifecycle?: { initial?: Machine; checkpoint?: (machine: Machine) => void; interrupted?: () => void }) {
-  const [live, setLive] = useState<LiveState>(EMPTY_LIVE)
-  const m = useRef<Machine>(lifecycle?.initial ?? newMachine())
+  source?: () => Sample, alertsOn = true, lifecycle?: { initial?: Machine; checkpoint?: (machine: Machine) => void; interrupted?: () => void; ended?: (live: LiveState) => void }) {
+  const m = useRef<Machine>(lifecycle?.initial ? structuredClone(lifecycle.initial) : newMachine())
   const checkpointAt = useRef(0)
   const lifecycleRef = useRef(lifecycle); lifecycleRef.current = lifecycle
-  const lastSample = useRef<Sample>(sampleAt(0))
+  const lastSample = useRef<Sample>(source?.() ?? sampleAt(m.current.loop))
+  const [live, setLive] = useState<LiveState>(() => snapshot(m.current, lastSample.current, rules))
+  const notifiedEnd = useRef(false)
   const input = useRef({ phase, speed, rules, source, alertsOn })
   input.current = { phase, speed, rules, source, alertsOn }
   const lastTs = useRef<number | null>(null)
@@ -20,8 +21,12 @@ export function useSession(phase: SessionPhase, speed: number, rules: Rules = DE
   useEffect(() => {
     if (phase === 'ended') closeOpenEvent(m.current)
     else if (phase === 'paused') step(m.current, 0, phase, rules, source?.(), false)
-    setLive(snapshot(m.current, lastSample.current, rules))
-    lifecycleRef.current?.checkpoint?.(structuredClone(m.current))
+    lastTs.current = performance.now()
+    const next = snapshot(m.current, lastSample.current, rules)
+    setLive(next)
+    if (phase === 'ended') {
+      if (!notifiedEnd.current) { notifiedEnd.current = true; lifecycleRef.current?.ended?.(next) }
+    } else lifecycleRef.current?.checkpoint?.(structuredClone(m.current))
   }, [phase])
 
   useEffect(() => {
@@ -48,9 +53,15 @@ export function useSession(phase: SessionPhase, speed: number, rules: Rules = DE
       if (ts - checkpointAt.current > 2000) { checkpointAt.current = ts; lifecycleRef.current?.checkpoint?.(structuredClone(m.current)) }
     }
     timer = setTimeout(() => tick(performance.now()), 50)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      if (input.current.phase !== 'ended') {
+        step(m.current, 0, 'paused', input.current.rules, lastSample.current, false)
+        lifecycleRef.current?.checkpoint?.(structuredClone(m.current))
+      }
+    }
   }, [])
 
-  const reset = () => { m.current = newMachine(); lastTs.current = null; lastSample.current = sampleAt(0); setLive(EMPTY_LIVE) }
+  const reset = () => { m.current = newMachine(); notifiedEnd.current = false; lastTs.current = null; lastSample.current = sampleAt(0); setLive(EMPTY_LIVE) }
   return { live, reset, seekNext: () => { if (!input.current.source) seekNextSegment(m.current) } }
 }

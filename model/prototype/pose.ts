@@ -12,11 +12,16 @@ export interface PosturePayload {
 
 export const unavailable: Reading = { status: 'unmeasurable', deviation: null, score: null };
 
+export function validFeatures(value: Features | null): value is Features {
+  return value !== null && [value.headGap, value.offset, value.tilt, value.quality].every(Number.isFinite)
+    && value.quality >= 0.65 && value.quality <= 1;
+}
+
 export function features(points: Landmark[], width: number, height: number): Features | null {
-  if (width <= 0 || height <= 0) return null;
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
   const required = [points[0], points[11], points[12]];
   if (required.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)
-    || !Number.isFinite(p.visibility) || p.visibility! < 0.65 || p.x < 0.02 || p.x > 0.98 || p.y < 0.02 || p.y > 0.98)) return null;
+    || !Number.isFinite(p.visibility) || p.visibility! < 0.65 || p.visibility! > 1 || p.x < 0.02 || p.x > 0.98 || p.y < 0.02 || p.y > 0.98)) return null;
   const [nose, left, right] = required;
   const span = Math.hypot((left.x - right.x) * width, (left.y - right.y) * height);
   if (span < width * 0.10) return null;
@@ -26,7 +31,7 @@ export function features(points: Landmark[], width: number, height: number): Fea
 }
 
 export function average(samples: Features[]): Features {
-  if (!samples.length) throw new Error('No valid calibration samples');
+  if (!samples.length || !samples.every(validFeatures)) throw new Error('No valid calibration samples');
   return { headGap: samples.reduce((n, s) => n + s.headGap, 0) / samples.length,
     offset: samples.reduce((n, s) => n + s.offset, 0) / samples.length,
     tilt: samples.reduce((n, s) => n + s.tilt, 0) / samples.length,
@@ -34,7 +39,7 @@ export function average(samples: Features[]): Features {
 }
 
 export function classify(current: Features | null, baseline: Features | null): Reading {
-  if (!current || !baseline) return unavailable;
+  if (!validFeatures(current) || !validFeatures(baseline)) return unavailable;
   const head = Math.abs(current.headGap - baseline.headGap) / 0.22;
   const lean = (current.offset - baseline.offset) / 0.20;
   const tilt = Math.abs(current.tilt - baseline.tilt) / 0.13;
@@ -47,6 +52,7 @@ export function classify(current: Features | null, baseline: Features | null): R
 }
 
 export function payload(reading: Reading, elapsed: number, duration: number): PosturePayload {
+  if (!Number.isFinite(elapsed) || !Number.isFinite(duration)) throw new Error('Invalid output timestamp or duration');
   return { schema_version: '1.0', timestamp_ms: Math.max(0, Math.floor(elapsed)), status: reading.status,
     deviation_type: reading.deviation, confidence: reading.score,
     measurement_quality: reading.status === 'unmeasurable' ? 'poor' : 'good',
@@ -55,6 +61,7 @@ export function payload(reading: Reading, elapsed: number, duration: number): Po
 
 /** A dimensionless rule score, NOT a trained probability or anatomical angle. */
 export function referenceScore(current: Features, baseline: Features) {
+  if (!validFeatures(current) || !validFeatures(baseline)) return { score: null, tilt: false };
   const head = Math.abs(current.headGap - baseline.headGap) / 0.22
   const lateral = Math.abs(current.offset - baseline.offset) / 0.20
   const shoulder = Math.abs(current.tilt - baseline.tilt) / 0.13

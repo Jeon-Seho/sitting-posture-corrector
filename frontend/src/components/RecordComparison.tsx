@@ -42,7 +42,7 @@ export function RecordComparison({ records }: { records: RecordItem[] }) {
               </tr>
             </thead>
             <tbody>
-              <CompareRow name="바른 자세 유지율" a={formatPercent(early.keepRate)} b={formatPercent(recent.keepRate)}
+              <CompareRow name="기준 자세 유지율" a={formatPercent(early.keepRate)} b={formatPercent(recent.keepRate)}
                 diff={delta(recent.keepRate, early.keepRate)} format={v => `${(v * 100).toFixed(1)}%p`} better="up" />
               <CompareRow name="시간당 붕괴 횟수" a={formatRate(early.perHour, '회')} b={formatRate(recent.perHour, '회')}
                 diff={delta(recent.perHour, early.perHour)} format={v => `${v.toFixed(2)}회`} better="down" />

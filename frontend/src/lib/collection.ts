@@ -1,4 +1,4 @@
-import { referenceScore, type Features, type Landmark } from '../../../model/prototype/pose'
+import { referenceScore, validFeatures, type Features, type Landmark } from '../../../model/prototype/pose'
 import type { Observation } from '../hooks/useCamera'
 import type { Rules } from './engine'
 import modelAsset from '../../model-asset.json'
@@ -67,11 +67,11 @@ export function reviewCapture(c: Capture, accepted: boolean, label: Label, prese
 export function appendObservation(c: Capture, o: Observation, label: Label): boolean {
   if (c.stopReason || c.rows.length >= MAX_ROWS || !Number.isFinite(o.timeMs) || !Number.isFinite(o.videoTimeMs)
     || o.timeMs < c.startMs || o.timeMs <= c.lastSeen || o.videoTimeMs <= c.lastVideo) return false
-  const valid = o.features !== null
+  const valid = validFeatures(o.features)
   if (label !== c.label || (c.wasValid !== null && valid !== c.wasValid) || o.timeMs - c.lastSeen > 1000) c.segment++
   c.label = label; c.wasValid = valid; c.lastSeen = o.timeMs; c.lastVideo = o.videoTimeMs
   if (o.timeMs - c.lastWritten < 100) return false
-  const f = o.features, b = c.baseline
+  const f = valid ? o.features : null, b = c.baseline
   const score = f ? referenceScore(f, b).score : null
   const gap = Number.isFinite(c.lastWritten) ? o.timeMs - c.lastWritten : null
   c.lastWritten = o.timeMs

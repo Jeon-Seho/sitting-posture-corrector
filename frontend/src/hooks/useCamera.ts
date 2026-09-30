@@ -3,7 +3,8 @@ import { drawPose, type VisualMode, type VisualOptions } from '../lib/poseVisual
 import { smoothPoints, inferenceInterval } from '../lib/skeleton';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import modelAsset from '../../model-asset.json';
-import { average, features, type Features, type Landmark } from '../../../model/prototype/pose';
+import { features, type Features, type Landmark } from '../../../model/prototype/pose';
+import { beginCalibration, observeCalibration, type Calibration } from '../../../model/prototype/calibration';
 
 export type Observation = { timeMs: number; videoTimeMs: number; features: Features | null;
   landmarks: Landmark[]; worldLandmarks: Landmark[];
@@ -30,7 +31,8 @@ export function useCamera() {
     listeners.current.add(listener); return () => { listeners.current.delete(listener); };
   }, []);
   const [metrics, setMetrics] = useState({ fps: 0, inferenceMs: 0, delegate: 'CPU' as 'GPU' | 'CPU' });
-  const calibration = useRef<{ start: number; samples: Features[] } | null>(null);
+  const calibration = useRef<Calibration | null>(null);
+  const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, setState] = useState<'off' | 'loading' | 'on' | 'error'>('off');
   const [error, setError] = useState('');
   const [quality, setQuality] = useState(false);
@@ -42,6 +44,7 @@ export function useCamera() {
 
   const release = useCallback(() => {
     generation.current++; if (raf.current !== null) clearTimeout(raf.current);
+    if (loadingTimer.current !== null) clearTimeout(loadingTimer.current); loadingTimer.current = null;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     detector.current?.close(); detector.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -56,6 +59,11 @@ export function useCamera() {
     release(); const token = generation.current;
     setMetrics({ fps: 0, inferenceMs: 0, delegate: 'CPU' });
     setState('loading'); setQuality(false); setError(''); setBaseline(null); setCalibrationId(null); setProgress(null);
+    loadingTimer.current = setTimeout(() => {
+      if (generation.current !== token) return;
+      release(); setState('error'); setQuality(false); setProgress(null);
+      setError('카메라 준비가 오래 걸립니다. 권한 창과 연결을 확인한 뒤 다시 시도해 주세요.');
+    }, 30000);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 브라우저에서는 카메라를 사용할 수 없습니다. localhost 또는 HTTPS에서 Chrome으로 열어주세요.');
       const incoming = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 }, facingMode: 'user', ...(selectedId ? { deviceId: { exact: selectedId } } : {}) } });
@@ -66,7 +74,7 @@ export function useCamera() {
       if (generation.current !== token) return;
       incoming.getVideoTracks()[0].onended = () => {
         if (generation.current !== token) return;
-        release(); setState('error'); setQuality(false); setBaseline(null); setProgress(null); setError('카메라 연결이 끊겼습니다. 다시 연결해 주세요.');
+        release(); setState('error'); setQuality(false); setBaseline(null); setCalibrationId(null); setProgress(null); setError('카메라 연결이 끊겼습니다. 다시 연결해 주세요.');
       };
       const vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm');
       if (generation.current !== token) return;
@@ -87,6 +95,7 @@ export function useCamera() {
       if (!video) throw new Error('카메라 화면을 준비하지 못했습니다. 다시 시도해 주세요.');
       video.srcObject = incoming; await video.play();
       if (generation.current !== token) return;
+      if (loadingTimer.current !== null) clearTimeout(loadingTimer.current); loadingTimer.current = null;
       setState('on'); visualRef.current = { ...visualRef.current, startedAt: performance.now() };
       let previousTime = -1, previousRun = 0, previousDraw = 0, inferenceMs = 0;
       let target: Landmark[] = [], displayed: Landmark[] = [];
@@ -113,24 +122,19 @@ export function useCamera() {
               features: f, inferenceMs, delegate, width: video.videoWidth, height: video.videoHeight };
             for (const listener of listeners.current) listener(observation);
             if (calibration.current) {
-              if (!f || observationGap > 1000) { calibration.current = { start: time, samples: [] }; setProgress(0); }
-              else {
-                if (!calibration.current.samples.length) calibration.current.start = time;
-                calibration.current.samples.push(f);
-                const elapsed = time - calibration.current.start;
-                setProgress(Math.min(1, elapsed / 5000));
-                if (elapsed >= 5000 && calibration.current.samples.length >= 20) {
-                  setBaseline(average(calibration.current.samples)); setCalibrationId(crypto.randomUUID()); calibration.current = null; setProgress(null);
-                }
+              const next = observeCalibration(calibration.current, f, time, observationGap);
+              calibration.current = next.draft; setProgress(next.progress);
+              if (next.ready) {
+                setBaseline(next.ready); setCalibrationId(crypto.randomUUID()); calibration.current = null; setProgress(null);
               }
             }
           } catch {
-            release(); setState('error'); setQuality(false); setProgress(null); setBaseline(null);
+            release(); setState('error'); setQuality(false); setProgress(null); setBaseline(null); setCalibrationId(null);
             setError('자세 추적을 이어갈 수 없습니다. 카메라를 다시 연결해 주세요.'); return;
           }
         }
         if (time - lastFrame.current > 1000) { current.current = null; setQuality(false); target = []; displayed = [];
-          if (calibration.current) { calibration.current = { start: time, samples: [] }; setProgress(0); } }
+          if (calibration.current) { calibration.current = beginCalibration(); setProgress(0); } }
         displayed = smoothPoints(displayed, target, previousDraw ? time - previousDraw : 16);
         previousDraw = time;
         drawPose(canvasRef.current, displayed, video.videoWidth, video.videoHeight, time, visualRef.current);
@@ -147,16 +151,20 @@ export function useCamera() {
       release(); setState('error'); setQuality(false);
       const name = cause instanceof Error ? cause.name : '';
       setError(name === 'NotAllowedError' ? '카메라 권한이 거부되었습니다. 브라우저의 사이트 권한에서 카메라를 허용해 주세요.'
-        : name === 'NotFoundError' ? '연결된 카메라가 없습니다. 카메라를 연결하거나 데모 모드로 체험해 주세요.'
+        : name === 'NotFoundError' ? '연결된 카메라가 없습니다. 카메라를 연결해 주세요. 홈과 저장된 기록은 카메라 없이 볼 수 있습니다.'
         : name === 'NotReadableError' ? '카메라를 다른 앱에서 사용 중일 수 있습니다. 사용 중인 앱을 닫고 다시 시도해 주세요.'
+        : cause instanceof Error && cause.message.startsWith('이 브라우저') ? cause.message
+        : name === 'OverconstrainedError' ? '선택한 카메라를 사용할 수 없습니다. 다른 장치를 선택하거나 다시 연결해 주세요.'
         : '카메라 또는 자세 추적 모델을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
     }
   }, [release]);
 
   const calibrate = () => {
-    setBaseline(null); setCalibrationId(null); setProgress(0); calibration.current = { start: performance.now(), samples: [] };
+    if (state !== 'on' || !quality || calibration.current) return;
+    setProgress(0); calibration.current = beginCalibration();
   };
-  return { visual, setVisualMode, reassemble, setReducedMotion, setOverlayEnabled, metrics, subscribe, videoRef, canvasRef, streamRef: stream, devices, deviceId, state, error, quality, baseline, calibrationId, progress, current, lastFrame, connect, stop, calibrate };
+  const cancelCalibration = () => { calibration.current = null; setProgress(null); };
+  return { visual, setVisualMode, reassemble, setReducedMotion, setOverlayEnabled, metrics, subscribe, videoRef, canvasRef, streamRef: stream, devices, deviceId, state, error, quality, baseline, calibrationId, progress, current, lastFrame, connect, stop, calibrate, cancelCalibration };
 }
 
 export type CameraController = ReturnType<typeof useCamera>;

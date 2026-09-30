@@ -1,10 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { newMachine } from './engine'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { closeOpenEvent, newMachine, sampleAt, step } from './engine'
 import { DEFAULT_RULES } from '../data/posture'
-import {
-  KEYS, parseDraft, parseProfile, parseRecords, parseRules, recordFromDraft, resumeMachine, summary, upsertRecord, validateProfile,
-  type RecordItem,
-} from './serviceStore'
+import { KEYS, loadLocalState, readLocal, recordFromDraft, removeSavedDraft, resumeMachine, saveDraft, summary, upsertRecord, validateProfile, validDraft, validMachine, validProfile, validRecord, validRules, writeLocal, type Draft, type RecordItem } from './serviceStore'
 const item: RecordItem = { id: 'one', startedAt: '2026-09-28T00:00:00Z', endedAt: '2026-09-28T01:00:00Z', mode: 'demo', valid: 100, good: 90, total: 100, events: [] }
 describe('service records', () => {
   it('retries replace the same session instead of duplicating it', () => {
@@ -42,21 +39,80 @@ describe('service records', () => {
   })
 })
 
-describe('stored value parsing', () => {
-  it('drops records that do not match the current shape instead of breaking the screen', () => {
-    expect(parseRecords({})).toEqual([])
-    expect(parseRecords('broken')).toEqual([])
-    expect(parseRecords([item, { ...item, id: 'bad-mode', mode: 'other' }, { id: 'missing-fields' }, null])).toEqual([item])
+describe('local storage integrity (synthetic data only)', () => {
+  let data: Map<string, string>
+  beforeEach(() => {
+    data = new Map()
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn((key: string) => data.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => data.set(key, value)),
+      removeItem: vi.fn((key: string) => data.delete(key)),
+    })
   })
-  it('fills missing or invalid rule fields from the defaults', () => {
-    expect(parseRules(null)).toEqual(DEFAULT_RULES)
-    expect(parseRules({ holdSeconds: 5, threshold: 'high', extra: 1 })).toEqual({ ...DEFAULT_RULES, holdSeconds: 5 })
+  afterEach(() => vi.unstubAllGlobals())
+  const draft = (): Draft => ({ id: 'synthetic-draft', startedAt: '2026-09-30T00:00:00Z', mode: 'demo', rules: DEFAULT_RULES, machine: newMachine() })
+
+  it('accepts legacy complete records and drafts and starts new users without fabricated history', () => {
+    expect(loadLocalState()).toMatchObject({ records: [], draft: null, demo: false, issues: [] })
+    writeLocal(KEYS.records, [item]); writeLocal(KEYS.draft, draft())
+    expect(readLocal(KEYS.records, [])).toEqual([item]); expect(loadLocalState().draft).toEqual(draft())
   })
-  it('accepts only complete profiles and drafts', () => {
-    expect(parseProfile({ name: '합성', age: 30, occupation: '테스트' })).toEqual({ name: '합성', age: 30, occupation: '테스트' })
-    expect(parseProfile({ name: '합성', age: '30', occupation: '테스트' })).toBe(null)
-    const machine = newMachine()
-    expect(parseDraft({ id: 'd', startedAt: 's', mode: 'demo', machine })).toMatchObject({ id: 'd', rules: DEFAULT_RULES })
-    expect(parseDraft({ id: 'd', startedAt: 's', mode: 'demo', machine: { total: 1 } })).toBe(null)
+  it.each(['{broken', '{}', 'null', '[{"id":"broken"}]', ''])('reports malformed records without changing the original bytes: %s', raw => {
+    data.set(KEYS.records, raw)
+    expect(loadLocalState().issues).toHaveLength(1)
+    expect(() => writeLocal(KEYS.records, [item])).toThrow(/기존 자료/)
+    expect(data.get(KEYS.records)).toBe(raw)
+  })
+  it('rejects impossible durations, dates, duplicate IDs and malformed event fields', () => {
+    for (const invalid of [{ ...item, valid: -1 }, { ...item, good: 101 }, { ...item, total: NaN },
+      { ...item, endedAt: 'invalid-date' }, { ...item, events: [null] }, { ...item, events: [{ id: 1 }] }]) {
+      expect(validRecord(invalid)).toBe(false)
+    }
+    expect(() => writeLocal(KEYS.records, [item, item])).toThrow()
+  })
+  it('rejects unsafe profiles and policy settings instead of coercing them', () => {
+    expect(validProfile({ name: 'Synthetic', age: 23.5, occupation: 'Test' })).toBe(false)
+    expect(validProfile({ name: ' ', age: 23, occupation: 'Test' })).toBe(false)
+    for (const patch of [{ threshold: -1 }, { holdSeconds: 0 }, { realertSeconds: Infinity }, { recoverSeconds: null }]) {
+      expect(validRules({ ...DEFAULT_RULES, ...patch })).toBe(false)
+    }
+    data.set(KEYS.settings, JSON.stringify({ ...DEFAULT_RULES, threshold: -1 }))
+    expect(loadLocalState().issues).toHaveLength(1)
+  })
+  it('validates full machine state, including open events and cumulative counters', () => {
+    const m = newMachine()
+    step(m, 4, 'running', DEFAULT_RULES, { ...sampleAt(0), prob: .9, state: 'collapse', collapse: 'tilt' })
+    expect(validMachine(m)).toBe(true)
+    expect(validMachine({ ...m, active: Object.fromEntries(Object.entries(m.active!).reverse()) })).toBe(true)
+    expect(validMachine({ ...m, nextId: 1 })).toBe(false)
+    expect(validMachine({ ...m, alertTick: 0 })).toBe(false)
+    expect(validMachine({ ...m, unknown: 10 })).toBe(false)
+    const restored = resumeMachine(m)
+    expect(validMachine(restored)).toBe(true)
+    expect(restored.events[0]).toMatchObject({ endReason: 'paused', endAt: 4, recovered: false })
+    expect(m.events[0].endAt).toBeNull()
+    closeOpenEvent(m)
+    expect(validRecord({ ...item, total: 4, valid: 4, good: 0, events: m.events })).toBe(true)
+    expect(validDraft({ ...draft(), machine: { total: 4, good: 4 } })).toBe(false)
+  })
+  it('preserves a draft from another session and only removes the saved session draft', () => {
+    saveDraft(draft())
+    expect(() => saveDraft({ ...draft(), id: 'another' })).toThrow(/다른 중간 기록/)
+    removeSavedDraft('another'); expect(loadLocalState().draft?.id).toBe(draft().id)
+    removeSavedDraft(draft().id); expect(loadLocalState().draft).toBeNull()
+  })
+  it('does not offer recovery for a session whose final result is already saved', () => {
+    saveDraft({ ...draft(), id: item.id }); writeLocal(KEYS.records, [item])
+    expect(loadLocalState().draft).toBeNull()
+    expect(data.has(KEYS.draft)).toBe(true)
+  })
+  it('retains existing records when storage is unavailable or full', () => {
+    writeLocal(KEYS.records, [item])
+    vi.mocked(localStorage.setItem).mockImplementation(() => { throw new Error('QuotaExceededError') })
+    expect(() => writeLocal(KEYS.records, [{ ...item, id: 'two' }])).toThrow()
+    expect(readLocal(KEYS.records, [])).toEqual([item])
+    vi.mocked(localStorage.getItem).mockImplementation(() => { throw new Error('SecurityError') })
+    expect(loadLocalState().issues).toHaveLength(5)
+    expect(() => writeLocal(KEYS.records, [])).toThrow(/접근/)
   })
 })

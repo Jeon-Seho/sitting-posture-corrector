@@ -70,9 +70,8 @@ export function SessionPage({
   const [soundOn, setSoundOn] = useState(false)
   const [soundError, setSoundError] = useState('')
   const [pauseReason, setPauseReason] = useState(service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '')
-  const notifiedEnd = useRef(false)
   const isCamera = mode === 'camera'
-  const { live, reset, seekNext } = useSession(phase, speed, rules, isCamera ? () => cameraSample(camera) : undefined, alertsOn, service ? { initial: service.initial, checkpoint: service.onCheckpoint, interrupted: () => { setPauseReason('관측 입력이 중단됐습니다. 준비 후 직접 재개해 주세요.'); setPhase('paused') } } : undefined)
+  const { live, reset, seekNext } = useSession(phase, speed, rules, isCamera ? () => cameraSample(camera) : undefined, alertsOn, service ? { initial: service.initial, checkpoint: service.onCheckpoint, ended: service.onEnded, interrupted: () => { setPauseReason('관측 입력이 중단됐습니다. 준비 후 직접 재개해 주세요.'); setPhase('paused') } } : undefined)
   const current = camera.current.current
   const baseline = camera.baseline
   useEffect(() => { collection.setPhase(isCamera ? phase : 'inactive') }, [phase, isCamera, collection.setPhase])
@@ -97,12 +96,6 @@ export function SessionPage({
     }, 250)
     return () => clearInterval(timer)
   }, [service, isCamera, phase, camera.state])
-  useEffect(() => {
-    if (phase === 'ended' && service && !notifiedEnd.current && live.events.every(e => e.endAt !== null)) {
-      notifiedEnd.current = true
-      service.onEnded(live)
-    }
-  }, [phase, live, service])
 
 
   const muted = useMemo(() => new Set(live.events.filter(e => e.alerts === 0).map(e => e.id)), [live.events])
@@ -184,9 +177,9 @@ export function SessionPage({
               sub={`전체 ${formatDuration(live.totalSeconds)}`}
             />
             <Stat
-              label="바른 자세 유지율"
+              label="기준 자세 유지율"
               value={formatPercent(keepRate)}
-              sub={`바른 자세 ${formatDuration(live.goodSeconds)}`}
+              sub={`기준 유지 ${formatDuration(live.goodSeconds)}`}
               tone={keepRate !== null && keepRate >= 0.75 ? 'good' : undefined}
             />
             <Stat
@@ -429,7 +422,7 @@ export function SessionPage({
               <Rate value={keepRate} label="유지율" />
               <div style={{ flex: 1 }}>
                 <MiniRow label="유효 측정" value={formatDuration(live.validSeconds)} />
-                <MiniRow label="바른 자세" value={formatDuration(live.goodSeconds)} />
+                <MiniRow label="기준 유지" value={formatDuration(live.goodSeconds)} />
                 <MiniRow label="판정 불가" value={formatDuration(live.unknownSeconds)} />
                 <MiniRow label="붕괴 이벤트" value={`${live.events.length}건`} />
               </div>

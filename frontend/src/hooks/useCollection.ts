@@ -23,7 +23,7 @@ export function useCollection(camera: CameraController, rules: Rules) {
   const [stopReason, setStopReason] = useState('')
   const setStage = useCallback((next: Stage) => { stageRef.current = next; updateStage(next) }, [])
   const active = stage === 'countdown' || stage === 'recording'
-  const canStart = camera.state === 'on' && !!camera.baseline && phase === 'running' && stage === 'idle'
+  const canStart = camera.state === 'on' && !!camera.baseline && camera.progress === null && phase === 'running' && stage === 'idle'
 
   const stop = useCallback((reason = 'manual_stop') => {
     const c = capture.current

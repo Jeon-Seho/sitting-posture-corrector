@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_RULES } from '../data/posture'
 import { closeOpenEvent, newMachine, sampleAt, snapshot, step, type Machine, type Sample } from './engine'
-import { features, classify, average, type Landmark } from '../../../model/prototype/pose'
+import { features, classify, average, payload, type Landmark } from '../../../model/prototype/pose'
+import { beginCalibration, observeCalibration } from '../../../model/prototype/calibration'
 import { referenceScore } from '../../../model/prototype/pose'
 
 const reading = (prob: number, unknown = false): Sample => ({ ...sampleAt(0), state: unknown ? 'unknown' : prob >= 0.7 ? 'collapse' : 'good', prob, collapse: 'forwardHead', confidence: unknown ? 0 : 0.95 })
@@ -51,6 +52,13 @@ describe('shared demo and camera event policy', () => {
     const m = newMachine(); step(m, -1, 'running', DEFAULT_RULES); step(m, NaN, 'running', DEFAULT_RULES)
     expect(m.total).toBe(0); step(m, 1, 'running', DEFAULT_RULES); expect(m.loop).toBe(1)
   })
+  it('treats non-finite or out-of-range measurements as unknown and excludes their time', () => {
+    for (const s of [{ ...reading(.9), prob: NaN }, { ...reading(.9), prob: Infinity }, { ...reading(.9), confidence: NaN }, { ...reading(.9), prob: -1 }]) {
+      const m = newMachine(); const actual = step(m, 5, 'running', DEFAULT_RULES, s)
+      expect(actual.state).toBe('unknown'); expect(m.good).toBe(0); expect(m.collapse).toBe(0)
+      expect(m.unknown).toBe(5); expect(m.events).toHaveLength(0)
+    }
+  })
 })
 describe('webcam reference adapter', () => {
   const points = (): Landmark[] => Array.from({ length: 33 }, (_, i) => ({ x: i === 11 ? 0.3 : i === 12 ? 0.7 : 0.5, y: i === 0 ? 0.25 : 0.5, z: 0, visibility: 0.95 }))
@@ -64,5 +72,24 @@ describe('webcam reference adapter', () => {
     const shifted = p.map(v => ({ ...v, x: v.x + 0.03, y: v.y + 0.03 }))
     expect(referenceScore(features(shifted, 640, 480)!, f).score).toBeCloseTo(0)
     p[0].y += 0.2; expect(referenceScore(features(p, 640, 480)!, f).score).toBeGreaterThan(0.7)
+  })
+  it('rejects invalid dimensions, feature values, visibility and output time', () => {
+    expect(features(points(), NaN, 480)).toBeNull(); expect(features(points(), 640, Infinity)).toBeNull()
+    const p = points(); p[0].visibility = 2; expect(features(p, 640, 480)).toBeNull()
+    const f = features(points(), 640, 480)!, invalid = { ...f, tilt: NaN }
+    expect(classify(invalid, f).status).toBe('unmeasurable'); expect(referenceScore(invalid, f).score).toBeNull()
+    expect(() => average([invalid])).toThrow(); expect(() => payload(classify(f, f), NaN, 0)).toThrow()
+  })
+  it('requires continuous calibration and the minimum sample count without inventing frames', () => {
+    const f = features(points(), 640, 480)!
+    let draft = beginCalibration()
+    const first = observeCalibration(draft, f, 0, 100); draft = first.draft
+    // Time alone cannot complete registration with too few samples.
+    expect(observeCalibration(draft, f, 5000, 100).ready).toBeNull()
+    expect(observeCalibration(draft, null, 100, 100).draft.samples).toHaveLength(0)
+    expect(observeCalibration(draft, f, 2000, 2000).draft.samples).toHaveLength(0)
+    for (let i = 1; i <= 20; i++) draft = observeCalibration(draft, f, i * 250, 250).draft
+    const ready = observeCalibration(draft, f, 5250, 250).ready!
+    expect(ready.headGap).toBeCloseTo(f.headGap); expect(ready.quality).toBeCloseTo(f.quality)
   })
 })

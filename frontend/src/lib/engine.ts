@@ -130,8 +130,11 @@ export function sampleAt(loop: number): Sample {
  * 재알림은 간격만큼 눌러 두며, 판정 불가 구간에서는 판정을 멈춘다.
  */
 export function step(m: Machine, dt: number, phase: SessionPhase, rules: Rules, external?: Sample, alertsOn = true): Sample {
-  const raw = external ?? sampleAt((m.loop + (phase === 'running' ? Math.max(0, dt) : 0)) % SCENARIO_SECONDS)
-  const s: Sample = { ...raw, state: raw.state === 'unknown' ? 'unknown' : raw.prob >= rules.threshold ? 'collapse' : 'good' }
+  const raw = external ?? sampleAt((m.loop + (phase === 'running' && Number.isFinite(dt) ? Math.max(0, dt) : 0)) % SCENARIO_SECONDS)
+  const measurable = raw.state !== 'unknown' && Number.isFinite(raw.prob) && raw.prob >= 0 && raw.prob <= 1
+    && Number.isFinite(raw.confidence) && raw.confidence >= 0 && raw.confidence <= 1
+  const s: Sample = measurable ? { ...raw, state: raw.prob >= rules.threshold ? 'collapse' : 'good' }
+    : { ...raw, state: 'unknown', prob: 0, confidence: 0, collapse: null }
   if (!Number.isFinite(dt) || dt < 0 || phase === 'ended') return s
   if (!external && phase === 'running') m.loop = (m.loop + dt) % SCENARIO_SECONDS
   if (phase === 'paused') {
