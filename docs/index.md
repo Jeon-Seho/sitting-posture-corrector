@@ -2,6 +2,8 @@
 
 ## 먼저 볼 문서
 
+- **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
+
 - **팀 공유:** [서비스 요구사항](team-requirements.md) — 최신 기능·역할·완료 조건·협의 항목을 한 문서로 확인한다.
 - **Mac 종합 점검:** [develop 통합·기획 대비 완료/남은 범위](audits/2026-09-30-mac-develop.md).
 - **lee_dev4 변경 요약:** [lee_md](lee_md.md) — main 대비 로직·문구 변경, 임시값, 검증 결과.
@@ -25,7 +27,7 @@
 기반 작업: [개발 하네스 구축과 검증 기록](plans/completed/0001-bootstrap-harness.md).
 
 최신 참고 자료: [현재 기업연계 계획서 요약과 미결정 사항](references/current-proposal-review.md).
-기술 방향은 React/TypeScript·Spring Boot·LSTM으로 구체화되었으며, 기존 GRU 연구안과의 차이는 최종 결정 전까지 명시적으로 관리한다.
+과거 계획서의 React/TypeScript·Spring Boot·LSTM 등 기술 스택은 참고 이력이다. 사용자의 최신 정정에 따라 의무 요구로 취급하지 않으며, 기존 구현과 다음 결정은 [인계 문서](development-handoff.md)에서 확인한다.
 
 | 질문 | 기준 문서 |
 | --- | --- |
