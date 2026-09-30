@@ -22,6 +22,8 @@ export type CollapseEvent = {
   type: CollapseType
   /** 변화 점수(시연에서는 합성 점수)가 임계값을 넘은 시각 */
   startAt: number
+  /** 사건 시작까지의 유효 관측 시간. 휴식·측정 불가·누락은 제외한다. 과거 기록에는 없을 수 있다. */
+  validStartAt?: number
   /** 지속 조건을 충족해 이벤트로 확정된 시각 */
   confirmedAt: number
   endAt: number | null
@@ -161,6 +163,7 @@ export function step(m: Machine, dt: number, phase: SessionPhase, rules: Rules, 
     if (!m.active && m.hold + 1e-8 >= rules.holdSeconds) {
       const ev: CollapseEvent = {
         id: m.nextId++, type: s.collapse ?? 'forwardHead', startAt: m.onsetAt,
+        validStartAt: Math.max(0, m.total - m.paused - m.unknown - m.hold),
         confirmedAt: m.total, endAt: null, durationSec: 0, alerts: 0, firstAlertAt: null,
         recovered: false, recoverySec: null, endedBySession: false, endReason: null, blockId: m.blockId,
       }

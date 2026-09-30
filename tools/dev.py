@@ -64,6 +64,39 @@ def check():
     check_repo()
     test()
     check_frontend()
+    check_backend()
+
+
+def check_backend():
+    executable = os.environ.get("MAVEN_EXECUTABLE") or shutil.which("mvn")
+    if not executable:
+        sys.exit("Maven과 Java 21이 필요합니다. backend/README.md의 준비 절차를 확인하세요.")
+    arguments = [executable, "-B", "-ntp", "-s", "tools/maven-settings.xml", "-gs", "tools/maven-settings.xml"]
+    cache = os.environ.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
+    run(*arguments, "-Dmaven.repo.local=" + cache, "-f", "backend/pom.xml", "verify")
+    run(venv_python(), "tools/service_smoke.py")
+
+
+def dev_service(component, artifact):
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from tools.service_smoke import java_executable
+    jar = ROOT / "backend" / component / "target" / (artifact + "-0.1.0-SNAPSHOT.jar")
+    if not jar.is_file():
+        sys.exit("먼저 check-backend를 실행하세요.")
+    run(java_executable(), "-jar", jar)
+
+
+def dev_api():
+    dev_service("api", "session-api")
+
+
+def dev_cep():
+    dev_service("cep", "cep-service")
+
+
+def dev_inference():
+    run(venv_python(), "-m", "uvicorn", "model.inference.app:app", "--host", "127.0.0.1", "--port", "8092", "--no-access-log")
 
 
 def dev():
@@ -78,7 +111,11 @@ COMMANDS = {
     "check-repo": check_repo,
     "test": test,
     "check-frontend": check_frontend,
+    "check-backend": check_backend,
     "dev": dev,
+    "dev-api": dev_api,
+    "dev-cep": dev_cep,
+    "dev-inference": dev_inference,
 }
 
 

@@ -55,6 +55,7 @@ export function RecordComparison({ records }: { records: RecordItem[] }) {
             </tbody>
           </table>
         </div>
+        <p className="profile-text">붕괴 간격은 같은 세션의 유효 관측 시간으로 계산합니다. 휴식·측정 불가는 제외하며, 과거 기록에서 제외 시간을 알 수 없는 간격은 계산에 넣지 않습니다.</p>
       </Card>
       <div style={{ height: 22 }} />
       <div className="grid g2">

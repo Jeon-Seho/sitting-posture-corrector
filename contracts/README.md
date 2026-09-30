@@ -28,3 +28,12 @@
 수작업으로 만든 합성 데이터이며 실제 사람의 측정 결과가 아니다. `make test`가 예제와 거부 사례를 검사한다.
 스키마가 필드 추가도 거부하므로 생산자·소비자의 호환성 변경은 새 계약 파일과 버전으로 배포한다.
 원본 좌표·영상·참여자 ID는 이 계약에 넣지 않는다.
+
+## API·CEP 관측과 사건 계약
+
+새 독립 서버 흐름은 [관측 v2](posture-observation.v2.schema.json)를 사용한다.
+추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 CEP가 한다. v1은 기존 흐름 호환성으로 보존한다.
+[사건 v1](posture-event.v1.schema.json), [조회 snapshot v1](session-view.v1.schema.json),
+[수작업 합성 관측](examples/v2/synthetic-observation.json)을 함께 검증한다.
+`make check-backend`는 실제 FastAPI 생산자와 API/Esper 소비자를 같은 계약으로 HTTP 검증한다.
+구간·순서·재시도·중단·통계 의미는 [서비스 계약 설명](../backend/README.md)을 따른다.

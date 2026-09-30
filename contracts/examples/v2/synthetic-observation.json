@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "sequence": 0,
+  "start_ms": 0,
+  "end_ms": 1000,
+  "phase": "running",
+  "valid": true,
+  "collapse_probability": 0.9,
+  "deviation_type": "forward_slouch",
+  "model_version": "synthetic-v1"
+}

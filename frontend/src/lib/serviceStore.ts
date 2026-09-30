@@ -69,6 +69,7 @@ export function validProfile(v: unknown): v is Profile {
 function validEvent(v: unknown, total: number): v is CollapseEvent {
   if (!object(v) || !integer(v.id) || v.id < 1 || !['forwardHead', 'tilt'].includes(String(v.type))
     || !nonnegative(v.startAt) || !nonnegative(v.confirmedAt) || v.startAt > v.confirmedAt || v.confirmedAt > total + 1e-5
+    || !(v.validStartAt === undefined || (nonnegative(v.validStartAt) && v.validStartAt <= v.startAt + 1e-5))
     || !nonnegative(v.durationSec) || !integer(v.alerts) || !integer(v.blockId)
     || typeof v.recovered !== 'boolean' || typeof v.endedBySession !== 'boolean'
     || ![null, 'paused', 'unknown', 'ended'].includes(v.endReason as null)
@@ -104,6 +105,7 @@ export function validRecord(v: unknown): v is RecordItem {
   return object(v) && text(v.id, 128) && date(v.startedAt) && date(v.endedAt) && Date.parse(v.endedAt) >= Date.parse(v.startedAt)
     && mode(v.mode) && nonnegative(v.total) && nonnegative(v.valid) && nonnegative(v.good)
     && v.good <= v.valid + 1e-5 && v.valid <= v.total + 1e-5 && validEvents(v.events, v.total)
+    && v.events.every(e => e.validStartAt === undefined || e.validStartAt <= (v.valid as number) + 1e-5)
     && v.events.every(e => e.endAt !== null) && (v.rules === undefined || validRules(v.rules))
 }
 export function validDraft(v: unknown): v is Draft {

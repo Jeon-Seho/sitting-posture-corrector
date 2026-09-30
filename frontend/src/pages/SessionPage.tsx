@@ -30,6 +30,7 @@ import { CameraStage } from '../components/CameraStage'
 import { PoseStage } from '../components/PoseStage'
 import { Card, FeatureRow, Ledger, Meter, Rate, Stat } from '../components/ui'
 import {
+  collapseIntervals,
   formatClock,
   formatDuration,
   formatPercent,
@@ -125,8 +126,7 @@ export function SessionPage({
   const overThreshold = live.collapseProb >= rules.threshold
 
   const { intervals, recoveries, mutedCount } = useMemo(() => {
-    const starts = [...live.events].sort((a, b) => a.startAt - b.startAt)
-    const gaps = starts.slice(1).flatMap((event, i) => event.blockId === starts[i].blockId ? [event.startAt - starts[i].startAt] : [])
+    const gaps = collapseIntervals(live.events)
     const rec = live.events.filter(
       (e) => e.recovered && e.recoverySec !== null && !muted.has(e.id),
     )

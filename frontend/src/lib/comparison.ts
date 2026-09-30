@@ -1,5 +1,5 @@
 import type { RecordItem } from './serviceStore'
-import { mean, ratio } from './stats'
+import { collapseIntervals, mean, ratio } from './stats'
 
 /**
  * 실제 기록의 전후 비교. 초기 구간은 첫 측정일부터, 최근 구간은 오늘까지의 같은 길이다.
@@ -37,10 +37,7 @@ export function periodStats(records: RecordItem[], from: string, to: string): Pe
   const good = records.reduce((n, r) => n + r.good, 0)
   const events = records.flatMap(r => r.events)
   // 발생 간격은 같은 세션 안의 연속 사건 사이만 잰다. 세션 사이의 공백은 간격이 아니다.
-  const intervals = records.flatMap(r => {
-    const starts = r.events.map(e => e.startAt).sort((a, b) => a - b)
-    return starts.slice(1).map((t, i) => t - starts[i])
-  })
+  const intervals = records.flatMap(r => collapseIntervals(r.events))
   const recoveries = events.flatMap(e => e.recoverySec === null ? [] : [e.recoverySec])
   return {
     from, to, sessions: records.length, valid, good, events: events.length,

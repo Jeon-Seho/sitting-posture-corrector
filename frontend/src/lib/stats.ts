@@ -1,4 +1,16 @@
 /** 계획서의 통계 정의를 그대로 옮긴 헬퍼들 */
+import type { CollapseEvent } from './engine'
+
+/** 한 세션 안의 발생 간격. 새 기록은 유효 시간 축, 과거 기록은 같은 연속 블록만 사용한다. */
+export function collapseIntervals(events: CollapseEvent[]): number[] {
+  const unique = [...new Map(events.map(e => [e.id, e])).values()].sort((a, b) => a.startAt - b.startAt)
+  return unique.slice(1).flatMap((event, i) => {
+    const previous = unique[i]
+    const known = event.validStartAt !== undefined && previous.validStartAt !== undefined
+    const gap = known ? event.validStartAt! - previous.validStartAt! : event.startAt - previous.startAt
+    return (known || event.blockId === previous.blockId) && Number.isFinite(gap) && gap >= 0 ? [gap] : []
+  })
+}
 
 export function mean(xs: number[]) {
   if (xs.length === 0) return null

@@ -9,7 +9,8 @@
 - 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
 
 
-현재 상태: **하네스 + 웹캠 프론트 단일 앱 프로토타입(로컬 저장) / LSTM·서버 구현 전**.
+현재 상태: **웹캠 프론트 단일 앱(로컬 저장) + 별도 API·Esper CEP·FastAPI 합성 수직 흐름 / LSTM·DB·인증 미연결**.
+[API·CEP 완료 검증](plans/completed/0011-api-cep-vertical-slice.md), [서비스 실행·계약·남은 결정](../backend/README.md), [API/CEP 책임 분리 결정](decisions/0011-api-cep-boundary.md).
 
 현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md), [서비스 미리보기 완료 기록](plans/completed/0008-service-preview.md).
 
