@@ -62,6 +62,7 @@ def check_frontend():
 
 def check_board():
     run("node", "--check", "tools/project-board/app.js")
+    run("node", "--test", "tests/board-editor.test.cjs")
     run(sys.executable, "tools/project-board/work.py", "check")
 
 

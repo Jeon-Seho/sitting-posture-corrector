@@ -51,3 +51,12 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 안내 과제·실제 자세·재석 상태·측정 품질을 분리하고 촬영 후 자기 보고 검토를 거쳐 v2 CSV로 내보낸다.
 전용 라벨 수집 화면은 교정 알림을 실행하지 않는다. 영상·음성 저장/업로드는 없다.
 [수집 v2 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
+
+
+## 최신 계획서의 플랫폼 확장 (구현 전)
+
+2026-09-29 첨부 HWP는 API→Kafka 수집·버퍼, Python LSTM 추론, Esper CEP 에피소드 판정, Redis 상태 캐시, Spark Streaming→HDFS/Parquet 적재와 Spark 배치/SQL 마트를 명시한다.
+운영 사용자·기준·이벤트·정책/모델 버전·집계 및 특징 파일 메타데이터는 DB에, 학습 특징은 별도 파일 계층에 둔다. 원본 영상은 전송/저장하지 않는다.
+현재 구현된 플랫폼이라는 뜻은 아니다. GP-0018에서 실시간 추론/CEP와 지연 적재의 경로·최종 판정 책임·전송 계약을 확정한다.
+브라우저 기존 규칙, 백엔드 판단 API, 추론 서비스, CEP가 같은 지속 판정을 중복 수행하지 않도록 한다.
+[최신 계획서 근거](references/current-proposal-review.md), [개별 산출물 카드](areas/devops/proposal-workstreams.md)를 함께 확인한다.

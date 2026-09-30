@@ -8,22 +8,26 @@ let docs=[], workspace={cards:[],notes:[],assignments:{}}, version='', current='
 let activity={team:[],commits:[]},activityError='';
 let pendingTask='';
 let remoteSnapshot=null,checkingRemotes=false;
-let stages=[],selectedStage='',stageScope=true;
+let stages=[],selectedStage='',stageScope=true,stageCategory='';
 function stageTasks(id){return workspace.cards.filter(c=>c.stage===id);}
 function waitingFor(task){return (task.dependsOn||[]).filter(n=>workspace.cards.find(c=>c.number===n)?.status!=='completed');}
 function stageStats(id){const tasks=stageTasks(id);return {tasks,done:tasks.filter(c=>c.status==='completed').length,active:tasks.filter(c=>['in_progress','review'].includes(c.status)).length};}
-function stageDocuments(id){const phase=stages.find(s=>s.id===id),tasks=stageTasks(id);return docs.filter(d=>phase?.docs.includes(d.path)||tasks.some(c=>c.source===d.path||c.number===d.task));}
+function stageDocuments(id){const phase=stages.find(s=>s.id===id),tasks=stageTasks(id).filter(c=>!stageCategory||c.category===stageCategory);return docs.filter(d=>(!stageCategory&&phase?.docs.includes(d.path))||tasks.some(c=>c.source===d.path||c.number===d.task));}
 function renderJourney(){
  if(!stages.length)return;
  if(!selectedStage)selectedStage=stages.find(s=>s.id!=='operations'&&stageStats(s.id).done<stageStats(s.id).tasks.length)?.id||stages[0].id;
  const product=workspace.cards.filter(c=>c.stage&&c.stage!=='operations'),productDone=product.filter(c=>c.status==='completed').length;
  const focus=stages.find(s=>s.id!=='operations'&&stageStats(s.id).done<stageStats(s.id).tasks.length);
  $('journey-summary').innerHTML=`<div><p class="eyebrow">OUR PROJECT, STEP BY STEP</p><h2>${focus?'지금 연결할 단계, '+esc(focus.title):'등록된 제품 작업을 마쳤습니다'}</h2><p>로컬 구현에서 실제 서비스와 연구 검증으로 이어갑니다.<br>단계는 병행할 수 있으며, 완료 여부는 연결된 카드의 근거를 따릅니다.</p></div><div class="journey-count"><strong>${productDone}<span> / ${product.length}</span></strong><span>제품 작업 완료 · 운영 작업 제외</span><progress max="${product.length||1}" value="${productDone}" aria-label="제품 작업 ${productDone}/${product.length} 완료"></progress></div>`;
- $('stage-steps').innerHTML=stages.map((s,i)=>{const {tasks,done,active}=stageStats(s.id),complete=tasks.length>0&&done===tasks.length;return `<button class="stage-step ${s.id===selectedStage?'selected':''} ${complete?'complete':''}" data-stage="${s.id}" aria-pressed="${s.id===selectedStage}"><span class="step-number">${s.id==='operations'?'↻':String(i+1).padStart(2,'0')}</span><strong>${esc(s.title)}</strong><small>${complete?'등록 작업 완료':active?'진행 중':done?'일부 완료':'준비 중'} · ${done}/${tasks.length}</small><progress max="${tasks.length||1}" value="${done}" aria-label="${esc(s.title)} ${done}/${tasks.length} 완료"></progress></button>`;}).join('');
- $('stage-steps').querySelectorAll('button').forEach(b=>b.onclick=()=>{selectedStage=b.dataset.stage;stageScope=true;selected='';$('doc-search').value='';$('doc-group').value='';renderJourney();renderDocList();renderDocument();syncSelects();});
- const phase=stages.find(s=>s.id===selectedStage),{tasks,done,active}=stageStats(selectedStage),waiting=tasks.filter(c=>c.status!=='completed'&&waitingFor(c).length),ready=orderedTasks(tasks.filter(c=>['planned','in_progress','review'].includes(c.status)&&!waitingFor(c).length));
- $('stage-detail').innerHTML=`<div class="stage-intro"><span class="eyebrow">${phase.id==='operations'?'ALWAYS ON':'STEP '+String(stages.indexOf(phase)+1).padStart(2,'0')}</span><h2>${esc(phase.title)}</h2><p>${esc(phase.goal)}</p><div class="stage-gate"><strong>단계 완료 기준</strong><p>${esc(phase.exit)}</p></div><div class="stage-totals"><span><b>${done}</b> 완료</span><span><b>${active}</b> 진행·검수</span><span><b>${waiting.length}</b> 선행 대기</span></div><p class="next-step">${ready.length?'다음 실행 후보 <a href="#task='+ready[0].number+'">'+esc(ready[0].number+' '+ready[0].title)+' →</a>':waiting.length?'선행 대기 카드의 연결 작업을 먼저 확인하세요.':'등록 작업이 완료되었습니다. 아래 근거 문서를 확인하세요.'}</p></div><div class="stage-work"><div class="section-heading"><h3>이 단계의 작업</h3><span>${tasks.length}개</span></div>${orderedTasks(tasks).map(t=>`<a class="journey-task" href="#task=${t.number}"><span class="journey-task-main"><small>${esc(t.number)} · ${esc(t.category)} <span class="task-stars">${'★'.repeat(t.priority||0)}</span></small><strong>${esc(t.title)}</strong><small>${t.status==='completed'?esc('수행: '+(t.performedBy||'근거 문서 참조')):waitingFor(t).length?esc('선행 대기 '+waitingFor(t).join(' · ')):esc(t.assignees.join(' · ')||'착수 가능 · 담당 미배정')}</small></span>${badge(t.status)}</a>`).join('')||'<p class="empty">아직 등록된 작업이 없습니다.</p>'}</div>`;
- $('library-scope').textContent=stageScope?phase.title+' · 연결된 근거 문서':'전체 프로젝트 문서';
+ $('stage-steps').innerHTML=stages.map((s,i)=>{const {tasks,done,active}=stageStats(s.id),complete=tasks.length>0&&done===tasks.length;return `<button class="stage-step ${s.id===selectedStage?'selected':''} ${complete?'complete':''}" data-stage="${s.id}" aria-pressed="${s.id===selectedStage}"><span class="step-number">${s.id==='operations'?'↻':String(i+1).padStart(2,'0')}</span><strong>${esc(s.title)}</strong><small>${complete?'등록 작업 완료':active?'진행 중':done?'일부 완료':'준비 중'} · ${done}/${tasks.length}</small><span class="step-fields">${GROUPS.filter(g=>tasks.some(t=>t.category===g)).map(g=>esc(g)+' '+tasks.filter(t=>t.category===g).length).join(' · ')}</span><progress max="${tasks.length||1}" value="${done}" aria-label="${esc(s.title)} ${done}/${tasks.length} 완료"></progress></button>`;}).join('');
+ $('stage-steps').querySelectorAll('button').forEach(b=>b.onclick=()=>{selectedStage=b.dataset.stage;stageCategory='';stageScope=true;selected='';$('doc-search').value='';$('doc-group').value='';renderJourney();renderDocList();renderDocument();syncSelects();});
+ const all=stageTasks(selectedStage),groups=GROUPS.filter(g=>all.some(t=>t.category===g));
+ if(stageCategory&&!groups.includes(stageCategory))stageCategory='';
+ $('stage-fields').innerHTML=[['', '전체 분야'],...groups.map(g=>[g,g])].map(([value,label])=>{const items=all.filter(t=>!value||t.category===value),done=items.filter(t=>t.status==='completed').length,active=items.filter(t=>['in_progress','review'].includes(t.status)).length,blocked=items.filter(t=>t.status!=='completed'&&(t.status==='blocked'||waitingFor(t).length)).length;return `<button class="field-progress ${stageCategory===value?'selected':''}" data-category="${esc(value)}" aria-pressed="${stageCategory===value}"><strong>${esc(label)} <span>${items.length}개</span></strong><small>완료 ${done} · 진행/검수 ${active} · 선행/결정 대기 ${blocked}</small><progress max="${items.length||1}" value="${done}" aria-label="${esc(label)} ${done}/${items.length} 완료"></progress></button>`;}).join('');
+ $('stage-fields').querySelectorAll('button').forEach(b=>b.onclick=()=>{stageCategory=b.dataset.category;stageScope=true;selected='';$('doc-search').value='';$('doc-group').value='';renderJourney();renderDocList();renderDocument();syncSelects();});
+ const phase=stages.find(s=>s.id===selectedStage),tasks=all.filter(t=>!stageCategory||t.category===stageCategory),done=tasks.filter(t=>t.status==='completed').length,active=tasks.filter(t=>['in_progress','review'].includes(t.status)).length,waiting=tasks.filter(c=>c.status!=='completed'&&waitingFor(c).length),ready=orderedTasks(tasks.filter(c=>['planned','in_progress','review'].includes(c.status)&&!waitingFor(c).length));
+ $('stage-detail').innerHTML=`<div class="stage-intro"><span class="eyebrow">${phase.id==='operations'?'ALWAYS ON':'STEP '+String(stages.indexOf(phase)+1).padStart(2,'0')}</span><h2>${esc(phase.title)}${stageCategory?' · '+esc(stageCategory):''}</h2><p>${esc(phase.goal)}</p><div class="stage-gate"><strong>단계 완료 기준</strong><p>${esc(phase.exit)}</p></div><div class="stage-totals"><span><b>${done}</b> 완료</span><span><b>${active}</b> 진행·검수</span><span><b>${waiting.length}</b> 선행 대기</span></div><p class="next-step">${ready.length?'다음 실행 후보 <a href="#task='+ready[0].number+'">'+esc(ready[0].number+' '+ready[0].title)+' →</a>':waiting.length?'선행 대기 카드의 연결 작업을 먼저 확인하세요.':tasks.some(t=>t.status!=='completed')?'결정·확인 대기 작업의 조건을 먼저 확인하세요.':'등록 작업이 완료되었습니다. 아래 근거 문서를 확인하세요.'}</p></div><div class="stage-work"><div class="section-heading"><h3>${stageCategory?esc(stageCategory)+' 작업':'이 단계의 작업'}</h3><span>${tasks.length}개</span></div>${orderedTasks(tasks).map(t=>`<a class="journey-task" href="#task=${t.number}"><span class="journey-task-main"><small>${esc(t.number)} · ${esc(t.category)} <span class="task-stars">${'★'.repeat(t.priority||0)}</span></small><strong>${esc(t.title)}</strong><small>${t.status==='completed'?esc('수행: '+(t.performedBy||'근거 문서 참조')):waitingFor(t).length?esc('선행 대기 '+waitingFor(t).join(' · ')):esc(t.assignees.join(' · ')||'착수 가능 · 담당 미배정')}</small></span>${badge(t.status)}</a>`).join('')||'<p class="empty">아직 등록된 작업이 없습니다.</p>'}</div>`;
+ $('library-scope').textContent=stageScope?phase.title+(stageCategory?' / '+stageCategory:'')+' · 연결된 근거 문서':'전체 프로젝트 문서';
  $('all-documents').textContent=stageScope?'전체 문서 탐색':'단계 문서로 돌아가기';
 }
 async function checkRemotes(){
@@ -46,9 +50,10 @@ function notice(message){$('notice').textContent=message;$('notice').hidden=!mes
 async function api(path, options){const response=await fetch(path,options);const body=await response.json();if(!response.ok)throw new Error(body.error||'요청에 실패했습니다.');return body;}
 async function refresh(silent=false){
  if(loading||$('editor').open)return;
- loading=true;
+ loading=true;const startedVersion=version;
  try{
   const [documents,data,journey]=await Promise.all([api('/api/documents'),api('/api/workspace'),api('/api/stages')]);
+  if($('editor').open||version!==startedVersion)return;
   docs=documents.documents;workspace=data.data;version=data.version;stages=journey.stages;
   $('item-stage').innerHTML='<option value="unclassified">단계를 선택하세요</option>'+stages.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('');
   try{activity=await api('/api/activity');activityError='';}catch(error){activityError=error.message;}
@@ -200,7 +205,7 @@ function renderNotes(){
 function openEditor(kind,id=''){
  if(!version){notice('자료를 불러온 후 다시 시도하세요.');return;}
  const item=kind==='plan'?allTasks().find(t=>t.kind==='plan'&&t.id===id):(kind==='card'?workspace.cards:workspace.notes).find(t=>t.id===id);
- editing={kind,id,item,version};
+ editing={kind,id,item,version,base:structuredClone(workspace)};
  $('editor-heading').textContent=kind==='plan'?'계획서 담당 배정':kind==='notes'?'팀·AI 메모':(item?.number?item.number+' · 작업 카드':'작업 카드 · 저장 시 번호 발급');
  $('stage-label').hidden=kind!=='card';$('item-stage').value=item?.stage||'unclassified';
  $('category-label').hidden=kind!=='card';$('item-category').value=item?.category||'데브옵스';
@@ -216,28 +221,42 @@ function openEditor(kind,id=''){
  for(const key of ['item-title','item-body','item-status','item-source'])$(key).disabled=kind==='plan';
  $('author-label').hidden=kind!=='notes';
  $('item-assignees').innerHTML=MEMBERS.map(m=>`<label><input type="checkbox" value="${m}" ${(item?.assignees||[]).includes(m)?'checked':''}>${m}</label>`).join('');
- $('delete-item').hidden=!id||kind==='plan';$('editor-error').textContent='';$('save-item').disabled=false;
+ $('delete-item').hidden=!id||kind==='plan';$('editor-error').textContent='';$('copy-editor-input').hidden=true;$('save-item').disabled=false;
  $('ai-result').hidden=!item?.result;$('ai-result').textContent=item?.result?`${item.agent||'AI'} 처리 기록\n${item.result}`:'';
  $('source-link').hidden=!item?.source;$('source-link').href=docURL(item?.source||'');$('source-link').onclick=()=>{$('editor').close();};
  syncSelects();$('editor').showModal();
 }
+function editorError(message){
+ $('editor-error').textContent=message;$('copy-editor-input').hidden=false;
+ $('editor-error').focus({preventScroll:true});
+}
+$('copy-editor-input').onclick=async()=>{
+ const values=Array.from($('editor-form').querySelectorAll('input,textarea,select')).filter(el=>el.type!=='checkbox'||el.checked).map(el=>`${el.closest('label')?.childNodes[0]?.textContent.trim()||el.id||'담당자'}: ${el.value}`).join('\n');
+ try{await navigator.clipboard.writeText(values);$('editor-error').textContent='입력을 복사했습니다. 창을 닫고 최신 항목을 다시 여세요.';}catch{editorError('복사하지 못했습니다. 입력을 직접 보관한 뒤 최신 항목을 다시 여세요.');}
+};
 async function persist(next,expectedVersion=version,message=''){
  const result=await api('/api/workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:next,version:expectedVersion,message})});workspace=result.data;version=result.version;render();
 }
 $('editor-form').onsubmit=async event=>{
  event.preventDefault();if(!editing)return;$('save-item').disabled=true;
- const next=structuredClone(workspace),assignees=Array.from($('item-assignees').querySelectorAll('input:checked'),el=>el.value);
- if(editing.kind==='plan')next.assignments[editing.id]=assignees;
- else{
+ const assignees=Array.from($('item-assignees').querySelectorAll('input:checked'),el=>el.value);
+ let editedValue=assignees;
+ if(editing.kind!=='plan'){
   const key=editing.kind==='card'?'cards':'notes',previous=editing.item;
   const item={...previous,id:editing.id||crypto.randomUUID(),title:$('item-title').value.trim(),body:$('item-body').value,status:$('item-status').value,source:$('item-source').value,assignees,author:$('item-author').value,updated:new Date().toISOString(),result:previous?.result||'',agent:previous?.agent||''};
   if(key==='cards')Object.assign(item,{stage:$('item-stage').value,category:$('item-category').value,priority:Number($('item-priority').value),size:Number($('item-size').value),order:Number($('item-order').value),priorityNote:$('item-priority-note').value,dependsOn:$('item-dependencies').value.split(/[,\s]+/).filter(Boolean).map(n=>n.toUpperCase()),performedBy:$('item-performer').value,evidence:$('item-evidence').value});
-  if(key==='cards'&&item.stage==='unclassified'){$('editor-error').textContent='프로젝트 단계를 선택하세요.';$('save-item').disabled=false;return;}
-  if(!item.title){$('editor-error').textContent='제목을 입력하세요.';$('save-item').disabled=false;return;}
-  if(key==='notes'&&previous&&(previous.title!==item.title||previous.body!==item.body))item.status='planned';
-  const index=next[key].findIndex(n=>n.id===item.id);if(index<0)next[key].push(item);else next[key][index]=item;
+  if(key==='cards'&&item.stage==='unclassified'){editorError('프로젝트 단계를 선택하세요.');$('save-item').disabled=false;return;}
+  if(!item.title){editorError('제목을 입력하세요.');$('save-item').disabled=false;return;}
+  if(key==='notes')item.status=BoardEditorState.noteStatus(previous,item);
+  editedValue=item;
  }
- try{await persist(next,editing.version,editing.kind==='card'?$('item-feedback').value.trim():'');$('editor').close();notice('파일에 저장했습니다.');}catch(error){$('editor-error').textContent=error.message;}finally{$('save-item').disabled=false;}
+ try{
+  $('save-item').textContent='저장 중…';$('editor-error').textContent='';
+  const latest=await api('/api/workspace');
+  const merged=BoardEditorState.merge(editing.base,latest.data,editing.kind,editing.id||editedValue.id,editedValue);
+  await persist(merged,latest.version,editing.kind==='card'?$('item-feedback').value.trim():'');
+  $('editor').close();notice('파일에 저장하고 화면을 갱신했습니다.');
+ }catch(error){editorError(error.message);}finally{$('save-item').disabled=false;$('save-item').textContent='저장';}
 };
 $('delete-item').onclick=async()=>{
  if(!editing||!confirm('이 항목을 삭제할까요? 삭제 전 백업해 두면 복구할 수 있습니다.'))return;

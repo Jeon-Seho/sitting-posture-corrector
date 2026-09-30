@@ -240,6 +240,7 @@ class Handler(BaseHTTPRequestHandler):
                 with LOCK: data, version = read_store()
                 return self.send(200, {"data": data, "version": version})
             assets = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+            assets["/editor-state.js"] = ("editor-state.js", "text/javascript")
             assets["/fonts/PretendardVariable.woff2"] = ("fonts/PretendardVariable.woff2", "font/woff2")
             assets["/fonts/LICENSE.txt"] = ("fonts/LICENSE.txt", "text/plain")
             if path in assets:

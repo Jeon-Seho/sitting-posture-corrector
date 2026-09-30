@@ -55,3 +55,5 @@
 - [단계별 프로젝트 여정](areas/frontend/project-journey.md)
 
 - [팀 기능25개와 기존 카드 대응표](areas/devops/team-feature-cards.md)
+
+- [최신 HWP의 플랫폼·배포·DB 세부 작업](areas/devops/proposal-workstreams.md)
