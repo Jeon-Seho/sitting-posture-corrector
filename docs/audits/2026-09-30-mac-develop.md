@@ -10,7 +10,7 @@ main 원격 push, 강제 push, 배포, 실제 카메라 권한 요청·영상 �
 main 기반 보완본은 로컬 커밋 `540ff01a406912972f34626bb8a8f0bb55ca72b9`,
 `backup/mac-main-reliability-20260930` 브랜치, 작업 공간의 `mac-main-reliability.bundle`로 보존했다.
 작업·검증 위치는 `/Users/jisung/Documents/Codex/2026-09-30/task-2/develop-repo`다.
-최종 사용 위치는 원본 Desktop 프로젝트이며 최종 반영·커밋·push 결과는 완료 계획에 기록한다.
+원본 Desktop 프로젝트에 develop 통합본과 백업 브랜치를 반영했다. 그 경로에서 실행 의존성을 준비하고 전체 검증을 통과했다. 인도 커밋과 원격 SHA는 작업 완료 보고에서 확인한다.
 
 develop에는 이미 프로필 입력 검증, 중단 기록 종료, 실제 웹캠 전용 준비, 자세 등록 화면의 자체 카메라 제어,
 첫 7일/최근 7일 비교, 탈퇴 확인 창, Windows 포함 검증 진입점이 있었다. 이를 유지했다.
@@ -119,7 +119,9 @@ develop에는 이미 프로필 입력 검증, 중단 기록 종료, 실제 웹�
 - 보완 main: 프론트 66개·타입 검사 통과. 내장 브라우저 합성 흐름에서 등록/빈 홈/측정/내부 이동 후 수동 재개/두 번째 탭 읽기 전용을 확인했다.
 - develop 통합: 프론트 79개 통과. 저장·복구·카메라 취소/늦은 자원·StrictMode 잠금·실제 웹캠 전용 시작·설정 고정·비교 필터·확인 창 취소를 합성 데이터로 검증했다.
 - develop 전체 `make check`: 저장소/문서/산출물 검사, Python 11개, 프론트 79개, TypeScript와 Vite 빌드 통과. Mac Python 3.9.6·Node 24.21.0을 사용했다.
-- 최종 전체 게이트·원본 프로젝트 반영·원격 SHA는 [완료 계획](../plans/active/0010-mac-develop-reliability.md)에 기록한다.
+- 원본 Desktop에서도 최종 `make check` Python 11개·프론트 79개·타입·빌드 통과. 개발 서버 HTTP 6개 응답과 모델 SHA-256을 확인했고 포트 5178을 해제했다.
+- 원본의 native FSEvents 대기를 재현해 선택적 polling 감시를 추가했다. `CHOKIDAR_USEPOLLING=1`로 표준 개발 명령이 55ms에 기동했다. 보안 설정은 바꾸지 않았다.
+- 최종 전체 게이트·원본 프로젝트 반영·원격 SHA는 [완료 계획](../plans/completed/0010-mac-develop-reliability.md)에 기록한다.
 - Mac에서 공식 Lite 모델 다운로드와 SHA-256 검증은 성공했다. 다른 클라우드의 storage 프록시 403은 현재 Mac 결과가 아니다.
 - 재접속 후 파일/명령 접근은 복구됐지만 CUA 브라우저 제어는 `Transport closed`였다. 통합본 실제 브라우저 재검증은 이 연결이 복구되어야 가능하다.
   실제 카메라, 소리, 장시간/백그라운드 성능, 사용자 자료 삭제는 시험하지 않았다.

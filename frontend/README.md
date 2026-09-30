@@ -20,6 +20,12 @@ make dev
 최초 설치 시 npm 패키지와 공식 Google 모델을 받는다. `model-asset.json`의 SHA-256으로 모델을 검증하며
 모델·WASM은 Git에서 제외한 `public/mediapipe/`에 둔다. 이후 실행은 로컬 자산을 재사용한다.
 
+Mac의 제한된 실행 환경에서 native FSEvents 감시가 대기해 서버 주소가 나오지 않으면 다음처럼 실행한다. 파일 감시만 polling으로 바꾸며 보안 설정은 변경하지 않는다. 변경 감지 주기는 1초다.
+
+```sh
+CHOKIDAR_USEPOLLING=1 make dev
+```
+
 ## 체험 순서
 
 1. 첫 화면에서 이름·나이·직업을 입력하고 시작한다. 실제 계정·인증은 없으며 프로필은 이 브라우저에만 저장한다.

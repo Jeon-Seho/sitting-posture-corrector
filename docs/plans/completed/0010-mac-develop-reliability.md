@@ -1,6 +1,6 @@
 # Mac develop 통합과 신뢰성 보완
 
-- 상태: in_progress
+- 상태: completed
 - 담당: Codex
 - 시작일: 2026-09-30
 - 관련 요구사항/ADR: [서비스 요구사항](../../team-requirements.md), [단일 앱 경계](../../decisions/0008-single-app-entry.md)
@@ -25,7 +25,8 @@ Mac의 `main` / `02b9ea8`을 확인했다. 원격은 `Jeon-Seho/sitting-posture-
 - [x] 실제 기록 기간 조회와 상태 안내 보완
 - [x] 현 보완본 로컬 커밋·백업과 최신 develop 기능 통합
 - [x] 요구사항·한계·검증 기록 동기화
-- [ ] 통합 후 `make check`·브라우저 검증, 실제 Mac develop 반영·커밋·일반 push·원격 SHA 확인
+- [x] 실제 Mac develop 반영·최종 전체 검증·표준 개발 명령 HTTP 확인·시험 서버 종료
+- [x] 통합본 브라우저 접근 가능 여부 확인 및 미검증 범위 명시
 
 ## 결정과 진행 기록
 
@@ -43,6 +44,6 @@ Mac에서는 최초 `make setup`으로 공식 Lite 모델 다운로드와 SHA-25
 
 ## 보존·통합과 인도 상태
 
-main 보완본은 로컬 `540ff01`과 `backup/mac-main-reliability-20260930`, 작업 공간의 bundle로 보존했다. 최신 원격 develop은 `9533234`이며 별도 `develop-repo` 작업 트리에서 기능을 유지하며 통합했다. 원본 Desktop 경로는 검사 당시 여전히 clean main이다. 다음 단계는 원본에 백업 ref와 검증된 develop을 반영하고 그 경로에서 `make setup`/`make check`, 개발 서버 HTTP 확인, 일반 push/원격 SHA 확인이다. main은 push하지 않는다.
+main 보완본은 로컬 `540ff01`과 `backup/mac-main-reliability-20260930`, 작업 공간의 bundle로 보존했다. 최신 원격 develop은 `9533234`이며 별도 `develop-repo` 작업 트리에서 기능을 유지하며 통합했다. 원본 Desktop 경로에 백업 ref와 검증된 develop을 반영했다. 그 경로에서 `make setup` 및 최종 `make check`를 통과했다(Python 11개·프론트 79개·타입·빌드·저장소/문서). native FSEvents의 기동 대기를 재현하여 명시적 polling 실행 옵션을 추가했고 표준 개발 명령이 55ms에 준비되었다. 앱·소스·모델·WASM의 HTTP 응답 6개와 모델 SHA-256을 확인했다. 시험 서버를 종료하고 포트 5178에 listener가 없음을 확인했다. main은 push하지 않으며 승인된 origin/develop 일반 push와 실제 원격 SHA는 최종 인도 보고에서 확인한다.
 
 [전체 기능·품질·시간 조건 점검](../../audits/2026-09-30-mac-develop.md)에서 해결 범위와 결정/접근이 필요한 항목을 구분한다. 원본 사용자 자료는 테스트하지 않고 Git 외부 자료나 브라우저 저장소를 삭제하지 않는다. CUA 연결은 재접속 후에도 닫혀 통합본 UI 재검증이 막혔다.
