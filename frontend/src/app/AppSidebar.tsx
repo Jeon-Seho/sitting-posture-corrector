@@ -8,9 +8,18 @@ type Props = {
   go: (page: Page) => void
   openCollection: () => void
   onLogout: () => void
+  accountMode?: boolean
 }
 
-export function AppSidebar({ page, measuring, hasSession, go, openCollection, onLogout }: Props) {
+export function AppSidebar({
+  page,
+  measuring,
+  hasSession,
+  go,
+  openCollection,
+  onLogout,
+  accountMode = false,
+}: Props) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -48,7 +57,9 @@ export function AppSidebar({ page, measuring, hasSession, go, openCollection, on
       </nav>
       <div className="sidebar-foot">
         <span>개인 기준 규칙 v0.1 · LSTM 미연결</span>
-        <span>로컬 저장 · 서버 판정 선택 가능</span>
+        <span>
+          {accountMode ? '내 계정에 저장 · 서버 판정' : '로컬 저장 · 서버 판정 선택 가능'}
+        </span>
         <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={onLogout}>
           <SignOut size={16} weight="bold" className="icon" />
           로그아웃

@@ -15,6 +15,7 @@ import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 import type { ServiceSession } from './types'
 import type { ServerCheckpoint, SessionView } from './server/contracts'
 import { serverRecordEvents } from '../storage/serverSnapshots'
+import type { SessionRepository } from './repository'
 
 type Options = {
   session: ServiceSession | null
@@ -27,6 +28,7 @@ type Options = {
   go: (page: 'home' | 'session') => void
   setError: (message: string) => void
   serverMode?: boolean
+  repository?: SessionRepository
 }
 
 /** Persists checkpoints/results and retries the same immutable result after a failure. */
@@ -41,11 +43,23 @@ export function useSessionPersistence({
   go,
   setError,
   serverMode = false,
+  repository,
 }: Options) {
   const { rules, draft, setDraft, setRecords, requireWriter, writable, reloadStorage } = workspace
-  const pending = useRef<RecordItem | null>(null)
-  const [saveMessage, setSaveMessage] = useState('이 브라우저에 결과를 저장하고 있습니다.')
+  const pending = useRef<RecordItem | null>(repository?.readPending() ?? null)
+  const saving = useRef(false)
+  const mounted = useRef(true)
+  const [saveMessage, setSaveMessage] = useState(
+    repository ? '계정에 결과를 저장하고 있습니다.' : '이 브라우저에 결과를 저장하고 있습니다.',
+  )
   const measuring = !!session && !ended.current
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {
@@ -68,8 +82,11 @@ export function useSessionPersistence({
       return
     }
     try {
-      const saved = readLocal<Draft | null>(KEYS.draft, null)
-      if (saved && !readLocal<RecordItem[]>(KEYS.records, []).some((r) => r.id === saved.id)) {
+      const saved = repository ? repository.readDraft() : readLocal<Draft | null>(KEYS.draft, null)
+      const records = repository
+        ? repository.readRecords()
+        : readLocal<RecordItem[]>(KEYS.records, [])
+      if (saved && !records.some((r) => r.id === saved.id)) {
         setDraft(saved)
         setError('중단된 측정을 이어하거나 종료·저장한 뒤 새 측정을 시작해 주세요.')
         return
@@ -119,6 +136,10 @@ export function useSessionPersistence({
   }
   function saveResult(record: RecordItem) {
     pending.current = record
+    if (repository) {
+      void saveRemoteResult(record)
+      return
+    }
     if (!requireWriter()) {
       setSaveMessage('결과는 유지됩니다. 저장소 안내를 확인한 뒤 저장 다시 시도를 눌러 주세요.')
       return
@@ -142,6 +163,37 @@ export function useSessionPersistence({
       setSaveMessage(
         '저장하지 못했습니다. 결과는 유지됩니다. 자동 재시도하거나 저장 다시 시도를 눌러 주세요.',
       )
+    }
+  }
+
+  async function saveRemoteResult(record: RecordItem) {
+    if (!repository || saving.current || !mounted.current) return
+    if (!requireWriter()) {
+      setSaveMessage('결과를 유지합니다. 저장 권한을 확인한 뒤 저장 다시 시도를 눌러 주세요.')
+      return
+    }
+    saving.current = true
+    try {
+      repository.rememberPending(record)
+      const next = await repository.saveRecord(record)
+      if (!mounted.current) return
+      setRecords(next)
+      pending.current = null
+      setSaveMessage('계정에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
+      try {
+        repository.forgetPending(record.id)
+        repository.removeDraft(record.id)
+        setDraft((old) => (old?.id === record.id ? null : old))
+      } catch {
+        setError('결과는 저장했습니다. 이 탭의 중간 자료를 정리하지 못했습니다.')
+      }
+    } catch {
+      if (mounted.current)
+        setSaveMessage(
+          '저장 확인을 받지 못했습니다. 같은 결과를 유지합니다. 저장 다시 시도를 눌러 주세요.',
+        )
+    } finally {
+      saving.current = false
     }
   }
   useEffect(() => {
@@ -197,7 +249,7 @@ export function useSessionPersistence({
       return false
     }
     try {
-      saveDraft({
+      const nextDraft = {
         id: session.id,
         startedAt: session.startedAt,
         mode: session.mode,
@@ -205,7 +257,9 @@ export function useSessionPersistence({
         savedAt: new Date().toISOString(),
         machine,
         ...(server ? { server } : {}),
-      })
+      }
+      if (repository) repository.saveDraft(nextDraft)
+      else saveDraft(nextDraft)
       return true
     } catch {
       setError('중간 기록을 저장하지 못했습니다. 새로고침 시 기록을 잃을 수 있습니다.')

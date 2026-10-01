@@ -40,8 +40,14 @@ describe('server screen lifecycle without camera permissions or local time decis
   let service: ServerSessionService
   let listeners: Set<(frame: Observation) => void>
   let client: ReturnType<typeof syntheticClient>['client']
-  function Probe({ session = descriptor() }: { session?: ServerSessionDescriptor }) {
-    latest = useServerSessionScreen({ session, camera, service })
+  function Probe({
+    session = descriptor(),
+    alertsOn = true,
+  }: {
+    session?: ServerSessionDescriptor
+    alertsOn?: boolean
+  }) {
+    latest = useServerSessionScreen({ session, camera, service, alertsOn })
     return null
   }
   async function mount(session = descriptor()) {
@@ -243,6 +249,74 @@ describe('server screen lifecycle without camera permissions or local time decis
       for (const receive of listeners) receive(cameraFrame(100))
     })
     expect(client.send).not.toHaveBeenCalled()
+  })
+
+  it('keeps confirmed server statistics while disabled alerts suppress toast and sound', async () => {
+    client.send.mockImplementation(async (request) => {
+      if (request.kind === 'create') return { view: view() }
+      if (request.kind !== 'features') throw new Error('Synthetic test sends only features')
+      const end = request.body.end_ms
+      const confirmed = end === 3000
+      const server = view({ last_sequence: request.body.sequence })
+      server.summary = {
+        ...server.summary,
+        total_ms: end,
+        valid_ms: end,
+        deviation_ms: end,
+        collapse_count: confirmed ? 1 : 0,
+        alert_count: confirmed ? 1 : 0,
+        keep_rate: 0,
+        events_per_hour: confirmed ? 1200 : 0,
+      }
+      if (confirmed)
+        server.events = [
+          {
+            schema_version: '1.0',
+            session_id: server.session_id,
+            event_id: 1,
+            kind: 'collapse_confirmed',
+            timestamp_ms: 3000,
+            onset_ms: 0,
+            onset_valid_ms: 0,
+            deviation_type: 'forward_slouch',
+            reason: null,
+          },
+        ]
+      return {
+        view: server,
+        observation: {
+          schema_version: '2.0',
+          sequence: request.body.sequence,
+          start_ms: request.body.start_ms,
+          end_ms: end,
+          phase: 'running',
+          valid: true,
+          collapse_probability: 0.9,
+          deviation_type: 'forward_slouch',
+          model_version: 'reference-feature-rule-v1',
+        },
+      }
+    })
+    await act(async () => {
+      renderer = create(<Probe alertsOn={false} />)
+      await flush()
+    })
+    await act(async () => {
+      await latest.toggleSound()
+    })
+    for (const time of [0, 1000, 2000, 3000]) {
+      await act(async () => {
+        vi.setSystemTime(time)
+        camera.lastFrame.current = time
+        for (const receive of listeners) receive(cameraFrame(time))
+        await flush()
+      })
+    }
+    expect(latest.view?.summary.collapse_count).toBe(1)
+    expect(latest.view?.summary.alert_count).toBe(1)
+    expect(latest.live.validSeconds).toBe(3)
+    expect(latest.toast).toBeNull()
+    expect(playCorrection).not.toHaveBeenCalled()
   })
 
   it('shows archive save failure beside the unconfirmed server-end notice in the result UI', async () => {

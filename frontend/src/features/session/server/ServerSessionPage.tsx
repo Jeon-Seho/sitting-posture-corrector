@@ -19,11 +19,21 @@ export type ServerSessionPageProps = {
   onFinish: () => void
   onDashboard: () => void
   onPrepare: () => void
+  accountMode?: boolean
 }
 
 /** Server mode deliberately displays only fields actually supplied by the service contracts. */
 export function ServerSessionPage(props: ServerSessionPageProps) {
-  const { camera, service, session, onFinish, onDashboard, onPrepare, alertsOn = true } = props
+  const {
+    camera,
+    service,
+    session,
+    onFinish,
+    onDashboard,
+    onPrepare,
+    alertsOn = true,
+    accountMode = false,
+  } = props
   const screen = useServerSessionScreen(props)
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const { live, view } = screen
@@ -56,7 +66,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
           <h1 className="page-title">{result ? '측정 결과' : '실시간 측정'}</h1>
           <p className="page-desc">
             {screen.archived
-              ? `서버 종료를 확인하지 못했습니다. 마지막 확인 요약만 이 브라우저에 보관합니다. ${service.saveMessage}`
+              ? `서버 종료를 확인하지 못했습니다. 마지막 확인 요약만 ${accountMode ? '계정에' : '이 브라우저에'} 보관합니다. ${service.saveMessage}`
               : result
                 ? service.saveMessage
                 : '서버 연결 · 확정, 복귀, 재알림과 통계는 서버 사건을 표시합니다.'}
@@ -192,8 +202,10 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
                 추가하지 않습니다.
               </p>
               <p className="card-note">
-                개발용 메모리 서버입니다. 서버 재시작 시 세션이 사라집니다. 관측은 최대 10,000개이며
-                한도 전 측정을 종료하도록 안내합니다.
+                {accountMode
+                  ? '기록은 계정에 보관합니다.'
+                  : '개발용 메모리 서버입니다. 서버 재시작 시 세션이 사라집니다.'}{' '}
+                관측은 최대 10,000개이며 한도 전 측정을 종료하도록 안내합니다.
               </p>
             </Card>
           </div>

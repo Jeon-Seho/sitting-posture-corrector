@@ -5,6 +5,23 @@ Spring Boot API는 입력 검증·전달·저장·조회만 담당한다. 독립
 붕괴·회복·재알림을 판정한다. FastAPI는 특징에서 현재 추론 점수를 만든다.
 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
+## MySQL 계정 모드
+
+[Compose 안내](../infra/README.md)의 초기화와 `docker compose up`으로 실행한다.
+API의 `persistent` 프로필은 MySQL JDBC·Flyway·Spring Security·DB 세션을 사용한다.
+가입/로그인·CSRF·계정별 프로필/설정/기록·삭제는 [계정 API v1](../contracts/accounts.v1.md)을 따른다.
+메모리 개발 모드와 구분한다. 인증한 사용자만 자기 측정을 조회/입력/종료하며 다른 사용자 세션은 404다.
+
+API는 `account/`에서 인증, `persistence/`에서 JDBC와 계정 잠금, `PersistentSessionService`에서 처리 순서,
+`PersistentCepCoordinator`에서 내구 전달/재생을 담당한다. 추론 출력·요청 hash·outbox를 CEP 전에 저장하고
+확인 snapshot·사건·완료를 짧은 트랜잭션으로 기록한다. HTTP 동안 행 트랜잭션을 유지하지 않는다.
+API 또는 CEP 재시작에 확인 관측을 재생하고 원 미확인 입력을 재전달한다. 요약만으로 빈 세션을 만들지 않는다.
+삭제는 DB cascade와 내구 CEP 정리를 사용한다. 기존 관측/사건/조회와 3/2/60 판정은 유지한다.
+
+`make check`는 실제 MySQL·Compose·계정 브라우저까지 실행한다. `make check-local`은 메모리 모드 검증이다.
+`-Pmysql-integration verify`는 disposable/synthetic 환경 표시와 실제 DB를 요구하며 미연결을 skip하지 않는다.
+[DB 마이그레이션](../database/README.md), [플랫폼 책임](../docs/design/data-platform-boundary.md)을 참고한다.
+
 ## 코드 구조
 
 Maven의 `contracts`, `api`, `cep` 모듈과 실행 진입점은 유지하고 각 서비스 안에서 책임별 패키지를 나눈다.
@@ -84,7 +101,7 @@ make dev-server
 이 명령은 세 서비스와 Vite 프록시를 임시 loopback 포트에서 함께 실행하고 접속 주소를 출력한다.
 Windows는 `python tools/dev.py dev-server`를 사용한다. `Ctrl+C`로 시작한 프로세스를 정리한다.
 수동 Vite 실행은 기본 `http://127.0.0.1:8090` API에 연결하며 `POSEGOOD_API_URL`로
-다른 loopback HTTP 포트를 지정할 수 있다. 현재 인증·외부 배포 연결은 없다.
+다른 loopback HTTP 포트를 지정할 수 있다. 이 개발 명령은 메모리 모드다. 실제 계정은 Compose로 실행하며 외부 배포 대상은 아직 미정이다.
 
 ## API
 
@@ -182,7 +199,7 @@ FastAPI에는 지속시간·회복시간·재알림 판정과 저장이 없다.
 프론트 신규 사건도 선택 필드 `validStartAt`을 보관한다. 과거 기록은 같은 연속 블록만 계산하고
 제외 시간을 알 수 없는 블록 사이 간격은 추측하지 않는다. 기존 데이터는 다시 쓰지 않는다.
 
-저장은 프로세스 내 메모리이며 재시작하면 사라진다. 외부 DB·계정·서버 영구 복구·동의/삭제 API는 아직 없다.
+아래 개발 모드 저장은 프로세스 내 메모리이며 재시작하면 사라진다. Compose의 MySQL 영구 모드는 위 계정 API와 내구 복구/삭제를 사용한다.
 개발 제한은 각 서비스 64세션, CEP 세션당 10,000관측, 경과 시각 최대 24시간이다.
 API도 세션당 최대 10,000건의 특징 요청 hash·원 추론 출력·확정 거부 상태를 보관한다.
 원본 영상·좌표·원 요청 특징·계정 정보를 서버에 저장하지 않는다.
@@ -217,7 +234,7 @@ API는 검증한 요청 필드의 SHA-256으로 중복을 비교하고 추론 �
 
 ## 다음 결정
 
-1. 영구 저장·사용자 격리: [DB·인증 설계](../docs/design/server-persistence-and-auth.md)의 소유권·멱등성·CEP 재생·삭제/동의 계약을 확정한 뒤 연결한다. 제품·제공자는 미정이다.
+1. 운영 계정/DB 정책: 자동 보존·백업 만료/삭제·비밀번호 분실 복구·이메일 소유 확인·기기 간 활성 세션 복구를 실제 운영 요구로 정한다. MySQL·이메일 비밀번호와 기본 영구 저장은 구현했다.
 2. Kafka: 관측/사건 전달, 파티션 세션 키·중복 처리·백프레셔·재생 계약이 선행한다.
 3. Redis: 상태 복구·캐시 목적과 TTL/일관성/CEP 재구성 계약이 선행한다.
 4. HDFS/Spark: 승인된 연구 데이터 보관·분석 목적, 동의·분할·보존 정책이 선행한다.

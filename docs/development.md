@@ -6,7 +6,10 @@
 make setup       # Python/프론트 의존성과 MediaPipe 모델 준비 (최초 실행에 네트워크 필요)
 make check-repo  # 표준 라이브러리만으로 구조와 문서 검사
 make test        # 출력 계약과 하네스 회귀 검증
-make check      # CI와 동일한 진입점
+make check      # CI와 동일한 전체 게이트, 실행 중인 Docker/Compose 필요
+make check-local # 기존 로컬/메모리 모드 게이트, 전체 검증과 구분
+make check-compose # 실제 MySQL·Compose·계정 UI·백업 복원
+make init-compose # 무시되는 로컬 secret 파일 준비
 make check-backend # Java API/CEP와 합성 FastAPI HTTP 흐름, 시험 서버 자동 종료
 make check-browser # JAR 준비 후 합성 브라우저·실제 서버 전체 흐름, Chrome/Chromium 필요
 make benchmark-server # JAR 준비 후 합성 서버 지연·처리량 측정, JSON은 .cache/benchmarks/server.json
@@ -32,6 +35,10 @@ Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구�
 프론트만 준비하려면 `make setup-frontend`를 사용한다. 웹캠 사용 흐름과 제약은 [프론트 안내](../frontend/README.md)를 참고한다.
 `requirements-dev.txt`는 직접 의존성 버전을 고정한다. 전이 의존성 전체를 잠근 환경은 아니며,
 실험 재현에 사용할 런타임·ML 의존성 잠금은 스택 결정 작업에서 별도로 추가한다.
+
+전체 게이트는 실제 MySQL의 통합 테스트를 필수로 실행한다. Docker가 없거나 꺼졌으면 실패한다.
+`check-local`은 Docker 없이 기존 앱/메모리 모드 검증을 반복할 때 사용하며 영구 모드를 확인한 결과로 보고하지 않는다.
+Compose 계정 앱의 간단한 실행과 GitHub 배포 환경 설정은 [infra 안내](../infra/README.md)를 따른다.
 
 ## 작업 루프
 

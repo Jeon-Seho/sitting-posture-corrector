@@ -12,13 +12,17 @@
 - 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
 
 
-현재 상태: **웹캠 단일 앱 + 선택형 개발 서버 판정(API·FastAPI·Esper CEP), 완료 기록은 로컬 저장 / LSTM·DB·인증 미연결**.
+현재 상태: **웹캠 단일 앱 + MySQL 이메일·비밀번호 계정 + 영구 저장·API/CEP 복구 + Compose·배포 자동화 설정 / 학습된 LSTM 미연결**.
+[Compose 실행·배포·백업](../infra/README.md), [계정 API](../contracts/accounts.v1.md),
+[MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md), [데이터 플랫폼 책임](design/data-platform-boundary.md).
+최신 구현·검증 결과는 [완료 0017](plans/completed/0017-mysql-accounts-compose-deployment.md)에 기록한다.
 [특징 계약·서버 연결 결정](decisions/0013-frontend-server-feature-connection.md),
 [DB·인증 연결 설계](design/server-persistence-and-auth.md), [서버 연결 완료·검증](plans/completed/0014-frontend-server-connection.md).
 [API·CEP 완료 검증](plans/completed/0011-api-cep-vertical-slice.md), [서비스 실행·계약·남은 결정](../backend/README.md), [API/CEP 책임 분리 결정](decisions/0011-api-cep-boundary.md).
 
-최근 완료: [확인창 키보드 동작·성능 측정·자료 준비와 전체 검증](plans/completed/0016-remaining-tools-and-validation.md).
-직전 완료: [서버·브라우저 회귀 검증과 기록 비교 조건·상세](plans/completed/0015-server-regression-and-record-details.md).
+최근 완료: [MySQL 계정·영구 복구·Compose·배포 설정과 실제 DB 검증](plans/completed/0017-mysql-accounts-compose-deployment.md).
+직전 완료: [확인창 키보드 동작·성능 측정·자료 준비와 전체 검증](plans/completed/0016-remaining-tools-and-validation.md).
+이전 완료: [서버·브라우저 회귀 검증과 기록 비교 조건·상세](plans/completed/0015-server-regression-and-record-details.md).
 
 확정 시간 정책: [ADR 0012](decisions/0012-session-timing-policy.md) — 기본 최초 알림 3초·정상 복귀 2초·같은 사건 재알림 60초,
 휴식 후 새 사건·측정 불가/누락 중단과 유효 통계 제외·설정의 다음 새 세션 적용.

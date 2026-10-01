@@ -10,6 +10,7 @@ export function LoginPage({
   onSubmit,
   children,
   footer,
+  submitDisabled = false,
 }: {
   title: string
   lead: string
@@ -18,6 +19,7 @@ export function LoginPage({
   onSubmit: () => void
   children: ReactNode
   footer?: ReactNode
+  submitDisabled?: boolean
 }) {
   return (
     <div className="cover-page">
@@ -44,7 +46,12 @@ export function LoginPage({
 
               {children}
 
-              <button type="submit" className="btn btn-lg" style={{ width: '100%' }}>
+              <button
+                type="submit"
+                className="btn btn-lg"
+                disabled={submitDisabled}
+                style={{ width: '100%' }}
+              >
                 {submitLabel}
                 <ArrowRight size={18} weight="bold" className="icon" />
               </button>

@@ -3,14 +3,12 @@ package org.posegood.api.gateway;
 import org.posegood.contracts.ContractError;
 import org.posegood.contracts.InferenceRequest;
 import org.posegood.contracts.Observation;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-
-import java.net.URI;
 
 @Component
 public class HttpInferenceGateway implements InferenceGateway {
@@ -18,20 +16,21 @@ public class HttpInferenceGateway implements InferenceGateway {
 
     public HttpInferenceGateway(
             RestClient.Builder builder, @Value("${posegood.inference-url}") String url) {
-        var uri = URI.create(url);
-        if (!"http".equals(uri.getScheme())
-                || !"127.0.0.1".equals(uri.getHost())
-                || uri.getUserInfo() != null
-                || uri.getQuery() != null
-                || uri.getFragment() != null
-                || !(uri.getPath() == null || uri.getPath().isEmpty())) {
-            throw new IllegalArgumentException(
-                    "development inference endpoint must be loopback HTTP");
-        }
+        this(builder, url, false, "");
+    }
 
-        var factory = new SimpleClientHttpRequestFactory();
+    @Autowired
+    public HttpInferenceGateway(
+            RestClient.Builder builder,
+            @Value("${posegood.inference-url}") String url,
+            @Value("${posegood.internal-hosts-enabled:false}") boolean internal,
+            @Value("${posegood.internal-token:}") String token) {
+        GatewayEndpoint.require(url, "inference", internal, token);
+
+        var factory = new NoRedirectRequestFactory();
         factory.setConnectTimeout(2000);
         factory.setReadTimeout(3000);
+        if (internal) builder.defaultHeader("X-PoseGood-Internal-Token", token);
         client = builder.baseUrl(url).requestFactory(factory).build();
     }
 

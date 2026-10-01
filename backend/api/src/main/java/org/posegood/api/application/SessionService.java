@@ -10,13 +10,15 @@ import org.posegood.contracts.FeatureResponse;
 import org.posegood.contracts.InferenceRequest;
 import org.posegood.contracts.Observation;
 import org.posegood.contracts.SessionView;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
 /** Coordinates requests and saves only verified CEP snapshots. No posture decisions belong here. */
 @Service
-public class SessionService {
+@Profile("!persistent")
+public class SessionService implements SessionOperations {
     private static final int MAX_SESSIONS = 64;
 
     private final SessionRepository repository;

@@ -8,6 +8,7 @@ type Props = {
   disabled?: boolean
   onCancel: () => void
   onConfirm: () => void | Promise<void>
+  formatError?: (error: unknown) => string
 }
 
 export function ConfirmDialog({
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   disabled = false,
   onCancel,
   onConfirm,
+  formatError,
 }: Props) {
   const id = useId()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -53,8 +55,9 @@ export function ConfirmDialog({
     setError('')
     try {
       await onConfirm()
-    } catch {
-      if (mounted.current) setError('처리하지 못했습니다. 취소하거나 다시 시도해 주세요.')
+    } catch (failure) {
+      if (mounted.current)
+        setError(formatError?.(failure) ?? '처리하지 못했습니다. 취소하거나 다시 시도해 주세요.')
     } finally {
       confirming.current = false
       if (mounted.current) setBusy(false)

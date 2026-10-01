@@ -69,12 +69,25 @@ def benchmark_server():
     )
 
 
-def check():
+def init_compose():
+    run(sys.executable, "tools/compose_init.py")
+
+
+def check_compose():
+    run(require_venv(), "tools/compose_smoke.py")
+
+
+def check_local():
     check_repo()
     test()
     check_frontend()
     check_backend()
     check_browser()
+
+
+def check():
+    check_local()
+    check_compose()
 
 
 def dev_service(component, artifact):

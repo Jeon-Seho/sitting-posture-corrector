@@ -31,7 +31,7 @@
 - 기준/전방·구부정/좌측/우측 기울임은 후보 라벨이다. 수집 전에 가시성과 분리도를 확인한다.
 - 해상도, 거리, 시퀀스 길이, 신뢰도·알림 임계값은 데이터 수집 전에 결정한다.
 - 현재 계획의 우선 스택은 React·TypeScript, Spring Boot, Python/LSTM이다. 버전·빌드 도구·통신 계약은 미정이다.
-- 클라이언트 키포인트 추출 → 특징 전송 → 분리된 추론 서비스의 개발 모드를 연결했다([ADR 0013](decisions/0013-frontend-server-feature-connection.md)). DB·로그인 환경은 미정으로 사용자 확인했으며 [설계](design/server-persistence-and-auth.md)만 작성했다. MySQL은 검토 후보다.
+- 특징·분리 추론은 [ADR 0013](decisions/0013-frontend-server-feature-connection.md), 사용자 선택한 MySQL·이메일/비밀번호 계정·저장은 [ADR 0014](decisions/0014-mysql-persistence-and-accounts.md)를 따른다. Compose와 자동 배포 설정은 [ADR 0015](decisions/0015-compose-and-deployment.md)이며 실제 배포 서버는 미정이다.
 - 알림 시간 정책은 [ADR 0012](decisions/0012-session-timing-policy.md)로 확정했다. 최초 알림 3초·정상 복귀 2초·같은 사건 재알림 60초는 기본값이며 입력 시퀀스 길이와 구분한다. 설정 변경은 다음 새 세션부터 적용한다.
 
 ## 확정 시간 정책

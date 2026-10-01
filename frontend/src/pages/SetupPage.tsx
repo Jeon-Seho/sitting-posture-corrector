@@ -13,6 +13,7 @@ export function SetupPage({
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
+  accountMode = false,
 }: {
   startLabel?: string
   camera: CameraController
@@ -22,6 +23,7 @@ export function SetupPage({
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
+  accountMode?: boolean
 }) {
   return (
     <>
@@ -83,7 +85,15 @@ export function SetupPage({
             </p>
           </Card>
           <div className="stack">
-            {onServerMode && (
+            {accountMode && (
+              <Card title="기록 보관">
+                <p className="fine">
+                  확인된 측정 요약과 사건을 내 계정에 보관합니다. 영상과 관절 좌표는 전송하지
+                  않습니다. 복구에 필요한 기준 특징과 미확인 요청만 이 탭에 잠시 보관합니다.
+                </p>
+              </Card>
+            )}
+            {onServerMode && !accountMode && (
               <Card title="판정 연결">
                 <label className="row">
                   <input

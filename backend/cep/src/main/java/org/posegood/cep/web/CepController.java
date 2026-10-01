@@ -6,13 +6,17 @@ import org.posegood.cep.application.CepSessionService;
 import org.posegood.contracts.CreateSession;
 import org.posegood.contracts.EndSession;
 import org.posegood.contracts.Observation;
+import org.posegood.contracts.RestoreSession;
 import org.posegood.contracts.SessionView;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -44,5 +48,16 @@ public class CepController {
     @GetMapping("/{id}")
     public SessionView get(@PathVariable UUID id) {
         return sessions.get(id);
+    }
+
+    @PostMapping("/{id}/restore")
+    public SessionView restore(@PathVariable UUID id, @Valid @RequestBody RestoreSession request) {
+        return sessions.restore(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) {
+        sessions.delete(id);
     }
 }

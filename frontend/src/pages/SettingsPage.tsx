@@ -58,8 +58,10 @@ export function SettingsPage({
   hasHistory,
   onHasHistory,
   serviceMode = false,
+  accountMode = false,
 }: {
   serviceMode?: boolean
+  accountMode?: boolean
   rules: Rules
   onRules: (r: Rules) => void
   alertsOn: boolean
@@ -75,8 +77,8 @@ export function SettingsPage({
         <div>
           <h1 className="page-title">설정</h1>
           <p className="page-desc">
-            기본 시간 정책은 이탈 3초, 정상 복귀 2초, 같은 사건 재알림 60초입니다. 설정 변경은
-            다음 측정에 적용합니다. 점수·측정 품질 임계값은 검증 전 값입니다.
+            기본 시간 정책은 이탈 3초, 정상 복귀 2초, 같은 사건 재알림 60초입니다. 설정 변경은 다음
+            측정에 적용합니다. 점수·측정 품질 임계값은 검증 전 값입니다.
           </p>
         </div>
         <button className="btn" onClick={() => onRules(DEFAULT_RULES)}>
@@ -92,10 +94,12 @@ export function SettingsPage({
               <div>
                 <div className="setting-name">교정 알림 사용</div>
                 <div className="setting-desc">
-                  꺼도 붕괴 이벤트는 계속 기록되며, 해당 구간은 회복 시간 집계에서 따로 표시됩니다.
+                  {accountMode
+                    ? '꺼도 서버 사건과 통계는 계속 기록합니다. 화면 알림과 소리만 끕니다.'
+                    : '꺼도 붕괴 이벤트는 계속 기록되며, 해당 구간은 회복 시간 집계에서 따로 표시됩니다.'}
                 </div>
               </div>
-              {serviceMode ? (
+              {serviceMode && !accountMode ? (
                 <span>화면 알림 유지 · 소리는 측정 화면에서 설정</span>
               ) : (
                 <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
@@ -178,8 +182,8 @@ export function SettingsPage({
               <div>
                 <div className="setting-name">발표용 예시 기록 표시</div>
                 <div className="setting-desc">
-                  켜면 홈·대시보드에 발표용 예시 기록을, 끄면 이 브라우저에 저장된 실제 측정 기록을
-                  보여줍니다.
+                  켜면 홈·대시보드에 발표용 예시 기록을, 끄면{' '}
+                  {accountMode ? '내 계정의' : '이 브라우저에 저장된'} 실제 측정 기록을 보여줍니다.
                 </div>
               </div>
               <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />

@@ -6,7 +6,7 @@ else
 PYTHON ?= python3
 endif
 
-.PHONY: setup setup-python setup-frontend check check-repo test check-frontend check-backend check-browser benchmark-server dev dev-api dev-cep dev-inference dev-server
+.PHONY: setup setup-python setup-frontend check check-local check-compose init-compose check-repo test check-frontend check-backend check-browser benchmark-server dev dev-api dev-cep dev-inference dev-server
 
 setup:
 	$(PYTHON) tools/dev.py setup
@@ -19,6 +19,15 @@ setup-frontend:
 
 check:
 	$(PYTHON) tools/dev.py check
+
+check-local:
+	$(PYTHON) tools/dev.py check-local
+
+check-compose:
+	$(PYTHON) tools/dev.py check-compose
+
+init-compose:
+	$(PYTHON) tools/dev.py init-compose
 
 check-repo:
 	$(PYTHON) tools/dev.py check-repo

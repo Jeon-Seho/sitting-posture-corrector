@@ -3,6 +3,7 @@ package org.posegood.api.repository;
 import org.posegood.contracts.ContractError;
 import org.posegood.contracts.Observation;
 import org.posegood.contracts.SessionView;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Development in-memory snapshot storage; the application service owns request coordination. */
 @Repository
+@Profile("!persistent")
 public class SessionRepository {
     private final Map<UUID, StoredSession> sessions = new ConcurrentHashMap<>();
 

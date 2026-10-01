@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url'
 
 const polling = /^(1|true)$/i.test(process.env.CHOKIDAR_USEPOLLING ?? '')
 const apiTarget = process.env.POSEGOOD_API_URL ?? 'http://127.0.0.1:8090'
+const apiPrefix = process.env.POSEGOOD_API_PREFIX ?? ''
+if (!['', '/api'].includes(apiPrefix)) {
+  throw new Error('개발 API 경로 접두사는 비어 있거나 /api여야 합니다.')
+}
 const apiUrl = new URL(apiTarget)
 if (
   apiUrl.protocol !== 'http:' ||
@@ -19,7 +23,7 @@ if (
 const proxy = {
   '/api': {
     target: apiTarget,
-    rewrite: (path: string) => path.replace(/^\/api(?=\/)/, ''),
+    rewrite: (path: string) => apiPrefix + path.replace(/^\/api(?=\/)/, ''),
   },
 }
 

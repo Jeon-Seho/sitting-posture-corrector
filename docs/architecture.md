@@ -36,7 +36,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 새 서버 흐름의 지속시간·회복·재알림 판정은 Esper CEP 한 곳에서 수행한다. Spring Boot API는
 검증·전달·저장·조회, FastAPI는 현재 추론 점수를 담당한다. [관측/사건/조회 계약](../contracts/README.md)을 사용한다.
 프론트 서버 모드는 `features/session/server/`의 독립 화면·순서 큐로 CEP 사건을 표시한다. 로컬 시간 엔진을 실행하지 않는다.
-`/api` 개발 프록시는 loopback API로만 연결한다. 새 스택이나 외부 서비스를 추가하지 않았다.
+`/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고 DB·CEP·추론은 host port를 열지 않는다.
 현재 FastAPI는 규칙 기반 특징 점수이고 학습 모델이 아니다. [실행·검증·한계](../backend/README.md)를 따른다.
 CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임시 런타임을 정리한 뒤 HTTP 요청을 받는다.
 이 준비는 사용자 세션 저장소나 통계·64세션 한도를 소비하지 않는다.
@@ -70,6 +70,22 @@ CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임�
 기준 등록 자료는 개인 보정용으로 별도 출력하며 평가 창이나 전역 학습 자료에 합치지 않는다.
 저품질·미검토·전이·누락 경계 양쪽을 연결하거나 보간하지 않는다. 실제 자료와 manifest는 Git 제외/외부 위치에 둔다.
 도구는 변환기를 맞추거나 모델을 학습하지 않는다.
+
+## MySQL 영구 모드
+
+[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
+인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다. 계정별 MySQL 잠금과 짧은 트랜잭션으로
+관측/outbox를 CEP 전에 저장하고, 확인 후 요약·사건·처리 상태를 저장한다. HTTP를 기다리는 동안 행 트랜잭션을 유지하지 않는다.
+CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 원 관측을 재전달한다. 사건 ID·요약 불일치는 복구 실패다.
+
+프론트는 `VITE_SERVER_ACCOUNTS=true`에서 실제 계정 앱을 선택하고 인증 후 프로필·설정·기록을 서버에서 읽는다.
+최종 기록을 localStorage에 복제하지 않는다. 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
+동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
+탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
+
+마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
+연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.
+`cep_outbox`는 서비스 복구 전달용이며 Kafka 분석용 export라고 부르지 않는다.
 
 ## 프론트 진입과 로컬 저장
 

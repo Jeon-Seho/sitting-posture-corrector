@@ -4,6 +4,15 @@
 현재 작업 브랜치는 `codex/posture-api-cep-hardening`이다. 정상 승인된 쓰기 인증이 확인된 뒤 이 브랜치만 일반 push한다.
 force push·reset·clean·자동 merge·배포는 하지 않는다. 이 문서는 비밀값과 사용자 측정 데이터를 포함하지 않는다.
 
+## 최신 작업 상태 (2026-10-01)
+
+기존 구조/서버/도구 변경은 c4086f3을 현재 codex 브랜치에 push했다. 그 뒤 MySQL 계정·Compose 작업을 진행했다.
+[계획 0017](plans/completed/0017-mysql-accounts-compose-deployment.md), [실행/배포 안내](../infra/README.md),
+[계정 계약](../contracts/accounts.v1.md)이 현재 기준이다. 이전 절의 미구현/검증 수/쓰기 장애는 해당 시점 이력이다.
+최신 MySQL 작업의 remote push·GitHub workflow·외부 배포는 아직 실행하지 않았다. 배포 서버는 사용자 확인으로 미정이다.
+전체 make check는 Docker/Compose·JDK 21·Maven·Node 24·Python·Chrome을 필요로 한다.
+문서 밖 사용자 임시 자료 docs/references/temp.md는 보존하고 변경/커밋 대상에 포함하지 않는다.
+
 ## 보존한 구현
 
 원격 develop 기준점은 `953323477b49ffe80839bbfd1d9285ce8363a490`이다. 이번 문서 커밋 전 구현 HEAD는
@@ -146,8 +155,19 @@ CEP의 최초 요청 준비가 API 기한에 영향을 주는 문제를 서비�
 결과 폴더를 배타적으로 확보하고 완료 manifest를 마지막에 기록하여 동시 실행 결과를 덮어쓰지 않는다.
 합성 예제는 train/validation/test 각 2개 창과 기준 등록 3개로 검증했다. 실제 자료와 학습은 사용하지 않았다.
 
-최신 전체 `make check`: Python 93개·프론트 189개·Java 53개(API 33/CEP 20), 타입 검사·Vite/JAR 빌드,
+계획 0016 당시 전체 `make check`: Python 93개·프론트 189개·Java 53개(API 33/CEP 20), 타입 검사·Vite/JAR 빌드,
 실제 HTTP·짧은 benchmark·합성 입력의 실제 Chrome 회귀 61개와 모든 시험 프로세스/포트 정리가 통과했다.
 실제 카메라·음향·장시간·기기 FPS·학습 정확도, 외부 DB/인증 연결, 원격 CI와 Windows/Linux 실행은 미검증이다.
 기술 스택·의존성·확정 판정 정책은 유지했다. [완료 기록](plans/completed/0016-remaining-tools-and-validation.md)과
 [백로그](plans/backlog.md)를 다음 작업의 기준으로 사용한다.
+
+
+## MySQL 작업 최종 검증
+
+최신 전체 make check exit 0: Python122·프론트228·기본Java69(API45/CEP24), TypeScript·Vite/JAR,
+실제 HTTP·benchmark·기존 Chrome61과 계정 Chrome21, 실제 Compose46, 원본/복원 MySQL11개씩 통과.
+백업의 별도 빈 DB 복원·row counts·볼륨 재마운트·Flyway validate·시험 자원 정리를 확인했다.
+[완료 기록0017](plans/completed/0017-mysql-accounts-compose-deployment.md)이 최신 기준이다.
+Docker Desktop의 Desktop bind 권한 문제는 검증용 외부 임시 secret로 해결했다. 일반 실행의 외부 지속 경로는
+[infra 안내](../infra/README.md)를 따른다. 현재 앱 서비스는 실행 중이 아니며 시험 자원은 정리했다.
+최신 변경의 remote push·GitHub workflow·외부 배포와 실제 카메라/연구 정확도/Windows host는 미검증이다.

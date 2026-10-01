@@ -1,6 +1,10 @@
 import type { ProfileForm } from './useProfileForm'
 
-export function ProfileFields({ form, canWrite }: { form: ProfileForm; canWrite: boolean }) {
+export type ProfileFieldValues = Pick<
+  ProfileForm,
+  'name' | 'age' | 'occupation' | 'setName' | 'setAge' | 'setOccupation'
+>
+export function ProfileFields({ form, canWrite }: { form: ProfileFieldValues; canWrite: boolean }) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
   return (
     <>

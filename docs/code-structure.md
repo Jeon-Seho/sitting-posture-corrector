@@ -11,6 +11,7 @@
 frontend/src/
   app/                    앱 조립, 화면 이동, 사이드바, 저장소 안내
   features/
+    accounts/             서버 로그인·프로필·원격 workspace·계정별 임시 자료
     dialog/               공통 확인창·키보드 초점과 동작 생명주기
     camera/               포즈 모델 준비, 프레임 처리, 카메라 오류 안내
     profile/              프로필 편집, 로컬 자료 삭제 확인
@@ -32,7 +33,9 @@ backend/
   api/                    org.posegood.api
     .../web/              HTTP 입력과 오류 응답
     .../application/      세션 생성·관측·종료·조회 조정
-    .../repository/       메모리 저장
+    .../account/          인증·CSRF·현재 주체·계정/비밀번호 관리
+    .../persistence/      JDBC 저장·JSON 검증·계정 잠금
+    .../repository/       메모리 개발 저장
     .../gateway/          CEP·추론 HTTP 연결
   cep/                    org.posegood.cep
     .../web/              내부 HTTP 입력과 오류 응답
@@ -47,6 +50,9 @@ model/
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
+database/migrations/      Flyway MySQL 스키마
+infra/                    컨테이너 빌드·Nginx·배포 안내
+compose.yaml              계정 모드 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제
 tools/                    실행·검증·시험 서버 관리
   browser/                Chrome CDP 연결·프로세스·합성 브라우저 시나리오

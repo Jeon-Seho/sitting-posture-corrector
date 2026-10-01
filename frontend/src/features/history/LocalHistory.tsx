@@ -19,6 +19,7 @@ export function LocalHistory({
   measuring,
   onStart,
   onRegister,
+  accountMode = false,
 }: {
   page: 'home' | 'dashboard'
   name: string
@@ -26,6 +27,7 @@ export function LocalHistory({
   measuring: boolean
   onStart: () => void
   onRegister: () => void
+  accountMode?: boolean
 }) {
   const [selectedMode, setSelectedMode] = useState<HistoryMode>('all')
   const [period, setPeriod] = useState<Period>('week')
@@ -46,7 +48,7 @@ export function LocalHistory({
               : selectedMode === 'camera'
                 ? '실제 웹캠 기록'
                 : '합성 시연 기록'}{' '}
-            · 이 브라우저의 로컬 요약
+            · {accountMode ? '내 계정에 저장된 요약' : '이 브라우저의 로컬 요약'}
           </p>
         </div>
         <button className="btn btn-primary" onClick={onStart}>

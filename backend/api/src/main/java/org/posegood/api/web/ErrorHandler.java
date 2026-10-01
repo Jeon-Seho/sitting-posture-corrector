@@ -14,7 +14,16 @@ import java.util.Map;
 public class ErrorHandler {
     @ExceptionHandler(ContractError.class)
     public ResponseEntity<?> conflict(ContractError error) {
-        return ResponseEntity.status(error.status()).body(Map.of("error", error.getMessage()));
+        String code = error instanceof ApiError api ? api.code() : "REQUEST_FAILED";
+        return ResponseEntity.status(error.status())
+                .body(
+                        Map.of(
+                                "error",
+                                error.getMessage(),
+                                "code",
+                                code,
+                                "message",
+                                error.getMessage()));
     }
 
     @ExceptionHandler({
@@ -23,6 +32,27 @@ public class ErrorHandler {
         MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<?> invalid(Exception ignored) {
-        return ResponseEntity.badRequest().body(Map.of("error", "invalid contract"));
+        return ResponseEntity.badRequest()
+                .body(
+                        Map.of(
+                                "error",
+                                "invalid contract",
+                                "code",
+                                "INVALID_CONTRACT",
+                                "message",
+                                "invalid contract"));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<?> storageUnavailable(Exception ignored) {
+        return ResponseEntity.status(503)
+                .body(
+                        Map.of(
+                                "error",
+                                "storage unavailable",
+                                "code",
+                                "STORAGE_UNAVAILABLE",
+                                "message",
+                                "storage unavailable; retry original request"));
     }
 }

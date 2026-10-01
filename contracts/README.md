@@ -1,5 +1,8 @@
 # AI·서비스 경계 계약
 
+MySQL 계정 모드의 로그인·CSRF·소유권·설정/기록/삭제 경로는 [계정·저장 API v1](accounts.v1.md)을 따른다.
+AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
+
 ## 기존 상태 출력 v1
 
 기준: [JSON Schema](posture-status.v1.schema.json). 프레임워크와 전송 방식에 독립적인 초기 계약이다.

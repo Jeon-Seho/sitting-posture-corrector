@@ -3,6 +3,7 @@ name: Repository harness
 on:
   push:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -28,4 +29,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: make setup
+      - name: Require Docker and Compose for persistent service verification
+        run: |
+          docker info --format '{{.ServerVersion}}'
+          docker compose version
       - run: make check

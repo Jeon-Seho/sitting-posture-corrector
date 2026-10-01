@@ -2,7 +2,7 @@ package org.posegood.api.web;
 
 import jakarta.validation.Valid;
 
-import org.posegood.api.application.SessionService;
+import org.posegood.api.application.SessionOperations;
 import org.posegood.contracts.CreateSession;
 import org.posegood.contracts.EndSession;
 import org.posegood.contracts.FeatureResponse;
@@ -22,9 +22,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1/sessions")
 public class SessionController {
-    private final SessionService sessions;
+    private final SessionOperations sessions;
 
-    public SessionController(SessionService sessions) {
+    public SessionController(SessionOperations sessions) {
         this.sessions = sessions;
     }
 

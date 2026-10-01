@@ -1,6 +1,7 @@
 import type { Rules } from '../../../lib/engine'
 import type { ServerObservation, ServerPendingRequest, SessionView } from './contracts'
 import { validFeatureResponse, validSessionView } from './validation'
+import { accountClient, SERVER_ACCOUNTS } from '../../accounts/client'
 
 export type ServerReply = { view: SessionView; observation?: ServerObservation }
 export type SessionClient = {
@@ -24,7 +25,7 @@ export function createSessionClient(
   rules: Rules,
   options: { fetch?: typeof fetch; timeoutMs?: number } = {},
 ): SessionClient {
-  const fetchRequest = options.fetch ?? globalThis.fetch
+  const fetchRequest = options.fetch ?? (SERVER_ACCOUNTS ? accountClient.fetch : globalThis.fetch)
   const timeoutMs = options.timeoutMs ?? 5000
   const base = `/api/v1/sessions/${encodeURIComponent(id)}`
 

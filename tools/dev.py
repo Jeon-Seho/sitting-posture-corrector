@@ -13,13 +13,15 @@ else:
 
 if __package__:
     from .dev_tasks import (
-        benchmark_server, check, check_backend, check_browser, check_frontend, check_repo, dev, dev_api,
-        dev_cep, dev_inference, setup, setup_frontend, setup_python, test,
+        benchmark_server, check, check_backend, check_browser, check_compose,
+        check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
+        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
     )
 else:
     from dev_tasks import (
-        benchmark_server, check, check_backend, check_browser, check_frontend, check_repo, dev, dev_api,
-        dev_cep, dev_inference, setup, setup_frontend, setup_python, test,
+        benchmark_server, check, check_backend, check_browser, check_compose,
+        check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
+        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
     )
 
 
@@ -28,6 +30,9 @@ COMMANDS = {
     "setup-python": setup_python,
     "setup-frontend": setup_frontend,
     "check": check,
+    "check-local": check_local,
+    "check-compose": check_compose,
+    "init-compose": init_compose,
     "check-repo": check_repo,
     "test": test,
     "check-frontend": check_frontend,
