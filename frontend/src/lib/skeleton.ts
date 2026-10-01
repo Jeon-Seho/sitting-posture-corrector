@@ -6,8 +6,12 @@ export function smoothPoints(previous: Landmark[], target: Landmark[], dtMs: num
   return target.map((point, i) => {
     const old = previous[i]
     if (!old || (old.visibility ?? 0) < 0.65 || (point.visibility ?? 0) < 0.65) return { ...point }
-    return { ...point, x: old.x + (point.x - old.x) * alpha,
-      y: old.y + (point.y - old.y) * alpha, z: old.z + (point.z - old.z) * alpha }
+    return {
+      ...point,
+      x: old.x + (point.x - old.x) * alpha,
+      y: old.y + (point.y - old.y) * alpha,
+      z: old.z + (point.z - old.z) * alpha,
+    }
   })
 }
 

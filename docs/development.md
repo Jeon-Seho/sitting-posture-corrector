@@ -8,6 +8,8 @@ make check-repo  # 표준 라이브러리만으로 구조와 문서 검사
 make test        # 출력 계약과 하네스 회귀 검증
 make check      # CI와 동일한 진입점
 make check-backend # Java API/CEP와 합성 FastAPI HTTP 흐름, 시험 서버 자동 종료
+make check-browser # JAR 준비 후 합성 브라우저·실제 서버 전체 흐름, Chrome/Chromium 필요
+make benchmark-server # JAR 준비 후 합성 서버 지연·처리량 측정, JSON은 .cache/benchmarks/server.json
 make dev        # 웹캠/데모 프론트 프로토타입
 ```
 
@@ -19,6 +21,14 @@ Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구�
 `make dev-api`, `make dev-cep`, `make dev-inference`는 각각 하나의 loopback 서비스만 실행한다.
 프론트는 Node.js 24 이상과 npm을 사용한다. `make setup`이 npm lockfile 기준으로 설치하고 MediaPipe 모델을 준비한다.
 `make check-frontend`는 상태 전이·품질 테스트, 타입 검사, 빌드를 실행한다. `make check`에도 포함된다.
+
+`make check`의 브라우저 게이트에는 Chrome/Chromium이 필요하다. 프론트 빌드와 서버 JAR를 준비한 뒤 `make check-browser`로
+별도 실행할 수 있다. 독립 임시 프로필과 개발 테스트 모드의 합성 입력으로 앱·API·추론·CEP를 연결하며
+실제 카메라를 사용하지 않는다. 일반 개발과 프로덕션에서는 합성 카메라 모드를 사용하지 않는다.
+확인창의 Tab/Shift+Tab·Esc·초점 복귀·배경 조작 차단도 실제 브라우저에서 검증한다.
+`make check-backend`에는 성능 합격 수치를 두지 않는 짧은 benchmark 회귀가 포함된다.
+별도 측정 조건·보고서 해석은 [서버 benchmark](audits/2026-10-01-server-benchmark.md)를 따른다.
+[자료 준비 CLI](research/dataset-preparation.md)의 합성 분할·시간 창·개인 기준/누수 검증은 Python 게이트에 포함된다.
 프론트만 준비하려면 `make setup-frontend`를 사용한다. 웹캠 사용 흐름과 제약은 [프론트 안내](../frontend/README.md)를 참고한다.
 `requirements-dev.txt`는 직접 의존성 버전을 고정한다. 전이 의존성 전체를 잠근 환경은 아니며,
 실험 재현에 사용할 런타임·ML 의존성 잠금은 스택 결정 작업에서 별도로 추가한다.

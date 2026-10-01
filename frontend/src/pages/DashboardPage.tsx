@@ -1,15 +1,7 @@
 import { useState } from 'react'
 import { EARLY_PERIOD, HISTORY, RECENT_PERIOD, type DayRecord, type Period } from '../data/history'
 import { Card, ComboChart, Ledger, Legend, Stat } from '../components/ui'
-import {
-  delta,
-  formatDuration,
-  formatPercent,
-  formatRate,
-  mean,
-  median,
-  ratio,
-} from '../lib/stats'
+import { delta, formatDuration, formatPercent, formatRate, mean, median, ratio } from '../lib/stats'
 
 function summarize(days: DayRecord[]) {
   const valid = days.reduce((a, d) => a + d.validSeconds, 0)
@@ -76,29 +68,29 @@ export function DashboardPage() {
       </div>
 
       <div className="gap-top">
-      <Ledger cols={4}>
-        <Stat
-          label="오늘 유지율"
-          value={formatPercent(tDay.keepRate)}
-          sub={`유효 측정 ${formatDuration(tDay.valid)}`}
-        />
-        <Stat
-          label="이번 주 유지율"
-          value={formatPercent(tWeek.keepRate)}
-          sub={`세션 ${tWeek.sessions}회`}
-          tone={tWeek.keepRate !== null && tWeek.keepRate >= 0.75 ? 'good' : undefined}
-        />
-        <Stat
-          label="최근 14일 유지율"
-          value={formatPercent(all.keepRate)}
-          sub={`유효 측정 ${formatDuration(all.valid)}`}
-        />
-        <Stat
-          label="판정 불가 (제외)"
-          value={formatDuration(all.excluded)}
-          sub={`전체 대비 ${((all.excluded / (all.valid + all.excluded)) * 100).toFixed(1)}%`}
-        />
-      </Ledger>
+        <Ledger cols={4}>
+          <Stat
+            label="오늘 유지율"
+            value={formatPercent(tDay.keepRate)}
+            sub={`유효 측정 ${formatDuration(tDay.valid)}`}
+          />
+          <Stat
+            label="이번 주 유지율"
+            value={formatPercent(tWeek.keepRate)}
+            sub={`세션 ${tWeek.sessions}회`}
+            tone={tWeek.keepRate !== null && tWeek.keepRate >= 0.75 ? 'good' : undefined}
+          />
+          <Stat
+            label="최근 14일 유지율"
+            value={formatPercent(all.keepRate)}
+            sub={`유효 측정 ${formatDuration(all.valid)}`}
+          />
+          <Stat
+            label="판정 불가 (제외)"
+            value={formatDuration(all.excluded)}
+            sub={`전체 대비 ${((all.excluded / (all.valid + all.excluded)) * 100).toFixed(1)}%`}
+          />
+        </Ledger>
       </div>
 
       {tab === 'daily' && (
@@ -195,7 +187,10 @@ export function DashboardPage() {
           <Card title="이번 주" note={`${week[0].label} ~ ${week[week.length - 1].label}`}>
             <WeekBody s={tWeek} />
           </Card>
-          <Card title="지난 주" note={`${prevWeek[0].label} ~ ${prevWeek[prevWeek.length - 1].label}`}>
+          <Card
+            title="지난 주"
+            note={`${prevWeek[0].label} ~ ${prevWeek[prevWeek.length - 1].label}`}
+          >
             <WeekBody s={tPrev} />
           </Card>
           <Card title="주간 변화" note="지난 주 대비 증감입니다." dark className="span-2">
@@ -370,7 +365,10 @@ function DeltaRow({
     <div className="feature-row" style={{ gridTemplateColumns: '1fr auto auto', gap: 14 }}>
       <span className="feature-name">{name}</span>
       <span className="feature-value">{now}</span>
-      <span className={`stat-delta ${good ? 'up' : 'down'}`} style={{ minWidth: 68, textAlign: 'right' }}>
+      <span
+        className={`stat-delta ${good ? 'up' : 'down'}`}
+        style={{ minWidth: 68, textAlign: 'right' }}
+      >
         {diff === null ? '—' : `${diff > 0 ? '+' : '−'}${format(Math.abs(diff))}`}
       </span>
     </div>

@@ -2,6 +2,7 @@
 
 ## 먼저 볼 문서
 
+- **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 
 - **팀 공유:** [서비스 요구사항](team-requirements.md) — 최신 기능·역할·완료 조건·협의 항목을 한 문서로 확인한다.
@@ -11,8 +12,17 @@
 - 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
 
 
-현재 상태: **웹캠 프론트 단일 앱(로컬 저장) + 별도 API·Esper CEP·FastAPI 합성 수직 흐름 / LSTM·DB·인증 미연결**.
+현재 상태: **웹캠 단일 앱 + 선택형 개발 서버 판정(API·FastAPI·Esper CEP), 완료 기록은 로컬 저장 / LSTM·DB·인증 미연결**.
+[특징 계약·서버 연결 결정](decisions/0013-frontend-server-feature-connection.md),
+[DB·인증 연결 설계](design/server-persistence-and-auth.md), [서버 연결 완료·검증](plans/completed/0014-frontend-server-connection.md).
 [API·CEP 완료 검증](plans/completed/0011-api-cep-vertical-slice.md), [서비스 실행·계약·남은 결정](../backend/README.md), [API/CEP 책임 분리 결정](decisions/0011-api-cep-boundary.md).
+
+최근 완료: [확인창 키보드 동작·성능 측정·자료 준비와 전체 검증](plans/completed/0016-remaining-tools-and-validation.md).
+직전 완료: [서버·브라우저 회귀 검증과 기록 비교 조건·상세](plans/completed/0015-server-regression-and-record-details.md).
+
+확정 시간 정책: [ADR 0012](decisions/0012-session-timing-policy.md) — 기본 최초 알림 3초·정상 복귀 2초·같은 사건 재알림 60초,
+휴식 후 새 사건·측정 불가/누락 중단과 유효 통계 제외·설정의 다음 새 세션 적용.
+2026-10-01 사용자 재확인으로 기존 구현의 승인 상태를 동기화했다([문서 동기화·검증 완료](plans/completed/0013-session-timing-policy-doc-sync.md)). 개발용 특징·관측 계약은 ADR 0013이며 품질·점수의 연구상 검증은 남는다.
 
 현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md), [서비스 미리보기 완료 기록](plans/completed/0008-service-preview.md).
 
@@ -37,12 +47,16 @@
 | 무엇을 통과해야 하는가? | [품질 기준](quality.md) |
 | AI 출력은 무엇인가? | [출력 계약](../contracts/README.md) |
 | 연구를 어떻게 비교하는가? | [연구 프로토콜](research/protocol.md) |
+| 참여자 분할과 시간 창을 어떻게 준비하는가? | [자료 준비 도구·합성 예제](research/dataset-preparation.md) |
+| 서버 지연을 어떻게 측정하는가? | [합성 benchmark 조건·해석](audits/2026-10-01-server-benchmark.md) |
 | 왜 이렇게 결정했는가? | [ADR 0001](decisions/0001-repository-harness.md) |
 | 현재·다음 작업은 무엇인가? | [활성 계획](plans/active/), [완료 계획](plans/completed/), [백로그](plans/backlog.md) |
 | 계획을 어떻게 쓰는가? | [계획 양식](plans/template.md) |
 | 원래 기획 내용은 무엇인가? | [제공 자료와 출처](references/README.md) |
 
-최근 작업: [점수·사용자 기록 분석·시각 효과](plans/completed/0006-score-data-visuals.md), [표시 결정](decisions/0005-score-visuals.md).
+최근 구조 정리: [기능별 모듈 분리·가독성·검증 기록](plans/completed/0012-readable-code-structure.md).
+
+이전 작업: [점수·사용자 기록 분석·시각 효과](plans/completed/0006-score-data-visuals.md), [표시 결정](decisions/0005-score-visuals.md).
 
 이전 작업: [화면 평활화·CSV 수집 완료 기록](plans/completed/0005-smoothing-csv.md).
 

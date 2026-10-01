@@ -7,7 +7,8 @@ export function useWriterLock() {
   const sequence = useRef<Promise<unknown>>(Promise.resolve())
   useEffect(() => {
     setState('checking')
-    let disposed = false, release: ReturnType<typeof claimWriter> | undefined
+    let disposed = false,
+      release: ReturnType<typeof claimWriter> | undefined
     // StrictMode may dispose an effect before the browser grants its lock.
     // Wait for that canceled request to settle before requesting ownership again.
     sequence.current = sequence.current.then(() => {
@@ -15,7 +16,10 @@ export function useWriterLock() {
       release = claimWriter(navigator.locks, setState)
       return release.finished
     })
-    return () => { disposed = true; release?.() }
+    return () => {
+      disposed = true
+      release?.()
+    }
   }, [attempt])
-  return { state, retry: () => setAttempt(n => n + 1) }
+  return { state, retry: () => setAttempt((n) => n + 1) }
 }

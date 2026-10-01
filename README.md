@@ -3,8 +3,8 @@
 웹캠 기반 개인 기준 자세 변화 알림 프로토타입. 레트로 에디토리얼 디자인의 React 18 앱 하나에서
 로그인(프로필) → 측정 준비 → 실시간 측정 → 자세 등록 → 대시보드 → 설정을 모두 다룬다.
 현재 프론트는 **MediaPipe Lite + 개인 기준 비교 규칙**이며 LSTM·DB·실제 인증은 연결되지 않았다.
-별도로 Spring Boot API·Esper CEP·FastAPI의 합성 수직 흐름을 구현했다. [서버 실행·경계·제약](backend/README.md).
-실제 카메라 입력을 서버로 자동 전송하지 않는다.
+측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API → FastAPI → Esper CEP로 전달한다.
+기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).
 
 ## 실행
 
@@ -20,6 +20,11 @@ make dev
 [로컬 화면](http://127.0.0.1:5173/) → 이름·나이·직업 입력 → 측정 준비 → 카메라 켜기 → 5초 기준 등록 → 측정 시작.
 실제 계정은 필요 없다. 프로필과 측정 요약은 이 브라우저(localStorage)에만 저장한다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
+
+개발 서버 모드는 JDK 21·Maven으로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다.
+출력된 임시 포트 주소에서 측정 준비의 ‘서버 판정 사용’을 선택한다. 종료는 Ctrl+C다.
+Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장은 메모리이며 완료 요약은 브라우저에 보관한다.
+인증·DB 연결은 [설계](docs/design/server-persistence-and-auth.md)까지만 정리했다.
 
 ## 화면 구성
 
@@ -53,9 +58,18 @@ make dev
 - [문서 지도](docs/index.md), [작업 지침](AGENTS.md), [개발 흐름](docs/development.md)
 - [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), [서비스 요구사항](docs/team-requirements.md)
 - [출력 계약](contracts/README.md), [연구 프로토콜](docs/research/protocol.md)
-- `frontend/src/ServiceApp.tsx`: 앱 진입점·화면 전환·로컬 저장
-- `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 정책
+- [코드 구조와 수정 위치](docs/code-structure.md), [기술 스택 검토](docs/audits/2026-10-01-technology-stack.md)
+- `frontend/src/app/ServiceApp.tsx`: 앱 조립·화면 전환
+- `frontend/src/features/`: 프로필·세션·기록·저장·카메라 기능
+- `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 엔진의 공개 진입점
 - `model/prototype/pose.ts`: 품질·정규화·개인 기준 비교
 
-검증: `make check` (문서/구조, Python 계약·추론, 프론트 상태 전이·특징·통계, 타입/빌드, Java API/CEP, 합성 HTTP 흐름).
-전체 게이트에는 JDK 21·Maven도 필요하다. 프론트만 검증하려면 `make check-frontend`를 사용한다.
+검증: `make check` (문서/구조, Python 계약·추론, 프론트 상태 전이·특징·통계, 타입/빌드, Java API/CEP, 합성 HTTP·브라우저 흐름).
+전체 게이트에는 JDK 21·Maven과 Chrome/Chromium도 필요하다. 프론트만 검증하려면 `make check-frontend`를 사용한다.
+브라우저 검사는 `make check-frontend`로 프론트 빌드와 `make check-backend`로 JAR를 준비한 뒤 `make check-browser`로 따로 실행할 수 있다.
+독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
+
+`make benchmark-server`는 준비된 JAR로 추론 단독·API→추론→CEP 지연과 처리량을 측정한다.
+[측정 조건과 해석](docs/audits/2026-10-01-server-benchmark.md)을 확인한다. 실제 카메라 FPS와는 별도다.
+[참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
+실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.

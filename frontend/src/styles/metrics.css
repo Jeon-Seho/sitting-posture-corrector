@@ -1,0 +1,182 @@
+/* ---------- 지표 ---------- */
+
+.ledger {
+  display: grid;
+  border-top: 3px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.ledger.g4 {
+  gap: 0;
+}
+
+.ledger.g3 {
+  gap: 0;
+}
+
+.stat {
+  padding: 18px 22px 20px;
+  min-width: 0;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--rule);
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-value {
+  font-family: var(--font-figure);
+  font-size: 52px;
+  line-height: 1;
+  margin-top: 12px;
+  letter-spacing: 0.005em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.stat-value.sm {
+  font-size: 34px;
+}
+
+.stat-value.good {
+  color: var(--good);
+}
+
+.stat-value.bad {
+  color: var(--bad);
+}
+
+.stat-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.stat-delta {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.stat-delta.up {
+  color: var(--good);
+}
+
+.stat-delta.down {
+  color: var(--bad);
+}
+
+.card.dark .stat-delta.up {
+  color: var(--good-hi);
+}
+
+.card.dark .stat-delta.down {
+  color: var(--bad-hi);
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 1px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+
+.card.dark .meter,
+.stage .meter {
+  background: var(--panel-3);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 150ms linear;
+}
+
+.feature-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 68px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+}
+
+.feature-row + .feature-row {
+  border-top: 1px solid var(--rule);
+}
+
+.card.dark .feature-row + .feature-row {
+  border-top-color: var(--panel-line);
+}
+
+.feature-name {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.card.dark .feature-name {
+  color: var(--panel-muted);
+}
+
+.feature-value {
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.rate {
+  display: grid;
+  gap: 8px;
+  min-width: 132px;
+}
+
+.rate .figure {
+  font-size: 60px;
+}
+
+.rate-label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.card.dark .rate-label {
+  color: var(--panel-muted);
+}
+
+.rate .figure.good {
+  color: var(--good);
+}
+.rate .figure.warn {
+  color: var(--warn);
+}
+.rate .figure.bad {
+  color: var(--bad);
+}
+.card.dark .rate .figure.good {
+  color: var(--good-hi);
+}
+.card.dark .rate .figure.warn {
+  color: var(--warn-hi);
+}
+.card.dark .rate .figure.bad {
+  color: var(--bad-hi);
+}
+
+.rate .figure.empty {
+  font-family: var(--font-title);
+  font-size: 26px;
+  color: var(--muted);
+}

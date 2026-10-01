@@ -1,0 +1,131 @@
+:root {
+  --paper: #e6e1d5;
+  --paper-2: #efebe2;
+  --paper-3: #d6d0c1;
+  --rule: rgba(21, 20, 18, 0.16);
+  --rule-strong: #151412;
+
+  --ink: #151412;
+  --ink-2: #4a463f;
+  --muted: #625d54;
+
+  --panel: #141312;
+  --panel-2: #1f1d1b;
+  --panel-3: #2b2825;
+  --panel-line: #3a3632;
+  --panel-text: #ede8dc;
+  --panel-muted: #a39d90;
+
+  --accent: #e2683c;
+  --accent-press: #cf5a30;
+
+  --good: #2e6b60;
+  --good-fill: #3e8b7c;
+  --good-hi: #6fc2af;
+  --good-tint: rgba(62, 139, 124, 0.16);
+
+  --bad: #a3314d;
+  --bad-fill: #c2456a;
+  --bad-hi: #ee6a86;
+  --bad-tint: rgba(194, 69, 106, 0.14);
+
+  --warn: #7e5a1c;
+  --warn-fill: #c9973f;
+  --warn-hi: #e3b25a;
+  --warn-tint: rgba(201, 151, 63, 0.2);
+
+  --unknown: #5f5b53;
+  --unknown-fill: #8f8a7f;
+  --unknown-hi: #a39d90;
+  --unknown-tint: rgba(143, 138, 127, 0.18);
+
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  --font-body:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
+    'Apple SD Gothic Neo', sans-serif;
+  --font-title: 'Black Han Sans', 'Pretendard Variable', 'Malgun Gothic', sans-serif;
+  --font-figure: 'Anton', 'Black Han Sans', 'Pretendard Variable', sans-serif;
+  --font-stencil: 'Stardos Stencil', 'Anton', serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scrollbar-color: var(--ink-2) var(--paper-3);
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss06';
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.figure {
+  font-family: var(--font-figure);
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  flex: none;
+  display: block;
+}

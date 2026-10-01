@@ -27,14 +27,16 @@ export function HomePage({
         <div className="page-head">
           <div>
             <h1 className="page-title">홈</h1>
-            <p className="page-desc">기록이 없는 상태의 시연 화면입니다. 현재 측정 결과는 저장되지 않습니다.</p>
+            <p className="page-desc">
+              기록이 없는 상태의 시연 화면입니다. 현재 측정 결과는 저장되지 않습니다.
+            </p>
           </div>
         </div>
         <div className="empty">
           <h2 className="empty-title">아직 측정 기록이 없습니다</h2>
           <p>
-            첫 측정을 시작하면 바른 자세 유지율과 붕괴 주기를 분석해 드립니다. 측정 전에 카메라
-            권한 확인과 기준 자세 보정을 한 번 거칩니다.
+            첫 측정을 시작하면 바른 자세 유지율과 붕괴 주기를 분석해 드립니다. 측정 전에 카메라 권한
+            확인과 기준 자세 보정을 한 번 거칩니다.
           </p>
           <button className="btn btn-primary btn-lg" style={{ marginTop: 8 }} onClick={onStart}>
             <Play size={18} weight="fill" className="icon" />첫 측정 시작하기
@@ -49,7 +51,9 @@ export function HomePage({
       <div className="page-head">
         <div>
           <h1 className="page-title">홈</h1>
-          <p className="page-desc">발표용 예시 기록입니다. 실제 웹캠 측정 결과는 이 화면에 저장되지 않습니다.</p>
+          <p className="page-desc">
+            발표용 예시 기록입니다. 실제 웹캠 측정 결과는 이 화면에 저장되지 않습니다.
+          </p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={onStart}>
           <Play size={18} weight="fill" className="icon" />

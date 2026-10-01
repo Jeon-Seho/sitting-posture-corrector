@@ -1,0 +1,134 @@
+{
+  "schema_version": "posture-dataset-config-v1",
+  "data_kind": "synthetic",
+  "dataset_version": "explicit-synthetic-fixture-v1",
+  "participants": [
+    {
+      "id": "synthetic-P01",
+      "source_codes": [
+        "P01"
+      ],
+      "evaluation_only": false
+    },
+    {
+      "id": "synthetic-P02",
+      "source_codes": [
+        "P02"
+      ],
+      "evaluation_only": false
+    },
+    {
+      "id": "synthetic-P03",
+      "source_codes": [
+        "P03"
+      ],
+      "evaluation_only": true
+    }
+  ],
+  "captures": [
+    {
+      "path": "synthetic-P01-calibration.csv",
+      "sha256": "1814d52bc4af188803e0127e30607355fdee48805c8653ffdd088b54fe50ab1f",
+      "capture_id": "20000000-0000-4000-8000-000000000010",
+      "participant_id": "synthetic-P01",
+      "role": "calibration",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000001"
+      ]
+    },
+    {
+      "path": "synthetic-P01-posture.csv",
+      "sha256": "22cf31b158ec5a5bccf7e3aa6da4a1d1cdb69ee21e5e64f7057939c8c0d9ec44",
+      "capture_id": "20000000-0000-4000-8000-000000000011",
+      "participant_id": "synthetic-P01",
+      "role": "posture",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000001"
+      ]
+    },
+    {
+      "path": "synthetic-P02-calibration.csv",
+      "sha256": "8255e892bec7e0477a044b6b1b19371e7069be2204f8dfe211b2d15f64bde8c7",
+      "capture_id": "20000000-0000-4000-8000-000000000020",
+      "participant_id": "synthetic-P02",
+      "role": "calibration",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000002"
+      ]
+    },
+    {
+      "path": "synthetic-P02-posture.csv",
+      "sha256": "5b78e9a125221e2da7ea944a0f4d6a3e4546e7d653c707262941572376d30c71",
+      "capture_id": "20000000-0000-4000-8000-000000000021",
+      "participant_id": "synthetic-P02",
+      "role": "posture",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000002"
+      ]
+    },
+    {
+      "path": "synthetic-P03-calibration.csv",
+      "sha256": "0f535c0f9619f80d6f4ecfd4259e0b6ff0a95bc6c66c961537adc5d3469a3259",
+      "capture_id": "20000000-0000-4000-8000-000000000030",
+      "participant_id": "synthetic-P03",
+      "role": "calibration",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000003"
+      ]
+    },
+    {
+      "path": "synthetic-P03-posture.csv",
+      "sha256": "f2c8fe79692cb7e887db5bde750238277c5ba09c18d87dd87f2d955fad28297f",
+      "capture_id": "20000000-0000-4000-8000-000000000031",
+      "participant_id": "synthetic-P03",
+      "role": "posture",
+      "calibration_ids": [
+        "10000000-0000-4000-8000-000000000003"
+      ]
+    }
+  ],
+  "split": {
+    "method": "explicit",
+    "fold": "synthetic-explicit-0",
+    "seed": 20261001,
+    "assignments": {
+      "train": [
+        "synthetic-P01"
+      ],
+      "validation": [
+        "synthetic-P02"
+      ],
+      "test": [
+        "synthetic-P03"
+      ]
+    }
+  },
+  "fit_roles": [
+    "train"
+  ],
+  "feature_columns": [
+    "delta_head_gap",
+    "delta_offset",
+    "delta_tilt"
+  ],
+  "label_mapping": {
+    "upright": "reference",
+    "lean_left": "left",
+    "lean_right": "right",
+    "trunk_forward": "trunk",
+    "head_forward": "head"
+  },
+  "pose_models": [
+    "explicit-synthetic-pose-v0"
+  ],
+  "feature_versions": [
+    "reference-rules-v0.1"
+  ],
+  "window": {
+    "duration_ms": 500,
+    "stride_ms": 500,
+    "max_gap_ms": 400,
+    "min_samples": 3,
+    "discontinuity_policy": "break"
+  }
+}

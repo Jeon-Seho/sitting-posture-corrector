@@ -1,6 +1,6 @@
 # PoseGood 디자인 시스템
 
-레트로 에디토리얼 피치덱 톤 (참고: Figma Community "Agency Pitch"). 발표용 프로젝터 환경을 기준으로 밝은 종이 바탕 위에 검정 패널을 둔다. 토큰의 원본은 `frontend/src/styles.css`의 `:root`다.
+레트로 에디토리얼 피치덱 톤 (참고: Figma Community "Agency Pitch"). 발표용 프로젝터 환경을 기준으로 밝은 종이 바탕 위에 검정 패널을 둔다. 토큰의 원본은 `frontend/src/styles/base.css`의 `:root`다. `frontend/src/styles.css`는 기존 cascade 순서로 기능별 스타일을 가져온다.
 
 ## 색
 

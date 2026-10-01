@@ -1,0 +1,125 @@
+/* ---------- 표 / 목록 ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--ink-2);
+  font-size: 13px;
+  padding: 0 12px 10px;
+  border-bottom: 2px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+td {
+  white-space: nowrap;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.t-right {
+  text-align: right;
+}
+
+.t-good {
+  color: var(--good);
+  font-weight: 700;
+}
+
+.t-warn {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.scroll-x {
+  overflow-x: auto;
+}
+
+.empty {
+  border: 2px dashed var(--ink-2);
+  border-radius: var(--radius);
+  padding: 56px 28px;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.empty-title {
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+.empty p {
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-color: var(--panel-line) transparent;
+}
+
+.event-item {
+  padding: 11px 0;
+  font-size: 14px;
+  animation: rise 240ms var(--ease-out);
+}
+
+.event-item + .event-item {
+  border-top: 1px solid var(--rule);
+}
+
+.event-item .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.event-item .top .figure {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.event-meta {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 5px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-meta .warn {
+  color: var(--warn);
+  font-weight: 700;
+}

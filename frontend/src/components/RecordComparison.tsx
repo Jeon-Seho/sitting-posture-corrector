@@ -1,10 +1,19 @@
 import { Card } from './ui'
 import { CompareRow, Row } from '../pages/DashboardPage'
-import { COMPARE_RULES, compareFirstAndRecent, type PeriodStats } from '../lib/comparison'
+import {
+  COMPARE_RULES,
+  compareFirstAndRecent,
+  comparisonRecordGroups,
+  type PeriodStats,
+} from '../lib/comparison'
 import type { RecordItem } from '../lib/serviceStore'
 import { delta, formatDuration, formatPercent, formatRate } from '../lib/stats'
+import { ComparisonConditions } from '../features/history/ComparisonConditions'
 
-const label = (key: string) => { const [, m, d] = key.split('-'); return `${Number(m)}/${Number(d)}` }
+const label = (key: string) => {
+  const [, m, d] = key.split('-')
+  return `${Number(m)}/${Number(d)}`
+}
 
 /** 실제 기록의 첫 측정 구간과 최근 구간 비교. 표 모양은 예시 대시보드와 같다. */
 export function RecordComparison({ records }: { records: RecordItem[] }) {
@@ -23,14 +32,17 @@ export function RecordComparison({ records }: { records: RecordItem[] }) {
     )
   }
   const { early, recent } = result
+  const groups = comparisonRecordGroups(records, result)
   return (
     <>
       <Card title="처음과 최근 비교" note={note}>
         {result.status === 'short' && (
           <p className="profile-text">
-            한쪽 구간의 유효 측정 시간이 {formatDuration(COMPARE_RULES.minValidSeconds)} 미만이라 변화는 참고용입니다.
+            한쪽 구간의 유효 측정 시간이 {formatDuration(COMPARE_RULES.minValidSeconds)} 미만이라
+            변화는 참고용입니다.
           </p>
         )}
+        <ComparisonConditions early={groups.early} recent={groups.recent} />
         <div className="scroll-x">
           <table>
             <thead>
@@ -42,20 +54,53 @@ export function RecordComparison({ records }: { records: RecordItem[] }) {
               </tr>
             </thead>
             <tbody>
-              <CompareRow name="기준 자세 유지율" a={formatPercent(early.keepRate)} b={formatPercent(recent.keepRate)}
-                diff={delta(recent.keepRate, early.keepRate)} format={v => `${(v * 100).toFixed(1)}%p`} better="up" />
-              <CompareRow name="시간당 붕괴 횟수" a={formatRate(early.perHour, '회')} b={formatRate(recent.perHour, '회')}
-                diff={delta(recent.perHour, early.perHour)} format={v => `${v.toFixed(2)}회`} better="down" />
-              <CompareRow name="평균 붕괴 발생 간격" a={formatDuration(early.meanInterval)} b={formatDuration(recent.meanInterval)}
-                diff={delta(recent.meanInterval, early.meanInterval)} format={v => formatDuration(v)} better="up" />
-              <CompareRow name="평균 회복 시간" a={formatDuration(early.meanRecovery)} b={formatDuration(recent.meanRecovery)}
-                diff={delta(recent.meanRecovery, early.meanRecovery)} format={v => `${Math.round(v)}초`} better="down" />
-              <CompareRow name="알림 횟수" a={`${early.alerts}회`} b={`${recent.alerts}회`}
-                diff={recent.alerts - early.alerts} format={v => `${v}회`} better="down" />
+              <CompareRow
+                name="기준 자세 유지율"
+                a={formatPercent(early.keepRate)}
+                b={formatPercent(recent.keepRate)}
+                diff={delta(recent.keepRate, early.keepRate)}
+                format={(v) => `${(v * 100).toFixed(1)}%p`}
+                better="up"
+              />
+              <CompareRow
+                name="시간당 붕괴 횟수"
+                a={formatRate(early.perHour, '회')}
+                b={formatRate(recent.perHour, '회')}
+                diff={delta(recent.perHour, early.perHour)}
+                format={(v) => `${v.toFixed(2)}회`}
+                better="down"
+              />
+              <CompareRow
+                name="평균 붕괴 발생 간격"
+                a={formatDuration(early.meanInterval)}
+                b={formatDuration(recent.meanInterval)}
+                diff={delta(recent.meanInterval, early.meanInterval)}
+                format={(v) => formatDuration(v)}
+                better="up"
+              />
+              <CompareRow
+                name="평균 회복 시간"
+                a={formatDuration(early.meanRecovery)}
+                b={formatDuration(recent.meanRecovery)}
+                diff={delta(recent.meanRecovery, early.meanRecovery)}
+                format={(v) => `${Math.round(v)}초`}
+                better="down"
+              />
+              <CompareRow
+                name="알림 횟수"
+                a={`${early.alerts}회`}
+                b={`${recent.alerts}회`}
+                diff={recent.alerts - early.alerts}
+                format={(v) => `${v}회`}
+                better="down"
+              />
             </tbody>
           </table>
         </div>
-        <p className="profile-text">붕괴 간격은 같은 세션의 유효 관측 시간으로 계산합니다. 휴식·측정 불가는 제외하며, 과거 기록에서 제외 시간을 알 수 없는 간격은 계산에 넣지 않습니다.</p>
+        <p className="profile-text">
+          붕괴 간격은 같은 세션의 유효 관측 시간으로 계산합니다. 휴식·측정 불가는 제외하며, 과거
+          기록에서 제외 시간을 알 수 없는 간격은 계산에 넣지 않습니다.
+        </p>
       </Card>
       <div style={{ height: 22 }} />
       <div className="grid g2">

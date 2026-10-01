@@ -1,0 +1,131 @@
+.history-record > .service-record {
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 160px) auto auto;
+}
+.history-record-details {
+  padding: 22px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.history-record-details h4,
+.comparison-conditions h4 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+.history-record-details h5 {
+  font-size: 15px;
+  margin: 22px 0 12px;
+}
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+  margin: 18px 0;
+}
+.history-detail-grid dt {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.history-detail-grid dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.history-warning,
+.history-warnings {
+  background: var(--paper);
+  border-left: 3px solid var(--warn);
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.history-warnings {
+  padding-left: 34px;
+}
+.history-warnings li + li {
+  margin-top: 7px;
+}
+.history-confirmed {
+  font-size: 14px;
+}
+.history-model-details {
+  margin-top: 20px;
+}
+.history-model-details summary,
+.history-conditions-table summary {
+  cursor: pointer;
+}
+.history-record-details code,
+.history-conditions-table code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.history-rule-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.history-rule-list .fine {
+  display: block;
+}
+.history-applied-rules .history-rule-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 24px;
+}
+.comparison-conditions {
+  margin: 18px 0 24px;
+}
+.history-conditions-table th,
+.history-conditions-table td,
+.history-events-table td {
+  white-space: normal;
+  vertical-align: top;
+  line-height: 1.7;
+}
+.history-conditions-table th:first-child {
+  min-width: 110px;
+}
+.history-conditions-table td {
+  width: 40%;
+  min-width: 220px;
+}
+.history-conditions-table td p {
+  margin: 0 0 5px;
+}
+.history-conditions-table ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history-setting + .history-setting {
+  border-top: 1px solid var(--rule);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.history-events-table td {
+  min-width: 90px;
+}
+.history-events-table td span {
+  display: block;
+}
+@media (max-width: 860px) {
+  .history-record > .service-record {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .history-detail-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+@media (max-width: 580px) {
+  .history-record-details {
+    padding: 18px 12px;
+  }
+  .history-detail-grid,
+  .history-applied-rules .history-rule-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

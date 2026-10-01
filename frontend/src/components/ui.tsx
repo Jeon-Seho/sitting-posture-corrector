@@ -81,9 +81,7 @@ export function StateBadge({ state, detail }: { state: PostureState; detail?: st
 export function Meter({ value, color }: { value: number; color?: string }) {
   return (
     <div className="meter">
-      <span
-        style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, background: color }}
-      />
+      <span style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, background: color }} />
     </div>
   )
 }
