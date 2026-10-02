@@ -1,3 +1,4 @@
+import { ExpandableTable } from '../../components/ExpandableTable'
 import { COLLAPSE_LABEL } from '../../data/posture'
 import type { CollapseEvent } from '../../lib/engine'
 import { formatClock, formatDuration } from '../../lib/stats'
@@ -51,7 +52,7 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
     )
   }
   return (
-    <div className="scroll-x">
+    <ExpandableTable>
       <table>
         <thead>
           <tr>
@@ -98,6 +99,6 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
             ))}
         </tbody>
       </table>
-    </div>
+    </ExpandableTable>
   )
 }

@@ -1,5 +1,10 @@
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--view-gap);
+}
+
 .profile-page .grid {
-  margin-bottom: 24px;
   align-items: stretch;
 }
 .profile-page .card {
@@ -48,9 +53,10 @@
   margin: auto;
   overflow: auto;
   color: var(--ink);
-  background: var(--paper-2);
+  background: var(--surface);
   border: 0;
-  border-top: 6px solid var(--ink);
+  border-radius: var(--radius-lg);
+  border-top: 0;
   padding: 28px;
   box-shadow: 0 18px 50px rgba(21, 20, 18, 0.3);
 }

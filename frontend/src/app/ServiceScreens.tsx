@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
-import { HomePage } from '../pages/HomePage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CollectionPage } from '../pages/CollectionPage'
+import { CameraWindow } from '../features/camera/CameraWindow'
+import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecoveryNotice } from '../features/session/RecoveryNotice'
 import { SessionPage } from '../features/session/SessionPage'
@@ -14,8 +16,10 @@ import type { useSessionPersistence } from '../features/session/useSessionPersis
 import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
 import type { Rules } from '../lib/engine'
+import { historyFor } from '../lib/history'
+import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
-import type { Page } from './navigation'
+import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
   camera: CameraController
@@ -41,7 +45,11 @@ type Props = {
   alertsOn?: boolean
   onAlerts?: (enabled: boolean) => void
   settingsDisabled?: boolean
+  /** Clears the floating notice (auto after a few seconds, or with its close button). */
+  onClearError?: () => void
 }
+
+const NOTICE_MS = 6000
 
 /** The local prototype and signed-in account share measurement/history presentation. */
 export function ServiceScreens({
@@ -68,8 +76,33 @@ export function ServiceScreens({
   alertsOn = true,
   onAlerts = () => {},
   settingsDisabled = false,
+  onClearError,
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
+  const view = resolvePage(page, measuring)
+  const today = summary(historyFor(records, 'all', 'today'))
+  useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
+  // Each screen opens at its top instead of inheriting the previous tab's scroll.
+  const main = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (main.current) main.current.scrollTop = 0
+  }, [view])
+  useEffect(() => {
+    if (!error || !onClearError) return
+    const timer = setTimeout(onClearError, NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [error, onClearError])
+
+  function openTab(tab: Tab) {
+    if (tab === 'measure') go(measuring ? 'session' : 'setup')
+    else go(tab === 'records' ? 'dashboard' : 'settings')
+  }
+
+  function registerAgain() {
+    setRegistration(true)
+    go('setup')
+  }
+
   return (
     <div className="shell">
       <video
@@ -80,19 +113,24 @@ export function ServiceScreens({
         aria-hidden="true"
       />
       <AppSidebar
-        page={page}
+        page={view}
         measuring={measuring}
-        hasSession={!!session}
-        go={go}
-        openCollection={openCollection}
+        go={openTab}
         onLogout={logout}
-        accountMode={accountMode}
+        onProfile={() => go('profile')}
+        name={profile?.name ?? ''}
+        today={{ rate: today.rate, valid: today.valid }}
       />
-      <main className="main service-main">
+      <main ref={main} className="main service-main">
         {storageNotice}
         {error && (
           <p role="status" className="service-notice">
             {error}
+            {onClearError && (
+              <button className="btn btn-quiet btn-icon btn-sm" aria-label="알림 닫기" onClick={onClearError}>
+                <X size={16} weight="bold" />
+              </button>
+            )}
           </p>
         )}
         {draft && !session && (
@@ -106,55 +144,46 @@ export function ServiceScreens({
             accountMode={accountMode}
           />
         )}
-        {showDemo && page === 'home' && (
-          <HomePage
-            hasHistory
-            onStart={() => go(measuring ? 'session' : 'setup')}
-            onDashboard={() => go('dashboard')}
-          />
+        {view === 'dashboard' &&
+          (showDemo ? (
+            <DashboardPage />
+          ) : (
+            <LocalHistory
+              records={records}
+              measuring={measuring}
+              onStart={() => go(measuring ? 'session' : 'setup')}
+              accountMode={accountMode}
+            />
+          ))}
+        {view === 'collection' && (
+          <>
+            <div className="page-actions">
+              <button className="btn btn-sm" onClick={() => go('settings')}>
+                <ArrowLeft size={16} weight="bold" className="icon" />
+                설정으로
+              </button>
+            </div>
+            <CollectionPage camera={camera} collection={collection} />
+          </>
         )}
-        {showDemo && page === 'dashboard' && <DashboardPage />}
-        {page === 'collection' && <CollectionPage camera={camera} collection={collection} />}
-        {!showDemo && (page === 'home' || page === 'dashboard') && (
-          <LocalHistory
-            page={page}
-            name={profile?.name ?? ''}
-            records={records}
-            measuring={measuring}
-            onStart={() => go(measuring ? 'session' : 'setup')}
+        {view === 'setup' && (
+          <SetupPage
+            startLabel={registration ? '등록 완료' : '측정 시작'}
+            camera={camera}
+            onStart={persistence.start}
+            onCollect={openCollection}
+            serverMode={serverMode}
+            onServerMode={onServerMode}
+            serverModeDisabled={registration || measuring}
             accountMode={accountMode}
-            onRegister={() => {
-              setRegistration(true)
-              go('setup')
+            onCancel={() => {
+              camera.cancelCalibration()
+              go('dashboard')
             }}
           />
         )}
-        {page === 'setup' && (
-          <>
-            <SetupPage
-              startLabel={registration ? '등록 완료 · 홈으로' : '측정 시작'}
-              camera={camera}
-              onStart={persistence.start}
-              onCollect={openCollection}
-              serverMode={serverMode}
-              onServerMode={onServerMode}
-              serverModeDisabled={registration || measuring}
-              accountMode={accountMode}
-              onCancel={() => {
-                camera.cancelCalibration()
-                go('home')
-              }}
-            />
-            {registration && (
-              <p>
-                개인 기준 자료는 현재 카메라 연결에서만 유지됩니다. 카메라를 다시 연결하면 새 기준을
-                등록해야 합니다.
-              </p>
-            )}
-          </>
-        )}
         {session && (
-          <section hidden={page !== 'session'}>
+          <section className="session-slot" hidden={view !== 'session'}>
             {session.server ? (
               <ServerSessionPage
                 key={session.id}
@@ -166,7 +195,7 @@ export function ServiceScreens({
                 onDashboard={() => go('dashboard')}
                 onPrepare={() => go('setup')}
                 service={{
-                  active: page === 'session',
+                  active: view === 'session',
                   onCheckpoint: persistence.checkpoint,
                   onEnded: persistence.finish,
                   onArchive: persistence.archiveServerResult,
@@ -186,7 +215,7 @@ export function ServiceScreens({
                 onDashboard={() => go('dashboard')}
                 onPrepare={() => go('setup')}
                 service={{
-                  active: page === 'session',
+                  active: view === 'session',
                   initial: session.initial,
                   onCheckpoint: persistence.checkpoint,
                   onEnded: persistence.finish,
@@ -197,7 +226,7 @@ export function ServiceScreens({
             )}
           </section>
         )}
-        {page === 'settings' && (
+        {view === 'settings' && (
           <fieldset className="account-fieldset" disabled={settingsDisabled}>
             <SettingsPage
               serviceMode
@@ -208,11 +237,20 @@ export function ServiceScreens({
               accountMode={accountMode}
               hasHistory={showDemo}
               onHasHistory={saveDemoPreference}
+              account={{
+                name: profile?.name ?? '',
+                detail: accountMode ? '내 계정에 저장' : '이 기기에만 저장',
+                onProfile: () => go('profile'),
+                onLogout: logout,
+              }}
+              onRegisterAgain={registerAgain}
+              onCollect={openCollection}
             />
           </fieldset>
         )}
-        {page === 'profile' && profilePage}
+        {view === 'profile' && profilePage}
       </main>
+      <CameraWindow camera={camera} floating={!CAMERA_PAGES.includes(view)} />
     </div>
   )
 }

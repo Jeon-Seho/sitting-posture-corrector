@@ -1,7 +1,7 @@
 import type { CameraController } from '../hooks/useCamera'
 import { ServiceScreens } from './ServiceScreens'
 import { CollectionEntry } from './CollectionEntry'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
 import { LoginPage } from '../pages/LoginPage'
 import { ProfileFields } from '../features/profile/ProfileFields'
@@ -27,6 +27,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const [serverMode, setServerMode] = useState(false)
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
+  const clearError = useCallback(() => setError(''), [])
   const measuring = !!session && !ended.current
   const workspace = useLocalWorkspace(measuring, setError, reloadProfileFields)
   const { profile, rules, canWrite } = workspace
@@ -163,13 +164,13 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     return (
       <LoginPage
         title={profile ? `${profile.name}님, 다시 오셨네요` : '시작하기'}
-        lead="계정 서버 연결 전 미리보기입니다. 프로필과 측정 요약은 이 브라우저에만 저장합니다."
+        lead="계정 서버 연결 전이라 프로필과 측정 기록은 이 기기에만 저장해요."
         submitLabel={submitLabel}
-        fine="카메라는 ‘측정 준비’에서 직접 켤 때만 사용합니다. 카메라 없이도 홈과 저장된 기록을 볼 수 있습니다."
+        fine="카메라는 측정하기 화면에서 직접 켤 때만 사용해요. 카메라 없이도 저장된 기록을 볼 수 있어요."
         onSubmit={login}
         footer={
           <>
-            <a className="btn collection-entry-link" href="#collection" onClick={(event) => {
+            <a className="btn btn-quiet btn-sm collection-entry-link" href="#collection" onClick={(event) => {
               event.preventDefault()
               window.history?.replaceState(null, '', '#collection')
               setCollectionEntry(true)
@@ -190,6 +191,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
 
   return (
     <ServiceScreens
+      onClearError={clearError}
       camera={camera}
       collection={collection}
       workspace={workspace}

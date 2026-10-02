@@ -1,41 +1,42 @@
-/* ---------- 기본 요소 ---------- */
+/* ---------- Shared building blocks ---------- */
 
 .card {
-  background: var(--paper-2);
-  border: 1px solid var(--rule);
-  border-top: 3px solid var(--rule-strong);
-  border-radius: var(--radius-sm);
-  padding: 20px 22px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
   min-width: 0;
 }
 
 .card.dark {
-  background: var(--panel);
-  color: var(--panel-text);
-  border-color: var(--panel);
-  border-top-color: var(--accent);
+  background: var(--cam);
+  border-color: var(--cam);
+  color: var(--cam-text);
 }
 
 .card-head {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .card-title {
-  font-size: 17px;
-  font-weight: 750;
-  letter-spacing: -0.015em;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-2);
 }
 
 .card-note {
+  margin-top: 4px;
   font-size: 13px;
+  line-height: 1.6;
   color: var(--muted);
-  margin-top: 3px;
 }
 
+.card.dark .card-title,
 .card.dark .card-note,
 .card.dark .muted {
   color: var(--panel-muted);
@@ -43,7 +44,7 @@
 
 .grid {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .g2 {
@@ -59,19 +60,19 @@
 }
 
 .split {
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
   align-items: start;
 }
 
 .stack {
-  display: grid;
-  gap: 18px;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   min-width: 0;
 }
 
 .gap-top {
-  margin-bottom: 22px;
+  margin-top: 16px;
 }
 
 .row {
@@ -84,182 +85,188 @@
   justify-content: space-between;
 }
 
+/* Buttons: rounded, warm and large enough for comfortable clicking. */
 .btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1.5px solid var(--ink);
-  background: var(--paper-2);
-  color: var(--ink);
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
-  font-weight: 650;
-  font-size: 14px;
   white-space: nowrap;
+  text-decoration: none;
   transition:
-    background-color 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    transform 160ms var(--ease-out),
-    opacity 160ms var(--ease-out);
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 }
 
 .btn:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
 .btn-danger {
+  background: var(--alert-tint);
+  border-color: var(--alert-tint);
+  color: var(--alert-ink);
+}
+
+.btn-quiet {
   background: transparent;
-  border-color: var(--bad);
-  color: var(--bad);
+  border-color: transparent;
+  color: var(--ink-2);
 }
 
 .btn-lg {
-  padding: 13px 24px;
+  height: 54px;
+  padding: 0 24px;
   font-size: 16px;
 }
 
 .btn-sm {
-  padding: 6px 12px;
+  height: 36px;
+  padding: 0 14px;
   font-size: 13px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .nav-item:hover {
-    color: var(--panel-text);
-    background: var(--panel-2);
-  }
-  .nav-item[aria-current='true']:hover {
-    background: var(--accent);
-    color: var(--ink);
-  }
-  .nav-item.nav-sub[aria-current='true']:hover {
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
-    color: var(--accent);
-  }
+.btn-block {
+  width: 100%;
+}
+
+.btn-icon {
+  width: 44px;
+  padding: 0;
+}
+
+@media (hover: hover) {
   .btn:hover:not(:disabled) {
-    background: var(--paper-3);
+    background: var(--surface-2);
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--accent-press);
+    background: var(--primary-press);
+    border-color: var(--primary-press);
   }
   .btn-danger:hover:not(:disabled) {
-    background: var(--bad-tint);
+    background: #f8d3d8;
   }
-  .sidebar-foot .btn:hover:not(:disabled) {
-    background: var(--panel-2);
-  }
-  .chip:hover {
-    background: var(--paper-3);
-  }
-  .chip[aria-pressed='true']:hover {
-    background: var(--ink);
+  .chip:hover:not(:disabled) {
+    background: var(--surface-2);
   }
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--pill);
   font-size: 13px;
   font-weight: 700;
-  border: 1px solid transparent;
-  white-space: nowrap;
+  background: var(--surface-3);
+  color: var(--ink-2);
 }
 
 .badge .pip {
-  width: 7px;
-  height: 7px;
-  border-radius: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: currentColor;
 }
 
 .badge.good {
-  color: var(--good);
   background: var(--good-tint);
-  border-color: rgba(46, 107, 96, 0.35);
+  color: var(--good-ink);
 }
 
 .badge.collapse {
-  color: var(--bad);
-  background: var(--bad-tint);
-  border-color: rgba(163, 49, 77, 0.35);
+  background: var(--alert-tint);
+  color: var(--alert-ink);
 }
 
 .badge.unknown {
-  color: var(--unknown);
   background: var(--unknown-tint);
-  border-color: rgba(95, 91, 83, 0.35);
+  color: var(--ink-2);
 }
 
 .badge.warn {
-  color: var(--warn);
   background: var(--warn-tint);
-  border-color: rgba(126, 90, 28, 0.35);
+  color: var(--warn);
 }
 
 .badge.accent {
-  color: var(--ink);
-  background: var(--accent);
-  border-color: var(--ink);
+  background: var(--primary-tint);
+  color: var(--primary-ink);
 }
 
 .chip {
-  border: 1.5px solid var(--ink);
-  background: transparent;
-  border-radius: var(--radius-sm);
-  padding: 5px 12px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
   font-size: 13px;
-  font-weight: 650;
-  color: var(--ink);
-  transition:
-    background-color 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    transform 160ms var(--ease-out);
-}
-
-.chip:active {
-  transform: scale(0.97);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .chip[aria-pressed='true'] {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--primary-tint);
+  border-color: var(--primary-soft);
+  color: var(--primary-ink);
 }
 
+/* Segmented control: one choice of a few. */
 .segmented {
   display: inline-flex;
-  border: 1.5px solid var(--ink);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  padding: 4px;
+  gap: 2px;
+  border-radius: var(--pill);
+  background: var(--surface-3);
 }
 
+.segmented button,
 .segmented .chip {
-  border: none;
-  border-radius: 0;
-  padding: 6px 13px;
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.segmented .chip + .chip {
-  border-left: 1.5px solid var(--ink);
+.segmented button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(80, 50, 30, 0.12);
 }
 
 .divider {
   height: 1px;
-  background: var(--rule);
-  margin: 18px 0;
+  background: var(--line);
+  margin: 16px 0;
 }
 
 .card.dark .divider {
@@ -273,4 +280,80 @@
 .mono {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 13px;
+}
+
+.fine {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Inline notice for status and errors. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: var(--warn-tint);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.notice.info {
+  background: var(--surface-2);
+}
+
+.notice .btn {
+  margin-left: auto;
+}
+
+/* Collapsible "more" sections keep advanced and developer options out of the way. */
+.more {
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+.more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.more > summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.more[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.more-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 18px 18px;
+}
+
+.btn-sm.btn-icon {
+  width: 36px;
 }

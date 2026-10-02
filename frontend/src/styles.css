@@ -1,4 +1,4 @@
-/* Import order preserves the existing cascade across feature styles. */
+/* Base tokens first, then shared blocks, then screens; responsive overrides stay last. */
 @import './styles/base.css';
 @import './styles/layout.css';
 @import './styles/components.css';
@@ -8,9 +8,11 @@
 @import './styles/charts.css';
 @import './styles/login.css';
 @import './styles/settings.css';
-@import './styles/responsive.css';
 @import './styles/collection.css';
 @import './styles/service.css';
 @import './styles/profile.css';
 @import './styles/history.css';
+@import './styles/records.css';
 @import './styles/accounts.css';
+@import './styles/motion.css';
+@import './styles/responsive.css';

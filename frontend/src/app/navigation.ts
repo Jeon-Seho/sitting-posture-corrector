@@ -1,14 +1,6 @@
-import {
-  ChartBar,
-  Crosshair,
-  GearSix,
-  House,
-  Record,
-  Tag,
-  UserCircle,
-  type Icon,
-} from '@phosphor-icons/react'
+import { ChartBar, GearSix, Pulse, type Icon } from '@phosphor-icons/react'
 
+/** Internal routes. Several routes share one sidebar tab (see NAV_TABS). */
 export type Page =
   | 'home'
   | 'setup'
@@ -18,18 +10,28 @@ export type Page =
   | 'settings'
   | 'profile'
 
-export const NAVIGATION: { page: Page; label: string; icon: Icon }[] = [
-  { page: 'home', label: '홈', icon: House },
-  { page: 'setup', label: '측정 준비', icon: Crosshair },
-  { page: 'session', label: '실시간 측정', icon: Record },
-  { page: 'collection', label: '자세 등록', icon: Tag },
-  { page: 'dashboard', label: '대시보드', icon: ChartBar },
-  { page: 'settings', label: '설정', icon: GearSix },
-  { page: 'profile', label: '프로필 설정', icon: UserCircle },
+export type Tab = 'measure' | 'records' | 'settings'
+
+/** The desktop app keeps three tabs; preparation, live measurement and results live in "측정하기". */
+export const NAV_TABS: { tab: Tab; label: string; icon: Icon }[] = [
+  { tab: 'measure', label: '측정하기', icon: Pulse },
+  { tab: 'records', label: '기록', icon: ChartBar },
+  { tab: 'settings', label: '설정', icon: GearSix },
 ]
 
-export const CAMERA_PAGES: Page[] = ['setup', 'session', 'collection']
-export const SUB_TABS: Partial<Record<Page, Page[]>> = {
-  session: ['setup', 'session'],
-  profile: ['settings', 'profile'],
+export function tabOf(page: Page): Tab {
+  if (page === 'dashboard') return 'records'
+  if (page === 'settings' || page === 'profile' || page === 'collection') return 'settings'
+  return 'measure'
 }
+
+/**
+ * `home` is kept as a route name for existing callers ("go home" after finishing or
+ * cancelling). In the app it resolves to the measure tab.
+ */
+export function resolvePage(page: Page, measuring: boolean): Page {
+  if (page === 'home') return measuring ? 'session' : 'setup'
+  return page
+}
+
+export const CAMERA_PAGES: Page[] = ['setup', 'session', 'collection']

@@ -59,11 +59,11 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
   return (
     <LoginPage
       title={registering ? '계정 만들기' : '로그인'}
-      lead="내 계정으로 측정 기록과 설정을 보관합니다."
+      lead="내 계정에 측정 기록과 설정을 보관해요."
       submitLabel={busy ? '확인 중입니다…' : registering ? '계정 만들고 시작' : '로그인'}
       onSubmit={() => void submit()}
       submitDisabled={busy}
-      fine="영상은 저장하지 않습니다. 카메라는 측정 준비에서 직접 켤 때만 사용합니다."
+      fine="영상은 저장하지 않아요. 카메라는 측정하기 화면에서 직접 켤 때만 사용해요."
       footer={
         <>
           {(error || message) && (
@@ -73,7 +73,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
           )}
           <button
             type="button"
-            className="btn"
+            className="btn btn-quiet"
             disabled={busy}
             onClick={() => {
               setRegistering(!registering)

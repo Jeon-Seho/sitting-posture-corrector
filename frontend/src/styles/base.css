@@ -1,56 +1,111 @@
+/*
+ * Warm health theme for the desktop app.
+ * New screens use the semantic tokens in the first block. The second block maps the
+ * previous token names onto the same palette so untouched screens (collection, record
+ * details, profile, dialogs) follow the theme without separate rewrites.
+ */
+:root[data-desktop] {
+  --titlebar-h: 40px;
+  /* The title bar strip already gives top room; the content starts just below it. */
+  --main-pad-top: 12px;
+}
+
 :root {
-  --paper: #e6e1d5;
-  --paper-2: #efebe2;
-  --paper-3: #d6d0c1;
-  --rule: rgba(21, 20, 18, 0.16);
-  --rule-strong: #151412;
+  --bg: #fbf5ee;
+  --bg-side: #fffaf4;
+  --surface: #ffffff;
+  --surface-2: #fbf1e7;
+  --surface-3: #f3e9de;
+  --line: #efe4d8;
+  --line-strong: #e2d3c3;
 
-  --ink: #151412;
-  --ink-2: #4a463f;
-  --muted: #625d54;
+  --ink: #2e241f;
+  --ink-2: #5e4f46;
+  --muted: #7c6b61;
+  --faint: #b5a496;
 
-  --panel: #141312;
-  --panel-2: #1f1d1b;
-  --panel-3: #2b2825;
-  --panel-line: #3a3632;
-  --panel-text: #ede8dc;
-  --panel-muted: #a39d90;
+  --primary: #c4532a;
+  --primary-press: #a8441f;
+  --primary-tint: #fce7dc;
+  --primary-ink: #a0401b;
+  --primary-soft: #f4d2be;
 
-  --accent: #e2683c;
-  --accent-press: #cf5a30;
+  --good: #3f7d52;
+  --good-ink: #2d6040;
+  --good-tint: #e2f0e3;
+  --good-soft: #7fbf8e;
 
-  --good: #2e6b60;
-  --good-fill: #3e8b7c;
-  --good-hi: #6fc2af;
-  --good-tint: rgba(62, 139, 124, 0.16);
+  --alert: #b83a4b;
+  --alert-ink: #9a2e3e;
+  --alert-tint: #fbe3e6;
+  --alert-soft: #e3808d;
 
-  --bad: #a3314d;
-  --bad-fill: #c2456a;
-  --bad-hi: #ee6a86;
-  --bad-tint: rgba(194, 69, 106, 0.14);
+  --unknown: #8e7f74;
+  --unknown-tint: #f1eae2;
+  --unknown-soft: #ddd0c2;
 
-  --warn: #7e5a1c;
-  --warn-fill: #c9973f;
-  --warn-hi: #e3b25a;
-  --warn-tint: rgba(201, 151, 63, 0.2);
+  --cam: #2f2620;
+  --cam-glass: rgba(30, 22, 18, 0.55);
+  --cam-text: #fff4ea;
 
-  --unknown: #5f5b53;
-  --unknown-fill: #8f8a7f;
-  --unknown-hi: #a39d90;
-  --unknown-tint: rgba(143, 138, 127, 0.18);
-
-  --radius: 6px;
-  --radius-sm: 4px;
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --pill: 999px;
+  --shadow-soft: 0 1px 3px rgba(80, 50, 30, 0.08);
+  --shadow-float: 0 12px 32px rgba(70, 40, 20, 0.16);
 
   --font-body:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
     'Apple SD Gothic Neo', sans-serif;
-  --font-title: 'Black Han Sans', 'Pretendard Variable', 'Malgun Gothic', sans-serif;
-  --font-figure: 'Anton', 'Black Han Sans', 'Pretendard Variable', sans-serif;
-  --font-stencil: 'Stardos Stencil', 'Anton', serif;
+  --font-num: 'Outfit', 'Pretendard Variable', Pretendard, sans-serif;
+
+  /* One frame for every tab: same sidebar, header height, side column and gaps. */
+  --sidebar-w: 232px;
+  --side-w: 320px;
+  --view-gap: 20px;
+  --head-h: 64px;
+  --main-pad-y: 28px;
+  --main-pad-x: 32px;
+  --main-pad-bottom: 36px;
+  --main-pad-top: var(--main-pad-y);
+  /* Integrated title bar: 0 in a browser, the window-button strip in the desktop app. */
+  --titlebar-h: 0px;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Previous token names → warm palette */
+  --paper: var(--bg);
+  --paper-2: var(--surface-2);
+  --paper-3: var(--surface-3);
+  --rule: var(--line);
+  --rule-strong: var(--line-strong);
+  --panel: var(--cam);
+  --panel-2: #3a2e26;
+  --panel-3: #4a3a2f;
+  --panel-line: rgba(255, 250, 244, 0.18);
+  --panel-text: var(--cam-text);
+  --panel-muted: #cdbbaa;
+  --accent: var(--primary);
+  --accent-press: var(--primary-press);
+  --good-fill: var(--good);
+  --good-hi: var(--good-soft);
+  --bad: var(--alert);
+  --bad-fill: var(--alert);
+  --bad-hi: var(--alert-soft);
+  --bad-tint: var(--alert-tint);
+  --warn: #8a5a14;
+  --warn-fill: #d99a3e;
+  --warn-hi: #f2b45a;
+  --warn-tint: #fbebd0;
+  --unknown-fill: var(--unknown);
+  --unknown-hi: var(--unknown-soft);
+  --radius: var(--radius-md);
+  --font-title: var(--font-body);
+  --font-figure: var(--font-num);
+  --font-stencil: var(--font-num);
 
   color-scheme: light;
 }
@@ -60,27 +115,29 @@
 }
 
 html {
-  scrollbar-color: var(--ink-2) var(--paper-3);
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.55;
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'ss06';
 }
 
 ::selection {
-  background: var(--accent);
+  background: var(--primary-tint);
   color: var(--ink);
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 3px solid rgba(196, 83, 42, 0.45);
   outline-offset: 2px;
 }
 
@@ -89,8 +146,8 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
@@ -104,28 +161,83 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
-input[type='range'] {
-  accent-color: var(--accent);
+input[type='range'],
+input[type='checkbox'] {
+  accent-color: var(--primary);
 }
 
 .num {
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
 .figure {
-  font-family: var(--font-figure);
-  font-weight: 400;
-  letter-spacing: 0.005em;
-  line-height: 0.95;
+  font-family: var(--font-num);
+  font-weight: 700;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
 .icon {
   flex: none;
   display: block;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * App feel: screen text, buttons and images are not drag-selectable.
+ * Typing areas stay selectable, and `.selectable` opts a block back in
+ * (for example text someone may want to copy, like a note or an ID).
+ */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable='true'],
+.selectable,
+.selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+img,
+svg,
+a,
+video,
+canvas {
+  -webkit-user-drag: none;
 }

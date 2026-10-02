@@ -361,8 +361,10 @@ describe('server screen lifecycle without camera permissions or local time decis
         .find((button) => button.props.children === '확인된 요약 보관')!
         .props.onClick(),
     )
-    const description = renderer!.root.findByProps({ className: 'page-desc' }).children.join('')
-    expect(description).toContain('서버 종료를 확인하지 못했습니다')
+    const description = renderer!.root
+      .findByProps({ className: 'fine result-note' })
+      .children.join('')
+    expect(description).toContain('서버 종료를 확인하지 못했어요')
     expect(description).toContain('저장하지 못했습니다')
     expect(description).toContain('결과는 유지됩니다')
     expect(service.onArchive).toHaveBeenCalledOnce()

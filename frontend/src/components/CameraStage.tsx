@@ -40,9 +40,9 @@ export function CameraStage({
       {camera.state !== 'on' && (
         <div className="webcam-message">
           <strong>
-            {camera.state === 'loading' ? '카메라와 모델 준비 중…' : '카메라를 연결해 주세요'}
+            {camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}
           </strong>
-          <span>{camera.error || '영상은 이 브라우저 안에서만 처리합니다.'}</span>
+          <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
         </div>
       )}
     </>

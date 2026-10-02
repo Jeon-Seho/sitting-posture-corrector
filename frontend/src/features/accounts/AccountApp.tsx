@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
 import { useCollection } from '../../hooks/useCollection'
 import { ServiceScreens } from '../../app/ServiceScreens'
@@ -65,6 +65,7 @@ function AccountWorkspaceApp({
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
   const loggingOut = useRef(false)
+  const clearError = useCallback(() => setError(''), [])
   const measuring = !!session && !ended.current
   const remote = useRemoteWorkspace(user.user_id, initial, setError)
   const workspace = remote.workspace
@@ -118,6 +119,7 @@ function AccountWorkspaceApp({
 
   return (
     <ServiceScreens
+      onClearError={clearError}
       camera={camera}
       collection={collection}
       workspace={workspace}
@@ -150,10 +152,9 @@ function AccountWorkspaceApp({
       }}
       settingsDisabled={remote.saving}
       storageNotice={
-        <>
-          <StorageNotice workspace={workspace} />
-          {remote.saving && <p role="status">설정을 저장하고 있습니다.</p>}
-        </>
+        <StorageNotice workspace={workspace}>
+          {remote.saving && '설정을 저장하고 있습니다.'}
+        </StorageNotice>
       }
       profilePage={
         <AccountProfilePage

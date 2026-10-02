@@ -154,7 +154,7 @@ export async function verifyArchiveDialog(app) {
   await until(
     () =>
       app.evaluate(
-        `!document.querySelector('dialog[open]') && document.body.innerText.includes('서버 종료를 확인하지 못했습니다')`,
+        `!document.querySelector('dialog[open]') && document.body.innerText.includes('서버 종료를 확인하지 못했어요')`,
       ),
     'keyboard archive completion',
   )

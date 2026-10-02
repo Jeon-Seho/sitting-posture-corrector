@@ -1,163 +1,264 @@
 import { useState } from 'react'
-import { Card, Ledger, Stat } from '../../components/ui'
+import { Segmented } from '../../components/Segmented'
+import { Play } from '@phosphor-icons/react'
 import { RecordComparison } from '../../components/RecordComparison'
-import {
-  dailyHistory,
-  historyFor,
-  localDay,
-  type HistoryMode,
-  type Period,
-} from '../../lib/history'
+import { Meter } from '../../components/ui'
+import type { CollapseType } from '../../data/posture'
+import { historyFor, localDay, type HistoryMode, type Period } from '../../lib/history'
 import { summary, type RecordItem } from '../../lib/serviceStore'
-import { formatDuration, formatPercent } from '../../lib/stats'
+import { formatDuration, formatRate } from '../../lib/stats'
 import { RecordHistoryItem } from './RecordHistoryItem'
 
+const PERIODS: [Period, string, string][] = [
+  ['today', '오늘', '오늘 기록'],
+  ['week', '최근 7일', '이번 주 기록'],
+  ['month', '최근 30일', '이번 달 기록'],
+  ['all', '전체', '전체 기록'],
+]
+
+const KIND_LABEL: Record<CollapseType, string> = {
+  tilt: '몸이 한쪽으로 기울어짐',
+  forwardHead: '머리·상체가 앞으로',
+  referenceChange: '그 밖의 기준 변화',
+}
+const KIND_COLOR: Record<CollapseType, string> = {
+  tilt: 'var(--primary)',
+  forwardHead: '#e0915f',
+  referenceChange: '#ebc3a6',
+}
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
+
+/**
+ * Records tab. Everything here is computed from the saved session summaries in the
+ * current workspace. When the platform report API is ready (daily mart), the period
+ * totals and daily bars can come from it instead — see docs/design/frontend-platform-seams.md.
+ */
 export function LocalHistory({
-  page,
-  name,
   records,
   measuring,
   onStart,
-  onRegister,
   accountMode = false,
 }: {
-  page: 'home' | 'dashboard'
-  name: string
   records: RecordItem[]
   measuring: boolean
   onStart: () => void
-  onRegister: () => void
   accountMode?: boolean
 }) {
-  const [selectedMode, setSelectedMode] = useState<HistoryMode>('all')
+  const [mode, setMode] = useState<HistoryMode>('all')
   const [period, setPeriod] = useState<Period>('week')
-  const now = new Date(),
-    today = localDay(now.toISOString())
-  const selected = historyFor(records, selectedMode, page === 'home' ? 'today' : period, now)
-  const stats = summary(selected),
-    days = dailyHistory(selected)
+  const now = new Date()
+  const hasDemo = records.some((r) => r.mode === 'demo')
+  const selected = historyFor(records, mode, period, now)
+  const stats = summary(selected)
+  const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
+  const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
+  const kinds = kindShares(selected)
+  const title = PERIODS.find(([id]) => id === period)![2]
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{page === 'home' ? `${name}님의 오늘` : '측정 기록'}</h1>
+          <h1 className="page-title">{title}</h1>
           <p className="page-desc">
-            {today} 조회 기준 ·{' '}
-            {selectedMode === 'all'
-              ? '실제 웹캠·합성 시연 합산'
-              : selectedMode === 'camera'
-                ? '실제 웹캠 기록'
-                : '합성 시연 기록'}{' '}
-            · {accountMode ? '내 계정에 저장된 요약' : '이 브라우저의 로컬 요약'}
+            {localDay(now.toISOString())} 기준
+            {hasDemo &&
+              ` · ${mode === 'all' ? '실제 웹캠·합성 시연 합산' : mode === 'camera' ? '실제 웹캠 기록' : '합성 시연 기록'}`}{' '}
+            · {accountMode ? '내 계정에 저장된 요약' : '이 기기에 저장된 요약'}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onStart}>
-          {measuring ? '진행 중인 측정으로' : '측정 시작'}
-        </button>
+        <div className="page-actions">
+          <Segmented label="기록 조회 기간">
+            {PERIODS.map(([id, label]) => (
+              <button key={id} aria-pressed={period === id} onClick={() => setPeriod(id)}>
+                {label}
+              </button>
+            ))}
+          </Segmented>
+        </div>
       </div>
-      <div className="row" role="group" aria-label="기록 종류">
-        <button
-          className="chip"
-          aria-pressed={selectedMode === 'all'}
-          onClick={() => setSelectedMode('all')}
-        >
-          모든 기록
-        </button>
-        <button
-          className="chip"
-          aria-pressed={selectedMode === 'camera'}
-          onClick={() => setSelectedMode('camera')}
-        >
-          실제 웹캠 기록
-        </button>
-        <button
-          className="chip"
-          aria-pressed={selectedMode === 'demo'}
-          onClick={() => setSelectedMode('demo')}
-        >
-          합성 시연 기록
-        </button>
-      </div>
-      {page === 'dashboard' && (
-        <div className="row gap-top" role="group" aria-label="기록 조회 기간">
+
+      {hasDemo && (
+        <div className="row" role="group" aria-label="기록 종류" style={{ flexWrap: 'wrap' }}>
           {(
             [
-              ['today', '오늘'],
-              ['week', '최근 7일'],
-              ['month', '최근 30일'],
-              ['all', '전체'],
+              ['all', '모든 기록'],
+              ['camera', '실제 웹캠 기록'],
+              ['demo', '합성 시연 기록'],
             ] as const
           ).map(([id, label]) => (
-            <button
-              className="chip"
-              key={id}
-              aria-pressed={period === id}
-              onClick={() => setPeriod(id)}
-            >
+            <button key={id} className="chip" aria-pressed={mode === id} onClick={() => setMode(id)}>
               {label}
             </button>
           ))}
         </div>
       )}
-      <div className="gap-top">
-        <Ledger cols={4}>
-          <Stat label="기준 자세 유지율" value={formatPercent(stats.rate)} />
-          <Stat label="유효 측정 시간" value={formatDuration(stats.valid)} />
-          <Stat label="이탈 사건" value={`${stats.count}건`} />
-          <Stat label="측정 기록" value={`${selected.length}회`} />
-        </Ledger>
-      </div>
-      {page === 'dashboard' && days.length > 0 && (
-        <Card
-          title="날짜별 유지율"
-          note="기록이 있는 날짜만 표시하며, 각 날짜의 유효 시간으로 가중 집계합니다."
-        >
-          {days.map((d) => (
-            <div className="service-record" key={d.date}>
-              <div>
-                <strong>{d.date}</strong>
-                <span>
-                  {' '}
-                  {d.sessions}회 · {formatDuration(d.valid)} · {d.count}건
+
+      <div className="view">
+        <div className="view-main">
+          <div className="records-stats">
+            <section className="card" data-stat="rate">
+              <div className="stat-label">평균 바른 자세</div>
+              <div className="records-stat-value">
+                <span className="num">{stats.rate === null ? '—' : Math.round(stats.rate * 100)}</span>
+                <small>{stats.rate === null ? '' : '%'}</small>
+              </div>
+              <p className="records-stat-note">측정한 시간 가운데 기준 자세를 유지한 비율</p>
+            </section>
+            <section className="card" data-stat="valid">
+              <div className="stat-label">측정한 시간</div>
+              <div className="records-stat-value">
+                <span className="num" style={{ fontSize: 28 }}>
+                  {formatDuration(stats.valid)}
                 </span>
               </div>
-              <div className="service-bar">
-                <span style={{ width: `${(d.rate ?? 0) * 100}%` }} />
+              <p className="records-stat-note">
+                측정 <span data-stat="count">{selected.length}</span>회 · 확인 못 한 시간 제외
+              </p>
+            </section>
+            <section className="card" data-stat="alerts">
+              <div className="stat-label">받은 알림</div>
+              <div className="records-stat-value">
+                <span className="num">{alerts}</span>
+                <small>회</small>
               </div>
-              <b>{formatPercent(d.rate)}</b>
-            </div>
-          ))}
-        </Card>
-      )}
-      <Card
-        title="기록별 유지율"
-        note="세션 종료일·브라우저 시간대 기준입니다. 자정을 지난 세션은 아직 날짜별로 나누지 않습니다. 유효 시간 0은 계산 불가입니다."
-      >
-        {selected.length === 0 ? (
-          <div className="empty">
-            <h2>아직 측정 기록이 없습니다</h2>
-            <p>선택한 종류와 기간에 기록이 없습니다. 첫 측정을 마치면 여기에 결과가 쌓입니다.</p>
+              <p className="records-stat-note">
+                {stats.valid > 0 ? `한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')} 정도` : '측정 후에 계산돼요'}
+              </p>
+            </section>
           </div>
-        ) : (
-          selected.map((record) => <RecordHistoryItem key={record.id} record={record} />)
-        )}
-      </Card>
-      {page === 'home' && (
-        <button className="btn" onClick={onRegister}>
-          내 기준 자세 다시 등록
-        </button>
-      )}
-      {page === 'dashboard' && (
-        <>
-          <p className="fine gap-top">
-            처음과 최근 비교는 위 조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다.
-            합성 시연 결과는 실제 자세 개선 근거가 아닙니다.
-          </p>
-          <RecordComparison
-            records={records.filter((r) => selectedMode === 'all' || r.mode === selectedMode)}
-          />
-        </>
-      )}
+
+          <section className="card records-chart" aria-label="날짜별 바른 자세 비율">
+            <h3 className="card-title" style={{ marginBottom: 14 }}>
+              날짜별 바른 자세 비율
+            </h3>
+            <div className="bars" style={{ gap: days.length > 7 ? 4 : 12 }}>
+              {days.map((d) => (
+                <div
+                  className={`bar ${d.today ? 'is-today' : ''}`}
+                  key={d.key}
+                  tabIndex={0}
+                  aria-label={`${d.title} ${d.rate === null ? '기록 없음' : `바른 자세 ${Math.round(d.rate * 100)}%`}`}
+                >
+                  <div className="bar-tip" aria-hidden="true">
+                    <div className="combo-tip-title">{d.title}</div>
+                    {d.rate === null ? (
+                      <div className="combo-tip-row">측정 기록이 없어요</div>
+                    ) : (
+                      <>
+                        <div className="combo-tip-row">
+                          <i style={{ background: 'var(--primary)' }} />
+                          바른 자세<b>{Math.round(d.rate * 100)}%</b>
+                        </div>
+                        <div className="combo-tip-row is-detail">
+                          측정 시간<b>{formatDuration(d.valid)}</b>
+                        </div>
+                        <div className="combo-tip-row is-detail">
+                          측정 횟수<b>{d.sessions}회</b>
+                        </div>
+                        <div className="combo-tip-row is-detail">
+                          알림<b>{d.alerts}회</b>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {days.length <= 7 && (
+                    <span className="bar-value">{d.rate === null ? '—' : `${Math.round(d.rate * 100)}%`}</span>
+                  )}
+                  <span
+                    className={`bar-fill ${d.rate === null ? 'is-empty' : ''}`}
+                    style={{ height: `${d.rate === null ? 2 : Math.max(3, d.rate * 82)}%` }}
+                  />
+                  <span className="bar-label">{days.length <= 7 || d.today || d.date.getDate() % 5 === 0 ? d.label : ' '}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <details className="more">
+            <summary>처음과 최근 비교</summary>
+            <div className="more-body">
+              <p className="fine">
+                조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
+                개선 근거가 아닙니다.
+              </p>
+              <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
+            </div>
+          </details>
+        </div>
+        <div className="view-side">
+          <section className="card">
+            <h3 className="card-title" style={{ marginBottom: 14 }}>
+              자주 흐트러진 방향
+            </h3>
+            {kinds.length === 0 ? (
+              <p className="fine">아직 흐트러진 기록이 없어요.</p>
+            ) : (
+              <div className="kinds">
+                {kinds.map((k) => (
+                  <div key={k.type}>
+                    <div className="kind-head">
+                      <span>{KIND_LABEL[k.type]}</span>
+                      <span>{Math.round(k.share * 100)}%</span>
+                    </div>
+                    <Meter value={k.share} color={KIND_COLOR[k.type]} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          <section className="card">
+            <h3 className="card-title" style={{ marginBottom: 6 }}>
+              측정 기록
+            </h3>
+            {selected.length === 0 ? (
+              <div style={{ padding: '10px 0' }}>
+                <p className="fine">선택한 기간에 기록이 없어요. 첫 측정을 마치면 여기에 쌓여요.</p>
+                <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
+                  <Play size={15} weight="fill" className="icon" />
+                  {measuring ? '진행 중인 측정으로' : '측정 시작'}
+                </button>
+              </div>
+            ) : (
+              [...selected]
+                .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+                .map((record) => <RecordHistoryItem key={record.id} record={record} />)
+            )}
+          </section>
+        </div>
+      </div>
     </>
   )
+}
+
+function dayBars(records: RecordItem[], count: number, now: Date) {
+  const todayKey = localDay(now.toISOString())
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date(now)
+    date.setHours(12, 0, 0, 0)
+    date.setDate(date.getDate() - (count - 1 - i))
+    const key = localDay(date.toISOString())
+    const dayRecords = records.filter((r) => localDay(r.endedAt) === key)
+    const day = summary(dayRecords)
+    return {
+      key,
+      date,
+      today: key === todayKey,
+      label: count <= 7 ? WEEKDAY[date.getDay()] : String(date.getDate()),
+      rate: day.rate,
+      valid: day.valid,
+      sessions: dayRecords.length,
+      alerts: dayRecords.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0),
+      title: `${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAY[date.getDay()]})`,
+    }
+  })
+}
+
+function kindShares(records: RecordItem[]) {
+  const counts = new Map<CollapseType, number>()
+  for (const record of records)
+    for (const event of record.events) counts.set(event.type, (counts.get(event.type) ?? 0) + 1)
+  const total = [...counts.values()].reduce((a, b) => a + b, 0)
+  return [...counts]
+    .map(([type, n]) => ({ type, share: n / total }))
+    .sort((a, b) => b.share - a.share)
 }

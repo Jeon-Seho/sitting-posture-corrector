@@ -78,28 +78,29 @@ function FloatingPreview({ camera, children }: { camera: CameraController; child
             const current = drag.current
             if (current?.pointer === event.pointerId) move(event.clientX - current.dx, event.clientY - current.dy)
           }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }}
-          onLostPointerCapture={() => { drag.current = null }}>카메라 사용 중 · 드래그로 이동</button>
+          onLostPointerCapture={() => { drag.current = null }}>카메라 사용 중</button>
         <button className="camera-window-collapse" aria-expanded={expanded} onClick={() => setExpanded((old) => !old)}>
           {expanded ? '접기' : '펼치기'}
         </button>
       </div>
       {expanded && <>
         <StreamPreview camera={camera} />
-        <p className="fine">{camera.quality ? '몸의 특징 측정 가능' : '몸의 특징 측정 불가'}</p>
-        <p className="fine">제목을 드래그하거나 제목에 초점을 두고 방향키로 옮기세요. 오른쪽 아래 모서리로 크기를 조절합니다.</p>
+        <p className="fine">{camera.quality ? '자세를 확인할 수 있어요' : '자세를 확인할 수 없어요'}</p>
+        <p className="fine">제목을 끌거나 방향키로 옮길 수 있어요.</p>
         {children}
       </>}
     </aside>
   )
 }
 
-export function CameraWindow({ camera }: { camera: CameraController }) {
+/** `floating` hides the in-app preview on screens that already show the camera large. */
+export function CameraWindow({ camera, floating = true }: { camera: CameraController; floating?: boolean }) {
   const preview = useCameraWindow(camera)
   if (camera.state !== 'on') return null
   const opened = !!preview.pipWindow || preview.videoPip
   return (
     <>
-      <FloatingPreview camera={camera}>
+      {floating && <FloatingPreview camera={camera}>
         <div className="row">
           <button className="btn" disabled={!preview.supported} onClick={() => {
             if (opened) preview.close()
@@ -107,10 +108,9 @@ export function CameraWindow({ camera }: { camera: CameraController }) {
           }}>{opened ? '작은 창 닫기' : '카메라 작은 창 열기'}</button>
           <button className="btn" onClick={camera.stop}>카메라 사용 종료</button>
         </div>
-        <p className="fine">다른 사이트는 새 탭으로 열고 이 앱 탭은 남겨 두세요. 자동 작은 창은 브라우저 설정에 따라 열립니다.</p>
         {!preview.supported && <p role="status">현재 창은 이 앱 안에서만 보입니다. 다른 사이트 위에도 보려면 Chrome에서 열어 주세요.</p>}
         {preview.message && <p role="status">{preview.message}</p>}
-      </FloatingPreview>
+      </FloatingPreview>}
       <video ref={preview.fallbackVideo} className="capture-source" muted playsInline aria-hidden="true" />
       {preview.pipWindow && createPortal(
         <WindowPreview camera={camera} onClose={preview.close} />,

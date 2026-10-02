@@ -5,6 +5,9 @@
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 
+- **진행 중(2026-10-02):** [데스크톱 앱 화면 재구성](plans/active/0020-desktop-app-redesign.md) —
+  [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](design/desktop-app.md),
+  [백엔드 연결 지점](design/frontend-platform-seams.md), 시각 규칙 [DESIGN.md](../DESIGN.md).
 - **팀 공유:** [서비스 요구사항](team-requirements.md) — 최신 기능·역할·완료 조건·협의 항목을 한 문서로 확인한다.
 - **Mac 종합 점검:** [develop 통합·기획 대비 완료/남은 범위](audits/2026-09-30-mac-develop.md).
 - **lee_dev4 변경 요약:** [lee_md](lee_md.md) — main 대비 로직·문구 변경, 임시값, 검증 결과.

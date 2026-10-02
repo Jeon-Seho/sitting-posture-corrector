@@ -1,3 +1,4 @@
+import { ExpandableTable } from '../../components/ExpandableTable'
 import type { DecisionEvent, SessionView } from '../session/server/contracts'
 import { formatClock } from '../../lib/stats'
 
@@ -57,7 +58,7 @@ export function ServerDecisionHistory({
       {view.events.length === 0 ? (
         <p>서버에 확인된 사건이 없습니다.</p>
       ) : (
-        <div className="scroll-x">
+        <ExpandableTable>
           <table className="history-events-table">
             <thead>
               <tr>
@@ -93,7 +94,7 @@ export function ServerDecisionHistory({
               ))}
             </tbody>
           </table>
-        </div>
+        </ExpandableTable>
       )}
     </div>
   )

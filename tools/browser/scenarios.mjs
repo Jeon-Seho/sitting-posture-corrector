@@ -73,6 +73,11 @@ class AppDriver {
     )
   }
 
+  /** Advanced options live in collapsed <details>; open them like a user would. */
+  async openMore() {
+    await this.evaluate(`document.querySelectorAll('details.more').forEach((item) => { item.open = true })`)
+  }
+
   async text(text) {
     return until(
       () => this.evaluate(`document.body.innerText.includes(${JSON.stringify(text)})`),
@@ -107,10 +112,11 @@ class AppDriver {
   }
 
   async startSession() {
-    await this.click('측정 시작')
-    await this.text('측정 준비')
+    await this.click('측정하기')
+    await this.text('카메라를 켜 볼까요?')
     await this.click('카메라 켜기')
-    await this.click('기준 등록 시작')
+    await this.click('편하게 앉아서 기준 등록 시작')
+    await this.openMore()
     await this.checkbox('서버 판정 사용')
     await this.click('측정 시작')
     let snapshot = await until(async () => {
@@ -120,7 +126,7 @@ class AppDriver {
         state.draft?.server?.pending?.kind === 'create' &&
         state.trace.some((entry) => entry.status === 502) &&
         (await this.evaluate(`document.body.innerText.includes('서버 요청에 실패했습니다 (502)') &&
-          document.querySelector('.verdict-word')?.textContent.trim() === '휴식 중' &&
+          document.querySelector('.stage .pill')?.textContent.trim() === '쉬는 중' &&
           [...document.querySelectorAll('button')].some((button) => button.textContent.trim() === '같은 서버 요청 다시 시도' && !button.disabled)`))
       return coldFailure ? { coldFailure: state } : null
     }, 'created session or explicit retryable cold-create failure')
@@ -145,7 +151,7 @@ class AppDriver {
             (entry) =>
               entry.path === path && JSON.stringify(entry.body) === JSON.stringify(payload),
           ) &&
-          (await this.evaluate(`document.body.innerText.includes('휴식 중')`)),
+          (await this.evaluate(`document.body.innerText.includes('쉬는 중')`)),
       )
       await this.click('측정 재개')
     }
@@ -196,23 +202,30 @@ class AppDriver {
 
   async verifyHistory(records) {
     const total = records.reduce((sum, record) => sum + record.valid, 0)
-    const count = records.reduce((sum, record) => sum + record.events.length, 0)
     const good = records.reduce((sum, record) => sum + record.good, 0)
+    const alerts = records.reduce(
+      (sum, record) => sum + record.events.reduce((n, event) => n + event.alerts, 0),
+      0,
+    )
     const displayed = await this.evaluate(`(() => {
-      const result = {};
-      for (const stat of [...document.querySelectorAll('main .stat')].filter(${visible})) result[stat.querySelector('.stat-label').textContent] = stat.querySelector('.stat-value').textContent;
-      return result;
+      const tile = (key) => document.querySelector('main [data-stat="' + key + '"]');
+      return {
+        rate: tile('rate')?.querySelector('.records-stat-value')?.textContent,
+        valid: tile('valid')?.querySelector('.records-stat-value')?.textContent,
+        alerts: tile('alerts')?.querySelector('.records-stat-value')?.textContent,
+        count: tile('count')?.textContent,
+      };
     })()`)
-    const rate = total ? `${((good / total) * 100).toFixed(1)}%` : '계산 불가'
+    const rate = total ? `${Math.round((good / total) * 100)}%` : '—'
     this.check(
-      'history rate/time/event/session totals match acknowledged records',
-      displayed['기준 자세 유지율'] === rate &&
-        displayed['유효 측정 시간'] === duration(total) &&
-        displayed['이탈 사건'] === `${count}건` &&
-        displayed['측정 기록'] === `${records.length}회`,
+      'history rate/time/alert/session totals match acknowledged records',
+      displayed.rate === rate &&
+        displayed.valid === duration(total) &&
+        displayed.alerts === `${alerts}회` &&
+        displayed.count === `${records.length}`,
     )
     const details = await this.evaluate(`(() => {
-      const buttons = [...document.querySelectorAll('button')].filter(${visible}).filter((item) => ['상세 보기', '상세 닫기'].includes(item.textContent.trim()));
+      const buttons = [...document.querySelectorAll('button')].filter(${visible}).filter((item) => ['자세히', '닫기'].includes(item.textContent.trim()) && item.classList.contains('history-detail-button'));
       for (const button of buttons) if (button.getAttribute('aria-expanded') !== 'true') button.click();
       return buttons.length;
     })()`)
@@ -242,7 +255,7 @@ export async function runScenarios(browser, base, restartApi) {
     )) && browser.errors.length === 0,
   )
   await app.click('내 프로필로 시작')
-  await app.text('합성 브라우저 회귀님의 오늘')
+  await app.text('카메라를 켜 볼까요?')
   app.check(
     'synthetic input is visibly disclosed and camera permissions remain unused',
     (await app.evaluate(`document.body.innerText.includes('명시적 합성 브라우저 검증')`)) &&
@@ -260,7 +273,7 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 1 &&
       snapshot.draft.server.view.events[0].timestamp_ms === 3000,
   )
-  await app.text('자세 교정 알림')
+  await app.text('자세를 확인해 주세요')
   snapshot = await app.frames(59)
   app.check(
     'same episode does not remind before 60 seconds',
@@ -290,7 +303,7 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 2 &&
       snapshot.draft.server.view.summary.alert_count === 3,
   )
-  await app.click('일시정지')
+  await app.click('잠시 쉬기')
   const validBeforeRest = snapshot.draft.server.view.summary.valid_ms
   snapshot = await app.knownRest()
   app.check(
@@ -312,18 +325,18 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 3 &&
       snapshot.draft.server.view.summary.alert_count === 4,
   )
-  await app.click('홈')
+  await app.click('기록')
   snapshot = await app.knownRest()
   app.check(
     'internal navigation records rest without adding valid measurement',
     snapshot.draft.server.view.summary.valid_ms === validBeforeRest + 3000,
   )
-  await app.click('실시간 측정')
-  await app.text('휴식 중')
+  await app.click('측정하기')
+  await app.text('쉬는 중')
   app.check(
     'returning to measurement requires explicit resume',
     await app.evaluate(
-      `![...document.querySelectorAll('button')].filter(${visible}).some((b) => b.textContent.trim() === '일시정지')`,
+      `![...document.querySelectorAll('button')].filter(${visible}).some((b) => b.textContent.trim() === '잠시 쉬기')`,
     ),
   )
   await app.click('측정 재개')
@@ -335,7 +348,7 @@ export async function runScenarios(browser, base, restartApi) {
     'poor measurement is excluded and displayed as unmeasurable',
     snapshot.draft.server.view.summary.valid_ms === validBeforePoor &&
       snapshot.draft.server.view.summary.unknown_ms === 500 &&
-      (await app.evaluate(`document.querySelector('.verdict-word').textContent === '판정 불가'`)),
+      (await app.evaluate(`document.querySelector('.stage .pill').textContent.trim() === '자세를 확인할 수 없어요'`)),
   )
   await app.frame(500, 'normal')
   snapshot = await app.frame(500, 'normal')
@@ -365,12 +378,11 @@ export async function runScenarios(browser, base, restartApi) {
       recordMatchesView(snapshot.records[0], actualEnded) &&
       !snapshot.camera.connected,
   )
-  await app.click('홈')
+  await app.click('기록')
   await app.verifyHistory(snapshot.records)
-  await app.click('대시보드')
+  await app.click('오늘')
   await app.verifyHistory(snapshot.records)
   await browser.screenshot('confirmed-dashboard')
-  await app.click('홈')
   const reloadId = await app.startSession()
   await app.frames(2)
   await app.evaluate(`${BRIDGE}.holdNext('features')`)
@@ -408,11 +420,10 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.records.find((record) => record.id === reloadId).server.confirmed &&
       snapshot.permissionCalls === 0,
   )
-  await app.click('홈')
   const lostId = await app.startSession()
   snapshot = await app.frames(3)
   const lastKnown = snapshot.draft.server.view
-  await app.click('일시정지')
+  await app.click('잠시 쉬기')
   await restartApi(lostId)
   await app.reload()
   await app.text('서버 세션 유실')
@@ -436,10 +447,10 @@ export async function runScenarios(browser, base, restartApi) {
       !snapshot.camera.connected &&
       !snapshot.trace.some((entry) => entry.path.endsWith('/end')),
   )
-  await app.click('홈')
+  await app.click('기록')
   await app.text('서버 종료 미확인')
   await app.verifyHistory(snapshot.records)
-  await app.click('대시보드')
+  await app.click('오늘')
   await app.verifyHistory(snapshot.records)
   await browser.screenshot('unconfirmed-dashboard')
   await app.evaluate(`document.querySelector('.history-record-details')?.scrollIntoView()`)
@@ -462,8 +473,9 @@ export async function runScenarios(browser, base, restartApi) {
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await app.click('내 프로필로 시작')
-  await app.click('대시보드')
+  await app.click('기록')
   await app.click('전체')
+  await app.openMore()
   await app.text('비교에 포함된 기록의 조건')
   const comparison = await app.evaluate(
     `document.querySelector('[aria-label="기록 비교 조건"]').innerText`,

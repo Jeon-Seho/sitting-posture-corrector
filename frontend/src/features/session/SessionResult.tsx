@@ -3,6 +3,7 @@ import type { LiveState } from '../../lib/engine'
 import { MODEL_VERSION } from '../../data/posture'
 import type { CollectionController } from '../../hooks/useCollection'
 import { CollectionPanel } from '../../components/CollectionPanel'
+import { Ring } from '../../components/Ring'
 import { Card, Ledger, Stat } from '../../components/ui'
 import { formatDuration, formatPercent, formatRate, mean, median } from '../../lib/stats'
 import { EventTable } from './SessionEvents'
@@ -39,20 +40,60 @@ export function SessionResult({
   onDashboard,
   onReset,
 }: Props) {
+  const alerts = live.events.reduce((a, e) => a + e.alerts, 0)
+  const recovery = mean(recoveries)
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">측정 종료</h1>
-          <p className="page-desc">
-            {service
-              ? service.saveMessage
-              : '이번 측정 결과입니다. 연구 모드 결과는 별도로 보관해 주세요.'}
-          </p>
+      <section className="result" aria-labelledby="result-title">
+        <div className="result-head">
+          <Ring value={keepRate} label="바른 자세 비율">
+            <span className="ring-value" style={{ fontSize: 34 }}>
+              {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
+            </span>
+            <span className="ring-label">바른 자세</span>
+          </Ring>
+          <div>
+            <div className="result-eyebrow">측정을 마쳤어요</div>
+            <h1 className="result-title" id="result-title">
+              {live.validSeconds > 0 ? (
+                <>
+                  {formatDuration(live.validSeconds)} 중 {objectParticle(formatDuration(live.goodSeconds))}
+                  <br />
+                  바르게 앉아 있었어요
+                </>
+              ) : (
+                '확인된 측정 시간이 없어요'
+              )}
+            </h1>
+            {service && <p className="fine" style={{ marginTop: 8 }}>{service.saveMessage}</p>}
+          </div>
         </div>
-        <div className="row">
+        <div className="result-tiles">
+          <div className="result-tile">
+            <span>받은 알림</span>
+            <b>{alerts}회</b>
+          </div>
+          <div className="result-tile">
+            <span>바로 앉기까지</span>
+            <b>{recovery === null ? '—' : `평균 ${formatDuration(recovery)}`}</b>
+          </div>
+          <div className="result-tile">
+            <span>확인 못 한 시간</span>
+            <b>{formatDuration(live.unknownSeconds)}</b>
+          </div>
+        </div>
+        <div className="result-actions">
+          {service && (
+            <button className="btn btn-quiet" onClick={service.onRetry}>
+              저장 다시 시도
+            </button>
+          )}
+          <button className="btn" onClick={onDashboard}>
+            <ChartBar size={18} weight="bold" className="icon" />
+            기록 보기
+          </button>
           <button
-            className="btn"
+            className="btn btn-primary"
             onClick={() => {
               if (isCamera || service) {
                 onPrepare()
@@ -61,93 +102,61 @@ export function SessionResult({
               onReset()
             }}
           >
-            <ArrowCounterClockwise size={17} weight="bold" className="icon" />
+            <ArrowCounterClockwise size={18} weight="bold" className="icon" />
             다시 측정
           </button>
-          <button className="btn btn-primary" onClick={onDashboard}>
-            <ChartBar size={17} weight="bold" className="icon" />
-            대시보드 보기
-          </button>
         </div>
-      </div>
+      </section>
 
-      {service && (
-        <button className="btn" onClick={service.onRetry}>
-          저장 다시 시도
-        </button>
-      )}
       {isCamera && !service && <CollectionPanel collection={collection} />}
-      <div className="gap-top">
-        <Ledger cols={4}>
-          <Stat
-            label="유효 측정 시간"
-            value={formatDuration(live.validSeconds)}
-            sub={`전체 ${formatDuration(live.totalSeconds)}`}
-          />
-          <Stat
-            label="기준 자세 유지율"
-            value={formatPercent(keepRate)}
-            sub={`기준 유지 ${formatDuration(live.goodSeconds)}`}
-            tone={keepRate !== null && keepRate >= 0.75 ? 'good' : undefined}
-          />
-          <Stat
-            label="붕괴 이벤트"
-            value={`${live.events.length}건`}
-            sub={`알림 ${live.events.reduce((a, e) => a + e.alerts, 0)}회`}
-          />
-          <Stat label="시간당 붕괴 횟수" value={formatRate(perHour, '회')} />
-        </Ledger>
-      </div>
 
-      <div className="grid g2 gap-top">
-        <Card
-          title="붕괴 발생 간격"
-          note="같은 세션의 이벤트 시작 간격에서 휴식·판정 불가·관측 공백 시간을 뺍니다. 유효 시간 기준 발생 시각이 없는 과거 기록은 같은 연속 측정 구간만 계산합니다."
-        >
-          <SampleStat label="평균" value={formatDuration(mean(intervals))} />
-          <SampleStat label="중앙값" value={formatDuration(median(intervals))} />
-          <SampleStat label="표본 수" value={`${intervals.length}개`} />
-        </Card>
-        <Card title="회복 시간" note="최초 알림부터 정상 복귀까지 걸린 시간입니다.">
-          <SampleStat label="평균" value={formatDuration(mean(recoveries))} />
-          <SampleStat label="중앙값" value={formatDuration(median(recoveries))} />
-          <SampleStat
-            label="표본 수"
-            value={`${recoveries.length}개${mutedCount ? ` (알림 꺼짐 ${mutedCount}건 제외)` : ''}`}
-          />
-        </Card>
-      </div>
-
-      <div className="gap-top">
-        <Ledger cols={3}>
-          <Stat
-            label="판정 불가 (집계 제외)"
-            value={formatDuration(live.unknownSeconds)}
-            sub="자리 비움 · 부분 가림"
-            small
-          />
-          <Stat label="일시정지 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
-          <Stat
-            label="모델 버전"
-            value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION}
-            sub={isCamera ? '개인 기준 비교 · LSTM 미연결' : '합성 시연 데이터'}
-            small
-          />
-        </Ledger>
-      </div>
-
-      <Card title="이벤트 기록" note={`총 ${live.events.length}건`}>
-        <EventTable events={live.events} muted={muted} />
-      </Card>
+      <details className="more result-more">
+        <summary>자세히 보기 · 사건별 기록과 통계</summary>
+        <div className="more-body">
+          <Ledger cols={4}>
+            <Stat
+              label="유효 측정 시간"
+              value={formatDuration(live.validSeconds)}
+              sub={`전체 ${formatDuration(live.totalSeconds)}`}
+              small
+            />
+            <Stat label="기준 자세 유지율" value={formatPercent(keepRate)} small />
+            <Stat
+              label="자세 이탈"
+              value={`${live.events.length}건`}
+              sub={`알림 ${alerts}회`}
+              small
+            />
+            <Stat label="시간당 이탈" value={formatRate(perHour, '회')} small />
+          </Ledger>
+          <Ledger cols={4}>
+            <Stat label="발생 간격 평균" value={formatDuration(mean(intervals))} sub={`중앙값 ${formatDuration(median(intervals))} · ${intervals.length}개`} small />
+            <Stat
+              label="회복 시간 평균"
+              value={formatDuration(recovery)}
+              sub={`중앙값 ${formatDuration(median(recoveries))} · ${recoveries.length}개${mutedCount ? ` (알림 꺼짐 ${mutedCount}건 제외)` : ''}`}
+              small
+            />
+            <Stat label="쉰 시간 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
+            <Stat
+              label="판정 방식"
+              value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION}
+              sub={isCamera ? '개인 기준 비교' : '합성 시연 데이터'}
+              small
+            />
+          </Ledger>
+          <Card title="사건 기록" note={`총 ${live.events.length}건`}>
+            <EventTable events={live.events} muted={muted} />
+          </Card>
+        </div>
+      </details>
     </>
   )
 }
 
-function SampleStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="feature-row" style={{ gridTemplateColumns: '1fr auto' }}>
-      <span className="feature-name">{label}</span>
-      <span className="feature-value">{value}</span>
-    </div>
-  )
+/** '3분을' / '40초를': pick the object particle from the last syllable. */
+function objectParticle(word: string) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  const batchim = code >= 0 && code <= 11171 && code % 28 !== 0
+  return `${word}${batchim ? '을' : '를'}`
 }

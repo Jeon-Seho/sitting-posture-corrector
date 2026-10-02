@@ -75,7 +75,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     prepareServerCamera()
     mount()
     login()
-    click('측정 시작')
     expect(renderer!.root.findByType(SetupPage).props.serverMode).toBe(false)
     act(() => renderer!.root.findByType(SetupPage).props.onServerMode(true))
     controls.camera.videoRef = {
@@ -246,9 +245,9 @@ describe('service recovery and saving with synthetic storage only', () => {
     mount()
     login()
     click('이어하기')
-    expect(text(renderer!.root)).toContain('휴식 중')
-    click('홈으로')
-    click('실시간 측정')
+    expect(text(renderer!.root)).toContain('쉬는 중')
+    click('기록')
+    click('측정하기')
     click('측정 종료')
     const records = readLocal<RecordItem[]>(KEYS.records, [])
     expect(records).toHaveLength(1)
@@ -274,14 +273,13 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
     mount()
     login()
-    click('측정 시작')
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
     const nextRules = { ...DEFAULT_RULES, holdSeconds: 5 }
     click('설정')
     act(() => renderer!.root.findByType(SettingsPage).props.onRules(nextRules))
     expect(renderer!.root.findByType(SessionPage).props.rules).toEqual(DEFAULT_RULES)
-    click('실시간 측정')
+    click('측정하기')
     click('측정 종료')
     expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
@@ -301,7 +299,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     data.set(KEYS.records, JSON.stringify(records))
     mount()
     login()
-    click('대시보드')
+    click('기록')
     expect(renderer!.root.findByType(RecordComparison).props.records).toEqual(records)
     expect(text(renderer!.root)).toContain('실제 웹캠·합성 시연 합산')
     click('실제 웹캠 기록')
@@ -338,9 +336,12 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
     mount()
     login()
-    click('자세 등록')
+    click('설정')
+    click('자세 데이터 수집')
+    // Leaving the measure tab already cancels an unfinished calibration once.
+    const before = vi.mocked(controls.camera.cancelCalibration).mock.calls.length
     click('보정 취소')
-    expect(controls.camera.cancelCalibration).toHaveBeenCalledOnce()
+    expect(controls.camera.cancelCalibration).toHaveBeenCalledTimes(before + 1)
     controls.camera.state = 'loading'
     controls.camera.progress = null
     act(() => renderer!.update(<App />))
@@ -372,8 +373,9 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.state = 'on'
     mount()
     login()
-    click('자세 등록')
-    click('홈')
+    click('설정')
+    click('자세 데이터 수집')
+    click('기록')
     expect(controls.camera.stop).not.toHaveBeenCalled()
     expect(text(renderer!.root)).toContain('카메라 사용 중')
     click('카메라 사용 종료')
@@ -399,7 +401,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     )
     expect(renderer!.root.findByType(ServerSessionPage).props.session).toEqual(started)
     expect(renderer!.root.findByType(ServerSessionPage).props.service.active).toBe(false)
-    click('실시간 측정')
+    click('측정하기')
     expect(renderer!.root.findByType(ServerSessionPage).props.service.active).toBe(true)
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })

@@ -2,6 +2,8 @@
 
 Scope: 로그인, 홈, 측정 준비, 실시간 측정, 대시보드, 설정. Mode: Operate (발표 시연 중 조작). 기능·카피·판정 로직은 유지하고 시각 세계만 교체한다.
 
+> 2026-10-02 교체: 화면은 따뜻한 건강 톤 데스크톱 앱으로 다시 설계했다([ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md)). 아래는 이력이다.
+>
 > 이후 변경: 현재 앱은 위 화면에 `자세 등록`과 `프로필 설정`이 더해진 단일 앱이다(실시간 측정·프로필 설정은 사이드바 하위 탭). 현재 규칙은 [DESIGN.md](../../DESIGN.md)와 [ADR 0008](../decisions/0008-single-app-entry.md)을 따른다. 이 브리프는 최초 시각 방향의 기록으로 남긴다.
 
 ## Direction contract
