@@ -96,6 +96,8 @@ ipcMain.handle('desktop:set-auto-camera', (event, enabled) => {
 
 async function createWindow() {
   const window = new BrowserWindow({
+    // 자동 점검은 화면을 띄우지 않는다. 일반 실행은 기존처럼 창을 표시한다.
+    show: !process.argv.includes('--posegood-smoke-hidden'),
     // 최소 크기 아래로는 카메라·오른쪽 패널·머리 영역이 함께 들어가지 않는다(docs/design/desktop-app.md).
     width: 1360, height: 860, minWidth: MIN_WIDTH, minHeight: MIN_HEIGHT,
     title: 'PoseGood',

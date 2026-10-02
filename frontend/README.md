@@ -11,19 +11,26 @@ npm run desktop:dev  # 이미 켠 개발 서버(5173)에 창만 연결
 ```
 
 Windows에서 `npm run desktop:pack`을 실행하면 프론트를 빌드한 뒤
-electron-builder가 `frontend/release/PoseGood.exe`를 만들고 `frontend/PoseGood.exe`에도 복사한다.
+electron-builder가 `frontend/release/win-unpacked/`에 앱을 만들고 `frontend/PoseGood.exe`에 작은 실행기를 만든다.
 `frontend/PoseGood.exe`를 더블클릭하면 개발 서버 없이 앱이 열린다. 결과물은 Git에서 제외한다.
+매 실행마다 파일을 임시 폴더에 푸는 작업을 없애 시작 시간을 줄였다.
+실행기와 `release/win-unpacked/`는 함께 보관해야 한다. EXE 하나만 옮기면 실행되지 않는다.
+실행기 빌드에는 Windows 기본 .NET Framework 4 C# 컴파일러가 필요하다.
+단일 파일 배포가 필요할 때만 `npm run desktop:portable`을 사용한다. 결과는 `release/PoseGood.exe`이며
+이 버전은 매 실행 시 압축 해제로 느릴 수 있다.
 Windows 압축 해제 후 폴더 rename에서 발생한 `EPERM`을 피하려고 설치된 Electron 배포본을 복사한다.
 이 명령은 Windows용이며 시작 프로그램 등록에는 휴대용 원본 EXE 경로를 사용한다.
 패키징된 앱은 개발 서버 대신 `app://posegood`에서 빌드 화면과 MediaPipe 정적 파일을 제공한다.
 
-패키징 후 `node scripts/smoke-desktop.mjs`로 독립 임시 프로필과 합성 카메라를 사용하는 EXE 검증을 실행한다.
+패키징 후 `node scripts/smoke-desktop.mjs`로 숨긴 창·독립 임시 프로필·합성 카메라를 사용하는 EXE 검증을 실행한다.
 앱 화면·preload IPC·보안 컨텍스트·Web Locks·모델/WASM 파일·카메라 연결과 모델 초기화를 확인한다.
 실제 카메라·재부팅 후 시작 프로그램 실행·다른 PC에서의 실행은 별도 수동 확인 대상이다.
 
 2026-10-02 검증: 프론트 테스트 242개·TypeScript 검사·Vite 빌드·Electron 메인 파일 문법 검사는 통과했다.
 `npm run desktop:pack`과 실제 portable EXE smoke도 통과했다. 합성 카메라 640px 영상,
 MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍스트·Web Locks를 확인했다.
+빠른 실행기 전환 후 같은 검증도 통과했고, 이 PC의 독립 프로필에서 화면·IPC 준비까지 1008ms가 걸렸다.
+이는 한 번의 로컬 측정이며 다른 PC·디스크 캐시·보안 검사에 따라 달라진다.
 전체 검증(`.venv/Scripts/python.exe tools/dev.py check`)은 Python 테스트 134개 중 오류 3개·건너뜀 1개로 실패했다
 (POSIX 배포 잠금과 Windows 임시 파일 잠금). 저장소 구조 검사는 통과했다.
 백엔드 검증은 Maven/Java 준비 부족, Compose 검증은 Docker daemon 미실행,

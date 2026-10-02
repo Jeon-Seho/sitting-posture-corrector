@@ -1,4 +1,4 @@
-// 실제 portable EXE를 독립 프로필과 합성 카메라로 실행한다. 실제 카메라/로그인 설정은 변경하지 않는다.
+// 실제 EXE를 숨긴 창·독립 프로필·합성 카메라로 실행한다.
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,7 +11,9 @@ await new Promise(r => server.listen(0, '127.0.0.1', r))
 const port = server.address().port
 await new Promise(r => server.close(r))
 const profile = await mkdtemp(join(tmpdir(), 'posegood-desktop-smoke-'))
+const started = Date.now()
 const child = spawn(resolve('PoseGood.exe'), [
+  '--posegood-smoke-hidden',
   `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1',
   `--user-data-dir=${profile}`, '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
 ], { windowsHide: true, stdio: 'ignore' })
@@ -55,6 +57,7 @@ try {
       for (let i = 0; i < 100 && !document.querySelector('#root')?.textContent; i++)
         await new Promise(r => setTimeout(r, 100));
       const info = await window.posegoodDesktop.getLaunchInfo();
+      const readyAt = Date.now();
       const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', '/mediapipe/pose_landmarker_lite.task'];
       const assets = await Promise.all(files.map(async path => {
         const r = await fetch(path); return { path, status: r.status, bytes: (await r.arrayBuffer()).byteLength };
@@ -72,12 +75,14 @@ try {
       }
       const videoWidth = document.querySelector('video')?.videoWidth || 0;
       [...document.querySelectorAll('button')].find(b => b.textContent.includes('카메라 끄기'))?.click();
-      return { url: location.href, text: document.body.innerText, info, assets, camera, modelReady, videoWidth,
+      return { readyAt, url: location.href, text: document.body.innerText, info, assets, camera, modelReady, videoWidth,
         secure: isSecureContext, locks: !!navigator.locks };
     })()`,
   })
   assert.ok(!result.exceptionDetails, JSON.stringify(result.exceptionDetails))
   const value = result.result.value
+  value.startupMs = value.readyAt - started
+  delete value.readyAt
   assert.ok(value.text.includes('측정'))
   assert.equal(value.info.packaged, true)
   assert.equal(value.info.launchAtLoginSupported, true)
