@@ -10,6 +10,16 @@ npm run desktop      # 개발 서버와 Electron 창을 함께 실행
 npm run desktop:dev  # 이미 켠 개발 서버(5173)에 창만 연결
 ```
 
+Windows 휴대용 EXE 패키징 설정은 `npm run desktop:pack`이다. 프론트를 빌드한 뒤
+electron-builder가 `frontend/release/PoseGood.exe`를 만들도록 구성했다. 결과물은 Git에서 제외한다.
+패키징된 앱은 개발 서버 대신 `app://posegood`에서 빌드 화면과 MediaPipe 정적 파일을 제공한다.
+
+2026-10-02 커밋 시점: 이전 EXE 빌드는 `ElectronFramework.unpack` 단계에서 실패했으며
+원인은 확인되지 않았다. 이번 커밋 작업에서는 EXE 빌드를 재시도하지 않았다.
+프론트 테스트 242개·TypeScript 검사·Vite 빌드와 Electron 메인 파일 문법 검사는 통과했다.
+전체 검증(`python tools/dev.py check`)은 Python 테스트 109개 중 오류 8개·건너뜀 1개로 실패했다
+(fastapi 누락 및 Windows에서 지원하지 않는 POSIX 배포 잠금). EXE 실행·카메라 권한·시작 프로그램 등록은 미검증이다.
+
 설정의 `컴퓨터를 켤 때`에서 시작 프로그램 등록(패키징된 앱만)과 자동 카메라 연결(기본 꺼짐)을 고른다.
 서버 판정·자세 데이터 수집·발표용 예시 기록은 `개발자 옵션` 안으로 옮겼다. 아래 체험 순서의 메뉴 이름은
 이전 화면 기준이다: `홈`/`측정 준비`/`실시간 측정` → `측정하기`, `대시보드` → `기록`, `자세 등록` → 설정의 `자세 데이터 수집`,

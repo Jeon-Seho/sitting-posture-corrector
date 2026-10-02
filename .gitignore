@@ -320,3 +320,6 @@ posture-pilot-*.csv
 
 # Local participant files and private analysis
 /database/temp/
+
+# Desktop app build output (PoseGood.exe)
+frontend/release/

@@ -1,5 +1,6 @@
 // Main process: PC 창의 생성, 시작 프로그램 등록, 앱 종료를 담당한다.
-const { app, BrowserWindow, dialog, ipcMain } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, protocol } = require('electron')
+const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -10,10 +11,19 @@ const MIN_WIDTH = 1180
 const MIN_HEIGHT = 760
 const isMac = process.platform === 'darwin'
 
+// 설치용(패키징) 앱은 빌드된 dist를 app://posegood 으로 제공한다. 절대 경로(/mediapipe/...)가 그대로 동작한다.
+const APP_URL = 'app://posegood/index.html'
+const DIST = path.join(__dirname, '..', 'dist')
+if (app.isPackaged) {
+  protocol.registerSchemesAsPrivileged([
+    { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+  ])
+}
 const DEV_URL = process.env.POSEGOOD_DEV_URL || 'http://127.0.0.1:5173/'
-// 바로가기 실행기는 빈 로컬 포트를 사용한다. 외부 웹 주소는 받지 않는다.
-const address = new URL(DEV_URL)
-if (address.protocol !== 'http:' || address.hostname !== '127.0.0.1') throw new Error('Local development URL required')
+// 개발 실행은 로컬 개발 서버만 연다. 외부 웹 주소는 받지 않는다.
+const address = new URL(app.isPackaged ? APP_URL : DEV_URL)
+if (!app.isPackaged && (address.protocol !== 'http:' || address.hostname !== '127.0.0.1'))
+  throw new Error('Local development URL required')
 
 // 개발 실행에서만: POSEGOOD_DEBUG_PORT를 주면 로컬 CDP 포트를 열어 앱 화면을 자동 점검할 수 있다.
 if (!app.isPackaged && /^\d{4,5}$/.test(process.env.POSEGOOD_DEBUG_PORT ?? '')) {
@@ -112,7 +122,7 @@ async function createWindow() {
   })
   try {
     // React 개발 화면을 PC 창에서 연다.
-    await window.loadURL(DEV_URL)
+    await window.loadURL(app.isPackaged ? APP_URL : DEV_URL)
   } catch {
     dialog.showErrorBox('화면을 열 수 없습니다', '개발 서버를 켜거나 바탕화면 바로가기로 다시 실행해 주세요.')
     app.quit()
@@ -130,6 +140,14 @@ if (!app.requestSingleInstanceLock()) {
     window.focus()
   })
   app.whenReady().then(() => {
+    if (app.isPackaged) {
+      // dist 밖의 파일은 제공하지 않는다.
+      protocol.handle('app', (request) => {
+        const file = path.normalize(path.join(DIST, decodeURIComponent(new URL(request.url).pathname)))
+        if (!file.startsWith(DIST)) return new Response('Not found', { status: 404 })
+        return net.fetch(pathToFileURL(file).toString())
+      })
+    }
     createWindow()
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
