@@ -97,18 +97,28 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
       },
       async stop() {
         try {
-          await cdp.call('Browser.close')
-        } catch { /* Chrome may close the socket before returning. */ }
-        cdp.close()
-        try {
-          await until(exited, 'Chrome shutdown', 5000)
-        } catch {
-          await killAndWait()
+          try {
+            await cdp.call('Browser.close')
+          } catch { /* Chrome may close the socket before returning. */ }
+          cdp.close()
+          try {
+            await until(exited, 'Chrome shutdown', 5000)
+          } catch {
+            await killAndWait()
+          }
+        } finally {
+          // macOS crash reporters/updaters may inherit stderr after Chrome exits.
+          // Release our reader so Node can exit; Python still checks its task process group.
+          chrome.stderr.destroy()
         }
       },
     }
   } catch (error) {
-    await killAndWait()
+    try {
+      await killAndWait()
+    } finally {
+      chrome.stderr.destroy()
+    }
     throw error
   }
 }

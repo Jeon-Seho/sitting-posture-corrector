@@ -4,7 +4,6 @@ import {
   PRESENCE,
   VIEWS,
   LAYOUTS,
-  TASKS,
   taskFor,
   type Label,
   type Presence,
@@ -57,44 +56,12 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
           />
           <span className="fine">이름 대신 쓰는 번호예요. 매번 같은 코드를 입력해 주세요.</span>
         </div>
-        <div className="field">
-          <label htmlFor="capture-task">찍을 자세</label>
-          <select
-            id="capture-task"
-            className="input"
-            value={c.options.taskId}
-            disabled={c.hasCapture}
-            onChange={(e) => c.setOptions({ taskId: e.target.value, repetition: 1 })}
-          >
-            {TASKS.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
       <details className="collection-env">
         <summary>
           카메라·책상 환경 <span className="fine">처음 한 번만 확인하면 돼요</span>
         </summary>
         <div className="collection-fields collection-metadata">
-          <div className="field">
-            <label htmlFor="capture-duration">촬영 길이</label>
-            <select
-              id="capture-duration"
-              className="input"
-              disabled={c.hasCapture}
-              value={c.options.durationSeconds}
-              onChange={(e) => c.setOptions({ durationSeconds: Number(e.target.value) })}
-            >
-              {[10, 20, 30, 60].map((n) => (
-                <option key={n} value={n}>
-                  {n}초
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="field">
             <label htmlFor="capture-repeat">몇 번째 촬영</label>
             <input
@@ -215,8 +182,7 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
       </div>
       {!c.canStart && !c.hasCapture && (
         <p className="capture-note">
-          먼저 ‘측정 준비’에서 카메라를 켜고 기준 자세를 등록해 주세요. 그다음 이 화면에서 촬영할 수
-          있어요.
+          이 화면 위의 ‘카메라 켜기’와 ‘기준 자세 등록’을 차례로 누른 뒤 촬영하세요.
         </p>
       )}
       {c.stage === 'review' && (

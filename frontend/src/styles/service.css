@@ -5,6 +5,63 @@
   padding: 32px;
   background: var(--paper);
 }
+.camera-window-controls {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  width: min(320px, calc(100vw - 32px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 12px 16px;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.camera-window-controls.is-expanded {
+  resize: both;
+  min-width: min(260px, calc(100vw - 32px));
+}
+.camera-window-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.camera-window-drag, .camera-window-collapse {
+  font: inherit;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  padding: 4px;
+}
+.camera-window-drag {
+  cursor: move;
+  touch-action: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+.camera-window-collapse {
+  cursor: pointer;
+  font-size: 12px;
+}
+.camera-window-controls video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  transform: scaleX(-1);
+  background: var(--ink);
+}
+.camera-window-controls .row {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.camera-window-controls .fine {
+  margin: 8px 0 0;
+}
 .service-login-card {
   width: min(580px, 100%);
   border-top: 6px solid var(--ink);

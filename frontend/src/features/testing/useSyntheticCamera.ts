@@ -29,12 +29,20 @@ export function syntheticCameraStatus() {
     stops
   }
 }
-/** Explicit test adapter: no MediaStream, permission request, detector, or landmark data. */
+/** Explicit test adapter: optional canvas-only preview, no camera permission/detector/landmark data. */
 
 export function useCamera(): CameraController {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const previewTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const releasePreview = useCallback(() => {
+    if (previewTimer.current !== null) clearInterval(previewTimer.current)
+    previewTimer.current = null
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+  }, [])
   const current = useRef<Features | null>(null)
   const lastFrame = useRef(0)
   const listeners = useRef(new Set<(frame: Observation) => void>())
@@ -59,6 +67,7 @@ export function useCamera(): CameraController {
   )
   const stop = useCallback(
     () => {
+      releasePreview()
       connected = false
       stops++
       current.current = null
@@ -68,7 +77,7 @@ export function useCamera(): CameraController {
       setBaseline(null)
       setCalibrationId(null)
     },
-    []
+    [releasePreview]
   )
   useEffect(
     () => {
@@ -93,12 +102,37 @@ export function useCamera(): CameraController {
       return () => {
         sinks.delete(receive)
         connected = false
+        releasePreview()
       }
     },
-    []
+    [releasePreview]
   )
   const connect = useCallback(
     async () => {
+      releasePreview()
+      // Only the explicit browser-smoke preview test generates pixels; never use getUserMedia.
+      if (new URLSearchParams(location.search).get('preview') === '1') {
+        const canvas = document.createElement('canvas')
+        canvas.width = 640
+        canvas.height = 480
+        const context = canvas.getContext('2d')!
+        streamRef.current = canvas.captureStream(5)
+        const draw = () => {
+          context.fillStyle = '#182d38'
+          context.fillRect(0, 0, 640, 480)
+          context.fillStyle = '#ef9245'
+          context.fillRect(240, 100, 160, 240)
+          context.fillStyle = '#ffffff'
+          context.font = '24px sans-serif'
+          context.fillText('SYNTHETIC PREVIEW ONLY', 140, 410)
+        }
+        draw()
+        previewTimer.current = setInterval(draw, 200)
+        if (videoRef.current) {
+          videoRef.current.srcObject = streamRef.current
+          await videoRef.current.play()
+        }
+      }
       connected = true
       current.current = { ...SYNTHETIC_BASELINE }
       lastFrame.current = performance.now()
@@ -125,7 +159,7 @@ export function useCamera(): CameraController {
         )
       }
     },
-    []
+    [releasePreview]
   )
   const calibrate = () => {
     if (state !== 'on' || !quality) return

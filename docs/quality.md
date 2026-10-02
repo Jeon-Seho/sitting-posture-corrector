@@ -1,5 +1,9 @@
 # 품질 기준
 
+본인 자세 오프라인 학습은 [개인 실험 규격](research/personal-pilot-training.md)을 따른다.
+`tests/test_personal_training.py`의 명시적 합성 학습·회차 분리·holdout fitting 누수·품질/시간 경계 검증은 `make check`의 Python discovery에 포함된다.
+개인 실험의 창별 수치를 새 참여자 성능·실생활 정확도·알림 효과로 보고하지 않는다.
+
 ## 현재 실행되는 게이트
 
 | 게이트 | 명령 | 실패 조건 |
@@ -19,6 +23,11 @@ CI는 `make check`를 실행한다. Docker/Compose도 필수다. `make check-loc
 현재 게이트는 앱 기능, 지연, 모델 성능, 전체 개인정보 탐지를 보증하지 않는다.
 브라우저 게이트는 Chrome/Chromium의 독립 임시 프로필과 합성 카메라 입력을 사용한다. `make check`는 서버 JAR 준비 후 이를 실행하며
 CI에도 같은 명령이 연결된다. 카메라 정확도·실제 음향·장시간 백그라운드는 별도 장치 확인 대상이다.
+수집 바로가기·390/690/1440px 자세 선택·카메라 창 드래그/방향키/크기 변경과 실제 Document PiP는
+명시적 `browser-smoke` 모드의 `synthetic=1&preview=1`에서 생성한 canvas 영상만 사용한다.
+기존 기본 합성 모드는 영상 스트림 없이 특징만 사용한다. 두 모드 모두 getUserMedia 호출은 실패시킨다.
+시험용 Chrome 종료 뒤 macOS 충돌 보고/업데이트 프로세스가 stderr를 상속해도 Node가 남지 않도록
+종료한 Chrome의 진단 파이프를 닫고 Python이 시험 프로세스 그룹/포트를 확인한다.
 
 Compose 계정 UI도 같은 입력 경계를 사용한다. 실제 Nginx/API/MySQL/추론/CEP와 연결하되
 카메라 hook만 명시적 Vite serve 테스트 모드에서 합성으로 바꾼다. 최종 Nginx 생산 번들은 별도로 자산/합성 코드 부재를 검사한다.

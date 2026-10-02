@@ -348,6 +348,37 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(controls.camera.stop).toHaveBeenCalledOnce()
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
+  it('opens the direct collection link without creating or changing a local profile', () => {
+    const before = new Map(data)
+    vi.stubGlobal('window', {
+      location: { hash: '#collection', pathname: '/', search: '' },
+      history: { replaceState: vi.fn() },
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    })
+    mount()
+    expect(text(renderer!.root)).toContain('1. 찍을 자세 선택')
+    const picker = renderer!.root.findByProps({ id: 'capture-task' })
+    expect(picker.props.disabled).toBe(false)
+    act(() => picker.props.onChange({ target: { value: 'lean_left' } }))
+    expect(renderer!.root.findByProps({ id: 'capture-task' }).props.value).toBe('lean_left')
+    expect(text(renderer!.root)).toContain('본인 기준 왼쪽으로 몸통을')
+    expect(data).toEqual(before)
+    expect(controls.camera.connect).not.toHaveBeenCalled()
+    click('시작 화면으로')
+    expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+    expect(controls.camera.stop).toHaveBeenCalledOnce()
+  })
+  it('keeps the camera running when visiting records and exposes an explicit stop control', () => {
+    controls.camera.state = 'on'
+    mount()
+    login()
+    click('자세 등록')
+    click('홈')
+    expect(controls.camera.stop).not.toHaveBeenCalled()
+    expect(text(renderer!.root)).toContain('카메라 사용 중')
+    click('카메라 사용 종료')
+    expect(controls.camera.stop).toHaveBeenCalledOnce()
+  })
   it('routes an explicit server opt-in and freezes its baseline, camera shape and rules', () => {
     const screen = startServer()
     const started = structuredClone(screen.props.session)

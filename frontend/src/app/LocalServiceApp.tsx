@@ -1,6 +1,7 @@
 import type { CameraController } from '../hooks/useCamera'
 import { ServiceScreens } from './ServiceScreens'
-import { useRef, useState } from 'react'
+import { CollectionEntry } from './CollectionEntry'
+import { useEffect, useRef, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
 import { LoginPage } from '../pages/LoginPage'
 import { ProfileFields } from '../features/profile/ProfileFields'
@@ -18,6 +19,7 @@ import { CAMERA_PAGES, type Page } from './navigation'
 
 /** Compose feature controllers and screens; each feature owns its workflow. */
 export function LocalServiceApp({ camera }: { camera: CameraController }) {
+  const [collectionEntry, setCollectionEntry] = useState(() => window.location?.hash === '#collection')
   const [authed, setAuthed] = useState(false)
   const [page, setPage] = useState<Page>('home')
   const [error, setError] = useState('')
@@ -29,6 +31,22 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const workspace = useLocalWorkspace(measuring, setError, reloadProfileFields)
   const { profile, rules, canWrite } = workspace
   const collection = useCollection(camera, rules)
+  useEffect(() => {
+    const navigate = () => {
+      if (collection.active || (collection.count > 0 && !collection.downloaded)) {
+        if (collectionEntry) window.history?.replaceState(null, '', '#collection')
+        return
+      }
+      const next = window.location?.hash === '#collection'
+      if (collectionEntry && !next) {
+        camera.stop()
+        collection.clear()
+      }
+      setCollectionEntry(next)
+    }
+    window.addEventListener('hashchange', navigate)
+    return () => window.removeEventListener('hashchange', navigate)
+  }, [collection.active, collection.count, collection.downloaded, collectionEntry, collection.clear, camera.stop])
   const persistence = useSessionPersistence({
     session,
     setSession,
@@ -58,7 +76,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   // Keep a running session mounted when visiting another page.
   function go(next: Page) {
     setError('')
-    if (!CAMERA_PAGES.includes(next) && !measuring) camera.stop()
+    if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     setPage(next)
   }
 
@@ -127,6 +145,15 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     }
   }
 
+  if (!authed && collectionEntry) {
+    return <CollectionEntry camera={camera} collection={collection} onBack={() => {
+      camera.stop()
+      collection.clear()
+      window.history?.replaceState(null, '', window.location.pathname + window.location.search)
+      setCollectionEntry(false)
+    }} />
+  }
+
   if (!authed) {
     const submitLabel = profile
       ? canWrite
@@ -142,6 +169,11 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
         onSubmit={login}
         footer={
           <>
+            <a className="btn collection-entry-link" href="#collection" onClick={(event) => {
+              event.preventDefault()
+              window.history?.replaceState(null, '', '#collection')
+              setCollectionEntry(true)
+            }}>프로필 없이 자세 데이터 수집</a>
             {storageNotice}
             {error && (
               <p role="alert" className="fine">

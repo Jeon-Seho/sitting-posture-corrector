@@ -15,12 +15,14 @@
 현재 상태: **웹캠 단일 앱 + MySQL 이메일·비밀번호 계정 + 영구 저장·API/CEP 복구 + Compose·배포 자동화 설정 / 학습된 LSTM 미연결**.
 [Compose 실행·배포·백업](../infra/README.md), [계정 API](../contracts/accounts.v1.md),
 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md), [데이터 플랫폼 책임](design/data-platform-boundary.md).
-최신 구현·검증 결과는 [완료 0017](plans/completed/0017-mysql-accounts-compose-deployment.md)에 기록한다.
+수집 진입·카메라 창의 최신 검증은 [완료 0018](plans/completed/0018-collection-entry-camera-window.md), 계정·DB 검증은 [완료 0017](plans/completed/0017-mysql-accounts-compose-deployment.md)에 기록한다.
 [특징 계약·서버 연결 결정](decisions/0013-frontend-server-feature-connection.md),
 [DB·인증 연결 설계](design/server-persistence-and-auth.md), [서버 연결 완료·검증](plans/completed/0014-frontend-server-connection.md).
 [API·CEP 완료 검증](plans/completed/0011-api-cep-vertical-slice.md), [서비스 실행·계약·남은 결정](../backend/README.md), [API/CEP 책임 분리 결정](decisions/0011-api-cep-boundary.md).
 
-최근 완료: [MySQL 계정·영구 복구·Compose·배포 설정과 실제 DB 검증](plans/completed/0017-mysql-accounts-compose-deployment.md).
+최근 완료: [본인 CSV 이동·학습 전용 증강·첫 분류 학습과 누수 검증](plans/completed/0019-personal-pilot-training.md).
+이전 완료: [수집 바로가기·상단 자세 선택·이동 가능한 카메라 창과 실제 브라우저 검증](plans/completed/0018-collection-entry-camera-window.md).
+이전 완료: [MySQL 계정·영구 복구·Compose·배포 설정과 실제 DB 검증](plans/completed/0017-mysql-accounts-compose-deployment.md).
 직전 완료: [확인창 키보드 동작·성능 측정·자료 준비와 전체 검증](plans/completed/0016-remaining-tools-and-validation.md).
 이전 완료: [서버·브라우저 회귀 검증과 기록 비교 조건·상세](plans/completed/0015-server-regression-and-record-details.md).
 
@@ -29,6 +31,7 @@
 2026-10-01 사용자 재확인으로 기존 구현의 승인 상태를 동기화했다([문서 동기화·검증 완료](plans/completed/0013-session-timing-policy-doc-sync.md)). 개발용 특징·관측 계약은 ADR 0013이며 품질·점수의 연구상 검증은 남는다.
 
 현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md), [서비스 미리보기 완료 기록](plans/completed/0008-service-preview.md).
+수집 바로가기 `/#collection`과 이동 가능한 카메라 미리보기/PiP는 [ADR 0016](decisions/0016-collection-entry-and-camera-preview-window.md)을 따른다.
 
 현재 수집(화면 이름 `자세 등록`): [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md). Heavy 도입 배경과 당시 검증은 [이전 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md)에 남긴다.
 
@@ -65,6 +68,8 @@
 이전 작업: [화면 평활화·CSV 수집 완료 기록](plans/completed/0005-smoothing-csv.md).
 
 파일럿: [CSV 수집·pandas 탐색](research/pilot-csv.md), [화면 평활화·수집 결정](decisions/0004-smoothing-csv.md).
+
+개인 실험: [본인 촬영의 학습 전용 증강·첫 분류 학습](research/personal-pilot-training.md). 새 참여자 연구 평가와 구분한다.
 
 ## 문서의 권위와 유지
 

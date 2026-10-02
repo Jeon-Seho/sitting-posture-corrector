@@ -71,6 +71,12 @@ CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임�
 저품질·미검토·전이·누락 경계 양쪽을 연결하거나 보간하지 않는다. 실제 자료와 manifest는 Git 제외/외부 위치에 둔다.
 도구는 변환기를 맞추거나 모델을 학습하지 않는다.
 
+사용자가 선택한 [본인 자세 실험](research/personal-pilot-training.md)은 `model/analysis/personal/`의 별도 오프라인 학습 경로다.
+한 사람의 촬영 회차를 나눈 뒤 delta 특징의 시간 요약·학습 전용 증강·softmax 분류를 실행한다.
+다른 참여자의 성능을 평가하는 준비 도구/프로토콜과 구분하며 개인 실험의 가중치를 서비스에 자동 연결하지 않는다.
+스케일러·증강 통계는 원본 학습 자료만, 모델 선택은 검증 촬영만 사용하고 확인용 촬영은 선택 뒤 평가한다.
+원본·실제 분할 manifest·가중치는 Git 제외 경로에 둔다.
+
 ## MySQL 영구 모드
 
 [계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
@@ -90,6 +96,10 @@ CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 �
 ## 프론트 진입과 로컬 저장
 
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
+로컬 `/#collection`은 같은 앱의 프로필 없는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
+[ADR 0016](decisions/0016-collection-entry-and-camera-preview-window.md)에 따라 카메라는 일반 화면 이동에도 유지하고
+앱 내부 이동/크기 조절 창·지원 브라우저 PiP로 기존 스트림만 미리보기한다. 명시적 종료·로그아웃·인증 변경은 해제한다.
+미리보기 유지와 수집은 구분하며 탭/수집 화면 이동의 촬영 중단 규칙을 유지한다.
 프로필·세션 저장/복구·측정 화면·기록 조회·저장 검증은 `frontend/src/features/`로 나눴다.
 API는 web/application/repository/gateway, CEP는 web/application/domain/esper 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.

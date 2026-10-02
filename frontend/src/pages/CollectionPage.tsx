@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { CameraStage } from '../components/CameraStage'
 import { CollectionPanel } from '../components/CollectionPanel'
+import { CollectionTaskPicker } from '../components/CollectionTaskPicker'
 import { VisualControls } from '../components/VisualControls'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
@@ -62,6 +63,7 @@ export function CollectionPage({
           )}
         </div>
       </div>
+      <CollectionTaskPicker collection={collection} />
       <section className="collection-intro" aria-label="자세 등록 안내">
         <div>
           <h2>왜 등록하나요?</h2>
@@ -74,7 +76,7 @@ export function CollectionPage({
         <ol>
           <li>
             <b>자세 고르기</b>
-            <span>‘자세 촬영하기’ 칸의 ‘찍을 자세’에서 골라요.</span>
+            <span>화면 위의 ‘찍을 자세’에서 골라요.</span>
           </li>
           <li>
             <b>5초 준비 후 촬영</b>

@@ -85,7 +85,7 @@ function AccountWorkspaceApp({
 
   function go(next: Page) {
     setError('')
-    if (!CAMERA_PAGES.includes(next) && !measuring) camera.stop()
+    if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     setPage(next)
   }
 

@@ -7,8 +7,46 @@
 .stage-top {
   flex-wrap: wrap;
 }
+.collection-entry {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 4vw, 48px) 96px;
+}
+.collection-entry-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.collection-entry-link {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  width: 100%;
+}
+.collection-picker {
+  border: 2px solid var(--ink);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  background: var(--paper-2);
+}
+.collection-picker h2 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.collection-picker .collection-fields {
+  grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr);
+}
+.collection-picker .fine {
+  margin: 0;
+}
 @media (max-width: 700px) {
   .collection-fields {
+    grid-template-columns: 1fr;
+  }
+  .collection-picker .collection-fields {
     grid-template-columns: 1fr;
   }
 }
