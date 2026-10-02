@@ -1,6 +1,9 @@
 # 단일 앱에 서비스 로직 보완 통합
 
-- 상태: in_progress
+- 분야: 프론트
+- 작업: GP-0042
+
+- 상태: completed
 - 담당: FE
 - 시작일: 2026-09-28
 - 관련 요구사항/ADR: docs/team-requirements.md §10, [ADR 0008](../../decisions/0008-single-app-entry.md), [ADR 0009](../../decisions/0009-cross-platform-dev-entry.md), [ADR 0010](../../decisions/0010-record-comparison.md)

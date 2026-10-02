@@ -1,9 +1,12 @@
 # lee_dev4 변경 사항 정리
 
+- 분야: 프론트
+- 작업: GP-0042
+
 - 작성: 2026-09-28
 - 브랜치: `lee_dev4`. 기준은 `main`(PR #5, `jin_dev3` 반영).
 - 원칙: `jin_dev3`의 화면 구성과 디자인은 그대로 두고, 로직과 사용자가 요청한 문구·버튼 정리만 반영했다.
-- 상세 기록: [계획 0009](plans/active/0009-service-logic-integration.md). 결정: [ADR 0009](decisions/0009-cross-platform-dev-entry.md), [ADR 0010](decisions/0010-record-comparison.md).
+- 상세 기록: [계획 0009](plans/completed/0009-service-logic-integration.md). 결정: [ADR 0009](decisions/0009-cross-platform-dev-entry.md), [ADR 0010](decisions/0010-record-comparison.md).
 
 ## 1. 화면에서 달라진 점
 

@@ -4,7 +4,7 @@ import { useCollection } from './hooks/useCollection'
 import { SetupPage } from './pages/SetupPage'
 import { SessionPage } from './pages/SessionPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { LoginPage } from './pages/LoginPage'
+import { AuthPage } from './pages/AuthPage'
 import { HomePage } from './pages/HomePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CollectionPage } from './pages/CollectionPage'
@@ -109,7 +109,9 @@ export default function ServiceApp() {
     <label className="field">나이<input className="input" type="number" min={1} max={120} value={age} onChange={e => setAge(Number(e.target.value))} required/></label>
     <label className="field">직업<input className="input" value={occupation} onChange={e => setOccupation(e.target.value)} required maxLength={80}/></label>
   </>
-  if (!authed) return <LoginPage title={profile ? `${profile.name}님, 다시 오셨네요` : '시작하기'} lead="계정 서버 연결 전 미리보기입니다. 프로필과 측정 요약은 이 브라우저에만 저장합니다." submitLabel={profile ? '내 프로필로 시작' : '프로필 만들고 시작'} fine="카메라는 ‘측정 준비’에서 직접 켤 때만 사용합니다. 카메라 없이도 홈과 시연을 이용할 수 있습니다." onSubmit={() => { if (saveProfile(false)) { setAuthed(true); setRegistration(!profile); setPage(profile ? 'home' : 'setup') } }} footer={error && <p role="alert" className="fine">{error}</p>}>{profileFields}</LoginPage>
+  // 인증 연결 전 UI 미리보기. 아이디·비밀번호는 저장하거나 전송하지 않는다.
+  if (!authed) return <AuthPage onLogin={() => { setAuthed(true); setRegistration(false); setPage('home'); setError('') }}
+    onSignup={next => { setProfile(next); setName(next.name); setAge(next.age); setOccupation(next.occupation); setAuthed(true); setRegistration(true); setPage('setup'); setError('') }}/>
   const today = day(new Date().toISOString())
   // 계정 구분이 없는 미리보기라 실제 웹캠·합성 시연 기록을 합산하고, 행마다 입력 종류를 표시한다.
   const modeRecords = records
@@ -128,7 +130,7 @@ export default function ServiceApp() {
       {showDemo && page === 'dashboard' && <DashboardPage/>}
       {page === 'collection' && <CollectionPage camera={camera} collection={collection}/>}
       {!showDemo && (page === 'home' || page === 'dashboard') && <>
-        <div className="page-head"><div><h1 className="page-title">{page === 'home' ? `${profile?.name}님의 오늘` : '측정 기록'}</h1><p className="page-desc">{today} 기준 · {page === 'home' ? '오늘' : '이 브라우저 전체'} 기록 · 실제 웹캠·합성 시연 합산</p></div><button className="btn btn-primary" onClick={() => go(session && !ended.current ? 'session' : 'setup')}>{session && !ended.current ? '진행 중인 측정으로' : '측정 시작'}</button></div>
+        <div className="page-head"><div><h1 className="page-title">{page === 'home' ? `${profile?.name ?? '방문자'}님의 오늘` : '측정 기록'}</h1><p className="page-desc">{today} 기준 · {page === 'home' ? '오늘' : '이 브라우저 전체'} 기록 · 실제 웹캠·합성 시연 합산</p></div><button className="btn btn-primary" onClick={() => go(session && !ended.current ? 'session' : 'setup')}>{session && !ended.current ? '진행 중인 측정으로' : '측정 시작'}</button></div>
         <Ledger cols={4}><Stat label="기준 자세 유지율" value={formatPercent(stats.rate)}/><Stat label="유효 측정 시간" value={formatDuration(stats.valid)}/><Stat label="붕괴 사건" value={`${stats.count}건`}/><Stat label="측정 기록" value={`${(page === 'home' ? currentRecords : modeRecords).length}회`}/></Ledger>
         <Card title="기록별 유지율" note="유효 시간이 없는 기록은 유지율을 계산하지 않습니다.">{(page === 'home' ? currentRecords : modeRecords).length === 0 ? <div className="empty"><h2>아직 측정 기록이 없습니다</h2><p>첫 측정을 마치면 여기에 결과가 쌓입니다.</p></div> : (page === 'home' ? currentRecords : modeRecords).map(r => <div className="service-record" key={r.id}><div><strong>{new Date(r.startedAt).toLocaleString()}</strong><span> {r.mode === 'demo' ? '합성 시연' : '실제 웹캠'} · {formatDuration(r.valid)} · {r.events.length}건</span></div><div className="service-bar"><span style={{width:`${r.valid ? r.good/r.valid*100 : 0}%`}}/></div><b>{formatPercent(r.valid ? r.good/r.valid : null)}</b></div>)}</Card>
         {page === 'home' && <button className="btn" onClick={() => { setRegistration(true); go('setup') }}>내 기준 자세 다시 등록</button>}

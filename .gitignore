@@ -320,3 +320,9 @@ posture-pilot-*.csv
 
 # Local participant files and private analysis
 /database/temp/
+
+# Shared project skills only; keep personal Claude settings ignored.
+!.claude/
+.claude/*
+!.claude/skills/
+!.claude/skills/**

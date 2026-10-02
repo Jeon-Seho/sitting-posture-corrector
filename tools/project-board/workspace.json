@@ -1,0 +1,2531 @@
+{
+  "cards": [
+    {
+      "id": "4ab3596a-ba3a-40ba-ab1d-4120d262853b",
+      "title": "0001: 개발 하네스 구축",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0001-bootstrap-harness.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0001",
+      "priority": 0,
+      "size": 1,
+      "order": 1,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "foundation"
+    },
+    {
+      "id": "175cf582-cc28-4ccc-a560-ac9adf443dd4",
+      "title": "0002: 현재 기업연계 계획서 참고 반영",
+      "category": "논문",
+      "source": "docs/plans/completed/0002-reference-current-proposal.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0002",
+      "priority": 0,
+      "size": 1,
+      "order": 2,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "foundation"
+    },
+    {
+      "id": "62a742d7-2d89-49f2-97dd-9151aa0d5492",
+      "title": "0003: 프론트 상태·알림 프로토타입",
+      "category": "프론트",
+      "source": "docs/plans/completed/0003-frontend-prototype.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0003",
+      "priority": 0,
+      "size": 1,
+      "order": 3,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "4923fad1-be59-4e46-957b-cd688d5ef2ce",
+      "title": "0004: 기존 PoseGood 프론트에 웹캠 프로토타입 통합",
+      "category": "프론트",
+      "source": "docs/plans/completed/0004-retro-webcam-integration.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0004",
+      "priority": 0,
+      "size": 1,
+      "order": 4,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "b40fee62-8e9f-4c27-a8aa-8cbd2ed9b3b8",
+      "title": "0005: 스켈레톤 표시 개선과 CSV 파일럿 수집",
+      "category": "머신러닝",
+      "source": "docs/plans/completed/0005-smoothing-csv.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0005",
+      "priority": 0,
+      "size": 1,
+      "order": 5,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "bc88c35d-c9f2-4917-b67f-c7e0f9d348c1",
+      "title": "0006: 직관적 점수, 사용자 CSV 분석, 포인트 클라우드 표시",
+      "category": "프론트",
+      "source": "docs/plans/completed/0006-score-data-visuals.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0006",
+      "priority": 0,
+      "size": 1,
+      "order": 6,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "040894c1-1774-4ca9-9088-7958f2c990d5",
+      "title": "Heavy 추적기와 안내형 라벨 수집",
+      "category": "머신러닝",
+      "source": "docs/plans/completed/0007-heavy-guided-collection.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0007",
+      "priority": 0,
+      "size": 1,
+      "order": 7,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "f383620a-010d-45dc-8376-8949a6166b2d",
+      "title": "V2 로컬 서비스 흐름 구현",
+      "category": "프론트",
+      "source": "docs/plans/completed/0008-service-preview.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "기존 로컬 구현은 완료. 실제 환경 검증·서버 기능은 별도 후속 카드로 추적.",
+      "updated": "2026-09-29T02:48:40.726358+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0008",
+      "performedBy": "동욱",
+      "evidence": "73709bd7: 로컬 서비스 미리보기 구현. serviceStore.ts/ServiceApp.tsx와 프론트 29개 테스트·빌드 확인. 실제 서버/카메라 검수는 후속 카드로 분리.",
+      "priority": 0,
+      "size": 1,
+      "order": 8,
+      "dependsOn": [],
+      "priorityNote": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "8e3a9fae-4911-4dd1-8b04-9fe7e4938cab",
+      "title": "바른자세 문서·진행 관리판",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0009-project-board.md",
+      "body": "기존 계획서에서 등록. 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:02:43.437687+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.528808+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "계획 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:02:43.437687+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "공통 검사·스킬·브라우저 확인 후 GP-0010/0043 완료. 배치 순서 안내와 개발 브랜치 통합 반영."
+        }
+      ],
+      "plan": true,
+      "number": "GP-0009",
+      "priority": 0,
+      "size": 1,
+      "order": 9,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "초기 관리판 구현 및 브라우저 검증: docs/plans/completed/0009-project-board.md",
+      "performedBy": "우진",
+      "stage": "operations"
+    },
+    {
+      "id": "e94a2136-900c-42d8-a220-af4be40f63dd",
+      "title": "작업 번호와 분야별 문서·AI 운영 연결",
+      "category": "데브옵스",
+      "source": "docs/areas/devops/numbered-workflow.md",
+      "body": "고정 작업 번호, AI 카드 명령, 분야별 문서와 작업 카드 자동 등록, 신규 사용자 기록 접수, 누락 검증을 연결한다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "홍규 ghdrb1246·유진 sunshine-yj 연결 완료. 총6명 GitHub 작성자 분류와 GPT/CL AI 표기 지원.",
+      "updated": "2026-09-29T03:20:14.851381+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:30:59.807825+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:32:37.344696+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "아르케 운영 규칙과 실제 카드 갱신 이력을 확인하고 번호·분야·접수함·검사를 구현 중.",
+          "legacyBy": "Codex"
+        },
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:02:43.437687+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "공통 검사·스킬·브라우저 확인 후 GP-0010/0043 완료. 배치 순서 안내와 개발 브랜치 통합 반영."
+        },
+        {
+          "at": "2026-09-29T03:19:45.388382+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자가 확인한 나머지 팀원2명의 계정 연결 착수."
+        },
+        {
+          "at": "2026-09-29T03:20:14.851381+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "확인된 두 계정·별칭·AI 표기와 운영 문서 갱신 및 검증 완료."
+        }
+      ],
+      "number": "GP-0010",
+      "priority": 3,
+      "size": 3,
+      "order": 10,
+      "dependsOn": [],
+      "priorityNote": "모든 후속 AI 작업의 기록·문서·검증 체계를 제공한다.",
+      "evidence": "2026-09-29 python tools/dev.py check 통과: Python29, 프론트40, 타입·빌드·JS·문서. 스킬4개 검증 및 브라우저 단계·카드·메뉴 확인.\n추가 계정 연결: Python29/프론트40·타입·빌드·문서 검사 통과. 실서버 activity API에 두 계정 반영 확인.",
+      "performedBy": "우진",
+      "stage": "operations"
+    },
+    {
+      "id": "8cd66c9c-3087-4967-9fd6-93b40fc0f59a",
+      "title": "서비스 계약·책임·통계 정의 합의",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "계정/기준/세션 식별자, 단위·시간대·중복 방지·오류 응답, 통계 계산 책임을 FE·BE·모델이 합의하고 contracts에 기록한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0011",
+      "roadmapKey": "scope",
+      "priority": 3,
+      "size": 2,
+      "order": 10,
+      "dependsOn": [],
+      "priorityNote": "API·DB·연동이 공통 계약을 기다린다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "a0c4a5d1-e5b4-4ee0-8388-ad4435c9a5b3",
+      "title": "개인 기준·잘못된 예시 활용 정책 확정",
+      "category": "머신러닝",
+      "source": "docs/team-requirements.md",
+      "body": "예시 형식·개수·활용, 사용 가능한 기준 판정, 재등록·카메라 이동 시 처리 기준을 확정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0012",
+      "roadmapKey": "baseline-policy",
+      "priority": 3,
+      "size": 2,
+      "order": 20,
+      "dependsOn": [],
+      "priorityNote": "기준 저장·등록 분기·모델 입력을 막는다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "e2af32a8-6e70-4ca7-b840-b992175172ee",
+      "title": "수집 동의·보관·삭제 범위 확정",
+      "category": "DB",
+      "source": "docs/research/protocol.md",
+      "body": "수집 동의, 저장 위치·기간·권한, 학습 동의와 탈퇴 처리 범위를 문서화한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0013",
+      "roadmapKey": "privacy",
+      "priority": 3,
+      "size": 2,
+      "order": 30,
+      "dependsOn": [],
+      "priorityNote": "실제 참여자 수집과 탈퇴 구현의 선행 조건이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "e8f2365b-eda9-4efa-ab02-ba276cac5725",
+      "title": "촬영 시점·라벨·품질 기준 파일럿",
+      "category": "머신러닝",
+      "source": "docs/plans/backlog.md",
+      "body": "정면/측면/45도에서 누락·흔들림·라벨 분리도를 측정하고 단일 시점과 품질 게이트를 확정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0014",
+      "roadmapKey": "camera",
+      "priority": 3,
+      "size": 3,
+      "order": 40,
+      "dependsOn": [],
+      "priorityNote": "수집 프로토콜·학습 데이터 품질을 결정한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "31fad743-ab15-44fb-bc71-e23987c9987c",
+      "title": "LSTM·비교군·평가 설계 통합",
+      "category": "논문",
+      "source": "docs/research/protocol.md",
+      "body": "LSTM 계획과 기존 GRU M0~M4를 정합화하고 참여자 분할, 이벤트·지연·오알림 지표를 동결한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0015",
+      "roadmapKey": "research",
+      "priority": 3,
+      "size": 2,
+      "order": 50,
+      "dependsOn": [],
+      "priorityNote": "특징·학습·최종 논문 비교가 이 설계에 의존한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "8fb02133-5fe6-49d2-b9bc-ee7694d45459",
+      "title": "사용자·기준·세션 DB 스키마와 마이그레이션",
+      "category": "DB",
+      "source": "docs/architecture.md",
+      "body": "DB 엔진을 합의하고 사용자·기준 버전·설정·세션·이벤트·동의 스키마와 마이그레이션 왕복을 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0016",
+      "roadmapKey": "schema",
+      "priority": 3,
+      "size": 3,
+      "order": 60,
+      "dependsOn": [
+        "GP-0011",
+        "GP-0012",
+        "GP-0013"
+      ],
+      "priorityNote": "인증·기록·탈퇴 API 저장 기반이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "d71b79f2-cc4f-49c4-a48a-4661badd35c3",
+      "title": "백엔드 런타임·API 오류 처리 기반",
+      "category": "백엔드",
+      "source": "docs/architecture.md",
+      "body": "Spring Boot 런타임/빌드 버전, 공통 오류 응답, 설정 주입, API 테스트와 CI 진입점을 구현한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0017",
+      "roadmapKey": "backend",
+      "priority": 3,
+      "size": 2,
+      "order": 70,
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "priorityNote": "모든 실서버 API 구현의 기반이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "d126b877-f6fb-41eb-84c6-43264135384d",
+      "title": "서비스·추론 서버 배치와 통신 결정",
+      "category": "서버",
+      "source": "docs/architecture.md",
+      "body": "브라우저/사용자 서버/추론 서비스 경계와 전송 방식, HTTPS·CORS·환경 구성을 확정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0018",
+      "roadmapKey": "server",
+      "priority": 3,
+      "size": 2,
+      "order": 80,
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "priorityNote": "모델 연결과 실제 카메라 서비스 배포를 막는다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "44779d5a-d351-42f9-9ac1-d5cf6ed8e772",
+      "title": "수집 프로토콜 v2 동결",
+      "category": "논문",
+      "source": "docs/research/guided-collection-v2.md",
+      "body": "촬영/라벨 검토/제외 규칙, 참여자 분할, 수집 설정과 버전을 합의하여 동결한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0019",
+      "roadmapKey": "protocol",
+      "priority": 3,
+      "size": 2,
+      "order": 90,
+      "dependsOn": [
+        "GP-0013",
+        "GP-0014",
+        "GP-0015"
+      ],
+      "priorityNote": "실제 수집 데이터의 해석과 누수 방지 선행 조건이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "contracts"
+    },
+    {
+      "id": "dbfda3a8-8bc1-4222-bff7-0c452d4dd924",
+      "title": "동의 후 파일럿 데이터 수집·품질 검토",
+      "category": "머신러닝",
+      "source": "docs/research/pilot-csv.md",
+      "body": "실제 참여자 동의 후 수집하고 라벨 검토·결측·분포를 점검한다. 원본·개인정보는 Git에 올리지 않는다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0020",
+      "roadmapKey": "collect",
+      "priority": 3,
+      "size": 3,
+      "order": 100,
+      "dependsOn": [
+        "GP-0019"
+      ],
+      "priorityNote": "특징 파이프라인 검증과 모델 학습 입력이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "data"
+    },
+    {
+      "id": "8503c33c-9e10-4173-9bba-fa01615c278a",
+      "title": "로그인 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "기존 통합 인증 카드에서 로그인·로그아웃·세션/만료·사용자 격리 범위를 유지한다. 가입은 GP-0058, 정보/비밀번호는 GP-0059로 분리한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0021",
+      "roadmapKey": "auth",
+      "priority": 3,
+      "size": 2,
+      "order": 270,
+      "dependsOn": [
+        "GP-0016",
+        "GP-0017",
+        "GP-0058"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "82aaacea-db09-4b79-80ad-49caa689332e",
+      "title": "세션 저장·복구·중복 방지 API",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "세션 ID 기반 저장, 중간 저장·멱등 재시도·복구·요약 응답을 구현하고 실패 경로를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0022",
+      "roadmapKey": "session",
+      "priority": 3,
+      "size": 3,
+      "order": 120,
+      "dependsOn": [
+        "GP-0016",
+        "GP-0017"
+      ],
+      "priorityNote": "프론트 서버 기록 전환과 통합 검증에 필수다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "a1c61c12-75a6-417c-a2ca-7800b41574b3",
+      "title": "기준 자세 저장 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "기준 자세 버전·사용 가능 상태의 저장/조회·재등록 원자 교체를 구현한다. 설정은 GP-0062로 분리한다. 기존 기준을 실패 시 유지하고 사용자 격리를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0023",
+      "roadmapKey": "baseline-store",
+      "priority": 3,
+      "size": 2,
+      "order": 300,
+      "dependsOn": [
+        "GP-0021",
+        "GP-0012"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "4d46a4bd-21ee-459b-8267-027ac27426fe",
+      "title": "참여자 분할·특징·시퀀스 파이프라인",
+      "category": "머신러닝",
+      "source": "docs/research/protocol.md",
+      "body": "참여자 분할 후 시퀀스 생성, 경계/보정 누수 방지, 학습 전용 스케일러와 재현 manifest를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0024",
+      "roadmapKey": "features",
+      "priority": 3,
+      "size": 3,
+      "order": 140,
+      "dependsOn": [
+        "GP-0020",
+        "GP-0015"
+      ],
+      "priorityNote": "모든 모델 비교의 신뢰성을 좌우한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "data"
+    },
+    {
+      "id": "30b292d3-4df0-41a2-bb8c-c7d86de34402",
+      "title": "규칙·단일 프레임·시계열 모델 비교",
+      "category": "머신러닝",
+      "source": "docs/research/protocol.md",
+      "body": "합의된 비교군/LSTM 학습·튜닝 후 참여자 홀드아웃에서 평가하고 가중치는 저장소 밖에 보관한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0025",
+      "roadmapKey": "train",
+      "priority": 2,
+      "size": 3,
+      "order": 150,
+      "dependsOn": [
+        "GP-0024"
+      ],
+      "priorityNote": "최종 모델 선택과 논문 결과의 근거다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "data"
+    },
+    {
+      "id": "41694c82-9606-443a-87c5-1ebefed28c6e",
+      "title": "추론 서비스와 버전 출력 계약 연결",
+      "category": "서버",
+      "source": "contracts/README.md",
+      "body": "품질 게이트·추론·시간 정책 책임을 한곳에 두고 버전 계약과 지연/타임아웃/측정 불가 처리를 연결한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0026",
+      "roadmapKey": "inference",
+      "priority": 2,
+      "size": 3,
+      "order": 160,
+      "dependsOn": [
+        "GP-0025",
+        "GP-0018"
+      ],
+      "priorityNote": "실제 모델을 사용하는 프론트 통합 선행이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "8e572e27-9427-4fac-b28c-5947cca2d87c",
+      "title": "프론트엔드 API 연동",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "공통 API 클라이언트·환경 주소·인증 전달·만료·오류/취소 처리를 구현한다. 개별 화면별 호출은 각 기능 카드가 소유한다. 기존 인증·프로필 연동 카드의 공통 기반만 유지한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0027",
+      "roadmapKey": "fe-auth",
+      "priority": 3,
+      "size": 2,
+      "order": 100,
+      "dependsOn": [
+        "GP-0011",
+        "GP-0017"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "700a3fe7-b2f1-41ed-84ad-1d5d205e2d8c",
+      "title": "기준 자세 촬영 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 카메라·5초 기준 계산을 재사용하고 서버 기준 저장/조회·등록 상태·재등록 원자 교체를 연결한다. 취소·실패 때 기존 기준 유지, 재방문 복원을 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0028",
+      "roadmapKey": "fe-baseline",
+      "priority": 2,
+      "size": 2,
+      "order": 190,
+      "dependsOn": [
+        "GP-0027",
+        "GP-0052",
+        "GP-0023",
+        "GP-0048"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "b348a5cb-d246-43fa-8e97-5eb10d475fde",
+      "title": "통계 대시보드 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 로컬 저장·복구·요약을 실제 세션 API 및 통계 API에 연결한다. 저장 실패/멱등 재시도와 홈·대시보드 일치, 기간/시간대/사용자 분리를 검증한다. 기존 GP-0029의 측정 저장·복구 범위를 유지한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0029",
+      "roadmapKey": "fe-records",
+      "priority": 2,
+      "size": 2,
+      "order": 230,
+      "dependsOn": [
+        "GP-0027",
+        "GP-0055",
+        "GP-0022",
+        "GP-0030",
+        "GP-0048"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "6330d750-4c55-4de4-bc78-3a922cc0f407",
+      "title": "통계 대시보드 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "기존 날짜·자정·시간 가중 집계에 사용자별 기간 조회 API를 명시한다. 유효시간0·세션 중복·페이지 제한과 전체 합계 분리·비교 구간을 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0030",
+      "roadmapKey": "dates",
+      "priority": 2,
+      "size": 2,
+      "order": 330,
+      "dependsOn": [
+        "GP-0022",
+        "GP-0021"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "c237e94f-3067-4f50-9ea6-98f58485aae6",
+      "title": "여러 탭 동시 저장·손상 복구 정책 보강",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "develop의 parse* 형식 검증은 완료. 다중 탭 경합과 부분 저장 복구, 계약 확정 후 마이그레이션을 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:48:40.726358+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        }
+      ],
+      "number": "GP-0031",
+      "roadmapKey": "storage",
+      "priority": 2,
+      "size": 2,
+      "order": 210,
+      "dependsOn": [],
+      "priorityNote": "현재 미리보기의 데이터 유실 위험을 줄인다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "857950f9-5925-4335-ad70-0f7115b21096",
+      "title": "발표 예시와 실제 기록 기본 화면 구분",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "미측정 사용자에게 예시 실적이 실제 기록처럼 보이지 않게 기본값·라벨·전환 경로를 정리한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0032",
+      "roadmapKey": "demo",
+      "priority": 1,
+      "size": 1,
+      "order": 220,
+      "dependsOn": [],
+      "priorityNote": "독립적인 화면 정확성 개선이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "127dbe2c-318e-47b7-82b6-c78baa7020af",
+      "title": "실제 카메라·탭 전환·장시간·소리 검증",
+      "category": "프론트",
+      "source": "docs/plans/completed/0008-service-preview.md",
+      "body": "권한/카메라 단절, 내부 이동, 외부 탭 실제 관측, 장시간 FPS, 소리 재생을 목표 브라우저에서 측정해 기록한다. 관련 구현: GP-0053(실시간 탐지), GP-0054(경고). 실환경 검증은 이 카드가 소유하며 구현 카드와 중복 실행하지 않는다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0033",
+      "roadmapKey": "browser",
+      "priority": 2,
+      "size": 3,
+      "order": 230,
+      "dependsOn": [],
+      "priorityNote": "코드 테스트로 확인하지 못한 실제 동작을 확인한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "validation"
+    },
+    {
+      "id": "36dfa5fb-657a-49a0-aca7-1385101d7002",
+      "title": "회원 탈퇴 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "계정 폐쇄·세션 무효화와 합의한 자료 삭제/보존을 구현한다. 학습 동의 거절도 탈퇴 가능해야 하며 부분 실패·재시도·처리 완료를 검증한다. 기존 삭제 범위를 유지한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.079405+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        }
+      ],
+      "number": "GP-0034",
+      "roadmapKey": "withdraw",
+      "priority": 2,
+      "size": 2,
+      "order": 290,
+      "dependsOn": [
+        "GP-0013",
+        "GP-0021",
+        "GP-0016"
+      ],
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "service"
+    },
+    {
+      "id": "13130a61-c242-4c7b-9cae-da10266424e2",
+      "title": "환경별 배포·HTTPS·상태 점검·복구",
+      "category": "데브옵스",
+      "source": "docs/development.md",
+      "body": "서비스/추론 환경 구성, 비밀값 분리, health check·로그·배포/롤백·백업 복원을 문서화하고 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0035",
+      "roadmapKey": "release",
+      "priority": 2,
+      "size": 3,
+      "order": 250,
+      "dependsOn": [
+        "GP-0018",
+        "GP-0017"
+      ],
+      "priorityNote": "팀 통합 환경과 출시 전 점검을 지원한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "validation"
+    },
+    {
+      "id": "08fa5592-48d7-4814-9b46-7383d2be6d75",
+      "title": "계정→측정→통계→탈퇴 통합 검증",
+      "category": "데브옵스",
+      "source": "docs/quality.md",
+      "body": "사용자 격리·측정 불가·중단/복구·저장 실패·통계 일치·삭제 시나리오를 실제 연결 환경에서 확인한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "number": "GP-0036",
+      "roadmapKey": "integration",
+      "priority": 2,
+      "size": 3,
+      "order": 260,
+      "dependsOn": [
+        "GP-0028",
+        "GP-0029",
+        "GP-0030",
+        "GP-0026",
+        "GP-0034",
+        "GP-0035",
+        "GP-0033",
+        "GP-0046",
+        "GP-0050",
+        "GP-0051",
+        "GP-0054",
+        "GP-0057"
+      ],
+      "priorityNote": "서비스 수용 기준의 최종 통합 관문이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "validation"
+    },
+    {
+      "id": "f29c3db3-901c-47c6-9071-f342a47312c2",
+      "title": "에피소드 평가·소거실험·재현 결과 정리",
+      "category": "논문",
+      "source": "docs/research/protocol.md",
+      "body": "이벤트 재현율·오알림/시간·감지 지연·FPS/p95와 신뢰구간·개인 보정/시간 모델 소거실험을 보고한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0037",
+      "roadmapKey": "evaluation",
+      "priority": 2,
+      "size": 3,
+      "order": 270,
+      "dependsOn": [
+        "GP-0025",
+        "GP-0033"
+      ],
+      "priorityNote": "모델 성능 결론과 개입 실험 설계 근거다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "validation"
+    },
+    {
+      "id": "7bee4f60-4977-4625-a2d8-f01ad17f58d4",
+      "title": "개입 파일럿 A/B/A′ 설계·실행",
+      "category": "논문",
+      "source": "docs/research/protocol.md",
+      "body": "탐지 검증 후 동의·기간·판정 버전·분석 기준을 고정하고 개입 효과의 한계를 구분한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0038",
+      "roadmapKey": "intervention",
+      "priority": 1,
+      "size": 3,
+      "order": 280,
+      "dependsOn": [
+        "GP-0037",
+        "GP-0036"
+      ],
+      "priorityNote": "후속 효과 탐색이며 탐지 성능과 구분한다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "validation"
+    },
+    {
+      "id": "380c6f33-8f5a-4546-9fcc-fdb4eaea6168",
+      "title": "논문·발표 결과와 한계 작성",
+      "category": "논문",
+      "source": "docs/references/posture_ai_paper_one_page.md",
+      "body": "실측 결과·재현 정보·제약을 정리하고 목표/가설과 검증 결과를 구분해 작성한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:39:44.624515+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        }
+      ],
+      "number": "GP-0039",
+      "roadmapKey": "paper",
+      "priority": 1,
+      "size": 2,
+      "order": 290,
+      "dependsOn": [
+        "GP-0037"
+      ],
+      "priorityNote": "검증 결과를 전달하는 최종 산출물이다.",
+      "evidence": "",
+      "performedBy": "",
+      "stage": "delivery"
+    },
+    {
+      "id": "4147d941-9385-40ce-83bf-7371280b5f7f",
+      "title": "Windows 공통 검증 진입점",
+      "category": "데브옵스",
+      "source": "docs/decisions/0009-cross-platform-dev-entry.md",
+      "body": "develop 구현과 근거 문서 확인. 실제 카메라·소리·장시간 검증은 GP-0033에서 별도 추적.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:48:40.726358+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        }
+      ],
+      "performedBy": "동욱",
+      "evidence": "origin/develop e5ff7bb: 구현 코드·순수 함수 테스트·계획서 검증 기록 확인. 병합 후 공통 검사 재실행.",
+      "priority": 2,
+      "size": 2,
+      "order": 5,
+      "plan": false,
+      "number": "GP-0040",
+      "dependsOn": [],
+      "priorityNote": "",
+      "stage": "operations"
+    },
+    {
+      "id": "15cb0983-0120-4650-8a82-9d705ec5d2ef",
+      "title": "실제 기록 처음·최근 비교 구현",
+      "category": "프론트",
+      "source": "docs/decisions/0010-record-comparison.md",
+      "body": "develop 구현과 근거 문서 확인. 실제 카메라·소리·장시간 검증은 GP-0033에서 별도 추적.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:48:40.726358+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        }
+      ],
+      "performedBy": "동욱",
+      "evidence": "origin/develop ad7c927: 구현 코드·순수 함수 테스트·계획서 검증 기록 확인. 병합 후 공통 검사 재실행.",
+      "priority": 2,
+      "size": 2,
+      "order": 5,
+      "plan": false,
+      "number": "GP-0041",
+      "dependsOn": [],
+      "priorityNote": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "0fc66b9b-607f-49e0-9339-f1c2451f4d76",
+      "title": "단일 앱 서비스 로직 통합",
+      "category": "프론트",
+      "source": "docs/plans/completed/0009-service-logic-integration.md",
+      "body": "develop 구현과 근거 문서 확인. 실제 카메라·소리·장시간 검증은 GP-0033에서 별도 추적.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T02:48:40.772357+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:48:40.726358+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "develop 개선 통합: 기존 배정과 무관하게 실제 구현 완료를 동욱의 작업으로 반영. 실환경 검증은 후속 카드 유지."
+        },
+        {
+          "at": "2026-09-29T02:48:40.772357+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "완료 계획을 completed로 이동하고 카드 근거 경로를 함께 갱신."
+        }
+      ],
+      "performedBy": "동욱",
+      "evidence": "origin/develop ad7c927: 구현 코드·순수 함수 테스트·계획서 검증 기록 확인. 병합 후 공통 검사 재실행.",
+      "priority": 2,
+      "size": 2,
+      "order": 5,
+      "plan": true,
+      "number": "GP-0042",
+      "dependsOn": [],
+      "priorityNote": "",
+      "stage": "prototype"
+    },
+    {
+      "id": "42416ca2-da95-4b5a-9376-de411f4af5bd",
+      "title": "문서 라이브러리를 단계별 프로젝트 여정으로 재구성",
+      "category": "프론트",
+      "source": "docs/areas/frontend/project-journey.md",
+      "body": "완료·진행·선행 대기와 다음 실행 후보를 단계별로 계산하고 관련 MD를 연결한다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "요청한 관리판 운영·단계 화면 구현 완료. 제품 실환경 검증은 GP-0033에서 별도 진행.",
+      "updated": "2026-09-29T03:02:43.437687+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T02:52:22.821557+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "프로젝트 여정의 단계별 카드 매핑과 최신 develop 완료 기록 연결."
+        },
+        {
+          "at": "2026-09-29T03:02:43.437687+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "공통 검사·스킬·브라우저 확인 후 GP-0010/0043 완료. 배치 순서 안내와 개발 브랜치 통합 반영."
+        }
+      ],
+      "stage": "operations",
+      "priority": 2,
+      "size": 2,
+      "order": 7,
+      "number": "GP-0043",
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "2026-09-29 python tools/dev.py check 통과: Python29, 프론트40, 타입·빌드·JS·문서. 스킬4개 검증 및 브라우저 단계·카드·메뉴 확인.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "dbe4776a-5b35-4140-9af6-c8c0ffaed196",
+      "title": "팀 기능 목록과 작업 카드 대응표",
+      "category": "데브옵스",
+      "source": "docs/areas/devops/team-feature-cards.md",
+      "body": "팀 제안 프론트16·백엔드9 항목을 기존 카드와 대조하고 중복 없이 완료 기준·선행 관계를 등록한다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "팀 목록과 기존 카드 대조 완료. 반복 설정 API 통합, 화면3개 검수 대기, 미구현 API/연동 할 일. 상세 대응표 연결.",
+      "updated": "2026-09-29T03:16:05.750212+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:13:15.789708+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-09-29T03:15:19.047727+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 목록25개를 기존 구현·카드와 대조하여 분해 착수."
+        },
+        {
+          "at": "2026-09-29T03:16:05.750212+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0044 팀 카드 정리 완료. 코드 기능 구현 완료를 의미하지 않으며 미구현 기능 상태 유지."
+        }
+      ],
+      "stage": "operations",
+      "number": "GP-0044",
+      "priority": 0,
+      "size": 1,
+      "order": 44,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "팀 항목25개 고유 매핑 확인(기존7·신규18). python tools/dev.py check: Python29, frontend40, 타입·빌드·MD/JS 통과.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "2fde3560-cf2f-44fc-aad6-37d35b812752",
+      "title": "회원가입 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "실제 가입 필드·동의·입력 검증·중복/실패/진행 상태·로그인 이동을 구현한다. 현재 LoginPage는 이름·나이·직업 로컬 프로필 입력이므로 가입 화면 완료가 아니다.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기.",
+      "updated": "2026-09-29T10:22:27.459302+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        },
+        {
+          "at": "2026-09-29T10:21:50.072525+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "회원가입 FE 미리보기 작업 착수. 실제 인증 API는 별도 카드 범위."
+        },
+        {
+          "at": "2026-09-29T10:22:27.459302+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 110,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0045",
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "cae22b2f-4659-422b-a9af-9cf0129d099c",
+      "title": "회원가입 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "가입 API 호출, 오류 매핑·중복 제출 방지, 가입 후 진입 정책을 구현·검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 120,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0046",
+      "dependsOn": [
+        "GP-0027",
+        "GP-0045",
+        "GP-0058"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "cf26d9b4-564e-41c0-bfdf-9b441c9066e5",
+      "title": "로그인 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "실제 인증 입력·오류·진행 상태와 회원가입 이동을 구현한다. 기존 로컬 프로필 진입 UI는 레이아웃만 재사용한다.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "후속 요청 반영: 첫 화면 미리보기 안내 제거, 로그인 버튼 소셜과 동일 크기. Edge 실측 4개 버튼 모두 380x44px 확인. 작은 문구/CSS 수정으로 전체 테스트 재실행 생략.",
+      "updated": "2026-09-29T10:24:51.606389+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        },
+        {
+          "at": "2026-09-29T10:21:50.260153+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "아이디/비밀번호 및 소셜 버튼 로그인 UI 착수. GP-0011 미확정 계약에 의존하는 서버 연결 제외."
+        },
+        {
+          "at": "2026-09-29T10:22:27.674858+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "FE 미리보기 및 Edge 로그인/가입/소셜 안내/모바일 검증 완료. 프론트 40개, 타입/빌드 통과. 전체 check는 기존 venv 실행 불가. 대체 Python 18개 통과, 2개 모듈 로드 실패. work check는 기존 _board-bundle MD 메타데이터 누락 실패. 실제 인증/소셜/API 오류 상태는 미구현으로 검수 대기."
+        },
+        {
+          "at": "2026-09-29T10:24:51.606389+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "후속 요청 반영: 첫 화면 미리보기 안내 제거, 로그인 버튼 소셜과 동일 크기. Edge 실측 4개 버튼 모두 380x44px 확인. 작은 문구/CSS 수정으로 전체 테스트 재실행 생략."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 130,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0047",
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "d87b2df5-311f-4716-a9f3-fe091624c0b6",
+      "title": "로그인 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "로그인·로그아웃·세션 복원·만료 처리를 실제 인증 API와 연결하고 실패 시나리오를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 140,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0048",
+      "dependsOn": [
+        "GP-0027",
+        "GP-0047",
+        "GP-0021"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "cfb46e95-a4a9-498d-82bb-b5311ae44dc9",
+      "title": "회원 정보 관리 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 ServiceApp 프로필 편집·탈퇴 확인 UI를 재사용한다. 실제 계정 정보·조회 오류·비밀번호 변경 등 합의한 필드의 화면 상태를 완성한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 150,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0049",
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "99f38f5b-1e3b-43ae-a952-74df8bd54195",
+      "title": "회원 정보 관리 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "정보 조회·수정·비밀번호 변경/복구의 합의 범위를 API와 연결하고 취소·실패·성공 갱신을 검증한다. 현재 saveProfile은 localStorage 전용이다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 160,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0050",
+      "dependsOn": [
+        "GP-0027",
+        "GP-0049",
+        "GP-0059",
+        "GP-0048"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "1aeee216-10f2-48a9-a099-b93eda21ab99",
+      "title": "회원 탈퇴 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 로컬 삭제 확인 UI를 실제 탈퇴 API로 연결한다. 선택적 학습 동의와 탈퇴를 분리하고 실패 시 유지·성공 시 세션 정리를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 170,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0051",
+      "dependsOn": [
+        "GP-0027",
+        "GP-0049",
+        "GP-0034",
+        "GP-0048"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "61b76a1a-d55f-4e3e-98b5-97d1ec31cfe5",
+      "title": "기준 자세 촬영 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "SetupPage의 카메라 켜기·권한 안내·기준 등록 진행률 UI를 재사용한다. 권한 거부·연결 단절·최초/재등록·실패/취소 상태를 요구사항과 대조한다. 기존 화면 구현 있음: GP-0008/0042. 새 팀 목록의 완료 기준 대조·보완 검수 대기.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 180,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0052",
+      "dependsOn": [
+        "GP-0012"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "1526391d-f87f-49b2-95b6-5e4c6d13822b",
+      "title": "실시간 자세 탐지 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 로컬 MediaPipe·규칙 기반 측정과 일시정지/복구를 재사용한다. 합의한 추론 출력 계약을 연결하고 낮은 품질·단절·지연을 정상/이탈과 구분한다. LSTM 연결과 실환경 검증은 미완료다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 200,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0053",
+      "dependsOn": [
+        "GP-0028",
+        "GP-0061",
+        "GP-0060"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "857bc0d7-62f4-45f7-addc-fce581ff0107",
+      "title": "자세 붕괴 경고 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 화면 토스트·선택적 소리를 재사용한다. 지속/복구/재알림 정책과 서버 판단을 연결하고 음소거·입력 단절·중복 알림을 검증한다. 실제 소리·장시간 검증은 GP-0033과 연결한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 210,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0054",
+      "dependsOn": [
+        "GP-0053",
+        "GP-0057"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "1f3df410-01f6-47cb-abb9-f655ff8bac6a",
+      "title": "통계 대시보드 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "DashboardPage·RecordComparison의 기존 화면을 재사용한다. 예시/실제 구분, 기간 선택, 빈 기록·유효시간0·조회 실패/로딩 화면을 합의 기준으로 검수한다. 기존 화면 구현 있음: GP-0008/0042. 새 팀 목록의 완료 기준 대조·보완 검수 대기.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 220,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0055",
+      "dependsOn": [
+        "GP-0011"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "37195979-763e-4a37-b62d-8719ec6dac7a",
+      "title": "설정 관리 화면 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "기존 SettingsPage의 임계값·알림·예시 전환 UI를 재사용한다. 설정 계약의 필드·유효 범위·저장/취소/오류/적용 시점 안내를 검수한다. 기존 화면 구현 있음: GP-0008/0042. 새 팀 목록의 완료 기준 대조·보완 검수 대기.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 240,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0056",
+      "dependsOn": [
+        "GP-0011",
+        "GP-0012"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "5a2a2c0d-7ce3-4ce2-bc08-da482b34a57b",
+      "title": "설정 관리 기능 구현",
+      "category": "프론트",
+      "source": "docs/team-requirements.md",
+      "body": "설정 조회·저장·기본값·실패 복구를 API와 연결하고 다음 측정 적용 시점과 사용자별 보존을 검증한다. 현재 설정 저장은 localStorage 전용이다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 250,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0057",
+      "dependsOn": [
+        "GP-0027",
+        "GP-0056",
+        "GP-0062",
+        "GP-0048"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "d716fdbd-d8f5-4fe6-be96-b7f3e53c8f20",
+      "title": "회원가입 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "계정 생성·입력 검증·중복 계정·자격증명 저장·동의 정보를 합의된 계약으로 구현한다. 오류 응답과 재요청 처리를 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 3,
+      "size": 2,
+      "order": 260,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0058",
+      "dependsOn": [
+        "GP-0016",
+        "GP-0017"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "98a89d3b-22c2-4b48-8ceb-0508f1733ebe",
+      "title": "회원 정보 관리 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "본인 정보 조회·수정, 합의한 비밀번호 변경/복구 정책과 권한 검사를 구현한다. 다른 사용자 접근·검증 실패·갱신 충돌을 검증한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 280,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0059",
+      "dependsOn": [
+        "GP-0021"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "0af9cf46-0425-440d-9d43-bbbc56db44f4",
+      "title": "자세 키포인트 수집 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "키포인트/특징의 버전·세션·타임스탬프·품질·크기 검증과 추론 전달 계약을 구현한다. 수집은 영구 저장을 의미하지 않는다. 보관/동의·순서 역전·중복/누락 처리는 GP-0011/0013/0018에서 합의한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 3,
+      "size": 2,
+      "order": 310,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0060",
+      "dependsOn": [
+        "GP-0021",
+        "GP-0011",
+        "GP-0013",
+        "GP-0018"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "1443398b-4dc6-4308-9803-d9a2512517e8",
+      "title": "자세 붕괴 판단 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "사용자/기준/세션 검증 후 GP-0026 추론 서비스를 호출하고 버전 계약의 판단/측정 불가·시간초과를 반환한다. 모델이나 시간 판정 규칙을 백엔드에서 중복 구현하지 않는다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 320,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0061",
+      "dependsOn": [
+        "GP-0060",
+        "GP-0023",
+        "GP-0026"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "99ef8e6e-6e40-4eef-a222-8420f8d93727",
+      "title": "설정 관리 API 구현",
+      "category": "백엔드",
+      "source": "docs/team-requirements.md",
+      "body": "사용자별 설정 조회·갱신·기본값·유효 범위·버전 및 적용 시점을 구현한다. GP-0023에서 설정 책임을 분리하며 반복 제안은 이 카드 하나로 추적한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-09-29T03:15:19.111428+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T03:15:19.079405+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "팀 제안 항목을 화면·기능·API25개로 명시. 기존7개 번호 유지, 누락18개 추가. 로컬 구현은 재사용 범위로 기록."
+        },
+        {
+          "at": "2026-09-29T03:15:19.111428+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "분리된25개 카드의 API→기능 선행 관계와 기존 통합 검증 연결. 담당자·기존 이력 유지."
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 2,
+      "order": 340,
+      "priorityNote": "연결된 후속 작업의 구현·검증에 필요한 화면/기능/API다.",
+      "number": "GP-0062",
+      "dependsOn": [
+        "GP-0021",
+        "GP-0011",
+        "GP-0012"
+      ],
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "c1b7276d-7188-4371-9c58-80a6d49e0a10",
+      "title": "Electron 1단계: React 화면을 PC 창에서 실행",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "lee_app1에서 기존 화면을 Electron 창에 표시. 설치 파일·내장 화면·자동 실행은 후속 단계.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "사용자 요청: 개발 서버 방식 유지, 바탕화면 PoseGood (개발) 바로가기 생성. launch-dev.mjs로 전용5174 서버와 Electron 실행, 앱 종료 시 서버 종료. 문법 검사 통과. 전체 검증은 이번 실행기 변경에서 재실행하지 않음.",
+      "updated": "2026-09-29T11:00:10.197152+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T10:45:12.243068+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-09-29T10:48:41.914546+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "lee_app1 개발용 Electron 1단계 완료. main.cjs와 desktop:dev, README 학습 설명 추가."
+        },
+        {
+          "at": "2026-09-29T11:00:10.197152+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: 개발 서버 방식 유지, 바탕화면 PoseGood (개발) 바로가기 생성. launch-dev.mjs로 전용5174 서버와 Electron 실행, 앱 종료 시 서버 종료. 문법 검사 통과. 전체 검증은 이번 실행기 변경에서 재실행하지 않음."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0064",
+      "priority": 0,
+      "size": 1,
+      "order": 64,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "Electron 44.4.5 실제 창에서 로그인 화면/임시 진입/로그아웃/격리 설정 확인. 프론트40개·타입·빌드 통과. 전체 check는 기존 venv 실행 실패, work check는 기존 _board-bundle 문서 누락 실패. 카메라·설치·내장 화면·자동 실행은 이번 단계 제외.",
+      "performedBy": "klaod-tech_GPT"
+    },
+    {
+      "id": "1dd041c8-e847-4070-8349-f70abecd9feb",
+      "title": "Electron 2단계: 개발 서버 없이 내장 화면 실행",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "빌드 파일을 내부 프로토콜로 제공하고 서버 없이 화면/합성 카메라 자산을 검증한다. 경로 경계 테스트를 check에 연결. 설치 파일 배포는 다음 단계.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_GPT",
+      "result": "사용자 요청으로 2단계 내장 화면 구현 전부 철회. bundle 파일과 실행 명령/검사 제거. 다음 단계 진행하지 않음.",
+      "updated": "2026-09-29T11:00:10.030401+00:00",
+      "log": [
+        {
+          "at": "2026-09-29T10:56:20.904268+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-09-29T11:00:10.030401+00:00",
+          "by": "klaod-tech_GPT",
+          "kind": "ai",
+          "text": "사용자 요청으로 2단계 내장 화면 구현 전부 철회. bundle 파일과 실행 명령/검사 제거. 다음 단계 진행하지 않음."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0065",
+      "priority": 0,
+      "size": 1,
+      "order": 65,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "694e6f42-3a18-4081-9fd9-2c79724ce9ea",
+      "title": "새 Windows PC 설치 스크립트와 바탕화면 바로가기",
+      "category": "데브옵스",
+      "source": "docs/development.md",
+      "body": "tools/setup-windows.ps1: Git·Node.js LTS·Python(없을 때 winget), 저장소·브랜치, dev.py setup, PoseGood(개발)·관리판 바로가기를 한 번에 준비. 관련: GP-0064(Electron 1단계).",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "setup-windows.ps1 작성, development.md 안내 추가. PowerShell 5.1 구문 검사 0오류, 전체 check 통과(Python 29, 프론트 40, 타입·빌드, 보드 검사). 새 PC 실제 실행·winget 설치 경로는 미검증 → 새 PC에서 1회 실행 후 완료 처리.",
+      "updated": "2026-10-02T04:26:57.317424+00:00",
+      "log": [
+        {
+          "at": "2026-10-02T04:26:48.615088+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-02T04:26:57.317424+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "setup-windows.ps1 작성, development.md 안내 추가. PowerShell 5.1 구문 검사 0오류, 전체 check 통과(Python 29, 프론트 40, 타입·빌드, 보드 검사). 새 PC 실제 실행·winget 설치 경로는 미검증 → 새 PC에서 1회 실행 후 완료 처리."
+        }
+      ],
+      "stage": "delivery",
+      "number": "GP-0066",
+      "priority": 0,
+      "size": 1,
+      "order": 66,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    }
+  ],
+  "notes": [],
+  "assignments": {},
+  "nextNumber": 67
+}

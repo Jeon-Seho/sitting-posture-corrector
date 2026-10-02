@@ -60,10 +60,20 @@ def check_frontend():
     npm("run", "check")
 
 
+def check_board():
+    run("node", "--check", "tools/project-board/app.js")
+    run(sys.executable, "tools/project-board/work.py", "check")
+
+
 def check():
     check_repo()
     test()
     check_frontend()
+    check_board()
+
+
+def board():
+    run(sys.executable, "tools/project-board/launch.py")
 
 
 def dev():
@@ -79,6 +89,8 @@ COMMANDS = {
     "test": test,
     "check-frontend": check_frontend,
     "dev": dev,
+    "check-board": check_board,
+    "board": board,
 }
 
 
