@@ -2487,9 +2487,45 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "694e6f42-3a18-4081-9fd9-2c79724ce9ea",
+      "title": "새 Windows PC 설치 스크립트와 바탕화면 바로가기",
+      "category": "데브옵스",
+      "source": "docs/development.md",
+      "body": "tools/setup-windows.ps1: Git·Node.js LTS·Python(없을 때 winget), 저장소·브랜치, dev.py setup, PoseGood(개발)·관리판 바로가기를 한 번에 준비. 관련: GP-0064(Electron 1단계).",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "setup-windows.ps1 작성, development.md 안내 추가. PowerShell 5.1 구문 검사 0오류, 전체 check 통과(Python 29, 프론트 40, 타입·빌드, 보드 검사). 새 PC 실제 실행·winget 설치 경로는 미검증 → 새 PC에서 1회 실행 후 완료 처리.",
+      "updated": "2026-10-02T04:26:57.317424+00:00",
+      "log": [
+        {
+          "at": "2026-10-02T04:26:48.615088+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-02T04:26:57.317424+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "setup-windows.ps1 작성, development.md 안내 추가. PowerShell 5.1 구문 검사 0오류, 전체 check 통과(Python 29, 프론트 40, 타입·빌드, 보드 검사). 새 PC 실제 실행·winget 설치 경로는 미검증 → 새 PC에서 1회 실행 후 완료 처리."
+        }
+      ],
+      "stage": "delivery",
+      "number": "GP-0066",
+      "priority": 0,
+      "size": 1,
+      "order": 66,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 66
+  "nextNumber": 67
 }
