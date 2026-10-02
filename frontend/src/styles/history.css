@@ -1,5 +1,6 @@
 .history-record > .service-record {
-  grid-template-columns: minmax(0, 1fr) minmax(100px, 160px) auto auto;
+  /* clock icon | date + summary | rate | details button */
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
 }
 .history-record-details {
   padding: 22px;
@@ -113,7 +114,7 @@
 }
 @media (max-width: 860px) {
   .history-record > .service-record {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
   }
   .history-detail-button {
     grid-column: 1 / -1;
@@ -128,4 +129,29 @@
   .history-applied-rules .history-rule-list {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Compact record row for the side column. */
+.service-record-text {
+  min-width: 0;
+}
+
+.service-record-text strong,
+.service-record-text > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-detail-button .icon {
+  transition: transform 240ms var(--ease-soft, ease);
+}
+
+.history-detail-button[aria-expanded='true'] .icon {
+  transform: rotate(180deg);
+}
+
+.history-record-details {
+  border-radius: var(--radius-md);
+  animation: view-in 260ms var(--ease-soft, ease);
 }

@@ -163,7 +163,7 @@
   font-weight: 700;
 }
 
-.service-record span {
+.service-record > div > span {
   display: block;
   margin-top: 2px;
   font-size: 12px;
