@@ -33,6 +33,9 @@ if (!app.isPackaged && /^\d{4,5}$/.test(process.env.POSEGOOD_DEBUG_PORT ?? '')) 
 
 // 시작 프로그램으로 실행될 때 붙는 인자. 페이지는 이 값으로 자동 카메라 연결 여부를 정한다.
 const LOGIN_ARG = '--launched-at-login'
+// Portable 실행 파일은 임시 폴더에 풀리므로 원래 EXE를 시작 프로그램 대상으로 사용한다.
+const loginExecutable = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath
+const loginOptions = { path: loginExecutable, args: [LOGIN_ARG] }
 const launchedAtLogin =
   process.argv.includes(LOGIN_ARG) ||
   (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin === true)
@@ -61,7 +64,7 @@ function launchInfo() {
     packaged: app.isPackaged,
     launchedAtLogin,
     launchAtLoginSupported: loginItemSupported,
-    launchAtLogin: loginItemSupported ? app.getLoginItemSettings({ args: [LOGIN_ARG] }).openAtLogin : false,
+    launchAtLogin: loginItemSupported ? app.getLoginItemSettings(loginOptions).openAtLogin : false,
     ...readSettings(),
   }
 }
@@ -69,16 +72,20 @@ function launchInfo() {
 // IPC 요청은 이 앱 창(로컬 개발 주소)에서 온 것만 받는다.
 function trusted(event) {
   try {
-    return new URL(event.senderFrame.url).origin === address.origin
+    return sameAddress(new URL(event.senderFrame.url))
   } catch {
     return false
   }
 }
 
+function sameAddress(url) {
+  return url.protocol === address.protocol && url.host === address.host
+}
+
 ipcMain.handle('desktop:launch-info', (event) => (trusted(event) ? launchInfo() : null))
 ipcMain.handle('desktop:set-launch-at-login', (event, enabled) => {
   if (!trusted(event)) return null
-  if (loginItemSupported) app.setLoginItemSettings({ openAtLogin: enabled === true, args: [LOGIN_ARG] })
+  if (loginItemSupported) app.setLoginItemSettings({ ...loginOptions, openAtLogin: enabled === true })
   return launchInfo()
 })
 ipcMain.handle('desktop:set-auto-camera', (event, enabled) => {
@@ -118,13 +125,15 @@ async function createWindow() {
   }
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => {
-    if (new URL(url).origin !== address.origin) event.preventDefault()
+    if (!sameAddress(new URL(url))) event.preventDefault()
   })
   try {
-    // React 개발 화면을 PC 창에서 연다.
+    // 개발 서버 또는 패키징된 React 화면을 PC 창에서 연다.
     await window.loadURL(app.isPackaged ? APP_URL : DEV_URL)
   } catch {
-    dialog.showErrorBox('화면을 열 수 없습니다', '개발 서버를 켜거나 바탕화면 바로가기로 다시 실행해 주세요.')
+    dialog.showErrorBox('화면을 열 수 없습니다', app.isPackaged
+      ? '앱 파일을 다시 빌드하거나 복사한 뒤 실행해 주세요.'
+      : '개발 서버를 켜거나 바탕화면 바로가기로 다시 실행해 주세요.')
     app.quit()
   }
 }
@@ -143,9 +152,16 @@ if (!app.requestSingleInstanceLock()) {
     if (app.isPackaged) {
       // dist 밖의 파일은 제공하지 않는다.
       protocol.handle('app', (request) => {
-        const file = path.normalize(path.join(DIST, decodeURIComponent(new URL(request.url).pathname)))
-        if (!file.startsWith(DIST)) return new Response('Not found', { status: 404 })
-        return net.fetch(pathToFileURL(file).toString())
+        try {
+          const url = new URL(request.url)
+          if (!sameAddress(url)) return new Response('Not found', { status: 404 })
+          const file = path.resolve(DIST, '.' + decodeURIComponent(url.pathname))
+          const relative = path.relative(DIST, file)
+          if (relative.startsWith('..') || path.isAbsolute(relative)) return new Response('Not found', { status: 404 })
+          return net.fetch(pathToFileURL(file).toString())
+        } catch {
+          return new Response('Bad request', { status: 400 })
+        }
       })
     }
     createWindow()

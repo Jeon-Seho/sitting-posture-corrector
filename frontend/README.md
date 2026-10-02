@@ -10,15 +10,24 @@ npm run desktop      # 개발 서버와 Electron 창을 함께 실행
 npm run desktop:dev  # 이미 켠 개발 서버(5173)에 창만 연결
 ```
 
-Windows 휴대용 EXE 패키징 설정은 `npm run desktop:pack`이다. 프론트를 빌드한 뒤
-electron-builder가 `frontend/release/PoseGood.exe`를 만들도록 구성했다. 결과물은 Git에서 제외한다.
+Windows에서 `npm run desktop:pack`을 실행하면 프론트를 빌드한 뒤
+electron-builder가 `frontend/release/PoseGood.exe`를 만들고 `frontend/PoseGood.exe`에도 복사한다.
+`frontend/PoseGood.exe`를 더블클릭하면 개발 서버 없이 앱이 열린다. 결과물은 Git에서 제외한다.
+Windows 압축 해제 후 폴더 rename에서 발생한 `EPERM`을 피하려고 설치된 Electron 배포본을 복사한다.
+이 명령은 Windows용이며 시작 프로그램 등록에는 휴대용 원본 EXE 경로를 사용한다.
 패키징된 앱은 개발 서버 대신 `app://posegood`에서 빌드 화면과 MediaPipe 정적 파일을 제공한다.
 
-2026-10-02 커밋 시점: 이전 EXE 빌드는 `ElectronFramework.unpack` 단계에서 실패했으며
-원인은 확인되지 않았다. 이번 커밋 작업에서는 EXE 빌드를 재시도하지 않았다.
-프론트 테스트 242개·TypeScript 검사·Vite 빌드와 Electron 메인 파일 문법 검사는 통과했다.
-전체 검증(`python tools/dev.py check`)은 Python 테스트 109개 중 오류 8개·건너뜀 1개로 실패했다
-(fastapi 누락 및 Windows에서 지원하지 않는 POSIX 배포 잠금). EXE 실행·카메라 권한·시작 프로그램 등록은 미검증이다.
+패키징 후 `node scripts/smoke-desktop.mjs`로 독립 임시 프로필과 합성 카메라를 사용하는 EXE 검증을 실행한다.
+앱 화면·preload IPC·보안 컨텍스트·Web Locks·모델/WASM 파일·카메라 연결과 모델 초기화를 확인한다.
+실제 카메라·재부팅 후 시작 프로그램 실행·다른 PC에서의 실행은 별도 수동 확인 대상이다.
+
+2026-10-02 검증: 프론트 테스트 242개·TypeScript 검사·Vite 빌드·Electron 메인 파일 문법 검사는 통과했다.
+`npm run desktop:pack`과 실제 portable EXE smoke도 통과했다. 합성 카메라 640px 영상,
+MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍스트·Web Locks를 확인했다.
+전체 검증(`.venv/Scripts/python.exe tools/dev.py check`)은 Python 테스트 134개 중 오류 3개·건너뜀 1개로 실패했다
+(POSIX 배포 잠금과 Windows 임시 파일 잠금). 저장소 구조 검사는 통과했다.
+백엔드 검증은 Maven/Java 준비 부족, Compose 검증은 Docker daemon 미실행,
+웹 브라우저 통합 검증은 백엔드 JAR 부재로 완료하지 못했다. 패키징 앱 자체 검증과 구분한다.
 
 설정의 `컴퓨터를 켤 때`에서 시작 프로그램 등록(패키징된 앱만)과 자동 카메라 연결(기본 꺼짐)을 고른다.
 서버 판정·자세 데이터 수집·발표용 예시 기록은 `개발자 옵션` 안으로 옮겼다. 아래 체험 순서의 메뉴 이름은

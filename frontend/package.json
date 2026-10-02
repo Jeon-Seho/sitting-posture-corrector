@@ -14,7 +14,7 @@
     "assets": "node scripts/prepare-assets.mjs",
     "predev": "npm run assets",
     "prebuild": "npm run assets",
-    "desktop:pack": "npm run build && electron-builder --win portable"
+    "desktop:pack": "npm run build && electron-builder --win portable && node scripts/copy-desktop.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.3.0",
@@ -44,6 +44,7 @@
   "description": "PoseGood 바른자세 도우미",
   "author": "PoseGood team",
   "build": {
+    "electronDist": "node_modules/electron/dist",
     "appId": "com.posegood.desktop",
     "productName": "PoseGood",
     "directories": {
