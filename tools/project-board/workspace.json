@@ -2589,9 +2589,39 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "fa45dc68-6bb8-4454-891b-c3b1bc2f162b",
+      "title": "Kafka 실시간 전달 경로와 프론트 게이트웨이 계획",
+      "category": "프론트",
+      "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
+      "body": "jin_app 결정(ADR 0011·0012·0013, 플랫폼 경계)을 따라 WebSocket 게이트웨이→Kafka(posture.features/inference/episodes) 경로 계획. 팀·ML 확인 대기.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "",
+      "updated": "2026-10-05T06:56:41.721134+00:00",
+      "log": [
+        {
+          "at": "2026-10-05T06:56:41.721134+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0069",
+      "priority": 0,
+      "size": 1,
+      "order": 69,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 69
+  "nextNumber": 70
 }

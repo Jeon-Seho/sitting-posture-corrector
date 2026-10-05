@@ -7,6 +7,7 @@
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 
+- **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 팀·ML 확인 대기.
 - **진행 중(2026-10-05):** [서비스 DB를 스키마 V0.3 기준으로 전환](plans/active/0021-db-schema-v03-alignment.md) — 팀 결정 대기.
 - **진행 중(2026-10-02):** [데스크톱 앱 화면 재구성](plans/active/0020-desktop-app-redesign.md) —
   [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](design/desktop-app.md),
