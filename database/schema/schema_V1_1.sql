@@ -1,16 +1,25 @@
 -- =====================================================================
--- 자세교정 서비스 스키마 — schema_V0_3.sql
--- 명세서: DB 명세서 V0.3 (DRAFT) / DB-03 V0.3 / DB-04 V0.1
---   파일 번호는 명세서 버전과 같다 (작업규칙 1.7). 명세서가 V1.0으로 확정되면 schema_V1_0.sql로 다시 만든다.
+-- 자세교정 서비스 스키마 — schema_V1_1.sql
+-- 명세서: DB 명세서 V1.1 (CHANGED) — V1.0 + CR-03 (DB 건의안 0001 승인 항목)
+--   문서(DB-01~04·명세서)의 V1.1 반영은 아직이다. 문서 반영 때 맞춘다.
+-- 새 DB는 이 파일 하나로 만든다. V1.0으로 운영 중인 DB에는 migrations/ 001~009를 번호순으로 적용한다.
+--   두 방법의 결과는 같다 (2026-10-05 검증).
 -- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제, 함수 기반 유니크 키 사용)
--- 생성: 2026-10-02 (명세서 원천에서 자동 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
+-- 생성: 2026-10-05 (명세서 원천에서 자동 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
 --
--- 범위: 17개 테이블. 보류 항목은 결정 후 migrations/로 추가한다.
+-- 범위: 24개 테이블 (V1.0 17개 + T-44~T-50 7개).
 --   제외 — T-36 collapse_type, T-41 user_consent, collapse_event.collapse_type_code, UK-08, FK-15, FK-19
+--   보류 — 건의안 0001 #7 user_consent(T-41), #10 model_version 행 REFERENCE-RULE-1
+-- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의를 그대로 쓴다.
+--   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
+--   서버 DB는 이 파일이나 migrations/로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
 -- 인덱스: 보조 인덱스 없음. DB-05(쿼리 목록 → 인덱스) 후 migrations/에 별도 파일로 둔다.
 --   InnoDB는 FK 컬럼에 쓸 인덱스가 없으면 자동으로 만든다 — DB-05 인덱스 시트에서 함께 정리한다.
--- 시각: 모든 DATETIME(3)은 UTC로 저장한다 (CONVENTIONS).
+--   SPRING_SESSION 보조 인덱스(EXPIRY_TIME, PRINCIPAL_NAME)도 이때 둔다.
+-- 시각: SPRING_SESSION을 뺀 모든 DATETIME(3)은 UTC로 저장한다 (CONVENTIONS).
 -- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제·보관 배치」는 RESTRICT로 두고 배치가 순서대로 지운다.
+-- 보관 (DB-06에 반영 예정): input_result·cep_outbox·confirmed_snapshot은 세션 종료 후 5년,
+--   cep_cleanup은 정리가 끝나면 삭제하고 끝나지 않은 행은 생성 후 5년.
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -51,15 +60,20 @@ CREATE TABLE user_account (
   user_account_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 식별자 (로그인 계정이 바뀔 수 있으므로 대리키)',
   login_email VARCHAR(254) NULL COMMENT '로그인 계정. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
   password_hash VARCHAR(100) NULL COMMENT '비밀번호 단방향 해시. 평문 저장·응답 노출 금지. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
-  display_name VARCHAR(30) NULL COMMENT '표시 이름. 나이·직업은 사용 목적이 정해질 때까지 받지 않음. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
+  display_name VARCHAR(30) NULL COMMENT '표시 이름. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
   account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED. ACTIVE이면 로그인 계정·비밀번호 해시·표시 이름이 모두 있어야 함',
   joined_at DATETIME(3) NOT NULL COMMENT '가입 시각 (UTC)',
   threshold_policy_id BIGINT NOT NULL COMMENT '다음 측정부터 적용할 판정 정책 (사용자 설정 병합)',
   sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '소리 알림 사용 (사용자 설정 병합). 저장 여부 미결',
+  auth_epoch BIGINT NOT NULL DEFAULT 0 COMMENT '비밀번호 변경·탈퇴 때 올려 다른 기기의 기존 로그인을 끊음',
+  age INT NULL COMMENT '가입 시 입력한 나이. 선택. NULL: 입력 안 함 또는 탈퇴 처리 완료',
+  occupation VARCHAR(80) NULL COMMENT '가입 시 입력한 직업(자유 입력). 선택. NULL: 입력 안 함 또는 탈퇴 처리 완료',
   CONSTRAINT pk_user_account PRIMARY KEY (user_account_id),
   CONSTRAINT ux_user_account_login_email UNIQUE (login_email),  -- UK-01
   CONSTRAINT fk_user_account_threshold_policy FOREIGN KEY (threshold_policy_id) REFERENCES threshold_policy (threshold_policy_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-01
   CONSTRAINT ck_user_account_account_status CHECK (account_status IN ('ACTIVE', 'CLOSED')),  -- 허용값: ACTIVE / CLOSED
+  CONSTRAINT ck_user_account_auth_epoch CHECK (auth_epoch >= 0),  -- 허용값: 0 이상
+  CONSTRAINT ck_user_account_age CHECK (age BETWEEN 1 AND 120),  -- 허용값: 1 ~ 120
   CONSTRAINT ck_user_account_identity CHECK (account_status = 'CLOSED' OR (login_email IS NOT NULL AND password_hash IS NOT NULL AND display_name IS NOT NULL))  -- D-34 활성 계정은 식별 컬럼 3개 필수
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-25 사용자 계정 — 로그인 계정과 다음 측정에 적용할 설정';
 
@@ -211,7 +225,7 @@ CREATE TABLE excluded_interval (
   CONSTRAINT pk_excluded_interval PRIMARY KEY (monitor_session_id, started_at),
   CONSTRAINT fk_excluded_interval_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-12
   CONSTRAINT ck_excluded_interval_ended_at CHECK (ended_at >= started_at),  -- 허용값: started_at 이후
-  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('PAUSE', 'ABSENCE', 'UNMEASURABLE'))  -- 허용값: PAUSE / ABSENCE / UNMEASURABLE
+  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('PAUSE', 'MISSING', 'ABSENCE', 'UNMEASURABLE'))  -- 허용값: PAUSE / MISSING / ABSENCE / UNMEASURABLE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-34 세션 제외 구간 — 일시정지·자리 비움·판정 불가 구간';
 
 -- ---------------------------------------------------------------------
@@ -345,4 +359,95 @@ CREATE TABLE error_log (
   CONSTRAINT ck_error_log_component CHECK (component IN ('API', 'INFERENCE', 'FRONTEND', 'BATCH'))  -- 허용값: API / INFERENCE / FRONTEND / BATCH
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-43 오류 기록 — 운영 중 오류';
 
--- 끝: 테이블 17개, 컬럼 122개, UK 11개, FK 19개, CHECK 55개
+-- ---------------------------------------------------------------------
+-- T-44 input_result — 입력 처리 결과 (근거 건의안 0001 #1)
+-- ---------------------------------------------------------------------
+CREATE TABLE input_result (
+  monitor_session_id BIGINT NOT NULL COMMENT '소속 세션',
+  input_seq BIGINT NOT NULL COMMENT '세션 내 입력 순번',
+  input_kind VARCHAR(16) NOT NULL COMMENT '입력 종류. FEATURE: 특징값 요청, OBSERVATION: 추론 결과',
+  request_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '요청 내용의 SHA-256. 같은 순번에 다른 내용이 오면 거부',
+  observation JSON NOT NULL COMMENT '추론 결과(점수·유효 여부). 영상·랜드마크·원본 변화량은 넣지 않음',
+  process_status VARCHAR(16) NOT NULL COMMENT '처리 상태',
+  rejection_status INT NOT NULL DEFAULT 0 COMMENT '거부 시 HTTP 상태 코드. 0: 거부되지 않음',
+  CONSTRAINT pk_input_result PRIMARY KEY (monitor_session_id, input_seq),
+  CONSTRAINT fk_input_result_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-22
+  CONSTRAINT ck_input_result_input_seq CHECK (input_seq >= 0),  -- 허용값: 0 이상
+  CONSTRAINT ck_input_result_input_kind CHECK (input_kind IN ('FEATURE', 'OBSERVATION')),  -- 허용값: FEATURE / OBSERVATION
+  CONSTRAINT ck_input_result_process_status CHECK (process_status IN ('PENDING', 'CONFIRMED', 'REJECTED')),  -- 허용값: PENDING / CONFIRMED / REJECTED
+  CONSTRAINT ck_input_result_rejection_status CHECK (rejection_status >= 0)  -- 허용값: 0 이상
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-44 입력 처리 결과 — 측정 중 입력을 순번별로 기록. 같은 요청 재전송 시 저장된 결과를 돌려줘 중복 집계를 막음. 보관: 세션 종료 후 5년';
+
+-- ---------------------------------------------------------------------
+-- T-45 cep_outbox — CEP 전달 대기 (근거 건의안 0001 #2)
+-- ---------------------------------------------------------------------
+CREATE TABLE cep_outbox (
+  monitor_session_id BIGINT NOT NULL COMMENT '전달할 입력의 세션',
+  input_seq BIGINT NOT NULL COMMENT '전달할 입력의 순번',
+  completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'CEP가 받았는지',
+  CONSTRAINT pk_cep_outbox PRIMARY KEY (monitor_session_id, input_seq),
+  CONSTRAINT fk_cep_outbox_input_result FOREIGN KEY (monitor_session_id, input_seq) REFERENCES input_result (monitor_session_id, input_seq) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-23
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-45 CEP 전달 대기 — CEP에 아직 전달되지 않은 입력 표시. CEP 재시작 시 여기서 다시 보냄. 보관: 세션 종료 후 5년';
+
+-- ---------------------------------------------------------------------
+-- T-46 confirmed_snapshot — 확정 요약 (근거 건의안 0001 #3)
+-- ---------------------------------------------------------------------
+CREATE TABLE confirmed_snapshot (
+  monitor_session_id BIGINT NOT NULL COMMENT '소속 세션',
+  snapshot_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '요약의 SHA-256',
+  payload JSON NOT NULL COMMENT '확인된 세션 요약(통계·사건 수). 원 관측은 넣지 않음',
+  CONSTRAINT pk_confirmed_snapshot PRIMARY KEY (monitor_session_id, snapshot_fingerprint),
+  CONSTRAINT fk_confirmed_snapshot_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-24
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-46 확정 요약 — 확인 응답을 보낸 시점의 세션 요약. 응답 유실 시 확정 범위 증명. 보관: 세션 종료 후 5년';
+
+-- ---------------------------------------------------------------------
+-- T-47 cep_cleanup — CEP 정리 재시도 (근거 건의안 0001 #4)
+-- ---------------------------------------------------------------------
+CREATE TABLE cep_cleanup (
+  client_session_uuid VARCHAR(36) NOT NULL COMMENT '지워진 세션의 클라이언트 식별자. 세션 행이 지워진 뒤에도 남아야 하므로 FK 없음',
+  created_at DATETIME(3) NOT NULL COMMENT '정리 요청 시각',
+  attempted_at DATETIME(3) NULL COMMENT '마지막 재시도 시각. NULL: 아직 시도 안 함',
+  CONSTRAINT pk_cep_cleanup PRIMARY KEY (client_session_uuid),
+  CONSTRAINT ck_cep_cleanup_client_session_uuid CHECK (CHAR_LENGTH(client_session_uuid) = 36)  -- 허용값: UUID
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-47 CEP 정리 재시도 — 세션·계정 삭제 후 CEP 쪽 정리 재시도 목록. 정리가 끝나면 지우고, 끝나지 않은 행은 생성 후 5년 뒤 지움';
+
+-- ---------------------------------------------------------------------
+-- T-48 SPRING_SESSION — 로그인 세션 (근거 건의안 0001 #5)
+-- ---------------------------------------------------------------------
+CREATE TABLE SPRING_SESSION (
+  PRIMARY_ID CHAR(36) NOT NULL,
+  SESSION_ID CHAR(36) NOT NULL,
+  CREATION_TIME BIGINT NOT NULL,
+  LAST_ACCESS_TIME BIGINT NOT NULL,
+  MAX_INACTIVE_INTERVAL INT NOT NULL,
+  EXPIRY_TIME BIGINT NOT NULL,
+  PRINCIPAL_NAME VARCHAR(100),
+  CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID),
+  UNIQUE KEY SPRING_SESSION_IX1 (SESSION_ID)  -- UK-13
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- T-49 SPRING_SESSION_ATTRIBUTES — 로그인 세션 속성 (근거 건의안 0001 #5)
+-- ---------------------------------------------------------------------
+CREATE TABLE SPRING_SESSION_ATTRIBUTES (
+  SESSION_PRIMARY_ID CHAR(36) NOT NULL,
+  ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
+  ATTRIBUTE_BYTES BLOB NOT NULL,
+  CONSTRAINT SPRING_SESSION_ATTRIBUTES_PK PRIMARY KEY (SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
+  CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- T-50 client_record — 앱 기록 원문 (근거 건의안 0001 #8)
+-- ---------------------------------------------------------------------
+CREATE TABLE client_record (
+  user_account_id BIGINT NOT NULL COMMENT '기록 소유자',
+  client_record_id VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '앱이 만든 기록 식별자',
+  record_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '같은 식별자 재전송 시 내용 일치 확인용 SHA-256',
+  payload JSON NOT NULL COMMENT '기록 원문(요약·사건·적용 설정). 영상·좌표 없음',
+  created_at DATETIME(3) NOT NULL COMMENT '저장 시각',
+  CONSTRAINT pk_client_record PRIMARY KEY (user_account_id, client_record_id),
+  CONSTRAINT fk_client_record_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-26
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-50 앱 기록 원문 — 앱이 측정 종료 때 만든 기록 원문(JSON). 임시 — 세션·이벤트로 기록 화면을 다시 만들 수 있게 되면 없앤다';
+
+-- 끝: 테이블 24개, 컬럼 156개, UK 12개, FK 24개, CHECK 62개
