@@ -326,3 +326,8 @@ posture-pilot-*.csv
 .claude/*
 !.claude/skills/
 !.claude/skills/**
+
+# Desktop app build output (PoseGood.exe)
+frontend/release/
+frontend/PoseGood.exe
+frontend/packaging.log

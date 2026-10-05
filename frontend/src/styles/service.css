@@ -1,0 +1,275 @@
+/* ---------- Service-wide pieces: notices, floating camera window, record rows ---------- */
+
+.service-main [hidden] {
+  display: none !important;
+}
+
+.service-notice {
+  position: fixed;
+  top: calc(var(--titlebar-h) + 14px);
+  left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
+  z-index: 60;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - var(--sidebar-w) - 48px));
+  padding: 12px 12px 12px 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-float);
+  font-size: 14px;
+  animation: notice-in var(--dur, 260ms) var(--ease-soft, ease-out);
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
+.service-main > [role='status']:not(.service-notice),
+.service-main > [role='alert'] {
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Floating camera window shown while the camera stays on outside the measure tab. */
+.camera-window-controls {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  width: min(320px, calc(100vw - 32px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--bg-side);
+  box-shadow: var(--shadow-float);
+}
+
+.camera-window-controls.is-expanded {
+  resize: both;
+  min-width: min(260px, calc(100vw - 32px));
+}
+
+.camera-window-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.camera-window-drag,
+.camera-window-collapse {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.camera-window-drag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: move;
+  touch-action: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.camera-window-drag::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.camera-window-collapse {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.camera-window-controls video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  transform: scaleX(-1);
+  border-radius: var(--radius-md);
+  background: var(--cam);
+}
+
+.camera-window-controls .row {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.camera-window-controls .fine {
+  margin: 8px 0 0;
+}
+
+.camera-window-view {
+  font-family: var(--font-body);
+  padding: 12px;
+  background: var(--bg-side);
+  color: var(--ink);
+}
+
+.camera-window-view video {
+  width: 100%;
+  border-radius: 12px;
+  transform: scaleX(-1);
+}
+
+/* One saved measurement in a list. */
+.service-record {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.service-record-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--primary-ink);
+}
+
+.service-record strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.service-record > div > span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.service-record b {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.service-record b.good {
+  color: var(--good);
+}
+
+.service-bar {
+  height: 8px;
+  border-radius: var(--pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.service-bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--pill);
+  background: var(--primary);
+}
+
+.history-record + .history-record {
+  border-top: 1px solid var(--line);
+}
+
+.service-main .toast {
+  right: 24px;
+  bottom: 24px;
+}
+
+/* Bottom-right popups for storage permission and integrity notices. */
+.popup-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, calc(100vw - 40px));
+}
+
+.popup {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  animation: popup-in var(--dur, 260ms) var(--ease-soft, ease-out);
+}
+
+@keyframes popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+.popup-icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+
+.popup.is-alert .popup-icon {
+  background: var(--alert-tint);
+  color: var(--alert);
+}
+
+.popup-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.popup-title {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.popup-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.popup-body .btn {
+  margin-top: 4px;
+}

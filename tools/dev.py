@@ -3,81 +3,26 @@
 `make <target>` delegates here. Without make, run `python tools/dev.py <target>`.
 """
 
-import os
-import shutil
 import subprocess
 import sys
-from pathlib import Path
 
+if __package__:
+    from .server_dev import dev_server
+else:
+    from server_dev import dev_server
 
-ROOT = Path(__file__).resolve().parents[1]
-VENV = ROOT / ".venv"
-
-
-def venv_python():
-    # Windows venvs put the interpreter in Scripts/, POSIX venvs in bin/.
-    return VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-
-
-def run(*command):
-    print("$ " + " ".join(str(part) for part in command), flush=True)
-    subprocess.run([str(part) for part in command], cwd=ROOT, check=True)
-
-
-def npm(*args):
-    executable = shutil.which("npm")
-    if executable is None:
-        sys.exit("npm을 찾을 수 없습니다. Node.js 24 이상을 설치하세요.")
-    run(executable, "--prefix", "frontend", *args)
-
-
-def setup_python():
-    run(sys.executable, "-m", "venv", VENV)
-    run(venv_python(), "-m", "pip", "install", "-r", "requirements-dev.txt")
-
-
-def setup_frontend():
-    npm("ci")
-    npm("run", "assets")
-
-
-def setup():
-    setup_python()
-    setup_frontend()
-
-
-def check_repo():
-    run(sys.executable, "tools/check_repository.py")
-
-
-def test():
-    if not venv_python().exists():
-        sys.exit("가상환경이 없습니다. 먼저 setup을 실행하세요: python tools/dev.py setup")
-    run(venv_python(), "-m", "unittest", "discover", "-s", "tests", "-v")
-
-
-def check_frontend():
-    npm("run", "check")
-
-
-def check_board():
-    run("node", "--check", "tools/project-board/app.js")
-    run(sys.executable, "tools/project-board/work.py", "check")
-
-
-def check():
-    check_repo()
-    test()
-    check_frontend()
-    check_board()
-
-
-def board():
-    run(sys.executable, "tools/project-board/launch.py")
-
-
-def dev():
-    npm("run", "dev")
+if __package__:
+    from .dev_tasks import (
+        benchmark_server, board, check, check_backend, check_board, check_browser, check_compose,
+        check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
+        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
+    )
+else:
+    from dev_tasks import (
+        benchmark_server, board, check, check_backend, check_board, check_browser, check_compose,
+        check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
+        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
+    )
 
 
 COMMANDS = {
@@ -85,12 +30,22 @@ COMMANDS = {
     "setup-python": setup_python,
     "setup-frontend": setup_frontend,
     "check": check,
+    "check-local": check_local,
+    "check-compose": check_compose,
+    "init-compose": init_compose,
     "check-repo": check_repo,
     "test": test,
     "check-frontend": check_frontend,
-    "dev": dev,
     "check-board": check_board,
     "board": board,
+    "check-backend": check_backend,
+    "check-browser": check_browser,
+    "benchmark-server": benchmark_server,
+    "dev": dev,
+    "dev-api": dev_api,
+    "dev-cep": dev_cep,
+    "dev-inference": dev_inference,
+    "dev-server": dev_server,
 }
 
 
