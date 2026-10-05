@@ -2523,9 +2523,75 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "9a9c77f1-9f0b-433c-baf4-e6f6f5d93f2a",
+      "title": "DB 건의안: 스키마 V0.3 보완 마이그레이션",
+      "category": "DB",
+      "source": "database/proposals/0001-v03-supplement.md",
+      "body": "V0.3 기준 전환 시 V1의 운영 기능(중복 재전송·CEP 복구·로그인·동의·기록 원문)과 나이·직업을 추가 마이그레이션으로 건의. DB 담당 검토 대기. 관련: 계획 0021.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "건의안 작성 완료(1~11번). DB 담당(sunshine-yj) 검토 대기. 판정값은 DEFAULT_TEMP 사용, 동의는 기존 service-v1·학습용 선택 동의를 T-41로 이관 제안, 나이·직업 추가 제안.",
+      "updated": "2026-10-05T06:39:14.444448+00:00",
+      "log": [
+        {
+          "at": "2026-10-05T06:39:04.625670+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-05T06:39:14.444448+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "건의안 작성 완료(1~11번). DB 담당(sunshine-yj) 검토 대기. 판정값은 DEFAULT_TEMP 사용, 동의는 기존 service-v1·학습용 선택 동의를 T-41로 이관 제안, 나이·직업 추가 제안."
+        }
+      ],
+      "stage": "contracts",
+      "number": "GP-0067",
+      "priority": 0,
+      "size": 1,
+      "order": 67,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "d01d6a21-da41-494f-8243-4d2bfd046166",
+      "title": "서비스 DB를 스키마 V0.3 기준으로 전환",
+      "category": "백엔드",
+      "source": "docs/plans/active/0021-db-schema-v03-alignment.md",
+      "body": "jin_app 백엔드(V1 테이블)를 develop V0.3 + 건의안 GP-0067 마이그레이션으로 전환. 건의안 승인 대기.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "",
+      "updated": "2026-10-05T06:39:13.874575+00:00",
+      "log": [
+        {
+          "at": "2026-10-05T06:39:13.874575+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0068",
+      "priority": 0,
+      "size": 1,
+      "order": 68,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 67
+  "nextNumber": 69
 }
