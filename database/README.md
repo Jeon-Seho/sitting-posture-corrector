@@ -13,7 +13,7 @@ MySQL 서비스 스키마의 실행 파일(스키마·시드·마이그레이션
 | 1 | `schema/schema_V1_1.sql` | 데이터베이스 `posture_service`와 테이블 24개 생성 | — |
 | 2 | `seed/seed_01_feature_def.sql` | 특징값 3개 | 테이블이 있어야 한다 |
 | 3 | `seed/seed_02_safety_range.sql` | 절대 안전 범위 | 특징값을 참조한다 (현재 행 없음) |
-| 4 | `seed/seed_03_model_version.sql` | 규칙 기반 모델 1건 | — |
+| 4 | `seed/seed_03_model_version.sql` | 규칙 기반 모델 2건 | — |
 | 5 | `seed/seed_04_threshold_policy.sql` | 기본 판정 정책 1건 | — |
 
 ```bash
@@ -26,7 +26,7 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 새 DB에는 `migrations/`를 적용하지 않는다. 변경분이 `schema_V1_1.sql`에 이미 들어 있어서 적용하면 실패한다.
 
-**적용 후 확인** — 테이블 24개, `feature_def` 3행, `safety_range` 0행, `model_version` 1행, `threshold_policy` 1행이면 정상이다.
+**적용 후 확인** — 테이블 24개, `feature_def` 3행, `safety_range` 0행, `model_version` 2행, `threshold_policy` 1행이면 정상이다.
 
 **이미 만든 DB를 V1.1로 올릴 때** — `schema_V0_3.sql`이나 `schema_V1_0.sql`로 만든 DB는 지우지 않고 `migrations/`를 번호순으로 적용한다. 두 파일로 만든 DB는 구조가 같다. 데이터는 그대로 남는다.
 
@@ -79,7 +79,8 @@ database/
 │   ├── 006_add_auth_epoch_user_account.sql
 │   ├── 007_create_client_record.sql
 │   ├── 008_alter_excluded_interval_reason.sql
-│   └── 009_add_profile_user_account.sql
+│   ├── 009_add_profile_user_account.sql
+│   └── 010_insert_model_version_reference.sql
 └── erd/
     ├── posture_erd.drawio             ← 원본 (개념·논리 2페이지)
     ├── posture_erd_concept.png
@@ -126,7 +127,6 @@ database/
 |---|---|
 | T-36 `collapse_type`, `collapse_event.collapse_type_code`, FK-15 | 붕괴 유형 코드 체계(3·2·7종) 미결 |
 | T-41 `user_consent`, UK-08, FK-19 | 서비스 학습 동의 범위 미결 (건의안 0001 #7도 보류) |
-| `model_version` 행 `REFERENCE-RULE-1` | 서버 판정 규칙의 `feature_version` 값 미결 (건의안 0001 #10) |
 
 **인덱스** — 보조 인덱스는 넣지 않았다. 인덱스는 DB-05에서 쿼리 목록을 먼저 만든 뒤 설계하고, 테이블 생성과 다른 파일로 둔다(작업규칙 4.7).
 
@@ -156,7 +156,7 @@ database/
 |---|---|---|---|
 | `seed_01_feature_def.sql` | 특징값 3개 (`HEAD_GAP`, `LATERAL_OFFSET`, `SHOULDER_TILT`) | 기준 자세를 저장할 수 없다 | 프로토타입 기준. SFR-014 목록이 확정되면 추가 |
 | `seed_02_safety_range.sql` | 절대 안전 범위 | 기준 자세 등록 시 안전 범위 검사(BR-04)를 못 한다 | **행 없음** — 값의 근거가 없다 (모델 + PI가 측면 검증 후 결정) |
-| `seed_03_model_version.sql` | 규칙 기반 모델 1건 (`RULE-PROTO-1`) | 측정 세션을 만들 수 없다 | 확정 |
+| `seed_03_model_version.sql` | 규칙 기반 모델 2건 (`RULE-PROTO-1` 프로토타입 규칙, `REFERENCE-RULE-1` 서버 규칙 — 점수 계산은 같다) | 측정 세션을 만들 수 없다 | 확정 |
 | `seed_04_threshold_policy.sql` | 기본 판정 정책 1건 (`DEFAULT_TEMP`) | 회원가입을 할 수 없다 | **임시값** |
 
 **기본 판정 정책의 임시값**
@@ -179,9 +179,9 @@ database/
 - **이미 적용된 파일은 수정하지 않는다.** 변경은 새 번호 파일로 추가한다.
 - 한 파일은 한 목적만 담는다.
 - 인덱스는 테이블 생성과 다른 파일에 둔다. 초기 적재 때 인덱스 없이 넣기 위해서다.
-- 파일은 `SET NAMES utf8mb4;`로 시작한다. 빠지면 접속 문자셋에 따라 한글 설명이 깨진 채 저장된다.
+- migration과 시드 파일은 `SET NAMES utf8mb4;`로 시작한다. 빠지면 접속 문자셋에 따라 한글이 깨진 채 저장된다.
 - 새 DB는 최신 스키마 파일로 만들고, `migrations/`는 이미 만든 DB를 올릴 때만 적용한다.
-- 현재 파일 001~009는 V1.0 → V1.1 변경분이다 (CR-03, DB 건의안 0001).
+- 현재 파일 001~010은 V1.0 → V1.1 변경분이다 (CR-03, DB 건의안 0001). 010은 데이터(모델 버전 행)라 새 DB에는 시드 `seed_03`으로 들어간다.
 
 ---
 
@@ -194,7 +194,7 @@ database/
 | 3 | 애플리케이션 기동 → 연결·기본 조회 성공 | **백엔드 연결 후 확인** — 대신 아래 무결성 검증으로 기본 쓰기·조회를 확인 |
 | 4 | 롤백(데이터베이스 삭제 후 재적용) 1회 성공 | 통과 |
 
-**V1.0 + 마이그레이션 = V1.1** — `schema_V1_0.sql`에 001~009를 적용한 결과와 `schema_V1_1.sql`로 만든 결과를 `information_schema`로 비교했다. 컬럼·설명·키·CHECK·FK 동작·인덱스가 모두 같다. 데이터가 있는 V1.0 DB에 적용해도 기존 행이 유지된다.
+**V1.0 + 마이그레이션 = V1.1** — `schema_V1_0.sql`에 001~010을 적용한 결과와 `schema_V1_1.sql`로 만든 결과를 `information_schema`로 비교했다. 컬럼·설명·키·CHECK·FK 동작·인덱스가 모두 같고, 시드까지 적용한 뒤의 마스터 데이터(모델 버전·특징값·판정 정책)도 같다. 데이터가 있는 V1.0 DB에 적용해도 기존 행이 유지된다.
 
 **무결성 검증 — 기존 57개 항목과 V1.1 추가분 28개 항목 모두 통과.** 테스트 계정(`test-*@example.invalid`)으로 확인한 뒤 데이터베이스를 지우고 다시 만들었다.
 
@@ -225,7 +225,8 @@ database/
 | 기준 자세 재등록 | 한 트랜잭션에서 **기존 기준의 `deactivated_at`을 먼저 채우고** 새 기준을 넣는다. 순서가 반대면 활성 기준이 2개가 돼 거부된다 | D-27, UK-11 |
 | 설정 변경 | 같은 값 조합의 정책을 찾고, 없으면 새로 넣는다(`created_by='USER'`, 이름 없음). 그다음 사용자가 그 정책을 가리키게 한다. 정책 행은 UPDATE하지 않는다 | BR-64, BR-65 |
 | 안전 범위 검사 | 범위 행이 없는 특징값은 검사를 건너뛰고 로그를 남긴다 | seed_02 |
-| 기준 자세의 특징값 버전 | `FEAT-PROTO-1` (모델 버전 `RULE-PROTO-1`과 같은 값) | seed_03 |
+| 기준 자세의 특징값 버전 | `FEAT-PROTO-1` (모델 버전 `RULE-PROTO-1`·`REFERENCE-RULE-1`과 같은 값) | seed_03 |
+| 세션의 모델 버전 | 서버 규칙(`reference-feature-rule-v1`)으로 판정한 세션은 `model_version_code`에 `REFERENCE-RULE-1`을 넣는다 | 건의안 0001 #10 |
 | 삭제 배치 | 파일 먼저, 행은 하위부터, 사용자 한 명 단위 트랜잭션 | DB-04 6장 |
 | 오류 메시지 | 이메일 등 식별 정보를 넣지 않는다 | DB-04 9장 #5 |
 | 입력 처리 결과 | `input_kind`는 `FEATURE`·`OBSERVATION`, `process_status`는 `PENDING`·`CONFIRMED`·`REJECTED`로 대문자로 저장한다 | 건의안 0001 #1 |

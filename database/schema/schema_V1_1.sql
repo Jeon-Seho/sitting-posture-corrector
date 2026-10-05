@@ -2,14 +2,15 @@
 -- 자세교정 서비스 스키마 — schema_V1_1.sql
 -- 명세서: DB 명세서 V1.1 (CHANGED) — V1.0 + CR-03 (DB 건의안 0001 승인 항목)
 --   문서(DB-01~04·명세서)의 V1.1 반영은 아직이다. 문서 반영 때 맞춘다.
--- 새 DB는 이 파일 하나로 만든다. V1.0으로 운영 중인 DB에는 migrations/ 001~009를 번호순으로 적용한다.
+-- 새 DB는 이 파일과 시드로 만든다. V1.0으로 운영 중인 DB에는 migrations/ 001~010을 번호순으로 적용한다.
 --   두 방법의 결과는 같다 (2026-10-05 검증).
 -- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제, 함수 기반 유니크 키 사용)
 -- 생성: 2026-10-05 (명세서 원천에서 자동 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
 --
 -- 범위: 24개 테이블 (V1.0 17개 + T-44~T-50 7개).
 --   제외 — T-36 collapse_type, T-41 user_consent, collapse_event.collapse_type_code, UK-08, FK-15, FK-19
---   보류 — 건의안 0001 #7 user_consent(T-41), #10 model_version 행 REFERENCE-RULE-1
+--   보류 — 건의안 0001 #7 user_consent(T-41)
+-- 건의안 0001 #10 model_version 행 REFERENCE-RULE-1은 데이터라 이 파일에 없다 — seed_03(새 DB)과 migrations/010(기존 DB)으로 넣는다.
 -- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의를 그대로 쓴다.
 --   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
 --   서버 DB는 이 파일이나 migrations/로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
