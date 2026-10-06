@@ -9,6 +9,7 @@ import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
 import type { SessionService } from './types'
+import { KafkaFeatureRecorder } from './kafkaExport'
 
 type Options = {
   rules: Rules
@@ -32,6 +33,36 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '',
   )
   const isCamera = mode === 'camera'
+  const recorder = useRef<KafkaFeatureRecorder | null>(null)
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
+  const [exportCount, setExportCount] = useState(0)
+  useEffect(() => {
+    if (!service?.sessionId || !isCamera) return
+    return camera.subscribe((observation) => {
+      if (!recorder.current) {
+        if (!camera.baseline || !camera.calibrationId) return
+        recorder.current = new KafkaFeatureRecorder({
+          sessionId: service.sessionId!,
+          userId: 'local',
+          baselineId: camera.calibrationId,
+          baseline: camera.baseline,
+          rules,
+          width: observation.width,
+          height: observation.height,
+          origin: observation.timeMs,
+          startedAt: new Date().toISOString(),
+        })
+      }
+      if (phaseRef.current !== 'running') {
+        recorder.current.pause()
+        return
+      }
+      recorder.current.push(observation.timeMs, observation.features)
+    })
+    // The recorder belongs to this session; camera identity changes do not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service?.sessionId, isCamera])
   const { live, reset, seekNext } = useSession(
     phase,
     speed,
@@ -122,6 +153,23 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     }
   }, [live.events])
 
+  /** Downloads the intervals this measurement would have sent to Kafka (JSON Lines, .txt). */
+  function exportFeatures() {
+    const current = recorder.current
+    if (!current || !current.count) return false
+    const url = URL.createObjectURL(new Blob([current.toText()], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `posegood-kafka-features-${service?.sessionId ?? 'session'}.txt`
+    link.hidden = true
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+    setExportCount(current.count)
+    return true
+  }
+
   function restartDemo() {
     lastTick.current = 0
     reset()
@@ -148,6 +196,9 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   }
 
   return {
+    exportFeatures,
+    exportCount,
+    canExport: !!service?.sessionId && isCamera,
     rules,
     phase,
     setPhase,

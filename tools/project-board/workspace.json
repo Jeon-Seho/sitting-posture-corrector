@@ -5379,9 +5379,54 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "a8988874-6909-44a6-95c1-a93618fbfa62",
+      "title": "측정 결과에서 Kafka 형식 측정 데이터 저장(txt)",
+      "category": "프론트",
+      "source": "contracts/realtime/README.md",
+      "body": "동욱 요청(2026-10-06): 측정 중 몸 이동·비틀기로 점수가 깎이는 원인 분석용. 로컬 카메라 측정 동안 posture.features.v1로 보냈어야 할 입력 v2 구간을 메모리에 모으고, 결과 화면 '측정 데이터 저장'으로 JSON Lines(.txt) 내려받기. '저장 다시 시도'는 저장 실패 때만 표시, 저장 완료 문구를 '기록 탭'으로 수정.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "구현: frontend/src/features/session/kafkaExport.ts(KafkaFeatureRecorder, 인접 프레임 구간·1초 초과 공백 미보충·쉬는 동안 미기록·최대 108,000구간), useSessionScreen 카메라 구독, SessionResult 버튼(저장 실패 시에만 재시도), useSessionPersistence.saveFailed. 검증: 기록기 테스트 4개, 프론트 280개·tsc 통과, 샘플 출력이 contracts/realtime/kafka-features.v1 스키마 무오류. 동욱 실측 확인 대기",
+      "updated": "2026-10-06T11:03:34.092207+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T11:03:33.123461+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T11:03:33.589567+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수"
+        },
+        {
+          "at": "2026-10-06T11:03:34.092207+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "구현: frontend/src/features/session/kafkaExport.ts(KafkaFeatureRecorder, 인접 프레임 구간·1초 초과 공백 미보충·쉬는 동안 미기록·최대 108,000구간), useSessionScreen 카메라 구독, SessionResult 버튼(저장 실패 시에만 재시도), useSessionPersistence.saveFailed. 검증: 기록기 테스트 4개, 프론트 280개·tsc 통과, 샘플 출력이 contracts/realtime/kafka-features.v1 스키마 무오류. 동욱 실측 확인 대기"
+        }
+      ],
+      "stage": "data",
+      "number": "GP-0123",
+      "priority": 0,
+      "size": 1,
+      "order": 123,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 123
+  "nextNumber": 124
 }
