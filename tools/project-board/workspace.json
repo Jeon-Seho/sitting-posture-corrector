@@ -5310,9 +5310,48 @@
       "performedBy": "우진(Lellon_CL)",
       "evidence": "GitHub 사전 릴리스 v0.1.0-preview.20261006 (b07d2f9), PoseGood-Windows-x64-b07d2f9.zip 264,915,795B 75파일 CRC 통과, desktop:pack·smoke(620ms) 통과",
       "number": "GP-0118"
+    },
+    {
+      "id": "9f74222f-8541-40f7-bb6e-0000c90ab7d4",
+      "title": "기록 화면 배치 교체·오늘 카드 이동·흐트러진 방향 대표값",
+      "category": "프론트",
+      "source": "docs/design/desktop-app.md",
+      "body": "로그인 소개 문구 1줄 삭제. 사이드바 오늘 바른 자세 카드 클릭 시 오늘 기간 기록으로 이동. 기록 화면에서 측정 기록 목록(왼쪽 넓은 칸)과 처음/최근 비교(오른쪽)를 교체. 흐트러진 방향이 확정 순간 한 프레임으로 정해지던 문제를 확정 대기 구간의 대표 방향으로 바꾸고 횟수와 5회 미만 참고 안내 표시.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 28f7011. 프론트 277개·타입·브라우저 73개 통과. 합성 기록으로 화면 배치 확인. 실제 기록 화면 사용자 검수 대기",
+      "updated": "2026-10-06T10:39:06.181511+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T10:38:53.136308+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T10:39:06.181511+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 28f7011. 프론트 277개·타입·브라우저 73개 통과. 합성 기록으로 화면 배치 확인. 실제 기록 화면 사용자 검수 대기"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0122",
+      "priority": 0,
+      "size": 1,
+      "order": 122,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 122
+  "nextNumber": 123
 }
