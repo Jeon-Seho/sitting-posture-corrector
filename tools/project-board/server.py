@@ -180,6 +180,12 @@ def validate_ai(by):
     if by not in valid: raise ValueError("AI 표기는 GitHub계정_GPT 또는 GitHub계정_CL입니다. 우진: Lellon_GPT / Lellon_CL. 미등록 계정은 team.json에 먼저 확인·등록하세요.")
 
 
+def default_assignees(category, team=None):
+    """Members whose confirmed role covers a card category (team.json `categories`)."""
+    team = team if team is not None else json.loads((HERE / "team.json").read_text(encoding="utf-8"))
+    return [p["name"] for p in team if category in p.get("categories", [])]
+
+
 def author_member(name, email, team, known_emails=None):
     matches = set()
     username = email.split("@", 1)[0].split("+")[-1].casefold() if email.lower().endswith("@users.noreply.github.com") else ""

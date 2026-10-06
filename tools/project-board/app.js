@@ -8,6 +8,8 @@ let docs=[], workspace={cards:[],notes:[],assignments:{}}, version='', current='
 let activity={team:[],commits:[]},activityError='';
 /** Completed work counts for its performer: names, GitHub/aliases and `<github>_GPT|_CL` AI ids (team.json). */
 function performers(text){const words=String(text||'').split(/[\s,·/()]+/).filter(Boolean).map(w=>w.replace(/_(GPT|CL)$/i,'').toLowerCase());return MEMBERS.filter(m=>{const p=activity.team.find(t=>t.name===m),names=[m,p?.github,p?.aiPrefix,...(p?.aliases||[])].filter(Boolean).map(n=>n.toLowerCase());return words.some(w=>names.includes(w));});}
+/** New cards start with the members whose confirmed role covers the category (team.json `categories`). */
+const roleMembers=category=>MEMBERS.filter(m=>(activity.team.find(t=>t.name===m)?.categories||[]).includes(category));
 const involves=(t,m)=>t.assignees.includes(m)||(t.status==='completed'&&performers(t.performedBy).includes(m));
 let pendingTask='';
 let remoteSnapshot=null,checkingRemotes=false;
@@ -218,7 +220,9 @@ function openEditor(kind,id=''){
  $('item-source').value=item?.source||'';
  for(const key of ['item-title','item-body','item-status','item-source'])$(key).disabled=kind==='plan';
  $('author-label').hidden=kind!=='notes';
- $('item-assignees').innerHTML=MEMBERS.map(m=>`<label><input type="checkbox" value="${m}" ${(item?.assignees||[]).includes(m)?'checked':''}>${m}</label>`).join('');
+ const initial=kind==='card'&&!item?roleMembers($('item-category').value):(item?.assignees||[]);
+ $('item-assignees').innerHTML=MEMBERS.map(m=>`<label><input type="checkbox" value="${m}" ${initial.includes(m)?'checked':''}>${m}</label>`).join('');
+ $('item-category').onchange=kind==='card'&&!item?()=>{const roles=roleMembers($('item-category').value);$('item-assignees').querySelectorAll('input').forEach(el=>el.checked=roles.includes(el.value));}:null;
  $('delete-item').hidden=!id||kind==='plan';$('editor-error').textContent='';$('save-item').disabled=false;
  $('ai-result').hidden=!item?.result;$('ai-result').textContent=item?.result?`${item.agent||'AI'} 처리 기록\n${item.result}`:'';
  $('source-link').hidden=!item?.source;$('source-link').href=docURL(item?.source||'');$('source-link').onclick=()=>{$('editor').close();};

@@ -158,6 +158,17 @@ class BoardTests(unittest.TestCase):
         self.assertIsNone(board.author_member("sunshine", "unknown@example.com", team))
         self.assertIsNone(board.author_member("lellon", "shared@example.com", team, {"shared@example.com": {"우진", "세호"}}))
 
+    def test_new_cards_default_to_members_with_the_confirmed_role(self):
+        team = json.loads((board.HERE / "team.json").read_text(encoding="utf-8"))
+        self.assertEqual(board.default_assignees("프론트", team), ["우진", "동욱"])
+        self.assertEqual(board.default_assignees("머신러닝", team), ["지성"])
+        self.assertEqual(board.default_assignees("DB", team), ["유진"])
+        for category in ("데브옵스", "백엔드", "서버"):
+            self.assertEqual(board.default_assignees(category, team), ["홍규"])
+        # PM and paper work have no category default; they are assigned explicitly.
+        self.assertEqual(board.default_assignees("논문", team), [])
+        self.assertEqual(board.default_assignees("미지정", [{"name": "x"}]), [])
+
     def test_document_shelves_include_shared_topics(self):
         self.assertIn("프론트", board.groups("frontend/README.md", "프론트"))
         self.assertIn("머신러닝", board.groups("docs/research/protocol.md", "연구 프로토콜"))

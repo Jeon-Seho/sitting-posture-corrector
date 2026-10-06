@@ -9,7 +9,7 @@ import urllib.request
 import urllib.error
 import uuid
 
-from server import ROOT, HERE, CATEGORIES, STATUSES, STAGES, documents, read_store, git_activity, validate_ai
+from server import ROOT, HERE, CATEGORIES, STATUSES, STAGES, default_assignees, documents, read_store, git_activity, validate_ai
 
 URL = "http://127.0.0.1:8774"
 FOLDERS = dict(zip(CATEGORIES, ("frontend", "backend", "devops", "server", "machine-learning", "paper", "database")))
@@ -165,6 +165,7 @@ def main():
             target = safe_path(source)
             if target.exists(): raise ValueError("이미 존재하는 문서입니다. 기존 작업을 조회해서 이어가세요.")
         card = new_card(args.title, args.category, source, args.body, args.by)
+        card["assignees"] = default_assignees(args.category)
         card["stage"] = args.stage
         data["cards"].append(card)
     else:

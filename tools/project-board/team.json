@@ -7,6 +7,9 @@
       "lellon0403",
       "lellon",
       "우진"
+    ],
+    "categories": [
+      "프론트"
     ]
   },
   {
@@ -16,6 +19,9 @@
       "klaod-tech",
       "Leo",
       "동욱"
+    ],
+    "categories": [
+      "프론트"
     ]
   },
   {
@@ -24,7 +30,8 @@
     "aliases": [
       "Jeon-Seho",
       "세호"
-    ]
+    ],
+    "categories": []
   },
   {
     "name": "유진",
@@ -32,6 +39,9 @@
     "aliases": [
       "sunshine-yj",
       "유진"
+    ],
+    "categories": [
+      "DB"
     ]
   },
   {
@@ -43,6 +53,9 @@
       "지성",
       "jisung",
       "dev-jisung"
+    ],
+    "categories": [
+      "머신러닝"
     ]
   },
   {
@@ -51,6 +64,11 @@
     "aliases": [
       "ghdrb1246",
       "홍규"
+    ],
+    "categories": [
+      "데브옵스",
+      "백엔드",
+      "서버"
     ]
   }
 ]
