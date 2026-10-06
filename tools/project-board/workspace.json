@@ -3908,15 +3908,15 @@
       "category": "프론트",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "가입 후 사라진 홈 문구(님의 오늘) 대기를 새 화면의 안정적인 요소로 바꾼다. 완료: 가입→로그인→측정→기록→탈퇴 브라우저 회귀 검증. DB 정책 DEFAULT_TEMP 기대값 유지.",
-      "status": "review",
+      "status": "completed",
       "author": "",
       "assignees": [
         "우진",
         "동욱"
       ],
       "agent": "Lellon_GPT",
-      "result": "계정 smoke의 로그인 완료 대기를 authenticated sidebar .me-profile로 한정. 로그인 화면에도 나타나는 일반 텍스트로 인증 전 auth/me를 조회하던 경쟁 조건 수정. 실제 Compose CI 재검증.",
-      "updated": "2026-10-06T04:58:48.895304+00:00",
+      "result": "현재 앱의 측정하기·기록·설정·계정 메뉴 기준 검증 완료. 23bd8b0에서 push/PR Python 3.9·3.12 전체 make check 성공. 일반 브라우저 73개, 실제 계정 21개, 실제 Compose 46개, MySQL 14개(백업 복원 전후 각 실행) 통과. 과거 화면 이름 기대 제거, 저장 준비·UI 렌더 완료 대기와 UTF-8 로그 적용. 실제 카메라 검증은 GP-0093에 남음.",
+      "updated": "2026-10-06T05:16:47.827669+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -3935,6 +3935,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0090 계정 인증 완료 대기 조건 수정"
+        },
+        {
+          "at": "2026-10-06T05:16:47.827669+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "현재 앱 기준 CI 전체 성공: GP-0090·0091·0092 완료 기록"
         }
       ],
       "stage": "validation",
@@ -3944,8 +3950,8 @@
       "number": "GP-0090",
       "order": 90,
       "priorityNote": "",
-      "evidence": "",
-      "performedBy": ""
+      "evidence": "코드 커밋 23bd8b0. PR CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417176548 및 push CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417172365 모두 success. Python 154개·프론트 246개·타입·빌드·브라우저 73개·계정 21개·Compose 46개·MySQL 14개 통과.",
+      "performedBy": "우진"
     },
     {
       "id": "9d006e17-be7b-4176-95db-be093f6c6b2c",
@@ -3953,14 +3959,14 @@
       "category": "데브옵스",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "tools/account_browser_smoke.py의 cp949 디코딩 실패를 해결한다. 완료: PYTHONUTF8 없이 한글 로그를 UTF-8로 읽고 성공·실패 로그 보존 검증.",
-      "status": "review",
+      "status": "completed",
       "author": "",
       "assignees": [
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "새 데스크톱 내비게이션·계정 메뉴·기준 등록·휴식·기록 표시로 계정 smoke 갱신. 로그 UTF-8 명시. JS 구문 통과; 실제 계정 검증은 새 CI Compose에서 확인한다.",
-      "updated": "2026-10-06T04:53:58.562749+00:00",
+      "result": "현재 앱의 측정하기·기록·설정·계정 메뉴 기준 검증 완료. 23bd8b0에서 push/PR Python 3.9·3.12 전체 make check 성공. 일반 브라우저 73개, 실제 계정 21개, 실제 Compose 46개, MySQL 14개(백업 복원 전후 각 실행) 통과. 과거 화면 이름 기대 제거, 저장 준비·UI 렌더 완료 대기와 UTF-8 로그 적용. 실제 카메라 검증은 GP-0093에 남음.",
+      "updated": "2026-10-06T05:16:47.827669+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -3973,6 +3979,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0090·0091 계정 브라우저 UI·UTF-8 로그 수정, 실제 Compose 검증 대기"
+        },
+        {
+          "at": "2026-10-06T05:16:47.827669+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "현재 앱 기준 CI 전체 성공: GP-0090·0091·0092 완료 기록"
         }
       ],
       "stage": "validation",
@@ -3982,8 +3994,8 @@
       "number": "GP-0091",
       "order": 91,
       "priorityNote": "",
-      "evidence": "",
-      "performedBy": ""
+      "evidence": "코드 커밋 23bd8b0. PR CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417176548 및 push CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417172365 모두 success. Python 154개·프론트 246개·타입·빌드·브라우저 73개·계정 21개·Compose 46개·MySQL 14개 통과.",
+      "performedBy": "우진"
     },
     {
       "id": "1dad1395-9128-484e-81ce-86c3de9616b5",
@@ -3991,14 +4003,14 @@
       "category": "데브옵스",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "develop PR에서 harness와 V1.1 check-compose(백업·복원 포함)를 확인한다. 완료: CI 실행 링크·커밋·결과 기록, 실패 해결 후 통과. 로컬 합성 스택 검증으로 대체하지 않는다.",
-      "status": "in_progress",
+      "status": "completed",
       "author": "",
       "assignees": [
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "문서·Python·프론트·백엔드 통과. CI Chrome 준비 12초 초과 재현으로 60초 대기·stderr 진단 적용. 로컬 브라우저 73개 통과. 새 CI로 실제 MySQL·Compose 전체 확인 중.",
-      "updated": "2026-10-06T04:47:49.172674+00:00",
+      "result": "현재 앱의 측정하기·기록·설정·계정 메뉴 기준 검증 완료. 23bd8b0에서 push/PR Python 3.9·3.12 전체 make check 성공. 일반 브라우저 73개, 실제 계정 21개, 실제 Compose 46개, MySQL 14개(백업 복원 전후 각 실행) 통과. 과거 화면 이름 기대 제거, 저장 준비·UI 렌더 완료 대기와 UTF-8 로그 적용. 실제 카메라 검증은 GP-0093에 남음.",
+      "updated": "2026-10-06T05:16:47.827669+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -4023,6 +4035,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0112 브라우저 회귀 73개 통과, GP-0092 CI Chrome 준비 대기 보완"
+        },
+        {
+          "at": "2026-10-06T05:16:47.827669+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "현재 앱 기준 CI 전체 성공: GP-0090·0091·0092 완료 기록"
         }
       ],
       "stage": "validation",
@@ -4032,8 +4050,8 @@
       "number": "GP-0092",
       "order": 92,
       "priorityNote": "",
-      "evidence": "",
-      "performedBy": ""
+      "evidence": "코드 커밋 23bd8b0. PR CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417176548 및 push CI https://github.com/Jeon-Seho/sitting-posture-corrector/actions/runs/37417172365 모두 success. Python 154개·프론트 246개·타입·빌드·브라우저 73개·계정 21개·Compose 46개·MySQL 14개 통과.",
+      "performedBy": "우진"
     },
     {
       "id": "3421cdcc-3a9e-4e03-800c-af3311fddf5b",
