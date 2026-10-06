@@ -5342,8 +5342,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "완료(FE·문서): ADR 0012 개정(정상 복귀 3초), DEFAULT_RULES.recoverSeconds=3, 로컬 엔진 테스트·브라우저 시나리오(1·2초 미복귀, 3초 복귀 66000ms) 갱신, index·architecture·seams·team-requirements·product-spec 현재 기준 갱신. 검증: 프론트 276개·tsc, 실제 API/CEP/추론 브라우저 시나리오 74개 PASS, check-repo·work.py check 통과. 남은 것: 계정 모드 신규 사용자 기본값은 DB 시드 DEFAULT_TEMP(2초·재알림 30초)에서 오므로 DB 담당(유진)에게 확정 DEFAULT 행 추가 요청 필요. 재알림·임계값 통일은 회의 Q10",
-      "updated": "2026-10-06T10:29:03.394844+00:00",
+      "result": "확정(동욱 2026-10-06): 재알림 60초, 정상 복귀 3초. DB 기본 정책은 유진이 곧 변경 예정. DB 반영 후 함께 할 일: (1) 새 정책 이름이 DEFAULT면 API posegood.default-policy-name 변경(SchemaVerifier가 행 존재를 확인하므로 DB 반영 전 변경 금지), (2) tools/browser/accounts.mjs의 신규 계정 기대값(recoverSeconds 2·realertSeconds 30)을 3·60으로 갱신. 임계값·시간당 알림 상한 값은 유진 반영값 확인",
+      "updated": "2026-10-06T10:43:54.280628+00:00",
       "log": [
         {
           "at": "2026-10-06T10:26:05.525849+00:00",
@@ -5362,6 +5362,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "완료(FE·문서): ADR 0012 개정(정상 복귀 3초), DEFAULT_RULES.recoverSeconds=3, 로컬 엔진 테스트·브라우저 시나리오(1·2초 미복귀, 3초 복귀 66000ms) 갱신, index·architecture·seams·team-requirements·product-spec 현재 기준 갱신. 검증: 프론트 276개·tsc, 실제 API/CEP/추론 브라우저 시나리오 74개 PASS, check-repo·work.py check 통과. 남은 것: 계정 모드 신규 사용자 기본값은 DB 시드 DEFAULT_TEMP(2초·재알림 30초)에서 오므로 DB 담당(유진)에게 확정 DEFAULT 행 추가 요청 필요. 재알림·임계값 통일은 회의 Q10"
+        },
+        {
+          "at": "2026-10-06T10:43:54.280628+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "확정(동욱 2026-10-06): 재알림 60초, 정상 복귀 3초. DB 기본 정책은 유진이 곧 변경 예정. DB 반영 후 함께 할 일: (1) 새 정책 이름이 DEFAULT면 API posegood.default-policy-name 변경(SchemaVerifier가 행 존재를 확인하므로 DB 반영 전 변경 금지), (2) tools/browser/accounts.mjs의 신규 계정 기대값(recoverSeconds 2·realertSeconds 30)을 3·60으로 갱신. 임계값·시간당 알림 상한 값은 유진 반영값 확인"
         }
       ],
       "stage": "contracts",
