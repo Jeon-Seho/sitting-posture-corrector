@@ -26,7 +26,7 @@ def verify_account_browser(frontend_base):
             options = {"start_new_session": True} if os.name != "nt" else {
                 "creationflags": subprocess.CREATE_NEW_PROCESS_GROUP,
             }
-            with (artifacts / "browser-run.log").open("w") as log:
+            with (artifacts / "browser-run.log").open("w", encoding="utf-8") as log:
                 process = subprocess.Popen([
                     node, str(ROOT / "tools/account_browser_smoke.mjs"), base, chrome,
                     str(port), str(Path(temporary) / "profile"), str(artifacts),
@@ -34,7 +34,7 @@ def verify_account_browser(frontend_base):
                 try:
                     code = process.wait(timeout=150)
                     log.flush()
-                    output = (artifacts / "browser-run.log").read_text()
+                    output = (artifacts / "browser-run.log").read_text(encoding="utf-8")
                     print(output, end="", flush=True)
                     if code:
                         raise RuntimeError("Actual account browser verification failed")

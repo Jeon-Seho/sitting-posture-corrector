@@ -3908,21 +3908,27 @@
       "category": "프론트",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "가입 후 사라진 홈 문구(님의 오늘) 대기를 새 화면의 안정적인 요소로 바꾼다. 완료: 가입→로그인→측정→기록→탈퇴 브라우저 회귀 검증. DB 정책 DEFAULT_TEMP 기대값 유지.",
-      "status": "planned",
+      "status": "review",
       "author": "",
       "assignees": [
         "우진",
         "동욱"
       ],
       "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "result": "새 데스크톱 내비게이션·계정 메뉴·기준 등록·휴식·기록 표시로 계정 smoke 갱신. 로그 UTF-8 명시. JS 구문 통과; 실제 계정 검증은 새 CI Compose에서 확인한다.",
+      "updated": "2026-10-06T04:53:58.562749+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        },
+        {
+          "at": "2026-10-06T04:53:58.562749+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0090·0091 계정 브라우저 UI·UTF-8 로그 수정, 실제 Compose 검증 대기"
         }
       ],
       "stage": "validation",
@@ -3941,20 +3947,26 @@
       "category": "데브옵스",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "tools/account_browser_smoke.py의 cp949 디코딩 실패를 해결한다. 완료: PYTHONUTF8 없이 한글 로그를 UTF-8로 읽고 성공·실패 로그 보존 검증.",
-      "status": "planned",
+      "status": "review",
       "author": "",
       "assignees": [
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "result": "새 데스크톱 내비게이션·계정 메뉴·기준 등록·휴식·기록 표시로 계정 smoke 갱신. 로그 UTF-8 명시. JS 구문 통과; 실제 계정 검증은 새 CI Compose에서 확인한다.",
+      "updated": "2026-10-06T04:53:58.562749+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        },
+        {
+          "at": "2026-10-06T04:53:58.562749+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0090·0091 계정 브라우저 UI·UTF-8 로그 수정, 실제 Compose 검증 대기"
         }
       ],
       "stage": "validation",
