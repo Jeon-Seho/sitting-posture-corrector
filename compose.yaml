@@ -23,7 +23,9 @@ services:
       - ./database/seed:/posegood-db/seed:ro
     networks: [private]
     healthcheck:
-      test: [CMD, mysql, --defaults-extra-file=/run/secrets/mysql-app.cnf, --batch, --skip-column-names, --execute=SELECT 1, posture_service]
+      # Windows bind mounts show secrets as world-writable, and the mysql client ignores such
+      # option files. Use a private 0400 copy so the check authenticates on every host OS.
+      test: [CMD-SHELL, "install -m 0400 /run/secrets/mysql-app.cnf /tmp/healthcheck.cnf && mysql --defaults-extra-file=/tmp/healthcheck.cnf --batch --skip-column-names --execute='SELECT 1' posture_service"]
       interval: 5s
       timeout: 5s
       retries: 30

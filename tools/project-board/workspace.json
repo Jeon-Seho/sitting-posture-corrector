@@ -4786,9 +4786,53 @@
       "priorityNote": "",
       "evidence": "docs/persona-flow-review.md 1·2단계 화면 이름과 이전 이름 대응 문단 추가. work.py check(CI 대상 0건)·check-repo PASS",
       "performedBy": "klaod-tech_CL"
+    },
+    {
+      "id": "13ca3348-0d84-4193-b12b-ad57882c125e",
+      "title": "Windows에서 Compose MySQL healthcheck 실패 (world-writable 비밀 파일 무시)",
+      "category": "데브옵스",
+      "source": "infra/README.md",
+      "body": "Windows 바인드 마운트의 /run/secrets/mysql-app.cnf가 world-writable로 보여 mysql 클라이언트가 무시 → root 무비밀번호 접속 거부 → db unhealthy → api·frontend 미기동. healthcheck는 0400 복사본으로 접속하도록 수정. tools/deploy/backup.py·restore.py도 같은 문제(미수정).",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "Windows 11 Docker 29.8.0 로컬 검증: 수정 후 db·api·cep·inference·frontend 5개 healthy, /api/health {storage:mysql,status:ok}, 8080 로그인 화면 렌더링 확인. 공유 compose.yaml 변경이라 DevOps 검토 필요. backup.py·restore.py의 같은 문제는 미수정, Mac/Linux 재확인 미실행",
+      "updated": "2026-10-06T05:37:36.722050+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T05:36:40.154868+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T05:36:40.630973+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: compose.yaml db healthcheck 수정 후 로컬 기동 확인"
+        },
+        {
+          "at": "2026-10-06T05:37:36.722050+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "Windows 11 Docker 29.8.0 로컬 검증: 수정 후 db·api·cep·inference·frontend 5개 healthy, /api/health {storage:mysql,status:ok}, 8080 로그인 화면 렌더링 확인. 공유 compose.yaml 변경이라 DevOps 검토 필요. backup.py·restore.py의 같은 문제는 미수정, Mac/Linux 재확인 미실행"
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0114",
+      "priority": 0,
+      "size": 1,
+      "order": 114,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 114
+  "nextNumber": 115
 }
