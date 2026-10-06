@@ -4781,9 +4781,156 @@
       "priorityNote": "",
       "evidence": "python tools/dev.py check-browser(Java 21, PYTHONUTF8=1): 73개 통과. 프론트 테스트 246개 통과. frontend/src/components/ExpandableTable.tsx, 계획 0020 후속 기록.",
       "performedBy": "우진"
+    },
+    {
+      "id": "d79260c3-c73d-4d10-88ab-e9e4fb0bfc31",
+      "title": "PoseGood 부드러운 앱 아이콘 제작",
+      "category": "프론트",
+      "source": "DESIGN.md",
+      "body": "방향 제안 후 이미지 생성으로 PNG 원본과 Windows ICO 제작. 실행 파일 적용은 별도 범위.",
+      "status": "in_progress",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "작업표시줄 시인성 개선: 의자·손·발 세부 묘사 제거, 큰 실루엣·강한 색 대비·여백 축소로 v3 제작",
+      "updated": "2026-10-06T07:26:32.624670+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:05:47.963770+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:05:54.109950+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "추천 방향과 내장 도구 모델 지정 한계 안내. PNG 및 ICO 제작 착수"
+        },
+        {
+          "at": "2026-10-06T07:07:38.867249+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "방향 제안과 생성 완료. PNG 원본, 다중 해상도 ICO, 생성 프롬프트 저장. 실행 파일 적용은 요청 범위 밖이며 미검증."
+        },
+        {
+          "at": "2026-10-06T07:09:21.587652+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: 딸기우유 분홍색으로 변경하고 앱 화면·브라우저·Electron·Windows 실행 아이콘 적용"
+        },
+        {
+          "at": "2026-10-06T07:15:59.739752+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 정정 반영: 실제 base.css·빌드 CSS·로그인 화면 확인 후 크림/살구/강조색으로 v2 재제작. 로그인·사이드바·favicon·Electron·Windows 패키징·빠른 실행기에 적용하고 EXE 재생성."
+        },
+        {
+          "at": "2026-10-06T07:26:32.624670+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업표시줄 시인성 개선: 의자·손·발 세부 묘사 제거, 큰 실루엣·강한 색 대비·여백 축소로 v3 제작"
+        }
+      ],
+      "stage": "delivery",
+      "number": "GP-0113",
+      "priority": 0,
+      "size": 1,
+      "order": 113,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "npm run check: 프론트 246건 통과, TypeScript·Vite 빌드 통과. electron-builder --win --dir 및 copy-desktop.mjs 성공. 두 EXE에서 32px 아이콘 추출·시각 확인. 로그인 이미지 로딩 42px 및 적용 스크린샷 확인. ICO 7종 및 dist 포함 확인. work.py check 통과. 전체 python tools/dev.py check: Python 154건, POSIX 배포 잠금 오류 3·skip 1로 중단. OS 작업표시줄 실표시는 미검증.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "5388af44-4949-40ca-92d8-e2d68d56657e",
+      "title": "폼 입력 경고를 앱 스타일의 작은 안내로 통일",
+      "category": "프론트",
+      "source": "DESIGN.md",
+      "body": "시작하기·로그인·회원가입·프로필 폼의 브라우저 기본 검증 말풍선을 필드 아래 작은 로즈색 안내로 대체. 필수·범위·형식 검증과 초점 유지.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "브라우저 기본 말풍선을 입력칸 아래 12px 로즈 안내로 대체. 시작하기·계정 로그인/가입·프로필/비밀번호 변경 공유. 첫 오류 초점·aria 설명 연결·수정 시 안내 해제 유지. Windows 실행 파일 재생성.",
+      "updated": "2026-10-06T07:21:23.682155+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:17:11.007051+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:17:59.383851+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "공용 폼 검증과 필드 아래 작은 로즈 안내 적용 착수"
+        },
+        {
+          "at": "2026-10-06T07:21:23.682155+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "브라우저 기본 말풍선을 입력칸 아래 12px 로즈 안내로 대체. 시작하기·계정 로그인/가입·프로필/비밀번호 변경 공유. 첫 오류 초점·aria 설명 연결·수정 시 안내 해제 유지. Windows 실행 파일 재생성."
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0114",
+      "priority": 0,
+      "size": 1,
+      "order": 114,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "프론트 npm run check: 246건 통과, 타입·빌드 통과. 최종 aria-label 변경 후 build 및 electron-builder --win --dir/copy-desktop 성공. 실제 브라우저 빈칸·공백·나이 범위·경고 해제·첫 오류 초점·noValidate 확인 및 스크린샷 저장. work.py check 통과. 전체 python tools/dev.py check: Python 154건, POSIX 배포 오류 3·skip 1로 중단. 서버 인증 실연결·패키징 앱의 경고 실표시는 미검증.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "623bc97f-3b7e-428f-a642-0cf8b7ab06fe",
+      "title": "기준 등록 안내선 거리 적응과 카메라 정지 스켈레톤 잔상 수정",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "점선 머리·어깨 안내가 고정 크기라 거리에 따라 맞추기 어려움 → 감지된 어깨 너비로 크기·위치를 따라가게 변경. 카메라 정지 후 마지막 스켈레톤이 캔버스에 남는 버그 수정.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 76dfb62. 프론트 251개·타입·빌드 통과. 실제 웹캠 확인은 사용자 검수 필요(브라우저 패널 카메라 차단)",
+      "updated": "2026-10-06T07:28:33.912948+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:28:23.970168+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:28:33.912948+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 76dfb62. 프론트 251개·타입·빌드 통과. 실제 웹캠 확인은 사용자 검수 필요(브라우저 패널 카메라 차단)"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0115",
+      "priority": 0,
+      "size": 1,
+      "order": 115,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 113
+  "nextNumber": 116
 }
