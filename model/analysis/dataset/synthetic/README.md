@@ -1,5 +1,8 @@
 # Explicit synthetic preparation fixture
 
+- 분야: 머신러닝
+- 작업: GP-0077
+
 All six CSV files contain invented observations and anonymous fixture identities. No camera,
 participant, video, landmark, measured performance, or trained model data was used.
 `explicit-synthetic-pose-v0` is a fixture marker; both landmark JSON fields are empty arrays.

@@ -2619,9 +2619,519 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "5b9568c6-479f-4779-b68f-402f2fd9a148",
+      "title": "병합 유입 문서 관리판 표기 정리",
+      "category": "데브옵스",
+      "source": "docs/project-board.md",
+      "body": "lee_app1 harness check 실패(work.py check 79건) 해소. jin_app·develop 병합(030b0a3)으로 lee_app1에 유입된 MD 34개에 분야·작업 표기, 계획 11개와 감사 문서 2개 카드 등록.",
+      "status": "review",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "로컬 검증 완료: work.py check에서 CI 대상 문서 오류 0건(남은 24줄은 .git/info/exclude로 제외된 _board-bundle 로컬 폴더), check-repo PASS. 카드 GP-0071~0083 등록, MD 34개 분야·작업 표기. 커밋·푸시 전이라 GitHub harness 통과는 미확인",
+      "updated": "2026-10-06T04:25:17.016927+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:44.209914+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:44.571649+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 계획·감사 카드 13개 등록, MD 34개 분야·작업 표기"
+        },
+        {
+          "at": "2026-10-06T04:25:17.016927+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "로컬 검증 완료: work.py check에서 CI 대상 문서 오류 0건(남은 24줄은 .git/info/exclude로 제외된 _board-bundle 로컬 폴더), check-repo PASS. 카드 GP-0071~0083 등록, MD 34개 분야·작업 표기. 커밋·푸시 전이라 GitHub harness 통과는 미확인"
+        }
+      ],
+      "stage": "operations",
+      "number": "GP-0070",
+      "priority": 0,
+      "size": 1,
+      "order": 70,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "08a4236f-24cb-4385-ab23-bfc65c22d75b",
+      "title": "Mac develop 통합과 신뢰성 보완",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0010-mac-develop-reliability.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:47.833674+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:44.765698+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:47.833674+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "operations",
+      "number": "GP-0071",
+      "priority": 0,
+      "size": 1,
+      "order": 71,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0010-mac-develop-reliability.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "405fc2e4-3c0f-41cc-b360-d1e34919f095",
+      "title": "API·CEP 수직 흐름",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0011-api-cep-vertical-slice.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:48.189691+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:44.966663+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:48.189691+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0072",
+      "priority": 0,
+      "size": 1,
+      "order": 72,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0011-api-cep-vertical-slice.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "27e72267-d657-4f76-9447-a9aca26e4a38",
+      "title": "읽기 쉬운 기능별 코드 구조",
+      "category": "프론트",
+      "source": "docs/plans/completed/0012-readable-code-structure.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:48.562997+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:45.160741+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:48.562997+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "foundation",
+      "number": "GP-0073",
+      "priority": 0,
+      "size": 1,
+      "order": 73,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0012-readable-code-structure.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "4345ff9a-0604-4573-a98a-0d2f0f43eeef",
+      "title": "세션 시간 정책 확정과 문서 동기화",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0013-session-timing-policy-doc-sync.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:48.925977+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:45.367082+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:48.925977+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "contracts",
+      "number": "GP-0074",
+      "priority": 0,
+      "size": 1,
+      "order": 74,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0013-session-timing-policy-doc-sync.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "d21e9451-c67d-48bb-8568-39984e5e7dce",
+      "title": "특징 계약과 프론트 서버 판정 연결",
+      "category": "프론트",
+      "source": "docs/plans/completed/0014-frontend-server-connection.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:49.295984+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:45.584332+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:49.295984+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0075",
+      "priority": 0,
+      "size": 1,
+      "order": 75,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0014-frontend-server-connection.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "4f464c73-9e4b-4fdb-9716-bed86defea74",
+      "title": "서버 흐름 회귀 검증과 측정 기록 상세",
+      "category": "프론트",
+      "source": "docs/plans/completed/0015-server-regression-and-record-details.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:49.661201+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:45.818693+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:49.661201+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0076",
+      "priority": 0,
+      "size": 1,
+      "order": 76,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0015-server-regression-and-record-details.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "2001a78f-d7e7-43a3-8580-95e2ca3a0963",
+      "title": "확인창 키보드 동작·서버 성능 측정·학습 자료 준비",
+      "category": "머신러닝",
+      "source": "docs/plans/completed/0016-remaining-tools-and-validation.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:50.012861+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:46.017094+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:50.012861+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "data",
+      "number": "GP-0077",
+      "priority": 0,
+      "size": 1,
+      "order": 77,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0016-remaining-tools-and-validation.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "638f1e8f-135f-4843-bafd-5a565b803222",
+      "title": "MySQL 계정·영구 저장·Compose와 배포 자동화",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0017-mysql-accounts-compose-deployment.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:50.363170+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:46.215740+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:50.363170+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0078",
+      "priority": 0,
+      "size": 1,
+      "order": 78,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0017-mysql-accounts-compose-deployment.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "92a8ae9a-cd29-42cf-898a-25070762399c",
+      "title": "수집 화면 진입과 이동 가능한 카메라 창",
+      "category": "프론트",
+      "source": "docs/plans/completed/0018-collection-entry-camera-window.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:50.737574+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:46.414263+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:50.737574+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "data",
+      "number": "GP-0079",
+      "priority": 0,
+      "size": 1,
+      "order": 79,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0018-collection-entry-camera-window.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "9fab61f3-054c-4b89-b3fa-d735f7fd17e2",
+      "title": "본인 자세 CSV 이동·증강·첫 분류 학습",
+      "category": "머신러닝",
+      "source": "docs/plans/completed/0019-personal-pilot-training.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:51.088299+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:46.611079+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:51.088299+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "data",
+      "number": "GP-0080",
+      "priority": 0,
+      "size": 1,
+      "order": 80,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/plans/completed/0019-personal-pilot-training.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "Codex (계획서 담당란)"
+    },
+    {
+      "id": "d24badaa-8800-47d9-af4e-cb7b8bddd9e2",
+      "title": "데스크톱 앱 기준 화면 재구성",
+      "category": "프론트",
+      "source": "docs/plans/active/0020-desktop-app-redesign.md",
+      "body": "기존 계획서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "in_progress",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 계획서 상태(in_progress) 반영. 담당은 계획서 기준 우진 요청·Lellon_CL 구현",
+      "updated": "2026-10-06T04:24:51.445938+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:46.814406+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:51.445938+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 계획서 상태(in_progress) 반영. 담당은 계획서 기준 우진 요청·Lellon_CL 구현"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0081",
+      "priority": 0,
+      "size": 1,
+      "order": 81,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "8d038ff2-ac8b-4d61-adae-234202f64899",
+      "title": "합성 서버 요청 성능 측정",
+      "category": "서버",
+      "source": "docs/audits/2026-10-01-server-benchmark.md",
+      "body": "기존 점검 문서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:51.798881+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:47.012844+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:51.798881+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0082",
+      "priority": 0,
+      "size": 1,
+      "order": 82,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/audits/2026-10-01-server-benchmark.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "문서에 작성자 미기재 (jin_app 유입)"
+    },
+    {
+      "id": "0410218e-4773-4a8e-9d7c-bb37716d8f32",
+      "title": "기술 스택 검토",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-01-technology-stack.md",
+      "body": "기존 점검 문서에서 등록(jin_app·develop 병합(030b0a3)으로 lee_app1에 유입). 구현·검증 이력은 근거 문서 참조.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "기존 완료 문서 등록",
+      "updated": "2026-10-06T04:24:52.180448+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:24:47.247836+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:24:52.180448+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "기존 완료 문서 등록"
+        }
+      ],
+      "stage": "foundation",
+      "number": "GP-0083",
+      "priority": 0,
+      "size": 1,
+      "order": 83,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "기존 완료 문서: docs/audits/2026-10-01-technology-stack.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
+      "performedBy": "문서에 작성자 미기재 (jin_app 유입)"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 70
+  "nextNumber": 84
 }

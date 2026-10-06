@@ -1,5 +1,8 @@
 # API·CEP 작업 인계
 
+- 분야: 백엔드
+- 작업: GP-0072
+
 2026-09-30 인계 이력과 2026-10-01 후속 변경을 함께 기록한다. 협업 저장소이므로 **main/develop에 직접 push하지 않는다**.
 현재 작업 브랜치는 `codex/posture-api-cep-hardening`이다. 정상 승인된 쓰기 인증이 확인된 뒤 이 브랜치만 일반 push한다.
 force push·reset·clean·자동 merge·배포는 하지 않는다. 이 문서는 비밀값과 사용자 측정 데이터를 포함하지 않는다.

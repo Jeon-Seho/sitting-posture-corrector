@@ -1,5 +1,8 @@
 # 데스크톱 앱 화면 설계
 
+- 분야: 프론트
+- 작업: GP-0081
+
 결정: [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md). 시각 규칙: [DESIGN.md](../../DESIGN.md).
 백엔드 연결 지점: [frontend-platform-seams.md](frontend-platform-seams.md).
 
