@@ -50,15 +50,15 @@ export async function verifyCollectionPreview(browser, base) {
   await cdp.call('Input.dispatchMouseEvent', { type: 'mousePressed', ...rect, button: 'left', clickCount: 1 })
   await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 160, y: 40, button: 'left', buttons: 1 })
   await cdp.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 160, y: 40, button: 'left', clickCount: 1 })
-  check('floating camera can be dragged and remains inside the viewport', await cdp.evaluate(`(() => {
+  check('floating camera can be dragged and remains inside the viewport', await until(() => cdp.evaluate(`(() => {
     const r = document.querySelector('.camera-window-controls').getBoundingClientRect();
     return r.left >= 0 && r.top >= 0 && r.left < 200 && r.right <= innerWidth;
-  })()`))
+  })()`), 'rendered camera drag position'))
   const beforeKeyboard = await cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().x`)
   await cdp.evaluate(`document.querySelector('.camera-window-drag').focus()`)
   await cdp.call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 })
   await cdp.call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 })
-  check('keyboard users can move the floating camera', await cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().x > ${beforeKeyboard}`))
+  check('keyboard users can move the floating camera', await until(() => cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().x > ${beforeKeyboard}`), 'rendered keyboard camera position'))
   const beforeResize = await cdp.evaluate(`(() => {
     const r = document.querySelector('.camera-window-controls').getBoundingClientRect();
     return { x: r.right - 4, y: r.bottom - 4, width: r.width };
@@ -66,7 +66,7 @@ export async function verifyCollectionPreview(browser, base) {
   await cdp.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: beforeResize.x, y: beforeResize.y, button: 'left', clickCount: 1 })
   await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: beforeResize.x - 30, y: beforeResize.y - 30, button: 'left', buttons: 1 })
   await cdp.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: beforeResize.x - 30, y: beforeResize.y - 30, button: 'left', clickCount: 1 })
-  check('floating camera can be resized using its corner', await cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().width < ${beforeResize.width}`))
+  check('floating camera can be resized using its corner', await until(() => cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().width < ${beforeResize.width}`), 'rendered camera resize'))
   await browser.screenshot('collection-preview-moved-synthetic')
   await click('접기')
   check('collapsing the preview keeps the capture stream alive', await cdp.evaluate(`!document.querySelector('.camera-window-controls video') && document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState === 'live'`))
