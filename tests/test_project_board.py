@@ -180,11 +180,11 @@ class BoardTests(unittest.TestCase):
         team = json.loads((board.HERE / "team.json").read_text(encoding="utf-8"))
         self.assertEqual(board.default_assignees("프론트", team), ["우진", "동욱"])
         self.assertEqual(board.default_assignees("머신러닝", team), ["지성"])
+        self.assertEqual(board.default_assignees("논문", team), ["지성"])
         self.assertEqual(board.default_assignees("DB", team), ["유진"])
         for category in ("데브옵스", "백엔드", "서버"):
             self.assertEqual(board.default_assignees(category, team), ["홍규"])
-        # PM and paper work have no category default; they are assigned explicitly.
-        self.assertEqual(board.default_assignees("논문", team), [])
+        # PM work has no category default; it is assigned explicitly.
         self.assertEqual(board.default_assignees("미지정", [{"name": "x"}]), [])
 
     def test_document_shelves_include_shared_topics(self):
