@@ -67,6 +67,31 @@ body {
   animation: sink 0.24s ease-in forwards;
 }
 
+/* Swipe to dismiss like a Windows notification: slide sideways and fade, no tilt. */
+.popup.dragging,
+.popup.snapping,
+.popup.swiped {
+  transform: translateX(var(--dx, 0px));
+  opacity: var(--fade, 1);
+}
+
+.popup.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.popup.snapping {
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.3s ease-out;
+}
+
+.popup.swiped {
+  transition:
+    transform 0.24s ease-out,
+    opacity 0.24s ease-out;
+}
+
 .mark {
   flex: none;
   width: 44px;

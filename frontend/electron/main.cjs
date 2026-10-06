@@ -182,8 +182,8 @@ ipcMain.handle('desktop:alert', async (event, alert) => {
   popupTimer = setTimeout(hidePopup, POPUP_MS)
   return 'popup'
 })
-ipcMain.on('popup:close', (event) => {
-  if (popupWindow && event.sender === popupWindow.webContents) hidePopup()
+ipcMain.on('popup:close', (event, immediate) => {
+  if (popupWindow && event.sender === popupWindow.webContents) hidePopup(immediate !== true)
 })
 ipcMain.on('popup:open-app', (event) => {
   if (!popupWindow || event.sender !== popupWindow.webContents) return
