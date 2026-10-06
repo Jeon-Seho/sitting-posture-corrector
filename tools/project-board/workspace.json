@@ -4741,9 +4741,54 @@
       "priorityNote": "",
       "evidence": "python tools/dev.py check-browser(Java 21, PYTHONUTF8=1): 73개 통과. 프론트 테스트 246개 통과. frontend/src/components/ExpandableTable.tsx, 계획 0020 후속 기록.",
       "performedBy": "우진"
+    },
+    {
+      "id": "cc0a64ad-a631-44f5-8702-bfefa8c0a4b5",
+      "title": "페르소나 흐름 메모의 화면 이름을 데스크톱 앱 기준으로 갱신",
+      "category": "프론트",
+      "source": "docs/persona-flow-review.md",
+      "body": "흐름은 유지하고 화면 이름만 맞춘다(홈·측정 준비·실시간 측정→측정하기, 대시보드→기록, 자세 등록→설정의 자세 데이터 수집, 일시정지→잠시 쉬기). 동욱 요청.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "화면 이름 갱신 완료",
+      "updated": "2026-10-06T05:29:37.598669+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T05:29:07.039640+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T05:29:37.090186+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 화면 이름만 갱신"
+        },
+        {
+          "at": "2026-10-06T05:29:37.598669+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "화면 이름 갱신 완료"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0113",
+      "priority": 0,
+      "size": 1,
+      "order": 113,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "docs/persona-flow-review.md 1·2단계 화면 이름과 이전 이름 대응 문단 추가. work.py check(CI 대상 0건)·check-repo PASS",
+      "performedBy": "klaod-tech_CL"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 113
+  "nextNumber": 114
 }
