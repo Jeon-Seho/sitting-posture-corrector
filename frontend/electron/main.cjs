@@ -101,6 +101,8 @@ async function createWindow() {
     // 최소 크기 아래로는 카메라·오른쪽 패널·머리 영역이 함께 들어가지 않는다(docs/design/desktop-app.md).
     width: 1360, height: 860, minWidth: MIN_WIDTH, minHeight: MIN_HEIGHT,
     title: 'PoseGood',
+    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'branding',
+      process.platform === 'win32' ? 'posegood-icon.ico' : 'posegood-icon.png'),
     backgroundColor: '#fbf5ee',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     ...(isMac ? {} : { titleBarOverlay: { color: '#fbf5ee', symbolColor: '#5e4f46', height: TITLEBAR_HEIGHT } }),

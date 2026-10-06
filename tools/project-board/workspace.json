@@ -622,16 +622,24 @@
       "body": "LSTM 계획과 기존 GRU M0~M4를 정합화하고 참여자 분할, 이벤트·지연·오알림 지표를 동결한다.",
       "status": "planned",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "지성"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T07:03:52.513656+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T07:03:52.513656+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "논문 카드 지성 배정"
         }
       ],
       "number": "GP-0015",
@@ -790,16 +798,24 @@
       "body": "촬영/라벨 검토/제외 규칙, 참여자 분할, 수집 설정과 버전을 합의하여 동결한다.",
       "status": "planned",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "지성"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T07:03:52.513656+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T07:03:52.513656+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "논문 카드 지성 배정"
         }
       ],
       "number": "GP-0019",
@@ -1653,16 +1669,24 @@
       "body": "이벤트 재현율·오알림/시간·감지 지연·FPS/p95와 신뢰구간·개인 보정/시간 모델 소거실험을 보고한다.",
       "status": "planned",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "지성"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T07:03:52.513656+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T07:03:52.513656+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "논문 카드 지성 배정"
         }
       ],
       "number": "GP-0037",
@@ -1687,16 +1711,24 @@
       "body": "탐지 검증 후 동의·기간·판정 버전·분석 기준을 고정하고 개입 효과의 한계를 구분한다.",
       "status": "planned",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "지성"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T07:03:52.513656+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T07:03:52.513656+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "논문 카드 지성 배정"
         }
       ],
       "number": "GP-0038",
@@ -1721,16 +1753,24 @@
       "body": "실측 결과·재현 정보·제약을 정리하고 목표/가설과 검증 결과를 구분해 작성한다.",
       "status": "planned",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "지성"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T07:03:52.513656+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T07:03:52.513656+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "논문 카드 지성 배정"
         }
       ],
       "number": "GP-0039",
@@ -4331,7 +4371,7 @@
       ],
       "agent": "Lellon_GPT",
       "result": "CI 실패 원인인 문서 35개의 분야·GP 연결을 보완하고 기존 계획 11개를 문서 범위로 등록. python tools/dev.py check-board, tools/check_repository.py, git diff --check 통과. Linux CI 전체 재실행 결과는 GP-0092에서 추적.",
-      "updated": "2026-10-06T04:40:48.165884+00:00",
+      "updated": "2026-10-06T05:22:59.621Z",
       "log": [
         {
           "at": "2026-10-06T04:33:53.636238+00:00",
@@ -4376,13 +4416,25 @@
       ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "updated": "2026-10-06T08:01:47.175753+00:00",
       "log": [
         {
           "at": "2026-10-06T04:40:28.123473+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        },
+        {
+          "at": "2026-10-06T08:01:47.175753+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "아이콘·화면 작업 카드 최신화와 배포 카드 등록"
+        },
+        {
+          "at": "2026-10-06T08:23:14.967651+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "번호 정정: 앞 기록의 아이콘(GP-0113)·입력 경고(GP-0114)·안내선(GP-0115)은 GP-0119·GP-0120·GP-0121이다."
         }
       ],
       "stage": "service",
@@ -4929,9 +4981,338 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "d79260c3-c73d-4d10-88ab-e9e4fb0bfc31",
+      "title": "PoseGood 부드러운 앱 아이콘 제작",
+      "category": "프론트",
+      "source": "DESIGN.md",
+      "body": "방향 제안 후 이미지 생성으로 PNG 원본과 Windows ICO 제작. 실행 파일 적용은 별도 범위.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "사용자 최신 요청대로 원형 바탕을 라운드 사각형으로 변경. SVG정본 rx96/480사각형, 화면모서리9px. 심볼·42px크기 유지, PNG·ICO·앱아이콘 및 별도실행파일에 반영.",
+      "updated": "2026-10-06T08:01:47.175753+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:05:47.963770+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:05:54.109950+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "추천 방향과 내장 도구 모델 지정 한계 안내. PNG 및 ICO 제작 착수"
+        },
+        {
+          "at": "2026-10-06T07:07:38.867249+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "방향 제안과 생성 완료. PNG 원본, 다중 해상도 ICO, 생성 프롬프트 저장. 실행 파일 적용은 요청 범위 밖이며 미검증."
+        },
+        {
+          "at": "2026-10-06T07:09:21.587652+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: 딸기우유 분홍색으로 변경하고 앱 화면·브라우저·Electron·Windows 실행 아이콘 적용"
+        },
+        {
+          "at": "2026-10-06T07:15:59.739752+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 정정 반영: 실제 base.css·빌드 CSS·로그인 화면 확인 후 크림/살구/강조색으로 v2 재제작. 로그인·사이드바·favicon·Electron·Windows 패키징·빠른 실행기에 적용하고 EXE 재생성."
+        },
+        {
+          "at": "2026-10-06T07:26:32.624670+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업표시줄 시인성 개선: 의자·손·발 세부 묘사 제거, 큰 실루엣·강한 색 대비·여백 축소로 v3 제작"
+        },
+        {
+          "at": "2026-10-06T07:39:31.002260+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "최종 요청 반영: 네모/가느다란 단독 심볼 대신 원형 강조색 바탕+크림색 사람 심볼. 생성 시안의 투명 결함 때문에 새 SVG를 정본으로 제작하고 PNG·ICO 내보냄. 화면42px 유지. 로그인·사이드바·favicon·Electron·Windows 패키징 연결. 기존 앱 파일 잠금으로 별도 release/round 휴대용 EXE 제공."
+        },
+        {
+          "at": "2026-10-06T07:47:56.137573+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 최신 요청: 원형 바탕을 모서리가 라운딩된 네모로 변경. 사람 심볼은 유지하고 화면·PNG·ICO·실행 파일에 반영"
+        },
+        {
+          "at": "2026-10-06T07:54:31.185718+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 최신 요청대로 원형 바탕을 라운드 사각형으로 변경. SVG정본 rx96/480사각형, 화면모서리9px. 심볼·42px크기 유지, PNG·ICO·앱아이콘 및 별도실행파일에 반영."
+        },
+        {
+          "at": "2026-10-06T08:01:47.175753+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "아이콘·화면 작업 카드 최신화와 배포 카드 등록"
+        },
+        {
+          "at": "2026-10-06T08:23:14.967651+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "번호 정정: develop(PR #12)이 GP-0113를 먼저 발급해 GP-0119로 변경. 이전 커밋·문서의 GP-0113 표기는 이 카드를 뜻한다."
+        }
+      ],
+      "stage": "delivery",
+      "number": "GP-0119",
+      "priority": 0,
+      "size": 1,
+      "order": 113,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "SVG→PNG/ICO 내보내기, 16/24/32px시인성·EXE에서32px아이콘추출 확인. 실제 로그인 로고42px·라운드사각형·새일러스트와조화 확인. npm run check 프론트254건·타입·빌드 통과. electron-builder --win --dir --config.directories.output=release/angled 성공. 패키지SVG/ICO가 원본과동일. 기존실행파일잠금으로 release/angled/win-unpacked/PoseGood.exe 제공, 실행중앱은 유지. 전체Python154건은 기존POSIX오류3·skip1로중단. 새앱 실실행/작업표시줄 표시는 미검증.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "5388af44-4949-40ca-92d8-e2d68d56657e",
+      "title": "폼 입력 경고를 앱 스타일의 작은 안내로 통일",
+      "category": "프론트",
+      "source": "DESIGN.md",
+      "body": "시작하기·로그인·회원가입·프로필 폼의 브라우저 기본 검증 말풍선을 필드 아래 작은 로즈색 안내로 대체. 필수·범위·형식 검증과 초점 유지.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "브라우저 기본 말풍선을 입력칸 아래 12px 로즈 안내로 대체. 시작하기·계정 로그인/가입·프로필/비밀번호 변경 공유. 첫 오류 초점·aria 설명 연결·수정 시 안내 해제 유지. Windows 실행 파일 재생성.",
+      "updated": "2026-10-06T07:21:23.682155+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:17:11.007051+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:17:59.383851+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "공용 폼 검증과 필드 아래 작은 로즈 안내 적용 착수"
+        },
+        {
+          "at": "2026-10-06T07:21:23.682155+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "브라우저 기본 말풍선을 입력칸 아래 12px 로즈 안내로 대체. 시작하기·계정 로그인/가입·프로필/비밀번호 변경 공유. 첫 오류 초점·aria 설명 연결·수정 시 안내 해제 유지. Windows 실행 파일 재생성."
+        },
+        {
+          "at": "2026-10-06T08:23:14.967651+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "번호 정정: develop(PR #12)이 GP-0114를 먼저 발급해 GP-0120로 변경. 이전 커밋·문서의 GP-0114 표기는 이 카드를 뜻한다."
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0120",
+      "priority": 0,
+      "size": 1,
+      "order": 114,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "프론트 npm run check: 246건 통과, 타입·빌드 통과. 최종 aria-label 변경 후 build 및 electron-builder --win --dir/copy-desktop 성공. 실제 브라우저 빈칸·공백·나이 범위·경고 해제·첫 오류 초점·noValidate 확인 및 스크린샷 저장. work.py check 통과. 전체 python tools/dev.py check: Python 154건, POSIX 배포 오류 3·skip 1로 중단. 서버 인증 실연결·패키징 앱의 경고 실표시는 미검증.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "623bc97f-3b7e-428f-a642-0cf8b7ab06fe",
+      "title": "기준 등록 안내선 거리 적응과 카메라 정지 스켈레톤 잔상 수정",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "점선 머리·어깨 안내가 고정 크기라 거리에 따라 맞추기 어려움 → 감지된 어깨 너비로 크기·위치를 따라가게 변경. 카메라 정지 후 마지막 스켈레톤이 캔버스에 남는 버그 수정.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 76dfb62. 프론트 251개·타입·빌드 통과. 실제 웹캠 확인은 사용자 검수 필요(브라우저 패널 카메라 차단)",
+      "updated": "2026-10-06T08:01:47.175753+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:28:23.970168+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:28:33.912948+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 76dfb62. 프론트 251개·타입·빌드 통과. 실제 웹캠 확인은 사용자 검수 필요(브라우저 패널 카메라 차단)"
+        },
+        {
+          "at": "2026-10-06T08:01:47.175753+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "아이콘·화면 작업 카드 최신화와 배포 카드 등록"
+        },
+        {
+          "at": "2026-10-06T08:23:14.967651+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "번호 정정: develop(PR #12)이 GP-0115를 먼저 발급해 GP-0121로 변경. 이전 커밋·문서의 GP-0115 표기는 이 카드를 뜻한다."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0121",
+      "priority": 0,
+      "size": 1,
+      "order": 115,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "ff5f6023-6c1d-4055-aee7-e141d5daff45",
+      "title": "기준 자동 등록(3초)·자동 측정 시작과 다른 화면에서 측정 유지",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "얼굴·어깨가 보이면 기준 등록 자동 시작, 3초(최소 15표본) 유지 후 측정 자동 시작. 기록·설정 화면으로 이동해도 측정이 멈추지 않음. 보정 취소 시 자동 등록 중지, 이전 기준으로 자동 시작하지 않음.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 8ca99c0. 프론트 254개·타입·빌드 통과. 실제 웹캠·데스크톱 앱 확인은 사용자 검수 필요",
+      "updated": "2026-10-06T08:01:47.175753+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:40:56.567480+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:41:04.482763+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 8ca99c0. 프론트 254개·타입·빌드 통과. 실제 웹캠·데스크톱 앱 확인은 사용자 검수 필요"
+        },
+        {
+          "at": "2026-10-06T08:01:47.175753+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "아이콘·화면 작업 카드 최신화와 배포 카드 등록"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0116",
+      "priority": 0,
+      "size": 1,
+      "order": 116,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "162536ff-5289-414f-b5ee-6593dddde013",
+      "title": "로그인 소개 그림을 뒤쪽45도 컴퓨터 작업 장면으로 제작",
+      "category": "프론트",
+      "source": "DESIGN.md",
+      "body": "기존 앱 팔레트와 부드러운 일러스트 분위기를 유지하고 사람의 뒤쪽 옆면45도에서 컴퓨터를 사용하는 구도의 이미지를 생성·로그인에 적용. 화면 레이아웃과 기능 유지.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "내장 이미지 생성으로 뒤쪽옆면45도 컴퓨터 사용 일러스트 제작. 기존 팔레트로 PNG원본·프롬프트 보관, 768x512WebP로 로그인에 적용. 소개 그림420px·가장자리 페더 처리, 기존 폼/안내 유지.",
+      "updated": "2026-10-06T07:54:18.279986+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:47:56.620069+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:50:11.651132+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "이미지 생성 완료: 뒤쪽옆면45도 컴퓨터 사용 장면. PNG 원본 보관, WebP로 내보내어 기존 로그인 그림 자리에 연결"
+        },
+        {
+          "at": "2026-10-06T07:54:18.279986+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "내장 이미지 생성으로 뒤쪽옆면45도 컴퓨터 사용 일러스트 제작. 기존 팔레트로 PNG원본·프롬프트 보관, 768x512WebP로 로그인에 적용. 소개 그림420px·가장자리 페더 처리, 기존 폼/안내 유지."
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0117",
+      "priority": 0,
+      "size": 1,
+      "order": 117,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "원본 frontend/assets/branding/login-posture-45-source.png, 프롬프트 동일 .prompt.txt, 소비자 public/illustrations/login-posture-45.webp. 실제 로그인 이미지 로딩·1360x860스크린샷 확인. npm run check 프론트254건·타입·빌드 통과. release/angled/win-unpacked 앱 패키징 성공, asar내WebP 원본해시 일치. python tools/dev.py check Python154건, 기존POSIX배포 오류3·skip1로 중단. work.py check 통과. 새 패키징 앱 실실행 미검증.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "6d327f5e-d58e-408b-975b-e0a398ded9a5",
+      "title": "Windows 미리보기 배포 v0.1.0-preview.20261006",
+      "category": "데브옵스",
+      "source": "frontend/README.md",
+      "body": "라운드 사각형 아이콘·로그인 그림·입력 경고·안내선 추적·3초 자동 등록/측정·다른 탭 측정 유지를 포함한 Windows x64 미리보기 ZIP을 GitHub 사전 릴리스로 배포한다. 형식은 v0.1.0-preview.20261002와 같다(PoseGood/PoseGood.exe + release/win-unpacked).",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진"
+      ],
+      "agent": "Lellon_CL",
+      "result": "배포 완료",
+      "updated": "2026-10-06T08:03:34.551841+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T08:01:47.079860+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "사용자 요청: 커밋·배포. desktop:pack·smoke 통과 후 ZIP·릴리스 진행"
+        },
+        {
+          "at": "2026-10-06T08:01:47.175753+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "아이콘·화면 작업 카드 최신화와 배포 카드 등록"
+        },
+        {
+          "at": "2026-10-06T08:03:34.551841+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "배포 완료"
+        }
+      ],
+      "stage": "delivery",
+      "priority": 1,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "우진(Lellon_CL)",
+      "evidence": "GitHub 사전 릴리스 v0.1.0-preview.20261006 (b07d2f9), PoseGood-Windows-x64-b07d2f9.zip 264,915,795B 75파일 CRC 통과, desktop:pack·smoke(620ms) 통과",
+      "number": "GP-0118"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 116
+  "nextNumber": 122
 }

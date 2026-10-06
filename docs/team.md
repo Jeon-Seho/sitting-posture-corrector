@@ -17,10 +17,10 @@
 | 동욱 | 프론트 | 프론트 |
 | 세호 | PM | 없음(결정·일정 카드에 직접 배정) |
 | 유진 | DB | DB |
-| 지성 | 머신러닝 | 머신러닝 |
+| 지성 | 머신러닝·논문 | 머신러닝, 논문 |
 | 홍규 | 데브옵스(서버 구축·배포)·백엔드 | 데브옵스, 백엔드, 서버 |
 
-`논문` 분야는 기본 담당이 없다. 기본 담당은 [team.json](../tools/project-board/team.json)의 `categories`가 정본이다.
+기본 담당은 [team.json](../tools/project-board/team.json)의 `categories`가 정본이다.
 여러 명에게 같은 작업을 배정할 수 있다.
 실제 배정 정본은 [관리판 데이터](../tools/project-board/workspace.json)다. 문서에 담당 목록을 중복 작성하지 않는다.
 팀 요구와 담당 범위는 [서비스 요구사항](team-requirements.md), 웹과 AI의 작업 방식은 [관리판 운영](project-board.md)을 따른다.

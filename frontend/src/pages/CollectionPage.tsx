@@ -17,7 +17,7 @@ export function CollectionPage({
     collection.setPhase('running')
     return () => collection.setPhase('inactive')
   }, [collection.setPhase])
-  // 촬영에는 카메라와 5초 기준 자세가 필요하다. 측정 준비로 보내지 않고 이 화면에서 바로 켜고 등록한다.
+  // 촬영에는 카메라와 3초 기준 자세가 필요하다. 측정 준비로 보내지 않고 이 화면에서 바로 켜고 등록한다.
   const calibrating = camera.progress !== null
   return (
     <>
@@ -112,7 +112,7 @@ export function CollectionPage({
               : calibrating
                 ? '기준 등록 중입니다. 취소하면 기존 기준을 유지하며 새 기준이 완성된 뒤 촬영할 수 있습니다.'
                 : !camera.baseline
-                  ? '촬영하려면 편안하게 앉아 기준 자세 등록(5초)을 먼저 해 주세요.'
+                  ? '촬영하려면 편안하게 앉아 기준 자세 등록(3초)을 먼저 해 주세요.'
                   : camera.quality
                     ? '기존 특징 측정 가능 · 자세 정답은 촬영 후 직접 확인합니다.'
                     : '기존 특징 측정 불가 · 가림/빈 자리 과제의 관측은 계속 기록합니다.'}

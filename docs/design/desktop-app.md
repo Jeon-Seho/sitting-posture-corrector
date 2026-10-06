@@ -16,6 +16,14 @@ npm run dev          # 브라우저로 같은 화면을 연다.
 
 `frontend/electron/`
 
+앱 아이콘(GP-0119)은 현재 화면의 강조색 라운드 사각형 바탕과 크림색 사람 두 덩어리로 단순화한
+`frontend/public/branding/posegood-icon.svg`가 정본이다. 바깥은 투명하고 PNG·ICO는 같은 SVG에서 내보낸다.
+로그인·사이드바는 `BrandMark`를 공유하고, 브라우저 탭과 Electron 창도 같은 아이콘을 읽는다.
+Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 서명만 생략한다.
+`signAndEditExecutable: false`는 아이콘 리소스 편집까지 막으므로 사용하지 않는다.
+빠른 실행기는 `copy-desktop.mjs`의 `/win32icon` 옵션으로 같은 ICO를 포함한다.
+아이콘 변경 후 `npm run desktop:pack`으로 실행 파일을 다시 만든다.
+
 | 파일 | 역할 |
 |---|---|
 | `main.cjs` | 창 생성, 외부 주소 차단, 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`) |

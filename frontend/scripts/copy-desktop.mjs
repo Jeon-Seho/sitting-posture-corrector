@@ -10,6 +10,7 @@ const compiler = join(process.env.WINDIR || 'C:\\Windows', 'Microsoft.NET', 'Fra
 await access(compiler)
 execFileSync(compiler, [
   '/nologo', '/target:winexe', '/optimize+', '/reference:System.Windows.Forms.dll',
+  `/win32icon:${join(frontend, 'public', 'branding', 'posegood-icon.ico')}`,
   `/out:${join(frontend, 'PoseGood.exe')}`, join(frontend, 'electron', 'Launcher.cs'),
 ], { stdio: 'inherit', windowsHide: true })
 console.log('Fast launcher ready: frontend/PoseGood.exe (keep release/win-unpacked alongside it)')

@@ -41,8 +41,12 @@
 
 .cover-art {
   align-self: center;
-  width: min(360px, 80%);
+  width: min(420px, 80%);
   height: auto;
+  /* Feather the generated peach backdrop into the app's primary tint. */
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent),
+    linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent);
+  mask-composite: intersect;
 }
 
 .cover-points {

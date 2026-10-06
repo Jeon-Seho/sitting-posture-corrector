@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { InlineForm } from '../../components/InlineForm'
 import { Card } from '../../components/ui'
 import { WithdrawalDialog } from './WithdrawalDialog'
 import type { ProfileForm } from './useProfileForm'
@@ -44,7 +45,7 @@ export function ProfilePage({
       </div>
       <div className="grid g2">
         <Card title="기본 정보">
-          <form
+          <InlineForm
             className="profile-form"
             onSubmit={(e) => {
               e.preventDefault()
@@ -58,7 +59,7 @@ export function ProfilePage({
               </button>
               <button className="btn btn-primary">변경 저장</button>
             </div>
-          </form>
+          </InlineForm>
         </Card>
         <Card title="비밀번호 변경">
           <p className="profile-text">

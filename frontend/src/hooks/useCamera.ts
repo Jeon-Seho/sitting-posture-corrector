@@ -85,6 +85,9 @@ export function useCamera() {
     detector.current?.close()
     detector.current = null
     if (videoRef.current) videoRef.current.srcObject = null
+    // The frame loop stops drawing, so remove the last skeleton instead of freezing it.
+    const canvas = canvasRef.current
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
     current.current = null
     lastFrame.current = 0
     calibration.current = null
