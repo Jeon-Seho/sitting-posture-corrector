@@ -103,12 +103,15 @@ ipcMain.handle('desktop:set-alert-popup', (event, enabled) => {
 
 // 자세 알림 팝업: 앱 창이 가려졌거나 최소화됐을 때만 화면 오른쪽 아래에 띄운다.
 // 포커스를 가져가지 않고(showInactive) 일정 시간 뒤 스스로 숨는다. 앱을 보고 있으면 앱 안 토스트만 쓴다.
-const POPUP_WIDTH = 380
-const POPUP_HEIGHT = 150
+// 카드가 아래에서 튀어 올라 살짝 지나쳤다 돌아오므로 위쪽과 그림자 여백을 둔다(public/alert-popup.css).
+const POPUP_WIDTH = 396
+const POPUP_HEIGHT = 186
 const POPUP_MS = 8000
+const POPUP_LEAVE_MS = 240
 let mainWindow = null
 let popupWindow = null
 let popupTimer = null
+let popupLeaveTimer = null
 const popupURL = app.isPackaged ? 'app://posegood/alert-popup.html' : new URL('alert-popup.html', DEV_URL).toString()
 
 function popupText(value, limit) {
@@ -121,6 +124,8 @@ async function ensurePopup() {
     width: POPUP_WIDTH, height: POPUP_HEIGHT, show: false, frame: false, transparent: true,
     resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
     skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: '#00000000',
+    // Windows의 프레임 없는 투명 창에 생기는 테두리를 없앤다.
+    thickFrame: false,
     title: 'PoseGood 자세 알림',
     webPreferences: {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
@@ -137,10 +142,19 @@ async function ensurePopup() {
   return popupWindow
 }
 
-function hidePopup() {
+// 내려가는 애니메이션을 보여 준 뒤 창을 숨긴다. 앱을 열 때는 기다리지 않는다.
+function hidePopup(animate = true) {
   if (popupTimer) clearTimeout(popupTimer)
   popupTimer = null
-  if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) popupWindow.hide()
+  if (popupLeaveTimer) clearTimeout(popupLeaveTimer)
+  popupLeaveTimer = null
+  if (!popupWindow || popupWindow.isDestroyed() || !popupWindow.isVisible()) return
+  if (!animate) return popupWindow.hide()
+  popupWindow.webContents.send('popup:hide')
+  popupLeaveTimer = setTimeout(() => {
+    popupLeaveTimer = null
+    if (popupWindow && !popupWindow.isDestroyed()) popupWindow.hide()
+  }, POPUP_LEAVE_MS)
 }
 
 function appInView() {
@@ -160,6 +174,8 @@ ipcMain.handle('desktop:alert', async (event, alert) => {
     y: Math.round(area.y + area.height - POPUP_HEIGHT - 12),
     width: POPUP_WIDTH, height: POPUP_HEIGHT,
   })
+  if (popupLeaveTimer) clearTimeout(popupLeaveTimer)
+  popupLeaveTimer = null
   popup.webContents.send('popup:show', { title, body, durationMs: POPUP_MS })
   popup.showInactive()
   if (popupTimer) clearTimeout(popupTimer)
@@ -171,7 +187,7 @@ ipcMain.on('popup:close', (event) => {
 })
 ipcMain.on('popup:open-app', (event) => {
   if (!popupWindow || event.sender !== popupWindow.webContents) return
-  hidePopup()
+  hidePopup(false)
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
@@ -197,7 +213,7 @@ async function createWindow() {
   })
   mainWindow = window
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
-  window.on('focus', hidePopup)
+  window.on('focus', () => hidePopup(false))
   window.on('closed', () => {
     mainWindow = null
     if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()
