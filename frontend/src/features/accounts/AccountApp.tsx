@@ -146,7 +146,7 @@ function AccountWorkspaceApp({
           .update({ preferences: { alerts_on } })
           .catch(() => {})
       }}
-      settingsDisabled={remote.saving}
+      settingsDisabled={remote.saving || !workspace.canWrite}
       storageNotice={
         <StorageNotice workspace={workspace}>
           {remote.saving && '설정을 저장하고 있습니다.'}

@@ -68,6 +68,19 @@ class AccountDriver {
     return this.evaluate(`JSON.parse(sessionStorage.getItem('posegood.account.v1.' + ${JSON.stringify(this.userId)} + '.draft') ?? 'null')`)
   }
 
+  async preference(expected, description) {
+    try {
+      return await until(async () => (await this.api('workspace')).value.preferences.alerts_on === expected, description)
+    } catch (error) {
+      const state = await this.evaluate(`({
+        text: document.body.innerText,
+        disabled: document.querySelector('button[aria-label="교정 알림 사용"]')?.matches(':disabled'),
+        pressed: document.querySelector('button[aria-label="교정 알림 사용"]')?.getAttribute('aria-pressed')
+      })`)
+      throw new Error(error.message + '\\nCurrent app: ' + JSON.stringify(state), { cause: error })
+    }
+  }
+
   async authenticate(email, password, name) {
     if (name) {
       await this.click('새 계정 만들기')
@@ -139,7 +152,7 @@ export async function runAccountScenarios(browser, base, tag) {
     if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'account alert preference switch')
-  await until(async () => (await app.api('workspace')).value.preferences.alerts_on === false, 'saved alert preference')
+  await app.preference(false, 'saved alert preference')
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await until(() => app.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'restored authenticated navigation')
   app.check('settings remain server-owned across reload', (await app.api('workspace')).value.preferences.alerts_on === false)
@@ -149,7 +162,7 @@ export async function runAccountScenarios(browser, base, tag) {
     if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'restore alert preference')
-  await until(async () => (await app.api('workspace')).value.preferences.alerts_on === true, 'restored alert preference')
+  await app.preference(true, 'restored alert preference')
   await app.accountMenu()
   await app.click('프로필 설정')
   await app.fill('직업', '변경된 합성 직업')
