@@ -135,3 +135,12 @@ EXE에 현재 가중치를 포함하되 가중치·EXE를 커밋하지 않는다
   제한이 유지된다. 전체 `python tools/dev.py check`는 통과하지 않았다.
 - 가중치는 저장소 규칙에 따라 커밋하지 않는다. 다른 환경에서는 모델 학습 배치로
   생성한 뒤 실험 앱을 빌드한다. 이번 병합에서 재학습이나 실카메라 검증은 하지 않았다.
+
+## v0.1.0 배포 (2026-10-06)
+
+- `test_0.1.0`에 작업 표시줄 이름 수정(`jin_db_v11` f71c6bd)을 합쳐 `v0.1.0`으로 태그하고 GitHub 릴리스로 배포했다.
+- 배포 파일: 일반 앱 ZIP(`PoseGood/PoseGood.exe` + `release/win-unpacked`)과 상대좌표 LSTM 실험앱 단일 EXE(`PoseGood-Relative-Lab.exe`).
+  실험앱에는 이 PC에서 학습한 합성 데이터 가중치가 들어 있으며 가중치 파일은 커밋하지 않았다.
+- 검증: 프론트 테스트 37파일 284개, TypeScript, `desktop:pack`·`lab:pack`, 일반 앱 smoke(모델 준비, 시작 1362ms),
+  실험앱 smoke(시연 3종) 통과. 실제 사용자 성능과 실카메라 장시간 검증은 하지 않았다.
+- 다음 모델 개선은 0.2.0(얼굴 기반, `experiment/face-pose-v0.2.0`)에서 진행한다.

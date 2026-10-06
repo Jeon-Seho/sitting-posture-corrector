@@ -5456,9 +5456,41 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "df2bed9e-356b-4abd-a3d6-ab645070c3b5",
+      "title": "v0.1.0 배포 (일반 앱 + 상대좌표 LSTM 실험앱)",
+      "category": "데브옵스",
+      "source": "docs/areas/machine-learning/relative-pose-lstm.md",
+      "body": "test_0.1.0(일반 앱 + 기록 화면·알림 팝업 + 상대좌표 LSTM 실험앱 + 작업 표시줄 이름 수정)을 v0.1.0으로 태그하고 GitHub 릴리스로 배포한다. 이후 모델 개선은 0.2.0(얼굴 기반, experiment/face-pose-v0.2.0)부터.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T11:49:46.916510+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T11:49:46.916510+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "사용자 요청: 작업 표시줄 이름 수정(f71c6bd)을 test_0.1.0에 합치고 v0.1.0 배포. 프론트 284개·타입, desktop:pack·lab:pack, 두 앱 smoke 통과"
+        }
+      ],
+      "stage": "delivery",
+      "priority": 1,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "우진(Lellon_CL)",
+      "evidence": "v0.1.0 태그·GitHub 릴리스(test_0.1.0). 일반 앱 smoke(1362ms, 모델 준비), 실험앱 smoke(시연 3종) 통과",
+      "number": "GP-0125"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 125
+  "nextNumber": 126
 }
