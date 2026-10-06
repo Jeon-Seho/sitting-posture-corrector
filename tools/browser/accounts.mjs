@@ -24,7 +24,7 @@ class AccountDriver {
   async click(label) {
     await until(() => this.evaluate(`(() => {
       const button = [...document.querySelectorAll('button')].filter(${visible})
-        .find((item) => item.textContent.trim() === ${JSON.stringify(label)} && !item.disabled);
+        .find((item) => item.textContent.trim() === ${JSON.stringify(label)} && !item.matches(':disabled'));
       if (!button) return false;
       button.click(); return true;
     })()`), `account button ${label}`)
@@ -35,7 +35,7 @@ class AccountDriver {
       const item = [...document.querySelectorAll('label')].filter(${visible})
         .find((item) => item.childNodes[0]?.textContent.trim() === ${JSON.stringify(label)});
       const input = item?.querySelector('input');
-      if (!input || input.disabled) return false;
+      if (!input || input.matches(':disabled')) return false;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(String(value))});
       input.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
@@ -136,17 +136,17 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
     const toggle = document.querySelector('button[aria-label="교정 알림 사용"]');
-    if (!toggle || toggle.disabled) return false;
+    if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'account alert preference switch')
   await until(async () => (await app.api('workspace')).value.preferences.alerts_on === false, 'saved alert preference')
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.text('측정하기')
+  await until(() => app.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'restored authenticated navigation')
   app.check('settings remain server-owned across reload', (await app.api('workspace')).value.preferences.alerts_on === false)
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
     const toggle = document.querySelector('button[aria-label="교정 알림 사용"]');
-    if (!toggle || toggle.disabled) return false;
+    if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'restore alert preference')
   await until(async () => (await app.api('workspace')).value.preferences.alerts_on === true, 'restored alert preference')
