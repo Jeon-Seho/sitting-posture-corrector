@@ -5,6 +5,8 @@ import { Cdp, until } from './cdp.mjs'
 export async function launchChrome({ executable, port, profile, artifactFolder }) {
   const chrome = spawn(executable, [
     '--headless=new',
+    '--disable-dev-shm-usage',
+    ...(process.env.POSEGOOD_CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-background-networking',
@@ -119,6 +121,6 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
     } finally {
       chrome.stderr.destroy()
     }
-    throw error
+    throw new Error(`${error.message}\nChrome stderr: ${stderr || '(empty)'}`, { cause: error })
   }
 }

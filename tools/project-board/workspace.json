@@ -3979,8 +3979,8 @@
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "PR #11 Linux Python 154개·프론트 검증 통과 후 문서 검사 실패 확인. GP-0100에서 수정했고 새 커밋 CI를 확인한다.",
-      "updated": "2026-10-06T04:40:48.165884+00:00",
+      "result": "75b1702 CI: 문서 검사·Python 154개·프론트·백엔드(실제 MySQL 14개는 뒤 Compose 단계에서 실행) 통과 후 Linux Chrome 시작 시간 초과. CI 전용 no-sandbox·공유메모리 우회 옵션과 Chrome stderr 진단을 추가해 다시 검증한다. 로컬 브라우저 sandbox 유지.",
+      "updated": "2026-10-06T04:44:01.104338+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -3993,6 +3993,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0100 문서 검사 수정 완료, GP-0092 Linux CI 재검증 착수"
+        },
+        {
+          "at": "2026-10-06T04:44:01.104338+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0092 Linux CI Chrome 기동 실패 보완 및 재검증"
         }
       ],
       "stage": "validation",

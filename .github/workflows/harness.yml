@@ -11,6 +11,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Only the disposable CI runner uses this; local Chrome keeps its sandbox.
+      POSEGOOD_CHROME_NO_SANDBOX: '1'
     strategy:
       matrix:
         python-version: ['3.9', '3.12']
