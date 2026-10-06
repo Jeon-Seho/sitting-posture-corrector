@@ -7,6 +7,9 @@ import type { ServerCheckpoint, ServerLiveState, ServerSessionDescriptor } from 
 import { ServerSessionController, type ServerScreenState } from './controller'
 import { projectLive } from './projection'
 
+/** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
+const REALTIME_URL: string | undefined = import.meta.env.VITE_REALTIME_URL || undefined
+
 export type ServerSessionService = {
   active: boolean
   onCheckpoint: (machine: Machine, checkpoint: ServerCheckpoint) => boolean | void
@@ -51,6 +54,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
   useEffect(() => {
     const next = new ServerSessionController({
       session,
+      realtime: REALTIME_URL ? { url: REALTIME_URL } : undefined,
       onChange: setState,
       onCheckpoint: (machine, checkpoint) =>
         latest.current.service.onCheckpoint(machine, checkpoint),

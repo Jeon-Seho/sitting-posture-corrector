@@ -103,7 +103,7 @@
 - [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인(GP-0087)·홍규 검토 후 체크
 - [ ] 2 Compose `kafka` 프로필과 토픽 생성
 - [ ] 3 게이트웨이와 합성 추론/CEP 처리기로 왕복 확인
-- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존
+- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존 — 2026-10-06 FE 구현(GP-0115): `frontend/src/features/session/realtime/`, 서버 세션 컨트롤러에 `VITE_REALTIME_URL`로 선택 연결. 가짜 게이트웨이 테스트만 통과, 실제 게이트웨이 왕복은 3단계 이후
 - [ ] 5 실패 경로 시험과 `make check` 연결, 문서 갱신
 
 ## 결정과 진행 기록
