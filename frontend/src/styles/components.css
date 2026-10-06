@@ -1,0 +1,359 @@
+/* ---------- Shared building blocks ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  min-width: 0;
+}
+
+.card.dark {
+  background: var(--cam);
+  border-color: var(--cam);
+  color: var(--cam-text);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-2);
+}
+
+.card-note {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.card.dark .card-title,
+.card.dark .card-note,
+.card.dark .muted {
+  color: var(--panel-muted);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.g2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.g3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.g4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.split {
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+  align-items: start;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.gap-top {
+  margin-top: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spread {
+  justify-content: space-between;
+}
+
+/* Buttons: rounded, warm and large enough for comfortable clicking. */
+.btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.btn-danger {
+  background: var(--alert-tint);
+  border-color: var(--alert-tint);
+  color: var(--alert-ink);
+}
+
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+
+.btn-lg {
+  height: 54px;
+  padding: 0 24px;
+  font-size: 16px;
+}
+
+.btn-sm {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-icon {
+  width: 44px;
+  padding: 0;
+}
+
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-press);
+    border-color: var(--primary-press);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: #f8d3d8;
+  }
+  .chip:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.badge .pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge.good {
+  background: var(--good-tint);
+  color: var(--good-ink);
+}
+
+.badge.collapse {
+  background: var(--alert-tint);
+  color: var(--alert-ink);
+}
+
+.badge.unknown {
+  background: var(--unknown-tint);
+  color: var(--ink-2);
+}
+
+.badge.warn {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+
+.badge.accent {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+}
+
+.chip {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--primary-tint);
+  border-color: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+/* Segmented control: one choice of a few. */
+.segmented {
+  display: inline-flex;
+  padding: 4px;
+  gap: 2px;
+  border-radius: var(--pill);
+  background: var(--surface-3);
+}
+
+.segmented button,
+.segmented .chip {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(80, 50, 30, 0.12);
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 16px 0;
+}
+
+.card.dark .divider {
+  background: var(--panel-line);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+}
+
+.fine {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Inline notice for status and errors. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: var(--warn-tint);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.notice.info {
+  background: var(--surface-2);
+}
+
+.notice .btn {
+  margin-left: auto;
+}
+
+/* Collapsible "more" sections keep advanced and developer options out of the way. */
+.more {
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+.more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.more > summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.more[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.more-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 18px 18px;
+}
+
+.btn-sm.btn-icon {
+  width: 36px;
+}

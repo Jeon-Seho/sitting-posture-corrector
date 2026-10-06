@@ -1,15 +1,10 @@
+import { ExpandableTable } from '../components/ExpandableTable'
 import { useState } from 'react'
 import { EARLY_PERIOD, HISTORY, RECENT_PERIOD, type DayRecord, type Period } from '../data/history'
 import { Card, ComboChart, Ledger, Legend, Stat } from '../components/ui'
-import {
-  delta,
-  formatDuration,
-  formatPercent,
-  formatRate,
-  mean,
-  median,
-  ratio,
-} from '../lib/stats'
+import { SampleRow } from '../components/SampleRow'
+import { Segmented } from '../components/Segmented'
+import { delta, formatDuration, formatPercent, formatRate, mean, median, ratio } from '../lib/stats'
 
 function summarize(days: DayRecord[]) {
   const valid = days.reduce((a, d) => a + d.validSeconds, 0)
@@ -55,12 +50,12 @@ export function DashboardPage() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">대시보드</h1>
+          <h1 className="page-title">기록 · 발표용 예시</h1>
           <p className="page-desc">
             발표용 예시 데이터입니다. 실제 웹캠 측정 결과와 연결되지 않았습니다.
           </p>
         </div>
-        <div className="segmented" role="group" aria-label="보기 전환">
+        <Segmented label="보기 전환">
           {(
             [
               ['daily', '일별 기록'],
@@ -68,37 +63,37 @@ export function DashboardPage() {
               ['compare', '전후 비교'],
             ] as const
           ).map(([v, label]) => (
-            <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>
+            <button key={v} aria-pressed={tab === v} onClick={() => setTab(v)}>
               {label}
             </button>
           ))}
-        </div>
+        </Segmented>
       </div>
 
       <div className="gap-top">
-      <Ledger cols={4}>
-        <Stat
-          label="오늘 유지율"
-          value={formatPercent(tDay.keepRate)}
-          sub={`유효 측정 ${formatDuration(tDay.valid)}`}
-        />
-        <Stat
-          label="이번 주 유지율"
-          value={formatPercent(tWeek.keepRate)}
-          sub={`세션 ${tWeek.sessions}회`}
-          tone={tWeek.keepRate !== null && tWeek.keepRate >= 0.75 ? 'good' : undefined}
-        />
-        <Stat
-          label="최근 14일 유지율"
-          value={formatPercent(all.keepRate)}
-          sub={`유효 측정 ${formatDuration(all.valid)}`}
-        />
-        <Stat
-          label="판정 불가 (제외)"
-          value={formatDuration(all.excluded)}
-          sub={`전체 대비 ${((all.excluded / (all.valid + all.excluded)) * 100).toFixed(1)}%`}
-        />
-      </Ledger>
+        <Ledger cols={4}>
+          <Stat
+            label="오늘 유지율"
+            value={formatPercent(tDay.keepRate)}
+            sub={`유효 측정 ${formatDuration(tDay.valid)}`}
+          />
+          <Stat
+            label="이번 주 유지율"
+            value={formatPercent(tWeek.keepRate)}
+            sub={`세션 ${tWeek.sessions}회`}
+            tone={tWeek.keepRate !== null && tWeek.keepRate >= 0.75 ? 'good' : undefined}
+          />
+          <Stat
+            label="최근 14일 유지율"
+            value={formatPercent(all.keepRate)}
+            sub={`유효 측정 ${formatDuration(all.valid)}`}
+          />
+          <Stat
+            label="판정 불가 (제외)"
+            value={formatDuration(all.excluded)}
+            sub={`전체 대비 ${((all.excluded / (all.valid + all.excluded)) * 100).toFixed(1)}%`}
+          />
+        </Ledger>
       </div>
 
       {tab === 'daily' && (
@@ -116,11 +111,19 @@ export function DashboardPage() {
               line={HISTORY.map((d) => d.goodSeconds / d.validSeconds)}
               barUnit="시간"
               lineUnit="%"
+              barName="유효 측정 시간"
+              lineName="바른 자세 유지율"
+              formatBar={(hours) => formatDuration(hours * 3600)}
+              details={(i) => [
+                { label: '세션', value: `${HISTORY[i].sessions}회` },
+                { label: '자세 이탈', value: `${HISTORY[i].events}건` },
+                { label: '알림', value: `${HISTORY[i].alerts}회` },
+              ]}
             />
             <Legend
               items={[
-                { color: 'var(--ink)', label: '유효 측정 시간' },
-                { color: 'var(--accent)', label: '바른 자세 유지율' },
+                { color: 'var(--primary-soft)', label: '유효 측정 시간' },
+                { color: 'var(--primary)', label: '바른 자세 유지율' },
               ]}
             />
           </Card>
@@ -133,13 +136,21 @@ export function DashboardPage() {
               line={HISTORY.map((d) => d.events / (d.validSeconds / 3600))}
               barUnit="건"
               lineUnit="회"
-              barColor="var(--bad-fill)"
-              lineColor="var(--warn)"
+              barColor="var(--alert-soft)"
+              lineColor="var(--warn-fill)"
+              barName="자세 이탈"
+              lineName="시간당 이탈"
+              formatBar={(v) => `${v}건`}
+              formatLine={(v) => `${v.toFixed(1)}회`}
+              details={(i) => [
+                { label: '알림', value: `${HISTORY[i].alerts}회` },
+                { label: '유효 측정', value: formatDuration(HISTORY[i].validSeconds) },
+              ]}
             />
             <Legend
               items={[
-                { color: 'var(--bad-fill)', label: '붕괴 이벤트 수' },
-                { color: 'var(--warn)', label: '시간당 붕괴 횟수' },
+                { color: 'var(--alert-soft)', label: '자세 이탈 수' },
+                { color: 'var(--warn-fill)', label: '시간당 이탈 횟수' },
               ]}
             />
           </Card>
@@ -147,7 +158,7 @@ export function DashboardPage() {
           <div style={{ height: 22 }} />
 
           <Card title="일별 상세" note={`${HISTORY.length}일 기록`}>
-            <div className="scroll-x">
+            <ExpandableTable>
               <table>
                 <thead>
                   <tr>
@@ -185,7 +196,7 @@ export function DashboardPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </ExpandableTable>
           </Card>
         </>
       )}
@@ -195,7 +206,10 @@ export function DashboardPage() {
           <Card title="이번 주" note={`${week[0].label} ~ ${week[week.length - 1].label}`}>
             <WeekBody s={tWeek} />
           </Card>
-          <Card title="지난 주" note={`${prevWeek[0].label} ~ ${prevWeek[prevWeek.length - 1].label}`}>
+          <Card
+            title="지난 주"
+            note={`${prevWeek[0].label} ~ ${prevWeek[prevWeek.length - 1].label}`}
+          >
             <WeekBody s={tPrev} />
           </Card>
           <Card title="주간 변화" note="지난 주 대비 증감입니다." dark className="span-2">
@@ -237,7 +251,7 @@ export function DashboardPage() {
             title="초기 구간과 최근 구간 비교"
             note="알림 횟수 감소만으로 개선을 판단하지 않도록 유지율과 붕괴 발생률을 함께 봅니다."
           >
-            <div className="scroll-x">
+            <ExpandableTable>
               <table>
                 <thead>
                   <tr>
@@ -304,7 +318,7 @@ export function DashboardPage() {
                   />
                 </tbody>
               </table>
-            </div>
+            </ExpandableTable>
           </Card>
 
           <div style={{ height: 22 }} />
@@ -327,17 +341,17 @@ function WeekBody({ s }: { s: ReturnType<typeof summarize> }) {
       <Row name="세션 수" value={`${s.sessions}회`} />
       <Row name="붕괴 이벤트" value={`${s.events}건`} />
       <Row name="시간당 붕괴 횟수" value={formatRate(s.perHour, '회')} />
-      <Row
+      <SampleRow
         name="붕괴 발생 간격"
-        value={`평균 ${formatDuration(s.meanInterval)} · 중앙값 ${formatDuration(
-          s.medianInterval,
-        )} · n=${s.intervals.length}`}
+        mean={s.meanInterval}
+        median={s.medianInterval}
+        count={s.intervals.length}
       />
-      <Row
+      <SampleRow
         name="회복 시간"
-        value={`평균 ${formatDuration(s.meanRecovery)} · 중앙값 ${formatDuration(
-          s.medianRecovery,
-        )} · n=${s.recoveries.length}`}
+        mean={s.meanRecovery}
+        median={s.medianRecovery}
+        count={s.recoveries.length}
       />
     </>
   )
@@ -370,7 +384,10 @@ function DeltaRow({
     <div className="feature-row" style={{ gridTemplateColumns: '1fr auto auto', gap: 14 }}>
       <span className="feature-name">{name}</span>
       <span className="feature-value">{now}</span>
-      <span className={`stat-delta ${good ? 'up' : 'down'}`} style={{ minWidth: 68, textAlign: 'right' }}>
+      <span
+        className={`stat-delta ${good ? 'up' : 'down'}`}
+        style={{ minWidth: 68, textAlign: 'right' }}
+      >
         {diff === null ? '—' : `${diff > 0 ? '+' : '−'}${format(Math.abs(diff))}`}
       </span>
     </div>

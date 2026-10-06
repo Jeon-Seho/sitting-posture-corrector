@@ -1,0 +1,9 @@
+// All duration threshold decisions live here, never in the API or inference service.
+@name('collapse') select 'collapse_confirmed' as kind from CepFrame
+where candidate and not active and holdMs >= holdThresholdMs;
+
+@name('recovery') select 'recovery_confirmed' as kind from CepFrame
+where not candidate and active and recoveryMs >= recoveryThresholdMs;
+
+@name('reminder') select 'reminder' as kind from CepFrame
+where candidate and active and sinceAlertMs >= reminderThresholdMs;

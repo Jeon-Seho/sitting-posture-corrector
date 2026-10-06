@@ -1,0 +1,641 @@
+{
+  "synthetic": true,
+  "description": "Hand-specified synthetic cases only. No captured video, landmarks or participant data. The reference scales and quality cutoff are unvalidated.",
+  "feature_version": "shoulder-relative-deltas-v1",
+  "model_version": "reference-feature-rule-v1",
+  "cases": [
+    {
+      "name": "unchanged_baseline",
+      "current": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "head_height_increase",
+      "current": {
+        "headGap": 0.22,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0.22,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "head_height_decrease",
+      "current": {
+        "headGap": -0.22,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": -0.22,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "mirrored_left_from_positive_lateral",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "left_lean"
+      }
+    },
+    {
+      "name": "mirrored_right_from_negative_lateral",
+      "current": {
+        "headGap": 0,
+        "offset": -0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": -0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "right_lean"
+      }
+    },
+    {
+      "name": "shoulder_tilt_increase",
+      "current": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0.13,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0.13,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "shoulder_tilt_decrease",
+      "current": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": -0.13,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": -0.13,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "all_features_tie",
+      "current": {
+        "headGap": 0.22,
+        "offset": 0.2,
+        "tilt": 0.13,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0.22,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0.13,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "head_lateral_tie",
+      "current": {
+        "headGap": 0.22,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0.22,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "lateral_shoulder_tie",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0.13,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0.13,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "half_scale_tie",
+      "current": {
+        "headGap": 0.11,
+        "offset": 0.1,
+        "tilt": 0.065,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0.11,
+        "lateral_offset_delta": 0.1,
+        "shoulder_tilt_delta": 0.065,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.35,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "head_score_cap",
+      "current": {
+        "headGap": 0.44,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0.44,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 1,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "unbounded_positive_delta",
+      "current": {
+        "headGap": 2.2,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 2.2,
+        "lateral_offset_delta": 0,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 1,
+        "deviation_type": "unspecified"
+      }
+    },
+    {
+      "name": "unbounded_negative_delta",
+      "current": {
+        "headGap": 0,
+        "offset": -1.5,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": -1.5,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 1,
+        "deviation_type": "right_lean"
+      }
+    },
+    {
+      "name": "signed_changes_from_nonzero_baseline",
+      "current": {
+        "headGap": 0.5,
+        "offset": 0.5,
+        "tilt": 0.375,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0.75,
+        "offset": 0.25,
+        "tilt": 0.25,
+        "quality": 0.85
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": -0.25,
+        "lateral_offset_delta": 0.25,
+        "shoulder_tilt_delta": 0.125,
+        "current_quality": 0.9,
+        "baseline_quality": 0.85
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.875,
+        "deviation_type": "left_lean"
+      }
+    },
+    {
+      "name": "quality_at_inclusive_boundary",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.65
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.65
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.65,
+        "baseline_quality": 0.65
+      },
+      "expected_observation": {
+        "valid": true,
+        "collapse_probability": 0.7,
+        "deviation_type": "left_lean"
+      }
+    },
+    {
+      "name": "current_quality_below_boundary",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.649999
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": null,
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "baseline_quality_below_boundary",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.649999
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": null,
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "reported_poor_measurement",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "poor",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "rest_excludes_available_features",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "rest",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "away_excludes_available_features",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "away",
+      "measurement_quality": "good",
+      "expected_features": {
+        "head_gap_delta": 0,
+        "lateral_offset_delta": 0.2,
+        "shoulder_tilt_delta": 0,
+        "current_quality": 0.9,
+        "baseline_quality": 0.8
+      },
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "missing_current",
+      "current": null,
+      "baseline": {
+        "headGap": 0,
+        "offset": 0,
+        "tilt": 0,
+        "quality": 0.8
+      },
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": null,
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    },
+    {
+      "name": "missing_baseline",
+      "current": {
+        "headGap": 0,
+        "offset": 0.2,
+        "tilt": 0,
+        "quality": 0.9
+      },
+      "baseline": null,
+      "phase": "running",
+      "measurement_quality": "good",
+      "expected_features": null,
+      "expected_observation": {
+        "valid": false,
+        "collapse_probability": 0,
+        "deviation_type": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/inference-request.v2.schema.json",
+  "title": "Shoulder-relative feature inference request v2",
+  "description": "No video or landmarks. Consumers also enforce 0 < end_ms - start_ms <= 1500; JSON numbers must be finite.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "feature_version",
+    "baseline_id",
+    "sequence",
+    "start_ms",
+    "end_ms",
+    "phase",
+    "measurement_quality",
+    "features"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "feature_version": {
+      "const": "shoulder-relative-deltas-v1"
+    },
+    "baseline_id": {
+      "description": "Random UUID for the camera calibration, never a participant identifier.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "start_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400000
+    },
+    "end_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400000
+    },
+    "phase": {
+      "enum": ["running", "rest", "away"]
+    },
+    "measurement_quality": {
+      "enum": ["good", "poor"]
+    },
+    "features": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/features" }
+      ]
+    }
+  },
+  "$defs": {
+    "features": {
+      "description": "Signed current minus baseline, normalized by shoulder width. The three deltas have no [-1,1] clamp. Score scales and the 0.65 quality cutoff remain unvalidated rules.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head_gap_delta",
+        "lateral_offset_delta",
+        "shoulder_tilt_delta",
+        "current_quality",
+        "baseline_quality"
+      ],
+      "properties": {
+        "head_gap_delta": { "type": "number" },
+        "lateral_offset_delta": { "type": "number" },
+        "shoulder_tilt_delta": { "type": "number" },
+        "current_quality": { "type": "number", "minimum": 0, "maximum": 1 },
+        "baseline_quality": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
