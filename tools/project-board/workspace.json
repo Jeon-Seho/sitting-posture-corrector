@@ -4866,9 +4866,54 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "57b34727-5c00-48d7-8a92-b1173e18f64f",
+      "title": "FE 실시간 수신 클라이언트 RealtimePort (계획 0022 4단계)",
+      "category": "프론트",
+      "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
+      "body": "contracts/realtime 계약 기준 WebSocket 클라이언트: 0.5초 묶음 전송, ack·재전송(미확인 16개 한도), 재연결·hello(last_event_id), event_id 중복 제거, 재수신 사건 알림 금지, stalled→analysisPaused, closed 처리. 가짜 게이트웨이 테스트, 서버 모드에 선택형(기본 꺼짐)으로 연결. 실제 Kafka 왕복은 게이트웨이(3단계)·홍규 H1 이후. 결정(동욱 2026-10-06): 실시간 상태는 서버 관측을 WebSocket observation으로 전달(①A).",
+      "status": "in_progress",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "0단계(①) 완료: realtime-ws.v1에 observation 메시지 추가(관측 v2 참조, 재연결 시 재전송 안 함), 예제 ws-observation.json, README 흐름·표·결정 이유 갱신. 계약 테스트 6개 통과. ②(시작·종료 HTTP 유지) 결정 대기",
+      "updated": "2026-10-06T07:39:21.771351+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:38:42.094263+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:38:42.616551+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 0단계 계약 보완(WebSocket observation 메시지)"
+        },
+        {
+          "at": "2026-10-06T07:39:21.771351+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "0단계(①) 완료: realtime-ws.v1에 observation 메시지 추가(관측 v2 참조, 재연결 시 재전송 안 함), 예제 ws-observation.json, README 흐름·표·결정 이유 갱신. 계약 테스트 6개 통과. ②(시작·종료 HTTP 유지) 결정 대기"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0115",
+      "priority": 0,
+      "size": 1,
+      "order": 115,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 115
+  "nextNumber": 116
 }

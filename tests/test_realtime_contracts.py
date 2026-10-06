@@ -50,7 +50,7 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 12)
+        self.assertEqual(len(names), 13)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):

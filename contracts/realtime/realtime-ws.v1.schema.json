@@ -6,6 +6,7 @@
     { "$ref": "#/$defs/hello" },
     { "$ref": "#/$defs/features" },
     { "$ref": "#/$defs/ack" },
+    { "$ref": "#/$defs/observation" },
     { "$ref": "#/$defs/decision" },
     { "$ref": "#/$defs/alert" },
     { "$ref": "#/$defs/stalled" },
@@ -50,6 +51,17 @@
         "type": { "const": "ack" },
         "session_id": { "$ref": "#/$defs/session_id" },
         "last_sequence": { "type": "integer", "minimum": -1 }
+      }
+    },
+    "observation": {
+      "description": "gateway -> client. Latest inference for one interval, forwarded from posture.inference.v1 for the live status. Transient: not replayed after reconnect.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id", "observation"],
+      "properties": {
+        "type": { "const": "observation" },
+        "session_id": { "$ref": "#/$defs/session_id" },
+        "observation": { "$ref": "../posture-observation.v2.schema.json" }
       }
     },
     "decision": {
