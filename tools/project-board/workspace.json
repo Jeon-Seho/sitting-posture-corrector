@@ -3979,8 +3979,8 @@
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "75b1702 CI: 문서 검사·Python 154개·프론트·백엔드(실제 MySQL 14개는 뒤 Compose 단계에서 실행) 통과 후 Linux Chrome 시작 시간 초과. CI 전용 no-sandbox·공유메모리 우회 옵션과 Chrome stderr 진단을 추가해 다시 검증한다. 로컬 브라우저 sandbox 유지.",
-      "updated": "2026-10-06T04:44:01.104338+00:00",
+      "result": "문서·Python·프론트·백엔드 통과. CI Chrome 준비 12초 초과 재현으로 60초 대기·stderr 진단 적용. 로컬 브라우저 73개 통과. 새 CI로 실제 MySQL·Compose 전체 확인 중.",
+      "updated": "2026-10-06T04:47:49.172674+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -3999,6 +3999,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0092 Linux CI Chrome 기동 실패 보완 및 재검증"
+        },
+        {
+          "at": "2026-10-06T04:47:49.172674+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0112 브라우저 회귀 73개 통과, GP-0092 CI Chrome 준비 대기 보완"
         }
       ],
       "stage": "validation",
@@ -4660,9 +4666,48 @@
       "dependsOn": [],
       "priorityNote": "",
       "performedBy": ""
+    },
+    {
+      "id": "93c418f0-205c-427d-9ffa-3772bd18dd15",
+      "title": "기록 표 높이 갱신 루프와 측정 복귀 회귀 수정",
+      "category": "프론트",
+      "source": "docs/plans/active/0020-desktop-app-redesign.md",
+      "body": "실제 브라우저에서 ExpandableTable 높이 갱신 루프로 Maximum update depth exceeded, 기록→측정 복귀 실패 재현. 표 내부 좌표 기준 측정·효과 의존성 수정 후 브라우저 전체 흐름과 프론트 타입·빌드·테스트 검증.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "패널 내부 좌표로 높이 계산·useLayoutEffect 의존성 지정. Java 21 로컬 브라우저 회귀 73개 통과, 프론트 246개·타입·빌드 검증.",
+      "updated": "2026-10-06T04:47:49.172674+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:46:41.029066+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:47:49.172674+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0112 브라우저 회귀 73개 통과, GP-0092 CI Chrome 준비 대기 보완"
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0112",
+      "priority": 0,
+      "size": 1,
+      "order": 112,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "python tools/dev.py check-browser(Java 21, PYTHONUTF8=1): 73개 통과. 프론트 테스트 246개 통과. frontend/src/components/ExpandableTable.tsx, 계획 0020 후속 기록.",
+      "performedBy": "우진"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 112
+  "nextNumber": 113
 }

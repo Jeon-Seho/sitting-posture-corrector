@@ -39,7 +39,7 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
       } catch {
         return null
       }
-    }, 'isolated Chrome readiness')
+    }, 'isolated Chrome readiness', 60_000)
     const cdp = await Cdp.connect(target.webSocketDebuggerUrl)
     const errors = []
     const requests = []

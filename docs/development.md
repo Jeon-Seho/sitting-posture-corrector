@@ -32,6 +32,8 @@ Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구�
 별도 실행할 수 있다. 독립 임시 프로필과 개발 테스트 모드의 합성 입력으로 앱·API·추론·CEP를 연결하며
 실제 카메라를 사용하지 않는다. 일반 개발과 프로덕션에서는 합성 카메라 모드를 사용하지 않는다.
 확인창의 Tab/Shift+Tab·Esc·초점 복귀·배경 조작 차단도 실제 브라우저에서 검증한다.
+GitHub의 일회용 Linux 검증 환경은 `POSEGOOD_CHROME_NO_SANDBOX=1`로 Chrome을 실행한다.
+로컬에서는 이 값을 설정하지 않으면 샌드박스를 유지한다. 시작 실패 로그에는 Chrome stderr가 포함된다.
 `make check-backend`에는 성능 합격 수치를 두지 않는 짧은 benchmark 회귀가 포함된다.
 별도 측정 조건·보고서 해석은 [서버 benchmark](audits/2026-10-01-server-benchmark.md)를 따른다.
 [자료 준비 CLI](research/dataset-preparation.md)의 합성 분할·시간 창·개인 기준/누수 검증은 Python 게이트에 포함된다.

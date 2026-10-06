@@ -19,7 +19,9 @@ export function ExpandableTable({ peekRows = 3, children }: { peekRows?: number;
       const rows = el.querySelectorAll('tbody tr')
       const full = el.scrollHeight
       const last = rows[Math.min(peekRows, rows.length) - 1] as HTMLElement | undefined
-      const peek = last ? last.offsetTop + last.offsetHeight : full
+      // Row offsets may use an ancestor outside this panel. Measure in the
+      // panel's coordinates so changing maxHeight cannot feed back into peek.
+      const peek = last ? last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + el.scrollTop : full
       setHeights((old) => (old && old.peek === peek && old.full === full ? old : { peek, full }))
     }
     measure()
@@ -27,7 +29,7 @@ export function ExpandableTable({ peekRows = 3, children }: { peekRows?: number;
     const observer = new ResizeObserver(measure)
     observer.observe(el.firstElementChild ?? el)
     return () => observer.disconnect()
-  })
+  }, [children, peekRows])
   const collapsible = !!heights && heights.full > heights.peek + 4
   return (
     <div className={`expandable ${open ? 'is-open' : ''} ${collapsible ? 'is-collapsible' : ''}`}>

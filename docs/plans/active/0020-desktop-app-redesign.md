@@ -5,6 +5,8 @@
 - 상태: in_progress
 - 담당: 우진 요청, Lellon_CL 구현
 - 시작일: 2026-10-02
+- 후속 회귀: GP-0112 — 기록 표의 높이를 패널 내부 좌표로 측정하고 효과 의존성을 지정해 반복 갱신 오류를 수정했다.
+  2026-10-06 Windows Java 21의 합성 브라우저 회귀 73개 통과. 전체 UI·실카메라 검증 완료를 뜻하지 않는다.
 - 관련 요구사항/ADR: [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md), [DESIGN.md](../../../DESIGN.md),
   [데스크톱 앱 설계](../../design/desktop-app.md), [플랫폼 연결 지점](../../design/frontend-platform-seams.md)
 
