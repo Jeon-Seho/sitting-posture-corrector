@@ -50,7 +50,10 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     strictPort: true,
     fs: { allow: ['..'] },
     // Explicitly disable native FSEvents when polling is requested on a restricted Mac host.
-    watch: polling ? { usePolling: true, useFsEvents: false, interval: 1000 } : undefined,
+    watch: {
+      ignored: ['**/release/**', '**/release-face/**', '**/release-lab/**', '**/dist-face/**', '**/dist-lab/**'],
+      ...(polling ? { usePolling: true, useFsEvents: false, interval: 1000 } : {}),
+    },
     proxy,
   },
   preview: { host: '127.0.0.1', proxy },

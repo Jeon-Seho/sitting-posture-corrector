@@ -334,3 +334,8 @@ frontend/packaging.log
 frontend/public/lab-model.json
 frontend/dist-lab/
 frontend/release-lab/
+frontend/public/face-model.json
+frontend/dist-face/
+frontend/release-face/
+face-motion-*.json
+frontend/public/face-detector.js

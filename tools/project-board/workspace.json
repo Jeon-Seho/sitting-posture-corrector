@@ -5456,9 +5456,53 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "4dfb12f3-08f9-4f49-acf0-ca8d6516ac6b",
+      "title": "얼굴 중심 0.2.0 추적과 다중 과제 시간 모델",
+      "category": "머신러닝",
+      "source": "docs/areas/machine-learning/face-motion-v020.md",
+      "body": "0.1.0 실전 실패를 반영: 얼굴 회전, 화면 이동, 어깨 누락, 손 들기 관측과 학습/검증/시험 분리. 실제 사람 정확도 미확정.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "0.2.0 얼굴/어깨/손목 추적과 2-head causal CNN 제작·학습(6400/1600/1600,140epoch/best105). 제작 시험 자세 오류1.0008%,행동0.7792%는 실제 사용자 성능 아님. 프론트297통과/1이전 모델 부재skip, Python169통과/3기존 Windows오류/1skip; 타입/일반/실험 빌드, EXE 가상카메라와 공개사진 위치이동 실행 확인. 보고서용 논문8편/공식자료/BibTeX 문서화. 실카메라 좌우 회전·실제 스트레칭·여러 사람 학습은 미검증.",
+      "updated": "2026-10-06T12:03:38.530140+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T11:33:44.126999+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T11:34:54.524948+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "얼굴/상체 마스크 특징과 다중 과제 시간 모델 구현 및 논문 검토 착수"
+        },
+        {
+          "at": "2026-10-06T12:03:38.530140+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "0.2.0 얼굴/어깨/손목 추적과 2-head causal CNN 제작·학습(6400/1600/1600,140epoch/best105). 제작 시험 자세 오류1.0008%,행동0.7792%는 실제 사용자 성능 아님. 프론트297통과/1이전 모델 부재skip, Python169통과/3기존 Windows오류/1skip; 타입/일반/실험 빌드, EXE 가상카메라와 공개사진 위치이동 실행 확인. 보고서용 논문8편/공식자료/BibTeX 문서화. 실카메라 좌우 회전·실제 스트레칭·여러 사람 학습은 미검증."
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0125",
+      "priority": 0,
+      "size": 1,
+      "order": 125,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 125
+  "nextNumber": 126
 }

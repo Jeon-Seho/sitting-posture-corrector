@@ -10,6 +10,11 @@ import { TitleBar } from './features/desktop/TitleBar'
 import './styles.css'
 
 async function start() {
+  if (import.meta.env.MODE === 'face-lab') {
+    const { default: FaceLabApp } = await import('./features/face-lab/FaceLabApp')
+    createRoot(document.getElementById('root')!).render(<StrictMode><FaceLabApp /></StrictMode>)
+    return
+  }
   if (import.meta.env.MODE === 'relative-lab') {
     const { default: RelativeLabApp } = await import('./features/relative-lab/RelativeLabApp')
     createRoot(document.getElementById('root')!).render(<StrictMode><RelativeLabApp /></StrictMode>)

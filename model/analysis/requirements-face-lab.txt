@@ -1,0 +1,2 @@
+-r requirements-relative-lab.txt
+numpy==2.5.3

@@ -1,7 +1,7 @@
 {
   "name": "posegood-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "desktop:dev": "electron electron/main.cjs",
@@ -10,7 +10,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check": "npm run test && npm run build && npm run lab:build",
+    "check": "npm run test && npm run build && npm run lab:build && npm run face:build",
     "lab:dev": "vite --mode relative-lab --host 127.0.0.1 --port 5185",
     "lab:desktop": "node electron/launch-lab.mjs",
     "lab:build": "npm run assets && tsc -b && vite build --mode relative-lab --outDir dist-lab",
@@ -19,7 +19,12 @@
     "predev": "npm run assets",
     "prebuild": "npm run assets",
     "desktop:pack": "npm run build && electron-builder --win --dir && node scripts/copy-desktop.mjs",
-    "desktop:portable": "npm run build && electron-builder --win portable"
+    "desktop:portable": "npm run build && electron-builder --win portable",
+    "face:assets": "node scripts/prepare-face-assets.mjs && node scripts/build-face-worker.mjs",
+    "face:dev": "npm run assets && npm run face:assets && vite --mode face-lab --host 127.0.0.1 --port 5186",
+    "face:desktop": "node electron/launch-face.mjs",
+    "face:build": "npm run assets && npm run face:assets && tsc -b && vite build --mode face-lab --outDir dist-face",
+    "face:pack": "node scripts/check-face-model.mjs && npm run face:build && electron-builder --config face-builder.json --win portable"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.3.0",
@@ -38,6 +43,7 @@
     "electron": "44.4.5",
     "electron-builder": "^26.15.3",
     "react-test-renderer": "18.3.1",
+    "rolldown": "1.2.9",
     "typescript": "^5.6.3",
     "vite": "8.3.0",
     "vitest": "5.0.1"

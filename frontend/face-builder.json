@@ -1,0 +1,27 @@
+{
+  "appId": "com.posegood.face-lab",
+  "productName": "PoseGood Face Lab",
+  "compression": "store",
+  "electronDist": "node_modules/electron/dist",
+  "directories": {
+    "output": "release-face"
+  },
+  "files": [
+    "electron/face-main.cjs",
+    "dist-face/**/*",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/face-main.cjs"
+  },
+  "win": {
+    "target": [
+      "portable"
+    ],
+    "icon": "public/branding/posegood-icon.ico",
+    "signExecutable": false
+  },
+  "portable": {
+    "artifactName": "PoseGood-Face-Lab-0.2.0.exe"
+  }
+}

@@ -2,6 +2,9 @@
 
 ## 먼저 볼 문서
 
+- **얼굴 중심 실험(GP-0125):** [0.2.0 설계·학습·검증](areas/machine-learning/face-motion-v020.md),
+  [보고서용 관련 논문·공식 자료·BibTeX](research/face-motion-literature.md).
+
 - **독립 실험(GP-0124):** [상대좌표 2층 LSTM 학습·실험 앱](areas/machine-learning/relative-pose-lstm.md) —
   `experiment/relative-pose-lstm`에서 제작 시퀀스9,000개 분할 학습 및 EXE 연결. 실제 사용자 성능 미검증.
 

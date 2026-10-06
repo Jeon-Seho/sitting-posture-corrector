@@ -9,6 +9,22 @@ permissions:
   contents: read
 
 jobs:
+  face-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r model/analysis/requirements-relative-lab.txt --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install numpy==2.5.3
+      - run: python model/analysis/train_face_motion.py --epochs 5 --min-epochs 5 --takes 1
+      - run: npm ci --prefix frontend
+      - run: npm --prefix frontend run test -- src/features/face-lab/model.test.ts --maxWorkers=2
+      - run: npm --prefix frontend run face:build
   relative-lab:
     runs-on: ubuntu-latest
     steps:
