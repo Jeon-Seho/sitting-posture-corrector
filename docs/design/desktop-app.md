@@ -16,7 +16,7 @@ npm run dev          # 브라우저로 같은 화면을 연다.
 
 `frontend/electron/`
 
-앱 아이콘(GP-0113)은 현재 화면의 강조색 라운드 사각형 바탕과 크림색 사람 두 덩어리로 단순화한
+앱 아이콘(GP-0119)은 현재 화면의 강조색 라운드 사각형 바탕과 크림색 사람 두 덩어리로 단순화한
 `frontend/public/branding/posegood-icon.svg`가 정본이다. 바깥은 투명하고 PNG·ICO는 같은 SVG에서 내보낸다.
 로그인·사이드바는 `BrandMark`를 공유하고, 브라우저 탭과 Electron 창도 같은 아이콘을 읽는다.
 Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 서명만 생략한다.

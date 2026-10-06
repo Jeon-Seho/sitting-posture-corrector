@@ -22,6 +22,7 @@ import { projectLive, projectMachine } from './projection'
 import { OrderedRequestQueue } from './queue'
 import { validServerCheckpoint, validSessionView } from './validation'
 import { immutableCopy } from './immutable'
+import { RealtimeClient, type SocketLike } from '../realtime/client'
 
 export type ControllerPhase =
   | 'creating'
@@ -50,12 +51,19 @@ type Options = {
   onEnded: (live: ServerLiveState) => void
   onNotifications?: (events: DecisionEvent[]) => void
   onChange?: (state: ServerScreenState) => void
+  /**
+   * Plan 0022 realtime transport (development only, GP-0115). Session create/end/restore stay on HTTP;
+   * live intervals go over WebSocket and results arrive as observation/progress/decision pushes.
+   */
+  realtime?: { url: string; createSocket?: (url: string) => SocketLike }
 }
 
 const MAX_SESSION_MS = 86_400_000
 const FRAME_EXPIRY_MS = 1000
 // The development backend keeps at most 10,000 accepted observations, including rest.
 const LAST_DEVELOPMENT_SEQUENCE = 9998
+const STALLED_MESSAGE = '분석이 잠시 멈췄어요. 서버 판정을 기다리고 있습니다.'
+const RECONNECTING_MESSAGE = '실시간 연결이 끊겨 다시 연결하고 있습니다. 보낸 구간은 연결 후 다시 보냅니다.'
 
 function sameEvent(a: DecisionEvent, b: DecisionEvent) {
   return (Object.keys(a) as (keyof DecisionEvent)[]).every((key) => a[key] === b[key])
@@ -92,6 +100,8 @@ export class ServerSessionController {
   private reconciling = false
   private terminalRejection = false
   private developmentLimit = false
+  private realtime: RealtimeClient | null = null
+  private realtimeBroken = false
 
   constructor(private readonly options: Options) {
     this.session = structuredClone(options.session)
@@ -153,7 +163,7 @@ export class ServerSessionController {
         this.modelVersion,
       ),
       message: this.message,
-      queued: this.queue.size,
+      queued: this.queue.size + (this.realtime?.pendingCount ?? 0),
       retryable:
         this.phase !== 'lost' && (this.queue.failed || this.reconciling || this.terminalRejection),
       canResume:
@@ -163,6 +173,7 @@ export class ServerSessionController {
         !this.reconciling &&
         !this.terminalRejection &&
         !this.developmentLimit &&
+        !this.realtimeBroken &&
         this.endAt === null,
     }
   }
@@ -266,6 +277,7 @@ export class ServerSessionController {
       }
       if (this.disposed) return
       if (restored) this.adopt(restored, true)
+      this.startRealtime()
       this.phase = this.view?.ended ? 'ended' : this.endAt !== null ? 'ending' : 'paused'
       this.message =
         '서버 기록을 확인했습니다. 카메라 위치가 시작 때와 같은지 확인한 뒤 직접 재개해 주세요.'
@@ -345,6 +357,7 @@ export class ServerSessionController {
       )
     }
     if (request.kind === 'create') {
+      this.startRealtime()
       this.phase = this.endAt !== null ? 'ending' : this.desiredRunning ? 'running' : 'paused'
       if (this.phase === 'paused' && !this.session.server.checkpoint) {
         this.restAllowed = true
@@ -365,6 +378,7 @@ export class ServerSessionController {
 
   private completeIfEnded() {
     if (!this.view?.ended) return
+    this.realtime?.close()
     this.phase = 'ended'
     this.restAllowed = false
     if (!this.endedNotified) {
@@ -397,6 +411,109 @@ export class ServerSessionController {
     }
     this.emit()
     return rejected
+  }
+
+  private startRealtime() {
+    const options = this.options.realtime
+    if (!options || this.realtime || this.disposed || this.view?.ended || this.realtimeBroken) return
+    const createSocket =
+      options.createSocket ?? ((url: string) => new WebSocket(url) as unknown as SocketLike)
+    this.realtime = new RealtimeClient({
+      url: options.url,
+      sessionId: this.session.id,
+      createSocket,
+      lastEventId: this.view?.events.at(-1)?.event_id ?? 0,
+      handlers: {
+        onStatus: (status) => {
+          if (status === 'reconnecting' && this.phase === 'running') this.message = RECONNECTING_MESSAGE
+          if (status === 'open' && this.message === RECONNECTING_MESSAGE) this.message = ''
+          this.emit()
+        },
+        onAck: () => {
+          // nextSequence must survive a reload once intervals are in the ordered topic.
+          try {
+            this.saveCheckpoint(null)
+          } catch {
+            /* The previous durable checkpoint is preserved. */
+          }
+          if (this.endAt !== null) this.enqueueEnd()
+          this.emit()
+        },
+        onObservation: (observation) => {
+          if (this.phase !== 'running') return
+          this.observation = immutableCopy(observation)
+          this.modelVersion = observation.model_version
+          if (this.message === STALLED_MESSAGE) this.message = ''
+          this.emit()
+        },
+        onProgress: (lastSequence, summary) => {
+          if (!this.view) return
+          if (this.message === STALLED_MESSAGE) this.message = ''
+          this.applyRealtime({
+            ...this.view,
+            last_sequence: Math.max(this.view.last_sequence, lastSequence),
+            summary,
+          })
+        },
+        onDecision: (event, summary) => {
+          if (!this.view) return
+          this.applyRealtime({
+            ...this.view,
+            summary,
+            events: [...this.view.events, event],
+            ended: this.view.ended || event.kind === 'session_ended',
+          })
+        },
+        onStalled: () => {
+          if (this.phase !== 'running') return
+          this.observation = null
+          this.message = STALLED_MESSAGE
+          this.emit()
+        },
+        onClosed: (reason) => {
+          if (reason === 'local' || reason === 'ended' || this.disposed) return
+          this.realtimeBroken = true
+          this.realtime = null
+          if (reason === 'session_lost') {
+            this.phase = 'lost'
+            this.message = '서버에서 이 세션을 찾지 못했습니다. 마지막으로 확인된 기록을 보존했습니다.'
+            this.emit()
+            return
+          }
+          this.pause('실시간 연결 권한이 없습니다. 다시 로그인한 뒤 측정을 종료해 주세요.', false)
+        },
+      },
+    })
+    this.realtime.start()
+  }
+
+  /** Pushed results pass the same ledger checks, checkpoint and notification path as HTTP replies. */
+  private applyRealtime(next: SessionView) {
+    if (this.disposed) return
+    const cursor = this.lastNotificationId
+    try {
+      this.adopt(next)
+    } catch (error) {
+      this.realtimeBroken = true
+      this.realtime?.close()
+      this.realtime = null
+      this.pause(error instanceof Error ? error.message : '실시간 판정 결과를 확인하지 못했습니다.', false)
+      return
+    }
+    const notifications = next.events.filter(
+      (event) =>
+        event.event_id > cursor &&
+        (event.kind === 'collapse_confirmed' || event.kind === 'reminder'),
+    )
+    this.lastNotificationId = next.events.at(-1)?.event_id ?? cursor
+    try {
+      if (!this.saveCheckpoint(null)) this.lastNotificationId = cursor
+    } catch {
+      this.lastNotificationId = cursor
+    }
+    if (this.phase === 'running' && notifications.length) this.options.onNotifications?.(notifications)
+    this.completeIfEnded()
+    this.emit()
   }
 
   ingest(frame: Observation, deviceId: string) {
@@ -456,6 +573,26 @@ export class ServerSessionController {
       this.developmentLimit = true
       this.pause('개발용 측정 시간·관측 수 한도에 도달했습니다. 현재 측정을 종료해 주세요.', false)
       return false
+    }
+    if (this.realtime) {
+      const live: FrameRequest = {
+        schema_version: '2.0',
+        feature_version: 'shoulder-relative-deltas-v1',
+        baseline_id: this.session.server.baselineId,
+        sequence: this.nextSequence,
+        ...interval,
+      }
+      if (!this.realtime.push(live)) {
+        this.pause(
+          '실시간 전송 대기가 가득 찼습니다. 입력을 멈췄으며 연결이 회복된 뒤 직접 재개할 수 있습니다.',
+          false,
+        )
+        return false
+      }
+      this.nextSequence++
+      this.lastInputEnd = interval.end_ms
+      this.emit()
+      return true
     }
     if (this.queue.size >= this.queue.capacity) {
       this.pause(
@@ -568,6 +705,12 @@ export class ServerSessionController {
 
   private enqueueEnd() {
     if (this.endAt === null || this.endQueued || this.view?.ended || this.disposed) return
+    // The HTTP end must follow every live interval into the same ordered topic.
+    if (this.realtime && this.realtime.pendingCount > 0) {
+      this.message = '실시간으로 보낸 구간이 모두 확인되면 같은 종료 시각으로 종료를 요청합니다.'
+      this.emit()
+      return
+    }
     // A full queue cannot drop an uncertain head. Wait for a slot without changing end time.
     if (this.queue.size >= this.queue.capacity) {
       this.message = '남은 전송을 마친 뒤 같은 종료 시각으로 서버에 종료를 요청합니다.'
@@ -613,6 +756,7 @@ export class ServerSessionController {
     this.disposed = true
     this.fetchAbort.abort()
     this.queue.dispose()
+    this.realtime?.close()
     // Unmount does not fabricate a CEP interruption or end. The last durable request stays intact.
   }
 }

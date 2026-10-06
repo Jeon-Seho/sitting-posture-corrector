@@ -8,7 +8,6 @@
  * still draft values). See docs/design/frontend-platform-seams.md for the screen mapping.
  */
 import type { CollapseType } from '../../data/posture'
-import type { LiveStatus } from '../session/liveView'
 
 /** REST via the API gateway (:8080). JWT handling is decided with the gateway team. */
 export interface AuthPort {
@@ -30,31 +29,11 @@ export type KeypointFrame = {
   points: [number, number, number][]
 }
 
-/** WebSocket: client batches ~0.5 s of frames, server pushes decisions and alerts. */
-export interface RealtimePort {
-  open(sessionId: string, handlers: RealtimeHandlers): RealtimeConnection
-}
-
-export type RealtimeHandlers = {
-  /** Mirrors the server state machine; screens render it through LiveView. */
-  onDecision(decision: RealtimeDecision): void
-  onAlert(alert: { kind: 'first' | 'reminder'; collapse: CollapseType | null; at: number }): void
-  /** No inference for 5 s → screens show "분석이 잠시 멈췄어요" (status analysisPaused). */
-  onStalled(): void
-  onClosed(reason: 'ended' | 'network' | 'auth'): void
-}
-
-export type RealtimeDecision = {
-  status: Extract<LiveStatus, 'normal' | 'suspect' | 'bad' | 'recovering' | 'unmeasurable'>
-  collapse: CollapseType | null
-  modelVersion: string
-  at: number
-}
-
-export interface RealtimeConnection {
-  send(batch: KeypointFrame[]): void
-  close(): void
-}
+/**
+ * The realtime WebSocket seam is implemented: features/session/realtime/client.ts against
+ * contracts/realtime (draft, GP-0115). It sends input v2 deltas (ADR 0013), not keypoints, and the
+ * server session controller uses it when VITE_REALTIME_URL is set.
+ */
 
 /** report-service: single episodes are immediate, daily/weekly figures come from the mart. */
 export interface ReportPort {

@@ -33,7 +33,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 
 2026-10-06 검증(미리보기 `v0.1.0-preview.20261006`): 프론트 테스트 254개·`tsc -b`·Vite 빌드, `npm run desktop:pack`,
 `node scripts/smoke-desktop.mjs`(합성 카메라 640px, 모델 준비, 보안 컨텍스트·Web Locks, 시작 620ms)가 통과했다.
-라운드 사각형 아이콘(GP-0113)이 앱 화면·창·작업 표시줄·두 EXE에 들어간 것을 EXE에서 직접 꺼내 확인했다.
+라운드 사각형 아이콘(GP-0119)이 앱 화면·창·작업 표시줄·두 EXE에 들어간 것을 EXE에서 직접 꺼내 확인했다.
 같은 경로의 EXE 아이콘을 바꾸면 탐색기가 이전 아이콘을 보여 줄 수 있다. `ie4uinit.exe -show`나 재시작으로 아이콘 캐시를 갱신한다.
 `release/PoseGood.exe`(portable)는 `desktop:portable`로 다시 만들기 전까지 이전 빌드이므로 `frontend/PoseGood.exe`를 실행한다.
 이는 한 번의 로컬 측정이며 다른 PC·디스크 캐시·보안 검사에 따라 달라진다.

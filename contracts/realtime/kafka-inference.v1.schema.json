@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/kafka-inference.v1.schema.json",
+  "title": "Topic posture.inference.v1 (draft): inference -> decision CEP",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "session_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "kind": { "enum": ["session_started", "observation", "session_ended"] },
+    "body": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "session_started" } } },
+      "then": { "properties": { "body": { "$ref": "kafka-features.v1.schema.json#/$defs/session_started" } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "observation" } } },
+      "then": { "properties": { "body": { "$ref": "../posture-observation.v2.schema.json" } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "session_ended" } } },
+      "then": { "properties": { "body": { "$ref": "kafka-features.v1.schema.json#/$defs/session_ended" } } }
+    }
+  ]
+}
