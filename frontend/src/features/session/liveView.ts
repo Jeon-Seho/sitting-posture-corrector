@@ -81,13 +81,13 @@ export function timelineKind(status: LiveStatus): TimelineKind {
   return 'collapse'
 }
 
-const COLLAPSE_TITLE: Record<CollapseType, string> = {
+export const COLLAPSE_TITLE: Record<CollapseType, string> = {
   forwardHead: '머리와 상체가 앞으로 나왔어요',
   tilt: '몸이 한쪽으로 기울었어요',
   referenceChange: '기준 자세와 달라졌어요',
 }
 
-const COLLAPSE_HINT: Record<CollapseType, string> = {
+export const COLLAPSE_HINT: Record<CollapseType, string> = {
   forwardHead: '턱을 살짝 당기고 등을 의자에 기대 볼까요?',
   tilt: '천천히 양쪽 어깨 높이를 맞춰 볼까요?',
   referenceChange: '처음 등록한 편한 자세로 돌아가 볼까요?',

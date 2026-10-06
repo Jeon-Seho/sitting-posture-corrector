@@ -169,6 +169,21 @@ export function SettingsPage({
                 <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
               )}
             </Row>
+            <Row
+              name="다른 창을 볼 때 팝업"
+              desc={
+                desktop.desktop
+                  ? '앱이 가려져 있거나 최소화돼 있어도 화면 오른쪽 아래 작은 창으로 알려드려요.'
+                  : '데스크톱 앱에서 사용할 수 있어요.'
+              }
+            >
+              <Switch
+                checked={desktop.info?.alertPopup !== false && !!desktop.info}
+                onChange={(v) => void desktop.setAlertPopup(v)}
+                label="다른 창을 볼 때 팝업으로 알림"
+                disabled={!desktop.info}
+              />
+            </Row>
             <Row name="얼마나 민감하게" desc="꼼꼼할수록 작은 변화에도 알려드려요.">
               <Choice
                 label="알림 민감도"

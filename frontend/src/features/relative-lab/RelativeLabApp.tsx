@@ -117,7 +117,7 @@ export default function RelativeLabApp() {
     const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'relative-lab-reviewed.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   return <main className="relative-lab">
-    <header><span className="lab-badge">PoseGood 실험실 · GP-0122</span><h1>움직임은 편하게, 평가는 천천히.</h1><p>{model?.synthetic === false ? '검토한 좌표 자료로 학습한' : '제작한 스켈레톤 좌표로 학습한'} LSTM 테스트 앱입니다. 실제 자세 정확도와 스트레칭 인식은 검증 전입니다.</p></header>
+    <header><span className="lab-badge">PoseGood 실험실 · GP-0124</span><h1>움직임은 편하게, 평가는 천천히.</h1><p>{model?.synthetic === false ? '검토한 좌표 자료로 학습한' : '제작한 스켈레톤 좌표로 학습한'} LSTM 테스트 앱입니다. 실제 자세 정확도와 스트레칭 인식은 검증 전입니다.</p></header>
     {error && <p role="alert">{error}</p>}{camera.error && <p role="alert">{camera.error}</p>}
     <div className="lab-grid"><section className="lab-camera"><video ref={camera.videoRef} muted playsInline /><canvas ref={camera.canvasRef} />{demo && <div className="lab-demo">합성 시퀀스 미리보기 · 실제 카메라 아님</div>}</section>
     <section className="lab-card"><h2>{names[state]}</h2><p>실험 누적 점수</p><strong className="lab-score">{Math.round(score)}</strong><p>움직임·확인 중·측정 불가 구간에는 감점하지 않습니다.</p><hr /><p>기존 순간 규칙: {oldState} {oldScore !== null && `· ${oldScore}점`}</p><p>기존 점수는 비교용 순간 표시입니다.</p>{probabilities.length > 0 && <ul>{model?.labels.map((label, i) => <li key={label}>{names[label as LabState]}: {(probabilities[i] * 100).toFixed(1)}% 모델 출력</li>)}</ul>}<small>모델 출력은 실제 정확도를 뜻하지 않습니다.</small></section></div>

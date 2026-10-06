@@ -5,7 +5,8 @@ import { COLLAPSE_LABEL } from '../../../data/posture'
 import { enableSound, playCorrection } from '../../../lib/sound'
 import type { ServerCheckpoint, ServerLiveState, ServerSessionDescriptor } from './contracts'
 import { ServerSessionController, type ServerScreenState } from './controller'
-import { projectLive } from './projection'
+import { collapseType, projectLive } from './projection'
+import { popupAlert } from '../../desktop/alertPopup'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
 const REALTIME_URL: string | undefined = import.meta.env.VITE_REALTIME_URL || undefined
@@ -64,6 +65,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
         if (latest.current.soundOn && !playCorrection())
           setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
         const last = events.at(-1)!
+        popupAlert(collapseType(last.deviation_type), last.kind === 'reminder')
         const label =
           last.deviation_type === 'forward_slouch'
             ? COLLAPSE_LABEL.forwardHead

@@ -13,9 +13,11 @@ type Props = {
   onProfile: () => void
   name: string
   today: { rate: number | null; valid: number }
+  /** Opens today's records. */
+  onToday?: () => void
 }
 
-export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, today }: Props) {
+export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, today, onToday }: Props) {
   const current = tabOf(page)
   const { ref, thumb } = useSlidingThumb<HTMLElement>('[aria-current="true"]')
   return (
@@ -38,7 +40,12 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
         ))}
       </nav>
       <div className="sidebar-foot">
-        <div className="today-card">
+        <button
+          type="button"
+          className="today-card"
+          onClick={onToday ?? (() => go('records'))}
+          aria-label="오늘 측정 기록 보기"
+        >
           <div className="today-card-label">오늘 바른 자세</div>
           {today.rate === null ? (
             <p className="today-card-empty">오늘 측정을 마치면 여기에 보여요</p>
@@ -54,7 +61,7 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
               <p className="today-card-empty">{formatDuration(today.valid)} 측정</p>
             </>
           )}
-        </div>
+        </button>
         <AccountMenu name={name} active={page === 'profile'} onProfile={onProfile} onLogout={onLogout} />
       </div>
     </aside>

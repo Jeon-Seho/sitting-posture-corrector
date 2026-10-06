@@ -2,7 +2,7 @@
 
 ## 먼저 볼 문서
 
-- **독립 실험(GP-0122):** [상대좌표 2층 LSTM 학습·실험 앱](areas/machine-learning/relative-pose-lstm.md) —
+- **독립 실험(GP-0124):** [상대좌표 2층 LSTM 학습·실험 앱](areas/machine-learning/relative-pose-lstm.md) —
   `experiment/relative-pose-lstm`에서 제작 시퀀스9,000개 분할 학습 및 EXE 연결. 실제 사용자 성능 미검증.
 
 - **작업 관리판:** [웹·AI 운영 규칙](project-board.md), [팀원](team.md) — 루트의 `바른자세_관리판.bat`으로 문서 검색·진행 보드·담당 배정·메모를 연다.

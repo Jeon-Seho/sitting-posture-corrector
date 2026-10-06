@@ -1,5 +1,5 @@
 // Main process: PC 창의 생성, 시작 프로그램 등록, 앱 종료를 담당한다.
-const { app, BrowserWindow, dialog, ipcMain, net, protocol } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('electron')
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -48,9 +48,10 @@ const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.
 function readSettings() {
   try {
     const value = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))
-    return { autoCamera: value.autoCamera === true }
+    // 자세 알림 팝업은 기본으로 켠다. 설정 화면에서 끌 수 있다.
+    return { autoCamera: value.autoCamera === true, alertPopup: value.alertPopup !== false }
   } catch {
-    return { autoCamera: false }
+    return { autoCamera: false, alertPopup: true }
   }
 }
 function writeSettings(next) {
@@ -93,6 +94,105 @@ ipcMain.handle('desktop:set-auto-camera', (event, enabled) => {
   writeSettings({ ...readSettings(), autoCamera: enabled === true })
   return launchInfo()
 })
+ipcMain.handle('desktop:set-alert-popup', (event, enabled) => {
+  if (!trusted(event)) return null
+  writeSettings({ ...readSettings(), alertPopup: enabled === true })
+  if (enabled !== true) hidePopup()
+  return launchInfo()
+})
+
+// 자세 알림 팝업: 앱 창이 가려졌거나 최소화됐을 때만 화면 오른쪽 아래에 띄운다.
+// 포커스를 가져가지 않고(showInactive) 일정 시간 뒤 스스로 숨는다. 앱을 보고 있으면 앱 안 토스트만 쓴다.
+// 카드가 아래에서 튀어 올라 살짝 지나쳤다 돌아오므로 위쪽과 그림자 여백을 둔다(public/alert-popup.css).
+const POPUP_WIDTH = 396
+const POPUP_HEIGHT = 186
+const POPUP_MS = 8000
+const POPUP_LEAVE_MS = 240
+let mainWindow = null
+let popupWindow = null
+let popupTimer = null
+let popupLeaveTimer = null
+const popupURL = app.isPackaged ? 'app://posegood/alert-popup.html' : new URL('alert-popup.html', DEV_URL).toString()
+
+function popupText(value, limit) {
+  return typeof value === 'string' ? value.trim().slice(0, limit) : ''
+}
+
+async function ensurePopup() {
+  if (popupWindow && !popupWindow.isDestroyed()) return popupWindow
+  popupWindow = new BrowserWindow({
+    width: POPUP_WIDTH, height: POPUP_HEIGHT, show: false, frame: false, transparent: true,
+    resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: '#00000000',
+    // Windows의 프레임 없는 투명 창에 생기는 테두리를 없앤다.
+    thickFrame: false,
+    title: 'PoseGood 자세 알림',
+    webPreferences: {
+      nodeIntegration: false, contextIsolation: true, sandbox: true,
+      preload: path.join(__dirname, 'popup-preload.cjs'),
+    },
+  })
+  popupWindow.setAlwaysOnTop(true, 'screen-saver')
+  popupWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  popupWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  popupWindow.on('closed', () => {
+    popupWindow = null
+  })
+  await popupWindow.loadURL(popupURL)
+  return popupWindow
+}
+
+// 내려가는 애니메이션을 보여 준 뒤 창을 숨긴다. 앱을 열 때는 기다리지 않는다.
+function hidePopup(animate = true) {
+  if (popupTimer) clearTimeout(popupTimer)
+  popupTimer = null
+  if (popupLeaveTimer) clearTimeout(popupLeaveTimer)
+  popupLeaveTimer = null
+  if (!popupWindow || popupWindow.isDestroyed() || !popupWindow.isVisible()) return
+  if (!animate) return popupWindow.hide()
+  popupWindow.webContents.send('popup:hide')
+  popupLeaveTimer = setTimeout(() => {
+    popupLeaveTimer = null
+    if (popupWindow && !popupWindow.isDestroyed()) popupWindow.hide()
+  }, POPUP_LEAVE_MS)
+}
+
+function appInView() {
+  return !!mainWindow && mainWindow.isVisible() && !mainWindow.isMinimized() && mainWindow.isFocused()
+}
+
+ipcMain.handle('desktop:alert', async (event, alert) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return null
+  if (!readSettings().alertPopup) return 'off'
+  if (appInView()) return 'in-app'
+  const title = popupText(alert?.title, 60), body = popupText(alert?.body, 140)
+  if (!title) return null
+  const popup = await ensurePopup()
+  const area = screen.getDisplayMatching(mainWindow.getBounds()).workArea
+  popup.setBounds({
+    x: Math.round(area.x + area.width - POPUP_WIDTH - 12),
+    y: Math.round(area.y + area.height - POPUP_HEIGHT - 12),
+    width: POPUP_WIDTH, height: POPUP_HEIGHT,
+  })
+  if (popupLeaveTimer) clearTimeout(popupLeaveTimer)
+  popupLeaveTimer = null
+  popup.webContents.send('popup:show', { title, body, durationMs: POPUP_MS })
+  popup.showInactive()
+  if (popupTimer) clearTimeout(popupTimer)
+  popupTimer = setTimeout(hidePopup, POPUP_MS)
+  return 'popup'
+})
+ipcMain.on('popup:close', (event) => {
+  if (popupWindow && event.sender === popupWindow.webContents) hidePopup()
+})
+ipcMain.on('popup:open-app', (event) => {
+  if (!popupWindow || event.sender !== popupWindow.webContents) return
+  hidePopup(false)
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
 
 async function createWindow() {
   const window = new BrowserWindow({
@@ -110,6 +210,13 @@ async function createWindow() {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
+  })
+  mainWindow = window
+  // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
+  window.on('focus', () => hidePopup(false))
+  window.on('closed', () => {
+    mainWindow = null
+    if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()
   })
   // Alt를 눌러도 File/Edit 메뉴 바가 나타나지 않게 메뉴 자체를 없앤다(macOS는 시스템 메뉴 유지).
   if (!isMac) window.removeMenu()
@@ -147,7 +254,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    const [window] = BrowserWindow.getAllWindows()
+    const window = mainWindow
     if (!window) return
     if (window.isMinimized()) window.restore()
     window.focus()
@@ -170,7 +277,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     createWindow()
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      if (!mainWindow) createWindow()
     })
   })
 }

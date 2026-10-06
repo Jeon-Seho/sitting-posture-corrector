@@ -2,7 +2,7 @@ import type { CollapseType } from '../../../data/posture'
 import type { CollapseEvent, Machine } from '../../../lib/engine'
 import type { DecisionEvent, ServerLiveState, ServerObservation, SessionView } from './contracts'
 
-function collapseType(type: DecisionEvent['deviation_type']): CollapseType {
+export function collapseType(type: DecisionEvent['deviation_type']): CollapseType {
   if (type === 'forward_slouch') return 'forwardHead'
   if (type === 'left_lean' || type === 'right_lean') return 'tilt'
   return 'referenceChange'

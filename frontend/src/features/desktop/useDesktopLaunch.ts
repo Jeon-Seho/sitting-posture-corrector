@@ -30,5 +30,6 @@ export function useDesktopLaunch() {
     message,
     setLaunchAtLogin: (enabled: boolean) => update(() => desktopBridge()?.setLaunchAtLogin(enabled)),
     setAutoCamera: (enabled: boolean) => update(() => desktopBridge()?.setAutoCamera(enabled)),
+    setAlertPopup: (enabled: boolean) => update(() => desktopBridge()?.setAlertPopup?.(enabled)),
   }
 }

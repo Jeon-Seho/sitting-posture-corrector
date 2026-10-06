@@ -42,6 +42,18 @@ describe('shared demo and camera event policy', () => {
     run(m, 0.2, reading(0.9))
     expect(m.alertTick).toBe(2)
   })
+  it('labels an episode with the dominant direction of its hold, not the confirming frame', () => {
+    const m = newMachine()
+    run(m, 2.5, { ...reading(0.9), collapse: 'forwardHead' })
+    run(m, 0.5, { ...reading(0.9), collapse: 'tilt' })
+    expect(m.events[0].type).toBe('forwardHead')
+    expect(m.holdKinds).toBeDefined()
+    run(m, 2, reading(0.1))
+    expect(m.holdKinds).toBeUndefined()
+    run(m, 1, { ...reading(0.9), collapse: 'forwardHead' })
+    run(m, 2, { ...reading(0.9), collapse: 'tilt' })
+    expect(m.events[0].type).toBe('tilt')
+  })
   it('preserves the existing 2-second recovery hysteresis', () => {
     const m = newMachine()
     run(m, 4, reading(0.9))

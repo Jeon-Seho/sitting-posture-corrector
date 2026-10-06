@@ -27,7 +27,8 @@ Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 �
 | 파일 | 역할 |
 |---|---|
 | `main.cjs` | 창 생성, 외부 주소 차단, 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`) |
-| `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보 읽기, 시작 프로그램, 자동 카메라)만 노출 |
+| `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보 읽기, 시작 프로그램, 자동 카메라, 알림 팝업 설정·표시)만 노출 |
+| `popup-preload.cjs` | 알림 팝업 창에 `window.posegoodPopup`(문구 받기, 닫기, 앱 열기)만 노출 |
 | `launch-dev.mjs` | 바탕화면 바로가기용: 개발 서버 → 창 → 종료 시 서버 정리 |
 
 IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegration` 끔, `contextIsolation`·`sandbox` 켬.
@@ -48,7 +49,7 @@ IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegrati
 | 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
 | 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(기존 통계·사건 표) |
 | 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |
-| 기록 | 기간별 기록 | `features/history/LocalHistory.tsx` | 평균 바른 자세·측정 시간·알림, 날짜별 막대, 자주 흐트러진 방향, 기록 목록, 처음/최근 비교 |
+| 기록 | 기간별 기록 | `features/history/LocalHistory.tsx` | 왼쪽: 평균 바른 자세·측정 시간·알림, 날짜별 막대, 측정 기록 목록. 오른쪽: 자주 흐트러진 방향(횟수·비율, 5회 미만은 참고 안내), 처음/최근 비교. 사이드바 "오늘 바른 자세"를 누르면 오늘 기간으로 열림(2026-10-06) |
 | 설정 | 설정 | `pages/SettingsPage.tsx` | 알림(3단계 선택 + 세밀 조정), 기준 다시 등록, 컴퓨터를 켤 때, 계정, 개발자 옵션 |
 | 설정 | 프로필 / 자세 데이터 수집 | `features/profile/*`, `pages/CollectionPage.tsx` | 기존 화면을 새 색으로 표시 |
 | — | 로그인 | `pages/LoginPage.tsx` | 왼쪽 소개, 오른쪽 입력 |
@@ -81,6 +82,20 @@ IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegrati
    `features/desktop/useLaunchAutomation.ts`가 로그인 후 측정하기 화면에서 카메라를 한 번 연결한다.
 3. 다음 단계(미구현): 설치 파일 패키징 → 패키징된 앱이 `dist/`를 직접 읽도록 `main.cjs` 로딩 경로 추가 →
    저장된 기준 불러오기(플랫폼 `BaselinePort.latest`) → 클릭 없이 측정 시작 → 트레이/작은 항상-위 창.
+
+## 자세 알림 팝업
+
+2026-10-06 사용자 요청. 알림(붕괴 확정·재알림)이 울릴 때 앱 창이 가려졌거나 최소화돼 있으면
+화면 오른쪽 아래에 작은 팝업(`public/alert-popup.html`, 창 396×186)을 띄운다. 앱 창이 포커스를 갖고 보이면
+기존 앱 안 토스트·소리만 쓴다(main이 `in-app`으로 건너뜀).
+
+- 팝업은 항상 위에 뜨지만 포커스를 가져가지 않고(`showInactive`) 8초 뒤 스스로 숨는다. 카드를 아래에서 탄성 있게 올리고(spring), 숨길 때 내려간다.
+  카드 아무 곳이나 누르면 앱 창을 앞으로 가져오고, `닫기`·Esc는 숨김. 남은 시간은 카드 안쪽 둥근 막대로 보인다.
+- 문구는 측정 화면의 방향별 제목·안내(`liveView.ts` COLLAPSE_TITLE/HINT)와 같고 재알림은 "아직 자세가 돌아오지 않았어요."를 앞에 붙인다.
+- 설정 `알림 → 다른 창을 볼 때 팝업`(기본 켜짐)은 데스크톱 설정 파일의 `alertPopup`에 저장한다. 교정 알림을 끄면 팝업도 없다.
+- 앱 창을 닫으면 숨은 팝업 창도 정리해 앱이 종료된다. 일반 브라우저 탭에는 팝업이 없다.
+- 검증: 패키징 EXE를 숨긴 창·독립 프로필로 실행해 `showAlert`→`popup`, 팝업 문구·표시, 설정 끔→`off`를 확인했다.
+  실제 측정 중 다른 창을 볼 때의 사용자 확인은 별도로 한다.
 
 ## 시안
 
