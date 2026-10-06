@@ -2626,12 +2626,12 @@
       "category": "데브옵스",
       "source": "docs/project-board.md",
       "body": "lee_app1 harness check 실패(work.py check 79건) 해소. jin_app·develop 병합(030b0a3)으로 lee_app1에 유입된 MD 34개에 분야·작업 표기, 계획 11개와 감사 문서 2개 카드 등록.",
-      "status": "review",
+      "status": "completed",
       "author": "",
       "assignees": [],
       "agent": "klaod-tech_CL",
-      "result": "로컬 검증 완료: work.py check에서 CI 대상 문서 오류 0건(남은 24줄은 .git/info/exclude로 제외된 _board-bundle 로컬 폴더), check-repo PASS. 카드 GP-0071~0083 등록, MD 34개 분야·작업 표기. 커밋·푸시 전이라 GitHub harness 통과는 미확인",
-      "updated": "2026-10-06T04:25:17.016927+00:00",
+      "result": "CI에서 관리판 검사 단계 통과 확인. 이후 브라우저 시나리오 실패는 별도 카드로 분리",
+      "updated": "2026-10-06T04:30:54.177635+00:00",
       "log": [
         {
           "at": "2026-10-06T04:24:44.209914+00:00",
@@ -2650,6 +2650,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "로컬 검증 완료: work.py check에서 CI 대상 문서 오류 0건(남은 24줄은 .git/info/exclude로 제외된 _board-bundle 로컬 폴더), check-repo PASS. 카드 GP-0071~0083 등록, MD 34개 분야·작업 표기. 커밋·푸시 전이라 GitHub harness 통과는 미확인"
+        },
+        {
+          "at": "2026-10-06T04:30:54.177635+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "CI에서 관리판 검사 단계 통과 확인. 이후 브라우저 시나리오 실패는 별도 카드로 분리"
         }
       ],
       "stage": "operations",
@@ -2659,8 +2665,8 @@
       "order": 70,
       "dependsOn": [],
       "priorityNote": "",
-      "evidence": "",
-      "performedBy": ""
+      "evidence": "커밋 eda5b3a (lee_app1). GitHub harness run 37413742653에서 work.py check 단계 통과, check-repo PASS. 남은 실패(브라우저 시나리오 '쉬는 중' 대기 시간 초과)는 jin_app에서 이어진 기존 실패로 별도 카드",
+      "performedBy": "klaod-tech_CL"
     },
     {
       "id": "08a4236f-24cb-4385-ab23-bfc65c22d75b",
@@ -3129,9 +3135,39 @@
       "priorityNote": "",
       "evidence": "기존 완료 문서: docs/audits/2026-10-01-technology-stack.md (jin_app·develop 병합(030b0a3)으로 lee_app1에 유입)",
       "performedBy": "문서에 작성자 미기재 (jin_app 유입)"
+    },
+    {
+      "id": "a0829a06-896e-4c3b-b84e-38daf709e2f4",
+      "title": "브라우저 시나리오 검사 복구 (harness 실패)",
+      "category": "프론트",
+      "source": "docs/plans/active/0020-desktop-app-redesign.md",
+      "body": "make check의 브라우저 시나리오가 실패한다. lee_app1 run 37413742653: 기록→측정하기 이동 후 '쉬는 중' 문구 대기 시간 초과. jin_app run(10/02, b1db41b): '서버 종료 미확인' 대기 시간 초과. 데스크톱 화면 재구성(0020) 이후 시나리오와 화면이 어긋난 것으로 추정되며 원인 미확인.",
+      "status": "planned",
+      "author": "",
+      "assignees": [],
+      "agent": "klaod-tech_CL",
+      "result": "",
+      "updated": "2026-10-06T04:30:54.436240+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:30:54.436240+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0084",
+      "priority": 0,
+      "size": 1,
+      "order": 84,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 84
+  "nextNumber": 85
 }
