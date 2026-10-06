@@ -1,0 +1,311 @@
+# ============================================================
+# 빅데이터 플랫폼 + api-server/inference-service docker-compose.yml
+# 대상: Kafka(KRaft) · Redis · HDFS(NameNode+DataNode) · Spark
+#       + api-server(Spring Boot) · inference-service(Python)
+# 범위: 테스트환경_구축가이드_VirtualBox_Docker.md 의 "3. Docker
+#       Compose 구성 개요" 전체(빅데이터 플랫폼 + MSA 골격)를 구현한다.
+#       MySQL은 외부 로컬 환경에 별도 구축하므로 여기 포함하지 않는다.
+#       api-server / inference-service는 지금 단계에서는 실제 인증·
+#       LSTM 로직 없이, 외부 MySQL·Kafka·Redis 연결 상태를 헬스체크로만
+#       확인하는 골격이다(README "6. api-server / inference-service
+#       헬스체크 확인" 참고).
+#
+# 이미지/빌드 출처 (2026-09 기준):
+#   - Kafka: apache/kafka (Apache 공식, KRaft 기본 지원)
+#   - Spark: apache/spark (Apache 공식)
+#   - HDFS: bde2020/hadoop-namenode, hadoop-datanode (커뮤니티 유지보수)
+#   - Redis: redis (Docker 공식 이미지)
+#   - api-server: ./api-server/Dockerfile 로 로컬 빌드 (Spring Boot)
+#   - inference-service: ./inference-service/Dockerfile 로 로컬 빌드 (Python)
+#   ※ 원래 Kafka·Spark는 bitnami/* 이미지를 썼으나, Bitnami가 2025년
+#     8월부터 무료 카탈로그 정책을 바꿔 버전 태그(예: bitnami/kafka:3.7)를
+#     전부 없애고 "latest"만 남겼다(구버전은 docker.io/bitnamilegacy로
+#     이관, 더 이상 업데이트 없음). 이 문제를 피하기 위해 Bitnami가 아닌
+#     Apache 공식 이미지로 교체했다.
+#
+# 메모리 배분(2026-10-02 아키텍처 v4 전환, 전용 서버 PC 16GB 기준 —
+#   Posture_Architecture_v4.md 8.1절):
+#   kafka 1.5GB / redis 0.5GB / hdfs namenode 1GB + datanode 1.5GB /
+#   spark 2GB(잡 실행 중에만) + api-server 0.75GB
+#   → 합계 약 7.25GB (+ inference-service는 GPU PC로 분리 예정, 서버
+#     PC에서는 CPU 폴백용으로만 남겨둠 — v4 10장 "GPU PC 중단" 대응)
+#
+# 2026-10-02 변경 (D-13/D-14, 아키텍처 v4 전환 결정):
+#   - posture-cep(Python) 서비스 제거. 상태머신·세션 만료 로직은
+#     api-server(com.posture.api.posture.cep 패키지)로 이식했다.
+#     판정 로직 자체(지속 3s/회복 3s/재알림 60s)는 그대로 재사용 —
+#     VM에서 이미 검증된 값(T-01)을 팀 회의 확정 전까지 잠정 유지한다.
+#   - Kafka에 EXTERNAL(9094) 리스너 추가 — 외부 GPU PC(inference-service)
+#     접속용. GPU PC IP(192.168.0.108)만 DOCKER-USER iptables 규칙으로
+#     허용했다(ufw는 22/8080만 개방 유지).
+#   - 내부 전용 포트(Kafka 9092, Redis 6379, Spark UI 4040, HDFS RPC
+#     9000)는 127.0.0.1 바인딩으로 좁히고, GPU PC가 실제로 써야 하는
+#     포트(9094, 9870, 9864)만 서버 IP(192.168.0.104)에 바인딩한다.
+#   - 모든 서비스에 로그 크기 제한(json-file, 10m×3) 적용 — VM에서
+#     겪은 디스크 부족(Kafka 크래시) 재발 방지.
+#
+# 환경변수: 외부 MySQL 접속 정보 등은 이 파일과 같은 폴더의 .env 로
+#   주입한다(.env.example 참고, 실제 값이 든 .env는 커밋하지 않는다).
+# ============================================================
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  redis-data:
+  hdfs-namenode-data:
+  hdfs-datanode-data:
+
+# 모든 서비스 공통 로그 크기 제한. 컨테이너당 최대 30MB(10MB×3)로
+# 캡을 걸어, 장시간 /health·/actuator/health 폴링만으로 디스크가
+# 차는 문제를 막는다 (2026-10-01 Kafka 디스크 부족 사고 재발 방지).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  # ---------------- Kafka (KRaft, 단일 브로커, Zookeeper 불필요) ----------------
+  # 2025-08 Bitnami의 무료 이미지 정책 변경으로 bitnami/kafka:3.7 같은
+  # 버전 태그가 전부 사라지고 "latest"만 남았다(docker.io/bitnamilegacy로
+  # 구버전 이관, 더 이상 업데이트 없음). Bitnami 의존을 없애기 위해
+  # Apache Kafka 공식 이미지(apache/kafka)로 교체했다 — 이 이미지는
+  # Kafka 3.7+부터 KRaft를 기본 지원하며 Zookeeper가 필요 없다.
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 1.5g
+    mem_reservation: 768m
+    ports:
+      - "127.0.0.1:9092:9092"      # 호스트 내부 전용 (서버 PC 자체에서 CLI 디버깅용)
+      - "192.168.0.104:9094:9094"  # 외부 GPU PC(inference-service) 전용 — DOCKER-USER로 소스 IP 제한됨
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      # PLAINTEXT: 같은 app-network의 다른 컨테이너(api-server 등)가
+      #            서비스명 "kafka:19092"로 접속하는 내부 리스너
+      # PLAINTEXT_HOST: 서버 PC 호스트에서 "localhost:9092"로 접속하는 리스너
+      # EXTERNAL: 외부 GPU PC가 "192.168.0.104:9094"로 접속하는 리스너
+      #           (Posture_Architecture_v4.md 5.8절)
+      KAFKA_LISTENERS: "PLAINTEXT://:19092,PLAINTEXT_HOST://:9092,EXTERNAL://:9094,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092,EXTERNAL://192.168.0.104:9094"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      # (D-15) 자동 생성되는 토픽의 기본 파티션 수 — v4 메시지 규격 3장의
+      # 주요 토픽 파티션 수(3)와 맞춘다. 이미 만들어진 토픽에는 적용되지
+      # 않으므로 기존 posture.inference는 kafka-topics.sh --alter로 늘린다.
+      KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_HEAP_OPTS: "-Xms768m -Xmx768m"
+      # 데이터 보존 경로를 명시하고 볼륨으로 고정(기본값은 /tmp 하위라
+      # 컨테이너 재생성 시 사라질 수 있음)
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      # 단일 브로커 필수 설정: Kafka 기본값(offsets.topic.replication.factor=3
+      # 등)은 3브로커 운영 클러스터를 가정한다. 브로커가 1대뿐인 테스트
+      # 환경에서 이 값을 그대로 두면, 컨슈머 그룹 코디네이터가 쓰는 내부
+      # 토픽(__consumer_offsets)이 복제본 3개를 채우지 못해 생성 자체가
+      # 실패하고, 그 결과 컨슈머 그룹 참여(rebalance)가 영원히 끝나지
+      # 않아 프로듀스는 되는데 컨슈머만 계속 타임아웃 나는 증상이 생긴다.
+      # 브로커 1대 환경이므로 전부 1로 낮춘다.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 512m
+    command: ["redis-server", "--maxmemory", "400mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:6379:6379"   # 서버 PC 내부 전용 (v4 7.1절 — 외부 PC에 노출하지 않음)
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------- HDFS NameNode ----------------
+  hdfs-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-namenode
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 1g
+    env_file:
+      - ./hadoop.env
+    environment:
+      CLUSTER_NAME: "posture-test"
+    ports:
+      - "192.168.0.104:9870:9870"  # NameNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
+      - "127.0.0.1:9000:9000"      # HDFS RPC (fs.defaultFS) — 서버 PC 내부 전용
+    volumes:
+      - hdfs-namenode-data:/hadoop/dfs/name
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9870 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------- HDFS DataNode ----------------
+  hdfs-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-datanode
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 1.5g
+    depends_on:
+      hdfs-namenode:
+        condition: service_healthy
+    env_file:
+      - ./hadoop.env
+    environment:
+      SERVICE_PRECONDITION: "hdfs-namenode:9870"
+    ports:
+      - "192.168.0.104:9864:9864"  # DataNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
+    volumes:
+      - hdfs-datanode-data:/hadoop/dfs/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9864 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # ---------------- Spark (로컬 모드 배치/스트리밍 실행용) ----------------
+  # bitnami/spark:3.5도 같은 이유(2025-08 Bitnami 정책 변경)로 더 이상
+  # 받아지지 않아, Apache Spark 공식 이미지(apache/spark)로 교체했다.
+  # 이 이미지는 상시 떠 있는 마스터가 필요 없는 local[*] 모드 테스트에
+  # 맞춰, 컨테이너를 살려두고(tail -f) 필요할 때 docker exec로
+  # spark-submit을 실행하는 방식으로 구성한다.
+  spark:
+    image: apache/spark:latest
+    container_name: spark
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 2g
+    user: root
+    command: ["tail", "-f", "/dev/null"]
+    ports:
+      - "127.0.0.1:4040:4040"   # spark-submit 실행 중에만 뜨는 Spark 애플리케이션 UI — 서버 PC 내부 전용
+    networks:
+      - app-network
+
+  # ---------------- api-server (Spring Boot) ----------------
+  # 2026-10-02 아키텍처 v4 전환(D-13)으로 posture-cep(Python)을 흡수했다 —
+  # com.posture.api.posture.cep 패키지가 posture.inference를 구독해
+  # 상태머신 판정(지속·회복·재알림)과 세션 만료 정리를 수행하고,
+  # collapse_events/sessions 테이블에 직접 기록한다. 판정 파라미터는
+  # application.yml의 cep.* 값(기본 3s/3s/60s) 참고.
+  api-server:
+    build:
+      context: ./api-server
+    container_name: api-server
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 768m
+    env_file:
+      - ./.env
+    environment:
+      # .env에 값이 없어도 컨테이너 간 통신 기본값(app-network 서비스명)으로 동작
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+      # posture-cep(Python)이 구독하던 토픽 — 이제 api-server 자신이 구독한다
+      POSTURE_INFERENCE_TOPIC: ${KAFKA_TOPIC_POSTURE_INFERENCE:-posture.inference}
+      # posture-cep에서 그대로 옮긴 상태머신 파라미터 (D-13). 팀 회의
+      # 확정 전까지 VM 검증값(3s/3s/60s) 유지.
+      CEP_PERSIST_SECONDS: ${CEP_PERSIST_SECONDS:-3}
+      CEP_RECOVERY_SECONDS: ${CEP_RECOVERY_SECONDS:-3}
+      CEP_REALERT_SECONDS: ${CEP_REALERT_SECONDS:-60}
+      CEP_SESSION_TIMEOUT_SECONDS: ${CEP_SESSION_TIMEOUT_SECONDS:-300}
+      CEP_SESSION_EXPIRY_INTERVAL_SECONDS: ${CEP_SESSION_EXPIRY_INTERVAL_SECONDS:-60}
+      # (D-04) 상태머신 상태 Redis 저장 (posture:state:{userId}, TTL 1시간)
+      CEP_STATE_STORE_ENABLED: ${CEP_STATE_STORE_ENABLED:-true}
+      CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
+      # (D-15) posture.inference 컨슈머 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
+      POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-8}
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    # (D-11) liveness만 본다 — 외부 DB(192.168.0.42) 일시 장애가 컨테이너
+    # unhealthy로 번지지 않게. DB/Redis 상태는 /actuator/health(전체) 또는
+    # /actuator/health/readiness로 따로 확인한다.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/liveness || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # ---------------- inference-service (Python / LSTM) ----------------
+  # v4 아키텍처 목표는 이 서비스를 외부 GPU PC로 옮기는 것이다(모델
+  # 담당자가 GPU PC에 같은 이미지를 빌드해 KAFKA_BOOTSTRAP_SERVERS를
+  # 192.168.0.104:9094로 맞추면 된다 — Dockerfile/requirements.txt는
+  # 이미 그대로 재사용 가능). 서버 PC의 이 사본은 제거하지 않고
+  # 남겨둔다 — v4 10장이 정의한 장애 대응("GPU PC 중단 시 서버 PC에서
+  # CPU 모드로 즉시 대체 실행")을 위한 폴백이다.
+  inference-service:
+    build:
+      context: ./inference-service
+    container_name: inference-service
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 1g
+    environment:
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+      # run_inference() 결과를 api-server(구 posture-cep)가 구독하는 토픽으로 발행한다.
+      KAFKA_TOPIC_POSTURE_INFERENCE: ${KAFKA_TOPIC_POSTURE_INFERENCE:-posture.inference}
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
