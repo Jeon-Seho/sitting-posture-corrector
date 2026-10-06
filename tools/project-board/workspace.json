@@ -619,18 +619,26 @@
       "category": "DB",
       "source": "docs/architecture.md",
       "body": "DB 엔진을 합의하고 사용자·기준 버전·설정·세션·이벤트·동의 스키마와 마이그레이션 왕복을 검증한다.",
-      "status": "planned",
+      "status": "in_progress",
       "author": "",
-      "assignees": [],
+      "assignees": [
+        "유진"
+      ],
       "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-09-29T02:39:44.624515+00:00",
+      "updated": "2026-10-06T04:15:47.923641+00:00",
       "log": [
         {
           "at": "2026-09-29T02:39:44.624515+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "프로젝트 요구사항·코드 범위를 대조해 로드맵과 선행 관계 등록. 기존 로컬 구현과 남은 검증 범위를 분리."
+        },
+        {
+          "at": "2026-10-06T04:15:47.923641+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "세호·유진 기존 작업 카드 등록과 연결"
         }
       ],
       "number": "GP-0016",
@@ -2596,14 +2604,14 @@
       "category": "DB",
       "source": "database/proposals/0001-v03-supplement.md",
       "body": "V0.3 기준 전환 시 V1의 운영 기능(중복 재전송·CEP 복구·로그인·동의·기록 원문)과 나이·직업을 추가 마이그레이션으로 건의. DB 담당 검토 대기. 관련: 계획 0021.",
-      "status": "review",
+      "status": "completed",
       "author": "",
       "assignees": [
         "동욱"
       ],
       "agent": "klaod-tech_CL",
       "result": "건의안 작성 완료(1~11번). DB 담당(sunshine-yj) 검토 대기. 판정값은 DEFAULT_TEMP 사용, 동의는 기존 service-v1·학습용 선택 동의를 T-41로 이관 제안, 나이·직업 추가 제안.",
-      "updated": "2026-10-06T04:11:22.670506+00:00",
+      "updated": "2026-10-06T04:15:47.923641+00:00",
       "log": [
         {
           "at": "2026-10-05T06:39:04.625670+00:00",
@@ -2622,6 +2630,12 @@
           "by": "Lellon_CL",
           "kind": "ai",
           "text": "담당 추적 반영, GP-0068 진행 기록"
+        },
+        {
+          "at": "2026-10-06T04:15:47.923641+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "세호·유진 기존 작업 카드 등록과 연결"
         }
       ],
       "stage": "contracts",
@@ -2631,8 +2645,8 @@
       "order": 67,
       "dependsOn": [],
       "priorityNote": "",
-      "evidence": "",
-      "performedBy": ""
+      "evidence": "DB 담당 유진이 건의안 1~6·8~11번을 스키마 V1.1(feature/db-schema-v1.1 9751f7b)에 반영, 7번 user_consent 보류",
+      "performedBy": "동욱(작성), 유진(검토·반영)"
     },
     {
       "id": "d01d6a21-da41-494f-8243-4d2bfd046166",
@@ -2701,9 +2715,117 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "bd7b1f10-7477-4914-9e40-7c16202ee65d",
+      "title": "저장소 생성과 기본 폴더 구조",
+      "category": "데브옵스",
+      "source": "README.md",
+      "body": "GitHub 저장소 Jeon-Seho/sitting-posture-corrector를 만들고 frontend·backend·model·database·docs 기본 폴더와 README를 구성했다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:15:47.923641+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:15:47.881865+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "팀원별 추적: 관리판에 없던 기존 작업을 git 기록으로 등록"
+        },
+        {
+          "at": "2026-10-06T04:15:47.923641+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "세호·유진 기존 작업 카드 등록과 연결"
+        }
+      ],
+      "stage": "foundation",
+      "priority": 0,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "세호",
+      "evidence": "e2230c2 Initial commit, 0f46979 init (2026-09-11, Jeon-Seho)",
+      "number": "GP-0070"
+    },
+    {
+      "id": "37ed8c4e-a4b8-4a9b-8f55-89ee856395b3",
+      "title": "DB 스키마 V0.3·시드·ERD",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "명세서 V0.3에서 MySQL 스키마(테이블 17개), 마스터 시드 4개, 개념·논리 ERD를 만들고 재현·무결성 57개 항목을 검증했다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:15:47.923641+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:15:47.881884+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "팀원별 추적: 관리판에 없던 기존 작업을 PR #8로 등록"
+        },
+        {
+          "at": "2026-10-06T04:15:47.923641+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "세호·유진 기존 작업 카드 등록과 연결"
+        }
+      ],
+      "stage": "service",
+      "priority": 0,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "유진",
+      "evidence": "PR #8 (feat/db-schema-seed-erd) 4cf712e, 유진 merge 213e441 → develop (2026-10-02)",
+      "number": "GP-0071"
+    },
+    {
+      "id": "bc35c154-fc4a-4556-a484-0bac0e52b71e",
+      "title": "DB 스키마 V1.1·마이그레이션(건의안 0001 반영)",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "V0.3을 V1.0으로 확정하고 DB 건의안 0001의 1~6·8~11번을 반영한 스키마 V1.1(테이블 24개)과 마이그레이션 001~010, 시드 갱신. 7번 user_consent는 보류.",
+      "status": "completed",
+      "author": "",
+      "assignees": [],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:15:47.923641+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:15:47.881895+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "팀원별 추적: 관리판에 없던 기존 작업을 브랜치 커밋으로 등록"
+        },
+        {
+          "at": "2026-10-06T04:15:47.923641+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "세호·유진 기존 작업 카드 등록과 연결"
+        }
+      ],
+      "stage": "service",
+      "priority": 0,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "유진",
+      "evidence": "feature/db-schema-v1.1 29427e6, d7bcb16, 9751f7b (2026-10-05). develop 미통합, jin_db_v11에 병합(c51f0f3)",
+      "number": "GP-0072"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 70
+  "nextNumber": 73
 }
