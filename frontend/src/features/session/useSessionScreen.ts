@@ -8,6 +8,7 @@ import { cameraSample } from '../../lib/cameraSample'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
+import { popupAlert } from '../desktop/alertPopup'
 import type { SessionService } from './types'
 
 type Options = {
@@ -92,6 +93,8 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
     if (soundOn && !playCorrection())
       setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
+    const active = live.events.find((event) => event.endAt === null)
+    popupAlert(active?.type ?? live.collapse, (active?.alerts ?? 1) > 1)
     setToast(
       live.collapse
         ? `${COLLAPSE_LABEL[live.collapse]} 상태가 ${rules.holdSeconds}초 이상 이어졌습니다.`

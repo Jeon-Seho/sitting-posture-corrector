@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>PoseGood 자세 알림</title>
+    <link rel="stylesheet" href="/alert-popup.css" />
+  </head>
+  <body>
+    <!-- Desktop posture alert shown over other windows (electron/main.cjs, `desktop:alert`). -->
+    <main class="popup" role="alert" aria-live="assertive">
+      <img class="mark" src="/branding/posegood-icon.svg" alt="" width="40" height="40" />
+      <div class="text">
+        <strong id="title">자세가 흐트러졌어요</strong>
+        <p id="body">처음 등록한 편한 자세로 돌아가 볼까요?</p>
+        <div class="actions">
+          <button id="open" class="primary" type="button">앱 열기</button>
+          <button id="close" type="button">닫기</button>
+        </div>
+      </div>
+      <span class="timer" aria-hidden="true"><span id="timer-bar"></span></span>
+    </main>
+    <script src="/alert-popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,144 @@
+/* Desktop posture alert popup. Colors follow DESIGN.md (cream surface, terracotta accent). */
+:root {
+  --surface: #fffaf4;
+  --ink: #2d221d;
+  --muted: #6f5f55;
+  --line: #ecdfd3;
+  --primary: #c4532a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: Pretendard, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.popup {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  margin: 10px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 28px rgba(64, 38, 24, 0.22);
+  overflow: hidden;
+  animation: enter 0.22s ease-out;
+}
+
+.popup.leaving {
+  animation: leave 0.18s ease-in forwards;
+}
+
+.mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+
+.text {
+  min-width: 0;
+  flex: 1;
+}
+
+strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+p {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fffaf4;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--line);
+}
+
+.timer span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--primary);
+  transform-origin: left;
+}
+
+.timer span.running {
+  animation: countdown var(--duration, 8s) linear forwards;
+}
+
+@keyframes countdown {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes leave {
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup,
+  .popup.leaving,
+  .timer span.running {
+    animation: none;
+  }
+}
