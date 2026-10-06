@@ -79,7 +79,7 @@ class AccountDriver {
     await this.fill('이메일', email)
     await this.fill('비밀번호', password)
     await this.click(name ? '계정 만들고 시작' : '로그인')
-    await this.text('측정하기')
+    await until(() => this.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'authenticated account navigation')
     const me = await this.api('auth/me')
     assert.equal(me.status, 200)
     this.userId = me.value.user_id

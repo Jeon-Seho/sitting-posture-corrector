@@ -3915,8 +3915,8 @@
         "동욱"
       ],
       "agent": "Lellon_GPT",
-      "result": "새 데스크톱 내비게이션·계정 메뉴·기준 등록·휴식·기록 표시로 계정 smoke 갱신. 로그 UTF-8 명시. JS 구문 통과; 실제 계정 검증은 새 CI Compose에서 확인한다.",
-      "updated": "2026-10-06T04:53:58.562749+00:00",
+      "result": "계정 smoke의 로그인 완료 대기를 authenticated sidebar .me-profile로 한정. 로그인 화면에도 나타나는 일반 텍스트로 인증 전 auth/me를 조회하던 경쟁 조건 수정. 실제 Compose CI 재검증.",
+      "updated": "2026-10-06T04:58:48.895304+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
@@ -3929,6 +3929,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "GP-0090·0091 계정 브라우저 UI·UTF-8 로그 수정, 실제 Compose 검증 대기"
+        },
+        {
+          "at": "2026-10-06T04:58:48.895304+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0090 계정 인증 완료 대기 조건 수정"
         }
       ],
       "stage": "validation",
