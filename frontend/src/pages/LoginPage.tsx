@@ -34,7 +34,6 @@ export function LoginPage({
         </div>
         <div>
           <h1>내 편한 자세를 기억해 두고, 흐트러질 때만 살짝 알려드려요</h1>
-          <p>카메라로 자세를 살펴보지만 영상은 저장하거나 보내지 않아요.</p>
         </div>
         <SittingArt />
         <div className="cover-points">

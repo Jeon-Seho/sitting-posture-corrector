@@ -48,7 +48,7 @@ IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegrati
 | 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
 | 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(기존 통계·사건 표) |
 | 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |
-| 기록 | 기간별 기록 | `features/history/LocalHistory.tsx` | 평균 바른 자세·측정 시간·알림, 날짜별 막대, 자주 흐트러진 방향, 기록 목록, 처음/최근 비교 |
+| 기록 | 기간별 기록 | `features/history/LocalHistory.tsx` | 왼쪽: 평균 바른 자세·측정 시간·알림, 날짜별 막대, 측정 기록 목록. 오른쪽: 자주 흐트러진 방향(횟수·비율, 5회 미만은 참고 안내), 처음/최근 비교. 사이드바 "오늘 바른 자세"를 누르면 오늘 기간으로 열림(2026-10-06) |
 | 설정 | 설정 | `pages/SettingsPage.tsx` | 알림(3단계 선택 + 세밀 조정), 기준 다시 등록, 컴퓨터를 켤 때, 계정, 개발자 옵션 |
 | 설정 | 프로필 / 자세 데이터 수집 | `features/profile/*`, `pages/CollectionPage.tsx` | 기존 화면을 새 색으로 표시 |
 | — | 로그인 | `pages/LoginPage.tsx` | 왼쪽 소개, 오른쪽 입력 |

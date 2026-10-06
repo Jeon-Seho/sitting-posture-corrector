@@ -38,14 +38,16 @@ export function LocalHistory({
   measuring,
   onStart,
   accountMode = false,
+  initialPeriod = 'week',
 }: {
   records: RecordItem[]
   measuring: boolean
   onStart: () => void
   accountMode?: boolean
+  initialPeriod?: Period
 }) {
   const [mode, setMode] = useState<HistoryMode>('all')
-  const [period, setPeriod] = useState<Period>('week')
+  const [period, setPeriod] = useState<Period>(initialPeriod)
   const now = new Date()
   const hasDemo = records.some((r) => r.mode === 'demo')
   const selected = historyFor(records, mode, period, now)
@@ -53,6 +55,7 @@ export function LocalHistory({
   const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
   const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
   const kinds = kindShares(selected)
+  const kindTotal = kinds.reduce((n, k) => n + k.count, 0)
   const title = PERIODS.find(([id]) => id === period)![2]
   return (
     <>
@@ -174,38 +177,6 @@ export function LocalHistory({
             </div>
           </section>
 
-          <details className="more">
-            <summary>처음과 최근 비교</summary>
-            <div className="more-body">
-              <p className="fine">
-                조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
-                개선 근거가 아닙니다.
-              </p>
-              <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
-            </div>
-          </details>
-        </div>
-        <div className="view-side">
-          <section className="card">
-            <h3 className="card-title" style={{ marginBottom: 14 }}>
-              자주 흐트러진 방향
-            </h3>
-            {kinds.length === 0 ? (
-              <p className="fine">아직 흐트러진 기록이 없어요.</p>
-            ) : (
-              <div className="kinds">
-                {kinds.map((k) => (
-                  <div key={k.type}>
-                    <div className="kind-head">
-                      <span>{KIND_LABEL[k.type]}</span>
-                      <span>{Math.round(k.share * 100)}%</span>
-                    </div>
-                    <Meter value={k.share} color={KIND_COLOR[k.type]} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
           <section className="card">
             <h3 className="card-title" style={{ marginBottom: 6 }}>
               측정 기록
@@ -224,6 +195,36 @@ export function LocalHistory({
                 .map((record) => <RecordHistoryItem key={record.id} record={record} />)
             )}
           </section>
+        </div>
+        <div className="view-side">
+          <section className="card">
+            <h3 className="card-title" style={{ marginBottom: 14 }}>
+              자주 흐트러진 방향
+            </h3>
+            {kinds.length === 0 ? (
+              <p className="fine">아직 흐트러진 기록이 없어요.</p>
+            ) : (
+              <div className="kinds">
+                {kindTotal < 5 && (
+                  <p className="fine">흐트러진 기록이 {kindTotal}회라 비율은 참고만 해 주세요.</p>
+                )}
+                {kinds.map((k) => (
+                  <div key={k.type}>
+                    <div className="kind-head">
+                      <span>{KIND_LABEL[k.type]}</span>
+                      <span>
+                        {k.count}회 · {Math.round(k.share * 100)}%
+                      </span>
+                    </div>
+                    <Meter value={k.share} color={KIND_COLOR[k.type]} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          {/* Uses every record of the selected kind, independent of the period above. */}
+          <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
+          {hasDemo && <p className="fine">합성 시연 결과는 실제 자세 개선 근거가 아니에요.</p>}
         </div>
       </div>
     </>
@@ -259,6 +260,6 @@ function kindShares(records: RecordItem[]) {
     for (const event of record.events) counts.set(event.type, (counts.get(event.type) ?? 0) + 1)
   const total = [...counts.values()].reduce((a, b) => a + b, 0)
   return [...counts]
-    .map(([type, n]) => ({ type, share: n / total }))
+    .map(([type, n]) => ({ type, count: n, share: n / total }))
     .sort((a, b) => b.share - a.share)
 }

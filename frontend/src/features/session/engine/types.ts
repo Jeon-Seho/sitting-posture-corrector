@@ -49,6 +49,8 @@ export type Machine = {
   alertTick: number
   blockId: number
   interrupted: boolean
+  /** Seconds per direction during the current hold; the episode takes the dominant one. */
+  holdKinds?: Partial<Record<CollapseType, number>>
 }
 
 export type Sample = {

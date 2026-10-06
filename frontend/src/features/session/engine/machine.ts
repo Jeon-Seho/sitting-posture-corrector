@@ -1,4 +1,4 @@
-import { SCENARIO_SECONDS } from '../../../data/posture'
+import { SCENARIO_SECONDS, type CollapseType } from '../../../data/posture'
 import { sampleAt } from './scenario'
 import type { CollapseEvent, Machine, Rules, Sample, SessionPhase } from './types'
 
@@ -76,10 +76,12 @@ export function step(
     m.recover = 0
     if (m.onsetAt === null) m.onsetAt = Math.max(0, m.total - dt)
     m.hold += dt
+    if (s.collapse) m.holdKinds = { ...m.holdKinds, [s.collapse]: (m.holdKinds?.[s.collapse] ?? 0) + dt }
     if (!m.active && m.hold + 1e-8 >= rules.holdSeconds) {
       const ev: CollapseEvent = {
         id: m.nextId++,
-        type: s.collapse ?? 'forwardHead',
+        // One noisy frame at confirmation must not decide the direction of the whole episode.
+        type: dominantKind(m.holdKinds) ?? s.collapse ?? 'forwardHead',
         startAt: m.onsetAt,
         validStartAt: Math.max(0, m.total - m.paused - m.unknown - m.hold),
         confirmedAt: m.total,
@@ -115,6 +117,7 @@ export function step(
   }
   m.hold = 0
   m.onsetAt = null
+  delete m.holdKinds
   if (m.active) {
     m.recover += dt
     if (m.recover + 1e-8 >= rules.recoverSeconds) {
@@ -131,6 +134,13 @@ export function step(
     }
   }
   return s
+}
+
+function dominantKind(kinds: Machine['holdKinds']): CollapseType | null {
+  let best: CollapseType | null = null
+  for (const [kind, seconds] of Object.entries(kinds ?? {}) as [CollapseType, number][])
+    if (best === null || seconds > (kinds![best] ?? 0)) best = kind
+  return best
 }
 
 function interrupt(m: Machine, reason: 'paused' | 'unknown') {
@@ -157,4 +167,5 @@ export function closeOpenEvent(m: Machine, reason: 'paused' | 'unknown' | 'ended
   m.hold = 0
   m.recover = 0
   m.onsetAt = null
+  delete m.holdKinds
 }
