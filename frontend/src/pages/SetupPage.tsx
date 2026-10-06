@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise, Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
 import { CameraStage } from '../components/CameraStage'
+import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
 
@@ -34,7 +35,7 @@ export function SetupPage({
   const title = ['카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '편하게 앉아볼까요?', '준비가 끝났어요'][step]
   const desc = [
     '평소 바르게 앉은 모습을 기억해 두고, 그 자세에서 멀어질 때만 알려드려요.',
-    '얼굴과 양쪽 어깨가 모두 보이면 다음 단계로 넘어가요.',
+    '얼굴과 양쪽 어깨가 모두 보이면 다음 단계로 넘어가요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
     `평소 편한 자세를 ${CALIBRATION_SECONDS}초 동안 기억해 둘게요. 영상은 저장하거나 보내지 않아요.`,
     '이제 측정을 시작하면 자세가 흐트러질 때 알려드려요.',
   ][step]
@@ -83,12 +84,7 @@ export function SetupPage({
       <div className="measure">
         <div className="stage">
           <CameraStage camera={camera} />
-          {on && !ready && (
-            <svg className="stage-guide" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-              <ellipse cx="400" cy="230" rx="105" ry="125" />
-              <path d="M180 560 C205 450 290 410 400 408 C510 410 595 450 620 560" />
-            </svg>
-          )}
+          {on && !ready && <PoseGuide camera={camera} />}
           <div className="stage-overlay">
             <div className="stage-top">
               {pill ? (
