@@ -1,0 +1,10 @@
+{
+  "appId": "com.posegood.relative-lab",
+  "productName": "PoseGood Relative Lab",
+  "electronDist": "node_modules/electron/dist",
+  "directories": { "output": "release-lab" },
+  "files": ["electron/lab-main.cjs", "dist-lab/**/*", "package.json"],
+  "extraMetadata": { "main": "electron/lab-main.cjs" },
+  "win": { "target": ["portable"], "icon": "public/branding/posegood-icon.ico", "signExecutable": false },
+  "portable": { "artifactName": "PoseGood-Relative-Lab.exe" }
+}

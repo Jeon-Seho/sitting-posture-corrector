@@ -9,6 +9,21 @@ permissions:
   contents: read
 
 jobs:
+  relative-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r model/analysis/requirements-relative-lab.txt --index-url https://download.pytorch.org/whl/cpu
+      - run: python model/analysis/train_relative_lab.py --epochs 5 --min-epochs 5 --takes 12
+      - run: npm ci --prefix frontend
+      - run: npm --prefix frontend run test -- src/features/relative-lab/model.test.ts
+      - run: npm --prefix frontend run lab:build
   check:
     runs-on: ubuntu-latest
     env:

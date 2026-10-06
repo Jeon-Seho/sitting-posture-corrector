@@ -331,3 +331,6 @@ posture-pilot-*.csv
 frontend/release/
 frontend/PoseGood.exe
 frontend/packaging.log
+frontend/public/lab-model.json
+frontend/dist-lab/
+frontend/release-lab/

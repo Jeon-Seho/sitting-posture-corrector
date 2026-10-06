@@ -5310,9 +5310,53 @@
       "performedBy": "우진(Lellon_CL)",
       "evidence": "GitHub 사전 릴리스 v0.1.0-preview.20261006 (b07d2f9), PoseGood-Windows-x64-b07d2f9.zip 264,915,795B 75파일 CRC 통과, desktop:pack·smoke(620ms) 통과",
       "number": "GP-0118"
+    },
+    {
+      "id": "811da2e1-5d0b-49b0-8644-dff658e1847f",
+      "title": "상대좌표 LSTM 실험 앱과 합성 학습",
+      "category": "머신러닝",
+      "source": "docs/areas/machine-learning/relative-pose-lstm.md",
+      "body": "독립 브랜치, 합성 학습, 카메라 추론과 위치 이동 검증. 실제 사용자 성능 미검증.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "독립 브랜치/EXE, 제작 스켈레톤 학습6000·검증1500·시험1500, 2층 LSTM max1000/실제127/best87. 프론트281 통과·타입/빌드·EXE 가상카메라 smoke 통과. Python168 중164 통과/기존 Windows POSIX 배포3오류/1skip으로 전체 check 미통과. 실제 사용자 성능과 공개자료 학습 미검증.",
+      "updated": "2026-10-06T10:54:09.295115+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T10:29:44.766129+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T10:32:35.203913+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "상대좌표 LSTM 합성 학습과 독립 실험 앱 구현 착수"
+        },
+        {
+          "at": "2026-10-06T10:54:09.295115+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "독립 브랜치/EXE, 제작 스켈레톤 학습6000·검증1500·시험1500, 2층 LSTM max1000/실제127/best87. 프론트281 통과·타입/빌드·EXE 가상카메라 smoke 통과. Python168 중164 통과/기존 Windows POSIX 배포3오류/1skip으로 전체 check 미통과. 실제 사용자 성능과 공개자료 학습 미검증."
+        }
+      ],
+      "stage": "data",
+      "number": "GP-0122",
+      "priority": 0,
+      "size": 1,
+      "order": 122,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 122
+  "nextNumber": 123
 }
