@@ -1,0 +1,43 @@
+name: DB CI
+
+on:
+  pull_request:
+    paths:
+      - 'database/**'
+      - '.github/workflows/db-ci.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'database/**'
+      - '.github/workflows/db-ci.yml'
+
+jobs:
+  schema-check:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply SQL
+        run: |
+          set -euo pipefail
+          # 새 DB는 최신 스키마 1개 + 시드 번호순 (database/README.md 1장)
+          latest=$(ls database/schema/schema_V*.sql | sort -V | tail -n 1)
+          [ -n "$latest" ] || { echo "::error::database/schema/schema_V*.sql 없음"; exit 1; }
+          for f in "$latest" $(ls database/seed/seed_*.sql | sort); do
+            echo "▶ $f"
+            mysql -h 127.0.0.1 -uroot --default-character-set=utf8mb4 ci < "$f"
+          done
