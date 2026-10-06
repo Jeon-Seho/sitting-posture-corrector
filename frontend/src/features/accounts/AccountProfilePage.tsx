@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { InlineForm, ValidatedInput } from '../../components/InlineForm'
 import { Card } from '../../components/ui'
 import { ProfileFields } from '../profile/ProfileFields'
 import { ConfirmDialog } from '../dialog/ConfirmDialog'
@@ -87,7 +88,7 @@ export function AccountProfilePage(props: Props) {
       {message && <p role="status">{message}</p>}
       <div className="grid g2">
         <Card title="기본 정보">
-          <form
+          <InlineForm
             className="profile-form"
             onSubmit={(event) => {
               event.preventDefault()
@@ -107,10 +108,10 @@ export function AccountProfilePage(props: Props) {
             <button className="btn btn-primary" disabled={!canWrite || busy}>
               변경 저장
             </button>
-          </form>
+          </InlineForm>
         </Card>
         <Card title="비밀번호 변경">
-          <form
+          <InlineForm
             className="profile-form"
             onSubmit={(event) => {
               event.preventDefault()
@@ -127,7 +128,7 @@ export function AccountProfilePage(props: Props) {
           >
             <label className="field">
               현재 비밀번호
-              <input
+              <ValidatedInput name="currentPassword" validationLabel="현재 비밀번호"
                 className="input"
                 type="password"
                 autoComplete="current-password"
@@ -140,7 +141,7 @@ export function AccountProfilePage(props: Props) {
             </label>
             <label className="field">
               새 비밀번호
-              <input
+              <ValidatedInput name="newPassword" validationLabel="새 비밀번호"
                 className="input"
                 type="password"
                 autoComplete="new-password"
@@ -155,7 +156,7 @@ export function AccountProfilePage(props: Props) {
             <button className="btn" disabled={!canWrite || busy}>
               비밀번호 변경
             </button>
-          </form>
+          </InlineForm>
         </Card>
       </div>
       <Card title="회원 탈퇴">

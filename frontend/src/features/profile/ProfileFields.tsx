@@ -1,4 +1,5 @@
 import type { ProfileForm } from './useProfileForm'
+import { ValidatedInput } from '../../components/InlineForm'
 
 export type ProfileFieldValues = Pick<
   ProfileForm,
@@ -18,7 +19,7 @@ export function ProfileFields({
     <>
       <label className="field">
         이름
-        <input
+        <ValidatedInput name="name" validationLabel="이름"
           className="input"
           disabled={!canWrite}
           value={name}
@@ -29,7 +30,7 @@ export function ProfileFields({
       </label>
       <label className="field">
         나이
-        <input
+        <ValidatedInput name="age" validationLabel="나이"
           className="input"
           disabled={!canWrite}
           type="number"
@@ -42,7 +43,7 @@ export function ProfileFields({
       </label>
       <label className="field">
         직업
-        <input
+        <ValidatedInput name="occupation" validationLabel="직업"
           className="input"
           disabled={!canWrite}
           value={occupation}

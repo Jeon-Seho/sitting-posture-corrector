@@ -103,12 +103,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
     }
   }, [session.id])
 
-  useEffect(() => {
-    if (!service.active)
-      controller.current?.pause(
-        '다른 화면을 보고 있어 휴식으로 기록합니다. 돌아온 뒤 직접 재개해 주세요.',
-      )
-  }, [service.active])
+  // Measurement keeps running while another tab (e.g. records) is open (user decision 2026-10-06).
   useEffect(() => {
     if (state.phase === 'ended') latest.current.camera.stop()
     if (state.phase !== 'running' || !alertsOn) setToast(null)

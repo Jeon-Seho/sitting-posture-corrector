@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { FieldWarning, ValidatedInput } from '../../components/InlineForm'
 import { LoginPage } from '../../pages/LoginPage'
 import { ProfileFields } from '../profile/ProfileFields'
 import { ACCOUNT_NAME_MAX, type Registration } from './contracts'
@@ -89,7 +90,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
     >
       <label className="field">
         이메일
-        <input
+        <ValidatedInput name="email" validationLabel="이메일"
           className="input"
           type="email"
           autoComplete="username"
@@ -102,7 +103,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
       </label>
       <label className="field">
         비밀번호
-        <input
+        <ValidatedInput name="password" validationLabel="비밀번호"
           className="input"
           type="password"
           autoComplete={registering ? 'new-password' : 'current-password'}
@@ -122,7 +123,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
             nameMax={ACCOUNT_NAME_MAX}
           />
           <label className="row">
-            <input
+            <ValidatedInput name="consent" validationLabel="동의"
               type="checkbox"
               checked={consent}
               onChange={(event) => setConsent(event.target.checked)}
@@ -131,6 +132,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
             />
             계정과 측정 기록을 보관하는 데 동의합니다.
           </label>
+          <FieldWarning name="consent" />
           <p className="fine">
             측정 요약·사건·설정을 계정에 보관합니다. 연구나 학습용 자료 사용에는 동의하지 않습니다.
           </p>

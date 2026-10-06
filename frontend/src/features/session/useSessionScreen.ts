@@ -58,10 +58,9 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (phase === 'ended' && isCamera) camera.stop()
   }, [phase])
   useEffect(() => {
-    if (service) {
-      if (!service.active) setPhase((p) => (p === 'running' ? 'paused' : p))
-      return
-    }
+    // In the app, measurement keeps running while another tab (e.g. records) is open;
+    // the camera stays app-level and lost input still pauses via the check below.
+    if (service) return
     const hidden = () => {
       if (document.hidden) setPhase((p) => (p === 'running' ? 'paused' : p))
     }

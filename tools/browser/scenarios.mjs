@@ -343,22 +343,23 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 3 &&
       snapshot.draft.server.view.summary.alert_count === 4,
   )
+  // Since 2026-10-06 (GP-0116) opening another tab keeps the measurement running.
+  const restBeforeRecords = snapshot.draft.server.view.summary.rest_ms
+  const validBeforeRecords = snapshot.draft.server.view.summary.valid_ms
   await app.click('기록')
-  snapshot = await app.knownRest()
+  snapshot = await app.frames(2, 'normal')
   app.check(
-    'internal navigation records rest without adding valid measurement',
-    snapshot.draft.server.view.summary.valid_ms === validBeforeRest + 3000,
+    'internal navigation keeps measuring without recording rest',
+    snapshot.draft.server.view.summary.valid_ms === validBeforeRecords + 2000 &&
+      snapshot.draft.server.view.summary.rest_ms === restBeforeRecords,
   )
   await app.click('측정하기')
-  await app.text('쉬는 중')
   app.check(
-    'returning to measurement requires explicit resume',
+    'returning to measurement needs no resume',
     await app.evaluate(
-      `![...document.querySelectorAll('button')].filter(${visible}).some((b) => b.textContent.trim() === '잠시 쉬기')`,
+      `[...document.querySelectorAll('button')].filter(${visible}).some((b) => b.textContent.trim() === '잠시 쉬기')`,
     ),
   )
-  await app.click('측정 재개')
-  await app.frame(0, 'normal')
   snapshot = await app.frames(2, 'normal')
   const validBeforePoor = snapshot.draft.server.view.summary.valid_ms
   snapshot = await app.frame(500, 'poor')

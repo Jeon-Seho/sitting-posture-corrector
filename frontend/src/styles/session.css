@@ -103,13 +103,14 @@
   margin-top: 10px;
 }
 
-/* Head/shoulder guide drawn over the preview while preparing. */
+/* Head/shoulder guide drawn over the preview while preparing; mirrored like the video. */
 .stage-guide {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  transform: scaleX(-1);
 }
 
 .stage-guide * {
@@ -119,6 +120,13 @@
   stroke-dasharray: 10 10;
   opacity: 0.85;
   vector-effect: non-scaling-stroke;
+  transition: stroke 0.3s ease;
+}
+
+/* Following the detected person: a calmer color, no need to move into a fixed outline. */
+.stage-guide.fitted * {
+  stroke: #8fe3c8;
+  opacity: 0.7;
 }
 
 .stage-overlay {

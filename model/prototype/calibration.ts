@@ -14,11 +14,15 @@ export type CalibrationSummary = {
 }
 export const beginCalibration = (): Calibration => ({ start: null, samples: [], placements: [] })
 
+/** Steady time and minimum valid samples for a baseline (3 s at ≥5 fps; user decision 2026-10-06). */
+export const CALIBRATION_MS = 3000
+export const CALIBRATION_MIN_SAMPLES = 15
+
 const validPlacement = (value: Placement | null | undefined): value is Placement =>
   !!value &&
   [value.x, value.y, value.area].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)
 
-/** Only continuous, valid observations count toward the existing 5s / 20 sample rule. */
+/** Only continuous, valid observations count toward the CALIBRATION_MS / CALIBRATION_MIN_SAMPLES rule. */
 export function observeCalibration(
   draft: Calibration,
   sample: Features | null,
@@ -42,10 +46,10 @@ export function observeCalibration(
   }
   const elapsed = time - next.start!
   if (elapsed < 0) return { draft: beginCalibration(), progress: 0, ready: null, summary: null }
-  const done = elapsed >= 5000 && next.samples.length >= 20
+  const done = elapsed >= CALIBRATION_MS && next.samples.length >= CALIBRATION_MIN_SAMPLES
   return {
     draft: next,
-    progress: Math.min(1, elapsed / 5000),
+    progress: Math.min(1, elapsed / CALIBRATION_MS),
     ready: done ? average(next.samples) : null,
     summary: done ? summarize(next, elapsed) : null,
   }

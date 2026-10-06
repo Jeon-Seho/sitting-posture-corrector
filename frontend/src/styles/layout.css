@@ -46,11 +46,9 @@
   width: 42px;
   height: 42px;
   flex: none;
-  border-radius: 14px;
-  background: var(--primary);
-  color: #fff8f0;
-  display: grid;
-  place-items: center;
+  border-radius: 9px;
+  display: block;
+  object-fit: contain;
 }
 
 .brand-name {

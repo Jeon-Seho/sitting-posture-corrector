@@ -124,7 +124,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     points[0].y = 0.3
     act(() => camera.calibrate())
     act(() => {
-      vi.advanceTimersByTime(4900)
+      vi.advanceTimersByTime(2900)
     })
     expect(camera.baseline).toBe(previous)
     act(() => {

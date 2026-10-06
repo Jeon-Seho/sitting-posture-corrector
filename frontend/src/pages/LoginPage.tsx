@@ -1,5 +1,7 @@
 import type { FormEvent, ReactNode } from 'react'
-import { Armchair, ArrowRight, BellSimple, LockSimple, Pulse } from '@phosphor-icons/react'
+import { ArrowRight, BellSimple, LockSimple, Pulse } from '@phosphor-icons/react'
+import { BrandMark } from '../components/BrandMark'
+import { InlineForm } from '../components/InlineForm'
 
 export function LoginPage({
   title,
@@ -24,9 +26,7 @@ export function LoginPage({
     <div className="cover-page">
       <section className="cover-hero" aria-label="PoseGood 소개">
         <div className="cover-brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Armchair size={22} weight="bold" />
-          </span>
+          <BrandMark />
           <div>
             <div className="brand-name">PoseGood</div>
             <div className="brand-sub">바른자세 도우미</div>
@@ -53,7 +53,7 @@ export function LoginPage({
       </section>
 
       <div className="cover-panel">
-        <form
+        <InlineForm key={title}
           className="cover-form"
           onSubmit={(e: FormEvent) => {
             e.preventDefault()
@@ -71,28 +71,16 @@ export function LoginPage({
           </button>
           {fine && <p className="fine">{fine}</p>}
           {footer}
-        </form>
+        </InlineForm>
       </div>
     </div>
   )
 }
 
-/** Simple seated figure at a desk: decorative only. */
+/** Three-quarter rear view of a relaxed seated person: decorative only. */
 function SittingArt() {
   return (
-    <svg className="cover-art" viewBox="0 0 360 240" aria-hidden="true">
-      <rect x="20" y="206" width="320" height="10" rx="5" fill="#f4d2be" />
-      <path d="M96 100 V206" stroke="#c4532a" strokeWidth="10" strokeLinecap="round" />
-      <path d="M96 176 H168 M160 176 V206" stroke="#c4532a" strokeWidth="10" strokeLinecap="round" />
-      <rect x="208" y="112" width="112" height="76" rx="10" fill="#fffaf4" stroke="#e2d3c3" strokeWidth="3" />
-      <rect x="250" y="188" width="28" height="18" rx="3" fill="#e2d3c3" />
-      <circle cx="264" cy="150" r="10" fill="#7fbf8e" />
-      <rect x="112" y="96" width="50" height="84" rx="24" fill="#3f7d52" />
-      <path d="M150 116 Q176 140 206 152" fill="none" stroke="#3f7d52" strokeWidth="13" strokeLinecap="round" />
-      <path d="M130 172 H190 V206" fill="none" stroke="#2e241f" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="137" cy="70" r="21" fill="#7a5b49" />
-      <path d="M116 68 Q118 45 139 45 Q158 47 158 66 Q148 56 137 56 Q125 56 116 68 Z" fill="#2e241f" />
-      <path d="M137 102 V168" stroke="#fff8f0" strokeWidth="3" strokeDasharray="5 6" strokeLinecap="round" opacity="0.8" />
-    </svg>
+    <img className="cover-art" src="/illustrations/login-posture-45.webp"
+      alt="" aria-hidden="true" width={360} height={240} draggable={false} />
   )
 }

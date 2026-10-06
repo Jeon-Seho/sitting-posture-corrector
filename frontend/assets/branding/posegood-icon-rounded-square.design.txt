@@ -1,0 +1,6 @@
+GP-0119: Rounded square revision requested after the round version.
+Source of truth: frontend/public/branding/posegood-icon.svg
+512px canvas, terracotta #c4532a rounded rectangle at (16,16), 480x480, radius96.
+Cream #fffaf4 head and seated body retained for small-size legibility.
+SVG rendered with Sharp; PNG converted to ICO 16/24/32/48/64/128/256px with Pillow.
+Screen logo remains 42x42px. No square cropping of the transparent corners.
