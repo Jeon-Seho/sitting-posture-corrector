@@ -12,22 +12,27 @@ export function ExpandableTable({ peekRows = 3, children }: { peekRows?: number;
   const body = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [heights, setHeights] = useState<Heights | null>(null)
+  // Measure the unclipped content, never the clipped body, and only on mount or real content
+  // resizes. Re-measuring after every render let the applied max-height feed back into the
+  // measurement and loop until React aborted the whole app (Maximum update depth exceeded).
   useLayoutEffect(() => {
     const el = body.current
-    if (!el || typeof el.querySelectorAll !== 'function') return
+    const content = el?.firstElementChild as HTMLElement | null | undefined
+    if (!content || typeof content.querySelectorAll !== 'function') return
     const measure = () => {
-      const rows = el.querySelectorAll('tbody tr')
-      const full = el.scrollHeight
-      const last = rows[Math.min(peekRows, rows.length) - 1] as HTMLElement | undefined
-      const peek = last ? last.offsetTop + last.offsetHeight : full
+      const top = content.getBoundingClientRect().top
+      const rows = content.querySelectorAll('tbody tr')
+      const full = Math.ceil(content.getBoundingClientRect().height)
+      const last = rows[Math.min(peekRows, rows.length) - 1]
+      const peek = last ? Math.ceil(last.getBoundingClientRect().bottom - top) : full
       setHeights((old) => (old && old.peek === peek && old.full === full ? old : { peek, full }))
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
-    observer.observe(el.firstElementChild ?? el)
+    observer.observe(content)
     return () => observer.disconnect()
-  })
+  }, [peekRows])
   const collapsible = !!heights && heights.full > heights.peek + 4
   return (
     <div className={`expandable ${open ? 'is-open' : ''} ${collapsible ? 'is-collapsible' : ''}`}>

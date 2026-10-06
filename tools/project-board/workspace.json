@@ -3142,18 +3142,30 @@
       "category": "프론트",
       "source": "docs/plans/active/0020-desktop-app-redesign.md",
       "body": "make check의 브라우저 시나리오가 실패한다. lee_app1 run 37413742653: 기록→측정하기 이동 후 '쉬는 중' 문구 대기 시간 초과. jin_app run(10/02, b1db41b): '서버 종료 미확인' 대기 시간 초과. 데스크톱 화면 재구성(0020) 이후 시나리오와 화면이 어긋난 것으로 추정되며 원인 미확인.",
-      "status": "planned",
+      "status": "review",
       "author": "",
       "assignees": [],
       "agent": "klaod-tech_CL",
-      "result": "",
-      "updated": "2026-10-06T04:30:54.436240+00:00",
+      "result": "로컬 검증: tools/browser_smoke.py 73개 PASS(JDK 25, Maven 3.9.11 휴대용으로 백엔드 JAR 빌드), npm run check 242개 테스트·빌드 통과. GitHub harness 결과 대기",
+      "updated": "2026-10-06T04:56:47.247312+00:00",
       "log": [
         {
           "at": "2026-10-06T04:30:54.436240+00:00",
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:56:46.801951+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "원인 확인: 기록 화면의 ExpandableTable이 의존성 없는 useLayoutEffect로 매 렌더 측정→setHeights를 반복해 'Maximum update depth exceeded'로 앱 전체가 내려감. 화면이 비어 '쉬는 중'이 보이지 않았음. 표 내용 자체를 마운트·실제 크기 변경 때만 측정하도록 수정"
+        },
+        {
+          "at": "2026-10-06T04:56:47.247312+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "로컬 검증: tools/browser_smoke.py 73개 PASS(JDK 25, Maven 3.9.11 휴대용으로 백엔드 JAR 빌드), npm run check 242개 테스트·빌드 통과. GitHub harness 결과 대기"
         }
       ],
       "stage": "validation",
