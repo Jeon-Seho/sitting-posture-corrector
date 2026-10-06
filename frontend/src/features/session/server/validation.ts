@@ -10,6 +10,7 @@ import {
   type ServerObservation,
   type ServerPendingRequest,
   type ServerPolicy,
+  type ServerSetup,
   type SessionView,
 } from './contracts'
 
@@ -325,11 +326,62 @@ export function validFeatureResponse(
   )
 }
 
+const featureStat = (v: unknown) =>
+  object(v) &&
+  exact(v, ['mean', 'std']) &&
+  number(v.mean) &&
+  Math.abs(v.mean) < 1000 &&
+  nonnegative(v.std) &&
+  v.std < 1000
+
+/** Mirrors the API's SessionSetup bounds so a stored retry is never silently rewritten. */
+export function validSetup(v: unknown, baselineId?: string): v is ServerSetup {
+  if (!object(v) || !exact(v, ['device', 'frame', 'baseline'])) return false
+  const { device, frame, baseline } = v
+  return (
+    object(device) &&
+    exact(device, ['key', 'label']) &&
+    typeof device.key === 'string' &&
+    /^[!-~]{1,128}$/.test(device.key) &&
+    typeof device.label === 'string' &&
+    device.label.trim().length > 0 &&
+    device.label.length <= 100 &&
+    object(frame) &&
+    exact(frame, ['width', 'height']) &&
+    integer(frame.width, 1, 16384) &&
+    integer(frame.height, 1, 16384) &&
+    object(baseline) &&
+    exact(baseline, [
+      'baseline_id',
+      'calibration_ms',
+      'sample_count',
+      'target_center_x',
+      'target_center_y',
+      'target_area_ratio',
+      'head_gap',
+      'lateral_offset',
+      'shoulder_tilt',
+    ]) &&
+    validUuid(baseline.baseline_id) &&
+    (baselineId === undefined || baseline.baseline_id === baselineId) &&
+    integer(baseline.calibration_ms, 100, 999_900) &&
+    integer(baseline.sample_count, 1, 100_000) &&
+    unit(baseline.target_center_x) &&
+    unit(baseline.target_center_y) &&
+    unit(baseline.target_area_ratio) &&
+    featureStat(baseline.head_gap) &&
+    featureStat(baseline.lateral_offset) &&
+    featureStat(baseline.shoulder_tilt)
+  )
+}
+
 function validPending(v: unknown, baselineId: string, rules?: Rules): v is ServerPendingRequest {
   if (!object(v) || !exact(v, ['kind', 'body']) || !object(v.body)) return false
   if (v.kind === 'create')
     return (
-      exact(v.body, ['policy']) &&
+      // Drafts saved before DB schema V1.1 carry only the policy.
+      (exact(v.body, ['policy']) ||
+        (exact(v.body, ['policy', 'setup']) && validSetup(v.body.setup, baselineId))) &&
       validPolicy(v.body.policy) &&
       (rules === undefined || samePolicy(v.body.policy, policyFor(rules)))
     )

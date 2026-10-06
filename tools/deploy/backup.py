@@ -6,7 +6,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from .compose import command
+from .compose import DATABASE, command
 from .secrets import ROOT, private_location
 
 
@@ -17,7 +17,7 @@ def backup_database(project, destination, env, root=ROOT):
         "exec", "-T", "db", "mysqldump",
         "--defaults-extra-file=/run/secrets/mysql-backup.cnf", "--single-transaction",
         "--routines", "--events", "--triggers", "--no-tablespaces",
-        "--set-gtid-purged=OFF", "posegood",
+        "--set-gtid-purged=OFF", DATABASE,
     ]
     descriptor = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     with os.fdopen(descriptor, "wb") as output:

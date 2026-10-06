@@ -59,7 +59,8 @@ Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 기�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 전체 검증 성공 후
 네 앱 이미지를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 Flyway·서비스 건강 검사를 실행한다. 실패한 배포를 성공으로 기록하지 않는다.
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V1.1·시드를 적용하고,
+기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 배포 서버는 아직 미정이다. 다음 환경 설정은 서버 준비 뒤 등록한다.
 

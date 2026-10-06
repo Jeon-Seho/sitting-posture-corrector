@@ -5,8 +5,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
-
 @Component
 @Profile("persistent")
 public class CurrentUser {
@@ -16,19 +14,15 @@ public class CurrentUser {
         this.users = users;
     }
 
-    public UUID id() {
+    public long id() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated())
             throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        try {
-            var id = UUID.fromString(authentication.getName());
-            var user = users.require(id);
-            if (!(authentication.getPrincipal() instanceof AccountPrincipal principal)
-                    || principal.epoch() != user.epoch())
-                throw new ApiError(401, "UNAUTHENTICATED", "authentication revoked");
-            return id;
-        } catch (IllegalArgumentException invalid) {
+        if (!(authentication.getPrincipal() instanceof AccountPrincipal principal))
             throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        }
+        var user = users.require(principal.id());
+        if (principal.epoch() != user.epoch())
+            throw new ApiError(401, "UNAUTHENTICATED", "authentication revoked");
+        return principal.id();
     }
 }

@@ -14,6 +14,7 @@ import { KEYS, type Draft, type RecordItem } from '../storage/types'
 import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 import type { ServiceSession } from './types'
 import type { ServerCheckpoint, SessionView } from './server/contracts'
+import { serverSetup } from './server/setup'
 import { serverRecordEvents } from '../storage/serverSnapshots'
 import type { SessionRepository } from './repository'
 
@@ -110,6 +111,21 @@ export function useSessionPersistence({
       setError('서버 측정에 사용할 카메라 영상과 기준 등록을 다시 확인해 주세요.')
       return
     }
+    const setup = serverMode
+      ? serverSetup({
+          baselineId: camera.calibrationId!,
+          baseline: camera.baseline,
+          summary: camera.calibrationSummary,
+          deviceId: camera.deviceId,
+          deviceLabel: camera.devices.find((device) => device.deviceId === camera.deviceId)?.label,
+          frameWidth: video!.videoWidth,
+          frameHeight: video!.videoHeight,
+        })
+      : null
+    if (serverMode && !setup) {
+      setError('기준 등록 정보가 서버 저장 조건에 맞지 않습니다. 기준을 다시 등록해 주세요.')
+      return
+    }
     // New sessions use the real webcam; existing synthetic records/drafts remain available.
     const next = {
       id: crypto.randomUUID(),
@@ -124,6 +140,7 @@ export function useSessionPersistence({
               deviceId: camera.deviceId,
               frameWidth: video!.videoWidth,
               frameHeight: video!.videoHeight,
+              setup: setup!,
             },
           }
         : {}),

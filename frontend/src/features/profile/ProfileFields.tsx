@@ -4,7 +4,15 @@ export type ProfileFieldValues = Pick<
   ProfileForm,
   'name' | 'age' | 'occupation' | 'setName' | 'setAge' | 'setOccupation'
 >
-export function ProfileFields({ form, canWrite }: { form: ProfileFieldValues; canWrite: boolean }) {
+export function ProfileFields({
+  form,
+  canWrite,
+  nameMax = 50,
+}: {
+  form: ProfileFieldValues
+  canWrite: boolean
+  nameMax?: number
+}) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
   return (
     <>
@@ -16,7 +24,7 @@ export function ProfileFields({ form, canWrite }: { form: ProfileFieldValues; ca
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          maxLength={50}
+          maxLength={nameMax}
         />
       </label>
       <label className="field">

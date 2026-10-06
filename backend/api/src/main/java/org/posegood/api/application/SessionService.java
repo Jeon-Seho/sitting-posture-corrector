@@ -32,7 +32,8 @@ public class SessionService implements SessionOperations {
         features = new FeatureProcessor(cep, inference);
     }
 
-    public synchronized SessionView create(UUID id, CreateSession request) {
+    public synchronized SessionView create(
+            UUID id, CreateSession request, SessionSetup ignoredSetup) {
         var stored = repository.find(id);
         if (stored != null) {
             synchronized (stored) {

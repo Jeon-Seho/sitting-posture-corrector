@@ -32,7 +32,7 @@ class UserLocksTest {
                                 () ->
                                         new UserLocks(source)
                                                 .withLock(
-                                                        UUID.randomUUID(),
+                                                        42L,
                                                         () -> fail("busy work must not run")))
                         .status());
         verify(connection).close();
@@ -46,7 +46,7 @@ class UserLocksTest {
         try {
             assertThrows(
                     IllegalStateException.class,
-                    () -> new UserLocks(source).withLock(UUID.randomUUID(), () -> null));
+                    () -> new UserLocks(source).withLock(42L, () -> null));
             verifyNoInteractions(source);
         } finally {
             TransactionSynchronizationManager.unbindResource(source);
@@ -72,7 +72,7 @@ class UserLocksTest {
                 () ->
                         new UserLocks(source)
                                 .withLock(
-                                        UUID.randomUUID(),
+                                        42L,
                                         () -> {
                                             assertTrue(
                                                     TransactionSynchronizationManager.hasResource(
@@ -105,7 +105,7 @@ class UserLocksTest {
         when(no.getInt(1)).thenReturn(0);
         assertThrows(
                 IllegalStateException.class,
-                () -> new UserLocks(source).withLock(UUID.randomUUID(), () -> "synthetic result"));
+                () -> new UserLocks(source).withLock(42L, () -> "synthetic result"));
         verify(connection).abort(any());
         assertFalse(TransactionSynchronizationManager.hasResource(source));
     }

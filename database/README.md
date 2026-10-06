@@ -249,13 +249,14 @@ database/
 
 ---
 
-## 11. 현재 백엔드 코드와의 관계 (전환 중)
+## 11. 백엔드 코드와의 관계
 
-팀 결정(2026-10-05)으로 **서비스 DB 스키마의 기준은 이 폴더의 V0.3**이다.
-`jin_app` 병합으로 들어온 API(`backend/api`)는 아직 이전 설계인 Flyway
-[V1 마이그레이션](migrations/V1__accounts_and_durable_sessions.sql)의 테이블(`users`, `workspaces`,
-`measurement_sessions`, `session_events`, `records`, `cep_outbox`, `SPRING_SESSION` 등)을 사용한다.
+API(`backend/api`) 영구 모드는 이 폴더의 **V1.1 테이블만** 사용한다([ADR 0018](../docs/decisions/0018-db-schema-v11-service-storage.md)).
+이전 설계(Flyway `V1__accounts_and_durable_sessions.sql`, 테이블 `users`·`measurement_sessions` 등)는 삭제했다.
 
-- 두 설계는 같은 목적의 테이블을 다른 이름·구조로 정의하므로 한 DB에 함께 적용하지 않는다.
-- V1은 V0.3으로 대체할 대상이다. 전환 범위·대응표·보류 항목은 [전환 계획](../docs/plans/active/0021-db-schema-v03-alignment.md)에 둔다.
-- 전환이 끝나기 전까지 `make check-compose`와 API 영구 모드는 V1 기준으로 동작한다. 이를 V0.3 검증 결과로 보고하지 않는다.
+- API는 테이블을 만들거나 마이그레이션하지 않는다. 시작할 때 테이블 24개·`user_account` 추가 컬럼·시드
+  (`DEFAULT_TEMP`, `REFERENCE-RULE-1`, 특징 3개)를 확인하고, 없으면 시작하지 않는다.
+- Compose `db`는 **빈 볼륨에서만** `infra/mysql/initdb`가 1장 순서(스키마 → 시드)를 그대로 실행한다.
+  `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다(정확한 복원 대상). 운영 DB 변경은 7장 마이그레이션을 따른다.
+- 기본 정책 이름은 API 설정 `posegood.default-policy-name`(기본 `DEFAULT_TEMP`)이다. 확정 정책 `DEFAULT` 행을 넣으면 이 설정만 바꾼다.
+- 저장 대응(사건 분해, 제외 구간, 확인 요약, 탈퇴)과 남은 한계는 [전환 계획](../docs/plans/active/0021-db-schema-v03-alignment.md)에 둔다.

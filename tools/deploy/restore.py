@@ -5,7 +5,7 @@ import json
 import subprocess
 import threading
 
-from .compose import command, run
+from .compose import DATABASE, command, run
 from .secrets import ROOT
 
 
@@ -20,7 +20,7 @@ def compose_rows(value):
 def query(project, sql, env, root=ROOT):
     result = run(project, "exec", "-T", "db", "mysql",
                  "--defaults-extra-file=/run/secrets/mysql-app.cnf", "--batch",
-                 "--skip-column-names", "--execute=" + sql, "posegood",
+                 "--skip-column-names", "--execute=" + sql, DATABASE,
                  env=env, root=root, capture=True, timeout=30)
     return result.stdout.strip()
 
@@ -31,15 +31,15 @@ def require_empty_target(project, env, root=ROOT):
     for container in containers:
         if container.get("Service") in ("api", "frontend") and container.get("State") == "running":
             raise ValueError("Restore requires API and frontend to be stopped")
-    count = query(project, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='posegood'", env, root)
+    count = query(project, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()", env, root)
     if count != "0":
-        raise ValueError("Restore requires an empty posegood schema; existing tables are never overwritten")
+        raise ValueError("Restore requires an empty service schema; existing tables are never overwritten")
 
 
 def restore_database(project, source, env, root=ROOT):
     require_empty_target(project, env, root)
     arguments = command(project, root) + [
-        "exec", "-T", "db", "mysql", "--defaults-extra-file=/run/secrets/mysql-app.cnf", "posegood",
+        "exec", "-T", "db", "mysql", "--defaults-extra-file=/run/secrets/mysql-app.cnf", DATABASE,
     ]
     process = subprocess.Popen(arguments, cwd=root, env=env, stdin=subprocess.PIPE,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

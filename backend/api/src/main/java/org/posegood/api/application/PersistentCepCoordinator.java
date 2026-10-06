@@ -61,18 +61,16 @@ public class PersistentCepCoordinator {
         return result;
     }
 
-    public SessionView finish(Stored session) {
+    public SessionView finish(Stored session, long endMs) {
         if (session.view().ended()) return session.view();
-        if (session.endMs() == null)
-            throw new IllegalStateException("termination must be durable before CEP delivery");
         if (store.pending(session.id()) != null)
             throw new ContractError(409, "retry pending feature request first");
         prepare(session);
-        var result = cep.end(session.id(), new EndSession(session.endMs()));
+        var result = cep.end(session.id(), new EndSession(endMs));
         CepSnapshotValidator.requireIdentity(session.id(), session.policy(), result);
         if (!result.ended()
                 || result.lastSequence() != session.view().lastSequence()
-                || result.summary().totalMs() != session.endMs())
+                || result.summary().totalMs() != endMs)
             throw new ContractError(502, "CEP response did not acknowledge saved termination");
         store.confirmEnd(session, result);
         // Durable ended snapshots need no live Esper engine. Cleanup failure is recoverable.

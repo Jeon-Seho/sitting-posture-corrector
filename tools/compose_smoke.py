@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 
 from deploy.backup import backup_database
-from deploy.compose import assert_project_removed, command, environment, loopback_publication, require_daemon
+from deploy.compose import DATABASE, assert_project_removed, command, environment, loopback_publication, require_daemon
 from deploy.secrets import ROOT, create_secrets
 from deploy.smoke import exercise_accounts, verify_frontend, verify_restart_and_finish, wait_health
 from deploy.restore import query, restore_database
@@ -39,7 +39,7 @@ def mysql_address(project, env):
 def mysql_integration(project, env, secret_directory):
     address = mysql_address(project, env)
     integration = env.copy()
-    integration["POSEGOOD_TEST_MYSQL_URL"] = "jdbc:mysql://" + address + "/posegood?connectionTimeZone=UTC"
+    integration["POSEGOOD_TEST_MYSQL_URL"] = "jdbc:mysql://" + address + "/" + DATABASE + "?connectionTimeZone=UTC"
     integration["POSEGOOD_TEST_MYSQL_USER"] = "posegood"
     integration["POSEGOOD_TEST_MYSQL_PASSWORD"] = (secret_directory / "spring.datasource.password").read_text()
     integration["POSEGOOD_TEST_MYSQL_DISPOSABLE"] = "true"
@@ -89,7 +89,7 @@ def check_ports_closed(port):
 
 
 def row_counts(project, env):
-    tables = query(project, "SELECT table_name FROM information_schema.tables WHERE table_schema='posegood' ORDER BY table_name", env).splitlines()
+    tables = query(project, "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name", env).splitlines()
     if any(not re.fullmatch(r"[A-Za-z0-9_]+", table) for table in tables):
         raise ValueError("Unexpected database table identifier")
     return {table: int(query(project, "SELECT COUNT(*) FROM `" + table + "`", env)) for table in tables}
@@ -99,7 +99,9 @@ def verify_restore(project, env, source, expected, secret_directory):
     recovery = project + "-restore"
     database_port = None
     try:
-        invoke(recovery, env, "up", "--wait", "--wait-timeout", "120", "db")
+        # An exact restore needs an empty schema, so the recovery volume skips seed initialization.
+        empty = dict(env, POSEGOOD_DB_INIT_SCHEMA="false")
+        invoke(recovery, empty, "up", "--wait", "--wait-timeout", "120", "db")
         database_port = int(mysql_address(recovery, env).split(":")[1])
         restore_database(recovery, source, env)
         if row_counts(recovery, env) != expected:
@@ -108,7 +110,7 @@ def verify_restore(project, env, source, expected, secret_directory):
         if row_counts(recovery, env) != expected:
             raise AssertionError("Restored rows were lost after MySQL restarted on the same volume")
         mysql_integration(recovery, env, secret_directory)
-        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and Flyway/integration verification", flush=True)
+        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and schema V1.1 integration verification", flush=True)
     finally:
         try:
             invoke(recovery, env, "down", "--volumes", "--remove-orphans", timeout=120)

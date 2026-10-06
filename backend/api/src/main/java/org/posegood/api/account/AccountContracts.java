@@ -3,13 +3,11 @@ package org.posegood.api.account;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
-import java.util.UUID;
-
 public final class AccountContracts {
     private AccountContracts() {}
 
     public record Profile(
-            @NotBlank @Size(max = 50) String name,
+            @NotBlank @Size(max = 30) String name,
             @Min(1) @Max(120) int age,
             @NotBlank @Size(max = 80) String occupation) {}
 
@@ -29,5 +27,6 @@ public final class AccountContracts {
 
     public record Withdrawal(@NotNull String password) {}
 
-    public record View(UUID userId, String email, Profile profile) {}
+    /** {@code userId} is the decimal `user_account_id` of schema V1.1. */
+    public record View(String userId, String email, Profile profile) {}
 }

@@ -237,7 +237,9 @@ export class ServerSessionController {
       return
     }
     if (!checkpoint) {
-      this.queue.enqueue({ kind: 'create', body: { policy: policyFor(this.session.rules) } })
+      const policy = policyFor(this.session.rules)
+      const setup = this.session.server.setup
+      this.queue.enqueue({ kind: 'create', body: setup ? { policy, setup } : { policy } })
       return
     }
     await this.restore(checkpoint)
