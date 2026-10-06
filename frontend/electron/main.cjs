@@ -10,6 +10,11 @@ const TITLEBAR_HEIGHT = 40
 const MIN_WIDTH = 1180
 const MIN_HEIGHT = 760
 const isMac = process.platform === 'darwin'
+// Windows 작업 표시줄 그룹·우클릭 메뉴의 이름. 지정하지 않으면 Electron 기본값("Electron")이 보인다.
+// app.setName은 사용자 데이터 폴더(posegood-frontend)를 바꾸므로 쓰지 않는다. appId는 package.json build.appId와 같다.
+const APP_ID = 'com.posegood.desktop'
+const APP_NAME = 'PoseGood'
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID)
 
 // 설치용(패키징) 앱은 빌드된 dist를 app://posegood 으로 제공한다. 절대 경로(/mediapipe/...)가 그대로 동작한다.
 const APP_URL = 'app://posegood/index.html'
@@ -212,6 +217,16 @@ async function createWindow() {
     },
   })
   mainWindow = window
+  // 패키징된 앱만: 작업 표시줄 우클릭 이름·아이콘·다시 열기를 PoseGood EXE로 맞춘다(dist는 asar 안이라 아이콘은 EXE에서 읽는다).
+  if (process.platform === 'win32' && app.isPackaged) {
+    window.setAppDetails({
+      appId: APP_ID,
+      relaunchDisplayName: APP_NAME,
+      relaunchCommand: `"${loginExecutable}"`,
+      appIconPath: process.execPath,
+      appIconIndex: 0,
+    })
+  }
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', () => hidePopup(false))
   window.on('closed', () => {
