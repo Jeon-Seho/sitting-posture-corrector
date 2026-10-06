@@ -3048,15 +3048,15 @@
       "category": "프론트",
       "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
       "body": "jin_app 결정(ADR 0011·0012·0013, 플랫폼 경계)을 따라 WebSocket 게이트웨이→Kafka(posture.features/inference/episodes) 경로 계획. 팀·ML 확인 대기.",
-      "status": "planned",
+      "status": "in_progress",
       "author": "",
       "assignees": [
         "우진",
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "",
-      "updated": "2026-10-06T04:21:29.232559+00:00",
+      "result": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과",
+      "updated": "2026-10-06T07:21:57.581217+00:00",
       "log": [
         {
           "at": "2026-10-05T06:56:41.721134+00:00",
@@ -3069,6 +3069,30 @@
           "by": "Lellon_CL",
           "kind": "ai",
           "text": "프론트 우진·동욱, 머신러닝 지성 기본 배정"
+        },
+        {
+          "at": "2026-10-06T06:15:00.373859+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 계획 0022 1단계 메시지 계약 초안(draft). 팀 확인(GP-0087) 전이므로 초안으로 표시. 동욱 요청"
+        },
+        {
+          "at": "2026-10-06T06:18:22.462411+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "1단계 초안 작성: contracts/realtime.v1.md, kafka-features/inference/episodes.v1·realtime-ws.v1 스키마(기존 입력 v2·관측 v2·사건 v1·조회 v1을 $ref로 재사용), 합성 예제 12개, tests/test_realtime_contracts.py 6개 통과. 전체 Python 160개 중 오류 3개는 Windows 배포 설정 테스트의 기존 실패(새 파일 제외해도 동일). 팀 확인(GP-0087)·홍규 검토 대기"
+        },
+        {
+          "at": "2026-10-06T06:54:14.484219+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "동욱 요청으로 실시간 계약을 contracts/realtime/ 폴더로 이동(README.md·스키마 4개·examples 12개). $id와 상위 계약 참조(../), 문서 링크, 테스트 경로 갱신. 계약 테스트 6개·check-repo·work.py check 통과"
+        },
+        {
+          "at": "2026-10-06T07:21:57.581217+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과"
         }
       ],
       "stage": "service",
@@ -4741,9 +4765,173 @@
       "priorityNote": "",
       "evidence": "python tools/dev.py check-browser(Java 21, PYTHONUTF8=1): 73개 통과. 프론트 테스트 246개 통과. frontend/src/components/ExpandableTable.tsx, 계획 0020 후속 기록.",
       "performedBy": "우진"
+    },
+    {
+      "id": "cc0a64ad-a631-44f5-8702-bfefa8c0a4b5",
+      "title": "페르소나 흐름 메모의 화면 이름을 데스크톱 앱 기준으로 갱신",
+      "category": "프론트",
+      "source": "docs/persona-flow-review.md",
+      "body": "흐름은 유지하고 화면 이름만 맞춘다(홈·측정 준비·실시간 측정→측정하기, 대시보드→기록, 자세 등록→설정의 자세 데이터 수집, 일시정지→잠시 쉬기). 동욱 요청.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과",
+      "updated": "2026-10-06T07:21:58.334334+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T05:29:07.039640+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T05:29:37.090186+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 화면 이름만 갱신"
+        },
+        {
+          "at": "2026-10-06T05:29:37.598669+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "화면 이름 갱신 완료"
+        },
+        {
+          "at": "2026-10-06T07:21:58.334334+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0113",
+      "priority": 0,
+      "size": 1,
+      "order": 113,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "docs/persona-flow-review.md 1·2단계 화면 이름과 이전 이름 대응 문단 추가. work.py check(CI 대상 0건)·check-repo PASS",
+      "performedBy": "klaod-tech_CL"
+    },
+    {
+      "id": "13ca3348-0d84-4193-b12b-ad57882c125e",
+      "title": "Windows에서 Compose MySQL healthcheck 실패 (world-writable 비밀 파일 무시)",
+      "category": "데브옵스",
+      "source": "infra/README.md",
+      "body": "Windows 바인드 마운트의 /run/secrets/mysql-app.cnf가 world-writable로 보여 mysql 클라이언트가 무시 → root 무비밀번호 접속 거부 → db unhealthy → api·frontend 미기동. healthcheck는 0400 복사본으로 접속하도록 수정. tools/deploy/backup.py·restore.py도 같은 문제(미수정).",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과",
+      "updated": "2026-10-06T07:21:57.966889+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T05:36:40.154868+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T05:36:40.630973+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: compose.yaml db healthcheck 수정 후 로컬 기동 확인"
+        },
+        {
+          "at": "2026-10-06T05:37:36.722050+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "Windows 11 Docker 29.8.0 로컬 검증: 수정 후 db·api·cep·inference·frontend 5개 healthy, /api/health {storage:mysql,status:ok}, 8080 로그인 화면 렌더링 확인. 공유 compose.yaml 변경이라 DevOps 검토 필요. backup.py·restore.py의 같은 문제는 미수정, Mac/Linux 재확인 미실행"
+        },
+        {
+          "at": "2026-10-06T07:21:57.966889+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "lee_app1 → develop PR #12 생성(https://github.com/Jeon-Seho/sitting-posture-corrector/pull/12). develop은 저장소 규칙상 직접 push 불가. lee_app1 f1318e2 harness 통과"
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0114",
+      "priority": 0,
+      "size": 1,
+      "order": 114,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "57b34727-5c00-48d7-8a92-b1173e18f64f",
+      "title": "FE 실시간 수신 클라이언트 RealtimePort (계획 0022 4단계)",
+      "category": "프론트",
+      "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
+      "body": "contracts/realtime 계약 기준 WebSocket 클라이언트: 0.5초 묶음 전송, ack·재전송(미확인 16개 한도), 재연결·hello(last_event_id), event_id 중복 제거, 재수신 사건 알림 금지, stalled→analysisPaused, closed 처리. 가짜 게이트웨이 테스트, 서버 모드에 선택형(기본 꺼짐)으로 연결. 실제 Kafka 왕복은 게이트웨이(3단계)·홍규 H1 이후. 결정(동욱 2026-10-06): 실시간 상태는 서버 관측을 WebSocket observation으로 전달(①A).",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "3단계 FE 연결 완료: ServerSessionController에 realtime 옵션(VITE_REALTIME_URL, 기본 꺼짐). 생성·종료·복구는 HTTP, 측정 중 구간은 WebSocket. observation→실시간 상태, progress·decision→SessionView 조립 후 기존 검증·체크포인트·알림 경로 재사용, ack마다 nextSequence 저장, 종료는 모든 구간 ack 후 HTTP, stalled 메시지, 권한 거부·세션 유실·장부 역행 시 입력 중단. 계약에 사건→progress 순서 규칙 추가. ports.ts v4 초안·설계 문서·계획 0022 갱신. 테스트: 컨트롤러 실시간 6개 포함 프론트 268개·tsc 통과(빌드는 Electron 실행 중이라 미실행). 남은 것: 실제 게이트웨이(3단계, GP-0087 결정 후)·홍규 H1·H1-2 이후 왕복 검증",
+      "updated": "2026-10-06T08:08:42.086423+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:38:42.094263+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:38:42.616551+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 0단계 계약 보완(WebSocket observation 메시지)"
+        },
+        {
+          "at": "2026-10-06T07:39:21.771351+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "0단계(①) 완료: realtime-ws.v1에 observation 메시지 추가(관측 v2 참조, 재연결 시 재전송 안 함), 예제 ws-observation.json, README 흐름·표·결정 이유 갱신. 계약 테스트 6개 통과. ②(시작·종료 HTTP 유지) 결정 대기"
+        },
+        {
+          "at": "2026-10-06T07:45:49.949933+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "1·2단계 완료: frontend/src/features/session/realtime/(contracts.ts·client.ts) — 0.5초 묶음, 미확인 한도(기본 60구간)·ack 정리, 순번 역행 거부, 재연결 지수 대기(0.5→8초)·hello(last_event_id)·미확인 재전송(30개씩 분할), event_id 중복 제거, decision 뒤에만 alert 1회, stalled, closed(종료·권한·유실은 재연결 안 함, server_shutdown은 재연결). 가짜 게이트웨이 테스트 15개, 프론트 전체 261개·타입·빌드 통과. 결정 기록: 시작·종료는 HTTP 유지(contracts/realtime/README.md, 계획 0022). 다음: 3단계 컨트롤러 연결"
+        },
+        {
+          "at": "2026-10-06T08:01:07.519209+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "계약 보완(동욱 승인): 사건은 변화만 알려 사건 사이 화면 숫자가 멈추는 빈틈을 발견. posture.episodes.v1에 kind=progress(약 1초, last_sequence+요약), WebSocket progress 메시지 추가. 예제 15개·계약 테스트 통과, 클라이언트 onProgress(역행 무시) 테스트 16개·tsc 통과. 연동 정리 문서 H1-2로 홍규 요청 추가"
+        },
+        {
+          "at": "2026-10-06T08:08:42.086423+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "3단계 FE 연결 완료: ServerSessionController에 realtime 옵션(VITE_REALTIME_URL, 기본 꺼짐). 생성·종료·복구는 HTTP, 측정 중 구간은 WebSocket. observation→실시간 상태, progress·decision→SessionView 조립 후 기존 검증·체크포인트·알림 경로 재사용, ack마다 nextSequence 저장, 종료는 모든 구간 ack 후 HTTP, stalled 메시지, 권한 거부·세션 유실·장부 역행 시 입력 중단. 계약에 사건→progress 순서 규칙 추가. ports.ts v4 초안·설계 문서·계획 0022 갱신. 테스트: 컨트롤러 실시간 6개 포함 프론트 268개·tsc 통과(빌드는 Electron 실행 중이라 미실행). 남은 것: 실제 게이트웨이(3단계, GP-0087 결정 후)·홍규 H1·H1-2 이후 왕복 검증"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0115",
+      "priority": 0,
+      "size": 1,
+      "order": 115,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 113
+  "nextNumber": 116
 }

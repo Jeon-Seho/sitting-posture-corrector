@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "message_id": "00000000-0000-4000-8000-000000000006",
+  "session_id": "00000000-0000-4000-8000-0000000000a1",
+  "user_id": "synthetic-user-1",
+  "produced_at": "2026-10-06T06:00:02.030Z",
+  "kind": "progress",
+  "body": {
+    "last_sequence": 1,
+    "summary": {
+      "total_ms": 2000,
+      "valid_ms": 2000,
+      "normal_ms": 0,
+      "deviation_ms": 2000,
+      "rest_ms": 0,
+      "away_ms": 0,
+      "unknown_ms": 0,
+      "missing_ms": 0,
+      "collapse_count": 0,
+      "alert_count": 0,
+      "interval_count": 0,
+      "keep_rate": 0,
+      "events_per_hour": 0,
+      "mean_interval_ms": null,
+      "mean_recovery_ms": null
+    }
+  }
+}
