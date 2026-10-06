@@ -65,11 +65,11 @@ class SessionServiceTest {
         var request = new CreateSession(Policy.defaults());
         var output = view(id);
         when(gateway.create(id, request)).thenReturn(output);
-        assertEquals(output, service.create(id, request));
-        assertEquals(output, service.create(id, request));
+        assertEquals(output, service.create(id, request, null));
+        assertEquals(output, service.create(id, request, null));
         assertThrows(
                 ContractError.class,
-                () -> service.create(id, new CreateSession(new Policy(4000, 2000, 60000, 0.7))));
+                () -> service.create(id, new CreateSession(new Policy(4000, 2000, 60000, 0.7)), null));
         verify(gateway, times(1)).create(id, request);
         verifyNoMoreInteractions(gateway);
     }
@@ -83,7 +83,7 @@ class SessionServiceTest {
         var initial = view(id);
         var request = new CreateSession(Policy.defaults());
         when(gateway.create(id, request)).thenReturn(initial);
-        service.create(id, request);
+        service.create(id, request, null);
         var input = input();
         when(gateway.observe(id, input))
                 .thenThrow(new ContractError(502, "unavailable"))
@@ -103,7 +103,7 @@ class SessionServiceTest {
         var initial = view(id);
         var request = new CreateSession(Policy.defaults());
         when(gateway.create(id, request)).thenReturn(initial);
-        service.create(id, request);
+        service.create(id, request, null);
         when(gateway.observe(eq(id), any())).thenReturn(view(UUID.randomUUID()));
         assertThrows(ContractError.class, () -> service.observe(id, input()));
         assertEquals(initial, service.get(id));
@@ -127,7 +127,7 @@ class SessionServiceTest {
         var request = new CreateSession(Policy.defaults());
         var initial = view(id);
         when(gateway.create(id, request)).thenReturn(initial);
-        service.create(id, request);
+        service.create(id, request, null);
         var accepted =
                 new SessionView(
                         "1.0",
@@ -152,7 +152,7 @@ class SessionServiceTest {
         try (var pool = Executors.newFixedThreadPool(2)) {
             var observation = pool.submit(() -> service.observe(id, input()));
             assertTrue(entered.await(2, TimeUnit.SECONDS));
-            var retry = pool.submit(() -> service.create(id, request));
+            var retry = pool.submit(() -> service.create(id, request, null));
             try {
                 assertThrows(TimeoutException.class, () -> retry.get(100, TimeUnit.MILLISECONDS));
             } finally {

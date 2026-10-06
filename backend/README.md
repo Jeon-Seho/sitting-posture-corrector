@@ -1,8 +1,7 @@
 # 로컬 특징 추론·API·CEP 흐름
 
 - 분야: 백엔드
-- 작업: GP-0072
-
+- 작업: GP-0068
 사용자 승인에 따라 Java 21·Spring Boot 3.5.16·Maven·Esper 9.0.0을 사용한다.
 Spring Boot API는 입력 검증·전달·저장·조회만 담당한다. 독립 CEP 프로세스가 이벤트 시간과
 붕괴·회복·재알림을 판정한다. FastAPI는 특징에서 현재 추론 점수를 만든다.
@@ -11,7 +10,8 @@ Spring Boot API는 입력 검증·전달·저장·조회만 담당한다. 독립
 ## MySQL 계정 모드
 
 [Compose 안내](../infra/README.md)의 초기화와 `docker compose up`으로 실행한다.
-API의 `persistent` 프로필은 MySQL JDBC·Flyway·Spring Security·DB 세션을 사용한다.
+API의 `persistent` 프로필은 MySQL JDBC·Spring Security·DB 세션을 사용한다. 저장 구조는
+[DB 스키마 V1.1](../database/README.md)이며 API는 시작할 때 스키마·시드를 확인만 한다([ADR 0018](../docs/decisions/0018-db-schema-v11-service-storage.md)).
 가입/로그인·CSRF·계정별 프로필/설정/기록·삭제는 [계정 API v1](../contracts/accounts.v1.md)을 따른다.
 메모리 개발 모드와 구분한다. 인증한 사용자만 자기 측정을 조회/입력/종료하며 다른 사용자 세션은 404다.
 

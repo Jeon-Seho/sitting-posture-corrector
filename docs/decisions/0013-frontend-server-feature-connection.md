@@ -1,11 +1,13 @@
 # ADR 0013: 세 특징 계약과 선택형 서버 판정 연결
 
-- 분야: 프론트, 백엔드
-- 작업: GP-0075
+- 분야: 백엔드
+- 작업: GP-0106
 - 상태: accepted (사용자가 서버 연결부터 진행하도록 선택한 개발 범위)
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [시간 정책](0012-session-timing-policy.md)
 - 관련 계획: [서버 연결 완료](../plans/completed/0014-frontend-server-connection.md)
+- 개정: [ADR 0018](0018-db-schema-v11-service-storage.md) — 영구 모드의 세션 생성은 기준 요약(평균·표준편차·보정 시간·표본 수·화면 위치)을 보낸다.
+  특징 요청(입력 v2)에는 여전히 변화량만 보낸다.
 
 ## 배경
 
@@ -31,6 +33,7 @@ FastAPI v1 입력은 두 임시 변화량만 받았다. 사용자는 DB·인증 
 유한수만 허용한다. `[-1,1]`로 자르지 않는다. `current_quality`, `baseline_quality`는 유한한 `[0,1]` 값이다.
 모델 소유의 [어댑터](../../model/prototype/serverFeatures.ts)가 변화량을 만들며
 영상·랜드마크·기준 특징 원값·참여자 식별 정보를 서버 요청에 넣지 않는다.
+(영구 모드 세션 생성의 기준 요약은 [ADR 0018](0018-db-schema-v11-service-storage.md)의 예외다.)
 
 FastAPI `POST /v2/infer`는 기존 `referenceScore`와 같은 점수를 계산한다.
 

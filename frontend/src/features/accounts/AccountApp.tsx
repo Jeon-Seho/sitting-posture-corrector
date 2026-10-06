@@ -139,18 +139,14 @@ function AccountWorkspaceApp({
       saveRules={(rules) => {
         void remote.update({ rules }).catch(() => {})
       }}
-      saveDemoPreference={(show_demo) => {
-        void remote
-          .update({ preferences: { show_demo, alerts_on: remote.alertsOn } })
-          .catch(() => {})
-      }}
+      saveDemoPreference={(show_demo) => workspace.setShowDemo(show_demo)}
       alertsOn={remote.alertsOn}
       onAlerts={(alerts_on) => {
         void remote
-          .update({ preferences: { show_demo: workspace.showDemo, alerts_on } })
+          .update({ preferences: { alerts_on } })
           .catch(() => {})
       }}
-      settingsDisabled={remote.saving}
+      settingsDisabled={remote.saving || !workspace.canWrite}
       storageNotice={
         <StorageNotice workspace={workspace}>
           {remote.saving && '설정을 저장하고 있습니다.'}

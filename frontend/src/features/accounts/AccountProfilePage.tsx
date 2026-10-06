@@ -4,6 +4,7 @@ import { ProfileFields } from '../profile/ProfileFields'
 import { ConfirmDialog } from '../dialog/ConfirmDialog'
 import type { Profile } from '../storage/types'
 import { accountClient, accountError } from './client'
+import { ACCOUNT_NAME_MAX } from './contracts'
 import { validProfile } from '../storage/validation'
 import { validPassword, PASSWORD_GUIDANCE } from './password'
 
@@ -101,6 +102,7 @@ export function AccountProfilePage(props: Props) {
             <ProfileFields
               form={{ name, age, occupation, setName, setAge, setOccupation }}
               canWrite={canWrite && !busy}
+              nameMax={ACCOUNT_NAME_MAX}
             />
             <button className="btn btn-primary" disabled={!canWrite || busy}>
               변경 저장

@@ -6,6 +6,21 @@ const GROUPS = ['프론트','백엔드','데브옵스','서버','머신러닝','
 const PAGES = {overview:['한눈에 보기','문서와 작업을 한곳에서, 다음 단계는 더 분명하게.'],documents:['프로젝트 여정','어디까지 왔는지, 무엇이 남았는지. 단계별 작업과 근거를 함께 확인하세요.'],board:['진행 보드','해야 할 일부터 완료된 기록까지, 근거와 함께.'],team:['함께 만드는 사람들','우진 · 동욱 · 세호 · 유진 · 지성 · 홍규'],notes:['메모','팀과 AI가 이어서 작업할 수 있도록 기록하세요.']};
 let docs=[], workspace={cards:[],notes:[],assignments:{}}, version='', current='overview', selected='', editing=null, rawMode=false, loading=false;
 let activity={team:[],commits:[]},activityError='';
+/** Completed work counts for its performer: names, GitHub/aliases and `<github>_GPT|_CL` AI ids (team.json). */
+function performers(text){const words=String(text||'').split(/[\s,·/()]+/).filter(Boolean).map(w=>w.replace(/_(GPT|CL)$/i,'').toLowerCase());return MEMBERS.filter(m=>{const p=activity.team.find(t=>t.name===m),names=[m,p?.github,p?.aiPrefix,...(p?.aliases||[])].filter(Boolean).map(n=>n.toLowerCase());return words.some(w=>names.includes(w));});}
+/** New cards start with the members whose confirmed role covers the category (team.json `categories`). */
+const roleMembers=category=>MEMBERS.filter(m=>(activity.team.find(t=>t.name===m)?.categories||[]).includes(category));
+/** The git user of this checkout (server `me`) sees their own open cards first after a pull. */
+function renderMyWork(){const me=activity.me,box=$('my-work');if(!me){box.hidden=true;return;}
+ const done=new Set(workspace.cards.filter(c=>c.status==='completed').map(c=>c.number));
+ const mine=workspace.cards.filter(c=>c.assignees.includes(me)&&c.status!=='completed');
+ const group=c=>c.status!=='planned'?c.status:((c.dependsOn||[]).some(n=>!done.has(n))?'waiting':'ready');
+ const labels={in_progress:'진행 중',review:'검수 대기',blocked:'결정·확인 필요',ready:'바로 시작 가능',waiting:'선행 작업 대기'};
+ const rows=Object.keys(labels).map(k=>[k,orderedTasks(mine.filter(c=>group(c)===k))]).filter(([,items])=>items.length);
+ box.hidden=false;
+ box.innerHTML=`<div class="section-heading"><h2>${esc(me)}님의 작업 <span>${mine.length}개</span></h2><button type="button" data-work="${esc(me)}">보드에서 보기 →</button></div>`+(rows.map(([k,items])=>`<div class="my-work-group"><h3>${labels[k]} · ${items.length}</h3>${items.slice(0,k==='waiting'?3:8).map(t=>`<a class="journey-task" href="#task=${t.number}"><span class="journey-task-main"><small>${esc(t.number)} · ${esc(t.category)} <span class="task-stars">${'★'.repeat(t.priority||0)}</span></small><strong>${esc(t.title)}</strong>${k==='waiting'?`<small>선행 ${esc((t.dependsOn||[]).filter(n=>!done.has(n)).join(' · '))}</small>`:''}</span>${badge(t.status)}</a>`).join('')}${items.length>(k==='waiting'?3:8)?`<p class="caption">외 ${items.length-(k==='waiting'?3:8)}개</p>`:''}</div>`).join('')||'<p class="empty">배정된 미완료 작업이 없습니다.</p>');
+ box.querySelector('[data-work]').onclick=()=>{$('board-member').value=me;$('board-kind').value='';$('board-search').value='';location.hash='board';};}
+const involves=(t,m)=>t.assignees.includes(m)||(t.status==='completed'&&performers(t.performedBy).includes(m));
 let pendingTask='';
 let remoteSnapshot=null,checkingRemotes=false;
 let stages=[],selectedStage='',stageScope=true;
@@ -89,6 +104,7 @@ function renderOverview(){
  const pp=workspace.cards, active=pp.filter(d=>['in_progress','review'].includes(d.status));
  const metrics=[['프로젝트 문서',docs.length,'개 문서'],['진행·검수 작업',active.length,'개 작업'],['완료된 작업',pp.filter(c=>c.status==='completed').length,'개 기록'],['미처리 메모',workspace.notes.filter(n=>n.status!=='completed').length,'개 요청']];
  $('metrics').innerHTML=metrics.map(([label,n,unit])=>`<div class="metric"><p>${label}</p><strong>${n}</strong><small>${unit}</small></div>`).join('');
+ renderMyWork();
  $('active-plans').innerHTML=active.map(d=>`<a class="plan-card" href="#task=${d.number}"><div class="card-top">${badge(d.status)}<span class="card-meta">${esc(d.assignees.join(' · ')||'미배정')}</span></div><h3>${esc(d.number+' '+d.title)}</h3><div class="card-meta"><span>${esc(d.category)}</span><span>작업·근거 확인 ↗</span></div></a>`).join('')||'<div class="empty">진행 중인 작업이 없습니다. <a href="#documents">프로젝트 여정에서 다음 작업 찾기 →</a></div>';
  const quick=[['docs/team-requirements.md','팀 요구사항','기능·역할·완료 조건'],['docs/project-board.md','관리판 운영 안내','팀 배정과 AI 메모 처리'],['docs/research/guided-collection-v2.md','데이터 수집 가이드','Lite 안내형 좌표·라벨 수집'],['docs/plans/backlog.md','다음 작업','남은 결정과 후속 구현']];
  $('quick-docs').innerHTML=quick.map(([p,t,s],i)=>`<a href="${docURL(p)}"><span class="number">0${i+1}</span><span><strong>${t}</strong><small>${s}</small></span><span class="arrow">↗</span></a>`).join('');
@@ -177,12 +193,12 @@ function renderBoard(){
  const q=$('board-search').value.toLowerCase(),kind=$('board-kind').value,member=$('board-member').value;
  const category=$('board-category').value;
  const priority=$('board-priority').value;
- const tasks=orderedTasks(allTasks()).filter(t=>(!kind||(kind==='plan'?(t.plan||t.kind==='plan'):!t.plan&&t.kind==='card'))&&(!category||t.category===category)&&(priority===''||String(t.priority||0)===priority)&&(!member||(member==='unassigned'?!t.assignees.length:t.assignees.includes(member)))&&`${t.number||''} ${t.title} ${t.body} ${t.assignees.join(' ')} ${t.owner||''}`.toLowerCase().includes(q));
+ const tasks=orderedTasks(allTasks()).filter(t=>(!kind||(kind==='plan'?(t.plan||t.kind==='plan'):!t.plan&&t.kind==='card'))&&(!category||t.category===category)&&(priority===''||String(t.priority||0)===priority)&&(!member||(member==='unassigned'?!t.assignees.length&&!(t.status==='completed'&&performers(t.performedBy).length):involves(t,member)))&&`${t.number||''} ${t.title} ${t.body} ${t.assignees.join(' ')} ${t.owner||''}`.toLowerCase().includes(q));
  $('kanban').innerHTML=Object.entries(STATUS).map(([state,label])=>{const items=tasks.filter(t=>t.status===state);return `<section class="column"><h2>${label}<span>${items.length}</span></h2>${items.map(t=>{const waiting=(t.dependsOn||[]).filter(n=>workspace.cards.find(c=>c.number===n)?.status!=='completed');return `<button class="task-card priority-${t.priority||0}" data-kind="${t.kind}" data-id="${esc(t.id)}"><div class="card-top"><span class="task-number">${esc(t.number||'등록 필요')}</span><span class="task-stars" title="${esc(t.priorityNote||'중요도 미분류')}">${'★'.repeat(t.priority||0)||'☆'}</span></div><small>${esc(t.category||'MD 계획서')} · 규모 ${'●'.repeat(t.size||1)} · 배치 ${t.order||'—'}</small><h3>${esc(t.title)}</h3><p>${esc(t.performedBy&&t.status==='completed'?'수행: '+t.performedBy:t.assignees.join(' · ')||'담당 미배정')}</p>${waiting.length?`<p class="dependency">선행 대기 ${esc(waiting.join(', '))}</p>`:''}<p>${esc(t.body.slice(0,100))}</p>${t.log?.at(-1)?`<small>${esc(t.log.at(-1).by)} · ${esc(t.log.at(-1).text.slice(0,80))}</small>`:''}</button>`;}).join('')||'<p class="empty">작업 없음</p>'}</section>`;}).join('');
  $('kanban').querySelectorAll('button').forEach(b=>b.onclick=()=>openEditor(b.dataset.kind,b.dataset.id));
 }
 function renderTeam(){
- const tasks=allTasks();$('team-list').innerHTML=MEMBERS.map((m,i)=>{const mine=tasks.filter(t=>t.assignees.includes(m)),person=activity.team.find(t=>t.name===m),commits=activity.commits.filter(c=>c.member===m);return `<div class="note member-card"><span class="avatar color-${i}">${m[0]}</span><h3>${m}</h3><small>${person?.github?`<a href="https://github.com/${encodeURIComponent(person.github)}" target="_blank" rel="noopener noreferrer">@${esc(person.github)} ↗</a>`:'GitHub 연결 대기'}</small><p>배정 ${mine.length}개 · 완료 ${mine.filter(t=>t.status==='completed').length}개<br>최근 기록 내 커밋 ${commits.length}개</p><div class="member-actions"><button data-work="${m}">담당 작업 →</button><button data-commits="${m}">커밋 보기 →</button></div></div>`;}).join('');
+ const tasks=allTasks();$('team-list').innerHTML=MEMBERS.map((m,i)=>{const mine=tasks.filter(t=>involves(t,m)),person=activity.team.find(t=>t.name===m),commits=activity.commits.filter(c=>c.member===m);return `<div class="note member-card"><span class="avatar color-${i}">${m[0]}</span><h3>${m}</h3><small>${person?.github?`<a href="https://github.com/${encodeURIComponent(person.github)}" target="_blank" rel="noopener noreferrer">@${esc(person.github)} ↗</a>`:'GitHub 연결 대기'}</small><p>배정 ${tasks.filter(t=>t.assignees.includes(m)&&t.status!=='completed').length}개 · 완료 ${mine.filter(t=>t.status==='completed').length}개<br>최근 기록 내 커밋 ${commits.length}개</p><div class="member-actions"><button data-work="${m}">담당 작업 →</button><button data-commits="${m}">커밋 보기 →</button></div></div>`;}).join('');
  $('team-list').querySelectorAll('[data-work]').forEach(b=>b.onclick=()=>{$('board-member').value=b.dataset.work;$('board-kind').value='';$('board-search').value='';location.hash='board';});
  $('team-list').querySelectorAll('[data-commits]').forEach(b=>b.onclick=()=>{$('commit-member').value=b.dataset.commits;renderCommits();syncSelects();$('commit-list').scrollIntoView({behavior:'smooth',block:'start'});});
  renderCommits();
@@ -215,7 +231,9 @@ function openEditor(kind,id=''){
  $('item-source').value=item?.source||'';
  for(const key of ['item-title','item-body','item-status','item-source'])$(key).disabled=kind==='plan';
  $('author-label').hidden=kind!=='notes';
- $('item-assignees').innerHTML=MEMBERS.map(m=>`<label><input type="checkbox" value="${m}" ${(item?.assignees||[]).includes(m)?'checked':''}>${m}</label>`).join('');
+ const initial=kind==='card'&&!item?roleMembers($('item-category').value):(item?.assignees||[]);
+ $('item-assignees').innerHTML=MEMBERS.map(m=>`<label><input type="checkbox" value="${m}" ${initial.includes(m)?'checked':''}>${m}</label>`).join('');
+ $('item-category').onchange=kind==='card'&&!item?()=>{const roles=roleMembers($('item-category').value);$('item-assignees').querySelectorAll('input').forEach(el=>el.checked=roles.includes(el.value));}:null;
  $('delete-item').hidden=!id||kind==='plan';$('editor-error').textContent='';$('save-item').disabled=false;
  $('ai-result').hidden=!item?.result;$('ai-result').textContent=item?.result?`${item.agent||'AI'} 처리 기록\n${item.result}`:'';
  $('source-link').hidden=!item?.source;$('source-link').href=docURL(item?.source||'');$('source-link').onclick=()=>{$('editor').close();};

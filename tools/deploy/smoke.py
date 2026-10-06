@@ -95,6 +95,20 @@ def wait_health(base, timeout=120):
     raise TimeoutError("Persistent API health did not recover within its deadline")
 
 
+def synthetic_setup(baseline_id):
+    """Explicitly synthetic calibration aggregates for schema V1.1 session prerequisites."""
+    stat = {"mean": 0.25, "std": 0.01}
+    return {
+        "device": {"key": "synthetic-compose-device", "label": "synthetic camera"},
+        "frame": {"width": 640, "height": 480},
+        "baseline": {
+            "baseline_id": baseline_id, "calibration_ms": 5000, "sample_count": 20,
+            "target_center_x": 0.5, "target_center_y": 0.6, "target_area_ratio": 0.05,
+            "head_gap": stat, "lateral_offset": stat, "shoulder_tilt": stat,
+        },
+    }
+
+
 def exercise_accounts(base):
     checks = 0
     anonymous = Client(base)
@@ -107,8 +121,10 @@ def exercise_accounts(base):
         raise AssertionError("Cookie authentication did not preserve the registered account")
     checks += 2
     session_id = str(uuid.uuid4())
+    baseline_id = str(uuid.uuid4())
     created = owner.request("PUT", "/v1/sessions/" + session_id, {
         "policy": {"hold_ms": 3000, "recovery_ms": 2000, "reminder_ms": 60000, "threshold": 0.7},
+        "setup": synthetic_setup(baseline_id),
     })
     if created["session_id"] != session_id:
         raise AssertionError("Persistent session identity does not match its requested UUID")
@@ -116,7 +132,7 @@ def exercise_accounts(base):
     owner.request("GET", "/v1/sessions/" + session_id, expected=409, identity_override=str(uuid.uuid4()))
     checks += 2
     feature = json.loads((ROOT / "contracts/examples/v2/synthetic-feature-request.json").read_text())
-    feature["baseline_id"] = str(uuid.uuid4())
+    feature["baseline_id"] = baseline_id
     for sequence in range(3):
         feature.update(sequence=sequence, start_ms=sequence * 1000, end_ms=(sequence + 1) * 1000)
         reply = owner.request("POST", "/v1/sessions/" + session_id + "/features", feature)

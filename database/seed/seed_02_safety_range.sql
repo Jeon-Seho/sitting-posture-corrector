@@ -11,4 +11,5 @@
 --   INSERT INTO safety_range (feature_code, lower_bound, upper_bound, basis) VALUES
 --     ('HEAD_GAP', <하한 또는 NULL>, <상한 또는 NULL>, '<근거 — 측면 검증 결과 등>');
 -- =====================================================================
+SET NAMES utf8mb4;
 USE posture_service;

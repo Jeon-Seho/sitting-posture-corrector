@@ -23,3 +23,8 @@ dialog{width:min(760px,96vw);max-height:90vh;padding:30px 34px}dialog label,dial
 .collaboration-panel{border:1px solid var(--line);border-radius:9px;padding:13px 17px;margin:0 0 22px;background:#edf2e9;font-size:13px}.collaboration-panel summary{cursor:pointer;font-weight:600}.collaboration-panel.has-updates{background:#fff5de;border-color:#ddc98b}.remote-row{padding:12px 0;border-bottom:1px solid #dfe5dd;display:flex;gap:14px;flex-wrap:wrap;align-items:center}.remote-row span{font-size:12px;color:var(--muted)}.remote-row p{width:100%;margin:0}.remote-row code{font-size:11px}.collaboration-panel button{font-size:12px;margin-right:8px}
 
 .journey-summary progress::-webkit-progress-bar,.stage-step progress::-webkit-progress-bar{background:#dbe3d5;border-radius:4px}.journey-summary progress::-webkit-progress-value,.stage-step progress::-webkit-progress-value{background:#5d895b;border-radius:4px}.stage-step.selected progress::-webkit-progress-bar{background:#4b7b68}.stage-step.selected progress::-webkit-progress-value{background:#dbeaaa}
+
+.my-work{margin:0 0 24px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--white)}
+.my-work .section-heading span{font-weight:400;font-size:.8em;opacity:.7}
+.my-work-group{margin-top:12px}
+.my-work-group h3{font-size:.9rem;margin:0 0 6px}

@@ -15,18 +15,19 @@ if __package__:
     from .dev_tasks import (
         benchmark_server, board, check, check_backend, check_board, check_browser, check_compose,
         check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
-        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
+        dev_inference, init_compose, install_hooks, setup, setup_frontend, setup_python, test,
     )
 else:
     from dev_tasks import (
         benchmark_server, board, check, check_backend, check_board, check_browser, check_compose,
         check_frontend, check_local, check_repo, dev, dev_api, dev_cep,
-        dev_inference, init_compose, setup, setup_frontend, setup_python, test,
+        dev_inference, init_compose, install_hooks, setup, setup_frontend, setup_python, test,
     )
 
 
 COMMANDS = {
     "setup": setup,
+    "hooks": install_hooks,
     "setup-python": setup_python,
     "setup-frontend": setup_frontend,
     "check": check,

@@ -9,7 +9,7 @@ import urllib.request
 import urllib.error
 import uuid
 
-from server import ROOT, HERE, CATEGORIES, STATUSES, STAGES, documents, read_store, git_activity, validate_ai
+from server import ROOT, HERE, CATEGORIES, STATUSES, STAGES, MY_WORK_ORDER, default_assignees, documents, git_activity, my_work, read_store, validate_ai
 
 URL = "http://127.0.0.1:8774"
 FOLDERS = dict(zip(CATEGORIES, ("frontend", "backend", "devops", "server", "machine-learning", "paper", "database")))
@@ -92,6 +92,9 @@ def main():
     listing.add_argument("--category", choices=CATEGORIES)
     listing.add_argument("--status", choices=STATUSES)
     sub.add_parser("inbox")
+    mine = sub.add_parser("mine", help="Open cards assigned to you (git user.name/email → team.json)")
+    mine.add_argument("--member", help="팀원 이름. 생략하면 git 사용자로 찾는다")
+    mine.add_argument("--json", action="store_true")
     sub.add_parser("check")
     sub.add_parser("show").add_argument("number")
     sync = sub.add_parser("sync-plans", help="Register existing MD plans once without duplicates")
@@ -136,6 +139,33 @@ def main():
         else: rows = [c for c in rows if (not args.category or c.get("category") == args.category) and (not args.status or c["status"] == args.status)]
         print(json.dumps(dict(version=version, cards=rows), ensure_ascii=False, indent=2))
         return 0
+    if args.command == "mine":
+        members = [p["name"] for p in json.loads((HERE / "team.json").read_text(encoding="utf-8"))]
+        member = args.member or git_activity()["me"]
+        if member not in members:
+            raise ValueError("git 사용자(user.name/user.email)로 팀원을 찾지 못했습니다. --member 이름(" + "·".join(members)
+                             + ")으로 실행하고, 계정 별칭은 docs/team.md에 확인 후 team.json에 등록하세요.")
+        groups = my_work(data, member)
+        if args.json:
+            print(json.dumps(dict(version=version, member=member, groups=groups), ensure_ascii=False, indent=2))
+            return 0
+        labels = dict(in_progress="진행 중", review="검수 대기", blocked="결정·확인 필요", ready="바로 시작 가능", waiting="선행 작업 대기")
+        total = sum(len(v) for v in groups.values())
+        print(f"{member}님에게 배정된 미완료 작업 {total}개")
+        for key in MY_WORK_ORDER:
+            if not groups[key]: continue
+            print()
+            print(f"[{labels[key]}] {len(groups[key])}개")
+            for card in groups[key]:
+                extra = f" · 선행 {', '.join(card['waitingFor'])}" if card["waitingFor"] else ""
+                stars = "★" * (card.get("priority") or 0)
+                print(f"  {card['number']} {stars}{' ' if stars else ''}{card['title']} · {card['category']}{extra}")
+                if card.get("source"): print(f"      근거: {card['source']}")
+        first = next((groups[k][0] for k in MY_WORK_ORDER if k != "waiting" and groups[k]), None)
+        if first:
+            print()
+            print(f"다음: python tools/project-board/work.py show {first['number']}")
+        return 0
     if args.command == "show":
         card = find(data, args.number)
         related = [d["path"] for d in documents() if d.get("task") == card.get("number")]
@@ -165,6 +195,7 @@ def main():
             target = safe_path(source)
             if target.exists(): raise ValueError("이미 존재하는 문서입니다. 기존 작업을 조회해서 이어가세요.")
         card = new_card(args.title, args.category, source, args.body, args.by)
+        card["assignees"] = default_assignees(args.category)
         card["stage"] = args.stage
         data["cards"].append(card)
     else:

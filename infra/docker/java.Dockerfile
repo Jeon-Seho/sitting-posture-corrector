@@ -1,7 +1,6 @@
 FROM maven:3.9.16-eclipse-temurin-21 AS build
 WORKDIR /source
 COPY backend ./backend
-COPY database/migrations ./database/migrations
 RUN mvn -B -f backend/pom.xml -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy AS runtime

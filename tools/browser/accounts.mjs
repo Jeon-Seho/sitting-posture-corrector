@@ -24,7 +24,7 @@ class AccountDriver {
   async click(label) {
     await until(() => this.evaluate(`(() => {
       const button = [...document.querySelectorAll('button')].filter(${visible})
-        .find((item) => item.textContent.trim() === ${JSON.stringify(label)} && !item.disabled);
+        .find((item) => item.textContent.trim() === ${JSON.stringify(label)} && !item.matches(':disabled'));
       if (!button) return false;
       button.click(); return true;
     })()`), `account button ${label}`)
@@ -35,7 +35,7 @@ class AccountDriver {
       const item = [...document.querySelectorAll('label')].filter(${visible})
         .find((item) => item.childNodes[0]?.textContent.trim() === ${JSON.stringify(label)});
       const input = item?.querySelector('input');
-      if (!input || input.disabled) return false;
+      if (!input || input.matches(':disabled')) return false;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(String(value))});
       input.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
@@ -44,6 +44,15 @@ class AccountDriver {
 
   text(text) {
     return until(() => this.evaluate(`document.body.innerText.includes(${JSON.stringify(text)})`), text)
+  }
+
+  async accountMenu() {
+    await until(() => this.evaluate(`(() => {
+      const button = document.querySelector('button[aria-haspopup="menu"]');
+      if (!button || !button.getClientRects().length) return false;
+      if (button.getAttribute('aria-expanded') !== 'true') button.click();
+      return true;
+    })()`), 'account menu')
   }
 
   async api(path) {
@@ -59,6 +68,19 @@ class AccountDriver {
     return this.evaluate(`JSON.parse(sessionStorage.getItem('posegood.account.v1.' + ${JSON.stringify(this.userId)} + '.draft') ?? 'null')`)
   }
 
+  async preference(expected, description) {
+    try {
+      return await until(async () => (await this.api('workspace')).value.preferences.alerts_on === expected, description)
+    } catch (error) {
+      const state = await this.evaluate(`({
+        text: document.body.innerText,
+        disabled: document.querySelector('button[aria-label="교정 알림 사용"]')?.matches(':disabled'),
+        pressed: document.querySelector('button[aria-label="교정 알림 사용"]')?.getAttribute('aria-pressed')
+      })`)
+      throw new Error(error.message + '\\nCurrent app: ' + JSON.stringify(state), { cause: error })
+    }
+  }
+
   async authenticate(email, password, name) {
     if (name) {
       await this.click('새 계정 만들기')
@@ -70,7 +92,7 @@ class AccountDriver {
     await this.fill('이메일', email)
     await this.fill('비밀번호', password)
     await this.click(name ? '계정 만들고 시작' : '로그인')
-    await this.text('님의 오늘')
+    await until(() => this.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'authenticated account navigation')
     const me = await this.api('auth/me')
     assert.equal(me.status, 200)
     this.userId = me.value.user_id
@@ -78,6 +100,7 @@ class AccountDriver {
   }
 
   async logout() {
+    await this.accountMenu()
     await this.click('로그아웃')
     await this.text('새 계정 만들기')
     this.check('logout invalidates the cookie session', (await this.api('auth/me')).status === 401)
@@ -95,7 +118,7 @@ class AccountDriver {
   }
 
   async remove(password) {
-    await this.click('설정')
+    await this.accountMenu()
     await this.click('프로필 설정')
     await this.click('계정 삭제')
     await this.fill('비밀번호 확인', password)
@@ -117,36 +140,38 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.authenticate(email, password, '합성 계정 A')
   const owner = app.userId
   const initial = await app.api('workspace')
-  app.check('new account starts with server records and 3/2/60 settings',
+  // DB V1.1 seed DEFAULT_TEMP (3s/2s/30s/0.5) is the temporary default policy.
+  app.check('new account starts with server records and DEFAULT_TEMP settings',
     initial.value.records.length === 0 && initial.value.rules.holdSeconds === 3 &&
-    initial.value.rules.recoverSeconds === 2 && initial.value.rules.realertSeconds === 60)
+    initial.value.rules.recoverSeconds === 2 && initial.value.rules.realertSeconds === 30 &&
+    initial.value.rules.threshold === 0.5)
 
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
     const toggle = document.querySelector('button[aria-label="교정 알림 사용"]');
-    if (!toggle || toggle.disabled) return false;
+    if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'account alert preference switch')
-  await until(async () => (await app.api('workspace')).value.preferences.alerts_on === false, 'saved alert preference')
+  await app.preference(false, 'saved alert preference')
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.text('님의 오늘')
+  await until(() => app.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'restored authenticated navigation')
   app.check('settings remain server-owned across reload', (await app.api('workspace')).value.preferences.alerts_on === false)
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
     const toggle = document.querySelector('button[aria-label="교정 알림 사용"]');
-    if (!toggle || toggle.disabled) return false;
+    if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'restore alert preference')
-  await until(async () => (await app.api('workspace')).value.preferences.alerts_on === true, 'restored alert preference')
+  await app.preference(true, 'restored alert preference')
+  await app.accountMenu()
   await app.click('프로필 설정')
   await app.fill('직업', '변경된 합성 직업')
   await app.click('변경 저장')
   await app.text('프로필을 저장했습니다.')
   app.check('profile changes persist through the server', (await app.api('workspace')).value.profile.occupation === '변경된 합성 직업')
-  await app.click('홈')
-  await app.click('측정 시작')
+  await app.click('측정하기')
   await app.click('카메라 켜기')
-  await app.click('기준 등록 시작')
+  await app.click('편하게 앉아서 기준 등록 시작')
   await app.click('측정 시작')
   const created = await until(async () => {
     const draft = await app.draft()
@@ -162,7 +187,7 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await app.text('중단된 측정이 있습니다')
   await app.click('이어하기')
-  await app.text('휴식 중')
+  await app.text('쉬는 중')
   app.check('reload restores acknowledged facts without requesting a camera',
     (await app.draft()).id === created.id && (await app.evaluate(`${BRIDGE}.snapshot()`)).permissionCalls === 0)
   await app.click('측정 종료')
@@ -172,8 +197,8 @@ export async function runAccountScenarios(browser, base, tag) {
   }, 'server record save and draft cleanup', 20000)
   app.check('final record retains the exact event and summary',
     saved.server.confirmed && saved.server.view.ended && saved.valid === 3 && saved.events.length === 1)
-  await app.click('홈')
-  await app.text('이탈 사건')
+  await app.click('기록')
+  await until(() => app.evaluate(`document.querySelector('[data-stat="count"]')?.textContent.trim() === '1'`), 'rendered saved record count')
   await browser.screenshot('account-history')
   app.check('account results are absent from local record storage',
     await app.evaluate(`!localStorage.getItem('posegood.v2.records')`))
@@ -190,6 +215,7 @@ export async function runAccountScenarios(browser, base, tag) {
   app.check('logging in again retrieves the original account and record',
     app.userId === owner && (await app.api('records')).value[0].id === saved.id)
   await app.click('설정')
+  await app.accountMenu()
   await app.click('프로필 설정')
   const newPassword = `Changed-${tag}`
   await app.fill('현재 비밀번호', password)

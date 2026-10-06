@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import type { Features } from '../../../model/prototype/pose'
+import { placement, type Features } from '../../../model/prototype/pose'
 import {
   beginCalibration,
   observeCalibration,
   type Calibration,
+  type CalibrationSummary,
 } from '../../../model/prototype/calibration'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
@@ -47,6 +48,7 @@ export function useCamera() {
   const [deviceId, setDeviceId] = useState('')
   const [baseline, setBaseline] = useState<Features | null>(null)
   const [calibrationId, setCalibrationId] = useState<string | null>(null)
+  const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
@@ -95,6 +97,7 @@ export function useCamera() {
     setQuality(false)
     setBaseline(null)
     setCalibrationId(null)
+    setCalibrationSummary(null)
     setProgress(null)
   }, [release])
   useEffect(() => () => release(), [release])
@@ -111,11 +114,13 @@ export function useCamera() {
       observation.features,
       observation.timeMs,
       observationGap,
+      observation.features ? placement(observation.landmarks) : null,
     )
     calibration.current = next.draft
     setProgress(next.progress)
     if (next.ready) {
       setBaseline(next.ready)
+      setCalibrationSummary(next.summary)
       setCalibrationId(crypto.randomUUID())
       calibration.current = null
       setProgress(null)
@@ -133,6 +138,7 @@ export function useCamera() {
       setError('')
       setBaseline(null)
       setCalibrationId(null)
+      setCalibrationSummary(null)
       setProgress(null)
 
       loadingTimer.current = setTimeout(() => {
@@ -163,6 +169,7 @@ export function useCamera() {
           setQuality(false)
           setBaseline(null)
           setCalibrationId(null)
+          setCalibrationSummary(null)
           setProgress(null)
           setError(CAMERA_ERRORS.disconnected)
         }
@@ -210,6 +217,7 @@ export function useCamera() {
             setProgress(null)
             setBaseline(null)
             setCalibrationId(null)
+            setCalibrationSummary(null)
             setError(CAMERA_ERRORS.trackingFailed)
           },
         })
@@ -252,6 +260,7 @@ export function useCamera() {
     quality,
     baseline,
     calibrationId,
+    calibrationSummary,
     progress,
     current,
     lastFrame,

@@ -9,6 +9,9 @@ from pathlib import Path
 
 from .secrets import ROOT
 
+# Schema V1.1 (database/schema) creates and names the service database.
+DATABASE = "posture_service"
+
 
 def docker_executable():
     binary = shutil.which("docker")

@@ -2,8 +2,8 @@ import { DEFAULT_RULES } from '../../data/posture'
 import type { AccountUser, AccountWorkspace } from './contracts'
 import type { RecordItem } from '../storage/types'
 
-export const USER_A = '12345678-1234-1234-1234-123456789001'
-export const USER_B = '12345678-1234-1234-1234-123456789002'
+export const USER_A = '1001'
+export const USER_B = '1002'
 export const accountUser: AccountUser = {
   user_id: USER_A,
   email: 'synthetic@example.test',
@@ -13,7 +13,7 @@ export const accountWorkspace = (): AccountWorkspace => ({
   schema_version: '1.0',
   profile: { ...accountUser.profile },
   rules: { ...DEFAULT_RULES },
-  preferences: { show_demo: false, alerts_on: true },
+  preferences: { alerts_on: true },
   records: [],
 })
 export const syntheticRecord = (): RecordItem => ({

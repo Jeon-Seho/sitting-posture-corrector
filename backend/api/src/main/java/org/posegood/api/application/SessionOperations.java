@@ -10,7 +10,8 @@ import org.posegood.contracts.SessionView;
 import java.util.UUID;
 
 public interface SessionOperations {
-    SessionView create(UUID id, CreateSession request);
+    /** {@code setup} is required by the persistent mode and ignored by the memory mode. */
+    SessionView create(UUID id, CreateSession request, SessionSetup setup);
 
     SessionView observe(UUID id, Observation observation);
 

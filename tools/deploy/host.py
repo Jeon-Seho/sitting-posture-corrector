@@ -81,7 +81,7 @@ def apply_release(directory, sha, payload, *, schema_compatible=False):
             # the database is authoritative, so every migration attempt receives a backup.
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             backup_database(project, shared / "backups" / (timestamp + ".sql.gz"), env, root=release)
-            # Flyway runs in the single API instance after the backup. Volumes are never removed.
+            # The API verifies schema V1.1 at startup; it never migrates. Volumes are never removed.
             run(project, "up", "--no-build", "--wait", "--wait-timeout", "180", root=release, env=env)
         if existing is not None and existing != manifest:
             atomic_json(shared / "previous.json", existing)

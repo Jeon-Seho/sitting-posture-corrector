@@ -8,6 +8,7 @@ import org.posegood.api.persistence.JdbcSessionStore.Stored;
 import org.posegood.api.persistence.JsonCodec;
 import org.posegood.api.persistence.UserLocks;
 import org.posegood.contracts.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +26,8 @@ public class PersistentSessionService implements SessionOperations {
     private final UserStore users;
     private final UserLocks locks;
     private final JsonCodec json;
+    private final String modelVersion;
+    private final String modelVersionCode;
 
     public PersistentSessionService(
             JdbcSessionStore store,
@@ -33,7 +36,9 @@ public class PersistentSessionService implements SessionOperations {
             CurrentUser current,
             UserStore users,
             UserLocks locks,
-            JsonCodec json) {
+            JsonCodec json,
+            @Value("${posegood.model-version:reference-feature-rule-v1}") String modelVersion,
+            @Value("${posegood.model-version-code:REFERENCE-RULE-1}") String modelVersionCode) {
         this.store = store;
         this.inference = inference;
         this.delivery = delivery;
@@ -41,17 +46,19 @@ public class PersistentSessionService implements SessionOperations {
         this.users = users;
         this.locks = locks;
         this.json = json;
+        this.modelVersion = modelVersion;
+        this.modelVersionCode = modelVersionCode;
     }
 
-    public SessionView create(UUID id, CreateSession request) {
+    public SessionView create(UUID id, CreateSession request, SessionSetup setup) {
+        if (setup == null) throw new ContractError(400, "session setup is required");
         return owned(
                 () -> {
-                    UUID owner = current.id();
+                    long owner = current.id();
                     var existing = store.find(id);
                     if (existing != null) {
                         existing = store.require(owner, id);
-                        if (!existing.policy().equals(request.policy()))
-                            throw new ContractError(409, "policy already frozen");
+                        requireSameSetup(existing, request.policy(), setup);
                         delivery.prepare(existing);
                         return existing.view();
                     }
@@ -67,7 +74,16 @@ public class PersistentSessionService implements SessionOperations {
                                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, 0, null,
                                             null),
                                     List.of());
-                    var session = store.create(owner, id, request.policy(), empty);
+                    var session =
+                            store.create(
+                                    owner,
+                                    id,
+                                    request.policy(),
+                                    setup,
+                                    users.require(owner).soundAlerts(),
+                                    modelVersionCode,
+                                    empty);
+                    requireSameSetup(session, request.policy(), setup);
                     delivery.prepare(session);
                     return session.view();
                 });
@@ -80,20 +96,21 @@ public class PersistentSessionService implements SessionOperations {
                     String digest = FeatureRequestFingerprint.of(request);
                     var cached = store.input(id, request.sequence());
                     if (cached != null) {
-                        requireDuplicate(cached, "feature", digest);
-                        if ("pending".equals(cached.status())) delivery.deliver(session);
+                        requireDuplicate(cached, JdbcSessionStore.FEATURE, digest);
+                        if (JdbcSessionStore.PENDING.equals(cached.status()))
+                            delivery.deliver(session);
                         return new FeatureResponse(
                                 "1.0",
                                 cached.observation(),
                                 store.require(session.owner(), id).view());
                     }
                     requireNew(session, request.sequence(), request.startMs());
-                    if (session.baseline() != null
-                            && !session.baseline().equals(request.baselineId()))
+                    if (!session.baseline().equals(request.baselineId()))
                         throw new ContractError(409, "baseline already frozen");
                     var observation = inference.infer(request);
                     InferenceObservationValidator.require(request, observation);
-                    store.queue(session, "feature", digest, request.baselineId(), observation);
+                    requireModel(observation);
+                    store.queue(session, JdbcSessionStore.FEATURE, digest, observation);
                     var result = delivery.deliver(store.require(session.owner(), id));
                     return new FeatureResponse("1.0", observation, result);
                 });
@@ -106,29 +123,36 @@ public class PersistentSessionService implements SessionOperations {
                     String digest = json.fingerprint(json.tree(observation));
                     var cached = store.input(id, observation.sequence());
                     if (cached != null) {
-                        requireDuplicate(cached, "observation", digest);
-                        if ("pending".equals(cached.status())) delivery.deliver(session);
+                        requireDuplicate(cached, JdbcSessionStore.OBSERVATION, digest);
+                        if (JdbcSessionStore.PENDING.equals(cached.status()))
+                            delivery.deliver(session);
                         return store.require(session.owner(), id).view();
                     }
                     requireNew(session, observation.sequence(), observation.startMs());
-                    store.queue(session, "observation", digest, null, observation);
+                    requireModel(observation);
+                    store.queue(session, JdbcSessionStore.OBSERVATION, digest, observation);
                     return delivery.deliver(session);
                 });
     }
 
+    /**
+     * V1.1 stores no pending end; an end is acknowledged within this request or retried by the
+     * client with the same {@code end_ms}. A confirmed end fixes the total for later retries.
+     */
     public SessionView end(UUID id, EndSession request) {
         return owned(
                 () -> {
                     var session = store.require(current.id(), id);
+                    if (session.view().ended()) {
+                        if (session.view().summary().totalMs() != request.endMs())
+                            throw new ContractError(409, "conflicting session end");
+                        return session.view();
+                    }
                     if (store.pending(id) != null)
                         throw new ContractError(409, "retry pending feature request first");
                     if (request.endMs() < session.view().summary().totalMs())
                         throw new ContractError(409, "end precedes last observation");
-                    if (session.endMs() != null && session.endMs() != request.endMs())
-                        throw new ContractError(409, "conflicting session end");
-                    if (session.view().ended()) return session.view();
-                    store.queueEnd(id, request.endMs());
-                    return delivery.finish(store.require(session.owner(), id));
+                    return delivery.finish(session, request.endMs());
                 });
     }
 
@@ -148,9 +172,24 @@ public class PersistentSessionService implements SessionOperations {
         return store.require(current.id(), id);
     }
 
+    private void requireSameSetup(Stored session, Policy policy, SessionSetup setup) {
+        if (!session.policy().equals(policy))
+            throw new ContractError(409, "policy already frozen");
+        if (!session.baseline().equals(setup.baseline().baselineId())
+                || !session.deviceKey().equals(setup.device().key())
+                || session.frameWidth() != setup.frame().width()
+                || session.frameHeight() != setup.frame().height())
+            throw new ContractError(409, "session setup already frozen");
+    }
+
+    /** `monitor_session.model_version_code` is fixed at creation; outputs must match it. */
+    private void requireModel(Observation observation) {
+        if (!modelVersion.equals(observation.modelVersion()))
+            throw new ContractError(502, "unexpected model version");
+    }
+
     private void requireNew(Stored session, long sequence, long start) {
-        if (session.view().ended() || session.endMs() != null)
-            throw new ContractError(409, "session ended or ending");
+        if (session.view().ended()) throw new ContractError(409, "session ended or ending");
         if (store.pending(session.id()) != null)
             throw new ContractError(409, "retry pending feature request first");
         if (sequence <= session.view().lastSequence() || start < session.view().summary().totalMs())
@@ -162,7 +201,7 @@ public class PersistentSessionService implements SessionOperations {
     private void requireDuplicate(JdbcSessionStore.Input cached, String kind, String digest) {
         if (!cached.kind().equals(kind) || !cached.fingerprint().equals(digest))
             throw new ContractError(409, "conflicting duplicate");
-        if ("rejected".equals(cached.status()))
+        if (JdbcSessionStore.REJECTED.equals(cached.status()))
             throw new ContractError(cached.rejectionStatus(), "CEP rejected input");
     }
 

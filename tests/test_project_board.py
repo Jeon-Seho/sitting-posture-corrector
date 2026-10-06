@@ -21,6 +21,24 @@ with patch.dict(sys.modules, {"server": board}):
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_my_work_separates_dependencies_and_excludes_other_members_and_done(self):
+        def card(number, status, assignees, deps=(), priority=1):
+            return dict(number=number, status=status, assignees=assignees,
+                        dependsOn=list(deps), priority=priority, order=0)
+        data = {'cards': [
+            card('GP-0001', 'completed', ['유진']),
+            card('GP-0002', 'planned', ['유진'], ['GP-0001']),
+            card('GP-0003', 'planned', ['유진'], ['GP-0004']),
+            card('GP-0004', 'in_progress', ['홍규']),
+            card('GP-0005', 'review', ['유진']),
+            card('GP-0006', 'planned', ['유진'], priority=3),
+        ]}
+        groups = board.my_work(data, '유진')
+        self.assertEqual([c['number'] for c in groups['ready']], ['GP-0006', 'GP-0002'])
+        self.assertEqual(groups['waiting'][0]['waitingFor'], ['GP-0004'])
+        self.assertEqual([c['number'] for c in groups['review']], ['GP-0005'])
+        self.assertEqual(sum(map(len, groups.values())), 4)
+
     def test_audit_rejects_unregistered_docs_and_uncategorized_work(self):
         card = dict(item(), number="GP-0001", category="프론트", stage="prototype")
         doc = dict(path=card["source"], body="- 분야: 프론트\n- 작업: GP-0001", task="GP-0001", status="")
@@ -149,11 +167,25 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(board.author_member("other", "123+Jeon-Seho@users.noreply.github.com", team), "세호")
         self.assertEqual(board.author_member("Leo", "x@example.com", team), "동욱")
         self.assertEqual(board.author_member("HJisung", "x@example.com", team), "지성")
-        self.assertIsNone(board.author_member("jisung", "unknown@example.com", team))
+        # Confirmed by the user on 2026-10-06; a partial spelling stays unlinked.
+        self.assertEqual(board.author_member("jisung", "unknown@example.com", team), "지성")
+        self.assertEqual(board.author_member("dev-jisung", "unknown@example.com", team), "지성")
+        self.assertIsNone(board.author_member("jisung2", "unknown@example.com", team))
         self.assertEqual(board.author_member("ghdrb1246", "unknown@example.com", team), "홍규")
         self.assertEqual(board.author_member("other", "123+sunshine-yj@users.noreply.github.com", team), "유진")
         self.assertIsNone(board.author_member("sunshine", "unknown@example.com", team))
         self.assertIsNone(board.author_member("lellon", "shared@example.com", team, {"shared@example.com": {"우진", "세호"}}))
+
+    def test_new_cards_default_to_members_with_the_confirmed_role(self):
+        team = json.loads((board.HERE / "team.json").read_text(encoding="utf-8"))
+        self.assertEqual(board.default_assignees("프론트", team), ["우진", "동욱"])
+        self.assertEqual(board.default_assignees("머신러닝", team), ["지성"])
+        self.assertEqual(board.default_assignees("DB", team), ["유진"])
+        for category in ("데브옵스", "백엔드", "서버"):
+            self.assertEqual(board.default_assignees(category, team), ["홍규"])
+        # PM and paper work have no category default; they are assigned explicitly.
+        self.assertEqual(board.default_assignees("논문", team), [])
+        self.assertEqual(board.default_assignees("미지정", [{"name": "x"}]), [])
 
     def test_document_shelves_include_shared_topics(self):
         self.assertIn("프론트", board.groups("frontend/README.md", "프론트"))

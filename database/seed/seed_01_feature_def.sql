@@ -9,6 +9,7 @@
 --   확정되면 행을 추가한다. 이름과 SFR-014 항목의 대응은 모델 담당 확인 필요.
 -- 코드는 바꾸지 않는다 (DB-04 D-36). 계산 방식이 바뀌면 새 코드를 추가한다.
 -- =====================================================================
+SET NAMES utf8mb4;
 USE posture_service;
 
 INSERT INTO feature_def (feature_code, feature_name, unit, scale_invariant, distance_proxy) VALUES

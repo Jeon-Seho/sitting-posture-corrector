@@ -35,6 +35,11 @@ def transport_options(settings, key, known_hosts):
 def bundle_release(destination, manifest):
     with tarfile.open(destination, "w:gz") as archive:
         archive.add(ROOT / "compose.yaml", arcname="compose.yaml")
+        # Bind-mounted by the db service; applied only when the volume is empty.
+        for folder in ("infra/mysql/initdb", "database/schema", "database/seed"):
+            for path in sorted((ROOT / folder).iterdir()):
+                if path.is_file():
+                    archive.add(path, arcname=folder + "/" + path.name)
         archive.add(ROOT / "tools/deploy_host.py", arcname="tools/deploy_host.py")
         for path in sorted((ROOT / "tools/deploy").glob("*.py")):
             archive.add(path, arcname="tools/deploy/" + path.name)

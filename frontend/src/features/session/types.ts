@@ -1,6 +1,6 @@
 import type { LiveState, Machine, Rules } from '../../lib/engine'
 import type { Features } from '../../../../model/prototype/pose'
-import type { ServerCheckpoint } from './server/contracts'
+import type { ServerCheckpoint, ServerSetup } from './server/contracts'
 
 export type ServerSessionDescriptor = {
   baselineId: string
@@ -8,6 +8,7 @@ export type ServerSessionDescriptor = {
   deviceId: string
   frameWidth: number
   frameHeight: number
+  setup?: ServerSetup
   checkpoint?: ServerCheckpoint
   finishOnly?: boolean
 }

@@ -11,7 +11,7 @@ import {
 } from './engine'
 import { features, classify, average, payload, type Landmark } from '../../../model/prototype/pose'
 import { beginCalibration, observeCalibration } from '../../../model/prototype/calibration'
-import { referenceScore } from '../../../model/prototype/pose'
+import { placement, referenceScore } from '../../../model/prototype/pose'
 
 const reading = (prob: number, unknown = false): Sample => ({
   ...sampleAt(0),
@@ -176,8 +176,31 @@ describe('webcam reference adapter', () => {
     expect(observeCalibration(draft, null, 100, 100).draft.samples).toHaveLength(0)
     expect(observeCalibration(draft, f, 2000, 2000).draft.samples).toHaveLength(0)
     for (let i = 1; i <= 20; i++) draft = observeCalibration(draft, f, i * 250, 250).draft
-    const ready = observeCalibration(draft, f, 5250, 250).ready!
+    const done = observeCalibration(draft, f, 5250, 250)
+    const ready = done.ready!
     expect(ready.headGap).toBeCloseTo(f.headGap)
     expect(ready.quality).toBeCloseTo(f.quality)
+    // Without placements the summary cannot describe where the body was.
+    expect(done.summary).toMatchObject({ durationMs: 5250, sampleCount: 22, placement: null })
+    expect(done.summary!.spread.headGap).toBeCloseTo(0)
+  })
+  it('summarizes calibration spread and mean placement for the server baseline', () => {
+    const f = features(points(), 640, 480)!
+    const p = placement(points())!
+    let draft = beginCalibration()
+    let result = observeCalibration(draft, { ...f, headGap: f.headGap - 0.1 }, 0, 0, p)
+    for (let i = 1; i <= 20; i++) {
+      draft = result.draft
+      const headGap = f.headGap + (i % 2 ? 0.1 : -0.1)
+      result = observeCalibration(draft, { ...f, headGap }, i * 250, 250, p)
+    }
+    expect(result.summary!.sampleCount).toBe(21)
+    expect(result.summary!.durationMs).toBe(5000)
+    expect(result.summary!.spread.headGap).toBeGreaterThan(0.09)
+    expect(result.summary!.spread.offset).toBeCloseTo(0)
+    for (const key of ['x', 'y', 'area'] as const)
+      expect(result.summary!.placement![key]).toBeCloseTo(p[key])
+    expect(p.x).toBeGreaterThanOrEqual(0)
+    expect(p.area).toBeLessThanOrEqual(1)
   })
 })

@@ -206,6 +206,15 @@ export function useCamera(): CameraController {
     quality,
     baseline,
     calibrationId,
+    // Explicitly synthetic calibration aggregates, present exactly when the baseline is.
+    calibrationSummary: baseline
+      ? {
+          durationMs: 5000,
+          sampleCount: 20,
+          spread: { headGap: 0, offset: 0, tilt: 0 },
+          placement: { x: 0.5, y: 0.6, area: 0.05 },
+        }
+      : null,
     progress: null,
     current,
     lastFrame,

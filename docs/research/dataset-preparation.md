@@ -1,8 +1,7 @@
 # 참여자 분할과 시간창 준비
 
-- 분야: 머신러닝
-- 작업: GP-0077
-
+- 분야: 데브옵스
+- 작업: GP-0108
 `model/analysis/prepare_dataset.py`는 [수집 v2](guided-collection-v2.md)를 읽어 참여자 분할 manifest,
 관측 시간창, 별도 개인 기준 자료를 만든다. Python 표준 라이브러리만 사용하며 스케일러·특징 선택·
 임계값을 맞추거나 모델을 학습하지 않는다. 기존 `inspect_pilot.py`와 `report_pilot.py`의 수집 진단을

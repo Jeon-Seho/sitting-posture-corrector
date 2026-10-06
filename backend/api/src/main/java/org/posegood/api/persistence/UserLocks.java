@@ -7,7 +7,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 import javax.sql.DataSource;
@@ -22,7 +21,7 @@ public class UserLocks {
         this.source = source;
     }
 
-    public <T> T withLock(UUID user, Supplier<T> work) {
+    public <T> T withLock(long user, Supplier<T> work) {
         if (TransactionSynchronizationManager.hasResource(source)) {
             throw new IllegalStateException("account lock must be acquired outside a transaction");
         }

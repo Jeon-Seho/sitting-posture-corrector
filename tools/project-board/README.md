@@ -10,6 +10,7 @@
 서버만 포그라운드로 실행하고 종료하려면 `python tools/project-board/server.py` 후 Ctrl+C.
 백그라운드 실행은 콘솔 창을 띄우지 않는다. 종료가 필요하면 작업 관리자에서 이 도구의 server.py 프로세스를 확인해 종료한다.
 코드를 갱신한 경우 실행 중인 서버를 종료한 뒤 실행기를 다시 연다.
+실행기는 `git pull` 뒤 내 작업 표시(`.githooks`, `work.py mine`)를 켠다. 자세한 내용은 [관리판 운영](../../docs/project-board.md).
 
 ## 파일과 API
 

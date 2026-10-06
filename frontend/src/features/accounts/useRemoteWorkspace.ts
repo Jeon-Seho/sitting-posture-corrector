@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type SetStateAction } from 'react'
 import { useWriterLock } from '../../hooks/useWriterLock'
 import type { AccountWorkspace, WorkspaceUpdate } from './contracts'
 import { accountClient, accountError } from './client'
@@ -7,6 +7,27 @@ import { upsertRecord } from '../storage/records'
 import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 import type { Profile } from '../storage/types'
 import type { SessionRepository } from '../session/repository'
+
+/** DB schema V1.1 has no column for it, so the demo toggle stays on this device per account. */
+function demoPreference(userId: string) {
+  const key = `posegood.account.v1.${userId}.show-demo`
+  return {
+    read() {
+      try {
+        return localStorage.getItem(key) === 'true'
+      } catch {
+        return false
+      }
+    },
+    save(value: boolean) {
+      try {
+        localStorage.setItem(key, String(value))
+      } catch {
+        /* Browser policy may deny storage; the toggle still applies to this page. */
+      }
+    },
+  }
+}
 
 export function useRemoteWorkspace(
   userId: string,
@@ -28,7 +49,8 @@ export function useRemoteWorkspace(
   })
   const [profile, setProfile] = useState<Profile | null>(initial.profile)
   const [rules, setRules] = useState(initial.rules)
-  const [showDemo, setShowDemo] = useState(initial.preferences.show_demo)
+  const demo = useMemo(() => demoPreference(userId), [userId])
+  const [showDemo, setDemoState] = useState(demo.read)
   const [alertsOn, setAlertsOn] = useState(initial.preferences.alerts_on)
   const [records, setRecords] = useState(initial.records)
   const [draft, setDraft] = useState(loaded.draft)
@@ -60,7 +82,6 @@ export function useRemoteWorkspace(
     latest.current = value
     setProfile(value.profile)
     setRules(value.rules)
-    setShowDemo(value.preferences.show_demo)
     setAlertsOn(value.preferences.alerts_on)
     setRecords(value.records)
   }
@@ -134,6 +155,14 @@ export function useRemoteWorkspace(
     }),
     [storage, loaded],
   )
+
+  function setShowDemo(action: SetStateAction<boolean>) {
+    setDemoState((previous) => {
+      const value = typeof action === 'function' ? action(previous) : action
+      demo.save(value)
+      return value
+    })
+  }
 
   const workspace: LocalWorkspace = {
     writer,

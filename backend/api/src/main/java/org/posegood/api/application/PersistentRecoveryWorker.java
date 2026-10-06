@@ -52,10 +52,8 @@ public class PersistentRecoveryWorker {
                                 users.require(session.owner());
                                 var fresh = store.find(id);
                                 if (fresh == null) return null;
+                                // An unacknowledged end is not durable in V1.1; the client retries it.
                                 if (store.pending(id) != null) delivery.deliver(fresh);
-                                fresh = store.find(id);
-                                if (fresh != null && fresh.endMs() != null && !fresh.view().ended())
-                                    delivery.finish(fresh);
                                 return null;
                             });
                 } catch (RuntimeException unavailable) {

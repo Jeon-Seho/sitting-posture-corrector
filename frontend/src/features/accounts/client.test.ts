@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AccountApiError, createAccountClient, ACCOUNT_ACCESS_LOST } from './client'
 import { accountUser, accountWorkspace, syntheticRecord, USER_A, USER_B } from './testFixtures'
+import { validAccountId } from './contracts'
+import { validUser, validWorkspace } from './validation'
 
 const json = (value: unknown, status = 200) => Response.json(value, { status })
 const token = (value = 'synthetic-token') => json({ header_name: 'X-CSRF-TOKEN', token: value })
@@ -274,5 +276,18 @@ describe('authenticated same-origin API boundary', () => {
     const client = createAccountClient(fetch)
     client.setIdentity(USER_A)
     await expect(client.saveRecord(record)).rejects.toThrow('측정 결과와 일치')
+  })
+})
+
+describe('DB schema V1.1 account identity', () => {
+  it('accepts only the decimal user_account_id and the 30-character display name', () => {
+    expect(validAccountId('1')).toBe(true)
+    expect(validAccountId('9223372036854775807')).toBe(true)
+    for (const value of ['0', '01', '-1', '1.5', '12345678-1234-1234-1234-123456789001', 1])
+      expect(validAccountId(value)).toBe(false)
+    const user = { user_id: '7', email: 'synthetic@example.test', profile: accountUser.profile }
+    expect(validUser(user)).toBe(true)
+    expect(validUser({ ...user, profile: { ...user.profile, name: 'x'.repeat(31) } })).toBe(false)
+    expect(validWorkspace({ ...accountWorkspace(), preferences: { alerts_on: true } })).toBe(true)
   })
 })

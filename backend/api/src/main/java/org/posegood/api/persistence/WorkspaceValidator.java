@@ -24,8 +24,8 @@ public final class WorkspaceValidator {
     }
 
     public static void preferences(JsonNode value) {
-        shape(value, Set.of("show_demo", "alerts_on"), Set.of());
-        bool(value, "show_demo");
+        // Schema V1.1 stores only `sound_alert_enabled`; the demo toggle stays on the device.
+        shape(value, Set.of("alerts_on"), Set.of());
         bool(value, "alerts_on");
     }
 

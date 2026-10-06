@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { LoginPage } from '../../pages/LoginPage'
 import { ProfileFields } from '../profile/ProfileFields'
-import type { Registration } from './contracts'
+import { ACCOUNT_NAME_MAX, type Registration } from './contracts'
 import { validPassword, PASSWORD_GUIDANCE } from './password'
 import { validProfile } from '../storage/validation'
 
@@ -119,6 +119,7 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
           <ProfileFields
             form={{ name, age, occupation, setName, setAge, setOccupation }}
             canWrite={!busy}
+            nameMax={ACCOUNT_NAME_MAX}
           />
           <label className="row">
             <input

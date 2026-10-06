@@ -90,8 +90,29 @@ export type FeatureResponse = {
   session: SessionView
 }
 
+type FeatureStat = { mean: number; std: number }
+/**
+ * Persistent-mode session prerequisites (DB V1.1 device, frame and baseline rows).
+ * Calibration aggregates only; no image, landmark or per-frame sample.
+ */
+export type ServerSetup = {
+  device: { key: string; label: string }
+  frame: { width: number; height: number }
+  baseline: {
+    baseline_id: string
+    calibration_ms: number
+    sample_count: number
+    target_center_x: number
+    target_center_y: number
+    target_area_ratio: number
+    head_gap: FeatureStat
+    lateral_offset: FeatureStat
+    shoulder_tilt: FeatureStat
+  }
+}
+
 export type ServerPendingRequest =
-  | { kind: 'create'; body: { policy: ServerPolicy } }
+  | { kind: 'create'; body: { policy: ServerPolicy; setup?: ServerSetup } }
   | { kind: 'features'; body: FrameRequest }
   | { kind: 'end'; body: { end_ms: number } }
 
@@ -124,6 +145,8 @@ export type ServerSessionDescriptor = {
     deviceId: string
     frameWidth: number
     frameHeight: number
+    /** Present for a new session; a resumed checkpoint keeps it in its pending create. */
+    setup?: ServerSetup
     checkpoint?: ServerCheckpoint
     finishOnly?: boolean
   }

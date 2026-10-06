@@ -10,7 +10,6 @@ import org.posegood.contracts.SessionView;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Set;
@@ -23,84 +22,90 @@ public class JdbcWorkspaceStore {
     private final JsonCodec json;
     private final UserStore users;
     private final JdbcSessionStore sessions;
-    private final TransactionTemplate tx;
+    private final ThresholdPolicyStore policies;
 
     public JdbcWorkspaceStore(
             JdbcTemplate jdbc,
             JsonCodec json,
             UserStore users,
             JdbcSessionStore sessions,
-            TransactionTemplate tx) {
+            ThresholdPolicyStore policies) {
         this.jdbc = jdbc;
         this.json = json;
         this.users = users;
         this.sessions = sessions;
-        this.tx = tx;
+        this.policies = policies;
     }
 
-    public ObjectNode get(UUID owner) {
+    /** Settings live in `user_account` and its immutable `threshold_policy` row (schema V1.1). */
+    public ObjectNode get(long owner) {
         var user = users.require(owner);
-        var settings =
-                jdbc.queryForMap(
-                        "SELECT rules,preferences FROM workspaces WHERE user_id=?",
-                        owner.toString());
+        var policy = policies.read(user.policyId());
         ObjectNode result =
                 (ObjectNode)
                         json.tree(
                                 java.util.Map.of(
                                         "schema_version", "1.0", "profile", user.profile()));
-        result.set("rules", json.read(settings.get("rules").toString(), JsonNode.class));
-        result.set(
-                "preferences", json.read(settings.get("preferences").toString(), JsonNode.class));
+        ObjectNode rules = result.putObject("rules");
+        rules.set("holdSeconds", number(policy.holdSeconds()));
+        rules.set("recoverSeconds", number(policy.recoverSeconds()));
+        rules.put("realertSeconds", policy.realertSeconds());
+        rules.set("threshold", number(policy.threshold()));
+        result.putObject("preferences").put("alerts_on", user.soundAlerts());
         result.set("records", json.tree(records(owner)));
         return result;
     }
 
-    public ObjectNode update(UUID owner, JsonNode body) {
+    public ObjectNode update(long owner, JsonNode body) {
         WorkspaceValidator.shape(body, Set.of("profile", "rules", "preferences"), Set.of());
         WorkspaceValidator.rules(body.get("rules"));
         WorkspaceValidator.preferences(body.get("preferences"));
+        var rules = body.get("rules");
+        var values =
+                ThresholdPolicyStore.ofSeconds(
+                        rules.get("holdSeconds").asDouble(),
+                        rules.get("recoverSeconds").asDouble(),
+                        rules.get("realertSeconds").asDouble(),
+                        rules.get("threshold").asDouble());
         WorkspaceValidator.shape(
                 body.get("profile"), Set.of("name", "age", "occupation"), Set.of());
         var profile = json.readInput(body.get("profile"), AccountContracts.Profile.class);
         if (profile.name() == null
                 || profile.name().isBlank()
-                || profile.name().length() > 50
+                || profile.name().length() > 30
                 || profile.age() < 1
                 || profile.age() > 120
                 || profile.occupation() == null
                 || profile.occupation().isBlank()
                 || profile.occupation().length() > 80) WorkspaceValidator.invalid();
-        tx.executeWithoutResult(
-                status -> {
-                    users.updateProfile(owner, profile);
-                    jdbc.update(
-                            "UPDATE workspaces SET rules=?,preferences=? WHERE user_id=?",
-                            json.write(body.get("rules")),
-                            json.write(body.get("preferences")),
-                            owner.toString());
-                });
+        users.updateSettings(
+                owner,
+                profile,
+                policies.resolve(values),
+                body.get("preferences").get("alerts_on").asBoolean());
         return get(owner);
     }
 
-    public List<JsonNode> records(UUID owner) {
+    public List<JsonNode> records(long owner) {
         return jdbc.query(
-                "SELECT payload FROM records WHERE user_id=? ORDER BY created_at DESC,record_id",
+                "SELECT payload FROM client_record WHERE user_account_id=? ORDER BY created_at"
+                        + " DESC,client_record_id",
                 (row, n) -> json.read(row.getString(1), JsonNode.class),
-                owner.toString());
+                owner);
     }
 
-    public JsonNode save(UUID owner, JsonNode body) {
+    public JsonNode save(long owner, JsonNode body) {
         WorkspaceValidator.record(body);
         String id = body.get("id").asText(), digest = json.fingerprint(body);
         var existing =
                 jdbc.query(
-                        "SELECT fingerprint,payload FROM records WHERE user_id=? AND record_id=?",
+                        "SELECT record_fingerprint,payload FROM client_record WHERE"
+                                + " user_account_id=? AND client_record_id=?",
                         (row, n) ->
                                 new Existing(
                                         row.getString(1),
                                         json.read(row.getString(2), JsonNode.class)),
-                        owner.toString(),
+                        owner,
                         id);
         if (!existing.isEmpty()) {
             if (!existing.getFirst().digest().equals(digest))
@@ -110,26 +115,31 @@ public class JdbcWorkspaceStore {
         ObjectNode canonical = body.deepCopy();
         if (body.has("server")) validateServer(owner, canonical);
         jdbc.update(
-                "INSERT INTO records(user_id,record_id,fingerprint,payload) VALUES(?,?,?,?)",
-                owner.toString(),
+                "INSERT INTO client_record(user_account_id,client_record_id,record_fingerprint,"
+                        + "payload,created_at) VALUES(?,?,?,?,?)",
+                owner,
                 id,
                 digest,
-                json.write(canonical));
+                json.write(canonical),
+                DbTime.now());
         return canonical;
     }
 
-    public void deleteRecord(UUID owner, String id) {
-        jdbc.update("DELETE FROM records WHERE user_id=? AND record_id=?", owner.toString(), id);
+    public void deleteRecord(long owner, String id) {
+        jdbc.update(
+                "DELETE FROM client_record WHERE user_account_id=? AND client_record_id=?",
+                owner,
+                id);
         try {
             var uuid = UUID.fromString(id);
             var session = sessions.find(uuid);
-            if (session != null && session.owner().equals(owner)) sessions.delete(owner, uuid);
+            if (session != null && session.owner() == owner) sessions.delete(owner, uuid);
         } catch (IllegalArgumentException ignored) {
             /* A local record id need not be a server UUID. */
         }
     }
 
-    private void validateServer(UUID owner, ObjectNode body) {
+    private void validateServer(long owner, ObjectNode body) {
         UUID id;
         try {
             id = UUID.fromString(body.get("id").asText());
@@ -142,7 +152,7 @@ public class JdbcWorkspaceStore {
         boolean confirmed = server.get("confirmed").asBoolean();
         var raw = server.get("view");
         UUID baseline = UUID.fromString(server.get("baselineId").asText());
-        if (stored.baseline() != null && !stored.baseline().equals(baseline))
+        if (!stored.baseline().equals(baseline))
             throw new ContractError(409, "record baseline mismatch");
         if (raw.isNull()) {
             if (confirmed
@@ -182,6 +192,14 @@ public class JdbcWorkspaceStore {
         if (confirmed && stored.endedAt() != null) body.put("endedAt", stored.endedAt().toString());
         else if (java.time.Instant.parse(body.get("endedAt").asText()).isBefore(stored.startedAt()))
             body.put("endedAt", stored.startedAt().toString());
+    }
+
+    /** Plain JSON numbers (3, 2.5, 0.62) rather than DECIMAL scale or exponent forms. */
+    private static JsonNode number(java.math.BigDecimal value) {
+        var plain = value.stripTrailingZeros();
+        return plain.scale() <= 0
+                ? com.fasterxml.jackson.databind.node.IntNode.valueOf(plain.intValueExact())
+                : com.fasterxml.jackson.databind.node.DoubleNode.valueOf(plain.doubleValue());
     }
 
     private record Existing(String digest, JsonNode value) {}

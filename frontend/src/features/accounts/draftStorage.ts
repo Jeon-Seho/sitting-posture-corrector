@@ -1,10 +1,10 @@
 import type { Draft, RecordItem } from '../storage/types'
 import { validDraft, validRecord } from '../storage/validation'
-import { validUuid } from '../session/server/validation'
+import { validAccountId } from './contracts'
 
 /** Temporary retry material belongs to one authenticated account and one browser tab. */
 export function accountDraftStorage(userId: string, storage?: Storage) {
-  if (!validUuid(userId)) throw new Error('계정 식별자를 확인하지 못했습니다.')
+  if (!validAccountId(userId)) throw new Error('계정 식별자를 확인하지 못했습니다.')
   const prefix = `posegood.account.v1.${userId}`
   const keys = { draft: `${prefix}.draft`, pending: `${prefix}.pending-result` }
   // Access can be denied by browser policy. Callers show a read-only notice instead of failing render.

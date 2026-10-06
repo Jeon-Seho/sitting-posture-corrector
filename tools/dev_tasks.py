@@ -25,7 +25,20 @@ def setup_frontend():
     npm("run", "assets")
 
 
+def install_hooks():
+    """Show `work.py mine` after every pull. Keeps a hooks path someone configured on purpose."""
+    import subprocess
+    current = subprocess.run(["git", "config", "--get", "core.hooksPath"], cwd=ROOT,
+                             capture_output=True, text=True).stdout.strip()
+    if current and current != ".githooks":
+        print("core.hooksPath가 이미 " + current + "로 설정되어 있어 바꾸지 않습니다.")
+        return
+    run("git", "config", "core.hooksPath", ".githooks")
+    print("git pull 뒤 내 작업 표시를 켰습니다(.githooks).")
+
+
 def setup():
+    install_hooks()
     setup_python()
     setup_frontend()
 

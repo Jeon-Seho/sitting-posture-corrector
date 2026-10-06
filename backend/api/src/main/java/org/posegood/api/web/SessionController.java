@@ -1,13 +1,16 @@
 package org.posegood.api.web;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import org.posegood.api.application.SessionOperations;
+import org.posegood.api.application.SessionSetup;
 import org.posegood.contracts.CreateSession;
 import org.posegood.contracts.EndSession;
 import org.posegood.contracts.FeatureResponse;
 import org.posegood.contracts.InferenceRequest;
 import org.posegood.contracts.Observation;
+import org.posegood.contracts.Policy;
 import org.posegood.contracts.SessionView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +32,8 @@ public class SessionController {
     }
 
     @PutMapping("/{id}")
-    public SessionView create(@PathVariable UUID id, @Valid @RequestBody CreateSession request) {
-        return sessions.create(id, request);
+    public SessionView create(@PathVariable UUID id, @Valid @RequestBody CreateRequest request) {
+        return sessions.create(id, new CreateSession(request.policy()), request.setup());
     }
 
     @PostMapping("/{id}/observations")
@@ -52,5 +55,30 @@ public class SessionController {
     @GetMapping("/{id}")
     public SessionView get(@PathVariable UUID id) {
         return sessions.get(id);
+    }
+
+    /**
+     * The shared CEP contract stays {@code {policy}}; only the public API adds {@code setup}.
+     * Setter binding keeps {@code setup} optional under fail-on-missing-creator-properties.
+     */
+    public static final class CreateRequest {
+        @NotNull @Valid private Policy policy;
+        @Valid private SessionSetup setup;
+
+        public Policy policy() {
+            return policy;
+        }
+
+        public SessionSetup setup() {
+            return setup;
+        }
+
+        public void setPolicy(Policy policy) {
+            this.policy = policy;
+        }
+
+        public void setSetup(SessionSetup setup) {
+            this.setup = setup;
+        }
     }
 }

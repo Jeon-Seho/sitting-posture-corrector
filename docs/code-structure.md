@@ -1,8 +1,7 @@
 # 코드 구조와 수정 위치
 
-- 분야: 프론트, 백엔드
-- 작업: GP-0073
-
+- 분야: 데브옵스
+- 작업: GP-0104
 2026-10-01에 기존 동작을 유지하면서 앱 조립, 기능별 상태·저장, HTTP, 추론, 시간 판정을 분리했다.
 구조 정리는 프레임워크·라이브러리·버전·저장 키·기존 계약을 유지했다.
 후속 서버 연결은 새 입력/응답 계약과 선택 필드·`dev-server` 명령을 추가했다([ADR 0013](decisions/0013-frontend-server-feature-connection.md)).
@@ -53,7 +52,7 @@ model/
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
-database/migrations/      Flyway MySQL 스키마
+database/                 DB 담당 스키마 V1.1·시드·마이그레이션(API는 검증만)
 infra/                    컨테이너 빌드·Nginx·배포 안내
 compose.yaml              계정 모드 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제

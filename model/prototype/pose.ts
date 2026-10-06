@@ -71,6 +71,24 @@ export function features(points: Landmark[], width: number, height: number): Fea
   }
 }
 
+/**
+ * Where the calibrated upper body sits in the frame: shoulder midpoint and the area of the
+ * nose/shoulder bounding box, all normalized to 0..1. Stored with a server baseline only.
+ */
+export function placement(points: Landmark[]): { x: number; y: number; area: number } | null {
+  const required = [points[0], points[11], points[12]]
+  if (required.some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null
+  const unit = (n: number) => Math.min(1, Math.max(0, n))
+  const xs = required.map((p) => p.x),
+    ys = required.map((p) => p.y)
+  const [, left, right] = required
+  return {
+    x: unit((left.x + right.x) / 2),
+    y: unit((left.y + right.y) / 2),
+    area: unit((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))),
+  }
+}
+
 export function average(samples: Features[]): Features {
   if (!samples.length || !samples.every(validFeatures))
     throw new Error('No valid calibration samples')
