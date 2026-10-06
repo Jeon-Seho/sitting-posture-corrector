@@ -22,8 +22,13 @@
     popup.style.removeProperty('--dx')
     popup.style.removeProperty('--fade')
   }
-  // The card follows the pointer sideways and fades the farther it goes.
-  const move = (dx, fade = Math.max(0.25, 1 - Math.abs(dx) / 260)) => {
+  // The card follows the pointer sideways; it stays solid for a short drag and only fades
+  // gently once it has been pulled well past that.
+  const FADE_START_PX = 80
+  const FADE_RANGE_PX = 340
+  const dragFade = (dx) =>
+    Math.max(0.35, 1 - Math.max(0, Math.abs(dx) - FADE_START_PX) / FADE_RANGE_PX)
+  const move = (dx, fade = dragFade(dx)) => {
     popup.style.setProperty('--dx', `${dx}px`)
     popup.style.setProperty('--fade', String(fade))
   }
