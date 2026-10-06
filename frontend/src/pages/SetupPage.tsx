@@ -3,9 +3,11 @@ import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
+import { useAutoBaseline } from '../features/camera/useAutoBaseline'
+import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 
-/** Seconds of steady upper-body input needed for the quick baseline (see useCamera). */
-const CALIBRATION_SECONDS = 5
+/** Seconds of steady upper-body input needed for the quick baseline (see calibration.ts). */
+const CALIBRATION_SECONDS = CALIBRATION_MS / 1000
 
 export function SetupPage({
   camera,
@@ -28,6 +30,7 @@ export function SetupPage({
   serverModeDisabled?: boolean
   accountMode?: boolean
 }) {
+  const auto = useAutoBaseline(camera, onStart)
   const on = camera.state === 'on'
   const calibrating = camera.progress !== null
   const ready = on && camera.quality && !!camera.baseline && !calibrating
@@ -35,8 +38,8 @@ export function SetupPage({
   const title = ['카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '편하게 앉아볼까요?', '준비가 끝났어요'][step]
   const desc = [
     '평소 바르게 앉은 모습을 기억해 두고, 그 자세에서 멀어질 때만 알려드려요.',
-    '얼굴과 양쪽 어깨가 모두 보이면 다음 단계로 넘어가요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
-    `평소 편한 자세를 ${CALIBRATION_SECONDS}초 동안 기억해 둘게요. 영상은 저장하거나 보내지 않아요.`,
+    '얼굴과 양쪽 어깨가 보이면 자동으로 기준 등록을 시작해요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
+    `평소 편한 자세를 ${CALIBRATION_SECONDS}초 동안 기억해 두고 바로 측정을 시작해요. 영상은 저장하거나 보내지 않아요.`,
     '이제 측정을 시작하면 자세가 흐트러질 때 알려드려요.',
   ][step]
   const pill = !on
@@ -128,12 +131,12 @@ export function SetupPage({
                         : `${left}초 남았어요 · 움직이면 처음부터 다시 해요`}
                     </div>
                   </div>
-                  <button className="btn" onClick={camera.cancelCalibration}>
+                  <button className="btn" onClick={auto.cancel}>
                     보정 취소
                   </button>
                 </div>
               ) : on && camera.quality && !camera.baseline ? (
-                <button className="btn btn-primary btn-lg" onClick={camera.calibrate}>
+                <button className="btn btn-primary btn-lg" onClick={auto.calibrate}>
                   편하게 앉아서 기준 등록 시작
                 </button>
               ) : null}
@@ -150,7 +153,7 @@ export function SetupPage({
               {[
                 ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
                 ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
-                ['기준 자세 기억하기', `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있기`],
+                ['기준 자세 기억하기', `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 측정이 시작돼요`],
               ].map(([name, hint], i) => (
                 <li className="step" key={name}>
                   <span className={`step-mark ${step > i ? 'done' : step === i ? 'active' : ''}`}>
@@ -192,7 +195,7 @@ export function SetupPage({
           </section>
 
           {camera.baseline && on && !calibrating && (
-            <button className="btn btn-block" disabled={!camera.quality} onClick={camera.calibrate}>
+            <button className="btn btn-block" disabled={!camera.quality} onClick={auto.calibrate}>
               <ArrowCounterClockwise size={17} weight="bold" className="icon" />
               다시 보정
             </button>

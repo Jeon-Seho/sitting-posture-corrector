@@ -337,7 +337,7 @@ export function SettingsPage({
               )}
               <div className="setting-row">
                 <div className="setting-name">판정 방식</div>
-                <span className="mono">reference-rules-v0.1 · 5초 기준 등록</span>
+                <span className="mono">reference-rules-v0.1 · 3초 기준 등록</span>
               </div>
               <div className="setting-row">
                 <div className="setting-name">전처리</div>
