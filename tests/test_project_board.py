@@ -21,6 +21,24 @@ with patch.dict(sys.modules, {"server": board}):
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_my_work_separates_dependencies_and_excludes_other_members_and_done(self):
+        def card(number, status, assignees, deps=(), priority=1):
+            return dict(number=number, status=status, assignees=assignees,
+                        dependsOn=list(deps), priority=priority, order=0)
+        data = {'cards': [
+            card('GP-0001', 'completed', ['유진']),
+            card('GP-0002', 'planned', ['유진'], ['GP-0001']),
+            card('GP-0003', 'planned', ['유진'], ['GP-0004']),
+            card('GP-0004', 'in_progress', ['홍규']),
+            card('GP-0005', 'review', ['유진']),
+            card('GP-0006', 'planned', ['유진'], priority=3),
+        ]}
+        groups = board.my_work(data, '유진')
+        self.assertEqual([c['number'] for c in groups['ready']], ['GP-0006', 'GP-0002'])
+        self.assertEqual(groups['waiting'][0]['waitingFor'], ['GP-0004'])
+        self.assertEqual([c['number'] for c in groups['review']], ['GP-0005'])
+        self.assertEqual(sum(map(len, groups.values())), 4)
+
     def test_audit_rejects_unregistered_docs_and_uncategorized_work(self):
         card = dict(item(), number="GP-0001", category="프론트", stage="prototype")
         doc = dict(path=card["source"], body="- 분야: 프론트\n- 작업: GP-0001", task="GP-0001", status="")

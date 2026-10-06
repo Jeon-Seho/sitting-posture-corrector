@@ -21,10 +21,23 @@ def health():
     except (OSError, ValueError): return None
 
 
+def enable_pull_summary():
+    """Opening the board once turns on the after-pull `work.py mine` summary (.githooks)."""
+    root = HERE.parents[1]
+    try:
+        current = subprocess.run(["git", "config", "--get", "core.hooksPath"], cwd=root,
+                                 capture_output=True, text=True, timeout=10).stdout.strip()
+        if not current and (root / ".githooks" / "post-merge").exists():
+            subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=root, timeout=10, check=True)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
+    enable_pull_summary()
     state = health()
     if not state:
         log_path = Path(tempfile.gettempdir()) / "goodpose-project-board.log"

@@ -10,6 +10,16 @@ let activity={team:[],commits:[]},activityError='';
 function performers(text){const words=String(text||'').split(/[\s,·/()]+/).filter(Boolean).map(w=>w.replace(/_(GPT|CL)$/i,'').toLowerCase());return MEMBERS.filter(m=>{const p=activity.team.find(t=>t.name===m),names=[m,p?.github,p?.aiPrefix,...(p?.aliases||[])].filter(Boolean).map(n=>n.toLowerCase());return words.some(w=>names.includes(w));});}
 /** New cards start with the members whose confirmed role covers the category (team.json `categories`). */
 const roleMembers=category=>MEMBERS.filter(m=>(activity.team.find(t=>t.name===m)?.categories||[]).includes(category));
+/** The git user of this checkout (server `me`) sees their own open cards first after a pull. */
+function renderMyWork(){const me=activity.me,box=$('my-work');if(!me){box.hidden=true;return;}
+ const done=new Set(workspace.cards.filter(c=>c.status==='completed').map(c=>c.number));
+ const mine=workspace.cards.filter(c=>c.assignees.includes(me)&&c.status!=='completed');
+ const group=c=>c.status!=='planned'?c.status:((c.dependsOn||[]).some(n=>!done.has(n))?'waiting':'ready');
+ const labels={in_progress:'진행 중',review:'검수 대기',blocked:'결정·확인 필요',ready:'바로 시작 가능',waiting:'선행 작업 대기'};
+ const rows=Object.keys(labels).map(k=>[k,orderedTasks(mine.filter(c=>group(c)===k))]).filter(([,items])=>items.length);
+ box.hidden=false;
+ box.innerHTML=`<div class="section-heading"><h2>${esc(me)}님의 작업 <span>${mine.length}개</span></h2><button type="button" data-work="${esc(me)}">보드에서 보기 →</button></div>`+(rows.map(([k,items])=>`<div class="my-work-group"><h3>${labels[k]} · ${items.length}</h3>${items.slice(0,k==='waiting'?3:8).map(t=>`<a class="journey-task" href="#task=${t.number}"><span class="journey-task-main"><small>${esc(t.number)} · ${esc(t.category)} <span class="task-stars">${'★'.repeat(t.priority||0)}</span></small><strong>${esc(t.title)}</strong>${k==='waiting'?`<small>선행 ${esc((t.dependsOn||[]).filter(n=>!done.has(n)).join(' · '))}</small>`:''}</span>${badge(t.status)}</a>`).join('')}${items.length>(k==='waiting'?3:8)?`<p class="caption">외 ${items.length-(k==='waiting'?3:8)}개</p>`:''}</div>`).join('')||'<p class="empty">배정된 미완료 작업이 없습니다.</p>');
+ box.querySelector('[data-work]').onclick=()=>{$('board-member').value=me;$('board-kind').value='';$('board-search').value='';location.hash='board';};}
 const involves=(t,m)=>t.assignees.includes(m)||(t.status==='completed'&&performers(t.performedBy).includes(m));
 let pendingTask='';
 let remoteSnapshot=null,checkingRemotes=false;
@@ -94,6 +104,7 @@ function renderOverview(){
  const pp=workspace.cards, active=pp.filter(d=>['in_progress','review'].includes(d.status));
  const metrics=[['프로젝트 문서',docs.length,'개 문서'],['진행·검수 작업',active.length,'개 작업'],['완료된 작업',pp.filter(c=>c.status==='completed').length,'개 기록'],['미처리 메모',workspace.notes.filter(n=>n.status!=='completed').length,'개 요청']];
  $('metrics').innerHTML=metrics.map(([label,n,unit])=>`<div class="metric"><p>${label}</p><strong>${n}</strong><small>${unit}</small></div>`).join('');
+ renderMyWork();
  $('active-plans').innerHTML=active.map(d=>`<a class="plan-card" href="#task=${d.number}"><div class="card-top">${badge(d.status)}<span class="card-meta">${esc(d.assignees.join(' · ')||'미배정')}</span></div><h3>${esc(d.number+' '+d.title)}</h3><div class="card-meta"><span>${esc(d.category)}</span><span>작업·근거 확인 ↗</span></div></a>`).join('')||'<div class="empty">진행 중인 작업이 없습니다. <a href="#documents">프로젝트 여정에서 다음 작업 찾기 →</a></div>';
  const quick=[['docs/team-requirements.md','팀 요구사항','기능·역할·완료 조건'],['docs/project-board.md','관리판 운영 안내','팀 배정과 AI 메모 처리'],['docs/research/guided-collection-v2.md','데이터 수집 가이드','Lite 안내형 좌표·라벨 수집'],['docs/plans/backlog.md','다음 작업','남은 결정과 후속 구현']];
  $('quick-docs').innerHTML=quick.map(([p,t,s],i)=>`<a href="${docURL(p)}"><span class="number">0${i+1}</span><span><strong>${t}</strong><small>${s}</small></span><span class="arrow">↗</span></a>`).join('');

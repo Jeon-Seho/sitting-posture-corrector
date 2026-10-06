@@ -197,6 +197,31 @@ def author_member(name, email, team, known_emails=None):
     return next(iter(matches)) if len(matches) == 1 else None
 
 
+def git_user():
+    """This checkout's git user.name/user.email; empty when unset."""
+    def value(key):
+        result = subprocess.run(["git", "config", key], cwd=ROOT, capture_output=True, timeout=10)
+        return result.stdout.decode("utf-8", errors="replace").strip()
+    return value("user.name"), value("user.email")
+
+
+MY_WORK_ORDER = ("in_progress", "review", "blocked", "ready", "waiting")
+
+
+def my_work(data, member):
+    """Open cards assigned to a member: active first, then ready planned work before blocked-by-dependency."""
+    done = {c.get("number") for c in data["cards"] if c["status"] == "completed"}
+    groups = {key: [] for key in MY_WORK_ORDER}
+    for card in data["cards"]:
+        if member not in card.get("assignees", []) or card["status"] == "completed": continue
+        waiting = [n for n in card.get("dependsOn", []) if n not in done]
+        key = card["status"] if card["status"] != "planned" else ("waiting" if waiting else "ready")
+        groups[key].append(dict(card, waitingFor=waiting))
+    for cards in groups.values():
+        cards.sort(key=lambda c: (-(c.get("priority") or 0), c.get("order") or 0, c.get("number") or ""))
+    return groups
+
+
 def git_activity():
     team = json.loads((HERE / "team.json").read_text(encoding="utf-8"))
     result = subprocess.run(["git", "log", "-100", "--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e"], cwd=ROOT,
@@ -212,7 +237,9 @@ def git_activity():
     for commit in commits:
         commit["member"] = author_member(commit["author"], commit["email"], team, known_emails)
         commit.pop("email")
-    return dict(team=team, commits=commits, limit=100)
+    name, email = git_user()
+    me = author_member(name, email, team, known_emails) if name or email else None
+    return dict(team=team, commits=commits, limit=100, me=me)
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -17,6 +17,7 @@ make dev        # 웹캠/데모 프론트 프로토타입
 ```
 
 `make`가 없는 Windows에서는 같은 대상을 `python tools/dev.py <대상>`으로 실행한다(예: `python tools/dev.py setup`, `python tools/dev.py check`).
+`setup`은 `git pull` 뒤 본인에게 배정된 관리판 작업을 보여 주는 훅도 켠다(훅만: `python tools/dev.py hooks`).
 `Makefile`은 이 스크립트를 호출만 하므로 두 방법의 결과는 같다. 근거는 [ADR 0009](decisions/0009-cross-platform-dev-entry.md).
 새 Windows PC는 `tools/setup-windows.ps1`이 Git·Node.js LTS·Python(없을 때 winget), 저장소, `setup`,
 바탕화면 바로가기(`PoseGood (개발)`, `바른자세 관리판`)를 한 번에 준비한다. 인자: `-Repo`, `-Branch`.

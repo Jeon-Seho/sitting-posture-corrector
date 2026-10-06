@@ -1,0 +1,14 @@
+#!/bin/sh
+# After a pull, show the open project-board cards assigned to this git user.
+# Never fails the pull: missing Python or an unknown git user only prints a hint.
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+for python in python3 python py; do
+  if command -v "$python" >/dev/null 2>&1 && "$python" -c "import sys; sys.exit(sys.version_info < (3, 9))" >/dev/null 2>&1; then
+    echo ""
+    echo "== 바른자세 관리판: 내 작업 (python tools/project-board/work.py mine) =="
+    PYTHONUTF8=1 "$python" "$root/tools/project-board/work.py" mine || echo "(내 작업을 표시하지 못했습니다. --member 이름으로 직접 실행하세요.)"
+    exit 0
+  fi
+done
+echo "(Python을 찾지 못해 내 작업 표시를 건너뜁니다.)"
+exit 0

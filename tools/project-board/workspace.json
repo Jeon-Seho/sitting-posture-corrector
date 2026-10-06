@@ -3000,18 +3000,18 @@
     },
     {
       "id": "d01d6a21-da41-494f-8243-4d2bfd046166",
-      "title": "서비스 DB를 스키마 V0.3 기준으로 전환",
+      "title": "서비스 DB를 스키마 V1.1 기준으로 전환",
       "category": "백엔드",
       "source": "docs/plans/active/0021-db-schema-v03-alignment.md",
-      "body": "jin_app 백엔드(V1 테이블)를 develop V0.3 + 건의안 GP-0067 마이그레이션으로 전환. 건의안 승인 대기.",
+      "body": "V1.1 테이블 24개 기준으로 API·프론트 연결 구현과 실제 MySQL 검증 완료. 팀 리뷰·PR 및 전체 Compose·실카메라 검증 대기. 후속 결정·구현·검증은 연결 결과 보고서의 개별 GP 카드에서 추적.",
       "status": "in_progress",
       "author": "",
       "assignees": [
         "우진"
       ],
-      "agent": "klaod-tech_CL",
+      "agent": "Lellon_GPT",
       "result": "",
-      "updated": "2026-10-06T04:11:22.670506+00:00",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
       "log": [
         {
           "at": "2026-10-05T06:39:13.874575+00:00",
@@ -3024,6 +3024,12 @@
           "by": "Lellon_CL",
           "kind": "ai",
           "text": "담당 추적 반영, GP-0068 진행 기록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
         }
       ],
       "stage": "service",
@@ -3220,9 +3226,1042 @@
       "performedBy": "",
       "evidence": "",
       "number": "GP-0073"
+    },
+    {
+      "id": "f20c5ef5-8e2c-4327-a597-49cdaab87fe7",
+      "title": "DB 명세서 V1.1 반영(CR-03)",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "DB-01~04·명세서의 V0.3 표기를 V1.1(건의안 0001 반영)로 갱신하고 스키마 파일 생성 근거와 일치시킨다.\n\n완료 기준: V1.1 테이블 24개·추가 컬럼·시드·삭제 순서·운영 적용 절차가 DB-01~04 및 명세서와 일치하고 CR-03 근거 연결.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626053+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0072"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0074"
+    },
+    {
+      "id": "db38696d-5b11-477a-a155-0d54185bfd58",
+      "title": "DB-05 쿼리 목록과 인덱스 설계",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "API 실제 쿼리(세션 조회·복구 후보·기록·정책 조회 등)를 목록화하고 자동 생성 FK 인덱스 11개와 SPRING_SESSION 보조 인덱스를 포함해 별도 마이그레이션으로 설계한다.\n\n협업: 홍규(실제 SQL 제공). 완료 기준: 쿼리 목록·실행계획·인덱스 근거 및 번호 마이그레이션, 기존 데이터 유지와 조회 검증.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626225+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0072"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0075"
+    },
+    {
+      "id": "a6cdbae9-67e3-47aa-a9d0-ef776bf46112",
+      "title": "동의 테이블 user_consent(T-41) 확정과 마이그레이션",
+      "category": "DB",
+      "source": "database/proposals/0001-v03-supplement.md",
+      "body": "건의안 7번(보류) — 서비스 보관·학습 활용 동의 종류와 철회 처리를 정한 뒤 테이블·마이그레이션과 가입 시 기록을 연결한다.\n\n협업: 세호(동의·철회 정책), 홍규(가입·철회 API). 완료 기준: 동의 종류·버전·시각·철회 정책 확정, 마이그레이션, 가입 시 저장 및 철회·조회 통합 검증. 현재 가입 동의는 저장되지 않음.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626392+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0013"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0076"
+    },
+    {
+      "id": "6ddce720-bf04-4a7f-8cd1-fb2ce3a1df52",
+      "title": "일별 통계 daily_stat 집계 배치",
+      "category": "DB",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "monitor_session·collapse_event·correction_alert에서 사용자·일자별 분자·분모를 집계하는 배치를 만든다. API는 채우지 않는다(ADR 0018).\n\n협업: 홍규(통계 API), 우진·동욱(화면). 완료 기준: 유효 시간·제외 구간·UTC 일자 경계 정의, 재실행 중복 방지 집계, 합성 데이터 검증, API 전달 계약. API 연결은 GP-0030에서 추적.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626605+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "service",
+      "priority": 1,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0072"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0077"
+    },
+    {
+      "id": "1da652a3-c941-46b7-b19e-2c694d55afed",
+      "title": "탈퇴·삭제 배치와 보존 기간 적용",
+      "category": "DB",
+      "source": "docs/decisions/0018-db-schema-v11-service-storage.md",
+      "body": "현재 보관 0일 즉시 삭제를 확정 보존 기간과 deletion_request 배치(파일 먼저, 사용자 단위 트랜잭션)로 바꾸고 feature_archive가 있는 세션을 처리한다.\n\n협업: 세호(보존 기간), 홍규(탈퇴 API·배치 운영). 완료 기준: 기간 확정, feature_archive 파일 삭제 후 행 삭제, 실패 재시도·사용자 단위 트랜잭션·잔존 데이터 검증. 현재는 보관 0일 즉시 삭제.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626781+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "service",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0013"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0078"
+    },
+    {
+      "id": "40db91dd-6995-4565-b5d3-3480a53c7b8c",
+      "title": "스키마 V1.1 develop 병합(PR)",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "feature/db-schema-v1.1을 develop에 PR로 병합한다. API 연결 브랜치(jin_db_v11)는 이 병합 위에 정리한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626955+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "delivery",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0072"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0079"
+    },
+    {
+      "id": "3d2a5a6f-aa78-4837-bbee-7f74b7f7807e",
+      "title": "기본 판정 정책 값 확정(DEFAULT 행)",
+      "category": "머신러닝",
+      "source": "database/README.md",
+      "body": "시드 DEFAULT_TEMP(임계 0.5·확정 3초·복귀 2초·재알림 30초·시간당 12회)와 이전 앱 기본값(0.7·60초)을 근거로 확정하고 DEFAULT 행 추가와 API 설정 변경을 요청한다.\n\n협업: 유진(DEFAULT 시드), 홍규(API 설정). 완료 기준: 각 값과 근거 확정, DEFAULT 행과 API 설정 반영, 새 세션 적용 검증. DEFAULT_TEMP를 확정값으로 해석하지 않음.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "지성",
+        "세호"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626976+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 3,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0080"
+    },
+    {
+      "id": "2834d49f-ddaf-4bdd-9428-969901407ced",
+      "title": "붕괴 유형 코드 체계 확정(T-36)",
+      "category": "머신러닝",
+      "source": "database/README.md",
+      "body": "좌우·전방 등 붕괴 유형 코드 체계(3·2·7종 후보)를 모델 출력과 맞춰 확정하고 collapse_type 테이블·FK 추가를 DB에 넘긴다.\n\n협업: 홍규(사건 저장 API). 완료 기준: 출력 코드·DB FK·계약 대응 확정 후 저장·조회 검증. 현재 방향은 client_record 원문에만 남음.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "지성",
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "DB V1.1 후속 작업의 협업 대상·현재 한계·완료 기준 명시",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.626987+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0081"
+    },
+    {
+      "id": "e423fbd2-c2b5-4527-9510-0199f67dd455",
+      "title": "절대 안전 범위(seed_02) 값과 근거",
+      "category": "머신러닝",
+      "source": "database/README.md",
+      "body": "기준 자세 등록 허용 상·하한의 근거를 측면 검증으로 정하고 seed_02 행을 채운다(현재 행 없음).",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627166+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 1,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0014"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0082"
+    },
+    {
+      "id": "cb861744-6e84-4bdc-bd9c-fb42327743d7",
+      "title": "서비스 모델 입력·창·출력 필드 결정",
+      "category": "머신러닝",
+      "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
+      "body": "서버 모델 입력(변화량 3개 vs 키포인트), fps·윈도우, 추론 결과 필드를 결정해 Kafka 실시간 경로와 입력 v2 계약에 반영한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627360+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0083"
+    },
+    {
+      "id": "913a7fb1-6ee9-4bd6-bbeb-392f59abf4ee",
+      "title": "LSTM 모델 버전 등록과 서빙 계약",
+      "category": "머신러닝",
+      "source": "database/README.md",
+      "body": "LSTM 모델을 model_version(창 길이·간격·artifact_uri) 행으로 등록하고 추론 서비스의 모델 버전 출력과 세션 model_version_code 연결을 정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627541+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "service",
+      "priority": 1,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [
+        "GP-0025"
+      ],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0084"
+    },
+    {
+      "id": "5048e238-116d-490e-8a99-0b5ce2468fcb",
+      "title": "브랜치 통합 순서와 develop PR 리뷰",
+      "category": "데브옵스",
+      "source": "docs/project-board.md",
+      "body": "jin_db_v11·lee_app1·feature/db-schema-v1.1 등 진행 브랜치의 develop 병합 순서와 리뷰 담당을 정하고 PR을 관리한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "세호"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627561+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "delivery",
+      "priority": 3,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0085"
+    },
+    {
+      "id": "564c4dae-0b8e-436e-b4be-825807b921a7",
+      "title": "DB 작업규칙 변경 승인(CR-01·CR-02·CR-03)",
+      "category": "DB",
+      "source": "database/README.md",
+      "body": "시드 목록 변경(CR-01), 폴더 이름 database/(CR-02), 스키마 V1.0 확정·V1.1(CR-03)의 팀장·PM 승인을 처리한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "세호"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627587+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0086"
+    },
+    {
+      "id": "9413072f-73aa-41b9-9245-8e9907089912",
+      "title": "Kafka 실시간 경로 팀 확인과 담당 결정",
+      "category": "데브옵스",
+      "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
+      "body": "계획 0022의 v4 초안 차이(전송 데이터·시간 판정·인증), 게이트웨이 담당과 구현 언어를 팀에서 확인·결정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "세호"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627597+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "contracts",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0087"
+    },
+    {
+      "id": "fd1749ed-eddc-4743-b7c8-f981171dd568",
+      "title": "운영 서버 선정과 배포 일정",
+      "category": "데브옵스",
+      "source": "infra/README.md",
+      "body": "배포 서버(미정)를 정하고 DEPLOY_* 환경 설정·HTTPS 프록시·첫 배포 일정을 확정한다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "세호",
+        "홍규"
+      ],
+      "agent": "Lellon_CL",
+      "result": "",
+      "updated": "2026-10-06T04:26:49.680978+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:26:49.627607+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "담당 보강: V1.1 연결 결과 보고서·DB README의 남은 결정·작업에서 등록"
+        },
+        {
+          "at": "2026-10-06T04:26:49.680978+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "유진·지성·세호 남은 작업 카드 등록"
+        }
+      ],
+      "stage": "delivery",
+      "priority": 2,
+      "size": 1,
+      "order": 0,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": "",
+      "evidence": "",
+      "number": "GP-0088"
+    },
+    {
+      "id": "8eeae43e-1931-41a8-a75c-80d444c5241a",
+      "title": "Windows Compose 비밀 파일·백업·복원 검증 보강",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "Windows bind mount에서 MySQL이 cnf를 무시하는 문제를 해결한다. 완료: 비밀값 출력 없이 상태 확인·백업·복원 포함 check-compose 전체 통과. POSIX 배포 잠금으로 발생한 Python 테스트 3개 오류도 플랫폼 지원 범위를 명시하고 해결·검증한다.\n추가 재현: 백업 프로세스 시작 실패 시 열린 출력 파일의 unlink가 WinError 32를 발생시킨다. 나머지 2개는 POSIX 잠금 오류. 2026-10-06 python tools/dev.py check에서 확인.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:34:56.382182+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        },
+        {
+          "at": "2026-10-06T04:34:56.382182+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0099 검증·후속 카드·PR 준비 기록"
+        }
+      ],
+      "stage": "validation",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0089",
+      "order": 89,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "3523c89d-b050-41fc-ac71-d214c4290596",
+      "title": "계정 브라우저 smoke를 새 화면에 맞춰 갱신",
+      "category": "프론트",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "가입 후 사라진 홈 문구(님의 오늘) 대기를 새 화면의 안정적인 요소로 바꾼다. 완료: 가입→로그인→측정→기록→탈퇴 브라우저 회귀 검증. DB 정책 DEFAULT_TEMP 기대값 유지.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "validation",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0090",
+      "order": 90,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "9d006e17-be7b-4176-95db-be093f6c6b2c",
+      "title": "Windows 계정 smoke 로그 UTF-8 명시",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "tools/account_browser_smoke.py의 cp949 디코딩 실패를 해결한다. 완료: PYTHONUTF8 없이 한글 로그를 UTF-8로 읽고 성공·실패 로그 보존 검증.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "validation",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0091",
+      "order": 91,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "1dad1395-9128-484e-81ce-86c3de9616b5",
+      "title": "V1.1 PR의 Linux CI·Compose 전체 결과 확인",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "develop PR에서 harness와 V1.1 check-compose(백업·복원 포함)를 확인한다. 완료: CI 실행 링크·커밋·결과 기록, 실패 해결 후 통과. 로컬 합성 스택 검증으로 대체하지 않는다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "validation",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0092",
+      "order": 92,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "3421cdcc-3a9e-4e03-800c-af3311fddf5b",
+      "title": "실제 카메라 기준 자세·측정 DB 저장 검증",
+      "category": "프론트",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "현재 합성 카메라·수치만 확인했다. 완료: 실제 카메라 보정 후 capture_device·baseline_posture·baseline_feature·monitor_session 값과 재시작 복구를 확인. 원본 영상·좌표·식별정보를 Git에 넣지 않고 절차와 비식별 결과만 기록. 협업: 홍규·유진.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "validation",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0093",
+      "order": 93,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "930982b4-9d4a-43c2-8f56-1d7a56637540",
+      "title": "확인되지 않은 세션 종료의 영구 저장 계약",
+      "category": "DB",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "현재 같은 end_ms로 프론트가 재전송하며 V1.1에 저장 칸이 없다. 완료: DB·백엔드·프론트가 추가 칸 필요 여부와 재시도 계약 결정, 필요 시 migration/API 구현 및 종료 재전송·재시작 검증. 협업: 홍규·우진·동욱.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0094",
+      "order": 94,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "04a43d99-90e5-46d1-b36d-0a0abb6c8160",
+      "title": "기준 자세 화면 위치 필드 정의 확인",
+      "category": "DB",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "target_center_*는 어깨 중점, target_area_ratio는 코·어깨 상자 면적(0..1)으로 저장 중이다. 완료: DB·모델이 명세 의미·좌표계·허용 범위 확인, 계약·명세 동기화 및 경계값 검증. 협업: 지성·홍규.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "유진"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0095",
+      "order": 95,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "8fa7c60c-8641-44a3-949b-d28a6d3637e7",
+      "title": "기존 운영 DB의 V1.1 이관·롤백 절차",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "운영 서버 선정 후 기존 V1 DB 존재 여부를 확인한다. 완료: 빈 DB 초기화 또는 기존 데이터 변환 계획, 사전 백업·복원·이관·롤백 검증과 담당 절차 기록. API는 테이블을 자동 이관하지 않는다. 협업: 유진.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "delivery",
+      "dependsOn": [
+        "GP-0088"
+      ],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0096",
+      "order": 96,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "05d8744f-dc14-40df-b539-b2d1bb96c5bb",
+      "title": "DB 사건 조회로 기록 화면 재구성·client_record 정리",
+      "category": "백엔드",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "현재 기록 원문을 임시 client_record에 저장한다. 완료: monitor_session·사건 기반 조회 API와 프론트 복원 연결, 기존 기록 호환·조회 비교 검증 후 임시 테이블 제거 여부 결정. 협업: 유진·우진·동욱.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "service",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0097",
+      "order": 97,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "4959bc2b-6b48-4402-be1e-3ab1da932250",
+      "title": "Kafka 기준 자세 전달 계약을 V1.1 저장과 정렬",
+      "category": "백엔드",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "계획 0022에서 보류한 기준 자세 토픽 필요 여부를 baseline_posture·baseline_feature 저장을 기준으로 결정한다. 완료: 팀 확인 후 전달 필드·식별자·동의 범위·복구 계약 문서화. Kafka 구현 완료로 표시하지 않는다. 협업: 지성·유진.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        }
+      ],
+      "stage": "contracts",
+      "dependsOn": [
+        "GP-0087"
+      ],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0098",
+      "order": 98,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "8ec727f1-95a3-436c-a2a0-ac79be487f79",
+      "title": "DB 연결 후속 카드 정리와 develop PR 공유",
+      "category": "데브옵스",
+      "source": "docs/audits/2026-10-06-db-v11-connection.md",
+      "body": "기존 로컬 관리판의 담당별 내 작업·pull 후 안내 변경을 검증하고, V1.1 남은 결정·구현·검증을 중복 없이 번호 카드로 연결한다. 완료: 카드 검사·로컬 검증 결과 기록, 커밋·푸시·develop PR 생성.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "기존 Claude 훅·내 작업 표시를 이어받아 Makefile hooks 누락 수정. 기존 7개 카드 완료 기준 보강, 신규 GP-0089~0100 등록. 관리판 20개·저장소 5개 테스트 및 JS 구문 통과. 전체 check는 Windows 배포 오류 3개로 중단. work.py check 기존 메타데이터 누락은 GP-0100에서 추적. 프론트 검증 진행 및 develop PR 준비.",
+      "updated": "2026-10-06T04:34:56.382182+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:32:58.817810+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        },
+        {
+          "at": "2026-10-06T04:34:56.382182+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0099 검증·후속 카드·PR 준비 기록"
+        }
+      ],
+      "stage": "operations",
+      "dependsOn": [],
+      "priority": 2,
+      "size": 2,
+      "number": "GP-0099",
+      "order": 99,
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": "우진"
+    },
+    {
+      "id": "54aa8fd3-f7bc-4c13-9c63-30f3b3d30a2d",
+      "title": "기존 문서의 분야·GP 메타데이터 연결 정리",
+      "category": "데브옵스",
+      "source": "docs/project-board.md",
+      "body": "work.py check에서 기존 문서의 분야·작업 번호 누락이 검출된다. 기존 책임 카드에 맞춰 메타데이터와 근거 연결을 보완하고 카드 검사 통과. legacy-docs 예외 추가로 회피하지 않는다.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:33:53.636238+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:33:53.636238+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "작업 등록"
+        }
+      ],
+      "stage": "operations",
+      "number": "GP-0100",
+      "priority": 0,
+      "size": 1,
+      "order": 100,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 74
+  "nextNumber": 101
 }

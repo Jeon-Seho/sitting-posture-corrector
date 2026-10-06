@@ -25,6 +25,16 @@ Pretendard 가변 폰트를 로컬에 포함해 외부 폰트 서비스 없이 �
 문서 읽기 중에는 화면 위치가 흔들리지 않도록 자동 갱신하지 않는다. 상단 새로고침을 사용한다.
 로컬 서버이므로 다른 사람의 PC에서 이 주소로 공동 접속할 수 없다. 로그인·온라인 동시 협업은 구현 범위 밖이다.
 
+## 내 작업 확인 (pull 후 자동)
+
+`python tools/project-board/work.py mine`은 git `user.name`/`user.email`을 [team.json](../tools/project-board/team.json) 별칭으로 찾아
+본인에게 배정된 미완료 카드를 진행 중 → 검수 대기 → 결정 필요 → 바로 시작 가능 → 선행 대기 순으로 보여 준다(서버 불필요).
+찾지 못하면 `--member 이름`으로 실행하고 계정 별칭을 확인·등록한다. `--json`은 AI용 출력이다.
+
+처음 한 번 `python tools/dev.py hooks`(또는 `setup`), 혹은 관리판 실행기를 열면 `core.hooksPath=.githooks`가 설정되고
+이후 `git pull`(merge·fast-forward·`--rebase`)이 끝날 때마다 위 목록이 자동으로 출력된다. 출력 실패가 pull을 막지 않는다.
+관리판 첫 화면 맨 위에도 같은 git 사용자의 "내 작업"이 표시된다.
+
 ## 사람과 작업 배정
 
 [팀 명단](team.md)의 6명을 작업 카드와 MD 계획서에 여러 명 배정할 수 있다.
