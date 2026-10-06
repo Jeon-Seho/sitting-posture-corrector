@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/kafka-episodes.v1.schema.json",
+  "$id": "https://posegood.local/contracts/realtime/kafka-episodes.v1.schema.json",
   "title": "Topic posture.episodes.v1 (draft): decision CEP -> gateway",
   "type": "object",
   "additionalProperties": false,
@@ -18,8 +18,8 @@
       "required": ["last_sequence", "event", "summary"],
       "properties": {
         "last_sequence": { "type": "integer", "minimum": -1 },
-        "event": { "$ref": "posture-event.v1.schema.json" },
-        "summary": { "$ref": "session-view.v1.schema.json#/properties/summary" }
+        "event": { "$ref": "../posture-event.v1.schema.json" },
+        "summary": { "$ref": "../session-view.v1.schema.json#/properties/summary" }
       }
     }
   }

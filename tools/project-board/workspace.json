@@ -3055,8 +3055,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "1단계 초안 작성: contracts/realtime.v1.md, kafka-features/inference/episodes.v1·realtime-ws.v1 스키마(기존 입력 v2·관측 v2·사건 v1·조회 v1을 $ref로 재사용), 합성 예제 12개, tests/test_realtime_contracts.py 6개 통과. 전체 Python 160개 중 오류 3개는 Windows 배포 설정 테스트의 기존 실패(새 파일 제외해도 동일). 팀 확인(GP-0087)·홍규 검토 대기",
-      "updated": "2026-10-06T06:18:22.462411+00:00",
+      "result": "동욱 요청으로 실시간 계약을 contracts/realtime/ 폴더로 이동(README.md·스키마 4개·examples 12개). $id와 상위 계약 참조(../), 문서 링크, 테스트 경로 갱신. 계약 테스트 6개·check-repo·work.py check 통과",
+      "updated": "2026-10-06T06:54:14.484219+00:00",
       "log": [
         {
           "at": "2026-10-05T06:56:41.721134+00:00",
@@ -3081,6 +3081,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "1단계 초안 작성: contracts/realtime.v1.md, kafka-features/inference/episodes.v1·realtime-ws.v1 스키마(기존 입력 v2·관측 v2·사건 v1·조회 v1을 $ref로 재사용), 합성 예제 12개, tests/test_realtime_contracts.py 6개 통과. 전체 Python 160개 중 오류 3개는 Windows 배포 설정 테스트의 기존 실패(새 파일 제외해도 동일). 팀 확인(GP-0087)·홍규 검토 대기"
+        },
+        {
+          "at": "2026-10-06T06:54:14.484219+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "동욱 요청으로 실시간 계약을 contracts/realtime/ 폴더로 이동(README.md·스키마 4개·examples 12개). $id와 상위 계약 참조(../), 문서 링크, 테스트 경로 갱신. 계약 테스트 6개·check-repo·work.py check 통과"
         }
       ],
       "stage": "service",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/kafka-inference.v1.schema.json",
+  "$id": "https://posegood.local/contracts/realtime/kafka-inference.v1.schema.json",
   "title": "Topic posture.inference.v1 (draft): inference -> decision CEP",
   "type": "object",
   "additionalProperties": false,
@@ -21,7 +21,7 @@
     },
     {
       "if": { "properties": { "kind": { "const": "observation" } } },
-      "then": { "properties": { "body": { "$ref": "posture-observation.v2.schema.json" } } }
+      "then": { "properties": { "body": { "$ref": "../posture-observation.v2.schema.json" } } }
     },
     {
       "if": { "properties": { "kind": { "const": "session_ended" } } },

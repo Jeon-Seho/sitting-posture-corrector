@@ -10,7 +10,8 @@ from referencing import Registry, Resource
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
-EXAMPLES = CONTRACTS / "examples/realtime-v1"
+REALTIME = CONTRACTS / "realtime"
+EXAMPLES = REALTIME / "examples"
 SCHEMAS = {
     "features-": "kafka-features.v1.schema.json",
     "inference-": "kafka-inference.v1.schema.json",
@@ -25,13 +26,13 @@ def load(path):
 
 REGISTRY = Registry().with_resources(
     (schema["$id"], Resource.from_contents(schema))
-    for schema in (load(path) for path in CONTRACTS.glob("*.schema.json"))
+    for schema in (load(path) for path in CONTRACTS.rglob("*.schema.json"))
     if "$id" in schema
 )
 
 
 def validator(name):
-    schema = load(CONTRACTS / name)
+    schema = load(REALTIME / name)
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema, registry=REGISTRY, format_checker=Draft202012Validator.FORMAT_CHECKER)
 

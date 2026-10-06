@@ -2,8 +2,8 @@
 
 - 분야: 프론트, 백엔드
 - 작업: GP-0069
-- 상태: **초안(draft)**. 팀 확인([GP-0087](../docs/plans/active/0022-kafka-realtime-pipeline.md))과 홍규 검토 전이다. 확정 시 이 줄을 바꾼다.
-- 근거: [계획 0022](../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](inference-request.v2.schema.json)·[관측 v2](posture-observation.v2.schema.json)·[사건 v1](posture-event.v1.schema.json)·[조회 v1](session-view.v1.schema.json)
+- 상태: **초안(draft)**. 팀 확인([GP-0087](../../docs/plans/active/0022-kafka-realtime-pipeline.md))과 홍규 검토 전이다. 확정 시 이 줄을 바꾼다.
+- 근거: [계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
 원본 영상·랜드마크·좌표·이메일은 어떤 메시지에도 넣지 않는다. 모르는 필드는 거부한다.
@@ -52,7 +52,7 @@
 
 ## 합성 예제와 검증
 
-[examples/realtime-v1](examples/realtime-v1/)의 12개 파일은 손으로 만든 합성 세션 하나다. 실제 사람의 측정값이 아니다.
+[examples](examples/)의 12개 파일은 손으로 만든 합성 세션 하나다. 실제 사람의 측정값이 아니다.
 `tests/test_realtime_contracts.py`가 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치·알림 대상이 아닌 사건·묶음 크기 초과 거부,
 봉투와 사건의 `session_id` 일치를 검사한다.
 

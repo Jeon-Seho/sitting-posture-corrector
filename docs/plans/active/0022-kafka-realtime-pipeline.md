@@ -100,7 +100,7 @@
 - [ ] 팀 확인: 프론트가 게이트웨이까지 담당, 위 'v4 초안과 다른 점', 게이트웨이 구현 언어
 - [ ] ML 담당 확인: 서비스 모델 입력(변화량/키포인트), fps·윈도우, 추론 결과 필드
 - [ ] 전달 계약 결정(재생·보존)과 ADR 작성
-- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime.v1.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인(GP-0087)·홍규 검토 후 체크
+- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인(GP-0087)·홍규 검토 후 체크
 - [ ] 2 Compose `kafka` 프로필과 토픽 생성
 - [ ] 3 게이트웨이와 합성 추론/CEP 처리기로 왕복 확인
 - [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존
