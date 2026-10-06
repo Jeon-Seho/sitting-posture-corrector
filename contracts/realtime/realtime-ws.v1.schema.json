@@ -3,42 +3,88 @@
   "$id": "https://posegood.local/contracts/realtime/realtime-ws.v1.schema.json",
   "title": "WebSocket messages between the app and the realtime gateway (draft)",
   "oneOf": [
-    { "$ref": "#/$defs/hello" },
-    { "$ref": "#/$defs/features" },
-    { "$ref": "#/$defs/ack" },
-    { "$ref": "#/$defs/observation" },
-    { "$ref": "#/$defs/decision" },
-    { "$ref": "#/$defs/alert" },
-    { "$ref": "#/$defs/stalled" },
-    { "$ref": "#/$defs/closed" }
+    {
+      "$ref": "#/$defs/hello"
+    },
+    {
+      "$ref": "#/$defs/features"
+    },
+    {
+      "$ref": "#/$defs/ack"
+    },
+    {
+      "$ref": "#/$defs/observation"
+    },
+    {
+      "$ref": "#/$defs/progress"
+    },
+    {
+      "$ref": "#/$defs/decision"
+    },
+    {
+      "$ref": "#/$defs/alert"
+    },
+    {
+      "$ref": "#/$defs/stalled"
+    },
+    {
+      "$ref": "#/$defs/closed"
+    }
   ],
   "$defs": {
-    "session_id": { "type": "string", "format": "uuid" },
+    "session_id": {
+      "type": "string",
+      "format": "uuid"
+    },
     "hello": {
       "description": "client -> gateway. Opens or resumes one owned session; events after last_event_id are replayed.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "schema_version", "session_id", "last_event_id"],
+      "required": [
+        "type",
+        "schema_version",
+        "session_id",
+        "last_event_id"
+      ],
       "properties": {
-        "type": { "const": "hello" },
-        "schema_version": { "const": "1.0" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "last_event_id": { "type": "integer", "minimum": 0 }
+        "type": {
+          "const": "hello"
+        },
+        "schema_version": {
+          "const": "1.0"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "last_event_id": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "features": {
       "description": "client -> gateway. About 0.5 s of consecutive input v2 intervals, in sequence order.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "items"],
+      "required": [
+        "type",
+        "session_id",
+        "items"
+      ],
       "properties": {
-        "type": { "const": "features" },
-        "session_id": { "$ref": "#/$defs/session_id" },
+        "type": {
+          "const": "features"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
         "items": {
           "type": "array",
           "minItems": 1,
           "maxItems": 30,
-          "items": { "$ref": "../inference-request.v2.schema.json" }
+          "items": {
+            "$ref": "../inference-request.v2.schema.json"
+          }
         }
       }
     },
@@ -46,69 +92,176 @@
       "description": "gateway -> client. Every sequence up to last_sequence was accepted into posture.features.v1.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "last_sequence"],
+      "required": [
+        "type",
+        "session_id",
+        "last_sequence"
+      ],
       "properties": {
-        "type": { "const": "ack" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "last_sequence": { "type": "integer", "minimum": -1 }
+        "type": {
+          "const": "ack"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        }
       }
     },
     "observation": {
       "description": "gateway -> client. Latest inference for one interval, forwarded from posture.inference.v1 for the live status. Transient: not replayed after reconnect.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "observation"],
+      "required": [
+        "type",
+        "session_id",
+        "observation"
+      ],
       "properties": {
-        "type": { "const": "observation" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "observation": { "$ref": "../posture-observation.v2.schema.json" }
+        "type": {
+          "const": "observation"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "observation": {
+          "$ref": "../posture-observation.v2.schema.json"
+        }
       }
     },
     "decision": {
       "description": "gateway -> client. One confirmed CEP event with the summary at that point.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "event", "summary"],
+      "required": [
+        "type",
+        "session_id",
+        "event",
+        "summary"
+      ],
       "properties": {
-        "type": { "const": "decision" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "event": { "$ref": "../posture-event.v1.schema.json" },
-        "summary": { "$ref": "../session-view.v1.schema.json#/properties/summary" }
+        "type": {
+          "const": "decision"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "event": {
+          "$ref": "../posture-event.v1.schema.json"
+        },
+        "summary": {
+          "$ref": "../session-view.v1.schema.json#/properties/summary"
+        }
       }
     },
     "alert": {
       "description": "gateway -> client. Show a notification for this already delivered decision.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "event_id", "kind", "deviation_type"],
+      "required": [
+        "type",
+        "session_id",
+        "event_id",
+        "kind",
+        "deviation_type"
+      ],
       "properties": {
-        "type": { "const": "alert" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "event_id": { "type": "integer", "minimum": 1 },
-        "kind": { "enum": ["collapse_confirmed", "reminder"] },
-        "deviation_type": { "$ref": "../posture-event.v1.schema.json#/properties/deviation_type" }
+        "type": {
+          "const": "alert"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "event_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "collapse_confirmed",
+            "reminder"
+          ]
+        },
+        "deviation_type": {
+          "$ref": "../posture-event.v1.schema.json#/properties/deviation_type"
+        }
       }
     },
     "stalled": {
       "description": "gateway -> client. No decision path progress for 5 s; the app shows analysisPaused.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "since_last_sequence"],
+      "required": [
+        "type",
+        "session_id",
+        "since_last_sequence"
+      ],
       "properties": {
-        "type": { "const": "stalled" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "since_last_sequence": { "type": "integer", "minimum": -1 }
+        "type": {
+          "const": "stalled"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "since_last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        }
       }
     },
     "closed": {
       "description": "gateway -> client. The gateway closes this session channel.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "session_id", "reason"],
+      "required": [
+        "type",
+        "session_id",
+        "reason"
+      ],
       "properties": {
-        "type": { "const": "closed" },
-        "session_id": { "$ref": "#/$defs/session_id" },
-        "reason": { "enum": ["ended", "unauthorized", "not_owner", "session_lost", "server_shutdown"] }
+        "type": {
+          "const": "closed"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "reason": {
+          "enum": [
+            "ended",
+            "unauthorized",
+            "not_owner",
+            "session_lost",
+            "server_shutdown"
+          ]
+        }
+      }
+    },
+    "progress": {
+      "description": "gateway -> client. Latest CEP counts (about 1 s). Only the newest is sent after reconnect.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "session_id",
+        "last_sequence",
+        "summary"
+      ],
+      "properties": {
+        "type": {
+          "const": "progress"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        },
+        "summary": {
+          "$ref": "../session-view.v1.schema.json#/properties/summary"
+        }
       }
     }
   }

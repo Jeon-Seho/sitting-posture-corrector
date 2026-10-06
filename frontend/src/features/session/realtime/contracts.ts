@@ -14,6 +14,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: 'ack'; session_id: string; last_sequence: number }
   | { type: 'observation'; session_id: string; observation: ServerObservation }
+  | { type: 'progress'; session_id: string; last_sequence: number; summary: ServerSummary }
   | { type: 'decision'; session_id: string; event: DecisionEvent; summary: ServerSummary }
   | {
       type: 'alert'

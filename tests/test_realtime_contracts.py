@@ -50,7 +50,7 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 13)
+        self.assertEqual(len(names), 15)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):
@@ -76,6 +76,11 @@ class RealtimeContractTests(unittest.TestCase):
         observation = self.example("inference-observation.json")
         with self.assertRaises(ValidationError):
             validator("kafka-inference.v1.schema.json").validate(dict(observation, kind="session_ended"))
+        decision = self.example("episodes-decision.json")
+        progress = self.example("episodes-progress.json")
+        for payload in (dict(decision, kind="progress"), dict(progress, kind="decision")):
+            with self.subTest(kind=payload["kind"]), self.assertRaises(ValidationError):
+                validator("kafka-episodes.v1.schema.json").validate(payload)
 
     def test_only_notifying_events_become_alerts(self):
         alert = self.example("ws-alert.json")

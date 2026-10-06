@@ -177,6 +177,17 @@ describe('realtime client against a synthetic gateway', () => {
     expect(onDecision).not.toHaveBeenCalled()
   })
 
+  it('delivers progress between events and never moves it backwards', () => {
+    const onProgress = vi.fn()
+    const { current } = setup({ onProgress })
+    current().open()
+    current().server({ type: 'progress', last_sequence: 5, summary })
+    current().server({ type: 'progress', last_sequence: 3, summary })
+    current().server({ type: 'progress', last_sequence: 5, summary })
+    current().server({ type: 'progress', last_sequence: 9, summary })
+    expect(onProgress.mock.calls.map(([sequence]) => sequence)).toEqual([5, 5, 9])
+  })
+
   it('reports a stalled decision path without closing', () => {
     const onStalled = vi.fn()
     const onClosed = vi.fn()

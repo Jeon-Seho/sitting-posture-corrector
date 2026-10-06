@@ -19,6 +19,8 @@ export type RealtimeHandlers = {
   onStatus?(status: RealtimeStatus): void
   onAck?(lastSequence: number): void
   onObservation?(observation: ServerObservation): void
+  /** Periodic CEP counts between events; never moves backwards. */
+  onProgress?(lastSequence: number, summary: ServerSummary): void
   /** Each event_id arrives once, in order, including events replayed after a reconnect. */
   onDecision?(event: DecisionEvent, summary: ServerSummary): void
   /** Live notifications only; a replayed or duplicate alert is dropped. */
@@ -56,6 +58,7 @@ export class RealtimeClient {
   private ackedThrough = -1
   private lastEventId: number
   private lastAlertId = 0
+  private progressThrough = -1
   private status: RealtimeStatus = 'connecting'
   private batchTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -169,6 +172,11 @@ export class RealtimeClient {
         return
       case 'observation':
         handlers.onObservation?.(message.observation)
+        return
+      case 'progress':
+        if (message.last_sequence < this.progressThrough) return
+        this.progressThrough = message.last_sequence
+        handlers.onProgress?.(message.last_sequence, message.summary)
         return
       case 'decision':
         // Kafka delivers at least once; replay after hello may repeat what was already shown.

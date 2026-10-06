@@ -22,7 +22,7 @@
 | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 입력 v2 / `end_ms` | [kafka-features.v1](kafka-features.v1.schema.json) |
 | `posture.inference.v1` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference.v1](kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 판정 → 게이트웨이 | `decision` | 사건 v1 + 그 시점 요약 + `last_sequence` | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
+| `posture.episodes.v1` | 판정 → 게이트웨이 | `decision` / `progress` | 사건 v1 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
 
 공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.
 
@@ -33,6 +33,8 @@
 - 판정은 세션 시작 메시지의 `policy`로 판정한다. 환경변수 값은 시작 메시지가 없을 때의 기본값일 뿐이다.
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `phase`(`rest`·`away`)와 품질 `poor`는 제외 구간이다.
 - `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
+- 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
+  이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
 
 ## 통로 나누기
@@ -53,6 +55,7 @@
 | `features` | 앱 → 게이트웨이 | 약 0.5초 분량의 입력 v2 구간 1~30개를 순번 순서로 보낸다 |
 | `ack` | 게이트웨이 → 앱 | `last_sequence`까지 Kafka에 넣었다는 영수증. 앱은 재전송 대기열에서 지운다 |
 | `observation` | 게이트웨이 → 앱 | 구간 하나의 추론 결과(관측 v2). 화면의 실시간 상태("바른 자세예요" 등)를 바꾼다. 재연결 때 다시 보내지 않는다 |
+| `progress` | 게이트웨이 → 앱 | 판정의 최신 요약(약 1초마다). 화면의 측정 시간·유지율 등 숫자를 바꾼다. 재연결 때는 가장 최신 것 하나만 보낸다 |
 | `decision` | 게이트웨이 → 앱 | 확정된 판정 사건과 그 시점 요약. 화면 상태와 숫자는 이것으로만 바꾼다. 재연결 때 다시 받는다 |
 | `alert` | 게이트웨이 → 앱 | 이탈 확정·재알림일 때만 알림(토스트·소리)을 띄우라는 신호. 지난 알림은 다시 보내지 않는다 |
 | `stalled` | 게이트웨이 → 앱 | 5초 동안 판정 진행이 없다. 화면은 "분석이 잠시 멈췄어요"(`analysisPaused`)를 보인다 |
@@ -60,13 +63,14 @@
 
 `decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
 `observation`도 그 순간의 상태라 다시 보내지 않는다.
+`progress`는 현재 상태라 지난 것을 쌓아 보내지 않고 최신 것만 보낸다.
 
 실시간 상태를 서버 관측으로 받는 이유(2026-10-06 동욱 결정): 브라우저 자체 점수로 표시하면 서버 모델이 LSTM 등으로 바뀔 때
 화면 상태와 서버 판정이 어긋난다. 화면과 판정이 같은 모델을 따르도록 게이트웨이가 관측을 넘긴다.
 
 ## 합성 예제와 검증
 
-[examples](examples/)의 13개 파일은 손으로 만든 합성 세션 하나다. 실제 사람의 측정값이 아니다.
+[examples](examples/)의 15개 파일은 손으로 만든 합성 세션 하나다. 실제 사람의 측정값이 아니다.
 `tests/test_realtime_contracts.py`가 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치·알림 대상이 아닌 사건·묶음 크기 초과 거부,
 봉투와 사건의 `session_id` 일치를 검사한다.
 
