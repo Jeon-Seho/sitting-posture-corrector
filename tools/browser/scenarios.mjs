@@ -4,6 +4,24 @@ import { verifyArchiveDialog, verifyWithdrawalDialog } from './dialogs.mjs'
 
 const BRIDGE = 'window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__'
 const visible = `(element) => !!element.getClientRects().length && !element.closest('[hidden]')`
+const charMap = {
+  '<': '\\u003C',
+  '>': '\\u003E',
+  '/': '\\u002F',
+  '\\': '\\\\',
+  '\b': '\\b',
+  '\f': '\\f',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+  '\0': '\\0',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+}
+
+function escapeUnsafeChars(str) {
+  return str.replace(/[<>\/\\\b\f\n\r\t\0\u2028\u2029]/g, (x) => charMap[x])
+}
 
 function recordMatchesView(record, view) {
   return (
@@ -64,7 +82,7 @@ class AppDriver {
     await until(
       () =>
         this.evaluate(`(() => {
-      const label = [...document.querySelectorAll('label')].filter(${visible}).find((item) => item.textContent.includes(${JSON.stringify(label)}));
+      const label = [...document.querySelectorAll('label')].filter(${visible}).find((item) => item.textContent.includes(${escapeUnsafeChars(JSON.stringify(label))}));
       const input = label?.querySelector('input[type=checkbox]');
       if (!input || input.disabled) return false;
       if (!input.checked) input.click(); return true;
