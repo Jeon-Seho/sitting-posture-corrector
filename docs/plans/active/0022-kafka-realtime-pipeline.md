@@ -108,6 +108,9 @@
 
 ## 결정과 진행 기록
 
+- 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`, GP-0069). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
+  (모델이 바뀌어도 화면과 판정이 같은 기준). 세션 시작·종료는 기존 HTTP, WebSocket은 측정 중 전송·결과 수신만(SSE는 대안으로만 기록).
+  FE 클라이언트는 GP-0115로 진행한다.
 - 2026-10-05: `jin_app` 문서(ADR 0011~0017, 서비스 안내, 플랫폼 경계, 기술 스택 검토, v4 연결 지점)를 기준으로 작성했다.
   v4 원본 문서는 저장소에 없어 연결 지점 문서의 요약만 반영했다. 입력 토픽 이름(`posture.features.v1`)은 이 계획에서 정한 가칭이다.
 - 게이트웨이 구현 언어 후보: Spring Boot(기존 `backend/` Maven 모듈·`backend/contracts` 재사용·`check-backend` 게이트 공유) 또는 Node.

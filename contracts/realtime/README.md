@@ -35,6 +35,14 @@
 - `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
 - `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
 
+## 통로 나누기
+
+- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 V1.1에 저장하고
+  `posture.features.v1`에 `session_started`·`session_ended`를 넣는다.
+- **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
+- 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 V1.1 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
+  검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.
+
 ## WebSocket 메시지
 
 스키마: [realtime-ws.v1](realtime-ws.v1.schema.json)

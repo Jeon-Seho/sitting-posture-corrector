@@ -4880,8 +4880,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "0단계(①) 완료: realtime-ws.v1에 observation 메시지 추가(관측 v2 참조, 재연결 시 재전송 안 함), 예제 ws-observation.json, README 흐름·표·결정 이유 갱신. 계약 테스트 6개 통과. ②(시작·종료 HTTP 유지) 결정 대기",
-      "updated": "2026-10-06T07:39:21.771351+00:00",
+      "result": "1·2단계 완료: frontend/src/features/session/realtime/(contracts.ts·client.ts) — 0.5초 묶음, 미확인 한도(기본 60구간)·ack 정리, 순번 역행 거부, 재연결 지수 대기(0.5→8초)·hello(last_event_id)·미확인 재전송(30개씩 분할), event_id 중복 제거, decision 뒤에만 alert 1회, stalled, closed(종료·권한·유실은 재연결 안 함, server_shutdown은 재연결). 가짜 게이트웨이 테스트 15개, 프론트 전체 261개·타입·빌드 통과. 결정 기록: 시작·종료는 HTTP 유지(contracts/realtime/README.md, 계획 0022). 다음: 3단계 컨트롤러 연결",
+      "updated": "2026-10-06T07:45:49.949933+00:00",
       "log": [
         {
           "at": "2026-10-06T07:38:42.094263+00:00",
@@ -4900,6 +4900,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "0단계(①) 완료: realtime-ws.v1에 observation 메시지 추가(관측 v2 참조, 재연결 시 재전송 안 함), 예제 ws-observation.json, README 흐름·표·결정 이유 갱신. 계약 테스트 6개 통과. ②(시작·종료 HTTP 유지) 결정 대기"
+        },
+        {
+          "at": "2026-10-06T07:45:49.949933+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "1·2단계 완료: frontend/src/features/session/realtime/(contracts.ts·client.ts) — 0.5초 묶음, 미확인 한도(기본 60구간)·ack 정리, 순번 역행 거부, 재연결 지수 대기(0.5→8초)·hello(last_event_id)·미확인 재전송(30개씩 분할), event_id 중복 제거, decision 뒤에만 alert 1회, stalled, closed(종료·권한·유실은 재연결 안 함, server_shutdown은 재연결). 가짜 게이트웨이 테스트 15개, 프론트 전체 261개·타입·빌드 통과. 결정 기록: 시작·종료는 HTTP 유지(contracts/realtime/README.md, 계획 0022). 다음: 3단계 컨트롤러 연결"
         }
       ],
       "stage": "service",
