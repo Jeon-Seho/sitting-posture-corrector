@@ -5328,9 +5328,54 @@
       "performedBy": "우진(Lellon_CL)",
       "evidence": "GitHub 사전 릴리스 v0.1.0-preview.20261006 (b07d2f9), PoseGood-Windows-x64-b07d2f9.zip 264,915,795B 75파일 CRC 통과, desktop:pack·smoke(620ms) 통과",
       "number": "GP-0118"
+    },
+    {
+      "id": "4e4bf2fc-c5af-44d0-915f-36c76ea99bc1",
+      "title": "정상 복귀 기본값 2초 → 3초 (홍규 판정 엔진과 맞춤)",
+      "category": "프론트",
+      "source": "docs/decisions/0012-session-timing-policy.md",
+      "body": "동욱 결정(2026-10-06): 서버(홍규 CEP_RECOVERY_SECONDS=3)를 따라 정상 복귀 기본값을 3초로. ADR 0012 개정, FE DEFAULT_RULES, 브라우저 시나리오, 현재 기준 문서 갱신. 계정 모드 신규 사용자 기본값은 DB 시드(DEFAULT_TEMP 2초)에서 오므로 DB 담당에게 DEFAULT 행 요청. 재알림·임계값 통일은 회의 Q10.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "완료(FE·문서): ADR 0012 개정(정상 복귀 3초), DEFAULT_RULES.recoverSeconds=3, 로컬 엔진 테스트·브라우저 시나리오(1·2초 미복귀, 3초 복귀 66000ms) 갱신, index·architecture·seams·team-requirements·product-spec 현재 기준 갱신. 검증: 프론트 276개·tsc, 실제 API/CEP/추론 브라우저 시나리오 74개 PASS, check-repo·work.py check 통과. 남은 것: 계정 모드 신규 사용자 기본값은 DB 시드 DEFAULT_TEMP(2초·재알림 30초)에서 오므로 DB 담당(유진)에게 확정 DEFAULT 행 추가 요청 필요. 재알림·임계값 통일은 회의 Q10",
+      "updated": "2026-10-06T10:29:03.394844+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T10:26:05.525849+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T10:26:05.986383+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수"
+        },
+        {
+          "at": "2026-10-06T10:29:03.394844+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "완료(FE·문서): ADR 0012 개정(정상 복귀 3초), DEFAULT_RULES.recoverSeconds=3, 로컬 엔진 테스트·브라우저 시나리오(1·2초 미복귀, 3초 복귀 66000ms) 갱신, index·architecture·seams·team-requirements·product-spec 현재 기준 갱신. 검증: 프론트 276개·tsc, 실제 API/CEP/추론 브라우저 시나리오 74개 PASS, check-repo·work.py check 통과. 남은 것: 계정 모드 신규 사용자 기본값은 DB 시드 DEFAULT_TEMP(2초·재알림 30초)에서 오므로 DB 담당(유진)에게 확정 DEFAULT 행 추가 요청 필요. 재알림·임계값 통일은 회의 Q10"
+        }
+      ],
+      "stage": "contracts",
+      "number": "GP-0122",
+      "priority": 0,
+      "size": 1,
+      "order": 122,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 122
+  "nextNumber": 123
 }

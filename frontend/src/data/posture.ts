@@ -213,7 +213,7 @@ export const DEFAULT_RULES = {
   /** 붕괴 확정까지 필요한 지속 시간(초) */
   holdSeconds: 3,
   /** 정상 복귀로 인정할 유지 시간(초) */
-  recoverSeconds: 2,
+  recoverSeconds: 3,
   /** 같은 이벤트 재알림 간격(초) */
   realertSeconds: 60,
   /** 붕괴 판정 확률 임계값 */

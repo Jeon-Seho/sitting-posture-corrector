@@ -34,7 +34,7 @@
 직전 완료: [확인창 키보드 동작·성능 측정·자료 준비와 전체 검증](plans/completed/0016-remaining-tools-and-validation.md).
 이전 완료: [서버·브라우저 회귀 검증과 기록 비교 조건·상세](plans/completed/0015-server-regression-and-record-details.md).
 
-확정 시간 정책: [ADR 0012](decisions/0012-session-timing-policy.md) — 기본 최초 알림 3초·정상 복귀 2초·같은 사건 재알림 60초,
+확정 시간 정책: [ADR 0012](decisions/0012-session-timing-policy.md) — 기본 최초 알림 3초·정상 복귀 3초(10/06 개정)·같은 사건 재알림 60초,
 휴식 후 새 사건·측정 불가/누락 중단과 유효 통계 제외·설정의 다음 새 세션 적용.
 2026-10-01 사용자 재확인으로 기존 구현의 승인 상태를 동기화했다([문서 동기화·검증 완료](plans/completed/0013-session-timing-policy-doc-sync.md)). 개발용 특징·관측 계약은 ADR 0013이며 품질·점수의 연구상 검증은 남는다.
 
