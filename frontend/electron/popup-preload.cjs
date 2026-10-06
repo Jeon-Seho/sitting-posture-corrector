@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('posegoodPopup', {
   onShow: (listener) => ipcRenderer.on('popup:show', (_event, alert) => listener(alert)),
   onHide: (listener) => ipcRenderer.on('popup:hide', () => listener()),
-  close: () => ipcRenderer.send('popup:close'),
+  // `immediate` skips the sink animation (the card was already swiped away).
+  close: (immediate) => ipcRenderer.send('popup:close', immediate === true),
   openApp: () => ipcRenderer.send('popup:open-app'),
 })
