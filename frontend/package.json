@@ -61,7 +61,8 @@
       "target": [
         "portable"
       ],
-      "signAndEditExecutable": false
+      "icon": "public/branding/posegood-icon.ico",
+      "signExecutable": false
     },
     "portable": {
       "artifactName": "PoseGood.exe"

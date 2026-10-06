@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Armchair, CaretUp, SignOut, UserCircle } from '@phosphor-icons/react'
+import { CaretUp, SignOut, UserCircle } from '@phosphor-icons/react'
+import { BrandMark } from '../components/BrandMark'
 import { ThumbLayer, useSlidingThumb } from '../components/Segmented'
 import { formatDuration } from '../lib/stats'
 import { NAV_TABS, tabOf, type Page, type Tab } from './navigation'
@@ -20,9 +21,7 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden="true">
-          <Armchair size={22} weight="bold" />
-        </span>
+        <BrandMark />
         <div>
           <div className="brand-name">PoseGood</div>
           <div className="brand-sub">바른자세 도우미</div>
