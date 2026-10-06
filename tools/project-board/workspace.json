@@ -3048,15 +3048,15 @@
       "category": "프론트",
       "source": "docs/plans/active/0022-kafka-realtime-pipeline.md",
       "body": "jin_app 결정(ADR 0011·0012·0013, 플랫폼 경계)을 따라 WebSocket 게이트웨이→Kafka(posture.features/inference/episodes) 경로 계획. 팀·ML 확인 대기.",
-      "status": "planned",
+      "status": "in_progress",
       "author": "",
       "assignees": [
         "우진",
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "",
-      "updated": "2026-10-06T04:21:29.232559+00:00",
+      "result": "1단계 초안 작성: contracts/realtime.v1.md, kafka-features/inference/episodes.v1·realtime-ws.v1 스키마(기존 입력 v2·관측 v2·사건 v1·조회 v1을 $ref로 재사용), 합성 예제 12개, tests/test_realtime_contracts.py 6개 통과. 전체 Python 160개 중 오류 3개는 Windows 배포 설정 테스트의 기존 실패(새 파일 제외해도 동일). 팀 확인(GP-0087)·홍규 검토 대기",
+      "updated": "2026-10-06T06:18:22.462411+00:00",
       "log": [
         {
           "at": "2026-10-05T06:56:41.721134+00:00",
@@ -3069,6 +3069,18 @@
           "by": "Lellon_CL",
           "kind": "ai",
           "text": "프론트 우진·동욱, 머신러닝 지성 기본 배정"
+        },
+        {
+          "at": "2026-10-06T06:15:00.373859+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "착수: 계획 0022 1단계 메시지 계약 초안(draft). 팀 확인(GP-0087) 전이므로 초안으로 표시. 동욱 요청"
+        },
+        {
+          "at": "2026-10-06T06:18:22.462411+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "1단계 초안 작성: contracts/realtime.v1.md, kafka-features/inference/episodes.v1·realtime-ws.v1 스키마(기존 입력 v2·관측 v2·사건 v1·조회 v1을 $ref로 재사용), 합성 예제 12개, tests/test_realtime_contracts.py 6개 통과. 전체 Python 160개 중 오류 3개는 Windows 배포 설정 테스트의 기존 실패(새 파일 제외해도 동일). 팀 확인(GP-0087)·홍규 검토 대기"
         }
       ],
       "stage": "service",
