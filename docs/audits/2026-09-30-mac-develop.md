@@ -1,5 +1,7 @@
 # Mac develop 통합 점검
 
+- 분야: 데브옵스
+- 작업: GP-0102
 기준일: 2026-09-30. 원본 경로는 `/Users/jisung/Desktop/sitting-posture-corrector`이고 원격은
 `https://github.com/Jeon-Seho/sitting-posture-corrector`다. 시작 상태는 clean `main` / `02b9ea8`이었다.
 사용자가 develop 기능 가져오기를 승인하여 `develop` / `9533234`를 기반으로 보완을 통합했다.

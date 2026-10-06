@@ -3973,20 +3973,26 @@
       "category": "데브옵스",
       "source": "docs/audits/2026-10-06-db-v11-connection.md",
       "body": "develop PR에서 harness와 V1.1 check-compose(백업·복원 포함)를 확인한다. 완료: CI 실행 링크·커밋·결과 기록, 실패 해결 후 통과. 로컬 합성 스택 검증으로 대체하지 않는다.",
-      "status": "planned",
+      "status": "in_progress",
       "author": "",
       "assignees": [
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-10-06T04:32:58.817810+00:00",
+      "result": "PR #11 Linux Python 154개·프론트 검증 통과 후 문서 검사 실패 확인. GP-0100에서 수정했고 새 커밋 CI를 확인한다.",
+      "updated": "2026-10-06T04:40:48.165884+00:00",
       "log": [
         {
           "at": "2026-10-06T04:32:58.817810+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "사용자 요청: V1.1 후속 항목 카드화, 기존 카드 완료 기준 보강, develop PR 준비"
+        },
+        {
+          "at": "2026-10-06T04:40:48.165884+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 문서 검사 수정 완료, GP-0092 Linux CI 재검증 착수"
         }
       ],
       "stage": "validation",
@@ -4246,20 +4252,32 @@
       "category": "데브옵스",
       "source": "docs/project-board.md",
       "body": "work.py check에서 기존 문서의 분야·작업 번호 누락이 검출된다. 기존 책임 카드에 맞춰 메타데이터와 근거 연결을 보완하고 카드 검사 통과. legacy-docs 예외 추가로 회피하지 않는다.",
-      "status": "planned",
+      "status": "completed",
       "author": "",
       "assignees": [
         "홍규"
       ],
       "agent": "Lellon_GPT",
-      "result": "",
-      "updated": "2026-10-06T04:33:53.636238+00:00",
+      "result": "CI 실패 원인인 문서 35개의 분야·GP 연결을 보완하고 기존 계획 11개를 문서 범위로 등록. python tools/dev.py check-board, tools/check_repository.py, git diff --check 통과. Linux CI 전체 재실행 결과는 GP-0092에서 추적.",
+      "updated": "2026-10-06T04:40:48.165884+00:00",
       "log": [
         {
           "at": "2026-10-06T04:33:53.636238+00:00",
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        },
+        {
+          "at": "2026-10-06T04:40:48.165884+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 문서 검사 수정 완료, GP-0092 Linux CI 재검증 착수"
         }
       ],
       "stage": "operations",
@@ -4269,11 +4287,376 @@
       "order": 100,
       "dependsOn": [],
       "priorityNote": "",
+      "evidence": "문서 35개 메타데이터·계획 GP-0101~0111 연결. python tools/dev.py check-board 및 tools/check_repository.py 통과. 검사 예외·legacy-docs 변경 없음.",
+      "performedBy": "우진"
+    },
+    {
+      "id": "f9f3565e-4bb0-4fd7-a538-fdbdcf4a4d10",
+      "title": "데스크톱 앱 기준 화면 재구성",
+      "category": "프론트",
+      "source": "docs/plans/active/0020-desktop-app-redesign.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "in_progress",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "service",
+      "plan": true,
+      "number": "GP-0101",
+      "priority": 0,
+      "size": 1,
+      "order": 101,
+      "dependsOn": [],
+      "priorityNote": "",
       "evidence": "",
+      "performedBy": ""
+    },
+    {
+      "id": "dd2ddba3-635b-4b0c-be63-570e7cc4f2ed",
+      "title": "Mac develop 통합과 신뢰성 보완",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0010-mac-develop-reliability.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "validation",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0010-mac-develop-reliability.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0102",
+      "priority": 0,
+      "size": 1,
+      "order": 102,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "e8f26922-1f44-413d-b4e7-0d7335112833",
+      "title": "API·CEP 수직 흐름",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0011-api-cep-vertical-slice.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "service",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0011-api-cep-vertical-slice.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0103",
+      "priority": 0,
+      "size": 1,
+      "order": 103,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "c8ac92a4-71de-454a-9765-5283f6ee906b",
+      "title": "읽기 쉬운 기능별 코드 구조",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0012-readable-code-structure.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "foundation",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0012-readable-code-structure.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0104",
+      "priority": 0,
+      "size": 1,
+      "order": 104,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "3784e32a-f465-4ea6-a4ef-be09e1d0bffb",
+      "title": "세션 시간 정책 확정과 문서 동기화",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0013-session-timing-policy-doc-sync.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "contracts",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0013-session-timing-policy-doc-sync.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0105",
+      "priority": 0,
+      "size": 1,
+      "order": 105,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "917eb2ec-98c0-46c4-a314-9c4104050574",
+      "title": "특징 계약과 프론트 서버 판정 연결",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0014-frontend-server-connection.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "service",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0014-frontend-server-connection.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0106",
+      "priority": 0,
+      "size": 1,
+      "order": 106,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "d7a885b3-512e-4d5e-b337-81b0af845951",
+      "title": "서버 흐름 회귀 검증과 측정 기록 상세",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0015-server-regression-and-record-details.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "validation",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0015-server-regression-and-record-details.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0107",
+      "priority": 0,
+      "size": 1,
+      "order": 107,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "3735c6b5-664d-4d3c-9340-7b453d1a8307",
+      "title": "확인창 키보드 동작·서버 성능 측정·학습 자료 준비",
+      "category": "데브옵스",
+      "source": "docs/plans/completed/0016-remaining-tools-and-validation.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "validation",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0016-remaining-tools-and-validation.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0108",
+      "priority": 0,
+      "size": 1,
+      "order": 108,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "c9ba5333-85d6-40af-ad7c-7b212029b3d1",
+      "title": "MySQL 계정·영구 저장·Compose와 배포 자동화",
+      "category": "백엔드",
+      "source": "docs/plans/completed/0017-mysql-accounts-compose-deployment.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "service",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0017-mysql-accounts-compose-deployment.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0109",
+      "priority": 0,
+      "size": 1,
+      "order": 109,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "88e582ce-51f3-4b5e-b1e4-3d14e00c0c8e",
+      "title": "수집 화면 진입과 이동 가능한 카메라 창",
+      "category": "프론트",
+      "source": "docs/plans/completed/0018-collection-entry-camera-window.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "prototype",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0018-collection-entry-camera-window.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0110",
+      "priority": 0,
+      "size": 1,
+      "order": 110,
+      "dependsOn": [],
+      "priorityNote": "",
+      "performedBy": ""
+    },
+    {
+      "id": "ad0eaa96-8191-4197-b9da-a9d05dfbf178",
+      "title": "본인 자세 CSV 이동·증강·첫 분류 학습",
+      "category": "머신러닝",
+      "source": "docs/plans/completed/0019-personal-pilot-training.md",
+      "body": "기존 계획의 문서 범위와 검증 이력을 등록한다. 완료 문서의 과거 구현·검증 범위이며 서비스 전체 완료나 이번 실환경 재검증을 뜻하지 않는다.",
+      "status": "completed",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "Lellon_GPT",
+      "result": "",
+      "updated": "2026-10-06T04:40:28.123473+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T04:40:28.123473+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "GP-0100 착수: CI 문서 분야·GP 연결 누락 수정, 기존 계획 카드 등록"
+        }
+      ],
+      "stage": "data",
+      "plan": true,
+      "evidence": "기존 완료 계획의 구현·검증 기록: docs/plans/completed/0019-personal-pilot-training.md (GP-0100 문서 연결 검사로 등록, 이번 재검증 아님)",
+      "number": "GP-0111",
+      "priority": 0,
+      "size": 1,
+      "order": 111,
+      "dependsOn": [],
+      "priorityNote": "",
       "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 101
+  "nextNumber": 112
 }

@@ -1,5 +1,7 @@
 # ADR 0015: Compose 전체 실행과 GitHub Actions 배포
 
+- 분야: 백엔드
+- 작업: GP-0109
 - 상태: accepted
 - 날짜: 2026-10-01
 - 근거: 사용자가 Docker Compose 즉시 실행과 GitHub Actions 자동 배포 설정을 요청했다.

@@ -1,5 +1,7 @@
 # Compose 실행과 배포
 
+- 분야: 백엔드
+- 작업: GP-0109
 MySQL·Spring API·Esper CEP·FastAPI·Nginx/React를 함께 실행한다.
 Docker Engine/Desktop와 Docker Compose가 필요하다. 앱 이미지 빌드에는 Docker가 공식 registry와
 Maven Central·PyPI·npm·MediaPipe 자산에 접근할 수 있어야 한다. 호스트 JDK/Python/Node 설치 없이 앱을 실행할 수 있다.
