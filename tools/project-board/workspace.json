@@ -4788,15 +4788,15 @@
       "category": "프론트",
       "source": "DESIGN.md",
       "body": "방향 제안 후 이미지 생성으로 PNG 원본과 Windows ICO 제작. 실행 파일 적용은 별도 범위.",
-      "status": "in_progress",
+      "status": "completed",
       "author": "",
       "assignees": [
         "우진",
         "동욱"
       ],
       "agent": "Lellon_GPT",
-      "result": "작업표시줄 시인성 개선: 의자·손·발 세부 묘사 제거, 큰 실루엣·강한 색 대비·여백 축소로 v3 제작",
-      "updated": "2026-10-06T07:26:32.624670+00:00",
+      "result": "최종 요청 반영: 네모/가느다란 단독 심볼 대신 원형 강조색 바탕+크림색 사람 심볼. 생성 시안의 투명 결함 때문에 새 SVG를 정본으로 제작하고 PNG·ICO 내보냄. 화면42px 유지. 로그인·사이드바·favicon·Electron·Windows 패키징 연결. 기존 앱 파일 잠금으로 별도 release/round 휴대용 EXE 제공.",
+      "updated": "2026-10-06T07:39:31.002260+00:00",
       "log": [
         {
           "at": "2026-10-06T07:05:47.963770+00:00",
@@ -4833,6 +4833,12 @@
           "by": "Lellon_GPT",
           "kind": "ai",
           "text": "작업표시줄 시인성 개선: 의자·손·발 세부 묘사 제거, 큰 실루엣·강한 색 대비·여백 축소로 v3 제작"
+        },
+        {
+          "at": "2026-10-06T07:39:31.002260+00:00",
+          "by": "Lellon_GPT",
+          "kind": "ai",
+          "text": "최종 요청 반영: 네모/가느다란 단독 심볼 대신 원형 강조색 바탕+크림색 사람 심볼. 생성 시안의 투명 결함 때문에 새 SVG를 정본으로 제작하고 PNG·ICO 내보냄. 화면42px 유지. 로그인·사이드바·favicon·Electron·Windows 패키징 연결. 기존 앱 파일 잠금으로 별도 release/round 휴대용 EXE 제공."
         }
       ],
       "stage": "delivery",
@@ -4842,7 +4848,7 @@
       "order": 113,
       "dependsOn": [],
       "priorityNote": "",
-      "evidence": "npm run check: 프론트 246건 통과, TypeScript·Vite 빌드 통과. electron-builder --win --dir 및 copy-desktop.mjs 성공. 두 EXE에서 32px 아이콘 추출·시각 확인. 로그인 이미지 로딩 42px 및 적용 스크린샷 확인. ICO 7종 및 dist 포함 확인. work.py check 통과. 전체 python tools/dev.py check: Python 154건, POSIX 배포 잠금 오류 3·skip 1로 중단. OS 작업표시줄 실표시는 미검증.",
+      "evidence": "최종 정본 frontend/public/branding/posegood-icon.svg. 16/24/32px 축소본과 alpha=0 모서리 확인, ICO 7종 포함. 로그인 42x42px 로딩 및 스크린샷 검증. npm run check: 프론트251건·TypeScript·Vite 통과. electron-builder --win portable --config.directories.output=release/round 성공, 두 EXE에서 원형 아이콘 추출 확인. python tools/dev.py check: Python154건, 기존 POSIX배포 오류3·skip1로 중단. work.py check 통과. 현재 실행 중인 기존 앱의 작업표시줄 교체는 사용자 재실행 필요; 새 패키징 앱 실실행 미검증.",
       "performedBy": "우진"
     },
     {
@@ -4928,9 +4934,48 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "ff5f6023-6c1d-4055-aee7-e141d5daff45",
+      "title": "기준 자동 등록(3초)·자동 측정 시작과 다른 화면에서 측정 유지",
+      "category": "프론트",
+      "source": "frontend/README.md",
+      "body": "얼굴·어깨가 보이면 기준 등록 자동 시작, 3초(최소 15표본) 유지 후 측정 자동 시작. 기록·설정 화면으로 이동해도 측정이 멈추지 않음. 보정 취소 시 자동 등록 중지, 이전 기준으로 자동 시작하지 않음.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 8ca99c0. 프론트 254개·타입·빌드 통과. 실제 웹캠·데스크톱 앱 확인은 사용자 검수 필요",
+      "updated": "2026-10-06T07:41:04.482763+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T07:40:56.567480+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T07:41:04.482763+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 8ca99c0. 프론트 254개·타입·빌드 통과. 실제 웹캠·데스크톱 앱 확인은 사용자 검수 필요"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0116",
+      "priority": 0,
+      "size": 1,
+      "order": 116,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 116
+  "nextNumber": 117
 }
