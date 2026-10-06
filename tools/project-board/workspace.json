@@ -5349,9 +5349,48 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "469da718-3092-4b4f-b3bd-75d852cfb6fa",
+      "title": "자세 알림 데스크톱 팝업",
+      "category": "프론트",
+      "source": "docs/design/desktop-app.md",
+      "body": "알림이 울릴 때 앱 창이 가려졌거나 최소화돼 있으면 화면 오른쪽 아래에 포커스를 뺏지 않는 작은 팝업(8초, 앱 열기/닫기). 설정 '다른 창을 볼 때 팝업'(기본 켜짐). GPT 상대좌표 실험앱(계획 0023)에서 제외된 사용자 요청 범위.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "Lellon_CL",
+      "result": "구현 a066602. 프론트 279개·데스크톱 smoke·패키징 EXE 팝업 표시/설정 끔 확인. 실제 측정 중 다른 창 사용 시 사용자 검수 대기",
+      "updated": "2026-10-06T10:59:43.501592+00:00",
+      "log": [
+        {
+          "at": "2026-10-06T10:59:36.349735+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-06T10:59:43.501592+00:00",
+          "by": "Lellon_CL",
+          "kind": "ai",
+          "text": "구현 a066602. 프론트 279개·데스크톱 smoke·패키징 EXE 팝업 표시/설정 끔 확인. 실제 측정 중 다른 창 사용 시 사용자 검수 대기"
+        }
+      ],
+      "stage": "prototype",
+      "number": "GP-0123",
+      "priority": 0,
+      "size": 1,
+      "order": 123,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 123
+  "nextNumber": 124
 }
