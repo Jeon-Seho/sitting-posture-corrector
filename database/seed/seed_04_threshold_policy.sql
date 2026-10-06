@@ -25,4 +25,4 @@ USE posture_service;
 INSERT INTO threshold_policy
   (threshold, hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour, policy_name, created_by, created_at)
 VALUES
-  (0.500, 3.0, 2.0, 30, 12, 'DEFAULT_TEMP', 'SYSTEM', '2026-10-02 00:00:00.000');
+  (0.500, 3.0, 3.0, 60, 12, 'DEFAULT_TEMP', 'SYSTEM', '2026-10-02 00:00:00.000');
