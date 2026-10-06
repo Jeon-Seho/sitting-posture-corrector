@@ -149,7 +149,10 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(board.author_member("other", "123+Jeon-Seho@users.noreply.github.com", team), "세호")
         self.assertEqual(board.author_member("Leo", "x@example.com", team), "동욱")
         self.assertEqual(board.author_member("HJisung", "x@example.com", team), "지성")
-        self.assertIsNone(board.author_member("jisung", "unknown@example.com", team))
+        # Confirmed by the user on 2026-10-06; a partial spelling stays unlinked.
+        self.assertEqual(board.author_member("jisung", "unknown@example.com", team), "지성")
+        self.assertEqual(board.author_member("dev-jisung", "unknown@example.com", team), "지성")
+        self.assertIsNone(board.author_member("jisung2", "unknown@example.com", team))
         self.assertEqual(board.author_member("ghdrb1246", "unknown@example.com", team), "홍규")
         self.assertEqual(board.author_member("other", "123+sunshine-yj@users.noreply.github.com", team), "유진")
         self.assertIsNone(board.author_member("sunshine", "unknown@example.com", team))
