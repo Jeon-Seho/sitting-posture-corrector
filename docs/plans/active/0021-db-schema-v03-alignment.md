@@ -89,7 +89,7 @@
 - [x] `backend/api` 저장소 계층을 V1.1로 교체, 시험 갱신(실제 MySQL 14개 포함)
 - [x] 계약·프론트 계정 화면 동기화(`contracts/accounts.v1.md`, 사용자 ID·이름 30자·데모 표시 기기 저장·세션 `setup`)
 - [ ] `make check-compose` 전체(백업·복원 포함) — Windows 비밀 파일 권한 문제로 이 PC에서 미실행(아래)
-- [ ] 팀 리뷰 후 develop PR, 카드 GP-0068 완료 처리
+- [ ] 팀 리뷰 후 develop PR, 구현·검증 결과 기록
 
 ## 저장 대응 (구현)
 
