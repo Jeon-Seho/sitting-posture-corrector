@@ -30,12 +30,12 @@ public class PostureInferenceConsumer {
     private static final Logger log = LoggerFactory.getLogger(PostureInferenceConsumer.class);
 
     private final PostureCepEngine engine;
-    private final CepJdbcRepository repository;
+    private final CepWriteBuffer writeBuffer;
     private final JsonMapper jsonMapper;
 
-    public PostureInferenceConsumer(PostureCepEngine engine, CepJdbcRepository repository, JsonMapper jsonMapper) {
+    public PostureInferenceConsumer(PostureCepEngine engine, CepWriteBuffer writeBuffer, JsonMapper jsonMapper) {
         this.engine = engine;
-        this.repository = repository;
+        this.writeBuffer = writeBuffer;
         this.jsonMapper = jsonMapper;
     }
 
@@ -67,15 +67,15 @@ public class PostureInferenceConsumer {
                 asString(raw.get("inferredStatus")),
                 asString(raw.get("capturedAt")));
 
-        // sessions 갱신(last_seen_at/sample_count)은 상태 전환 여부와 무관하게
-        // 매 샘플마다 수행한다. 실패해도 판정 흐름에 영향을 주지 않는다
-        // (repository 쪽이 방어적으로 구현되어 있음).
-        repository.recordSample(event);
+        // (D-18) DB에는 여기서 직접 쓰지 않는다. 쓰기 버퍼(메모리)에 넘기기만 하고
+        // 바로 판정으로 간다 — DB가 느리거나 끊겨도 판정은 멈추지 않는다.
+        // 실제 DB 쓰기는 CepWriteBuffer의 별도 스레드가 1초마다 묶어서 한다.
+        writeBuffer.recordSample(event);
 
         Optional<CepOutcome> outcome = engine.handle(event);
         outcome.ifPresent(o -> {
             log.info("posture-cep 상태 전환: {} (sessionId={})", o.type(), o.sessionId());
-            repository.recordEvent(o);
+            writeBuffer.recordEvent(o);
         });
     }
 

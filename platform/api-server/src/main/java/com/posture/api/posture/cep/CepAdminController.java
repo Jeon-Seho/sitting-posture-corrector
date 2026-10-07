@@ -19,10 +19,22 @@ public class CepAdminController {
 
     private final PostureCepEngine engine;
     private final SessionExpiryScheduler sessionExpiryScheduler;
+    private final CepWriteBuffer writeBuffer;
 
-    public CepAdminController(PostureCepEngine engine, SessionExpiryScheduler sessionExpiryScheduler) {
+    public CepAdminController(PostureCepEngine engine, SessionExpiryScheduler sessionExpiryScheduler,
+                              CepWriteBuffer writeBuffer) {
         this.engine = engine;
         this.sessionExpiryScheduler = sessionExpiryScheduler;
+        this.writeBuffer = writeBuffer;
+    }
+
+    /**
+     * (D-18) DB 쓰기 버퍼 상태 — 보관 중인 기록 수, 연속 실패 횟수, 마지막 성공 시각 등.
+     * DB 장애 중에도 판정이 계속되는지, 복구 후 보관분이 반영됐는지 확인할 때 쓴다.
+     */
+    @GetMapping("/cep/db-writer")
+    public Map<String, Object> dbWriterStatus() {
+        return writeBuffer.status();
     }
 
     /** 현재 지속조건을 충족해 진행 중인(아직 회복되지 않은) 붕괴 이벤트 목록. */

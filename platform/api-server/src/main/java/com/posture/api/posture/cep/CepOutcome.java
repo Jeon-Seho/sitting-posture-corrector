@@ -9,7 +9,7 @@ import java.util.Map;
  * 반환하는 상태 전환 결과. posture-cep(Python)의
  * {@code {"type": ..., "event": {...}}} dict와 같은 모양을 유지한다 —
  * {@link CepAdminController}가 그대로 JSON으로 내려주고,
- * {@link CepJdbcRepository#recordEvent}가 그대로 받아 DB에 기록한다.
+ * {@link CepWriteBuffer#recordEvent}가 받아 DB 쓰기 스레드가 기록한다(D-18).
  */
 public final class CepOutcome {
 
