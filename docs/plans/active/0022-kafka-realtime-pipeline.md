@@ -2,7 +2,7 @@
 
 - 분야: 프론트
 - 작업: GP-0069
-- 상태: planned (선행 결정 대기)
+- 상태: planned (DevOps가 계약 v1 수용, 메시지 단위·판정 엔진 결정 대기. 아래 '결정과 진행 기록' 첫 항목)
 - 담당: 동욱 요청, klaod-tech_CL 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [ADR 0011](../../decisions/0011-api-cep-boundary.md), [ADR 0012](../../decisions/0012-session-timing-policy.md),
@@ -108,6 +108,13 @@
 
 ## 결정과 진행 기록
 
+- 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.
+  역할은 Q1 C안(입구·인증·세션 시작/종료 = 팀 `develop`, Kafka 뒤 추론·판정 = DevOps/BE, 게이트웨이·화면 수신 = FE)이고,
+  기존 `POST /api/v1/posture/summary`(camelCase)는 부하 시험·재생용으로만 남긴다. DevOps 작업 D-21(토픽·봉투·키 `session_id`),
+  D-22(`posture.episodes.v1` 발행, 추론 입력 v2·관측 v2), D-23(세션 정책·중복·`phase`/`poor` 제외 구간·명시적 종료)은 등록만 됐다.
+  회의에서 정할 것: ① Kafka 메시지 단위(FE가 약 0.5초를 구간 1개로 합쳐 보내기 요청, 구간마다면 동시 4~5명 한계)
+  ② 판정 엔진 A(DevOps 상태머신 확장) / B(팀 `backend/cep`에 Kafka 연결, BE 의견) ③ DB 쓰기는 판정이 아닌 저장 소비자가.
+  현재 `lee_app1`의 Kafka 형식 저장(`kafkaExport.ts`, GP-0123)은 계약 v1 봉투 형식이다.
 - 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`, GP-0069). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
   (모델이 바뀌어도 화면과 판정이 같은 기준). 세션 시작·종료는 기존 HTTP, WebSocket은 측정 중 전송·결과 수신만(SSE는 대안으로만 기록).
   FE 클라이언트는 GP-0115로 진행한다.

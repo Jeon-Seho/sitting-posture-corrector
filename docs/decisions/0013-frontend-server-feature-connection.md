@@ -64,7 +64,7 @@ Python HTTP 출력을 비교하며 실제 카메라 성능이나 의료 효과�
 FastAPI v2 추론 → 관측 v2 → CEP/Esper EPL 판정 → 조회 v1 순서로 처리한다.
 [특징 응답 v1](../../contracts/feature-response.v1.schema.json)은
 `{schema_version:"1.0", observation, session}`을 반환한다. API·프론트에 시간 판정을 중복하지 않는다.
-최초 3초·복귀 2초·같은 사건 재알림 60초 등은 ADR 0012를 따른다.
+최초 3초·복귀 3초(2026-10-06 2초에서 개정)·같은 사건 재알림 60초 등은 ADR 0012를 따른다.
 
 API는 세션별로 요청을 직렬화하고, 추론 성공 후 기준 UUID를 고정한다.
 개발 v2 경로는 모든 출력의 모델명을 `reference-feature-rule-v1`로 검증한다.

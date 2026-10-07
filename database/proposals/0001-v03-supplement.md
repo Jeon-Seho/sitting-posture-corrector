@@ -2,7 +2,7 @@
 
 - 분야: DB
 - 작업: GP-0067
-- 상태: 제안 (DB 담당 검토 대기)
+- 상태: 반영됨. DB 담당(sunshine-yj)이 스키마 V1.1([schema_V1_1.sql](../schema/schema_V1_1.sql))에 반영했다(2026-10-06, develop PR #11·#13). 7번 `user_consent`만 보류([ADR 0018](../../docs/decisions/0018-db-schema-v11-service-storage.md))
 - 제안: 동욱 (klaod-tech), 2026-10-05
 - 대상: [schema_V0_3.sql](../schema/schema_V1_0.sql) (V0.3과 같은 내용, 2026-10-05 V1.0으로 확정), 이후 `migrations/`
 - 관련: [전환 계획 0021](../../docs/plans/active/0021-db-schema-v03-alignment.md), V1 마이그레이션(대체 대상)(`V1__accounts_and_durable_sessions.sql`, 2026-10-06 삭제)

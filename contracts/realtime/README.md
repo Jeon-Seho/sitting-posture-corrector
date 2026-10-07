@@ -2,7 +2,7 @@
 
 - 분야: 프론트, 백엔드
 - 작업: GP-0069
-- 상태: **초안(draft)**. 팀 확인([GP-0087](../../docs/plans/active/0022-kafka-realtime-pipeline.md))과 홍규 검토 전이다. 확정 시 이 줄을 바꾼다.
+- 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 2026-10-07 기록).
 - 근거: [계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
@@ -78,7 +78,7 @@
 
 ## 아직 정하지 않은 것
 
-- 토픽 이름: 홍규 저장소는 `posture.summary`·`posture.inference`를 쓴다. 이름은 홍규 검토 때 맞춘다.
+- 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7, GP-0083) 새 버전으로 올린다.
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당(GP-0087).
 - 기준 자세 전달 토픽은 보류한다(GP-0098).
