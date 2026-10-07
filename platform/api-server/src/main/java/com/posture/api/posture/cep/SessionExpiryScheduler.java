@@ -28,14 +28,17 @@ public class SessionExpiryScheduler {
 
     private final PostureCepEngine engine;
     private final CepJdbcRepository repository;
+    private final CepWriteBuffer writeBuffer;
     private final double timeoutSeconds;
 
     public SessionExpiryScheduler(
             PostureCepEngine engine,
             CepJdbcRepository repository,
+            CepWriteBuffer writeBuffer,
             @Value("${cep.session-timeout-seconds:300}") double timeoutSeconds) {
         this.engine = engine;
         this.repository = repository;
+        this.writeBuffer = writeBuffer;
         this.timeoutSeconds = timeoutSeconds;
     }
 
@@ -62,7 +65,7 @@ public class SessionExpiryScheduler {
             List<CepOutcome> outcomes = engine.expireStaleSessions(now, timeoutSeconds);
             for (CepOutcome outcome : outcomes) {
                 log.info("세션 타임아웃으로 붕괴 이벤트 강제 종료: sessionId={}", outcome.sessionId());
-                repository.recordEvent(outcome);
+                writeBuffer.recordEvent(outcome);   // (D-18) 기록은 쓰기 버퍼를 거친다
             }
             result.put("finalized_events", outcomes.size());
 

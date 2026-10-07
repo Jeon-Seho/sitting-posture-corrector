@@ -83,6 +83,13 @@ cep:
   # false면 기존처럼 메모리에만 둔다(Redis 장애 시에도 판정은 메모리로 계속됨).
   # (D-16) /cep/events/recent 조회용으로 메모리에 남겨둘 최근 종료 이벤트 수
   recent-events-capacity: ${CEP_RECENT_EVENTS_CAPACITY:1000}
+  # (D-18) DB 쓰기를 판정 경로에서 분리한 쓰기 버퍼. 컨슈머는 메모리에만 넘기고,
+  # 별도 스레드가 flush-interval-ms마다 묶어서 쓴다. DB 실패 시 기록을 보관하고
+  # 1초→2초→…→max-backoff-ms 간격으로 재시도. 이벤트 보관 한도를 넘으면 오래된 것부터 버린다.
+  db-writer:
+    flush-interval-ms: ${CEP_DB_WRITER_FLUSH_INTERVAL_MS:1000}
+    event-capacity: ${CEP_DB_WRITER_EVENT_CAPACITY:10000}
+    max-backoff-ms: ${CEP_DB_WRITER_MAX_BACKOFF_MS:30000}
   state-store:
     enabled: ${CEP_STATE_STORE_ENABLED:true}
     ttl-seconds: ${CEP_STATE_TTL_SECONDS:3600}

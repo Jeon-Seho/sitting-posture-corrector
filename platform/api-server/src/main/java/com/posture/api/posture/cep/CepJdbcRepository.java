@@ -6,29 +6,34 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * posture-cep(Python, {@code app/db.py})이 {@code sessions}/{@code collapse_events}
- * 테이블에 쓰던 upsert 로직을 그대로 옮긴 것. (D-13)
+ * 테이블에 쓰던 upsert 로직을 옮긴 것(D-13).
  *
- * 원본과 동일한 방어 원칙을 유지한다 — 이 레포지토리의 쓰기가
- * 실패해도(DB 일시 단절 등) 상태머신 판정 흐름 자체는 멈추지 않는다.
- * 호출부({@link PostureInferenceConsumer}, {@link SessionExpiryScheduler})는
- * 예외를 잡아 로그만 남기고 계속 진행한다.
+ * <p>(D-18) 판정 경로(Kafka 컨슈머 스레드)는 이제 이 클래스를 직접 부르지 않는다.
+ * {@link CepWriteBuffer}가 모아 둔 쓰기를 별도 스레드에서 묶음(batch)으로 넘기며,
+ * 실패하면 예외를 그대로 던져 버퍼가 보관·재시도하게 한다.
  */
 @Repository
-public class CepJdbcRepository {
+public class CepJdbcRepository implements CepWriteTarget {
 
     private static final Logger log = LoggerFactory.getLogger(CepJdbcRepository.class);
 
+    /*
+     * (D-18) 세션별로 합친 샘플을 한 번에 쓴다. 이미 있는 행이면
+     * last_seen_at은 더 늦은 값으로, sample_count는 이번 묶음의 샘플 수만큼 더한다.
+     * (보관 후 재시도로 순서가 바뀌어도 last_seen_at이 거꾸로 가지 않게 GREATEST 사용)
+     */
     private static final String SESSION_UPSERT_SQL = """
             INSERT INTO sessions
                 (session_id, user_id, started_at, last_seen_at, sample_count, status)
-            VALUES (?, ?, ?, ?, 1, 'ACTIVE')
+            VALUES (?, ?, ?, ?, ?, 'ACTIVE')
             ON DUPLICATE KEY UPDATE
-                last_seen_at = VALUES(last_seen_at),
-                sample_count = sample_count + 1
+                last_seen_at = GREATEST(last_seen_at, VALUES(last_seen_at)),
+                sample_count = sample_count + VALUES(sample_count)
             """;
 
     private static final String COLLAPSE_EVENT_UPSERT_SQL = """
@@ -58,63 +63,47 @@ public class CepJdbcRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /**
-     * {@code posture.inference}에서 들어온 원본 이벤트(상태 전환 여부와
-     * 무관한 "매 샘플")를 받아 {@code sessions} 테이블을 upsert한다.
-     * D-12(sessions upsert)에서 이미 검증된 SQL을 그대로 옮긴 것이다.
-     */
-    public boolean recordSample(InferenceEvent event) {
-        if (event.sessionId() == null) {
-            return false;
+    @Override
+    public void upsertSessions(List<SessionTouch> touches) {
+        if (touches.isEmpty()) {
+            return;
         }
-        Instant capturedAt;
-        try {
-            capturedAt = Instant.parse(event.capturedAt());
-        } catch (Exception exc) {
-            log.warn("capturedAt을 파싱할 수 없어 세션 upsert를 건너뜀 (sessionId={}): {}",
-                    event.sessionId(), exc.getMessage());
-            return false;
+        List<Object[]> args = new ArrayList<>(touches.size());
+        for (SessionTouch t : touches) {
+            args.add(new Object[] {
+                    t.sessionId(), t.userId(),
+                    Timestamp.from(t.firstSeen()), Timestamp.from(t.lastSeen()), t.samples()});
         }
-        try {
-            jdbcTemplate.update(SESSION_UPSERT_SQL,
-                    event.sessionId(), event.userId(), Timestamp.from(capturedAt), Timestamp.from(capturedAt));
-            return true;
-        } catch (Exception exc) {
-            log.warn("세션 upsert 실패 (sessionId={}): {}", event.sessionId(), exc.getMessage());
-            return false;
-        }
+        jdbcTemplate.batchUpdate(SESSION_UPSERT_SQL, args);
     }
 
-    /**
-     * {@link PostureCepEngine}이 반환한 상태 전환 결과를
-     * {@code collapse_events} 테이블에 upsert한다.
-     */
-    public boolean recordEvent(CepOutcome outcome) {
-        try {
-            jdbcTemplate.update(COLLAPSE_EVENT_UPSERT_SQL,
-                    outcome.sessionId(),
-                    outcome.userId(),
-                    Timestamp.from(outcome.startedAt()),
-                    outcome.endedAt() != null ? Timestamp.from(outcome.endedAt()) : null,
-                    outcome.durationSeconds(),
-                    outcome.alertCount(),
-                    outcome.lastAlertAt() != null ? Timestamp.from(outcome.lastAlertAt()) : null,
-                    outcome.recovered() ? 1 : 0,
-                    outcome.ongoing() ? 1 : 0);
-            return true;
-        } catch (Exception exc) {
-            log.warn("붕괴 이벤트 DB 기록 실패 (sessionId={}, type={}): {}",
-                    outcome.sessionId(), outcome.type(), exc.getMessage());
-            return false;
+    @Override
+    public void upsertEvents(List<EventRow> rows) {
+        if (rows.isEmpty()) {
+            return;
         }
+        List<Object[]> args = new ArrayList<>(rows.size());
+        for (EventRow r : rows) {
+            args.add(new Object[] {
+                    r.sessionId(),
+                    r.userId(),
+                    Timestamp.from(r.startedAt()),
+                    r.endedAt() != null ? Timestamp.from(r.endedAt()) : null,
+                    r.durationSeconds(),
+                    r.alertCount(),
+                    r.lastAlertAt() != null ? Timestamp.from(r.lastAlertAt()) : null,
+                    r.recovered() ? 1 : 0,
+                    r.ongoing() ? 1 : 0});
+        }
+        jdbcTemplate.batchUpdate(COLLAPSE_EVENT_UPSERT_SQL, args);
     }
 
     /**
      * {@code last_seen_at}이 {@code timeoutSeconds}초 이상 갱신되지 않은
-     * ACTIVE 세션을 한 번에 ENDED로 마킹한다 (D-10).
+     * ACTIVE 세션을 한 번에 ENDED로 마킹한다 (D-10). 세션 만료 스케줄러 스레드에서만
+     * 부르며 판정 경로와는 무관하다.
      *
-     * @return 이번 호출로 ENDED로 바뀐 행 수. 실패 시 0을 반환하고
-     *         예외를 던지지 않는다.
+     * @return 이번 호출로 ENDED로 바뀐 행 수. 실패 시 0을 반환하고 예외를 던지지 않는다.
      */
     public int expireStaleSessions(int timeoutSeconds) {
         try {
