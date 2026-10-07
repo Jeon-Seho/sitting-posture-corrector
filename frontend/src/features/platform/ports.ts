@@ -31,7 +31,7 @@ export type KeypointFrame = {
 
 /**
  * The realtime WebSocket seam is implemented: features/session/realtime/client.ts against
- * contracts/realtime (draft, GP-0115). It sends input v2 deltas (ADR 0013), not keypoints, and the
+ * contracts/realtime (draft). It sends input v2 deltas (ADR 0013), not keypoints, and the
  * server session controller uses it when VITE_REALTIME_URL is set.
  */
 

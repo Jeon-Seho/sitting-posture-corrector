@@ -343,7 +343,7 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 3 &&
       snapshot.draft.server.view.summary.alert_count === 4,
   )
-  // Since 2026-10-06 (GP-0116) opening another tab keeps the measurement running.
+  // Since 2026-10-06 opening another tab keeps the measurement running.
   const restBeforeRecords = snapshot.draft.server.view.summary.rest_ms
   const validBeforeRecords = snapshot.draft.server.view.summary.valid_ms
   await app.click('기록')

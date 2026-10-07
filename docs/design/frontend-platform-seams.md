@@ -1,7 +1,5 @@
 # 프론트 ↔ 플랫폼 v4 연결 지점
 
-- 분야: 프론트
-- 작업: GP-0101
 기준 자료: 팀 공유 "자세 분석 플랫폼 아키텍처 v4"(2026-10-02, 초안). 그 문서의 fps·윈도우·T1/T2/T3 값은 회의 확정 전 초안이다.
 이 문서는 **아직 연결하지 않은** 백엔드 작업을 위해, 새 화면의 어느 부분이 어떤 API를 기다리는지 정리한다.
 현재 앱은 새 네트워크 호출을 하지 않는다(기존 개발 서버 판정·계정 모드는 그대로 유지, [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md)).
@@ -24,7 +22,7 @@
 | 로그인 | 로컬 프로필(localStorage) / 기존 계정 모드 | REST `:8080` gateway, JWT | `AuthPort` → `app/LocalServiceApp.tsx`의 `login` 자리 |
 | 기준 자세 등록(5초) | 브라우저 메모리(카메라 연결 동안만) | `POST /api/baselines` → MySQL `baselines`, `posture.baselines` 토픽 | `BaselinePort.save`: `SetupPage`의 등록 완료 시점 |
 | 자동 실행 후 바로 측정 | 미지원(기준 재확인 필요) | 저장된 기준 조회 | `BaselinePort.latest`: `useLaunchAutomation` |
-| 실시간 상태 알약·교정 카드 | 로컬 엔진(`useSession`) | WebSocket: 0.5초 묶음 전송 → `posture.inference` → realtime 상태머신 → 푸시 | 구현됨(GP-0115): `RealtimeClient`의 `onObservation`(실시간 상태)·`onProgress`(숫자)·`onDecision`(사건) → 서버 세션 컨트롤러 → `LiveView`. 계약은 `contracts/realtime/` |
+| 실시간 상태 알약·교정 카드 | 로컬 엔진(`useSession`) | WebSocket: 0.5초 묶음 전송 → `posture.inference` → realtime 상태머신 → 푸시 | 구현됨: `RealtimeClient`의 `onObservation`(실시간 상태)·`onProgress`(숫자)·`onDecision`(사건) → 서버 세션 컨트롤러 → `LiveView`. 계약은 `contracts/realtime/` |
 | 알림 토스트·소리 | 로컬 엔진 `alertTick` | 서버 상태머신의 알림 푸시(T3 재알림) | 구현됨: 확정·재알림 `decision`을 기존 알림 경로(`onNotifications`)로 한 번만 전달 |
 | "분석이 잠시 멈췄어요" | 해당 없음 | GPU PC 5초 무응답 | 구현됨: `onStalled` → 화면 메시지 "분석이 잠시 멈췄어요", 다음 관측·진행에서 해제 |
 | 결과 화면 | 로컬 엔진 합계 | `posture.episodes` → report-service 저장 | 종료 시 서버 요약 조회 |

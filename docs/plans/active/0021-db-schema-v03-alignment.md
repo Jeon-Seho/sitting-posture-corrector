@@ -1,9 +1,7 @@
 # 서비스 DB를 스키마 V0.3(현 V1.1) 기준으로 전환
 
-- 분야: 백엔드
-- 작업: GP-0068
 - 상태: in_progress (구현·실제 MySQL 검증 완료, 팀 리뷰·PR 대기)
-- 담당: 동욱 요청, klaod-tech_CL 분석, 우진 요청·Lellon_CL 구현(2026-10-06, 브랜치 `jin_db_v11`)
+- 담당: 동욱 요청, Claude 분석, 우진 요청·Claude 구현(2026-10-06, 브랜치 `jin_db_v11`)
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [database 안내](../../../database/README.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
   [ADR 0014](../../decisions/0014-mysql-persistence-and-accounts.md), [계정 계약](../../../contracts/accounts.v1.md)
@@ -82,7 +80,7 @@
 ## 작업 단계
 
 - [x] `jin_app` + `develop` 병합, 스키마 대응표 작성
-- [x] 사용자 방향 결정, DB 건의안 0001 작성(GP-0067)
+- [x] 사용자 방향 결정, DB 건의안 0001 작성
 - [x] DB 담당 건의안 검토·승인(V1.1), 남은 질문 6 → ADR 0018
 - [x] ADR 0013 개정(영구 모드 세션 생성의 기준 요약) → ADR 0018
 - [x] Flyway 제거, Compose `infra/mysql/initdb`, API 시작 시 스키마 검증, DB 이름 `posture_service`

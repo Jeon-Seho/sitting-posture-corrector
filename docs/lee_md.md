@@ -1,7 +1,5 @@
 # lee 브랜치 변경 사항 정리
 
-- 분야: 프론트
-- 작업: GP-0042
 
 브랜치별 변경 기록이다. 최신 브랜치를 위에 둔다. `lee_dev4`는 2026-10-05에 삭제했으며 내용은 `lee_app1`에 모두 들어 있다.
 
@@ -16,10 +14,10 @@
 
 | 내용 | 위치 | 비고 |
 | --- | --- | --- |
-| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 앱 바탕화면 바로가기. GP-0066 |
-| DB 건의안 | `database/proposals/0001-v03-supplement.md` | V0.3 보완 마이그레이션 11개. 담당자에게는 디스코드로 전달. GP-0067 |
-| DB 전환 계획 | `docs/plans/active/0021-db-schema-v03-alignment.md` | V1 → V0.3, 건의안 승인 대기. GP-0068 |
-| Kafka 계획 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 프론트가 WebSocket 게이트웨이까지 담당. GP-0069 |
+| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 앱 바탕화면 바로가기. |
+| DB 건의안 | `database/proposals/0001-v03-supplement.md` | V0.3 보완 마이그레이션 11개. 담당자에게는 디스코드로 전달. |
+| DB 전환 계획 | `docs/plans/active/0021-db-schema-v03-alignment.md` | V1 → V0.3, 건의안 승인 대기. |
+| Kafka 계획 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 프론트가 WebSocket 게이트웨이까지 담당. |
 
 ### 2. 충돌을 어떻게 정리했나
 

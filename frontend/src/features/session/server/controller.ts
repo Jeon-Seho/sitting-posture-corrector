@@ -52,7 +52,7 @@ type Options = {
   onNotifications?: (events: DecisionEvent[]) => void
   onChange?: (state: ServerScreenState) => void
   /**
-   * Plan 0022 realtime transport (development only, GP-0115). Session create/end/restore stay on HTTP;
+   * Plan 0022 realtime transport (development only). Session create/end/restore stay on HTTP;
    * live intervals go over WebSocket and results arrive as observation/progress/decision pushes.
    */
   realtime?: { url: string; createSocket?: (url: string) => SocketLike }
