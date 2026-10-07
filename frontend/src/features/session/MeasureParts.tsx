@@ -49,14 +49,14 @@ export function ScoreCard({ view, warningScore }: { view: LiveView; warningScore
       </Ring>
       <div>
         <div className="score-title">
-          {view.score === null
+          {view.score!==null&&(view.status==='unmeasurable'||view.status==='paused')?'점수 유지 · 판단 보류':view.score === null
             ? copy.title
             : view.score <= warningScore
               ? '기준과 달라요'
               : '기준과 비슷해요'}
         </div>
         <p className="score-desc">
-          100에 가까울수록 처음 등록한 자세와 비슷해요. 의학적 점수는 아니에요.
+          {view.notice?.includes('상체 제외')?'얼굴만 보일 때는 등록한 머리 각도를 비교해요. 몸 전체 자세나 거북목 판정은 아니에요.':'100에 가까울수록 처음 등록한 자세와 비슷해요. 의학적 점수는 아니에요.'}
         </p>
       </div>
     </section>
@@ -70,11 +70,12 @@ export function SessionSummaryCard({ view, title = '이번 측정' }: { view: Li
         {title}
       </h3>
       <div className="kv">
-        바른 자세 유지<b>{formatPercent(view.keepRate, 0)}</b>
+        {view.evaluationCounts?'관측 기준 유지':'바른 자세 유지'}<b>{formatPercent(view.keepRate, 0)}</b>
       </div>
       <div className="kv">
         측정한 시간<b>{formatDuration(view.validSeconds)}</b>
       </div>
+      {view.evaluationCounts&&<><div className="kv">머리 각도 평가<b>{formatDuration(view.evaluationCounts.head.valid)}</b></div><div className="kv">얼굴·어깨 함께 평가<b>{formatDuration(view.evaluationCounts.upper_body.valid)}</b></div><p className="fine">머리만 평가한 시간은 상체 자세 평가에 포함하지 않아요.</p></>}
       <div className="kv">
         알림<b>{view.alerts}회</b>
       </div>

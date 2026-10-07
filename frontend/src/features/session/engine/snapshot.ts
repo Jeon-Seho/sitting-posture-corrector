@@ -30,6 +30,7 @@ export function snapshot(m: Machine, s: Sample, rules: Rules): LiveState {
     collapseSeconds: m.collapse,
     events: m.events,
     alertTick: m.alertTick,
+    ...(m.evaluationCounts?{evaluationCounts:structuredClone(m.evaluationCounts)}:{}),
   }
 }
 

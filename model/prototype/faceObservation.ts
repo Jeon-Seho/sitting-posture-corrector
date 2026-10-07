@@ -4,11 +4,14 @@ export function faceObservation(timeMs:number,face:Point[][],matrices:number[][]
   if(face.length!==1||matrices.length!==1||width<=0||height<=0||!Number.isFinite(timeMs)) return null
   const landmarks=face[0], top=landmarks[10], chin=landmarks[152]
   const inside=(p:Point|undefined):p is Point=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>.01&&p.x<.99&&p.y>.01&&p.y<.99
-  if(![top,chin,landmarks[33],landmarks[263]].every(inside)) return null
+  // Detector-confirmed facial rotation can survive a cropped forehead/chin or
+  // one outer eye. Require two visible central anchors, never a fully absent face.
+  const finite=(p:Point|undefined):p is Point=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=-.5&&p.x<=1.5&&p.y>=-.5&&p.y<=1.5
+  if(![top,chin,landmarks[1],landmarks[33],landmarks[263]].every(finite)||[landmarks[1],landmarks[33],landmarks[263]].filter(inside).length<2) return null
   const rotation=rotationFromMatrix(matrices[0]); if(!rotation) return null
   const center=[(top.x+chin.x)*width/2,(top.y+chin.y)*height/2]
   const size=Math.hypot((top.x-chin.x)*width,(top.y-chin.y)*height)
-  if(size<55||size>height*.9) return null
+  if(size<55||size>height*1.5) return null
   const points=pose.length===1?pose[0]:[]
   // Web NormalizedLandmark exposes visibility, not per-landmark presence.
   // Task-wide minPosePresenceConfidence is configured in the detector instead.

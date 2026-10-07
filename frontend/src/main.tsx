@@ -10,6 +10,12 @@ import { TitleBar } from './features/desktop/TitleBar'
 import './styles.css'
 
 async function start() {
+  if(import.meta.env.MODE==='posegood-face'){
+    const {default:FaceServiceApp}=await import('./app/FaceServiceApp')
+    markDesktopShell()
+    createRoot(document.getElementById('root')!).render(<StrictMode><TitleBar/><FaceServiceApp/></StrictMode>)
+    return
+  }
   if (import.meta.env.MODE === 'face-lab') {
     const { default: FaceLabApp } = await import('./features/face-lab/FaceLabApp')
     createRoot(document.getElementById('root')!).render(<StrictMode><FaceLabApp /></StrictMode>)

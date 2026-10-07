@@ -31,6 +31,7 @@ export function RecordHistoryItem({ record }: { record: RecordItem }) {
           <strong>{date}</strong>
           <span title={RECORD_SOURCE_LABEL[recordSource(record)]}>
             {formatDuration(record.valid)} 측정 · 알림 {alerts}회
+            {record.evaluationCounts&&' · 머리/상체 범위 구분'}
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
         </div>

@@ -38,17 +38,17 @@ export function SetupPage({
   const title = ['카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '편하게 앉아볼까요?', '준비가 끝났어요'][step]
   const desc = [
     '평소 바르게 앉은 모습을 기억해 두고, 그 자세에서 멀어질 때만 알려드려요.',
-    '얼굴과 양쪽 어깨가 보이면 자동으로 기준 등록을 시작해요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
+    camera.face?'얼굴이 보이면 기준 등록을 시작해요. 어깨가 보이지 않으면 몸 자세 평가는 보류하고 점수를 유지해요.':'얼굴과 양쪽 어깨가 보이면 자동으로 기준 등록을 시작해요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
     `평소 편한 자세를 ${CALIBRATION_SECONDS}초 동안 기억해 두고 바로 측정을 시작해요. 영상은 저장하거나 보내지 않아요.`,
     '이제 측정을 시작하면 자세가 흐트러질 때 알려드려요.',
   ][step]
   const pill = !on
     ? null
     : !camera.quality
-      ? { tone: 'unknown', text: '얼굴과 양쪽 어깨를 찾고 있어요' }
+      ? { tone: 'unknown', text: camera.face?'얼굴을 찾고 있어요':'얼굴과 양쪽 어깨를 찾고 있어요' }
       : camera.baseline && !calibrating
         ? { tone: 'good', text: '기준 자세를 기억했어요' }
-        : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
+        : { tone: 'good', text: camera.face?'얼굴이 잘 보여요':'얼굴과 양쪽 어깨가 잘 보여요' }
   const left = Math.max(1, Math.ceil(CALIBRATION_SECONDS * (1 - (camera.progress ?? 0))))
 
   return (
@@ -123,7 +123,7 @@ export function SetupPage({
                   </Ring>
                   <div>
                     <div className="nudge-title">
-                      {camera.quality ? '그대로 편하게 있어 주세요' : '어깨가 보이면 다시 시작해요'}
+                      {camera.quality ? '그대로 편하게 있어 주세요' : camera.face?'얼굴이 보이면 다시 시작해요':'어깨가 보이면 다시 시작해요'}
                     </div>
                     <div className="nudge-desc">
                       {camera.baseline
@@ -152,7 +152,7 @@ export function SetupPage({
             <ol className="steps" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {[
                 ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
-                ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
+                [camera.face?'얼굴 확인':'얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
                 ['기준 자세 기억하기', `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 측정이 시작돼요`],
               ].map(([name, hint], i) => (
                 <li className="step" key={name}>
@@ -177,7 +177,7 @@ export function SetupPage({
                 <span className="tip-icon">
                   <User size={20} weight="bold" />
                 </span>
-                화면 가운데에 앉아 점선 안에 머리를 맞춰요
+                {camera.face?'얼굴이 화면에 보이도록 편하게 앉아 주세요':'화면 가운데에 앉아 점선 안에 머리를 맞춰요'}
               </div>
               <div className="tip">
                 <span className="tip-icon">
@@ -217,7 +217,7 @@ export function SetupPage({
                   확인된 측정 요약과 사건을 내 계정에 보관합니다. 영상과 관절 좌표는 전송하지 않습니다.
                 </p>
               ) : (
-                onServerMode && (
+                onServerMode && !camera.face && (
                   <>
                     <label className="row">
                       <input
@@ -240,7 +240,7 @@ export function SetupPage({
                 <button
                   className="btn btn-sm"
                   disabled={!camera.baseline || !on || calibrating}
-                  onClick={onCollect}
+                  onClick={camera.face?()=>{location.hash='collection'}:onCollect}
                 >
                   자세 데이터 수집으로 이동
                 </button>

@@ -3,6 +3,8 @@ const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
+const APP_VERSION = require('../package.json').version
+if(process.platform==='win32')app.setAppUserModelId('com.posegood.desktop')
 
 // 일체형 제목 표시줄: OS 기본 틀 대신 앱 화면을 창 끝까지 그리고, 창 버튼만 위에 겹친다.
 // 높이와 색은 frontend/src/styles/base.css의 --titlebar-h, --bg와 맞춘다.
@@ -200,7 +202,7 @@ async function createWindow() {
     show: !process.argv.includes('--posegood-smoke-hidden'),
     // 최소 크기 아래로는 카메라·오른쪽 패널·머리 영역이 함께 들어가지 않는다(docs/design/desktop-app.md).
     width: 1360, height: 860, minWidth: MIN_WIDTH, minHeight: MIN_HEIGHT,
-    title: 'PoseGood',
+    title: `PoseGood ${APP_VERSION}`,
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'branding',
       process.platform === 'win32' ? 'posegood-icon.ico' : 'posegood-icon.png'),
     backgroundColor: '#fbf5ee',
@@ -209,9 +211,11 @@ async function createWindow() {
     webPreferences: {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      backgroundThrottling: false,
     },
   })
   mainWindow = window
+  window.on('page-title-updated',event=>{event.preventDefault();window.setTitle(`PoseGood ${APP_VERSION}`)})
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', () => hidePopup(false))
   window.on('closed', () => {

@@ -339,3 +339,5 @@ frontend/dist-face/
 frontend/release-face/
 face-motion-*.json
 frontend/public/face-detector.js
+frontend/public/face-build.json
+frontend/release-portable/

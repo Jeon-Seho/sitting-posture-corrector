@@ -6,6 +6,10 @@ export function cameraSample(camera: CameraController): Sample {
   const base = sampleAt(0)
   const current = camera.current.current
   const age = performance.now() - camera.lastFrame.current
+  if(camera.face){
+    if(camera.state==='on'&&camera.baseline&&Number.isFinite(age)&&age>=0&&age<=800)return camera.face.sample()
+    return {...base,state:'unknown',collapse:null,confidence:0,prob:0,notice:camera.error||'얼굴 추적 확인 중 · 점수 유지'}
+  }
   if (
     camera.state !== 'on' ||
     !camera.baseline ||

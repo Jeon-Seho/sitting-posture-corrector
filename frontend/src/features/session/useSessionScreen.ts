@@ -33,6 +33,8 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '',
   )
   const isCamera = mode === 'camera'
+  useEffect(()=>{if(isCamera)camera.face?.setPolicy(phase,rules.holdSeconds*1000)},[isCamera,phase,rules.holdSeconds])
+  useEffect(()=>()=>{camera.face?.setPolicy('inactive',rules.holdSeconds*1000)},[])
   const { live, reset, seekNext } = useSession(
     phase,
     speed,
@@ -45,6 +47,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           checkpoint: service.onCheckpoint,
           ended: service.onEnded,
           interrupted: () => {
+            if (camera.face) return // Exclude the scheduling gap; resume on fresh face input.
             setPauseReason('관측 입력이 중단됐습니다. 준비 후 직접 재개해 주세요.')
             setPhase('paused')
           },
@@ -61,7 +64,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   useEffect(() => {
     // In the app, measurement keeps running while another tab (e.g. records) is open;
     // the camera stays app-level and lost input still pauses via the check below.
-    if (service) return
+    if (service || camera.face) return
     const hidden = () => {
       if (document.hidden) setPhase((p) => (p === 'running' ? 'paused' : p))
     }
@@ -71,7 +74,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   useEffect(() => {
     if (!service || !isCamera || phase !== 'running') return
     const timer = setInterval(() => {
-      if (camera.state !== 'on' || performance.now() - camera.lastFrame.current > 1500) {
+      if (camera.state !== 'on' || (!camera.face && performance.now() - camera.lastFrame.current > 1500)) {
         setPauseReason('카메라 입력이 끊겼습니다. 카메라 준비를 확인하고 직접 재개해 주세요.')
         setPhase('paused')
       }
@@ -109,7 +112,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
 
   const keepRate = ratio(live.goodSeconds, live.validSeconds)
   const perHour = live.validSeconds > 0 ? live.events.length / (live.validSeconds / 3600) : null
-  const displayScore = postureScore(
+  const displayScore = isCamera&&camera.face?camera.face.score():postureScore(
     live.state === 'unknown' || phase === 'paused' ? null : live.collapseProb,
   )
   const warningScore = postureScore(rules.threshold)!

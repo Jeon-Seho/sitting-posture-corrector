@@ -23,6 +23,7 @@ type Props = {
   onPrepare: () => void
   onDashboard: () => void
   onReset: () => void
+  modelVersion?:string
 }
 
 export function SessionResult({
@@ -39,6 +40,7 @@ export function SessionResult({
   onPrepare,
   onDashboard,
   onReset,
+  modelVersion,
 }: Props) {
   const alerts = live.events.reduce((a, e) => a + e.alerts, 0)
   const recovery = mean(recoveries)
@@ -46,11 +48,11 @@ export function SessionResult({
     <>
       <section className="result" aria-labelledby="result-title">
         <div className="result-head">
-          <Ring value={keepRate} label="바른 자세 비율">
+          <Ring value={keepRate} label={live.evaluationCounts?'관측 기준 유지율':'바른 자세 비율'}>
             <span className="ring-value" style={{ fontSize: 34 }}>
               {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
             </span>
-            <span className="ring-label">바른 자세</span>
+            <span className="ring-label">{live.evaluationCounts?'관측 기준 유지':'바른 자세'}</span>
           </Ring>
           <div>
             <div className="result-eyebrow">측정을 마쳤어요</div>
@@ -59,13 +61,14 @@ export function SessionResult({
                 <>
                   {formatDuration(live.validSeconds)} 중 {objectParticle(formatDuration(live.goodSeconds))}
                   <br />
-                  바르게 앉아 있었어요
+                  {live.evaluationCounts?'관측한 각도·자세가 기준 범위에 있었어요':'바르게 앉아 있었어요'}
                 </>
               ) : (
                 '확인된 측정 시간이 없어요'
               )}
             </h1>
             {service && <p className="fine" style={{ marginTop: 8 }}>{service.saveMessage}</p>}
+            {live.evaluationCounts&&<p className="fine">머리 각도만 {formatDuration(live.evaluationCounts.head.valid)} · 얼굴·어깨 함께 {formatDuration(live.evaluationCounts.upper_body.valid)}. 머리만 평가한 결과는 몸 전체 자세 평가가 아니에요.</p>}
           </div>
         </div>
         <div className="result-tiles">
@@ -140,8 +143,8 @@ export function SessionResult({
             <Stat label="쉰 시간 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
             <Stat
               label="판정 방식"
-              value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION}
-              sub={isCamera ? '개인 기준 비교' : '합성 시연 데이터'}
+              value={modelVersion??(isCamera ? 'reference-rules-v0.1' : MODEL_VERSION)}
+              sub={live.evaluationCounts?'시간 CNN + 머리 각도 참고 정책':isCamera ? '개인 기준 비교' : '합성 시연 데이터'}
               small
             />
           </Ledger>

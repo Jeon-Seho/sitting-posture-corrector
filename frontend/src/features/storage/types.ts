@@ -1,4 +1,5 @@
 import type { LiveState, Machine, Rules } from '../../lib/engine'
+import type { EvaluationCounts } from '../session/engine/types'
 import type { ServerCheckpoint, SessionView } from '../session/server/contracts'
 
 export type Profile = { name: string; age: number; occupation: string }
@@ -13,6 +14,7 @@ export type RecordItem = {
   total: number
   events: LiveState['events']
   rules?: Rules
+  evaluationCounts?: EvaluationCounts
   server?: {
     baselineId: string
     modelVersion: string

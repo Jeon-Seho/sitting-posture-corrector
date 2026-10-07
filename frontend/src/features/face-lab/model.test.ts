@@ -73,6 +73,17 @@ describe('face motion observability and temporal policy',()=>{
     expect(faceObservation(0,[f,f],[m,m],[p],640,480)).toBeNull()
   })
   it('rejects malformed weights',()=>expect(()=>validateFaceModel({})).toThrow())
+  it('accepts a detector-confirmed cropped forehead/chin with visible central anchors, but rejects absent faces',()=>{
+    const f=Array.from({length:478},()=>({x:.5,y:.4}));f[10]={x:.5,y:-.1};f[152]={x:.5,y:.95}
+    f[33]={x:.4,y:.35};f[263]={x:.6,y:.35}
+    const m=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]
+    expect(faceObservation(0,[f],[m],[],640,480)?.size).toBeCloseTo(504)
+    f[33]={x:-.1,y:.35};expect(faceObservation(0,[f],[m],[],640,480)).not.toBeNull()
+    f[263]={x:1.1,y:.35};expect(faceObservation(0,[f],[m],[],640,480)).toBeNull()
+    expect(faceObservation(0,[],[],[],640,480)).toBeNull()
+    f[33]={x:.4,y:.35};f[263]={x:.6,y:.35};m[0]=NaN
+    expect(faceObservation(0,[f],[m],[],640,480)).toBeNull()
+  })
   it('accepts observed shoulders from the Web API which exposes visibility without presence',()=>{
     const f=Array.from({length:478},()=>({x:.5,y:.4}));f[10]={x:.5,y:.2};f[152]={x:.5,y:.5};f[33]={x:.4,y:.35};f[263]={x:.6,y:.35}
     const m=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]

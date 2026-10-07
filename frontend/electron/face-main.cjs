@@ -2,6 +2,7 @@
 const { app, BrowserWindow, protocol, net } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
+const version = require('../package.json').version
 app.setName('PoseGood Face Lab')
 const smokeProfile = process.argv.find(v => v.startsWith('--lab-profile='))?.slice('--lab-profile='.length)
 const smokeHidden = process.argv.includes('--lab-smoke-hidden')
@@ -15,7 +16,9 @@ app.whenReady().then(async () => {
     if (url.hostname !== 'posegood' || !file.startsWith(root + path.sep)) return new Response('Not found', { status: 404 })
     return net.fetch(pathToFileURL(file).href)
   })
-  const window = new BrowserWindow({ show: !smokeHidden, width: 1280, height: 900, minWidth: 900, minHeight: 700, title: 'PoseGood · 얼굴 동작 실험 0.2.0', backgroundColor: '#fbf5ee', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } })
+  const title = `PoseGood · 얼굴 동작 실험 ${version}`
+  const window = new BrowserWindow({ show: !smokeHidden, width: 1280, height: 900, minWidth: 900, minHeight: 700, title, backgroundColor: '#fbf5ee', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false } })
+  window.on('page-title-updated', event => { event.preventDefault(); window.setTitle(title) })
   window.setMenuBarVisibility(false)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => { if (!url.startsWith('lab://posegood/') && !url.startsWith('http://127.0.0.1:5186/')) event.preventDefault() })

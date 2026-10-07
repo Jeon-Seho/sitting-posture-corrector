@@ -37,6 +37,7 @@ export function SessionPage(props: Props) {
         onPrepare={onPrepare}
         onDashboard={onDashboard}
         onReset={screen.restartDemo}
+        modelVersion={screen.isCamera&&props.camera.face?`face-v${props.camera.face.buildVersion}`:undefined}
       />
     )
   }

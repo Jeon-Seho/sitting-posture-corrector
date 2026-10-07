@@ -52,6 +52,7 @@ export function LocalHistory({
   const hasDemo = records.some((r) => r.mode === 'demo')
   const selected = historyFor(records, mode, period, now)
   const stats = summary(selected)
+  const scoped=selected.some(r=>r.evaluationCounts)
   const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
   const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
   const kinds = kindShares(selected)
@@ -97,10 +98,11 @@ export function LocalHistory({
       )}
 
       <div className="view">
+        {scoped&&<p className="fine">관측 기준 유지율에는 머리 각도만 평가한 시간이 포함돼요. 몸 전체 자세 유지율이 아닙니다. 각 기록의 상세에서 머리·상체 평가 시간을 구분해 볼 수 있어요.</p>}
         <div className="view-main">
           <div className="records-stats">
             <section className="card" data-stat="rate">
-              <div className="stat-label">평균 바른 자세</div>
+              <div className="stat-label">{scoped?'평균 관측 기준 유지':'평균 바른 자세'}</div>
               <div className="records-stat-value">
                 <span className="num">{stats.rate === null ? '—' : Math.round(stats.rate * 100)}</span>
                 <small>{stats.rate === null ? '' : '%'}</small>
@@ -132,7 +134,7 @@ export function LocalHistory({
 
           <section className="card records-chart" aria-label="날짜별 바른 자세 비율">
             <h3 className="card-title" style={{ marginBottom: 14 }}>
-              날짜별 바른 자세 비율
+              {scoped?'날짜별 관측 기준 유지율':'날짜별 바른 자세 비율'}
             </h3>
             <div className="bars" style={{ gap: days.length > 7 ? 4 : 12 }}>
               {days.map((d) => (

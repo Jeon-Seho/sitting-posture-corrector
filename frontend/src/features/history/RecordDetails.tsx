@@ -47,6 +47,7 @@ export function RecordDetails({
         />
         <Fact label="집계된 전체 시간" value={duration(record.total)} />
         <Fact label="유효 측정 시간" value={duration(record.valid)} />
+        {record.evaluationCounts&&<><Fact label="머리 각도만 평가 (상체 제외)" value={duration(record.evaluationCounts.head.valid)}/><Fact label="얼굴·어깨 함께 평가" value={duration(record.evaluationCounts.upper_body.valid)}/></>}
         <Fact label="기준 자세 유지 시간" value={duration(record.good)} />
         <Fact
           label="기준 대비 이탈 시간"

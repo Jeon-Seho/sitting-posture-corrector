@@ -86,6 +86,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       setError('진행 중인 측정을 종료한 뒤 자세 등록으로 이동해 주세요.')
       return
     }
+    if(camera.face){location.hash='collection';return}
     go('collection')
   }
 
@@ -172,6 +173,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
           <>
             <a className="btn btn-quiet btn-sm collection-entry-link" href="#collection" onClick={(event) => {
               event.preventDefault()
+              if(camera.face){window.location.hash='collection';return}
               window.history?.replaceState(null, '', '#collection')
               setCollectionEntry(true)
             }}>프로필 없이 자세 데이터 수집</a>

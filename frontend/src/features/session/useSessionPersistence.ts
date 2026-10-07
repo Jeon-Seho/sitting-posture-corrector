@@ -223,6 +223,7 @@ export function useSessionPersistence({
     live: Pick<LiveState, 'validSeconds' | 'goodSeconds' | 'totalSeconds' | 'events'> & {
       modelVersion?: string | null
       view?: SessionView | null
+      evaluationCounts?: LiveState['evaluationCounts']
     },
     serverConfirmed = true,
   ) {
@@ -238,6 +239,7 @@ export function useSessionPersistence({
       good: live.goodSeconds,
       total: live.totalSeconds,
       events: session.server ? serverRecordEvents(live.view ?? null, serverConfirmed) : live.events,
+      ...(live.evaluationCounts?{evaluationCounts:structuredClone(live.evaluationCounts)}:{}),
       ...(session.server
         ? {
             server: {

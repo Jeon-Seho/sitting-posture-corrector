@@ -51,11 +51,13 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
     togglePause,
   } = screen
   const view = fromLocalLive(live, phase === 'paused')
+  if(isCamera&&camera.face){view.score=camera.face.score();view.notice=camera.face.notice}
   const runs = useStatusTimeline(view)
   const copy = statusCopy(view)
   const cannotResume =
     phase === 'paused' && isCamera && (!camera.baseline || camera.state !== 'on' || !camera.quality)
   const needsPrepare = phase === 'paused' && isCamera && (!camera.baseline || camera.state !== 'on')
+  const diagnostics=isCamera?camera.face?.diagnostics?.():undefined
   return (
     <>
       <div className="page-head">
@@ -93,6 +95,8 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
         </div>
       </div>
 
+      {isCamera&&camera.face&&<p className="fine" role="status">POSEGOOD v{camera.face.buildVersion} · 얼굴 모델 적용 · {camera.face.notice} · 스트레칭 후보 보너스 +{camera.face.bonus()}</p>}
+      {diagnostics&&<details className="fine"><summary>얼굴 분석 상태 확인</summary><p>추적 {camera.metrics.fps.toFixed(1)}회/초 · 처리 {Math.round(camera.metrics.inferenceMs)}ms · 입력 {diagnostics.frames}/40 · 모델 실행 {diagnostics.inferences}회</p><p>최근 모델 분류: 자세 {diagnostics.posture} · 움직임 {diagnostics.activity}</p><p>평가 범위: {diagnostics.scope==='head'?'머리 각도만 (상체 제외)':diagnostics.scope==='upper_body'?'얼굴·어깨 함께':'판정 보류'}. 얼굴만 보이면 머리 각도를 참고 평가합니다. 모델의 몸 자세 분류를 얼굴만으로 확정하지 않아요.</p></details>}
       <div className="measure">
         <div className={`stage ${view.status === 'bad' && alertsOn ? 'is-alert' : ''}`}>
           {isCamera ? (

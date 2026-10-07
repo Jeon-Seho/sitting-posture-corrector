@@ -38,9 +38,26 @@ try {
   await page.waitForTimeout(6000);
   const after=await page.locator('.face-status').innerText();
   assert.equal(await page.locator('.face-score').innerText(),beforeScore,'Position shift must not deduct score');
+  await page.locator('.face-card > summary').filter({hasText:'오판 자료'}).click();
+  await page.getByRole('textbox',{name:'참여자 코드'}).fill('synthetic_smoke');
+  await page.getByLabel('최근 동작의 라벨을 확인했어요').check();
+  await page.getByRole('button',{name:'자료 남기기',exact:true}).click();
+  await page.getByRole('button',{name:'JSON 내려받기',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'JSON 내려받기',exact:true}).isEnabled(),true);
+  const downloaded=page.waitForEvent('download');
+  await page.getByRole('button',{name:'JSON 내려받기',exact:true}).click();
+  const capture=JSON.parse(await readFile(await (await downloaded).path(),'utf8'));
+  const expectedBuild=JSON.parse(await readFile('frontend/public/face-build.json','utf8'));
+  assert.deepEqual(capture.build,expectedBuild);
+  assert.equal(capture.windows.length,1);assert.equal(capture.evaluation.windows,1);
+  assert.equal(capture.windows[0].sequence.length,40);assert.equal(capture.windows[0].reviewed,true);
+  assert.equal(capture.windows[0].prediction.postureProbabilities.length,4);
+  assert.equal(capture.windows[0].prediction.activityProbabilities.length,5);
+  assert.equal(capture.windows[0].decision.score,100);
+  // This automated fixture only verifies export mechanics; never use it as human data.
   await page.screenshot({path:'artifacts/face-lab/browser-preview.png',fullPage:true});
   assert.deepEqual(errors,[]);assert.equal(await page.locator('[role=alert]').count(),0);
-  const summary={public_fixture:true,not_human_accuracy:true,faceObserved:true,positionShiftScorePreserved:true,before,after,errors};
+  const summary={public_fixture:true,not_human_accuracy:true,faceObserved:true,positionShiftScorePreserved:true,versionAndEvaluationExportVerified:true,build:expectedBuild,before,after,errors};
   await mkdir('artifacts/face-lab',{recursive:true});await writeFile('artifacts/face-lab/browser-smoke.json',JSON.stringify(summary,null,2));
   console.log(JSON.stringify(summary,null,2));
 } catch(e) {console.log(await page?.locator('body').innerText());throw e} finally {await browser.close();await server.close()}

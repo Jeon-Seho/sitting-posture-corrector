@@ -57,6 +57,7 @@ function validEvent(v: unknown, total: number): v is CollapseEvent {
     !nonnegative(v.durationSec) ||
     !integer(v.alerts) ||
     !integer(v.blockId) ||
+    !(v.evaluationScope===undefined||v.evaluationScope==='head'||v.evaluationScope==='upper_body') ||
     typeof v.recovered !== 'boolean' ||
     typeof v.endedBySession !== 'boolean' ||
     ![null, 'paused', 'unknown', 'ended'].includes(v.endReason as null) ||
@@ -129,6 +130,8 @@ export function validMachine(v: unknown): v is Machine {
     unknown = v.unknown as number
   if (
     paused + unknown > total + 1e-5 ||
+    !validEvaluationCounts(v.evaluationCounts,total-paused-unknown,v.good as number) ||
+    !(v.evaluationScope===undefined||v.evaluationScope==='head'||v.evaluationScope==='upper_body') ||
     !near((v.good as number) + (v.collapse as number), Math.max(0, total - paused - unknown)) ||
     (v.lastAlertAt as number) > total + 1e-5 ||
     v.events.some((e) => e.id >= (v.nextId as number) || e.blockId > (v.blockId as number)) ||
@@ -157,6 +160,7 @@ export function validRecord(v: unknown): v is RecordItem {
     nonnegative(v.good) &&
     v.good <= v.valid + 1e-5 &&
     v.valid <= v.total + 1e-5 &&
+    validEvaluationCounts(v.evaluationCounts,v.valid,v.good) &&
     validEvents(v.events, v.total) &&
     v.events.every(
       (e) => e.validStartAt === undefined || e.validStartAt <= (v.valid as number) + 1e-5,
@@ -165,6 +169,16 @@ export function validRecord(v: unknown): v is RecordItem {
     (v.rules === undefined || validRules(v.rules)) &&
     (v.server === undefined || validServerRecord(v))
   )
+}
+function validEvaluationCounts(v:unknown,valid:number,good:number):boolean {
+  if(v===undefined)return true
+  if(!object(v)||Object.keys(v).sort().join(',')!=='head,upper_body')return false
+  for(const key of ['head','upper_body']){
+    const c=v[key]
+    if(!object(c)||!nonnegative(c.valid)||!nonnegative(c.good)||c.good>c.valid+1e-5)return false
+  }
+  const head=v.head as {valid:number;good:number},body=v.upper_body as {valid:number;good:number}
+  return head.valid+body.valid<=valid+1e-5&&head.good+body.good<=good+1e-5
 }
 function validServerRecord(v: Record<string, unknown>): boolean {
   const server = v.server

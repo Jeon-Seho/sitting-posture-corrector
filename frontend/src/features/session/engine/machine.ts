@@ -67,6 +67,13 @@ export function step(
     m.unknown += dt
     return s
   }
+  if(s.evaluationScope){
+    if(m.evaluationScope&&m.evaluationScope!==s.evaluationScope)interrupt(m,'unknown')
+    m.evaluationScope=s.evaluationScope
+    m.evaluationCounts??={head:{valid:0,good:0},upper_body:{valid:0,good:0}}
+    m.evaluationCounts[s.evaluationScope].valid+=dt
+    if(s.state==='good')m.evaluationCounts[s.evaluationScope].good+=dt
+  }
   m.total += dt
   m.interrupted = false
   if (s.state === 'good') m.good += dt
@@ -94,6 +101,7 @@ export function step(
         endedBySession: false,
         endReason: null,
         blockId: m.blockId,
+        ...(s.evaluationScope?{evaluationScope:s.evaluationScope}:{}),
       }
       m.active = ev
       m.events = [ev, ...m.events]

@@ -11,5 +11,7 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 ".venv\Scripts\python.exe" model\analysis\train_face_motion.py %*
 if errorlevel 1 exit /b 1
-call npm --prefix frontend run face:pack
+call npm --prefix frontend version patch --no-git-tag-version
+if errorlevel 1 exit /b 1
+call npm --prefix frontend run test:pack
 pause

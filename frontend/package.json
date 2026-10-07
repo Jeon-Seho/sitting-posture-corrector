@@ -1,7 +1,7 @@
 {
   "name": "posegood-frontend",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "desktop:dev": "electron electron/main.cjs",
@@ -10,7 +10,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check": "npm run test && npm run build && npm run lab:build && npm run face:build",
+    "check": "npm run test && npm run build && npm run lab:build && npm run face:build && npm run posegood:build",
     "lab:dev": "vite --mode relative-lab --host 127.0.0.1 --port 5185",
     "lab:desktop": "node electron/launch-lab.mjs",
     "lab:build": "npm run assets && tsc -b && vite build --mode relative-lab --outDir dist-lab",
@@ -18,13 +18,16 @@
     "assets": "node scripts/prepare-assets.mjs",
     "predev": "npm run assets",
     "prebuild": "npm run assets",
-    "desktop:pack": "npm run build && electron-builder --win --dir && node scripts/copy-desktop.mjs",
-    "desktop:portable": "npm run build && electron-builder --win portable",
-    "face:assets": "node scripts/prepare-face-assets.mjs && node scripts/build-face-worker.mjs",
+    "desktop:pack": "npm run posegood:build && electron-builder --win --dir && node scripts/copy-desktop.mjs",
+    "desktop:portable": "npm run posegood:portable",
+    "face:assets": "node scripts/prepare-face-assets.mjs && node scripts/build-face-worker.mjs && node scripts/prepare-face-build.mjs",
     "face:dev": "npm run assets && npm run face:assets && vite --mode face-lab --host 127.0.0.1 --port 5186",
     "face:desktop": "node electron/launch-face.mjs",
     "face:build": "npm run assets && npm run face:assets && tsc -b && vite build --mode face-lab --outDir dist-face",
-    "face:pack": "node scripts/check-face-model.mjs && npm run face:build && electron-builder --config face-builder.json --win portable"
+    "face:pack": "node scripts/check-face-model.mjs && npm run face:build && electron-builder --config face-builder.json --win portable",
+    "posegood:build": "npm run assets && npm run face:assets && tsc -b && vite build --mode posegood-face",
+    "posegood:portable": "npm run posegood:build && electron-builder --win portable",
+    "test:pack": "node scripts/check-test-pair.mjs --before && npm run face:pack && npm run desktop:pack && electron-builder --win portable --config.directories.output=release-portable && node scripts/check-test-pair.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.3.0",

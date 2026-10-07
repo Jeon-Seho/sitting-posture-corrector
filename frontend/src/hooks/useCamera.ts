@@ -274,4 +274,4 @@ export function useCamera() {
   }
 }
 
-export type CameraController = ReturnType<typeof useCamera>
+export type CameraController = ReturnType<typeof useCamera> & {face?:import('../features/face-lab/serviceInput').FaceServiceController}

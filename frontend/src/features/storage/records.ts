@@ -41,5 +41,6 @@ export function recordFromDraft(draft: Draft, endedAt: string): RecordItem {
     valid: Math.max(0, m.total - m.paused - m.unknown),
     good: m.good,
     events: m.events,
+    ...(m.evaluationCounts?{evaluationCounts:structuredClone(m.evaluationCounts)}:{}),
   }
 }

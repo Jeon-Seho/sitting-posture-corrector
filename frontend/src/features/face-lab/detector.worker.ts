@@ -25,7 +25,8 @@ scope.onmessage=async event=>{
     const p=pose?.detectForVideo(bitmap,timeMs)
     const observation=faceObservation(timeMs,f.faceLandmarks,f.facialTransformationMatrixes.map(m=>m.data),p?.landmarks??[],width,height)
     const overlay=observation ? [...[10,152,33,263,1].map(i=>f.faceLandmarks[0][i]),...(observation.shoulders?[p!.landmarks[0][11],p!.landmarks[0][12]]:[])] : []
-    scope.postMessage({type:'frame',observation,overlay,durationMs:performance.now()-start})
+    const shoulderLine=observation?.shoulders?[p!.landmarks[0][11],p!.landmarks[0][12]]:[]
+    scope.postMessage({type:'frame',observation,overlay,shoulderLine,durationMs:performance.now()-start})
   } catch(e) { scope.postMessage({type:'frame',observation:null,overlay:[],warning:String(e)}) }
   finally { bitmap.close() }
 }

@@ -9,7 +9,7 @@ export function EventItem({ event: e, muted }: { event: CollapseEvent; muted: bo
       <div className="top">
         <span>
           <span className="figure">#{e.id}</span>
-          {COLLAPSE_LABEL[e.type]}
+          {e.evaluationScope==='head'?'머리 기울기 (상체 제외)':COLLAPSE_LABEL[e.type]}
         </span>
         {e.endAt === null ? (
           <span className="badge collapse">
@@ -72,7 +72,7 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
             .map((e) => (
               <tr key={e.id}>
                 <td>{e.id}</td>
-                <td>{COLLAPSE_LABEL[e.type]}</td>
+                <td>{e.evaluationScope==='head'?'머리 기울기 (상체 제외)':COLLAPSE_LABEL[e.type]}</td>
                 <td>{formatClock(e.startAt)}</td>
                 <td>{e.endAt === null ? '—' : formatClock(e.endAt)}</td>
                 <td className="t-right">

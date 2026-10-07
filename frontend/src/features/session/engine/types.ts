@@ -9,6 +9,8 @@ import {
 
 export type Rules = typeof DEFAULT_RULES
 export type SessionPhase = 'running' | 'paused' | 'ended'
+export type EvaluationScope = 'head'|'upper_body'
+export type EvaluationCounts = Record<EvaluationScope,{valid:number;good:number}>
 
 export type CollapseEvent = {
   id: number
@@ -30,6 +32,7 @@ export type CollapseEvent = {
   endedBySession: boolean
   endReason: 'paused' | 'unknown' | 'ended' | null
   blockId: number
+  evaluationScope?: EvaluationScope
 }
 
 export type Machine = {
@@ -51,6 +54,8 @@ export type Machine = {
   interrupted: boolean
   /** Seconds per direction during the current hold; the episode takes the dominant one. */
   holdKinds?: Partial<Record<CollapseType, number>>
+  evaluationCounts?: EvaluationCounts
+  evaluationScope?: EvaluationScope
 }
 
 export type Sample = {
@@ -62,6 +67,7 @@ export type Sample = {
   notice: string | null
   prob: number
   confidence: number
+  evaluationScope?: EvaluationScope
 }
 
 export type LiveState = {
@@ -84,4 +90,5 @@ export type LiveState = {
   collapseSeconds: number
   events: CollapseEvent[]
   alertTick: number
+  evaluationCounts?: EvaluationCounts
 }

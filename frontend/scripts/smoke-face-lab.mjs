@@ -1,6 +1,6 @@
 // Actual packaged EXE, isolated profile and fake camera; no real footage.
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createServer } from 'node:net'
@@ -10,7 +10,9 @@ await new Promise(r => listener.listen(0, '127.0.0.1', r))
 const port = listener.address().port
 await new Promise(r => listener.close(r))
 const profile = await mkdtemp(join(tmpdir(), 'posegood-face-lab-smoke-'))
-const child = spawn(resolve('frontend/release-face/PoseGood-Face-Lab-0.2.0.exe'), ['--lab-smoke-hidden', `--lab-profile=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'], { windowsHide: true, stdio: 'ignore' })
+const version = JSON.parse(await readFile('frontend/package.json','utf8')).version
+const expectedBuild = JSON.parse(await readFile('frontend/dist-face/face-build.json','utf8'))
+const child = spawn(resolve(`frontend/release-face/PoseGood-Face-Lab-${version}.exe`), ['--lab-smoke-hidden', `--lab-profile=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'], { windowsHide: true, stdio: 'ignore' })
 let socket
 try {
   let page
@@ -43,7 +45,8 @@ try {
   const reply = await call('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
     const wait = ms => new Promise(r => setTimeout(r,ms));
     for(let i=0;i<100;i++){if([...document.querySelectorAll('button')].some(b=>b.textContent==='고개 회전'&&!b.disabled)) break; await wait(100)}
-    const files=['/face-model.json','/mediapipe/face_landmarker.task','/mediapipe/wasm/vision_wasm_internal.wasm','/mediapipe/pose_landmarker_lite.task'];
+    const files=['/face-model.json','/face-build.json','/mediapipe/face_landmarker.task','/mediapipe/wasm/vision_wasm_internal.wasm','/mediapipe/pose_landmarker_lite.task'];
+    const build=await (await fetch('/face-build.json')).json();
     const assets=await Promise.all(files.map(async path=>{const r=await fetch(path);return {path,status:r.status,bytes:(await r.arrayBuffer()).byteLength}}));
     const demos=[];
     for(const label of ['머무름','고개 회전','위치 이동','양손 들기','목 움직임']){[...document.querySelectorAll('button')].find(b=>b.textContent===label).click();await wait(150);demos.push(document.querySelector('.face-status h2').textContent)}
@@ -52,12 +55,14 @@ try {
     for(let i=0;i<130;i++){await wait(300);width=document.querySelector('video').videoWidth;detectorReady=[...document.querySelectorAll('button')].some(b=>b.textContent==='기준 다시 등록'&&!b.disabled);if(detectorReady)break;if(document.querySelector('[role=alert]'))break;}
     await wait(1200);
     const alerts=[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent);
-    return {secure:isSecureContext,assets,demos,width,detectorReady,alerts,text:document.body.innerText};
+    return {secure:isSecureContext,build,versionText:document.querySelector('.face-tag').textContent,assets,demos,width,detectorReady,alerts,text:document.body.innerText};
   })()` })
   assert.ok(!reply.exceptionDetails, JSON.stringify(reply.exceptionDetails))
   const result = reply.result.value
   if(!result.detectorReady) console.log(result.text)
   assert.equal(result.secure, true)
+  assert.deepEqual(result.build,expectedBuild)
+  assert.ok(result.versionText.includes(version))
   assert.ok(result.assets.every(a => a.status === 200 && a.bytes > 0))
   assert.ok(result.demos.every(v => v === '제작 시퀀스 분류 · 실카메라 아님')); assert.equal(result.detectorReady, true, 'Face worker must finish loading');
   assert.ok(result.width > 0, 'Fake camera not connected')

@@ -4,6 +4,7 @@ import { BrandMark } from '../components/BrandMark'
 import { ThumbLayer, useSlidingThumb } from '../components/Segmented'
 import { formatDuration } from '../lib/stats'
 import { NAV_TABS, tabOf, type Page, type Tab } from './navigation'
+import pkg from '../../package.json'
 
 type Props = {
   page: Page
@@ -26,7 +27,7 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
         <BrandMark />
         <div>
           <div className="brand-name">PoseGood</div>
-          <div className="brand-sub">바른자세 도우미</div>
+          <div className="brand-sub">바른자세 도우미 · v{pkg.version}</div>
         </div>
       </div>
       <nav ref={ref} className={`nav ${thumb ? 'has-thumb' : ''}`} aria-label="주요 화면">
@@ -46,7 +47,7 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
           onClick={onToday ?? (() => go('records'))}
           aria-label="오늘 측정 기록 보기"
         >
-          <div className="today-card-label">오늘 바른 자세</div>
+          <div className="today-card-label">{import.meta.env.MODE==='posegood-face'?'오늘 관측 기준 유지':'오늘 바른 자세'}</div>
           {today.rate === null ? (
             <p className="today-card-empty">오늘 측정을 마치면 여기에 보여요</p>
           ) : (
