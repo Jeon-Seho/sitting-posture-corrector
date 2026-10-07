@@ -68,7 +68,6 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
         height: observation.height,
         featuresOk: observation.features !== null,
         landmarks: observation.landmarks,
-        worldLandmarks: observation.worldLandmarks,
       })
     })
     // The recorder belongs to this session; camera identity changes do not restart it.

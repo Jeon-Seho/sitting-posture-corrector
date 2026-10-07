@@ -21,8 +21,7 @@ const HEADER = [
   'width',
   'height',
   'features_ok',
-  ...DEBUG_POINTS.flatMap(([name]) => [`${name}_x`, `${name}_y`, `${name}_z`, `${name}_v`]),
-  ...DEBUG_POINTS.flatMap(([name]) => [`${name}_wx`, `${name}_wy`, `${name}_wz`]),
+  ...DEBUG_POINTS.flatMap(([name]) => [`${name}_x`, `${name}_y`]),
 ]
 
 type Frame = {
@@ -31,10 +30,16 @@ type Frame = {
   height: number
   featuresOk: boolean
   landmarks: Landmark[]
-  worldLandmarks: Landmark[]
 }
 
-const num = (value: number | undefined) => (Number.isFinite(value) ? String(value) : '')
+/**
+ * Image x/y only, normalised to the frame (0..1), at 5 decimals (about 0.006 px at
+ * 640 wide, well under the ~0.005 frame-to-frame noise). Depth (z), visibility and
+ * world (metre) coordinates were never used in the analysis, so they are not kept.
+ */
+const COORD_DECIMALS = 5
+const num = (value: number | undefined) =>
+  Number.isFinite(value) ? String(Number((value as number).toFixed(COORD_DECIMALS))) : ''
 
 /**
  * Raw (unsmoothed) landmarks per running frame, for offline analysis of head turn,
@@ -58,11 +63,7 @@ export class PoseDebugRecorder {
     }
     const image = DEBUG_POINTS.flatMap(([, i]) => {
       const p = frame.landmarks[i]
-      return [num(p?.x), num(p?.y), num(p?.z), num(p?.visibility)]
-    })
-    const world = DEBUG_POINTS.flatMap(([, i]) => {
-      const p = frame.worldLandmarks[i]
-      return [num(p?.x), num(p?.y), num(p?.z)]
+      return [num(p?.x), num(p?.y)]
     })
     this.rows.push(
       [
@@ -71,7 +72,6 @@ export class PoseDebugRecorder {
         String(frame.height),
         frame.featuresOk ? '1' : '0',
         ...image,
-        ...world,
       ].join(','),
     )
   }
