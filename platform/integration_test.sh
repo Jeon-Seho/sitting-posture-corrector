@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # =====================================================================
-# 빅데이터 플랫폼 통합 테스트 (GP-0123 / ToDo T-12)
+# 빅데이터 플랫폼 통합 테스트 (ToDo T-12)
 #
 # 서버 PC에서 platform/ 폴더 기준으로 실행한다.
 #   ./integration_test.sh            # 전체 (약 2~3분)
 #   ./integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
 #   ./integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
+#   EXPECT_PROJECT=platform ./integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
-#   0. 사전 확인   : docker, python3+requests, compose 프로젝트 이름(볼륨)
+#   0. 사전 확인   : docker, python3+requests, .env 형식, compose 프로젝트·Kafka 볼륨(정보)
 #   1. 컨테이너    : 7개 실행·healthy
 #   2. Kafka       : 브로커, 토픽·파티션, 임시 토픽 produce→consume 왕복
 #   3. Redis       : PING, SET/GET/TTL/DEL
@@ -39,8 +40,8 @@ done
 
 API="${API_URL:-http://localhost:8080}"
 INFER="${INFERENCE_URL:-http://localhost:8000}"
-EXPECTED_PROJECT="${COMPOSE_PROJECT_NAME:-$(grep -E '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null | tail -1 | cut -d= -f2-)}"
-EXPECTED_PROJECT="${EXPECTED_PROJECT:-dockerized-bigdata-env}"
+# 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
+EXPECTED_PROJECT="${EXPECT_PROJECT:-}"
 SOURCE_CSV="${SOURCE_CSV:-mysql/posture-pilot-P01.csv}"
 TS="$(date +%Y%m%d-%H%M%S)"
 OUT="it-results/$TS"
@@ -58,7 +59,7 @@ step() { log ""; log "== $* =="; }
 # check "이름" 명령...  : 명령이 성공하면 PASS
 check() { local name="$1"; shift; if "$@" >>"$OUT/run.log" 2>&1; then pass "$name"; else fail "$name"; fi; }
 
-log "통합 테스트 시작: $TS (quick=$QUICK, e2e=$E2E, 기대 프로젝트=$EXPECTED_PROJECT)"
+log "통합 테스트 시작: $TS (quick=$QUICK, e2e=$E2E)"
 
 # ---------------------------------------------------------------------
 step "0. 사전 확인"
@@ -67,12 +68,24 @@ pass "docker 명령"
 if python3 -c "import requests" 2>/dev/null; then pass "python3 + requests"
 else fail "python3 + requests" "pip install -r mysql/requirements.txt"; fi
 
+# .env 형식 점검: 숫자여야 하는 값(…_SECONDS/_SIZE/_CONCURRENCY/_PORT)에 다른 글자가 붙어 있지 않은지,
+# 파일 끝 줄바꿈이 있는지(없으면 echo >> 로 덧붙인 줄이 앞 줄에 붙음 — 2026-10-07 실제 장애 원인)
+if [ -f .env ]; then
+  BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' .env | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
+  if [ -n "$BAD" ]; then fail ".env 숫자 값 형식" "숫자가 아닌 값: $BAD"; else pass ".env 숫자 값 형식"; fi
+  if [ -n "$(tail -c1 .env)" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
+else
+  fail ".env 파일" "platform/.env 없음"
+fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
-if [ "$PROJ" = "$EXPECTED_PROJECT" ]; then pass "compose 프로젝트 이름 = $PROJ (기존 볼륨 사용)"
-else fail "compose 프로젝트 이름" "kafka의 프로젝트='$PROJ', 기대='$EXPECTED_PROJECT' → .env의 COMPOSE_PROJECT_NAME 확인(다르면 빈 볼륨으로 떠 있는 것)"; fi
+log "  compose 프로젝트: ${PROJ:-?} (docker compose ps/down은 이 프로젝트 이름으로 동작)"
+if [ -n "$EXPECTED_PROJECT" ]; then
+  if [ "$PROJ" = "$EXPECTED_PROJECT" ]; then pass "compose 프로젝트 이름 = $PROJ"
+  else fail "compose 프로젝트 이름" "실제='$PROJ', 기대='$EXPECTED_PROJECT'"; fi
+fi
 VOL="$(docker inspect kafka --format '{{range .Mounts}}{{if eq .Destination "/var/lib/kafka/data"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true)"
 log "  Kafka 볼륨: ${VOL:-?}"
-STRAY="$(docker volume ls --format '{{.Name}}' | grep -E '_(kafka-data|hdfs-namenode-data|hdfs-datanode-data)$' | grep -v "^${EXPECTED_PROJECT}_" | tr '\n' ' ')"
+STRAY="$(docker volume ls --format '{{.Name}}' | grep -E '_(kafka-data|hdfs-namenode-data|hdfs-datanode-data)$' | grep -v "^${PROJ:-__none__}_" | tr '\n' ' ')"
 [ -n "$STRAY" ] && log "  참고: 쓰이지 않는 볼륨 후보: $STRAY (확인 후 docker volume rm으로 정리 가능)"
 
 # ---------------------------------------------------------------------
@@ -164,6 +177,9 @@ if [ "$NC" -ge 1 ]; then pass "판정 컨슈머 그룹 참여 (${NC}개 스레�
 
 # ---------------------------------------------------------------------
 step "7. 종단 시험 (T-10)"
+if ! echo "$RD" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin)['components']['db']['status']=='UP' else 1)" 2>/dev/null; then
+  log "  주의: readiness db가 DOWN — 판정 컨슈머가 DB 대기로 멈춰 종단 시험이 실패할 수 있다(D-18). docker logs api-server 의 'Caused by' 확인"
+fi
 if [ "$E2E" = 0 ]; then skip "T-10 종단 시험" "--no-e2e"
 elif [ ! -f "$SOURCE_CSV" ]; then skip "T-10 종단 시험" "$SOURCE_CSV 없음(저장소 밖 파일 — 기존 클론에서 복사하거나 SOURCE_CSV=경로 지정)"
 else
@@ -213,8 +229,13 @@ sys.exit(0 if ok else 1)"; then pass "판정 결과: 지속 73.1s, 재알림 2�
     ILAG="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -i inference | head -1)"
     [ -n "$ILAG" ] && log "  참고: 추론 컨슈머 그룹 $ILAG lag=$($KT/kafka-consumer-groups.sh $BS --describe --group "$ILAG" 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6} END{print s+0}')"
 
-    RK="$(docker exec redis redis-cli EXISTS "posture:state:$IT_USER" 2>/dev/null)"
-    if [ "$RK" = "0" ]; then pass "Redis 상태 키 정리 (회복 후 삭제, D-04)"; else fail "Redis 상태 키" "posture:state:$IT_USER 가 남아 있음"; fi
+    # 판정이 끝났을 때만 의미가 있다(판정이 안 돌았으면 키가 처음부터 없어서 0이 나온다)
+    if [ -n "$EV" ]; then
+      RK="$(docker exec redis redis-cli EXISTS "posture:state:$IT_USER" 2>/dev/null)"
+      if [ "$RK" = "0" ]; then pass "Redis 상태 키 정리 (회복 후 삭제, D-04)"; else fail "Redis 상태 키" "posture:state:$IT_USER 가 남아 있음"; fi
+    else
+      skip "Redis 상태 키 정리" "판정 이벤트가 없어 확인 의미 없음"
+    fi
 
     # (선택) MySQL 직접 확인 — 서버 PC에 mysql 클라이언트가 있을 때만
     if command -v mysql >/dev/null && [ -f .env ]; then
