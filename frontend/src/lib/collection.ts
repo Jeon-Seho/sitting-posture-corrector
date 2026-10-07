@@ -4,6 +4,7 @@ import {
   type Features,
   type Landmark,
 } from '../../../model/prototype/pose'
+import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 import type { Observation } from '../hooks/useCamera'
 import type { Rules } from './engine'
 import modelAsset from '../../model-asset.json'
@@ -242,7 +243,7 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     height: o.height,
     pose_model: modelAsset.modelId,
     feature_version: 'reference-rules-v0.1',
-    calibration_seconds: 5,
+    calibration_seconds: CALIBRATION_MS / 1000,
     target_sample_hz: 10,
     task_id: task.id,
     activity: task.activity,
