@@ -17,7 +17,7 @@
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (hdfs_parquet_roundtrip.py)
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
-#                    컨슈머 lag 0, Redis 상태 키 정리, (선택) MySQL 행, (선택) HDFS 적재
+#                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
 #
 # 결과: it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -237,8 +237,39 @@ sys.exit(0 if ok else 1)"; then pass "판정 결과: 지속 73.1s, 재알림 2�
       skip "Redis 상태 키 정리" "판정 이벤트가 없어 확인 의미 없음"
     fi
 
-    # (선택) MySQL 직접 확인 — 서버 PC에 mysql 클라이언트가 있을 때만
-    if command -v mysql >/dev/null && [ -f .env ]; then
+    # DB 쓰기 버퍼(D-18) — 적용된 서버에서만. 보관분이 모두 DB에 반영됐는지 확인한다(최대 15초 대기).
+    DW_CODE="$(curl -s -m 5 -o "$OUT/db-writer.json" -w '%{http_code}' "$API/cep/db-writer")"
+    if [ "$DW_CODE" = "200" ]; then
+      DW_OK=1
+      for _ in $(seq 1 15); do
+        if python3 -c "
+import json,sys
+d=json.load(open('$OUT/db-writer.json'))
+sys.exit(0 if d['pendingSessions']==0 and d['pendingEvents']==0 and d['consecutiveFailures']==0 else 1)" 2>/dev/null; then DW_OK=0; break; fi
+        sleep 1; curl -s -m 5 -o "$OUT/db-writer.json" "$API/cep/db-writer"
+      done
+      if [ "$DW_OK" = 0 ]; then pass "DB 쓰기 버퍼 비움 (D-18: 보관 0, 연속 실패 0)"
+      else fail "DB 쓰기 버퍼" "$(cat "$OUT/db-writer.json")"; fi
+    else
+      skip "DB 쓰기 버퍼" "/cep/db-writer 없음(HTTP $DW_CODE) — D-18 적용 전 서버"
+    fi
+
+    # MySQL 직접 확인 — mysql 클라이언트가 없으면 python mysql-connector(mysql/requirements.txt)로 확인
+    if [ -f .env ] && python3 -c "import mysql.connector" 2>/dev/null; then
+      ROW="$(python3 - "$SID" <<'PY2' 2>>"$OUT/run.log"
+import sys, mysql.connector
+env = dict(l.rstrip("\n").split("=", 1) for l in open(".env", encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
+c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
+                            password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
+cur = c.cursor()
+cur.execute("SELECT duration_seconds, alert_count, recovered FROM collapse_events WHERE session_id=%s", (sys.argv[1],))
+r = cur.fetchone()
+print("" if r is None else f"{float(r[0]):.1f} {int(r[1])} {int(r[2])}")
+PY2
+)"
+      if [ "$ROW" = "73.1 2 1" ]; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
+      else fail "MySQL collapse_events 행" "'${ROW:-행 없음}' (기대: 73.1 2 1)"; fi
+    elif command -v mysql >/dev/null && [ -f .env ]; then
       DBH="$(grep -E '^DB_HOST=' .env | cut -d= -f2-)"; DBP="$(grep -E '^DB_PORT=' .env | cut -d= -f2-)"
       DBU="$(grep -E '^DB_USER=' .env | cut -d= -f2-)"; DBN="$(grep -E '^DB_NAME=' .env | cut -d= -f2-)"
       ROW="$(MYSQL_PWD="$(grep -E '^DB_PASSWORD=' .env | cut -d= -f2-)" mysql -h "$DBH" -P "${DBP:-3306}" -u "$DBU" "${DBN:-posture_app}" -N -e \
@@ -246,7 +277,7 @@ sys.exit(0 if ok else 1)"; then pass "판정 결과: 지속 73.1s, 재알림 2�
       if echo "$ROW" | grep -qE '^73\.1[0-9]*\s+2\s+1$'; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
       else fail "MySQL collapse_events 행" "'$ROW'"; fi
     else
-      skip "MySQL 직접 확인" "mysql 클라이언트 없음 — readiness(db UP)와 API 결과로 대신함"
+      skip "MySQL 직접 확인" "mysql 클라이언트·mysql-connector 없음 — pip install -r mysql/requirements.txt"
     fi
 
     # (선택) posture-sink → HDFS 적재 확인
