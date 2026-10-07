@@ -6,6 +6,11 @@
 
 ## 현재 실행되는 게이트
 
+2026-10-07 사용자 요청(GP-0092)으로 push/PR에 중복되는 `Repository harness / check (3.9/3.12)`
+네 자동 검사를 중단했다. 원격 workflow363938270은 `disabled_manually`이며 로컬 정의는
+`workflow_dispatch`/`workflow_call`만 유지하고 단일 Python3.12 `verify`로 바꿨다.
+아래 명령은 로컬 검증 기준이고 매 push/PR 자동 실행을 의미하지 않는다. 과거 실행 기록은 보존한다.
+
 | 게이트 | 명령 | 실패 조건 |
 | --- | --- | --- |
 | 저장소 지도 | `make check-repo` | 필수 파일 누락, 작업 지침 비대화 |

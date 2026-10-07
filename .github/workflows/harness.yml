@@ -1,8 +1,7 @@
 name: Repository harness
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
   workflow_call:
 
 permissions:
@@ -40,14 +39,11 @@ jobs:
       - run: npm ci --prefix frontend
       - run: npm --prefix frontend run test -- src/features/relative-lab/model.test.ts
       - run: npm --prefix frontend run lab:build
-  check:
+  verify:
     runs-on: ubuntu-latest
     env:
       # Only the disposable CI runner uses this; local Chrome keeps its sandbox.
       POSEGOOD_CHROME_NO_SANDBOX: '1'
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,7 +53,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
