@@ -17,10 +17,9 @@ make dev        # 웹캠/데모 프론트 프로토타입
 ```
 
 `make`가 없는 Windows에서는 같은 대상을 `python tools/dev.py <대상>`으로 실행한다(예: `python tools/dev.py setup`, `python tools/dev.py check`).
-`setup`은 `git pull` 뒤 본인에게 배정된 관리판 작업을 보여 주는 훅도 켠다(훅만: `python tools/dev.py hooks`).
 `Makefile`은 이 스크립트를 호출만 하므로 두 방법의 결과는 같다. 근거는 [ADR 0009](decisions/0009-cross-platform-dev-entry.md).
 새 Windows PC는 `tools/setup-windows.ps1`이 Git·Node.js LTS·Python(없을 때 winget), 저장소, `setup`,
-바탕화면 바로가기(`PoseGood (개발)`, `바른자세 관리판`)를 한 번에 준비한다. 인자: `-Repo`, `-Branch`.
+바탕화면 바로가기 `PoseGood (개발)`을 한 번에 준비한다. 인자: `-Repo`, `-Branch`.
 
 Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구성한다.
 서버 검증은 JDK 21과 Maven을 사용한다. [서비스 준비·실행](../backend/README.md)을 따른다.
@@ -47,8 +46,8 @@ Compose 계정 앱의 간단한 실행과 GitHub 배포 환경 설정은 [infra 
 
 ## 작업 루프
 
-관리판에 남긴 관련 요청은 [웹·AI 운영 규칙](project-board.md)에 따라 `board_cli.py inbox`에서 확인한다.
-처리 후에는 해당 정본과 메모 결과를 함께 갱신한다. 작업 배정은 [팀 명단](team.md)을 사용한다.
+현재 사용자 요청과 관련 문서·계약·활성 계획을 기준으로 작업한다.
+팀 역할은 [팀 명단](team.md)을 참고하고, 결정과 검증 결과는 해당 문서에 기록한다.
 
 1. 요청과 관련 문서를 확인하고 완료 기준을 정한다.
 2. 큰 변경은 [계획 양식](plans/template.md)을 `plans/active/`에 복사한다.
