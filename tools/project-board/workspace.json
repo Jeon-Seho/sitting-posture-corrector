@@ -5310,9 +5310,41 @@
       "performedBy": "우진(Lellon_CL)",
       "evidence": "GitHub 사전 릴리스 v0.1.0-preview.20261006 (b07d2f9), PoseGood-Windows-x64-b07d2f9.zip 264,915,795B 75파일 CRC 통과, desktop:pack·smoke(620ms) 통과",
       "number": "GP-0118"
+    },
+    {
+      "id": "28e1e7e7-b960-445b-8b35-a3dc2618fb5a",
+      "title": "DevOps 플랫폼(dockerized-bigdata-env) 팀 저장소 이전",
+      "category": "데브옵스",
+      "source": "docs/areas/devops/platform-import.md",
+      "body": "우리 저장소 dockerized-bigdata-env의 main(e23b2e1) 스냅샷을 platform/으로 이전(이력 제외, PR #17). 참여자 CSV·모델 가중치·기존 워크플로·CONVENTIONS.md 제외. 완료 기준: make check 저장소·관리판 검사 통과, 서버 PC에서 platform/ 기준 기동과 T-10 재생 확인.",
+      "status": "planned",
+      "author": "",
+      "assignees": [
+        "홍규"
+      ],
+      "agent": "ghdrb1246_CL",
+      "result": "",
+      "updated": "2026-10-07T03:06:42.042302+00:00",
+      "log": [
+        {
+          "at": "2026-10-07T03:06:42.042302+00:00",
+          "by": "ghdrb1246_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        }
+      ],
+      "stage": "service",
+      "number": "GP-0122",
+      "priority": 0,
+      "size": 1,
+      "order": 122,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 122
+  "nextNumber": 123
 }
