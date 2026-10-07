@@ -5342,8 +5342,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "확정(동욱 2026-10-06): 재알림 60초, 정상 복귀 3초. DB 기본 정책은 유진이 곧 변경 예정. DB 반영 후 함께 할 일: (1) 새 정책 이름이 DEFAULT면 API posegood.default-policy-name 변경(SchemaVerifier가 행 존재를 확인하므로 DB 반영 전 변경 금지), (2) tools/browser/accounts.mjs의 신규 계정 기대값(recoverSeconds 2·realertSeconds 30)을 3·60으로 갱신. 임계값·시간당 알림 상한 값은 유진 반영값 확인",
-      "updated": "2026-10-06T10:43:54.280628+00:00",
+      "result": "develop #16(유진)이 seed_04 DEFAULT_TEMP를 0.5/3/3/60/12로 변경 → develop 하네스가 계정 브라우저 검사(2초·30초 기대)에서 실패. lee_app1 ae5b541에서 accounts.mjs·PersistentMySqlTest 기대값을 3초·60초로 수정. 정책 이름이 그대로라 posegood.default-policy-name 변경 불필요. 기존 DB에는 시드 변경이 반영되지 않음.",
+      "updated": "2026-10-07T00:42:01.266040+00:00",
       "log": [
         {
           "at": "2026-10-06T10:26:05.525849+00:00",
@@ -5368,6 +5368,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "확정(동욱 2026-10-06): 재알림 60초, 정상 복귀 3초. DB 기본 정책은 유진이 곧 변경 예정. DB 반영 후 함께 할 일: (1) 새 정책 이름이 DEFAULT면 API posegood.default-policy-name 변경(SchemaVerifier가 행 존재를 확인하므로 DB 반영 전 변경 금지), (2) tools/browser/accounts.mjs의 신규 계정 기대값(recoverSeconds 2·realertSeconds 30)을 3·60으로 갱신. 임계값·시간당 알림 상한 값은 유진 반영값 확인"
+        },
+        {
+          "at": "2026-10-07T00:42:01.266040+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "develop #16(유진)이 seed_04 DEFAULT_TEMP를 0.5/3/3/60/12로 변경 → develop 하네스가 계정 브라우저 검사(2초·30초 기대)에서 실패. lee_app1 ae5b541에서 accounts.mjs·PersistentMySqlTest 기대값을 3초·60초로 수정. 정책 이름이 그대로라 posegood.default-policy-name 변경 불필요. 기존 DB에는 시드 변경이 반영되지 않음."
         }
       ],
       "stage": "contracts",
@@ -5424,9 +5430,48 @@
       "priorityNote": "",
       "evidence": "",
       "performedBy": ""
+    },
+    {
+      "id": "826c89ad-f395-4a95-b47f-a5f2ebe651f2",
+      "title": "측정 데이터 저장에 분석용 관절 좌표(CSV) 추가",
+      "category": "프론트",
+      "source": "database/temp/side-shift-2026-10-06/README.md",
+      "body": "동욱 결정(2026-10-07): 고개 돌림 판별(코-양눈 중간 벌어짐, 코-양귀 비대칭)과 구부정함 A+B(머리 높이 + 얼굴 크기 비율) 검증용. '측정 데이터 저장' 시 Kafka txt와 함께 프레임별 원본 좌표 CSV(코·눈·귀·입·어깨 x,y,z,visibility + 3D) 내려받기. 측정·판정 로직은 변경하지 않음. 한쪽 어깨는 스켈레톤 흔들림 때문에 보류.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "우진",
+        "동욱"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "구현 완료: 측정 데이터 저장 시 posegood-pose-debug-<세션>.csv 함께 내려받기(저장 창 2번). 표시용 평활화 전 원본 좌표, Kafka txt와 같은 시간 기준. 촬영 순서(기준→고개 좌·우→옆 이동→몸째 앞으로→몸통 틀기→한쪽 어깨 좌·우→고개 숙이기→구부정)는 database/temp/side-shift-2026-10-06/README.md. 동욱 실측 대기.",
+      "updated": "2026-10-07T00:42:00.878210+00:00",
+      "log": [
+        {
+          "at": "2026-10-07T00:37:10.245578+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-07T00:42:00.878210+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "구현 완료: 측정 데이터 저장 시 posegood-pose-debug-<세션>.csv 함께 내려받기(저장 창 2번). 표시용 평활화 전 원본 좌표, Kafka txt와 같은 시간 기준. 촬영 순서(기준→고개 좌·우→옆 이동→몸째 앞으로→몸통 틀기→한쪽 어깨 좌·우→고개 숙이기→구부정)는 database/temp/side-shift-2026-10-06/README.md. 동욱 실측 대기."
+        }
+      ],
+      "stage": "validation",
+      "number": "GP-0124",
+      "priority": 0,
+      "size": 1,
+      "order": 124,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "vitest 283 passed (poseDebugExport 3 신규), tsc 통과\n커밋: f08bbc9841f9dab4661a352d703f6ade97d67e9d",
+      "performedBy": "klaod-tech_CL"
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 124
+  "nextNumber": 125
 }
