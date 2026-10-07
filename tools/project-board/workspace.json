@@ -5435,7 +5435,7 @@
       "id": "826c89ad-f395-4a95-b47f-a5f2ebe651f2",
       "title": "측정 데이터 저장에 분석용 관절 좌표(CSV) 추가",
       "category": "프론트",
-      "source": "database/temp/side-shift-2026-10-06/README.md",
+      "source": "contracts/realtime/README.md",
       "body": "동욱 결정(2026-10-07): 고개 돌림 판별(코-양눈 중간 벌어짐, 코-양귀 비대칭)과 구부정함 A+B(머리 높이 + 얼굴 크기 비율) 검증용. '측정 데이터 저장' 시 Kafka txt와 함께 프레임별 원본 좌표 CSV(코·눈·귀·입·어깨 x,y,z,visibility + 3D) 내려받기. 측정·판정 로직은 변경하지 않음. 한쪽 어깨는 스켈레톤 흔들림 때문에 보류.",
       "status": "review",
       "author": "",
@@ -5444,8 +5444,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "구현 완료: 측정 데이터 저장 시 posegood-pose-debug-<세션>.csv 함께 내려받기(저장 창 2번). 표시용 평활화 전 원본 좌표, Kafka txt와 같은 시간 기준. 촬영 순서(기준→고개 좌·우→옆 이동→몸째 앞으로→몸통 틀기→한쪽 어깨 좌·우→고개 숙이기→구부정)는 database/temp/side-shift-2026-10-06/README.md. 동욱 실측 대기.",
-      "updated": "2026-10-07T00:42:00.878210+00:00",
+      "result": "근거 MD를 Git 추적 문서로 변경(임시 README는 Git 제외라 CI 관리판 검사 실패). 촬영 계획은 계속 database/temp/side-shift-2026-10-06/README.md(로컬).",
+      "updated": "2026-10-07T00:44:39.350920+00:00",
       "log": [
         {
           "at": "2026-10-07T00:37:10.245578+00:00",
@@ -5458,6 +5458,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "구현 완료: 측정 데이터 저장 시 posegood-pose-debug-<세션>.csv 함께 내려받기(저장 창 2번). 표시용 평활화 전 원본 좌표, Kafka txt와 같은 시간 기준. 촬영 순서(기준→고개 좌·우→옆 이동→몸째 앞으로→몸통 틀기→한쪽 어깨 좌·우→고개 숙이기→구부정)는 database/temp/side-shift-2026-10-06/README.md. 동욱 실측 대기."
+        },
+        {
+          "at": "2026-10-07T00:44:39.350920+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "근거 MD를 Git 추적 문서로 변경(임시 README는 Git 제외라 CI 관리판 검사 실패). 촬영 계획은 계속 database/temp/side-shift-2026-10-06/README.md(로컬)."
         }
       ],
       "stage": "validation",
