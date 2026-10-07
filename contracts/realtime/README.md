@@ -1,8 +1,6 @@
 # 실시간 전달 계약 v1 (초안)
 
-- 분야: 프론트, 백엔드
-- 작업: GP-0069
-- 상태: **초안(draft)**. 팀 확인([GP-0087](../../docs/plans/active/0022-kafka-realtime-pipeline.md))과 홍규 검토 전이다. 확정 시 이 줄을 바꾼다.
+- 상태: **초안(draft)**. [팀 확인](../../docs/plans/active/0022-kafka-realtime-pipeline.md)과 홍규 검토 전이다. 확정 시 이 줄을 바꾼다.
 - 근거: [계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
@@ -79,6 +77,6 @@
 ## 아직 정하지 않은 것
 
 - 토픽 이름: 홍규 저장소는 `posture.summary`·`posture.inference`를 쓴다. 이름은 홍규 검토 때 맞춘다.
-- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7, GP-0083) 새 버전으로 올린다.
-- 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당(GP-0087).
-- 기준 자세 전달 토픽은 보류한다(GP-0098).
+- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.
+- 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
+- 기준 자세 전달 토픽은 보류한다.

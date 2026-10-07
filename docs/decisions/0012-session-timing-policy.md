@@ -1,7 +1,5 @@
 # ADR 0012: 세션 시간 정책 확정
 
-- 분야: 백엔드
-- 작업: GP-0105
 - 상태: accepted (사용자 재확인)
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [로컬 통합](0003-retro-integration.md)

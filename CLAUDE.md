@@ -3,4 +3,4 @@
 [AGENTS.md](AGENTS.md)를 먼저 읽고 같은 작업 규칙을 따른다.
 현재 요청과 기존 변경을 확인하고 [문서 지도](docs/index.md)에서 관련 계약·계획을 찾는다.
 결정·검증 결과·남은 한계는 해당 문서에 기록한다.
-팀 역할은 [팀 명단](docs/team.md), 검증 명령은 [개발 흐름](docs/development.md)을 참고한다.
+검증 명령은 [개발 흐름](docs/development.md)을 참고한다.

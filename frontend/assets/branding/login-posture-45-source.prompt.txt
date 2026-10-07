@@ -1,4 +1,4 @@
-GP-0117: Login illustration, three-quarter rear view at roughly 45 degrees.
+Login illustration, three-quarter rear view at roughly 45 degrees.
 Mode: built-in image_gen; specific model cannot be selected or verified.
 Attached original illustration served as a style/palette reference only.
 Raw PNG source retained. App uses a resized 768x512 WebP export, without changing composition.

@@ -2,8 +2,7 @@
 
 ## 먼저 볼 문서
 
-- **팀:** [팀 명단과 역할](team.md), [서비스 요구사항](team-requirements.md).
-- **개발 운영 정리(2026-10-07):** [관리판·스킬·자동 실행 제거와 검증 기록](plans/completed/0023-remove-project-board.md).
+- **팀:** [서비스 요구사항](team-requirements.md).
 
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
