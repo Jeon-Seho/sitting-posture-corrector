@@ -10,6 +10,7 @@ import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
 import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
+import { PoseDebugRecorder } from './poseDebugExport'
 
 type Options = {
   rules: Rules
@@ -34,6 +35,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   )
   const isCamera = mode === 'camera'
   const recorder = useRef<KafkaFeatureRecorder | null>(null)
+  const debugRecorder = useRef<PoseDebugRecorder | null>(null)
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const [exportCount, setExportCount] = useState(0)
@@ -53,12 +55,21 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           origin: observation.timeMs,
           startedAt: new Date().toISOString(),
         })
+        debugRecorder.current = new PoseDebugRecorder(observation.timeMs)
       }
       if (phaseRef.current !== 'running') {
         recorder.current.pause()
         return
       }
       recorder.current.push(observation.timeMs, observation.features)
+      debugRecorder.current?.push({
+        timeMs: observation.timeMs,
+        width: observation.width,
+        height: observation.height,
+        featuresOk: observation.features !== null,
+        landmarks: observation.landmarks,
+        worldLandmarks: observation.worldLandmarks,
+      })
     })
     // The recorder belongs to this session; camera identity changes do not restart it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,19 +164,18 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     }
   }, [live.events])
 
-  /** Downloads the intervals this measurement would have sent to Kafka (JSON Lines, .txt). */
+  /**
+   * Downloads the intervals this measurement would have sent to Kafka (JSON Lines, .txt)
+   * and, for analysis, the raw landmarks of the same frames (.csv).
+   */
   function exportFeatures() {
     const current = recorder.current
     if (!current || !current.count) return false
-    const url = URL.createObjectURL(new Blob([current.toText()], { type: 'text/plain;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `posegood-kafka-features-${service?.sessionId ?? 'session'}.txt`
-    link.hidden = true
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
+    const id = service?.sessionId ?? 'session'
+    download(current.toText(), `posegood-kafka-features-${id}.txt`, 'text/plain')
+    const debug = debugRecorder.current
+    // A short gap keeps the second save dialog from replacing the first one.
+    if (debug?.count) setTimeout(() => download(debug.toCsv(), `posegood-pose-debug-${id}.csv`, 'text/csv'), 300)
     setExportCount(current.count)
     return true
   }
@@ -229,3 +239,15 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
 }
 
 export type SessionScreen = ReturnType<typeof useSessionScreen>
+
+function download(text: string, name: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.hidden = true
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}

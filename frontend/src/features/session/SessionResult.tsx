@@ -97,7 +97,7 @@ export function SessionResult({
               <button
                 className="btn btn-quiet"
                 onClick={onExport}
-                title="이번 측정에서 서버(Kafka)로 보냈어야 할 구간 데이터를 txt로 내려받아요."
+                title="서버(Kafka)로 보냈어야 할 구간 데이터(txt)와 분석용 관절 좌표(csv)를 내려받아요."
               >
                 {exportCount ? `측정 데이터 저장됨 · ${exportCount}구간` : '측정 데이터 저장'}
               </button>
