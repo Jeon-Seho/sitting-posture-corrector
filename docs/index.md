@@ -2,7 +2,8 @@
 
 ## 먼저 볼 문서
 
-- **작업 관리판:** [웹·AI 운영 규칙](project-board.md), [팀원](team.md) — 루트의 `바른자세_관리판.bat`으로 문서 검색·진행 보드·담당 배정·메모를 연다.
+- **팀:** [팀 명단과 역할](team.md), [서비스 요구사항](team-requirements.md).
+- **개발 운영 정리(2026-10-07):** [관리판·스킬·자동 실행 제거와 검증 기록](plans/completed/0023-remove-project-board.md).
 
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
@@ -85,8 +86,3 @@
 제품 범위는 `product-spec.md`, 경계는 `architecture.md`, 인터페이스는 `contracts/`, 연구 규칙은
 `research/protocol.md`에서 관리한다. 변경 시 해당 문서와 예제를 함께 갱신하고, 중요한 결정은 ADR에 남긴다.
 원문은 수정하지 않으며 외부 문헌의 수치·주장은 별도 문헌 검토 전까지 검증된 사실로 인용하지 않는다.
-
-- [번호 기반 공용 작업 흐름](areas/devops/numbered-workflow.md)
-- [단계별 프로젝트 여정](areas/frontend/project-journey.md)
-
-- [팀 기능25개와 기존 카드 대응표](areas/devops/team-feature-cards.md)

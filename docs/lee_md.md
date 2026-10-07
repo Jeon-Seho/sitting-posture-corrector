@@ -19,9 +19,7 @@
 
 | 내용 | 위치 | 비고 |
 | --- | --- | --- |
-| 작업 관리판·팀 문서·작업 번호(GP) | `tools/project-board/`, `바른자세_관리판.bat`, `docs/project-board.md`, `docs/team.md`, `CLAUDE.md`, `.agents/skills/` | goodpose-mdweb에서 가져옴 |
-| 관리판 명령 | `tools/dev.py`·`tools/dev_tasks.py`·`Makefile`의 `board`, `check-board` | `check-local`(→ `check`)에 `check-board` 연결 |
-| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 바탕화면 바로가기 2개. GP-0066 |
+| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 앱 바탕화면 바로가기. GP-0066 |
 | DB 건의안 | `database/proposals/0001-v03-supplement.md` | V0.3 보완 마이그레이션 11개. 담당자에게는 디스코드로 전달. GP-0067 |
 | DB 전환 계획 | `docs/plans/active/0021-db-schema-v03-alignment.md` | V1 → V0.3, 건의안 승인 대기. GP-0068 |
 | Kafka 계획 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 프론트가 WebSocket 게이트웨이까지 담당. GP-0069 |
@@ -37,10 +35,10 @@ jin_app + develop은 `database/README.md` 하나, 그 결과 + lee_app1은 18개
 | `src/ServiceApp.tsx` | jin_app(삭제, `src/app/`로 이동) | 지성의 구조 정리를 따름 |
 | `pages/LoginPage.tsx`, `styles.css`, `DESIGN.md` | jin_app | 새 데스크톱 디자인 기준 |
 | `pages/AuthPage.tsx`(로그인 미리보기, 소셜 버튼) | 삭제 | 새 디자인에서 쓰지 않음. 필요하면 커밋 `8aaac7a`에서 복원 |
-| `tools/dev.py`, `Makefile`, `.gitignore` | jin_app + 관리판 명령·`.claude/skills` 예외 추가 | 양쪽 기능 유지 |
+| `tools/dev.py`, `Makefile`, `.gitignore` | jin_app 기반 개발 명령과 로컬 산출물 제외 | 제품 개발 흐름 유지 |
 | `README.md`, `docs/architecture.md`, `frontend/README.md` 등 문서 | jin_app 본문 | 더 최신 |
-| `docs/index.md`, `docs/quality.md` | 양쪽 줄 모두 유지 | 관리판 링크·검사 줄 보존 |
-| `docs/team-requirements.md` | jin_app 본문 + lee_app1의 '팀 기능별 작업 카드' 절을 16절로 추가 | 내용 보존 |
+| `docs/index.md`, `docs/quality.md` | 제품 문서와 검증 명령 | 최신 기준으로 유지 |
+| `docs/team-requirements.md` | jin_app 본문 + lee_app1의 팀 기능 목록을 16절로 추가 | 제품 요구 보존 |
 
 ### 3. 이번에 정한 방향
 
@@ -60,7 +58,6 @@ jin_app + develop은 `database/README.md` 하나, 그 결과 + lee_app1은 18개
 
 - 저장소 구조·링크 검사 통과. 프론트 테스트 242개·타입 검사·빌드 통과.
 - Python 152개 중 3개 오류: 배포 백업 테스트의 Windows 파일 잠금(`WinError 32`). jin_app에서도 같은 기존 문제다.
-- 관리판 검사 실패: jin_app에서 온 문서 35개의 `분야`·`작업` 표기와 계획 12개의 카드 등록이 없다. 새로 쓴 문서는 통과한다.
 - 미실행: `check-backend`·`check-compose`·`check-browser`(이 PC에 Maven 없음, JDK 25, Docker 데몬 꺼짐). 서버 전체는 Docker만 있으면
   `python tools/compose_init.py` → `docker compose up -d --build --wait`로 띄울 수 있다(집에서 확인 예정).
 
