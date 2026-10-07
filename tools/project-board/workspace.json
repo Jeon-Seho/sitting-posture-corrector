@@ -5342,8 +5342,8 @@
         "동욱"
       ],
       "agent": "klaod-tech_CL",
-      "result": "develop #16(유진)이 seed_04 DEFAULT_TEMP를 0.5/3/3/60/12로 변경 → develop 하네스가 계정 브라우저 검사(2초·30초 기대)에서 실패. lee_app1 ae5b541에서 accounts.mjs·PersistentMySqlTest 기대값을 3초·60초로 수정. 정책 이름이 그대로라 posegood.default-policy-name 변경 불필요. 기존 DB에는 시드 변경이 반영되지 않음.",
-      "updated": "2026-10-07T00:42:01.266040+00:00",
+      "result": "동욱 결정(2026-10-07): 앱 기본 판정 정책은 DB 규정(DEFAULT_TEMP)을 따른다. 시간값 3초·3초·60초는 이미 일치. 임계값만 DB 0.5 vs 앱 0.7(보통 30점)로 다름 → 0.5는 앱 민감도보다 훨씬 민감해 측정값·정보가 달라질 수 있어 팀 상의 전까지 0.7 유지. 로컬 모드에서 보이던 복귀 2초는 예전 기본값으로 저장된 로컬 설정 때문(로컬 계정 재생성 또는 '기본값으로 되돌리기'로 해결). 기존 DB는 시드 변경이 반영되지 않아 2초·30초 그대로일 수 있음 → 유진 확인 필요.",
+      "updated": "2026-10-07T04:06:27.590207+00:00",
       "log": [
         {
           "at": "2026-10-06T10:26:05.525849+00:00",
@@ -5374,6 +5374,12 @@
           "by": "klaod-tech_CL",
           "kind": "ai",
           "text": "develop #16(유진)이 seed_04 DEFAULT_TEMP를 0.5/3/3/60/12로 변경 → develop 하네스가 계정 브라우저 검사(2초·30초 기대)에서 실패. lee_app1 ae5b541에서 accounts.mjs·PersistentMySqlTest 기대값을 3초·60초로 수정. 정책 이름이 그대로라 posegood.default-policy-name 변경 불필요. 기존 DB에는 시드 변경이 반영되지 않음."
+        },
+        {
+          "at": "2026-10-07T04:06:27.590207+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "동욱 결정(2026-10-07): 앱 기본 판정 정책은 DB 규정(DEFAULT_TEMP)을 따른다. 시간값 3초·3초·60초는 이미 일치. 임계값만 DB 0.5 vs 앱 0.7(보통 30점)로 다름 → 0.5는 앱 민감도보다 훨씬 민감해 측정값·정보가 달라질 수 있어 팀 상의 전까지 0.7 유지. 로컬 모드에서 보이던 복귀 2초는 예전 기본값으로 저장된 로컬 설정 때문(로컬 계정 재생성 또는 '기본값으로 되돌리기'로 해결). 기존 DB는 시드 변경이 반영되지 않아 2초·30초 그대로일 수 있음 → 유진 확인 필요."
         }
       ],
       "stage": "contracts",
@@ -5475,9 +5481,53 @@
       "priorityNote": "",
       "evidence": "vitest 283 passed (poseDebugExport 3 신규), tsc 통과\n커밋: f08bbc9841f9dab4661a352d703f6ade97d67e9d",
       "performedBy": "klaod-tech_CL"
+    },
+    {
+      "id": "39da8449-b4dd-4756-9566-6f9a5d524f98",
+      "title": "어깨 기울기 판정 기준 0.13 → 0.03 (한쪽 어깨 틀어짐 감지)",
+      "category": "머신러닝",
+      "source": "docs/decisions/0019-shoulder-tilt-scale.md",
+      "body": "동욱 결정(2026-10-07): 한쪽 어깨 올리기(기울기 0.04~0.08)가 기준폭 0.13 때문에 점수 0.3~0.5에 그쳐 판정 안 됨. 실제 사용자는 살짝·점점 틀어지는 경우가 많아 기준폭을 0.03으로 낮춘다(기울기 0.03 이상 3초 지속 시 경고). 앱 로컬 점수(pose.ts)·FastAPI 추론·공유 합성 사례·계약 문서 동시 변경. 정자세 흔들림·점진 이동(~0.03)에 따른 오경고 가능성은 실측으로 확인.",
+      "status": "review",
+      "author": "",
+      "assignees": [
+        "지성"
+      ],
+      "agent": "klaod-tech_CL",
+      "result": "구현 완료: pose.ts SHOULDER_TILT_SCALE=0.03(referenceScore·classify), service.py 0.03, 공유 합성 사례 기울기 값 조정(signed 사례는 좌우 우세 유지 위해 0.015625), 계약·backend README·ADR 0013 갱신, ADR 0019 신설. 검증: 프론트 tsc 통과·vitest 283/283, Python 160건 중 test_inference_v2 공유 사례 통과, 배포 테스트 3건은 Windows 비POSIX로 변경 전부터 실패. 미검증: 실제 카메라 오경고 여부(동욱 실측 대기), 백엔드 Java 테스트 미실행(스케일 미참조).",
+      "updated": "2026-10-07T06:21:03.404815+00:00",
+      "log": [
+        {
+          "at": "2026-10-07T06:17:10.613280+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "작업 등록"
+        },
+        {
+          "at": "2026-10-07T06:17:19.229043+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "pose.ts·service.py·공유 사례·계약 문서 스케일 0.03 변경 착수"
+        },
+        {
+          "at": "2026-10-07T06:21:03.404815+00:00",
+          "by": "klaod-tech_CL",
+          "kind": "ai",
+          "text": "구현 완료: pose.ts SHOULDER_TILT_SCALE=0.03(referenceScore·classify), service.py 0.03, 공유 합성 사례 기울기 값 조정(signed 사례는 좌우 우세 유지 위해 0.015625), 계약·backend README·ADR 0013 갱신, ADR 0019 신설. 검증: 프론트 tsc 통과·vitest 283/283, Python 160건 중 test_inference_v2 공유 사례 통과, 배포 테스트 3건은 Windows 비POSIX로 변경 전부터 실패. 미검증: 실제 카메라 오경고 여부(동욱 실측 대기), 백엔드 Java 테스트 미실행(스케일 미참조)."
+        }
+      ],
+      "stage": "contracts",
+      "number": "GP-0125",
+      "priority": 0,
+      "size": 1,
+      "order": 125,
+      "dependsOn": [],
+      "priorityNote": "",
+      "evidence": "",
+      "performedBy": ""
     }
   ],
   "notes": [],
   "assignments": {},
-  "nextNumber": 125
+  "nextNumber": 126
 }

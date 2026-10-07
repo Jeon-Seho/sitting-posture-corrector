@@ -40,8 +40,10 @@ FastAPI `POST /v2/infer`는 기존 `referenceScore`와 같은 점수를 계산�
 ```text
 min(1, max(abs(head_gap_delta)/0.22,
            abs(lateral_offset_delta)/0.20,
-           abs(shoulder_tilt_delta)/0.13) * 0.7)
+           abs(shoulder_tilt_delta)/0.03) * 0.7)
 ```
+
+어깨 기울기 스케일은 2026-10-07 [ADR 0019](0019-shoulder-tilt-scale.md)로 0.13 → 0.03으로 바뀌었다.
 
 `running`, 품질 표시 `good`, 특징 존재, 현재·기준 품질 각각 0.65 이상일 때만 유효하다.
 그 외에는 `valid=false`, 점수 0, 유형 `none`이다. 유효한 점수 0도 유형 `none`이다.

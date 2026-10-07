@@ -141,7 +141,7 @@ Windows는 `python tools/dev.py dev-server`를 사용한다. `Ctrl+C`로 시작�
 ```text
 점수 = min(1, max(|head_gap_delta|/0.22,
                   |lateral_offset_delta|/0.20,
-                  |shoulder_tilt_delta|/0.13) * 0.7)
+                  |shoulder_tilt_delta|/0.03) * 0.7)
 ```
 
 현재·기준 품질은 각각 `[0,1]`이며 둘 다 0.65 이상, `running/good`, 특징 존재일 때만 유효하다.
