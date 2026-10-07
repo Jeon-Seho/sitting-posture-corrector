@@ -14,7 +14,6 @@
 | 출력 계약·자료 준비 | `make test` | 스키마 오류, 합성 예제 불일치, 잘못된 입력 수용, 참여자 누수·hash/시각·시간 창 경계 오류 |
 | 검사기 회귀 | `make test` | 깨진 링크·금지 산출물 검사가 실패함 |
 | 프론트 프로토타입 | `make check-frontend` | 품질·상태 전이·알림 정책 테스트 실패, TypeScript 오류, 빌드 실패 |
-| 관리판 | `make test`, `make check-board` | 파일 저장·충돌·문서 경계·담당자·커밋 식별 회귀, JS 문법 오류 |
 | API·CEP 수직 흐름 | `make check-backend` | Java API/추론/Esper 경계·시간·통계·재시도/실패 테스트, 합성 Vite 프록시+3서비스 HTTP 계약, benchmark 소규모 요청·정리 실패 |
 | 합성 브라우저 통합 | `make check-browser` | 실제 앱·서버의 측정/종료/복구·기록 일치, 확인창 키보드·초점/배경 차단 실패, 브라우저 오류 또는 시험 프로세스 정리 실패 |
 
