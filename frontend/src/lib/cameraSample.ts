@@ -29,10 +29,13 @@ export function cameraSample(camera: CameraController): Sample {
     return {
       ...base,
       state: 'unknown',
+      headTurn: result.headTurn,
       collapse: null,
       confidence: 0,
       prob: 0,
-      notice: '측정 품질을 확인할 수 없습니다. 얼굴과 양쪽 어깨를 확인해 주세요.',
+      notice: result.headTurn
+        ? '고개를 돌린 동안은 자세를 판정하지 않아요.'
+        : '측정 품질을 확인할 수 없습니다. 얼굴과 양쪽 어깨를 확인해 주세요.',
     }
   return {
     ...base,
@@ -49,7 +52,9 @@ export function cameraSample(camera: CameraController): Sample {
  * sample unknown (no score, no good or collapse time) until the settle time has passed.
  */
 export function holdWhileSettling(sample: Sample, settle: ReturnSettle, timeMs: number): Sample {
-  if (settle.judge(timeMs, sample.state !== 'unknown') || sample.state === 'unknown') return sample
+  const observed =
+    sample.state !== 'unknown' ? 'measurable' : sample.headTurn ? 'head_turn' : 'unmeasurable'
+  if (settle.judge(timeMs, observed) || sample.state === 'unknown') return sample
   return {
     ...sample,
     state: 'unknown',

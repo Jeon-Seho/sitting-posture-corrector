@@ -1,4 +1,5 @@
 import { featureDeltas } from '../../../../../model/prototype/serverFeatures'
+import { headTurned } from '../../../../../model/prototype/pose'
 import type { Observation } from '../../../hooks/useCamera'
 import type { Machine } from '../../../lib/engine'
 import { ReturnSettle } from '../../../lib/returnSettle'
@@ -239,7 +240,7 @@ export class ServerSessionController {
       checkpoint &&
       (!validServerCheckpoint(checkpoint, this.session.id, this.session.rules) ||
         checkpoint.baselineId !== this.session.server.baselineId ||
-        (['headGap', 'offset', 'tilt', 'quality'] as const).some(
+        (['headGap', 'offset', 'tilt', 'quality', 'turn'] as const).some(
           (key) => checkpoint.baseline[key] !== this.session.server.baseline[key],
         ) ||
         checkpoint.deviceId !== this.session.server.deviceId ||
@@ -537,9 +538,14 @@ export class ServerSessionController {
     const previous = this.previousFrame
     const previousJudged = this.previousJudged
     this.previousFrame = frame
-    const measured = featureDeltas(frame.features, this.session.server.baseline)
-    // Right after an unmeasurable frame the user is still settling; send it as poor.
-    const judged = this.settle.judge(frame.timeMs, measured !== null)
+    // A turned head is not judged; send it as poor.
+    const turned = headTurned(frame.features, this.session.server.baseline)
+    const measured = turned ? null : featureDeltas(frame.features, this.session.server.baseline)
+    // Right after an unjudged frame the user is still settling; send it as poor.
+    const judged = this.settle.judge(
+      frame.timeMs,
+      turned ? 'head_turn' : measured !== null ? 'measurable' : 'unmeasurable',
+    )
     this.previousJudged = judged
     const current = judged ? measured : null
     const frameEnd = Math.round(this.elapsedBase + frame.timeMs - this.origin)

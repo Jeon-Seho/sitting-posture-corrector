@@ -242,7 +242,7 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     width: o.width,
     height: o.height,
     pose_model: modelAsset.modelId,
-    feature_version: 'reference-rules-v0.1',
+    feature_version: 'reference-rules-v0.2',
     calibration_seconds: CALIBRATION_MS / 1000,
     target_sample_hz: 10,
     task_id: task.id,

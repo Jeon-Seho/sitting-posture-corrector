@@ -8,7 +8,7 @@
     "phase": "running",
     "valid": true,
     "collapse_probability": 0.7,
-    "deviation_type": "right_lean",
+    "deviation_type": "left_lean",
     "model_version": "reference-feature-rule-v1"
   },
   "session": {

@@ -155,7 +155,7 @@ export function SessionResult({
             <Stat label="쉰 시간 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
             <Stat
               label="판정 방식"
-              value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION}
+              value={isCamera ? 'reference-rules-v0.2' : MODEL_VERSION}
               sub={isCamera ? '개인 기준 비교' : '합성 시연 데이터'}
               small
             />

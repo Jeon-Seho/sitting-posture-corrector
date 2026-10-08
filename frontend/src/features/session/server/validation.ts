@@ -416,8 +416,14 @@ export function validServerCheckpoint(
     v.schemaVersion !== '1.0' ||
     !validUuid(v.baselineId) ||
     !object(v.baseline) ||
-    !exact(v.baseline, ['headGap', 'offset', 'tilt', 'quality']) ||
-    !['headGap', 'offset', 'tilt'].every((key) =>
+    !exact(v.baseline, [
+      'headGap',
+      'offset',
+      'tilt',
+      'quality',
+      ...(Object.hasOwn(v.baseline, 'turn') ? ['turn'] : []),
+    ]) ||
+    !['headGap', 'offset', 'tilt', ...(Object.hasOwn(v.baseline, 'turn') ? ['turn'] : [])].every((key) =>
       number((v.baseline as Record<string, unknown>)[key]),
     ) ||
     !unit(v.baseline.quality) ||

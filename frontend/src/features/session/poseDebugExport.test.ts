@@ -57,17 +57,37 @@ describe('pose debug export (raw landmarks for analysis)', () => {
     push(200, features({ tilt: 0.03 * 1.2 }))
     push(300, features({ headGap: 0.8 + 0.22 * 0.9 }))
     push(400, features({ offset: 0.2 * 0.5 }))
-    push(500, features({ offset: -0.2 * 1.2 }))
-    push(600, features({ tilt: -0.03 * 0.5 }))
+    push(500, features({ tilt: -0.03 * 1.2 }))
+    push(600, features({ offset: -0.2 * 0.5 }))
     const out = rows(r.toCsv()).map((row) => [row.state, row.type, row.score])
+    // The user's own side: left shoulder lower or nose toward the user's left is left.
     expect(out).toEqual([
       ['good', 'head', '0.00'],
       ['collapse', 'head', '0.84'],
-      ['collapse', 'tilt_right', '0.84'],
-      ['good', 'head', '0.63'],
-      ['good', 'tilt_right', '0.35'],
       ['collapse', 'tilt_left', '0.84'],
+      ['good', 'head', '0.63'],
       ['good', 'tilt_left', '0.35'],
+      ['collapse', 'tilt_right', '0.84'],
+      ['good', 'tilt_right', '0.35'],
+    ])
+  })
+
+  it('does not judge a turned head, writes head_turn and holds only 1 s afterwards', () => {
+    const r = recorder()
+    const push = (timeMs: number, turn: number) =>
+      r.push({ timeMs, width: 640, height: 480, features: features({ turn }), landmarks: pose })
+    push(0, 0.15)
+    push(100, 0.16)
+    push(200, -0.25)
+    push(1199, 0)
+    push(1200, 0)
+    const out = rows(r.toCsv()).map((row) => [row.features_ok, row.state, row.type, row.score])
+    expect(out).toEqual([
+      ['1', 'good', 'head', '0.00'],
+      ['1', 'unknown', 'head_turn', ''],
+      ['1', 'unknown', 'head_turn', ''],
+      ['1', 'unknown', 'head', '0.00'],
+      ['1', 'good', 'head', '0.00'],
     ])
   })
 

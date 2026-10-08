@@ -47,7 +47,8 @@ const num = (value: number | undefined) =>
 
 /**
  * The app's own per-frame rule judgement, written as the label column set:
- * state good / collapse / unknown; type head / tilt_left / tilt_right (the user's own side)
+ * state good / collapse / unknown; type head / tilt_left / tilt_right (the user's own side),
+ * or head_turn while the head is turned (not judged)
  * for whichever change drives the score, also on good frames so a drift shows before it
  * collapses; and the 0..1 rule score. Same rule as the live screen (referenceScore
  * against the session threshold), before the hold-time confirmation. It is our rule's
@@ -55,6 +56,7 @@ const num = (value: number | undefined) =>
  */
 function judgement(features: Features | null, baseline: Features, threshold: number) {
   const result = features ? referenceScore(features, baseline) : null
+  if (result?.headTurn) return ['unknown', 'head_turn', '']
   if (!result || result.score === null) return ['unknown', '', '']
   return [
     result.score >= threshold ? 'collapse' : 'good',
@@ -106,7 +108,9 @@ export class PoseDebugRecorder {
     })
     const first = this.rows.length === 0
     const label = judgement(frame.features, this.baseline, this.threshold)
-    if (!this.settle.judge(frame.timeMs, label[0] !== 'unknown')) label[0] = 'unknown'
+    const observed =
+      label[0] !== 'unknown' ? 'measurable' : label[1] === 'head_turn' ? 'head_turn' : 'unmeasurable'
+    if (!this.settle.judge(frame.timeMs, observed)) label[0] = 'unknown'
     this.rows.push(
       [
         String(Math.round(frame.timeMs - this.origin)),

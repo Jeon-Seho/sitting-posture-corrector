@@ -1,5 +1,5 @@
 import { featureDeltas } from '../../../../model/prototype/serverFeatures'
-import type { Features } from '../../../../model/prototype/pose'
+import { headTurned, type Features } from '../../../../model/prototype/pose'
 import type { Rules } from '../../lib/engine'
 import { policyFor, type FrameRequest } from './server/contracts'
 import { ReturnSettle } from '../../lib/returnSettle'
@@ -50,9 +50,14 @@ export class KafkaFeatureRecorder {
   push(timeMs: number, features: Features | null) {
     if (!Number.isFinite(timeMs)) return
     const previous = this.previous
-    const measured = featureDeltas(features, this.meta.baseline)
+    // A turned head is not judged and is sent as poor, like the server controller.
+    const turned = headTurned(features, this.meta.baseline)
+    const measured = turned ? null : featureDeltas(features, this.meta.baseline)
     // Same return-settle rule as the server controller: just after unknown is still poor.
-    const judged = this.settle.judge(timeMs, measured !== null)
+    const judged = this.settle.judge(
+      timeMs,
+      turned ? 'head_turn' : measured !== null ? 'measurable' : 'unmeasurable',
+    )
     this.previous = { timeMs, usable: judged }
     if (!previous) return
     const gap = timeMs - previous.timeMs
