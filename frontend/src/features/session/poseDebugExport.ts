@@ -1,4 +1,4 @@
-import type { Landmark } from '../../../../model/prototype/pose'
+import { referenceScore, type Features, type Landmark } from '../../../../model/prototype/pose'
 
 /** MediaPipe Pose indices kept for analysis: nose, eyes, ears, mouth corners, shoulders. */
 export const DEBUG_POINTS = [
@@ -21,6 +21,9 @@ const HEADER = [
   'width',
   'height',
   'features_ok',
+  'state',
+  'type',
+  'score',
   ...DEBUG_POINTS.flatMap(([name]) => [`${name}_x`, `${name}_y`]),
 ]
 
@@ -28,7 +31,7 @@ type Frame = {
   timeMs: number
   width: number
   height: number
-  featuresOk: boolean
+  features: Features | null
   landmarks: Landmark[]
 }
 
@@ -42,14 +45,42 @@ const num = (value: number | undefined) =>
   Number.isFinite(value) ? String(Number((value as number).toFixed(COORD_DECIMALS))) : ''
 
 /**
+ * The app's own per-frame rule judgement, written as the label column set:
+ * state g (good) / c (collapse) / u (unmeasurable), type h (head/upper body) / t (tilt),
+ * blank unless collapsed, and the 0..1 rule score. Same rule as the live screen
+ * (referenceScore against the session threshold), before the hold-time confirmation.
+ * It is our rule's output, not a human-checked ground truth.
+ */
+function judgement(features: Features | null, baseline: Features, threshold: number) {
+  const result = features ? referenceScore(features, baseline) : null
+  if (!result || result.score === null) return ['u', '', '']
+  const collapsed = result.score >= threshold
+  return [collapsed ? 'c' : 'g', collapsed ? (result.tilt ? 't' : 'h') : '', floor2(result.score)]
+}
+
+/**
+ * Truncates (never rounds up) so a good frame just under the threshold never reads as
+ * the threshold itself, e.g. 0.6996 is 0.69, not 0.70. The epsilon absorbs float error
+ * such as 0.29 * 100 = 28.999…
+ */
+const floor2 = (score: number) => (Math.floor(score * 100 + 1e-9) / 100).toFixed(2)
+
+/**
  * Raw (unsmoothed) landmarks per running frame, for offline analysis of head turn,
- * slouch and shoulder signals. Analysis only: nothing here feeds the judgement.
+ * slouch and shoulder signals, with the rule judgement of the same frame.
+ * Analysis only: nothing here feeds the judgement.
+ * width/height (video pixels, needed to undo the 0..1 aspect ratio) do not change within
+ * a session, so only the first row carries them.
  */
 export class PoseDebugRecorder {
   private readonly rows: string[] = []
   truncated = false
 
-  constructor(private readonly origin: number) {}
+  constructor(
+    private readonly origin: number,
+    private readonly baseline: Features,
+    private readonly threshold: number,
+  ) {}
 
   get count() {
     return this.rows.length
@@ -65,12 +96,14 @@ export class PoseDebugRecorder {
       const p = frame.landmarks[i]
       return [num(p?.x), num(p?.y)]
     })
+    const first = this.rows.length === 0
     this.rows.push(
       [
         String(Math.round(frame.timeMs - this.origin)),
-        String(frame.width),
-        String(frame.height),
-        frame.featuresOk ? '1' : '0',
+        first ? String(frame.width) : '',
+        first ? String(frame.height) : '',
+        frame.features !== null ? '1' : '0',
+        ...judgement(frame.features, this.baseline, this.threshold),
         ...image,
       ].join(','),
     )

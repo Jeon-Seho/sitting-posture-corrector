@@ -55,7 +55,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           origin: observation.timeMs,
           startedAt: new Date().toISOString(),
         })
-        debugRecorder.current = new PoseDebugRecorder(observation.timeMs)
+        debugRecorder.current = new PoseDebugRecorder(observation.timeMs, camera.baseline, rules.threshold)
       }
       if (phaseRef.current !== 'running') {
         recorder.current.pause()
@@ -66,7 +66,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
         timeMs: observation.timeMs,
         width: observation.width,
         height: observation.height,
-        featuresOk: observation.features !== null,
+        features: observation.features,
         landmarks: observation.landmarks,
       })
     })
