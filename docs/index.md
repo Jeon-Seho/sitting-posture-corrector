@@ -3,6 +3,7 @@
 ## 먼저 볼 문서
 
 - **팀:** 서비스 요구사항은 팀 구글 시트(디스코드 공유)에서 관리한다(2026-10-08 이전).
+  시트 V0.1과 현재 구현의 차이: [요구사항 시트 차이](audits/2026-10-08-requirements-sheet-gap.md).
 
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
