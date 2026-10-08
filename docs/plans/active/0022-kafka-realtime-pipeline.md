@@ -106,6 +106,8 @@
 
 ## 결정과 진행 기록
 
+- 2026-10-08 (동욱): 판정 불가 처리를 정했다(3초 미만은 시계 멈춤, 3초 연속이면 측정 멈춤과 0.5초 뒤 자동 재개, 0.5초 구간은 판정 가능한 프레임 절반 기준 임시).
+  앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다: [판정 불가 처리](../../design/unmeasurable-handling.md).
 - 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.
   역할은 Q1 C안(입구·인증·세션 시작/종료 = 팀 `develop`, Kafka 뒤 추론·판정 = DevOps/BE, 게이트웨이·화면 수신 = FE)이고,
   기존 `POST /api/v1/posture/summary`(camelCase)는 부하 시험·재생용으로만 남긴다. DevOps 작업 D-21(토픽·봉투·키 `session_id`),

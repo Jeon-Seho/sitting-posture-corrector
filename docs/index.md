@@ -8,6 +8,8 @@
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 
 - **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 팀·ML 확인 대기.
+  판정 불가 처리 기준과 DevOps 판정 엔진에 필요한 변경: [판정 불가 처리](design/unmeasurable-handling.md)(2026-10-08).
+  같은 결정에 따른 앱 화면 변경(자동 기준 등록 구도 확인, 자동 멈춤 표시): [구도 확인과 멈춤 표시](design/setup-framing-and-pause-display.md).
 - **진행 중(2026-10-06):** [서비스 DB를 스키마 V1.1 기준으로 전환](plans/active/0021-db-schema-v03-alignment.md) —
   API·프론트 연결 구현(`jin_db_v11`), [ADR 0018](decisions/0018-db-schema-v11-service-storage.md). 팀 리뷰·운영 DB 이관 대기.
 - **진행 중(2026-10-02):** [데스크톱 앱 화면 재구성](plans/active/0020-desktop-app-redesign.md) —
