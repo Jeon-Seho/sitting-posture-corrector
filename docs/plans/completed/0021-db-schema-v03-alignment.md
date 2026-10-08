@@ -10,7 +10,7 @@
 
 `jin_app`과 `develop`을 합치면서 서비스 DB 설계가 두 벌이 되었다.
 
-- `develop`(PR #8): 명세서에서 생성한 [스키마 V0.3](../../../database/schema/schema_V1_0.sql) (V0.3과 같은 내용, 2026-10-05 V1.0으로 확정), 테이블 17개, 시드 4개.
+- `develop`(PR #8): 명세서에서 생성한 스키마 V0.3(`schema_V1_0.sql`, 2026-10-05 V1.0으로 확정. 2026-10-08 V2.0 [schema_V2_0.sql](../../../database/schema/schema_V2_0.sql)으로 대체되며 삭제), 테이블 17개, 시드 4개.
 - `jin_app`(jisung): API가 Flyway로 적용하는 V1 마이그레이션(`V1__accounts_and_durable_sessions.sql`, 2026-10-06 삭제), 테이블 11개.
 
 사용자 결정(2026-10-05)으로 V0.3을 기준으로 한다. 완료 기준은 다음과 같다.
