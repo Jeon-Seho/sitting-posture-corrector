@@ -1,9 +1,7 @@
 # Kafka 실시간 전달 경로와 프론트 게이트웨이
 
-- 분야: 프론트
-- 작업: GP-0069
 - 상태: planned (DevOps가 계약 v1 수용, 메시지 단위·판정 엔진 결정 대기. 아래 '결정과 진행 기록' 첫 항목)
-- 담당: 동욱 요청, klaod-tech_CL 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
+- 담당: 동욱 요청, Claude 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [ADR 0011](../../decisions/0011-api-cep-boundary.md), [ADR 0012](../../decisions/0012-session-timing-policy.md),
   [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md), [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md),
@@ -100,10 +98,10 @@
 - [ ] 팀 확인: 프론트가 게이트웨이까지 담당, 위 'v4 초안과 다른 점', 게이트웨이 구현 언어
 - [ ] ML 담당 확인: 서비스 모델 입력(변화량/키포인트), fps·윈도우, 추론 결과 필드
 - [ ] 전달 계약 결정(재생·보존)과 ADR 작성
-- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인(GP-0087)·홍규 검토 후 체크
+- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인·홍규 검토 후 체크
 - [ ] 2 Compose `kafka` 프로필과 토픽 생성
 - [ ] 3 게이트웨이와 합성 추론/CEP 처리기로 왕복 확인
-- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존 — 2026-10-06 FE 구현(GP-0115): `frontend/src/features/session/realtime/`, 서버 세션 컨트롤러에 `VITE_REALTIME_URL`로 선택 연결. 가짜 게이트웨이 테스트만 통과, 실제 게이트웨이 왕복은 3단계 이후
+- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존 — 2026-10-06 FE 구현: `frontend/src/features/session/realtime/`, 서버 세션 컨트롤러에 `VITE_REALTIME_URL`로 선택 연결. 가짜 게이트웨이 테스트만 통과, 실제 게이트웨이 왕복은 3단계 이후
 - [ ] 5 실패 경로 시험과 `make check` 연결, 문서 갱신
 
 ## 결정과 진행 기록
@@ -114,10 +112,10 @@
   D-22(`posture.episodes.v1` 발행, 추론 입력 v2·관측 v2), D-23(세션 정책·중복·`phase`/`poor` 제외 구간·명시적 종료)은 등록만 됐다.
   회의에서 정할 것: ① Kafka 메시지 단위(FE가 약 0.5초를 구간 1개로 합쳐 보내기 요청, 구간마다면 동시 4~5명 한계)
   ② 판정 엔진 A(DevOps 상태머신 확장) / B(팀 `backend/cep`에 Kafka 연결, BE 의견) ③ DB 쓰기는 판정이 아닌 저장 소비자가.
-  현재 `lee_app1`의 Kafka 형식 저장(`kafkaExport.ts`, GP-0123)은 계약 v1 봉투 형식이다.
-- 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`, GP-0069). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
+  현재 `lee_app1`의 Kafka 형식 저장(`kafkaExport.ts`)은 계약 v1 봉투 형식이다.
+- 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
   (모델이 바뀌어도 화면과 판정이 같은 기준). 세션 시작·종료는 기존 HTTP, WebSocket은 측정 중 전송·결과 수신만(SSE는 대안으로만 기록).
-  FE 클라이언트는 GP-0115로 진행한다.
+  FE 클라이언트는 실시간 전달 어댑터로 구현한다.
 - 2026-10-05: `jin_app` 문서(ADR 0011~0017, 서비스 안내, 플랫폼 경계, 기술 스택 검토, v4 연결 지점)를 기준으로 작성했다.
   v4 원본 문서는 저장소에 없어 연결 지점 문서의 요약만 반영했다. 입력 토픽 이름(`posture.features.v1`)은 이 계획에서 정한 가칭이다.
 - 게이트웨이 구현 언어 후보: Spring Boot(기존 `backend/` Maven 모듈·`backend/contracts` 재사용·`check-backend` 게이트 공유) 또는 Node.

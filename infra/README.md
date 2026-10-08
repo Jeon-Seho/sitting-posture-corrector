@@ -1,7 +1,5 @@
 # Compose 실행과 배포
 
-- 분야: 백엔드
-- 작업: GP-0109
 MySQL·Spring API·Esper CEP·FastAPI·Nginx/React를 함께 실행한다.
 Docker Engine/Desktop와 Docker Compose가 필요하다. 앱 이미지 빌드에는 Docker가 공식 registry와
 Maven Central·PyPI·npm·MediaPipe 자산에 접근할 수 있어야 한다. 호스트 JDK/Python/Node 설치 없이 앱을 실행할 수 있다.
@@ -13,7 +11,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 `make`가 없는 환경은 `python tools/compose_init.py`로 초기화한다.
 Windows 바인드 마운트에서는 비밀 파일이 world-writable로 보여 mysql 클라이언트가 `*.cnf`를 무시한다.
-DB healthcheck는 0400 복사본을 사용한다. `tools/deploy/backup.py`·`restore.py`는 아직 같은 문제가 있다(GP-0114).
+DB healthcheck는 0400 복사본을 사용한다. `tools/deploy/backup.py`·`restore.py`는 아직 같은 문제가 있다.
 [앱](http://127.0.0.1:8080/)에서 이메일·비밀번호로 가입한다. 새 계정의 서비스 자료 보관 동의는 직접 선택한다.
 카메라는 측정 준비에서 직접 켠다. Compose 프론트는 계정 모드이며 기존 브라우저 기록을 자동 업로드하지 않는다.
 

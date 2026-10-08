@@ -1,11 +1,9 @@
 # ADR 0012: 세션 시간 정책 확정
 
-- 분야: 백엔드
-- 작업: GP-0105
 - 상태: accepted (사용자 재확인)
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [로컬 통합](0003-retro-integration.md)
-- 개정: 2026-10-06 정상 복귀 기본값 2초 → **3초**(동욱 결정, GP-0122). Kafka 판정 엔진(DevOps 저장소 `CEP_RECOVERY_SECONDS=3`)과 맞춘다.
+- 개정: 2026-10-06 정상 복귀 기본값 2초 → **3초**(동욱 결정). Kafka 판정 엔진(DevOps 저장소 `CEP_RECOVERY_SECONDS=3`)과 맞춘다.
 
 ## 배경과 근거
 

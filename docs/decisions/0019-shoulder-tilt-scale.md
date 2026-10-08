@@ -1,7 +1,5 @@
 # ADR 0019: 어깨 기울기 판정 기준폭 0.13 → 0.03
 
-- 분야: 머신러닝
-- 작업: GP-0125
 - 상태: accepted (동욱 결정, 실측 확인 전)
 - 날짜: 2026-10-07
 - 관련 결정: [프론트·서버 특징 연결](0013-frontend-server-feature-connection.md), [세션 시간 정책](0012-session-timing-policy.md)
