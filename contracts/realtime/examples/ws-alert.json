@@ -1,7 +1,0 @@
-{
-  "type": "alert",
-  "session_id": "00000000-0000-4000-8000-0000000000a1",
-  "event_id": 1,
-  "kind": "collapse_confirmed",
-  "deviation_type": "forward_slouch"
-}

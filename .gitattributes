@@ -1,2 +1,0 @@
-# Mounted into Linux containers; CRLF would break the shell script.
-infra/mysql/** text eol=lf

@@ -36,12 +36,8 @@ export function PoseStage({ keypoints: k, state, confidence, showSkeleton = true
 
   // 관절 좌표는 100x100 공간이지만 화면은 4:3이라 좌우에 여백을 두고 전신을 담는다
   return (
-    <svg
-      viewBox="-17 0 134 100"
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="자세 추정 미리보기"
-    >
+    <svg viewBox="-17 0 134 100" preserveAspectRatio="xMidYMid meet" role="img"
+      aria-label="자세 추정 미리보기">
       <defs>
         <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#221f1b" />
@@ -76,13 +72,8 @@ export function PoseStage({ keypoints: k, state, confidence, showSkeleton = true
           strokeWidth="6.5"
           strokeLinecap="round"
         />
-        <path
-          d={torso}
-          fill="url(#body)"
-          stroke="url(#body)"
-          strokeWidth="6"
-          strokeLinejoin="round"
-        />
+        <path d={torso} fill="url(#body)" stroke="url(#body)" strokeWidth="6"
+          strokeLinejoin="round" />
         {(['left', 'right'] as const).map((side) => {
           const s = side === 'left' ? k.leftShoulder : k.rightShoulder
           const e = side === 'left' ? k.leftElbow : k.rightElbow
@@ -125,15 +116,8 @@ export function PoseStage({ keypoints: k, state, confidence, showSkeleton = true
             />
           ))}
           {Object.values(k).map(([x, y], i) => (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="1.25"
-              fill={color}
-              stroke="#0e0d0b"
-              strokeWidth="0.35"
-            />
+            <circle key={i} cx={x} cy={y} r="1.25" fill={color} stroke="#0e0d0b"
+              strokeWidth="0.35" />
           ))}
         </g>
       )}

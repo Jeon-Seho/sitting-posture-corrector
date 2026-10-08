@@ -1,6 +1,5 @@
 # V2 서비스 흐름 미리보기
 
-
 - 상태: completed
 - 담당: FE
 - 관련 요구사항: docs/team-requirements.md, [ADR 0008](../../decisions/0008-single-app-entry.md)

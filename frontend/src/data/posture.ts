@@ -24,7 +24,7 @@ export type Keypoints = {
 }
 
 export type PostureState = 'good' | 'collapse' | 'unknown'
-export type CollapseType = 'forwardHead' | 'tilt' | 'referenceChange'
+export type CollapseType = 'forwardHead' | 'tilt'
 
 export const STATE_LABEL: Record<PostureState, string> = {
   good: '바른 자세',
@@ -35,7 +35,6 @@ export const STATE_LABEL: Record<PostureState, string> = {
 export const COLLAPSE_LABEL: Record<CollapseType, string> = {
   forwardHead: '머리·상체 변화',
   tilt: '기울어짐',
-  referenceChange: '기준 대비 변화',
 }
 
 /** 계획서의 특징값: 목 전방 이동, 어깨 기울기, 상체 기울기, 좌우 균형 */
@@ -213,7 +212,7 @@ export const DEFAULT_RULES = {
   /** 붕괴 확정까지 필요한 지속 시간(초) */
   holdSeconds: 3,
   /** 정상 복귀로 인정할 유지 시간(초) */
-  recoverSeconds: 3,
+  recoverSeconds: 2,
   /** 같은 이벤트 재알림 간격(초) */
   realertSeconds: 60,
   /** 붕괴 판정 확률 임계값 */
