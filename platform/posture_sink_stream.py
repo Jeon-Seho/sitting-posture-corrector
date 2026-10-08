@@ -37,6 +37,8 @@ KAFKA_BOOTSTRAP = "kafka:19092"
 TOPIC = "posture.summary"
 OUTPUT_PATH = f"{HDFS_URI}/posture/features/stream"
 CHECKPOINT_PATH = f"{HDFS_URI}/posture/checkpoints/posture-sink"
+# (D-20) 날짜 파티션(eventDate)의 기준 시간대 — 프로젝트 시각 기준은 KST(2026-10-07 결정)
+SESSION_TIMEZONE = "Asia/Seoul"
 
 # api-server PostureSummaryEvent.java 와 1:1 대응
 EVENT_SCHEMA = StructType(
@@ -58,6 +60,9 @@ def main() -> None:
     spark = (
         SparkSession.builder.appName("posture-sink")
         .config("spark.hadoop.fs.defaultFS", HDFS_URI)
+        # (D-20) eventDate 파티션 날짜를 한국 날짜로 — 컨테이너 시간대에 기대지 않고 명시.
+        # (변경 전에는 컨테이너가 UTC라 00:00~08:59 KST 데이터가 전날 파티션에 들어갔다)
+        .config("spark.sql.session.timeZone", SESSION_TIMEZONE)
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

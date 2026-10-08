@@ -181,3 +181,6 @@ capacity-results/
 
 # (팀 저장소 이전) 저장소에 넣지 않는 가중치 — 서버 PC에만 둔다
 inference-service/app/models/*.pt
+
+# (T-12) 통합 테스트 결과 (서버 PC 로컬 기록)
+it-results/

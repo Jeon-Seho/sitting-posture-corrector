@@ -13,6 +13,9 @@ spring:
     # useSSL=false에서는 Connector/J가 공개키 요청을 기본으로 막아 새 연결이 전부
     # "Public Key Retrieval is not allowed"로 실패했다. 테스트 LAN 환경이라 허용한다.
     # 운영(신뢰할 수 없는 네트워크)에서는 대신 sslMode=REQUIRED로 TLS 연결을 쓴다.
+    # serverTimezone=Asia/Seoul (D-20, 2026-10-07 KST 통일 결정): Instant를 DATETIME에 쓸 때·읽을 때
+    # 한국 시각으로 변환한다 → DB의 일시 컬럼은 KST. 컨테이너(JVM) 시간대와 상관없이 이 값이 기준이다.
+    # 시각 비교는 DB 함수(NOW()/UTC_TIMESTAMP()) 대신 서버가 계산한 값을 바인딩한다(CepJdbcRepository 참고).
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:posture_app}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
     username: ${DB_USER:posture_app}
     password: ${DB_PASSWORD:}
