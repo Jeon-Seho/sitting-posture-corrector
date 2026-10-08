@@ -1,6 +1,6 @@
 # 판정 불가(어깨·얼굴이 안 보일 때) 처리: 앱 기준과 DevOps 판정에 필요한 변경
 
-- 대상: 홍규(DevOps 판정 엔진 `platform/api-server` CEP), 우진(BE)
+- 대상: 홍규(DevOps 판정 엔진 `platform/api-server` CEP)
 - 작성: 동욱 요청, Claude 작성 (2026-10-08)
 - 기준 코드: 앱 `lee_app1` `c9b472d`(develop PR #22), DevOps `origin/DevOps` `63490ea`
 - 관련: [ADR 0012 세션 시간 정책](../decisions/0012-session-timing-policy.md), [실시간 계약 v1](../../contracts/realtime/README.md),
