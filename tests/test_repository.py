@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.check_repository import artifact_problem, markdown_problems, repository_files
+from tools.check_repository import ROOT, artifact_problem, markdown_problems, repository_files
+from tools.dev import COMMANDS
 from tools.validate_contract import read_json, validate_payload
 
 
@@ -55,6 +56,15 @@ class RepositoryTests(unittest.TestCase):
                     path.write_text('{"confidence": ' + value + '}', encoding="utf-8")
                     with self.assertRaises(ValueError):
                         validate_payload(read_json(path))
+
+    def test_make_targets_delegate_to_cross_platform_entry_point(self):
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+        phony = next(line for line in makefile.splitlines() if line.startswith(".PHONY:"))
+        targets = phony.split(":", 1)[1].split()
+        self.assertEqual(sorted(targets), sorted(COMMANDS))
+        for target in targets:
+            with self.subTest(target=target):
+                self.assertIn(f"$(PYTHON) tools/dev.py {target}\n", makefile)
 
 
 if __name__ == "__main__":

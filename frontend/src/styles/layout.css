@@ -1,0 +1,380 @@
+/* ---------- App shell: fixed sidebar + one scrolling content area ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/*
+ * Desktop: the content column starts under the title bar strip, so scrolled text never
+ * slides beneath the window buttons. A short fade lets it dissolve at the top edge.
+ */
+:root[data-desktop] .shell::after {
+  content: '';
+  position: fixed;
+  top: var(--titlebar-h);
+  left: var(--sidebar-w);
+  right: 12px;
+  z-index: 30;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--bg), rgba(251, 245, 238, 0));
+}
+
+.sidebar {
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 28px 16px 20px;
+  background: var(--bg-side);
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 9px;
+  display: block;
+  object-fit: contain;
+}
+
+.brand-name {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.nav-item:hover {
+  background: var(--surface-2);
+}
+
+.nav-item[aria-current='true'] {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+}
+
+.nav-live {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 4px rgba(63, 125, 82, 0.16);
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.today-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.today-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.today-card-value {
+  margin-top: 4px;
+  font-family: var(--font-num);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.today-card-value small {
+  font-size: 15px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.today-card-empty {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.me {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.me-profile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Full-width chip: the whole row (avatar → caret) is one comfortable target. */
+  min-height: 52px;
+  padding: 8px 14px 8px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background-color 160ms ease;
+}
+
+.me-profile:hover,
+.me-profile[aria-current='true'],
+.me-profile[aria-expanded='true'] {
+  background: var(--surface-2);
+}
+
+.me-caret {
+  margin-left: auto;
+  color: var(--faint);
+  transform: rotate(180deg);
+  transition: transform 220ms var(--ease-soft, ease);
+}
+
+.me-profile[aria-expanded='true'] .me-caret {
+  transform: rotate(0deg);
+}
+
+/* Account menu that opens above the chip. */
+.me-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  transform-origin: bottom center;
+  animation: me-menu-in 200ms var(--ease-soft, ease-out);
+}
+
+@keyframes me-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+.me-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 160ms ease;
+}
+
+.me-menu-item:hover {
+  background: var(--surface-2);
+}
+
+.me-menu-item.is-danger {
+  color: var(--alert);
+}
+
+.me-menu-item.is-danger:hover {
+  background: var(--alert-tint);
+}
+
+.me-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: #f6d9c3;
+  color: var(--primary-ink);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+/* The content column scrolls on its own; the window and sidebar never move. */
+.main {
+  position: relative;
+  min-width: 0;
+  margin-top: var(--titlebar-h);
+  height: calc(100dvh - var(--titlebar-h));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  padding: var(--main-pad-top) var(--main-pad-x) var(--main-pad-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: var(--view-gap);
+}
+
+/* The live-session wrapper stays mounted while hidden; it adds no box of its own. */
+.main > .session-slot {
+  display: contents;
+}
+
+/* The content column is a fixed-height flex box: never squeeze blocks to fit
+   (that is what produced small inner scroll boxes); the column scrolls instead. */
+.main > *,
+.main > .session-slot > *,
+.account-fieldset > * {
+  flex-shrink: 0;
+}
+
+/* Keeps the bottom breathing room even when the content scrolls. */
+.main::after {
+  content: '';
+  flex: none;
+  height: 1px;
+  margin-top: -1px;
+}
+
+/* Drag strip under the OS window buttons; content below stays clickable. */
+.titlebar-drag {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 100;
+  height: var(--titlebar-h);
+  -webkit-app-region: drag;
+  app-region: drag;
+  pointer-events: none;
+}
+
+:root[data-desktop='darwin'] .sidebar {
+  padding-top: 52px;
+}
+
+.camera-window-controls,
+.popup-stack,
+.service-notice,
+dialog {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Fixed-height header: title + one line of description, actions on the right. */
+.page-head {
+  flex: none;
+  min-height: var(--head-h);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-head > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.page-desc {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Shared two-column view: flexible main column + fixed side column. */
+.view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--side-w);
+  gap: var(--view-gap);
+  align-items: start;
+}
+
+.view-main,
+.view-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}

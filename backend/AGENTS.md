@@ -7,4 +7,5 @@
 - 실제 영상·랜드마크·식별 정보를 요청 로그에 남기지 않는다.
 - API 구현 시 인증/세션 경계, 오류 응답, 만료·삭제 규칙을 명시하고 검증한다.
 - 첫 구현 때 실행/API 검증 명령을 문서화하고 루트 게이트에 연결한다.
-- 언어와 프레임워크는 미정이다. 하네스 Python 선택을 서버 스택 결정으로 해석하지 않는다.
+- 사용자 승인한 Java 21·Spring Boot API와 별도 Esper CEP는 [서비스 안내](README.md)와 [ADR 0011](../docs/decisions/0011-api-cep-boundary.md)를 따른다.
+- API는 시간 판정을 중복하지 않는다. 실제 비교 조건은 CEP EPL에만 둔다. `make check-backend`와 루트 게이트로 합성 HTTP 흐름을 검증한다.

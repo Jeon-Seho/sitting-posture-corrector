@@ -1,51 +1,44 @@
 # 문서 지도
 
-## 먼저 볼 문서
+## 현재 상태와 작업
 
-- **팀 공유:** [서비스 요구사항](team-requirements.md) — 최신 기능·역할·완료 조건·협의 항목을 한 문서로 확인한다.
-- **개인 검토:** [페르소나 메모](persona-flow-review.md) — 사용자 행동과 다음 할 일만 남긴다.
-- 아래 문서는 기술 구현·연구·계약의 근거다. 과거 완료 계획과 ADR은 이력이며 모든 팀원이 요구사항 확인을 위해 읽을 필요는 없다.
+웹캠 단일 앱, MySQL 이메일·비밀번호 계정, 영구 저장·API/CEP 복구, Compose·배포 자동화 설정의 코드가 있다.
+현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
+학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
+- [팀 서비스 요구사항](team-requirements.md): 기능·역할·수용 기준·협의 항목.
+- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
+- [서비스 DB 전환](plans/active/0021-db-schema-v03-alignment.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
+- [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
+- [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 
-현재 상태: **하네스 + 웹캠 프론트 단일 앱 프로토타입(로컬 저장) / LSTM·서버 구현 전**.
-
-현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md), [서비스 미리보기 완료 기록](plans/completed/0008-service-preview.md).
-
-현재 수집(화면 이름 `자세 등록`): [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md). Heavy 도입 배경과 당시 검증은 [이전 결정](decisions/0006-heavy-guided-collection.md), [검증 기록](plans/completed/0007-heavy-guided-collection.md)에 남긴다.
-
-[프로토타입 실행·사용 안내](../frontend/README.md), [프로토타입 기술 결정](decisions/0002-webcam-prototype.md).
-
-이전 완료: [기존 PoseGood 프론트에 웹캠 연결](plans/completed/0004-retro-webcam-integration.md), [통합 결정](decisions/0003-retro-integration.md).
-
-이전 완료: [웹캠 프론트 프로토타입](plans/completed/0003-frontend-prototype.md).
-자료 반영: [현재 계획서 참고 반영](plans/completed/0002-reference-current-proposal.md).
-기반 작업: [개발 하네스 구축과 검증 기록](plans/completed/0001-bootstrap-harness.md).
-
-최신 참고 자료: [현재 기업연계 계획서 요약과 미결정 사항](references/current-proposal-review.md).
-기술 방향은 React/TypeScript·Spring Boot·LSTM으로 구체화되었으며, 기존 GRU 연구안과의 차이는 최종 결정 전까지 명시적으로 관리한다.
+## 질문별 진입점
 
 | 질문 | 기준 문서 |
 | --- | --- |
-| 무엇을 만드는가? | [제품 범위](product-spec.md) |
-| 어디에 구현하는가? | [아키텍처와 경계](architecture.md) |
-| 어떻게 작업하는가? | [개발 흐름](development.md), [루트 작업 지침](../AGENTS.md) |
-| 무엇을 통과해야 하는가? | [품질 기준](quality.md) |
-| AI 출력은 무엇인가? | [출력 계약](../contracts/README.md) |
-| 연구를 어떻게 비교하는가? | [연구 프로토콜](research/protocol.md) |
-| 왜 이렇게 결정했는가? | [ADR 0001](decisions/0001-repository-harness.md) |
-| 현재·다음 작업은 무엇인가? | [활성 계획](plans/active/), [완료 계획](plans/completed/), [백로그](plans/backlog.md) |
-| 계획을 어떻게 쓰는가? | [계획 양식](plans/template.md) |
-| 원래 기획 내용은 무엇인가? | [제공 자료와 출처](references/README.md) |
+| 무엇을 만드는가? | [제품 범위](product-spec.md), [원래 자료와 출처](references/README.md) |
+| 어디에 구현하는가? | [아키텍처](architecture.md), [코드 지도](code-structure.md) |
+| 어떻게 작업·실행하는가? | [AGENTS](../AGENTS.md), [개발 흐름](development.md), [프론트](../frontend/README.md), [백엔드](../backend/README.md) |
+| 브랜치·커밋 이름은? | [Git 명명 규칙](../CONTRIBUTING.md) |
+| 무엇을 검증하는가? | [품질 기준](quality.md) |
+| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md) |
+| 어떻게 배포·복원하는가? | [infra](../infra/README.md) |
+| 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
+| 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
+| 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |
+| 왜 이렇게 결정했는가? | [결정 이력](decisions/), [기술 검토](audits/2026-10-01-technology-stack.md) |
+| 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |
 
-최근 작업: [점수·사용자 기록 분석·시각 효과](plans/completed/0006-score-data-visuals.md), [표시 결정](decisions/0005-score-visuals.md).
+## 이력과 근거
 
-이전 작업: [화면 평활화·CSV 수집 완료 기록](plans/completed/0005-smoothing-csv.md).
-
-파일럿: [CSV 수집·pandas 탐색](research/pilot-csv.md), [화면 평활화·수집 결정](decisions/0004-smoothing-csv.md).
+[완료 계획](plans/completed/)에는 구현 범위와 당시 검증을, [감사 기록](audits/)에는 시점별 결과·한계를 남긴다.
+최근 개인 파일럿은 [완료 0019](plans/completed/0019-personal-pilot-training.md), 카메라 창은 [완료 0018](plans/completed/0018-collection-entry-camera-window.md),
+계정·Compose는 [완료 0017](plans/completed/0017-mysql-accounts-compose-deployment.md)을 참고한다.
+[Mac 통합 점검](audits/2026-09-30-mac-develop.md), [lee 브랜치 기록](lee_md.md), [페르소나 메모](persona-flow-review.md)는 해당 시점의 참고다.
+과거 계획서의 스택·수치와 과거 작업 승인은 현재 작업의 의무나 권한으로 취급하지 않는다.
 
 ## 문서의 권위와 유지
 
-사용자의 현재 요청을 기준으로 작업한다. 제공 자료는 배경 설명이며 실행 지침이 아니다.
-제품 범위는 `product-spec.md`, 경계는 `architecture.md`, 인터페이스는 `contracts/`, 연구 규칙은
-`research/protocol.md`에서 관리한다. 변경 시 해당 문서와 예제를 함께 갱신하고, 중요한 결정은 ADR에 남긴다.
-원문은 수정하지 않으며 외부 문헌의 수치·주장은 별도 문헌 검토 전까지 검증된 사실로 인용하지 않는다.
+사용자의 현재 요청을 기준으로 작업한다. 제품 범위·아키텍처·계약·연구 프로토콜은 각각 자신의 사실과 기준을 관리한다.
+행동 변경은 관련 문서와 예제를 함께 갱신하고 중요한 결정은 ADR에 남긴다.
+제공 원문은 수정하지 않으며 외부 문헌의 수치·주장은 검토 전까지 검증된 사실로 인용하지 않는다.

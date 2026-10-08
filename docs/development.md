@@ -1,40 +1,50 @@
 # 개발 흐름
 
-## 환경 준비와 빠른 피드백
+## 환경과 명령
 
 ```sh
-make setup       # Python/프론트 의존성과 MediaPipe 모델 준비 (최초 실행에 네트워크 필요)
-make check-repo  # 표준 라이브러리만으로 구조와 문서 검사
-make test        # 출력 계약과 하네스 회귀 검증
-make check      # CI와 동일한 진입점
-make dev        # 웹캠/데모 프론트 프로토타입
+make setup            # 최초 Python/프론트 의존성과 MediaPipe 모델 준비
+make check-repo       # 구조·문서·산출물 검사
+make test             # Python 계약·연구 도구·하네스 회귀
+make check-frontend   # 프론트 테스트·타입·빌드
+make check-backend    # Java·합성 HTTP·짧은 benchmark, 시험 서버 정리
+make check-browser    # 준비된 프론트 빌드/JAR로 합성 앱·서버 흐름
+make check-compose    # 실제 임시 MySQL·계정 UI·백업 복원
+make check-local      # 영구 모드를 제외한 게이트
+make check            # 전체 게이트
+make init-compose     # Git 제외 local secret 준비
+make benchmark-server # 준비된 JAR로 별도 성능 측정
+make dev              # 로컬 웹캠/시연 앱
 ```
 
-Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구성한다.
-프론트는 Node.js 24 이상과 npm을 사용한다. `make setup`이 npm lockfile 기준으로 설치하고 MediaPipe 모델을 준비한다.
-`make check-frontend`는 상태 전이·품질 테스트, 타입 검사, 빌드를 실행한다. `make check`에도 포함된다.
-프론트만 준비하려면 `make setup-frontend`를 사용한다. 웹캠 사용 흐름과 제약은 [프론트 안내](../frontend/README.md)를 참고한다.
-`requirements-dev.txt`는 직접 의존성 버전을 고정한다. 전이 의존성 전체를 잠근 환경은 아니며,
-실험 재현에 사용할 런타임·ML 의존성 잠금은 스택 결정 작업에서 별도로 추가한다.
+`make`가 없는 Windows는 `python tools/dev.py <대상>`을 사용한다. Makefile은 같은 스크립트를 호출한다([ADR 0009](decisions/0009-cross-platform-dev-entry.md)).
+새 Windows PC의 `tools/setup-windows.ps1`은 Git·Node·Python 준비, 저장소·setup·바로가기를 지원한다(`-Repo`, `-Branch`).
+
+Python 3.9+, Node.js 24+, JDK 21·Maven, Chrome/Chromium을 사용한다.
+`make setup`은 네트워크로 의존성과 모델을 준비한다. 부분 준비는 `setup-python`, `setup-frontend`다.
+프론트는 npm lockfile, Python 직접 의존성은 `requirements-dev.txt`를 따른다. Python 전이 의존성 전체의 연구 재현 잠금은 별도 결정이다.
+전체 게이트는 Docker daemon·Compose가 필수이며, `check-local`에도 Python 구성 검사용 Docker CLI는 필요하다.
+CI에서만 `POSEGOOD_CHROME_NO_SANDBOX=1`을 사용하고 로컬 Chrome은 기본 sandbox를 유지한다.
+
+서버 준비·독립 `dev-api`/`dev-cep`/`dev-inference`는 [backend 안내](../backend/README.md),
+계정 앱·배포·백업은 [infra 안내](../infra/README.md), 웹캠은 [frontend 안내](../frontend/README.md)를 따른다.
+검증 선택·실패 기준·합성 입력 경계·결과 보고는 [품질 기준](quality.md), 성능 측정은 [benchmark 안내](audits/2026-10-01-server-benchmark.md)에 모은다.
 
 ## 작업 루프
 
-1. 요청과 관련 문서를 확인하고 완료 기준을 정한다.
-2. 큰 변경은 [계획 양식](plans/template.md)을 `plans/active/`에 복사한다.
-3. 구현과 필요한 검증을 함께 작성한다. 실패·측정 불가·입력 누락 경로를 포함한다.
-4. `make check`와 변경 컴포넌트의 명령을 실행한다.
-5. 문제를 수정하고 재검증한 뒤, 결과·한계·설계 결정을 문서화한다.
-6. 완료 기준이 모두 충족되면 계획을 `completed/`로 옮기고 링크를 수정한다.
+새 브랜치와 커밋의 이름은 [Git 명명 규칙](../CONTRIBUTING.md)을 따른다. Git hook은 사용하지 않는다.
 
-## 컴포넌트 구현 시 확장
+1. 현재 요청·git status와 관련 문서/컴포넌트 AGENTS·계약을 확인한다.
+2. 여러 컴포넌트·계약·연구 설계 변경은 [계획 양식](plans/template.md)으로 활성 계획을 기록한다. 작은 수정에는 강제하지 않는다.
+3. 요청 범위의 변경과 필요한 성공/실패·측정 불가·입력 누락 검증을 구현한다.
+4. [범위별 검증](quality.md)을 실행한다. 전체 성공 후 포함된 검사를 반복하지 않는다.
+5. 행동이 바뀌면 문서·계약·예제를 함께 갱신하고 결과와 남은 한계를 기록한다.
+6. 완료 기준을 충족하면 계획을 completed로 옮기고 링크를 갱신한다.
 
-첫 실제 구현 PR에서 실행 방법과 검증 명령을 컴포넌트 문서에 추가한다.
-프론트는 빌드/타입/핵심 UI 흐름, 서버는 API/오류 처리, 모델은 합성 시퀀스/평가 분할,
-DB는 마이그레이션 왕복 검증을 포함한다. 필요한 환경 준비를 `make setup`에, 검증을 `make check`와 CI에 연결한다.
-카메라·GPU·실제 참여자 데이터가 필요한 실험은 별도 명령으로 제공하고 기본 PR 검증과 구분한다.
+새 컴포넌트의 환경 준비와 실제 검증은 `make setup`/`make check`·CI에 연결한다.
+카메라·GPU·실제 참여자 실험은 기본 합성 검증과 구분한 별도 명령으로 제공한다.
 
 ## 검증 실패 시
 
-오류 메시지의 파일·필드를 확인하고 원인을 고친다. 검사를 삭제하거나 fixture를 실제 데이터로 바꿔 우회하지 않는다.
-실행 환경이 없어 확인하지 못했다면 계획과 결과에 미검증으로 명시한다.
-민감 데이터 검사는 경로·확장자 기반 보조 장치이며, 파일 내용의 개인정보·비밀값을 탐지하는 도구가 아니다.
+실패한 파일·필드를 확인하고 원인을 고친다. 검사를 삭제하거나 실제 데이터로 바꿔 우회하지 않는다.
+환경이 없으면 실행하지 못한 검증과 이유를 기록한다.

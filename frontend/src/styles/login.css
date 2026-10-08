@@ -1,0 +1,102 @@
+/* ---------- Welcome / sign-in ---------- */
+
+.cover-page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(400px, 520px);
+  background: var(--bg);
+}
+
+.cover-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 48px 56px;
+  overflow: hidden;
+  background: var(--primary-tint);
+}
+
+.cover-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cover-hero h1 {
+  max-width: 13em;
+  font-size: clamp(30px, 3.4vw, 44px);
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.cover-hero p {
+  margin-top: 14px;
+  max-width: 34ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.cover-art {
+  align-self: center;
+  width: min(420px, 80%);
+  height: auto;
+  /* Feather the generated peach backdrop into the app's primary tint. */
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent),
+    linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent);
+  mask-composite: intersect;
+}
+
+.cover-points {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cover-points span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  background: rgba(255, 250, 244, 0.75);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.cover-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+}
+
+.cover-form {
+  width: min(400px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cover-form h2 {
+  font-size: 28px;
+}
+
+.cover-form .lead {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.cover-form [role='alert'] {
+  color: var(--alert-ink);
+}
+
+.collection-entry-link {
+  align-self: flex-start;
+}

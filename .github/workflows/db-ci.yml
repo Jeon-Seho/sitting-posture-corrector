@@ -1,0 +1,116 @@
+name: DB CI
+
+on:
+  pull_request:
+    paths:
+      - 'database/**'
+      - '.github/workflows/db-ci.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'database/**'
+      - '.github/workflows/db-ci.yml'
+
+jobs:
+  schema-check:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      MYSQL_PWD: root   # CI 전용 임시 컨테이너 비밀번호. 명령줄에 쓰지 않으려고 환경 변수로 넘긴다
+      MYSQL: mysql -h 127.0.0.1 -P 3306 -uroot --default-character-set=utf8mb4
+      MYSQL_HOST: 127.0.0.1                            # 무결성 검사 스크립트 접속 정보
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      DB: posture_service                              # 스키마 파일이 만드는 데이터베이스 이름
+      BASE_SCHEMA: database/schema/schema_V2_0.sql     # 주 버전 기준 스키마 — migrations(011~)의 출발점
+      # README 1장 「적용 후 확인」 값. 스키마·시드가 바뀌면 함께 고친다
+      EXPECT_TABLES: 16
+      EXPECT_FEATURE_DEF: 3
+      EXPECT_SAFETY_RANGE: 0
+      EXPECT_THRESHOLD_POLICY: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare snapshot query
+        run: |
+          # 구조(테이블·컬럼·키·CHECK·FK 동작·인덱스)와 마스터 데이터를 한 줄씩 뽑는다
+          cat > "$RUNNER_TEMP/snapshot.sql" <<'SQL'
+          SELECT 'T', TABLE_NAME, ENGINE, TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()
+          UNION ALL SELECT 'C', CONCAT(TABLE_NAME, '.', LPAD(ORDINAL_POSITION, 2, '0'), '.', COLUMN_NAME), CONCAT_WS('|', COLUMN_TYPE, IS_NULLABLE, IFNULL(COLUMN_DEFAULT, '<null>'), EXTRA), CONCAT_WS('|', IFNULL(CHARACTER_SET_NAME, '-'), IFNULL(COLLATION_NAME, '-')), COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()
+          UNION ALL SELECT 'K', CONCAT(TABLE_NAME, '.', CONSTRAINT_NAME), CONSTRAINT_TYPE, '', '' FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE()
+          UNION ALL SELECT 'CK', CONSTRAINT_NAME, CHECK_CLAUSE, '', '' FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE()
+          UNION ALL SELECT 'R', CONCAT(TABLE_NAME, '.', CONSTRAINT_NAME), REFERENCED_TABLE_NAME, CONCAT(UPDATE_RULE, '/', DELETE_RULE), '' FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE()
+          UNION ALL SELECT 'KC', CONCAT(TABLE_NAME, '.', CONSTRAINT_NAME, '.', ORDINAL_POSITION), COLUMN_NAME, IFNULL(REFERENCED_COLUMN_NAME, ''), '' FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE()
+          UNION ALL SELECT 'IX', CONCAT(TABLE_NAME, '.', INDEX_NAME, '.', SEQ_IN_INDEX), IFNULL(COLUMN_NAME, IFNULL(EXPRESSION, '')), NON_UNIQUE, '' FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE()
+          UNION ALL SELECT 'FD', feature_code, feature_name, scale_invariant, distance_proxy FROM feature_def
+          UNION ALL SELECT 'TP', policy_name, threshold, CONCAT_WS('|', hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour), created_by FROM threshold_policy;
+          SQL
+
+      - name: "New DB: latest schema + seeds"
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          schemas=(database/schema/schema_V*.sql)
+          [ ${#schemas[@]} -gt 0 ] || { echo "::error::database/schema/schema_V*.sql 없음"; exit 1; }
+          latest=$(printf '%s\n' "${schemas[@]}" | sort -V | tail -n 1)
+          echo "▶ $latest"; $MYSQL < "$latest"
+          for f in $(printf '%s\n' database/seed/seed_*.sql | sort); do echo "▶ $f"; $MYSQL < "$f"; done
+
+      - name: "New DB: verify counts"
+        run: |
+          set -euo pipefail
+          check() {
+            actual=$($MYSQL -N -B "$DB" -e "$2")
+            echo "$1: $actual (기대 $3)"
+            [ "$actual" = "$3" ] || { echo "::error::$1 — 기대 $3, 실제 $actual"; exit 1; }
+          }
+          check "테이블"           "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()" "$EXPECT_TABLES"
+          check "feature_def"      "SELECT COUNT(*) FROM feature_def"      "$EXPECT_FEATURE_DEF"
+          check "safety_range"     "SELECT COUNT(*) FROM safety_range"     "$EXPECT_SAFETY_RANGE"
+          check "threshold_policy" "SELECT COUNT(*) FROM threshold_policy" "$EXPECT_THRESHOLD_POLICY"
+          $MYSQL -N -B "$DB" < "$RUNNER_TEMP/snapshot.sql" | sort > "$RUNNER_TEMP/new.txt"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "New DB: integrity checks"
+        run: |
+          python -m pip install --quiet pymysql==1.1.1
+          python database/tests/integrity_check.py
+
+      - name: "Existing DB: base schema + seeds + migrations"
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          $MYSQL -e "DROP DATABASE IF EXISTS $DB"
+          echo "▶ $BASE_SCHEMA"; $MYSQL < "$BASE_SCHEMA"
+          for f in $(printf '%s\n' database/seed/seed_*.sql | sort); do echo "▶ $f"; $MYSQL < "$f"; done
+          migs=(database/migrations/[0-9]*.sql)
+          if [ ${#migs[@]} -eq 0 ]; then echo "migrations 없음 — 기준 스키마 그대로 비교한다"; fi
+          for f in $(printf '%s\n' "${migs[@]}" | sort); do echo "▶ $f"; $MYSQL "$DB" < "$f"; done
+          $MYSQL -N -B "$DB" < "$RUNNER_TEMP/snapshot.sql" | sort > "$RUNNER_TEMP/migrated.txt"
+
+      - name: "Compare: new DB = existing DB + migrations"
+        run: |
+          if diff -u "$RUNNER_TEMP/new.txt" "$RUNNER_TEMP/migrated.txt"; then
+            echo "두 방법의 결과가 같다 ($(wc -l < "$RUNNER_TEMP/new.txt")줄 비교)"
+          else
+            echo "::error::최신 스키마로 만든 DB와 기준 스키마 + migrations 결과가 다르다"; exit 1
+          fi

@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "observation": {
+    "schema_version": "2.0",
+    "sequence": 0,
+    "start_ms": 0,
+    "end_ms": 1000,
+    "phase": "running",
+    "valid": true,
+    "collapse_probability": 0.7,
+    "deviation_type": "left_lean",
+    "model_version": "reference-feature-rule-v1"
+  },
+  "session": {
+    "schema_version": "1.0",
+    "session_id": "00000000-0000-4000-8000-000000000002",
+    "policy": { "hold_ms": 3000, "recovery_ms": 2000, "reminder_ms": 60000, "threshold": 0.7 },
+    "timer_policy": "legacy-interrupt-v1",
+    "ended": false,
+    "last_sequence": 0,
+    "summary": {
+      "total_ms": 1000,
+      "valid_ms": 1000,
+      "normal_ms": 0,
+      "deviation_ms": 1000,
+      "rest_ms": 0,
+      "away_ms": 0,
+      "unknown_ms": 0,
+      "missing_ms": 0,
+      "collapse_count": 0,
+      "alert_count": 0,
+      "interval_count": 0,
+      "keep_rate": 0,
+      "events_per_hour": 0,
+      "mean_interval_ms": null,
+      "mean_recovery_ms": null
+    },
+    "events": []
+  }
+}

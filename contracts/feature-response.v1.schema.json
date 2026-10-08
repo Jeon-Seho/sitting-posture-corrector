@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/feature-response.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observation", "session"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "sequence",
+        "start_ms",
+        "end_ms",
+        "phase",
+        "valid",
+        "collapse_probability",
+        "deviation_type",
+        "model_version"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "2.0"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400000
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400000
+        },
+        "phase": {
+          "enum": ["running", "rest", "away"]
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "collapse_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "deviation_type": {
+          "enum": [
+            "none",
+            "forward_slouch",
+            "left_lean",
+            "right_lean",
+            "unspecified"
+          ]
+        },
+        "model_version": {
+          "type": "string",
+          "pattern": "^[a-z0-9._-]{1,64}$"
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "session_id",
+        "policy",
+        "timer_policy",
+        "ended",
+        "last_sequence",
+        "summary",
+        "events"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hold_ms", "recovery_ms", "reminder_ms", "threshold"],
+          "properties": {
+            "hold_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400000
+            },
+            "recovery_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400000
+            },
+            "reminder_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400000
+            },
+            "threshold": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "timer_policy": {
+          "const": "legacy-interrupt-v1"
+        },
+        "ended": {
+          "type": "boolean"
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total_ms",
+            "valid_ms",
+            "normal_ms",
+            "deviation_ms",
+            "rest_ms",
+            "away_ms",
+            "unknown_ms",
+            "missing_ms",
+            "collapse_count",
+            "alert_count",
+            "interval_count",
+            "keep_rate",
+            "events_per_hour",
+            "mean_interval_ms",
+            "mean_recovery_ms"
+          ],
+          "properties": {
+            "total_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "valid_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "normal_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deviation_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rest_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "away_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "collapse_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "alert_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "interval_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "keep_rate": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "events_per_hour": {
+              "type": ["number", "null"],
+              "minimum": 0
+            },
+            "mean_interval_ms": {
+              "type": ["number", "null"],
+              "minimum": 0
+            },
+            "mean_recovery_ms": {
+              "type": ["number", "null"],
+              "minimum": 0
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "session_id",
+              "event_id",
+              "kind",
+              "timestamp_ms",
+              "onset_ms",
+              "onset_valid_ms",
+              "deviation_type",
+              "reason"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "1.0"
+              },
+              "session_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "event_id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "kind": {
+                "enum": [
+                  "collapse_confirmed",
+                  "recovery_confirmed",
+                  "reminder",
+                  "interrupted",
+                  "session_ended"
+                ]
+              },
+              "timestamp_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "onset_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "onset_valid_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviation_type": {
+                "enum": [
+                  "none",
+                  "forward_slouch",
+                  "left_lean",
+                  "right_lean",
+                  "unspecified"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  null,
+                  "missing",
+                  "missing_sequence",
+                  "unmeasurable",
+                  "rest",
+                  "away",
+                  "ended"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
