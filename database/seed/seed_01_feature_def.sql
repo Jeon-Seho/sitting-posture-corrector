@@ -1,6 +1,6 @@
 -- =====================================================================
 -- seed_01_feature_def.sql — 특징값 정의 (T-27 feature_def)
--- 명세서 V0.3 / 적용 순서 1
+-- 명세서 V2.0 / 적용 순서 1
 --
 -- 근거: model/prototype/pose.ts의 Features = { headGap, offset, tilt, quality }
 --   quality는 검출 품질 지표라 자세 특징값에서 뺀다.
