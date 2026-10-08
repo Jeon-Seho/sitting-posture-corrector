@@ -201,12 +201,15 @@ describe('server lifecycle using synthetic adjacent frames only', () => {
     latestPoor.resolve(transport.respond(s.client.send.mock.calls[3][0]))
     await flush()
     expect(s.controller.state.live.state).toBe('unknown')
-    s.time(400)
-    s.controller.ingest(cameraFrame(400), 'synthetic-device')
-    await flush()
-    expect(s.controller.state.live.state).toBe('unknown')
-    s.time(500)
-    s.controller.ingest(cameraFrame(500), 'synthetic-device')
+    // The user is still settling: frames within 3 s of the poor one are sent as poor.
+    for (const t of [400, 500, 1400, 2300, 3300]) {
+      s.time(t)
+      s.controller.ingest(cameraFrame(t), 'synthetic-device')
+      await flush()
+      expect(s.controller.state.live.state).toBe('unknown')
+    }
+    s.time(3400)
+    s.controller.ingest(cameraFrame(3400), 'synthetic-device')
     await flush()
     expect(s.controller.state.live.state).toBe('good')
   })

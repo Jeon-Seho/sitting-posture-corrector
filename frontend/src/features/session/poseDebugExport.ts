@@ -1,4 +1,5 @@
 import { referenceScore, type Features, type Landmark } from '../../../../model/prototype/pose'
+import { ReturnSettle } from '../../lib/returnSettle'
 
 /** MediaPipe Pose indices kept for analysis: nose, eyes, ears, mouth corners, shoulders. */
 export const DEBUG_POINTS = [
@@ -46,16 +47,20 @@ const num = (value: number | undefined) =>
 
 /**
  * The app's own per-frame rule judgement, written as the label column set:
- * state g (good) / c (collapse) / u (unmeasurable), type h (head/upper body) / t (tilt),
- * blank unless collapsed, and the 0..1 rule score. Same rule as the live screen
- * (referenceScore against the session threshold), before the hold-time confirmation.
- * It is our rule's output, not a human-checked ground truth.
+ * state good / collapse / unknown; type head / tilt_left / tilt_right (the user's own side)
+ * for whichever change drives the score, also on good frames so a drift shows before it
+ * collapses; and the 0..1 rule score. Same rule as the live screen (referenceScore
+ * against the session threshold), before the hold-time confirmation. It is our rule's
+ * output, not a human-checked ground truth.
  */
 function judgement(features: Features | null, baseline: Features, threshold: number) {
   const result = features ? referenceScore(features, baseline) : null
-  if (!result || result.score === null) return ['u', '', '']
-  const collapsed = result.score >= threshold
-  return [collapsed ? 'c' : 'g', collapsed ? (result.tilt ? 't' : 'h') : '', floor2(result.score)]
+  if (!result || result.score === null) return ['unknown', '', '']
+  return [
+    result.score >= threshold ? 'collapse' : 'good',
+    result.tilt ? `tilt_${result.side ?? 'left'}` : 'head',
+    floor2(result.score),
+  ]
 }
 
 /**
@@ -64,6 +69,7 @@ function judgement(features: Features | null, baseline: Features, threshold: num
  * such as 0.29 * 100 = 28.999…
  */
 const floor2 = (score: number) => (Math.floor(score * 100 + 1e-9) / 100).toFixed(2)
+
 
 /**
  * Raw (unsmoothed) landmarks per running frame, for offline analysis of head turn,
@@ -74,6 +80,8 @@ const floor2 = (score: number) => (Math.floor(score * 100 + 1e-9) / 100).toFixed
  */
 export class PoseDebugRecorder {
   private readonly rows: string[] = []
+  /** Right after unknown the state stays unknown; type and score are still written. */
+  private readonly settle = new ReturnSettle()
   truncated = false
 
   constructor(
@@ -97,13 +105,15 @@ export class PoseDebugRecorder {
       return [num(p?.x), num(p?.y)]
     })
     const first = this.rows.length === 0
+    const label = judgement(frame.features, this.baseline, this.threshold)
+    if (!this.settle.judge(frame.timeMs, label[0] !== 'unknown')) label[0] = 'unknown'
     this.rows.push(
       [
         String(Math.round(frame.timeMs - this.origin)),
         first ? String(frame.width) : '',
         first ? String(frame.height) : '',
         frame.features !== null ? '1' : '0',
-        ...judgement(frame.features, this.baseline, this.threshold),
+        ...label,
         ...image,
       ].join(','),
     )

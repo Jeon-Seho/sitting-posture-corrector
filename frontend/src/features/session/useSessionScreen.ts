@@ -4,7 +4,8 @@ import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
 import { COLLAPSE_LABEL } from '../../data/posture'
 import type { Rules } from '../../lib/engine'
-import { cameraSample } from '../../lib/cameraSample'
+import { cameraSample, holdWhileSettling } from '../../lib/cameraSample'
+import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
@@ -39,6 +40,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const [exportCount, setExportCount] = useState(0)
+  const returnSettle = useRef(new ReturnSettle())
   useEffect(() => {
     if (!service?.sessionId || !isCamera) return
     return camera.subscribe((observation) => {
@@ -77,7 +79,9 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     phase,
     speed,
     rules,
-    isCamera ? () => cameraSample(camera) : undefined,
+    isCamera
+      ? () => holdWhileSettling(cameraSample(camera), returnSettle.current, performance.now())
+      : undefined,
     alertsOn,
     service
       ? {

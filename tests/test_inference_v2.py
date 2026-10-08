@@ -72,7 +72,7 @@ class InferenceV2Tests(unittest.TestCase):
     def test_finite_deltas_are_unbounded_and_capped_only_when_scoring(self):
         for field, value, kind in (
             ("head_gap_delta", 2.2, "unspecified"),
-            ("lateral_offset_delta", -2.0, "right_lean"),
+            ("lateral_offset_delta", -2.0, "left_lean"),
             ("shoulder_tilt_delta", 1e308, "unspecified"),
         ):
             with self.subTest(field=field, value=value):
@@ -160,7 +160,7 @@ class InferenceV2Tests(unittest.TestCase):
                     self.assertEqual(response.status_code, 422)
                     self.assertEqual(response.json(), {"error": "invalid_contract"})
 
-    def test_versions_keep_their_distinct_legacy_direction_contracts(self):
+    def test_versions_agree_that_a_positive_lateral_change_is_right_lean(self):
         legacy = {
             "schema_version": "1.0", "sequence": 0, "start_ms": 0, "end_ms": 1000,
             "phase": "running", "measurement_quality": "good",
@@ -172,7 +172,7 @@ class InferenceV2Tests(unittest.TestCase):
         self.assertEqual(old_result["deviation_type"], "right_lean")
         new_result = self.infer(self.body)
         self.assertEqual(new_result["collapse_probability"], 0.7)
-        self.assertEqual(new_result["deviation_type"], "left_lean")
+        self.assertEqual(new_result["deviation_type"], "right_lean")
 
 
 class InferenceRequestV2ContractTests(unittest.TestCase):

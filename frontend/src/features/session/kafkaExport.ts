@@ -2,6 +2,7 @@ import { featureDeltas } from '../../../../model/prototype/serverFeatures'
 import type { Features } from '../../../../model/prototype/pose'
 import type { Rules } from '../../lib/engine'
 import { policyFor, type FrameRequest } from './server/contracts'
+import { ReturnSettle } from '../../lib/returnSettle'
 
 const FRAME_EXPIRY_MS = 1000
 const MAX_INTERVAL_MS = 1500
@@ -30,7 +31,8 @@ type Meta = {
  */
 export class KafkaFeatureRecorder {
   private readonly items: FrameRequest[] = []
-  private previous: { timeMs: number; features: Features | null } | null = null
+  private previous: { timeMs: number; usable: boolean } | null = null
+  private readonly settle = new ReturnSettle()
   private lastEnd = -1
   truncated = false
 
@@ -48,7 +50,10 @@ export class KafkaFeatureRecorder {
   push(timeMs: number, features: Features | null) {
     if (!Number.isFinite(timeMs)) return
     const previous = this.previous
-    this.previous = { timeMs, features }
+    const measured = featureDeltas(features, this.meta.baseline)
+    // Same return-settle rule as the server controller: just after unknown is still poor.
+    const judged = this.settle.judge(timeMs, measured !== null)
+    this.previous = { timeMs, usable: judged }
     if (!previous) return
     const gap = timeMs - previous.timeMs
     if (gap <= 0 || gap > FRAME_EXPIRY_MS) return
@@ -60,8 +65,7 @@ export class KafkaFeatureRecorder {
       this.truncated = true
       return
     }
-    const deltas = featureDeltas(features, this.meta.baseline)
-    const usable = featureDeltas(previous.features, this.meta.baseline) !== null ? deltas : null
+    const usable = previous.usable && judged ? measured : null
     this.items.push({
       schema_version: '2.0',
       feature_version: 'shoulder-relative-deltas-v1',

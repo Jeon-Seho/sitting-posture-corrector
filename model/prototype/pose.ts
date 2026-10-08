@@ -115,7 +115,7 @@ export function classify(current: Features | null, baseline: Features | null): R
       amount < 1
         ? null
         : Math.abs(lean) > head && Math.abs(lean) > tilt
-          ? lean > 0
+          ? lean < 0
             ? 'left_lean'
             : 'right_lean'
           : 'forward_slouch',
@@ -140,12 +140,20 @@ export function payload(reading: Reading, elapsed: number, duration: number): Po
 
 /** A dimensionless rule score, NOT a trained probability or anatomical angle. */
 export function referenceScore(current: Features, baseline: Features) {
-  if (!validFeatures(current) || !validFeatures(baseline)) return { score: null, tilt: false }
+  if (!validFeatures(current) || !validFeatures(baseline))
+    return { score: null, tilt: false, side: null }
   const head = Math.abs(current.headGap - baseline.headGap) / 0.22
-  const lateral = Math.abs(current.offset - baseline.offset) / 0.2
-  const shoulder = Math.abs(current.tilt - baseline.tilt) / SHOULDER_TILT_SCALE
+  const lean = (current.offset - baseline.offset) / 0.2
+  const drop = (current.tilt - baseline.tilt) / SHOULDER_TILT_SCALE
+  const lateral = Math.abs(lean),
+    shoulder = Math.abs(drop)
+  // Side as the user names it. A real capture (2026-10-08) showed that leaning to the
+  // user's own left makes the dominant change negative and leaning right makes it
+  // positive, so a negative change is a tilt to the left.
+  const sideward = lateral >= shoulder ? lean : drop
   return {
     score: Math.min(1, Math.max(head, lateral, shoulder) * 0.7),
     tilt: Math.max(lateral, shoulder) > head,
+    side: sideward < 0 ? ('left' as const) : sideward > 0 ? ('right' as const) : null,
   }
 }
