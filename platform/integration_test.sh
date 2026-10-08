@@ -85,7 +85,7 @@ if [ -n "$EXPECTED_PROJECT" ]; then
 fi
 VOL="$(docker inspect kafka --format '{{range .Mounts}}{{if eq .Destination "/var/lib/kafka/data"}}{{.Name}}{{end}}{{end}}' 2>/dev/null || true)"
 log "  Kafka 볼륨: ${VOL:-?}"
-STRAY="$(docker volume ls --format '{{.Name}}' | grep -E '_(kafka-data|hdfs-namenode-data|hdfs-datanode-data)$' | grep -v "^${PROJ:-__none__}_" | tr '\n' ' ')"
+STRAY="$(docker volume ls --format '{{.Name}}' | grep -E '_(kafka-data|redis-data|hdfs-namenode-data|hdfs-datanode-data)$' | grep -v "^${PROJ:-__none__}_" | tr '\n' ' ')"
 [ -n "$STRAY" ] && log "  참고: 쓰이지 않는 볼륨 후보: $STRAY (확인 후 docker volume rm으로 정리 가능)"
 
 # ---------------------------------------------------------------------
@@ -96,6 +96,14 @@ for c in kafka redis hdfs-namenode hdfs-datanode spark api-server inference-serv
   if [ "$run" = "running" ] && { [ "$health" = "healthy" ] || [ "$health" = "-" ]; }; then pass "$c ($st)"
   else fail "$c" "상태=$st"; fi
 done
+# (D-20) 컨테이너 시간대 = 한국 시각(+0900)
+TZ_BAD=""
+for c in kafka redis hdfs-namenode hdfs-datanode spark api-server inference-service; do
+  z="$(docker exec "$c" date +%z 2>/dev/null || echo '?')"
+  [ "$z" = "+0900" ] || TZ_BAD="$TZ_BAD $c($z)"
+done
+if [ -z "$TZ_BAD" ]; then pass "컨테이너 시간대 KST(+0900) 7개 (D-20)"
+else fail "컨테이너 시간대" "KST 아님:$TZ_BAD — docker compose up -d --force-recreate 필요(D-20)"; fi
 
 # ---------------------------------------------------------------------
 step "2. Kafka"
@@ -269,6 +277,20 @@ PY2
 )"
       if [ "$ROW" = "73.1 2 1" ]; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
       else fail "MySQL collapse_events 행" "'${ROW:-행 없음}' (기대: 73.1 2 1)"; fi
+      # (D-20) 저장 기준 KST 확인: 방금 만든 세션의 started_at(=지금 시각)이 DB NOW()(KST)와 몇 초 차이인지
+      LAG_S="$(python3 - "$SID" <<'PY3' 2>>"$OUT/run.log"
+import sys, mysql.connector
+env = dict(l.rstrip("\n").split("=", 1) for l in open(".env", encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
+c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
+                            password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
+cur = c.cursor()
+cur.execute("SELECT TIMESTAMPDIFF(SECOND, started_at, NOW(3)) FROM sessions WHERE session_id=%s", (sys.argv[1],))
+r = cur.fetchone()
+print("" if r is None else int(r[0]))
+PY3
+)"
+      if [ -n "$LAG_S" ] && [ "${LAG_S#-}" -lt 1800 ]; then pass "DB 시각 기준 KST (세션 시작 ↔ DB NOW() ${LAG_S}초, D-20)"
+      else fail "DB 시각 기준" "세션 시작과 DB NOW() 차이 '${LAG_S:-행 없음}'초 — 약 ±32400초면 9시간 어긋남(D-20)"; fi
     elif command -v mysql >/dev/null && [ -f .env ]; then
       DBH="$(grep -E '^DB_HOST=' .env | cut -d= -f2-)"; DBP="$(grep -E '^DB_PORT=' .env | cut -d= -f2-)"
       DBU="$(grep -E '^DB_USER=' .env | cut -d= -f2-)"; DBN="$(grep -E '^DB_NAME=' .env | cut -d= -f2-)"

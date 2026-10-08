@@ -20,7 +20,7 @@
 | 6 | `max_connect_errors = 10000` | 필수 | 즉시 적용 |
 | 7 | `innodb_flush_log_at_trx_commit = 2` | 필수 | 즉시 적용 |
 | 8 | `innodb_buffer_pool_size ≥ 256M`, `sync_binlog = 0` | 권장 (D-17) | 즉시 적용 |
-| 9 | 시간대 확인 (UTC/KST) | 필수 | — |
+| 9 | 시간대 확인 (KST 저장 — D-20 결정) | 필수 | — |
 | 10 | 접속 정보를 BE에 전달 (IP·포트·계정. **비밀번호는 메신저 개인 메시지로**) | 필수 | — |
 
 V1.1 `posture_service`는 지금처럼 그대로 두면 됩니다. 이 가이드는 **같은 MySQL 서버에 `posture_app`을 추가**하는 내용입니다.
@@ -220,9 +220,10 @@ SELECT session_id, last_seen_at, UTC_TIMESTAMP(3) AS utc_now, NOW(3) AS db_now
 | 결과 | 판단 |
 |---|---|
 | `last_seen_at` ≈ `utc_now` | 정상 (UTC 저장) |
-| `last_seen_at` ≈ `utc_now` + 9시간 | 한국 시각으로 저장됨 → BE가 서버 설정을 UTC로 수정(신규 ToDo) |
+| `last_seen_at` ≈ `utc_now` + 9시간 (≈ `db_now`) | 한국 시각으로 저장됨 — **2026-10-07 새 DB에서 확인, 이 상태가 기준(KST 통일, D-20)** |
 
-같은 이유로, 새 DB 서버의 시간대 설정(`time_zone`)은 `SYSTEM`이든 `+09:00`이든 상관없습니다. **값은 UTC로 저장한다**는 원칙만 V1.1 명세에 적어 주세요(검토의견 요청 #3).
+> **2026-10-07 결정(D-20)**: 시각은 **한국 시각(KST)으로 통일**합니다. 서버의 세션 만료 비교는 DB 함수(`UTC_TIMESTAMP()`) 대신 서버가 계산한 기준 시각을 쓰도록 바꿔 9시간 지연을 없앴습니다.
+> 새 DB 서버의 시간대 설정(`time_zone`)은 `SYSTEM`(Windows 한국 표준시)이든 `+09:00`이든 상관없습니다. V1.1 명세에는 **일시 컬럼은 KST로 저장한다**고 적어 주세요(검토의견 요청 #3).
 
 ## 7. 문제 해결
 

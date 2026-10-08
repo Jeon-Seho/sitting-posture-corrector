@@ -69,7 +69,7 @@ public class SessionExpiryScheduler {
             }
             result.put("finalized_events", outcomes.size());
 
-            int expiredRows = repository.expireStaleSessions((int) timeoutSeconds);
+            int expiredRows = repository.expireStaleSessions(now, (long) timeoutSeconds);   // (D-20) 엔진과 같은 기준 시각
             result.put("ended_sessions_db", expiredRows);
             if (expiredRows > 0) {
                 log.info("sessions 테이블 {}건을 ENDED로 마킹함", expiredRows);

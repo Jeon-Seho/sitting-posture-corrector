@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +55,7 @@ public class CepJdbcRepository implements CepWriteTarget {
             UPDATE sessions
             SET status = 'ENDED'
             WHERE status = 'ACTIVE'
-              AND last_seen_at < (UTC_TIMESTAMP(3) - INTERVAL ? SECOND)
+              AND last_seen_at < ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -103,14 +104,28 @@ public class CepJdbcRepository implements CepWriteTarget {
      * ACTIVE 세션을 한 번에 ENDED로 마킹한다 (D-10). 세션 만료 스케줄러 스레드에서만
      * 부르며 판정 경로와는 무관하다.
      *
+     * <p>(D-20) 기준 시각은 DB 함수({@code UTC_TIMESTAMP()}/{@code NOW()})가 아니라
+     * 서버가 계산한 값({@code now - timeoutSeconds})을 바인딩한다. {@code last_seen_at}을 쓸 때와
+     * 똑같이 {@code Timestamp.from(Instant)} → JDBC 접속 시간대(Asia/Seoul) 변환을 거치므로,
+     * 저장 값과 비교 값이 항상 같은 기준(KST)이 된다. DB 서버의 {@code time_zone}이나
+     * 컨테이너 시간대가 바뀌어도 결과가 달라지지 않는다. (이전에는 KST로 저장된 값을
+     * {@code UTC_TIMESTAMP()}와 비교해 세션이 9시간 늦게 만료됐다.)
+     *
+     * @param now            기준 시각 (메모리 엔진 만료와 같은 값을 넘긴다)
+     * @param timeoutSeconds 무응답 허용 시간(초)
      * @return 이번 호출로 ENDED로 바뀐 행 수. 실패 시 0을 반환하고 예외를 던지지 않는다.
      */
-    public int expireStaleSessions(int timeoutSeconds) {
+    public int expireStaleSessions(Instant now, long timeoutSeconds) {
         try {
-            return jdbcTemplate.update(EXPIRE_SESSIONS_SQL, timeoutSeconds);
+            return jdbcTemplate.update(EXPIRE_SESSIONS_SQL, expiryCutoff(now, timeoutSeconds));
         } catch (Exception exc) {
             log.warn("세션 만료 처리(sessions UPDATE) 실패: {}", exc.getMessage());
             return 0;
         }
+    }
+
+    /** (D-20) 만료 기준 시각: {@code now}에서 {@code timeoutSeconds}를 뺀 값. */
+    static Timestamp expiryCutoff(Instant now, long timeoutSeconds) {
+        return Timestamp.from(now.minusSeconds(timeoutSeconds));
     }
 }

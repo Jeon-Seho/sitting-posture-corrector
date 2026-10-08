@@ -44,6 +44,13 @@
 #   - 모든 서비스에 로그 크기 제한(json-file, 10m×3) 적용 — VM에서
 #     겪은 디스크 부족(Kafka 크래시) 재발 방지.
 #
+# 2026-10-08 변경 (D-20, 시각 기준 KST 통일 — 10/07 결정):
+#   - 서버 PC·DB는 이미 한국 시각. 컨테이너만 UTC였으므로 모든 서비스에
+#     TZ=Asia/Seoul + 호스트 /etc/localtime·/usr/share/zoneinfo(읽기 전용)를
+#     붙여 로그·date 시각을 KST로 맞춘다. DB 저장 값의 기준은 JDBC
+#     serverTimezone=Asia/Seoul(application.yml)이며 컨테이너 시간대와 무관하다.
+#   - Kafka 메시지 시각(epoch ms / ISO-8601 Z)은 시간대 정보가 들어 있으므로 그대로 둔다.
+#
 # 환경변수: 외부 MySQL 접속 정보 등은 이 파일과 같은 폴더의 .env 로
 #   주입한다(.env.example 참고, 실제 값이 든 .env는 커밋하지 않는다).
 # ============================================================
@@ -86,6 +93,7 @@ services:
       - "127.0.0.1:9092:9092"      # 호스트 내부 전용 (서버 PC 자체에서 CLI 디버깅용)
       - "192.168.0.104:9094:9094"  # 외부 GPU PC(inference-service) 전용 — DOCKER-USER로 소스 IP 제한됨
     environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: "broker,controller"
       # PLAINTEXT: 같은 app-network의 다른 컨테이너(api-server 등)가
@@ -119,6 +127,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
     volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
       - kafka-data:/var/lib/kafka/data
     networks:
       - app-network
@@ -140,7 +150,11 @@ services:
     ports:
       - "127.0.0.1:6379:6379"   # 서버 PC 내부 전용 (v4 7.1절 — 외부 PC에 노출하지 않음)
     volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
       - redis-data:/data
+    environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
     networks:
       - app-network
     healthcheck:
@@ -159,11 +173,14 @@ services:
     env_file:
       - ./hadoop.env
     environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       CLUSTER_NAME: "posture-test"
     ports:
       - "192.168.0.104:9870:9870"  # NameNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
       - "127.0.0.1:9000:9000"      # HDFS RPC (fs.defaultFS) — 서버 PC 내부 전용
     volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
       - hdfs-namenode-data:/hadoop/dfs/name
     networks:
       - app-network
@@ -187,10 +204,13 @@ services:
     env_file:
       - ./hadoop.env
     environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       SERVICE_PRECONDITION: "hdfs-namenode:9870"
     ports:
       - "192.168.0.104:9864:9864"  # DataNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
     volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
       - hdfs-datanode-data:/hadoop/dfs/data
     networks:
       - app-network
@@ -217,6 +237,11 @@ services:
     command: ["tail", "-f", "/dev/null"]
     ports:
       - "127.0.0.1:4040:4040"   # spark-submit 실행 중에만 뜨는 Spark 애플리케이션 UI — 서버 PC 내부 전용
+    environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
+    volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
     networks:
       - app-network
 
@@ -236,6 +261,7 @@ services:
     env_file:
       - ./.env
     environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       # .env에 값이 없어도 컨테이너 간 통신 기본값(app-network 서비스명)으로 동작
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
@@ -262,6 +288,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
     networks:
       - app-network
     # (D-11) liveness만 본다 — 외부 DB(192.168.0.42) 일시 장애가 컨테이너
@@ -289,6 +318,7 @@ services:
     logging: *default-logging
     mem_limit: 1g
     environment:
+      TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
@@ -301,6 +331,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
     networks:
       - app-network
     healthcheck:
