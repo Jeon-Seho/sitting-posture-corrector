@@ -433,7 +433,7 @@ class PersistentMySqlTest {
         // Seed DEFAULT_TEMP is the temporary default until a DEFAULT row is decided.
         assertEquals(
                 mapper.readTree(
-                        "{\"holdSeconds\":3,\"recoverSeconds\":2,\"realertSeconds\":30,\"threshold\":0.5}"),
+                        "{\"holdSeconds\":3,\"recoverSeconds\":3,\"realertSeconds\":60,\"threshold\":0.5}"),
                 initial.get("rules"));
         assertEquals(mapper.readTree("{\"alerts_on\":true}"), initial.get("preferences"));
         var update =

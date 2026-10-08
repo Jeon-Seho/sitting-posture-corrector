@@ -57,7 +57,8 @@ API `POST /v1/sessions/{UUID}/features`가 공유한다. 기존 FastAPI `/v1/inf
 변화량은 유한수이며 `[-1,1]` 제한을 두지 않는다. 원본 영상·랜드마크·기준 특징 원값을 넣지 않는다.
 알 수 없는 필드와 NaN/Infinity를 거부한다.
 
-v2 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.13)*0.7)`이다.
+v2 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.03)*0.7)`이다.
+어깨 기울기 스케일은 [ADR 0019](../docs/decisions/0019-shoulder-tilt-scale.md)로 0.13에서 0.03으로 낮췄다.
 `running/good`, 특징 존재, 현재·기준 품질 각각 0.65 이상일 때만 유효하다.
 그 외에는 관측의 `valid=false`, 점수 0, 유형 `none`이며 정상 시간으로 대체하지 않는다.
 품질·스케일·점수 임계값은 검증 전 규칙이다. 점수는 보정된 확률이 아니다.

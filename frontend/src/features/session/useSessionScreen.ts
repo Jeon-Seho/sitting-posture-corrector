@@ -9,6 +9,8 @@ import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
 import type { SessionService } from './types'
+import { KafkaFeatureRecorder } from './kafkaExport'
+import { PoseDebugRecorder } from './poseDebugExport'
 
 type Options = {
   rules: Rules
@@ -32,6 +34,45 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '',
   )
   const isCamera = mode === 'camera'
+  const recorder = useRef<KafkaFeatureRecorder | null>(null)
+  const debugRecorder = useRef<PoseDebugRecorder | null>(null)
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
+  const [exportCount, setExportCount] = useState(0)
+  useEffect(() => {
+    if (!service?.sessionId || !isCamera) return
+    return camera.subscribe((observation) => {
+      if (!recorder.current) {
+        if (!camera.baseline || !camera.calibrationId) return
+        recorder.current = new KafkaFeatureRecorder({
+          sessionId: service.sessionId!,
+          userId: 'local',
+          baselineId: camera.calibrationId,
+          baseline: camera.baseline,
+          rules,
+          width: observation.width,
+          height: observation.height,
+          origin: observation.timeMs,
+          startedAt: new Date().toISOString(),
+        })
+        debugRecorder.current = new PoseDebugRecorder(observation.timeMs)
+      }
+      if (phaseRef.current !== 'running') {
+        recorder.current.pause()
+        return
+      }
+      recorder.current.push(observation.timeMs, observation.features)
+      debugRecorder.current?.push({
+        timeMs: observation.timeMs,
+        width: observation.width,
+        height: observation.height,
+        featuresOk: observation.features !== null,
+        landmarks: observation.landmarks,
+      })
+    })
+    // The recorder belongs to this session; camera identity changes do not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service?.sessionId, isCamera])
   const { live, reset, seekNext } = useSession(
     phase,
     speed,
@@ -122,6 +163,22 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     }
   }, [live.events])
 
+  /**
+   * Downloads the intervals this measurement would have sent to Kafka (JSON Lines, .txt)
+   * and, for analysis, the raw landmarks of the same frames (.csv).
+   */
+  function exportFeatures() {
+    const current = recorder.current
+    if (!current || !current.count) return false
+    const id = service?.sessionId ?? 'session'
+    download(current.toText(), `posegood-kafka-features-${id}.txt`, 'text/plain')
+    const debug = debugRecorder.current
+    // A short gap keeps the second save dialog from replacing the first one.
+    if (debug?.count) setTimeout(() => download(debug.toCsv(), `posegood-pose-debug-${id}.csv`, 'text/csv'), 300)
+    setExportCount(current.count)
+    return true
+  }
+
   function restartDemo() {
     lastTick.current = 0
     reset()
@@ -148,6 +205,9 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   }
 
   return {
+    exportFeatures,
+    exportCount,
+    canExport: !!service?.sessionId && isCamera,
     rules,
     phase,
     setPhase,
@@ -178,3 +238,15 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
 }
 
 export type SessionScreen = ReturnType<typeof useSessionScreen>
+
+function download(text: string, name: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.hidden = true
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}

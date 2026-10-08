@@ -23,6 +23,9 @@ type Props = {
   onPrepare: () => void
   onDashboard: () => void
   onReset: () => void
+  /** Local camera session: download the would-be Kafka messages. */
+  onExport?: () => boolean
+  exportCount?: number
 }
 
 export function SessionResult({
@@ -39,6 +42,8 @@ export function SessionResult({
   onPrepare,
   onDashboard,
   onReset,
+  onExport,
+  exportCount = 0,
 }: Props) {
   const alerts = live.events.reduce((a, e) => a + e.alerts, 0)
   const recovery = mean(recoveries)
@@ -83,10 +88,20 @@ export function SessionResult({
           </div>
         </div>
         <div className="result-actions">
-          {service && (
+          {service?.saveFailed ? (
             <button className="btn btn-quiet" onClick={service.onRetry}>
               저장 다시 시도
             </button>
+          ) : (
+            onExport && (
+              <button
+                className="btn btn-quiet"
+                onClick={onExport}
+                title="서버(Kafka)로 보냈어야 할 구간 데이터(txt)와 분석용 관절 좌표(csv)를 내려받아요."
+              >
+                {exportCount ? `측정 데이터 저장됨 · ${exportCount}구간` : '측정 데이터 저장'}
+              </button>
+            )
           )}
           <button className="btn" onClick={onDashboard}>
             <ChartBar size={18} weight="bold" className="icon" />

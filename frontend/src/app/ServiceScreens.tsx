@@ -220,7 +220,10 @@ export function ServiceScreens({
                   onCheckpoint: persistence.checkpoint,
                   onEnded: persistence.finish,
                   saveMessage: persistence.saveMessage,
+                  saveFailed: persistence.saveFailed,
                   onRetry: persistence.retrySave,
+                  sessionId: session.id,
+                  startedAt: session.startedAt,
                 }}
               />
             )}

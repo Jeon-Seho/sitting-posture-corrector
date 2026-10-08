@@ -42,7 +42,7 @@ IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegrati
 
 | 탭 | 화면 | 코드 | 보여 주는 것 |
 |---|---|---|---|
-| 측정하기 | 준비(카메라 → 얼굴·어깨 → 5초 기준) | `pages/SetupPage.tsx` | 큰 카메라와 점선 가이드, 3단계 진행, 앉는 팁, 측정 시작 |
+| 측정하기 | 준비(카메라 → 얼굴·어깨 → 3초 기준, 최소 15표본) | `pages/SetupPage.tsx` | 큰 카메라와 점선 가이드, 3단계 진행, 앉는 팁, 측정 시작 |
 | 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
 | 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(기존 통계·사건 표) |
 | 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |

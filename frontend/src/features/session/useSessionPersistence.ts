@@ -53,6 +53,7 @@ export function useSessionPersistence({
   const [saveMessage, setSaveMessage] = useState(
     repository ? '계정에 결과를 저장하고 있습니다.' : '이 브라우저에 결과를 저장하고 있습니다.',
   )
+  const [saveFailed, setSaveFailed] = useState(false)
   const measuring = !!session && !ended.current
 
   useEffect(() => {
@@ -148,6 +149,7 @@ export function useSessionPersistence({
     ended.current = false
     pending.current = null
     setSaveMessage('저장 대기')
+    setSaveFailed(false)
     setSession(next)
     go('session')
   }
@@ -159,6 +161,7 @@ export function useSessionPersistence({
     }
     if (!requireWriter()) {
       setSaveMessage('결과는 유지됩니다. 저장소 안내를 확인한 뒤 저장 다시 시도를 눌러 주세요.')
+      setSaveFailed(true)
       return
     }
     try {
@@ -167,7 +170,8 @@ export function useSessionPersistence({
       setRecords(next)
       setDraft((old) => (old?.id === record.id ? null : old))
       pending.current = null
-      setSaveMessage('이 브라우저에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
+      setSaveMessage('이 브라우저에 저장했습니다. 기록 탭에 반영되었습니다.')
+      setSaveFailed(false)
       try {
         removeSavedDraft(record.id)
       } catch {
@@ -180,6 +184,7 @@ export function useSessionPersistence({
       setSaveMessage(
         '저장하지 못했습니다. 결과는 유지됩니다. 자동 재시도하거나 저장 다시 시도를 눌러 주세요.',
       )
+      setSaveFailed(true)
     }
   }
 
@@ -187,6 +192,7 @@ export function useSessionPersistence({
     if (!repository || saving.current || !mounted.current) return
     if (!requireWriter()) {
       setSaveMessage('결과를 유지합니다. 저장 권한을 확인한 뒤 저장 다시 시도를 눌러 주세요.')
+      setSaveFailed(true)
       return
     }
     saving.current = true
@@ -196,7 +202,8 @@ export function useSessionPersistence({
       if (!mounted.current) return
       setRecords(next)
       pending.current = null
-      setSaveMessage('계정에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
+      setSaveMessage('계정에 저장했습니다. 기록 탭에 반영되었습니다.')
+      setSaveFailed(false)
       try {
         repository.forgetPending(record.id)
         repository.removeDraft(record.id)
@@ -209,6 +216,7 @@ export function useSessionPersistence({
         setSaveMessage(
           '저장 확인을 받지 못했습니다. 같은 결과를 유지합니다. 저장 다시 시도를 눌러 주세요.',
         )
+      if (mounted.current) setSaveFailed(true)
     } finally {
       saving.current = false
     }
@@ -355,5 +363,6 @@ export function useSessionPersistence({
     clearSession,
     pending,
     saveMessage,
+    saveFailed,
   }
 }
