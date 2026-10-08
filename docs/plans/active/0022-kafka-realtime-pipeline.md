@@ -90,7 +90,7 @@
 | 시간 판정 | 실시간 상태머신 서비스 | Esper CEP(ADR 0011) |
 | 시간 값 | T1 10초·T2 5초 | 세션 정책값(ADR 0012) |
 | 인증 | 게이트웨이 JWT | 기존 서버 로그인 세션·CSRF. Electron 패키징 앱(`app://posegood`)의 연결 방식은 별도 결정 |
-| 기준 자세 토픽 | `posture.baselines` | 보류. [DB 전환 계획](0021-db-schema-v03-alignment.md)의 기준 특징 저장 결정 후 |
+| 기준 자세 토픽 | `posture.baselines` | 보류. [DB 전환 계획](../completed/0021-db-schema-v03-alignment.md)의 기준 특징 저장 결정 후 |
 | 일별 통계 | Spark 일 배치 | 범위 밖. 기존 API 통계 유지 |
 
 ## 작업 단계

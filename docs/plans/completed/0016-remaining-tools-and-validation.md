@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: Codex
 - 시작일: 2026-10-01
-- 관련 요구사항/ADR: [팀 요구사항](../../team-requirements.md), [연구 프로토콜](../../research/protocol.md), [서버 연결](../../decisions/0013-frontend-server-feature-connection.md), [직전 완료](../completed/0015-server-regression-and-record-details.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [연구 프로토콜](../../research/protocol.md), [서버 연결](../../decisions/0013-frontend-server-feature-connection.md), [직전 완료](../completed/0015-server-regression-and-record-details.md)
 
 ## 문제와 완료 기준
 

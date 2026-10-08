@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: Codex
 - 시작일: 2026-10-01
-- 관련 요구사항/ADR: [서비스 요구사항](../../team-requirements.md), [시간 정책](../../decisions/0012-session-timing-policy.md), [서버 연결](../../decisions/0013-frontend-server-feature-connection.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [시간 정책](../../decisions/0012-session-timing-policy.md), [서버 연결](../../decisions/0013-frontend-server-feature-connection.md)
 
 ## 문제와 완료 기준
 

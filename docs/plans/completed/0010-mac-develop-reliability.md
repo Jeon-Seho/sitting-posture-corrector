@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: Codex
 - 시작일: 2026-09-30
-- 관련 요구사항/ADR: [서비스 요구사항](../../team-requirements.md), [단일 앱 경계](../../decisions/0008-single-app-entry.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [단일 앱 경계](../../decisions/0008-single-app-entry.md)
 
 ## 문제와 완료 기준
 

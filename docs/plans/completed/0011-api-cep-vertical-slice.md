@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: Codex
 - 시작일: 2026-09-30
-- 관련 요구사항/ADR: [서비스 요구사항](../../team-requirements.md), [아키텍처](../../architecture.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [아키텍처](../../architecture.md)
 
 ## 문제와 완료 기준
 

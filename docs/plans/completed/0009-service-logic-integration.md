@@ -4,7 +4,7 @@
 - 상태: completed
 - 담당: FE
 - 시작일: 2026-09-28
-- 관련 요구사항/ADR: docs/team-requirements.md §10, [ADR 0008](../../decisions/0008-single-app-entry.md), [ADR 0009](../../decisions/0009-cross-platform-dev-entry.md), [ADR 0010](../../decisions/0010-record-comparison.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [ADR 0008](../../decisions/0008-single-app-entry.md), [ADR 0009](../../decisions/0009-cross-platform-dev-entry.md), [ADR 0010](../../decisions/0010-record-comparison.md)
 - 이전 계획: [V2 서비스 흐름 미리보기](../completed/0008-service-preview.md)
 
 ## 문제와 완료 기준

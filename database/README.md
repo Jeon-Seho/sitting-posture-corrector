@@ -259,4 +259,4 @@ API(`backend/api`) 영구 모드는 이 폴더의 **V1.1 테이블만** 사용�
 - Compose `db`는 **빈 볼륨에서만** `infra/mysql/initdb`가 1장 순서(스키마 → 시드)를 그대로 실행한다.
   `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다(정확한 복원 대상). 운영 DB 변경은 7장 마이그레이션을 따른다.
 - 기본 정책 이름은 API 설정 `posegood.default-policy-name`(기본 `DEFAULT_TEMP`)이다. 확정 정책 `DEFAULT` 행을 넣으면 이 설정만 바꾼다.
-- 저장 대응(사건 분해, 제외 구간, 확인 요약, 탈퇴)과 남은 한계는 [전환 계획](../docs/plans/active/0021-db-schema-v03-alignment.md)에 둔다.
+- 저장 대응(사건 분해, 제외 구간, 확인 요약, 탈퇴)과 남은 한계는 [전환 계획](../docs/plans/completed/0021-db-schema-v03-alignment.md)에 둔다.

@@ -3,7 +3,7 @@
 - 확인일: 2026-10-06
 - 브랜치: `jin_db_v11` (`lee_app1` + `feature/db-schema-v1.1`)
 - 수행: 우진 요청, Claude
-- 결정: [ADR 0018](../decisions/0018-db-schema-v11-service-storage.md), 진행 기록: [전환 계획 0021](../plans/active/0021-db-schema-v03-alignment.md)
+- 결정: [ADR 0018](../decisions/0018-db-schema-v11-service-storage.md), 진행 기록: [전환 계획 0021](../plans/completed/0021-db-schema-v03-alignment.md)
 
 API·프론트가 DB 담당의 스키마 V1.1(`database/`)만 사용하도록 연결했다. 아래는 연결에 성공한 범위,
 실행한 검증과 결과, 아직 하지 못한 검증, 다음에 고치거나 정해야 할 항목이다.

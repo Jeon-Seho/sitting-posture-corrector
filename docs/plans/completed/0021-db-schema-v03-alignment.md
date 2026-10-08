@@ -1,6 +1,6 @@
 # 서비스 DB를 스키마 V0.3(현 V1.1) 기준으로 전환
 
-- 상태: in_progress (구현·실제 MySQL 검증 완료, develop 병합 PR #11·#13 2026-10-06. 남은 것: `make check-compose` 전체)
+- 상태: completed (구현·실제 MySQL 검증 완료, develop 병합 PR #11·#13 2026-10-06). 남은 것: `make check-compose` 전체 실행, 운영 DB 이관
 - 담당: 동욱 요청, Claude 분석, 우진 요청·Claude 구현(2026-10-06, 브랜치 `jin_db_v11`)
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [database 안내](../../../database/README.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
@@ -68,7 +68,7 @@
 
 | 질문 | 결정 |
 | --- | --- |
-| 1 운영 테이블 | V1의 운영 테이블을 V0.3 이름 규칙으로 옮겨 [DB 건의안 0001](../../../database/proposals/0001-v03-supplement.md) 1~6·8번으로 제안 |
+| 1 운영 테이블 | V1의 운영 테이블을 V0.3 이름 규칙으로 옮겨 DB 건의안 0001(2026-10-05, V1.1에 반영 후 삭제. 7번 `user_consent`만 보류) 1~6·8번으로 제안 |
 | 2 기준 특징 저장 | V0.3을 따른다(`baseline_feature` 저장). ADR 0013 개정이 필요하다 |
 | 3 프로필 | 나이·직업을 유지한다. 건의안 11번으로 V0.3에 추가를 요청 |
 | 4 기본 정책 값 | 시드 `DEFAULT_TEMP`(당시 0.5·3초·2초·30초·12회)를 임시로 그대로 쓴다. 확정 시 `DEFAULT` 행으로 교체. 2026-10-07 현재 시드는 0.5·3초·3초·60초·12회(develop #16) |

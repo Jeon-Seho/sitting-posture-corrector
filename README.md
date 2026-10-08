@@ -71,7 +71,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 
 - [프론트 실행·사용·제약](frontend/README.md)
 - [문서 지도](docs/index.md), [작업 지침](AGENTS.md), [개발 흐름](docs/development.md)
-- [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), [서비스 요구사항](docs/team-requirements.md)
+- [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), 서비스 요구사항은 팀 구글 시트
 - [출력 계약](contracts/README.md), [연구 프로토콜](docs/research/protocol.md)
 - [코드 구조와 수정 위치](docs/code-structure.md), [기술 스택 검토](docs/audits/2026-10-01-technology-stack.md)
 - `frontend/src/app/ServiceApp.tsx`: 앱 조립·화면 전환

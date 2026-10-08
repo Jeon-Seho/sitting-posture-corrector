@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: Codex
 - 시작일: 2026-10-01
-- 관련 요구사항/ADR: [서비스 요구사항](../../team-requirements.md), [ADR 0012](../../decisions/0012-session-timing-policy.md)
+- 관련 요구사항/ADR: 서비스 요구사항(팀 구글 시트로 이전), [ADR 0012](../../decisions/0012-session-timing-policy.md)
 
 ## 문제와 완료 기준
 
