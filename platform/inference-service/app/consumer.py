@@ -128,13 +128,12 @@ def infer_rule_based(event: dict) -> dict:
 
 
 def _partition_key(result: dict) -> Optional[str]:
-    """posture.inference 메시지 키 (D-15).
+    """posture.inference 메시지 키.
 
-    v4 메시지 규격 1장에 따라 userId를 키로 쓴다. userId가 비어 있는
-    예외적인 메시지는 sessionId로 대신한다 — 최소한 같은 세션의 순서는
-    지켜야 상태머신 판정이 깨지지 않기 때문이다.
+    (D-21) 실시간 계약 v1에 맞춰 sessionId를 키로 쓴다(판정 상태가 세션 단위).
+    sessionId가 없는 예외적인 메시지만 userId로 대신한다. (D-15에서는 userId였다)
     """
-    return result.get("userId") or result.get("sessionId")
+    return result.get("sessionId") or result.get("userId")
 
 
 def run_inference(event: dict) -> dict:
@@ -230,7 +229,7 @@ class PostureSummaryConsumer:
             self._producer = KafkaProducer(
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-                # (D-15) 메시지 키 = userId (v4 메시지 규격 1장). posture.inference를
+                # (D-15) 메시지 키 지정 — (D-21) 키 = sessionId. posture.inference를
                 # 여러 파티션으로 늘리면 키가 없는 메시지는 파티션에 흩어져
                 # 같은 세션의 추론 결과가 서로 다른 컨슈머 스레드에서 순서
                 # 없이 처리된다 — 상태머신(지속·회복 판정)이 깨진다. 키를

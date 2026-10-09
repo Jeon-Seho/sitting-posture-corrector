@@ -68,8 +68,18 @@ app:
     topic:
       posture-summary: ${POSTURE_SUMMARY_TOPIC:posture.summary}
       posture-inference: ${POSTURE_INFERENCE_TOPIC:posture.inference}
+      posture-features-v1: ${POSTURE_FEATURES_V1_TOPIC:posture.features.v1}
+      posture-inference-v1: ${POSTURE_INFERENCE_V1_TOPIC:posture.inference.v1}
+      posture-episodes-v1: ${POSTURE_EPISODES_V1_TOPIC:posture.episodes.v1}
     # (D-15) posture.inference 컨슈머 스레드 수 = 토픽 파티션 수와 맞출 것
     posture-inference-concurrency: ${POSTURE_INFERENCE_CONCURRENCY:3}
+    # (D-21) 실시간 계약 v1 토픽 — 키 session_id, 파티션 수는 위 concurrency와 맞춘다
+    realtime-partitions: ${REALTIME_TOPIC_PARTITIONS:3}
+    posture-inference-v1-group: ${POSTURE_INFERENCE_V1_CONSUMER_GROUP:api-server-cep-v1}
+  # (D-21) 시험용 입구 POST /api/v1/realtime/features — 최종 입구는 팀 입구 API·게이트웨이
+  realtime:
+    test-entry:
+      enabled: ${REALTIME_TEST_ENTRY_ENABLED:true}
 
 # posture-cep(Python) 상태머신을 이식하면서 그대로 옮긴 파라미터
 # (2026-10-02 아키텍처 v4 전환 결정, D-13). 값은 VM에서 이미 검증된
@@ -81,7 +91,9 @@ cep:
   realert-seconds: ${CEP_REALERT_SECONDS:60}
   session-timeout-seconds: ${CEP_SESSION_TIMEOUT_SECONDS:300}
   session-expiry-interval-seconds: ${CEP_SESSION_EXPIRY_INTERVAL_SECONDS:60}
-  # (D-04) 상태머신 상태를 Redis posture:state:{userId}(Hash)에 저장해 api-server
+  # (D-21) v1 관측의 붕괴 후보 기준(점수 ≥ 이 값이면 BAD). 세션 정책(policy.threshold) 적용은 D-23
+  collapse-threshold: ${CEP_COLLAPSE_THRESHOLD:0.7}
+  # (D-04) 상태머신 상태를 Redis posture:state:{sessionId}(Hash)에 저장해 api-server
   # 재시작 후에도 진행 중이던 판정을 이어간다. 키 TTL은 v4 설계(5.9절)대로 1시간.
   # false면 기존처럼 메모리에만 둔다(Redis 장애 시에도 판정은 메모리로 계속됨).
   # (D-16) /cep/events/recent 조회용으로 메모리에 남겨둘 최근 종료 이벤트 수

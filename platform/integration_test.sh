@@ -18,10 +18,12 @@
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
+#   8. 계약 v1(D-21): 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → 판정
+#                    → 이벤트 73.0s·재알림 2회, v1 컨슈머 lag 0, Redis 상태 키 정리(키 = session_id)
 #
 # 결과: it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
-# 끝나면 지운다. 단, T-10 재생은 실제 판정 경로를 타므로 sessions/collapse_events에 테스트 행 1개씩이 남는다(userId=IT-<시각>).
+# 끝나면 지운다. 단, T-10·v1 재생은 실제 판정 경로를 타므로 sessions/collapse_events에 테스트 행이 남는다(userId=IT-<시각>, IT-V1-<시각>).
 # =====================================================================
 set -u
 
@@ -119,6 +121,13 @@ if [ -n "$PC" ]; then
   if [ "$PC" -ge 3 ]; then pass "posture.inference 파티션 $PC개"
   else fail "posture.inference 파티션" "$PC개 (3개 필요: kafka-topics.sh --alter --partitions 3)"; fi
 fi
+# (D-21) 계약 v1 토픽 — api-server가 시작할 때 만든다(파티션 3)
+for t in posture.features.v1 posture.inference.v1 posture.episodes.v1; do
+  PC="$($KT/kafka-topics.sh $BS --describe --topic "$t" 2>/dev/null | grep -oE 'PartitionCount: *[0-9]+' | grep -oE '[0-9]+')"
+  if [ -z "$PC" ]; then fail "토픽 $t" "없음 — D-21 적용 후 api-server 재빌드·재생성 필요"
+  elif [ "$PC" -ge 3 ]; then pass "토픽 $t (파티션 $PC개)"
+  else fail "토픽 $t 파티션" "$PC개 (3개 필요)"; fi
+done
 IT_TOPIC="it.smoke.$TS"
 MSG="it-$TS-$RANDOM"
 if $KT/kafka-topics.sh $BS --create --topic "$IT_TOPIC" --partitions 1 --replication-factor 1 >>"$OUT/run.log" 2>&1 \
@@ -239,8 +248,9 @@ sys.exit(0 if ok else 1)"; then pass "판정 결과: 지속 73.1s, 재알림 2�
 
     # 판정이 끝났을 때만 의미가 있다(판정이 안 돌았으면 키가 처음부터 없어서 0이 나온다)
     if [ -n "$EV" ]; then
-      RK="$(docker exec redis redis-cli EXISTS "posture:state:$IT_USER" 2>/dev/null)"
-      if [ "$RK" = "0" ]; then pass "Redis 상태 키 정리 (회복 후 삭제, D-04)"; else fail "Redis 상태 키" "posture:state:$IT_USER 가 남아 있음"; fi
+      # (D-21) 상태 키 = session_id
+      RK="$(docker exec redis redis-cli EXISTS "posture:state:$SID" 2>/dev/null)"
+      if [ "$RK" = "0" ]; then pass "Redis 상태 키 정리 (회복 후 삭제, D-04)"; else fail "Redis 상태 키" "posture:state:$SID 가 남아 있음"; fi
     else
       skip "Redis 상태 키 정리" "판정 이벤트가 없어 확인 의미 없음"
     fi
@@ -317,6 +327,49 @@ PY3
       elif [ "${N:-0}" -gt 0 ]; then fail "HDFS 적재" "${N}건 / 850건 (일부만 적재 — 잠시 후 재확인)"
       else fail "HDFS 적재" "0건 — $OUT/hdfs-sink-check.log, docker exec spark tail /tmp/posture-sink.log"; fi
     fi
+  fi
+fi
+
+# ---------------------------------------------------------------------
+step "8. 실시간 계약 v1 (D-21)"
+if [ "$E2E" = 0 ]; then skip "v1 종단 시험" "--no-e2e"
+elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 종단 시험" "mysql/replay_realtime_v1.py 없음"
+else
+  V1_USER="IT-V1-$TS"
+  python3 mysql/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "$V1_USER" --dump "$OUT/v1-messages.jsonl" >"$OUT/v1-replay.log" 2>&1
+  V1_SID="$(grep -oE 'session_id = [0-9a-f-]+' "$OUT/v1-replay.log" | awk '{print $3}')"
+  if grep -qE '성공\(202\) 172 / 실패 0' "$OUT/v1-replay.log"; then pass "v1 재생 172건 전송 (시작 1 + 0.5초 구간 170 + 종료 1, HTTP 202)"
+  else fail "v1 재생 전송" "$OUT/v1-replay.log 확인 (404면 REALTIME_TEST_ENTRY_ENABLED·재빌드 확인)"; fi
+
+  V1EV=""
+  if [ -n "$V1_SID" ]; then
+    for _ in $(seq 1 30); do
+      V1EV="$(curl -s -m 5 "$API/cep/events/recent" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+m=[e for e in d.get('events',[]) if e.get('sessionId')=='$V1_SID' and not e.get('ongoing')]
+print(json.dumps(m[-1]) if m else '')" 2>/dev/null)"
+      [ -n "$V1EV" ] && break; sleep 2
+    done
+  fi
+  echo "v1 이벤트: ${V1EV:-없음}" >>"$OUT/run.log"
+  if [ -z "$V1EV" ]; then fail "v1 판정 이벤트" "60초 안에 session_id=${V1_SID:-?} 종료 이벤트 없음 (docker logs inference-service / api-server 확인)"
+  elif echo "$V1EV" | python3 -c "
+import json,sys;e=json.load(sys.stdin)
+ok=abs(e['durationSeconds']-73.0)<0.05 and e['alertCount']==2 and e['recovered'] is True and e.get('userId')=='$V1_USER'
+sys.exit(0 if ok else 1)"; then pass "v1 판정 결과: 지속 73.0s, 재알림 2회, 회복 (0.5초 구간 기준 기대값)"
+  else fail "v1 판정 결과" "$V1EV (기대: 73.0s / alertCount 2 / recovered true / userId $V1_USER)"; fi
+
+  sleep 3
+  for g in inference-service-v1 api-server-cep-v1; do
+    L="$($KT/kafka-consumer-groups.sh $BS --describe --group "$g" 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
+    if [ "$L" = "0" ]; then pass "v1 컨슈머 $g lag 0"
+    elif [ -z "$L" ]; then fail "v1 컨슈머 $g" "그룹 없음 — 서비스 재빌드·재생성 확인"
+    else fail "v1 컨슈머 $g lag" "$L"; fi
+  done
+  if [ -n "$V1EV" ]; then
+    RK="$(docker exec redis redis-cli EXISTS "posture:state:$V1_SID" 2>/dev/null)"
+    if [ "$RK" = "0" ]; then pass "v1 Redis 상태 키 정리 (키 = session_id)"; else fail "v1 Redis 상태 키" "posture:state:$V1_SID 가 남아 있음"; fi
   fi
 fi
 

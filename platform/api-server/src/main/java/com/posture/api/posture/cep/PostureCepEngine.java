@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 담긴 {@code capturedAt}을 기준으로 지속시간을 계산한다.
  *
  * (D-04) 세션 상태는 메모리 맵을 캐시로 쓰고, 판정 상태가 바뀔 때마다
- * {@link CepStateStore}(운영: Redis {@code posture:state:{userId}})에도 기록한다.
+ * {@link CepStateStore}(운영: Redis {@code posture:state:{sessionId}})에도 기록한다.
  * api-server가 재시작돼 메모리에 없는 세션의 메시지가 오면 저장소에서
  * 복원해 판정을 이어간다. 저장소 I/O는 lock 밖에서 한다 — 같은 사용자의
  * 메시지는 항상 같은 파티션/스레드에서 처리되므로(D-15, 키=userId)
@@ -156,8 +156,13 @@ public class PostureCepEngine {
         return outcome;
     }
 
+    /**
+     * (D-21) 저장소 키는 세션 ID다 — 실시간 계약 v1의 메시지 키가 {@code session_id}이고,
+     * 판정 상태는 세션 단위이기 때문이다. (D-04에서는 userId였다. 이전 형식의 키는
+     * 읽지 않으며 TTL(1시간) 뒤 사라진다.)
+     */
     static String stateKey(String userId, String sessionId) {
-        return userId != null && !userId.isBlank() ? userId : sessionId;
+        return sessionId;
     }
 
     /**

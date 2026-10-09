@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 상태머신 상태를 Redis Hash {@code posture:state:{userId}}에 저장한다
+ * 상태머신 상태를 Redis Hash {@code posture:state:{sessionId}}에 저장한다
  * (D-04, PRD FR-BE-04, Posture_Architecture_v4.md 5.9 — TTL 1시간).
  *
  * 쓰기는 상태가 바뀔 때만 일어난다(정상 판정이 계속되는 동안에는 Redis를

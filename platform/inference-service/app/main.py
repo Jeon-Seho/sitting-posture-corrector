@@ -25,6 +25,7 @@ from kafka.errors import KafkaError
 
 from app import model as lstm_model
 from app.consumer import consumer, get_recent_results
+from app.realtime import realtime_consumer
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -60,8 +61,11 @@ async def lifespan(app: FastAPI):
     lstm_model.load_model()
     # 시작 시 Kafka 컨슈머 백그라운드 스레드 기동
     consumer.start()
+    # (D-21) 실시간 계약 v1: posture.features.v1 → posture.inference.v1
+    realtime_consumer.start()
     yield
     # 종료 시 정리
+    realtime_consumer.stop()
     consumer.stop()
 
 
@@ -111,6 +115,7 @@ def health():
             "redis": redis_result,
             "kafka": kafka_result,
             "lstmModel": model_status,
+            "realtimeV1": realtime_consumer.status(),
         },
     }
     return JSONResponse(

@@ -63,7 +63,7 @@ class PostureCepEngineStateStoreTest {
         before.handle(event("s1", "u1", "WARNING", 0.0));
         Optional<CepOutcome> started = before.handle(event("s1", "u1", "WARNING", 3.5));
         assertThat(started.get().type()).isEqualTo(CepOutcome.Type.EVENT_STARTED);
-        assertThat(store.state("u1")).isEqualTo("BAD");
+        assertThat(store.state("s1")).isEqualTo("BAD");
 
         // 재시작: 메모리 상태가 없는 새 엔진, 같은 저장소
         PostureCepEngine after = engine(store);
@@ -74,20 +74,20 @@ class PostureCepEngineStateStoreTest {
         assertThat(realert.get().startedAt()).isEqualTo(BASE);
 
         after.handle(event("s1", "u1", "NORMAL", 64.0));
-        assertThat(store.state("u1")).isEqualTo("RECOVERING");
+        assertThat(store.state("s1")).isEqualTo("RECOVERING");
         Optional<CepOutcome> ended = after.handle(event("s1", "u1", "NORMAL", 67.5));
         assertThat(ended.get().type()).isEqualTo(CepOutcome.Type.EVENT_ENDED);
         assertThat(ended.get().durationSeconds()).isEqualTo(67.5);
         assertThat(ended.get().alertCount()).isEqualTo(2);
         // 정상으로 돌아오면 키를 지운다
-        assertThat(store.data.containsKey("u1")).isFalse();
+        assertThat(store.data.containsKey("s1")).isFalse();
     }
 
     @Test
     void restartDuringSuspectKeepsPersistTimerRunning() {
         MemoryStore store = new MemoryStore();
         engine(store).handle(event("s1", "u1", "WARNING", 0.0));
-        assertThat(store.state("u1")).isEqualTo("SUSPECT");
+        assertThat(store.state("s1")).isEqualTo("SUSPECT");
 
         Optional<CepOutcome> outcome = engine(store).handle(event("s1", "u1", "WARNING", 3.5));
         assertThat(outcome.isPresent()).isTrue();
@@ -107,7 +107,7 @@ class PostureCepEngineStateStoreTest {
         Optional<CepOutcome> outcome = after.handle(event("s2", "u1", "WARNING", 5.5));
         assertThat(outcome.get().type()).isEqualTo(CepOutcome.Type.EVENT_STARTED);
         assertThat(outcome.get().startedAt()).isEqualTo(BASE.plusSeconds(2));
-        assertThat(store.data.get("u1").get("sessionId")).isEqualTo("s2");
+        assertThat(store.data.get("s2").get("sessionId")).isEqualTo("s2");
     }
 
     @Test
@@ -138,16 +138,18 @@ class PostureCepEngineStateStoreTest {
         PostureCepEngine engine = engine(store);
         engine.handle(event("s1", "u1", "WARNING", 0.0));
         engine.handle(event("s1", "u1", "WARNING", 3.5));
-        assertThat(store.data.containsKey("u1")).isTrue();
+        assertThat(store.data.containsKey("s1")).isTrue();
 
         engine.expireStaleSessions(BASE.plusSeconds(1000), 300);
-        assertThat(store.data.containsKey("u1")).isFalse();
+        assertThat(store.data.containsKey("s1")).isFalse();
     }
 
     @Test
-    void missingUserIdFallsBackToSessionIdKey() {
+    void stateKeyIsSessionIdEvenWithUserId() {
+        // (D-21) 계약 v1: 키 = session_id
         MemoryStore store = new MemoryStore();
-        engine(store).handle(event("s9", null, "WARNING", 0.0));
-        assertThat(store.data.containsKey("s9")).isTrue();
+        engine(store).handle(event("s9", "u9", "WARNING", 0.0));
+        engine(store).handle(event("s8", null, "WARNING", 0.0));
+        assertThat(store.data.keySet()).containsExactlyInAnyOrder("s9", "s8");
     }
 }
