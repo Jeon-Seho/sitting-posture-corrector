@@ -6,6 +6,7 @@
 #   ./integration_test.sh            # 전체 (약 2~3분)
 #   ./integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
 #   ./integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
+#   ./integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
 #   EXPECT_PROJECT=platform ./integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
@@ -20,6 +21,8 @@
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
 #                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes.v1 발행, v1 lag 0, DLQ(D-36)
+#   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
+#                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:v1:judge:<id> 저장·삭제 확인(D-37)
 #
 # 결과: it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -30,12 +33,13 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
-QUICK=0; E2E=1
+QUICK=0; E2E=1; RESTART=0
 for a in "$@"; do
   case "$a" in
     --quick) QUICK=1 ;;
     --no-e2e) E2E=0 ;;
-    -h|--help) sed -n 2,24p "$0"; exit 0 ;;
+    --restart) RESTART=1 ;;
+    -h|--help) sed -n 2,28p "$0"; exit 0 ;;
     *) echo "알 수 없는 옵션: $a (--help 참고)"; exit 2 ;;
   esac
 done
@@ -61,7 +65,7 @@ step() { log ""; log "== $* =="; }
 # check "이름" 명령...  : 명령이 성공하면 PASS
 check() { local name="$1"; shift; if "$@" >>"$OUT/run.log" 2>&1; then pass "$name"; else fail "$name"; fi; }
 
-log "통합 테스트 시작: $TS (quick=$QUICK, e2e=$E2E)"
+log "통합 테스트 시작: $TS (quick=$QUICK, e2e=$E2E, restart=$RESTART)"
 
 # ---------------------------------------------------------------------
 step "0. 사전 확인"
@@ -332,6 +336,18 @@ fi
 
 # ---------------------------------------------------------------------
 step "8. 실시간 계약 v1 (D-21·D-22·D-36)"
+# v1 판정기 결과(GET /cep/v1/sessions/<id>)가 T-10 기대값인지 — 8단계·9단계 공통 (누락 구간 0까지 확인)
+v1_expected() {
+  python3 -c "
+import json,sys
+v=json.load(sys.stdin); ev=v['events']; s=v['summary']
+k=[e['kind'] for e in ev]; t=[e['timestamp_ms'] for e in ev]
+ok=(k==['collapse_confirmed','reminder','recovery_confirmed','session_ended'] and t[:3]==[8000,68000,78000]
+    and [e['event_id'] for e in ev]==[1,2,3,4] and ev[2]['timestamp_ms']-ev[2]['onset_ms']==73000
+    and s['collapse_count']==1 and s['alert_count']==2 and s['valid_ms']==85000 and s['mean_recovery_ms']==70000
+    and s['missing_ms']==0 and v['last_sequence']==169)
+sys.exit(0 if ok else 1)"
+}
 if [ "$E2E" = 0 ]; then skip "v1 종단 시험" "--no-e2e"
 elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 종단 시험" "mysql/replay_realtime_v1.py 없음"
 else
@@ -352,16 +368,15 @@ else
   fi
   echo "v1 판정: ${V1VIEW:-없음}" >>"$OUT/run.log"
   if [ -z "$V1VIEW" ]; then fail "v1 판정 결과" "60초 안에 session_id=${V1_SID:-?} 종료 안 됨 (curl $API/cep/v1/sessions/<id>, docker logs inference-service / api-server)"
-  elif echo "$V1VIEW" | python3 -c "
-import json,sys
-v=json.load(sys.stdin); ev=v['events']; s=v['summary']
-k=[e['kind'] for e in ev]; t=[e['timestamp_ms'] for e in ev]
-ok=(k==['collapse_confirmed','reminder','recovery_confirmed','session_ended'] and t[:3]==[8000,68000,78000]
-    and [e['event_id'] for e in ev]==[1,2,3,4] and ev[2]['timestamp_ms']-ev[2]['onset_ms']==73000
-    and s['collapse_count']==1 and s['alert_count']==2 and s['valid_ms']==85000 and s['mean_recovery_ms']==70000
-    and v['last_sequence']==169)
-sys.exit(0 if ok else 1)"; then pass "v1 판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
+  elif echo "$V1VIEW" | v1_expected; then pass "v1 판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
   else fail "v1 판정 결과" "$(echo "$V1VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
+
+  # (D-37) 세션이 끝나면 Redis의 v1 판정 상태 키를 지운다
+  if [ -n "$V1_SID" ]; then
+    RK1="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$V1_SID" 2>/dev/null)"
+    if [ "$RK1" = "0" ]; then pass "v1 판정 상태 키 정리 (종료 후 삭제, D-37)"
+    else fail "v1 판정 상태 키 정리" "posture:v1:judge:$V1_SID EXISTS=${RK1:-?}"; fi
+  fi
 
   # (D-22) posture.episodes.v1 발행 — 이 세션의 decision 4건, progress 1건 이상
   timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes.v1 --from-beginning --timeout-ms 15000 \
@@ -390,6 +405,63 @@ sys.exit(0 if ok else 1)"; then pass "v1 판정: 확정(8.0s) → 재알림(68.0
   echo "DLQ: ${GOTDLQ:-없음}" >>"$OUT/run.log"
   if echo "$GOTDLQ" | grep -q '"source_topic": *"posture.features.v1"'; then pass "DLQ: 깨진 메시지 → posture.dlq (D-36)"
   else fail "DLQ" "posture.dlq에 $DLQ_MARK 없음 — docker logs inference-service 확인"; fi
+fi
+
+# ---------------------------------------------------------------------
+step "9. v1 판정 상태 복원 (D-37)"
+if [ "$RESTART" = 0 ]; then skip "v1 재시작 복원" "--restart 옵션으로 실행(api-server를 재시작함)"
+elif [ "$E2E" = 0 ]; then skip "v1 재시작 복원" "--no-e2e"
+elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 재시작 복원" "mysql/replay_realtime_v1.py 없음"
+else
+  R_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+  R_USER="IT-V1R-$TS"
+  RP="python3 mysql/replay_realtime_v1.py --api $API/api/v1/realtime/features --user-id $R_USER --session-id $R_SID"
+  $RP --range 0:60 >"$OUT/v1-restart-1.log" 2>&1
+  if grep -qE '성공\(202\) 60 / 실패 0' "$OUT/v1-restart-1.log"; then pass "재시작 전 전송 60건 (시작 1 + 구간 sequence 0~58)"
+  else fail "재시작 전 전송" "$OUT/v1-restart-1.log"; fi
+
+  # 판정기가 sequence 58까지 반영하고 사건(확정 8.0s)이 진행 중이어야 한다
+  R1=""
+  for _ in $(seq 1 30); do
+    R1="$(curl -s -m 5 "$API/cep/v1/sessions/$R_SID")"
+    echo "$R1" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d.get('last_sequence')==58 and d.get('active') else 1)" 2>/dev/null && break
+    R1=""; sleep 2
+  done
+  echo "재시작 전 v1 판정: ${R1:-없음}" >>"$OUT/run.log"
+  if [ -n "$R1" ]; then pass "재시작 전: 사건 진행 중(확정 8.0s), last_sequence 58"
+  else fail "재시작 전 판정" "60초 안에 last_sequence 58·active 안 됨 (curl $API/cep/v1/sessions/$R_SID)"; fi
+  RK2="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
+  if [ "$RK2" = "1" ]; then pass "Redis에 v1 판정 상태 저장 (posture:v1:judge:<session_id>)"
+  else fail "Redis v1 판정 상태 저장" "EXISTS=${RK2:-?}"; fi
+
+  RESTART_AT="$(date +%s)"
+  docker compose restart api-server >>"$OUT/run.log" 2>&1
+  UP=0
+  for _ in $(seq 1 60); do
+    if curl -s -m 3 "$API/actuator/health/readiness" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('status')=='UP' else 1)" 2>/dev/null; then UP=1; break; fi
+    sleep 2
+  done
+  if [ "$UP" = 1 ]; then pass "api-server 재시작 → readiness UP"; else fail "api-server 재시작" "120초 안에 readiness UP 안 됨"; fi
+
+  $RP --range 60: >"$OUT/v1-restart-2.log" 2>&1
+  if grep -qE '성공\(202\) 112 / 실패 0' "$OUT/v1-restart-2.log"; then pass "재시작 후 전송 112건 (구간 sequence 59~169 + 종료)"
+  else fail "재시작 후 전송" "$OUT/v1-restart-2.log"; fi
+
+  R2=""
+  for _ in $(seq 1 45); do
+    R2="$(curl -s -m 5 "$API/cep/v1/sessions/$R_SID")"
+    echo "$R2" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
+    R2=""; sleep 2
+  done
+  echo "재시작 후 v1 판정: ${R2:-없음}" >>"$OUT/run.log"
+  if [ -z "$R2" ]; then fail "재시작 후 v1 판정" "90초 안에 종료 안 됨 (docker logs api-server)"
+  elif echo "$R2" | v1_expected; then pass "재시작을 넘어 같은 결과: 확정 8.0s → 재알림 68.0s → 복귀 78.0s → 종료, event_id 1~4, 누락 0"
+  else fail "재시작 후 v1 판정" "$(echo "$R2" | head -c 600) (복원 안 됐으면 event_id가 1부터 다시·missing_ms 30000)"; fi
+
+  if docker logs --since "$RESTART_AT" api-server 2>&1 | grep -q "v1 판정 상태 복원 (sessionId=$R_SID"; then pass "api-server 로그: v1 판정 상태 복원"
+  else fail "v1 판정 상태 복원 로그" "docker logs api-server | grep 'v1 판정 상태 복원'"; fi
+  RK3="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
+  if [ "$RK3" = "0" ]; then pass "종료 후 v1 판정 상태 키 삭제"; else fail "종료 후 v1 판정 상태 키" "EXISTS=${RK3:-?}"; fi
 fi
 
 # 7단계 뒤 토픽 재확인 (처음에 없었던 경우)

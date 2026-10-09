@@ -110,6 +110,10 @@ cep:
   state-store:
     enabled: ${CEP_STATE_STORE_ENABLED:true}
     ttl-seconds: ${CEP_STATE_TTL_SECONDS:3600}
+  # (D-37) v1 판정기 상태를 Redis posture:v1:judge:{session_id}(JSON 문자열, TTL = state-store.ttl-seconds)에 저장해
+  # api-server 재시작 뒤 진행 중 세션의 판정(누적 시간·진행 중 사건·event_id·요약)을 이어간다. false면 메모리에만 둔다.
+  v1-state-store:
+    enabled: ${CEP_V1_STATE_STORE_ENABLED:true}
 
 management:
   endpoints:
