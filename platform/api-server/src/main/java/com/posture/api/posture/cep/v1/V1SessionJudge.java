@@ -27,6 +27,9 @@ import java.util.Set;
  * mean_interval_ms = 연속된 사건 시작(유효 시간 축) 간격 평균, mean_recovery_ms = 첫 알림 → 복귀 확정 평균.
  *
  * <p>스레드 안전: 모든 공개 메서드는 synchronized. 같은 세션은 같은 파티션·같은 스레드로 오지만 관리 API 조회와 겹칠 수 있다.
+ *
+ * <p>(D-37) {@link #snapshot()}·{@link #restore(Map)}로 판정 상태 전체(누적 시간·진행 중 사건·사건 목록·마지막 sequence)를
+ * 외부 저장소(Redis)에 담았다가 api-server 재시작 뒤 그대로 이어간다.
  */
 public final class V1SessionJudge {
 
@@ -80,6 +83,148 @@ public final class V1SessionJudge {
     public V1SessionJudge(String sessionId, V1Policy policy) {
         this.sessionId = sessionId;
         this.policy = policy;
+    }
+
+    private static final List<String> EVENT_KEYS = List.of("schema_version", "session_id", "event_id", "kind",
+            "timestamp_ms", "onset_ms", "onset_valid_ms", "deviation_type", "reason");
+
+    /** 스냅샷 형식 버전. 필드 의미가 바뀌면 올리고, 다른 버전은 복원하지 않는다. */
+    static final int SNAPSHOT_VERSION = 1;
+
+    /**
+     * (D-37) 판정 상태 전체를 JSON으로 옮길 수 있는 Map으로 만든다(숫자·문자열·불리언·null·List·Map만 사용).
+     */
+    public synchronized Map<String, Object> snapshot() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("v", SNAPSHOT_VERSION);
+        m.put("session_id", sessionId);
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("hold_ms", policy.holdMs());
+        p.put("recovery_ms", policy.recoveryMs());
+        p.put("reminder_ms", policy.reminderMs());
+        p.put("threshold", policy.threshold());
+        m.put("policy", p);
+        m.put("end_ms", endMs);
+        m.put("valid_ms", validMs);
+        m.put("normal_ms", normalMs);
+        m.put("deviation_ms", deviationMs);
+        m.put("rest_ms", restMs);
+        m.put("away_ms", awayMs);
+        m.put("unknown_ms", unknownMs);
+        m.put("missing_ms", missingMs);
+        m.put("hold_acc_ms", holdMs);
+        m.put("recovery_acc_ms", recoveryMs);
+        m.put("onset_ms", onsetMs);
+        m.put("onset_valid_ms", onsetValidMs);
+        if (active != null) {
+            Map<String, Object> a = new LinkedHashMap<>();
+            a.put("onset", active.onset);
+            a.put("onset_valid", active.onsetValid);
+            a.put("first_alert", active.firstAlert);
+            a.put("last_alert", active.lastAlert);
+            a.put("type", active.type);
+            m.put("active", a);
+        } else {
+            m.put("active", null);
+        }
+        m.put("previous_onset_valid", previousOnsetValid);
+        m.put("event_id", eventId);
+        m.put("collapse_count", collapseCount);
+        m.put("alert_count", alertCount);
+        m.put("interval_count", intervalCount);
+        m.put("interval_sum", intervalSum);
+        m.put("recovery_count", recoveryCount);
+        m.put("recovery_sum", recoverySum);
+        List<Map<String, Object>> ev = new ArrayList<>();
+        for (Map<String, Object> e : events) {
+            ev.add(new LinkedHashMap<>(e));
+        }
+        m.put("events", ev);
+        m.put("last_sequence", lastSequence);
+        m.put("ended", ended);
+        m.put("last_progress_ms", lastProgressMs);
+        m.put("duplicates", duplicates);
+        m.put("rejected", rejected);
+        m.put("current_deviation_type", currentDeviationType);
+        return m;
+    }
+
+    /**
+     * (D-37) {@link #snapshot()}로 만든 Map(JSON을 다시 읽은 것 — 숫자는 Integer·Long·Double 어느 것이든)에서 판정기를 되살린다.
+     *
+     * @throws IllegalArgumentException 버전이 다르거나 필수 값이 없을 때
+     */
+    @SuppressWarnings("unchecked")
+    public static V1SessionJudge restore(Map<String, Object> m) {
+        if (m == null || num(m.get("v"), -1) != SNAPSHOT_VERSION) {
+            throw new IllegalArgumentException("스냅샷 버전이 다름: " + (m == null ? null : m.get("v")));
+        }
+        if (!(m.get("session_id") instanceof String sid) || !(m.get("policy") instanceof Map<?, ?> pm)) {
+            throw new IllegalArgumentException("스냅샷에 session_id·policy 없음");
+        }
+        Map<String, Object> p = (Map<String, Object>) pm;
+        V1Policy policy = new V1Policy(req(p, "hold_ms"), req(p, "recovery_ms"), req(p, "reminder_ms"),
+                p.get("threshold") instanceof Number n ? n.doubleValue() : 0.7);
+        V1SessionJudge j = new V1SessionJudge(sid, policy);
+        j.endMs = req(m, "end_ms");
+        j.validMs = req(m, "valid_ms");
+        j.normalMs = req(m, "normal_ms");
+        j.deviationMs = req(m, "deviation_ms");
+        j.restMs = req(m, "rest_ms");
+        j.awayMs = req(m, "away_ms");
+        j.unknownMs = req(m, "unknown_ms");
+        j.missingMs = req(m, "missing_ms");
+        j.holdMs = req(m, "hold_acc_ms");
+        j.recoveryMs = req(m, "recovery_acc_ms");
+        j.onsetMs = req(m, "onset_ms");
+        j.onsetValidMs = req(m, "onset_valid_ms");
+        if (m.get("active") instanceof Map<?, ?> am) {
+            Map<String, Object> a = (Map<String, Object>) am;
+            Episode e = new Episode(req(a, "onset"), req(a, "onset_valid"), req(a, "first_alert"),
+                    a.get("type") instanceof String t ? t : "unspecified");
+            e.lastAlert = req(a, "last_alert");
+            j.active = e;
+        }
+        j.previousOnsetValid = m.get("previous_onset_valid") instanceof Number n ? n.longValue() : null;
+        j.eventId = req(m, "event_id");
+        j.collapseCount = req(m, "collapse_count");
+        j.alertCount = req(m, "alert_count");
+        j.intervalCount = req(m, "interval_count");
+        j.intervalSum = req(m, "interval_sum");
+        j.recoveryCount = req(m, "recovery_count");
+        j.recoverySum = req(m, "recovery_sum");
+        if (m.get("events") instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> em) {
+                    // 처음 만든 것과 같은 키 순서·타입(Long)으로 다시 만든다. JSON 설정이 null을 빼고 썼어도 reason 키가 남게.
+                    Map<String, Object> src = (Map<String, Object>) em;
+                    Map<String, Object> e = new LinkedHashMap<>();
+                    for (String k : EVENT_KEYS) {
+                        Object x = src.get(k);
+                        e.put(k, x instanceof Number n && !"schema_version".equals(k) ? (Object) n.longValue() : x);
+                    }
+                    j.events.add(e);
+                }
+            }
+        }
+        j.lastSequence = req(m, "last_sequence");
+        j.ended = Boolean.TRUE.equals(m.get("ended"));
+        j.lastProgressMs = req(m, "last_progress_ms");
+        j.duplicates = num(m.get("duplicates"), 0);
+        j.rejected = num(m.get("rejected"), 0);
+        j.currentDeviationType = m.get("current_deviation_type") instanceof String t ? t : "none";
+        return j;
+    }
+
+    private static long req(Map<String, Object> m, String key) {
+        if (!(m.get(key) instanceof Number n)) {
+            throw new IllegalArgumentException("스냅샷에 " + key + " 없음");
+        }
+        return n.longValue();
+    }
+
+    private static long num(Object v, long fallback) {
+        return v instanceof Number n ? n.longValue() : fallback;
     }
 
     public synchronized Result accept(V1Observation o) {

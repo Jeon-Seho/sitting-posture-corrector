@@ -278,6 +278,8 @@ services:
       # (D-04) 상태머신 상태 Redis 저장 (posture:state:{userId}, TTL 1시간)
       CEP_STATE_STORE_ENABLED: ${CEP_STATE_STORE_ENABLED:-true}
       CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
+      # (D-37) v1 판정기 상태 Redis 저장 (posture:v1:judge:{session_id}, TTL은 위와 같음)
+      CEP_V1_STATE_STORE_ENABLED: ${CEP_V1_STATE_STORE_ENABLED:-true}
       # (D-15) posture.inference 컨슈머 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-8}

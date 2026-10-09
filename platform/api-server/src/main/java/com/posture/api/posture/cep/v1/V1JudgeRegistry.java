@@ -26,7 +26,15 @@ import java.util.function.LongSupplier;
  *   <li>입력이 timeout 동안 없는 세션은 만료: 진행 중 사건만 끊김(missing)으로 닫고 정리한다.</li>
  * </ul>
  *
- * <p>판정은 DB에 쓰지 않는다(1차 회의 3번 — 저장은 결과를 받는 쪽, D-30). 판정 상태 Redis 저장·복원은 D-37.
+ * <p>판정은 DB에 쓰지 않는다(1차 회의 3번 — 저장은 결과를 받는 쪽, D-30).
+ *
+ * <p>(D-37) 판정 상태를 {@link V1JudgeStore}(Redis {@code posture:v1:judge:{session_id}})에 저장한다.
+ * <ul>
+ *   <li>저장: 세션 시작, 반영한 관측마다(발행 뒤). 컨슈머는 메시지 처리가 끝난 뒤 offset을 커밋하므로,
+ *       재시작 뒤 다시 받는 메시지는 저장된 {@code last_sequence} 이하라 중복으로 건너뛴다 — 누락·이중 집계 없음.</li>
+ *   <li>복원: 메모리에 없는 세션의 메시지가 오면 먼저 저장소를 본다(재시작 직후의 첫 메시지).</li>
+ *   <li>삭제: 세션 종료·만료 때.</li>
+ * </ul>
  */
 @Component
 public class V1JudgeRegistry {
@@ -35,6 +43,7 @@ public class V1JudgeRegistry {
     static final int RECENT_CAPACITY = 200;
 
     private final EpisodesSink sink;
+    private final V1JudgeStore store;
     private final V1Policy defaultPolicy;
     private final LongSupplier clock;
     private final Map<String, Entry> sessions = new ConcurrentHashMap<>();
@@ -47,6 +56,7 @@ public class V1JudgeRegistry {
     private final AtomicLong decisions = new AtomicLong();
     private final AtomicLong progresses = new AtomicLong();
     private final AtomicLong skipped = new AtomicLong();
+    private final AtomicLong restored = new AtomicLong();
 
     private static final class Entry {
         final V1SessionJudge judge;
@@ -63,16 +73,22 @@ public class V1JudgeRegistry {
     @Autowired
     public V1JudgeRegistry(
             EpisodesSink sink,
+            V1JudgeStore store,
             @Value("${cep.persist-seconds:3}") double holdSeconds,
             @Value("${cep.recovery-seconds:3}") double recoverySeconds,
             @Value("${cep.realert-seconds:60}") double reminderSeconds,
             @Value("${cep.collapse-threshold:0.7}") double threshold) {
-        this(sink, new V1Policy(Math.round(holdSeconds * 1000), Math.round(recoverySeconds * 1000),
+        this(sink, store, new V1Policy(Math.round(holdSeconds * 1000), Math.round(recoverySeconds * 1000),
                 Math.round(reminderSeconds * 1000), threshold), System::currentTimeMillis);
     }
 
     V1JudgeRegistry(EpisodesSink sink, V1Policy defaultPolicy, LongSupplier clock) {
+        this(sink, V1JudgeStore.NO_OP, defaultPolicy, clock);
+    }
+
+    V1JudgeRegistry(EpisodesSink sink, V1JudgeStore store, V1Policy defaultPolicy, LongSupplier clock) {
         this.sink = sink;
+        this.store = store;
         this.defaultPolicy = defaultPolicy;
         this.clock = clock;
     }
@@ -83,35 +99,52 @@ public class V1JudgeRegistry {
                 ? (Map<String, Object>) p : null;
         V1Policy policy = V1Policy.fromBody(policyBody, defaultPolicy);
         Entry existing = sessions.get(sessionId);
+        if (existing == null) {
+            existing = restore(sessionId);
+        }
         if (existing != null && existing.judge.hasInput()) {
             log.warn("이미 관측을 받은 세션의 session_started — 무시 (sessionId={})", sessionId);
             return;
         }
-        sessions.put(sessionId, new Entry(new V1SessionJudge(sessionId, policy), userId, clock.getAsLong()));
+        Entry e = new Entry(new V1SessionJudge(sessionId, policy), userId, clock.getAsLong());
+        sessions.put(sessionId, e);
         synchronized (recentEnded) {
             recentEnded.remove(sessionId);
         }
+        save(sessionId, e);
         log.info("v1 세션 시작 (sessionId={}, policy={})", sessionId, policy);
     }
 
     /** @return 반영하지 않았으면 그 이유, 반영했으면 null */
     public String observation(String sessionId, String userId, Map<String, Object> body) {
         V1Observation o = V1Observation.fromBody(body);   // 형식 오류는 호출 쪽에서 DLQ
-        Entry e = sessions.computeIfAbsent(sessionId, id -> {
-            log.info("session_started 없이 관측을 받음 — 기본 정책으로 판정 (sessionId={})", id);
-            return new Entry(new V1SessionJudge(id, defaultPolicy), userId, clock.getAsLong());
-        });
+        Entry e = sessions.get(sessionId);
+        if (e == null) {
+            e = restore(sessionId);
+        }
+        if (e == null) {
+            log.info("session_started 없이 관측을 받음 — 기본 정책으로 판정 (sessionId={})", sessionId);
+            Entry created = new Entry(new V1SessionJudge(sessionId, defaultPolicy), userId, clock.getAsLong());
+            Entry prev = sessions.putIfAbsent(sessionId, created);
+            e = prev != null ? prev : created;
+        }
         e.lastSeenWallMs = clock.getAsLong();
         if (userId != null) {
             e.userId = userId;
         }
         V1SessionJudge.Result r = e.judge.accept(o);
         emit(sessionId, e.userId, r);
+        if (r.skipped() == null) {
+            save(sessionId, e);
+        }
         return r.skipped();
     }
 
     public void sessionEnded(String sessionId, String userId, Map<String, Object> body) {
         Entry e = sessions.get(sessionId);
+        if (e == null) {
+            e = restore(sessionId);
+        }
         if (e == null) {
             log.warn("모르는 세션의 session_ended — 무시 (sessionId={})", sessionId);
             return;
@@ -162,6 +195,7 @@ public class V1JudgeRegistry {
         s.put("publishedDecisions", decisions.get());
         s.put("publishedProgress", progresses.get());
         s.put("skippedObservations", skipped.get());
+        s.put("restoredSessions", restored.get());
         s.put("defaultPolicy", defaultPolicy.toString());
         return s;
     }
@@ -187,8 +221,43 @@ public class V1JudgeRegistry {
         }
     }
 
+    /** (D-37) 저장소에서 판정기를 되살려 등록한다. 없거나 복원할 수 없으면 null. */
+    private Entry restore(String sessionId) {
+        Optional<V1JudgeStore.Stored> stored = store.load(sessionId);
+        if (stored.isEmpty()) {
+            return null;
+        }
+        V1SessionJudge judge;
+        try {
+            judge = V1SessionJudge.restore(stored.get().judge());
+        } catch (RuntimeException exc) {
+            log.warn("v1 판정 상태를 복원할 수 없어 버림 (sessionId={}): {}", sessionId, exc.getMessage());
+            store.delete(sessionId);
+            return null;
+        }
+        Map<String, Object> v = judge.view();
+        if (judge.ended() || !sessionId.equals(v.get("session_id"))) {
+            store.delete(sessionId);
+            return null;
+        }
+        Entry created = new Entry(judge, stored.get().userId(), clock.getAsLong());
+        Entry prev = sessions.putIfAbsent(sessionId, created);
+        if (prev != null) {
+            return prev;
+        }
+        restored.incrementAndGet();
+        log.info("v1 판정 상태 복원 (sessionId={}, last_sequence={}, active={}, events={})",
+                sessionId, v.get("last_sequence"), v.get("active"), ((List<?>) v.get("events")).size());
+        return created;
+    }
+
+    private void save(String sessionId, Entry e) {
+        store.save(sessionId, e.userId, e.judge.snapshot());
+    }
+
     private void finish(String sessionId, Entry e) {
         sessions.remove(sessionId, e);
+        store.delete(sessionId);
         synchronized (recentEnded) {
             recentEnded.put(sessionId, e.judge.view());
         }
