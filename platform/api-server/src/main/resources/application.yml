@@ -71,6 +71,8 @@ app:
       posture-features-v1: ${POSTURE_FEATURES_V1_TOPIC:posture.features.v1}
       posture-inference-v1: ${POSTURE_INFERENCE_V1_TOPIC:posture.inference.v1}
       posture-episodes-v1: ${POSTURE_EPISODES_V1_TOPIC:posture.episodes.v1}
+      # (D-36) 처리 못 한 메시지
+      posture-dlq: ${POSTURE_DLQ_TOPIC:posture.dlq}
     # (D-15) posture.inference 컨슈머 스레드 수 = 토픽 파티션 수와 맞출 것
     posture-inference-concurrency: ${POSTURE_INFERENCE_CONCURRENCY:3}
     # (D-21) 실시간 계약 v1 토픽 — 키 session_id, 파티션 수는 위 concurrency와 맞춘다

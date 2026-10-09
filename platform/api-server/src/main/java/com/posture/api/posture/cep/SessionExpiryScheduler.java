@@ -1,5 +1,6 @@
 package com.posture.api.posture.cep;
 
+import com.posture.api.posture.cep.v1.V1JudgeRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,16 +30,19 @@ public class SessionExpiryScheduler {
     private final PostureCepEngine engine;
     private final CepJdbcRepository repository;
     private final CepWriteBuffer writeBuffer;
+    private final V1JudgeRegistry v1Registry;
     private final double timeoutSeconds;
 
     public SessionExpiryScheduler(
             PostureCepEngine engine,
             CepJdbcRepository repository,
             CepWriteBuffer writeBuffer,
+            V1JudgeRegistry v1Registry,
             @Value("${cep.session-timeout-seconds:300}") double timeoutSeconds) {
         this.engine = engine;
         this.repository = repository;
         this.writeBuffer = writeBuffer;
+        this.v1Registry = v1Registry;
         this.timeoutSeconds = timeoutSeconds;
     }
 
@@ -60,6 +64,7 @@ public class SessionExpiryScheduler {
         result.put("finalized_events", 0);
         result.put("ended_sessions_db", 0);
         result.put("error", null);
+        result.put("expired_v1_sessions", 0);
         try {
             Instant now = Instant.now();
             List<CepOutcome> outcomes = engine.expireStaleSessions(now, timeoutSeconds);
@@ -68,6 +73,9 @@ public class SessionExpiryScheduler {
                 writeBuffer.recordEvent(outcome);   // (D-18) 기록은 쓰기 버퍼를 거친다
             }
             result.put("finalized_events", outcomes.size());
+
+            // (D-22) v1 판정기: 입력이 끊긴 세션의 진행 중 사건을 끊김(missing)으로 닫고 정리
+            result.put("expired_v1_sessions", v1Registry.expireStale((long) timeoutSeconds));
 
             int expiredRows = repository.expireStaleSessions(now, (long) timeoutSeconds);   // (D-20) 엔진과 같은 기준 시각
             result.put("ended_sessions_db", expiredRows);
