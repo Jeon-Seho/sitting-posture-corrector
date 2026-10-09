@@ -7,7 +7,7 @@ import java.util.Optional;
  *
  * api-server가 재시작돼도 진행 중이던 판정(붕괴 후보·진행 중 이벤트·회복
  * 대기)을 이어갈 수 있도록 세션 상태를 프로세스 밖에 보관한다. 운영 구현은
- * {@link RedisCepStateStore}(키 {@code posture:state:{userId}})이고, 단위
+ * {@link RedisCepStateStore}(키 {@code posture:state:{sessionId}})이고, 단위
  * 테스트는 {@link #NO_OP} 또는 메모리 구현을 쓴다.
  *
  * 구현체는 예외를 밖으로 던지지 않는다 — 저장소가 죽어도 판정 흐름은
