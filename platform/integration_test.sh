@@ -18,8 +18,8 @@
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
-#   8. 계약 v1(D-21): 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → 판정
-#                    → 이벤트 73.0s·재알림 2회, v1 컨슈머 lag 0, Redis 상태 키 정리(키 = session_id)
+#   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
+#                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes.v1 발행, v1 lag 0, DLQ(D-36)
 #
 # 결과: it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -122,10 +122,10 @@ if [ -n "$PC" ]; then
   else fail "posture.inference 파티션" "$PC개 (3개 필요: kafka-topics.sh --alter --partitions 3)"; fi
 fi
 # (D-21) 계약 v1 토픽 — api-server가 시작할 때 만든다(파티션 3)
-for t in posture.features.v1 posture.inference.v1 posture.episodes.v1; do
+for t in posture.features.v1 posture.inference.v1 posture.episodes.v1 posture.dlq; do
   PC="$($KT/kafka-topics.sh $BS --describe --topic "$t" 2>/dev/null | grep -oE 'PartitionCount: *[0-9]+' | grep -oE '[0-9]+')"
   if [ -z "$PC" ]; then fail "토픽 $t" "없음 — D-21 적용 후 api-server 재빌드·재생성 필요"
-  elif [ "$PC" -ge 3 ]; then pass "토픽 $t (파티션 $PC개)"
+  elif [ "$PC" -ge 3 ] || { [ "$t" = posture.dlq ] && [ "$PC" -ge 1 ]; }; then pass "토픽 $t (파티션 $PC개)"
   else fail "토픽 $t 파티션" "$PC개 (3개 필요)"; fi
 done
 IT_TOPIC="it.smoke.$TS"
@@ -331,7 +331,7 @@ PY3
 fi
 
 # ---------------------------------------------------------------------
-step "8. 실시간 계약 v1 (D-21)"
+step "8. 실시간 계약 v1 (D-21·D-22·D-36)"
 if [ "$E2E" = 0 ]; then skip "v1 종단 시험" "--no-e2e"
 elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 종단 시험" "mysql/replay_realtime_v1.py 없음"
 else
@@ -341,24 +341,35 @@ else
   if grep -qE '성공\(202\) 172 / 실패 0' "$OUT/v1-replay.log"; then pass "v1 재생 172건 전송 (시작 1 + 0.5초 구간 170 + 종료 1, HTTP 202)"
   else fail "v1 재생 전송" "$OUT/v1-replay.log 확인 (404면 REALTIME_TEST_ENTRY_ENABLED·재빌드 확인)"; fi
 
-  V1EV=""
+  # (D-22) v1 판정기 결과 — 세션이 끝나면(session_ended) 최근 종료 목록에서 조회된다
+  V1VIEW=""
   if [ -n "$V1_SID" ]; then
     for _ in $(seq 1 30); do
-      V1EV="$(curl -s -m 5 "$API/cep/events/recent" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-m=[e for e in d.get('events',[]) if e.get('sessionId')=='$V1_SID' and not e.get('ongoing')]
-print(json.dumps(m[-1]) if m else '')" 2>/dev/null)"
-      [ -n "$V1EV" ] && break; sleep 2
+      V1VIEW="$(curl -s -m 5 "$API/cep/v1/sessions/$V1_SID")"
+      echo "$V1VIEW" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
+      V1VIEW=""; sleep 2
     done
   fi
-  echo "v1 이벤트: ${V1EV:-없음}" >>"$OUT/run.log"
-  if [ -z "$V1EV" ]; then fail "v1 판정 이벤트" "60초 안에 session_id=${V1_SID:-?} 종료 이벤트 없음 (docker logs inference-service / api-server 확인)"
-  elif echo "$V1EV" | python3 -c "
-import json,sys;e=json.load(sys.stdin)
-ok=abs(e['durationSeconds']-73.0)<0.05 and e['alertCount']==2 and e['recovered'] is True and e.get('userId')=='$V1_USER'
-sys.exit(0 if ok else 1)"; then pass "v1 판정 결과: 지속 73.0s, 재알림 2회, 회복 (0.5초 구간 기준 기대값)"
-  else fail "v1 판정 결과" "$V1EV (기대: 73.0s / alertCount 2 / recovered true / userId $V1_USER)"; fi
+  echo "v1 판정: ${V1VIEW:-없음}" >>"$OUT/run.log"
+  if [ -z "$V1VIEW" ]; then fail "v1 판정 결과" "60초 안에 session_id=${V1_SID:-?} 종료 안 됨 (curl $API/cep/v1/sessions/<id>, docker logs inference-service / api-server)"
+  elif echo "$V1VIEW" | python3 -c "
+import json,sys
+v=json.load(sys.stdin); ev=v['events']; s=v['summary']
+k=[e['kind'] for e in ev]; t=[e['timestamp_ms'] for e in ev]
+ok=(k==['collapse_confirmed','reminder','recovery_confirmed','session_ended'] and t[:3]==[8000,68000,78000]
+    and [e['event_id'] for e in ev]==[1,2,3,4] and ev[2]['timestamp_ms']-ev[2]['onset_ms']==73000
+    and s['collapse_count']==1 and s['alert_count']==2 and s['valid_ms']==85000 and s['mean_recovery_ms']==70000
+    and v['last_sequence']==169)
+sys.exit(0 if ok else 1)"; then pass "v1 판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
+  else fail "v1 판정 결과" "$(echo "$V1VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
+
+  # (D-22) posture.episodes.v1 발행 — 이 세션의 decision 4건, progress 1건 이상
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes.v1 --from-beginning --timeout-ms 15000 \
+    2>/dev/null | grep -F "$V1_SID" >"$OUT/v1-episodes.jsonl" || true
+  ND="$(grep -c '"kind":"decision"' "$OUT/v1-episodes.jsonl" 2>/dev/null || true)"
+  NP="$(grep -c '"kind":"progress"' "$OUT/v1-episodes.jsonl" 2>/dev/null || true)"
+  if [ "${ND:-0}" = "4" ] && [ "${NP:-0}" -ge 1 ]; then pass "posture.episodes.v1 발행: decision ${ND}건, progress ${NP}건"
+  else fail "posture.episodes.v1 발행" "decision ${ND:-0}건(기대 4), progress ${NP:-0}건 — $OUT/v1-episodes.jsonl"; fi
 
   sleep 3
   for g in inference-service-v1 api-server-cep-v1; do
@@ -367,10 +378,18 @@ sys.exit(0 if ok else 1)"; then pass "v1 판정 결과: 지속 73.0s, 재알림 
     elif [ -z "$L" ]; then fail "v1 컨슈머 $g" "그룹 없음 — 서비스 재빌드·재생성 확인"
     else fail "v1 컨슈머 $g lag" "$L"; fi
   done
-  if [ -n "$V1EV" ]; then
-    RK="$(docker exec redis redis-cli EXISTS "posture:state:$V1_SID" 2>/dev/null)"
-    if [ "$RK" = "0" ]; then pass "v1 Redis 상태 키 정리 (키 = session_id)"; else fail "v1 Redis 상태 키" "posture:state:$V1_SID 가 남아 있음"; fi
-  fi
+
+  # (D-36) DLQ — 깨진 메시지를 features.v1에 직접 넣으면 추론이 posture.dlq로 넘기고 계속 처리해야 한다
+  DLQ_MARK="it-dlq-$TS-$RANDOM"
+  echo "$DLQ_MARK" | docker exec -i kafka /opt/kafka/bin/kafka-console-producer.sh $BS --topic posture.features.v1 >>"$OUT/run.log" 2>&1
+  GOTDLQ=""
+  for _ in $(seq 1 10); do
+    GOTDLQ="$(timeout 30 $KT/kafka-console-consumer.sh $BS --topic posture.dlq --from-beginning --timeout-ms 5000 2>/dev/null | grep -F "$DLQ_MARK" | head -1)"
+    [ -n "$GOTDLQ" ] && break; sleep 2
+  done
+  echo "DLQ: ${GOTDLQ:-없음}" >>"$OUT/run.log"
+  if echo "$GOTDLQ" | grep -q '"source_topic": *"posture.features.v1"'; then pass "DLQ: 깨진 메시지 → posture.dlq (D-36)"
+  else fail "DLQ" "posture.dlq에 $DLQ_MARK 없음 — docker logs inference-service 확인"; fi
 fi
 
 # 7단계 뒤 토픽 재확인 (처음에 없었던 경우)

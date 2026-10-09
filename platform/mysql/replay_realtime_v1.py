@@ -11,8 +11,9 @@ api-server의 시험용 입구(POST /api/v1/realtime/features)로 보낸다.
 특징 값은 T-10 CSV와 같다(나쁜 자세: 머리 0.18·좌우 0.15·어깨 -0.12, 정상: 0.02·0.01·-0.01, 품질 0.9).
 합성 데이터이며 실제 사람의 측정값이 아니다. 원본 영상·좌표는 넣지 않는다.
 
-판정 기대값(현재 엔진, 3s/3s/60s, 기준 0.7): 확정 → 재알림(alertCount 2) → 종료,
-지속 73.0초(첫 나쁜 구간 끝 5.5s ~ 회복 확인 78.5s), recovered=true.
+판정 기대값(v1 판정기 D-22, 정책 3000/3000/60000/0.7, 유효 시간 누적):
+collapse_confirmed 8000ms(시작 5000) → reminder 68000ms → recovery_confirmed 78000ms(실제 지속 73.0초) → session_ended 85000ms,
+요약 collapse_count 1·alert_count 2·valid_ms 85000·mean_recovery_ms 70000. 결과: GET /cep/v1/sessions/<session_id>
 """
 import argparse
 import json

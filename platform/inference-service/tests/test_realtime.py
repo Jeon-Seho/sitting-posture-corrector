@@ -7,7 +7,7 @@ import copy
 
 import pytest
 
-from app.realtime import observation_from_features, process_features_message, score_feature_deltas
+from app.realtime import dead_letter, observation_from_features, process_features_message, score_feature_deltas
 
 SESSION = "00000000-0000-4000-8000-0000000000a1"
 
@@ -127,3 +127,45 @@ def test_non_finite_feature_is_invalid_not_error():
     body = copy.deepcopy(FEATURES_MSG["body"])
     body["features"]["head_gap_delta"] = float("nan")
     assert observation_from_features(body)["valid"] is False
+
+
+def test_dead_letter_message_fields():
+    m = dead_letter("posture.features.v1", 1, 42, SESSION, "모르는 kind: x", '{"kind":"x"}', now="2026-10-09T05:00:00.000Z")
+    assert m == {
+        "schema_version": "1.0", "failed_at": "2026-10-09T05:00:00.000Z", "consumer": "inference-service-v1",
+        "source_topic": "posture.features.v1", "source_partition": 1, "source_offset": 42, "key": SESSION,
+        "reason": "모르는 kind: x", "payload": '{"kind":"x"}', "payload_truncated": False,
+    }
+
+
+def test_dead_letter_truncates_huge_payload():
+    from app.realtime import DLQ_MAX_PAYLOAD_CHARS
+    m = dead_letter("t", 0, 0, None, "r", "x" * (DLQ_MAX_PAYLOAD_CHARS + 5))
+    assert len(m["payload"]) == DLQ_MAX_PAYLOAD_CHARS and m["payload_truncated"] is True
+
+
+class _Msg:
+    def __init__(self, value, topic="posture.features.v1", partition=0, offset=7, key=SESSION):
+        self.value, self.topic, self.partition, self.offset, self.key = value, topic, partition, offset, key
+
+
+class _Producer:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, topic, key=None, value=None):
+        self.sent.append((topic, key, value))
+
+
+def test_consumer_routes_bad_messages_to_dlq_and_good_to_inference():
+    import json
+    from app.realtime import DLQ_TOPIC, INFERENCE_V1_TOPIC, RealtimeFeaturesConsumer
+    c = RealtimeFeaturesConsumer()
+    c._producer = _Producer()
+    c._handle(_Msg("not json"))
+    c._handle(_Msg(json.dumps({**FEATURES_MSG, "kind": "observation"})))
+    c._handle(_Msg(json.dumps(FEATURES_MSG)))
+    topics = [s[0] for s in c._producer.sent]
+    assert topics == [DLQ_TOPIC, DLQ_TOPIC, INFERENCE_V1_TOPIC]
+    assert c.dead_lettered == 2 and c.processed == 1
+    assert c._producer.sent[0][2]["source_offset"] == 7 and c._producer.sent[0][1] == SESSION
