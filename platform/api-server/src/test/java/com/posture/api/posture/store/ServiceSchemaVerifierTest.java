@@ -11,20 +11,22 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** (D-32) 확정 서비스 DB(V2.1) 준비 확인. */
+/** (D-32, D-41) 확정 서비스 DB(V2.2) 준비 확인. */
 class ServiceSchemaVerifierTest {
 
-    /** V2.1 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
+    /** V2.2 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
     static final class FakeProbe implements ServiceDbProbe {
         final List<String> tables = new ArrayList<>(ServiceSchemaVerifier.EXPECTED_TABLES);
         final Map<String, List<String>> columns = new HashMap<>();
         Long defaultPolicyId = 1L;
+        Double defaultThreshold = 0.7;
         List<String> privileges = new ArrayList<>(List.of("SELECT", "INSERT", "UPDATE", "DELETE"));
         RuntimeException failure;
 
         FakeProbe() {
             columns.putAll(ServiceSchemaVerifier.REQUIRED_COLUMNS);
-            columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id"));
+            columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
+                    "alert_enabled", "sound_alert_enabled"));
         }
 
         @Override
@@ -46,6 +48,11 @@ class ServiceSchemaVerifierTest {
         }
 
         @Override
+        public Optional<Double> policyThreshold(String schema, String policyName) {
+            return Optional.ofNullable(defaultThreshold);
+        }
+
+        @Override
         public List<String> privileges(String schema) {
             return privileges;
         }
@@ -60,17 +67,65 @@ class ServiceSchemaVerifierTest {
     }
 
     ServiceSchemaVerifier verifier(boolean enabled, String schema) {
-        return new ServiceSchemaVerifier(probe, enabled, schema, "DEFAULT_TEMP",
+        return verifier(enabled, schema, "V2.2");
+    }
+
+    ServiceSchemaVerifier verifier(boolean enabled, String schema, String target) {
+        return new ServiceSchemaVerifier(probe, enabled, schema, "DEFAULT_TEMP", 0.7, target,
                 () -> Instant.parse("2026-10-10T00:00:00Z"));
     }
 
     @Test
-    void readyV21SchemaIsOk() {
+    void readyV22SchemaIsOk() {
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(true);
+        assertThat(r.get("specVersion")).isEqualTo("V2.2");
         assertThat(r.get("tableCount")).isEqualTo(12);
         assertThat(r.get("defaultPolicyId")).isEqualTo(1L);
+        assertThat(r.get("defaultPolicyThreshold")).isEqualTo(0.7);
         assertThat(list(r, "problems")).isEmpty();
+    }
+
+    /** (D-41) V2.1로 만들고 migration 011·시드 수정을 안 한 DB: alert_enabled 없음, threshold 0.5. */
+    @Test
+    void v21DatabaseWithoutMigration011IsReported() {
+        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
+                "sound_alert_enabled"));
+        probe.defaultThreshold = 0.5;
+        Map<String, Object> r = verifier(true, "posture_service").check();
+        assertThat(r.get("ok")).isEqualTo(false);
+        assertThat(r.get("specVersion")).isEqualTo("V2.1");
+        assertThat(list(r, "missingColumns")).containsExactly("user_account.alert_enabled");
+        List<String> problems = list(r, "problems");
+        assertThat(problems).hasSize(2);
+        assertThat(problems.get(0)).contains("V2.2 아님").contains("011_add_alert_enabled_user_account.sql");
+        assertThat(problems.get(1)).contains("threshold 0.5").contains("0.7");
+    }
+
+    /** (D-41) 목표 V2.1(서버 DB 당분간 V2.1): 같은 DB가 준비됨으로 보이고 V2.2 항목은 경고로만. */
+    @Test
+    void v21TargetTurnsV22ItemsIntoWarnings() {
+        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
+                "sound_alert_enabled"));
+        probe.defaultThreshold = 0.5;
+        Map<String, Object> r = verifier(true, "posture_service", "V2.1").check();
+        assertThat(r.get("ok")).isEqualTo(true);
+        assertThat(r.get("targetSpecVersion")).isEqualTo("V2.1");
+        assertThat(r.get("specVersion")).isEqualTo("V2.1");
+        assertThat(list(r, "problems")).isEmpty();
+        assertThat(list(r, "warnings")).hasSize(2);
+
+        probe.columns.put("user_account", List.of("user_account_id", "threshold_policy_id", "alert_enabled"));
+        probe.defaultThreshold = 0.7;
+        Map<String, Object> v22 = verifier(true, "posture_service", "V2.1").check();
+        assertThat(v22.get("specVersion")).isEqualTo("V2.2");
+        assertThat(list(v22, "warnings")).isEmpty();
+    }
+
+    @Test
+    void thresholdWithinDecimalPrecisionIsOk() {
+        probe.defaultThreshold = 0.7000000001;
+        assertThat(verifier(true, "posture_service").check().get("ok")).isEqualTo(true);
     }
 
     @Test
