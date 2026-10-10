@@ -115,6 +115,15 @@ cep:
   v1-state-store:
     enabled: ${CEP_V1_STATE_STORE_ENABLED:true}
 
+# (D-32) 확정 서비스 DB — DB 명세서 V2.1 `posture_service`. 테스트용 posture_app과 같은 MySQL 서버에 있어
+# 연결 풀을 따로 두지 않고 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
+# 지금은 준비 확인(GET /cep/service-db)만 한다. 판정 결과 저장은 D-30.
+service-db:
+  enabled: ${SERVICE_DB_ENABLED:true}
+  schema: ${SERVICE_DB_SCHEMA:posture_service}
+  # 시드 seed_04의 기본 판정 정책 이름. 확정 정책(DEFAULT) 행이 생기면 이 값만 바꾼다.
+  default-policy-name: ${SERVICE_DB_DEFAULT_POLICY:DEFAULT_TEMP}
+
 management:
   endpoints:
     web:
