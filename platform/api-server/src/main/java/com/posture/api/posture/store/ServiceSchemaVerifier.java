@@ -21,12 +21,15 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
- * (D-32) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.1, {@code posture_service})가 준비됐는지 확인한다.
+ * (D-32, D-41) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.2, {@code posture_service})가 준비됐는지 확인한다.
+ * V2.2는 V2.1에 {@code user_account.alert_enabled}(migration 011)를 더하고 기본 정책 threshold를 0.700으로 고친 것이다.
+ * 목표 버전({@code service-db.spec-version}, 기본 V2.1 — 서버 DB는 당분간 V2.1, 10/10 사용자 결정)이 V2.1이면 V2.2 항목은
+ * 문제가 아니라 {@code warnings}로만 알린다. V2.2로 올린 뒤 {@code SERVICE_DB_SPEC_VERSION=V2.2}로 바꾸면 문제로 본다.
  *
  * <ul>
  *   <li>테이블 12개가 있는지, 지운 테이블(V1.1·V2.0)이 남아 있지 않은지 — 남아 있으면 예전 버전으로 만든 DB다.</li>
  *   <li>판정 결과 저장(D-30)이 쓸 컬럼이 있는지, V2.1에서 지운 컬럼이 없는지.</li>
- *   <li>기본 판정 정책(시드 {@code DEFAULT_TEMP})이 있는지.</li>
+ *   <li>기본 판정 정책(시드 {@code DEFAULT_TEMP})이 있고 threshold가 기대값(V2.2 시드 0.7)인지.</li>
  *   <li>지금 계정에 SELECT·INSERT·UPDATE·DELETE 권한이 있는지.</li>
  * </ul>
  *
@@ -62,7 +65,15 @@ public class ServiceSchemaVerifier {
                     "delivered", "suppress_reason"),
             "excluded_interval", List.of("monitor_session_id", "started_at", "ended_at", "exclusion_reason"),
             "threshold_policy", List.of("threshold_policy_id", "threshold", "hold_seconds", "recover_seconds",
-                    "realert_seconds", "notify_max_per_hour", "policy_name", "created_by"));
+                    "realert_seconds", "notify_max_per_hour", "policy_name", "created_by"),
+            // (D-41) V2.2: 세션 시작 때 monitor_session.alert_enabled로 복사하는 사용자 설정(migration 011)
+            "user_account", List.of("user_account_id", "threshold_policy_id", "alert_enabled"));
+
+    /** V2.2에서 더한 컬럼. 없으면 V2.1 DB에 migration 011이 아직 안 된 것. */
+    static final String V22_COLUMN = "user_account.alert_enabled";
+
+    /** threshold 비교 허용 오차(DECIMAL(4,3)). */
+    private static final double THRESHOLD_TOLERANCE = 1e-6;
 
     /** V2.1에서 지운 컬럼(있으면 예전 버전). */
     static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
@@ -76,6 +87,8 @@ public class ServiceSchemaVerifier {
     private final boolean enabled;
     private final String schema;
     private final String defaultPolicyName;
+    private final double expectedDefaultThreshold;
+    private final String specVersion;
     private final Supplier<Instant> clock;
 
     @Autowired
@@ -83,31 +96,36 @@ public class ServiceSchemaVerifier {
             ServiceDbProbe probe,
             @Value("${service-db.enabled:true}") boolean enabled,
             @Value("${service-db.schema:posture_service}") String schema,
-            @Value("${service-db.default-policy-name:DEFAULT_TEMP}") String defaultPolicyName) {
-        this(probe, enabled, schema, defaultPolicyName, Instant::now);
+            @Value("${service-db.default-policy-name:DEFAULT_TEMP}") String defaultPolicyName,
+            @Value("${service-db.expected-default-threshold:0.7}") double expectedDefaultThreshold,
+            @Value("${service-db.spec-version:V2.1}") String specVersion) {
+        this(probe, enabled, schema, defaultPolicyName, expectedDefaultThreshold, specVersion, Instant::now);
     }
 
     ServiceSchemaVerifier(ServiceDbProbe probe, boolean enabled, String schema, String defaultPolicyName,
-                          Supplier<Instant> clock) {
+                          double expectedDefaultThreshold, String specVersion, Supplier<Instant> clock) {
         this.probe = probe;
         this.enabled = enabled;
         this.schema = schema;
         this.defaultPolicyName = defaultPolicyName;
+        this.expectedDefaultThreshold = expectedDefaultThreshold;
+        this.specVersion = "V2.2".equalsIgnoreCase(specVersion) ? "V2.2" : "V2.1";
         this.clock = clock;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void checkOnStartup() {
         if (!enabled) {
-            log.info("서비스 DB(V2.1) 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
+            log.info("서비스 DB 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
             return;
         }
         Map<String, Object> r = check();
         if (Boolean.TRUE.equals(r.get("ok"))) {
-            log.info("서비스 DB(V2.1) 확인: 준비됨 (schema={}, 기본 정책 {}={})", schema, defaultPolicyName,
-                    r.get("defaultPolicyId"));
+            log.info("서비스 DB 확인: 준비됨 (schema={}, 목표 {}, 실제 {}, 기본 정책 {}={}, threshold {}, 경고 {})", schema,
+                    specVersion, r.get("specVersion"), defaultPolicyName, r.get("defaultPolicyId"),
+                    r.get("defaultPolicyThreshold"), r.get("warnings"));
         } else {
-            log.warn("서비스 DB(V2.1) 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /cep/service-db)",
+            log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /cep/service-db)",
                     schema, r.get("problems"));
         }
     }
@@ -118,7 +136,10 @@ public class ServiceSchemaVerifier {
         r.put("enabled", enabled);
         r.put("schema", schema);
         r.put("checkedAt", clock.get().toString());
+        r.put("targetSpecVersion", specVersion);
         List<String> problems = new ArrayList<>();
+        // V2.2 항목: 목표가 V2.2면 문제, V2.1이면 경고
+        List<String> v22 = "V2.2".equals(specVersion) ? problems : new ArrayList<>();
         if (!enabled) {
             r.put("ok", false);
             r.put("problems", List.of("사용 안 함 (SERVICE_DB_ENABLED=false)"));
@@ -174,16 +195,14 @@ public class ServiceSchemaVerifier {
                     }
                 }
             }
-            if (tables.contains("user_account")) {
-                Set<String> cols = lower(probe.columns(schema, "user_account"));
-                for (String c : REMOVED_COLUMNS.get("user_account")) {
-                    if (cols.contains(c)) {
-                        removedCols.add("user_account." + c);
-                    }
-                }
-            }
-            r.put("missingColumns", missingCols);
+            r.put("missingColumns", List.copyOf(missingCols));
             r.put("removedColumnsPresent", removedCols);
+            if (tables.contains("user_account")) {
+                r.put("specVersion", missingCols.contains(V22_COLUMN) ? "V2.1" : "V2.2");
+            }
+            if (missingCols.remove(V22_COLUMN)) {
+                v22.add("V2.2 아님: " + V22_COLUMN + " 없음 (database/migrations/011_add_alert_enabled_user_account.sql)");
+            }
             if (!missingCols.isEmpty()) {
                 problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);
             }
@@ -197,6 +216,15 @@ public class ServiceSchemaVerifier {
                 r.put("defaultPolicyId", id.orElse(null));
                 if (id.isEmpty()) {
                     problems.add("기본 판정 정책 " + defaultPolicyName + " 없음 (seed_04_threshold_policy.sql)");
+                } else {
+                    Optional<Double> threshold = probe.policyThreshold(schema, defaultPolicyName);
+                    r.put("defaultPolicyThreshold", threshold.orElse(null));
+                    r.put("expectedDefaultThreshold", expectedDefaultThreshold);
+                    if (threshold.isEmpty()
+                            || Math.abs(threshold.get() - expectedDefaultThreshold) > THRESHOLD_TOLERANCE) {
+                        v22.add("기본 판정 정책 " + defaultPolicyName + " threshold " + threshold.orElse(null)
+                                + " ≠ " + expectedDefaultThreshold + " (V2.2 seed_04 — 서버 판정과 같은 값)");
+                    }
                 }
             }
 
@@ -218,6 +246,7 @@ public class ServiceSchemaVerifier {
         }
         r.put("ok", problems.isEmpty());
         r.put("problems", problems);
+        r.put("warnings", v22 == problems ? List.of() : v22);
         return r;
     }
 

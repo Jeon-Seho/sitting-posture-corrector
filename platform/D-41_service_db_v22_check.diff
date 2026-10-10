@@ -1,0 +1,371 @@
+diff --git a/platform/api-server/src/main/java/com/posture/api/posture/store/JdbcServiceDbProbe.java b/platform/api-server/src/main/java/com/posture/api/posture/store/JdbcServiceDbProbe.java
+index 37c8292..f80e922 100644
+--- a/platform/api-server/src/main/java/com/posture/api/posture/store/JdbcServiceDbProbe.java
++++ b/platform/api-server/src/main/java/com/posture/api/posture/store/JdbcServiceDbProbe.java
+@@ -45,6 +45,14 @@ class JdbcServiceDbProbe implements ServiceDbProbe {
+         return ids.isEmpty() ? Optional.empty() : Optional.ofNullable(ids.get(0));
+     }
+ 
++    @Override
++    public Optional<Double> policyThreshold(String schema, String policyName) {
++        List<Double> v = jdbc.queryForList(
++                "SELECT threshold FROM `" + schema + "`.threshold_policy WHERE policy_name = ?",
++                Double.class, policyName);
++        return v.isEmpty() ? Optional.empty() : Optional.ofNullable(v.get(0));
++    }
++
+     @Override
+     public List<String> privileges(String schema) {
+         // information_schema의 권한 표는 지금 접속한 계정의 권한만 보여 준다.
+diff --git a/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceDbProbe.java b/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceDbProbe.java
+index 2af212e..a8779cd 100644
+--- a/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceDbProbe.java
++++ b/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceDbProbe.java
+@@ -4,7 +4,7 @@ import java.util.List;
+ import java.util.Optional;
+ 
+ /**
+- * (D-32) 확정 서비스 DB(V2.1 {@code posture_service})를 조회하는 최소 기능. 검사 로직({@link ServiceSchemaVerifier})을
++ * (D-32) 확정 서비스 DB(V2.1·V2.2 {@code posture_service})를 조회하는 최소 기능. 검사 로직({@link ServiceSchemaVerifier})을
+  * DB 없이 시험할 수 있게 분리했다. 운영 구현은 {@link JdbcServiceDbProbe}.
+  */
+ interface ServiceDbProbe {
+@@ -18,6 +18,9 @@ interface ServiceDbProbe {
+     /** 이름이 있는 시스템 판정 정책의 ID. */
+     Optional<Long> policyIdByName(String schema, String policyName);
+ 
++    /** (D-41) 이름이 있는 판정 정책의 threshold. 없으면 빈 값. */
++    Optional<Double> policyThreshold(String schema, String policyName);
++
+     /** 지금 접속한 계정이 이 스키마에 가진 권한(스키마 단위 + 전역). 예: SELECT, INSERT. */
+     List<String> privileges(String schema);
+ }
+diff --git a/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceSchemaVerifier.java b/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceSchemaVerifier.java
+index 07f9e47..eabed50 100644
+--- a/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceSchemaVerifier.java
++++ b/platform/api-server/src/main/java/com/posture/api/posture/store/ServiceSchemaVerifier.java
+@@ -21,12 +21,15 @@ import java.util.function.Supplier;
+ import java.util.regex.Pattern;
+ 
+ /**
+- * (D-32) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.1, {@code posture_service})가 준비됐는지 확인한다.
++ * (D-32, D-41) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.2, {@code posture_service})가 준비됐는지 확인한다.
++ * V2.2는 V2.1에 {@code user_account.alert_enabled}(migration 011)를 더하고 기본 정책 threshold를 0.700으로 고친 것이다.
++ * 목표 버전({@code service-db.spec-version}, 기본 V2.1 — 서버 DB는 당분간 V2.1, 10/10 사용자 결정)이 V2.1이면 V2.2 항목은
++ * 문제가 아니라 {@code warnings}로만 알린다. V2.2로 올린 뒤 {@code SERVICE_DB_SPEC_VERSION=V2.2}로 바꾸면 문제로 본다.
+  *
+  * <ul>
+  *   <li>테이블 12개가 있는지, 지운 테이블(V1.1·V2.0)이 남아 있지 않은지 — 남아 있으면 예전 버전으로 만든 DB다.</li>
+  *   <li>판정 결과 저장(D-30)이 쓸 컬럼이 있는지, V2.1에서 지운 컬럼이 없는지.</li>
+- *   <li>기본 판정 정책(시드 {@code DEFAULT_TEMP})이 있는지.</li>
++ *   <li>기본 판정 정책(시드 {@code DEFAULT_TEMP})이 있고 threshold가 기대값(V2.2 시드 0.7)인지.</li>
+  *   <li>지금 계정에 SELECT·INSERT·UPDATE·DELETE 권한이 있는지.</li>
+  * </ul>
+  *
+@@ -62,7 +65,15 @@ public class ServiceSchemaVerifier {
+                     "delivered", "suppress_reason"),
+             "excluded_interval", List.of("monitor_session_id", "started_at", "ended_at", "exclusion_reason"),
+             "threshold_policy", List.of("threshold_policy_id", "threshold", "hold_seconds", "recover_seconds",
+-                    "realert_seconds", "notify_max_per_hour", "policy_name", "created_by"));
++                    "realert_seconds", "notify_max_per_hour", "policy_name", "created_by"),
++            // (D-41) V2.2: 세션 시작 때 monitor_session.alert_enabled로 복사하는 사용자 설정(migration 011)
++            "user_account", List.of("user_account_id", "threshold_policy_id", "alert_enabled"));
++
++    /** V2.2에서 더한 컬럼. 없으면 V2.1 DB에 migration 011이 아직 안 된 것. */
++    static final String V22_COLUMN = "user_account.alert_enabled";
++
++    /** threshold 비교 허용 오차(DECIMAL(4,3)). */
++    private static final double THRESHOLD_TOLERANCE = 1e-6;
+ 
+     /** V2.1에서 지운 컬럼(있으면 예전 버전). */
+     static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
+@@ -76,6 +87,8 @@ public class ServiceSchemaVerifier {
+     private final boolean enabled;
+     private final String schema;
+     private final String defaultPolicyName;
++    private final double expectedDefaultThreshold;
++    private final String specVersion;
+     private final Supplier<Instant> clock;
+ 
+     @Autowired
+@@ -83,31 +96,36 @@ public class ServiceSchemaVerifier {
+             ServiceDbProbe probe,
+             @Value("${service-db.enabled:true}") boolean enabled,
+             @Value("${service-db.schema:posture_service}") String schema,
+-            @Value("${service-db.default-policy-name:DEFAULT_TEMP}") String defaultPolicyName) {
+-        this(probe, enabled, schema, defaultPolicyName, Instant::now);
++            @Value("${service-db.default-policy-name:DEFAULT_TEMP}") String defaultPolicyName,
++            @Value("${service-db.expected-default-threshold:0.7}") double expectedDefaultThreshold,
++            @Value("${service-db.spec-version:V2.1}") String specVersion) {
++        this(probe, enabled, schema, defaultPolicyName, expectedDefaultThreshold, specVersion, Instant::now);
+     }
+ 
+     ServiceSchemaVerifier(ServiceDbProbe probe, boolean enabled, String schema, String defaultPolicyName,
+-                          Supplier<Instant> clock) {
++                          double expectedDefaultThreshold, String specVersion, Supplier<Instant> clock) {
+         this.probe = probe;
+         this.enabled = enabled;
+         this.schema = schema;
+         this.defaultPolicyName = defaultPolicyName;
++        this.expectedDefaultThreshold = expectedDefaultThreshold;
++        this.specVersion = "V2.2".equalsIgnoreCase(specVersion) ? "V2.2" : "V2.1";
+         this.clock = clock;
+     }
+ 
+     @EventListener(ApplicationReadyEvent.class)
+     public void checkOnStartup() {
+         if (!enabled) {
+-            log.info("서비스 DB(V2.1) 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
++            log.info("서비스 DB 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
+             return;
+         }
+         Map<String, Object> r = check();
+         if (Boolean.TRUE.equals(r.get("ok"))) {
+-            log.info("서비스 DB(V2.1) 확인: 준비됨 (schema={}, 기본 정책 {}={})", schema, defaultPolicyName,
+-                    r.get("defaultPolicyId"));
++            log.info("서비스 DB 확인: 준비됨 (schema={}, 목표 {}, 실제 {}, 기본 정책 {}={}, threshold {}, 경고 {})", schema,
++                    specVersion, r.get("specVersion"), defaultPolicyName, r.get("defaultPolicyId"),
++                    r.get("defaultPolicyThreshold"), r.get("warnings"));
+         } else {
+-            log.warn("서비스 DB(V2.1) 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /cep/service-db)",
++            log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /cep/service-db)",
+                     schema, r.get("problems"));
+         }
+     }
+@@ -118,7 +136,10 @@ public class ServiceSchemaVerifier {
+         r.put("enabled", enabled);
+         r.put("schema", schema);
+         r.put("checkedAt", clock.get().toString());
++        r.put("targetSpecVersion", specVersion);
+         List<String> problems = new ArrayList<>();
++        // V2.2 항목: 목표가 V2.2면 문제, V2.1이면 경고
++        List<String> v22 = "V2.2".equals(specVersion) ? problems : new ArrayList<>();
+         if (!enabled) {
+             r.put("ok", false);
+             r.put("problems", List.of("사용 안 함 (SERVICE_DB_ENABLED=false)"));
+@@ -174,16 +195,14 @@ public class ServiceSchemaVerifier {
+                     }
+                 }
+             }
++            r.put("missingColumns", List.copyOf(missingCols));
++            r.put("removedColumnsPresent", removedCols);
+             if (tables.contains("user_account")) {
+-                Set<String> cols = lower(probe.columns(schema, "user_account"));
+-                for (String c : REMOVED_COLUMNS.get("user_account")) {
+-                    if (cols.contains(c)) {
+-                        removedCols.add("user_account." + c);
+-                    }
+-                }
++                r.put("specVersion", missingCols.contains(V22_COLUMN) ? "V2.1" : "V2.2");
++            }
++            if (missingCols.remove(V22_COLUMN)) {
++                v22.add("V2.2 아님: " + V22_COLUMN + " 없음 (database/migrations/011_add_alert_enabled_user_account.sql)");
+             }
+-            r.put("missingColumns", missingCols);
+-            r.put("removedColumnsPresent", removedCols);
+             if (!missingCols.isEmpty()) {
+                 problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);
+             }
+@@ -197,6 +216,15 @@ public class ServiceSchemaVerifier {
+                 r.put("defaultPolicyId", id.orElse(null));
+                 if (id.isEmpty()) {
+                     problems.add("기본 판정 정책 " + defaultPolicyName + " 없음 (seed_04_threshold_policy.sql)");
++                } else {
++                    Optional<Double> threshold = probe.policyThreshold(schema, defaultPolicyName);
++                    r.put("defaultPolicyThreshold", threshold.orElse(null));
++                    r.put("expectedDefaultThreshold", expectedDefaultThreshold);
++                    if (threshold.isEmpty()
++                            || Math.abs(threshold.get() - expectedDefaultThreshold) > THRESHOLD_TOLERANCE) {
++                        v22.add("기본 판정 정책 " + defaultPolicyName + " threshold " + threshold.orElse(null)
++                                + " ≠ " + expectedDefaultThreshold + " (V2.2 seed_04 — 서버 판정과 같은 값)");
++                    }
+                 }
+             }
+ 
+@@ -218,6 +246,7 @@ public class ServiceSchemaVerifier {
+         }
+         r.put("ok", problems.isEmpty());
+         r.put("problems", problems);
++        r.put("warnings", v22 == problems ? List.of() : v22);
+         return r;
+     }
+ 
+diff --git a/platform/api-server/src/main/resources/application.yml b/platform/api-server/src/main/resources/application.yml
+index 27f3846..f3e38c9 100644
+--- a/platform/api-server/src/main/resources/application.yml
++++ b/platform/api-server/src/main/resources/application.yml
+@@ -123,6 +123,10 @@ service-db:
+   schema: ${SERVICE_DB_SCHEMA:posture_service}
+   # 시드 seed_04의 기본 판정 정책 이름. 확정 정책(DEFAULT) 행이 생기면 이 값만 바꾼다.
+   default-policy-name: ${SERVICE_DB_DEFAULT_POLICY:DEFAULT_TEMP}
++  # (D-41) 기본 정책 threshold 기대값 — DB V2.2 시드(0.700) = 서버 판정 기준(0.7)
++  expected-default-threshold: ${SERVICE_DB_EXPECTED_THRESHOLD:0.7}
++  # 목표 명세 버전. 서버 DB는 당분간 V2.1(10/10 결정) — V2.2 항목(alert_enabled·threshold 0.7)은 경고로만. V2.2로 올리면 V2.2
++  spec-version: ${SERVICE_DB_SPEC_VERSION:V2.1}
+ 
+ management:
+   endpoints:
+diff --git a/platform/api-server/src/test/java/com/posture/api/posture/store/ServiceSchemaVerifierTest.java b/platform/api-server/src/test/java/com/posture/api/posture/store/ServiceSchemaVerifierTest.java
+index f398808..260186b 100644
+--- a/platform/api-server/src/test/java/com/posture/api/posture/store/ServiceSchemaVerifierTest.java
++++ b/platform/api-server/src/test/java/com/posture/api/posture/store/ServiceSchemaVerifierTest.java
+@@ -11,20 +11,22 @@ import java.util.Optional;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ 
+-/** (D-32) 확정 서비스 DB(V2.1) 준비 확인. */
++/** (D-32, D-41) 확정 서비스 DB(V2.2) 준비 확인. */
+ class ServiceSchemaVerifierTest {
+ 
+-    /** V2.1 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
++    /** V2.2 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
+     static final class FakeProbe implements ServiceDbProbe {
+         final List<String> tables = new ArrayList<>(ServiceSchemaVerifier.EXPECTED_TABLES);
+         final Map<String, List<String>> columns = new HashMap<>();
+         Long defaultPolicyId = 1L;
++        Double defaultThreshold = 0.7;
+         List<String> privileges = new ArrayList<>(List.of("SELECT", "INSERT", "UPDATE", "DELETE"));
+         RuntimeException failure;
+ 
+         FakeProbe() {
+             columns.putAll(ServiceSchemaVerifier.REQUIRED_COLUMNS);
+-            columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id"));
++            columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
++                    "alert_enabled", "sound_alert_enabled"));
+         }
+ 
+         @Override
+@@ -45,6 +47,11 @@ class ServiceSchemaVerifierTest {
+             return Optional.ofNullable(defaultPolicyId);
+         }
+ 
++        @Override
++        public Optional<Double> policyThreshold(String schema, String policyName) {
++            return Optional.ofNullable(defaultThreshold);
++        }
++
+         @Override
+         public List<String> privileges(String schema) {
+             return privileges;
+@@ -60,17 +67,65 @@ class ServiceSchemaVerifierTest {
+     }
+ 
+     ServiceSchemaVerifier verifier(boolean enabled, String schema) {
+-        return new ServiceSchemaVerifier(probe, enabled, schema, "DEFAULT_TEMP",
++        return verifier(enabled, schema, "V2.2");
++    }
++
++    ServiceSchemaVerifier verifier(boolean enabled, String schema, String target) {
++        return new ServiceSchemaVerifier(probe, enabled, schema, "DEFAULT_TEMP", 0.7, target,
+                 () -> Instant.parse("2026-10-10T00:00:00Z"));
+     }
+ 
+     @Test
+-    void readyV21SchemaIsOk() {
++    void readyV22SchemaIsOk() {
+         Map<String, Object> r = verifier(true, "posture_service").check();
+         assertThat(r.get("ok")).isEqualTo(true);
++        assertThat(r.get("specVersion")).isEqualTo("V2.2");
+         assertThat(r.get("tableCount")).isEqualTo(12);
+         assertThat(r.get("defaultPolicyId")).isEqualTo(1L);
++        assertThat(r.get("defaultPolicyThreshold")).isEqualTo(0.7);
++        assertThat(list(r, "problems")).isEmpty();
++    }
++
++    /** (D-41) V2.1로 만들고 migration 011·시드 수정을 안 한 DB: alert_enabled 없음, threshold 0.5. */
++    @Test
++    void v21DatabaseWithoutMigration011IsReported() {
++        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
++                "sound_alert_enabled"));
++        probe.defaultThreshold = 0.5;
++        Map<String, Object> r = verifier(true, "posture_service").check();
++        assertThat(r.get("ok")).isEqualTo(false);
++        assertThat(r.get("specVersion")).isEqualTo("V2.1");
++        assertThat(list(r, "missingColumns")).containsExactly("user_account.alert_enabled");
++        List<String> problems = list(r, "problems");
++        assertThat(problems).hasSize(2);
++        assertThat(problems.get(0)).contains("V2.2 아님").contains("011_add_alert_enabled_user_account.sql");
++        assertThat(problems.get(1)).contains("threshold 0.5").contains("0.7");
++    }
++
++    /** (D-41) 목표 V2.1(서버 DB 당분간 V2.1): 같은 DB가 준비됨으로 보이고 V2.2 항목은 경고로만. */
++    @Test
++    void v21TargetTurnsV22ItemsIntoWarnings() {
++        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
++                "sound_alert_enabled"));
++        probe.defaultThreshold = 0.5;
++        Map<String, Object> r = verifier(true, "posture_service", "V2.1").check();
++        assertThat(r.get("ok")).isEqualTo(true);
++        assertThat(r.get("targetSpecVersion")).isEqualTo("V2.1");
++        assertThat(r.get("specVersion")).isEqualTo("V2.1");
+         assertThat(list(r, "problems")).isEmpty();
++        assertThat(list(r, "warnings")).hasSize(2);
++
++        probe.columns.put("user_account", List.of("user_account_id", "threshold_policy_id", "alert_enabled"));
++        probe.defaultThreshold = 0.7;
++        Map<String, Object> v22 = verifier(true, "posture_service", "V2.1").check();
++        assertThat(v22.get("specVersion")).isEqualTo("V2.2");
++        assertThat(list(v22, "warnings")).isEmpty();
++    }
++
++    @Test
++    void thresholdWithinDecimalPrecisionIsOk() {
++        probe.defaultThreshold = 0.7000000001;
++        assertThat(verifier(true, "posture_service").check().get("ok")).isEqualTo(true);
+     }
+ 
+     @Test
+diff --git a/platform/docker-compose.yml b/platform/docker-compose.yml
+index daf2c54..129a1c4 100644
+--- a/platform/docker-compose.yml
++++ b/platform/docker-compose.yml
+@@ -280,10 +280,12 @@ services:
+       CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
+       # (D-37) v1 판정기 상태 Redis 저장 (posture:v1:judge:{session_id}, TTL은 위와 같음)
+       CEP_V1_STATE_STORE_ENABLED: ${CEP_V1_STATE_STORE_ENABLED:-true}
+-      # (D-32) 확정 서비스 DB(V2.1) — 같은 MySQL 서버의 다른 스키마
++      # (D-32, D-41) 확정 서비스 DB(V2.1, V2.2로 올리면 SERVICE_DB_SPEC_VERSION=V2.2) — 같은 MySQL 서버의 다른 스키마
+       SERVICE_DB_ENABLED: ${SERVICE_DB_ENABLED:-true}
+       SERVICE_DB_SCHEMA: ${SERVICE_DB_SCHEMA:-posture_service}
+       SERVICE_DB_DEFAULT_POLICY: ${SERVICE_DB_DEFAULT_POLICY:-DEFAULT_TEMP}
++      SERVICE_DB_EXPECTED_THRESHOLD: ${SERVICE_DB_EXPECTED_THRESHOLD:-0.7}
++      SERVICE_DB_SPEC_VERSION: ${SERVICE_DB_SPEC_VERSION:-V2.1}
+       # (D-15) posture.inference 컨슈머 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
+       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
+       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-8}
+diff --git a/platform/integration_test.sh b/platform/integration_test.sh
+index 0948396..feb4060 100755
+--- a/platform/integration_test.sh
++++ b/platform/integration_test.sh
+@@ -16,7 +16,7 @@
+ #   3. Redis       : PING, SET/GET/TTL/DEL
+ #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
+ #   5. Spark       : Spark↔HDFS Parquet 왕복 (hdfs_parquet_roundtrip.py)
+-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.1 준비(D-32)
++#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB 준비(D-32·D-41, 목표 버전 SERVICE_DB_SPEC_VERSION)
+ #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
+ #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
+ #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
+@@ -189,17 +189,17 @@ for comp in db redis; do
+   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
+   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
+ done
+-# (D-32) 확정 서비스 DB(V2.1 posture_service) — 테이블 12개·판정 결과 컬럼·기본 정책·계정 권한
++# (D-32·D-41) 확정 서비스 DB(posture_service, 목표 V2.1 — V2.2 항목은 경고) — 테이블 12개·판정 결과 컬럼·alert_enabled·기본 정책 threshold·계정 권한
+ SDB="$(curl -s -m 15 "$API/cep/service-db")"
+ echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
+ if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
+-  fail "서비스 DB V2.1 (D-32)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
++  fail "서비스 DB (D-32·D-41)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
+ elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('enabled') is False else 1)"; then
+-  skip "서비스 DB V2.1 (D-32)" "SERVICE_DB_ENABLED=false"
++  skip "서비스 DB (D-32·D-41)" "SERVICE_DB_ENABLED=false"
+ elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ok') else 1)"; then
+-  pass "서비스 DB V2.1 준비 (D-32: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['schema'],'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'))"))"
++  pass "서비스 DB 준비 (D-32·D-41: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);w=d.get('warnings') or [];print(d['schema'],'목표',d.get('targetSpecVersion'),'실제',d.get('specVersion'),'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'),'threshold',d.get('defaultPolicyThreshold'),('· 경고 '+str(len(w))+'건(V2.2 항목)') if w else '')"))"
+ else
+-  fail "서비스 DB V2.1 (D-32)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
++  fail "서비스 DB (D-32·D-41)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
+ fi
+ IH="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$INFER/health")"
+ if [ "$IH" = "200" ]; then pass "inference-service /health"; else fail "inference-service /health" "HTTP $IH"; fi

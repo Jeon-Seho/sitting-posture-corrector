@@ -280,10 +280,12 @@ services:
       CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
       # (D-37) v1 판정기 상태 Redis 저장 (posture:v1:judge:{session_id}, TTL은 위와 같음)
       CEP_V1_STATE_STORE_ENABLED: ${CEP_V1_STATE_STORE_ENABLED:-true}
-      # (D-32) 확정 서비스 DB(V2.1) — 같은 MySQL 서버의 다른 스키마
+      # (D-32, D-41) 확정 서비스 DB(V2.1, V2.2로 올리면 SERVICE_DB_SPEC_VERSION=V2.2) — 같은 MySQL 서버의 다른 스키마
       SERVICE_DB_ENABLED: ${SERVICE_DB_ENABLED:-true}
       SERVICE_DB_SCHEMA: ${SERVICE_DB_SCHEMA:-posture_service}
       SERVICE_DB_DEFAULT_POLICY: ${SERVICE_DB_DEFAULT_POLICY:-DEFAULT_TEMP}
+      SERVICE_DB_EXPECTED_THRESHOLD: ${SERVICE_DB_EXPECTED_THRESHOLD:-0.7}
+      SERVICE_DB_SPEC_VERSION: ${SERVICE_DB_SPEC_VERSION:-V2.1}
       # (D-15) posture.inference 컨슈머 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-8}

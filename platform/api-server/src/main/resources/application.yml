@@ -123,6 +123,10 @@ service-db:
   schema: ${SERVICE_DB_SCHEMA:posture_service}
   # 시드 seed_04의 기본 판정 정책 이름. 확정 정책(DEFAULT) 행이 생기면 이 값만 바꾼다.
   default-policy-name: ${SERVICE_DB_DEFAULT_POLICY:DEFAULT_TEMP}
+  # (D-41) 기본 정책 threshold 기대값 — DB V2.2 시드(0.700) = 서버 판정 기준(0.7)
+  expected-default-threshold: ${SERVICE_DB_EXPECTED_THRESHOLD:0.7}
+  # 목표 명세 버전. 서버 DB는 당분간 V2.1(10/10 결정) — V2.2 항목(alert_enabled·threshold 0.7)은 경고로만. V2.2로 올리면 V2.2
+  spec-version: ${SERVICE_DB_SPEC_VERSION:V2.1}
 
 management:
   endpoints:

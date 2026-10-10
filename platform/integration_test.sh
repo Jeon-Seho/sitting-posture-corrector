@@ -16,7 +16,7 @@
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (hdfs_parquet_roundtrip.py)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.1 준비(D-32)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB 준비(D-32·D-41, 목표 버전 SERVICE_DB_SPEC_VERSION)
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
@@ -189,17 +189,17 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32) 확정 서비스 DB(V2.1 posture_service) — 테이블 12개·판정 결과 컬럼·기본 정책·계정 권한
+# (D-32·D-41) 확정 서비스 DB(posture_service, 목표 V2.1 — V2.2 항목은 경고) — 테이블 12개·판정 결과 컬럼·alert_enabled·기본 정책 threshold·계정 권한
 SDB="$(curl -s -m 15 "$API/cep/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
 if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
-  fail "서비스 DB V2.1 (D-32)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
+  fail "서비스 DB (D-32·D-41)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('enabled') is False else 1)"; then
-  skip "서비스 DB V2.1 (D-32)" "SERVICE_DB_ENABLED=false"
+  skip "서비스 DB (D-32·D-41)" "SERVICE_DB_ENABLED=false"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ok') else 1)"; then
-  pass "서비스 DB V2.1 준비 (D-32: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['schema'],'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'))"))"
+  pass "서비스 DB 준비 (D-32·D-41: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);w=d.get('warnings') or [];print(d['schema'],'목표',d.get('targetSpecVersion'),'실제',d.get('specVersion'),'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'),'threshold',d.get('defaultPolicyThreshold'),('· 경고 '+str(len(w))+'건(V2.2 항목)') if w else '')"))"
 else
-  fail "서비스 DB V2.1 (D-32)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
+  fail "서비스 DB (D-32·D-41)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
 fi
 IH="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$INFER/health")"
 if [ "$IH" = "200" ]; then pass "inference-service /health"; else fail "inference-service /health" "HTTP $IH"; fi

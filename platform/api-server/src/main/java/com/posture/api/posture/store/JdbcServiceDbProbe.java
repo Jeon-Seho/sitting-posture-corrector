@@ -46,6 +46,14 @@ class JdbcServiceDbProbe implements ServiceDbProbe {
     }
 
     @Override
+    public Optional<Double> policyThreshold(String schema, String policyName) {
+        List<Double> v = jdbc.queryForList(
+                "SELECT threshold FROM `" + schema + "`.threshold_policy WHERE policy_name = ?",
+                Double.class, policyName);
+        return v.isEmpty() ? Optional.empty() : Optional.ofNullable(v.get(0));
+    }
+
+    @Override
     public List<String> privileges(String schema) {
         // information_schema의 권한 표는 지금 접속한 계정의 권한만 보여 준다.
         List<String> p = new ArrayList<>(jdbc.queryForList(
