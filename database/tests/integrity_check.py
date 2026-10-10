@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB**. 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.1 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -48,7 +48,6 @@ def one(sql, args=None):
 
 U = lambda: str(uuid.uuid4())
 T0 = "2026-10-02 01:00:00.000"
-H = "a" * 64
 
 # ===================================================================== 계정
 pol = one("SELECT threshold_policy_id FROM threshold_policy WHERE policy_name='DEFAULT_TEMP'")
@@ -58,36 +57,52 @@ ok("가입 — 두 번째 테스트 사용자", ins_user, ("test-b@example.inval
 fails("UK-01 같은 이메일 재가입 (대소문자만 다름)", ins_user, ("TEST-A@example.invalid", T0, pol), "ux_user_account_login_email")
 for col in ("login_email", "password_hash", "display_name"):
     fails(f"CR-04 식별 컬럼 필수 — {col} NULL 거부", f"UPDATE user_account SET {col}=NULL WHERE user_account_id=%s", (A,), "cannot be null")
-ok("auth_epoch 기본값 0", "SELECT 1 FROM user_account WHERE user_account_id=%s AND auth_epoch=0", (A,))
-fails("auth_epoch 음수 거부", "UPDATE user_account SET auth_epoch=-1 WHERE user_account_id=%s", (A,), "ck_user_account_auth_epoch")
 ok("나이·직업 입력 (선택)", "UPDATE user_account SET age=30, occupation='개발자' WHERE user_account_id=%s", (A,))
 fails("나이 0 거부", "UPDATE user_account SET age=0 WHERE user_account_id=%s", (A,), "ck_user_account_age")
 fails("나이 121 거부", "UPDATE user_account SET age=121 WHERE user_account_id=%s", (A,), "ck_user_account_age")
 
 # ===================================================================== 기준 자세·세션
-ins_base = ("INSERT INTO baseline_posture (user_account_id,calibration_uuid,feature_version,calibration_sec,sample_count,"
-            "target_center_x,target_center_y,target_area_ratio,registered_at,deactivated_at) VALUES (%s,%s,'FEAT-PROTO-1',5.0,20,0.5,0.5,0.3,%s,%s)")
-ok("기준 자세 등록 A", ins_base, (A, U(), T0, None)); BA1 = cur.lastrowid
-fails("UK-11 활성 기준 자세 두 개", ins_base, (A, U(), T0, None), "ux_baseline_posture_active")
-ok("기준 자세 등록 B", ins_base, (B, U(), T0, None)); BB = cur.lastrowid
-ok("기준 특징값", "INSERT INTO baseline_feature VALUES (%s,'HEAD_GAP',0.123456,0.01),(%s,'SHOULDER_TILT',0.02,NULL)", (BA1, BA1))
-fails("FK-06 없는 특징값 코드", "INSERT INTO baseline_feature VALUES (%s,'NO_SUCH',0.1,NULL)", (BA1,), "fk_baseline_feature_feature_def")
+# 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
+PARTS = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder")
+COORDS = [f"{p}_{a}" for p in PARTS for a in "xy"]
+ins_base = (f"INSERT INTO baseline_posture (user_account_id,calibration_uuid,calibration_sec,sample_count,registered_at,{','.join(COORDS)}) "
+            f"VALUES (%s,%s,3.0,90,%s,{','.join(['0.5'] * len(COORDS))})")
+upd_base = "UPDATE baseline_posture SET calibration_uuid=%s, registered_at=%s, sample_count=90, nose_x=0.48, nose_y=0.31 WHERE user_account_id=%s"
+CA1 = U()
+ok("기준 자세 등록 A", ins_base, (A, CA1, T0))
+fails("사용자당 기준 자세 1행 — 두 번째 INSERT 거부 (PK)", ins_base, (A, U(), T0), "PRIMARY")
+CB = U()
+ok("기준 자세 등록 B", ins_base, (B, CB, T0))
+fails("UK-04 다른 사용자와 같은 보정 식별자 거부", "UPDATE baseline_posture SET calibration_uuid=%s WHERE user_account_id=%s", (CB, A), "ux_baseline_posture_calibration")
+fails("UUID 길이가 아닌 보정 식별자", "UPDATE baseline_posture SET calibration_uuid='short' WHERE user_account_id=%s", (A,), "ck_baseline_posture_calibration_uuid")
+fails("좌표 범위 밖 (1 초과) 거부", "UPDATE baseline_posture SET nose_x=1.2 WHERE user_account_id=%s", (A,), "ck_baseline_posture_nose_x")
+fails("좌표 범위 밖 (음수) 거부", "UPDATE baseline_posture SET right_shoulder_y=-0.1 WHERE user_account_id=%s", (A,), "ck_baseline_posture_right_shoulder_y")
+fails("보정 시간 0 거부", "UPDATE baseline_posture SET calibration_sec=0 WHERE user_account_id=%s", (A,), "ck_baseline_posture_calibration_sec")
+fails("FK-04 없는 사용자의 기준 자세", ins_base, (999999, U(), T0), "fk_baseline_posture_user_account")
 
-ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,baseline_posture_id,threshold_policy_id,"
-           "frame_width,frame_height,started_at) VALUES (%s,%s,%s,%s,1280,720,%s)")
-fails("D-35 다른 사용자의 기준 자세로 세션", ins_ses, (U(), A, BB, pol, T0), "fk_monitor_session_baseline_posture")
+# 세션 시작: 백엔드가 그 사용자의 현재 calibration_uuid를 복사한다 (FK 아님)
+ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,calibration_uuid,threshold_policy_id,started_at) "
+           "SELECT %s, user_account_id, calibration_uuid, %s, %s FROM baseline_posture WHERE user_account_id=%s")
 cu = U()
-ok("세션 시작 A", ins_ses, (cu, A, BA1, pol, T0)); SA = cur.lastrowid
-fails("UK-05 같은 클라이언트 세션 식별자 재전송", ins_ses, (cu, A, BA1, pol, T0), "ux_monitor_session_client_uuid")
-fails("UUID 길이가 아닌 세션 식별자", ins_ses, ("short", A, BA1, pol, T0), "ck_monitor_session_client_session_uuid")
+ok("세션 시작 A (기준 자세의 calibration_uuid 복사)", ins_ses, (cu, pol, T0, A)); SA = cur.lastrowid
+check("세션에 복사된 calibration_uuid = 기준 자세 값", one("SELECT calibration_uuid FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == CA1)
+fails("UK-05 같은 클라이언트 세션 식별자 재전송", ins_ses, (cu, pol, T0, A), "ux_monitor_session_client_uuid")
+fails("UUID 길이가 아닌 세션 식별자", ins_ses, ("short", pol, T0, A), "ck_monitor_session_client_session_uuid")
+fails("UUID 길이가 아닌 세션 보정 식별자",
+      "INSERT INTO monitor_session (client_session_uuid,user_account_id,calibration_uuid,threshold_policy_id,started_at) VALUES (%s,%s,'short',%s,%s)",
+      (U(), A, pol, T0), "ck_monitor_session_calibration_uuid")
 fails("종료 시각만 있고 종료 사유 없음", "UPDATE monitor_session SET ended_at='2026-10-02 02:00:00' WHERE monitor_session_id=%s", (SA,), "ck_monitor_session_end")
 ok("세션 종료 (세 값 함께)", "UPDATE monitor_session SET ended_at='2026-10-02 02:00:00', end_reason='USER_STOP', good_sec=3000.0 WHERE monitor_session_id=%s", (SA,))
 
-# 기준 자세 원자적 교체 (D-27): 한 트랜잭션에서 비활성 전환 + 새 기준
-con.begin()
-cur.execute("UPDATE baseline_posture SET deactivated_at='2026-10-02 03:00:00' WHERE baseline_posture_id=%s", (BA1,))
-cur.execute(ins_base, (A, U(), "2026-10-02 03:00:00", None)); BA2 = cur.lastrowid
-con.commit(); check("D-27 기준 자세 교체 (비활성 전환 + 새 기준, 한 트랜잭션)", True)
+# 기준 자세 다시 촬영: 같은 행을 덮어쓴다. 이전 세션은 이전 calibration_uuid를 그대로 가진다
+CA2 = U()
+ok("다시 촬영 — 기준 자세 행 UPDATE (새 calibration_uuid)", upd_base, (CA2, "2026-10-02 03:00:00", A))
+check("다시 촬영 후에도 사용자당 1행", one("SELECT COUNT(*) FROM baseline_posture WHERE user_account_id=%s", (A,)) == 1)
+check("이전 세션은 이전 calibration_uuid 유지", one("SELECT calibration_uuid FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == CA1)
+ok("다시 촬영 뒤 세션 시작 A", ins_ses, (U(), pol, "2026-10-02 03:10:00", A)); SA_NEW = cur.lastrowid
+check("새 세션은 새 calibration_uuid 복사 — 기준이 바뀐 시점 구분",
+      one("SELECT calibration_uuid FROM monitor_session WHERE monitor_session_id=%s", (SA_NEW,)) == CA2)
+cur.execute("DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA_NEW,))
 
 # ===================================================================== 세션 하위 기록
 ok("제외 구간 PAUSE", "INSERT INTO excluded_interval VALUES (%s,'2026-10-02 01:10:00','2026-10-02 01:11:00','PAUSE')", (SA,))
@@ -102,14 +117,11 @@ fails("BR-14 억제됐는데 사유 없음", "INSERT INTO correction_alert (moni
 ok("특징값 적재 기록", "INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=1.parquet','2026-10-02 01:00:00','2026-10-02 02:00:00',36000,'2026-10-02 04:00:00')", (SA,))
 ok("일별 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',3540.0,3000.0,1,1,1,'2026-10-03 00:10:00')", (A,))
 fails("BR-17 분자가 분모보다 큼", "INSERT INTO daily_stat VALUES (%s,'2026-10-01',10.0,20.0,1,0,0,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_subset")
-ok("앱 기록 원문 저장", "INSERT INTO client_record VALUES (%s,'rec-1',%s,'{\"summary\":{}}',%s)", (A, H, T0))
-fails("같은 앱 기록 식별자 거부", "INSERT INTO client_record VALUES (%s,'rec-1',%s,'{}',%s)", (A, H, T0), "PRIMARY")
 
 # ===================================================================== 삭제 차단 (DB-04)
 fails("D-38 적재 기록이 남은 세션 삭제 (FK-13)", "DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA,), "fk_feature_archive_monitor_session")
 fails("D-37 세션이 남은 사용자 삭제 (FK-07)", "DELETE FROM user_account WHERE user_account_id=%s", (A,), ["fk_monitor_session", "foreign key constraint fails"])
 fails("6-5 사용 중인 판정 정책 삭제", "DELETE FROM threshold_policy WHERE threshold_policy_id=%s", (pol,), "foreign key constraint fails")
-fails("6-5 기준 자세가 쓰는 특징값 삭제", "DELETE FROM feature_def WHERE feature_code='HEAD_GAP'", None, "fk_baseline_feature_feature_def")
 fails("BR-65·D-36 정책 PK 변경", "UPDATE threshold_policy SET threshold_policy_id=999 WHERE threshold_policy_id=%s", (pol,), "foreign key constraint fails")
 fails("0.5 단위 위반", "INSERT INTO threshold_policy (threshold,hold_seconds,recover_seconds,realert_seconds,notify_max_per_hour,created_by,created_at) VALUES (0.6,3.3,2.0,30,12,'USER','2026-10-02 00:00:00')", None, "ck_threshold_policy_hold_seconds")
 fails("D-39 기록 삭제 요청에 폐쇄 시각", "INSERT INTO deletion_request VALUES (%s,'2026-10-02 05:00:00','RECORDS_ONLY','REQUESTED','2026-10-02 05:00:00',NULL,NULL)", (A,), "ck_deletion_request_scope")
@@ -125,12 +137,22 @@ due_sql = ("SELECT user_account_id FROM deletion_request WHERE request_scope='AC
 def intake(uid, at):
     con.begin()
     cur.execute("INSERT INTO deletion_request (user_account_id,requested_at,request_scope,account_closed_at) VALUES (%s,%s,'ACCOUNT_ALL',%s)", (uid, at, at))
-    cur.execute("UPDATE user_account SET account_status='CLOSED', auth_epoch=auth_epoch+1 WHERE user_account_id=%s", (uid,))
+    cur.execute("UPDATE user_account SET account_status='CLOSED' WHERE user_account_id=%s", (uid,))
+    # 로그인 무효화: auth_epoch 대신 그 사용자의 로그인 세션 행을 지운다 (PRINCIPAL_NAME = 로그인 이메일)
+    cur.execute("DELETE s FROM SPRING_SESSION s JOIN user_account u ON s.PRINCIPAL_NAME = u.login_email WHERE u.user_account_id=%s", (uid,))
     con.commit()
 
 
+ok("S1-0 준비: A 로그인 세션 2개 + 속성", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,9999999999999,'test-a@example.invalid'),(%s,%s,1,1,1800,9999999999999,'test-a@example.invalid')",
+   ("a1" * 18, "s1" * 18, "a2" * 18, "s2" * 18))
+ok("S1-0 준비: A 로그인 세션 속성", "INSERT INTO SPRING_SESSION_ATTRIBUTES VALUES (%s,'SPRING_SECURITY_CONTEXT',X'00')", ("a1" * 18,))
+ok("S1-0 준비: B 로그인 세션", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,9999999999999,'test-b@example.invalid')", ("b1" * 18, "s3" * 18))
 intake(A, "2026-09-05 09:00:00"); check("S1-0 접수 — 삭제 요청 REQUESTED + 계정 CLOSED (한 트랜잭션)",
       one("SELECT account_status FROM user_account WHERE user_account_id=%s", (A,)) == "CLOSED")
+check("S1-0 접수 — A의 로그인 세션·속성 삭제, 다른 사용자(B) 세션은 그대로",
+      one("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME='test-a@example.invalid'") == 0
+      and one("SELECT COUNT(*) FROM SPRING_SESSION_ATTRIBUTES") == 0
+      and one("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME='test-b@example.invalid'") == 1)
 check("S1-1 유예 중 — 식별 정보·측정 기록은 그대로",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s AND login_email IS NOT NULL", (A,)) == 1
       and one("SELECT COUNT(*) FROM monitor_session WHERE user_account_id=%s", (A,)) == 1)
@@ -173,8 +195,8 @@ try:
 except Exception as e:
     con.rollback(); check("S1-3 최종 삭제 한 트랜잭션 (3-1~3-7)", False, str(e))
 check("S1-4 완료 안내용 연락처를 삭제 전에 읽음", contact == "test-a@example.invalid")
-cnt = {t: one(f"SELECT COUNT(*) FROM {t}") for t in ("excluded_interval", "collapse_event", "correction_alert", "baseline_feature", "client_record")}
-check("S1 연쇄 삭제 — 제외 구간·이벤트·알림·기준 특징값·앱 기록 원문 0행", all(v == 0 for v in cnt.values()), str(cnt))
+cnt = {t: one(f"SELECT COUNT(*) FROM {t}") for t in ("excluded_interval", "collapse_event", "correction_alert")}
+check("S1 연쇄 삭제 — 제외 구간·이벤트·알림 0행", all(v == 0 for v in cnt.values()), str(cnt))
 check("S1 계정 행과 삭제 요청 행이 남지 않음",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s", (A,)) == 0 and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (A,)) == 0)
 check("S1 공유 판정 정책은 남음", one("SELECT COUNT(*) FROM threshold_policy") == 1)
@@ -182,7 +204,7 @@ check("S1 유예 중인 다른 계정(B)은 그대로", one("SELECT account_stat
 ok("S1 최종 삭제 후 같은 이메일로 재가입", ins_user, ("test-a@example.invalid", T0, pol)); A2 = cur.lastrowid
 
 # 실패하면 전부 되돌린다 (6-0 #3) — 파일 삭제 표시 없이 행 삭제를 시도
-ok("S1-실패 준비: B 세션·적재 기록", ins_ses, (U(), B, BB, pol, T0)); SB = cur.lastrowid
+ok("S1-실패 준비: B 세션·적재 기록", ins_ses, (U(), pol, T0, B)); SB = cur.lastrowid
 cur.execute("INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=2.parquet',%s,%s,10,%s)", (SB, T0, T0, T0))
 try:
     con.begin()
@@ -206,16 +228,15 @@ except pymysql.err.MySQLError as e:
     con.rollback(); check("S1-재시도 요청 행을 남긴 채 계정 삭제하면 막힘 (FK-18)", "fk_deletion_request_user_account" in e.args[1], f"{e.args[0]} {e.args[1][:90]}")
 
 # ===================================================================== 시나리오 2: 세션만 삭제, 통계 보존 (6-2)
-ok("S2 준비: A2 기준 자세·세션·통계", ins_base, (A2, U(), T0, None)); BA3 = cur.lastrowid
-ok("S2 준비: A2 세션", ins_ses, (U(), A2, BA3, pol, T0)); SA2 = cur.lastrowid
+ok("S2 준비: A2 기준 자세", ins_base, (A2, U(), T0))
+ok("S2 준비: A2 세션", ins_ses, (U(), pol, T0, A2)); SA2 = cur.lastrowid
 ok("S2 준비: A2 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',100.0,50.0,1,0,0,'2026-10-03 00:10:00')", (A2,))
 ok("S2 세션 삭제", "DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA2,))
 check("S2 일별 통계는 세션 삭제의 영향을 받지 않음", one("SELECT COUNT(*) FROM daily_stat WHERE user_account_id=%s", (A2,)) == 1)
 
-# ===================================================================== 세션 없는 계정 삭제 — FK-04·17·26 CASCADE, UK-11 함수 기반 키와 공존
-ok("CASCADE 준비: A2 앱 기록 원문", "INSERT INTO client_record VALUES (%s,'rec-2',%s,'{}',%s)", (A2, H, T0))
-ok("세션 없는 계정 삭제 → 기준 자세·통계·앱 기록 원문 연쇄", "DELETE FROM user_account WHERE user_account_id=%s", (A2,))
-left = {t: one(f"SELECT COUNT(*) FROM {t} WHERE user_account_id=%s", (A2,)) for t in ("baseline_posture", "daily_stat", "client_record")}
+# ===================================================================== 세션 없는 계정 삭제 — FK-04·17 CASCADE
+ok("세션 없는 계정 삭제 → 기준 자세·통계 연쇄", "DELETE FROM user_account WHERE user_account_id=%s", (A2,))
+left = {t: one(f"SELECT COUNT(*) FROM {t} WHERE user_account_id=%s", (A2,)) for t in ("baseline_posture", "daily_stat")}
 check("CASCADE 결과 0행", all(v == 0 for v in left.values()), str(left))
 
 # ===================================================================== 로그인 세션 (Spring Session 표준 정의)
@@ -225,9 +246,20 @@ fails("같은 SESSION_ID 거부", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,
 ok("만료 세션 삭제", "DELETE FROM SPRING_SESSION WHERE EXPIRY_TIME < 3")
 check("로그인 세션 삭제 시 속성 연쇄 삭제", one("SELECT COUNT(*) FROM SPRING_SESSION_ATTRIBUTES") == 0)
 
+# ===================================================================== V2.1에서 없앤 테이블·컬럼이 남지 않음
+gone_t = one("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN "
+             "('feature_def','safety_range','baseline_feature','client_record','collapse_type','user_consent')")
+check("V2.1 폐기·보류 테이블 없음 (feature_def·safety_range·baseline_feature·client_record·collapse_type·user_consent)", gone_t == 0, f"{gone_t}개 남음")
+gone_c = one("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN "
+             "(('user_account','auth_epoch'),('baseline_posture','baseline_posture_id'),('baseline_posture','feature_version'),"
+             "('baseline_posture','deactivated_at'),('baseline_posture','target_center_x'),('monitor_session','baseline_posture_id'),"
+             "('monitor_session','frame_width'),('monitor_session','frame_height'),('collapse_event','collapse_type_code'))")
+check("V2.1 폐기 컬럼 없음 (auth_epoch·feature_version·frame_width 등)", gone_c == 0, f"{gone_c}개 남음")
+
 # ===================================================================== 정리 — 테스트 행 삭제 (6-1 순서)
 cur.execute("DELETE FROM feature_archive"); cur.execute("DELETE FROM monitor_session")
 cur.execute("DELETE FROM baseline_posture"); cur.execute("DELETE FROM deletion_request"); cur.execute("DELETE FROM user_account")
+cur.execute("DELETE FROM SPRING_SESSION")
 
 for st, name, note in results:
     print(f"{st}  {name}{'  · ' + note if note else ''}")
