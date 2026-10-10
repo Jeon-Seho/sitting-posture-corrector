@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.1 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.2 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -57,6 +57,11 @@ ok("가입 — 두 번째 테스트 사용자", ins_user, ("test-b@example.inval
 fails("UK-01 같은 이메일 재가입 (대소문자만 다름)", ins_user, ("TEST-A@example.invalid", T0, pol), "ux_user_account_login_email")
 for col in ("login_email", "password_hash", "display_name"):
     fails(f"CR-04 식별 컬럼 필수 — {col} NULL 거부", f"UPDATE user_account SET {col}=NULL WHERE user_account_id=%s", (A,), "cannot be null")
+check("알림 설정 기본값 — 자세 알림 켜짐, 소리 꺼짐",
+      one("SELECT alert_enabled FROM user_account WHERE user_account_id=%s", (A,)) == 1
+      and one("SELECT sound_alert_enabled FROM user_account WHERE user_account_id=%s", (A,)) == 0)
+ok("알림 설정 저장 — 자세 알림 끄기·소리 켜기 (B)", "UPDATE user_account SET alert_enabled=FALSE, sound_alert_enabled=TRUE WHERE user_account_id=%s", (B,))
+fails("자세 알림 NULL 거부", "UPDATE user_account SET alert_enabled=NULL WHERE user_account_id=%s", (A,), "cannot be null")
 ok("나이·직업 입력 (선택)", "UPDATE user_account SET age=30, occupation='개발자' WHERE user_account_id=%s", (A,))
 fails("나이 0 거부", "UPDATE user_account SET age=0 WHERE user_account_id=%s", (A,), "ck_user_account_age")
 fails("나이 121 거부", "UPDATE user_account SET age=121 WHERE user_account_id=%s", (A,), "ck_user_account_age")
@@ -81,10 +86,12 @@ fails("보정 시간 0 거부", "UPDATE baseline_posture SET calibration_sec=0 W
 fails("FK-04 없는 사용자의 기준 자세", ins_base, (999999, U(), T0), "fk_baseline_posture_user_account")
 
 # 세션 시작: 백엔드가 그 사용자의 현재 calibration_uuid를 복사한다 (FK 아님)
-ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,calibration_uuid,threshold_policy_id,started_at) "
-           "SELECT %s, user_account_id, calibration_uuid, %s, %s FROM baseline_posture WHERE user_account_id=%s")
+ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,calibration_uuid,threshold_policy_id,alert_enabled,started_at) "
+           "SELECT %s, b.user_account_id, b.calibration_uuid, %s, u.alert_enabled, %s "
+           "FROM baseline_posture b JOIN user_account u USING (user_account_id) WHERE b.user_account_id=%s")
 cu = U()
 ok("세션 시작 A (기준 자세의 calibration_uuid 복사)", ins_ses, (cu, pol, T0, A)); SA = cur.lastrowid
+check("세션에 사용자의 자세 알림 설정이 복사됨 (A 켜짐)", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == 1)
 check("세션에 복사된 calibration_uuid = 기준 자세 값", one("SELECT calibration_uuid FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == CA1)
 fails("UK-05 같은 클라이언트 세션 식별자 재전송", ins_ses, (cu, pol, T0, A), "ux_monitor_session_client_uuid")
 fails("UUID 길이가 아닌 세션 식별자", ins_ses, ("short", pol, T0, A), "ck_monitor_session_client_session_uuid")
@@ -205,6 +212,7 @@ ok("S1 최종 삭제 후 같은 이메일로 재가입", ins_user, ("test-a@exam
 
 # 실패하면 전부 되돌린다 (6-0 #3) — 파일 삭제 표시 없이 행 삭제를 시도
 ok("S1-실패 준비: B 세션·적재 기록", ins_ses, (U(), pol, T0, B)); SB = cur.lastrowid
+check("세션에 사용자의 자세 알림 설정이 복사됨 (B 꺼짐)", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SB,)) == 0)
 cur.execute("INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=2.parquet',%s,%s,10,%s)", (SB, T0, T0, T0))
 try:
     con.begin()
