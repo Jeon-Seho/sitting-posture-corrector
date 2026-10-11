@@ -374,10 +374,15 @@ export async function runScenarios(browser, base, restartApi) {
       snapshot.draft.server.view.summary.unknown_ms === 500 &&
       (await app.evaluate(`document.querySelector('.stage .pill').textContent.trim() === '자세를 확인할 수 없어요'`)),
   )
-  await app.frame(500, 'normal')
+  // Normal frames within 3 s of the poor one are still settling (ReturnSettle) and sent as poor.
+  snapshot = await app.frames(6, 'normal', 500)
+  app.check(
+    'measurement stays unjudged while settling for 3 s after unmeasurable',
+    snapshot.draft.server.view.summary.valid_ms === validBeforePoor,
+  )
   snapshot = await app.frame(500, 'normal')
   app.check(
-    'valid measurement resumes only after both adjacent endpoints are valid',
+    'valid measurement resumes only after both adjacent endpoints are judged',
     snapshot.draft.server.view.summary.valid_ms === validBeforePoor + 500,
   )
   await app.evaluate(`${BRIDGE}.holdNext('end')`)
