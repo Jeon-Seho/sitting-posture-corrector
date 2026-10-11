@@ -96,7 +96,7 @@ FE 결정(10/11):
 |---|---|
 | 알림 상한을 세는 범위 | 서버 안의 계산이라 FE는 어느 쪽이든 같다. 서버 담당이 정한다 |
 | `observation.invalid_reason` | 고개 돌림·복귀 대기 안내 문구에 필요. 계약 추가 제안 |
-| 판정 서버가 두 곳 | 판정 가능 검사·특징값·점수·고개 돌림·복귀 대기·3초 규칙을 넣을 서버를 정한다. ① DB(김유진) `feature/repo-backend-db-v2`(`fcc8ef7`, 미병합): CEP를 없애고 판정 엔진을 Spring API 안으로 옮김(ADR 0020), `/v1/realtime` WebSocket. ② DevOps `DevOps` 브랜치 `platform/`: api-server·v1 판정기·`episodes.v1`·Redis. FE가 붙을 쪽을 먼저 정한다 |
+| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수는 추론, 시간 판정은 v1 판정기가 한다. 팀 API는 로그인·세션 시작/종료를 맡고 `session_started`·`session_ended`를 Kafka에 넣는다([제안서](devops-integration-proposal.md) Q1). 게이트웨이는 FE의 독립 서비스다 |
 
 다른 팀 답을 기다리는 것:
 

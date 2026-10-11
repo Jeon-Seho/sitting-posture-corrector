@@ -37,4 +37,5 @@
 ## 아직 정하지 않은 것
 
 [DevOps 연동 제안서](../design/devops-integration-proposal.md) Q1~Q10, [규칙 문서](../design/server-rule-spec.md) 8장.
-특히 FE가 붙을 서버(DB 담당 단일 API / DevOps `platform/`), 서버가 좌표를 받는 시점, 기준 자세 계산 방식.
+특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
+판정은 DevOps Kafka 경로(추론 → v1 판정기)가 하고 게이트웨이는 FE의 독립 서비스로 정했다(v4 결정·현재 운영).

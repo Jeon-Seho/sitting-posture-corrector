@@ -15,7 +15,7 @@
 - DevOps 서버의 **Kafka 뒤쪽(추론 → 판정 → `posture.episodes.v1`)은 실시간 계약 v1대로 동작한다.** 이 부분은 바꾸지 않고 그대로 붙는다.
 - **연결에 필요한데 아직 없는 것은 두 가지다.** 브라우저가 붙을 게이트웨이(WebSocket)와, 세션 시작·종료(`session_started`·`session_ended`)를 Kafka에 넣는 입구다.
 - **게이트웨이는 10/06 역할 나누기(Q1 C안)대로 FE가 만든다.** 서버 PC에서 Kafka 옆에 띄우는 서비스다. 배치·인증을 아래(3장)에서 정해 주면 바로 시작한다.
-- 지금 서버 입력은 앱이 계산한 특징값·품질이라, 앱 판정을 없애는 결정(5장)과 맞추려면 **입력을 좌표로 바꿔야 한다**(Q2). 그 전까지 쓸 다리는 3장 ③에 제안했다.
+- 지금 서버 입력은 앱이 계산한 특징값·품질이다. v4 결정과 앱 판정 제거(5장)대로 **추론이 좌표를 받도록 바꿔야 한다**(Q2).
 
 ## 1. 확인한 현재 상태
 
@@ -33,7 +33,7 @@
 | # | 항목 | 확인한 내용 | 영향 |
 |---|---|---|---|
 | G1 | 브라우저용 게이트웨이 | 서버 코드에 WebSocket이 없다. 입구는 시험용 `POST /api/v1/realtime/features`(인증 없음, 끌 수 있음)뿐이다 | 앱이 결과를 실시간으로 받을 길이 없다 |
-| G2 | 세션 시작·종료 → Kafka | C안에서 입구 API(팀 `develop`)가 `session_started`·`session_ended`를 넣는다. 지금 다시 만드는 팀 API(`fcc8ef7`, ADR 0020)는 **Kafka를 쓰지 않는다** | 판정기가 세션을 모르고 특징 메시지를 DLQ로 보낸다 |
+| G2 | 세션 시작·종료 → Kafka | C안에서 입구 API(팀 `develop`)가 `session_started`·`session_ended`를 넣는다. 지금 다시 만드는 팀 API(`fcc8ef7`)에는 이 Kafka 연결이 없다 | 판정기가 세션을 모르고 특징 메시지를 DLQ로 보낸다 |
 | G3 | 입력 형식 | 입구 검사가 특징 변화량 3개·품질만 받고 모르는 필드를 거부한다. 추론은 앱이 보낸 `measurement_quality`로 판정 가능 여부를 정한다 | 앱이 특징값·판정 가능 검사를 계속 해야 한다 |
 | G4 | 결과 저장 (D-30) | 서비스 DB는 준비 확인만 한다 | 기록 화면에 쌓일 데이터가 없다 |
 | G5 | 유형 값 | 추론이 `deviation_type`(`left_lean` 등)을 낸다 | 앱은 표시하지 않는다(5장). 서버·ML이 라벨용으로 유지할지는 ML이 정한다(Q9) |
@@ -42,8 +42,8 @@
 
 | # | 질문 | 대상 |
 |---|---|---|
-| Q1 | **세션 시작·종료와 로그인을 Kafka 경로에 누가 잇나.** C안(입구 = 팀 `develop`, Kafka 뒤 = DevOps, 게이트웨이 = FE)대로라면 팀 API가 `session_started`·`session_ended`를 Kafka에 넣어야 한다. 그런데 지금 다시 만드는 팀 API(`feature/repo-backend-db-v2`, ADR 0020)는 Kafka 없이 API 안에서 판정한다. 팀 API가 판정 대신 Kafka로 보내도록 맞출지(3장 ① B안) | DevOps·DB |
-| Q2 | **보낼 좌표의 관절·형식을 정해 달라**(BE·ML 요구를 따른다). FE 초안은 `posture.frames.v1`(관절 9개 `[x, y, visibility]`, 0.5초 1건). 추론이 좌표를 언제부터 받을 수 있는지, 그 전까지 3장 ③ ㉡(게이트웨이에서 특징값 계산)으로 붙여도 되는지 | DevOps·ML |
+| Q1 | **세션 시작·종료를 Kafka에 넣는 입구를 언제 붙이나.** C안(입구 = 팀 `develop`, Kafka 뒤 = DevOps, 게이트웨이 = FE)대로 팀 API가 `session_started`·`session_ended`를 Kafka에 넣어야 한다. 지금 다시 만드는 팀 API(`feature/repo-backend-db-v2`)에 이 연결을 넣는 일정과 담당 | DevOps·DB |
+| Q2 | **보낼 좌표의 관절·형식을 정해 달라**(BE·ML 요구를 따른다). FE 초안은 `posture.frames.v1`(관절 9개 `[x, y, visibility]`, 0.5초 1건). 추론이 좌표를 언제부터 받을 수 있는지 | DevOps·ML |
 | Q3 | 게이트웨이를 서버 PC의 Compose에 넣어도 되나. 포트, Kafka 내부 주소(`kafka:19092`), 토픽 생성 방식 | DevOps |
 | Q4 | 게이트웨이의 로그인 확인 방식(3장 ②) | DevOps·DB |
 | Q5 | D-30(결과 저장) 일정과 저장 서비스 위치 | DevOps |
@@ -74,38 +74,30 @@ Kafka는 서버 PC 안에서만 열려 있다(9092는 `127.0.0.1`, 9094는 GPU P
 `kafka:19092`로 붙고, 브라우저는 게이트웨이의 WebSocket 포트 하나만 본다. 코드는 FE가 쓰고 서버 PC 배치는 DevOps와 같이 한다.
 
 ```
-브라우저 ──WebSocket──▶ 게이트웨이 ──produce──▶ posture.features.v1 ─▶ 추론 ─▶ 판정
+브라우저 ──WebSocket──▶ 게이트웨이 ──produce──▶ 좌표 토픽(Q2) ─▶ 추론 ─▶ 판정
    ▲                      │  consume ◀── posture.inference.v1 (관측: 화면 실시간 상태)
    └──────── push ────────┘  consume ◀── posture.episodes.v1 (decision·progress → alert)
 ```
 
 게이트웨이가 하는 일: 로그인·세션 주인 확인(`hello`), 묶음 검사, 순번 중복 제거, Kafka 기록 뒤 `ack`, 세션별 결과 push,
-`decision`에서 `alert` 만들기, 재연결 때 놓친 `decision` 재전송, 5초 진행 없음 → `stalled`. 계약은 [실시간 계약 v1](../../contracts/realtime/README.md) 그대로다.
+`decision`에서 `alert` 만들기, 재연결 때 놓친 `decision` 재전송, 5초 진행 없음 → `stalled`.
+WebSocket 메시지와 봉투는 [실시간 계약 v1](../../contracts/realtime/README.md)을 따르고, 본문만 좌표로 바뀐다(Q2).
+**게이트웨이는 판정하지 않는다.** 좌표를 바꾸거나 거르지 않고 그대로 Kafka에 넣는다.
 
-### ① 코드 위치 (Q1·Q3과 함께 결정)
+### ① 코드 위치 (Q3과 함께 결정)
 
-| 안 | 내용 | 장점 | 단점 |
-|---|---|---|---|
-| A | 독립 서비스 `backend/realtime`(Spring Boot) | 팀 API 재작성과 독립. DevOps Compose에 컨테이너 하나 추가 | 로그인 확인을 따로 해야 한다(②) |
-| B | 팀 API(`fcc8ef7`의 `/v1/realtime`) 안에서 판정 대신 Kafka로 보내고 받기 | 로그인·세션 시작/종료가 이미 같은 곳에 있다. 입구(G2)도 함께 해결된다 | 팀 API를 서버 PC에서 Kafka 옆에 띄워야 한다. ADR 0020의 "API 안 판정"을 바꿔야 한다 |
+C안대로 **독립 서비스 `backend/realtime`(Spring Boot)** 로 만든다. DevOps Compose에 컨테이너 하나를 더한다. 팀 API와 따로 배포한다.
 
-FE 의견: **G1·G2를 한 번에 푸는 B가 낫다.** 다만 ADR 0020을 바꾸는 일이라 DB(유진)·DevOps가 함께 정해야 한다. 합의가 늦어지면 A로 시작한다.
-
-### ② 로그인 확인 (A안일 때)
+### ② 로그인 확인
 
 브라우저는 팀 API의 로그인 쿠키(Spring Session, MySQL `SPRING_SESSION`)를 가진다. 게이트웨이가 연결을 받을 때 그 쿠키로 팀 API의 `GET /auth/me`를 불러
 사용자를 확인하고, 세션 주인은 `GET /sessions/{id}/metadata`로 확인한다. 같은 출처로 붙이려면 Nginx가 `/api/v1/realtime`을 게이트웨이로 넘긴다.
 
 ### ③ 입력 형식 (Q2)
 
-앱은 판정하지 않으므로 앱이 보낼 수 있는 것은 **좌표 프레임**이다. 지금 추론은 특징값을 받는다. 바뀌기 전까지 다리 놓는 방법:
-
-| 안 | 내용 |
-|---|---|
-| ㉠ | 추론 서비스가 좌표를 받도록 먼저 바꾼다(v4 결정 그대로). 게이트웨이는 좌표를 그대로 넘긴다 |
-| ㉡ | 그 전까지 게이트웨이가 좌표 → 특징 변화량·품질로 바꿔 `posture.features.v1`에 넣는다. 좌표 원본은 HDFS용 토픽에 따로 넣는다. 서버 쪽 계산이라 "앱은 판정하지 않는다"와 맞는다. 추론이 좌표를 받게 되면 게이트웨이 계산을 지운다 |
-
-FE 의견: 일정이 맞으면 ㉠, 아니면 ㉡으로 먼저 붙인다. ㉡의 계산식은 FE가 넘길 규칙 문서와 같다.
+v4 결정대로 앱은 **좌표 프레임**을 보내고, 게이트웨이는 그대로 Kafka에 넣으며, 판정 가능 검사·특징값·점수는 **추론 서비스**가 계산한다.
+지금 추론은 특징값을 받으므로 추론이 좌표를 받도록 바뀌어야 끝까지 이어진다. 그 전에는 게이트웨이 시험에 지금 형식(`posture.features.v1`)의 합성 메시지를 쓴다.
+추론이 앱과 같은 결과를 내는지는 [규칙 문서](server-rule-spec.md)와 합성 시험 데이터로 확인한다.
 
 ### ④ 개발·시험 방법
 

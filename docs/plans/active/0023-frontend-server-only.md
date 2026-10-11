@@ -5,7 +5,7 @@
 - 시작일: 2026-10-11
 - 관련 요구사항/ADR: [FE 회신: v4 회의](../../design/v4-meeting-fe-reply.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
   [Kafka 실시간 전달 계획](0022-kafka-realtime-pipeline.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
-  DB 담당 `feature/repo-backend-db-v2`의 ADR 0020(미병합), DevOps `DevOps` 브랜치 `platform/`
+  DevOps `DevOps` 브랜치 `platform/`(판정 경로), DB 담당 `feature/repo-backend-db-v2`(팀 API, 미병합)
 
 ## 배경
 
@@ -48,9 +48,10 @@
 
 ### 0단계 — 팀 결정 (제안서로 요청, 1단계 이후 작업의 전제)
 
-- [ ] **FE가 붙을 서버.** ① DB 담당 단일 Spring API(ADR 0020, `/v1/realtime` WebSocket, Kafka 없음) ② DevOps `platform/`(Kafka, v1 판정기, Redis).
-- [ ] **앱이 보내는 정보.** 좌표 프레임(v4 회의 결정, `posture.frames.v1`) / 특징 변화량(ADR 0020이 유지한 ADR 0013).
-  FE 제안: 좌표. 앱 판정을 없애는 결정과 일관되고, 특징값 계산도 판정 규칙의 일부다.
+- [x] **FE가 붙을 서버.** DevOps Kafka 경로(`platform/`: 추론 → v1 판정기 → `posture.episodes.v1`)로 정했다(v4 결정·현재 운영).
+  게이트웨이는 FE의 독립 서비스(`backend/realtime`)다.
+- [x] **앱이 보내는 정보.** 좌표 프레임(v4 회의 결정). 관절·형식은 BE·ML 요구를 따른다(FE 초안 `posture.frames.v1`). 게이트웨이는 판정하지 않고 그대로 넘긴다.
+- [ ] 팀 API가 `session_started`·`session_ended`를 Kafka에 넣는 일정, 추론이 좌표를 받는 일정([제안서](../../design/devops-integration-proposal.md) Q1·Q2).
 - [ ] `observation.invalid_reason` 추가(고개 돌림·복귀 대기·측정 불가 안내 문구용).
 - [ ] 계약·서버의 유형 필드(`deviation_type` 등)를 없앨지(ML·서버 담당).
 - [ ] 브랜치: `lee_app1`(FE 커밋 7개, `develop`에 없음)과 `feature/repo-backend-db-v2`를 `develop`에 넣는 순서.
