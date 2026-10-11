@@ -1,8 +1,9 @@
 # PoseGood 웹캠 프로토타입
 
 > **결정 변경(2026-10-11, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보낸다.
-> 로컬 모드(`src/features/session/engine/`, `src/lib/engine.ts`), 앱 점수·상태·유형, 내보내기의 판정 열은
-> [계획 0023](../docs/plans/active/0023-frontend-server-only.md)에서 없앤다. 아래의 "로컬 모드" 설명은 그 전까지의 현재 동작이다.
+> 화면·기록의 유형(머리·좌우 기울임) 표시와 csv 내보내기의 판정 열은 2026-10-11 없앴다.
+> 로컬 모드(`src/features/session/engine/`, `src/lib/engine.ts`)와 앱 점수·상태 판정은 [계획 0023](../docs/plans/active/0023-frontend-server-only.md)에서 없앤다.
+> 아래의 "로컬 모드" 설명은 그 전까지의 현재 동작이다.
 
 ## 데스크톱 앱 (2026-10-02~)
 

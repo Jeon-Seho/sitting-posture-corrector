@@ -68,8 +68,11 @@
 
 ### 2단계 — 앱 판정 제거
 
-- [ ] ML용 CSV 판정 라벨(state·type·score) 제거: `poseDebugExport.ts`, `kafkaExport.ts`, 세션 내보내기 명세.
-- [ ] 유형 표시 제거: `ServerDecisionHistory.tsx`, `server/projection.ts`, 기록 상세.
+- [x] ML용 CSV 판정 라벨(`features_ok`·`state`·`type`·`score`) 제거(10/11): `poseDebugExport.ts`, 세션 내보내기 명세.
+  txt(`kafkaExport.ts`)는 지금 서버 입력(특징 변화량) 형식이라 3단계에서 좌표로 바꿀 때 함께 바꾼다.
+- [x] 유형 표시 제거(10/11): 측정 화면 상태·힌트 문구, 알림 문구(로컬·서버), 사건 표, 서버 사건 이력의 "방향·유형" 열,
+  기록 화면의 "자주 흐트러진 방향" 카드. 저장 데이터의 유형 필드(`CollapseEvent.type`, 계약 `deviation_type`)는
+  기존 기록을 계속 읽기 위해 남기고, 로컬 모드 제거와 계약 변경 때 정리한다.
 - [ ] 로컬 모드 제거: `LocalServiceApp.tsx`, `LocalHistory.tsx`, `storage/localRepository.ts`·`useLocalWorkspace.ts`, `session/engine/`, `lib/engine.ts`,
   `lib/returnSettle.ts`, `lib/postureScore.ts`와 이를 쓰는 화면. 시연용 예시 기록이 로컬 저장에 기대는지 확인한다.
 - [ ] 측정 화면의 점수·상태를 서버 결과 표시로 바꾼다. 서버 없이는 측정을 시작하지 않는다.

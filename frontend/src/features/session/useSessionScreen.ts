@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
-import { COLLAPSE_LABEL } from '../../data/posture'
 import type { Rules } from '../../lib/engine'
 import { cameraSample, holdWhileSettling } from '../../lib/cameraSample'
 import { ReturnSettle } from '../../lib/returnSettle'
@@ -57,7 +56,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           origin: observation.timeMs,
           startedAt: new Date().toISOString(),
         })
-        debugRecorder.current = new PoseDebugRecorder(observation.timeMs, camera.baseline, rules.threshold)
+        debugRecorder.current = new PoseDebugRecorder(observation.timeMs)
       }
       if (phaseRef.current !== 'running') {
         recorder.current.pause()
@@ -68,7 +67,6 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
         timeMs: observation.timeMs,
         width: observation.width,
         height: observation.height,
-        features: observation.features,
         landmarks: observation.landmarks,
       })
     })
@@ -137,11 +135,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
     if (soundOn && !playCorrection())
       setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
-    setToast(
-      live.collapse
-        ? `${COLLAPSE_LABEL[live.collapse]} 상태가 ${rules.holdSeconds}초 이상 이어졌습니다.`
-        : '자세 붕괴가 감지되었습니다.',
-    )
+    setToast(`흐트러진 자세가 ${rules.holdSeconds}초 이상 이어졌습니다.`)
     const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [live.alertTick])

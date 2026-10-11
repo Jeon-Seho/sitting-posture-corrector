@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { Segmented } from '../../components/Segmented'
 import { Play } from '@phosphor-icons/react'
 import { RecordComparison } from '../../components/RecordComparison'
-import { Meter } from '../../components/ui'
-import type { CollapseType } from '../../data/posture'
 import { historyFor, localDay, type HistoryMode, type Period } from '../../lib/history'
 import { summary, type RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatRate } from '../../lib/stats'
@@ -16,16 +14,6 @@ const PERIODS: [Period, string, string][] = [
   ['all', '전체', '전체 기록'],
 ]
 
-const KIND_LABEL: Record<CollapseType, string> = {
-  tilt: '몸이 한쪽으로 기울어짐',
-  forwardHead: '머리·상체가 앞으로',
-  referenceChange: '그 밖의 기준 변화',
-}
-const KIND_COLOR: Record<CollapseType, string> = {
-  tilt: 'var(--primary)',
-  forwardHead: '#e0915f',
-  referenceChange: '#ebc3a6',
-}
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 
 /**
@@ -52,7 +40,6 @@ export function LocalHistory({
   const stats = summary(selected)
   const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
   const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
-  const kinds = kindShares(selected)
   const title = PERIODS.find(([id]) => id === period)![2]
   return (
     <>
@@ -187,26 +174,6 @@ export function LocalHistory({
         </div>
         <div className="view-side">
           <section className="card">
-            <h3 className="card-title" style={{ marginBottom: 14 }}>
-              자주 흐트러진 방향
-            </h3>
-            {kinds.length === 0 ? (
-              <p className="fine">아직 흐트러진 기록이 없어요.</p>
-            ) : (
-              <div className="kinds">
-                {kinds.map((k) => (
-                  <div key={k.type}>
-                    <div className="kind-head">
-                      <span>{KIND_LABEL[k.type]}</span>
-                      <span>{Math.round(k.share * 100)}%</span>
-                    </div>
-                    <Meter value={k.share} color={KIND_COLOR[k.type]} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-          <section className="card">
             <h3 className="card-title" style={{ marginBottom: 6 }}>
               측정 기록
             </h3>
@@ -251,14 +218,4 @@ function dayBars(records: RecordItem[], count: number, now: Date) {
       title: `${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAY[date.getDay()]})`,
     }
   })
-}
-
-function kindShares(records: RecordItem[]) {
-  const counts = new Map<CollapseType, number>()
-  for (const record of records)
-    for (const event of record.events) counts.set(event.type, (counts.get(event.type) ?? 0) + 1)
-  const total = [...counts.values()].reduce((a, b) => a + b, 0)
-  return [...counts]
-    .map(([type, n]) => ({ type, share: n / total }))
-    .sort((a, b) => b.share - a.share)
 }

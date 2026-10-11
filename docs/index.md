@@ -60,7 +60,7 @@ Heavy 도입 배경은 [이전 결정](decisions/0006-heavy-guided-collection.md
 
 점수 표시: [표시 결정](decisions/0005-score-visuals.md). 파일럿: [CSV 수집·pandas 탐색](research/pilot-csv.md), [화면 평활화·수집 결정](decisions/0004-smoothing-csv.md).
 
-측정 결과 내보내기: [txt·pose-debug csv 열과 규칙 판정 라벨](research/session-export.md). 판정 라벨 열은 ADR 0021로 없앨 예정이다.
+측정 결과 내보내기: [txt·pose-debug csv 열](research/session-export.md). 앱 판정 라벨 열은 2026-10-11 없앴다(ADR 0021).
 
 개인 실험: [본인 촬영의 학습 전용 증강·첫 분류 학습](research/personal-pilot-training.md). 새 참여자 연구 평가와 구분한다.
 

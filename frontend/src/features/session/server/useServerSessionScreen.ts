@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CameraController } from '../../../hooks/useCamera'
 import type { Machine } from '../../../lib/engine'
-import { COLLAPSE_LABEL } from '../../../data/posture'
 import { enableSound, playCorrection } from '../../../lib/sound'
 import type { ServerCheckpoint, ServerLiveState, ServerSessionDescriptor } from './contracts'
 import { ServerSessionController, type ServerScreenState } from './controller'
@@ -64,16 +63,10 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
         if (latest.current.soundOn && !playCorrection())
           setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
         const last = events.at(-1)!
-        const label =
-          last.deviation_type === 'forward_slouch'
-            ? COLLAPSE_LABEL.forwardHead
-            : last.deviation_type === 'left_lean' || last.deviation_type === 'right_lean'
-              ? COLLAPSE_LABEL.tilt
-              : '기준 자세 변화'
         setToast(
           last.kind === 'reminder'
-            ? `${label} 사건의 재알림입니다.`
-            : `서버에서 ${label} 사건을 확정했습니다.`,
+            ? '흐트러진 자세가 이어져 다시 알려드려요.'
+            : '흐트러진 자세가 이어지고 있어요.',
         )
         if (toastTimer.current !== null) clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3000)
