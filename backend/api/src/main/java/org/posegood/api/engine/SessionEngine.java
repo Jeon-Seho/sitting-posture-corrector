@@ -14,9 +14,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * One session's deterministic decision state (ADR 0012, ADR 0020). Input order, duplicate and
- * gap handling, the interrupt/reset policy ({@code legacy-interrupt-v1}) and the statistics are the
- * former CEP behavior; {@link DecisionRules} holds the threshold comparisons.
+ * 세션 하나의 판정 엔진: 관측을 순서대로 받아 시간을 누적하고 판정 사건을 만든다.
+ *
+ * 입력 순서·중복·공백 처리, 중단 시 초기화 정책({@code legacy-interrupt-v1}), 통계는 예전 CEP와 같다.
+ * 임계값 비교는 {@link DecisionRules}에만 있다(ADR 0012, ADR 0020).
  */
 public final class SessionEngine {
     public static final int MAX_OBSERVATIONS = 10_000;
@@ -26,7 +27,7 @@ public final class SessionEngine {
     private final Timeline timeline = new Timeline();
     private final EpisodeLedger episodes;
     private final Map<Long, Observation> accepted = new HashMap<>();
-    /** The summary right after each event, for realtime decision messages. */
+    /** 사건마다 그 직후의 요약(실시간 decision 메시지용). */
     private final List<Summary> eventSummaries = new ArrayList<>();
     private long lastSequence = -1;
     private boolean ended;
@@ -38,6 +39,10 @@ public final class SessionEngine {
         episodes = new EpisodeLedger(id);
     }
 
+    /**
+     * 관측 한 구간 처리: 중복·역순 확인 → 빈 시간은 누락 처리 →
+     * 측정 불가면 제외 시간, 측정되면 시간 누적 후 규칙 판정.
+     */
     public synchronized SessionView accept(Observation observation) {
         var duplicate = accepted.get(observation.sequence());
         if (duplicate != null) {
@@ -50,7 +55,7 @@ public final class SessionEngine {
         if (accepted.size() >= MAX_OBSERVATIONS)
             throw ApiError.limit("session observation limit reached");
 
-        // Missing time is excluded. A sequence hole breaks continuity without inventing duration.
+        // 빈 시간은 누락으로 제외한다. 순번만 빠졌으면 시간을 만들지 않고 연속성만 끊는다.
         if (observation.startMs() > timeline.endMs()) {
             interrupt("missing", timeline.endMs());
             timeline.addMissing(observation.startMs());
@@ -83,7 +88,11 @@ public final class SessionEngine {
         return view();
     }
 
-    /** Ending twice with the same time is idempotent; another time is a conflict. */
+    /**
+     * 세션 종료: 남은 빈 시간을 누락으로 넣고 열린 사건을 끝낸다.
+     *
+     * 같은 시각으로 다시 끝내면 같은 결과, 다른 시각이면 409.
+     */
     public synchronized SessionView end(long at) {
         if (ended) {
             if (at != timeline.endMs()) throw ApiError.conflict("conflicting session end");
@@ -101,6 +110,7 @@ public final class SessionEngine {
         return view();
     }
 
+    /** 현재 상태를 조회 응답으로 만든다. */
     public synchronized SessionView view() {
         return new SessionView(
                 "1.0",
@@ -117,7 +127,9 @@ public final class SessionEngine {
         return timeline.summary(episodes.statistics());
     }
 
-    /** Events with an id greater than {@code eventId}, each with the summary at that point. */
+    /**
+     * 실시간 재전송용: 해당 ID 뒤의 사건과 그때의 요약.
+     */
     public synchronized List<Decided> eventsAfter(long eventId) {
         var result = new ArrayList<Decided>();
         for (int index = 0; index < episodes.size(); index++) {
@@ -171,7 +183,11 @@ public final class SessionEngine {
         snapshot();
     }
 
-    /** Preserves the interrupt/reset policy; this is not a pause/resume of accumulated time. */
+    /**
+     * 열린 사건을 끝내고 연속 누적 시간을 0으로 만든다.
+     *
+     * 일시정지·재개가 아니라 중단 후 초기화 정책이다.
+     */
     private void interrupt(String reason, long at) {
         episodes.interrupt(reason, at);
         timeline.resetContinuity();

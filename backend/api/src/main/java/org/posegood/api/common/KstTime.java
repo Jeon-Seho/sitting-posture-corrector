@@ -9,9 +9,10 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Schema V2.2 stores every {@code DATETIME(3)} as Korea Standard Time (CR-04). Values cross JDBC as
- * zone-less {@link LocalDateTime}, so the conversion never depends on the DB session time zone.
- * API responses keep UTC {@link Instant}s.
+ * 한국 시간(KST) 변환 도구. DB의 DATETIME(3)은 모두 KST로 저장한다.
+ *
+ * JDBC로는 시간대 없는 {@link LocalDateTime}을 주고받아 DB 세션 시간대 설정에 영향받지 않는다(CR-04).
+ * API 응답의 시각은 UTC {@link Instant}다.
  */
 public final class KstTime {
     public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -34,7 +35,7 @@ public final class KstTime {
         return instant(row.getObject(column, LocalDateTime.class));
     }
 
-    /** `daily_stat.stat_date`: the KST calendar day of a session start (BR-61). */
+    /** `daily_stat.stat_date`: 세션 시작 시각의 KST 날짜(BR-61). */
     public static LocalDate day(Instant value) {
         return LocalDate.ofInstant(value, ZONE);
     }

@@ -10,7 +10,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.posegood.api.common.ApiError;
 
-/** Hand-written synthetic RecordItem JSON. */
+/**
+ * 기록 형식 검사 시험.
+ *
+ * 손으로 쓴 합성 앱 기록 JSON만 쓴다.
+ */
 class RecordValidatorTest {
     private final ObjectMapper mapper = new ObjectMapper();
 

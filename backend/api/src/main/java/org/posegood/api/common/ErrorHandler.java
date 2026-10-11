@@ -11,7 +11,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.Map;
 
-/** Every error body is {@code {error, code, message}}; no values, SQL, or tokens are echoed. */
+/**
+ * 예외를 JSON 오류 응답으로 바꾼다: ApiError는 그대로, 형식 오류 400, DB 오류 503.
+ *
+ * 오류 본문은 {@code {error, code, message}}이고 입력값·SQL·토큰은 돌려주지 않는다.
+ */
 @RestControllerAdvice
 public class ErrorHandler {
     @ExceptionHandler(ApiError.class)

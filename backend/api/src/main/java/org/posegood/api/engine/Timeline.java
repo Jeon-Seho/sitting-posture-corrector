@@ -6,7 +6,9 @@ import org.posegood.api.contract.SessionView.Summary;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Accumulates observed time and the continuity counters. It never compares them with the policy. */
+/**
+ * 시간 누적기: 유효·바른·이탈·제외 시간과 연속 지속 시간을 센다(정책 비교는 하지 않음).
+ */
 final class Timeline {
     private long endMs;
     private long validMs;
@@ -22,6 +24,7 @@ final class Timeline {
     private long onsetValidMs;
     private final List<ExcludedSpan> excluded = new ArrayList<>();
 
+    /** 측정된 구간: 이탈 후보면 이탈 시간, 아니면 바른 시간에 더한다. */
     void addMeasured(Observation observation, boolean candidate) {
         long duration = observation.endMs() - observation.startMs();
         endMs = observation.endMs();
@@ -41,6 +44,7 @@ final class Timeline {
         }
     }
 
+    /** 측정 못 한 구간(휴식·자리 비움·판정 불가)을 제외 시간에 더한다. */
     void addExcluded(Observation observation) {
         long duration = observation.endMs() - observation.startMs();
         endMs = observation.endMs();
@@ -62,7 +66,11 @@ final class Timeline {
         exclude(observation.startMs(), observation.endMs(), reason);
     }
 
-    /** A timestamp gap: excluded time that is never filled with normal or deviation. */
+    /**
+     * 입력 사이의 빈 시간은 누락으로 제외한다.
+     *
+     * 이 시간은 바른 자세나 이탈로 채우지 않는다.
+     */
     void addMissing(long until) {
         if (until <= endMs) return;
         missingMs += until - endMs;
@@ -122,6 +130,7 @@ final class Timeline {
         return List.copyOf(excluded);
     }
 
+    /** 요약 통계 계산. */
     Summary summary(EpisodeLedger.Statistics episodes) {
         return new Summary(
                 endMs,

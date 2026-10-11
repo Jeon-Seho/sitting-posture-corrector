@@ -12,8 +12,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * In-memory state of one session: the frozen row, the decision engine, retry fingerprints, and how
- * far the decisions were written to the DB. Every access goes through {@link #locked}.
+ * 진행 중 세션 하나의 메모리 상태: DB 행, 판정 엔진, 재전송 확인용 지문, DB 기록 진행 정도.
+ *
+ * 모든 접근은 {@link #locked}를 거친다.
  */
 public final class LiveSession {
     private final SessionRepository.Stored row;
@@ -47,7 +48,11 @@ public final class LiveSession {
         return engine;
     }
 
-    /** One request at a time per session; inference runs inside the lock to keep input order. */
+    /**
+     * 세션 잠금 안에서 작업 실행(10초 안에 못 잡으면 503).
+     *
+     * 세션마다 요청을 하나씩 처리한다. 입력 순서를 지키려고 추론도 잠금 안에서 부른다.
+     */
     public <T> T locked(Supplier<T> work) {
         boolean acquired;
         try {
@@ -90,7 +95,7 @@ public final class LiveSession {
         return closePersisted;
     }
 
-    /** `monitor_session.end_reason` written when the ended state is persisted. */
+    /** 종료를 DB에 쓸 때의 `monitor_session.end_reason`. */
     String endReason() {
         return endReason;
     }
@@ -105,6 +110,6 @@ public final class LiveSession {
         closePersisted = closed;
     }
 
-    /** A retried request is identified by its SHA-256; its original observation is reused. */
+    /** 재전송 요청은 SHA-256 지문으로 알아보고 처음 관측 결과를 다시 쓴다. */
     record Input(String fingerprint, Observation observation) {}
 }

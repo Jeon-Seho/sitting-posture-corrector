@@ -19,10 +19,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Settings live in `user_account` and its immutable `threshold_policy` row. App records are not
- * stored as sent (schema V2.1 dropped `client_record`): saving one checks it against the session
- * the server decided and closes that session's row; reading rebuilds records from the session
- * tables ({@link RecordHistory}).
+ * 설정과 기록 처리 서비스.
+ *
+ * 설정은 `user_account`와 바뀌지 않는 `threshold_policy` 행에 있다. 앱 기록 원문은 저장하지 않는다
+ * (V2.1에서 `client_record` 삭제): 저장은 서버 판정과 대조하고 세션 행을 닫으며, 조회는
+ * 세션 테이블에서 다시 만든다({@link RecordHistory}).
  */
 @Service
 public class WorkspaceService {
@@ -54,7 +55,11 @@ public class WorkspaceService {
         this.locks = locks;
     }
 
-    /** {@code alerts_on} is the 「자세 알림」 switch, `user_account.alert_enabled` (V2.2). */
+    /**
+     * 설정 + 기록 조회.
+     *
+     * {@code alerts_on} is the 「자세 알림」 switch, `user_account.alert_enabled` (V2.2).
+     */
     public ObjectNode get(long owner) {
         var account = accounts.requireActive(owner);
         var policy = policies.read(account.policyId());
@@ -65,7 +70,11 @@ public class WorkspaceService {
         return result;
     }
 
-    /** {@code PUT /v1/workspace} takes the whole {profile, rules, preferences}; records stay. */
+    /**
+     * 설정 저장: 프로필, 판정 기준, 자세 알림.
+     *
+     * {@code PUT /v1/workspace}는 {profile, rules, preferences} 전체를 받는다. 기록은 바꾸지 않는다.
+     */
     public ObjectNode update(long owner, JsonNode body) {
         RecordValidator.shape(body, Set.of("profile", "rules", "preferences"), Set.of());
         RecordValidator.rules(body.get("rules"));
@@ -97,14 +106,16 @@ public class WorkspaceService {
         return get(owner);
     }
 
+    /** 기록 목록(세션 테이블에서 다시 만듦). */
     public List<JsonNode> records(long owner) {
         return history.list(owner);
     }
 
     /**
-     * Only server session records are kept. The record must match what this server decided
-     * ({@link ServerRecordVerifier}); its session row is then closed if it was still open, and the
-     * record is answered as sent with the stored session times.
+     * 기록 저장: 서버 판정과 대조한 뒤 세션 행을 닫는다.
+     *
+     * 서버 측정 기록만 받는다. 검증({@link ServerRecordVerifier}) 뒤 세션 행이 열려 있으면 닫고,
+     * 보낸 기록을 날짜만 DB 시각으로 바꿔 돌려준다.
      */
     public JsonNode save(long owner, JsonNode body) {
         RecordValidator.record(body);
@@ -117,13 +128,15 @@ public class WorkspaceService {
         return canonical;
     }
 
-    /** A server record is its session: deleting it deletes the session and its decisions. */
+    /**
+     * 기록 삭제 = 그 세션 삭제.
+     */
     public void deleteRecord(long owner, String id) {
         UUID session;
         try {
             session = UUID.fromString(id);
         } catch (IllegalArgumentException local) {
-            return; // A local record id need not be a session UUID; nothing is stored for it.
+            return; // 로컬 기록 ID는 세션 UUID가 아닐 수 있고, 서버에 저장된 것도 없다.
         }
         try {
             sessions.delete(owner, session);

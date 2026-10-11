@@ -6,8 +6,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
- * The owner of every protected request: the authenticated principal of an ACTIVE account. Revoked
- * logins have no `SPRING_SESSION` row left, so they never reach this point.
+ * 요청을 보낸 로그인 사용자의 ID를 꺼낸다(정상 계정이 아니면 401).
+ *
+ * 끊긴 로그인은 `SPRING_SESSION` 행이 없으므로 여기까지 오지 않는다.
  */
 @Component
 public class CurrentUser {

@@ -22,9 +22,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Session lifecycle for HTTP and the realtime channel. Each input runs inference, the decision
- * engine and the DB write of new decisions under the session lock. A failed DB write keeps the
- * accepted state; the same request retried writes the remaining decisions (503 then success).
+ * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리.
+ *
+ * HTTP와 실시간 채널이 함께 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
+ * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
  */
 @Service
 public class SessionService {
@@ -56,7 +57,11 @@ public class SessionService {
         this.events = events;
     }
 
-    /** Creates the row and the live state once; a retry must repeat the same policy and setup. */
+    /**
+     * 세션 생성: 기준 자세 저장 → 세션 행 추가 → 메모리에 판정 엔진 준비.
+     *
+     * 재시도는 같은 정책·준비 정보여야 한다.
+     */
     public SessionView create(long owner, UUID id, SessionRequests.Create request) {
         var setup = request.setup();
         if (setup == null) throw ApiError.badRequest("session setup is required");
@@ -100,6 +105,7 @@ public class SessionService {
                 });
     }
 
+    /** 특징 입력 처리: 재전송 확인 → 추론 → 판정 → 실시간 알림 → DB 기록. */
     public SessionRequests.FeatureResponse features(long owner, UUID id, InferenceRequest request) {
         var session = require(owner, id);
         return session.locked(
@@ -132,7 +138,11 @@ public class SessionService {
                 });
     }
 
-    /** The same {@code end_ms} is idempotent; a different one after the end is 409. */
+    /**
+     * 세션 종료(같은 end_ms 재전송은 같은 결과).
+     *
+     * 끝난 뒤 다른 {@code end_ms}는 409.
+     */
     public SessionView end(long owner, UUID id, long endMs) {
         var session = require(owner, id);
         return session.locked(
@@ -146,8 +156,9 @@ public class SessionService {
     }
 
     /**
-     * Closes a session the app archived without a confirmed end. Live state is ended at its last
-     * accepted time and closed as DISCONNECTED; a row whose state was lost is closed as ERROR.
+     * 기록을 저장할 때 아직 열린 세션 행을 닫는다.
+     *
+     * 판정 상태가 있으면 마지막 수신 시각에서 끝내 DISCONNECTED로, 상태를 잃었으면 ERROR로 닫는다.
      */
     public void closeForRecord(long owner, UUID id, long acknowledgedMs) {
         var session = live.get(id);
@@ -171,12 +182,15 @@ public class SessionService {
             tx.executeWithoutResult(status -> sessions.closeLost(stored, acknowledgedMs));
     }
 
+    /** 현재 상태 조회. */
     public SessionView get(long owner, UUID id) {
         var session = require(owner, id);
         return session.locked(() -> session.engine().view());
     }
 
-    /** Deletes the owner's session row (its app record) and its live state. */
+    /**
+     * 세션 삭제(DB 행과 메모리 상태).
+     */
     public void delete(long owner, UUID id) {
         var stored = owned(owner, id);
         var session = live.get(id);
@@ -192,6 +206,7 @@ public class SessionService {
                 });
     }
 
+    /** 시작·종료 시각, 기준 자세 ID, 모델 버전. */
     public Metadata metadata(long owner, UUID id) {
         var stored = owned(owner, id);
         var session = live.get(id);
@@ -202,7 +217,9 @@ public class SessionService {
         return new Metadata(stored.startedAt(), stored.endedAt(), stored.baselineId(), model);
     }
 
-    /** The owner's live session; a stored row without live state was lost by a restart. */
+    /**
+     * 메모리에 있는 내 세션. 다른 사람 것이면 404, 상태가 없으면 404 SESSION_LOST.
+     */
     public LiveSession require(long owner, UUID id) {
         var session = live.get(id);
         if (session != null) {
@@ -213,6 +230,7 @@ public class SessionService {
         throw ApiError.lost();
     }
 
+    /** DB에 있는 내 세션 행(없거나 남의 것이면 404). */
     public SessionRepository.Stored owned(long owner, UUID id) {
         var stored = sessions.find(id);
         if (stored == null || stored.owner() != owner) throw ApiError.notFound();
@@ -223,6 +241,7 @@ public class SessionService {
         return inference.modelVersion();
     }
 
+    /** 새 결과를 실시간 채널로 알린다. */
     private void publish(LiveSession session, Observation observation, int before) {
         var engine = session.engine();
         events.publishEvent(
@@ -236,8 +255,9 @@ public class SessionService {
     }
 
     /**
-     * Writes decisions not yet in the DB and, once ended, closes the row, in one transaction. The
-     * counters advance only after commit, so a failure is retried by the next call.
+     * 아직 DB에 안 쓴 사건과 종료를 한 트랜잭션으로 쓴다.
+     *
+     * 진행 표시는 커밋 뒤에만 올리므로 실패하면 다음 호출이 다시 쓴다.
      */
     private void persist(LiveSession session) {
         var engine = session.engine();
@@ -274,6 +294,7 @@ public class SessionService {
         return new SessionRequests.FeatureResponse("1.0", observation, view);
     }
 
+    /** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */
     private static void requireSame(LiveSession session, SessionRequests.Create request) {
         var row = session.row();
         var setup = request.setup();
@@ -283,7 +304,9 @@ public class SessionService {
             throw ApiError.conflict("session setup already frozen");
     }
 
-    /** Compares retries without keeping or logging the feature values. */
+    /**
+     * 재전송 비교용 요청 지문(SHA-256). 특징 값은 저장하지 않는다.
+     */
     static String fingerprint(InferenceRequest request) {
         try {
             var bytes = new ByteArrayOutputStream();
@@ -312,6 +335,6 @@ public class SessionService {
         }
     }
 
-    /** {@code GET /v1/sessions/{id}/metadata}; unknown values are null. */
+    /** {@code GET /v1/sessions/{id}/metadata} 응답. 모르는 값은 null. */
     public record Metadata(Instant startedAt, Instant endedAt, UUID baselineId, String modelVersion) {}
 }

@@ -14,9 +14,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * `user_account`, `deletion_request` and the login sessions of schema V2.2. Identity columns are
- * NOT NULL (CR-04): a withdrawn account keeps them during the grace period and is deleted whole.
- * Logins are revoked by deleting the user's `SPRING_SESSION` rows (V2.1 dropped `auth_epoch`).
+ * 계정 SQL 모음: user_account(계정·설정), deletion_request(탈퇴), SPRING_SESSION(로그인).
+ *
+ * 식별 컬럼은 NOT NULL이다(CR-04). 탈퇴한 계정도 유예 기간에는 그대로 두었다가 통째로 지운다.
+ * 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행 삭제로 한다(V2.1에서 `auth_epoch` 삭제).
  */
 @Repository
 public class AccountRepository {
@@ -30,7 +31,11 @@ public class AccountRepository {
         this.jdbc = jdbc;
     }
 
-    /** Any status; the caller decides what a CLOSED account may do. */
+    /**
+     * 이메일로 계정 조회(상태와 관계없이).
+     *
+     * CLOSED 계정으로 무엇을 할지는 호출한 쪽이 정한다.
+     */
     public Account findEmail(String email) {
         return first(
                 jdbc.query(
@@ -39,6 +44,7 @@ public class AccountRepository {
                         email));
     }
 
+    /** ID로 계정 조회. */
     public Account find(long id) {
         return first(
                 jdbc.query(
@@ -48,8 +54,10 @@ public class AccountRepository {
     }
 
     /**
-     * Posture alerts start on and sound off (column defaults, V2.2); consent is not stored while
-     * T-41 is on hold.
+     * 가입: 계정 행 추가. 이미 있는 이메일이면 409.
+     *
+     * 자세 알림은 켜짐, 소리는 꺼짐으로 시작한다(컬럼 기본값, V2.2).
+     * 동의 테이블(T-41)이 보류라 가입 동의는 저장하지 않는다.
      */
     public long insert(String email, String hash, AccountContracts.Profile profile, long policy) {
         var key = new GeneratedKeyHolder();
@@ -74,13 +82,17 @@ public class AccountRepository {
                     },
                     key);
         } catch (DuplicateKeyException exists) {
-            // UK-01 also covers an account inside its withdrawal grace period.
+            // UK-01은 탈퇴 유예 중인 계정의 이메일도 막는다.
             throw new ApiError(409, "ACCOUNT_EXISTS", "account cannot be registered");
         }
         return key.getKey().longValue();
     }
 
-    /** {@code alerts} is the 「자세 알림」 switch; `sound_alert_enabled` has no app setting yet. */
+    /**
+     * 설정 저장: 프로필, 판정 정책, 자세 알림.
+     *
+     * {@code alerts} is the 「자세 알림」 switch; `sound_alert_enabled` has no app setting yet.
+     */
     public void updateSettings(long id, AccountContracts.Profile profile, long policy, boolean alerts) {
         jdbc.update(
                 "UPDATE user_account SET display_name=?,age=?,occupation=?,threshold_policy_id=?,"
@@ -93,11 +105,16 @@ public class AccountRepository {
                 id);
     }
 
+    /** 비밀번호 해시만 바꾼다(로그인 끊기는 removeLogins). */
     public void changePassword(long id, String hash) {
         jdbc.update("UPDATE user_account SET password_hash=? WHERE user_account_id=?", hash, id);
     }
 
-    /** Withdrawal intake (DB-04 6-1): request row and CLOSED status in the caller's transaction. */
+    /**
+     * 탈퇴 접수: 삭제 요청 행 추가 + 계정 CLOSED.
+     *
+     * 호출한 쪽의 트랜잭션 안에서 실행한다(DB-04 6-1).
+     */
     public void close(long id, LocalDateTime at) {
         jdbc.update(
                 "INSERT INTO deletion_request(user_account_id,requested_at,request_scope,"
@@ -111,7 +128,11 @@ public class AccountRepository {
                 id);
     }
 
-    /** Withdrawal cancel (DB-04 6-1-1): only a REQUESTED row; no history is kept. */
+    /**
+     * 탈퇴 철회: 아직 처리 전(REQUESTED)일 때만 되돌린다.
+     *
+     * 요청 행은 지우고 이력은 남기지 않는다(DB-04 6-1-1).
+     */
     public boolean reopen(long id) {
         var requests =
                 jdbc.queryForList(
@@ -130,12 +151,20 @@ public class AccountRepository {
         return true;
     }
 
-    /** Every login of the user; `PRINCIPAL_NAME` is the decimal account id ({@link AccountPrincipal}). */
+    /**
+     * 그 사용자의 로그인 세션 행을 모두 지운다 = 모든 기기 로그아웃.
+     *
+     * `PRINCIPAL_NAME`은 계정 ID를 10진수 문자열로 쓴 값이다({@link AccountPrincipal}).
+     */
     public void removeLogins(long id) {
         jdbc.update("DELETE FROM SPRING_SESSION WHERE PRINCIPAL_NAME=?", Long.toString(id));
     }
 
-    /** Accounts whose grace period ended: `account_closed_at + grace <= now` (no due-date column). */
+    /**
+     * 유예 30일이 지난 탈퇴 계정 목록(한 번에 최대 100개).
+     *
+     * 기준: `account_closed_at + 유예일 <= 현재`(삭제 예정일 컬럼은 없다).
+     */
     public List<Long> withdrawalsDue(LocalDateTime now, int graceDays) {
         return jdbc.queryForList(
                 "SELECT user_account_id FROM deletion_request WHERE request_scope='ACCOUNT_ALL' AND"
@@ -145,6 +174,7 @@ public class AccountRepository {
                 now.minusDays(graceDays));
     }
 
+    /** 아직 지우지 않은 특징 적재 파일 수(있으면 최종 삭제 보류). */
     public int pendingArchiveFiles(long id) {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM feature_archive a JOIN monitor_session m ON"
@@ -154,6 +184,7 @@ public class AccountRepository {
                 id);
     }
 
+    /** 최종 삭제 실패 표시(다음 실행에서 다시 시도). */
     public void markWithdrawalFailed(long id, String reason) {
         jdbc.update(
                 "UPDATE deletion_request SET request_status='FAILED',failure_reason=? WHERE"
@@ -163,8 +194,10 @@ public class AccountRepository {
     }
 
     /**
-     * Final deletion, child rows first, in the caller's single transaction (DB-04 6-1). Only
-     * archive rows whose files were already removed may exist.
+     * 탈퇴 최종 삭제: 자식 테이블부터 순서대로 지운다.
+     *
+     * 호출한 쪽의 한 트랜잭션 안에서 실행한다(DB-04 6-1).
+     * 파일을 이미 지운 적재 기록 행만 남아 있어야 한다.
      */
     public void deleteWithdrawn(long id) {
         jdbc.update(
@@ -194,6 +227,7 @@ public class AccountRepository {
         return values.isEmpty() ? null : values.getFirst();
     }
 
+    /** 조회한 계정 한 행. */
     public record Account(
             long id,
             String email,

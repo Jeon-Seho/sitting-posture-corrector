@@ -13,7 +13,11 @@ import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 
-/** Synthetic requests and outputs only. */
+/**
+ * 추론 응답 검증 시험.
+ *
+ * 합성 요청·출력만 쓴다.
+ */
 class InferenceClientTest {
     private static final String MODEL = "reference-feature-rule-v1";
     private final InferenceClient client =

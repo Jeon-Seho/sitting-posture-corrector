@@ -13,8 +13,10 @@ import java.math.RoundingMode;
 import java.util.List;
 
 /**
- * `threshold_policy` rows are immutable (BR-64, BR-65). A changed setting finds or adds a USER row
- * with the same five values; the system default is found by its configured name, never by values.
+ * 판정 정책(threshold_policy) 찾기·추가. 정책 행은 한 번 쓰면 고치지 않는다.
+ *
+ * 설정을 바꾸면 같은 값 5개의 USER 행을 찾거나 추가한다(BR-64, BR-65).
+ * 기본 정책은 값이 아니라 설정된 이름으로 찾는다.
  */
 @Repository
 public class ThresholdPolicyRepository {
@@ -27,6 +29,7 @@ public class ThresholdPolicyRepository {
         this.defaultName = defaultName;
     }
 
+    /** 가입 때 연결하는 기본 정책(DEFAULT_TEMP)의 ID. */
     public long defaultId() {
         var rows =
                 jdbc.queryForList(
@@ -37,6 +40,7 @@ public class ThresholdPolicyRepository {
         return rows.getFirst();
     }
 
+    /** 정책 행 읽기. */
     public Values read(long id) {
         return jdbc.queryForObject(
                 "SELECT threshold,hold_seconds,recover_seconds,realert_seconds,notify_max_per_hour"
@@ -51,7 +55,11 @@ public class ThresholdPolicyRepository {
                 id);
     }
 
-    /** Finds or adds the row. The hourly cap is not user-editable and follows the default row. */
+    /**
+     * 같은 값의 정책 행을 찾고, 없으면 USER 행으로 추가한다.
+     *
+     * 시간당 알림 상한은 사용자가 바꿀 수 없어 기본 정책 값을 따른다.
+     */
     public long resolve(Values requested) {
         var values = requested.withCap(read(defaultId()).notifyMaxPerHour());
         var found = find(values);
@@ -68,7 +76,7 @@ public class ThresholdPolicyRepository {
                     values.notifyMaxPerHour(),
                     KstTime.now());
         } catch (DuplicateKeyException concurrent) {
-            // Another request added the same combination first (UK-03).
+            // 다른 요청이 같은 조합을 먼저 추가했다(UK-03).
         }
         return find(values);
     }
@@ -88,7 +96,11 @@ public class ThresholdPolicyRepository {
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
-    /** Column values of one policy row. Unrepresentable input is rejected, never rounded. */
+    /**
+     * 정책 값 5개: 임계값, 붕괴 확정, 회복, 재알림, 시간당 알림 상한.
+     *
+     * DB에 그대로 담을 수 없는 값은 반올림하지 않고 거부한다.
+     */
     public record Values(
             BigDecimal threshold,
             BigDecimal holdSeconds,
@@ -114,7 +126,7 @@ public class ThresholdPolicyRepository {
                     0);
         }
 
-        /** Settings use seconds; the same representability rules apply. */
+        /** 설정 화면 값(초 단위)으로 만든다. 같은 검사 규칙을 쓴다. */
         public static Values ofSeconds(double hold, double recover, double realert, double threshold) {
             if (hold * 2 != Math.rint(hold * 2)
                     || recover * 2 != Math.rint(recover * 2)

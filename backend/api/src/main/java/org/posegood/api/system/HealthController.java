@@ -6,7 +6,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/** Readiness: the API answers and the database accepts a query. */
+/**
+ * /health: API가 살아 있고 DB에 접속되는지 확인한다.
+ */
 @RestController
 public class HealthController {
     private final JdbcTemplate jdbc;

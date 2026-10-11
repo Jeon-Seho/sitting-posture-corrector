@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Loopback stand-in for FastAPI {@code POST /v2/infer} with the same reference rule as
- * model/inference/service.py (contracts/README.md). {@link #fail} makes the next calls answer 503.
+ * 통합 시험용 가짜 추론 서버(FastAPI와 같은 참조 규칙).
+ *
+ * FastAPI {@code POST /v2/infer} 대신 쓰는 loopback 서버. 규칙은 model/inference/service.py와 같다.
+ * {@link #fail}을 켜면 다음 호출부터 503으로 답한다.
  */
 public final class SyntheticInference implements AutoCloseable {
     private final HttpServer server;

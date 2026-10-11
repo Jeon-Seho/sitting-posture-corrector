@@ -24,12 +24,14 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Session tables of schema V2.2. Writes happen inside the caller's transaction. Elapsed session
- * milliseconds become KST {@code DATETIME(3)} values relative to `monitor_session.started_at`.
+ * 측정 SQL 모음: 세션, 기준 자세, 붕괴 사건, 알림, 제외 구간, 일별 통계.
+ *
+ * 쓰기는 호출한 쪽의 트랜잭션 안에서 한다. 세션 경과 ms는 `monitor_session.started_at` 기준
+ * KST {@code DATETIME(3)}으로 바꿔 저장한다.
  */
-@Repository("monitorSessionRepository") // Spring Session JDBC already defines "sessionRepository"
+@Repository("monitorSessionRepository") // Spring Session JDBC가 "sessionRepository" 이름을 이미 쓴다
 public class SessionRepository {
-    /** `baseline_posture` coordinate columns in {@link SessionRequests.Landmarks#points()} order. */
+    /** `baseline_posture` 좌표 컬럼({@link SessionRequests.Landmarks#points()} 순서). */
     private static final List<String> LANDMARKS =
             List.of(
                     "nose",
@@ -58,12 +60,15 @@ public class SessionRepository {
         this.jdbc = jdbc;
     }
 
+    /** 세션 UUID로 행 조회(정책 값·사건 수 포함). */
     public Stored find(UUID id) {
         var rows = jdbc.query(SESSION + " WHERE m.client_session_uuid=?", this::stored, id.toString());
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
     /**
+     * 세션 행 추가.
+     *
      * The session row after its baseline: the calibration, the policy and the account's 「자세 알림」
      * setting are copied at the start (V2.1 B안, V2.2). The policy row is resolved by the caller.
      */
@@ -86,9 +91,10 @@ public class SessionRepository {
     }
 
     /**
-     * One `baseline_posture` row per user (V2.1): a new calibration overwrites it, and the current
-     * calibration sent again is accepted when its values are the same (BR-63). A calibration that a
-     * session already used but that was since replaced, or one held by another user (UK-04), is 409.
+     * 기준 자세 저장(사용자당 1행, 새 보정이면 덮어쓰기).
+     *
+     * 현재 보정을 같은 값으로 다시 보내면 그대로 쓴다(BR-63). 세션에 쓰였다가 바뀐 보정이나
+     * 다른 사용자의 보정(UK-04)이면 409.
      */
     public void registerBaseline(long owner, SessionRequests.Baseline baseline, LocalDateTime now) {
         String calibration = baseline.baselineId().toString();
@@ -139,8 +145,10 @@ public class SessionRepository {
     }
 
     /**
-     * Decomposes one decision into the episode tables. {@code episode} is the session-local
-     * `collapse_event.event_seq` the decision belongs to.
+     * 판정 사건 하나를 테이블에 반영: 붕괴 → collapse_event + 첫 알림,
+     * 재알림 → 알림 추가, 회복·중단 → 사건 종료.
+     *
+     * {@code episode}는 이 사건이 속한 세션 안 순번(`collapse_event.event_seq`)이다.
      */
     public void applyEvent(Stored session, DecisionEvent event, int episode) {
         var at = at(session, event.timestampMs());
@@ -173,16 +181,17 @@ public class SessionRepository {
                             session.key(),
                             episode);
             case "session_ended" -> {
-                // The session row records the end.
+                // 종료는 세션 행에 기록한다.
             }
             default -> throw new IllegalStateException("unknown decision kind");
         }
     }
 
     /**
-     * Closes the row once: end time, reason and good time together (BR-35), the exclusion spans,
-     * and the KST day of the session start in `daily_stat` (BR-61). Returns false if already closed.
-     * {@code reason} is USER_STOP, or DISCONNECTED when the app archived without an end.
+     * 세션 종료 기록: 종료 3컬럼, 제외 구간, 일별 통계.
+     *
+     * 종료 시각·사유·바른 자세 시간은 함께 채운다(BR-35). 일별 통계는 세션 시작의 KST 날짜에 더한다(BR-61).
+     * 이미 닫혔으면 false. {@code reason}은 USER_STOP, 앱이 종료 확인 없이 기록을 남기면 DISCONNECTED.
      */
     public boolean close(Stored session, Closing closing, String reason) {
         int closed =
@@ -205,7 +214,7 @@ public class SessionRepository {
         jdbc.update(
                 "INSERT INTO daily_stat(user_account_id,stat_date,valid_sec,good_sec,session_count,"
                         + "event_count,alerted_event_count,computed_at) VALUES(?,?,?,?,1,?,?,?)"
-                        // VALUES() keeps MySQL 8.0.16 support (row aliases need 8.0.19).
+                        // VALUES()는 MySQL 8.0.16도 지원하려고 쓴다(행 별칭은 8.0.19부터).
                         + " ON DUPLICATE KEY UPDATE valid_sec=valid_sec+VALUES(valid_sec),"
                         + "good_sec=good_sec+VALUES(good_sec),session_count=session_count+1,"
                         + "event_count=event_count+VALUES(event_count),"
@@ -222,10 +231,11 @@ public class SessionRepository {
     }
 
     /**
-     * Closes a row whose decision state was lost (API restart) as ERROR. Only the decisions already
-     * written are known: open episodes end with the session, good time and exclusions are unknown
-     * (good_sec 0, no exclusion rows) and `daily_stat` is not changed. {@code acknowledgedMs} is the
-     * session length the app last received; the end never precedes a stored decision.
+     * 판정 상태를 잃은 세션을 ERROR로 닫는다.
+     *
+     * 이미 쓴 사건만 알 수 있다: 열린 사건은 세션과 함께 끝내고, 바른 자세 시간·제외 구간은 모르므로
+     * good_sec 0, 제외 구간 없음, `daily_stat`은 바꾸지 않는다. {@code acknowledgedMs}는 앱이 마지막으로 받은
+     * 세션 길이이며, 종료 시각은 저장된 사건보다 앞서지 않게 한다.
      */
     public boolean closeLost(Stored session, long acknowledgedMs) {
         LocalDateTime last =
@@ -253,7 +263,11 @@ public class SessionRepository {
         return true;
     }
 
-    /** Deletes the session with its decisions; archived feature files block it (FK-13). */
+    /**
+     * 세션 삭제(하위 행도 함께 지워짐).
+     *
+     * 특징 적재 파일이 있으면 지우지 않는다(FK-13, 409).
+     */
     public void delete(Stored session) {
         try {
             jdbc.update("DELETE FROM monitor_session WHERE monitor_session_id=?", session.key());
@@ -262,7 +276,11 @@ public class SessionRepository {
         }
     }
 
-    /** Delivery is recorded as the session's alert setting; the hourly cap is not applied. */
+    /**
+     * 알림 시도 기록(자세 알림이 꺼진 세션이면 ALERT_OFF).
+     *
+     * 표시 여부는 세션의 알림 설정 값이다. 시간당 알림 상한은 아직 적용하지 않는다.
+     */
     private void alert(Stored session, int episode, LocalDateTime at) {
         jdbc.update(
                 "INSERT INTO correction_alert(monitor_session_id,event_seq,attempt_seq,attempted_at,"
@@ -290,7 +308,7 @@ public class SessionRepository {
         return List.copyOf(columns);
     }
 
-    /** {@link #BASELINE_VALUES} at column precision: DECIMAL(4,1), INT, then DECIMAL(6,5). */
+    /** {@link #BASELINE_VALUES}를 컬럼 정밀도로 맞춘다: DECIMAL(4,1), INT, DECIMAL(6,5). */
     private static List<BigDecimal> baselineValues(SessionRequests.Baseline baseline) {
         var values = new ArrayList<BigDecimal>();
         values.add(seconds(baseline.calibrationMs()));
@@ -345,8 +363,9 @@ public class SessionRepository {
     }
 
     /**
-     * One `monitor_session` row with its frozen policy, copied calibration ({@code baselineId}) and
-     * stored episode counts.
+     * 세션 행 하나.
+     *
+     * 고정된 정책, 복사한 보정 ID({@code baselineId}), 저장된 사건·알림 수를 함께 담는다.
      */
     public record Stored(
             long key,
@@ -362,7 +381,9 @@ public class SessionRepository {
             long collapseCount,
             long alertCount) {}
 
-    /** Values written when a session ends. */
+    /**
+     * 세션을 닫을 때 쓰는 값.
+     */
     public record Closing(
             long totalMs,
             long validMs,

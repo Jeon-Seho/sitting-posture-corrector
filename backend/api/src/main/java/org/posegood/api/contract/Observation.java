@@ -8,7 +8,11 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
-/** Observation v2: one inference over the end-exclusive interval [startMs, endMs). */
+/**
+ * 추론 결과 한 구간(관측 v2): 측정 가능 여부, 붕괴 확률, 자세 방향.
+ *
+ * 구간은 [startMs, endMs)이다(끝은 포함하지 않음).
+ */
 public record Observation(
         @NotNull @Pattern(regexp = "2\\.0") String schemaVersion,
         @PositiveOrZero long sequence,

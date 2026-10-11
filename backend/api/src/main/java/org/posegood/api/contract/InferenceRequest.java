@@ -9,7 +9,11 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 import java.util.UUID;
 
-/** Feature input v2 (contracts/inference-request.v2.schema.json), shared with FastAPI. */
+/**
+ * 앱이 보내는 특징 입력 한 구간(v2). FastAPI 추론에 그대로 넘긴다.
+ *
+ * 계약: contracts/inference-request.v2.schema.json(FastAPI와 공유).
+ */
 public record InferenceRequest(
         @NotNull @Pattern(regexp = "2\\.0") String schemaVersion,
         @NotNull @Pattern(regexp = "shoulder-relative-deltas-v1") String featureVersion,

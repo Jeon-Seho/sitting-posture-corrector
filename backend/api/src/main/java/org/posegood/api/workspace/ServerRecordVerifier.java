@@ -16,9 +16,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A record that claims server results must match what this server decided for the owner's session.
- * With live state the view must be a prefix of the engine's history (and equal it once confirmed).
- * After a restart only the stored facts can be compared: the end, good time and episode counts.
+ * 저장하려는 기록이 서버 판정과 같은지 확인한다(다르면 409).
+ *
+ * 판정 상태가 있으면 기록의 조회 응답이 엔진 이력의 앞부분이어야 한다(확인 종료면 같아야 함).
+ * 재시작 뒤에는 DB에 남은 종료 시각·바른 자세 시간·사건 수만 비교할 수 있다.
  */
 @Component
 class ServerRecordVerifier {
@@ -32,7 +33,9 @@ class ServerRecordVerifier {
         this.json = json;
     }
 
-    /** Validates and normalizes the record's dates to the stored session times. */
+    /**
+     * 기록을 검증하고 날짜를 DB 시각으로 맞춘다.
+     */
     void verify(long owner, ObjectNode body) {
         var id = UUID.fromString(body.get("id").asText());
         var stored = sessions.owned(owner, id);
@@ -78,6 +81,7 @@ class ServerRecordVerifier {
             body.put("endedAt", stored.startedAt().toString());
     }
 
+    /** 기록의 요약이 서버가 실제로 보낸 것인지 확인한다. */
     private void acknowledged(SessionRepository.Stored stored, SessionView view, boolean confirmed) {
         if (!stored.policy().equals(view.policy())) throw notAcknowledged();
         var session = live.get(stored.id());

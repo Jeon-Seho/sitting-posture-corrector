@@ -8,13 +8,18 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Synchronous application events published while the session lock is held, so listeners (the
- * realtime channel) see one session's changes in order.
+ * 세션 변경 이벤트(실시간 채널로 전달된다).
+ *
+ * 세션 잠금을 잡은 채 동기로 발행하므로 실시간 채널은 한 세션의 변경을 순서대로 받는다.
  */
 public final class SessionUpdates {
     private SessionUpdates() {}
 
-    /** One accepted input; {@code observation} is null when only an end produced decisions. */
+    /**
+     * 새 관측·사건·요약.
+     *
+     * {@code observation}이 null이면 종료만으로 사건이 생긴 경우다.
+     */
     public record Progressed(
             UUID sessionId,
             Observation observation,
@@ -23,6 +28,10 @@ public final class SessionUpdates {
             Summary summary,
             boolean ended) {}
 
-    /** The session left memory; {@code reason} is a realtime closed reason. */
+    /**
+     * 세션이 메모리에서 빠짐.
+     *
+     * {@code reason}은 실시간 closed 메시지의 사유다.
+     */
     public record Removed(UUID sessionId, String reason) {}
 }

@@ -37,9 +37,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The API on a real MySQL with the unchanged schema V2.2 and seed, plus a loopback inference stub
- * with the reference rule. Every account, feature and record is synthetic. Run with
- * {@code -Pmysql-integration} (backend/README.md).
+ * 실제 MySQL과 가짜 추론 서버로 API 전체 흐름을 확인하는 통합 시험.
+ *
+ * 스키마 V2.2·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·특징·기록은 모두 합성이다.
+ * 실행: {@code -Pmysql-integration}(backend/README.md).
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -90,7 +91,7 @@ class MySqlIntegrationTest {
         return create(baseline, 0.5);
     }
 
-    /** Synthetic mean coordinates of the nine baseline landmarks (schema V2.1). */
+    /** 기준 자세 9개 관절의 합성 평균 좌표(스키마 V2.1). */
     private static ObjectNode create(UUID baseline, double noseX) {
         var body = MAPPER.createObjectNode();
         body.set("policy", policy());
@@ -112,7 +113,7 @@ class MySqlIntegrationTest {
         return body;
     }
 
-    /** A running interval; lateral 0.3 scores 1.0 (deviation), 0 scores 0 (normal). */
+    /** 측정 구간 하나. 좌우 치우침 0.3이면 점수 1.0(이탈), 0이면 0(바른 자세). */
     private static ObjectNode feature(UUID baseline, long sequence, long start, long end, double lateral) {
         var body = MAPPER.createObjectNode();
         body.put("schema_version", "2.0")
@@ -138,7 +139,7 @@ class MySqlIntegrationTest {
         return body;
     }
 
-    /** Collapse at 3 s, recovery at 6 s, rest to 7 s, then a gap until the end at 9 s. */
+    /** 3초에 붕괴, 6초에 회복, 7초까지 휴식, 그 뒤 9초 종료까지 공백. */
     private JsonNode measure(ApiClient api, UUID id, UUID baseline) throws Exception {
         String path = "/v1/sessions/" + id;
         assertEquals(200, api.put(path, create(baseline)).status());
@@ -188,9 +189,9 @@ class MySqlIntegrationTest {
             assertTrue(row.next());
             assertEquals("USER", row.getString(1));
             assertFalse(row.getBoolean(2)); // 「자세 알림」 (V2.2)
-            assertFalse(row.getBoolean(3)); // sound stays at its default
+            assertFalse(row.getBoolean(3)); // 소리는 기본값 그대로
         }
-        // The session copies the setting at its start: alerts are recorded as suppressed.
+        // 세션은 시작할 때 설정을 복사한다: 알림은 억제로 기록된다.
         UUID quiet = UUID.randomUUID(), quietBaseline = UUID.randomUUID();
         assertEquals(200, api.put("/v1/sessions/" + quiet, create(quietBaseline)).status());
         for (long at = 0; at < 3000; at += 1000)
@@ -217,7 +218,7 @@ class MySqlIntegrationTest {
                         .put("current_password", "synthetic-password-1")
                         .put("new_password", "synthetic-password-2");
         assertEquals(204, api.put("/v1/auth/password", change).status());
-        // Every SPRING_SESSION row of the account is gone (V2.1 has no auth_epoch).
+        // 그 계정의 SPRING_SESSION 행이 모두 없어졌다(V2.1에는 auth_epoch가 없다).
         try (var connection = database.connect();
                 var query =
                         connection.prepareStatement("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME=?")) {
@@ -253,7 +254,7 @@ class MySqlIntegrationTest {
         assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asText());
 
         String path = "/v1/sessions/" + id;
-        // Retries: the same end and the same input change nothing; others conflict.
+        // 재시도: 같은 종료·같은 입력은 아무것도 바꾸지 않고, 다른 것은 409.
         assertEquals(view, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000)).body());
         assertEquals(409, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9500)).status());
         var retried = api.post(path + "/features", feature(baseline, 0, 0, 1000, 0.3));
@@ -269,7 +270,7 @@ class MySqlIntegrationTest {
                                     + " FROM monitor_session WHERE client_session_uuid='" + id + "'");
             assertTrue(session.next());
             long key = session.getLong(1);
-            // DATETIME values are read as stored (KST), independent of the JVM time zone.
+            // DATETIME은 JVM 시간대와 관계없이 저장된 값(KST) 그대로 읽는다.
             var started = session.getObject(2, LocalDateTime.class);
             assertEquals(started.plusSeconds(9), session.getObject(3, LocalDateTime.class));
             assertEquals("USER_STOP", session.getString(4));
@@ -324,7 +325,7 @@ class MySqlIntegrationTest {
             assertEquals(1, daily.getInt(6));
         }
 
-        // The app record must equal the server decisions; dates come from the DB.
+        // 앱 기록은 서버 판정과 같아야 하고, 날짜는 DB 값을 쓴다.
         var record = record(id, baseline, view, true);
         var saved = api.post("/v1/records", record);
         assertEquals(200, saved.status());
@@ -339,7 +340,7 @@ class MySqlIntegrationTest {
         local.remove("server");
         assertEquals(400, api.post("/v1/records", local).status());
 
-        // Records are rebuilt from the session tables (no client_record in V2.1).
+        // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다).
         var records = api.get("/v1/records").body();
         assertEquals(1, records.size());
         var rebuilt = records.get(0);
@@ -356,13 +357,13 @@ class MySqlIntegrationTest {
         for (int index = 0; index < view.get("events").size(); index++) {
             var expected = (ObjectNode) view.get("events").get(index).deepCopy();
             if (!"session_ended".equals(expected.get("kind").asText()))
-                expected.put("deviation_type", "unspecified"); // T-36 collapse_type is on hold
+                expected.put("deviation_type", "unspecified"); // T-36 collapse_type 보류
             assertEquals(expected, rebuiltView.get("events").get(index));
         }
         assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asText());
         assertEquals(records, api.get("/v1/workspace").body().get("records"));
 
-        // Deleting the record deletes the session; the daily statistics stay (scenario 2).
+        // 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
         assertEquals(204, api.delete("/v1/records/" + id, null).status());
         assertEquals(404, api.get(path).status());
         try (var connection = database.connect(); var statement = connection.createStatement()) {
@@ -390,10 +391,10 @@ class MySqlIntegrationTest {
         assertEquals(409, api.put("/v1/sessions/" + a, otherPolicy).status());
         assertEquals(200, api.put("/v1/sessions/" + b, create(second)).status());
         assertEquals(409, api.put("/v1/sessions/" + UUID.randomUUID(), create(first)).status());
-        // The current calibration with other values conflicts (UK-04, BR-63).
+        // 현재 보정을 다른 값으로 보내면 409(UK-04, BR-63).
         assertEquals(409, api.put("/v1/sessions/" + UUID.randomUUID(), create(second, 0.51)).status());
         try (var connection = database.connect(); var statement = connection.createStatement()) {
-            // One row per user, overwritten by the new calibration (V2.1); sessions keep their copy.
+            // 사용자당 1행이고 새 보정으로 덮어쓴다(V2.1). 세션은 복사한 값을 유지한다.
             var current =
                     statement.executeQuery(
                             "SELECT calibration_uuid,nose_x,right_shoulder_y FROM baseline_posture WHERE"
@@ -421,7 +422,7 @@ class MySqlIntegrationTest {
         assertEquals(404, other.get("/v1/sessions/" + b).status());
         assertEquals(404, other.post("/v1/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
 
-        // A rejected inference changes nothing; the same request succeeds afterwards.
+        // 추론이 거절되면 아무것도 바뀌지 않고, 같은 요청은 나중에 성공한다.
         inference.fail.set(true);
         try {
             assertEquals(502, api.post("/v1/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
@@ -432,20 +433,20 @@ class MySqlIntegrationTest {
         assertEquals(200, api.post("/v1/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
         assertEquals(409, api.post("/v1/sessions/" + b + "/features", feature(first, 1, 1000, 2000, 0.3)).status());
 
-        // A restart loses the live state: the row stays, the API answers 404 SESSION_LOST.
+        // 재시작하면 판정 상태가 사라진다: 행은 남고 API는 404 SESSION_LOST로 답한다.
         var before = api.get("/v1/sessions/" + b).body();
         live.remove(b, "session_lost");
         var lost = api.get("/v1/sessions/" + b);
         assertEquals(404, lost.status());
         assertEquals("SESSION_LOST", lost.body().get("code").asText());
-        // An unconfirmed record of the last acknowledged view is still accepted from DB facts and
-        // closes the row as ERROR; the rebuilt record has no view (decision state unknown).
+        // 마지막으로 받은 조회 응답의 확인 안 된 기록은 DB 값으로 검증해 받고 행을 ERROR로 닫는다.
+        // 다시 만든 기록에는 조회 응답이 없다(판정 상태를 모름).
         assertEquals(200, api.post("/v1/records", record(b, second, before, false)).status());
         var metadata = api.get("/v1/sessions/" + b + "/metadata").body();
         assertEquals(second.toString(), metadata.get("baseline_id").asText());
         assertFalse(metadata.get("ended_at").isNull());
 
-        // An archived live session is ended where it stands and closed as DISCONNECTED.
+        // 기록으로 남긴 진행 중 세션은 그 자리에서 끝나고 DISCONNECTED로 닫힌다.
         var unfinished = api.get("/v1/sessions/" + a).body();
         assertEquals(200, api.post("/v1/records", record(a, first, unfinished, false)).status());
         assertTrue(api.get("/v1/sessions/" + a).body().get("ended").asBoolean());
@@ -542,7 +543,7 @@ class MySqlIntegrationTest {
         assertEquals(3, socket.next("ack").get("last_sequence").asLong());
         assertEquals(4000, socket.next("progress").get("summary").get("total_ms").asLong());
 
-        // A reconnect replays decisions after last_event_id, then ack and progress.
+        // 다시 연결하면 last_event_id 뒤의 사건, ack, progress 순서로 받는다.
         var resumed = Socket.open(port, api.cookieHeader());
         resumed.send(hello(id, 0));
         assertEquals(1, resumed.next("decision").get("event").get("event_id").asLong());
@@ -561,7 +562,7 @@ class MySqlIntegrationTest {
                 .put("last_event_id", lastEventId);
     }
 
-    /** The app's RecordItem for the measured view (frontend/src/features/storage/types.ts). */
+    /** 측정한 조회 응답에 대한 앱 기록(RecordItem, frontend/src/features/storage/types.ts). */
     private static ObjectNode record(UUID id, UUID baseline, JsonNode view, boolean confirmed) {
         var summary = view.get("summary");
         var record = MAPPER.createObjectNode();
@@ -630,7 +631,7 @@ class MySqlIntegrationTest {
         return record;
     }
 
-    /** Minimal WebSocket test client; messages are kept in arrival order. */
+    /** 시험용 최소 WebSocket 클라이언트. 메시지를 받은 순서대로 보관한다. */
     private static final class Socket implements WebSocket.Listener {
         private final LinkedBlockingQueue<JsonNode> messages = new LinkedBlockingQueue<>();
         private final StringBuilder partial = new StringBuilder();
@@ -650,7 +651,7 @@ class MySqlIntegrationTest {
             socket.sendText(MAPPER.writeValueAsString(message), true).get(5, TimeUnit.SECONDS);
         }
 
-        /** The next message of {@code type} (and event kind, if given), skipping others. */
+        /** {@code type}(주어지면 사건 종류까지) 맞는 다음 메시지. 나머지는 건너뛴다. */
         JsonNode next(String type, String... kind) throws Exception {
             long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
             while (System.nanoTime() < deadline) {

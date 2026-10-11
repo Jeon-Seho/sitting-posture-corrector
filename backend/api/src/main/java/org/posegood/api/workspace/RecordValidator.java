@@ -9,14 +9,16 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Shape checks of the app's settings and RecordItem JSON (frontend/src/features/storage/types.ts).
- * Storage contract only; it does not classify posture or decide time.
+ * 앱 기록·설정 JSON 형식 검사(틀리면 400).
+ *
+ * 형식: frontend/src/features/storage/types.ts. 저장 형식만 보며 자세나 시간을 판정하지 않는다.
  */
 final class RecordValidator {
     private static final String UUID_TEXT = "[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}";
 
     private RecordValidator() {}
 
+    /** 판정 기준 범위 검사. */
     static void rules(JsonNode value) {
         shape(value, Set.of("holdSeconds", "recoverSeconds", "realertSeconds", "threshold"), Set.of());
         number(value, "holdSeconds", 0, 10, true);
@@ -25,12 +27,14 @@ final class RecordValidator {
         number(value, "threshold", 0, 1, true);
     }
 
+    /** 설정(자세 알림) 검사. */
     static void preferences(JsonNode value) {
         // The 「자세 알림」 switch (`alert_enabled`); the demo toggle stays on the device.
         shape(value, Set.of("alerts_on"), Set.of());
         bool(value, "alerts_on");
     }
 
+    /** 기록 한 건의 형식 검사. */
     static void record(JsonNode value) {
         shape(
                 value,

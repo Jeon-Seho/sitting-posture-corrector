@@ -10,7 +10,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.stream.Collectors;
 
-/** A browser-like client: cookie login session, CSRF header and the stale-tab user header. */
+/**
+ * 통합 시험용 HTTP 클라이언트(쿠키 로그인, CSRF, 사용자 헤더).
+ */
 final class ApiClient {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -43,7 +45,7 @@ final class ApiClient {
         return send("DELETE", path, body);
     }
 
-    /** Fresh CSRF token; required after every sign-in or sign-out. */
+    /** CSRF 토큰 새로 받기. 로그인·로그아웃 뒤마다 필요하다. */
     void refreshCsrf() throws Exception {
         csrf = get("/v1/auth/csrf").body().get("token").asText();
     }
@@ -68,7 +70,7 @@ final class ApiClient {
         return response;
     }
 
-    /** The {@code Cookie} header for a WebSocket handshake. */
+    /** WebSocket 연결에 붙일 {@code Cookie} 헤더. */
     String cookieHeader() {
         return cookies.getCookieStore().getCookies().stream()
                 .map(cookie -> cookie.getName() + "=" + cookie.getValue())

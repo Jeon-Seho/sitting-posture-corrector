@@ -8,7 +8,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/** Settings and app records of contracts/accounts.v1.md. */
+/**
+ * /v1/workspace·/v1/records HTTP 경로: 설정과 기록.
+ *
+ * 계약: contracts/accounts.v1.md.
+ */
 @RestController
 @RequestMapping("/v1")
 public class WorkspaceController {
@@ -20,26 +24,31 @@ public class WorkspaceController {
         this.current = current;
     }
 
+    /** 설정 + 기록 조회. */
     @GetMapping("/workspace")
     public JsonNode workspace() {
         return workspace.get(current.id());
     }
 
+    /** 설정 저장. */
     @PutMapping("/workspace")
     public JsonNode update(@RequestBody JsonNode body) {
         return workspace.update(current.id(), body);
     }
 
+    /** 기록 목록. */
     @GetMapping("/records")
     public List<JsonNode> records() {
         return workspace.records(current.id());
     }
 
+    /** 기록 저장. */
     @PostMapping("/records")
     public JsonNode save(@RequestBody JsonNode body) {
         return workspace.save(current.id(), body);
     }
 
+    /** 기록(= 세션) 삭제. */
     @DeleteMapping("/records/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable String id) {

@@ -3,9 +3,10 @@ package org.posegood.api.engine;
 import org.posegood.api.contract.Policy;
 
 /**
- * The only place that compares accumulated time with the frozen policy (formerly
- * {@code cep/src/main/resources/rules/posture.epl}). At most one rule can match one frame: a
- * collapse needs no active episode, a reminder needs one, and a recovery needs a non-candidate.
+ * 판정 규칙 3개(붕괴 확정·회복·재알림)를 정책 값과 비교하는 유일한 곳.
+ *
+ * 예전 CEP의 {@code posture.epl} 규칙을 옮겼다. 한 구간에는 규칙이 최대 하나만 맞는다:
+ * 붕괴 확정은 열린 사건이 없을 때, 재알림은 열린 사건이 있을 때, 회복은 이탈 후보가 아닐 때.
  */
 final class DecisionRules {
     enum Decision {
@@ -17,6 +18,7 @@ final class DecisionRules {
 
     private DecisionRules() {}
 
+    /** 지금 구간에서 나오는 판정(없으면 NONE). */
     static Decision evaluate(
             boolean candidate,
             boolean active,

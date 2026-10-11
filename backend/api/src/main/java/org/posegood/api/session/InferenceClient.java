@@ -14,8 +14,9 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 
 /**
- * FastAPI {@code POST /v2/infer}. The output is checked against the request before it reaches the
- * decision engine; a mismatch is a 502 and the session state does not change.
+ * FastAPI 추론 호출(POST /v2/infer)과 결과 검증. 실패하거나 맞지 않으면 502.
+ *
+ * 결과는 판정 엔진에 넣기 전에 요청과 대조한다. 맞지 않으면 502이고 세션 상태는 바뀌지 않는다.
  */
 @Component
 public class InferenceClient {
@@ -41,6 +42,7 @@ public class InferenceClient {
         return modelVersion;
     }
 
+    /** 추론을 부르고 응답이 요청과 맞는지 확인한다. */
     public Observation infer(InferenceRequest request) {
         Observation result;
         try {
@@ -53,7 +55,7 @@ public class InferenceClient {
         return result;
     }
 
-    /** The output must answer this request and keep low quality out of valid time (ADR 0013). */
+    /** 결과가 이 요청에 대한 것이고, 품질이 낮은 구간을 유효로 표시하지 않았는지 확인한다(ADR 0013). */
     void require(InferenceRequest request, Observation observation) {
         boolean measurable =
                 request.phase() == Observation.Phase.running
@@ -77,7 +79,7 @@ public class InferenceClient {
             throw ApiError.upstream("inference response contract mismatch");
     }
 
-    /** Loopback in development, a named internal host with a token in Compose. */
+    /** 개발에서는 loopback 주소, Compose에서는 토큰과 함께 내부 호스트만 허용한다. */
     static void requireEndpoint(String url, boolean internal, String token) {
         var uri = URI.create(url);
         boolean host =
@@ -94,7 +96,7 @@ public class InferenceClient {
             throw new IllegalArgumentException("internal token configuration required");
     }
 
-    /** The internal token must never follow a redirect to another authority. */
+    /** 내부 토큰이 다른 주소로의 리다이렉트를 따라가지 않게 한다. */
     private static final class NoRedirectRequestFactory extends SimpleClientHttpRequestFactory {
         @Override
         protected void prepareConnection(HttpURLConnection connection, String method)

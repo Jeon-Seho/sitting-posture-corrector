@@ -35,12 +35,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
- * Realtime channel of contracts/realtime (draft v1) without Kafka: features go through the same
- * {@link SessionService} path as HTTP; observations, decisions, alerts and progress are pushed to
- * every channel bound to the session. Session create, end and restore stay on HTTP.
+ * 실시간 채널: hello로 세션에 연결하고 features로 특징을 받아 판정 결과를 push한다.
  *
- * <p>Retryable failures (inference or storage) send {@code stalled} and close the socket so the app
- * reconnects and resends its unacknowledged intervals. Definite refusals close the channel.
+ * 계약: contracts/realtime(초안 v1), Kafka 없이 처리한다. 특징은 HTTP와 같은 {@link SessionService} 경로로 가고,
+ * 관측·판정·알림·진행 상황은 그 세션에 연결된 모든 채널로 보낸다. 세션 생성·종료·복구는 HTTP로 한다.
+ *
+ * <p>추론·DB 일시 장애는 {@code stalled}를 보내고 연결을 닫는다. 앱은 다시 연결해 확인받지 못한 구간을
+ * 다시 보낸다. 확실한 거절은 채널을 닫는다.
  */
 @Component
 public class RealtimeHandler extends TextWebSocketHandler {
@@ -63,17 +64,20 @@ public class RealtimeHandler extends TextWebSocketHandler {
         this.validator = validator;
     }
 
+    /** 새 연결 등록. */
     @Override
     public void afterConnectionEstablished(WebSocketSession socket) {
         channels.put(socket.getId(), new Channel(new ConcurrentWebSocketSessionDecorator(socket, 5000, 1 << 20)));
     }
 
+    /** 연결이 끊기면 정리. */
     @Override
     public void afterConnectionClosed(WebSocketSession socket, CloseStatus status) {
         var channel = channels.remove(socket.getId());
         if (channel != null && channel.session != null) unbind(channel);
     }
 
+    /** 메시지 종류(hello·features)에 따라 처리. 그 밖은 연결을 닫는다. */
     @Override
     protected void handleTextMessage(WebSocketSession socket, TextMessage message) {
         var channel = channels.get(socket.getId());
@@ -93,7 +97,11 @@ public class RealtimeHandler extends TextWebSocketHandler {
         }
     }
 
-    /** Binds the owned session, replays decisions after last_event_id, then ack and progress. */
+    /**
+     * hello: 내 세션에 연결하고 놓친 사건을 다시 보낸다.
+     *
+     * last_event_id 뒤의 사건을 보낸 다음 ack·progress를 보낸다.
+     */
     private void hello(Channel channel, WebSocketSession socket, JsonNode frame) {
         UUID id = sessionId(frame);
         if (id == null
@@ -131,9 +139,10 @@ public class RealtimeHandler extends TextWebSocketHandler {
                 });
     }
 
+    /** features: 1~30구간을 HTTP와 같은 경로로 처리하고 ack·progress를 보낸다. */
     private void features(Channel channel, WebSocketSession socket, JsonNode frame) {
         UUID id = sessionId(frame);
-        if (channel.session == null || !channel.session.equals(id)) return; // hello first
+        if (channel.session == null || !channel.session.equals(id)) return; // hello가 먼저
         var items = frame.path("items");
         if (!exactly(frame, FEATURES) || !items.isArray() || items.isEmpty() || items.size() > MAX_ITEMS) {
             closed(channel, id, "session_lost");
@@ -180,7 +189,9 @@ public class RealtimeHandler extends TextWebSocketHandler {
                 });
     }
 
-    /** Pushes one accepted input, or the end, to every channel of the session. */
+    /**
+     * 세션에 새 결과가 생기면 연결된 모든 채널에 보낸다.
+     */
     @EventListener
     public void progressed(SessionUpdates.Progressed update) {
         var targets = bySession.get(update.sessionId());
@@ -201,6 +212,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
         }
     }
 
+    /** 세션이 메모리에서 빠지면 연결된 채널을 닫는다. */
     @EventListener
     public void removed(SessionUpdates.Removed removed) {
         var targets = bySession.get(removed.sessionId());
@@ -208,7 +220,11 @@ public class RealtimeHandler extends TextWebSocketHandler {
         for (var channel : targets) closed(channel, removed.sessionId(), removed.reason());
     }
 
-    /** A socket keeps the login of its handshake; it ends with that login (V2.1 has no epoch). */
+    /**
+     * 비밀번호 변경·탈퇴로 로그인이 지워지면 그 사용자의 연결을 닫는다.
+     *
+     * 연결은 처음 맺을 때의 로그인을 계속 쓰므로 그 로그인이 끝나면 함께 닫는다.
+     */
     @EventListener
     public void loginsRemoved(AccountService.LoginsRemoved removed) {
         for (var channel : channels.values()) {
@@ -220,7 +236,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
         }
     }
 
-    /** On shutdown the app keeps its unacknowledged intervals and reconnects. */
+    /** 서버 종료 때: 앱은 확인받지 못한 구간을 가지고 있다가 다시 연결한다. */
     @jakarta.annotation.PreDestroy
     public void shutdown() {
         for (var channel : channels.values())
@@ -272,7 +288,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
         try {
             if (channel.socket.isOpen()) channel.socket.close(status);
         } catch (IOException ignored) {
-            // Already closed by the peer.
+            // 상대가 이미 닫았다.
         }
     }
 
@@ -289,7 +305,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
         return true;
     }
 
-    /** One socket; {@code session} is set by hello. */
+    /** 연결 하나. {@code session}은 hello 때 정해진다. */
     private static final class Channel {
         private final WebSocketSession socket;
         private volatile UUID session;

@@ -6,7 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Records accepted decisions and derives episode statistics on the valid-time axis. */
+/**
+ * 판정 사건 기록장: 사건을 쌓고 붕괴 수·알림 수·평균 간격·평균 회복 시간을 센다.
+ *
+ * 통계는 유효 시간 축에서 계산한다.
+ */
 final class EpisodeLedger {
     private final UUID sessionId;
     private final List<DecisionEvent> events = new ArrayList<>();
@@ -32,6 +36,7 @@ final class EpisodeLedger {
         return active == null ? 0 : at - active.lastAlert;
     }
 
+    /** 붕괴 확정(첫 알림 포함). */
     void confirmCollapse(long at, long onset, long onsetValid, String type) {
         active = new Episode(onset, onsetValid, at, type);
         collapseCount++;
@@ -44,12 +49,14 @@ final class EpisodeLedger {
         emit("collapse_confirmed", at, active, null);
     }
 
+    /** 재알림. */
     void remind(long at) {
         alerts++;
         active.lastAlert = at;
         emit("reminder", at, active, null);
     }
 
+    /** 회복 확정. */
     void confirmRecovery(long at) {
         recoveries++;
         recoverySum += at - active.firstAlert;
@@ -57,12 +64,15 @@ final class EpisodeLedger {
         active = null;
     }
 
-    /** Ends an open episode without counting it as a recovery. */
+    /**
+     * 중단: 열린 사건을 회복으로 세지 않고 끝낸다.
+     */
     void interrupt(String reason, long at) {
         if (active != null) emit("interrupted", at, active, reason);
         active = null;
     }
 
+    /** 세션 종료 사건. */
     void end(long at, long validMs) {
         events.add(
                 new DecisionEvent(

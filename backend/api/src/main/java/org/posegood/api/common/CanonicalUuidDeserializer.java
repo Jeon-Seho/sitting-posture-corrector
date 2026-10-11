@@ -12,7 +12,11 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-/** The wire contract accepts canonical UUID text only, not Jackson's alternate Base64 form. */
+/**
+ * UUID는 표준 36자 문자열만 받는다(다른 표기는 400).
+ *
+ * Jackson이 받아 주는 Base64 형식 등은 거부한다.
+ */
 @JsonComponent
 public class CanonicalUuidDeserializer extends JsonDeserializer<UUID> {
     public static final Pattern CANONICAL =

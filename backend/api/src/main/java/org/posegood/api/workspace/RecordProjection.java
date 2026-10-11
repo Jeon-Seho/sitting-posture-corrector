@@ -8,12 +8,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.posegood.api.contract.SessionView;
 
 /**
- * The app's display projection of server decisions into RecordItem events. It mirrors what the app
- * stores; it never re-derives time decisions.
+ * 판정 사건 목록을 앱 기록(RecordItem)의 사건 형식으로 바꾼다(프론트와 같은 규칙).
+ *
+ * 시간 판정을 다시 하지 않고 서버 사건을 옮기기만 한다.
  */
 final class RecordProjection {
     private RecordProjection() {}
 
+    /** 판정 사건 → 앱 기록 사건. */
     static ArrayNode events(SessionView view, boolean confirmed) {
         var factory = JsonNodeFactory.instance;
         ArrayNode events = factory.arrayNode();
@@ -69,7 +71,7 @@ final class RecordProjection {
                     if (!recovered) block++;
                 }
                 default -> {
-                    // session_ended has no RecordItem event.
+                    // session_ended는 앱 기록 사건이 없다.
                 }
             }
         }
@@ -85,7 +87,9 @@ final class RecordProjection {
         return events;
     }
 
-    /** JSON equality where numbers compare by value (3 equals 3.0). */
+    /**
+     * 숫자 3과 3.0을 같게 보는 JSON 비교.
+     */
     static boolean same(JsonNode left, JsonNode right) {
         if (left.isNumber() && right.isNumber()) return left.asDouble() == right.asDouble();
         if (left.getNodeType() != right.getNodeType() || left.size() != right.size()) return false;

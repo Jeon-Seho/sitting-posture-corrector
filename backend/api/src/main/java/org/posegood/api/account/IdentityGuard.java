@@ -11,9 +11,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * {@code X-PoseGood-User-Id} detects a stale tab after the login changed elsewhere; it never selects
- * or authenticates an owner. Browsers cannot set headers on a WebSocket, so the realtime path checks
- * the owner in its hello message instead.
+ * 다른 탭에서 계정이 바뀐 오래된 화면의 쓰기를 막는 필터(X-PoseGood-User-Id가 다르면 409).
+ *
+ * 이 헤더는 사용자를 고르거나 인증하는 데 쓰지 않는다. 브라우저는 WebSocket에 헤더를 붙일 수 없어서
+ * 실시간 채널은 hello 메시지에서 소유자를 확인한다.
  */
 public class IdentityGuard extends OncePerRequestFilter {
     @Override

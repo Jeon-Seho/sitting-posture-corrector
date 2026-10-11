@@ -14,9 +14,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Registry of sessions whose decision state lives in this process. Schema V2.2 stores no
- * observations or snapshots, so a restart loses unfinished sessions; they answer 404 SESSION_LOST.
- * Ended sessions stay for a while so that the app can save its record against the exact state.
+ * 메모리에 있는 진행 중 세션 목록(최대 512개). API를 재시작하면 사라진다.
+ *
+ * V2.2에는 관측·스냅샷 테이블이 없어 재시작하면 진행 중 세션은 404 SESSION_LOST가 된다.
+ * 끝난 세션도 앱이 기록을 정확한 상태와 대조해 저장할 수 있게 잠시 남겨 둔다.
  */
 @Component
 public class LiveSessions {
@@ -37,11 +38,16 @@ public class LiveSessions {
         this.idleRetentionNanos = idleRetention.toNanos();
     }
 
+    /** 세션 상태 조회(없으면 null). */
     public LiveSession get(UUID id) {
         return sessions.get(id);
     }
 
-    /** Makes room by dropping the longest idle ended session; refuses when every slot is active. */
+    /**
+     * 자리가 없으면 가장 오래 쉰 종료 세션부터 뺀다.
+     *
+     * 모두 진행 중이면 거절한다(429).
+     */
     void ensureRoom() {
         while (sessions.size() >= capacity) {
             var oldest =
@@ -57,11 +63,16 @@ public class LiveSessions {
         sessions.put(session.id(), session);
     }
 
-    /** Drops the live state; realtime channels are closed with {@code reason}. */
+    /**
+     * 세션을 메모리에서 빼고 실시간 채널에 알린다.
+     *
+     * 실시간 채널은 {@code reason}으로 닫힌다.
+     */
     public void remove(UUID id, String reason) {
         if (sessions.remove(id) != null) events.publishEvent(new SessionUpdates.Removed(id, reason));
     }
 
+    /** 탈퇴한 계정의 세션을 메모리에서 뺀다. */
     @EventListener
     public void accountClosed(AccountService.AccountClosed closed) {
         sessions.values().stream()
@@ -71,7 +82,9 @@ public class LiveSessions {
                 .forEach(id -> remove(id, "unauthorized"));
     }
 
-    /** Ended sessions leave after their retention; unfinished ones after a long idle time. */
+    /**
+     * 1분마다: 종료 후 30분, 방치 6시간이 지난 세션을 정리한다.
+     */
     @Scheduled(fixedDelay = 60_000)
     public void evict() {
         for (var session : sessions.values()) {

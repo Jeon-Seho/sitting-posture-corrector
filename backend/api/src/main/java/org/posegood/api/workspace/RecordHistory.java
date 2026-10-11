@@ -18,9 +18,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * The owner's app records, read from `monitor_session`, `collapse_event`, `correction_alert`,
- * `excluded_interval` and `threshold_policy` (database/README.md, V2.1). A session is a record once
- * its row is closed; newest first.
+ * 기록 목록 조회: 닫힌 세션들을 DB에서 읽어 앱 기록 형식으로 만든다.
+ *
+ * 읽는 테이블: `monitor_session`, `collapse_event`, `correction_alert`, `excluded_interval`,
+ * `threshold_policy`(database/README.md, V2.1).
  */
 @Component
 class RecordHistory {
@@ -38,6 +39,7 @@ class RecordHistory {
         this.sessions = sessions;
     }
 
+    /** 사용자의 기록 목록(최신순). 세션·알림·사건·제외 구간을 한꺼번에 읽는다. */
     List<JsonNode> list(long owner) {
         var rows =
                 jdbc.query(

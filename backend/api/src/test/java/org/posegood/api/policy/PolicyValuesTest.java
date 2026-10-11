@@ -9,6 +9,7 @@ import org.posegood.api.contract.Policy;
 
 import java.math.BigDecimal;
 
+/** 정책 값 변환(초·밀리초, 소수 자리) 시험. */
 class PolicyValuesTest {
     @Test
     void representablePolicyRoundTrips() {

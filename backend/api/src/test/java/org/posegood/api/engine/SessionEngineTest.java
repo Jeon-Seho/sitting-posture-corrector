@@ -19,8 +19,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
- * Hand-authored synthetic outputs. The first sixteen cases are the former CEP engine tests with the
- * same inputs and expectations, so the in-API decisions keep the CEP behavior (ADR 0020).
+ * 판정 엔진 단위 시험(옛 CEP 시험과 같은 입력·기대값 포함).
+ *
+ * 손으로 만든 합성 출력만 쓴다. 앞의 16개는 예전 CEP 엔진 시험과 입력·기대값이 같아서
+ * API 안의 판정이 CEP와 같게 동작하는지 확인한다(ADR 0020).
  */
 class SessionEngineTest {
     private static final Policy DEFAULTS = new Policy(3000, 2000, 60000, 0.7);
@@ -267,12 +269,12 @@ class SessionEngineTest {
         assertEquals(10000000, ended.summary().normalMs());
     }
 
-    // New in the single API: per-event summaries for realtime and exclusion spans for the DB.
+    // 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.
 
     @Test
     void everyDecisionCarriesTheSummaryAtThatPoint() {
-        // With a 0.5 s hold, one input after a gap yields two decisions: the gap interrupt and a
-        // new collapse. Each must carry the summary consistent with the events up to itself.
+        // 확정 시간이 0.5초면 공백 뒤 입력 하나에서 사건 두 개(공백 중단, 새 붕괴)가 나온다.
+        // 각 사건의 요약은 그 사건까지의 상태와 맞아야 한다.
         engine = new SessionEngine(UUID.randomUUID(), new Policy(500, 500, 60000, 0.7));
         feed(0, 1000, 0.9);
         engine.accept(observation(sequence++, 4000, 5000, 0.9, true, Observation.Phase.running));

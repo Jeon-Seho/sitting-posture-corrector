@@ -6,7 +6,11 @@ import org.posegood.api.contract.SessionView.Summary;
 
 import java.util.UUID;
 
-/** Server-to-app frames of contracts/realtime/realtime-ws.v1.schema.json (snake_case on the wire). */
+/**
+ * 실시간 채널이 보내는 메시지 형식 모음: ack, observation, progress, decision, alert, stalled, closed.
+ *
+ * 계약: contracts/realtime/realtime-ws.v1.schema.json(전송 형식은 snake_case).
+ */
 final class RealtimeMessages {
     private RealtimeMessages() {}
 
@@ -46,7 +50,7 @@ final class RealtimeMessages {
         }
     }
 
-    /** Reasons: ended, unauthorized, not_owner, session_lost, server_shutdown. */
+    /** 사유: ended, unauthorized, not_owner, session_lost, server_shutdown. */
     record Closed(String type, UUID sessionId, String reason) {
         Closed(UUID sessionId, String reason) {
             this("closed", sessionId, reason);

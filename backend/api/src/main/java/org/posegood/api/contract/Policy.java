@@ -6,8 +6,9 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 
 /**
- * Session timing policy, frozen when the session is created (ADR 0012). Settings changed later apply
- * to the next session only.
+ * 판정 정책: 붕괴 확정 시간·회복 시간·재알림 간격(ms)과 임계값. 세션을 만들 때 고정된다.
+ *
+ * 나중에 설정을 바꾸면 다음 세션부터 적용된다(ADR 0012).
  */
 public record Policy(
         @Positive @Max(86400000) long holdMs,

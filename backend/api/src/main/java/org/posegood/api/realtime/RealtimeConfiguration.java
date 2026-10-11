@@ -11,8 +11,10 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 import java.util.Arrays;
 
 /**
- * {@code /v1/realtime}. Without configured origins only same-origin pages may connect (the proxy
- * must forward the original Host with its port). One features frame holds up to 30 intervals.
+ * /v1/realtime WebSocket 등록과 허용 출처·메시지 크기 설정.
+ *
+ * 허용 출처를 설정하지 않으면 같은 출처 페이지만 연결할 수 있다(프록시는 원래 Host와 포트를 넘겨야 한다).
+ * features 메시지 하나에는 최대 30구간이 들어간다.
  */
 @Configuration
 @EnableWebSocket

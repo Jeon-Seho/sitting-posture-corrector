@@ -15,8 +15,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A view rebuilt from the rows the API writes equals the engine's view, except what the tables do
- * not keep: the deviation type and the accepted input count. Synthetic inputs only.
+ * DB 행으로 다시 만든 기록이 판정 엔진 결과와 같은지 확인하는 시험.
+ *
+ * 테이블에 없는 자세 방향과 입력 개수만 빼고 같아야 한다. 합성 입력만 쓴다.
  */
 class RecordRebuildTest {
     private static final Policy POLICY = new Policy(3000, 2000, 5000, 0.7);
@@ -48,7 +49,7 @@ class RecordRebuildTest {
         }
     }
 
-    /** The rows SessionRepository writes for the engine's decisions and exclusions. */
+    /** 판정 엔진의 사건·제외 구간에 대해 SessionRepository가 쓰는 행들로 다시 만든 조회 응답. */
     private SessionView rebuilt() {
         var view = engine.view();
         var episodes = new ArrayList<RecordRebuild.Episode>();
@@ -79,11 +80,11 @@ class RecordRebuildTest {
                 engine.excluded().stream()
                         .map(span -> new RecordRebuild.Span(span.startMs(), span.endMs(), span.reason().name()))
                         .toList();
-        long good = view.summary().normalMs() / 100 * 100; // good_sec is DECIMAL(9,1)
+        long good = view.summary().normalMs() / 100 * 100; // good_sec은 DECIMAL(9,1)
         return RecordRebuild.view(id, POLICY, view.summary().totalMs(), good, episodes, spans);
     }
 
-    /** The engine's view as the tables can express it. */
+    /** 테이블로 표현할 수 있는 만큼만 남긴 엔진의 조회 응답. */
     private SessionView expected() {
         var view = engine.view();
         var events =
@@ -115,21 +116,21 @@ class RecordRebuildTest {
     @Test
     void everyInterruptionReasonAndStatisticSurvivesTheTables() {
         run(4000, 0.1);
-        run(9000, 0.9); // collapse at 7000 after a 3 s hold
-        run(15000, 0.9); // reminder at 12000
-        run(18000, 0.1); // recovery at 17000
-        run(22000, 0.9); // collapse at 21000
-        feed(24000, 0.0, true, Observation.Phase.rest); // interrupted: rest
-        run(28000, 0.9); // collapse at 27000
-        feed(29000, 0.0, true, Observation.Phase.away); // interrupted: away
-        run(33000, 0.9); // collapse at 32000
-        feed(34000, 0.9, false, Observation.Phase.running); // interrupted: unmeasurable
-        run(38000, 0.9); // collapse at 37000
-        at = 40000; // two-second gap: interrupted: missing
-        run(44000, 0.9); // collapse at 43000
-        sequence++; // sequence hole: interrupted: missing_sequence
-        run(48000, 0.9); // collapse at 47000
-        engine.end(50000); // gap before the end, then the session end
+        run(9000, 0.9); // 3초 지속 뒤 7000ms에 붕괴
+        run(15000, 0.9); // 12000ms에 재알림
+        run(18000, 0.1); // 17000ms에 회복
+        run(22000, 0.9); // 21000ms에 붕괴
+        feed(24000, 0.0, true, Observation.Phase.rest); // 중단: 휴식
+        run(28000, 0.9); // 27000ms에 붕괴
+        feed(29000, 0.0, true, Observation.Phase.away); // 중단: 자리 비움
+        run(33000, 0.9); // 32000ms에 붕괴
+        feed(34000, 0.9, false, Observation.Phase.running); // 중단: 판정 불가
+        run(38000, 0.9); // 37000ms에 붕괴
+        at = 40000; // 2초 공백: 중단(누락)
+        run(44000, 0.9); // 43000ms에 붕괴
+        sequence++; // 순번 누락: 중단(missing_sequence)
+        run(48000, 0.9); // 47000ms에 붕괴
+        engine.end(50000); // 종료 전 공백 후 세션 종료
 
         var view = engine.view();
         assertTrue(view.summary().collapseCount() >= 7);

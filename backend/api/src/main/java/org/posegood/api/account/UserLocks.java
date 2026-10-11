@@ -9,8 +9,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * Serializes one account's mutations (baseline replacement, withdrawal, settings) inside this
- * process. The API runs as a single instance because live session state is in memory (ADR 0020).
+ * 같은 사용자의 계정 작업을 한 번에 하나씩 실행하는 잠금(2초 안에 못 잡으면 503).
+ *
+ * 이 프로세스 안에서만 잠근다. 진행 중 세션 상태가 메모리에 있어 API는 한 인스턴스로 실행한다(ADR 0020).
  */
 @Component
 public class UserLocks {

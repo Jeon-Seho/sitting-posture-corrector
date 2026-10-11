@@ -14,7 +14,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.TreeMap;
 
-/** The application's single ObjectMapper (snake_case, strict) plus canonical SHA-256 digests. */
+/**
+ * 공용 JSON 도구: 읽기·쓰기·변환, 재전송 비교용 SHA-256 지문.
+ *
+ * 앱 전체가 쓰는 ObjectMapper 하나(snake_case, 엄격한 검사)를 감싼다.
+ */
 @Component
 public class Json {
     private final ObjectMapper mapper;
@@ -43,7 +47,7 @@ public class Json {
         }
     }
 
-    /** Converts client input; any mismatch is a 400 without echoing the value. */
+    /** 클라이언트 입력 변환. 형식이 맞지 않으면 값을 돌려주지 않고 400. */
     public <T> T convert(JsonNode value, Class<T> type) {
         try {
             return mapper.treeToValue(value, type);
@@ -56,7 +60,7 @@ public class Json {
         return mapper.valueToTree(value);
     }
 
-    /** Key order and number formatting do not change the digest of the same JSON value. */
+    /** 같은 JSON 값이면 키 순서·숫자 표기가 달라도 같은 지문이 나온다. */
     public String fingerprint(JsonNode value) {
         return sha256(write(sorted(value)).getBytes(StandardCharsets.UTF_8));
     }

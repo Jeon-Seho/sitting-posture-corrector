@@ -17,21 +17,22 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Rebuilds a closed session's view and RecordItem from its rows (schema V2.1 dropped
- * `client_record`). The tables keep the decision times, so events, exclusions and statistics follow
- * the engine's definitions. They do not keep the deviation type (T-36 `collapse_type` is on hold),
- * the accepted input count or good time below 0.1 s: those become "unspecified", -1 and the
- * stored `good_sec`.
+ * DB 행으로 세션 조회 응답과 앱 기록을 다시 만든다.
+ *
+ * V2.1에서 `client_record`가 없어져서 필요하다. 테이블에 판정 시각이 있으므로 사건·제외 구간·통계는
+ * 판정 엔진과 같은 정의로 계산한다. 테이블에 없는 자세 방향(T-36 `collapse_type` 보류), 입력 개수,
+ * 0.1초 미만의 바른 자세 시간은 각각 "unspecified", -1, 저장된 `good_sec`이 된다.
  */
 final class RecordRebuild {
-    /** Elapsed session milliseconds of one `collapse_event` row and its `correction_alert` rows. */
+    /** `collapse_event` 한 행과 그 `correction_alert` 행들(세션 경과 ms). */
     record Episode(long onsetMs, long confirmedMs, Long endedMs, String endReason, List<Long> alertMs) {}
 
-    /** One `excluded_interval` row in elapsed session milliseconds. */
+    /** `excluded_interval` 한 행(세션 경과 ms). */
     record Span(long startMs, long endMs, String reason) {}
 
     private RecordRebuild() {}
 
+    /** DB 행 → 세션 조회 응답(요약과 사건을 다시 계산). */
     static SessionView view(
             UUID id, Policy policy, long totalMs, long goodMs, List<Episode> episodes, List<Span> spans) {
         long rest = 0, away = 0, unknown = 0, missing = 0;
@@ -100,8 +101,10 @@ final class RecordRebuild {
     }
 
     /**
-     * The app's RecordItem. A USER_STOP session is confirmed; DISCONNECTED keeps its view but is
-     * not confirmed; ERROR (decision state lost) has no view and zero totals.
+     * 앱 기록 JSON 만들기.
+     *
+     * USER_STOP은 확인 종료, DISCONNECTED는 조회 응답은 있지만 확인 안 됨,
+     * ERROR(판정 상태 잃음)는 조회 응답 없이 합계 0이다.
      */
     static ObjectNode record(
             String id,
@@ -133,6 +136,7 @@ final class RecordRebuild {
         return record;
     }
 
+    /** 설정 화면 형식(초 단위)의 판정 기준. */
     static ObjectNode rules(ThresholdPolicyRepository.Values policy) {
         ObjectNode rules = JsonNodeFactory.instance.objectNode();
         rules.set("holdSeconds", number(policy.holdSeconds()));
@@ -142,13 +146,13 @@ final class RecordRebuild {
         return rules;
     }
 
-    /** Plain JSON numbers (3, 2.5, 0.62) rather than DECIMAL scale or exponent forms. */
+    /** DECIMAL 자릿수나 지수 표기 대신 평범한 JSON 숫자(3, 2.5, 0.62)로 만든다. */
     static JsonNode number(BigDecimal value) {
         var plain = value.stripTrailingZeros();
         return plain.scale() <= 0 ? IntNode.valueOf(plain.intValueExact()) : DoubleNode.valueOf(plain.doubleValue());
     }
 
-    /** Excluded time before {@code at}: the onset's position on the valid-time axis is the rest. */
+    /** {@code at} 이전의 제외 시간. 시작 시각에서 이 값을 빼면 유효 시간 축의 위치가 된다. */
     private static long excludedBefore(List<Span> spans, long at) {
         long sum = 0;
         for (var span : spans) if (span.startMs() < at) sum += Math.min(span.endMs(), at) - span.startMs();
@@ -156,8 +160,8 @@ final class RecordRebuild {
     }
 
     /**
-     * The engine interrupts an episode where the exclusion that caused it starts. Without such a
-     * span the cause was a sequence hole.
+     * 사건이 중단된 사유: 판정 엔진은 원인이 된 제외 구간이 시작하는 시각에 사건을 끊는다.
+     * 그런 구간이 없으면 순번 누락 때문이다.
      */
     private static String interruption(List<Span> spans, long at) {
         for (var span : spans)
