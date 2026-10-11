@@ -116,14 +116,45 @@ FE 결정(10/11):
 6. **화면을 서버 결과(`observation`·`progress`·`decision`·`alert`)로만 구동.** `excluded_started/ended` 사건은 받되 요약 검사(`server/validation.ts`)에서 뺀다.
 7. **가입 동의 화면, 설정의 철회 토글, SetupPage의 "좌표 전송 안 함" 문구 수정.**
 8. **FE 연동 시험(T-13)** 일정 잡기.
-9. **`feature/repo-backend-db-v2` 검토:** 계정 계약 `alerts_on` 정정, 기준 자세 좌표 평균(`setup.baseline.landmarks`), 기록 재구성, `/v1/realtime`이 FE 계획(1~6)과 맞는지 확인한다.
-10. **앱 판정·라벨 제거(10/11 결정):** 로컬 판정, 고개 돌림 제외·복귀 대기, 유형 표시, CSV 판정 라벨(state·type·score)을 뺀다. 라벨 촬영 수집 화면은 BE·ML 요구를 받은 뒤 다시 만든다.
+9. **`feature/repo-backend-db-v2` 검토:** 계정 계약 `alerts_on` 정정(이미 들어 있음), 기준 자세 좌표 평균(`setup.baseline.landmarks`), 기록 재구성이 FE 계획과 맞는지 확인한다. 실시간 경로는 그 브랜치의 `/v1/realtime`이 아니라 DevOps Kafka 경로로 정했다.
+10. **앱 판정·라벨 제거(10/11 결정):** ~~CSV 판정 라벨(`features_ok`·`state`·`type`·`score`), 화면·기록의 유형 표시~~ → `7d04203`(10/11). 남은 것: 로컬 판정, 고개 돌림 제외·복귀 대기(서버 좌표 수신 뒤). 라벨 촬영 수집 화면은 BE·ML 요구를 받은 뒤 다시 만든다.
+11. **게이트웨이(`backend/realtime`) 개발:** WebSocket ↔ Kafka. 판정하지 않고 좌표를 그대로 넣는다. [제안서](devops-integration-proposal.md) Q1~Q3 답을 받은 뒤 노트북에서 시작한다.
+12. **`develop`에 올리기:** `develop`을 먼저 합쳐 충돌을 정리한 뒤 PR(사용자가 요청할 때).
 
 ### 참고: 지금까지의 상태
 
 - 브랜치 `lee_app1`. 고개 돌림 제외·귀 기준 치우침·복귀 대기는 `676ae89`에 있다(앱 로컬 판정 기준, 서버 이전 전).
 - ~~지금 앱의 판정 규칙은 서버로 옮길 기준 구현으로 남는다.~~ 10/11 결정으로 앱 판정·라벨을 모두 없앤다. 규칙을 서버로 넘길 때는 이 브랜치 기록(`676ae89` 등)과 [세션 내보내기 명세](../research/session-export.md)를 근거로 쓴다.
 - 회의 안건 원문(`회의안건_v4도입_결정사항.md`)과 BE 문서는 저장소 밖(DevOps)에 있다.
+
+#### 2026-10-11 작업 (`lee_app1`, 커밋 8개 모두 push, PR 없음)
+
+정한 것: 앱은 판정·라벨링하지 않고 좌표만 보낸다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 로컬 모드 제거.
+판정은 DevOps Kafka 경로(추론 → v1 판정기), 게이트웨이는 FE의 독립 서비스. 좌표 형식은 BE·ML 요구를 따른다(FE 초안 `posture.frames.v1`).
+나머지 결정(끊김 표시, 소리 미저장, 민감도, 640×480, 동의, 제외 사유)은 위 "FE 결정(10/11)" 표.
+
+| 커밋 | 내용 |
+|---|---|
+| `d77069f` | DB 회신(10/10)·V2.2 영향(5장), [계획 0023](../plans/active/0023-frontend-server-only.md), [DevOps 연동 제안서](devops-integration-proposal.md) 초안 |
+| `ac8db76` | [규칙 문서](server-rule-spec.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)와 그 검사 시험 |
+| `303426d` | 브라우저 시험에 "판정 불가 뒤 3초 보류" 반영 |
+| `37e0c08` | ADR 0021, ADR 0012·0013 일부 대체 표시, 어긋나던 현재 문서에 변경 안내 |
+| `82d76dd` | 완료 계획 20개·점검 기록 5개 삭제(git 이력에 남음), 링크 정리, 문서 지도 새로 씀 |
+| `078b02d` | 제안서에 FE 전제 3가지와 `invalid_reason` 정의 |
+| `7d04203` | 앱 판정 라벨 열과 자세 유형 표시 제거 |
+| `dd740ed` | 제안서에서 운영 중인 Kafka 경로·v4 결정과 다른 안 제거 |
+
+확인한 사실:
+- DevOps 서버(`f27f778`)는 Kafka 뒤쪽이 계약 v1대로 동작한다. 게이트웨이와 세션 시작·종료 Kafka 입구는 없고, 입력은 아직 특징 변화량이다.
+- DB 담당 `feature/repo-backend-db-v2`(`fcc8ef7`, 미병합)가 팀 API·계정 계약(`alert_enabled`)·DB 초기화 스크립트를 V2.2에 맞췄다.
+- 앱은 0.5초로 묶지 않고 이웃한 두 프레임 사이를 구간으로 보낸다. "판정 불가 3초 연속 → 측정 멈춤"은 앱에도 없다.
+
+개발 환경(Windows 11 PC): JDK 21, Node 24, Python 3.13, Chrome은 원래 있었고 Maven 3.9.9(`C:\Users\ldrag\tools`, 환경변수 `MAVEN_EXECUTABLE`),
+WSL 3.0.1, Docker Desktop 4.94를 설치했다. `make`가 없어 `python tools/dev.py <단계>`로 검사한다.
+
+검사: 저장소·프론트(299개)·백엔드·브라우저(75개) 통과. Python은 Windows 제약 오류 3개(`test_deploy_configuration`).
+Compose는 DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패한다(`develop`도 같음, DB 담당 브랜치에서 고침).
+자세한 수치는 [계획 0023](../plans/active/0023-frontend-server-only.md) "검증 결과".
 
 ## 5. DB 회신(10/10)·V2.2 — FE에 오는 영향
 
