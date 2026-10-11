@@ -76,7 +76,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - [문서 지도](docs/index.md), [작업 지침](AGENTS.md), [개발 흐름](docs/development.md)
 - [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), 서비스 요구사항은 팀 구글 시트
 - [출력 계약](contracts/README.md), [연구 프로토콜](docs/research/protocol.md)
-- [코드 구조와 수정 위치](docs/code-structure.md), [기술 스택 검토](docs/audits/2026-10-01-technology-stack.md)
+- [코드 구조와 수정 위치](docs/code-structure.md)
 - `frontend/src/app/ServiceApp.tsx`: 앱 조립·화면 전환
 - `frontend/src/features/`: 프로필·세션·기록·저장·카메라 기능
 - `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 엔진의 공개 진입점
@@ -88,6 +88,6 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
 
 `make benchmark-server`는 준비된 JAR로 추론 단독·API→추론→CEP 지연과 처리량을 측정한다.
-[측정 조건과 해석](docs/audits/2026-10-01-server-benchmark.md)을 확인한다. 실제 카메라 FPS와는 별도다.
+측정 조건과 해석은 [아키텍처](docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다. 실제 카메라 FPS와는 별도다.
 [참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
 실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.

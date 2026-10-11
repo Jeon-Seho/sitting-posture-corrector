@@ -76,12 +76,11 @@ CEP는 eager startup에서 EPL 컴파일·런타임 배포·첫 빈 상태 처�
 
 전체 `make check`는 Chrome/Chromium을 사용하는 합성 브라우저 게이트도 실행한다.
 `make check-browser` 별도 실행에는 프론트 프로덕션 빌드와 서버 JAR가 필요하며 실제 카메라·외부 계정을 사용하지 않는다.
-재알림·처리 후 응답 유실·개발 한도와 브라우저 복구 검증의 최신 범위는
-[완료 기록](../docs/plans/completed/0015-server-regression-and-record-details.md)을 따른다.
+재알림·처리 후 응답 유실·개발 한도와 브라우저 복구 검증 범위는 `tools/browser/scenarios.mjs`와 `tools/service_smoke.py`가 기준이다.
 
 `check-backend`는 짧은 합성 benchmark 회귀도 실행한다. 성공 응답 계약과 실패 수·서버 정리를 확인하며
-미확정 지연 기준은 적용하지 않는다. 별도 `make benchmark-server`의 조건·결과 JSON은
-[서버 benchmark 안내](../docs/audits/2026-10-01-server-benchmark.md)를 따른다.
+미확정 지연 기준은 적용하지 않는다. 별도 `make benchmark-server`의 조건·결과 JSON 해석은
+[아키텍처](../docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다.
 
 수동 실행은 각각 별도 터미널에서 한다. 먼저 `check-backend`를 완료해야 한다.
 

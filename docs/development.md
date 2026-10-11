@@ -34,7 +34,7 @@ Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구�
 GitHub의 일회용 Linux 검증 환경은 `POSEGOOD_CHROME_NO_SANDBOX=1`로 Chrome을 실행한다.
 로컬에서는 이 값을 설정하지 않으면 샌드박스를 유지한다. 시작 실패 로그에는 Chrome stderr가 포함된다.
 `make check-backend`에는 성능 합격 수치를 두지 않는 짧은 benchmark 회귀가 포함된다.
-별도 측정 조건·보고서 해석은 [서버 benchmark](audits/2026-10-01-server-benchmark.md)를 따른다.
+별도 측정 조건·보고서 해석은 [아키텍처](architecture.md) "합성 브라우저 검증 경계" 절을 따른다.
 [자료 준비 CLI](research/dataset-preparation.md)의 합성 분할·시간 창·개인 기준/누수 검증은 Python 게이트에 포함된다.
 프론트만 준비하려면 `make setup-frontend`를 사용한다. 웹캠 사용 흐름과 제약은 [프론트 안내](../frontend/README.md)를 참고한다.
 `requirements-dev.txt`는 직접 의존성 버전을 고정한다. 전이 의존성 전체를 잠근 환경은 아니며,

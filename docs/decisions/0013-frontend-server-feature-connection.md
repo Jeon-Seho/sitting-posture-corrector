@@ -3,7 +3,6 @@
 - 상태: accepted (사용자가 서버 연결부터 진행하도록 선택한 개발 범위)
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [시간 정책](0012-session-timing-policy.md)
-- 관련 계획: [서버 연결 완료](../plans/completed/0014-frontend-server-connection.md)
 - 개정: [ADR 0018](0018-db-schema-v11-service-storage.md) — 영구 모드의 세션 생성은 기준 요약(평균·표준편차·보정 시간·표본 수·화면 위치)을 보낸다.
   특징 요청(입력 v2)에는 여전히 변화량만 보낸다.
 - 일부 대체: [ADR 0021](0021-app-sends-information-server-judges.md)(2026-10-11) — 앱은 특징 변화량 대신 관절 좌표를 보내고

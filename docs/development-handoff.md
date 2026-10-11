@@ -7,7 +7,7 @@ force push·reset·clean·자동 merge·배포는 하지 않는다. 이 문서�
 ## 최신 작업 상태 (2026-10-01)
 
 기존 구조/서버/도구 변경은 c4086f3을 현재 codex 브랜치에 push했다. 그 뒤 MySQL 계정·Compose 작업을 진행했다.
-[계획 0017](plans/completed/0017-mysql-accounts-compose-deployment.md), [실행/배포 안내](../infra/README.md),
+계획 0017, [실행/배포 안내](../infra/README.md),
 [계정 계약](../contracts/accounts.v1.md)이 현재 기준이다. 이전 절의 미구현/검증 수/쓰기 장애는 해당 시점 이력이다.
 최신 MySQL 작업의 remote push·GitHub workflow·외부 배포는 아직 실행하지 않았다. 배포 서버는 사용자 확인으로 미정이다.
 전체 make check는 Docker/Compose·JDK 21·Maven·Node 24·Python·Chrome을 필요로 한다.
@@ -40,8 +40,8 @@ make setup
 make check
 ```
 
-[실행 안내와 계약](../backend/README.md), [기획 대비 점검](audits/2026-09-30-mac-develop.md),
-[API·CEP 완료 기록](plans/completed/0011-api-cep-vertical-slice.md)을 먼저 확인한다.
+[실행 안내와 계약](../backend/README.md), 기획 대비 점검,
+API·CEP 완료 기록을 먼저 확인한다.
 서비스 smoke는 합성 입력과 임시 loopback 포트만 사용하며 시작한 시험 서버를 종료한다.
 수동 서버를 켰다면 작업 종료 시 직접 종료한다. 다른 프로젝트 서버는 실행하지 않는다.
 
@@ -95,8 +95,8 @@ git ls-remote --heads origin refs/heads/codex/posture-api-cep-hardening
 현재 작업 폴더에는 앱 조립·기능별 상태/저장·측정 UI, API 계층·CEP 누적/Esper,
 Python 추론·개발 도구를 책임별로 분리한 후속 변경이 있다. 기존 동작·계약·스택은 유지했다.
 현재 수정 경로는 [코드 지도](code-structure.md), 검증 근거는
-[완료 기록](plans/completed/0012-readable-code-structure.md), 기술 검토는
-[스택 조사](audits/2026-10-01-technology-stack.md)를 따른다.
+완료 기록, 기술 검토는
+스택 조사를 따른다.
 `make check` Python 19개·프론트 85개·Java 26개·타입/빌드·합성 HTTP와 시험 서버 종료를 통과했다.
 앞의 구현 HEAD/원격 쓰기 장애 설명은 9월 30일 인계 시점의 이력이다.
 
@@ -120,7 +120,7 @@ DB·인증은 [연결 설계](design/server-persistence-and-auth.md)만 작성�
 
 서버 연결 시점의 `make check`: Python 35개·프론트 166개·Java 49개(API 33/CEP 16), 타입 검사·Vite/JAR 빌드,
 실제 프록시+세 서비스 HTTP와 시험 서버 종료 모두 통과했다. 합성 프로필 브라우저 준비/선택 UI도 확인했다.
-[완료 범위와 검증 한계](plans/completed/0014-frontend-server-connection.md)를 다음 작업의 기준으로 사용한다.
+완료 범위와 검증 한계를 다음 작업의 기준으로 사용한다.
 
 ## 2026-10-01 서버 회귀·기록 화면 후속
 
@@ -136,7 +136,7 @@ DB·인증은 [연결 설계](design/server-persistence-and-auth.md)만 작성�
 실제 HTTP·합성 브라우저 40개와 모든 시험 프로세스/포트 정리를 통과했다. 이후 확정 사건을 포함한
 새로고침 알림 회귀를 보강하고 `make check-browser` 대상 재검증 40개도 통과했다.
 원격 CI와 Windows/Linux 브라우저 실행은 미검증이며 실제 촬영·음향·장시간·지연/FPS는 별도다.
-[완료 기록](plans/completed/0015-server-regression-and-record-details.md)에 당시 범위를 기록했다.
+완료 기록에 당시 범위를 기록했다.
 
 ## 2026-10-01 확인창·성능 측정·자료 준비 후속
 
@@ -146,7 +146,7 @@ DB·인증은 [연결 설계](design/server-persistence-and-auth.md)만 작성�
 
 `make benchmark-server`는 합성 입력의 추론 단독과 API→추론→CEP 지연·처리량·실패를 측정한다.
 동시 1개/2개 실행에서 경로별 100개 요청이 모두 성공했다. 실행 환경·코드/JAR/입력 hash와 수치는
-[측정 기록](audits/2026-10-01-server-benchmark.md)에 남겼다. 실제 카메라/FPS나 배포 성능 보장은 아니다.
+측정 기록에 남겼다. 실제 카메라/FPS나 배포 성능 보장은 아니다.
 CEP의 최초 요청 준비가 API 기한에 영향을 주는 문제를 서비스 시작 때 준비하도록 수정했다.
 준비는 사용자 세션/관측을 남기지 않으며 64세션 용량·최초 생성·중복 요청을 검증했다.
 
@@ -158,7 +158,7 @@ CEP의 최초 요청 준비가 API 기한에 영향을 주는 문제를 서비�
 계획 0016 당시 전체 `make check`: Python 93개·프론트 189개·Java 53개(API 33/CEP 20), 타입 검사·Vite/JAR 빌드,
 실제 HTTP·짧은 benchmark·합성 입력의 실제 Chrome 회귀 61개와 모든 시험 프로세스/포트 정리가 통과했다.
 실제 카메라·음향·장시간·기기 FPS·학습 정확도, 외부 DB/인증 연결, 원격 CI와 Windows/Linux 실행은 미검증이다.
-기술 스택·의존성·확정 판정 정책은 유지했다. [완료 기록](plans/completed/0016-remaining-tools-and-validation.md)과
+기술 스택·의존성·확정 판정 정책은 유지했다. 완료 기록과
 [백로그](plans/backlog.md)를 다음 작업의 기준으로 사용한다.
 
 
@@ -167,7 +167,7 @@ CEP의 최초 요청 준비가 API 기한에 영향을 주는 문제를 서비�
 최신 전체 make check exit 0: Python122·프론트228·기본Java69(API45/CEP24), TypeScript·Vite/JAR,
 실제 HTTP·benchmark·기존 Chrome61과 계정 Chrome21, 실제 Compose46, 원본/복원 MySQL11개씩 통과.
 백업의 별도 빈 DB 복원·row counts·볼륨 재마운트·Flyway validate·시험 자원 정리를 확인했다.
-[완료 기록0017](plans/completed/0017-mysql-accounts-compose-deployment.md)이 최신 기준이다.
+완료 기록0017이 최신 기준이다.
 Docker Desktop의 Desktop bind 권한 문제는 검증용 외부 임시 secret로 해결했다. 일반 실행의 외부 지속 경로는
 [infra 안내](../infra/README.md)를 따른다. 현재 앱 서비스는 실행 중이 아니며 시험 자원은 정리했다.
 최신 변경의 remote push·GitHub workflow·외부 배포와 실제 카메라/연구 정확도/Windows host는 미검증이다.
