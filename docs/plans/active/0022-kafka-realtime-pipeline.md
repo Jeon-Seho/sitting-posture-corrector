@@ -1,7 +1,7 @@
 # Kafka 실시간 전달 경로와 프론트 게이트웨이
 
 - 상태: planned (2026-10-11 전제 변경: 앱은 좌표를 보내고 판정은 서버, 로컬 판정 없음 — [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
-  게이트웨이 위치·서버 입력 형식은 [DevOps 연동 제안서](../../design/devops-integration-proposal.md) 답변 대기. 아래 '결정과 진행 기록' 첫 항목)
+  게이트웨이 위치·서버 입력 형식은 [FE 제안서](../../design/fe-server-proposal.md) 답변 대기. 아래 '결정과 진행 기록' 첫 항목)
 - 담당: 동욱 요청, Claude 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [ADR 0011](../../decisions/0011-api-cep-boundary.md), [ADR 0012](../../decisions/0012-session-timing-policy.md),
@@ -112,9 +112,9 @@
   동의한 사용자의 좌표 전송으로 바뀐다. ② 로컬 판정·HTTP 서버 판정과의 "선택 공존"(4단계)은 없앤다. 앱은 서버 결과로만 화면을 바꾼다([계획 0023](0023-frontend-server-only.md)).
   `DevOps` 브랜치(`f27f778`)를 확인한 결과 Kafka 뒤쪽(추론 → 판정 → `posture.episodes.v1`)은 계약 v1대로 구현됐고 게이트웨이(WebSocket)는 없다.
   FE는 이 DevOps Kafka 경로에 붙고(v4 결정·현재 운영), 게이트웨이는 독립 서비스 `backend/realtime`으로 만든다. 게이트웨이는 좌표를 판정하지 않고 그대로 Kafka에 넣는다.
-  팀 API는 세션 시작·종료를 Kafka에 넣는다(C안). 일정은 [DevOps 연동 제안서](../../design/devops-integration-proposal.md) Q1·Q2에서 묻는다.
+  팀 API는 세션 시작·종료를 Kafka에 넣는다(C안). 일정은 [FE 제안서](../../design/fe-server-proposal.md) Q1·Q2에서 묻는다.
 - 2026-10-08 (동욱): 판정 불가 처리를 정했다(3초 미만은 시계 멈춤, 3초 연속이면 측정 멈춤과 0.5초 뒤 자동 재개, 0.5초 구간은 판정 가능한 프레임 절반 기준 임시).
-  앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다: [서버 판정 이전 명세](../../design/server-rule-spec.md) 7장.
+  앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다: [FE 제안서](../../design/fe-server-proposal.md) 6장.
 - 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.
   역할은 Q1 C안(입구·인증·세션 시작/종료 = 팀 `develop`, Kafka 뒤 추론·판정 = DevOps/BE, 게이트웨이·화면 수신 = FE)이고,
   기존 `POST /api/v1/posture/summary`(camelCase)는 부하 시험·재생용으로만 남긴다. DevOps 작업 D-21(토픽·봉투·키 `session_id`),

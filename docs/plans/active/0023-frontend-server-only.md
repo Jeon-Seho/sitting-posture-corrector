@@ -3,7 +3,7 @@
 - 상태: in_progress (1단계 완료, 0단계 팀 결정 대기)
 - 담당: FE
 - 시작일: 2026-10-11
-- 관련 요구사항/ADR: [서버 판정 이전 명세](../../design/server-rule-spec.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
+- 관련 요구사항/ADR: [FE 제안서](../../design/fe-server-proposal.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
   [Kafka 실시간 전달 계획](0022-kafka-realtime-pipeline.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
   DevOps `DevOps` 브랜치 `platform/`(판정 경로), DB 담당 `feature/repo-backend-db-v2`(팀 API, 미병합)
 
@@ -51,7 +51,7 @@
 - [x] **FE가 붙을 서버.** DevOps Kafka 경로(`platform/`: 추론 → v1 판정기 → `posture.episodes.v1`)로 정했다(v4 결정·현재 운영).
   게이트웨이는 FE의 독립 서비스(`backend/realtime`)다.
 - [x] **앱이 보내는 정보.** 좌표 프레임(v4 회의 결정). 관절·형식은 BE·ML 요구를 따른다(FE 초안 `posture.frames.v1`). 게이트웨이는 판정하지 않고 그대로 넘긴다.
-- [ ] 팀 API가 `session_started`·`session_ended`를 Kafka에 넣는 일정, 추론이 좌표를 받는 일정([제안서](../../design/devops-integration-proposal.md) Q1·Q2).
+- [ ] 팀 API가 `session_started`·`session_ended`를 Kafka에 넣는 일정, 추론이 좌표를 받는 일정([FE 제안서](../../design/fe-server-proposal.md) Q1·Q2).
 - [ ] `observation.invalid_reason` 추가(고개 돌림·복귀 대기·측정 불가 안내 문구용).
 - [ ] 계약·서버의 유형 필드(`deviation_type` 등)를 없앨지(ML·서버 담당).
 - [ ] 브랜치: `lee_app1`(FE 커밋 7개, `develop`에 없음)과 `feature/repo-backend-db-v2`를 `develop`에 넣는 순서.
@@ -59,7 +59,7 @@
 
 ### 1단계 — 서버와 무관한 준비 (지금 시작 가능)
 
-- [x] **규칙 문서와 합성 시험 데이터 작성.** [규칙 문서](../../design/server-rule-spec.md),
+- [x] **규칙 문서와 합성 시험 데이터 작성.** [FE 제안서](../../design/fe-server-proposal.md),
   [합성 시험 데이터](../../../contracts/examples/frames/reference-rule-cases.json)(프레임 16·시간 순서 4·기준 자세 1),
   앱 코드와 손 계산으로 검사하는 `frontend/src/features/session/server/referenceRuleCases.test.ts`.
 - [x] **ADR 작성: "앱은 판정하지 않는다".** [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).

@@ -2,7 +2,7 @@
 
 > 작성: 2026-10-11 · FE · 대상: DevOps/BE, DB, 팀 BE, ML
 > 검토 대상: DevOps `DB_V2.1_확인질문.md`(2026-10-10), `DB_V2.1_BE검토의견.md`(2026-10-09)
-> 대조 기준: 팀 저장소 `feat/db-schema-v2-1`(`081aa9b`)의 `database/schema/schema_V2_1.sql`·`seed_04_threshold_policy.sql`, 앱 코드(`lee_app1`), FE 회신: v4 회의(10/08, 지금은 [서버 판정 이전 명세](server-rule-spec.md))
+> 대조 기준: 팀 저장소 `feat/db-schema-v2-1`(`081aa9b`)의 `database/schema/schema_V2_1.sql`·`seed_04_threshold_policy.sql`, 앱 코드(`lee_app1`), FE 회신: v4 회의(10/08, 지금은 [FE 제안서](fe-server-proposal.md))
 > 추가 반영: DB `DB_V2.1_확인질문_DB회신.md`·`DB_V2.1_BE검토의견_회신.md`·`DB-V2.2-변경사항.md`(2026-10-10) → 5장
 
 ## 요약
@@ -67,7 +67,7 @@ V2.1은 `T-41 user_consent`를 보류해 뺐다. 좌표 전송은 가입 때 동
 
 ## 3. 우리 FE 회신(10/08)에서 고친 곳
 
-FE 회신: v4 회의에 반영했다. 그 문서는 [서버 판정 이전 명세](server-rule-spec.md)로 합쳤다.
+FE 회신: v4 회의에 반영했다. 그 문서는 [FE 제안서](fe-server-proposal.md)로 합쳤다.
 
 1. 안건 6 ②: "화면에는 붕괴로 본 시간" → 화면은 실제 경과 시간만 쓴다(FE-4).
 2. 안건 6 ⑥: "일시정지도 `away`" → 일시정지는 `rest`(`PAUSE`), 카메라 끊김은 `away`(`MISSING`).
@@ -96,7 +96,7 @@ FE 결정(10/11):
 |---|---|
 | 알림 상한을 세는 범위 | 서버 안의 계산이라 FE는 어느 쪽이든 같다. 서버 담당이 정한다 |
 | `observation.invalid_reason` | 고개 돌림·복귀 대기 안내 문구에 필요. 계약 추가 제안 |
-| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수는 추론, 시간 판정은 v1 판정기가 한다. 팀 API는 로그인·세션 시작/종료를 맡고 `session_started`·`session_ended`를 Kafka에 넣는다([제안서](devops-integration-proposal.md) Q1). 게이트웨이는 FE의 독립 서비스다 |
+| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수는 추론, 시간 판정은 v1 판정기가 한다. 팀 API는 로그인·세션 시작/종료를 맡고 `session_started`·`session_ended`를 Kafka에 넣는다([FE 제안서](fe-server-proposal.md) Q1). 게이트웨이는 FE의 독립 서비스다 |
 
 다른 팀 답을 기다리는 것:
 
@@ -109,7 +109,7 @@ FE 결정(10/11):
 ### FE가 이어서 할 일 (순서대로)
 
 1. ~~**ADR 작성**~~ → [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(10/11). 어긋나는 문서에 변경 안내를 붙였다.
-2. ~~**서버로 넘길 규칙 문서 + 합성 시험 데이터**~~ → [규칙 문서](server-rule-spec.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)(10/11). 원래 계획: `model/prototype/pose.ts`(판정 가능, 특징값, 점수, 고개 돌림 0.15)와 `frontend/src/lib/returnSettle.ts`(3초/1초)를 서버가 같은 결과를 내도록 좌표 → 기대 결과 쌍으로 만든다. 근거는 [세션 내보내기 명세](../research/session-export.md).
+2. ~~**서버로 넘길 규칙 문서 + 합성 시험 데이터**~~ → [FE 제안서](fe-server-proposal.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)(10/11). 원래 계획: `model/prototype/pose.ts`(판정 가능, 특징값, 점수, 고개 돌림 0.15)와 `frontend/src/lib/returnSettle.ts`(3초/1초)를 서버가 같은 결과를 내도록 좌표 → 기대 결과 쌍으로 만든다. 근거는 [세션 내보내기 명세](../research/session-export.md).
 3. **0.5초 좌표 묶음 전송:** 관절 9개 `[x, y, visibility]`, 프레임 그대로, 순번·`ack` 재전송·재연결. 지금 코드는 특징 변화량을 보낸다.
 4. **기준 좌표 평균 18개를 입구 API로 전송**, 보정 프레임은 `phase: "calibration"`으로 전송.
 5. **`away`(카메라 끊김)·`rest`(일시정지) 전송.**
@@ -118,7 +118,7 @@ FE 결정(10/11):
 8. **FE 연동 시험(T-13)** 일정 잡기.
 9. **`feature/repo-backend-db-v2` 검토:** 계정 계약 `alerts_on` 정정(이미 들어 있음), 기준 자세 좌표 평균(`setup.baseline.landmarks`), 기록 재구성이 FE 계획과 맞는지 확인한다. 실시간 경로는 그 브랜치의 `/v1/realtime`이 아니라 DevOps Kafka 경로로 정했다.
 10. **앱 판정·라벨 제거(10/11 결정):** ~~CSV 판정 라벨(`features_ok`·`state`·`type`·`score`), 화면·기록의 유형 표시~~ → `7d04203`(10/11). 남은 것: 로컬 판정, 고개 돌림 제외·복귀 대기(서버 좌표 수신 뒤). 라벨 촬영 수집 화면은 BE·ML 요구를 받은 뒤 다시 만든다.
-11. **게이트웨이(`backend/realtime`) 개발:** WebSocket ↔ Kafka. 판정하지 않고 좌표를 그대로 넣는다. [제안서](devops-integration-proposal.md) Q1~Q3 답을 받은 뒤 노트북에서 시작한다.
+11. **게이트웨이(`backend/realtime`) 개발:** WebSocket ↔ Kafka. 판정하지 않고 좌표를 그대로 넣는다. [FE 제안서](fe-server-proposal.md) Q1~Q3 답을 받은 뒤 노트북에서 시작한다.
 12. **`develop`에 올리기:** `develop`을 먼저 합쳐 충돌을 정리한 뒤 PR(사용자가 요청할 때).
 
 ### 참고: 지금까지의 상태
@@ -127,7 +127,7 @@ FE 결정(10/11):
 - ~~지금 앱의 판정 규칙은 서버로 옮길 기준 구현으로 남는다.~~ 10/11 결정으로 앱 판정·라벨을 모두 없앤다. 규칙을 서버로 넘길 때는 이 브랜치 기록(`676ae89` 등)과 [세션 내보내기 명세](../research/session-export.md)를 근거로 쓴다.
 - 회의 안건 원문(`회의안건_v4도입_결정사항.md`)과 BE 문서는 저장소 밖(DevOps)에 있다.
 
-#### 2026-10-11 작업 (`lee_app1`, 커밋 8개 모두 push, PR 없음)
+#### 2026-10-11 작업 (`lee_app1`, 모두 push, PR 없음)
 
 정한 것: 앱은 판정·라벨링하지 않고 좌표만 보낸다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 로컬 모드 제거.
 판정은 DevOps Kafka 경로(추론 → v1 판정기), 게이트웨이는 FE의 독립 서비스. 좌표 형식은 BE·ML 요구를 따른다(FE 초안 `posture.frames.v1`).
@@ -135,14 +135,15 @@ FE 결정(10/11):
 
 | 커밋 | 내용 |
 |---|---|
-| `d77069f` | DB 회신(10/10)·V2.2 영향(5장), [계획 0023](../plans/active/0023-frontend-server-only.md), [DevOps 연동 제안서](devops-integration-proposal.md) 초안 |
-| `ac8db76` | [규칙 문서](server-rule-spec.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)와 그 검사 시험 |
+| `d77069f` | DB 회신(10/10)·V2.2 영향(5장), [계획 0023](../plans/active/0023-frontend-server-only.md), DevOps 연동 제안서 초안 |
+| `ac8db76` | 규칙 문서, [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)와 그 검사 시험 |
 | `303426d` | 브라우저 시험에 "판정 불가 뒤 3초 보류" 반영 |
 | `37e0c08` | ADR 0021, ADR 0012·0013 일부 대체 표시, 어긋나던 현재 문서에 변경 안내 |
 | `82d76dd` | 완료 계획 20개·점검 기록 5개 삭제(git 이력에 남음), 링크 정리, 문서 지도 새로 씀 |
 | `078b02d` | 제안서에 FE 전제 3가지와 `invalid_reason` 정의 |
 | `7d04203` | 앱 판정 라벨 열과 자세 유형 표시 제거 |
 | `dd740ed` | 제안서에서 운영 중인 Kafka 경로·v4 결정과 다른 안 제거 |
+| (이후) | DevOps 연동 제안서·규칙 문서·v4 회의 FE 회신·판정 불가 처리 문서를 [FE 제안서](fe-server-proposal.md) 하나로 합치고, 이미 반영된 내용은 뺐다 |
 
 확인한 사실:
 - DevOps 서버(`f27f778`)는 Kafka 뒤쪽이 계약 v1대로 동작한다. 게이트웨이와 세션 시작·종료 Kafka 입구는 없고, 입력은 아직 특징 변화량이다.

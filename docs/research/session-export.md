@@ -4,7 +4,7 @@ ML 담당이 측정 결과 파일을 해석하기 위한 기준 문서다. 의�
 
 **앱은 판정 라벨을 붙이지 않는다**(2026-10-11, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)).
 csv에는 시간과 관절 좌표만 있다. 상태·유형·점수 같은 라벨은 서버·ML이 만든다.
-예전 csv의 `features_ok`·`state`·`type`·`score` 열과 그 계산 규칙은 [규칙 문서](../design/server-rule-spec.md)로 옮겼다.
+예전 csv의 `features_ok`·`state`·`type`·`score` 열과 그 계산 규칙은 [FE 제안서](../design/fe-server-proposal.md)로 옮겼다.
 
 ## 1. 파일
 
@@ -59,5 +59,5 @@ time_ms,width,height,nose_x,nose_y,...,right_shoulder_y
 
 - 2026-10-08: 매 행 같은 값인 `width`/`height`는 첫 행에만 쓴다.
 - 2026-10-11: 앱 판정 라벨 열(`features_ok`·`state`·`type`·`score`)을 없앴다(ADR 0021). 라벨은 서버·ML이 만든다.
-  그 전 형식과 라벨 규칙은 [규칙 문서](../design/server-rule-spec.md)와 git 이력에 있다.
+  그 전 형식과 라벨 규칙은 [FE 제안서](../design/fe-server-proposal.md)와 git 이력에 있다.
 - 미적용: 저장 간격(현재 매 프레임)·좌표 소수 자리·관절 수 축소는 필요할 때 다시 정한다.

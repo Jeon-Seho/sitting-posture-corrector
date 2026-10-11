@@ -260,7 +260,7 @@ function build() {
       '손으로 만든 합성 좌표다. 실제 영상·랜드마크·참여자 자료가 아니다. 기대값은 앱 코드(lee_app1)로 계산했다. 허용 폭과 경계값은 검증 전 실험값이다.',
     generated_by: 'frontend/src/features/session/server/referenceRuleCases.test.ts',
     rule_version: 'reference-rules-v0.2',
-    spec: 'docs/design/server-rule-spec.md',
+    spec: 'docs/design/fe-server-proposal.md',
     frame: { width: WIDTH, height: HEIGHT },
     joint_order: JOINT_NAMES,
     constants: {
