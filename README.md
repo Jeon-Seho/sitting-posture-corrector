@@ -7,6 +7,9 @@ Compose에서는 **MySQL + 이메일·비밀번호 계정 + 영구 기록·재�
 측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API → FastAPI → Esper CEP로 전달한다.
 기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).
 
+> **결정 변경(2026-10-11, [ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보내며
+> 판정은 서버가 한다. 로컬 판정 모드는 없앤다. 위 설명은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)으로 바뀌기 전의 현재 동작이다.
+
 ## Compose 계정 모드 실행
 
 Docker Desktop/Engine과 Compose를 시작한 뒤:

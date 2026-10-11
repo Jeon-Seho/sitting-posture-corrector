@@ -6,6 +6,8 @@
 - 관련 계획: [서버 연결 완료](../plans/completed/0014-frontend-server-connection.md)
 - 개정: [ADR 0018](0018-db-schema-v11-service-storage.md) — 영구 모드의 세션 생성은 기준 요약(평균·표준편차·보정 시간·표본 수·화면 위치)을 보낸다.
   특징 요청(입력 v2)에는 여전히 변화량만 보낸다.
+- 일부 대체: [ADR 0021](0021-app-sends-information-server-judges.md)(2026-10-11) — 앱은 특징 변화량 대신 관절 좌표를 보내고
+  판정 가능 검사·특징값·점수는 서버가 한다. 기본 로컬 모드는 없앤다. 아래 내용은 구현이 바뀔 때까지의 현재 동작이다.
 
 ## 배경
 

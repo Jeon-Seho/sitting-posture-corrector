@@ -1,6 +1,6 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: planned (0단계 팀 결정 대기)
+- 상태: in_progress (1단계 완료, 0단계 팀 결정 대기)
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련 요구사항/ADR: [FE 회신: v4 회의](../../design/v4-meeting-fe-reply.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
@@ -58,10 +58,13 @@
 
 ### 1단계 — 서버와 무관한 준비 (지금 시작 가능)
 
-- [ ] **규칙 문서와 합성 시험 데이터 작성.** 앱 판정을 지우기 전에 한다. 판정 가능, 특징값, 점수, 고개 돌림 0.15, 복귀 대기 3초/1초를
-  좌표 → 기대 결과 쌍으로 만든다. 근거: `model/prototype/pose.ts`, `frontend/src/lib/returnSettle.ts`, [세션 내보내기 명세](../../research/session-export.md).
-- [ ] **ADR 작성: "앱은 판정하지 않는다".** [데이터 플랫폼 경계](../../design/data-platform-boundary.md)의 "좌표 미전송"과
-  [실시간 계약](../../../contracts/realtime/README.md)의 "좌표를 넣지 않는다"를 함께 고친다(0단계 결과 반영).
+- [x] **규칙 문서와 합성 시험 데이터 작성.** [규칙 문서](../../design/server-rule-spec.md),
+  [합성 시험 데이터](../../../contracts/examples/frames/reference-rule-cases.json)(프레임 16·시간 순서 4·기준 자세 1),
+  앱 코드와 손 계산으로 검사하는 `frontend/src/features/session/server/referenceRuleCases.test.ts`.
+- [x] **ADR 작성: "앱은 판정하지 않는다".** [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
+  어긋나는 현재 문서(README, 아키텍처, 제품 범위, 데이터 플랫폼 경계, 실시간 계약, 판정 불가 처리, FE 회신, 내보내기·수집 규격,
+  계획 0022, 프론트 README, 문서 지도)에 변경 안내를 붙였다. ADR 0012·0013에 일부 대체를 표시했다. 완료 계획·감사 기록은 이력이라 고치지 않았다.
+  실시간 계약의 새 스키마(`posture.frames.v1`)는 0단계 뒤에 만든다.
 
 ### 2단계 — 앱 판정 제거
 
@@ -94,8 +97,23 @@
 
 - 2026-10-11: 앱 판정·라벨 전부 제거, 서버 전용 앱으로 결정. 네트워크 끊김 때 로컬 미리보기는 하지 않는다(앱 판정이 없으므로).
   소리 설정은 저장하지 않는다. 화면 크기는 팀 카메라 전제로 640×480 요청을 유지한다. 좌표 프레임 계약 이름은 `posture.frames.v1`.
+- 2026-10-11: 규칙 문서를 쓰며 확인한 사실. 앱은 0.5초로 묶지 않고 이웃한 두 프레임 사이를 구간으로 보낸다.
+  "판정 불가 3초 연속 → 측정 멈춤·자동 재개"는 앱에도 구현되지 않았다. 기준 자세를 평균 좌표 18개로 다시 계산하면 앱과 값이 다르다(규칙 문서 3장).
+- 2026-10-11: 브라우저 시험(`tools/browser/scenarios.mjs`)이 `871ba31`의 "판정 불가 뒤 3초 보류"를 반영하지 않아 실패했다.
+  보류 3초 동안 유효 시간이 늘지 않고 그 뒤 첫 판정 구간부터 늘어나는지 확인하도록 고쳤다. 2단계에서 앱 판정을 없애면 이 시나리오를 다시 쓴다.
 - 남은 질문: 0단계 전체. 라벨 촬영 수집 화면의 새 요구(BE·ML).
 
 ## 검증 결과와 남은 한계
 
-- 계획만 작성했다. 코드는 바꾸지 않았고 검증을 실행하지 않았다.
+2026-10-11, Windows 11 PC(JDK 21.0.12, Maven 3.9.9, Node 24.14, Python 3.13, Docker Desktop 4.94 / Engine 29.8.2). `make`가 없어 `python tools/dev.py <단계>`로 실행했다.
+
+| 단계 | 결과 |
+|---|---|
+| `check-repo` | 통과 |
+| `test`(Python) | 140개 중 오류 3개, 건너뜀 1개. 모두 `test_deploy_configuration`: Windows 파일 잠금(`WinError 32`) 2개, "SSH 배포는 Linux/POSIX 호스트 필요" 1개. Linux·Mac에서 다시 확인 필요 |
+| `check-frontend` | 통과(시험 파일 40개·302개, `tsc -b`, Vite 빌드) |
+| `check-backend` | 통과(Maven 모듈 3개, API 시험 59개 중 14개 건너뜀, 서비스 연동 smoke 10개) |
+| `check-browser` | 시나리오 수정 후 통과(75개 항목) |
+| `check-compose` | **실패.** `infra/mysql/initdb/10-posegood-schema.sh`가 지워진 `schema_V1_1.sql`을 적용하려 해 DB가 비고, API가 V1.1 테이블이 없다며 시작하지 않는다. `develop`도 같다. DB 담당 `feature/repo-backend-db-v2`(`fcc8ef7`)가 스크립트를 `schema_V2_2.sql`로 바꾸고 API를 V2.2에 맞췄다(미병합) |
+
+- 이 계획의 코드 변경(2·3단계)은 아직 하지 않았다.

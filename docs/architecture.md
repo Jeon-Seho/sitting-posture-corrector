@@ -8,6 +8,11 @@
 [API·CEP·FastAPI 경계](decisions/0011-api-cep-boundary.md)에 선택형 개발 서버 모드를 연결했다.
 [ADR 0013](decisions/0013-frontend-server-feature-connection.md)에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송한다.
 
+> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
+> 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
+> 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
+> FE가 붙을 서버(DB 담당 단일 API, ADR 0020 / DevOps `platform/`)는 [DevOps 연동 제안서](design/devops-integration-proposal.md)에서 정한다.
+
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
                          ↓                                  ↓

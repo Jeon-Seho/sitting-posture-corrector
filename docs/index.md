@@ -8,6 +8,11 @@
 - **코드 수정:** [기능별 코드 구조와 수정 위치](code-structure.md), [2026-10-01 기술 스택 검토](audits/2026-10-01-technology-stack.md).
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 
+- **결정(2026-10-11):** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md) —
+  로컬 판정·앱 라벨 제거. 이 날짜 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
+  - 실행 계획: [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(계획 0023)
+  - DevOps 서버 확인과 게이트웨이 제안: [DevOps 연동 제안서](design/devops-integration-proposal.md) — 질문 Q1~Q10 답변 대기
+  - 서버로 옮길 판정 규칙: [규칙 문서](design/server-rule-spec.md), [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json)
 - **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 팀·ML 확인 대기.
   판정 불가 처리 기준과 DevOps 판정 엔진에 필요한 변경: [판정 불가 처리](design/unmeasurable-handling.md)(2026-10-08).
   v4 회의 안건 2·5·6 FE 회신(좌표만 보내고 판정은 서버, 서버 부담 포함): [FE 회신](design/v4-meeting-fe-reply.md)(2026-10-08).
@@ -79,7 +84,7 @@
 
 파일럿: [CSV 수집·pandas 탐색](research/pilot-csv.md), [화면 평활화·수집 결정](decisions/0004-smoothing-csv.md).
 
-측정 결과 내보내기: [txt·pose-debug csv 열과 규칙 판정 라벨](research/session-export.md).
+측정 결과 내보내기: [txt·pose-debug csv 열과 규칙 판정 라벨](research/session-export.md). 판정 라벨 열은 ADR 0021로 없앨 예정이다.
 
 개인 실험: [본인 촬영의 학습 전용 증강·첫 분류 학습](research/personal-pilot-training.md). 새 참여자 연구 평가와 구분한다.
 

@@ -1,6 +1,7 @@
 # Kafka 실시간 전달 경로와 프론트 게이트웨이
 
-- 상태: planned (DevOps가 계약 v1 수용, 메시지 단위·판정 엔진 결정 대기. 아래 '결정과 진행 기록' 첫 항목)
+- 상태: planned (2026-10-11 전제 변경: 앱은 좌표를 보내고 판정은 서버, 로컬 판정 없음 — [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
+  게이트웨이 위치·서버 입력 형식은 [DevOps 연동 제안서](../../design/devops-integration-proposal.md) 답변 대기. 아래 '결정과 진행 기록' 첫 항목)
 - 담당: 동욱 요청, Claude 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [ADR 0011](../../decisions/0011-api-cep-boundary.md), [ADR 0012](../../decisions/0012-session-timing-policy.md),
@@ -106,6 +107,12 @@
 
 ## 결정과 진행 기록
 
+- 2026-10-11: 이 계획의 전제 두 가지가 바뀌었다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)).
+  ① 앱은 특징 변화량(입력 v2) 대신 관절 좌표(`posture.frames.v1`)를 보낸다. 위 '따르는 기존 결정'의 ADR 0013 행과 '개인정보'의 "원본 좌표를 넣지 않는다"는
+  동의한 사용자의 좌표 전송으로 바뀐다. ② 로컬 판정·HTTP 서버 판정과의 "선택 공존"(4단계)은 없앤다. 앱은 서버 결과로만 화면을 바꾼다([계획 0023](0023-frontend-server-only.md)).
+  `DevOps` 브랜치(`f27f778`)를 확인한 결과 Kafka 뒤쪽(추론 → 판정 → `posture.episodes.v1`)은 계약 v1대로 구현됐고 게이트웨이(WebSocket)는 없다.
+  DB 담당의 팀 API 재작성(`feature/repo-backend-db-v2`, ADR 0020)은 Kafka 없이 API 안에서 판정한다. 둘 중 어디에 붙을지, 게이트웨이를 독립 서비스(A)로 할지
+  팀 API 안(B)으로 할지는 [DevOps 연동 제안서](../../design/devops-integration-proposal.md) Q1·3장에서 정한다.
 - 2026-10-08 (동욱): 판정 불가 처리를 정했다(3초 미만은 시계 멈춤, 3초 연속이면 측정 멈춤과 0.5초 뒤 자동 재개, 0.5초 구간은 판정 가능한 프레임 절반 기준 임시).
   앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다: [판정 불가 처리](../../design/unmeasurable-handling.md).
 - 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.

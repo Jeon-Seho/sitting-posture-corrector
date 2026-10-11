@@ -108,8 +108,8 @@ FE 결정(10/11):
 
 ### FE가 이어서 할 일 (순서대로)
 
-1. **ADR 작성:** "앱은 정보만 보내고 판정은 서버" 결정. [데이터 플랫폼 경계](data-platform-boundary.md)의 "좌표 미전송"과 [실시간 계약 README](../../contracts/realtime/README.md)의 "좌표를 넣지 않는다"를 함께 고친다.
-2. **서버로 넘길 규칙 문서 + 합성 시험 데이터:** `model/prototype/pose.ts`(판정 가능, 특징값, 점수, 고개 돌림 0.15)와 `frontend/src/lib/returnSettle.ts`(3초/1초)를 서버가 같은 결과를 내도록 좌표 → 기대 결과 쌍으로 만든다. 근거는 [세션 내보내기 명세](../research/session-export.md).
+1. ~~**ADR 작성**~~ → [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(10/11). 어긋나는 문서에 변경 안내를 붙였다.
+2. ~~**서버로 넘길 규칙 문서 + 합성 시험 데이터**~~ → [규칙 문서](server-rule-spec.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)(10/11). 원래 계획: `model/prototype/pose.ts`(판정 가능, 특징값, 점수, 고개 돌림 0.15)와 `frontend/src/lib/returnSettle.ts`(3초/1초)를 서버가 같은 결과를 내도록 좌표 → 기대 결과 쌍으로 만든다. 근거는 [세션 내보내기 명세](../research/session-export.md).
 3. **0.5초 좌표 묶음 전송:** 관절 9개 `[x, y, visibility]`, 프레임 그대로, 순번·`ack` 재전송·재연결. 지금 코드는 특징 변화량을 보낸다.
 4. **기준 좌표 평균 18개를 입구 API로 전송**, 보정 프레임은 `phase: "calibration"`으로 전송.
 5. **`away`(카메라 끊김)·`rest`(일시정지) 전송.**

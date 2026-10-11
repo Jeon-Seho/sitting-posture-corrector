@@ -4,6 +4,8 @@
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [로컬 통합](0003-retro-integration.md)
 - 개정: 2026-10-06 정상 복귀 기본값 2초 → **3초**(동욱 결정). Kafka 판정 엔진(DevOps 저장소 `CEP_RECOVERY_SECONDS=3`)과 맞춘다.
+- 일부 대체: [ADR 0021](0021-app-sends-information-server-judges.md)(2026-10-11) — 로컬 모드를 없애므로 아래 "로컬 모드" 항목은
+  구현이 바뀔 때까지만 유효하다. 시간 값(3초·3초·60초)과 정책 고정 규칙은 서버 판정에 그대로 적용한다.
 
 ## 배경과 근거
 
