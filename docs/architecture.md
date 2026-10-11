@@ -5,7 +5,7 @@
 
 현재 체험용 구현의 초기 선택은 [ADR 0002](decisions/0002-webcam-prototype.md)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상·원본 좌표는 서버에 보내지 않는다.
-[API·CEP·FastAPI 경계](decisions/0011-api-cep-boundary.md)에 선택형 개발 서버 모드를 연결했다.
+[API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
 [ADR 0013](decisions/0013-frontend-server-feature-connection.md)에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송한다.
 
 ```text
@@ -22,8 +22,7 @@
 | --- | --- | --- |
 | `model/` | 포즈 어댑터, 품질, 특징, 보정, 추론, 연구 평가 | 화면·DB에 직접 의존하지 않음 |
 | `frontend/` | 카메라 UI, 등록 흐름, 상태 표시, 알림 전달, 대시보드 | AI 내부 특징을 재해석해 자체 분류하지 않음 |
-| `backend/` | 세션·설정·집계 API, 모델 출력 전달이 필요한 경우의 어댑터 | 분류·개인 보정 로직을 중복 구현하지 않음 |
-| `backend/cep/` | 독립 Esper 시간 사건 판정·세션별 유효 시간 집계 | 시간 임계값 비교는 EPL에만 있음 |
+| `backend/` | 계정·설정·세션·기록 API, 시간 사건 판정·유효 시간 집계, 추론 연결 | 분류·개인 보정 로직을 중복 구현하지 않음. 시간 임계값 비교는 `engine/DecisionRules`에만 있음 |
 | `database/` | 스키마, 마이그레이션, 보존/삭제 규칙 | 앱이나 모델 코드를 호출하지 않음 |
 | `contracts/` | 경계를 넘는 데이터 구조와 합성 예제 | 어떤 프레임워크에도 의존하지 않음 |
 
@@ -33,17 +32,15 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 현재 개발 흐름에서는 `model/prototype/serverFeatures.ts`가 브라우저 특징 변화량을 만들고 Python이 규칙 점수를 계산한다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
-새 서버 흐름의 지속시간·회복·재알림 판정은 Esper CEP 한 곳에서 수행한다. Spring Boot API는
+새 서버 흐름의 지속시간·회복·재알림 판정은 API의 판정 엔진 한 곳에서 수행한다. Spring Boot API는
 검증·전달·저장·조회, FastAPI는 현재 추론 점수를 담당한다. [관측/사건/조회 계약](../contracts/README.md)을 사용한다.
-프론트 서버 모드는 `features/session/server/`의 독립 화면·순서 큐로 CEP 사건을 표시한다. 로컬 시간 엔진을 실행하지 않는다.
-`/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고 DB·CEP·추론은 host port를 열지 않는다.
+프론트 서버 모드는 `features/session/server/`의 독립 화면·순서 큐로 서버 사건을 표시한다. 로컬 시간 엔진을 실행하지 않는다.
+`/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고(실시간 채널은 WebSocket) DB·추론은 host port를 열지 않는다.
 현재 FastAPI는 규칙 기반 특징 점수이고 학습 모델이 아니다. [실행·검증·한계](../backend/README.md)를 따른다.
-CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임시 런타임을 정리한 뒤 HTTP 요청을 받는다.
-이 준비는 사용자 세션 저장소나 통계·64세션 한도를 소비하지 않는다.
 
 시간 정책의 현재 합의는 [ADR 0012](decisions/0012-session-timing-policy.md)를 따른다.
 기본 최초 알림 3초·복귀 3초·같은 사건 재알림 60초, 중단 후 새 사건과 제외 시간,
-세션 시작 시 설정 고정/다음 새 세션 적용을 기존 로컬·CEP 구현에 유지한다.
+세션 시작 시 설정 고정/다음 새 세션 적용을 로컬·서버 구현에 유지한다.
 개발용 특징·관측 구간 계약은 ADR 0013이며 실제 품질 임계값·카메라 시점·장치 성능은 검증 전이다.
 
 ## 의존성과 변경 원칙
@@ -80,9 +77,9 @@ CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임�
 ## MySQL 영구 모드
 
 [계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
-인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다. 계정별 MySQL 잠금과 짧은 트랜잭션으로
-관측/outbox를 CEP 전에 저장하고, 확인 후 요약·사건·처리 상태를 저장한다. HTTP를 기다리는 동안 행 트랜잭션을 유지하지 않는다.
-CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 원 관측을 재전달한다. 사건 ID·요약 불일치는 복구 실패다.
+인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다. 저장은 DB 스키마 V2.0이다([ADR 0020](decisions/0020-single-api-decision-engine.md)).
+진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간·일별 통계는 종료 때 짧은 트랜잭션으로 저장한다.
+API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
 프론트는 `VITE_SERVER_ACCOUNTS=true`에서 실제 계정 앱을 선택하고 인증 후 프로필·설정·기록을 서버에서 읽는다.
 최종 기록을 localStorage에 복제하지 않는다. 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
@@ -91,7 +88,7 @@ CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 �
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.
-`cep_outbox`는 서비스 복구 전달용이며 Kafka 분석용 export라고 부르지 않는다.
+실시간 채널(`/v1/realtime`)은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 
 ## 프론트 진입과 로컬 저장
 
@@ -101,7 +98,7 @@ CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 �
 앱 내부 이동/크기 조절 창·지원 브라우저 PiP로 기존 스트림만 미리보기한다. 명시적 종료·로그아웃·인증 변경은 해제한다.
 미리보기 유지와 수집은 구분하며 탭/수집 화면 이동의 촬영 중단 규칙을 유지한다.
 프로필·세션 저장/복구·측정 화면·기록 조회·저장 검증은 `frontend/src/features/`로 나눴다.
-API는 web/application/repository/gateway, CEP는 web/application/domain/esper 경계로 구현한다.
+API는 account/session/engine/workspace/realtime 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
 서버가 없는 동안 프로필·설정·측정 요약·중간 저장·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
@@ -132,6 +129,6 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 앱의 저장·복구·화면·서버 컨트롤러는 실제 구현을 사용한다. 일반 개발·preview·프로덕션 빌드에서는
 합성 카메라를 선택하지 않으며 테스트 입력은 실제 영상·랜드마크나 카메라 권한을 사용하지 않는다.
 
-`tools/benchmark/`는 추론 단독과 API→추론→CEP의 합성 요청을 별도로 측정한다.
+`tools/benchmark/`는 추론 단독과 API→추론의 합성 요청을 별도로 측정한다(API 대상의 계정 로그인 전환은 계획 0023의 후속 작업).
 HTTP 응답 완료 지연과 전체 단계 처리량을 구분하고 실패 요청은 성공 지연 표본에서 제외한다.
 환경·코드/입력/JAR hash를 결과에 남기며 실제 카메라 FPS나 배포 성능으로 해석하지 않는다.

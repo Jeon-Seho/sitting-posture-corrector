@@ -1,28 +1,32 @@
 package org.posegood.api.account;
 
-import org.posegood.api.web.ApiError;
-import org.springframework.context.annotation.Profile;
+import org.posegood.api.common.ApiError;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+/**
+ * The owner of every protected request: the authenticated principal of an ACTIVE account. Revoked
+ * logins have no `SPRING_SESSION` row left, so they never reach this point.
+ */
 @Component
-@Profile("persistent")
 public class CurrentUser {
-    private final UserStore users;
+    private final AccountService accounts;
 
-    public CurrentUser(UserStore users) {
-        this.users = users;
+    public CurrentUser(AccountService accounts) {
+        this.accounts = accounts;
     }
 
     public long id() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated())
+        return id(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    public long id(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof AccountPrincipal principal))
             throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        if (!(authentication.getPrincipal() instanceof AccountPrincipal principal))
-            throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        var user = users.require(principal.id());
-        if (principal.epoch() != user.epoch())
-            throw new ApiError(401, "UNAUTHENTICATED", "authentication revoked");
+        accounts.requireActive(principal.id());
         return principal.id();
     }
 }

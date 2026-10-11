@@ -115,7 +115,6 @@ export function useSessionPersistence({
     const setup = serverMode
       ? serverSetup({
           baselineId: camera.calibrationId!,
-          baseline: camera.baseline,
           summary: camera.calibrationSummary,
           deviceId: camera.deviceId,
           deviceLabel: camera.devices.find((device) => device.deviceId === camera.deviceId)?.label,

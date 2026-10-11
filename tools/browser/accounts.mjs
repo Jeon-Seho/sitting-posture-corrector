@@ -140,11 +140,11 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.authenticate(email, password, '합성 계정 A')
   const owner = app.userId
   const initial = await app.api('workspace')
-  // DB V1.1 seed DEFAULT_TEMP (3s/3s/60s/0.5, seed updated 2026-10-06) is the temporary default policy.
+  // DB V2.2 seed DEFAULT_TEMP (3s/3s/60s/0.7; threshold decided 2026-10-10) is the default policy.
   app.check('new account starts with server records and DEFAULT_TEMP settings',
     initial.value.records.length === 0 && initial.value.rules.holdSeconds === 3 &&
     initial.value.rules.recoverSeconds === 3 && initial.value.rules.realertSeconds === 60 &&
-    initial.value.rules.threshold === 0.5)
+    initial.value.rules.threshold === 0.7)
 
   await app.click('설정')
   await until(() => app.evaluate(`(() => {

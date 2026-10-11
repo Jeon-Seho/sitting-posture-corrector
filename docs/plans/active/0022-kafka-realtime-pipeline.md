@@ -106,6 +106,7 @@
 
 ## 결정과 진행 기록
 
+- 2026-10-09 (sunshine-yj): 판정 엔진을 API 안으로 정했다([ADR 0020](../../decisions/0020-single-api-decision-engine.md), DB V2.0 CR-04). Kafka 도입 전까지 API의 `/v1/realtime`이 WebSocket 계약 v1을 직접 처리한다(게이트웨이·토픽 없이 같은 메시지). 토픽 전환 때 판정 처리기는 API의 판정 엔진(`engine/`)을 쓴다.
 - 2026-10-08 (동욱): 판정 불가 처리를 정했다(3초 미만은 시계 멈춤, 3초 연속이면 측정 멈춤과 0.5초 뒤 자동 재개, 0.5초 구간은 판정 가능한 프레임 절반 기준 임시).
   앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다: [판정 불가 처리](../../design/unmeasurable-handling.md).
 - 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.

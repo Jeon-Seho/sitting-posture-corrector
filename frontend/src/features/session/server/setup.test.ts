@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { serverSetup } from './setup'
 import { validSetup } from './validation'
+import { SYNTHETIC_LANDMARKS } from './testFixtures'
 
 const BASELINE_ID = '22222222-2222-4222-8222-222222222222'
-// Explicitly synthetic calibration aggregates; no landmarks or frames.
+// Explicitly synthetic calibration means; no frames or per-frame samples.
 const input = () => ({
   baselineId: BASELINE_ID,
-  baseline: { headGap: 0.4123456789, offset: -0.02, tilt: 0.01, quality: 0.9 },
   summary: {
     durationMs: 5012.4,
     sampleCount: 21,
     spread: { headGap: 0.012, offset: 0.004, tilt: 0.003 },
-    placement: { x: 0.51, y: 0.62, area: 0.048 },
+    landmarks: {
+      ...SYNTHETIC_LANDMARKS,
+      nose: { x: 0.5012345678, y: 0.4 },
+    },
   },
   deviceId: 'synthetic-device',
   deviceLabel: '  Synthetic camera  ',
@@ -19,8 +22,8 @@ const input = () => ({
   frameHeight: 480,
 })
 
-describe('server session setup (DB schema V1.1 prerequisites)', () => {
-  it('sends calibration aggregates, frame size and the camera identity only', () => {
+describe('server session setup (DB schema V2.1 baseline)', () => {
+  it('sends the mean landmark coordinates at the stored precision', () => {
     const setup = serverSetup(input())!
     expect(setup).toEqual({
       device: { key: 'synthetic-device', label: 'Synthetic camera' },
@@ -29,12 +32,7 @@ describe('server session setup (DB schema V1.1 prerequisites)', () => {
         baseline_id: BASELINE_ID,
         calibration_ms: 5012,
         sample_count: 21,
-        target_center_x: 0.51,
-        target_center_y: 0.62,
-        target_area_ratio: 0.048,
-        head_gap: { mean: 0.412346, std: 0.012 },
-        lateral_offset: { mean: -0.02, std: 0.004 },
-        shoulder_tilt: { mean: 0.01, std: 0.003 },
+        landmarks: { ...SYNTHETIC_LANDMARKS, nose: { x: 0.50123, y: 0.4 } },
       },
     })
     expect(validSetup(setup, BASELINE_ID)).toBe(true)
@@ -46,8 +44,20 @@ describe('server session setup (DB schema V1.1 prerequisites)', () => {
     expect(fallback.device).toEqual({ key: 'default-camera', label: '카메라' })
     expect(serverSetup({ ...input(), summary: null })).toBeNull()
     expect(
-      serverSetup({ ...input(), summary: { ...input().summary, placement: null } }),
+      serverSetup({ ...input(), summary: { ...input().summary, landmarks: null } }),
     ).toBeNull()
     expect(serverSetup({ ...input(), frameWidth: 0 })).toBeNull()
+  })
+
+  it('rejects coordinates off the frame or a missing landmark', () => {
+    const setup = serverSetup(input())!
+    const off = structuredClone(setup)
+    off.baseline.landmarks.left_ear.x = 1.2
+    expect(validSetup(off, BASELINE_ID)).toBe(false)
+    const missing = structuredClone(setup) as unknown as {
+      baseline: { landmarks: Record<string, unknown> }
+    }
+    delete missing.baseline.landmarks.mouth_left
+    expect(validSetup(missing, BASELINE_ID)).toBe(false)
   })
 })

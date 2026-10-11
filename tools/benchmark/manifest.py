@@ -102,5 +102,5 @@ def runtime_manifest():
 def artifact_hashes():
     return {
         component: sha256(service_jar(component, artifact).read_bytes())
-        for component, artifact in (("api", "session-api"), ("cep", "cep-service"))
+        for component, artifact in (("api", "session-api"),)
     }

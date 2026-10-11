@@ -13,6 +13,17 @@ from .secrets import ROOT
 DATABASE = "posture_service"
 
 
+def mysql_client(program, options_file):
+    """A mysql/mysqldump command inside the db container that reads a 0400 copy of the options file.
+
+    Windows bind mounts expose secret files as world-writable and the MySQL clients then ignore
+    them (as the DB healthcheck does, copy first). The copy is private to the call and removed.
+    """
+    script = ('f=$(mktemp) && install -m 0400 "$0" "$f" && ' + program
+              + ' --defaults-extra-file="$f" "$@"; s=$?; rm -f "$f"; exit $s')
+    return ["sh", "-c", script, options_file]
+
+
 def docker_executable():
     binary = shutil.which("docker")
     if not binary:

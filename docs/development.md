@@ -10,7 +10,7 @@ make check-frontend   # 프론트 테스트·타입·빌드
 make check-backend    # Java·합성 HTTP·짧은 benchmark, 시험 서버 정리
 make check-browser    # 준비된 프론트 빌드/JAR로 합성 앱·서버 흐름
 make check-compose    # 실제 임시 MySQL·계정 UI·백업 복원
-make check-local      # 영구 모드를 제외한 게이트
+make check-local      # Compose를 제외한 게이트(백엔드는 임시 MySQL 사용)
 make check            # 전체 게이트
 make init-compose     # Git 제외 local secret 준비
 make benchmark-server # 준비된 JAR로 별도 성능 측정
@@ -26,7 +26,7 @@ Python 3.9+, Node.js 24+, JDK 21·Maven, Chrome/Chromium을 사용한다.
 전체 게이트는 Docker daemon·Compose가 필수이며, `check-local`에도 Python 구성 검사용 Docker CLI는 필요하다.
 CI에서만 `POSEGOOD_CHROME_NO_SANDBOX=1`을 사용하고 로컬 Chrome은 기본 sandbox를 유지한다.
 
-서버 준비·독립 `dev-api`/`dev-cep`/`dev-inference`는 [backend 안내](../backend/README.md),
+서버 준비·독립 `dev-api`/`dev-inference`와 시험용 MySQL은 [backend 안내](../backend/README.md),
 계정 앱·배포·백업은 [infra 안내](../infra/README.md), 웹캠은 [frontend 안내](../frontend/README.md)를 따른다.
 검증 선택·실패 기준·합성 입력 경계·결과 보고는 [품질 기준](quality.md), 성능 측정은 [benchmark 안내](audits/2026-10-01-server-benchmark.md)에 모은다.
 

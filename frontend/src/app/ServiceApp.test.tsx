@@ -10,6 +10,7 @@ import {
   BASELINE,
   BASELINE_ID,
   SESSION_ID,
+  SYNTHETIC_LANDMARKS,
   checkpoint as serverCheckpoint,
   view as serverView,
 } from '../features/session/server/testFixtures'
@@ -73,7 +74,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       durationMs: 5000,
       sampleCount: 20,
       spread: { headGap: 0.01, offset: 0.01, tilt: 0.01 },
-      placement: { x: 0.5, y: 0.6, area: 0.05 },
+      landmarks: SYNTHETIC_LANDMARKS,
     }
     controls.camera.deviceId = 'synthetic-device'
   }
@@ -405,8 +406,7 @@ describe('service recovery and saving with synthetic storage only', () => {
           baseline_id: BASELINE_ID,
           calibration_ms: 5000,
           sample_count: 20,
-          target_center_x: 0.5,
-          head_gap: { mean: BASELINE.headGap, std: 0.01 },
+          landmarks: SYNTHETIC_LANDMARKS,
         }),
       },
     })

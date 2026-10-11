@@ -96,15 +96,16 @@ def wait_health(base, timeout=120):
 
 
 def synthetic_setup(baseline_id):
-    """Explicitly synthetic calibration aggregates for schema V1.1 session prerequisites."""
-    stat = {"mean": 0.25, "std": 0.01}
+    """Explicitly synthetic mean landmark coordinates for the schema V2.1 baseline."""
+    point = {"x": 0.5, "y": 0.5}
+    names = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right",
+             "left_shoulder", "right_shoulder")
     return {
         "device": {"key": "synthetic-compose-device", "label": "synthetic camera"},
         "frame": {"width": 640, "height": 480},
         "baseline": {
-            "baseline_id": baseline_id, "calibration_ms": 5000, "sample_count": 20,
-            "target_center_x": 0.5, "target_center_y": 0.6, "target_area_ratio": 0.05,
-            "head_gap": stat, "lateral_offset": stat, "shoulder_tilt": stat,
+            "baseline_id": baseline_id, "calibration_ms": 3000, "sample_count": 20,
+            "landmarks": {name: dict(point) for name in names},
         },
     }
 
@@ -138,11 +139,14 @@ def exercise_accounts(base):
         reply = owner.request("POST", "/v1/sessions/" + session_id + "/features", feature)
     view = reply["session"]
     if view["summary"]["collapse_count"] != 1 or view["summary"]["valid_ms"] != 3000:
-        raise AssertionError("Actual inference/CEP did not confirm the synthetic 3-second deviation")
+        raise AssertionError("Actual inference and the API decision engine did not confirm the synthetic 3-second deviation")
     repeated = owner.request("POST", "/v1/sessions/" + session_id + "/features", feature)
     if repeated != reply:
         raise AssertionError("Exact feature retry did not preserve the original committed result")
-    checks += 3
+    ended = owner.request("POST", "/v1/sessions/" + session_id + "/end", {"end_ms": 3000})
+    if not ended["ended"] or ended["summary"]["valid_ms"] != 3000:
+        raise AssertionError("Termination did not retain acknowledged valid time")
+    checks += 4
     other = Client(base)
     register(other, uuid.uuid4().hex)
     other.request("GET", "/v1/sessions/" + session_id, expected=404)
@@ -152,17 +156,16 @@ def exercise_accounts(base):
 
 
 def verify_restart_and_finish(base, state):
+    """Schema V2.2 keeps logins and finished sessions, not live decision state (ADR 0020)."""
     owner = state["owner"]
     owner.request("POST", "/v1/auth/login", state["credentials"])
     if owner.request("GET", "/v1/auth/me")["user_id"] != state["account"]["user_id"]:
         raise AssertionError("Account identity was lost after service restart")
-    view = owner.request("GET", "/v1/sessions/" + state["session_id"])
-    if view != state["reply"]["session"]:
-        raise AssertionError("Committed events/statistics changed after API/CEP restart")
-    retry = owner.request("POST", "/v1/sessions/" + state["session_id"] + "/features", state["feature"])
-    if retry != state["reply"]:
-        raise AssertionError("Persisted feature retry lost its original inference output")
-    ended = owner.request("POST", "/v1/sessions/" + state["session_id"] + "/end", {"end_ms": 3000})
-    if not ended["ended"] or ended["summary"]["valid_ms"] != 3000:
-        raise AssertionError("Persistent termination did not retain acknowledged valid time")
+    metadata = owner.request("GET", "/v1/sessions/" + state["session_id"] + "/metadata")
+    if metadata["ended_at"] is None or metadata["started_at"] is None:
+        raise AssertionError("The finished session row was not kept across the restart")
+    lost = owner.request("GET", "/v1/sessions/" + state["session_id"], expected=404)
+    if lost["code"] != "SESSION_LOST":
+        raise AssertionError("A session without live state must be reported as SESSION_LOST")
+    owner.request("POST", "/v1/sessions/" + state["session_id"] + "/features", state["feature"], expected=404)
     return state["checks"] + 4

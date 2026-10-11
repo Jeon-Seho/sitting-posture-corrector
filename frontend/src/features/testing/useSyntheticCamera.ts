@@ -4,6 +4,7 @@ import type { CameraController } from '../../hooks/useCamera'
 import type { Observation } from '../camera/types'
 import type { VisualOptions } from '../../lib/poseVisual'
 import { requireSyntheticMode } from './guard'
+import { SYNTHETIC_LANDMARKS } from './syntheticLandmarks'
 requireSyntheticMode()
 
 export const SYNTHETIC_BASELINE: Features = {
@@ -212,7 +213,7 @@ export function useCamera(): CameraController {
           durationMs: 5000,
           sampleCount: 20,
           spread: { headGap: 0, offset: 0, tilt: 0 },
-          placement: { x: 0.5, y: 0.6, area: 0.05 },
+          landmarks: SYNTHETIC_LANDMARKS,
         }
       : null,
     progress: null,

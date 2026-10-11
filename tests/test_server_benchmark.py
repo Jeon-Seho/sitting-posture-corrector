@@ -286,15 +286,21 @@ class BenchmarkManifestAndOutputTests(unittest.TestCase):
 
     def test_setup_failure_writes_failure_manifest_instead_of_zero_sample_success(self):
         @contextmanager
-        def failing_services(endpoints):
+        def failing_services(endpoints, database):
             raise RuntimeError("synthetic readiness failure")
             yield
+
+        @contextmanager
+        def synthetic_mysql(*arguments):
+            yield SimpleNamespace()
 
         with tempfile.TemporaryDirectory() as folder, \
                 patch("tools.server_benchmark.source_revision", return_value={"head": "synthetic", "dirty_source_patch_sha256": "synthetic"}), \
                 patch("tools.server_benchmark.artifact_hashes", return_value={}), \
                 patch("tools.server_benchmark.runtime_manifest", return_value={}), \
                 patch("tools.server_benchmark.ServiceEndpoints.allocate", return_value=ENDPOINTS), \
+                patch("tools.server_benchmark.mysql_server", synthetic_mysql), \
+                patch("tools.server_benchmark.disposable_database", synthetic_mysql), \
                 patch("tools.server_benchmark.running_services", failing_services):
             destination = Path(folder) / "synthetic-failed.json"
             report = benchmark(BenchmarkConfig(warmup=0, repetitions=1), destination)

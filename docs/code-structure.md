@@ -30,27 +30,23 @@ frontend/src/
   styles.css              기존 순서를 유지하는 스타일 import
 
 backend/
-  api/                    org.posegood.api
-    .../web/              HTTP 입력과 오류 응답
-    .../application/      세션 생성·관측·종료·조회 조정
-    .../account/          인증·CSRF·현재 주체·계정/비밀번호 관리
-    .../persistence/      JDBC 저장·JSON 검증·계정 잠금
-    .../repository/       메모리 개발 저장
-    .../gateway/          CEP·추론 HTTP 연결
-  cep/                    org.posegood.cep
-    .../web/              내부 HTTP 입력과 오류 응답
-    .../application/      세션 생명주기·입력 순서·사건 처리 조정
-    .../domain/           관측 시간 누적, 사건 기록·통계
-    .../esper/            EPL 컴파일·런타임·판정 전달
-    .../resources/rules/  시간 임계값 비교 EPL
-  contracts/              Java 전송 타입과 입력 검증
+  api/                    org.posegood.api (API 하나, ADR 0020)
+    .../common/           오류 응답·KST 시각·JSON
+    .../contract/         경계 계약 record
+    .../engine/           판정 엔진; 시간 임계값 비교는 DecisionRules에만
+    .../policy/           threshold_policy 찾기·추가
+    .../account/          인증·CSRF·현재 주체·비밀번호·탈퇴
+    .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
+    .../workspace/        설정·앱 기록 저장과 검증
+    .../realtime/         /v1/realtime WebSocket
+    .../system/           health, 스키마 V2.0 확인
 
 model/
   prototype/              브라우저 특징·개인 기준 보정
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
-database/                 DB 담당 스키마 V1.1·시드·마이그레이션(API는 검증만)
+database/                 DB 담당 스키마 V2.0·시드·마이그레이션(API는 검증만)
 infra/                    컨테이너 빌드·Nginx·배포 안내
 compose.yaml              계정 모드 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제
@@ -60,7 +56,7 @@ tools/                    실행·검증·시험 서버 관리
 tests/                    Python 계약·추론·저장소 검사
 ```
 
-Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경로를 줄인 표시다.
+Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표시다.
 
 ## 프론트 수정 위치
 
@@ -73,7 +69,7 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 | 측정 화면 생명주기·소리 | [화면 hook](../frontend/src/features/session/useSessionScreen.ts) | 화면 상태·입력 중단·알림 전달을 관리한다. 시간 분류는 엔진을 호출한다. |
 | 실시간·종료 UI | [측정 화면](../frontend/src/features/session/SessionPage.tsx) | Live/Result를 선택한다. 각각의 UI와 사건 표시는 별도 파일이다. |
 | 로컬 시간 정책 | [상태 기계](../frontend/src/features/session/engine/machine.ts) | 이탈 지속·복귀·재알림·집계 제외 정책. |
-| 서버 측정 연결 | [컨트롤러](../frontend/src/features/session/server/controller.ts), [순서 큐](../frontend/src/features/session/server/queue.ts), [HTTP](../frontend/src/features/session/server/client.ts) | 실제 프레임 구간, 불변 요청·확인 응답·재시도·복구. 시간 조건은 CEP가 판정한다. |
+| 서버 측정 연결 | [컨트롤러](../frontend/src/features/session/server/controller.ts), [순서 큐](../frontend/src/features/session/server/queue.ts), [HTTP](../frontend/src/features/session/server/client.ts) | 실제 프레임 구간, 불변 요청·확인 응답·재시도·복구. 시간 조건은 서버 판정 엔진이 판정한다. |
 | 서버 화면·결과 | [화면](../frontend/src/features/session/server/ServerSessionPage.tsx), [투영](../frontend/src/features/session/server/projection.ts) | 제공된 사건/통계만 표시하고 원래 snapshot을 보관한다. |
 | 합성 시연·표시 값 | [시나리오](../frontend/src/features/session/engine/scenario.ts), [snapshot](../frontend/src/features/session/engine/snapshot.ts) | 합성 입력과 화면 보간을 시간 정책에서 분리한다. |
 | 저장 형식·손상 검사 | [타입](../frontend/src/features/storage/types.ts), [검증](../frontend/src/features/storage/validation.ts) | localStorage 키와 기존 자료 호환성을 유지한다. |
@@ -84,18 +80,20 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 | 색·서체·간격 | [토큰](../frontend/src/styles/base.css), [스타일 진입](../frontend/src/styles.css) | import 순서는 기존 cascade와 같게 유지한다. |
 
 `lib/engine.ts`, `lib/serviceStore.ts`는 기존 소비자에게 같은 API를 제공하는 작은 export 진입점이다.
-새 기능을 이 파일에 다시 모으지 않는다. 서버 모드는 CEP 사건만 소비하고 프론트 시간 엔진을 실행하지 않는다.
+새 기능을 이 파일에 다시 모으지 않는다. 서버 모드는 서버 사건만 소비하고 프론트 시간 엔진을 실행하지 않는다.
 
 ## 서버·Python 수정 위치
 
 | 바꿀 내용 | 위치 | 책임 |
 | --- | --- | --- |
-| 외부 HTTP | [API web](../backend/api/src/main/java/org/posegood/api/web/) | 요청 전달과 HTTP 오류 응답 |
-| API 저장·조회 흐름 | [SessionService](../backend/api/src/main/java/org/posegood/api/application/SessionService.java) | CEP 응답 검증 후 snapshot 저장; 시간 조건 재판정 없음 |
-| API 특징 추론 조율 | [FeatureProcessor](../backend/api/src/main/java/org/posegood/api/application/FeatureProcessor.java) | 추론 출력·요청 hash·미확인 CEP 재시도와 기준 고정 |
-| CEP 입력·순서·종료 | [SessionEngine](../backend/cep/src/main/java/org/posegood/cep/application/SessionEngine.java) | 중복·역순·누락과 결정 적용 조정 |
-| 시간 누적·사건 통계 | [domain](../backend/cep/src/main/java/org/posegood/cep/domain/) | 유효/제외 시간과 사건 이력; 시간 임계값 비교 없음 |
-| 시간 조건 | [EPL](../backend/cep/src/main/resources/rules/posture.epl), [Esper 어댑터](../backend/cep/src/main/java/org/posegood/cep/esper/EsperDecisionRuntime.java) | 시간 임계값 비교는 EPL 하나에 유지 |
+| 세션 HTTP·처리 순서 | [SessionController](../backend/api/src/main/java/org/posegood/api/session/SessionController.java), [SessionService](../backend/api/src/main/java/org/posegood/api/session/SessionService.java) | 세션 잠금 안에서 추론 → 판정 → DB 기록; 재시도 hash |
+| 추론 연결 | [InferenceClient](../backend/api/src/main/java/org/posegood/api/session/InferenceClient.java) | FastAPI 호출과 출력 검증(502) |
+| DB 기록 | [SessionRepository](../backend/api/src/main/java/org/posegood/api/session/SessionRepository.java) | 세션·기준 자세·사건·제외 구간·일별 통계 |
+| 입력 순서·종료 | [SessionEngine](../backend/api/src/main/java/org/posegood/api/engine/SessionEngine.java) | 중복·역순·누락과 결정 적용 조정 |
+| 시간 누적·사건 통계 | [Timeline](../backend/api/src/main/java/org/posegood/api/engine/Timeline.java), [EpisodeLedger](../backend/api/src/main/java/org/posegood/api/engine/EpisodeLedger.java) | 유효/제외 시간과 사건 이력; 시간 임계값 비교 없음 |
+| 시간 조건 | [DecisionRules](../backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java) | 시간 임계값 비교는 이 파일 하나에 유지 |
+| 실시간 채널 | [RealtimeHandler](../backend/api/src/main/java/org/posegood/api/realtime/RealtimeHandler.java) | WebSocket 메시지, 같은 처리 경로 사용 |
+| 계정·탈퇴 | [AccountService](../backend/api/src/main/java/org/posegood/api/account/AccountService.java) | 가입·비밀번호·탈퇴 유예·일괄 삭제 |
 | FastAPI 앱 조립 | [app.py](../model/inference/app.py) | 앱 생성, 라우터·오류 처리 연결; 기존 `model.inference.app:app` 실행 유지 |
 | 추론 계약·현재 점수·HTTP | [schemas.py](../model/inference/schemas.py), [service.py](../model/inference/service.py), [routes.py](../model/inference/routes.py) | 계약/점수/전달 분리; 학습 모델이나 시간 엔진이 아님 |
 | 개발 명령 | [dev.py](../tools/dev.py), [dev_tasks.py](../tools/dev_tasks.py), [runtime.py](../tools/runtime.py) | CLI/작업 순서/실행 경로 분리 |

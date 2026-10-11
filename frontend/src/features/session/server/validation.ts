@@ -1,3 +1,4 @@
+import { BASELINE_LANDMARKS } from '../../../../../model/prototype/pose'
 import type { Rules } from '../../../lib/engine'
 import {
   policyFor,
@@ -326,13 +327,13 @@ export function validFeatureResponse(
   )
 }
 
-const featureStat = (v: unknown) =>
+/** Nine on-frame coordinates; the DB stores five decimals and rejects values outside 0..1. */
+const validLandmarks = (v: unknown) =>
   object(v) &&
-  exact(v, ['mean', 'std']) &&
-  number(v.mean) &&
-  Math.abs(v.mean) < 1000 &&
-  nonnegative(v.std) &&
-  v.std < 1000
+  exact(v, Object.keys(BASELINE_LANDMARKS)) &&
+  Object.values(v).every(
+    (p) => object(p) && exact(p, ['x', 'y']) && unit(p.x) && unit(p.y),
+  )
 
 /** Mirrors the API's SessionSetup bounds so a stored retry is never silently rewritten. */
 export function validSetup(v: unknown, baselineId?: string): v is ServerSetup {
@@ -355,23 +356,13 @@ export function validSetup(v: unknown, baselineId?: string): v is ServerSetup {
       'baseline_id',
       'calibration_ms',
       'sample_count',
-      'target_center_x',
-      'target_center_y',
-      'target_area_ratio',
-      'head_gap',
-      'lateral_offset',
-      'shoulder_tilt',
+      'landmarks',
     ]) &&
     validUuid(baseline.baseline_id) &&
     (baselineId === undefined || baseline.baseline_id === baselineId) &&
     integer(baseline.calibration_ms, 100, 999_900) &&
     integer(baseline.sample_count, 1, 100_000) &&
-    unit(baseline.target_center_x) &&
-    unit(baseline.target_center_y) &&
-    unit(baseline.target_area_ratio) &&
-    featureStat(baseline.head_gap) &&
-    featureStat(baseline.lateral_offset) &&
-    featureStat(baseline.shoulder_tilt)
+    validLandmarks(baseline.landmarks)
   )
 }
 

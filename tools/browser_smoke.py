@@ -40,16 +40,18 @@ if __package__:
     from .frontend_proxy import running_frontend_proxy
     from .runtime import ROOT
     from .service_processes import (
-        ServiceEndpoints, assert_ports_closed, free_port, running_services,
+        ServiceEndpoints, api_environment, assert_ports_closed, free_port, running_services,
         service_commands, stop_processes, wait_ready,
     )
+    from .test_mysql import disposable_database, mysql_server
 else:
     from frontend_proxy import running_frontend_proxy
     from runtime import ROOT
     from service_processes import (
-        ServiceEndpoints, assert_ports_closed, free_port, running_services,
+        ServiceEndpoints, api_environment, assert_ports_closed, free_port, running_services,
         service_commands, stop_processes, wait_ready,
     )
+    from test_mysql import disposable_database, mysql_server
 
 
 def chrome_executable():
@@ -119,7 +121,7 @@ def stop_browser_tree(process):
             process.wait(timeout=5)
 
 
-def stream_browser(process, endpoints, services, api_log):
+def stream_browser(process, endpoints, services, api_log, database):
     lines = queue.Queue()
 
     def read_output():
@@ -141,11 +143,12 @@ def stream_browser(process, endpoints, services, api_log):
             return
         if line.startswith("CONTROL restart-api "):
             session_id = line.removeprefix("CONTROL restart-api ")
-            stop_processes([services[1]])
-            services[1] = subprocess.Popen(
-                service_commands(endpoints)[1], cwd=ROOT, stdout=api_log, stderr=subprocess.STDOUT,
+            stop_processes([services[0]])
+            services[0] = subprocess.Popen(
+                service_commands(endpoints)[0], cwd=ROOT, env=api_environment(database),
+                stdout=api_log, stderr=subprocess.STDOUT,
             )
-            wait_ready(endpoints.api, "/v1/sessions/" + session_id, services)
+            wait_ready(endpoints.api, "/health", services)
             process.stdin.write("api-restarted\n")
             process.stdin.flush()
             print("PASS: task API restarted with empty memory on the same loopback port", flush=True)
@@ -170,7 +173,7 @@ def run_browser(node, chrome, artifacts):
     endpoints = ServiceEndpoints.allocate()
     with tempfile.TemporaryDirectory(prefix="posegood-browser-") as folder:
         with (Path(folder) / "restarted-api.log").open("w") as api_log:
-            with running_services(endpoints) as services:
+            with mysql_server() as server, disposable_database(server) as database,                     running_services(endpoints, database) as services:
                 with running_frontend_proxy(endpoints.api, services, mode="browser-smoke") as base:
                     with running_frontend_proxy(endpoints.api, services) as ordinary_base:
                         # Allocate only after the service and proxy ports are bound.
@@ -182,7 +185,7 @@ def run_browser(node, chrome, artifacts):
                         ], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, bufsize=1, **options)
                         try:
-                            stream_browser(process, endpoints, services, api_log)
+                            stream_browser(process, endpoints, services, api_log, database)
                         finally:
                             try:
                                 stop_browser_tree(process)

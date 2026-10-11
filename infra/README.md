@@ -1,6 +1,6 @@
 # Compose 실행과 배포
 
-MySQL·Spring API·Esper CEP·FastAPI·Nginx/React를 함께 실행한다.
+MySQL·Spring API·FastAPI·Nginx/React를 함께 실행한다. 판정은 API 안에서 한다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)).
 Docker Engine/Desktop와 Docker Compose가 필요하다. 앱 이미지 빌드에는 Docker가 공식 registry와
 Maven Central·PyPI·npm·MediaPipe 자산에 접근할 수 있어야 한다. 호스트 JDK/Python/Node 설치 없이 앱을 실행할 수 있다.
 
@@ -11,7 +11,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 `make`가 없는 환경은 `python tools/compose_init.py`로 초기화한다.
 Windows 바인드 마운트에서는 비밀 파일이 world-writable로 보여 mysql 클라이언트가 `*.cnf`를 무시한다.
-DB healthcheck는 0400 복사본을 사용한다. `tools/deploy/backup.py`·`restore.py`는 아직 같은 문제가 있다.
+DB healthcheck와 `tools/deploy/backup.py`·`restore.py`는 컨테이너 안의 0400 복사본을 사용한다(2026-10-11).
 [앱](http://127.0.0.1:8080/)에서 이메일·비밀번호로 가입한다. 새 계정의 서비스 자료 보관 동의는 직접 선택한다.
 카메라는 측정 준비에서 직접 켠다. Compose 프론트는 계정 모드이며 기존 브라우저 기록을 자동 업로드하지 않는다.
 
@@ -38,10 +38,10 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 테스트가 종료되면 해당 폴더를 정리한다. 일반 실행의 기본 Desktop 경로 접근 승인은 별도 환경 조건이다.
 
 설정 기본값은 [.env.example](../.env.example)에 있다. 필요할 때 `.env`로 복사하여 포트 등을 바꾼다.
-기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·CEP·추론은 내부 네트워크에 있고 host port를 열지 않는다.
+기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. CEP·추론은 공유 내부 토큰이 없는 판정 요청을 거부한다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v1/realtime`은 Nginx가 WebSocket으로 전달한다.
 
 ## 전체 검증
 
@@ -52,7 +52,7 @@ make check
 
 전체 개발 게이트는 JDK 21·Maven·Node 24+·Python 3.9+·Chrome/Chromium·실행 중인 Docker가 필요하다.
 `make check-compose`는 실제 MySQL과 컨테이너·계정 UI를 별도로 검증한다. 임시 프로젝트/볼륨과 독립 브라우저만 사용한다.
-Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 기존 로컬 모드 검증이며 전체 검증 성공을 의미하지 않는다.
+Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 Compose를 제외한 검증이며 전체 검증 성공을 의미하지 않는다.
 실제 카메라·의학적 효과·연구 정확도·외부 배포 검증은 포함하지 않는다.
 
 ## GitHub Actions
@@ -61,7 +61,7 @@ Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 기�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 전체 검증 성공 후
 네 앱 이미지를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V1.1·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.2·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 배포 서버는 아직 미정이다. 다음 환경 설정은 서버 준비 뒤 등록한다.

@@ -9,7 +9,7 @@
 | 읽기 전용 조사 | 요청에 필요한 조회·분석. 테스트 실행은 필수가 아니다 |
 | 문서·작업 규칙만 | `make check-repo` |
 | 프론트 내부 | `make check-frontend`; 화면·확인창·저장 생명주기는 준비된 빌드/JAR로 `make check-browser` |
-| 메모리 API·CEP 내부 | `make check-backend`; 앱 연결 흐름이면 준비된 빌드/JAR로 `make check-browser` |
+| API·판정 엔진 | `make check-backend`; 앱 연결 흐름이면 준비된 빌드/JAR로 `make check-browser` |
 | Python·연구 도구 내부 | `make test`와 해당 합성 CLI 검증 |
 | 계약·DB·CI·여러 컴포넌트 경계 | `make check` 전체 |
 
@@ -22,11 +22,11 @@
 | 저장소·문서·산출물 | `make check-repo` | 필수 파일 누락, AGENTS 비대화, 로컬 링크 누락·경로 이탈, 실제 데이터/가중치/환경 파일 후보 포함 |
 | 출력 계약·자료 준비·검사기 | `make test` | 스키마/합성 예제 오류, 잘못된 입력 수용, 참여자 누수·hash/시각·창 경계 오류, 검사기 회귀 |
 | 프론트 | `make check-frontend` | 품질·상태 전이·저장·알림 테스트, TypeScript 또는 빌드 실패 |
-| API·CEP | `make check-backend` | Java 경계·시간·재시도/실패 사례, 합성 Vite 프록시+3서비스 HTTP, 짧은 benchmark·프로세스 정리 실패 |
+| API | `make check-backend` | Java 판정·경계·재시도/실패 사례, 실제 MySQL 통합(HTTP·WebSocket·V2.0 행), 실제 FastAPI HTTP smoke·프로세스 정리 실패. MySQL이 없으면 실패 |
 | 합성 브라우저 | `make check-browser` | 실제 앱·서버의 측정/종료/복구·기록 불일치, 확인창·초점/배경 차단, 브라우저 오류·정리 실패 |
 | MySQL·Compose·계정 | `make check-compose` | 실제 마이그레이션·인증/CSRF·소유권·재시도·복구·삭제, 백업 복원·격리·계정 UI·자원 정리 실패 |
 
-`make check`는 위 게이트를 모두 포함한다. `check-local`은 영구 모드 검증을 제외한다.
+`make check`는 위 게이트를 모두 포함한다. `check-local`은 Compose 검증을 제외한다.
 Python 테스트의 Compose 구성 확인에는 Docker CLI가 필요하지만 daemon은 필요하지 않다.
 전체 게이트에는 실행 중인 Docker/Compose와 Chrome/Chromium이 필요하다. 준비 방법은 [개발 흐름](development.md)을 따른다.
 
@@ -35,7 +35,7 @@ CI는 `make check`를 실행한다. 원격 CI 실행·브랜치 보호는 로컬
 ## 검증 경계와 수용 기준
 
 - fixture는 명시적인 합성 자료다. 브라우저는 독립 임시 프로필과 개발 serve 전용 합성 카메라를 사용하며 실제 getUserMedia를 거부한다. preview·생산 번들에는 이 모드를 활성화하지 않는다.
-- Compose는 임시 MySQL·합성 계정과 실제 Nginx/API/추론/CEP를 사용한다. 운영 DB·실제 영상·참여자 자료에는 접근하지 않는다. 백업 복원과 시험 서버·볼륨·포트 정리도 성공 조건이다.
+- Compose는 임시 MySQL·합성 계정과 실제 Nginx/API/추론을 사용한다. 운영 DB·실제 영상·참여자 자료에는 접근하지 않는다. 백업 복원과 시험 서버·볼륨·포트 정리도 성공 조건이다.
 - 측정 불가·등록 전·카메라 재연결을 정상/이탈로 오인하지 않는다. 일시 동작·지속 이탈·누락·재등록의 합성 상태 전이와 타임스탬프 역전/간격 급증을 검증한다.
 - 생산자·소비자는 동일한 합성 계약 fixture로 검증한다. 저장 손상 원본, 재시도 ID/시각, 타 세션 자료, 미확인 종료와 원래 서버 사건·통계를 보존한다.
 - 연구 기준은 [프로토콜](research/protocol.md), 자료 준비는 [규격](research/dataset-preparation.md), 개인 학습은 [개인 실험](research/personal-pilot-training.md)을 따른다. 개인 창별 성능을 새 참여자·실생활 정확도로 보고하지 않는다.

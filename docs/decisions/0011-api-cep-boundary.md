@@ -1,6 +1,6 @@
 # ADR 0011: 입력 API와 Esper 시간 판정 분리
 
-- 상태: accepted (사용자 승인한 작은 개발 흐름)
+- 상태: superseded by [ADR 0020](0020-single-api-decision-engine.md) (2026-10-09, 판정을 API 안으로 통합)
 - 날짜: 2026-09-30
 
 Spring Boot API는 입력·저장·조회, 별도 Esper CEP는 붕괴·회복·재알림 시간 조건,

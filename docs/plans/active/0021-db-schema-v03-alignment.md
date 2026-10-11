@@ -1,6 +1,6 @@
 # 서비스 DB를 스키마 V0.3(현 V1.1) 기준으로 전환
 
-- 상태: in_progress (구현·실제 MySQL 검증 완료, develop 병합 PR #11·#13 2026-10-06. 남은 것: `make check-compose` 전체)
+- 상태: superseded (2026-10-09). DB V2.0(CR-04) 기준으로 백엔드를 다시 만든 [계획 0023](0023-backend-v2-rebuild.md)·[ADR 0020](../../decisions/0020-single-api-decision-engine.md)이 대체한다. 아래는 V1.1 당시 기록이다.
 - 담당: 동욱 요청, Claude 분석, 우진 요청·Claude 구현(2026-10-06, 브랜치 `jin_db_v11`)
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [database 안내](../../../database/README.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
@@ -10,7 +10,7 @@
 
 `jin_app`과 `develop`을 합치면서 서비스 DB 설계가 두 벌이 되었다.
 
-- `develop`(PR #8): 명세서에서 생성한 [스키마 V0.3](../../../database/schema/schema_V1_0.sql) (V0.3과 같은 내용, 2026-10-05 V1.0으로 확정), 테이블 17개, 시드 4개.
+- `develop`(PR #8): 명세서에서 생성한 스키마 V0.3(`schema_V1_0.sql`, V2.0 때 삭제되어 git 이력에만 있음. V0.3과 같은 내용, 2026-10-05 V1.0으로 확정), 테이블 17개, 시드 4개.
 - `jin_app`(jisung): API가 Flyway로 적용하는 V1 마이그레이션(`V1__accounts_and_durable_sessions.sql`, 2026-10-06 삭제), 테이블 11개.
 
 사용자 결정(2026-10-05)으로 V0.3을 기준으로 한다. 완료 기준은 다음과 같다.

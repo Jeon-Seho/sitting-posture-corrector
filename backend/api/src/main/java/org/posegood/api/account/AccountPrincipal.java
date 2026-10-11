@@ -3,9 +3,12 @@ package org.posegood.api.account;
 import java.io.Serializable;
 import java.security.Principal;
 
-/** A late session save cannot revive a login from before password revocation. */
-public record AccountPrincipal(long id, long epoch) implements Principal, Serializable {
-    private static final long serialVersionUID = 2L;
+/**
+ * Stored in the DB login session. The name is the `SPRING_SESSION.PRINCIPAL_NAME` by which a
+ * password change or a withdrawal deletes every login of the account (schema V2.1).
+ */
+public record AccountPrincipal(long id) implements Principal, Serializable {
+    private static final long serialVersionUID = 4L;
 
     @Override
     public String getName() {

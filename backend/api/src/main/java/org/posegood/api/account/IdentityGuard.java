@@ -10,8 +10,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/** The header detects a stale tab; it never selects or authenticates an owner. */
+/**
+ * {@code X-PoseGood-User-Id} detects a stale tab after the login changed elsewhere; it never selects
+ * or authenticates an owner. Browsers cannot set headers on a WebSocket, so the realtime path checks
+ * the owner in its hello message instead.
+ */
 public class IdentityGuard extends OncePerRequestFilter {
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
@@ -27,15 +32,14 @@ public class IdentityGuard extends OncePerRequestFilter {
         if (guarded
                 && auth != null
                 && auth.isAuthenticated()
-                && !"anonymousUser".equals(auth.getPrincipal())
+                && auth.getPrincipal() instanceof AccountPrincipal
                 && !auth.getName().equals(request.getHeader("X-PoseGood-User-Id"))) {
             response.setStatus(409);
             response.setContentType("application/json");
             response.getWriter()
                     .write(
-                            "{\"error\":\"account"
-                                    + " changed\",\"code\":\"AUTH_CHANGED\",\"message\":\"account"
-                                    + " changed; reload authentication\"}");
+                            "{\"error\":\"account changed\",\"code\":\"AUTH_CHANGED\","
+                                    + "\"message\":\"account changed; reload authentication\"}");
             return;
         }
         chain.doFilter(request, response);

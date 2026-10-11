@@ -6,7 +6,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from .compose import DATABASE, command
+from .compose import DATABASE, command, mysql_client
 from .secrets import ROOT, private_location
 
 
@@ -14,8 +14,7 @@ def backup_database(project, destination, env, root=ROOT):
     target = private_location(destination)
     target.parent.mkdir(parents=True, exist_ok=True)
     arguments = command(project, root) + [
-        "exec", "-T", "db", "mysqldump",
-        "--defaults-extra-file=/run/secrets/mysql-backup.cnf", "--single-transaction",
+        "exec", "-T", "db", *mysql_client("mysqldump", "/run/secrets/mysql-backup.cnf"), "--single-transaction",
         "--routines", "--events", "--triggers", "--no-tablespaces",
         "--set-gtid-purged=OFF", DATABASE,
     ]

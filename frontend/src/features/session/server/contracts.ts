@@ -1,5 +1,5 @@
 import type { LiveState, Rules } from '../../../lib/engine'
-import type { Features } from '../../../../../model/prototype/pose'
+import type { Anchors, Features } from '../../../../../model/prototype/pose'
 
 export type ServerPolicy = {
   hold_ms: number
@@ -90,10 +90,10 @@ export type FeatureResponse = {
   session: SessionView
 }
 
-type FeatureStat = { mean: number; std: number }
 /**
- * Persistent-mode session prerequisites (DB V1.1 device, frame and baseline rows).
- * Calibration aggregates only; no image, landmark or per-frame sample.
+ * Persistent-mode session prerequisites. The API stores only the baseline (DB V2.1
+ * `baseline_posture`: mean coordinates of nine landmarks); device and frame are not stored.
+ * Calibration means only; no image or per-frame sample.
  */
 export type ServerSetup = {
   device: { key: string; label: string }
@@ -102,12 +102,7 @@ export type ServerSetup = {
     baseline_id: string
     calibration_ms: number
     sample_count: number
-    target_center_x: number
-    target_center_y: number
-    target_area_ratio: number
-    head_gap: FeatureStat
-    lateral_offset: FeatureStat
-    shoulder_tilt: FeatureStat
+    landmarks: Anchors
   }
 }
 

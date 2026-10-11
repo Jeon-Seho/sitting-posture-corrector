@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 
 
-SERVICES = ("api", "cep", "inference", "frontend")
+SERVICES = ("api", "inference", "frontend")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 DIGEST_IMAGE = re.compile(r"ghcr\.io/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}")
 
@@ -30,7 +30,7 @@ def validate_manifest(document):
         raise ValueError("Unsupported deployment image manifest")
     release_sha(document["git_sha"])
     if not isinstance(document["images"], dict) or set(document["images"]) != set(SERVICES):
-        raise ValueError("Exactly the four application image digests are required")
+        raise ValueError("Exactly the three application image digests are required")
     for image in document["images"].values():
         if not isinstance(image, str) or not DIGEST_IMAGE.fullmatch(image):
             raise ValueError("Every deployment image must use a GHCR SHA-256 digest")

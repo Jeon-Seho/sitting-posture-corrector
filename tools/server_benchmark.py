@@ -20,6 +20,7 @@ from tools.benchmark.manifest import artifact_hashes, runtime_manifest, source_r
 from tools.benchmark.runner import MODEL_VERSION, POLICY, load_fixture, run_target, target_passed
 from tools.runtime import ROOT
 from tools.service_processes import ServiceEndpoints, running_services
+from tools.test_mysql import disposable_database, mysql_server
 
 
 REPORT_SCHEMA = "posegood.synthetic-server-benchmark.v1"
@@ -98,7 +99,9 @@ def benchmark(config, destination):
     report["config"].update(session_policy=dict(POLICY), accepted_model_version=MODEL_VERSION)
     try:
         endpoints = ServiceEndpoints.allocate()
-        with running_services(endpoints):
+        # The API target still sends unauthenticated requests; account login is follow-up work
+        # (docs/plans/active/0023-backend-v2-rebuild.md), so `features` currently reports 401s.
+        with mysql_server() as server, disposable_database(server) as database,                 running_services(endpoints, database):
             for target in (("infer", "features") if config.target == "both" else (config.target,)):
                 report["targets"].append(run_target(target, config, endpoints, fixture, run_id))
     except Exception as error:
