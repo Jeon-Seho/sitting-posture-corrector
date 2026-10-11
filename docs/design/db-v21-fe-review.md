@@ -2,7 +2,7 @@
 
 > 작성: 2026-10-11 · FE · 대상: DevOps/BE, DB, 팀 BE, ML
 > 검토 대상: DevOps `DB_V2.1_확인질문.md`(2026-10-10), `DB_V2.1_BE검토의견.md`(2026-10-09)
-> 대조 기준: 팀 저장소 `feat/db-schema-v2-1`(`081aa9b`)의 `database/schema/schema_V2_1.sql`·`seed_04_threshold_policy.sql`, 앱 코드(`lee_app1`), [FE 회신: v4 회의](v4-meeting-fe-reply.md)
+> 대조 기준: 팀 저장소 `feat/db-schema-v2-1`(`081aa9b`)의 `database/schema/schema_V2_1.sql`·`seed_04_threshold_policy.sql`, 앱 코드(`lee_app1`), FE 회신: v4 회의(10/08, 지금은 [서버 판정 이전 명세](server-rule-spec.md))
 > 추가 반영: DB `DB_V2.1_확인질문_DB회신.md`·`DB_V2.1_BE검토의견_회신.md`·`DB-V2.2-변경사항.md`(2026-10-10) → 5장
 
 ## 요약
@@ -67,7 +67,7 @@ V2.1은 `T-41 user_consent`를 보류해 뺐다. 좌표 전송은 가입 때 동
 
 ## 3. 우리 FE 회신(10/08)에서 고친 곳
 
-[FE 회신: v4 회의](v4-meeting-fe-reply.md)에 반영했다.
+FE 회신: v4 회의에 반영했다. 그 문서는 [서버 판정 이전 명세](server-rule-spec.md)로 합쳤다.
 
 1. 안건 6 ②: "화면에는 붕괴로 본 시간" → 화면은 실제 경과 시간만 쓴다(FE-4).
 2. 안건 6 ⑥: "일시정지도 `away`" → 일시정지는 `rest`(`PAUSE`), 카메라 끊김은 `away`(`MISSING`).

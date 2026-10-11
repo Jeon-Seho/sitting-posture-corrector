@@ -3,7 +3,7 @@
 - 대상: 우진(데스크톱 앱 화면·자동 기준 등록·다른 탭 측정 유지)
 - 작성: 동욱 요청, Claude 작성 (2026-10-08)
 - 기준 코드: `lee_app1`(develop PR #22)
-- 관련: [판정 불가 처리](unmeasurable-handling.md)(판정 규칙 전체, DevOps용), [ADR 0012 세션 시간 정책](../decisions/0012-session-timing-policy.md),
+- 관련: [서버 판정 이전 명세](server-rule-spec.md)(판정 규칙 전체, DevOps용), [ADR 0012 세션 시간 정책](../decisions/0012-session-timing-policy.md),
   [화면 설계](desktop-app.md)
 
 판정 불가 처리를 바꾸기로 하면서 우진 담당 화면에 필요한 변경이 두 가지 생겼다(1·2번).

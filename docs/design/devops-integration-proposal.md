@@ -1,13 +1,13 @@
 # FE 제안: DevOps 서버 연동 확인과 게이트웨이
 
 > 작성: 2026-10-11 · FE · 대상: DevOps(홍규), DB(유진), ML(지성)
-> 확인 기준: `DevOps` 브랜치 `f27f778`(2026-10-10), `feature/repo-backend-db-v2` `fcc8ef7`(2026-10-11, 미병합), [실시간 계약 v1 초안](../../contracts/realtime/README.md), [FE 회신: v4 회의](v4-meeting-fe-reply.md), [DB V2.1 FE 검토](db-v21-fe-review.md)
+> 확인 기준: `DevOps` 브랜치 `f27f778`(2026-10-10), `feature/repo-backend-db-v2` `fcc8ef7`(2026-10-11, 미병합), [실시간 계약 v1 초안](../../contracts/realtime/README.md), [서버 판정 이전 명세](server-rule-spec.md), [DB V2.1 FE 검토](db-v21-fe-review.md)
 
 ## FE 전제
 
 1. **판정과 라벨링은 서버가 한다.** 점수·상태·유형 판정과 학습용 정답 라벨 생성은 모두 서버(추론·판정·ML)가 맡는다. 앱은 판정하지 않고 라벨도 붙이지 않는다.
 2. **데이터는 Kafka로 전달한다.** 앱 → 게이트웨이 → Kafka → 추론 → 판정 → Kafka → 게이트웨이 → 앱.
-   **보낼 좌표의 관절·형식은 BE·ML이 요구하는 대로 따른다.** FE 초안(`posture.frames.v1`, 관절 9개, [FE 회신](v4-meeting-fe-reply.md) 안건 2)은 출발점일 뿐이다.
+   **보낼 좌표의 관절·형식은 BE·ML이 요구하는 대로 따른다.** FE 초안(`posture.frames.v1`, 관절 9개, [서버 판정 이전 명세](server-rule-spec.md) 1장)은 출발점일 뿐이다.
 3. **서버는 거의 구축됐다고 보고, FE는 연결에 필요한 부분만 맞춘다.** Kafka 뒤쪽은 그대로 쓰고, 비어 있는 앱 쪽 끝(게이트웨이)은 FE가 만든다.
 
 ## 요약

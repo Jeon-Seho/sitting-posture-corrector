@@ -2,7 +2,7 @@
 
 - 상태: accepted (구현 전. [계획 0023](../plans/active/0023-frontend-server-only.md))
 - 날짜: 2026-10-11
-- 근거: v4 회의 결정([FE 회신](../design/v4-meeting-fe-reply.md) "전제"), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거)
+- 근거: v4 회의 결정(FE 회신 10/08, 지금은 [서버 판정 이전 명세](../design/server-rule-spec.md)), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거)
 - 대체: [ADR 0013](0013-frontend-server-feature-connection.md)의 "앱이 특징 변화량을 만들어 보낸다", "기본 로컬 모드 유지",
   [ADR 0012](0012-session-timing-policy.md)의 로컬 모드 시간 정책
 - 바꾸는 문서: [데이터 플랫폼 경계](../design/data-platform-boundary.md)의 "원본 좌표 미전송",
@@ -12,7 +12,7 @@
 
 1. **앱은 판정하지 않는다.** 점수, 상태(좋음/무너짐/측정 불가), 유형(머리·좌우 기울임), 판정 가능 검사, 고개 돌림 제외,
    복귀 대기, 시간 판정(확정·복귀·재알림)을 모두 서버가 한다.
-2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [FE 회신](../design/v4-meeting-fe-reply.md) 안건 2
+2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [서버 판정 이전 명세](../design/server-rule-spec.md) 1장
    (0.5초 1건, 관절 9개 `[x, y, visibility]`, 프레임 그대로)를 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
 3. **서버 없이 쓰는 로컬 모드를 없앤다.** 앱은 로그인한 서버 모드만 있다. 서버가 없으면 측정을 시작하지 않는다.
 4. **화면은 서버 결과로만 바뀐다**(`observation`·`progress`·`decision`·`alert`). 연결이 끊기면 "연결 끊김"을 화면을 막지 않게 띄우고
@@ -28,14 +28,14 @@
 
 ## 결과
 
-- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [FE 회신](../design/v4-meeting-fe-reply.md) "서버 부담" 절.
-- 서버가 앱과 같은 결과를 내도록 FE가 [규칙 문서](../design/server-rule-spec.md)와
+- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [서버 판정 이전 명세](../design/server-rule-spec.md) 11장.
+- 서버가 앱과 같은 결과를 내도록 FE가 [서버 판정 이전 명세](../design/server-rule-spec.md)와
   [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)를 넘긴다. 앱 판정 코드는 이 자료를 만든 뒤 지운다.
 - 개인정보 경계가 바뀐다. 좌표를 보내므로 가입 때 좌표 수집 동의를 받는다(동의문은 FE, 저장 위치는 DB 요청 중).
 - 개발·시연에도 서버가 있어야 한다.
 
 ## 아직 정하지 않은 것
 
-[DevOps 연동 제안서](../design/devops-integration-proposal.md) Q1~Q10, [규칙 문서](../design/server-rule-spec.md) 8장.
+[DevOps 연동 제안서](../design/devops-integration-proposal.md) Q1~Q10, [서버 판정 이전 명세](../design/server-rule-spec.md) 10장.
 특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 하고 게이트웨이는 FE의 독립 서비스로 정했다(v4 결정·현재 운영).

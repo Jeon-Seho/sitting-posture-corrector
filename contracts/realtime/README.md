@@ -8,7 +8,7 @@
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
-> (형식: [FE 회신](../../docs/design/v4-meeting-fe-reply.md) 안건 2, 고칠 곳: 안건 5 표). "좌표를 넣지 않는다"는
+> (형식과 서버가 돌려줄 것: [서버 판정 이전 명세](../../docs/design/server-rule-spec.md) 1장·8장). "좌표를 넣지 않는다"는
 > "가입 때 좌표 수집에 동의한 사용자만 좌표를 보낸다"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
 > 새 버전 스키마는 아직 없다. DevOps 서버(`DevOps` 브랜치)는 지금 이 v1(특징 변화량)을 구현했다([연동 제안서](../../docs/design/devops-integration-proposal.md) 1장).
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중).

@@ -3,7 +3,7 @@
 - 상태: in_progress (1단계 완료, 0단계 팀 결정 대기)
 - 담당: FE
 - 시작일: 2026-10-11
-- 관련 요구사항/ADR: [FE 회신: v4 회의](../../design/v4-meeting-fe-reply.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
+- 관련 요구사항/ADR: [서버 판정 이전 명세](../../design/server-rule-spec.md), [DB V2.1 FE 검토](../../design/db-v21-fe-review.md),
   [Kafka 실시간 전달 계획](0022-kafka-realtime-pipeline.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
   DevOps `DevOps` 브랜치 `platform/`(판정 경로), DB 담당 `feature/repo-backend-db-v2`(팀 API, 미병합)
 
