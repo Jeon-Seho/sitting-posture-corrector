@@ -10,6 +10,8 @@
 
 - **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 팀·ML 확인 대기.
   판정 불가 처리 기준과 DevOps 판정 엔진에 필요한 변경: [판정 불가 처리](design/unmeasurable-handling.md)(2026-10-08).
+  v4 회의 안건 2·5·6 FE 회신(좌표만 보내고 판정은 서버, 서버 부담 포함): [FE 회신](design/v4-meeting-fe-reply.md)(2026-10-08).
+  DB V2.1 저장 FE 검토·회신과 **지금 고민 중인 것·이어서 할 일**: [DB V2.1 FE 검토](design/db-v21-fe-review.md)(2026-10-11).
   같은 결정에 따른 앱 화면 변경(자동 기준 등록 구도 확인, 자동 멈춤 표시): [구도 확인과 멈춤 표시](design/setup-framing-and-pause-display.md).
 - **완료(2026-10-06):** [서비스 DB를 스키마 V1.1 기준으로 전환](plans/completed/0021-db-schema-v03-alignment.md) —
   develop PR #11·#13, [ADR 0018](decisions/0018-db-schema-v11-service-storage.md). 운영 DB 이관은 남았다.
