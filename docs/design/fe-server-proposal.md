@@ -3,7 +3,7 @@
 > 작성: 2026-10-11 · FE · 대상: DevOps(홍규), DB(유진), ML(지성)
 > 확인 기준: `DevOps` 브랜치 `f27f778`(2026-10-10), `feature/repo-backend-db-v2` `fcc8ef7`(2026-10-11, 미병합), [실시간 계약 v1 초안](../../contracts/realtime/README.md)
 > 시험 데이터: [`contracts/examples/frames/reference-rule-cases.json`](../../contracts/examples/frames/reference-rule-cases.json)
-> 이 문서는 FE가 보낸 제안을 하나로 모은 것이다. 이미 반영·확인된 내용은 뺐다(git 이력에 남음). 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [DB V2.1 FE 검토](db-v21-fe-review.md)
+> 이 문서는 FE가 보낸 제안을 하나로 모은 것이다. 이미 반영·확인된 내용은 뺐다(git 이력에 남음). 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [FE 검토](fe-review.md)
 
 ## FE 전제
 

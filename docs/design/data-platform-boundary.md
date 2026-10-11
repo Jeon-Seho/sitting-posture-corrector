@@ -11,7 +11,7 @@ Kafka·Spark·HDFS·Redis를 과거 계획서에 이름이 있다는 이유로 �
 - [ADR 0021](../decisions/0021-app-sends-information-server-judges.md): 앱은 관절 좌표(`posture.frames.v1`)를 보내고 판정은 서버가 한다.
   가입 때 좌표 수집 동의를 받은 사용자만 보낸다. 영상은 여전히 보내지 않는다.
 - DB 「정할 것」 #5(2026-10-10): 측정 자료를 **HDFS에 적재한다**. DevOps가 Kafka·Redis·HDFS를 운영한다(`DevOps` 브랜치 `platform/`).
-  HDFS에는 특징값이 아니라 좌표 프레임이 쌓이며 특징값은 다시 계산할 수 있다([DB V2.1 FE 검토](db-v21-fe-review.md) 2장 ④).
+  HDFS에는 특징값이 아니라 좌표 프레임이 쌓이며 특징값은 다시 계산할 수 있다([FE 검토](fe-review.md) 2장 ④).
 - 동의 저장 위치(`user_consent`)·철회 시 삭제·보존 기간은 아직 정하지 않았다([FE 제안서](fe-server-proposal.md) 10장).
 
 이 절 아래는 2026-10-06 작성 당시의 경계다.
