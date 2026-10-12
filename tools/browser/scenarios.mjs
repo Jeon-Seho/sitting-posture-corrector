@@ -174,11 +174,11 @@ class AppDriver {
       await this.click('측정 재개')
     }
     this.check(
-      'session create uses the fixed 3/2/60 policy',
+      'session create uses the fixed 3/3/60 policy',
       JSON.stringify(snapshot.draft.server.view.policy) ===
         JSON.stringify({
           hold_ms: 3000,
-          recovery_ms: 2000,
+          recovery_ms: 3000,
           reminder_ms: 60000,
           threshold: 0.7,
         }),
@@ -311,9 +311,14 @@ export async function runScenarios(browser, base, restartApi) {
   )
   snapshot = await app.frame(1000, 'normal')
   app.check(
-    '2 seconds normal input confirms recovery',
+    '2 seconds normal input still does not complete recovery',
+    !snapshot.draft.server.view.events.some((event) => event.kind === 'recovery_confirmed'),
+  )
+  snapshot = await app.frame(1000, 'normal')
+  app.check(
+    '3 seconds normal input confirms recovery',
     snapshot.draft.server.view.events.at(-1).kind === 'recovery_confirmed' &&
-      snapshot.draft.server.view.events.at(-1).timestamp_ms === 65000,
+      snapshot.draft.server.view.events.at(-1).timestamp_ms === 66000,
   )
   snapshot = await app.frames(3)
   app.check(
@@ -343,7 +348,7 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 3 &&
       snapshot.draft.server.view.summary.alert_count === 4,
   )
-  // Since 2026-10-06 (GP-0116) opening another tab keeps the measurement running.
+  // Since 2026-10-06 opening another tab keeps the measurement running.
   const restBeforeRecords = snapshot.draft.server.view.summary.rest_ms
   const validBeforeRecords = snapshot.draft.server.view.summary.valid_ms
   await app.click('기록')

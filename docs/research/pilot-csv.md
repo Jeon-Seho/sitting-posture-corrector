@@ -1,6 +1,6 @@
 # CSV 파일럿 수집과 pandas 탐색
 
-이 문서의 수집 UI·규격은 **기존 v1** 기록을 설명한다. 현재 Heavy 수집 UI와 좌표·검토 필드는
+이 문서의 수집 UI·규격은 **기존 v1** 기록을 설명한다. 현재 Lite 수집 UI와 좌표·검토 필드는
 [안내형 수집 v2](guided-collection-v2.md)를 따른다. 기존 파일은 보존하며 분석 도구는 두 버전을 읽는다.
 
 현재는 파일럿이므로 Docker/DB보다 CSV로 특징과 라벨을 먼저 확인한다.
@@ -9,7 +9,7 @@
 
 ## 수집 순서
 
-1. 웹캠을 켜고 5초 기준 등록 후 측정을 시작한다.
+1. 웹캠을 켜고 5초 기준 등록 후 측정을 시작한다(v1 당시. 현재 앱은 3초·최소 15표본).
 2. 화면 아래 `파일럿 데이터 수집`에 참여자 코드(P01, P02 등)를 입력한다. 실명 대신 같은 사람은 같은 코드를 사용한다.
 3. 자세 라벨을 선택하고 `수집 시작`을 누른다. 우선 편안한 기준 자세를 짧게 기록한다.
 4. 자세를 바꿀 때는 `자세 바꾸는 중`, 자세가 안정된 뒤 해당 라벨을 선택한다. 왼쪽/오른쪽은 사용자 본인 기준이다.
@@ -46,7 +46,7 @@
 | manual_label / label_source | 미지정·기준·앞으로·왼쪽·오른쪽·전환 / self_report 또는 none |
 | measurement_quality / visibility | good 또는 poor / 얼굴·양 어깨의 최소 가시성, 정확도 아님 |
 | head_gap / lateral_offset / shoulder_tilt | 어깨 너비로 정규화한 머리 높이·좌우 편위·어깨 기울기 (무단위) |
-| baseline_* / delta_* | 5초 개인 기준 / 부호를 보존한 기준 대비 차이 |
+| baseline_* / delta_* | 개인 기준(v1 5초, 현재 3초) / 부호를 보존한 기준 대비 차이 |
 | rule_score / rule_prediction | 0~1 규칙 점수 / normal·deviation·unmeasurable. 3초 확정 전의 프레임 판정 |
 | threshold / hold_seconds / realert_seconds / recover_seconds | 수집 시작 때 고정한 판정 설정 |
 | inference_ms / delegate / width / height | 해당 추론 호출 시간 / GPU·CPU / 실제 영상 크기 |

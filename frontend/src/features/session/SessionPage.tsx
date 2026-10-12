@@ -38,6 +38,8 @@ export function SessionPage(props: Props) {
         onDashboard={onDashboard}
         onReset={screen.restartDemo}
         modelVersion={screen.isCamera&&props.camera.face?`face-v${props.camera.face.buildVersion}`:undefined}
+        onExport={screen.canExport ? screen.exportFeatures : undefined}
+        exportCount={screen.exportCount}
       />
     )
   }

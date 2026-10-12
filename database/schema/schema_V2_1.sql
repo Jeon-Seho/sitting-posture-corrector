@@ -1,22 +1,40 @@
 -- =====================================================================
--- 자세교정 서비스 스키마 — schema_V1_0.sql
--- 명세서: DB 명세서 V1.0 (FIXED, 2026-10-05) — 내용은 V0.3과 같다
---   문서(DB-01~04·명세서)의 V1.0 표기는 문서 반영 때 맞춘다.
--- 파일 번호는 명세서 버전과 같다 (작업규칙 1.7). 확정본이므로 이 파일은 고치지 않는다.
---   변경은 migrations/(운영 중인 DB용)와 다음 버전 스키마 파일(새 DB용)로 한다.
--- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제, 함수 기반 유니크 키 사용)
--- 생성: 2026-10-05 (명세서 원천에서 자동 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
+-- 자세교정 서비스 스키마 — schema_V2_1.sql
+-- 명세서: DB 명세서 V2.1 (확정 2026-10-09) — V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1)
+--   CR-04 승인자·회의록 기재 전. 문서(REQ-01, DB-01~04)의 V2.1 반영은 아직이다.
+-- 테이블을 지웠으므로 V2.0 DB를 migration으로 올리지 않는다 (작업규칙 1.4).
+--   기존 DB는 지우고 이 파일과 시드로 다시 만든다. migrations/는 비어 있고, 다음 번호는 011이다.
+-- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제)
+-- 생성: 2026-10-09 (명세서 원천에서 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
 --
--- 범위: 17개 테이블. 보류 항목은 결정 후 migrations/로 추가한다.
+-- 범위: 12개 테이블 (명세서 14개 중 보류 2개 제외).
 --   제외 — T-36 collapse_type, T-41 user_consent, collapse_event.collapse_type_code, UK-08, FK-15, FK-19
+-- 폐기 (V2.1): T-27 feature_def, T-28 safety_range, T-31 baseline_feature, T-50 client_record,
+--   user_account.auth_epoch,
+--   baseline_posture.baseline_posture_id·deactivated_at·feature_version·normalization_scale·target_center_x·target_center_y·target_area_ratio,
+--   monitor_session.baseline_posture_id·frame_width·frame_height, UK-10, UK-11, FK-03, FK-05, FK-06, FK-09, FK-26
+-- 폐기 (V2.0, CR-04): T-26 capture_device, T-32 model_version, T-42 deployment, T-43 error_log,
+--   T-44 input_result, T-45 cep_outbox, T-46 confirmed_snapshot, T-47 cep_cleanup,
+--   monitor_session.capture_device_id·model_version_code
+-- 시드: seed_04_threshold_policy.sql만 남는다. seed_01_feature_def·seed_02_safety_range는 지운다 (번호는 다시 쓰지 않음).
+-- 기준 자세: 사용자당 1행. 다시 촬영하면 UPDATE하고 calibration_uuid·registered_at·좌표가 바뀐다.
+--   측정 시작 때 백엔드가 그 사용자의 calibration_uuid를 monitor_session에 복사한다 (FK 아님, B안).
+--   좌표 수집 조건(MediaPipe 모델·CAPTURE_RESOLUTION 640×480·관절 목록)은 고정하고, 바꾸면 전원 다시 촬영한다.
+-- 로그인 끊기: 비밀번호 변경·탈퇴 때 그 사용자의 SPRING_SESSION 행을 지운다 (PRINCIPAL_NAME으로 찾음).
+-- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의를 그대로 쓴다.
+--   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
+--   서버 DB는 이 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
 -- 인덱스: 보조 인덱스 없음. DB-05(쿼리 목록 → 인덱스) 후 migrations/에 별도 파일로 둔다.
 --   InnoDB는 FK 컬럼에 쓸 인덱스가 없으면 자동으로 만든다 — DB-05 인덱스 시트에서 함께 정리한다.
--- 시각: 모든 DATETIME(3)은 UTC로 저장한다 (CONVENTIONS).
--- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제·보관 배치」는 RESTRICT로 두고 배치가 순서대로 지운다.
+--   SPRING_SESSION 보조 인덱스(EXPIRY_TIME, PRINCIPAL_NAME)도 이때 둔다.
+-- 시각: SPRING_SESSION을 뺀 모든 DATETIME(3)은 KST(한국 표준시, +09:00)로 저장한다 (CR-04).
+--   DATETIME은 시간대 정보를 저장하지 않는다. 접속하는 애플리케이션도 세션 시간대를 Asia/Seoul로 맞춘다.
+-- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제 배치」는 RESTRICT로 두고 배치가 순서대로 지운다.
+--   탈퇴는 30일 유예 뒤 한 트랜잭션으로 지운다 (DB-04 V0.2 6-1).
 -- =====================================================================
 
 SET NAMES utf8mb4;
-SET time_zone = '+00:00';
+SET time_zone = '+09:00';
 
 CREATE DATABASE IF NOT EXISTS posture_service DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE posture_service;
@@ -35,7 +53,7 @@ CREATE TABLE threshold_policy (
   created_by VARCHAR(10) NOT NULL COMMENT '정책을 만든 주체',
   created_at DATETIME(3) NOT NULL COMMENT '처음 기록된 시각',
   CONSTRAINT pk_threshold_policy PRIMARY KEY (threshold_policy_id),
-  CONSTRAINT ux_threshold_policy_values UNIQUE (threshold, hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour),  -- UK-03
+  CONSTRAINT ux_threshold_policy_values UNIQUE (threshold, hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour),  -- UK-03 (설정 저장 시 검색 인덱스 겸용)
   CONSTRAINT ux_threshold_policy_name UNIQUE (policy_name),  -- UK-12
   CONSTRAINT ck_threshold_policy_threshold CHECK (threshold BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_threshold_policy_hold_seconds CHECK (hold_seconds > 0 AND MOD(hold_seconds, 0.5) = 0),  -- 허용값: 0 초과, 0.5 단위
@@ -51,122 +69,74 @@ CREATE TABLE threshold_policy (
 -- ---------------------------------------------------------------------
 CREATE TABLE user_account (
   user_account_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 식별자 (로그인 계정이 바뀔 수 있으므로 대리키)',
-  login_email VARCHAR(254) NULL COMMENT '로그인 계정. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
-  password_hash VARCHAR(100) NULL COMMENT '비밀번호 단방향 해시. 평문 저장·응답 노출 금지. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
-  display_name VARCHAR(30) NULL COMMENT '표시 이름. 나이·직업은 사용 목적이 정해질 때까지 받지 않음. NULL: 탈퇴 처리가 끝난 계정 (ACTIVE 계정은 필수)',
-  account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED. ACTIVE이면 로그인 계정·비밀번호 해시·표시 이름이 모두 있어야 함',
-  joined_at DATETIME(3) NOT NULL COMMENT '가입 시각 (UTC)',
+  login_email VARCHAR(254) NOT NULL COMMENT '로그인 계정',
+  password_hash VARCHAR(100) NOT NULL COMMENT '비밀번호 단방향 해시. 평문 저장·응답 노출 금지',
+  display_name VARCHAR(30) NOT NULL COMMENT '표시 이름',
+  account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED, 유예 기간 안에 철회하면 ACTIVE',
+  joined_at DATETIME(3) NOT NULL COMMENT '가입 시각',
   threshold_policy_id BIGINT NOT NULL COMMENT '다음 측정부터 적용할 판정 정책 (사용자 설정 병합)',
   sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '소리 알림 사용 (사용자 설정 병합). 저장 여부 미결',
+  age INT NULL COMMENT '가입 시 입력한 나이. 선택. NULL: 입력 안 함',
+  occupation VARCHAR(80) NULL COMMENT '가입 시 입력한 직업(자유 입력). 선택. NULL: 입력 안 함',
   CONSTRAINT pk_user_account PRIMARY KEY (user_account_id),
   CONSTRAINT ux_user_account_login_email UNIQUE (login_email),  -- UK-01
   CONSTRAINT fk_user_account_threshold_policy FOREIGN KEY (threshold_policy_id) REFERENCES threshold_policy (threshold_policy_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-01
   CONSTRAINT ck_user_account_account_status CHECK (account_status IN ('ACTIVE', 'CLOSED')),  -- 허용값: ACTIVE / CLOSED
-  CONSTRAINT ck_user_account_identity CHECK (account_status = 'CLOSED' OR (login_email IS NOT NULL AND password_hash IS NOT NULL AND display_name IS NOT NULL))  -- D-34 활성 계정은 식별 컬럼 3개 필수
+  CONSTRAINT ck_user_account_age CHECK (age BETWEEN 1 AND 120)  -- 허용값: 1 ~ 120
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-25 사용자 계정 — 로그인 계정과 다음 측정에 적용할 설정';
-
--- ---------------------------------------------------------------------
--- T-26 capture_device — 측정 장치 (근거 E-03)
--- ---------------------------------------------------------------------
-CREATE TABLE capture_device (
-  capture_device_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '장치 식별자 (브라우저 식별값이 30자를 넘으므로 대리키)',
-  user_account_id BIGINT NOT NULL COMMENT '장치 소유 사용자',
-  browser_device_key VARCHAR(128) COLLATE utf8mb4_bin NOT NULL COMMENT '브라우저가 부여한 카메라 장치 식별값',
-  device_label VARCHAR(100) NOT NULL COMMENT '장치 표시명',
-  registered_at DATETIME(3) NOT NULL COMMENT '등록 시각',
-  CONSTRAINT pk_capture_device PRIMARY KEY (capture_device_id),
-  CONSTRAINT ux_capture_device_user_key UNIQUE (user_account_id, browser_device_key),  -- UK-02
-  CONSTRAINT ux_capture_device_id_user UNIQUE (capture_device_id, user_account_id),  -- UK-09
-  CONSTRAINT fk_capture_device_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-02
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-26 측정 장치 — 사용자가 측정에 쓰는 카메라';
-
--- ---------------------------------------------------------------------
--- T-27 feature_def — 특징값 정의 (근거 E-06)
--- ---------------------------------------------------------------------
-CREATE TABLE feature_def (
-  feature_code VARCHAR(30) NOT NULL COMMENT '특징값 코드',
-  feature_name VARCHAR(50) NOT NULL COMMENT '표시명',
-  unit VARCHAR(20) NULL COMMENT '단위. NULL: 어깨 너비로 나눈 무차원값',
-  scale_invariant BOOLEAN NOT NULL COMMENT '카메라 거리에 무관한 값인지',
-  distance_proxy BOOLEAN NOT NULL COMMENT '거리 대리 지표(어깨 너비)인지',
-  CONSTRAINT pk_feature_def PRIMARY KEY (feature_code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-27 특징값 정의 — 특징값 목록과 성질 (마스터)';
-
--- ---------------------------------------------------------------------
--- T-28 safety_range — 절대 안전 범위 (근거 E-07)
--- ---------------------------------------------------------------------
-CREATE TABLE safety_range (
-  feature_code VARCHAR(30) NOT NULL COMMENT '대상 특징값 (부모 식별자 공유)',
-  lower_bound DECIMAL(9,6) NULL COMMENT '허용 하한. NULL: 하한 없음 (상·하한 중 하나는 필수)',
-  upper_bound DECIMAL(9,6) NULL COMMENT '허용 상한. NULL: 상한 없음',
-  basis VARCHAR(200) NOT NULL COMMENT '범위의 근거',
-  CONSTRAINT pk_safety_range PRIMARY KEY (feature_code),
-  CONSTRAINT fk_safety_range_feature_def FOREIGN KEY (feature_code) REFERENCES feature_def (feature_code) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-03
-  CONSTRAINT ck_safety_range_bound CHECK ((lower_bound IS NOT NULL OR upper_bound IS NOT NULL) AND (lower_bound IS NULL OR upper_bound IS NULL OR lower_bound <= upper_bound))  -- BR-04 상·하한 중 하나는 필수, 하한 ≤ 상한
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-28 절대 안전 범위 — 기준 자세 등록 허용 상·하한 (마스터)';
 
 -- ---------------------------------------------------------------------
 -- T-30 baseline_posture — 기준 자세 (근거 E-04)
 -- ---------------------------------------------------------------------
 CREATE TABLE baseline_posture (
-  baseline_posture_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '기준 자세 식별자 (보정 식별자가 36자이므로 대리키)',
-  user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 활성 행(비활성 전환 시각 없음)은 사용자당 하나',
-  calibration_uuid VARCHAR(36) NOT NULL COMMENT '클라이언트가 발급한 보정 식별자',
-  feature_version VARCHAR(30) NOT NULL COMMENT '특징값 계산 방식 버전',
-  calibration_sec DECIMAL(4,1) NOT NULL COMMENT '보정에 쓴 시간 (CALIBRATION_SEC 값)',
+  user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 사용자당 1행 — 다시 촬영하면 이 행을 덮어쓴다',
+  calibration_uuid VARCHAR(36) NOT NULL COMMENT '클라이언트가 발급한 보정 식별자. 다시 촬영할 때마다 새 값. 세션이 측정 시작 때 복사해 기준이 바뀐 시점을 구분',
+  calibration_sec DECIMAL(4,1) NOT NULL COMMENT '보정에 쓴 시간 (CALIBRATION_SEC 값 — V2.1 기준 3초)',
   sample_count INT NOT NULL COMMENT '보정에 쓴 표본 수',
-  normalization_scale DECIMAL(8,3) NULL COMMENT '보정 시점 어깨 너비 = 정규화 상수. NULL: 클라이언트가 아직 제공하지 않음',
-  target_center_x DECIMAL(4,3) NOT NULL COMMENT '등록 시 측정 대상의 화면 내 가로 위치',
-  target_center_y DECIMAL(4,3) NOT NULL COMMENT '등록 시 측정 대상의 화면 내 세로 위치',
-  target_area_ratio DECIMAL(4,3) NOT NULL COMMENT '등록 시 검출 영역이 화면에서 차지하는 비율',
-  registered_at DATETIME(3) NOT NULL COMMENT '등록(보정 완료) 시각',
-  deactivated_at DATETIME(3) NULL COMMENT '비활성 전환 시각. NULL: 현재 활성 기준',
-  CONSTRAINT pk_baseline_posture PRIMARY KEY (baseline_posture_id),
+  registered_at DATETIME(3) NOT NULL COMMENT '현재 기준을 촬영(보정 완료)한 시각. 다시 촬영하면 갱신',
+  nose_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 코 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  nose_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 코 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  mouth_left_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 왼쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  mouth_left_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 왼쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  mouth_right_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 오른쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  mouth_right_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 오른쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  CONSTRAINT pk_baseline_posture PRIMARY KEY (user_account_id),
   CONSTRAINT ux_baseline_posture_calibration UNIQUE (calibration_uuid),  -- UK-04
-  CONSTRAINT ux_baseline_posture_id_user UNIQUE (baseline_posture_id, user_account_id),  -- UK-10
-  UNIQUE KEY ux_baseline_posture_active ((IF(deactivated_at IS NULL, user_account_id, NULL))),  -- UK-11 활성 기준 자세는 사용자당 하나 (BR-03)
   CONSTRAINT fk_baseline_posture_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-04
   CONSTRAINT ck_baseline_posture_calibration_uuid CHECK (CHAR_LENGTH(calibration_uuid) = 36),  -- 허용값: UUID
   CONSTRAINT ck_baseline_posture_calibration_sec CHECK (calibration_sec > 0),  -- 허용값: 0 초과
   CONSTRAINT ck_baseline_posture_sample_count CHECK (sample_count >= 1),  -- 허용값: 1 이상
-  CONSTRAINT ck_baseline_posture_normalization_scale CHECK (normalization_scale > 0),  -- 허용값: 0 초과
-  CONSTRAINT ck_baseline_posture_target_center_x CHECK (target_center_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
-  CONSTRAINT ck_baseline_posture_target_center_y CHECK (target_center_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
-  CONSTRAINT ck_baseline_posture_target_area_ratio CHECK (target_area_ratio BETWEEN 0 AND 1)  -- 허용값: 0 ~ 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-30 기준 자세 — 사용자별 기준 자세. 비활성 전환 시각이 없는 행이 활성';
-
--- ---------------------------------------------------------------------
--- T-31 baseline_feature — 기준 자세 특징값 (근거 E-05)
--- ---------------------------------------------------------------------
-CREATE TABLE baseline_feature (
-  baseline_posture_id BIGINT NOT NULL COMMENT '소속 기준 자세',
-  feature_code VARCHAR(30) NOT NULL COMMENT '특징값',
-  mean_value DECIMAL(9,6) NOT NULL COMMENT '보정 표본의 평균',
-  std_value DECIMAL(9,6) NULL COMMENT '보정 표본의 표준편차. NULL: 산출하지 않음',
-  CONSTRAINT pk_baseline_feature PRIMARY KEY (baseline_posture_id, feature_code),
-  CONSTRAINT fk_baseline_feature_baseline_posture FOREIGN KEY (baseline_posture_id) REFERENCES baseline_posture (baseline_posture_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-05
-  CONSTRAINT fk_baseline_feature_feature_def FOREIGN KEY (feature_code) REFERENCES feature_def (feature_code) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-06
-  CONSTRAINT ck_baseline_feature_std_value CHECK (std_value >= 0)  -- 허용값: 0 이상
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-31 기준 자세 특징값 — 기준 자세의 특징값별 대표값·변동폭';
-
--- ---------------------------------------------------------------------
--- T-32 model_version — 모델 버전 (근거 E-27)
--- ---------------------------------------------------------------------
-CREATE TABLE model_version (
-  model_version_code VARCHAR(30) NOT NULL COMMENT '모델 버전 코드',
-  model_type VARCHAR(10) NOT NULL COMMENT '모델 유형. LSTM 연결 전에는 규칙 기반이 판정',
-  feature_version VARCHAR(30) NOT NULL COMMENT '입력 특징값 계산 방식 버전',
-  window_length_sec DECIMAL(5,2) NULL COMMENT '모델 입력 구간 길이. NULL: 규칙 기반',
-  window_stride_sec DECIMAL(5,2) NULL COMMENT '판정 대표 구간 길이. NULL: 규칙 기반',
-  artifact_uri VARCHAR(500) NULL COMMENT '모델 파일 위치. NULL: 규칙 기반(코드 내장)',
-  released_at DATETIME(3) NOT NULL COMMENT '배포 가능 상태가 된 시각',
-  description VARCHAR(200) NULL COMMENT '변경 요지. NULL: 작성 전',
-  CONSTRAINT pk_model_version PRIMARY KEY (model_version_code),
-  CONSTRAINT ck_model_version_model_type CHECK (model_type IN ('LSTM', 'RULE')),  -- 허용값: LSTM / RULE
-  CONSTRAINT ck_model_version_window_length_sec CHECK (window_length_sec > 0),  -- 허용값: 0 초과
-  CONSTRAINT ck_model_version_window_stride_sec CHECK (window_stride_sec > 0),  -- 허용값: 0 초과
-  CONSTRAINT ck_model_version_type_attr CHECK ((model_type = 'RULE' AND window_length_sec IS NULL AND window_stride_sec IS NULL AND artifact_uri IS NULL) OR (model_type = 'LSTM' AND window_length_sec IS NOT NULL AND window_stride_sec IS NOT NULL AND artifact_uri IS NOT NULL))  -- D-25 학습 전용 속성 3개는 LSTM에만 있다
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-32 모델 버전 — 판정에 쓰는 모델(학습·규칙)의 버전';
+  CONSTRAINT ck_baseline_posture_nose_x CHECK (nose_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_nose_y CHECK (nose_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_eye_x CHECK (left_eye_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_eye_y CHECK (left_eye_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_eye_x CHECK (right_eye_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_eye_y CHECK (right_eye_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_ear_x CHECK (left_ear_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_ear_y CHECK (left_ear_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_ear_x CHECK (right_ear_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_ear_y CHECK (right_ear_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_mouth_left_x CHECK (mouth_left_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_mouth_left_y CHECK (mouth_left_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_mouth_right_x CHECK (mouth_right_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_mouth_right_y CHECK (mouth_right_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_shoulder_x CHECK (left_shoulder_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_left_shoulder_y CHECK (left_shoulder_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_shoulder_x CHECK (right_shoulder_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
+  CONSTRAINT ck_baseline_posture_right_shoulder_y CHECK (right_shoulder_y BETWEEN 0 AND 1)  -- 허용값: 0 ~ 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-30 기준 자세 — 사용자당 1행. 관절 좌표 18개(9개 부위 × x·y), 다시 촬영하면 덮어씀';
 
 -- ---------------------------------------------------------------------
 -- T-33 monitor_session — 측정 세션 (근거 E-09)
@@ -174,14 +144,10 @@ CREATE TABLE model_version (
 CREATE TABLE monitor_session (
   monitor_session_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '세션 식별자 (클라이언트 식별자가 36자이므로 대리키)',
   client_session_uuid VARCHAR(36) NOT NULL COMMENT '클라이언트가 발급한 세션 식별자. 재전송 중복 저장 방지',
-  user_account_id BIGINT NOT NULL COMMENT '측정한 사용자 (D-19). 장치·기준 자세의 사용자와 같아야 함 — 복합 FK에 함께 참여',
-  capture_device_id BIGINT NOT NULL COMMENT '사용한 측정 장치 (사용자 식별자와 함께 참조)',
-  baseline_posture_id BIGINT NOT NULL COMMENT '판정 기준 자세 (사용자 식별자와 함께 참조)',
+  user_account_id BIGINT NOT NULL COMMENT '측정한 사용자 (D-19). 이 사용자의 현재 기준 자세로 판정한다',
+  calibration_uuid VARCHAR(36) NOT NULL COMMENT '측정 시작 시점에 적용한 기준 자세의 보정 식별자 (baseline_posture.calibration_uuid 복사). FK 아님 — 같은 값을 가진 세션끼리만 같은 기준',
   threshold_policy_id BIGINT NOT NULL COMMENT '시작 시점에 적용한 판정 정책',
-  model_version_code VARCHAR(30) NOT NULL COMMENT '판정에 사용한 모델 버전',
   alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '교정 알림 제공 여부. 거짓이어도 이벤트는 기록',
-  frame_width INT NOT NULL COMMENT '영상 가로 해상도. 특징값이 픽셀 비율로 계산됨',
-  frame_height INT NOT NULL COMMENT '영상 세로 해상도',
   started_at DATETIME(3) NOT NULL COMMENT '측정 시작 시각',
   ended_at DATETIME(3) NULL COMMENT '측정 종료 시각. NULL: 측정 중',
   end_reason VARCHAR(16) NULL COMMENT '종료 사유. NULL: 측정 중',
@@ -189,13 +155,9 @@ CREATE TABLE monitor_session (
   CONSTRAINT pk_monitor_session PRIMARY KEY (monitor_session_id),
   CONSTRAINT ux_monitor_session_client_uuid UNIQUE (client_session_uuid),  -- UK-05
   CONSTRAINT fk_monitor_session_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-07
-  CONSTRAINT fk_monitor_session_capture_device FOREIGN KEY (capture_device_id, user_account_id) REFERENCES capture_device (capture_device_id, user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-08
-  CONSTRAINT fk_monitor_session_baseline_posture FOREIGN KEY (baseline_posture_id, user_account_id) REFERENCES baseline_posture (baseline_posture_id, user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-09
   CONSTRAINT fk_monitor_session_threshold_policy FOREIGN KEY (threshold_policy_id) REFERENCES threshold_policy (threshold_policy_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-10
-  CONSTRAINT fk_monitor_session_model_version FOREIGN KEY (model_version_code) REFERENCES model_version (model_version_code) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-11
   CONSTRAINT ck_monitor_session_client_session_uuid CHECK (CHAR_LENGTH(client_session_uuid) = 36),  -- 허용값: UUID
-  CONSTRAINT ck_monitor_session_frame_width CHECK (frame_width >= 1),  -- 허용값: 1 이상
-  CONSTRAINT ck_monitor_session_frame_height CHECK (frame_height >= 1),  -- 허용값: 1 이상
+  CONSTRAINT ck_monitor_session_calibration_uuid CHECK (CHAR_LENGTH(calibration_uuid) = 36),  -- 허용값: UUID
   CONSTRAINT ck_monitor_session_end_reason CHECK (end_reason IN ('USER_STOP', 'DISCONNECTED', 'ERROR')),  -- 허용값: USER_STOP / DISCONNECTED / ERROR
   CONSTRAINT ck_monitor_session_good_sec CHECK (good_sec >= 0),  -- 허용값: 0 이상
   CONSTRAINT ck_monitor_session_end CHECK ((ended_at IS NULL AND end_reason IS NULL AND good_sec IS NULL) OR (ended_at IS NOT NULL AND end_reason IS NOT NULL AND good_sec IS NOT NULL)),  -- BR-35 종료 시각·종료 사유·바른 자세 시간은 함께 채워진다 (NULL = 측정 중)
@@ -213,7 +175,7 @@ CREATE TABLE excluded_interval (
   CONSTRAINT pk_excluded_interval PRIMARY KEY (monitor_session_id, started_at),
   CONSTRAINT fk_excluded_interval_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-12
   CONSTRAINT ck_excluded_interval_ended_at CHECK (ended_at >= started_at),  -- 허용값: started_at 이후
-  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('PAUSE', 'ABSENCE', 'UNMEASURABLE'))  -- 허용값: PAUSE / ABSENCE / UNMEASURABLE
+  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('PAUSE', 'MISSING', 'ABSENCE', 'UNMEASURABLE'))  -- 허용값: PAUSE / MISSING / ABSENCE / UNMEASURABLE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-34 세션 제외 구간 — 일시정지·자리 비움·판정 불가 구간';
 
 -- ---------------------------------------------------------------------
@@ -222,7 +184,7 @@ CREATE TABLE excluded_interval (
 CREATE TABLE feature_archive (
   feature_archive_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '적재 기록 식별자',
   monitor_session_id BIGINT NOT NULL COMMENT '소속 세션',
-  file_uri VARCHAR(500) COLLATE utf8mb4_bin NOT NULL COMMENT 'HDFS 파일 위치. 파일 하나는 한 세션의 특징값만 담음',
+  file_uri VARCHAR(500) COLLATE utf8mb4_bin NOT NULL COMMENT 'HDFS 파일 위치. 파일 하나는 한 세션의 특징값만 담음. 특징값 계산 방식은 파일 경로·메타 정보에 남긴다',
   range_start_at DATETIME(3) NOT NULL COMMENT '파일에 담긴 첫 특징값 시각',
   range_end_at DATETIME(3) NOT NULL COMMENT '파일에 담긴 마지막 특징값 시각',
   row_count INT NOT NULL COMMENT '파일 행 수',
@@ -280,7 +242,7 @@ CREATE TABLE correction_alert (
 -- ---------------------------------------------------------------------
 CREATE TABLE daily_stat (
   user_account_id BIGINT NOT NULL COMMENT '대상 사용자',
-  stat_date DATE NOT NULL COMMENT '집계 날짜 (STAT_TIMEZONE 기준, 세션 시작 날짜 귀속)',
+  stat_date DATE NOT NULL COMMENT '집계 날짜 (STAT_TIMEZONE = Asia/Seoul, 세션 시작 날짜 귀속)',
   valid_sec DECIMAL(9,1) NOT NULL COMMENT '유효 측정 시간 합 (분모)',
   good_sec DECIMAL(9,1) NOT NULL COMMENT '바른 자세 시간 합 (분자)',
   session_count INT NOT NULL COMMENT '세션 수',
@@ -305,11 +267,11 @@ CREATE TABLE deletion_request (
   requested_at DATETIME(3) NOT NULL COMMENT '요청 시각',
   request_scope VARCHAR(16) NOT NULL COMMENT '삭제 범위',
   request_status VARCHAR(12) NOT NULL DEFAULT 'REQUESTED' COMMENT '처리 상태. DONE은 실제 삭제 완료 후에만',
-  account_closed_at DATETIME(3) NULL COMMENT '계정 폐쇄 시각. NULL: 기록만 삭제하는 범위이거나 폐쇄 전',
+  account_closed_at DATETIME(3) NULL COMMENT '계정 폐쇄 시각. 탈퇴 유예 기간(WITHDRAWAL_GRACE_DAY)은 이 시각부터 센다. NULL: 기록만 삭제하는 범위이거나 폐쇄 전',
   data_deleted_at DATETIME(3) NULL COMMENT '자료 삭제 완료 시각 (HDFS 포함). NULL: 미완료',
   failure_reason VARCHAR(200) NULL COMMENT '실패 사유. NULL: 실패하지 않음',
   CONSTRAINT pk_deletion_request PRIMARY KEY (user_account_id, requested_at),
-  CONSTRAINT fk_deletion_request_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-18 — RESTRICT + 보관 배치
+  CONSTRAINT fk_deletion_request_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-18 — RESTRICT + 삭제 배치
   CONSTRAINT ck_deletion_request_request_scope CHECK (request_scope IN ('ACCOUNT_ALL', 'RECORDS_ONLY')),  -- 허용값: ACCOUNT_ALL / RECORDS_ONLY
   CONSTRAINT ck_deletion_request_request_status CHECK (request_status IN ('REQUESTED', 'PROCESSING', 'FAILED', 'DONE')),  -- 허용값: REQUESTED / PROCESSING / FAILED / DONE
   CONSTRAINT ck_deletion_request_done CHECK (request_status <> 'DONE' OR data_deleted_at IS NOT NULL),  -- BR-66 완료(DONE)는 자료 삭제 완료 시각이 있을 때만
@@ -317,34 +279,29 @@ CREATE TABLE deletion_request (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-40 삭제 요청 — 탈퇴·기록 삭제 요청과 처리 상태';
 
 -- ---------------------------------------------------------------------
--- T-42 deployment — 배포 기록 (근거 E-32)
+-- T-48 SPRING_SESSION — 로그인 세션 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
 -- ---------------------------------------------------------------------
-CREATE TABLE deployment (
-  component VARCHAR(16) NOT NULL COMMENT '배포한 구성 요소',
-  deployed_at DATETIME(3) NOT NULL COMMENT '배포 시각',
-  image_tag VARCHAR(100) NOT NULL COMMENT '배포 이미지 태그',
-  model_version_code VARCHAR(30) NULL COMMENT '적용 모델 버전. NULL: 추론 서비스가 아닌 배포',
-  deploy_result VARCHAR(12) NOT NULL COMMENT '배포 결과',
-  note VARCHAR(200) NULL COMMENT '비고. NULL: 없음',
-  CONSTRAINT pk_deployment PRIMARY KEY (component, deployed_at),
-  CONSTRAINT fk_deployment_model_version FOREIGN KEY (model_version_code) REFERENCES model_version (model_version_code) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-20
-  CONSTRAINT ck_deployment_component CHECK (component IN ('API', 'INFERENCE', 'FRONTEND')),  -- 허용값: API / INFERENCE / FRONTEND
-  CONSTRAINT ck_deployment_deploy_result CHECK (deploy_result IN ('SUCCESS', 'FAILED', 'ROLLED_BACK'))  -- 허용값: SUCCESS / FAILED / ROLLED_BACK
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-42 배포 기록 — 구성 요소별 배포 이미지와 적용 모델';
+CREATE TABLE SPRING_SESSION (
+  PRIMARY_ID CHAR(36) NOT NULL,
+  SESSION_ID CHAR(36) NOT NULL,
+  CREATION_TIME BIGINT NOT NULL,
+  LAST_ACCESS_TIME BIGINT NOT NULL,
+  MAX_INACTIVE_INTERVAL INT NOT NULL,
+  EXPIRY_TIME BIGINT NOT NULL,
+  PRINCIPAL_NAME VARCHAR(100),
+  CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID),
+  UNIQUE KEY SPRING_SESSION_IX1 (SESSION_ID)  -- UK-13
+) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- T-43 error_log — 오류 기록 (근거 E-33)
+-- T-49 SPRING_SESSION_ATTRIBUTES — 로그인 세션 속성 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
 -- ---------------------------------------------------------------------
-CREATE TABLE error_log (
-  error_log_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '오류 기록 식별자 (자연키 없음)',
-  component VARCHAR(16) NOT NULL COMMENT '발생 구성 요소',
-  occurred_at DATETIME(3) NOT NULL COMMENT '발생 시각',
-  error_code VARCHAR(30) NOT NULL COMMENT '오류 코드',
-  message VARCHAR(500) NULL COMMENT '오류 메시지. NULL: 코드로 충분',
-  monitor_session_id BIGINT NULL COMMENT '관련 세션. NULL: 세션과 무관',
-  CONSTRAINT pk_error_log PRIMARY KEY (error_log_id),
-  CONSTRAINT fk_error_log_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE SET NULL ON UPDATE RESTRICT,  -- FK-21
-  CONSTRAINT ck_error_log_component CHECK (component IN ('API', 'INFERENCE', 'FRONTEND', 'BATCH'))  -- 허용값: API / INFERENCE / FRONTEND / BATCH
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-43 오류 기록 — 운영 중 오류';
+CREATE TABLE SPRING_SESSION_ATTRIBUTES (
+  SESSION_PRIMARY_ID CHAR(36) NOT NULL,
+  ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
+  ATTRIBUTE_BYTES BLOB NOT NULL,
+  CONSTRAINT SPRING_SESSION_ATTRIBUTES_PK PRIMARY KEY (SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
+  CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
+) ENGINE=InnoDB;
 
--- 끝: 테이블 17개, 컬럼 122개, UK 11개, FK 19개, CHECK 55개
+-- 끝: 테이블 12개, 컬럼 103개, UK 8개, FK 11개, CHECK 59개

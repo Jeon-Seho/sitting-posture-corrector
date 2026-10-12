@@ -55,9 +55,4 @@ $app.WorkingDirectory = "$Repo\frontend"
 $app.WindowStyle = 7
 $app.Save()
 
-$board = $shell.CreateShortcut("$desktop\바른자세 관리판.lnk")
-$board.TargetPath = "$Repo\바른자세_관리판.bat"
-$board.WorkingDirectory = $Repo
-$board.Save()
-
-Write-Host "완료: 바탕화면의 'PoseGood (개발)'과 '바른자세 관리판'을 실행하세요."
+Write-Host "완료: 바탕화면의 'PoseGood (개발)'을 실행하세요."

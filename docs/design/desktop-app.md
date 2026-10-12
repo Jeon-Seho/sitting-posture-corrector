@@ -1,7 +1,5 @@
 # 데스크톱 앱 화면 설계
 
-- 분야: 프론트
-- 작업: GP-0101
 결정: [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md). 시각 규칙: [DESIGN.md](../../DESIGN.md).
 백엔드 연결 지점: [frontend-platform-seams.md](frontend-platform-seams.md).
 
@@ -16,7 +14,7 @@ npm run dev          # 브라우저로 같은 화면을 연다.
 
 `frontend/electron/`
 
-앱 아이콘(GP-0119)은 현재 화면의 강조색 라운드 사각형 바탕과 크림색 사람 두 덩어리로 단순화한
+앱 아이콘은 현재 화면의 강조색 라운드 사각형 바탕과 크림색 사람 두 덩어리로 단순화한
 `frontend/public/branding/posegood-icon.svg`가 정본이다. 바깥은 투명하고 PNG·ICO는 같은 SVG에서 내보낸다.
 로그인·사이드바는 `BrandMark`를 공유하고, 브라우저 탭과 Electron 창도 같은 아이콘을 읽는다.
 Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 서명만 생략한다.
@@ -45,7 +43,7 @@ IPC는 앱 자신의 로컬 주소에서 온 요청만 받는다. `nodeIntegrati
 
 | 탭 | 화면 | 코드 | 보여 주는 것 |
 |---|---|---|---|
-| 측정하기 | 준비(카메라 → 얼굴·어깨 → 5초 기준) | `pages/SetupPage.tsx` | 큰 카메라와 점선 가이드, 3단계 진행, 앉는 팁, 측정 시작 |
+| 측정하기 | 준비(카메라 → 얼굴·어깨 → 3초 기준, 최소 15표본) | `pages/SetupPage.tsx` | 큰 카메라와 점선 가이드, 3단계 진행, 앉는 팁, 측정 시작 |
 | 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
 | 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(기존 통계·사건 표) |
 | 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |

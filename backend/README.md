@@ -1,7 +1,5 @@
 # 로컬 특징 추론·API·CEP 흐름
 
-- 분야: 백엔드
-- 작업: GP-0068
 사용자 승인에 따라 Java 21·Spring Boot 3.5.16·Maven·Esper 9.0.0을 사용한다.
 Spring Boot API는 입력 검증·전달·저장·조회만 담당한다. 독립 CEP 프로세스가 이벤트 시간과
 붕괴·회복·재알림을 판정한다. FastAPI는 특징에서 현재 추론 점수를 만든다.
@@ -141,7 +139,7 @@ Windows는 `python tools/dev.py dev-server`를 사용한다. `Ctrl+C`로 시작�
 ```text
 점수 = min(1, max(|head_gap_delta|/0.22,
                   |lateral_offset_delta|/0.20,
-                  |shoulder_tilt_delta|/0.13) * 0.7)
+                  |shoulder_tilt_delta|/0.03) * 0.7)
 ```
 
 현재·기준 품질은 각각 `[0,1]`이며 둘 다 0.65 이상, `running/good`, 특징 존재일 때만 유효하다.

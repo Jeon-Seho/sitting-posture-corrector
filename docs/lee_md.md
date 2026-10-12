@@ -1,13 +1,14 @@
 # lee 브랜치 변경 사항 정리
 
-- 분야: 프론트
-- 작업: GP-0042
 
 브랜치별 변경 기록이다. 최신 브랜치를 위에 둔다. `lee_dev4`는 2026-10-05에 삭제했으며 내용은 `lee_app1`에 모두 들어 있다.
 
+> 2026-10-07 현재: `lee_app1`은 PR #12로 develop에 병합됐다(2026-10-06). 같은 날 DB V1.1 연결(`jin_db_v11`)도 PR #11·#13으로 develop에 들어갔다.
+> 시드 `DEFAULT_TEMP`는 0.5·3초·3초·60초로 바뀌었다(develop #16, lee_app1). 아래 각 절은 적힌 날짜 기준 기록이다.
+
 ## lee_app1: jin_app과 develop 통합 (2026-10-05)
 
-- 브랜치: `lee_app1` (개인 작업 브랜치, 열린 PR 없음). 나중에 develop으로 병합한다.
+- 브랜치: `lee_app1` (개인 작업 브랜치, 당시 열린 PR 없음). 2026-10-06 PR #12로 develop에 병합했다.
 - 합친 두 브랜치: `jin_app`(`b1db41b`, 지성 백엔드 + 우진 데스크톱 앱, 태그 `v0.1.0-preview.20261002`)와
   `develop`(`213e441`, 유진 DB 스키마 V0.3, PR #8).
 - 병합 커밋: `719e8c7`(jin_app + develop), `030b0a3`(그 결과 + 기존 lee_app1).
@@ -16,12 +17,10 @@
 
 | 내용 | 위치 | 비고 |
 | --- | --- | --- |
-| 작업 관리판·팀 문서·작업 번호(GP) | `tools/project-board/`, `바른자세_관리판.bat`, `docs/project-board.md`, `docs/team.md`, `CLAUDE.md`, `.agents/skills/` | goodpose-mdweb에서 가져옴 |
-| 관리판 명령 | `tools/dev.py`·`tools/dev_tasks.py`·`Makefile`의 `board`, `check-board` | `check-local`(→ `check`)에 `check-board` 연결 |
-| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 바탕화면 바로가기 2개. GP-0066 |
-| DB 건의안 | `database/proposals/0001-v03-supplement.md` | V0.3 보완 마이그레이션 11개. 담당자에게는 디스코드로 전달. GP-0067 |
-| DB 전환 계획 | `docs/plans/active/0021-db-schema-v03-alignment.md` | V1 → V0.3, 건의안 승인 대기. GP-0068 |
-| Kafka 계획 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 프론트가 WebSocket 게이트웨이까지 담당. GP-0069 |
+| 새 Windows PC 설치 스크립트 | `tools/setup-windows.ps1` | Git·Node·Python 설치, 저장소, setup, 앱 바탕화면 바로가기. |
+| DB 건의안 | `database/proposals/0001-v03-supplement.md` | V0.3 보완 마이그레이션 11개. 담당자에게는 디스코드로 전달. |
+| DB 전환 계획 | `docs/plans/active/0021-db-schema-v03-alignment.md` | V1 → V0.3, 건의안 승인 대기. |
+| Kafka 계획 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 프론트가 WebSocket 게이트웨이까지 담당. |
 
 ### 2. 충돌을 어떻게 정리했나
 
@@ -34,15 +33,15 @@ jin_app + develop은 `database/README.md` 하나, 그 결과 + lee_app1은 18개
 | `src/ServiceApp.tsx` | jin_app(삭제, `src/app/`로 이동) | 지성의 구조 정리를 따름 |
 | `pages/LoginPage.tsx`, `styles.css`, `DESIGN.md` | jin_app | 새 데스크톱 디자인 기준 |
 | `pages/AuthPage.tsx`(로그인 미리보기, 소셜 버튼) | 삭제 | 새 디자인에서 쓰지 않음. 필요하면 커밋 `8aaac7a`에서 복원 |
-| `tools/dev.py`, `Makefile`, `.gitignore` | jin_app + 관리판 명령·`.claude/skills` 예외 추가 | 양쪽 기능 유지 |
+| `tools/dev.py`, `Makefile`, `.gitignore` | jin_app 기반 개발 명령과 로컬 산출물 제외 | 제품 개발 흐름 유지 |
 | `README.md`, `docs/architecture.md`, `frontend/README.md` 등 문서 | jin_app 본문 | 더 최신 |
-| `docs/index.md`, `docs/quality.md` | 양쪽 줄 모두 유지 | 관리판 링크·검사 줄 보존 |
-| `docs/team-requirements.md` | jin_app 본문 + lee_app1의 '팀 기능별 작업 카드' 절을 16절로 추가 | 내용 보존 |
+| `docs/index.md`, `docs/quality.md` | 제품 문서와 검증 명령 | 최신 기준으로 유지 |
+| `docs/team-requirements.md` | jin_app 본문 + lee_app1의 팀 기능 목록을 16절로 추가 | 제품 요구 보존 |
 
 ### 3. 이번에 정한 방향
 
 - DB: 구조는 develop의 V0.3을 따른다. 빠진 부분은 기존 구현(V1)으로 채우도록 건의했다(운영 테이블, 동의 `service-v1`·학습용 선택 동의, 기록 원문, 나이·직업).
-- 판정 정책 값: 어차피 교체할 값이므로 V0.3 시드 `DEFAULT_TEMP`(임계 0.5·3초·2초·재알림 30초)를 임시로 쓴다. 로컬 앱 기본값(0.7·60초)과는 아직 다르다.
+- 판정 정책 값: 어차피 교체할 값이므로 V0.3 시드 `DEFAULT_TEMP`(당시 임계 0.5·3초·2초·재알림 30초)를 임시로 쓴다. 2026-10-07 현재 시드는 0.5·3초·3초·60초로 시간 값은 앱과 같고, 임계값만 앱 기본값 0.7과 다르다.
 - 시간 판정: 지금은 Esper CEP를 쓰고, 정상 동작이 확인된 뒤 v4의 상태 머신 서비스로 교체할지 정한다. 둘을 동시에 돌리지 않는다.
 - 인증: JWT는 서버 발급·검증·만료·무효화가 필요하므로 서버 담당과 함께 진행한다. 그 전까지 기존 세션 쿠키를 유지한다.
 - Kafka: jin_app 결정(변화량 3개만 전송, CEP 단일 판정)을 따른다. v4 초안과 다른 점은 계획 0022에서 팀 확인을 받는다.
@@ -51,14 +50,12 @@ jin_app + develop은 `database/README.md` 하나, 그 결과 + lee_app1은 18개
 
 - PR #7(`lee_app1` → develop)은 댓글 없이 닫았다. 개인 브랜치로 쓰며 건의안이 PR에 실리지 않게 하기 위해서다.
 - `lee_app2`(통합 작업용)와 `lee_dev4`는 내용이 `lee_app1`에 들어 있어 삭제했다.
-- develop에는 아직 Electron이 없다. jin_app 또는 lee_app1이 develop에 들어갈 때 함께 들어간다.
-  그때 충돌은 `030b0a3`에서 이미 정리했다(develop이 그 사이 바뀌면 다시 맞춘다).
+- 당시 develop에는 Electron이 없었다. 2026-10-06 PR #12(lee_app1 → develop)로 함께 들어갔다.
 
 ### 5. 검증 결과
 
 - 저장소 구조·링크 검사 통과. 프론트 테스트 242개·타입 검사·빌드 통과.
 - Python 152개 중 3개 오류: 배포 백업 테스트의 Windows 파일 잠금(`WinError 32`). jin_app에서도 같은 기존 문제다.
-- 관리판 검사 실패: jin_app에서 온 문서 35개의 `분야`·`작업` 표기와 계획 12개의 카드 등록이 없다. 새로 쓴 문서는 통과한다.
 - 미실행: `check-backend`·`check-compose`·`check-browser`(이 PC에 Maven 없음, JDK 25, Docker 데몬 꺼짐). 서버 전체는 Docker만 있으면
   `python tools/compose_init.py` → `docker compose up -d --build --wait`로 띄울 수 있다(집에서 확인 예정).
 

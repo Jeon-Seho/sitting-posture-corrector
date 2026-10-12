@@ -100,11 +100,14 @@ export function average(samples: Features[]): Features {
   }
 }
 
+/** Shoulder tilt change treated as a full deviation (ADR 0019; was 0.13). */
+export const SHOULDER_TILT_SCALE = 0.03
+
 export function classify(current: Features | null, baseline: Features | null): Reading {
   if (!validFeatures(current) || !validFeatures(baseline)) return unavailable
   const head = Math.abs(current.headGap - baseline.headGap) / 0.22
   const lean = (current.offset - baseline.offset) / 0.2
-  const tilt = Math.abs(current.tilt - baseline.tilt) / 0.13
+  const tilt = Math.abs(current.tilt - baseline.tilt) / SHOULDER_TILT_SCALE
   const amount = Math.max(head, Math.abs(lean), tilt)
   return {
     status: amount >= 1 ? 'deviation' : 'normal',
@@ -140,7 +143,7 @@ export function referenceScore(current: Features, baseline: Features) {
   if (!validFeatures(current) || !validFeatures(baseline)) return { score: null, tilt: false }
   const head = Math.abs(current.headGap - baseline.headGap) / 0.22
   const lateral = Math.abs(current.offset - baseline.offset) / 0.2
-  const shoulder = Math.abs(current.tilt - baseline.tilt) / 0.13
+  const shoulder = Math.abs(current.tilt - baseline.tilt) / SHOULDER_TILT_SCALE
   return {
     score: Math.min(1, Math.max(head, lateral, shoulder) * 0.7),
     tilt: Math.max(lateral, shoulder) > head,

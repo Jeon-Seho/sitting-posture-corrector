@@ -28,5 +28,10 @@ export type SessionService = {
   onCheckpoint: (machine: Machine) => void
   onEnded: (live: LiveState) => void
   saveMessage: string
+  /** Only a failed or unconfirmed save shows the retry button. */
+  saveFailed?: boolean
   onRetry: () => void
+  /** Local camera sessions: identifies the measurement in the Kafka-format export. */
+  sessionId?: string
+  startedAt?: string
 }

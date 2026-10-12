@@ -129,6 +129,7 @@ describe('pilot collection', () => {
     })
     expect(JSON.parse(String(row.world_landmarks_json))[1].x).toBeCloseTo(2 / 33)
     expect(row.pose_model).toContain('lite')
+    expect(row.calibration_seconds).toBe(3)
     expect(toCsv(c.rows)).toContain('""visibility""')
   })
   it('does not infer absence from a missing pose and can confirm absence without inventing features', () => {

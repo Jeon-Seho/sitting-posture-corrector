@@ -154,7 +154,7 @@
       "current": {
         "headGap": 0,
         "offset": 0,
-        "tilt": 0.13,
+        "tilt": 0.03,
         "quality": 0.9
       },
       "baseline": {
@@ -168,7 +168,7 @@
       "expected_features": {
         "head_gap_delta": 0,
         "lateral_offset_delta": 0,
-        "shoulder_tilt_delta": 0.13,
+        "shoulder_tilt_delta": 0.03,
         "current_quality": 0.9,
         "baseline_quality": 0.8
       },
@@ -183,7 +183,7 @@
       "current": {
         "headGap": 0,
         "offset": 0,
-        "tilt": -0.13,
+        "tilt": -0.03,
         "quality": 0.9
       },
       "baseline": {
@@ -197,7 +197,7 @@
       "expected_features": {
         "head_gap_delta": 0,
         "lateral_offset_delta": 0,
-        "shoulder_tilt_delta": -0.13,
+        "shoulder_tilt_delta": -0.03,
         "current_quality": 0.9,
         "baseline_quality": 0.8
       },
@@ -212,7 +212,7 @@
       "current": {
         "headGap": 0.22,
         "offset": 0.2,
-        "tilt": 0.13,
+        "tilt": 0.03,
         "quality": 0.9
       },
       "baseline": {
@@ -226,7 +226,7 @@
       "expected_features": {
         "head_gap_delta": 0.22,
         "lateral_offset_delta": 0.2,
-        "shoulder_tilt_delta": 0.13,
+        "shoulder_tilt_delta": 0.03,
         "current_quality": 0.9,
         "baseline_quality": 0.8
       },
@@ -270,7 +270,7 @@
       "current": {
         "headGap": 0,
         "offset": 0.2,
-        "tilt": 0.13,
+        "tilt": 0.03,
         "quality": 0.9
       },
       "baseline": {
@@ -284,7 +284,7 @@
       "expected_features": {
         "head_gap_delta": 0,
         "lateral_offset_delta": 0.2,
-        "shoulder_tilt_delta": 0.13,
+        "shoulder_tilt_delta": 0.03,
         "current_quality": 0.9,
         "baseline_quality": 0.8
       },
@@ -299,7 +299,7 @@
       "current": {
         "headGap": 0.11,
         "offset": 0.1,
-        "tilt": 0.065,
+        "tilt": 0.015,
         "quality": 0.9
       },
       "baseline": {
@@ -313,7 +313,7 @@
       "expected_features": {
         "head_gap_delta": 0.11,
         "lateral_offset_delta": 0.1,
-        "shoulder_tilt_delta": 0.065,
+        "shoulder_tilt_delta": 0.015,
         "current_quality": 0.9,
         "baseline_quality": 0.8
       },
@@ -415,7 +415,7 @@
       "current": {
         "headGap": 0.5,
         "offset": 0.5,
-        "tilt": 0.375,
+        "tilt": 0.265625,
         "quality": 0.9
       },
       "baseline": {
@@ -429,7 +429,7 @@
       "expected_features": {
         "head_gap_delta": -0.25,
         "lateral_offset_delta": 0.25,
-        "shoulder_tilt_delta": 0.125,
+        "shoulder_tilt_delta": 0.015625,
         "current_quality": 0.9,
         "baseline_quality": 0.85
       },
