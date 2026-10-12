@@ -7,7 +7,7 @@
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
 - [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
-- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](removed-docs.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
+- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
 - [서비스 DB 전환](removed-docs.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
 - [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
@@ -16,11 +16,11 @@
 
 - **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md). 2026-10-11 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
-- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N16, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
+- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N18, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음). 측정 결과 내보내기는 [session-export](research/session-export.md).
-- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 34개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
+- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 33개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
 
 ## 질문별 진입점
 
