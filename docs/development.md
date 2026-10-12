@@ -1,5 +1,50 @@
 # 개발 흐름
 
+## 지금 실제로 쓰는 명령과 검증 (2026-10-12, Windows 노트북)
+
+작업할 때 실제로 실행하는 명령이다. 각 검사가 안에서 무엇을 하는지는 아래 [검사별로 실제 확인하는 것](#검사별로-실제-확인하는-것-2026-10-12-정리)을 본다.
+화면 스크린샷과 실제 카메라 구동은 서버 연결 전까지 제외한다.
+
+### 1. 자동 검사
+
+| 명령 | 검증하는 것 | 언제 |
+|---|---|---|
+| `python tools/dev.py check-repo` | 문서 링크가 실제 파일을 가리키는지, 금지 파일(영상·자료·비밀값)이 없는지 | 문서를 고칠 때마다 |
+| `python tools/dev.py check-frontend` | `vitest run`(프론트 시험) → `tsc -b`(타입 오류) → `vite build`(배포 빌드) | 프론트 코드를 고칠 때마다 |
+| `python tools/dev.py check-browser` | 실제 Chrome에서 합성 입력으로 화면 흐름 약 75개 항목. 앱·API·추론·CEP를 모두 띄운다 | 화면 흐름이나 판정 규칙을 바꿨을 때 |
+| `python tools/dev.py test` | Python 시험 전체(계약, 추론, 자료 준비 도구 등). `test_deploy_configuration`의 Windows 제약 오류 3개는 원래 난다 | 매 작업 끝(관련 모듈만 고르지 않는다) |
+| `.venv/Scripts/python.exe -m unittest tests.test_inference_v2` | 추론 서비스 v2와 합성 계약 예제가 맞는지(빠른 부분 확인) | 판정 규칙이나 계약을 바꿨을 때 |
+| `.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation` | 자료 준비 도구가 예전 수집 CSV(v1·v2)를 그대로 읽는지(빠른 부분 확인) | 수집 CSV를 바꿨을 때 |
+
+### 2. 빠른 부분 검사 (`frontend`에서)
+
+| 명령 | 검증하는 것 |
+|---|---|
+| `npx vitest run <파일>` | 바꾼 파일의 시험만 먼저 확인한다 |
+| `npx tsc -b` | 코드를 고친 직후 타입 오류만 확인한다 |
+| `UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases` | 판정 규칙을 바꾼 뒤 합성 시험 데이터(`contracts/examples/frames/reference-rule-cases.json`)를 다시 만든다. 앱 코드 결과와 손 계산이 같은지도 검사한다 |
+
+### 3. 검사 외 확인 명령
+
+| 명령 | 목적 |
+|---|---|
+| `git status --short`, `git diff --stat` | 바뀐 파일이 의도한 것뿐인지 확인한다. `.vscode/`는 커밋하지 않는다 |
+| `git fetch` 후 `git log HEAD..origin/lee_app1` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
+| `git merge --ff-only origin/lee_app1` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
+| `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
+| `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
+
+### 4. 이 노트북에서 못 돌리는 것
+
+| 명령 | 이유 |
+|---|---|
+| `python tools/dev.py check-backend` | Maven이 없고 JDK가 25다(21 필요). Java 서버 시험은 Windows PC(10/11 환경)에서 돌린다 |
+| `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
+| `python tools/dev.py check` | 위 둘 때문에 전체를 한 번에 돌릴 수 없다 |
+
+정리: 프론트·문서·브라우저 흐름·Python 시험은 매번 검증하고, Java 서버와 실제 DB는 이 노트북에서 검증하지 못한다.
+작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.
+
 ## 환경 준비와 빠른 피드백
 
 ```sh
