@@ -40,7 +40,9 @@ export function SetupPage({
   ][step]
   const pill = !on
     ? null
-    : !camera.quality
+    : !registered
+      ? { tone: 'unknown', text: '아직 등록한 자세가 없어요' }
+      : !camera.quality
       ? { tone: 'unknown', text: '얼굴과 양쪽 어깨를 찾고 있어요' }
       : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
 
@@ -78,7 +80,17 @@ export function SetupPage({
 
       <div className="measure">
         <div className="stage">
-          <CameraStage camera={camera} />
+          <CameraStage
+            camera={camera}
+            offMessage={
+              registered
+                ? undefined
+                : {
+                    title: '아직 등록한 자세가 없어요',
+                    body: '측정은 등록한 바른 자세와 비교해서 해요. 자세 등록에서 편하게 앉은 자세를 3초만 등록해 주세요.',
+                  }
+            }
+          />
           {on && !ready && <PoseGuide camera={camera} />}
           <div className="stage-overlay">
             <div className="stage-top">

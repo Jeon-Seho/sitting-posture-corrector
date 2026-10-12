@@ -549,6 +549,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('측정하기')
     const setup = renderer!.root.findByType(SetupPage)
     expect(text(setup)).toContain('먼저 자세를 등록해 주세요')
+    expect(text(setup)).toContain('아직 등록한 자세가 없어요')
     act(() => {
       vi.advanceTimersByTime(5000)
     })

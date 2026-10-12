@@ -5,9 +5,12 @@ import type { CameraController } from '../hooks/useCamera'
 export function CameraStage({
   camera,
   showSkeleton = true,
+  offMessage,
 }: {
   camera: CameraController
   showSkeleton?: boolean
+  /** Replaces the camera-off text when the screen has a more useful reason to show. */
+  offMessage?: { title: string; body: string }
 }) {
   useEffect(() => {
     camera.setOverlayEnabled(showSkeleton)
@@ -40,9 +43,15 @@ export function CameraStage({
       {camera.state !== 'on' && (
         <div className="webcam-message">
           <strong>
-            {camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}
+            {camera.state === 'loading'
+              ? '카메라를 준비하고 있어요…'
+              : (offMessage?.title ?? '카메라가 꺼져 있어요')}
           </strong>
-          <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
+          <span>
+            {camera.error ||
+              (camera.state === 'loading' ? null : offMessage?.body) ||
+              '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}
+          </span>
         </div>
       )}
     </>
