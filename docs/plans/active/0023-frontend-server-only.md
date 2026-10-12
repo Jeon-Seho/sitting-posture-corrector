@@ -60,7 +60,7 @@
 ### 1단계 — 서버와 무관한 준비 (지금 시작 가능)
 
 - [x] **규칙 문서와 합성 시험 데이터 작성.** [FE 제안서](../../design/fe-server-proposal.md),
-  [합성 시험 데이터](../../../contracts/examples/frames/reference-rule-cases.json)(프레임 16·시간 순서 4·기준 자세 1),
+  [합성 시험 데이터](../../../contracts/examples/frames/reference-rule-cases.json)(프레임 17·시간 순서 4·기준 자세 1, 10/12 `one_ear_missing` 추가),
   앱 코드와 손 계산으로 검사하는 `frontend/src/features/session/server/referenceRuleCases.test.ts`.
 - [x] **ADR 작성: "앱은 판정하지 않는다".** [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
   어긋나는 현재 문서(README, 아키텍처, 제품 범위, 데이터 플랫폼 경계, 실시간 계약, 판정 불가 처리, FE 회신, 내보내기·수집 규격,
