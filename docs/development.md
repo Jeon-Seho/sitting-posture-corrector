@@ -39,6 +39,7 @@ grep -rn "<단어>" docs frontend/src
 git show origin/<브랜치>:<파일 경로>
 ```
 
+직접 설치해야 하는 프로그램(JDK 21, Maven, Chrome, Docker 등)과 환경변수는 [requirements-front.txt](../requirements-front.txt)에 모아 둔다.
 Windows PowerShell에서 `UPDATE_RULE_CASES=1 ...`은 `$env:UPDATE_RULE_CASES=1; npx vitest run referenceRuleCases`로 쓴다.
 Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙인다.
 
@@ -76,15 +77,15 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
 | `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
 
-### 4. 이 노트북에서 못 돌리는 것
+### 4. 지금 못 돌리는 것
 
 | 명령 | 이유 |
 |---|---|
-| `python tools/dev.py check-backend` | Maven이 없고 JDK가 25다(21 필요). Java 서버 시험은 Windows PC(10/11 환경)에서 돌린다 |
 | `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
-| `python tools/dev.py check` | 위 둘 때문에 전체를 한 번에 돌릴 수 없다 |
+| `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
 
-정리: 프론트·문서·브라우저 흐름·Python 시험은 매번 검증하고, Java 서버와 실제 DB는 이 노트북에서 검증하지 못한다.
+`check-backend`는 2026-10-12 노트북에 JDK 21·Maven 3.9.9를 설치해 돌 수 있다(Java 시험 59개 중 14개 건너뜀, 서비스 연동 통과).
+정리: 프론트·문서·브라우저 흐름·Python·Java 서버는 매번 검증하고, 실제 DB(Compose)만 검증하지 못한다.
 작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.
 
 ## 환경 준비와 빠른 피드백
@@ -165,7 +166,7 @@ Compose 계정 앱의 간단한 실행과 GitHub 배포 환경 설정은 [infra 
 
 ### PC별 제약 (2026-10-12)
 
-- Windows 노트북: Maven이 없고 JDK가 25라 ④를 돌릴 수 없다(⑤는 이미 만든 JAR로 돈다). ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
+- Windows 노트북: 2026-10-12 JDK 21(Temurin)·Maven 3.9.9 설치로 ①~⑤가 돈다. JDK 25도 있으므로 `JAVA_HOME`이 21을 가리켜야 한다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
 - Windows PC(10/11): JDK 21·Maven·Docker가 있어 ①~⑤가 돈다.
 - ⑥은 DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패한다(`develop`도 같음, 계획 0023). DB 담당 브랜치가 들어오기 전까지 실패한다.
 

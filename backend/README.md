@@ -56,7 +56,7 @@ CEP의 `SessionEngine`은 순서 검증과 처리를 조율한다. `ObservationT
 
 ## 준비와 검증
 
-Node 24+, Python 3.9+, JDK 21, Maven 3.6.3+를 준비한다. 시스템 설치가 필수는 아니다.
+Node 24+, Python 3.9+, JDK 21, Maven 3.6.3+를 준비한다(설치 목록: [requirements-front.txt](../requirements-front.txt)). 시스템 설치가 필수는 아니다.
 JDK는 `JAVA_HOME`, Maven은 PATH 또는 `MAVEN_EXECUTABLE`로 지정할 수 있다.
 의존성은 Maven Central/PyPI에서 받으며 개인 Maven 설정·자격증명을 사용하지 않는다.
 기본 Maven 캐시는 저장소의 `.cache/maven`이고 `POSEGOOD_MAVEN_CACHE`로 별도 개발 캐시를 지정할 수 있다.
