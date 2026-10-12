@@ -81,28 +81,15 @@ export function timelineKind(status: LiveStatus): TimelineKind {
   return 'collapse'
 }
 
-const COLLAPSE_TITLE: Record<CollapseType, string> = {
-  forwardHead: '머리와 상체가 앞으로 나왔어요',
-  tilt: '몸이 한쪽으로 기울었어요',
-  referenceChange: '기준 자세와 달라졌어요',
-}
-
-const COLLAPSE_HINT: Record<CollapseType, string> = {
-  forwardHead: '턱을 살짝 당기고 등을 의자에 기대 볼까요?',
-  tilt: '천천히 양쪽 어깨 높이를 맞춰 볼까요?',
-  referenceChange: '처음 등록한 편한 자세로 돌아가 볼까요?',
-}
-
-/** Friendly copy for the status pill and side panel. */
+/** Friendly copy for the status pill and side panel. The collapse kind is not shown (ADR 0021). */
 export function statusCopy(view: LiveView) {
-  const collapse = view.collapse ? COLLAPSE_TITLE[view.collapse] : '자세가 흐트러졌어요'
   switch (view.status) {
     case 'normal':
       return { pill: '바른 자세예요', title: '잘하고 있어요', tone: 'good' as const }
     case 'suspect':
       return { pill: '자세가 조금 달라졌어요', title: '잠깐 지켜보는 중이에요', tone: 'collapse' as const }
     case 'bad':
-      return { pill: collapse, title: '자세를 살짝 고쳐볼까요?', tone: 'collapse' as const }
+      return { pill: '자세가 흐트러졌어요', title: '자세를 살짝 고쳐볼까요?', tone: 'collapse' as const }
     case 'recovering':
       return { pill: '좋아요, 돌아오고 있어요', title: '조금만 그대로 있어 주세요', tone: 'good' as const }
     case 'unmeasurable':
@@ -114,6 +101,6 @@ export function statusCopy(view: LiveView) {
   }
 }
 
-export function correctionHint(view: LiveView) {
-  return view.collapse ? COLLAPSE_HINT[view.collapse] : '편안하게 바로 앉아 볼까요?'
+export function correctionHint() {
+  return '편안하게 바로 앉아 볼까요?'
 }

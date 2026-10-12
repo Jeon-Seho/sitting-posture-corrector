@@ -21,7 +21,7 @@ frontend/src/
     history/              기록 조회·상세·비교 조건 안내
     storage/              저장 타입, 검증, 브라우저 IO, 기록 변환
     testing/              명시적 개발 테스트 모드의 합성 카메라·시계
-  pages/                  측정 준비·수집·설정·로그인·발표용 예시 대시보드 화면
+  pages/                  측정 준비·자세 등록·수집·설정·로그인·발표용 예시 대시보드 화면
   components/             여러 화면에서 쓰는 UI·카메라 표시
   hooks/                  카메라·수집·세션·탭 잠금 React 연결
   lib/                    통계·표시·수집 도구와 기존 공개 진입점
@@ -114,6 +114,4 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 - 기존 API·저장·시간 의미를 바꾸면 계약·합성 회귀 검증과 관련 결정을 함께 갱신한다.
 - `.editorconfig`의 들여쓰기·개행을 따른다. 이번 포맷 도구는 임시 실행했으며 프로젝트 의존성에 추가하지 않았다.
 
-기본 검증은 `make check`다. [품질 기준](quality.md),
-[구조 변경 완료 기록](plans/completed/0012-readable-code-structure.md),
-[기술 스택 조사](audits/2026-10-01-technology-stack.md)를 함께 확인한다.
+기본 검증은 `make check`다. [품질 기준](quality.md)을 함께 확인한다.

@@ -5,9 +5,12 @@ import type { CameraController } from '../hooks/useCamera'
 export function CameraStage({
   camera,
   showSkeleton = true,
+  message,
 }: {
   camera: CameraController
   showSkeleton?: boolean
+  /** A higher-priority notice that replaces the camera status, whatever state the camera is in. */
+  message?: { title: string; body: string }
 }) {
   useEffect(() => {
     camera.setOverlayEnabled(showSkeleton)
@@ -37,13 +40,18 @@ export function CameraStage({
         style={{ opacity: showSkeleton ? 1 : 0 }}
         aria-hidden="true"
       />
-      {camera.state !== 'on' && (
+      {message ? (
         <div className="webcam-message">
-          <strong>
-            {camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}
-          </strong>
-          <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
+          <strong>{message.title}</strong>
+          <span>{message.body}</span>
         </div>
+      ) : (
+        camera.state !== 'on' && (
+          <div className="webcam-message">
+            <strong>{camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}</strong>
+            <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
+          </div>
+        )
       )}
     </>
   )

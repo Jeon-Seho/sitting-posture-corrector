@@ -270,4 +270,4 @@ API(`backend/api`) 영구 모드는 아직 **V1.1 테이블**을 쓴다([ADR 001
 - API는 테이블을 만들거나 마이그레이션하지 않는다. 시작할 때 테이블·`user_account` 컬럼·시드를 확인하고, 없으면 시작하지 않는다.
 - Compose `db`는 **빈 볼륨에서만** `infra/mysql/initdb`가 1장 순서(스키마 → 시드)를 그대로 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. 이전 버전으로 만든 볼륨은 V2.1로 올리지 않고 지운 뒤 다시 만든다(1장).
 - 기본 정책 이름은 API 설정 `posegood.default-policy-name`(기본 `DEFAULT_TEMP`)이다. 확정 정책 `DEFAULT` 행을 넣으면 이 설정만 바꾼다.
-- 저장 대응과 남은 한계는 [전환 계획](../docs/plans/active/0021-db-schema-v03-alignment.md)에 둔다.
+- 저장 대응과 남은 한계는 [전환 계획](../docs/removed-docs.md)에 둔다.

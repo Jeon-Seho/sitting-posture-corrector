@@ -129,7 +129,7 @@ export function Nudge({
   return (
     <Card
       icon={view.status === 'recovering' ? <ArrowsClockwise size={24} weight="bold" /> : <Person size={24} weight="bold" />}
-      title={view.status === 'recovering' ? '좋아요, 그대로 있어 주세요' : correctionHint(view)}
+      title={view.status === 'recovering' ? '좋아요, 그대로 있어 주세요' : correctionHint()}
       progress={view.recoverProgress}
     >
       바르게 앉으면 {recoverSeconds}초 뒤에 알림이 사라져요

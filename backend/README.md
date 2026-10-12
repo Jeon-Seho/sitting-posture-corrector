@@ -56,7 +56,7 @@ CEP의 `SessionEngine`은 순서 검증과 처리를 조율한다. `ObservationT
 
 ## 준비와 검증
 
-Node 24+, Python 3.9+, JDK 21, Maven 3.6.3+를 준비한다. 시스템 설치가 필수는 아니다.
+Node 24+, Python 3.9+, JDK 21, Maven 3.6.3+를 준비한다(설치 목록: [requirements-front.txt](../requirements-front.txt)). 시스템 설치가 필수는 아니다.
 JDK는 `JAVA_HOME`, Maven은 PATH 또는 `MAVEN_EXECUTABLE`로 지정할 수 있다.
 의존성은 Maven Central/PyPI에서 받으며 개인 Maven 설정·자격증명을 사용하지 않는다.
 기본 Maven 캐시는 저장소의 `.cache/maven`이고 `POSEGOOD_MAVEN_CACHE`로 별도 개발 캐시를 지정할 수 있다.
@@ -76,12 +76,11 @@ CEP는 eager startup에서 EPL 컴파일·런타임 배포·첫 빈 상태 처�
 
 전체 `make check`는 Chrome/Chromium을 사용하는 합성 브라우저 게이트도 실행한다.
 `make check-browser` 별도 실행에는 프론트 프로덕션 빌드와 서버 JAR가 필요하며 실제 카메라·외부 계정을 사용하지 않는다.
-재알림·처리 후 응답 유실·개발 한도와 브라우저 복구 검증의 최신 범위는
-[완료 기록](../docs/plans/completed/0015-server-regression-and-record-details.md)을 따른다.
+재알림·처리 후 응답 유실·개발 한도와 브라우저 복구 검증 범위는 `tools/browser/scenarios.mjs`와 `tools/service_smoke.py`가 기준이다.
 
 `check-backend`는 짧은 합성 benchmark 회귀도 실행한다. 성공 응답 계약과 실패 수·서버 정리를 확인하며
-미확정 지연 기준은 적용하지 않는다. 별도 `make benchmark-server`의 조건·결과 JSON은
-[서버 benchmark 안내](../docs/audits/2026-10-01-server-benchmark.md)를 따른다.
+미확정 지연 기준은 적용하지 않는다. 별도 `make benchmark-server`의 조건·결과 JSON 해석은
+[아키텍처](../docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다.
 
 수동 실행은 각각 별도 터미널에서 한다. 먼저 `check-backend`를 완료해야 한다.
 
@@ -144,7 +143,8 @@ Windows는 `python tools/dev.py dev-server`를 사용한다. `Ctrl+C`로 시작�
 
 현재·기준 품질은 각각 `[0,1]`이며 둘 다 0.65 이상, `running/good`, 특징 존재일 때만 유효하다.
 그 외에는 `valid=false`, 점수 0, 유형 `none`이다. 유효 점수 0도 `none`이다.
-좌우 변화가 다른 두 변화보다 엄격히 우세하면 원본 양수는 미러 화면의 `left_lean`, 음수는 `right_lean`이다.
+좌우 변화가 다른 두 변화보다 엄격히 우세하면 원본 양수는 사용자 본인 기준 `left_lean`, 음수는 `right_lean`이다(카메라 원본 영상이 반전되지 않아 큰 x가 사용자 왼쪽, 2026-10-08 확인).
+좌우 치우침은 2026-10-08부터 양 귀 가운데(머리 중심) 기준이고, 앱은 고개를 돌린 프레임(귀 가운데 대비 코 위치 변화 0.15 초과)과 되돌린 뒤 1초를 `poor`로 보낸다.
 머리 높이·어깨 기울기 우세나 동점은 `unspecified`이며 전방 굽힘으로 단정하지 않는다.
 `model_version=reference-feature-rule-v1`이고 학습 모델이 아니다.
 품질 0.65·특징 스케일·점수 계수·판정 임계값은 검증 전 규칙이다.

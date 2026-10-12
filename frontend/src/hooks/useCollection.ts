@@ -16,11 +16,11 @@ import {
   type Label,
   type Presence,
 } from '../lib/collectionProtocol'
-import type { Rules, SessionPhase } from '../lib/engine'
+import type { SessionPhase } from '../lib/engine'
 import type { CameraController } from './useCamera'
 
 type Stage = 'idle' | 'countdown' | 'recording' | 'review'
-export function useCollection(camera: CameraController, rules: Rules) {
+export function useCollection(camera: CameraController) {
   const capture = useRef<Capture | null>(null)
   const stageRef = useRef<Stage>('idle')
   const phaseRef = useRef<SessionPhase | 'inactive'>('inactive')
@@ -150,8 +150,6 @@ export function useCollection(camera: CameraController, rules: Rules) {
       const task = taskFor(options.taskId)!
       capture.current = newCapture(
         participant.trim().toUpperCase(),
-        camera.baseline,
-        rules,
         performance.now() + PREPARE_MS,
         crypto.randomUUID(),
         new Date(Date.now() + PREPARE_MS).toISOString(),
@@ -217,8 +215,8 @@ export function useCollection(camera: CameraController, rules: Rules) {
     setStopReason('')
     updateOptions((old) => ({ ...old, repetition: Math.min(999, old.repetition + 1) }))
   }
-  const goodCount =
-    capture.current?.rows.filter((row) => row.measurement_quality === 'good').length ?? 0
+  /** Frames where MediaPipe found a person; whether they are measurable is decided later. */
+  const detectedCount = capture.current?.rows.filter((row) => row.pose_detected === 1).length ?? 0
   return {
     participant,
     setParticipant,
@@ -232,7 +230,7 @@ export function useCollection(camera: CameraController, rules: Rules) {
     stage,
     secondsLeft,
     count,
-    goodCount,
+    detectedCount,
     downloaded,
     message,
     phase,

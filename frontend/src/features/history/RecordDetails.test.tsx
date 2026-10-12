@@ -147,12 +147,12 @@ describe('readable stored record details and comparison conditions', () => {
     expect(renderer!.root.findAllByType('section')).toHaveLength(0)
   })
 
-  it('keeps the server summary, all saved rules, mirrored directions and separate decision reasons', () => {
+  it('keeps the server summary, all saved rules and separate decision reasons without collapse directions', () => {
     const text = renderRecord(serverRecord())
     expect(text).toContain('서버 종료 확인')
-    expect(text).toContain('왼쪽 기울어짐')
-    expect(text).toContain('오른쪽 기울어짐')
-    expect(text).toContain('미러 카메라 화면 기준')
+    // The app shows no collapse kind or direction (ADR 0021).
+    expect(text).not.toContain('기울어짐')
+    expect(text).not.toContain('방향·유형')
     expect(text).toContain('같은 사건 재알림')
     expect(text).toContain('사건 중단')
     expect(text).toContain('세션 종료 확인')

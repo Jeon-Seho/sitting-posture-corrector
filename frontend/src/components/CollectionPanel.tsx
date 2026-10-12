@@ -140,8 +140,7 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
           </div>
         </div>
         <p className="fine">
-          지금 앉은 자리에 맞게 골라 주세요. 카메라를 옮겼다면 측정 준비에서 기준 자세를 다시 등록한
-          뒤 촬영하세요.
+          지금 앉은 자리에 맞게 골라 주세요. 카메라를 옮겼다면 자세를 다시 등록한 뒤 촬영하세요.
         </p>
       </details>
       <div className={`collection-cue ${c.active ? 'is-active' : ''}`}>
@@ -167,7 +166,7 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
       </div>
       <div className="controls">
         <span role="status">
-          기록 {c.count.toLocaleString()}장 · 몸이 잘 보인 기록 {c.goodCount.toLocaleString()}장
+          기록 {c.count.toLocaleString()}장 · 몸이 잡힌 기록 {c.detectedCount.toLocaleString()}장
         </span>
         {!c.hasCapture && (
           <button className="btn btn-primary" disabled={!c.canStart} onClick={c.start}>
@@ -182,7 +181,7 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
       </div>
       {!c.canStart && !c.hasCapture && (
         <p className="capture-note">
-          이 화면 위의 ‘카메라 켜기’와 ‘기준 자세 등록’을 차례로 누른 뒤 촬영하세요.
+          이 화면 위의 ‘카메라 켜기’와 ‘자세 등록 시작’을 차례로 누른 뒤 촬영하세요.
         </p>
       )}
       {c.stage === 'review' && (

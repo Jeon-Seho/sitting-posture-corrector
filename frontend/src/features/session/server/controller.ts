@@ -1,6 +1,8 @@
 import { featureDeltas } from '../../../../../model/prototype/serverFeatures'
+import { headTurned } from '../../../../../model/prototype/pose'
 import type { Observation } from '../../../hooks/useCamera'
 import type { Machine } from '../../../lib/engine'
+import { ReturnSettle } from '../../../lib/returnSettle'
 import {
   createSessionClient,
   ServerRequestError,
@@ -86,6 +88,9 @@ export class ServerSessionController {
   private nextSequence: number
   private lastNotificationId: number
   private previousFrame: Observation | null = null
+  /** Whether the previous frame could be judged (measurable and past the return settle). */
+  private previousJudged = false
+  private readonly settle = new ReturnSettle()
   private lastInputEnd: number
   private restCursor: number | null = null
   private restAllowed = false
@@ -235,7 +240,7 @@ export class ServerSessionController {
       checkpoint &&
       (!validServerCheckpoint(checkpoint, this.session.id, this.session.rules) ||
         checkpoint.baselineId !== this.session.server.baselineId ||
-        (['headGap', 'offset', 'tilt', 'quality'] as const).some(
+        (['headGap', 'offset', 'tilt', 'quality', 'turn'] as const).some(
           (key) => checkpoint.baseline[key] !== this.session.server.baseline[key],
         ) ||
         checkpoint.deviceId !== this.session.server.deviceId ||
@@ -531,8 +536,18 @@ export class ServerSessionController {
     }
     if (!Number.isFinite(frame.timeMs)) return
     const previous = this.previousFrame
+    const previousJudged = this.previousJudged
     this.previousFrame = frame
-    const current = featureDeltas(frame.features, this.session.server.baseline)
+    // A turned head is not judged; send it as poor.
+    const turned = headTurned(frame.features, this.session.server.baseline)
+    const measured = turned ? null : featureDeltas(frame.features, this.session.server.baseline)
+    // Right after an unjudged frame the user is still settling; send it as poor.
+    const judged = this.settle.judge(
+      frame.timeMs,
+      turned ? 'head_turn' : measured !== null ? 'measurable' : 'unmeasurable',
+    )
+    this.previousJudged = judged
+    const current = judged ? measured : null
     const frameEnd = Math.round(this.elapsedBase + frame.timeMs - this.origin)
     if (current === null) this.poorDisplayThroughMs = Math.max(this.poorDisplayThroughMs, frameEnd)
     if (current === null) this.emit()
@@ -549,8 +564,7 @@ export class ServerSessionController {
     const start = Math.round(this.elapsedBase + previous.timeMs - this.origin)
     const end = Math.round(this.elapsedBase + frame.timeMs - this.origin)
     if (start < this.lastInputEnd || start < 0 || end <= start) return
-    const previousValid = featureDeltas(previous.features, this.session.server.baseline) !== null
-    const features = previousValid ? current : null
+    const features = previousJudged ? current : null
     if (!features) this.poorDisplayThroughMs = Math.max(this.poorDisplayThroughMs, end)
     // The current endpoint approximates this genuinely observed [previous,current) interval.
     // It never supplies a prior score throughout an unobserved scheduling/network gap.

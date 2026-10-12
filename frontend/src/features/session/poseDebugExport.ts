@@ -20,7 +20,6 @@ const HEADER = [
   'time_ms',
   'width',
   'height',
-  'features_ok',
   ...DEBUG_POINTS.flatMap(([name]) => [`${name}_x`, `${name}_y`]),
 ]
 
@@ -28,7 +27,6 @@ type Frame = {
   timeMs: number
   width: number
   height: number
-  featuresOk: boolean
   landmarks: Landmark[]
 }
 
@@ -42,8 +40,10 @@ const num = (value: number | undefined) =>
   Number.isFinite(value) ? String(Number((value as number).toFixed(COORD_DECIMALS))) : ''
 
 /**
- * Raw (unsmoothed) landmarks per running frame, for offline analysis of head turn,
- * slouch and shoulder signals. Analysis only: nothing here feeds the judgement.
+ * Raw (unsmoothed) landmarks per running frame, for offline analysis.
+ * The app writes no judgement labels (ADR 0021); labels come from the server and ML.
+ * width/height (video pixels, needed to undo the 0..1 aspect ratio) do not change within
+ * a session, so only the first row carries them.
  */
 export class PoseDebugRecorder {
   private readonly rows: string[] = []
@@ -65,12 +65,12 @@ export class PoseDebugRecorder {
       const p = frame.landmarks[i]
       return [num(p?.x), num(p?.y)]
     })
+    const first = this.rows.length === 0
     this.rows.push(
       [
         String(Math.round(frame.timeMs - this.origin)),
-        String(frame.width),
-        String(frame.height),
-        frame.featuresOk ? '1' : '0',
+        first ? String(frame.width) : '',
+        first ? String(frame.height) : '',
         ...image,
       ].join(','),
     )

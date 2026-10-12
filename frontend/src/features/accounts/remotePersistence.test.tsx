@@ -62,8 +62,6 @@ describe('durable remote result acknowledgement', () => {
         ended: { current: false },
         workspace,
         camera: {} as CameraController,
-        registration: false,
-        onRegistrationComplete: vi.fn(),
         go: vi.fn(),
         setError: vi.fn(),
         repository,
