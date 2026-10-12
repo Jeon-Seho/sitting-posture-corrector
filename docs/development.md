@@ -1,8 +1,50 @@
 # 개발 흐름
 
+## 명령 모음 (복사해서 쓰기)
+
+저장소 루트에서 실행한다. `make`가 있으면 `python tools/dev.py <대상>` 대신 `make <대상>`을 써도 같다. 설명은 바로 아래 절.
+
+```sh
+# 다른 PC 작업 받기
+git fetch origin
+git log --oneline HEAD..origin/lee_app1
+git merge --ff-only origin/lee_app1
+
+# 바뀐 파일 확인 (.vscode/는 커밋하지 않는다)
+git status --short
+git diff --stat
+
+# 자동 검사
+python tools/dev.py check-repo        # 문서 링크·금지 파일
+python tools/dev.py test              # Python 시험 전체
+python tools/dev.py check-frontend    # 프론트 시험 → 타입 검사 → 빌드
+python tools/dev.py check-browser     # 실제 Chrome 합성 흐름 (약 75개)
+python tools/dev.py check-backend     # Java 서버 시험 (JDK 21·Maven 필요)
+python tools/dev.py check-compose     # Docker·MySQL 계정·영구 저장 (Docker 필요)
+python tools/dev.py check             # 위 전체
+
+# Python 부분 시험 (빠른 확인)
+.venv/Scripts/python.exe -m unittest tests.test_inference_v2
+.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation
+
+# 프론트 부분 검사 (frontend 폴더에서)
+cd frontend
+npx vitest run <파일 이름>            # 바꾼 파일의 시험만
+npx tsc -b                            # 타입 오류만
+UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases   # 판정 규칙을 바꾼 뒤 합성 시험 데이터 다시 만들기
+cd ..
+
+# 남은 옛 이름 찾기 / 팀 브랜치 원본 읽기
+grep -rn "<단어>" docs frontend/src
+git show origin/<브랜치>:<파일 경로>
+```
+
+Windows PowerShell에서 `UPDATE_RULE_CASES=1 ...`은 `$env:UPDATE_RULE_CASES=1; npx vitest run referenceRuleCases`로 쓴다.
+Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙인다.
+
 ## 지금 실제로 쓰는 명령과 검증 (2026-10-12, Windows 노트북)
 
-작업할 때 실제로 실행하는 명령이다. 각 검사가 안에서 무엇을 하는지는 아래 [검사별로 실제 확인하는 것](#검사별로-실제-확인하는-것-2026-10-12-정리)을 본다.
+위 명령 모음의 설명이다. 각 검사가 안에서 무엇을 하는지는 아래 [검사별로 실제 확인하는 것](#검사별로-실제-확인하는-것-2026-10-12-정리)을 본다.
 화면 스크린샷과 실제 카메라 구동은 서버 연결 전까지 제외한다.
 
 ### 1. 자동 검사
