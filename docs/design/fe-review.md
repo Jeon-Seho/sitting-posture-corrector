@@ -96,7 +96,7 @@ FE 결정(10/11):
 |---|---|
 | 알림 상한을 세는 범위 | 서버 안의 계산이라 FE는 어느 쪽이든 같다. 서버 담당이 정한다 |
 | `observation.invalid_reason` | 고개 돌림·복귀 대기 안내 문구에 필요. 계약 추가 제안 |
-| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수는 추론, 시간 판정은 v1 판정기가 한다. 팀 API는 로그인·세션 시작/종료를 맡고 `session_started`·`session_ended`를 Kafka에 넣는다([FE 제안서](fe-server-proposal.md) Q1). 게이트웨이는 FE의 독립 서비스다 |
+| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수·복귀 대기는 추론, 시간 판정은 v1 판정기가 한다. 앱이 붙는 곳은 v5(10/11)에서 BE의 입출구 서버(`auth`·`api`·`ws`)이고, 세션 시작/종료 발행도 `ws`가 한다([FE 제안서](fe-server-proposal.md) 0장) |
 
 다른 팀 답을 기다리는 것:
 
@@ -118,7 +118,7 @@ FE 결정(10/11):
 8. **FE 연동 시험(T-13)** 일정 잡기.
 9. **`feature/repo-backend-db-v2` 검토:** 계정 계약 `alerts_on` 정정(이미 들어 있음), 기준 자세 좌표 평균(`setup.baseline.landmarks`), 기록 재구성이 FE 계획과 맞는지 확인한다. 실시간 경로는 그 브랜치의 `/v1/realtime`이 아니라 DevOps Kafka 경로로 정했다.
 10. **앱 판정·라벨 제거(10/11 결정):** ~~CSV 판정 라벨(`features_ok`·`state`·`type`·`score`), 화면·기록의 유형 표시~~ → `7d04203`(10/11). ~~자세 데이터 수집 CSV의 판정·특징 열~~ → 수집 v3 `bb5fd45`(10/12). 남은 것: 로컬 판정, 고개 돌림 제외·복귀 대기(서버 좌표 수신 뒤). 자세 데이터 수집 화면은 BE·ML 요구를 받은 뒤 다시 만든다.
-11. **게이트웨이(`backend/realtime`) 개발:** WebSocket ↔ Kafka. 판정하지 않고 좌표를 그대로 넣는다. [FE 제안서](fe-server-proposal.md) Q1~Q3 답을 받은 뒤 노트북에서 시작한다.
+11. ~~**게이트웨이(`backend/realtime`) 개발**~~ → 아키텍처 v5(10/11)에서 BE가 입출구 서버 `ws`로 만든다. FE는 앱의 WebSocket 연결과 API 명세를 함께 쓴다([FE 제안서](fe-server-proposal.md) 0·3장).
 12. **`develop`에 올리기:** `develop`을 먼저 합쳐 충돌을 정리한 뒤 PR(사용자가 요청할 때).
 
 ### 참고: 지금까지의 상태

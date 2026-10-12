@@ -51,11 +51,9 @@ describe('head turn and head-centre lean (synthetic landmarks)', () => {
     expect(referenceScore(slight, baseline).score).not.toBeNull()
   })
 
-  it('falls back to the nose when the ears are missing', () => {
+  it('is unmeasurable when an ear is missing instead of falling back to the nose', () => {
     const points = pose({ nose: 0.58 })
     delete (points as unknown[])[7]
-    const reading = read(points)
-    expect(reading.offset).toBeCloseTo((0.08 * 640) / 256)
-    expect(reading.turn).toBe(0)
+    expect(features(points, 640, 480)).toBeNull()
   })
 })

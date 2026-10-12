@@ -13,8 +13,8 @@
   로컬 판정·앱 라벨 제거. 이 날짜 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
   - 실행 계획: [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(계획 0023)
   - 실행 계획: [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(계획 0024, 사이드바 「자세 등록」 탭)
-  - 팀에 보낸 FE 제안(게이트웨이, 좌표 형식, 서버로 옮길 판정 규칙·판정 불가 처리): [FE 제안서](design/fe-server-proposal.md) — 질문 Q1~Q12 답변 대기, [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json)
-- **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 팀·ML 확인 대기.
+  - 팀에 보낸 FE 제안(좌표 형식, 서버로 옮길 판정 규칙·판정 불가 처리, 자세 등록 분리): [FE 제안서](design/fe-server-proposal.md) — BE 회신(10/11, 아키텍처 v5) 반영은 0장, 남은 질문 Q2·Q9~Q11·회의 안건 M1~M4, [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json)
+- **계획(2026-10-05):** [Kafka 실시간 전달 경로와 프론트 게이트웨이](plans/active/0022-kafka-realtime-pipeline.md) — 게이트웨이는 v5에서 BE 입출구 서버로 바뀌었다(FE 제안서 0장).
   FE 검토·회신(DB V2.1 포함)과 **지금 고민 중인 것·이어서 할 일**: [FE 검토](design/fe-review.md)(2026-10-11).
   같은 결정에 따른 앱 화면 변경(자동 기준 등록 구도 확인, 자동 멈춤 표시): [구도 확인과 멈춤 표시](design/setup-framing-and-pause-display.md).
 - **진행 중(2026-10-02):** [데스크톱 앱 화면 재구성](plans/active/0020-desktop-app-redesign.md) —

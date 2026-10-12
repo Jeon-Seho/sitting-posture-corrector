@@ -1,5 +1,7 @@
 # Kafka 실시간 전달 경로와 프론트 게이트웨이
 
+> **변경(2026-10-12):** 아키텍처 v5(10/11)에서 게이트웨이는 FE가 만들지 않고 BE의 입출구 서버(`auth`·`api`·`ws`)가 맡는다. 아래 게이트웨이 설명은 그 전 계획이다. 현재 기준은 [FE 제안서](../../design/fe-server-proposal.md) 0·3장.
+
 - 상태: planned (2026-10-11 전제 변경: 앱은 좌표를 보내고 판정은 서버, 로컬 판정 없음 — [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
   게이트웨이 위치·서버 입력 형식은 [FE 제안서](../../design/fe-server-proposal.md) 답변 대기. 아래 '결정과 진행 기록' 첫 항목)
 - 담당: 동욱 요청, Claude 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당

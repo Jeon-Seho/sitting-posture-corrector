@@ -72,9 +72,11 @@ export function features(points: Landmark[], width: number, height: number): Fea
     cy = (left.y + right.y) / 2
   // A head turn moves the nose a lot but the ear midpoint little, so sideways lean is
   // measured from the ears. Ear positions are estimated even when hidden; no visibility gate.
+  // Both ears are required (BE reply S3, 2026-10-12): falling back to the nose made the
+  // lateral offset jump against the baseline and zeroed the head turn.
   const ears = [points[7], points[8]]
-  const earX = ears.every((p) => p && Number.isFinite(p.x)) ? (ears[0].x + ears[1].x) / 2 : null
-  const head = earX ?? nose.x
+  if (ears.some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null
+  const head = (ears[0].x + ears[1].x) / 2
   return {
     headGap: ((cy - nose.y) * height) / span,
     offset: ((head - cx) * width) / span,

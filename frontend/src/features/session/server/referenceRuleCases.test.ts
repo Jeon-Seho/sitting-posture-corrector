@@ -120,6 +120,11 @@ const FRAME_CASES: { name: string; note: string; p: Frame }[] = [
     note: '귀 visibility 0.1이어도 귀 좌표를 쓴다(visibility 검사 없음). 귀만 0.02 이동해 좌우 치우침 0.1, 고개 돌림 -0.1',
     p: pose({ left_ear: [0.02, 0, 0.1], right_ear: [0.02, 0, 0.1] }),
   },
+  {
+    name: 'one_ear_missing',
+    note: '왼귀 좌표가 없음(null). 두 귀가 모두 있어야 판정한다(코로 대신하지 않음, BE 회신 S3)',
+    p: pose({ left_ear: [NaN, NaN, 0] }),
+  },
   { name: 'score_cap', note: '코 0.2 내려감. 점수는 1에서 멈춘다', p: pose({ nose: [0, 0.2] }) },
   { name: 'no_person', note: '사람이 안 잡힌 프레임(p: null)', p: null },
 ]
@@ -321,7 +326,7 @@ describe('reference rule cases for the server', () => {
     expect(frame('head_turn').observed).toBe('head_turn')
     expect(frame('head_turn_float_boundary').observed).toBe('head_turn')
     expect(frame('visibility_at_boundary').observed).toBe('measurable')
-    for (const name of ['nose_low_visibility', 'shoulder_at_edge', 'too_far', 'no_person'])
+    for (const name of ['nose_low_visibility', 'shoulder_at_edge', 'too_far', 'one_ear_missing', 'no_person'])
       expect(frame(name).observed).toBe('unmeasurable')
     expect(frame('ears_low_visibility_still_used').deltas!.lateral_offset).toBeCloseTo(0.1, 12)
     expect(frame('score_cap').score).toBe(1)
