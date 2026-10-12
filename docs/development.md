@@ -1,196 +1,50 @@
 # 개발 흐름
 
-## 명령 모음 (복사해서 쓰기)
-
-저장소 루트에서 실행한다. `make`가 있으면 `python tools/dev.py <대상>` 대신 `make <대상>`을 써도 같다. 설명은 바로 아래 절.
+## 환경과 명령
 
 ```sh
-# 다른 PC 작업 받기
-git fetch origin
-git log --oneline HEAD..origin/lee_app1
-git merge --ff-only origin/lee_app1
-
-# 바뀐 파일 확인 (.vscode/는 커밋하지 않는다)
-git status --short
-git diff --stat
-
-# 자동 검사
-python tools/dev.py check-repo        # 문서 링크·금지 파일
-python tools/dev.py test              # Python 시험 전체
-python tools/dev.py check-frontend    # 프론트 시험 → 타입 검사 → 빌드
-python tools/dev.py check-browser     # 실제 Chrome 합성 흐름 (약 75개)
-python tools/dev.py check-backend     # Java 서버 시험 (JDK 21·Maven 필요)
-python tools/dev.py check-compose     # Docker·MySQL 계정·영구 저장 (Docker 필요)
-python tools/dev.py check             # 위 전체
-
-# Python 부분 시험 (빠른 확인)
-.venv/Scripts/python.exe -m unittest tests.test_inference_v2
-.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation
-
-# 프론트 부분 검사 (frontend 폴더에서)
-cd frontend
-npx vitest run <파일 이름>            # 바꾼 파일의 시험만
-npx tsc -b                            # 타입 오류만
-UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases   # 판정 규칙을 바꾼 뒤 합성 시험 데이터 다시 만들기
-cd ..
-
-# 남은 옛 이름 찾기 / 팀 브랜치 원본 읽기
-grep -rn "<단어>" docs frontend/src
-git show origin/<브랜치>:<파일 경로>
+make setup            # 최초 Python/프론트 의존성과 MediaPipe 모델 준비
+make check-repo       # 구조·문서·산출물 검사
+make test             # Python 계약·연구 도구·하네스 회귀
+make check-frontend   # 프론트 테스트·타입·빌드
+make check-backend    # Java·합성 HTTP·짧은 benchmark, 시험 서버 정리
+make check-browser    # 준비된 프론트 빌드/JAR로 합성 앱·서버 흐름
+make check-compose    # 실제 임시 MySQL·계정 UI·백업 복원
+make check-local      # 영구 모드를 제외한 게이트
+make check            # 전체 게이트
+make init-compose     # Git 제외 local secret 준비
+make benchmark-server # 준비된 JAR로 별도 성능 측정
+make dev              # 로컬 웹캠/시연 앱
 ```
 
-직접 설치해야 하는 프로그램(JDK 21, Maven, Chrome, Docker 등)과 환경변수는 [requirements-front.txt](../requirements-front.txt)에 모아 둔다.
-Windows PowerShell에서 `UPDATE_RULE_CASES=1 ...`은 `$env:UPDATE_RULE_CASES=1; npx vitest run referenceRuleCases`로 쓴다.
-Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙인다.
+`make`가 없는 Windows는 `python tools/dev.py <대상>`을 사용한다. Makefile은 같은 스크립트를 호출한다([ADR 0009](decisions/0009-cross-platform-dev-entry.md)).
+새 Windows PC의 `tools/setup-windows.ps1`은 Git·Node·Python 준비, 저장소·setup·바로가기를 지원한다(`-Repo`, `-Branch`).
 
-## 지금 실제로 쓰는 명령과 검증 (2026-10-12, Windows 노트북)
+Python 3.9+, Node.js 24+, JDK 21·Maven, Chrome/Chromium을 사용한다.
+`make setup`은 네트워크로 의존성과 모델을 준비한다. 부분 준비는 `setup-python`, `setup-frontend`다.
+프론트는 npm lockfile, Python 직접 의존성은 `requirements-dev.txt`를 따른다. Python 전이 의존성 전체의 연구 재현 잠금은 별도 결정이다.
+전체 게이트는 Docker daemon·Compose가 필수이며, `check-local`에도 Python 구성 검사용 Docker CLI는 필요하다.
+CI에서만 `POSEGOOD_CHROME_NO_SANDBOX=1`을 사용하고 로컬 Chrome은 기본 sandbox를 유지한다.
 
-위 명령 모음의 설명이다. 각 검사가 안에서 무엇을 하는지는 아래 [검사별로 실제 확인하는 것](#검사별로-실제-확인하는-것-2026-10-12-정리)을 본다.
-화면 스크린샷과 실제 카메라 구동은 서버 연결 전까지 제외한다.
-
-### 1. 자동 검사
-
-| 명령 | 검증하는 것 | 언제 |
-|---|---|---|
-| `python tools/dev.py check-repo` | 문서 링크가 실제 파일을 가리키는지, 금지 파일(영상·자료·비밀값)이 없는지 | 문서를 고칠 때마다 |
-| `python tools/dev.py check-frontend` | `vitest run`(프론트 시험) → `tsc -b`(타입 오류) → `vite build`(배포 빌드) | 프론트 코드를 고칠 때마다 |
-| `python tools/dev.py check-browser` | 실제 Chrome에서 합성 입력으로 화면 흐름 약 75개 항목. 앱·API·추론·CEP를 모두 띄운다 | 화면 흐름이나 판정 규칙을 바꿨을 때 |
-| `python tools/dev.py test` | Python 시험 전체(계약, 추론, 자료 준비 도구 등). `test_deploy_configuration`의 Windows 제약 오류 3개는 원래 난다 | 매 작업 끝(관련 모듈만 고르지 않는다) |
-| `.venv/Scripts/python.exe -m unittest tests.test_inference_v2` | 추론 서비스 v2와 합성 계약 예제가 맞는지(빠른 부분 확인) | 판정 규칙이나 계약을 바꿨을 때 |
-| `.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation` | 자료 준비 도구가 예전 수집 CSV(v1·v2)를 그대로 읽는지(빠른 부분 확인) | 수집 CSV를 바꿨을 때 |
-
-### 2. 빠른 부분 검사 (`frontend`에서)
-
-| 명령 | 검증하는 것 |
-|---|---|
-| `npx vitest run <파일>` | 바꾼 파일의 시험만 먼저 확인한다 |
-| `npx tsc -b` | 코드를 고친 직후 타입 오류만 확인한다 |
-| `UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases` | 판정 규칙을 바꾼 뒤 합성 시험 데이터(`contracts/examples/frames/reference-rule-cases.json`)를 다시 만든다. 앱 코드 결과와 손 계산이 같은지도 검사한다 |
-
-### 3. 검사 외 확인 명령
-
-| 명령 | 목적 |
-|---|---|
-| `git status --short`, `git diff --stat` | 바뀐 파일이 의도한 것뿐인지 확인한다. `.vscode/`는 커밋하지 않는다 |
-| `git fetch` 후 `git log HEAD..origin/lee_app1` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
-| `git merge --ff-only origin/lee_app1` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
-| `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
-| `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
-
-### 4. 지금 못 돌리는 것
-
-| 명령 | 이유 |
-|---|---|
-| `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
-| `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
-
-`check-backend`는 2026-10-12 노트북에 JDK 21·Maven 3.9.9를 설치해 돌 수 있다(Java 시험 59개 중 14개 건너뜀, 서비스 연동 통과).
-정리: 프론트·문서·브라우저 흐름·Python·Java 서버는 매번 검증하고, 실제 DB(Compose)만 검증하지 못한다.
-작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.
-
-## 환경 준비와 빠른 피드백
-
-```sh
-make setup       # Python/프론트 의존성과 MediaPipe 모델 준비 (최초 실행에 네트워크 필요)
-make check-repo  # 표준 라이브러리만으로 구조와 문서 검사
-make test        # 출력 계약과 하네스 회귀 검증
-make check      # CI와 동일한 전체 게이트, 실행 중인 Docker/Compose 필요
-make check-local # 기존 로컬/메모리 모드 게이트, 전체 검증과 구분
-make check-compose # 실제 MySQL·Compose·계정 UI·백업 복원
-make init-compose # 무시되는 로컬 secret 파일 준비
-make check-backend # Java API/CEP와 합성 FastAPI HTTP 흐름, 시험 서버 자동 종료
-make check-browser # JAR 준비 후 합성 브라우저·실제 서버 전체 흐름, Chrome/Chromium 필요
-make benchmark-server # JAR 준비 후 합성 서버 지연·처리량 측정, JSON은 .cache/benchmarks/server.json
-make dev        # 웹캠/데모 프론트 프로토타입
-```
-
-`make`가 없는 Windows에서는 같은 대상을 `python tools/dev.py <대상>`으로 실행한다(예: `python tools/dev.py setup`, `python tools/dev.py check`).
-`Makefile`은 이 스크립트를 호출만 하므로 두 방법의 결과는 같다. 근거는 [ADR 0009](decisions/0009-cross-platform-dev-entry.md).
-새 Windows PC는 `tools/setup-windows.ps1`이 Git·Node.js LTS·Python(없을 때 winget), 저장소, `setup`,
-바탕화면 바로가기 `PoseGood (개발)`을 한 번에 준비한다. 인자: `-Repo`, `-Branch`.
-
-Python 3.9 이상을 사용한다. CI는 3.9와 3.12에서 확인하도록 구성한다.
-서버 검증은 JDK 21과 Maven을 사용한다. [서비스 준비·실행](../backend/README.md)을 따른다.
-`make dev-api`, `make dev-cep`, `make dev-inference`는 각각 하나의 loopback 서비스만 실행한다.
-프론트는 Node.js 24 이상과 npm을 사용한다. `make setup`이 npm lockfile 기준으로 설치하고 MediaPipe 모델을 준비한다.
-`make check-frontend`는 상태 전이·품질 테스트, 타입 검사, 빌드를 실행한다. `make check`에도 포함된다.
-
-`make check`의 브라우저 게이트에는 Chrome/Chromium이 필요하다. 프론트 빌드와 서버 JAR를 준비한 뒤 `make check-browser`로
-별도 실행할 수 있다. 독립 임시 프로필과 개발 테스트 모드의 합성 입력으로 앱·API·추론·CEP를 연결하며
-실제 카메라를 사용하지 않는다. 일반 개발과 프로덕션에서는 합성 카메라 모드를 사용하지 않는다.
-확인창의 Tab/Shift+Tab·Esc·초점 복귀·배경 조작 차단도 실제 브라우저에서 검증한다.
-GitHub의 일회용 Linux 검증 환경은 `POSEGOOD_CHROME_NO_SANDBOX=1`로 Chrome을 실행한다.
-로컬에서는 이 값을 설정하지 않으면 샌드박스를 유지한다. 시작 실패 로그에는 Chrome stderr가 포함된다.
-`make check-backend`에는 성능 합격 수치를 두지 않는 짧은 benchmark 회귀가 포함된다.
-별도 측정 조건·보고서 해석은 [아키텍처](architecture.md) "합성 브라우저 검증 경계" 절을 따른다.
-[자료 준비 CLI](research/dataset-preparation.md)의 합성 분할·시간 창·개인 기준/누수 검증은 Python 게이트에 포함된다.
-프론트만 준비하려면 `make setup-frontend`를 사용한다. 웹캠 사용 흐름과 제약은 [프론트 안내](../frontend/README.md)를 참고한다.
-`requirements-dev.txt`는 직접 의존성 버전을 고정한다. 전이 의존성 전체를 잠근 환경은 아니며,
-실험 재현에 사용할 런타임·ML 의존성 잠금은 스택 결정 작업에서 별도로 추가한다.
-
-전체 게이트는 실제 MySQL의 통합 테스트를 필수로 실행한다. Docker가 없거나 꺼졌으면 실패한다.
-`check-local`은 Docker 없이 기존 앱/메모리 모드 검증을 반복할 때 사용하며 영구 모드를 확인한 결과로 보고하지 않는다.
-Compose 계정 앱의 간단한 실행과 GitHub 배포 환경 설정은 [infra 안내](../infra/README.md)를 따른다.
-
-## 검사별로 실제 확인하는 것 (2026-10-12 정리)
-
-`make check` = `check-local`(①~⑤) + `check-compose`(⑥). Windows는 `python tools/dev.py <대상>`.
-
-| # | 대상 | 실제로 실행하는 것 | 확인하는 것 | 필요한 것 |
-|---|---|---|---|---|
-| ① | `check-repo` | `tools/check_repository.py` | 저장소 구조, **Markdown 상대 링크가 실제 파일을 가리키는지**, 영상·자료·비밀값 같은 금지 파일 경로가 없는지 | Python만 |
-| ② | `test` | `tests/`의 Python `unittest` 전체(16개 파일) | 계약 JSON 스키마·예제(`contracts/`), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
-| ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 규칙·내보내기·저장·서버 연결 가짜 시험, 합성 시험 데이터와 앱 규칙 일치), **타입 검사**, 배포 빌드 | Node 24 |
-| ④ | `check-backend` | Maven `verify`(`backend/`) → `tools/service_smoke.py` → 짧은 `server_benchmark` | Java API·CEP·계약 모듈 시험, 실제 API→추론→CEP HTTP 왕복(합성), 지연 측정 도구가 끝까지 도는지(합격 수치 없음) | JDK 21, Maven |
-| ⑤ | `check-browser` | `tools/browser_smoke.py` → `tools/browser/scenarios.mjs` | 실제 Chrome(독립 임시 프로필)으로 앱을 열어 **합성 입력**으로 자세 등록 → 측정 → 사건 확정 시각·복귀·재연결·새로고침 복구·기록 화면·탈퇴 확인창(키보드 초점) 등 약 75개 항목. 실제 카메라는 쓰지 않음 | ④의 JAR, Chrome |
-| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중 |
-
-### 작업 종류별로 돌리는 검사
-
-| 바꾼 것 | 최소로 돌리는 검사 |
-|---|---|
-| 문서만 | ① (링크 확인) |
-| 프론트 코드 | ① ③, 화면 흐름이 바뀌면 ⑤ |
-| 판정 규칙(`model/prototype/pose.ts`) | ③(규칙 시험 + `UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases`로 합성 시험 데이터 다시 생성), ⑤, ②의 `tests.test_inference_v2` |
-| 계약(`contracts/`) | ① ② ③ |
-| 서버(`backend/`, `model/inference/`) | ② ④ ⑤ |
-| 계정·DB·배포 | ⑥ |
-
-### 이 저장소 검사로 잡지 못하는 것 (빈틈)
-
-- **실제 카메라·MediaPipe 정확도:** 모든 자동 검사는 합성 입력이다. 실제 촬영(사람이 직접 찍은 csv 재생)으로만 확인한다.
-- **문장 검사:** 오래된 설명(예: 없어진 기능을 설명하는 문서)은 ①이 못 잡는다. 바꾼 기능 이름으로 `rg`를 돌려 직접 찾는다.
-- **코드 스타일 검사(ESLint 등):** 프론트에 lint 단계가 없다. 타입 검사(`tsc -b`)만 있다.
-- **데스크톱 패키지:** Electron EXE 검사(`node scripts/smoke-desktop.mjs`)는 `make check`에 없다. 패키징을 바꿀 때 따로 실행한다.
-- **다른 팀 서버:** DevOps Kafka 경로·입출구 서버와의 실제 왕복은 이 저장소에 없다(T-13).
-
-### PC별 제약 (2026-10-12)
-
-- Windows 노트북: 2026-10-12 JDK 21(Temurin)·Maven 3.9.9 설치로 ①~⑤가 돈다. JDK 25도 있으므로 `JAVA_HOME`이 21을 가리켜야 한다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
-- Windows PC(10/11): JDK 21·Maven·Docker가 있어 ①~⑤가 돈다.
-- ⑥은 DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패한다(`develop`도 같음, 계획 0023). DB 담당 브랜치가 들어오기 전까지 실패한다.
+서버 준비·독립 `dev-api`/`dev-cep`/`dev-inference`는 [backend 안내](../backend/README.md),
+계정 앱·배포·백업은 [infra 안내](../infra/README.md), 웹캠은 [frontend 안내](../frontend/README.md)를 따른다.
+검증 선택·실패 기준·합성 입력 경계·결과 보고는 [품질 기준](quality.md), 성능 측정은 [benchmark 안내](audits/2026-10-01-server-benchmark.md)에 모은다.
 
 ## 작업 루프
 
-현재 사용자 요청과 관련 문서·계약·활성 계획을 기준으로 작업한다.
-결정과 검증 결과는 해당 문서에 기록한다.
+새 브랜치와 커밋의 이름은 [Git 명명 규칙](../CONTRIBUTING.md)을 따른다. Git hook은 사용하지 않는다.
 
-1. 요청과 관련 문서를 확인하고 완료 기준을 정한다.
-2. 큰 변경은 [계획 양식](plans/template.md)을 `plans/active/`에 복사한다.
-3. 구현과 필요한 검증을 함께 작성한다. 실패·측정 불가·입력 누락 경로를 포함한다.
-4. `make check`와 변경 컴포넌트의 명령을 실행한다.
-5. 문제를 수정하고 재검증한 뒤, 결과·한계·설계 결정을 문서화한다.
-6. 완료 기준이 모두 충족되면 계획을 `completed/`로 옮기고 링크를 수정한다.
+1. 현재 요청·git status와 관련 문서/컴포넌트 AGENTS·계약을 확인한다.
+2. 여러 컴포넌트·계약·연구 설계 변경은 [계획 양식](plans/template.md)으로 활성 계획을 기록한다. 작은 수정에는 강제하지 않는다.
+3. 요청 범위의 변경과 필요한 성공/실패·측정 불가·입력 누락 검증을 구현한다.
+4. [범위별 검증](quality.md)을 실행한다. 전체 성공 후 포함된 검사를 반복하지 않는다.
+5. 행동이 바뀌면 문서·계약·예제를 함께 갱신하고 결과와 남은 한계를 기록한다.
+6. 완료 기준을 충족하면 계획을 completed로 옮기고 링크를 갱신한다.
 
-## 컴포넌트 구현 시 확장
-
-첫 실제 구현 PR에서 실행 방법과 검증 명령을 컴포넌트 문서에 추가한다.
-프론트는 빌드/타입/핵심 UI 흐름, 서버는 API/오류 처리, 모델은 합성 시퀀스/평가 분할,
-DB는 마이그레이션 왕복 검증을 포함한다. 필요한 환경 준비를 `make setup`에, 검증을 `make check`와 CI에 연결한다.
-카메라·GPU·실제 참여자 데이터가 필요한 실험은 별도 명령으로 제공하고 기본 PR 검증과 구분한다.
+새 컴포넌트의 환경 준비와 실제 검증은 `make setup`/`make check`·CI에 연결한다.
+카메라·GPU·실제 참여자 실험은 기본 합성 검증과 구분한 별도 명령으로 제공한다.
 
 ## 검증 실패 시
 
-오류 메시지의 파일·필드를 확인하고 원인을 고친다. 검사를 삭제하거나 fixture를 실제 데이터로 바꿔 우회하지 않는다.
-실행 환경이 없어 확인하지 못했다면 계획과 결과에 미검증으로 명시한다.
-민감 데이터 검사는 경로·확장자 기반 보조 장치이며, 파일 내용의 개인정보·비밀값을 탐지하는 도구가 아니다.
+실패한 파일·필드를 확인하고 원인을 고친다. 검사를 삭제하거나 실제 데이터로 바꿔 우회하지 않는다.
+환경이 없으면 실행하지 못한 검증과 이유를 기록한다.

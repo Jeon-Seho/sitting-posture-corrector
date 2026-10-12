@@ -35,11 +35,9 @@ jobs:
       MYSQL_PORT: 3306
       MYSQL_USER: root
       DB: posture_service                              # 스키마 파일이 만드는 데이터베이스 이름
-      BASE_SCHEMA: database/schema/schema_V2_0.sql     # 주 버전 기준 스키마 — migrations(011~)의 출발점
+      BASE_SCHEMA: database/schema/schema_V2_1.sql     # 주 버전 기준 스키마 — migrations(011~)의 출발점
       # README 1장 「적용 후 확인」 값. 스키마·시드가 바뀌면 함께 고친다
-      EXPECT_TABLES: 16
-      EXPECT_FEATURE_DEF: 3
-      EXPECT_SAFETY_RANGE: 0
+      EXPECT_TABLES: 12
       EXPECT_THRESHOLD_POLICY: 1
 
     steps:
@@ -57,7 +55,6 @@ jobs:
           UNION ALL SELECT 'R', CONCAT(TABLE_NAME, '.', CONSTRAINT_NAME), REFERENCED_TABLE_NAME, CONCAT(UPDATE_RULE, '/', DELETE_RULE), '' FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE()
           UNION ALL SELECT 'KC', CONCAT(TABLE_NAME, '.', CONSTRAINT_NAME, '.', ORDINAL_POSITION), COLUMN_NAME, IFNULL(REFERENCED_COLUMN_NAME, ''), '' FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE()
           UNION ALL SELECT 'IX', CONCAT(TABLE_NAME, '.', INDEX_NAME, '.', SEQ_IN_INDEX), IFNULL(COLUMN_NAME, IFNULL(EXPRESSION, '')), NON_UNIQUE, '' FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE()
-          UNION ALL SELECT 'FD', feature_code, feature_name, scale_invariant, distance_proxy FROM feature_def
           UNION ALL SELECT 'TP', policy_name, threshold, CONCAT_WS('|', hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour), created_by FROM threshold_policy;
           SQL
 
@@ -80,8 +77,6 @@ jobs:
             [ "$actual" = "$3" ] || { echo "::error::$1 — 기대 $3, 실제 $actual"; exit 1; }
           }
           check "테이블"           "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()" "$EXPECT_TABLES"
-          check "feature_def"      "SELECT COUNT(*) FROM feature_def"      "$EXPECT_FEATURE_DEF"
-          check "safety_range"     "SELECT COUNT(*) FROM safety_range"     "$EXPECT_SAFETY_RANGE"
           check "threshold_policy" "SELECT COUNT(*) FROM threshold_policy" "$EXPECT_THRESHOLD_POLICY"
           $MYSQL -N -B "$DB" < "$RUNNER_TEMP/snapshot.sql" | sort > "$RUNNER_TEMP/new.txt"
 
