@@ -19,6 +19,7 @@
    카메라 화면·관절 표시는 그대로 둔다. 정보는 쌓아 두었다가 다시 연결되면 같은 순번으로 다시 보낸다. 앱 판정이 없으므로 로컬 미리보기 판정은 없다.
 5. **ML용 내보내기에 앱 판정 라벨을 붙이지 않는다**(`state`·`type`·`score` 열 제거). 자세 데이터 수집 화면은 BE·ML 요구를 다시 받아 만든다.
 6. 앱 설정 중 소리 켜기는 저장하지 않는다. 「자세 알림」 켜기·끄기만 서버(`user_account.alert_enabled`)에 저장한다.
+   (2026-10-12: 이 칸을 만든 DB V2.2가 develop에서 되돌려졌다. 저장 위치는 DB와 다시 정한다, [FE 제안서](../design/fe-server-proposal.md) N16.)
 
 ## 이유
 
@@ -37,6 +38,6 @@
 
 ## 아직 정하지 않은 것
 
-[FE 제안서](../design/fe-server-proposal.md) 5장(N1~N15).
+[FE 제안서](../design/fe-server-proposal.md) 5장(N1~N16).
 특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱이 붙는 곳은 2026-10-11 아키텍처 v5에서 BE가 만드는 입출구 서버(`auth`·`api`·`ws`)로 정해졌다(처음에는 FE의 독립 게이트웨이였다, [FE 제안서](../design/fe-server-proposal.md) 1장).

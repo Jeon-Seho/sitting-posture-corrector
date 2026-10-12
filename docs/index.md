@@ -16,7 +16,7 @@
 
 - **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md). 2026-10-11 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
-- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N15, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
+- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N16, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음). 측정 결과 내보내기는 [session-export](research/session-export.md).
