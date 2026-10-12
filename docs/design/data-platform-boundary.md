@@ -12,7 +12,7 @@ Kafka·Spark·HDFS·Redis를 과거 계획서에 이름이 있다는 이유로 �
   좌표 수집 동의는 가입의 필수 조건이다(로컬 모드가 없어 동의 없이는 측정할 수 없다). 영상은 여전히 보내지 않는다.
 - DB 「정할 것」 #5(2026-10-10): 측정 자료를 **HDFS에 적재한다**. DevOps가 Kafka·Redis·HDFS를 운영한다(`DevOps` 브랜치 `platform/`).
   HDFS에는 특징값이 아니라 좌표 프레임이 쌓이며 특징값은 다시 계산할 수 있다([FE 검토](fe-review.md) 2장 ④).
-- 동의 저장 위치(`user_consent`)·철회 시 삭제·보존 기간은 아직 정하지 않았다([FE 제안서](fe-server-proposal.md) 10장).
+- 동의 저장 위치(`user_consent`)·철회 시 삭제·보존 기간은 아직 정하지 않았다([FE 제안서](fe-server-proposal.md) 5장 N9).
 
 이 절 아래는 2026-10-06 작성 당시의 경계다.
 

@@ -11,7 +11,7 @@
 > **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
 > 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
-> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 0·3장).
+> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 1장).
 
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론

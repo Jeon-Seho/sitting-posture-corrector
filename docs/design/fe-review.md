@@ -96,7 +96,7 @@ FE 결정(10/11):
 |---|---|
 | 알림 상한을 세는 범위 | 서버 안의 계산이라 FE는 어느 쪽이든 같다. 서버 담당이 정한다 |
 | `observation.invalid_reason` | 고개 돌림·복귀 대기 안내 문구에 필요. 계약 추가 제안 |
-| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수·복귀 대기는 추론, 시간 판정은 v1 판정기가 한다. 앱이 붙는 곳은 v5(10/11)에서 BE의 입출구 서버(`auth`·`api`·`ws`)이고, 세션 시작/종료 발행도 `ws`가 한다([FE 제안서](fe-server-proposal.md) 0장) |
+| 판정 서버 | **DevOps Kafka 경로(`DevOps` 브랜치 `platform/`)로 정했다**(v4 결정·현재 운영). 판정 가능 검사·특징값·점수·복귀 대기는 추론, 시간 판정은 v1 판정기가 한다. 앱이 붙는 곳은 v5(10/11)에서 BE의 입출구 서버(`auth`·`api`·`ws`)이고, 세션 시작/종료 발행도 `ws`가 한다([FE 제안서](fe-server-proposal.md) 1장) |
 
 다른 팀 답을 기다리는 것:
 
@@ -111,14 +111,14 @@ FE 결정(10/11):
 1. ~~**ADR 작성**~~ → [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(10/11). 어긋나는 문서에 변경 안내를 붙였다.
 2. ~~**서버로 넘길 규칙 문서 + 합성 시험 데이터**~~ → [FE 제안서](fe-server-proposal.md), [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)(10/11). 원래 계획: `model/prototype/pose.ts`(판정 가능, 특징값, 점수, 고개 돌림 0.15)와 `frontend/src/lib/returnSettle.ts`(3초/1초)를 서버가 같은 결과를 내도록 좌표 → 기대 결과 쌍으로 만든다. 근거는 [세션 내보내기 명세](../research/session-export.md).
 3. **0.5초 좌표 묶음 전송:** 관절 9개 `[x, y, visibility]`, 프레임 그대로, 순번·`ack` 재전송·재연결. 지금 코드는 특징 변화량을 보낸다.
-4. **기준 자세 등록과 측정 분리:** ~~화면 분리(「자세 등록」 탭, 측정 시작 때 보정 안 함)~~ → [계획 0024](../plans/active/0024-posture-registration-tab.md) `c50e97e`(10/12). 남은 것: 기준 좌표 평균 18개를 서버에 저장·조회(팀 API 분리 [FE 제안서](fe-server-proposal.md) Q11 뒤), 보정 프레임 `phase: "calibration"` 전송.
+4. **기준 자세 등록과 측정 분리:** ~~화면 분리(「자세 등록」 탭, 측정 시작 때 보정 안 함)~~ → [계획 0024](../plans/active/0024-posture-registration-tab.md) `c50e97e`(10/12). 남은 것: 기준 좌표 평균 18개를 서버에 저장·조회(등록 흐름 분리 [FE 제안서](fe-server-proposal.md) 2.3·N1 뒤), 보정 프레임 `phase: "calibration"` 전송.
 5. **`away`(카메라 끊김)·`rest`(일시정지) 전송.**
 6. **화면을 서버 결과(`observation`·`progress`·`decision`·`alert`)로만 구동.** `excluded_started/ended` 사건은 받되 요약 검사(`server/validation.ts`)에서 뺀다.
 7. **가입 동의 화면, 설정의 철회 토글, SetupPage의 "좌표 전송 안 함" 문구 수정.**
 8. **FE 연동 시험(T-13)** 일정 잡기.
 9. **`feature/repo-backend-db-v2` 검토:** 계정 계약 `alerts_on` 정정(이미 들어 있음), 기준 자세 좌표 평균(`setup.baseline.landmarks`), 기록 재구성이 FE 계획과 맞는지 확인한다. 실시간 경로는 그 브랜치의 `/v1/realtime`이 아니라 DevOps Kafka 경로로 정했다.
 10. **앱 판정·라벨 제거(10/11 결정):** ~~CSV 판정 라벨(`features_ok`·`state`·`type`·`score`), 화면·기록의 유형 표시~~ → `7d04203`(10/11). ~~자세 데이터 수집 CSV의 판정·특징 열~~ → 수집 v3 `bb5fd45`(10/12). 남은 것: 로컬 판정, 고개 돌림 제외·복귀 대기(서버 좌표 수신 뒤). 자세 데이터 수집 화면은 BE·ML 요구를 받은 뒤 다시 만든다.
-11. ~~**게이트웨이(`backend/realtime`) 개발**~~ → 아키텍처 v5(10/11)에서 BE가 입출구 서버 `ws`로 만든다. FE는 앱의 WebSocket 연결과 API 명세를 함께 쓴다([FE 제안서](fe-server-proposal.md) 0·3장).
+11. ~~**게이트웨이(`backend/realtime`) 개발**~~ → 아키텍처 v5(10/11)에서 BE가 입출구 서버 `ws`로 만든다. FE는 앱의 WebSocket 연결과 API 명세를 함께 쓴다([FE 제안서](fe-server-proposal.md) 1장).
 12. **`develop`에 올리기:** `develop`을 먼저 합쳐 충돌을 정리한 뒤 PR(사용자가 요청할 때).
 
 ### 참고: 지금까지의 상태
@@ -154,8 +154,8 @@ FE 결정(10/11):
 
 #### 2026-10-12 작업 (`lee_app1`, 모두 push, PR 없음)
 
-정한 것: 측정 좌표는 0.5초마다 프레임을 평균 없이 통째로 보내고, 평균은 자세 등록(보정)에서만 낸다([FE 제안서](fe-server-proposal.md) 8.1·Q12).
-기준 자세 등록과 측정 시작을 나눈다(제안서 4.1·Q11, [계획 0024](../plans/active/0024-posture-registration-tab.md)). 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021).
+정한 것: 측정 좌표는 0.5초마다 프레임을 평균 없이 통째로 보내고, 평균은 자세 등록(보정)에서만 낸다([FE 제안서](fe-server-proposal.md) 2.1·2.3).
+기준 자세 등록과 측정 시작을 나눈다(제안서 2.3·N1, [계획 0024](../plans/active/0024-posture-registration-tab.md)). 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021).
 문서의 「라벨」은 서버·ML이 만드는 정답만 뜻한다([문서 지도](../index.md) 용어).
 동시 사용자는 메시지 수 기준 약 40~50명으로 충분하다(10/01 측정값 추정, DevOps 재측정 대기).
 

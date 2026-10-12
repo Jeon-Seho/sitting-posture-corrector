@@ -51,7 +51,7 @@
 - [x] **FE가 붙을 서버.** DevOps Kafka 경로(`platform/`: 추론 → v1 판정기 → `posture.episodes.v1`)로 정했다(v4 결정·현재 운영).
   게이트웨이는 FE의 독립 서비스(`backend/realtime`)다.
 - [x] **앱이 보내는 정보.** 좌표 프레임(v4 회의 결정). 관절·형식은 BE·ML 요구를 따른다(FE 초안 `posture.frames.v1`). 게이트웨이는 판정하지 않고 그대로 넘긴다.
-- [ ] 팀 API가 `session_started`·`session_ended`를 Kafka에 넣는 일정, 추론이 좌표를 받는 일정([FE 제안서](../../design/fe-server-proposal.md) Q1·Q2).
+- [ ] 팀 API가 `session_started`·`session_ended`를 Kafka에 넣는 일정, 추론이 좌표를 받는 일정([FE 제안서](../../design/fe-server-proposal.md) N5. 세션 시작·종료 발행은 v5에서 `ws`).
 - [ ] `observation.invalid_reason` 추가(고개 돌림·복귀 대기·측정 불가 안내 문구용).
 - [ ] 계약·서버의 유형 필드(`deviation_type` 등)를 없앨지(ML·서버 담당).
 - [ ] 브랜치: `lee_app1`(FE 커밋 7개, `develop`에 없음)과 `feature/repo-backend-db-v2`를 `develop`에 넣는 순서.
@@ -85,7 +85,7 @@
   좌표 9개 x·y 평균 18개를 서버에 저장한다(`setup.baseline.landmarks` 형식). 측정 시작은 보정 없이 서버에 저장된 기준을 쓴다.
   저장된 기준이 없으면 측정 시작 대신 등록으로 안내한다. 다시 등록하면 저장 응답을 받은 뒤에 측정을 시작할 수 있다.
   바꿀 곳: `SetupPage.tsx`·`useAutoBaseline.ts`(측정 전 자동 보정과 보정 직후 자동 시작 제거), `useCamera.ts`(기준을 메모리에만 둠),
-  `server/setup.ts`(V1.1 특징값 형식 → 좌표 평균). 팀 API 분리([FE 제안서](../../design/fe-server-proposal.md) 10장)가 필요하다.
+  `server/setup.ts`(V1.1 특징값 형식 → 좌표 평균). 등록 흐름 분리([FE 제안서](../../design/fe-server-proposal.md) 2.3·N1)가 필요하다.
 - [ ] 정보 전송: 0.5초 묶음, 순번·`ack` 재전송·재연결, `phase`(`running`·`calibration`·`rest`·`away`). 카메라 1.5초 이상 끊기면 `away`, 일시정지는 `rest`.
 - [ ] 화면 구동: `observation`·`progress`·`decision`·`alert`. `excluded_started/ended`는 받기만 한다. 연결 끊김 표시.
 - [ ] 기록 화면: 서버가 세션 테이블로 다시 만든 기록을 그대로 쓴다(`client_record` 없음).
@@ -115,7 +115,7 @@
   측정 좌표는 0.5초마다 8장 정도를 평균 없이 통째로 보내고, 평균은 등록(보정 약 48장 → 18개 한 세트)에서만 낸다.
   카메라·의자 위치가 바뀌었을 때 재등록을 안내하는 기능은 지금 범위에 넣지 않는다.
 - 2026-10-12: 자세 데이터 수집 CSV를 `posture-pilot-v3`로 바꿨다(앱 판정·규칙 특징 열 제거, `bb5fd45`). 문서의 「라벨」은 서버·ML 정답만 뜻한다.
-- 2026-10-12: DevOps/BE 회신(10/11, 아키텍처 v5) 반영([FE 제안서](../../design/fe-server-proposal.md) 0장). 게이트웨이는 FE가 만들지 않고 BE 입출구 서버 `ws`가 맡는다. 측정 종료는 WebSocket `end`(회의 R-4).
+- 2026-10-12: DevOps/BE 회신(10/11, 아키텍처 v5) 반영([FE 제안서](../../design/fe-server-proposal.md) 1·4장). 게이트웨이는 FE가 만들지 않고 BE 입출구 서버 `ws`가 맡는다. 측정 종료는 WebSocket `end`(회의 R-4).
   두 귀가 모두 있어야 판정 가능으로 규칙을 바꿨다(S3, `pose.ts`·시험 데이터 `one_ear_missing`). 기준값은 서버가 보정 프레임으로 계산(P2).
   학습 라벨 경로(M1)는 회의 안건이다.
 - 남은 질문: 0단계 전체. 자세 데이터 수집 화면의 새 요구(BE·ML).
