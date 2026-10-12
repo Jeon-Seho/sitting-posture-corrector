@@ -554,8 +554,25 @@ describe('service recovery and saving with synthetic storage only', () => {
       vi.advanceTimersByTime(5000)
     })
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
-    click('자세 등록으로 가기')
+    // The notice explains; registering happens from the sidebar tab, not a button here.
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '자세 등록으로 가기')).toBe(false)
+    click('자세 등록')
     expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
+  })
+  it('shows the registration notice before the camera notice', () => {
+    mount()
+    login()
+    click('측정하기')
+    let setup = renderer!.root.findByType(SetupPage)
+    expect(text(setup)).toContain('아직 등록한 자세가 없어요')
+    expect(text(setup)).not.toContain('카메라가 꺼져 있어요')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(false)
+    controls.camera.baseline = { ...BASELINE }
+    act(() => renderer!.update(<App />))
+    setup = renderer!.root.findByType(SetupPage)
+    expect(text(setup)).not.toContain('아직 등록한 자세가 없어요')
+    expect(text(setup)).toContain('카메라가 꺼져 있어요')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
   })
   it('registers only on request and does not start measuring afterwards', () => {
     controls.camera.state = 'on'

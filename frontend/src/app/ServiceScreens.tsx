@@ -164,7 +164,6 @@ export function ServiceScreens({
             camera={camera}
             onStart={persistence.start}
             onCollect={openCollection}
-            onRegister={() => go('posture')}
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}

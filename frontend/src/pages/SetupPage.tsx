@@ -1,18 +1,17 @@
-import { Check, Leaf, PersonSimple, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
+import { Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import type { CameraController } from '../hooks/useCamera'
 
 /**
- * Measurement preparation (plan 0024): no calibration here. With a registered baseline the
- * user turns the camera on, checks the framing and starts; without one, the screen points
- * to "자세 등록".
+ * Measurement preparation (plan 0024): no calibration here. Notices follow a fixed priority:
+ * 1) no registered posture (explained only, registration lives in its own tab),
+ * 2) camera not connected, 3) face and shoulders not in view.
  */
 export function SetupPage({
   camera,
   onStart,
   onCollect,
-  onRegister,
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
@@ -21,7 +20,6 @@ export function SetupPage({
   camera: CameraController
   onStart: () => void
   onCollect: () => void
-  onRegister: () => void
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
@@ -38,11 +36,9 @@ export function SetupPage({
     '얼굴과 양쪽 어깨가 보이면 측정을 시작할 수 있어요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
     '측정을 시작하면 등록한 자세에서 멀어질 때 알려드려요.',
   ][step]
-  const pill = !on
+  const pill = !on || !registered
     ? null
-    : !registered
-      ? { tone: 'unknown', text: '아직 등록한 자세가 없어요' }
-      : !camera.quality
+    : !camera.quality
       ? { tone: 'unknown', text: '얼굴과 양쪽 어깨를 찾고 있어요' }
       : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
 
@@ -82,16 +78,16 @@ export function SetupPage({
         <div className="stage">
           <CameraStage
             camera={camera}
-            offMessage={
+            message={
               registered
                 ? undefined
                 : {
                     title: '아직 등록한 자세가 없어요',
-                    body: '측정은 등록한 바른 자세와 비교해서 해요. 자세 등록에서 편하게 앉은 자세를 3초만 등록해 주세요.',
+                    body: '측정은 등록한 바른 자세와 비교해서 해요. 왼쪽 메뉴의 「자세 등록」에서 편하게 앉은 자세를 3초만 등록해 주세요.',
                   }
             }
           />
-          {on && !ready && <PoseGuide camera={camera} />}
+          {registered && on && !ready && <PoseGuide camera={camera} />}
           <div className="stage-overlay">
             <div className="stage-top">
               {pill ? (
@@ -109,12 +105,7 @@ export function SetupPage({
               )}
             </div>
             <div className="stage-bottom">
-              {!registered ? (
-                <button className="btn btn-primary btn-lg" onClick={onRegister}>
-                  <PersonSimple size={20} weight="fill" className="icon" />
-                  자세 등록으로 가기
-                </button>
-              ) : camera.state === 'off' || camera.state === 'error' ? (
+              {!registered ? null : camera.state === 'off' || camera.state === 'error' ? (
                 <button className="btn btn-primary btn-lg" onClick={() => void camera.connect()}>
                   <VideoCamera size={20} weight="fill" className="icon" />
                   {camera.state === 'error' ? '다시 연결' : '카메라 켜기'}
