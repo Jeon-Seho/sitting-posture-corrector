@@ -44,6 +44,44 @@ GitHub의 일회용 Linux 검증 환경은 `POSEGOOD_CHROME_NO_SANDBOX=1`로 Chr
 `check-local`은 Docker 없이 기존 앱/메모리 모드 검증을 반복할 때 사용하며 영구 모드를 확인한 결과로 보고하지 않는다.
 Compose 계정 앱의 간단한 실행과 GitHub 배포 환경 설정은 [infra 안내](../infra/README.md)를 따른다.
 
+## 검사별로 실제 확인하는 것 (2026-10-12 정리)
+
+`make check` = `check-local`(①~⑤) + `check-compose`(⑥). Windows는 `python tools/dev.py <대상>`.
+
+| # | 대상 | 실제로 실행하는 것 | 확인하는 것 | 필요한 것 |
+|---|---|---|---|---|
+| ① | `check-repo` | `tools/check_repository.py` | 저장소 구조, **Markdown 상대 링크가 실제 파일을 가리키는지**, 영상·자료·비밀값 같은 금지 파일 경로가 없는지 | Python만 |
+| ② | `test` | `tests/`의 Python `unittest` 전체(16개 파일) | 계약 JSON 스키마·예제(`contracts/`), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
+| ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 규칙·내보내기·저장·서버 연결 가짜 시험, 합성 시험 데이터와 앱 규칙 일치), **타입 검사**, 배포 빌드 | Node 24 |
+| ④ | `check-backend` | Maven `verify`(`backend/`) → `tools/service_smoke.py` → 짧은 `server_benchmark` | Java API·CEP·계약 모듈 시험, 실제 API→추론→CEP HTTP 왕복(합성), 지연 측정 도구가 끝까지 도는지(합격 수치 없음) | JDK 21, Maven |
+| ⑤ | `check-browser` | `tools/browser_smoke.py` → `tools/browser/scenarios.mjs` | 실제 Chrome(독립 임시 프로필)으로 앱을 열어 **합성 입력**으로 자세 등록 → 측정 → 사건 확정 시각·복귀·재연결·새로고침 복구·기록 화면·탈퇴 확인창(키보드 초점) 등 약 75개 항목. 실제 카메라는 쓰지 않음 | ④의 JAR, Chrome |
+| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중 |
+
+### 작업 종류별로 돌리는 검사
+
+| 바꾼 것 | 최소로 돌리는 검사 |
+|---|---|
+| 문서만 | ① (링크 확인) |
+| 프론트 코드 | ① ③, 화면 흐름이 바뀌면 ⑤ |
+| 판정 규칙(`model/prototype/pose.ts`) | ③(규칙 시험 + `UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases`로 합성 시험 데이터 다시 생성), ⑤, ②의 `tests.test_inference_v2` |
+| 계약(`contracts/`) | ① ② ③ |
+| 서버(`backend/`, `model/inference/`) | ② ④ ⑤ |
+| 계정·DB·배포 | ⑥ |
+
+### 이 저장소 검사로 잡지 못하는 것 (빈틈)
+
+- **실제 카메라·MediaPipe 정확도:** 모든 자동 검사는 합성 입력이다. 실제 촬영(사람이 직접 찍은 csv 재생)으로만 확인한다.
+- **문장 검사:** 오래된 설명(예: 없어진 기능을 설명하는 문서)은 ①이 못 잡는다. 바꾼 기능 이름으로 `rg`를 돌려 직접 찾는다.
+- **코드 스타일 검사(ESLint 등):** 프론트에 lint 단계가 없다. 타입 검사(`tsc -b`)만 있다.
+- **데스크톱 패키지:** Electron EXE 검사(`node scripts/smoke-desktop.mjs`)는 `make check`에 없다. 패키징을 바꿀 때 따로 실행한다.
+- **다른 팀 서버:** DevOps Kafka 경로·입출구 서버와의 실제 왕복은 이 저장소에 없다(T-13).
+
+### PC별 제약 (2026-10-12)
+
+- Windows 노트북: Maven이 없고 JDK가 25라 ④를 돌릴 수 없다(⑤는 이미 만든 JAR로 돈다). ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
+- Windows PC(10/11): JDK 21·Maven·Docker가 있어 ①~⑤가 돈다.
+- ⑥은 DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패한다(`develop`도 같음, 계획 0023). DB 담당 브랜치가 들어오기 전까지 실패한다.
+
 ## 작업 루프
 
 현재 사용자 요청과 관련 문서·계약·활성 계획을 기준으로 작업한다.
