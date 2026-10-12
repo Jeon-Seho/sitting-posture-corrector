@@ -180,7 +180,7 @@ def run_browser(node, chrome, artifacts):
                             node, str(ROOT / "tools/browser_smoke.mjs"), base, ordinary_base,
                             chrome, str(debug_port), str(Path(folder) / "chrome-profile"), str(artifacts),
                         ], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, bufsize=1, **options)
+                            stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1, **options)
                         try:
                             stream_browser(process, endpoints, services, api_log)
                         finally:

@@ -574,24 +574,80 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(text(setup)).toContain('카메라가 꺼져 있어요')
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
   })
-  it('registers only on request and does not start measuring afterwards', () => {
+  const advance = (ms: number) =>
+    act(() => {
+      vi.advanceTimersByTime(ms)
+    })
+  const rerender = () => act(() => renderer!.update(<App />))
+  it('counts down 3·2·1 on the 자세 등록 tab, captures and ends by itself without measuring', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     mount()
     login()
     click('자세 등록')
+    advance(100)
+    expect(text(renderer!.root.findByType(PosturePage))).toContain('3초 뒤 측정이 시작돼요')
+    advance(2800)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
-    click('자세 등록 시작')
+    advance(200)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.progress = 0.4
+    rerender()
+    expect(text(renderer!.root.findByType(PosturePage))).toContain('측정 중')
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
-    act(() => renderer!.update(<App />))
+    controls.camera.progress = null
+    rerender()
+    advance(100)
     expect(text(renderer!.root.findByType(PosturePage))).toContain('자세가 등록되어 있어요')
+    advance(10000)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
     expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
     click('측정하러 가기')
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('waits for the face and shoulders before counting down', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = false
+    mount()
+    login()
+    click('자세 등록')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    controls.camera.quality = true
+    rerender()
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('stops on 측정 종료 and does not restart until asked', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('자세 등록')
+    advance(1000)
+    click('측정 종료')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(controls.camera.cancelCalibration).toHaveBeenCalled()
+    click('다시 시작')
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('gives up with a reason when the capture never finishes', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('자세 등록')
+    advance(3100)
+    controls.camera.progress = 0.9
+    rerender()
+    advance(15100)
+    expect(controls.camera.cancelCalibration).toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(PosturePage))).toContain('자세를 인식하기 어려워요')
   })
   it('blocks registering again while a measurement runs', () => {
     controls.camera.state = 'on'

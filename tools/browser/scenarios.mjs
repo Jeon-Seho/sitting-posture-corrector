@@ -123,6 +123,14 @@ class AppDriver {
     }, 'accepted synthetic adjacent-frame interval')
   }
 
+  /** The app runs on a virtual clock in synthetic mode; move it in ≤1 s steps and let React tick. */
+  async advanceClock(milliseconds) {
+    for (let left = milliseconds; left > 0; left -= 1000) {
+      await this.evaluate(`${BRIDGE}.advance(${Math.min(1000, left)})`)
+      await delay(150)
+    }
+  }
+
   async frames(count, kind = 'deviation', milliseconds = 1000) {
     let last
     for (let i = 0; i < count; i++) last = await this.frame(milliseconds, kind)
@@ -134,7 +142,8 @@ class AppDriver {
     await this.click('자세 등록')
     await this.text('평소 바른 자세를 등록해요')
     await this.click('카메라 켜기')
-    await this.click('자세 등록 시작')
+    await this.text('3초 뒤 측정이 시작돼요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
+    await this.advanceClock(3200)
     await this.text('자세가 등록되어 있어요')
     await this.click('측정하러 가기')
     await this.text('준비가 끝났어요')
