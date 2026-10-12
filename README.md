@@ -8,6 +8,8 @@ Compose에서는 **MySQL + 이메일·비밀번호 계정 + 영구 기록·재�
 측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API → FastAPI → Esper CEP로 전달한다.
 기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).
 
+**논문 자료:** [paper/](paper/README.md)에 연구 질문·실험 설계·실험 결과·관련 연구와 [BibTeX](paper/references.bib)를 모았다.
+
 ## 테스트 버전 변경 이력
 
 - 현재 패키지: **test_0.2.4 / POSEGOOD 0.2.4** (2026-10-07)

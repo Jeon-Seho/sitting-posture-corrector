@@ -13,6 +13,7 @@
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 - 이 테스트 브랜치의 얼굴 중심 실험: [0.2.0~0.2.4 설계·학습·검증](areas/machine-learning/face-motion-v020.md),
   [보고서용 관련 논문·공식 자료·BibTeX](research/face-motion-literature.md), [계획 0024](plans/active/0024-face-motion-lab.md).
+- [논문 자료 모음](../paper/README.md): 연구 질문·설계·실험 결과·관련 연구·BibTeX.
 - 독립 실험: [상대좌표 2층 LSTM 학습·실험 앱](areas/machine-learning/relative-pose-lstm.md) —
   제작 시퀀스9,000개 분할 학습 및 EXE 연결. 실제 사용자 성능 미검증.
 
