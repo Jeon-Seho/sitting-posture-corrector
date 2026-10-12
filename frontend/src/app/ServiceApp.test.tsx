@@ -348,7 +348,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('자세 데이터 수집')
     // Leaving the measure tab already cancels an unfinished calibration once.
     const before = vi.mocked(controls.camera.cancelCalibration).mock.calls.length
-    click('보정 취소')
+    click('등록 취소')
     expect(controls.camera.cancelCalibration).toHaveBeenCalledTimes(before + 1)
     controls.camera.state = 'loading'
     controls.camera.progress = null

@@ -68,7 +68,7 @@ function AccountWorkspaceApp({
   const measuring = !!session && !ended.current
   const remote = useRemoteWorkspace(user.user_id, initial, setError)
   const workspace = remote.workspace
-  const collection = useCollection(camera, workspace.rules)
+  const collection = useCollection(camera)
   const persistence = useSessionPersistence({
     session,
     setSession,

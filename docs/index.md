@@ -7,6 +7,8 @@
 - **다음 환경 인계:** [작업 브랜치·실행·검증·남은 결정](development-handoff.md). main/develop 직접 push 금지.
 - **작업 기록:** [FE 검토](design/fe-review.md) 4장 "지금 고민 중인 것 · 이어서 할 일 · 지금까지의 상태".
 
+- **용어(2026-10-12):** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않고 좌표만 보낸다(ADR 0021).
+  수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이라 부르고 라벨로 쓰지 않는다.
 - **결정(2026-10-11):** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md) —
   로컬 판정·앱 라벨 제거. 이 날짜 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
   - 실행 계획: [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(계획 0023)
@@ -34,7 +36,7 @@
 현재 앱 구조: [연구 화면·서비스 미리보기 단일 앱 통합](decisions/0008-single-app-entry.md).
 수집 바로가기 `/#collection`과 이동 가능한 카메라 미리보기/PiP는 [ADR 0016](decisions/0016-collection-entry-and-camera-preview-window.md)을 따른다.
 
-현재 수집(화면 이름 `자세 데이터 수집`): [Lite 안내형 좌표·라벨 수집 v2](research/guided-collection-v2.md), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md).
+현재 수집(화면 이름 `자세 데이터 수집`): [Lite 안내형 좌표 수집 v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음), [Lite 전환 결정](decisions/0007-lite-pose-tracker.md).
 Heavy 도입 배경은 [이전 결정](decisions/0006-heavy-guided-collection.md)에 남긴다.
 
 [프로토타입 실행·사용 안내](../frontend/README.md), [프로토타입 기술 결정](decisions/0002-webcam-prototype.md), [기존 프론트 통합 결정](decisions/0003-retro-integration.md).

@@ -29,8 +29,8 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const clearError = useCallback(() => setError(''), [])
   const measuring = !!session && !ended.current
   const workspace = useLocalWorkspace(measuring, setError, reloadProfileFields)
-  const { profile, rules, canWrite } = workspace
-  const collection = useCollection(camera, rules)
+  const { profile, canWrite } = workspace
+  const collection = useCollection(camera)
   useEffect(() => {
     const navigate = () => {
       if (collection.active || (collection.count > 0 && !collection.downloaded)) {

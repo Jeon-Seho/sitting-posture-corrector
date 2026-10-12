@@ -15,7 +15,7 @@
 
 ### 문제
 
-[useAutoBaseline.ts](../../frontend/src/features/camera/useAutoBaseline.ts)는 얼굴과 양어깨가 0.8초(`AUTO_CALIBRATE_DELAY_MS`) 보이면 보정을 시작하고,
+`useAutoBaseline.ts`(2026-10-12 삭제)는 얼굴과 양어깨가 0.8초(`AUTO_CALIBRATE_DELAY_MS`) 보이면 보정을 시작하고,
 보정이 끝나면 측정을 시작한다. 보정은 판정 가능한 프레임인지만 확인한다([calibration.ts](../../model/prototype/calibration.ts)).
 판정 가능 기준은 어깨·코가 화면 가장자리 2% 안쪽에 있고 visibility가 0.65 이상이다([pose.ts `features()`](../../model/prototype/pose.ts)).
 
