@@ -1,4 +1,4 @@
-"""GP-0125: two-head causal temporal CNN; generated initialization is NOT human accuracy."""
+"""Two-head causal temporal CNN; generated initialization is NOT human accuracy."""
 import argparse
 import hashlib
 import json

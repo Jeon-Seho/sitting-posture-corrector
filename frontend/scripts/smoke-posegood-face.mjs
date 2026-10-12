@@ -1,4 +1,4 @@
-// GP-0125: real POSEGOOD package, isolated profile and public-photo camera fixture.
+// Real POSEGOOD package, isolated profile and public-photo camera fixture.
 import { spawnSync } from 'node:child_process'
 import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

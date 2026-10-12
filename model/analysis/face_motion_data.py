@@ -1,4 +1,4 @@
-"""GP-0125: synthetic feature simulations and private reviewed 0.2.0 data loader."""
+"""Synthetic feature simulations and private reviewed 0.2.0 data loader."""
 import hashlib
 import json
 import math

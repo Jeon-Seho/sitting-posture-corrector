@@ -79,7 +79,7 @@ export default function FaceLabApp() {
   const metrics=reviewedMetrics(saved.current)
   const rate=(m:typeof metrics.posture)=>m.errorRate===null?'평가 자료 없음':`${m.errors}/${m.evaluated}개 오판 (${(m.errorRate*100).toFixed(1)}%)`
   return <main className="face-lab">
-    <header><div><small>POSEGOOD · GP-0125</small><h1>얼굴부터, 자연스럽게.</h1><p>얼굴 회전과 자세 변화를 따로 살펴보는 {build?.appVersion??'버전 확인 중'} 실험</p></div><span className="face-tag">v{build?.appVersion??'…'} · {!model?'모델 준비 중':model.synthetic?'제작 데이터 학습':'검토 자료 학습'}</span></header>
+    <header><div><small>POSEGOOD</small><h1>얼굴부터, 자연스럽게.</h1><p>얼굴 회전과 자세 변화를 따로 살펴보는 {build?.appVersion??'버전 확인 중'} 실험</p></div><span className="face-tag">v{build?.appVersion??'…'} · {!model?'모델 준비 중':model.synthetic?'제작 데이터 학습':'검토 자료 학습'}</span></header>
     {build&&<p className="face-note face-version">빌드 {build.buildId} · 모델 {build.modelSha256.slice(0,12)} · 실제 사용자 성능 검증 전</p>}
     <div className="face-grid"><section className="face-card"><div className="face-camera"><video ref={camera.videoRef} autoPlay muted playsInline/><canvas ref={camera.canvasRef}/><span>{coverage}</span></div>
       <div className="face-controls"><button disabled={camera.state==='loading'} onClick={start}>{camera.state==='loading'?'추적기 준비 중…':'카메라 연결'}</button><button disabled={camera.state!=='on'} onClick={calibrate}>기준 다시 등록</button><button onClick={camera.stop}>정지</button></div>

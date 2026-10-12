@@ -1,9 +1,7 @@
 # 얼굴 중심 0.2.0 실험
 
-- 분야: 머신러닝
-- 작업: GP-0125
 - 상태: review
-- 담당: Lellon_GPT
+- 담당: Codex
 - 시작일: 2026-10-06
 - 근거: [실험 정본](../../areas/machine-learning/face-motion-v020.md), [문헌](../../research/face-motion-literature.md)
 

@@ -1,4 +1,4 @@
-// GP-0125: deliver the model lab and POSEGOOD app as one versioned test pair.
+// Deliver the model lab and POSEGOOD app as one versioned test pair.
 import { readFile, writeFile, access } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 const root=new URL('../',import.meta.url)

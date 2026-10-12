@@ -1,4 +1,4 @@
-// GP-0125: identify the packaged app and the exact local model, without retraining.
+// Identify the packaged app and the exact local model, without retraining.
 import { readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
