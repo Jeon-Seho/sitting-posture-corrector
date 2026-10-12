@@ -38,9 +38,39 @@ describe('face motion observability and temporal policy',()=>{
       expect(d.score).toBe(100)
     }
   })
-  it('never deducts body posture from face-only enlargement or unavailable shoulders',()=>{
-    const d=new FaceDecision();for(let t=0;t<12000;t+=100)d.evaluate({...obs(t),size:200,shoulders:null},base,[0,.99,0,0],[.99,0,0,0,0])
+  it('ignores small face-only enlargement but deducts a large sustained approach as head scope',()=>{
+    const d=new FaceDecision();for(let t=0;t<12000;t+=100)d.evaluate({...obs(t),size:170,shoulders:null},base,[0,.99,0,0],[.99,0,0,0,0])
     expect(d.score).toBe(100);expect(d.pending).toBeNull()
+    const e=new FaceDecision();let r
+    for(let t=0;t<6000;t+=100)r=e.evaluate({...obs(t),size:200,shoulders:null},base,[.99,0,0,0],[.99,0,0,0,0])
+    expect(r!.scope).toBe('head');expect(r!.kind).toBe('forwardHead');expect(r!.deviation).toBe('sustained');expect(e.score).toBeLessThan(100)
+  })
+  const pitchDown=(v:number)=>[1,0,0,0,Math.cos(v),-Math.sin(v),0,Math.sin(v),Math.cos(v)]
+  const rollBy=(v:number)=>[Math.cos(v),-Math.sin(v),0,Math.sin(v),Math.cos(v),0,0,0,1]
+  it('deducts sustained observed head drop or tilt even when the synthetic model says neutral',()=>{
+    for(const [rotation,kind] of [[pitchDown(.4),'forwardHead'],[rollBy(.3),'tilt']] as const) for(const shoulders of [null,base.shoulders]) {
+      const d=new FaceDecision();let r
+      for(let t=0;t<2900;t+=100)r=d.evaluate({...obs(t),rotation:[...rotation],shoulders},base,[.99,0,0,0],[.99,0,0,0,0])
+      expect(d.score).toBe(100);expect(r!.deviation).toBe('pending')
+      for(let t=2900;t<6000;t+=100)r=d.evaluate({...obs(t),rotation:[...rotation],shoulders},base,[.99,0,0,0],[.99,0,0,0,0])
+      expect(r!.kind).toBe(kind);expect(d.score).toBeLessThan(100)
+    }
+  })
+  it('deducts sustained shoulder-relative change with an uncertain or neck-motion model output',()=>{
+    const d=new FaceDecision(),o={...obs(),shoulders:{...base.shoulders!,gap:-.45}}
+    for(let t=0;t<6000;t+=100)d.evaluate({...o,timeMs:t},base,[.4,.3,.2,.1],[0,0,0,0,.99])
+    expect(d.score).toBeLessThan(100)
+  })
+  it('keeps a pending change through small noise near the limit but resets on a real return',()=>{
+    const d=new FaceDecision()
+    for(let t=0;t<2000;t+=100)d.evaluate({...obs(t),rotation:pitchDown(t%200?.22:.27),shoulders:null},base,[.99,0,0,0],[.99,0,0,0,0])
+    expect(d.pending).toBe(0)
+    d.evaluate({...obs(2000),shoulders:null},base,[.99,0,0,0],[.99,0,0,0,0]);expect(d.pending).toBeNull()
+  })
+  it('does not deduct transient neck motion that keeps crossing back into range',()=>{
+    const d=new FaceDecision()
+    for(let t=0;t<12000;t+=100)d.evaluate({...obs(t),rotation:rollBy(t%2000<1500?.35:0)},base,[.99,0,0,0],[0,0,0,0,.99])
+    expect(d.score).toBe(100)
   })
   it('requires sustained evidence and resets the timer across tracking loss',()=>{
     const d=new FaceDecision(),o={...obs(),size:180,shoulders:{...base.shoulders!,gap:-.95}}

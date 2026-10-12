@@ -34,11 +34,11 @@ describe('face model connection to POSEGOOD sessions',()=>{
     input.setPolicy('ended',5000);input.setPolicy('running',5000)
     expect(input.decision.score).toBe(100);expect(input.holdMs).toBe(5000)
   })
-  it('does not turn unavailable forward/slouch body logits into a head-only warning',()=>{
+  it('does not turn forward/slouch body logits alone into a head-only warning',()=>{
     for(const p of [[0,.99,0,0],[0,0,.99,0]]){
       const d=new FaceDecision()
       for(let t=0;t<10000;t+=100){
-        const r=d.evaluate({...obs(t),shoulders:null,size:220,center:[500,260]},baseline,p,[1,0,0,0,0])
+        const r=d.evaluate({...obs(t),shoulders:null,size:160,center:[500,260]},baseline,p,[1,0,0,0,0])
         expect(r.scope).toBe('head');expect(r.state).toBe('머리 각도 기준 범위 · 상체 제외')
       }
       expect(d.score).toBe(100)
@@ -60,6 +60,12 @@ describe('face model connection to POSEGOOD sessions',()=>{
     expect(validRecord(record)).toBe(true)
     expect(validRecord({...record,evaluationCounts:{head:{valid:100,good:100},upper_body:{valid:0,good:0}}})).toBe(false)
     d.hold();expect(d.pending).toBeNull()
+  })
+  it('maps a sustained head drop to a forward-head collapse sample with head scope',()=>{
+    const d=new FaceDecision(),machine=newMachine(),v=.4
+    const down=(t:number)=>({...obs(t),shoulders:null,rotation:[1,0,0,0,Math.cos(v),-Math.sin(v),0,Math.sin(v),Math.cos(v)]})
+    for(let t=0;t<6000;t+=100)step(machine,t?.1:0,'running',DEFAULT_RULES,faceServiceSample(d.evaluate(down(t),baseline,[1,0,0,0],[1,0,0,0,0]),[1,0,0,0]))
+    expect(machine.events).toHaveLength(1);expect(machine.events[0].type).toBe('forwardHead');expect(machine.events[0].evaluationScope).toBe('head')
   })
   const path=new URL('../../../public/face-model.json',import.meta.url)
   it.skipIf(!existsSync(path))('keeps a completed model window through ordinary camera timing jitter',()=>{

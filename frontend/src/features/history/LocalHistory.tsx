@@ -98,8 +98,9 @@ export function LocalHistory({
       )}
 
       <div className="view">
-        {scoped&&<p className="fine">관측 기준 유지율에는 머리 각도만 평가한 시간이 포함돼요. 몸 전체 자세 유지율이 아닙니다. 각 기록의 상세에서 머리·상체 평가 시간을 구분해 볼 수 있어요.</p>}
         <div className="view-main">
+          {/* Inside view-main: a direct child of the .view grid would take a column. */}
+          {scoped&&<p className="fine">관측 기준 유지율에는 머리 각도만 평가한 시간이 포함돼요. 몸 전체 자세 유지율이 아닙니다. 각 기록의 상세에서 머리·상체 평가 시간을 구분해 볼 수 있어요.</p>}
           <div className="records-stats">
             <section className="card" data-stat="rate">
               <div className="stat-label">{scoped?'평균 관측 기준 유지':'평균 바른 자세'}</div>
@@ -127,7 +128,7 @@ export function LocalHistory({
                 <small>회</small>
               </div>
               <p className="records-stat-note">
-                {stats.valid > 0 ? `한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')} 정도` : '측정 후에 계산돼요'}
+                {stats.valid >= 1800 ? `한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')} 정도` : stats.valid > 0 ? '30분 이상 측정하면 시간당 횟수를 보여 드려요' : '측정 후에 계산돼요'}
               </p>
             </section>
           </div>

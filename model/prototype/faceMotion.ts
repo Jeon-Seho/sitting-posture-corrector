@@ -1,4 +1,4 @@
-/** GP-0125: research-only face motion features; independent of service contracts. */
+/** research-only face motion features; independent of service contracts. */
 export const POSTURES = ['neutral', 'forward', 'slouch', 'tilt'] as const
 export const ACTIVITIES = ['still', 'head_turn', 'translation', 'arm_raise', 'neck_motion'] as const
 export const FACE_FEATURES = ['r00','r10','r20','r01','r11','r21','faceScale','headGap','headOffset','shoulderRoll','shoulderScale','leftHandY','rightHandY','shouldersMask','leftHandMask','rightHandMask','dr00','dr10','dr20','dr01','dr11','dr21','gapVelocity','offsetVelocity','centerVX','centerVY']
@@ -107,13 +107,30 @@ export function faceInfer(m: FaceModel, sequence: number[][]) {
   return {posture:head('posture'),activity:head('activity')}
 }
 export function softmax(x:number[]) { const e=x.map(v=>Math.exp(v-Math.max(...x))); return e.map(v=>v/e.reduce((s,x)=>s+x,0)) }
-export interface FaceResult { state: string; score: number; posture: string; activity: string; bonus: number; scope?:'head'|'upper_body'|'unavailable' }
+export type FaceDeviationKind = 'forwardHead' | 'tilt'
+export interface FaceResult { state: string; score: number; posture: string; activity: string; bonus: number; scope?:'head'|'upper_body'|'unavailable'; kind?:FaceDeviationKind; deviation?:'pending'|'sustained' }
+/**
+ * Experimental geometric limits relative to the registered reference (0.2.4).
+ * The temporal model is trained on synthetic sequences only, so deductions are
+ * driven by directly observed change; model outputs label motion/stretching.
+ * Not optimised for real-user sensitivity or false-alert rate.
+ */
+export const FACE_LIMITS = { yaw: .32, pitch: .25, roll: .22, closer: .18, gap: .12, offset: .15, release: .8 }
+export function faceDeviation(o:FaceObservation,b:FaceBaseline,ongoing=false):FaceDeviationKind|null {
+  const k=ongoing?FACE_LIMITS.release:1, r=relativeRotation(o.rotation,b.rotation)
+  const roll=Math.abs(Math.atan2(r[3],r[4])), pitch=Math.abs(Math.atan2(-r[5],Math.hypot(r[3],r[4])))
+  const s=o.shoulders&&b.shoulders?{gap:Math.abs(o.shoulders.gap-b.shoulders.gap),offset:Math.abs(o.shoulders.offset-b.shoulders.offset)}:null
+  if(roll>FACE_LIMITS.roll*k) return 'tilt'
+  if(pitch>FACE_LIMITS.pitch*k||Math.log(o.size/b.size)>FACE_LIMITS.closer*k||(s&&s.gap>FACE_LIMITS.gap*k)) return 'forwardHead'
+  if(s&&s.offset>FACE_LIMITS.offset*k) return 'tilt'
+  return null
+}
 /** Safety policy remains separate from classifier: unavailable evidence never becomes normal. */
 export class FaceDecision {
   score=100; pending:number|null=null; previous:number|null=null; raisedAt:number|null=null; lastBonus=-Infinity; previousScope:string|null=null
   reset() { this.score=100; this.pending=null; this.previous=null; this.raisedAt=null; this.lastBonus=-Infinity; this.previousScope=null }
   hold(state='추적 확인 중'): FaceResult { this.pending=null; this.previous=null; this.raisedAt=null; this.previousScope=null; return {state,score:this.score,posture:'평가 보류',activity:'알 수 없음',bonus:0,scope:'unavailable'} }
-  // Current observed geometry can assess the registered head reference while a
+  // Current observed geometry can assess the registered reference while a
   // fresh temporal window fills. No posture/action logits or bonuses invented.
   evaluateReference(o:FaceObservation,b:FaceBaseline):FaceResult {
     const result=this.evaluate({...o,shoulders:null,hands:[null,null]},b,[0,0,0,0],[0,0,0,0,0])
@@ -129,40 +146,33 @@ export class FaceDecision {
     const pitch=Math.abs(Math.atan2(-r[5],Math.hypot(r[3],r[4])))
     const s=o.shoulders&&b.shoulders
     let state='기준 범위 · 얼굴 관측', bonus=0, scope:'head'|'upper_body'|'unavailable'='unavailable'
+    let kind:FaceDeviationKind|undefined, deviation:FaceResult['deviation']
     const currentScope=s?'upper_body':'head'
     if(this.previousScope!==null&&this.previousScope!==currentScope){this.pending=null;this.raisedAt=null}
     this.previousScope=currentScope
-    const result=()=>({state,score:this.score,posture:POSTURES[pi],activity:ACTIVITIES[ai],bonus,scope})
-    if (yaw>.32) { this.pending=null; this.raisedAt=null; state='고개 회전 · 감점 보류'; return result() }
+    const result=():FaceResult=>({state,score:this.score,posture:POSTURES[pi],activity:ACTIVITIES[ai],bonus,scope,...(kind?{kind,deviation}:{})})
+    if (yaw>FACE_LIMITS.yaw) { this.pending=null; this.raisedAt=null; state='고개 회전 · 감점 보류'; return result() }
     const bothRaised=o.hands.every(v=>v!==null&&v<-.65)
-    const bodyEvidence=!!s&&(Math.abs(o.shoulders!.gap-b.shoulders!.gap)>.12||Math.abs(o.shoulders!.offset-b.shoulders!.offset)>.15)
-    if (bothRaised&&a[3]>.75&&p[0]>.75&&!bodyEvidence&&pitch<.25&&roll<.25) {
+    const bodyEvidence=!!s&&(Math.abs(o.shoulders!.gap-b.shoulders!.gap)>FACE_LIMITS.gap||Math.abs(o.shoulders!.offset-b.shoulders!.offset)>FACE_LIMITS.offset)
+    if (bothRaised&&a[3]>.75&&p[0]>.75&&!bodyEvidence&&pitch<FACE_LIMITS.pitch&&roll<FACE_LIMITS.roll) {
       this.pending=null; this.raisedAt??=o.timeMs; state='양손 들기 · 스트레칭 후보'
       if(o.timeMs-this.raisedAt>=2000&&o.timeMs-this.lastBonus>=60000) { bonus=2; this.score=Math.min(100,this.score+bonus); this.lastBonus=o.timeMs }
       return result()
     }
     this.raisedAt=null
-    if (ai===4&&a[4]>.75) { this.pending=null; state='목 움직임 · 감점 보류'; return result() }
-    // Face-only observations can assess the registered head angle, not torso
-    // position. Forward/slouch logits without shoulders are not head labels.
-    if (!s) {
-      if(pitch>.25){this.pending=null;state='머리 각도 변화 · 해석 보류';return result()}
-      if(roll>.22){
-        if(pi!==3||p[3]<.8){this.pending=null;state='머리 기울기 근거 확인 중 · 감점 보류';return result()}
-        scope='head';this.pending??=o.timeMs;state='머리 기울기 확인 중 · 상체 제외'
-        if(o.timeMs-this.pending>=holdMs){state='지속 머리 기울기 · 상체 제외';this.score=Math.max(0,this.score-2*elapsed)}
-      }else{
-        scope='head';this.pending=null;state='머리 각도 기준 범위 · 상체 제외';this.score=Math.min(100,this.score+elapsed)
-      }
+    // Directly observed change from the registered reference drives the
+    // deduction. Persistence (holdMs, with a release margin) filters motion.
+    const found=faceDeviation(o,b,this.pending!==null)
+    if(found){
+      kind=found;scope=currentScope;this.pending??=o.timeMs;deviation='pending'
+      state=s?'지속 변화 확인 중':'머리 자세 변화 확인 중 · 상체 제외'
+      if(o.timeMs-this.pending>=holdMs){deviation='sustained';state=s?'지속 자세 변화':'지속 머리 자세 변화 · 상체 제외';this.score=Math.max(0,this.score-2*elapsed)}
       return result()
     }
-    if (Math.max(...p)<.8) { this.pending=null; state='불확실 · 감점 보류'; return result() }
-    const evidence=pi===1?bodyEvidence&&Math.log(o.size/b.size)>.08:pi===2?bodyEvidence:pi===3?roll>.22:false
-    if(pi!==0&&evidence) {
-      scope='upper_body'
-      this.pending??=o.timeMs; state='지속 변화 확인 중'
-      if(o.timeMs-this.pending>=holdMs) { state='지속 자세 변화'; this.score=Math.max(0,this.score-2*elapsed) }
-    } else { this.pending=null; state=pi===0?'기준 범위 · 상체 관측':'추가 근거 부족 · 감점 보류'; if(pi===0){scope='upper_body';this.score=Math.min(100,this.score+elapsed)} }
+    this.pending=null
+    if (ai===4&&a[4]>.75) { state='목 움직임 · 감점 보류'; return result() }
+    scope=currentScope;this.score=Math.min(100,this.score+elapsed)
+    state=s?'기준 범위 · 상체 관측':'머리 각도 기준 범위 · 상체 제외'
     return result()
   }
 }

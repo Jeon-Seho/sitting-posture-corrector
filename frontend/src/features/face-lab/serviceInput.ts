@@ -12,10 +12,10 @@ export interface FaceServiceController {
   diagnostics?: () => {frames:number;inferences:number;posture:string;activity:string;scope?:string;shouldersObserved?:boolean;shoulderBaseline?:boolean}
 }
 export function faceServiceSample(result:FaceResult,p:number[]):Sample {
-  const base=sampleAt(0),candidate=['지속 변화 확인 중','지속 자세 변화','머리 기울기 확인 중 · 상체 제외','지속 머리 기울기 · 상체 제외'].includes(result.state)
+  const base=sampleAt(0),candidate=!!result.deviation
   const good=result.state==='기준 범위 · 상체 관측'||result.state==='머리 각도 기준 범위 · 상체 제외'
   // Head-only time is explicitly scoped and never interpreted as upper-body time.
-  return {...base,state:candidate?'collapse':good?'good':'unknown',collapse:candidate?(result.posture==='tilt'?'tilt':'forwardHead'):null,
+  return {...base,state:candidate?'collapse':good?'good':'unknown',collapse:candidate?result.kind??'forwardHead':null,
     prob:candidate?1:0,confidence:candidate||good?Math.max(...p):0,notice:result.state,
     ...(result.scope==='head'||result.scope==='upper_body'?{evaluationScope:result.scope}: {})}
 }
