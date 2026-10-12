@@ -308,6 +308,7 @@ FE 의견:
 | DB | `feature_archive` 공지를 "특징값 적재"에서 좌표 프레임 기준으로 고쳐 달라 |
 | DB | 민감도 3단계는 threshold 값 하나로 저장한다(느긋하게 0.80 · 보통 0.70 · 꼼꼼하게 0.60). 단계 컬럼은 필요 없다 |
 | BE·ML | 라벨 촬영 수집 화면은 필요한 요구를 다시 받아 만든다 |
+| 팀 BE | **기준 자세 등록과 측정 시작을 나눠 달라**(2026-10-12 FE 결정). 지금 팀 API(`feature/repo-backend-db-v2`)는 `PUT /sessions/{UUID}`의 `setup`에 기준 자세를 매번 넣어야 한다(없으면 400). 요청: ① 기준 자세 저장 `PUT /baseline`(본문 = 지금 `setup.baseline`, 사용자당 1행 덮어쓰기) ② 저장된 기준 조회 `GET /baseline`(`baseline_id`·등록 시각, 없으면 404) ③ `PUT /sessions/{UUID}`는 `{policy}`만 받고 서버가 그 사용자의 현재 기준을 복사. 기준이 없으면 409 `BASELINE_REQUIRED` |
 
 ## 부록. 시험 데이터
 
