@@ -3,6 +3,7 @@ import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
+import { PosturePage } from '../pages/PosturePage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CollectionPage } from '../pages/CollectionPage'
@@ -29,11 +30,9 @@ type Props = {
   session: ServiceSession | null
   page: Page
   error: string
-  registration: boolean
   measuring: boolean
   serverMode: boolean
   onServerMode: (enabled: boolean) => void
-  setRegistration: (enabled: boolean) => void
   go: (page: Page) => void
   openCollection: () => void
   logout: () => void
@@ -60,11 +59,9 @@ export function ServiceScreens({
   session,
   page,
   error,
-  registration,
   measuring,
   serverMode,
   onServerMode,
-  setRegistration,
   go,
   openCollection,
   logout,
@@ -95,12 +92,8 @@ export function ServiceScreens({
 
   function openTab(tab: Tab) {
     if (tab === 'measure') go(measuring ? 'session' : 'setup')
+    else if (tab === 'posture') go('posture')
     else go(tab === 'records' ? 'dashboard' : 'settings')
-  }
-
-  function registerAgain() {
-    setRegistration(true)
-    go('setup')
   }
 
   return (
@@ -168,18 +161,21 @@ export function ServiceScreens({
         )}
         {view === 'setup' && (
           <SetupPage
-            startLabel={registration ? '등록 완료' : '측정 시작'}
             camera={camera}
             onStart={persistence.start}
             onCollect={openCollection}
+            onRegister={() => go('posture')}
             serverMode={serverMode}
             onServerMode={onServerMode}
-            serverModeDisabled={registration || measuring}
+            serverModeDisabled={measuring}
             accountMode={accountMode}
-            onCancel={() => {
-              camera.cancelCalibration()
-              go('dashboard')
-            }}
+          />
+        )}
+        {view === 'posture' && (
+          <PosturePage
+            camera={camera}
+            measuring={measuring}
+            onMeasure={() => go(measuring ? 'session' : 'setup')}
           />
         )}
         {session && (
@@ -246,7 +242,7 @@ export function ServiceScreens({
                 onProfile: () => go('profile'),
                 onLogout: logout,
               }}
-              onRegisterAgain={registerAgain}
+              onRegisterAgain={() => go('posture')}
               onCollect={openCollection}
             />
           </fieldset>

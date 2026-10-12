@@ -1,55 +1,48 @@
-import { ArrowCounterClockwise, Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
+import { Check, Leaf, PersonSimple, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
-import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
-import { useAutoBaseline } from '../features/camera/useAutoBaseline'
-import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 
-/** Seconds of steady upper-body input needed for the quick baseline (see calibration.ts). */
-const CALIBRATION_SECONDS = CALIBRATION_MS / 1000
-
+/**
+ * Measurement preparation (plan 0024): no calibration here. With a registered baseline the
+ * user turns the camera on, checks the framing and starts; without one, the screen points
+ * to "자세 등록".
+ */
 export function SetupPage({
   camera,
   onStart,
   onCollect,
-  onCancel,
-  startLabel = '측정 시작',
+  onRegister,
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
   accountMode = false,
 }: {
-  startLabel?: string
   camera: CameraController
   onStart: () => void
   onCollect: () => void
-  onCancel: () => void
+  onRegister: () => void
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
   accountMode?: boolean
 }) {
-  const auto = useAutoBaseline(camera, onStart)
   const on = camera.state === 'on'
-  const calibrating = camera.progress !== null
-  const ready = on && camera.quality && !!camera.baseline && !calibrating
-  const step = !on ? 0 : !camera.quality ? 1 : !camera.baseline || calibrating ? 2 : 3
-  const title = ['카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '편하게 앉아볼까요?', '준비가 끝났어요'][step]
+  const registered = !!camera.baseline
+  const ready = registered && on && camera.quality && camera.progress === null
+  const step = !registered ? 0 : !on ? 1 : !camera.quality ? 2 : 3
+  const title = ['먼저 자세를 등록해 주세요', '카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '준비가 끝났어요'][step]
   const desc = [
-    '평소 바르게 앉은 모습을 기억해 두고, 그 자세에서 멀어질 때만 알려드려요.',
-    '얼굴과 양쪽 어깨가 보이면 자동으로 기준 등록을 시작해요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
-    `평소 편한 자세를 ${CALIBRATION_SECONDS}초 동안 기억해 두고 바로 측정을 시작해요. 영상은 저장하거나 보내지 않아요.`,
-    '이제 측정을 시작하면 자세가 흐트러질 때 알려드려요.',
+    '평소 바르게 앉은 자세를 한 번 등록해 두면, 그 뒤로는 등록 없이 바로 측정할 수 있어요.',
+    '등록한 자세와 비교해서 자세가 흐트러질 때만 알려드려요.',
+    '얼굴과 양쪽 어깨가 보이면 측정을 시작할 수 있어요. 점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.',
+    '측정을 시작하면 등록한 자세에서 멀어질 때 알려드려요.',
   ][step]
   const pill = !on
     ? null
     : !camera.quality
       ? { tone: 'unknown', text: '얼굴과 양쪽 어깨를 찾고 있어요' }
-      : camera.baseline && !calibrating
-        ? { tone: 'good', text: '기준 자세를 기억했어요' }
-        : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
-  const left = Math.max(1, Math.ceil(CALIBRATION_SECONDS * (1 - (camera.progress ?? 0))))
+      : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
 
   return (
     <>
@@ -65,7 +58,6 @@ export function SetupPage({
               style={{ height: 36, width: 'auto', borderRadius: 999, fontSize: 13 }}
               aria-label="실제 카메라 선택"
               value={camera.deviceId}
-              disabled={calibrating}
               onChange={(e) => void camera.connect(e.target.value)}
             >
               {camera.devices.map((d, i) => (
@@ -105,7 +97,12 @@ export function SetupPage({
               )}
             </div>
             <div className="stage-bottom">
-              {camera.state === 'off' || camera.state === 'error' ? (
+              {!registered ? (
+                <button className="btn btn-primary btn-lg" onClick={onRegister}>
+                  <PersonSimple size={20} weight="fill" className="icon" />
+                  자세 등록으로 가기
+                </button>
+              ) : camera.state === 'off' || camera.state === 'error' ? (
                 <button className="btn btn-primary btn-lg" onClick={() => void camera.connect()}>
                   <VideoCamera size={20} weight="fill" className="icon" />
                   {camera.state === 'error' ? '다시 연결' : '카메라 켜기'}
@@ -113,31 +110,6 @@ export function SetupPage({
               ) : camera.state === 'loading' ? (
                 <button className="btn btn-lg" onClick={camera.stop}>
                   카메라 준비 취소
-                </button>
-              ) : calibrating ? (
-                <div className="calibrate-card" role="status">
-                  <Ring value={camera.progress} size={64} stroke={7}>
-                    <span className="ring-value" style={{ fontSize: 22 }}>
-                      {left}
-                    </span>
-                  </Ring>
-                  <div>
-                    <div className="nudge-title">
-                      {camera.quality ? '그대로 편하게 있어 주세요' : '어깨가 보이면 다시 시작해요'}
-                    </div>
-                    <div className="nudge-desc">
-                      {camera.baseline
-                        ? '새 기준이 완성될 때까지 기존 기준을 유지해요.'
-                        : `${left}초 남았어요 · 움직이면 처음부터 다시 해요`}
-                    </div>
-                  </div>
-                  <button className="btn" onClick={auto.cancel}>
-                    보정 취소
-                  </button>
-                </div>
-              ) : on && camera.quality && !camera.baseline ? (
-                <button className="btn btn-primary btn-lg" onClick={auto.calibrate}>
-                  편하게 앉아서 기준 등록 시작
                 </button>
               ) : null}
             </div>
@@ -151,9 +123,9 @@ export function SetupPage({
             </h3>
             <ol className="steps" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {[
+                ['자세 등록', '자세 등록 탭에서 한 번만 하면 돼요'],
                 ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
                 ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
-                ['기준 자세 기억하기', `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 측정이 시작돼요`],
               ].map(([name, hint], i) => (
                 <li className="step" key={name}>
                   <span className={`step-mark ${step > i ? 'done' : step === i ? 'active' : ''}`}>
@@ -183,7 +155,7 @@ export function SetupPage({
                 <span className="tip-icon">
                   <VideoCamera size={20} weight="bold" />
                 </span>
-                카메라를 옮겼다면 기준을 다시 등록해요
+                카메라를 옮겼다면 자세를 다시 등록해요
               </div>
               <div className="tip">
                 <span className="tip-icon">
@@ -194,21 +166,10 @@ export function SetupPage({
             </div>
           </section>
 
-          {camera.baseline && on && !calibrating && (
-            <button className="btn btn-block" disabled={!camera.quality} onClick={auto.calibrate}>
-              <ArrowCounterClockwise size={17} weight="bold" className="icon" />
-              다시 보정
-            </button>
-          )}
           <button className="btn btn-primary btn-lg btn-block" disabled={!ready} onClick={onStart}>
             <Play size={18} weight="fill" className="icon" />
-            {startLabel}
+            측정 시작
           </button>
-          {step < 3 && (
-            <button className="btn btn-quiet btn-sm" onClick={onCancel}>
-              나중에 할게요
-            </button>
-          )}
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body">
@@ -239,7 +200,7 @@ export function SetupPage({
               <div className="row">
                 <button
                   className="btn btn-sm"
-                  disabled={!camera.baseline || !on || calibrating}
+                  disabled={!camera.baseline || !on}
                   onClick={onCollect}
                 >
                   자세 데이터 수집으로 이동

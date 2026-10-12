@@ -130,10 +130,14 @@ class AppDriver {
   }
 
   async startSession() {
-    await this.click('측정하기')
-    await this.text('카메라를 켜 볼까요?')
+    // Plan 0024: register the posture on its own tab, then measure without calibrating.
+    await this.click('자세 등록')
+    await this.text('평소 바른 자세를 등록해요')
     await this.click('카메라 켜기')
-    await this.click('편하게 앉아서 기준 등록 시작')
+    await this.click('자세 등록 시작')
+    await this.text('자세가 등록되어 있어요')
+    await this.click('측정하러 가기')
+    await this.text('준비가 끝났어요')
     await this.openMore()
     await this.checkbox('서버 판정 사용')
     await this.click('측정 시작')
@@ -273,7 +277,13 @@ export async function runScenarios(browser, base, restartApi) {
     )) && browser.errors.length === 0,
   )
   await app.click('내 프로필로 시작')
-  await app.text('카메라를 켜 볼까요?')
+  await until(
+    () =>
+      app.evaluate(
+        `['평소 바른 자세를 등록해요', '먼저 자세를 등록해 주세요'].some((title) => document.body.innerText.includes(title))`,
+      ),
+    'posture registration or measure screen',
+  )
   app.check(
     'synthetic input is visibly disclosed and camera permissions remain unused',
     (await app.evaluate(`document.body.innerText.includes('명시적 합성 브라우저 검증')`)) &&

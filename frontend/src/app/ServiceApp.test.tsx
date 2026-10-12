@@ -3,6 +3,7 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'rea
 import App from './ServiceApp'
 import { LoginPage } from '../pages/LoginPage'
 import { SetupPage } from '../pages/SetupPage'
+import { PosturePage } from '../pages/PosturePage'
 import { SessionPage } from '../features/session/SessionPage'
 import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
 import { projectLive, projectMachine } from '../features/session/server/projection'
@@ -531,5 +532,67 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(data.get(KEYS.draft)).toBe(JSON.stringify(saved))
     expect(data.has(KEYS.records)).toBe(false)
     expect(controls.camera.connect).not.toHaveBeenCalled()
+  })
+  it('lists 측정하기 first and 자세 등록 second in the sidebar', () => {
+    mount()
+    login()
+    const tabs = renderer!.root
+      .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
+      .map((button) => text(button))
+    expect(tabs).toEqual(['측정하기', '자세 등록', '기록', '설정'])
+  })
+  it('never calibrates on 측정하기 and points to 자세 등록 without a baseline', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('측정하기')
+    const setup = renderer!.root.findByType(SetupPage)
+    expect(text(setup)).toContain('먼저 자세를 등록해 주세요')
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    click('자세 등록으로 가기')
+    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
+  })
+  it('registers only on request and does not start measuring afterwards', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('자세 등록')
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    click('자세 등록 시작')
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    act(() => renderer!.update(<App />))
+    expect(text(renderer!.root.findByType(PosturePage))).toContain('자세가 등록되어 있어요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('측정하러 가기')
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('blocks registering again while a measurement runs', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    click('자세 등록')
+    const posture = renderer!.root.findByType(PosturePage)
+    expect(posture.props.measuring).toBe(true)
+    expect(text(posture)).toContain('측정 중에는 자세를 다시 등록할 수 없어요')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '다시 등록')).toBe(false)
+  })
+  it('sends 설정 다시 등록 to the 자세 등록 tab', () => {
+    mount()
+    login()
+    click('설정')
+    act(() => renderer!.root.findByType(SettingsPage).props.onRegisterAgain())
+    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
   })
 })

@@ -11,6 +11,8 @@
 
 ## 1. 자동 기준 등록 전에 어깨 구도 확인 (요청)
 
+> 2026-10-12: 자동 기준 등록(`useAutoBaseline.ts`)은 없앴다. 기준 자세는 「자세 등록」 탭에서 사용자가 「자세 등록 시작」을 누를 때만 등록한다([계획 0024](../plans/active/0024-posture-registration-tab.md)). 아래 어깨 구도 문제는 그 등록 화면에 그대로 해당한다.
+
 ### 문제
 
 [useAutoBaseline.ts](../../frontend/src/features/camera/useAutoBaseline.ts)는 얼굴과 양어깨가 0.8초(`AUTO_CALIBRATE_DELAY_MS`) 보이면 보정을 시작하고,

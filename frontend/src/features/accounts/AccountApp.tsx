@@ -61,7 +61,6 @@ function AccountWorkspaceApp({
 }: WorkspaceProps) {
   const [page, setPage] = useState<Page>('home')
   const [error, setError] = useState('')
-  const [registration, setRegistration] = useState(false)
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
   const loggingOut = useRef(false)
@@ -76,10 +75,8 @@ function AccountWorkspaceApp({
     ended,
     workspace,
     camera,
-    registration,
     serverMode: true,
     repository: remote.repository,
-    onRegistrationComplete: () => setRegistration(false),
     go,
     setError,
   })
@@ -127,12 +124,10 @@ function AccountWorkspaceApp({
       session={session}
       page={page}
       error={error}
-      registration={registration}
       measuring={measuring}
       serverMode
       accountMode
       onServerMode={() => {}}
-      setRegistration={setRegistration}
       go={go}
       openCollection={openCollection}
       logout={() => void logout()}

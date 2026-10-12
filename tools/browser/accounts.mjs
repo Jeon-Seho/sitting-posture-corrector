@@ -169,9 +169,11 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.click('변경 저장')
   await app.text('프로필을 저장했습니다.')
   app.check('profile changes persist through the server', (await app.api('workspace')).value.profile.occupation === '변경된 합성 직업')
-  await app.click('측정하기')
+  await app.click('자세 등록')
   await app.click('카메라 켜기')
-  await app.click('편하게 앉아서 기준 등록 시작')
+  await app.click('자세 등록 시작')
+  await app.text('자세가 등록되어 있어요')
+  await app.click('측정하러 가기')
   await app.click('측정 시작')
   const created = await until(async () => {
     const draft = await app.draft()

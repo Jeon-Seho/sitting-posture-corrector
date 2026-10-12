@@ -23,7 +23,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const [authed, setAuthed] = useState(false)
   const [page, setPage] = useState<Page>('home')
   const [error, setError] = useState('')
-  const [registration, setRegistration] = useState(false)
   const [serverMode, setServerMode] = useState(false)
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
@@ -54,11 +53,9 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     ended,
     workspace,
     camera,
-    registration,
     serverMode,
     go,
     setError,
-    onRegistrationComplete: () => setRegistration(false),
   })
   const form = useProfileForm({
     workspace,
@@ -98,8 +95,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     if (!form.saveProfile(false)) return
     workspace.setDraft(loadLocalState().draft)
     setAuthed(true)
-    setRegistration(!profile)
-    setPage(profile ? 'home' : 'setup')
+    setPage(profile ? 'home' : 'posture')
   }
 
   function logout() {
@@ -121,7 +117,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     workspace.setRules(DEFAULT_RULES)
     workspace.setShowDemo(false)
     persistence.clearSession()
-    setRegistration(false)
     setAuthed(false)
   }
 
@@ -199,11 +194,9 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       session={session}
       page={page}
       error={error}
-      registration={registration}
       measuring={measuring}
       serverMode={serverMode}
       onServerMode={setServerMode}
-      setRegistration={setRegistration}
       go={go}
       openCollection={openCollection}
       logout={logout}
