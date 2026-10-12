@@ -6,9 +6,9 @@
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
-- [팀 서비스 요구사항](team-requirements.md): 기능·역할·수용 기준·협의 항목.
-- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
-- [서비스 DB 전환](plans/active/0021-db-schema-v03-alignment.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
+- [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
+- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](removed-docs.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
+- [서비스 DB 전환](removed-docs.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
 - [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 
@@ -20,7 +20,7 @@
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음). 측정 결과 내보내기는 [session-export](research/session-export.md).
-- 아래 표와 위 목록의 일부 문서(측정 불가 처리, 서비스 DB 전환 0021, lee 기록, 페르소나 메모)는 FE 쪽에서 이미 대체됐다. 각 문서 머리의 안내를 따른다.
+- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 35개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
 
 ## 질문별 진입점
 
@@ -36,15 +36,15 @@
 | 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
 | 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |
-| 왜 이렇게 결정했는가? | [결정 이력](decisions/), [기술 검토](audits/2026-10-01-technology-stack.md) |
+| 왜 이렇게 결정했는가? | [결정 이력](decisions/), [기술 검토](removed-docs.md) |
 | 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |
 
 ## 이력과 근거
 
-[완료 계획](plans/completed/)에는 구현 범위와 당시 검증을, [감사 기록](audits/)에는 시점별 결과·한계를 남긴다.
-최근 개인 파일럿은 [완료 0019](plans/completed/0019-personal-pilot-training.md), 카메라 창은 [완료 0018](plans/completed/0018-collection-entry-camera-window.md),
-계정·Compose는 [완료 0017](plans/completed/0017-mysql-accounts-compose-deployment.md)을 참고한다.
-[Mac 통합 점검](audits/2026-09-30-mac-develop.md), [lee 브랜치 기록](lee_md.md), [페르소나 메모](persona-flow-review.md)는 해당 시점의 참고다.
+[완료 계획](plans/completed/)에는 구현 범위와 당시 검증을, [감사 기록](removed-docs.md)에는 시점별 결과·한계를 남긴다.
+최근 개인 파일럿은 [완료 0019](removed-docs.md), 카메라 창은 [완료 0018](removed-docs.md),
+계정·Compose는 [완료 0017](removed-docs.md)을 참고한다.
+[Mac 통합 점검](removed-docs.md), [lee 브랜치 기록](removed-docs.md), [페르소나 메모](removed-docs.md)는 해당 시점의 참고다.
 과거 계획서의 스택·수치와 과거 작업 승인은 현재 작업의 의무나 권한으로 취급하지 않는다.
 
 ## 문서의 권위와 유지
