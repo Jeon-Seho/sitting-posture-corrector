@@ -57,7 +57,7 @@
 - `threshold`: 0.5~0.95, 소수 셋째 자리까지. 화면 3단계는 0.80·0.70·0.60이고 기본은 0.70이다.
 - `alerts_on`: 「자세 알림」 켜기·끄기. 다음 측정의 `alert_enabled`가 된다. 저장 칸은 DB와 정한다(FE 제안서 N16).
 - 판정 시간 규칙(확정 3초·복귀·재알림)은 서버 상수라 앱 설정에 없다. 소리는 저장하지 않는다.
-- 지금 팀 API의 `/workspace`(설정 + 기록 묶음)를 이것으로 바꾸자는 제안이다(5장 Q3).
+- 팀 API의 `/workspace`(설정 + 기록 묶음)는 이것과 2.6 기록으로 나눈다(10/13 결정).
 
 ### 2.4 기준 자세 (`api`)
 
@@ -74,7 +74,7 @@
 | `PUT /sessions/{session_id}` | `{frame: {width, height}}` | 201 새로 만듦 / 200 같은 요청 재전송. `{session_id, started_at: null}` |
 | `POST /sessions/{session_id}/end` | `{end_ms}` | 200. 이미 끝난 세션이어도 200 |
 
-- `session_id`는 앱이 만든 UUID다(DB `client_session_uuid`). 응답을 못 받고 다시 보내도 세션이 둘로 생기지 않는다.
+- `session_id`는 앱이 만든 UUID다(DB `client_session_uuid`, 10/13 결정). 응답을 못 받고 다시 보내도 세션이 둘로 생기지 않는다. `/sessions`는 만들기·종료만 맡고, 끝난 세션 조회는 `/records`(2.6)다.
 - 정책(threshold·알림)과 기준 자세는 서버가 그 사용자의 현재 값을 복사한다. 앱이 보내지 않는다. 기준 자세가 없으면 409 `NO_BASELINE`.
 - `started_at`은 WebSocket `hello`를 받을 때 정해진다(3.1). 그래서 만들 때는 비어 있다.
 - 종료는 보통 WebSocket `end`로 한다. `POST .../end`는 연결이 끊겨 `end`를 보낼 수 없을 때만 쓴다. 서버 안에서는 `ws`가 `session_ended`를 낸다.
@@ -115,7 +115,7 @@
 
 - 지난 날짜만 온다(어제까지). 오늘은 `GET /records`로 세션마다 본다.
 - 측정이 없는 날은 빠진다. 앱이 빈 날을 채워 그린다.
-- `daily_stat` V2.1에는 간격 최소·최대와 회복 시간 칸이 없다. 집계 잡 J3에서 계산해 칸을 더할지, 조회할 때 사건 표에서 계산할지 정해야 한다(5장 Q6).
+- 간격 최소·최대와 회복 시간은 `daily_stat`에 칸을 더해 J3이 계산한다(10/13 결정, FE 제안서 N21). V2.1에는 아직 칸이 없어, DB에 칸이 생긴 뒤 계산 로직을 만든다. 그 전에는 이 세 필드가 `null`이다.
 - 전날 합산은 J3이 03:00에 돌아 00:00~03:00에는 없다(FE 제안서 N20).
 
 ## 3. WebSocket
@@ -179,13 +179,11 @@
 
 ## 5. 같이 정할 것
 
+정해진 것(10/13): Q1 세션은 앱 UUID로 `PUT`, Q3·Q4 `/settings`·`/records` 분리, Q6 지난 통계 칸은 `daily_stat`에 추가. 본문에 반영했다.
+
 | # | 질문 | FE 안 |
 |---|---|---|
-| Q1 | 세션 만들기: 앱이 만든 UUID로 `PUT /sessions/{id}`(재전송해도 하나) vs 서버가 ID를 주는 `POST /sessions` | `PUT`. DB `client_session_uuid`와 맞고 응답 유실에 안전하다 |
 | Q2 | 세션 시작 때 앱이 보내는 것 | 영상 크기만. 정책·기준은 서버가 복사한다 |
-| Q3 | 설정 경로 | `/workspace`(설정+기록)를 `/settings`로 바꾼다. 기록은 2.6으로 나눈다 |
-| Q4 | 기록 이름 | 끝난 세션 조회를 `/records`로 둔다(`/sessions`는 만들기·종료만) |
 | Q5 | `progress`·기록의 `summary` 필드 | 2.6 표. 실시간과 기록이 같은 이름을 쓴다 |
-| Q6 | 간격 최소·최대, 회복 시간을 지난 통계에 어떻게 넣나 | `daily_stat`에 칸 추가(J3 계산) |
 | Q7 | 등록 연결의 ID | 등록마다 앱이 새 UUID를 `hello.session_id`에 넣는다(BE 답변의 Kafka 키와 같게) |
 | Q8 | 경로 앞부분 | `/api/v1/**`, `/ws` |
