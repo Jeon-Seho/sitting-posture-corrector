@@ -3,7 +3,7 @@
 > 작성: 2026-10-11 · 최신화: 2026-10-13(BE 답변 반영) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
 > 확인 기준: `DevOps` 브랜치 `f27f778`(10/12에도 변경 없음), `feature/repo-backend-db-v2` `0fcde59`(미병합), [실시간 계약 v1](../../contracts/realtime/README.md), DevOps/BE 회신(10/11), 아키텍처 v5.1(10/12), BE 답변(10/13)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
-> 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md)·[0024](../plans/active/0024-posture-registration-tab.md), [FE 작업 명령과 검사](fe-commands-and-checks.md)
+> 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md)·[0024](../plans/active/0024-posture-registration-tab.md), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
 
 이 문서는 FE가 팀에 보내는 제안과 합의를 한곳에 모은 것이다. 판정 규칙의 계산 방법은 서버가 맡으므로 여기에 적지 않는다(6장).
 FE는 **앱이 보내는 것(2장)**과 **앱이 받는 것(3장)**의 이름과 기능만 정의한다.
