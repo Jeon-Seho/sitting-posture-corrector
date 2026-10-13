@@ -1,3 +1,4 @@
+import { SERVER } from '../platform/serverConfig'
 import type { AccountUser, AccountWorkspace, Registration, WorkspaceUpdate } from './contracts'
 import type { RecordItem } from '../storage/types'
 import { validRecord } from '../storage/validation'
@@ -238,6 +239,6 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
 }
 
 export const accountClient = createAccountClient()
-export const SERVER_ACCOUNTS = import.meta.env.VITE_SERVER_ACCOUNTS === 'true'
+export const SERVER_ACCOUNTS = SERVER.accounts
 export const accountError = (error: unknown) =>
   error instanceof AccountApiError ? error.message : '처리하지 못했습니다. 다시 시도해 주세요.'

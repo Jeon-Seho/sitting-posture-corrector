@@ -5,6 +5,7 @@ import { enableSound, playCorrection } from '../../../lib/sound'
 import type { ServerCheckpoint, ServerLiveState, ServerSessionDescriptor } from './contracts'
 import { ServerSessionController, type ServerScreenState } from './controller'
 import { projectLive } from './projection'
+import { SERVER } from '../../platform/serverConfig'
 import {
   connectionLost,
   reportConnectionLost,
@@ -13,7 +14,7 @@ import {
 import { popupAlert } from '../../desktop/alertPopup'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
-const REALTIME_URL: string | undefined = import.meta.env.VITE_REALTIME_URL || undefined
+const REALTIME_URL = SERVER.realtimeUrl
 
 export type ServerSessionService = {
   active: boolean
