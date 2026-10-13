@@ -40,7 +40,6 @@ type Props = {
   saveDemoPreference: (enabled: boolean) => void
   storageNotice: ReactNode
   profilePage: ReactNode
-  accountMode?: boolean
   alertsOn?: boolean
   onAlerts?: (enabled: boolean) => void
   settingsDisabled?: boolean
@@ -69,7 +68,6 @@ export function ServiceScreens({
   saveDemoPreference,
   storageNotice,
   profilePage,
-  accountMode = false,
   alertsOn = true,
   onAlerts = () => {},
   settingsDisabled = false,
@@ -139,7 +137,6 @@ export function ServiceScreens({
             saveMessage={persistence.saveMessage}
             onRestore={persistence.restore}
             onFinish={persistence.finishDraft}
-            accountMode={accountMode}
           />
         )}
         {view === 'dashboard' &&
@@ -151,7 +148,6 @@ export function ServiceScreens({
               todayRequest={todayRequest}
               measuring={measuring}
               onStart={() => go(measuring ? 'session' : 'setup')}
-              accountMode={accountMode}
             />
           ))}
         {view === 'collection' && (
@@ -178,7 +174,6 @@ export function ServiceScreens({
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}
-            accountMode={accountMode}
           />
         )}
         {session && (
@@ -188,7 +183,6 @@ export function ServiceScreens({
                 key={session.id}
                 session={{ ...session, server: session.server }}
                 camera={camera}
-                accountMode={accountMode}
                 alertsOn={alertsOn}
                 onFinish={() => go('home')}
                 onDashboard={() => go('dashboard')}
@@ -243,12 +237,11 @@ export function ServiceScreens({
               onRules={saveRules}
               alertsOn={alertsOn}
               onAlerts={onAlerts}
-              accountMode={accountMode}
               hasHistory={showDemo}
               onHasHistory={saveDemoPreference}
               account={{
                 name: profile?.name ?? '',
-                detail: accountMode ? '내 계정에 저장' : '이 기기에만 저장',
+                detail: '이 기기에만 저장',
                 onProfile: () => go('profile'),
                 onLogout: logout,
               }}

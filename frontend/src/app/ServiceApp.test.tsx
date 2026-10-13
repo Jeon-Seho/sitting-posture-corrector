@@ -732,4 +732,115 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('설정으로')
     expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
   })
+
+  describe('local sign-up before the account server exists', () => {
+    const input = (name: string) => renderer!.root.find((node) => node.type === 'input' && node.props.name === name)
+    const type = (name: string, value: string | number) =>
+      act(() => input(name).props.onChange({ target: { value: String(value) } }))
+    const choose = (id: string, label: '동의' | '비동의') =>
+      act(() =>
+        renderer!.root
+          .find((node) => node.props['data-consent'] === id)
+          .findAllByType('button')
+          .find((b) => text(b) === label)!
+          .props.onClick(),
+      )
+    const submitDisabled = () => renderer!.root.findByType(LoginPage).props.submitDisabled
+
+    it('asks for sign-up when this device has no profile', () => {
+      data.delete(KEYS.profile)
+      mount()
+      login()
+      expect(text(renderer!.root)).toContain('회원가입을 먼저 해 주세요')
+      expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
+    })
+
+    it('lets a signed-up profile in without checking the typed credentials', () => {
+      mount()
+      login()
+      expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(0)
+    })
+
+    it('starts with nothing chosen and blocks the next step until every required item is agreed', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      expect(submitDisabled()).toBe(true)
+      click('전체 동의')
+      expect(submitDisabled()).toBe(false)
+      choose('C4', '비동의')
+      expect(submitDisabled()).toBe(true)
+      expect(text(renderer!.root)).toContain('필수 항목이라 동의해야 가입할 수 있어요')
+      choose('C4', '동의')
+      choose('C3', '비동의')
+      expect(submitDisabled()).toBe(false)
+    })
+
+    it('saves consents without the password and drops age and occupation when C3 is declined', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      choose('C3', '비동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(renderer!.root.findAll((node) => node.type === 'input' && node.props.name === 'age')).toHaveLength(0)
+      type('email', 'synthetic@example.com')
+      type('password', 'synthetic-password-1')
+      type('name', '합성 가입')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입' })
+      const account = JSON.parse(data.get(KEYS.account)!)
+      expect(account.email).toBe('synthetic@example.com')
+      expect(account.consents.agreed).toEqual({ C1: true, C2: true, C3: false, C4: true, C5: true, C6: true })
+      expect([...data.values()].some((value) => value.includes('synthetic-password-1'))).toBe(false)
+      // Step 3 (optional posture registration) is shown before entering the app.
+      // It reuses the 측정하기 registration in its 다시 등록 mode (never starts a measurement).
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBe(true)
+      expect(text(renderer!.root)).toContain('3/3 자세 등록 (선택)')
+      // Without the hidden capture element the camera cannot connect before the app shell exists.
+      expect(renderer!.root.findAll((node) => node.type === 'video' && node.props.className === 'capture-source')).toHaveLength(1)
+      // The camera is off in this test, so skipping is offered as the main action.
+      click('카메라 없이 넘어가기')
+      expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBeFalsy()
+    })
+
+    it('enters 측정하기 after registering the posture in step 3', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      type('email', 'synthetic@example.com')
+      type('password', 'pw')
+      type('name', '합성 가입')
+      type('age', 31)
+      type('occupation', '합성 직업')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      // The camera turned on in step 3 must be reconnected to the app shell's capture element.
+      controls.camera.state = 'on'
+      act(() => renderer!.root.findByType(SetupPage).props.onStart())
+      expect(controls.camera.connect).toHaveBeenCalledOnce()
+      expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBeFalsy()
+    })
+
+    it('keeps age and occupation when C3 is agreed and rejects an empty password', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      type('email', 'synthetic@example.com')
+      type('password', '')
+      type('name', '합성 가입')
+      type('age', 31)
+      type('occupation', '합성 직업')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(data.has(KEYS.profile)).toBe(false)
+      type('password', 'pw')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입', age: 31, occupation: '합성 직업' })
+    })
+  })
 })

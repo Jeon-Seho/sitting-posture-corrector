@@ -16,8 +16,8 @@
 
 | 기능 | 서버 쪽(경로·메시지) | 앱 위치 | 상태 | 기다리는 것 |
 | --- | --- | --- | --- | --- |
-| 로그인·가입·로그아웃·비밀번호·탈퇴 | `GET /v1/auth/csrf`·`/me`, `POST /register`·`/login`·`/logout`·`/withdrawal/cancel`, `PUT /password`, `DELETE /account` | `features/accounts/client.ts` | 연결됨(계정 모드) | 가입 동의 6종 요청 형식(N9) |
-| 프로필·설정 보관 | `GET`·`PUT /v1/workspace` | `features/accounts/useRemoteWorkspace.ts` | 연결됨 | 「자세 알림」 저장 칸(N16, V2.2 되돌림) |
+| 로그인·가입·로그아웃·비밀번호·탈퇴 | `GET /v1/auth/csrf`·`/me`, `POST /register`·`/login`·`/logout`·`/withdrawal/cancel`, `PUT /password`, `DELETE /account` | `app/LocalServiceApp.tsx`, `features/auth/` | **로컬**(2026-10-13 계정 모드 삭제, 입력값 확인 없음) | BE `auth`, 가입 동의 6종 요청 형식(N9) |
+| 프로필·설정 보관 | `GET`·`PUT /v1/workspace` | `features/storage/` | 로컬 | 「자세 알림」 저장 칸(N16, V2.2 되돌림) |
 | 세션 만들기·보내기·끝내기·조회 | `PUT /v1/sessions/{id}`, `POST …/features`, `POST …/end`, `GET …`, `GET …/metadata` | `features/session/server/client.ts`·`controller.ts` | 연결됨(특징 변화량 형식) | 좌표 프레임으로 바꾸는 시점(F1) |
 | 실시간 연결 | WebSocket `/v1/realtime`: 앱 `hello`·`features` → 서버 `ack`·`observation`·`progress`·`decision`·`alert`·`stalled`·`closed` | `features/session/realtime/client.ts` | 연결됨(개발, `VITE_REALTIME_URL`) | 좌표 메시지 이름(F1) |
 | **좌표 프레임** `posture.frames.v1` | `ws` 메시지(이름 BE와 결정), 0.5초 1건, 관절 9개 그대로 | `features/session/realtime/frames.ts`, 계약 초안 `contracts/realtime/frames/` | **준비됨** | BE `ws`가 좌표를 받는 날(N5), 메시지 이름 |
@@ -25,18 +25,19 @@
 | 일시정지·자리 비움 | 프레임 `phase: rest`·`away`, 빈 `frames` | `frames.ts` `setPhase` | 준비됨 | — |
 | 측정 종료 뒤 최종 결과 | `ws end` → 최종 `decision` → `closed(ended)`. 10초 넘거나 놓치면 `GET /api/records/{id}` | — | **할 일**(F3) | `end` 확정(N4), `api` 종료 경로(BE S6) |
 | 연결 끊김 | 앱은 재연결·재전송하지 않고 세션을 끝낸다([ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)) | `features/connection/` | 구현됨 | **BE 공유 필요:** 제안서 1·2장의 "재연결 후 같은 순번 재전송"과 다르다. 서버도 끊긴 세션을 닫아야 한다 |
-| 기록 목록·상세 | `GET`·`POST /v1/records`, `DELETE /v1/records/{id}` | `features/accounts/client.ts`, `features/history/` | 연결됨(작업공간 JSON) | 세션 테이블로 기록을 다시 만드는 일(계획 0023 3단계) |
+| 기록 목록·상세 | `GET`·`POST /v1/records`, `DELETE /v1/records/{id}` | `features/history/`, `features/storage/` | 로컬 | 세션 테이블로 기록을 다시 만드는 일(계획 0023 3단계) |
 | **자세 등록 저장·조회** | 미정(제안서 2.3 ①~⑤) | `features/camera/savedBaseline.ts`(이 PC, 카메라별) | 로컬 | N1 등록 흐름·경로 |
-| **가입·설정 동의 6종** | DB V2.3 `user_consent`. API 미정 | `features/accounts/consents.ts` | **준비됨** | 요청 형식(N9) |
+| **가입·설정 동의 6종** | DB V2.3 `user_consent`. API 미정 | `features/auth/consents.ts`(회원가입 1단계 화면 `ConsentList.tsx`) | **준비됨**(선택은 이 PC에 저장) | 요청 형식(N9) |
 | 알림 띄우기 | `ws alert`. 앱은 거르지 않는다 | `useServerSessionScreen.ts` `onNotifications`, 데스크톱 팝업 | 연결됨(받기) | 서버 어디서 판단할지(N6) |
 | 등록 전 구도 확인 | 서버 없음(F7) | `useCamera` `framing`, `usePostureRegistration` | 구현됨 | — |
 | 측정 시작 시각 | `monitor_session.started_at` = 앱 `t_ms` 0 | `FrameBatcher(origin)` | 준비됨 | N13 |
 
 ## 2. 연결 스위치
 
+예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13 지웠다. 로그인·가입은 BE `auth`가 생길 때까지 로컬이다.
+
 | 변수 | 뜻 |
 | --- | --- |
-| `VITE_SERVER_ACCOUNTS=true` | 계정 모드. 로그인·서버 세션·기록을 BE `auth`·`api`로 |
 | `VITE_REALTIME_URL=ws://…` | 실시간 구간을 WebSocket(`/v1/realtime`)으로. 없으면 HTTP |
 | `VITE_REALTIME_FRAMES=true` | 특징 변화량 대신 좌표 프레임을 보낸다. **아직 연결 안 함**(F1, BE 수용 후) |
 | `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |

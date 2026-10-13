@@ -31,7 +31,7 @@ export function SetupPage({
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
-  accountMode = false,
+  startLabel = '측정 시작',
 }: {
   camera: CameraController
   onStart: () => void
@@ -44,7 +44,8 @@ export function SetupPage({
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
-  accountMode?: boolean
+  /** Text of the start buttons; sign-up step 3 says 「앱 시작」. */
+  startLabel?: string
 }) {
   const on = camera.state === 'on'
   const registered = !!camera.baseline
@@ -222,7 +223,7 @@ export function SetupPage({
                     <div className="nudge-desc">다음 측정부터 이 자세와 비교해요</div>
                   </div>
                   <button className="btn btn-primary" disabled={!ready} onClick={onStart}>
-                    측정 시작
+                    {startLabel}
                   </button>
                   {onBack && (
                     <button className="btn" onClick={onBack}>
@@ -251,7 +252,7 @@ export function SetupPage({
               ) : ready && !measuring ? (
                 <button className="btn btn-primary btn-lg" onClick={onStart}>
                   <Play size={20} weight="fill" className="icon" />
-                  측정 시작
+                  {startLabel}
                 </button>
               ) : !registering && !registered && on && !measuring ? (
                 <button className="btn btn-primary btn-lg" onClick={flow.start}>
@@ -319,34 +320,28 @@ export function SetupPage({
 
           <button className="btn btn-primary btn-lg btn-block" disabled={!ready || measuring} onClick={onStart}>
             <Play size={18} weight="fill" className="icon" />
-            측정 시작
+            {startLabel}
           </button>
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body">
-              {accountMode ? (
-                <p className="fine">
-                  확인된 측정 요약과 사건을 내 계정에 보관합니다. 영상과 관절 좌표는 전송하지 않습니다.
-                </p>
-              ) : (
-                onServerMode && (
-                  <>
-                    <label className="row">
-                      <input
-                        type="checkbox"
-                        checked={serverMode}
-                        disabled={serverModeDisabled}
-                        onChange={(event) => onServerMode(event.target.checked)}
-                      />
-                      서버 판정 사용 · 개발 연결
-                    </label>
-                    <p className="fine">
-                      개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
-                      보내지 않습니다.
-                      {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
-                    </p>
-                  </>
-                )
+              {onServerMode && (
+                <>
+                  <label className="row">
+                    <input
+                      type="checkbox"
+                      checked={serverMode}
+                      disabled={serverModeDisabled}
+                      onChange={(event) => onServerMode(event.target.checked)}
+                    />
+                    서버 판정 사용 · 개발 연결
+                  </label>
+                  <p className="fine">
+                    개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
+                    보내지 않습니다.
+                    {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
+                  </p>
+                </>
               )}
               <div className="row">
                 <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
