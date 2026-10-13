@@ -113,8 +113,9 @@ BE `api-spec.html`의 오류 표에 앱 쪽 동작을 채운 것이다.
 ### 4.4 기록·통계 (R1, R1b, R3, T1) — BE 다음 주 범위
 
 - **R1·R1b:** `RecordItem`(지금 앱 형식, camelCase). 5분 미만 세션은 없다.
+  - **기록 화면에는 오늘 기록을 보이지 않는다(10/13 결정).** 앱은 R1에서 오늘(KST) 시작한 세션을 빼고 그린다. 오늘 측정은 끝났을 때 결과 화면에 그 세션 하나만 보인다(같은 날 앞선 측정과 합치지 않음).
 - **R3:** 기록 삭제. HDFS 파일이 있는 세션은 409 → "지금은 지울 수 없어요".
-- **T1:** `[{date, session_count, valid_sec, good_sec, event_count, alerted_event_count, min_until_collapse_sec, max_until_collapse_sec}]`. 화면의 최소·최대 간격은 `min_`·`max_until_collapse_sec`. 오늘치는 J2(매일 00:00 전날 집계) 전이라 없다 → 화면 담당과 표시 방법을 정한다(8장).
+- **T1:** `[{date, session_count, valid_sec, good_sec, event_count, alerted_event_count, min_until_collapse_sec, max_until_collapse_sec}]`. 화면의 최소·최대 간격은 `min_`·`max_until_collapse_sec`. 오늘치는 J2(매일 00:00 전날 집계) 전이라 없고, 기록 화면도 어제까지만 보인다(10/13 결정).
 
 ## 5. WebSocket `/v2/realtime`
 
@@ -268,8 +269,8 @@ sequenceDiagram
 
 | # | 정할 것 | FE 안 | BE 안 | 담당 |
 |---|---|---|---|---|
-| 1 | 5분을 무엇으로 세나 | 회의 뜻 확인 필요 | 측정 시간 `total_ms` | 사용자(회의) |
-| 2 | 오늘 기록을 기록 화면에 어떻게 보이나(J2는 00:00에 전날만) | 오늘은 R1의 세션별 기록으로 보이고 합산은 하지 않는다(10/12 결정) | 앱이 오늘 기록을 합치거나 "어제까지" | 화면 담당·FE |
+| 1 | 5분을 무엇으로 세나 | 측정 시간 `total_ms`(10/13 결정) | 같음 | 확정 |
+| 2 | 오늘 기록을 어떻게 보이나 | 결과 화면에는 방금 끝난 세션만, 기록 화면에는 오늘을 보이지 않음(10/13 결정) | — | 확정 |
 | 3 | 동의 문구 버전 | `service-v2`(BE 명세에 맞춤, 앱 반영함) | `service-v2` | 확정 |
 | 4 | 비밀번호 최소 길이 | 명세 12자, 앱은 시험 동안 보류 | 12자 | 확정(앱 적용만 보류) |
 | 5 | 세션 시작 시각 | BE 안 따름(10/13) | S1 받은 시각 | 확정 |
@@ -277,4 +278,4 @@ sequenceDiagram
 | 7 | 0.5초 관측 점수 방식(N3) | 마지막 판정 프레임 값 | 같음(설정값) | ML |
 | 8 | `/v1/realtime` 정리 시점 | 앱이 v2로 바뀐 뒤 | 같음(D-38) | FE·BE |
 
-다음 단계: 8장 1·2번이 정해지면 `contracts/realtime/`에 WS v2·좌표 구간·`calibration_result` JSON 스키마를 BE와 함께 옮긴다(contracts 최신화).
+다음 단계: `contracts/realtime/`에 WS v2·좌표 구간·`calibration_result` JSON 스키마를 BE와 함께 옮긴다(contracts 최신화).
