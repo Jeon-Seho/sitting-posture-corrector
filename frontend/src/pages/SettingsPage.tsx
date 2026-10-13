@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
-import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, SignOut, UserCircle, VideoCamera } from '@phosphor-icons/react'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
 import { cameraName } from '../features/camera/mainCamera'
+import { SelectMenu } from '../components/SelectMenu'
 import { reportConnectionLost } from '../features/connection/connectionLost'
 import type { CameraController } from '../hooks/useCamera'
 
@@ -127,21 +128,20 @@ function MainCamera({ camera }: { camera: CameraChoice }) {
     <Row name="메인 카메라" desc={unnamed ? `${desc} 카메라를 한 번 켜면 이름이 보여요.` : desc}>
       <div className="setting-control">
         {devices.length > 0 && !hidden && (
-          <select
-            className="input"
-            style={{ height: 36, width: 'auto', maxWidth: 240, borderRadius: 999, fontSize: 13 }}
-            aria-label="메인 카메라"
+          <SelectMenu
+            label="메인 카메라"
+            icon={<VideoCamera size={15} weight="bold" className="icon" />}
             value={known ? camera.mainDeviceId : ''}
-            onChange={(e) => camera.chooseMainCamera(e.target.value)}
-          >
-            <option value="">기본 카메라 (자동)</option>
-            {devices.map((d, i) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {cameraName(d, i)}
-                {camera.state === 'on' && d.deviceId === camera.deviceId ? ' · 사용 중' : ''}
-              </option>
-            ))}
-          </select>
+            onChange={camera.chooseMainCamera}
+            options={[
+              { value: '', label: '기본 카메라 (자동)' },
+              ...devices.map((d, i) => ({
+                value: d.deviceId,
+                label: cameraName(d, i),
+                note: camera.state === 'on' && d.deviceId === camera.deviceId ? '사용 중' : undefined,
+              })),
+            ]}
+          />
         )}
         <button className="chip" onClick={() => void camera.refreshDevices()}>
           다시 찾기
