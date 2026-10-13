@@ -84,15 +84,14 @@ CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임�
 
 ## MySQL 영구 모드
 
-[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
+> **2026-10-13:** 앱의 계정 모드는 지웠다. 아래는 이 저장소 백엔드(v1)의 영구 모드 설명이다. 앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.3)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
+
+[계정 API v1](../contracts/accounts.v1.md)과 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
 인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다. 계정별 MySQL 잠금과 짧은 트랜잭션으로
 관측/outbox를 CEP 전에 저장하고, 확인 후 요약·사건·처리 상태를 저장한다. HTTP를 기다리는 동안 행 트랜잭션을 유지하지 않는다.
 CEP 재시작 시 확인된 관측을 고정 policy로 재생하고 미확인 원 관측을 재전달한다. 사건 ID·요약 불일치는 복구 실패다.
 
-프론트는 `VITE_SERVER_ACCOUNTS=true`에서 실제 계정 앱을 선택하고 인증 후 프로필·설정·기록을 서버에서 읽는다.
-최종 기록을 localStorage에 복제하지 않는다. 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
-동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
-탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
+프론트의 예전 계정 앱(`VITE_SERVER_ACCOUNTS=true`)은 2026-10-13 지웠다. 지금 앱은 로그인·가입·기록을 이 기기에서 다루고, 입출구 서버가 생기면 [연동 명세](design/api-ws-spec.md)의 A1~A8·W1로 붙인다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.

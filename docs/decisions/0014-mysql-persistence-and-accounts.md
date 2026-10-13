@@ -4,6 +4,7 @@
 - 날짜: 2026-10-01
 - 근거: 사용자가 DB 작업 전체 구현을 요청하고 **MySQL + 이메일·비밀번호**를 선택했다.
 - 개정: [ADR 0018](0018-db-schema-v11-service-storage.md) — 저장 구조는 DB 스키마 V1.1, API는 마이그레이션하지 않고 검증만 한다.
+- 개정(2026-10-13): 앱의 계정 모드(`VITE_SERVER_ACCOUNTS`)를 지웠다. 계정은 BE 입출구 서버(`/v2/auth`, DB V2.3)로 옮긴다([연동 명세](../design/api-ws-spec.md)).
 
 ## 결정
 

@@ -1,16 +1,13 @@
 # sitting-posture-corrector · PoseGood
 
-웹캠 기반 개인 기준 자세 변화 알림 프로토타입. 레트로 에디토리얼 디자인의 React 18 앱 하나에서
-로그인(프로필) → 측정 준비 → 실시간 측정 → 자세 등록 → 대시보드 → 설정을 모두 다룬다.
-현재 판정은 **MediaPipe Lite + 개인 기준 비교 규칙**이며 학습된 LSTM은 미연결이다.
-Compose에서는 **MySQL + 이메일·비밀번호 계정 + 영구 기록·재시작 복구**를 사용한다.
-측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API → FastAPI → Esper CEP로 전달한다.
-기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).
+웹캠 기반 개인 기준 자세 변화 알림 앱. 데스크톱 화면의 React 앱 하나에서
+로그인·회원가입 → 측정하기(자세 등록 포함) → 기록 → 설정을 다룬다.
 
-> **결정 변경(2026-10-11, [ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보내며
-> 판정은 서버가 한다. 로컬 판정 모드는 없앤다. 위 설명은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)으로 바뀌기 전의 현재 동작이다.
+- **판정은 서버가 한다**([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 앱은 관절 9개 좌표를 0.5초 구간으로 BE 입출구 서버(`/v2/realtime`)에 보내고 결과를 표시한다. 영상은 보내지 않는다.
+  계약은 [연동 명세](docs/design/api-ws-spec.md)와 [WebSocket v2](contracts/realtime/realtime-ws.v2.schema.json)다. 앱을 v2로 바꾸는 일은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)에서 한다.
+- **지금 앱은 서버 연결 전 단계다.** 로그인·회원가입·기록은 이 기기에서 다루고(2026-10-13 예전 계정 모드 삭제), 판정은 브라우저 규칙(MediaPipe Lite + 개인 기준 비교) 또는 개발용 서버(v1, 특징 변화량)로 한다. 학습된 LSTM은 미연결이다.
 
-## Compose 계정 모드 실행
+## Compose 실행 (서버 개발용)
 
 Docker Desktop/Engine과 Compose를 시작한 뒤:
 
@@ -19,8 +16,8 @@ make init-compose
 docker compose up -d --build --wait --wait-timeout 180
 ```
 
-[계정 앱](http://127.0.0.1:8080/)에서 가입한다. `docker compose down`으로 종료하면 DB 볼륨은 유지된다.
-[실행·배포·백업](infra/README.md), [계정 API](contracts/accounts.v1.md),
+`docker compose down`으로 종료하면 DB 볼륨은 유지된다. 앱의 계정 화면은 2026-10-13 지웠다(로그인·가입은 입출구 서버 `/v2/auth`가 생기면 다시 붙인다).
+[실행·배포·백업](infra/README.md), [계약](contracts/README.md),
 [빅데이터 플랫폼 책임](docs/design/data-platform-boundary.md)을 참고한다.
 
 ## 로컬 프로토타입 실행
@@ -34,15 +31,15 @@ make dev
 
 `make`가 없는 Windows에서는 `python tools/dev.py setup`, `python tools/dev.py dev`를 사용한다.
 
-[로컬 화면](http://127.0.0.1:5173/) → 이름·나이·직업 입력 → 자세 등록 → 카메라 켜기 → 얼굴·어깨가 보이면 3·2·1 뒤 자동으로 3초 등록(최소 15표본) → 측정하러 가기 → 측정 시작.
-자세는 한 번 등록하면 앱이 켜져 있는 동안 다시 등록하지 않는다([계획 0024](docs/removed-docs.md)).
-실제 계정은 필요 없다. 프로필과 측정 요약은 이 브라우저(localStorage)에만 저장한다.
+[로컬 화면](http://127.0.0.1:5173/) → 회원가입(① 약관 동의 C1~C6 ② 계정 정보 ③ 자세 등록, 선택) → 측정하기 → 카메라 켜기 → (등록한 자세가 없으면) 3·2·1 뒤 3초 등록 → 측정.
+다음부터는 로그인 화면에서 들어간다. 서버 연결 전이라 입력값은 확인하지 않고 이 기기에 가입한 프로필로 들어간다.
+프로필·동의 선택·측정 요약은 이 브라우저(localStorage)에만 저장하고 비밀번호는 저장하지 않는다. 등록한 자세는 이 PC에 카메라별로 저장한다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
 
 개발 서버 모드는 JDK 21·Maven으로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다.
 출력된 임시 포트 주소에서 측정하기 준비 화면의 ‘서버 판정 사용 · 개발 연결’을 선택한다. 종료는 Ctrl+C다.
 Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장은 메모리이며 완료 요약은 브라우저에 보관한다.
-이 개발 명령은 메모리 모드다. 영구 저장과 실제 계정은 위 Compose 모드로 실행한다.
+이 개발 명령은 메모리 모드다(v1, 특징 변화량). 앱이 v2로 바뀌면 BE 입출구 서버에 붙인다.
 
 ## 화면 구성
 
@@ -53,8 +50,8 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 | 설정 | 판정 시간·임계값. `개발자 옵션`에 `발표용 예시 기록 표시` 스위치와 `자세 데이터 수집`(관절 좌표 CSV, 교정 알림 없음) |
 | 계정 메뉴(사이드바 하단) | 프로필 설정, 로그아웃 |
 
-화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02)과 [계획 0024](docs/removed-docs.md)(2026-10-12, 「자세 등록」 탭 추가) 기준이다.
-이전 이름: 홈·측정 준비·실시간 측정 → 측정하기, 대시보드 → 기록, 예전 자세 등록(좌표 수집) → 설정의 자세 데이터 수집. 지금의 「자세 등록」은 기준 자세 등록 탭이다.
+화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02) 기준이다. 10/12에 따로 만든 「자세 등록」 탭은 10/13 측정하기로 합쳤다.
+이전 이름: 홈·측정 준비·실시간 측정 → 측정하기, 대시보드 → 기록, 예전 자세 등록(좌표 수집) → 설정의 자세 데이터 수집.
 
 예전의 별도 연구 화면(`?research=1`)은 이 앱에 통합되어 더 이상 없다. [ADR 0008](docs/decisions/0008-single-app-entry.md) 참고.
 
@@ -63,7 +60,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - 기본 3초 지속 후 이벤트·화면 알림, 60초 재알림 간격, 3초 정상 복귀 확인([ADR 0012](docs/decisions/0012-session-timing-policy.md), 2026-10-06 2초 → 3초)
 - 휴식·측정 불가는 유효 시간에서 제외하고 연속 이벤트를 끊음
 - 설정에서 시간·임계값 변경 가능 (모델 재학습 불필요, 다음 측정부터 적용)
-- 측정 종료 결과는 Compose에서 내 계정 DB에, 로컬 프로토타입에서 이 브라우저에 저장됨. 예시 표시를 끄면 실제 기록을 보여줌
+- 측정 종료 결과는 지금 이 브라우저에 저장됨(서버 연결 뒤에는 서버가 저장하고, 5분 미만 측정은 저장하지 않음). 예시 표시를 끄면 실제 기록을 보여줌
 - 카메라는 측정하기에서 직접 켜고, 카메라가 필요 없는 화면으로 나가면 꺼짐 (측정 진행 중이면 유지)
 - 영상·음성 저장/업로드 없음. 자세 등록은 관절 좌표 CSV로만 내려받으며 측정 통계와 분리됨
 
