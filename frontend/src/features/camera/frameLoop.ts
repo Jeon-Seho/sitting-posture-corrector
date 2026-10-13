@@ -1,7 +1,7 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { features, type Landmark } from '../../../../model/prototype/pose'
 import { drawPose, type VisualOptions } from '../../lib/poseVisual'
-import { inferenceInterval, smoothPoints } from '../../lib/skeleton'
+import { createPointFilter, inferenceInterval } from '../../lib/skeleton'
 import type { CameraDelegate, CameraMetrics, Observation } from './types'
 
 const FRAME_EXPIRY_MS = 1_000
@@ -33,6 +33,9 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   let inferenceMs = 0
   let target: Landmark[] = []
   let displayed: Landmark[] = []
+  /** Last time MediaPipe found a person; the drawing does not depend on judging the frame. */
+  let lastSeen = 0
+  const filter = createPointFilter()
   let metricStart = performance.now()
   let frameCount = 0
   let inferenceSum = 0
@@ -64,9 +67,14 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
         const observationGap = time - lastFrame
         lastFrame = time
 
-        if (reading && !target.length) options.onPoseStarted()
-        target = reading ? points : []
-        if (!reading || observationGap > FRAME_EXPIRY_MS) displayed = []
+        if (points.length && !target.length) options.onPoseStarted()
+        // Draw what the tracker sees even when this frame cannot be judged (2026-10-13):
+        // wiping the skeleton on every unjudgeable frame made it flicker and jump.
+        if (points.length) {
+          target = points
+          lastSeen = time
+        }
+        if (observationGap > FRAME_EXPIRY_MS) filter.reset()
         options.onObservation(
           {
             timeMs: time,
@@ -89,10 +97,14 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
 
     if (time - lastFrame > FRAME_EXPIRY_MS) {
       target = []
-      displayed = []
       options.onFrameUnavailable()
     }
-    displayed = smoothPoints(displayed, target, previousDraw ? time - previousDraw : 16)
+    // Nobody in view for a while: remove the skeleton instead of freezing it.
+    if (time - lastSeen > FRAME_EXPIRY_MS && target.length) {
+      target = []
+      filter.reset()
+    }
+    displayed = filter.next(target, previousDraw ? time - previousDraw : 16)
     previousDraw = time
     drawPose(
       options.getCanvas(),
