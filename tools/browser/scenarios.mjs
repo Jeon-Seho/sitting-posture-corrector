@@ -217,11 +217,11 @@ class AppDriver {
     await until(
       () =>
         this.evaluate(
-          `!!${BRIDGE} && [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '내 프로필로 시작')`,
+          `!!${BRIDGE} && [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '로그인')`,
         ),
       'reload login and explicit synthetic adapter',
     )
-    await this.click('내 프로필로 시작')
+    await this.click('로그인')
     await this.click('이어하기')
   }
 
@@ -285,7 +285,7 @@ export async function runScenarios(browser, base, restartApi) {
       `!!document.querySelector('#root').textContent.trim() && !document.querySelector('vite-error-overlay')`,
     )) && browser.errors.length === 0,
   )
-  await app.click('내 프로필로 시작')
+  await app.click('로그인')
   await until(
     () =>
       app.evaluate(
@@ -520,7 +520,7 @@ export async function runScenarios(browser, base, restartApi) {
   const originalServerRecords = JSON.stringify(snapshot.records)
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.click('내 프로필로 시작')
+  await app.click('로그인')
   await app.click('기록')
   await app.click('전체')
   await app.openMore()

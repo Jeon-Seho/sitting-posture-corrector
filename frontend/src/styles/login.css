@@ -96,7 +96,3 @@
 .cover-form [role='alert'] {
   color: var(--alert-ink);
 }
-
-.collection-entry-link {
-  align-self: flex-start;
-}

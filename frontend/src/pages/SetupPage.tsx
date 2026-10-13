@@ -15,7 +15,6 @@ export function SetupPage({
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
-  accountMode = false,
 }: {
   camera: CameraController
   onStart: () => void
@@ -23,7 +22,6 @@ export function SetupPage({
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
-  accountMode?: boolean
 }) {
   const on = camera.state === 'on'
   const registered = !!camera.baseline
@@ -176,29 +174,23 @@ export function SetupPage({
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body">
-              {accountMode ? (
-                <p className="fine">
-                  확인된 측정 요약과 사건을 내 계정에 보관합니다. 영상과 관절 좌표는 전송하지 않습니다.
-                </p>
-              ) : (
-                onServerMode && (
-                  <>
-                    <label className="row">
-                      <input
-                        type="checkbox"
-                        checked={serverMode}
-                        disabled={serverModeDisabled}
-                        onChange={(event) => onServerMode(event.target.checked)}
-                      />
-                      서버 판정 사용 · 개발 연결
-                    </label>
-                    <p className="fine">
-                      개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
-                      보내지 않습니다.
-                      {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
-                    </p>
-                  </>
-                )
+              {onServerMode && (
+                <>
+                  <label className="row">
+                    <input
+                      type="checkbox"
+                      checked={serverMode}
+                      disabled={serverModeDisabled}
+                      onChange={(event) => onServerMode(event.target.checked)}
+                    />
+                    서버 판정 사용 · 개발 연결
+                  </label>
+                  <p className="fine">
+                    개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
+                    보내지 않습니다.
+                    {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
+                  </p>
+                </>
               )}
               <div className="row">
                 <button

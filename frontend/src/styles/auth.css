@@ -1,0 +1,135 @@
+/* Sign-up consent step (docs/design/consent-proposal.md). */
+.consent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.consent-all[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--primary-ink);
+}
+
+.consent-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.consent-row-strong {
+  border-color: var(--primary);
+}
+
+.consent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.consent-title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.consent-tag {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.consent-tag.required {
+  color: var(--primary-ink);
+}
+
+.consent-choice {
+  flex: none;
+}
+
+.consent-choice button {
+  height: 30px;
+  padding: 0 12px;
+}
+
+.consent-more {
+  align-self: flex-start;
+}
+
+.consent-notice {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.consent-notice dt {
+  color: var(--muted);
+}
+
+.consent-notice dd {
+  margin: 0;
+}
+
+.consent-warning {
+  color: var(--alert-ink);
+}
+
+.signup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Sign-up step 3 hosts the 「자세 등록」 page without the app sidebar. */
+.signup-posture {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--titlebar-h) + 16px) var(--main-pad-x) var(--main-pad-bottom);
+  gap: 12px;
+}
+
+.signup-posture-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.signup-posture-note {
+  margin: 0;
+}
+
+/*
+ * Narrower than the in-app 「자세 등록」 page: the width is set so the 4:3 camera ends level with
+ * the side panel (「이렇게 앉으면 좋아요」 card). Until the panel is measured, about 70%.
+ */
+.signup-posture-main {
+  width: min(100%, calc(var(--signup-panel-h, 0px) * 4 / 3 + var(--side-w) + var(--view-gap)));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--view-gap);
+}
+
+/* 「이전」·「건너뛰기」 sit at the bottom right. */
+.signup-posture-foot {
+  margin-top: auto;
+  justify-content: flex-end;
+}
+
+.signup-posture-main:not([style]) {
+  width: 70%;
+}
+
+@media (max-width: 900px) {
+  .signup-posture-main,
+  .signup-posture-main:not([style]) {
+    width: 100%;
+  }
+}

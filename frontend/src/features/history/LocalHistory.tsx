@@ -25,12 +25,10 @@ export function LocalHistory({
   records,
   measuring,
   onStart,
-  accountMode = false,
 }: {
   records: RecordItem[]
   measuring: boolean
   onStart: () => void
-  accountMode?: boolean
 }) {
   const [mode, setMode] = useState<HistoryMode>('all')
   const [period, setPeriod] = useState<Period>('week')
@@ -50,7 +48,7 @@ export function LocalHistory({
             {localDay(now.toISOString())} 기준
             {hasDemo &&
               ` · ${mode === 'all' ? '실제 웹캠·합성 시연 합산' : mode === 'camera' ? '실제 웹캠 기록' : '합성 시연 기록'}`}{' '}
-            · {accountMode ? '내 계정에 저장된 요약' : '이 기기에 저장된 요약'}
+            · 이 기기에 저장된 요약
           </p>
         </div>
         <div className="page-actions">
