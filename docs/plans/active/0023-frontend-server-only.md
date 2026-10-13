@@ -3,7 +3,7 @@
 - 상태: in_progress (1단계 완료, 0단계 팀 결정 대기)
 - 담당: FE
 - 시작일: 2026-10-11
-- 관련 요구사항/ADR: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 5장, FE 할 일 8장),
+- 관련 요구사항/ADR: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 4장, FE 할 일 7장),
   [Kafka 실시간 전달 계획](0022-kafka-realtime-pipeline.md), [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md),
   DevOps `DevOps` 브랜치 `platform/`(판정 경로), DB 담당 `feature/repo-backend-db-v2`(팀 API, 미병합)
 
@@ -115,7 +115,7 @@
   측정 좌표는 0.5초마다 8장 정도를 평균 없이 통째로 보내고, 평균은 등록(보정 약 48장 → 18개 한 세트)에서만 낸다.
   카메라·의자 위치가 바뀌었을 때 재등록을 안내하는 기능은 지금 범위에 넣지 않는다.
 - 2026-10-12: 자세 데이터 수집 CSV를 `posture-pilot-v3`로 바꿨다(앱 판정·규칙 특징 열 제거, `bb5fd45`). 문서의 「라벨」은 서버·ML 정답만 뜻한다.
-- 2026-10-12: DevOps/BE 회신(10/11, 아키텍처 v5) 반영([FE 제안서](../../design/fe-server-proposal.md) 1·4장). 게이트웨이는 FE가 만들지 않고 BE 입출구 서버 `ws`가 맡는다. 측정 종료는 WebSocket `end`(회의 R-4).
+- 2026-10-12: DevOps/BE 회신(10/11, 아키텍처 v5) 반영([FE 제안서](../../design/fe-server-proposal.md) 1장, BE 제안 확인표는 git 이력). 게이트웨이는 FE가 만들지 않고 BE 입출구 서버 `ws`가 맡는다. 측정 종료는 WebSocket `end`(회의 R-4).
   두 귀가 모두 있어야 판정 가능으로 규칙을 바꿨다(S3, `pose.ts`·시험 데이터 `one_ear_missing`). 기준값은 서버가 보정 프레임으로 계산(P2).
   학습 라벨 경로(M1)는 회의 안건이다.
 - 남은 질문: 0단계 전체. 자세 데이터 수집 화면의 새 요구(BE·ML).

@@ -33,7 +33,7 @@
 
 ## 결과
 
-- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [FE 제안서](../design/fe-server-proposal.md) 6장.
+- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [FE 제안서](../design/fe-server-proposal.md) 5장.
 - 서버가 앱과 같은 결과를 내도록 FE가 [FE 제안서](../design/fe-server-proposal.md)와
   [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)를 넘긴다. 앱 판정 코드는 이 자료를 만든 뒤 지운다.
 - 개인정보 경계가 바뀐다. 좌표를 보내므로 가입 때 좌표 수집 동의를 받는다(동의문은 FE, 저장 위치는 DB 요청 중).
@@ -42,6 +42,6 @@
 
 ## 아직 정하지 않은 것
 
-[FE 제안서](../design/fe-server-proposal.md) 5장(N1~N18).
+[FE 제안서](../design/fe-server-proposal.md) 4장(N1~N19).
 특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱이 붙는 곳은 2026-10-11 아키텍처 v5에서 BE가 만드는 입출구 서버(`auth`·`api`·`ws`)로 정해졌다(처음에는 FE의 독립 게이트웨이였다, [FE 제안서](../design/fe-server-proposal.md) 1장).
