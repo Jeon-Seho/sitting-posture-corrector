@@ -49,8 +49,6 @@ export function LocalHistory({
   const warnings = selected.reduce((n, r) => n + r.events.length, 0)
   const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
   const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
-  const total = selected.reduce((n, r) => n + r.total, 0)
-  const excluded = selected.reduce((n, r) => n + Math.max(0, r.total - r.valid), 0)
   const title = PERIODS.find(([id]) => id === period)![2]
   return (
     <>
@@ -92,7 +90,7 @@ export function LocalHistory({
       )}
 
       <div className="records-stack">
-        <Ledger cols={4}>
+        <Ledger cols={3}>
           <Stat
             dataStat="rate"
             label="바른 자세 유지율"
@@ -121,11 +119,6 @@ export function LocalHistory({
                   }`
                 : '측정 후에 계산돼요'
             }
-          />
-          <Stat
-            label="확인 못 한 시간"
-            value={formatDuration(excluded)}
-            sub={total > 0 ? `전체 시간의 ${((excluded / total) * 100).toFixed(1)}%` : '측정 후에 계산돼요'}
           />
         </Ledger>
 
