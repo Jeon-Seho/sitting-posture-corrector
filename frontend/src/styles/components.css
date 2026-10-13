@@ -177,7 +177,7 @@
     border-color: var(--primary-press);
   }
   .btn-danger:hover:not(:disabled) {
-    background: #f8d3d8;
+    background: #fbd9c6;
   }
   .chip:hover:not(:disabled) {
     background: var(--surface-2);

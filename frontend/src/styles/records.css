@@ -135,94 +135,8 @@
   margin-left: 1px;
   color: var(--muted);
 }
-.day-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.day-row + .day-row {
-  border-top: 1px solid var(--line);
-}
-.day-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 12px 6px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.day-head:hover {
-  background: var(--surface-2);
-}
-.day-head:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.day-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.day-text strong {
-  font-size: 16px;
-}
-.day-text span,
-.day-alerts {
-  font-size: 13px;
-  color: var(--muted);
-}
-.day-alerts b {
-  color: var(--ink);
-  margin-left: 2px;
-}
-.day-caret {
-  color: var(--muted);
-  transition: transform 0.2s ease;
-}
-.day-row.is-open .day-caret {
-  transform: rotate(180deg);
-}
-.day-body {
-  padding: 4px 6px 16px;
-}
-.day-facts {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 12px;
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-}
-.day-facts dt {
-  font-size: 12px;
-  color: var(--muted);
-}
-.day-facts dd {
-  margin: 4px 0 0;
-  font-weight: 700;
-}
 .day-sessions .history-record + .history-record {
   border-top: 1px dashed var(--line);
-}
-@media (max-width: 860px) {
-  .day-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .day-alerts {
-    display: none;
-  }
-  .day-head {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
 }
 
 /* Same vertical rhythm as the settings column (16px between cards). */
@@ -240,7 +154,9 @@
 /* Grouped numbers: time · posture warnings · recovery, each with its own tint. */
 :root {
   /* Chosen by the user 2026-10-13: A2 살구, B3 올리브 크림 (text contrast 6.3:1). */
-  --metric-warn-bg: #fce8dc;
+  --metric-warn-bg: #fee5c9;
+  /* 망고 75 warning (2026-10-13); time group one step deeper than the card so it reads as a block. */
+  --metric-time-bg: #f5e6d4;
   --metric-recover-bg: #eef0dd;
 }
 .metric-groups {
@@ -253,7 +169,7 @@
   padding: 12px 14px;
 }
 .metric-group.is-time {
-  background: var(--surface-2);
+  background: var(--metric-time-bg);
 }
 .metric-group.is-warn {
   background: var(--metric-warn-bg);
@@ -304,5 +220,245 @@
 @media (max-width: 860px) {
   .metric-groups {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Activity levels (measured time per day), shared by the heatmap and the calendar.
+   Sage green (2026-10-13): reads as "grass" and stays apart from the apricot UI. */
+:root {
+  --level-0: var(--surface-3);
+  --level-1: #e3ead2;
+  --level-2: #c2d3a2;
+  --level-3: #93b072;
+  --level-4: #5f8749;
+}
+
+/* 측정한 날: contribution-style heatmap in the pinned 달력 head (display only). */
+.heatmap {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.heatmap-body {
+  display: flex;
+  gap: 4px;
+}
+.heatmap-weekdays,
+.heatmap-week {
+  display: grid;
+  grid-template-rows: 14px repeat(7, 12px);
+  gap: 3px;
+}
+.heatmap-weekdays {
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--muted);
+}
+.heatmap-weekdays span:first-child {
+  grid-row: 2;
+}
+.heatmap-grid {
+  display: flex;
+  gap: 3px;
+}
+.heatmap-month {
+  width: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.heatmap-cell {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--level-0);
+}
+.heatmap-cell.level-1 { background: var(--level-1); }
+.heatmap-cell.level-2 { background: var(--level-2); }
+.heatmap-cell.level-3 { background: var(--level-3); }
+.heatmap-cell.level-4 { background: var(--level-4); }
+.heatmap-cell.is-future {
+  visibility: hidden;
+}
+.heatmap-cell.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--primary);
+}
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.heatmap-legend .heatmap-cell {
+  width: 10px;
+  height: 10px;
+}
+
+/* The 달력 head stays put while the calendar scrolls under it. */
+.calendar-page-head {
+  position: sticky;
+  /* Chromium sticks below the scroller's padding; pull it up into that strip. */
+  top: calc(-1 * var(--main-pad-top));
+  z-index: 4;
+  flex-wrap: wrap;
+  margin: calc(-1 * var(--main-pad-top)) calc(-1 * var(--main-pad-x)) 0;
+  padding: var(--main-pad-top) var(--main-pad-x) 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.calendar-day-record {
+  scroll-margin-top: 180px;
+}
+
+/* 오늘의 기록 */
+.day-record {
+  display: grid;
+  gap: 14px;
+}
+.day-record-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+/* 달력 tab: month calendar (tiles tinted like the 잔디, this week on a band). */
+.calendar-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.calendar-head strong {
+  min-width: 112px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: var(--fw-bold, 700);
+}
+.calendar-head .chip {
+  margin-left: auto;
+}
+.calendar-grid {
+  display: grid;
+  gap: 2px;
+}
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border-radius: 18px;
+}
+.calendar-week.is-this-week {
+  background: var(--primary-tint);
+  box-shadow: inset 0 0 0 1px var(--primary-soft);
+}
+.calendar-weekdays {
+  padding-block: 0;
+}
+.calendar-weekday {
+  padding-left: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.calendar-weekday.is-sunday {
+  color: var(--alert-ink);
+}
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 6px;
+  min-height: 86px;
+  padding: 8px 10px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.calendar-day.has-record.level-1 { background: #f3f6ea; }
+.calendar-day.has-record.level-2 { background: #e9f0dc; }
+.calendar-day.has-record.level-3 { background: #dce8c6; }
+.calendar-day.has-record.level-4 { background: #cadcab; }
+.calendar-day:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.calendar-day:disabled {
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: default;
+}
+.calendar-day.is-selected,
+.calendar-day.is-selected:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.calendar-day:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.calendar-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.calendar-date {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: -4px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+}
+.calendar-day.is-sunday .calendar-date {
+  color: var(--alert-ink);
+}
+.calendar-day.is-today .calendar-date {
+  background: var(--primary);
+  color: #fff;
+}
+.calendar-rate {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-ink);
+}
+.calendar-rate.is-good {
+  color: var(--good-ink);
+}
+.calendar-time {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-time.level-1 { background: var(--level-1); color: #3f5a2f; }
+.calendar-time.level-2 { background: var(--level-2); color: #2f4723; }
+.calendar-time.level-3 { background: var(--level-3); color: #fff; }
+.calendar-time.level-4 { background: var(--level-4); color: #fff; }
+@media (max-width: 860px) {
+  .calendar-day {
+    min-height: 64px;
+    padding: 6px;
+  }
+  .calendar-rate {
+    display: none;
   }
 }
