@@ -69,8 +69,9 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     const days = week[0].findAll((n) => n.props.role === 'gridcell').map((n) => n.props['aria-label'].split('일')[0])
     expect(days).toEqual(['11', '12', '13', '14', '15', '16', '17'])
     expect(gridDay('14일').props.disabled).toBe(true)
-    expect(gridDay('2일').props.className).toContain('has-record level-4')
-    expect(gridDay('2일').findAll((n) => String(n.props.className).includes('calendar-time level-4'))).toHaveLength(1)
+    expect(gridDay('2일').props.className).toContain('has-record')
+    expect(JSON.stringify(gridDay('2일').children.map((n) => (typeof n === 'string' ? n : n.children)))).toContain('1시간 7분')
+    expect(JSON.stringify(gridDay('2일').children.map((n) => (typeof n === 'string' ? n : n.children)))).toContain('75%')
 
     act(() => gridDay('12일').props.onClick())
     expect(text()).toContain('10월 12일 (월) 기록')

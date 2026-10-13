@@ -4,7 +4,7 @@ import { Card, ComboChart, Legend } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
 import { GOOD_RATE } from '../../components/RateRing'
 import { formatDuration } from '../../lib/stats'
-import { activityLevel, addDays, dateOf, dayKey, type DailyStat } from './recordsSource'
+import { addDays, dateOf, dayKey, type DailyStat } from './recordsSource'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -16,8 +16,8 @@ export function shortDuration(sec: number) {
 }
 
 /**
- * Month calendar (2026-10-13, Toss-style): each day shows its measured time as a pill in
- * the 잔디 colours and its keep rate; pressing a day opens that day's record below.
+ * Month calendar (2026-10-13, Toss-style): plain cells with the date, that day's keep rate
+ * and measured time underneath; pressing a day opens that day's record below.
  * The week containing today sits on a horizontal band.
  */
 export function MonthCalendar({
@@ -67,20 +67,23 @@ export function MonthCalendar({
   return (
     <div className="calendar">
       <div className="calendar-head">
-        <button className="btn btn-icon btn-sm btn-quiet" aria-label="이전 달" onClick={() => shift(-1)}>
-          <CaretLeft size={18} weight="bold" />
-        </button>
-        <strong>
-          {month.y}년 {month.m + 1}월
-        </strong>
-        <button
-          className="btn btn-icon btn-sm btn-quiet"
-          aria-label="다음 달"
-          disabled={atLatest}
-          onClick={() => shift(1)}
-        >
-          <CaretRight size={18} weight="bold" />
-        </button>
+        <span />
+        <div className="calendar-month">
+          <button className="btn btn-icon btn-sm btn-quiet" aria-label="이전 달" onClick={() => shift(-1)}>
+            <CaretLeft size={18} weight="bold" />
+          </button>
+          <strong>
+            {month.y}년 {month.m + 1}월
+          </strong>
+          <button
+            className="btn btn-icon btn-sm btn-quiet"
+            aria-label="다음 달"
+            disabled={atLatest}
+            onClick={() => shift(1)}
+          >
+            <CaretRight size={18} weight="bold" />
+          </button>
+        </div>
         {!atLatest && (
           <button className="chip" onClick={toToday}>
             이번 달
@@ -107,28 +110,27 @@ export function MonthCalendar({
               {days.map((day, i) => {
                 if (!day) return <span key={`blank-${i}`} className="calendar-blank" />
                 const s = byDay.get(day)
-                const level = s ? activityLevel(s.valid_sec) : 0
                 const rate = s?.good_ratio ?? null
                 return (
                   <button
                     key={day}
                     type="button"
                     role="gridcell"
-                    className={`calendar-day ${s ? `has-record level-${level}` : ''} ${i === 0 ? 'is-sunday' : ''} ${day === selected ? 'is-selected' : ''} ${day === today ? 'is-today' : ''}`}
+                    className={`calendar-day ${s ? 'has-record' : ''} ${i === 0 ? 'is-sunday' : ''} ${day === selected ? 'is-selected' : ''} ${day === today ? 'is-today' : ''}`}
                     disabled={day > today}
                     aria-pressed={day === selected}
                     aria-label={`${dateOf(day).getDate()}일 ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
                     onClick={() => onSelect(day)}
                   >
-                    <span className="calendar-day-top">
-                      <span className="calendar-date">{dateOf(day).getDate()}</span>
-                      {s && (
+                    <span className="calendar-date">{dateOf(day).getDate()}</span>
+                    {s && (
+                      <>
                         <span className={`calendar-rate ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}>
                           {rate === null ? '—' : `${Math.round(rate * 100)}%`}
                         </span>
-                      )}
-                    </span>
-                    {s && <span className={`calendar-time level-${level}`}>{shortDuration(s.valid_sec)}</span>}
+                        <span className="calendar-time">{shortDuration(s.valid_sec)}</span>
+                      </>
+                    )}
                   </button>
                 )
               })}
