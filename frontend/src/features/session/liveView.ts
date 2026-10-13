@@ -93,6 +93,8 @@ export function statusCopy(view: LiveView) {
     case 'recovering':
       return { pill: '좋아요, 돌아오고 있어요', title: '조금만 그대로 있어 주세요', tone: 'good' as const }
     case 'unmeasurable':
+      if (view.notice?.startsWith('어깨가 보이지 않아'))
+        return { pill: '어깨가 보이지 않아요', title: '어깨가 보이게 앉아 주세요', tone: 'unknown' as const }
       return { pill: '자세를 확인할 수 없어요', title: '화면 안으로 들어와 주세요', tone: 'unknown' as const }
     case 'analysisPaused':
       return { pill: '분석이 잠시 멈췄어요', title: '분석 연결을 기다리고 있어요', tone: 'unknown' as const }

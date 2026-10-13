@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Info } from '@phosphor-icons/react'
+import { Amount } from './Amount'
 import { STATE_LABEL, type PostureState } from '../data/posture'
 
 export function Card({
@@ -44,16 +45,19 @@ export function Stat({
   hint,
   tone,
   small = false,
+  dataStat,
 }: {
   label: string
   value: string
-  sub?: string
+  sub?: ReactNode
   hint?: string
   tone?: 'good' | 'bad'
   small?: boolean
+  /** Stable hook for the records page checks (`[data-stat] .records-stat-value`). */
+  dataStat?: string
 }) {
   return (
-    <div className="stat">
+    <div className="stat" data-stat={dataStat}>
       <div className="stat-label">
         {label}
         {hint && (
@@ -62,7 +66,9 @@ export function Stat({
           </span>
         )}
       </div>
-      <div className={`stat-value ${small ? 'sm' : ''} ${tone ?? ''}`}>{value}</div>
+      <div className={`stat-value ${small ? 'sm' : ''} ${tone ?? ''} ${dataStat ? 'records-stat-value' : ''}`}>
+        <Amount value={value} />
+      </div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   )

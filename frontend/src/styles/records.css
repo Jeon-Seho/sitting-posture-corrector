@@ -120,3 +120,189 @@
   font-size: 14px;
 }
 
+
+/* 일별 상세: one keep-rate ring per day; open a day for its totals and sessions. */
+.rate-ring-value {
+  font-family: var(--font-num);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.rate-ring-value small {
+  font-size: 0.55em;
+  font-weight: 600;
+  margin-left: 1px;
+  color: var(--muted);
+}
+.day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.day-row + .day-row {
+  border-top: 1px solid var(--line);
+}
+.day-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.day-head:hover {
+  background: var(--surface-2);
+}
+.day-head:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.day-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.day-text strong {
+  font-size: 16px;
+}
+.day-text span,
+.day-alerts {
+  font-size: 13px;
+  color: var(--muted);
+}
+.day-alerts b {
+  color: var(--ink);
+  margin-left: 2px;
+}
+.day-caret {
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+.day-row.is-open .day-caret {
+  transform: rotate(180deg);
+}
+.day-body {
+  padding: 4px 6px 16px;
+}
+.day-facts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.day-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.day-facts dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+.day-sessions .history-record + .history-record {
+  border-top: 1px dashed var(--line);
+}
+@media (max-width: 860px) {
+  .day-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .day-alerts {
+    display: none;
+  }
+  .day-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+}
+
+/* Same vertical rhythm as the settings column (16px between cards). */
+.records-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+}
+.records-stack > .ledger,
+.records-stack > .card {
+  margin: 0;
+}
+
+/* Grouped numbers: time · posture warnings · recovery, each with its own tint. */
+:root {
+  /* Chosen by the user 2026-10-13: A2 살구, B3 올리브 크림 (text contrast 6.3:1). */
+  --metric-warn-bg: #fce8dc;
+  --metric-recover-bg: #eef0dd;
+}
+.metric-groups {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.4fr;
+  gap: 10px;
+}
+.metric-group {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.metric-group.is-time {
+  background: var(--surface-2);
+}
+.metric-group.is-warn {
+  background: var(--metric-warn-bg);
+}
+.metric-group.is-recover {
+  background: var(--metric-recover-bg);
+}
+.metric-group-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px 14px;
+  margin: 0;
+}
+/* Pretendard Variable weights: label 600, number 800, unit 500, hint 400. */
+.metric-group-items dt {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+}
+.metric-group-items dd {
+  margin: 6px 0 0;
+}
+/* Shared number style (Amount): heavy digits, light small units. */
+.amount {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.amount-n {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.amount-u {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0 3px 0 2px;
+}
+.metric-group.is-warn .amount-n {
+  color: var(--alert-ink);
+}
+.metric-group.is-recover .amount-n {
+  color: var(--good-ink);
+}
+@media (max-width: 860px) {
+  .metric-groups {
+    grid-template-columns: 1fr;
+  }
+}

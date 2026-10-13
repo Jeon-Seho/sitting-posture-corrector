@@ -52,17 +52,17 @@ export function useProfileForm({
     try {
       writeLocal(KEYS.profile, next)
       setProfile(next)
-      setError(notify ? '저장했습니다.' : '')
+      setError(notify ? '저장했어요.' : '')
       return true
     } catch {
-      setError('브라우저에 저장하지 못했습니다. 저장 공간과 권한을 확인해 주세요.')
+      setError('저장하지 못했어요. 저장 공간과 권한을 확인해 주세요.')
       return false
     }
   }
 
   function cancelEditing() {
     resetFields()
-    setError('변경을 취소했습니다.')
+    setError('변경을 취소했어요.')
   }
 
   function cancelWithdrawal() {
@@ -84,11 +84,11 @@ export function useProfileForm({
       setDeleting(false)
       setConsent(false)
       setConfirmDelete(false)
-      setError('이 브라우저의 사용자 자료를 삭제했습니다.')
+      setError('이 기기의 사용자 자료를 삭제했어요.')
     } catch {
       setConfirmDelete(false)
       reloadStorage()
-      setError('자료를 모두 삭제하지 못했습니다. 남은 자료를 다시 확인한 뒤 시도해 주세요.')
+      setError('자료를 모두 삭제하지 못했어요. 남은 자료를 확인한 뒤 다시 시도해 주세요.')
     }
   }
 

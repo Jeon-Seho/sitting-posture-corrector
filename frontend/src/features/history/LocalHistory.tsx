@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Segmented } from '../../components/Segmented'
 import { Play } from '@phosphor-icons/react'
 import { RecordComparison } from '../../components/RecordComparison'
 import { historyFor, localDay, type HistoryMode, type Period } from '../../lib/history'
 import { summary, type RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatRate } from '../../lib/stats'
-import { RecordHistoryItem } from './RecordHistoryItem'
+import { DailyDetail } from './DailyDetail'
+import { Card, ComboChart, Ledger, Legend, Stat } from '../../components/ui'
+import { GOOD_RATE } from '../../components/RateRing'
 
 const PERIODS: [Period, string, string][] = [
   ['today', '오늘', '오늘 기록'],
@@ -25,19 +27,28 @@ export function LocalHistory({
   records,
   measuring,
   onStart,
+  todayRequest = 0,
 }: {
   records: RecordItem[]
+  /** Changes each time the sidebar's today card is pressed: show the "today" period. */
+  todayRequest?: number
   measuring: boolean
   onStart: () => void
 }) {
   const [mode, setMode] = useState<HistoryMode>('all')
-  const [period, setPeriod] = useState<Period>('week')
+  const [period, setPeriod] = useState<Period>(todayRequest ? 'today' : 'week')
+  useEffect(() => {
+    if (todayRequest) setPeriod('today')
+  }, [todayRequest])
   const now = new Date()
   const hasDemo = records.some((r) => r.mode === 'demo')
   const selected = historyFor(records, mode, period, now)
   const stats = summary(selected)
+  const warnings = selected.reduce((n, r) => n + r.events.length, 0)
   const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
   const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
+  const total = selected.reduce((n, r) => n + r.total, 0)
+  const excluded = selected.reduce((n, r) => n + Math.max(0, r.total - r.valid), 0)
   const title = PERIODS.find(([id]) => id === period)![2]
   return (
     <>
@@ -78,118 +89,88 @@ export function LocalHistory({
         </div>
       )}
 
-      <div className="view">
-        <div className="view-main">
-          <div className="records-stats">
-            <section className="card" data-stat="rate">
-              <div className="stat-label">평균 바른 자세</div>
-              <div className="records-stat-value">
-                <span className="num">{stats.rate === null ? '—' : Math.round(stats.rate * 100)}</span>
-                <small>{stats.rate === null ? '' : '%'}</small>
-              </div>
-              <p className="records-stat-note">측정한 시간 가운데 기준 자세를 유지한 비율</p>
-            </section>
-            <section className="card" data-stat="valid">
-              <div className="stat-label">측정한 시간</div>
-              <div className="records-stat-value">
-                <span className="num" style={{ fontSize: 28 }}>
-                  {formatDuration(stats.valid)}
-                </span>
-              </div>
-              <p className="records-stat-note">
-                측정 <span data-stat="count">{selected.length}</span>회 · 확인 못 한 시간 제외
-              </p>
-            </section>
-            <section className="card" data-stat="alerts">
-              <div className="stat-label">받은 알림</div>
-              <div className="records-stat-value">
-                <span className="num">{alerts}</span>
-                <small>회</small>
-              </div>
-              <p className="records-stat-note">
-                {stats.valid > 0 ? `한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')} 정도` : '측정 후에 계산돼요'}
-              </p>
-            </section>
+      <div className="records-stack">
+        <Ledger cols={4}>
+          <Stat
+            dataStat="rate"
+            label="바른 자세 유지율"
+            value={stats.rate === null ? '—' : `${Math.round(stats.rate * 100)}%`}
+            sub="측정한 시간 가운데 기준 자세를 유지한 비율"
+            tone={stats.rate !== null && stats.rate >= GOOD_RATE ? 'good' : undefined}
+          />
+          <Stat
+            dataStat="valid"
+            label="측정 시간"
+            value={formatDuration(stats.valid)}
+            sub={
+              <>
+                세션 <span data-stat="count">{selected.length}</span>회 · 확인 못 한 시간 제외
+              </>
+            }
+          />
+          <Stat
+            dataStat="alerts"
+            label="알림"
+            value={`${alerts}회`}
+            sub={
+              stats.valid > 0
+                ? `자세 경고 ${warnings}번${
+                    stats.valid >= 1800 ? ` · 한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')}` : ''
+                  }`
+                : '측정 후에 계산돼요'
+            }
+          />
+          <Stat
+            label="확인 못 한 시간"
+            value={formatDuration(excluded)}
+            sub={total > 0 ? `전체 시간의 ${((excluded / total) * 100).toFixed(1)}%` : '측정 후에 계산돼요'}
+          />
+        </Ledger>
+
+        <Card title="날짜별 유지율과 측정 시간" note="막대는 바른 자세 유지율, 선은 측정 시간이에요.">
+          <ComboChart
+            bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.rate }))}
+            line={days.map((d) => (d.valid > 0 ? d.valid / 3600 : null))}
+            barUnit="%"
+            lineUnit="시간"
+            barMax={1}
+            barName="바른 자세 유지율"
+            lineName="측정 시간"
+            formatBar={(rate) => `${(rate * 100).toFixed(1)}%`}
+            formatLine={(hours) => formatDuration(hours * 3600)}
+            details={(i) => [
+              { label: '세션', value: `${days[i].sessions}회` },
+              { label: '알림', value: `${days[i].alerts}회` },
+            ]}
+          />
+          <Legend
+            items={[
+              { color: 'var(--primary-soft)', label: '바른 자세 유지율' },
+              { color: 'var(--primary)', label: '측정 시간' },
+            ]}
+          />
+        </Card>
+
+        <Card title="일별 상세" note={selected.length ? '원을 누르면 그날의 세션을 볼 수 있어요' : undefined}>
+          <DailyDetail records={selected} allStarts={records.map((r) => r.startedAt)} />
+          {selected.length === 0 && (
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
+              <Play size={15} weight="fill" className="icon" />
+              {measuring ? '진행 중인 측정으로' : '측정 시작'}
+            </button>
+          )}
+        </Card>
+
+        <details className="more">
+          <summary>처음과 최근 비교</summary>
+          <div className="more-body">
+            <p className="fine">
+              조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
+              개선 근거가 아닙니다.
+            </p>
+            <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
           </div>
-
-          <section className="card records-chart" aria-label="날짜별 바른 자세 비율">
-            <h3 className="card-title" style={{ marginBottom: 14 }}>
-              날짜별 바른 자세 비율
-            </h3>
-            <div className="bars" style={{ gap: days.length > 7 ? 4 : 12 }}>
-              {days.map((d) => (
-                <div
-                  className={`bar ${d.today ? 'is-today' : ''}`}
-                  key={d.key}
-                  tabIndex={0}
-                  aria-label={`${d.title} ${d.rate === null ? '기록 없음' : `바른 자세 ${Math.round(d.rate * 100)}%`}`}
-                >
-                  <div className="bar-tip" aria-hidden="true">
-                    <div className="combo-tip-title">{d.title}</div>
-                    {d.rate === null ? (
-                      <div className="combo-tip-row">측정 기록이 없어요</div>
-                    ) : (
-                      <>
-                        <div className="combo-tip-row">
-                          <i style={{ background: 'var(--primary)' }} />
-                          바른 자세<b>{Math.round(d.rate * 100)}%</b>
-                        </div>
-                        <div className="combo-tip-row is-detail">
-                          측정 시간<b>{formatDuration(d.valid)}</b>
-                        </div>
-                        <div className="combo-tip-row is-detail">
-                          측정 횟수<b>{d.sessions}회</b>
-                        </div>
-                        <div className="combo-tip-row is-detail">
-                          알림<b>{d.alerts}회</b>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  {days.length <= 7 && (
-                    <span className="bar-value">{d.rate === null ? '—' : `${Math.round(d.rate * 100)}%`}</span>
-                  )}
-                  <span
-                    className={`bar-fill ${d.rate === null ? 'is-empty' : ''}`}
-                    style={{ height: `${d.rate === null ? 2 : Math.max(3, d.rate * 82)}%` }}
-                  />
-                  <span className="bar-label">{days.length <= 7 || d.today || d.date.getDate() % 5 === 0 ? d.label : ' '}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <details className="more">
-            <summary>처음과 최근 비교</summary>
-            <div className="more-body">
-              <p className="fine">
-                조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
-                개선 근거가 아닙니다.
-              </p>
-              <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
-            </div>
-          </details>
-        </div>
-        <div className="view-side">
-          <section className="card">
-            <h3 className="card-title" style={{ marginBottom: 6 }}>
-              측정 기록
-            </h3>
-            {selected.length === 0 ? (
-              <div style={{ padding: '10px 0' }}>
-                <p className="fine">선택한 기간에 기록이 없어요. 첫 측정을 마치면 여기에 쌓여요.</p>
-                <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
-                  <Play size={15} weight="fill" className="icon" />
-                  {measuring ? '진행 중인 측정으로' : '측정 시작'}
-                </button>
-              </div>
-            ) : (
-              [...selected]
-                .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-                .map((record) => <RecordHistoryItem key={record.id} record={record} />)
-            )}
-          </section>
-        </div>
+        </details>
       </div>
     </>
   )
@@ -202,13 +183,14 @@ function dayBars(records: RecordItem[], count: number, now: Date) {
     date.setHours(12, 0, 0, 0)
     date.setDate(date.getDate() - (count - 1 - i))
     const key = localDay(date.toISOString())
-    const dayRecords = records.filter((r) => localDay(r.endedAt) === key)
+    const dayRecords = records.filter((r) => localDay(r.startedAt) === key)
     const day = summary(dayRecords)
     return {
       key,
       date,
       today: key === todayKey,
-      label: count <= 7 ? WEEKDAY[date.getDay()] : String(date.getDate()),
+      label: count <= 7 ? `${date.getMonth() + 1}/${date.getDate()}` : String(date.getDate()),
+      sub: count <= 7 ? WEEKDAY[date.getDay()] : undefined,
       rate: day.rate,
       valid: day.valid,
       sessions: dayRecords.length,

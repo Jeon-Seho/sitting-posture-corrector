@@ -123,7 +123,11 @@ describe('readable stored record details and comparison conditions', () => {
     return JSON.stringify(renderer!.toJSON())
   }
   function fact(label: string) {
-    const term = renderer!.root.findAllByType('dt').find((node) => node.children.join('') === label)
+    // The raw fields live under 개발자용 상세; the summary above uses the same plain words.
+    const term = renderer!.root
+      .findByProps({ className: 'history-dev-details' })
+      .findAllByType('dt')
+      .find((node) => node.children.join('') === label)
     if (!term) throw new Error(`Missing synthetic detail field: ${label}`)
     return term.parent!.findByType('dd').children.join('')
   }

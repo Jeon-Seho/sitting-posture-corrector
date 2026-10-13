@@ -161,7 +161,7 @@ export function useSessionPersistence({
       setRecords(next)
       setDraft((old) => (old?.id === record.id ? null : old))
       pending.current = null
-      setSaveMessage('이 브라우저에 저장했습니다. 기록 탭에 반영되었습니다.')
+      setSaveMessage('이 기기에 저장했어요. 기록에서 볼 수 있어요.')
       setSaveFailed(false)
       try {
         removeSavedDraft(record.id)
@@ -193,7 +193,7 @@ export function useSessionPersistence({
       if (!mounted.current) return
       setRecords(next)
       pending.current = null
-      setSaveMessage('계정에 저장했습니다. 기록 탭에 반영되었습니다.')
+      setSaveMessage('계정에 저장했어요. 기록에서 볼 수 있어요.')
       setSaveFailed(false)
       try {
         repository.forgetPending(record.id)
@@ -261,7 +261,7 @@ export function useSessionPersistence({
   function checkpoint(machine: Machine, server?: ServerCheckpoint): boolean {
     if (!session || ended.current) return false
     if (!writable.current) {
-      setError('중간 기록을 저장할 수 없습니다. 새로고침 시 기록을 잃을 수 있습니다.')
+      setError('중간 기록을 저장할 수 없어요. 새로고침하면 기록을 잃을 수 있어요.')
       return false
     }
     try {
@@ -278,7 +278,7 @@ export function useSessionPersistence({
       else saveDraft(nextDraft)
       return true
     } catch {
-      setError('중간 기록을 저장하지 못했습니다. 새로고침 시 기록을 잃을 수 있습니다.')
+      setError('중간 기록을 저장하지 못했어요. 새로고침하면 기록을 잃을 수 있어요.')
       return false
     }
   }

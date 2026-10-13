@@ -19,7 +19,7 @@ export function RecoveryNotice({
   onFinish,
 }: Props) {
   return (
-    <Card title="중단된 측정이 있습니다">
+    <Card title="중단된 측정이 있어요">
       <p>
         {draft.server
           ? '서버 상태와 미확인 요청을 확인한 뒤 복구합니다. 서버가 재시작되어 세션을 잃었다면 이어할 수 없습니다.'

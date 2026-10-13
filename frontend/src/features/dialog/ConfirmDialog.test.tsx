@@ -119,7 +119,7 @@ describe('confirmation action lifetime', () => {
       await button('실행').props.onClick()
     })
     expect(renderer!.root.findByProps({ role: 'alert' }).children.join('')).toContain(
-      '처리하지 못했습니다',
+      '처리하지 못했어요',
     )
     expect(button('실행').props.disabled).toBe(false)
     await act(async () => {

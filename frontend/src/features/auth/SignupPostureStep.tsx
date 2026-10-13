@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { BrandMark } from '../../components/BrandMark'
 import type { CameraController } from '../../hooks/useCamera'
-import { PosturePage } from '../../pages/PosturePage'
+import { SetupPage } from '../../pages/SetupPage'
 
 /**
- * Sign-up step 3 (optional). Reuses the 「자세 등록」 page as is; the main screens stay with
- * their owner. The width is chosen so the 4:3 camera ends level with the side panel
- * (「이렇게 앉으면 좋아요」 card).
+ * Sign-up step 3 (optional). Reuses the registration of 「측정하기」 as is (its 「다시 등록」 mode,
+ * which never starts a measurement by itself); the main screens stay with their owner.
+ * The width is chosen so the 4:3 camera ends level with the side panel (「이렇게 앉으면 좋아요」 card).
  */
 export function SignupPostureStep({
   camera,
@@ -49,7 +49,7 @@ export function SignupPostureStep({
         className="signup-posture-main"
         style={panelHeight ? { ['--signup-panel-h' as string]: `${panelHeight}px` } : undefined}
       >
-        <PosturePage camera={camera} measuring={false} onMeasure={() => onFinish(true)} />
+        <SetupPage camera={camera} registerAgain onStart={() => onFinish(true)} onCollect={() => {}} />
       </main>
       <footer className="signup-actions signup-posture-foot">
         <button type="button" className="btn btn-quiet" onClick={onBack}>

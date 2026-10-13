@@ -281,3 +281,16 @@
   margin-right: 5px;
   vertical-align: 1px;
 }
+
+/* Big headline numbers use the shared Amount split: units at half size, lighter. */
+.stat-value .amount,
+.stat-value .amount-n {
+  font-size: inherit;
+  font-weight: 800;
+  color: inherit;
+}
+.stat-value .amount-u {
+  font-size: 0.5em;
+  font-weight: 600;
+  color: var(--muted);
+}

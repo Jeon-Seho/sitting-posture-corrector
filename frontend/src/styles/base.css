@@ -59,7 +59,8 @@
   --font-body:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
     'Apple SD Gothic Neo', sans-serif;
-  --font-num: 'Outfit', 'Pretendard Variable', Pretendard, sans-serif;
+  /* Numbers share Pretendard with their Korean units (2026-10-13); weights come from typography.css. */
+  --font-num: var(--font-body);
 
   /* One frame for every tab: same sidebar, header height, side column and gaps. */
   --sidebar-w: 232px;
