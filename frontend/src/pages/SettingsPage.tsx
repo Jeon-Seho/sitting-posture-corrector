@@ -5,6 +5,13 @@ import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
+import { cameraName } from '../features/camera/mainCamera'
+import type { CameraController } from '../hooks/useCamera'
+
+type CameraChoice = Pick<
+  CameraController,
+  'devices' | 'deviceId' | 'state' | 'mainDeviceId' | 'mainMissing' | 'chooseMainCamera' | 'refreshDevices'
+>
 
 type Rules = typeof DEFAULT_RULES
 
@@ -99,6 +106,50 @@ function Slider({
   )
 }
 
+function MainCamera({ camera }: { camera: CameraChoice }) {
+  const { devices } = camera
+  const known = devices.some((d) => d.deviceId === camera.mainDeviceId)
+  // Before camera permission the browser hides names and ids, so there is nothing to choose yet.
+  const hidden = devices.some((d) => !d.deviceId)
+  const unnamed = !hidden && devices.some((d) => !d.label)
+  const desc =
+    devices.length === 0
+      ? '연결된 카메라를 찾지 못했어요. 카메라를 꽂은 뒤 다시 찾아 주세요.'
+      : hidden
+        ? `카메라 ${devices.length}대를 찾았어요. 측정하기에서 카메라를 한 번 켜면 고를 수 있어요.`
+        : camera.mainMissing
+        ? '저장한 메인 카메라를 찾지 못해 기본 카메라를 쓰고 있어요.'
+        : devices.length > 1
+          ? '카메라가 여러 대일 때 측정에 쓸 카메라예요. 바꾸면 다음에 켤 때부터 이 카메라를 써요.'
+          : '연결된 카메라가 1대예요.'
+  return (
+    <Row name="메인 카메라" desc={unnamed ? `${desc} 카메라를 한 번 켜면 이름이 보여요.` : desc}>
+      <div className="setting-control">
+        {devices.length > 0 && !hidden && (
+          <select
+            className="input"
+            style={{ height: 36, width: 'auto', maxWidth: 240, borderRadius: 999, fontSize: 13 }}
+            aria-label="메인 카메라"
+            value={known ? camera.mainDeviceId : ''}
+            onChange={(e) => camera.chooseMainCamera(e.target.value)}
+          >
+            <option value="">기본 카메라 (자동)</option>
+            {devices.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {cameraName(d, i)}
+                {camera.state === 'on' && d.deviceId === camera.deviceId ? ' · 사용 중' : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        <button className="chip" onClick={() => void camera.refreshDevices()}>
+          다시 찾기
+        </button>
+      </div>
+    </Row>
+  )
+}
+
 function Row({ name, desc, children }: { name: string; desc: string; children: ReactNode }) {
   return (
     <div className="setting-row">
@@ -123,7 +174,9 @@ export function SettingsPage({
   account,
   onRegisterAgain,
   onCollect,
+  camera,
 }: {
+  camera?: CameraChoice
   serviceMode?: boolean
   accountMode?: boolean
   rules: Rules
@@ -254,6 +307,7 @@ export function SettingsPage({
                 다시 등록
               </button>
             </Row>
+            {camera && <MainCamera camera={camera} />}
           </Card>
 
           <Card title="컴퓨터를 켤 때">

@@ -10,6 +10,7 @@ import {
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
+import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
@@ -46,6 +47,10 @@ export function useCamera() {
   const [quality, setQuality] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
+  /** Saved main camera; connect() without an id uses it (2026-10-13). */
+  const [mainDeviceId, setMainDeviceId] = useState(readMainCamera)
+  /** The saved main camera was not found at the last connect, so the default one was used. */
+  const [mainMissing, setMainMissing] = useState(false)
   /**
    * The registered baseline outlives the camera: turning the camera off, switching it or a
    * dropped track keeps it for the rest of the app run (plan 0024). Only a new
@@ -132,8 +137,28 @@ export function useCamera() {
     }
   }, [])
 
+  const refreshDevices = useCallback(async () => {
+    setDevices(await listVideoDevices())
+  }, [])
+
+  // Plugging or unplugging a camera updates the choices in settings.
+  useEffect(() => {
+    const media = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined
+    if (!media?.addEventListener) return
+    void refreshDevices()
+    const changed = () => void refreshDevices()
+    media.addEventListener('devicechange', changed)
+    return () => media.removeEventListener('devicechange', changed)
+  }, [refreshDevices])
+
   const connect = useCallback(
+    /** An explicit `selectedId` also becomes the main camera. */
     async (selectedId?: string) => {
+      if (selectedId) {
+        writeMainCamera(selectedId)
+        setMainDeviceId(selectedId)
+      }
+      const wanted = selectedId || readMainCamera()
       release()
       const token = generation.current
       const isCurrent = () => generation.current === token
@@ -153,7 +178,16 @@ export function useCamera() {
       }, PREPARATION_TIMEOUT_MS)
 
       try {
-        const incoming = await requestCamera(selectedId)
+        let incoming: MediaStream
+        try {
+          incoming = await requestCamera(wanted || undefined)
+          setMainMissing(false)
+        } catch (cause) {
+          if (!wanted || !missingDevice(cause)) throw cause
+          // The saved main camera is unplugged: keep the choice and use the default camera.
+          incoming = await requestCamera()
+          setMainMissing(true)
+        }
         if (!isCurrent()) {
           stopCameraTracks(incoming)
           return
@@ -228,6 +262,13 @@ export function useCamera() {
     [clearLoadingTimer, receiveObservation, release],
   )
 
+  /** Saves the main camera and switches to it when another camera is on. */
+  const chooseMainCamera = (id: string) => {
+    writeMainCamera(id)
+    setMainDeviceId(id)
+    if (id && (state === 'on' || state === 'loading') && id !== deviceId) void connect(id)
+  }
+
   const calibrate = () => {
     if (state !== 'on' || !quality || calibration.current) return
     setProgress(0)
@@ -251,6 +292,10 @@ export function useCamera() {
     streamRef: stream,
     devices,
     deviceId,
+    mainDeviceId,
+    mainMissing,
+    chooseMainCamera,
+    refreshDevices,
     state,
     error,
     quality,

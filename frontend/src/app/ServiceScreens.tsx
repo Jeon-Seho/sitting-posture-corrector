@@ -242,6 +242,7 @@ export function ServiceScreens({
                 onLogout: logout,
               }}
               onRegisterAgain={() => go('posture')}
+              camera={camera}
               onCollect={openCollection}
             />
           </fieldset>
