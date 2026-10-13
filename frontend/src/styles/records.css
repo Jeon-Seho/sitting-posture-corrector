@@ -238,6 +238,11 @@
 }
 
 /* Grouped numbers: time · posture warnings · recovery, each with its own tint. */
+:root {
+  /* Chosen by the user 2026-10-13: A2 살구, B3 올리브 크림 (text contrast 6.3:1). */
+  --metric-warn-bg: #fce8dc;
+  --metric-recover-bg: #eef0dd;
+}
 .metric-groups {
   display: grid;
   grid-template-columns: 2fr 1.2fr 1.4fr;
@@ -251,10 +256,10 @@
   background: var(--surface-2);
 }
 .metric-group.is-warn {
-  background: var(--alert-tint);
+  background: var(--metric-warn-bg);
 }
 .metric-group.is-recover {
-  background: var(--good-tint);
+  background: var(--metric-recover-bg);
 }
 .metric-group-items {
   display: grid;
