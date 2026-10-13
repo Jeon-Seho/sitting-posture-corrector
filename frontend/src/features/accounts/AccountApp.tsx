@@ -89,7 +89,7 @@ function AccountWorkspaceApp({
 
   function openCollection() {
     if (measuring) {
-      setError('진행 중인 측정을 종료한 뒤 자세 등록으로 이동해 주세요.')
+      setError('진행 중인 측정을 마친 뒤 이동해 주세요.')
       return
     }
     go('collection')

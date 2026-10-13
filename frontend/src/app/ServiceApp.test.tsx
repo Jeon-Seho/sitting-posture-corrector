@@ -3,7 +3,6 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'rea
 import App from './ServiceApp'
 import { LoginPage } from '../pages/LoginPage'
 import { SetupPage } from '../pages/SetupPage'
-import { PosturePage } from '../pages/PosturePage'
 import { SessionPage } from '../features/session/SessionPage'
 import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
 import { projectLive, projectMachine } from '../features/session/server/projection'
@@ -260,12 +259,12 @@ describe('service recovery and saving with synthetic storage only', () => {
     const records = readLocal<RecordItem[]>(KEYS.records, [])
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({ total: 120, valid: 120, good: 100 })
-    expect(text(renderer!.root)).toContain('이 브라우저에 저장했습니다')
+    expect(text(renderer!.root)).toContain('이 기기에 저장했어요')
   })
   it('keeps develop real-camera-only preparation and quiet login without requesting permission', () => {
     mount()
     login()
-    expect(text(renderer!.root)).not.toContain('저장했습니다.')
+    expect(text(renderer!.root)).not.toContain('저장했어요.')
     click('측정 시작')
     const setup = renderer!.root.findByType(SetupPage)
     expect(setup.props.mode).toBeUndefined()
@@ -533,87 +532,148 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(data.has(KEYS.records)).toBe(false)
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
-  it('lists 측정하기 first and 자세 등록 second in the sidebar', () => {
+  it('lists 측정하기, 기록, 설정 in the sidebar (registration lives in 측정하기)', () => {
     mount()
     login()
     const tabs = renderer!.root
       .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
       .map((button) => text(button))
-    expect(tabs).toEqual(['측정하기', '자세 등록', '기록', '설정'])
-  })
-  it('never calibrates on 측정하기 and points to 자세 등록 without a baseline', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    mount()
-    login()
-    click('측정하기')
-    const setup = renderer!.root.findByType(SetupPage)
-    expect(text(setup)).toContain('먼저 자세를 등록해 주세요')
-    expect(text(setup)).toContain('아직 등록한 자세가 없어요')
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
-    expect(controls.camera.calibrate).not.toHaveBeenCalled()
-    // The notice explains; registering happens from the sidebar tab, not a button here.
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '자세 등록으로 가기')).toBe(false)
-    click('자세 등록')
-    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
-  })
-  it('shows the registration notice before the camera notice', () => {
-    mount()
-    login()
-    click('측정하기')
-    let setup = renderer!.root.findByType(SetupPage)
-    expect(text(setup)).toContain('아직 등록한 자세가 없어요')
-    expect(text(setup)).not.toContain('카메라가 꺼져 있어요')
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(false)
-    controls.camera.baseline = { ...BASELINE }
-    act(() => renderer!.update(<App />))
-    setup = renderer!.root.findByType(SetupPage)
-    expect(text(setup)).not.toContain('아직 등록한 자세가 없어요')
-    expect(text(setup)).toContain('카메라가 꺼져 있어요')
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
+    expect(tabs).toEqual(['측정하기', '기록', '설정'])
   })
   const advance = (ms: number) =>
     act(() => {
       vi.advanceTimersByTime(ms)
     })
   const rerender = () => act(() => renderer!.update(<App />))
-  it('counts down 3·2·1 on the 자세 등록 tab, captures and ends by itself without measuring', () => {
+  it('registers first without a posture: 3·2·1, captures, then starts measuring by itself', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     mount()
     login()
-    click('자세 등록')
+    click('측정하기')
     advance(100)
-    expect(text(renderer!.root.findByType(PosturePage))).toContain('3초 뒤 측정이 시작돼요')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('3초 뒤 기준 자세를 등록해요')
     advance(2800)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     advance(200)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
     controls.camera.progress = 0.4
     rerender()
-    expect(text(renderer!.root.findByType(PosturePage))).toContain('측정 중')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 기억하는 중')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
     controls.camera.progress = null
     rerender()
     advance(100)
-    expect(text(renderer!.root.findByType(PosturePage))).toContain('자세가 등록되어 있어요')
-    advance(10000)
-    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    click('측정하러 가기')
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('starts at once from the camera view when a posture is registered', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
+    expect(starts.length).toBe(2) // camera view and side panel
+    act(() => starts[0].props.onClick())
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+  })
+  it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(1000)
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('곧 측정을 시작해요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    advance(1600)
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+  })
+  it('restarts the wait when the person leaves view and stops on 취소', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    controls.camera.quality = false
+    rerender()
+    advance(500)
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('취소')
+    advance(5000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+  })
+  it('tells the user once when the shoulders leave view and measuring pauses', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
+    act(() => starts[0].props.onClick())
+    // The synthetic camera keeps delivering frames, so the session does not pause for input.
+    const frames = (ms: number) => {
+      for (let t = 0; t < ms; t += 100) {
+        controls.camera.lastFrame.current = performance.now()
+        advance(100)
+      }
+    }
+    frames(1000)
+    expect(text(renderer!.root)).not.toContain('어깨가 화면에서 벗어나')
+    ;(controls.camera as unknown as { shoulders: string }).shoulders = 'missing'
+    rerender()
+    frames(1000)
+    expect(text(renderer!.root)).toContain('어깨가 화면에서 벗어나 측정을 잠시 멈췄어요')
+    ;(controls.camera as unknown as { shoulders: string | null }).shoulders = null
+  })
+  it('turns the camera on from the camera view, with a posture or not', () => {
+    mount()
+    login()
+    click('측정하기')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
+    controls.camera.baseline = { ...BASELINE }
+    rerender()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세로 바로')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
+  })
+  it('asks to sit back and waits while the shoulders are at the bottom edge (F7)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    ;(controls.camera as unknown as { framing: string }).framing = 'low'
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('조금 뒤로 앉아 주세요')
+    ;(controls.camera as unknown as { framing: string }).framing = 'ok'
+    rerender()
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    ;(controls.camera as unknown as { framing: string | null }).framing = null
   })
   it('waits for the face and shoulders before counting down', () => {
     controls.camera.state = 'on'
     controls.camera.quality = false
     mount()
     login()
-    click('자세 등록')
+    click('측정하기')
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     controls.camera.quality = true
@@ -621,18 +681,18 @@ describe('service recovery and saving with synthetic storage only', () => {
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
-  it('stops on 측정 종료 and does not restart until asked', () => {
+  it('stops on 등록 취소 and does not restart until asked', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     mount()
     login()
-    click('자세 등록')
+    click('측정하기')
     advance(1000)
-    click('측정 종료')
+    click('등록 취소')
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     expect(controls.camera.cancelCalibration).toHaveBeenCalled()
-    click('다시 시작')
+    click('기준 자세 등록 다시 시작')
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
@@ -641,32 +701,35 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.quality = true
     mount()
     login()
-    click('자세 등록')
+    click('측정하기')
     advance(3100)
     controls.camera.progress = 0.9
     rerender()
     advance(15100)
     expect(controls.camera.cancelCalibration).toHaveBeenCalled()
-    expect(text(renderer!.root.findByType(PosturePage))).toContain('자세를 인식하기 어려워요')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('자세를 알아보기 어려워요')
   })
-  it('blocks registering again while a measurement runs', () => {
+  it('registers again from 설정 and ends with a choice instead of measuring', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
     mount()
     login()
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    click('자세 등록')
-    const posture = renderer!.root.findByType(PosturePage)
-    expect(posture.props.measuring).toBe(true)
-    expect(text(posture)).toContain('측정 중에는 자세를 다시 등록할 수 없어요')
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '다시 등록')).toBe(false)
-  })
-  it('sends 설정 다시 등록 to the 자세 등록 tab', () => {
-    mount()
-    login()
     click('설정')
     act(() => renderer!.root.findByType(SettingsPage).props.onRegisterAgain())
-    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
+    const setup = renderer!.root.findByType(SetupPage)
+    expect(setup.props.registerAgain).toBe(true)
+    expect(text(setup)).toContain('설정으로')
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
+    controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
+    rerender()
+    advance(100)
+    // From settings it ends with a choice instead of measuring by itself.
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('새 기준 자세를 등록했어요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('설정으로')
+    expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
   })
 })

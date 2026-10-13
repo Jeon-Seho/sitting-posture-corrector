@@ -106,6 +106,13 @@ export function Nudge({
       </Card>
     )
   }
+  if (view.notice?.startsWith('어깨가 잘 보이지 않아')) {
+    return (
+      <Card icon={<Hourglass size={24} weight="bold" />} tone="wait" title="어깨가 잘 보이지 않아요">
+        2초 안에 어깨가 다시 보이면 그대로 이어가요. 그동안은 머리로만 확인해요.
+      </Card>
+    )
+  }
   if (view.status === 'suspect') {
     return (
       <Card

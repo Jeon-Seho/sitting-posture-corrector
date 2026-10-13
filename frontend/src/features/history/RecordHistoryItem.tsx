@@ -2,7 +2,8 @@ import { useId, useState } from 'react'
 import { CaretDown, Clock } from '@phosphor-icons/react'
 import { RECORD_SOURCE_LABEL, recordSource } from '../../lib/comparison'
 import type { RecordItem } from '../../lib/serviceStore'
-import { formatDuration, formatPercent } from '../../lib/stats'
+import { formatDuration } from '../../lib/stats'
+import { RateRing } from '../../components/RateRing'
 import { RecordDetails } from './RecordDetails'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
@@ -14,13 +15,15 @@ function shortDate(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY[d.getDay()]}) ${time}`
 }
 
-export function RecordHistoryItem({ record }: { record: RecordItem }) {
+/** `sessionNumber`: order of this session within its day (1 = first session that day). */
+export function RecordHistoryItem({ record, sessionNumber }: { record: RecordItem; sessionNumber?: number }) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
   const titleId = `${detailsId}-title`
-  const date = shortDate(record.startedAt)
+  const date = sessionNumber
+    ? `세션 ${sessionNumber} · ${new Date(record.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}`
+    : shortDate(record.startedAt)
   const rate = record.valid ? record.good / record.valid : null
-  const alerts = record.events.reduce((n, e) => n + e.alerts, 0)
   return (
     <div className="history-record">
       <div className="service-record">
@@ -30,11 +33,11 @@ export function RecordHistoryItem({ record }: { record: RecordItem }) {
         <div className="service-record-text">
           <strong>{date}</strong>
           <span title={RECORD_SOURCE_LABEL[recordSource(record)]}>
-            {formatDuration(record.valid)} 측정 · 알림 {alerts}회
+            {formatDuration(record.valid)} 측정 · 자세 경고 {record.events.length}번
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
         </div>
-        <b className={rate !== null && rate >= 0.85 ? 'good' : ''}>{formatPercent(rate, 0)}</b>
+        <RateRing rate={rate} size={46} />
         <button
           type="button"
           className="btn btn-icon btn-sm history-detail-button"

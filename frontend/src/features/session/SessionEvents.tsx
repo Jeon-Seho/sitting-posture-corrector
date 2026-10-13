@@ -46,7 +46,7 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
   if (events.length === 0) {
     return (
       <p className="muted" style={{ fontSize: 14 }}>
-        기록된 이벤트가 없습니다.
+        기록된 이탈이 없어요.
       </p>
     )
   }

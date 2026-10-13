@@ -31,21 +31,23 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
   const result = screen.phase === 'ended' || screen.archived
   const running = screen.phase === 'running'
   const score = postureScore(running && live.state !== 'unknown' ? live.collapseProb : null)
-  const label = running
-    ? live.state === 'unknown'
-      ? '자세를 확인할 수 없어요'
-      : live.state === 'collapse'
-        ? '자세가 흐트러졌어요'
-        : '바른 자세예요'
-    : screen.phase === 'creating'
-      ? '서버 연결 중'
-      : screen.phase === 'restoring'
-        ? '서버 기록 확인 중'
-        : screen.phase === 'ending'
-          ? '서버 종료 확인 중'
-          : screen.phase === 'lost'
-            ? '서버 세션 유실'
-            : '쉬는 중'
+  const label = screen.connectionLost
+    ? '서버 연결 끊김 · 세션 종료'
+    : running
+      ? live.state === 'unknown'
+        ? '자세를 확인할 수 없어요'
+        : live.state === 'collapse'
+          ? '자세가 흐트러졌어요'
+          : '바른 자세예요'
+      : screen.phase === 'creating'
+        ? '서버 연결 중'
+        : screen.phase === 'restoring'
+          ? '서버 기록 확인 중'
+          : screen.phase === 'ending'
+            ? '서버 종료 확인 중'
+            : screen.phase === 'lost'
+              ? '서버 세션 유실'
+              : '쉬는 중'
   const tone = !running || live.state === 'unknown' ? 'unknown' : live.state === 'collapse' ? 'collapse' : 'good'
   const keepRate = view?.summary.keep_rate ?? null
   const saveNote = screen.archived

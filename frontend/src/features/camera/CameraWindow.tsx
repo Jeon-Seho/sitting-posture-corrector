@@ -20,7 +20,7 @@ function WindowPreview({ camera, onClose }: { camera: CameraController; onClose:
     <section className="camera-window-view" aria-label="카메라 작은 창">
       <h1>POSE GOOD · 내 카메라</h1>
       <StreamPreview camera={camera} />
-      <p role="status">{camera.quality ? '몸의 특징을 확인하고 있습니다.' : '몸의 특징을 측정할 수 없습니다.'}</p>
+      <p role="status">{camera.quality ? '자세를 확인하고 있어요.' : '자세를 확인할 수 없어요.'}</p>
       <p>창을 드래그해 위치를 옮기고 가장자리를 당겨 크기를 바꾸세요.</p>
       <div className="camera-window-actions">
         <button onClick={onClose}>작은 창 닫기</button>

@@ -1,7 +1,8 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import { features, type Landmark } from '../../../../model/prototype/pose'
+import type { Landmark } from '../../../../model/prototype/pose'
+import { judgeWithGrace, type LastShoulders } from './shoulderGrace'
 import { drawPose, type VisualOptions } from '../../lib/poseVisual'
-import { inferenceInterval, smoothPoints } from '../../lib/skeleton'
+import { createPointFilter, inferenceInterval } from '../../lib/skeleton'
 import type { CameraDelegate, CameraMetrics, Observation } from './types'
 
 const FRAME_EXPIRY_MS = 1_000
@@ -20,6 +21,8 @@ type FrameLoopOptions = {
   onFrameUnavailable: () => void
   onMetrics: (metrics: CameraMetrics) => void
   onTrackingError: () => void
+  /** Upper bound on tracking runs per second (settings › 추적 속도). Default: as fast as the device allows up to 30. */
+  getMaxFps?: () => number | null
 }
 
 /** Raw observations and display smoothing stay separate throughout the loop. */
@@ -33,6 +36,15 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   let inferenceMs = 0
   let target: Landmark[] = []
   let displayed: Landmark[] = []
+  /** Last time MediaPipe found a person; the drawing does not depend on judging the frame. */
+  let lastSeen = 0
+  /** Shoulders of the last judgeable frame, for the 2 s head-only grace. */
+  let lastShoulders: LastShoulders = null
+  /** Shoulders were in view at the last detection; the drawing restarts only when this changes. */
+  let shouldersInView: boolean | null = null
+  /** Video frame time handed to MediaPipe; its own smoothing needs the real frame spacing. */
+  let lastStamp = -1
+  const filter = createPointFilter()
   let metricStart = performance.now()
   let frameCount = 0
   let inferenceSum = 0
@@ -43,7 +55,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   const render = (time: number) => {
     if (!options.isCurrent()) return
 
-    const interval = inferenceInterval(delegate, inferenceMs)
+    const interval = inferenceInterval(delegate, inferenceMs, options.getMaxFps?.() ?? null)
     if (
       video.readyState >= 2 &&
       time - previousRun >= interval &&
@@ -54,19 +66,34 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
 
       try {
         const started = performance.now()
-        const result = detector.detectForVideo(video, time)
+        // 2026-10-13: pass the frame's own time, not the timer tick. MediaPipe smooths landmarks
+        // over these timestamps; timer jitter made its smoothing misjudge speed and shake.
+        const stamp = Math.max(lastStamp + 1, Math.round(previousVideoTime * 1_000))
+        lastStamp = stamp
+        const result = detector.detectForVideo(video, stamp)
         inferenceMs = performance.now() - started
         frameCount++
         inferenceSum += inferenceMs
 
         const points = result.landmarks[0] ?? []
-        const reading = features(points, video.videoWidth, video.videoHeight)
+        const judged = judgeWithGrace(points, video.videoWidth, video.videoHeight, time, lastShoulders)
+        const { reading, shoulders } = judged
+        lastShoulders = judged.last
         const observationGap = time - lastFrame
         lastFrame = time
 
-        if (reading && !target.length) options.onPoseStarted()
-        target = reading ? points : []
-        if (!reading || observationGap > FRAME_EXPIRY_MS) displayed = []
+        if (points.length && !target.length) options.onPoseStarted()
+        // Draw what the tracker sees even when this frame cannot be judged (2026-10-13):
+        // wiping the skeleton on every unjudgeable frame made it flicker and jump.
+        if (points.length) {
+          // Redraw from scratch only when the shoulders leave or come back (user, 2026-10-13).
+          const inView = shoulders === 'seen'
+          if (shouldersInView !== null && inView !== shouldersInView) filter.reset()
+          shouldersInView = inView
+          target = points
+          lastSeen = time
+        }
+        if (observationGap > FRAME_EXPIRY_MS) filter.reset()
         options.onObservation(
           {
             timeMs: time,
@@ -74,6 +101,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
             landmarks: points,
             worldLandmarks: result.worldLandmarks[0] ?? [],
             features: reading,
+            shoulders,
             inferenceMs,
             delegate,
             width: video.videoWidth,
@@ -89,10 +117,14 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
 
     if (time - lastFrame > FRAME_EXPIRY_MS) {
       target = []
-      displayed = []
       options.onFrameUnavailable()
     }
-    displayed = smoothPoints(displayed, target, previousDraw ? time - previousDraw : 16)
+    // Nobody in view for a while: remove the skeleton instead of freezing it.
+    if (time - lastSeen > FRAME_EXPIRY_MS && target.length) {
+      target = []
+      filter.reset()
+    }
+    displayed = filter.next(target, previousDraw ? time - previousDraw : 16)
     previousDraw = time
     drawPose(
       options.getCanvas(),

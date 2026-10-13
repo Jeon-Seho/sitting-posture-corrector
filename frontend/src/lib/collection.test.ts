@@ -10,7 +10,7 @@ import {
   toCsv,
 } from './collection'
 import { captureWindow, DEFAULT_CAPTURE_OPTIONS, TASKS } from './collectionProtocol'
-import { inferenceInterval, smoothPoints } from './skeleton'
+import { createPointFilter, inferenceInterval } from './skeleton'
 import type { Observation } from '../hooks/useCamera'
 const baseline = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 }
 const capture = () =>
@@ -207,18 +207,34 @@ describe('pilot collection', () => {
   })
 })
 describe('display-only smoothing and scheduling', () => {
-  it('is time based, does not mutate inference data and clears on missing points', () => {
+  it('does not mutate inference data, starts at the first point and clears on missing points', () => {
+    const f = createPointFilter()
     const a = [{ x: 0, y: 0, z: 0, visibility: 0.95 }]
     const b = [{ x: 1, y: 1, z: 1, visibility: 0.95 }]
-    const once = smoothPoints(a, b, 32)
-    const twice = smoothPoints(smoothPoints(a, b, 16), b, 16)
-    expect(once[0].x).toBeCloseTo(twice[0].x)
-    expect(once[0].x).toBeGreaterThan(0)
-    expect(once[0].x).toBeLessThan(1)
+    expect(f.next(a, 16)).toEqual(a)
+    const moved = f.next(b, 16)[0].x
+    expect(moved).toBeGreaterThan(0)
+    expect(moved).toBeLessThan(1)
     expect(a[0].x).toBe(0)
     expect(b[0].x).toBe(1)
-    expect(smoothPoints(a, [], 16)).toEqual([])
-    expect(smoothPoints([], b, 16)).toEqual(b)
+    expect(f.next([], 16)).toEqual([])
+  })
+  it('holds a still point steady through tracker noise but follows real movement', () => {
+    const f = createPointFilter()
+    const noisy = (i: number) => [{ x: 0.5 + (i % 2 ? 0.004 : -0.004), y: 0.5, z: 0, visibility: 0.9 }]
+    let x = 0
+    for (let i = 0; i < 60; i++) x = f.next(noisy(i), 33)[0].x
+    // Raw input swings ±0.004 every frame; the drawn point stays within a fraction of it.
+    expect(Math.abs(x - 0.5)).toBeLessThan(0.0015)
+    let moved = 0
+    for (let i = 0; i < 15; i++) moved = f.next([{ x: 0.7, y: 0.5, z: 0, visibility: 0.9 }], 33)[0].x
+    expect(moved).toBeGreaterThan(0.68) // reaches a real 0.2 move within half a second
+  })
+  it('fades visibility instead of blinking at the limit', () => {
+    const f = createPointFilter()
+    f.next([{ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }], 33)
+    const dipped = f.next([{ x: 0.5, y: 0.5, z: 0, visibility: 0.3 }], 33)[0].visibility!
+    expect(dipped).toBeGreaterThan(0.65) // one low frame does not hide the joint
   })
   it('increases update rate within an inference budget', () => {
     expect(inferenceInterval('GPU', 5)).toBeCloseTo(1000 / 30)

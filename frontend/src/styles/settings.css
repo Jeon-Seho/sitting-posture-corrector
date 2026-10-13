@@ -179,3 +179,36 @@ textarea.input {
 .input:disabled {
   opacity: 0.5;
 }
+
+/* 추적 속도 and jitter check (developer options). */
+.setting-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.rate-check {
+  display: grid;
+  gap: 10px;
+}
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.rate-table th,
+.rate-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.rate-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.rate-table .t-right {
+  text-align: right;
+}
+.rate-table tr.is-best td {
+  color: var(--good-ink);
+  font-weight: 700;
+}

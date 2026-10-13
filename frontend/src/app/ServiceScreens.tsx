@@ -1,9 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
-import { PosturePage } from '../pages/PosturePage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CollectionPage } from '../pages/CollectionPage'
@@ -18,6 +17,7 @@ import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
 import type { Rules } from '../lib/engine'
 import { historyFor } from '../lib/history'
+import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
@@ -77,6 +77,8 @@ export function ServiceScreens({
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
   const view = resolvePage(page, measuring)
+  // Each press of the sidebar's today card reopens records on the "today" period.
+  const [todayRequest, setTodayRequest] = useState(0)
   const today = summary(historyFor(records, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -92,7 +94,6 @@ export function ServiceScreens({
 
   function openTab(tab: Tab) {
     if (tab === 'measure') go(measuring ? 'session' : 'setup')
-    else if (tab === 'posture') go('posture')
     else go(tab === 'records' ? 'dashboard' : 'settings')
   }
 
@@ -113,6 +114,10 @@ export function ServiceScreens({
         onProfile={() => go('profile')}
         name={profile?.name ?? ''}
         today={{ rate: today.rate, valid: today.valid }}
+        onToday={() => {
+          setTodayRequest((n) => n + 1)
+          go('dashboard')
+        }}
       />
       <main ref={main} className="main service-main">
         {storageNotice}
@@ -143,6 +148,7 @@ export function ServiceScreens({
           ) : (
             <LocalHistory
               records={records}
+              todayRequest={todayRequest}
               measuring={measuring}
               onStart={() => go(measuring ? 'session' : 'setup')}
               accountMode={accountMode}
@@ -159,22 +165,20 @@ export function ServiceScreens({
             <CollectionPage camera={camera} collection={collection} />
           </>
         )}
-        {view === 'setup' && (
+        {(view === 'setup' || view === 'posture') && (
           <SetupPage
+            key={view}
             camera={camera}
             onStart={persistence.start}
             onCollect={openCollection}
+            measuring={measuring}
+            registerAgain={view === 'posture'}
+            onBack={view === 'posture' ? () => go('settings') : undefined}
+            onOpenSession={() => go('session')}
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}
             accountMode={accountMode}
-          />
-        )}
-        {view === 'posture' && (
-          <PosturePage
-            camera={camera}
-            measuring={measuring}
-            onMeasure={() => go(measuring ? 'session' : 'setup')}
           />
         )}
         {session && (
@@ -196,6 +200,13 @@ export function ServiceScreens({
                   onArchive: persistence.archiveServerResult,
                   saveMessage: persistence.saveMessage,
                   onRetry: persistence.retrySave,
+                  sessionLabel: sessionLabel(
+                    session.startedAt,
+                    daySessionNumber(
+                      records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
+                      session.startedAt,
+                    ),
+                  ),
                 }}
               />
             ) : (
@@ -242,6 +253,7 @@ export function ServiceScreens({
                 onLogout: logout,
               }}
               onRegisterAgain={() => go('posture')}
+              camera={camera}
               onCollect={openCollection}
             />
           </fieldset>
