@@ -88,6 +88,7 @@
 | `DELETE /records/{session_id}` | — | 204. 그 세션과 사건·알림을 지운다 |
 
 - 당일 화면은 세션마다 따로 보인다. 같은 날 측정을 합치지 않는다(FE 제안서 1장 4번).
+- **5분 미만 세션은 저장하지 않는다.** 목록·지난 통계에 나오지 않고 `GET /records/{id}`는 404다. 그 세션의 결과는 WebSocket으로 받은 마지막 `progress`·`decision`으로만 종료 화면에 보인다.
 - `summary`(세션 하나, 서버 계산):
 
 | 필드 | 뜻 |
@@ -164,7 +165,7 @@
 | `bad_request` | 형식 오류 | 오류 표시, 재연결하지 않음 |
 
 - 재연결하면 서버는 `last_event_id` 뒤의 `decision`을 먼저 보내고 최신 `progress`를 마지막에 보낸다. `observation`과 `alert`는 다시 보내지 않는다.
-- 종료: 앱은 `end` 뒤 최종 `decision`과 `closed(ended)`를 받을 때까지 연결을 유지한다. 10초 안에 안 오거나 끊기면 `GET /records/{id}`로 종료 화면을 그린다.
+- 종료: 앱은 `end` 뒤 최종 `decision`과 `closed(ended)`를 받을 때까지 연결을 유지한다. 10초 안에 안 오거나 끊기면 `GET /records/{id}`로 종료 화면을 그린다. 5분 미만 세션이라 404면 마지막으로 받은 `progress`로 그리고 "5분 미만 측정은 기록에 남지 않아요"를 보인다.
 
 ## 4. 측정 한 번의 흐름
 
