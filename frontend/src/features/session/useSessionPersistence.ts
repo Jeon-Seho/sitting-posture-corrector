@@ -24,8 +24,6 @@ type Options = {
   ended: MutableRefObject<boolean>
   workspace: LocalWorkspace
   camera: CameraController
-  registration: boolean
-  onRegistrationComplete: () => void
   go: (page: 'home' | 'session') => void
   setError: (message: string) => void
   serverMode?: boolean
@@ -39,8 +37,6 @@ export function useSessionPersistence({
   ended,
   workspace,
   camera,
-  registration,
-  onRegistrationComplete,
   go,
   setError,
   serverMode = false,
@@ -100,11 +96,6 @@ export function useSessionPersistence({
     }
     if (camera.state !== 'on' || !camera.baseline || !camera.quality || camera.progress !== null) {
       setError('카메라 연결과 기준 등록을 완료한 뒤 시작해 주세요.')
-      return
-    }
-    if (registration) {
-      onRegistrationComplete()
-      go('home')
       return
     }
     const video = camera.videoRef.current

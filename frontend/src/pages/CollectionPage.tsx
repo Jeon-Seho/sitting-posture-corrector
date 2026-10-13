@@ -17,13 +17,14 @@ export function CollectionPage({
     collection.setPhase('running')
     return () => collection.setPhase('inactive')
   }, [collection.setPhase])
-  // 촬영에는 카메라와 3초 기준 자세가 필요하다. 측정 준비로 보내지 않고 이 화면에서 바로 켜고 등록한다.
+  // 촬영에는 카메라와 등록한 자세가 필요하다. 직접 링크로 열 때도 쓰므로 이 화면에서 바로 켜고 등록할 수 있다.
+  // 여기서 등록한 자세는 「자세 등록」 탭과 같은 기준이다.
   const calibrating = camera.progress !== null
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">자세 등록</h1>
+          <h1 className="page-title">자세 데이터 수집</h1>
           <p className="page-desc">
             바른 자세뿐 아니라 평소에 자주 하는 자세들을 짧게 찍어 두는 곳이에요. 이 화면에서는
             점수나 교정 알림이 뜨지 않아요.
@@ -51,22 +52,22 @@ export function CollectionPage({
             onClick={camera.calibrate}
           >
             {calibrating
-              ? `기준 등록 중 ${Math.round((camera.progress ?? 0) * 100)}%`
+              ? `자세 등록 중 ${Math.round((camera.progress ?? 0) * 100)}%`
               : camera.baseline
-                ? '기준 자세 다시 등록'
-                : '기준 자세 등록'}
+                ? '자세 다시 등록'
+                : '자세 등록 시작'}
           </button>
           {calibrating && (
             <button className="btn" onClick={camera.cancelCalibration}>
-              보정 취소
+              등록 취소
             </button>
           )}
         </div>
       </div>
       <CollectionTaskPicker collection={collection} />
-      <section className="collection-intro" aria-label="자세 등록 안내">
+      <section className="collection-intro" aria-label="자세 데이터 수집 안내">
         <div>
-          <h2>왜 등록하나요?</h2>
+          <h2>왜 촬영하나요?</h2>
           <p>
             기울기, 숙이기, 타이핑처럼 여러 자세를 찍어 두면 개인화 모델 연구에 사용할 자료를 준비할
             수 있습니다. 현재 측정 규칙에는 이 자료가 자동 적용되지 않습니다. 결과는 직접
@@ -110,12 +111,12 @@ export function CollectionPage({
             {camera.state !== 'on'
               ? '먼저 위의 카메라 켜기를 눌러 주세요.'
               : calibrating
-                ? '기준 등록 중입니다. 취소하면 기존 기준을 유지하며 새 기준이 완성된 뒤 촬영할 수 있습니다.'
+                ? '자세를 등록하는 중입니다. 취소하면 기존 자세를 유지하고, 새 자세가 등록된 뒤 촬영할 수 있습니다.'
                 : !camera.baseline
-                  ? '촬영하려면 편안하게 앉아 기준 자세 등록(3초)을 먼저 해 주세요.'
+                  ? '촬영하려면 편안하게 앉아 자세 등록(3초)을 먼저 해 주세요.'
                   : camera.quality
-                    ? '기존 특징 측정 가능 · 자세 정답은 촬영 후 직접 확인합니다.'
-                    : '기존 특징 측정 불가 · 가림/빈 자리 과제의 관측은 계속 기록합니다.'}
+                    ? '얼굴과 양쪽 어깨가 보여요 · 실제로 한 자세는 촬영 후 직접 확인합니다.'
+                    : '얼굴이나 어깨가 잘 안 보여요 · 가림/빈 자리 과제의 관측은 그대로 기록합니다.'}
           </p>
           {camera.state === 'on' && camera.metrics.fps > 0 && camera.metrics.fps < 10 && (
             <p className="capture-note">

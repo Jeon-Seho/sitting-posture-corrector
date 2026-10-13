@@ -49,7 +49,7 @@ HTTP 대기 동안 DB 행 트랜잭션을 유지하지 않는다. 같은 sequenc
 [MySQL 스키마·검증](../../database/README.md), [실행·백업·배포](../../infra/README.md)를 따른다.
 실제 MySQL의 마이그레이션·두 계정 격리·중복·장애/재시작·삭제·백업 복원과 실제 계정 브라우저를
 합성 자료로 검사하며 make check와 CI에 연결한다. Docker/실제 DB가 없으면 해당 게이트는 실패한다.
-결과와 미검증 사항은 [실행 계획](../plans/completed/0017-mysql-accounts-compose-deployment.md)에 기록한다.
+결과와 미검증 사항은 [ADR 0014](../decisions/0014-mysql-persistence-and-accounts.md)와 [Compose 안내](../../infra/README.md)를 따른다.
 
 운영 보존/백업 만료·이메일 확인/비밀번호 분실 복구·HTTPS 도메인/호스트·기기 간 활성 측정 복구·
 학습 모델/실기기 품질과 성능은 후속 결정이다. 데이터 플랫폼은 [책임 경계](data-platform-boundary.md)를 따른다.

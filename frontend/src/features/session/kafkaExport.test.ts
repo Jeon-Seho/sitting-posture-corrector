@@ -72,10 +72,18 @@ describe('Kafka-format export of a local measurement (synthetic frames)', () => 
     const r = recorder()
     r.push(1000, null)
     r.push(1100, BASELINE)
-    r.push(1200, BASELINE)
     const features = lines(r.toText()).filter((line) => line.kind === 'features')
     expect(features[0].body).toMatchObject({ measurement_quality: 'poor', features: null })
-    expect(features[1].body.measurement_quality).toBe('good')
+  })
+
+  it('keeps sending poor for 3 s after unknown, like the server controller', () => {
+    const r = recorder()
+    r.push(1000, null)
+    for (const t of [1100, 2000, 2900, 3900, 4000, 4100]) r.push(t, BASELINE)
+    const quality = lines(r.toText())
+      .filter((line) => line.kind === 'features')
+      .map((line) => line.body.measurement_quality)
+    expect(quality).toEqual(['poor', 'poor', 'poor', 'poor', 'poor', 'good'])
   })
 
   it('ignores frames that do not move forward in time', () => {

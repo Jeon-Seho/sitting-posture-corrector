@@ -125,6 +125,8 @@ Windows에서 백업·복원 도구가 비밀 설정 파일을 읽지 못하던 
 | DB 문서 | `database/README.md` 11장은 아직 옛 V1.1 백엔드 기준 문구다 | DB 담당 문서라 고치지 않음, 갱신 요청 |
 | DB 계정 정보 노출 | 로컬 DB 계정 비밀번호가 작업 대화에 남았다 | 다른 곳에서도 쓰는 DB라면 비밀번호 변경 |
 | DB 계정 사용 | API는 `posture_be`(SELECT·INSERT·UPDATE·DELETE)만 쓴다. `posture_fe`·`posture_app`은 쓰지 않는다 | 용도 확인 |
+| develop 병합(2026-10-13) 뒤 스키마 불일치 | `database/`를 develop의 V2.3(#39·#40) 기준으로 맞췄다. 이 브랜치의 V2.2 커밋(`7606c4b`)은 develop에서 되돌린 #35와 같다. API는 아직 옛 V2.2(`user_account.alert_enabled`, migration `011_add_alert_enabled_user_account`)를 전제로 해서 `SchemaVerifier`가 시작을 거부하고, 실제 MySQL 통합 시험(`schema_V2_2.sql` 사용)·Compose도 실패한다 | 백엔드 코드·시험을 V2.3에 맞춘다 |
+| 계획 번호 중복 | develop의 [계획 0023 앱 판정 제거](../plans/active/0023-frontend-server-only.md)와 이 브랜치의 [계획 0023 백엔드 재작성](../plans/active/0023-backend-v2-rebuild.md)이 같은 번호다. 문서의 "계획 0023"이 어느 쪽인지 모호하다 | 한쪽 번호를 바꾸고 링크 정리 |
 
 ## 6. 다음 순서 (제안)
 

@@ -86,7 +86,7 @@ V2.2에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 
 ## 준비와 검증
 
-JDK 21, Maven 3.6.3+, Python 3.9+, Node 24+가 필요하다. 의존성은 Maven Central·PyPI에서 받는다.
+JDK 21, Maven 3.6.3+, Python 3.9+, Node 24+가 필요하다(설치 목록: [requirements-front.txt](../requirements-front.txt)). 의존성은 Maven Central·PyPI에서 받는다.
 
 ```sh
 make setup

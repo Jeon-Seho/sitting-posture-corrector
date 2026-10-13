@@ -46,6 +46,11 @@ export function useCamera() {
   const [quality, setQuality] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
+  /**
+   * The registered baseline outlives the camera: turning the camera off, switching it or a
+   * dropped track keeps it for the rest of the app run (plan 0024). Only a new
+   * registration replaces it.
+   */
   const [baseline, setBaseline] = useState<Features | null>(null)
   const [calibrationId, setCalibrationId] = useState<string | null>(null)
   const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(null)
@@ -98,9 +103,6 @@ export function useCamera() {
     setState('off')
     setError('')
     setQuality(false)
-    setBaseline(null)
-    setCalibrationId(null)
-    setCalibrationSummary(null)
     setProgress(null)
   }, [release])
   useEffect(() => () => release(), [release])
@@ -139,9 +141,6 @@ export function useCamera() {
       setState('loading')
       setQuality(false)
       setError('')
-      setBaseline(null)
-      setCalibrationId(null)
-      setCalibrationSummary(null)
       setProgress(null)
 
       loadingTimer.current = setTimeout(() => {
@@ -170,9 +169,6 @@ export function useCamera() {
           release()
           setState('error')
           setQuality(false)
-          setBaseline(null)
-          setCalibrationId(null)
-          setCalibrationSummary(null)
           setProgress(null)
           setError(CAMERA_ERRORS.disconnected)
         }
@@ -218,9 +214,6 @@ export function useCamera() {
             setState('error')
             setQuality(false)
             setProgress(null)
-            setBaseline(null)
-            setCalibrationId(null)
-            setCalibrationSummary(null)
             setError(CAMERA_ERRORS.trackingFailed)
           },
         })

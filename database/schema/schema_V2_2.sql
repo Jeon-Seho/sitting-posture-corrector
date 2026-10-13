@@ -1,28 +1,33 @@
 -- =====================================================================
 -- 자세교정 서비스 스키마 — schema_V2_2.sql
--- 명세서: DB 명세서 V2.2 (2026-10-10) — V2.1 + user_account.alert_enabled 추가, sound_alert_enabled 뜻 확정
+-- 명세서: DB 명세서 V2.2 (확정 2026-10-13) — V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」)
 --   CR-04 승인자·회의록 기재 전. 문서(REQ-01, DB-01~04)의 V2.1·V2.2 반영은 아직이다.
--- 새 DB는 이 파일과 시드로 만든다.
---   V2.1로 만든 DB는 migrations/011_add_alert_enabled_user_account.sql로 올린다 (컬럼 추가만 있음). 다음 번호는 012다.
---   V2.0 이전 DB는 V2.1에서 테이블을 지웠으므로 지우고 다시 만든다 (작업규칙 1.4).
+-- 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 V2.1 데이터를 옮길 수 없으므로 migration으로 올리지 않는다.
+--   기존 DB는 지우고 이 파일과 시드로 다시 만든다. migrations/는 비어 있고, 다음 번호는 011이다.
 -- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제)
--- 생성: 2026-10-10 (명세서 원천에서 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
+-- 생성: 2026-10-13 (명세서 원천에서 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
 --
--- 범위: 12개 테이블 (명세서 14개 중 보류 2개 제외).
---   제외 — T-36 collapse_type, T-41 user_consent, collapse_event.collapse_type_code, UK-08, FK-15, FK-19
--- 변경 (V2.2): user_account.alert_enabled 추가 — 설정 화면 「자세 알림」(교정 알림 전체 켜기·끄기, 기본 켜짐).
---   user_account.sound_alert_enabled는 측정 화면의 소리 켜기·끄기만 뜻한다 (기본 꺼짐). 둘 다 다음 측정부터 적용.
--- 폐기 (V2.1): T-27 feature_def, T-28 safety_range, T-31 baseline_feature, T-50 client_record,
---   user_account.auth_epoch,
---   baseline_posture.baseline_posture_id·deactivated_at·feature_version·normalization_scale·target_center_x·target_center_y·target_area_ratio,
---   monitor_session.baseline_posture_id·frame_width·frame_height, UK-10, UK-11, FK-03, FK-05, FK-06, FK-09, FK-26
+-- 범위: 12개 테이블. 보류 2개(T-36 collapse_type, T-41 user_consent)와 collapse_event.collapse_type_code,
+--   UK-08, FK-15, FK-19는 명세에서도 뺐다.
+-- 삭제 (V2.2): threshold_policy.policy_name·created_by·notify_max_per_hour, UK-12
+--   baseline_posture.calibration_uuid·calibration_sec·sample_count, UK-04
+--   monitor_session.calibration_uuid·end_reason, collapse_event.end_reason
+--   correction_alert.correction_alert_id·attempt_seq·delivered·suppress_reason, UK-07
+-- 추가 (V2.2): baseline_posture.baseline_posture_id(PK), monitor_session.baseline_posture_id, UK-14, UK-15, FK-27
+-- 폐기 (V2.1): T-27 feature_def, T-28 safety_range, T-31 baseline_feature, T-50 client_record, user_account.auth_epoch 등
 -- 폐기 (V2.0, CR-04): T-26 capture_device, T-32 model_version, T-42 deployment, T-43 error_log,
---   T-44 input_result, T-45 cep_outbox, T-46 confirmed_snapshot, T-47 cep_cleanup,
---   monitor_session.capture_device_id·model_version_code
--- 시드: seed_04_threshold_policy.sql만 남는다. seed_01_feature_def·seed_02_safety_range는 지운다 (번호는 다시 쓰지 않음).
--- 기준 자세: 사용자당 1행. 다시 촬영하면 UPDATE하고 calibration_uuid·registered_at·좌표가 바뀐다.
---   측정 시작 때 백엔드가 그 사용자의 calibration_uuid를 monitor_session에 복사한다 (FK 아님, B안).
+--   T-44 input_result, T-45 cep_outbox, T-46 confirmed_snapshot, T-47 cep_cleanup
+-- 시드: seed_04_threshold_policy.sql (기본 판정 정책 값 4개).
+-- 기본 정책: 백엔드 설정의 값 4개로 threshold_policy를 찾고(UK-03), 없으면 새로 넣는다.
+-- 기준 자세: 다시 촬영할 때마다 새 행. 사용자별로 baseline_posture_id가 가장 큰 행이 현재 기준이다.
+--   registered_at은 FE가 보정을 끝낸 시각 — 재전송 중복은 (사용자, 등록 시각) 유일 제약(UK-14)이 막는다.
+--   측정 시작 때 현재 기준의 baseline_posture_id를 세션에 넣는다. 세션이 쓴 기준 자세는 지울 수 없다 (FK-27).
 --   좌표 수집 조건(MediaPipe 모델·CAPTURE_RESOLUTION 640×480·관절 목록)은 고정하고, 바꾸면 전원 다시 촬영한다.
+-- 세션: 측정 시작 때 user_account.threshold_policy_id와 sound_alert_enabled(→ alert_enabled)를 복사한다.
+--   종료 방식은 구분하지 않는다. ended_at·good_sec은 저장 서비스 한 곳에서 함께 쓴다.
+-- 제외 구간: 한 시점에 사유 하나. 우선순위 자리 비움 → 일시정지 → 입력 누락 → 판정 불가 (BR-52). 사유가 바뀌면 새 행.
+-- 이벤트 종료 사유: 시각으로 판정 — recovered_at 있음: 회복 / 세션 ended_at과 같음: 세션 종료 / 그 밖: 제외 구간 중단.
+-- 교정 알림: 알림이 꺼져도 이벤트 확정 때와 realert_seconds마다 기록. attempted_at은 판정기가 정한 시각 (재전송 중복 방지).
 -- 로그인 끊기: 비밀번호 변경·탈퇴 때 그 사용자의 SPRING_SESSION 행을 지운다 (PRINCIPAL_NAME으로 찾음).
 -- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의를 그대로 쓴다.
 --   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
@@ -33,7 +38,7 @@
 -- 시각: SPRING_SESSION을 뺀 모든 DATETIME(3)은 KST(한국 표준시, +09:00)로 저장한다 (CR-04).
 --   DATETIME은 시간대 정보를 저장하지 않는다. 접속하는 애플리케이션도 세션 시간대를 Asia/Seoul로 맞춘다.
 -- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제 배치」는 RESTRICT로 두고 배치가 순서대로 지운다.
---   탈퇴는 30일 유예 뒤 한 트랜잭션으로 지운다 (DB-04 V0.2 6-1).
+--   탈퇴는 30일 유예 뒤 한 트랜잭션으로 지운다 (DB-04 V0.2 6-1). 세션을 먼저 지운 뒤 기준 자세를 지운다.
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -46,25 +51,18 @@ USE posture_service;
 -- T-29 threshold_policy — 판정 정책 (근거 E-08)
 -- ---------------------------------------------------------------------
 CREATE TABLE threshold_policy (
-  threshold_policy_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '정책 식별자 (자연키가 5컬럼이므로 대리키)',
+  threshold_policy_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '정책 식별자 (자연키가 4컬럼이므로 대리키)',
   threshold DECIMAL(4,3) NOT NULL COMMENT '붕괴 판정 임계 (TH_COLLAPSE). 내부 값으로 저장, 화면 점수로 바꾸지 않음',
   hold_seconds DECIMAL(4,1) NOT NULL COMMENT '붕괴 확정 지속 조건 (MIN_DURATION_SEC)',
   recover_seconds DECIMAL(4,1) NOT NULL COMMENT '회복 확정 유지 조건 (RECOVERY_DURATION_SEC)',
   realert_seconds INT NOT NULL COMMENT '재알림 최소 간격 (RE_ALERT_INTERVAL_SEC)',
-  notify_max_per_hour INT NOT NULL COMMENT '시간당 알림 상한 (NOTIFY_MAX_PER_HOUR)',
-  policy_name VARCHAR(30) NULL COMMENT '시스템 정책 이름. NULL: 사용자 설정으로 생긴 조합. 이름이 있으면 유일 (기본 정책 조회)',
-  created_by VARCHAR(10) NOT NULL COMMENT '정책을 만든 주체',
-  created_at DATETIME(3) NOT NULL COMMENT '처음 기록된 시각',
+  created_at DATETIME(3) NOT NULL COMMENT '처음 기록된 시각. 기본 정책은 가입 때 BE 설정의 값 4개로 찾고, 없으면 이때 행이 생긴다',
   CONSTRAINT pk_threshold_policy PRIMARY KEY (threshold_policy_id),
-  CONSTRAINT ux_threshold_policy_values UNIQUE (threshold, hold_seconds, recover_seconds, realert_seconds, notify_max_per_hour),  -- UK-03 (설정 저장 시 검색 인덱스 겸용)
-  CONSTRAINT ux_threshold_policy_name UNIQUE (policy_name),  -- UK-12
+  CONSTRAINT ux_threshold_policy_values UNIQUE (threshold, hold_seconds, recover_seconds, realert_seconds),  -- UK-03 (설정 저장·기본 정책 조회 인덱스 겸용)
   CONSTRAINT ck_threshold_policy_threshold CHECK (threshold BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_threshold_policy_hold_seconds CHECK (hold_seconds > 0 AND MOD(hold_seconds, 0.5) = 0),  -- 허용값: 0 초과, 0.5 단위
   CONSTRAINT ck_threshold_policy_recover_seconds CHECK (recover_seconds > 0 AND MOD(recover_seconds, 0.5) = 0),  -- 허용값: 0 초과, 0.5 단위
-  CONSTRAINT ck_threshold_policy_realert_seconds CHECK (realert_seconds >= 1),  -- 허용값: 1 이상
-  CONSTRAINT ck_threshold_policy_notify_max_per_hour CHECK (notify_max_per_hour >= 1),  -- 허용값: 1 이상
-  CONSTRAINT ck_threshold_policy_created_by CHECK (created_by IN ('SYSTEM', 'USER')),  -- 허용값: SYSTEM / USER
-  CONSTRAINT ck_threshold_policy_name CHECK ((created_by = 'SYSTEM' AND policy_name IS NOT NULL) OR (created_by = 'USER' AND policy_name IS NULL))  -- E-08 시스템 정책만 이름을 가진다
+  CONSTRAINT ck_threshold_policy_realert_seconds CHECK (realert_seconds >= 1)  -- 허용값: 1 이상
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-29 판정 정책 — 판정 파라미터 값 조합. 기록 후 변경 금지';
 
 -- ---------------------------------------------------------------------
@@ -78,8 +76,7 @@ CREATE TABLE user_account (
   account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED, 유예 기간 안에 철회하면 ACTIVE',
   joined_at DATETIME(3) NOT NULL COMMENT '가입 시각',
   threshold_policy_id BIGINT NOT NULL COMMENT '다음 측정부터 적용할 판정 정책 (사용자 설정 병합)',
-  alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '교정 알림(자세 알림) 사용. 끄면 화면 알림과 소리를 모두 표시하지 않고 이벤트 기록은 유지. 측정 시작 때 monitor_session.alert_enabled로 복사',
-  sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '소리 알림 사용. 켜면 교정 알림이 표시될 때 소리도 냄. 측정 시작 버튼을 누를 때 켬',
+  sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '소리 알림 사용 (사용자 설정 병합). 저장 여부 미결',
   age INT NULL COMMENT '가입 시 입력한 나이. 선택. NULL: 입력 안 함',
   occupation VARCHAR(80) NULL COMMENT '가입 시 입력한 직업(자유 입력). 선택. NULL: 입력 안 함',
   CONSTRAINT pk_user_account PRIMARY KEY (user_account_id),
@@ -93,35 +90,31 @@ CREATE TABLE user_account (
 -- T-30 baseline_posture — 기준 자세 (근거 E-04)
 -- ---------------------------------------------------------------------
 CREATE TABLE baseline_posture (
-  user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 사용자당 1행 — 다시 촬영하면 이 행을 덮어쓴다',
-  calibration_uuid VARCHAR(36) NOT NULL COMMENT '클라이언트가 발급한 보정 식별자. 다시 촬영할 때마다 새 값. 세션이 측정 시작 때 복사해 기준이 바뀐 시점을 구분',
-  calibration_sec DECIMAL(4,1) NOT NULL COMMENT '보정에 쓴 시간 (CALIBRATION_SEC 값 — V2.1 기준 3초)',
-  sample_count INT NOT NULL COMMENT '보정에 쓴 표본 수',
-  registered_at DATETIME(3) NOT NULL COMMENT '현재 기준을 촬영(보정 완료)한 시각. 다시 촬영하면 갱신',
-  nose_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 코 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  nose_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 코 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  left_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  left_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  right_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  right_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  left_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  left_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  right_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  right_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  mouth_left_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 왼쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  mouth_left_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 왼쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  mouth_right_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 오른쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  mouth_right_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 입 오른쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  left_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  left_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 왼쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  right_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
-  right_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영 동안의 오른쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
-  CONSTRAINT pk_baseline_posture PRIMARY KEY (user_account_id),
-  CONSTRAINT ux_baseline_posture_calibration UNIQUE (calibration_uuid),  -- UK-04
+  baseline_posture_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '기준 자세 식별자. 다시 촬영할 때마다 새 행. 사용자별로 가장 큰 값이 현재 기준',
+  user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 사용자별로 baseline_posture_id가 가장 큰 행이 현재 기준',
+  registered_at DATETIME(3) NOT NULL COMMENT '보정을 끝낸 시각. FE가 정한 값을 그대로 저장 — 재전송해도 같은 값이라 (사용자, 등록 시각) 유일 제약이 중복 저장을 막는다. 현재 기준 판단에는 쓰지 않는다 (기기 시계 차이)',
+  nose_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  nose_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_eye_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 눈 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_ear_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 귀 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_ear_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 귀 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  mouth_left_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 입 왼쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  mouth_left_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 입 왼쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  mouth_right_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 입 오른쪽 끝 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  mouth_right_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 입 오른쪽 끝 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  left_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  left_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  right_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
+  right_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
+  CONSTRAINT pk_baseline_posture PRIMARY KEY (baseline_posture_id),
+  CONSTRAINT ux_baseline_posture_registered UNIQUE (user_account_id, registered_at),  -- UK-14 (재전송 중복 방지, FK-04 인덱스 겸용)
+  CONSTRAINT ux_baseline_posture_owner UNIQUE (baseline_posture_id, user_account_id),  -- UK-15 (FK-27의 참조 대상)
   CONSTRAINT fk_baseline_posture_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-04
-  CONSTRAINT ck_baseline_posture_calibration_uuid CHECK (CHAR_LENGTH(calibration_uuid) = 36),  -- 허용값: UUID
-  CONSTRAINT ck_baseline_posture_calibration_sec CHECK (calibration_sec > 0),  -- 허용값: 0 초과
-  CONSTRAINT ck_baseline_posture_sample_count CHECK (sample_count >= 1),  -- 허용값: 1 이상
   CONSTRAINT ck_baseline_posture_nose_x CHECK (nose_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_nose_y CHECK (nose_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_left_eye_x CHECK (left_eye_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
@@ -140,7 +133,7 @@ CREATE TABLE baseline_posture (
   CONSTRAINT ck_baseline_posture_left_shoulder_y CHECK (left_shoulder_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_right_shoulder_x CHECK (right_shoulder_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_right_shoulder_y CHECK (right_shoulder_y BETWEEN 0 AND 1)  -- 허용값: 0 ~ 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-30 기준 자세 — 사용자당 1행. 관절 좌표 18개(9개 부위 × x·y), 다시 촬영하면 덮어씀';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-30 기준 자세 — 다시 촬영할 때마다 새 행. 관절 좌표 18개(9개 부위 × x·y). baseline_posture_id가 가장 큰 행이 현재 기준';
 
 -- ---------------------------------------------------------------------
 -- T-33 monitor_session — 측정 세션 (근거 E-09)
@@ -148,23 +141,21 @@ CREATE TABLE baseline_posture (
 CREATE TABLE monitor_session (
   monitor_session_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '세션 식별자 (클라이언트 식별자가 36자이므로 대리키)',
   client_session_uuid VARCHAR(36) NOT NULL COMMENT '클라이언트가 발급한 세션 식별자. 재전송 중복 저장 방지',
-  user_account_id BIGINT NOT NULL COMMENT '측정한 사용자 (D-19). 이 사용자의 현재 기준 자세로 판정한다',
-  calibration_uuid VARCHAR(36) NOT NULL COMMENT '측정 시작 시점에 적용한 기준 자세의 보정 식별자 (baseline_posture.calibration_uuid 복사). FK 아님 — 같은 값을 가진 세션끼리만 같은 기준',
+  user_account_id BIGINT NOT NULL COMMENT '측정한 사용자 (D-19). 기준 자세의 사용자와 같아야 한다 (FK-27)',
+  baseline_posture_id BIGINT NOT NULL COMMENT '측정 시작 시점의 현재 기준 자세(사용자의 baseline_posture_id가 가장 큰 행). 같은 기준 자세끼리만 같은 조건으로 비교한다',
   threshold_policy_id BIGINT NOT NULL COMMENT '시작 시점에 적용한 판정 정책',
-  alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '교정 알림 제공 여부. 거짓이어도 이벤트는 기록',
+  alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '교정 알림 제공 여부. 측정 시작 때 user_account.sound_alert_enabled를 복사하고 측정 중에는 바꾸지 않는다. 거짓이어도 이벤트와 알림 시점은 기록 — 알림 행이 실제로 표시됐는지는 이 값으로 판단',
   started_at DATETIME(3) NOT NULL COMMENT '측정 시작 시각',
-  ended_at DATETIME(3) NULL COMMENT '측정 종료 시각. NULL: 측정 중',
-  end_reason VARCHAR(16) NULL COMMENT '종료 사유. NULL: 측정 중',
+  ended_at DATETIME(3) NULL COMMENT '측정 종료 시각. NULL: 측정 중. 종료 방식(사용자 종료·연결 끊김·오류)은 구분하지 않는다',
   good_sec DECIMAL(9,1) NULL COMMENT '바른 자세로 판정된 시간 (원자료, D-22). NULL: 측정 중',
   CONSTRAINT pk_monitor_session PRIMARY KEY (monitor_session_id),
   CONSTRAINT ux_monitor_session_client_uuid UNIQUE (client_session_uuid),  -- UK-05
   CONSTRAINT fk_monitor_session_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-07
   CONSTRAINT fk_monitor_session_threshold_policy FOREIGN KEY (threshold_policy_id) REFERENCES threshold_policy (threshold_policy_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-10
+  CONSTRAINT fk_monitor_session_baseline_posture FOREIGN KEY (baseline_posture_id, user_account_id) REFERENCES baseline_posture (baseline_posture_id, user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-27 (UK-15) — 판정 기준 보존·사용자 일치
   CONSTRAINT ck_monitor_session_client_session_uuid CHECK (CHAR_LENGTH(client_session_uuid) = 36),  -- 허용값: UUID
-  CONSTRAINT ck_monitor_session_calibration_uuid CHECK (CHAR_LENGTH(calibration_uuid) = 36),  -- 허용값: UUID
-  CONSTRAINT ck_monitor_session_end_reason CHECK (end_reason IN ('USER_STOP', 'DISCONNECTED', 'ERROR')),  -- 허용값: USER_STOP / DISCONNECTED / ERROR
   CONSTRAINT ck_monitor_session_good_sec CHECK (good_sec >= 0),  -- 허용값: 0 이상
-  CONSTRAINT ck_monitor_session_end CHECK ((ended_at IS NULL AND end_reason IS NULL AND good_sec IS NULL) OR (ended_at IS NOT NULL AND end_reason IS NOT NULL AND good_sec IS NOT NULL)),  -- BR-35 종료 시각·종료 사유·바른 자세 시간은 함께 채워진다 (NULL = 측정 중)
+  CONSTRAINT ck_monitor_session_end CHECK ((ended_at IS NULL AND good_sec IS NULL) OR (ended_at IS NOT NULL AND good_sec IS NOT NULL)),  -- BR-35 종료 시각과 바른 자세 시간은 함께 채워진다 (NULL = 측정 중)
   CONSTRAINT ck_monitor_session_period CHECK (ended_at >= started_at)  -- 종료 시각은 시작 시각 이후
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-33 측정 세션 — 측정 1회와 적용 조건·결과 요약';
 
@@ -173,14 +164,14 @@ CREATE TABLE monitor_session (
 -- ---------------------------------------------------------------------
 CREATE TABLE excluded_interval (
   monitor_session_id BIGINT NOT NULL COMMENT '소속 세션',
-  started_at DATETIME(3) NOT NULL COMMENT '제외 시작 시각',
+  started_at DATETIME(3) NOT NULL COMMENT '제외 시작 시각. 사유가 바뀌면 새 행으로 나눈다',
   ended_at DATETIME(3) NULL COMMENT '제외 종료 시각. NULL: 진행 중',
-  exclusion_reason VARCHAR(12) NOT NULL COMMENT '제외 사유. 우선순위로 하나만 부여',
+  exclusion_reason VARCHAR(12) NOT NULL COMMENT '제외 사유. 한 시점에 하나만 — 우선순위 자리 비움(ABSENCE) → 일시정지(PAUSE) → 입력 누락(MISSING) → 판정 불가(UNMEASURABLE)',
   CONSTRAINT pk_excluded_interval PRIMARY KEY (monitor_session_id, started_at),
   CONSTRAINT fk_excluded_interval_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-12
   CONSTRAINT ck_excluded_interval_ended_at CHECK (ended_at >= started_at),  -- 허용값: started_at 이후
-  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('PAUSE', 'MISSING', 'ABSENCE', 'UNMEASURABLE'))  -- 허용값: PAUSE / MISSING / ABSENCE / UNMEASURABLE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-34 세션 제외 구간 — 일시정지·자리 비움·판정 불가 구간';
+  CONSTRAINT ck_excluded_interval_exclusion_reason CHECK (exclusion_reason IN ('ABSENCE', 'PAUSE', 'MISSING', 'UNMEASURABLE'))  -- 허용값: ABSENCE / PAUSE / MISSING / UNMEASURABLE (우선순위 순, BR-52)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-34 세션 제외 구간 — 자리 비움·일시정지·입력 누락·판정 불가 구간. 한 시점에 사유 하나';
 
 -- ---------------------------------------------------------------------
 -- T-35 feature_archive — 특징값 적재 기록 (근거 E-13)
@@ -209,37 +200,26 @@ CREATE TABLE collapse_event (
   event_seq INT NOT NULL COMMENT '세션 내 순번',
   started_at DATETIME(3) NOT NULL COMMENT '임계를 넘은 시각 = 붕괴 시작 (D-20)',
   confirmed_at DATETIME(3) NOT NULL COMMENT '지속 조건 충족으로 확정된 시각',
-  ended_at DATETIME(3) NULL COMMENT '이벤트 종료 시각. NULL: 진행 중',
-  end_reason VARCHAR(16) NULL COMMENT '종료 사유. NULL: 진행 중',
-  recovered_at DATETIME(3) NULL COMMENT '회복 시각. NULL: 회복으로 끝나지 않음',
+  ended_at DATETIME(3) NULL COMMENT '이벤트 종료 시각. NULL: 진행 중. 종료 사유는 시각으로 판정 — recovered_at 있음: 회복 / 세션 ended_at과 같음: 세션 종료 / 그 밖: 제외 구간 중단. 세션 종료로 끝나면 세션 종료 시각, 제외로 끝나면 제외 구간 시작 시각을 그대로 넣는다',
+  recovered_at DATETIME(3) NULL COMMENT '회복 시각. NULL: 회복으로 끝나지 않음. 값이 있으면 ended_at도 있어야 하고, 종료 사유는 회복',
   CONSTRAINT pk_collapse_event PRIMARY KEY (monitor_session_id, event_seq),
   CONSTRAINT fk_collapse_event_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-14
   CONSTRAINT ck_collapse_event_event_seq CHECK (event_seq >= 1),  -- 허용값: 1 이상
   CONSTRAINT ck_collapse_event_confirmed_at CHECK (confirmed_at >= started_at),  -- 허용값: started_at 이후
   CONSTRAINT ck_collapse_event_ended_at CHECK (ended_at >= confirmed_at),  -- 허용값: confirmed_at 이후
-  CONSTRAINT ck_collapse_event_end_reason CHECK (end_reason IN ('RECOVERED', 'SESSION_END', 'EXCLUDED')),  -- 허용값: RECOVERED / SESSION_END / EXCLUDED
-  CONSTRAINT ck_collapse_event_end CHECK ((ended_at IS NULL AND end_reason IS NULL) OR (ended_at IS NOT NULL AND end_reason IS NOT NULL)),  -- BR-12 종료 시각과 종료 사유는 함께 채워진다 (NULL = 진행 중)
-  CONSTRAINT ck_collapse_event_recovered CHECK ((recovered_at IS NULL AND (end_reason IS NULL OR end_reason <> 'RECOVERED')) OR (recovered_at IS NOT NULL AND end_reason = 'RECOVERED'))  -- BR-12 회복 시각은 회복으로 끝난 이벤트에만 있다
+  CONSTRAINT ck_collapse_event_recovered CHECK (recovered_at IS NULL OR (ended_at IS NOT NULL AND recovered_at BETWEEN confirmed_at AND ended_at))  -- BR-12 허용값: confirmed_at 이후, ended_at 이전 (회복 시각이 있으면 종료 시각도 있다)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-37 붕괴 이벤트 — 붕괴 한 건의 시작·확정·종료·회복';
 
 -- ---------------------------------------------------------------------
 -- T-38 correction_alert — 교정 알림 (근거 E-15)
 -- ---------------------------------------------------------------------
 CREATE TABLE correction_alert (
-  correction_alert_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '알림 시도 식별자 (자연키 3컬럼이므로 대리키)',
   monitor_session_id BIGINT NOT NULL COMMENT '대상 이벤트의 세션',
   event_seq INT NOT NULL COMMENT '대상 이벤트의 세션 내 순번',
-  attempt_seq INT NOT NULL COMMENT '이벤트 내 알림 시도 순번',
-  attempted_at DATETIME(3) NOT NULL COMMENT '알림 시도 시각',
-  delivered BOOLEAN NOT NULL COMMENT '실제로 표시됐는지',
-  suppress_reason VARCHAR(16) NULL COMMENT '억제 사유. NULL: 표시됨',
-  CONSTRAINT pk_correction_alert PRIMARY KEY (correction_alert_id),
-  CONSTRAINT ux_correction_alert_attempt UNIQUE (monitor_session_id, event_seq, attempt_seq),  -- UK-07
-  CONSTRAINT fk_correction_alert_collapse_event FOREIGN KEY (monitor_session_id, event_seq) REFERENCES collapse_event (monitor_session_id, event_seq) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-16
-  CONSTRAINT ck_correction_alert_attempt_seq CHECK (attempt_seq >= 1),  -- 허용값: 1 이상
-  CONSTRAINT ck_correction_alert_suppress_reason CHECK (suppress_reason IN ('ALERT_OFF', 'RATE_LIMIT')),  -- 허용값: ALERT_OFF / RATE_LIMIT
-  CONSTRAINT ck_correction_alert_suppress CHECK ((delivered = TRUE AND suppress_reason IS NULL) OR (delivered = FALSE AND suppress_reason IS NOT NULL))  -- BR-14 표시되지 않은 시도만 억제 사유를 가진다
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-38 교정 알림 — 알림 시도와 발송·억제 결과';
+  attempted_at DATETIME(3) NOT NULL COMMENT '알림 시각. 알림이 꺼져도 첫 알림(이벤트 확정)과 재알림 주기(realert_seconds)마다 기록. 판정기가 메시지에 담은 시각을 그대로 저장 — 재전송 중복을 PK가 막는다. 첫 알림 = 가장 이른 시각',
+  CONSTRAINT pk_correction_alert PRIMARY KEY (monitor_session_id, event_seq, attempted_at),
+  CONSTRAINT fk_correction_alert_collapse_event FOREIGN KEY (monitor_session_id, event_seq) REFERENCES collapse_event (monitor_session_id, event_seq) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-16
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-38 교정 알림 — 알림 시점. 알림이 꺼져도 첫 알림과 재알림 주기마다 기록';
 
 -- ---------------------------------------------------------------------
 -- T-39 daily_stat — 일별 통계 (근거 E-16)
@@ -251,7 +231,7 @@ CREATE TABLE daily_stat (
   good_sec DECIMAL(9,1) NOT NULL COMMENT '바른 자세 시간 합 (분자)',
   session_count INT NOT NULL COMMENT '세션 수',
   event_count INT NOT NULL COMMENT '붕괴 이벤트 수',
-  alerted_event_count INT NOT NULL COMMENT '알림이 실제 표시된 이벤트 수',
+  alerted_event_count INT NOT NULL COMMENT '알림이 표시된 이벤트 수 — alert_enabled가 참인 세션에서 알림 행이 있는 이벤트',
   computed_at DATETIME(3) NOT NULL COMMENT '집계 시각 (재계산 추적)',
   CONSTRAINT pk_daily_stat PRIMARY KEY (user_account_id, stat_date),
   CONSTRAINT fk_daily_stat_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-17
@@ -308,4 +288,4 @@ CREATE TABLE SPRING_SESSION_ATTRIBUTES (
   CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
 ) ENGINE=InnoDB;
 
--- 끝: 테이블 12개, 컬럼 104개, UK 8개, FK 11개, CHECK 59개
+-- 끝: 테이블 12개, 컬럼 92개, UK 7개, FK 12개, CHECK 46개

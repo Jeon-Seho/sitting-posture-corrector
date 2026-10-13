@@ -26,7 +26,7 @@ export function CollectionTaskPicker({ collection: c }: { collection: Collection
           </select>
         </div>
       </div>
-      <p className="fine">자세를 고른 뒤 카메라를 켜고 기준 자세를 등록하세요. 촬영 후 실제 자세를 다시 확인합니다.</p>
+      <p className="fine">자세를 고른 뒤 카메라를 켜고 자세를 등록하세요. 촬영 후 실제로 한 자세를 다시 확인합니다.</p>
     </section>
   )
 }

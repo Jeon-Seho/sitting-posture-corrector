@@ -69,7 +69,8 @@ def score_feature_deltas(features: FeatureDeltas) -> Tuple[float, DeviationType]
     if score == 0:
         return score, "none"
     if lateral_change > head_change and lateral_change > shoulder_change:
-        # Raw positive offset appears on the left of the mirrored camera preview.
+        # The user's own side: the camera image is not mirrored, so a positive offset change
+        # (nose toward larger image x) is a lean to the user's left. Checked 2026-10-08.
         kind = "left_lean" if features.lateral_offset_delta > 0 else "right_lean"
         return score, kind
     # Head height, shoulder tilt and ties do not establish forward slouch anatomy.

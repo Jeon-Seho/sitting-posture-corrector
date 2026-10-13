@@ -100,28 +100,6 @@
   font-weight: 800;
 }
 
-.kinds {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.kind-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.kind-head span:first-child {
-  font-weight: 600;
-}
-
-.kind-head span:last-child {
-  font-family: var(--font-num);
-  color: var(--muted);
-}
-
 .records-empty {
   display: flex;
   flex-direction: column;

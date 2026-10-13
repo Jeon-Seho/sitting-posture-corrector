@@ -8,6 +8,11 @@
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
 [ADR 0013](decisions/0013-frontend-server-feature-connection.md)에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송한다.
 
+> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
+> 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
+> 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
+> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 1장).
+
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
                          ↓                                  ↓
@@ -114,7 +119,6 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 완료 기록의 선택 필드 `server`에는 모델/기준 ID·종료 확인 여부와 원래 사건/통계 snapshot을 보관한다.
 표시용 투영과 원래 snapshot이 일치하는지도 검사한다. 서버 유실 시 종료 성공으로 만들지 않고 명시적 요약 보관을 제공한다.
 기준은 연결 내 임시 수집이 완료된 때 교체하고 취소 시 기존 기준을 유지한다. 영구 기준 버전은 미구현이다.
-검증과 한계는 [Mac 통합 점검](audits/2026-09-30-mac-develop.md)에 기록한다.
 
 기록 상세는 로컬 요약과 원래 서버 사건/통계를 읽어 표시한다. 서버 종료 미확인 자료의 열린 사건을 실제 복귀/종료로 바꾸지 않는다.
 비교 조건 표시는 실제 첫/최근 비교 구간에 들어간 기록의 출처·설정·모델·기준과 누락 정보를 사용하며 합산/제외 정책은 유지한다.

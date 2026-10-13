@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
-import { COLLAPSE_LABEL } from '../../data/posture'
 import type { Rules } from '../../lib/engine'
-import { cameraSample } from '../../lib/cameraSample'
+import { cameraSample, holdWhileSettling } from '../../lib/cameraSample'
+import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
@@ -39,6 +39,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const [exportCount, setExportCount] = useState(0)
+  const returnSettle = useRef(new ReturnSettle())
   useEffect(() => {
     if (!service?.sessionId || !isCamera) return
     return camera.subscribe((observation) => {
@@ -66,7 +67,6 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
         timeMs: observation.timeMs,
         width: observation.width,
         height: observation.height,
-        featuresOk: observation.features !== null,
         landmarks: observation.landmarks,
       })
     })
@@ -77,7 +77,9 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     phase,
     speed,
     rules,
-    isCamera ? () => cameraSample(camera) : undefined,
+    isCamera
+      ? () => holdWhileSettling(cameraSample(camera), returnSettle.current, performance.now())
+      : undefined,
     alertsOn,
     service
       ? {
@@ -133,11 +135,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
     if (soundOn && !playCorrection())
       setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
-    setToast(
-      live.collapse
-        ? `${COLLAPSE_LABEL[live.collapse]} 상태가 ${rules.holdSeconds}초 이상 이어졌습니다.`
-        : '자세 붕괴가 감지되었습니다.',
-    )
+    setToast(`흐트러진 자세가 ${rules.holdSeconds}초 이상 이어졌습니다.`)
     const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [live.alertTick])

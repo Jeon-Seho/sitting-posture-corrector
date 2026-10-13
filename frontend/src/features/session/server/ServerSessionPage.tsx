@@ -4,7 +4,6 @@ import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
 import { Ring } from '../../../components/Ring'
 import { Card, Ledger, Stat } from '../../../components/ui'
-import { COLLAPSE_LABEL } from '../../../data/posture'
 import { postureScore } from '../../../lib/postureScore'
 import { formatClock, formatDuration, formatPercent, formatRate } from '../../../lib/stats'
 import { EventTable } from '../SessionEvents'
@@ -36,9 +35,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
     ? live.state === 'unknown'
       ? '자세를 확인할 수 없어요'
       : live.state === 'collapse'
-        ? live.collapse
-          ? COLLAPSE_LABEL[live.collapse]
-          : '기준 자세 변화'
+        ? '자세가 흐트러졌어요'
         : '바른 자세예요'
     : screen.phase === 'creating'
       ? '서버 연결 중'

@@ -1,0 +1,25 @@
+# FE 개발 PC에 직접 설치하는 프로그램 (2026-10-12)
+# requirements-dev.txt(Python 패키지)와 frontend/package.json(npm 패키지)은 설치 명령이 자동으로 받는다.
+# 이 파일은 자동으로 받지 못하는 프로그램만 적는다. 기계가 읽는 형식이 아니라 사람이 보는 목록이다.
+# 형식: 이름 | 버전 | 어디서 받나(Windows) | 어느 검사에 필요한가 (docs/design/fe-commands-and-checks.md 명령 모음)
+
+# 기본 (python tools/dev.py setup, check-repo, test, check-frontend)
+Git            | 최신        | winget install Git.Git                          | 전부
+Node.js        | 24 이상     | winget install OpenJS.NodeJS.LTS                | check-frontend, check-browser
+Python         | 3.9 이상    | winget install Python.Python.3.13               | test, 모든 tools/*.py
+
+# 서버 검사 (check-backend, check-browser)
+JDK            | 21 (꼭 21)  | winget install EclipseAdoptium.Temurin.21.JDK   | check-backend, check-browser
+Maven          | 3.6.3 이상  | https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
+               |             | → %USERPROFILE%\tools 에 압축 해제               | check-backend
+Chrome         | 최신        | winget install Google.Chrome                    | check-browser
+
+# 영구 저장 검사 (check-compose)
+Docker Desktop | 최신        | winget install Docker.DockerDesktop             | check-compose (실행 중이어야 함)
+
+# 환경변수 (사용자 변수, 설정 뒤 터미널·VS Code를 새로 연다)
+# JAVA_HOME        = C:\Program Files\Eclipse Adoptium\jdk-21.x.x-hotspot   (JDK 25 등 다른 버전이 있어도 21을 가리킨다)
+# MAVEN_EXECUTABLE = %USERPROFILE%\tools\apache-maven-3.9.9\bin\mvn.cmd
+# 확인: "%MAVEN_EXECUTABLE%" -v  → Java version 21 이 나와야 한다
+
+# 새 Windows PC는 tools/setup-windows.ps1 이 Git·Node.js·Python과 저장소 준비를 한 번에 한다(JDK·Maven·Chrome·Docker는 위대로 따로).

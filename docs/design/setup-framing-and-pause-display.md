@@ -3,7 +3,7 @@
 - 대상: 우진(데스크톱 앱 화면·자동 기준 등록·다른 탭 측정 유지)
 - 작성: 동욱 요청, Claude 작성 (2026-10-08)
 - 기준 코드: `lee_app1`(develop PR #22)
-- 관련: [판정 불가 처리](unmeasurable-handling.md)(판정 규칙 전체, DevOps용), [ADR 0012 세션 시간 정책](../decisions/0012-session-timing-policy.md),
+- 관련: [FE 제안서](fe-server-proposal.md)(판정 규칙 전체, DevOps용), [ADR 0012 세션 시간 정책](../decisions/0012-session-timing-policy.md),
   [화면 설계](desktop-app.md)
 
 판정 불가 처리를 바꾸기로 하면서 우진 담당 화면에 필요한 변경이 두 가지 생겼다(1·2번).
@@ -11,9 +11,11 @@
 
 ## 1. 자동 기준 등록 전에 어깨 구도 확인 (요청)
 
+> 2026-10-12: 자동 기준 등록(`useAutoBaseline.ts`)은 없앴다. 기준 자세는 「자세 등록」 탭에서만, 얼굴·어깨가 보이면 3·2·1 뒤 등록한다([계획 0024](../plans/active/0024-posture-registration-tab.md)). 아래 어깨 구도 문제는 그 등록 화면에 그대로 해당한다.
+
 ### 문제
 
-[useAutoBaseline.ts](../../frontend/src/features/camera/useAutoBaseline.ts)는 얼굴과 양어깨가 0.8초(`AUTO_CALIBRATE_DELAY_MS`) 보이면 보정을 시작하고,
+`useAutoBaseline.ts`(2026-10-12 삭제)는 얼굴과 양어깨가 0.8초(`AUTO_CALIBRATE_DELAY_MS`) 보이면 보정을 시작하고,
 보정이 끝나면 측정을 시작한다. 보정은 판정 가능한 프레임인지만 확인한다([calibration.ts](../../model/prototype/calibration.ts)).
 판정 가능 기준은 어깨·코가 화면 가장자리 2% 안쪽에 있고 visibility가 0.65 이상이다([pose.ts `features()`](../../model/prototype/pose.ts)).
 
@@ -24,7 +26,7 @@
 
 ### 요청하는 동작
 
-- 자동 보정 시작 조건에 구도 확인을 더한다. 양어깨가 화면 아래 끝에서 일정 거리 이상 떨어져 있고, visibility가 충분할 때만 0.8초 대기를 시작한다.
+- (2026-10-12 이후: 「자세 등록」 탭의 3·2·1 카운트다운을 시작하는 조건에 적용한다.) 자동 보정 시작 조건에 구도 확인을 더한다. 양어깨가 화면 아래 끝에서 일정 거리 이상 떨어져 있고, visibility가 충분할 때만 0.8초 대기를 시작한다.
 - 조건을 못 채우면 보정을 시작하지 않고 안내한다. 예: "어깨가 화면 아래에 걸려 있어요. 카메라를 조금 올리거나 뒤로 앉아 주세요."
 - 수동 "기준 다시 찍기"에도 같은 조건을 쓴다. 보정 중에 조건이 깨지면, 지금처럼 판정 불가 프레임이 나왔을 때와 같이 다시 시작한다.
 - 카메라 안내 화면의 사람 맞춤(이전 작업)과 같은 자리에서 보여 주면 자연스럽다.

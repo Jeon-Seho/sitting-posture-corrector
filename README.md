@@ -7,6 +7,9 @@ Compose에서는 **MySQL + 이메일·비밀번호 계정 + 영구 기록·재�
 측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API로 보내고, API가 FastAPI 점수로 붕괴·회복·재알림을 판정한다(계정 앱 필요).
 기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).
 
+> **결정 변경(2026-10-11, [ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보내며
+> 판정은 서버가 한다. 로컬 판정 모드는 없앤다. 위 설명은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)으로 바뀌기 전의 현재 동작이다.
+
 ## Compose 계정 모드 실행
 
 Docker Desktop/Engine과 Compose를 시작한 뒤:
@@ -31,7 +34,8 @@ make dev
 
 `make`가 없는 Windows에서는 `python tools/dev.py setup`, `python tools/dev.py dev`를 사용한다.
 
-[로컬 화면](http://127.0.0.1:5173/) → 이름·나이·직업 입력 → 측정하기 → 카메라 켜기 → 3초 기준 등록(얼굴·어깨가 보이면 자동, 최소 15표본) → 측정 자동 시작.
+[로컬 화면](http://127.0.0.1:5173/) → 이름·나이·직업 입력 → 자세 등록 → 카메라 켜기 → 얼굴·어깨가 보이면 3·2·1 뒤 자동으로 3초 등록(최소 15표본) → 측정하러 가기 → 측정 시작.
+자세는 한 번 등록하면 앱이 켜져 있는 동안 다시 등록하지 않는다([계획 0024](docs/plans/active/0024-posture-registration-tab.md)).
 실제 계정은 필요 없다. 프로필과 측정 요약은 이 브라우저(localStorage)에만 저장한다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
 
@@ -44,12 +48,14 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 
 | 메뉴 | 내용 |
 | --- | --- |
-| 측정하기 | 카메라 연결 → 3초 기준 등록 → 측정. 측정은 앱의 다른 화면으로 이동해도 계속된다 |
+| 측정하기 | 카메라 연결 → 얼굴·어깨 확인 → 측정. 보정하지 않고 등록한 자세를 쓴다. 측정은 앱의 다른 화면으로 이동해도 계속된다 |
+| 자세 등록 | 이 탭에서만 등록한다. 얼굴·어깨가 보이면 3·2·1 뒤 자동으로 3초 등록하고 스스로 끝난다. 「측정 종료」로 멈출 수 있고, 이미 등록했으면 「다시 등록」을 누를 때만 다시 한다. 측정 중에는 등록할 수 없다 |
 | 기록 | 이 기기의 실제 기록(신규 기본) 또는 개발자 옵션에서 선택한 발표용 예시 기록의 누적 표시 |
 | 설정 | 판정 시간·임계값. `개발자 옵션`에 `발표용 예시 기록 표시` 스위치와 `자세 데이터 수집`(관절 좌표 CSV, 교정 알림 없음) |
 | 계정 메뉴(사이드바 하단) | 프로필 설정, 로그아웃 |
 
-화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02) 기준이다. 이전 이름: 홈·측정 준비·실시간 측정 → 측정하기, 대시보드 → 기록, 자세 등록 → 설정의 자세 데이터 수집.
+화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02)과 [계획 0024](docs/plans/active/0024-posture-registration-tab.md)(2026-10-12, 「자세 등록」 탭 추가) 기준이다.
+이전 이름: 홈·측정 준비·실시간 측정 → 측정하기, 대시보드 → 기록, 예전 자세 등록(좌표 수집) → 설정의 자세 데이터 수집. 지금의 「자세 등록」은 기준 자세 등록 탭이다.
 
 예전의 별도 연구 화면(`?research=1`)은 이 앱에 통합되어 더 이상 없다. [ADR 0008](docs/decisions/0008-single-app-entry.md) 참고.
 
@@ -71,9 +77,9 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 
 - [프론트 실행·사용·제약](frontend/README.md)
 - [문서 지도](docs/index.md), [작업 지침](AGENTS.md), [개발 흐름](docs/development.md)
-- [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), [서비스 요구사항](docs/team-requirements.md)
+- [디자인 시스템](DESIGN.md), [제품 방향](PRODUCT.md), 서비스 요구사항은 팀 구글 시트
 - [출력 계약](contracts/README.md), [연구 프로토콜](docs/research/protocol.md)
-- [코드 구조와 수정 위치](docs/code-structure.md), [기술 스택 검토](docs/audits/2026-10-01-technology-stack.md)
+- [코드 구조와 수정 위치](docs/code-structure.md)
 - `frontend/src/app/ServiceApp.tsx`: 앱 조립·화면 전환
 - `frontend/src/features/`: 프로필·세션·기록·저장·카메라 기능
 - `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 엔진의 공개 진입점
@@ -85,6 +91,6 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
 
 `make benchmark-server`는 준비된 JAR로 추론 단독·API→추론 지연과 처리량을 측정한다(계정 로그인 전환 전까지 API 대상은 401로 실패한다).
-[측정 조건과 해석](docs/audits/2026-10-01-server-benchmark.md)을 확인한다. 실제 카메라 FPS와는 별도다.
+측정 조건과 해석은 [아키텍처](docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다. 실제 카메라 FPS와는 별도다.
 [참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
 실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.

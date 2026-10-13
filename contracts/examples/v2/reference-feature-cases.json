@@ -92,7 +92,7 @@
       }
     },
     {
-      "name": "mirrored_left_from_positive_lateral",
+      "name": "left_from_positive_lateral",
       "current": {
         "headGap": 0,
         "offset": 0.2,
@@ -121,7 +121,7 @@
       }
     },
     {
-      "name": "mirrored_right_from_negative_lateral",
+      "name": "right_from_negative_lateral",
       "current": {
         "headGap": 0,
         "offset": -0.2,

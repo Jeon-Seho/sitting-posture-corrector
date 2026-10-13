@@ -32,12 +32,6 @@ export const STATE_LABEL: Record<PostureState, string> = {
   unknown: '판정 불가',
 }
 
-export const COLLAPSE_LABEL: Record<CollapseType, string> = {
-  forwardHead: '머리·상체 변화',
-  tilt: '기울어짐',
-  referenceChange: '기준 대비 변화',
-}
-
 /** 계획서의 특징값: 목 전방 이동, 어깨 기울기, 상체 기울기, 좌우 균형 */
 export type Features = {
   neckForward: number

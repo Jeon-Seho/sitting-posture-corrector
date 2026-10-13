@@ -28,7 +28,7 @@ CI에서만 `POSEGOOD_CHROME_NO_SANDBOX=1`을 사용하고 로컬 Chrome은 기�
 
 서버 준비·독립 `dev-api`/`dev-inference`와 시험용 MySQL은 [backend 안내](../backend/README.md),
 계정 앱·배포·백업은 [infra 안내](../infra/README.md), 웹캠은 [frontend 안내](../frontend/README.md)를 따른다.
-검증 선택·실패 기준·합성 입력 경계·결과 보고는 [품질 기준](quality.md), 성능 측정은 [benchmark 안내](audits/2026-10-01-server-benchmark.md)에 모은다.
+검증 선택·실패 기준·합성 입력 경계·결과 보고는 [품질 기준](quality.md), 성능 측정은 [benchmark 안내](removed-docs.md)에 모은다.
 
 ## 작업 루프
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_RULES } from '../data/posture'
 import {
   appendObservation,
   CSV_COLUMNS,
@@ -7,6 +6,7 @@ import {
   MAX_ROWS,
   newCapture,
   reviewCapture,
+  SCHEMA_VERSION,
   toCsv,
 } from './collection'
 import { captureWindow, DEFAULT_CAPTURE_OPTIONS, TASKS } from './collectionProtocol'
@@ -14,7 +14,7 @@ import { inferenceInterval, smoothPoints } from './skeleton'
 import type { Observation } from '../hooks/useCamera'
 const baseline = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 }
 const capture = () =>
-  newCapture('P01', baseline, DEFAULT_RULES, 1000, 'synthetic-capture', '2026-09-19T00:00:00Z')
+  newCapture('P01', 1000, 'synthetic-capture', '2026-09-19T00:00:00Z')
 const frame = (time: number, missing = false): Observation => ({
   timeMs: time,
   videoTimeMs: time,
@@ -36,7 +36,26 @@ describe('pilot collection', () => {
     expect(appendObservation(c, { ...frame(2200), videoTimeMs: 2000 }, 'upright')).toBe(false)
     expect(appendObservation(c, frame(NaN), 'upright')).toBe(false)
   })
-  it('keeps human labels independent from automatic rules and stores signed raw deltas', () => {
+  it('writes no judgement or rule-feature columns (ADR 0021)', () => {
+    for (const column of [
+      'rule_score',
+      'rule_prediction',
+      'measurement_quality',
+      'head_gap',
+      'lateral_offset',
+      'shoulder_tilt',
+      'delta_head_gap',
+      'baseline_head_gap',
+      'threshold',
+      'feature_version',
+    ])
+      expect(CSV_COLUMNS).not.toContain(column)
+    const c = capture()
+    appendObservation(c, frame(1000), 'upright')
+    expect(c.rows[0].schema_version).toBe('posture-pilot-v3')
+    expect(SCHEMA_VERSION).toBe('posture-pilot-v3')
+  })
+  it('keeps the self-reported label separate and only after review', () => {
     const c = capture()
     appendObservation(c, frame(1000), 'upright')
     expect(c.rows[0]).toMatchObject({
@@ -50,43 +69,27 @@ describe('pilot collection', () => {
     expect(c.rows[0]).toMatchObject({
       manual_label: 'upright',
       label_source: 'self_report_reviewed',
-      rule_prediction: 'deviation',
-      head_gap: 0.1,
-      delta_head_gap: -0.4,
+      pose_training_eligible: 1,
     })
   })
-  it('records missing features as null, with a new segment on loss, recovery, label change and time gap', () => {
+  it('starts a new segment on a label change or a time gap, not on visibility', () => {
     const c = capture()
     appendObservation(c, frame(1000), 'upright')
     appendObservation(c, frame(1100, true), 'upright')
     appendObservation(c, frame(1200), 'upright')
     appendObservation(c, frame(1300), 'transition')
     appendObservation(c, frame(3000), 'transition')
-    expect(c.rows[1]).toMatchObject({
-      measurement_quality: 'poor',
-      head_gap: null,
-      rule_score: null,
-      rule_prediction: 'unmeasurable',
-    })
-    expect(new Set(c.rows.map((row) => row.segment_id)).size).toBe(5)
+    expect(c.rows.map((row) => row.segment_id)).toEqual([1, 1, 1, 2, 3])
     expect(c.rows[4].gap_ms).toBe(1700)
   })
-  it('freezes calibration/settings and limits memory without overwriting prior rows', () => {
-    const b = { ...baseline },
-      rules = { ...DEFAULT_RULES }
-    const c = newCapture('P02', b, rules, 0, 'synthetic', 'test')
-    b.headGap = 8
-    rules.threshold = 0.1
+  it('limits memory without overwriting prior rows', () => {
+    const c = newCapture('P02', 0, 'synthetic', 'test')
     for (let i = 0; i <= MAX_ROWS; i++) appendObservation(c, frame(i * 100), 'unlabeled')
     expect(c.rows).toHaveLength(MAX_ROWS)
-    expect(c.rows[0]).toMatchObject({
-      baseline_head_gap: 0.5,
-      threshold: 0.7,
-      label_source: 'none',
-    })
+    expect(c.rows[0]).toMatchObject({ sample_index: 0, label_source: 'none' })
   })
   it('exports BOM/header and blank missing values; requires a participant code', () => {
-    expect(() => newCapture('=bad', baseline, DEFAULT_RULES, 0, '', '')).toThrow()
+    expect(() => newCapture('=bad', 0, '', '')).toThrow()
     const c = capture()
     appendObservation(c, frame(1000, true), 'unlabeled')
     const csv = toCsv(c.rows)
@@ -94,7 +97,7 @@ describe('pilot collection', () => {
     expect(csv).not.toMatch(/NaN|undefined/)
     expect(csv.split('\r\n')[1]).toContain(',,')
   })
-  it('keeps all 33 raw and world points even when legacy feature quality is poor', () => {
+  it('keeps all 33 raw and world points even at low visibility', () => {
     const c = capture()
     const points = Array.from({ length: 33 }, (_, i) => ({
       x: i / 33,
@@ -114,11 +117,9 @@ describe('pilot collection', () => {
     points[0].x = 999
     const row = c.rows[0]
     expect(row).toMatchObject({
-      schema_version: 'posture-pilot-v2',
+      schema_version: 'posture-pilot-v3',
       pose_detected: 1,
       landmark_count: 33,
-      measurement_quality: 'poor',
-      rule_prediction: 'unmeasurable',
       pose_training_eligible: 0,
     })
     expect(JSON.parse(String(row.landmarks_json))).toHaveLength(33)
@@ -133,7 +134,7 @@ describe('pilot collection', () => {
     expect(toCsv(c.rows)).toContain('""visibility""')
   })
   it('does not infer absence from a missing pose and can confirm absence without inventing features', () => {
-    const c = newCapture('P01', baseline, DEFAULT_RULES, 1000, 'synthetic', 'test', {
+    const c = newCapture('P01', 1000, 'synthetic', 'test', {
       ...DEFAULT_CAPTURE_OPTIONS,
       taskId: 'away',
     })
@@ -150,11 +151,10 @@ describe('pilot collection', () => {
       presence_label: 'away',
       manual_label: 'unlabeled',
       pose_training_eligible: 0,
-      head_gap: null,
     })
   })
   it('does not turn activity instructions into posture truth and excludes interrupted/rejected clips', () => {
-    const c = newCapture('P01', baseline, DEFAULT_RULES, 1000, 'synthetic', 'test', {
+    const c = newCapture('P01', 1000, 'synthetic', 'test', {
       ...DEFAULT_CAPTURE_OPTIONS,
       taskId: 'notebook_read',
     })
@@ -194,14 +194,14 @@ describe('pilot collection', () => {
       { repetition: -1 },
     ]) {
       expect(() =>
-        newCapture('P01', baseline, DEFAULT_RULES, 0, 'test', 'test', {
+        newCapture('P01', 0, 'test', 'test', {
           ...DEFAULT_CAPTURE_OPTIONS,
           ...patch,
         }),
       ).toThrow()
     }
     const opts = { ...DEFAULT_CAPTURE_OPTIONS }
-    const c = newCapture('P01', baseline, DEFAULT_RULES, 0, 'test', 'test', opts)
+    const c = newCapture('P01', 0, 'test', 'test', opts)
     opts.cameraView = 'right'
     expect(c.options.cameraView).toBe('front')
   })
