@@ -224,3 +224,15 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 }
+
+/* Same vertical rhythm as the settings column (16px between cards). */
+.records-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+}
+.records-stack > .ledger,
+.records-stack > .card {
+  margin: 0;
+}

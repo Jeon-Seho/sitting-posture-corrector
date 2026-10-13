@@ -90,7 +90,7 @@ export function LocalHistory({
         </div>
       )}
 
-      <div className="gap-top">
+      <div className="records-stack">
         <Ledger cols={4}>
           <Stat
             dataStat="rate"
@@ -127,55 +127,51 @@ export function LocalHistory({
             sub={total > 0 ? `전체 시간의 ${((excluded / total) * 100).toFixed(1)}%` : '측정 후에 계산돼요'}
           />
         </Ledger>
+
+        <Card title="날짜별 측정 시간과 유지율" note="막대는 측정한 시간, 선은 바른 자세 유지율이에요.">
+          <ComboChart
+            bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.valid / 3600 }))}
+            line={days.map((d) => d.rate)}
+            barUnit="시간"
+            lineUnit="%"
+            lineMax={1}
+            barName="측정한 시간"
+            lineName="바른 자세 유지율"
+            formatBar={(hours) => formatDuration(hours * 3600)}
+            details={(i) => [
+              { label: '세션', value: `${days[i].sessions}회` },
+              { label: '알림', value: `${days[i].alerts}회` },
+            ]}
+          />
+          <Legend
+            items={[
+              { color: 'var(--primary-soft)', label: '측정한 시간' },
+              { color: 'var(--primary)', label: '바른 자세 유지율' },
+            ]}
+          />
+        </Card>
+
+        <Card title="일별 상세" note={selected.length ? '원을 누르면 그날의 세션을 볼 수 있어요' : undefined}>
+          <DailyDetail records={selected} allStarts={records.map((r) => r.startedAt)} />
+          {selected.length === 0 && (
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
+              <Play size={15} weight="fill" className="icon" />
+              {measuring ? '진행 중인 측정으로' : '측정 시작'}
+            </button>
+          )}
+        </Card>
+
+        <details className="more">
+          <summary>처음과 최근 비교</summary>
+          <div className="more-body">
+            <p className="fine">
+              조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
+              개선 근거가 아닙니다.
+            </p>
+            <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
+          </div>
+        </details>
       </div>
-
-      <Card title="날짜별 측정 시간과 유지율" note="막대는 측정한 시간, 선은 바른 자세 유지율이에요.">
-        <ComboChart
-          bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.valid / 3600 }))}
-          line={days.map((d) => d.rate)}
-          barUnit="시간"
-          lineUnit="%"
-          lineMax={1}
-          barName="측정한 시간"
-          lineName="바른 자세 유지율"
-          formatBar={(hours) => formatDuration(hours * 3600)}
-          details={(i) => [
-            { label: '세션', value: `${days[i].sessions}회` },
-            { label: '알림', value: `${days[i].alerts}회` },
-          ]}
-        />
-        <Legend
-          items={[
-            { color: 'var(--primary-soft)', label: '측정한 시간' },
-            { color: 'var(--primary)', label: '바른 자세 유지율' },
-          ]}
-        />
-      </Card>
-
-      <div style={{ height: 22 }} />
-
-      <Card title="일별 상세" note={selected.length ? '원을 누르면 그날의 세션을 볼 수 있어요' : undefined}>
-        <DailyDetail records={selected} allStarts={records.map((r) => r.startedAt)} />
-        {selected.length === 0 && (
-          <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
-            <Play size={15} weight="fill" className="icon" />
-            {measuring ? '진행 중인 측정으로' : '측정 시작'}
-          </button>
-        )}
-      </Card>
-
-      <div style={{ height: 22 }} />
-
-      <details className="more">
-        <summary>처음과 최근 비교</summary>
-        <div className="more-body">
-          <p className="fine">
-            조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
-            개선 근거가 아닙니다.
-          </p>
-          <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
-        </div>
-      </details>
     </>
   )
 }
