@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CONSENT_DOCUMENT_VERSION, CONSENTS, consentPayload, missingConsents } from './consents'
+import {
+  CONSENT_DOCUMENT_VERSION,
+  CONSENTS,
+  consentPayload,
+  consentsComplete,
+  missingConsents,
+} from './consents'
 
 describe('sign-up consents (DB V2.3 user_consent)', () => {
   it('matches the six consent types the database accepts', () => {
@@ -13,12 +19,15 @@ describe('sign-up consents (DB V2.3 user_consent)', () => {
     expect(CONSENT_DOCUMENT_VERSION.length).toBeLessThanOrEqual(20)
   })
 
-  it('lists missing required items and sends only what was checked', () => {
-    expect(missingConsents({}).map((c) => c.code)).toEqual(['C6', 'C1', 'C2', 'C4', 'C5'])
-    const all = { AGE_14_OVER: true, TERMS: true, ACCOUNT_INFO: true, POSE_COORDINATES: true, MEASUREMENT_RECORD: true }
-    expect(missingConsents(all)).toEqual([])
-    expect(consentPayload(all)).toHaveLength(5)
-    expect(consentPayload({ ...all, OPTIONAL_PROFILE: true })[5]).toEqual({
+  it('lists missing required items and sends only what was agreed', () => {
+    expect(missingConsents({}).map((c) => c.id)).toEqual(['C6', 'C1', 'C2', 'C4', 'C5'])
+    const required = { C1: true, C2: true, C4: true, C5: true, C6: true }
+    expect(missingConsents(required)).toEqual([])
+    // The optional item still needs an explicit choice before the next step.
+    expect(consentsComplete(required)).toBe(false)
+    expect(consentsComplete({ ...required, C3: false })).toBe(true)
+    expect(consentPayload({ ...required, C3: false })).toHaveLength(5)
+    expect(consentPayload({ ...required, C3: true })).toContainEqual({
       consent_type: 'OPTIONAL_PROFILE',
       document_version: CONSENT_DOCUMENT_VERSION,
     })

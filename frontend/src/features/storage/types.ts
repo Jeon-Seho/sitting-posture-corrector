@@ -1,7 +1,13 @@
 import type { LiveState, Machine, Rules } from '../../lib/engine'
 import type { ServerCheckpoint, SessionView } from '../session/server/contracts'
 
-export type Profile = { name: string; age: number; occupation: string }
+/** Age and occupation are optional (sign-up consent C3). */
+export type Profile = { name: string; age?: number; occupation?: string }
+/** Sign-up result kept on this device until the account server exists. No password is stored. */
+export type LocalAccount = {
+  email: string
+  consents: { version: string; agreed: Record<string, boolean>; at: string }
+}
 export type Mode = 'camera' | 'demo'
 export type RecordItem = {
   id: string
@@ -35,4 +41,5 @@ export const KEYS = {
   draft: 'posegood.v2.draft',
   settings: 'posegood.v2.settings',
   demo: 'posegood.v2.demo',
+  account: 'posegood.v2.account',
 }

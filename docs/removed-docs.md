@@ -40,7 +40,7 @@
 | `docs/plans/completed/0009-service-logic-integration.md` | 로컬 모드·좌표 미전송 등 지금 결정([ADR 0021](decisions/0021-app-sends-information-server-judges.md))과 다른 내용이 많아 혼란을 준다(10/11 `82d76dd`). ADR은 결정의 근거라 남긴다. | 각 ADR, [아키텍처](architecture.md), [품질 기준](quality.md), [개발 흐름](development.md) | klaod-tech |
 | `docs/audits/2026-10-06-db-v11-connection.md` | 로컬 모드·좌표 미전송 등 지금 결정([ADR 0021](decisions/0021-app-sends-information-server-judges.md))과 다른 내용이 많아 혼란을 준다(10/11 `82d76dd`). ADR은 결정의 근거라 남긴다. | 각 ADR, [아키텍처](architecture.md), [품질 기준](quality.md), [개발 흐름](development.md) | klaod-tech |
 
-## 3. FE(klaod-tech, 이 PR 작성자)가 만든 문서 (10개)
+## 3. FE(klaod-tech, 이 PR 작성자)가 만든 문서 (9개)
 
 `team-requirements.md`는 지성 님도 고친 적이 있다(다른 수정자 칸).
 
@@ -55,4 +55,3 @@
 | `docs/persona-flow-review.md` | PR·git 이력을 반복하는 FE 개인 기록이다(10/08 `539d921`). | PR 설명과 git 이력 | lellon0403 |
 | `database/proposals/0001-v03-supplement.md` | DB V1.1에 이미 반영된 제안이다(10/08 `539d921`). | `database/` 스키마와 [DB 안내](../database/README.md) | lellon0403 |
 | `docs/plans/active/0021-db-schema-v03-alignment.md` | 끝난 계획이다(develop PR #11·#13, 10/06). DB는 이후 V2.2로 바뀌었다(10/08 `539d921`). | [ADR 0018](decisions/0018-db-schema-v11-service-storage.md), [DB 안내](../database/README.md) | lellon0403 |
-| `docs/design/unmeasurable-handling.md` | 서버 판정 이전 명세로 합쳤다(10/11 `ea11987`). | [FE 제안서](design/fe-server-proposal.md) 2·3장 | - |
