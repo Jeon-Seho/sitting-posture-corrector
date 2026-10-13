@@ -8,6 +8,7 @@ import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
+import { popupAlert } from '../desktop/alertPopup'
 import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
 import { PoseDebugRecorder } from './poseDebugExport'
@@ -135,6 +136,8 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (!alertsOn || phase !== 'running' || live.state === 'unknown') return
     if (soundOn && !playCorrection())
       setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
+    const active = live.events.find((event) => event.endAt === null)
+    popupAlert((active?.alerts ?? 1) > 1)
     setToast(`흐트러진 자세가 ${rules.holdSeconds}초 이상 이어졌습니다.`)
     const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)

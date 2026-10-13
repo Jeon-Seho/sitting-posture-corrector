@@ -10,6 +10,7 @@ import {
   reportConnectionLost,
   subscribeConnectionLost,
 } from '../../connection/connectionLost'
+import { popupAlert } from '../../desktop/alertPopup'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
 const REALTIME_URL: string | undefined = import.meta.env.VITE_REALTIME_URL || undefined
@@ -81,6 +82,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
         if (latest.current.soundOn && !playCorrection())
           setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
         const last = events.at(-1)!
+        popupAlert(last.kind === 'reminder')
         setToast(
           last.kind === 'reminder'
             ? '흐트러진 자세가 이어져 다시 알려드려요.'
