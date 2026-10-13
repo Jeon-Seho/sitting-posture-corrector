@@ -334,7 +334,7 @@ button.heatmap-cell:disabled {
   padding: 6px 0;
 }
 
-/* 기간별 기록: summary line and month calendar. */
+/* 달력 tab: month calendar (Toss-style cells, this week on a band) and summary lines. */
 .calendar-summary {
   margin: 0 0 8px;
   font-size: 13px;
@@ -343,80 +343,116 @@ button.heatmap-cell:disabled {
 .calendar-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 4px;
 }
 .calendar-head strong {
-  min-width: 96px;
+  min-width: 112px;
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: var(--fw-bold, 700);
 }
-.calendar-head .calendar-summary {
-  margin: 0 0 0 auto;
+.calendar-head .chip {
+  margin-left: auto;
+}
+.calendar-card .calendar-summary {
+  margin-bottom: 14px;
 }
 .calendar-grid {
   display: grid;
+  gap: 4px;
+}
+.calendar-week {
+  display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+}
+.calendar-week.is-this-week {
+  background: var(--primary-tint);
+  box-shadow: inset 0 0 0 1px var(--primary-soft);
+}
+.calendar-weekdays {
+  padding-block: 0;
 }
 .calendar-weekday {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
   text-align: center;
-  padding-bottom: 2px;
+}
+.calendar-weekday.is-sunday {
+  color: var(--alert-ink);
 }
 .calendar-day {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 64px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  align-items: center;
+  gap: 3px;
+  min-height: 78px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: var(--ink);
   font: inherit;
-  text-align: left;
   cursor: pointer;
 }
+.calendar-day:hover:not(:disabled) {
+  background: var(--surface-3);
+}
 .calendar-day:disabled {
-  opacity: 0.4;
+  color: var(--muted);
+  opacity: 0.5;
   cursor: default;
 }
-.calendar-day.level-1 { background: #f3f6ea; }
-.calendar-day.level-2 { background: var(--level-1); }
-.calendar-day.level-3 { background: var(--level-2); }
-.calendar-day.level-4 { background: #a9c283; }
-.calendar-day.is-today {
-  border-color: var(--ink-2);
-}
-.calendar-day.is-selected {
+.calendar-day:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
 .calendar-date {
-  font-size: 13px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 14px;
   font-weight: 700;
 }
-.calendar-rate {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+.calendar-day.is-today .calendar-date {
+  box-shadow: inset 0 0 0 1.5px var(--primary);
+  color: var(--primary-ink);
+}
+.calendar-day.is-selected .calendar-date {
+  background: var(--primary);
+  box-shadow: none;
+  color: #fff;
 }
 .calendar-time {
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 999px;
   font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-time.level-1 { background: var(--level-1); color: #3f5a2f; }
+.calendar-time.level-2 { background: var(--level-2); color: #2f4723; }
+.calendar-time.level-3 { background: var(--level-3); color: #fff; }
+.calendar-time.level-4 { background: var(--level-4); color: #fff; }
+.calendar-rate {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--ink-2);
 }
 @media (max-width: 860px) {
   .calendar-day {
-    min-height: 52px;
-    padding: 6px;
+    min-height: 64px;
   }
-  .calendar-time {
+  .calendar-rate {
     display: none;
   }
 }

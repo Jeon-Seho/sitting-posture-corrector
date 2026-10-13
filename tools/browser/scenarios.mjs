@@ -534,8 +534,7 @@ export async function runScenarios(browser, base, restartApi) {
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await app.click('로그인')
-  await app.click('기록')
-  await app.click('전체')
+  await app.click('달력')
   await app.openMore()
   await app.text('비교에 포함된 기록의 조건')
   const comparison = await app.evaluate(

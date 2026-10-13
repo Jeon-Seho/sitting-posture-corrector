@@ -26,7 +26,8 @@ export function DayRecord({
   today: string
   measuring: boolean
   onStart: () => void
-  onToday: () => void
+  /** Shows a 오늘로 chip on other days. */
+  onToday?: () => void
 }) {
   const sessions = sessionsOn(records, day)
   const [s] = dailyStats(records, day, day)
@@ -37,7 +38,7 @@ export function DayRecord({
       title={isToday ? '오늘의 기록' : `${dayLabel(day)} 기록`}
       note={isToday ? dayLabel(day) : undefined}
       action={
-        !isToday ? (
+        !isToday && onToday ? (
           <button className="chip" onClick={onToday}>
             오늘로
           </button>

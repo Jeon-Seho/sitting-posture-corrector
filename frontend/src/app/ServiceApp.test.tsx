@@ -306,7 +306,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     data.set(KEYS.records, JSON.stringify(records))
     mount()
     login()
-    click('기록')
+    click('달력')
     expect(renderer!.root.findByType(RecordComparison).props.records).toEqual(records)
     expect(text(renderer!.root)).toContain('실제 웹캠·합성 시연 합산')
     click('실제 웹캠 기록')
@@ -532,13 +532,13 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(data.has(KEYS.records)).toBe(false)
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
-  it('lists 측정하기, 기록, 설정 in the sidebar (registration lives in 측정하기)', () => {
+  it('lists 측정하기, 기록, 달력, 설정 in the sidebar (registration lives in 측정하기)', () => {
     mount()
     login()
     const tabs = renderer!.root
       .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
       .map((button) => text(button))
-    expect(tabs).toEqual(['측정하기', '기록', '설정'])
+    expect(tabs).toEqual(['측정하기', '기록', '달력', '설정'])
   })
   const advance = (ms: number) =>
     act(() => {
