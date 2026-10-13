@@ -11,8 +11,8 @@ export type ConsentType =
   | 'MEASUREMENT_RECORD'
   | 'AGE_14_OVER'
 
-/** Wording version shown at sign-up; a new version asks everyone again (DB `document_version`). */
-export const CONSENT_DOCUMENT_VERSION = 'terms-2026-10'
+/** Wording version shown at sign-up (BE API spec 2026-10-13); a new version asks everyone again (DB `document_version`). */
+export const CONSENT_DOCUMENT_VERSION = 'service-v2'
 
 /** DB codes C1–C6 (consent proposal order). */
 export type ConsentId = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6'

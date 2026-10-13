@@ -20,7 +20,7 @@
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, 남은 질문(4장), FE 할 일 F1~F12. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
 - **10/12 회의:** 판정 불가는 범위를 넓게 잡아 하나로 처리하고(DB `exclusion_reason`은 모두 `UNMEASURABLE`, 세분화할 때 CHECK 선택지를 늘림), 기준은 측정이 안 되는 모든 경우(귀·어깨·사용자가 안 보임 등)이며 앱이 판단해 서버에 보낸다. 통계는 전부 백엔드가 계산하고 앱은 표시만 한다. 당일은 세션 단위로만 보이고 날짜별 합산은 24시가 지나 반영된다. 5분 미만 세션은 결과만 보이고 저장하지 않는다([판정 불가 처리](design/unmeasurable-handling.md) 0장). 화면 정리(세션·이벤트·평균 간격을 지우고 최소·최대 간격 표시)는 다른 담당자가 맡고, 우리는 서버 전송과 판정 불가 처리만 한다.
-- **API 명세(초안):** [앱 ↔ 입출구 서버 REST·WebSocket](design/api-ws-spec.md) — 로그인·설정·기록·지난 통계는 REST, 측정 좌표와 실시간 결과는 WebSocket.
+- **연동 명세(초안):** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — BE API 명세(10/13)와 같은 ID·경로로, 앱이 언제 무엇을 부르고 결과마다 어떻게 움직이는지. 로그인·설정·기록은 REST, 실시간 판정·자세 등록은 WebSocket `/v2/realtime`.
 - **동의 제안서(초안):** [개인정보 수집 동의](design/consent-proposal.md) — 가입 동의 C1~C6, 보유 기간 탈퇴 후 30일. 실제 서비스는 학습용 데이터를 받지 않는다.
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
