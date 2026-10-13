@@ -20,7 +20,7 @@
 | 화면 요소 | 지금 출처 | v4 예정 경로 | 연결할 곳 |
 |---|---|---|---|
 | 로그인 | 로컬 프로필(localStorage) / 기존 계정 모드 | REST `:8080` gateway, JWT | `AuthPort` → `app/LocalServiceApp.tsx`의 `login` 자리 |
-| 기준 자세 등록(3초) | 브라우저 메모리(앱이 켜져 있는 동안, 2026-10-12부터 카메라를 꺼도 유지) | 기준 자세 저장·조회 API(BE 요청 중, [FE 제안서](fe-server-proposal.md) 2.3·N1) → V2.x `baseline_posture` | 「자세 등록」 탭(`pages/PosturePage.tsx`)의 등록 완료 시점 |
+| 기준 자세 등록(3초) | 브라우저 메모리(앱이 켜져 있는 동안, 2026-10-12부터 카메라를 꺼도 유지) | 기준 자세 등록 연결·`GET /api/baseline`([FE 제안서](fe-server-proposal.md) 2.3, 10/13 정해짐) → V2.x `baseline_posture` | 「자세 등록」 탭(`pages/PosturePage.tsx`)의 등록 완료 시점 |
 | 자동 실행 후 바로 측정 | 미지원(기준 재확인 필요) | 저장된 기준 조회 | `BaselinePort.latest`: `useLaunchAutomation` |
 | 실시간 상태 알약·교정 카드 | 로컬 엔진(`useSession`) | WebSocket: 0.5초 묶음 전송 → `posture.inference` → realtime 상태머신 → 푸시 | 구현됨: `RealtimeClient`의 `onObservation`(실시간 상태)·`onProgress`(숫자)·`onDecision`(사건) → 서버 세션 컨트롤러 → `LiveView`. 계약은 `contracts/realtime/` |
 | 알림 토스트·소리 | 로컬 엔진 `alertTick` | 서버 상태머신의 알림 푸시(T3 재알림) | 구현됨: 확정·재알림 `decision`을 기존 알림 경로(`onNotifications`)로 한 번만 전달 |
