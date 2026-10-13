@@ -7,6 +7,7 @@ import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
 import { cameraName } from '../features/camera/mainCamera'
 import { SelectMenu } from '../components/SelectMenu'
+import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
 import type { CameraController } from '../hooks/useCamera'
 
@@ -21,6 +22,11 @@ type CameraChoice = Pick<
   | 'refreshDevices'
   | 'baseline'
   | 'baselineInfo'
+  | 'quality'
+  | 'subscribe'
+  | 'trackingFps'
+  | 'setTrackingFps'
+  | 'tryTrackingFps'
 >
 
 type Rules = typeof DEFAULT_RULES
@@ -429,6 +435,17 @@ export function SettingsPage({
                     자세 데이터 수집
                   </button>
                 </Row>
+              )}
+              {camera && (
+                <div className="setting-row setting-row-stack">
+                  <div>
+                    <div className="setting-name">추적 속도</div>
+                    <div className="setting-desc">
+                      스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
+                    </div>
+                  </div>
+                  <TrackingRateCheck camera={camera} />
+                </div>
               )}
               <Row
                 name="서버 연결 끊김 화면"

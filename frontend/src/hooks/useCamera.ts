@@ -9,6 +9,8 @@ import {
 } from '../../../model/prototype/calibration'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
+import { createFeatureFilter } from '../lib/skeleton'
+import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
 import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
@@ -29,7 +31,9 @@ export function useCamera() {
   const generation = useRef(0)
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Smoothed features for local judging; observations keep the raw values (server, CSV). */
   const current = useRef<Features | null>(null)
+  const featureFilter = useRef(createFeatureFilter<Features>())
   const lastFrame = useRef(0)
   const calibration = useRef<Calibration | null>(null)
   const listeners = useRef(new Set<(observation: Observation) => void>())
@@ -54,6 +58,10 @@ export function useCamera() {
   const [mainDeviceId, setMainDeviceId] = useState(readMainCamera)
   /** The saved main camera was not found at the last connect, so the default one was used. */
   const [mainMissing, setMainMissing] = useState(false)
+  /** Tracking rate cap; `trial` overrides it during the jitter check without saving. */
+  const [trackingFps, setTrackingFpsState] = useState<number | null>(readTrackingFps)
+  const fpsCap = useRef<number | null>(trackingFps)
+  const fpsTrial = useRef<number | null>(null)
   /**
    * The registered baseline outlives the camera and, since 2026-10-13, the app run: it is
    * saved on this computer with the camera it was taken with. Connecting another camera
@@ -113,6 +121,7 @@ export function useCamera() {
     const canvas = canvasRef.current
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
     current.current = null
+    featureFilter.current.reset()
     lastFrame.current = 0
     calibration.current = null
   }, [clearLoadingTimer])
@@ -127,7 +136,10 @@ export function useCamera() {
   useEffect(() => () => release(), [release])
 
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
+    if (!observation.features) featureFilter.current.reset()
     current.current = observation.features
+      ? featureFilter.current.next(observation.features, lastFrame.current ? observation.timeMs - lastFrame.current : 33)
+      : null
     lastFrame.current = observation.timeMs
     setQuality(!!observation.features && observation.shoulders !== 'grace')
     setShoulders(observation.shoulders ?? null)
@@ -271,6 +283,7 @@ export function useCamera() {
           detector: loaded.detector,
           delegate: loaded.delegate,
           isCurrent,
+          getMaxFps: () => fpsTrial.current ?? fpsCap.current,
           getCanvas: () => canvasRef.current,
           getVisual: () => visualRef.current,
           onPoseStarted: () => {
@@ -304,6 +317,17 @@ export function useCamera() {
     },
     [clearLoadingTimer, receiveObservation, release],
   )
+
+  /** Saves the tracking rate cap (`null` = device default) and applies it at once. */
+  const setTrackingFps = (fps: number | null) => {
+    writeTrackingFps(fps)
+    fpsCap.current = fps
+    setTrackingFpsState(fps)
+  }
+  /** Jitter check only: try a rate without saving it; `null` returns to the saved one. */
+  const tryTrackingFps = (fps: number | null) => {
+    fpsTrial.current = fps
+  }
 
   /** Saves the main camera and switches to it when another camera is on. */
   const chooseMainCamera = (id: string) => {
@@ -339,6 +363,9 @@ export function useCamera() {
     mainMissing,
     baselineOtherCamera,
     baselineInfo,
+    trackingFps,
+    setTrackingFps,
+    tryTrackingFps,
     chooseMainCamera,
     refreshDevices,
     state,

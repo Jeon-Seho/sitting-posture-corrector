@@ -22,10 +22,16 @@ const smoothing = (cutoffHz: number, dtSec: number) => {
 
 type Channel = { value: number; speed: number }
 
-function step(channel: Channel | undefined, raw: number, dtSec: number): Channel {
+function step(
+  channel: Channel | undefined,
+  raw: number,
+  dtSec: number,
+  minCutoff = MIN_CUTOFF_HZ,
+  beta = BETA,
+): Channel {
   if (!channel) return { value: raw, speed: 0 }
   const speed = channel.speed + smoothing(DERIVATIVE_CUTOFF_HZ, dtSec) * ((raw - channel.value) / dtSec - channel.speed)
-  const cutoff = MIN_CUTOFF_HZ + BETA * Math.abs(speed)
+  const cutoff = minCutoff + beta * Math.abs(speed)
   return { value: channel.value + smoothing(cutoff, dtSec) * (raw - channel.value), speed }
 }
 
@@ -67,7 +73,40 @@ export function createPointFilter(): PointFilter {
   }
 }
 
-export function inferenceInterval(delegate: 'GPU' | 'CPU', inferenceMs: number) {
+/** Tracking rates offered in settings; `null` keeps the device default (30 GPU / 20 CPU). */
+export const TRACKING_FPS_CHOICES = [30, 20, 15, 10] as const
+
+export function inferenceInterval(delegate: 'GPU' | 'CPU', inferenceMs: number, maxFps: number | null = null) {
   // Leave time for rendering and input, especially on CPU fallback.
-  return Math.max(delegate === 'GPU' ? 1000 / 30 : 1000 / 20, inferenceMs * 2)
+  const device = delegate === 'GPU' ? 1000 / 30 : 1000 / 20
+  return Math.max(device, maxFps ? 1000 / maxFps : 0, inferenceMs * 2)
+}
+
+/**
+ * Local judging values (2026-10-13). The One Euro filter on the drawing alone left the judged
+ * features as noisy as the raw tracker. Features are relative to shoulder width, so the
+ * filter is a little calmer than the drawing one. Raw values still go to the server and CSV.
+ */
+const FEATURE_MIN_CUTOFF_HZ = 1
+const FEATURE_BETA = 4
+const FEATURE_KEYS = ['headGap', 'offset', 'tilt', 'turn'] as const
+
+export function createFeatureFilter<T extends Partial<Record<(typeof FEATURE_KEYS)[number], number>>>() {
+  let state: Partial<Record<(typeof FEATURE_KEYS)[number], Channel>> = {}
+  return {
+    next(raw: T, dtMs: number): T {
+      const dtSec = Math.max(1, dtMs) / 1000
+      const out = { ...raw }
+      for (const key of FEATURE_KEYS) {
+        const value = raw[key]
+        if (typeof value !== 'number') continue
+        state[key] = step(state[key], value, dtSec, FEATURE_MIN_CUTOFF_HZ, FEATURE_BETA)
+        ;(out as Record<string, number>)[key] = state[key]!.value
+      }
+      return out
+    },
+    reset() {
+      state = {}
+    },
+  }
 }
