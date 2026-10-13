@@ -116,7 +116,7 @@ export function LocalHistory({
             value={`${alerts}회`}
             sub={
               stats.valid > 0
-                ? `자세 경고 ${warnings}번 · 다시 알림 포함${
+                ? `자세 경고 ${warnings}번${
                     stats.valid >= 1800 ? ` · 한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')}` : ''
                   }`
                 : '측정 후에 계산돼요'

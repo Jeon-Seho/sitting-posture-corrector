@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Info } from '@phosphor-icons/react'
+import { Amount } from './Amount'
 import { STATE_LABEL, type PostureState } from '../data/posture'
 
 export function Card({
@@ -65,7 +66,9 @@ export function Stat({
           </span>
         )}
       </div>
-      <div className={`stat-value ${small ? 'sm' : ''} ${tone ?? ''} ${dataStat ? 'records-stat-value' : ''}`}>{value}</div>
+      <div className={`stat-value ${small ? 'sm' : ''} ${tone ?? ''} ${dataStat ? 'records-stat-value' : ''}`}>
+        <Amount value={value} />
+      </div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   )

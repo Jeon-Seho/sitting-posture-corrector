@@ -4,6 +4,7 @@ import type { RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatPercent, formatRate } from '../../lib/stats'
 import { EventTable } from '../session/SessionEvents'
 import { RateRing } from '../../components/RateRing'
+import { Amount } from '../../components/Amount'
 import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
 import { RuleDescription } from './RuleDescription'
 import { ServerDecisionHistory } from './ServerDecisionHistory'
@@ -155,7 +156,7 @@ function RecordSummary({ record }: { record: RecordItem }) {
           {time(record.startedAt)} – {time(record.endedAt)}
         </div>
         <div className="record-summary-length">
-          <b>{formatDuration(record.valid)}</b> 측정했어요
+          <Amount value={formatDuration(record.valid)} /> 측정했어요
         </div>
         <MetricGroups
           groups={metricGroupsFor({

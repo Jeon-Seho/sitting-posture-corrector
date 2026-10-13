@@ -256,40 +256,45 @@
 .metric-group.is-recover {
   background: var(--good-tint);
 }
-.metric-group-title {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink-2);
-}
-.metric-group.is-warn .metric-group-title {
-  color: var(--alert-ink);
-}
-.metric-group.is-recover .metric-group-title {
-  color: var(--good-ink);
-}
 .metric-group-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
-  gap: 8px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px 14px;
   margin: 0;
 }
+/* Pretendard Variable weights: label 600, number 800, unit 500, hint 400. */
 .metric-group-items dt {
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
 }
 .metric-group-items dd {
-  margin: 3px 0 0;
-  font-family: var(--font-num), var(--font-body);
-  font-size: 16px;
-  font-weight: 700;
+  margin: 6px 0 0;
+}
+/* Shared number style (Amount): heavy digits, light small units. */
+.amount {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.amount-n {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--ink);
 }
-.metric-hint {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
+.amount-u {
+  font-size: 13px;
+  font-weight: 500;
   color: var(--muted);
+  margin: 0 3px 0 2px;
+}
+.metric-group.is-warn .amount-n {
+  color: var(--alert-ink);
+}
+.metric-group.is-recover .amount-n {
+  color: var(--good-ink);
 }
 @media (max-width: 860px) {
   .metric-groups {
