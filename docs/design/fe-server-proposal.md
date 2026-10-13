@@ -211,6 +211,7 @@ BE 회신(10/11)의 제안을 FE가 확인한 결과다. **정한 쪽**이 FE가
 | N16 | **DB V2.2 되돌림(10/12 `8708e02`)의 이유와 다음 버전.** V2.2의 `user_account.alert_enabled`(「자세 알림」 저장 칸)와 기본 threshold 시드 0.700이 함께 빠졌다. V2.1에서는 계정에 `sound_alert_enabled`만 있다. 「자세 알림」을 어디에 저장할지, 시드를 0.7로 맞출지 | DB |
 | N17 | ~~위치 판별 불가를 누가 정하나~~ → **10/12 확정:** 앱이 위치 판별 불가를 "판정 불가"로 표시해 보내고(ADR 0021 예외), 서버가 시간·점수에서 뺀다. 범위는 지금 넓게 잡고 세부 사유는 나중에 나눈다(DB `exclusion_reason = 'UNMEASURABLE'`). 남은 것: 넓게 잡는 범위의 구체 기준과 프레임 형식의 표시 필드 ([판정 불가 처리](unmeasurable-handling.md) 0장) | FE·BE |
 | N18 | ~~3초 연속 자동 멈춤 유지~~ → **10/12:** 측정 시간·멈춤 규칙은 서버 담당. FE는 서버 상태를 표시만 한다 | BE |
+| N19 | **판정 불가 세부 사유를 어디에 적나.** V2.1 `excluded_interval.exclusion_reason`은 `VARCHAR(12) NOT NULL`이고 CHECK로 `PAUSE`·`MISSING`·`ABSENCE`·`UNMEASURABLE` 4개만 허용한다. 지금(10/12 회의)은 판정 불가를 `UNMEASURABLE` 하나로 넣는다. 나중에 세분화할 때 (1) 이 칸의 CHECK 값을 늘리는지(예: `UNMEASURABLE_SHOULDER`, 12자 제한), (2) 세부 사유 칸(NULL 허용 문자열)을 따로 두는지 | DB |
 
 FE가 할 일(질문 아님): 등록 전에 어깨가 화면 아래 끝에서 충분히 떨어져 있는지 앱 구도 확인에서 본다.
 
