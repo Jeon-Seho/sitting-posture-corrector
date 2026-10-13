@@ -13,7 +13,8 @@ frontend/src/
   features/
     accounts/             서버 로그인·프로필·원격 workspace·계정별 임시 자료
     dialog/               공통 확인창·키보드 초점과 동작 생명주기
-    camera/               포즈 모델 준비, 프레임 처리, 카메라 오류 안내
+    mediapipe/            SDK 준비, 13점 원본 선택, 추론 주기·메트릭 (React·그리기·저장 없음)
+    camera/               카메라 장치, 원본 관측의 특징·그리기 연결, 기준 자료 보존
     profile/              프로필 편집, 로컬 자료 삭제 확인
     session/              측정 화면, 결과·이벤트 표시, 저장·복구
       engine/             상태·시간 정책, 합성 시나리오, 화면 snapshot
@@ -80,7 +81,8 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 | 저장 읽기·쓰기 | [저장소](../frontend/src/features/storage/localRepository.ts) | 원본 보존, 쓰기 전 검증, draft 보호를 담당한다. |
 | 기록 집계·복구 변환 | [기록 함수](../frontend/src/features/storage/records.ts), [기록 화면](../frontend/src/features/history/LocalHistory.tsx) | 계산/변환과 React 표시를 분리한다. |
 | 기록 상세·비교 조건 | [상세](../frontend/src/features/history/RecordDetails.tsx), [비교 조건](../frontend/src/features/history/ComparisonConditions.tsx) | 저장된 사건·설정과 출처/기준 차이를 표시하며 없는 자료는 추정하지 않는다. |
-| 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [카메라 기능](../frontend/src/features/camera/) | React 생명주기와 순수 처리/모델 어댑터를 구분한다. |
+| MediaPipe 모델·추론·좌표 | [모듈 안내](../frontend/src/features/mediapipe/README.md), [공개 진입점](../frontend/src/features/mediapipe/index.ts) | SDK 직접 의존은 detector.ts만. 원본 관측을 반환하며 분류·저장·그리기는 소비자가 담당한다. |
+| 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [표시 어댑터](../frontend/src/features/camera/frameLoop.ts) | React 생명주기·기준 등록과 원본 관측의 표시/특징 연결을 담당한다. |
 | 색·서체·간격 | [토큰](../frontend/src/styles/base.css), [스타일 진입](../frontend/src/styles.css) | import 순서는 기존 cascade와 같게 유지한다. |
 
 `lib/engine.ts`, `lib/serviceStore.ts`는 기존 소비자에게 같은 API를 제공하는 작은 export 진입점이다.

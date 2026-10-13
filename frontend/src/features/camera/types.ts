@@ -1,22 +1,14 @@
-import type { Features, Landmark } from '../../../../model/prototype/pose'
+import type { Features } from '../../../../model/prototype/pose'
+import type { PoseDelegate, PoseFrame, PoseMetrics } from '../mediapipe/types'
 
-export type CameraDelegate = 'GPU' | 'CPU'
+/** Original MediaPipe indices 0..12: face and both shoulders. */
+export { SHOULDER_UP_LANDMARK_COUNT } from '../mediapipe/config'
+
+export type CameraDelegate = PoseDelegate
 export type CameraState = 'off' | 'loading' | 'on' | 'error'
 
-export type CameraMetrics = {
-  fps: number
-  inferenceMs: number
-  delegate: CameraDelegate
-}
+export type CameraMetrics = PoseMetrics
 
-export type Observation = {
-  timeMs: number
-  videoTimeMs: number
+export type Observation = PoseFrame & {
   features: Features | null
-  landmarks: Landmark[]
-  worldLandmarks: Landmark[]
-  inferenceMs: number
-  delegate: CameraDelegate
-  width: number
-  height: number
 }

@@ -97,7 +97,7 @@ describe('pilot collection', () => {
     expect(csv).not.toMatch(/NaN|undefined/)
     expect(csv.split('\r\n')[1]).toContain(',,')
   })
-  it('keeps all 33 raw and world points even at low visibility', () => {
+  it('keeps only face and shoulders in raw and world exports even with poor quality', () => {
     const c = capture()
     const points = Array.from({ length: 33 }, (_, i) => ({
       x: i / 33,
@@ -119,17 +119,21 @@ describe('pilot collection', () => {
     expect(row).toMatchObject({
       schema_version: 'posture-pilot-v3',
       pose_detected: 1,
-      landmark_count: 33,
+      landmark_count: 13,
       pose_training_eligible: 0,
     })
-    expect(JSON.parse(String(row.landmarks_json))).toHaveLength(33)
+    expect(JSON.parse(String(row.landmarks_json))).toHaveLength(13)
+    expect(JSON.parse(String(row.world_landmarks_json))).toHaveLength(13)
+    expect(JSON.parse(String(row.landmarks_json)).map((p: { index: number }) => p.index)).toEqual(
+      Array.from({ length: 13 }, (_, i) => i),
+    )
     expect(JSON.parse(String(row.landmarks_json))[0]).toMatchObject({
       index: 0,
       x: 0,
       visibility: 0.1,
     })
     expect(JSON.parse(String(row.world_landmarks_json))[1].x).toBeCloseTo(2 / 33)
-    expect(row.pose_model).toContain('lite')
+    expect(row.pose_model).toContain('heavy')
     expect(row.calibration_seconds).toBe(3)
     expect(toCsv(c.rows)).toContain('""visibility""')
   })

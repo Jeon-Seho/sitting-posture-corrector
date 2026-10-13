@@ -2,7 +2,9 @@
 
 웹캠 기반 개인 기준 자세 변화 알림 프로토타입. 레트로 에디토리얼 디자인의 React 18 앱 하나에서
 로그인(프로필) → 측정 준비 → 실시간 측정 → 자세 등록 → 대시보드 → 설정을 모두 다룬다.
-현재 판정은 **MediaPipe Lite + 개인 기준 비교 규칙**이며 학습된 LSTM은 미연결이다.
+현재 판정은 **MediaPipe Heavy + 개인 기준 비교 규칙**이며 학습된 LSTM은 미연결이다.
+학습한 LSTM의 로컬 비교 실험은 별도 `#forecast` 화면에서 실행한다.
+[실험 실행·결과·한계](docs/ml/jisung/2026-10-13-desktop-live-forecast-experiment.md)를 따른다.
 Compose에서는 **MySQL + 이메일·비밀번호 계정 + 영구 기록·재시작 복구**를 사용한다.
 측정 준비에서 개발용 서버 판정을 선택하면 기준 대비 세 특징 변화량을 Spring Boot API → FastAPI → Esper CEP로 전달한다.
 기본은 로컬 판정이며 영상·원본 랜드마크는 전송하지 않는다. [서버 실행·경계·제약](backend/README.md).

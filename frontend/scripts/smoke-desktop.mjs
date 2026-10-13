@@ -1,11 +1,12 @@
 // 실제 EXE를 숨긴 창·독립 프로필·합성 카메라로 실행한다.
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createServer } from 'node:net'
 import assert from 'node:assert/strict'
 
+const modelAsset = JSON.parse(await readFile(new URL('../model-asset.json', import.meta.url), 'utf8'))
 const server = createServer()
 await new Promise(r => server.listen(0, '127.0.0.1', r))
 const port = server.address().port
@@ -58,7 +59,7 @@ try {
         await new Promise(r => setTimeout(r, 100));
       const info = await window.posegoodDesktop.getLaunchInfo();
       const readyAt = Date.now();
-      const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', '/mediapipe/pose_landmarker_lite.task'];
+      const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', ${JSON.stringify('/mediapipe/' + modelAsset.filename)}];
       const assets = await Promise.all(files.map(async path => {
         const r = await fetch(path); return { path, status: r.status, bytes: (await r.arrayBuffer()).byteLength };
       }));

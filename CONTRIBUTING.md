@@ -3,6 +3,9 @@
 새 작업 브랜치와 새 커밋부터 적용한다. 기존 브랜치 이름과 커밋 이력은 소급해서 바꾸지 않는다.
 Git hook은 의도적으로 사용하지 않는다. 이 규칙을 위해 hook이나 자동 검사 도구를 추가하지 않는다.
 
+사람이 직접 작성했는지, 어떤 AI 도구를 사용했는지에 관계없이 등록 담당자의 작업으로 동일하게 취급한다.
+브랜치와 커밋 유형은 작업 내용으로 정한다. `codex` 등 AI 도구 이름을 전용 유형으로 사용하지 않는다.
+
 ## 브랜치 이름
 
 `<type>/<scope>-<description>` 형식을 사용한다.
@@ -22,7 +25,6 @@ Git hook은 의도적으로 사용하지 않는다. 이 규칙을 위해 hook이
 | `docs` | 문서 변경 | `docs/repo-git-rules` |
 | `test` | 테스트 변경 | `test/db-schema-upgrade` |
 | `chore` | 의존성·빌드·CI·운영 설정 등 유지보수 | `chore/devops-compose-layout` |
-| `codex` | Codex가 생성하는 작업 브랜치 | `codex/db-alert-permission` |
 
 ## 커밋 메시지
 

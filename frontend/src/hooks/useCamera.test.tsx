@@ -4,6 +4,10 @@ import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
 
 const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.fn() }))
+const archive = vi.hoisted(() => ({ save: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../features/camera/baselineArchive', async (original) => ({
+  ...await original<typeof import('../features/camera/baselineArchive')>(), saveBaseline: archive.save,
+}))
 vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
@@ -52,6 +56,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     vision.resolve.mockReset().mockResolvedValue({})
     vision.create.mockReset().mockResolvedValue({ close, detectForVideo: detect })
     vision.draw.mockClear()
+    archive.save.mockClear()
     vi.stubGlobal('navigator', {
       mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([]) },
     })
@@ -92,6 +97,60 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
       vi.advanceTimersByTime(5200)
     })
   }
+
+  it('archives completed calibration only, with independent raw samples and an assumed label', async () => {
+    await connect()
+    act(() => camera.calibrate())
+    act(() => { vi.advanceTimersByTime(1000) })
+    act(() => camera.cancelCalibration())
+    expect(archive.save).not.toHaveBeenCalled()
+    calibrate()
+    expect(archive.save).toHaveBeenCalledTimes(1)
+    const record = archive.save.mock.calls[0][0]
+    expect(record.calibration_id).toBe(camera.calibrationId)
+    expect(record.frames).toHaveLength(camera.calibrationSummary!.sampleCount)
+    expect(record.label).toBe('baseline_posture')
+    expect(record.ground_truth_verified).toBe(false)
+    expect(record.frames.every((frame: { landmarks: unknown[] }) => frame.landmarks.length === 13)).toBe(true)
+    points[0].x = 0.9
+    expect(record.frames[0].landmarks[0].x).toBe(0.5)
+    act(() => camera.stop())
+    expect(archive.save).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops interrupted calibration samples before saving the restarted baseline', async () => {
+    await connect()
+    act(() => camera.calibrate())
+    act(() => { vi.advanceTimersByTime(1000) })
+    points[0].visibility = 0.1
+    act(() => { vi.advanceTimersByTime(100) })
+    points[0].visibility = 0.95
+    act(() => { vi.advanceTimersByTime(3200) })
+    const record = archive.save.mock.calls[0][0]
+    expect(record.frames).toHaveLength(camera.calibrationSummary!.sampleCount)
+    expect(record.frames[0].timeMs).toBeGreaterThan(1100)
+  })
+
+  it('shares only raw face and shoulder coordinates, preserving poor-quality observations', async () => {
+    const world = points.map((p) => ({ ...p, x: p.x * 2 }))
+    detect.mockImplementation(() => ({ landmarks: [points], worldLandmarks: [world] }))
+    const listener = vi.fn()
+    camera.subscribe(listener)
+    await connect()
+    let observation = listener.mock.calls.at(-1)![0]
+    expect(observation.landmarks).toEqual(points.slice(0, 13))
+    expect(observation.worldLandmarks).toEqual(world.slice(0, 13))
+    expect(observation.features).not.toBeNull()
+    points[0].visibility = 0.1
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    observation = listener.mock.calls.at(-1)![0]
+    expect(observation.features).toBeNull()
+    expect(observation.landmarks).toHaveLength(13)
+    expect(observation.landmarks[0].visibility).toBe(0.1)
+    expect(points).toHaveLength(33)
+  })
 
   it('keeps the previous baseline during recalibration and restores it on cancel or poor quality', async () => {
     await connect()

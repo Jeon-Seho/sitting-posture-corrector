@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { placement, type Features } from '../../../model/prototype/pose'
 import {
   beginCalibration,
@@ -11,7 +10,8 @@ import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
-import { loadPoseDetector } from '../features/camera/modelLoader'
+import { createPoseTracker, type PoseTracker } from '../features/mediapipe'
+import { baselineRecord, saveBaseline } from '../features/camera/baselineArchive'
 import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
 
 export type { Observation } from '../features/camera/types'
@@ -23,13 +23,14 @@ export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stream = useRef<MediaStream | null>(null)
-  const detector = useRef<PoseLandmarker | null>(null)
+  const tracker = useRef<PoseTracker | null>(null)
   const generation = useRef(0)
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const current = useRef<Features | null>(null)
   const lastFrame = useRef(0)
   const calibration = useRef<Calibration | null>(null)
+  const calibrationFrames = useRef<Observation[]>([])
   const listeners = useRef(new Set<(observation: Observation) => void>())
 
   const [visual, updateVisual] = useState<VisualOptions>(() => ({
@@ -87,8 +88,8 @@ export function useCamera() {
     clearLoadingTimer()
     stopCameraTracks(stream.current)
     stream.current = null
-    detector.current?.close()
-    detector.current = null
+    tracker.current?.close()
+    tracker.current = null
     if (videoRef.current) videoRef.current.srcObject = null
     // The frame loop stops drawing, so remove the last skeleton instead of freezing it.
     const canvas = canvasRef.current
@@ -96,6 +97,7 @@ export function useCamera() {
     current.current = null
     lastFrame.current = 0
     calibration.current = null
+    calibrationFrames.current = []
   }, [clearLoadingTimer])
 
   const stop = useCallback(() => {
@@ -122,11 +124,16 @@ export function useCamera() {
       observation.features ? placement(observation.landmarks) : null,
     )
     calibration.current = next.draft
+    if (next.draft.start === null) calibrationFrames.current = []
+    else calibrationFrames.current.push(structuredClone(observation))
     setProgress(next.progress)
     if (next.ready) {
       setBaseline(next.ready)
       setCalibrationSummary(next.summary)
-      setCalibrationId(crypto.randomUUID())
+      const id = crypto.randomUUID()
+      setCalibrationId(id)
+      if (next.summary) void saveBaseline(baselineRecord(id, next.ready, next.summary, calibrationFrames.current))
+      calibrationFrames.current = []
       calibration.current = null
       setProgress(null)
     }
@@ -173,13 +180,13 @@ export function useCamera() {
           setError(CAMERA_ERRORS.disconnected)
         }
 
-        const loaded = await loadPoseDetector(isCurrent)
+        const loaded = await createPoseTracker(isCurrent)
         if (!loaded) return
         if (!isCurrent()) {
-          loaded.detector.close()
+          loaded.close()
           return
         }
-        detector.current = loaded.detector
+        tracker.current = loaded
         const video = videoRef.current
         if (!video) throw new Error(CAMERA_ERRORS.videoUnavailable)
         video.srcObject = incoming
@@ -191,8 +198,7 @@ export function useCamera() {
         visualRef.current = { ...visualRef.current, startedAt: performance.now() }
         stopFrameLoop.current = startPoseFrameLoop({
           video,
-          detector: loaded.detector,
-          delegate: loaded.delegate,
+          tracker: loaded,
           isCurrent,
           getCanvas: () => canvasRef.current,
           getVisual: () => visualRef.current,
@@ -205,6 +211,7 @@ export function useCamera() {
             setQuality(false)
             if (calibration.current) {
               calibration.current = beginCalibration()
+              calibrationFrames.current = []
               setProgress(0)
             }
           },
@@ -231,10 +238,12 @@ export function useCamera() {
   const calibrate = () => {
     if (state !== 'on' || !quality || calibration.current) return
     setProgress(0)
+    calibrationFrames.current = []
     calibration.current = beginCalibration()
   }
   const cancelCalibration = () => {
     calibration.current = null
+    calibrationFrames.current = []
     setProgress(null)
   }
 

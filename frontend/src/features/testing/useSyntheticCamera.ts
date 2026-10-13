@@ -13,14 +13,14 @@ export const SYNTHETIC_BASELINE: Features = {
   quality: 0.9
 }
 
-type Sink = (features: Features | null) => void
+type Sink = (features: Features | null, frame?: Observation) => void
 const sinks = new Set<Sink>()
 let stops = 0
 let connected = false
 
-export function emitSyntheticFrame(features: Features | null) {
+export function emitSyntheticFrame(features: Features | null, frame?: Observation) {
   if (!connected) throw new Error('The synthetic camera must be connected through the UI.')
-  for (const sink of sinks) sink(features)
+  for (const sink of sinks) sink(features, frame)
 }
 
 export function syntheticCameraStatus() {
@@ -81,11 +81,11 @@ export function useCamera(): CameraController {
   )
   useEffect(
     () => {
-      const receive: Sink = (features) => {
+      const receive: Sink = (features, supplied) => {
         current.current = features
         lastFrame.current = performance.now()
         setQuality(features !== null)
-        const frame: Observation = {
+        const frame: Observation = supplied ?? {
           timeMs: performance.now(),
           videoTimeMs: performance.now(),
           features,

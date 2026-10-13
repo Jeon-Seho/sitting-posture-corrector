@@ -1,5 +1,24 @@
 # PoseGood 웹캠 프로토타입
 
+## 로컬 LSTM 비교 실험
+
+`npm run dev` 후 `http://127.0.0.1:5173/#forecast`에서 서버·계정 없이 테스트한다.
+카메라 켜기 → 8초 **실험 기준 등록** → 잠깐 이탈·복귀 / 천천히 이탈·유지 순서로 모델+룰과 룰만의 결과를 비교한다.
+실제 학습 가중치가 필요하며 다른 체크아웃의 모델 준비·입력 근사 대응 한계·검증은
+[실험 기록](../docs/ml/jisung/2026-10-13-desktop-live-forecast-experiment.md)을 따른다.
+기존 서비스 점수·알림과 분리된 연구 화면이다.
+
+MediaPipe 개발은 [전용 모듈 안내](src/features/mediapipe/README.md)에서 시작한다.
+모델 로딩·13점 좌표 선택·추론 주기는 `src/features/mediapipe/`, 특징·기준 비교는 `model/prototype/`, 표시·등록은 카메라 어댑터가 담당한다.
+
+로컬 측정과 개인 기준 특징을 먼저 개발하며 서버 확장은 후순위다.
+기준 등록이 완료되면 얼굴·어깨 13점 시계열을 별도 IndexedDB에 저장한다.
+수집 화면 ‘기준 자세 모음’에서 JSON을 내려받는다. 라벨은 `baseline_posture`,
+정상 가정은 `normal_assumed=true`, 검증된 정답 여부는 `ground_truth_verified=false`다.
+상세 형식·저장 실패·참여자 연결은 [보존 결정](../docs/decisions/0022-local-baseline-archive.md)을 따른다.
+
+lee_app1에는 아래 서버 전환 계획이 포함된다. 현재 작업 브랜치는 사용자 요청에 따라 로컬 입력·기준 특징 실험을 우선하고 이 서버 전환은 후순위로 둔다.
+
 > **결정 변경(2026-10-11, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보낸다.
 > 화면·기록의 유형(머리·좌우 기울임) 표시와 csv 내보내기의 판정 열은 2026-10-11 없앴다.
 > 로컬 모드(`src/features/session/engine/`, `src/lib/engine.ts`)와 앱 점수·상태 판정은 [계획 0023](../docs/plans/active/0023-frontend-server-only.md)에서 없앤다.
@@ -70,7 +89,7 @@ Codex 인앱 브라우저처럼 PiP가 없는 경우 앱 내부 창만 제공한
 자세 데이터 수집 자료는 자동 업로드하지 않는다. [결정과 수명 경계](../docs/decisions/0016-collection-entry-and-camera-preview-window.md).
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
-MediaPipe Pose Landmarker Lite로 상체를 추적하고, 3초 개인 기준과 비교하는 실험용 규칙으로 상태를 표시한다.
+MediaPipe Pose Landmarker Heavy로 어깨 포함 머리를 추적하고, 3초 개인 기준과 비교하는 실험용 규칙으로 상태를 표시한다.
 학습된 LSTM은 미연결이다. Compose 계정 모드는 MySQL·이메일/비밀번호 인증·서버 영구 기록을 사용한다.
 기존 로컬 프로토타입은 선택형 개발 서버 판정과 브라우저 localStorage를 유지하고,
 자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
@@ -218,7 +237,8 @@ Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. �
 
 자세 점수는 100점에 가까울수록 개인 기준과 비슷하다. 기본 30점 이하가 3초 이어지면 알린다.
 설정도 같은 점수 방향으로 표시한다. 예전 수집 CSV(v1·v2)의 `rule_score`는 종전의 변화 점수이므로 `100 * (1 - rule_score)`로 환산한다. 수집 v3에는 이 열이 없다.
-전체 키포인트는 Pose의 눈·입·귀·몸·팔·다리 중 보이는 점을 표시한다. 턱 추적은 포함하지 않는다.
+`얼굴·어깨 키포인트`는 Pose의 얼굴 11개와 양쪽 어깨 2개 중 보이는 점을 표시한다.
+어깨 아래의 점·연결선·몸통 파티클은 표시하지 않는다. 공통 관측과 수집 CSV도 원래 index 0~12(어깨 포함 머리)의 최대 13개 좌표만 유지한다([ADR 0020](../docs/decisions/0020-shoulder-up-landmarks.md)). 현재 과제 수집은 v3이며 이전 33개 자료는 ML 입력 준비에서 같은 인덱스만 선택한다.
 웹캠 준비/측정의 `매트릭스 효과`는 점이 모이는 장식용 연출이다. `다시 모으기`, `애니메이션 줄이기`를 제공한다.
 측정 화면의 `키포인트 표시`를 끄면 효과도 숨긴다. 추가 학습 데이터나 실제 3D 모델이 아니다.
 

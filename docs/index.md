@@ -2,10 +2,16 @@
 
 ## 현재 상태와 작업
 
+현재 우선순위는 로컬 측정·개인 기준 특징이다. 서버/Kafka 확장은 후순위다.
+[개발 실행 경계](decisions/0024-local-development-server-boundary.md): 로컬에서 먼저 검증하고 동일 의미의 입력·결과로 서버에 연결한다. 새 전송 계약과 런타임은 후속 구현이다.
+[기준 등록 자료 보존](decisions/0022-local-baseline-archive.md): 완료된 13점 기준 시계열을 로컬에 모으며 라벨은 개발상의 정상 가정이다.
+
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, 영구 저장·API/CEP 복구, Compose·배포 자동화 설정의 코드가 있다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
+- [개인 기준 특징 최종 점검표](research/personal-baseline-final-review.md): 유지할 결정·필수 보완·다음 비교. [설계 상세](research/personal-baseline-feature-design.md), [비교 결정](decisions/0023-baseline-feature-comparison.md).
+- [ML / jisung 환경별 기록](ml/jisung/README.md): desktop·home 기록을 구분한 결정·구현 상태·테스트 브랜치 비교·인계.
 - [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
 - [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](removed-docs.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
 - [서비스 DB 전환](removed-docs.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
@@ -34,7 +40,7 @@
 | 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md) |
 | 어떻게 배포·복원하는가? | [infra](../infra/README.md) |
 | 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
-| 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
+| 수집은? | [Heavy 수집 v3](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
 | 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |
 | 왜 이렇게 결정했는가? | [결정 이력](decisions/), [기술 검토](removed-docs.md) |
 | 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |

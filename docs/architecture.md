@@ -1,5 +1,9 @@
 # 아키텍처와 경계
 
+2026-10-12 개발 우선순위는 로컬 측정·개인 기준 특징이다. 서버 확장은 후순위로 둔다.
+[로컬 개발과 서버 연결 경계](decisions/0024-local-development-server-boundary.md): 모델 코어·버전 있는 결과·실행 어댑터를 분리해 서버 연결을 준비한다. 아래 FE 서버 전용 전환은 현재 로컬 ML 개발 경로와 구분한다.
+완료된 기준 등록의 13점 시계열은 [기준 자료 보존 결정](decisions/0022-local-baseline-archive.md)에 따라 별도 IndexedDB에 저장하며 서버로 보내지 않는다.
+
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
@@ -65,12 +69,17 @@ CEP는 eager bean 초기화에서 EPL·첫 런타임 처리를 준비하고 임�
 
 ## 파일럿 파일 수집
 
-`useCamera.subscribe`는 새 추론 프레임의 평활화 전 특징과 33개 영상/world 좌표를 전달한다.
-`useCollection`은 명시적 시작 후 준비 시간을 제외한 관측만 최대 10Hz로 버퍼링한다.
-안내 과제·실제 자세·재석 상태·측정 품질을 분리하고 촬영 후 자기 보고 검토를 거쳐 v2 CSV로 내보낸다.
-전용 수집 화면(사용자 표시명 `자세 등록`, 코드상 `CollectionPage`)은 교정 알림을 실행하지 않는다. 영상·음성 저장/업로드는 없다.
+브라우저 MediaPipe 처리는 [전용 모듈](../frontend/src/features/mediapipe/README.md)에서 모델 준비·추론 주기·원본 13점 선택을 담당한다.
+React·스켈레톤 표시·기준 등록 저장과 분리하며 SDK 타입은 모듈 밖으로 노출하지 않는다.
+`camera/frameLoop.ts`는 원본 PoseFrame을 기존 특징 함수와 표시 소비자에 연결한다.
 
-연구 자료 준비는 `model/analysis/dataset/`에서 v2 CSV의 hash·소유권·기준 등록을 검증한다.
+`useCamera.subscribe`는 새 추론 프레임의 평활화 전 특징과 어깨 포함 머리(원래 index 0~12)의 최대 13개 영상/world 좌표를 전달한다.
+MediaPipe 전신 출력에서 어깨 아래를 공통 관측 전에 제거한다([ADR 0020](decisions/0020-shoulder-up-landmarks.md)).
+`useCollection`은 명시적 시작 후 준비 시간을 제외한 관측만 최대 10Hz로 버퍼링한다.
+안내 과제·실제 자세·재석 상태를 분리하고 촬영 후 자기 보고 검토를 거쳐 v3 CSV로 내보낸다. 앱 판정·특징·품질 판정 열은 없으며 품질은 ML 자료 준비에서 좌표로 확인한다.
+전용 수집 화면(사용자 표시명 `자세 데이터 수집`, 코드상 `CollectionPage`)은 교정 알림을 실행하지 않는다. `자세 등록`은 별도 기준 등록 탭이다. 영상·음성 저장/업로드는 없다.
+
+기존 연구 자료 준비는 `model/analysis/dataset/`에서 v1/v2 CSV의 hash·소유권·기준 등록을 검증한다. 특징·규칙 열을 뺀 현재 v3는 아직 이 도구의 입력으로 지원하지 않는다.
 명시적 참여자 분할을 먼저 만들고 실제 시각의 연속 구간별로 시간 창을 생성한다.
 기준 등록 자료는 개인 보정용으로 별도 출력하며 평가 창이나 전역 학습 자료에 합치지 않는다.
 저품질·미검토·전이·누락 경계 양쪽을 연결하거나 보간하지 않는다. 실제 자료와 manifest는 Git 제외/외부 위치에 둔다.
@@ -111,7 +120,7 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
 서버가 없는 동안 프로필·설정·측정 요약·중간 저장·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
 이는 서버 저장 API를 대체하는 임시 경계이며, 백엔드 연결 시 같은 지점에서 교체한다.
-[수집 v2 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
+[수집 v3 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 
 `serviceStore`는 읽기/쓰기 전에 요약·사건·전체 Machine의 수치와 구조를 검사한다.
 읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.v2.writer`를 가진 탭만
@@ -130,6 +139,11 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 키보드 이동을 창 안에 유지한다. DOM 변경 후 실행 버튼 또는 새 화면의 주영역으로 초점을 돌린다.
 
 ## 합성 브라우저 검증 경계
+
+`#forecast`는 서버 없이 실제 LSTM·기준 거리/시간 규칙을 비교하는 별도 연구 화면이다.
+코어는 `model/prototype/forecast.ts`, UI 연결은 `features/forecast/`에 두며 기존 서비스·CEP 출력에 영향을 주지 않는다.
+Panoptic→MediaPipe 근사 입력 대응의 한계와 실험 설정은 [ADR 0025](decisions/0025-local-forecast-experiment.md),
+내부 출력은 [실험 계약](../contracts/forecast-experiment.v1.md)을 따른다.
 
 `make check-browser`는 독립 임시 Chrome/Chromium과 실제 개발 서버들을 실행한다.
 `browser-smoke` 개발 serve 모드에서만 앱의 카메라 hook을 `features/testing/`의 합성 입력으로 연결한다.

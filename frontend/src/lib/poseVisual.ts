@@ -7,7 +7,7 @@ export type VisualOptions = {
   reducedMotion: boolean
   startedAt: number
 }
-// MediaPipe Pose's actual 33 landmarks. No fabricated chin landmark.
+// Display only MediaPipe Pose's face and shoulders (indices 0–12).
 export const POSE_EDGES: [number, number][] = [
   [0, 1],
   [1, 2],
@@ -19,31 +19,6 @@ export const POSE_EDGES: [number, number][] = [
   [6, 8],
   [9, 10],
   [11, 12],
-  [11, 13],
-  [13, 15],
-  [15, 17],
-  [15, 19],
-  [15, 21],
-  [17, 19],
-  [12, 14],
-  [14, 16],
-  [16, 18],
-  [16, 20],
-  [16, 22],
-  [18, 20],
-  [11, 23],
-  [12, 24],
-  [23, 24],
-  [23, 25],
-  [24, 26],
-  [25, 27],
-  [26, 28],
-  [27, 29],
-  [28, 30],
-  [29, 31],
-  [30, 32],
-  [27, 31],
-  [28, 32],
 ]
 export function visiblePoint(p: Landmark | undefined): p is Landmark {
   return (
@@ -84,24 +59,7 @@ export function cloudTargets(points: Landmark[]): Particle[] {
       })
     }
   }
-  if ([11, 12, 23, 24].every((i) => visiblePoint(points[i]))) {
-    for (let row = 0; row < 11; row++)
-      for (let col = 0; col < 15; col++) {
-        const v = row / 10,
-          u = col / 14,
-          left = points[11],
-          right = points[12],
-          hipL = points[23],
-          hipR = points[24]
-        result.push({
-          x: mix(mix(left.x, hipL.x, v), mix(right.x, hipR.x, v), u),
-          y: mix(mix(left.y, hipL.y, v), mix(right.y, hipR.y, v), u),
-          z: mix(mix(left.z, hipL.z, v), mix(right.z, hipR.z, v), u),
-          seed: 100000 + row * 15 + col,
-        })
-      }
-  }
-  return result // <= 35*8 + 165 = 445 particles
+  return result // <= 10*8 = 80 face and shoulder particles
 }
 
 export function drawPose(
@@ -170,7 +128,7 @@ export function drawPose(
     ctx.lineTo(q.x * width, q.y * height)
     ctx.stroke()
   }
-  points.slice(0, 33).forEach((p, i) => {
+  points.slice(0, 13).forEach((p, i) => {
     if (!visiblePoint(p)) return
     ctx.fillStyle = i < 11 ? '#fff3c4' : '#dcfff3'
     ctx.beginPath()
