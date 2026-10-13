@@ -223,13 +223,14 @@
   }
 }
 
-/* Activity levels (measured time per day), shared by the heatmap and the calendar. */
+/* Activity levels (measured time per day), shared by the heatmap and the calendar.
+   Sage green (2026-10-13): reads as "grass" and stays apart from the apricot UI. */
 :root {
   --level-0: var(--surface-3);
-  --level-1: #fde4c4;
-  --level-2: #fbc98d;
-  --level-3: #f0923f;
-  --level-4: #c4532a;
+  --level-1: #e3ead2;
+  --level-2: #c2d3a2;
+  --level-3: #93b072;
+  --level-4: #5f8749;
 }
 
 /* 측정한 날: contribution-style heatmap. */
@@ -386,10 +387,10 @@ button.heatmap-cell:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.calendar-day.level-1 { background: #fff4e6; }
+.calendar-day.level-1 { background: #f3f6ea; }
 .calendar-day.level-2 { background: var(--level-1); }
 .calendar-day.level-3 { background: var(--level-2); }
-.calendar-day.level-4 { background: #f8b773; }
+.calendar-day.level-4 { background: #a9c283; }
 .calendar-day.is-today {
   border-color: var(--ink-2);
 }
