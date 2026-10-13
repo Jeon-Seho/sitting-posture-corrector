@@ -3,7 +3,6 @@ import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
-import { PosturePage } from '../pages/PosturePage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CollectionPage } from '../pages/CollectionPage'
@@ -93,7 +92,6 @@ export function ServiceScreens({
 
   function openTab(tab: Tab) {
     if (tab === 'measure') go(measuring ? 'session' : 'setup')
-    else if (tab === 'posture') go('posture')
     else go(tab === 'records' ? 'dashboard' : 'settings')
   }
 
@@ -160,22 +158,18 @@ export function ServiceScreens({
             <CollectionPage camera={camera} collection={collection} />
           </>
         )}
-        {view === 'setup' && (
+        {(view === 'setup' || view === 'posture') && (
           <SetupPage
+            key={view}
             camera={camera}
             onStart={persistence.start}
             onCollect={openCollection}
+            measuring={measuring}
+            registerAgain={view === 'posture'}
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}
             accountMode={accountMode}
-          />
-        )}
-        {view === 'posture' && (
-          <PosturePage
-            camera={camera}
-            measuring={measuring}
-            onMeasure={() => go(measuring ? 'session' : 'setup')}
           />
         )}
         {session && (

@@ -138,18 +138,22 @@ class AppDriver {
   }
 
   async startSession() {
-    // Plan 0024: register the posture on its own tab, then measure without calibrating.
-    await this.click('자세 등록')
-    await this.text('평소 바른 자세를 등록해요')
-    await this.click('카메라 켜기')
-    await this.text('3초 뒤 측정이 시작돼요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
-    await this.advanceClock(3200)
-    await this.text('자세가 등록되어 있어요')
-    await this.click('측정하러 가기')
-    await this.text('준비가 끝났어요')
+    // 2026-10-13: 측정하기 registers first when there is no posture and then measures by
+    // itself; with a posture 「측정 시작」 starts at once. Server mode is chosen beforehand.
+    await this.click('측정하기')
     await this.openMore()
     await this.checkbox('서버 판정 사용')
-    await this.click('측정 시작')
+    if (await this.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '카메라 켜기')`))
+      await this.click('카메라 켜기')
+    await until(
+      () => this.evaluate(`document.body.innerText.includes('3초 뒤 자세를 기억해요') || document.body.innerText.includes('준비가 끝났어요')`),
+      'registration countdown or ready to measure',
+    )
+    if (await this.evaluate(`document.body.innerText.includes('3초 뒤 자세를 기억해요')`)) {
+      await this.advanceClock(3200) // 3·2·1, then the synthetic capture starts measuring by itself
+    } else {
+      await this.click('측정 시작')
+    }
     let snapshot = await until(async () => {
       const state = await this.snapshot()
       if (state.draft?.server?.view && !state.draft.server.pending) return state

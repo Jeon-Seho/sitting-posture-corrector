@@ -11,6 +11,7 @@ import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
+import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
@@ -52,13 +53,20 @@ export function useCamera() {
   /** The saved main camera was not found at the last connect, so the default one was used. */
   const [mainMissing, setMainMissing] = useState(false)
   /**
-   * The registered baseline outlives the camera: turning the camera off, switching it or a
-   * dropped track keeps it for the rest of the app run (plan 0024). Only a new
-   * registration replaces it.
+   * The registered baseline outlives the camera and, since 2026-10-13, the app run: it is
+   * saved on this computer with the camera it was taken with. Connecting another camera
+   * sets it aside (`baselineOtherCamera`); only a new registration replaces it.
    */
-  const [baseline, setBaseline] = useState<Features | null>(null)
-  const [calibrationId, setCalibrationId] = useState<string | null>(null)
-  const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(null)
+  const saved = useRef(readSavedBaseline())
+  const connectedDevice = useRef('')
+  const [baseline, setBaseline] = useState<Features | null>(() => saved.current?.baseline ?? null)
+  const [calibrationId, setCalibrationId] = useState<string | null>(
+    () => saved.current?.calibrationId ?? null,
+  )
+  const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(
+    () => saved.current?.summary ?? null,
+  )
+  const [baselineOtherCamera, setBaselineOtherCamera] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
@@ -129,9 +137,19 @@ export function useCamera() {
     calibration.current = next.draft
     setProgress(next.progress)
     if (next.ready) {
+      const id = crypto.randomUUID()
       setBaseline(next.ready)
       setCalibrationSummary(next.summary)
-      setCalibrationId(crypto.randomUUID())
+      setCalibrationId(id)
+      setBaselineOtherCamera(false)
+      const entry = {
+        deviceId: connectedDevice.current,
+        calibrationId: id,
+        baseline: next.ready,
+        summary: next.summary,
+      }
+      writeSavedBaseline(entry)
+      saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
       calibration.current = null
       setProgress(null)
     }
@@ -194,7 +212,22 @@ export function useCamera() {
         }
         stream.current = incoming
         const track = incoming.getVideoTracks()[0]
-        setDeviceId(track.getSettings().deviceId ?? '')
+        const connectedId = track.getSettings().deviceId ?? ''
+        connectedDevice.current = connectedId
+        setDeviceId(connectedId)
+        // The saved posture applies only to the camera it was taken with.
+        const stored = saved.current
+        if (stored) {
+          const fits = baselineFits(stored, connectedId)
+          setBaselineOtherCamera(!fits)
+          if (fits) {
+            setBaseline((current) => current ?? stored.baseline)
+            setCalibrationId((current) => current ?? stored.calibrationId)
+            setCalibrationSummary((current) => current ?? stored.summary)
+          } else {
+            setBaseline((current) => (current === stored.baseline ? null : current))
+          }
+        }
         setDevices(await listVideoDevices())
         if (!isCurrent()) return
 
@@ -294,6 +327,7 @@ export function useCamera() {
     deviceId,
     mainDeviceId,
     mainMissing,
+    baselineOtherCamera,
     chooseMainCamera,
     refreshDevices,
     state,
