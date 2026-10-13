@@ -1,7 +1,7 @@
 # 앱 ↔ 입출구 서버 API 명세 (REST·WebSocket) 초안
 
 > 작성: 2026-10-13 · FE · 상태: **초안** · 대상: BE(입출구 서버 `auth`·`api`·`ws`, D-48)
-> 근거: [FE 제안서](fe-server-proposal.md)(2·3장), BE 답변(10/13), 아키텍처 v5.1 연결 ①②, [계정 계약 v1](../../contracts/accounts.v1.md), [실시간 계약 v1](../../contracts/realtime/README.md), DB V2.3
+> 근거: [FE 제안서](fe-server-proposal.md)(3·4장), BE 답변(10/13), 아키텍처 v5.1 연결 ①②, [계정 계약 v1](../../contracts/accounts.v1.md), [실시간 계약 v1](../../contracts/realtime/README.md), DB V2.3
 > 아키텍처 v5.1에서 이 명세는 BE와 FE가 함께 쓴다. 이 문서는 FE 초안이고, 결정할 것은 5장에 모았다.
 
 ## 1. 나누는 기준
@@ -87,7 +87,7 @@
 | `GET /records/{session_id}` | — | 세션 하나: `{session_id, started_at, ended_at, summary, events, excluded}` |
 | `DELETE /records/{session_id}` | — | 204. 그 세션과 사건·알림을 지운다 |
 
-- 당일 화면은 세션마다 따로 보인다. 같은 날 측정을 합치지 않는다(FE 제안서 1장 4번).
+- 당일 화면은 세션마다 따로 보인다. 같은 날 측정을 합치지 않는다(FE 제안서 2장 4번).
 - **5분 미만 세션은 저장하지 않는다(10/12 회의 결정).** 목록·지난 통계에 나오지 않고 `GET /records/{id}`는 404다. 그 세션의 결과는 WebSocket으로 받은 마지막 `progress`·`decision`으로만 종료 화면에 보인다.
 - `summary`(세션 하나, 서버 계산):
 
@@ -133,7 +133,7 @@
 | `type` | 본문 | 언제 |
 |---|---|---|
 | `hello` | `{session_id, purpose: "measure" \| "calibration", last_event_id, last_acked_sequence}` | 연결 직후 한 번. 재연결이면 마지막으로 받은 사건 번호와 `ack` 번호를 넣는다 |
-| `features` | 좌표 묶음 `posture.frames.v1`(FE 제안서 2.1): `{sequence, start_ms, end_ms, phase, width, height, frames}` | 0.5초마다 한 건 |
+| `features` | 좌표 묶음 `posture.frames.v1`(FE 제안서 3.1): `{sequence, start_ms, end_ms, phase, width, height, frames}` | 0.5초마다 한 건 |
 | `end` | `{end_ms}` | 측정 종료 |
 
 - `features`라는 이름은 아키텍처 v5.1을 따른다. 본문은 특징값이 아니라 좌표다.

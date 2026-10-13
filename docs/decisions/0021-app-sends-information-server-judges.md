@@ -12,7 +12,7 @@
 
 1. **앱은 판정하지 않는다.** 점수, 상태(좋음/무너짐/측정 불가), 유형(머리·좌우 기울임), 판정 가능 검사, 고개 돌림 제외,
    복귀 대기, 시간 판정(확정·복귀·재알림)을 모두 서버가 한다.
-2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [FE 제안서](../design/fe-server-proposal.md) 2장
+2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [FE 제안서](../design/fe-server-proposal.md) 3장
    (0.5초 1건, 관절 9개 `[x, y, visibility]`, 프레임 그대로)를 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
 3. **서버 없이 쓰는 로컬 모드를 없앤다.** 앱은 로그인한 서버 모드만 있다. 서버가 없으면 측정을 시작하지 않는다.
 4. **화면은 서버 결과로만 바뀐다**(`observation`·`progress`·`decision`·`alert`). 연결이 끊기면 "연결 끊김"을 화면을 막지 않게 띄우고
@@ -43,6 +43,6 @@
 
 ## 아직 정하지 않은 것
 
-[FE 제안서](../design/fe-server-proposal.md) 4장.
+[FE 제안서](../design/fe-server-proposal.md) 1장.
 특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
-판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱이 붙는 곳은 2026-10-11 아키텍처 v5에서 BE가 만드는 입출구 서버(`auth`·`api`·`ws`)로 정해졌다(처음에는 FE의 독립 게이트웨이였다, [FE 제안서](../design/fe-server-proposal.md) 1장).
+판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱이 붙는 곳은 2026-10-11 아키텍처 v5에서 BE가 만드는 입출구 서버(`auth`·`api`·`ws`)로 정해졌다(처음에는 FE의 독립 게이트웨이였다, [FE 제안서](../design/fe-server-proposal.md) 2장).

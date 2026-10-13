@@ -24,9 +24,9 @@
 | **판정 불가 표시**(10/12 회의) | 프레임의 `valid: false` (FE 제안 이름) | `frames.ts` + `features/camera/shoulderGrace.ts`(어깨 2초 유예) | **준비됨** | 필드 이름·기준 확정(판정 불가 처리 0장) |
 | 일시정지·자리 비움 | 프레임 `phase: rest`·`away`, 빈 `frames` | `frames.ts` `setPhase` | 준비됨 | — |
 | 측정 종료 뒤 최종 결과 | `ws end` → 최종 `decision` → `closed(ended)`. 10초 넘거나 놓치면 `GET /api/records/{id}` | — | **할 일**(F3) | `end` 확정(N4), `api` 종료 경로(BE S6) |
-| 연결 끊김 | 앱은 재연결·재전송하지 않고 세션을 끝낸다([ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)) | `features/connection/` | 구현됨 | **BE 공유 필요:** 제안서 1·2장의 "재연결 후 같은 순번 재전송"과 다르다. 서버도 끊긴 세션을 닫아야 한다 |
+| 연결 끊김 | 앱은 재연결·재전송하지 않고 세션을 끝낸다([ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)) | `features/connection/` | 구현됨 | **BE 공유 필요:** 제안서 2·3장의 "재연결 후 같은 순번 재전송"과 다르다. 서버도 끊긴 세션을 닫아야 한다 |
 | 기록 목록·상세 | `GET`·`POST /v1/records`, `DELETE /v1/records/{id}` | `features/history/`, `features/storage/` | 로컬 | 세션 테이블로 기록을 다시 만드는 일(계획 0023 3단계) |
-| **자세 등록 저장·조회** | 미정(제안서 2.3 ①~⑤) | `features/camera/savedBaseline.ts`(이 PC, 카메라별) | 로컬 | N1 등록 흐름·경로 |
+| **자세 등록 저장·조회** | 미정(제안서 3.3 ①~⑤) | `features/camera/savedBaseline.ts`(이 PC, 카메라별) | 로컬 | N1 등록 흐름·경로 |
 | **가입·설정 동의 6종** | DB V2.3 `user_consent`. API 미정 | `features/auth/consents.ts`(회원가입 1단계 화면 `ConsentList.tsx`) | **준비됨**(선택은 이 PC에 저장) | 요청 형식(N9) |
 | 알림 띄우기 | `ws alert`. 앱은 거르지 않는다 | `useServerSessionScreen.ts` `onNotifications`, 데스크톱 팝업 | 연결됨(받기) | 서버 어디서 판단할지(N6) |
 | 등록 전 구도 확인 | 서버 없음(F7) | `useCamera` `framing`, `usePostureRegistration` | 구현됨 | — |

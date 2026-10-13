@@ -20,7 +20,7 @@
 | 화면 요소 | 지금 출처 | v4 예정 경로 | 연결할 곳 |
 |---|---|---|---|
 | 로그인 | 로컬 로그인·회원가입(localStorage, 입력값 확인 없음, 2026-10-13 계정 모드 삭제) | REST `:8080` gateway, JWT | `AuthPort` → `app/LocalServiceApp.tsx`의 `login` 자리 |
-| 기준 자세 등록(3초) | 브라우저 메모리(앱이 켜져 있는 동안, 2026-10-12부터 카메라를 꺼도 유지) | 기준 자세 등록 연결·`GET /api/baseline`([FE 제안서](fe-server-proposal.md) 2.3, 10/13 정해짐) → V2.x `baseline_posture` | 「자세 등록」 탭(`pages/PosturePage.tsx`)의 등록 완료 시점 |
+| 기준 자세 등록(3초) | 브라우저 메모리(앱이 켜져 있는 동안, 2026-10-12부터 카메라를 꺼도 유지) | 기준 자세 등록 연결·`GET /api/baseline`([FE 제안서](fe-server-proposal.md) 3.3, 10/13 정해짐) → V2.x `baseline_posture` | 「자세 등록」 탭(`pages/PosturePage.tsx`)의 등록 완료 시점 |
 | 자동 실행 후 바로 측정 | 미지원(기준 재확인 필요) | 저장된 기준 조회 | `BaselinePort.latest`: `useLaunchAutomation` |
 | 실시간 상태 알약·교정 카드 | 로컬 엔진(`useSession`) | WebSocket: 0.5초 묶음 전송 → `posture.inference` → realtime 상태머신 → 푸시 | 구현됨: `RealtimeClient`의 `onObservation`(실시간 상태)·`onProgress`(숫자)·`onDecision`(사건) → 서버 세션 컨트롤러 → `LiveView`. 계약은 `contracts/realtime/` |
 | 알림 토스트·소리 | 로컬 엔진 `alertTick` | 서버 상태머신의 알림 푸시(T3 재알림) | 구현됨: 확정·재알림 `decision`을 기존 알림 경로(`onNotifications`)로 한 번만 전달 |
@@ -47,7 +47,7 @@
 
 2026-10-11 [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)로 1번과 5번이 정해졌다.
 1번: 앱은 관절 좌표를 보낸다(동의한 사용자만). 5번: 로컬 엔진은 없앤다. 서버가 멈추면 "연결 끊김"을 표시하고
-좌표를 쌓아 두었다가 재연결 후 다시 보낸다(2026-10-13 [ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)로 변경: 끊기면 세션 종료, 재연결 없음). 2번은 V2.1에서 기준 자세를 사용자당 1행으로 서버에 둔다(기준값은 서버가 등록 프레임으로 계산, [FE 제안서](fe-server-proposal.md) 2.3).
+좌표를 쌓아 두었다가 재연결 후 다시 보낸다(2026-10-13 [ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)로 변경: 끊기면 세션 종료, 재연결 없음). 2번은 V2.1에서 기준 자세를 사용자당 1행으로 서버에 둔다(기준값은 서버가 등록 프레임으로 계산, [FE 제안서](fe-server-proposal.md) 3.3).
 
 1. **무엇을 보내나**: v4는 키포인트를 WebSocket으로 보낸다. 현재 [ADR 0013](../decisions/0013-frontend-server-feature-connection.md)은
    어깨 기준 변화량 3개와 품질만 보내고 원본 좌표는 보내지 않는다. 개인정보·연구 경계와 함께 결정해야 한다.
