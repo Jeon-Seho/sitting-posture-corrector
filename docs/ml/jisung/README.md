@@ -24,6 +24,7 @@
 | 2026-10-13 · desktop | [Panoptic 좌표 LSTM 실제 학습 결과](2026-10-13-desktop-panoptic-lstm-training.md) |
 | 2026-10-13 · desktop | [미래 예측 + 룰 조합 실험](2026-10-13-desktop-forecast-rule-hybrid.md) |
 | 2026-10-13 · desktop | [웹캠 LSTM·룰 직접 비교 화면](2026-10-13-desktop-live-forecast-experiment.md) |
+| 2026-10-13 · mac | [실제 LSTM 재학습·개발자 룰 비교 연결](2026-10-13-mac-dev-lstm-training.md) |
 
 ## 공통 기준
 

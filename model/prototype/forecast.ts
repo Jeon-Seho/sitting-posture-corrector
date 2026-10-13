@@ -75,6 +75,7 @@ export function pointDistance(a: number[], b: number[]): number {
 }
 export type ForecastState = 'needs_reference' | 'registering' | 'warming' | 'near_reference' |
   'deviation_pending' | 'unexpected_motion_candidate' | 'persistent_deviation_candidate' | 'recovery_pending' | 'unmeasurable'
+export const FORECAST_MAX_SAMPLE_GAP_MS = 170
 export interface ForecastReading {
   schema_version: 'forecast-experiment-v1'
   timeMs: number
@@ -136,8 +137,26 @@ export class LiveForecastExperiment {
   private limit = .02
   private policy = new ForecastPolicy()
   private rule = new ForecastPolicy()
-  constructor(readonly model: ForecastWeights, readonly predictor: 'lstm' | 'hold_last' | 'constant_velocity' = 'lstm') {}
-  register() { this.baseline = null; this.registration = []; this.registrationStart = null; this.registrationErrors = []; this.breakContinuity() }
+  private readonly predict: (window: number[][]) => number[]
+  private readonly modelId: string
+  constructor(readonly model: ForecastWeights | null, readonly predictor: 'lstm' | 'hold_last' | 'constant_velocity' = 'lstm') {
+    if (predictor === 'lstm') {
+      if (!model) throw new Error('LSTM 예측에는 학습 모델이 필요합니다. 모델 없이 실행하려면 위치 유지 또는 등속 예측을 선택해 주세요.')
+      this.predict = window => predictLstm(model, window)
+      this.modelId = model.model_id
+    } else {
+      this.predict = window => {
+        const last = window[window.length - 1]
+        return predictor === 'hold_last' ? [...last] : last.map((v, i) => v + 3 * (v - window[window.length - 2][i]))
+      }
+      this.modelId = predictor
+    }
+  }
+  register() {
+    this.baseline = null; this.registration = []; this.registrationStart = null; this.registrationErrors = []
+    this.policy = new ForecastPolicy(); this.rule = new ForecastPolicy()
+    this.breakContinuity()
+  }
   private breakContinuity() {
     this.history = []; this.queued = []; this.lastSample = null; this.policy.reset(); this.rule.reset()
     if (this.registration) { this.registration = []; this.registrationStart = null; this.registrationErrors = [] }
@@ -149,7 +168,7 @@ export class LiveForecastExperiment {
     return { schema_version: 'forecast-experiment-v1', timeMs: t, state, ruleState, deviation, error,
       errorLimit: this.baseline ? this.limit : null, progress, returnedExcursions: this.policy.returned,
       durationMs: this.policy.durationStart === null ? 0 : t - this.policy.durationStart,
-      modelId: this.predictor === 'lstm' ? this.model.model_id : this.predictor, domainValidated: false }
+      modelId: this.modelId, domainValidated: false }
   }
   unavailable(t: number) { this.breakContinuity(); this.lastRaw = t; return this.reading(t, 'unmeasurable') }
   step(t: number, values: number[] | null): ForecastReading | null {
@@ -159,7 +178,7 @@ export class LiveForecastExperiment {
     if (gap) this.breakContinuity()
     if (!values || values.length !== 39 || values.some(v => !Number.isFinite(v))) return this.unavailable(t)
     if (this.lastSample !== null && t - this.lastSample < 95) return null
-    if (this.lastSample !== null && t - this.lastSample > 170) this.breakContinuity()
+    if (this.lastSample !== null && t - this.lastSample > FORECAST_MAX_SAMPLE_GAP_MS) this.breakContinuity()
     this.lastSample = t
     const due = this.queued.filter(p => p.due <= t + 50 && p.due >= t - 50)
     this.queued = this.queued.filter(p => p.due > t + 50)
@@ -167,9 +186,7 @@ export class LiveForecastExperiment {
     this.history.push({ time: t, values: [...values] }); this.history = this.history.slice(-30)
     if (this.history.length === 30) {
       const window = this.history.map(p => p.values)
-      const prediction = this.predictor === 'lstm' ? predictLstm(this.model, window) : this.predictor === 'hold_last' ? [...values] :
-        values.map((v, i) => v + 3 * (v - window[28][i]))
-      this.queued.push({ due: t + 300, prediction })
+      this.queued.push({ due: t + 300, prediction: this.predict(window) })
     }
     if (this.registration) {
       this.registrationStart ??= t; this.registration.push([...values])

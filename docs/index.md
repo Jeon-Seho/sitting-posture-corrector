@@ -3,6 +3,8 @@
 ## 현재 상태와 작업
 
 현재 우선순위는 로컬 측정·개인 기준 특징이다. 서버/Kafka 확장은 후순위다.
+[개발자 실험실 `/dev`](design/developer-lab.md): 큰 카메라·구도 가이드·자동 등록, 모델/룰 비교와 합성 데모.
+서비스 승격과 의존성은 [개발 모듈 안내](../frontend/src/features/developer/README.md)에서 분리해 관리한다.
 [개발 실행 경계](decisions/0024-local-development-server-boundary.md): 로컬에서 먼저 검증하고 동일 의미의 입력·결과로 서버에 연결한다. 새 전송 계약과 런타임은 후속 구현이다.
 [기준 등록 자료 보존](decisions/0022-local-baseline-archive.md): 완료된 13점 기준 시계열을 로컬에 모으며 라벨은 개발상의 정상 가정이다.
 

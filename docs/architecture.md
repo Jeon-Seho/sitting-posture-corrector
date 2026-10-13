@@ -140,10 +140,17 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 
 ## 합성 브라우저 검증 경계
 
-`#forecast`는 서버 없이 실제 LSTM·기준 거리/시간 규칙을 비교하는 별도 연구 화면이다.
+`#forecast`와 `/dev`는 서버 없이 예측·기준 거리/시간 규칙을 비교하는 별도 연구 화면이다.
 코어는 `model/prototype/forecast.ts`, UI 연결은 `features/forecast/`에 두며 기존 서비스·CEP 출력에 영향을 주지 않는다.
 Panoptic→MediaPipe 근사 입력 대응의 한계와 실험 설정은 [ADR 0025](decisions/0025-local-forecast-experiment.md),
 내부 출력은 [실험 계약](../contracts/forecast-experiment.v1.md)을 따른다.
+
+`/dev`는 `features/developer/`에서 독립 다크/라이트 테마·큰 카메라·구도 안내/자동 기준 등록·수치 집계·현재 탭의 실험 기록을
+제공한다. 기본 단순 예측은 가중치 없이 작동하고 LSTM만 실제 모델을 요구한다.
+`model/prototype/developerGuidance.ts`의 연구용 구도 기하를 별도로 소비하며, live/reference 가이드
+좌표는 표시용 메모리에만 둔다. 일반 서비스는 개발자 모듈을 가져오지 않고 공통 카메라 관측만 재사용한다.
+명시적 합성 데모는 같은 코어를 사용하되 실제 관측과 출처를 분리한다. 원본 영상·좌표를
+저장/전송하지 않으며 [개발자 실험실](design/developer-lab.md)의 메모리·다운로드 경계를 따른다.
 
 `make check-browser`는 독립 임시 Chrome/Chromium과 실제 개발 서버들을 실행한다.
 `browser-smoke` 개발 serve 모드에서만 앱의 카메라 hook을 `features/testing/`의 합성 입력으로 연결한다.

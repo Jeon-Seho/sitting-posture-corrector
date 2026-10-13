@@ -1,6 +1,6 @@
 # 로컬 예측 실험 출력 v1
 
-`model/prototype/forecast.ts`가 만들고 별도 `#forecast` 화면만 소비하는 연구용 출력이다.
+`model/prototype/forecast.ts`가 만들고 별도 `#forecast`와 `/dev` 화면이 소비하는 연구용 출력이다.
 기존 서비스 상태·서버·CEP·수집 라벨 계약을 대체하지 않는다.
 
 | 필드 | 의미 |
@@ -35,6 +35,9 @@ MediaPipe 눈/입 위치와 Panoptic 점 정의, world/camera 축은 동일함�
 브라우저 가중치 `forecast-weights-v1`는 39입력·48hidden·30steps·horizon3의 실제 state_dict,
 학습 mean/scale,source hash를 제공한다. 잘못된 버전·shape·NaN·scale≤0은 거부한다.
 가중치·실제 자료는 Git에 추가하지 않는다.
+
+`/dev`의 마지막 위치 유지·등속 비교 방법은 가중치 없이 같은 등록·품질·시간 정책을 실행한다.
+LSTM은 실제 가중치가 필요하며 누락 시 합성 가중치로 대체하지 않는다. 출력 구조와 `modelId` 의미는 유지한다.
 
 수동 export `forecast-experiment-export-v1`는 모델 provenance·설정·최대3000개 진단 출력만 포함한다.
 영상·원본 관절·기준 좌표·참여자 식별자는 포함하지 않는다. 자동 저장/전송은 없다.
