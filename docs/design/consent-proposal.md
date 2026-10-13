@@ -48,9 +48,12 @@
 - 서버가 없어 가입 결과(프로필, 이메일, 동의 선택과 버전·시각)는 이 기기에만 두고 비밀번호는 저장하지 않는다. 로그인은 입력값을 확인하지 않는다.
 - 코드: `frontend/src/features/auth/`(`consents.ts` 항목·고지·DB 유형, `ConsentList.tsx`, `ConsentDialog.tsx`, `SignupPostureStep.tsx`), `app/LocalServiceApp.tsx`.
 
-## 4. 보류
+## 4. 저장 (DB V2.3 `user_consent`)
 
-- **동의 저장(DB):** 회의 뒤 정한다. V2.1에서 보류한 `user_consent`를 살릴지, 어떤 칸으로 둘지.
+- 가입 때 계정 행과 필수 동의 5행(`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`·`AGE_14_OVER`)을 한 트랜잭션으로 넣는다. 선택 정보(`OPTIONAL_PROFILE`)는 동의했을 때만 넣고, 거부는 저장하지 않는다.
+- 행마다 문구 버전(`document_version`, 앱은 `terms-2026-10`)을 남긴다. 약관이 바뀌면 새 버전으로 다시 받는다.
+- 선택 정보 동의 철회는 `withdrawn_at`을 채우고 나이·직업을 비운다. 필수 동의 철회는 탈퇴로 처리한다.
+- 남은 것: 가입 요청에 동의 목록을 담는 형식(BE, FE 제안서 N9). 앱은 서버가 생기기 전까지 이 기기에 저장한다.
 
 ## 5. API에 미치는 것
 

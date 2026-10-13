@@ -1,7 +1,7 @@
 # 앱 ↔ 입출구 서버 API 명세 (REST·WebSocket) 초안
 
 > 작성: 2026-10-13 · FE · 상태: **초안** · 대상: BE(입출구 서버 `auth`·`api`·`ws`, D-48)
-> 근거: [FE 제안서](fe-server-proposal.md)(2·3장), BE 답변(10/13), 아키텍처 v5.1 연결 ①②, [계정 계약 v1](../../contracts/accounts.v1.md), [실시간 계약 v1](../../contracts/realtime/README.md), DB V2.1
+> 근거: [FE 제안서](fe-server-proposal.md)(2·3장), BE 답변(10/13), 아키텍처 v5.1 연결 ①②, [계정 계약 v1](../../contracts/accounts.v1.md), [실시간 계약 v1](../../contracts/realtime/README.md), DB V2.3
 > 아키텍처 v5.1에서 이 명세는 BE와 FE가 함께 쓴다. 이 문서는 FE 초안이고, 결정할 것은 5장에 모았다.
 
 ## 1. 나누는 기준
@@ -55,7 +55,7 @@
 | `PUT /settings` | `{threshold, alerts_on}` | 저장한 값 |
 
 - `threshold`: 0.5~0.95, 소수 셋째 자리까지. 화면 3단계는 0.80·0.70·0.60이고 기본은 0.70이다.
-- `alerts_on`: 「자세 알림」 켜기·끄기. 다음 측정의 `alert_enabled`가 된다. 저장 칸은 DB와 정한다(FE 제안서 N16).
+- `alerts_on`: 「자세 알림」 켜기·끄기. V2.3 `user_account.sound_alert_enabled`에 두면 측정 시작 때 `alert_enabled`로 복사된다(FE 제안서 N16에서 확인 중).
 - 판정 시간 규칙(확정 3초·복귀·재알림)은 서버 상수라 앱 설정에 없다. 소리는 저장하지 않는다.
 - 팀 API의 `/workspace`(설정 + 기록 묶음)는 이것과 2.6 기록으로 나눈다(10/13 결정).
 
@@ -83,8 +83,8 @@
 
 | 경로 | 요청 | 응답 |
 |---|---|---|
-| `GET /records?date=YYYY-MM-DD` | 날짜(KST). 없으면 오늘 | 그날 세션 목록 `[{session_id, started_at, ended_at, end_reason, summary}]`, 시작 시각 내림차순 |
-| `GET /records/{session_id}` | — | 세션 하나: `{session_id, started_at, ended_at, end_reason, summary, events, excluded}` |
+| `GET /records?date=YYYY-MM-DD` | 날짜(KST). 없으면 오늘 | 그날 세션 목록 `[{session_id, started_at, ended_at, summary}]`, 시작 시각 내림차순 |
+| `GET /records/{session_id}` | — | 세션 하나: `{session_id, started_at, ended_at, summary, events, excluded}` |
 | `DELETE /records/{session_id}` | — | 204. 그 세션과 사건·알림을 지운다 |
 
 - 당일 화면은 세션마다 따로 보인다. 같은 날 측정을 합치지 않는다(FE 제안서 1장 4번).
@@ -100,10 +100,10 @@
 | `excluded_ms` | `{pause, absence, unmeasurable}` 사유별 제외 시간 |
 | `collapse_count` | 이탈 사건 수 |
 | `alert_count` | 실제로 표시된 알림 수 |
-| `interval_min_ms`, `interval_max_ms` | 이탈 사이 간격의 최소·최대. 사건이 2개 미만이면 `null` |
+| `until_collapse_min_ms`, `until_collapse_max_ms` | 바른 자세에서 붕괴까지 걸린 시간의 최소·최대(V2.3 정의: 세션 시작 또는 직전 붕괴 종료 → 다음 붕괴 시작, 붕괴 없이 끝나면 세션 종료까지, 겹친 제외 구간은 뺌). 화면의 최소·최대 간격 |
 | `recovery_mean_ms` | 평균 회복 시간. 회복이 없으면 `null` |
 
-- `events`: `[{event_seq, started_at_ms, confirmed_at_ms, ended_at_ms, end_reason, alerts: [{attempt_seq, at_ms, delivered, suppress_reason}]}]`. 시각은 `t_ms` 기준이다.
+- `events`: `[{event_seq, started_at_ms, confirmed_at_ms, ended_at_ms, recovered_at_ms, alerts: [{attempt_seq, at_ms, delivered, suppress_reason}]}]`. 시각은 `t_ms` 기준이다.
 - `excluded`: `[{start_ms, end_ms, reason}]`. `reason`은 `PAUSE`·`ABSENCE`·`UNMEASURABLE`.
 - 측정 중인 세션은 목록에 `ended_at: null`로 나온다. 앱은 측정 중에는 WebSocket 값을 쓴다.
 - 앱이 기록을 만들어 올리던 `POST /records`는 없앤다. 기록은 서버 판정 결과다.
@@ -112,11 +112,11 @@
 
 | 경로 | 요청 | 응답 |
 |---|---|---|
-| `GET /stats/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` | 날짜 범위(KST, 최대 92일) | `[{date, valid_sec, good_sec, good_ratio, session_count, event_count, alerted_event_count, interval_min_sec, interval_max_sec, recovery_mean_sec}]` |
+| `GET /stats/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` | 날짜 범위(KST, 최대 92일) | `[{date, valid_sec, good_sec, good_ratio, session_count, event_count, alerted_event_count, min_until_collapse_sec, max_until_collapse_sec}]` (V2.3 `daily_stat` 칸 이름) |
 
 - 지난 날짜만 온다(어제까지). 오늘은 `GET /records`로 세션마다 본다.
 - 측정이 없는 날은 빠진다. 앱이 빈 날을 채워 그린다.
-- 간격 최소·최대와 회복 시간은 `daily_stat`에 칸을 더해 J3이 계산한다(10/13 결정, FE 제안서 N21). V2.1에는 아직 칸이 없어, DB에 칸이 생긴 뒤 계산 로직을 만든다. 그 전에는 이 세 필드가 `null`이다.
+- 최소·최대 간격은 V2.3 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`다(5분 이상 세션만, 표본이 없으면 `null`). 평균 회복 시간 칸은 V2.3에 없어 지난 통계에서는 뺐다.
 - 전날 합산은 J3이 03:00에 돌아 00:00~03:00에는 없다(FE 제안서 N20).
 
 ## 3. WebSocket
