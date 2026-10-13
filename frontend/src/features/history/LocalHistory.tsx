@@ -6,6 +6,7 @@ import { historyFor, localDay, type HistoryMode, type Period } from '../../lib/h
 import { summary, type RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatRate } from '../../lib/stats'
 import { RecordHistoryItem } from './RecordHistoryItem'
+import { daySessionNumber } from '../../lib/sessionNumber'
 
 const PERIODS: [Period, string, string][] = [
   ['today', '오늘', '오늘 기록'],
@@ -188,7 +189,16 @@ export function LocalHistory({
             ) : (
               [...selected]
                 .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-                .map((record) => <RecordHistoryItem key={record.id} record={record} />)
+                .map((record) => (
+                  <RecordHistoryItem
+                    key={record.id}
+                    record={record}
+                    sessionNumber={daySessionNumber(
+                      records.map((r) => r.startedAt),
+                      record.startedAt,
+                    )}
+                  />
+                ))
             )}
           </section>
         </div>

@@ -14,11 +14,14 @@ function shortDate(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY[d.getDay()]}) ${time}`
 }
 
-export function RecordHistoryItem({ record }: { record: RecordItem }) {
+/** `sessionNumber`: order of this session within its day (1 = first session that day). */
+export function RecordHistoryItem({ record, sessionNumber }: { record: RecordItem; sessionNumber?: number }) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
   const titleId = `${detailsId}-title`
-  const date = shortDate(record.startedAt)
+  const date = sessionNumber
+    ? `세션 ${sessionNumber} · ${shortDate(record.startedAt)}`
+    : shortDate(record.startedAt)
   const rate = record.valid ? record.good / record.valid : null
   const alerts = record.events.reduce((n, e) => n + e.alerts, 0)
   return (
