@@ -2,7 +2,8 @@ import { useId, useState } from 'react'
 import { CaretDown, Clock } from '@phosphor-icons/react'
 import { RECORD_SOURCE_LABEL, recordSource } from '../../lib/comparison'
 import type { RecordItem } from '../../lib/serviceStore'
-import { formatDuration, formatPercent } from '../../lib/stats'
+import { formatDuration } from '../../lib/stats'
+import { RateRing } from '../../components/RateRing'
 import { RecordDetails } from './RecordDetails'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
@@ -20,7 +21,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
   const detailsId = useId()
   const titleId = `${detailsId}-title`
   const date = sessionNumber
-    ? `세션 ${sessionNumber} · ${shortDate(record.startedAt)}`
+    ? `세션 ${sessionNumber} · ${new Date(record.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}`
     : shortDate(record.startedAt)
   const rate = record.valid ? record.good / record.valid : null
   const alerts = record.events.reduce((n, e) => n + e.alerts, 0)
@@ -37,7 +38,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
         </div>
-        <b className={rate !== null && rate >= 0.85 ? 'good' : ''}>{formatPercent(rate, 0)}</b>
+        <RateRing rate={rate} size={46} />
         <button
           type="button"
           className="btn btn-icon btn-sm history-detail-button"

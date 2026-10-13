@@ -5,7 +5,8 @@ export type ChartDetail = { label: string; value: string }
 
 type Props = {
   bars: Bar[]
-  line?: number[]
+  /** `null` leaves a gap (e.g. a day without measurement) instead of drawing 0. */
+  line?: (number | null)[]
   barUnit: string
   lineUnit?: string
   barColor?: string
@@ -15,6 +16,8 @@ type Props = {
   lineName?: string
   formatBar?: (value: number) => string
   formatLine?: (value: number) => string
+  /** Fixed top of the line axis (1 for a 0–100% rate); by default the largest value. */
+  lineMax?: number
   /** Extra lines for the hover card of one column (e.g. sessions, alerts). */
   details?: (index: number) => ChartDetail[]
 }
@@ -41,6 +44,7 @@ export function ComboChart({
   formatBar = (v) => `${v.toFixed(1)}${barUnit}`,
   formatLine = (v) => (lineUnit === '%' ? `${(v * 100).toFixed(1)}%` : `${v.toFixed(1)}${lineUnit ?? ''}`),
   details,
+  lineMax: fixedLineMax,
 }: Props) {
   const n = bars.length
   const box = useRef<HTMLDivElement>(null)
@@ -58,7 +62,8 @@ export function ComboChart({
   const STEP = W / n
   const barW = Math.min(30, STEP * 0.55)
   const barMax = Math.max(...bars.map((b) => b.value), 1)
-  const lineMax = line ? Math.max(...line, 0.001) : 1
+  const lineMax =
+    fixedLineMax ?? (line ? Math.max(...line.filter((v): v is number => v !== null), 0.001) : 1)
   const x = (i: number) => i * STEP + STEP / 2
   const lineY = (v: number) => BASE - (v / lineMax) * (BASE - TOP)
   const [active, setActive] = useState<number | null>(null)
@@ -118,14 +123,17 @@ export function ComboChart({
         <line x1="0" x2={W} y1={BASE} y2={BASE} stroke="var(--line-strong)" strokeWidth="1.5" />
         {line && (
           <>
-            <polyline
-              points={line.map((v, i) => `${x(i)},${lineY(v)}`).join(' ')}
-              fill="none"
-              stroke={lineColor}
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            {line.map((v, i) => (
+            {segments(line).map((points) => (
+              <polyline
+                key={points[0]}
+                points={points.map((i) => `${x(i)},${lineY(line[i]!)}`).join(' ')}
+                fill="none"
+                stroke={lineColor}
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+            ))}
+            {line.map((v, i) => v !== null && (
               <circle
                 key={i}
                 className={`combo-dot ${active === i ? 'is-active' : ''}`}
@@ -174,7 +182,7 @@ export function ComboChart({
               <div className="combo-tip-row">
                 <i style={{ background: lineColor }} />
                 {lineName}
-                <b>{formatLine(line[shown])}</b>
+                <b>{line[shown] === null ? '—' : formatLine(line[shown]!)}</b>
               </div>
             )}
             {details?.(shown).map((d) => (
@@ -188,4 +196,16 @@ export function ComboChart({
       </div>
     </div>
   )
+}
+
+/** Runs of consecutive non-null indexes; a gap splits the line. */
+function segments(line: (number | null)[]) {
+  const runs: number[][] = []
+  line.forEach((v, i) => {
+    if (v === null) return
+    const last = runs.at(-1)
+    if (last && last.at(-1) === i - 1) last.push(i)
+    else runs.push([i])
+  })
+  return runs
 }

@@ -255,6 +255,10 @@ class AppDriver {
         displayed.alerts === `${alerts}회` &&
         displayed.count === `${records.length}`,
     )
+    // 일별 상세 folds each day; open every day before listing its sessions.
+    await this.evaluate(`(() => {
+      for (const day of document.querySelectorAll('.day-head[aria-expanded="false"]')) day.click();
+    })()`)
     const details = await this.evaluate(`(() => {
       const buttons = [...document.querySelectorAll('button')].filter(${visible}).filter((item) => ['자세히', '닫기'].includes(item.textContent.trim()) && item.classList.contains('history-detail-button'));
       for (const button of buttons) if (button.getAttribute('aria-expanded') !== 'true') button.click();
