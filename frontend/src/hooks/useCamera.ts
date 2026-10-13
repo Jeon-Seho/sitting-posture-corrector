@@ -14,7 +14,7 @@ import { missingDevice, readMainCamera, writeMainCamera } from '../features/came
 import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
-import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
+import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
 
 export type { Observation } from '../features/camera/types'
 
@@ -46,6 +46,8 @@ export function useCamera() {
   const [state, setState] = useState<CameraState>('off')
   const [error, setError] = useState('')
   const [quality, setQuality] = useState(false)
+  /** Shoulder tracking of the latest frame (2 s head-only grace, 2026-10-13). */
+  const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
   /** Saved main camera; connect() without an id uses it (2026-10-13). */
@@ -123,16 +125,19 @@ export function useCamera() {
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
     current.current = observation.features
     lastFrame.current = observation.timeMs
-    setQuality(!!observation.features)
+    setQuality(!!observation.features && observation.shoulders !== 'grace')
+    setShoulders(observation.shoulders ?? null)
     for (const listener of listeners.current) listener(observation)
 
     if (!calibration.current) return
+    // A registration needs the real shoulders; a grace frame restarts it like a missing one.
+    const own = observation.shoulders === 'grace' ? null : observation.features
     const next = observeCalibration(
       calibration.current,
-      observation.features,
+      own,
       observation.timeMs,
       observationGap,
-      observation.features ? placement(observation.landmarks) : null,
+      own ? placement(observation.landmarks) : null,
     )
     calibration.current = next.draft
     setProgress(next.progress)
@@ -333,6 +338,7 @@ export function useCamera() {
     state,
     error,
     quality,
+    shoulders,
     baseline,
     calibrationId,
     calibrationSummary,

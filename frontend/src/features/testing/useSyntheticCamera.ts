@@ -209,6 +209,7 @@ export function useCamera(): CameraController {
     state,
     error: '',
     quality,
+    shoulders: null,
     baseline,
     calibrationId,
     // Explicitly synthetic calibration aggregates, present exactly when the baseline is.

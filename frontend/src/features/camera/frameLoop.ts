@@ -1,5 +1,6 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import { features, type Landmark } from '../../../../model/prototype/pose'
+import type { Landmark } from '../../../../model/prototype/pose'
+import { judgeWithGrace, type LastShoulders } from './shoulderGrace'
 import { drawPose, type VisualOptions } from '../../lib/poseVisual'
 import { createPointFilter, inferenceInterval } from '../../lib/skeleton'
 import type { CameraDelegate, CameraMetrics, Observation } from './types'
@@ -35,6 +36,8 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   let displayed: Landmark[] = []
   /** Last time MediaPipe found a person; the drawing does not depend on judging the frame. */
   let lastSeen = 0
+  /** Shoulders of the last judgeable frame, for the 2 s head-only grace. */
+  let lastShoulders: LastShoulders = null
   const filter = createPointFilter()
   let metricStart = performance.now()
   let frameCount = 0
@@ -63,7 +66,9 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
         inferenceSum += inferenceMs
 
         const points = result.landmarks[0] ?? []
-        const reading = features(points, video.videoWidth, video.videoHeight)
+        const judged = judgeWithGrace(points, video.videoWidth, video.videoHeight, time, lastShoulders)
+        const { reading, shoulders } = judged
+        lastShoulders = judged.last
         const observationGap = time - lastFrame
         lastFrame = time
 
@@ -82,6 +87,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
             landmarks: points,
             worldLandmarks: result.worldLandmarks[0] ?? [],
             features: reading,
+            shoulders,
             inferenceMs,
             delegate,
             width: video.videoWidth,

@@ -193,3 +193,35 @@ export function referenceScore(current: Features, baseline: Features) {
     headTurn: false,
   }
 }
+
+/**
+ * Shoulder grace (user decision 2026-10-13): shoulders are the main reference. When they
+ * drop out of view, the head is judged against the last seen shoulders for at most this
+ * long (a minimum condition, not a second model); after that the frame is unmeasurable.
+ */
+export const SHOULDER_GRACE_MS = 2000
+
+/** Both shoulders tracked well inside the frame (the same test `features` applies). */
+export function shouldersVisible(points: Landmark[]): boolean {
+  return [points[11], points[12]].every(
+    (p) =>
+      !!p &&
+      Number.isFinite(p.x) &&
+      Number.isFinite(p.y) &&
+      Number.isFinite(p.visibility) &&
+      p.visibility! >= 0.65 &&
+      p.visibility! <= 1 &&
+      p.x >= 0.02 &&
+      p.x <= 0.98 &&
+      p.y >= 0.02 &&
+      p.y <= 0.98,
+  )
+}
+
+/** A copy of `points` with the last seen shoulders put back, for head-only judging in grace. */
+export function withShoulders(points: Landmark[], shoulders: { left: Landmark; right: Landmark }): Landmark[] {
+  const copy = points.slice()
+  copy[11] = { ...shoulders.left }
+  copy[12] = { ...shoulders.right }
+  return copy
+}
