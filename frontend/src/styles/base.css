@@ -26,19 +26,20 @@
 
   --primary: #c4532a;
   --primary-press: #a8441f;
-  --primary-tint: #fce7dc;
-  --primary-ink: #a0401b;
-  --primary-soft: #f4d2be;
+  /* 망고 75 살구 (user choice 2026-10-13): no pink cast, in line with the orange icon. */
+  --primary-tint: #ffe8d0;
+  --primary-ink: #9e4c10;
+  --primary-soft: #fdcd95;
 
   --good: #3f7d52;
   --good-ink: #2d6040;
   --good-tint: #e2f0e3;
   --good-soft: #7fbf8e;
 
-  --alert: #b83a4b;
-  --alert-ink: #9a2e3e;
-  --alert-tint: #fbe3e6;
-  --alert-soft: #e3808d;
+  --alert: #b8432a;
+  --alert-ink: #963615;
+  --alert-tint: #fde3d2;
+  --alert-soft: #f0923f;
 
   --unknown: #8e7f74;
   --unknown-tint: #f1eae2;

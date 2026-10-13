@@ -240,7 +240,9 @@
 /* Grouped numbers: time · posture warnings · recovery, each with its own tint. */
 :root {
   /* Chosen by the user 2026-10-13: A2 살구, B3 올리브 크림 (text contrast 6.3:1). */
-  --metric-warn-bg: #fce8dc;
+  --metric-warn-bg: #fee5c9;
+  /* 망고 75 warning (2026-10-13); time group one step deeper than the card so it reads as a block. */
+  --metric-time-bg: #f5e6d4;
   --metric-recover-bg: #eef0dd;
 }
 .metric-groups {
@@ -253,7 +255,7 @@
   padding: 12px 14px;
 }
 .metric-group.is-time {
-  background: var(--surface-2);
+  background: var(--metric-time-bg);
 }
 .metric-group.is-warn {
   background: var(--metric-warn-bg);
