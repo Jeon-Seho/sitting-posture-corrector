@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { Card, ComboChart, Legend } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
+import { GOOD_RATE } from '../../components/RateRing'
 import { formatDuration } from '../../lib/stats'
 import { activityLevel, addDays, dateOf, dayKey, type DailyStat } from './recordsSource'
 
@@ -12,12 +13,6 @@ export function shortDuration(sec: number) {
   const m = Math.max(1, Math.round(sec / 60))
   if (m < 60) return `${m}분`
   return m % 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m / 60}시간`
-}
-
-function summaryLine(rows: DailyStat[]) {
-  const total = rows.reduce((n, s) => n + s.valid_sec, 0)
-  const good = rows.reduce((n, s) => n + s.good_sec, 0)
-  return `${rows.length}일 측정 · 모두 ${formatDuration(total)} · 바른 자세 ${total ? `${Math.round((good / total) * 100)}%` : '—'}`
 }
 
 /**
@@ -33,13 +28,14 @@ export function MonthCalendar({
 }: {
   stats: DailyStat[]
   today: string
-  selected: string
+  selected: string | null
   onSelect: (day: string) => void
 }) {
-  const base = dateOf(selected)
+  const base = dateOf(selected ?? today)
   const [month, setMonth] = useState({ y: base.getFullYear(), m: base.getMonth() })
   // A day picked elsewhere (the 잔디) brings its month into view.
   useEffect(() => {
+    if (!selected) return
     const d = dateOf(selected)
     setMonth({ y: d.getFullYear(), m: d.getMonth() })
   }, [selected])
@@ -61,16 +57,12 @@ export function MonthCalendar({
   })
   const thisMonth = dateOf(today)
   const atLatest = month.y === thisMonth.getFullYear() && month.m === thisMonth.getMonth()
-  const monthStats = weeks.flatMap((w) => w.days.flatMap((d) => (d && byDay.get(d) ? [byDay.get(d)!] : [])))
   const shift = (n: number) =>
     setMonth(({ y, m }) => {
       const d = new Date(y, m + n, 1)
       return { y: d.getFullYear(), m: d.getMonth() }
     })
-  const toToday = () => {
-    setMonth({ y: thisMonth.getFullYear(), m: thisMonth.getMonth() })
-    onSelect(today)
-  }
+  const toToday = () => setMonth({ y: thisMonth.getFullYear(), m: thisMonth.getMonth() })
 
   return (
     <div className="calendar">
@@ -89,13 +81,12 @@ export function MonthCalendar({
         >
           <CaretRight size={18} weight="bold" />
         </button>
-        {(!atLatest || selected !== today) && (
+        {!atLatest && (
           <button className="chip" onClick={toToday}>
-            오늘
+            이번 달
           </button>
         )}
       </div>
-      <p className="calendar-summary">{summaryLine(monthStats)}</p>
       <div className="calendar-grid" role="grid" aria-label={`${month.y}년 ${month.m + 1}월`}>
         <div className="calendar-week calendar-weekdays" role="row">
           {WEEKDAY.map((w, i) => (
@@ -117,26 +108,27 @@ export function MonthCalendar({
                 if (!day) return <span key={`blank-${i}`} className="calendar-blank" />
                 const s = byDay.get(day)
                 const level = s ? activityLevel(s.valid_sec) : 0
+                const rate = s?.good_ratio ?? null
                 return (
                   <button
                     key={day}
                     type="button"
                     role="gridcell"
-                    className={`calendar-day ${day === selected ? 'is-selected' : ''} ${day === today ? 'is-today' : ''}`}
+                    className={`calendar-day ${s ? `has-record level-${level}` : ''} ${i === 0 ? 'is-sunday' : ''} ${day === selected ? 'is-selected' : ''} ${day === today ? 'is-today' : ''}`}
                     disabled={day > today}
                     aria-pressed={day === selected}
                     aria-label={`${dateOf(day).getDate()}일 ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
                     onClick={() => onSelect(day)}
                   >
-                    <span className="calendar-date">{dateOf(day).getDate()}</span>
-                    {s && (
-                      <>
-                        <span className={`calendar-time level-${level}`}>{shortDuration(s.valid_sec)}</span>
-                        <span className="calendar-rate">
-                          {s.good_ratio === null ? '—' : `${Math.round(s.good_ratio * 100)}%`}
+                    <span className="calendar-day-top">
+                      <span className="calendar-date">{dateOf(day).getDate()}</span>
+                      {s && (
+                        <span className={`calendar-rate ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}>
+                          {rate === null ? '—' : `${Math.round(rate * 100)}%`}
                         </span>
-                      </>
-                    )}
+                      )}
+                    </span>
+                    {s && <span className={`calendar-time level-${level}`}>{shortDuration(s.valid_sec)}</span>}
                   </button>
                 )
               })}
@@ -175,7 +167,6 @@ function PeriodChart({ stats, today, days }: { stats: DailyStat[]; today: string
   const rows = list.map((day) => byDay.get(day))
   return (
     <>
-      <p className="calendar-summary">{summaryLine(rows.filter((s): s is DailyStat => !!s))}</p>
       <ComboChart
         bars={list.map((day, i) => {
           const d = dateOf(day)
