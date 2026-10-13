@@ -79,7 +79,9 @@ export function ComboChart({
     setActive(Math.max(0, Math.min(n - 1, i)))
   }
 
-  const shown = active ?? 0
+  // A hover from a longer period (30 → 7 days) must not point past the last column.
+  useLayoutEffect(() => setActive(null), [n])
+  const shown = Math.min(active ?? 0, Math.max(0, n - 1))
   const left = (x(shown) / W) * 100
   return (
     <div
@@ -170,7 +172,13 @@ export function ComboChart({
         className="combo-tip"
         role="status"
         aria-live="polite"
-        style={{ left: `${left}%`, transform: `translateX(${left > 70 ? '-100%' : left < 30 ? '0%' : '-50%'})` }}
+        // Beside the hovered column, never over it (2026-10-13): right of it in the left half,
+        // left of it in the right half, half a column plus a small gap away.
+        style={{
+          left: `${left}%`,
+          transform:
+            left < 50 ? `translateX(${STEP / 2 + 10}px)` : `translateX(calc(-100% - ${STEP / 2 + 10}px))`,
+        }}
       >
         {active !== null && (
           <>
