@@ -618,6 +618,30 @@ describe('service recovery and saving with synthetic storage only', () => {
     advance(5000)
     expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
   })
+  it('tells the user once when the shoulders leave view and measuring pauses', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
+    act(() => starts[0].props.onClick())
+    // The synthetic camera keeps delivering frames, so the session does not pause for input.
+    const frames = (ms: number) => {
+      for (let t = 0; t < ms; t += 100) {
+        controls.camera.lastFrame.current = performance.now()
+        advance(100)
+      }
+    }
+    frames(1000)
+    expect(text(renderer!.root)).not.toContain('어깨가 화면에서 벗어나')
+    ;(controls.camera as unknown as { shoulders: string }).shoulders = 'missing'
+    rerender()
+    frames(1000)
+    expect(text(renderer!.root)).toContain('어깨가 화면에서 벗어나 측정을 잠시 멈췄어요')
+    ;(controls.camera as unknown as { shoulders: string | null }).shoulders = null
+  })
   it('turns the camera on from the camera view, with a posture or not', () => {
     mount()
     login()

@@ -3,12 +3,12 @@ import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
 import type { Rules } from '../../lib/engine'
-import { cameraSample, holdWhileSettling } from '../../lib/cameraSample'
+import { cameraSample, holdWhileSettling, SHOULDER_MISSING_NOTICE } from '../../lib/cameraSample'
 import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
 import { enableSound, playCorrection } from '../../lib/sound'
-import { popupAlert } from '../desktop/alertPopup'
+import { popupAlert, popupNotice } from '../desktop/alertPopup'
 import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
 import { PoseDebugRecorder } from './poseDebugExport'
@@ -146,6 +146,25 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (phase !== 'running' || live.state === 'unknown' || !alertsOn) setToast(null)
   }, [phase, live.state, alertsOn])
 
+  // 어깨가 2초 넘게 화면을 벗어나 측정이 멈춘 순간 한 번 알린다(2026-10-13).
+  const [shoulderToast, setShoulderToast] = useState<string | null>(null)
+  const shoulderOut = phase === 'running' && live.notice === SHOULDER_MISSING_NOTICE
+  useEffect(() => {
+    if (!shoulderOut) {
+      setShoulderToast(null)
+      return
+    }
+    setShoulderToast('어깨가 화면에서 벗어나 측정을 잠시 멈췄어요.')
+    if (alertsOn)
+      popupNotice({
+        title: '어깨가 보이지 않아요',
+        body: '측정을 잠시 멈췄어요. 어깨가 화면에 들어오면 바로 이어가요.',
+      })
+    const t = setTimeout(() => setShoulderToast(null), 4000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shoulderOut])
+
   const keepRate = ratio(live.goodSeconds, live.validSeconds)
   const perHour = live.validSeconds > 0 ? live.events.length / (live.validSeconds / 3600) : null
   const displayScore = postureScore(
@@ -224,6 +243,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     seekNext,
     muted,
     toast,
+    shoulderToast,
     keepRate,
     perHour,
     displayScore,

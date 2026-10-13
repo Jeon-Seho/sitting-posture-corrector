@@ -22,3 +22,10 @@ export function popupAlert(reminder = false) {
     ?.showAlert?.(alertPopupText(reminder))
     ?.catch(() => {})
 }
+
+/** The same outside-the-app popup for a measurement notice that is not a posture alert. */
+export function popupNotice(alert: { title: string; body: string }) {
+  void desktopBridge()
+    ?.showAlert?.(alert)
+    ?.catch(() => {})
+}
