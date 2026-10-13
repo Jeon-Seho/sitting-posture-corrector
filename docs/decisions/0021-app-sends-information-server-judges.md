@@ -42,6 +42,6 @@
 
 ## 아직 정하지 않은 것
 
-[FE 제안서](../design/fe-server-proposal.md) 4장(N1~N19).
+[FE 제안서](../design/fe-server-proposal.md) 4장(N1~N17).
 특히 서버가 좌표를 받는 시점, 팀 API의 세션 시작·종료 Kafka 연결, 기준 자세 계산 방식.
 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱이 붙는 곳은 2026-10-11 아키텍처 v5에서 BE가 만드는 입출구 서버(`auth`·`api`·`ws`)로 정해졌다(처음에는 FE의 독립 게이트웨이였다, [FE 제안서](../design/fe-server-proposal.md) 1장).
