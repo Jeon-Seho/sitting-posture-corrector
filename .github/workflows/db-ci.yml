@@ -37,7 +37,7 @@ jobs:
       DB: posture_service                              # 스키마 파일이 만드는 데이터베이스 이름
       BASE_SCHEMA: database/schema/schema_V2_2.sql     # 기준 스키마 — migrations(011~)의 출발점 (V2.2는 DB를 새로 만드는 변경)
       # README 1장 「적용 후 확인」 값. 스키마·시드가 바뀌면 함께 고친다
-      EXPECT_TABLES: 12
+      EXPECT_TABLES: 13
       EXPECT_THRESHOLD_POLICY: 1
 
     steps:

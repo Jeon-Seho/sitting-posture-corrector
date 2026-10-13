@@ -63,6 +63,29 @@ ok("나이·직업 입력 (선택)", "UPDATE user_account SET age=30, occupation
 fails("나이 0 거부", "UPDATE user_account SET age=0 WHERE user_account_id=%s", (A,), "ck_user_account_age")
 fails("나이 121 거부", "UPDATE user_account SET age=121 WHERE user_account_id=%s", (A,), "ck_user_account_age")
 
+# ===================================================================== 사용자 동의 (FE 동의 제안서 2026-10-13)
+REQUIRED = ("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER")
+ins_con = "INSERT INTO user_consent (user_account_id,consent_type,agreed_at,document_version) VALUES (%s,%s,%s,%s)"
+for typ in REQUIRED + ("OPTIONAL_PROFILE",):
+    ok(f"가입 동의 A — {typ}", ins_con, (A, typ, T0, "terms-2026-10"))
+for typ in REQUIRED:
+    cur.execute(ins_con, (B, typ, T0, "terms-2026-10"))
+check("가입 동의 — 필수 5개 + 선택 1개", one("SELECT COUNT(*) FROM user_consent WHERE user_account_id=%s", (A,)) == 6)
+fails("같은 동의 재전송 (같은 사용자·종류·시각) 거부", ins_con, (A, "TERMS", T0, "terms-2026-10"), "PRIMARY")
+fails("없는 동의 종류 거부 (학습용 동의는 두지 않음)", ins_con, (A, "TRAINING_USE", T0, "terms-2026-10"), "ck_user_consent_consent_type")
+fails("FK-19 없는 사용자의 동의", ins_con, (999999, "TERMS", T0, "terms-2026-10"), "fk_user_consent_user_account")
+fails("철회 시각이 동의 시각보다 앞섬", "UPDATE user_consent SET withdrawn_at='2026-10-01 00:00:00' WHERE user_account_id=%s AND consent_type='TERMS'", (A,), "ck_user_consent_withdrawn_at")
+con.begin()
+cur.execute("UPDATE user_consent SET withdrawn_at='2026-10-02 05:00:00' WHERE user_account_id=%s AND consent_type='OPTIONAL_PROFILE' AND withdrawn_at IS NULL", (A,))
+cur.execute("UPDATE user_account SET age=NULL, occupation=NULL WHERE user_account_id=%s", (A,))
+con.commit()
+check("선택 정보 동의 철회 — 동의 행에 철회 시각, 나이·직업 비움",
+      one("SELECT withdrawn_at IS NOT NULL FROM user_consent WHERE user_account_id=%s AND consent_type='OPTIONAL_PROFILE'", (A,)) == 1
+      and one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s AND age IS NULL AND occupation IS NULL", (A,)) == 1)
+ok("약관 개정 후 재동의 — 새 버전으로 새 행", ins_con, (A, "TERMS", "2026-10-05 09:00:00", "terms-2026-11"))
+check("현재 약관 동의 = 가장 최근 행의 버전",
+      one("SELECT document_version FROM user_consent WHERE user_account_id=%s AND consent_type='TERMS' ORDER BY agreed_at DESC LIMIT 1", (A,)) == "terms-2026-11")
+
 # ===================================================================== 기준 자세·세션
 # 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
 PARTS = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder")
@@ -138,8 +161,12 @@ fails("PK 같은 알림 재전송 (같은 이벤트·같은 시각) 거부", ins
 fails("FK-16 없는 이벤트의 알림", ins_al, (SA, 99, "2026-10-02 01:40:03"), "fk_correction_alert_collapse_event")
 check("BR-21 첫 알림 = 가장 이른 알림 시각", str(one("SELECT MIN(attempted_at) FROM correction_alert WHERE monitor_session_id=%s AND event_seq=2", (SA,))).startswith("2026-10-02 01:40:03"))
 ok("특징값 적재 기록", "INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=1.parquet','2026-10-02 01:00:00','2026-10-02 02:00:00',36000,'2026-10-02 04:00:00')", (SA,))
-ok("일별 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',3540.0,3000.0,1,1,1,'2026-10-03 00:10:00')", (A,))
-fails("BR-17 분자가 분모보다 큼", "INSERT INTO daily_stat VALUES (%s,'2026-10-01',10.0,20.0,1,0,0,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_subset")
+ok("일별 통계 (붕괴까지 걸린 시간 최소 120초·최대 1500초)", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',3540.0,3000.0,1,1,1,120.0,1500.0,'2026-10-03 00:10:00')", (A,))
+fails("BR-17 분자가 분모보다 큼", "INSERT INTO daily_stat VALUES (%s,'2026-10-01',10.0,20.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_subset")
+ok("일별 통계 — 표본이 없는 날은 최소·최대 NULL", "INSERT INTO daily_stat VALUES (%s,'2026-09-30',100.0,50.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A,))
+fails("붕괴까지 걸린 시간 — 최솟값 > 최댓값 거부", "INSERT INTO daily_stat VALUES (%s,'2026-09-29',100.0,50.0,1,1,0,600.0,300.0,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_until_collapse")
+fails("붕괴까지 걸린 시간 — 최솟값만 있음 거부", "INSERT INTO daily_stat VALUES (%s,'2026-09-29',100.0,50.0,1,1,0,600.0,NULL,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_until_collapse")
+fails("붕괴까지 걸린 시간 — 음수 거부", "INSERT INTO daily_stat VALUES (%s,'2026-09-29',100.0,50.0,1,1,0,-1.0,300.0,'2026-10-03 00:10:00')", (A,), ["ck_daily_stat_min_until_collapse_sec", "ck_daily_stat_until_collapse"])
 
 # ===================================================================== 삭제 차단 (DB-04)
 fails("D-38 적재 기록이 남은 세션 삭제 (FK-13)", "DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA,), "fk_feature_archive_monitor_session")
@@ -223,6 +250,7 @@ except Exception as e:
 check("S1-4 완료 안내용 연락처를 삭제 전에 읽음", contact == "test-a@example.invalid")
 cnt = {t: one(f"SELECT COUNT(*) FROM {t}") for t in ("excluded_interval", "collapse_event", "correction_alert")}
 check("S1 연쇄 삭제 — 제외 구간·이벤트·알림 0행", all(v == 0 for v in cnt.values()), str(cnt))
+check("S1 동의 기록도 계정과 함께 삭제 (FK-19 CASCADE)", one("SELECT COUNT(*) FROM user_consent WHERE user_account_id=%s", (A,)) == 0)
 check("S1 계정 행과 삭제 요청 행이 남지 않음",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s", (A,)) == 0 and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (A,)) == 0)
 check("S1 공유 판정 정책은 남음", one("SELECT COUNT(*) FROM threshold_policy") == 1)
@@ -254,20 +282,22 @@ except pymysql.err.MySQLError as e:
     con.rollback(); check("S1-재시도 요청 행을 남긴 채 계정 삭제하면 막힘 (FK-18)", "fk_deletion_request_user_account" in e.args[1], f"{e.args[0]} {e.args[1][:90]}")
 
 # ===================================================================== 시나리오 2: 세션만 삭제, 통계 보존 (6-2)
+ok("S2 준비: A2 가입 동의", ins_con, (A2, "TERMS", T0, "terms-2026-10"))
 ok("S2 준비: A2 기준 자세 (예전)", ins_base, (A2, T0))
 ok("S2 준비: A2 기준 자세 (현재)", ins_base, (A2, "2026-10-02 02:00:00")); BA2_CUR = cur.lastrowid
 ok("S2 준비: A2 세션", ins_ses, (U(), "2026-10-02 02:10:00", A2)); SA2 = cur.lastrowid
-ok("S2 준비: A2 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',100.0,50.0,1,0,0,'2026-10-03 00:10:00')", (A2,))
+ok("S2 준비: A2 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',100.0,50.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A2,))
 ok("S2 세션 삭제", "DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA2,))
 check("S2 일별 통계는 세션 삭제의 영향을 받지 않음", one("SELECT COUNT(*) FROM daily_stat WHERE user_account_id=%s", (A2,)) == 1)
 ok("D-39 기록 삭제 — 세션을 지운 뒤 현재 기준만 남기고 예전 기준 자세 삭제",
    "DELETE b FROM baseline_posture b JOIN (SELECT user_account_id, MAX(baseline_posture_id) m FROM baseline_posture WHERE user_account_id=%s GROUP BY user_account_id) x "
    "USING (user_account_id) WHERE b.baseline_posture_id < x.m", (A2,))
+check("D-39 기록만 삭제해도 동의 기록은 남음", one("SELECT COUNT(*) FROM user_consent WHERE user_account_id=%s", (A2,)) == 1)
 check("D-39 현재 기준 1행만 남음", one("SELECT COUNT(*) FROM baseline_posture WHERE user_account_id=%s", (A2,)) == 1 and one(cur_base, (A2,)) == BA2_CUR)
 
 # ===================================================================== 세션 없는 계정 삭제 — FK-04·17 CASCADE
-ok("세션 없는 계정 삭제 → 기준 자세·통계 연쇄", "DELETE FROM user_account WHERE user_account_id=%s", (A2,))
-left = {t: one(f"SELECT COUNT(*) FROM {t} WHERE user_account_id=%s", (A2,)) for t in ("baseline_posture", "daily_stat")}
+ok("세션 없는 계정 삭제 → 기준 자세·통계·동의 연쇄", "DELETE FROM user_account WHERE user_account_id=%s", (A2,))
+left = {t: one(f"SELECT COUNT(*) FROM {t} WHERE user_account_id=%s", (A2,)) for t in ("baseline_posture", "daily_stat", "user_consent")}
 check("CASCADE 결과 0행", all(v == 0 for v in left.values()), str(left))
 
 # ===================================================================== 로그인 세션 (Spring Session 표준 정의)
@@ -279,8 +309,8 @@ check("로그인 세션 삭제 시 속성 연쇄 삭제", one("SELECT COUNT(*) F
 
 # ===================================================================== V2.1·V2.2에서 없앤 테이블·컬럼이 남지 않음
 gone_t = one("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN "
-             "('feature_def','safety_range','baseline_feature','client_record','collapse_type','user_consent')")
-check("폐기·보류 테이블 없음 (feature_def·safety_range·baseline_feature·client_record·collapse_type·user_consent)", gone_t == 0, f"{gone_t}개 남음")
+             "('feature_def','safety_range','baseline_feature','client_record','collapse_type')")
+check("폐기·보류 테이블 없음 (feature_def·safety_range·baseline_feature·client_record·collapse_type)", gone_t == 0, f"{gone_t}개 남음")
 GONE = [("user_account", "auth_epoch"), ("baseline_posture", "feature_version"), ("baseline_posture", "deactivated_at"),
         ("baseline_posture", "target_center_x"), ("monitor_session", "frame_width"), ("monitor_session", "frame_height"),   # V2.1
         ("threshold_policy", "policy_name"), ("threshold_policy", "created_by"), ("threshold_policy", "notify_max_per_hour"),
@@ -293,8 +323,9 @@ cur.execute("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHER
 cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
 check("V2.1·V2.2 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered 등 20개)", not left_c, ", ".join(left_c))
-check("V2.2 추가 컬럼 있음 (baseline_posture.baseline_posture_id, monitor_session.baseline_posture_id)",
-      {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id")} <= cols)
+check("V2.2 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대)",
+      {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
+       ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec")} <= cols)
 
 # ===================================================================== 정리 — 테스트 행 삭제 (6-1 순서)
 cur.execute("DELETE FROM feature_archive"); cur.execute("DELETE FROM monitor_session")
