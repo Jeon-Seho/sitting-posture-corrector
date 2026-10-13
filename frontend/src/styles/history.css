@@ -203,3 +203,13 @@
     justify-items: start;
   }
 }
+
+/* Session rows open on a click anywhere in the row. */
+.history-record-row {
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color 0.15s ease;
+}
+.history-record-row:hover {
+  background: var(--surface-2);
+}

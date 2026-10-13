@@ -140,15 +140,29 @@ describe('readable stored record details and comparison conditions', () => {
     expect(button.props['aria-label']).toContain('기록 상세 보기')
     expect(button.props['aria-expanded']).toBe(false)
     expect(renderer!.root.findAllByType('section')).toHaveLength(0)
-    act(() => button.props.onClick())
+    act(() => button.props.onClick({ stopPropagation() {} }))
     button = renderer!.root.findByType('button')
     const section = renderer!.root.findByType('section')
     expect(button.props['aria-expanded']).toBe(true)
     expect(button.props['aria-controls']).toBe(section.props.id)
     expect(section.props['aria-labelledby']).toBe(renderer!.root.findByType('h4').props.id)
     expect(renderer!.root.findByType('h4').children).toEqual(['측정 기록 상세'])
-    act(() => button.props.onClick())
+    act(() => button.props.onClick({ stopPropagation() {} }))
     expect(renderer!.root.findAllByType('section')).toHaveLength(0)
+  })
+
+  it('opens and closes the details by clicking anywhere on the row', () => {
+    act(() => {
+      renderer = create(<RecordHistoryItem record={localRecord()} />)
+    })
+    const row = () =>
+      renderer!.root.find((n) => n.type === 'div' && String(n.props.className).includes('history-record-row'))
+    act(() => row().props.onClick())
+    expect(renderer!.root.findAllByProps({ className: 'history-record-details' })).toHaveLength(1)
+    expect(renderer!.root.findByType('button').props['aria-expanded']).toBe(true)
+    expect(row().props.className).toContain('is-open')
+    act(() => row().props.onClick())
+    expect(renderer!.root.findAllByProps({ className: 'history-record-details' })).toHaveLength(0)
   })
 
   it('keeps the server summary, all saved rules and separate decision reasons without collapse directions', () => {
