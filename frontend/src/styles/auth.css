@@ -20,10 +20,6 @@
   background: var(--surface);
 }
 
-.consent-row-strong {
-  border-color: var(--primary);
-}
-
 .consent-head {
   display: flex;
   align-items: center;
@@ -132,4 +128,39 @@
   .signup-posture-main:not([style]) {
     width: 100%;
   }
+}
+
+/* Developer options of the reused 측정하기 page (server mode, collection) do not belong in sign-up. */
+.signup-posture-main details.more {
+  display: none;
+}
+
+/* 「자세히」 popup: X at the top right, 동의|비동의 at the bottom. */
+.consent-dialog {
+  gap: 14px;
+}
+
+.consent-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.consent-dialog-head h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.consent-dialog-close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin: -6px -8px 0 0;
+}
+
+.consent-dialog-choice {
+  align-self: flex-end;
+  margin-top: 4px;
 }

@@ -797,6 +797,8 @@ describe('service recovery and saving with synthetic storage only', () => {
       // It reuses the 측정하기 registration in its 다시 등록 mode (never starts a measurement).
       expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBe(true)
       expect(text(renderer!.root)).toContain('3/3 자세 등록 (선택)')
+      // Without the hidden capture element the camera cannot connect before the app shell exists.
+      expect(renderer!.root.findAll((node) => node.type === 'video' && node.props.className === 'capture-source')).toHaveLength(1)
       // The camera is off in this test, so skipping is offered as the main action.
       click('카메라 없이 넘어가기')
       expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
@@ -815,7 +817,10 @@ describe('service recovery and saving with synthetic storage only', () => {
       type('age', 31)
       type('occupation', '합성 직업')
       act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      // The camera turned on in step 3 must be reconnected to the app shell's capture element.
+      controls.camera.state = 'on'
       act(() => renderer!.root.findByType(SetupPage).props.onStart())
+      expect(controls.camera.connect).toHaveBeenCalledOnce()
       expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
       expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBeFalsy()
     })

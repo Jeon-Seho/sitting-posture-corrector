@@ -32,6 +32,8 @@ export function SignupPostureStep({
 
   return (
     <div className="signup-posture">
+      {/* The hidden capture element the pose model reads; the app shell is not mounted yet. */}
+      <video ref={camera.videoRef} className="capture-source" muted playsInline aria-hidden="true" />
       <header className="signup-posture-head">
         <div className="cover-brand">
           <BrandMark />
@@ -49,7 +51,7 @@ export function SignupPostureStep({
         className="signup-posture-main"
         style={panelHeight ? { ['--signup-panel-h' as string]: `${panelHeight}px` } : undefined}
       >
-        <SetupPage camera={camera} registerAgain onStart={() => onFinish(true)} onCollect={() => {}} />
+        <SetupPage camera={camera} registerAgain startLabel="앱 시작" onStart={() => onFinish(true)} onCollect={() => {}} />
       </main>
       <footer className="signup-actions signup-posture-foot">
         <button type="button" className="btn btn-quiet" onClick={onBack}>

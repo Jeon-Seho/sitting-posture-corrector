@@ -166,6 +166,10 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
 
   /** Step 3 is optional: a registered posture goes straight to 측정하기, a skip goes home. */
   function finishSignup(registered: boolean) {
+    // The camera was attached to step 3's capture element, which unmounts now: reconnect so
+    // tracking follows the app shell's element (otherwise the skeleton stops until a restart).
+    // connect() awaits the camera before it reads the element, by then the shell is mounted.
+    if (camera.state === 'on' || camera.state === 'loading') void camera.connect()
     workspace.setDraft(loadLocalState().draft)
     setAuthed(true)
     setAuthView('login')

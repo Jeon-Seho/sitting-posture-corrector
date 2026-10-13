@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CONSENTS, allAgreed, type ConsentChoices, type ConsentItem } from './consents'
+import { ConsentDialog } from './ConsentDialog'
 
 /** Sign-up step 1. Nothing starts selected; every row needs its own choice. */
 export function ConsentList({
@@ -41,10 +42,10 @@ function ConsentRow({
   value: boolean | undefined
   onChange: (agreed: boolean) => void
 }) {
+  // 「자세히」 opens a popup instead of expanding the row, so the list never shifts (user, 2026-10-13).
   const [open, setOpen] = useState(false)
-  const detailsId = `consent-${item.id}-details`
   return (
-    <div className={`consent-row${item.id === 'C4' ? ' consent-row-strong' : ''}`} data-consent={item.id}>
+    <div className="consent-row" data-consent={item.id}>
       <div className="consent-head">
         <div className="consent-title">
           {item.title}{' '}
@@ -63,29 +64,25 @@ function ConsentRow({
       </div>
       {item.note && <p className="fine">{item.note}</p>}
       {item.notice && (
-        <>
-          <button
-            type="button"
-            className="btn btn-quiet btn-sm consent-more"
-            aria-expanded={open}
-            aria-controls={detailsId}
-            onClick={() => setOpen(!open)}
-          >
-            {open ? '접기' : '자세히'}
-          </button>
-          {open && (
-            <dl className="consent-notice" id={detailsId}>
-              <dt>수집 항목</dt>
-              <dd>{item.notice.items}</dd>
-              <dt>목적</dt>
-              <dd>{item.notice.purpose}</dd>
-              <dt>보유 기간</dt>
-              <dd>{item.notice.retention}</dd>
-              <dt>거부할 권리</dt>
-              <dd>{item.notice.refusal}</dd>
-            </dl>
-          )}
-        </>
+        <button
+          type="button"
+          className="btn btn-quiet btn-sm consent-more"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+        >
+          자세히
+        </button>
+      )}
+      {open && (
+        <ConsentDialog
+          item={item}
+          value={value}
+          onChoose={(agreed) => {
+            onChange(agreed)
+            setOpen(false)
+          }}
+          onClose={() => setOpen(false)}
+        />
       )}
       {item.required && value === false && (
         <p className="fine consent-warning" role="alert">

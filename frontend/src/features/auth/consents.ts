@@ -30,8 +30,13 @@ export type ConsentItem = {
 
 const RETENTION = '탈퇴 후 30일'
 
-/** Joint coordinates are required: there is no local judging, so measuring needs them (ADR 0021). */
+/**
+ * Display order: age check (C6) first, then the other required items, the optional one (C3) last
+ * (user, 2026-10-13).
+ * Joint coordinates are required: there is no local judging, so measuring needs them (ADR 0021).
+ */
 export const CONSENTS: ConsentItem[] = [
+  { id: 'C6', type: 'AGE_14_OVER', title: '만 14세 이상이에요', required: true },
   {
     id: 'C1',
     type: 'TERMS',
@@ -54,18 +59,6 @@ export const CONSENTS: ConsentItem[] = [
       purpose: '로그인과 계정 관리',
       retention: RETENTION,
       refusal: '동의하지 않으면 가입할 수 없어요.',
-    },
-  },
-  {
-    id: 'C3',
-    type: 'OPTIONAL_PROFILE',
-    title: '선택 정보(나이·직업) 수집·이용',
-    required: false,
-    notice: {
-      items: '나이, 직업',
-      purpose: '사용자 환경별 통계',
-      retention: RETENTION,
-      refusal: '동의하지 않아도 불이익이 없어요. 나이·직업을 입력하지 않아요.',
     },
   },
   {
@@ -93,7 +86,18 @@ export const CONSENTS: ConsentItem[] = [
       refusal: '동의하지 않으면 결과를 보여 드릴 수 없어 가입할 수 없어요.',
     },
   },
-  { id: 'C6', type: 'AGE_14_OVER', title: '만 14세 이상이에요', required: true },
+  {
+    id: 'C3',
+    type: 'OPTIONAL_PROFILE',
+    title: '선택 정보(나이·직업) 수집·이용',
+    required: false,
+    notice: {
+      items: '나이, 직업',
+      purpose: '사용자 환경별 통계',
+      retention: RETENTION,
+      refusal: '동의하지 않아도 불이익이 없어요. 나이·직업을 입력하지 않아요.',
+    },
+  },
 ]
 
 /** Required items must be agreed; optional items need an explicit choice either way. */

@@ -31,6 +31,7 @@ export function SetupPage({
   serverMode = false,
   onServerMode,
   serverModeDisabled = false,
+  startLabel = '측정 시작',
 }: {
   camera: CameraController
   onStart: () => void
@@ -43,6 +44,8 @@ export function SetupPage({
   serverMode?: boolean
   onServerMode?: (enabled: boolean) => void
   serverModeDisabled?: boolean
+  /** Text of the start buttons; sign-up step 3 says 「앱 시작」. */
+  startLabel?: string
 }) {
   const on = camera.state === 'on'
   const registered = !!camera.baseline
@@ -220,7 +223,7 @@ export function SetupPage({
                     <div className="nudge-desc">다음 측정부터 이 자세와 비교해요</div>
                   </div>
                   <button className="btn btn-primary" disabled={!ready} onClick={onStart}>
-                    측정 시작
+                    {startLabel}
                   </button>
                   {onBack && (
                     <button className="btn" onClick={onBack}>
@@ -249,7 +252,7 @@ export function SetupPage({
               ) : ready && !measuring ? (
                 <button className="btn btn-primary btn-lg" onClick={onStart}>
                   <Play size={20} weight="fill" className="icon" />
-                  측정 시작
+                  {startLabel}
                 </button>
               ) : !registering && !registered && on && !measuring ? (
                 <button className="btn btn-primary btn-lg" onClick={flow.start}>
@@ -317,7 +320,7 @@ export function SetupPage({
 
           <button className="btn btn-primary btn-lg btn-block" disabled={!ready || measuring} onClick={onStart}>
             <Play size={18} weight="fill" className="icon" />
-            측정 시작
+            {startLabel}
           </button>
           <details className="more">
             <summary>개발자 옵션</summary>

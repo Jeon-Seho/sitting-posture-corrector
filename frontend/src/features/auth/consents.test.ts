@@ -20,7 +20,7 @@ describe('sign-up consents (DB V2.3 user_consent)', () => {
   })
 
   it('lists missing required items and sends only what was agreed', () => {
-    expect(missingConsents({}).map((c) => c.id)).toEqual(['C1', 'C2', 'C4', 'C5', 'C6'])
+    expect(missingConsents({}).map((c) => c.id)).toEqual(['C6', 'C1', 'C2', 'C4', 'C5'])
     const required = { C1: true, C2: true, C4: true, C5: true, C6: true }
     expect(missingConsents(required)).toEqual([])
     // The optional item still needs an explicit choice before the next step.
