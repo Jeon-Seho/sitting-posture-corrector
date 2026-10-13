@@ -32,7 +32,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
   const [soundOn, setSoundOn] = useState(false)
   const [soundError, setSoundError] = useState('')
   const [pauseReason, setPauseReason] = useState(
-    service?.initial ? '저장된 기록을 복구했습니다. 준비 후 재개해 주세요.' : '',
+    service?.initial ? '저장된 기록을 불러왔어요. 준비되면 이어서 측정해 주세요.' : '',
   )
   const isCamera = mode === 'camera'
   const recorder = useRef<KafkaFeatureRecorder | null>(null)
@@ -88,7 +88,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           checkpoint: service.onCheckpoint,
           ended: service.onEnded,
           interrupted: () => {
-            setPauseReason('관측 입력이 중단됐습니다. 준비 후 직접 재개해 주세요.')
+            setPauseReason('카메라 입력이 멈췄어요. 준비되면 직접 이어서 측정해 주세요.')
             setPhase('paused')
           },
         }

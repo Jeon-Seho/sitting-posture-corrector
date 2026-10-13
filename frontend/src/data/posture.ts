@@ -190,7 +190,7 @@ export const SCENARIO: Segment[] = [
     pose: 'away',
     state: 'unknown',
     seconds: 18,
-    notice: '상반신이 화면을 벗어났습니다. 카메라 위치나 조명을 확인해 주세요.',
+    notice: '상반신이 화면을 벗어났어요. 카메라 위치나 조명을 확인해 주세요.',
   },
   { pose: 'upright', state: 'good', seconds: 52 },
   // 재알림 간격이 한 번 걸리도록 일부러 길게 끄는 구간

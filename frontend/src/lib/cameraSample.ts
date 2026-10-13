@@ -41,7 +41,7 @@ export function cameraSample(camera: CameraController): Sample {
       prob: 0,
       notice: result.headTurn
         ? '고개를 돌린 동안은 자세를 판정하지 않아요.'
-        : '측정 품질을 확인할 수 없습니다. 얼굴과 양쪽 어깨를 확인해 주세요.',
+        : '자세를 확인할 수 없어요. 얼굴과 양쪽 어깨가 보이게 앉아 주세요.',
     }
   return {
     ...base,

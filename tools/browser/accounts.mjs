@@ -189,7 +189,7 @@ export async function runAccountScenarios(browser, base, tag) {
   app.check('account input confirms one event at 3 seconds', measured.server.view.summary.collapse_count === 1)
 
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.text('중단된 측정이 있습니다')
+  await app.text('중단된 측정이 있어요')
   await app.click('이어하기')
   await app.text('쉬는 중')
   app.check('reload restores acknowledged facts without requesting a camera',

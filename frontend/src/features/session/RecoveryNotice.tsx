@@ -21,7 +21,7 @@ export function RecoveryNotice({
   accountMode = false,
 }: Props) {
   return (
-    <Card title="중단된 측정이 있습니다">
+    <Card title="중단된 측정이 있어요">
       <p>
         {draft.server
           ? accountMode

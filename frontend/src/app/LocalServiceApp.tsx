@@ -80,7 +80,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
 
   function openCollection() {
     if (measuring) {
-      setError('진행 중인 측정을 종료한 뒤 자세 등록으로 이동해 주세요.')
+      setError('진행 중인 측정을 마친 뒤 이동해 주세요.')
       return
     }
     go('collection')
@@ -125,9 +125,9 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     try {
       writeLocal(KEYS.settings, next)
       workspace.setRules(next)
-      setError('저장했습니다. 다음 측정부터 적용합니다.')
+      setError('저장했어요. 다음 측정부터 적용돼요.')
     } catch {
-      setError('설정을 저장하지 못했습니다.')
+      setError('설정을 저장하지 못했어요.')
     }
   }
 
@@ -137,7 +137,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       writeLocal(KEYS.demo, next)
       workspace.setShowDemo(next)
     } catch {
-      setError('시연 옵션을 저장하지 못했습니다.')
+      setError('시연 옵션을 저장하지 못했어요.')
     }
   }
 
@@ -213,7 +213,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
           onSettings={() => go('settings')}
         />
       }
-      onAlerts={() => setError('화면 알림은 유지합니다. 소리만 측정 화면에서 끌 수 있습니다.')}
+      onAlerts={() => setError('화면 알림은 그대로 둬요. 소리만 측정 화면에서 끌 수 있어요.')}
     />
   )
 }
