@@ -128,16 +128,17 @@ export function LocalHistory({
           />
         </Ledger>
 
-        <Card title="날짜별 측정 시간과 유지율" note="막대는 측정한 시간, 선은 바른 자세 유지율이에요.">
+        <Card title="날짜별 유지율과 측정 시간" note="막대는 바른 자세 유지율, 선은 측정한 시간이에요.">
           <ComboChart
-            bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.valid / 3600 }))}
-            line={days.map((d) => d.rate)}
-            barUnit="시간"
-            lineUnit="%"
-            lineMax={1}
-            barName="측정한 시간"
-            lineName="바른 자세 유지율"
-            formatBar={(hours) => formatDuration(hours * 3600)}
+            bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.rate }))}
+            line={days.map((d) => (d.valid > 0 ? d.valid / 3600 : null))}
+            barUnit="%"
+            lineUnit="시간"
+            barMax={1}
+            barName="바른 자세 유지율"
+            lineName="측정한 시간"
+            formatBar={(rate) => `${(rate * 100).toFixed(1)}%`}
+            formatLine={(hours) => formatDuration(hours * 3600)}
             details={(i) => [
               { label: '세션', value: `${days[i].sessions}회` },
               { label: '알림', value: `${days[i].alerts}회` },
@@ -145,8 +146,8 @@ export function LocalHistory({
           />
           <Legend
             items={[
-              { color: 'var(--primary-soft)', label: '측정한 시간' },
-              { color: 'var(--primary)', label: '바른 자세 유지율' },
+              { color: 'var(--primary-soft)', label: '바른 자세 유지율' },
+              { color: 'var(--primary)', label: '측정한 시간' },
             ]}
           />
         </Card>

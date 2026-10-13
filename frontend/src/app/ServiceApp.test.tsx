@@ -583,6 +583,41 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
   })
+  it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(1000)
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('곧 측정을 시작해요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    advance(1600)
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+  })
+  it('restarts the wait when the person leaves view and stops on 취소', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    controls.camera.quality = false
+    rerender()
+    advance(500)
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('취소')
+    advance(5000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+  })
   it('turns the camera on from the camera view, with a posture or not', () => {
     mount()
     login()

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 
-export type Bar = { label: string; sub?: string; value: number }
+/** `value: null` draws no bar (e.g. a day without measurement). */
+export type Bar = { label: string; sub?: string; value: number | null }
 export type ChartDetail = { label: string; value: string }
 
 type Props = {
@@ -17,6 +18,8 @@ type Props = {
   formatBar?: (value: number) => string
   formatLine?: (value: number) => string
   /** Fixed top of the line axis (1 for a 0–100% rate); by default the largest value. */
+  /** Fixed top of the bar axis (1 for a 0–100% rate); by default the largest value. */
+  barMax?: number
   lineMax?: number
   /** Extra lines for the hover card of one column (e.g. sessions, alerts). */
   details?: (index: number) => ChartDetail[]
@@ -45,6 +48,7 @@ export function ComboChart({
   formatLine = (v) => (lineUnit === '%' ? `${(v * 100).toFixed(1)}%` : `${v.toFixed(1)}${lineUnit ?? ''}`),
   details,
   lineMax: fixedLineMax,
+  barMax: fixedBarMax,
 }: Props) {
   const n = bars.length
   const box = useRef<HTMLDivElement>(null)
@@ -61,7 +65,7 @@ export function ComboChart({
   const W = width
   const STEP = W / n
   const barW = Math.min(30, STEP * 0.55)
-  const barMax = Math.max(...bars.map((b) => b.value), 1)
+  const barMax = fixedBarMax ?? Math.max(...bars.map((b) => b.value ?? 0), 1)
   const lineMax =
     fixedLineMax ?? (line ? Math.max(...line.filter((v): v is number => v !== null), 0.001) : 1)
   const x = (i: number) => i * STEP + STEP / 2
@@ -106,6 +110,7 @@ export function ComboChart({
           rx="8"
         />
         {bars.map((b, i) => {
+          if (b.value === null) return null
           const h = (b.value / barMax) * (BASE - TOP)
           return (
             <rect
@@ -176,7 +181,7 @@ export function ComboChart({
             <div className="combo-tip-row">
               <i style={{ background: barColor }} />
               {barName}
-              <b>{formatBar(bars[shown].value)}</b>
+              <b>{bars[shown].value === null ? '—' : formatBar(bars[shown].value!)}</b>
             </div>
             {line && (
               <div className="combo-tip-row">

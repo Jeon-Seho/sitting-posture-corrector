@@ -5,6 +5,7 @@ import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
+import { useAutoStart } from '../features/camera/useAutoStart'
 import { cameraName } from '../features/camera/mainCamera'
 import { SelectMenu } from '../components/SelectMenu'
 import { CALIBRATION_MS } from '../../../model/prototype/calibration'
@@ -68,6 +69,13 @@ export function SetupPage({
     if (flow.phase === 'done' && !measuring && !registerAgain) latest.current.onStart()
   }, [flow.phase, measuring, registerAgain])
   const finished = registerAgain && flow.phase === 'done'
+  // With a registered posture, 「카메라 켜기」 starts measuring once the person stays in view.
+  const auto = useAutoStart({
+    cameraOn: on,
+    ready,
+    enabled: registered && !registering && !measuring && !registerAgain,
+    onStart,
+  })
   // Leaving this screen cancels an unfinished registration.
   const cameraRef = useRef(camera)
   cameraRef.current = camera
@@ -85,6 +93,7 @@ export function SetupPage({
     counting,
     registering: registering || !registered,
     registered,
+    autoStarting: auto.left !== null,
   })
   const pill = !on
     ? null
@@ -218,6 +227,24 @@ export function SetupPage({
                     </button>
                   )}
                 </div>
+              ) : auto.left !== null ? (
+                <div className="calibrate-card" role="status">
+                  <Ring value={auto.progress} size={64} stroke={7}>
+                    <span className="ring-value" style={{ fontSize: 22 }}>
+                      {auto.left}
+                    </span>
+                  </Ring>
+                  <div>
+                    <div className="nudge-title">곧 측정을 시작해요</div>
+                    <div className="nudge-desc">기준 자세와 비교할 준비를 하고 있어요</div>
+                  </div>
+                  <button className="btn btn-primary" onClick={onStart}>
+                    지금 시작
+                  </button>
+                  <button className="btn" onClick={auto.cancel}>
+                    취소
+                  </button>
+                </div>
               ) : ready && !measuring ? (
                 <button className="btn btn-primary btn-lg" onClick={onStart}>
                   <Play size={20} weight="fill" className="icon" />
@@ -344,6 +371,7 @@ function headline(s: {
   counting: boolean
   registering: boolean
   registered: boolean
+  autoStarting: boolean
 }): [string, string] {
   if (s.registerAgain && s.measuring)
     return ['측정 중에는 기준 자세를 바꿀 수 없어요', '진행 중인 측정을 마친 뒤 다시 등록해 주세요.']
@@ -362,5 +390,6 @@ function headline(s: {
     return s.registerAgain
       ? ['기준 자세 다시 등록', `3초 뒤 자동으로 시작해 ${CALIBRATION_SECONDS}초 동안 기억해요.`]
       : ['기준 자세를 등록해요', `3초 뒤 자동으로 시작해 ${CALIBRATION_SECONDS}초 동안 기억하고, 끝나면 바로 측정을 시작해요.`]
+  if (s.autoStarting) return ['곧 측정을 시작해요', '그대로 편하게 앉아 있으면 측정이 바로 시작돼요.']
   return ['준비됐어요', '측정을 시작하면 기준 자세에서 멀어질 때 알려드려요.']
 }

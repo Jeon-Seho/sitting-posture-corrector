@@ -146,11 +146,13 @@ class AppDriver {
     if (await this.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '카메라 켜기')`))
       await this.click('카메라 켜기')
     await until(
-      () => this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요') || document.body.innerText.includes('준비됐어요')`),
-      'registration countdown or ready to measure',
+      () => this.evaluate(`['3초 뒤 기준 자세를 등록해요', '준비됐어요', '곧 측정을 시작해요'].some((t) => document.body.innerText.includes(t))`),
+      'registration countdown, auto start or ready to measure',
     )
     if (await this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요')`)) {
       await this.advanceClock(3200) // 3·2·1, then the synthetic capture starts measuring by itself
+    } else if (await this.evaluate(`document.body.innerText.includes('곧 측정을 시작해요')`)) {
+      await this.click('지금 시작') // 2.5 s auto start after 카메라 켜기; start now
     } else {
       await this.click('측정 시작')
     }
