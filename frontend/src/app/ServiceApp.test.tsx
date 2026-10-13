@@ -652,6 +652,22 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세로 바로')
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
   })
+  it('asks to sit back and waits while the shoulders are at the bottom edge (F7)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    ;(controls.camera as unknown as { framing: string }).framing = 'low'
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('조금 뒤로 앉아 주세요')
+    ;(controls.camera as unknown as { framing: string }).framing = 'ok'
+    rerender()
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    ;(controls.camera as unknown as { framing: string | null }).framing = null
+  })
   it('waits for the face and shoulders before counting down', () => {
     controls.camera.state = 'on'
     controls.camera.quality = false

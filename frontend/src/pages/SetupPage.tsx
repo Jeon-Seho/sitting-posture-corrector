@@ -94,12 +94,15 @@ export function SetupPage({
     registering: registering || !registered,
     registered,
     autoStarting: auto.left !== null,
+    framingLow: camera.framing === 'low',
   })
   const pill = !on
     ? null
     : !camera.quality
       ? { tone: 'unknown', text: '얼굴과 양쪽 어깨를 찾고 있어요' }
-      : registered && !registering
+      : registering && camera.framing === 'low'
+        ? { tone: 'unknown', text: '어깨가 화면 아래 끝에 가까워요' }
+        : registered && !registering
         ? { tone: 'good', text: '기준 자세와 비교할 준비가 됐어요' }
         : { tone: 'good', text: '얼굴과 양쪽 어깨가 잘 보여요' }
 
@@ -372,6 +375,7 @@ function headline(s: {
   registering: boolean
   registered: boolean
   autoStarting: boolean
+  framingLow: boolean
 }): [string, string] {
   if (s.registerAgain && s.measuring)
     return ['측정 중에는 기준 자세를 바꿀 수 없어요', '진행 중인 측정을 마친 뒤 다시 등록해 주세요.']
@@ -386,6 +390,8 @@ function headline(s: {
   if (s.counting) return ['편하게 바로 앉아 주세요', '곧 기준 자세 등록을 시작해요.']
   if (!s.quality)
     return ['얼굴과 양쪽 어깨가 보이게 앉아 주세요', '점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.']
+  if (s.registering && s.framingLow)
+    return ['조금 뒤로 앉아 주세요', '어깨가 화면 아래 끝에 걸려 있어요. 어깨가 화면 안쪽에 오면 등록을 시작해요.']
   if (s.registering)
     return s.registerAgain
       ? ['기준 자세 다시 등록', `3초 뒤 자동으로 시작해 ${CALIBRATION_SECONDS}초 동안 기억해요.`]

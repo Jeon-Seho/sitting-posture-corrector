@@ -21,6 +21,8 @@ import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../
 export type { Observation } from '../features/camera/types'
 
 const PREPARATION_TIMEOUT_MS = 30_000
+/** Shoulders lower than this (share of the frame height) are too close to the bottom edge. */
+export const FRAMING_BOTTOM = 0.88
 const EMPTY_METRICS: CameraMetrics = { fps: 0, inferenceMs: 0, delegate: 'CPU' }
 
 export function useCamera() {
@@ -50,6 +52,11 @@ export function useCamera() {
   const [state, setState] = useState<CameraState>('off')
   const [error, setError] = useState('')
   const [quality, setQuality] = useState(false)
+  /**
+   * Framing before registration (FE task F7): `low` when a shoulder sits in the bottom 12% of
+   * the frame, where a small lean takes it out of view. Experimental margin, not validated.
+   */
+  const [framing, setFraming] = useState<'ok' | 'low' | null>(null)
   /** Shoulder tracking of the latest frame (2 s head-only grace, 2026-10-13). */
   const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -143,6 +150,10 @@ export function useCamera() {
     lastFrame.current = observation.timeMs
     setQuality(!!observation.features && observation.shoulders !== 'grace')
     setShoulders(observation.shoulders ?? null)
+    const l = observation.landmarks[11], r = observation.landmarks[12]
+    setFraming(
+      observation.shoulders === 'seen' && l && r ? (Math.max(l.y, r.y) > FRAMING_BOTTOM ? 'low' : 'ok') : null,
+    )
     for (const listener of listeners.current) listener(observation)
 
     if (!calibration.current) return
@@ -372,6 +383,7 @@ export function useCamera() {
     error,
     quality,
     shoulders,
+    framing,
     baseline,
     calibrationId,
     calibrationSummary,

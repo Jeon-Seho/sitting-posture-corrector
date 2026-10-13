@@ -30,7 +30,8 @@ export function usePostureRegistration(camera: CameraController, measuring: bool
   const latest = useRef(camera)
   latest.current = camera
 
-  const ready = camera.state === 'on' && camera.quality && !measuring
+  // F7: do not register with the shoulders at the bottom edge; the user is asked to sit back.
+  const ready = camera.state === 'on' && camera.quality && camera.framing !== 'low' && !measuring
   const active = armed && (phase === 'waiting' || phase === 'countdown' || phase === 'capturing')
 
   useEffect(() => {
