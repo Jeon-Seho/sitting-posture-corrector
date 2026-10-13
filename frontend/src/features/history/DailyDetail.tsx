@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { RateRing } from '../../components/RateRing'
+import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
 import { periodStats } from '../../lib/comparison'
 import { localDay } from '../../lib/history'
 import type { RecordItem } from '../../lib/serviceStore'
@@ -62,24 +63,28 @@ function DayRow({ group, allStarts }: { group: DayGroup; allStarts: string[] }) 
         <span className="day-text">
           <strong>{dayTitle(group.day)}</strong>
           <span>
-            세션 {s.sessions} · {formatDuration(s.valid)}
+            세션 {s.sessions}개 · {formatDuration(s.valid)} 측정
           </span>
         </span>
-        <span className="day-alerts" title="받은 알림">
-          알림 <b className="num">{s.alerts}</b>
+        <span className="day-alerts">
+          자세 경고 <b className="num">{s.events}</b>번
         </span>
         <CaretDown size={18} weight="bold" className="day-caret" aria-hidden="true" />
       </button>
       {open && (
         <div id={id} className="day-body">
-          <dl className="day-facts">
-            <Fact label="유효 측정" value={formatDuration(s.valid)} />
-            <Fact label="판정 불가" value={formatDuration(excluded)} />
-            <Fact label="이탈 사건" value={`${s.events}건`} />
-            <Fact label="알림" value={`${s.alerts}회`} />
-            <Fact label="평균 간격" value={s.meanInterval === null ? '—' : formatDuration(s.meanInterval)} />
-            <Fact label="평균 회복" value={s.meanRecovery === null ? '—' : formatDuration(s.meanRecovery)} />
-          </dl>
+          <MetricGroups
+            groups={metricGroupsFor({
+              measured: s.valid,
+              good: s.good,
+              deviation: s.valid - s.good,
+              unknown: excluded,
+              warnings: s.events,
+              alerts: s.alerts,
+              interval: s.meanInterval,
+              recovery: s.meanRecovery,
+            })}
+          />
           <div className="day-sessions">
             {[...group.records].reverse().map((record) => (
               <RecordHistoryItem
@@ -95,11 +100,3 @@ function DayRow({ group, allStarts }: { group: DayGroup; allStarts: string[] }) 
   )
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd className="num">{value}</dd>
-    </div>
-  )
-}

@@ -24,7 +24,6 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
     ? `세션 ${sessionNumber} · ${new Date(record.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}`
     : shortDate(record.startedAt)
   const rate = record.valid ? record.good / record.valid : null
-  const alerts = record.events.reduce((n, e) => n + e.alerts, 0)
   return (
     <div className="history-record">
       <div className="service-record">
@@ -34,7 +33,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
         <div className="service-record-text">
           <strong>{date}</strong>
           <span title={RECORD_SOURCE_LABEL[recordSource(record)]}>
-            {formatDuration(record.valid)} 측정 · 알림 {alerts}회
+            {formatDuration(record.valid)} 측정 · 자세 경고 {record.events.length}번
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
         </div>

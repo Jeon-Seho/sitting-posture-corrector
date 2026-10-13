@@ -236,3 +236,63 @@
 .records-stack > .card {
   margin: 0;
 }
+
+/* Grouped numbers: time · posture warnings · recovery, each with its own tint. */
+.metric-groups {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.4fr;
+  gap: 10px;
+}
+.metric-group {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.metric-group.is-time {
+  background: var(--surface-2);
+}
+.metric-group.is-warn {
+  background: var(--alert-tint);
+}
+.metric-group.is-recover {
+  background: var(--good-tint);
+}
+.metric-group-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.metric-group.is-warn .metric-group-title {
+  color: var(--alert-ink);
+}
+.metric-group.is-recover .metric-group-title {
+  color: var(--good-ink);
+}
+.metric-group-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+.metric-group-items dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.metric-group-items dd {
+  margin: 3px 0 0;
+  font-family: var(--font-num), var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.metric-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+@media (max-width: 860px) {
+  .metric-groups {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,6 +4,7 @@ import type { RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatPercent, formatRate } from '../../lib/stats'
 import { EventTable } from '../session/SessionEvents'
 import { RateRing } from '../../components/RateRing'
+import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
 import { RuleDescription } from './RuleDescription'
 import { ServerDecisionHistory } from './ServerDecisionHistory'
 
@@ -144,9 +145,6 @@ function RecordSummary({ record }: { record: RecordItem }) {
   const view = record.server?.view
   const stats = periodStats([record], '', '')
   const rate = view ? view.summary.keep_rate : stats.keepRate
-  const deviation = view ? view.summary.deviation_ms / 1000 : record.valid - record.good
-  const alerts = view?.summary.alert_count ?? stats.alerts
-  const recovery = view ? seconds(view.summary.mean_recovery_ms) : stats.meanRecovery
   const time = (iso: string) =>
     new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
   return (
@@ -159,22 +157,19 @@ function RecordSummary({ record }: { record: RecordItem }) {
         <div className="record-summary-length">
           <b>{formatDuration(record.valid)}</b> 측정했어요
         </div>
-        <div className="record-tiles">
-          <Tile label="바른 자세" value={formatDuration(record.good)} tone="good" />
-          <Tile label="흐트러진 시간" value={formatDuration(Math.max(0, deviation))} />
-          <Tile label="받은 알림" value={`${alerts}회`} />
-          <Tile label="돌아오기까지" value={recovery === null ? '—' : `평균 ${formatDuration(recovery)}`} />
-        </div>
+        <MetricGroups
+          groups={metricGroupsFor({
+            measured: record.valid,
+            good: record.good,
+            deviation: view ? view.summary.deviation_ms / 1000 : record.valid - record.good,
+            unknown: Math.max(0, record.total - record.valid),
+            warnings: view?.summary.collapse_count ?? record.events.length,
+            alerts: view?.summary.alert_count ?? stats.alerts,
+            interval: view ? seconds(view.summary.mean_interval_ms) : stats.meanInterval,
+            recovery: view ? seconds(view.summary.mean_recovery_ms) : stats.meanRecovery,
+          })}
+        />
       </div>
-    </div>
-  )
-}
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: 'good' }) {
-  return (
-    <div className={`record-tile ${tone ?? ''}`}>
-      <span className="record-tile-label">{label}</span>
-      <span className="record-tile-value">{value}</span>
     </div>
   )
 }

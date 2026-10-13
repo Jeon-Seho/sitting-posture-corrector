@@ -46,6 +46,6 @@ describe('일별 상세', () => {
     const text = JSON.stringify(renderer!.toJSON())
     expect(text).toContain('세션 2 ·')
     expect(text).toContain('세션 1 ·')
-    expect(text).toContain('판정 불가')
+    expect(text).toContain('확인 못 한 시간')
   })
 })
