@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
@@ -77,6 +77,8 @@ export function ServiceScreens({
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
   const view = resolvePage(page, measuring)
+  // Each press of the sidebar's today card reopens records on the "today" period.
+  const [todayRequest, setTodayRequest] = useState(0)
   const today = summary(historyFor(records, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -112,6 +114,10 @@ export function ServiceScreens({
         onProfile={() => go('profile')}
         name={profile?.name ?? ''}
         today={{ rate: today.rate, valid: today.valid }}
+        onToday={() => {
+          setTodayRequest((n) => n + 1)
+          go('dashboard')
+        }}
       />
       <main ref={main} className="main service-main">
         {storageNotice}
@@ -142,6 +148,7 @@ export function ServiceScreens({
           ) : (
             <LocalHistory
               records={records}
+              todayRequest={todayRequest}
               measuring={measuring}
               onStart={() => go(measuring ? 'session' : 'setup')}
               accountMode={accountMode}

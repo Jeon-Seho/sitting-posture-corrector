@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Segmented } from '../../components/Segmented'
 import { Play } from '@phosphor-icons/react'
 import { RecordComparison } from '../../components/RecordComparison'
@@ -28,14 +28,20 @@ export function LocalHistory({
   measuring,
   onStart,
   accountMode = false,
+  todayRequest = 0,
 }: {
   records: RecordItem[]
+  /** Changes each time the sidebar's today card is pressed: show the "today" period. */
+  todayRequest?: number
   measuring: boolean
   onStart: () => void
   accountMode?: boolean
 }) {
   const [mode, setMode] = useState<HistoryMode>('all')
-  const [period, setPeriod] = useState<Period>('week')
+  const [period, setPeriod] = useState<Period>(todayRequest ? 'today' : 'week')
+  useEffect(() => {
+    if (todayRequest) setPeriod('today')
+  }, [todayRequest])
   const now = new Date()
   const hasDemo = records.some((r) => r.mode === 'demo')
   const selected = historyFor(records, mode, period, now)
