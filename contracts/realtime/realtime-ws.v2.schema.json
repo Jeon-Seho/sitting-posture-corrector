@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/realtime-ws.v2.schema.json",
+  "title": "WebSocket /v2/realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
+  "description": "One connection per measurement (purpose measure) or posture registration (purpose calibration). The first app message is hello. No reconnection (ADR 0022). Messages are connection-scoped, so only hello and ready name the session.",
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/features" },
+    { "$ref": "#/$defs/end" },
+    { "$ref": "#/$defs/ready" },
+    { "$ref": "#/$defs/ack" },
+    { "$ref": "#/$defs/observation" },
+    { "$ref": "#/$defs/progress" },
+    { "$ref": "#/$defs/decision" },
+    { "$ref": "#/$defs/alert" },
+    { "$ref": "#/$defs/stalled" },
+    { "$ref": "#/$defs/calibration_result" },
+    { "$ref": "#/$defs/closed" }
+  ],
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "ms": { "type": "integer", "minimum": 0 },
+    "deviation_type": { "enum": ["none", "forward_slouch", "left_lean", "right_lean", "unspecified"] },
+    "summary": { "$ref": "../session-view.v1.schema.json#/properties/summary" },
+
+    "hello": {
+      "description": "app -> server, first message. measure: after PUT /v2/sessions/{id} returned 201. calibration: a new calibration_id per registration.",
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type", "schema_version", "purpose", "session_id"],
+          "properties": {
+            "type": { "const": "hello" },
+            "schema_version": { "const": "2.0" },
+            "purpose": { "const": "measure" },
+            "session_id": { "$ref": "#/$defs/uuid" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "schema_version", "purpose", "calibration_id"],
+          "properties": {
+            "type": { "const": "hello" },
+            "schema_version": { "const": "2.0" },
+            "purpose": { "const": "calibration" },
+            "calibration_id": { "$ref": "#/$defs/uuid" }
+          }
+        }
+      ]
+    },
+    "features": {
+      "description": "app -> server. Coordinate intervals in sequence order. The server allows 1-30; the app sends one every 0.5 s (FE spec Q1).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "items"],
+      "properties": {
+        "type": { "const": "features" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": { "$ref": "frames/posture-frames.v1.schema.json" }
+        }
+      }
+    },
+    "end": {
+      "description": "app -> server. measure: the user ended the measurement. calibration: the capture finished.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "end_ms"],
+      "properties": { "type": { "const": "end" }, "end_ms": { "$ref": "#/$defs/ms" } }
+    },
+
+    "ready": {
+      "description": "server -> app after hello is accepted. The app waits 5 s for it (FE spec Q2).",
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type", "purpose", "session_id", "min_record_ms"],
+          "properties": {
+            "type": { "const": "ready" },
+            "purpose": { "const": "measure" },
+            "session_id": { "$ref": "#/$defs/uuid" },
+            "min_record_ms": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "purpose", "calibration_id"],
+          "properties": {
+            "type": { "const": "ready" },
+            "purpose": { "const": "calibration" },
+            "calibration_id": { "$ref": "#/$defs/uuid" }
+          }
+        }
+      ]
+    },
+    "ack": {
+      "description": "server -> app. Intervals up to last_sequence were written to Kafka. The app only shows it (no resending).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "last_sequence"],
+      "properties": { "type": { "const": "ack" }, "last_sequence": { "type": "integer", "minimum": -1 } }
+    },
+    "observation": {
+      "description": "server -> app, one per interval: live status. Score on screen = 100 x (1 - collapse_probability).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "observation"],
+      "properties": {
+        "type": { "const": "observation" },
+        "observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "sequence", "start_ms", "end_ms", "phase", "valid", "valid_ms", "collapse_probability", "deviation_type", "invalid_reason", "model_version"],
+          "properties": {
+            "schema_version": { "const": "3.0" },
+            "sequence": { "type": "integer", "minimum": 0 },
+            "start_ms": { "$ref": "#/$defs/ms" },
+            "end_ms": { "$ref": "#/$defs/ms" },
+            "phase": { "enum": ["running", "rest", "away"] },
+            "valid": { "type": "boolean" },
+            "valid_ms": { "$ref": "#/$defs/ms" },
+            "collapse_probability": { "type": "number", "minimum": 0, "maximum": 1 },
+            "deviation_type": { "$ref": "#/$defs/deviation_type" },
+            "invalid_reason": { "enum": [null, "unmeasurable", "head_turn", "settling"] },
+            "model_version": { "type": "string", "minLength": 1, "maxLength": 64 }
+          },
+          "if": { "properties": { "valid": { "const": true } } },
+          "then": { "properties": { "invalid_reason": { "const": null } } },
+          "else": { "properties": { "invalid_reason": { "enum": ["unmeasurable", "head_turn", "settling"] } } }
+        }
+      }
+    },
+    "progress": {
+      "description": "server -> app about every second. recordable: total_ms >= min_record_ms (10/13: 5 min counts total_ms). paused_reason: measuring is paused.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "last_sequence", "summary", "recordable", "paused_reason"],
+      "properties": {
+        "type": { "const": "progress" },
+        "last_sequence": { "type": "integer", "minimum": -1 },
+        "summary": { "$ref": "#/$defs/summary" },
+        "recordable": { "type": "boolean" },
+        "paused_reason": { "enum": [null, "unmeasurable", "rest", "away"] }
+      }
+    },
+    "event": {
+      "description": "A confirmed judgement event. event_id starts at 1 per session. excluded_started/ended are for storage; the app only receives them. recorded appears only on session_ended.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind", "timestamp_ms", "onset_ms", "onset_valid_ms", "deviation_type", "reason"],
+      "properties": {
+        "event_id": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended", "excluded_started", "excluded_ended"] },
+        "timestamp_ms": { "$ref": "#/$defs/ms" },
+        "onset_ms": { "$ref": "#/$defs/ms" },
+        "onset_valid_ms": { "$ref": "#/$defs/ms" },
+        "deviation_type": { "$ref": "#/$defs/deviation_type" },
+        "reason": { "enum": [null, "missing", "missing_sequence", "unmeasurable", "rest", "away", "ended"] },
+        "recorded": { "type": "boolean" }
+      },
+      "if": { "properties": { "kind": { "const": "session_ended" } } },
+      "then": { "required": ["recorded"] },
+      "else": { "not": { "required": ["recorded"] } }
+    },
+    "decision": {
+      "description": "server -> app. Sent before the progress that includes it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "event", "summary"],
+      "properties": {
+        "type": { "const": "decision" },
+        "event": { "$ref": "#/$defs/event" },
+        "summary": { "$ref": "#/$defs/summary" }
+      }
+    },
+    "alert": {
+      "description": "server -> app only when an alert should be shown (the storage service already applied alerts off, hourly cap and stale events). The app does not filter.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "event_id", "kind", "deviation_type"],
+      "properties": {
+        "type": { "const": "alert" },
+        "event_id": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["collapse_confirmed", "reminder"] },
+        "deviation_type": { "$ref": "#/$defs/deviation_type" }
+      }
+    },
+    "stalled": {
+      "description": "server -> app. No judgement progress for 5 s.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "since_last_sequence"],
+      "properties": { "type": { "const": "stalled" }, "since_last_sequence": { "type": "integer", "minimum": -1 } }
+    },
+    "landmarks": {
+      "description": "Mean of the 9 joints over the registration, 0-1 ratios with 5 decimals.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder"],
+      "patternProperties": {
+        "^(nose|left_eye|right_eye|left_ear|right_ear|mouth_left|mouth_right|left_shoulder|right_shoulder)$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "calibration_result": {
+      "description": "server -> app after end on a calibration connection, then closed(ended). On failure nothing is stored and the previous baseline stays current.",
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type", "status", "calibration_id", "baseline_id", "registered_at", "landmarks", "valid_frames"],
+          "properties": {
+            "type": { "const": "calibration_result" },
+            "status": { "const": "ok" },
+            "calibration_id": { "$ref": "#/$defs/uuid" },
+            "baseline_id": { "$ref": "#/$defs/uuid" },
+            "registered_at": { "type": "string", "format": "date-time" },
+            "landmarks": { "$ref": "#/$defs/landmarks" },
+            "valid_frames": { "type": "integer", "minimum": 15 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "status", "calibration_id", "valid_frames", "reason"],
+          "properties": {
+            "type": { "const": "calibration_result" },
+            "status": { "const": "failed" },
+            "calibration_id": { "$ref": "#/$defs/uuid" },
+            "valid_frames": { "type": "integer", "minimum": 0 },
+            "reason": { "enum": ["too_few_frames", "incomplete", "out_of_frame", "server_error"] }
+          }
+        }
+      ]
+    },
+    "closed": {
+      "description": "server -> app right before the server closes the connection.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reason"],
+      "properties": {
+        "type": { "const": "closed" },
+        "reason": { "enum": ["ended", "unauthorized", "not_owner", "session_lost", "no_baseline", "bad_message", "server_shutdown"] }
+      }
+    }
+  }
+}

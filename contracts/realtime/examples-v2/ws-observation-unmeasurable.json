@@ -1,0 +1,16 @@
+{
+  "type": "observation",
+  "observation": {
+    "schema_version": "3.0",
+    "sequence": 43,
+    "start_ms": 21500,
+    "end_ms": 22000,
+    "phase": "running",
+    "valid": false,
+    "valid_ms": 0,
+    "collapse_probability": 0,
+    "deviation_type": "none",
+    "invalid_reason": "unmeasurable",
+    "model_version": "reference-feature-rule-v1"
+  }
+}

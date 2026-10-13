@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/frames/posture-frames.v1.schema.json",
-  "title": "posture.frames.v1 — 0.5 s of raw 9-joint coordinate frames from the app (FE draft 2026-10-13)",
-  "description": "FE proposal 2.1. One message per interval [start_ms, end_ms), times relative to the session start. Frames are not averaged. rest/away intervals carry no frames. valid:false marks a frame whose user position the app could not determine (10/12 meeting); the field name awaits BE confirmation.",
+  "title": "posture.frames.v1 — 0.5 s of raw 9-joint coordinate frames from the app (BE API spec 2026-10-13)",
+  "description": "FE proposal 2.1. One message per interval [start_ms, end_ms), times relative to the session start. Frames are not averaged. rest/away intervals carry no frames. valid:false marks a frame whose user position the app could not determine (10/12 meeting); BE confirmed the name on 10/13. Carried as items of the WebSocket v2 features message.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "feature_version", "sequence", "start_ms", "end_ms", "phase", "width", "height", "frames"],

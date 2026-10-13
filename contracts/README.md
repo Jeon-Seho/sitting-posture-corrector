@@ -1,8 +1,11 @@
 # AI·서비스 경계 계약
 
 MySQL 계정 모드의 로그인·CSRF·소유권·설정/기록/삭제 경로는 [계정·저장 API v1](accounts.v1.md)을 따른다.
+**2026-10-13:** 계정·설정·기준·세션 REST는 v2(`/v2/…`, DB V2.3)로 바뀐다. 계약 문서 `accounts.v2.md`·`consent-documents.v2.md`는 BE 브랜치
+`feature/repo-backend-db-v2`에 있고 병합 전이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/api-ws-spec.md)에 있다.
 AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초안](realtime/README.md)에 있다(팀 확인 전).
+앱 ↔ 입출구 서버 WebSocket v2는 [realtime-ws.v2](realtime/realtime-ws.v2.schema.json)와 [합성 예시](realtime/examples-v2/)다.
 
 ## 기존 상태 출력 v1
 

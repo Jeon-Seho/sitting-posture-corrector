@@ -1,0 +1,6 @@
+{
+  "type": "alert",
+  "event_id": 1,
+  "kind": "collapse_confirmed",
+  "deviation_type": "forward_slouch"
+}

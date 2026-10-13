@@ -1,0 +1,23 @@
+{
+  "type": "progress",
+  "last_sequence": 42,
+  "summary": {
+    "total_ms": 21500,
+    "valid_ms": 20500,
+    "normal_ms": 17000,
+    "deviation_ms": 3500,
+    "rest_ms": 0,
+    "away_ms": 0,
+    "unknown_ms": 1000,
+    "missing_ms": 0,
+    "collapse_count": 1,
+    "alert_count": 1,
+    "interval_count": 0,
+    "keep_rate": 0.8293,
+    "events_per_hour": 175.6,
+    "mean_interval_ms": null,
+    "mean_recovery_ms": null
+  },
+  "recordable": false,
+  "paused_reason": null
+}
