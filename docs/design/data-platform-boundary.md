@@ -18,9 +18,9 @@ Kafka·Spark·HDFS·Redis를 과거 계획서에 이름이 있다는 이유로 �
 
 ## 이 저장소의 책임
 
-서비스는 카메라에서 원본 영상/좌표를 보내지 않고 현재−개인 기준 특징 변화량과 품질을 추론에 전달한다.
-시간 판정은 CEP가 수행한다. MySQL은 계정·설정·세션·처리 상태·원 추론 관측·사건·확인 요약·서비스 기록을 내구 저장한다.
-비밀번호 원문·영상·랜드마크·특징 변화량 원문을 DB의 기본 자료에 넣지 않는다.
+앱은 영상을 보내지 않고 관절 9개 좌표를 0.5초 구간으로 보낸다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json)).
+판정과 시간 규칙은 서버(추론·판정)가 수행한다. MySQL은 계정·설정·세션·처리 상태·원 추론 관측·사건·확인 요약·서비스 기록을 내구 저장한다.
+비밀번호 원문·영상을 DB에 넣지 않는다. 측정 좌표는 HDFS에, 기준 자세는 평균 좌표만 MySQL(V2.3 `baseline_posture`)에 둔다.
 
 관측/사건/요약의 생산자 계약은 [기존 버전 계약](../../contracts/README.md)을 사용한다.
 `(session_id, sequence)`와 `(session_id, event_id)`로 중복과 순서를 비교하고 세션의 정책·모델·기준 ID를 고정한다.

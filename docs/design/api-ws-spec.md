@@ -308,5 +308,34 @@ sequenceDiagram
 | 기준 자세 | 이 PC에 카메라별로 저장(`features/camera/savedBaseline.ts`), 앱이 계산 | B2 + WS calibration |
 | 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
 | 기록·통계 | 이 기기의 기록 | W1·R1·T1, 오늘 기록 거르기 |
+| 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
+| 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
 
-다음 단계: BE 확인(0.2)이 끝나면 `contracts/realtime/`에 WS v2·좌표 구간·`calibration_result` JSON 스키마를 BE와 함께 옮긴다.
+### 7.1 연결 설정 (`features/platform/serverConfig.ts`)
+
+| 변수 | 뜻 |
+|---|---|
+| `VITE_REALTIME_URL=ws://…` | 실시간 구간을 WebSocket으로(지금은 `/v1/realtime`). 없으면 HTTP |
+| `VITE_REALTIME_FRAMES=true` | 특징 변화량 대신 좌표 묶음을 보낸다. 아직 연결하지 않음(v2에서 기본으로) |
+| `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
+
+예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13 지웠다.
+
+### 7.2 붙이는 순서 (BE가 준비되는 대로)
+
+1. **좌표 묶음:** `ws`가 v2를 열면 `RealtimeClient`가 특징 변화량 대신 `FrameBatcher`(`frames.ts`) 결과를 `items` 1개로 보낸다. `t_ms` 0은 S1 201을 받은 시각.
+2. **판정 불가:** 어깨 2초 유예가 끝난 프레임에 `valid:false`를 붙인다.
+3. **종료:** `end` 뒤 `closed(ended)`까지 연결 유지, 10초 대기 후 S4.
+4. **자세 등록:** `savedBaseline.ts`의 읽기·쓰기를 B2 조회와 WS calibration으로 바꾼다. 화면(측정하기, 가입 3단계, 설정 다시 등록)은 그대로.
+5. **계정:** 로컬 로그인·가입을 A1~A8·W1로 바꾸고 비밀번호 12자 검사를 켠다.
+
+### 7.3 화면 상태와 서버 메시지
+
+| 화면 상태(`features/session/liveView.ts`) | 서버에서 오는 것 |
+|---|---|
+| 바른 자세·흐트러짐·복귀 중 | `observation`·`decision` |
+| 측정 불가(회갈색, 기록 제외) | `observation.valid:false`, `progress.paused_reason:"unmeasurable"` |
+| 분석이 잠시 멈춤 | `stalled` |
+| 쉬는 중 | 앱의 `rest` 구간, `progress.paused_reason:"rest"` |
+
+서버가 남은 시간(확정·복귀까지)을 주지 않으면 진행 막대는 숨긴다.

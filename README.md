@@ -35,7 +35,7 @@ make dev
 `make`가 없는 Windows에서는 `python tools/dev.py setup`, `python tools/dev.py dev`를 사용한다.
 
 [로컬 화면](http://127.0.0.1:5173/) → 이름·나이·직업 입력 → 자세 등록 → 카메라 켜기 → 얼굴·어깨가 보이면 3·2·1 뒤 자동으로 3초 등록(최소 15표본) → 측정하러 가기 → 측정 시작.
-자세는 한 번 등록하면 앱이 켜져 있는 동안 다시 등록하지 않는다([계획 0024](docs/plans/active/0024-posture-registration-tab.md)).
+자세는 한 번 등록하면 앱이 켜져 있는 동안 다시 등록하지 않는다([계획 0024](docs/removed-docs.md)).
 실제 계정은 필요 없다. 프로필과 측정 요약은 이 브라우저(localStorage)에만 저장한다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
 
@@ -53,7 +53,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 | 설정 | 판정 시간·임계값. `개발자 옵션`에 `발표용 예시 기록 표시` 스위치와 `자세 데이터 수집`(관절 좌표 CSV, 교정 알림 없음) |
 | 계정 메뉴(사이드바 하단) | 프로필 설정, 로그아웃 |
 
-화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02)과 [계획 0024](docs/plans/active/0024-posture-registration-tab.md)(2026-10-12, 「자세 등록」 탭 추가) 기준이다.
+화면 구성은 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md)(2026-10-02)과 [계획 0024](docs/removed-docs.md)(2026-10-12, 「자세 등록」 탭 추가) 기준이다.
 이전 이름: 홈·측정 준비·실시간 측정 → 측정하기, 대시보드 → 기록, 예전 자세 등록(좌표 수집) → 설정의 자세 데이터 수집. 지금의 「자세 등록」은 기준 자세 등록 탭이다.
 
 예전의 별도 연구 화면(`?research=1`)은 이 앱에 통합되어 더 이상 없다. [ADR 0008](docs/decisions/0008-single-app-entry.md) 참고.
