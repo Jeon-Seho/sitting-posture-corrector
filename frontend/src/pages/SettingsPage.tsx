@@ -6,6 +6,7 @@ import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
 import { cameraName } from '../features/camera/mainCamera'
+import { reportConnectionLost } from '../features/connection/connectionLost'
 import type { CameraController } from '../hooks/useCamera'
 
 type CameraChoice = Pick<
@@ -389,6 +390,14 @@ export function SettingsPage({
                   </button>
                 </Row>
               )}
+              <Row
+                name="서버 연결 끊김 화면"
+                desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
+              >
+                <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
+                  끊김 화면 확인
+                </button>
+              </Row>
               <div className="setting-row">
                 <div className="setting-name">판정 방식</div>
                 <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>

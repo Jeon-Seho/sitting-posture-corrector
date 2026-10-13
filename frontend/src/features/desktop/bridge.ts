@@ -20,6 +20,8 @@ export type DesktopBridge = {
   getLaunchInfo: () => Promise<LaunchInfo | null>
   setLaunchAtLogin: (enabled: boolean) => Promise<LaunchInfo | null>
   setAutoCamera: (enabled: boolean) => Promise<LaunchInfo | null>
+  /** Closes the whole app. Absent in desktop shells built before 2026-10-13. */
+  quit?: () => Promise<boolean>
 }
 
 declare global {

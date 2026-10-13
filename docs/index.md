@@ -15,6 +15,7 @@
 ## FE(lee_app1) 현재 결정과 작업 (2026-10-12)
 
 - **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md). 2026-10-11 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
+  [ADR 0022 서버 연결이 끊기면 세션을 끝낸다](decisions/0022-session-ends-on-lost-connection.md)(세션 번호는 날짜마다 1부터).
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N16, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).

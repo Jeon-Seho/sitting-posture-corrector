@@ -47,7 +47,7 @@
 
 2026-10-11 [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)로 1번과 5번이 정해졌다.
 1번: 앱은 관절 좌표를 보낸다(동의한 사용자만). 5번: 로컬 엔진은 없앤다. 서버가 멈추면 "연결 끊김"을 표시하고
-좌표를 쌓아 두었다가 재연결 후 다시 보낸다. 2번은 V2.1에서 기준 자세를 사용자당 1행으로 서버에 둔다(기준값은 서버가 등록 프레임으로 계산, [FE 제안서](fe-server-proposal.md) 2.3).
+좌표를 쌓아 두었다가 재연결 후 다시 보낸다(2026-10-13 [ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)로 변경: 끊기면 세션 종료, 재연결 없음). 2번은 V2.1에서 기준 자세를 사용자당 1행으로 서버에 둔다(기준값은 서버가 등록 프레임으로 계산, [FE 제안서](fe-server-proposal.md) 2.3).
 
 1. **무엇을 보내나**: v4는 키포인트를 WebSocket으로 보낸다. 현재 [ADR 0013](../decisions/0013-frontend-server-feature-connection.md)은
    어깨 기준 변화량 3개와 품질만 보내고 원본 좌표는 보내지 않는다. 개인정보·연구 경계와 함께 결정해야 한다.

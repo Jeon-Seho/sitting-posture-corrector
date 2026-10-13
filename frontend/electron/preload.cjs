@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('posegoodDesktop', {
   getLaunchInfo: () => ipcRenderer.invoke('desktop:launch-info'),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke('desktop:set-launch-at-login', enabled === true),
   setAutoCamera: (enabled) => ipcRenderer.invoke('desktop:set-auto-camera', enabled === true),
+  quit: () => ipcRenderer.invoke('desktop:quit'),
 })

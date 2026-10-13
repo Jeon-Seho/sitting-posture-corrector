@@ -93,6 +93,12 @@ ipcMain.handle('desktop:set-auto-camera', (event, enabled) => {
   writeSettings({ ...readSettings(), autoCamera: enabled === true })
   return launchInfo()
 })
+// 서버 연결이 끊긴 세션의 「종료하기」: 앱 전체를 닫는다.
+ipcMain.handle('desktop:quit', (event) => {
+  if (!trusted(event)) return false
+  setImmediate(() => app.quit())
+  return true
+})
 
 async function createWindow() {
   const window = new BrowserWindow({

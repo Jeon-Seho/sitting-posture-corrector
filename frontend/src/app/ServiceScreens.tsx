@@ -18,6 +18,7 @@ import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
 import type { Rules } from '../lib/engine'
 import { historyFor } from '../lib/history'
+import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
@@ -196,6 +197,13 @@ export function ServiceScreens({
                   onArchive: persistence.archiveServerResult,
                   saveMessage: persistence.saveMessage,
                   onRetry: persistence.retrySave,
+                  sessionLabel: sessionLabel(
+                    session.startedAt,
+                    daySessionNumber(
+                      records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
+                      session.startedAt,
+                    ),
+                  ),
                 }}
               />
             ) : (

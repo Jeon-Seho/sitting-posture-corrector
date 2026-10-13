@@ -13,6 +13,8 @@ export class ServerRequestError extends Error {
   constructor(
     message: string,
     readonly status: number | null = null,
+    /** No answer from the server: unreachable or timed out. Ends the session (2026-10-13). */
+    readonly network = false,
   ) {
     super(message)
     this.name = 'ServerRequestError'
@@ -66,9 +68,13 @@ export function createSessionClient(
       if (expired)
         throw new ServerRequestError(
           '서버 응답 시간이 초과되었습니다. 처리 여부가 확인되지 않아 같은 요청을 유지합니다.',
+          null,
+          true,
         )
       throw new ServerRequestError(
         '서버에 연결하지 못했습니다. 입력을 멈추고 같은 요청을 유지합니다.',
+        null,
+        true,
       )
     } finally {
       clearTimeout(timer)
