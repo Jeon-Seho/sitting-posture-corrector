@@ -32,6 +32,11 @@ DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배
 - DB 스키마·기존 확정 임계값은 변경하지 않는다. 프론트의 `alerts_on`은 DB가 세션 알림 원본으로 정의한 `sound_alert_enabled`에 대응한다. 브라우저 소리 재생 허용은 계속 기기 상태다.
 - 변경되는 계정·저장/기준 API는 v2로 명시한다. 특징·관측·판정의 기존 JSON 스키마는 재사용한다.
 
+- 2026-10-13 develop(#41 `frontend_jin`) 병합: develop은 기준 자세를 이 PC(localStorage)에 저장해 다음 측정에 쓰고, 이 브랜치는 계정 DB에 저장한다.
+  계정 앱은 DB 기준만 쓰고 PC 저장을 읽거나 쓰지 않는다(남은 PC 기준이 계정 기준을 가리지 않게). 계정 없는 로컬 앱은 develop대로 PC에 저장한다.
+  develop의 「등록 끝나면 바로 측정 시작」은 계정 앱에서 기준이 DB에 저장된 뒤에 시작한다.
+  남은 일: develop의 `features/accounts/consents.ts`(화면 미연결, `consent_type`·`terms-2026-10`)와 이 브랜치의 `registrationConsents`(`type`·`service-v2`, API가 받는 형식)를 하나로 합친다.
+
 ## 검증 결과와 남은 한계
 
 - `python tools/dev.py check`: 저장소 검사, Python, 프론트, 실제 MySQL·FastAPI, 계정 브라우저 단계 통과. 첫 실행에서 발견한 Windows 백업 실패 시 열린 파일 삭제 오류를 고쳤다. 배포 manifest 시험은 별도로 검증하는 POSIX 잠금을 mock하여 Windows에서도 실행한다.

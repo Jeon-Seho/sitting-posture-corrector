@@ -42,6 +42,8 @@ export type ServerScreenState = {
   queued: number
   retryable: boolean
   canResume: boolean
+  /** The server stopped answering. The session is over; nothing is retried or resent. */
+  connectionLost: boolean
 }
 type Options = {
   session: ServerSessionDescriptor
@@ -53,6 +55,8 @@ type Options = {
   onEnded: (live: ServerLiveState) => void
   onNotifications?: (events: DecisionEvent[]) => void
   onChange?: (state: ServerScreenState) => void
+  /** Called once when the connection is lost (user decision 2026-10-13: the session ends). */
+  onConnectionLost?: () => void
   /**
    * Plan 0022 realtime transport (development only). Session create/end/restore stay on HTTP;
    * live intervals go over WebSocket and results arrive as observation/progress/decision pushes.
@@ -65,7 +69,19 @@ const FRAME_EXPIRY_MS = 1000
 // The development backend keeps at most 10,000 accepted observations, including rest.
 const LAST_DEVELOPMENT_SEQUENCE = 9998
 const STALLED_MESSAGE = '분석이 잠시 멈췄어요. 서버 판정을 기다리고 있습니다.'
-const RECONNECTING_MESSAGE = '실시간 연결이 끊겨 다시 연결하고 있습니다. 보낸 구간은 연결 후 다시 보냅니다.'
+const CONNECTION_LOST_MESSAGE = '서버와의 연결이 끊겨 이 세션을 종료했습니다.'
+
+/**
+ * The server is unreachable: no answer (failure, timeout) or a gateway/proxy reporting that the
+ * server behind it is down (502/503/504; the Vite proxy answers 502 when the API is stopped).
+ * An answer that rejects the request is not a lost connection.
+ */
+function unreachable(error: unknown) {
+  return (
+    error instanceof ServerRequestError &&
+    (error.network || error.status === 502 || error.status === 503 || error.status === 504)
+  )
+}
 
 function sameEvent(a: DecisionEvent, b: DecisionEvent) {
   return (Object.keys(a) as (keyof DecisionEvent)[]).every((key) => a[key] === b[key])
@@ -107,6 +123,7 @@ export class ServerSessionController {
   private developmentLimit = false
   private realtime: RealtimeClient | null = null
   private realtimeBroken = false
+  private lostConnection = false
 
   constructor(private readonly options: Options) {
     this.session = structuredClone(options.session)
@@ -170,8 +187,11 @@ export class ServerSessionController {
       message: this.message,
       queued: this.queue.size + (this.realtime?.pendingCount ?? 0),
       retryable:
-        this.phase !== 'lost' && (this.queue.failed || this.reconciling || this.terminalRejection),
+        !this.lostConnection &&
+        this.phase !== 'lost' &&
+        (this.queue.failed || this.reconciling || this.terminalRejection),
       canResume:
+        !this.lostConnection &&
         this.phase === 'paused' &&
         !this.queue.size &&
         !this.queue.failed &&
@@ -180,7 +200,36 @@ export class ServerSessionController {
         !this.developmentLimit &&
         !this.realtimeBroken &&
         this.endAt === null,
+      connectionLost: this.lostConnection,
     }
+  }
+
+  /** Only a session the server already accepted can be lost; a failed start keeps its retry. */
+  private isConnectionLoss(error: unknown) {
+    return this.view !== null && unreachable(error)
+  }
+
+  /**
+   * Losing the connection ends the session (user decision 2026-10-13, replaces the resend after
+   * reconnecting of ADR 0021). Capture stops, the queue and realtime channel are dropped and no
+   * request is retried. The last acknowledged view stays for the local record.
+   */
+  loseConnection() {
+    if (this.disposed || this.lostConnection || this.view?.ended) return
+    this.lostConnection = true
+    this.desiredRunning = false
+    this.previousFrame = null
+    this.restAllowed = false
+    this.observation = null
+    this.phase = 'paused'
+    this.message = CONNECTION_LOST_MESSAGE
+    this.fetchAbort.abort()
+    this.queue.dispose()
+    this.realtime?.close()
+    this.realtime = null
+    this.realtimeBroken = true
+    this.emit()
+    this.options.onConnectionLost?.()
   }
 
   private elapsed() {
@@ -299,6 +348,10 @@ export class ServerSessionController {
       }
     } catch (error) {
       if (this.disposed) return
+      if (this.isConnectionLoss(error)) {
+        this.loseConnection()
+        return
+      }
       this.reconciling = true
       this.phase = error instanceof ServerRequestError && error.status === 404 ? 'lost' : 'paused'
       this.message = error instanceof Error ? error.message : '서버 기록을 확인하지 못했습니다.'
@@ -392,6 +445,10 @@ export class ServerSessionController {
   }
 
   private fail(error: unknown, request: ServerPendingRequest) {
+    if (this.isConnectionLoss(error)) {
+      this.loseConnection()
+      return true
+    }
     this.desiredRunning = false
     this.previousFrame = null
     this.restAllowed = false
@@ -429,8 +486,11 @@ export class ServerSessionController {
       lastEventId: this.view?.events.at(-1)?.event_id ?? 0,
       handlers: {
         onStatus: (status) => {
-          if (status === 'reconnecting' && this.phase === 'running') this.message = RECONNECTING_MESSAGE
-          if (status === 'open' && this.message === RECONNECTING_MESSAGE) this.message = ''
+          // A dropped realtime channel is a lost connection, never a reconnect.
+          if (status === 'reconnecting') {
+            this.loseConnection()
+            return
+          }
           this.emit()
         },
         onAck: () => {
@@ -626,7 +686,7 @@ export class ServerSessionController {
   }
 
   pause(message = '휴식 중입니다. 준비 후 직접 재개해 주세요.', recordRest = true) {
-    if (this.phase === 'ended' || this.phase === 'ending' || this.phase === 'lost') return
+    if (this.lostConnection || this.phase === 'ended' || this.phase === 'ending' || this.phase === 'lost') return
     this.desiredRunning = false
     this.previousFrame = null
     this.observation = null
@@ -648,6 +708,7 @@ export class ServerSessionController {
   tick() {
     if (
       this.disposed ||
+      this.lostConnection ||
       this.phase !== 'paused' ||
       !this.restAllowed ||
       this.queue.failed ||
@@ -689,7 +750,7 @@ export class ServerSessionController {
   }
 
   end() {
-    if (this.disposed || this.phase === 'lost' || this.view?.ended) return
+    if (this.disposed || this.lostConnection || this.phase === 'lost' || this.view?.ended) return
     if (this.endAt === null) {
       if (this.phase === 'paused') this.tick()
       this.endAt = Math.min(MAX_SESSION_MS, this.elapsed())
@@ -735,7 +796,7 @@ export class ServerSessionController {
   }
 
   async retry() {
-    if (this.disposed || this.phase === 'lost' || this.queue.busy) return
+    if (this.disposed || this.lostConnection || this.phase === 'lost' || this.queue.busy) return
     if (this.reconciling && this.session.server.checkpoint && !this.queue.pending) {
       await this.restore(this.session.server.checkpoint)
       if (this.endAt !== null && !this.queue.pending && !this.reconciling) this.enqueueEnd()
@@ -755,6 +816,10 @@ export class ServerSessionController {
         if (this.endAt !== null) this.enqueueEnd()
       } catch (error) {
         if (this.disposed) return
+        if (this.isConnectionLoss(error)) {
+          this.loseConnection()
+          return
+        }
         this.phase = error instanceof ServerRequestError && error.status === 404 ? 'lost' : 'paused'
         this.message = error instanceof Error ? error.message : '서버 기록을 확인하지 못했습니다.'
       }

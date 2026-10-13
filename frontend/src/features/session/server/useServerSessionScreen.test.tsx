@@ -6,6 +6,11 @@ import { playCorrection } from '../../../lib/sound'
 import { ServerRequestError, type ServerReply, type SessionClient } from './client'
 import type { ServerSessionDescriptor } from './contracts'
 import { useServerSessionScreen, type ServerSessionService } from './useServerSessionScreen'
+import {
+  connectionLost,
+  reportConnectionLost,
+  resetConnectionLost,
+} from '../../connection/connectionLost'
 import { ServerSessionPage } from './ServerSessionPage'
 import {
   BASELINE,
@@ -106,6 +111,34 @@ describe('server screen lifecycle without camera permissions or local time decis
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+  })
+
+  it('ends the session on a lost connection: camera off, confirmed summary kept, app blocked', async () => {
+    service.sessionLabel = '2026-10-13 · 세션 2'
+    await mount()
+    client.send.mockRejectedValueOnce(new ServerRequestError('Synthetic unreachable', null, true))
+    await act(async () => {
+      for (const at of [100, 200]) for (const listener of listeners) listener(cameraFrame(at))
+      await flush()
+    })
+    expect(latest.connectionLost).toBe(true)
+    expect(camera.stop).toHaveBeenCalled()
+    expect(service.onArchive).toHaveBeenCalledOnce()
+    expect(latest.archived).toBe(true)
+    expect(connectionLost()).toEqual({ reason: 'network', session: '2026-10-13 · 세션 2' })
+    act(() => resetConnectionLost())
+  })
+
+  it('ends a running session when the settings test reports a lost connection', async () => {
+    await mount()
+    await act(async () => {
+      reportConnectionLost({ reason: 'test' })
+      await flush()
+    })
+    expect(latest.connectionLost).toBe(true)
+    expect(service.onArchive).toHaveBeenCalledOnce()
+    expect(connectionLost()).toEqual({ reason: 'test' })
+    act(() => resetConnectionLost())
   })
 
   it('never mounts the local timer or increases confirmed totals without accepted input', async () => {

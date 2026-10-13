@@ -3,8 +3,14 @@ import type { CameraController } from '../hooks/useCamera'
 import { sampleAt, type Sample } from './engine'
 import type { ReturnSettle } from './returnSettle'
 
+/** Notices for the 2 s shoulder grace (2026-10-13). The live view keys on these exact texts. */
+export const SHOULDER_GRACE_NOTICE = '어깨가 잘 보이지 않아 잠시 머리로만 확인하고 있어요.'
+export const SHOULDER_MISSING_NOTICE = '어깨가 보이지 않아 측정을 잠시 멈췄어요. 어깨가 화면에 들어오면 바로 이어가요.'
+
 export function cameraSample(camera: CameraController): Sample {
   const base = sampleAt(0)
+  if (camera.state === 'on' && camera.baseline && camera.shoulders === 'missing')
+    return { ...base, state: 'unknown', collapse: null, confidence: 0, prob: 0, notice: SHOULDER_MISSING_NOTICE }
   const current = camera.current.current
   const age = performance.now() - camera.lastFrame.current
   if (
@@ -35,7 +41,7 @@ export function cameraSample(camera: CameraController): Sample {
       prob: 0,
       notice: result.headTurn
         ? '고개를 돌린 동안은 자세를 판정하지 않아요.'
-        : '측정 품질을 확인할 수 없습니다. 얼굴과 양쪽 어깨를 확인해 주세요.',
+        : '자세를 확인할 수 없어요. 얼굴과 양쪽 어깨가 보이게 앉아 주세요.',
     }
   return {
     ...base,
@@ -43,7 +49,7 @@ export function cameraSample(camera: CameraController): Sample {
     collapse: result.tilt ? 'tilt' : 'forwardHead',
     confidence: current.quality,
     prob: result.score,
-    notice: null,
+    notice: camera.shoulders === 'grace' ? SHOULDER_GRACE_NOTICE : null,
   }
 }
 

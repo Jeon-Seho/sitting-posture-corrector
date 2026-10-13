@@ -138,18 +138,24 @@ class AppDriver {
   }
 
   async startSession() {
-    // Plan 0024: register the posture on its own tab, then measure without calibrating.
-    await this.click('자세 등록')
-    await this.text('평소 바른 자세를 등록해요')
-    await this.click('카메라 켜기')
-    await this.text('3초 뒤 측정이 시작돼요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
-    await this.advanceClock(3200)
-    await this.text('자세가 등록되어 있어요')
-    await this.click('측정하러 가기')
-    await this.text('준비가 끝났어요')
+    // 2026-10-13: 측정하기 registers first when there is no posture and then measures by
+    // itself; with a posture 「측정 시작」 starts at once. Server mode is chosen beforehand.
+    await this.click('측정하기')
     await this.openMore()
     await this.checkbox('서버 판정 사용')
-    await this.click('측정 시작')
+    if (await this.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '카메라 켜기')`))
+      await this.click('카메라 켜기')
+    await until(
+      () => this.evaluate(`['3초 뒤 기준 자세를 등록해요', '준비됐어요', '곧 측정을 시작해요'].some((t) => document.body.innerText.includes(t))`),
+      'registration countdown, auto start or ready to measure',
+    )
+    if (await this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요')`)) {
+      await this.advanceClock(3200) // 3·2·1, then the synthetic capture starts measuring by itself
+    } else if (await this.evaluate(`document.body.innerText.includes('곧 측정을 시작해요')`)) {
+      await this.click('지금 시작') // 2.5 s auto start after 카메라 켜기; start now
+    } else {
+      await this.click('측정 시작')
+    }
     let snapshot = await until(async () => {
       const state = await this.snapshot()
       if (state.draft?.server?.view && !state.draft.server.pending) return state
@@ -255,12 +261,18 @@ class AppDriver {
         displayed.alerts === `${alerts}회` &&
         displayed.count === `${records.length}`,
     )
+    // 일별 상세 folds each day; open every day before listing its sessions.
+    await this.evaluate(`(() => {
+      for (const day of document.querySelectorAll('.day-head[aria-expanded="false"]')) day.click();
+    })()`)
     const details = await this.evaluate(`(() => {
       const buttons = [...document.querySelectorAll('button')].filter(${visible}).filter((item) => ['자세히', '닫기'].includes(item.textContent.trim()) && item.classList.contains('history-detail-button'));
       for (const button of buttons) if (button.getAttribute('aria-expanded') !== 'true') button.click();
       return buttons.length;
     })()`)
     assert.equal(details, records.length)
+    // Raw numbers and server history are folded under 개발자용 상세 (2026-10-13).
+    await this.evaluate(`document.querySelectorAll('details.history-dev-details').forEach((item) => { item.open = true })`)
     await this.text('서버가 확인한 사건 이력')
     this.check(
       'record details expose preserved server events and frozen policy',

@@ -1,4 +1,4 @@
-import { ChartBar, GearSix, PersonSimple, Pulse, type Icon } from '@phosphor-icons/react'
+import { ChartBar, GearSix, Pulse, type Icon } from '@phosphor-icons/react'
 
 /** Internal routes. Several routes share one sidebar tab (see NAV_TABS). */
 export type Page =
@@ -11,22 +11,21 @@ export type Page =
   | 'settings'
   | 'profile'
 
-export type Tab = 'measure' | 'posture' | 'records' | 'settings'
+export type Tab = 'measure' | 'records' | 'settings'
 
 /**
- * Preparation, live measurement and results live in "측정하기". Registering the personal
- * baseline is its own tab: it runs only when the user asks, not before every measurement.
+ * Preparation, posture registration, live measurement and results live in "측정하기"
+ * (2026-10-13: one flow again). Without a registered posture it registers first and then
+ * measures; with one it measures at once. `posture` is the "register again" route.
  */
 export const NAV_TABS: { tab: Tab; label: string; icon: Icon }[] = [
   { tab: 'measure', label: '측정하기', icon: Pulse },
-  { tab: 'posture', label: '자세 등록', icon: PersonSimple },
   { tab: 'records', label: '기록', icon: ChartBar },
   { tab: 'settings', label: '설정', icon: GearSix },
 ]
 
 export function tabOf(page: Page): Tab {
   if (page === 'dashboard') return 'records'
-  if (page === 'posture') return 'posture'
   if (page === 'settings' || page === 'profile' || page === 'collection') return 'settings'
   return 'measure'
 }

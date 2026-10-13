@@ -1,6 +1,20 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
+import { realpathSync } from 'node:fs'
+
+/**
+ * node_modules may be a link to another checkout (C:\GoodPose\develop shares one). Vite only
+ * serves files under `fs.allow`, so the fonts behind the link were refused in development
+ * and the app fell back to a system font. Allow the link's real location too.
+ */
+function realNodeModules() {
+  try {
+    return [realpathSync(fileURLToPath(new URL('./node_modules', import.meta.url)))]
+  } catch {
+    return []
+  }
+}
 
 const polling = /^(1|true)$/i.test(process.env.CHOKIDAR_USEPOLLING ?? '')
 const apiTarget = process.env.POSEGOOD_API_URL ?? 'http://127.0.0.1:8090'
@@ -50,9 +64,13 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    fs: { allow: ['..'] },
+    fs: { allow: ['..', ...realNodeModules()] },
     // Explicitly disable native FSEvents when polling is requested on a restricted Mac host.
-    watch: polling ? { usePolling: true, useFsEvents: false, interval: 1000 } : undefined,
+    // Desktop builds write under release*/; watching them crashed the dev server (EBUSY on Windows).
+    watch: {
+      ignored: ['**/release/**', '**/release-*/**', '**/dist*/**'],
+      ...(polling ? { usePolling: true, useFsEvents: false, interval: 1000 } : {}),
+    },
     proxy,
   },
   preview: { host: '127.0.0.1', proxy },
