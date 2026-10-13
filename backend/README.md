@@ -1,7 +1,8 @@
 # 백엔드 — 세션·계정·판정 API
 
 Java 21·Spring Boot 3.5.16·Maven으로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)).
-DB는 MySQL [스키마 V2.2](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
+현재 프론트 특징 v2 유지 범위는 [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)를 따른다.
+DB는 MySQL [스키마 V2.3](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
 ## 코드 구조
@@ -18,7 +19,7 @@ backend/api/src/main/java/org/posegood/api/
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
 ├── realtime/   # /v1/realtime WebSocket
-└── system/     # /health, 시작 시 스키마 V2.2 확인
+└── system/     # /health, 시작 시 스키마 V2.3 확인
 ```
 
 흐름: `SessionController`·`RealtimeHandler` → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
@@ -26,39 +27,44 @@ backend/api/src/main/java/org/posegood/api/
 
 ## 진행 중 상태와 DB
 
-V2.2에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 세션의 판정 상태는 API 메모리에 있다.
+V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 세션의 판정 상태는 API 메모리에 있다.
 
 | 시점 | DB에 쓰는 것 |
 | --- | --- |
-| 세션 생성 | `threshold_policy`(같은 값 행을 찾거나 `USER` 행 추가), `baseline_posture`(사용자당 1행, 새 보정이면 좌표 18개를 덮어씀), `monitor_session`(`calibration_uuid`·정책·`alert_enabled` 복사) |
-| 특징 처리 | 새 사건: `collapse_confirmed` → `collapse_event` + 첫 `correction_alert`, `reminder` → `correction_alert`, `recovery_confirmed` → `RECOVERED`, `interrupted` → `EXCLUDED` 또는 `SESSION_END` |
-| 종료 | `monitor_session.ended_at`·`end_reason='USER_STOP'`·`good_sec`, `excluded_interval`(PAUSE/ABSENCE/UNMEASURABLE/MISSING), `daily_stat`(세션 시작 KST 날짜에 누적) |
-| 확인 못 한 종료의 기록 저장 | 상태가 있으면 마지막 수신 시각에서 끝내고 위와 같이 `DISCONNECTED`로 닫는다. 재시작으로 상태가 없으면 `ERROR`, `good_sec` 0, 열린 사건은 `SESSION_END`로 닫고 `daily_stat`은 바꾸지 않는다 |
-| 삭제 | 세션 행(하위 행은 cascade). `feature_archive`가 있으면 409 |
+| 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
+| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각·좌표가 같은 재시도는 기존 행 반환 |
+| 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
+| 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
+| 종료 | 종료 시각·`good_sec`, 제외 구간, 일별 통계를 한 번만 반영. 5분 이상 세션의 붕괴까지 시간 min/max 포함 |
+| 상태를 잃은 종료 | 알 수 없는 전체 시간을 MISSING으로 제외, good=0. 일별 집계는 하지 않음 |
+| 삭제 | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
 
 - DB 쓰기에 실패하면 503이다. 판정 상태는 이미 반영됐으므로 같은 요청을 다시 보내면 남은 사건을 쓴다.
 - API를 재시작하면 진행 중 세션의 상태는 사라진다. 행이 남은 세션은 `404 SESSION_LOST`로 알리고, 앱은 마지막 확인 요약을 기록으로 남긴다.
   그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 기록 저장 확인을 위해 30분 보관한다(`posegood.ended-session-retention`).
 - 모든 `DATETIME(3)`은 KST다. JDBC 연결도 `connectionTimeZone=Asia/Seoul`이다. API 응답 시각은 UTC ISO-8601이다.
-- `correction_alert.delivered`는 세션의 알림 설정(`alert_enabled`, 꺼지면 `ALERT_OFF`)이다. 시간당 알림 상한은 아직 적용하지 않는다.
-- 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v1/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
-  사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v1.md)).
+- 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.
+- 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 false)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
+- 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
+  사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
 - 비밀번호 변경·탈퇴는 그 사용자의 `SPRING_SESSION` 행을 지우고 열린 실시간 연결을 닫는다(V2.1에서 `auth_epoch` 삭제).
 
 ## API
 
-모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·CSRF·소유권·오류 형식은 [계정·저장 API v1](../contracts/accounts.v1.md)을 따른다.
+모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·CSRF·소유권·오류 형식은 [계정·저장 API v2](../contracts/accounts.v2.md)을 따른다.
 
 | 경로 | 역할 |
 | --- | --- |
-| `GET /v1/auth/csrf`, `POST /v1/auth/register`, `POST /v1/auth/login`, `GET /v1/auth/me`, `POST /v1/auth/logout` | 계정·로그인 |
-| `PUT /v1/auth/password`, `DELETE /v1/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
-| `POST /v1/auth/withdrawal/cancel` | 탈퇴 유예 중 철회(이메일·비밀번호) |
-| `GET`·`PUT /v1/workspace`, `GET`·`POST /v1/records`, `DELETE /v1/records/{id}` | 설정·앱 기록 |
-| `PUT /v1/sessions/{UUID}` | `{policy, setup}`으로 세션 생성. 같은 값의 재시도는 멱등, 다른 값은 409 |
-| `POST /v1/sessions/{UUID}/features` | 특징 입력 v2 → FastAPI → 판정. [특징 응답 v1](../contracts/feature-response.v1.schema.json) |
-| `POST /v1/sessions/{UUID}/end` | `{end_ms}`로 종료. 같은 값은 멱등, 다른 값은 409 |
-| `GET /v1/sessions/{UUID}`, `GET .../metadata`, `DELETE /v1/sessions/{UUID}` | 조회 v1, 시작·종료 시각·기준 ID, 삭제 |
+| `GET /v2/auth/csrf`, `POST /v2/auth/register`, `POST /v2/auth/login`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인 |
+| `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
+| `POST /v2/auth/withdrawal/cancel` | 탈퇴 유예 중 철회(이메일·비밀번호) |
+| `GET`·`PUT /v2/workspace`, `GET`·`POST /v2/records`, `DELETE /v2/records/{id}` | 설정·앱 기록 |
+| `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
+| `POST /v2/sessions/{UUID}/features` | 특징 입력 v2 → FastAPI → 판정. [특징 응답 v1](../contracts/feature-response.v1.schema.json) |
+| `POST /v2/sessions/{UUID}/end` | `{end_ms}`로 종료. 같은 값은 멱등, 다른 값은 409 |
+| `GET /v2/sessions/{UUID}`, `GET .../metadata`, `DELETE /v2/sessions/{UUID}` | 조회 v1, 시작·종료 시각·기준 ID, 삭제 |
+| `POST /v2/baselines`, `GET /v2/baselines/current` | 독립 기준 등록·현재 기준 조회 |
+| `PUT /v2/consents/optional-profile` | 선택 정보 동의·철회 |
 | `GET /v1/realtime` (WebSocket) | 실시간 채널(아래) |
 | `GET /health` | DB 연결 확인 |
 
@@ -99,7 +105,7 @@ make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 F
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_2.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_3.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Maven만 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다.
 
 ```sh
@@ -115,5 +121,5 @@ mvn -f backend/pom.xml -Pmysql-integration verify   # + 실제 MySQL (위 환경
 
 1. 다중 인스턴스: 진행 중 상태를 공유할 저장소(Redis 등)나 세션 고정 라우팅이 필요하다.
 2. Kafka(계획 0022): 지금은 실시간 채널이 API 안에서 바로 처리한다. 토픽 전환 때 같은 메시지 계약을 쓴다.
-3. 시간당 알림 상한과 `delivered`의 실제 표시 여부 전달.
+3. 알림의 실제 표시 여부 전달(현재 DB에는 시도만 기록).
 4. HDFS 특징 적재(`feature_archive`)와 탈퇴 때 파일 삭제.

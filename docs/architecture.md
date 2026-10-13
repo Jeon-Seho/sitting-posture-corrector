@@ -3,6 +3,10 @@
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
+2026-10-13 현재 계정 앱은 [ADR 0022](decisions/0022-db-v23-feature-v2-integration.md)에 따라 특징 v2를 유지하며
+DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18개를 저장하고 측정 중에는 특징 변화량을 전송한다.
+아래 ADR 0021의 좌표 스트림·Kafka 내용은 후속 전환 방향이다.
+
 현재 체험용 구현의 초기 선택은 [ADR 0002](decisions/0002-webcam-prototype.md)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상·원본 좌표는 서버에 보내지 않는다.
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
@@ -133,6 +137,6 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 앱의 저장·복구·화면·서버 컨트롤러는 실제 구현을 사용한다. 일반 개발·preview·프로덕션 빌드에서는
 합성 카메라를 선택하지 않으며 테스트 입력은 실제 영상·랜드마크나 카메라 권한을 사용하지 않는다.
 
-`tools/benchmark/`는 추론 단독과 API→추론의 합성 요청을 별도로 측정한다(API 대상의 계정 로그인 전환은 계획 0023의 후속 작업).
+`tools/benchmark/`는 추론 단독과 API→추론의 합성 요청을 별도로 측정한다. API 대상은 작업자마다 합성 계정으로 가입·기준 등록을 마친 뒤(측정 제외) 세션을 연다.
 HTTP 응답 완료 지연과 전체 단계 처리량을 구분하고 실패 요청은 성공 지연 표본에서 제외한다.
 환경·코드/입력/JAR hash를 결과에 남기며 실제 카메라 FPS나 배포 성능으로 해석하지 않는다.

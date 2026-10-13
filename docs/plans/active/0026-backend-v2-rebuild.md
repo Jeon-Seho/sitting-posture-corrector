@@ -1,5 +1,7 @@
 # 백엔드 재작성: DB V2.2·프론트 계약 기준 단일 API
 
+> 2026-10-13 후속: 현재 DB V2.3·계정 API v2 연동은 [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md)에 따른다. 아래 V2.2 요구·결과는 당시 작업 기록이다.
+
 - 상태: in_progress
 - 담당: sunshine-yj 요청, Claude 구현 (브랜치 `feature/repo-backend-db-v2`, DB V2.2 작업과 한 브랜치)
 - 시작일: 2026-10-09
@@ -62,7 +64,7 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 - [ ] 실제 MySQL 통합 시험(`-Pmysql-integration`)과 HTTP smoke 실행
 - [x] Compose·Docker·Nginx·배포 도구에서 CEP 제거, HTTP smoke를 계정·MySQL 흐름으로 전환
 - [x] 문서·ADR·계약 설명 동기화
-- [ ] 후속: 브라우저 smoke 서버 시나리오와 서버 benchmark를 계정 로그인 흐름으로 전환
+- [x] 후속: 브라우저 smoke 서버 시나리오와 서버 benchmark를 계정 로그인 흐름으로 전환 (2026-10-13. 브라우저는 [계획 0025](0025-backend-db-v23-integration.md)의 계정 UI 시나리오, 서버 benchmark는 아래 기록)
 - [ ] 후속: `make check-compose`(Docker) 전체 실행
 - [x] DB V2.2 반영: 스키마 확인, 계정(`alert_enabled`, `auth_epoch` 제거), 좌표 기준 자세, 테이블 기반 기록, 프론트 setup, 도구·Compose initdb
 - [ ] 후속: 앱 설정 화면의 소리 스위치(`sound_alert_enabled`), 해상도(640×480) 불일치 시 시작 거부
@@ -103,7 +105,9 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 
 남은 한계:
 
-- 브라우저 smoke의 서버 시나리오와 서버 benchmark의 API 대상은 계정 없는 메모리 API를 전제로 해서 지금은 401로 실패한다. 계정 로그인 흐름으로 다시 써야 한다.
+- ~~브라우저 smoke의 서버 시나리오와 서버 benchmark의 API 대상이 401로 실패한다.~~ 2026-10-13 해결: 서버 benchmark는 작업자마다 합성 계정 가입·기준 등록(`tools/service_smoke.py`의 `Account`·`register_baseline` 재사용)을 측정 밖에서 마친 뒤 `/v2/sessions`를 쓴다.
+  정책은 새 계정의 시드 기본값(0.7, 3초, 3초, 60초)이다. 확인: `python tools/server_benchmark.py --target both --warmup 1 --repetitions 4 --concurrency 2`(JDK 21, Docker 임시 MySQL 8.4) 추론 4/4·API 4/4 성공, 세션 생성·종료 2/2, 실패 0.
+  같은 날 `tools/service_smoke.py` 7단계 통과, `tests/test_server_benchmark.py`·`test_service_contracts.py` 23개 통과(1개 건너뜀). `JAVA_HOME`이 JDK 17이면 API가 시작하지 않으니 JDK 21을 지정한다.
 - 진행 중 세션은 API 재시작에서 복구하지 않는다(ADR 0020). 앱이 기록을 보내지 않은 끝나지 않은 행은 자동으로 닫지 않는다.
 - 다시 읽은 기록은 사건 방향을 잃는다(T-36 보류). 방향을 남기려면 DB에 `collapse_event` 방향 컬럼 또는 T-36 확정이 필요하다.
 - `database/README.md` 11장(백엔드 코드와의 관계)은 아직 V1.1 백엔드 기준 문구다. DB 담당 문서라 고치지 않았다.

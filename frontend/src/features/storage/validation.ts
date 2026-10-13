@@ -34,10 +34,8 @@ export function validProfile(v: unknown): v is Profile {
   return (
     object(v) &&
     text(v.name, 50) &&
-    integer(v.age) &&
-    v.age >= 1 &&
-    v.age <= 120 &&
-    text(v.occupation, 80)
+    (v.age === null || (integer(v.age) && v.age >= 1 && v.age <= 120)) &&
+    (v.occupation === null || text(v.occupation, 80))
   )
 }
 function validEvent(v: unknown, total: number): v is CollapseEvent {

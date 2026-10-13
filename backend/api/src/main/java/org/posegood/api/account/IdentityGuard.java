@@ -23,12 +23,14 @@ public class IdentityGuard extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getRequestURI();
         boolean guarded =
-                path.startsWith("/v1/workspace")
-                        || path.startsWith("/v1/records")
-                        || path.startsWith("/v1/sessions")
-                        || path.equals("/v1/auth/password")
-                        || path.equals("/v1/auth/account")
-                        || path.equals("/v1/auth/logout");
+                path.startsWith("/v2/workspace")
+                        || path.startsWith("/v2/baselines")
+                        || path.startsWith("/v2/consents")
+                        || path.startsWith("/v2/records")
+                        || path.startsWith("/v2/sessions")
+                        || path.equals("/v2/auth/password")
+                        || path.equals("/v2/auth/account")
+                        || path.equals("/v2/auth/logout");
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (guarded
                 && auth != null

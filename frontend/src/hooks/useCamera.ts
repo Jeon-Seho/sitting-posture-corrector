@@ -13,6 +13,8 @@ import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
+import { baselineFeatures, type SavedBaseline } from '../features/accounts/baseline'
+import { SERVER_ACCOUNTS } from '../features/accounts/client'
 
 export type { Observation } from '../features/camera/types'
 
@@ -55,6 +57,27 @@ export function useCamera() {
   const [calibrationId, setCalibrationId] = useState<string | null>(null)
   const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
+  const [baselineStored, setBaselineStored] = useState(false)
+  const [registeredAt, setRegisteredAt] = useState<string | null>(null)
+  const savedBaseline = useRef<SavedBaseline | null>(null)
+  const adoptBaseline = useCallback((value: SavedBaseline) => {
+    const video = videoRef.current
+    const restored = baselineFeatures(value.landmarks, video?.videoWidth || 640, video?.videoHeight || 480)
+    if (!restored) throw new Error('저장된 기준 자세를 사용할 수 없습니다. 다시 등록해 주세요.')
+    savedBaseline.current = value
+    setBaseline(restored)
+    setCalibrationId(value.baseline_id)
+    setRegisteredAt(value.registered_at)
+    setBaselineStored(true)
+  }, [])
+  const clearBaseline = useCallback(() => {
+    savedBaseline.current = null
+    setBaseline(null)
+    setCalibrationId(null)
+    setCalibrationSummary(null)
+    setRegisteredAt(null)
+    setBaselineStored(false)
+  }, [])
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
     const next = { ...visualRef.current, ...patch }
@@ -123,9 +146,12 @@ export function useCamera() {
     )
     calibration.current = next.draft
     setProgress(next.progress)
-    if (next.ready) {
+    if (next.ready && (!SERVER_ACCOUNTS || next.draft.anchors.length >= 20)) {
+      savedBaseline.current = null
+      setBaselineStored(false)
+      setRegisteredAt(new Date().toISOString())
       setBaseline(next.ready)
-      setCalibrationSummary(next.summary)
+      setCalibrationSummary(SERVER_ACCOUNTS && next.summary ? { ...next.summary, sampleCount: next.draft.anchors.length } : next.summary)
       setCalibrationId(crypto.randomUUID())
       calibration.current = null
       setProgress(null)
@@ -185,6 +211,7 @@ export function useCamera() {
         video.srcObject = incoming
         await video.play()
         if (!isCurrent()) return
+        if (savedBaseline.current) adoptBaseline(savedBaseline.current)
 
         clearLoadingTimer()
         setState('on')
@@ -225,7 +252,7 @@ export function useCamera() {
         setError(cameraPreparationError(cause))
       }
     },
-    [clearLoadingTimer, receiveObservation, release],
+    [adoptBaseline, clearLoadingTimer, receiveObservation, release],
   )
 
   const calibrate = () => {
@@ -255,6 +282,10 @@ export function useCamera() {
     error,
     quality,
     baseline,
+    baselineStored,
+    registeredAt,
+    adoptBaseline,
+    clearBaseline,
     calibrationId,
     calibrationSummary,
     progress,

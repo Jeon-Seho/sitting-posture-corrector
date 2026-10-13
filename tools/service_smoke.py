@@ -1,4 +1,4 @@
-"""Verify the loopback API with the real FastAPI inference on a disposable schema V2.2 database.
+"""Verify the loopback API with the real FastAPI inference on a disposable schema V2.3 database.
 
 Only explicit synthetic accounts and feature intervals are used; no camera or participant data.
 Every response is checked against the versioned JSON Schemas in contracts/.
@@ -20,7 +20,7 @@ else:
     from service_processes import ServiceEndpoints, running_services
     from test_mysql import disposable_database, mysql_server, query
 
-POLICY = {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.5}
+POLICY = {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7}
 
 
 class Account:
@@ -28,16 +28,25 @@ class Account:
 
     def __init__(self, base):
         self.base = base
-        self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
+        self.cookies = CookieJar()
+        self.opener = build_opener(HTTPCookieProcessor(self.cookies))
         self.csrf = None
         self.user_id = None
 
-    def request(self, path, method="GET", body=None, expected=200):
-        headers = {"Content-Type": "application/json"}
+    def headers(self, method="GET"):
+        """Login headers for a client without this cookie jar (the server benchmark)."""
+        headers = {}
         if self.csrf and method != "GET":
             headers["X-CSRF-TOKEN"] = self.csrf
         if self.user_id:
             headers["X-PoseGood-User-Id"] = self.user_id
+        return headers
+
+    def cookie_header(self):
+        return "; ".join(cookie.name + "=" + cookie.value for cookie in self.cookies)
+
+    def request(self, path, method="GET", body=None, expected=200):
+        headers = {"Content-Type": "application/json", **self.headers(method)}
         data = None if body is None else json.dumps(body, allow_nan=False).encode()
         try:
             with self.opener.open(Request(self.base + path, data=data, method=method, headers=headers), timeout=10) as response:
@@ -48,16 +57,33 @@ class Account:
         return json.loads(raw) if raw else None
 
     def register(self):
-        self.csrf = self.request("/v1/auth/csrf")["token"]
-        user = self.request("/v1/auth/register", "POST", {
+        self.csrf = self.request("/v2/auth/csrf")["token"]
+        user = self.request("/v2/auth/register", "POST", {
             "email": f"test-{uuid.uuid4()}@example.invalid",
             "password": "synthetic-password-1",
             "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
-            "consent_version": "service-v1",
+            "consents": [{"type": t, "document_version": "service-v2"} for t in ("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER", "OPTIONAL_PROFILE")],
         })
         self.user_id = user["user_id"]
-        self.csrf = self.request("/v1/auth/csrf")["token"]
+        self.csrf = self.request("/v2/auth/csrf")["token"]
         return user
+
+
+def register_baseline(account):
+    """Register a synthetic 9-landmark baseline; sessions must name the account's current one."""
+    from datetime import datetime, timezone
+    saved = account.request("/v2/baselines", "POST", {
+        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "calibration_ms": 3000, "sample_count": 20,
+        "landmarks": {
+            "nose": {"x": 0.5, "y": 0.4}, "left_eye": {"x": 0.52, "y": 0.37},
+            "right_eye": {"x": 0.48, "y": 0.37}, "left_ear": {"x": 0.56, "y": 0.38},
+            "right_ear": {"x": 0.44, "y": 0.38}, "mouth_left": {"x": 0.515, "y": 0.45},
+            "mouth_right": {"x": 0.485, "y": 0.45}, "left_shoulder": {"x": 0.65, "y": 0.62},
+            "right_shoulder": {"x": 0.35, "y": 0.62},
+        },
+    })
+    return saved["baseline_id"]
 
 
 class Measurement:
@@ -67,25 +93,13 @@ class Measurement:
         self.account = account
         self.id = str(uuid.uuid4())
         self.baseline = str(uuid.uuid4())
-        self.path = "/v1/sessions/" + self.id
+        self.path = "/v2/sessions/" + self.id
         self.sequence = 0
         self.sent = []
 
     def create(self):
-        view = self.account.request(self.path, "PUT", {"policy": POLICY, "setup": {
-            "device": {"key": "synthetic-device", "label": "합성 카메라"},
-            "frame": {"width": 640, "height": 480},
-            "baseline": {
-                "baseline_id": self.baseline, "calibration_ms": 3000, "sample_count": 20,
-                "landmarks": {
-                    "nose": {"x": 0.5, "y": 0.4}, "left_eye": {"x": 0.52, "y": 0.37},
-                    "right_eye": {"x": 0.48, "y": 0.37}, "left_ear": {"x": 0.56, "y": 0.38},
-                    "right_ear": {"x": 0.44, "y": 0.38}, "mouth_left": {"x": 0.515, "y": 0.45},
-                    "mouth_right": {"x": 0.485, "y": 0.45}, "left_shoulder": {"x": 0.65, "y": 0.62},
-                    "right_shoulder": {"x": 0.35, "y": 0.62},
-                },
-            },
-        }})
+        self.baseline = register_baseline(self.account)
+        view = self.account.request(self.path, "PUT", {"policy": POLICY, "baseline_id": self.baseline})
         validate_view(view)
         return view
 
@@ -151,24 +165,25 @@ def scenario(endpoints, database):
     assert ended["events"][-1]["kind"] == "session_ended"
     owner.request(measurement.path + "/end", "POST", {"end_ms": 9500}, expected=409)
 
-    session = query(database, "SELECT monitor_session_id, end_reason, good_sec FROM monitor_session"
+    session = query(database, "SELECT monitor_session_id, ended_at, good_sec FROM monitor_session"
                               " WHERE client_session_uuid=%s", measurement.id)
-    key, reason, good = session[0]
-    assert (reason, str(good)) == ("USER_STOP", "3.0"), session
+    key, ended_at, good = session[0]
+    assert ended_at is not None and str(good) == "3.0", session
     excluded = query(database, "SELECT exclusion_reason FROM excluded_interval WHERE monitor_session_id=%s"
                                " ORDER BY started_at", key)
     assert [row[0] for row in excluded] == ["PAUSE", "UNMEASURABLE", "MISSING"], excluded
-    episodes = query(database, "SELECT end_reason FROM collapse_event WHERE monitor_session_id=%s", key)
-    assert episodes == (("RECOVERED",),), episodes
+    episodes = query(database, "SELECT recovered_at IS NOT NULL FROM collapse_event WHERE monitor_session_id=%s", key)
+    assert episodes == ((1,),), episodes
     daily = query(database, "SELECT valid_sec, good_sec, session_count, event_count FROM daily_stat"
                             " WHERE user_account_id=%s", int(owner.user_id))
     assert [tuple(str(value) for value in row) for row in daily] == [("6.0", "3.0", "1", "1")], daily
-    baseline = query(database, "SELECT calibration_uuid FROM baseline_posture WHERE user_account_id=%s",
+    baseline = query(database, "SELECT COUNT(*) FROM baseline_posture WHERE user_account_id=%s",
                      int(owner.user_id))
-    assert baseline == ((measurement.baseline,),), baseline
-    print("PASS: schema V2.2 rows: baseline, session end, exclusions, episode and daily statistics", flush=True)
+    assert baseline == ((1,),), baseline
+    assert owner.request("/v2/baselines/current")["baseline_id"] == measurement.baseline
+    print("PASS: schema V2.3 rows: baseline, session end, exclusions, episode and daily statistics", flush=True)
 
-    records = owner.request("/v1/records")
+    records = owner.request("/v2/records")
     assert [record["id"] for record in records] == [measurement.id], records
     assert (records[0]["total"], records[0]["good"], records[0]["server"]["confirmed"]) == (9, 3, True), records[0]
     print("PASS: the record is rebuilt from the session tables", flush=True)

@@ -23,13 +23,13 @@ class Client:
 
     def request(self, method, path, body=None, *, expected=200, csrf=True, identity=True, identity_override=None):
         headers = {"Content-Type": "application/json"}
-        protected = path.startswith(("/v1/workspace", "/v1/records", "/v1/sessions")) or path in (
-            "/v1/auth/logout", "/v1/auth/password", "/v1/auth/account",
+        protected = path.startswith(("/v2/workspace", "/v2/records", "/v2/sessions", "/v2/baselines")) or path in (
+            "/v2/auth/logout", "/v2/auth/password", "/v2/auth/account",
         )
         if protected and identity and (identity_override or self.user_id):
             headers["X-PoseGood-User-Id"] = identity_override or self.user_id
         if csrf and method not in ("GET", "HEAD"):
-            token = self.request("GET", "/v1/auth/csrf")
+            token = self.request("GET", "/v2/auth/csrf")
             headers[token["header_name"]] = token["token"]
         request = urllib.request.Request(
             self.base + path, method=method,
@@ -44,9 +44,9 @@ class Client:
             if response.status != expected:
                 raise AssertionError(method + " " + path + " returned " + str(response.status) + ", expected " + str(expected))
             document = json.loads(payload) if payload else None
-            if response.status == 200 and path in ("/v1/auth/register", "/v1/auth/login", "/v1/auth/me"):
+            if response.status == 200 and path in ("/v2/auth/register", "/v2/auth/login", "/v2/auth/me"):
                 self.user_id = document["user_id"]
-            if response.status == 204 and path in ("/v1/auth/logout", "/v1/auth/password", "/v1/auth/account"):
+            if response.status == 204 and path in ("/v2/auth/logout", "/v2/auth/password", "/v2/auth/account"):
                 self.user_id = None
             return document
 
@@ -73,8 +73,8 @@ def register(client, tag):
         "email": "synthetic-compose-" + tag + "@example.invalid",
         "password": secrets.token_urlsafe(24),
     }
-    view = client.request("POST", "/v1/auth/register", {
-        **credentials, "consent_version": "service-v1",
+    view = client.request("POST", "/v2/auth/register", {
+        **credentials, "consents": [{"type": t, "document_version": "service-v2"} for t in ("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER", "OPTIONAL_PROFILE")],
         "profile": {"name": "명시적 합성 Compose", "age": 30, "occupation": "synthetic regression"},
     })
     if not view.get("user_id") or view["email"] != credentials["email"]:
@@ -113,59 +113,65 @@ def synthetic_setup(baseline_id):
 def exercise_accounts(base):
     checks = 0
     anonymous = Client(base)
-    anonymous.request("GET", "/v1/auth/me", expected=401)
-    anonymous.request("POST", "/v1/auth/login", {"email": "synthetic@example.invalid", "password": "wrong"}, expected=403, csrf=False)
+    anonymous.request("GET", "/v2/auth/me", expected=401)
+    anonymous.request("POST", "/v2/auth/login", {"email": "synthetic@example.invalid", "password": "wrong"}, expected=403, csrf=False)
     checks += 2
     owner = Client(base)
     credentials, account = register(owner, uuid.uuid4().hex)
-    if owner.request("GET", "/v1/auth/me") != account:
+    if owner.request("GET", "/v2/auth/me") != account:
         raise AssertionError("Cookie authentication did not preserve the registered account")
     checks += 2
     session_id = str(uuid.uuid4())
-    baseline_id = str(uuid.uuid4())
-    created = owner.request("PUT", "/v1/sessions/" + session_id, {
-        "policy": {"hold_ms": 3000, "recovery_ms": 2000, "reminder_ms": 60000, "threshold": 0.7},
-        "setup": synthetic_setup(baseline_id),
+    from datetime import datetime, timezone
+    registration = {
+        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "calibration_ms": 3000, "sample_count": 20,
+        "landmarks": synthetic_setup(None)["baseline"]["landmarks"],
+    }
+    baseline_id = owner.request("POST", "/v2/baselines", registration)["baseline_id"]
+    created = owner.request("PUT", "/v2/sessions/" + session_id, {
+        "policy": {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7},
+        "baseline_id": baseline_id,
     })
     if created["session_id"] != session_id:
         raise AssertionError("Persistent session identity does not match its requested UUID")
-    owner.request("GET", "/v1/sessions/" + session_id, expected=409, identity=False)
-    owner.request("GET", "/v1/sessions/" + session_id, expected=409, identity_override=str(uuid.uuid4()))
+    owner.request("GET", "/v2/sessions/" + session_id, expected=409, identity=False)
+    owner.request("GET", "/v2/sessions/" + session_id, expected=409, identity_override=str(uuid.uuid4()))
     checks += 2
     feature = json.loads((ROOT / "contracts/examples/v2/synthetic-feature-request.json").read_text())
     feature["baseline_id"] = baseline_id
     for sequence in range(3):
         feature.update(sequence=sequence, start_ms=sequence * 1000, end_ms=(sequence + 1) * 1000)
-        reply = owner.request("POST", "/v1/sessions/" + session_id + "/features", feature)
+        reply = owner.request("POST", "/v2/sessions/" + session_id + "/features", feature)
     view = reply["session"]
     if view["summary"]["collapse_count"] != 1 or view["summary"]["valid_ms"] != 3000:
         raise AssertionError("Actual inference and the API decision engine did not confirm the synthetic 3-second deviation")
-    repeated = owner.request("POST", "/v1/sessions/" + session_id + "/features", feature)
+    repeated = owner.request("POST", "/v2/sessions/" + session_id + "/features", feature)
     if repeated != reply:
         raise AssertionError("Exact feature retry did not preserve the original committed result")
-    ended = owner.request("POST", "/v1/sessions/" + session_id + "/end", {"end_ms": 3000})
+    ended = owner.request("POST", "/v2/sessions/" + session_id + "/end", {"end_ms": 3000})
     if not ended["ended"] or ended["summary"]["valid_ms"] != 3000:
         raise AssertionError("Termination did not retain acknowledged valid time")
     checks += 4
     other = Client(base)
     register(other, uuid.uuid4().hex)
-    other.request("GET", "/v1/sessions/" + session_id, expected=404)
+    other.request("GET", "/v2/sessions/" + session_id, expected=404)
     checks += 1
     return {"owner": owner, "other": other, "credentials": credentials, "account": account,
             "session_id": session_id, "feature": copy.deepcopy(feature), "reply": reply, "checks": checks}
 
 
 def verify_restart_and_finish(base, state):
-    """Schema V2.2 keeps logins and finished sessions, not live decision state (ADR 0020)."""
+    """Schema V2.3 keeps logins and finished sessions, not live decision state (ADR 0020)."""
     owner = state["owner"]
-    owner.request("POST", "/v1/auth/login", state["credentials"])
-    if owner.request("GET", "/v1/auth/me")["user_id"] != state["account"]["user_id"]:
+    owner.request("POST", "/v2/auth/login", state["credentials"])
+    if owner.request("GET", "/v2/auth/me")["user_id"] != state["account"]["user_id"]:
         raise AssertionError("Account identity was lost after service restart")
-    metadata = owner.request("GET", "/v1/sessions/" + state["session_id"] + "/metadata")
+    metadata = owner.request("GET", "/v2/sessions/" + state["session_id"] + "/metadata")
     if metadata["ended_at"] is None or metadata["started_at"] is None:
         raise AssertionError("The finished session row was not kept across the restart")
-    lost = owner.request("GET", "/v1/sessions/" + state["session_id"], expected=404)
+    lost = owner.request("GET", "/v2/sessions/" + state["session_id"], expected=404)
     if lost["code"] != "SESSION_LOST":
         raise AssertionError("A session without live state must be reported as SESSION_LOST")
-    owner.request("POST", "/v1/sessions/" + state["session_id"] + "/features", state["feature"], expected=404)
+    owner.request("POST", "/v2/sessions/" + state["session_id"] + "/features", state["feature"], expected=404)
     return state["checks"] + 4

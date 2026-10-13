@@ -1,5 +1,7 @@
 # 계정·저장 API v1
 
+> 과거 계약. 현재 구현은 [DB V2.3 계정 API v2](accounts.v2.md)를 사용한다. 아래는 이전 형식의 기록이다.
+
 API의 같은 출처 HTTP 계약이다. 프론트의 `/api/v1/`는 Nginx·Vite가 API의 `/v1/`로 전달한다.
 기존 [특징·관측·사건·조회 계약](README.md)은 변경하지 않는다. API는 계정과 MySQL을 필수로 하며 계정 없는 모드는 없다.
 저장 구조는 DB 스키마 V2.2이다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)).

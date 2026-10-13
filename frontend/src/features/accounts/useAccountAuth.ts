@@ -110,13 +110,13 @@ export function useAccountAuth(stopCapture: () => void) {
     }
   }, [])
 
-  async function authenticate(email: string, password: string, registration?: Registration) {
+  async function authenticate(email: string, password: string, registration?: Registration, cancelWithdrawal = false) {
     if (authenticating.current) return
     authenticating.current = true
     const attempt = ++epoch.current
     setBusy(true)
     try {
-      const user = registration
+      const user = cancelWithdrawal ? await accountClient.cancelWithdrawal(email, password) : registration
         ? await accountClient.register(registration)
         : await accountClient.login(email, password)
       if (!alive.current || attempt !== epoch.current) return
@@ -144,7 +144,7 @@ export function useAccountAuth(stopCapture: () => void) {
   }
   function deleted() {
     broadcast()
-    reset('계정과 저장된 기록을 삭제했습니다.')
+    reset('탈퇴를 요청했습니다. 계정은 중지되며 30일 뒤 자료를 삭제합니다. 그 전에 탈퇴를 철회할 수 있습니다.')
   }
   function passwordChanged() {
     broadcast()

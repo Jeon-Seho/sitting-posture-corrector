@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AccountApiError, createAccountClient, ACCOUNT_ACCESS_LOST } from './client'
 import { accountUser, accountWorkspace, syntheticRecord, USER_A, USER_B } from './testFixtures'
-import { validAccountId } from './contracts'
+import { validAccountId, registrationConsents } from './contracts'
 import { validUser, validWorkspace } from './validation'
 
 const json = (value: unknown, status = 200) => Response.json(value, { status })
@@ -14,7 +14,7 @@ function signIn(client: ReturnType<typeof createAccountClient>, method: 'login' 
         email: accountUser.email,
         password: 'synthetic-password',
         profile: accountUser.profile,
-        consent_version: 'service-v1',
+        consents: registrationConsents(true),
       })
 }
 afterEach(() => vi.unstubAllGlobals())
@@ -29,7 +29,7 @@ describe('authenticated same-origin API boundary', () => {
     client.setIdentity(USER_A)
     const initial = accountWorkspace()
     await client.updateWorkspace(initial)
-    expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/api/v1/auth/csrf', '/api/v1/workspace'])
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/api/v2/auth/csrf', '/api/v2/workspace'])
     const headers = mutationHeaders(fetch.mock.calls[1])
     expect(headers.get('X-CSRF-TOKEN')).toBe('synthetic-token')
     expect(headers.get('X-PoseGood-User-Id')).toBe(USER_A)
@@ -44,7 +44,7 @@ describe('authenticated same-origin API boundary', () => {
   it('never sends account credentials to a foreign URL or accepts a missing identity', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>()
     const client = createAccountClient(fetch)
-    await expect(client.fetch('https://synthetic.invalid/api/v1/workspace')).rejects.toThrow(
+    await expect(client.fetch('https://synthetic.invalid/api/v2/workspace')).rejects.toThrow(
       '요청 주소',
     )
     await expect(client.workspace()).rejects.toThrow('로그인')
@@ -208,7 +208,7 @@ describe('authenticated same-origin API boundary', () => {
     const client = createAccountClient(fetch)
     client.setIdentity(USER_A)
     await expect(
-      client.fetch('/api/v1/sessions/synthetic', { method: 'PUT', body: '{}' }),
+      client.fetch('/api/v2/sessions/synthetic', { method: 'PUT', body: '{}' }),
     ).rejects.toBeInstanceOf(AccountApiError)
     expect(expired).toHaveBeenCalledOnce()
     await expect(client.workspace()).rejects.toMatchObject({ status: 401 })

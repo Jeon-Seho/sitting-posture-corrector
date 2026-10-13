@@ -19,11 +19,12 @@ export function validUser(value: unknown): value is AccountUser {
 export function validWorkspace(value: unknown): value is AccountWorkspace {
   return (
     object(value) &&
-    value.schema_version === '1.0' &&
+    value.schema_version === '2.0' &&
     validProfile(value.profile) &&
     validRules(value.rules) &&
     object(value.preferences) &&
     typeof value.preferences.alerts_on === 'boolean' &&
+    object(value.consents) && typeof value.consents.optional_profile === 'boolean' &&
     Array.isArray(value.records) &&
     value.records.every(validRecord) &&
     new Set(value.records.map((record) => record.id)).size === value.records.length

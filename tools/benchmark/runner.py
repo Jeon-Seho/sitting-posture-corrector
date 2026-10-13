@@ -5,7 +5,8 @@ import json
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
 from ..runtime import ROOT
 from ..service_contract import (
@@ -18,7 +19,9 @@ from .measurement import Sample, summarize
 
 
 FIXTURE = ROOT / "contracts/examples/v2/synthetic-feature-request.json"
-POLICY = {"hold_ms": 3000, "recovery_ms": 2000, "reminder_ms": 60000, "threshold": 0.7}
+# A new account measures with the seeded default policy (database/seed/seed_04_threshold_policy.sql);
+# the API rejects a session whose policy differs from the account's current one.
+POLICY = {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7}
 MODEL_VERSION = "reference-feature-rule-v1"
 
 
@@ -36,6 +39,14 @@ def load_fixture():
     }
 
 
+@dataclass(frozen=True)
+class Credentials:
+    """A signed-in synthetic account: request headers and its current baseline ID."""
+
+    headers: dict
+    baseline_id: str
+
+
 @dataclass
 class Worker:
     index: int
@@ -44,11 +55,15 @@ class Worker:
     end_ms: int = 0
     blocked: bool = False
     created: bool = False
+    headers: dict = field(default_factory=dict)
+    baseline_id: Optional[str] = None
 
 
 def request_body(fixture, worker):
     body = copy.deepcopy(fixture)
     body.update(sequence=worker.sequence, start_ms=worker.end_ms, end_ms=worker.end_ms + 1000)
+    if worker.baseline_id:
+        body["baseline_id"] = worker.baseline_id
     return body
 
 
@@ -104,8 +119,8 @@ def run_phase(name, count, offset, workers, fixture, target, endpoints, client, 
                 reply = client.request(endpoints.inference, "/v2/infer", "POST", body,
                                        lambda value: validate_inferred(value, body))
             else:
-                reply = client.request(endpoints.api, "/v1/sessions/" + worker.session_id + "/features", "POST", body,
-                                       lambda value: validate_feature(value, body, worker))
+                reply = client.request(endpoints.api, "/v2/sessions/" + worker.session_id + "/features", "POST", body,
+                                       lambda value: validate_feature(value, body, worker), headers=worker.headers)
             samples.append(reply.sample)
             if reply.sample.outcome == "success" or target == "infer":
                 worker.sequence += 1
@@ -128,19 +143,26 @@ def run_phase(name, count, offset, workers, fixture, target, endpoints, client, 
     }
 
 
-def run_target(target, config, endpoints, fixture, run_id, client=None, clock=time.perf_counter):
+def run_target(target, config, endpoints, fixture, run_id, client=None, clock=time.perf_counter, sign_in=None):
+    """`sign_in(endpoints)` returns Credentials; the features target gives each worker its own account."""
     client = client or HttpClient(config.timeout)
     workers = [Worker(index, str(uuid.uuid5(uuid.UUID(run_id), "synthetic-worker-" + str(index)))) for index in range(config.concurrency)]
     deadline = clock() + config.max_duration
     lifecycle = {"create": [], "end": []}
     if target == "features":
+        if sign_in is None:
+            raise ValueError("the features target needs sign_in for the login-only API")
         for worker in workers:
             if clock() >= deadline:
                 lifecycle["create"].append(Sample("skipped", skip_reason="duration_limit"))
                 worker.blocked = True
                 continue
-            reply = client.request(endpoints.api, "/v1/sessions/" + worker.session_id, "PUT", {"policy": POLICY},
-                                   lambda value: validate_session(value, worker, initial=True))
+            # Account setup (register, CSRF, baseline) stays outside every measured sample.
+            credentials = sign_in(endpoints)
+            worker.headers, worker.baseline_id = credentials.headers, credentials.baseline_id
+            reply = client.request(endpoints.api, "/v2/sessions/" + worker.session_id, "PUT",
+                                   {"policy": POLICY, "baseline_id": worker.baseline_id},
+                                   lambda value: validate_session(value, worker, initial=True), headers=worker.headers)
             lifecycle["create"].append(reply.sample)
             worker.created = reply.sample.outcome == "success"
             worker.blocked = not worker.created
@@ -149,12 +171,12 @@ def run_target(target, config, endpoints, fixture, run_id, client=None, clock=ti
     if target == "features":
         for worker in workers:
             if worker.created:
-                reply = client.request(endpoints.api, "/v1/sessions/" + worker.session_id + "/end", "POST", {"end_ms": worker.end_ms},
-                                       lambda value: validate_session(value, worker, ended=True))
+                reply = client.request(endpoints.api, "/v2/sessions/" + worker.session_id + "/end", "POST", {"end_ms": worker.end_ms},
+                                       lambda value: validate_session(value, worker, ended=True), headers=worker.headers)
                 lifecycle["end"].append(reply.sample)
     return {
         "target": target,
-        "scope": "HTTP POST /v2/infer only" if target == "infer" else "HTTP API /features -> inference /v2/infer -> CEP observe -> API snapshot",
+        "scope": "HTTP POST /v2/infer only" if target == "infer" else "HTTP API /features -> inference /v2/infer -> API decision engine and DB writes",
         "execution": "sequential" if config.concurrency == 1 else "concurrent independent sessions; sequential requests within each worker",
         "worker_count": len(workers),
         "warmup": warmup, "measurement": measurement,

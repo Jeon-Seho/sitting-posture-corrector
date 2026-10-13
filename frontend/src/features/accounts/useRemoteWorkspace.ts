@@ -52,6 +52,7 @@ export function useRemoteWorkspace(
   const demo = useMemo(() => demoPreference(userId), [userId])
   const [showDemo, setDemoState] = useState(demo.read)
   const [alertsOn, setAlertsOn] = useState(initial.preferences.alerts_on)
+  const [optionalProfile, setOptionalProfile] = useState(initial.consents.optional_profile)
   const [records, setRecords] = useState(initial.records)
   const [draft, setDraft] = useState(loaded.draft)
   const [storageIssues, setStorageIssues] = useState(loaded.issues)
@@ -83,6 +84,7 @@ export function useRemoteWorkspace(
     setProfile(value.profile)
     setRules(value.rules)
     setAlertsOn(value.preferences.alerts_on)
+    setOptionalProfile(value.consents.optional_profile)
     setRecords(value.records)
   }
 
@@ -139,6 +141,14 @@ export function useRemoteWorkspace(
       })
   }
 
+  function optionalConsent(agreed: boolean) {
+    if (!requireWriter()) return Promise.reject(new Error('저장 권한을 확인해 주세요.'))
+    return enqueue(async () => {
+      const value = await accountClient.optionalConsent(agreed)
+      if (alive.current) adopt(value)
+    })
+  }
+
   const repository = useMemo<SessionRepository>(
     () => ({
       readDraft: storage.readDraft,
@@ -182,5 +192,5 @@ export function useRemoteWorkspace(
     setShowDemo,
     setDraft,
   }
-  return { workspace, repository, alertsOn, saving, update, storage }
+  return { workspace, repository, alertsOn, optionalProfile, optionalConsent, saving, update, storage }
 }

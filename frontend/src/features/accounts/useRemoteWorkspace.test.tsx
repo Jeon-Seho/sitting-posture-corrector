@@ -36,7 +36,8 @@ describe('account workspace operation ordering', () => {
       removeItem: (key: string) => storage.delete(key),
     })
     client.updateWorkspace.mockImplementation(async (value: WorkspaceUpdate) => ({
-      schema_version: '1.0',
+      schema_version: '2.0',
+      consents: { optional_profile: true },
       ...value,
       records: [],
     }))

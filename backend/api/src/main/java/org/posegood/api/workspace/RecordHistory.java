@@ -6,6 +6,7 @@ import org.posegood.api.common.Json;
 import org.posegood.api.common.KstTime;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.SessionService;
+import org.posegood.api.session.BaselineRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -43,9 +44,11 @@ class RecordHistory {
     List<JsonNode> list(long owner) {
         var rows =
                 jdbc.query(
-                        "SELECT m.monitor_session_id,m.client_session_uuid,m.calibration_uuid,"
-                                + "m.started_at,m.ended_at,m.end_reason,m.good_sec,p.threshold,"
-                                + "p.hold_seconds,p.recover_seconds,p.realert_seconds,p.notify_max_per_hour"
+                        "SELECT m.monitor_session_id,m.client_session_uuid,m.baseline_posture_id,"
+                                + "m.started_at,m.ended_at,CASE WHEN EXISTS (SELECT 1 FROM excluded_interval lost"
+                                + " WHERE lost.monitor_session_id=m.monitor_session_id AND lost.exclusion_reason='MISSING'"
+                                + " AND lost.started_at=m.started_at AND lost.ended_at=m.ended_at) THEN 'ERROR' ELSE 'STORED' END,m.good_sec,p.threshold,"
+                                + "p.hold_seconds,p.recover_seconds,p.realert_seconds"
                                 + " FROM monitor_session m JOIN threshold_policy p ON"
                                 + " p.threshold_policy_id=m.threshold_policy_id WHERE m.user_account_id=?"
                                 + " AND m.ended_at IS NOT NULL ORDER BY m.started_at DESC,"
@@ -54,7 +57,7 @@ class RecordHistory {
                                 new Session(
                                         row.getLong(1),
                                         UUID.fromString(row.getString(2)),
-                                        UUID.fromString(row.getString(3)),
+                                        BaselineRepository.publicId(owner, row.getLong(3)),
                                         row.getObject(4, LocalDateTime.class),
                                         row.getObject(5, LocalDateTime.class),
                                         row.getString(6),
@@ -63,8 +66,7 @@ class RecordHistory {
                                                 row.getBigDecimal(8),
                                                 row.getBigDecimal(9),
                                                 row.getBigDecimal(10),
-                                                row.getInt(11),
-                                                row.getInt(12))),
+                                                row.getInt(11))),
                         owner);
         if (rows.isEmpty()) return List.of();
         var starts = new HashMap<Long, LocalDateTime>();
@@ -74,7 +76,7 @@ class RecordHistory {
         jdbc.query(
                 "SELECT x.monitor_session_id,x.event_seq,x.attempted_at FROM correction_alert x"
                         + OWNED_CLOSED
-                        + " ORDER BY x.monitor_session_id,x.event_seq,x.attempt_seq",
+                        + " ORDER BY x.monitor_session_id,x.event_seq,x.attempted_at",
                 row -> {
                     long key = row.getLong(1);
                     alerts.computeIfAbsent(key, k -> new HashMap<>())
@@ -85,7 +87,8 @@ class RecordHistory {
         var episodes = new HashMap<Long, List<RecordRebuild.Episode>>();
         jdbc.query(
                 "SELECT x.monitor_session_id,x.event_seq,x.started_at,x.confirmed_at,x.ended_at,"
-                        + "x.end_reason FROM collapse_event x"
+                        + "CASE WHEN x.recovered_at IS NOT NULL THEN 'RECOVERED'"
+                        + " WHEN x.ended_at=m.ended_at THEN 'SESSION_END' ELSE 'EXCLUDED' END FROM collapse_event x"
                         + OWNED_CLOSED
                         + " ORDER BY x.monitor_session_id,x.event_seq",
                 row -> {

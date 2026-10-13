@@ -1,7 +1,7 @@
 import type { LiveState, Machine, Rules } from '../../lib/engine'
 import type { ServerCheckpoint, SessionView } from '../session/server/contracts'
 
-export type Profile = { name: string; age: number; occupation: string }
+export type Profile = { name: string; age: number | null; occupation: string | null }
 export type Mode = 'camera' | 'demo'
 export type RecordItem = {
   id: string

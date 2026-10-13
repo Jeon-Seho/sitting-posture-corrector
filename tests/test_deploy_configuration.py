@@ -263,7 +263,9 @@ class DeploymentConfigurationTests(unittest.TestCase):
             # Bundled release metadata and host state intentionally use different formatting.
             (release / "images.json").write_text(json.dumps(document))
         payload = {"secrets": {}, "registry_user": "synthetic-user", "registry_token": "synthetic-token"}
-        with patch("tools.deploy.host.require_daemon"), \
+        # Manifest idempotence is platform-independent; native locking is covered above.
+        with patch("tools.deploy.host.deployment_lock"), \
+                patch("tools.deploy.host.require_daemon"), \
                 patch("tools.deploy.host.create_secrets", return_value=self.folder / "secrets"), \
                 patch("tools.deploy.host.backup_database"), \
                 patch("tools.deploy.host.run"), \

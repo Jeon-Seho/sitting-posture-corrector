@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * /v1/workspace·/v1/records HTTP 경로: 설정과 기록.
+ * /v2/workspace·/v2/records HTTP 경로: 설정과 기록.
  *
- * 계약: contracts/accounts.v1.md.
+ * 계약: contracts/accounts.v2.md.
  */
 @RestController
-@RequestMapping("/v1")
+@RequestMapping("/v2")
 public class WorkspaceController {
     private final WorkspaceService workspace;
     private final CurrentUser current;
@@ -35,6 +35,13 @@ public class WorkspaceController {
     public JsonNode update(@RequestBody JsonNode body) {
         return workspace.update(current.id(), body);
     }
+
+    @PutMapping("/consents/optional-profile")
+    public JsonNode optionalConsent(@jakarta.validation.Valid @RequestBody OptionalConsent body) {
+        return workspace.optionalConsent(current.id(), body.agreed(), body.documentVersion());
+    }
+
+    public record OptionalConsent(boolean agreed, @jakarta.validation.constraints.NotBlank String documentVersion) {}
 
     /** 기록 목록. */
     @GetMapping("/records")

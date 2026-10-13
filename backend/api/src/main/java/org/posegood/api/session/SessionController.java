@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 /**
- * /v1/sessions/* 측정 HTTP 경로: 생성, 특징 입력, 종료, 조회, 메타데이터, 삭제.
+ * /v2/sessions/* 측정 HTTP 경로: 생성, 특징 입력, 종료, 조회, 메타데이터, 삭제.
  *
- * 계약: contracts/accounts.v1.md, contracts/README.md.
+ * 계약: contracts/accounts.v2.md, contracts/README.md.
  */
 @RestController
-@RequestMapping("/v1/sessions")
+@RequestMapping("/v2/sessions")
 public class SessionController {
     private final SessionService sessions;
     private final CurrentUser current;

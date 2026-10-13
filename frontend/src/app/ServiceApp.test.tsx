@@ -400,16 +400,6 @@ describe('service recovery and saving with synthetic storage only', () => {
       deviceId: 'synthetic-device',
       frameWidth: 640,
       frameHeight: 480,
-      setup: {
-        device: { key: 'synthetic-device', label: '카메라' },
-        frame: { width: 640, height: 480 },
-        baseline: expect.objectContaining({
-          baseline_id: BASELINE_ID,
-          calibration_ms: 5000,
-          sample_count: 20,
-          landmarks: SYNTHETIC_LANDMARKS,
-        }),
-      },
     })
     controls.camera.baseline!.headGap = 9
     controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'

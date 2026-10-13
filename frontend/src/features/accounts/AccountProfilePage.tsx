@@ -20,6 +20,8 @@ type Props = {
   onSettings: () => void
   onDeleted: () => void
   onPasswordChanged: () => void
+  optionalProfile: boolean
+  onOptionalProfile: (agreed: boolean) => Promise<unknown>
 }
 
 export function AccountProfilePage(props: Props) {
@@ -34,10 +36,12 @@ export function AccountProfilePage(props: Props) {
     onSettings,
     onDeleted,
     onPasswordChanged,
+    optionalProfile,
+    onOptionalProfile,
   } = props
   const [name, setName] = useState(profile.name)
   const [age, setAge] = useState(profile.age)
-  const [occupation, setOccupation] = useState(profile.occupation)
+  const [occupation, setOccupation] = useState(profile.occupation ?? '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [deletePassword, setDeletePassword] = useState('')
@@ -55,7 +59,7 @@ export function AccountProfilePage(props: Props) {
   useEffect(() => {
     setName(profile.name)
     setAge(profile.age)
-    setOccupation(profile.occupation)
+    setOccupation(profile.occupation ?? '')
   }, [profile.name, profile.age, profile.occupation])
 
   async function run(action: () => Promise<unknown>, success: string) {
@@ -92,7 +96,7 @@ export function AccountProfilePage(props: Props) {
             className="profile-form"
             onSubmit={(event) => {
               event.preventDefault()
-              const next = { name: name.trim(), age, occupation: occupation.trim() }
+              const next = { name: name.trim(), age: optionalProfile ? age : null, occupation: optionalProfile ? occupation.trim() || null : null }
               if (!validProfile(next)) {
                 setMessage('이름·나이·직업을 확인해 주세요.')
                 return
@@ -104,7 +108,12 @@ export function AccountProfilePage(props: Props) {
               form={{ name, age, occupation, setName, setAge, setOccupation }}
               canWrite={canWrite && !busy}
               nameMax={ACCOUNT_NAME_MAX}
+              optional optionalEnabled={optionalProfile}
             />
+            <label className="row"><input type="checkbox" checked={optionalProfile} disabled={!canWrite || busy}
+              onChange={event => { const agreed = event.target.checked; void run(() => onOptionalProfile(agreed), '선택 정보 동의를 변경했습니다.') }} />
+              나이·직업 보관 동의 (철회하면 저장된 나이·직업이 삭제됩니다.)
+            </label>
             <button className="btn btn-primary" disabled={!canWrite || busy}>
               변경 저장
             </button>
@@ -161,7 +170,7 @@ export function AccountProfilePage(props: Props) {
       </div>
       <Card title="회원 탈퇴">
         <p className="profile-text">
-          계정과 저장된 설정·측정 기록을 삭제합니다. 직접 내려받은 파일은 삭제하지 않습니다. 진행
+          탈퇴를 접수하면 계정 사용을 중지하고 30일 뒤 설정·측정 기록을 삭제합니다. 유예 중에는 탈퇴를 철회할 수 있습니다. 직접 내려받은 파일은 삭제하지 않습니다. 진행
           중인 측정과 결과 저장을 마친 뒤 탈퇴해 주세요.
         </p>
         <button
@@ -191,7 +200,7 @@ export function AccountProfilePage(props: Props) {
             onDeleted()
           }}
         >
-          <p>삭제한 계정과 측정 기록은 되돌릴 수 없습니다. 비밀번호를 입력하고 확인해 주세요.</p>
+          <p>탈퇴 후 30일 동안 자료를 보관하며 로그인 화면에서 탈퇴를 철회할 수 있습니다. 비밀번호를 입력하고 확인해 주세요.</p>
           <label className="field">
             비밀번호 확인
             <input

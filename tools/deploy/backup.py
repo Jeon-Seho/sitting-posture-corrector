@@ -45,6 +45,8 @@ def backup_database(project, destination, env, root=ROOT):
             if process is not None:
                 process.kill()
                 process.wait(timeout=10)
+            # Windows cannot unlink an open output file. Close our handle before cleanup.
+            output.close()
             target.unlink(missing_ok=True)
             raise
         finally:

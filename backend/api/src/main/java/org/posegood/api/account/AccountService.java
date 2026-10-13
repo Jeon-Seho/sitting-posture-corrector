@@ -18,7 +18,7 @@ import java.util.Locale;
 /**
  * 계정 규칙 처리: 가입, 비밀번호 변경, 탈퇴 접수·철회, 유예 후 일괄 삭제.
  *
- * 근거: contracts/accounts.v1.md, database/README.md 9장(스키마 V2.2).
+ * 근거: contracts/accounts.v2.md, database/README.md 9장(스키마 V2.2).
  */
 @Service
 public class AccountService {
@@ -26,6 +26,7 @@ public class AccountService {
 
     private final AccountRepository accounts;
     private final ThresholdPolicyRepository policies;
+    private final ConsentRepository consents;
     private final PasswordEncoder passwords;
     private final UserLocks locks;
     private final TransactionTemplate tx;
@@ -35,6 +36,7 @@ public class AccountService {
     public AccountService(
             AccountRepository accounts,
             ThresholdPolicyRepository policies,
+            ConsentRepository consents,
             PasswordEncoder passwords,
             UserLocks locks,
             TransactionTemplate tx,
@@ -42,6 +44,7 @@ public class AccountService {
             @Value("${posegood.withdrawal-grace-days}") int graceDays) {
         this.accounts = accounts;
         this.policies = policies;
+        this.consents = consents;
         this.passwords = passwords;
         this.locks = locks;
         this.tx = tx;
@@ -67,16 +70,18 @@ public class AccountService {
     /** 가입: 비밀번호 규칙·동의 확인 후 기본 판정 정책으로 계정을 만든다. */
     public AccountRepository.Account register(AccountContracts.Register body) {
         requireNewPassword(body.password());
-        if (!"service-v1".equals(body.consentVersion()))
-            throw new ApiError(400, "CONSENT_REQUIRED", "service storage consent required");
+        ConsentRepository.validate(body.consents(), body.profile());
         long id =
                 tx.execute(
-                        status ->
-                                accounts.insert(
+                        status -> {
+                                long owner = accounts.insert(
                                         normalize(body.email()),
                                         passwords.encode(body.password()),
                                         body.profile(),
-                                        policies.defaultId()));
+                                        policies.defaultId());
+                                consents.insert(owner, body.consents());
+                                return owner;
+                        });
         return requireActive(id);
     }
 
@@ -129,7 +134,7 @@ public class AccountService {
             throw new ApiError(401, "INVALID_CREDENTIALS", "invalid credentials");
         if (account.active()) return account;
         boolean reopened =
-                locks.withLock(account.id(), () -> tx.execute(status -> accounts.reopen(account.id())));
+                locks.withLock(account.id(), () -> tx.execute(status -> accounts.reopen(account.id(), KstTime.now(), graceDays)));
         if (!reopened)
             throw new ApiError(409, "WITHDRAWAL_NOT_CANCELLABLE", "withdrawal is already processing");
         return requireActive(account.id());

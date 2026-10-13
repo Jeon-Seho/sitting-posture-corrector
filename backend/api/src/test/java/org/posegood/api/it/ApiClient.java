@@ -47,15 +47,18 @@ final class ApiClient {
 
     /** CSRF 토큰 새로 받기. 로그인·로그아웃 뒤마다 필요하다. */
     void refreshCsrf() throws Exception {
-        csrf = get("/v1/auth/csrf").body().get("token").asText();
+        csrf = get("/v2/auth/csrf").body().get("token").asText();
     }
 
     Response register(String email) throws Exception {
         refreshCsrf();
         var body = MAPPER.createObjectNode();
-        body.put("email", email).put("password", "synthetic-password-1").put("consent_version", "service-v1");
+        body.put("email", email).put("password", "synthetic-password-1");
+        var consents = body.putArray("consents");
+        for (var type : java.util.List.of("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER", "OPTIONAL_PROFILE"))
+            consents.addObject().put("type", type).put("document_version", "service-v2");
         body.putObject("profile").put("name", "합성 사용자").put("age", 30).put("occupation", "합성 시험");
-        var response = post("/v1/auth/register", body);
+        var response = post("/v2/auth/register", body);
         if (response.status() == 200) userId = response.body().get("user_id").asText();
         refreshCsrf();
         return response;
@@ -64,7 +67,7 @@ final class ApiClient {
     Response login(String email, String password) throws Exception {
         refreshCsrf();
         var body = MAPPER.createObjectNode().put("email", email).put("password", password);
-        var response = post("/v1/auth/login", body);
+        var response = post("/v2/auth/login", body);
         if (response.status() == 200) userId = response.body().get("user_id").asText();
         refreshCsrf();
         return response;

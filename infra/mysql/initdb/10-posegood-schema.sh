@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs once, on an empty MySQL volume, from the official image entrypoint.
-# Applies the DB owner's schema V2.2 and master seed from database/ unchanged
+# Applies the DB owner's schema V2.3 and master seed from database/ unchanged
 # (database/README.md section 1). POSEGOOD_DB_INIT_SCHEMA=false leaves the schema
 # empty for an exact restore target. Existing volumes are never touched here.
 
@@ -11,7 +11,7 @@ else
     # Executed rather than sourced: use the init server's local socket as root.
     docker_process_sql() { mysql --protocol=socket -uroot -p"${MYSQL_ROOT_PASSWORD}"; }
   fi
-  for file in /posegood-db/schema/schema_V2_2.sql /posegood-db/seed/seed_0*.sql; do
+  for file in /posegood-db/schema/schema_V2_3.sql /posegood-db/seed/seed_0*.sql; do
     echo "posegood: applying ${file#/posegood-db/}"
     docker_process_sql < "$file"
   done

@@ -328,7 +328,7 @@ export function validFeatureResponse(
 }
 
 /** Nine on-frame coordinates; the DB stores five decimals and rejects values outside 0..1. */
-const validLandmarks = (v: unknown) =>
+export const validLandmarks = (v: unknown): v is import('../../../../../model/prototype/pose').Anchors =>
   object(v) &&
   exact(v, Object.keys(BASELINE_LANDMARKS)) &&
   Object.values(v).every(
@@ -371,7 +371,7 @@ function validPending(v: unknown, baselineId: string, rules?: Rules): v is Serve
   if (v.kind === 'create')
     return (
       // Drafts saved before DB schema V1.1 carry only the policy.
-      (exact(v.body, ['policy']) ||
+      ((exact(v.body, ['policy', 'baseline_id']) && v.body.baseline_id === baselineId) || exact(v.body, ['policy']) ||
         (exact(v.body, ['policy', 'setup']) && validSetup(v.body.setup, baselineId))) &&
       validPolicy(v.body.policy) &&
       (rules === undefined || samePolicy(v.body.policy, policyFor(rules)))

@@ -6,12 +6,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.posegood.api.account.AccountContracts;
 import org.posegood.api.account.AccountRepository;
 import org.posegood.api.account.AccountService;
+import org.posegood.api.account.ConsentRepository;
 import org.posegood.api.account.UserLocks;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.Json;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.SessionService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,8 @@ public class WorkspaceService {
     private final ServerRecordVerifier verifier;
     private final RecordHistory history;
     private final UserLocks locks;
+    private final ConsentRepository consents;
+    private final TransactionTemplate tx;
 
     public WorkspaceService(
             Json json,
@@ -44,7 +48,7 @@ public class WorkspaceService {
             SessionService sessions,
             ServerRecordVerifier verifier,
             RecordHistory history,
-            UserLocks locks) {
+            UserLocks locks, ConsentRepository consents, TransactionTemplate tx) {
         this.json = json;
         this.accounts = accounts;
         this.accountRows = accountRows;
@@ -53,19 +57,22 @@ public class WorkspaceService {
         this.verifier = verifier;
         this.history = history;
         this.locks = locks;
+        this.consents = consents;
+        this.tx = tx;
     }
 
     /**
      * 설정 + 기록 조회.
      *
-     * {@code alerts_on} is the 「자세 알림」 switch, `user_account.alert_enabled` (V2.2).
+     * {@code alerts_on} is the 「자세 알림」 switch, `user_account.sound_alert_enabled` (V2.3).
      */
     public ObjectNode get(long owner) {
         var account = accounts.requireActive(owner);
         var policy = policies.read(account.policyId());
-        ObjectNode result = (ObjectNode) json.tree(Map.of("schema_version", "1.0", "profile", account.profile()));
+        ObjectNode result = (ObjectNode) json.tree(Map.of("schema_version", "2.0", "profile", account.profile()));
         result.set("rules", RecordRebuild.rules(policy));
         result.putObject("preferences").put("alerts_on", account.alertsEnabled());
+        result.putObject("consents").put("optional_profile", consents.optional(owner));
         result.set("records", json.tree(records(owner)));
         return result;
     }
@@ -73,7 +80,7 @@ public class WorkspaceService {
     /**
      * 설정 저장: 프로필, 판정 기준, 자세 알림.
      *
-     * {@code PUT /v1/workspace}는 {profile, rules, preferences} 전체를 받는다. 기록은 바꾸지 않는다.
+     * {@code PUT /v2/workspace}는 {profile, rules, preferences} 전체를 받는다. 기록은 바꾸지 않는다.
      */
     public ObjectNode update(long owner, JsonNode body) {
         RecordValidator.shape(body, Set.of("profile", "rules", "preferences"), Set.of());
@@ -88,21 +95,22 @@ public class WorkspaceService {
                         rules.get("realertSeconds").asDouble(),
                         rules.get("threshold").asDouble());
         var profile = json.convert(body.get("profile"), AccountContracts.Profile.class);
-        if (profile.name() == null
-                || profile.name().isBlank()
-                || profile.name().length() > 30
-                || profile.age() < 1
-                || profile.age() > 120
-                || profile.occupation() == null
-                || profile.occupation().isBlank()
-                || profile.occupation().length() > 80) RecordValidator.invalid();
         boolean alerts = body.get("preferences").get("alerts_on").asBoolean();
         locks.run(
                 owner,
-                () -> {
+                () -> tx.executeWithoutResult(status -> {
                     accounts.requireActive(owner);
+                    ConsentRepository.validateProfile(profile, consents.optional(owner));
                     accountRows.updateSettings(owner, profile, policies.resolve(values), alerts);
-                });
+                }));
+        return get(owner);
+    }
+
+    public ObjectNode optionalConsent(long owner, boolean agreed, String version) {
+        locks.run(owner, () -> tx.executeWithoutResult(status -> {
+            accounts.requireActive(owner);
+            consents.optional(owner, agreed, version);
+        }));
         return get(owner);
     }
 

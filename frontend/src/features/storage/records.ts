@@ -25,7 +25,7 @@ export function resumeMachine(machine: Machine): Machine {
   return restored
 }
 export function validateProfile(input: Profile): Profile | null {
-  const next = { name: input.name.trim(), age: input.age, occupation: input.occupation.trim() }
+  const next = { name: input.name.trim(), age: input.age, occupation: input.occupation?.trim() ?? null }
   return validProfile(next) ? next : null
 }
 /** Close at the last checkpoint; never add offline time to a recovered session. */

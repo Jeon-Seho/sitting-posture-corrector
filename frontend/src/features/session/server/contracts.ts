@@ -107,7 +107,7 @@ export type ServerSetup = {
 }
 
 export type ServerPendingRequest =
-  | { kind: 'create'; body: { policy: ServerPolicy; setup?: ServerSetup } }
+  | { kind: 'create'; body: { policy: ServerPolicy; baseline_id?: string; setup?: ServerSetup } }
   | { kind: 'features'; body: FrameRequest }
   | { kind: 'end'; body: { end_ms: number } }
 

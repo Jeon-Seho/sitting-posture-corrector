@@ -9,10 +9,14 @@ export function ProfileFields({
   form,
   canWrite,
   nameMax = 50,
+  optional = false,
+  optionalEnabled = true,
 }: {
   form: ProfileFieldValues
   canWrite: boolean
   nameMax?: number
+  optional?: boolean
+  optionalEnabled?: boolean
 }) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
   return (
@@ -29,26 +33,26 @@ export function ProfileFields({
         />
       </label>
       <label className="field">
-        나이
+        나이{optional && ' (선택)'}
         <ValidatedInput name="age" validationLabel="나이"
           className="input"
-          disabled={!canWrite}
+          disabled={!canWrite || !optionalEnabled}
           type="number"
-          min={1}
+          min={optional ? 14 : 1}
           max={120}
-          value={age}
-          onChange={(e) => setAge(Number(e.target.value))}
-          required
+          value={age ?? ''}
+          onChange={(e) => setAge(e.target.value === '' ? null : Number(e.target.value))}
+          required={!optional}
         />
       </label>
       <label className="field">
-        직업
+        직업{optional && ' (선택)'}
         <ValidatedInput name="occupation" validationLabel="직업"
           className="input"
-          disabled={!canWrite}
+          disabled={!canWrite || !optionalEnabled}
           value={occupation}
           onChange={(e) => setOccupation(e.target.value)}
-          required
+          required={!optional}
           maxLength={80}
         />
       </label>

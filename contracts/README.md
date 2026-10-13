@@ -1,6 +1,6 @@
 # AI·서비스 경계 계약
 
-MySQL 계정 모드의 로그인·CSRF·소유권·설정/기록/삭제 경로는 [계정·저장 API v1](accounts.v1.md)을 따른다.
+MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API v2](accounts.v2.md)를 따른다.
 AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초안](realtime/README.md)에 있다(팀 확인 전).
 

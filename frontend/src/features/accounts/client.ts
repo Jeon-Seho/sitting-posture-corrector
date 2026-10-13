@@ -3,6 +3,8 @@ import type { RecordItem } from '../storage/types'
 import { validRecord } from '../storage/validation'
 import { sameSnapshot } from '../storage/serverSnapshots'
 import { validUser, validWorkspace } from './validation'
+import { CONSENT_VERSION } from './contracts'
+import { validBaseline, type SavedBaseline } from './baseline'
 
 export const ACCOUNT_ACCESS_LOST = 'posegood:account-access-lost'
 export class AccountApiError extends Error {
@@ -17,6 +19,7 @@ export class AccountApiError extends Error {
 }
 
 function errorMessage(status: number, code: string) {
+  if (code === 'ACCOUNT_CLOSED') return '탈퇴 대기 중인 계정입니다. 30일 이내라면 탈퇴 철회 후 로그인할 수 있습니다.'
   if (code === 'AUTH_CHANGED') return '로그인한 계정이 바뀌었습니다. 다시 로그인해 주세요.'
   if (status === 401) return '로그인 정보나 현재 비밀번호를 확인해 주세요.'
   if (status === 403) return '요청을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.'
@@ -33,8 +36,8 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
   let authGeneration = 0
   let csrf: Promise<{ header_name: string; token: string }> | null = null
   const protectedPath = (path: string) =>
-    /^\/api\/v1\/(workspace|records|sessions)(\/|$)/.test(path) ||
-    /^\/api\/v1\/auth\/(logout|password|account)$/.test(path)
+    /^\/api\/v2\/(workspace|records|sessions|baselines|consents)(\/|$)/.test(path) ||
+    /^\/api\/v2\/auth\/(logout|password|account)$/.test(path)
 
   function setIdentity(userId: string | null) {
     authGeneration++
@@ -45,7 +48,7 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
   async function csrfToken(signal?: AbortSignal) {
     if (!csrf) {
       csrf = (async () => {
-        const response = await fetchRequest('/api/v1/auth/csrf', {
+        const response = await fetchRequest('/api/v2/auth/csrf', {
           credentials: 'same-origin',
           cache: 'no-store',
           signal,
@@ -70,7 +73,7 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
   }
 
   async function fetchAuthenticated(input: RequestInfo | URL, init: RequestInit = {}) {
-    if (typeof input !== 'string' || !input.startsWith('/api/v1/'))
+    if (typeof input !== 'string' || !input.startsWith('/api/v2/'))
       throw new AccountApiError('올바르지 않은 요청 주소입니다.')
     const owner = identity
     const ownerGeneration = authGeneration
@@ -122,7 +125,7 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
     signal?.addEventListener('abort', cancel, { once: true })
     const timer = setTimeout(cancel, 10000)
     try {
-      const response = await fetchAuthenticated(`/api/v1/${path}`, {
+      const response = await fetchAuthenticated(`/api/v2/${path}`, {
         method,
         signal: abort.signal,
         headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
@@ -156,7 +159,7 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
     return value
   }
 
-  async function authenticate(path: 'auth/login' | 'auth/register', body: unknown) {
+  async function authenticate(path: 'auth/login' | 'auth/register' | 'auth/withdrawal/cancel', body: unknown) {
     const attempt = ++authGeneration
     const user = userResponse(await request(path, 'POST', body))
     // A boundary reset or newer sign-in invalidates this result, even if its HTTP request succeeded.
@@ -188,6 +191,9 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
     login(email: string, password: string) {
       return authenticate('auth/login', { email, password })
     },
+    cancelWithdrawal(email: string, password: string) {
+      return authenticate('auth/withdrawal/cancel', { email, password })
+    },
     register(value: Registration) {
       return authenticate('auth/register', value)
     },
@@ -205,6 +211,26 @@ export function createAccountClient(fetchRequest: typeof fetch = globalThis.fetc
     },
     async workspace(signal?: AbortSignal) {
       return workspaceResponse(await request('workspace', 'GET', undefined, signal))
+    },
+    async optionalConsent(agreed: boolean) {
+      return workspaceResponse(await request('consents/optional-profile', 'PUT', {
+        agreed, document_version: CONSENT_VERSION,
+      }))
+    },
+    async currentBaseline(signal?: AbortSignal): Promise<SavedBaseline | null> {
+      try {
+        const value = await request('baselines/current', 'GET', undefined, signal)
+        if (!validBaseline(value)) throw new AccountApiError('저장된 기준 자세를 읽지 못했습니다.')
+        return value
+      } catch (error) {
+        if (error instanceof AccountApiError && error.code === 'BASELINE_NOT_FOUND') return null
+        throw error
+      }
+    },
+    async registerBaseline(value: Pick<SavedBaseline, 'registered_at' | 'landmarks'> & { sample_count: number; calibration_ms: number }, signal?: AbortSignal) {
+      const saved = await request('baselines', 'POST', value, signal)
+      if (!validBaseline(saved)) throw new AccountApiError('기준 자세 저장 응답을 읽지 못했습니다.')
+      return saved
     },
     async updateWorkspace(value: WorkspaceUpdate) {
       return workspaceResponse(

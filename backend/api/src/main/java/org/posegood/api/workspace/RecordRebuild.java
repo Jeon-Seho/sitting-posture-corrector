@@ -103,8 +103,8 @@ final class RecordRebuild {
     /**
      * 앱 기록 JSON 만들기.
      *
-     * USER_STOP은 확인 종료, DISCONNECTED는 조회 응답은 있지만 확인 안 됨,
-     * ERROR(판정 상태 잃음)는 조회 응답 없이 합계 0이다.
+     * V2.3의 STORED는 서버에 종료·요약이 저장됐다는 뜻이며 원래 브라우저의 수신 여부는 아니다.
+     * ERROR(전체 MISSING)는 조회 응답 없이 합계 0이다. 이전 내부 종료 종류도 읽을 수 있다.
      */
     static ObjectNode record(
             String id,
@@ -116,7 +116,7 @@ final class RecordRebuild {
             SessionView view,
             String modelVersion,
             JsonNode viewJson) {
-        boolean confirmed = "USER_STOP".equals(endReason);
+        boolean confirmed = "USER_STOP".equals(endReason) || "STORED".equals(endReason);
         var factory = JsonNodeFactory.instance;
         ObjectNode record = factory.objectNode();
         record.put("id", id);

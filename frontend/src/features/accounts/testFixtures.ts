@@ -10,7 +10,8 @@ export const accountUser: AccountUser = {
   profile: { name: '합성 계정', age: 23, occupation: '합성 시험' },
 }
 export const accountWorkspace = (): AccountWorkspace => ({
-  schema_version: '1.0',
+  schema_version: '2.0',
+  consents: { optional_profile: true },
   profile: { ...accountUser.profile },
   rules: { ...DEFAULT_RULES },
   preferences: { alerts_on: true },

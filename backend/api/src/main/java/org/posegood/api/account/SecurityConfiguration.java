@@ -60,10 +60,10 @@ public class SecurityConfiguration {
                         auth ->
                                 auth.requestMatchers(
                                                 "/health",
-                                                "/v1/auth/csrf",
-                                                "/v1/auth/register",
-                                                "/v1/auth/login",
-                                                "/v1/auth/withdrawal/cancel",
+                                                "/v2/auth/csrf",
+                                                "/v2/auth/register",
+                                                "/v2/auth/login",
+                                                "/v2/auth/withdrawal/cancel",
                                                 "/v1/realtime")
                                         .permitAll()
                                         .anyRequest()

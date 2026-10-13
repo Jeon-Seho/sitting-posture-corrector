@@ -10,11 +10,12 @@ import { AccountLoginPage } from './AccountLoginPage'
 import { AccountProfilePage } from './AccountProfilePage'
 import { useAccountAuth } from './useAccountAuth'
 import { useRemoteWorkspace } from './useRemoteWorkspace'
+import { useRemoteBaseline } from './useRemoteBaseline'
 import type { AccountUser, AccountWorkspace } from './contracts'
 import { accountError } from './client'
 
 export function AccountApp({ camera }: { camera: CameraController }) {
-  const auth = useAccountAuth(() => camera.stop())
+  const auth = useAccountAuth(() => { camera.stop(); camera.clearBaseline() })
   if (auth.status === 'loading')
     return (
       <main className="account-loading" role="status">
@@ -68,6 +69,7 @@ function AccountWorkspaceApp({
   const measuring = !!session && !ended.current
   const remote = useRemoteWorkspace(user.user_id, initial, setError)
   const workspace = remote.workspace
+  const baseline = useRemoteBaseline(camera, user.user_id, workspace.canWrite)
   const collection = useCollection(camera)
   const persistence = useSessionPersistence({
     session,
@@ -145,6 +147,9 @@ function AccountWorkspaceApp({
       storageNotice={
         <StorageNotice workspace={workspace}>
           {remote.saving && '설정을 저장하고 있습니다.'}
+          {baseline.loading && '기준 자세를 불러오고 있습니다.'}
+          {!baseline.loading && camera.baseline && !camera.baselineStored && !baseline.error && '기준 자세를 저장하고 있습니다.'}
+          {baseline.error && <p role="alert">{baseline.error} <button className="btn" onClick={baseline.retry}>기준 자세 다시 시도</button></p>}
         </StorageNotice>
       }
       profilePage={
@@ -152,6 +157,8 @@ function AccountWorkspaceApp({
           userId={user.user_id}
           email={user.email}
           profile={workspace.profile!}
+          optionalProfile={remote.optionalProfile}
+          onOptionalProfile={remote.optionalConsent}
           canWrite={workspace.canWrite}
           measuring={measuring}
           hasPendingResult={!!persistence.pending.current}

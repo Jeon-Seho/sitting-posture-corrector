@@ -2,14 +2,14 @@ import { useRef, useState } from 'react'
 import { FieldWarning, ValidatedInput } from '../../components/InlineForm'
 import { LoginPage } from '../../pages/LoginPage'
 import { ProfileFields } from '../profile/ProfileFields'
-import { ACCOUNT_NAME_MAX, type Registration } from './contracts'
+import { ACCOUNT_NAME_MAX, registrationConsents, type Registration } from './contracts'
 import { validPassword, PASSWORD_GUIDANCE } from './password'
 import { validProfile } from '../storage/validation'
 
 type Props = {
   busy: boolean
   message: string
-  onAuthenticate: (email: string, password: string, registration?: Registration) => Promise<void>
+  onAuthenticate: (email: string, password: string, registration?: Registration, cancelWithdrawal?: boolean) => Promise<void>
 }
 
 export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
@@ -17,9 +17,11 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [age, setAge] = useState(23)
+  const [age, setAge] = useState<number | null>(null)
   const [occupation, setOccupation] = useState('')
   const [consent, setConsent] = useState(false)
+  const [optionalProfile, setOptionalProfile] = useState(false)
+  const [cancelWithdrawal, setCancelWithdrawal] = useState(false)
   const [error, setError] = useState('')
   const submitting = useRef(false)
 
@@ -33,7 +35,8 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
       setError(registering ? PASSWORD_GUIDANCE : '비밀번호 길이를 확인해 주세요.')
       return
     }
-    if (registering && !validProfile({ name: name.trim(), age, occupation: occupation.trim() })) {
+    const profile = { name: name.trim(), age: optionalProfile ? age : null, occupation: optionalProfile ? occupation.trim() || null : null }
+    if (registering && (!validProfile(profile) || (profile.age !== null && profile.age < 14))) {
       setError('이름·나이·직업을 확인해 주세요.')
       return
     }
@@ -47,10 +50,11 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
           ? {
               email: email.trim(),
               password,
-              profile: { name: name.trim(), age, occupation: occupation.trim() },
-              consent_version: 'service-v1',
+              profile,
+              consents: registrationConsents(optionalProfile),
             }
           : undefined,
+        !registering && cancelWithdrawal,
       )
     } finally {
       submitting.current = false
@@ -115,13 +119,24 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
           disabled={busy}
         />
       </label>
+      {!registering && <label className="row">
+        <input type="checkbox" checked={cancelWithdrawal} disabled={busy}
+          onChange={event => setCancelWithdrawal(event.target.checked)} />
+        30일 이내 탈퇴 요청을 철회하고 로그인
+      </label>}
       {registering && (
         <>
           <ProfileFields
             form={{ name, age, occupation, setName, setAge, setOccupation }}
             canWrite={!busy}
             nameMax={ACCOUNT_NAME_MAX}
+            optional optionalEnabled={optionalProfile}
           />
+          <label className="row">
+            <input type="checkbox" name="optionalProfile" checked={optionalProfile} disabled={busy}
+              onChange={event => setOptionalProfile(event.target.checked)} />
+            나이·직업의 선택 입력과 보관에 동의합니다. 동의하지 않아도 가입할 수 있습니다.
+          </label>
           <label className="row">
             <ValidatedInput name="consent" validationLabel="동의"
               type="checkbox"
@@ -130,11 +145,13 @@ export function AccountLoginPage({ busy, message, onAuthenticate }: Props) {
               required
               disabled={busy}
             />
-            계정과 측정 기록을 보관하는 데 동의합니다.
+            아래 필수 사항에 모두 동의하며 만 14세 이상임을 확인합니다.
           </label>
           <FieldWarning name="consent" />
           <p className="fine">
-            측정 요약·사건·설정을 계정에 보관합니다. 연구나 학습용 자료 사용에는 동의하지 않습니다.
+            서비스 이용약관, 이메일·이름·비밀번호 해시의 계정 관리, 카메라 관절 좌표의 서버 전송·자세 판정,
+            측정 기록·설정 보관에 동의합니다. 영상은 전송하지 않습니다. 연구·학습용 활용 동의는 포함하지 않습니다.
+            탈퇴를 요청하면 계정 사용을 중지하고 30일 뒤 자료를 삭제하며, 그 전에 철회할 수 있습니다.
           </p>
         </>
       )}

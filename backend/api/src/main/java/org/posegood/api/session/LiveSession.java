@@ -95,7 +95,7 @@ public final class LiveSession {
         return closePersisted;
     }
 
-    /** 종료를 DB에 쓸 때의 `monitor_session.end_reason`. */
+    /** 종료 원인(USER_STOP·DISCONNECTED). V2.3에서 `monitor_session.end_reason`이 없어져 DB에 쓰지 않고, 지금은 읽는 곳이 없다. */
     String endReason() {
         return endReason;
     }

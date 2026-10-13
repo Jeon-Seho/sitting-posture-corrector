@@ -166,7 +166,14 @@ def main():
     artifacts = ROOT / ".cache/browser-smoke"
     artifacts.mkdir(parents=True, exist_ok=True)
     with diagnostic_log(artifacts / "browser-run.log"):
-        run_browser(node, chrome, artifacts)
+        # The supported MySQL API requires account login and a saved baseline (accounts v2).
+        # Keep the legacy local-only driver below for historical debugging; the gate exercises
+        # the actual account UI against real MySQL/FastAPI, including reload and ownership.
+        from account_browser_smoke import verify_account_browser
+        endpoints = ServiceEndpoints.allocate()
+        with mysql_server() as server, disposable_database(server) as database:
+            with running_services(endpoints, database):
+                verify_account_browser(endpoints.api, api_prefix="")
 
 
 def run_browser(node, chrome, artifacts):

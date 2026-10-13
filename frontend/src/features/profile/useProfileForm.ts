@@ -21,7 +21,7 @@ export function useProfileForm({
 }: Options) {
   const { profile, requireWriter, reloadStorage, setProfile } = workspace
   const [name, setName] = useState(profile?.name ?? '')
-  const [age, setAge] = useState(profile?.age ?? 23)
+  const [age, setAge] = useState<number | null>(profile?.age ?? 23)
   const [occupation, setOccupation] = useState(profile?.occupation ?? '')
   const [consent, setConsent] = useState(false)
   const [deleting, setDeleting] = useState(false)

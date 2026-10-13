@@ -27,7 +27,7 @@ def invoke(project, env, *arguments, capture=False, timeout=900):
     # The verification-only overlay never affects the ordinary Compose invocation.
     arguments = command(project) + ["--file", str(ROOT / "compose.test.yaml")] + list(arguments)
     return subprocess.run(arguments, cwd=ROOT, env=env, check=True, timeout=timeout,
-                          capture_output=capture, text=True)
+                          capture_output=capture, text=True, encoding="utf-8")
 
 
 def mysql_address(project, env):
@@ -106,7 +106,7 @@ def verify_restore(project, env, source, expected, secret_directory):
         if row_counts(recovery, env) != expected:
             raise AssertionError("Restored rows were lost after MySQL restarted on the same volume")
         mysql_integration(recovery, env, secret_directory)
-        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and schema V2.2 integration verification", flush=True)
+        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and schema V2.3 integration verification", flush=True)
     finally:
         try:
             invoke(recovery, env, "down", "--volumes", "--remove-orphans", timeout=120)

@@ -15,65 +15,57 @@ import java.util.List;
 /**
  * 판정 정책(threshold_policy) 찾기·추가. 정책 행은 한 번 쓰면 고치지 않는다.
  *
- * 설정을 바꾸면 같은 값 5개의 USER 행을 찾거나 추가한다(BR-64, BR-65).
- * 기본 정책은 값이 아니라 설정된 이름으로 찾는다.
+ * V2.3의 값 네 개로 행을 찾고 없으면 추가한다. 과거 정책 행은 변경하지 않는다.
  */
 @Repository
 public class ThresholdPolicyRepository {
     private final JdbcTemplate jdbc;
-    private final String defaultName;
+    private final Values defaults;
 
     public ThresholdPolicyRepository(
-            JdbcTemplate jdbc, @Value("${posegood.default-policy-name}") String defaultName) {
+            JdbcTemplate jdbc,
+            @Value("${posegood.default-policy.threshold:0.7}") double threshold,
+            @Value("${posegood.default-policy.hold-seconds:3}") double hold,
+            @Value("${posegood.default-policy.recover-seconds:3}") double recover,
+            @Value("${posegood.default-policy.realert-seconds:60}") double realert) {
         this.jdbc = jdbc;
-        this.defaultName = defaultName;
+        this.defaults = Values.ofSeconds(hold, recover, realert, threshold);
     }
 
-    /** 가입 때 연결하는 기본 정책(DEFAULT_TEMP)의 ID. */
+    /** 가입 때 연결하는 기본값 조합. 시드가 없으면 같은 값으로 생성한다. */
     public long defaultId() {
-        var rows =
-                jdbc.queryForList(
-                        "SELECT threshold_policy_id FROM threshold_policy WHERE policy_name=?",
-                        Long.class,
-                        defaultName);
-        if (rows.isEmpty()) throw new IllegalStateException("default threshold policy seed is missing");
-        return rows.getFirst();
+        return resolve(defaults);
     }
 
     /** 정책 행 읽기. */
     public Values read(long id) {
         return jdbc.queryForObject(
-                "SELECT threshold,hold_seconds,recover_seconds,realert_seconds,notify_max_per_hour"
+                "SELECT threshold,hold_seconds,recover_seconds,realert_seconds"
                         + " FROM threshold_policy WHERE threshold_policy_id=?",
                 (row, n) ->
                         new Values(
                                 row.getBigDecimal(1),
                                 row.getBigDecimal(2),
                                 row.getBigDecimal(3),
-                                row.getInt(4),
-                                row.getInt(5)),
+                                row.getInt(4)),
                 id);
     }
 
     /**
-     * 같은 값의 정책 행을 찾고, 없으면 USER 행으로 추가한다.
-     *
-     * 시간당 알림 상한은 사용자가 바꿀 수 없어 기본 정책 값을 따른다.
+     * 같은 값의 정책 행을 찾고, 없으면 추가한다.
      */
     public long resolve(Values requested) {
-        var values = requested.withCap(read(defaultId()).notifyMaxPerHour());
+        var values = requested;
         var found = find(values);
         if (found != null) return found;
         try {
             jdbc.update(
                     "INSERT INTO threshold_policy(threshold,hold_seconds,recover_seconds,"
-                            + "realert_seconds,notify_max_per_hour,policy_name,created_by,created_at)"
-                            + " VALUES(?,?,?,?,?,NULL,'USER',?)",
+                            + "realert_seconds,created_at) VALUES(?,?,?,?,?)",
                     values.threshold(),
                     values.holdSeconds(),
                     values.recoverSeconds(),
                     values.realertSeconds(),
-                    values.notifyMaxPerHour(),
                     KstTime.now());
         } catch (DuplicateKeyException concurrent) {
             // 다른 요청이 같은 조합을 먼저 추가했다(UK-03).
@@ -85,19 +77,17 @@ public class ThresholdPolicyRepository {
         List<Long> rows =
                 jdbc.queryForList(
                         "SELECT threshold_policy_id FROM threshold_policy WHERE threshold=? AND"
-                                + " hold_seconds=? AND recover_seconds=? AND realert_seconds=? AND"
-                                + " notify_max_per_hour=?",
+                                + " hold_seconds=? AND recover_seconds=? AND realert_seconds=?",
                         Long.class,
                         values.threshold(),
                         values.holdSeconds(),
                         values.recoverSeconds(),
-                        values.realertSeconds(),
-                        values.notifyMaxPerHour());
+                        values.realertSeconds());
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
     /**
-     * 정책 값 5개: 임계값, 붕괴 확정, 회복, 재알림, 시간당 알림 상한.
+     * 정책 값 네 개: 임계값, 붕괴 확정, 회복, 재알림.
      *
      * DB에 그대로 담을 수 없는 값은 반올림하지 않고 거부한다.
      */
@@ -105,8 +95,7 @@ public class ThresholdPolicyRepository {
             BigDecimal threshold,
             BigDecimal holdSeconds,
             BigDecimal recoverSeconds,
-            int realertSeconds,
-            int notifyMaxPerHour) {
+            int realertSeconds) {
 
         public static Values of(Policy policy) {
             if (policy.holdMs() % 500 != 0
@@ -122,8 +111,7 @@ public class ThresholdPolicyRepository {
                     threshold.setScale(3, RoundingMode.UNNECESSARY),
                     BigDecimal.valueOf(policy.holdMs(), 3).setScale(1, RoundingMode.UNNECESSARY),
                     BigDecimal.valueOf(policy.recoveryMs(), 3).setScale(1, RoundingMode.UNNECESSARY),
-                    Math.toIntExact(policy.reminderMs() / 1000),
-                    0);
+                    Math.toIntExact(policy.reminderMs() / 1000));
         }
 
         /** 설정 화면 값(초 단위)으로 만든다. 같은 검사 규칙을 쓴다. */
@@ -139,10 +127,6 @@ public class ThresholdPolicyRepository {
                             Math.round(recover * 1000),
                             Math.round(realert * 1000),
                             threshold));
-        }
-
-        Values withCap(int cap) {
-            return new Values(threshold, holdSeconds, recoverSeconds, realertSeconds, cap);
         }
 
         public Policy policy() {

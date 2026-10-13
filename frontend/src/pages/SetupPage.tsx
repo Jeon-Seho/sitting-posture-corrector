@@ -27,7 +27,7 @@ export function SetupPage({
 }) {
   const on = camera.state === 'on'
   const registered = !!camera.baseline
-  const ready = registered && on && camera.quality && camera.progress === null
+  const ready = registered && on && camera.quality && camera.progress === null && (!accountMode || camera.baselineStored)
   const step = !registered ? 0 : !on ? 1 : !camera.quality ? 2 : 3
   const title = ['먼저 자세를 등록해 주세요', '카메라를 켜 볼까요?', '화면 안으로 들어와 주세요', '준비가 끝났어요'][step]
   const desc = [
@@ -178,7 +178,7 @@ export function SetupPage({
             <div className="more-body">
               {accountMode ? (
                 <p className="fine">
-                  확인된 측정 요약과 사건을 내 계정에 보관합니다. 영상과 관절 좌표는 전송하지 않습니다.
+                  기준 등록 시 평균 관절 좌표를, 측정 중에는 기준 대비 특징 변화량을 전송합니다. 영상은 전송하지 않습니다.
                 </p>
               ) : (
                 onServerMode && (

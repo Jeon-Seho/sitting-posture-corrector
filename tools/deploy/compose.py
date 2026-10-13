@@ -51,14 +51,14 @@ def environment(secrets_dir, port=None, images=None):
 def run(project, *arguments, root=ROOT, env=None, timeout=600, capture=False):
     return subprocess.run(
         command(project, root) + list(arguments), cwd=root, env=env,
-        check=True, timeout=timeout, capture_output=capture, text=True,
+        check=True, timeout=timeout, capture_output=capture, text=True, encoding="utf-8",
     )
 
 
 def require_daemon():
     result = subprocess.run(
         [docker_executable(), "info", "--format", "{{.ServerVersion}}"],
-        capture_output=True, text=True, timeout=20,
+        capture_output=True, text=True, encoding="utf-8", timeout=20,
     )
     if result.returncode != 0:
         raise RuntimeError("Docker daemon is unavailable; start Docker Desktop or the Docker service")
@@ -81,7 +81,7 @@ def assert_project_removed(project, env):
             env=env,
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
         )
         if result.stdout.strip():
@@ -98,7 +98,7 @@ def loopback_publication(project, service, port, env):
         env=env,
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=20,
     )
     bindings = json.loads(result.stdout).get(str(port) + "/tcp") or []

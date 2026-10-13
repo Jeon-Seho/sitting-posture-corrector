@@ -2,7 +2,7 @@
 
 - 기준: DB 스키마 V2.2(`database/`, 2026-10-10)와 현재 프론트(`frontend/`)
 - 브랜치: `feature/repo-backend-db-v2` — **아직 커밋하지 않음** (작업 트리 변경 약 170개 파일)
-- 관련 문서: [계획 0023](../plans/active/0023-backend-v2-rebuild.md), [ADR 0020](../decisions/0020-single-api-decision-engine.md),
+- 관련 문서: [계획 0026](../plans/active/0026-backend-v2-rebuild.md), [ADR 0020](../decisions/0020-single-api-decision-engine.md),
   [계정·저장 API 계약](../../contracts/accounts.v1.md), [백엔드 안내](../../backend/README.md)
 
 ## 1. 한눈에 보기
@@ -89,7 +89,7 @@ V2.1에서 기록 원문 테이블(`client_record`)이 없어졌으므로 원문
 | `make check-compose` (2026-10-11) | 이미지 3개 빌드, Compose 전체 기동(DB V2.2 초기화), **45개 확인 통과**: 내부 토큰 401, 계정·측정·재시작, 실제 Chrome 계정 화면 21개, Compose DB에서 통합 시험 5개, 백업 → 빈 DB 복원·행 수 일치. 검증 컨테이너·볼륨·포트 정리 확인 |
 | 종단 확인 (2026-10-11) | 실행 중인 추론·API·프론트(Vite 프록시 `/api`)에 합성 계정으로 37개 항목 모두 통과: 가입·기본 설정, 측정(실제 FastAPI 추론으로 붕괴 3초·회복 6초·휴식·누락·종료, 재시도 멱등·409), DB 행(`monitor_session`·`baseline_posture`·`collapse_event`·`correction_alert`·`excluded_interval`·`daily_stat`), 기록 저장 검증·조작 409·목록 재구성, 자세 알림 끔 → `ALERT_OFF`, 실시간 WebSocket, 기준 자세 덮어쓰기·옛 기준 409, 비밀번호 변경 시 다른 기기 401·`SPRING_SESSION` 0행, 탈퇴 403·철회. 끝난 뒤 합성 행은 모두 지움 |
 
-**실행하지 않은 것**: `make check-browser`, `make benchmark-server`(둘 다 서버 시나리오가 옛 API 전제라 다시 써야 함).
+**실행하지 않은 것**: `make check-browser`, `make benchmark-server`(둘 다 서버 시나리오가 옛 API 전제라 다시 써야 함). 2026-10-13 둘 다 계정 로그인 흐름으로 바꿨다([계획 0026](../plans/active/0026-backend-v2-rebuild.md)).
 실제 카메라로 화면을 눌러 보는 확인은 아직이다(브라우저 확인은 합성 카메라 입력).
 
 **이 확인에서 고친 것 (2026-10-11)**: 시험 도구의 MySQL 8 로그인에 필요한 `cryptography`를 `requirements-dev.txt`에 추가했다.
@@ -108,7 +108,7 @@ Windows에서 백업·복원 도구가 비밀 설정 파일을 읽지 못하던 
 | 특징 적재 | HDFS 적재와 `feature_archive` 쓰기·파일 삭제 미구현. 적재 파일이 있는 탈퇴 계정은 `FAILED`로 남는다 | 데이터 플랫폼 작업 |
 | 탈퇴 안내 | 탈퇴 완료 안내 메일·철회 화면 없음(철회 API만 있음) | 프론트·메일 |
 | 동의 저장 | `user_consent`(T-41) 보류로 가입 동의를 저장하지 않는다 | DB 결정 |
-| 시험 도구 | 브라우저 smoke의 서버 시나리오와 서버 benchmark가 계정 없는 옛 API를 전제로 해 401로 실패 | 계정 로그인 흐름으로 다시 작성 |
+| 시험 도구 (해결) | 브라우저 smoke의 서버 시나리오와 서버 benchmark가 계정 없는 옛 API를 전제로 해 401로 실패 | 2026-10-13 계정 로그인 흐름으로 바꿈 |
 | 다중 인스턴스·Kafka | 진행 중 상태가 API 메모리에 있어 한 인스턴스만 가능. Kafka는 계획 0022 | 공유 저장소 또는 고정 라우팅 |
 
 ## 5. 문제와 위험
@@ -126,11 +126,11 @@ Windows에서 백업·복원 도구가 비밀 설정 파일을 읽지 못하던 
 | DB 계정 정보 노출 | 로컬 DB 계정 비밀번호가 작업 대화에 남았다 | 다른 곳에서도 쓰는 DB라면 비밀번호 변경 |
 | DB 계정 사용 | API는 `posture_be`(SELECT·INSERT·UPDATE·DELETE)만 쓴다. `posture_fe`·`posture_app`은 쓰지 않는다 | 용도 확인 |
 | develop 병합(2026-10-13) 뒤 스키마 불일치 | `database/`를 develop의 V2.3(#39·#40) 기준으로 맞췄다. 이 브랜치의 V2.2 커밋(`7606c4b`)은 develop에서 되돌린 #35와 같다. API는 아직 옛 V2.2(`user_account.alert_enabled`, migration `011_add_alert_enabled_user_account`)를 전제로 해서 `SchemaVerifier`가 시작을 거부하고, 실제 MySQL 통합 시험(`schema_V2_2.sql` 사용)·Compose도 실패한다 | 백엔드 코드·시험을 V2.3에 맞춘다 |
-| 계획 번호 중복 | develop의 [계획 0023 앱 판정 제거](../plans/active/0023-frontend-server-only.md)와 이 브랜치의 [계획 0023 백엔드 재작성](../plans/active/0023-backend-v2-rebuild.md)이 같은 번호다. 문서의 "계획 0023"이 어느 쪽인지 모호하다 | 한쪽 번호를 바꾸고 링크 정리 |
+| 계획 번호 중복 (해결) | develop의 [계획 0023 앱 판정 제거](../plans/active/0023-frontend-server-only.md)와 이 브랜치의 백엔드 재작성 계획이 같은 번호였다 | 2026-10-13 백엔드 재작성을 [계획 0026](../plans/active/0026-backend-v2-rebuild.md)으로 옮겼다. 그 전 문서의 "계획 0023"은 develop 쪽 문서면 앱 판정 제거, 백엔드 문서면 이 계획이다 |
 
 ## 6. 다음 순서 (제안)
 
 1. 화면에서 가입 → 설정 → 기준 등록 → 측정 → 종료 → 기록 확인을 직접 해 본다.
-2. 실제 MySQL 통합 시험과 HTTP smoke를 실행하고 결과를 계획 0023에 기록한다.
+2. 실제 MySQL 통합 시험과 HTTP smoke를 실행하고 결과를 계획 0026에 기록한다.
 3. 이 브랜치에 커밋한다.
 4. 남은 구현 중 우선순위를 정한다(소리 스위치, 시간당 알림 상한, 해상도 검사가 작다).

@@ -2,6 +2,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AccountLoginPage } from './AccountLoginPage'
 import { LoginPage } from '../../pages/LoginPage'
+import { registrationConsents } from './contracts'
 
 describe('account registration consent and password input', () => {
   let renderer: ReactTestRenderer | undefined
@@ -38,7 +39,7 @@ describe('account registration consent and password input', () => {
     const authenticate = mount()
     click('새 계정 만들기')
     fill()
-    const checkbox = inputs().find((node) => node.props.type === 'checkbox')!
+    const checkbox = inputs().find((node) => node.props.name === 'consent')!
     expect(checkbox.props.checked).toBe(false)
     await act(async () => {
       page().props.onSubmit()
@@ -52,9 +53,9 @@ describe('account registration consent and password input', () => {
     expect(authenticate).toHaveBeenCalledWith('synthetic@example.test', 'synthetic-password', {
       email: 'synthetic@example.test',
       password: 'synthetic-password',
-      profile: { name: '합성 계정', age: 23, occupation: '합성 시험' },
-      consent_version: 'service-v1',
-    })
+      profile: { name: '합성 계정', age: null, occupation: null },
+      consents: registrationConsents(false),
+    }, false)
   })
 
   it('clears the password and consent when switching between sign-in and registration', () => {

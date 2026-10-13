@@ -31,6 +31,7 @@ import java.util.UUID;
 public class SessionService {
     private final LiveSessions live;
     private final SessionRepository sessions;
+    private final BaselineRepository baselines;
     private final ThresholdPolicyRepository policies;
     private final AccountService accounts;
     private final InferenceClient inference;
@@ -41,6 +42,7 @@ public class SessionService {
     public SessionService(
             LiveSessions live,
             SessionRepository sessions,
+            BaselineRepository baselines,
             ThresholdPolicyRepository policies,
             AccountService accounts,
             InferenceClient inference,
@@ -49,6 +51,7 @@ public class SessionService {
             ApplicationEventPublisher events) {
         this.live = live;
         this.sessions = sessions;
+        this.baselines = baselines;
         this.policies = policies;
         this.accounts = accounts;
         this.inference = inference;
@@ -58,14 +61,12 @@ public class SessionService {
     }
 
     /**
-     * 세션 생성: 기준 자세 저장 → 세션 행 추가 → 메모리에 판정 엔진 준비.
+     * 세션 생성: 현재 계정 정책·기준 확인 → 세션 행 추가 → 메모리에 판정 엔진 준비.
      *
-     * 재시도는 같은 정책·준비 정보여야 한다.
+     * 재시도는 같은 정책·기준 ID여야 한다.
      */
     public SessionView create(long owner, UUID id, SessionRequests.Create request) {
-        var setup = request.setup();
-        if (setup == null) throw ApiError.badRequest("session setup is required");
-        var values = ThresholdPolicyRepository.Values.of(request.policy());
+        ThresholdPolicyRepository.Values.of(request.policy());
         return locks.withLock(
                 owner,
                 () -> {
@@ -83,18 +84,23 @@ public class SessionService {
                         if (stored.owner() != owner) throw ApiError.notFound();
                         throw ApiError.lost();
                     }
-                    boolean alerts = accounts.requireActive(owner).alertsEnabled();
+                    var account = accounts.requireActive(owner);
+                    if (!policies.read(account.policyId()).policy().equals(request.policy()))
+                        throw ApiError.conflict("settings changed; reload workspace before measuring");
+                    var baseline = baselines.current(owner);
+                    if (baseline == null) throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
+                    if (!baseline.id().equals(request.baselineId())) throw ApiError.conflict("baseline was replaced");
+                    boolean alerts = account.alertsEnabled();
                     live.ensureRoom();
                     var row =
                             tx.execute(
                                     status -> {
                                         var now = KstTime.now();
-                                        sessions.registerBaseline(owner, setup.baseline(), now);
                                         sessions.insert(
                                                 owner,
                                                 id,
-                                                policies.resolve(values),
-                                                setup.baseline().baselineId(),
+                                                account.policyId(),
+                                                baseline.key(),
                                                 alerts,
                                                 now);
                                         return sessions.find(id);
@@ -281,8 +287,7 @@ public class SessionService {
                                                 summary.validMs(),
                                                 summary.normalMs(),
                                                 summary.collapseCount(),
-                                                engine.excluded()),
-                                        session.endReason());
+                                                engine.excluded()));
                             }
                             return episode;
                         });
@@ -297,10 +302,9 @@ public class SessionService {
     /** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */
     private static void requireSame(LiveSession session, SessionRequests.Create request) {
         var row = session.row();
-        var setup = request.setup();
         if (!session.engine().policy().equals(request.policy()))
             throw ApiError.conflict("policy already frozen");
-        if (!row.baselineId().equals(setup.baseline().baselineId()))
+        if (!row.baselineId().equals(request.baselineId()))
             throw ApiError.conflict("session setup already frozen");
     }
 
@@ -335,6 +339,6 @@ public class SessionService {
         }
     }
 
-    /** {@code GET /v1/sessions/{id}/metadata} 응답. 모르는 값은 null. */
+    /** {@code GET /v2/sessions/{id}/metadata} 응답. 모르는 값은 null. */
     public record Metadata(Instant startedAt, Instant endedAt, UUID baselineId, String modelVersion) {}
 }

@@ -20,7 +20,7 @@ docker compose up -d --build --wait --wait-timeout 180
 ```
 
 [계정 앱](http://127.0.0.1:8080/)에서 가입한다. `docker compose down`으로 종료하면 DB 볼륨은 유지된다.
-[실행·배포·백업](infra/README.md), [계정 API](contracts/accounts.v1.md),
+[실행·배포·백업](infra/README.md), [계정 API](contracts/accounts.v2.md),
 [빅데이터 플랫폼 책임](docs/design/data-platform-boundary.md)을 참고한다.
 
 ## 로컬 프로토타입 실행
@@ -90,7 +90,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 브라우저 검사는 `make check-frontend`로 프론트 빌드와 `make check-backend`로 JAR를 준비한 뒤 `make check-browser`로 따로 실행할 수 있다.
 독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
 
-`make benchmark-server`는 준비된 JAR로 추론 단독·API→추론 지연과 처리량을 측정한다(계정 로그인 전환 전까지 API 대상은 401로 실패한다).
+`make benchmark-server`는 준비된 JAR로 추론 단독·API→추론 지연과 처리량을 측정한다(API 대상은 합성 계정으로 로그인한 뒤 측정).
 측정 조건과 해석은 [아키텍처](docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다. 실제 카메라 FPS와는 별도다.
 [참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
 실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.

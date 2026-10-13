@@ -27,7 +27,7 @@ export function createSessionClient(
 ): SessionClient {
   const fetchRequest = options.fetch ?? (SERVER_ACCOUNTS ? accountClient.fetch : globalThis.fetch)
   const timeoutMs = options.timeoutMs ?? 5000
-  const base = `/api/v1/sessions/${encodeURIComponent(id)}`
+  const base = `/api/v2/sessions/${encodeURIComponent(id)}`
 
   async function request(path: string, signal: AbortSignal, method = 'GET', body?: unknown) {
     const abort = new AbortController()

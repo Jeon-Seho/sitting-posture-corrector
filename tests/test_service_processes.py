@@ -97,10 +97,10 @@ class ServiceProcessTests(unittest.TestCase):
     def test_missing_session_404_proves_readiness(self):
         process = MagicMock()
         process.poll.return_value = None
-        missing = HTTPError("http://127.0.0.1:18001/v1/sessions/synthetic", 404, "missing", {}, None)
+        missing = HTTPError("http://127.0.0.1:18001/v2/sessions/synthetic", 404, "missing", {}, None)
         with patch.object(services, "urlopen", side_effect=missing), \
                 patch.object(services.time, "sleep") as sleep:
-            services.wait_ready(self.endpoints.api, "/v1/sessions/synthetic", [process])
+            services.wait_ready(self.endpoints.api, "/v2/sessions/synthetic", [process])
             sleep.assert_not_called()
 
     def test_process_exit_and_readiness_timeout_are_explicit_failures(self):

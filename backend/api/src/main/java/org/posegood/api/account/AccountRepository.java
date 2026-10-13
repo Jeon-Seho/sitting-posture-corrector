@@ -23,7 +23,7 @@ import java.util.List;
 public class AccountRepository {
     private static final String COLUMNS =
             "user_account_id,login_email,password_hash,display_name,age,occupation,account_status,"
-                    + "threshold_policy_id,alert_enabled";
+                    + "threshold_policy_id,sound_alert_enabled";
 
     private final JdbcTemplate jdbc;
 
@@ -56,7 +56,7 @@ public class AccountRepository {
     /**
      * 가입: 계정 행 추가. 이미 있는 이메일이면 409.
      *
-     * 자세 알림은 켜짐, 소리는 꺼짐으로 시작한다(컬럼 기본값, V2.2).
+     * 알림은 sound_alert_enabled의 기본값 false로 시작한다(V2.3).
      * 동의 테이블(T-41)이 보류라 가입 동의는 저장하지 않는다.
      */
     public long insert(String email, String hash, AccountContracts.Profile profile, long policy) {
@@ -76,7 +76,7 @@ public class AccountRepository {
                         insert.setString(3, profile.name());
                         insert.setObject(4, KstTime.now());
                         insert.setLong(5, policy);
-                        insert.setInt(6, profile.age());
+                        insert.setObject(6, profile.age());
                         insert.setString(7, profile.occupation());
                         return insert;
                     },
@@ -91,12 +91,12 @@ public class AccountRepository {
     /**
      * 설정 저장: 프로필, 판정 정책, 자세 알림.
      *
-     * {@code alerts} is the 「자세 알림」 switch; `sound_alert_enabled` has no app setting yet.
+     * {@code alerts}는 DB V2.3에서 세션 알림의 원본인 sound_alert_enabled에 대응한다.
      */
     public void updateSettings(long id, AccountContracts.Profile profile, long policy, boolean alerts) {
         jdbc.update(
                 "UPDATE user_account SET display_name=?,age=?,occupation=?,threshold_policy_id=?,"
-                        + "alert_enabled=? WHERE user_account_id=? AND account_status='ACTIVE'",
+                        + "sound_alert_enabled=? WHERE user_account_id=? AND account_status='ACTIVE'",
                 profile.name(),
                 profile.age(),
                 profile.occupation(),
@@ -133,13 +133,13 @@ public class AccountRepository {
      *
      * 요청 행은 지우고 이력은 남기지 않는다(DB-04 6-1-1).
      */
-    public boolean reopen(long id) {
+    public boolean reopen(long id, LocalDateTime now, int graceDays) {
         var requests =
                 jdbc.queryForList(
                         "SELECT request_status FROM deletion_request WHERE user_account_id=? AND"
-                                + " request_scope='ACCOUNT_ALL' FOR UPDATE",
+                                + " request_scope='ACCOUNT_ALL' AND account_closed_at > ? FOR UPDATE",
                         String.class,
-                        id);
+                        id, now.minusDays(graceDays));
         if (requests.size() != 1 || !"REQUESTED".equals(requests.getFirst())) return false;
         jdbc.update(
                 "DELETE FROM deletion_request WHERE user_account_id=? AND request_scope='ACCOUNT_ALL'",
@@ -217,10 +217,10 @@ public class AccountRepository {
                 row.getString("login_email"),
                 row.getString("password_hash"),
                 new AccountContracts.Profile(
-                        row.getString("display_name"), row.getInt("age"), row.getString("occupation")),
+                        row.getString("display_name"), row.getObject("age", Integer.class), row.getString("occupation")),
                 "ACTIVE".equals(row.getString("account_status")),
                 row.getLong("threshold_policy_id"),
-                row.getBoolean("alert_enabled"));
+                row.getBoolean("sound_alert_enabled"));
     }
 
     private static <T> T first(List<T> values) {
