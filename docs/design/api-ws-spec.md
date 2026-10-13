@@ -45,7 +45,7 @@
 | `DELETE /auth/account` | `{password}` | 204. 측정 중이면 서버가 종료한다 |
 | `POST /auth/withdrawal/cancel` | `{email, password}` | 사용자 |
 
-- `consents`: 가입 동의(좌표 수집, 필수)와 학습 동의(선택)를 나눠 받는다. 형식은 동의 제안서(FE 제안서 F12)에서 정한다.
+- `consents`: `[{type: "C1".."C6", version, agreed}]`. 항목은 [동의 제안서](consent-proposal.md) 1장. 학습용 동의는 없다(실제 서비스는 학습용 데이터를 받지 않는다).
 
 ### 2.3 설정 (`api`)
 
