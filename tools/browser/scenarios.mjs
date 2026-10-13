@@ -271,6 +271,8 @@ class AppDriver {
       return buttons.length;
     })()`)
     assert.equal(details, records.length)
+    // Raw numbers and server history are folded under 개발자용 상세 (2026-10-13).
+    await this.evaluate(`document.querySelectorAll('details.history-dev-details').forEach((item) => { item.open = true })`)
     await this.text('서버가 확인한 사건 이력')
     this.check(
       'record details expose preserved server events and frozen policy',

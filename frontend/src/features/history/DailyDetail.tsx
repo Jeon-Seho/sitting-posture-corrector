@@ -77,8 +77,8 @@ function DayRow({ group, allStarts }: { group: DayGroup; allStarts: string[] }) 
             <Fact label="판정 불가" value={formatDuration(excluded)} />
             <Fact label="이탈 사건" value={`${s.events}건`} />
             <Fact label="알림" value={`${s.alerts}회`} />
-            <Fact label="평균 간격" value={formatDuration(s.meanInterval)} />
-            <Fact label="평균 회복" value={formatDuration(s.meanRecovery)} />
+            <Fact label="평균 간격" value={s.meanInterval === null ? '—' : formatDuration(s.meanInterval)} />
+            <Fact label="평균 회복" value={s.meanRecovery === null ? '—' : formatDuration(s.meanRecovery)} />
           </dl>
           <div className="day-sessions">
             {[...group.records].reverse().map((record) => (
