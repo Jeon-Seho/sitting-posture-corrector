@@ -135,94 +135,8 @@
   margin-left: 1px;
   color: var(--muted);
 }
-.day-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.day-row + .day-row {
-  border-top: 1px solid var(--line);
-}
-.day-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 12px 6px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.day-head:hover {
-  background: var(--surface-2);
-}
-.day-head:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.day-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.day-text strong {
-  font-size: 16px;
-}
-.day-text span,
-.day-alerts {
-  font-size: 13px;
-  color: var(--muted);
-}
-.day-alerts b {
-  color: var(--ink);
-  margin-left: 2px;
-}
-.day-caret {
-  color: var(--muted);
-  transition: transform 0.2s ease;
-}
-.day-row.is-open .day-caret {
-  transform: rotate(180deg);
-}
-.day-body {
-  padding: 4px 6px 16px;
-}
-.day-facts {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 12px;
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-}
-.day-facts dt {
-  font-size: 12px;
-  color: var(--muted);
-}
-.day-facts dd {
-  margin: 4px 0 0;
-  font-weight: 700;
-}
 .day-sessions .history-record + .history-record {
   border-top: 1px dashed var(--line);
-}
-@media (max-width: 860px) {
-  .day-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .day-alerts {
-    display: none;
-  }
-  .day-head {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
 }
 
 /* Same vertical rhythm as the settings column (16px between cards). */
@@ -306,5 +220,202 @@
 @media (max-width: 860px) {
   .metric-groups {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Activity levels (measured time per day), shared by the heatmap and the calendar. */
+:root {
+  --level-0: var(--surface-3);
+  --level-1: #fde4c4;
+  --level-2: #fbc98d;
+  --level-3: #f0923f;
+  --level-4: #c4532a;
+}
+
+/* 측정한 날: contribution-style heatmap. */
+.heatmap-body {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.heatmap-weekdays {
+  display: grid;
+  grid-template-rows: 16px repeat(7, 16px);
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.heatmap-weekdays span:first-child {
+  grid-row: 2;
+}
+.heatmap-grid {
+  display: flex;
+  gap: 4px;
+}
+.heatmap-week {
+  display: grid;
+  grid-template-rows: 16px repeat(7, 16px);
+  gap: 4px;
+}
+.heatmap-month {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  width: 16px;
+}
+.heatmap-cell {
+  display: block;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--level-0);
+  cursor: pointer;
+}
+button.heatmap-cell:disabled {
+  background: transparent;
+  cursor: default;
+}
+.heatmap-cell.level-1 { background: var(--level-1); }
+.heatmap-cell.level-2 { background: var(--level-2); }
+.heatmap-cell.level-3 { background: var(--level-3); }
+.heatmap-cell.level-4 { background: var(--level-4); }
+.heatmap-cell.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+.heatmap-cell.is-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.heatmap-cell:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.heatmap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.heatmap-info {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.heatmap-legend .heatmap-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  cursor: default;
+}
+
+/* 오늘의 기록 */
+.day-record {
+  display: grid;
+  gap: 14px;
+}
+.day-record-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+/* 기간별 기록: summary line and month calendar. */
+.calendar-summary {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.calendar-head strong {
+  min-width: 96px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: var(--fw-bold, 700);
+}
+.calendar-head .calendar-summary {
+  margin: 0 0 0 auto;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.calendar-weekday {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  padding-bottom: 2px;
+}
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 64px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.calendar-day:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.calendar-day.level-1 { background: #fff4e6; }
+.calendar-day.level-2 { background: var(--level-1); }
+.calendar-day.level-3 { background: var(--level-2); }
+.calendar-day.level-4 { background: #f8b773; }
+.calendar-day.is-today {
+  border-color: var(--ink-2);
+}
+.calendar-day.is-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.calendar-date {
+  font-size: 13px;
+  font-weight: 700;
+}
+.calendar-rate {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.calendar-time {
+  font-size: 11px;
+  color: var(--ink-2);
+}
+@media (max-width: 860px) {
+  .calendar-day {
+    min-height: 52px;
+    padding: 6px;
+  }
+  .calendar-time {
+    display: none;
   }
 }

@@ -1,73 +1,57 @@
 import { useEffect, useState } from 'react'
-import { Segmented } from '../../components/Segmented'
-import { Play } from '@phosphor-icons/react'
 import { RecordComparison } from '../../components/RecordComparison'
-import { historyFor, localDay, type HistoryMode, type Period } from '../../lib/history'
-import { summary, type RecordItem } from '../../lib/serviceStore'
-import { formatDuration, formatRate } from '../../lib/stats'
-import { DailyDetail } from './DailyDetail'
-import { Card, ComboChart, Ledger, Legend, Stat } from '../../components/ui'
-import { GOOD_RATE } from '../../components/RateRing'
-
-const PERIODS: [Period, string, string][] = [
-  ['today', '오늘', '오늘 기록'],
-  ['week', '최근 7일', '이번 주 기록'],
-  ['month', '최근 30일', '이번 달 기록'],
-  ['all', '전체', '전체 기록'],
-]
-
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
+import { Card } from '../../components/ui'
+import type { HistoryMode } from '../../lib/history'
+import type { RecordItem } from '../../lib/serviceStore'
+import { ActivityHeatmap, HEATMAP_WEEKS } from './ActivityHeatmap'
+import { DayRecord } from './DayRecord'
+import { RecordCalendar } from './RecordCalendar'
+import { addDays, dailyStats, dayKey } from './recordsSource'
 
 /**
- * Records tab. Everything here is computed from the saved session summaries in the
- * current workspace. When the platform report API is ready (daily mart), the period
- * totals and daily bars can come from it instead — see docs/design/frontend-platform-seams.md.
+ * Records tab (2026-10-13 redesign). A long history no longer piles up on one page:
+ * 1. 측정한 날 — contribution-style heatmap of the last 13 weeks (darker = measured longer).
+ * 2. 오늘의 기록 — today by default, or the day picked in the heatmap or calendar.
+ * 3. 기간별 기록 — 최근 7일 · 최근 30일 charts and a month calendar.
+ * 4. 처음과 최근 비교 — folded.
+ * The numbers come from recordsSource.ts, shaped like `GET /records?date` and
+ * `GET /stats/daily` (docs/design/api-ws-spec.md), so the server can take over without
+ * changing this screen.
  */
 export function LocalHistory({
-  records,
+  records: allRecords,
   measuring,
   onStart,
   todayRequest = 0,
 }: {
   records: RecordItem[]
-  /** Changes each time the sidebar's today card is pressed: show the "today" period. */
+  /** Changes each time the sidebar's today card is pressed: show today's record. */
   todayRequest?: number
   measuring: boolean
   onStart: () => void
 }) {
+  const today = dayKey(new Date())
   const [mode, setMode] = useState<HistoryMode>('all')
-  const [period, setPeriod] = useState<Period>(todayRequest ? 'today' : 'week')
+  const [selected, setSelected] = useState(today)
   useEffect(() => {
-    if (todayRequest) setPeriod('today')
+    if (todayRequest) setSelected(today)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayRequest])
-  const now = new Date()
-  const hasDemo = records.some((r) => r.mode === 'demo')
-  const selected = historyFor(records, mode, period, now)
-  const stats = summary(selected)
-  const warnings = selected.reduce((n, r) => n + r.events.length, 0)
-  const alerts = selected.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0)
-  const days = dayBars(records.filter((r) => mode === 'all' || r.mode === mode), period === 'month' ? 30 : 7, now)
-  const title = PERIODS.find(([id]) => id === period)![2]
+  const hasDemo = allRecords.some((r) => r.mode === 'demo')
+  const records = allRecords.filter((r) => mode === 'all' || r.mode === mode)
+  // Heatmap and calendar months need more than 13 weeks; the calendar may go further back.
+  const stats = dailyStats(records, addDays(today, -400), today)
+
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{title}</h1>
+          <h1 className="page-title">기록</h1>
           <p className="page-desc">
-            {localDay(now.toISOString())} 기준
             {hasDemo &&
-              ` · ${mode === 'all' ? '실제 웹캠·합성 시연 합산' : mode === 'camera' ? '실제 웹캠 기록' : '합성 시연 기록'}`}{' '}
-            · 이 기기에 저장된 요약
+              `${mode === 'all' ? '실제 웹캠·합성 시연 합산' : mode === 'camera' ? '실제 웹캠 기록' : '합성 시연 기록'} · `}
+            이 기기에 저장된 기록
           </p>
-        </div>
-        <div className="page-actions">
-          <Segmented label="기록 조회 기간">
-            {PERIODS.map(([id, label]) => (
-              <button key={id} aria-pressed={period === id} onClick={() => setPeriod(id)}>
-                {label}
-              </button>
-            ))}
-          </Segmented>
         </div>
       </div>
 
@@ -88,107 +72,31 @@ export function LocalHistory({
       )}
 
       <div className="records-stack">
-        <Ledger cols={3}>
-          <Stat
-            dataStat="rate"
-            label="바른 자세 유지율"
-            value={stats.rate === null ? '—' : `${Math.round(stats.rate * 100)}%`}
-            sub="측정한 시간 가운데 기준 자세를 유지한 비율"
-            tone={stats.rate !== null && stats.rate >= GOOD_RATE ? 'good' : undefined}
-          />
-          <Stat
-            dataStat="valid"
-            label="측정 시간"
-            value={formatDuration(stats.valid)}
-            sub={
-              <>
-                세션 <span data-stat="count">{selected.length}</span>회 · 확인 못 한 시간 제외
-              </>
-            }
-          />
-          <Stat
-            dataStat="alerts"
-            label="알림"
-            value={`${alerts}회`}
-            sub={
-              stats.valid > 0
-                ? `자세 경고 ${warnings}번${
-                    stats.valid >= 1800 ? ` · 한 시간에 ${formatRate(alerts / (stats.valid / 3600), '회')}` : ''
-                  }`
-                : '측정 후에 계산돼요'
-            }
-          />
-        </Ledger>
-
-        <Card title="날짜별 유지율과 측정 시간" note="막대는 바른 자세 유지율, 선은 측정 시간이에요.">
-          <ComboChart
-            bars={days.map((d) => ({ label: d.label, sub: d.sub, value: d.rate }))}
-            line={days.map((d) => (d.valid > 0 ? d.valid / 3600 : null))}
-            barUnit="%"
-            lineUnit="시간"
-            barMax={1}
-            barName="바른 자세 유지율"
-            lineName="측정 시간"
-            formatBar={(rate) => `${(rate * 100).toFixed(1)}%`}
-            formatLine={(hours) => formatDuration(hours * 3600)}
-            details={(i) => [
-              { label: '세션', value: `${days[i].sessions}회` },
-              { label: '알림', value: `${days[i].alerts}회` },
-            ]}
-          />
-          <Legend
-            items={[
-              { color: 'var(--primary-soft)', label: '바른 자세 유지율' },
-              { color: 'var(--primary)', label: '측정 시간' },
-            ]}
-          />
+        <Card title="측정한 날" note={`최근 ${HEATMAP_WEEKS}주 · 진할수록 오래 측정했어요`}>
+          <ActivityHeatmap stats={stats} today={today} selected={selected} onSelect={setSelected} />
         </Card>
 
-        <Card title="일별 상세" note={selected.length ? '원을 누르면 그날의 세션을 볼 수 있어요' : undefined}>
-          <DailyDetail records={selected} allStarts={records.map((r) => r.startedAt)} />
-          {selected.length === 0 && (
-            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={onStart}>
-              <Play size={15} weight="fill" className="icon" />
-              {measuring ? '진행 중인 측정으로' : '측정 시작'}
-            </button>
-          )}
-        </Card>
+        <DayRecord
+          records={records}
+          day={selected}
+          today={today}
+          measuring={measuring}
+          onStart={onStart}
+          onToday={() => setSelected(today)}
+        />
+
+        <RecordCalendar stats={stats} today={today} selected={selected} onSelect={setSelected} />
 
         <details className="more">
           <summary>처음과 최근 비교</summary>
           <div className="more-body">
             <p className="fine">
-              조회 기간과 별도로, 선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세
-              개선 근거가 아닙니다.
+              선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세 개선 근거가 아닙니다.
             </p>
-            <RecordComparison records={records.filter((r) => mode === 'all' || r.mode === mode)} />
+            <RecordComparison records={records} />
           </div>
         </details>
       </div>
     </>
   )
-}
-
-function dayBars(records: RecordItem[], count: number, now: Date) {
-  const todayKey = localDay(now.toISOString())
-  return Array.from({ length: count }, (_, i) => {
-    const date = new Date(now)
-    date.setHours(12, 0, 0, 0)
-    date.setDate(date.getDate() - (count - 1 - i))
-    const key = localDay(date.toISOString())
-    const dayRecords = records.filter((r) => localDay(r.startedAt) === key)
-    const day = summary(dayRecords)
-    return {
-      key,
-      date,
-      today: key === todayKey,
-      label: count <= 7 ? `${date.getMonth() + 1}/${date.getDate()}` : String(date.getDate()),
-      sub: count <= 7 ? WEEKDAY[date.getDay()] : undefined,
-      rate: day.rate,
-      valid: day.valid,
-      sessions: dayRecords.length,
-      alerts: dayRecords.reduce((n, r) => n + r.events.reduce((a, e) => a + e.alerts, 0), 0),
-      title: `${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAY[date.getDay()]})`,
-    }
-  })
 }
