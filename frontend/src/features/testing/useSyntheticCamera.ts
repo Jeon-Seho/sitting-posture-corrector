@@ -204,6 +204,7 @@ export function useCamera(): CameraController {
     mainDeviceId: '',
     mainMissing: false,
     baselineOtherCamera: false,
+    baselineInfo: null,
     chooseMainCamera: () => {},
     refreshDevices: async () => {},
     state,

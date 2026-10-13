@@ -12,7 +12,15 @@ import type { CameraController } from '../hooks/useCamera'
 
 type CameraChoice = Pick<
   CameraController,
-  'devices' | 'deviceId' | 'state' | 'mainDeviceId' | 'mainMissing' | 'chooseMainCamera' | 'refreshDevices'
+  | 'devices'
+  | 'deviceId'
+  | 'state'
+  | 'mainDeviceId'
+  | 'mainMissing'
+  | 'chooseMainCamera'
+  | 'refreshDevices'
+  | 'baseline'
+  | 'baselineInfo'
 >
 
 type Rules = typeof DEFAULT_RULES
@@ -106,6 +114,23 @@ function Slider({
       </div>
     </div>
   )
+}
+
+/** "10월 13일 오전 9:12에 등록했어요 (USB Camera)." */
+function baselineDescription(camera?: CameraChoice) {
+  if (!camera) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
+  if (!camera.baseline) return '아직 등록한 자세가 없어요. 처음 측정할 때 함께 등록해요.'
+  const info = camera.baselineInfo
+  if (!info) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
+  const when = new Date(info.savedAt).toLocaleString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const index = camera.devices.findIndex((d) => d.deviceId === info.deviceId)
+  const device = index >= 0 ? `${cameraName(camera.devices[index], index)}로 ` : ''
+  return `${when}에 ${device}등록했어요. 카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.`
 }
 
 function MainCamera({ camera }: { camera: CameraChoice }) {
@@ -317,10 +342,10 @@ export function SettingsPage({
             </div>
           </details>
           <Card title="측정">
-            <Row name="기준 자세" desc="카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.">
+            <Row name="기준 자세" desc={baselineDescription(camera)}>
               <button className="chip" disabled={!onRegisterAgain} onClick={onRegisterAgain}>
                 <ArrowCounterClockwise size={14} weight="bold" className="icon" />
-                다시 등록
+                {camera?.baseline ? '기준 자세 다시 등록' : '기준 자세 등록'}
               </button>
             </Row>
             {camera && <MainCamera camera={camera} />}

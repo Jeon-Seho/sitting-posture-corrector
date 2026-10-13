@@ -172,7 +172,7 @@ export async function runAccountScenarios(browser, base, tag) {
   // 2026-10-13: 측정하기 registers (3·2·1 + capture) and then starts measuring by itself.
   await app.click('측정하기')
   await app.click('카메라 켜기')
-  await app.text('3초 뒤 자세를 기억해요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
+  await app.text('3초 뒤 기준 자세를 등록해요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
   for (const step of [1000, 1000, 1000, 200]) { // virtual clock through the countdown
     await app.evaluate(`${BRIDGE}.advance(${step})`)
     await delay(150)

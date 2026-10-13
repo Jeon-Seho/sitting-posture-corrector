@@ -146,10 +146,10 @@ class AppDriver {
     if (await this.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '카메라 켜기')`))
       await this.click('카메라 켜기')
     await until(
-      () => this.evaluate(`document.body.innerText.includes('3초 뒤 자세를 기억해요') || document.body.innerText.includes('준비가 끝났어요')`),
+      () => this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요') || document.body.innerText.includes('준비됐어요')`),
       'registration countdown or ready to measure',
     )
-    if (await this.evaluate(`document.body.innerText.includes('3초 뒤 자세를 기억해요')`)) {
+    if (await this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요')`)) {
       await this.advanceClock(3200) // 3·2·1, then the synthetic capture starts measuring by itself
     } else {
       await this.click('측정 시작')

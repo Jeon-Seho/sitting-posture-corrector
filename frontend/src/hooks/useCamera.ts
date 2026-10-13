@@ -69,6 +69,10 @@ export function useCamera() {
     () => saved.current?.summary ?? null,
   )
   const [baselineOtherCamera, setBaselineOtherCamera] = useState(false)
+  /** When and with which camera the current posture was registered (settings). */
+  const [baselineInfo, setBaselineInfo] = useState<{ savedAt: string; deviceId: string } | null>(() =>
+    saved.current ? { savedAt: saved.current.savedAt, deviceId: saved.current.deviceId } : null,
+  )
   const [progress, setProgress] = useState<number | null>(null)
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
@@ -155,6 +159,7 @@ export function useCamera() {
       }
       writeSavedBaseline(entry)
       saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
+      setBaselineInfo({ savedAt: saved.current.savedAt, deviceId: entry.deviceId })
       calibration.current = null
       setProgress(null)
     }
@@ -333,6 +338,7 @@ export function useCamera() {
     mainDeviceId,
     mainMissing,
     baselineOtherCamera,
+    baselineInfo,
     chooseMainCamera,
     refreshDevices,
     state,

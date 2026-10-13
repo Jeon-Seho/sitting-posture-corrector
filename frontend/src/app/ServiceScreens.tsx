@@ -173,6 +173,8 @@ export function ServiceScreens({
             onCollect={openCollection}
             measuring={measuring}
             registerAgain={view === 'posture'}
+            onBack={view === 'posture' ? () => go('settings') : undefined}
+            onOpenSession={() => go('session')}
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}

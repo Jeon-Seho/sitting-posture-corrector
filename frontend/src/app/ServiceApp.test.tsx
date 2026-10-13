@@ -552,14 +552,14 @@ describe('service recovery and saving with synthetic storage only', () => {
     login()
     click('측정하기')
     advance(100)
-    expect(text(renderer!.root.findByType(SetupPage))).toContain('3초 뒤 자세를 기억해요')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('3초 뒤 기준 자세를 등록해요')
     advance(2800)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     advance(200)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
     controls.camera.progress = 0.4
     rerender()
-    expect(text(renderer!.root.findByType(SetupPage))).toContain('자세를 기억하는 중')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 기억하는 중')
     expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
@@ -590,7 +590,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
     controls.camera.baseline = { ...BASELINE }
     rerender()
-    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 자세가 있어요')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세로 바로')
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
   })
   it('waits for the face and shoulders before counting down', () => {
@@ -617,7 +617,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     expect(controls.camera.cancelCalibration).toHaveBeenCalled()
-    click('자세 등록 다시 시작')
+    click('기준 자세 등록 다시 시작')
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
@@ -632,9 +632,9 @@ describe('service recovery and saving with synthetic storage only', () => {
     rerender()
     advance(15100)
     expect(controls.camera.cancelCalibration).toHaveBeenCalled()
-    expect(text(renderer!.root.findByType(SetupPage))).toContain('자세를 인식하기 어려워요')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('자세를 알아보기 어려워요')
   })
-  it('registers again from 설정 on the 측정하기 page, then measures', () => {
+  it('registers again from 설정 and ends with a choice instead of measuring', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
@@ -644,7 +644,17 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => renderer!.root.findByType(SettingsPage).props.onRegisterAgain())
     const setup = renderer!.root.findByType(SetupPage)
     expect(setup.props.registerAgain).toBe(true)
+    expect(text(setup)).toContain('설정으로')
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
+    controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
+    rerender()
+    advance(100)
+    // From settings it ends with a choice instead of measuring by itself.
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('새 기준 자세를 등록했어요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('설정으로')
+    expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
   })
 })
