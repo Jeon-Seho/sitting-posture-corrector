@@ -17,7 +17,7 @@
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(지금 없음), 2장 전제·결정, 3장 앱이 보내는 것, 7장 FE 할 일.
 - **동의:** [개인정보 수집 동의](design/consent-proposal.md) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
-- **10/12~13 결정 요약:** 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 통계는 서버가 계산하고 앱은 표시만. 오늘 측정은 끝났을 때 그 세션만 결과에 보이고, 기록 목록에는 오늘 세션도 보이되 통계는 어제까지(10/14). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편).
+- **10/12~14 결정 요약:** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 통계는 서버가 계산하고 앱은 표시만. 오늘 측정은 끝났을 때 그 세션만 결과에 보이고, 기록 목록에는 오늘 세션도 보이되 통계는 어제까지(10/14). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편).
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
 - **빌드 도구:** [백엔드 빌드를 Maven에서 Gradle로](plans/active/0028-backend-build-gradle.md)(0028, 팀 구성 확인 대기). `make check` 실패 원인 분석 포함.
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).

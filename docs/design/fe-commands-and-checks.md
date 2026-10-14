@@ -9,6 +9,8 @@
 
 ```sh
 # 다른 PC 작업 받기
+# (10/14 작업 브랜치 lee_app3 → feat/frontend-features-and-integration. 옛 PC에서는 처음 한 번만
+#  git fetch --prune origin; git switch feat/frontend-features-and-integration; git branch -D lee_app3)
 git fetch origin
 git log --oneline HEAD..origin/feat/frontend-features-and-integration
 git merge --ff-only origin/feat/frontend-features-and-integration
