@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import { anchors, type Features } from '../../../model/prototype/pose'
+import { placement, type Features } from '../../../model/prototype/pose'
 import {
   beginCalibration,
   observeCalibration,
@@ -164,7 +164,7 @@ export function useCamera() {
       own,
       observation.timeMs,
       observationGap,
-      own ? anchors(observation.landmarks) : null,
+      own ? placement(observation.landmarks) : null,
     )
     calibration.current = next.draft
     setProgress(next.progress)

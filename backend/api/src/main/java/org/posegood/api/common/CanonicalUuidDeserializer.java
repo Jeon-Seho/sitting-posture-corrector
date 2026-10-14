@@ -1,14 +1,13 @@
 package org.posegood.api.common;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.ValueDeserializer;
 
-import org.springframework.boot.jackson.JsonComponent;
+import org.springframework.boot.jackson.JacksonComponent;
 
-import java.io.IOException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -17,18 +16,18 @@ import java.util.regex.Pattern;
  *
  * Jackson이 받아 주는 Base64 형식 등은 거부한다.
  */
-@JsonComponent
-public class CanonicalUuidDeserializer extends JsonDeserializer<UUID> {
+@JacksonComponent
+public class CanonicalUuidDeserializer extends ValueDeserializer<UUID> {
     public static final Pattern CANONICAL =
             Pattern.compile(
                     "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     @Override
-    public UUID deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+    public UUID deserialize(JsonParser parser, DeserializationContext context) {
         if (!parser.hasToken(JsonToken.VALUE_STRING)
-                || !CANONICAL.matcher(parser.getText()).matches()) {
-            throw JsonMappingException.from(parser, "UUID must use canonical text");
+                || !CANONICAL.matcher(parser.getString()).matches()) {
+            throw DatabindException.from(parser, "UUID must use canonical text");
         }
-        return UUID.fromString(parser.getText());
+        return UUID.fromString(parser.getString());
     }
 }

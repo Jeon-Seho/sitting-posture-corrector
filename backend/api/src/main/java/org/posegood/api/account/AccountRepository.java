@@ -140,7 +140,7 @@ public class AccountRepository {
                                 + " request_scope='ACCOUNT_ALL' AND account_closed_at > ? FOR UPDATE",
                         String.class,
                         id, now.minusDays(graceDays));
-        if (requests.size() != 1 || !"REQUESTED".equals(requests.getFirst())) return false;
+        if (requests.size() != 1 || !"REQUESTED".equals(requests.get(0))) return false;
         jdbc.update(
                 "DELETE FROM deletion_request WHERE user_account_id=? AND request_scope='ACCOUNT_ALL'",
                 id);
@@ -224,7 +224,7 @@ public class AccountRepository {
     }
 
     private static <T> T first(List<T> values) {
-        return values.isEmpty() ? null : values.getFirst();
+        return values.isEmpty() ? null : values.get(0);
     }
 
     /** 조회한 계정 한 행. */

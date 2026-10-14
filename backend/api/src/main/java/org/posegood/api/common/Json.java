@@ -1,10 +1,10 @@
 package org.posegood.api.common;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import org.springframework.stereotype.Component;
 
@@ -34,7 +34,7 @@ public class Json {
     public String write(Object value) {
         try {
             return mapper.writeValueAsString(value);
-        } catch (JsonProcessingException error) {
+        } catch (JacksonException error) {
             throw new IllegalStateException("serialization failed");
         }
     }
@@ -42,7 +42,7 @@ public class Json {
     public <T> T read(String json, Class<T> type) {
         try {
             return mapper.readValue(json, type);
-        } catch (JsonProcessingException error) {
+        } catch (JacksonException error) {
             throw new IllegalStateException("stored JSON is invalid");
         }
     }
@@ -51,9 +51,26 @@ public class Json {
     public <T> T convert(JsonNode value, Class<T> type) {
         try {
             return mapper.treeToValue(value, type);
-        } catch (JsonProcessingException | IllegalArgumentException invalid) {
+        } catch (JacksonException | IllegalArgumentException invalid) {
             throw ApiError.badRequest("invalid contract");
         }
+    }
+
+    /**
+     * Jackson 2의 {@code asText()}와 같은 글자: 문자열·숫자·논리값은 그 글자, JSON null은 "null",
+     * 객체·배열·없는 값은 "". Jackson 3의 {@code asString()}은 객체·배열에서 예외를 던져 형식 오류가
+     * 400 대신 500이 되므로 클라이언트 입력에는 이것을 쓴다.
+     */
+    public static String text(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isContainer()) return "";
+        if (node.isNull()) return "null";
+        return node.asString();
+    }
+
+    /** Jackson 2의 {@code asText(fallback)}와 같다: 없는 값·JSON null이면 {@code fallback}. */
+    public static String text(JsonNode node, String fallback) {
+        if (node == null || node.isMissingNode() || node.isNull()) return fallback;
+        return text(node);
     }
 
     public JsonNode tree(Object value) {

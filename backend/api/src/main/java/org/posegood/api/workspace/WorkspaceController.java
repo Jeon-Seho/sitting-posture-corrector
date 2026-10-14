@@ -1,6 +1,6 @@
 package org.posegood.api.workspace;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import org.posegood.api.account.CurrentUser;
 import org.springframework.http.HttpStatus;

@@ -83,7 +83,7 @@ public class ThresholdPolicyRepository {
                         values.holdSeconds(),
                         values.recoverSeconds(),
                         values.realertSeconds());
-        return rows.isEmpty() ? null : rows.getFirst();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     /**

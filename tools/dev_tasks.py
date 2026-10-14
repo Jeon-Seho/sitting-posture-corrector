@@ -1,18 +1,17 @@
 """Setup, verification and local server workflows used by the dev CLI."""
 
-import os
 import sys
 
 if __package__:
     from .test_mysql import mysql_server
     from .runtime import (
-        ROOT, VENV, java_executable, maven_executable, npm, require_venv,
+        VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 else:
     from test_mysql import mysql_server
     from runtime import (
-        ROOT, VENV, java_executable, maven_executable, npm, require_venv,
+        VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 
@@ -44,13 +43,8 @@ def check_frontend():
     npm("run", "check")
 
 
-def maven(*arguments, env=None):
-    settings = "tools/maven-settings.xml"
-    cache = os.environ.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
-    run(
-        maven_executable(), "-B", "-ntp", "-s", settings, "-gs", settings,
-        "-Dmaven.repo.local=" + cache, "-f", "backend/pom.xml", *arguments, env=env,
-    )
+def gradle(*arguments, env=None):
+    run(*gradle_command(*arguments), env=env)
 
 
 def check_backend():
@@ -59,9 +53,9 @@ def check_backend():
     MySQL comes from tools/test_mysql.py (configured loopback server or a temporary Docker
     container); a missing MySQL fails the check instead of skipping it.
     """
-    maven("verify")
+    gradle("build")
     with mysql_server() as server:
-        maven("-Pmysql-integration", "verify", env=server.environment())
+        gradle("build", "-Pmysql-integration", env=server.environment())
         run(venv_python(), "tools/service_smoke.py", env=server.environment())
 
 

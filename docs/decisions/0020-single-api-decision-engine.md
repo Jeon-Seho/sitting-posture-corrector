@@ -12,6 +12,7 @@
 ## 결정
 
 1. **백엔드는 Spring Boot API 하나다.** Esper CEP 모듈·내부 HTTP·outbox·재전달을 없앴다. Java 21·Spring Boot 3.5.16·Maven은 유지한다.
+   (2026-10-14 Java 17·Spring Boot 4.0.8·Gradle로 바꿨다: [ADR 0023](0023-backend-java17-boot4-gradle.md).)
 2. **시간 판정은 `backend/api/.../engine/`의 순수 Java다.** 임계 비교 세 개(붕괴 확정·회복·재알림)는 `DecisionRules`에만 둔다.
    시간 누적·사건 기록·통계·중단/초기화(`legacy-interrupt-v1`)는 이전 CEP와 같다. 이전 CEP 엔진 시험 16개를 같은 입력·기대값으로 옮겨 동등성을 확인한다.
 3. **추론은 FastAPI `POST /v2/infer`를 그대로 호출한다.** 출력이 요청과 맞지 않거나 저품질을 유효로 표시하면 502이며 상태를 바꾸지 않는다.

@@ -2,7 +2,7 @@
 
 MySQL·Spring API·FastAPI·Nginx/React를 함께 실행한다. 판정은 API 안에서 한다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)).
 Docker Engine/Desktop와 Docker Compose가 필요하다. 앱 이미지 빌드에는 Docker가 공식 registry와
-Maven Central·PyPI·npm·MediaPipe 자산에 접근할 수 있어야 한다. 호스트 JDK/Python/Node 설치 없이 앱을 실행할 수 있다.
+Maven Central·Gradle 배포 서버(`services.gradle.org`)·PyPI·npm·MediaPipe 자산에 접근할 수 있어야 한다. 호스트 JDK/Python/Node 설치 없이 앱을 실행할 수 있다.
 
 ```sh
 make init-compose
@@ -50,7 +50,7 @@ make setup
 make check
 ```
 
-전체 개발 게이트는 JDK 21·Maven·Node 24+·Python 3.9+·Chrome/Chromium·실행 중인 Docker가 필요하다.
+전체 개발 게이트는 JDK 17·Node 24+·Python 3.9+·Chrome/Chromium·실행 중인 Docker가 필요하다. 백엔드는 Gradle Wrapper로 빌드한다.
 `make check-compose`는 실제 MySQL과 컨테이너·계정 UI를 별도로 검증한다. 임시 프로젝트/볼륨과 독립 브라우저만 사용한다.
 Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 Compose를 제외한 검증이며 전체 검증 성공을 의미하지 않는다.
 실제 카메라·의학적 효과·연구 정확도·외부 배포 검증은 포함하지 않는다.

@@ -1,6 +1,6 @@
 # 백엔드 — 세션·계정·판정 API
 
-Java 21·Spring Boot 3.5.16·Maven으로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)).
+Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md), [ADR 0023](../docs/decisions/0023-backend-java17-boot4-gradle.md)).
 현재 프론트 특징 v2 유지 범위는 [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)를 따른다.
 DB는 MySQL [스키마 V2.3](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
@@ -92,7 +92,9 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 
 ## 준비와 검증
 
-JDK 21, Maven 3.6.3+, Python 3.9+, Node 24+가 필요하다(설치 목록: [requirements-front.txt](../requirements-front.txt)). 의존성은 Maven Central·PyPI에서 받는다.
+JDK 17 이상, Python 3.9+, Node 24+가 필요하다(설치 목록: [requirements-front.txt](../requirements-front.txt)). Gradle은 설치하지 않아도 된다.
+`backend/gradlew`(Gradle Wrapper 9.7.1)가 처음 실행할 때 Gradle을 받는다. 의존성은 Maven Central·PyPI에서 받는다.
+`make` 명령(`tools/`)도 이 Wrapper를 부르며, 개인 설정이 섞이지 않도록 Gradle 홈을 `.cache/gradle`(Git 제외)로 따로 둔다. `POSEGOOD_GRADLE_HOME`으로 바꿀 수 있다.
 
 ```sh
 make setup
@@ -106,12 +108,14 @@ make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 F
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
 시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_3.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
-Maven만 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다.
+Gradle을 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh
-mvn -f backend/pom.xml verify                       # 단위 시험
-mvn -f backend/pom.xml -Pmysql-integration verify   # + 실제 MySQL (위 환경변수 필요)
+backend/gradlew -p backend build                        # 컴파일·단위 시험·JAR
+backend/gradlew -p backend build -Pmysql-integration    # + 실제 MySQL (위 환경변수 필요)
 ```
+
+JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `backend/api/target/`).
 
 수동 실행: API는 MySQL(`POSEGOOD_DATABASE_URL`·`_USER`·`_PASSWORD`, 기본 `127.0.0.1:3306/posture_service`)과
 추론(`make dev-inference`, 127.0.0.1:8092)이 필요하다. `make dev-api`로 JAR를 실행한다.

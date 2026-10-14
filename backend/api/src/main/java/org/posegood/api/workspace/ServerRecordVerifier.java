@@ -1,6 +1,6 @@
 package org.posegood.api.workspace;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.Json;
@@ -37,11 +37,11 @@ class ServerRecordVerifier {
      * 기록을 검증하고 날짜를 DB 시각으로 맞춘다.
      */
     void verify(long owner, ObjectNode body) {
-        var id = UUID.fromString(body.get("id").asText());
+        var id = UUID.fromString(Json.text(body.get("id")));
         var stored = sessions.owned(owner, id);
         var server = body.get("server");
         boolean confirmed = server.get("confirmed").asBoolean();
-        if (!stored.baselineId().equals(UUID.fromString(server.get("baselineId").asText())))
+        if (!stored.baselineId().equals(UUID.fromString(Json.text(server.get("baselineId")))))
             throw ApiError.conflict("record baseline mismatch");
         var raw = server.get("view");
         if (raw.isNull()) {
@@ -50,7 +50,7 @@ class ServerRecordVerifier {
                     || body.get("valid").asDouble() != 0
                     || body.get("good").asDouble() != 0
                     || !body.get("events").isEmpty()) RecordValidator.invalid();
-            if (!"unmeasured".equals(server.get("modelVersion").asText()))
+            if (!"unmeasured".equals(Json.text(server.get("modelVersion"))))
                 throw ApiError.conflict("record model mismatch");
         } else {
             var view = json.convert(raw, SessionView.class);
@@ -58,7 +58,7 @@ class ServerRecordVerifier {
                 throw ApiError.conflict("record snapshot was not acknowledged");
             acknowledged(stored, view, confirmed);
             String model = view.lastSequence() < 0 ? "unmeasured" : sessions.modelVersion();
-            if (!model.equals(server.get("modelVersion").asText()))
+            if (!model.equals(Json.text(server.get("modelVersion"))))
                 throw ApiError.conflict("record model mismatch");
             var summary = view.summary();
             if (body.get("total").asDouble() != summary.totalMs() / 1000.0
@@ -77,7 +77,7 @@ class ServerRecordVerifier {
         }
         body.put("startedAt", stored.startedAt().toString());
         if (confirmed && stored.endedAt() != null) body.put("endedAt", stored.endedAt().toString());
-        else if (Instant.parse(body.get("endedAt").asText()).isBefore(stored.startedAt()))
+        else if (Instant.parse(Json.text(body.get("endedAt"))).isBefore(stored.startedAt()))
             body.put("endedAt", stored.startedAt().toString());
     }
 

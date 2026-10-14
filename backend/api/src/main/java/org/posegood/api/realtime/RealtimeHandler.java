@@ -1,6 +1,6 @@
 package org.posegood.api.realtime;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import jakarta.validation.Validator;
 
@@ -28,7 +28,6 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,11 +84,11 @@ public class RealtimeHandler extends TextWebSocketHandler {
         JsonNode frame;
         try {
             frame = json.mapper().readTree(message.getPayload());
-        } catch (IOException | RuntimeException unreadable) {
+        } catch (RuntimeException unreadable) { // Jackson 3 parse errors are unchecked (JacksonException)
             close(channel, CloseStatus.NOT_ACCEPTABLE);
             return;
         }
-        String type = frame.path("type").asText();
+        String type = Json.text(frame.path("type"));
         switch (type) {
             case "hello" -> hello(channel, socket, frame);
             case "features" -> features(channel, socket, frame);
@@ -106,7 +105,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
         UUID id = sessionId(frame);
         if (id == null
                 || !exactly(frame, HELLO)
-                || !"1.0".equals(frame.path("schema_version").asText(null))
+                || !"1.0".equals(Json.text(frame.path("schema_version"), null))
                 || !frame.path("last_event_id").canConvertToLong()
                 || !frame.path("last_event_id").isIntegralNumber()
                 || frame.path("last_event_id").asLong() < 0) {
@@ -293,15 +292,15 @@ public class RealtimeHandler extends TextWebSocketHandler {
     }
 
     private static UUID sessionId(JsonNode frame) {
-        var text = frame.path("session_id").asText(null);
+        var text = Json.text(frame.path("session_id"), null);
         if (text == null || !CanonicalUuidDeserializer.CANONICAL.matcher(text).matches()) return null;
         return UUID.fromString(text);
     }
 
     private static boolean exactly(JsonNode frame, Set<String> keys) {
         if (frame.size() != keys.size()) return false;
-        for (Iterator<String> names = frame.fieldNames(); names.hasNext(); )
-            if (!keys.contains(names.next())) return false;
+        for (String name : frame.propertyNames())
+            if (!keys.contains(name)) return false;
         return true;
     }
 

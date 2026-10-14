@@ -86,33 +86,22 @@ export function features(points: Landmark[], width: number, height: number): Fea
   }
 }
 
-/** MediaPipe Pose indices of the nine landmarks stored with a server baseline (DB V2.1). */
-export const BASELINE_LANDMARKS = {
-  nose: 0,
-  left_eye: 2,
-  right_eye: 5,
-  left_ear: 7,
-  right_ear: 8,
-  mouth_left: 9,
-  mouth_right: 10,
-  left_shoulder: 11,
-  right_shoulder: 12,
-} as const
-export type BaselineLandmark = keyof typeof BASELINE_LANDMARKS
-export type Anchors = Record<BaselineLandmark, { x: number; y: number }>
-
 /**
- * Normalized positions (0..1) of the baseline landmarks in one frame. Null when one is missing or
- * estimated off the frame: the DB rejects such coordinates. Stored with a server baseline only.
+ * Where the calibrated upper body sits in the frame: shoulder midpoint and the area of the
+ * nose/shoulder bounding box, all normalized to 0..1. Stored with a server baseline only.
  */
-export function anchors(points: Landmark[]): Anchors | null {
-  const result = {} as Anchors
-  for (const [name, index] of Object.entries(BASELINE_LANDMARKS) as [BaselineLandmark, number][]) {
-    const p = points[index]
-    if (!p || !(p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)) return null
-    result[name] = { x: p.x, y: p.y }
+export function placement(points: Landmark[]): { x: number; y: number; area: number } | null {
+  const required = [points[0], points[11], points[12]]
+  if (required.some((p) => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null
+  const unit = (n: number) => Math.min(1, Math.max(0, n))
+  const xs = required.map((p) => p.x),
+    ys = required.map((p) => p.y)
+  const [, left, right] = required
+  return {
+    x: unit((left.x + right.x) / 2),
+    y: unit((left.y + right.y) / 2),
+    area: unit((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))),
   }
-  return result
 }
 
 export function average(samples: Features[]): Features {

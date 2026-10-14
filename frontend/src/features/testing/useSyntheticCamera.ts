@@ -4,7 +4,6 @@ import type { CameraController } from '../../hooks/useCamera'
 import type { Observation } from '../camera/types'
 import type { VisualOptions } from '../../lib/poseVisual'
 import { requireSyntheticMode } from './guard'
-import { SYNTHETIC_LANDMARKS } from './syntheticLandmarks'
 requireSyntheticMode()
 
 export const SYNTHETIC_BASELINE: Features = {
@@ -75,6 +74,8 @@ export function useCamera(): CameraController {
       lastFrame.current = 0
       setState('off')
       setQuality(false)
+      setBaseline(null)
+      setCalibrationId(null)
     },
     [releasePreview]
   )
@@ -137,6 +138,8 @@ export function useCamera(): CameraController {
       lastFrame.current = performance.now()
       setState('on')
       setQuality(true)
+      setBaseline(null)
+      setCalibrationId(null)
       if (videoRef.current) {
         Object.defineProperty(
           videoRef.current,
@@ -161,7 +164,7 @@ export function useCamera(): CameraController {
   const calibrate = () => {
     if (state !== 'on' || !quality) return
     setBaseline({ ...SYNTHETIC_BASELINE })
-    setCalibrationId(crypto.randomUUID())
+    setCalibrationId('22222222-2222-4222-8222-222222222222')
   }
   const setOverlayEnabled = useCallback(
     (enabled: boolean) => {
@@ -220,7 +223,7 @@ export function useCamera(): CameraController {
           durationMs: 5000,
           sampleCount: 20,
           spread: { headGap: 0, offset: 0, tilt: 0 },
-          landmarks: SYNTHETIC_LANDMARKS,
+          placement: { x: 0.5, y: 0.6, area: 0.05 },
         }
       : null,
     progress: null,

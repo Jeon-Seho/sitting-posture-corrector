@@ -14,7 +14,7 @@ from deploy.secrets import ROOT, create_secrets
 from deploy.smoke import exercise_accounts, verify_frontend, verify_restart_and_finish, wait_health
 from deploy.restore import query, restore_database
 from account_browser_smoke import verify_account_browser
-from runtime import maven_executable
+from runtime import gradle_command
 
 
 def free_port():
@@ -43,14 +43,8 @@ def mysql_integration(project, env, secret_directory):
     integration["POSEGOOD_TEST_MYSQL_URL"] = "jdbc:mysql://" + address + "/"
     integration["POSEGOOD_TEST_MYSQL_USER"] = "root"
     integration["POSEGOOD_TEST_MYSQL_PASSWORD"] = (secret_directory / "mysql_root_password").read_text().strip()
-    settings = "tools/maven-settings.xml"
-    cache = integration.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
     subprocess.run(
-        [
-            maven_executable(), "-B", "-ntp", "-s", settings, "-gs", settings,
-            "-Dmaven.repo.local=" + cache,
-            "-f", "backend/pom.xml", "-Pmysql-integration", "verify",
-        ],
+        gradle_command("build", "-Pmysql-integration", environment=integration),
         cwd=ROOT, env=integration, check=True, timeout=600,
     )
 

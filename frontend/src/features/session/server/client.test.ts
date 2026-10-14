@@ -29,7 +29,7 @@ describe('same-origin server client with synthetic HTTP responses', () => {
     )
     expect(result.view.last_sequence).toBe(0)
     expect(fetchMock.mock.calls[0]).toEqual([
-      `/api/v2/sessions/${SESSION_ID}/features`,
+      `/api/v1/sessions/${SESSION_ID}/features`,
       expect.objectContaining({
         method: 'POST',
         credentials: 'omit',

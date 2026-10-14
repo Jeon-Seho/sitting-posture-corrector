@@ -69,7 +69,7 @@ make dev
 실제 계정은 필요 없다. 프로필과 측정 요약은 이 브라우저(localStorage)에만 저장한다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
 
-개발 서버 모드는 JDK 21·Maven으로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다.
+개발 서버 모드는 JDK 17로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다(백엔드는 Gradle Wrapper로 빌드, [ADR 0023](docs/decisions/0023-backend-java17-boot4-gradle.md)).
 출력된 임시 포트 주소에서 측정하기 준비 화면의 ‘서버 판정 사용 · 개발 연결’을 선택한다. 종료는 Ctrl+C다.
 Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장은 메모리이며 완료 요약은 브라우저에 보관한다.
 이 개발 명령은 임시 MySQL DB를 만들고 끝나면 지운다. 영구 저장은 위 Compose 모드로 실행한다.
@@ -116,7 +116,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - `model/prototype/pose.ts`: 품질·정규화·개인 기준 비교
 
 검증: `make check` (문서/구조, Python 계약·추론, 프론트 상태 전이·특징·통계, 타입/빌드, Java API·판정 엔진·실제 MySQL, 합성 HTTP·브라우저 흐름).
-전체 게이트에는 JDK 21·Maven·Chrome/Chromium·실행 중인 Docker/Compose도 필요하다. 실제 MySQL·계정 UI·재시작/삭제/백업 복원 검증이 포함된다. 프론트만 검증하려면 `make check-frontend`를 사용한다.
+전체 게이트에는 JDK 17·Chrome/Chromium·실행 중인 Docker/Compose도 필요하다(Gradle은 `backend/gradlew`가 받는다). 실제 MySQL·계정 UI·재시작/삭제/백업 복원 검증이 포함된다. 프론트만 검증하려면 `make check-frontend`를 사용한다.
 브라우저 검사는 `make check-frontend`로 프론트 빌드와 `make check-backend`로 JAR를 준비한 뒤 `make check-browser`로 따로 실행할 수 있다.
 독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
 

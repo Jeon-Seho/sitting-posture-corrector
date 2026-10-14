@@ -1,7 +1,7 @@
 package org.posegood.api.workspace;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import org.posegood.api.account.AccountContracts;
 import org.posegood.api.account.AccountRepository;
@@ -128,11 +128,11 @@ public class WorkspaceService {
     public JsonNode save(long owner, JsonNode body) {
         RecordValidator.record(body);
         if (!body.has("server")) throw ApiError.badRequest("only server session records are stored");
-        ObjectNode canonical = body.deepCopy();
+        ObjectNode canonical = (ObjectNode) body.deepCopy();
         verifier.verify(owner, canonical);
         var view = body.get("server").get("view");
         long acknowledged = view.isNull() ? 0 : view.get("summary").get("total_ms").asLong();
-        sessions.closeForRecord(owner, UUID.fromString(body.get("id").asText()), acknowledged);
+        sessions.closeForRecord(owner, UUID.fromString(Json.text(body.get("id"))), acknowledged);
         return canonical;
     }
 

@@ -34,7 +34,7 @@ public class BaselineRepository {
     public Stored current(long owner) {
         var rows = jdbc.query("SELECT * FROM baseline_posture WHERE user_account_id=?"
                 + " ORDER BY baseline_posture_id DESC LIMIT 1", this::read, owner);
-        return rows.isEmpty() ? null : rows.getFirst();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     /** Caller holds the account lock and transaction. Existing rows are never updated. */
@@ -44,9 +44,9 @@ public class BaselineRepository {
                 this::read, owner, at);
         var values = values(landmarks);
         if (!existing.isEmpty()) {
-            if (!values(existing.getFirst().landmarks()).equals(values))
+            if (!values(existing.get(0).landmarks()).equals(values))
                 throw ApiError.conflict("baseline registration conflict");
-            return existing.getFirst();
+            return existing.get(0);
         }
         var args = new ArrayList<Object>();
         args.add(owner);

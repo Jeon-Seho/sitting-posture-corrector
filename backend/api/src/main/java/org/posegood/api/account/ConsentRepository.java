@@ -47,7 +47,7 @@ public class ConsentRepository {
     public boolean optional(long owner) {
         var values = jdbc.queryForList("SELECT withdrawn_at IS NULL FROM user_consent WHERE user_account_id=?"
                 + " AND consent_type='OPTIONAL_PROFILE' ORDER BY agreed_at DESC LIMIT 1", Boolean.class, owner);
-        return !values.isEmpty() && values.getFirst();
+        return !values.isEmpty() && values.get(0);
     }
 
     /** Caller owns the account lock and transaction; repeated writes are idempotent. */
