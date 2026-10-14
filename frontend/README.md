@@ -7,7 +7,7 @@
 
 ## 데스크톱 앱 (2026-10-02~)
 
-화면은 데스크톱 앱 기준으로 다시 설계했다. 탭은 **측정하기 · 기록 · 설정** 3개다. 2026-10-12에 따로 만든 「자세 등록」 탭([계획 0024](../docs/plans/active/0024-posture-registration-tab.md))은 2026-10-13 측정하기로 다시 합쳤다: 등록한 자세가 없으면 등록 후 바로 측정하고, 있으면 바로 측정한다.
+화면은 데스크톱 앱 기준으로 다시 설계했다. 탭은 **측정하기 · 기록 · 달력 · 설정** 4개다(달력은 2026-10-13 추가). 받아서 실행하는 순서는 [루트 README](../README.md#데스크톱-앱-받아서-실행하기-windows)에 있다. 2026-10-12에 따로 만든 「자세 등록」 탭([계획 0024](../docs/plans/active/0024-posture-registration-tab.md))은 2026-10-13 측정하기로 다시 합쳤다: 등록한 자세가 없으면 등록 후 바로 측정하고, 있으면 바로 측정한다.
 [ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/desktop-app.md), [DESIGN.md](../DESIGN.md).
 
 ```sh
