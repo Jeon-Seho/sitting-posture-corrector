@@ -109,8 +109,8 @@ ipcMain.handle('desktop:set-alert-popup', (event, enabled) => {
 
 // 자세 알림 팝업: 앱 창이 가려졌거나 최소화됐을 때만 화면 오른쪽 아래에 띄운다.
 // 포커스를 가져가지 않고(showInactive) 일정 시간 뒤 스스로 숨는다. 앱을 보고 있으면 앱 안 토스트만 쓴다.
-const POPUP_WIDTH = 380
-const POPUP_HEIGHT = 150
+const POPUP_WIDTH = 360
+const POPUP_HEIGHT = 76
 const POPUP_MS = 8000
 let mainWindow = null
 let popupWindow = null
@@ -155,8 +155,10 @@ function appInView() {
 
 ipcMain.handle('desktop:alert', async (event, alert) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return null
-  if (!readSettings().alertPopup) return 'off'
-  if (appInView()) return 'in-app'
+  // 개발자 옵션의 미리보기는 설정·앱 화면 여부와 상관없이 띄운다.
+  const preview = alert?.preview === true
+  if (!preview && !readSettings().alertPopup) return 'off'
+  if (!preview && appInView()) return 'in-app'
   const title = popupText(alert?.title, 60), body = popupText(alert?.body, 140)
   if (!title) return null
   const popup = await ensurePopup()

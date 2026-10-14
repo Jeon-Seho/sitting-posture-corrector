@@ -9,6 +9,7 @@ import { cameraName } from '../features/camera/mainCamera'
 import { SelectMenu } from '../components/SelectMenu'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
+import { AlertPreview } from '../features/desktop/AlertPreview'
 import type { CameraController } from '../hooks/useCamera'
 
 type CameraChoice = Pick<
@@ -441,6 +442,7 @@ export function SettingsPage({
                   <TrackingRateCheck camera={camera} />
                 </div>
               )}
+              <AlertPreview />
               <Row
                 name="서버 연결 끊김 화면"
                 desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
