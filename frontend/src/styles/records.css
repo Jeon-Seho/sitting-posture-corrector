@@ -395,11 +395,12 @@
   outline-offset: -2px;
 }
 .calendar-date {
+  position: relative;
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
-  margin-bottom: 2px;
+  margin: 4px 0 6px;
   border-radius: 50%;
   font-size: 15px;
   font-weight: 600;
@@ -417,14 +418,21 @@
   color: #fff;
   font-weight: 700;
 }
-.calendar-rate {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--primary-ink);
+/* Keep-rate ring: fills clockwise from the top; green at 75% and above, apricot below. */
+.calendar-date.has-ring {
+  --ring: var(--alert-soft);
 }
-.calendar-rate.is-good {
-  color: var(--good-ink);
+.calendar-date.has-ring.is-good {
+  --ring: var(--good);
+}
+.calendar-date.has-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring) calc(var(--rate) * 1turn), var(--line-strong) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
 }
 .calendar-time {
   font-size: 11px;

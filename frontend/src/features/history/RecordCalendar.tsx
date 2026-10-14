@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { Card, ComboChart, Legend } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
@@ -16,8 +16,9 @@ export function shortDuration(sec: number) {
 }
 
 /**
- * Month calendar (2026-10-13, Toss-style): plain cells with the date, that day's keep rate
- * and measured time underneath; pressing a day opens that day's record below.
+ * Month calendar (2026-10-13, Toss-style): plain cells; a ring around the date fills with
+ * that day's keep rate and the measured time sits underneath. Pressing a day opens that
+ * day's record below.
  * The week containing today sits on a horizontal band.
  */
 export function MonthCalendar({
@@ -119,18 +120,17 @@ export function MonthCalendar({
                     className={`calendar-day ${s ? 'has-record' : ''} ${i === 0 ? 'is-sunday' : ''} ${day === selected ? 'is-selected' : ''} ${day === today ? 'is-today' : ''}`}
                     disabled={day > today}
                     aria-pressed={day === selected}
-                    aria-label={`${dateOf(day).getDate()}일 ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
+                    aria-label={`${dateOf(day).getDate()}일 ${s ? `${formatDuration(s.valid_sec)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}` : '측정 없음'}`}
                     onClick={() => onSelect(day)}
                   >
-                    <span className="calendar-date">{dateOf(day).getDate()}</span>
-                    {s && (
-                      <>
-                        <span className={`calendar-rate ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}>
-                          {rate === null ? '—' : `${Math.round(rate * 100)}%`}
-                        </span>
-                        <span className="calendar-time">{shortDuration(s.valid_sec)}</span>
-                      </>
-                    )}
+                    {/* The ring around the date fills with that day's keep rate (2026-10-14). */}
+                    <span
+                      className={`calendar-date ${rate !== null ? 'has-ring' : ''} ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}
+                      style={rate !== null ? ({ '--rate': rate } as CSSProperties) : undefined}
+                    >
+                      {dateOf(day).getDate()}
+                    </span>
+                    {s && <span className="calendar-time">{shortDuration(s.valid_sec)}</span>}
                   </button>
                 )
               })}
