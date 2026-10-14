@@ -1,3 +1,4 @@
+import { tip } from '../../components/TipLayer'
 import { formatDuration } from '../../lib/stats'
 import { activityLevel, addDays, dateOf, type DailyStat } from './recordsSource'
 
@@ -46,7 +47,18 @@ export function ActivityHeatmap({ stats, today }: { stats: DailyStat[]; today: s
                     <i
                       key={day}
                       className={`heatmap-cell level-${s ? activityLevel(s.valid_sec) : 0} ${future ? 'is-future' : ''} ${day === today ? 'is-today' : ''}`}
-                      data-tip={future ? undefined : `${dayLabel(day)} · ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
+                      {...(future
+                        ? {}
+                        : tip(
+                            dayLabel(day),
+                            s
+                              ? [
+                                  ['측정 시간', formatDuration(s.valid_sec)],
+                                  ['바른 자세', s.good_ratio === null ? '—' : `${Math.round(s.good_ratio * 100)}%`],
+                                  ['세션', `${s.session_count}회`],
+                                ]
+                              : [['측정', '없음']],
+                          ))}
                     />
                   )
                 })}

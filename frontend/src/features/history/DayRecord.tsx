@@ -4,6 +4,7 @@ import { Amount } from '../../components/Amount'
 import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
 import { GOOD_RATE } from '../../components/RateRing'
 import { Ring } from '../../components/Ring'
+import { tip } from '../../components/TipLayer'
 import type { RecordItem } from '../../lib/serviceStore'
 import { daySessionNumber } from '../../lib/sessionNumber'
 import { formatDuration } from '../../lib/stats'
@@ -134,7 +135,15 @@ export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: st
               key={r.id}
               className={`day-timeline-block ${rate !== null && Math.round(rate * 100) >= GOOD_RATE * 100 ? 'is-good' : ''}`}
               style={{ left: `${left}%`, width: `${Math.max(at(r.endedAt) - left, 0.6)}%` }}
-              data-tip={`${time} · ${formatDuration(r.valid)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}`}
+              {...tip(time, [
+                ['측정 시간', formatDuration(r.valid)],
+                [
+                  '바른 자세',
+                  rate === null ? '—' : `${Math.round(rate * 100)}%`,
+                  rate !== null && Math.round(rate * 100) >= GOOD_RATE * 100 ? 'var(--good)' : 'var(--alert-soft)',
+                ],
+                ['자세 경고', `${r.events.length}번`],
+              ])}
             />
           )
         })}
