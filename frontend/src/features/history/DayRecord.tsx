@@ -12,10 +12,10 @@ import { RecordHistoryItem } from './RecordHistoryItem'
 import { dailyStats, sessionsOn } from './recordsSource'
 
 /**
- * One day's record (2026-10-14 layout): a large keep-rate ring with the day's verdict, the
- * measured time and alerts beside it, a 24-hour strip showing when each session ran, then
- * the grouped metrics and every session. Data has the `GET /records?date=` shape
- * (api-ws-spec 2.6).
+ * One day's record for the 기록 tab (2026-10-14 layout; the 달력 tab uses the lighter
+ * DaySummary): a large keep-rate ring and percent, the measured time and alerts beside it,
+ * a 24-hour strip showing when each session ran, then the grouped metrics and every session.
+ * Data has the `GET /records?date=` shape (api-ws-spec 2.6).
  */
 export function DayRecord({
   records,
@@ -23,33 +23,25 @@ export function DayRecord({
   today,
   measuring,
   onStart,
-  onClose,
 }: {
   records: RecordItem[]
   day: string
   today: string
   measuring: boolean
   onStart: () => void
-  /** Shows a 닫기 chip (달력 tab). */
-  onClose?: () => void
 }) {
   const sessions = sessionsOn(records, day)
   const [s] = dailyStats(records, day, day)
   const isToday = day === today
   const allStarts = records.map((r) => r.startedAt)
   const rate = s?.good_ratio ?? null
-  const good = rate !== null && rate >= GOOD_RATE
+  // Colour by the shown percent: 74.9% reads as 75% and should look the same as 75%.
+  const percent = rate === null ? null : Math.round(rate * 100)
+  const good = percent !== null && percent >= GOOD_RATE * 100
   return (
     <Card
       title={isToday ? '오늘의 기록' : `${dayLabel(day)} 기록`}
       note={isToday ? dayLabel(day) : undefined}
-      action={
-        onClose ? (
-          <button className="chip" onClick={onClose}>
-            닫기
-          </button>
-        ) : undefined
-      }
     >
       {!s ? (
         <div className="day-record-empty">
@@ -70,18 +62,13 @@ export function DayRecord({
                 size={112}
                 stroke={12}
                 color={good ? 'var(--good)' : 'var(--alert-soft)'}
-                label={rate === null ? '측정한 시간 없음' : `바른 자세 ${Math.round(rate * 100)}%`}
+                label={percent === null ? '측정한 시간 없음' : `바른 자세 ${percent}%`}
               />
               <div>
                 <div className="day-hero-label">바른 자세 유지율</div>
                 <div className="day-hero-value records-stat-value">
-                  <Amount value={rate === null ? '—' : `${Math.round(rate * 100)}%`} />
+                  <Amount value={percent === null ? '—' : `${percent}%`} />
                 </div>
-                {rate !== null && (
-                  <span className={`day-hero-verdict ${good ? 'is-good' : ''}`}>
-                    {good ? '목표 75% 달성' : `목표 75%까지 ${Math.round((GOOD_RATE - rate) * 100)}%p`}
-                  </span>
-                )}
               </div>
             </div>
             <div className="day-hero-facts">
@@ -141,7 +128,7 @@ export function DayRecord({
 }
 
 /** When the day's sessions ran, on a 0–24 h strip; each block is tinted by its keep rate. */
-function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: string }) {
+export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: string }) {
   const [y, m, d] = day.split('-').map(Number)
   const start = new Date(y, m - 1, d).getTime()
   const span = 24 * 3600 * 1000

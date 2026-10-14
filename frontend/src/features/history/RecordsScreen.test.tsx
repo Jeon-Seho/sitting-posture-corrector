@@ -57,7 +57,7 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
 
   it('달력 opens no day until one is picked, bands this week and shows time pills', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     expect(text()).toContain('2026년 10월')
     expect(text()).not.toContain('오늘의 기록')
@@ -78,19 +78,21 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(gridDay('2일').findAll((n) => String(n.props.className).includes('calendar-ring is-good'))).toHaveLength(1)
 
     act(() => gridDay('12일').props.onClick())
-    expect(text()).toContain('10월 12일 (월) 기록')
+    expect(text()).toContain('10월 12일 (월)')
     expect(rows()).toHaveLength(1)
     // The day opens under the calendar; the recent flow stays beside it.
     expect(renderer!.root.findAllByType(ComboChart)).toHaveLength(1)
     expect(renderer!.root.findAll((n) => String(n.props.className).startsWith('day-timeline-block'))).toHaveLength(1)
-    expect(text()).toContain('목표 75%까지 8%p') // 600 / 900 s = 67%
+    // The calendar's day is the light summary, not the 기록 tab's hero.
+    expect(renderer!.root.findAll((n) => n.props.className === 'day-hero')).toHaveLength(0)
+    expect(text()).toContain('바른 자세 67%') // 600 / 900 s
     act(() => button('닫기').props.onClick())
     expect(rows()).toHaveLength(0)
   })
 
   it('keeps the 잔디 display-only and pages months with the calendar', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     const cells = renderer!.root.findAll((n) => n.type === 'i' && String(n.props.className).startsWith('heatmap-cell'))
     expect(cells.length).toBeGreaterThan(90)
@@ -101,14 +103,14 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(text()).toContain('2026년 9월')
     expect(renderer!.root.findAll((n) => n.props['aria-label'] === '이번 주')).toHaveLength(0)
     act(() => gridDay('28일').props.onClick())
-    expect(text()).toContain('9월 28일 (월) 기록')
+    expect(text()).toContain('9월 28일 (월)')
     act(() => button('이번 달').props.onClick())
     expect(text()).toContain('2026년 10월')
   })
 
   it('switches the recent flow between 7 and 30 days', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     expect(renderer!.root.findByType(ComboChart).props.bars).toHaveLength(7)
     act(() => button('최근 30일').props.onClick())

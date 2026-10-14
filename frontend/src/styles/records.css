@@ -316,7 +316,7 @@
   gap: 10px;
   padding: 6px 0;
 }
-/* Hero (2026-10-14): a large keep-rate ring with its verdict, the time and alerts beside it. */
+/* Hero (2026-10-14): a large keep-rate ring and percent, the time and alerts beside it. */
 .day-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -340,19 +340,6 @@
   margin: 2px 0 8px;
   font-size: 40px;
   line-height: 1.1;
-}
-.day-hero-verdict {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--alert-tint);
-  color: var(--alert-ink);
-  font-size: 12px;
-  font-weight: 700;
-}
-.day-hero-verdict.is-good {
-  background: #e3efe2;
-  color: var(--good-ink);
 }
 .day-hero-facts {
   display: grid;
@@ -379,6 +366,31 @@
 .day-fact-sub {
   font-size: 12px;
   color: var(--muted);
+}
+/* 달력's picked day (DaySummary): one summary line instead of the 기록 tab's hero. */
+.day-summary-body {
+  display: grid;
+  gap: 14px;
+}
+.day-summary-line {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.day-summary-line dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+.day-summary-line dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.day-summary-line dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
 }
 /* 하루 흐름: when each session ran on a 0–24 h strip. */
 .day-timeline-track {

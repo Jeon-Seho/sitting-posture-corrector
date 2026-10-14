@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card } from '../../components/ui'
 import type { RecordItem } from '../../lib/serviceStore'
 import { ActivityHeatmap, HeatmapLegend } from './ActivityHeatmap'
-import { DayRecord } from './DayRecord'
+import { DaySummary } from './DaySummary'
 import { MonthCalendar, PeriodCard } from './RecordCalendar'
 import { RecordModeChips, useRecordMode } from './recordMode'
 import { addDays, dailyStats, dayKey } from './recordsSource'
@@ -11,22 +11,18 @@ import { addDays, dailyStats, dayKey } from './recordsSource'
  * 달력 tab (2026-10-14), after well-known diary and calendar apps:
  * - 측정한 날: a full-width year of days (Daylio's Year in Pixels / GitHub contributions).
  * - Month calendar with a keep-rate ring per day (Apple Fitness history) and this week on a band.
- * - Beside it: the recent 7/30-day flow. Under both (2026-10-14): the picked day's record,
- *   like Day One opening a date. Today's record lives in the 기록 tab.
+ * - Beside it: the recent 7/30-day flow. Under both (2026-10-14): the picked day as a light
+ *   diary-style summary (DaySummary), unlike the 기록 tab's full DayRecord.
  * Day totals have the `GET /stats/daily` shape, one day's sessions the `GET /records?date=`
  * shape (docs/design/api-ws-spec.md).
  */
 export function RecordCalendarPage({
   records: allRecords,
-  measuring,
-  onStart,
   example = false,
 }: {
   records: RecordItem[]
   /** 발표용 예시 기록 are shown instead of this device's records. */
   example?: boolean
-  measuring: boolean
-  onStart: () => void
 }) {
   const today = dayKey(new Date())
   const [selected, setSelected] = useState<string | null>(null)
@@ -70,14 +66,7 @@ export function RecordCalendarPage({
 
         {selected && (
           <div ref={dayRef} className="calendar-day-record">
-            <DayRecord
-              records={records}
-              day={selected}
-              today={today}
-              measuring={measuring}
-              onStart={onStart}
-              onClose={() => setSelected(null)}
-            />
+            <DaySummary records={records} day={selected} onClose={() => setSelected(null)} />
           </div>
         )}
       </div>

@@ -151,8 +151,6 @@ export function ServiceScreens({
           <RecordCalendarPage
             records={shownRecords}
             example={!!example}
-            measuring={measuring}
-            onStart={() => go(measuring ? 'session' : 'setup')}
           />
         )}
         {view === 'collection' && (

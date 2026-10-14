@@ -11,7 +11,7 @@ export function RateRing({ rate, size = 60 }: { rate: number | null; size?: numb
       value={rate}
       size={size}
       stroke={Math.round(size / 8)}
-      color={rate !== null && rate < GOOD_RATE ? 'var(--alert-soft)' : undefined}
+      color={percent !== null && percent < GOOD_RATE * 100 ? 'var(--alert-soft)' : undefined}
       label={percent === null ? '측정한 시간 없음' : `바른 자세 ${percent}%`}
     >
       <span className="rate-ring-value num" style={{ fontSize: Math.round(size / 4) }}>
