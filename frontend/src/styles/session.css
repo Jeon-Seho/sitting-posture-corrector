@@ -365,17 +365,20 @@
   align-items: flex-start;
   max-width: 360px;
   padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: var(--shadow-float);
-  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--snack);
+  color: var(--snack-ink);
+  box-shadow: 0 12px 32px rgba(40, 20, 10, 0.28);
   animation: toast-in 240ms var(--ease-out);
 }
 
+/* Snackbar like the top notice: warm icon, light title, softer description. */
 .toast .icon {
-  color: var(--alert);
+  color: var(--snack-warn);
   margin-top: 1px;
+}
+.toast .alert-desc {
+  color: var(--snack-muted);
 }
 
 @keyframes toast-in {
