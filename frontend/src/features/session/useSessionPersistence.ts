@@ -102,10 +102,6 @@ export function useSessionPersistence({
       setError('서버 측정에 사용할 카메라 영상과 기준 등록을 다시 확인해 주세요.')
       return
     }
-    if (serverMode && repository && !camera.baselineStored) {
-      setError('기준 자세가 계정에 저장된 뒤 측정을 시작해 주세요.')
-      return
-    }
     // New sessions use the real webcam; existing synthetic records/drafts remain available.
     const next = {
       id: crypto.randomUUID(),

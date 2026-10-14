@@ -47,5 +47,6 @@
   다시 만든 기록의 `last_sequence`는 -1, 바른 자세 시간은 0.1초 단위다. 저장 직후 화면과 다시 읽은 기록이 이만큼 다를 수 있다.
 - 소리 설정 `sound_alert_enabled`는 앱 설정 화면에 스위치가 없어 API가 바꾸지 않는다(기본 꺼짐).
 - 해상도를 저장하지 않으므로 `CAPTURE_RESOLUTION`(640×480)과 다른 영상이면 시작하지 않는 검사는 앱 몫이며 아직 없다.
-- 계정 없는 서버 판정 모드가 없어졌다. 서버 판정은 계정 앱(`VITE_SERVER_ACCOUNTS=true`)에서만 동작한다.
+- 계정 없는 서버 판정 모드가 없어졌다. 서버 판정은 로그인된 계정에서만 동작한다. 프론트 계정 앱(`VITE_SERVER_ACCOUNTS`)은
+  2026-10-13 develop에서 지웠으므로, 로그인을 BE `auth`에 다시 이을 때까지 앱의 서버 판정은 동작하지 않는다.
 - 브라우저 smoke의 서버 시나리오와 서버 benchmark는 계정 없는 메모리 API를 전제로 작성되어 있었다. 2026-10-13 계정 로그인 흐름으로 바꿨다([계획 0026](../plans/active/0026-backend-v2-rebuild.md), [계획 0025](../plans/active/0025-backend-db-v23-integration.md)).

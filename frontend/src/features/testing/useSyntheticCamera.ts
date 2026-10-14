@@ -5,7 +5,6 @@ import type { Observation } from '../camera/types'
 import type { VisualOptions } from '../../lib/poseVisual'
 import { requireSyntheticMode } from './guard'
 import { SYNTHETIC_LANDMARKS } from './syntheticLandmarks'
-import type { SavedBaseline } from '../accounts/baseline'
 requireSyntheticMode()
 
 export const SYNTHETIC_BASELINE: Features = {
@@ -52,20 +51,6 @@ export function useCamera(): CameraController {
   const [quality, setQuality] = useState(false)
   const [baseline, setBaseline] = useState<Features | null>(null)
   const [calibrationId, setCalibrationId] = useState<string | null>(null)
-  const [baselineStored, setBaselineStored] = useState(false)
-  const [registeredAt, setRegisteredAt] = useState<string | null>(null)
-  const adoptBaseline = useCallback((value: SavedBaseline) => {
-    setBaseline({ ...SYNTHETIC_BASELINE })
-    setCalibrationId(value.baseline_id)
-    setRegisteredAt(value.registered_at)
-    setBaselineStored(true)
-  }, [])
-  const clearBaseline = useCallback(() => {
-    setBaseline(null)
-    setCalibrationId(null)
-    setRegisteredAt(null)
-    setBaselineStored(false)
-  }, [])
   const [visual, setVisual] = useState<VisualOptions>({
     mode: 'skeleton',
     enabled: true,
@@ -177,8 +162,6 @@ export function useCamera(): CameraController {
     if (state !== 'on' || !quality) return
     setBaseline({ ...SYNTHETIC_BASELINE })
     setCalibrationId(crypto.randomUUID())
-    setRegisteredAt(new Date().toISOString())
-    setBaselineStored(false)
   }
   const setOverlayEnabled = useCallback(
     (enabled: boolean) => {
@@ -230,10 +213,6 @@ export function useCamera(): CameraController {
     shoulders: null,
     framing: null,
     baseline,
-    baselineStored,
-    registeredAt,
-    adoptBaseline,
-    clearBaseline,
     calibrationId,
     // Explicitly synthetic calibration aggregates, present exactly when the baseline is.
     calibrationSummary: baseline

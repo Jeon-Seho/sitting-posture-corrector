@@ -10,6 +10,8 @@ type Options = {
   hasPendingResult: () => boolean
   setError: (message: string) => void
   onWithdrawn: () => void
+  /** Age and occupation are kept only with sign-up consent C3. */
+  optionalInfo?: boolean
 }
 
 export function useProfileForm({
@@ -18,10 +20,11 @@ export function useProfileForm({
   hasPendingResult,
   setError,
   onWithdrawn,
+  optionalInfo = true,
 }: Options) {
   const { profile, requireWriter, reloadStorage, setProfile } = workspace
   const [name, setName] = useState(profile?.name ?? '')
-  const [age, setAge] = useState<number | null>(profile?.age ?? 23)
+  const [age, setAge] = useState(profile?.age ?? 23)
   const [occupation, setOccupation] = useState(profile?.occupation ?? '')
   const [consent, setConsent] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -35,9 +38,15 @@ export function useProfileForm({
 
   function saveProfile(notify = true) {
     if (!requireWriter()) return false
-    const next = { name: name.trim(), age, occupation: occupation.trim() }
+    const next: Profile = optionalInfo
+      ? { name: name.trim(), age, occupation: occupation.trim() }
+      : { name: name.trim() }
     if (!validProfile(next)) {
-      setError('이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.')
+      setError(
+        optionalInfo
+          ? '이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.'
+          : '이름을 확인해 주세요.',
+      )
       return false
     }
     try {
@@ -65,7 +74,7 @@ export function useProfileForm({
     if (!requireWriter() || measuring || hasPendingResult()) return
     try {
       // Keep the profile until the other keys are removed, so partial failure stays visible.
-      for (const key of [KEYS.records, KEYS.draft, KEYS.settings, KEYS.demo, KEYS.profile]) {
+      for (const key of [KEYS.records, KEYS.draft, KEYS.settings, KEYS.demo, KEYS.account, KEYS.profile]) {
         localStorage.removeItem(key)
       }
       onWithdrawn()

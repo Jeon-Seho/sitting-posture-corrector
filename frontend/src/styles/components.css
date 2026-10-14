@@ -177,7 +177,7 @@
     border-color: var(--primary-press);
   }
   .btn-danger:hover:not(:disabled) {
-    background: #f8d3d8;
+    background: #fbd9c6;
   }
   .chip:hover:not(:disabled) {
     background: var(--surface-2);
@@ -465,4 +465,48 @@
 .select-note {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* App hover card (TipLayer): the chart's card (.combo-tip-*) at the pointer, in place of
+   the operating system's black tooltip. Not `.tip`, which the setup page already uses. */
+.app-tip {
+  position: fixed;
+  z-index: 1000;
+  min-width: 176px;
+  max-width: 300px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: app-tip-in 160ms ease;
+}
+.app-tip.is-below {
+  transform: translate(-50%, 0);
+}
+.app-tip.is-plain {
+  min-width: 0;
+  padding: 8px 12px;
+}
+.app-tip.is-plain .combo-tip-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+@keyframes app-tip-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Number fields: no operating-system spin arrows; typing and arrow keys still work. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

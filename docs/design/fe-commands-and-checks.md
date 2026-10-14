@@ -102,7 +102,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 규칙·내보내기·저장·서버 연결 가짜 시험, 합성 시험 데이터와 앱 규칙 일치), **타입 검사**, 배포 빌드 | Node 24 |
 | ④ | `check-backend` | Maven `verify`(`backend/`) → `tools/service_smoke.py` → 짧은 `server_benchmark` | Java API·CEP·계약 모듈 시험, 실제 API→추론→CEP HTTP 왕복(합성), 지연 측정 도구가 끝까지 도는지(합격 수치 없음) | JDK 21, Maven |
 | ⑤ | `check-browser` | `tools/browser_smoke.py` → `tools/browser/scenarios.mjs` | 실제 Chrome(독립 임시 프로필)으로 앱을 열어 **합성 입력**으로 자세 등록 → 측정 → 사건 확정 시각·복귀·재연결·새로고침 복구·기록 화면·탈퇴 확인창(키보드 초점) 등 약 75개 항목. 실제 카메라는 쓰지 않음 | ④의 JAR, Chrome |
-| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중 |
+| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중. **2026-10-13부터 계정 브라우저 시나리오는 깨진다**: 프론트 계정 모드(`VITE_SERVER_ACCOUNTS`)를 지웠다. Compose·Dockerfile·`compose_smoke.py`·`account_browser_smoke.*`는 다른 팀원 파일이라 그대로 두었다 |
 
 ### 작업 종류별로 돌리는 검사
 

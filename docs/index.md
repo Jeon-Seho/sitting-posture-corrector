@@ -7,7 +7,7 @@
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
 - [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
-- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](removed-docs.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
+- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
@@ -18,11 +18,14 @@
   [ADR 0022 서버 연결이 끊기면 세션을 끝낸다](decisions/0022-session-ends-on-lost-connection.md)(세션 번호는 날짜마다 1부터).
 - [앱–서버 연결 지도](design/fe-server-integration-map.md): 기능별 연결 상태(연결됨·준비됨·대기), 연결 스위치, 붙이는 순서.
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
-- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N16, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
+- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, 남은 질문(4장), FE 할 일 F1~F12. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
+- **10/12 회의:** 판정 불가는 범위를 넓게 잡아 하나로 처리하고(DB `exclusion_reason`은 모두 `UNMEASURABLE`, 세분화할 때 CHECK 선택지를 늘림), 기준은 측정이 안 되는 모든 경우(귀·어깨·사용자가 안 보임 등)이며 앱이 판단해 서버에 보낸다. 통계는 전부 백엔드가 계산하고 앱은 표시만 한다. 당일은 세션 단위로만 보이고 날짜별 합산은 24시가 지나 반영된다. 5분 미만 세션은 결과만 보이고 저장하지 않는다([판정 불가 처리](design/unmeasurable-handling.md) 0장). 화면 정리(세션·이벤트·평균 간격을 지우고 최소·최대 간격 표시)는 다른 담당자가 맡고, 우리는 서버 전송과 판정 불가 처리만 한다.
+- **API 명세(초안):** [앱 ↔ 입출구 서버 REST·WebSocket](design/api-ws-spec.md) — 로그인·설정·기록·지난 통계는 REST, 측정 좌표와 실시간 결과는 WebSocket.
+- **동의 제안서(초안):** [개인정보 수집 동의](design/consent-proposal.md) — 가입 동의 C1~C6, 보유 기간 탈퇴 후 30일. 실제 서비스는 학습용 데이터를 받지 않는다.
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음). 측정 결과 내보내기는 [session-export](research/session-export.md).
-- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 34개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
+- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 33개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
 
 ## 질문별 진입점
 

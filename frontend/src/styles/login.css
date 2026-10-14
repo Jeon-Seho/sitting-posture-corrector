@@ -43,7 +43,11 @@
   align-self: center;
   width: min(420px, 80%);
   height: auto;
-  /* Feather the generated peach backdrop into the app's primary tint. */
+  /* The generated backdrop (253,229,219) is pinker than the apricot tint: a 1.4% lift and
+     `darken` keep the figure and give the backdrop the panel colour, then the edges are
+     feathered. */
+  filter: brightness(1.014);
+  mix-blend-mode: darken;
   mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent),
     linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent);
   mask-composite: intersect;
@@ -95,8 +99,4 @@
 
 .cover-form [role='alert'] {
   color: var(--alert-ink);
-}
-
-.collection-entry-link {
-  align-self: flex-start;
 }

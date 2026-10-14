@@ -28,7 +28,8 @@ export type DesktopBridge = {
   /** Closes the whole app. Absent in desktop shells built before 2026-10-13. */
   quit?: () => Promise<boolean>
   setAlertPopup?: (enabled: boolean) => Promise<LaunchInfo | null>
-  showAlert?: (alert: { title: string; body: string }) => Promise<AlertDelivery>
+  /** `preview` (개발자 옵션) shows the popup even while the app is in view or popups are off. */
+  showAlert?: (alert: { title: string; body: string; preview?: boolean }) => Promise<AlertDelivery>
 }
 
 declare global {

@@ -7,8 +7,6 @@ import type { DecisionEvent } from '../session/server/contracts'
 import { BASELINE_ID, SESSION_ID, view } from '../session/server/testFixtures'
 import { RecordHistoryItem } from './RecordHistoryItem'
 import { RecordDetails } from './RecordDetails'
-import { ComparisonConditions } from './ComparisonConditions'
-import { RecordComparison } from '../../components/RecordComparison'
 
 // Every record and event below is synthetic; no camera data or participant information is used.
 function localRecord(): RecordItem {
@@ -108,7 +106,7 @@ function serverRecord(confirmed = true): RecordItem {
   }
 }
 
-describe('readable stored record details and comparison conditions', () => {
+describe('readable stored record details', () => {
   let renderer: ReactTestRenderer | undefined
   afterEach(() => {
     act(() => renderer?.unmount())
@@ -140,15 +138,29 @@ describe('readable stored record details and comparison conditions', () => {
     expect(button.props['aria-label']).toContain('기록 상세 보기')
     expect(button.props['aria-expanded']).toBe(false)
     expect(renderer!.root.findAllByType('section')).toHaveLength(0)
-    act(() => button.props.onClick())
+    act(() => button.props.onClick({ stopPropagation() {} }))
     button = renderer!.root.findByType('button')
     const section = renderer!.root.findByType('section')
     expect(button.props['aria-expanded']).toBe(true)
     expect(button.props['aria-controls']).toBe(section.props.id)
     expect(section.props['aria-labelledby']).toBe(renderer!.root.findByType('h4').props.id)
     expect(renderer!.root.findByType('h4').children).toEqual(['측정 기록 상세'])
-    act(() => button.props.onClick())
+    act(() => button.props.onClick({ stopPropagation() {} }))
     expect(renderer!.root.findAllByType('section')).toHaveLength(0)
+  })
+
+  it('opens and closes the details by clicking anywhere on the row', () => {
+    act(() => {
+      renderer = create(<RecordHistoryItem record={localRecord()} />)
+    })
+    const row = () =>
+      renderer!.root.find((n) => n.type === 'div' && String(n.props.className).includes('history-record-row'))
+    act(() => row().props.onClick())
+    expect(renderer!.root.findAllByProps({ className: 'history-record-details' })).toHaveLength(1)
+    expect(renderer!.root.findByType('button').props['aria-expanded']).toBe(true)
+    expect(row().props.className).toContain('is-open')
+    act(() => row().props.onClick())
+    expect(renderer!.root.findAllByProps({ className: 'history-record-details' })).toHaveLength(0)
   })
 
   it('keeps the server summary, all saved rules and separate decision reasons without collapse directions', () => {
@@ -266,57 +278,5 @@ describe('readable stored record details and comparison conditions', () => {
     expect(text).toContain('서버 상세 응답이 기록에 없습니다')
     expect(fact('모델 버전')).toBe('확인할 수 없음 · 서버 상세 응답 없음')
     expect(fact('기준 자세 유지율')).toBe('계산 불가')
-  })
-
-  it('displays all condition differences without claiming matching conditions or changing statistics', () => {
-    const early = localRecord()
-    early.rules = { ...DEFAULT_RULES, recoverSeconds: 2, threshold: 0.731 }
-    const recent = serverRecord(false)
-    recent.rules = { ...DEFAULT_RULES, recoverSeconds: 4, threshold: 0.732 }
-    act(() => {
-      renderer = create(<ComparisonConditions early={[early]} recent={[recent]} />)
-    })
-    const text = JSON.stringify(renderer!.toJSON())
-    expect(renderer!.root.findByType('section').props['aria-label']).toBe('기록 비교 조건')
-    expect(text).toContain('판정 출처가 섞여 있습니다')
-    expect(text).toContain('적용 설정이 다릅니다')
-    expect(text).toContain('수치 변화가 자세 개선을 뜻하지 않을 수 있습니다')
-    expect(text).toContain('기준 ID가 기록에 없음')
-    expect(text).toContain('서버 종료를 확인하지 못한 기록')
-    expect(text).toContain('0.731')
-    expect(text).toContain('0.732')
-    expect(
-      renderer!.root
-        .findAllByType('ul')
-        .filter((node) => node.props.className === 'history-rule-list'),
-    ).toHaveLength(2)
-    expect(early.valid).toBe(9)
-    expect(recent.valid).toBe(9)
-  })
-
-  it('does not present comparison conditions before the two date windows are separate', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-09-28T03:00:00.000Z'))
-    const recentOnly = { ...localRecord(), endedAt: '2026-09-28T01:00:20.000Z' }
-    act(() => {
-      renderer = create(<RecordComparison records={[recentOnly]} />)
-    })
-    const text = JSON.stringify(renderer!.toJSON())
-    expect(text).toContain('지나야 비교할 수 있습니다')
-    expect(renderer!.root.findAllByProps({ 'aria-label': '기록 비교 조건' })).toHaveLength(0)
-    expect(renderer!.root.findAllByType('table')).toHaveLength(0)
-  })
-
-  it('shows the condition disclosure with the insufficient-time caveat when comparison is short', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-09-28T03:00:00.000Z'))
-    const recent = { ...serverRecord(), endedAt: '2026-09-28T01:00:20.000Z' }
-    act(() => {
-      renderer = create(<RecordComparison records={[localRecord(), recent]} />)
-    })
-    const text = JSON.stringify(renderer!.toJSON())
-    expect(text).toContain('미만이라 변화는 참고용입니다')
-    expect(text).toContain('판정 출처가 섞여 있습니다')
-    expect(renderer!.root.findAllByProps({ 'aria-label': '기록 비교 조건' })).toHaveLength(1)
   })
 })

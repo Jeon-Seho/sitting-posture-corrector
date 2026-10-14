@@ -7,18 +7,26 @@
     <link rel="stylesheet" href="/alert-popup.css" />
   </head>
   <body>
-    <!-- Desktop posture alert shown over other windows (electron/main.cjs, `desktop:alert`). -->
-    <main class="popup" role="alert" aria-live="assertive">
-      <img class="mark" src="/branding/posegood-icon.svg" alt="" width="40" height="40" />
-      <div class="text">
-        <strong id="title">자세가 흐트러졌어요</strong>
-        <p id="body">처음 등록한 편한 자세로 돌아가 볼까요?</p>
-        <div class="actions">
-          <button id="open" class="primary" type="button">앱 열기</button>
-          <button id="close" type="button">닫기</button>
-        </div>
-      </div>
-      <span class="timer" aria-hidden="true"><span id="timer-bar"></span></span>
+    <!-- Desktop posture alert shown over other windows (electron/main.cjs, `desktop:alert`).
+         A small pill (2026-10-14): the ring around the chair counts down the time left,
+         X closes, a sideways swipe dismisses, a click opens the app. -->
+    <main class="pill" role="alert" aria-live="assertive" aria-describedby="body">
+      <span class="ring" aria-hidden="true">
+        <svg viewBox="0 0 40 40">
+          <circle class="ring-track" cx="20" cy="20" r="17" />
+          <circle class="ring-time" id="ring-time" cx="20" cy="20" r="17" />
+        </svg>
+        <svg class="chair" viewBox="0 0 24 24">
+          <path d="M6 11V6.5A2.5 2.5 0 0 1 8.5 4h7A2.5 2.5 0 0 1 18 6.5V11" />
+          <path d="M4 11.5a1.5 1.5 0 0 1 3 0V14h10v-2.5a1.5 1.5 0 0 1 3 0V17H4z" />
+          <path d="M6 17v3M18 17v3" />
+        </svg>
+      </span>
+      <strong id="title">자세가 흐트러졌어요</strong>
+      <p id="body" class="sr-only">처음 등록한 편한 자세로 돌아가 볼까요?</p>
+      <button id="close" type="button" aria-label="알림 닫기">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
     </main>
     <script src="/alert-popup.js"></script>
   </body>

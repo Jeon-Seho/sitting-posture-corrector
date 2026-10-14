@@ -36,6 +36,13 @@ DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배
   계정 앱은 DB 기준만 쓰고 PC 저장을 읽거나 쓰지 않는다(남은 PC 기준이 계정 기준을 가리지 않게). 계정 없는 로컬 앱은 develop대로 PC에 저장한다.
   develop의 「등록 끝나면 바로 측정 시작」은 계정 앱에서 기준이 DB에 저장된 뒤에 시작한다.
   남은 일: develop의 `features/accounts/consents.ts`(화면 미연결, `consent_type`·`terms-2026-10`)와 이 브랜치의 `registrationConsents`(`type`·`service-v2`, API가 받는 형식)를 하나로 합친다.
+- 2026-10-14 develop(#42~#45) 병합: develop은 프론트 계정 모드(`VITE_SERVER_ACCOUNTS`, `features/accounts`)를 지우고
+  로컬 로그인·3단계 회원가입(`features/auth`)으로 바꿨다. 사용자 결정으로 develop을 따라 이 브랜치의 계정 앱 v2 코드
+  (계정·기준 자세 저장·복원 `baseline.ts`·`useRemoteBaseline`, `useCamera`의 `adoptBaseline`·`baselineStored`)를 뺐다.
+  백엔드·DB V2.3·계정 API v2 계약, 세션 API v2 경로, 기준 평균 좌표(`anchors`/`landmarks`)는 유지한다.
+  지운 프론트 코드는 커밋 `ce57f56`에 남아 있다. 동의 형식 통합은 develop의 `features/auth/consents.ts` 기준으로 다시 정한다.
+  한계: 백엔드는 계정 없는 판정을 받지 않으므로(ADR 0020) 프론트를 `features/auth`에 BE `auth`로 다시 잇기 전까지
+  앱의 「서버 판정 사용」은 401로 실패하고, 계정 브라우저 시나리오·`check-compose`의 계정 UI 단계도 develop과 같이 깨진다.
 
 ## 검증 결과와 남은 한계
 
@@ -50,3 +57,5 @@ DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배
 - 2026-10-13 커밋 전 재확인(Claude, JDK 21.0.12, IntelliJ 내장 Maven, Docker 임시 MySQL): `check-repo` 통과, `check-frontend` 316개 통과,
   `check-backend` Java 44개(실제 MySQL 통합 포함)·HTTP smoke 6단계 통과, Python unittest 138개 중 137 통과·1 건너뜀.
   `check-compose` 전체는 이번에 다시 실행하지 않았다. 이 PC는 `JAVA_HOME`이 JDK 17이고 `mvn`이 PATH에 없어 `JAVA_HOME`·`MAVEN_EXECUTABLE`을 지정해야 한다.
+- 2026-10-14 develop 병합 뒤 재확인(Claude): `check-repo` 통과, `check-frontend` Vitest 333개 통과·TypeScript·Vite 빌드 통과(기존 chunk 크기 경고),
+  Python unittest 140개 통과·1 건너뜀. develop이 백엔드를 바꾸지 않아 `check-backend`·`check-browser`·`check-compose`는 다시 실행하지 않았다.

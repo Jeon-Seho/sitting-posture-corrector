@@ -17,8 +17,6 @@ import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
-import { baselineFeatures, type SavedBaseline as ServerBaseline } from '../features/accounts/baseline'
-import { SERVER_ACCOUNTS } from '../features/accounts/client'
 
 export type { Observation } from '../features/camera/types'
 
@@ -75,10 +73,8 @@ export function useCamera() {
    * The registered baseline outlives the camera and, since 2026-10-13, the app run: it is
    * saved on this computer with the camera it was taken with. Connecting another camera
    * sets it aside (`baselineOtherCamera`); only a new registration replaces it.
-   * The account app keeps the posture in the DB instead (`adoptBaseline`), so it skips this copy:
-   * a leftover local posture would otherwise hide the account's own one.
    */
-  const saved = useRef(SERVER_ACCOUNTS ? null : readSavedBaseline())
+  const saved = useRef(readSavedBaseline())
   const connectedDevice = useRef('')
   const [baseline, setBaseline] = useState<Features | null>(() => saved.current?.baseline ?? null)
   const [calibrationId, setCalibrationId] = useState<string | null>(
@@ -93,31 +89,6 @@ export function useCamera() {
     saved.current ? { savedAt: saved.current.savedAt, deviceId: saved.current.deviceId } : null,
   )
   const [progress, setProgress] = useState<number | null>(null)
-  const [baselineStored, setBaselineStored] = useState(false)
-  const [registeredAt, setRegisteredAt] = useState<string | null>(null)
-  /** The account's posture from the API, re-applied at each connect for the actual frame size. */
-  const serverBaseline = useRef<ServerBaseline | null>(null)
-  const adoptBaseline = useCallback((value: ServerBaseline) => {
-    const video = videoRef.current
-    const restored = baselineFeatures(value.landmarks, video?.videoWidth || 640, video?.videoHeight || 480)
-    if (!restored) throw new Error('저장된 기준 자세를 사용할 수 없습니다. 다시 등록해 주세요.')
-    serverBaseline.current = value
-    setBaseline(restored)
-    setCalibrationId(value.baseline_id)
-    setRegisteredAt(value.registered_at)
-    setBaselineStored(true)
-    setBaselineOtherCamera(false)
-    setBaselineInfo({ savedAt: value.registered_at, deviceId: '' })
-  }, [])
-  const clearBaseline = useCallback(() => {
-    serverBaseline.current = null
-    setBaseline(null)
-    setCalibrationId(null)
-    setCalibrationSummary(null)
-    setRegisteredAt(null)
-    setBaselineStored(false)
-    setBaselineInfo(null)
-  }, [])
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
     const next = { ...visualRef.current, ...patch }
@@ -197,25 +168,21 @@ export function useCamera() {
     )
     calibration.current = next.draft
     setProgress(next.progress)
-    // Account mode stores the posture in the DB, which needs at least 20 on-frame samples.
-    if (next.ready && (!SERVER_ACCOUNTS || next.draft.anchors.length >= 20)) {
+    if (next.ready) {
       const id = crypto.randomUUID()
-      const savedAt = new Date().toISOString()
-      const summary =
-        SERVER_ACCOUNTS && next.summary ? { ...next.summary, sampleCount: next.draft.anchors.length } : next.summary
-      serverBaseline.current = null
-      setBaselineStored(false)
-      setRegisteredAt(savedAt)
       setBaseline(next.ready)
-      setCalibrationSummary(summary)
+      setCalibrationSummary(next.summary)
       setCalibrationId(id)
       setBaselineOtherCamera(false)
-      setBaselineInfo({ savedAt, deviceId: connectedDevice.current })
-      if (!SERVER_ACCOUNTS) {
-        const entry = { deviceId: connectedDevice.current, calibrationId: id, baseline: next.ready, summary }
-        writeSavedBaseline(entry)
-        saved.current = { schemaVersion: 1, savedAt, ...entry }
+      const entry = {
+        deviceId: connectedDevice.current,
+        calibrationId: id,
+        baseline: next.ready,
+        summary: next.summary,
       }
+      writeSavedBaseline(entry)
+      saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
+      setBaselineInfo({ savedAt: saved.current.savedAt, deviceId: entry.deviceId })
       calibration.current = null
       setProgress(null)
     }
@@ -318,7 +285,6 @@ export function useCamera() {
         video.srcObject = incoming
         await video.play()
         if (!isCurrent()) return
-        if (serverBaseline.current) adoptBaseline(serverBaseline.current)
 
         clearLoadingTimer()
         setState('on')
@@ -360,7 +326,7 @@ export function useCamera() {
         setError(cameraPreparationError(cause))
       }
     },
-    [adoptBaseline, clearLoadingTimer, receiveObservation, release],
+    [clearLoadingTimer, receiveObservation, release],
   )
 
   /** Saves the tracking rate cap (`null` = device default) and applies it at once. */
@@ -419,10 +385,6 @@ export function useCamera() {
     shoulders,
     framing,
     baseline,
-    baselineStored,
-    registeredAt,
-    adoptBaseline,
-    clearBaseline,
     calibrationId,
     calibrationSummary,
     progress,

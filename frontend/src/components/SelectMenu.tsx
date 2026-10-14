@@ -14,6 +14,7 @@ export function SelectMenu({
   onChange,
   disabled = false,
   icon,
+  id: triggerId,
 }: {
   /** Accessible name, e.g. "메인 카메라". */
   label: string
@@ -22,6 +23,8 @@ export function SelectMenu({
   onChange: (value: string) => void
   disabled?: boolean
   icon?: ReactNode
+  /** Id for the trigger button, so a `<label htmlFor>` can point at it. */
+  id?: string
 }) {
   const id = useId()
   const box = useRef<HTMLDivElement>(null)
@@ -64,6 +67,7 @@ export function SelectMenu({
   return (
     <div className={`select-menu ${open ? 'is-open' : ''}`} ref={box}>
       <button
+        id={triggerId}
         type="button"
         className="select-trigger"
         aria-haspopup="listbox"

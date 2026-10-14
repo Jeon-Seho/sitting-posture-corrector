@@ -9,6 +9,7 @@ import { cameraName } from '../features/camera/mainCamera'
 import { SelectMenu } from '../components/SelectMenu'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
+import { AlertPreview } from '../features/desktop/AlertPreview'
 import type { CameraController } from '../hooks/useCamera'
 
 type CameraChoice = Pick<
@@ -202,7 +203,6 @@ export function SettingsPage({
   hasHistory,
   onHasHistory,
   serviceMode = false,
-  accountMode = false,
   account,
   onRegisterAgain,
   onCollect,
@@ -210,7 +210,6 @@ export function SettingsPage({
 }: {
   camera?: CameraChoice
   serviceMode?: boolean
-  accountMode?: boolean
   rules: Rules
   onRules: (r: Rules) => void
   alertsOn: boolean
@@ -239,13 +238,9 @@ export function SettingsPage({
           <Card title="알림">
             <Row
               name="자세 알림"
-              desc={
-                accountMode
-                  ? '꺼도 기록은 계속 남아요. 화면 알림과 소리만 꺼져요.'
-                  : '자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요.'
-              }
+              desc="자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요."
             >
-              {serviceMode && !accountMode ? (
+              {serviceMode ? (
                 <span className="badge good">
                   <i className="pip" />
                   켜짐
@@ -425,7 +420,7 @@ export function SettingsPage({
             <div className="more-body">
               <Row
                 name="발표용 예시 기록 표시"
-                desc={`켜면 기록 화면에 예시 데이터를, 끄면 ${accountMode ? '내 계정의' : '이 기기에 저장된'} 실제 측정 기록을 보여줘요.`}
+                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
               >
                 <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
               </Row>
@@ -447,6 +442,7 @@ export function SettingsPage({
                   <TrackingRateCheck camera={camera} />
                 </div>
               )}
+              <AlertPreview />
               <Row
                 name="서버 연결 끊김 화면"
                 desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."

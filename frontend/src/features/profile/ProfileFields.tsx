@@ -9,14 +9,13 @@ export function ProfileFields({
   form,
   canWrite,
   nameMax = 50,
-  optional = false,
-  optionalEnabled = true,
+  optionalInfo = true,
 }: {
   form: ProfileFieldValues
   canWrite: boolean
   nameMax?: number
-  optional?: boolean
-  optionalEnabled?: boolean
+  /** Hide age and occupation when sign-up consent C3 was declined. */
+  optionalInfo?: boolean
 }) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
   return (
@@ -32,30 +31,34 @@ export function ProfileFields({
           maxLength={nameMax}
         />
       </label>
-      <label className="field">
-        나이{optional && ' (선택)'}
-        <ValidatedInput name="age" validationLabel="나이"
-          className="input"
-          disabled={!canWrite || !optionalEnabled}
-          type="number"
-          min={optional ? 14 : 1}
-          max={120}
-          value={age ?? ''}
-          onChange={(e) => setAge(e.target.value === '' ? null : Number(e.target.value))}
-          required={!optional}
-        />
-      </label>
-      <label className="field">
-        직업{optional && ' (선택)'}
-        <ValidatedInput name="occupation" validationLabel="직업"
-          className="input"
-          disabled={!canWrite || !optionalEnabled}
-          value={occupation}
-          onChange={(e) => setOccupation(e.target.value)}
-          required={!optional}
-          maxLength={80}
-        />
-      </label>
+      {optionalInfo && (
+        <>
+          <label className="field">
+            나이
+            <ValidatedInput name="age" validationLabel="나이"
+              className="input"
+              disabled={!canWrite}
+              type="number"
+              min={1}
+              max={120}
+              value={age}
+              onChange={(e) => setAge(Number(e.target.value))}
+              required
+            />
+          </label>
+          <label className="field">
+            직업
+            <ValidatedInput name="occupation" validationLabel="직업"
+              className="input"
+              disabled={!canWrite}
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              required
+              maxLength={80}
+            />
+          </label>
+        </>
+      )}
     </>
   )
 }
