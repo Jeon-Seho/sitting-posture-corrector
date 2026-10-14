@@ -1,10 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { ArrowLeft, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
-import { DashboardPage } from '../pages/DashboardPage'
+import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
@@ -76,6 +76,9 @@ export function ServiceScreens({
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
   const view = resolvePage(page, measuring)
+  // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
+  const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
+  const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -135,20 +138,19 @@ export function ServiceScreens({
             onFinish={persistence.finishDraft}
           />
         )}
-        {view === 'dashboard' &&
-          (showDemo ? (
-            <DashboardPage />
-          ) : (
-            <LocalHistory
-              records={records}
-              measuring={measuring}
-              onStart={() => go(measuring ? 'session' : 'setup')}
-              onCalendar={() => go('calendar')}
-            />
-          ))}
+        {view === 'dashboard' && (
+          <LocalHistory
+            records={shownRecords}
+            example={!!example}
+            measuring={measuring}
+            onStart={() => go(measuring ? 'session' : 'setup')}
+            onCalendar={() => go('calendar')}
+          />
+        )}
         {view === 'calendar' && (
           <RecordCalendarPage
-            records={records}
+            records={shownRecords}
+            example={!!example}
             measuring={measuring}
             onStart={() => go(measuring ? 'session' : 'setup')}
           />

@@ -419,7 +419,7 @@ export function SettingsPage({
             <div className="more-body">
               <Row
                 name="발표용 예시 기록 표시"
-                desc={`켜면 기록 화면에 예시 데이터를, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
+                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
               >
                 <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
               </Row>

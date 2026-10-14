@@ -20,8 +20,11 @@ export function RecordCalendarPage({
   records: allRecords,
   measuring,
   onStart,
+  example = false,
 }: {
   records: RecordItem[]
+  /** 발표용 예시 기록 are shown instead of this device's records. */
+  example?: boolean
   measuring: boolean
   onStart: () => void
 }) {
@@ -36,7 +39,11 @@ export function RecordCalendarPage({
       <div className="page-head">
         <div>
           <h1 className="page-title">달력</h1>
-          {label && <p className="page-desc">{label.replace(/ · $/, '')}</p>}
+          {example ? (
+            <p className="page-desc">발표용 예시 기록 · 실제 측정 기록이 아니에요</p>
+          ) : (
+            label && <p className="page-desc">{label.replace(/ · $/, '')}</p>
+          )}
         </div>
       </div>
 
