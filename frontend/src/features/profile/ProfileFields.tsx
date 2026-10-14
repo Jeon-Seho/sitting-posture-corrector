@@ -8,7 +8,7 @@ export type ProfileFieldValues = Pick<
 export function ProfileFields({
   form,
   canWrite,
-  nameMax = 30,
+  nameMax = 50,
   optionalInfo = true,
 }: {
   form: ProfileFieldValues

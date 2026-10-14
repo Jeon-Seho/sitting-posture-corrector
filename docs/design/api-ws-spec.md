@@ -96,6 +96,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | X7 | 7장 T1 "앱이 오늘 기록을 합치거나 '어제까지'로 표시" | 통계는 **어제까지**, 목록(R1)에는 오늘 세션도 하나씩(4.5) |
 | X8 | 7장 T1 "J2(매일 00:00)", 2장 "cron J3(매일 04:00)" | 시각은 맞다(집계 00:00, 탈퇴 삭제 04:00). 배치 번호는 DB 회신(J3 집계·J4 삭제)과 BE·DB가 맞춘다 |
 | X9 | 5.2 `width`·`height` "기본 640×480" | **640×480 고정.** 다른 크기면 앱이 측정·등록을 시작하지 않는다(5.1) |
+| X17 | 2장 `profile` 이름 1~30자 (DB V2.3 `user_account.display_name VARCHAR(30)`) | **이름 1~50자**(10/14 FE 결정, 넉넉하게). DB `VARCHAR(50)`과 API 검사 1..50으로 바꿔 달라. 나이 14~120·직업 80자는 그대로 |
 
 **더할 것 (BE 명세에 없음)**
 
@@ -111,7 +112,8 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 
 **앱 쪽 확인 (BE 명세와 같아 고칠 것 없음)**
 
-- 이름 1~30자, 나이 14~120: 우리 약관 C6(만 14세 이상)과 가입 화면 30자 그대로다. 10/14 프로필 수정 화면(이름 50자·나이 1~120이던 것)도 같게 맞췄다(`validProfileInput`). 이 기기에 저장된 예전 프로필은 그대로 읽는다.
+- 나이 14~120: 우리 약관 C6(만 14세 이상)과 같다. 10/14 가입·프로필 수정 모두 14~120으로 맞췄다(`validProfileInput`). DB `CHECK (age BETWEEN 1 AND 120)`은 그대로 둬도 된다.
+- 이름: 10/14 가입·프로필 수정 모두 **1~50자**로 맞췄다(가입은 30자, 수정은 50자로 달랐음). 서버는 30자라 X17로 변경을 요청한다. 이 기기에 저장된 예전 프로필은 그대로 읽는다.
 - 비밀번호 12자·72바이트: 서버는 그대로 둔다. 앱은 72바이트를 이미 검사하고(`password.ts`), 12자 검사만 서버를 붙일 때 켠다(Q3, 7장).
 - 7장에 적었던 `GET /records?date=…`는 BE 명세에 없는 이 문서의 잘못이라 "R1 전체를 받아 날짜로 거름"으로 고쳤다. 필터는 선택 요청(Q6).
 
@@ -394,7 +396,7 @@ sequenceDiagram
 | 항목 | 지금 | 붙일 때 |
 |---|---|---|
 | 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
-| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
+| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 50자(서버 30자, X17로 변경 요청)·나이 14~120(`validProfileInput`) |
 | 기준 자세 | 이 PC에 카메라별로 저장(`features/camera/savedBaseline.ts`), 앱이 계산 | B2 + WS calibration |
 | 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
 | 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |

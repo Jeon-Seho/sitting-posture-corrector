@@ -845,7 +845,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입', age: 31, occupation: '합성 직업' })
     })
 
-    it('rejects an age under 14 and a name over 30 characters, as the server does', () => {
+    it('rejects an age under 14 and a name over 50 characters', () => {
       data.delete(KEYS.profile)
       mount()
       click('회원가입')
@@ -859,7 +859,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
       expect(data.has(KEYS.profile)).toBe(false)
       type('age', 14)
-      type('name', '가'.repeat(31))
+      type('name', '가'.repeat(51))
       act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
       expect(data.has(KEYS.profile)).toBe(false)
       type('name', '합성 가입')
