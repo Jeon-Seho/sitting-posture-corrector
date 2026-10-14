@@ -23,7 +23,7 @@
 | 출력 계약·자료 준비·검사기 | `make test` | 스키마/합성 예제 오류, 잘못된 입력 수용, 참여자 누수·hash/시각·창 경계 오류, 검사기 회귀 |
 | 프론트 | `make check-frontend` | 품질·상태 전이·저장·알림 테스트, TypeScript 또는 빌드 실패 |
 | API | `make check-backend` | Java 판정·경계·재시도/실패 사례, 실제 MySQL 통합(HTTP·WebSocket·V2.3 행), 실제 FastAPI HTTP smoke·프로세스 정리 실패. MySQL이 없으면 실패 |
-| 합성 브라우저 | `make check-browser` | 실제 계정 앱·서버의 가입/설정/기준/측정/종료/복구·소유권·기록 불일치, 브라우저 오류·정리 실패 |
+| 합성 브라우저 | `make check-browser` | 실제 앱·서버의 측정/종료/복구·기록 불일치, 확인창·초점/배경 차단, 브라우저 오류·정리 실패 |
 | MySQL·Compose·계정 | `make check-compose` | 실제 마이그레이션·인증/CSRF·소유권·재시도·복구·삭제, 백업 복원·격리·계정 UI·자원 정리 실패 |
 
 `make check`는 위 게이트를 모두 포함한다. `check-local`은 Compose 검증을 제외한다.

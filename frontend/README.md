@@ -82,7 +82,7 @@ MediaPipe Pose Landmarker Lite로 상체를 추적하고, 3초 개인 기준과 
 입출구 서버가 생기기 전이라 가입 결과(프로필, 이메일, 동의 선택)는 이 기기 localStorage에만 두고 비밀번호는 저장하지 않는다.
 로그인은 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다. 항목과 고지 내용은 [동의 제안서](../docs/design/consent-proposal.md)다.
 백엔드는 계정·기준 자세·세션 API v2([계약](../contracts/accounts.v2.md))를 제공하지만 프론트는 아직 연결하지 않는다.
-v2 연결을 넣었던 예전 계정 앱 코드(`src/features/accounts`, 서버 기준 자세 저장·복원)는 develop 병합 때 계정 모드 삭제를 따라 뺐고, 커밋 `ce57f56`에서 다시 참고할 수 있다.
+프론트 코드는 develop 상태(세션 `/api/v1`, V1.1 `setup`)이며, 연결에 필요한 수정은 [계획 0027](../docs/plans/active/0027-frontend-backend-v2-connection.md)에 정리했다.
 
 ## 로컬 프로토타입 실행
 

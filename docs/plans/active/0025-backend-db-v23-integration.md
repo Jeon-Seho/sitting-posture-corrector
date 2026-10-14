@@ -43,6 +43,8 @@ DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배
   지운 프론트 코드는 커밋 `ce57f56`에 남아 있다. 동의 형식 통합은 develop의 `features/auth/consents.ts` 기준으로 다시 정한다.
   한계: 백엔드는 계정 없는 판정을 받지 않으므로(ADR 0020) 프론트를 `features/auth`에 BE `auth`로 다시 잇기 전까지
   앱의 「서버 판정 사용」은 401로 실패하고, 계정 브라우저 시나리오·`check-compose`의 계정 UI 단계도 develop과 같이 깨진다.
+- 2026-10-14 사용자 요청으로 프론트 코드(`frontend/src`, `frontend/vite.config.ts`, `model/prototype/`)를 develop 상태로 되돌렸다.
+  세션 v2 경로·기준 좌표 평균 변경도 빠졌다. 프론트 연결에 필요한 수정은 [계획 0027](0027-frontend-backend-v2-connection.md)에 정리했다.
 
 ## 검증 결과와 남은 한계
 

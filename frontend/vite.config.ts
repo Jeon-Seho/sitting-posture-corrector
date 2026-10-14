@@ -37,8 +37,6 @@ if (
 const proxy = {
   '/api': {
     target: apiTarget,
-    // The realtime channel (/api/v1/realtime) upgrades through the same proxy.
-    ws: true,
     rewrite: (path: string) => apiPrefix + path.replace(/^\/api(?=\/)/, ''),
   },
 }

@@ -9,6 +9,7 @@
 - [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
 - [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
+- [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록.
 - [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 

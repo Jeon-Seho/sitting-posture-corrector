@@ -27,6 +27,7 @@ v2의 저장된 기록 확인은 서버 종료·요약의 존재를 뜻한다. �
 ## 검증과 한계
 
 실제 MySQL V2.3·FastAPI·계정 브라우저로 가입→기준 등록→특징 판정→종료→기록을 검증한다.
-`make check-browser`는 현재 로그인 필수 API에 맞는 계정 UI 시나리오를 실행한다. 과거 무인증 로컬 서버 시나리오는
-이 API의 회귀 게이트로 사용하지 않는다. 기존 단위 테스트의 로컬 판정·복구·대화상자 검증은 유지한다.
+`make check-browser`는 2026-10-14부터 develop과 같이 프론트 팀의 앱 시나리오(`tools/browser/scenarios.mjs`)를 실행한다.
+API가 로그인 필수 v2라서 첫 서버 판정 세션에서 실패한다. 프론트 연결 전까지의 상태와 할 일은 [계획 0027](../plans/active/0027-frontend-backend-v2-connection.md)에 있다.
+계정 UI 시나리오(`tools/browser/accounts.mjs`)는 `check-compose`에서만 실행한다. 기존 단위 테스트의 로컬 판정·복구·대화상자 검증은 유지한다.
 진행 중 상태는 API 단일 인스턴스 메모리다. HDFS, Kafka, 학습 모델, 약관 개정 재동의 화면은 별도 작업이다.
