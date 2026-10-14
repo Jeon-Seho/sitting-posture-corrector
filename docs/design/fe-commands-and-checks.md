@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성: 2026-10-12 · 최신화: 2026-10-14 · FE(feat/frontend-server-integration). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성: 2026-10-12 · 최신화: 2026-10-14 · FE(feat/frontend-features-and-integration). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)
@@ -10,8 +10,8 @@
 ```sh
 # 다른 PC 작업 받기
 git fetch origin
-git log --oneline HEAD..origin/feat/frontend-server-integration
-git merge --ff-only origin/feat/frontend-server-integration
+git log --oneline HEAD..origin/feat/frontend-features-and-integration
+git merge --ff-only origin/feat/frontend-features-and-integration
 
 # 바뀐 파일 확인 (.vscode/는 커밋하지 않는다)
 git status --short
@@ -75,8 +75,8 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | 명령 | 목적 |
 |---|---|
 | `git status --short`, `git diff --stat` | 바뀐 파일이 의도한 것뿐인지 확인한다. `.vscode/`는 커밋하지 않는다 |
-| `git fetch` 후 `git log HEAD..origin/feat/frontend-server-integration` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
-| `git merge --ff-only origin/feat/frontend-server-integration` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
+| `git fetch` 후 `git log HEAD..origin/feat/frontend-features-and-integration` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
+| `git merge --ff-only origin/feat/frontend-features-and-integration` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
 | `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
 | `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
 

@@ -10,7 +10,7 @@
 - [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 
-## FE 현재 결정과 작업 (2026-10-14, `feat/frontend-server-integration`)
+## FE 현재 결정과 작업 (2026-10-14, `feat/frontend-features-and-integration`)
 
 - **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0022 서버 연결이 끊기면 세션을 끝낸다](decisions/0022-session-ends-on-lost-connection.md).
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — BE API 명세(10/13)와 같은 ID·경로. 로그인·설정·기록은 REST, 실시간 판정·자세 등록은 WebSocket `/v2/realtime`. BE에 확인할 것은 0장.
