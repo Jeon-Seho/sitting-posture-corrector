@@ -46,7 +46,7 @@ export function ActivityHeatmap({ stats, today }: { stats: DailyStat[]; today: s
                     <i
                       key={day}
                       className={`heatmap-cell level-${s ? activityLevel(s.valid_sec) : 0} ${future ? 'is-future' : ''} ${day === today ? 'is-today' : ''}`}
-                      title={future ? undefined : `${dayLabel(day)} · ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
+                      data-tip={future ? undefined : `${dayLabel(day)} · ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'}`}
                     />
                   )
                 })}

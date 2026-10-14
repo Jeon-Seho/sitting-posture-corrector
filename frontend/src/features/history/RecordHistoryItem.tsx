@@ -36,7 +36,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
         </span>
         <div className="service-record-text">
           <strong>{date}</strong>
-          <span title={RECORD_SOURCE_LABEL[recordSource(record)]}>
+          <span data-tip={RECORD_SOURCE_LABEL[recordSource(record)]}>
             {formatDuration(record.valid)} 측정 · 자세 경고 {record.events.length}번
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
@@ -48,7 +48,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
           aria-expanded={expanded}
           aria-controls={detailsId}
           aria-label={`${date} 기록 상세 ${expanded ? '닫기' : '보기'}`}
-          title={expanded ? '닫기' : '자세히'}
+          data-tip={expanded ? '닫기' : '자세히'}
           onClick={(event) => {
             event.stopPropagation()
             setExpanded((previous) => !previous)

@@ -101,7 +101,7 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     const cells = renderer!.root.findAll((n) => n.type === 'i' && String(n.props.className).startsWith('heatmap-cell'))
     expect(cells.length).toBeGreaterThan(90)
     expect(cells.every((n) => !n.props.onClick)).toBe(true)
-    expect(cells.find((n) => String(n.props.title).startsWith('10월 2일'))!.props.className).toContain('level-4')
+    expect(cells.find((n) => String(n.props['data-tip']).startsWith('10월 2일'))!.props.className).toContain('level-4')
 
     act(() => renderer!.root.findByProps({ 'aria-label': '이전 달' }).props.onClick())
     expect(text()).toContain('2026년 9월')

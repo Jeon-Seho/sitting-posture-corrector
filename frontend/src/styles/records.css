@@ -359,6 +359,14 @@
 .today-hero-value.records-stat-value {
   margin: 0;
 }
+/* The one big number: the shared Amount is 24px, far too small inside the ring. */
+.today-hero-value .amount-n {
+  font-size: 54px;
+  line-height: 1;
+}
+.today-hero-value .amount-u {
+  font-size: 22px;
+}
 
 /* 달력's picked day (DaySummary): a small ring and one line, unlike the 기록 tab's hero. */
 .day-summary-body {

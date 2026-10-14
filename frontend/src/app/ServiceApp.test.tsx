@@ -16,6 +16,7 @@ import {
 import type { SessionView } from '../features/session/server/contracts'
 import { SettingsPage } from '../pages/SettingsPage'
 import { MonthCalendar } from '../features/history/RecordCalendar'
+import { SelectMenu } from '../components/SelectMenu'
 import type { DailyStat } from '../features/history/recordsSource'
 import { DEFAULT_RULES } from '../data/posture'
 import { newMachine } from '../lib/engine'
@@ -366,10 +367,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     })
     mount()
     expect(text(renderer!.root)).toContain('1. 찍을 자세 선택')
-    const picker = renderer!.root.findByProps({ id: 'capture-task' })
-    expect(picker.props.disabled).toBe(false)
-    act(() => picker.props.onChange({ target: { value: 'lean_left' } }))
-    expect(renderer!.root.findByProps({ id: 'capture-task' }).props.value).toBe('lean_left')
+    const picker = () => renderer!.root.findAllByType(SelectMenu).find((menu) => menu.props.id === 'capture-task')!
+    expect(picker().props.disabled).toBe(false)
+    act(() => picker().props.onChange('lean_left'))
+    expect(picker().props.value).toBe('lean_left')
     expect(text(renderer!.root)).toContain('본인 기준 왼쪽으로 몸통을')
     expect(data).toEqual(before)
     expect(controls.camera.connect).not.toHaveBeenCalled()

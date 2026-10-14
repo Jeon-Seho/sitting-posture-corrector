@@ -51,8 +51,8 @@ export function SessionResult({
     <>
       <section className="result" aria-labelledby="result-title">
         <div className="result-head">
-          <Ring value={keepRate} label="바른 자세 비율">
-            <span className="ring-value" style={{ fontSize: 34 }}>
+          <Ring value={keepRate} size={188} stroke={20} label="바른 자세 비율">
+            <span className="ring-value" style={{ fontSize: 54 }}>
               {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
             </span>
             <span className="ring-label">바른 자세</span>
@@ -94,7 +94,7 @@ export function SessionResult({
               <button
                 className="btn btn-quiet"
                 onClick={onExport}
-                title="서버(Kafka)로 보냈어야 할 구간 데이터(txt)와 분석용 관절 좌표(csv)를 내려받아요."
+                data-tip="서버(Kafka)로 보냈어야 할 구간 데이터(txt)와 분석용 관절 좌표(csv)를 내려받아요."
               >
                 {exportCount ? `측정 데이터 저장됨 · ${exportCount}구간` : '측정 데이터 저장'}
               </button>

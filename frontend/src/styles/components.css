@@ -466,3 +466,36 @@
   font-size: 12px;
   color: var(--muted);
 }
+
+/* App-styled hover note (TipLayer) in place of the operating system's black tooltip. */
+.tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 280px;
+  padding: 7px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(90, 55, 30, 0.14);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: pre-line;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+.tip.is-below {
+  transform: translate(-50%, 0);
+}
+/* Number fields: no operating-system spin arrows; typing and arrow keys still work. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

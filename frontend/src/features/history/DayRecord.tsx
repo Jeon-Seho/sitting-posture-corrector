@@ -56,8 +56,8 @@ export function DayRecord({
             <div data-stat="rate">
               <Ring
                 value={rate}
-                size={168}
-                stroke={14}
+                size={188}
+                stroke={20}
                 color={good ? 'var(--good)' : 'var(--alert-soft)'}
                 label={percent === null ? '측정한 시간 없음' : `바른 자세 ${percent}%`}
               >
@@ -134,7 +134,7 @@ export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: st
               key={r.id}
               className={`day-timeline-block ${rate !== null && Math.round(rate * 100) >= GOOD_RATE * 100 ? 'is-good' : ''}`}
               style={{ left: `${left}%`, width: `${Math.max(at(r.endedAt) - left, 0.6)}%` }}
-              title={`${time} · ${formatDuration(r.valid)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}`}
+              data-tip={`${time} · ${formatDuration(r.valid)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}`}
             />
           )
         })}
