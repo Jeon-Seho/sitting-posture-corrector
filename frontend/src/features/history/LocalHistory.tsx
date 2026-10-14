@@ -5,9 +5,9 @@ import { RecordModeChips, useRecordMode } from './recordMode'
 import { dayKey } from './recordsSource'
 
 /**
- * 기록 tab: today only (2026-10-13 split). Other days, the heatmap, period charts and the
- * first-vs-recent comparison live in the 달력 tab (RecordCalendarPage). Today's numbers come
- * from the same shape as `GET /records?date=오늘` (docs/design/api-ws-spec.md).
+ * 기록 tab: today only (2026-10-13 split). Other days, the heatmap and period charts live
+ * in the 달력 tab (RecordCalendarPage). Today's numbers come from the same shape as
+ * `GET /records?date=오늘` (docs/design/api-ws-spec.md).
  */
 export function LocalHistory({
   records: allRecords,

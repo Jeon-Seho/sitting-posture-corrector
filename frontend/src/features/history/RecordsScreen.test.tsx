@@ -109,8 +109,9 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(renderer!.root.findByType(ComboChart).props.bars).toHaveLength(7)
     act(() => button('최근 30일').props.onClick())
     const bars = renderer!.root.findByType(ComboChart).props.bars as { value: number | null }[]
-    expect(bars).toHaveLength(30)
-    expect(bars.filter((b) => b.value !== null)).toHaveLength(4) // 9/28, 10/2, 10/12, 10/13
+    // 30 days read as weeks: 9/14–19, 9/20–26, 9/27–10/3, 10/4–10, 10/11–13.
+    expect(bars.map((b) => (b as { label: string }).label)).toEqual(['9/14', '9/20', '9/27', '10/4', '10/11'])
+    expect(bars.map((b) => (b.value === null ? null : Math.round(b.value * 100)))).toEqual([null, null, 72, null, 67])
   })
 
   it('shortens durations for calendar cells', () => {

@@ -178,22 +178,53 @@ export function PeriodCard({ stats, today }: { stats: DailyStat[]; today: string
   )
 }
 
+/** One bar: a day (최근 7일) or a Sunday–Saturday week clipped to the range (최근 30일). */
+type Bucket = { label: string; sub?: string; days: string[] }
+
+function buckets(today: string, days: number): Bucket[] {
+  const from = addDays(today, -(days - 1))
+  if (days <= 7) {
+    return Array.from({ length: days }, (_, i) => {
+      const day = addDays(from, i)
+      const d = dateOf(day)
+      return { label: `${d.getMonth() + 1}/${d.getDate()}`, sub: WEEKDAY[d.getDay()], days: [day] }
+    })
+  }
+  // 30 bars were too dense to read (2026-10-14): group by week, about five bars.
+  const out: Bucket[] = []
+  for (let sunday = addDays(from, -dateOf(from).getDay()); sunday <= today; sunday = addDays(sunday, 7)) {
+    const inRange = Array.from({ length: 7 }, (_, i) => addDays(sunday, i)).filter((d) => d >= from && d <= today)
+    const a = dateOf(inRange[0])
+    const b = dateOf(inRange[inRange.length - 1])
+    out.push({
+      label: `${a.getMonth() + 1}/${a.getDate()}`,
+      sub: inRange.length > 1 ? `~${b.getMonth() === a.getMonth() ? '' : `${b.getMonth() + 1}/`}${b.getDate()}` : undefined,
+      days: inRange,
+    })
+  }
+  return out
+}
+
 function PeriodChart({ stats, today, days }: { stats: DailyStat[]; today: string; days: number }) {
   const byDay = new Map(stats.map((s) => [s.date, s]))
-  const list = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)))
-  const rows = list.map((day) => byDay.get(day))
+  const rows = buckets(today, days).map((bucket) => {
+    const list = bucket.days.flatMap((d) => (byDay.get(d) ? [byDay.get(d)!] : []))
+    const valid = list.reduce((n, s) => n + s.valid_sec, 0)
+    const good = list.reduce((n, s) => n + s.good_sec, 0)
+    return {
+      ...bucket,
+      valid,
+      rate: valid > 0 ? good / valid : null,
+      measured: list.length,
+      sessions: list.reduce((n, s) => n + s.session_count, 0),
+      events: list.reduce((n, s) => n + s.event_count, 0),
+    }
+  })
   return (
     <>
       <ComboChart
-        bars={list.map((day, i) => {
-          const d = dateOf(day)
-          return {
-            label: days <= 7 ? `${d.getMonth() + 1}/${d.getDate()}` : String(d.getDate()),
-            sub: days <= 7 ? WEEKDAY[d.getDay()] : undefined,
-            value: rows[i]?.good_ratio ?? null,
-          }
-        })}
-        line={rows.map((s) => (s && s.valid_sec > 0 ? s.valid_sec / 3600 : null))}
+        bars={rows.map((r) => ({ label: r.label, sub: r.sub, value: r.rate }))}
+        line={rows.map((r) => (r.valid > 0 ? r.valid / 3600 : null))}
         barUnit="%"
         lineUnit="시간"
         barMax={1}
@@ -202,8 +233,9 @@ function PeriodChart({ stats, today, days }: { stats: DailyStat[]; today: string
         formatBar={(rate) => `${(rate * 100).toFixed(1)}%`}
         formatLine={(hours) => formatDuration(hours * 3600)}
         details={(i) => [
-          { label: '세션', value: `${rows[i]?.session_count ?? 0}회` },
-          { label: '자세 경고', value: `${rows[i]?.event_count ?? 0}번` },
+          ...(rows[i].days.length > 1 ? [{ label: '측정한 날', value: `${rows[i].measured}일` }] : []),
+          { label: '세션', value: `${rows[i].sessions}회` },
+          { label: '자세 경고', value: `${rows[i].events}번` },
         ]}
       />
       <Legend

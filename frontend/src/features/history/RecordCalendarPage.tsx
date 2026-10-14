@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { RecordComparison } from '../../components/RecordComparison'
 import { Card } from '../../components/ui'
 import type { RecordItem } from '../../lib/serviceStore'
 import { ActivityHeatmap, HeatmapLegend } from './ActivityHeatmap'
@@ -37,7 +36,7 @@ export function RecordCalendarPage({
       <div className="page-head">
         <div>
           <h1 className="page-title">달력</h1>
-          <p className="page-desc">{label}날짜를 누르면 그날 기록을 볼 수 있어요</p>
+          {label && <p className="page-desc">{label.replace(/ · $/, '')}</p>}
         </div>
       </div>
 
@@ -67,16 +66,6 @@ export function RecordCalendarPage({
             )}
           </div>
         </div>
-
-        <details className="more">
-          <summary>처음과 최근 비교</summary>
-          <div className="more-body">
-            <p className="fine">
-              선택한 기록 종류의 전체 기록을 사용합니다. 합성 시연 결과는 실제 자세 개선 근거가 아닙니다.
-            </p>
-            <RecordComparison records={records} />
-          </div>
-        </details>
       </div>
     </>
   )

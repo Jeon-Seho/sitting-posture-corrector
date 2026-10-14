@@ -17,7 +17,7 @@ type Props = {
   lineName?: string
   formatBar?: (value: number) => string
   formatLine?: (value: number) => string
-  /** Fixed top of the line axis (1 for a 0–100% rate); by default the largest value. */
+  /** Fixed top of the line axis (1 for a 0–100% rate); by default 1.25 × the largest value. */
   /** Fixed top of the bar axis (1 for a 0–100% rate); by default the largest value. */
   barMax?: number
   lineMax?: number
@@ -30,6 +30,8 @@ const H = 200
 const BASE = 150
 const TOP = 18
 const MIN_STEP = 34
+/** The highest point sits at 80% of the plot instead of pinning the top edge (2026-10-14). */
+const LINE_HEADROOM = 1.25
 
 /**
  * Bars + optional line. Hovering (or focusing and using ←/→) highlights one day and
@@ -67,7 +69,7 @@ export function ComboChart({
   const barW = Math.min(30, STEP * 0.55)
   const barMax = fixedBarMax ?? Math.max(...bars.map((b) => b.value ?? 0), 1)
   const lineMax =
-    fixedLineMax ?? (line ? Math.max(...line.filter((v): v is number => v !== null), 0.001) : 1)
+    fixedLineMax ?? (line ? Math.max(...line.filter((v): v is number => v !== null), 0.001) * LINE_HEADROOM : 1)
   const x = (i: number) => i * STEP + STEP / 2
   const lineY = (v: number) => BASE - (v / lineMax) * (BASE - TOP)
   const [active, setActive] = useState<number | null>(null)

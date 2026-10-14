@@ -15,7 +15,8 @@ import {
 } from '../features/session/server/testFixtures'
 import type { SessionView } from '../features/session/server/contracts'
 import { SettingsPage } from '../pages/SettingsPage'
-import { RecordComparison } from '../components/RecordComparison'
+import { MonthCalendar } from '../features/history/RecordCalendar'
+import type { DailyStat } from '../features/history/recordsSource'
 import { DEFAULT_RULES } from '../data/posture'
 import { newMachine } from '../lib/engine'
 import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
@@ -291,7 +292,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
-  it('preserves develop combined records and scopes comparison to the selected input kind', () => {
+  it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {
       id: 'synthetic-camera',
       startedAt: '2026-09-30T10:00:00Z',
@@ -307,14 +308,14 @@ describe('service recovery and saving with synthetic storage only', () => {
     mount()
     login()
     click('달력')
-    expect(renderer!.root.findByType(RecordComparison).props.records).toEqual(records)
+    const goodSec = () =>
+      (renderer!.root.findByType(MonthCalendar).props.stats as DailyStat[]).reduce((n, s) => n + s.good_sec, 0)
+    expect(goodSec()).toBe(100)
     expect(text(renderer!.root)).toContain('실제 웹캠·합성 시연 합산')
     click('실제 웹캠 기록')
-    expect(renderer!.root.findByType(RecordComparison).props.records).toEqual([item])
+    expect(goodSec()).toBe(80)
     click('합성 시연 기록')
-    expect(
-      renderer!.root.findByType(RecordComparison).props.records.map((r: RecordItem) => r.id),
-    ).toEqual(['synthetic-demo'])
+    expect(goodSec()).toBe(20)
   })
   it('keeps two-stage withdrawal confirmation cancellable without deleting synthetic data', () => {
     mount()
