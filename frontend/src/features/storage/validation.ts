@@ -38,6 +38,12 @@ export function validProfile(v: unknown): v is Profile {
     (v.occupation === undefined || text(v.occupation, 80))
   )
 }
+/**
+ * What the server accepts at sign-up and profile edits (BE spec 10/13 §2): name 1~30, age 14~120.
+ * Stored profiles keep the wider `validProfile` check so older local data still loads.
+ */
+export const validProfileInput = (v: Profile) =>
+  validProfile(v) && v.name.length <= 30 && (v.age === undefined || v.age >= 14)
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const validEmail = (v: unknown): v is string =>
   typeof v === 'string' && v.length <= 254 && EMAIL.test(v)

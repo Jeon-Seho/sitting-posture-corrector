@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성: 2026-10-13 · 최신화: 2026-10-14(DevOps 검토, DB·BE 회신 반영) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성: 2026-10-13 · 최신화: 2026-10-14(DevOps 검토, DB·BE 회신, BE 명세 대조 반영) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드 기준 명세는 `api-spec.html`(`feature/repo-backend-db-v2` `ce57f56`, DB V2.3).
 > 근거 결정: 10/12 회의, 10/13 FE 결정, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [ADR 0022](../decisions/0022-session-ends-on-lost-connection.md)(끊기면 세션 종료, 재연결 없음)
 
@@ -12,11 +12,16 @@
 
 | BE 명세 9장 # | 정할 것 | FE 답 |
 |---|---|---|
+| 1 | 입출구 서버를 팀 `backend/api` 위에 만들지 | 동의(10/14 팀 회의 안건) |
 | 2 | 5분을 무엇으로 세나 | **정정(10/14): 5분 미만도 저장한다.** 5분(`STAT_MIN_SESSION_SEC`) 미만 세션도 저장하고 기록 목록·일별 통계에 넣는다. "붕괴까지 걸린 시간" 최소·최대에서만 뺀다(DB V2.3, 10/14 정정). 그래서 BE 명세 8장(5분 미만 미저장)과 `min_record_ms`·`recordable`·`recorded`는 필요 없다 |
 | 3 | WS 새 경로 `/v2/realtime`, v1 유지 기간 | 동의. 앱이 v2로 바뀌면 v1은 없애도 된다 |
 | 4 | 끊기면 세션 종료(ADR 0022) | 동의. 앱은 재연결하지 않는다 |
 | 6 | 알림 표시·억제 판단 위치(N6) | 동의(저장 서비스 판단 → `ws`). 앱은 받은 `alert`를 거르지 않는다 |
+| 5 | 저장 서비스가 5분 미만 세션 행을 지우는 예외 | **필요 없다.** 5분 미만도 저장하므로 지우지 않는다(10/14) |
+| 7 | 서버 DB V2.1 → V2.3 시점 | 동의. DB·BE가 만든 V2.3 코드와 명세를 따른다 |
+| 8 | 0.5초 관측 점수 방식(N3) | FE가 답할 것이 아니다(서버·ML 내부). 앱은 프레임을 평균 내지 않고 통째로 보낸다 |
 | 9 | 등록 최소 프레임 | 동의(3초 안에 판정 가능 15장) |
+| 10 | 짧은 누락 이어가기(N15) | FE가 답할 것이 아니다(모델·PM) |
 | — | 세션 시작 시각 | **BE 안대로 S1을 받은 시각 = 앱 `t_ms` 0** |
 | — | 판정 불가 필드 | **`frames[].valid: false`**(BE 명세 표기 그대로) |
 | — | 오늘 기록 | 결과 화면에는 방금 끝난 세션만, 기록 화면에는 오늘을 보이지 않는다(앱이 거른다, 서버 변경 없음) |
@@ -32,6 +37,7 @@
 | Q3 | 비밀번호 12자 | 서버는 12자 그대로 둔다. 앱은 시험 편의로 지금 최소 길이를 보류했고, **서버를 붙일 때 12자 검사를 켠다** | 변경 없음(확인만) |
 | Q4 | (없앰) 5분 미만 세션 행 삭제 | 10/14 정정: 5분 미만도 저장하므로 삭제하지 않는다 | 없음 |
 | Q5 | 오류 `code`가 2장 표에 없는 경우 | 앱은 HTTP 상태로만 처리한다(4xx 안내, 5xx 재시도) | 새 `code`를 만들면 알려 주기 |
+| Q6 | 기록 화면의 날짜별 목록 | 앱은 R1 전체를 받아 날짜로 거른다 | (선택) R1에 `?date=YYYY-MM-DD` 필터를 둘 수 있는지. 없어도 앱은 동작한다 |
 
 ### 0.3 DevOps 검토(10/13)에 대한 FE 답
 
@@ -67,6 +73,22 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | S4 | 측정 중은 Redis, 종료 뒤는 DB | 앱은 종료 뒤에만 부른다. 영향 없음 |
 | 삭제 배치 | 탈퇴 최종 삭제는 J4(매일 04:00), 일별 집계는 J3(매일 03:00) | **일별 집계는 매일 00:00으로 확정(10/14).** 그래서 기록 화면의 통계는 자정이 지나면 바로 어제까지 그린다 |
 | B8 | `/health` 유지, S6과 R3 중 하나만 공개해도 됨 | 앱은 R3만 쓴다 |
+
+### 0.5 BE 명세(10/13판)와 다른 점 (10/14 대조)
+
+BE 명세 10/13판을 이 문서·계약 v2·앱 코드와 한 줄씩 대조했다. 다른 곳과 처리한 내용이다.
+
+| # | BE 명세 | 이 문서·앱 | 처리 |
+|---|---|---|---|
+| X1 | 8장 5분 미만 미저장, `MIN_RECORD_MS`, `min_record_ms`(S1·`ready`), `recordable`(`progress`), `recorded`(S3·`session_ended`), R1 "5분 미만 없음", 종료 뒤 404 | 5분 미만도 저장(DB V2.3). 이 필드들은 쓰지 않고 계약 v2에도 없다 | **BE 명세 8장과 필드 삭제 요청**(0.1 #2·#5). 앱은 모르는 필드를 무시하므로 BE가 남겨 둬도 깨지지 않는다 |
+| X2 | `closed.reason`에 `limit_reached` 없음, 오류에 `RECORD_ARCHIVED` 없음 | 둘 다 있다(DevOps A3·A6) | BE 명세에 추가 요청 |
+| X3 | R3 "HDFS 파일이 있는 세션은 409(삭제는 J3와 같은 순서가 필요)" — 나중에 지울 수 있다는 뜻 | 적재된 기록은 지울 수 없다(10/14 결정) | BE 명세 문구 정정 요청 |
+| X4 | 배치 번호: J2 일별 집계 00:00, J3 탈퇴 삭제 04:00 | DB 회신은 J3 일별 집계·J4 탈퇴 삭제. 시각은 이 문서 기준 집계 00:00·삭제 04:00 | 번호는 BE·DB가 맞춘다(앱 영향 없음) |
+| X5 | 2장 `profile`: 이름 1~30자, 나이 14~120 또는 null | 앱 가입은 이름 30자·나이 1~120, 프로필 수정은 이름 50자·나이 1~120이었다 | **앱 수정(10/14):** 가입·프로필 수정 모두 이름 30자·나이 14~120(`validProfileInput`). 이 기기에 저장된 예전 프로필은 그대로 읽는다 |
+| X6 | 비밀번호 UTF-8 72바이트 이하 | 앱 입력 칸은 72글자 | 서버를 붙일 때 12자 검사와 함께 바이트로 센다(7장 가입) |
+| X7 | R1에 날짜 조건 없음 | 7장이 `GET /records?date=…`라고 적었다 | 7장을 "R1 전체를 받아 날짜로 거름"으로 고치고 필터는 Q6로 요청 |
+
+같은 것(차이 없음): 경로·CSRF·계정 헤더·오류 본문, A1~A8·C1·W1·W2·B2·S1·S3·S4, WS `hello`·`features`·`end`, `posture.frames.v1` 필드, 서버 메시지 9종, `closed` 사유 7종, `calibration_result` 필드·실패 사유, T1 응답 필드, `POST …/features`·`POST /records` 없앰.
 
 ## 1. 공통 규칙
 
@@ -345,11 +367,11 @@ sequenceDiagram
 | 항목 | 지금 | 붙일 때 |
 |---|---|---|
 | 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
-| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`) |
+| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기와 72바이트 검사(`features/auth/password.ts`). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
 | 기준 자세 | 이 PC에 카메라별로 저장(`features/camera/savedBaseline.ts`), 앱이 계산 | B2 + WS calibration |
 | 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
-| 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(`GET /records?date=…`), R1b |
-| 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1(`date=오늘`)로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
+| 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |
+| 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
 | 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
 | 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
 

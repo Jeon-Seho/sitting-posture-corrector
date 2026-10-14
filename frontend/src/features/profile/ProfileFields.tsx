@@ -8,7 +8,7 @@ export type ProfileFieldValues = Pick<
 export function ProfileFields({
   form,
   canWrite,
-  nameMax = 50,
+  nameMax = 30,
   optionalInfo = true,
 }: {
   form: ProfileFieldValues
@@ -39,7 +39,7 @@ export function ProfileFields({
               className="input"
               disabled={!canWrite}
               type="number"
-              min={1}
+              min={14}
               max={120}
               value={age}
               onChange={(e) => setAge(Number(e.target.value))}
