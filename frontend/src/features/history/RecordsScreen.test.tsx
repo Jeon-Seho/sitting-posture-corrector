@@ -70,9 +70,9 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(days).toEqual(['11', '12', '13', '14', '15', '16', '17'])
     expect(gridDay('14일').props.disabled).toBe(true)
     expect(gridDay('2일').props.className).toContain('has-record')
-    expect(JSON.stringify(gridDay('2일').children.map((n) => (typeof n === 'string' ? n : n.children)))).toContain('1시간 7분')
+    expect(gridDay('2일').findByProps({ className: 'calendar-time' }).children).toEqual(['1시간 7분'])
     expect(gridDay('2일').props['aria-label']).toContain('바른 자세 75%')
-    expect(gridDay('2일').findAll((n) => String(n.props.className).includes('has-ring is-good'))).toHaveLength(1)
+    expect(gridDay('2일').findAll((n) => String(n.props.className).includes('calendar-ring is-good'))).toHaveLength(1)
 
     act(() => gridDay('12일').props.onClick())
     expect(text()).toContain('10월 12일 (월) 기록')

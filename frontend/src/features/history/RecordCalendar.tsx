@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { Card, ComboChart, Legend } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
@@ -15,11 +15,32 @@ export function shortDuration(sec: number) {
   return m % 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m / 60}시간`
 }
 
+const RING_R = 17
+const RING_C = 2 * Math.PI * RING_R
+
+/** Keep-rate ring drawn as SVG strokes (smooth at any zoom), like Apple Fitness history. */
+function DayRing({ rate }: { rate: number }) {
+  return (
+    <svg className={`calendar-ring ${rate >= GOOD_RATE ? 'is-good' : ''}`} viewBox="0 0 40 40" aria-hidden="true">
+      <circle className="calendar-ring-track" cx="20" cy="20" r={RING_R} />
+      {rate > 0 && (
+        <circle
+          className="calendar-ring-value"
+          cx="20"
+          cy="20"
+          r={RING_R}
+          strokeDasharray={`${Math.max(rate * RING_C, 0.5)} ${RING_C}`}
+          transform="rotate(-90 20 20)"
+        />
+      )}
+    </svg>
+  )
+}
+
 /**
- * Month calendar (2026-10-13, Toss-style): plain cells; a ring around the date fills with
- * that day's keep rate and the measured time sits underneath. Pressing a day opens that
- * day's record below.
- * The week containing today sits on a horizontal band.
+ * Month calendar (2026-10-14). Apple Fitness-style: a ring around each measured date fills
+ * with that day's keep rate, measured time underneath. Like Day One, pressing a date opens
+ * that day beside the calendar. The week containing today sits on a horizontal band.
  */
 export function MonthCalendar({
   stats,
@@ -68,28 +89,25 @@ export function MonthCalendar({
   return (
     <div className="calendar">
       <div className="calendar-head">
-        <span />
-        <div className="calendar-month">
-          <button className="btn btn-icon btn-sm btn-quiet" aria-label="이전 달" onClick={() => shift(-1)}>
-            <CaretLeft size={18} weight="bold" />
-          </button>
-          <strong>
-            {month.y}년 {month.m + 1}월
-          </strong>
-          <button
-            className="btn btn-icon btn-sm btn-quiet"
-            aria-label="다음 달"
-            disabled={atLatest}
-            onClick={() => shift(1)}
-          >
-            <CaretRight size={18} weight="bold" />
-          </button>
-        </div>
+        <h3 className="calendar-title">
+          {month.m + 1}월<small>{month.y}</small>
+        </h3>
         {!atLatest && (
           <button className="chip" onClick={toToday}>
             이번 달
           </button>
         )}
+        <button className="btn btn-icon btn-sm btn-quiet" aria-label="이전 달" onClick={() => shift(-1)}>
+          <CaretLeft size={18} weight="bold" />
+        </button>
+        <button
+          className="btn btn-icon btn-sm btn-quiet"
+          aria-label="다음 달"
+          disabled={atLatest}
+          onClick={() => shift(1)}
+        >
+          <CaretRight size={18} weight="bold" />
+        </button>
       </div>
       <div className="calendar-grid" role="grid" aria-label={`${month.y}년 ${month.m + 1}월`}>
         <div className="calendar-week calendar-weekdays" role="row">
@@ -123,12 +141,9 @@ export function MonthCalendar({
                     aria-label={`${dateOf(day).getDate()}일 ${s ? `${formatDuration(s.valid_sec)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}` : '측정 없음'}`}
                     onClick={() => onSelect(day)}
                   >
-                    {/* The ring around the date fills with that day's keep rate (2026-10-14). */}
-                    <span
-                      className={`calendar-date ${rate !== null ? 'has-ring' : ''} ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}
-                      style={rate !== null ? ({ '--rate': rate } as CSSProperties) : undefined}
-                    >
-                      {dateOf(day).getDate()}
+                    <span className="calendar-date">
+                      {rate !== null && <DayRing rate={rate} />}
+                      <span className="calendar-num">{dateOf(day).getDate()}</span>
                     </span>
                     {s && <span className="calendar-time">{shortDuration(s.valid_sec)}</span>}
                   </button>
