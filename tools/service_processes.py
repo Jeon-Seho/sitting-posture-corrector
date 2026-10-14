@@ -1,11 +1,14 @@
-"""Lifecycle of the three temporary loopback servers used by the smoke test."""
+"""Lifecycle of the temporary loopback API and inference servers used by smoke tests.
 
+The API needs a schema V2.2 database (tools/test_mysql.py); there is no memory mode (ADR 0020).
+"""
+
+import os
 import socket
 import subprocess
 import sys
 import tempfile
 import time
-import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,13 +29,8 @@ def free_port():
 
 @dataclass(frozen=True)
 class ServiceEndpoints:
-    cep_port: int
     api_port: int
     inference_port: int
-
-    @property
-    def cep(self):
-        return f"http://127.0.0.1:{self.cep_port}"
 
     @property
     def api(self):
@@ -44,12 +42,12 @@ class ServiceEndpoints:
 
     @property
     def ports(self):
-        return self.cep_port, self.api_port, self.inference_port
+        return self.api_port, self.inference_port
 
     @classmethod
     def allocate(cls):
         ports = []
-        while len(ports) < 3:
+        while len(ports) < 2:
             port = free_port()
             if port not in ports:
                 ports.append(port)
@@ -60,13 +58,8 @@ def service_commands(endpoints):
     java = java_executable()
     return [
         [
-            java, "-jar", str(service_jar("cep", "cep-service")),
-            f"--server.port={endpoints.cep_port}",
-        ],
-        [
             java, "-jar", str(service_jar("api", "session-api")),
             f"--server.port={endpoints.api_port}",
-            f"--posegood.cep-url={endpoints.cep}",
             f"--posegood.inference-url={endpoints.inference}",
         ],
         [
@@ -77,8 +70,18 @@ def service_commands(endpoints):
     ]
 
 
+def api_environment(database):
+    """Database connection of the API process; the password never appears on a command line."""
+    return dict(
+        os.environ,
+        POSEGOOD_DATABASE_URL=database.jdbc_url,
+        POSEGOOD_DATABASE_USER=database.server.user,
+        POSEGOOD_DATABASE_PASSWORD=database.server.password,
+    )
+
+
 def wait_ready(base, path, processes):
-    deadline = time.monotonic() + 30
+    deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         if any(process.poll() is not None for process in processes):
             raise RuntimeError("service exited before ready")
@@ -86,8 +89,8 @@ def wait_ready(base, path, processes):
             with urlopen(base + path, timeout=0.5):
                 return
         except HTTPError as error:
-            # A missing synthetic session still proves that its route is ready.
-            if error.code == 404:
+            # A refused synthetic request still proves that the route is ready.
+            if error.code in (401, 404):
                 return
         except (URLError, TimeoutError, OSError):
             pass
@@ -115,8 +118,9 @@ def assert_ports_closed(ports):
 
 
 @contextmanager
-def running_services(endpoints):
+def running_services(endpoints, database):
     processes, logs = [], []
+    environments = [api_environment(database), dict(os.environ)]
     with tempfile.TemporaryDirectory(prefix="posegood-synthetic-http-") as folder:
         try:
             for index, command in enumerate(service_commands(endpoints)):
@@ -124,11 +128,11 @@ def running_services(endpoints):
                 log = path.open("w")
                 logs.append((path, log))
                 processes.append(
-                    subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+                    subprocess.Popen(
+                        command, cwd=ROOT, env=environments[index], stdout=log, stderr=subprocess.STDOUT,
+                    )
                 )
-
-            wait_ready(endpoints.cep, "/internal/sessions/" + str(uuid.uuid4()), processes)
-            wait_ready(endpoints.api, "/v1/sessions/" + str(uuid.uuid4()), processes)
+            wait_ready(endpoints.api, "/health", processes)
             wait_ready(endpoints.inference, "/health", processes)
             yield processes
         except Exception:
@@ -141,4 +145,4 @@ def running_services(endpoints):
             for _, log in logs:
                 log.close()
             assert_ports_closed(endpoints.ports)
-            print("PASS: all three task test servers stopped")
+            print("PASS: task API and inference servers stopped")

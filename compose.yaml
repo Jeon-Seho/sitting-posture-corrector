@@ -5,7 +5,7 @@ services:
     image: mysql:8.4.11@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
     restart: unless-stopped
     environment:
-      # Schema V1.1 names its database; init scripts apply database/ on an empty volume only.
+      # Schema V2.2 names its database; init scripts apply database/ on an empty volume only.
       MYSQL_DATABASE: posture_service
       MYSQL_USER: posegood
       MYSQL_PASSWORD_FILE: /run/secrets/spring.datasource.password
@@ -29,28 +29,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-      start_period: 30s
-
-  cep:
-    image: ${POSEGOOD_CEP_IMAGE:-posegood-cep:local}
-    build:
-      context: .
-      dockerfile: infra/docker/java.Dockerfile
-      target: cep
-    restart: unless-stopped
-    environment:
-      SERVER_ADDRESS: 0.0.0.0
-      SERVER_PORT: 8091
-      SPRING_PROFILES_ACTIVE: persistent
-      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
-      POSEGOOD_REQUIRE_INTERNAL_TOKEN: "true"
-    secrets: [posegood.internal-token]
-    networks: [private]
-    healthcheck:
-      test: [CMD, curl, --fail, --silent, http://127.0.0.1:8091/health]
-      interval: 5s
-      timeout: 5s
-      retries: 20
       start_period: 30s
 
   inference:
@@ -80,17 +58,16 @@ services:
     environment:
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: 8090
-      SPRING_PROFILES_ACTIVE: persistent
       SPRING_CONFIG_IMPORT: configtree:/run/secrets/
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/posture_service?connectionTimeZone=UTC
+      # Schema V2.2 stores KST (CR-04); the API passes zone-less KST values.
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/posture_service?connectionTimeZone=Asia/Seoul
       SPRING_DATASOURCE_USERNAME: posegood
-      POSEGOOD_CEP_URL: http://cep:8091
       POSEGOOD_INFERENCE_URL: http://inference:8092
+      POSEGOOD_INTERNAL_HOSTS_ENABLED: "true"
       POSEGOOD_COOKIE_SECURE: ${POSEGOOD_COOKIE_SECURE:-false}
     secrets: [spring.datasource.password, posegood.internal-token]
     depends_on:
       db: {condition: service_healthy}
-      cep: {condition: service_healthy}
       inference: {condition: service_healthy}
     networks: [private]
     healthcheck:

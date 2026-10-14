@@ -13,6 +13,7 @@ import {
   type SessionView,
 } from './contracts'
 
+export { SYNTHETIC_LANDMARKS } from '../../testing/syntheticLandmarks'
 export const SESSION_ID = '11111111-1111-4111-8111-111111111111'
 export const BASELINE_ID = '22222222-2222-4222-8222-222222222222'
 export const BASELINE = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }

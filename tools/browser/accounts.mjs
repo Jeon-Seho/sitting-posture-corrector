@@ -57,7 +57,7 @@ class AccountDriver {
 
   async api(path) {
     return this.evaluate(`(async () => {
-      const response = await fetch('/api/v1/' + ${JSON.stringify(path)}, {
+      const response = await fetch('/api/v2/' + ${JSON.stringify(path)}, {
         credentials: 'same-origin', headers: {'X-PoseGood-User-Id': ${JSON.stringify(this.userId ?? '')}}
       });
       return {status: response.status, value: await response.json()};
@@ -84,10 +84,11 @@ class AccountDriver {
   async authenticate(email, password, name) {
     if (name) {
       await this.click('새 계정 만들기')
-      this.check('signup requires explicit storage consent', await this.evaluate(`!document.querySelector('input[type=checkbox]').checked`))
+      this.check('signup requires explicit storage consent', await this.evaluate(`!document.querySelector('input[name=consent]').checked`))
       await this.fill('이름', name)
+      await this.evaluate(`document.querySelector('input[name=optionalProfile]').click()`)
       await this.fill('직업', '명시적 합성 회귀')
-      await this.evaluate(`document.querySelector('input[type=checkbox]').click()`)
+      await this.evaluate(`document.querySelector('input[name=consent]').click()`)
     }
     await this.fill('이메일', email)
     await this.fill('비밀번호', password)
@@ -140,11 +141,11 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.authenticate(email, password, '합성 계정 A')
   const owner = app.userId
   const initial = await app.api('workspace')
-  // DB V1.1 seed DEFAULT_TEMP (3s/3s/60s/0.5, seed updated 2026-10-06) is the temporary default policy.
-  app.check('new account starts with server records and DEFAULT_TEMP settings',
+  // DB V2.3 configured default (3s/3s/60s/0.7; threshold decided 2026-10-10) is the default policy.
+  app.check('new account starts with server records and configured default settings',
     initial.value.records.length === 0 && initial.value.rules.holdSeconds === 3 &&
     initial.value.rules.recoverSeconds === 3 && initial.value.rules.realertSeconds === 60 &&
-    initial.value.rules.threshold === 0.5)
+    initial.value.rules.threshold === 0.7)
 
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
@@ -152,17 +153,17 @@ export async function runAccountScenarios(browser, base, tag) {
     if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'account alert preference switch')
-  await app.preference(false, 'saved alert preference')
+  await app.preference(true, 'saved alert preference')
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await until(() => app.evaluate(`!!document.querySelector('button.me-profile')?.getClientRects().length`), 'restored authenticated navigation')
-  app.check('settings remain server-owned across reload', (await app.api('workspace')).value.preferences.alerts_on === false)
+  app.check('settings remain server-owned across reload', (await app.api('workspace')).value.preferences.alerts_on === true)
   await app.click('설정')
   await until(() => app.evaluate(`(() => {
     const toggle = document.querySelector('button[aria-label="교정 알림 사용"]');
     if (!toggle || toggle.matches(':disabled')) return false;
     toggle.click(); return true;
   })()`), 'restore alert preference')
-  await app.preference(true, 'restored alert preference')
+  await app.preference(false, 'restored alert preference')
   await app.accountMenu()
   await app.click('프로필 설정')
   await app.fill('직업', '변경된 합성 직업')
@@ -177,6 +178,9 @@ export async function runAccountScenarios(browser, base, tag) {
     await app.evaluate(`${BRIDGE}.advance(${step})`)
     await delay(150)
   }
+  // Account mode: the posture is saved in the DB first, then the measurement starts by itself.
+  await until(async () => (await app.api('baselines/current')).status === 200, 'independently saved baseline')
+  app.check('independent baseline is saved before measurement', (await app.api('baselines/current')).status === 200)
   const created = await until(async () => {
     const draft = await app.draft()
     return draft?.server?.view && !draft.server.pending ? draft : null
@@ -194,6 +198,7 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.text('쉬는 중')
   app.check('reload restores acknowledged facts without requesting a camera',
     (await app.draft()).id === created.id && (await app.evaluate(`${BRIDGE}.snapshot()`)).permissionCalls === 0)
+  app.check('baseline survives reload', (await app.api('baselines/current')).value.baseline_id === created.server.baselineId)
   await app.click('측정 종료')
   const saved = await until(async () => {
     const result = await app.api('records')

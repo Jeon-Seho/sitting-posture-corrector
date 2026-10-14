@@ -23,10 +23,10 @@ def require_venv() -> Path:
     return python
 
 
-def run(*command) -> None:
+def run(*command, env=None) -> None:
     arguments = [str(part) for part in command]
     print("$ " + " ".join(arguments), flush=True)
-    subprocess.run(arguments, cwd=ROOT, check=True)
+    subprocess.run(arguments, cwd=ROOT, check=True, env=env)
 
 
 def npm(*args) -> None:

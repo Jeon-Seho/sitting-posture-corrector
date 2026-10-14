@@ -26,7 +26,7 @@ def image_manifest():
     return {
         "schema_version": "posegood-images-v1", "git_sha": "a" * 40,
         "images": {name: "ghcr.io/example/synthetic-" + name + "@sha256:" + "b" * 64
-                   for name in ("api", "cep", "inference", "frontend")},
+                   for name in ("api", "inference", "frontend")},
     }
 
 
@@ -88,7 +88,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertIn('password="synthetic-password-with-\\"quote\\"-and-\\\\-slashes"', result)
         self.assertEqual(result.splitlines()[0], "[client]")
 
-    def test_release_requires_all_four_immutable_ghcr_digests(self):
+    def test_release_requires_all_three_immutable_ghcr_digests(self):
         self.assertEqual(validate_manifest(image_manifest())["git_sha"], "a" * 40)
         for value in ("ghcr.io/example/api:latest", "ghcr.io/example/api:sha-" + "a" * 40,
                       "docker.io/example/api@sha256:" + "b" * 64):
@@ -97,7 +97,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
             with self.subTest(reference=value), self.assertRaisesRegex(ValueError, "digest"):
                 validate_manifest(document)
         document = image_manifest()
-        del document["images"]["cep"]
+        del document["images"]["inference"]
         with self.assertRaises(ValueError):
             validate_manifest(document)
 
@@ -179,8 +179,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
         result = subprocess.run(["docker", "compose", "--file", str(ROOT / "compose.yaml"), "config", "--format", "json"],
                                 cwd=ROOT, env=env, check=True, capture_output=True, text=True)
         document = json.loads(result.stdout)
-        self.assertEqual(set(document["services"]), {"db", "cep", "inference", "api", "frontend"})
-        for name in ("db", "cep", "inference", "api"):
+        self.assertEqual(set(document["services"]), {"db", "inference", "api", "frontend"})
+        for name in ("db", "inference", "api"):
             self.assertFalse(document["services"][name].get("ports"))
         ports = document["services"]["frontend"]["ports"]
         self.assertEqual([(item["host_ip"], item["target"]) for item in ports], [("127.0.0.1", 80)])
@@ -200,7 +200,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual([(port["host_ip"], port["target"]) for port in database["ports"]],
                          [("127.0.0.1", 3306)])
         self.assertFalse(document["networks"]["verification"].get("internal", False))
-        for service in ("api", "cep", "inference", "frontend"):
+        for service in ("api", "inference", "frontend"):
             self.assertNotIn("verification", document["services"][service]["networks"])
 
     def test_restore_never_connects_when_api_or_frontend_is_running(self):
@@ -263,7 +263,9 @@ class DeploymentConfigurationTests(unittest.TestCase):
             # Bundled release metadata and host state intentionally use different formatting.
             (release / "images.json").write_text(json.dumps(document))
         payload = {"secrets": {}, "registry_user": "synthetic-user", "registry_token": "synthetic-token"}
-        with patch("tools.deploy.host.require_daemon"), \
+        # Manifest idempotence is platform-independent; native locking is covered above.
+        with patch("tools.deploy.host.deployment_lock"), \
+                patch("tools.deploy.host.require_daemon"), \
                 patch("tools.deploy.host.create_secrets", return_value=self.folder / "secrets"), \
                 patch("tools.deploy.host.backup_database"), \
                 patch("tools.deploy.host.run"), \
@@ -309,7 +311,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
         secret_directory = self.folder / "synthetic-mysql-secrets"
         secret_directory.mkdir(mode=0o700)
         password = "explicitly-synthetic-password-" + "a" * 32
-        (secret_directory / "spring.datasource.password").write_text(password)
+        # The tests create their own posture_service_it_* databases, so they use the root account.
+        (secret_directory / "mysql_root_password").write_text(password + "\n")
         for override in (None, str(self.folder / "custom-maven-cache")):
             env = {} if override is None else {"POSEGOOD_MAVEN_CACHE": override}
             expected_cache = override or str(ROOT / ".cache" / "maven")
@@ -322,14 +325,14 @@ class DeploymentConfigurationTests(unittest.TestCase):
             self.assertEqual(arguments, [
                 "synthetic-mvn", "-B", "-ntp", "-s", "tools/maven-settings.xml",
                 "-gs", "tools/maven-settings.xml", "-Dmaven.repo.local=" + expected_cache,
-                "-f", "backend/pom.xml", "-pl", "api", "-am", "-Pmysql-integration", "verify",
+                "-f", "backend/pom.xml", "-Pmysql-integration", "verify",
             ])
             self.assertFalse(any(password in argument for argument in arguments))
             options = launch.call_args.kwargs
             self.assertEqual(options["cwd"], ROOT)
             self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_PASSWORD"], password)
-            self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_DISPOSABLE"], "true")
-            self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_SYNTHETIC"], "true")
+            self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_USER"], "root")
+            self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_URL"], "jdbc:mysql://127.0.0.1:49152/")
             self.assertEqual(env, {} if override is None else {"POSEGOOD_MAVEN_CACHE": override})
 
 

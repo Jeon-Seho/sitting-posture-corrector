@@ -4,88 +4,69 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
-import org.posegood.api.persistence.UserLocks;
-import org.posegood.api.web.ApiError;
-import org.springframework.context.annotation.Profile;
+import org.posegood.api.common.ApiError;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import java.util.Map;
 
+/** /v2/auth/* 계정 HTTP 경로: CSRF, 가입, 로그인, 로그아웃, 비밀번호, 탈퇴, 철회. */
 @RestController
-@Profile("persistent")
-@RequestMapping("/v1/auth")
+@RequestMapping("/v2/auth")
 public class AuthController {
-    private final UserStore users;
+    private final AccountService accounts;
     private final CurrentUser current;
-    private final UserLocks locks;
-    private final PasswordEncoder passwords;
     private final AuthenticationManager authentication;
     private final HttpSessionSecurityContextRepository contexts;
     private final HttpSessionCsrfTokenRepository tokens;
 
     public AuthController(
-            UserStore users,
+            AccountService accounts,
             CurrentUser current,
-            UserLocks locks,
-            PasswordEncoder passwords,
             AuthenticationManager authentication,
             HttpSessionSecurityContextRepository contexts,
             HttpSessionCsrfTokenRepository tokens) {
-        this.users = users;
+        this.accounts = accounts;
         this.current = current;
-        this.locks = locks;
-        this.passwords = passwords;
         this.authentication = authentication;
         this.contexts = contexts;
         this.tokens = tokens;
     }
 
+    /** CSRF 토큰 발급. 상태를 바꾸는 요청마다 X-CSRF-TOKEN 헤더로 보낸다. */
     @GetMapping("/csrf")
     public Map<String, String> csrf(CsrfToken token) {
         return Map.of("header_name", token.getHeaderName(), "token", token.getToken());
     }
 
+    /** 로그인한 내 정보. */
     @GetMapping("/me")
     public AccountContracts.View me() {
-        return users.require(current.id()).view();
+        return accounts.requireActive(current.id()).view();
     }
 
+    /** 가입 후 바로 로그인 상태로 만든다. */
     @PostMapping("/register")
     public AccountContracts.View register(
             @Valid @RequestBody AccountContracts.Register body,
             HttpServletRequest request,
             HttpServletResponse response) {
-        requirePassword(body.password());
-        if (!"service-v1".equals(body.consentVersion()))
-            throw new ApiError(400, "CONSENT_REQUIRED", "service storage consent required");
-        var user =
-                users.register(
-                        body.email().strip().toLowerCase(Locale.ROOT),
-                        passwords.encode(body.password()),
-                        body.profile());
-        signIn(
-                UsernamePasswordAuthenticationToken.authenticated(
-                        new AccountPrincipal(user.id(), user.epoch()),
-                        null,
-                        java.util.List.of(
-                                new org.springframework.security.core.authority
-                                        .SimpleGrantedAuthority("ROLE_USER"))),
-                request,
-                response);
-        return user.view();
+        var account = accounts.register(body);
+        signIn(AccountAuthenticationProvider.authenticated(account), request, response);
+        return account.view();
     }
 
+    /** 로그인. 탈퇴 유예 계정은 403 ACCOUNT_CLOSED. */
     @PostMapping("/login")
     public AccountContracts.View login(
             @Valid @RequestBody AccountContracts.Login body,
@@ -93,80 +74,67 @@ public class AuthController {
             HttpServletResponse response) {
         if (body.password().getBytes(StandardCharsets.UTF_8).length > 72)
             throw new ApiError(401, "INVALID_CREDENTIALS", "invalid credentials");
+        Authentication result;
         try {
-            var found = users.findEmail(body.email().strip().toLowerCase(Locale.ROOT));
-            if (found == null)
-                authentication.authenticate(
-                        UsernamePasswordAuthenticationToken.unauthenticated(
-                                body.email(), body.password()));
-            else
-                locks.withLock(
-                        found.id(),
-                        () -> {
-                            users.require(found.id());
-                            signIn(
-                                    authentication.authenticate(
-                                            UsernamePasswordAuthenticationToken.unauthenticated(
-                                                    body.email(), body.password())),
-                                    request,
-                                    response);
-                            return null;
-                        });
-        } catch (AuthenticationException error) {
+            result =
+                    authentication.authenticate(
+                            UsernamePasswordAuthenticationToken.unauthenticated(
+                                    body.email(), body.password()));
+        } catch (DisabledException closed) {
+            throw new ApiError(
+                    403, "ACCOUNT_CLOSED", "account withdrawal is pending; cancel it to sign in");
+        } catch (AuthenticationException invalid) {
             throw new ApiError(401, "INVALID_CREDENTIALS", "invalid credentials");
         }
-        return me();
+        signIn(result, request, response);
+        return accounts.requireActive(((AccountPrincipal) result.getPrincipal()).id()).view();
     }
 
+    /**
+     * 탈퇴 철회 후 다시 로그인시킨다.
+     */
+    @PostMapping("/withdrawal/cancel")
+    public AccountContracts.View cancelWithdrawal(
+            @Valid @RequestBody AccountContracts.Login body,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        var account = accounts.cancelWithdrawal(body);
+        signIn(AccountAuthenticationProvider.authenticated(account), request, response);
+        return account.view();
+    }
+
+    /** 로그아웃: 현재 세션을 지운다. */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         clear(request, response);
     }
 
+    /** 비밀번호 변경 후 현재 세션도 끝낸다(새 비밀번호로 다시 로그인). */
     @PutMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void password(
             @Valid @RequestBody AccountContracts.PasswordChange body,
             HttpServletRequest request,
             HttpServletResponse response) {
-        requirePassword(body.newPassword());
-        var id = current.id();
-        locks.withLock(
-                id,
-                () -> {
-                    current.id();
-                    var user = users.require(id);
-                    requireCurrent(body.currentPassword(), user.hash());
-                    users.changePassword(id, passwords.encode(body.newPassword()));
-                    return null;
-                });
+        accounts.changePassword(current.id(), body);
         clear(request, response);
     }
 
+    /** 탈퇴 접수 후 현재 세션을 끝낸다. */
     @DeleteMapping("/account")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void withdraw(
             @Valid @RequestBody AccountContracts.Withdrawal body,
             HttpServletRequest request,
             HttpServletResponse response) {
-        var id = current.id();
-        locks.withLock(
-                id,
-                () -> {
-                    current.id();
-                    var user = users.require(id);
-                    requireCurrent(body.password(), user.hash());
-                    users.delete(id);
-                    return null;
-                });
+        accounts.withdraw(current.id(), body);
         clear(request, response);
     }
 
+    /** 로그인 처리: 세션 ID를 새로 만들고 인증 정보와 CSRF 토큰을 DB 세션에 저장한다. */
     private void signIn(
-            org.springframework.security.core.Authentication auth,
-            HttpServletRequest request,
-            HttpServletResponse response) {
+            Authentication auth, HttpServletRequest request, HttpServletResponse response) {
         request.getSession(true);
         request.changeSessionId();
         var context = SecurityContextHolder.createEmptyContext();
@@ -176,24 +144,11 @@ public class AuthController {
         tokens.saveToken(null, request, response);
     }
 
+    /** 세션·인증 정보·CSRF 토큰을 비운다. */
     private void clear(HttpServletRequest request, HttpServletResponse response) {
         var session = request.getSession(false);
         if (session != null) session.invalidate();
         SecurityContextHolder.clearContext();
         tokens.saveToken(null, request, response);
-    }
-
-    private void requireCurrent(String password, String hash) {
-        if (password.getBytes(StandardCharsets.UTF_8).length > 72
-                || !passwords.matches(password, hash))
-            throw new ApiError(400, "INVALID_PASSWORD", "current password is incorrect");
-    }
-
-    private void requirePassword(String password) {
-        if (password.length() < 12 || password.getBytes(StandardCharsets.UTF_8).length > 72)
-            throw new ApiError(
-                    400,
-                    "INVALID_PASSWORD",
-                    "password must have 12 or more characters and at most 72 UTF-8 bytes");
     }
 }

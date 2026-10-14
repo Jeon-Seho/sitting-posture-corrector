@@ -17,9 +17,11 @@ if not __package__:
 
 from tools.benchmark.config import BenchmarkConfig
 from tools.benchmark.manifest import artifact_hashes, runtime_manifest, source_revision, utc_now
-from tools.benchmark.runner import MODEL_VERSION, POLICY, load_fixture, run_target, target_passed
+from tools.benchmark.runner import MODEL_VERSION, POLICY, Credentials, load_fixture, run_target, target_passed
 from tools.runtime import ROOT
 from tools.service_processes import ServiceEndpoints, running_services
+from tools.service_smoke import Account, register_baseline
+from tools.test_mysql import disposable_database, mysql_server
 
 
 REPORT_SCHEMA = "posegood.synthetic-server-benchmark.v1"
@@ -67,6 +69,14 @@ def write_report(destination, report):
             output.write(encoded)
 
 
+def sign_in(endpoints):
+    """Register an explicitly synthetic account with a baseline; the API accepts logged-in sessions only."""
+    account = Account(endpoints.api)
+    account.register()
+    baseline_id = register_baseline(account)
+    return Credentials({**account.headers("POST"), "Cookie": account.cookie_header()}, baseline_id)
+
+
 def benchmark(config, destination):
     config.validate()
     fixture, fixture_manifest = load_fixture()
@@ -98,9 +108,9 @@ def benchmark(config, destination):
     report["config"].update(session_policy=dict(POLICY), accepted_model_version=MODEL_VERSION)
     try:
         endpoints = ServiceEndpoints.allocate()
-        with running_services(endpoints):
+        with mysql_server() as server, disposable_database(server) as database,                 running_services(endpoints, database):
             for target in (("infer", "features") if config.target == "both" else (config.target,)):
-                report["targets"].append(run_target(target, config, endpoints, fixture, run_id))
+                report["targets"].append(run_target(target, config, endpoints, fixture, run_id, sign_in=sign_in))
     except Exception as error:
         # Setup/process cleanup errors cannot be a successful zero-sample benchmark.
         report["run_error"] = {"category": "setup_execution_or_cleanup_error", "exception_type": type(error).__name__}

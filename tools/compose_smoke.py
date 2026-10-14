@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 
 from deploy.backup import backup_database
-from deploy.compose import DATABASE, assert_project_removed, command, environment, loopback_publication, require_daemon
+from deploy.compose import assert_project_removed, command, environment, loopback_publication, require_daemon
 from deploy.secrets import ROOT, create_secrets
 from deploy.smoke import exercise_accounts, verify_frontend, verify_restart_and_finish, wait_health
 from deploy.restore import query, restore_database
@@ -27,7 +27,7 @@ def invoke(project, env, *arguments, capture=False, timeout=900):
     # The verification-only overlay never affects the ordinary Compose invocation.
     arguments = command(project) + ["--file", str(ROOT / "compose.test.yaml")] + list(arguments)
     return subprocess.run(arguments, cwd=ROOT, env=env, check=True, timeout=timeout,
-                          capture_output=capture, text=True)
+                          capture_output=capture, text=True, encoding="utf-8")
 
 
 def mysql_address(project, env):
@@ -39,18 +39,17 @@ def mysql_address(project, env):
 def mysql_integration(project, env, secret_directory):
     address = mysql_address(project, env)
     integration = env.copy()
-    integration["POSEGOOD_TEST_MYSQL_URL"] = "jdbc:mysql://" + address + "/" + DATABASE + "?connectionTimeZone=UTC"
-    integration["POSEGOOD_TEST_MYSQL_USER"] = "posegood"
-    integration["POSEGOOD_TEST_MYSQL_PASSWORD"] = (secret_directory / "spring.datasource.password").read_text()
-    integration["POSEGOOD_TEST_MYSQL_DISPOSABLE"] = "true"
-    integration["POSEGOOD_TEST_MYSQL_SYNTHETIC"] = "true"
+    # The tests create and drop their own posture_service_it_* databases on this server.
+    integration["POSEGOOD_TEST_MYSQL_URL"] = "jdbc:mysql://" + address + "/"
+    integration["POSEGOOD_TEST_MYSQL_USER"] = "root"
+    integration["POSEGOOD_TEST_MYSQL_PASSWORD"] = (secret_directory / "mysql_root_password").read_text().strip()
     settings = "tools/maven-settings.xml"
     cache = integration.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
     subprocess.run(
         [
             maven_executable(), "-B", "-ntp", "-s", settings, "-gs", settings,
             "-Dmaven.repo.local=" + cache,
-            "-f", "backend/pom.xml", "-pl", "api", "-am", "-Pmysql-integration", "verify",
+            "-f", "backend/pom.xml", "-Pmysql-integration", "verify",
         ],
         cwd=ROOT, env=integration, check=True, timeout=600,
     )
@@ -61,10 +60,7 @@ def verify_internal_auth(project, env):
     script = """
 import urllib.error
 import urllib.request
-urls = (
-    'http://cep:8091/internal/sessions/00000000-0000-4000-8000-000000000001',
-    'http://inference:8092/v2/infer',
-)
+urls = ('http://inference:8092/v2/infer',)
 for url in urls:
     for headers in ({}, {'X-PoseGood-Internal-Token': 'explicit-synthetic-invalid-token'}):
         request = urllib.request.Request(url, headers=headers)
@@ -75,10 +71,10 @@ for url in urls:
                 raise AssertionError('Internal authentication returned ' + str(error.code))
         else:
             raise AssertionError('An internal route accepted a missing or wrong token')
-print('PASS: four private-network missing/wrong-token requests rejected with 401')
+print('PASS: two private-network missing/wrong-token requests rejected with 401')
 """
     invoke(project, env, "exec", "-T", "inference", "python", "-c", script, timeout=30)
-    return 4
+    return 2
 
 
 def check_ports_closed(port):
@@ -110,7 +106,7 @@ def verify_restore(project, env, source, expected, secret_directory):
         if row_counts(recovery, env) != expected:
             raise AssertionError("Restored rows were lost after MySQL restarted on the same volume")
         mysql_integration(recovery, env, secret_directory)
-        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and schema V1.1 integration verification", flush=True)
+        print("PASS: empty-target synthetic restore, exact row counts, MySQL remount and schema V2.3 integration verification", flush=True)
     finally:
         try:
             invoke(recovery, env, "down", "--volumes", "--remove-orphans", timeout=120)
@@ -132,7 +128,7 @@ def main():
         secret_directory = create_secrets(folder / "secrets")
         env = environment(secret_directory, port)
         env["POSEGOOD_COOKIE_SECURE"] = "false"
-        for service in ("api", "cep", "inference", "frontend"):
+        for service in ("api", "inference", "frontend"):
             env["POSEGOOD_" + service.upper() + "_IMAGE"] = "posegood-" + service + ":local"
         base = "http://127.0.0.1:" + str(port) + "/api"
         database_port = None
@@ -143,14 +139,14 @@ def main():
             frontend_checks = verify_frontend(base.removesuffix("/api"))
             internal_checks = verify_internal_auth(project, env)
             configuration = json.loads(invoke(project, env, "config", "--format", "json", capture=True).stdout)
-            for service in ("api", "cep", "inference"):
+            for service in ("api", "inference"):
                 if configuration["services"][service].get("ports"):
                     raise AssertionError("An internal application service was published to the host")
             state = exercise_accounts(base)
             counts = row_counts(project, env)
             backup = backup_database(project, folder / "synthetic-backup.sql.gz", env)
             # A replacement container may receive a new IP; NGINX must follow Docker DNS.
-            invoke(project, env, "up", "--no-build", "--force-recreate", "--wait", "--wait-timeout", "120", "api", "cep")
+            invoke(project, env, "up", "--no-build", "--force-recreate", "--wait", "--wait-timeout", "120", "api")
             wait_health(base)
             count = verify_restart_and_finish(base, state)
             browser_checks = verify_account_browser(base.removesuffix("/api"))

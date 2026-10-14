@@ -1,6 +1,7 @@
 # 실시간 전달 계약 v1 (초안)
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 2026-10-07 기록).
+- 현재 구현: Kafka 없이 API의 `/v1/realtime`이 이 WebSocket 메시지를 직접 처리한다([ADR 0020](../../docs/decisions/0020-single-api-decision-engine.md), [백엔드 안내](../../backend/README.md)). 아래 Kafka 토픽은 계획 0022의 목표 구조다.
 - 근거: [계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
@@ -47,10 +48,10 @@
 
 ## 통로 나누기
 
-- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 V1.1에 저장하고
+- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 DB V2.0에 저장하고
   `posture.features.v1`에 `session_started`·`session_ended`를 넣는다.
 - **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
-- 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 V1.1 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
+- 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.
 
 ## WebSocket 메시지

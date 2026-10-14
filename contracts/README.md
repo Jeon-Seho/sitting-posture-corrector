@@ -1,6 +1,6 @@
 # AI·서비스 경계 계약
 
-MySQL 계정 모드의 로그인·CSRF·소유권·설정/기록/삭제 경로는 [계정·저장 API v1](accounts.v1.md)을 따른다.
+MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API v2](accounts.v2.md)를 따른다.
 AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초안](realtime/README.md)에 있다(팀 확인 전).
 
@@ -69,20 +69,20 @@ v2 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.03)*0.
 머리 높이·어깨 기울기 우세나 동점은 `unspecified`이며 전방 굽힘을 단정하지 않는다.
 출력은 관측 v2, 모델명은 `reference-feature-rule-v1`이다.
 
-API는 추론 관측을 CEP에 전달하고 [특징 응답 v1](feature-response.v1.schema.json)의
+API는 추론 관측을 판정 엔진에 넣고 [특징 응답 v1](feature-response.v1.schema.json)의
 `{schema_version:"1.0", observation, session}`으로 관측 v2와 최신 확인 조회 v1을 반환한다.
 입력의 sequence·구간·phase와 관측의 대응, 조회의 수용 범위도 소비자가 검사한다.
-API는 요청 hash·원 추론 출력을 세션당 10,000건까지 보관하여 동일 요청을 재시도한다.
-미확인 CEP 처리·고정 기준·개발 모드의 고정 모델명·종료·404 유실은
+API는 요청 hash·원 추론 출력을 진행 중 세션마다 10,000건까지 메모리에 보관하여 동일 요청을 재시도한다.
+고정 기준·고정 모델명·종료·재시작 뒤 404 유실(`SESSION_LOST`)은
 [서비스 안내](../backend/README.md)와 [ADR 0013](../docs/decisions/0013-frontend-server-feature-connection.md)를 따른다.
 
-## API·CEP 관측과 사건 계약
+## 관측과 사건 계약
 
 새 독립 서버 흐름은 [관측 v2](posture-observation.v2.schema.json)를 사용한다.
-추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 CEP가 한다. v1은 기존 흐름 호환성으로 보존한다.
+추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 API 판정 엔진이 한다. v1은 기존 흐름 호환성으로 보존한다.
 [사건 v1](posture-event.v1.schema.json), [조회 snapshot v1](session-view.v1.schema.json),
 [수작업 합성 관측](examples/v2/synthetic-observation.json)을 함께 검증한다.
-`make check-backend`는 실제 FastAPI 생산자와 API/Esper 소비자를 같은 계약으로 HTTP 검증한다.
+`make check-backend`는 실제 FastAPI 생산자와 API 소비자를 같은 계약으로 HTTP 검증한다.
 구간·순서·재시도·중단·통계 의미는 [서비스 계약 설명](../backend/README.md)을 따른다.
 
 시간 정책은 [ADR 0012](../docs/decisions/0012-session-timing-policy.md)에 따라 확정했다.

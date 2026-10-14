@@ -4,11 +4,13 @@ import os
 import sys
 
 if __package__:
+    from .test_mysql import mysql_server
     from .runtime import (
         ROOT, VENV, java_executable, maven_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 else:
+    from test_mysql import mysql_server
     from runtime import (
         ROOT, VENV, java_executable, maven_executable, npm, require_venv,
         run, service_jar, venv_python,
@@ -42,20 +44,25 @@ def check_frontend():
     npm("run", "check")
 
 
-def check_backend():
+def maven(*arguments, env=None):
     settings = "tools/maven-settings.xml"
     cache = os.environ.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
     run(
         maven_executable(), "-B", "-ntp", "-s", settings, "-gs", settings,
-        "-Dmaven.repo.local=" + cache, "-f", "backend/pom.xml", "verify",
+        "-Dmaven.repo.local=" + cache, "-f", "backend/pom.xml", *arguments, env=env,
     )
-    run(venv_python(), "tools/service_smoke.py")
-    run(
-        venv_python(), "tools/server_benchmark.py",
-        "--target", "both", "--warmup", "1", "--repetitions", "4",
-        "--concurrency", "2", "--timeout", "5",
-        "--output", ".cache/benchmarks/smoke.json",
-    )
+
+
+def check_backend():
+    """Unit tests, then real-MySQL integration tests and the HTTP smoke with real inference.
+
+    MySQL comes from tools/test_mysql.py (configured loopback server or a temporary Docker
+    container); a missing MySQL fails the check instead of skipping it.
+    """
+    maven("verify")
+    with mysql_server() as server:
+        maven("-Pmysql-integration", "verify", env=server.environment())
+        run(venv_python(), "tools/service_smoke.py", env=server.environment())
 
 
 def check_browser():
@@ -99,10 +106,6 @@ def dev_service(component, artifact):
 
 def dev_api():
     dev_service("api", "session-api")
-
-
-def dev_cep():
-    dev_service("cep", "cep-service")
 
 
 def dev_inference():

@@ -1,26 +1,37 @@
-import { average, validFeatures, type Features } from './pose'
+import {
+  average,
+  BASELINE_LANDMARKS,
+  validFeatures,
+  type Anchors,
+  type BaselineLandmark,
+  type Features,
+} from './pose'
 
-/** Normalized frame position of the calibrated upper body (see `placement` in pose.ts). */
-export type Placement = { x: number; y: number; area: number }
-export type Calibration = { start: number | null; samples: Features[]; placements: Placement[] }
-/** Aggregates stored with a server baseline (DB V1.1 `baseline_posture`/`baseline_feature`). */
+export type Calibration = { start: number | null; samples: Features[]; anchors: Anchors[] }
+/** Values stored with a server baseline (DB V2.1 `baseline_posture`, one row per user). */
 export type CalibrationSummary = {
   durationMs: number
   sampleCount: number
   /** Population standard deviation of each feature over the calibration samples. */
   spread: { headGap: number; offset: number; tilt: number }
-  /** Mean placement; null when the caller did not supply placements. */
-  placement: Placement | null
+  /**
+   * Mean landmark positions over the samples whose landmarks were all on the frame; null when
+   * fewer than CALIBRATION_MIN_SAMPLES such frames were supplied.
+   */
+  landmarks: Anchors | null
 }
-export const beginCalibration = (): Calibration => ({ start: null, samples: [], placements: [] })
+export const beginCalibration = (): Calibration => ({ start: null, samples: [], anchors: [] })
 
 /** Steady time and minimum valid samples for a baseline (3 s at ≥5 fps; user decision 2026-10-06). */
 export const CALIBRATION_MS = 3000
 export const CALIBRATION_MIN_SAMPLES = 15
 
-const validPlacement = (value: Placement | null | undefined): value is Placement =>
+const validAnchors = (value: Anchors | null | undefined): value is Anchors =>
   !!value &&
-  [value.x, value.y, value.area].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)
+  Object.keys(BASELINE_LANDMARKS).every((name) => {
+    const p = value[name as BaselineLandmark]
+    return !!p && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1
+  })
 
 /** Only continuous, valid observations count toward the CALIBRATION_MS / CALIBRATION_MIN_SAMPLES rule. */
 export function observeCalibration(
@@ -28,7 +39,7 @@ export function observeCalibration(
   sample: Features | null,
   time: number,
   gap: number,
-  placement?: Placement | null,
+  landmarks?: Anchors | null,
 ) {
   if (
     !validFeatures(sample) ||
@@ -42,7 +53,7 @@ export function observeCalibration(
   const next: Calibration = {
     start: draft.start ?? time,
     samples: [...draft.samples, sample],
-    placements: validPlacement(placement) ? [...draft.placements, placement] : draft.placements,
+    anchors: validAnchors(landmarks) ? [...draft.anchors, landmarks] : draft.anchors,
   }
   const elapsed = time - next.start!
   if (elapsed < 0) return { draft: beginCalibration(), progress: 0, ready: null, summary: null }
@@ -61,15 +72,20 @@ function summarize(draft: Calibration, durationMs: number): CalibrationSummary {
     Math.sqrt(
       draft.samples.reduce((n, s) => n + (s[key] - mean[key]) ** 2, 0) / draft.samples.length,
     )
-  const placements = draft.placements
-  const placementMean = (key: keyof Placement) =>
-    placements.reduce((n, p) => n + p[key], 0) / placements.length
+  const frames = draft.anchors
+  let landmarks: Anchors | null = null
+  if (frames.length >= CALIBRATION_MIN_SAMPLES) {
+    landmarks = {} as Anchors
+    for (const name of Object.keys(BASELINE_LANDMARKS) as BaselineLandmark[])
+      landmarks[name] = {
+        x: frames.reduce((n, f) => n + f[name].x, 0) / frames.length,
+        y: frames.reduce((n, f) => n + f[name].y, 0) / frames.length,
+      }
+  }
   return {
     durationMs,
     sampleCount: draft.samples.length,
     spread: { headGap: spread('headGap'), offset: spread('offset'), tilt: spread('tilt') },
-    placement: placements.length
-      ? { x: placementMean('x'), y: placementMean('y'), area: placementMean('area') }
-      : null,
+    landmarks,
   }
 }

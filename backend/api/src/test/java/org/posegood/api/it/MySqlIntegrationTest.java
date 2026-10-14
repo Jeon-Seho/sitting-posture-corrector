@@ -1,0 +1,743 @@
+package org.posegood.api.it;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.posegood.api.account.AccountService;
+import org.posegood.api.session.LiveSessions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 실제 MySQL과 가짜 추론 서버로 API 전체 흐름을 확인하는 통합 시험.
+ *
+ * 스키마 V2.3·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·특징·기록은 모두 합성이다.
+ * 실행: {@code -Pmysql-integration}(backend/README.md).
+ */
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {"server.address=127.0.0.1", "posegood.withdrawal-purge-initial-ms=3600000"})
+@EnabledIfSystemProperty(named = "posegood.mysql.integration", matches = "true")
+class MySqlIntegrationTest {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static DisposableDatabase database;
+    private static SyntheticInference inference;
+
+    @LocalServerPort int port;
+    @Autowired LiveSessions live;
+    @Autowired AccountService accounts;
+
+    @DynamicPropertySource
+    static void properties(DynamicPropertyRegistry registry) throws Exception {
+        database = DisposableDatabase.create();
+        inference = new SyntheticInference();
+        registry.add("spring.datasource.url", database::url);
+        registry.add("spring.datasource.username", database::user);
+        registry.add("spring.datasource.password", database::password);
+        registry.add("posegood.inference-url", inference::url);
+    }
+
+    @AfterAll
+    static void cleanup() throws Exception {
+        if (inference != null) inference.close();
+        if (database != null) database.close();
+    }
+
+    private ApiClient client() {
+        return new ApiClient("http://127.0.0.1:" + port);
+    }
+
+    private static String email() {
+        return "test-" + UUID.randomUUID() + "@example.invalid";
+    }
+
+    private static ObjectNode policy() {
+        return MAPPER.createObjectNode()
+                .put("hold_ms", 3000)
+                .put("recovery_ms", 3000)
+                .put("reminder_ms", 60000)
+                .put("threshold", 0.7);
+    }
+
+    private static ObjectNode create(UUID baseline) {
+        var body = MAPPER.createObjectNode().put("baseline_id", baseline.toString());
+        body.set("policy", policy());
+        return body;
+    }
+
+    private static ObjectNode registration(double noseX) {
+        var b = MAPPER.createObjectNode().put("registered_at", java.time.Instant.now().toString()).put("calibration_ms", 3000).put("sample_count", 20);
+        var landmarks = b.putObject("landmarks");
+        landmarks.putObject("nose").put("x", noseX).put("y", 0.4);
+        landmarks.putObject("left_eye").put("x", 0.52).put("y", 0.37);
+        landmarks.putObject("right_eye").put("x", 0.48).put("y", 0.37);
+        landmarks.putObject("left_ear").put("x", 0.56).put("y", 0.38);
+        landmarks.putObject("right_ear").put("x", 0.44).put("y", 0.38);
+        landmarks.putObject("mouth_left").put("x", 0.515).put("y", 0.45);
+        landmarks.putObject("mouth_right").put("x", 0.485).put("y", 0.45);
+        landmarks.putObject("left_shoulder").put("x", 0.65).put("y", 0.62);
+        landmarks.putObject("right_shoulder").put("x", 0.35).put("y", 0.623456);
+        return b;
+    }
+
+    private static UUID baseline(ApiClient api) throws Exception {
+        var response = api.post("/v2/baselines", registration(0.5));
+        assertEquals(200, response.status());
+        return UUID.fromString(response.body().get("baseline_id").asText());
+    }
+
+    /** 측정 구간 하나. 좌우 치우침 0.3이면 점수 1.0(이탈), 0이면 0(바른 자세). */
+    private static ObjectNode feature(UUID baseline, long sequence, long start, long end, double lateral) {
+        var body = MAPPER.createObjectNode();
+        body.put("schema_version", "2.0")
+                .put("feature_version", "shoulder-relative-deltas-v1")
+                .put("baseline_id", baseline.toString())
+                .put("sequence", sequence)
+                .put("start_ms", start)
+                .put("end_ms", end)
+                .put("phase", "running")
+                .put("measurement_quality", "good");
+        body.putObject("features")
+                .put("head_gap_delta", 0)
+                .put("lateral_offset_delta", lateral)
+                .put("shoulder_tilt_delta", 0)
+                .put("current_quality", 0.9)
+                .put("baseline_quality", 0.9);
+        return body;
+    }
+
+    private static ObjectNode rest(UUID baseline, long sequence, long start, long end) {
+        var body = feature(baseline, sequence, start, end, 0);
+        body.put("phase", "rest").put("measurement_quality", "poor").putNull("features");
+        return body;
+    }
+
+    /** 3초에 붕괴, 6초에 회복, 7초까지 휴식, 그 뒤 9초 종료까지 공백. */
+    private JsonNode measure(ApiClient api, UUID id, UUID baseline) throws Exception {
+        String path = "/v2/sessions/" + id;
+        assertEquals(200, api.put(path, create(baseline)).status());
+        long sequence = 0;
+        for (long at = 0; at < 3000; at += 1000)
+            assertEquals(200, api.post(path + "/features", feature(baseline, sequence++, at, at + 1000, 0.3)).status());
+        for (long at = 3000; at < 6000; at += 1000)
+            assertEquals(200, api.post(path + "/features", feature(baseline, sequence++, at, at + 1000, 0)).status());
+        assertEquals(200, api.post(path + "/features", rest(baseline, sequence, 6000, 7000)).status());
+        var end = api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000));
+        assertEquals(200, end.status());
+        return end.body();
+    }
+
+    @Test
+    void accountSettingsAndLoginRemoval() throws Exception {
+        var api = client();
+        String email = email();
+        assertEquals(200, api.register(email).status());
+        assertEquals(email, api.get("/v2/auth/me").body().get("email").asText());
+
+        var workspace = api.get("/v2/workspace").body();
+        assertEquals(3, workspace.get("rules").get("holdSeconds").asInt());
+        assertEquals(60, workspace.get("rules").get("realertSeconds").asInt());
+        assertEquals(0.7, workspace.get("rules").get("threshold").asDouble());
+        assertFalse(workspace.get("preferences").get("alerts_on").asBoolean());
+
+        var update = MAPPER.createObjectNode();
+        update.putObject("profile").put("name", "바뀐 이름").put("age", 31).put("occupation", "합성");
+        update.putObject("rules")
+                .put("holdSeconds", 4.5)
+                .put("recoverSeconds", 2)
+                .put("realertSeconds", 30)
+                .put("threshold", 0.6);
+        update.putObject("preferences").put("alerts_on", false);
+        var updated = api.put("/v2/workspace", update);
+        assertEquals(200, updated.status());
+        assertEquals(4.5, updated.body().get("rules").get("holdSeconds").asDouble());
+        try (var connection = database.connect();
+                var query =
+                        connection.prepareStatement(
+                                "SELECT u.sound_alert_enabled FROM user_account u JOIN"
+                                        + " threshold_policy p ON p.threshold_policy_id=u.threshold_policy_id"
+                                        + " WHERE u.login_email=?")) {
+            query.setString(1, email);
+            var row = query.executeQuery();
+            assertTrue(row.next());
+            assertFalse(row.getBoolean(1));
+        }
+        // 세션은 계정에 저장한 정책과 알림 설정을 복사한다.
+        ((ObjectNode) update.get("rules")).put("holdSeconds", 3).put("recoverSeconds", 3).put("realertSeconds", 60).put("threshold", 0.7);
+        assertEquals(200, api.put("/v2/workspace", update).status());
+        UUID quiet = UUID.randomUUID(), quietBaseline = baseline(api);
+        assertEquals(200, api.put("/v2/sessions/" + quiet, create(quietBaseline)).status());
+        for (long at = 0; at < 3000; at += 1000)
+            api.post("/v2/sessions/" + quiet + "/features", feature(quietBaseline, at / 1000, at, at + 1000, 0.3));
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var alert =
+                    statement.executeQuery(
+                            "SELECT m.alert_enabled,a.attempted_at FROM monitor_session m JOIN"
+                                    + " correction_alert a ON a.monitor_session_id=m.monitor_session_id WHERE"
+                                    + " m.client_session_uuid='" + quiet + "'");
+            assertTrue(alert.next());
+            assertFalse(alert.getBoolean(1));
+            assertNotNull(alert.getObject(2)); // OFF여도 판정 엔진의 알림 시도 이력은 남는다.
+        }
+
+        var stale = client();
+        assertEquals(200, stale.login(email, "synthetic-password-1").status());
+        var socket = Socket.open(port, stale.cookieHeader());
+        socket.send(hello(quiet, 0));
+        socket.next("ack");
+        var change =
+                MAPPER.createObjectNode()
+                        .put("current_password", "synthetic-password-1")
+                        .put("new_password", "synthetic-password-2");
+        assertEquals(204, api.put("/v2/auth/password", change).status());
+        // 그 계정의 SPRING_SESSION 행이 모두 없어졌다(V2.1에는 auth_epoch가 없다).
+        try (var connection = database.connect();
+                var query =
+                        connection.prepareStatement("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME=?")) {
+            query.setString(1, api.userId);
+            var row = query.executeQuery();
+            assertTrue(row.next());
+            assertEquals(0, row.getInt(1));
+        }
+        assertEquals(401, stale.get("/v2/auth/me").status());
+        assertEquals("unauthorized", socket.next("closed").get("reason").asText());
+        assertEquals(401, client().login(email, "synthetic-password-1").status());
+        assertEquals(200, client().login(email, "synthetic-password-2").status());
+    }
+
+    @Test
+    void measurementWritesTheV2TablesAndRecordsAreRebuilt() throws Exception {
+        var api = client();
+        String email = email();
+        api.register(email);
+        UUID id = UUID.randomUUID(), baseline = baseline(api);
+        var view = measure(api, id, baseline);
+
+        assertTrue(view.get("ended").asBoolean());
+        var summary = view.get("summary");
+        assertEquals(9000, summary.get("total_ms").asLong());
+        assertEquals(6000, summary.get("valid_ms").asLong());
+        assertEquals(3000, summary.get("normal_ms").asLong());
+        assertEquals(1000, summary.get("rest_ms").asLong());
+        assertEquals(2000, summary.get("missing_ms").asLong());
+        var kinds = new ArrayList<String>();
+        view.get("events").forEach(event -> kinds.add(event.get("kind").asText()));
+        assertEquals(List.of("collapse_confirmed", "recovery_confirmed", "session_ended"), kinds);
+        assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asText());
+
+        String path = "/v2/sessions/" + id;
+        // 재시도: 같은 종료·같은 입력은 아무것도 바꾸지 않고, 다른 것은 409.
+        assertEquals(view, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000)).body());
+        assertEquals(409, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9500)).status());
+        var retried = api.post(path + "/features", feature(baseline, 0, 0, 1000, 0.3));
+        assertEquals(200, retried.status());
+        assertEquals(view, retried.body().get("session"));
+        assertEquals(409, api.post(path + "/features", feature(baseline, 0, 0, 1000, 0.1)).status());
+        assertEquals(409, api.post(path + "/features", feature(baseline, 7, 9000, 9500, 0)).status());
+
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var session =
+                    statement.executeQuery(
+                            "SELECT monitor_session_id,started_at,ended_at,good_sec,alert_enabled"
+                                    + " FROM monitor_session WHERE client_session_uuid='" + id + "'");
+            assertTrue(session.next());
+            long key = session.getLong(1);
+            // DATETIME은 JVM 시간대와 관계없이 저장된 값(KST) 그대로 읽는다.
+            var started = session.getObject(2, LocalDateTime.class);
+            assertEquals(started.plusSeconds(9), session.getObject(3, LocalDateTime.class));
+            assertEquals(new BigDecimal("3.0"), session.getBigDecimal(4));
+            assertFalse(session.getBoolean(5));
+
+            var episode =
+                    statement.executeQuery(
+                            "SELECT event_seq,started_at,confirmed_at,ended_at,recovered_at FROM"
+                                    + " collapse_event WHERE monitor_session_id=" + key);
+            assertTrue(episode.next());
+            assertEquals(1, episode.getInt(1));
+            assertEquals(started, episode.getObject(2, LocalDateTime.class));
+            assertEquals(started.plusSeconds(3), episode.getObject(3, LocalDateTime.class));
+            assertEquals(started.plusSeconds(6), episode.getObject(4, LocalDateTime.class));
+            assertEquals(started.plusSeconds(6), episode.getObject(5, LocalDateTime.class));
+            assertFalse(episode.next());
+
+            var alert =
+                    statement.executeQuery(
+                            "SELECT attempted_at FROM correction_alert WHERE"
+                                    + " monitor_session_id=" + key);
+            assertTrue(alert.next());
+            assertEquals(started.plusSeconds(3), alert.getObject(1, LocalDateTime.class));
+            assertFalse(alert.next());
+
+            var excluded =
+                    statement.executeQuery(
+                            "SELECT exclusion_reason,TIMESTAMPDIFF(MICROSECOND,started_at,ended_at) FROM"
+                                    + " excluded_interval WHERE monitor_session_id=" + key + " ORDER BY started_at");
+            assertTrue(excluded.next());
+            assertEquals("PAUSE", excluded.getString(1));
+            assertEquals(1_000_000, excluded.getLong(2));
+            assertTrue(excluded.next());
+            assertEquals("MISSING", excluded.getString(1));
+            assertEquals(2_000_000, excluded.getLong(2));
+            assertFalse(excluded.next());
+
+            var daily =
+                    statement.executeQuery(
+                            "SELECT stat_date,valid_sec,good_sec,session_count,event_count,alerted_event_count"
+                                    + " FROM daily_stat d JOIN user_account u ON u.user_account_id=d.user_account_id"
+                                    + " WHERE u.login_email='" + email + "'");
+            assertTrue(daily.next());
+            assertEquals(started.toLocalDate(), daily.getObject(1, LocalDate.class));
+            assertEquals(new BigDecimal("6.0"), daily.getBigDecimal(2));
+            assertEquals(new BigDecimal("3.0"), daily.getBigDecimal(3));
+            assertEquals(1, daily.getInt(4));
+            assertEquals(1, daily.getInt(5));
+            assertEquals(0, daily.getInt(6));
+        }
+
+        // 앱 기록은 서버 판정과 같아야 하고, 날짜는 DB 값을 쓴다.
+        var record = record(id, baseline, view, true);
+        var saved = api.post("/v2/records", record);
+        assertEquals(200, saved.status());
+        assertNotNull(saved.body().get("startedAt"));
+        assertEquals(saved.body(), api.post("/v2/records", record).body());
+        var changed = record.deepCopy();
+        changed.put("good", 2.5);
+        assertEquals(409, api.post("/v2/records", changed).status());
+        var forged = record(UUID.randomUUID(), baseline, view, true);
+        assertEquals(404, api.post("/v2/records", forged).status());
+        var local = record.deepCopy();
+        local.remove("server");
+        assertEquals(400, api.post("/v2/records", local).status());
+
+        // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다).
+        var records = api.get("/v2/records").body();
+        assertEquals(1, records.size());
+        var rebuilt = records.get(0);
+        assertEquals(saved.body().get("startedAt"), rebuilt.get("startedAt"));
+        assertEquals(saved.body().get("endedAt"), rebuilt.get("endedAt"));
+        assertEquals(record.get("rules"), rebuilt.get("rules"));
+        for (var key : List.of("total", "valid", "good"))
+            assertEquals(record.get(key).asDouble(), rebuilt.get(key).asDouble(), key);
+        assertTrue(rebuilt.get("server").get("confirmed").asBoolean());
+        assertEquals(baseline.toString(), rebuilt.get("server").get("baselineId").asText());
+        var rebuiltView = rebuilt.get("server").get("view");
+        assertEquals(view.get("summary"), rebuiltView.get("summary"));
+        assertEquals(view.get("events").size(), rebuiltView.get("events").size());
+        for (int index = 0; index < view.get("events").size(); index++) {
+            var expected = (ObjectNode) view.get("events").get(index).deepCopy();
+            if (!"session_ended".equals(expected.get("kind").asText()))
+                expected.put("deviation_type", "unspecified"); // T-36 collapse_type 보류
+            assertEquals(expected, rebuiltView.get("events").get(index));
+        }
+        assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asText());
+        assertEquals(records, api.get("/v2/workspace").body().get("records"));
+
+        // 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
+        assertEquals(204, api.delete("/v2/records/" + id, null).status());
+        assertEquals(404, api.get(path).status());
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var rows =
+                    statement.executeQuery(
+                            "SELECT (SELECT COUNT(*) FROM monitor_session WHERE client_session_uuid='" + id
+                                    + "'),(SELECT COUNT(*) FROM daily_stat d JOIN user_account u ON"
+                                    + " u.user_account_id=d.user_account_id WHERE u.login_email='" + email + "')");
+            assertTrue(rows.next());
+            assertEquals(0, rows.getInt(1));
+            assertEquals(1, rows.getInt(2));
+        }
+    }
+
+    @Test
+    void baselinesOwnershipLossAndInferenceFailure() throws Exception {
+        var api = client();
+        api.register(email());
+        UUID first = baseline(api);
+        UUID a = UUID.randomUUID(), b = UUID.randomUUID();
+        assertEquals(200, api.put("/v2/sessions/" + a, create(first)).status());
+        assertEquals(200, api.put("/v2/sessions/" + a, create(first)).status());
+        var otherPolicy = create(first);
+        ((ObjectNode) otherPolicy.get("policy")).put("hold_ms", 4000);
+        assertEquals(409, api.put("/v2/sessions/" + a, otherPolicy).status());
+        UUID second = baseline(api);
+        assertEquals(200, api.put("/v2/sessions/" + b, create(second)).status());
+        assertEquals(409, api.put("/v2/sessions/" + UUID.randomUUID(), create(first)).status());
+        // 과거 기준은 불변이며 세션 FK가 각각 원래 기준을 가리킨다.
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var rows = statement.executeQuery("SELECT b.baseline_posture_id,b.nose_x,b.right_shoulder_y "
+                    + "FROM baseline_posture b WHERE user_account_id=" + api.userId + " ORDER BY baseline_posture_id");
+            for (var expected : List.of(first, second)) {
+                assertTrue(rows.next());
+                assertEquals(expected, org.posegood.api.session.BaselineRepository.publicId(Long.parseLong(api.userId), rows.getLong(1)));
+                assertEquals(new BigDecimal("0.50000"), rows.getBigDecimal(2));
+                assertEquals(new BigDecimal("0.62346"), rows.getBigDecimal(3));
+            }
+            assertFalse(rows.next());
+        }
+        assertEquals(first.toString(), api.get("/v2/sessions/" + a + "/metadata").body().get("baseline_id").asText());
+        assertEquals(second.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asText());
+        var missingSetup = MAPPER.createObjectNode();
+        missingSetup.set("policy", policy());
+        assertEquals(400, api.put("/v2/sessions/" + UUID.randomUUID(), missingSetup).status());
+
+        var other = client();
+        other.register(email());
+        assertEquals(404, other.get("/v2/sessions/" + b).status());
+        assertEquals(404, other.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
+
+        // 추론이 거절되면 아무것도 바뀌지 않고, 같은 요청은 나중에 성공한다.
+        inference.fail.set(true);
+        try {
+            assertEquals(502, api.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
+        } finally {
+            inference.fail.set(false);
+        }
+        assertEquals(-1, api.get("/v2/sessions/" + b).body().get("last_sequence").asLong());
+        assertEquals(200, api.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
+        assertEquals(409, api.post("/v2/sessions/" + b + "/features", feature(first, 1, 1000, 2000, 0.3)).status());
+
+        // 재시작하면 판정 상태가 사라진다: 행은 남고 API는 404 SESSION_LOST로 답한다.
+        var before = api.get("/v2/sessions/" + b).body();
+        live.remove(b, "session_lost");
+        var lost = api.get("/v2/sessions/" + b);
+        assertEquals(404, lost.status());
+        assertEquals("SESSION_LOST", lost.body().get("code").asText());
+        // 마지막으로 받은 조회 응답의 확인 안 된 기록은 DB 값으로 검증해 받고 행을 ERROR로 닫는다.
+        // 다시 만든 기록에는 조회 응답이 없다(판정 상태를 모름).
+        assertEquals(200, api.post("/v2/records", record(b, second, before, false)).status());
+        var metadata = api.get("/v2/sessions/" + b + "/metadata").body();
+        assertEquals(second.toString(), metadata.get("baseline_id").asText());
+        assertFalse(metadata.get("ended_at").isNull());
+
+        // 기록으로 남긴 진행 중 세션은 그 자리에서 끝나고 DISCONNECTED로 닫힌다.
+        var unfinished = api.get("/v2/sessions/" + a).body();
+        assertEquals(200, api.post("/v2/records", record(a, first, unfinished, false)).status());
+        assertTrue(api.get("/v2/sessions/" + a).body().get("ended").asBoolean());
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var reasons =
+                    statement.executeQuery(
+                            "SELECT client_session_uuid,ended_at,good_sec FROM monitor_session WHERE"
+                                    + " user_account_id=" + api.userId + " ORDER BY monitor_session_id");
+            assertTrue(reasons.next());
+            assertNotNull(reasons.getObject(2));
+            assertTrue(reasons.next());
+            assertNotNull(reasons.getObject(2));
+            assertEquals(0, reasons.getBigDecimal(3).signum());
+        }
+        var records = api.get("/v2/records").body();
+        assertEquals(2, records.size());
+        for (var rebuilt : records) {
+            if (rebuilt.get("id").asText().equals(b.toString())) {
+                assertFalse(rebuilt.get("server").get("confirmed").asBoolean());
+                assertTrue(rebuilt.get("server").get("view").isNull());
+                assertEquals(0, rebuilt.get("total").asDouble());
+            } else assertTrue(rebuilt.get("server").get("view").get("ended").asBoolean());
+        }
+    }
+
+    @Test
+    void consentWithdrawalErasesOnlyOptionalProfileAndReagreementAppends() throws Exception {
+        var api = client();
+        api.register(email());
+        var off = MAPPER.createObjectNode().put("agreed", false).put("document_version", "service-v2");
+        var withdrawn = api.put("/v2/consents/optional-profile", off);
+        assertEquals(200, withdrawn.status());
+        assertTrue(withdrawn.body().get("profile").get("age").isNull());
+        assertTrue(withdrawn.body().get("profile").get("occupation").isNull());
+        assertFalse(withdrawn.body().get("consents").get("optional_profile").asBoolean());
+        assertEquals(200, api.put("/v2/consents/optional-profile", off).status());
+        var update = ((ObjectNode) withdrawn.body()).deepCopy();
+        update.remove(List.of("schema_version", "records", "consents"));
+        ((ObjectNode) update.get("profile")).put("age", 30);
+        assertEquals(400, api.put("/v2/workspace", update).status());
+        assertEquals(200, api.put("/v2/consents/optional-profile", off.deepCopy().put("agreed", true)).status());
+        assertEquals(200, api.put("/v2/workspace", update).status());
+        ((ObjectNode) update.get("profile")).put("age", 13);
+        assertEquals(400, api.put("/v2/workspace", update).status());
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var rows = statement.executeQuery("SELECT COUNT(*),SUM(withdrawn_at IS NOT NULL) FROM user_consent WHERE user_account_id=" + api.userId);
+            assertTrue(rows.next());
+            assertEquals(7, rows.getInt(1));
+            assertEquals(1, rows.getInt(2));
+        }
+        var anonymous = client();
+        anonymous.refreshCsrf();
+        String rejected = email();
+        var body = MAPPER.createObjectNode().put("email", rejected).put("password", "synthetic-password-1");
+        body.putObject("profile").put("name", "합성").putNull("age").putNull("occupation");
+        var consents = body.putArray("consents");
+        assertEquals(400, anonymous.post("/v2/auth/register", body).status());
+        for (var type : List.of("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER"))
+            consents.addObject().put("type", type).put("document_version", "service-v2");
+        // Reusing the rejected email proves registration did not leave an account row behind.
+        assertEquals(200, anonymous.post("/v2/auth/register", body).status());
+    }
+
+    @Test
+    void baselineRetryIsImmutableAndDailyRangesAreIdempotent() throws Exception {
+        var api = client(); api.register(email());
+        assertEquals(404, api.get("/v2/baselines/current").status());
+        assertEquals(409, api.put("/v2/sessions/" + UUID.randomUUID(), create(UUID.randomUUID())).status());
+        var registration = registration(0.5);
+        var saved = api.post("/v2/baselines", registration);
+        assertEquals(200, saved.status());
+        assertEquals(saved.body(), api.post("/v2/baselines", registration).body());
+        ((ObjectNode) registration.get("landmarks").get("nose")).put("x", 0.51);
+        assertEquals(409, api.post("/v2/baselines", registration).status());
+        UUID baseline = UUID.fromString(saved.body().get("baseline_id").asText());
+        UUID id = UUID.randomUUID();
+        String path = "/v2/sessions/" + id;
+        assertEquals(200, api.put(path, create(baseline)).status());
+        assertEquals(200, api.post(path + "/features", feature(baseline, 0, 0, 1000, 0)).status());
+        var end = MAPPER.createObjectNode().put("end_ms", 300000);
+        assertEquals(200, api.post(path + "/end", end).status());
+        assertEquals(200, api.post(path + "/end", end).status());
+        // A short session updates ordinary counts but leaves eligible range extrema intact.
+        String shortPath = "/v2/sessions/" + UUID.randomUUID();
+        assertEquals(200, api.put(shortPath, create(baseline)).status());
+        assertEquals(200, api.post(shortPath + "/end", MAPPER.createObjectNode().put("end_ms", 1000)).status());
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var row = statement.executeQuery("SELECT session_count,min_until_collapse_sec,max_until_collapse_sec FROM daily_stat WHERE user_account_id=" + api.userId);
+            assertTrue(row.next()); assertEquals(2, row.getInt(1));
+            assertEquals(new BigDecimal("1.0"), row.getBigDecimal(2));
+            assertEquals(new BigDecimal("1.0"), row.getBigDecimal(3));
+        }
+    }
+
+    @Test
+    void withdrawalGraceCancelAndPurge() throws Exception {
+        var api = client();
+        String email = email();
+        api.register(email);
+        measure(api, UUID.randomUUID(), baseline(api));
+        assertEquals(400, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "wrong-password-1")).status());
+        assertEquals(204, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
+
+        var again = client();
+        var closed = again.login(email, "synthetic-password-1");
+        assertEquals(403, closed.status());
+        assertEquals("ACCOUNT_CLOSED", closed.body().get("code").asText());
+        assertEquals(409, client().register(email).status());
+        again.refreshCsrf();
+        var cancel = MAPPER.createObjectNode().put("email", email).put("password", "synthetic-password-1");
+        var cancelled = again.post("/v2/auth/withdrawal/cancel", cancel);
+        assertEquals(200, cancelled.status());
+        again.userId = cancelled.body().get("user_id").asText();
+        again.refreshCsrf();
+        assertEquals(200, client().login(email, "synthetic-password-1").status());
+
+        assertEquals(204, again.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
+        try (var connection = database.connect();
+                var update =
+                        connection.prepareStatement(
+                                "UPDATE deletion_request d JOIN user_account u ON u.user_account_id=d.user_account_id"
+                                        + " SET d.account_closed_at=?,d.requested_at=? WHERE u.login_email=?")) {
+            var past = LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31);
+            update.setObject(1, past);
+            update.setObject(2, past);
+            update.setString(3, email);
+            assertEquals(1, update.executeUpdate());
+        }
+        var expired = client(); expired.refreshCsrf();
+        assertEquals(409, expired.post("/v2/auth/withdrawal/cancel", cancel).status());
+        accounts.purgeWithdrawn();
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var rows = statement.executeQuery("SELECT COUNT(*) FROM user_account WHERE login_email='" + email + "'");
+            assertTrue(rows.next());
+            assertEquals(0, rows.getInt(1));
+        }
+        assertEquals(200, client().register(email).status());
+    }
+
+    @Test
+    void realtimeChannelPushesObservationsDecisionsAndTheEnd() throws Exception {
+        var api = client();
+        api.register(email());
+        UUID id = UUID.randomUUID(), baseline = baseline(api);
+        assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
+
+        var unauthenticated = Socket.open(port, null);
+        unauthenticated.send(hello(id, 0));
+        assertEquals("unauthorized", unauthenticated.next("closed").get("reason").asText());
+
+        var socket = Socket.open(port, api.cookieHeader());
+        socket.send(hello(id, 0));
+        assertEquals(-1, socket.next("ack").get("last_sequence").asLong());
+        socket.next("progress");
+
+        var frame = MAPPER.createObjectNode().put("type", "features").put("session_id", id.toString());
+        var items = frame.putArray("items");
+        for (int index = 0; index < 4; index++)
+            items.add(feature(baseline, index, index * 1000L, (index + 1) * 1000L, 0.3));
+        socket.send(frame);
+        var decision = socket.next("decision");
+        assertEquals("collapse_confirmed", decision.get("event").get("kind").asText());
+        assertEquals(1, decision.get("summary").get("collapse_count").asLong());
+        assertEquals(1, socket.next("alert").get("event_id").asLong());
+        assertEquals(3, socket.next("ack").get("last_sequence").asLong());
+        assertEquals(4000, socket.next("progress").get("summary").get("total_ms").asLong());
+
+        // 다시 연결하면 last_event_id 뒤의 사건, ack, progress 순서로 받는다.
+        var resumed = Socket.open(port, api.cookieHeader());
+        resumed.send(hello(id, 0));
+        assertEquals(1, resumed.next("decision").get("event").get("event_id").asLong());
+        assertEquals(3, resumed.next("ack").get("last_sequence").asLong());
+
+        assertEquals(200, api.post("/v2/sessions/" + id + "/end", MAPPER.createObjectNode().put("end_ms", 4000)).status());
+        assertEquals("session_ended", socket.next("decision", "session_ended").get("event").get("kind").asText());
+        assertEquals("ended", socket.next("closed").get("reason").asText());
+    }
+
+    private static ObjectNode hello(UUID id, long lastEventId) {
+        return MAPPER.createObjectNode()
+                .put("type", "hello")
+                .put("schema_version", "1.0")
+                .put("session_id", id.toString())
+                .put("last_event_id", lastEventId);
+    }
+
+    /** 측정한 조회 응답에 대한 앱 기록(RecordItem, frontend/src/features/storage/types.ts). */
+    private static ObjectNode record(UUID id, UUID baseline, JsonNode view, boolean confirmed) {
+        var summary = view.get("summary");
+        var record = MAPPER.createObjectNode();
+        record.put("id", id.toString())
+                .put("startedAt", "2026-10-09T00:00:00Z")
+                .put("endedAt", "2026-10-09T00:00:09Z")
+                .put("mode", "camera")
+                .put("valid", summary.get("valid_ms").asLong() / 1000.0)
+                .put("good", summary.get("normal_ms").asLong() / 1000.0)
+                .put("total", summary.get("total_ms").asLong() / 1000.0);
+        record.putObject("rules")
+                .put("holdSeconds", 3)
+                .put("recoverSeconds", 3)
+                .put("realertSeconds", 60)
+                .put("threshold", 0.7);
+        var events = record.putArray("events");
+        JsonNode collapse = null;
+        for (var event : view.get("events")) {
+            String kind = event.get("kind").asText();
+            if (kind.equals("collapse_confirmed")) collapse = event;
+            if (kind.equals("recovery_confirmed") && collapse != null) {
+                double confirmedAt = collapse.get("timestamp_ms").asLong() / 1000.0;
+                double endAt = event.get("timestamp_ms").asLong() / 1000.0;
+                events.addObject()
+                        .put("id", collapse.get("event_id").asLong())
+                        .put("type", "tilt")
+                        .put("startAt", collapse.get("onset_ms").asLong() / 1000.0)
+                        .put("validStartAt", collapse.get("onset_valid_ms").asLong() / 1000.0)
+                        .put("confirmedAt", confirmedAt)
+                        .put("endAt", endAt)
+                        .put("durationSec", endAt - collapse.get("onset_ms").asLong() / 1000.0)
+                        .put("alerts", 1)
+                        .put("firstAlertAt", confirmedAt)
+                        .put("recovered", true)
+                        .put("recoverySec", endAt - confirmedAt)
+                        .put("endedBySession", false)
+                        .putNull("endReason")
+                        .put("blockId", 0);
+                collapse = null;
+            }
+        }
+        if (collapse != null) {
+            double confirmedAt = collapse.get("timestamp_ms").asLong() / 1000.0;
+            double endAt = summary.get("total_ms").asLong() / 1000.0;
+            events.addObject()
+                    .put("id", collapse.get("event_id").asLong())
+                    .put("type", "tilt")
+                    .put("startAt", collapse.get("onset_ms").asLong() / 1000.0)
+                    .put("validStartAt", collapse.get("onset_valid_ms").asLong() / 1000.0)
+                    .put("confirmedAt", confirmedAt)
+                    .put("endAt", endAt)
+                    .put("durationSec", endAt - collapse.get("onset_ms").asLong() / 1000.0)
+                    .put("alerts", 1)
+                    .put("firstAlertAt", confirmedAt)
+                    .put("recovered", false)
+                    .putNull("recoverySec")
+                    .put("endedBySession", false)
+                    .put("endReason", "unknown")
+                    .put("blockId", 0);
+        }
+        record.putObject("server")
+                .put("baselineId", baseline.toString())
+                .put("modelVersion", view.get("last_sequence").asLong() < 0 ? "unmeasured" : "reference-feature-rule-v1")
+                .put("confirmed", confirmed)
+                .set("view", view);
+        return record;
+    }
+
+    /** 시험용 최소 WebSocket 클라이언트. 메시지를 받은 순서대로 보관한다. */
+    private static final class Socket implements WebSocket.Listener {
+        private final LinkedBlockingQueue<JsonNode> messages = new LinkedBlockingQueue<>();
+        private final StringBuilder partial = new StringBuilder();
+        private WebSocket socket;
+
+        static Socket open(int port, String cookie) throws Exception {
+            var listener = new Socket();
+            var builder = HttpClient.newHttpClient().newWebSocketBuilder().header("Origin", "http://127.0.0.1:" + port);
+            if (cookie != null) builder.header("Cookie", cookie);
+            listener.socket =
+                    builder.buildAsync(URI.create("ws://127.0.0.1:" + port + "/v1/realtime"), listener)
+                            .get(5, TimeUnit.SECONDS);
+            return listener;
+        }
+
+        void send(JsonNode message) throws Exception {
+            socket.sendText(MAPPER.writeValueAsString(message), true).get(5, TimeUnit.SECONDS);
+        }
+
+        /** {@code type}(주어지면 사건 종류까지) 맞는 다음 메시지. 나머지는 건너뛴다. */
+        JsonNode next(String type, String... kind) throws Exception {
+            long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (System.nanoTime() < deadline) {
+                var message = messages.poll(100, TimeUnit.MILLISECONDS);
+                if (message == null) continue;
+                if (!type.equals(message.get("type").asText())) continue;
+                if (kind.length > 0 && !kind[0].equals(message.get("event").get("kind").asText())) continue;
+                return message;
+            }
+            throw new AssertionError("no " + type + " message");
+        }
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            partial.append(data);
+            if (last) {
+                try {
+                    messages.add(MAPPER.readTree(partial.toString()));
+                } catch (Exception unreadable) {
+                    throw new IllegalStateException(unreadable);
+                }
+                partial.setLength(0);
+            }
+            webSocket.request(1);
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+}

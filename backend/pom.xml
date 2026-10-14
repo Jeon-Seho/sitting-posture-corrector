@@ -14,14 +14,12 @@
   <packaging>pom</packaging>
   <properties>
     <java.version>21</java.version>
-    <esper.version>9.0.0</esper.version>
   </properties>
   <modules>
-    <module>contracts</module>
-    <module>cep</module>
     <module>api</module>
   </modules>
   <profiles>
+    <!-- Runs the tests that need a real, disposable MySQL (see backend/README.md). -->
     <profile>
       <id>mysql-integration</id>
       <build>

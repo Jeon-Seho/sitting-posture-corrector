@@ -11,7 +11,7 @@ import {
 } from './engine'
 import { features, classify, average, payload, type Landmark } from '../../../model/prototype/pose'
 import { beginCalibration, observeCalibration } from '../../../model/prototype/calibration'
-import { placement, referenceScore } from '../../../model/prototype/pose'
+import { anchors, referenceScore } from '../../../model/prototype/pose'
 
 const reading = (prob: number, unknown = false): Sample => ({
   ...sampleAt(0),
@@ -137,6 +137,11 @@ describe('webcam reference adapter', () => {
       z: 0,
       visibility: 0.95,
     }))
+  const off = () => {
+    const p = points()
+    p[7].x = -0.01 // left ear estimated off the frame
+    return p
+  }
   it('requires a visible face and both shoulders', () => {
     expect(features([], 640, 480)).toBeNull()
     const p = points()
@@ -180,27 +185,36 @@ describe('webcam reference adapter', () => {
     const ready = done.ready!
     expect(ready.headGap).toBeCloseTo(f.headGap)
     expect(ready.quality).toBeCloseTo(f.quality)
-    // Without placements the summary cannot describe where the body was.
-    expect(done.summary).toMatchObject({ durationMs: 5250, sampleCount: 22, placement: null })
+    // Without landmarks the summary cannot describe the baseline posture.
+    expect(done.summary).toMatchObject({ durationMs: 5250, sampleCount: 22, landmarks: null })
     expect(done.summary!.spread.headGap).toBeCloseTo(0)
   })
-  it('summarizes calibration spread and mean placement for the server baseline', () => {
+  it('summarizes calibration spread and mean landmark coordinates for the server baseline', () => {
     const f = features(points(), 640, 480)!
-    const p = placement(points())!
     let draft = beginCalibration()
-    let result = observeCalibration(draft, { ...f, headGap: f.headGap - 0.1 }, 0, 0, p)
+    let result = observeCalibration(draft, { ...f, headGap: f.headGap - 0.1 }, 0, 0, anchors(points()))
     for (let i = 1; i <= 20; i++) {
       draft = result.draft
       const headGap = f.headGap + (i % 2 ? 0.1 : -0.1)
-      result = observeCalibration(draft, { ...f, headGap }, i * 250, 250, p)
+      const p = points()
+      p[0].y = i % 2 ? 0.2 : 0.3 // the nose moves; its mean is kept
+      // A frame with a landmark off the frame does not count toward the mean.
+      result = observeCalibration(draft, { ...f, headGap }, i * 250, 250, anchors(i === 20 ? off() : p))
     }
     expect(result.summary!.sampleCount).toBe(21)
     expect(result.summary!.durationMs).toBe(5000)
     expect(result.summary!.spread.headGap).toBeGreaterThan(0.09)
     expect(result.summary!.spread.offset).toBeCloseTo(0)
-    for (const key of ['x', 'y', 'area'] as const)
-      expect(result.summary!.placement![key]).toBeCloseTo(p[key])
-    expect(p.x).toBeGreaterThanOrEqual(0)
-    expect(p.area).toBeLessThanOrEqual(1)
+    const landmarks = result.summary!.landmarks!
+    expect(Object.keys(landmarks)).toHaveLength(9)
+    expect(landmarks.nose.y).toBeCloseTo((0.25 + 10 * 0.2 + 9 * 0.3) / 20)
+    expect(landmarks.left_shoulder.x).toBeCloseTo(0.3)
+    expect(landmarks.right_shoulder.x).toBeCloseTo(0.7)
+    expect(landmarks.right_shoulder.y).toBeCloseTo(0.5)
+  })
+  it('stores no baseline coordinates when landmarks are missing or off the frame', () => {
+    expect(anchors(points().slice(0, 12))).toBeNull()
+    expect(anchors(off())).toBeNull()
+    expect(anchors(points())!.mouth_right).toEqual({ x: 0.5, y: 0.5 })
   })
 })
