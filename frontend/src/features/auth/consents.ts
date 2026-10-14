@@ -117,12 +117,12 @@ export function allAgreed(): ConsentChoices {
 }
 
 /**
- * Request body part for sign-up (field name to confirm with BE): one entry per agreed item.
+ * Sign-up body part (A2, BE API spec 2026-10-13: `consents: [{type, document_version}]`): one entry per agreed item.
  * Declined optional items are left out; withdrawing later is a separate call.
  */
 export function consentPayload(choices: ConsentChoices) {
   return CONSENTS.filter((item) => choices[item.id] === true).map((item) => ({
-    consent_type: item.type,
+    type: item.type,
     document_version: CONSENT_DOCUMENT_VERSION,
   }))
 }

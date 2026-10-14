@@ -250,7 +250,7 @@
       "required": ["type", "reason"],
       "properties": {
         "type": { "const": "closed" },
-        "reason": { "enum": ["ended", "unauthorized", "not_owner", "session_lost", "no_baseline", "bad_message", "server_shutdown"] }
+        "reason": { "enum": ["ended", "unauthorized", "not_owner", "session_lost", "no_baseline", "bad_message", "server_shutdown", "limit_reached"] }
       }
     }
   }
