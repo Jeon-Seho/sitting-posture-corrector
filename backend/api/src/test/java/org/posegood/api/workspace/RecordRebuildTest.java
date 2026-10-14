@@ -173,7 +173,7 @@ class RecordRebuildTest {
                         null);
         assertFalse(record.get("server").get("confirmed").asBoolean());
         assertTrue(record.get("server").get("view").isNull());
-        assertEquals("unmeasured", record.get("server").get("modelVersion").asText());
+        assertEquals("unmeasured", record.get("server").get("modelVersion").asString());
         assertEquals(0, record.get("total").asDouble());
         assertEquals(0, record.get("events").size());
         assertEquals(5, record.get("rules").get("realertSeconds").asInt());

@@ -1,6 +1,6 @@
 package org.posegood.api.workspace;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import org.posegood.api.common.Json;
 import org.posegood.api.common.KstTime;

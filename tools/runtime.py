@@ -44,16 +44,28 @@ def java_executable() -> str:
             return str(path)
     path = shutil.which("java")
     if path is None:
-        raise RuntimeError("Java 21 is required")
+        raise RuntimeError("Java 17 is required")
     return path
 
 
-def maven_executable() -> str:
-    executable = os.environ.get("MAVEN_EXECUTABLE") or shutil.which("mvn")
-    if not executable:
-        sys.exit("Maven과 Java 21이 필요합니다. backend/README.md의 준비 절차를 확인하세요.")
-    return executable
+def gradle_executable() -> str:
+    """The backend's Gradle Wrapper (ADR 0023); it downloads Gradle itself and needs only Java 17+."""
+    wrapper = ROOT / "backend" / ("gradlew.bat" if os.name == "nt" else "gradlew")
+    if not wrapper.is_file():
+        sys.exit("backend/gradlew가 없습니다. Java 17 이상과 backend/README.md의 준비 절차를 확인하세요.")
+    return str(wrapper)
+
+
+def gradle_command(*arguments, environment=None) -> list:
+    """A backend Gradle invocation. The repository-local Gradle home keeps personal init scripts
+    and gradle.properties out of verification (POSEGOOD_GRADLE_HOME overrides it)."""
+    environment = os.environ if environment is None else environment
+    home = environment.get("POSEGOOD_GRADLE_HOME", str(ROOT / ".cache" / "gradle"))
+    return [
+        gradle_executable(), "--no-daemon", "--console=plain", "--gradle-user-home", home,
+        "-p", "backend", *arguments,
+    ]
 
 
 def service_jar(component: str, artifact: str) -> Path:
-    return ROOT / "backend" / component / "target" / f"{artifact}-0.1.0-SNAPSHOT.jar"
+    return ROOT / "backend" / component / "build" / "libs" / f"{artifact}-0.1.0-SNAPSHOT.jar"

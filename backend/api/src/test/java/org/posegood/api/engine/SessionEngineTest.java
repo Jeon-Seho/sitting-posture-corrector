@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 판정 엔진 단위 시험(옛 CEP 시험과 같은 입력·기대값 포함).
@@ -74,7 +75,7 @@ class SessionEngineTest {
         assertEquals(1, feed(2999, 3000, 0.9).summary().collapseCount());
         assertEquals(1, feed(3000, 3001, 0.9).summary().alertCount());
         assertEquals(1, count("collapse_confirmed"));
-        assertEquals(3000, engine.view().events().getFirst().timestampMs());
+        assertEquals(3000, engine.view().events().get(0).timestampMs());
     }
 
     @Test
@@ -238,10 +239,14 @@ class SessionEngineTest {
     void concurrentRetriesAreExactlyOnce() throws Exception {
         feed(0, 2000, 0.9);
         var input = observation(sequence, 2000, 3000, 0.9, true, Observation.Phase.running);
-        try (var pool = Executors.newFixedThreadPool(4)) {
+        var pool = Executors.newFixedThreadPool(4);
+        try {
             var futures = new ArrayList<Future<SessionView>>();
             for (int i = 0; i < 12; i++) futures.add(pool.submit(() -> engine.accept(input)));
             for (var future : futures) assertEquals(1, future.get().summary().collapseCount());
+        } finally {
+            pool.shutdown(); // Java 17: ExecutorService is not AutoCloseable.
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
         }
         assertEquals(3000, engine.view().summary().validMs());
         assertEquals(1, engine.view().summary().alertCount());
@@ -315,7 +320,7 @@ class SessionEngineTest {
     void sessionEndedEventClosesTheLedgerAtTheTotal() {
         feed(0, 3000, 0.9);
         var view = engine.end(4000);
-        var last = view.events().getLast();
+        var last = view.events().get(view.events().size() - 1);
         assertEquals("session_ended", last.kind());
         assertEquals(4000, last.timestampMs());
         assertEquals(view.summary().totalMs(), last.timestampMs());

@@ -1,7 +1,7 @@
 package org.posegood.api.it;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.CookieManager;
 import java.net.URI;
@@ -47,7 +47,7 @@ final class ApiClient {
 
     /** CSRF 토큰 새로 받기. 로그인·로그아웃 뒤마다 필요하다. */
     void refreshCsrf() throws Exception {
-        csrf = get("/v2/auth/csrf").body().get("token").asText();
+        csrf = get("/v2/auth/csrf").body().get("token").asString();
     }
 
     Response register(String email) throws Exception {
@@ -59,7 +59,7 @@ final class ApiClient {
             consents.addObject().put("type", type).put("document_version", "service-v2");
         body.putObject("profile").put("name", "합성 사용자").put("age", 30).put("occupation", "합성 시험");
         var response = post("/v2/auth/register", body);
-        if (response.status() == 200) userId = response.body().get("user_id").asText();
+        if (response.status() == 200) userId = response.body().get("user_id").asString();
         refreshCsrf();
         return response;
     }
@@ -68,7 +68,7 @@ final class ApiClient {
         refreshCsrf();
         var body = MAPPER.createObjectNode().put("email", email).put("password", password);
         var response = post("/v2/auth/login", body);
-        if (response.status() == 200) userId = response.body().get("user_id").asText();
+        if (response.status() == 200) userId = response.body().get("user_id").asString();
         refreshCsrf();
         return response;
     }

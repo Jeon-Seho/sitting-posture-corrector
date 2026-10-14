@@ -130,7 +130,7 @@
   FE 클라이언트는 실시간 전달 어댑터로 구현한다.
 - 2026-10-05: `jin_app` 문서(ADR 0011~0017, 서비스 안내, 플랫폼 경계, 기술 스택 검토, v4 연결 지점)를 기준으로 작성했다.
   v4 원본 문서는 저장소에 없어 연결 지점 문서의 요약만 반영했다. 입력 토픽 이름(`posture.features.v1`)은 이 계획에서 정한 가칭이다.
-- 게이트웨이 구현 언어 후보: Spring Boot(기존 `backend/` Maven 모듈·`backend/contracts` 재사용·`check-backend` 게이트 공유) 또는 Node.
+- 게이트웨이 구현 언어 후보: Spring Boot(기존 `backend/` Gradle 모듈·`backend/contracts` 재사용·`check-backend` 게이트 공유) 또는 Node.
   추가 런타임을 늘리지 않는 Spring Boot 모듈(`backend/realtime`)을 우선 제안한다. Kafka 클라이언트는 도입 시점에 공식 지원 상태를 확인한다.
 - 기존 HTTP 서버 판정(`POST /v1/sessions/{id}/features`)과 로컬 판정은 Kafka 경로가 검증될 때까지 유지한다. 서버가 멈췄을 때 로컬 판정으로 넘어갈지는 미정이다.
 

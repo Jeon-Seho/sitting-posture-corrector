@@ -313,19 +313,20 @@ class DeploymentConfigurationTests(unittest.TestCase):
         password = "explicitly-synthetic-password-" + "a" * 32
         # The tests create their own posture_service_it_* databases, so they use the root account.
         (secret_directory / "mysql_root_password").write_text(password + "\n")
-        for override in (None, str(self.folder / "custom-maven-cache")):
-            env = {} if override is None else {"POSEGOOD_MAVEN_CACHE": override}
-            expected_cache = override or str(ROOT / ".cache" / "maven")
+        # gradle_command() lives in the same `runtime` module the CLI imported.
+        runtime = sys.modules[smoke.gradle_command.__module__]
+        for override in (None, str(self.folder / "custom-gradle-home")):
+            env = {} if override is None else {"POSEGOOD_GRADLE_HOME": override}
+            expected_cache = override or str(ROOT / ".cache" / "gradle")
             with self.subTest(cache=override), \
                     patch.object(smoke, "mysql_address", return_value="127.0.0.1:49152"), \
-                    patch.object(smoke, "maven_executable", return_value="synthetic-mvn"), \
+                    patch.object(runtime, "gradle_executable", return_value="synthetic-gradlew"), \
                     patch.object(smoke.subprocess, "run") as launch:
                 smoke.mysql_integration("synthetic-project", env, secret_directory)
             arguments = launch.call_args.args[0]
             self.assertEqual(arguments, [
-                "synthetic-mvn", "-B", "-ntp", "-s", "tools/maven-settings.xml",
-                "-gs", "tools/maven-settings.xml", "-Dmaven.repo.local=" + expected_cache,
-                "-f", "backend/pom.xml", "-Pmysql-integration", "verify",
+                "synthetic-gradlew", "--no-daemon", "--console=plain", "--gradle-user-home", expected_cache,
+                "-p", "backend", "build", "-Pmysql-integration",
             ])
             self.assertFalse(any(password in argument for argument in arguments))
             options = launch.call_args.kwargs
@@ -333,7 +334,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
             self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_PASSWORD"], password)
             self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_USER"], "root")
             self.assertEqual(options["env"]["POSEGOOD_TEST_MYSQL_URL"], "jdbc:mysql://127.0.0.1:49152/")
-            self.assertEqual(env, {} if override is None else {"POSEGOOD_MAVEN_CACHE": override})
+            self.assertEqual(env, {} if override is None else {"POSEGOOD_GRADLE_HOME": override})
 
 
 if __name__ == "__main__":

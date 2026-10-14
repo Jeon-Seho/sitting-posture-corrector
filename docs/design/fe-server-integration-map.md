@@ -54,5 +54,5 @@
 
 ## 4. 이 PC에서 확인하지 못한 것
 
-- BE 브랜치 서버를 띄우려면 JDK 21·Maven이 필요하다(2026-10-13 이 PC에는 JDK 17만 있음). 그래서 실제 왕복은 해 보지 않았다(F9, T-13).
+- BE 브랜치 서버를 띄우려면 JDK 21·Maven이 필요했다(2026-10-13 이 PC에는 JDK 17만 있음). 2026-10-14부터 백엔드는 JDK 17·Gradle Wrapper다([ADR 0023](../decisions/0023-backend-java17-boot4-gradle.md)). 그래서 실제 왕복은 해 보지 않았다(F9, T-13).
 - `feature/repo-backend-db-v2`는 DB V2.2 기준이고 develop은 V2.3이다. BE가 V2.3에 맞추는지 확인해야 한다.

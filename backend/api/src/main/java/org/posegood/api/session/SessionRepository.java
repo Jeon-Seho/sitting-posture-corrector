@@ -34,7 +34,7 @@ public class SessionRepository {
 
     public Stored find(UUID id) {
         var rows = jdbc.query(SESSION + " WHERE m.client_session_uuid=?", this::stored, id.toString());
-        return rows.isEmpty() ? null : rows.getFirst();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     public void insert(long owner, UUID id, long policy, long baseline, boolean alerts, LocalDateTime at) {

@@ -1,7 +1,7 @@
 package org.posegood.api.it;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -49,8 +49,8 @@ public final class SyntheticInference implements AutoCloseable {
     private static Object observe(JsonNode request) {
         var features = request.get("features");
         boolean valid =
-                "running".equals(request.get("phase").asText())
-                        && "good".equals(request.get("measurement_quality").asText())
+                "running".equals(request.get("phase").asString())
+                        && "good".equals(request.get("measurement_quality").asString())
                         && !features.isNull()
                         && features.get("current_quality").asDouble() >= 0.65
                         && features.get("baseline_quality").asDouble() >= 0.65;
@@ -72,7 +72,7 @@ public final class SyntheticInference implements AutoCloseable {
         result.put("sequence", request.get("sequence").asLong());
         result.put("start_ms", request.get("start_ms").asLong());
         result.put("end_ms", request.get("end_ms").asLong());
-        result.put("phase", request.get("phase").asText());
+        result.put("phase", request.get("phase").asString());
         result.put("valid", valid);
         result.put("collapse_probability", score);
         result.put("deviation_type", type);

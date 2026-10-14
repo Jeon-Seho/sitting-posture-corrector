@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  * 실제 MySQL과 가짜 추론 서버로 API 전체 흐름을 확인하는 통합 시험.
  *
  * 스키마 V2.3·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·특징·기록은 모두 합성이다.
- * 실행: {@code -Pmysql-integration}(backend/README.md).
+ * 실행: {@code backend/gradlew -p backend build -Pmysql-integration}(backend/README.md).
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -111,7 +111,7 @@ class MySqlIntegrationTest {
     private static UUID baseline(ApiClient api) throws Exception {
         var response = api.post("/v2/baselines", registration(0.5));
         assertEquals(200, response.status());
-        return UUID.fromString(response.body().get("baseline_id").asText());
+        return UUID.fromString(response.body().get("baseline_id").asString());
     }
 
     /** 측정 구간 하나. 좌우 치우침 0.3이면 점수 1.0(이탈), 0이면 0(바른 자세). */
@@ -160,7 +160,7 @@ class MySqlIntegrationTest {
         var api = client();
         String email = email();
         assertEquals(200, api.register(email).status());
-        assertEquals(email, api.get("/v2/auth/me").body().get("email").asText());
+        assertEquals(email, api.get("/v2/auth/me").body().get("email").asString());
 
         var workspace = api.get("/v2/workspace").body();
         assertEquals(3, workspace.get("rules").get("holdSeconds").asInt());
@@ -228,7 +228,7 @@ class MySqlIntegrationTest {
             assertEquals(0, row.getInt(1));
         }
         assertEquals(401, stale.get("/v2/auth/me").status());
-        assertEquals("unauthorized", socket.next("closed").get("reason").asText());
+        assertEquals("unauthorized", socket.next("closed").get("reason").asString());
         assertEquals(401, client().login(email, "synthetic-password-1").status());
         assertEquals(200, client().login(email, "synthetic-password-2").status());
     }
@@ -249,9 +249,9 @@ class MySqlIntegrationTest {
         assertEquals(1000, summary.get("rest_ms").asLong());
         assertEquals(2000, summary.get("missing_ms").asLong());
         var kinds = new ArrayList<String>();
-        view.get("events").forEach(event -> kinds.add(event.get("kind").asText()));
+        view.get("events").forEach(event -> kinds.add(event.get("kind").asString()));
         assertEquals(List.of("collapse_confirmed", "recovery_confirmed", "session_ended"), kinds);
-        assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asText());
+        assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asString());
 
         String path = "/v2/sessions/" + id;
         // 재시도: 같은 종료·같은 입력은 아무것도 바꾸지 않고, 다른 것은 409.
@@ -347,17 +347,17 @@ class MySqlIntegrationTest {
         for (var key : List.of("total", "valid", "good"))
             assertEquals(record.get(key).asDouble(), rebuilt.get(key).asDouble(), key);
         assertTrue(rebuilt.get("server").get("confirmed").asBoolean());
-        assertEquals(baseline.toString(), rebuilt.get("server").get("baselineId").asText());
+        assertEquals(baseline.toString(), rebuilt.get("server").get("baselineId").asString());
         var rebuiltView = rebuilt.get("server").get("view");
         assertEquals(view.get("summary"), rebuiltView.get("summary"));
         assertEquals(view.get("events").size(), rebuiltView.get("events").size());
         for (int index = 0; index < view.get("events").size(); index++) {
             var expected = (ObjectNode) view.get("events").get(index).deepCopy();
-            if (!"session_ended".equals(expected.get("kind").asText()))
+            if (!"session_ended".equals(expected.get("kind").asString()))
                 expected.put("deviation_type", "unspecified"); // T-36 collapse_type 보류
             assertEquals(expected, rebuiltView.get("events").get(index));
         }
-        assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asText());
+        assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asString());
         assertEquals(records, api.get("/v2/workspace").body().get("records"));
 
         // 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
@@ -401,8 +401,8 @@ class MySqlIntegrationTest {
             }
             assertFalse(rows.next());
         }
-        assertEquals(first.toString(), api.get("/v2/sessions/" + a + "/metadata").body().get("baseline_id").asText());
-        assertEquals(second.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asText());
+        assertEquals(first.toString(), api.get("/v2/sessions/" + a + "/metadata").body().get("baseline_id").asString());
+        assertEquals(second.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
         var missingSetup = MAPPER.createObjectNode();
         missingSetup.set("policy", policy());
         assertEquals(400, api.put("/v2/sessions/" + UUID.randomUUID(), missingSetup).status());
@@ -428,12 +428,12 @@ class MySqlIntegrationTest {
         live.remove(b, "session_lost");
         var lost = api.get("/v2/sessions/" + b);
         assertEquals(404, lost.status());
-        assertEquals("SESSION_LOST", lost.body().get("code").asText());
+        assertEquals("SESSION_LOST", lost.body().get("code").asString());
         // 마지막으로 받은 조회 응답의 확인 안 된 기록은 DB 값으로 검증해 받고 행을 ERROR로 닫는다.
         // 다시 만든 기록에는 조회 응답이 없다(판정 상태를 모름).
         assertEquals(200, api.post("/v2/records", record(b, second, before, false)).status());
         var metadata = api.get("/v2/sessions/" + b + "/metadata").body();
-        assertEquals(second.toString(), metadata.get("baseline_id").asText());
+        assertEquals(second.toString(), metadata.get("baseline_id").asString());
         assertFalse(metadata.get("ended_at").isNull());
 
         // 기록으로 남긴 진행 중 세션은 그 자리에서 끝나고 DISCONNECTED로 닫힌다.
@@ -454,7 +454,7 @@ class MySqlIntegrationTest {
         var records = api.get("/v2/records").body();
         assertEquals(2, records.size());
         for (var rebuilt : records) {
-            if (rebuilt.get("id").asText().equals(b.toString())) {
+            if (rebuilt.get("id").asString().equals(b.toString())) {
                 assertFalse(rebuilt.get("server").get("confirmed").asBoolean());
                 assertTrue(rebuilt.get("server").get("view").isNull());
                 assertEquals(0, rebuilt.get("total").asDouble());
@@ -511,7 +511,7 @@ class MySqlIntegrationTest {
         assertEquals(saved.body(), api.post("/v2/baselines", registration).body());
         ((ObjectNode) registration.get("landmarks").get("nose")).put("x", 0.51);
         assertEquals(409, api.post("/v2/baselines", registration).status());
-        UUID baseline = UUID.fromString(saved.body().get("baseline_id").asText());
+        UUID baseline = UUID.fromString(saved.body().get("baseline_id").asString());
         UUID id = UUID.randomUUID();
         String path = "/v2/sessions/" + id;
         assertEquals(200, api.put(path, create(baseline)).status());
@@ -543,13 +543,13 @@ class MySqlIntegrationTest {
         var again = client();
         var closed = again.login(email, "synthetic-password-1");
         assertEquals(403, closed.status());
-        assertEquals("ACCOUNT_CLOSED", closed.body().get("code").asText());
+        assertEquals("ACCOUNT_CLOSED", closed.body().get("code").asString());
         assertEquals(409, client().register(email).status());
         again.refreshCsrf();
         var cancel = MAPPER.createObjectNode().put("email", email).put("password", "synthetic-password-1");
         var cancelled = again.post("/v2/auth/withdrawal/cancel", cancel);
         assertEquals(200, cancelled.status());
-        again.userId = cancelled.body().get("user_id").asText();
+        again.userId = cancelled.body().get("user_id").asString();
         again.refreshCsrf();
         assertEquals(200, client().login(email, "synthetic-password-1").status());
 
@@ -585,7 +585,7 @@ class MySqlIntegrationTest {
 
         var unauthenticated = Socket.open(port, null);
         unauthenticated.send(hello(id, 0));
-        assertEquals("unauthorized", unauthenticated.next("closed").get("reason").asText());
+        assertEquals("unauthorized", unauthenticated.next("closed").get("reason").asString());
 
         var socket = Socket.open(port, api.cookieHeader());
         socket.send(hello(id, 0));
@@ -598,7 +598,7 @@ class MySqlIntegrationTest {
             items.add(feature(baseline, index, index * 1000L, (index + 1) * 1000L, 0.3));
         socket.send(frame);
         var decision = socket.next("decision");
-        assertEquals("collapse_confirmed", decision.get("event").get("kind").asText());
+        assertEquals("collapse_confirmed", decision.get("event").get("kind").asString());
         assertEquals(1, decision.get("summary").get("collapse_count").asLong());
         assertEquals(1, socket.next("alert").get("event_id").asLong());
         assertEquals(3, socket.next("ack").get("last_sequence").asLong());
@@ -611,8 +611,8 @@ class MySqlIntegrationTest {
         assertEquals(3, resumed.next("ack").get("last_sequence").asLong());
 
         assertEquals(200, api.post("/v2/sessions/" + id + "/end", MAPPER.createObjectNode().put("end_ms", 4000)).status());
-        assertEquals("session_ended", socket.next("decision", "session_ended").get("event").get("kind").asText());
-        assertEquals("ended", socket.next("closed").get("reason").asText());
+        assertEquals("session_ended", socket.next("decision", "session_ended").get("event").get("kind").asString());
+        assertEquals("ended", socket.next("closed").get("reason").asString());
     }
 
     private static ObjectNode hello(UUID id, long lastEventId) {
@@ -642,7 +642,7 @@ class MySqlIntegrationTest {
         var events = record.putArray("events");
         JsonNode collapse = null;
         for (var event : view.get("events")) {
-            String kind = event.get("kind").asText();
+            String kind = event.get("kind").asString();
             if (kind.equals("collapse_confirmed")) collapse = event;
             if (kind.equals("recovery_confirmed") && collapse != null) {
                 double confirmedAt = collapse.get("timestamp_ms").asLong() / 1000.0;
@@ -718,8 +718,8 @@ class MySqlIntegrationTest {
             while (System.nanoTime() < deadline) {
                 var message = messages.poll(100, TimeUnit.MILLISECONDS);
                 if (message == null) continue;
-                if (!type.equals(message.get("type").asText())) continue;
-                if (kind.length > 0 && !kind[0].equals(message.get("event").get("kind").asText())) continue;
+                if (!type.equals(message.get("type").asString())) continue;
+                if (kind.length > 0 && !kind[0].equals(message.get("event").get("kind").asString())) continue;
                 return message;
             }
             throw new AssertionError("no " + type + " message");

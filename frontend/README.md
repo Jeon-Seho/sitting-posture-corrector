@@ -107,7 +107,7 @@ CHOKIDAR_USEPOLLING=1 make dev
 
 ## 개발 서버 판정
 
-JDK 21·Maven과 시험용 MySQL([backend 안내](../backend/README.md))을 준비하고 `make check-backend`로 JAR를 생성한 뒤 `make dev-server`를 실행한다.
+JDK 17과 시험용 MySQL([backend 안내](../backend/README.md))을 준비하고 `make check-backend`로 JAR를 생성한 뒤 `make dev-server`를 실행한다.
 출력된 임시 포트 주소의 앱에서 측정하기의 ‘개발자 옵션 → 서버 판정 사용’을 선택한다.
 Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다. 이 선택은 기본 꺼짐이며 측정 시작 시 고정한다.
 서버 판정은 계정이 필요하다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)). 2026-10-13 프론트 계정 모드를 지웠으므로
