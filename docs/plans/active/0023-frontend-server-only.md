@@ -3,7 +3,7 @@
 - 상태: in_progress (팀 결정·계약 완료, 서버 연결은 BE `/v2/realtime` 대기)
 - 담당: FE
 - 시작일: 2026-10-11
-- 관련: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 1장, FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
+- 관련: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 1장(지금 없음), FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
   [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0022](../../decisions/0022-session-ends-on-lost-connection.md)
 
 ## 배경
@@ -49,7 +49,6 @@
 - [x] 앱이 보내는 정보: 좌표 구간 `posture.frames.v1`, 판정 불가 프레임은 `valid:false`(BE 명세 10/13).
 - [x] 앱과의 계약: [연동 명세](../../design/api-ws-spec.md)와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json)(10/13).
 - [x] `observation.invalid_reason`(BE 동의). 지금은 `unmeasurable` 하나만 쓴다.
-- [ ] 서버가 자세 유형(`deviation_type`)까지 알려 줘야 하는지(ML, FE 제안서 N7).
 
 ### 1단계 — 서버와 무관한 준비 (끝남)
 
