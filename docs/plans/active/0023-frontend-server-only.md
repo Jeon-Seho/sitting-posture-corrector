@@ -49,7 +49,7 @@
 - [x] 앱이 보내는 정보: 좌표 구간 `posture.frames.v1`, 판정 불가 프레임은 `valid:false`(BE 명세 10/13).
 - [x] 앱과의 계약: [연동 명세](../../design/api-ws-spec.md)와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json)(10/13).
 - [x] `observation.invalid_reason`(BE 동의). 지금은 `unmeasurable` 하나만 쓴다.
-- [ ] 유형 필드(`deviation_type`)를 없앨지(ML, FE 제안서 N7).
+- [ ] 서버가 자세 유형(`deviation_type`)까지 알려 줘야 하는지(ML, FE 제안서 N7).
 
 ### 1단계 — 서버와 무관한 준비 (끝남)
 
