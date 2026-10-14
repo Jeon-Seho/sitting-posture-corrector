@@ -24,8 +24,6 @@ type Options = {
   ended: MutableRefObject<boolean>
   workspace: LocalWorkspace
   camera: CameraController
-  registration: boolean
-  onRegistrationComplete: () => void
   go: (page: 'home' | 'session') => void
   setError: (message: string) => void
   serverMode?: boolean
@@ -39,8 +37,6 @@ export function useSessionPersistence({
   ended,
   workspace,
   camera,
-  registration,
-  onRegistrationComplete,
   go,
   setError,
   serverMode = false,
@@ -53,6 +49,7 @@ export function useSessionPersistence({
   const [saveMessage, setSaveMessage] = useState(
     repository ? '계정에 결과를 저장하고 있습니다.' : '이 브라우저에 결과를 저장하고 있습니다.',
   )
+  const [saveFailed, setSaveFailed] = useState(false)
   const measuring = !!session && !ended.current
 
   useEffect(() => {
@@ -101,11 +98,6 @@ export function useSessionPersistence({
       setError('카메라 연결과 기준 등록을 완료한 뒤 시작해 주세요.')
       return
     }
-    if (registration) {
-      onRegistrationComplete()
-      go('home')
-      return
-    }
     const video = camera.videoRef.current
     if (serverMode && (!camera.calibrationId || !video?.videoWidth || !video.videoHeight)) {
       setError('서버 측정에 사용할 카메라 영상과 기준 등록을 다시 확인해 주세요.')
@@ -148,6 +140,7 @@ export function useSessionPersistence({
     ended.current = false
     pending.current = null
     setSaveMessage('저장 대기')
+    setSaveFailed(false)
     setSession(next)
     go('session')
   }
@@ -159,6 +152,7 @@ export function useSessionPersistence({
     }
     if (!requireWriter()) {
       setSaveMessage('결과는 유지됩니다. 저장소 안내를 확인한 뒤 저장 다시 시도를 눌러 주세요.')
+      setSaveFailed(true)
       return
     }
     try {
@@ -167,7 +161,8 @@ export function useSessionPersistence({
       setRecords(next)
       setDraft((old) => (old?.id === record.id ? null : old))
       pending.current = null
-      setSaveMessage('이 브라우저에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
+      setSaveMessage('이 기기에 저장했어요. 기록에서 볼 수 있어요.')
+      setSaveFailed(false)
       try {
         removeSavedDraft(record.id)
       } catch {
@@ -180,6 +175,7 @@ export function useSessionPersistence({
       setSaveMessage(
         '저장하지 못했습니다. 결과는 유지됩니다. 자동 재시도하거나 저장 다시 시도를 눌러 주세요.',
       )
+      setSaveFailed(true)
     }
   }
 
@@ -187,6 +183,7 @@ export function useSessionPersistence({
     if (!repository || saving.current || !mounted.current) return
     if (!requireWriter()) {
       setSaveMessage('결과를 유지합니다. 저장 권한을 확인한 뒤 저장 다시 시도를 눌러 주세요.')
+      setSaveFailed(true)
       return
     }
     saving.current = true
@@ -196,7 +193,8 @@ export function useSessionPersistence({
       if (!mounted.current) return
       setRecords(next)
       pending.current = null
-      setSaveMessage('계정에 저장했습니다. 홈과 대시보드에 반영되었습니다.')
+      setSaveMessage('계정에 저장했어요. 기록에서 볼 수 있어요.')
+      setSaveFailed(false)
       try {
         repository.forgetPending(record.id)
         repository.removeDraft(record.id)
@@ -209,6 +207,7 @@ export function useSessionPersistence({
         setSaveMessage(
           '저장 확인을 받지 못했습니다. 같은 결과를 유지합니다. 저장 다시 시도를 눌러 주세요.',
         )
+      if (mounted.current) setSaveFailed(true)
     } finally {
       saving.current = false
     }
@@ -262,7 +261,7 @@ export function useSessionPersistence({
   function checkpoint(machine: Machine, server?: ServerCheckpoint): boolean {
     if (!session || ended.current) return false
     if (!writable.current) {
-      setError('중간 기록을 저장할 수 없습니다. 새로고침 시 기록을 잃을 수 있습니다.')
+      setError('중간 기록을 저장할 수 없어요. 새로고침하면 기록을 잃을 수 있어요.')
       return false
     }
     try {
@@ -279,7 +278,7 @@ export function useSessionPersistence({
       else saveDraft(nextDraft)
       return true
     } catch {
-      setError('중간 기록을 저장하지 못했습니다. 새로고침 시 기록을 잃을 수 있습니다.')
+      setError('중간 기록을 저장하지 못했어요. 새로고침하면 기록을 잃을 수 있어요.')
       return false
     }
   }
@@ -355,5 +354,6 @@ export function useSessionPersistence({
     clearSession,
     pending,
     saveMessage,
+    saveFailed,
   }
 }

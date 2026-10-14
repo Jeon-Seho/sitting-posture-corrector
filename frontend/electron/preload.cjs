@@ -9,4 +9,8 @@ contextBridge.exposeInMainWorld('posegoodDesktop', {
   getLaunchInfo: () => ipcRenderer.invoke('desktop:launch-info'),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke('desktop:set-launch-at-login', enabled === true),
   setAutoCamera: (enabled) => ipcRenderer.invoke('desktop:set-auto-camera', enabled === true),
+  quit: () => ipcRenderer.invoke('desktop:quit'),
+  setAlertPopup: (enabled) => ipcRenderer.invoke('desktop:set-alert-popup', enabled === true),
+  // 자세 알림을 앱 밖 팝업으로도 보낸다. 앱을 보고 있으면 main이 'in-app'으로 건너뛴다.
+  showAlert: (alert) => ipcRenderer.invoke('desktop:alert', { title: String(alert?.title ?? ''), body: String(alert?.body ?? ''), preview: alert?.preview === true }),
 })

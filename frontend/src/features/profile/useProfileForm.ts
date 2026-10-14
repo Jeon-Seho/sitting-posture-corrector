@@ -10,6 +10,8 @@ type Options = {
   hasPendingResult: () => boolean
   setError: (message: string) => void
   onWithdrawn: () => void
+  /** Age and occupation are kept only with sign-up consent C3. */
+  optionalInfo?: boolean
 }
 
 export function useProfileForm({
@@ -18,6 +20,7 @@ export function useProfileForm({
   hasPendingResult,
   setError,
   onWithdrawn,
+  optionalInfo = true,
 }: Options) {
   const { profile, requireWriter, reloadStorage, setProfile } = workspace
   const [name, setName] = useState(profile?.name ?? '')
@@ -35,25 +38,31 @@ export function useProfileForm({
 
   function saveProfile(notify = true) {
     if (!requireWriter()) return false
-    const next = { name: name.trim(), age, occupation: occupation.trim() }
+    const next: Profile = optionalInfo
+      ? { name: name.trim(), age, occupation: occupation.trim() }
+      : { name: name.trim() }
     if (!validProfile(next)) {
-      setError('이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.')
+      setError(
+        optionalInfo
+          ? '이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.'
+          : '이름을 확인해 주세요.',
+      )
       return false
     }
     try {
       writeLocal(KEYS.profile, next)
       setProfile(next)
-      setError(notify ? '저장했습니다.' : '')
+      setError(notify ? '저장했어요.' : '')
       return true
     } catch {
-      setError('브라우저에 저장하지 못했습니다. 저장 공간과 권한을 확인해 주세요.')
+      setError('저장하지 못했어요. 저장 공간과 권한을 확인해 주세요.')
       return false
     }
   }
 
   function cancelEditing() {
     resetFields()
-    setError('변경을 취소했습니다.')
+    setError('변경을 취소했어요.')
   }
 
   function cancelWithdrawal() {
@@ -65,7 +74,7 @@ export function useProfileForm({
     if (!requireWriter() || measuring || hasPendingResult()) return
     try {
       // Keep the profile until the other keys are removed, so partial failure stays visible.
-      for (const key of [KEYS.records, KEYS.draft, KEYS.settings, KEYS.demo, KEYS.profile]) {
+      for (const key of [KEYS.records, KEYS.draft, KEYS.settings, KEYS.demo, KEYS.account, KEYS.profile]) {
         localStorage.removeItem(key)
       }
       onWithdrawn()
@@ -75,11 +84,11 @@ export function useProfileForm({
       setDeleting(false)
       setConsent(false)
       setConfirmDelete(false)
-      setError('이 브라우저의 사용자 자료를 삭제했습니다.')
+      setError('이 기기의 사용자 자료를 삭제했어요.')
     } catch {
       setConfirmDelete(false)
       reloadStorage()
-      setError('자료를 모두 삭제하지 못했습니다. 남은 자료를 다시 확인한 뒤 시도해 주세요.')
+      setError('자료를 모두 삭제하지 못했어요. 남은 자료를 확인한 뒤 다시 시도해 주세요.')
     }
   }
 

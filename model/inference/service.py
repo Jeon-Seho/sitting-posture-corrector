@@ -19,7 +19,7 @@ REFERENCE_MODEL_VERSION = "reference-feature-rule-v1"
 MINIMUM_FEATURE_QUALITY = 0.65
 HEAD_GAP_SCALE = 0.22
 LATERAL_OFFSET_SCALE = 0.20
-SHOULDER_TILT_SCALE = 0.13
+SHOULDER_TILT_SCALE = 0.03  # ADR 0019 (was 0.13)
 REFERENCE_SCORE_SCALE = 0.7
 
 
@@ -69,7 +69,8 @@ def score_feature_deltas(features: FeatureDeltas) -> Tuple[float, DeviationType]
     if score == 0:
         return score, "none"
     if lateral_change > head_change and lateral_change > shoulder_change:
-        # Raw positive offset appears on the left of the mirrored camera preview.
+        # The user's own side: the camera image is not mirrored, so a positive offset change
+        # (nose toward larger image x) is a lean to the user's left. Checked 2026-10-08.
         kind = "left_lean" if features.lateral_offset_delta > 0 else "right_lean"
         return score, kind
     # Head height, shoulder tilt and ties do not establish forward slouch anatomy.

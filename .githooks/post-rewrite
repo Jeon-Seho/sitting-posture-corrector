@@ -1,4 +1,0 @@
-#!/bin/sh
-# git pull --rebase
-[ "$1" = "rebase" ] || exit 0
-exec "$(dirname "$0")/show-my-work"

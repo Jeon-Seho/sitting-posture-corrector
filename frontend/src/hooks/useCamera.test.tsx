@@ -205,7 +205,19 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(track.stop).toHaveBeenCalledOnce()
     expect(detect).not.toHaveBeenCalled()
   })
-  it('falls back to CPU and clears reference identity on disconnection', async () => {
+  it('keeps the registered baseline when the camera is turned off and on again', async () => {
+    await connect()
+    calibrate()
+    const registered = camera.baseline,
+      id = camera.calibrationId
+    expect(registered).not.toBeNull()
+    act(() => camera.stop())
+    expect(camera.state).toBe('off')
+    await connect()
+    expect(camera.baseline).toBe(registered)
+    expect(camera.calibrationId).toBe(id)
+  })
+  it('falls back to CPU and keeps the registered baseline on disconnection', async () => {
     vision.create.mockRejectedValueOnce(new Error('Synthetic GPU unavailable'))
     await connect()
     calibrate()
@@ -213,8 +225,8 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     act(() => track.onended?.())
     expect(camera.state).toBe('error')
     expect(camera.quality).toBe(false)
-    expect(camera.baseline).toBeNull()
-    expect(camera.calibrationId).toBeNull()
+    expect(camera.baseline).not.toBeNull()
+    expect(camera.calibrationId).not.toBeNull()
     expect(close).toHaveBeenCalledOnce()
   })
   it('reports tracking failures and releases resources', async () => {

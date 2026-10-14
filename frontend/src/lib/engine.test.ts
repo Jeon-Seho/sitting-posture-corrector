@@ -42,15 +42,15 @@ describe('shared demo and camera event policy', () => {
     run(m, 0.2, reading(0.9))
     expect(m.alertTick).toBe(2)
   })
-  it('preserves the existing 2-second recovery hysteresis', () => {
+  it('confirms recovery after the default 3 seconds (ADR 0012, revised 2026-10-06)', () => {
     const m = newMachine()
     run(m, 4, reading(0.9))
-    run(m, 1.9, reading(0.1))
+    run(m, 2.9, reading(0.1))
     expect(m.active).not.toBeNull()
     run(m, 0.1, reading(0.1))
     expect(m.active).toBeNull()
     expect(m.events[0].recovered).toBe(true)
-    expect(m.events[0].recoverySec).toBeCloseTo(3)
+    expect(m.events[0].recoverySec).toBeCloseTo(4)
   })
   it('closes an event on tracking loss, excludes missing time, and breaks interval groups', () => {
     const m = newMachine()
@@ -90,8 +90,8 @@ describe('shared demo and camera event policy', () => {
     expect(m.alertTick).toBe(0)
     run(m, 1, reading(0.9))
     expect(m.events[0].alerts).toBe(1)
-    run(m, 2, reading(0.1))
-    expect(m.events[0].recoverySec).toBeCloseTo(2.9)
+    run(m, 3, reading(0.1))
+    expect(m.events[0].recoverySec).toBeCloseTo(3.9)
   })
   it('resets an interrupted candidate and uses the configured threshold for statistics', () => {
     const m = newMachine()

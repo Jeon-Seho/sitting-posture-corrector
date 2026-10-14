@@ -123,6 +123,14 @@ class AppDriver {
     }, 'accepted synthetic adjacent-frame interval')
   }
 
+  /** The app runs on a virtual clock in synthetic mode; move it in ≤1 s steps and let React tick. */
+  async advanceClock(milliseconds) {
+    for (let left = milliseconds; left > 0; left -= 1000) {
+      await this.evaluate(`${BRIDGE}.advance(${Math.min(1000, left)})`)
+      await delay(150)
+    }
+  }
+
   async frames(count, kind = 'deviation', milliseconds = 1000) {
     let last
     for (let i = 0; i < count; i++) last = await this.frame(milliseconds, kind)
@@ -130,13 +138,24 @@ class AppDriver {
   }
 
   async startSession() {
+    // 2026-10-13: 측정하기 registers first when there is no posture and then measures by
+    // itself; with a posture 「측정 시작」 starts at once. Server mode is chosen beforehand.
     await this.click('측정하기')
-    await this.text('카메라를 켜 볼까요?')
-    await this.click('카메라 켜기')
-    await this.click('편하게 앉아서 기준 등록 시작')
     await this.openMore()
     await this.checkbox('서버 판정 사용')
-    await this.click('측정 시작')
+    if (await this.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '카메라 켜기')`))
+      await this.click('카메라 켜기')
+    await until(
+      () => this.evaluate(`['3초 뒤 기준 자세를 등록해요', '준비됐어요', '곧 측정을 시작해요'].some((t) => document.body.innerText.includes(t))`),
+      'registration countdown, auto start or ready to measure',
+    )
+    if (await this.evaluate(`document.body.innerText.includes('3초 뒤 기준 자세를 등록해요')`)) {
+      await this.advanceClock(3200) // 3·2·1, then the synthetic capture starts measuring by itself
+    } else if (await this.evaluate(`document.body.innerText.includes('곧 측정을 시작해요')`)) {
+      await this.click('지금 시작') // 2.5 s auto start after 카메라 켜기; start now
+    } else {
+      await this.click('측정 시작')
+    }
     let snapshot = await until(async () => {
       const state = await this.snapshot()
       if (state.draft?.server?.view && !state.draft.server.pending) return state
@@ -174,11 +193,11 @@ class AppDriver {
       await this.click('측정 재개')
     }
     this.check(
-      'session create uses the fixed 3/2/60 policy',
+      'session create uses the fixed 3/3/60 policy',
       JSON.stringify(snapshot.draft.server.view.policy) ===
         JSON.stringify({
           hold_ms: 3000,
-          recovery_ms: 2000,
+          recovery_ms: 3000,
           reminder_ms: 60000,
           threshold: 0.7,
         }),
@@ -204,11 +223,11 @@ class AppDriver {
     await until(
       () =>
         this.evaluate(
-          `!!${BRIDGE} && [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '내 프로필로 시작')`,
+          `!!${BRIDGE} && [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '로그인')`,
         ),
       'reload login and explicit synthetic adapter',
     )
-    await this.click('내 프로필로 시작')
+    await this.click('로그인')
     await this.click('이어하기')
   }
 
@@ -242,12 +261,18 @@ class AppDriver {
         displayed.alerts === `${alerts}회` &&
         displayed.count === `${records.length}`,
     )
+    // 일별 상세 folds each day; open every day before listing its sessions.
+    await this.evaluate(`(() => {
+      for (const day of document.querySelectorAll('.day-head[aria-expanded="false"]')) day.click();
+    })()`)
     const details = await this.evaluate(`(() => {
       const buttons = [...document.querySelectorAll('button')].filter(${visible}).filter((item) => ['자세히', '닫기'].includes(item.textContent.trim()) && item.classList.contains('history-detail-button'));
       for (const button of buttons) if (button.getAttribute('aria-expanded') !== 'true') button.click();
       return buttons.length;
     })()`)
     assert.equal(details, records.length)
+    // Raw numbers and server history are folded under 개발자용 상세 (2026-10-13).
+    await this.evaluate(`document.querySelectorAll('details.history-dev-details').forEach((item) => { item.open = true })`)
     await this.text('서버가 확인한 사건 이력')
     this.check(
       'record details expose preserved server events and frozen policy',
@@ -272,8 +297,15 @@ export async function runScenarios(browser, base, restartApi) {
       `!!document.querySelector('#root').textContent.trim() && !document.querySelector('vite-error-overlay')`,
     )) && browser.errors.length === 0,
   )
-  await app.click('내 프로필로 시작')
-  await app.text('카메라를 켜 볼까요?')
+  await app.click('로그인')
+  // 2026-10-13: registration lives in 측정하기 now; the app opens there after login.
+  await until(
+    () =>
+      app.evaluate(
+        `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '측정하기')`,
+      ),
+    'app screen after login',
+  )
   app.check(
     'synthetic input is visibly disclosed and camera permissions remain unused',
     (await app.evaluate(`document.body.innerText.includes('명시적 합성 브라우저 검증')`)) &&
@@ -311,9 +343,14 @@ export async function runScenarios(browser, base, restartApi) {
   )
   snapshot = await app.frame(1000, 'normal')
   app.check(
-    '2 seconds normal input confirms recovery',
+    '2 seconds normal input still does not complete recovery',
+    !snapshot.draft.server.view.events.some((event) => event.kind === 'recovery_confirmed'),
+  )
+  snapshot = await app.frame(1000, 'normal')
+  app.check(
+    '3 seconds normal input confirms recovery',
     snapshot.draft.server.view.events.at(-1).kind === 'recovery_confirmed' &&
-      snapshot.draft.server.view.events.at(-1).timestamp_ms === 65000,
+      snapshot.draft.server.view.events.at(-1).timestamp_ms === 66000,
   )
   snapshot = await app.frames(3)
   app.check(
@@ -343,7 +380,7 @@ export async function runScenarios(browser, base, restartApi) {
     snapshot.draft.server.view.summary.collapse_count === 3 &&
       snapshot.draft.server.view.summary.alert_count === 4,
   )
-  // Since 2026-10-06 (GP-0116) opening another tab keeps the measurement running.
+  // Since 2026-10-06 opening another tab keeps the measurement running.
   const restBeforeRecords = snapshot.draft.server.view.summary.rest_ms
   const validBeforeRecords = snapshot.draft.server.view.summary.valid_ms
   await app.click('기록')
@@ -369,10 +406,15 @@ export async function runScenarios(browser, base, restartApi) {
       snapshot.draft.server.view.summary.unknown_ms === 500 &&
       (await app.evaluate(`document.querySelector('.stage .pill').textContent.trim() === '자세를 확인할 수 없어요'`)),
   )
-  await app.frame(500, 'normal')
+  // Normal frames within 3 s of the poor one are still settling (ReturnSettle) and sent as poor.
+  snapshot = await app.frames(6, 'normal', 500)
+  app.check(
+    'measurement stays unjudged while settling for 3 s after unmeasurable',
+    snapshot.draft.server.view.summary.valid_ms === validBeforePoor,
+  )
   snapshot = await app.frame(500, 'normal')
   app.check(
-    'valid measurement resumes only after both adjacent endpoints are valid',
+    'valid measurement resumes only after both adjacent endpoints are judged',
     snapshot.draft.server.view.summary.valid_ms === validBeforePoor + 500,
   )
   await app.evaluate(`${BRIDGE}.holdNext('end')`)
@@ -398,8 +440,6 @@ export async function runScenarios(browser, base, restartApi) {
       !snapshot.camera.connected,
   )
   await app.click('기록')
-  await app.verifyHistory(snapshot.records)
-  await app.click('오늘')
   await app.verifyHistory(snapshot.records)
   await browser.screenshot('confirmed-dashboard')
   const reloadId = await app.startSession()
@@ -469,8 +509,6 @@ export async function runScenarios(browser, base, restartApi) {
   await app.click('기록')
   await app.text('서버 종료 미확인')
   await app.verifyHistory(snapshot.records)
-  await app.click('오늘')
-  await app.verifyHistory(snapshot.records)
   await browser.screenshot('unconfirmed-dashboard')
   await app.evaluate(`document.querySelector('.history-record-details')?.scrollIntoView()`)
   await browser.screenshot('history-details')
@@ -491,30 +529,15 @@ export async function runScenarios(browser, base, restartApi) {
   const originalServerRecords = JSON.stringify(snapshot.records)
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.click('내 프로필로 시작')
-  await app.click('기록')
-  await app.click('전체')
-  await app.openMore()
-  await app.text('비교에 포함된 기록의 조건')
-  const comparison = await app.evaluate(
-    `document.querySelector('[aria-label="기록 비교 조건"]').innerText`,
-  )
+  await app.click('로그인')
+  await app.click('달력')
+  // The first-vs-recent comparison was removed from the app (2026-10-14).
   snapshot = await app.snapshot()
   app.check(
-    'legacy synthetic record exposes mixed-source and unknown comparison conditions',
-    comparison.includes('브라우저 판정') &&
-      comparison.includes('서버 판정') &&
-      comparison.includes('기록에 없음') &&
-      comparison.includes('확인할 수 없음') &&
-      comparison.includes('기준 ID가 기록에 없음') &&
-      JSON.stringify(snapshot.records.slice(0, 3)) === originalServerRecords,
+    'legacy synthetic record loads beside server records without rewriting them',
+    JSON.stringify(snapshot.records.slice(0, 3)) === originalServerRecords,
   )
-  app.check(
-    'insufficient comparison time stays marked as reference only',
-    await app.evaluate(`document.body.innerText.includes('변화는 참고용')`),
-  )
-  await app.evaluate(`document.querySelector('[aria-label="기록 비교 조건"]').scrollIntoView()`)
-  await browser.screenshot('comparison-conditions')
+  await browser.screenshot('calendar-with-legacy-record')
   await verifyWithdrawalDialog(app)
   app.check('browser flow has no runtime or compiler errors', browser.errors.length === 0)
   return app.checks

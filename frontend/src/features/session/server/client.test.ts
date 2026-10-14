@@ -73,6 +73,7 @@ describe('same-origin server client with synthetic HTTP responses', () => {
     )
     const rejection = expect(promise).rejects.toMatchObject({
       status: null,
+      network: true,
       message: expect.stringContaining('처리 여부가 확인되지 않아'),
     })
     await vi.advanceTimersByTimeAsync(100)
@@ -81,8 +82,19 @@ describe('same-origin server client with synthetic HTTP responses', () => {
     const terminal = createSessionClient(SESSION_ID, DEFAULT_RULES, {
       fetch: vi.fn(async () => new Response('{}', { status: 429 })) as typeof fetch,
     })
-    await expect(terminal.get(new AbortController().signal)).rejects.toBeInstanceOf(
-      ServerRequestError,
-    )
+    await expect(terminal.get(new AbortController().signal)).rejects.toMatchObject({
+      status: 429,
+      network: false,
+    })
+    const unreachable = createSessionClient(SESSION_ID, DEFAULT_RULES, {
+      fetch: vi.fn(async () => {
+        throw new TypeError('Synthetic network failure')
+      }) as typeof fetch,
+    })
+    await expect(unreachable.get(new AbortController().signal)).rejects.toMatchObject({
+      status: null,
+      network: true,
+    })
+    expect(new ServerRequestError('x')).toBeInstanceOf(ServerRequestError)
   })
 })

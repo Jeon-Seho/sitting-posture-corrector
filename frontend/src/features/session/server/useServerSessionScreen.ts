@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CameraController } from '../../../hooks/useCamera'
 import type { Machine } from '../../../lib/engine'
-import { COLLAPSE_LABEL } from '../../../data/posture'
 import { enableSound, playCorrection } from '../../../lib/sound'
 import type { ServerCheckpoint, ServerLiveState, ServerSessionDescriptor } from './contracts'
 import { ServerSessionController, type ServerScreenState } from './controller'
 import { projectLive } from './projection'
+import { SERVER } from '../../platform/serverConfig'
+import {
+  connectionLost,
+  reportConnectionLost,
+  subscribeConnectionLost,
+} from '../../connection/connectionLost'
+import { popupAlert } from '../../desktop/alertPopup'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
-const REALTIME_URL: string | undefined = import.meta.env.VITE_REALTIME_URL || undefined
+const REALTIME_URL = SERVER.realtimeUrl
 
 export type ServerSessionService = {
   active: boolean
@@ -17,6 +23,8 @@ export type ServerSessionService = {
   onArchive?: (live: ServerLiveState) => void
   saveMessage: string
   onRetry: () => void
+  /** "2026-10-13 · 세션 2", shown when the connection is lost. */
+  sessionLabel?: string
 }
 type Options = {
   session: ServerSessionDescriptor
@@ -45,6 +53,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
     queued: 0,
     retryable: false,
     canResume: false,
+    connectionLost: false,
   }))
   const controller = useRef<ServerSessionController | null>(null)
   const latest = useRef({ camera, service, soundOn, alertsOn })
@@ -59,21 +68,26 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
       onCheckpoint: (machine, checkpoint) =>
         latest.current.service.onCheckpoint(machine, checkpoint),
       onEnded: (live) => latest.current.service.onEnded(live),
+      // The session ends here: keep what the server confirmed, then block the app.
+      onConnectionLost: () => {
+        const { camera: current, service: owner } = latest.current
+        current.stop()
+        if (owner.onArchive) {
+          setArchived(true)
+          owner.onArchive(next.state.live)
+        }
+        reportConnectionLost({ reason: 'network', session: owner.sessionLabel })
+      },
       onNotifications: (events) => {
         if (!latest.current.alertsOn) return
         if (latest.current.soundOn && !playCorrection())
           setSoundError('소리를 재생하지 못했습니다. 소리 켜기를 다시 눌러 주세요.')
         const last = events.at(-1)!
-        const label =
-          last.deviation_type === 'forward_slouch'
-            ? COLLAPSE_LABEL.forwardHead
-            : last.deviation_type === 'left_lean' || last.deviation_type === 'right_lean'
-              ? COLLAPSE_LABEL.tilt
-              : '기준 자세 변화'
+        popupAlert(last.kind === 'reminder')
         setToast(
           last.kind === 'reminder'
-            ? `${label} 사건의 재알림입니다.`
-            : `서버에서 ${label} 사건을 확정했습니다.`,
+            ? '흐트러진 자세가 이어져 다시 알려드려요.'
+            : '흐트러진 자세가 이어지고 있어요.',
         )
         if (toastTimer.current !== null) clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3000)
@@ -83,6 +97,10 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
     const unsubscribe = latest.current.camera.subscribe((frame) =>
       next.ingest(frame, latest.current.camera.deviceId),
     )
+    // The settings test (or any other report) ends a running session the same way.
+    const unwatch = subscribeConnectionLost(() => {
+      if (connectionLost()) next.loseConnection()
+    })
     void next.start()
     const timer = setInterval(() => {
       next.tick()
@@ -96,6 +114,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
     }, 250)
     return () => {
       unsubscribe()
+      unwatch()
       clearInterval(timer)
       if (toastTimer.current !== null) clearTimeout(toastTimer.current)
       next.dispose()

@@ -1,10 +1,34 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
-import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, SignOut, UserCircle, VideoCamera } from '@phosphor-icons/react'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
+import { cameraName } from '../features/camera/mainCamera'
+import { SelectMenu } from '../components/SelectMenu'
+import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
+import { reportConnectionLost } from '../features/connection/connectionLost'
+import { AlertPreview } from '../features/desktop/AlertPreview'
+import type { CameraController } from '../hooks/useCamera'
+
+type CameraChoice = Pick<
+  CameraController,
+  | 'devices'
+  | 'deviceId'
+  | 'state'
+  | 'mainDeviceId'
+  | 'mainMissing'
+  | 'chooseMainCamera'
+  | 'refreshDevices'
+  | 'baseline'
+  | 'baselineInfo'
+  | 'quality'
+  | 'subscribe'
+  | 'trackingFps'
+  | 'setTrackingFps'
+  | 'tryTrackingFps'
+>
 
 type Rules = typeof DEFAULT_RULES
 
@@ -99,6 +123,66 @@ function Slider({
   )
 }
 
+/** "10월 13일 오전 9:12에 등록했어요 (USB Camera)." */
+function baselineDescription(camera?: CameraChoice) {
+  if (!camera) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
+  if (!camera.baseline) return '아직 등록한 자세가 없어요. 처음 측정할 때 함께 등록해요.'
+  const info = camera.baselineInfo
+  if (!info) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
+  const when = new Date(info.savedAt).toLocaleString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const index = camera.devices.findIndex((d) => d.deviceId === info.deviceId)
+  const device = index >= 0 ? `${cameraName(camera.devices[index], index)}로 ` : ''
+  return `${when}에 ${device}등록했어요. 카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.`
+}
+
+function MainCamera({ camera }: { camera: CameraChoice }) {
+  const { devices } = camera
+  const known = devices.some((d) => d.deviceId === camera.mainDeviceId)
+  // Before camera permission the browser hides names and ids, so there is nothing to choose yet.
+  const hidden = devices.some((d) => !d.deviceId)
+  const unnamed = !hidden && devices.some((d) => !d.label)
+  const desc =
+    devices.length === 0
+      ? '연결된 카메라를 찾지 못했어요. 카메라를 꽂은 뒤 다시 찾아 주세요.'
+      : hidden
+        ? `카메라 ${devices.length}대를 찾았어요. 측정하기에서 카메라를 한 번 켜면 고를 수 있어요.`
+        : camera.mainMissing
+        ? '저장한 메인 카메라를 찾지 못해 기본 카메라를 쓰고 있어요.'
+        : devices.length > 1
+          ? '카메라가 여러 대일 때 측정에 쓸 카메라예요. 바꾸면 다음에 켤 때부터 이 카메라를 써요.'
+          : '연결된 카메라가 1대예요.'
+  return (
+    <Row name="메인 카메라" desc={unnamed ? `${desc} 카메라를 한 번 켜면 이름이 보여요.` : desc}>
+      <div className="setting-control">
+        {devices.length > 0 && !hidden && (
+          <SelectMenu
+            label="메인 카메라"
+            icon={<VideoCamera size={15} weight="bold" className="icon" />}
+            value={known ? camera.mainDeviceId : ''}
+            onChange={camera.chooseMainCamera}
+            options={[
+              { value: '', label: '기본 카메라 (자동)' },
+              ...devices.map((d, i) => ({
+                value: d.deviceId,
+                label: cameraName(d, i),
+                note: camera.state === 'on' && d.deviceId === camera.deviceId ? '사용 중' : undefined,
+              })),
+            ]}
+          />
+        )}
+        <button className="chip" onClick={() => void camera.refreshDevices()}>
+          다시 찾기
+        </button>
+      </div>
+    </Row>
+  )
+}
+
 function Row({ name, desc, children }: { name: string; desc: string; children: ReactNode }) {
   return (
     <div className="setting-row">
@@ -119,13 +203,13 @@ export function SettingsPage({
   hasHistory,
   onHasHistory,
   serviceMode = false,
-  accountMode = false,
   account,
   onRegisterAgain,
   onCollect,
+  camera,
 }: {
+  camera?: CameraChoice
   serviceMode?: boolean
-  accountMode?: boolean
   rules: Rules
   onRules: (r: Rules) => void
   alertsOn: boolean
@@ -154,13 +238,9 @@ export function SettingsPage({
           <Card title="알림">
             <Row
               name="자세 알림"
-              desc={
-                accountMode
-                  ? '꺼도 기록은 계속 남아요. 화면 알림과 소리만 꺼져요.'
-                  : '자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요.'
-              }
+              desc="자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요."
             >
-              {serviceMode && !accountMode ? (
+              {serviceMode ? (
                 <span className="badge good">
                   <i className="pip" />
                   켜짐
@@ -168,6 +248,21 @@ export function SettingsPage({
               ) : (
                 <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
               )}
+            </Row>
+            <Row
+              name="다른 창을 볼 때 팝업"
+              desc={
+                desktop.desktop
+                  ? '앱이 가려져 있거나 최소화돼 있어도 화면 오른쪽 아래 작은 창으로 알려드려요.'
+                  : '데스크톱 앱에서 사용할 수 있어요.'
+              }
+            >
+              <Switch
+                checked={desktop.info?.alertPopup !== false && !!desktop.info}
+                onChange={(v) => void desktop.setAlertPopup(v)}
+                label="다른 창을 볼 때 팝업으로 알림"
+                disabled={!desktop.info}
+              />
             </Row>
             <Row name="얼마나 민감하게" desc="꼼꼼할수록 작은 변화에도 알려드려요.">
               <Choice
@@ -248,12 +343,13 @@ export function SettingsPage({
             </div>
           </details>
           <Card title="측정">
-            <Row name="기준 자세" desc="카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.">
+            <Row name="기준 자세" desc={baselineDescription(camera)}>
               <button className="chip" disabled={!onRegisterAgain} onClick={onRegisterAgain}>
                 <ArrowCounterClockwise size={14} weight="bold" className="icon" />
-                다시 등록
+                {camera?.baseline ? '기준 자세 다시 등록' : '기준 자세 등록'}
               </button>
             </Row>
+            {camera && <MainCamera camera={camera} />}
           </Card>
 
           <Card title="컴퓨터를 켤 때">
@@ -324,7 +420,7 @@ export function SettingsPage({
             <div className="more-body">
               <Row
                 name="발표용 예시 기록 표시"
-                desc={`켜면 기록 화면에 예시 데이터를, 끄면 ${accountMode ? '내 계정의' : '이 기기에 저장된'} 실제 측정 기록을 보여줘요.`}
+                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
               >
                 <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
               </Row>
@@ -335,9 +431,29 @@ export function SettingsPage({
                   </button>
                 </Row>
               )}
+              {camera && (
+                <div className="setting-row setting-row-stack">
+                  <div>
+                    <div className="setting-name">추적 속도</div>
+                    <div className="setting-desc">
+                      스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
+                    </div>
+                  </div>
+                  <TrackingRateCheck camera={camera} />
+                </div>
+              )}
+              <AlertPreview />
+              <Row
+                name="서버 연결 끊김 화면"
+                desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
+              >
+                <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
+                  끊김 화면 확인
+                </button>
+              </Row>
               <div className="setting-row">
                 <div className="setting-name">판정 방식</div>
-                <span className="mono">reference-rules-v0.1 · 3초 기준 등록</span>
+                <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>
               </div>
               <div className="setting-row">
                 <div className="setting-name">전처리</div>

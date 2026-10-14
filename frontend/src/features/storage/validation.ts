@@ -1,5 +1,5 @@
 import type { CollapseEvent, Machine, Rules } from '../../lib/engine'
-import { KEYS, type Draft, type Profile, type RecordItem } from './types'
+import { KEYS, type Draft, type LocalAccount, type Profile, type RecordItem } from './types'
 import { validServerCheckpoint, validSessionView, validUuid } from '../session/server/validation'
 import { projectMachine } from '../session/server/projection'
 import { sameSnapshot, serverRecordEvents } from './serverSnapshots'
@@ -34,10 +34,21 @@ export function validProfile(v: unknown): v is Profile {
   return (
     object(v) &&
     text(v.name, 50) &&
-    integer(v.age) &&
-    v.age >= 1 &&
-    v.age <= 120 &&
-    text(v.occupation, 80)
+    (v.age === undefined || (integer(v.age) && v.age >= 1 && v.age <= 120)) &&
+    (v.occupation === undefined || text(v.occupation, 80))
+  )
+}
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+export const validEmail = (v: unknown): v is string =>
+  typeof v === 'string' && v.length <= 254 && EMAIL.test(v)
+export function validAccount(v: unknown): v is LocalAccount {
+  if (!object(v) || !validEmail(v.email) || !object(v.consents)) return false
+  const { version, agreed, at } = v.consents
+  return (
+    text(version, 40) &&
+    date(at) &&
+    object(agreed) &&
+    Object.values(agreed).every((value) => typeof value === 'boolean')
   )
 }
 function validEvent(v: unknown, total: number): v is CollapseEvent {
@@ -215,5 +226,6 @@ export function validLocal(key: string, value: unknown) {
   if (key === KEYS.draft) return validDraft(value)
   if (key === KEYS.settings) return validRules(value)
   if (key === KEYS.demo) return typeof value === 'boolean'
+  if (key === KEYS.account) return validAccount(value)
   return false
 }

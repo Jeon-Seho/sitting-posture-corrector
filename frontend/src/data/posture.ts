@@ -32,12 +32,6 @@ export const STATE_LABEL: Record<PostureState, string> = {
   unknown: '판정 불가',
 }
 
-export const COLLAPSE_LABEL: Record<CollapseType, string> = {
-  forwardHead: '머리·상체 변화',
-  tilt: '기울어짐',
-  referenceChange: '기준 대비 변화',
-}
-
 /** 계획서의 특징값: 목 전방 이동, 어깨 기울기, 상체 기울기, 좌우 균형 */
 export type Features = {
   neckForward: number
@@ -196,7 +190,7 @@ export const SCENARIO: Segment[] = [
     pose: 'away',
     state: 'unknown',
     seconds: 18,
-    notice: '상반신이 화면을 벗어났습니다. 카메라 위치나 조명을 확인해 주세요.',
+    notice: '상반신이 화면을 벗어났어요. 카메라 위치나 조명을 확인해 주세요.',
   },
   { pose: 'upright', state: 'good', seconds: 52 },
   // 재알림 간격이 한 번 걸리도록 일부러 길게 끄는 구간
@@ -213,7 +207,7 @@ export const DEFAULT_RULES = {
   /** 붕괴 확정까지 필요한 지속 시간(초) */
   holdSeconds: 3,
   /** 정상 복귀로 인정할 유지 시간(초) */
-  recoverSeconds: 2,
+  recoverSeconds: 3,
   /** 같은 이벤트 재알림 간격(초) */
   realertSeconds: 60,
   /** 붕괴 판정 확률 임계값 */

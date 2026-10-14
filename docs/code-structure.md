@@ -1,7 +1,5 @@
 # 코드 구조와 수정 위치
 
-- 분야: 데브옵스
-- 작업: GP-0104
 2026-10-01에 기존 동작을 유지하면서 앱 조립, 기능별 상태·저장, HTTP, 추론, 시간 판정을 분리했다.
 구조 정리는 프레임워크·라이브러리·버전·저장 키·기존 계약을 유지했다.
 후속 서버 연결은 새 입력/응답 계약과 선택 필드·`dev-server` 명령을 추가했다([ADR 0013](decisions/0013-frontend-server-feature-connection.md)).
@@ -23,11 +21,11 @@ frontend/src/
     history/              기록 조회·상세·비교 조건 안내
     storage/              저장 타입, 검증, 브라우저 IO, 기록 변환
     testing/              명시적 개발 테스트 모드의 합성 카메라·시계
-  pages/                  측정 준비·수집·설정·로그인·발표용 예시 대시보드 화면
+  pages/                  측정 준비·자세 등록·수집·설정·로그인 화면
   components/             여러 화면에서 쓰는 UI·카메라 표시
   hooks/                  카메라·수집·세션·탭 잠금 React 연결
   lib/                    통계·표시·수집 도구와 기존 공개 진입점
-  data/                   설정 기본값, 명시적인 합성 발표 자료
+  data/                   설정 기본값, 발표용 예시 기록 생성기
   styles/                 토큰·레이아웃·컴포넌트·화면별 스타일
   styles.css              기존 순서를 유지하는 스타일 import
 
@@ -81,7 +79,7 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 | 저장 형식·손상 검사 | [타입](../frontend/src/features/storage/types.ts), [검증](../frontend/src/features/storage/validation.ts) | localStorage 키와 기존 자료 호환성을 유지한다. |
 | 저장 읽기·쓰기 | [저장소](../frontend/src/features/storage/localRepository.ts) | 원본 보존, 쓰기 전 검증, draft 보호를 담당한다. |
 | 기록 집계·복구 변환 | [기록 함수](../frontend/src/features/storage/records.ts), [기록 화면](../frontend/src/features/history/LocalHistory.tsx) | 계산/변환과 React 표시를 분리한다. |
-| 기록 상세·비교 조건 | [상세](../frontend/src/features/history/RecordDetails.tsx), [비교 조건](../frontend/src/features/history/ComparisonConditions.tsx) | 저장된 사건·설정과 출처/기준 차이를 표시하며 없는 자료는 추정하지 않는다. |
+| 기록 상세·달력 | [상세](../frontend/src/features/history/RecordDetails.tsx), [달력](../frontend/src/features/history/RecordCalendarPage.tsx), [발표용 예시 기록](../frontend/src/data/exampleRecords.ts) | 저장된 사건·설정을 표시하며 없는 자료는 추정하지 않는다. 예시 기록은 설정의 토글로만 보이고 저장하지 않는다. |
 | 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [카메라 기능](../frontend/src/features/camera/) | React 생명주기와 순수 처리/모델 어댑터를 구분한다. |
 | 색·서체·간격 | [토큰](../frontend/src/styles/base.css), [스타일 진입](../frontend/src/styles.css) | import 순서는 기존 cascade와 같게 유지한다. |
 
@@ -116,6 +114,4 @@ Java 트리의 `.../`는 각 모듈 `src/main/java/org/posegood/{api,cep}` 경�
 - 기존 API·저장·시간 의미를 바꾸면 계약·합성 회귀 검증과 관련 결정을 함께 갱신한다.
 - `.editorconfig`의 들여쓰기·개행을 따른다. 이번 포맷 도구는 임시 실행했으며 프로젝트 의존성에 추가하지 않았다.
 
-기본 검증은 `make check`다. [품질 기준](quality.md),
-[구조 변경 완료 기록](plans/completed/0012-readable-code-structure.md),
-[기술 스택 조사](audits/2026-10-01-technology-stack.md)를 함께 확인한다.
+기본 검증은 `make check`다. [품질 기준](quality.md)을 함께 확인한다.

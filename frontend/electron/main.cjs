@@ -1,5 +1,5 @@
 // Main process: PC 창의 생성, 시작 프로그램 등록, 앱 종료를 담당한다.
-const { app, BrowserWindow, dialog, ipcMain, net, protocol } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('electron')
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -48,9 +48,10 @@ const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.
 function readSettings() {
   try {
     const value = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))
-    return { autoCamera: value.autoCamera === true }
+    // 자세 알림 팝업은 기본으로 켠다. 설정 화면에서 끌 수 있다.
+    return { autoCamera: value.autoCamera === true, alertPopup: value.alertPopup !== false }
   } catch {
-    return { autoCamera: false }
+    return { autoCamera: false, alertPopup: true }
   }
 }
 function writeSettings(next) {
@@ -93,6 +94,97 @@ ipcMain.handle('desktop:set-auto-camera', (event, enabled) => {
   writeSettings({ ...readSettings(), autoCamera: enabled === true })
   return launchInfo()
 })
+// 서버 연결이 끊긴 세션의 「종료하기」: 앱 전체를 닫는다.
+ipcMain.handle('desktop:quit', (event) => {
+  if (!trusted(event)) return false
+  setImmediate(() => app.quit())
+  return true
+})
+ipcMain.handle('desktop:set-alert-popup', (event, enabled) => {
+  if (!trusted(event)) return null
+  writeSettings({ ...readSettings(), alertPopup: enabled === true })
+  if (enabled !== true) hidePopup()
+  return launchInfo()
+})
+
+// 자세 알림 팝업: 앱 창이 가려졌거나 최소화됐을 때만 화면 오른쪽 아래에 띄운다.
+// 포커스를 가져가지 않고(showInactive) 일정 시간 뒤 스스로 숨는다. 앱을 보고 있으면 앱 안 토스트만 쓴다.
+const POPUP_WIDTH = 360
+const POPUP_HEIGHT = 76
+const POPUP_MS = 8000
+let mainWindow = null
+let popupWindow = null
+let popupTimer = null
+const popupURL = app.isPackaged ? 'app://posegood/alert-popup.html' : new URL('alert-popup.html', DEV_URL).toString()
+
+function popupText(value, limit) {
+  return typeof value === 'string' ? value.trim().slice(0, limit) : ''
+}
+
+async function ensurePopup() {
+  if (popupWindow && !popupWindow.isDestroyed()) return popupWindow
+  popupWindow = new BrowserWindow({
+    width: POPUP_WIDTH, height: POPUP_HEIGHT, show: false, frame: false, transparent: true,
+    resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: '#00000000',
+    title: 'PoseGood 자세 알림',
+    webPreferences: {
+      nodeIntegration: false, contextIsolation: true, sandbox: true,
+      preload: path.join(__dirname, 'popup-preload.cjs'),
+    },
+  })
+  popupWindow.setAlwaysOnTop(true, 'screen-saver')
+  popupWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  popupWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  popupWindow.on('closed', () => {
+    popupWindow = null
+  })
+  await popupWindow.loadURL(popupURL)
+  return popupWindow
+}
+
+function hidePopup() {
+  if (popupTimer) clearTimeout(popupTimer)
+  popupTimer = null
+  if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) popupWindow.hide()
+}
+
+function appInView() {
+  return !!mainWindow && mainWindow.isVisible() && !mainWindow.isMinimized() && mainWindow.isFocused()
+}
+
+ipcMain.handle('desktop:alert', async (event, alert) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return null
+  // 개발자 옵션의 미리보기는 설정·앱 화면 여부와 상관없이 띄운다.
+  const preview = alert?.preview === true
+  if (!preview && !readSettings().alertPopup) return 'off'
+  if (!preview && appInView()) return 'in-app'
+  const title = popupText(alert?.title, 60), body = popupText(alert?.body, 140)
+  if (!title) return null
+  const popup = await ensurePopup()
+  const area = screen.getDisplayMatching(mainWindow.getBounds()).workArea
+  popup.setBounds({
+    x: Math.round(area.x + area.width - POPUP_WIDTH - 12),
+    y: Math.round(area.y + area.height - POPUP_HEIGHT - 12),
+    width: POPUP_WIDTH, height: POPUP_HEIGHT,
+  })
+  popup.webContents.send('popup:show', { title, body, durationMs: POPUP_MS })
+  popup.showInactive()
+  if (popupTimer) clearTimeout(popupTimer)
+  popupTimer = setTimeout(hidePopup, POPUP_MS)
+  return 'popup'
+})
+ipcMain.on('popup:close', (event) => {
+  if (popupWindow && event.sender === popupWindow.webContents) hidePopup()
+})
+ipcMain.on('popup:open-app', (event) => {
+  if (!popupWindow || event.sender !== popupWindow.webContents) return
+  hidePopup()
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
 
 async function createWindow() {
   const window = new BrowserWindow({
@@ -110,6 +202,13 @@ async function createWindow() {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
+  })
+  mainWindow = window
+  // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
+  window.on('focus', hidePopup)
+  window.on('closed', () => {
+    mainWindow = null
+    if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()
   })
   // Alt를 눌러도 File/Edit 메뉴 바가 나타나지 않게 메뉴 자체를 없앤다(macOS는 시스템 메뉴 유지).
   if (!isMac) window.removeMenu()
@@ -147,7 +246,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    const [window] = BrowserWindow.getAllWindows()
+    const window = mainWindow
     if (!window) return
     if (window.isMinimized()) window.restore()
     window.focus()
@@ -170,7 +269,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     createWindow()
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      if (!mainWindow) createWindow()
     })
   })
 }

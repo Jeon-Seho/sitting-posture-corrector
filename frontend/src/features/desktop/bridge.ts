@@ -12,7 +12,12 @@ export type LaunchInfo = {
   launchAtLogin: boolean
   /** Connect the camera automatically when the app was started at login. */
   autoCamera: boolean
+  /** Show posture alerts in a small popup while the app window is covered or minimized. */
+  alertPopup?: boolean
 }
+
+/** Where the main process delivered a posture alert. */
+export type AlertDelivery = 'popup' | 'in-app' | 'off' | null
 
 export type DesktopBridge = {
   version: 1
@@ -20,6 +25,11 @@ export type DesktopBridge = {
   getLaunchInfo: () => Promise<LaunchInfo | null>
   setLaunchAtLogin: (enabled: boolean) => Promise<LaunchInfo | null>
   setAutoCamera: (enabled: boolean) => Promise<LaunchInfo | null>
+  /** Closes the whole app. Absent in desktop shells built before 2026-10-13. */
+  quit?: () => Promise<boolean>
+  setAlertPopup?: (enabled: boolean) => Promise<LaunchInfo | null>
+  /** `preview` (개발자 옵션) shows the popup even while the app is in view or popups are off. */
+  showAlert?: (alert: { title: string; body: string; preview?: boolean }) => Promise<AlertDelivery>
 }
 
 declare global {

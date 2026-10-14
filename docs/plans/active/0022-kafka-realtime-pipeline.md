@@ -1,9 +1,10 @@
 # Kafka 실시간 전달 경로와 프론트 게이트웨이
 
-- 분야: 프론트
-- 작업: GP-0069
-- 상태: planned (선행 결정 대기)
-- 담당: 동욱 요청, klaod-tech_CL 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
+> **변경(2026-10-12):** 아키텍처 v5(10/11)에서 게이트웨이는 FE가 만들지 않고 BE의 입출구 서버(`auth`·`api`·`ws`)가 맡는다. 아래 게이트웨이 설명은 그 전 계획이다. 현재 기준은 [FE 제안서](../../design/fe-server-proposal.md) 1장.
+
+- 상태: planned (2026-10-11 전제 변경: 앱은 좌표를 보내고 판정은 서버, 로컬 판정 없음 — [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md).
+  게이트웨이 위치·서버 입력 형식은 [FE 제안서](../../design/fe-server-proposal.md) 답변 대기. 아래 '결정과 진행 기록' 첫 항목)
+- 담당: 동욱 요청, Claude 작성. 팀원 요청으로 프론트가 게이트웨이까지 담당
 - 시작일: 2026-10-05
 - 관련 요구사항/ADR: [ADR 0011](../../decisions/0011-api-cep-boundary.md), [ADR 0012](../../decisions/0012-session-timing-policy.md),
   [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md), [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md),
@@ -92,7 +93,7 @@
 | 시간 판정 | 실시간 상태머신 서비스 | Esper CEP(ADR 0011) |
 | 시간 값 | T1 10초·T2 5초 | 세션 정책값(ADR 0012) |
 | 인증 | 게이트웨이 JWT | 기존 서버 로그인 세션·CSRF. Electron 패키징 앱(`app://posegood`)의 연결 방식은 별도 결정 |
-| 기준 자세 토픽 | `posture.baselines` | 보류. [DB 전환 계획](0021-db-schema-v03-alignment.md)의 기준 특징 저장 결정 후 |
+| 기준 자세 토픽 | `posture.baselines` | 보류. DB 전환 계획의 기준 특징 저장 결정 후 |
 | 일별 통계 | Spark 일 배치 | 범위 밖. 기존 API 통계 유지 |
 
 ## 작업 단계
@@ -100,17 +101,32 @@
 - [ ] 팀 확인: 프론트가 게이트웨이까지 담당, 위 'v4 초안과 다른 점', 게이트웨이 구현 언어
 - [ ] ML 담당 확인: 서비스 모델 입력(변화량/키포인트), fps·윈도우, 추론 결과 필드
 - [ ] 전달 계약 결정(재생·보존)과 ADR 작성
-- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인(GP-0087)·홍규 검토 후 체크
+- [ ] 1 메시지 계약과 합성 예제, `make test` 검증 — 2026-10-06 초안 작성: [실시간 전달 계약 v1](../../../contracts/realtime/README.md), 합성 예제 12개, `tests/test_realtime_contracts.py` 6개 통과. 팀 확인·홍규 검토 후 체크
 - [ ] 2 Compose `kafka` 프로필과 토픽 생성
 - [ ] 3 게이트웨이와 합성 추론/CEP 처리기로 왕복 확인
-- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존 — 2026-10-06 FE 구현(GP-0115): `frontend/src/features/session/realtime/`, 서버 세션 컨트롤러에 `VITE_REALTIME_URL`로 선택 연결. 가짜 게이트웨이 테스트만 통과, 실제 게이트웨이 왕복은 3단계 이후
+- [ ] 4 클라이언트 `RealtimePort`, 기존 HTTP 서버 판정·로컬 판정과 선택 공존 — 2026-10-06 FE 구현: `frontend/src/features/session/realtime/`, 서버 세션 컨트롤러에 `VITE_REALTIME_URL`로 선택 연결. 가짜 게이트웨이 테스트만 통과, 실제 게이트웨이 왕복은 3단계 이후
 - [ ] 5 실패 경로 시험과 `make check` 연결, 문서 갱신
 
 ## 결정과 진행 기록
 
-- 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`, GP-0069). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
+- 2026-10-11: 이 계획의 전제 두 가지가 바뀌었다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)).
+  ① 앱은 특징 변화량(입력 v2) 대신 관절 좌표(`posture.frames.v1`)를 보낸다. 위 '따르는 기존 결정'의 ADR 0013 행과 '개인정보'의 "원본 좌표를 넣지 않는다"는
+  동의한 사용자의 좌표 전송으로 바뀐다. ② 로컬 판정·HTTP 서버 판정과의 "선택 공존"(4단계)은 없앤다. 앱은 서버 결과로만 화면을 바꾼다([계획 0023](0023-frontend-server-only.md)).
+  `DevOps` 브랜치(`f27f778`)를 확인한 결과 Kafka 뒤쪽(추론 → 판정 → `posture.episodes.v1`)은 계약 v1대로 구현됐고 게이트웨이(WebSocket)는 없다.
+  FE는 이 DevOps Kafka 경로에 붙고(v4 결정·현재 운영), 게이트웨이는 독립 서비스 `backend/realtime`으로 만든다. 게이트웨이는 좌표를 판정하지 않고 그대로 Kafka에 넣는다.
+  팀 API는 세션 시작·종료를 Kafka에 넣는다(C안). v5에서는 입출구 서버 `ws`가 발행한다([FE 제안서](../../design/fe-server-proposal.md) 1장).
+- 2026-10-08 (동욱): 판정 불가 처리를 정했다(3초 미만은 시계 멈춤, 3초 연속이면 측정 멈춤과 0.5초 뒤 자동 재개, 0.5초 구간은 판정 가능한 프레임 절반 기준 임시).
+  앱·DevOps 모두 구현 전이다. DevOps 엔진은 `UNKNOWN`을 정상으로 처리해 복귀로 셈하므로 D-23에 반영을 요청한다(규칙 원문은 [FE 제안서](../../design/fe-server-proposal.md) 6장의 git 이력).
+- 2026-10-07 확인: 홍규의 `DevOps` 브랜치(`501ab5d`, `platform/docs/FE연동안_BE검토의견.md`, 2026-10-06)는 이 계약 v1을 따르기로 했다.
+  역할은 Q1 C안(입구·인증·세션 시작/종료 = 팀 `develop`, Kafka 뒤 추론·판정 = DevOps/BE, 게이트웨이·화면 수신 = FE)이고,
+  기존 `POST /api/v1/posture/summary`(camelCase)는 부하 시험·재생용으로만 남긴다. DevOps 작업 D-21(토픽·봉투·키 `session_id`),
+  D-22(`posture.episodes.v1` 발행, 추론 입력 v2·관측 v2), D-23(세션 정책·중복·`phase`/`poor` 제외 구간·명시적 종료)은 등록만 됐다.
+  회의에서 정할 것: ① Kafka 메시지 단위(FE가 약 0.5초를 구간 1개로 합쳐 보내기 요청, 구간마다면 동시 4~5명 한계)
+  ② 판정 엔진 A(DevOps 상태머신 확장) / B(팀 `backend/cep`에 Kafka 연결, BE 의견) ③ DB 쓰기는 판정이 아닌 저장 소비자가.
+  현재 `lee_app1`의 Kafka 형식 저장(`kafkaExport.ts`)은 계약 v1 봉투 형식이다.
+- 2026-10-06 (동욱): 계약 초안 작성(`contracts/realtime/`). 실시간 상태는 서버 관측을 WebSocket `observation`으로 받는다
   (모델이 바뀌어도 화면과 판정이 같은 기준). 세션 시작·종료는 기존 HTTP, WebSocket은 측정 중 전송·결과 수신만(SSE는 대안으로만 기록).
-  FE 클라이언트는 GP-0115로 진행한다.
+  FE 클라이언트는 실시간 전달 어댑터로 구현한다.
 - 2026-10-05: `jin_app` 문서(ADR 0011~0017, 서비스 안내, 플랫폼 경계, 기술 스택 검토, v4 연결 지점)를 기준으로 작성했다.
   v4 원본 문서는 저장소에 없어 연결 지점 문서의 요약만 반영했다. 입력 토픽 이름(`posture.features.v1`)은 이 계획에서 정한 가칭이다.
 - 게이트웨이 구현 언어 후보: Spring Boot(기존 `backend/` Maven 모듈·`backend/contracts` 재사용·`check-backend` 게이트 공유) 또는 Node.

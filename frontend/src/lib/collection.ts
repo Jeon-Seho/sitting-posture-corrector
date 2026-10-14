@@ -1,11 +1,6 @@
-import {
-  referenceScore,
-  validFeatures,
-  type Features,
-  type Landmark,
-} from '../../../model/prototype/pose'
+import type { Landmark } from '../../../model/prototype/pose'
+import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 import type { Observation } from '../hooks/useCamera'
-import type { Rules } from './engine'
 import modelAsset from '../../model-asset.json'
 import {
   DEFAULT_CAPTURE_OPTIONS,
@@ -20,6 +15,13 @@ import {
 export const LABELS = POSTURES
 export type { Label } from './collectionProtocol'
 export const MAX_ROWS = 18000
+/**
+ * posture-pilot-v3 (2026-10-12): time, raw landmarks and the capture protocol only. The app
+ * writes no judgement (score, prediction, measurable or not) and no rule features (ADR 0021);
+ * the server and ML derive those from the landmarks. Self-report columns (manual_label,
+ * presence_label, review_status) are what the participant confirmed, not a rule output.
+ */
+export const SCHEMA_VERSION = 'posture-pilot-v3'
 export const CSV_COLUMNS = [
   'schema_version',
   'participant_code',
@@ -32,29 +34,11 @@ export const CSV_COLUMNS = [
   'segment_id',
   'manual_label',
   'label_source',
-  'measurement_quality',
-  'head_gap',
-  'lateral_offset',
-  'shoulder_tilt',
-  'visibility',
-  'baseline_head_gap',
-  'baseline_offset',
-  'baseline_tilt',
-  'delta_head_gap',
-  'delta_offset',
-  'delta_tilt',
-  'rule_score',
-  'rule_prediction',
-  'threshold',
-  'hold_seconds',
-  'realert_seconds',
-  'recover_seconds',
   'inference_ms',
   'delegate',
   'width',
   'height',
   'pose_model',
-  'feature_version',
   'calibration_seconds',
   'target_sample_hz',
   'task_id',
@@ -84,15 +68,12 @@ export type Capture = {
   id: string
   startedAt: string
   startMs: number
-  baseline: Features
-  rules: Rules
   rows: CsvRow[]
   segment: number
   lastSeen: number
   lastWritten: number
   lastVideo: number
   label: Label
-  wasValid: boolean | null
   options: CaptureOptions
   calibrationId: string
   review: 'pending' | 'accepted' | 'excluded'
@@ -101,8 +82,6 @@ export type Capture = {
 
 export function newCapture(
   participant: string,
-  baseline: Features,
-  rules: Rules,
   timeMs: number,
   id: string,
   startedAt: string,
@@ -116,15 +95,12 @@ export function newCapture(
     id,
     startedAt,
     startMs: timeMs,
-    baseline: { ...baseline },
-    rules: { ...rules },
     rows: [],
     segment: 0,
     lastSeen: -Infinity,
     lastWritten: -Infinity,
     lastVideo: -Infinity,
     label: 'unlabeled',
-    wasValid: null,
     options: { ...options },
     calibrationId,
     review: 'pending',
@@ -165,14 +141,9 @@ export function reviewCapture(c: Capture, accepted: boolean, label: Label, prese
     row.manual_label = accepted ? label : 'unlabeled'
     row.presence_label = accepted ? presence : 'unknown'
     row.label_source = accepted ? 'self_report_reviewed' : 'none'
+    // Whether a frame is measurable is decided later from the landmarks, not here.
     row.pose_training_eligible =
-      accepted &&
-      presence === 'seated' &&
-      label !== 'unlabeled' &&
-      label !== 'transition' &&
-      row.measurement_quality === 'good'
-        ? 1
-        : 0
+      accepted && presence === 'seated' && label !== 'unlabeled' && label !== 'transition' ? 1 : 0
   }
 }
 
@@ -188,26 +159,16 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     o.videoTimeMs <= c.lastVideo
   )
     return false
-  const valid = validFeatures(o.features)
-  if (
-    label !== c.label ||
-    (c.wasValid !== null && valid !== c.wasValid) ||
-    o.timeMs - c.lastSeen > 1000
-  )
-    c.segment++
+  if (label !== c.label || o.timeMs - c.lastSeen > 1000) c.segment++
   c.label = label
-  c.wasValid = valid
   c.lastSeen = o.timeMs
   c.lastVideo = o.videoTimeMs
   if (o.timeMs - c.lastWritten < 100) return false
-  const f = valid ? o.features : null,
-    b = c.baseline
-  const score = f ? referenceScore(f, b).score : null
   const gap = Number.isFinite(c.lastWritten) ? o.timeMs - c.lastWritten : null
   c.lastWritten = o.timeMs
   const task = taskFor(c.options.taskId)!
   c.rows.push({
-    schema_version: 'posture-pilot-v2',
+    schema_version: SCHEMA_VERSION,
     participant_code: c.participant,
     capture_id: c.id,
     started_at: c.startedAt,
@@ -218,31 +179,12 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     segment_id: c.segment,
     manual_label: 'unlabeled',
     label_source: 'none',
-    measurement_quality: valid ? 'good' : 'poor',
-    head_gap: f?.headGap ?? null,
-    lateral_offset: f?.offset ?? null,
-    shoulder_tilt: f?.tilt ?? null,
-    visibility: f?.quality ?? null,
-    baseline_head_gap: b.headGap,
-    baseline_offset: b.offset,
-    baseline_tilt: b.tilt,
-    delta_head_gap: f ? f.headGap - b.headGap : null,
-    delta_offset: f ? f.offset - b.offset : null,
-    delta_tilt: f ? f.tilt - b.tilt : null,
-    rule_score: score,
-    rule_prediction:
-      score === null ? 'unmeasurable' : score >= c.rules.threshold ? 'deviation' : 'normal',
-    threshold: c.rules.threshold,
-    hold_seconds: c.rules.holdSeconds,
-    realert_seconds: c.rules.realertSeconds,
-    recover_seconds: c.rules.recoverSeconds,
     inference_ms: o.inferenceMs,
     delegate: o.delegate,
     width: o.width,
     height: o.height,
     pose_model: modelAsset.modelId,
-    feature_version: 'reference-rules-v0.1',
-    calibration_seconds: 5,
+    calibration_seconds: CALIBRATION_MS / 1000,
     target_sample_hz: 10,
     task_id: task.id,
     activity: task.activity,

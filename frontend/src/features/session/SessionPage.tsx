@@ -37,6 +37,8 @@ export function SessionPage(props: Props) {
         onPrepare={onPrepare}
         onDashboard={onDashboard}
         onReset={screen.restartDemo}
+        onExport={screen.canExport ? screen.exportFeatures : undefined}
+        exportCount={screen.exportCount}
       />
     )
   }

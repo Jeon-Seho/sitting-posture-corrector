@@ -8,6 +8,7 @@ const labels: Record<string, string> = {
   [KEYS.draft]: '중간 기록',
   [KEYS.settings]: '설정',
   [KEYS.demo]: '시연 옵션',
+  [KEYS.account]: '계정',
 }
 export function readLocal<T>(key: string, fallback: T): T {
   let raw: string | null

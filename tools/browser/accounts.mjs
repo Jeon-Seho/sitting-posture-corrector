@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { until } from './cdp.mjs'
+import { delay, until } from './cdp.mjs'
 
 const BRIDGE = 'window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__'
 const visible = `(element) => !!element.getClientRects().length && !element.closest('[hidden]')`
@@ -140,10 +140,10 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.authenticate(email, password, '합성 계정 A')
   const owner = app.userId
   const initial = await app.api('workspace')
-  // DB V1.1 seed DEFAULT_TEMP (3s/2s/30s/0.5) is the temporary default policy.
+  // DB V1.1 seed DEFAULT_TEMP (3s/3s/60s/0.5, seed updated 2026-10-06) is the temporary default policy.
   app.check('new account starts with server records and DEFAULT_TEMP settings',
     initial.value.records.length === 0 && initial.value.rules.holdSeconds === 3 &&
-    initial.value.rules.recoverSeconds === 2 && initial.value.rules.realertSeconds === 30 &&
+    initial.value.rules.recoverSeconds === 3 && initial.value.rules.realertSeconds === 60 &&
     initial.value.rules.threshold === 0.5)
 
   await app.click('설정')
@@ -169,10 +169,14 @@ export async function runAccountScenarios(browser, base, tag) {
   await app.click('변경 저장')
   await app.text('프로필을 저장했습니다.')
   app.check('profile changes persist through the server', (await app.api('workspace')).value.profile.occupation === '변경된 합성 직업')
+  // 2026-10-13: 측정하기 registers (3·2·1 + capture) and then starts measuring by itself.
   await app.click('측정하기')
   await app.click('카메라 켜기')
-  await app.click('편하게 앉아서 기준 등록 시작')
-  await app.click('측정 시작')
+  await app.text('3초 뒤 기준 자세를 등록해요') // 얼굴·어깨가 보이면 자동으로 3·2·1 뒤 등록
+  for (const step of [1000, 1000, 1000, 200]) { // virtual clock through the countdown
+    await app.evaluate(`${BRIDGE}.advance(${step})`)
+    await delay(150)
+  }
   const created = await until(async () => {
     const draft = await app.draft()
     return draft?.server?.view && !draft.server.pending ? draft : null
@@ -185,7 +189,7 @@ export async function runAccountScenarios(browser, base, tag) {
   app.check('account input confirms one event at 3 seconds', measured.server.view.summary.collapse_count === 1)
 
   await app.cdp.call('Page.reload', { ignoreCache: true })
-  await app.text('중단된 측정이 있습니다')
+  await app.text('중단된 측정이 있어요')
   await app.click('이어하기')
   await app.text('쉬는 중')
   app.check('reload restores acknowledged facts without requesting a camera',

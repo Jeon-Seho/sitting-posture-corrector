@@ -35,6 +35,7 @@ function setup(
   session.server.finishOnly = options.finishOnly
   const onEnded = vi.fn()
   const onNotifications = vi.fn()
+  const onConnectionLost = vi.fn()
   const checkpoints: ServerCheckpoint[] = []
   const onCheckpoint = vi.fn((machine, saved: ServerCheckpoint) => {
     expect(validMachine(machine)).toBe(true)
@@ -51,12 +52,14 @@ function setup(
     onEnded,
     onNotifications,
     onCheckpoint,
+    onConnectionLost,
   })
   return {
     controller,
     client,
     onEnded,
     onNotifications,
+    onConnectionLost,
     checkpoints,
     time: (value: number) => {
       now = value
@@ -201,12 +204,15 @@ describe('server lifecycle using synthetic adjacent frames only', () => {
     latestPoor.resolve(transport.respond(s.client.send.mock.calls[3][0]))
     await flush()
     expect(s.controller.state.live.state).toBe('unknown')
-    s.time(400)
-    s.controller.ingest(cameraFrame(400), 'synthetic-device')
-    await flush()
-    expect(s.controller.state.live.state).toBe('unknown')
-    s.time(500)
-    s.controller.ingest(cameraFrame(500), 'synthetic-device')
+    // The user is still settling: frames within 3 s of the poor one are sent as poor.
+    for (const t of [400, 500, 1400, 2300, 3300]) {
+      s.time(t)
+      s.controller.ingest(cameraFrame(t), 'synthetic-device')
+      await flush()
+      expect(s.controller.state.live.state).toBe('unknown')
+    }
+    s.time(3400)
+    s.controller.ingest(cameraFrame(3400), 'synthetic-device')
     await flush()
     expect(s.controller.state.live.state).toBe('good')
   })
@@ -263,6 +269,61 @@ describe('server lifecycle using synthetic adjacent frames only', () => {
     expect(s.client.send.mock.calls[2][0]).toBe(original)
     expect(s.controller.state.phase).toBe('paused')
     expect(s.controller.state.canResume).toBe(true)
+  })
+
+  it('ends the session on no answer from the server and never retries it (2026-10-13)', async () => {
+    const s = setup()
+    await s.controller.start()
+    await flush()
+    s.client.send.mockRejectedValueOnce(new ServerRequestError('Synthetic unreachable', null, true))
+    s.time(100)
+    s.controller.ingest(cameraFrame(100), 'synthetic-device')
+    s.time(200)
+    s.controller.ingest(cameraFrame(200), 'synthetic-device')
+    await flush()
+    expect(s.onConnectionLost).toHaveBeenCalledOnce()
+    expect(s.controller.state).toMatchObject({
+      phase: 'paused',
+      connectionLost: true,
+      retryable: false,
+      canResume: false,
+    })
+    const sends = s.client.send.mock.calls.length
+    await s.controller.retry()
+    s.controller.end()
+    s.controller.tick()
+    s.time(300)
+    s.controller.ingest(cameraFrame(300), 'synthetic-device')
+    await flush()
+    expect(s.client.send.mock.calls).toHaveLength(sends)
+    expect(s.onEnded).not.toHaveBeenCalled()
+  })
+
+  it('treats a gateway 502 mid-session as a lost connection', async () => {
+    const s = setup()
+    await s.controller.start()
+    await flush()
+    s.client.send.mockRejectedValueOnce(new ServerRequestError('Synthetic proxy', 502))
+    s.time(100)
+    s.controller.ingest(cameraFrame(100), 'synthetic-device')
+    s.time(200)
+    s.controller.ingest(cameraFrame(200), 'synthetic-device')
+    await flush()
+    expect(s.onConnectionLost).toHaveBeenCalledOnce()
+    expect(s.controller.state.connectionLost).toBe(true)
+  })
+
+  it('keeps the explicit retry when the server is unreachable before accepting the session', async () => {
+    const s = setup()
+    s.client.send.mockRejectedValueOnce(new ServerRequestError('Synthetic unreachable', null, true))
+    await s.controller.start()
+    await flush()
+    expect(s.onConnectionLost).not.toHaveBeenCalled()
+    expect(s.controller.state).toMatchObject({ connectionLost: false, retryable: true })
+    await s.controller.retry()
+    await flush()
+    expect(s.client.send.mock.calls.map(([request]) => request.kind)).toEqual(['create', 'create'])
+    expect(s.controller.state.view).not.toBeNull()
   })
 
   it('bounds lagging frames and stays paused after the backlog drains', async () => {

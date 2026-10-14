@@ -23,6 +23,9 @@ type Props = {
   onPrepare: () => void
   onDashboard: () => void
   onReset: () => void
+  /** Local camera session: download the would-be Kafka messages. */
+  onExport?: () => boolean
+  exportCount?: number
 }
 
 export function SessionResult({
@@ -39,6 +42,8 @@ export function SessionResult({
   onPrepare,
   onDashboard,
   onReset,
+  onExport,
+  exportCount = 0,
 }: Props) {
   const alerts = live.events.reduce((a, e) => a + e.alerts, 0)
   const recovery = mean(recoveries)
@@ -46,8 +51,8 @@ export function SessionResult({
     <>
       <section className="result" aria-labelledby="result-title">
         <div className="result-head">
-          <Ring value={keepRate} label="바른 자세 비율">
-            <span className="ring-value" style={{ fontSize: 34 }}>
+          <Ring value={keepRate} size={188} stroke={20} label="바른 자세 비율">
+            <span className="ring-value" style={{ fontSize: 54 }}>
               {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
             </span>
             <span className="ring-label">바른 자세</span>
@@ -68,25 +73,32 @@ export function SessionResult({
             {service && <p className="fine" style={{ marginTop: 8 }}>{service.saveMessage}</p>}
           </div>
         </div>
-        <div className="result-tiles">
-          <div className="result-tile">
-            <span>받은 알림</span>
-            <b>{alerts}회</b>
-          </div>
-          <div className="result-tile">
-            <span>바로 앉기까지</span>
-            <b>{recovery === null ? '—' : `평균 ${formatDuration(recovery)}`}</b>
-          </div>
-          <div className="result-tile">
-            <span>확인 못 한 시간</span>
-            <b>{formatDuration(live.unknownSeconds)}</b>
-          </div>
-        </div>
+        {/* One line instead of three boxes (2026-10-14 layout rule); the rest is under 자세히. */}
+        <p className="today-line">
+          <span>
+            알림 <b>{alerts}회</b>
+          </span>
+          {recovery !== null && (
+            <span>
+              바로 앉기까지 평균 <b>{formatDuration(recovery)}</b>
+            </span>
+          )}
+        </p>
         <div className="result-actions">
-          {service && (
+          {service?.saveFailed ? (
             <button className="btn btn-quiet" onClick={service.onRetry}>
               저장 다시 시도
             </button>
+          ) : (
+            onExport && (
+              <button
+                className="btn btn-quiet"
+                onClick={onExport}
+                data-tip="서버(Kafka)로 보냈어야 할 구간 데이터(txt)와 분석용 관절 좌표(csv)를 내려받아요."
+              >
+                {exportCount ? `측정 데이터 저장됨 · ${exportCount}구간` : '측정 데이터 저장'}
+              </button>
+            )
           )}
           <button className="btn" onClick={onDashboard}>
             <ChartBar size={18} weight="bold" className="icon" />
@@ -140,7 +152,7 @@ export function SessionResult({
             <Stat label="쉰 시간 (집계 제외)" value={formatDuration(live.pausedSeconds)} small />
             <Stat
               label="판정 방식"
-              value={isCamera ? 'reference-rules-v0.1' : MODEL_VERSION}
+              value={isCamera ? 'reference-rules-v0.2' : MODEL_VERSION}
               sub={isCamera ? '개인 기준 비교' : '합성 시연 데이터'}
               small
             />

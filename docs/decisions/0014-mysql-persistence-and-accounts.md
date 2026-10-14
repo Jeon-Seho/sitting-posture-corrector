@@ -1,7 +1,5 @@
 # ADR 0014: MySQL 영구 저장과 서버 계정
 
-- 분야: 백엔드
-- 작업: GP-0109
 - 상태: accepted
 - 날짜: 2026-10-01
 - 근거: 사용자가 DB 작업 전체 구현을 요청하고 **MySQL + 이메일·비밀번호**를 선택했다.
@@ -31,4 +29,4 @@ AI 특징·관측·사건과 확정 3/2/60 정책은 유지한다. 시간 판정
 새 계정/workspace API, 마이그레이션, 두 사용자 격리·동시 중복·DB/HTTP 경계 실패·재시작/삭제를 합성 자료로 검증한다.
 
 MySQL의 실제 저장/트랜잭션 동작은 [InnoDB 공식 문서](https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-model.html)를 따른다.
-상세 구현과 실행 결과는 [완료 계획](../plans/completed/0017-mysql-accounts-compose-deployment.md)에 기록한다.
+상세 구현과 실행 방법은 [서비스 안내](../../backend/README.md)와 [Compose 안내](../../infra/README.md)를 따른다.

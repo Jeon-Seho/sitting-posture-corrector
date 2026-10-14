@@ -1,7 +1,5 @@
 # ADR 0015: Compose 전체 실행과 GitHub Actions 배포
 
-- 분야: 백엔드
-- 작업: GP-0109
 - 상태: accepted
 - 날짜: 2026-10-01
 - 근거: 사용자가 Docker Compose 즉시 실행과 GitHub Actions 자동 배포 설정을 요청했다.
@@ -24,4 +22,4 @@ DB 마이그레이션·백업·복구와 앱 이미지 rollback은 다른 작업
 Compose의 서비스 시작과 준비 상태는 다르므로 [Docker 공식 건강 검사/시작 순서](https://docs.docker.com/compose/how-tos/startup-order/)를 적용한다.
 배포 설정은 [GitHub 공식 환경 구성](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/deploy-to-environment)을 따른다.
 현재 작업은 로컬 Compose와 워크플로/스크립트를 검증하며 실제 외부 배포와 환경/Secrets 등록은 실행하지 않는다.
-[실행 계획](../plans/completed/0017-mysql-accounts-compose-deployment.md)에 관찰 결과와 미검증 범위를 남긴다.
+관찰 결과와 미검증 범위는 [Compose 안내](../../infra/README.md)에 남긴다.

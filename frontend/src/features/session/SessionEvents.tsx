@@ -1,5 +1,4 @@
 import { ExpandableTable } from '../../components/ExpandableTable'
-import { COLLAPSE_LABEL } from '../../data/posture'
 import type { CollapseEvent } from '../../lib/engine'
 import { formatClock, formatDuration } from '../../lib/stats'
 
@@ -9,7 +8,7 @@ export function EventItem({ event: e, muted }: { event: CollapseEvent; muted: bo
       <div className="top">
         <span>
           <span className="figure">#{e.id}</span>
-          {COLLAPSE_LABEL[e.type]}
+          흐트러진 자세
         </span>
         {e.endAt === null ? (
           <span className="badge collapse">
@@ -47,7 +46,7 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
   if (events.length === 0) {
     return (
       <p className="muted" style={{ fontSize: 14 }}>
-        기록된 이벤트가 없습니다.
+        기록된 이탈이 없어요.
       </p>
     )
   }
@@ -57,7 +56,6 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
         <thead>
           <tr>
             <th>#</th>
-            <th>유형</th>
             <th>시작</th>
             <th>종료</th>
             <th className="t-right">지속</th>
@@ -72,7 +70,6 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
             .map((e) => (
               <tr key={e.id}>
                 <td>{e.id}</td>
-                <td>{COLLAPSE_LABEL[e.type]}</td>
                 <td>{formatClock(e.startAt)}</td>
                 <td>{e.endAt === null ? '—' : formatClock(e.endAt)}</td>
                 <td className="t-right">
