@@ -52,7 +52,7 @@ FE가 정한 것(앱 쪽 동작):
 
 ### 3.1 좌표 구간 (`posture.frames.v1`)
 
-**0.5초에 구간 1개. 그 안에 찍힌 프레임을 평균 내지 않고 그대로 담는다.** 필드와 예시는 [좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json)과 [연동 명세](api-ws-spec.md) 5.1에 있다.
+**0.5초에 구간 1개. 그 안에 찍힌 프레임을 평균 내지 않고 그대로 담는다.** 필드와 예시는 [좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json)과 [연동 명세](api-ws-spec.md) 5.2에 있다.
 서버 쪽 좌표 입력(추론의 판정 가능 검사·특징값·점수, 합성 시험 데이터 통과)은 10/15 서버 확인이 목표다(D-34).
 
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 0~1 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다.
