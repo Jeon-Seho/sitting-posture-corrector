@@ -1,10 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import { ArrowLeft, X } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { ArrowLeft, CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
-import { DashboardPage } from '../pages/DashboardPage'
+import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
@@ -50,6 +50,11 @@ type Props = {
 
 const NOTICE_MS = 6000
 
+/** Problems get the warm warning icon; greetings and confirmations get the check. */
+function noticeTone(text: string) {
+  return /못했|못 했|실패|없어요|없습니다|확인해 주세요|마친 뒤|다시 시도|오류|할 수 없/.test(text) ? 'is-warn' : 'is-ok'
+}
+
 /** The local prototype and signed-in account share measurement/history presentation. */
 export function ServiceScreens({
   camera,
@@ -76,6 +81,9 @@ export function ServiceScreens({
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
   const view = resolvePage(page, measuring)
+  // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
+  const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
+  const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -116,10 +124,15 @@ export function ServiceScreens({
       <main ref={main} className="main service-main">
         {storageNotice}
         {error && (
-          <p role="status" className="service-notice">
-            {error}
+          <p role="status" className={`service-notice ${noticeTone(error)}`}>
+            {noticeTone(error) === 'is-warn' ? (
+              <WarningCircle size={20} weight="fill" className="icon" />
+            ) : (
+              <CheckCircle size={20} weight="fill" className="icon" />
+            )}
+            <span>{error}</span>
             {onClearError && (
-              <button className="btn btn-quiet btn-icon btn-sm" aria-label="알림 닫기" onClick={onClearError}>
+              <button className="snack-close" aria-label="알림 닫기" onClick={onClearError}>
                 <X size={16} weight="bold" />
               </button>
             )}
@@ -135,22 +148,19 @@ export function ServiceScreens({
             onFinish={persistence.finishDraft}
           />
         )}
-        {view === 'dashboard' &&
-          (showDemo ? (
-            <DashboardPage />
-          ) : (
-            <LocalHistory
-              records={records}
-              measuring={measuring}
-              onStart={() => go(measuring ? 'session' : 'setup')}
-              onCalendar={() => go('calendar')}
-            />
-          ))}
-        {view === 'calendar' && (
-          <RecordCalendarPage
-            records={records}
+        {view === 'dashboard' && (
+          <LocalHistory
+            records={shownRecords}
+            example={!!example}
             measuring={measuring}
             onStart={() => go(measuring ? 'session' : 'setup')}
+            onCalendar={() => go('calendar')}
+          />
+        )}
+        {view === 'calendar' && (
+          <RecordCalendarPage
+            records={shownRecords}
+            example={!!example}
           />
         )}
         {view === 'collection' && (

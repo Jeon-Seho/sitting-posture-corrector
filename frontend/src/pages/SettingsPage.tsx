@@ -9,6 +9,7 @@ import { cameraName } from '../features/camera/mainCamera'
 import { SelectMenu } from '../components/SelectMenu'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
+import { AlertPreview } from '../features/desktop/AlertPreview'
 import type { CameraController } from '../hooks/useCamera'
 
 type CameraChoice = Pick<
@@ -419,7 +420,7 @@ export function SettingsPage({
             <div className="more-body">
               <Row
                 name="발표용 예시 기록 표시"
-                desc={`켜면 기록 화면에 예시 데이터를, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
+                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
               >
                 <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
               </Row>
@@ -441,6 +442,7 @@ export function SettingsPage({
                   <TrackingRateCheck camera={camera} />
                 </div>
               )}
+              <AlertPreview />
               <Row
                 name="서버 연결 끊김 화면"
                 desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."

@@ -51,13 +51,17 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(text()).toContain('세션 2 ·')
     expect(rows()).toHaveLength(2)
     expect(text()).not.toContain('측정한 날')
+    // 기록 is about one day; week comparisons stay in 달력.
+    expect(text()).not.toContain('지난주')
+    // The detailed numbers are folded.
+    expect(renderer!.root.findAll((n) => n.type === 'details' && n.props.className === 'more')).toHaveLength(1)
     act(() => button('지난 기록은 달력에서').props.onClick())
     expect(onCalendar).toHaveBeenCalledOnce()
   })
 
   it('달력 opens no day until one is picked, bands this week and shows time pills', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     expect(text()).toContain('2026년 10월')
     expect(text()).not.toContain('오늘의 기록')
@@ -69,43 +73,55 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     const days = week[0].findAll((n) => n.props.role === 'gridcell').map((n) => n.props['aria-label'].split('일')[0])
     expect(days).toEqual(['11', '12', '13', '14', '15', '16', '17'])
     expect(gridDay('14일').props.disabled).toBe(true)
-    expect(gridDay('2일').props.className).toContain('has-record level-4')
-    expect(gridDay('2일').findAll((n) => String(n.props.className).includes('calendar-time level-4'))).toHaveLength(1)
+    // Today has its own disc class, apart from the picked day.
+    expect(gridDay('13일').props.className).toContain('is-today')
+    expect(gridDay('13일').props.className).not.toContain('is-selected')
+    expect(gridDay('2일').props.className).toContain('has-record')
+    expect(gridDay('2일').findByProps({ className: 'calendar-time' }).children).toEqual(['1시간 7분'])
+    expect(gridDay('2일').props['aria-label']).toContain('바른 자세 75%')
+    expect(gridDay('2일').findAll((n) => String(n.props.className).includes('calendar-ring is-good'))).toHaveLength(1)
 
     act(() => gridDay('12일').props.onClick())
-    expect(text()).toContain('10월 12일 (월) 기록')
+    expect(text()).toContain('10월 12일 (월)')
     expect(rows()).toHaveLength(1)
+    // The day opens under the calendar; the recent flow stays beside it.
+    expect(renderer!.root.findAllByType(ComboChart)).toHaveLength(1)
+    expect(renderer!.root.findAll((n) => String(n.props.className).startsWith('day-timeline-block'))).toHaveLength(1)
+    // The calendar's day is the light summary, not the 기록 tab's hero.
+    expect(renderer!.root.findAll((n) => n.props.className === 'day-hero')).toHaveLength(0)
+    expect(text()).toContain('바른 자세 67%') // 600 / 900 s
     act(() => button('닫기').props.onClick())
     expect(rows()).toHaveLength(0)
   })
 
   it('keeps the 잔디 display-only and pages months with the calendar', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     const cells = renderer!.root.findAll((n) => n.type === 'i' && String(n.props.className).startsWith('heatmap-cell'))
     expect(cells.length).toBeGreaterThan(90)
     expect(cells.every((n) => !n.props.onClick)).toBe(true)
-    expect(cells.find((n) => String(n.props.title).startsWith('10월 2일'))!.props.className).toContain('level-4')
+    expect(cells.find((n) => String(n.props['data-tip']).startsWith('10월 2일'))!.props.className).toContain('level-4')
 
     act(() => renderer!.root.findByProps({ 'aria-label': '이전 달' }).props.onClick())
     expect(text()).toContain('2026년 9월')
     expect(renderer!.root.findAll((n) => n.props['aria-label'] === '이번 주')).toHaveLength(0)
     act(() => gridDay('28일').props.onClick())
-    expect(text()).toContain('9월 28일 (월) 기록')
+    expect(text()).toContain('9월 28일 (월)')
     act(() => button('이번 달').props.onClick())
     expect(text()).toContain('2026년 10월')
   })
 
   it('switches the recent flow between 7 and 30 days', () => {
     act(() => {
-      renderer = create(<RecordCalendarPage records={records} measuring={false} onStart={() => {}} />)
+      renderer = create(<RecordCalendarPage records={records} />)
     })
     expect(renderer!.root.findByType(ComboChart).props.bars).toHaveLength(7)
     act(() => button('최근 30일').props.onClick())
-    const bars = renderer!.root.findByType(ComboChart).props.bars as { value: number | null }[]
-    expect(bars).toHaveLength(30)
-    expect(bars.filter((b) => b.value !== null)).toHaveLength(4) // 9/28, 10/2, 10/12, 10/13
+    const bars = renderer!.root.findByType(ComboChart).props.bars as { label: string; value: number | null }[]
+    // 30 days read as weeks: 9/14–19, 9/20–26, 9/27–10/3, 10/4–10, 10/11–13.
+    expect(bars.map((b) => b.label)).toEqual(['9/14', '9/20', '9/27', '10/4', '10/11'])
+    expect(bars.map((b) => (b.value === null ? null : Math.round(b.value * 100)))).toEqual([null, null, 72, null, 67])
   })
 
   it('shortens durations for calendar cells', () => {

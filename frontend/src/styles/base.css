@@ -40,6 +40,13 @@
   --alert-ink: #963615;
   --alert-tint: #fde3d2;
   --alert-soft: #f0923f;
+  /* Snackbar (toasts, 2026-10-14): deep brown with light text and tinted icons. */
+  --snack: #3a2d26;
+  --snack-ink: #fffaf4;
+  --snack-muted: #d9c9bb;
+  --snack-good: #9fd4ad;
+  --snack-warn: #fdcd95;
+  --snack-bad: #f6a37f;
 
   --unknown: #8e7f74;
   --unknown-tint: #f1eae2;

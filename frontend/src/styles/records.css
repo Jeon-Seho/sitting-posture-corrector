@@ -233,46 +233,54 @@
   --level-4: #5f8749;
 }
 
-/* 측정한 날: contribution-style heatmap in the pinned 달력 head (display only). */
-.heatmap {
-  display: grid;
-  justify-items: end;
-  gap: 6px;
+/* 측정한 날: a full-width year of days (display only). Week columns stretch to the card. */
+.year-card .card-head {
+  align-items: center;
 }
 .heatmap-body {
-  display: flex;
-  gap: 4px;
-}
-.heatmap-weekdays,
-.heatmap-week {
   display: grid;
-  grid-template-rows: 14px repeat(7, 12px);
-  gap: 3px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  overflow-x: auto;
 }
 .heatmap-weekdays {
+  display: grid;
+  grid-template-rows: 16px repeat(7, 1fr);
+  gap: 3px;
   font-size: 10px;
-  line-height: 12px;
   color: var(--muted);
 }
-.heatmap-weekdays span:first-child {
-  grid-row: 2;
+.heatmap-weekdays span {
+  display: flex;
+  align-items: center;
 }
 .heatmap-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(53, minmax(9px, 1fr));
+  gap: 3px;
+  min-width: 640px;
+}
+/* minmax(0, 1fr) and a zero-width month label keep each column as wide as its cells. */
+.heatmap-week {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 16px;
+  grid-auto-rows: auto;
   gap: 3px;
 }
 .heatmap-month {
-  width: 12px;
-  font-size: 10px;
+  width: 0;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 14px;
+  line-height: 16px;
   color: var(--muted);
   white-space: nowrap;
+  overflow: visible;
 }
 .heatmap-cell {
   display: block;
-  width: 12px;
-  height: 12px;
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: 3px;
   background: var(--level-0);
 }
@@ -294,30 +302,13 @@
   color: var(--muted);
 }
 .heatmap-legend .heatmap-cell {
-  width: 10px;
-  height: 10px;
-}
-
-/* The 달력 head stays put while the calendar scrolls under it. */
-.calendar-page-head {
-  position: sticky;
-  /* Chromium sticks below the scroller's padding; pull it up into that strip. */
-  top: calc(-1 * var(--main-pad-top));
-  z-index: 4;
-  flex-wrap: wrap;
-  margin: calc(-1 * var(--main-pad-top)) calc(-1 * var(--main-pad-x)) 0;
-  padding: var(--main-pad-top) var(--main-pad-x) 12px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-}
-.calendar-day-record {
-  scroll-margin-top: 180px;
+  width: 11px;
 }
 
 /* 오늘의 기록 */
 .day-record {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 .day-record-empty {
   display: grid;
@@ -325,22 +316,142 @@
   gap: 10px;
   padding: 6px 0;
 }
+/* 기록 tab hero (2026-10-14, Oura-style): one large ring and one line under it. */
+.today-hero {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+.today-hero .ring-center {
+  display: grid;
+  justify-items: center;
+}
+.today-hero-value {
+  font-size: 44px;
+  line-height: 1;
+}
+.today-hero-caption {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.today-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.today-line > span {
+  white-space: nowrap;
+}
+.today-line b,
+.today-line .records-stat-value {
+  display: inline;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+}
+.today-hero-value.records-stat-value {
+  margin: 0;
+}
+/* The one big number: the shared Amount is 24px, far too small inside the ring. */
+.today-hero-value .amount-n {
+  font-size: 54px;
+  line-height: 1;
+}
+.today-hero-value .amount-u {
+  font-size: 22px;
+}
 
-/* 달력 tab: month calendar (tiles tinted like the 잔디, this week on a band). */
+/* 달력's picked day (DaySummary): a small ring and one line, unlike the 기록 tab's hero. */
+.day-summary-body {
+  display: grid;
+  gap: 14px;
+}
+.day-summary-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.day-summary-main {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.day-summary-sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+/* 하루 흐름: when each session ran on a 0–24 h strip. */
+.day-timeline-track {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+.day-timeline-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  border-radius: 999px;
+  background: var(--alert-soft);
+}
+.day-timeline-block.is-good {
+  background: var(--good);
+}
+.day-timeline-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 달력 tab: month calendar beside the picked day (Day One-style two panes). */
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  gap: var(--view-gap, 16px);
+  align-items: start;
+}
+.calendar-side {
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .calendar-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 2px;
+  margin-bottom: 10px;
 }
-.calendar-head strong {
-  min-width: 112px;
-  text-align: center;
-  font-size: 18px;
-  font-weight: var(--fw-bold, 700);
+.calendar-title {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.calendar-title small {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
 }
 .calendar-head .chip {
-  margin-left: auto;
+  margin-right: 6px;
 }
 .calendar-grid {
   display: grid;
@@ -349,21 +460,16 @@
 .calendar-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
-  padding: 5px;
-  border-radius: 18px;
+  border-radius: 14px;
 }
 .calendar-week.is-this-week {
   background: var(--primary-tint);
-  box-shadow: inset 0 0 0 1px var(--primary-soft);
-}
-.calendar-weekdays {
-  padding-block: 0;
 }
 .calendar-weekday {
-  padding-left: 12px;
+  padding-bottom: 4px;
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
   color: var(--muted);
 }
 .calendar-weekday.is-sunday {
@@ -372,93 +478,92 @@
 .calendar-day {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  gap: 6px;
-  min-height: 86px;
-  padding: 8px 10px 10px;
-  border: 1px solid transparent;
+  align-items: center;
+  gap: 1px;
+  min-height: 62px;
+  padding: 5px 0 4px;
+  border: 0;
   border-radius: 12px;
-  background: var(--bg);
+  background: transparent;
   color: var(--ink);
   font: inherit;
-  text-align: left;
   cursor: pointer;
 }
-.calendar-day.has-record.level-1 { background: #f3f6ea; }
-.calendar-day.has-record.level-2 { background: #e9f0dc; }
-.calendar-day.has-record.level-3 { background: #dce8c6; }
-.calendar-day.has-record.level-4 { background: #cadcab; }
-.calendar-day:hover:not(:disabled) {
-  border-color: var(--line-strong);
-}
 .calendar-day:disabled {
-  background: transparent;
-  color: var(--muted);
-  opacity: 0.55;
+  color: var(--line-strong);
   cursor: default;
-}
-.calendar-day.is-selected,
-.calendar-day.is-selected:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
 }
 .calendar-day:focus-visible {
   outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.calendar-day-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  outline-offset: -2px;
 }
 .calendar-date {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin-left: -4px;
+  width: 40px;
+  height: 40px;
+}
+.calendar-num {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
-.calendar-day.is-sunday .calendar-date {
+.calendar-day:hover:not(:disabled) .calendar-num {
+  background: var(--surface-3);
+}
+.calendar-day.is-sunday:not(:disabled) .calendar-num {
   color: var(--alert-ink);
 }
-.calendar-day.is-today .calendar-date {
+/* Today gets its own soft apricot disc; the picked day's solid disc wins when they meet. */
+.calendar-day.is-today .calendar-num,
+.calendar-day.is-today:hover .calendar-num {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  font-weight: 800;
+}
+.calendar-day.is-selected .calendar-num,
+.calendar-day.is-selected:hover .calendar-num {
   background: var(--primary);
   color: #fff;
-}
-.calendar-rate {
-  font-size: 12px;
   font-weight: 700;
-  color: var(--primary-ink);
 }
-.calendar-rate.is-good {
-  color: var(--good-ink);
+/* Keep-rate ring (SVG strokes stay smooth): green at 75% and above, apricot below. */
+.calendar-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.calendar-ring circle {
+  fill: none;
+  stroke-width: 3.5;
+}
+.calendar-ring-track {
+  stroke: var(--line);
+}
+.calendar-ring-value {
+  stroke: var(--alert-soft);
+  stroke-linecap: round;
+}
+.calendar-ring.is-good .calendar-ring-value {
+  stroke: var(--good);
 }
 .calendar-time {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 1px 8px;
-  border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+  color: var(--muted);
 }
-.calendar-time.level-1 { background: var(--level-1); color: #3f5a2f; }
-.calendar-time.level-2 { background: var(--level-2); color: #2f4723; }
-.calendar-time.level-3 { background: var(--level-3); color: #fff; }
-.calendar-time.level-4 { background: var(--level-4); color: #fff; }
 @media (max-width: 860px) {
-  .calendar-day {
-    min-height: 64px;
-    padding: 6px;
-  }
-  .calendar-rate {
+  .calendar-time {
     display: none;
+  }
+  .calendar-day {
+    min-height: 54px;
   }
 }

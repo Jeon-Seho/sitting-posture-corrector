@@ -5,17 +5,20 @@ import { RecordModeChips, useRecordMode } from './recordMode'
 import { dayKey } from './recordsSource'
 
 /**
- * 기록 tab: today only (2026-10-13 split). Other days, the heatmap, period charts and the
- * first-vs-recent comparison live in the 달력 tab (RecordCalendarPage). Today's numbers come
- * from the same shape as `GET /records?date=오늘` (docs/design/api-ws-spec.md).
+ * 기록 tab: today only (2026-10-13 split). Other days, the heatmap and period charts live
+ * in the 달력 tab (RecordCalendarPage). Today's numbers come from the same shape as
+ * `GET /records?date=오늘` (docs/design/api-ws-spec.md).
  */
 export function LocalHistory({
   records: allRecords,
   measuring,
   onStart,
   onCalendar,
+  example = false,
 }: {
   records: RecordItem[]
+  /** 발표용 예시 기록 are shown instead of this device's records. */
+  example?: boolean
   measuring: boolean
   onStart: () => void
   /** Opens the 달력 tab. */
@@ -29,7 +32,9 @@ export function LocalHistory({
       <div className="page-head">
         <div>
           <h1 className="page-title">기록</h1>
-          <p className="page-desc">{label}오늘 측정한 기록 · 이 기기에 저장된 기록</p>
+          <p className="page-desc">
+            {example ? '발표용 예시 기록 · 실제 측정 기록이 아니에요' : `${label}오늘 측정한 기록 · 이 기기에 저장된 기록`}
+          </p>
         </div>
         {onCalendar && (
           <button className="btn btn-sm" onClick={onCalendar}>
