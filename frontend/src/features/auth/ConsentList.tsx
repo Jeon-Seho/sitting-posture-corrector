@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CONSENTS, allAgreed, type ConsentChoices, type ConsentItem } from './consents'
 import { ConsentDialog } from './ConsentDialog'
 
@@ -11,13 +11,27 @@ export function ConsentList({
   onChange: (next: ConsentChoices) => void
 }) {
   const everyAgreed = CONSENTS.every((item) => choices[item.id] === true)
+  const allButton = useRef<HTMLButtonElement>(null)
   return (
     <div className="consent-list">
       <button
         type="button"
         className="btn btn-block consent-all"
         aria-pressed={everyAgreed}
-        onClick={() => onChange(allAgreed())}
+        ref={allButton}
+        onClick={() => {
+          // 전체 동의 then jumps to 「다음」 so nobody has to scroll down for it (user, 2026-10-14).
+          const form = allButton.current?.closest('form')
+          onChange(allAgreed())
+          if (!form) return
+          // The submit button is enabled only after the re-render, so wait a frame.
+          requestAnimationFrame(() => {
+            const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')
+            if (!submit) return
+            submit.focus({ preventScroll: true })
+            revealBelow(submit, 24)
+          })
+        }}
       >
         전체 동의
       </button>
@@ -91,4 +105,25 @@ function ConsentRow({
       )}
     </div>
   )
+}
+
+/**
+ * Scrolls just far enough that `element` sits `margin` px above the bottom of its scroller.
+ * Done by hand because `scrollIntoView` did not move the page in the desktop app.
+ */
+function revealBelow(element: HTMLElement, margin: number) {
+  let container: HTMLElement | null = element.parentElement
+  while (container) {
+    const { overflowY } = getComputedStyle(container)
+    if (/(auto|scroll)/.test(overflowY) && container.scrollHeight > container.clientHeight) break
+    container = container.parentElement
+  }
+  const viewBottom = container ? container.getBoundingClientRect().bottom : window.innerHeight
+  const amount = element.getBoundingClientRect().bottom + margin - viewBottom
+  if (amount <= 0) return
+  const behavior: ScrollBehavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ? 'auto'
+    : 'smooth'
+  if (container) container.scrollBy({ top: amount, behavior })
+  else window.scrollBy({ top: amount, behavior })
 }
