@@ -426,8 +426,11 @@
 .calendar-day.is-sunday:not(:disabled) .calendar-num {
   color: var(--alert-ink);
 }
-.calendar-day.is-today .calendar-num {
-  color: var(--primary);
+/* Today gets its own soft apricot disc; the picked day's solid disc wins when they meet. */
+.calendar-day.is-today .calendar-num,
+.calendar-day.is-today:hover .calendar-num {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
   font-weight: 800;
 }
 .calendar-day.is-selected .calendar-num,
@@ -467,6 +470,6 @@
     display: none;
   }
   .calendar-day {
-    min-height: 50px;
+    min-height: 54px;
   }
 }

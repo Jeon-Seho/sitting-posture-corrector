@@ -69,6 +69,9 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     const days = week[0].findAll((n) => n.props.role === 'gridcell').map((n) => n.props['aria-label'].split('일')[0])
     expect(days).toEqual(['11', '12', '13', '14', '15', '16', '17'])
     expect(gridDay('14일').props.disabled).toBe(true)
+    // Today has its own disc class, apart from the picked day.
+    expect(gridDay('13일').props.className).toContain('is-today')
+    expect(gridDay('13일').props.className).not.toContain('is-selected')
     expect(gridDay('2일').props.className).toContain('has-record')
     expect(gridDay('2일').findByProps({ className: 'calendar-time' }).children).toEqual(['1시간 7분'])
     expect(gridDay('2일').props['aria-label']).toContain('바른 자세 75%')
