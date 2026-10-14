@@ -37,9 +37,12 @@ body {
   max-width: 100%;
   padding: 8px 8px 8px 8px;
   border-radius: 999px;
+  border: 1px solid rgba(255, 250, 244, 0.1);
   background: var(--snack);
   color: var(--snack-ink);
-  box-shadow: 0 10px 26px rgba(20, 10, 5, 0.4);
+  /* Short and tight: in the transparent window a wide soft shadow reads as a grey haze
+     over the desktop (2026-10-14). */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   touch-action: pan-y;
   transition:
