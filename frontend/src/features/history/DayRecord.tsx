@@ -1,7 +1,9 @@
-import { Play } from '@phosphor-icons/react'
-import { Card, Ledger, Stat } from '../../components/ui'
+import { Bell, Clock, Play } from '@phosphor-icons/react'
+import { Card } from '../../components/ui'
+import { Amount } from '../../components/Amount'
 import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
 import { GOOD_RATE } from '../../components/RateRing'
+import { Ring } from '../../components/Ring'
 import type { RecordItem } from '../../lib/serviceStore'
 import { daySessionNumber } from '../../lib/sessionNumber'
 import { formatDuration, formatRate } from '../../lib/stats'
@@ -10,8 +12,10 @@ import { RecordHistoryItem } from './RecordHistoryItem'
 import { dailyStats, sessionsOn } from './recordsSource'
 
 /**
- * One day's record (today by default): three numbers, the grouped metrics and every session
- * of that day. Past days come from the same data as `GET /records?date=` (api-ws-spec 2.6).
+ * One day's record (2026-10-14 layout): a large keep-rate ring with the day's verdict, the
+ * measured time and alerts beside it, a 24-hour strip showing when each session ran, then
+ * the grouped metrics and every session. Data has the `GET /records?date=` shape
+ * (api-ws-spec 2.6).
  */
 export function DayRecord({
   records,
@@ -33,6 +37,8 @@ export function DayRecord({
   const [s] = dailyStats(records, day, day)
   const isToday = day === today
   const allStarts = records.map((r) => r.startedAt)
+  const rate = s?.good_ratio ?? null
+  const good = rate !== null && rate >= GOOD_RATE
   return (
     <Card
       title={isToday ? '오늘의 기록' : `${dayLabel(day)} 기록`}
@@ -57,34 +63,56 @@ export function DayRecord({
         </div>
       ) : (
         <div className="day-record">
-          <Ledger cols={3}>
-            <Stat
-              dataStat="rate"
-              label="바른 자세 유지율"
-              value={s.good_ratio === null ? '—' : `${Math.round(s.good_ratio * 100)}%`}
-              sub="측정한 시간 가운데 기준 자세를 유지한 비율"
-              tone={s.good_ratio !== null && s.good_ratio >= GOOD_RATE ? 'good' : undefined}
-            />
-            <Stat
-              dataStat="valid"
-              label="측정 시간"
-              value={formatDuration(s.valid_sec)}
-              sub={
-                <>
-                  세션 <span data-stat="count">{s.session_count}</span>회
-                </>
-              }
-            />
-            <Stat
-              dataStat="alerts"
-              label="알림"
-              value={`${s.alert_count}회`}
-              sub={
-                `자세 경고 ${s.event_count}번` +
-                (s.valid_sec >= 1800 ? ` · 한 시간에 ${formatRate(s.alert_count / (s.valid_sec / 3600), '회')}` : '')
-              }
-            />
-          </Ledger>
+          <div className="day-hero">
+            <div className="day-hero-rate" data-stat="rate">
+              <Ring
+                value={rate}
+                size={112}
+                stroke={12}
+                color={good ? 'var(--good)' : 'var(--alert-soft)'}
+                label={rate === null ? '측정한 시간 없음' : `바른 자세 ${Math.round(rate * 100)}%`}
+              />
+              <div>
+                <div className="day-hero-label">바른 자세 유지율</div>
+                <div className="day-hero-value records-stat-value">
+                  <Amount value={rate === null ? '—' : `${Math.round(rate * 100)}%`} />
+                </div>
+                {rate !== null && (
+                  <span className={`day-hero-verdict ${good ? 'is-good' : ''}`}>
+                    {good ? '목표 75% 달성' : `목표 75%까지 ${Math.round((GOOD_RATE - rate) * 100)}%p`}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="day-hero-facts">
+              <div className="day-fact" data-stat="valid">
+                <Clock size={20} weight="bold" className="icon" />
+                <div>
+                  <div className="day-fact-label">측정 시간</div>
+                  <div className="day-fact-value records-stat-value">
+                    <Amount value={formatDuration(s.valid_sec)} />
+                  </div>
+                  <div className="day-fact-sub">
+                    세션 <span data-stat="count">{s.session_count}</span>회
+                  </div>
+                </div>
+              </div>
+              <div className="day-fact" data-stat="alerts">
+                <Bell size={20} weight="bold" className="icon" />
+                <div>
+                  <div className="day-fact-label">알림</div>
+                  <div className="day-fact-value records-stat-value">
+                    <Amount value={`${s.alert_count}회`} />
+                  </div>
+                  <div className="day-fact-sub">
+                    {`자세 경고 ${s.event_count}번` +
+                      (s.valid_sec >= 1800 ? ` · 한 시간에 ${formatRate(s.alert_count / (s.valid_sec / 3600), '회')}` : '')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DayTimeline sessions={sessions} day={day} />
           <MetricGroups
             groups={metricGroupsFor({
               measured: s.valid_sec,
@@ -109,5 +137,37 @@ export function DayRecord({
         </div>
       )}
     </Card>
+  )
+}
+
+/** When the day's sessions ran, on a 0–24 h strip; each block is tinted by its keep rate. */
+function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: string }) {
+  const [y, m, d] = day.split('-').map(Number)
+  const start = new Date(y, m - 1, d).getTime()
+  const span = 24 * 3600 * 1000
+  const at = (iso: string) => Math.max(0, Math.min(1, (Date.parse(iso) - start) / span)) * 100
+  return (
+    <div className="day-timeline" role="img" aria-label={`하루 중 측정한 시간대 ${sessions.length}개`}>
+      <div className="day-timeline-track">
+        {sessions.map((r) => {
+          const rate = r.valid ? r.good / r.valid : null
+          const left = at(r.startedAt)
+          const time = new Date(r.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+          return (
+            <span
+              key={r.id}
+              className={`day-timeline-block ${rate !== null && rate >= GOOD_RATE ? 'is-good' : ''}`}
+              style={{ left: `${left}%`, width: `${Math.max(at(r.endedAt) - left, 0.6)}%` }}
+              title={`${time} · ${formatDuration(r.valid)} 측정${rate === null ? '' : ` · 바른 자세 ${Math.round(rate * 100)}%`}`}
+            />
+          )
+        })}
+      </div>
+      <div className="day-timeline-ticks" aria-hidden="true">
+        {['0시', '6시', '12시', '18시', '24시'].map((t) => (
+          <span key={t}>{t}</span>
+        ))}
+      </div>
+    </div>
   )
 }

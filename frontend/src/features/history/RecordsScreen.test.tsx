@@ -80,6 +80,10 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     act(() => gridDay('12일').props.onClick())
     expect(text()).toContain('10월 12일 (월) 기록')
     expect(rows()).toHaveLength(1)
+    // The day opens under the calendar; the recent flow stays beside it.
+    expect(renderer!.root.findAllByType(ComboChart)).toHaveLength(1)
+    expect(renderer!.root.findAll((n) => String(n.props.className).startsWith('day-timeline-block'))).toHaveLength(1)
+    expect(text()).toContain('목표 75%까지 8%p') // 600 / 900 s = 67%
     act(() => button('닫기').props.onClick())
     expect(rows()).toHaveLength(0)
   })
