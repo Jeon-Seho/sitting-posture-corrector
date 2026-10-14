@@ -137,7 +137,7 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
                   className="btn btn-icon"
                   aria-pressed={soundOn}
                   aria-label={soundOn ? '알림 소리 끄기' : '알림 소리 켜기'}
-                  title={soundOn ? '알림 소리 켜짐' : '알림 소리 꺼짐'}
+                  data-tip={soundOn ? '알림 소리 켜짐' : '알림 소리 꺼짐'}
                   onClick={toggleSound}
                 >
                   {soundOn ? <SpeakerHigh size={20} weight="bold" /> : <SpeakerSlash size={20} weight="bold" />}

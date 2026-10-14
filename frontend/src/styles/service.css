@@ -4,6 +4,7 @@
   display: none !important;
 }
 
+/* Toast (snackbar, 2026-10-14): deep brown, light text, a tinted icon by kind. */
 .service-notice {
   position: fixed;
   top: calc(var(--titlebar-h) + 14px);
@@ -12,15 +13,40 @@
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   max-width: min(560px, calc(100vw - var(--sidebar-w) - 48px));
-  padding: 12px 12px 12px 18px;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-float);
+  padding: 11px 10px 11px 16px;
+  border-radius: 14px;
+  background: var(--snack);
+  color: var(--snack-ink);
+  box-shadow: 0 12px 32px rgba(40, 20, 10, 0.28);
   font-size: 14px;
+  font-weight: 600;
   animation: notice-in var(--dur, 260ms) var(--ease-soft, ease-out);
+}
+.service-notice > .icon {
+  flex: none;
+  color: var(--snack-good);
+}
+.service-notice.is-warn > .icon {
+  color: var(--snack-bad);
+}
+.snack-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--snack-muted);
+  cursor: pointer;
+}
+.snack-close:hover {
+  background: rgba(255, 250, 244, 0.12);
+  color: var(--snack-ink);
 }
 
 @keyframes notice-in {

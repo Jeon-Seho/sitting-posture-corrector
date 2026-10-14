@@ -441,8 +441,6 @@ export async function runScenarios(browser, base, restartApi) {
   )
   await app.click('기록')
   await app.verifyHistory(snapshot.records)
-  await app.click('오늘')
-  await app.verifyHistory(snapshot.records)
   await browser.screenshot('confirmed-dashboard')
   const reloadId = await app.startSession()
   await app.frames(2)
@@ -511,8 +509,6 @@ export async function runScenarios(browser, base, restartApi) {
   await app.click('기록')
   await app.text('서버 종료 미확인')
   await app.verifyHistory(snapshot.records)
-  await app.click('오늘')
-  await app.verifyHistory(snapshot.records)
   await browser.screenshot('unconfirmed-dashboard')
   await app.evaluate(`document.querySelector('.history-record-details')?.scrollIntoView()`)
   await browser.screenshot('history-details')
@@ -534,29 +530,14 @@ export async function runScenarios(browser, base, restartApi) {
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await app.click('로그인')
-  await app.click('기록')
-  await app.click('전체')
-  await app.openMore()
-  await app.text('비교에 포함된 기록의 조건')
-  const comparison = await app.evaluate(
-    `document.querySelector('[aria-label="기록 비교 조건"]').innerText`,
-  )
+  await app.click('달력')
+  // The first-vs-recent comparison was removed from the app (2026-10-14).
   snapshot = await app.snapshot()
   app.check(
-    'legacy synthetic record exposes mixed-source and unknown comparison conditions',
-    comparison.includes('브라우저 판정') &&
-      comparison.includes('서버 판정') &&
-      comparison.includes('기록에 없음') &&
-      comparison.includes('확인할 수 없음') &&
-      comparison.includes('기준 ID가 기록에 없음') &&
-      JSON.stringify(snapshot.records.slice(0, 3)) === originalServerRecords,
+    'legacy synthetic record loads beside server records without rewriting them',
+    JSON.stringify(snapshot.records.slice(0, 3)) === originalServerRecords,
   )
-  app.check(
-    'insufficient comparison time stays marked as reference only',
-    await app.evaluate(`document.body.innerText.includes('변화는 참고용')`),
-  )
-  await app.evaluate(`document.querySelector('[aria-label="기록 비교 조건"]').scrollIntoView()`)
-  await browser.screenshot('comparison-conditions')
+  await browser.screenshot('calendar-with-legacy-record')
   await verifyWithdrawalDialog(app)
   app.check('browser flow has no runtime or compiler errors', browser.errors.length === 0)
   return app.checks

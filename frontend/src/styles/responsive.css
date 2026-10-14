@@ -67,7 +67,6 @@
   }
   .measure-panel,
   .records-stats,
-  .result-tiles,
   .g4,
   .g3,
   .g2,
@@ -81,10 +80,6 @@
     flex-wrap: wrap;
     justify-content: center;
     border-radius: var(--radius-lg);
-  }
-  .result-head {
-    flex-direction: column;
-    align-items: flex-start;
   }
   .setting-row {
     flex-direction: column;

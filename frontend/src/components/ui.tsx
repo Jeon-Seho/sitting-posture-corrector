@@ -61,7 +61,7 @@ export function Stat({
       <div className="stat-label">
         {label}
         {hint && (
-          <span title={hint} className="muted">
+          <span data-tip={hint} tabIndex={0} aria-label={hint} className="muted">
             <Info size={14} weight="bold" className="icon" />
           </span>
         )}

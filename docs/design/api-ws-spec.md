@@ -348,7 +348,8 @@ sequenceDiagram
 | 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`) |
 | 기준 자세 | 이 PC에 카메라별로 저장(`features/camera/savedBaseline.ts`), 앱이 계산 | B2 + WS calibration |
 | 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
-| 기록·통계 | 이 기기의 기록 | W1·R1·T1, 오늘 기록 거르기 |
+| 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(`GET /records?date=…`), R1b |
+| 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1(`date=오늘`)로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
 | 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
 | 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
 
