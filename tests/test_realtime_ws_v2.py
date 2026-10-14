@@ -72,14 +72,13 @@ class RealtimeWsV2Tests(unittest.TestCase):
         bad["observation"]["invalid_reason"] = None
         self.rejects(bad)
 
-    def test_recorded_only_on_session_ended(self):
-        ended = self.example("decision-session-ended")
-        missing = copy.deepcopy(ended)
-        del missing["event"]["recorded"]
-        self.rejects(missing)
-        stray = copy.deepcopy(self.example("decision"))
-        stray["event"]["recorded"] = True
-        self.rejects(stray)
+    def test_no_five_minute_fields(self):
+        # 10/14: sessions under 5 min are stored (DB V2.3), so these fields were dropped.
+        self.rejects({**self.example("ready-measure"), "min_record_ms": 300000})
+        self.rejects({**self.example("progress"), "recordable": True})
+        ended = copy.deepcopy(self.example("decision-session-ended"))
+        ended["event"]["recorded"] = True
+        self.rejects(ended)
 
     def test_calibration_result_shapes(self):
         ok = self.example("calibration-result-ok")

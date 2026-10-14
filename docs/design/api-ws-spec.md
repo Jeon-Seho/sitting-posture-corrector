@@ -12,7 +12,7 @@
 
 | BE 명세 9장 # | 정할 것 | FE 답 |
 |---|---|---|
-| 2 | 5분을 무엇으로 세나 | **측정 시간 `total_ms`**(시작~종료, 일시정지 포함). 정확히 5분은 저장 |
+| 2 | 5분을 무엇으로 세나 | **정정(10/14): 5분 미만도 저장한다.** 5분(`STAT_MIN_SESSION_SEC`) 미만 세션도 저장하고 기록 목록·일별 통계에 넣는다. "붕괴까지 걸린 시간" 최소·최대에서만 뺀다(DB V2.3, 10/14 정정). 그래서 BE 명세 8장(5분 미만 미저장)과 `min_record_ms`·`recordable`·`recorded`는 필요 없다 |
 | 3 | WS 새 경로 `/v2/realtime`, v1 유지 기간 | 동의. 앱이 v2로 바뀌면 v1은 없애도 된다 |
 | 4 | 끊기면 세션 종료(ADR 0022) | 동의. 앱은 재연결하지 않는다 |
 | 6 | 알림 표시·억제 판단 위치(N6) | 동의(저장 서비스 판단 → `ws`). 앱은 받은 `alert`를 거르지 않는다 |
@@ -23,14 +23,14 @@
 
 ### 0.2 BE에 확인·요청할 것
 
-> 10/13 DevOps 답변(검토 D장): Q1·Q2·Q3·Q5 동의, Q4는 DB 확인 대기. 새 `code` 후보 `SESSION_NOT_RECORDED`·`RECORD_ARCHIVED`·`closed(limit_reached)`는 이 문서에 반영했다.
+> 10/13 DevOps 답변(검토 D장): Q1·Q2·Q3·Q5 동의. Q4는 5분 미만도 저장하기로 정정해 필요 없어졌다(10/14). 새 `code` 후보 중 `RECORD_ARCHIVED`·`closed(limit_reached)`는 이 문서에 반영했고, `SESSION_NOT_RECORDED`는 필요 없다.
 
 | # | 항목 | FE 안 | BE에 요청 |
 |---|---|---|---|
 | Q1 | `features` 한 메시지에 넣는 구간 수 | 앱은 **0.5초마다 구간 1개**만 보낸다. 구간 하나는 약 2~7KB(프레임 0~30장) | 지금 서버 WS 메시지 한도 64KB 안에 든다. 30개 묶음은 앱이 쓰지 않으니 한도를 그대로 두어도 되는지 확인 |
 | Q2 | `ready`를 기다리는 시간 | 앱은 `hello` 뒤 **5초** 안에 `ready`가 없으면 연결을 닫고 "서버에 연결하지 못했어요"를 보인다 | 서버가 `hello`를 처리하는 데 5초 넘게 걸릴 수 있는지 확인 |
 | Q3 | 비밀번호 12자 | 서버는 12자 그대로 둔다. 앱은 시험 편의로 지금 최소 길이를 보류했고, **서버를 붙일 때 12자 검사를 켠다** | 변경 없음(확인만) |
-| Q4 | 5분 미만 세션 행 삭제 | BE A안(종료 때 `monitor_session` 삭제) 동의 | DB 담당 확인(BE 명세 9장 #5) |
+| Q4 | (없앰) 5분 미만 세션 행 삭제 | 10/14 정정: 5분 미만도 저장하므로 삭제하지 않는다 | 없음 |
 | Q5 | 오류 `code`가 2장 표에 없는 경우 | 앱은 HTTP 상태로만 처리한다(4xx 안내, 5xx 재시도) | 새 `code`를 만들면 알려 주기 |
 
 ### 0.3 DevOps 검토(10/13)에 대한 FE 답
@@ -43,10 +43,10 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | A2 | S1 201 ~ `ready` 사이 공백 | **안 1.** 앱은 `t_ms` 0부터 구간을 만들어 두고 `ready` 뒤 순번대로 1개씩 연달아 보낸다(밀린 구간도 메시지마다 1개) | 1.1, 6.1 |
 | A3 | 관측 10,000건 한도(0.5초 구간 약 83분) | 동의. 시간 기준 한도와 `closed(limit_reached)`. 앱은 종료 화면 + "측정 가능한 시간을 넘었어요" | 5.3, 계약 v2 |
 | A4 | `stalled` 뒤 연결을 닫는가 | 동의. **`stalled`는 알림만, 연결 유지.** 앱은 문구만 띄우고 다음 `progress`·`observation`에서 지운다 | 5.3 |
-| A5 | 종료 뒤 404의 뜻이 셋 | 동의. 앱은 "기록에 남지 않음"을 **404가 아니라 마지막 `progress.recordable`·`decision.recorded`로** 판단한다. 서버가 `SESSION_NOT_RECORDED`를 주면 그것도 쓴다 | 2장, 4.4 |
+| A5 | 종료 뒤 404의 뜻이 셋 | 5분 미만도 저장하므로(10/14 정정) ⓐ 경우가 없어지고 404는 "없는·남의 세션" 또는 "아직 저장 안 됨"이다. 앱은 404면 마지막 `progress`로 종료 화면을 그리고 "기록에 남지 않음" 안내는 하지 않는다 | 2장, 4.4 |
 | A6 | R3 409와 공통 `CONFLICT` 충돌 | 동의. R3 전용 `RECORD_ARCHIVED`. **적재(J1, 매시간)된 기록은 사용자가 지울 수 없다**(10/14 결정). 적재 전에만 지울 수 있고, 탈퇴하면 모두 지워진다 | 2장, 4.5 |
 | A7 | 해상도와 기준 자세 | **640×480 고정(팀 결정, DB V2.3 머리말 `CAPTURE_RESOLUTION`).** 앱은 640×480을 요청하고, 실제로 다른 크기가 오면 측정·등록을 시작하지 않고 안내한다. (10/14 한때 "어느 크기든 허용"으로 답했으나 DB·DevOps 모두 고정을 전제로 해 되돌렸다) | 5.1 |
-| C1 | 「기록까지 m:ss」가 서버 처리만큼 늦음 | 동의. 앱이 마지막으로 보낸 `end_ms` 기준으로 세고 `recordable`은 확인용 | 5.3 |
+| C1 | 「기록까지 m:ss」가 서버 처리만큼 늦음 | 5분 미만도 저장하므로(10/14 정정) 이 안내는 없앤다 | 5.3 |
 | C2 | A1을 다시 받는 시점 | A8 뒤 추가. A6 뒤에는 로그인 화면으로 | 3장 |
 | C3 | S1 200·201 | 둘 다 성공 처리 | 4.4 |
 | C4 | `ready` 5초 초과 뒤 | 그 세션은 끝난 것으로 보고 **새 `session_id`로 S1부터** 다시 | 1.1 |
@@ -58,7 +58,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 
 | # | 회신 | FE 답 |
 |---|---|---|
-| A5 | DB V2.3은 5분 미만 세션도 저장·일별 통계에 넣고 "붕괴까지 걸린 시간" 최소·최대에서만 뺀다. 회의 결정(저장 안 함)과 어긋남 | **회의 결정 유지: 5분 미만은 저장하지 않는다**(10/14 확인). DB README의 일별 통계 규칙과 BR-20·BR-53을 이에 맞춰 고쳐 달라(FE 제안서 N22). 앱은 "기록 안 남음"을 `recordable`·`recorded`로 판단한다(A5 그대로) |
+| A5 | DB V2.3은 5분 미만 세션도 저장·일별 통계에 넣고 "붕괴까지 걸린 시간" 최소·최대에서만 뺀다 | **DB 규칙을 따른다(10/14 정정).** 회의 내용을 FE가 잘못 이해했다. DB 변경 요청은 하지 않는다 |
 | A2 | 안 1 찬성, DB 변경 없음 | 반영돼 있다(1.1) |
 | A6 | 적재되면 FK-13으로 삭제가 막힌다. 적재된 기록도 지울 수 있어야 하는지 | **지울 수 없다**(10/14). 삭제 배치는 만들지 않는다. 앱은 `RECORD_ARCHIVED`면 "지금은 지울 수 없어요" |
 | A7 | 640×480 고정은 V2.3에 적힌 팀 결정. 바꾸면 V2.4 | **팀 결정을 따른다(640×480 고정).** V2.4 요청은 하지 않는다 |
@@ -81,7 +81,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | 시각 | 응답은 UTC ISO-8601. 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 바꾼다 |
 | 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 201을 받은 순간부터 `t_ms`를 센다 |
 | ID | `session_id`·`calibration_id`는 앱 UUID, `baseline_id`는 서버 UUID, `user_id`는 10진 문자열 | 재시도 때 같은 UUID |
-| 시간 기본값 | 판정 3·3·60초, `min_record_ms` 300000은 서버 설정 | 앱은 받은 값만 쓴다 |
+| 시간 기본값 | 판정 3·3·60초는 서버 설정 | 앱은 받은 값만 쓴다 |
 
 ### 1.1 앱의 시간 규칙
 
@@ -90,7 +90,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | 502·503 재시도 | 1·2·4초 간격, 최대 3번 | 오류 안내 |
 | `hello` → `ready` | 5초 (Q2) | 연결을 닫고 "서버에 연결하지 못했어요". 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터**(C4) |
 | `features` 보내기 | 0.5초마다 구간 1개 (Q1). `t_ms` 0(S1 201)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다(A2). 일시정지·카메라 끊김 중에도 빈 구간을 계속 보낸다 | — |
-| 측정 `end` → `closed(ended)` | 10초 | S4로 종료 화면. "기록에 남지 않음"은 404가 아니라 마지막 `recordable`·`recorded`로 판단(A5) |
+| 측정 `end` → `closed(ended)` | 10초 | S4로 종료 화면(404면 마지막 `progress`로) |
 | 등록 WS 열기 | 얼굴·어깨가 보여 3·2·1이 시작될 때(사용자를 기다리는 동안은 열지 않음, 120초 무입력 끊김 회피, B10) | — |
 | 등록 `end` | 마지막 구간 `end_ms`가 3000 이상일 때 보낸다(B7) | — |
 | 등록 `end` → `calibration_result` | 10초 | 실패로 보고 다시 촬영 |
@@ -108,7 +108,6 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | 403 | `ACCOUNT_CLOSED` | 탈퇴 철회(A8) 안내 |
 | 404 | `SESSION_NOT_FOUND`·`SESSION_LOST` | 측정을 끝내고 마지막 `progress`로 종료 화면 |
 | 404 | `BASELINE_NOT_FOUND` | 측정하기에서 자세 등록부터 |
-| 404 | `SESSION_NOT_RECORDED` (새로, A5) | 5분 미만이라 저장하지 않은 세션. 마지막 `progress`로 종료 화면 |
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
 | 409 | `BASELINE_REQUIRED` | 측정하기 자세 등록으로 |
@@ -197,17 +196,17 @@ PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 
 201
 { "session_id": "3f2a…", "started_at": "2026-10-13T08:00:00.000Z",
-  "policy": { … }, "baseline_id": "9b1c…", "alert_enabled": true, "min_record_ms": 300000 }
+  "policy": { … }, "baseline_id": "9b1c…", "alert_enabled": true }
 ```
 
 - `policy`는 W1 `rules`를 ms로 바꾼 값, `baseline_id`는 B2 값이다. 201을 받은 순간이 `t_ms` 0이다.
 - **200·201 모두 성공이다**(C3). 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다(200).
-- S3 `{ "end_ms": 600000 }` → `{ "session_id", "ended": true, "recorded": true|false }`. WS가 이미 끊겼을 때만 부른다. 서버가 끊김으로 먼저 끝낸 세션이면 `end_ms`가 달라도 저장된 값으로 200이다(DevOps B2).
-- S4는 측정 `end` 뒤 10초 안에 `closed`가 없을 때만 부른다. 404면 마지막 `progress`로 종료 화면을 그린다. "5분 미만 측정은 기록에 남지 않아요"는 404가 아니라 마지막 `recordable: false`(또는 `recorded: false`, `SESSION_NOT_RECORDED`)일 때만 보인다(A5).
+- S3 `{ "end_ms": 600000 }` → `{ "session_id", "ended": true }`. WS가 이미 끊겼을 때만 부른다. 서버가 끊김으로 먼저 끝낸 세션이면 `end_ms`가 달라도 저장된 값으로 200이다(DevOps B2).
+- S4는 측정 `end` 뒤 10초 안에 `closed`가 없을 때만 부른다. 404면 마지막 `progress`로 종료 화면을 그린다.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
 
-- R1·R1b는 지금 앱 형식(`RecordItem`, camelCase) 그대로 받는다.
+- R1·R1b는 지금 앱 형식(`RecordItem`, camelCase) 그대로 받는다. 5분 미만 세션도 들어 있다.
 - **오늘 기록(10/14 결정, C5):** 기록 목록에는 오늘 끝난 세션도 하나씩 보인다(같은 날 측정을 합치지 않음). 합산·그래프 같은 통계는 어제까지만 그린다(T1, 일별 집계 시각은 0.4 확인 요청). W1의 `records`도 같다.
 - T1 응답 `[{date, session_count, valid_sec, good_sec, event_count, alerted_event_count, min_until_collapse_sec, max_until_collapse_sec}]`. 화면의 최소·최대 간격 = `min_`·`max_until_collapse_sec`.
 - R3에서 409 `RECORD_ARCHIVED`(HDFS 파일이 있는 세션)면 "지금은 지울 수 없어요".
@@ -246,11 +245,11 @@ PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 
 | `type` | 앱이 하는 일 |
 |---|---|
-| `ready` | `features`를 보내기 시작한다. 측정이면 `min_record_ms`를 기억한다 |
+| `ready` | `features`를 보내기 시작한다 |
 | `ack` | 표시만(재전송하지 않음) |
 | `observation` | 실시간 상태 알약과 안내 문구. 점수 = `100 × (1 − collapse_probability)`. `invalid_reason`: `unmeasurable` "자세를 확인할 수 없어요", `head_turn` "고개를 돌린 동안은 판정하지 않아요", `settling` "자세를 다시 잡는 중이에요" |
-| `progress` | 측정 시간·유지율 등 숫자. 5분 전이면 "기록까지 m:ss 남았어요" — 남은 시간은 **앱이 마지막으로 보낸 `end_ms` 기준**(`min_record_ms − end_ms`)으로 세고 `recordable`은 확인용(C1). `paused_reason`이 있으면 측정 멈춤 표시 |
-| `decision` | 사건 기록과 숫자. `session_ended`의 `recorded: false`면 종료 화면에 "기록에 남지 않은 측정이에요" |
+| `progress` | 측정 시간·유지율 등 숫자. `paused_reason`이 있으면 측정 멈춤 표시 |
+| `decision` | 사건 기록과 숫자. `session_ended`면 종료 화면으로 |
 | `alert` | 토스트·소리. 앱은 거르지 않는다 |
 | `stalled` | "분석이 잠시 멈췄어요". **연결은 유지된다**(A4). 다음 `progress`·`observation`이 오면 문구를 지운다 |
 | `calibration_result` | 성공: B2를 다시 받고 「앱 시작」(가입 3단계) 또는 측정 시작. 실패: 아래 안내 후 다시 촬영 |
@@ -277,11 +276,11 @@ PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 | 단계 | 앱 | 서버 |
 |---|---|---|
 | 1 | B2 `GET /v2/baselines/current` | 200 기준 / 404 → 자세 등록 |
-| 2 | S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 201 `{started_at, min_record_ms, …}` (= `t_ms` 0) |
+| 2 | S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 201 `{started_at, …}` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
 | 4 | 0.5초마다 `features {items:[구간 1개]}`. `ready` 전에 만든 구간은 순번대로 먼저 보낸다(A2) | `ack`·`observation`·`progress`, 사건이 있으면 `decision`·`alert` |
-| 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended, recorded)` → `closed(ended)` (10초 안) |
-| 6 | 10초 안에 `closed`가 없으면 S4 | 조회 결과(5분 미만이면 404) |
+| 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
+| 6 | 10초 안에 `closed`가 없으면 S4 | 조회 결과 |
 
 ```mermaid
 sequenceDiagram
@@ -289,16 +288,16 @@ sequenceDiagram
   participant S as 입출구 서버(api·ws)
   A->>S: B2 GET /v2/baselines/current
   A->>S: S1 PUT /v2/sessions/{id} {policy, baseline_id}
-  S-->>A: 201 {started_at, min_record_ms} (t_ms 0)
+  S-->>A: 201 {started_at} (t_ms 0)
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready
   loop 0.5초마다
     A->>S: features {items:[구간 1개]}
-    S-->>A: ack · observation · progress(recordable)
+    S-->>A: ack · observation · progress
     S-->>A: decision · alert (사건이 있을 때)
   end
   A->>S: end {end_ms}
-  S-->>A: decision(session_ended, recorded) → closed(ended)
+  S-->>A: decision(session_ended) → closed(ended)
 ```
 
 ### 6.2 자세 등록 (가입 3단계, 측정하기의 등록)
@@ -335,8 +334,8 @@ sequenceDiagram
 
 | 단계 | 앱 | 서버 |
 |---|---|---|
-| 1 | WS가 끊김. 재연결하지 않고 "서버 연결이 끊겼어요" | 마지막 `end_ms`로 세션 종료(`DISCONNECTED`), 5분 미만이면 저장 안 함 |
-| 2 | HTTP가 닿으면 S3 `{end_ms}` | `{ended:true, recorded}` (이미 끝났으면 그때 값) |
+| 1 | WS가 끊김. 재연결하지 않고 "서버 연결이 끊겼어요" | 마지막 `end_ms`로 세션 종료(`DISCONNECTED`) |
+| 2 | HTTP가 닿으면 S3 `{end_ms}` | `{ended:true}` (이미 끝났으면 그때 값) |
 | 3 | 마지막 `progress`로 종료 화면 | — |
 
 ## 7. FE 참고 (BE는 읽지 않아도 됨)

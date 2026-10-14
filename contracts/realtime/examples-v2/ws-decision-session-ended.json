@@ -24,7 +24,6 @@
     "onset_ms": 600000,
     "onset_valid_ms": 590000,
     "deviation_type": "none",
-    "reason": "ended",
-    "recorded": true
+    "reason": "ended"
   }
 }
