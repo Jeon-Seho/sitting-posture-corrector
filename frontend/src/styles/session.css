@@ -495,16 +495,19 @@
   flex-direction: column;
   gap: 24px;
   padding: 32px;
-  border-radius: 30px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: 0 20px 60px rgba(90, 55, 30, 0.1);
 }
 
+/* Same as the 기록 tab: the ring leads, centred, with the sentence under it. */
 .result-head {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 28px;
+  gap: 16px;
+  text-align: center;
 }
 
 .result-eyebrow {
@@ -519,36 +522,9 @@
   line-height: 1.3;
 }
 
-.result-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.result-tile {
-  padding: 16px;
-  border-radius: 18px;
-  background: var(--bg);
-}
-
-.result-tile span {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.result-tile b {
-  display: block;
-  margin-top: 4px;
-  font-family: var(--font-num);
-  font-size: 22px;
-  font-weight: 700;
-}
-
 .result-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }

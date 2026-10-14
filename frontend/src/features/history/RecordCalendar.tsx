@@ -19,9 +19,13 @@ const RING_R = 17
 const RING_C = 2 * Math.PI * RING_R
 
 /** Keep-rate ring drawn as SVG strokes (smooth at any zoom), like Apple Fitness history. */
-function DayRing({ rate }: { rate: number }) {
+export function DayRing({ rate }: { rate: number }) {
   return (
-    <svg className={`calendar-ring ${rate >= GOOD_RATE ? 'is-good' : ''}`} viewBox="0 0 40 40" aria-hidden="true">
+    <svg
+      className={`calendar-ring ${Math.round(rate * 100) >= GOOD_RATE * 100 ? 'is-good' : ''}`}
+      viewBox="0 0 40 40"
+      aria-hidden="true"
+    >
       <circle className="calendar-ring-track" cx="20" cy="20" r={RING_R} />
       {rate > 0 && (
         <circle

@@ -73,20 +73,17 @@ export function SessionResult({
             {service && <p className="fine" style={{ marginTop: 8 }}>{service.saveMessage}</p>}
           </div>
         </div>
-        <div className="result-tiles">
-          <div className="result-tile">
-            <span>받은 알림</span>
-            <b>{alerts}회</b>
-          </div>
-          <div className="result-tile">
-            <span>바로 앉기까지</span>
-            <b>{recovery === null ? '—' : `평균 ${formatDuration(recovery)}`}</b>
-          </div>
-          <div className="result-tile">
-            <span>확인 못 한 시간</span>
-            <b>{formatDuration(live.unknownSeconds)}</b>
-          </div>
-        </div>
+        {/* One line instead of three boxes (2026-10-14 layout rule); the rest is under 자세히. */}
+        <p className="today-line">
+          <span>
+            알림 <b>{alerts}회</b>
+          </span>
+          {recovery !== null && (
+            <span>
+              바로 앉기까지 평균 <b>{formatDuration(recovery)}</b>
+            </span>
+          )}
+        </p>
         <div className="result-actions">
           {service?.saveFailed ? (
             <button className="btn btn-quiet" onClick={service.onRetry}>

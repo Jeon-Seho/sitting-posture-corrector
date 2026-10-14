@@ -51,6 +51,10 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(text()).toContain('세션 2 ·')
     expect(rows()).toHaveLength(2)
     expect(text()).not.toContain('측정한 날')
+    // 기록 is about one day; week comparisons stay in 달력.
+    expect(text()).not.toContain('지난주')
+    // The detailed numbers are folded.
+    expect(renderer!.root.findAll((n) => n.type === 'details' && n.props.className === 'more')).toHaveLength(1)
     act(() => button('지난 기록은 달력에서').props.onClick())
     expect(onCalendar).toHaveBeenCalledOnce()
   })
