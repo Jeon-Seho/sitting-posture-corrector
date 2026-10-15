@@ -1,5 +1,9 @@
 # 현재 ML 계획: 확인한 정상 범위와 실제 MediaPipe 예측 학습
 
+새 작업 방향은 [개인 자세 ML 재설계](rebuild-plan.md)와 [실행 계획 0052](../plans/active/0052-ml-rebuild.md)다.
+수집보다 [정면 어깨 위의 판정 한계](measurement-limits.md)를 먼저 확인하며 새 LSTM 구현은 보류한다.
+이 문서는 현재 `/dev`에서 실행 중인 기존 실험을 설명한다. 새 계획의 모델·자료 형식을 구현 완료한 것으로 해석하지 않는다.
+
 - 갱신: **2026-10-15** · 적용 범위: **`/dev` 개발자 실험실**
 - [HTML로 보기](current-plan.html) · [수집 JSON 학습 안내](mediapipe-training.md) · [결정 ADR 0032](../decisions/0032-normal-reference-and-mediapipe-training.md)
 - 구현: 정상 자료로 등록 후보 검증, 학습 중심 고정, 자동 수집 기본 6%·세 가지 선택, 연속 학습 후보 진단, 수집 JSON→로컬 LSTM→브라우저 불러오기.

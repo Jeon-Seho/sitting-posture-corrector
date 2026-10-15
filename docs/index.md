@@ -2,6 +2,8 @@
 
 ## 현재 상태와 작업
 
+[정면 어깨 위의 판정 한계](ml/measurement-limits.md)부터 확인한다. [ML 재설계](ml/rebuild-plan.md) · [실행 계획 0052](plans/active/0052-ml-rebuild.md)는 서비스 FE·BE를 유지하며, 지원 현상·구도·라벨이 성립한 뒤 진행할 조건부 계획이다. 본 수집과 LSTM 구현은 보류하며 아래 `/dev` 실행 동작은 아직 바뀌지 않았다.
+
 [jisung·백엔드 로컬 병합 기록](plans/completed/0031-jisung-backend-integration.md): 연구 기능 보존, 프론트·Python 검증 결과와 JDK/MySQL/실시간 연동의 남은 한계.
 
 [최신 ML 계획](ml/current-plan.md) · [HTML로 보기](ml/current-plan.html): 정상 자료로 등록 검증·중심 고정, 자동 6% 기본 선택과 LSTM 보조 비교.

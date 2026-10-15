@@ -2,8 +2,11 @@
 
 이 폴더에는 jisung의 ML 개발 판단과 환경별 인계를 기록한다.
 
-**현재 방향(2026-10-14):** [최신 ML 계획](../current-plan.md) · [읽기 편한 HTML](../current-plan.html).
-정상 구간만 수집하는 개인 범위 모델을 먼저 비교하고, LSTM 미래 예측은 보조 실험으로 둔다.
+**현재 방향(2026-10-15):** [ML 재설계와 정면 관측 한계 논의](2026-10-15-desktop-ml-scope-and-depth-review.md).
+서비스 FE·BE는 유지하고 수집·학습보다 관측 한계를 먼저 확인한다. 팔꿈치 필수화·거북목 중심 전환·새 LSTM은 미확정이며,
+Pose 상대 z는 어깨 위 촬영에서 유효성을 확인할 후보로 남긴다.
+[판정 한계](../measurement-limits.md) · [조건부 재설계](../rebuild-plan.md) · [실행 계획 0052](../../plans/active/0052-ml-rebuild.md).
+기존 [ML 구현 설명](../current-plan.md) · [HTML](../current-plan.html)은 실행 중인 과거 실험과 당시 기록으로 보존한다.
 
 ## 환경별 파일 구분
 
@@ -18,6 +21,7 @@
 
 | 날짜·환경 | 기록 |
 | --- | --- |
+| 2026-10-15 · desktop | [ML 재설계·거북목 제안·다른 모델 브랜치·Pose z와 관측 한계](2026-10-15-desktop-ml-scope-and-depth-review.md) |
 | 2026-10-12 · desktop | [개인 기준 특징과 서버 연결 방향](2026-10-12-desktop-posture-feature-decisions.md) |
 | 2026-10-12 · desktop | [코·어깨 3점과 얼굴·어깨 13점 비교 HTML](2026-10-12-desktop-pose-feature-comparison.html) |
 | 2026-10-13 · desktop | [test_0.2.4 논문·데이터셋 자료 확인](2026-10-13-desktop-test-024-reference-review.md) |
