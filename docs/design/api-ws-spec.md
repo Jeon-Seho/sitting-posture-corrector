@@ -83,7 +83,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | # | BE 명세 위치 | 고칠 내용 |
 |---|---|---|
 | X1 | 1장 근거 "5분 미만 세션 미저장 요청", 공통 규칙 `MIN_RECORD_MS` 300000 | 지운다 |
-| X2 | 4장 S1 201의 `min_record_ms`, S3 응답의 `recorded`, S4 "저장 안 된(5분 미만) 세션은 종료 뒤 404" | 필드와 문구를 지운다. S1 201은 `{session_id, started_at, policy, baseline_id, alert_enabled}`, S3는 `{session_id, ended:true}` |
+| X2 | 4장 S1 201의 `min_record_ms`, S3 응답의 `recorded`, S4 "저장 안 된(5분 미만) 세션은 종료 뒤 404" | 필드와 문구를 지운다. S1 201은 `{session_id, started_at, policy, baseline_id, alert_enabled}`, S3는 `{session_id, ended:true}`. (10/15: BE 코드는 S1·S3 모두 200 `SessionView`라 앱이 그쪽에 맞춘다, 0.6) |
 | X3 | 5.3 `ready`의 `min_record_ms`, `progress`의 `recordable`, `session_ended`의 `recorded` | 지운다(계약 v2에 없음) |
 | X4 | 7장 R1 "5분 미만 세션은 없음", R1b "저장 안 된 세션은 404" | R1에는 5분 미만 세션도 들어 있다. 5분 미만은 T1의 `min_`·`max_until_collapse_sec`에서만 빠진다(DB V2.3) |
 | X5 | 8장 전체, 9장 #2·#5 | 8장을 지우고 #2는 "5분 미만도 저장", #5는 "필요 없음" |
@@ -104,7 +104,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | X10 | `closed(limit_reached)`(시간 기준 한도) | 5.3 |
 | X11 | `stalled`는 알림만, 연결 유지 | 5.3 |
 | X12 | `ready` 5초 대기, 넘으면 새 `session_id`로 S1부터 | 1.1 |
-| X13 | S1 201부터 구간을 만들고 `ready` 뒤 순번대로 1개씩 보냄(안 1). 메시지마다 구간 1개 | 1.1, 6.1 |
+| X13 | S1 응답부터 구간을 만들고 `ready` 뒤 순번대로 1개씩 보냄(안 1). 메시지마다 구간 1개 | 1.1, 6.1 |
 | X14 | 등록 WS는 3·2·1이 시작될 때 연다(B10), `end`는 마지막 `end_ms` ≥ 3000일 때(B7) | 1.1, 6.2 |
 | X15 | `p:null`이면 `valid`를 넣지 않고 서버는 판정 불가로 본다(C6) | 5.2 |
 | X16 | A8(탈퇴 철회) 뒤에도 A1을 다시 받는다 | 3장 |
@@ -118,6 +118,24 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 
 나머지(경로·CSRF·계정 헤더·오류 본문, A1~A8·C1·W1·W2·B2·S1·S3·S4의 나머지, WS `hello`·`features`·`end`, `posture.frames.v1`, 서버 메시지, `closed` 사유, `calibration_result`, T1 필드, `POST …/features`·`POST /records` 없앰)는 BE 명세와 같다.
 
+### 0.6 BE 코드와 REST 필드 대조 (10/15)
+
+BE 브랜치 `feat/backend-data-platform-architecture` `316877d`의 `backend/api` 코드(요청·응답 record, `AuthController`·`WorkspaceService`·`SessionController`·`BaselineController`)와 4장을 필드 단위로 맞춰 봤다. **이름·모양이 다르면 앱이 BE에 맞춘다(10/15 결정).** 아래는 4장에 반영했다. WS는 BE가 v2로 바꾸는 중이라 대조하지 않았다.
+
+| ID | BE 코드 | 4장 반영 |
+|---|---|---|
+| 공통 | JSON은 `SNAKE_CASE`, 모르는 필드 400, **빠진 필드도 400**(`fail-on-missing-creator-properties`), 문자열↔숫자 자동 변환 없음 | 값이 없으면 필드를 빼지 말고 `null`을 보낸다(1장 본문) |
+| A1 | 200 `{header_name, token}` | `token`을 `X-CSRF-TOKEN`에 |
+| A2·A3·A4·A8 | 200 `{user_id, email, profile:{name, age, occupation}}`. A8 본문은 A3와 같은 `{email, password}`이고 성공하면 로그인 상태 | 같다 |
+| A5·A6·A7 | 204. A6 `{current_password, new_password}`, **A7 `{password}`**(DELETE 본문) | 탈퇴 확인창에서 비밀번호를 받아야 한다(지금 화면에는 없음, 계정 연결 F12 때) |
+| C1 | `{agreed, document_version}` → W1 모양 | 같다 |
+| W1·W2 | W1 `{schema_version:"2.0", profile, rules, preferences:{alerts_on}, consents:{optional_profile}, records}`. W2 `rules`는 `holdSeconds` 0~10, `realertSeconds` 0~180 | 같다 |
+| B2 | 200 `{schema_version, baseline_id, registered_at, landmarks:{nose:{x,y}, …9개}}` | 같다 |
+| S1 | **200** `SessionView` = `{schema_version, session_id, policy, timer_policy, ended, last_sequence, summary, events}`. `started_at`·`baseline_id`·`alert_enabled`는 없다 | 앱은 응답을 받은 순간을 `t_ms` 0으로 쓰고, 알림 여부는 W1 `alerts_on`, 기준은 B2 `baseline_id`를 쓴다 |
+| S3 | `{end_ms}` → `SessionView`(`ended:true`) | `ended`만 본다 |
+| S4 | `SessionView` | 종료 화면은 `summary`로 |
+| R3 | 204. 적재된 세션은 409 `CONFLICT` | 2장 |
+
 ## 1. 공통 규칙
 
 | 항목 | 규칙 (BE 명세와 같음) | 앱이 하는 일 |
@@ -126,10 +144,10 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | 로그인 | HttpOnly·SameSite=Lax 쿠키(`SPRING_SESSION`), 만료 30분. WS도 같은 쿠키. **WS가 열려 있는 동안은 서버가 세션을 갱신하고 만료로 닫지 않는다**(A1) | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면 |
 | CSRF | `GET /v2/auth/csrf`(A1) 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에. 가입·로그인 포함 | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id: <user_id>` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다 |
-| 본문 | JSON snake_case. 요청의 모르는 필드는 400. `/v2/workspace`의 `rules`와 기록만 camelCase | 명세에 없는 필드는 보내지 않는다. **응답·서버 메시지의 모르는 필드, 모르는 `type`·`event.kind`는 무시한다**(B11) |
+| 본문 | JSON snake_case. 요청의 모르는 필드는 400. `/v2/workspace`의 `rules`와 기록만 camelCase | 명세에 없는 필드는 보내지 않고, 명세에 있는 필드는 값이 없어도 빼지 않고 `null`로 보낸다(빠지면 400, 0.6). **응답·서버 메시지의 모르는 필드, 모르는 `type`·`event.kind`는 무시한다**(B11) |
 | 오류 | `{error, code, message}` | `code`로 나눈다(2장) |
 | 시각 | 응답은 UTC ISO-8601. 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 바꾼다 |
-| 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 201을 받은 순간부터 `t_ms`를 센다 |
+| 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 응답(200, BE 명세는 201)을 받은 순간부터 `t_ms`를 센다. BE 코드 응답에는 `started_at`이 없다(0.6) |
 | ID | `session_id`·`calibration_id`는 앱 UUID, `baseline_id`는 서버 UUID, `user_id`는 10진 문자열 | 재시도 때 같은 UUID |
 | 시간 기본값 | 판정 3·3·60초는 서버 설정 | 앱은 받은 값만 쓴다 |
 | 판정 규칙 단위 (DB V2.3) | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`), `/v2/workspace` `rules`와 DB `threshold_policy`는 초. DB는 `hold_seconds`·`recover_seconds`가 0.5초 단위, `realert_seconds`가 1초 이상이다. 그래서 ms 값은 500의 배수, `reminder_ms`는 1000 이상이다 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로 보낸다. 앱이 값을 새로 만들지 않으므로 이 조건은 그대로 지켜진다 |
@@ -142,7 +160,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 |---|---|---|
 | 502·503 재시도 | 1·2·4초 간격, 최대 3번 | 오류 안내 |
 | `hello` → `ready` | 5초 (Q2) | 연결을 닫고 "서버에 연결하지 못했어요". 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터**(C4) |
-| `features` 보내기 | 0.5초마다 구간 1개 (Q1). `t_ms` 0(S1 201)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다(A2). 일시정지·카메라 끊김 중에도 빈 구간을 계속 보낸다 | — |
+| `features` 보내기 | 0.5초마다 구간 1개 (Q1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다(A2). 일시정지·카메라 끊김 중에도 빈 구간을 계속 보낸다 | — |
 | 측정 `end` → `closed(ended)` | 10초 | S4로 종료 화면(404면 마지막 `progress`로) |
 | 등록 WS 열기 | 얼굴·어깨가 보여 3·2·1이 시작될 때(사용자를 기다리는 동안은 열지 않음, 120초 무입력 끊김 회피, B10) | — |
 | 등록 `end` | 마지막 구간 `end_ms`가 3000 이상일 때 보낸다(B7) | — |
@@ -246,14 +264,14 @@ PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 { "policy": { "hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7 },
   "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60" }
 
-201
-{ "session_id": "3f2a…", "started_at": "2026-10-13T08:00:00.000Z",
-  "policy": { … }, "baseline_id": "9b1c…", "alert_enabled": true }
+200 (BE 코드 10/15. BE 명세 10/13판은 201 {session_id, started_at, policy, baseline_id, alert_enabled})
+{ "schema_version": "…", "session_id": "3f2a…", "policy": { … }, "timer_policy": "…",
+  "ended": false, "last_sequence": 0, "summary": { … }, "events": [] }
 ```
 
-- `policy`는 W1 `rules`를 ms로 바꾼 값, `baseline_id`는 B2 값이다. 201을 받은 순간이 `t_ms` 0이다.
+- `policy`는 W1 `rules`를 ms로 바꾼 값, `baseline_id`는 B2 값이다. 응답을 받은 순간이 `t_ms` 0이다. 응답에 `started_at`·`alert_enabled`가 없으므로 알림 여부는 W1 `preferences.alerts_on`을 쓴다(0.6).
 - **200·201 모두 성공이다**(C3). 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다(200).
-- S3 `{ "end_ms": 600000 }` → `{ "session_id", "ended": true }`. WS가 이미 끊겼을 때만 부른다. 서버가 끊김으로 먼저 끝낸 세션이면 `end_ms`가 달라도 저장된 값으로 200이다(DevOps B2).
+- S3 `{ "end_ms": 600000 }` → S1과 같은 모양(`ended: true`). WS가 이미 끊겼을 때만 부른다. 서버가 끊김으로 먼저 끝낸 세션이면 `end_ms`가 달라도 저장된 값으로 200이다(DevOps B2).
 - S4는 측정 `end` 뒤 10초 안에 `closed`가 없을 때만 부른다. 404면 마지막 `progress`로 종료 화면을 그린다.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
@@ -334,7 +352,7 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 | 단계 | 앱 | 서버 |
 |---|---|---|
 | 1 | B2 `GET /v2/baselines/current` | 200 기준 / 404 → 자세 등록 |
-| 2 | S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 201 `{started_at, …}` (= `t_ms` 0) |
+| 2 | S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0, 0.6) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
 | 4 | 0.5초마다 `features {items:[구간 1개]}`. `ready` 전에 만든 구간은 순번대로 먼저 보낸다(A2) | `ack`·`observation`·`progress`, 사건이 있으면 `decision`·`alert` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
@@ -346,7 +364,7 @@ sequenceDiagram
   participant S as 입출구 서버(api·ws)
   A->>S: B2 GET /v2/baselines/current
   A->>S: S1 PUT /v2/sessions/{id} {policy, baseline_id}
-  S-->>A: 201 {started_at} (t_ms 0)
+  S-->>A: 200 SessionView (t_ms 0)
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready
   loop 0.5초마다
@@ -423,7 +441,7 @@ sequenceDiagram
 
 ### 7.2 붙이는 순서 (BE가 준비되는 대로)
 
-1. **좌표 묶음:** `ws`가 v2를 열면 `RealtimeClient`가 특징 변화량 대신 `FrameBatcher`(`frames.ts`) 결과를 `items` 1개로 보낸다. `t_ms` 0은 S1 201을 받은 시각.
+1. **좌표 묶음:** `ws`가 v2를 열면 `RealtimeClient`가 특징 변화량 대신 `FrameBatcher`(`frames.ts`) 결과를 `items` 1개로 보낸다. `t_ms` 0은 S1 응답을 받은 시각.
 2. **판정 불가:** 어깨 2초 유예가 끝난 프레임에 `valid:false`를 붙인다.
 3. **종료:** `end` 뒤 `closed(ended)`까지 연결 유지, 10초 대기 후 S4.
 4. **자세 등록:** `savedBaseline.ts`의 읽기·쓰기를 B2 조회와 WS calibration으로 바꾼다. 화면(측정하기, 가입 3단계, 설정 다시 등록)은 그대로.

@@ -63,7 +63,7 @@
       "$ref": "../session-view.v1.schema.json#/properties/summary"
     },
     "hello": {
-      "description": "app -> server, first message. measure: after PUT /v2/sessions/{id} returned 201. calibration: a new calibration_id per registration.",
+      "description": "app -> server, first message. measure: after PUT /v2/sessions/{id} succeeded (200, or 201 in the BE spec draft). calibration: a new calibration_id per registration.",
       "type": "object",
       "oneOf": [
         {
