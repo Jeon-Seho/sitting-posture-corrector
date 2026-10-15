@@ -1,16 +1,17 @@
 """Setup, verification and local server workflows used by the dev CLI."""
 
-import os
 import sys
 
 if __package__:
+    from .test_mysql import mysql_server
     from .runtime import (
-        ROOT, VENV, java_executable, maven_executable, npm, require_venv,
+        VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 else:
+    from test_mysql import mysql_server
     from runtime import (
-        ROOT, VENV, java_executable, maven_executable, npm, require_venv,
+        VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 
@@ -42,20 +43,20 @@ def check_frontend():
     npm("run", "check")
 
 
+def gradle(*arguments, env=None):
+    run(*gradle_command(*arguments), env=env)
+
+
 def check_backend():
-    settings = "tools/maven-settings.xml"
-    cache = os.environ.get("POSEGOOD_MAVEN_CACHE", str(ROOT / ".cache" / "maven"))
-    run(
-        maven_executable(), "-B", "-ntp", "-s", settings, "-gs", settings,
-        "-Dmaven.repo.local=" + cache, "-f", "backend/pom.xml", "verify",
-    )
-    run(venv_python(), "tools/service_smoke.py")
-    run(
-        venv_python(), "tools/server_benchmark.py",
-        "--target", "both", "--warmup", "1", "--repetitions", "4",
-        "--concurrency", "2", "--timeout", "5",
-        "--output", ".cache/benchmarks/smoke.json",
-    )
+    """Unit tests, then real-MySQL integration tests and the HTTP smoke with real inference.
+
+    MySQL comes from tools/test_mysql.py (configured loopback server or a temporary Docker
+    container); a missing MySQL fails the check instead of skipping it.
+    """
+    gradle("build")
+    with mysql_server() as server:
+        gradle("build", "-Pmysql-integration", env=server.environment())
+        run(venv_python(), "tools/service_smoke.py", env=server.environment())
 
 
 def check_browser():
@@ -99,10 +100,6 @@ def dev_service(component, artifact):
 
 def dev_api():
     dev_service("api", "session-api")
-
-
-def dev_cep():
-    dev_service("cep", "cep-service")
 
 
 def dev_inference():

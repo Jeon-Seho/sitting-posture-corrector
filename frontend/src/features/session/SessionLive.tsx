@@ -46,6 +46,7 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
     live,
     seekNext,
     toast,
+    shoulderToast,
     warningScore,
     toggleSound,
     togglePause,
@@ -136,7 +137,7 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
                   className="btn btn-icon"
                   aria-pressed={soundOn}
                   aria-label={soundOn ? '알림 소리 끄기' : '알림 소리 켜기'}
-                  title={soundOn ? '알림 소리 켜짐' : '알림 소리 꺼짐'}
+                  data-tip={soundOn ? '알림 소리 켜짐' : '알림 소리 꺼짐'}
                   onClick={toggleSound}
                 >
                   {soundOn ? <SpeakerHigh size={20} weight="bold" /> : <SpeakerSlash size={20} weight="bold" />}
@@ -166,7 +167,16 @@ export function SessionLive({ screen, camera, collection, service, alertsOn, onP
       )}
       {isCamera && !service && <CollectionPanel collection={collection} />}
 
-      {toast && phase === 'running' && live.state !== 'unknown' && alertsOn && (
+      {shoulderToast && phase === 'running' && (
+        <div className="toast" role="status">
+          <WarningCircle size={22} weight="fill" className="icon" />
+          <div>
+            <div className="alert-title">어깨가 보이지 않아요</div>
+            <div className="alert-desc">{shoulderToast}</div>
+          </div>
+        </div>
+      )}
+      {!shoulderToast && toast && phase === 'running' && live.state !== 'unknown' && alertsOn && (
         <div className="toast" role="status">
           <WarningCircle size={22} weight="fill" className="icon" />
           <div>

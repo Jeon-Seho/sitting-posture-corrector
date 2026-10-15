@@ -48,6 +48,7 @@ async function setup() {
   const checkpoints: ServerCheckpoint[] = []
   const onNotifications = vi.fn()
   const onEnded = vi.fn()
+  const onConnectionLost = vi.fn()
   const controller = new ServerSessionController({
     session: descriptor(),
     client,
@@ -55,6 +56,7 @@ async function setup() {
     wallNow: () => now,
     onEnded,
     onNotifications,
+    onConnectionLost,
     onCheckpoint: (_machine, saved) => {
       checkpoints.push(saved)
     },
@@ -93,7 +95,19 @@ async function setup() {
     }
   }
   const featureSends = () => client.send.mock.calls.filter(([request]) => request.kind === 'features').length
-  return { controller, client, socket, sockets, process, frames, featureSends, checkpoints, onNotifications, onEnded }
+  return {
+    controller,
+    client,
+    socket,
+    sockets,
+    process,
+    frames,
+    featureSends,
+    checkpoints,
+    onNotifications,
+    onEnded,
+    onConnectionLost,
+  }
 }
 
 describe('server session over the realtime transport (synthetic gateway)', () => {
@@ -119,7 +133,7 @@ describe('server session over the realtime transport (synthetic gateway)', () =>
     expect(s.checkpoints.at(-1)!.nextSequence).toBe(2)
   })
 
-  it('notifies a pushed confirmation once, even when it is replayed after reconnecting', async () => {
+  it('ends the session when the socket drops and never reconnects or resends (2026-10-13)', async () => {
     const s = await setup()
     s.frames(0, 1000, 2000, 3000)
     vi.advanceTimersByTime(500)
@@ -129,13 +143,19 @@ describe('server session over the realtime transport (synthetic gateway)', () =>
     s.socket().push({ type: 'decision', event: collapse(1, 3000), summary })
     expect(s.onNotifications).toHaveBeenCalledOnce()
     s.socket().onclose?.()
-    vi.advanceTimersByTime(500)
-    s.socket().open()
-    expect(s.socket().sent[0]).toMatchObject({ type: 'hello', last_event_id: 1 })
-    s.socket().push({ type: 'decision', event: collapse(1, 3000), summary })
-    expect(s.onNotifications).toHaveBeenCalledOnce()
+    expect(s.onConnectionLost).toHaveBeenCalledOnce()
+    expect(s.controller.state).toMatchObject({ connectionLost: true, retryable: false, canResume: false })
+    // The confirmed ledger stays for the local record.
     expect(s.controller.state.view!.events).toHaveLength(1)
-    expect(s.checkpoints.at(-1)!.lastNotificationId).toBe(1)
+    vi.advanceTimersByTime(60_000)
+    expect(s.sockets).toHaveLength(1)
+    const sends = s.client.send.mock.calls.length
+    s.frames(4000, 5000)
+    s.controller.resume()
+    s.controller.end()
+    await s.controller.retry()
+    expect(s.client.send.mock.calls).toHaveLength(sends)
+    expect(s.onConnectionLost).toHaveBeenCalledOnce()
   })
 
   it('ends over HTTP only after every live interval is acknowledged', async () => {

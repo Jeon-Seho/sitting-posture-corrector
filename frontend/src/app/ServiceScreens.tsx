@@ -1,15 +1,15 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import { ArrowLeft, X } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { ArrowLeft, CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
-import { PosturePage } from '../pages/PosturePage'
 import { SettingsPage } from '../pages/SettingsPage'
-import { DashboardPage } from '../pages/DashboardPage'
+import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { LocalHistory } from '../features/history/LocalHistory'
+import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
 import { RecoveryNotice } from '../features/session/RecoveryNotice'
 import { SessionPage } from '../features/session/SessionPage'
 import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
@@ -18,6 +18,7 @@ import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
 import type { Rules } from '../lib/engine'
 import { historyFor } from '../lib/history'
+import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
@@ -40,7 +41,6 @@ type Props = {
   saveDemoPreference: (enabled: boolean) => void
   storageNotice: ReactNode
   profilePage: ReactNode
-  accountMode?: boolean
   alertsOn?: boolean
   onAlerts?: (enabled: boolean) => void
   settingsDisabled?: boolean
@@ -49,6 +49,11 @@ type Props = {
 }
 
 const NOTICE_MS = 6000
+
+/** Problems get the warm warning icon; greetings and confirmations get the check. */
+function noticeTone(text: string) {
+  return /못했|못 했|실패|없어요|없습니다|확인해 주세요|마친 뒤|다시 시도|오류|할 수 없/.test(text) ? 'is-warn' : 'is-ok'
+}
 
 /** The local prototype and signed-in account share measurement/history presentation. */
 export function ServiceScreens({
@@ -69,7 +74,6 @@ export function ServiceScreens({
   saveDemoPreference,
   storageNotice,
   profilePage,
-  accountMode = false,
   alertsOn = true,
   onAlerts = () => {},
   settingsDisabled = false,
@@ -77,6 +81,9 @@ export function ServiceScreens({
 }: Props) {
   const { profile, records, rules, showDemo, draft, canWrite } = workspace
   const view = resolvePage(page, measuring)
+  // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
+  const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
+  const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -92,8 +99,7 @@ export function ServiceScreens({
 
   function openTab(tab: Tab) {
     if (tab === 'measure') go(measuring ? 'session' : 'setup')
-    else if (tab === 'posture') go('posture')
-    else go(tab === 'records' ? 'dashboard' : 'settings')
+    else go(tab === 'records' ? 'dashboard' : tab === 'calendar' ? 'calendar' : 'settings')
   }
 
   return (
@@ -113,14 +119,20 @@ export function ServiceScreens({
         onProfile={() => go('profile')}
         name={profile?.name ?? ''}
         today={{ rate: today.rate, valid: today.valid }}
+        onToday={() => go('dashboard')}
       />
       <main ref={main} className="main service-main">
         {storageNotice}
         {error && (
-          <p role="status" className="service-notice">
-            {error}
+          <p role="status" className={`service-notice ${noticeTone(error)}`}>
+            {noticeTone(error) === 'is-warn' ? (
+              <WarningCircle size={20} weight="fill" className="icon" />
+            ) : (
+              <CheckCircle size={20} weight="fill" className="icon" />
+            )}
+            <span>{error}</span>
             {onClearError && (
-              <button className="btn btn-quiet btn-icon btn-sm" aria-label="알림 닫기" onClick={onClearError}>
+              <button className="snack-close" aria-label="알림 닫기" onClick={onClearError}>
                 <X size={16} weight="bold" />
               </button>
             )}
@@ -134,20 +146,23 @@ export function ServiceScreens({
             saveMessage={persistence.saveMessage}
             onRestore={persistence.restore}
             onFinish={persistence.finishDraft}
-            accountMode={accountMode}
           />
         )}
-        {view === 'dashboard' &&
-          (showDemo ? (
-            <DashboardPage />
-          ) : (
-            <LocalHistory
-              records={records}
-              measuring={measuring}
-              onStart={() => go(measuring ? 'session' : 'setup')}
-              accountMode={accountMode}
-            />
-          ))}
+        {view === 'dashboard' && (
+          <LocalHistory
+            records={shownRecords}
+            example={!!example}
+            measuring={measuring}
+            onStart={() => go(measuring ? 'session' : 'setup')}
+            onCalendar={() => go('calendar')}
+          />
+        )}
+        {view === 'calendar' && (
+          <RecordCalendarPage
+            records={shownRecords}
+            example={!!example}
+          />
+        )}
         {view === 'collection' && (
           <>
             <div className="page-actions">
@@ -159,23 +174,19 @@ export function ServiceScreens({
             <CollectionPage camera={camera} collection={collection} />
           </>
         )}
-        {view === 'setup' && (
+        {(view === 'setup' || view === 'posture') && (
           <SetupPage
+            key={view}
             camera={camera}
             onStart={persistence.start}
             onCollect={openCollection}
-            onRegister={() => go('posture')}
+            measuring={measuring}
+            registerAgain={view === 'posture'}
+            onBack={view === 'posture' ? () => go('settings') : undefined}
+            onOpenSession={() => go('session')}
             serverMode={serverMode}
             onServerMode={onServerMode}
             serverModeDisabled={measuring}
-            accountMode={accountMode}
-          />
-        )}
-        {view === 'posture' && (
-          <PosturePage
-            camera={camera}
-            measuring={measuring}
-            onMeasure={() => go(measuring ? 'session' : 'setup')}
           />
         )}
         {session && (
@@ -185,7 +196,6 @@ export function ServiceScreens({
                 key={session.id}
                 session={{ ...session, server: session.server }}
                 camera={camera}
-                accountMode={accountMode}
                 alertsOn={alertsOn}
                 onFinish={() => go('home')}
                 onDashboard={() => go('dashboard')}
@@ -197,6 +207,13 @@ export function ServiceScreens({
                   onArchive: persistence.archiveServerResult,
                   saveMessage: persistence.saveMessage,
                   onRetry: persistence.retrySave,
+                  sessionLabel: sessionLabel(
+                    session.startedAt,
+                    daySessionNumber(
+                      records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
+                      session.startedAt,
+                    ),
+                  ),
                 }}
               />
             ) : (
@@ -233,16 +250,16 @@ export function ServiceScreens({
               onRules={saveRules}
               alertsOn={alertsOn}
               onAlerts={onAlerts}
-              accountMode={accountMode}
               hasHistory={showDemo}
               onHasHistory={saveDemoPreference}
               account={{
                 name: profile?.name ?? '',
-                detail: accountMode ? '내 계정에 저장' : '이 기기에만 저장',
+                detail: '이 기기에만 저장',
                 onProfile: () => go('profile'),
                 onLogout: logout,
               }}
               onRegisterAgain={() => go('posture')}
+              camera={camera}
               onCollect={openCollection}
             />
           </fieldset>

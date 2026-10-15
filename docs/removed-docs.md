@@ -40,7 +40,7 @@
 | `docs/plans/completed/0009-service-logic-integration.md` | 로컬 모드·좌표 미전송 등 지금 결정([ADR 0021](decisions/0021-app-sends-information-server-judges.md))과 다른 내용이 많아 혼란을 준다(10/11 `82d76dd`). ADR은 결정의 근거라 남긴다. | 각 ADR, [아키텍처](architecture.md), [품질 기준](quality.md), [개발 흐름](development.md) | klaod-tech |
 | `docs/audits/2026-10-06-db-v11-connection.md` | 로컬 모드·좌표 미전송 등 지금 결정([ADR 0021](decisions/0021-app-sends-information-server-judges.md))과 다른 내용이 많아 혼란을 준다(10/11 `82d76dd`). ADR은 결정의 근거라 남긴다. | 각 ADR, [아키텍처](architecture.md), [품질 기준](quality.md), [개발 흐름](development.md) | klaod-tech |
 
-## 3. FE(klaod-tech, 이 PR 작성자)가 만든 문서 (10개)
+## 3. FE(klaod-tech, 이 PR 작성자)가 만든 문서 (9개)
 
 `team-requirements.md`는 지성 님도 고친 적이 있다(다른 수정자 칸).
 
@@ -55,4 +55,17 @@
 | `docs/persona-flow-review.md` | PR·git 이력을 반복하는 FE 개인 기록이다(10/08 `539d921`). | PR 설명과 git 이력 | lellon0403 |
 | `database/proposals/0001-v03-supplement.md` | DB V1.1에 이미 반영된 제안이다(10/08 `539d921`). | `database/` 스키마와 [DB 안내](../database/README.md) | lellon0403 |
 | `docs/plans/active/0021-db-schema-v03-alignment.md` | 끝난 계획이다(develop PR #11·#13, 10/06). DB는 이후 V2.2로 바뀌었다(10/08 `539d921`). | [ADR 0018](decisions/0018-db-schema-v11-service-storage.md), [DB 안내](../database/README.md) | lellon0403 |
-| `docs/design/unmeasurable-handling.md` | 서버 판정 이전 명세로 합쳤다(10/11 `ea11987`). | [FE 제안서](design/fe-server-proposal.md) 2·3장 | - |
+
+## 4. 2026-10-13 FE 문서 정리 (FE, 6개)
+
+FE 문서를 연동 명세(BE API 명세 10/13 기준)·WebSocket v2 계약에 맞춰 정리하며 끝났거나 겹친 문서를 지웠다.
+되살리기: `git show d1575aa:<경로>`.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/unmeasurable-handling.md` | 10/12 회의 결정(판정 불가는 넓게 하나로, 앱이 `valid:false`로 표시, 서버가 시간·점수에서 뺌)이 FE 제안서와 연동 명세에 들어갔고, 1~4장(10/08 앱 판정 규칙)은 서버 몫이 됐다(10/13 정리). | [FE 제안서](design/fe-server-proposal.md) 3.2, [연동 명세](design/api-ws-spec.md) 5.1 | - |
+| `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/api-ws-spec.md) 3·7장(연결 설정·붙이는 순서) | lellon0403(처음 작성) |
+| `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 7장(화면 상태와 서버 메시지) | lellon0403 |
+| `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 5.1·7장 | - |
+| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json), [연동 명세](design/api-ws-spec.md) | lellon0403 |
+| `docs/plans/active/0024-posture-registration-tab.md` | 끝난 계획이다. 「자세 등록」 탭은 팀원이 측정하기로 합쳤고(`2be4af8`), 회원가입 3단계에서도 등록한다(10/13 정리). | 측정하기(`SetupPage`), [동의 제안서](design/consent-proposal.md) 3장(회원가입 3단계) | lellon0403 |

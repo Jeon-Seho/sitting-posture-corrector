@@ -72,6 +72,7 @@ export async function createPoseTracker(
     return null
   }
   let closed = false
+  let lastStamp = -1
   return {
     delegate,
     diagnostics: Object.freeze({
@@ -83,8 +84,11 @@ export async function createPoseTracker(
       if (closed) throw new Error('Pose tracker is closed')
       const isVideo = 'videoWidth' in input
       const videoTimeMs = capturedVideoTimeMs ?? (isVideo ? input.currentTime * 1_000 : timeMs)
+      // SDK smoothing follows captured frame spacing; consumer clocks remain performance.now().
+      const stamp = Math.max(lastStamp + 1, Math.round(videoTimeMs))
+      lastStamp = stamp
       const started = performance.now()
-      const result = detector.detectForVideo(input, timeMs)
+      const result = detector.detectForVideo(input, stamp)
       const inferenceMs = performance.now() - started
       return {
         ...shoulderUpLandmarks(result),

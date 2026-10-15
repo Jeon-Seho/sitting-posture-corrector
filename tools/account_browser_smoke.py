@@ -12,7 +12,7 @@ from runtime import ROOT
 from service_processes import assert_ports_closed, free_port
 
 
-def verify_account_browser(frontend_base):
+def verify_account_browser(frontend_base, *, api_prefix="/api"):
     chrome = chrome_executable()
     node = shutil.which("node")
     if not node:
@@ -21,7 +21,7 @@ def verify_account_browser(frontend_base):
     artifacts.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="posegood-account-browser-") as temporary:
         with running_frontend_proxy(frontend_base, [], mode="browser-smoke",
-                                    server_accounts=True, api_prefix="/api") as base:
+                                    server_accounts=True, api_prefix=api_prefix) as base:
             port = free_port()
             options = {"start_new_session": True} if os.name != "nt" else {
                 "creationflags": subprocess.CREATE_NEW_PROCESS_GROUP,

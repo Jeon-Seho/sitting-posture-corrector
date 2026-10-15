@@ -1,0 +1,43 @@
+/* Server connection lost: blocks the whole app above every other layer. */
+.connection-lost {
+  width: min(420px, calc(100% - 32px));
+  margin: auto;
+  padding: 32px 28px 28px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(21, 20, 18, 0.35);
+  text-align: center;
+}
+.connection-lost[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.connection-lost::backdrop {
+  background: rgba(21, 20, 18, 0.62);
+}
+.connection-lost-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--pill);
+  color: var(--alert-ink);
+  background: var(--alert-tint);
+}
+.connection-lost h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+.connection-lost p {
+  margin: 0;
+  line-height: 1.6;
+}
+.connection-lost .btn {
+  margin-top: 12px;
+  min-width: 160px;
+  justify-content: center;
+}

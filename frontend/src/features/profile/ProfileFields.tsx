@@ -8,11 +8,14 @@ export type ProfileFieldValues = Pick<
 export function ProfileFields({
   form,
   canWrite,
-  nameMax = 50,
+  nameMax = 30,
+  optionalInfo = true,
 }: {
   form: ProfileFieldValues
   canWrite: boolean
   nameMax?: number
+  /** Hide age and occupation when sign-up consent C3 was declined. */
+  optionalInfo?: boolean
 }) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
   return (
@@ -28,30 +31,34 @@ export function ProfileFields({
           maxLength={nameMax}
         />
       </label>
-      <label className="field">
-        나이
-        <ValidatedInput name="age" validationLabel="나이"
-          className="input"
-          disabled={!canWrite}
-          type="number"
-          min={1}
-          max={120}
-          value={age}
-          onChange={(e) => setAge(Number(e.target.value))}
-          required
-        />
-      </label>
-      <label className="field">
-        직업
-        <ValidatedInput name="occupation" validationLabel="직업"
-          className="input"
-          disabled={!canWrite}
-          value={occupation}
-          onChange={(e) => setOccupation(e.target.value)}
-          required
-          maxLength={80}
-        />
-      </label>
+      {optionalInfo && (
+        <>
+          <label className="field">
+            나이
+            <ValidatedInput name="age" validationLabel="나이"
+              className="input"
+              disabled={!canWrite}
+              type="number"
+              min={14}
+              max={120}
+              value={age}
+              onChange={(e) => setAge(Number(e.target.value))}
+              required
+            />
+          </label>
+          <label className="field">
+            직업
+            <ValidatedInput name="occupation" validationLabel="직업"
+              className="input"
+              disabled={!canWrite}
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              required
+              maxLength={80}
+            />
+          </label>
+        </>
+      )}
     </>
   )
 }

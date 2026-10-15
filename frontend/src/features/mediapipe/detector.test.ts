@@ -79,7 +79,7 @@ it('accepts identical cached canvases with their capture timestamps, without lea
   const tracker = (await createPoseTracker(() => true, { delegate: 'GPU' }))!
   const canvas = { width: 640, height: 480 } as HTMLCanvasElement
   const result = tracker.detectFrame(canvas, 4000, 250)
-  expect(detect).toHaveBeenCalledWith(canvas, 4000)
+  expect(detect).toHaveBeenCalledWith(canvas, 250)
   expect(result).toMatchObject({ timeMs: 4000, videoTimeMs: 250, width: 640, height: 480 })
   expect(result.landmarks).toHaveLength(13)
   expect(result.worldLandmarks).toHaveLength(13)
@@ -90,6 +90,25 @@ it('accepts identical cached canvases with their capture timestamps, without lea
   tracker.close()
   expect(close).toHaveBeenCalledOnce()
   expect(() => tracker.detectFrame(canvas, 4200)).toThrow('closed')
+})
+
+it('uses monotonic captured-frame stamps for SDK smoothing without changing the observation clock', async () => {
+  sdk.resolve.mockResolvedValue({})
+  const detect = vi.fn((_input: HTMLVideoElement, _stamp: number) => ({ landmarks: [], worldLandmarks: [] }))
+  sdk.create.mockResolvedValue({ close: vi.fn(), detectForVideo: detect })
+  const tracker = (await createPoseTracker(() => true, { delegate: 'CPU' }))!
+  const video = { currentTime: 1.25, videoWidth: 640, videoHeight: 480 } as HTMLVideoElement
+  const frames = [tracker.detectFrame(video, 5000)]
+  video.currentTime = 1.283
+  frames.push(tracker.detectFrame(video, 5100))
+  // Repeated or restarted video clocks cannot make SDK time go backwards.
+  frames.push(tracker.detectFrame(video, 5300))
+  video.currentTime = 0.1
+  frames.push(tracker.detectFrame(video, 5400))
+  expect(detect.mock.calls.map((call) => call[1])).toEqual([1250, 1283, 1284, 1285])
+  expect(frames.map((frame) => frame.timeMs)).toEqual([5000, 5100, 5300, 5400])
+  expect(frames.map((frame) => frame.videoTimeMs)).toEqual([1250, 1283, 1283, 100])
+  tracker.close()
 })
 
 it('closes a late successful detector after cancellation', async () => {

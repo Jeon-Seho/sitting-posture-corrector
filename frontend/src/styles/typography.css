@@ -1,0 +1,110 @@
+/*
+ * One type scale for the whole app (2026-10-13). Everything is Pretendard Variable, and roles
+ * differ by weight as well as size: titles heavy, labels semibold, body regular, numbers
+ * extra bold with light units (see Amount). Numbers no longer switch to a Latin face, so
+ * digits and their Korean units match.
+ */
+:root {
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-label: 650;
+  --fw-bold: 700;
+  --fw-strong: 750;
+  --fw-heavy: 800;
+}
+
+body {
+  font-weight: var(--fw-regular);
+}
+
+/* Titles */
+.page-title {
+  font-size: 28px;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.035em;
+}
+.card-title,
+.history-record-details h4,
+.confirm-dialog h2,
+.connection-lost h2 {
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+}
+.card-title {
+  font-size: 16px;
+}
+.nudge-title {
+  font-weight: var(--fw-strong);
+  letter-spacing: -0.02em;
+}
+
+/* Labels */
+.setting-name,
+.step-title,
+.day-text strong,
+.service-record-text strong {
+  font-weight: var(--fw-label);
+  letter-spacing: -0.015em;
+}
+.stat-label,
+.metric-group-items dt,
+.today-card-label,
+.record-summary-when {
+  font-weight: var(--fw-semibold);
+}
+
+/* Body and supporting text */
+.page-desc,
+.setting-desc,
+.step-desc,
+.nudge-desc,
+.day-text span,
+.service-record-text > span {
+  font-weight: var(--fw-regular);
+}
+.fine {
+  font-size: 12.5px;
+  font-weight: var(--fw-regular);
+  color: var(--muted);
+}
+
+/* Numbers */
+.stat-value,
+.ring-value,
+.rate-ring-value,
+.today-card-value,
+.records-stat-value,
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.stat-value,
+.ring-value,
+.rate-ring-value,
+.today-card-value,
+.records-stat-value {
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.03em;
+}
+.rate-ring-value small,
+.today-card-value small {
+  font-weight: var(--fw-medium);
+}
+
+/* Controls */
+.btn {
+  font-weight: var(--fw-label);
+}
+.chip,
+.pill,
+.select-trigger {
+  font-weight: var(--fw-semibold);
+}
+.nav-item {
+  font-weight: var(--fw-medium);
+}
+.nav-item[aria-current='true'],
+.nav-item[aria-current='page'] {
+  font-weight: var(--fw-bold);
+}

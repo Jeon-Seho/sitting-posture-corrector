@@ -5,7 +5,7 @@ import json
 import subprocess
 import threading
 
-from .compose import DATABASE, command, run
+from .compose import DATABASE, command, mysql_client, run
 from .secrets import ROOT
 
 
@@ -18,9 +18,8 @@ def compose_rows(value):
 
 
 def query(project, sql, env, root=ROOT):
-    result = run(project, "exec", "-T", "db", "mysql",
-                 "--defaults-extra-file=/run/secrets/mysql-app.cnf", "--batch",
-                 "--skip-column-names", "--execute=" + sql, DATABASE,
+    result = run(project, "exec", "-T", "db", *mysql_client("mysql", "/run/secrets/mysql-app.cnf"),
+                 "--batch", "--skip-column-names", "--execute=" + sql, DATABASE,
                  env=env, root=root, capture=True, timeout=30)
     return result.stdout.strip()
 
@@ -39,7 +38,7 @@ def require_empty_target(project, env, root=ROOT):
 def restore_database(project, source, env, root=ROOT):
     require_empty_target(project, env, root)
     arguments = command(project, root) + [
-        "exec", "-T", "db", "mysql", "--defaults-extra-file=/run/secrets/mysql-app.cnf", DATABASE,
+        "exec", "-T", "db", *mysql_client("mysql", "/run/secrets/mysql-app.cnf"), DATABASE,
     ]
     process = subprocess.Popen(arguments, cwd=root, env=env, stdin=subprocess.PIPE,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

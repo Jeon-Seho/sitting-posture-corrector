@@ -1,0 +1,4 @@
+.gradle/
+build/
+# The root *.jar rule would drop the wrapper; gradlew cannot start without it.
+!gradle/wrapper/gradle-wrapper.jar

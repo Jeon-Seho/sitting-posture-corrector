@@ -163,3 +163,29 @@ it('stops diagnostic collection when the owning camera connection is invalidated
   expect(vi.getTimerCount()).toBe(0)
   stop()
 })
+
+it('applies live service FPS caps while retaining responsive developer pacing', () => {
+  const { video, tracker, handlers } = synthetic()
+  const starts: number[] = []
+  let maxFps: number | null = 10
+  handlers.onFrame.mockImplementation((frame: PoseFrame) => {
+    starts.push(frame.timeMs)
+    video.currentTime += 0.05
+  })
+  const stop = startPoseTracking({
+    video, tracker, pacing: 'responsive', getMaxFps: () => maxFps,
+    isCurrent: () => true, ...handlers,
+  })
+  vi.advanceTimersByTime(500)
+  const slow = starts.slice()
+  expect(slow.length).toBeGreaterThan(0)
+  expect(slow.slice(1).every((time, index) => time - slow[index] >= 100)).toBe(true)
+  maxFps = 20
+  vi.advanceTimersByTime(500)
+  const fast = starts.slice(slow.length)
+  expect(fast.length).toBeGreaterThan(slow.length)
+  expect(fast.slice(1).every((time, index) => time - fast[index] >= 50)).toBe(true)
+  expect(readTrackingDiagnostics()?.pacing).toBe('responsive')
+  expect(inferenceInterval('GPU', 5, 'responsive', null)).toBe(1000 / 30)
+  stop()
+})

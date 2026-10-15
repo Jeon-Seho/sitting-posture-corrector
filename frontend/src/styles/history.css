@@ -155,3 +155,61 @@
   border-radius: var(--radius-md);
   animation: view-in 260ms var(--ease-soft, ease);
 }
+
+/* Session summary a user reads at a glance (2026-10-13); the raw numbers are folded below. */
+.record-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+  margin: 4px 0 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.record-summary-when {
+  font-size: 13px;
+  color: var(--muted);
+}
+.record-summary-length {
+  margin: 2px 0 12px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.record-summary-length b {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-right: 2px;
+}
+.history-dev-details {
+  margin-top: 6px;
+}
+.history-dev-details > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 8px 0;
+}
+.history-dev-details > summary:hover {
+  color: var(--ink-2);
+}
+@media (max-width: 860px) {
+  .record-summary {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}
+
+/* Session rows open on a click anywhere in the row. */
+.history-record-row {
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color 0.15s ease;
+}
+.history-record-row:hover {
+  background: var(--surface-2);
+}

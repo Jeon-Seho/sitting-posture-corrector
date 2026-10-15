@@ -11,4 +11,12 @@ export type CameraMetrics = PoseMetrics
 
 export type Observation = PoseFrame & {
   features: Features | null
+  /**
+   * Grace judges the head against the last seen shoulders for at most SHOULDER_GRACE_MS.
+   * Missing means the frame is unmeasurable. Absent when nobody is in view.
+   * Raw landmarks are never replaced with remembered shoulders.
+   */
+  shoulders?: ShoulderState
 }
+
+export type ShoulderState = 'seen' | 'grace' | 'missing'

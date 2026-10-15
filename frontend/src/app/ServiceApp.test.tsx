@@ -3,7 +3,6 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'rea
 import App from './ServiceApp'
 import { LoginPage } from '../pages/LoginPage'
 import { SetupPage } from '../pages/SetupPage'
-import { PosturePage } from '../pages/PosturePage'
 import { SessionPage } from '../features/session/SessionPage'
 import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
 import { projectLive, projectMachine } from '../features/session/server/projection'
@@ -16,7 +15,9 @@ import {
 } from '../features/session/server/testFixtures'
 import type { SessionView } from '../features/session/server/contracts'
 import { SettingsPage } from '../pages/SettingsPage'
-import { RecordComparison } from '../components/RecordComparison'
+import { MonthCalendar } from '../features/history/RecordCalendar'
+import { SelectMenu } from '../components/SelectMenu'
+import type { DailyStat } from '../features/history/recordsSource'
 import { DEFAULT_RULES } from '../data/posture'
 import { newMachine } from '../lib/engine'
 import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
@@ -260,12 +261,12 @@ describe('service recovery and saving with synthetic storage only', () => {
     const records = readLocal<RecordItem[]>(KEYS.records, [])
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({ total: 120, valid: 120, good: 100 })
-    expect(text(renderer!.root)).toContain('이 브라우저에 저장했습니다')
+    expect(text(renderer!.root)).toContain('이 기기에 저장했어요')
   })
   it('keeps develop real-camera-only preparation and quiet login without requesting permission', () => {
     mount()
     login()
-    expect(text(renderer!.root)).not.toContain('저장했습니다.')
+    expect(text(renderer!.root)).not.toContain('저장했어요.')
     click('측정 시작')
     const setup = renderer!.root.findByType(SetupPage)
     expect(setup.props.mode).toBeUndefined()
@@ -292,7 +293,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
-  it('preserves develop combined records and scopes comparison to the selected input kind', () => {
+  it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {
       id: 'synthetic-camera',
       startedAt: '2026-09-30T10:00:00Z',
@@ -307,15 +308,15 @@ describe('service recovery and saving with synthetic storage only', () => {
     data.set(KEYS.records, JSON.stringify(records))
     mount()
     login()
-    click('기록')
-    expect(renderer!.root.findByType(RecordComparison).props.records).toEqual(records)
+    click('달력')
+    const goodSec = () =>
+      (renderer!.root.findByType(MonthCalendar).props.stats as DailyStat[]).reduce((n, s) => n + s.good_sec, 0)
+    expect(goodSec()).toBe(100)
     expect(text(renderer!.root)).toContain('실제 웹캠·합성 시연 합산')
     click('실제 웹캠 기록')
-    expect(renderer!.root.findByType(RecordComparison).props.records).toEqual([item])
+    expect(goodSec()).toBe(80)
     click('합성 시연 기록')
-    expect(
-      renderer!.root.findByType(RecordComparison).props.records.map((r: RecordItem) => r.id),
-    ).toEqual(['synthetic-demo'])
+    expect(goodSec()).toBe(20)
   })
   it('keeps two-stage withdrawal confirmation cancellable without deleting synthetic data', () => {
     mount()
@@ -366,10 +367,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     })
     mount()
     expect(text(renderer!.root)).toContain('1. 찍을 자세 선택')
-    const picker = renderer!.root.findByProps({ id: 'capture-task' })
-    expect(picker.props.disabled).toBe(false)
-    act(() => picker.props.onChange({ target: { value: 'lean_left' } }))
-    expect(renderer!.root.findByProps({ id: 'capture-task' }).props.value).toBe('lean_left')
+    const picker = () => renderer!.root.findAllByType(SelectMenu).find((menu) => menu.props.id === 'capture-task')!
+    expect(picker().props.disabled).toBe(false)
+    act(() => picker().props.onChange('lean_left'))
+    expect(picker().props.value).toBe('lean_left')
     expect(text(renderer!.root)).toContain('본인 기준 왼쪽으로 몸통을')
     expect(data).toEqual(before)
     expect(controls.camera.connect).not.toHaveBeenCalled()
@@ -533,66 +534,337 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(data.has(KEYS.records)).toBe(false)
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
-  it('lists 측정하기 first and 자세 등록 second in the sidebar', () => {
+  it('lists 측정하기, 기록, 달력, 설정 in the sidebar (registration lives in 측정하기)', () => {
     mount()
     login()
     const tabs = renderer!.root
       .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
       .map((button) => text(button))
-    expect(tabs).toEqual(['측정하기', '자세 등록', '기록', '설정'])
+    expect(tabs).toEqual(['측정하기', '기록', '달력', '설정'])
   })
-  it('never calibrates on 측정하기 and points to 자세 등록 without a baseline', () => {
+  const advance = (ms: number) =>
+    act(() => {
+      vi.advanceTimersByTime(ms)
+    })
+  const rerender = () => act(() => renderer!.update(<App />))
+  it('registers first without a posture: 3·2·1, captures, then starts measuring by itself', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     mount()
     login()
     click('측정하기')
-    const setup = renderer!.root.findByType(SetupPage)
-    expect(text(setup)).toContain('먼저 자세를 등록해 주세요')
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
+    advance(100)
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('3초 뒤 기준 자세를 등록해요')
+    advance(2800)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
-    click('자세 등록으로 가기')
-    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
-  })
-  it('registers only on request and does not start measuring afterwards', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    mount()
-    login()
-    click('자세 등록')
-    expect(controls.camera.calibrate).not.toHaveBeenCalled()
-    click('자세 등록 시작')
+    advance(200)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.progress = 0.4
+    rerender()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 기억하는 중')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
-    act(() => renderer!.update(<App />))
-    expect(text(renderer!.root.findByType(PosturePage))).toContain('자세가 등록되어 있어요')
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    click('측정하러 가기')
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    controls.camera.progress = null
+    rerender()
+    advance(100)
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
-  it('blocks registering again while a measurement runs', () => {
+  it('starts at once from the camera view when a posture is registered', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
     mount()
     login()
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    click('자세 등록')
-    const posture = renderer!.root.findByType(PosturePage)
-    expect(posture.props.measuring).toBe(true)
-    expect(text(posture)).toContain('측정 중에는 자세를 다시 등록할 수 없어요')
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '다시 등록')).toBe(false)
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
+    expect(starts.length).toBe(2) // camera view and side panel
+    act(() => starts[0].props.onClick())
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
   })
-  it('sends 설정 다시 등록 to the 자세 등록 tab', () => {
+  it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(1000)
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('곧 측정을 시작해요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    advance(1600)
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+  })
+  it('restarts the wait when the person leaves view and stops on 취소', () => {
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    controls.camera.quality = false
+    rerender()
+    advance(500)
+    controls.camera.quality = true
+    rerender()
+    advance(2000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('취소')
+    advance(5000)
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+  })
+  it('tells the user once when the shoulders leave view and measuring pauses', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
+    act(() => starts[0].props.onClick())
+    // The synthetic camera keeps delivering frames, so the session does not pause for input.
+    const frames = (ms: number) => {
+      for (let t = 0; t < ms; t += 100) {
+        controls.camera.lastFrame.current = performance.now()
+        advance(100)
+      }
+    }
+    frames(1000)
+    expect(text(renderer!.root)).not.toContain('어깨가 화면에서 벗어나')
+    ;(controls.camera as unknown as { shoulders: string }).shoulders = 'missing'
+    rerender()
+    frames(1000)
+    expect(text(renderer!.root)).toContain('어깨가 화면에서 벗어나 측정을 잠시 멈췄어요')
+    ;(controls.camera as unknown as { shoulders: string | null }).shoulders = null
+  })
+  it('turns the camera on from the camera view, with a posture or not', () => {
+    mount()
+    login()
+    click('측정하기')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
+    controls.camera.baseline = { ...BASELINE }
+    rerender()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세로 바로')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
+  })
+  it('asks to sit back and waits while the shoulders are at the bottom edge (F7)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    ;(controls.camera as unknown as { framing: string }).framing = 'low'
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('조금 뒤로 앉아 주세요')
+    ;(controls.camera as unknown as { framing: string }).framing = 'ok'
+    rerender()
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    ;(controls.camera as unknown as { framing: string | null }).framing = null
+  })
+  it('waits for the face and shoulders before counting down', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = false
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    controls.camera.quality = true
+    rerender()
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('stops on 등록 취소 and does not restart until asked', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('측정하기')
+    advance(1000)
+    click('등록 취소')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(controls.camera.cancelCalibration).toHaveBeenCalled()
+    click('기준 자세 등록 다시 시작')
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('gives up with a reason when the capture never finishes', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    mount()
+    login()
+    click('측정하기')
+    advance(3100)
+    controls.camera.progress = 0.9
+    rerender()
+    advance(15100)
+    expect(controls.camera.cancelCalibration).toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('자세를 알아보기 어려워요')
+  })
+  it('registers again from 설정 and ends with a choice instead of measuring', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
     mount()
     login()
     click('설정')
     act(() => renderer!.root.findByType(SettingsPage).props.onRegisterAgain())
-    expect(renderer!.root.findAllByType(PosturePage)).toHaveLength(1)
+    const setup = renderer!.root.findByType(SetupPage)
+    expect(setup.props.registerAgain).toBe(true)
+    expect(text(setup)).toContain('설정으로')
+    advance(3100)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
+    controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
+    rerender()
+    advance(100)
+    // From settings it ends with a choice instead of measuring by itself.
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('새 기준 자세를 등록했어요')
+    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    click('설정으로')
+    expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
+  })
+
+  describe('local sign-up before the account server exists', () => {
+    const input = (name: string) => renderer!.root.find((node) => node.type === 'input' && node.props.name === name)
+    const type = (name: string, value: string | number) =>
+      act(() => input(name).props.onChange({ target: { value: String(value) } }))
+    const choose = (id: string, label: '동의' | '비동의') =>
+      act(() =>
+        renderer!.root
+          .find((node) => node.props['data-consent'] === id)
+          .findAllByType('button')
+          .find((b) => text(b) === label)!
+          .props.onClick(),
+      )
+    const submitDisabled = () => renderer!.root.findByType(LoginPage).props.submitDisabled
+
+    it('asks for sign-up when this device has no profile', () => {
+      data.delete(KEYS.profile)
+      mount()
+      login()
+      expect(text(renderer!.root)).toContain('회원가입을 먼저 해 주세요')
+      expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
+    })
+
+    it('lets a signed-up profile in without checking the typed credentials', () => {
+      mount()
+      login()
+      expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(0)
+    })
+
+    it('starts with nothing chosen and blocks the next step until every required item is agreed', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      expect(submitDisabled()).toBe(true)
+      click('전체 동의')
+      expect(submitDisabled()).toBe(false)
+      choose('C4', '비동의')
+      expect(submitDisabled()).toBe(true)
+      expect(text(renderer!.root)).toContain('필수 항목이라 동의해야 가입할 수 있어요')
+      choose('C4', '동의')
+      choose('C3', '비동의')
+      expect(submitDisabled()).toBe(false)
+    })
+
+    it('saves consents without the password and drops age and occupation when C3 is declined', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      choose('C3', '비동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(renderer!.root.findAll((node) => node.type === 'input' && node.props.name === 'age')).toHaveLength(0)
+      type('email', 'synthetic@example.com')
+      type('password', 'synthetic-password-1')
+      type('name', '합성 가입')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입' })
+      const account = JSON.parse(data.get(KEYS.account)!)
+      expect(account.email).toBe('synthetic@example.com')
+      expect(account.consents.agreed).toEqual({ C1: true, C2: true, C3: false, C4: true, C5: true, C6: true })
+      expect([...data.values()].some((value) => value.includes('synthetic-password-1'))).toBe(false)
+      // Step 3 (optional posture registration) is shown before entering the app.
+      // It reuses the 측정하기 registration in its 다시 등록 mode (never starts a measurement).
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBe(true)
+      expect(text(renderer!.root)).toContain('3/3 자세 등록 (선택)')
+      // Without the hidden capture element the camera cannot connect before the app shell exists.
+      expect(renderer!.root.findAll((node) => node.type === 'video' && node.props.className === 'capture-source')).toHaveLength(1)
+      // The camera is off in this test, so skipping is offered as the main action.
+      click('카메라 없이 넘어가기')
+      expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBeFalsy()
+    })
+
+    it('enters 측정하기 after registering the posture in step 3', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      type('email', 'synthetic@example.com')
+      type('password', 'pw')
+      type('name', '합성 가입')
+      type('age', 31)
+      type('occupation', '합성 직업')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      // The camera turned on in step 3 must be reconnected to the app shell's capture element.
+      controls.camera.state = 'on'
+      act(() => renderer!.root.findByType(SetupPage).props.onStart())
+      expect(controls.camera.connect).toHaveBeenCalledOnce()
+      expect(text(renderer!.root)).not.toContain('3/3 자세 등록')
+      expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBeFalsy()
+    })
+
+    it('keeps age and occupation when C3 is agreed and rejects an empty password', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      type('email', 'synthetic@example.com')
+      type('password', '')
+      type('name', '합성 가입')
+      type('age', 31)
+      type('occupation', '합성 직업')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(data.has(KEYS.profile)).toBe(false)
+      type('password', 'pw')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입', age: 31, occupation: '합성 직업' })
+    })
+
+    it('rejects an age under 14 and a name over 30 characters, as the server does', () => {
+      data.delete(KEYS.profile)
+      mount()
+      click('회원가입')
+      click('전체 동의')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      type('email', 'synthetic@example.com')
+      type('password', 'pw')
+      type('name', '합성 가입')
+      type('age', 13)
+      type('occupation', '합성 직업')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(data.has(KEYS.profile)).toBe(false)
+      type('age', 14)
+      type('name', '가'.repeat(31))
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(data.has(KEYS.profile)).toBe(false)
+      type('name', '합성 가입')
+      act(() => renderer!.root.findByType(LoginPage).props.onSubmit())
+      expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 가입', age: 14, occupation: '합성 직업' })
+    })
   })
 })

@@ -177,7 +177,7 @@
     border-color: var(--primary-press);
   }
   .btn-danger:hover:not(:disabled) {
-    background: #f8d3d8;
+    background: #fbd9c6;
   }
   .chip:hover:not(:disabled) {
     background: var(--surface-2);
@@ -370,4 +370,143 @@
 
 .btn-sm.btn-icon {
   width: 36px;
+}
+
+/* App-styled dropdown (SelectMenu): replaces the operating system's <select> list. */
+.select-menu {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+.select-trigger {
+  height: 36px;
+  max-width: 280px;
+  padding: 0 12px 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.select-trigger:hover:not(:disabled) {
+  border-color: var(--primary-soft);
+  background: var(--surface-2);
+}
+.select-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.select-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.select-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-caret {
+  color: var(--muted);
+  flex: none;
+  transition: transform 0.15s ease;
+}
+.select-menu.is-open .select-caret {
+  transform: rotate(180deg);
+}
+.select-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+.select-list:focus {
+  outline: none;
+}
+.select-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.select-option.is-active {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+}
+.select-option[aria-selected='true'] {
+  font-weight: 700;
+}
+.select-check {
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+}
+.select-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* App hover card (TipLayer): the chart's card (.combo-tip-*) at the pointer, in place of
+   the operating system's black tooltip. Not `.tip`, which the setup page already uses. */
+.app-tip {
+  position: fixed;
+  z-index: 1000;
+  min-width: 176px;
+  max-width: 300px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: app-tip-in 160ms ease;
+}
+.app-tip.is-below {
+  transform: translate(-50%, 0);
+}
+.app-tip.is-plain {
+  min-width: 0;
+  padding: 8px 12px;
+}
+.app-tip.is-plain .combo-tip-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+@keyframes app-tip-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Number fields: no operating-system spin arrows; typing and arrow keys still work. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

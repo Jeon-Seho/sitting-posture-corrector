@@ -26,19 +26,27 @@
 
   --primary: #c4532a;
   --primary-press: #a8441f;
-  --primary-tint: #fce7dc;
-  --primary-ink: #a0401b;
-  --primary-soft: #f4d2be;
+  /* 망고 75 살구 (user choice 2026-10-13): no pink cast, in line with the orange icon. */
+  --primary-tint: #ffe8d0;
+  --primary-ink: #9e4c10;
+  --primary-soft: #fdcd95;
 
   --good: #3f7d52;
   --good-ink: #2d6040;
   --good-tint: #e2f0e3;
   --good-soft: #7fbf8e;
 
-  --alert: #b83a4b;
-  --alert-ink: #9a2e3e;
-  --alert-tint: #fbe3e6;
-  --alert-soft: #e3808d;
+  --alert: #b8432a;
+  --alert-ink: #963615;
+  --alert-tint: #fde3d2;
+  --alert-soft: #f0923f;
+  /* Snackbar (toasts, 2026-10-14): deep brown with light text and tinted icons. */
+  --snack: #3a2d26;
+  --snack-ink: #fffaf4;
+  --snack-muted: #d9c9bb;
+  --snack-good: #9fd4ad;
+  --snack-warn: #fdcd95;
+  --snack-bad: #f6a37f;
 
   --unknown: #8e7f74;
   --unknown-tint: #f1eae2;
@@ -59,7 +67,8 @@
   --font-body:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
     'Apple SD Gothic Neo', sans-serif;
-  --font-num: 'Outfit', 'Pretendard Variable', Pretendard, sans-serif;
+  /* Numbers share Pretendard with their Korean units (2026-10-13); weights come from typography.css. */
+  --font-num: var(--font-body);
 
   /* One frame for every tab: same sidebar, header height, side column and gaps. */
   --sidebar-w: 232px;

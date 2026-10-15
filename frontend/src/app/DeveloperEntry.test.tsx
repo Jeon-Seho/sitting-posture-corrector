@@ -5,8 +5,7 @@ import ServiceApp from './ServiceApp'
 const camera = vi.hoisted(() => ({ connect: vi.fn(), stop: vi.fn() }))
 vi.mock('../hooks/useCamera', () => ({ useCamera: () => camera }))
 vi.mock('./LocalServiceApp', () => ({ LocalServiceApp: () => <div>existing-user-surface</div> }))
-vi.mock('../features/accounts/AccountApp', () => ({ AccountApp: () => <div>existing-account-surface</div> }))
-vi.mock('../features/accounts/client', () => ({ SERVER_ACCOUNTS: false }))
+vi.mock('../features/connection/ConnectionLostDialog', () => ({ ConnectionLostDialog: () => <div>connection-lost-surface</div> }))
 vi.mock('../pages/ForecastPage', () => ({ ForecastPage: () => <div>existing-forecast-surface</div> }))
 vi.mock('../features/developer/DeveloperRoute', () => ({ default: () => <div>isolated-developer-surface</div> }))
 

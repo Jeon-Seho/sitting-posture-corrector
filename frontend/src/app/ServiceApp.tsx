@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { LocalServiceApp } from './LocalServiceApp'
-import { AccountApp } from '../features/accounts/AccountApp'
-import { SERVER_ACCOUNTS } from '../features/accounts/client'
+import { ConnectionLostDialog } from '../features/connection/ConnectionLostDialog'
 import { ForecastPage } from '../pages/ForecastPage'
 
 const DeveloperRoute = lazy(() => import('../features/developer/DeveloperRoute'))
@@ -26,5 +25,10 @@ export default function ServiceApp() {
   }, [])
   if (developer) return <Suspense fallback={<p role="status">개발자 실험실을 준비하고 있어요…</p>}><DeveloperRoute camera={camera} /></Suspense>
   if (forecast) return <ForecastPage camera={camera} />
-  return SERVER_ACCOUNTS ? <AccountApp camera={camera} /> : <LocalServiceApp camera={camera} />
+  return (
+    <>
+      <LocalServiceApp camera={camera} />
+      <ConnectionLostDialog />
+    </>
+  )
 }

@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성: 2026-10-12 · FE(lee_app1). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성: 2026-10-12 · 최신화: 2026-10-14 · FE(feature/frontend-features-and-integration). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)
@@ -9,9 +9,11 @@
 
 ```sh
 # 다른 PC 작업 받기
+# (10/14 작업 브랜치 lee_app3 → feature/frontend-features-and-integration. 옛 PC에서는 처음 한 번만
+#  git fetch --prune origin; git switch feature/frontend-features-and-integration; git branch -D lee_app3)
 git fetch origin
-git log --oneline HEAD..origin/lee_app1
-git merge --ff-only origin/lee_app1
+git log --oneline HEAD..origin/feature/frontend-features-and-integration
+git merge --ff-only origin/feature/frontend-features-and-integration
 
 # 바뀐 파일 확인 (.vscode/는 커밋하지 않는다)
 git status --short
@@ -22,7 +24,7 @@ python tools/dev.py check-repo        # 문서 링크·금지 파일
 python tools/dev.py test              # Python 시험 전체
 python tools/dev.py check-frontend    # 프론트 시험 → 타입 검사 → 빌드
 python tools/dev.py check-browser     # 실제 Chrome 합성 흐름 (약 75개)
-python tools/dev.py check-backend     # Java 서버 시험 (JDK 21·Maven 필요)
+python tools/dev.py check-backend     # Java 서버 시험 (JDK 17 필요, Gradle Wrapper 사용)
 python tools/dev.py check-compose     # Docker·MySQL 계정·영구 저장 (Docker 필요)
 python tools/dev.py check             # 위 전체
 
@@ -42,7 +44,7 @@ grep -rn "<단어>" docs frontend/src
 git show origin/<브랜치>:<파일 경로>
 ```
 
-직접 설치해야 하는 프로그램(JDK 21, Maven, Chrome, Docker 등)과 환경변수는 [requirements-front.txt](../../requirements-front.txt)에 모아 둔다.
+직접 설치해야 하는 프로그램(JDK 17, Chrome, Docker 등)과 환경변수는 [requirements-front.txt](../../requirements-front.txt)에 모아 둔다.
 Windows PowerShell에서 `UPDATE_RULE_CASES=1 ...`은 `$env:UPDATE_RULE_CASES=1; npx vitest run referenceRuleCases`로 쓴다.
 Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙인다.
 
@@ -75,8 +77,8 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | 명령 | 목적 |
 |---|---|
 | `git status --short`, `git diff --stat` | 바뀐 파일이 의도한 것뿐인지 확인한다. `.vscode/`는 커밋하지 않는다 |
-| `git fetch` 후 `git log HEAD..origin/lee_app1` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
-| `git merge --ff-only origin/lee_app1` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
+| `git fetch` 후 `git log HEAD..origin/feature/frontend-features-and-integration` | 다른 PC에서 올린 커밋이 있는지 확인한다 |
+| `git merge --ff-only origin/feature/frontend-features-and-integration` | 충돌 없이 받을 수 있을 때만 원격 브랜치를 받는다 |
 | `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
 | `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
 
@@ -86,9 +88,10 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 |---|---|
 | `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
 | `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
+| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0024)을 고쳐야 한다(계획 0030 G1~G3) |
 
 `check-backend`는 2026-10-12 노트북에 JDK 21·Maven 3.9.9를 설치해 돌 수 있다(Java 시험 59개 중 14개 건너뜀, 서비스 연동 통과).
-정리: 프론트·문서·브라우저 흐름·Python·Java 서버는 매번 검증하고, 실제 DB(Compose)만 검증하지 못한다.
+정리: 프론트·문서·Python·Java 서버는 매번 검증하고, 브라우저 흐름과 실제 DB(Compose)는 지금 검증하지 못한다.
 작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.
 
 ## 검사별로 실제 확인하는 것 (2026-10-12 정리)
@@ -98,11 +101,11 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | # | 대상 | 실제로 실행하는 것 | 확인하는 것 | 필요한 것 |
 |---|---|---|---|---|
 | ① | `check-repo` | `tools/check_repository.py` | 저장소 구조, **Markdown 상대 링크가 실제 파일을 가리키는지**, 영상·자료·비밀값 같은 금지 파일 경로가 없는지 | Python만 |
-| ② | `test` | `tests/`의 Python `unittest` 전체(16개 파일) | 계약 JSON 스키마·예제(`contracts/`), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
+| ② | `test` | `tests/`의 Python `unittest` 전체(18개 파일) | 계약 JSON 스키마·예제(`contracts/`, 실시간 WebSocket v2 포함), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
 | ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 규칙·내보내기·저장·서버 연결 가짜 시험, 합성 시험 데이터와 앱 규칙 일치), **타입 검사**, 배포 빌드 | Node 24 |
-| ④ | `check-backend` | Maven `verify`(`backend/`) → `tools/service_smoke.py` → 짧은 `server_benchmark` | Java API·CEP·계약 모듈 시험, 실제 API→추론→CEP HTTP 왕복(합성), 지연 측정 도구가 끝까지 도는지(합격 수치 없음) | JDK 21, Maven |
+| ④ | `check-backend` | Gradle `build`(`backend/`) → 실제 MySQL 통합 시험 → `tools/service_smoke.py` | Java API·판정 엔진 시험, 실제 MySQL 저장, 실제 API→추론 HTTP 왕복(합성) | JDK 17, MySQL 또는 Docker |
 | ⑤ | `check-browser` | `tools/browser_smoke.py` → `tools/browser/scenarios.mjs` | 실제 Chrome(독립 임시 프로필)으로 앱을 열어 **합성 입력**으로 자세 등록 → 측정 → 사건 확정 시각·복귀·재연결·새로고침 복구·기록 화면·탈퇴 확인창(키보드 초점) 등 약 75개 항목. 실제 카메라는 쓰지 않음 | ④의 JAR, Chrome |
-| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중 |
+| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중. **2026-10-13부터 계정 브라우저 시나리오는 깨진다**: 프론트 계정 모드(`VITE_SERVER_ACCOUNTS`)를 지웠다. Compose·Dockerfile·`compose_smoke.py`·`account_browser_smoke.*`는 다른 팀원 파일이라 그대로 두었다 |
 
 ### 작업 종류별로 돌리는 검사
 
@@ -123,8 +126,15 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 - **데스크톱 패키지:** Electron EXE 검사(`node scripts/smoke-desktop.mjs`)는 `make check`에 없다. 패키징을 바꿀 때 따로 실행한다.
 - **다른 팀 서버:** DevOps Kafka 경로·입출구 서버와의 실제 왕복은 이 저장소에 없다(T-13).
 
+### 빌드 도구 (2026-10-14)
+
+이 브랜치의 `backend/`는 아직 Maven(`pom.xml`)이고 ④는 `tools/dev_tasks.py`의 `check_backend()`가 Maven `verify`를 부른다. BE는 10/14에 BE 브랜치(`feat/backend-data-platform-architecture` `a716135`)에서 Java 17·Spring Boot 4.0.8·Gradle Wrapper 9.7.1로 바꿨다(그 브랜치의 ADR 0023). FE는 따로 바꾸지 않고 그 브랜치를 합칠 때 받는다([계획 0029](../plans/active/0029-merge-backend-data-platform.md)). 합친 뒤 ④는 `backend/gradlew -p backend build`(JDK 17)이고, ④ 설명과 [requirements-front.txt](../../requirements-front.txt)의 Maven 안내를 함께 고친다. `make check` 실패 원인(Maven과 무관)은 [계획 0030](../plans/active/0030-make-check-failures.md).
+
 ### PC별 제약 (2026-10-12)
+
+2026-10-14부터 백엔드는 Java 17·Gradle Wrapper다([ADR 0023](../decisions/0023-backend-java17-boot4-gradle.md)). 아래의 "JDK 21·Maven"은 그 전 기록이다.
+`tools/`도 Gradle Wrapper를 부른다. `check-compose`는 Compose 이미지(`infra/docker/java.Dockerfile`)가 아직 Maven·Java 21이라 반영 전까지 실패한다([계획 0028](../plans/active/0028-backend-java17-boot4-gradle.md)).
 
 - Windows 노트북: 2026-10-12 JDK 21(Temurin)·Maven 3.9.9 설치로 ①~⑤가 돈다. JDK 25도 있으므로 `JAVA_HOME`이 21을 가리켜야 한다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
 - Windows PC(10/11): JDK 21·Maven·Docker가 있어 ①~⑤가 돈다.
-- ⑥은 DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패한다(`develop`도 같음, 계획 0023). DB 담당 브랜치가 들어오기 전까지 실패한다.
+- ⑥은 DB 초기화 스크립트(`infra/mysql/initdb/10-posegood-schema.sh`)가 지워진 `schema_V1_1.sql`을 찾아 실패한다(10/14에도 `database/schema`에는 V2_2·V2_3만 있음, `develop`도 같음). DB 담당 브랜치가 들어오기 전까지 실패한다.

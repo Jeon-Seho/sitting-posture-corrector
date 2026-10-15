@@ -11,25 +11,28 @@ from tools.service_processes import ServiceEndpoints
 
 class ServerDevTests(unittest.TestCase):
     def setUp(self):
-        self.endpoints = ServiceEndpoints(18001, 18002, 18003)
-        self.services = [MagicMock(), MagicMock(), MagicMock()]
+        self.endpoints = ServiceEndpoints(18001, 18002)
+        self.services = [MagicMock(), MagicMock()]
+        self.database = MagicMock()
         self.vite = MagicMock()
         for process in [*self.services, self.vite]:
             process.poll.return_value = None
         self.cleaned = []
 
     @contextmanager
-    def running_services(self, endpoints):
+    def running_services(self, endpoints, database):
         self.assertEqual(endpoints, self.endpoints)
+        self.assertIs(database, self.database)
         try:
             yield self.services
         finally:
             self.cleaned.append("services")
 
     @contextmanager
-    def running_frontend(self, api, services, *, on_started):
+    def running_frontend(self, api, services, *, on_started, server_accounts):
         self.assertEqual(api, self.endpoints.api)
         self.assertIs(services, self.services)
+        self.assertTrue(server_accounts)
         on_started(self.vite)
         try:
             yield "http://127.0.0.1:18004"
@@ -37,7 +40,21 @@ class ServerDevTests(unittest.TestCase):
             self.cleaned.append("frontend")
 
     def run_dev(self, sleep):
+        @contextmanager
+        def server():
+            try:
+                yield "synthetic-server"
+            finally:
+                self.cleaned.append("mysql")
+
+        @contextmanager
+        def database(server):
+            self.assertEqual(server, "synthetic-server")
+            yield self.database
+
         with patch.object(server_dev.ServiceEndpoints, "allocate", return_value=self.endpoints), \
+                patch.object(server_dev, "mysql_server", server), \
+                patch.object(server_dev, "disposable_database", database), \
                 patch.object(server_dev, "running_services", self.running_services), \
                 patch.object(server_dev, "running_frontend_proxy", self.running_frontend), \
                 patch.object(server_dev.time, "sleep", sleep), redirect_stdout(io.StringIO()):
@@ -50,20 +67,20 @@ class ServerDevTests(unittest.TestCase):
             self.run_dev(sleep)
         sleep.assert_not_called()
         self.vite.poll.assert_called_once()
-        self.assertEqual(self.cleaned, ["frontend", "services"])
+        self.assertEqual(self.cleaned, ["frontend", "services", "mysql"])
 
     def test_backend_death_is_detected_and_both_contexts_are_cleaned(self):
         self.services[1].poll.return_value = 1
         with self.assertRaises(RuntimeError):
             self.run_dev(MagicMock())
-        self.assertEqual(self.cleaned, ["frontend", "services"])
+        self.assertEqual(self.cleaned, ["frontend", "services", "mysql"])
 
     def test_ctrl_c_unwinds_frontend_and_service_contexts(self):
         sleep = MagicMock(side_effect=KeyboardInterrupt)
         with self.assertRaises(KeyboardInterrupt):
             self.run_dev(sleep)
         sleep.assert_called_once_with(0.25)
-        self.assertEqual(self.cleaned, ["frontend", "services"])
+        self.assertEqual(self.cleaned, ["frontend", "services", "mysql"])
 
     def test_proxy_keeps_url_interface_and_reports_ready_process_to_observer(self):
         for observer in (None, MagicMock()):

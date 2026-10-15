@@ -5,7 +5,11 @@ httpx==0.28.1
 uvicorn==0.39.0
 pydantic==2.13.5
 starlette==0.49.3
-
 # Train and validate the external 13-point research baseline on synthetic fixtures in CI.
 -r model/analysis/requirements-training.txt
 -r model/analysis/requirements-lstm.txt
+
+# Disposable MySQL databases for backend smoke tests (also used by database/tests).
+PyMySQL==1.1.1
+# MySQL 8 default authentication (caching_sha2_password) over TCP needs it in PyMySQL.
+cryptography==46.0.3

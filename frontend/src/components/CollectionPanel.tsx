@@ -10,6 +10,7 @@ import {
   type CaptureOptions,
 } from '../lib/collectionProtocol'
 import type { CollectionController } from '../hooks/useCollection'
+import { SelectMenu } from './SelectMenu'
 import { Card } from './ui'
 
 export function CollectionPanel({ collection: c }: { collection: CollectionController }) {
@@ -77,21 +78,14 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
           </div>
           <div className="field">
             <label htmlFor="camera-view">카메라 방향</label>
-            <select
+            <SelectMenu
               id="camera-view"
-              className="input"
+              label="카메라 방향"
               disabled={c.hasCapture}
               value={c.options.cameraView}
-              onChange={(e) =>
-                c.setOptions({ cameraView: e.target.value as CaptureOptions['cameraView'] })
-              }
-            >
-              {Object.entries(VIEWS).map(([key, text]) => (
-                <option key={key} value={key}>
-                  {text}
-                </option>
-              ))}
-            </select>
+              options={Object.entries(VIEWS).map(([value, label]) => ({ value, label }))}
+              onChange={(value) => c.setOptions({ cameraView: value as CaptureOptions['cameraView'] })}
+            />
           </div>
           <div className="field">
             <label htmlFor="camera-distance">카메라 거리 · cm</label>
@@ -108,35 +102,29 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
           </div>
           <div className="field">
             <label htmlFor="camera-height">카메라 높이</label>
-            <select
+            <SelectMenu
               id="camera-height"
-              className="input"
+              label="카메라 높이"
               disabled={c.hasCapture}
               value={c.options.cameraHeight}
-              onChange={(e) =>
-                c.setOptions({ cameraHeight: e.target.value as CaptureOptions['cameraHeight'] })
-              }
-            >
-              <option value="eye">눈높이</option>
-              <option value="above">눈높이보다 위</option>
-              <option value="below">눈높이보다 아래</option>
-            </select>
+              options={[
+                { value: 'eye', label: '눈높이' },
+                { value: 'above', label: '눈높이보다 위' },
+                { value: 'below', label: '눈높이보다 아래' },
+              ]}
+              onChange={(value) => c.setOptions({ cameraHeight: value as CaptureOptions['cameraHeight'] })}
+            />
           </div>
           <div className="field">
             <label htmlFor="desk-layout">책상 배치</label>
-            <select
+            <SelectMenu
               id="desk-layout"
-              className="input"
+              label="책상 배치"
               disabled={c.hasCapture}
               value={c.options.layout}
-              onChange={(e) => c.setOptions({ layout: e.target.value as CaptureOptions['layout'] })}
-            >
-              {Object.entries(LAYOUTS).map(([key, text]) => (
-                <option key={key} value={key}>
-                  {text}
-                </option>
-              ))}
-            </select>
+              options={Object.entries(LAYOUTS).map(([value, label]) => ({ value, label }))}
+              onChange={(value) => c.setOptions({ layout: value as CaptureOptions['layout'] })}
+            />
           </div>
         </div>
         <p className="fine">
@@ -201,43 +189,30 @@ export function CollectionPanel({ collection: c }: { collection: CollectionContr
           <div className="collection-fields">
             <div className="field">
               <label htmlFor="presence-label">자리에 있었나요?</label>
-              <select
+              <SelectMenu
                 id="presence-label"
-                className="input"
+                label="자리에 있었나요?"
                 disabled={reviewLocked}
                 value={c.presence}
-                onChange={(e) => {
-                  c.setPresence(e.target.value as Presence)
-                  if (e.target.value !== 'seated') c.setLabel('unlabeled')
+                options={Object.entries(PRESENCE).map(([value, label]) => ({ value, label }))}
+                onChange={(value) => {
+                  c.setPresence(value as Presence)
+                  if (value !== 'seated') c.setLabel('unlabeled')
                 }}
-              >
-                {Object.entries(PRESENCE).map(([key, text]) => (
-                  <option key={key} value={key}>
-                    {text}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="field">
               <label htmlFor="manual-label">어떤 자세였나요?</label>
-              <select
+              <SelectMenu
                 id="manual-label"
-                className="input"
+                label="어떤 자세였나요?"
                 disabled={reviewLocked}
                 value={c.label}
-                onChange={(e) => c.setLabel(e.target.value as Label)}
-              >
-                {Object.entries(POSTURES)
-                  .filter(
-                    ([key]) =>
-                      c.presence === 'seated' || key === 'unlabeled' || key === 'transition',
-                  )
-                  .map(([key, text]) => (
-                    <option key={key} value={key}>
-                      {text}
-                    </option>
-                  ))}
-              </select>
+                options={Object.entries(POSTURES)
+                  .filter(([key]) => c.presence === 'seated' || key === 'unlabeled' || key === 'transition')
+                  .map(([value, label]) => ({ value, label }))}
+                onChange={(value) => c.setLabel(value as Label)}
+              />
             </div>
           </div>
           {c.stopReason !== 'completed' && (
