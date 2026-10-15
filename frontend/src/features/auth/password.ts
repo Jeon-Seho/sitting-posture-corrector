@@ -1,4 +1,7 @@
-/** No minimum length beyond non-empty (2026-10-13). BCrypt rejects values longer than its byte limit. */
+/**
+ * The API requires 12+ characters, but the minimum is on hold while the sign-up flow is still being
+ * tried out (user, 2026-10-13): only non-empty is checked. BCrypt rejects values over its byte limit.
+ */
 export function validPassword(password: string) {
   return password.length >= 1 && new TextEncoder().encode(password).length <= 72
 }

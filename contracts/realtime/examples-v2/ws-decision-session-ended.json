@@ -1,0 +1,29 @@
+{
+  "type": "decision",
+  "summary": {
+    "total_ms": 600000,
+    "valid_ms": 20500,
+    "normal_ms": 17000,
+    "deviation_ms": 3500,
+    "rest_ms": 0,
+    "away_ms": 0,
+    "unknown_ms": 1000,
+    "missing_ms": 0,
+    "collapse_count": 1,
+    "alert_count": 1,
+    "interval_count": 0,
+    "keep_rate": 0.8293,
+    "events_per_hour": 175.6,
+    "mean_interval_ms": null,
+    "mean_recovery_ms": null
+  },
+  "event": {
+    "event_id": 4,
+    "kind": "session_ended",
+    "timestamp_ms": 600000,
+    "onset_ms": 600000,
+    "onset_valid_ms": 590000,
+    "deviation_type": "none",
+    "reason": "ended"
+  }
+}

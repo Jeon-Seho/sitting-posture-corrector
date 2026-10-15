@@ -28,7 +28,7 @@ describe('sign-up consents (DB V2.3 user_consent)', () => {
     expect(consentsComplete({ ...required, C3: false })).toBe(true)
     expect(consentPayload({ ...required, C3: false })).toHaveLength(5)
     expect(consentPayload({ ...required, C3: true })).toContainEqual({
-      consent_type: 'OPTIONAL_PROFILE',
+      type: 'OPTIONAL_PROFILE',
       document_version: CONSENT_DOCUMENT_VERSION,
     })
   })

@@ -1,17 +1,25 @@
 # 실시간 전달 계약 v1 (초안)
 
-- 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 2026-10-07 기록).
-- 근거: [계획 0022](../../docs/plans/active/0022-kafka-realtime-pipeline.md) 1단계, 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
+> **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws.v2](realtime-ws.v2.schema.json),
+> 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
+> 근거는 BE 「FE ↔ BE API 명세 (입출구 서버)」(10/13)와 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
+> v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
+> 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
+> 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. 아래 v1 WebSocket 부분(`realtime-ws.v1`)은 앱이 v2로 바뀌면 없앤다.
+> Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
+
+- 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).
+- 근거: 계획 0022 1단계(끝나서 지움, [지운 문서 기록](../../docs/removed-docs.md)), 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
 원본 영상·랜드마크·좌표·이메일은 어떤 메시지에도 넣지 않는다. 모르는 필드는 거부한다.
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
-> (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 2장·3장). "좌표를 넣지 않는다"는
+> (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
-> 새 버전 스키마는 아직 없다. DevOps 서버(`DevOps` 브랜치)는 지금 이 v1(특징 변화량)을 구현했다([FE 제안서](../../docs/design/fe-server-proposal.md) 6장).
-> 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중).
+> 새 버전은 위 v2다(10/13). 10/15 기준 BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)의 `backend/api`는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다. 서버를 먼저 돌려 보려고 둔 임시 상태이고, BE도 v2로 간다고 확인했다(10/15, [FE 제안서](../../docs/design/fe-server-proposal.md) 1장).
+> 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
 ## 흐름
 
@@ -42,7 +50,7 @@
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
   재연결 때 게이트웨이도 놓친 `decision`을 먼저 보내고 최신 `progress`를 마지막에 보낸다.
-  (2026-10-13 [ADR 0022](../../docs/decisions/0022-session-ends-on-lost-connection.md): 앱은 끊기면 세션을 끝내고 다시 연결하지 않는다.)
+  (2026-10-13 [ADR 0024](../../docs/decisions/0024-session-ends-on-lost-connection.md): 앱은 끊기면 세션을 끝내고 다시 연결하지 않는다.)
 - `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
 
 ## 통로 나누기
@@ -83,6 +91,8 @@
 봉투와 사건의 `session_id` 일치를 검사한다.
 
 ## 아직 정하지 않은 것
+
+아래는 v1 기준이다. v2에서 메시지 단위(0.5초 구간 1개씩), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.

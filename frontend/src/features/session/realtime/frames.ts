@@ -27,8 +27,6 @@ export type FrameBatch = {
   start_ms: number
   end_ms: number
   phase: FramePhase
-  width: number
-  height: number
   frames: PoseFrame[]
 }
 
@@ -36,8 +34,6 @@ export type FrameInput = {
   /** Same clock as `origin` (performance.now()). */
   timeMs: number
   landmarks: Landmark[]
-  width: number
-  height: number
   /** False when the app could not determine the user's position (shoulders gone past grace). */
   judgeable: boolean
 }
@@ -58,7 +54,6 @@ export class FrameBatcher {
   private start = 0
   private phase: FramePhase
   private frames: PoseFrame[] = []
-  private size = { width: 0, height: 0 }
 
   constructor(
     /** Session start on the observation clock; `t_ms` 0. */
@@ -76,7 +71,6 @@ export class FrameBatcher {
   /** Adds one observation; frames are kept only while running or registering. */
   push(input: FrameInput): FrameBatch[] {
     const out = this.tick(input.timeMs)
-    this.size = { width: input.width, height: input.height }
     if (this.phase === 'rest' || this.phase === 'away') return out
     const frame: PoseFrame = { t_ms: this.at(input.timeMs), p: frameJoints(input.landmarks) }
     if (!input.judgeable && frame.p) frame.valid = false
@@ -120,8 +114,6 @@ export class FrameBatcher {
       start_ms: this.start,
       end_ms: end,
       phase: this.phase,
-      width: this.size.width,
-      height: this.size.height,
       frames: this.phase === 'rest' || this.phase === 'away' ? [] : this.frames.filter((f) => f.t_ms < end),
     }
     this.frames = this.frames.filter((f) => f.t_ms >= end)

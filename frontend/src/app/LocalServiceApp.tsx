@@ -12,7 +12,7 @@ import type { ServiceSession } from '../features/session/types'
 import { useLocalWorkspace } from '../features/storage/useLocalWorkspace'
 import { KEYS, type LocalAccount, type Profile } from '../features/storage/types'
 import { loadLocalState, readLocal, writeLocal } from '../features/storage/localRepository'
-import { validEmail, validProfile } from '../features/storage/validation'
+import { validEmail, validProfileInput } from '../features/storage/validation'
 import { ValidatedInput } from '../components/InlineForm'
 import { ConsentList } from '../features/auth/ConsentList'
 import { CONSENT_DOCUMENT_VERSION, consentsComplete, type ConsentChoices } from '../features/auth/consents'
@@ -138,10 +138,10 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     const next: Profile = withOptional
       ? { name: form.name.trim(), age: form.age, occupation: form.occupation.trim() }
       : { name: form.name.trim() }
-    if (!validProfile(next)) {
+    if (!validProfileInput(next)) {
       setError(
         withOptional
-          ? '이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.'
+          ? '이름·나이·직업을 확인해 주세요. 나이는 14~120 사이의 정수로 입력해 주세요.'
           : '이름을 확인해 주세요.',
       )
       return
@@ -322,7 +322,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
             required
           />
         </label>
-        <ProfileFields form={form} canWrite={canWrite} nameMax={30} optionalInfo={consents.C3 === true} />
+        <ProfileFields form={form} canWrite={canWrite} optionalInfo={consents.C3 === true} />
       </LoginPage>
     )
   }

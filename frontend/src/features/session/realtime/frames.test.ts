@@ -7,8 +7,6 @@ const body = (shift = 0): Landmark[] =>
 const input = (timeMs: number, extra: Partial<{ judgeable: boolean; landmarks: Landmark[] }> = {}) => ({
   timeMs,
   landmarks: body(),
-  width: 640,
-  height: 480,
   judgeable: true,
   ...extra,
 })
@@ -30,7 +28,10 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
       [0, 0, 500, [0, 60, 130, 490]],
       [1, 500, 1000, [520, 990]],
     ])
-    expect(sent[0]).toMatchObject({ schema_version: '3.0', feature_version: 'keypoints-9-v1', phase: 'running', width: 640, height: 480 })
+    expect(sent[0]).toMatchObject({ schema_version: '3.0', feature_version: 'keypoints-9-v1', phase: 'running' })
+    // 640x480 is fixed (DB V2.3 CAPTURE_RESOLUTION), so the camera size is not sent.
+    expect(sent[0]).not.toHaveProperty('width')
+    expect(sent[0]).not.toHaveProperty('height')
   })
 
   it('marks frames the app could not place as not valid but still sends the coordinates', () => {

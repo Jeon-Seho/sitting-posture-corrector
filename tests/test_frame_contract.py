@@ -41,6 +41,13 @@ class FrameContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validator.validate(marked)
 
+    def test_camera_size_is_not_sent(self):
+        # 640x480 is fixed (DB V2.3 CAPTURE_RESOLUTION, 10/15): the app does not send width/height.
+        sized = load("example-running.json")
+        sized.update(width=640, height=480)
+        with self.assertRaises(ValidationError):
+            self.validator.validate(sized)
+
 
 if __name__ == "__main__":
     unittest.main()

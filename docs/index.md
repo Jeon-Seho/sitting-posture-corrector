@@ -2,30 +2,30 @@
 
 ## 현재 상태와 작업
 
-웹캠 단일 앱, MySQL 이메일·비밀번호 계정, 영구 저장·API/CEP 복구, Compose·배포 자동화 설정의 코드가 있다.
-현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
+웹캠 단일 앱이다. 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, 입출구 서버는 BE가 만든다).
+입출구 서버가 생기기 전이라 지금 앱은 이 기기에서 로그인·회원가입·기록을 다룬다(2026-10-13 예전 계정 모드 삭제).
+현재 DB 스키마(V2.3)와 백엔드의 대응은 [DB 안내](../database/README.md)를 확인한다.
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
-- [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
-- [실시간 경로 계획](plans/active/0022-kafka-realtime-pipeline.md): 팀·ML 확인 대기. [측정 불가](design/unmeasurable-handling.md), [구도와 멈춤 화면](design/setup-framing-and-pause-display.md).
-- [서비스 DB 전환](removed-docs.md): API 구현과 현재 스키마의 대응 상태는 [DB 안내](../database/README.md)에서 확인한다.
-- [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [연결 지점](design/frontend-platform-seams.md), [시각 규칙](../DESIGN.md).
+- [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/desktop-app.md), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 
-## FE(lee_app1) 현재 결정과 작업 (2026-10-12)
+## FE 현재 결정과 작업 (2026-10-14, `feature/frontend-features-and-integration`)
 
-- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md). 2026-10-11 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
-  [ADR 0022 서버 연결이 끊기면 세션을 끝낸다](decisions/0022-session-ends-on-lost-connection.md)(세션 번호는 날짜마다 1부터).
-- [앱–서버 연결 지도](design/fe-server-integration-map.md): 기능별 연결 상태(연결됨·준비됨·대기), 연결 스위치, 붙이는 순서.
-- **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
-- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, 남은 질문(4장), FE 할 일 F1~F12. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
-- **10/12 회의:** 판정 불가는 범위를 넓게 잡아 하나로 처리하고(DB `exclusion_reason`은 모두 `UNMEASURABLE`, 세분화할 때 CHECK 선택지를 늘림), 기준은 측정이 안 되는 모든 경우(귀·어깨·사용자가 안 보임 등)이며 앱이 판단해 서버에 보낸다. 통계는 전부 백엔드가 계산하고 앱은 표시만 한다. 당일은 세션 단위로만 보이고 날짜별 합산은 24시가 지나 반영된다. 5분 미만 세션은 결과만 보이고 저장하지 않는다([판정 불가 처리](design/unmeasurable-handling.md) 0장). 화면 정리(세션·이벤트·평균 간격을 지우고 최소·최대 간격 표시)는 다른 담당자가 맡고, 우리는 서버 전송과 판정 불가 처리만 한다.
-- **API 명세(초안):** [앱 ↔ 입출구 서버 REST·WebSocket](design/api-ws-spec.md) — 로그인·설정·기록·지난 통계는 REST, 측정 좌표와 실시간 결과는 WebSocket.
-- **동의 제안서(초안):** [개인정보 수집 동의](design/consent-proposal.md) — 가입 동의 C1~C6, 보유 기간 탈퇴 후 30일. 실제 서비스는 학습용 데이터를 받지 않는다.
-- **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
+- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md).
+- **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — BE API 명세(10/13)와 같은 ID·경로. 로그인·설정·기록은 REST, 실시간 판정·자세 등록은 WebSocket `/v2/realtime`. BE에 확인할 것은 0장.
+- **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
+- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 7장 FE 할 일.
+- **동의:** [개인정보 수집 동의](design/consent-proposal.md) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
+- **10/12~14 결정 요약:** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 통계는 서버가 계산하고 앱은 표시만. 오늘 측정은 끝났을 때 그 세션만 결과에 보이고, 기록 목록에는 오늘 세션도 보이되 통계는 어제까지(10/14). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
+- **10/15 정리:** BE와 이름이 다르면 BE에 맞춘다(적재된 기록 삭제 거부는 409 `CONFLICT`). 배치 번호는 아키텍처 v5.2(J1 적재, J2 집계 00:00, J3 탈퇴 삭제 04:00). DB 저장 이름·단위는 [연동 명세](design/api-ws-spec.md) 1장. 실시간은 `/v2/realtime`으로 확정(BE 답). BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
+- **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
+- **BE 브랜치와 합치기:** [BE·DB·DevOps 통합 브랜치 합치기](plans/active/0029-merge-backend-data-platform.md)(0029, BE의 v2 전환 대기). 충돌 표와 푸는 원칙.
+- **`make check` 실패:** [원인과 고칠 것](plans/active/0030-make-check-failures.md)(0030, Maven과 무관). Gradle 전환은 BE가 BE 브랜치에서 끝냈고 합칠 때 받는다.
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
-- **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md)(앱 판정·특징 열 없음). 측정 결과 내보내기는 [session-export](research/session-export.md).
-- **지운 문서:** 지금 결정과 다르거나 다른 곳으로 옮긴 문서(완료 계획, 점검 기록, 팀 요구사항 등 33개)는 지웠다. 목록·이유·되살리는 법은 [지운 문서 기록](removed-docs.md). 아래 표·목록에서 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
+- **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md). 측정 결과 내보내기는 [session-export](research/session-export.md).
+- **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다.
+- **지운 문서:** 끝났거나 다른 문서와 겹친 문서는 지우고 [지운 문서 기록](removed-docs.md)에 이유·간 곳·되살리는 법을 남겼다. 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
 
 ## 질문별 진입점
 
@@ -41,15 +41,12 @@
 | 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
 | 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |
-| 왜 이렇게 결정했는가? | [결정 이력](decisions/), [기술 검토](removed-docs.md) |
+| 왜 이렇게 결정했는가? | [결정 이력](decisions/), [지운 문서 기록](removed-docs.md) |
 | 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |
 
 ## 이력과 근거
 
-[완료 계획](plans/completed/)에는 구현 범위와 당시 검증을, [감사 기록](removed-docs.md)에는 시점별 결과·한계를 남긴다.
-최근 개인 파일럿은 [완료 0019](removed-docs.md), 카메라 창은 [완료 0018](removed-docs.md),
-계정·Compose는 [완료 0017](removed-docs.md)을 참고한다.
-[Mac 통합 점검](removed-docs.md), [lee 브랜치 기록](removed-docs.md), [페르소나 메모](removed-docs.md)는 해당 시점의 참고다.
+끝난 계획은 지우는 것이 규칙이다. 지운 완료 계획·점검 기록·개인 기록은 [지운 문서 기록](removed-docs.md)에서 찾아 git 이력으로 읽는다.
 과거 계획서의 스택·수치와 과거 작업 승인은 현재 작업의 의무나 권한으로 취급하지 않는다.
 
 ## 문서의 권위와 유지
