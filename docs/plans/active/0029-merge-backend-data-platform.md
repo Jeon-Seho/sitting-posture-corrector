@@ -1,6 +1,6 @@
 # BE·DB·DevOps 통합 브랜치와 FE 브랜치 합치기
 
-- 상태: planned (검토 중, merge 전 BE 확인 대기)
+- 상태: planned (실시간 v2 확정 10/15, BE의 v2 전환 대기)
 - 담당: FE(klaod-tech)가 계획·문서 충돌 정리, 실시간·REST 맞추기는 BE와 함께
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
@@ -16,7 +16,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 완료 기준:
 
 - 문서 9개 충돌을 풀고, 같은 번호의 ADR·계획이 남지 않는다.
-- 실시간 경로(아래 Q1)를 BE와 정했고, 그 결정이 연동 명세·계약·ADR에 한 가지로 적혀 있다.
+- 실시간 경로는 `/v2/realtime`으로 정해졌다(10/15, Q1). 합친 뒤 연동 명세·계약 README·ADR에 v2 하나로 적혀 있다.
 - 합친 뒤 `check-repo`, `test`, `check-frontend`, `check-backend`(Gradle)를 돌리고 결과를 아래에 기록한다.
 
 ## 범위와 제외
@@ -37,7 +37,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 |---|---|---|
 | `README.md` | 내용 | 두 쪽을 합친다. 빌드 도구·실행법은 BE(Gradle), FE 안내는 우리 |
 | `contracts/README.md` | 내용 | 두 쪽 계약 목록을 합친다(BE `accounts.v2.md`·`consent-documents.v2.md` + 우리 WebSocket v2) |
-| `contracts/realtime/README.md` | 내용 | Q1 결정에 따라 v1·v2 중 무엇이 현재인지 한 가지로 적는다 |
+| `contracts/realtime/README.md` | 내용 | v2가 현재라고 적는다(Q1, 10/15). v1 부분은 BE가 v2로 바꾸면 지운다 |
 | `docs/architecture.md` | 내용 | 서버 구조는 BE, 앱이 보내는 것·판정은 서버가 한다는 부분은 우리(ADR 0021) |
 | `docs/code-structure.md` | 내용 | `backend/` 구조는 BE, `frontend/` 구조는 우리 |
 | `docs/design/fe-commands-and-checks.md` | 내용 | 우리 것을 기준으로, BE가 바꾼 빌드 도구(JDK 17·Gradle Wrapper) 내용을 반영 |
@@ -61,17 +61,17 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 
 | # | 질문 | 우리 제안 |
 |---|---|---|
-| Q1 | 실시간 경로를 `/v2/realtime`(좌표 스트림)으로 만드는가, 당분간 `/v1/realtime`으로 붙는가, 둘 다 두는가 | `/v2/realtime`. BE 명세(10/13) 9장 3번에서 BE가 새 경로를 제안했고 FE가 동의했다(연동 명세 0장). v1은 앱이 v2로 바뀌면 없앤다. BE ADR 0022의 「좌표 스트림 제외」는 이번 구현 범위 이야기인지 확인 |
-| Q2 | R1b·T1·`limit_reached`를 언제 넣는가 | 연동 명세 4장·5장 그대로 |
-| Q3 | `POST /v2/records`를 없애는가 | 없앤다(BE 명세에서 없앤 것과 같게) |
+| Q1 | 실시간 경로 | **10/15 확정: `/v2/realtime`(좌표 스트림).** BE 브랜치의 `/v1/realtime`과 BE ADR 0022의 「좌표 스트림 제외」는 서버를 먼저 돌려 보려고 섞어 둔 임시 상태(BE 답) |
+| Q2 | R1b·T1·`limit_reached`를 언제 넣는가 (10/15: R1b·T1은 연동 명세 4.5대로 다음 주 범위, `limit_reached`는 v2와 함께) | 연동 명세 4장·5장 그대로 |
+| Q3 | `POST /v2/records`를 없애는가 (10/15: v2에서 앱이 부르지 않으므로 v1과 함께 정리) | 없앤다(BE 명세에서 없앤 것과 같게) |
 
 ## 작업 단계
 
-- [ ] 1. BE에 Q1~Q3을 보내고 답을 아래 기록에 적는다([FE 제안서](../../design/fe-server-proposal.md) 1장 M1·M2와 같은 내용).
+- [x] 1. BE에 Q1을 확인했다(10/15, `/v2/realtime`). Q2·Q3은 합의대로 BE가 진행한다([FE 제안서](../../design/fe-server-proposal.md) 1장 B-1·B-2).
 - [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). BE ADR 0022 → 0024는 3단계 merge 커밋에서 하고 BE에 알린다.
 - [ ] 3. 연습 merge: 로컬 임시 브랜치(올리지 않음)에서 `git merge origin/feat/backend-data-platform-architecture`, 위 표 원칙대로 9개를 푼다.
 - [ ] 4. 연습 merge에서 검사: `check-repo` → `test` → `check-frontend` → `check-backend`(JDK 17·Gradle Wrapper). `check-browser`·`check-compose`는 지금 못 돌리는 이유를 [FE 명령과 검사](../../design/fe-commands-and-checks.md)에 맞춰 기록한다.
-- [ ] 5. Q1 결정을 연동 명세·계약 README·ADR에 한 가지로 맞춘다.
+- [ ] 5. 합친 뒤 v2 결정을 연동 명세·계약 README·ADR에 한 가지로 맞춘다. BE ADR(0024로 옮긴 것)의 「실시간 v1 유지」에는 「10/15 임시 상태, v2로 간다」를 덧붙이도록 BE에 알린다.
 - [ ] 6. 결과를 보고 우리 브랜치에 실제 merge할지, BE 브랜치가 develop에 들어간 뒤 develop을 받을지 정한다.
 - [ ] 7. 실제 merge 후 같은 검사를 다시 돌리고 아래에 기록한다. 이 계획은 끝나면 지우고 [지운 문서 기록](../../removed-docs.md)에 남긴다.
 
@@ -79,6 +79,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 
 - 2026-10-14: 미리 합쳐 보기로 충돌 범위를 확인했다(위 표). 계정 서버 연결(F12)은 BE 담당으로 정정했다.
 - 2026-10-15: 번호 겹침(4·5)은 물어보지 않고 FE가 정리하기로 했다. BE에 확인할 것은 합의와 BE 코드가 다른 Q1~Q3만 남겼다.
+- 2026-10-15: BE 답 — 실시간은 `/v2/realtime`. 지금 BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
 
 ## 검증 결과와 남은 한계
 

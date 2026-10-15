@@ -1,6 +1,6 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성: 2026-10-11 · 최신화: 2026-10-15(BE 브랜치 비교, DB V2.3 대조, 아키텍처 v5.2 공지 반영. 상의할 것 M1·M2) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
+> 작성: 2026-10-11 · 최신화: 2026-10-15(BE 브랜치 비교, DB V2.3 대조, 아키텍처 v5.2 공지 반영, 실시간 v2 확정) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
 > 확인 기준: BE 브랜치 `feat/backend-data-platform-architecture` `316877d`(10/14, DevOps·`feature/repo-backend-db-v2`를 합침, 10/15에도 변경 없음), [실시간 계약 v1](../../contracts/realtime/README.md)·[v2](../../contracts/realtime/realtime-ws.v2.schema.json), DevOps/BE 회신(10/11), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`, 10/15에도 변경 없음), 아키텍처 v5.2 전환 공지(DB·BE, 10/15)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
 > 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md), [연동 명세](api-ws-spec.md), [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
@@ -11,12 +11,15 @@
 
 ## 1. 남은 질문과 요청
 
-**팀원과 상의할 것(2026-10-15): 합의와 BE 코드가 다른 것만.** 정해지면 본문에 반영하고 이 표에서 뺀다.
+**팀원과 상의할 것은 없다(2026-10-15).** BE가 실시간은 `/v2/realtime`(좌표 스트림, 계약 v2)으로 간다고 확인했다(10/15).
+BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)의 `/v1/realtime`과 그 브랜치 ADR 0022의 「실시간 v1 유지, 좌표 스트림 제외」는 서버를 먼저 돌려 보려고 섞어 둔 임시 상태다.
 
-| # | 상대 | 상의할 것 | FE 의견 | 근거 |
-|---|---|---|---|---|
-| M1 | BE | 실시간 경로. BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)에는 `/v1/realtime`만 있고, BE ADR 0022(그 브랜치)는 「특징 v2·실시간 v1 유지, 좌표 스트림 제외」라고 적었다. BE 명세(10/13) 9장 3번에서는 BE가 `/v2/realtime`을 제안했고 FE가 동의했다 | `/v2/realtime`(좌표 스트림). 「제외」가 이번 구현에서만 뺀 것인지 확인 | [계획 0029](../plans/active/0029-merge-backend-data-platform.md) Q1 |
-| M2 | BE | BE 브랜치에 없는 REST·WS: R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `closed(limit_reached)`. 반대로 `POST /v2/records`는 아직 있다. (적재된 기록 삭제 거부는 BE의 409 `CONFLICT`에 FE가 맞췄다, 10/15) | 연동 명세 4·5장대로 넣고, `POST /v2/records`는 없앤다 | 계획 0029 Q2·Q3 |
+BE가 진행 중인 것(합의대로, 확인만):
+
+| # | 내용 | 시점 |
+|---|---|---|
+| B-1 | `/v2/realtime`과 그에 딸린 `closed(limit_reached)`(지금은 429 `LIMIT_REACHED`). `POST /v2/records`는 v2에서 앱이 부르지 않으므로 v1과 함께 정리 | v2 전환 때 |
+| B-2 | R1b `GET /v2/records/{id}`(없으면 S4로 대신), T1 `GET /v2/stats/daily` | 연동 명세 4.5 「BE 다음 주 범위」 |
 
 같은 날 FE가 직접 정리한 것(물어볼 필요 없음): 문서 번호 겹침(FE 계획 0028 → [0030](../plans/active/0030-make-check-failures.md), BE ADR 0022 → 0024는 합칠 때), DB 저장 이름·단위·자세 방향(연동 명세 1장, 이 문서 3.2), 아키텍처 v5.2 배치 번호(J2 집계·J3 탈퇴 삭제).
 아키텍처 v5.2 전환 공지(DB·BE, 10/15)의 ④ 「오늘 통계를 화면에 바로 보여줄지」는 2장 4의 10/14 결정이 답이다: 보여주지 않는다(통계는 어제까지, 목록에는 오늘 세션, 앱이 따로 계산하지 않음). ①(`PROCESSING` 뒤 철회 거부)은 A8 409 `WITHDRAWAL_NOT_CANCELLABLE`로 이미 맞고, ②·③·⑤는 앱 동작이 달라지지 않는다.
