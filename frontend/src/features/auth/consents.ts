@@ -11,8 +11,8 @@ export type ConsentType =
   | 'MEASUREMENT_RECORD'
   | 'AGE_14_OVER'
 
-/** Wording version shown at sign-up; a new version asks everyone again (DB `document_version`). */
-export const CONSENT_DOCUMENT_VERSION = 'terms-2026-10'
+/** Wording version shown at sign-up (BE API spec 2026-10-13); a new version asks everyone again (DB `document_version`). */
+export const CONSENT_DOCUMENT_VERSION = 'service-v2'
 
 /** DB codes C1–C6 (consent proposal order). */
 export type ConsentId = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6'
@@ -117,12 +117,12 @@ export function allAgreed(): ConsentChoices {
 }
 
 /**
- * Request body part for sign-up (field name to confirm with BE): one entry per agreed item.
+ * Sign-up body part (A2, BE API spec 2026-10-13: `consents: [{type, document_version}]`): one entry per agreed item.
  * Declined optional items are left out; withdrawing later is a separate call.
  */
 export function consentPayload(choices: ConsentChoices) {
   return CONSENTS.filter((item) => choices[item.id] === true).map((item) => ({
-    consent_type: item.type,
+    type: item.type,
     document_version: CONSENT_DOCUMENT_VERSION,
   }))
 }

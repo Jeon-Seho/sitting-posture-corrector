@@ -15,7 +15,7 @@ DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18�
 > **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
 > 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
-> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 1장).
+> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 2장).
 
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
@@ -96,6 +96,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 최종 기록을 localStorage에 복제하지 않는다. 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
 동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.3)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.

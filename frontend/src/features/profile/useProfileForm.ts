@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { KEYS, type Profile } from '../storage/types'
-import { validProfile } from '../storage/validation'
+import { validProfileInput } from '../storage/validation'
 import { writeLocal } from '../storage/localRepository'
 import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 
@@ -41,10 +41,10 @@ export function useProfileForm({
     const next: Profile = optionalInfo
       ? { name: name.trim(), age, occupation: occupation.trim() }
       : { name: name.trim() }
-    if (!validProfile(next)) {
+    if (!validProfileInput(next)) {
       setError(
         optionalInfo
-          ? '이름·나이·직업을 확인해 주세요. 나이는 1~120 사이의 정수로 입력해 주세요.'
+          ? '이름·나이·직업을 확인해 주세요. 나이는 14~120 사이의 정수로 입력해 주세요.'
           : '이름을 확인해 주세요.',
       )
       return false

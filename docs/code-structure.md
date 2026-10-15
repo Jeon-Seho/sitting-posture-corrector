@@ -46,9 +46,9 @@ model/
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
-database/                 DB 담당 스키마 V2.0·시드·마이그레이션(API는 검증만)
+database/                 DB 담당 스키마 V2.3·시드·마이그레이션(API는 검증만)
 infra/                    컨테이너 빌드·Nginx·배포 안내
-compose.yaml              계정 모드 전체 서비스·private 네트워크·볼륨
+compose.yaml              서버 개발용 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제
 tools/                    실행·검증·시험 서버 관리
   browser/                Chrome CDP 연결·프로세스·합성 브라우저 시나리오
