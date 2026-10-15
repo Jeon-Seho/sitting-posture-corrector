@@ -50,7 +50,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | # | 항목 | 우리 | BE 브랜치 |
 |---|---|---|---|
 | 1 | 실시간 WS | `/v2/realtime` 좌표 스트림(ADR 0021, [계약 v2](../../../contracts/realtime/realtime-ws.v2.schema.json)) | `/v1/realtime`만 있음. BE ADR 0022는 「특징 v2·실시간 v1 유지, 좌표 스트림 제외」 |
-| 2 | REST 빠진 것 | R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `RECORD_ARCHIVED`, `closed(limit_reached)` | 없음 |
+| 2 | REST 빠진 것 | R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `closed(limit_reached)` (`RECORD_ARCHIVED`는 10/15 BE의 409 `CONFLICT`에 맞춤) | 없음 |
 | 3 | REST 남은 것 | `POST /v2/records`는 없애기로 함 | 아직 있음 |
 | 4 | ADR 번호 | `0022-session-ends-on-lost-connection`(develop에 먼저 들어감) | `0022-db-v23-feature-v2-integration`. 합치면 0022가 둘 → **합칠 때 FE가 BE ADR을 0024로 옮기고 링크를 고친다**(10/15) |
 | 5 | 계획 번호·내용 | ~~`0028-backend-build-gradle`~~ → **10/15 해결:** 전환 부분을 빼고 [0030](0030-make-check-failures.md)(`make check` 실패 원인·G1~G5)으로 옮겼다 | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
@@ -62,7 +62,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | # | 질문 | 우리 제안 |
 |---|---|---|
 | Q1 | 실시간 경로를 `/v2/realtime`(좌표 스트림)으로 만드는가, 당분간 `/v1/realtime`으로 붙는가, 둘 다 두는가 | `/v2/realtime`. BE 명세(10/13) 9장 3번에서 BE가 새 경로를 제안했고 FE가 동의했다(연동 명세 0장). v1은 앱이 v2로 바뀌면 없앤다. BE ADR 0022의 「좌표 스트림 제외」는 이번 구현 범위 이야기인지 확인 |
-| Q2 | R1b·T1·`RECORD_ARCHIVED`·`limit_reached`를 언제 넣는가 | 연동 명세 4장·5장 그대로 |
+| Q2 | R1b·T1·`limit_reached`를 언제 넣는가 | 연동 명세 4장·5장 그대로 |
 | Q3 | `POST /v2/records`를 없애는가 | 없앤다(BE 명세에서 없앤 것과 같게) |
 
 ## 작업 단계
