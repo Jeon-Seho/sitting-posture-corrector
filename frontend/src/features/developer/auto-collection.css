@@ -1,0 +1,44 @@
+.dev-lab .da-collection { padding: 22px; }
+.dev-lab .da-header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.dev-lab .da-header h3 { margin: 6px 0 8px; font-size: 17px; }
+.dev-lab .da-header p, .dev-lab .da-caution { margin: 0; font-size: 12px; color: var(--lab-muted, #a0a8b3); line-height: 1.65; }
+.dev-lab .da-eyebrow { color: var(--lab-muted, #a0a8b3); font-size: 10px; }
+.dev-lab .da-toggle { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+.dev-lab .da-toggle input { accent-color: var(--lab-teal); }
+.dev-lab .da-threshold { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; font-size: 11px; }
+.dev-lab .da-threshold label { display: flex; align-items: center; gap: 10px; }
+.dev-lab .da-threshold select { font: inherit; color: var(--lab-text); background: var(--lab-bg, #101318); border: 1px solid var(--lab-border); border-radius: 6px; padding: 7px 10px; }
+.dev-lab .da-threshold > span { color: var(--lab-muted); }
+.dev-lab .da-quality-summary { display: flex; gap: 10px 22px; flex-wrap: wrap; font-size: 11px; padding: 10px 0; line-height: 1.8; color: var(--lab-muted); }
+.dev-lab .da-quality-summary strong { color: var(--lab-text); font-weight: 500; margin-left: 5px; font-variant-numeric: tabular-nums; }
+.dev-lab .da-diagnostics { font-size: 10px; color: var(--lab-muted); margin: 3px 0 12px; }
+.dev-lab .da-diagnostics summary { cursor: pointer; padding: 5px 0; }
+.dev-lab .da-diagnostics dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px 20px; }
+.dev-lab .da-diagnostics dl > div { display: flex; justify-content: space-between; gap: 8px; }
+.dev-lab .da-diagnostics dd { margin: 0; font-variant-numeric: tabular-nums; }
+.dev-lab .da-diagnostics p { max-width: 800px; line-height: 1.7; }
+.dev-lab .da-summary { display: flex; align-items: center; gap: 22px; margin: 21px 0 9px; }
+.dev-lab .da-summary > strong { font-size: 30px; font-variant-numeric: tabular-nums; }
+.dev-lab .da-summary > strong span { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--lab-muted, #a0a8b3); }
+.dev-lab .da-summary > div { font-size: 12px; color: var(--lab-muted, #a0a8b3); line-height: 1.6; }
+.dev-lab .da-state { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: #7f8a99; }
+.dev-lab .da-collecting { background: var(--lab-teal); }
+.dev-lab .da-full { background: var(--lab-warning); }
+.dev-lab .da-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.dev-lab .da-actions .lab-button, .dev-lab .da-metadata .lab-button { font-size: 11px; padding: 8px 10px; }
+.dev-lab .da-actions .da-row-toggle { margin-left: auto; }
+.dev-lab .da-metadata { display: flex; flex-wrap: wrap; gap: 9px; align-items: flex-end; margin: 18px 0; }
+.dev-lab .da-metadata label { display: grid; gap: 6px; font-size: 11px; }
+.dev-lab .da-metadata input { color: inherit; background: transparent; border: 1px solid var(--lab-border, #333c47); border-radius: 6px; padding: 8px; width: 200px; font: inherit; }
+.dev-lab .da-metadata input:disabled { opacity: .6; }
+.dev-lab .da-metadata > span { font-size: 10px; color: var(--lab-muted, #a0a8b3); padding-bottom: 8px; }
+.dev-lab .da-table-wrap { margin-top: 12px; overflow: auto; max-height: 340px; }
+.dev-lab .da-table-wrap table { border-collapse: collapse; width: 100%; text-align: left; font-size: 11px; font-variant-numeric: tabular-nums; }
+.dev-lab .da-table-wrap caption { text-align: left; padding: 0 0 10px; color: var(--lab-muted, #a0a8b3); }
+.dev-lab .da-table-wrap th { color: var(--lab-muted, #a0a8b3); font-weight: 400; }
+.dev-lab .da-table-wrap td, .dev-lab .da-table-wrap th { border-bottom: 1px solid var(--lab-border, #333c47); padding: 9px 8px; white-space: nowrap; }
+.dev-lab .da-label { color: var(--lab-teal); }
+.dev-lab .da-table-wrap .da-empty { white-space: normal; padding: 22px 8px; color: var(--lab-muted, #a0a8b3); line-height: 1.7; }
+.dev-lab .da-footnote { margin: 14px 0 0; max-width: 850px; font-size: 10px; line-height: 1.75; color: var(--lab-muted, #a0a8b3); }
+.dev-lab .da-error { margin-top: 12px; color: var(--lab-alert); font-size: 12px; }
+@media (max-width: 620px) { .dev-lab .da-collection { padding: 16px; } .dev-lab .da-header { flex-direction: column; gap: 14px; } .dev-lab .da-summary { align-items: flex-start; gap: 16px; } .dev-lab .da-metadata > span { flex-basis: 100%; } }

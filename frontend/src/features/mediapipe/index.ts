@@ -1,5 +1,5 @@
 export { createPoseTracker } from './detector'
 export { startPoseTracking, inferenceInterval } from './tracking'
 export { shoulderUpLandmarks } from './landmarks'
-export { FRAME_EXPIRY_MS, POSE_CONFIG, SHOULDER_UP_LANDMARK_COUNT } from './config'
-export type { PoseDelegate, PoseFrame, PoseMetrics, PoseTracker } from './types'
+export { FRAME_EXPIRY_MS, POSE_CONFIG, POSE_MODELS, SHOULDER_UP_LANDMARK_COUNT } from './config'
+export type { PoseDelegate, PoseFrame, PoseMetrics, PoseTracker, PoseTrackerOptions, PoseTrackerDiagnostics, PoseVariant } from './types'

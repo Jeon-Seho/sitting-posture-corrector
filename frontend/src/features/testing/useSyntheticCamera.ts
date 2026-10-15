@@ -195,6 +195,7 @@ export function useCamera(): CameraController {
       inferenceMs: 0,
       delegate: 'CPU'
     },
+    trackerDiagnostics: null,
     subscribe,
     videoRef,
     canvasRef,

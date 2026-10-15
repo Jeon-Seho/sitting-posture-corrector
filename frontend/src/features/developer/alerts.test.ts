@@ -73,4 +73,26 @@ describe('developer notification delivery with explicit synthetic readings', () 
     expect(tracker.observe(next!)).toBeNull(); expect(tracker.count).toBe(1)
   })
 
+  it('delivers observed rule incidents during predictor warmup but preserves the legacy gate', () => {
+    const rule = new DeveloperAlertTracker('rule', 'synthetic')
+    const hybrid = new DeveloperAlertTracker('predictor', 'synthetic')
+    const legacy = new DeveloperAlertTracker('rule', 'synthetic')
+    const pendingPrediction = reading(0, { state: 'warming', error: null })
+    expect(legacy.observe(pendingPrediction)).toBeNull()
+    expect(hybrid.observe({ ...pendingPrediction, evaluationMode: 'observed-v2' })).toBeNull()
+    expect(rule.observe({ ...pendingPrediction, evaluationMode: 'observed-v2' })).toMatchObject({ basis: 'rule', error: null })
+  })
+
+  it.each([5, 10, 11, 15, 30])('delivers one observed rule alarm at %s FPS and resets on actual quality loss', fps => {
+    const core = new LiveForecastExperiment(null, 'hold_last', { mode: 'observed' })
+    const tracker = new DeveloperAlertTracker('rule', 'synthetic')
+    core.register()
+    for (let t = 0; t <= 8000; t += 100) core.step(t, Array(39).fill(0))
+    for (let i = 1; i <= fps * 5; i++) tracker.observe(core.step(8000 + i * 1000 / fps, Array(39).fill(.2))!)
+    expect(tracker.count).toBe(1)
+    expect(tracker.observe(core.step(13100, null)!)).toBeNull()
+    expect(tracker.peakDeviation).toBeNull()
+    expect(tracker.observe(core.step(13200, Array(39).fill(.2))!)).toBeNull()
+  })
+
 })

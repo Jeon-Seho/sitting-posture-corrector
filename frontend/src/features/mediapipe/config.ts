@@ -1,7 +1,11 @@
 import modelAsset from '../../../model-asset.json'
+import modelVariants from '../../../model-variants.json'
 
 /** Original Pose indices 0..12: face and both shoulders. */
 export const SHOULDER_UP_LANDMARK_COUNT = 13
+
+/** Extra models are opt-in /dev assets; the service default stays Heavy. */
+export const POSE_MODELS = { ...modelVariants, heavy: modelAsset }
 
 export const POSE_CONFIG = {
   wasmPath: '/mediapipe/wasm',

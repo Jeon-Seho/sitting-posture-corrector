@@ -1,21 +1,24 @@
-import { FORECAST_MAX_SAMPLE_GAP_MS, liveForecastPoints, type ForecastReading, type ForecastState } from '../../../../model/prototype/forecast'
+import { FORECAST_REGISTRATION_MAX_SAMPLE_GAP_MS, liveForecastPoints, type ForecastReading, type ForecastState } from '../../../../model/prototype/forecast'
 import { GUIDANCE_SETTINGS, syntheticGuideFrame } from '../../../../model/prototype/developerGuidance'
 import { ALERT_SETTINGS } from './alerts'
-import type { LabEvent, LabRecord, LabSummary } from './types'
+import { readingGapLimit, selectedLabState } from './readingView'
+import { copyImagePostureReading } from '../../../../model/prototype/imagePosture'
+import type { LabAlertBasis, LabEvent, LabRecord, LabSummary } from './types'
 
 export const LAB_LIMITS = { readings: 3000, events: 100, records: 8 } as const
 export const LAB_SETTINGS = {
   baseline_ms: 8000, horizon_ms: 300, deviation: .12, recovery: .08,
   sustained_ms: 3000, fallback_ms: 5000, recovery_ms: 3000,
+  registration_max_sample_gap_ms: FORECAST_REGISTRATION_MAX_SAMPLE_GAP_MS,
 } as const
 export const emptySummary = (): LabSummary => ({
   elapsedMs: 0, validMs: 0, nearMs: 0, unavailableMs: 0,
   nearPercent: null, meanError: null, deviations: 0,
 })
 
-const measured = (r: ForecastReading) => ![
+const measured = (r: ForecastReading, basis: LabAlertBasis) => ![
   'needs_reference', 'registering', 'warming', 'unmeasurable',
-].includes(r.state)
+].includes(selectedLabState(r, basis))
 const labels: Record<ForecastState, [string, LabEvent['tone']]> = {
   needs_reference: ['기준 등록 대기', 'neutral'],
   registering: ['8초 기준 등록 중', 'neutral'],
@@ -33,6 +36,7 @@ const labels: Record<ForecastState, [string, LabEvent['tone']]> = {
  * contribute to valid/near time; a gap is never assigned to either posture.
  */
 export class LabAccumulator {
+  constructor(private readonly basis: LabAlertBasis = 'predictor') {}
   readings: ForecastReading[] = []
   events: LabEvent[] = []
   private summary = emptySummary()
@@ -50,24 +54,26 @@ export class LabAccumulator {
     if (!Number.isFinite(reading.timeMs) || reading.timeMs < 0 ||
       (this.previous && reading.timeMs <= this.previous.timeMs)) return false
     const previous = this.previous
-    if (reading.state === 'near_reference' || reading.state === 'unmeasurable' ||
-      (previous && reading.timeMs - previous.timeMs > FORECAST_MAX_SAMPLE_GAP_MS)) this.inDeviation = false
+    const state = selectedLabState(reading, this.basis)
+    const previousState = previous ? selectedLabState(previous, this.basis) : null
+    if (state === 'near_reference' || state === 'unmeasurable' ||
+      (previous && reading.timeMs - previous.timeMs > readingGapLimit(reading))) this.inDeviation = false
     if (previous) {
       const dt = reading.timeMs - previous.timeMs
-      if (dt > FORECAST_MAX_SAMPLE_GAP_MS || previous.state === 'unmeasurable' || reading.state === 'unmeasurable') {
+      if (dt > readingGapLimit(reading) || previousState === 'unmeasurable' || state === 'unmeasurable') {
         this.summary.unavailableMs += dt
-      } else if (measured(previous) && measured(reading)) {
+      } else if (measured(previous, this.basis) && measured(reading, this.basis)) {
         this.summary.validMs += dt
-        if (previous.state === 'near_reference' && reading.state === 'near_reference') this.summary.nearMs += dt
+        if (previousState === 'near_reference' && state === 'near_reference') this.summary.nearMs += dt
       }
     }
-    if (measured(reading) && reading.error !== null && Number.isFinite(reading.error)) {
+    if (measured(reading, this.basis) && reading.error !== null && Number.isFinite(reading.error)) {
       this.errorTotal += reading.error; this.errorCount++
     }
-    if (reading.state === 'persistent_deviation_candidate' && !this.inDeviation) {
+    if (state === 'persistent_deviation_candidate' && !this.inDeviation) {
       this.summary.deviations++; this.inDeviation = true
     }
-    if (reading.state !== previous?.state) this.event(reading.timeMs, ...labels[reading.state])
+    if (state !== previousState) this.event(reading.timeMs, ...labels[state])
     this.previous = reading
     this.readings = [...this.readings, reading].slice(-LAB_LIMITS.readings)
     return true
@@ -94,9 +100,27 @@ export function exportLabRecord(record: LabRecord) {
     schema_version: 'developer-lab-export-v1',
     id: record.id, started_at: record.startedAt, source: record.source,
     predictor: record.predictor, model_id: record.modelId, model_sha256: record.modelSha256,
+    normal_profile_id: record.normalProfileId ?? null,
+    pose_model_id: record.poseModelId ?? null,
+    forecast_schema: record.forecastSchema ?? null,
+    camera_metadata: record.cameraMetadata ? {
+      pose_model_id: record.cameraMetadata.poseModelId, delegate: record.cameraMetadata.delegate,
+      width: record.cameraMetadata.width, height: record.cameraMetadata.height, pacing: record.cameraMetadata.pacing,
+    } : null,
     domain_validated: false, baseline_normality: 'registration_assumption',
-    approximate_point_mapping: record.source === 'camera' && record.predictor === 'lstm',
+    reference_validation: record.referenceValidation ? {
+      status: record.referenceValidation.status, reason: record.referenceValidation.reason,
+      score: record.referenceValidation.score, profile_id: record.referenceValidation.profileId,
+    } : null,
+    approximate_point_mapping: record.source === 'camera' && record.predictor === 'lstm' && record.forecastSchema !== 'forecast-weights-v2',
     settings: LAB_SETTINGS,
+    ...(record.readings.some(r => r.evaluationMode === 'observed-v2') ? {
+      observation_settings: { evaluation_mode: 'observed-v2', maximum_gap_ms: 250,
+        predictor_grid_ms: 100, normal_entry_ratio: 1, normal_recovery_ratio: 2 / 3,
+        ...(record.readings.some(r => r.predictionInputMaxGapMs !== undefined)
+          ? { predictor_max_gap_ms: record.readings.find(r => r.predictionInputMaxGapMs !== undefined)!.predictionInputMaxGapMs } : {}),
+        ...(record.readings.some(r => r.postureEntryRatio !== undefined) ? { composite_entry_ratio: record.readings.find(r => r.postureEntryRatio !== undefined)!.postureEntryRatio, composite_recovery_ratio: record.readings.find(r => r.postureEntryRatio !== undefined)!.postureRecoveryRatio } : {}), summary_basis: record.alertSettings?.basis ?? 'rule' },
+    } : {}),
     guidance_settings: GUIDANCE_SETTINGS,
     time_basis: 'milliseconds_since_run_start',
     summary_definition: {
@@ -111,8 +135,9 @@ export function exportLabRecord(record: LabRecord) {
       alert_limit: ALERT_SETTINGS.history_limit,
       alert_count: record.alertCount ?? record.alerts.length,
       alert_settings: record.alertSettings ? { basis: record.alertSettings.basis, reminder_ms: record.alertSettings.reminderMs } : null,
-      alerts: record.alerts.slice(-ALERT_SETTINGS.history_limit).map(({ id, timeMs, basis, kind, deviation, peakDeviation, durationMs, error, errorLimit, source }) =>
-        ({ id, timeMs, basis, kind, deviation, peakDeviation, durationMs, error, errorLimit, source })),
+      alerts: record.alerts.slice(-ALERT_SETTINGS.history_limit).map(({ id, timeMs, basis, kind, deviation, peakDeviation, durationMs, error, errorLimit, source, normalScore, normalProfileId, postureScore, imagePosture, peakPostureScore, postureEntryRatio, postureRecoveryRatio }) =>
+        ({ id, timeMs, basis, kind, deviation, peakDeviation, durationMs, error, errorLimit, source, normalScore, normalProfileId,
+          ...(imagePosture ? { ...(postureEntryRatio !== undefined ? { postureEntryRatio, postureRecoveryRatio } : {}), postureScore: postureScore ?? null, imagePosture: copyImagePostureReading(imagePosture), peakPostureScore } : {}) })),
     } : {}),
     summary: { ...record.summary },
     events: record.events.map(({ id, timeMs, label, tone }) => ({ id, timeMs, label, tone })),
@@ -121,6 +146,14 @@ export function exportLabRecord(record: LabRecord) {
       deviation: r.deviation, error: r.error, errorLimit: r.errorLimit, durationMs: r.durationMs,
       progress: r.progress, returnedExcursions: r.returnedExcursions, modelId: r.modelId,
       domainValidated: false,
+      ...(r.evaluationMode ? { evaluationMode: r.evaluationMode, predictionTimeMs: r.predictionTimeMs ?? null, normalScore: r.normalScore ?? null, normalProfileId: r.normalProfileId ?? null } : {}),
+      ...(r.predictionInputMaxGapMs !== undefined ? { predictionInputMaxGapMs: r.predictionInputMaxGapMs } : {}),
+      ...(r.ruleDurationMs !== undefined ? { ruleDurationMs: r.ruleDurationMs,
+        ruleReturnedExcursions: r.ruleReturnedExcursions, ruleRecoveryMs: r.ruleRecoveryMs,
+        predictionRecoveryMs: r.predictionRecoveryMs } : {}),
+      ...(r.imagePosture ? { postureScore: r.postureScore ?? null,
+        ...(r.postureEntryRatio !== undefined ? { postureEntryRatio: r.postureEntryRatio, postureRecoveryRatio: r.postureRecoveryRatio } : {}),
+        imagePosture: copyImagePostureReading(r.imagePosture) } : {}),
     })),
   }
 }

@@ -1,4 +1,6 @@
-import type { ForecastReading, ForecastWeights } from '../../../../model/prototype/forecast'
+import type { ForecastDisplay, ForecastPredictionStatus, ForecastReading, ForecastWeights } from '../../../../model/prototype/forecast'
+import type { NormalReferenceValidation } from '../../../../model/prototype/referenceValidation'
+import type { ImagePostureReading } from '../../../../model/prototype/imagePosture'
 
 export type LabPredictor = 'hold_last' | 'constant_velocity' | 'lstm'
 export type LabSource = 'camera' | 'synthetic'
@@ -16,6 +18,13 @@ export interface LabAlert {
   error: number | null
   errorLimit: number | null
   source: LabSource
+  normalScore?: number | null
+  normalProfileId?: string | null
+  postureScore?: number | null
+  postureEntryRatio?: number
+  postureRecoveryRatio?: number
+  imagePosture?: ImagePostureReading
+  peakPostureScore?: number
 }
 /** Transient display data. Never included in records or diagnostic exports. */
 export interface LabGuidePoint { x: number; y: number; visibility: number }
@@ -58,6 +67,11 @@ export interface LabRecord {
   alerts?: LabAlert[]
   alertCount?: number
   alertSettings?: { basis: LabAlertBasis; reminderMs: number }
+  normalProfileId?: string | null
+  poseModelId?: string | null
+  forecastSchema?: 'forecast-weights-v1' | 'forecast-weights-v2'
+  referenceValidation?: NormalReferenceValidation | null
+  cameraMetadata?: { poseModelId: string | null; delegate: string; width: number; height: number; pacing: string | null } | null
 }
 export interface DeveloperSession {
   phase: LabPhase
@@ -70,11 +84,17 @@ export interface DeveloperSession {
   loadModel: (file: File) => Promise<void>
   error: string
   reading: ForecastReading | null
+  /** Transient actual future coordinates; excluded from records and diagnostic exports. */
+  forecast?: ForecastDisplay | null
+  /** Transient predictor input diagnostics, independent of rule readiness. */
+  predictionStatus?: ForecastPredictionStatus | null
+  referenceValidation?: NormalReferenceValidation | null
   readings: ForecastReading[]
   events: LabEvent[]
   summary: LabSummary
   records: LabRecord[]
   visiblePoints: number
+  observationUsable?: boolean | null
   guidance: LabGuidance
   alerts: LabAlert[]
   alertCount: number

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
+import { readTrackingDiagnostics } from '../features/mediapipe/trackingDiagnostics'
 
 const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.fn() }))
 const archive = vi.hoisted(() => ({ save: vi.fn().mockResolvedValue(undefined) }))
@@ -300,5 +301,26 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.error).toContain('추적')
     expect(track.stop).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
+  })
+  it('forwards developer model, delegate and pacing options and restores service defaults on reconnect', async () => {
+    await act(async () => { await camera.connect('synthetic-device', { variant: 'full', delegate: 'CPU', pacing: 'responsive' }) })
+    expect(vision.create.mock.calls[0][1].baseOptions).toEqual({ modelAssetPath: '/mediapipe/pose_landmarker_full.task', delegate: 'CPU' })
+    expect(camera.trackerDiagnostics).toMatchObject({ variant: 'full', requestedDelegate: 'CPU', actualDelegate: 'CPU', fallbackReason: null })
+    expect(readTrackingDiagnostics()).toMatchObject({ active: true, pacing: 'responsive', delegate: 'CPU' })
+    act(() => camera.stop())
+    expect(readTrackingDiagnostics()?.active).toBe(false)
+    await act(async () => { await camera.connect() })
+    expect(vision.create.mock.calls[1][1].baseOptions).toEqual({ modelAssetPath: '/mediapipe/pose_landmarker_heavy.task', delegate: 'GPU' })
+    expect(camera.trackerDiagnostics).toMatchObject({ variant: 'heavy', requestedDelegate: 'auto', actualDelegate: 'GPU' })
+    expect(readTrackingDiagnostics()).toMatchObject({ pacing: 'legacy', delegate: 'GPU' })
+  })
+  it('reports an explicit GPU failure without silently starting a CPU camera', async () => {
+    vision.create.mockRejectedValueOnce(new Error('Synthetic strict GPU failure'))
+    await act(async () => { await camera.connect(undefined, { variant: 'lite', delegate: 'GPU' }) })
+    expect(vision.create).toHaveBeenCalledOnce()
+    expect(camera.state).toBe('error')
+    expect(camera.trackerDiagnostics).toBeNull()
+    expect(track.stop).toHaveBeenCalledOnce()
+    expect(detect).not.toHaveBeenCalled()
   })
 })

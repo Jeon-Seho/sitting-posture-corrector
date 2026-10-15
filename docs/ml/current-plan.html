@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>현재 ML 계획 · Posture Lab</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101215; --panel:#181b20; --raised:#20242b; --line:#333943; --ink:#f3f5f8; --muted:#aab4c2; --accent:#91dcc3; --blue:#adc8f7; --amber:#efd19a; --focus:#c3ddff; }
+    :root[data-theme="light"] { color-scheme:light; --bg:#f4f5f7; --panel:#fff; --raised:#edf1f5; --line:#d5dce3; --ink:#18212c; --muted:#526071; --accent:#136f58; --blue:#335e9f; --amber:#835700; --focus:#164fa4; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:88px; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; line-height:1.7; letter-spacing:-.015em; }
+    a { color:var(--blue); text-underline-offset:4px; }
+    button,a { -webkit-tap-highlight-color:transparent; }
+    :focus-visible { outline:3px solid var(--focus); outline-offset:4px; }
+    button { font:inherit; }
+    .skip { position:fixed; top:-70px; left:20px; padding:10px 16px; background:var(--panel); z-index:20; }
+    .skip:focus { top:12px; }
+    .toolbar { position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); background:var(--bg); }
+    .toolbar-inner { max-width:1200px; margin:auto; min-height:64px; padding:10px 32px; display:flex; justify-content:space-between; align-items:center; gap:16px; }
+    .brand { font-weight:700; font-size:15px; letter-spacing:-.03em; }
+    .brand span { margin-left:12px; color:var(--muted); font-size:12px; font-weight:400; letter-spacing:.03em; }
+    .actions { display:flex; align-items:center; gap:18px; font-size:13px; }
+    .theme { cursor:pointer; padding:6px 12px; border:1px solid var(--line); border-radius:7px; background:var(--panel); color:var(--ink); }
+    .shell { max-width:1200px; margin:0 auto; padding:54px 32px 70px; }
+    .eyebrow { font-size:12px; letter-spacing:.1em; color:var(--accent); font-weight:650; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { font-size:clamp(30px,4.5vw,52px); line-height:1.25; letter-spacing:-.055em; max-width:850px; margin:14px 0 20px; }
+    .intro { max-width:770px; color:var(--muted); font-size:17px; line-height:1.85; }
+    .intro strong { color:var(--ink); font-weight:550; }
+    .tags { display:flex; flex-wrap:wrap; gap:8px; margin:24px 0 40px; }
+    .tag { border:1px solid var(--line); border-radius:5px; padding:4px 9px; font-size:12px; color:var(--muted); }
+    .tag.good { color:var(--accent); }
+    .layout { display:grid; grid-template-columns:175px minmax(0,1fr); gap:42px; }
+    .nav { position:sticky; top:96px; align-self:start; display:flex; flex-direction:column; gap:4px; font-size:13px; }
+    .nav .label { color:var(--muted); font-size:11px; letter-spacing:.1em; padding:0 10px 10px; }
+    .nav a { color:var(--muted); padding:7px 10px; border-radius:5px; text-decoration:none; }
+    .nav a:hover { background:var(--raised); color:var(--ink); }
+    section { margin-bottom:50px; }
+    .section-top { display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
+    .section-top span { color:var(--accent); font-size:12px; font-variant-numeric:tabular-nums; }
+    h2 { font-size:23px; line-height:1.35; letter-spacing:-.035em; margin:0; }
+    h3 { font-size:16px; line-height:1.5; margin-bottom:8px; }
+    .sub { color:var(--muted); font-size:14px; max-width:760px; margin-bottom:20px; }
+    .panel { padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:12px; }
+    .panel p:last-child { margin-bottom:0; }
+    .key { font-size:21px; line-height:1.6; letter-spacing:-.03em; margin-bottom:10px; }
+    .key em { font-style:normal; color:var(--accent); }
+    .small { font-size:13px; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .role { padding:20px; }
+    .role .label { font-size:11px; font-weight:600; color:var(--accent); margin-bottom:8px; letter-spacing:.06em; }
+    .role p { font-size:13px; color:var(--muted); margin:0; }
+    .path { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 22px; border:1px solid var(--line); border-radius:9px; margin-bottom:14px; font-size:14px; background:var(--raised); }
+    .path .arrow { color:var(--muted); }
+    .callout { border-left:3px solid var(--accent); padding:2px 0 2px 16px; margin-top:20px; font-size:13px; color:var(--muted); }
+    .callout strong { color:var(--ink); }
+    .steps { list-style:none; padding:0; margin:0; counter-reset:step; }
+    .steps li { position:relative; padding:19px 20px 19px 59px; border-bottom:1px solid var(--line); }
+    .steps li:last-child { border-bottom:0; }
+    .steps li::before { counter-increment:step; content:counter(step,decimal-leading-zero); position:absolute; left:20px; top:20px; color:var(--accent); font-size:12px; font-weight:650; }
+    .steps h3 { font-size:15px; margin:0 0 4px; }
+    .steps p { color:var(--muted); font-size:13px; margin:0; }
+    .steps-panel { padding:0; overflow:hidden; }
+    .table-wrap { border:1px solid var(--line); border-radius:10px; overflow-x:auto; background:var(--panel); }
+    table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+    th,td { padding:15px 18px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-size:11px; font-weight:600; background:var(--raised); }
+    td:first-child { color:var(--ink); font-weight:550; }
+    td { color:var(--muted); }
+    tr:last-child td { border-bottom:0; }
+    .compact td:first-child { min-width:150px; }
+    .formula { padding:18px; margin:16px 0; border-radius:8px; background:var(--raised); font-size:15px; line-height:1.7; text-align:center; }
+    .num { font-variant-numeric:tabular-nums; color:var(--ink); }
+    .metric, .role .metric { color:var(--ink); font-size:32px; font-weight:650; line-height:1.2; letter-spacing:-.045em; margin:12px 0; }
+    .caution { color:var(--amber); }
+    ul { padding-left:19px; }
+    .checks { font-size:13px; color:var(--muted); margin:0; }
+    .checks li { margin:9px 0; }
+    details { border-top:1px solid var(--line); margin-top:18px; padding-top:16px; font-size:13px; color:var(--muted); }
+    summary { color:var(--ink); cursor:pointer; }
+    details p { margin:12px 0 0; }
+    .status { font-size:11px; display:inline-block; padding:3px 7px; border:1px solid var(--line); border-radius:4px; white-space:nowrap; }
+    .status.planned { color:var(--blue); }
+    .status.open { color:var(--amber); }
+    footer { border-top:1px solid var(--line); padding-top:24px; color:var(--muted); font-size:12px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:14px; }
+    code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.93em; }
+    @media (max-width:900px) { .layout { grid-template-columns:1fr; gap:26px; } .nav { position:static; flex-direction:row; flex-wrap:wrap; gap:2px; border-bottom:1px solid var(--line); padding-bottom:16px; } .nav .label { display:none; } .three { grid-template-columns:1fr; } .role { padding:18px 20px; } }
+    @media (max-width:560px) { .shell { padding:34px 18px 45px; } .toolbar-inner { padding:10px 18px; } .brand span { display:none; } .actions { gap:12px; } .grid { grid-template-columns:1fr; } .intro { font-size:15px; } .tags { margin-bottom:26px; } .panel { padding:20px; } .steps-panel { padding:0; } .path { flex-wrap:wrap; justify-content:flex-start; gap:7px 11px; font-size:12px; } h2 { font-size:21px; } th,td { padding:12px 13px; } .key { font-size:19px; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+    @media print { :root { --bg:white; --panel:white; --raised:#f2f2f2; --line:#bbb; --ink:#111; --muted:#444; --accent:#195c48; --blue:#224f80; --amber:#755000; color-scheme:light; } .toolbar,.nav,.skip { display:none; } .shell { padding:0; } .layout { display:block; } section,.panel,tr { break-inside:avoid; } body { font-size:11pt; } h1 { font-size:30pt; } a { color:inherit; } details { display:none; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">계획 본문으로 이동</a>
+  <header class="toolbar"><div class="toolbar-inner"><div class="brand">Posture Lab <span>ML PLAN · 2026.10.15</span></div><div class="actions"><a href="current-plan.md">원문 문서</a><button class="theme" id="theme" type="button" aria-label="밝은 테마로 전환">라이트 모드</button></div></div></header>
+  <div class="shell">
+    <div class="eyebrow">CURRENT RESEARCH PLAN</div>
+    <h1>정상 범위는 기억하고,<br>다음 움직임은 예측합니다.</h1>
+    <p class="intro">확인한 정상 데이터로 <strong>등록 자세부터 검사</strong>합니다. 자동 수집 범위는 기본 6%로 넓히고, 모은 MediaPipe 자료를 <strong>로컬 LSTM 학습과 다시 연결</strong>합니다.</p>
+    <div class="tags"><span class="tag good">/dev 개발 전용</span><span class="tag">학습 중심 고정</span><span class="tag">동일 추출기 확인</span><span class="tag">실제 자세 정확도 미검증</span></div>
+    <section class="panel" aria-label="얼굴 전용 추적과 공개 학습 자료"><h2>Face와 Pose를 같은 영상으로 비교합니다.</h2><p class="small" style="margin-top:14px">얼굴 전용 Worker에서 눈·코·입 윤곽을 추적하고, 안경 착용/미착용 각각의 10초 비교로 유효 관측·위치 차이·처리 지연을 봅니다. 두 모델의 차이는 정답 정확도가 아닙니다. 현재 정상 수집·알림·39D LSTM은 Pose 원본을 유지하며 Face 상대 깊이를 world 좌표와 섞지 않습니다.</p><p class="small">공개 자료: Panoptic RGB 재추출은 시계열 예측 후보, MultiPosture는 시간 없는 몸통 분류 후보, EYEDIAP은 신청 후 머리 움직임 검증 후보입니다. <a href="face-and-public-data.md">기존 학습 결과와 자료 비교</a> · <a href="../decisions/0037-developer-face-landmarker.md">추적 설계</a></p></section>
+    <section class="panel" aria-label="사용자 지정 종합 0.7배"><h2>새 이탈 경계는 0.7배입니다.</h2><p class="small" style="margin-top:14px">알림 전 종합 점수가 0.7배를 연속 3초 초과하면 기본 시각 알림(이하이면 진입 시간 초기화), 약0.47배 이하를 3초 유지하면 복귀합니다. 점수 단위·영상18%/12% 하한·자동후보0.5배/1초·무음은 유지합니다. 이전1배 기록을 소급 변경하지 않습니다. 실제 정확도는 미검증입니다. <a href="../decisions/0036-composite-entry-point-seven.md">현재 결정</a> · <a href="../plans/completed/0050-posture-entry-point-seven.md">검증 기록</a></p></section>
+    <section class="panel" aria-label="현재 영상 v2와 자동 정상 선별"><h2>몸 변화와 정상 수집 기준을 조정했습니다.</h2><p class="small" style="margin-top:14px">새 측정의 이동 하한은 등록 어깨폭의 18%, 영상 축소 하한은 12%입니다. 당시 종합 경계는 1배였으며 현재 새 실행은 위 0.7배 연속 진입을 따릅니다. 복귀 3초·200ms 평활화와 기본 무음을 유지합니다. 이전 측정의 45%·20% 결과를 소급 변경하지 않습니다.</p><p class="small">자동 정상 후보는 상대 거리 기본 6%에 더해 종합 0.5배 이내·실측 룰 범위 안·실측 1초 연속을 모두 요구합니다. 확인 중 프레임을 소급 저장하지 않으며 이탈·복귀·품질 누락·선택 변경은 구간을 끊습니다. 이전 자동 613행은 보존하고 재검토·학습 차단으로 표시했습니다.</p><p class="small">실제 기대기 정확도나 오탐률을 검증한 임계값은 아닙니다. 새 촬영으로 작은 움직임과 5초 기울기를 비교해야 합니다. <a href="../decisions/0035-posture-and-clean-normal-selection.md">현재 정책</a> · <a href="../plans/completed/0049-posture-and-auto-selection-tuning.md">검증 기록</a></p></section>
+    <section class="panel" aria-label="2026년 10월 15일 보완"><h2>이전 영상 v1: 큰 몸 변화 보완</h2><p class="small" style="margin-top:14px">등록 당시 영상 위치와 어깨폭을 고정해 얼굴·어깨의 공통 이동과 영상 축소를 비교합니다. 상대 자세와 몸 전체 변화 중 큰 값이 종합 이탈 점수입니다. 경계 1배를 초과한 변화가 3초 이어지면 기본 무음 시각 알림을 냅니다. 작은 움직임은 등록 변동·허용 하한·200ms 평활화로 허용합니다.</p><p class="small">이탈 프레임은 자동 정상 수집에서 제외합니다. 13점과 LSTM 학습 입력은 유지합니다. 고정 카메라가 전제이며 실제 후방 각도·행동 의도를 측정하지 않습니다. 개발 시작 하한은 0.45 등록 어깨폭 이동·20% 영상 축소로, 실제 검증 임계값이 아닙니다. <a href="../decisions/0034-fixed-image-posture-anchor.md">설계와 한계</a> · <a href="../plans/completed/0048-recline-posture-guard.md">보완 검증 기록</a></p></section>
+    <section class="panel" aria-label="이번 변경의 상태"><h2>10월 14일 연결 작업의 구현·검증 기록</h2><p class="small" style="margin-top:14px">등록 검증·자동 선별·자료 검사·학습·불러오기 경로를 구현합니다. 이번 변경은 합성 자료로 연결 경로를 점검하며, 실제 참여자 자료를 새로 수집하거나 실제 모델을 학습한 결과가 아닙니다. Python 186개·프론트 645개 및 타입/빌드, 합성 2 epoch 학습·추론 동등성을 확인했습니다. Java/Maven·Docker 환경이 필요한 전체 게이트는 완료되지 않았습니다. 자세한 결과는 <a href="../plans/completed/0045-normal-reference-and-mediapipe-training.md">작업 계획 0045</a>에서 확인합니다.</p></section>
+    <div class="layout"><nav class="nav" aria-label="계획 목차"><div class="label">CONTENTS</div><a href="#roles">01 · 세 가지 역할</a><a href="#collect">02 · 정상 자료 수집</a><a href="#reference">03 · 등록 검증</a><a href="#training">04 · 로컬 학습</a><a href="#mapping">05 · 같은 좌표 정의</a><a href="#evaluation">06 · 독립 평가</a><a href="#evidence">07 · 확인한 근거</a></nav>
+    <main id="main">
+      <section id="roles"><div class="section-top"><span>01</span><h2>범위·지속시간·예측은 서로 다른 역할입니다.</h2></div><div class="grid three">
+        <article class="panel role"><div class="label">개인 범위</div><h3>확인한 정상 중심과 폭</h3><p>수동 30초 구간의 통계량을 맞춥니다. 새 등록 후보와 현재 자세가 학습한 범위 안인지 비교합니다.</p></article>
+        <article class="panel role"><div class="label">거리·시간</div><h3>얼마나, 얼마나 오래</h3><p>기준에서 벗어난 거리와 지속시간을 관찰합니다. 프로파일이 없을 때의 기본 판단이며 비교군입니다.</p></article>
+        <article class="panel role"><div class="label">LSTM</div><h3>300ms 뒤 움직임</h3><p>30시점 × 39차원에서 미래 좌표를 회귀합니다. 정상/비정상 정답이나 스트레칭 의도를 학습한 분류기가 아닙니다.</p></article>
+      </div><div class="callout"><strong>정상은 사용자가 확인한 허용 구간입니다.</strong><br>의학적 정상·건강 점수·척추 곡률을 뜻하지 않습니다. 구부정한 자세도 잘 예측할 수 있으므로 미래 예측 오차만으로 정상 여부를 판단하지 않습니다.</div></section>
+      <section id="collect"><div class="section-top"><span>02</span><h2>자동은 범위를 선택하고, 수동은 구간을 확인합니다.</h2></div><div class="grid">
+        <article class="panel role"><div class="label">자동 · 미검토 약라벨</div><h3>정상자세(자동)</h3><p class="metric">기본 ≤ 6%</p><p>0.5%·3%·6% 선택. 기준 등록 뒤 새 유효 관측마다 최대 10Hz로 한 행을 추가합니다. 선별값은 행마다 기록합니다.</p></article>
+        <article class="panel role"><div class="label">수동 · 참여자 확인</div><h3>정상자세(수동)</h3><p class="metric">유효 30초</p><p>준비 3초 뒤 실제 30초·최소 100표본. 사용자가 구간을 확인하며 개인 기준용과 학습 자료용을 구분합니다.</p></article>
+      </div><div class="panel" style="margin-top:14px"><h3>백분율은 기준과의 3D 거리입니다.</h3><p class="small">현재 어깨폭을 100%로 보고 얼굴 9점·귀 2점·어깨 2점의 평균 점 거리를 같은 비중으로 합칩니다. 픽셀 차이·정상 확률·LSTM 오차와 다릅니다. 6%는 수집 가용성을 위한 개발값이며 검증된 정상 기준이 아닙니다.</p></div>
+      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>확인할 것</th><th>의미</th></tr></thead><tbody><tr><td>행 수 + 연속 학습 후보</td><td>입력 30시점과 약 300ms 뒤 타깃을 담을 약 3.2초 연속 구간이 필요합니다. 후보 수와 최종 학습 창 수는 다릅니다.</td></tr><tr><td>탈락 이유</td><td>범위 밖·낮은 품질·시간 단절 등을 구분합니다. 측정 불가를 정상으로 채우지 않습니다.</td></tr><tr><td>구간 경계</td><td>가림·250ms 초과·일시정지·기준/모델/선별값 변경을 넘는 창은 만들지 않습니다.</td></tr><tr><td>보관</td><td>메모리에서 최대 6,000행. 필요한 원본만 직접 다운로드하며 자동 학습·업로드는 하지 않습니다.</td></tr></tbody></table></div>
+      <p class="small" style="margin-top:14px"><a href="../../contracts/auto-normal-posture-collection.v2.md">자동 v2 계약</a> · <a href="../../contracts/auto-normal-posture-collection.v1.md">과거 0.5% v1</a> · <a href="../../contracts/normal-posture-collection.v1.md">수동 v1 계약</a></p></section>
+      <section id="reference"><div class="section-top"><span>03</span><h2>다른 자세를 다시 등록해도 정상 중심은 바뀌지 않습니다.</h2></div><div class="panel"><h3>얼굴 중심 · 귀 중심 · 어깨 방향</h3><p class="small">9축의 중앙값과 변동 폭을 학습합니다. 허용 폭은 절대 중앙편차 q95 × 1.5와 기존 개발 하한 중 큰 값입니다.</p><div class="formula">점수 = <strong>|현재 특징 − 학습한 중심| ÷ 허용 폭</strong>의 최댓값</div><p class="small"><strong>점수 ≤ 1 통과 · &gt; 1 거부.</strong> 등록 후보와 측정 모두 학습 중심을 사용합니다. 등록을 다시 했다는 이유로 이탈 자세가 0점이 되지 않습니다.</p></div>
+      <div class="panel steps-panel" style="margin-top:14px"><ol class="steps"><li><h3>유효한 등록 후보 수집</h3><p>기존 최소 8초·실제 65표본 조건을 유지합니다. 보간값을 실제 표본으로 세지 않습니다.</p></li><li><h3>실제 추출 모델 확인</h3><p>프로파일과 관측의 알려진 ID가 정확히 같아야 합니다. 출처 미상·다른 모델·손상 자료는 검증 통과로 표시하지 않습니다.</p></li><li><h3>학습 범위와 비교</h3><p>벗어나면 가장 크게 달라진 얼굴/귀/어깨 부위를 안내합니다. 범위로 돌아오면 등록을 다시 시도합니다.</p></li><li><h3>범위를 고정해 지속시간 관찰</h3><p>1 초과 이탈·2/3 이하 복귀 확인. 이탈 자료를 자동으로 학습 중심에 흡수하지 않습니다.</p></li></ol></div>
+      <p class="small" style="margin-top:14px">프로파일이 없으면 학습 검증이 없다는 안내와 함께 기존 거리·시간 기준을 사용합니다. 이탈 3초·복귀 3초·재알림 60초는 개발 설정이며 의도적인 긴 스트레칭도 알림 후보가 될 수 있습니다.</p></section>
+      <section id="training"><div class="section-top"><span>04</span><h2>수집 → 검사 → 학습 → 불러오기.</h2></div><p class="sub">원본과 결과는 비공개 폴더에 보관합니다. 브라우저는 모델을 자동 교체하거나 실제 학습을 실행하지 않습니다.</p><div class="path"><span>수동 v1 / 자동 v1·v2 JSON</span><span class="arrow">→</span><span>파일 hash·참여자 분할 검사</span><span class="arrow">→</span><span>로컬 LSTM</span><span class="arrow">→</span><span>설정에서 model.json 선택</span></div>
+      <div class="panel"><h3>한 사람 pilot 실행 예</h3><p class="small">저장소 루트, 학습용 Python 환경에서 실행합니다. manifest 형식과 설치 방법은 <a href="mediapipe-training.md">MediaPipe 학습 안내</a>에 있습니다.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.8"><code>python -m model.analysis.mediapipe_lstm manifest --mode pilot \
+  --output "$HOME/posture-private/manifest.json" \
+  "$HOME/posture-private/normal-auto.json"
+
+python -m model.analysis.mediapipe_lstm validate \
+  --manifest "$HOME/posture-private/manifest.json" --mode pilot
+
+python -m model.analysis.mediapipe_lstm train \
+  --manifest "$HOME/posture-private/manifest.json" --mode pilot \
+  --output "$HOME/posture-private/run-01" --epochs 25</code></pre><p class="small">manifest는 명시한 파일의 실제 모델·참여자·hash로 한 사람 pilot 목록을 새로 만듭니다. 파일명은 내려받은 이름에 맞춰 바꾸세요. validate/prepare는 학습 없는 자료 검사입니다. train은 선택 NumPy/PyTorch 환경의 CPU 학습이며 새 출력 폴더에 model.json·report.json·research-lstm.pt를 만듭니다.</p></div>
+      <div class="callout"><strong>행을 많이 모았다고 바로 학습되는 것은 아닙니다.</strong><br>원본에서 정규화 값을 다시 계산하고 출처·품질·시각·구간을 확인합니다. 입력만 100ms 격자로 보간하며 미래 정답은 목표 시각 ±50ms의 실제 관측을 사용합니다. 실제 타깃이 없으면 창을 제외합니다.</div></section>
+      <section id="mapping"><div class="section-top"><span>05</span><h2>학습과 브라우저에 같은 좌표 정의를 사용합니다.</h2></div><div class="table-wrap"><table><thead><tr><th>새 모델 정보</th><th>정확한 값</th></tr></thead><tbody><tr><td>형식 / 도메인</td><td><code>forecast-weights-v2 / mediapipe</code></td></tr><tr><td>원본 점 순서</td><td><code>[0,6,5,4,1,2,3,10,9,7,8,11,12]</code></td></tr><tr><td>정규화</td><td>어깨 중점·3D 어깨폭 기준 xyz. 13점 × 3축 = 39차원.</td></tr><tr><td>특징 버전</td><td><code>mediapipe-world13-shoulder-normalized-xyz-v1</code></td></tr><tr><td>점 정의</td><td><code>MediaPipe-13-world-shoulder-normalized-v1</code></td></tr><tr><td>추출기</td><td>실제 <code>pose_model_id</code>를 기록하고 일치를 확인합니다.</td></tr></tbody></table></div><p class="small" style="margin-top:14px">기존 Panoptic v1은 별도 레거시 비교 모델입니다. 근사 좌표 대응의 한계는 남습니다. 새 v2도 <code>domain_validated: false</code>이며, 같은 좌표 정의가 실제 자세 정확도를 보증하지 않습니다.</p></section>
+      <section id="evaluation"><div class="section-top"><span>06</span><h2>본인 실험과 새로운 사람의 평가는 나눕니다.</h2></div><div class="grid"><article class="panel role"><div class="label">PILOT</div><h3>한 사람의 연결 점검</h3><p>train만 사용하고 validation/test는 비웁니다. 개인 보정 자료도 허용합니다. 학습 자료 적합·기능 확인이며 새 사용자 성능으로 보고하지 않습니다.</p></article><article class="panel role"><div class="label">PARTICIPANT HOLDOUT</div><h3>참여자 단위 분리</h3><p>train·validation·test가 모두 필요하고 사람은 겹치지 않습니다. 수동 자료는 학습 용도만 사용합니다. 변환기는 train으로, 모델 선택은 validation으로 합니다.</p></article></div><div class="callout"><strong>미래 좌표 오차와 자세 판정 정확도도 다릅니다.</strong><br>LSTM·위치 유지·등속을 같은 창에서 비교합니다. 자동 약라벨은 정상 정답이 아닙니다. 자세 효과를 보려면 별도 기준 유지·일시 이탈·지속 이탈·측정 불가 구간과 시간당 오알림·놓침·감지 지연을 평가해야 합니다.</div><p class="small" style="margin-top:14px"><a href="../research/protocol.md">연구 프로토콜</a> · <a href="../decisions/0032-normal-reference-and-mediapipe-training.md">이번 결정 ADR 0032</a></p></section>
+      <section id="evidence"><div class="section-top"><span>07</span><h2>실측 기록은 보존하고, 남은 한계도 표시합니다.</h2></div><div class="grid three"><article class="panel role"><h3>이전 실제 속도</h3><p class="metric">12.7 → 23.5–27.2 FPS</p><p>M1 Metal, Full+단축 대기. 서로 다른 20초 실측이며 일반 서비스는 Heavy를 유지합니다.</p></article><article class="panel role"><h3>이전 자동 수집</h3><p class="metric">0.5% · 0행</p><p>약 6분 단기 관찰. 이번 6% 기본값은 수집 가능성을 위한 변경이며 성능 검증값이 아닙니다.</p></article><article class="panel role"><h3>이번 검증 범위</h3><p class="metric">합성 자료</p><p>실제 사용자 자료로 새 모델을 학습한 결과가 아닙니다. 새 참여자·장시간·깊이 정확도·교정 효과는 별도입니다.</p></article></div><p class="small" style="margin-top:14px"><a href="camera-performance.md">실제 성능 기록</a> · <a href="live-keypoint-audit.md">당시 관찰과 공백 감사</a> · <a href="jisung/2026-10-13-mac-dev-lstm-training.md">이전 Panoptic 학습 결과</a></p><div class="panel"><ul class="checks"><li>13점은 상체 아래쪽을 보지 못하며, 정규화는 전체 이동과 크기 변화를 제거합니다.</li><li>13/13 관측률은 깊이 정확도가 아닙니다. 가림·흔들림·카메라 환경의 한계는 남습니다.</li><li>실제 영상·좌표·모델·익명 분할 자료는 Git에 넣지 않습니다. 일반 서비스에 실험 기능을 자동 적용하지 않습니다.</li><li>합성 검증 통과 뒤에도 독립 참여자·장치 평가와 서비스 계약 검토가 필요합니다.</li></ul></div></section>
+    </main></div>
+    <footer><span>Posture Lab · 비의료용 개발 실험 · 2026-10-15</span><span><a href="current-plan.md">최신 원문</a> · <a href="mediapipe-training.md">학습 안내</a> · <a href="../index.md">문서 지도</a></span></footer>
+  </div>
+  <script>document.getElementById('theme').addEventListener('click',function(){const dark=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=dark?'light':'dark';this.textContent=dark?'다크 모드':'라이트 모드';this.setAttribute('aria-label',dark?'어두운 테마로 전환':'밝은 테마로 전환')})</script>
+</body>
+</html>

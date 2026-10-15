@@ -32,3 +32,75 @@
 
 .dev-lab .dc-instruction-dock.dc-alert-active{border-top-color:var(--lab-warning);box-shadow:inset 3px 0 0 var(--lab-warning)}
 .dev-lab .dc-alert-active .dc-guidance-copy h2{color:var(--lab-warning)}
+
+/* Setup keeps the large view. During measurement, results share the first screen. */
+.dev-lab .dev-camera-workspace[data-compact=true]{border-radius:12px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-viewport{height:270px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-topline{top:12px;left:13px;right:13px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-running-controls{bottom:12px;left:13px;right:13px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-caption{font-size:10px;padding:10px 13px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-caption{flex-wrap:wrap;gap:5px 12px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-caption>span:last-child{text-align:left}
+.dev-lab .dev-camera-workspace .dc-caption:has(.dc-caption-warning){flex-wrap:wrap}
+.dev-lab .dev-camera-workspace .dc-caption-warning{color:var(--dc-warning);text-align:left!important}
+.dev-lab .dev-camera-workspace details.dc-instruction-dock{display:block;min-height:0;padding:0}
+.dev-lab .dev-camera-workspace .dc-detail-summary{display:flex;align-items:center;gap:12px;list-style:none;padding:12px 16px;color:#b8c1cf;font-size:12px;cursor:pointer}
+.dev-lab .dev-camera-workspace .dc-detail-summary::-webkit-details-marker{display:none}
+.dev-lab .dev-camera-workspace .dc-detail-summary span{font-size:10px;color:#8b98ac}
+.dev-lab .dev-camera-workspace .dc-detail-summary:after{content:'+';margin-left:auto;font-size:17px}
+.dev-lab .dev-camera-workspace details[open]>.dc-detail-summary:after{content:'−'}
+.dev-lab .dev-camera-workspace .dc-detail-summary:focus-visible{outline:2px solid var(--dc-live);outline-offset:-4px}
+.dev-lab .dev-camera-workspace details.dc-instruction-dock>.dc-guidance{padding:8px 16px 14px}
+.dev-lab .dev-camera-workspace details.dc-instruction-dock>.dc-observed-values{border:0;border-top:1px solid #2d3441;padding:15px 16px;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.dev-lab .dev-camera-workspace details.dc-instruction-dock>.dc-comparison-explanation{padding:0 16px 14px;background:none;font-size:11px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-launch{padding:42px 20px 20px}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-launch-icon{display:none}
+.dev-lab .dev-camera-workspace[data-compact=true] .dc-launch h2{font-size:20px!important}
+@media(max-width:960px){.dev-lab .dev-camera-workspace[data-compact=true] .dc-viewport{height:270px}}
+@media(max-width:760px){
+  .dev-lab .dev-camera-workspace[data-compact=true] .dc-viewport{height:230px}
+  .dev-lab .dev-camera-workspace[data-compact=true] .dc-source{font-size:10px;padding:5px 7px}
+  .dev-lab .dev-camera-workspace details.dc-instruction-dock>.dc-observed-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dev-lab .dev-camera-workspace[data-compact=true] .dc-launch>p{font-size:11px;margin-top:5px}
+  .dev-lab .dev-camera-workspace[data-compact=true] .dc-primary{margin-top:12px;min-height:38px;padding:8px 14px}
+  .dev-lab .dev-camera-workspace[data-compact=true] .dc-secondary-actions{margin-top:5px}
+}
+
+/* Actual future output remains outside image space; both poses share one model-coordinate scale. */
+.dev-lab .dev-camera-workspace .dc-forecast{border-top:1px solid #2d3038;background:#101218;padding:13px 16px 11px}
+.dev-lab .dev-camera-workspace .dc-forecast-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dev-lab .dev-camera-workspace .dc-forecast-heading h3{margin:0;color:#e2dcff;font-size:13px;font-weight:600}
+.dev-lab .dev-camera-workspace .dc-forecast-planes{display:flex;gap:2px;padding:2px;border:1px solid #30343d;border-radius:6px}
+.dev-lab .dev-camera-workspace .dc-forecast-planes button{border:0;border-radius:4px;background:transparent;color:#9ca6b7;font-size:10px;padding:4px 9px;line-height:1.3}
+.dev-lab .dev-camera-workspace .dc-forecast-planes button[aria-pressed=true]{background:#2c263e;color:#e3d9ff}
+.dev-lab .dev-camera-workspace .dc-forecast-body{display:grid;grid-template-columns:minmax(0,1fr) 155px;align-items:center;gap:16px;min-height:133px}
+.dev-lab .dev-camera-workspace .dc-forecast-body>svg{display:block;width:100%;height:133px;overflow:visible}
+.dev-lab .dev-camera-workspace .dc-forecast-body svg line,.dev-lab .dev-camera-workspace .dc-forecast-body svg circle{vector-effect:non-scaling-stroke}
+.dev-lab .dev-camera-workspace .dc-forecast-axis{stroke:#272d38;stroke-width:1;stroke-dasharray:3 5}
+.dev-lab .dev-camera-workspace .dc-forecast-axis-label{fill:#7e899c;font-size:9px}
+.dev-lab .dev-camera-workspace .dc-forecast-input{stroke:#6bd3bd;stroke-width:1.4;fill:#142722;opacity:.85}
+.dev-lab .dev-camera-workspace .dc-forecast-future{stroke:#c6abff;stroke-width:1.5;stroke-dasharray:3 3;fill:#c6abff}
+.dev-lab .dev-camera-workspace .dc-forecast-future circle{stroke:#281e3d;stroke-width:.8;stroke-dasharray:none}
+.dev-lab .dev-camera-workspace .dc-forecast-vectors{color:#decfff;stroke:#decfff;stroke-width:1.3;opacity:.95}
+.dev-lab .dev-camera-workspace .dc-forecast-deltas{display:flex;flex-direction:column;gap:5px;min-width:0;padding-left:14px;border-left:1px solid #2c2e38;font-variant-numeric:tabular-nums}
+.dev-lab .dev-camera-workspace .dc-forecast-deltas>span{font-size:10px;color:#8996aa;margin-bottom:3px}
+.dev-lab .dev-camera-workspace .dc-forecast-deltas strong{font-size:12px;font-weight:500;line-height:1.4;color:#dad4ea}
+.dev-lab .dev-camera-workspace .dc-forecast-deltas small{font-size:9px;color:#8c94a4;margin-top:3px;line-height:1.5}
+.dev-lab .dev-camera-workspace .dc-forecast-legend{display:flex;align-items:center;gap:14px;color:#a4adbd;font-size:10px}
+.dev-lab .dev-camera-workspace .dc-forecast-legend>span{display:flex;align-items:center;gap:5px}
+.dev-lab .dev-camera-workspace .dc-forecast-legend i{width:12px;border-top:2px solid #6bd3bd}
+.dev-lab .dev-camera-workspace .dc-forecast-legend>span:nth-child(2) i{border-color:#c6abff;border-top-style:dashed}
+.dev-lab .dev-camera-workspace .dc-forecast-legend time{margin-left:auto;color:#79869b;font-variant-numeric:tabular-nums;font-size:9px;white-space:nowrap}
+.dev-lab .dev-camera-workspace .dc-forecast-note{font-size:9px;line-height:1.6;color:#7f8a9d;margin:7px 0 0;overflow-wrap:anywhere}
+.dev-lab .dev-camera-workspace .dc-forecast-empty{padding:17px 0 9px;color:#aaa1c6}
+.dev-lab .dev-camera-workspace .dc-forecast-empty strong{font-size:12px;font-weight:500}
+.dev-lab .dev-camera-workspace .dc-forecast-empty p{font-size:11px;line-height:1.6;color:#8491a7;margin:7px 0 0}
+.dev-lab .dev-camera-workspace .dc-forecast-progress{margin-top:13px;max-width:340px}
+.dev-lab .dev-camera-workspace .dc-forecast-progress>div{display:flex;justify-content:space-between;gap:12px;font-size:10px;color:#bbb2d0;font-variant-numeric:tabular-nums}
+.dev-lab .dev-camera-workspace .dc-forecast-progress progress{display:block;width:100%;height:3px;margin-top:6px;border:0;border-radius:4px;background:#292735;accent-color:#b09ad9;overflow:hidden}
+.dev-lab .dev-camera-workspace .dc-forecast-progress progress::-webkit-progress-bar{background:#292735}
+.dev-lab .dev-camera-workspace .dc-forecast-progress progress::-webkit-progress-value{background:#b09ad9}
+.dev-lab .dev-camera-workspace .dc-forecast-progress progress::-moz-progress-bar{background:#b09ad9}
+.dev-lab .dev-camera-workspace .dc-forecast-empty .dc-forecast-reset{font-size:10px;color:#b6a58d;overflow-wrap:anywhere}
+.dev-lab .dev-camera-workspace .dc-forecast-health{display:flex;flex-wrap:wrap;gap:5px 14px;margin-top:8px;color:#8790a2;font-size:9px;font-variant-numeric:tabular-nums;line-height:1.6}
+@media(max-width:440px){.dev-lab .dev-camera-workspace .dc-forecast{padding:12px}.dev-lab .dev-camera-workspace .dc-forecast-body{grid-template-columns:minmax(0,1fr) 116px;gap:9px}.dev-lab .dev-camera-workspace .dc-forecast-deltas{padding-left:10px}.dev-lab .dev-camera-workspace .dc-forecast-legend{gap:9px}.dev-lab .dev-camera-workspace .dc-forecast-legend time{font-size:8px}.dev-lab .dev-camera-workspace .dc-forecast-heading h3{font-size:12px}}

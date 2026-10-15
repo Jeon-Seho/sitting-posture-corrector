@@ -1,11 +1,13 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emptyGuidance, syntheticGuideFrame } from '../../../../model/prototype/developerGuidance'
-import type { ForecastReading } from '../../../../model/prototype/forecast'
+import type { ForecastDisplay, ForecastReading } from '../../../../model/prototype/forecast'
 import type { CameraController } from '../../hooks/useCamera'
 import DeveloperCameraStage, { fitVideoFrame, projectGuidePoint } from './DeveloperCameraStage'
 import { emptySummary } from './session'
 import type { DeveloperSession, LabGuideFrame } from './types'
+import type { FaceTrackingController } from './face/useFaceTracking'
+import { syntheticFace } from './face/syntheticFixture.test-helper'
 
 const renderers: ReactTestRenderer[] = []
 const makeCamera = () => ({ state: 'off', streamRef: { current: null } }) as unknown as CameraController
@@ -23,11 +25,17 @@ const reading = (patch: Partial<ForecastReading> = {}): ForecastReading => ({
   modelId: 'hold_last', domainValidated: false, ...patch,
 })
 const frame = (): LabGuideFrame => ({ ...syntheticGuideFrame(0)!, width: 640, height: 480 })
+const syntheticForecast = (): ForecastDisplay => ({ predictor: 'lstm', modelId: 'explicit-synthetic-display',
+  inputAtMs: 10000, targetAtMs: 10300, inputValues: Array(39).fill(0),
+  values: Array.from({ length: 39 }, (_, i) => i < 27 ? (i % 3 === 0 ? .1 : i % 3 === 2 ? -.2 : -.1) : 0) })
+const predictionStatus = (patch: Partial<NonNullable<DeveloperSession['predictionStatus']>> = {}): NonNullable<DeveloperSession['predictionStatus']> => ({
+  collectedSteps: 0, requiredSteps: 30, resetCount: 0, lastResetReason: null, lastGapMs: null, bridgedGapCount: 0, ...patch,
+})
 const videoNode = () => ({ srcObject: null as MediaStream | null, videoWidth: 640, videoHeight: 480, play: vi.fn().mockResolvedValue(undefined) })
-function render(session: DeveloperSession, camera = makeCamera(), video = videoNode()) {
+function render(session: DeveloperSession, camera = makeCamera(), video = videoNode(), face?: FaceTrackingController) {
   let renderer!: ReactTestRenderer
   act(() => {
-    renderer = create(<DeveloperCameraStage camera={camera} session={session} />, { createNodeMock: element => {
+    renderer = create(<DeveloperCameraStage camera={camera} session={session} face={face} />, { createNodeMock: element => {
       if (element.type === 'video') return video
       if (element.props.className === 'dc-viewport') return { getBoundingClientRect: () => ({ width: 960, height: 540 }) }
       return null
@@ -40,6 +48,106 @@ const button = (renderer: ReactTestRenderer, name: string) => renderer.root.find
 afterEach(() => { for (const renderer of renderers.splice(0)) act(() => renderer.unmount()) })
 
 describe('developer camera workspace with explicit synthetic geometry', () => {
+  it('shows actual Face contours with only Pose shoulders, and never fakes a lost face', () => {
+    const session = makeSession({ phase: 'measuring', reading: reading(), guidance: { ...emptyGuidance(), step: 'tracking', live: frame(), reference: frame() } })
+    const original = structuredClone(session.guidance)
+    const face: FaceTrackingController = { enabled: true, setEnabled: vi.fn(), mode: 'face', setMode: vi.fn(), active: true, status: 'ready', message: '', delegate: 'GPU',
+      sample: { frame: syntheticFace(), difference: null, inferenceMs: 5, roundTripMs: 10, delegate: 'GPU' }, glasses: true, setGlasses: vi.fn(), trialProgress: null, trials: [], startTrial: vi.fn() }
+    const camera = makeCamera(); camera.state = 'on'
+    const r = render(session, camera, videoNode(), face)
+    expect(r.root.findAllByProps({ 'data-testid': 'face-landmarks' })).toHaveLength(1)
+    expect(r.root.findByProps({ 'data-testid': 'live-pose' }).findAllByType('circle')).toHaveLength(2)
+    expect(r.root.findByProps({ 'data-testid': 'reference-pose' }).findAllByType('circle')).toHaveLength(2)
+    act(() => r.update(<DeveloperCameraStage camera={camera} session={session} face={{ ...face, sample: null, status: 'missing', message: '관측 없음' }} />))
+    expect(r.root.findAllByProps({ 'data-testid': 'face-landmarks' })).toHaveLength(0)
+    expect(r.root.findByProps({ 'data-testid': 'live-pose' }).findAllByType('circle')).toHaveLength(2)
+    act(() => r.update(<DeveloperCameraStage camera={camera} session={session} face={{ ...face, mode: 'pose' }} />))
+    expect(r.root.findByProps({ 'data-testid': 'live-pose' }).findAllByType('circle')).toHaveLength(13)
+    expect(session.guidance).toEqual(original)
+  })
+  it('shows actual warmup progress and the last reset instead of a fixed three-second promise', () => {
+    const session = makeSession({ phase: 'measuring', predictor: 'lstm', reading: reading({ state: 'warming', error: null }),
+      predictionStatus: predictionStatus({ collectedSteps: 12, resetCount: 2, lastResetReason: 'gap', lastGapMs: 620 }),
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const camera = makeCamera(); camera.metrics = { fps: 8.1, inferenceMs: 124, delegate: 'CPU' }
+    const renderer = render(session, camera)
+    const progress = renderer.root.findByProps({ 'aria-label': '예측 입력 준비' })
+    expect(progress.props).toMatchObject({ value: 12, max: 30 })
+    const text = JSON.stringify(renderer.toJSON())
+    expect(text).toContain('12 / 30')
+    expect(text).toContain('최근 초기화: 관측 간격 초과 · 2회')
+    expect(text).toContain('최근 입력 간격 620ms')
+    expect(renderer.root.findByProps({ className: 'dc-forecast-reset' }).children.join('')).not.toContain('620ms')
+    expect(text).toContain('카메라 8.1 FPS')
+    expect(text).toContain('좌표 추출 124ms')
+    expect(text).not.toContain('측정 품질이 회복되면')
+    expect(renderer.root.findAllByProps({ 'data-testid': 'forecast-future-pose' })).toHaveLength(0)
+  })
+  it.each([null, syntheticForecast()])('does not claim it is collecting when all inputs are ready but output is absent or expired', forecast => {
+    const session = makeSession({ phase: 'measuring', predictor: 'lstm', reading: reading({ timeMs: 10300, state: 'warming', error: null }),
+      forecast, predictionStatus: predictionStatus({ collectedSteps: 30, bridgedGapCount: 3 }),
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const renderer = render(session)
+    const empty = renderer.root.findByProps({ className: 'dc-forecast-empty' })
+    expect(empty.findByType('strong').children).toEqual(['입력 준비 완료 · 새 예측 대기'])
+    expect(empty.findByType('progress').props.value).toBe(30)
+    expect(JSON.stringify(renderer.toJSON())).toContain('30 / 30')
+    expect(JSON.stringify(renderer.toJSON())).toContain('짧은 간격 보간 3회')
+    expect(empty.findAllByType('p').map(node => node.children.join('')).join('')).not.toMatch(/좌표를 준비|약 3초|품질이 회복/)
+    expect(renderer.root.findAllByProps({ 'data-testid': 'forecast-future-pose' })).toHaveLength(0)
+  })
+  it('distinguishes an explicit quality reset from a camera delay and never shows stale output', () => {
+    const session = makeSession({ phase: 'measuring', predictor: 'lstm', reading: reading({ state: 'unmeasurable', error: null }),
+      forecast: syntheticForecast(), predictionStatus: predictionStatus({ resetCount: 1, lastResetReason: 'quality' }),
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const renderer = render(session)
+    const empty = renderer.root.findByProps({ className: 'dc-forecast-empty' })
+    expect(empty.findByType('strong').children).toEqual(['새 유효 관측을 기다려요'])
+    expect(JSON.stringify(renderer.toJSON())).toContain('최근 초기화: 좌표 품질 부족 · 1회')
+    expect(empty.findByType('progress').props.value).toBe(0)
+    expect(renderer.root.findAllByProps({ 'data-testid': 'forecast-future-pose' })).toHaveLength(0)
+  })
+  it('shows real future face, ears and shoulders separately from the image-space reference', () => {
+    const session = makeSession({ phase: 'measuring', predictor: 'lstm', reading: reading(), forecast: syntheticForecast(),
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const renderer = render(session)
+    const future = renderer.root.findByProps({ 'data-testid': 'forecast-future-pose' })
+    expect(future.findAllByType('circle')).toHaveLength(13)
+    expect(future.findByProps({ 'data-point': 0 }).findByType('title').children).toEqual(['코'])
+    expect(future.findByProps({ 'data-point': 11 }).findByType('title').children).toEqual(['왼어깨'])
+    expect(renderer.root.findByProps({ 'data-testid': 'forecast-vectors' }).findAllByType('line')).toHaveLength(9)
+    expect(JSON.stringify(renderer.toJSON())).toContain('LSTM')
+    expect(JSON.stringify(renderer.toJSON())).toContain('explicit-synthetic-display')
+    expect(JSON.stringify(renderer.toJSON())).toContain('기준→현재')
+    const frontX = future.findByProps({ 'data-point': 0 }).props.cx
+    act(() => button(renderer, '깊이').props.onClick())
+    expect(button(renderer, '깊이').props['aria-pressed']).toBe(true)
+    expect(renderer.root.findByProps({ 'data-testid': 'forecast-future-pose' }).findByProps({ 'data-point': 0 }).props.cx).toBeGreaterThan(frontX)
+    expect(JSON.stringify(renderer.toJSON())).toContain('카메라 쪽 20.0%')
+  })
+  it('removes a future drawing for expired output, missing points, quality loss, crop changes and measurement end', () => {
+    const session = makeSession({ phase: 'measuring', predictor: 'lstm', reading: reading(), forecast: syntheticForecast(),
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame(), reference: frame() } })
+    const renderer = render(session)
+    expect(renderer.root.findAllByProps({ 'data-testid': 'forecast-future-pose' })).toHaveLength(1)
+    for (const patch of [
+      { reading: reading({ timeMs: 10300 }) },
+      { reading: reading({ state: 'unmeasurable' }) },
+      { guidance: { ...session.guidance, live: null } },
+      { guidance: { ...session.guidance, live: { ...frame(), width: 1280, height: 720 } } },
+      { phase: 'finished' as const },
+    ]) {
+      act(() => renderer.update(<DeveloperCameraStage camera={makeCamera()} session={{ ...session, ...patch }} />))
+      expect(renderer.root.findAllByProps({ 'data-testid': 'forecast-future-pose' })).toHaveLength(0)
+    }
+  })
+  it('identifies hold-last as a comparison instead of calling it a learned LSTM', () => {
+    const session = makeSession({ phase: 'measuring', reading: reading(), forecast: { ...syntheticForecast(), predictor: 'hold_last', modelId: 'hold_last' },
+      guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const renderer = render(session)
+    expect(JSON.stringify(renderer.toJSON())).toContain('위치 유지 비교군')
+    expect(JSON.stringify(renderer.toJSON())).not.toContain('LSTM')
+  })
   it('projects one mirror with vertical letterboxing in a portrait workspace', () => {
     const source = { width: 640, height: 480 }, viewport = { width: 360, height: 420 }
     expect(fitVideoFrame(source, viewport)).toEqual({ x: 0, y: 75, width: 360, height: 270 })
@@ -79,6 +187,21 @@ describe('developer camera workspace with explicit synthetic geometry', () => {
     act(() => renderer.update(<DeveloperCameraStage camera={camera} session={{ ...session, phase: 'finished' }} />))
     expect(video.srcObject).toBeNull()
     expect(renderer.root.findAllByProps({ 'data-testid': 'live-pose' })).toHaveLength(0)
+  })
+
+  it('changes preview size without reconnecting the stream and folds screen-coordinate details in compact mode', () => {
+    const camera = makeCamera(), video = videoNode()
+    camera.state = 'on'; camera.streamRef.current = {} as MediaStream
+    const session = makeSession({ phase: 'measuring', reading: reading(), guidance: { ...emptyGuidance(), step: 'tracking', live: frame() } })
+    const renderer = render(session, camera, video)
+    act(() => renderer.update(<DeveloperCameraStage camera={camera} session={session} compact />))
+    expect(renderer.root.findByType('details').props.open).toBe(false)
+    expect(video.srcObject).toBe(camera.streamRef.current)
+    expect(video.play).toHaveBeenCalledOnce()
+    act(() => renderer.update(<DeveloperCameraStage camera={camera} session={session} compact={false} />))
+    expect(renderer.root.findByType('details').props.open).toBe(true)
+    expect(video.play).toHaveBeenCalledOnce()
+    expect(session.stop).not.toHaveBeenCalled()
   })
 
   it('removes live geometry and movement values on input loss while preserving only the reference ghost', () => {
@@ -153,8 +276,8 @@ describe('developer camera workspace with explicit synthetic geometry', () => {
   it('uses actual registration progress and retains the stop action while guiding', () => {
     const session = makeSession({ phase: 'registering', reading: reading({ state: 'registering', progress: .25 }), guidance: { ...emptyGuidance(), step: 'reference', instruction: '편안한 자세를 8초 동안 기록하고 있어요', live: frame() } })
     const renderer = render(session)
-    expect(renderer.root.findByProps({ 'aria-label': '8초 기준 등록 진행' }).props.value).toBe(.25)
-    expect(renderer.root.findByProps({ className: 'dc-hold' }).findByType('strong').children).toEqual(['6초'])
+    expect(renderer.root.findByProps({ 'aria-label': '기준 자료 수집 진행' }).props.value).toBe(.25)
+    expect(renderer.root.findByProps({ className: 'dc-hold' }).findByType('strong').children).toEqual(['25%'])
     expect(renderer.root.findByProps({ className: 'dc-viewport' }).findAllByProps({ className: 'dc-guidance ' })).toHaveLength(0)
     expect(renderer.root.findByProps({ className: 'dc-instruction-dock' }).findAllByProps({ className: 'dc-guidance ' })).toHaveLength(1)
     act(() => button(renderer, '측정 종료').props.onClick())
@@ -168,6 +291,17 @@ describe('developer camera workspace with explicit synthetic geometry', () => {
     expect(renderer.root.findByProps({ role: 'alert' }).children).toContain(session.error)
     act(() => button(renderer, '다시 연결').props.onClick())
     expect(session.start).toHaveBeenCalledOnce()
+  })
+  it('labels the camera with the selected rule result while preserving the quality block', () => {
+    const session = makeSession({ phase: 'measuring', alertBasis: 'rule', reading: reading({
+      state: 'unexpected_motion_candidate', ruleState: 'persistent_deviation_candidate',
+    }) })
+    const renderer = render(session)
+    expect(renderer.root.findByProps({ className: 'dc-state dc-state-warning' }).children).toContain('지속 이탈 후보')
+    act(() => renderer.update(<DeveloperCameraStage camera={makeCamera()} session={{ ...session,
+      reading: reading({ state: 'warming', ruleState: 'near_reference' }),
+    }} />))
+    expect(renderer.root.findByProps({ className: 'dc-state dc-state-neutral' }).children).toContain('연속 관측을 다시 모으는 중')
   })
   it('shows the delivered alert and deviation in the camera dock even when muted, without repeating a live alert region', () => {
     const r = reading({ state: 'persistent_deviation_candidate', ruleState: 'persistent_deviation_candidate', deviation: .18, durationMs: 3200 })

@@ -19,6 +19,22 @@ const textOf = (renderer: ReactTestRenderer) => JSON.stringify(renderer.toJSON()
 const button = (renderer: ReactTestRenderer, text: string) => renderer.root.findAllByType('button').find(node => node.children.some(child => typeof child === 'string' && child.includes(text)))!
 
 describe('developer deviation alarm presentation', () => {
+  it('keeps composite-only alerts visible while the separate relative distance is zero', () => {
+    const imagePosture: NonNullable<ForecastReading['imagePosture']> = { policy: 'image-posture-anchor-v1', status: 'ready', score: 2, translation: 0, shrink: .4, translationLimit: .45, shrinkLimit: .2, strongest: 'scale' }
+    const value = makeReading({ deviation: 0, postureScore: 2, imagePosture })
+    const alerts = [makeAlert({ deviation: 0, postureScore: 2, peakPostureScore: 2.1, imagePosture }), makeAlert({ id: 2, kind: 'reminder', deviation: 0, postureScore: 2, peakPostureScore: 2.1, imagePosture })]
+    const renderer = render(makeSession({ reading: value, alerts, alertCount: 2, soundEnabled: false }))
+    expect(textOf(renderer)).toContain('종합 이탈 ')
+    expect(renderer.root.findByProps({ className: 'da-metrics' }).findAllByType('strong')[0].children).toEqual(['2.00배'])
+    expect(renderer.root.findByProps({ className: 'da-meter' }).props['aria-label']).toContain('거리 기준의 0.00배')
+    expect(renderer.root.findByProps({ className: 'da-recent-alerts' }).findAllByType('strong').map(node => node.children.join(''))).toEqual(['종합 2.00배', '종합 2.00배'])
+    expect(button(renderer, '소리 테스트').props.disabled).toBe(true)
+    act(() => renderer.update(<DeveloperAlerts session={makeSession({ reading: { ...value, postureEntryRatio: .7, postureRecoveryRatio: .7 * 2 / 3 }, alerts, alertCount: 2, soundEnabled: false })} />))
+    expect(renderer.root.findAllByProps({ className: 'da-meter' })).toHaveLength(0)
+    expect(textOf(renderer)).toContain('0.7')
+    expect(textOf(renderer)).toContain('0.47')
+    act(() => renderer.unmount())
+  })
   it('does not invent a distance or an alarm before any measurement', () => {
     const renderer = render(makeSession())
     expect(renderer.root.findByProps({ className: 'da-distance-value' }).findByType('strong').children).toEqual(['—'])
@@ -122,14 +138,24 @@ describe('developer deviation alarm presentation', () => {
     act(() => renderer.unmount())
   })
 
-  it('keeps the current timing policy and stretching limitation visible by default', () => {
+  it('keeps optional measurements and policy collapsed while sound controls remain directly accessible', () => {
     const renderer = render(makeSession())
-    expect(renderer.root.findByType('details').props.open).toBe(true)
+    expect(renderer.root.findAllByType('details')).toHaveLength(2)
+    for (const detail of renderer.root.findAllByType('details')) {
+      expect(detail.props.open).toBeUndefined()
+      expect(detail.findAllByType('button')).toHaveLength(0)
+      expect(detail.findAllByType('select')).toHaveLength(0)
+    }
     const text = textOf(renderer)
+    expect(text).toContain('아직 발생한 알림이 없습니다.')
+    expect(text).toContain('측정 수치 자세히')
+    expect(text).toContain('알림이 울리는 기준')
     expect(text).toContain('최근 ')
     expect(text).toContain('스트레칭과 자세 붕괴의 의도를 구분하지 않습니다.')
     expect(text).toContain('오래 유지한 스트레칭도 지속 이탈 후보가 될 수 있습니다.')
     expect(text).toContain('같은 이탈이 이어지면 ')
+    expect(text).toContain('최소 기준 2%')
+    expect(text).not.toContain('개인 한계')
     act(() => renderer.unmount())
   })
 })

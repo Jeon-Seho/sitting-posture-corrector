@@ -11,3 +11,14 @@
 @media(prefers-reduced-motion:reduce){.dev-lab .dev-alerts *{animation:none!important;transition:none!important}}
 
 .dev-lab .da-distance-explanation{font-size:11px;line-height:1.8;color:var(--lab-subtle);margin-top:15px}
+
+/* Primary actions and history stay visible; optional diagnostic readings do not compete with them. */
+.dev-lab .da-heading p{line-height:1.7}
+.dev-lab .da-controls{margin-top:0}
+.dev-lab .da-controls>label,.dev-lab .da-audio-controls>button{font-size:12px}
+.dev-lab .da-control-notes{font-size:11px;gap:5px 20px}
+.dev-lab .da-empty-history{margin:18px 0 0;padding:15px 0;border-top:1px solid var(--lab-border);color:var(--lab-subtle);font-size:12px}
+.dev-lab .da-measurement-details .da-live-panel{border:0;border-top:1px solid var(--lab-border);border-radius:0;background:transparent;padding:22px}
+.dev-lab .da-criteria{margin-top:12px}
+.dev-lab .da-recent-alerts{margin-bottom:19px}
+@media(max-width:520px){.dev-lab .da-measurement-details .da-live-panel{padding:18px 16px}.dev-lab .da-control-notes{font-size:11px}}

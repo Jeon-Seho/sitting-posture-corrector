@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { CameraController } from '../../hooks/useCamera'
 import type { ForecastReading } from '../../../../model/prototype/forecast'
 import DeveloperLab from './DeveloperLab'
+import type { NormalCollectionController } from './useNormalCollection'
+import { emptyNormalCollection } from './normalCollection'
+import { AutoNormalCapture } from './autoNormalCollection'
+import type { AutoNormalCollectionController } from './useAutoNormalCollection'
 import type { DeveloperSession, LabRecord } from './types'
 
 vi.mock('./DeveloperCameraStage', () => ({ default: ({ session }: { session: DeveloperSession }) => <div data-testid="camera-workspace"><button onClick={session.start}>자세 측정 시작</button><button onClick={session.startDemo}>합성 데모</button></div> }))
@@ -64,8 +68,20 @@ describe('camera-focused developer laboratory', () => {
     act(() => options.find(i => i.props.value === 'constant_velocity')!.props.onChange())
     expect(session.setPredictor).toHaveBeenCalledWith('constant_velocity')
     act(() => renderer.update(<DeveloperLab camera={camera} session={{ ...session, phase: 'guiding' }} />))
-    expect(renderer.root.findByType('fieldset').props.disabled).toBe(true)
+    expect(renderer.root.findByProps({ className: 'lab-predictors' }).props.disabled).toBe(true)
     expect(renderer.root.findAllByType('input').find(i => i.props.type === 'file')!.props.disabled).toBe(true)
+    act(() => renderer.unmount())
+  })
+
+  it('locks competing camera controls during model comparison but leaves cancellation accessible', () => {
+    let renderer!: ReactTestRenderer
+    act(() => { renderer = create(<DeveloperLab camera={camera} session={makeSession()} benchmarkBusy performancePanel={<button>비교 중단</button>} />) })
+    const boundaries = renderer.root.findAllByProps({ className: 'lab-interaction-boundary' })
+    expect(boundaries).toHaveLength(2)
+    expect(boundaries.every(boundary => boundary.props.disabled)).toBe(true)
+    const cancel = button(renderer, '비교 중단')
+    let parent = cancel.parent
+    while (parent) { expect(parent.type === 'fieldset' && parent.props.disabled).not.toBe(true); parent = parent.parent }
     act(() => renderer.unmount())
   })
 
@@ -86,6 +102,20 @@ describe('camera-focused developer laboratory', () => {
   it('does not bridge unavailable periods in the measured distance plot', () => {
     const renderer = renderLab(makeSession({ readings: [reading(0, 'near_reference', .03), reading(100, 'near_reference', .04), reading(200, 'unmeasurable', null), reading(300, 'near_reference', .03), reading(400, 'near_reference', .02)] }))
     expect(renderer.root.findByProps({ 'data-series': 'deviation' }).props.d.match(/M/g)).toHaveLength(2)
+    act(() => renderer.unmount())
+  })
+
+  it('plots the combined body score with a ratio boundary even when relative geometry stays at zero', () => {
+    const imagePosture: NonNullable<ForecastReading['imagePosture']> = { policy: 'image-posture-anchor-v1', status: 'ready', score: 2, translation: 0, shrink: .4, translationLimit: .45, shrinkLimit: .2, strongest: 'scale' }
+    const values = [0, 100].map(time => ({ ...reading(time, 'persistent_deviation_candidate', 0), postureScore: 2, imagePosture }))
+    const renderer = renderLab(makeSession({ phase: 'measuring', alertBasis: 'rule', reading: values[1], readings: values }))
+    expect(renderer.root.findByProps({ className: 'lab-chart-legend' }).findAllByType('span').map(node => node.children.filter(c => typeof c === 'string').join(''))).toContain('종합 이탈 경계 1배')
+    expect(renderer.root.findByProps({ 'aria-label': '예측과 규칙 상태 타임라인' }).findAllByProps({ className: 'lab-track' })[1].findByType('span').children).toEqual(['종합 이탈'])
+    expect(renderer.root.findByProps({ 'data-series': 'deviation' }).props.d).not.toContain('160.0')
+    expect(textOf(renderer)).toContain('경계 대비 배수 · 확률 아님')
+    const newValues = values.map(value => ({ ...value, postureEntryRatio: .7, postureRecoveryRatio: .7 * 2 / 3 }))
+    act(() => renderer.update(<DeveloperLab camera={camera} session={makeSession({ phase: 'measuring', alertBasis: 'rule', reading: newValues[1], readings: newValues })} />))
+    expect(textOf(renderer)).toContain('종합 이탈 경계 0.7배')
     act(() => renderer.unmount())
   })
 
@@ -114,12 +144,73 @@ describe('camera-focused developer laboratory', () => {
     act(() => renderer.unmount())
   })
 
-  it('uses the core rule threshold and only displays a personal error limit after registration', () => {
+  it('shows only posture distance by default and reveals the registered error limit on request', () => {
     const session = makeSession(), renderer = renderLab(session)
     expect(renderer.root.findAllByProps({ className: 'lab-threshold' })).toHaveLength(1)
     expect(renderer.root.findAllByProps({ className: 'lab-error-threshold' })).toHaveLength(0)
     act(() => renderer.update(<DeveloperLab camera={camera} session={{ ...session, readings: [reading(9000, 'near_reference', .03)] }} />))
+    expect(renderer.root.findAllByProps({ className: 'lab-error-threshold' })).toHaveLength(0)
+    act(() => button(renderer, '예측 오차 함께 보기').props.onClick())
     expect(renderer.root.findAllByProps({ className: 'lab-error-threshold' })).toHaveLength(1)
     act(() => renderer.unmount())
   })
+
+  it('uses the compact results layout only after registration and permits reversible camera expansion', () => {
+    const session = makeSession({ phase: 'registering' }), renderer = renderLab(session)
+    expect(renderer.root.findByProps({ className: 'lab-monitor' }).props['data-layout']).toBe('focus')
+    act(() => renderer.update(<DeveloperLab camera={camera} session={{ ...session, phase: 'measuring' }} />))
+    expect(renderer.root.findByProps({ className: 'lab-monitor' }).props['data-layout']).toBe('dashboard')
+    expect(renderer.root.findAllByProps({ 'aria-label': '현재 자세 요약' })).toHaveLength(1)
+    expect(renderer.root.findAllByProps({ className: 'lab-disclosure' }).every(node => !node.props.open)).toBe(true)
+    act(() => button(renderer, '크게 보기').props.onClick())
+    expect(renderer.root.findByProps({ className: 'lab-monitor' }).props['data-layout']).toBe('focus')
+    act(() => button(renderer, '작게 보기').props.onClick())
+    expect(renderer.root.findByProps({ className: 'lab-monitor' }).props['data-layout']).toBe('dashboard')
+    expect(session.start).not.toHaveBeenCalled(); expect(session.stop).not.toHaveBeenCalled()
+    act(() => renderer.unmount())
+  })
+  it('interrupts explicit collection before switching to measurement and does not start either flow on navigation', () => {
+    const session = makeSession(), collection = { snapshot: emptyNormalCollection(), profile: null, connecting: false, error: '', interrupt: vi.fn(), start: vi.fn() } as unknown as NormalCollectionController
+    const c = { ...camera, stop: vi.fn(), streamRef: { current: null }, canvasRef: { current: null } } as unknown as CameraController
+    let renderer!: ReactTestRenderer
+    act(() => { renderer = create(<DeveloperLab camera={c} session={session} collection={collection} />) })
+    act(() => button(renderer, '정상 자세 수집').props.onClick())
+    expect(textOf(renderer)).toContain('정상 자세 데이터 수집')
+    expect(collection.start).not.toHaveBeenCalled()
+    act(() => button(renderer, '실험실로 돌아가기').props.onClick())
+    expect(collection.interrupt).toHaveBeenCalledOnce(); expect(c.stop).toHaveBeenCalledOnce()
+    expect(session.start).not.toHaveBeenCalled()
+    act(() => renderer.update(<DeveloperLab camera={c} session={{ ...session, phase: 'measuring' }} collection={collection} />))
+    expect(button(renderer, '정상 자세 수집').props.disabled).toBe(true)
+    act(() => renderer.unmount())
+  })
+
+  it('separates automatic and manual collection and starts automatic work only through the camera session control', () => {
+    const session = makeSession(), collection = { snapshot: emptyNormalCollection(), profile: null, connecting: false, error: '',
+      interrupt: vi.fn(), start: vi.fn() } as unknown as NormalCollectionController
+    const automatic = { snapshot: new AutoNormalCapture('synthetic_p01', 'synthetic_capture', '2026-10-14T00:00:00Z').snapshot(),
+      error: '', observe: vi.fn(), markGap: vi.fn(), endRun: vi.fn(), setEnabled: vi.fn(), setMaximumDeviation: vi.fn(), setParticipantCode: vi.fn(),
+      discard: vi.fn(), downloadDataset: vi.fn() } as AutoNormalCollectionController
+    const c = { ...camera, stop: vi.fn(), streamRef: { current: null }, canvasRef: { current: null } } as unknown as CameraController
+    let renderer!: ReactTestRenderer
+    act(() => { renderer = create(<DeveloperLab camera={c} session={session} collection={collection} automatic={automatic} />) })
+    expect(textOf(renderer)).toContain('정상자세(자동)')
+    expect(automatic.observe).not.toHaveBeenCalled()
+    act(() => button(renderer, '정상 자세 수집').props.onClick())
+    const modes = () => renderer.root.findByProps({ 'aria-label': '정상 데이터 수집 방식' }).findAllByType('button')
+    expect(modes()[0].props['aria-pressed']).toBe(true)
+    act(() => modes()[1].props.onClick())
+    expect(textOf(renderer)).toContain('정상자세(수동)')
+    expect(renderer.root.findByProps({ id: 'normal-participant' }).props.value).toBe('synthetic_p01')
+    expect(button(renderer, '30초 측정하기').props.disabled).toBe(false)
+    act(() => modes()[0].props.onClick())
+    expect(collection.interrupt).toHaveBeenCalled()
+    expect(session.start).not.toHaveBeenCalled()
+    act(() => button(renderer, '자동 수집 측정 시작').props.onClick())
+    expect(automatic.setEnabled).toHaveBeenCalledWith(true)
+    expect(session.start).toHaveBeenCalledOnce()
+    expect(collection.start).not.toHaveBeenCalled()
+    act(() => renderer.unmount())
+  })
+
 })

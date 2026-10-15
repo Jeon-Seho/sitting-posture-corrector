@@ -22,12 +22,12 @@ describe('experimental framing guidance using explicitly synthetic image geometr
     expect(guide.observe(1200, sample()).introStep).toBe(1)
     expect(guide.observe(2400, sample()).introStep).toBe(2)
     expect(guide.observe(3600, sample()).step).toBe('framing')
-    for (let t = 3700; t < 4500; t += 100) expect(guide.observe(t, sample()).ready).toBe(false)
-    expect(guide.observe(4500, sample()).ready).toBe(true)
+    for (let t = 3700; t < 4100; t += 100) expect(guide.observe(t, sample()).ready).toBe(false)
+    expect(guide.observe(4100, sample()).ready).toBe(true)
     const interrupted = new DeveloperGuide(0)
     interrupted.observe(3600, sample()); interrupted.observe(4400, sample())
     expect(interrupted.observe(5000, sample()).holdProgress).toBe(0)
-    expect(GUIDANCE_SETTINGS.stable_ms).toBe(900)
+    expect(GUIDANCE_SETTINGS.stable_ms).toBe(500)
   })
 
   it('pauses brief missing observations and restarts after sustained movement', () => {
@@ -38,12 +38,12 @@ describe('experimental framing guidance using explicitly synthetic image geometr
     expect(guide.observe(4200, sample()).holdProgress).toBe(progress)
     expect(guide.observe(4300, sample()).holdProgress).toBeGreaterThan(progress)
     const moved = { ...sample(), points: sample().points.map(p => ({ ...p, x: p.x + .1 })) }
-    for (let t = 4400; t <= 4800; t += 100) expect(guide.observe(t, moved).ready).toBe(false)
+    for (let t = 4400; t <= 5000; t += 100) expect(guide.observe(t, moved).ready).toBe(false)
     expect(guide.current.holdProgress).toBe(0)
-    for (let t = 4900; t <= 5800; t += 100) guide.observe(t, moved)
+    for (let t = 5100; t <= 5900; t += 100) guide.observe(t, moved)
     expect(guide.current.ready).toBe(true)
     guide.startReference()
-    expect(guide.observe(5900, sample()).ready).toBe(false)
+    expect(guide.observe(6000, sample()).ready).toBe(true)
   })
 
   it('accepts natural whole-frame sway and isolated landmark jitter at modest frame rates', () => {
@@ -64,9 +64,9 @@ describe('experimental framing guidance using explicitly synthetic image geometr
     for (const unavailable of [null, { ...sample(), points: sample().points.map(p => ({ ...p, x: p.x + .2 })) }]) {
       const guide = new DeveloperGuide(0)
       for (let t = 3600; t <= 4200; t += 100) guide.observe(t, sample())
-      for (let t = 4300; t <= 4800; t += 100) expect(guide.observe(t, unavailable).ready).toBe(false)
+      for (let t = 4300; t <= 4900; t += 100) expect(guide.observe(t, unavailable).ready).toBe(false)
       expect(guide.current.holdProgress).toBe(0)
-      expect(guide.observe(4900, sample()).holdProgress).toBe(0)
+      expect(guide.observe(5000, sample()).holdProgress).toBe(0)
     }
   })
 
@@ -78,6 +78,28 @@ describe('experimental framing guidance using explicitly synthetic image geometr
     guide.startReference()
     expect(guide.observe(5700, { ...sample(), width: 640, height: 480 }).ready).toBe(false)
     expect(guide.observe(5800, null).ready).toBe(false)
+  })
+
+  it('collects a valid reference through comfortable drift and pauses only brief missing observations', () => {
+    const guide = new DeveloperGuide(0)
+    for (let t = 3600; t <= 4200; t += 100) guide.observe(t, sample())
+    guide.startReference()
+    const moved = { ...sample(), points: sample().points.map(p => ({ ...p, x: p.x + .1 })) }
+    expect(guide.observe(4300, moved)).toMatchObject({ step: 'reference', ready: true })
+    expect(guide.observe(4400, null)).toMatchObject({ step: 'reference', ready: false, live: null })
+    expect(guide.observe(4700, moved)).toMatchObject({ step: 'reference', ready: true })
+    for (let t = 4800; t <= 5500; t += 100) guide.observe(t, null)
+    expect(guide.current).toMatchObject({ step: 'framing', ready: false, live: null })
+    expect(guide.current.reference).toBeNull()
+  })
+
+  it('keeps reference registration after a slow valid camera frame but realigns after a long stall', () => {
+    const guide = new DeveloperGuide(0)
+    for (let t = 3600; t <= 4200; t += 100) guide.observe(t, sample())
+    guide.startReference()
+    expect(guide.observe(4300, sample())).toMatchObject({ step: 'reference', ready: true })
+    expect(guide.observe(5100, sample())).toMatchObject({ step: 'reference', ready: true })
+    expect(guide.observe(6201, sample())).toMatchObject({ step: 'framing', ready: false })
   })
 
   it('averages only captured reference frames and clears current geometry when unavailable', () => {

@@ -8,6 +8,7 @@ import {
 } from './types'
 
 type FrameLoopOptions = {
+  pacing?: 'legacy' | 'responsive'
   video: HTMLVideoElement
   tracker: PoseTracker
   isCurrent: () => boolean
@@ -29,6 +30,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   return startPoseTracking({
     video,
     tracker: options.tracker,
+    pacing: options.pacing,
     isCurrent: options.isCurrent,
     onFrame(frame, gapMs) {
       const reading = features(frame.landmarks, frame.width, frame.height)

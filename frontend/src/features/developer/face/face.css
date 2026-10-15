@@ -1,0 +1,24 @@
+.dev-lab .dc-face-panel{padding:18px 20px;border-top:1px solid var(--lab-border);font-size:12px;color:var(--lab-muted)}
+.dev-lab .dc-face-heading,.dev-lab .dc-face-controls,.dev-lab .dc-face-trial{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.dev-lab .dc-face-heading h3{font-size:14px;color:var(--lab-text);margin:0}
+.dev-lab .dc-face-panel label{display:inline-flex;align-items:center;gap:6px}
+.dev-lab .dc-face-panel input{accent-color:#72d5c5}
+.dev-lab .dc-face-controls{margin-top:14px}
+.dev-lab .dc-face-controls fieldset{border:0;padding:0;margin:0;display:flex;gap:14px}
+.dev-lab .dc-face-controls legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.dev-lab .dc-face-status{margin:12px 0;color:var(--lab-text)}
+.dev-lab .dc-face-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.dev-lab .dc-face-values strong{display:block;font-size:16px;color:var(--lab-text);margin-top:6px;font-variant-numeric:tabular-nums}
+.dev-lab .dc-face-caption{line-height:1.7;margin:12px 0 0;font-size:11px}
+.dev-lab .dc-face-trial{margin-top:16px;justify-content:flex-start}
+.dev-lab .dc-face-trial button{border:1px solid var(--lab-border);border-radius:7px;background:transparent;color:var(--lab-text);padding:8px 12px;cursor:pointer}
+.dev-lab .dc-face-trial button:disabled{opacity:.45;cursor:default}
+.dev-lab .dc-face-trial button:focus-visible{outline:2px solid #72d5c5;outline-offset:3px}
+.dev-lab .dc-face-table{overflow-x:auto;margin-top:16px}
+.dev-lab .dc-face-table table{width:100%;border-collapse:collapse;white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
+.dev-lab .dc-face-table caption{text-align:left;padding-bottom:8px}
+.dev-lab .dc-face-table th,.dev-lab .dc-face-table td{padding:9px 8px;border-bottom:1px solid var(--lab-border)}
+.dev-lab .dc-face-landmarks{stroke:#72d5c5;stroke-width:1.4;fill:none;filter:none}
+.dev-lab .dc-face-landmarks circle{fill:#72d5c5;stroke:#071118;stroke-width:1}
+.dev-lab .dc-pose-comparison{stroke:#e4b36d!important;fill:#e4b36d!important;opacity:.8}
+@media(max-width:600px){.dev-lab .dc-face-values{grid-template-columns:1fr}.dev-lab .dc-face-controls fieldset{gap:10px}}

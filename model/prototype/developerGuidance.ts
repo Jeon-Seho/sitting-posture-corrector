@@ -1,10 +1,10 @@
 /** Experimental screen framing only: these settings do not define healthy posture. */
 export const GUIDANCE_SETTINGS = {
-  intro_step_ms: 1200, intro_steps: 3, stable_ms: 900, max_frame_gap_ms: 500,
-  framing_grace_ms: 400,
+  intro_step_ms: 1200, intro_steps: 3, stable_ms: 500, max_frame_gap_ms: 500,
+  framing_grace_ms: 600, reference_grace_ms: 700, reference_max_frame_gap_ms: 1000,
   minimum_visibility: .5, minimum_shoulder_width: .25, maximum_shoulder_width: .72,
   center_x: .5, center_tolerance: .16, face_top: .12, face_bottom: .62,
-  shoulder_top: .35, shoulder_bottom: .9, maximum_stable_group_shift: .06,
+  shoulder_top: .35, shoulder_bottom: .9, maximum_stable_group_shift: .1,
 } as const
 
 export interface GuidePoint { x: number; y: number; visibility: number }
@@ -27,7 +27,7 @@ export interface GuideView {
 const INTRO = [
   ['카메라를 정면에 놓아 주세요', '얼굴과 양쪽 어깨가 화면에 함께 보이면 됩니다.'],
   ['화면 가운데에 편안하게 앉아 주세요', '억지로 자세를 펴지 않아도 됩니다. 평소의 편안한 위치를 사용합니다.'],
-  ['구도가 맞으면 자동으로 시작해요', '잠시 안정적으로 머문 뒤 8초 동안 개인 기준을 등록합니다.'],
+  ['구도가 맞으면 자동으로 시작해요', '잠깐 구도를 확인한 뒤 8초 동안 편안한 자세를 기록합니다.'],
 ] as const
 export const emptyGuidance = (): GuideView => ({ step: 'intro', cue: 'waiting',
   instruction: '시작하면 카메라 구도를 함께 확인해요', detail: '안내 · 구도 확인 · 8초 기준 등록 뒤 자동으로 측정합니다.',
@@ -63,7 +63,7 @@ const CUES: Record<GuideCue, [string, string]> = {
   center: ['얼굴과 어깨를 화면 가운데로 맞춰 주세요', '카메라 높이와 방향을 조절해 얼굴은 위쪽, 어깨는 아래쪽에 담아 주세요.'],
   far: ['카메라에 조금 가까이 와 주세요', '얼굴과 양쪽 어깨가 충분히 크게 보이도록 거리를 조절해 주세요.'],
   close: ['카메라에서 조금 멀어져 주세요', '양쪽 어깨가 화면 안에 여유 있게 들어오도록 해 주세요.'],
-  steady: ['좋아요, 편안하게 앉아 계세요', '얼굴과 어깨가 보이면 약 1초 뒤 기준 등록을 시작합니다. 작은 움직임은 괜찮아요.'],
+  steady: ['좋아요, 편안하게 앉아 계세요', '얼굴과 어깨가 보이면 곧 기준 등록을 시작합니다. 작은 움직임은 괜찮아요.'],
   ready: ['구도가 준비됐어요', '편안한 위치를 유지하면 개인 기준을 기록합니다.'],
 }
 const shoulderAngle = (frame: GuideFrame) => {
@@ -140,10 +140,20 @@ export class DeveloperGuide {
         ...geometryDelta(live, this.view.reference) }
       return this.view
     }
-    const cue = framingCue(live)
     const reference = this.view.step === 'reference'
+    // Registration collects valid observations of a comfortable pose; it does
+    // not ask the person to stay at the exact pixels used to enter the guide.
+    // A short loss contributes no reference sample and cannot complete it.
+    if (reference) {
+      if (dimensionsChanged || gap > GUIDANCE_SETTINGS.reference_max_frame_gap_ms) return this.realign()
+      if (!live) {
+        this.interruptedAt ??= timeMs
+        if (timeMs - this.interruptedAt >= GUIDANCE_SETTINGS.reference_grace_ms) return this.realign()
+      } else this.interruptedAt = null
+    }
+    const cue = framingCue(live)
     if (!reference && this.interruptedAt !== null && timeMs - this.interruptedAt >= GUIDANCE_SETTINGS.framing_grace_ms) this.resetHold()
-    const stable = !dimensionsChanged && cue === 'ready' && !!live && (!this.anchor || !compositionChanged(this.anchor, live))
+    const stable = reference ? !!live : !dimensionsChanged && cue === 'ready' && !!live && (!this.anchor || !compositionChanged(this.anchor, live))
     if (!reference) {
       if (stable && live) {
         if (this.anchor && this.lastStable && this.interruptedAt === null) this.holdMs += Math.max(0, gap)
@@ -163,14 +173,15 @@ export class DeveloperGuide {
     const displayCue = cue === 'ready' && !ready ? 'steady' : cue
     this.view = { ...this.view, live, cue: displayCue, ready, holdProgress: progress,
       instruction: reference && ready ? '편안한 자세를 8초 동안 기록하고 있어요' : CUES[displayCue][0],
-      detail: reference && ready ? '얼굴과 양쪽 어깨가 보이도록 유지해 주세요. 완료되면 자동으로 측정합니다.' : CUES[displayCue][1],
+      detail: reference && ready ? '작은 움직임은 괜찮아요. 얼굴과 양쪽 어깨가 보이면 자동으로 측정합니다.' : CUES[displayCue][1],
       lateralPercent: null, verticalPercent: null, shoulderDegrees: null }
     return this.view
   }
   startReference() {
     this.sum = null; this.referenceSamples = 0
+    this.interruptedAt = null
     this.view = { ...this.view, step: 'reference', ready: true, holdProgress: 1, reference: null,
-      instruction: '편안한 자세를 8초 동안 기록하고 있어요', detail: '구도가 유지되면 자동으로 측정합니다.' }
+      instruction: '편안한 자세를 8초 동안 기록하고 있어요', detail: '작은 움직임은 괜찮아요. 얼굴과 양쪽 어깨가 보이면 자동으로 측정합니다.' }
     return this.view
   }
   captureReference(frame: GuideFrame) {
@@ -190,7 +201,7 @@ export class DeveloperGuide {
   }
   realign() {
     this.resetHold(); this.sum = null; this.referenceSamples = 0
-    this.view = { ...this.view, step: 'framing', ready: false, holdProgress: 0, reference: null,
+    this.view = { ...this.view, step: 'framing', ready: false, holdProgress: 0, live: null, reference: null,
       lateralPercent: null, verticalPercent: null, shoulderDegrees: null }
     return this.view
   }

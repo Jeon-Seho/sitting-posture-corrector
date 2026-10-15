@@ -1,0 +1,30 @@
+.dev-lab .dp-performance { margin: 18px 0; padding: 0; overflow: hidden; }
+.dev-lab .dp-performance > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.dev-lab .dp-summary-state { font-size: 10px; color: var(--lab-muted, #a0a8b3); font-weight: 400; }
+.dev-lab .dp-content { padding: 0 20px 20px; }
+.dev-lab .dp-intro, .dev-lab .dp-footnote { margin: 0 0 18px; color: var(--lab-muted, #a0a8b3); font-size: 11px; line-height: 1.8; }
+.dev-lab .dp-benchmark-guide, .dev-lab .dp-renderer { margin: 16px 0; color: var(--lab-muted, #a0a8b3); font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.dev-lab .dp-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.dev-lab .dp-options label { display: grid; gap: 8px; font-size: 11px; color: var(--lab-muted, #a0a8b3); }
+.dev-lab .dp-options select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--lab-border, #343a44); border-radius: 7px; color: var(--lab-text, #eef0f3); background: var(--lab-bg, #101316); font: inherit; }
+.dev-lab .dp-options select:disabled { opacity: .6; }
+.dev-lab .dp-device { margin: 18px 0 0; display: grid; gap: 9px; font-size: 11px; }
+.dev-lab .dp-device > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 16px; }
+.dev-lab .dp-device dt { color: var(--lab-muted, #a0a8b3); }
+.dev-lab .dp-device dd { margin: 0; overflow-wrap: anywhere; }
+.dev-lab .dp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.dev-lab .dp-actions .lab-button { font-size: 11px; padding: 9px 12px; }
+.dev-lab .dp-status, .dev-lab .dp-error { margin: 10px 0; font-size: 11px; line-height: 1.7; }
+.dev-lab .dp-status { color: var(--lab-teal, #71d8bd); }
+.dev-lab .dp-error { color: var(--lab-alert, #e69684); }
+.dev-lab .dp-table-wrap { overflow: auto; margin: 16px 0; }
+.dev-lab .dp-table-wrap table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; font-variant-numeric: tabular-nums; }
+.dev-lab .dp-table-wrap caption { color: var(--lab-muted, #a0a8b3); padding: 0 0 10px; text-align: left; }
+.dev-lab .dp-table-wrap th, .dev-lab .dp-table-wrap td { white-space: nowrap; padding: 10px 8px; border-bottom: 1px solid var(--lab-border, #343a44); font-weight: 400; color: var(--lab-text, #eef0f3); }
+.dev-lab .dp-table-wrap thead th { color: var(--lab-muted, #a0a8b3); }
+.dev-lab .dp-result-error { display: block; white-space: normal; max-width: 220px; color: var(--lab-alert, #e69684); font-size: 10px; }
+.dev-lab .dp-footnote { margin: 18px 0 0; font-size: 10px; }
+.dev-lab .dp-json { margin-top: 14px; font-size: 11px; }
+.dev-lab .dp-json > summary { cursor: pointer; color: var(--lab-muted, #a0a8b3); }
+.dev-lab .dp-json textarea { box-sizing: border-box; width: 100%; margin-top: 10px; resize: vertical; color: inherit; background: var(--lab-bg, #101316); border: 1px solid var(--lab-border, #343a44); border-radius: 6px; padding: 12px; font: 10px/1.65 ui-monospace, SFMono-Regular, monospace; }
+@media (max-width: 650px) { .dev-lab .dp-options { grid-template-columns: 1fr; } .dev-lab .dp-performance > summary { align-items: flex-start; } .dev-lab .dp-summary-state { text-align: right; } .dev-lab .dp-device > div { grid-template-columns: 85px minmax(0, 1fr); gap: 10px; } }

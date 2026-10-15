@@ -2,6 +2,14 @@
 
 ## 현재 상태와 작업
 
+[최신 ML 계획](ml/current-plan.md) · [HTML로 보기](ml/current-plan.html): 정상 자료로 등록 검증·중심 고정, 자동 6% 기본 선택과 LSTM 보조 비교.
+[큰 몸 변화 보완](decisions/0034-fixed-image-posture-anchor.md): 등록 영상의 위치·어깨폭에 고정한 별도 점수로 정규화가 놓치는 큰 이동·축소를 확인한다. 작은 움직임 허용과 무음 기본값을 유지하며 실제 기대기 정확도는 미검증이다.
+[현재 허용폭·자동 정상 선별](decisions/0035-posture-and-clean-normal-selection.md): 영상 v2 이동 18%·축소 12%, 자동 후보 종합 0.5배·1초 유지와 이전 자료 재검토 차단.
+[현재 종합 이탈 경계](decisions/0036-composite-entry-point-seven.md): 사용자 지정 0.7배 연속 진입과 약0.47배 복귀, 실제 관찰에서 찾은 진입 타이머 보완.
+[얼굴 전용 추적·공개 학습 자료](ml/face-and-public-data.md): /dev Face Worker와 안경 조건별 동일 영상 비교, 기존 Panoptic/MultiPosture 학습과 새 자료 적용 경계.
+[MediaPipe 학습 안내](ml/mediapipe-training.md) · [ADR 0032](decisions/0032-normal-reference-and-mediapipe-training.md): 수집 JSON→분할 검사→로컬 학습→모델 불러오기. 합성 연결 검증과 실제 참여자 성능을 구분한다.
+[실제 카메라 성능](ml/camera-performance.md) · [촬영과 ML 공백 감사](ml/live-keypoint-audit.md): GPU·모델 비교와 실제 움직임 관찰을 구분한다.
+
 현재 우선순위는 로컬 측정·개인 기준 특징이다. 서버/Kafka 확장은 후순위다.
 [개발자 실험실 `/dev`](design/developer-lab.md): 큰 카메라·구도 가이드·자동 등록, 모델/룰 비교와 합성 데모.
 서비스 승격과 의존성은 [개발 모듈 안내](../frontend/src/features/developer/README.md)에서 분리해 관리한다.
@@ -23,7 +31,7 @@
 ## FE(lee_app1) 현재 결정과 작업 (2026-10-12)
 
 - **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md). 2026-10-11 이전 문서의 "좌표 미전송", "로컬 모드"는 바뀌기 전 설명이다.
-- **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다. 수집 화면에서 참여자가 고르는 값은 「자기 보고 확인」이다.
+- **용어:** 서비스 앱의 「라벨」은 서버·ML이 만드는 판정·학습 정답을 뜻한다. 서비스 수집 화면의 참여자 선택은 「자기 보고 확인」이다. `/dev` 초기 실험의 규칙 기반 자동 임시 라벨은 [ADR 0029](decisions/0029-automatic-normal-labels-and-forecast-display.md)의 별도 예외이며 평가 정답이 아니다.
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 앱이 보내는 것·받는 것, BE 제안 확인, 남은 질문 N1~N15, FE 할 일 F1~F10. [합성 시험 데이터](../contracts/examples/frames/reference-rule-cases.json).
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023), [자세 등록과 측정 시작 분리](plans/active/0024-posture-registration-tab.md)(0024).
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).

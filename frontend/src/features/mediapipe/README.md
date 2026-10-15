@@ -51,3 +51,8 @@ lee_app1 반영 후 소비자는 귀 기반 offset·turn 회전 제외 규칙과
 전체 프론트: `python tools/dev.py check-frontend`.
 개발 중 합성 모듈·hook 테스트: `npm --prefix frontend run test -- src/features/mediapipe src/hooks/useCamera.test.tsx`.
 SDK는 테스트에서 합성 출력으로 대체하며 실제 영상이나 모델 가중치를 fixture로 추가하지 않는다.
+
+/dev의 얼굴 전용 비교는 `features/developer/face/`의 별도 Worker다.
+이 공통 Pose 모듈의13점·world좌표·서비스 기본 추출기를 변경하지 않는다.
+공식 Face 모델과 Worker 번들은 `npm run assets`로 준비하며 새 npm 의존성은 없다.
+Face 상대 깊이는 Pose world좌표와 호환되는 것으로 간주하지 않는다.

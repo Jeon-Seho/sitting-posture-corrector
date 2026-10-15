@@ -10,9 +10,11 @@ import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
-import { createPoseTracker, type PoseTracker } from '../features/mediapipe'
+import { createPoseTracker, type PoseTracker, type PoseTrackerOptions, type PoseTrackerDiagnostics } from '../features/mediapipe'
 import { baselineRecord, saveBaseline } from '../features/camera/baselineArchive'
 import type { CameraMetrics, CameraState, Observation } from '../features/camera/types'
+
+export type CameraRuntimeOptions = PoseTrackerOptions & { pacing?: 'legacy' | 'responsive' }
 
 export type { Observation } from '../features/camera/types'
 
@@ -42,6 +44,7 @@ export function useCamera() {
   }))
   const visualRef = useRef(visual)
   const [metrics, setMetrics] = useState<CameraMetrics>(() => ({ ...EMPTY_METRICS }))
+  const [trackerDiagnostics, setTrackerDiagnostics] = useState<PoseTrackerDiagnostics | null>(null)
   const [state, setState] = useState<CameraState>('off')
   const [error, setError] = useState('')
   const [quality, setQuality] = useState(false)
@@ -140,11 +143,12 @@ export function useCamera() {
   }, [])
 
   const connect = useCallback(
-    async (selectedId?: string) => {
+    async (selectedId?: string, options?: CameraRuntimeOptions) => {
       release()
       const token = generation.current
       const isCurrent = () => generation.current === token
       setMetrics({ ...EMPTY_METRICS })
+      setTrackerDiagnostics(null)
       setState('loading')
       setQuality(false)
       setError('')
@@ -180,13 +184,14 @@ export function useCamera() {
           setError(CAMERA_ERRORS.disconnected)
         }
 
-        const loaded = await createPoseTracker(isCurrent)
+        const loaded = await createPoseTracker(isCurrent, options)
         if (!loaded) return
         if (!isCurrent()) {
           loaded.close()
           return
         }
         tracker.current = loaded
+        setTrackerDiagnostics(loaded.diagnostics ?? null)
         const video = videoRef.current
         if (!video) throw new Error(CAMERA_ERRORS.videoUnavailable)
         video.srcObject = incoming
@@ -199,6 +204,7 @@ export function useCamera() {
         stopFrameLoop.current = startPoseFrameLoop({
           video,
           tracker: loaded,
+          pacing: options?.pacing,
           isCurrent,
           getCanvas: () => canvasRef.current,
           getVisual: () => visualRef.current,
@@ -254,6 +260,7 @@ export function useCamera() {
     setReducedMotion,
     setOverlayEnabled,
     metrics,
+    trackerDiagnostics,
     subscribe,
     videoRef,
     canvasRef,
