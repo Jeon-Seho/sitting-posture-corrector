@@ -1,6 +1,6 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성: 2026-10-11 · 최신화: 2026-10-15(팀원과 상의할 것 M1~M11: BE 브랜치 비교, DB V2.3 대조, 아키텍처 v5.2 공지) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
+> 작성: 2026-10-11 · 최신화: 2026-10-15(BE 브랜치 비교, DB V2.3 대조, 아키텍처 v5.2 공지 반영. 상의할 것 M1·M2) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
 > 확인 기준: `DevOps` 브랜치 `f27f778`(10/12에도 변경 없음), `feature/repo-backend-db-v2` `0fcde59`(미병합), [실시간 계약 v1](../../contracts/realtime/README.md), DevOps/BE 회신(10/11), 아키텍처 v5.1(10/12), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
 > 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md), [연동 명세](api-ws-spec.md), [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
@@ -11,26 +11,18 @@
 
 ## 1. 남은 질문과 요청
 
-**팀원과 상의할 것(2026-10-15).** 정해지면 본문에 반영하고 이 표에서 뺀다.
+**팀원과 상의할 것(2026-10-15): 합의와 BE 코드가 다른 것만.** 정해지면 본문에 반영하고 이 표에서 뺀다.
 
 | # | 상대 | 상의할 것 | FE 의견 | 근거 |
 |---|---|---|---|---|
 | M1 | BE | 실시간 경로. BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)에는 `/v1/realtime`만 있고, BE ADR 0022(그 브랜치)는 「특징 v2·실시간 v1 유지, 좌표 스트림 제외」라고 적었다. BE 명세(10/13) 9장 3번에서는 BE가 `/v2/realtime`을 제안했고 FE가 동의했다 | `/v2/realtime`(좌표 스트림). 「제외」가 이번 구현에서만 뺀 것인지 확인 | [계획 0029](../plans/active/0029-merge-backend-data-platform.md) Q1 |
 | M2 | BE | BE 브랜치에 없는 REST·WS: R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `RECORD_ARCHIVED`, `closed(limit_reached)`. 반대로 `POST /v2/records`는 아직 있다 | 연동 명세 4·5장대로 넣고, `POST /v2/records`는 없앤다 | 계획 0029 Q2·Q3 |
-| M3 | BE | 문서 번호 겹침: BE 브랜치의 ADR `0022-db-v23-feature-v2-integration`과 develop의 ADR `0022-session-ends-on-lost-connection`, 계획 0028 두 개 | BE ADR은 0024로 옮긴다. FE 계획 0028은 BE 0028(전환 완료)에 맡기고 지운다 | 계획 0029 Q4·2단계 |
-| M4 | BE | 서버가 DB에 저장할 때 이름 대응: WS `rest`→`PAUSE`, `away`→`ABSENCE`, `missing`·`missing_sequence`→`MISSING`, `unmeasurable`→`UNMEASURABLE`(V2.3 `excluded_interval.exclusion_reason`) | 이 대응이 맞는지 확인하고 연동 명세에 적는다 | DB V2.3, [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json) |
-| M5 | BE | 판정 규칙 단위: API는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`), DB `threshold_policy`는 초이고 `hold_seconds`·`recover_seconds`는 0.5초 단위, `realert_seconds`는 1초 이상이다 | ms 값은 500의 배수, 재알림은 1000 이상이라고 연동 명세에 적는다. 서버가 어긋난 값을 400으로 거부하는지 확인 | DB V2.3 `ck_threshold_policy_*` |
-| M6 | BE·ML | 자세 방향(`deviation_type`)은 WS로 오지만 DB(`collapse_event`)에 저장할 칸이 없다 | 측정 중 화면에서만 보이고 기록에는 없다. 지금은 그대로 둔다(ADR 0018, 붕괴 유형 보류). 기록에 방향을 보여야 하면 V2.4가 필요하다 | DB V2.3 |
-| M7 | DB·BE (v5.2 공지 ④) | 오늘 통계를 화면에 바로 보여줄지 | **보여주지 않는다.** 통계는 어제까지, 목록에는 오늘 세션도 하나씩, 종료 화면은 방금 세션만(10/14 결정, 2장). 앱이 따로 계산하지 않는다. 기록·달력 화면 담당(lellon0403)과 같이 답한다 | 「아키텍처 v5.2 전환 영향 공지」(10/15) |
-| M8 | DB·DevOps | v5.2 배치 번호(J1 적재, **J2 집계 00:00, J3 탈퇴 삭제 04:00**)가 확정인지. 확정이면 우리 문서의 v5.1 번호(J3 집계·J4 삭제)를 고친다: 연동 명세 2장·X8, [동의 제안서](consent-proposal.md) 머리말·보유 기간 | 확정되면 FE가 고친다 | v5.2 공지 |
-| M9 | DB·DevOps | J1(적재) 주기. 우리 문서는 「매시간」이다. 적재된 기록은 지울 수 없어서(`RECORD_ARCHIVED`) 이 주기가 곧 사용자가 기록을 지울 수 있는 시간이다 | v5.2에서도 매시간인지 확인 | 연동 명세 A6 |
-| M10 | BE·PM (v5.2 공지 ②) | 삭제 완료 안내를 C안(접수 때만 「○월 ○일 삭제 예정」)으로 하면 앱 탈퇴 확인창에도 날짜를 보일지. J3가 매일 04:00에 돌아서 실제 삭제는 30일이 지난 뒤 처음 오는 04:00이다 | 안 결정 뒤 정한다. 지금 확인창은 「30일 뒤 삭제」 | v5.2 공지 |
-| M11 | DB | v5.2 공지 3장의 「FE 제안서 N10」은 10/13에 풀려서 지운 번호다. 내용(특징값은 좌표 프레임 기준)은 3장에 있다 | 공지의 근거를 「FE 제안서 3장」으로 바꿔 달라고 알린다 | — |
 
-v5.2 공지의 ①(철회·삭제 동시 처리)은 앱 동작과 이미 맞는다. `PROCESSING` 뒤 철회는 A8 409 `WITHDRAWAL_NOT_CANCELLABLE`이고 앱은 안내만 한다. ③(`feature_archive` 행 단위)·⑤(전환 시점)는 앱 동작이 달라지지 않는다.
+같은 날 FE가 직접 정리한 것(물어볼 필요 없음): 문서 번호 겹침(FE 계획 0028 → [0030](../plans/active/0030-make-check-failures.md), BE ADR 0022 → 0024는 합칠 때), DB 저장 이름·단위·자세 방향(연동 명세 1장, 이 문서 3.2), 아키텍처 v5.2 배치 번호(J2 집계·J3 탈퇴 삭제).
+아키텍처 v5.2 전환 공지(DB·BE, 10/15)의 ④ 「오늘 통계를 화면에 바로 보여줄지」는 2장 4의 10/14 결정이 답이다: 보여주지 않는다(통계는 어제까지, 목록에는 오늘 세션, 앱이 따로 계산하지 않음). ①(`PROCESSING` 뒤 철회 거부)은 A8 409 `WITHDRAWAL_NOT_CANCELLABLE`로 이미 맞고, ②·③·⑤는 앱 동작이 달라지지 않는다.
 
 서버·모델 내부의 정할 것(0.5초 구간 점수 합치기, 자세 유형을 낼지, 짧은 끊김을 같은 사건으로 이어 볼 시간 `EVENT_BREAK_SEC`, 팀 저장소 반영 현황)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보이므로 어느 쪽이든 영향이 없다.
-일별 집계는 **매일 00:00**에 돈다(10/14 확정).
+일별 집계는 **매일 00:00**에 돈다(10/14 확정, 아키텍처 v5.2의 J2).
 
 ## 2. 전제와 현재 구조
 
@@ -93,7 +85,7 @@ FE가 정한 것(앱 쪽 동작):
 | 측정 종료 | WebSocket `end`. 연결이 이미 끊겼으면 `api`로 종료 요청(서버 안에서 `ws`가 `session_ended`를 낸다. 이미 끝난 세션이면 200) | — |
 
 다시 시작하면 `running`으로 돌아간다. 카메라 끊김 뒤에는 사용자가 직접 재개한다.
-`away`는 카메라 끊김을 포함해 자리 비움(`ABSENCE`) 하나로 묶는다. 앱은 `MISSING`(누락)을 보내지 않는다.
+`away`는 카메라 끊김을 포함해 자리 비움(`ABSENCE`) 하나로 묶는다. 앱은 `MISSING`(누락)을 보내지 않는다. 서버가 구간이 빠진 것을 찾으면(`event.reason` `missing`·`missing_sequence`) 서버가 `MISSING`으로 저장한다.
 판정 불가는 범위를 넓게 잡아 모두 `UNMEASURABLE` 하나로 저장한다. 판정을 세분화할 때 `exclusion_reason`의 CHECK 선택지를 늘린다.
 판정 불가 시간을 측정 시간·점수에서 빼는 것과 3초 연속 시 멈춤 같은 시간 규칙은 서버가 정한다. 앱은 서버가 알려 주는 상태를 표시만 한다.
 서버는 프레임 간격 1000ms로 끊김을 보고, 앱은 화면 감시를 1500ms로 한다.

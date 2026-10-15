@@ -5,7 +5,7 @@
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
 - 관련: [연동 명세](../../design/api-ws-spec.md), [FE 제안서](../../design/fe-server-proposal.md), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
-  [ADR 0022 연결이 끊기면 세션 종료](../../decisions/0022-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0028](0028-backend-build-gradle.md)
+  [ADR 0022 연결이 끊기면 세션 종료](../../decisions/0022-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0030](0030-make-check-failures.md)
 
 ## 문제와 완료 기준
 
@@ -43,7 +43,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | `docs/design/fe-commands-and-checks.md` | 내용 | 우리 것을 기준으로, BE가 바꾼 빌드 도구(JDK 17·Gradle Wrapper) 내용을 반영 |
 | `docs/index.md` | 내용 | 두 쪽을 합친다. FE 절은 우리, 계획·ADR 목록은 번호 정리 뒤 기준 |
 | `docs/design/fe-server-integration-map.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 고친 문구(JDK 17·Gradle, ADR 0023 링크)는 [FE 명령과 검사](../../design/fe-commands-and-checks.md)에 옮긴다 |
-| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 더한 기록(ADR 0020, `/v1/realtime` 유지)과 Gradle 문구는 [지운 문서 기록](../../removed-docs.md)에 남긴다. BE가 이 계획을 계속 쓴다면 되살린다(Q4) |
+| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 더한 기록(ADR 0020, `/v1/realtime` 유지)과 Gradle 문구는 [지운 문서 기록](../../removed-docs.md)에 남긴다. BE가 이 계획을 계속 쓴다면 되살린다 |
 
 ### 내용 충돌 (글자 충돌로 안 잡힘)
 
@@ -52,24 +52,23 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | 1 | 실시간 WS | `/v2/realtime` 좌표 스트림(ADR 0021, [계약 v2](../../../contracts/realtime/realtime-ws.v2.schema.json)) | `/v1/realtime`만 있음. BE ADR 0022는 「특징 v2·실시간 v1 유지, 좌표 스트림 제외」 |
 | 2 | REST 빠진 것 | R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `RECORD_ARCHIVED`, `closed(limit_reached)` | 없음 |
 | 3 | REST 남은 것 | `POST /v2/records`는 없애기로 함 | 아직 있음 |
-| 4 | ADR 번호 | `0022-session-ends-on-lost-connection`(develop에 먼저 들어감) | `0022-db-v23-feature-v2-integration`. 합치면 0022가 둘 |
-| 5 | 계획 번호·내용 | `0028-backend-build-gradle`(전환 계획 + `make check` 실패 원인 분석) | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
+| 4 | ADR 번호 | `0022-session-ends-on-lost-connection`(develop에 먼저 들어감) | `0022-db-v23-feature-v2-integration`. 합치면 0022가 둘 → **합칠 때 FE가 BE ADR을 0024로 옮기고 링크를 고친다**(10/15) |
+| 5 | 계획 번호·내용 | ~~`0028-backend-build-gradle`~~ → **10/15 해결:** 전환 부분을 빼고 [0030](0030-make-check-failures.md)(`make check` 실패 원인·G1~G5)으로 옮겼다 | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
 
 같은 것: 가입 입력 규칙(이름 1~30자, 나이 14~120, 비밀번호 12~72)은 서버 검사(`AccountContracts`)와 앱이 같다.
 
-## BE에 확인할 것 (merge 전)
+## BE에 확인할 것 (merge 전, 합의와 BE 코드가 다른 것만)
 
 | # | 질문 | 우리 제안 |
 |---|---|---|
 | Q1 | 실시간 경로를 `/v2/realtime`(좌표 스트림)으로 만드는가, 당분간 `/v1/realtime`으로 붙는가, 둘 다 두는가 | `/v2/realtime`. BE 명세(10/13) 9장 3번에서 BE가 새 경로를 제안했고 FE가 동의했다(연동 명세 0장). v1은 앱이 v2로 바뀌면 없앤다. BE ADR 0022의 「좌표 스트림 제외」는 이번 구현 범위 이야기인지 확인 |
 | Q2 | R1b·T1·`RECORD_ARCHIVED`·`limit_reached`를 언제 넣는가 | 연동 명세 4장·5장 그대로 |
 | Q3 | `POST /v2/records`를 없애는가 | 없앤다(BE 명세에서 없앤 것과 같게) |
-| Q4 | BE ADR 0022를 다음 빈 번호로 옮겨도 되는가. 계획 0022(Kafka)를 BE가 계속 쓰는가 | ADR은 0024로. 계획 0022는 BE가 쓰면 되살린다 |
 
 ## 작업 단계
 
-- [ ] 1. BE에 Q1~Q4를 보내고 답을 아래 기록에 적는다.
-- [ ] 2. merge 전에 우리 쪽 정리: 계획 0028을 지우고 `make check` 실패 원인 분석은 BE 0028에 넣도록 BE에 넘긴다(또는 합칠 때 옮긴다).
+- [ ] 1. BE에 Q1~Q3을 보내고 답을 아래 기록에 적는다([FE 제안서](../../design/fe-server-proposal.md) 1장 M1·M2와 같은 내용).
+- [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). BE ADR 0022 → 0024는 3단계 merge 커밋에서 하고 BE에 알린다.
 - [ ] 3. 연습 merge: 로컬 임시 브랜치(올리지 않음)에서 `git merge origin/feat/backend-data-platform-architecture`, 위 표 원칙대로 9개를 푼다.
 - [ ] 4. 연습 merge에서 검사: `check-repo` → `test` → `check-frontend` → `check-backend`(JDK 17·Gradle Wrapper). `check-browser`·`check-compose`는 지금 못 돌리는 이유를 [FE 명령과 검사](../../design/fe-commands-and-checks.md)에 맞춰 기록한다.
 - [ ] 5. Q1 결정을 연동 명세·계약 README·ADR에 한 가지로 맞춘다.
@@ -79,6 +78,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 ## 결정과 진행 기록
 
 - 2026-10-14: 미리 합쳐 보기로 충돌 범위를 확인했다(위 표). 계정 서버 연결(F12)은 BE 담당으로 정정했다.
+- 2026-10-15: 번호 겹침(4·5)은 물어보지 않고 FE가 정리하기로 했다. BE에 확인할 것은 합의와 BE 코드가 다른 Q1~Q3만 남겼다.
 
 ## 검증 결과와 남은 한계
 

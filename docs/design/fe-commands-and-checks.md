@@ -88,7 +88,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 |---|---|
 | `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
 | `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
-| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0022)을 고쳐야 한다(계획 0028 G1~G3) |
+| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0022)을 고쳐야 한다(계획 0030 G1~G3) |
 
 `check-backend`는 2026-10-12 노트북에 JDK 21·Maven 3.9.9를 설치해 돌 수 있다(Java 시험 59개 중 14개 건너뜀, 서비스 연동 통과).
 정리: 프론트·문서·Python·Java 서버는 매번 검증하고, 브라우저 흐름과 실제 DB(Compose)는 지금 검증하지 못한다.
@@ -128,7 +128,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 ### 빌드 도구 (2026-10-14)
 
-PM·DB(BE)는 팀이 Gradle을 쓴다고 했지만, 10/14 기준 저장소의 모든 브랜치에는 Gradle 파일이 없다. `backend/`는 Maven(`pom.xml`)이고 ④는 `tools/dev_tasks.py`의 `check_backend()`가 Maven `verify`를 부른다. Gradle로 바꾼 커밋이 develop에 들어오면 ④ 설명과 [requirements-front.txt](../../requirements-front.txt)의 Maven 안내를 함께 고친다. 전환 계획과 `make check` 실패 원인(Maven과 무관)은 [계획 0028](../plans/active/0028-backend-build-gradle.md).
+이 브랜치의 `backend/`는 아직 Maven(`pom.xml`)이고 ④는 `tools/dev_tasks.py`의 `check_backend()`가 Maven `verify`를 부른다. BE는 10/14에 BE 브랜치(`feat/backend-data-platform-architecture` `a716135`)에서 Java 17·Spring Boot 4.0.8·Gradle Wrapper 9.7.1로 바꿨다(그 브랜치의 ADR 0023). FE는 따로 바꾸지 않고 그 브랜치를 합칠 때 받는다([계획 0029](../plans/active/0029-merge-backend-data-platform.md)). 합친 뒤 ④는 `backend/gradlew -p backend build`(JDK 17)이고, ④ 설명과 [requirements-front.txt](../../requirements-front.txt)의 Maven 안내를 함께 고친다. `make check` 실패 원인(Maven과 무관)은 [계획 0030](../plans/active/0030-make-check-failures.md).
 
 ### PC별 제약 (2026-10-12)
 
