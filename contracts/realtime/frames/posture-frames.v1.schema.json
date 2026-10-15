@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/frames/posture-frames.v1.schema.json",
   "title": "posture.frames.v1 — 0.5 s of raw 9-joint coordinate frames from the app (BE API spec 2026-10-13)",
-  "description": "FE proposal 2.1. One message per interval [start_ms, end_ms), times relative to the session start. Frames are not averaged. rest/away intervals carry no frames. valid:false marks a frame whose user position the app could not determine (10/12 meeting); BE confirmed the name on 10/13. Carried as items of the WebSocket v2 features message.",
+  "description": "FE proposal 2.1. One message per interval [start_ms, end_ms), times relative to the session start. Frames are not averaged. rest/away intervals carry no frames. valid:false marks a frame whose user position the app could not determine (10/12 meeting); BE confirmed the name on 10/13. Carried as items of the WebSocket v2 features message. The camera size is fixed at 640x480 (DB V2.3 CAPTURE_RESOLUTION), so it is not sent; the app refuses to start with any other size.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "feature_version", "sequence", "start_ms", "end_ms", "phase", "width", "height", "frames"],
+  "required": ["schema_version", "feature_version", "sequence", "start_ms", "end_ms", "phase", "frames"],
   "properties": {
     "schema_version": { "const": "3.0" },
     "feature_version": { "const": "keypoints-9-v1" },
@@ -13,8 +13,6 @@
     "start_ms": { "type": "integer", "minimum": 0 },
     "end_ms": { "type": "integer", "minimum": 1 },
     "phase": { "enum": ["running", "calibration", "rest", "away"] },
-    "width": { "type": "integer", "minimum": 0, "maximum": 4096 },
-    "height": { "type": "integer", "minimum": 0, "maximum": 4096 },
     "frames": {
       "type": "array",
       "maxItems": 30,

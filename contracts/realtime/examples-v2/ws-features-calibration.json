@@ -8,8 +8,6 @@
       "start_ms": 1500,
       "end_ms": 2000,
       "phase": "calibration",
-      "width": 640,
-      "height": 480,
       "frames": [
         {
           "t_ms": 1500,

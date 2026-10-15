@@ -8,8 +8,6 @@
       "start_ms": 21000,
       "end_ms": 21500,
       "phase": "running",
-      "width": 640,
-      "height": 480,
       "frames": [
         {
           "t_ms": 21012,
