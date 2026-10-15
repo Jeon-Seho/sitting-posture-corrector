@@ -63,7 +63,6 @@ public class SecurityConfiguration {
                                                 "/v2/auth/csrf",
                                                 "/v2/auth/register",
                                                 "/v2/auth/login",
-                                                "/v2/auth/withdrawal/cancel",
                                                 "/v1/realtime")
                                         .permitAll()
                                         .anyRequest()

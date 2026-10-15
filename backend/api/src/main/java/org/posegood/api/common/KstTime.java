@@ -3,7 +3,6 @@ package org.posegood.api.common;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -33,10 +32,5 @@ public final class KstTime {
 
     public static Instant read(ResultSet row, String column) throws SQLException {
         return instant(row.getObject(column, LocalDateTime.class));
-    }
-
-    /** `daily_stat.stat_date`: 세션 시작 시각의 KST 날짜(BR-61). */
-    public static LocalDate day(Instant value) {
-        return LocalDate.ofInstant(value, ZONE);
     }
 }

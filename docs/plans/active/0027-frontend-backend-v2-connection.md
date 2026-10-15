@@ -48,10 +48,11 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
       로그인한 `user_id`를 `X-PoseGood-User-Id`에 붙인다. 401·403·`409 AUTH_CHANGED`·503 재시도를 처리한다.
       (`ce57f56:frontend/src/features/accounts/client.ts`의 `createAccountClient`를 옮긴다.)
 - [ ] `LocalServiceApp.login()`: 입력값을 확인하지 않는 로컬 로그인을 `POST /auth/login`으로 바꾼다. 앱 시작 때 `GET /auth/me`로 로그인 상태를 복원한다.
-      `403 ACCOUNT_CLOSED`면 `POST /auth/withdrawal/cancel` 안내를 보여 준다.
+      `403 ACCOUNT_CLOSED`면 "탈퇴한 계정입니다. 되돌릴 수 없고 탈퇴 30일 뒤 삭제됩니다"를 보여 준다(2026-10-15 v5.2: 철회 경로 없음).
 - [ ] `LocalServiceApp.register()`: localStorage(`KEYS.account`, `KEYS.profile`) 저장 대신 `POST /auth/register`에
       `{email,password,profile,consents}`를 보낸다. 로그아웃은 `POST /auth/logout`.
 - [ ] 비밀번호 변경 `PUT /auth/password`, 탈퇴 `DELETE /auth/account`를 설정 화면에 잇는다.
+      탈퇴 확인 화면에 "되돌릴 수 없고 30일 뒤 완전히 삭제되며, 그 전에는 같은 이메일로 다시 가입할 수 없다"를 알리고 비밀번호로 확인받는다(공지 결정 ⑥·⑦).
 - [ ] 로그인 계정이 바뀌거나 세션이 끊기면 카메라·전송을 멈추고 메모리 기준을 비운다.
 
 ### 3. 가입 동의·프로필 규칙을 API 계약에 맞춤 (`features/auth/consents.ts`, `password.ts`, `features/storage/`, `features/profile/`)
@@ -142,6 +143,8 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 - 2026-10-14: develop(#42)이 프론트 계정 모드를 지웠으므로, 이 브랜치의 프론트 v2 변경을 develop 위에 덧대지 않고 모두 되돌렸다.
   백엔드·DB·계약은 V2.3·API v2를 유지한다. 프론트 연결은 이 계획으로 다시 진행한다.
+- 2026-10-15: 아키텍처 v5.2로 탈퇴 철회(`POST /auth/withdrawal/cancel`)가 없어졌다. 2번의 철회 안내를 "철회 불가·30일 뒤 삭제" 안내로 바꿨다.
+  통계 화면의 일별 통계는 Spark J2가 다음 날 00:00 이후 채우므로, 오늘 측정은 다음 날부터 보인다(오늘 통계를 바로 보일지는 공지 ④에서 FE·BE가 정함).
 
 ## 검증 결과와 남은 한계
 

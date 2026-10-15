@@ -66,7 +66,7 @@ public class AuthController {
         return account.view();
     }
 
-    /** 로그인. 탈퇴 유예 계정은 403 ACCOUNT_CLOSED. */
+    /** 로그인. 탈퇴 접수한 계정(CLOSED)은 403 ACCOUNT_CLOSED — 되돌릴 수 없고 30일 뒤 삭제된다. */
     @PostMapping("/login")
     public AccountContracts.View login(
             @Valid @RequestBody AccountContracts.Login body,
@@ -82,25 +82,12 @@ public class AuthController {
                                     body.email(), body.password()));
         } catch (DisabledException closed) {
             throw new ApiError(
-                    403, "ACCOUNT_CLOSED", "account withdrawal is pending; cancel it to sign in");
+                    403, "ACCOUNT_CLOSED", "account is closed and will be deleted 30 days after withdrawal");
         } catch (AuthenticationException invalid) {
             throw new ApiError(401, "INVALID_CREDENTIALS", "invalid credentials");
         }
         signIn(result, request, response);
         return accounts.requireActive(((AccountPrincipal) result.getPrincipal()).id()).view();
-    }
-
-    /**
-     * 탈퇴 철회 후 다시 로그인시킨다.
-     */
-    @PostMapping("/withdrawal/cancel")
-    public AccountContracts.View cancelWithdrawal(
-            @Valid @RequestBody AccountContracts.Login body,
-            HttpServletRequest request,
-            HttpServletResponse response) {
-        var account = accounts.cancelWithdrawal(body);
-        signIn(AccountAuthenticationProvider.authenticated(account), request, response);
-        return account.view();
     }
 
     /** 로그아웃: 현재 세션을 지운다. */

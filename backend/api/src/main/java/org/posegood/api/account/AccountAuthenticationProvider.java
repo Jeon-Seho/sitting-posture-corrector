@@ -13,10 +13,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 로그인할 때 이메일·비밀번호를 확인한다. 탈퇴 유예(CLOSED) 계정은 따로 알린다.
+ * 로그인할 때 이메일·비밀번호를 확인한다. 탈퇴 접수한(CLOSED) 계정은 로그인할 수 없다.
  *
  * 없는 계정이어도 해시 비교를 한 번 해서 응답 시간으로 계정 유무를 알 수 없게 한다.
- * 비밀번호가 맞는 CLOSED 계정은 따로 알려 앱이 탈퇴 철회를 안내할 수 있게 한다.
+ * 탈퇴는 철회할 수 없다(아키텍처 v5.2). 비밀번호가 맞는 CLOSED 계정은 따로 알려
+ * 앱이 "탈퇴 처리 중, 30일 뒤 삭제"를 안내하게 한다(같은 이메일 재가입도 삭제 전까지 막힌다).
  */
 @Component
 public class AccountAuthenticationProvider implements AuthenticationProvider {

@@ -12,7 +12,6 @@ import tools.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import org.posegood.api.account.AccountService;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,9 +24,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -44,7 +41,7 @@ import java.util.concurrent.TimeUnit;
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"server.address=127.0.0.1", "posegood.withdrawal-purge-initial-ms=3600000"})
+        properties = {"server.address=127.0.0.1"})
 @EnabledIfSystemProperty(named = "posegood.mysql.integration", matches = "true")
 class MySqlIntegrationTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -53,7 +50,6 @@ class MySqlIntegrationTest {
 
     @LocalServerPort int port;
     @Autowired LiveSessions live;
-    @Autowired AccountService accounts;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -308,18 +304,20 @@ class MySqlIntegrationTest {
             assertEquals(2_000_000, excluded.getLong(2));
             assertFalse(excluded.next());
 
+            // daily_stat은 Spark J2(cron 매일 00:00, 전날 KST)만 쓴다(아키텍처 v5.2). API는 세션을 닫아도 쓰지 않는다.
             var daily =
                     statement.executeQuery(
-                            "SELECT stat_date,valid_sec,good_sec,session_count,event_count,alerted_event_count"
-                                    + " FROM daily_stat d JOIN user_account u ON u.user_account_id=d.user_account_id"
+                            "SELECT COUNT(*) FROM daily_stat d JOIN user_account u ON u.user_account_id=d.user_account_id"
                                     + " WHERE u.login_email='" + email + "'");
             assertTrue(daily.next());
-            assertEquals(started.toLocalDate(), daily.getObject(1, LocalDate.class));
-            assertEquals(new BigDecimal("6.0"), daily.getBigDecimal(2));
-            assertEquals(new BigDecimal("3.0"), daily.getBigDecimal(3));
-            assertEquals(1, daily.getInt(4));
-            assertEquals(1, daily.getInt(5));
-            assertEquals(0, daily.getInt(6));
+            assertEquals(0, daily.getInt(1));
+            // 다음 날 J2가 쓴 행을 흉내 낸다(기록을 지워도 남는지 아래에서 확인).
+            assertEquals(
+                    1,
+                    statement.executeUpdate(
+                            "INSERT INTO daily_stat(user_account_id,stat_date,valid_sec,good_sec,session_count,event_count,"
+                                    + "alerted_event_count,computed_at) SELECT user_account_id,'" + started.toLocalDate()
+                                    + "',6.0,3.0,1,1,0,NOW(3) FROM user_account WHERE login_email='" + email + "'"));
         }
 
         // 앱 기록은 서버 판정과 같아야 하고, 날짜는 DB 값을 쓴다.
@@ -501,7 +499,7 @@ class MySqlIntegrationTest {
     }
 
     @Test
-    void baselineRetryIsImmutableAndDailyRangesAreIdempotent() throws Exception {
+    void baselineRetryIsImmutableAndEndIsIdempotent() throws Exception {
         var api = client(); api.register(email());
         assertEquals(404, api.get("/v2/baselines/current").status());
         assertEquals(409, api.put("/v2/sessions/" + UUID.randomUUID(), create(UUID.randomUUID())).status());
@@ -519,20 +517,16 @@ class MySqlIntegrationTest {
         var end = MAPPER.createObjectNode().put("end_ms", 300000);
         assertEquals(200, api.post(path + "/end", end).status());
         assertEquals(200, api.post(path + "/end", end).status());
-        // A short session updates ordinary counts but leaves eligible range extrema intact.
-        String shortPath = "/v2/sessions/" + UUID.randomUUID();
-        assertEquals(200, api.put(shortPath, create(baseline)).status());
-        assertEquals(200, api.post(shortPath + "/end", MAPPER.createObjectNode().put("end_ms", 1000)).status());
         try (var connection = database.connect(); var statement = connection.createStatement()) {
-            var row = statement.executeQuery("SELECT session_count,min_until_collapse_sec,max_until_collapse_sec FROM daily_stat WHERE user_account_id=" + api.userId);
-            assertTrue(row.next()); assertEquals(2, row.getInt(1));
-            assertEquals(new BigDecimal("1.0"), row.getBigDecimal(2));
-            assertEquals(new BigDecimal("1.0"), row.getBigDecimal(3));
+            var sessions = statement.executeQuery("SELECT COUNT(*),SUM(ended_at IS NOT NULL) FROM monitor_session WHERE user_account_id=" + api.userId);
+            assertTrue(sessions.next()); assertEquals(1, sessions.getInt(1)); assertEquals(1, sessions.getInt(2));
+            var daily = statement.executeQuery("SELECT COUNT(*) FROM daily_stat WHERE user_account_id=" + api.userId);
+            assertTrue(daily.next()); assertEquals(0, daily.getInt(1));
         }
     }
 
     @Test
-    void withdrawalGraceCancelAndPurge() throws Exception {
+    void withdrawalIsFinalAndLeavesDeletionToJ3() throws Exception {
         var api = client();
         String email = email();
         api.register(email);
@@ -540,40 +534,34 @@ class MySqlIntegrationTest {
         assertEquals(400, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "wrong-password-1")).status());
         assertEquals(204, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
 
-        var again = client();
-        var closed = again.login(email, "synthetic-password-1");
+        // 탈퇴는 되돌릴 수 없다: 로그인은 403, 같은 이메일 재가입은 최종 삭제 전까지 409, 철회 경로는 없다.
+        var closed = client().login(email, "synthetic-password-1");
         assertEquals(403, closed.status());
         assertEquals("ACCOUNT_CLOSED", closed.body().get("code").asString());
         assertEquals(409, client().register(email).status());
-        again.refreshCsrf();
+        var anonymous = client();
+        anonymous.refreshCsrf();
         var cancel = MAPPER.createObjectNode().put("email", email).put("password", "synthetic-password-1");
-        var cancelled = again.post("/v2/auth/withdrawal/cancel", cancel);
-        assertEquals(200, cancelled.status());
-        again.userId = cancelled.body().get("user_id").asString();
-        again.refreshCsrf();
-        assertEquals(200, client().login(email, "synthetic-password-1").status());
+        assertEquals(401, anonymous.post("/v2/auth/withdrawal/cancel", cancel).status());
 
-        assertEquals(204, again.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
-        try (var connection = database.connect();
-                var update =
-                        connection.prepareStatement(
-                                "UPDATE deletion_request d JOIN user_account u ON u.user_account_id=d.user_account_id"
-                                        + " SET d.account_closed_at=?,d.requested_at=? WHERE u.login_email=?")) {
-            var past = LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31);
-            update.setObject(1, past);
-            update.setObject(2, past);
-            update.setString(3, email);
-            assertEquals(1, update.executeUpdate());
-        }
-        var expired = client(); expired.refreshCsrf();
-        assertEquals(409, expired.post("/v2/auth/withdrawal/cancel", cancel).status());
-        accounts.purgeWithdrawn();
+        // API는 접수만 한다. 유예 30일 뒤 최종 삭제는 Spark J3(cron 매일 04:00) 몫이라 행이 그대로 남는다.
         try (var connection = database.connect(); var statement = connection.createStatement()) {
-            var rows = statement.executeQuery("SELECT COUNT(*) FROM user_account WHERE login_email='" + email + "'");
+            var rows =
+                    statement.executeQuery(
+                            "SELECT u.account_status,d.request_scope,d.request_status,d.account_closed_at IS NOT NULL,"
+                                    + "(SELECT COUNT(*) FROM monitor_session m WHERE m.user_account_id=u.user_account_id),"
+                                    + "(SELECT COUNT(*) FROM SPRING_SESSION s WHERE s.PRINCIPAL_NAME=CAST(u.user_account_id AS CHAR))"
+                                    + " FROM user_account u JOIN deletion_request d ON d.user_account_id=u.user_account_id"
+                                    + " WHERE u.login_email='" + email + "'");
             assertTrue(rows.next());
-            assertEquals(0, rows.getInt(1));
+            assertEquals("CLOSED", rows.getString(1));
+            assertEquals("ACCOUNT_ALL", rows.getString(2));
+            assertEquals("REQUESTED", rows.getString(3));
+            assertTrue(rows.getBoolean(4));
+            assertEquals(1, rows.getInt(5));
+            assertEquals(0, rows.getInt(6));
+            assertFalse(rows.next());
         }
-        assertEquals(200, client().register(email).status());
     }
 
     @Test

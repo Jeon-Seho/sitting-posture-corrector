@@ -3,11 +3,7 @@ package org.posegood.api.account;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.KstTime;
 import org.posegood.api.policy.ThresholdPolicyRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -16,14 +12,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * 계정 규칙 처리: 가입, 비밀번호 변경, 탈퇴 접수·철회, 유예 후 일괄 삭제.
+ * 계정 규칙 처리: 가입, 비밀번호 변경, 탈퇴 접수.
  *
+ * 탈퇴는 접수만 한다. 30일 유예 뒤 최종 삭제는 Spark J3(cron 매일 04:00)가 맡는다(아키텍처 v5.2).
  * 근거: contracts/accounts.v2.md, database/README.md 9장(스키마 V2.2).
  */
 @Service
 public class AccountService {
-    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
-
     private final AccountRepository accounts;
     private final ThresholdPolicyRepository policies;
     private final ConsentRepository consents;
@@ -31,7 +26,6 @@ public class AccountService {
     private final UserLocks locks;
     private final TransactionTemplate tx;
     private final ApplicationEventPublisher events;
-    private final int graceDays;
 
     public AccountService(
             AccountRepository accounts,
@@ -40,8 +34,7 @@ public class AccountService {
             PasswordEncoder passwords,
             UserLocks locks,
             TransactionTemplate tx,
-            ApplicationEventPublisher events,
-            @Value("${posegood.withdrawal-grace-days}") int graceDays) {
+            ApplicationEventPublisher events) {
         this.accounts = accounts;
         this.policies = policies;
         this.consents = consents;
@@ -49,7 +42,6 @@ public class AccountService {
         this.locks = locks;
         this.tx = tx;
         this.events = events;
-        this.graceDays = graceDays;
     }
 
     /** 이메일 정규화(앞뒤 공백 제거, 소문자). */
@@ -103,9 +95,9 @@ public class AccountService {
     }
 
     /**
-     * 탈퇴 접수: 계정을 CLOSED로 바꾸고 모든 로그인을 끊는다. 실제 삭제는 30일 뒤.
+     * 탈퇴 접수: 계정을 CLOSED로 바꾸고 모든 로그인을 끊는다. 되돌릴 수 없다(철회 없음).
      *
-     * 유예 기간에는 식별 정보와 기록을 그대로 둔다. 유예가 끝나면 {@link #purgeWithdrawn()}이 지운다.
+     * 유예 기간(30일)에는 식별 정보와 기록을 그대로 둔다. 유예가 끝나면 Spark J3가 지운다.
      */
     public void withdraw(long id, AccountContracts.Withdrawal body) {
         locks.run(
@@ -121,54 +113,6 @@ public class AccountService {
                 });
         events.publishEvent(new LoginsRemoved(id));
         events.publishEvent(new AccountClosed(id));
-    }
-
-    /**
-     * 탈퇴 철회(유예 기간 안, 이메일·비밀번호로 확인).
-     */
-    public AccountRepository.Account cancelWithdrawal(AccountContracts.Login body) {
-        var account = accounts.findEmail(normalize(body.email()));
-        if (account == null
-                || body.password().getBytes(StandardCharsets.UTF_8).length > 72
-                || !passwords.matches(body.password(), account.hash()))
-            throw new ApiError(401, "INVALID_CREDENTIALS", "invalid credentials");
-        if (account.active()) return account;
-        boolean reopened =
-                locks.withLock(account.id(), () -> tx.execute(status -> accounts.reopen(account.id(), KstTime.now(), graceDays)));
-        if (!reopened)
-            throw new ApiError(409, "WITHDRAWAL_NOT_CANCELLABLE", "withdrawal is already processing");
-        return requireActive(account.id());
-    }
-
-    /**
-     * 매시간 실행: 유예가 끝난 탈퇴 계정을 계정마다 한 트랜잭션으로 지운다.
-     *
-     * 특징 적재 파일을 먼저 지워야 한다. HDFS 파일 삭제 기능이 생기기 전까지 그런 계정은 FAILED로 남는다.
-     */
-    @Scheduled(
-            initialDelayString = "${posegood.withdrawal-purge-initial-ms}",
-            fixedDelayString = "${posegood.withdrawal-purge-interval-ms}")
-    public void purgeWithdrawn() {
-        for (long id : accounts.withdrawalsDue(KstTime.now(), graceDays)) {
-            try {
-                locks.run(
-                        id,
-                        () -> {
-                            if (accounts.pendingArchiveFiles(id) > 0) {
-                                accounts.markWithdrawalFailed(id, "feature archive files not deleted");
-                                return;
-                            }
-                            tx.executeWithoutResult(status -> accounts.deleteWithdrawn(id));
-                        });
-            } catch (RuntimeException failure) {
-                log.warn("withdrawal purge failed for one account: {}", failure.getClass().getSimpleName());
-                try {
-                    accounts.markWithdrawalFailed(id, "deletion transaction failed");
-                } catch (RuntimeException ignored) {
-                    // 다음 실행에서 같은 요청을 다시 처리한다.
-                }
-            }
-        }
     }
 
     /** 현재 비밀번호 확인(틀리면 400). */

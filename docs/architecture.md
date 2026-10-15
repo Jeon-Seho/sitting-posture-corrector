@@ -87,7 +87,9 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 [계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
 인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다. 저장은 DB 스키마 V2.0이다([ADR 0020](decisions/0020-single-api-decision-engine.md)).
-진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간·일별 통계는 종료 때 짧은 트랜잭션으로 저장한다.
+진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간은 종료 때 짧은 트랜잭션으로 저장한다.
+일별 통계(`daily_stat`)는 API가 읽기만 하고 Spark J2가 매일 00:00에 전날(KST)을 집계해 쓴다. 탈퇴는 API가 접수만 하고(철회 없음),
+30일 유예 뒤 최종 삭제는 Spark J3가 매일 04:00에 한다(아키텍처 v5.2, 2026-10-15).
 API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
 프론트 계정 앱(`VITE_SERVER_ACCOUNTS`)은 2026-10-13 지웠고 로그인은 BE `auth` 연결 전까지 로컬이다([프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.

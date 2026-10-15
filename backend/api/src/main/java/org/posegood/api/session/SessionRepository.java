@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -63,7 +62,10 @@ public class SessionRepository {
         }
     }
 
-    /** Ends once, stores exclusions, then updates the KST day aggregates in the same transaction. */
+    /**
+     * Ends once and stores exclusions. `daily_stat` is not touched here: Spark J2 (cron daily 00:00)
+     * aggregates the previous KST day from the result tables (architecture v5.2).
+     */
     public boolean close(Stored session, Closing closing) {
         int closed = jdbc.update("UPDATE monitor_session SET ended_at=?,good_sec=? WHERE monitor_session_id=? AND ended_at IS NULL",
                 at(session, closing.totalMs()), tenths(closing.normalMs()), session.key());
@@ -71,22 +73,6 @@ public class SessionRepository {
         for (var span : closing.excluded())
             jdbc.update("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason) VALUES(?,?,?,?)",
                     session.key(), at(session, span.startMs()), at(session, span.endMs()), span.reason().name());
-        var episodes = jdbc.query("SELECT started_at,ended_at FROM collapse_event WHERE monitor_session_id=? ORDER BY event_seq",
-                (row, n) -> new CollapseRanges.Period(
-                        Duration.between(session.startedAt(), KstTime.read(row, "started_at")).toMillis(),
-                        Duration.between(session.startedAt(), KstTime.read(row, "ended_at")).toMillis()), session.key());
-        var range = CollapseRanges.calculate(closing.totalMs(), episodes, closing.excluded());
-        jdbc.update("INSERT INTO daily_stat(user_account_id,stat_date,valid_sec,good_sec,session_count,event_count,"
-                        + "alerted_event_count,min_until_collapse_sec,max_until_collapse_sec,computed_at) VALUES(?,?,?,?,1,?,?,?,?,?)"
-                        + " ON DUPLICATE KEY UPDATE valid_sec=valid_sec+VALUES(valid_sec),good_sec=good_sec+VALUES(good_sec),"
-                        + "session_count=session_count+1,event_count=event_count+VALUES(event_count),"
-                        + "alerted_event_count=alerted_event_count+VALUES(alerted_event_count),"
-                        + "min_until_collapse_sec=COALESCE(LEAST(min_until_collapse_sec,VALUES(min_until_collapse_sec)),min_until_collapse_sec,VALUES(min_until_collapse_sec)),"
-                        + "max_until_collapse_sec=COALESCE(GREATEST(max_until_collapse_sec,VALUES(max_until_collapse_sec)),max_until_collapse_sec,VALUES(max_until_collapse_sec)),"
-                        + "computed_at=VALUES(computed_at)",
-                session.owner(), KstTime.day(session.startedAt()), tenths(closing.validMs()), tenths(closing.normalMs()),
-                closing.collapseCount(), session.alertEnabled() ? closing.collapseCount() : 0,
-                range == null ? null : tenths(range.minMs()), range == null ? null : tenths(range.maxMs()), KstTime.now());
         return true;
     }
 
@@ -133,5 +119,5 @@ public class SessionRepository {
 
     public record Stored(long key, UUID id, long owner, Policy policy, UUID baselineId, boolean alertEnabled,
                          Instant startedAt, Instant endedAt, BigDecimal goodSec, long collapseCount, long alertCount) {}
-    public record Closing(long totalMs, long validMs, long normalMs, long collapseCount, List<ExcludedSpan> excluded) {}
+    public record Closing(long totalMs, long normalMs, List<ExcludedSpan> excluded) {}
 }

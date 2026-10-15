@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-/** API 서버 시작점. 탈퇴 일괄 삭제·세션 정리 같은 예약 작업(@Scheduled)도 켠다. */
+/** API 서버 시작점. 세션 정리 같은 예약 작업(@Scheduled)도 켠다. */
 @SpringBootApplication
 @EnableScheduling
 public class ApiApplication {

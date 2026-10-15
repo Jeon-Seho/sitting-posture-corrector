@@ -15,7 +15,7 @@ backend/api/src/main/java/org/posegood/api/
 ├── engine/     # 판정 엔진: SessionEngine(순서·누락·중복), Timeline(시간 누적),
 │               # EpisodeLedger(사건·통계), DecisionRules(정책 임계 비교 — 이곳에만 있다)
 ├── policy/     # threshold_policy 찾기·추가 (행은 고치지 않는다)
-├── account/    # 가입·로그인·CSRF·비밀번호·탈퇴(30일 유예, 철회, 일괄 삭제)
+├── account/    # 가입·로그인·CSRF·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
 ├── realtime/   # /v1/realtime WebSocket
@@ -35,8 +35,8 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 | 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각·좌표가 같은 재시도는 기존 행 반환 |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
 | 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
-| 종료 | 종료 시각·`good_sec`, 제외 구간, 일별 통계를 한 번만 반영. 5분 이상 세션의 붕괴까지 시간 min/max 포함 |
-| 상태를 잃은 종료 | 알 수 없는 전체 시간을 MISSING으로 제외, good=0. 일별 집계는 하지 않음 |
+| 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
+| 상태를 잃은 종료 | 알 수 없는 전체 시간을 MISSING으로 제외, good=0 |
 | 삭제 | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
 
 - DB 쓰기에 실패하면 503이다. 판정 상태는 이미 반영됐으므로 같은 요청을 다시 보내면 남은 사건을 쓴다.
@@ -48,6 +48,9 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 - 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
   사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
 - 비밀번호 변경·탈퇴는 그 사용자의 `SPRING_SESSION` 행을 지우고 열린 실시간 연결을 닫는다(V2.1에서 `auth_epoch` 삭제).
+- 아키텍처 v5.2(2026-10-15 공지): API는 `daily_stat`을 읽기만 하고, 탈퇴는 접수만 한다. 탈퇴는 철회할 수 없고
+  CLOSED 계정은 로그인 `403 ACCOUNT_CLOSED`, 같은 이메일 재가입은 최종 삭제 전까지 `409`다.
+  30일 유예 뒤 최종 삭제(사용자 HDFS 폴더 → `feature_archive.deleted_at` → 행)와 삭제 완료 안내 메일은 Spark J3(cron 매일 04:00)가 맡는다.
 
 ## API
 
@@ -57,7 +60,6 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 | --- | --- |
 | `GET /v2/auth/csrf`, `POST /v2/auth/register`, `POST /v2/auth/login`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인 |
 | `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
-| `POST /v2/auth/withdrawal/cancel` | 탈퇴 유예 중 철회(이메일·비밀번호) |
 | `GET`·`PUT /v2/workspace`, `GET`·`POST /v2/records`, `DELETE /v2/records/{id}` | 설정·앱 기록 |
 | `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
 | `POST /v2/sessions/{UUID}/features` | 특징 입력 v2 → FastAPI → 판정. [특징 응답 v1](../contracts/feature-response.v1.schema.json) |
@@ -126,4 +128,6 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 1. 다중 인스턴스: 진행 중 상태를 공유할 저장소(Redis 등)나 세션 고정 라우팅이 필요하다.
 2. Kafka(계획 0022): 지금은 실시간 채널이 API 안에서 바로 처리한다. 토픽 전환 때 같은 메시지 계약을 쓴다.
 3. 알림의 실제 표시 여부 전달(현재 DB에는 시도만 기록).
-4. HDFS 특징 적재(`feature_archive`)와 탈퇴 때 파일 삭제.
+4. Spark 배치 전환 시점(공지 ⑤): 이 API는 이미 `daily_stat` 누적과 탈퇴 최종 삭제를 하지 않는다. J2가 켜지기 전까지 통계 화면은 비고,
+   J3가 켜지기 전까지 유예가 끝난 탈퇴 계정이 남는다. J2 첫 실행 때 이 변경 이후 날짜를 다시 계산하고, J3는 밀린 요청부터 지운다.
+5. 오늘 통계를 화면에 바로 보일지(공지 ④): J2는 다음 날 반영된다. 필요하면 그날 세션 목록으로 계산하는 조회를 FE와 정한다.

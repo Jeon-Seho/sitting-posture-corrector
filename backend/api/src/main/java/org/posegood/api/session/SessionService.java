@@ -284,9 +284,7 @@ public class SessionService {
                                         session.row(),
                                         new SessionRepository.Closing(
                                                 summary.totalMs(),
-                                                summary.validMs(),
                                                 summary.normalMs(),
-                                                summary.collapseCount(),
                                                 engine.excluded()));
                             }
                             return episode;

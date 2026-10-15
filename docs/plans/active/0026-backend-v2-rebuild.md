@@ -49,10 +49,10 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 | --- | --- |
 | 판정 엔진 | `session/engine`: 순수 Java. 기존 EPL 세 규칙과 CEP의 시간 누적·사건 기록을 그대로 옮겼다. 사건마다 그 시점 요약을 함께 보관한다 |
 | 진행 중 상태 | API 메모리(`LiveSessions`). V2.2에는 관측·스냅샷 테이블이 없으므로 재시작하면 진행 중 세션은 복구하지 않고 404로 알린다 |
-| DB 쓰기 | 세션 생성: `threshold_policy`(찾기/추가)·`baseline_posture`(사용자당 1행 덮어쓰기)·`monitor_session`(`calibration_uuid`·`alert_enabled` 복사). 사건: `collapse_event`·`correction_alert`(처리 직후). 종료: `monitor_session` 종료 3컬럼, `excluded_interval`, `daily_stat` 누적 |
+| DB 쓰기 | 세션 생성: `threshold_policy`(찾기/추가)·`baseline_posture`(사용자당 1행 덮어쓰기)·`monitor_session`(`calibration_uuid`·`alert_enabled` 복사). 사건: `collapse_event`·`correction_alert`(처리 직후). 종료: `monitor_session` 종료 3컬럼, `excluded_interval`. `daily_stat`은 쓰지 않는다(2026-10-15 v5.2, Spark J2가 집계) |
 | 기록 | 원문 저장 없음(V2.1). `POST /v1/records`는 검증 후 세션 행을 닫고, 목록은 닫힌 세션을 테이블에서 다시 만든다(`RecordRebuild`) |
 | 재전송 | 세션 메모리에 `sequence → 요청 hash·관측`을 둔다. DB 쓰기 실패는 503이며 같은 요청 재전송 때 남은 사건을 다시 쓴다 |
-| 계정 | 이메일·비밀번호, DB 세션(`SPRING_SESSION`), CSRF. 로그인 끊기는 `SPRING_SESSION` 행 삭제 + 실시간 연결 종료. 「자세 알림」 = `alert_enabled`. 탈퇴는 30일 유예(CLOSED) 후 일괄 삭제, 철회 경로 추가 |
+| 계정 | 이메일·비밀번호, DB 세션(`SPRING_SESSION`), CSRF. 로그인 끊기는 `SPRING_SESSION` 행 삭제 + 실시간 연결 종료. 「자세 알림」 = `alert_enabled`. 탈퇴는 접수만 한다(CLOSED, 철회 없음). 30일 유예 뒤 최종 삭제는 Spark J3(2026-10-15 v5.2) |
 | 시각 | 모든 `DATETIME(3)`은 KST. API 응답의 시각은 UTC ISO-8601 |
 
 ## 작업 단계
@@ -73,8 +73,8 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 
 - 2026-10-09: 사용자 결정(위 표). ADR 0020으로 ADR 0011·0018을 대체한다.
 - `setup.device`는 V2.0에 저장 칸이 없어 받기만 한다(앱 계약 유지). 세션 재시도 비교에서도 뺐다.
-- 탈퇴 철회 경로 `POST /v1/auth/withdrawal/cancel`을 추가했다(DB-04 6-1-1). 앱 화면은 아직 없다.
-- `daily_stat`은 종료 때 누적한다. 세션 삭제는 빼지 않는다(DB 무결성 시나리오 2와 같음).
+- 탈퇴 철회 경로 `POST /v1/auth/withdrawal/cancel`을 추가했다(DB-04 6-1-1). 앱 화면은 아직 없다. → 2026-10-15 v5.2에서 삭제(아래).
+- `daily_stat`은 종료 때 누적한다. 세션 삭제는 빼지 않는다(DB 무결성 시나리오 2와 같음). → 2026-10-15 v5.2에서 누적 삭제(아래).
 - JDBC는 `connectionTimeZone=Asia/Seoul`만 쓴다. 값은 시간대 없는 KST `LocalDateTime`으로 주고받으므로
   MySQL 시간대 테이블이 없는 서버(Windows 기본 설치)에서도 동작한다.
 - 메모리 모드를 전제로 한 `tools/http_response_fault.py`(API↔CEP 응답 유실 주입)를 지웠다. 추론 실패는 Java 통합 시험이 다룬다.
@@ -88,6 +88,13 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
     `last_sequence`는 -1, 바른 자세 시간은 0.1초 단위다(`RecordRebuildTest`가 판정 엔진 결과와 같음을 확인).
   - 확인 못 한 종료의 기록 저장은 세션 행을 닫는다: 상태 있음 → 마지막 수신 시각에서 끝내 `DISCONNECTED`, 상태 없음 → `ERROR`(`good_sec` 0,
     `daily_stat` 제외, 다시 읽으면 요약 없음).
+- 2026-10-15: 아키텍처 v5.2 전환 공지(DB·BE 김유진)에 맞췄다([ADR 0020](../../decisions/0020-single-api-decision-engine.md) 6·7번).
+  - 탈퇴 철회를 없앴다: `POST /v2/auth/withdrawal/cancel`, `WITHDRAWAL_NOT_CANCELLABLE`, 철회 쿼리 삭제. CLOSED 계정 로그인은 `403 ACCOUNT_CLOSED`
+    ("탈퇴 30일 뒤 삭제" 안내)이고 철회용 예외는 없다.
+  - 매시간 탈퇴 삭제 작업(`purgeWithdrawn`)과 `posegood.withdrawal-*` 설정을 지웠다. 최종 삭제·완료 안내는 Spark J3(cron 매일 04:00, A안).
+  - 세션 종료 때 `daily_stat` 누적을 지웠다. 일별 통계는 Spark J2(cron 매일 00:00, 전날 KST)만 쓴다. 쓰지 않게 된 `CollapseRanges`를 지웠다.
+  - 검증: `backend/gradlew -p backend build` 통과(단위 시험). `-Pmysql-integration`은 로컬 MySQL `root` 비밀번호가 없어 접속 거부로 실행하지 못했다.
+    `tools/service_smoke.py`는 아직 `daily_stat` 1행을 기대하므로 `check-backend`의 smoke가 실패한다(tools 담당 수정 필요).
 
 ## 검증 결과와 남은 한계
 

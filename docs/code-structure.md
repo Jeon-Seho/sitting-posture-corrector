@@ -88,7 +88,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | --- | --- | --- |
 | 세션 HTTP·처리 순서 | [SessionController](../backend/api/src/main/java/org/posegood/api/session/SessionController.java), [SessionService](../backend/api/src/main/java/org/posegood/api/session/SessionService.java) | 세션 잠금 안에서 추론 → 판정 → DB 기록; 재시도 hash |
 | 추론 연결 | [InferenceClient](../backend/api/src/main/java/org/posegood/api/session/InferenceClient.java) | FastAPI 호출과 출력 검증(502) |
-| DB 기록 | [SessionRepository](../backend/api/src/main/java/org/posegood/api/session/SessionRepository.java) | 세션·기준 자세·사건·제외 구간·일별 통계 |
+| DB 기록 | [SessionRepository](../backend/api/src/main/java/org/posegood/api/session/SessionRepository.java) | 세션·기준 자세·사건·제외 구간 (일별 통계는 쓰지 않음 — Spark J2) |
 | 입력 순서·종료 | [SessionEngine](../backend/api/src/main/java/org/posegood/api/engine/SessionEngine.java) | 중복·역순·누락과 결정 적용 조정 |
 | 시간 누적·사건 통계 | [Timeline](../backend/api/src/main/java/org/posegood/api/engine/Timeline.java), [EpisodeLedger](../backend/api/src/main/java/org/posegood/api/engine/EpisodeLedger.java) | 유효/제외 시간과 사건 이력; 시간 임계값 비교 없음 |
 | 시간 조건 | [DecisionRules](../backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java) | 시간 임계값 비교는 이 파일 하나에 유지 |
