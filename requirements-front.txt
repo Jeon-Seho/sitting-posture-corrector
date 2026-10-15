@@ -10,6 +10,7 @@ Python         | 3.9 이상    | winget install Python.Python.3.13              
 
 # 서버 검사 (check-backend, check-browser)
 JDK            | 21 (꼭 21)  | winget install EclipseAdoptium.Temurin.21.JDK   | check-backend, check-browser
+JDK            | 17          | winget install EclipseAdoptium.Temurin.17.JDK --override "ADDLOCAL=FeatureMain /quiet" | BE 브랜치 Gradle(Java 17 toolchain). PATH·JAVA_HOME은 21 그대로
 Maven          | 3.6.3 이상  | https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
                |             | → %USERPROFILE%\tools 에 압축 해제               | check-backend
 Chrome         | 최신        | winget install Google.Chrome                    | check-browser

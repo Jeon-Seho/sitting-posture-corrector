@@ -132,6 +132,6 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 ### PC별 제약 (2026-10-12)
 
-- Windows 노트북: 2026-10-12 JDK 21(Temurin)·Maven 3.9.9 설치로 ①~⑤가 돈다. JDK 25도 있으므로 `JAVA_HOME`이 21을 가리켜야 한다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
+- Windows 노트북: 2026-10-12 JDK 21(Temurin)·Maven 3.9.9 설치로 ①~⑤가 돈다. JDK 25도 있으므로 `JAVA_HOME`이 21을 가리켜야 한다. 2026-10-15 JDK 17(Temurin 17.0.20.1)을 더 설치했다: BE 브랜치의 Gradle이 Java 17 toolchain을 요구하기 때문이다(그 브랜치에는 JDK 자동 다운로드 설정이 없다). PATH·`JAVA_HOME`은 바꾸지 않고(`ADDLOCAL=FeatureMain`) 21 그대로이며, Gradle은 레지스트리에 등록된 17을 찾아 쓴다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
 - Windows PC(10/11): JDK 21·Maven·Docker가 있어 ①~⑤가 돈다.
 - ⑥은 DB 초기화 스크립트(`infra/mysql/initdb/10-posegood-schema.sh`)가 지워진 `schema_V1_1.sql`을 찾아 실패한다(10/14에도 `database/schema`에는 V2_2·V2_3만 있음, `develop`도 같음). DB 담당 브랜치가 들어오기 전까지 실패한다.
