@@ -3,7 +3,7 @@
 - 상태: planned (G1~G3는 FE, G4·G5는 DB·DevOps와 함께)
 - 담당: FE(klaod-tech)가 원인 분석·브라우저 시나리오, Compose는 DB·DevOps
 - 시작일: 2026-10-14 (예전 번호 0028. BE 브랜치의 계획 0028과 겹쳐 10/15에 0030으로 옮기고 Gradle 전환 부분을 뺐다)
-- 관련: [FE 명령과 검사](../../design/fe-commands-and-checks.md), [계획 0029](0029-merge-backend-data-platform.md), [ADR 0022](../../decisions/0022-session-ends-on-lost-connection.md)
+- 관련: [FE 명령과 검사](../../design/fe-commands-and-checks.md), [계획 0029](0029-merge-backend-data-platform.md), [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
 
@@ -37,7 +37,7 @@ PM·DB(BE)가 10/14에 팀은 Gradle을 쓴다고 했다. FE는 Maven 때문에 
 |---|---|---|---|
 | G1 | ⑤ `capture-task`가 `SelectMenu`로 바뀜 | `tools/browser/camera-preview.mjs`(그리고 `scenarios.mjs`의 같은 선택)를 새 목록 상자 조작으로 | 수집 화면 담당(lellon0403)·FE |
 | G2 | ⑤ 첫 사건 3초 확정 항목 | 원인 조사(develop 흐름) | FE |
-| G3 | ⑤ 재연결 항목 | ADR 0022(끊기면 세션 종료)에 맞춰 시나리오 수정 | FE |
+| G3 | ⑤ 재연결 항목 | ADR 0024(끊기면 세션 종료)에 맞춰 시나리오 수정 | FE |
 | G4 | ⑥ `schema_V1_1.sql` 없음 | 초기화 스크립트를 `schema_V2_3.sql`로(DB 브랜치 병합과 함께) | DB·DevOps |
 | G5 | ⑥ 계정 브라우저 시나리오 | 지운 계정 모드 대신 새 가입 화면(`features/auth/`)으로, 또는 서버 계정 연결 뒤 다시 | FE·DevOps |
 

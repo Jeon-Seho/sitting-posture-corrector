@@ -12,7 +12,7 @@
 
 ## FE 현재 결정과 작업 (2026-10-14, `feature/frontend-features-and-integration`)
 
-- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0022 서버 연결이 끊기면 세션을 끝낸다](decisions/0022-session-ends-on-lost-connection.md).
+- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md).
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — BE API 명세(10/13)와 같은 ID·경로. 로그인·설정·기록은 REST, 실시간 판정·자세 등록은 WebSocket `/v2/realtime`. BE에 확인할 것은 0장.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 7장 FE 할 일.

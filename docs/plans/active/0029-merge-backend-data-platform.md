@@ -5,7 +5,7 @@
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
 - 관련: [연동 명세](../../design/api-ws-spec.md), [FE 제안서](../../design/fe-server-proposal.md), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
-  [ADR 0022 연결이 끊기면 세션 종료](../../decisions/0022-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0030](0030-make-check-failures.md)
+  [ADR 0024 연결이 끊기면 세션 종료](../../decisions/0024-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0030](0030-make-check-failures.md)
 
 ## 문제와 완료 기준
 
@@ -52,7 +52,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | 1 | 실시간 WS | `/v2/realtime` 좌표 스트림(ADR 0021, [계약 v2](../../../contracts/realtime/realtime-ws.v2.schema.json)) | `/v1/realtime`만 있음. BE ADR 0022는 「특징 v2·실시간 v1 유지, 좌표 스트림 제외」 |
 | 2 | REST 빠진 것 | R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `closed(limit_reached)` (`RECORD_ARCHIVED`는 10/15 BE의 409 `CONFLICT`에 맞춤) | 없음 |
 | 3 | REST 남은 것 | `POST /v2/records`는 없애기로 함 | 아직 있음 |
-| 4 | ADR 번호 | `0022-session-ends-on-lost-connection`(develop에 먼저 들어감) | `0022-db-v23-feature-v2-integration`. 합치면 0022가 둘 → **합칠 때 FE가 BE ADR을 0024로 옮기고 링크를 고친다**(10/15) |
+| 4 | ADR 번호 | ~~`0022-session-ends-on-lost-connection`~~ → **10/15 해결: FE가 0024로 옮겼다**(`0024-session-ends-on-lost-connection`) | `0022-db-v23-feature-v2-integration` 그대로 |
 | 5 | 계획 번호·내용 | ~~`0028-backend-build-gradle`~~ → **10/15 해결:** 전환 부분을 빼고 [0030](0030-make-check-failures.md)(`make check` 실패 원인·G1~G5)으로 옮겼다 | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
 
 ### BE 브랜치 문서와 FE 설계의 차이 (10/15 확인)
@@ -87,10 +87,10 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 ## 작업 단계
 
 - [x] 1. BE에 Q1을 확인했다(10/15, `/v2/realtime`). Q2·Q3은 합의대로 BE가 진행한다([FE 제안서](../../design/fe-server-proposal.md) 1장 B-1·B-2).
-- [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). BE ADR 0022 → 0024는 3단계 merge 커밋에서 하고 BE에 알린다.
+- [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). FE ADR 0022(끊기면 세션 종료)를 0024로 옮겨 BE ADR 0022와 겹치지 않게 했다(10/15). BE는 번호를 바꾸지 않아도 된다.
 - [ ] 3. 연습 merge: 로컬 임시 브랜치(올리지 않음)에서 `git merge origin/feat/backend-data-platform-architecture`, 위 표 원칙대로 9개를 푼다.
 - [ ] 4. 연습 merge에서 검사: `check-repo` → `test` → `check-frontend` → `check-backend`(JDK 17·Gradle Wrapper). `check-browser`·`check-compose`는 지금 못 돌리는 이유를 [FE 명령과 검사](../../design/fe-commands-and-checks.md)에 맞춰 기록한다.
-- [ ] 5. 합친 뒤 v2 결정을 연동 명세·계약 README·ADR에 한 가지로 맞춘다. BE ADR(0024로 옮긴 것)의 「실시간 v1 유지」에는 「10/15 임시 상태, v2로 간다」를 덧붙이도록 BE에 알린다.
+- [ ] 5. 합친 뒤 v2 결정을 연동 명세·계약 README·ADR에 한 가지로 맞춘다. BE ADR 0022의 「실시간 v1 유지」에는 「10/15 임시 상태, v2로 간다」를 덧붙이도록 BE에 알린다.
 - [ ] 6. 결과를 보고 우리 브랜치에 실제 merge할지, BE 브랜치가 develop에 들어간 뒤 develop을 받을지 정한다.
 - [ ] 7. 실제 merge 후 같은 검사를 다시 돌리고 아래에 기록한다. 이 계획은 끝나면 지우고 [지운 문서 기록](../../removed-docs.md)에 남긴다.
 

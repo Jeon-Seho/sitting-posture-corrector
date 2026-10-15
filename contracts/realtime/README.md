@@ -4,7 +4,7 @@
 > 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
 > 근거는 BE 「FE ↔ BE API 명세 (입출구 서버)」(10/13)와 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
-> 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0022).
+> 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. 아래 v1 WebSocket 부분(`realtime-ws.v1`)은 앱이 v2로 바뀌면 없앤다.
 > Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
 
@@ -50,7 +50,7 @@
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
   재연결 때 게이트웨이도 놓친 `decision`을 먼저 보내고 최신 `progress`를 마지막에 보낸다.
-  (2026-10-13 [ADR 0022](../../docs/decisions/0022-session-ends-on-lost-connection.md): 앱은 끊기면 세션을 끝내고 다시 연결하지 않는다.)
+  (2026-10-13 [ADR 0024](../../docs/decisions/0024-session-ends-on-lost-connection.md): 앱은 끊기면 세션을 끝내고 다시 연결하지 않는다.)
 - `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
 
 ## 통로 나누기

@@ -4,7 +4,7 @@
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 1장(지금 없음), FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
-  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0022](../../decisions/0022-session-ends-on-lost-connection.md)
+  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0022](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
 
@@ -22,7 +22,7 @@
 | 판정 | 앱(로컬) 또는 개발 서버(v1, 특징 변화량) | 서버만(v2, 좌표) |
 | 로그인·기록 | 이 기기에서(로컬 로그인·회원가입, 10/13) | 입출구 서버(A1~A8, W1, R1) |
 | 화면 상태 | 앱 판정 | 서버 `observation`·`progress`·`decision`·`alert` |
-| 네트워크 끊김 | 앱 판정으로 계속 | 세션을 끝내고 화면을 막는 팝업. 재연결하지 않는다(ADR 0022) |
+| 네트워크 끊김 | 앱 판정으로 계속 | 세션을 끝내고 화면을 막는 팝업. 재연결하지 않는다(ADR 0024) |
 | 유형 표시 | 표시하지 않음(10/11 제거) | 같음 |
 | ML용 CSV | 좌표만(라벨 없음, v3) | 같음 |
 
@@ -84,7 +84,7 @@
 - 2026-10-12: 기준 자세 등록과 측정 시작을 나눈다. 측정 좌표는 0.5초마다 평균 없이 보내고, 평균은 등록에서만 낸다.
 - 2026-10-12: 수집 CSV v3(앱 판정·규칙 특징 열 제거, `bb5fd45`). 「라벨」은 서버·ML 정답만 뜻한다.
 - 2026-10-12: 아키텍처 v5 반영. 게이트웨이는 BE `ws`, 측정 종료는 WebSocket `end`. 두 귀가 모두 있어야 판정(S3).
-- 2026-10-13: 서버 연결이 끊기면 세션을 끝낸다(ADR 0022). 세션 번호는 날짜마다 1부터. 메인 카메라 선택(팀원).
+- 2026-10-13: 서버 연결이 끊기면 세션을 끝낸다(ADR 0024). 세션 번호는 날짜마다 1부터. 메인 카메라 선택(팀원).
 - 2026-10-13: 어깨 2초 유예(`shoulderGrace.ts`, 팀원). 서버로 옮길 때 같은 규칙을 넘긴다.
 - 2026-10-13: 자세 등록 탭을 측정하기로 합침(팀원 `2be4af8`). 예전 계정 모드 삭제, 로컬 로그인·회원가입 3단계(동의 C1~C6 → 계정 정보 → 자세 등록 선택).
 - 2026-10-13: BE API 명세에 맞춰 연동 명세와 WebSocket v2 계약을 만들었다. 세션 시작 = S1을 받은 시각, 5분 미만 세션도 저장(DB V2.3, 10/14 정정), 오늘 측정은 방금 끝난 세션만 결과에, 기록 화면에는 지난 날짜만.

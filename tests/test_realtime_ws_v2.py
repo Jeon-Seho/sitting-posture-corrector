@@ -52,7 +52,7 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.rejects({**measure, "calibration_id": measure["session_id"]})
         self.rejects({k: v for k, v in measure.items() if k != "session_id"})
         self.rejects({**self.example("hello-calibration"), "purpose": "measure"})
-        # v1 resume fields are gone (no reconnection, ADR 0022).
+        # v1 resume fields are gone (no reconnection, ADR 0024).
         self.rejects({**measure, "last_event_id": 0})
 
     def test_features_carry_frames_and_only_false_validity(self):

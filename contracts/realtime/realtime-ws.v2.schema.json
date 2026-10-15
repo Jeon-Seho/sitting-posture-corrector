@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/realtime-ws.v2.schema.json",
   "title": "WebSocket /v2/realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
-  "description": "One connection per measurement (purpose measure) or posture registration (purpose calibration). The first app message is hello. No reconnection (ADR 0022). Messages are connection-scoped, so only hello and ready name the session.",
+  "description": "One connection per measurement (purpose measure) or posture registration (purpose calibration). The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session.",
   "oneOf": [
     {
       "$ref": "#/$defs/hello"
