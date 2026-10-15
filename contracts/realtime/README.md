@@ -18,7 +18,7 @@
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
 > (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
-> 새 버전 스키마는 아직 없다. DevOps 서버(`DevOps` 브랜치)는 지금 이 v1(특징 변화량)을 구현했다([FE 제안서](../../docs/design/fe-server-proposal.md) 6장).
+> 새 버전은 위 v2다(10/13). 10/15 기준 BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)의 `backend/api`는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다([FE 제안서](../../docs/design/fe-server-proposal.md) 1장 M1).
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
 ## 흐름
@@ -91,6 +91,8 @@
 봉투와 사건의 `session_id` 일치를 검사한다.
 
 ## 아직 정하지 않은 것
+
+아래는 v1 기준이다. v2에서 메시지 단위(0.5초 구간 1개씩), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.

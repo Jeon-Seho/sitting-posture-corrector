@@ -45,7 +45,7 @@
 
 ### 0단계 — 팀 결정 (끝남)
 
-- [x] 앱이 붙는 서버: BE 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5.1). 게이트웨이는 FE가 만들지 않는다.
+- [x] 앱이 붙는 서버: BE 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5.1, v5.2에서도 같음). 게이트웨이는 FE가 만들지 않는다.
 - [x] 앱이 보내는 정보: 좌표 구간 `posture.frames.v1`, 판정 불가 프레임은 `valid:false`(BE 명세 10/13).
 - [x] 앱과의 계약: [연동 명세](../../design/api-ws-spec.md)와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json)(10/13).
 - [x] `observation.invalid_reason`(BE 동의). 지금은 `unmeasurable` 하나만 쓴다.
