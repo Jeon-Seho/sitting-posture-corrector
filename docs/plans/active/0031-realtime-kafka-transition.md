@@ -1,6 +1,6 @@
 # 실시간 판정을 Kafka 경로로 옮기기 (아키텍처 v5.2)
 
-- 상태: planned (2026-10-16 DevOps/BE 결정, DB/BE 합의 대기)
+- 상태: in_progress (0단계 끝 2026-10-16, 1단계 PM 차례. ADR 0020 대체는 DB/BE 합의 대기)
 - 담당: DevOps/BE(처리 서비스·계약·compose·통합 테스트), PM(`ws` — `realtime/` Kafka 연결), DB/BE(`session/` 결과 쓰기 중단·REST 정리)
 - 시작일: 2026-10-16
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(대체 예정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
@@ -56,10 +56,11 @@
 
 ## 작업 단계
 
-- [ ] 0. 준비(DevOps/BE) — T-15 동등성 시험(#2·#3), D-39(#6), D-55(#7), compose(#14). D-54(#8)는 1단계 뒤여도 된다.
+- [x] 0. 준비(DevOps/BE) — T-15 동등성 시험(#2·#3), D-39(#6), compose(#14). D-55(#7)는 DB V2.3에 종료 사유 칸이 없어 빼고, D-54(#8)는 1단계 뒤.
 - [ ] 1. `ws` Kafka 연결(PM) — 설정 `posegood.realtime.pipeline=local|kafka`(기본 `local`). `kafka`이면 `RealtimeHandlerV2`가 `SessionService.frames`·`finish` 대신 Kafka로 발행하고 결과 토픽을 받아 보낸다(#1·#4·#5·#8·#9·#10·#13). 연결 규칙·`closed` 사유·`hello` 검사는 그대로 둔다.
 - [ ] 2. API 결과 쓰기 중단·REST 정리(DB/BE) — `kafka`일 때 #11·#12.
 - [ ] 3. 전환 시험(DevOps/BE) — 통합 테스트에 WebSocket 시나리오(가입 → 기준 → 세션 → `/v2/realtime` → 구간 → `end` → `closed(ended)` → 세션 조회), DB 세 곳 일치, `local`로 되돌리기 확인.
+  도구 `tools/platform/ws_realtime_smoke.py`·통합 테스트 12단계 준비됨(10/16) — 지금 `local`로 기준값을 확인하고, 1단계 뒤 `kafka`로 같은 기대값을 확인한다.
 - [ ] 4. 전환·정리(전원) — 서버 기본값 `kafka` → 앱 왕복(T-13) → API 안 판정·io-inference 삭제, ADR 0020 대체 ADR, `tests/test_service_contracts.py`의 ADR 0020 회귀 시험을 새 구조에 맞춤, `docs/architecture.md` 갱신.
 - [ ] 다음 계획 — D-34(좌표 계산을 추론으로, 본문 v3), D-35(등록 계산을 추론으로).
 
@@ -71,4 +72,8 @@
 
 ## 검증 결과와 남은 한계
 
-아직 실행한 검증은 없다. 계획한 검증은 위 완료 기준 1~5와 단계 3이다.
+- 0단계(2026-10-16, 서버 PC): `backend/gradlew -p backend :processing:test :api:test` 성공(동등성 시험 `SessionEngineParityTest`·`V1SessionJudgeParityTest` 포함),
+  `tests/test_realtime_parity.py`·`tests/test_realtime_contracts.py` 통과, `tools/platform/integration_test.sh --quick` PASS 60 / FAIL 0 / SKIP 4
+  (11단계 제외 구간 PAUSE·MISSING 저장). 동등성 결과: 합성 관측 약 1,500개에서 두 판정의 사건·요약·제외 구간이 같고, 무작위 입력 5,000개에서 두 추론이 같다.
+  알려진 차이 1개 — `good_sec` 반올림(API 버림, 판정 결과 저장 반올림).
+- 3단계 도구는 가짜 서버로 흐름만 확인했다(실제 io-api로는 아직). 계획한 나머지 검증은 위 완료 기준 1~5다.
