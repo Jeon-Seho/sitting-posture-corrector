@@ -3,8 +3,8 @@
 # Spark/Scala 버전을 자동 감지해 그에 맞는 spark-sql-kafka 커넥터
 # 좌표로 백그라운드 실행한다.
 #
-# 사용법: docker-compose.yml 이 있는 디렉토리에서
-#   ./run_posture_sink.sh
+# 사용법(어디서든): bigdata/legacy/run_posture_sink.sh
+# (D-50) 기존 경로 posture-sink. J1(D-33)이 대체하면 D-38에서 지운다.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

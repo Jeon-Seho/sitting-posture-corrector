@@ -16,7 +16,7 @@ DB 생성 권한이 없어도(스키마를 만들 필요 없이) MySQL에 실제
   python3 test_db_connection.py --host 192.168.0.42 --user root --password ****
 
   # .env 파일을 그대로 읽어서 확인 (서비스DB/연구DB 둘 다)
-  python3 test_db_connection.py --env-file ../.env
+  python3 tools/platform/test_db_connection.py --env-file infra/compose/.env
 """
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ def check(label: str, host: str, port: int, user: str, password: str,
         elif "timed out" in str(exc).lower() or getattr(exc, "errno", None) in (2003, None):
             print("  -> 네트워크로 아예 도달하지 못했습니다. VM 네트워크 어댑터가 Bridged인지,")
             print("     외부 PC의 방화벽/3306 포트, bind-address 설정을 확인하세요")
-            print("     (mysql/README_MySQL_구축_가이드.md 3절).")
+            print("     (tools/platform/README.md).")
         return False
 
     elapsed = time.perf_counter() - t0

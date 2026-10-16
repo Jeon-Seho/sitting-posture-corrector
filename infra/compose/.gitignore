@@ -1,0 +1,3 @@
+# 비밀값·로컬 설정 — 커밋하지 않는다 (env.example·hadoop.env.example만 커밋)
+.env
+hadoop.env

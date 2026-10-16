@@ -3,13 +3,13 @@
 (D-21) 실시간 계약 v1 재생 도구 — 합성 세션 1개를 posture.features.v1 메시지로 만들어
 api-server의 시험용 입구(POST /api/v1/realtime/features)로 보낸다.
 
-    python3 mysql/replay_realtime_v1.py                      # T-10과 같은 시나리오(정상 5s → 나쁜 자세 70s → 회복 10s)
-    python3 mysql/replay_realtime_v1.py --pace realtime      # 실제 시간처럼 0.5초마다
-    python3 mysql/replay_realtime_v1.py --user-id IT-V1-001 --bad-sec 10
+    python3 tools/platform/replay_realtime_v1.py                      # T-10과 같은 시나리오(정상 5s → 나쁜 자세 70s → 회복 10s)
+    python3 tools/platform/replay_realtime_v1.py --pace realtime      # 실제 시간처럼 0.5초마다
+    python3 tools/platform/replay_realtime_v1.py --user-id IT-V1-001 --bad-sec 10
     # (D-37) 재시작 시험: 같은 세션을 두 번에 나눠 보낸다(메시지 번호 0부터, 끝 번호는 포함 안 함)
-    python3 mysql/replay_realtime_v1.py --session-id <uuid> --range 0:60    # 시작 + 구간 sequence 0~58
-    docker compose restart api-server                                       # 판정 상태는 Redis에서 복원
-    python3 mysql/replay_realtime_v1.py --session-id <uuid> --range 60:     # 나머지 + 종료
+    python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 0:60    # 시작 + 구간 sequence 0~58
+    docker compose -f infra/compose/bigdata.yaml restart api-server                                # 판정 상태는 Redis에서 복원
+    python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 60:     # 나머지 + 종료
 
 메시지: session_started(정책 3000/3000/60000/0.7) → features(0.5초 구간 1개씩, sequence 0부터) → session_ended.
 특징 값은 T-10 CSV와 같다(나쁜 자세: 머리 0.18·좌우 0.15·어깨 -0.12, 정상: 0.02·0.01·-0.01, 품질 0.9).

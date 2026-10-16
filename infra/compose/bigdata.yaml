@@ -1,5 +1,5 @@
 # ============================================================
-# 빅데이터 플랫폼 + api-server/inference-service docker-compose.yml
+# 빅데이터 플랫폼 + api-server/inference-service compose (infra/compose/bigdata.yaml)
 # 대상: Kafka(KRaft) · Redis · HDFS(NameNode+DataNode) · Spark
 #       + api-server(Spring Boot) · inference-service(Python)
 # 범위: 테스트환경_구축가이드_VirtualBox_Docker.md 의 "3. Docker
@@ -15,8 +15,8 @@
 #   - Spark: apache/spark (Apache 공식)
 #   - HDFS: bde2020/hadoop-namenode, hadoop-datanode (커뮤니티 유지보수)
 #   - Redis: redis (Docker 공식 이미지)
-#   - api-server: ./api-server/Dockerfile 로 로컬 빌드 (Spring Boot)
-#   - inference-service: ./inference-service/Dockerfile 로 로컬 빌드 (Python)
+#   - api-server: backend/processing/Dockerfile 로 로컬 빌드 (Spring Boot)
+#   - inference-service: backend/inference/Dockerfile 로 로컬 빌드 (Python)
 #   ※ 원래 Kafka·Spark는 bitnami/* 이미지를 썼으나, Bitnami가 2025년
 #     8월부터 무료 카탈로그 정책을 바꿔 버전 태그(예: bitnami/kafka:3.7)를
 #     전부 없애고 "latest"만 남겼다(구버전은 docker.io/bitnamilegacy로
@@ -51,9 +51,18 @@
 #     serverTimezone=Asia/Seoul(application.yml)이며 컨테이너 시간대와 무관하다.
 #   - Kafka 메시지 시각(epoch ms / ISO-8601 Z)은 시간대 정보가 들어 있으므로 그대로 둔다.
 #
-# 환경변수: 외부 MySQL 접속 정보 등은 이 파일과 같은 폴더의 .env 로
-#   주입한다(.env.example 참고, 실제 값이 든 .env는 커밋하지 않는다).
+# 환경변수: 외부 MySQL 접속 정보 등은 이 파일과 같은 폴더(infra/compose/)의 .env 로
+#   주입한다(env.example 참고, 실제 값이 든 .env·hadoop.env는 커밋하지 않는다).
+#
+# 2026-10-15 변경 (D-50, 저장소 디렉터리 정리 — 옛 platform/docker-compose.yml):
+#   - 실행: 저장소 루트에서 docker compose -f infra/compose/bigdata.yaml <명령>
+#   - name: platform 으로 프로젝트 이름을 옛 위치(platform/)와 같게 고정한다.
+#     폴더 이름(compose)으로 바뀌면 볼륨이 compose_* 로 새로 생겨 Kafka 토픽·HDFS 데이터가
+#     비어 보이므로, 기존 platform_* 볼륨과 컨테이너를 그대로 이어 쓰기 위한 것이다.
+#   - 빌드 위치: api-server → backend/processing, inference-service → backend/inference
 # ============================================================
+
+name: platform
 
 networks:
   app-network:
@@ -253,7 +262,7 @@ services:
   # application.yml의 cep.* 값(기본 3s/3s/60s) 참고.
   api-server:
     build:
-      context: ./api-server
+      context: ../../backend/processing
     container_name: api-server
     restart: unless-stopped
     logging: *default-logging
@@ -320,7 +329,7 @@ services:
   # CPU 모드로 즉시 대체 실행")을 위한 폴백이다.
   inference-service:
     build:
-      context: ./inference-service
+      context: ../../backend/inference
     container_name: inference-service
     restart: unless-stopped
     logging: *default-logging
