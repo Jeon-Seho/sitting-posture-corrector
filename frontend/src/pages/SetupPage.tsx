@@ -6,8 +6,7 @@ import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
-import { cameraName } from '../features/camera/mainCamera'
-import { SelectMenu } from '../components/SelectMenu'
+import { CameraPicker } from '../features/camera/CameraPicker'
 import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 
 /** Seconds of steady upper-body input needed for the baseline (see calibration.ts). */
@@ -124,16 +123,9 @@ export function SetupPage({
               설정으로
             </button>
           )}
-          {on && camera.devices.length > 1 && !camera.devices.some((d) => !d.deviceId) && (
-            <SelectMenu
-              label="카메라"
-              icon={<VideoCamera size={15} weight="bold" className="icon" />}
-              value={camera.deviceId}
-              disabled={calibrating || counting || measuring}
-              onChange={(id) => void camera.connect(id)}
-              options={camera.devices.map((d, i) => ({ value: d.deviceId, label: cameraName(d, i) }))}
-            />
-          )}
+          {/* Same choice as settings, shown even with the camera off (2026-10-16); no switching
+              while registering or measuring, since the posture belongs to one camera. */}
+          <CameraPicker camera={camera} disabled={calibrating || counting || measuring} />
           {registered && !registering && !measuring && (
             <button className="chip" disabled={!on} onClick={flow.start}>
               <ArrowCounterClockwise size={14} weight="bold" className="icon" />
