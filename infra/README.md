@@ -115,3 +115,23 @@ cp infra/compose/hadoop.env.example infra/compose/hadoop.env
 docker compose -f infra/compose/bigdata.yaml up -d --build
 tools/platform/integration_test.sh --quick
 ```
+
+### 입출구 서버 (io-api, 서버 PC)
+
+팀 `backend/api`(「PoseGood API 명세서」의 REST 22개 + `/v1/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
+DB는 외부 MySQL의 `posture_service`(V2.3)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
+점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다. 처음 한 번 토큰을 만든다.
+
+```sh
+mkdir -p infra/compose/secrets
+python3 -c "import secrets; print(secrets.token_urlsafe(48))" > infra/compose/secrets/posegood.internal-token
+chmod 644 infra/compose/secrets/posegood.internal-token   # 컨테이너 사용자(uid 10001)가 읽는다. Git 제외
+docker compose -f infra/compose/bigdata.yaml --profile io up -d --build io-api
+curl -s http://127.0.0.1:8090/health                      # {"status":"ok","storage":"mysql"}
+python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 테스트 10단계와 같음)
+```
+
+- 포트는 기본 `127.0.0.1:8090`(서버 PC 안)이다. 앱·FE가 LAN에서 붙을 때는 `.env`에 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
+- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`).
+- `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
+- 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 다음 단계(`ws`, PM).

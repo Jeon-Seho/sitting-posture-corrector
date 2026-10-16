@@ -1,3 +1,5 @@
 # 비밀값·로컬 설정 — 커밋하지 않는다 (env.example·hadoop.env.example만 커밋)
 .env
 hadoop.env
+# (D-48) io-api·inference 내부 토큰 — 서버 PC에서 만든다(infra/README.md)
+secrets/

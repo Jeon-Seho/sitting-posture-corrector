@@ -24,6 +24,9 @@
 #                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes.v1 발행, v1 lag 0, DLQ(D-36)
 #   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
 #                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:v1:judge:<id> 저장·삭제 확인(D-37)
+#  10. 입출구 서버 : (io-api 컨테이너가 있을 때만 — compose --profile io) io-api·inference healthy·KST,
+#                    REST 점검 tools/platform/io_api_smoke.py(가입 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제 → 탈퇴, D-48)
+#                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -47,7 +50,7 @@ for a in "$@"; do
     --quick) QUICK=1 ;;
     --no-e2e) E2E=0 ;;
     --restart) RESTART=1 ;;
-    -h|--help) sed -n 2,28p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,31p "$0"; exit 0 ;;
     *) echo "알 수 없는 옵션: $a (--help 참고)"; exit 2 ;;
   esac
 done
@@ -58,6 +61,7 @@ INFER="${INFERENCE_URL:-http://localhost:8000}"
 EXPECTED_PROJECT="${EXPECT_PROJECT:-}"
 SOURCE_CSV="${SOURCE_CSV:-$TOOLS/posture-pilot-P01.csv}"
 TS="$(date +%Y%m%d-%H%M%S)"
+TS_EPOCH="$(date +%s)"
 OUT="$TOOLS/it-results/$TS"
 mkdir -p "$OUT"
 KT="docker exec kafka /opt/kafka/bin"
@@ -490,6 +494,29 @@ for t in posture.summary posture.inference; do
     pass "토픽 $t 생성됨(재생 후)"
   fi
 done
+
+# ---------------------------------------------------------------------
+step "10. 입출구 서버 (io-api, D-48)"
+IO_API="${IO_API_URL:-http://127.0.0.1:8090}"
+if ! docker inspect io-api >/dev/null 2>&1; then
+  skip "입출구 서버" "io-api 컨테이너 없음 — $DC --profile io up -d --build (infra/README.md)"
+else
+  for c in inference io-api; do
+    name="$c"; [ "$c" = inference ] && name="io-inference"
+    st="$(docker inspect "$name" --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}' 2>/dev/null || echo "없음 -")"
+    if [ "$st" = "running healthy" ]; then pass "$name ($st)"; else fail "$name" "상태=$st (docker logs $name)"; fi
+    z="$(docker exec "$name" date +%z 2>/dev/null || echo '?')"
+    if [ "$z" = "+0900" ]; then pass "$name 시간대 KST"; else fail "$name 시간대" "$z"; fi
+  done
+  if python3 "$TOOLS/io_api_smoke.py" --base "$IO_API" >"$OUT/io-api.log" 2>&1; then
+    pass "io-api REST 점검 ($(tail -1 "$OUT/io-api.log"))"
+  else
+    fail "io-api REST 점검" "$(grep -m3 '^FAIL' "$OUT/io-api.log" | tr '\n' ' ')(상세 $OUT/io-api.log)"
+  fi
+  if docker logs --since "$TS_EPOCH" io-api 2>&1 | grep -qE ' ERROR |Exception'; then
+    log "  참고: io-api 로그에 ERROR/Exception — docker logs io-api 확인"
+  fi
+fi
 
 # ---------------------------------------------------------------------
 {

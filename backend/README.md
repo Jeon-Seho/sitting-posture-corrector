@@ -119,6 +119,10 @@ backend/gradlew -p backend build -Pmysql-integration    # + 실제 MySQL (위 �
 
 JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `backend/api/target/`).
 
+처리 서비스 `backend/processing`(옛 `platform/api-server` — Kafka 판정·판정 결과 저장·운영 API, 패키지 `com.posture.api`)도 같은 Gradle 빌드의 모듈이다.
+`backend/gradlew -p backend :processing:build`로 시험하고, JAR는 `backend/processing/build/libs/api-server.jar`다.
+이미지는 `infra/docker/java.Dockerfile`의 `processing` target이며 서버 PC의 [빅데이터 compose](../infra/compose/bigdata.yaml)가 빌드한다.
+
 수동 실행: API는 MySQL(`POSEGOOD_DATABASE_URL`·`_USER`·`_PASSWORD`, 기본 `127.0.0.1:3306/posture_service`)과
 추론(`make dev-inference`, 127.0.0.1:8092)이 필요하다. `make dev-api`로 JAR를 실행한다.
 `make dev-server`는 임시 DB·API·추론·계정 모드 프론트를 함께 띄우고 끝나면 DB를 지운다. 실제 배포는 [Compose 안내](../infra/README.md)를 따른다.
