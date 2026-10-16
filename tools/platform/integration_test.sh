@@ -650,6 +650,23 @@ sys.exit(0 if x==[(2000,4500,'PAUSE'),(6500,8000,'MISSING')] and v.get('ended_ms
 fi
 
 # ---------------------------------------------------------------------
+step "12. 실시간 WebSocket 왕복 (D-57 3단계)"
+# 앱처럼 io-api /v2/realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
+# 판정 경로(io-api POSEGOOD_REALTIME_PIPELINE)가 local이든 kafka든 같은 결과여야 한다 — 두 값으로 한 번씩 돌려 비교(계획 0031).
+if [ "$E2E" = 0 ]; then skip "실시간 WebSocket 왕복" "--no-e2e"
+elif ! docker inspect io-api >/dev/null 2>&1; then skip "실시간 WebSocket 왕복" "io-api 컨테이너 없음"
+elif [ ! -f "$TOOLS/ws_realtime_smoke.py" ]; then skip "실시간 WebSocket 왕복" "$TOOLS/ws_realtime_smoke.py 없음"
+else
+  PIPE="$(docker exec io-api printenv POSEGOOD_REALTIME_PIPELINE 2>/dev/null || true)"
+  PIPE="${PIPE:-local}"
+  if python3 "$TOOLS/ws_realtime_smoke.py" --base "$IO_API" --report "$API" --pipeline "$PIPE" >"$OUT/ws-realtime.log" 2>&1; then
+    pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
+  else
+    fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
+  fi
+fi
+
+# ---------------------------------------------------------------------
 {
   echo "통합 테스트 결과: $TS"
   echo "PASS $PASS / FAIL $FAIL / SKIP $SKIP"

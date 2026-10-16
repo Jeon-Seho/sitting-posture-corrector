@@ -42,6 +42,14 @@ public class JdbcEpisodeStore implements EpisodeStore {
         this.ei = "`" + schema + "`.excluded_interval";
     }
 
+    /**
+     * (D-58) 바른 자세 시간 ms → {@code good_sec}(DECIMAL(9,1)). 0.1초 아래는 버린다 — 팀 API
+     * ({@code backend/api} {@code SessionRepository.tenths}, {@code RoundingMode.DOWN})와 같게(15,250ms → 15.2).
+     */
+    static BigDecimal goodSec(long goodMs) {
+        return BigDecimal.valueOf(goodMs, 3).setScale(1, RoundingMode.DOWN);
+    }
+
     static long micros(long ms) {
         return ms * 1000L;
     }
@@ -121,7 +129,7 @@ public class JdbcEpisodeStore implements EpisodeStore {
 
     @Override
     public boolean endSession(long sessionId, long endedMs, long goodMs) {
-        BigDecimal goodSec = BigDecimal.valueOf(goodMs).divide(BigDecimal.valueOf(1000), 1, RoundingMode.HALF_UP);
+        BigDecimal goodSec = goodSec(goodMs);
         return jdbc.update("UPDATE " + ms + " SET ended_at = DATE_ADD(started_at, INTERVAL ? MICROSECOND),"
                         + " good_sec = ? WHERE monitor_session_id = ? AND ended_at IS NULL",
                 micros(endedMs), goodSec, sessionId) > 0;
