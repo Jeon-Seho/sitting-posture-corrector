@@ -109,6 +109,10 @@ Kafka·Redis·HDFS·Spark와 판정 서비스(`backend/processing`)·추론 서�
 [compose/bigdata.yaml](compose/bigdata.yaml)로 따로 띄운다(DevOps, 아키텍처 v5.2). MySQL은 컨테이너가 아닌 외부 서버다.
 프로젝트 이름은 파일 안의 `name: platform`으로 고정해 옛 `platform/` 위치의 볼륨(`platform_*`)을 그대로 쓴다.
 
+실행 환경마다 다른 값(서버 IP·DB·바깥 포트·바인딩·이미지 태그)은 모두 `infra/compose/.env`에서 읽는다(D-24).
+필수는 `SERVER_LAN_IP`·`SERVICE_DB_SCHEMA`(없으면 compose가 시작하지 않음)와 `DB_*`, 나머지는 비워 두면 기본값이다 —
+목록과 설명은 [compose/env.example](compose/env.example). 메모리 상한·컨테이너끼리 쓰는 이름·포트·토픽은 compose에 고정한다.
+
 ```sh
 cp infra/compose/env.example infra/compose/.env           # 값 채우기(커밋하지 않음)
 cp infra/compose/hadoop.env.example infra/compose/hadoop.env
@@ -119,7 +123,7 @@ tools/platform/integration_test.sh --quick
 ### 입출구 서버 (io-api, 서버 PC)
 
 팀 `backend/api`(「PoseGood API 명세서」의 REST 22개 + `/v1/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
-DB는 외부 MySQL의 `posture_service`(V2.3)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
+DB는 외부 MySQL의 서비스 DB(V2.3, `.env`의 `SERVICE_DB_SCHEMA`)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다. 처음 한 번 토큰을 만든다.
 
 ```sh
@@ -131,7 +135,18 @@ curl -s http://127.0.0.1:8090/health                      # {"status":"ok","stor
 python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 테스트 10단계와 같음)
 ```
 
-- 포트는 기본 `127.0.0.1:8090`(서버 PC 안)이다. 앱·FE가 LAN에서 붙을 때는 `.env`에 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
+- 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 앱·FE가 LAN에서 붙을 때는 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
 - 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`).
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 다음 단계(`ws`, PM).
+
+### 판정 결과 저장 (api-server `report`, D-30·D-51)
+
+api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
+`collapse_event`·`correction_alert`와 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
+행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /cep/service-db`(V2.3, 통합 테스트 6단계).
+
+- 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
+  (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).
+- 시험 서버에서만 `.env`에 `REPORT_TEST_FIXTURES_ENABLED=true` — 통합 테스트 11단계가 시험 계정·기준 자세·세션 행
+  (`test-*@example.invalid`, 합성 좌표)을 만들어 저장·재전송 멱등을 확인하고 지운다. 운영에서는 켜지 않는다.

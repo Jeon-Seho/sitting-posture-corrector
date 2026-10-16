@@ -40,7 +40,7 @@
 #     허용했다(ufw는 22/8080만 개방 유지).
 #   - 내부 전용 포트(Kafka 9092, Redis 6379, Spark UI 4040, HDFS RPC
 #     9000)는 127.0.0.1 바인딩으로 좁히고, GPU PC가 실제로 써야 하는
-#     포트(9094, 9870, 9864)만 서버 IP(192.168.0.104)에 바인딩한다.
+#     포트(9094, 9870, 9864)만 서버 IP(당시 192.168.0.104, D-24부터 .env SERVER_LAN_IP)에 바인딩한다.
 #   - 모든 서비스에 로그 크기 제한(json-file, 10m×3) 적용 — VM에서
 #     겪은 디스크 부족(Kafka 크래시) 재발 방지.
 #
@@ -50,6 +50,13 @@
 #     붙여 로그·date 시각을 KST로 맞춘다. DB 저장 값의 기준은 JDBC
 #     serverTimezone=Asia/Seoul(application.yml)이며 컨테이너 시간대와 무관하다.
 #   - Kafka 메시지 시각(epoch ms / ISO-8601 Z)은 시간대 정보가 들어 있으므로 그대로 둔다.
+#
+# 2026-10-16 변경 (D-24, 실행 환경 값 .env화):
+#   - 환경마다 다른 값은 infra/compose/.env에서 읽는다(env.example). 필수(없으면 compose가 멈춤): SERVER_LAN_IP,
+#     SERVICE_DB_SCHEMA. 나머지(호스트 포트·바인딩·이미지)는 ${VAR:-지금 값}이라 비워 두면 지금과 같다.
+#   - 이미지 태그 고정(latest 금지): Kafka 4.3.1, Spark 4.2.0, Redis 7.4.11-alpine.
+#   - .env로 빼지 않는 것: 메모리 상한(mem_limit·KAFKA_HEAP_OPTS·Redis maxmemory, 서버 PC 16GB 배분 — 사용자 결정),
+#     127.0.0.1 바인딩 자체(보안), DataNode 9864 번호, 컨테이너 안 이름·포트(kafka:19092 등), 토픽·파티션, TZ.
 #
 # 환경변수: 외부 MySQL 접속 정보 등은 이 파일과 같은 폴더(infra/compose/)의 .env 로
 #   주입한다(env.example 참고, 실제 값이 든 .env·hadoop.env는 커밋하지 않는다).
@@ -92,15 +99,15 @@ services:
   # Apache Kafka 공식 이미지(apache/kafka)로 교체했다 — 이 이미지는
   # Kafka 3.7+부터 KRaft를 기본 지원하며 Zookeeper가 필요 없다.
   kafka:
-    image: apache/kafka:latest
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}   # (D-24) 태그 고정 — 10/16 서버에서 돌던 버전
     container_name: kafka
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 1.5g
     mem_reservation: 768m
     ports:
-      - "127.0.0.1:9092:9092"      # 호스트 내부 전용 (서버 PC 자체에서 CLI 디버깅용)
-      - "192.168.0.104:9094:9094"  # 외부 GPU PC(inference-service) 전용 — DOCKER-USER로 소스 IP 제한됨
+      - "127.0.0.1:${KAFKA_HOST_PORT:-9092}:9092"   # 호스트 내부 전용 (서버 PC 자체에서 CLI 디버깅용)
+      - "${SERVER_LAN_IP:?SERVER_LAN_IP(서버 PC LAN IP)를 infra/compose/.env에 넣으세요}:${KAFKA_EXTERNAL_PORT:-9094}:9094"   # 외부 GPU PC(inference-service) 전용 — DOCKER-USER로 소스 IP 제한됨
     environment:
       TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       KAFKA_NODE_ID: "1"
@@ -108,10 +115,11 @@ services:
       # PLAINTEXT: 같은 app-network의 다른 컨테이너(api-server 등)가
       #            서비스명 "kafka:19092"로 접속하는 내부 리스너
       # PLAINTEXT_HOST: 서버 PC 호스트에서 "localhost:9092"로 접속하는 리스너
-      # EXTERNAL: 외부 GPU PC가 "192.168.0.104:9094"로 접속하는 리스너
+      # EXTERNAL: 외부 GPU PC가 "<SERVER_LAN_IP>:<KAFKA_EXTERNAL_PORT>"로 접속하는 리스너
+      #           (D-24) 광고 주소·포트는 바깥 바인딩과 같아야 하므로 같은 .env 값을 쓴다
       #           (Posture_Architecture_v4.md 5.8절)
       KAFKA_LISTENERS: "PLAINTEXT://:19092,PLAINTEXT_HOST://:9092,EXTERNAL://:9094,CONTROLLER://:9093"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092,EXTERNAL://192.168.0.104:9094"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:${KAFKA_HOST_PORT:-9092},EXTERNAL://${SERVER_LAN_IP:?SERVER_LAN_IP(서버 PC LAN IP)를 infra/compose/.env에 넣으세요}:${KAFKA_EXTERNAL_PORT:-9094}"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,EXTERNAL:PLAINTEXT"
@@ -150,14 +158,14 @@ services:
 
   # ---------------- Redis ----------------
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7.4.11-alpine}   # (D-24) 태그 고정 — 10/16 서버에서 돌던 버전
     container_name: redis
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 512m
     command: ["redis-server", "--maxmemory", "400mb", "--maxmemory-policy", "allkeys-lru"]
     ports:
-      - "127.0.0.1:6379:6379"   # 서버 PC 내부 전용 (v4 7.1절 — 외부 PC에 노출하지 않음)
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"   # 서버 PC 내부 전용 (v4 7.1절 — 외부 PC에 노출하지 않음)
     volumes:
       - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
@@ -185,8 +193,8 @@ services:
       TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       CLUSTER_NAME: "posture-test"
     ports:
-      - "192.168.0.104:9870:9870"  # NameNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
-      - "127.0.0.1:9000:9000"      # HDFS RPC (fs.defaultFS) — 서버 PC 내부 전용
+      - "${SERVER_LAN_IP:?SERVER_LAN_IP(서버 PC LAN IP)를 infra/compose/.env에 넣으세요}:${HDFS_NAMENODE_UI_PORT:-9870}:9870"   # NameNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
+      - "127.0.0.1:${HDFS_RPC_HOST_PORT:-9000}:9000"   # HDFS RPC (fs.defaultFS) — 서버 PC 내부 전용
     volumes:
       - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
@@ -216,7 +224,8 @@ services:
       TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
       SERVICE_PRECONDITION: "hdfs-namenode:9870"
     ports:
-      - "192.168.0.104:9864:9864"  # DataNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
+      # 포트 번호는 고정 — WebHDFS가 DataNode 주소(9864)로 리다이렉트하므로 바꾸면 GPU PC 읽기가 깨진다(D-24). IP만 .env
+      - "${SERVER_LAN_IP:?SERVER_LAN_IP(서버 PC LAN IP)를 infra/compose/.env에 넣으세요}:9864:9864"  # DataNode WebHDFS UI — GPU PC 전용(DOCKER-USER로 제한됨)
     volumes:
       - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
@@ -237,7 +246,7 @@ services:
   # 맞춰, 컨테이너를 살려두고(tail -f) 필요할 때 docker exec로
   # spark-submit을 실행하는 방식으로 구성한다.
   spark:
-    image: apache/spark:latest
+    image: ${SPARK_IMAGE:-apache/spark:4.2.0}   # (D-24) 태그 고정 — 10/16 서버에서 돌던 버전
     container_name: spark
     restart: unless-stopped
     logging: *default-logging
@@ -245,7 +254,7 @@ services:
     user: root
     command: ["tail", "-f", "/dev/null"]
     ports:
-      - "127.0.0.1:4040:4040"   # spark-submit 실행 중에만 뜨는 Spark 애플리케이션 UI — 서버 PC 내부 전용
+      - "127.0.0.1:${SPARK_UI_HOST_PORT:-4040}:4040"   # spark-submit 실행 중에만 뜨는 Spark 애플리케이션 UI — 서버 PC 내부 전용
     environment:
       TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
     volumes:
@@ -292,17 +301,21 @@ services:
       CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
       # (D-37) v1 판정기 상태 Redis 저장 (posture:v1:judge:{session_id}, TTL은 위와 같음)
       CEP_V1_STATE_STORE_ENABLED: ${CEP_V1_STATE_STORE_ENABLED:-true}
-      # (D-32, D-41) 확정 서비스 DB(V2.1, V2.2로 올리면 SERVICE_DB_SPEC_VERSION=V2.2) — 같은 MySQL 서버의 다른 스키마
+      # (D-32, D-51) 확정 서비스 DB(V2.3) — 같은 MySQL 서버의 다른 스키마. 기본 정책은 값 4개로 찾는다(입출구 서버와 같은 값)
       SERVICE_DB_ENABLED: ${SERVICE_DB_ENABLED:-true}
-      SERVICE_DB_SCHEMA: ${SERVICE_DB_SCHEMA:-posture_service}
-      SERVICE_DB_DEFAULT_POLICY: ${SERVICE_DB_DEFAULT_POLICY:-DEFAULT_TEMP}
-      SERVICE_DB_EXPECTED_THRESHOLD: ${SERVICE_DB_EXPECTED_THRESHOLD:-0.7}
-      SERVICE_DB_SPEC_VERSION: ${SERVICE_DB_SPEC_VERSION:-V2.1}
+      SERVICE_DB_SCHEMA: ${SERVICE_DB_SCHEMA:?SERVICE_DB_SCHEMA(서비스 DB 이름, 예 posture_service)를 infra/compose/.env에 넣으세요}
+      SERVICE_DB_DEFAULT_THRESHOLD: ${SERVICE_DB_DEFAULT_THRESHOLD:-0.7}
+      SERVICE_DB_DEFAULT_HOLD_SECONDS: ${SERVICE_DB_DEFAULT_HOLD_SECONDS:-3}
+      SERVICE_DB_DEFAULT_RECOVER_SECONDS: ${SERVICE_DB_DEFAULT_RECOVER_SECONDS:-3}
+      SERVICE_DB_DEFAULT_REALERT_SECONDS: ${SERVICE_DB_DEFAULT_REALERT_SECONDS:-60}
+      # (D-30) 판정 결과 저장 — 시험용 API는 시험 서버에서만 true
+      REPORT_STORE_ENABLED: ${REPORT_STORE_ENABLED:-true}
+      REPORT_TEST_FIXTURES_ENABLED: ${REPORT_TEST_FIXTURES_ENABLED:-false}
       # (D-15) posture.inference 컨슈머 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
-      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-8}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
     ports:
-      - "8080:8080"
+      - "${API_SERVER_BIND:-0.0.0.0}:${API_SERVER_HOST_PORT:-8080}:8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -313,7 +326,7 @@ services:
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
     networks:
       - app-network
-    # (D-11) liveness만 본다 — 외부 DB(192.168.0.42) 일시 장애가 컨테이너
+    # (D-11) liveness만 본다 — 외부 DB 일시 장애가 컨테이너
     # unhealthy로 번지지 않게. DB/Redis 상태는 /actuator/health(전체) 또는
     # /actuator/health/readiness로 따로 확인한다.
     healthcheck:
@@ -327,7 +340,7 @@ services:
   # ---------------- inference-service (Python / LSTM) ----------------
   # v4 아키텍처 목표는 이 서비스를 외부 GPU PC로 옮기는 것이다(모델
   # 담당자가 GPU PC에 같은 이미지를 빌드해 KAFKA_BOOTSTRAP_SERVERS를
-  # 192.168.0.104:9094로 맞추면 된다 — Dockerfile/requirements.txt는
+  # <SERVER_LAN_IP>:<KAFKA_EXTERNAL_PORT>로 맞추면 된다 — Dockerfile/requirements.txt는
   # 이미 그대로 재사용 가능). 서버 PC의 이 사본은 제거하지 않고
   # 남겨둔다 — v4 10장이 정의한 장애 대응("GPU PC 중단 시 서버 PC에서
   # CPU 모드로 즉시 대체 실행")을 위한 폴백이다.
@@ -346,7 +359,7 @@ services:
       # run_inference() 결과를 api-server(구 posture-cep)가 구독하는 토픽으로 발행한다.
       KAFKA_TOPIC_POSTURE_INFERENCE: ${KAFKA_TOPIC_POSTURE_INFERENCE:-posture.inference}
     ports:
-      - "8000:8000"
+      - "${INFERENCE_BIND:-0.0.0.0}:${INFERENCE_HOST_PORT:-8000}:8000"
     depends_on:
       kafka:
         condition: service_healthy
@@ -393,7 +406,7 @@ services:
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: 8090
       SPRING_CONFIG_IMPORT: configtree:/run/secrets/
-      SPRING_DATASOURCE_URL: "jdbc:mysql://$${DB_HOST}:$${DB_PORT:3306}/$${IO_DB_NAME:posture_service}?connectionTimeZone=Asia/Seoul"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://$${DB_HOST}:$${DB_PORT:3306}/$${IO_DB_NAME:$${SERVICE_DB_SCHEMA}}?connectionTimeZone=Asia/Seoul"
       SPRING_DATASOURCE_USERNAME: "$${IO_DB_USER:$${DB_USER}}"
       SPRING_DATASOURCE_PASSWORD: "$${IO_DB_PASSWORD:$${DB_PASSWORD}}"
       POSEGOOD_INFERENCE_URL: http://inference:8092
@@ -401,7 +414,7 @@ services:
       POSEGOOD_COOKIE_SECURE: ${POSEGOOD_COOKIE_SECURE:-false}
       POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
     ports:
-      - "${IO_API_BIND:-127.0.0.1}:8090:8090"
+      - "${IO_API_BIND:-127.0.0.1}:${IO_API_HOST_PORT:-8090}:8090"
     depends_on:
       inference:
         condition: service_healthy

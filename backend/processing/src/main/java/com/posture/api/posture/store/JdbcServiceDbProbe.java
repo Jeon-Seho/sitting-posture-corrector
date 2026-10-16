@@ -38,19 +38,12 @@ class JdbcServiceDbProbe implements ServiceDbProbe {
     }
 
     @Override
-    public Optional<Long> policyIdByName(String schema, String policyName) {
+    public Optional<Long> policyIdByValues(String schema, DefaultPolicy policy) {
         List<Long> ids = jdbc.queryForList(
-                "SELECT threshold_policy_id FROM `" + schema + "`.threshold_policy WHERE policy_name = ?",
-                Long.class, policyName);
+                "SELECT threshold_policy_id FROM `" + schema + "`.threshold_policy"
+                        + " WHERE threshold = ? AND hold_seconds = ? AND recover_seconds = ? AND realert_seconds = ?",
+                Long.class, policy.threshold(), policy.holdSeconds(), policy.recoverSeconds(), policy.realertSeconds());
         return ids.isEmpty() ? Optional.empty() : Optional.ofNullable(ids.get(0));
-    }
-
-    @Override
-    public Optional<Double> policyThreshold(String schema, String policyName) {
-        List<Double> v = jdbc.queryForList(
-                "SELECT threshold FROM `" + schema + "`.threshold_policy WHERE policy_name = ?",
-                Double.class, policyName);
-        return v.isEmpty() ? Optional.empty() : Optional.ofNullable(v.get(0));
     }
 
     @Override

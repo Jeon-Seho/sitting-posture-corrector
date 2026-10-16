@@ -11,13 +11,13 @@
 #   EXPECT_PROJECT=platform tools/platform/integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
-#   0. 사전 확인   : docker, python3+requests, .env 형식, compose 프로젝트·Kafka 볼륨(정보)
+#   0. 사전 확인   : docker, python3+requests, .env 형식·필수 값·주소/포트·이미지 태그(D-24), compose 해석, 프로젝트·Kafka 볼륨(정보)
 #   1. 컨테이너    : 7개 실행·healthy
 #   2. Kafka       : 브로커, 토픽·파티션, 임시 토픽 produce→consume 왕복
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (bigdata/tools/hdfs_parquet_roundtrip.py)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB 준비(D-32·D-41, 목표 버전 SERVICE_DB_SPEC_VERSION)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.3 준비(D-32·D-51)
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
@@ -27,6 +27,8 @@
 #  10. 입출구 서버 : (io-api 컨테이너가 있을 때만 — compose --profile io) io-api·inference healthy·KST,
 #                    REST 점검 tools/platform/io_api_smoke.py(가입 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제 → 탈퇴, D-48)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.3)에
+#                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -50,13 +52,19 @@ for a in "$@"; do
     --quick) QUICK=1 ;;
     --no-e2e) E2E=0 ;;
     --restart) RESTART=1 ;;
-    -h|--help) sed -n 2,31p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,35p "$0"; exit 0 ;;
     *) echo "알 수 없는 옵션: $a (--help 참고)"; exit 2 ;;
   esac
 done
 
-API="${API_URL:-http://localhost:8080}"
-INFER="${INFERENCE_URL:-http://localhost:8000}"
+# (D-24) .env 값 읽기 — 마지막 줄이 이긴다(compose와 같음). 따옴표는 벗긴다. 없으면 빈 값.
+envval() {
+  [ -f "$ENV_FILE" ] || return 0
+  grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+envor() { local v; v="$(envval "$1")"; echo "${v:-$2}"; }
+API="${API_URL:-http://localhost:$(envor API_SERVER_HOST_PORT 8080)}"
+INFER="${INFERENCE_URL:-http://localhost:$(envor INFERENCE_HOST_PORT 8000)}"
 # 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
 EXPECTED_PROJECT="${EXPECT_PROJECT:-}"
 SOURCE_CSV="${SOURCE_CSV:-$TOOLS/posture-pilot-P01.csv}"
@@ -92,8 +100,32 @@ if [ -f "$ENV_FILE" ]; then
   BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' "$ENV_FILE" | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
   if [ -n "$BAD" ]; then fail ".env 숫자 값 형식" "숫자가 아닌 값: $BAD"; else pass ".env 숫자 값 형식"; fi
   if [ -n "$(tail -c1 "$ENV_FILE")" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
+  # (D-24) 필수 값 — 실행 환경마다 다른 값(env.example 1·2장). 하나라도 없으면 compose도 시작하지 않는다(SERVER_LAN_IP·SERVICE_DB_SCHEMA)
+  MISSING=""
+  for k in SERVER_LAN_IP DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD SERVICE_DB_SCHEMA; do
+    [ -n "$(envval "$k")" ] || MISSING="$MISSING $k"
+  done
+  if [ -n "$MISSING" ]; then fail ".env 필수 값" "없음:$MISSING (infra/compose/env.example 1·2장)"; else pass ".env 필수 값 (서버 주소·DB)"; fi
+  # IP·바인딩 주소 형식(IPv4)과 포트 범위
+  BADV=""
+  for k in SERVER_LAN_IP GPU_PC_IP API_SERVER_BIND INFERENCE_BIND IO_API_BIND; do
+    v="$(envval "$k")"
+    [ -z "$v" ] && continue
+    echo "$v" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$' || BADV="$BADV $k=$v"
+  done
+  for k in $(grep -oE '^[A-Z0-9_]+_PORT=' "$ENV_FILE" | tr -d = | sort -u); do
+    v="$(envval "$k")"
+    [ -z "$v" ] && continue
+    { [ "$v" -ge 1 ] && [ "$v" -le 65535 ]; } 2>/dev/null || BADV="$BADV $k=$v"
+  done
+  if [ -n "$BADV" ]; then fail ".env 주소·포트 형식" "$BADV"; else pass ".env 주소·포트 형식"; fi
+  # 이미지 태그 고정(latest 금지, CLAUDE.md 고정 결정)
+  LATEST="$(grep -E '^[A-Z0-9_]+_IMAGE=' "$ENV_FILE" | grep -E ':latest[[:space:]]*$|=[^:]*$' | cut -d= -f1 | tr '\n' ' ')"
+  if [ -n "$LATEST" ]; then fail ".env 이미지 태그" "latest이거나 태그 없음: $LATEST"; else pass ".env 이미지 태그 고정"; fi
+  if $DC config --quiet >>"$OUT/run.log" 2>&1; then pass "compose 설정 해석 (.env 값 치환)"
+  else fail "compose 설정 해석" "$DC config 실패 — $OUT/run.log"; fi
 else
-  fail ".env 파일" "$ENV_FILE 없음 — 옛 platform/.env를 복사"
+  fail ".env 파일" "$ENV_FILE 없음 — cp infra/compose/env.example infra/compose/.env 후 값 채우기"
 fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
 log "  compose 프로젝트: ${PROJ:-?} ($DC ps/down은 이 프로젝트 이름으로 동작)"
@@ -201,17 +233,17 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32·D-41) 확정 서비스 DB(posture_service, 목표 V2.1 — V2.2 항목은 경고) — 테이블 12개·판정 결과 컬럼·alert_enabled·기본 정책 threshold·계정 권한
+# (D-32·D-51) 확정 서비스 DB(posture_service V2.3) — 테이블 13개·판정 결과 컬럼·지운 컬럼 없음·기본 정책(값 4개)·계정 권한
 SDB="$(curl -s -m 15 "$API/cep/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
 if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
-  fail "서비스 DB (D-32·D-41)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
+  fail "서비스 DB (D-32·D-51)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('enabled') is False else 1)"; then
-  skip "서비스 DB (D-32·D-41)" "SERVICE_DB_ENABLED=false"
+  skip "서비스 DB (D-32·D-51)" "SERVICE_DB_ENABLED=false"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ok') else 1)"; then
-  pass "서비스 DB 준비 (D-32·D-41: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);w=d.get('warnings') or [];print(d['schema'],'목표',d.get('targetSpecVersion'),'실제',d.get('specVersion'),'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'),'threshold',d.get('defaultPolicyThreshold'),('· 경고 '+str(len(w))+'건(V2.2 항목)') if w else '')"))"
+  pass "서비스 DB 준비 (D-32·D-51: $(echo "$SDB" | python3 -c "import json,sys;d=json.load(sys.stdin);w=d.get('warnings') or [];print(d['schema'],d.get('specVersion'),'테이블',d.get('tableCount'),'· 기본 정책 id',d.get('defaultPolicyId'),('· 경고: '+'; '.join(w)) if w else '')"))"
 else
-  fail "서비스 DB (D-32·D-41)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
+  fail "서비스 DB (D-32·D-51)" "$(echo "$SDB" | python3 -c "import json,sys;print('; '.join(json.load(sys.stdin).get('problems',[])))")"
 fi
 IH="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$INFER/health")"
 if [ "$IH" = "200" ]; then pass "inference-service /health"; else fail "inference-service /health" "HTTP $IH"; fi
@@ -497,7 +529,7 @@ done
 
 # ---------------------------------------------------------------------
 step "10. 입출구 서버 (io-api, D-48)"
-IO_API="${IO_API_URL:-http://127.0.0.1:8090}"
+IO_API="${IO_API_URL:-http://127.0.0.1:$(envor IO_API_HOST_PORT 8090)}"
 if ! docker inspect io-api >/dev/null 2>&1; then
   skip "입출구 서버" "io-api 컨테이너 없음 — $DC --profile io up -d --build (infra/README.md)"
 else
@@ -515,6 +547,80 @@ else
   fi
   if docker logs --since "$TS_EPOCH" io-api 2>&1 | grep -qE ' ERROR |Exception'; then
     log "  참고: io-api 로그에 ERROR/Exception — docker logs io-api 확인"
+  fi
+fi
+
+# ---------------------------------------------------------------------
+step "11. 판정 결과 저장 (D-30·D-51)"
+# 저장 결과(GET /report/sessions/<id>)가 T-10 v1 기대값인지 — 세션 시작 기준 ms. V2.3은 종료 사유 컬럼이 없어
+# 이벤트 종료 방식은 시각으로 판정한 end_kind(RECOVERED·SESSION_END·EXCLUDED), 알림은 시각만(표시 여부 = 세션 alert_enabled).
+d30_expected() {
+  python3 -c "
+import json,sys
+v=json.load(sys.stdin); ev=v.get('events') or []; al=v.get('alerts') or []
+e=ev[0] if len(ev)==1 else {}
+ok=(v.get('ended_ms')==85000 and float(v.get('good_sec') or -1)==15.0 and v.get('baseline_posture_id')
+    and e.get('event_seq')==1 and e.get('started_ms')==5000 and e.get('confirmed_ms')==8000
+    and e.get('ended_ms')==78000 and e.get('end_kind')=='RECOVERED' and e.get('recovered_ms')==78000
+    and [(a['event_seq'],a['attempted_ms'],bool(a['displayed'])) for a in al]==[(1,8000,True),(1,68000,True)])
+sys.exit(0 if ok else 1)"
+}
+STORE="$(curl -s -m 5 "$API/report/store")"
+echo "report/store: ${STORE:-없음}" >>"$OUT/run.log"
+if [ "$E2E" = 0 ]; then skip "판정 결과 저장" "--no-e2e"
+elif ! echo "$STORE" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
+  fail "판정 결과 저장 (D-30)" "GET /report/store 응답 없음 — api-server 재빌드 확인"
+elif ! echo "$STORE" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)"; then
+  skip "판정 결과 저장 (D-30)" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 서버 .env에 true로 켜면 시험 계정·세션 행을 만들어 확인"
+elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "판정 결과 저장 (D-30)" "$TOOLS/replay_realtime_v1.py 없음"
+else
+  D_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+  CR="$(curl -s -m 10 -X POST "$API/report/test/sessions/$D_SID")"
+  echo "시험 세션 생성: $CR" >>"$OUT/run.log"
+  if echo "$CR" | grep -q '"baseline_posture_id"'; then pass "시험 계정·기준 자세·세션 행 생성 (DB-6, $D_SID)"
+  else fail "시험 계정·세션 행 생성" "$(echo "$CR" | head -c 300)"; fi
+
+  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-D30-$TS" --session-id "$D_SID" \
+    >"$OUT/d30-replay.log" 2>&1
+  DV=""
+  for _ in $(seq 1 30); do
+    DV="$(curl -s -m 5 "$API/report/sessions/$D_SID")"
+    echo "$DV" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
+    DV=""; sleep 2
+  done
+  echo "저장 결과: ${DV:-없음}" >>"$OUT/run.log"
+  if [ -z "$DV" ]; then fail "판정 결과 저장" "60초 안에 세션 종료가 저장되지 않음 (curl $API/report/store, docker logs api-server | grep 판정 결과 저장)"
+  elif echo "$DV" | d30_expected; then pass "저장: 세션 종료(85.0s, good_sec 15.0) · 붕괴 1(시작 5.0s → 확정 8.0s → 회복 78.0s) · 알림 2(8.0s·68.0s, 표시)"
+  else fail "판정 결과 저장" "$(echo "$DV" | head -c 700) (기대: 이벤트 1·알림 2·종료 85.0s)"; fi
+
+  # 재전송 시험(C-3) — 같은 decision을 다시 넣어도 행·순번이 그대로여야 한다
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes.v1 --from-beginning --timeout-ms 15000 \
+    2>/dev/null | grep -F "$D_SID" | grep -F '"kind":"decision"' >"$OUT/d30-decisions.jsonl" || true
+  NDD="$(wc -l <"$OUT/d30-decisions.jsonl" | tr -d ' ')"
+  AP="$(curl -s -m 20 -X POST -H 'Content-Type: text/plain' --data-binary @"$OUT/d30-decisions.jsonl" "$API/report/test/apply")"
+  echo "다시 넣기: $AP" >>"$OUT/run.log"
+  DV2="$(curl -s -m 5 "$API/report/sessions/$D_SID")"
+  SAME="$(python3 - "$DV" "$DV2" "$AP" <<'PYD'
+import json,sys
+a,b,ap=(json.loads(x) for x in sys.argv[1:4])
+keys=('events','alerts','ended_ms','good_sec')
+print('same' if all(a.get(k)==b.get(k) for k in keys) and not ap.get('errors') and ap.get('applied',0)>0 else 'diff')
+PYD
+)"
+  if [ "$NDD" = "4" ] && [ "$SAME" = "same" ]; then pass "재전송 멱등: decision 4건을 다시 넣어도 행·순번 그대로 (C-3)"
+  else fail "재전송 멱등" "decision ${NDD}건(기대 4), 결과 $SAME — $OUT/run.log"; fi
+
+  sleep 2
+  L="$($KT/kafka-consumer-groups.sh $BS --describe --group report-store-v1 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
+  if [ "$L" = "0" ]; then pass "저장 컨슈머 report-store-v1 lag 0"
+  elif [ -z "$L" ]; then fail "저장 컨슈머 report-store-v1" "그룹 없음 — REPORT_STORE_ENABLED·재빌드 확인"
+  else fail "저장 컨슈머 report-store-v1 lag" "$L"; fi
+
+  if [ "${KEEP_D30:-0}" = 1 ]; then skip "시험 세션 삭제" "KEEP_D30=1 — $D_SID 남겨 둠"
+  else
+    DEL="$(curl -s -m 10 -X DELETE "$API/report/test/sessions/$D_SID")"
+    if echo "$DEL" | grep -q '"deletedSessions": *1'; then pass "시험 세션·계정 삭제 (이벤트·알림·기준 자세는 CASCADE)"
+    else fail "시험 세션 삭제" "$DEL"; fi
   fi
 fi
 

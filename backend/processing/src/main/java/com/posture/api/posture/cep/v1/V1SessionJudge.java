@@ -324,16 +324,25 @@ public final class V1SessionJudge {
         return new Result(decisions, progressBody(summary), null);
     }
 
-    /** 입력이 끊긴 채 만료될 때: 진행 중 사건만 끊김(missing)으로 닫는다. */
+    /**
+     * 입력이 끊긴 채 만료될 때: 진행 중 사건을 끊김(missing)으로 닫고, 세션도 {@code session_ended}(reason = missing)로 끝낸다.
+     * (D-30) 판정 결과 저장이 세션 종료 사유를 {@code DISCONNECTED}로 기록할 수 있게 — 사용자 종료는 reason = ended.
+     */
     public synchronized Result expire() {
+        if (ended) {
+            return Result.skip("이미 종료된 세션");
+        }
         List<Map<String, Object>> emitted = new ArrayList<>();
         interrupt("missing", endMs, emitted);
+        ended = true;
+        emitted.add(event("session_ended", endMs, endMs, validMs, "none", "missing"));
         Map<String, Object> summary = summary();
         List<Map<String, Object>> decisions = new ArrayList<>();
         for (Map<String, Object> event : emitted) {
             decisions.add(decisionBody(event, summary));
         }
-        return new Result(decisions, null, null);
+        lastProgressMs = endMs;
+        return new Result(decisions, progressBody(summary), null);
     }
 
     public synchronized boolean ended() {

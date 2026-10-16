@@ -8,15 +8,15 @@ DB 생성 권한이 없어도(스키마를 만들 필요 없이) MySQL에 실제
 않는다(READ ONLY 성격의 점검 스크립트).
 
 사용 예:
-  # 서비스DB 연결 확인 (담당자가 posture_app을 만들어줬는지)
-  python3 test_db_connection.py --host 192.168.0.42 --user posture_app \
-      --password changeme --database posture_app
+  # .env 파일을 그대로 읽어서 확인 (DB_HOST·DB_PORT·DB_USER·DB_PASSWORD·DB_NAME — 권장, D-24)
+  python3 tools/platform/test_db_connection.py --env-file infra/compose/.env
+
+  # 값을 직접 줄 때 (<DB_HOST>는 DB 담당 PC의 LAN IP — infra/compose/.env와 같은 값)
+  python3 tools/platform/test_db_connection.py --host <DB_HOST> --user posture_app \
+      --password '<비밀번호>' --database posture_app
 
   # DB가 아직 없어도 서버 자체 접속만 확인 (database 생략)
-  python3 test_db_connection.py --host 192.168.0.42 --user root --password ****
-
-  # .env 파일을 그대로 읽어서 확인 (서비스DB/연구DB 둘 다)
-  python3 tools/platform/test_db_connection.py --env-file infra/compose/.env
+  python3 tools/platform/test_db_connection.py --host <DB_HOST> --user <계정> --password '<비밀번호>'
 """
 from __future__ import annotations
 

@@ -28,7 +28,8 @@ spring:
       # (D-15) 동시에 DB를 쓰는 주체: posture.inference 컨슈머 스레드(기본 3)
       # + 세션 만료 스케줄러(1) + 헬스체크(1) = 5. 여유를 두어 8.
       # 컨슈머 concurrency를 올리면 이 값도 함께 올린다(DB max_connections=151).
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:8}
+      # (D-30) 판정 결과 저장 컨슈머(기본 1) + 시험·확인 API를 더해 10.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       # (D-11) 기본값에 기대지 않고 커넥션 수명 관련 값을 명시한다.
       pool-name: posture-app-pool
       # 커넥션 최대 수명 30분 — DB의 wait_timeout(기본 8시간)보다 반드시 짧게.
@@ -115,18 +116,31 @@ cep:
   v1-state-store:
     enabled: ${CEP_V1_STATE_STORE_ENABLED:true}
 
-# (D-32) 확정 서비스 DB — DB 명세서 V2.1 `posture_service`. 테스트용 posture_app과 같은 MySQL 서버에 있어
+# (D-32, D-51) 확정 서비스 DB — DB 명세서 V2.3 `posture_service`(팀 backend/api 기준). 테스트용 posture_app과 같은 MySQL 서버에 있어
 # 연결 풀을 따로 두지 않고 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
-# 지금은 준비 확인(GET /cep/service-db)만 한다. 판정 결과 저장은 D-30.
+# 준비 확인(GET /cep/service-db)과 판정 결과 저장(D-30)이 쓴다.
 service-db:
   enabled: ${SERVICE_DB_ENABLED:true}
   schema: ${SERVICE_DB_SCHEMA:posture_service}
-  # 시드 seed_04의 기본 판정 정책 이름. 확정 정책(DEFAULT) 행이 생기면 이 값만 바꾼다.
-  default-policy-name: ${SERVICE_DB_DEFAULT_POLICY:DEFAULT_TEMP}
-  # (D-41) 기본 정책 threshold 기대값 — DB V2.2 시드(0.700) = 서버 판정 기준(0.7)
-  expected-default-threshold: ${SERVICE_DB_EXPECTED_THRESHOLD:0.7}
-  # 목표 명세 버전. 서버 DB는 당분간 V2.1(10/10 결정) — V2.2 항목(alert_enabled·threshold 0.7)은 경고로만. V2.2로 올리면 V2.2
-  spec-version: ${SERVICE_DB_SPEC_VERSION:V2.1}
+  # (D-51) 기본 판정 정책 값 4개 — V2.3 정책 행에는 이름이 없어 값 조합(UK-03)으로 찾는다.
+  # 입출구 서버(backend/api)의 posegood.default-policy.*·시드 seed_04와 같은 값(0.7·3초·3초·60초)이어야 한다.
+  default-policy:
+    threshold: ${SERVICE_DB_DEFAULT_THRESHOLD:0.7}
+    hold-seconds: ${SERVICE_DB_DEFAULT_HOLD_SECONDS:3}
+    recover-seconds: ${SERVICE_DB_DEFAULT_RECOVER_SECONDS:3}
+    realert-seconds: ${SERVICE_DB_DEFAULT_REALERT_SECONDS:60}
+
+# (D-30, D-51) 판정 결과 저장 — posture.episodes.v1 → posture_service(V2.3) 결과 테이블. 판정과 다른 컨슈머 그룹이라
+# DB 장애 때 이 그룹만 멈추고(retry-backoff-ms마다 다시 시도) 판정은 계속한다. 세션 행은 입출구 서버가 만든다(DB 회신 C-2).
+report:
+  store:
+    enabled: ${REPORT_STORE_ENABLED:true}
+    group: ${REPORT_STORE_GROUP:report-store-v1}
+    concurrency: ${REPORT_STORE_CONCURRENCY:1}
+    retry-backoff-ms: ${REPORT_STORE_RETRY_BACKOFF_MS:5000}
+  # 시험용 계정·세션 행 만들기·지우기와 메시지 다시 넣기(POST/DELETE /report/test/...). 시험 서버에서만 켠다.
+  test-fixtures:
+    enabled: ${REPORT_TEST_FIXTURES_ENABLED:false}
 
 management:
   endpoints:

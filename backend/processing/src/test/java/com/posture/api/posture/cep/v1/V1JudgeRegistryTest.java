@@ -105,8 +105,10 @@ class V1JudgeRegistryTest {
         now.addAndGet(301_000);
         sink.sent.clear();
         assertThat(registry.expireStale(300)).isEqualTo(1);
-        assertThat(sink.kinds()).containsExactly("interrupted");
+        // (D-30) 진행 중 사건을 끊김으로 닫고 세션도 session_ended(reason missing)로 끝낸다 → 저장은 DISCONNECTED
+        assertThat(sink.kinds()).containsExactly("interrupted", "session_ended", "progress");
         assertThat(((Map<?, ?>) sink.sent.get(0).body().get("event")).get("reason")).isEqualTo("missing");
+        assertThat(((Map<?, ?>) sink.sent.get(1).body().get("event")).get("reason")).isEqualTo("missing");
         assertThat(registry.status().get("activeSessions")).isEqualTo(0);
     }
 
