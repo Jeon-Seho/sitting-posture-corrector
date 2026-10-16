@@ -321,7 +321,7 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 ```
 
 - `items`에는 **항상 구간 1개**를 넣는다(Q1).
-- `phase`: 측정 `running`·`rest`(일시정지)·`away`(카메라 끊김), 등록 `calibration`. `rest`·`away`는 `frames: []`.
+- `phase`: 측정 `running`·`rest`(일시정지)·`away`(카메라 영상이 멈춤, 연결은 그대로), 등록 `calibration`. `rest`·`away`는 `frames: []`. 쓰던 카메라가 빠지면(USB 연결 끊김) `away`가 아니라 `end`로 측정을 끝낸다(10/16, FE 제안서 3.2).
 - `p`: 관절 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `null`이고 이때 `valid`는 넣지 않는다. 서버는 `p:null`도 판정 불가로 본다(C6).
 - `valid: false`: 앱이 위치를 판별하지 못한 프레임(귀·어깨·사용자가 안 보이는 등)에만 붙인다. 서버는 그 프레임을 `unmeasurable`로 본다.
 - 해상도는 보내지 않는다(10/15). 640×480 고정이라 서버가 알 필요가 없다. 앱은 640×480을 요청하고, **실제 크기가 640×480이 아니면 측정·등록을 시작하지 않고** "이 카메라는 640×480을 지원하지 않아요"를 보인다(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`).
@@ -434,7 +434,7 @@ sequenceDiagram
 |---|---|---|
 | 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
 | 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
-| 기준 자세 | 이 PC에 카메라별로 저장(`features/camera/savedBaseline.ts`), 앱이 계산 | B2 + WS calibration |
+| 기준 자세 | 이 PC에 하나 저장, 어느 카메라든 같은 것(`features/camera/savedBaseline.ts`, 10/16), 앱이 계산 | B2 + WS calibration |
 | 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
 | 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |
 | 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |

@@ -1,7 +1,7 @@
 # 카메라가 여러 대일 때 (내장 + USB)
 
 - 작성자: klaod-tech(FE)
-- 상태: planned (결정 10/16, 화면 담당 lellon0403과 조율 전)
+- 상태: in_progress (10/16 결정 3·5·6·7 구현·실제 확인, 결정 1·2·4 남음)
 - 담당: FE(klaod-tech)가 계획·카메라 선택 규칙, 측정하기 화면·`useCamera`는 lellon0403과 함께
 - 시작일: 2026-10-16
 - 관련: [FE 제안서](../../design/fe-server-proposal.md) 2장 결정 표·3.2(카메라 끊김 = `away`)·F13(640×480), [제품 범위](../../product-spec.md)(사용자 1명·단일 카메라)
@@ -47,13 +47,13 @@
 
 ## 작업 단계
 
-- [ ] 1. lellon0403에게 결정 1~4와 바꿀 곳(`useCamera`, 측정하기 화면)을 공유하고 누가 고칠지 정한다.
+- [x] 1. (10/16 Downloads 메모 「카메라 여러 대 처리 변경 안내」로 공유) lellon0403에게 결정 1~4와 바꿀 곳(`useCamera`, 측정하기 화면)을 공유하고 누가 고칠지 정한다.
 - [ ] 2. `camera/`에 순수 함수: `isBuiltInCamera(label)`, `pickAutoCamera(devices, saved)`, `fitsCaptureSize(settings)`. 단위 시험(1대, 내장+USB, USB 2대, 이름 없음, 모두 내장, 사용자가 「자동」을 고른 경우).
 - [ ] 3. `useCamera` 연결 순서: 기본으로 열기 → 권한 뒤 목록 → 결정 1이면 외장으로 다시 열고 저장 → 결정 4 확인.
 - [ ] 4. `devicechange`에서 새 카메라 알림(결정 2), `track.onended`를 멈춤 상태로(결정 3).
-- [ ] 5. 가짜 `mediaDevices`로 시험: 꽂음·뺌·사용 중(`NotReadableError`)·640×480 미지원.
-- [ ] 6. 실제 확인: 노트북 내장 + USB 카메라로 처음 켜기, 꽂기, 측정 중 빼기, 다시 꽂기. 결과를 아래에 기록.
-- [ ] 7. FE 제안서 2장 결정 표에 결정 1~4를 옮기고 이 계획을 끝낸다.
+- [x] 5. (10/16 `useCamera.devices.test.tsx`, `CameraPicker.test.tsx`) 가짜 `mediaDevices`로 시험: 꽂음·뺌·사용 중(`NotReadableError`)·640×480 미지원.
+- [ ] 6. (10/16 USB 카메라 2대로 결정 3·5·6·7 확인. 내장 + USB와 결정 1·2·4는 남음) 실제 확인: 노트북 내장 + USB 카메라로 처음 켜기, 꽂기, 측정 중 빼기, 다시 꽂기. 결과를 아래에 기록.
+- [ ] 7. (10/16 결정 3·5·7을 FE 제안서 2장·3.2에 옮김) FE 제안서 2장 결정 표에 결정 1~4를 옮기고 이 계획을 끝낸다.
 
 ## 결정과 진행 기록
 
