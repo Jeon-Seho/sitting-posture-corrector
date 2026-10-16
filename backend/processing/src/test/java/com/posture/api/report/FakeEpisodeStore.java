@@ -23,7 +23,15 @@ class FakeEpisodeStore implements EpisodeStore {
         long at;
     }
 
+    /** (D-39) excluded_interval 행: PK (세션, 시작 시각) */
+    static final class Ex {
+        long started;
+        Long ended;
+        String reason;
+    }
+
     final Map<String, SessionRow> sessions = new HashMap<>();
+    final List<Ex> excluded = new ArrayList<>();
     final List<Ev> events = new ArrayList<>();
     final List<Al> alerts = new ArrayList<>();
     Long sessionEndedMs;
@@ -117,6 +125,53 @@ class FakeEpisodeStore implements EpisodeStore {
         this.goodMs = goodMs;
         writes++;
         return true;
+    }
+
+    @Override
+    public boolean startExcluded(long sessionId, long startedMs, String reason) {
+        if (excluded.stream().anyMatch(x -> x.started == startedMs)) {
+            return false;
+        }
+        Ex x = new Ex();
+        x.started = startedMs;
+        x.reason = reason;
+        excluded.add(x);
+        writes++;
+        return true;
+    }
+
+    @Override
+    public boolean endExcluded(long sessionId, long startedMs, long endedMs, String reason) {
+        for (Ex x : excluded) {
+            if (x.started == startedMs) {
+                if (x.ended != null) {
+                    return false;
+                }
+                x.ended = Math.max(startedMs, endedMs);
+                writes++;
+                return true;
+            }
+        }
+        Ex x = new Ex();
+        x.started = startedMs;
+        x.ended = Math.max(startedMs, endedMs);
+        x.reason = reason;
+        excluded.add(x);
+        writes++;
+        return true;
+    }
+
+    @Override
+    public int endOpenExcluded(long sessionId, long endedMs) {
+        int n = 0;
+        for (Ex x : excluded) {
+            if (x.ended == null) {
+                x.ended = Math.max(x.started, endedMs);
+                n++;
+                writes++;
+            }
+        }
+        return n;
     }
 
     /** V2.3: 종료 사유 컬럼 없이 시각으로 판정(JdbcEpisodeStore.sessionView의 end_kind와 같은 규칙). */

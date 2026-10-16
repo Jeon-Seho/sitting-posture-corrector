@@ -46,6 +46,12 @@
 - 판정은 세션 시작 메시지의 `policy`로 판정한다. 환경변수 값은 시작 메시지가 없을 때의 기본값일 뿐이다.
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `phase`(`rest`·`away`)와 품질 `poor`는 제외 구간이다.
 - `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
+- 판정은 제외 구간(휴식 `rest`·자리 비움 `away`·판정 불가 `unmeasurable`·입력 누락 `missing`)의 경계를 `excluded_started`·`excluded_ended`
+  사건으로 낸다(D-39, 2026-10-16). `onset_ms`는 구간 시작, `timestamp_ms`는 시작·끝, `deviation_type`은 `none`이다. 붙어 있는 같은 사유는
+  한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
+  `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다(v2 `event` 설명과 같음).
+- 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
+  `judge-cases.v1.json`(관측열 → 사건·요약·제외 구간), `inference-cases.v1.json`(입력 v2 → 관측 v2).
 - 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.

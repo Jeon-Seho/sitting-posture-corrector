@@ -10,17 +10,23 @@ import java.util.Set;
  *
  * @param sessionId 봉투 {@code session_id} = {@code monitor_session.client_session_uuid}
  * @param eventId   계약 {@code event_id}(모든 사건 종류를 통틀어 1부터) — 로그·DLQ 추적용, DB 순번과는 다름
- * @param kind      collapse_confirmed · reminder · recovery_confirmed · interrupted · session_ended
+ * @param kind      collapse_confirmed · reminder · recovery_confirmed · interrupted · session_ended ·
+ *                  excluded_started · excluded_ended(D-39)
  * @param timestampMs 사건 시각
- * @param onsetMs   붕괴 시작 시각(사건을 찾는 열쇠). session_ended는 timestamp와 같음
- * @param reason    interrupted·session_ended의 사유(그 밖은 null)
+ * @param onsetMs   붕괴 시작 시각(사건을 찾는 열쇠). session_ended는 timestamp와 같음. 제외 구간 사건은 구간 시작
+ * @param reason    interrupted·session_ended의 사유, 제외 구간 사건은 rest·away·unmeasurable·missing(그 밖은 null)
  * @param normalMs  요약 {@code normal_ms} — 세션 종료 때 {@code good_sec}
  */
 public record EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
                               String reason, long normalMs) {
 
     static final Set<String> KINDS = Set.of(
-            "collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended");
+            "collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended",
+            "excluded_started", "excluded_ended");
+
+    /** (D-39) 제외 구간 사건의 {@code reason} → {@code excluded_interval.exclusion_reason}(V2.3 허용값). */
+    static final Map<String, String> EXCLUSION_REASONS = Map.of(
+            "rest", "PAUSE", "away", "ABSENCE", "unmeasurable", "UNMEASURABLE", "missing", "MISSING");
 
     /** 봉투째 받은 메시지에서 만든다. decision이 아니면 null. 형식이 틀리면 {@link IllegalArgumentException}. */
     @SuppressWarnings("unchecked")
@@ -58,6 +64,9 @@ public record EpisodeDecision(String sessionId, long eventId, String kind, long 
             throw new IllegalArgumentException("onset_ms > timestamp_ms");
         }
         String reason = event.get("reason") instanceof String r ? r : null;
+        if (k.startsWith("excluded_") && !EXCLUSION_REASONS.containsKey(reason)) {
+            throw new IllegalArgumentException("제외 구간 사유 오류: " + reason);
+        }
         return new EpisodeDecision(sid, eventId, k, ts, onset, reason, normal);
     }
 

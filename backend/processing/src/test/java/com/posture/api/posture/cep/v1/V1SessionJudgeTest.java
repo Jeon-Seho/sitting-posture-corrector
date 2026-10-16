@@ -159,7 +159,8 @@ class V1SessionJudgeTest {
         assertThat(e.get("timestamp_ms")).isEqualTo(3000L);
         t += 500;
         r = j.accept(obs(seq, t, t + 500, "away", false, 0.0));
-        assertThat(r.decisions()).isEmpty();                                   // 이미 닫힘
+        // 사건은 이미 닫힘 — (D-39) 제외 구간 사유만 바뀜(판정 불가 3.0~3.5s 끝, 자리 비움 시작)
+        assertThat(kinds(events(r))).containsExactly("excluded_ended", "excluded_started");
         Map<String, Object> s = summary(j.view());
         assertThat(s.get("unknown_ms")).isEqualTo(500L);
         assertThat(s.get("away_ms")).isEqualTo(500L);
@@ -215,14 +216,71 @@ class V1SessionJudgeTest {
             j.accept(obs(i, t, t + 500, "running", true, 0.9));
         }
         V1SessionJudge.Result r = j.end(5000);
-        // 공백(4.0~5.0s)에서 먼저 끊김(missing) — 그 뒤 ended 끊김은 닫을 사건이 없어 나오지 않음
-        assertThat(kinds(List.of(event(r.decisions().get(0)), event(r.decisions().get(1)))))
-                .containsExactly("interrupted", "session_ended");
-        assertThat(r.decisions()).hasSize(2);
+        // 공백(4.0~5.0s)에서 먼저 끊김(missing) — 그 뒤 ended 끊김은 닫을 사건이 없어 나오지 않음.
+        // (D-39) 공백은 누락 제외 구간으로 열렸다가 세션 종료 때 닫힌다.
+        assertThat(kinds(events(r)))
+                .containsExactly("interrupted", "excluded_started", "excluded_ended", "session_ended");
         assertThat(event(r.decisions().get(0)).get("reason")).isEqualTo("missing");
         assertThat(summary(r.progress()).get("missing_ms")).isEqualTo(1000L);
         assertThat(j.end(5000).skipped()).isNotNull();
         assertThat(j.accept(obs(8, 5000, 5500, "running", true, 0.9)).skipped()).isNotNull();
+    }
+
+    static List<Map<String, Object>> events(V1SessionJudge.Result r) {
+        List<Map<String, Object>> l = new ArrayList<>();
+        for (Map<String, Object> d : r.decisions()) {
+            l.add(event(d));
+        }
+        return l;
+    }
+
+    /** (D-39) 제외 구간 경계: 같은 사유가 이어지면 한 구간, 사유가 바뀌거나 측정 구간이 오면 끝, 누락은 그 공백. */
+    @Test
+    void excludedIntervalsAreEmittedAtBoundaries() {
+        V1SessionJudge j = new V1SessionJudge(SID, POLICY);
+        List<Map<String, Object>> ev = new ArrayList<>();
+        ev.addAll(events(j.accept(obs(0, 0, 500, "running", true, 0.1))));
+        ev.addAll(events(j.accept(obs(1, 500, 1000, "rest", false, 0.0))));
+        ev.addAll(events(j.accept(obs(2, 1000, 1500, "rest", false, 0.0))));      // 같은 사유 — 늘리기만
+        ev.addAll(events(j.accept(obs(4, 1500, 2000, "rest", false, 0.0))));      // 순번만 건너뜀 — 시간이 이어져 같은 구간
+        ev.addAll(events(j.accept(obs(5, 2000, 2500, "away", false, 0.0))));      // 사유 바뀜
+        ev.addAll(events(j.accept(obs(6, 3500, 4000, "running", true, 0.1))));    // 공백 2.5~3.5s 누락
+        ev.addAll(events(j.accept(obs(7, 4000, 4500, "running", false, 0.0))));   // 판정 불가
+        ev.addAll(events(j.end(4500)));
+        List<String> spans = new ArrayList<>();
+        for (Map<String, Object> e : ev) {
+            if ("excluded_ended".equals(e.get("kind"))) {
+                spans.add(e.get("onset_ms") + "-" + e.get("timestamp_ms") + ":" + e.get("reason"));
+            }
+            if (String.valueOf(e.get("kind")).startsWith("excluded_")) {
+                assertThat(e.get("deviation_type")).isEqualTo("none");
+            }
+        }
+        assertThat(spans).containsExactly("500-2000:rest", "2000-2500:away", "2500-3500:missing", "4000-4500:unmeasurable");
+        assertThat(kinds(ev)).containsExactly(
+                "excluded_started", "excluded_ended", "excluded_started", "excluded_ended", "excluded_started",
+                "excluded_ended", "excluded_started", "excluded_ended", "session_ended");
+        // event_id는 모든 사건을 통틀어 1부터 차례로
+        assertThat(ev.get(ev.size() - 1).get("event_id")).isEqualTo(9L);
+    }
+
+    /** (D-39) 열린 제외 구간은 Redis 스냅샷으로 이어지고, D-39 전 스냅샷(키 없음)도 복원된다. */
+    @Test
+    void openExcludedIntervalSurvivesRestore() {
+        V1SessionJudge j = new V1SessionJudge(SID, POLICY);
+        j.accept(obs(0, 0, 500, "rest", false, 0.0));
+        V1SessionJudge restored = V1SessionJudge.restore(j.snapshot());
+        List<Map<String, Object>> ev = events(restored.accept(obs(1, 500, 1000, "rest", false, 0.0)));
+        assertThat(ev).isEmpty();                                              // 같은 구간을 늘리기만
+        ev = events(restored.accept(obs(2, 1000, 1500, "running", true, 0.1)));
+        assertThat(kinds(ev)).containsExactly("excluded_ended");
+        assertThat(ev.get(0).get("onset_ms")).isEqualTo(0L);
+        assertThat(ev.get(0).get("timestamp_ms")).isEqualTo(1000L);
+
+        Map<String, Object> old = j.snapshot();
+        old.remove("excluded");
+        V1SessionJudge legacy = V1SessionJudge.restore(old);
+        assertThat(kinds(events(legacy.accept(obs(1, 500, 1000, "running", true, 0.1))))).isEmpty();
     }
 
     @Test

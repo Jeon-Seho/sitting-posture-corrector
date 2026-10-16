@@ -82,6 +82,23 @@ class RealtimeContractTests(unittest.TestCase):
             with self.subTest(kind=payload["kind"]), self.assertRaises(ValidationError):
                 validator("kafka-episodes.v1.schema.json").validate(payload)
 
+    def test_excluded_interval_events_carry_an_exclusion_reason(self):
+        # D-39: excluded_started/excluded_ended mark spans left out of the judgement (excluded_interval).
+        decision = self.example("episodes-decision.json")
+        schema = validator("kafka-episodes.v1.schema.json")
+        for kind in ("excluded_started", "excluded_ended"):
+            for reason in ("rest", "away", "unmeasurable", "missing"):
+                payload = copy.deepcopy(decision)
+                payload["body"]["event"].update(kind=kind, reason=reason, deviation_type="none")
+                with self.subTest(kind=kind, reason=reason):
+                    schema.validate(payload)
+        for change in ({"reason": "ended"}, {"reason": None}, {"deviation_type": "left_lean"}):
+            payload = copy.deepcopy(decision)
+            payload["body"]["event"].update({"kind": "excluded_ended", "reason": "rest", "deviation_type": "none"})
+            payload["body"]["event"].update(change)
+            with self.subTest(change=change), self.assertRaises(ValidationError):
+                schema.validate(payload)
+
     def test_only_notifying_events_become_alerts(self):
         alert = self.example("ws-alert.json")
         with self.assertRaises(ValidationError):

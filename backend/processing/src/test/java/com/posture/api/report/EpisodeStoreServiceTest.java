@@ -126,6 +126,38 @@ class EpisodeStoreServiceTest {
         assertThat(store.sessionEndedMs).isEqualTo(6000L);
     }
 
+    /** (D-39) 제외 구간: 시작에 열고 끝에 닫는다, 사유는 DB 값으로, 재전송은 그대로, 시작이 빠져도 끝에서 넣는다. */
+    @Test
+    void excludedIntervalsAreOpenedAndClosed() {
+        store.addSession(SID, true);
+        assertThat(service.apply(d(1, "excluded_started", 6000, 6000, "rest", 0))).isEqualTo(Outcome.STORED);
+        assertThat(store.excluded).hasSize(1);
+        assertThat(store.excluded.get(0).ended).isNull();
+        assertThat(store.excluded.get(0).reason).isEqualTo("PAUSE");
+        assertThat(service.apply(d(2, "excluded_ended", 8500, 6000, "rest", 0))).isEqualTo(Outcome.STORED);
+        assertThat(store.excluded.get(0).ended).isEqualTo(8500L);
+        int writes = store.writes;
+        assertThat(service.apply(d(1, "excluded_started", 6000, 6000, "rest", 0))).isEqualTo(Outcome.DUPLICATE);
+        assertThat(service.apply(d(2, "excluded_ended", 8500, 6000, "rest", 0))).isEqualTo(Outcome.DUPLICATE);
+        assertThat(store.writes).isEqualTo(writes);
+        // 시작 메시지가 빠진 구간은 끝 메시지에서 시작·끝을 함께 넣는다
+        assertThat(service.apply(d(4, "excluded_ended", 9500, 8500, "away", 0))).isEqualTo(Outcome.STORED);
+        assertThat(store.excluded.get(1).started).isEqualTo(8500L);
+        assertThat(store.excluded.get(1).ended).isEqualTo(9500L);
+        assertThat(store.excluded.get(1).reason).isEqualTo("ABSENCE");
+        assertThat(service.status().get("excludedWritten")).isEqualTo(3L);
+    }
+
+    /** (D-39) 세션 종료 때 열린 제외 구간을 종료 시각으로 닫는다(끝 메시지가 빠진 경우). */
+    @Test
+    void sessionEndClosesOpenExcludedIntervals() {
+        store.addSession(SID, true);
+        service.apply(d(1, "excluded_started", 27000, 27000, "missing", 0));
+        assertThat(service.apply(d(2, "session_ended", 29500, 29500, "ended", 0))).isEqualTo(Outcome.STORED);
+        assertThat(store.excluded.get(0).ended).isEqualTo(29500L);
+        assertThat(store.excluded.get(0).reason).isEqualTo("MISSING");
+    }
+
     @Test
     void missingSessionAndOrphanEventsAreSkipped() {
         assertThat(service.apply(d(1, "collapse_confirmed", 8000, 5000, null, 0))).isEqualTo(Outcome.SESSION_NOT_FOUND);
@@ -191,6 +223,12 @@ class EpisodeStoreServiceTest {
         Map<String, Object> m = envelope("decision", Map.of());
         m.put("session_id", "short");
         assertThat(rejects(m)).isTrue();
+        Map<String, Object> badExclusion = new LinkedHashMap<>();
+        badExclusion.put("event", event("excluded_started", 1000, 1000, "ended"));   // (D-39) 제외 사유가 아님
+        assertThat(rejects(envelope("decision", badExclusion))).isTrue();
+        Map<String, Object> goodExclusion = new LinkedHashMap<>();
+        goodExclusion.put("event", event("excluded_ended", 2000, 1000, "unmeasurable"));
+        assertThat(rejects(envelope("decision", goodExclusion))).isFalse();
     }
 
     static boolean rejects(Map<String, Object> m) {

@@ -42,6 +42,23 @@ public interface EpisodeStore {
     /** 종료 값 2개({@code ended_at}·{@code good_sec})를 함께 채운다(이미 있으면 그대로). @return 채웠으면 true */
     boolean endSession(long sessionId, long endedMs, long goodMs);
 
-    /** 확인용: 세션·이벤트·알림을 세션 시작 기준 ms로 읽는다. */
+    /**
+     * (D-39) 제외 구간을 연다(종료 시각 NULL = 진행 중). 같은 시작 시각의 행(PK)이 있으면 그대로 둔다.
+     * @param reason {@code excluded_interval.exclusion_reason} 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING)
+     * @return 새로 넣었으면 true
+     */
+    boolean startExcluded(long sessionId, long startedMs, String reason);
+
+    /**
+     * (D-39) 제외 구간을 닫는다. 열린 행이 있으면 종료 시각을 채우고, 행이 없으면(시작 메시지 유실) 시작·끝을 함께 넣는다.
+     * 이미 닫혀 있으면 그대로 둔다.
+     * @return 바꿨으면 true
+     */
+    boolean endExcluded(long sessionId, long startedMs, long endedMs, String reason);
+
+    /** (D-39) 세션 종료 때 아직 열린 제외 구간을 종료 시각으로 닫는다. @return 닫은 수 */
+    int endOpenExcluded(long sessionId, long endedMs);
+
+    /** 확인용: 세션·이벤트·알림·제외 구간을 세션 시작 기준 ms로 읽는다. */
     Optional<Map<String, Object>> sessionView(String clientSessionUuid);
 }

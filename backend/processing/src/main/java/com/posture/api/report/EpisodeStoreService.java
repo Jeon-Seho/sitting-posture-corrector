@@ -24,7 +24,9 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>순번은 같은 메시지에서 늘 같은 값(C-3): 붕괴 순번은 같은 시작 시각의 기존 행 순번, 없으면 최대 + 1.
  *       알림 행은 (세션, 순번, 시각)이 PK라 같은 시각의 행이 있으면 건너뛴다. Kafka가 다시 보내도 같은 행을 찾는다.</li>
  *   <li>이벤트 종료 사유는 V2.3에서 시각으로 판정한다(회복 = {@code recovered_at} 있음, 세션 종료 = 세션 {@code ended_at}과 같음,
- *       그 밖 = 제외 구간 중단). 제외 구간 행(C-4)은 계약에 경계가 생긴 뒤(D-39) 붙인다.</li>
+ *       그 밖 = 제외 구간 중단).</li>
+ *   <li>(D-39) 제외 구간(C-4): {@code excluded_started}에 행을 열고(종료 NULL), {@code excluded_ended}에 닫는다.
+ *       시작 시각(PK)으로 찾으므로 재전송에도 같은 행이다. 세션 종료 때 열린 구간이 남아 있으면 닫는다.</li>
  *   <li>알림: V2.3은 알림이 꺼져 있어도 첫 알림·재알림 시점을 기록하고, 표시 여부는 세션 {@code alert_enabled}로 판단한다
  *       (시간당 상한·억제 사유 없음).</li>
  * </ul>
@@ -50,6 +52,7 @@ public class EpisodeStoreService {
     private final AtomicLong alertsInserted = new AtomicLong();
     private final AtomicLong alertsWhileOff = new AtomicLong();
     private final AtomicLong sessionsEnded = new AtomicLong();
+    private final AtomicLong excludedWritten = new AtomicLong();
     private final AtomicReference<String> lastStoredAt = new AtomicReference<>();
     private final Set<String> warnedSessions = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -73,6 +76,8 @@ public class EpisodeStoreService {
             case "recovery_confirmed" -> endEvent(s, d, true);
             case "interrupted" -> endEvent(s, d, false);
             case "session_ended" -> endSession(s, d);
+            case "excluded_started" -> startExcluded(s, d);
+            case "excluded_ended" -> endExcluded(s, d);
             default -> throw new IllegalArgumentException("모르는 사건 종류: " + d.kind());
         };
         switch (o) {
@@ -142,11 +147,38 @@ public class EpisodeStoreService {
     private Outcome endSession(SessionRow s, EpisodeDecision d) {
         // 판정기는 세션 종료 전에 진행 중 사건을 interrupted(ended)로 닫는다. 그래도 열린 이벤트가 있으면(앞 메시지 유실) 닫는다(BR-12).
         int closed = store.endOpenEvents(s.id(), d.timestampMs());
+        closed += store.endOpenExcluded(s.id(), d.timestampMs());
         boolean ended = store.endSession(s.id(), d.timestampMs(), d.normalMs());
         if (ended) {
             sessionsEnded.incrementAndGet();
         }
         return ended || closed > 0 ? Outcome.STORED : Outcome.DUPLICATE;
+    }
+
+    /** (D-39) 제외 구간 시작: 종료 시각 없이 행을 연다. */
+    private Outcome startExcluded(SessionRow s, EpisodeDecision d) {
+        boolean inserted = store.startExcluded(s.id(), d.onsetMs(), exclusion(d));
+        if (inserted) {
+            excludedWritten.incrementAndGet();
+        }
+        return inserted ? Outcome.STORED : Outcome.DUPLICATE;
+    }
+
+    /** (D-39) 제외 구간 끝: 열린 행을 닫는다(행이 없으면 시작·끝을 함께 넣는다). */
+    private Outcome endExcluded(SessionRow s, EpisodeDecision d) {
+        boolean changed = store.endExcluded(s.id(), d.onsetMs(), d.timestampMs(), exclusion(d));
+        if (changed) {
+            excludedWritten.incrementAndGet();
+        }
+        return changed ? Outcome.STORED : Outcome.DUPLICATE;
+    }
+
+    private static String exclusion(EpisodeDecision d) {
+        String r = EpisodeDecision.EXCLUSION_REASONS.get(d.reason());
+        if (r == null) {
+            throw new IllegalArgumentException("제외 구간 사유 오류: " + d.reason());
+        }
+        return r;
     }
 
     public Map<String, Object> status() {
@@ -159,6 +191,7 @@ public class EpisodeStoreService {
         m.put("alertsInserted", alertsInserted.get());
         m.put("alertsWhileOff", alertsWhileOff.get());
         m.put("sessionsEnded", sessionsEnded.get());
+        m.put("excludedWritten", excludedWritten.get());
         m.put("lastStoredAt", lastStoredAt.get());
         return m;
     }
