@@ -2,20 +2,20 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 22개와 WebSocket 1개의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `dc2de48`(2026-10-15, DB 스키마 V2.3)이다.
+Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `c7b8605`(2026-10-16, DB 스키마 V2.3)이다.
 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
 | 추론 | FastAPI `POST /v2/infer` |
 | DB | MySQL 8.4 · 스키마 V2.3 |
-| 코드 기준 | `dc2de48` (2026-10-15) |
+| 코드 기준 | `c7b8605` (2026-10-16) |
 | 개정 | 2026-10-16 (처음 2026-10-13) — [변경 이력](#변경-이력) |
 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 구간 입력(S2)·기록 저장(R2)·`/v1/realtime`은 `/v2/realtime`(좌표 프레임)으로 넘어갈 때 바뀐다.
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))이 새 경로다. `/v1/realtime`과 구간 입력(S2)·기록 저장(R2)은 앱이 v2로 넘어갈 때까지 그대로 두고, 넘어간 뒤 지운다.
 
 ## 목차
 
@@ -29,6 +29,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개의 요청·응답·
 8. [기록·시스템](#8-기록시스템)
 9. [공통 응답 객체](#9-공통-응답-객체)
 10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime)
+11. [WebSocket `/v2/realtime`](#11-websocket-v2realtime)
 - [변경 이력](#변경-이력)
 
 ## 1. 공통 규칙
@@ -69,7 +70,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 | 측정 종료 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
-| 429 | `LIMIT_REACHED` | 세션당 관측 10,000건 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 | 같은 요청 재시도 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -101,7 +102,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [R2](#r2) | POST | `/v2/records` | 필요 | 기록 저장 | 200 |
 | [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
-| [WS](#websocket-연결) | WS | `/v1/realtime` | 쿠키 | 실시간 특징 입력·판정 push | 101 |
+| [WS](#websocket-연결) | WS | `/v1/realtime` | 쿠키 | 실시간 특징 입력·판정 push (v2 전환 뒤 삭제) | 101 |
+| [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | 쿠키 | 좌표 프레임 측정·자세 등록, 판정 push | 101 |
 
 ## 4. 계정
 
@@ -543,6 +545,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 ## 6. 기준 자세
 
 카메라 보정 동안 모은 9개 관절의 평균 좌표를 저장한다. 영상, 개별 프레임, 장치 ID는 저장하지 않는다.
+앱이 평균을 계산해 보내는 B1과 별도로, `/v2/realtime` 자세 등록([11.4](#114-자세-등록))은 서버가 좌표 프레임에서 평균을 계산해 같은 표에 저장한다(등록 시각 = 서버 시각).
 
 <a id="b1"></a>
 
@@ -733,7 +736,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
-| 429 | `LIMIT_REACHED` | 세션당 관측 10,000건 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 
@@ -809,7 +812,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 |
-| 429 | `LIMIT_REACHED` | 세션당 관측 10,000건 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 |
 | 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
@@ -1266,6 +1269,32 @@ S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 �
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
 | `model_version` | string | API 설정값(`reference-feature-rule-v1`)과 같아야 한다. |
 
+### Observation 3.0 — 실시간 v2 관측
+
+`/v2/realtime`의 `observation` 메시지에 담긴다. 추론 응답(2.0)을 API가 바꿔 보낸다.
+
+```json
+{
+  "schema_version": "3.0",
+  "sequence": 42,
+  "start_ms": 21000,
+  "end_ms": 21500,
+  "phase": "running",
+  "valid": true,
+  "valid_ms": 500,
+  "collapse_probability": 0.82,
+  "deviation_type": "forward_slouch",
+  "invalid_reason": null,
+  "model_version": "reference-feature-rule-v1"
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `valid_ms` | long | 이 구간에서 판정에 쓴 시간. `valid`면 `end_ms - start_ms`, 아니면 0. |
+| `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(고개를 돌린 프레임만 있었음) · `settling`(아직 보내지 않음). |
+| 나머지 | - | Observation 2.0과 같다. |
+
 ### RecordItem — 앱 기록 (camelCase)
 
 R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 사건 시각은 초 단위다.
@@ -1314,6 +1343,9 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 ## 10. WebSocket `/v1/realtime`
 
 <a id="websocket-연결"></a>
+
+> [!NOTE]
+> 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가면 지운다. v2는 이 장의 `last_event_id`·놓친 사건 다시 보내기를 쓰지 않는다.
 
 측정 중 특징 입력과 판정 결과 push를 하나의 연결로 처리한다. 로그인 쿠키로 인증하고 같은 출처 페이지만 허용한다. 세션 생성·종료는 HTTP로 한다. 메시지 하나는 64KB 이하, 120초 동안 아무 메시지가 없으면 연결이 끊긴다.
 
@@ -1395,12 +1427,197 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 }
 ```
 
+## 11. WebSocket `/v2/realtime`
+
+<a id="websocket-v2-연결"></a>
+
+연결 하나가 **측정 한 번**(`purpose: "measure"`) 또는 **자세 등록 한 번**(`purpose: "calibration"`)이다. 앱은 관절 9개 좌표 프레임을 0.5초 구간으로 묶어 보내고, API가 기준 대비 특징 변화량을 계산해 추론(`POST /v2/infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
+
+계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
+
+| 항목 | 규칙 |
+|---|---|
+| 인증 | 로그인 쿠키. HTTP 단계는 열려 있고, 로그인이 없으면 `hello`에 `closed(unauthorized)`로 답한다. 같은 출처 페이지만 허용한다(`POSEGOOD_REALTIME_ALLOWED_ORIGINS`로 추가). |
+| 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
+| 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
+| 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 5,000초, `POSEGOOD_MAX_SESSION_DURATION`) |
+
+### 11.1 순서
+
+```
+측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
+       → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
+       → end → decision(session_ended) → closed(ended)
+등록:  WS 연결 → hello(calibration) → ready → features(phase calibration) × 약 6 → ack
+       → end → calibration_result → closed(ended)
+```
+
+1. 연결 뒤 **10초 안에** 첫 메시지로 `hello`를 보낸다. 없거나 `hello` 전에 다른 메시지가 오면 `closed(bad_message)`.
+2. 서버는 확인이 끝나면 `ready`를 보낸다. 앱은 5초 기다린다. 서버 준비가 5초를 넘으면 서버는 그 세션을 끝내고 `closed(session_lost)`를 보낸다.
+3. `features`는 `ready` 뒤에만 보낸다.
+
+### 11.2 앱 → 서버
+
+| type | 필드 | 설명 |
+|---|---|---|
+| `hello` | schema_version **고정** "2.0", purpose, session_id 또는 calibration_id | measure는 S1이 성공한 세션. calibration은 등록마다 새 UUID. |
+| `features` | items[**정확히 1개**] | 좌표 구간 하나(아래 표). 2개 이상이면 `closed(bad_message)`. |
+| `end` | end_ms | 측정: 사용자가 종료. 등록: 촬영 끝(마지막 구간 `end_ms`가 3000 이상일 때). |
+
+**구간(`items[0]`) 필드**
+
+| 필드 | 규칙 |
+|---|---|
+| `schema_version` | **고정** "3.0" |
+| `feature_version` | **고정** "keypoints-9-v1" |
+| `sequence` | 0 이상, 구간마다 1씩 증가. 같은 값·작은 값이면 `closed(bad_message)`(다시 보내기 없음). |
+| `start_ms` · `end_ms` | `[start_ms, end_ms)`, 길이 1~1500ms, 앞 구간과 겹치면 안 됨. 측정은 S1 응답 시각, 등록은 촬영 시작이 0. |
+| `phase` | 측정 `running` · `rest`(일시정지) · `away`(카메라 끊김), 등록 `calibration`. 목적과 맞지 않으면 `closed(bad_message)`. `rest`·`away`는 `frames: []`. |
+| `frames[]` | 최대 30개. `t_ms`, `p`, 선택 `valid` |
+| `frames[].p` | 관절 9개 `[x, y, visibility]`(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨 = MediaPipe 0·2·5·7·8·9·10·11·12). x·y는 -1~2(화면 비율, 소수 5자리), visibility 0~1. 사람이 없으면 `null`. |
+| `frames[].valid` | `false`만 허용. 앱이 위치를 판별하지 못한 프레임에만 붙이고, 서버는 그 프레임을 판정에서 뺀다. 없으면 생략한다. |
+
+```json
+{ "type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90" }
+```
+
+```json
+{
+  "type": "features",
+  "items": [
+    {
+      "schema_version": "3.0",
+      "feature_version": "keypoints-9-v1",
+      "sequence": 42,
+      "start_ms": 21000,
+      "end_ms": 21500,
+      "phase": "running",
+      "frames": [
+        { "t_ms": 21012, "p": [[0.51234, 0.40211, 0.99], "… 관절 9개"] },
+        { "t_ms": 21075, "p": null },
+        { "t_ms": 21140, "p": [[0.51234, 0.40211, 0.99], "… 관절 9개"], "valid": false }
+      ]
+    }
+  ]
+}
+```
+
+```json
+{ "type": "end", "end_ms": 600000 }
+```
+
+### 11.3 측정 — 서버가 하는 일
+
+| 단계 | 내용 |
+|---|---|
+| `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
+| 특징 계산 | 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 좌표가 화면 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음) 중 고개를 돌리지 않은 것(코-귀 중점 변화가 어깨 폭 0.15 이하)의 특징을 평균해 기준을 뺀다. 계산식은 `model/prototype/pose.ts`·`serverFeatures.ts`와 같다. 카메라는 640×480 고정이다. |
+| 판정 불가 | 쓸 프레임이 없으면 `measurement_quality: poor`로 추론에 넘기고, `observation.invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
+| 추론·판정 | S2와 같은 흐름(추론 → 판정 → DB 기록). 판정 규칙·DB 기록도 S2와 같다. |
+| 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
+| 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
+| 시간 한도 | 구간 끝이 최대 측정 시간을 넘으면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 평균 0.25초보다 짧은 구간이 이어지면 메모리 보호로 그 전에 같은 처리를 한다. |
+| `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
+| 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
+
+### 11.4 자세 등록
+
+세션 행은 만들지 않는다. 서버는 판정 가능 프레임(11.3과 같은 조건) 수와 관절 좌표 합만 모으고 좌표 원본은 버린다. `end`를 받으면 아래 순서로 결과를 정하고 `calibration_result` → `closed(ended)`를 보낸다.
+
+| 결과 | 조건 |
+|---|---|
+| `failed` · `incomplete` | 마지막 구간 `end_ms` < 3000 |
+| `failed` · `too_few_frames` | 판정 가능 프레임 15장 미만 |
+| `failed` · `out_of_frame` | 관절 평균 좌표가 0~1 밖 |
+| `failed` · `server_error` | 저장 실패 |
+| `ok` | 관절 평균 18개(소수 5자리)를 B1과 같은 표에 저장. `registered_at`은 서버 시각. B2가 이 기준을 돌려준다. |
+
+실패하면 저장하지 않고 이전 기준이 그대로 현재 기준이다. `end` 전에 끊기면 아무것도 저장하지 않는다.
+
+### 11.5 서버 → 앱
+
+| type | 필드 | 설명 |
+|---|---|---|
+| `ready` | purpose, session_id 또는 calibration_id | `hello`를 받아들였다. `features`를 보내기 시작한다. |
+| `ack` | last_sequence | 여기까지 처리 완료. 표시만 하고 다시 보내지 않는다. |
+| `observation` | observation | 구간마다 [Observation 3.0](#observation-30--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
+| `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
+| `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
+| `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
+| `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
+| `calibration_result` | 11.4 | 등록 결과. |
+| `closed` | reason | 서버가 연결을 닫기 직전(아래 표). |
+
+| `closed.reason` | 언제 |
+|---|---|
+| `ended` | 측정 종료(`end`·S3), 등록 결과를 보낸 뒤 |
+| `unauthorized` | 로그인 없음·탈퇴 계정, 비밀번호 변경·탈퇴로 로그인이 지워짐 |
+| `not_owner` | 다른 사용자의 세션 또는 없는 세션 |
+| `session_lost` | 서버에 판정 상태가 없음(재시작·정리됨·삭제), 이미 끝난 세션, `ready` 준비 시간 초과 |
+| `no_baseline` | 판정에 쓸 기준 자세가 없음 |
+| `bad_message` | 형식 오류, `hello` 순서·10초 제한 위반, 구간 1개가 아님, 목적과 맞지 않는 `phase`, 64KB 초과, 중복·역순 순번, 같은 세션의 두 번째 연결 |
+| `server_shutdown` | 서버 종료. 측정 중이던 세션은 끊김과 같이 끝난다. |
+| `limit_reached` | 최대 측정 시간 초과(11.3) |
+
+**서버 → 앱 (예시)**
+
+```json
+{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90" }
+```
+
+```json
+{
+  "type": "progress",
+  "last_sequence": 42,
+  "summary": "{ summary }",
+  "paused_reason": null
+}
+```
+
+```json
+{
+  "type": "decision",
+  "event": {
+    "event_id": 1,
+    "kind": "collapse_confirmed",
+    "timestamp_ms": 21000,
+    "onset_ms": 18000,
+    "onset_valid_ms": 17000,
+    "deviation_type": "forward_slouch",
+    "reason": null
+  },
+  "summary": "{ summary }"
+}
+```
+
+```json
+{
+  "type": "calibration_result",
+  "status": "ok",
+  "calibration_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+  "baseline_id": "9b1c0e0a-2c4d-4f6a-8e1b-5a7c9d2e4f60",
+  "registered_at": "2026-10-13T08:00:03.120Z",
+  "landmarks": { "nose": { "x": 0.51234, "y": 0.40211 }, "…": "관절 9개" },
+  "valid_frames": 21
+}
+```
+
+```json
+{ "type": "calibration_result", "status": "failed", "calibration_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f", "valid_frames": 9, "reason": "too_few_frames" }
+```
+
+```json
+{ "type": "closed", "reason": "ended" }
+```
+
 ## 변경 이력
 
 코드를 바꾸면 이 문서의 해당 엔드포인트와 함께 아래에 한 줄을 더한다(최신이 위).
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |
 | 2026-10-16 | `dc2de48` | HTML 명세서를 Markdown으로 옮김(내용 같음). WebSocket 사용 조건(`VITE_REALTIME_URL`) 한 줄 추가 |
 | 2026-10-15 | `dc2de48` | 아키텍처 v5.2 전환 1차: 탈퇴 철회(A8)·`WITHDRAWAL_NOT_CANCELLABLE` 삭제, 탈퇴 최종 삭제는 Spark J3, `daily_stat`은 Spark J2(S3에서 쓰지 않음). S1·S3 응답은 200 `SessionView`로 확정. R3·S6의 적재 기록 409는 공통 `CONFLICT`(전용 코드 없음) |
 | 2026-10-14 | `316877d` | Java 17·Spring Boot 4.0.8·Gradle·Jackson 3 전환 반영. 문자열 자리의 객체·배열 → 400. 예시·고정값 표시 |
