@@ -208,23 +208,25 @@ describe('several cameras (synthetic devices only)', () => {
     expect(camera.state).toBe('on')
   })
 
-  it('uses the posture of each camera and none for a camera without one (plan 0053)', async () => {
-    const posture = (deviceId: string, calibrationId: string) => ({
-      schemaVersion: 1,
-      savedAt: new Date(0).toISOString(),
-      deviceId,
-      calibrationId,
-      baseline: { headGap: 0.6, offset: 0, tilt: 0, quality: 0.9, turn: 0 },
-      summary: null,
-    })
-    const forUsb = '22222222-2222-4222-8222-222222222222'
-    store.set('posegood.v2.baselines', JSON.stringify([posture(USB, forUsb)]))
+  it('keeps the one posture when switching cameras, without asking to register again (plan 0053)', async () => {
+    const calibrationId = '22222222-2222-4222-8222-222222222222'
+    store.set(
+      'posegood.v2.baseline',
+      JSON.stringify({
+        schemaVersion: 1,
+        savedAt: new Date(0).toISOString(),
+        deviceId: USB,
+        calibrationId,
+        baseline: { headGap: 0.6, offset: 0, tilt: 0, quality: 0.9, turn: 0 },
+        summary: null,
+      }),
+    )
     mount()
     await connect()
-    // The built-in camera has no posture of its own: register there, do not borrow the USB one.
+    // Taken with the USB camera, used as is on the built-in one.
     expect(camera.deviceId).toBe(BUILT_IN)
-    expect(camera.baseline).toBeNull()
-    expect(camera.baselineOtherCamera).toBe(true)
+    expect(camera.calibrationId).toBe(calibrationId)
+    expect(camera.baseline).not.toBeNull()
     await act(async () => {
       camera.chooseMainCamera(USB)
     })
@@ -232,8 +234,6 @@ describe('several cameras (synthetic devices only)', () => {
       vi.advanceTimersByTime(100)
     })
     expect(camera.deviceId).toBe(USB)
-    expect(camera.calibrationId).toBe(forUsb)
-    expect(camera.baseline).not.toBeNull()
-    expect(camera.baselineOtherCamera).toBe(false)
+    expect(camera.calibrationId).toBe(calibrationId)
   })
 })

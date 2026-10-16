@@ -1,12 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  baselineFits,
-  baselineFor,
-  readSavedBaseline,
-  readSavedBaselines,
-  validSavedBaseline,
-  writeSavedBaseline,
-} from './savedBaseline'
+import { readSavedBaseline, validSavedBaseline, writeSavedBaseline } from './savedBaseline'
 
 const entry = {
   deviceId: 'synthetic-camera-a',
@@ -52,36 +45,30 @@ describe('saved posture on this computer', () => {
     expect(() => writeSavedBaseline(entry)).not.toThrow()
   })
 
-  it('applies only to the camera it was taken with', () => {
-    expect(baselineFits(entry, 'synthetic-camera-a')).toBe(true)
-    expect(baselineFits(entry, 'synthetic-camera-b')).toBe(false)
-    expect(baselineFits(entry, '')).toBe(true)
-    expect(baselineFits({ deviceId: '' }, 'synthetic-camera-b')).toBe(true)
-  })
-
-  it('keeps one posture per camera, newest first, replacing the earlier one of that camera (plan 0053)', () => {
+  it('keeps one posture whatever camera took it, replacing it on a new registration (plan 0053)', () => {
     vi.stubGlobal('localStorage', memoryStorage())
-    const b = { ...entry, deviceId: 'synthetic-camera-b', calibrationId: '22222222-2222-4222-8222-222222222222' }
     writeSavedBaseline(entry)
+    const b = { ...entry, deviceId: 'synthetic-camera-b', calibrationId: '22222222-2222-4222-8222-222222222222' }
     writeSavedBaseline(b)
-    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-b', 'synthetic-camera-a'])
-    const again = { ...entry, calibrationId: '33333333-3333-4333-8333-333333333333' }
-    writeSavedBaseline(again)
-    const list = readSavedBaselines()
-    expect(list.map((s) => s.calibrationId)).toEqual([again.calibrationId, b.calibrationId])
-    expect(baselineFor(list, 'synthetic-camera-b')?.calibrationId).toBe(b.calibrationId)
-    expect(baselineFor(list, 'synthetic-camera-a')?.calibrationId).toBe(again.calibrationId)
-    expect(baselineFor(list, 'synthetic-camera-c')).toBeNull()
-    expect(baselineFor(list, '')?.calibrationId).toBe(again.calibrationId)
+    expect(readSavedBaseline()).toMatchObject({ deviceId: 'synthetic-camera-b', calibrationId: b.calibrationId })
   })
 
-  it('carries over the posture saved in the older single-camera form', () => {
+  it('folds the short-lived per-camera list into the one posture, keeping the newest', () => {
     const storage = memoryStorage()
     vi.stubGlobal('localStorage', storage)
-    storage.setItem('posegood.v2.baseline', JSON.stringify({ schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }))
-    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-a'])
-    writeSavedBaseline({ ...entry, deviceId: 'synthetic-camera-b' })
-    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-b', 'synthetic-camera-a'])
-    expect(storage.getItem('posegood.v2.baseline')).toBeNull()
+    const older = { schemaVersion: 1, savedAt: '2026-10-16T01:00:00.000Z', ...entry }
+    const newer = {
+      schemaVersion: 1,
+      savedAt: '2026-10-16T02:00:00.000Z',
+      ...entry,
+      deviceId: 'synthetic-camera-b',
+      calibrationId: '22222222-2222-4222-8222-222222222222',
+    }
+    storage.setItem('posegood.v2.baseline', JSON.stringify(older))
+    storage.setItem('posegood.v2.baselines', JSON.stringify([newer, older]))
+    expect(readSavedBaseline()?.calibrationId).toBe(newer.calibrationId)
+    writeSavedBaseline(entry)
+    expect(storage.getItem('posegood.v2.baselines')).toBeNull()
+    expect(readSavedBaseline()?.deviceId).toBe('synthetic-camera-a')
   })
 })

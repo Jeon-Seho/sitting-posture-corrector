@@ -112,9 +112,6 @@ export function SetupPage({
         <div>
           <h1 className="page-title">{title}</h1>
           <p className="page-desc">{desc}</p>
-          {camera.baselineOtherCamera && !registered && (
-            <p className="fine">다른 카메라로 등록한 기준 자세라서 이 카메라로 다시 등록해요.</p>
-          )}
         </div>
         <div className="page-actions">
           {onBack && (

@@ -3,18 +3,17 @@ import type { CalibrationSummary } from '../../../../model/prototype/calibration
 
 /**
  * The registered posture survives an app restart on this computer (2026-10-13), so a later
- * 「측정하기」 can start without registering again. It belongs to the camera it was taken
- * with: another camera means a new position, so it is not used there. Coordinates of the
- * calibration frames are not stored, only the averaged features.
+ * 「측정하기」 can start without registering again. Coordinates of the calibration frames are
+ * not stored, only the averaged features.
  *
- * Since 2026-10-16 one posture is kept per camera (plan 0053), so switching between a laptop
- * camera and a USB camera, or unplugging and plugging one back, finds that camera's posture.
- * The older single-posture key is still read once and carried over.
+ * There is one posture whatever camera is used (2026-10-16, team decision, plan 0053): a person
+ * adjusts the camera to their posture instead of registering again per camera, and training
+ * data keeps one reference per person. `deviceId` only records which camera it was taken with.
+ * Postures kept per camera for a few hours on 10/16 (`posegood.v2.baselines`) are folded into
+ * this one, keeping the newest.
  */
 const KEY = 'posegood.v2.baseline'
 const LIST_KEY = 'posegood.v2.baselines'
-/** Enough for every camera a person plugs into one computer; the oldest is dropped first. */
-const MAX_CAMERAS = 8
 
 export type SavedBaseline = {
   schemaVersion: 1
@@ -55,7 +54,7 @@ export function validSavedBaseline(v: unknown): v is SavedBaseline {
   )
 }
 
-function readLegacy(): SavedBaseline | null {
+function readSingle(): SavedBaseline | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
@@ -66,52 +65,34 @@ function readLegacy(): SavedBaseline | null {
   }
 }
 
-/** Postures by camera, newest first. Damaged entries are skipped. */
-export function readSavedBaselines(): SavedBaseline[] {
+/** The newest posture of the short-lived per-camera list (2026-10-16), if any. */
+function readList(): SavedBaseline | null {
   try {
     const raw = localStorage.getItem(LIST_KEY)
-    if (raw) {
-      const value: unknown = JSON.parse(raw)
-      if (Array.isArray(value)) return value.filter(validSavedBaseline).slice(0, MAX_CAMERAS)
-    }
+    if (!raw) return null
+    const value: unknown = JSON.parse(raw)
+    return Array.isArray(value) ? (value.find(validSavedBaseline) ?? null) : null
   } catch {
-    return []
+    return null
   }
-  const legacy = readLegacy()
-  return legacy ? [legacy] : []
 }
 
-/** The newest posture on this computer, whatever camera it was taken with. */
+/** The registered posture on this computer, whatever camera it was taken with. */
 export function readSavedBaseline(): SavedBaseline | null {
-  return readSavedBaselines()[0] ?? null
+  const single = readSingle()
+  const listed = readList()
+  if (!single || !listed) return single ?? listed
+  return Date.parse(listed.savedAt) > Date.parse(single.savedAt) ? listed : single
 }
 
-/** Saves a posture for its camera, replacing that camera's earlier one; returns the new list. */
-export function writeSavedBaseline(
-  saved: Omit<SavedBaseline, 'schemaVersion' | 'savedAt'>,
-  list: SavedBaseline[] = readSavedBaselines(),
-): SavedBaseline[] {
+/** Saves the posture, replacing the earlier one; returns what was saved. */
+export function writeSavedBaseline(saved: Omit<SavedBaseline, 'schemaVersion' | 'savedAt'>): SavedBaseline {
   const value: SavedBaseline = { schemaVersion: 1, savedAt: new Date().toISOString(), ...saved }
-  const next = [value, ...list.filter((s) => s.deviceId !== value.deviceId)].slice(0, MAX_CAMERAS)
   try {
-    localStorage.setItem(LIST_KEY, JSON.stringify(next))
-    localStorage.removeItem(KEY)
+    localStorage.setItem(KEY, JSON.stringify(value))
+    localStorage.removeItem(LIST_KEY)
   } catch {
     /* Storage blocked: the posture lasts for this run only. */
   }
-  return next
-}
-
-/** A posture taken with another camera does not apply; an unknown id on either side does. */
-export function baselineFits(saved: Pick<SavedBaseline, 'deviceId'>, deviceId: string) {
-  return !saved.deviceId || !deviceId || saved.deviceId === deviceId
-}
-
-/**
- * The posture for the connected camera: the one taken with it, else one whose camera was
- * unknown. When the connected camera itself is unknown, the newest posture is used.
- */
-export function baselineFor(list: SavedBaseline[], deviceId: string): SavedBaseline | null {
-  if (!deviceId) return list[0] ?? null
-  return list.find((s) => s.deviceId === deviceId) ?? list.find((s) => !s.deviceId) ?? null
+  return value
 }
