@@ -184,7 +184,7 @@ describe('several cameras (synthetic devices only)', () => {
     expect(camera.deviceId).toBe(BUILT_IN)
   })
 
-  it('stops with an error when the camera in use is unplugged — plan 0053 pauses as away instead', async () => {
+  it('reports the disconnection when the camera in use is unplugged (the measurement then ends, ServiceApp test)', async () => {
     mount()
     await connect()
     expect(camera.state).toBe('on')
@@ -206,5 +206,34 @@ describe('several cameras (synthetic devices only)', () => {
     mount()
     await connect()
     expect(camera.state).toBe('on')
+  })
+
+  it('uses the posture of each camera and none for a camera without one (plan 0053)', async () => {
+    const posture = (deviceId: string, calibrationId: string) => ({
+      schemaVersion: 1,
+      savedAt: new Date(0).toISOString(),
+      deviceId,
+      calibrationId,
+      baseline: { headGap: 0.6, offset: 0, tilt: 0, quality: 0.9, turn: 0 },
+      summary: null,
+    })
+    const forUsb = '22222222-2222-4222-8222-222222222222'
+    store.set('posegood.v2.baselines', JSON.stringify([posture(USB, forUsb)]))
+    mount()
+    await connect()
+    // The built-in camera has no posture of its own: register there, do not borrow the USB one.
+    expect(camera.deviceId).toBe(BUILT_IN)
+    expect(camera.baseline).toBeNull()
+    expect(camera.baselineOtherCamera).toBe(true)
+    await act(async () => {
+      camera.chooseMainCamera(USB)
+    })
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(camera.deviceId).toBe(USB)
+    expect(camera.calibrationId).toBe(forUsb)
+    expect(camera.baseline).not.toBeNull()
+    expect(camera.baselineOtherCamera).toBe(false)
   })
 })

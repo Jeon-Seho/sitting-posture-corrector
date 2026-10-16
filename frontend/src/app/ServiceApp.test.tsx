@@ -22,6 +22,7 @@ import { DEFAULT_RULES } from '../data/posture'
 import { newMachine } from '../lib/engine'
 import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
+import { CAMERA_ERRORS } from '../features/camera/errors'
 
 const controls = vi.hoisted(() => ({
   camera: null as unknown as CameraController,
@@ -584,6 +585,26 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(starts.length).toBe(2) // camera view and side panel
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+  })
+  it('ends and saves the measurement when the camera in use is unplugged (plan 0053)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    const start = renderer!.root.findAllByType('button').find((b) => text(b) === '측정 시작')!
+    act(() => start.props.onClick())
+    advance(3000)
+    // The USB camera is pulled out: its track ends and the camera reports the disconnection.
+    controls.camera.state = 'error'
+    controls.camera.error = CAMERA_ERRORS.disconnected
+    rerender()
+    expect(text(renderer!.root)).toContain('카메라 연결이 끊겨 측정을 끝냈어요')
+    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
+    // Nothing is left open, so 측정하기 is free to choose a camera and start a new measurement.
+    click('측정하기')
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
   })
   it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
     controls.camera.baseline = { ...BASELINE }

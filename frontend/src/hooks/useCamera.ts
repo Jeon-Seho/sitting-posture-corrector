@@ -13,7 +13,7 @@ import { createFeatureFilter } from '../lib/skeleton'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
-import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
+import { baselineFor, readSavedBaselines, writeSavedBaseline } from '../features/camera/savedBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
@@ -74,19 +74,21 @@ export function useCamera() {
    * saved on this computer with the camera it was taken with. Connecting another camera
    * sets it aside (`baselineOtherCamera`); only a new registration replaces it.
    */
-  const saved = useRef(readSavedBaseline())
+  /** Postures by camera, newest first (plan 0053); the newest is shown until a camera connects. */
+  const saved = useRef(readSavedBaselines())
+  const newest = saved.current[0] ?? null
   const connectedDevice = useRef('')
-  const [baseline, setBaseline] = useState<Features | null>(() => saved.current?.baseline ?? null)
+  const [baseline, setBaseline] = useState<Features | null>(() => newest?.baseline ?? null)
   const [calibrationId, setCalibrationId] = useState<string | null>(
-    () => saved.current?.calibrationId ?? null,
+    () => newest?.calibrationId ?? null,
   )
   const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(
-    () => saved.current?.summary ?? null,
+    () => newest?.summary ?? null,
   )
   const [baselineOtherCamera, setBaselineOtherCamera] = useState(false)
   /** When and with which camera the current posture was registered (settings). */
   const [baselineInfo, setBaselineInfo] = useState<{ savedAt: string; deviceId: string } | null>(() =>
-    saved.current ? { savedAt: saved.current.savedAt, deviceId: saved.current.deviceId } : null,
+    newest ? { savedAt: newest.savedAt, deviceId: newest.deviceId } : null,
   )
   const [progress, setProgress] = useState<number | null>(null)
 
@@ -180,9 +182,8 @@ export function useCamera() {
         baseline: next.ready,
         summary: next.summary,
       }
-      writeSavedBaseline(entry)
-      saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
-      setBaselineInfo({ savedAt: saved.current.savedAt, deviceId: entry.deviceId })
+      saved.current = writeSavedBaseline(entry, saved.current)
+      setBaselineInfo({ savedAt: saved.current[0].savedAt, deviceId: entry.deviceId })
       calibration.current = null
       setProgress(null)
     }
@@ -248,18 +249,18 @@ export function useCamera() {
         const connectedId = track.getSettings().deviceId ?? ''
         connectedDevice.current = connectedId
         setDeviceId(connectedId)
-        // The saved posture applies only to the camera it was taken with.
-        const stored = saved.current
+        // Each camera has its own posture (plan 0053): use this camera's, or none.
+        const stored = baselineFor(saved.current, connectedId)
+        setBaselineOtherCamera(!stored && saved.current.length > 0)
         if (stored) {
-          const fits = baselineFits(stored, connectedId)
-          setBaselineOtherCamera(!fits)
-          if (fits) {
-            setBaseline((current) => current ?? stored.baseline)
-            setCalibrationId((current) => current ?? stored.calibrationId)
-            setCalibrationSummary((current) => current ?? stored.summary)
-          } else {
-            setBaseline((current) => (current === stored.baseline ? null : current))
-          }
+          setBaseline(stored.baseline)
+          setCalibrationId(stored.calibrationId)
+          setCalibrationSummary(stored.summary)
+          setBaselineInfo({ savedAt: stored.savedAt, deviceId: stored.deviceId })
+        } else if (saved.current.length > 0) {
+          setBaseline(null)
+          setCalibrationId(null)
+          setCalibrationSummary(null)
         }
         setDevices(await listVideoDevices())
         if (!isCurrent()) return

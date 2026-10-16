@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { baselineFits, readSavedBaseline, validSavedBaseline, writeSavedBaseline } from './savedBaseline'
+import {
+  baselineFits,
+  baselineFor,
+  readSavedBaseline,
+  readSavedBaselines,
+  validSavedBaseline,
+  writeSavedBaseline,
+} from './savedBaseline'
 
 const entry = {
   deviceId: 'synthetic-camera-a',
@@ -50,5 +57,31 @@ describe('saved posture on this computer', () => {
     expect(baselineFits(entry, 'synthetic-camera-b')).toBe(false)
     expect(baselineFits(entry, '')).toBe(true)
     expect(baselineFits({ deviceId: '' }, 'synthetic-camera-b')).toBe(true)
+  })
+
+  it('keeps one posture per camera, newest first, replacing the earlier one of that camera (plan 0053)', () => {
+    vi.stubGlobal('localStorage', memoryStorage())
+    const b = { ...entry, deviceId: 'synthetic-camera-b', calibrationId: '22222222-2222-4222-8222-222222222222' }
+    writeSavedBaseline(entry)
+    writeSavedBaseline(b)
+    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-b', 'synthetic-camera-a'])
+    const again = { ...entry, calibrationId: '33333333-3333-4333-8333-333333333333' }
+    writeSavedBaseline(again)
+    const list = readSavedBaselines()
+    expect(list.map((s) => s.calibrationId)).toEqual([again.calibrationId, b.calibrationId])
+    expect(baselineFor(list, 'synthetic-camera-b')?.calibrationId).toBe(b.calibrationId)
+    expect(baselineFor(list, 'synthetic-camera-a')?.calibrationId).toBe(again.calibrationId)
+    expect(baselineFor(list, 'synthetic-camera-c')).toBeNull()
+    expect(baselineFor(list, '')?.calibrationId).toBe(again.calibrationId)
+  })
+
+  it('carries over the posture saved in the older single-camera form', () => {
+    const storage = memoryStorage()
+    vi.stubGlobal('localStorage', storage)
+    storage.setItem('posegood.v2.baseline', JSON.stringify({ schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }))
+    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-a'])
+    writeSavedBaseline({ ...entry, deviceId: 'synthetic-camera-b' })
+    expect(readSavedBaselines().map((s) => s.deviceId)).toEqual(['synthetic-camera-b', 'synthetic-camera-a'])
+    expect(storage.getItem('posegood.v2.baseline')).toBeNull()
   })
 })

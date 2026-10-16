@@ -203,7 +203,8 @@ export function SetupPage({
                       등록 취소
                     </button>
                   </div>
-                ) : registerAgain && measuring ? (
+                ) : measuring ? (
+                  // A measurement is still open (also after 「카메라 준비 다시 확인」): go back to it.
                   onOpenSession && (
                     <button className="btn btn-primary btn-lg" onClick={onOpenSession}>
                       측정 화면으로

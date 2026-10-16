@@ -12,6 +12,7 @@ import { popupAlert, popupNotice } from '../desktop/alertPopup'
 import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
 import { PoseDebugRecorder } from './poseDebugExport'
+import { CAMERA_ERRORS } from '../camera/errors'
 
 type Options = {
   rules: Rules
@@ -111,6 +112,19 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     document.addEventListener('visibilitychange', hidden)
     return () => document.removeEventListener('visibilitychange', hidden)
   }, [service?.active])
+  /**
+   * The camera in use was unplugged (its track ended): the measurement ends at once and what was
+   * measured so far is saved (2026-10-16, plan 0053). It does not move to another camera; a new
+   * measurement starts from 「측정하기」 with that camera's posture, or a new registration.
+   */
+  const [endReason, setEndReason] = useState('')
+  useEffect(() => {
+    if (!service || !isCamera || phase === 'ended') return
+    if (camera.state === 'error' && camera.error === CAMERA_ERRORS.disconnected) {
+      setEndReason('카메라 연결이 끊겨 측정을 끝냈어요. 끊기기 전까지의 기록은 저장했어요.')
+      setPhase('ended')
+    }
+  }, [service, isCamera, phase, camera.state, camera.error])
   useEffect(() => {
     if (!service || !isCamera || phase !== 'running') return
     const timer = setInterval(() => {
@@ -238,6 +252,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     soundOn,
     soundError,
     pauseReason,
+    endReason,
     isCamera,
     live,
     seekNext,
