@@ -2,6 +2,7 @@ package com.posture.api.posture.store;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,22 +12,22 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** (D-32, D-41) 확정 서비스 DB(V2.2) 준비 확인. */
+/** (D-32, D-41, D-51) 확정 서비스 DB(V2.3) 준비 확인. */
 class ServiceSchemaVerifierTest {
 
-    /** V2.2 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
+    /** V2.3 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
     static final class FakeProbe implements ServiceDbProbe {
         final List<String> tables = new ArrayList<>(ServiceSchemaVerifier.EXPECTED_TABLES);
         final Map<String, List<String>> columns = new HashMap<>();
         Long defaultPolicyId = 1L;
-        Double defaultThreshold = 0.7;
+        DefaultPolicy askedPolicy;
         List<String> privileges = new ArrayList<>(List.of("SELECT", "INSERT", "UPDATE", "DELETE"));
         RuntimeException failure;
 
         FakeProbe() {
             columns.putAll(ServiceSchemaVerifier.REQUIRED_COLUMNS);
-            columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
-                    "alert_enabled", "sound_alert_enabled"));
+            columns.put("daily_stat", List.of("user_account_id", "stat_date", "min_until_collapse_sec",
+                    "max_until_collapse_sec"));
         }
 
         @Override
@@ -43,13 +44,9 @@ class ServiceSchemaVerifierTest {
         }
 
         @Override
-        public Optional<Long> policyIdByName(String schema, String policyName) {
+        public Optional<Long> policyIdByValues(String schema, DefaultPolicy policy) {
+            askedPolicy = policy;
             return Optional.ofNullable(defaultPolicyId);
-        }
-
-        @Override
-        public Optional<Double> policyThreshold(String schema, String policyName) {
-            return Optional.ofNullable(defaultThreshold);
         }
 
         @Override
@@ -67,65 +64,72 @@ class ServiceSchemaVerifierTest {
     }
 
     ServiceSchemaVerifier verifier(boolean enabled, String schema) {
-        return verifier(enabled, schema, "V2.2");
-    }
-
-    ServiceSchemaVerifier verifier(boolean enabled, String schema, String target) {
-        return new ServiceSchemaVerifier(probe, enabled, schema, "DEFAULT_TEMP", 0.7, target,
-                () -> Instant.parse("2026-10-10T00:00:00Z"));
+        return new ServiceSchemaVerifier(probe, enabled, schema, DefaultPolicy.defaults(),
+                () -> Instant.parse("2026-10-16T00:00:00Z"));
     }
 
     @Test
-    void readyV22SchemaIsOk() {
+    void readyV23SchemaIsOk() {
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(true);
-        assertThat(r.get("specVersion")).isEqualTo("V2.2");
-        assertThat(r.get("tableCount")).isEqualTo(12);
+        assertThat(r.get("specVersion")).isEqualTo("V2.3");
+        assertThat(r.get("tableCount")).isEqualTo(13);
         assertThat(r.get("defaultPolicyId")).isEqualTo(1L);
-        assertThat(r.get("defaultPolicyThreshold")).isEqualTo(0.7);
         assertThat(list(r, "problems")).isEmpty();
+        assertThat(list(r, "warnings")).isEmpty();
     }
 
-    /** (D-41) V2.1로 만들고 migration 011·시드 수정을 안 한 DB: alert_enabled 없음, threshold 0.5. */
+    /** 기본 정책은 이름이 아니라 값 4개로 찾고, 값은 DB 정밀도로 맞춘다(0.7 → 0.700, 3 → 3.0). */
     @Test
-    void v21DatabaseWithoutMigration011IsReported() {
-        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
-                "sound_alert_enabled"));
-        probe.defaultThreshold = 0.5;
+    void defaultPolicyIsLookedUpByFourValues() {
+        verifier(true, "posture_service").check();
+        assertThat(probe.askedPolicy.threshold()).isEqualByComparingTo(new BigDecimal("0.700"));
+        assertThat(probe.askedPolicy.threshold().scale()).isEqualTo(3);
+        assertThat(probe.askedPolicy.holdSeconds().toPlainString()).isEqualTo("3.0");
+        assertThat(probe.askedPolicy.recoverSeconds().toPlainString()).isEqualTo("3.0");
+        assertThat(probe.askedPolicy.realertSeconds()).isEqualTo(60);
+    }
+
+    /** 기본 정책 행이 없어도 문제가 아니다 — 입출구 서버가 첫 가입 때 만든다. */
+    @Test
+    void missingDefaultPolicyRowIsOnlyAWarning() {
+        probe.defaultPolicyId = null;
+        Map<String, Object> r = verifier(true, "posture_service").check();
+        assertThat(r.get("ok")).isEqualTo(true);
+        assertThat(list(r, "warnings")).hasSize(1);
+        assertThat(list(r, "warnings").get(0)).contains("행 없음");
+    }
+
+    /** 10/16 서버에서 본 것의 반대: V2.1 DB(옛 컬럼 있음, V2.3 컬럼·테이블 없음)는 문제로 나온다. */
+    @Test
+    void v21DatabaseIsReported() {
+        probe.tables.remove("user_consent");
+        probe.columns.put("daily_stat", List.of("user_account_id", "stat_date"));
+        probe.columns.put("collapse_event", List.of("monitor_session_id", "event_seq", "started_at", "confirmed_at",
+                "ended_at", "end_reason", "recovered_at"));
+        probe.columns.put("correction_alert", List.of("monitor_session_id", "event_seq", "attempt_seq",
+                "attempted_at", "delivered", "suppress_reason"));
+        probe.columns.put("threshold_policy", List.of("threshold_policy_id", "threshold", "hold_seconds",
+                "recover_seconds", "realert_seconds", "created_at", "policy_name", "created_by", "notify_max_per_hour"));
+        probe.defaultPolicyId = null;
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(false);
-        assertThat(r.get("specVersion")).isEqualTo("V2.1");
-        assertThat(list(r, "missingColumns")).containsExactly("user_account.alert_enabled");
-        List<String> problems = list(r, "problems");
-        assertThat(problems).hasSize(2);
-        assertThat(problems.get(0)).contains("V2.2 아님").contains("011_add_alert_enabled_user_account.sql");
-        assertThat(problems.get(1)).contains("threshold 0.5").contains("0.7");
-    }
-
-    /** (D-41) 목표 V2.1(서버 DB 당분간 V2.1): 같은 DB가 준비됨으로 보이고 V2.2 항목은 경고로만. */
-    @Test
-    void v21TargetTurnsV22ItemsIntoWarnings() {
-        probe.columns.put("user_account", List.of("user_account_id", "login_email", "threshold_policy_id",
-                "sound_alert_enabled"));
-        probe.defaultThreshold = 0.5;
-        Map<String, Object> r = verifier(true, "posture_service", "V2.1").check();
-        assertThat(r.get("ok")).isEqualTo(true);
-        assertThat(r.get("targetSpecVersion")).isEqualTo("V2.1");
-        assertThat(r.get("specVersion")).isEqualTo("V2.1");
-        assertThat(list(r, "problems")).isEmpty();
-        assertThat(list(r, "warnings")).hasSize(2);
-
-        probe.columns.put("user_account", List.of("user_account_id", "threshold_policy_id", "alert_enabled"));
-        probe.defaultThreshold = 0.7;
-        Map<String, Object> v22 = verifier(true, "posture_service", "V2.1").check();
-        assertThat(v22.get("specVersion")).isEqualTo("V2.2");
-        assertThat(list(v22, "warnings")).isEmpty();
+        assertThat(r.get("specVersion")).isEqualTo("V2.1 이하");
+        assertThat(list(r, "missingTables")).containsExactly("user_consent");
+        assertThat(list(r, "removedColumnsPresent")).contains("collapse_event.end_reason",
+                "correction_alert.attempt_seq", "threshold_policy.policy_name");
+        assertThat(String.valueOf(r.get("problems"))).contains("V2.3 아님").contains("011_add_until_collapse");
+        // 옛 정책 테이블이면 값으로 찾지 않는다(경고도 없음)
+        assertThat(r).doesNotContainKey("defaultPolicyId");
     }
 
     @Test
-    void thresholdWithinDecimalPrecisionIsOk() {
-        probe.defaultThreshold = 0.7000000001;
-        assertThat(verifier(true, "posture_service").check().get("ok")).isEqualTo(true);
+    void missingBaselineColumnIsReported() {
+        probe.columns.put("monitor_session", List.of("monitor_session_id", "client_session_uuid", "user_account_id",
+                "threshold_policy_id", "alert_enabled", "started_at", "ended_at", "good_sec"));
+        Map<String, Object> r = verifier(true, "posture_service").check();
+        assertThat(r.get("ok")).isEqualTo(false);
+        assertThat(list(r, "missingColumns")).containsExactly("monitor_session.baseline_posture_id");
     }
 
     @Test
@@ -138,28 +142,20 @@ class ServiceSchemaVerifierTest {
     }
 
     @Test
-    void olderVersionDatabaseIsReported() {
+    void olderVersionTablesAreReported() {
         probe.tables.add("client_record");
         probe.tables.add("baseline_feature");
-        probe.columns.put("monitor_session", List.of("monitor_session_id", "client_session_uuid", "user_account_id",
-                "baseline_posture_id", "threshold_policy_id", "alert_enabled", "started_at", "ended_at", "end_reason",
-                "good_sec", "frame_width"));
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(false);
         assertThat(list(r, "removedTablesPresent")).containsExactly("baseline_feature", "client_record");
-        assertThat(list(r, "missingColumns")).containsExactly("monitor_session.calibration_uuid");
-        assertThat(list(r, "removedColumnsPresent"))
-                .containsExactly("monitor_session.baseline_posture_id", "monitor_session.frame_width");
     }
 
     @Test
-    void missingSchemaSeedAndPrivilegesAreReported() {
-        probe.defaultPolicyId = null;
+    void missingSchemaAndPrivilegesAreReported() {
         probe.privileges = new ArrayList<>(List.of("SELECT"));
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(false);
         assertThat(list(r, "missingPrivileges")).containsExactly("INSERT", "UPDATE", "DELETE");
-        assertThat(String.valueOf(r.get("problems"))).contains("DEFAULT_TEMP");
 
         probe.tables.clear();
         Map<String, Object> empty = verifier(true, "posture_service").check();

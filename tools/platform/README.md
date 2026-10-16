@@ -5,7 +5,7 @@
 
 | 파일 | 용도 |
 | --- | --- |
-| `integration_test.sh` | 통합 테스트(컨테이너·Kafka·Redis·HDFS·Spark·서비스·종단 판정, io-api가 있으면 입출구 REST). `--quick`·`--no-e2e`·`--restart` |
+| `integration_test.sh` | 통합 테스트(컨테이너·Kafka·Redis·HDFS·Spark·서비스·종단 판정, io-api가 있으면 입출구 REST, `REPORT_TEST_FIXTURES_ENABLED=true`면 판정 결과 저장 11단계). `--quick`·`--no-e2e`·`--restart` |
 | `generate_collapse_test_csv.py`·`replay_posture_pilot_csv.py` | 기존 경로 T-10 합성 CSV 생성·재생 |
 | `replay_realtime_v1.py` | 계약 v1 경로 재생(시험용 입구) |
 | `generate_load_test_csv.py`·`rebase_csv_to_now.py`·`run_capacity_stage.sh` | 동시 접속 부하 측정 |

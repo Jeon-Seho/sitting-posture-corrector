@@ -26,17 +26,17 @@ CSV 컬럼 -> PostureSummaryRequest 매핑 (api-server DTO 기준):
 
 사용 예:
   # 스모크 테스트 (원본 파일럿 데이터 그대로, 빠르게)
-  python3 replay_posture_pilot_csv.py --file posture-pilot-P01.csv \
-      --api-url http://192.168.56.1:8080/api/v1/posture/summary --pace fast
+  # (서버 PC 안이면 --api-url 생략 — 기본 http://localhost:8080/...,
+  #  다른 PC에서는 http://<SERVER_LAN_IP>:<API_SERVER_HOST_PORT>/api/v1/posture/summary — infra/compose/.env)
+  python3 tools/platform/replay_posture_pilot_csv.py --file tools/platform/posture-pilot-P01.csv --pace fast
 
   # (T-11) 최대 동시 접속 측정 — 실제 클라이언트처럼 '지금' 시각으로 보내고,
   # 실행마다 새 세션 ID를 쓴다(이전 실행의 세션·판정 상태와 섞이지 않게)
-  python3 replay_posture_pilot_csv.py --file load-300.csv --pace realtime \
+  python3 tools/platform/replay_posture_pilot_csv.py --file tools/platform/load-300.csv --pace realtime \
       --concurrency 20 --limit-sessions 120 --live-timestamps
 
   # 부하 테스트 (대용량 CSV, 세션 50개 동시)
-  python3 replay_posture_pilot_csv.py --file posture-pilot-load-test.csv \
-      --api-url http://192.168.56.1:8080/api/v1/posture/summary \
+  python3 tools/platform/replay_posture_pilot_csv.py --file tools/platform/posture-pilot-load-test.csv \
       --pace fast --concurrency 50
 """
 from __future__ import annotations
