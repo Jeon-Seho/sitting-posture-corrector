@@ -1,5 +1,5 @@
 import type { FormEvent, ReactNode } from 'react'
-import { ArrowRight, BellSimple, LockSimple, Pulse } from '@phosphor-icons/react'
+import { ArrowRight } from '@phosphor-icons/react'
 import { BrandMark } from '../components/BrandMark'
 import { InlineForm } from '../components/InlineForm'
 
@@ -37,19 +37,6 @@ export function LoginPage({
           <p>카메라로 자세를 살펴보지만 영상은 저장하거나 보내지 않아요.</p>
         </div>
         <SittingArt />
-        <div className="cover-points">
-          <span>
-            <Pulse size={16} weight="bold" />내 기준으로 비교
-          </span>
-          <span>
-            <BellSimple size={16} weight="bold" />
-            오래 이어질 때만 알림
-          </span>
-          <span>
-            <LockSimple size={16} weight="bold" />
-            영상은 기기 안에서만
-          </span>
-        </div>
       </section>
 
       <div className="cover-panel">
