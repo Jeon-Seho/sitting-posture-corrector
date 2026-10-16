@@ -253,7 +253,9 @@ class SessionEngineTest {
     }
 
     @Test
-    void observationLimitPreservesDuplicateAndEndAfterTenThousandAcceptedInputs() {
+    void timeLimitPreservesDuplicateAndEndAfterTheLastAllowedInput() {
+        // 최대 측정 시간(설정값) 10,000초: 1초 구간 10,000개까지 받고 그 뒤는 429.
+        engine = new SessionEngine(UUID.randomUUID(), DEFAULTS, 10_000_000);
         var first = observation(0, 0, 1000, 0.1, true, Observation.Phase.running);
         for (int index = 0; index < 10000; index++)
             engine.accept(
@@ -272,6 +274,37 @@ class SessionEngineTest {
         assertEquals(ended, engine.accept(first));
         assertEquals(1, count("session_ended"));
         assertEquals(10000000, ended.summary().normalMs());
+    }
+
+    @Test
+    void tinyIntervalsHitTheMemoryGuardBeforeTheTimeLimit() {
+        // 1초 한도면 평균 0.25초 구간 4개까지(관측 메모리 보호).
+        engine = new SessionEngine(UUID.randomUUID(), DEFAULTS, 1000);
+        for (int index = 0; index < 4; index++)
+            engine.accept(observation(index, index, index + 1, 0.1, true, Observation.Phase.running));
+        var fifth = observation(4, 4, 5, 0.1, true, Observation.Phase.running);
+        assertEquals(429, assertThrows(ApiError.class, () -> engine.accept(fifth)).status());
+    }
+
+    @Test
+    void pausedAndInvalidReasonsFollowTheLastInterval() {
+        assertNull(engine.pausedReason());
+        feed(0, 1000, 0.1);
+        assertNull(engine.pausedReason());
+        phase(1000, 2000, 0, false, Observation.Phase.running);
+        assertEquals("unmeasurable", engine.pausedReason());
+        phase(2000, 3000, 0, false, Observation.Phase.rest);
+        assertEquals("rest", engine.pausedReason());
+        phase(3000, 4000, 0, false, Observation.Phase.away);
+        assertEquals("away", engine.pausedReason());
+
+        var valid = observation(0, 0, 500, 0.2, true, Observation.Phase.running);
+        var invalid = observation(0, 0, 500, 0, false, Observation.Phase.running);
+        var rest = observation(0, 0, 500, 0, false, Observation.Phase.rest);
+        assertNull(SessionEngine.invalidReason(valid, "head_turn"));
+        assertEquals("head_turn", SessionEngine.invalidReason(invalid, "head_turn"));
+        assertEquals("unmeasurable", SessionEngine.invalidReason(invalid, null));
+        assertEquals("unmeasurable", SessionEngine.invalidReason(rest, "head_turn"));
     }
 
     // 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.

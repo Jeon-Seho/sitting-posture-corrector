@@ -18,11 +18,11 @@ backend/api/src/main/java/org/posegood/api/
 ├── account/    # 가입·로그인·CSRF·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
-├── realtime/   # /v1/realtime WebSocket
+├── realtime/   # /v1/realtime·/v2/realtime WebSocket
 └── system/     # /health, 시작 시 스키마 V2.3 확인
 ```
 
-흐름: `SessionController`·`RealtimeHandler` → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
+흐름: `SessionController`·`RealtimeHandler`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
 세션 하나의 요청은 세션 잠금 안에서 차례로 처리한다(추론 호출 포함). 판정 결과는 처리 직후 DB에 쓰고 실시간 채널로 보낸다.
 
 ## 진행 중 상태와 DB
@@ -32,7 +32,7 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 | 시점 | DB에 쓰는 것 |
 | --- | --- |
 | 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
-| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각·좌표가 같은 재시도는 기존 행 반환 |
+| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각·좌표가 같은 재시도는 기존 행 반환. `/v2/realtime` 등록은 서버가 평균을 계산해 서버 시각으로 추가 |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
 | 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
 | 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
@@ -67,7 +67,7 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 | `GET /v2/sessions/{UUID}`, `GET .../metadata`, `DELETE /v2/sessions/{UUID}` | 조회 v1, 시작·종료 시각·기준 ID, 삭제 |
 | `POST /v2/baselines`, `GET /v2/baselines/current` | 독립 기준 등록·현재 기준 조회 |
 | `PUT /v2/consents/optional-profile` | 선택 정보 동의·철회 |
-| `GET /v1/realtime` (WebSocket) | 실시간 채널(아래) |
+| `GET /v1/realtime`, `GET /v2/realtime` (WebSocket) | 실시간 채널(아래). v1은 앱이 v2로 넘어간 뒤 지운다 |
 | `GET /health` | DB 연결 확인 |
 
 ### 판정 규칙
@@ -77,7 +77,7 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
 - 관측 점수가 `threshold` 이상이면 이탈 후보다. 후보가 연속으로 `hold_ms` 이상이면 `collapse_confirmed`(최초 알림),
   같은 사건에서 마지막 알림 뒤 `reminder_ms`가 지나고 계속 이탈이면 `reminder`, 기준 내 자세가 연속 `recovery_ms` 이상이면 `recovery_confirmed`다.
 - 휴식·자리 비움·저품질·시간 공백·순번 누락은 열린 사건을 중단(`interrupted`)하고 연속 누적을 0으로 만든다. 정상이나 회복으로 바꾸지 않는다.
-- 같은 sequence·같은 본문의 재시도는 처음 결과를 돌려준다. 다른 본문 중복, 역순·겹친 구간, 종료 후 입력은 409다. 세션당 10,000건까지 받는다(429).
+- 같은 sequence·같은 본문의 재시도는 처음 결과를 돌려준다. 다른 본문 중복, 역순·겹친 구간, 종료 후 입력은 409다. 세션 시작부터 최대 측정 시간(`posegood.realtime.max-session-duration`, 기본 5,000초 = 예전 0.5초 구간 10,000개)까지 받는다(429). 메모리 보호로 평균 0.25초보다 짧은 구간이 이어지면 그 전에 429다.
 
 ### 실시간 채널
 
@@ -91,6 +91,28 @@ V2.3에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진행 중 �
   로그인 없음은 `unauthorized`, 다른 사람 세션은 `not_owner`, 상태 없음·계약 위반은 `session_lost`다.
 - HTTP로 종료하면 연결된 채널에 `session_ended` 사건, `progress`, `closed: ended`를 보낸다.
 - 프론트는 `VITE_REALTIME_URL`(예: `ws://127.0.0.1:8080/api/v1/realtime`)을 지정하면 이 채널을 쓴다.
+
+`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. 연결 하나가 측정 한 번 또는 자세 등록 한 번이고
+재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
+보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 계산식은 `model/prototype/pose.ts`·`serverFeatures.ts`).
+
+- `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
+- `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`. 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
+  준비가 `posegood.realtime.ready-timeout`(5초, 앱 대기 시간)을 넘으면 그 세션을 끝내고 `session_lost`.
+- `features`는 메시지마다 구간 1개다. 2개 이상·목적과 맞지 않는 `phase`·64KB 초과·형식 오류·중복/역순 순번은 `closed: bad_message`.
+  구간마다 `observation`(관측 3.0: `valid_ms`, `invalid_reason`), 새 사건마다 `decision`과 알림을 켠 세션이면 `alert`, 끝에 `ack`·`progress`(`paused_reason`).
+- 판정 불가 사유: 판정 가능 프레임이 없고 고개 돌림(코-귀 중점 변화 0.15 초과)만 있었으면 `head_turn`, 그 밖에는 `unmeasurable`.
+  휴식·자리 비움 구간도 계약상 사유가 필요해 `unmeasurable`이고, 멈춘 이유는 `paused_reason`(`rest`·`away`·`unmeasurable`)이 알린다. `settling`은 기준이 정해지지 않아 아직 보내지 않는다.
+- 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
+- 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다.
+- 최대 측정 시간을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
+- `end` → `decision(session_ended)` → `closed: ended`. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
+  측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
+- `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의
+  관절 평균만 모으고 `end` 때 `calibration_result` → `closed: ended`. 실패 사유는 `incomplete`(마지막 `end_ms` < 3000) →
+  `too_few_frames`(15장 미만) → `out_of_frame`(평균 좌표가 0~1 밖) → `server_error`(저장 실패) 순서로 정하고, 실패하면 저장하지 않는다.
+  끊기면 아무것도 저장하지 않는다.
+- v1의 `last_event_id`와 놓친 사건 다시 보내기는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
 
 ## 준비와 검증
 

@@ -16,7 +16,7 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 /**
  * 보안 설정: 비밀번호 해시(BCrypt), 공개 경로, CSRF, 401·403 JSON 응답.
  *
- * 로그인 세션은 DB(`SPRING_SESSION`)에 둔다. {@code /v1/realtime}은 HTTP 단계에서 열어 둔다.
+ * 로그인 세션은 DB(`SPRING_SESSION`)에 둔다. {@code /v1/realtime}·{@code /v2/realtime}은 HTTP 단계에서 열어 둔다.
  * 로그인이 없으면 연결 실패 대신 hello 응답 {@code closed: unauthorized}로 알려 앱이 계속 재시도하지 않게 한다.
  */
 @Configuration
@@ -63,7 +63,8 @@ public class SecurityConfiguration {
                                                 "/v2/auth/csrf",
                                                 "/v2/auth/register",
                                                 "/v2/auth/login",
-                                                "/v1/realtime")
+                                                "/v1/realtime",
+                                                "/v2/realtime")
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated())
