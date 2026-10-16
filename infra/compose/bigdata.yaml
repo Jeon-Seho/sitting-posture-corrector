@@ -383,6 +383,8 @@ services:
   #   docker compose -f infra/compose/bigdata.yaml --profile io up -d --build
   # 지금 단계(2026-10-15, 배포·연결 먼저): 코드는 그대로다. 판정은 API 안 메모리 엔진,
   # 점수는 아래 inference(팀 model/inference FastAPI)를 HTTP로 부른다. ws → Kafka 전환(PM)은 다음 단계.
+  # (D-57) Kafka 전환 준비: Kafka·Redis 주소와 판정 경로 설정(POSEGOOD_REALTIME_PIPELINE, 기본 local = 지금처럼 API 안 판정).
+  #   kafka로 바꾸는 것은 ws Kafka 연결(계획 0031 1단계)이 들어간 뒤. 그 전에는 값이 있어도 쓰는 코드가 없다.
   # DB: 외부 MySQL의 posture_service(V2.3). 접속 정보는 ./.env의 DB_*(env_file)를 컨테이너 안 Spring이 치환한다
   #   ($$로 compose 치환을 막음 — compose가 .env를 어느 폴더에서 읽든 같은 값).
   #   다른 계정·스키마를 쓰려면 .env에 IO_DB_USER·IO_DB_PASSWORD·IO_DB_NAME.
@@ -413,10 +415,18 @@ services:
       POSEGOOD_INTERNAL_HOSTS_ENABLED: "true"
       POSEGOOD_COOKIE_SECURE: ${POSEGOOD_COOKIE_SECURE:-false}
       POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
+      POSEGOOD_REALTIME_PIPELINE: ${POSEGOOD_REALTIME_PIPELINE:-local}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
     ports:
       - "${IO_API_BIND:-127.0.0.1}:${IO_API_HOST_PORT:-8090}:8090"
     depends_on:
       inference:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./secrets/posegood.internal-token:/run/secrets/posegood.internal-token:ro

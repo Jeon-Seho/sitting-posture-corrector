@@ -30,12 +30,21 @@ import java.util.Set;
  *
  * <p>(D-37) {@link #snapshot()}·{@link #restore(Map)}로 판정 상태 전체(누적 시간·진행 중 사건·사건 목록·마지막 sequence)를
  * 외부 저장소(Redis)에 담았다가 api-server 재시작 뒤 그대로 이어간다.
+ *
+ * <p>(D-39) 제외 구간: 판정에서 뺀 시간(휴식 {@code rest}·자리 비움 {@code away}·판정 불가 {@code unmeasurable}·
+ * 입력 누락 {@code missing})의 경계를 {@code excluded_started}·{@code excluded_ended} 사건으로 낸다. 판정 결과 저장이 이것으로
+ * {@code excluded_interval}을 기록한다. 구간은 팀 API 판정({@code backend/api} {@code engine/Timeline})과 같다 — 붙어 있는
+ * 같은 사유는 한 구간, 사유가 바뀌거나 측정 구간이 오면 끝, 세션 종료 때 열린 구간을 닫는다. 두 사건의 {@code onset_ms}는
+ * 구간 시작, {@code timestamp_ms}는 시작(started)·끝(ended), {@code reason}은 사유, {@code deviation_type}은 none.
+ * 사건 번호({@code event_id})는 다른 사건과 같은 순서를 쓴다.
  */
 public final class V1SessionJudge {
 
     static final Set<String> DEVIATION_TYPES =
             Set.of("none", "forward_slouch", "left_lean", "right_lean", "unspecified");
     static final long PROGRESS_INTERVAL_MS = 1000;
+    /** (D-39) 제외 구간 사유 = 사건 {@code reason} 값. 저장할 때 DB 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING)으로 바꾼다. */
+    static final Set<String> EXCLUSION_REASONS = Set.of("rest", "away", "unmeasurable", "missing");
 
     /** 관측 1개를 처리한 결과. {@code skipped}가 있으면 반영하지 않은 것. */
     public record Result(List<Map<String, Object>> decisions, Map<String, Object> progress, String skipped) {
@@ -79,6 +88,11 @@ public final class V1SessionJudge {
     private long duplicates;
     private long rejected;
     private String currentDeviationType = "none";
+
+    // (D-39) 열린 제외 구간: 사유(null이면 없음), 시작·끝(세션 기준 ms)
+    private String excludedReason;
+    private long excludedStartMs;
+    private long excludedEndMs;
 
     public V1SessionJudge(String sessionId, V1Policy policy) {
         this.sessionId = sessionId;
@@ -146,6 +160,15 @@ public final class V1SessionJudge {
         m.put("duplicates", duplicates);
         m.put("rejected", rejected);
         m.put("current_deviation_type", currentDeviationType);
+        if (excludedReason != null) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("reason", excludedReason);
+            x.put("start_ms", excludedStartMs);
+            x.put("end_ms", excludedEndMs);
+            m.put("excluded", x);
+        } else {
+            m.put("excluded", null);
+        }
         return m;
     }
 
@@ -213,6 +236,14 @@ public final class V1SessionJudge {
         j.duplicates = num(m.get("duplicates"), 0);
         j.rejected = num(m.get("rejected"), 0);
         j.currentDeviationType = m.get("current_deviation_type") instanceof String t ? t : "none";
+        // (D-39) D-39 전에 저장된 스냅샷에는 이 키가 없다 — 열린 제외 구간 없음으로 이어간다(그 세션의 구간은 다음 경계부터 기록).
+        if (m.get("excluded") instanceof Map<?, ?> xm && xm.get("reason") instanceof String r
+                && EXCLUSION_REASONS.contains(r)) {
+            Map<String, Object> x = (Map<String, Object>) xm;
+            j.excludedReason = r;
+            j.excludedStartMs = req(x, "start_ms");
+            j.excludedEndMs = req(x, "end_ms");
+        }
         return j;
     }
 
@@ -245,6 +276,7 @@ public final class V1SessionJudge {
         if (o.startMs() > endMs) {
             interrupt("missing", endMs, emitted);
             missingMs += o.startMs() - endMs;
+            exclude("missing", endMs, o.startMs(), emitted);
         } else if (lastSequence >= 0 && o.sequence() != lastSequence + 1) {
             interrupt("missing_sequence", endMs, emitted);
         }
@@ -252,7 +284,9 @@ public final class V1SessionJudge {
         currentDeviationType = DEVIATION_TYPES.contains(o.deviationType()) ? o.deviationType() : "unspecified";
         long d = o.durationMs();
         if (!"running".equals(o.phase()) || !o.valid()) {
-            interrupt("running".equals(o.phase()) ? "unmeasurable" : o.phase(), o.startMs(), emitted);
+            String reason = "running".equals(o.phase()) ? "unmeasurable" : o.phase();
+            interrupt(reason, o.startMs(), emitted);
+            exclude(reason, o.startMs(), o.endMs(), emitted);
             endMs = o.endMs();
             switch (o.phase()) {
                 case "rest" -> restMs += d;
@@ -260,6 +294,7 @@ public final class V1SessionJudge {
                 default -> unknownMs += d;
             }
         } else {
+            closeExcluded(emitted);
             boolean candidate = o.collapseProbability() >= policy.threshold();
             endMs = o.endMs();
             if (candidate && holdMs == 0) {
@@ -310,8 +345,10 @@ public final class V1SessionJudge {
         if (at > endMs) {
             interrupt("missing", endMs, emitted);
             missingMs += at - endMs;
+            exclude("missing", endMs, at, emitted);
         }
         interrupt("ended", endMs, emitted);
+        closeExcluded(emitted);
         endMs = at;
         ended = true;
         emitted.add(event("session_ended", at, at, validMs, "none", "ended"));
@@ -334,6 +371,7 @@ public final class V1SessionJudge {
         }
         List<Map<String, Object>> emitted = new ArrayList<>();
         interrupt("missing", endMs, emitted);
+        closeExcluded(emitted);
         ended = true;
         emitted.add(event("session_ended", endMs, endMs, validMs, "none", "missing"));
         Map<String, Object> summary = summary();
@@ -408,6 +446,31 @@ public final class V1SessionJudge {
         active = null;
         holdMs = 0;
         recoveryMs = 0;
+    }
+
+    /**
+     * (D-39) [from, to) 구간을 제외 구간에 넣는다. 열린 구간과 사유가 같고 바로 이어지면 늘리기만 하고(사건 없음),
+     * 아니면 열린 구간을 닫고({@code excluded_ended}) 새 구간을 연다({@code excluded_started}).
+     */
+    private void exclude(String reason, long from, long to, List<Map<String, Object>> out) {
+        if (excludedReason != null && excludedReason.equals(reason) && excludedEndMs == from) {
+            excludedEndMs = to;
+            return;
+        }
+        closeExcluded(out);
+        excludedReason = reason;
+        excludedStartMs = from;
+        excludedEndMs = to;
+        out.add(event("excluded_started", from, from, validMs, "none", reason));
+    }
+
+    /** (D-39) 열린 제외 구간이 있으면 그 끝 시각으로 닫는다. */
+    private void closeExcluded(List<Map<String, Object>> out) {
+        if (excludedReason == null) {
+            return;
+        }
+        out.add(event("excluded_ended", excludedEndMs, excludedStartMs, validMs, "none", excludedReason));
+        excludedReason = null;
     }
 
     private Map<String, Object> episodeEvent(String kind, long at, String reason) {

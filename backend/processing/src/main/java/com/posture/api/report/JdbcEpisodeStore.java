@@ -29,6 +29,7 @@ public class JdbcEpisodeStore implements EpisodeStore {
     private final String ms;   // `schema`.monitor_session
     private final String ce;
     private final String ca;
+    private final String ei;
 
     public JdbcEpisodeStore(JdbcTemplate jdbc, @Value("${service-db.schema:posture_service}") String schema) {
         if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
@@ -38,6 +39,7 @@ public class JdbcEpisodeStore implements EpisodeStore {
         this.ms = "`" + schema + "`.monitor_session";
         this.ce = "`" + schema + "`.collapse_event";
         this.ca = "`" + schema + "`.correction_alert";
+        this.ei = "`" + schema + "`.excluded_interval";
     }
 
     static long micros(long ms) {
@@ -126,6 +128,51 @@ public class JdbcEpisodeStore implements EpisodeStore {
     }
 
     @Override
+    public boolean startExcluded(long sessionId, long startedMs, String reason) {
+        if (excludedExists(sessionId, startedMs)) {
+            return false;
+        }
+        return jdbc.update("INSERT INTO " + ei + " (monitor_session_id, started_at, ended_at, exclusion_reason)"
+                        + " SELECT monitor_session_id, DATE_ADD(started_at, INTERVAL ? MICROSECOND), NULL, ?"
+                        + " FROM " + ms + " WHERE monitor_session_id = ?",
+                micros(startedMs), reason, sessionId) > 0;
+    }
+
+    @Override
+    public boolean endExcluded(long sessionId, long startedMs, long endedMs, String reason) {
+        int n = jdbc.update("UPDATE " + ei + " x JOIN " + ms + " s ON s.monitor_session_id = x.monitor_session_id"
+                        + " SET x.ended_at = GREATEST(DATE_ADD(s.started_at, INTERVAL ? MICROSECOND), x.started_at)"
+                        + " WHERE x.monitor_session_id = ? AND x.started_at = DATE_ADD(s.started_at, INTERVAL ? MICROSECOND)"
+                        + " AND x.ended_at IS NULL",
+                micros(endedMs), sessionId, micros(startedMs));
+        if (n > 0) {
+            return true;
+        }
+        if (excludedExists(sessionId, startedMs)) {
+            return false;
+        }
+        return jdbc.update("INSERT INTO " + ei + " (monitor_session_id, started_at, ended_at, exclusion_reason)"
+                        + " SELECT monitor_session_id, DATE_ADD(started_at, INTERVAL ? MICROSECOND),"
+                        + " DATE_ADD(started_at, INTERVAL ? MICROSECOND), ? FROM " + ms + " WHERE monitor_session_id = ?",
+                micros(startedMs), micros(Math.max(startedMs, endedMs)), reason, sessionId) > 0;
+    }
+
+    @Override
+    public int endOpenExcluded(long sessionId, long endedMs) {
+        return jdbc.update("UPDATE " + ei + " x JOIN " + ms + " s ON s.monitor_session_id = x.monitor_session_id"
+                        + " SET x.ended_at = GREATEST(DATE_ADD(s.started_at, INTERVAL ? MICROSECOND), x.started_at)"
+                        + " WHERE x.monitor_session_id = ? AND x.ended_at IS NULL",
+                micros(endedMs), sessionId);
+    }
+
+    private boolean excludedExists(long sessionId, long startedMs) {
+        return firstInt(jdbc.queryForList(
+                "SELECT COUNT(*) FROM " + ei + " x JOIN " + ms + " s ON s.monitor_session_id = x.monitor_session_id"
+                        + " WHERE x.monitor_session_id = ? AND x.started_at = DATE_ADD(s.started_at, INTERVAL ? MICROSECOND)",
+                Long.class, sessionId, micros(startedMs))).orElse(0) > 0;
+    }
+
+    @Override
     public Optional<Map<String, Object>> sessionView(String clientSessionUuid) {
         String off = "TIMESTAMPDIFF(MICROSECOND, s.started_at, %s) DIV 1000";
         List<Map<String, Object>> rows = jdbc.queryForList(
@@ -154,6 +201,11 @@ public class JdbcEpisodeStore implements EpisodeStore {
                         + " s.alert_enabled AS displayed"
                         + " FROM " + ca + " a JOIN " + ms + " s ON s.monitor_session_id = a.monitor_session_id"
                         + " WHERE a.monitor_session_id = ? ORDER BY a.event_seq, a.attempted_at", id));
+        v.put("excluded", jdbc.queryForList(
+                "SELECT " + String.format(off, "x.started_at") + " AS started_ms, "
+                        + String.format(off, "x.ended_at") + " AS ended_ms, x.exclusion_reason"
+                        + " FROM " + ei + " x JOIN " + ms + " s ON s.monitor_session_id = x.monitor_session_id"
+                        + " WHERE x.monitor_session_id = ? ORDER BY x.started_at", id));
         return Optional.of(v);
     }
 

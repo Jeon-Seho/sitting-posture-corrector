@@ -138,15 +138,17 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 - 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 앱·FE가 LAN에서 붙을 때는 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
 - 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`).
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
-- 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 다음 단계(`ws`, PM).
+- 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
+  준비로 io-api에 Kafka·Redis 주소(`kafka:19092`·`redis`)와 `POSEGOOD_REALTIME_PIPELINE`(기본 `local` = 지금 경로)을 넣었다.
+  `kafka`로 바꾸는 것은 `ws` Kafka 연결 코드가 들어간 뒤다.
 
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 
 api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
-`collapse_event`·`correction_alert`와 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
+`collapse_event`·`correction_alert`·`excluded_interval`(D-39 제외 구간)과 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
 행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /cep/service-db`(V2.3, 통합 테스트 6단계).
 
 - 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
   (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).
 - 시험 서버에서만 `.env`에 `REPORT_TEST_FIXTURES_ENABLED=true` — 통합 테스트 11단계가 시험 계정·기준 자세·세션 행
-  (`test-*@example.invalid`, 합성 좌표)을 만들어 저장·재전송 멱등을 확인하고 지운다. 운영에서는 켜지 않는다.
+  (`test-*@example.invalid`, 합성 좌표)을 만들어 저장·재전송 멱등·제외 구간(휴식·끝 공백)을 확인하고 지운다. 운영에서는 켜지 않는다.

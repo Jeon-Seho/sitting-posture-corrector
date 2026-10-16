@@ -10,6 +10,8 @@ api-server의 시험용 입구(POST /api/v1/realtime/features)로 보낸다.
     python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 0:60    # 시작 + 구간 sequence 0~58
     docker compose -f infra/compose/bigdata.yaml restart api-server                                # 판정 상태는 Redis에서 복원
     python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 60:     # 나머지 + 종료
+    # (D-39) 제외 구간 시험: 정상 2s → 휴식(rest) 2.5s → 정상 2s, 마지막 구간 뒤 1.5s 공백(누락)으로 종료
+    python3 tools/platform/replay_realtime_v1.py --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500
 
 메시지: session_started(정책 3000/3000/60000/0.7) → features(0.5초 구간 1개씩, sequence 0부터) → session_ended.
 특징 값은 T-10 CSV와 같다(나쁜 자세: 머리 0.18·좌우 0.15·어깨 -0.12, 정상: 0.02·0.01·-0.01, 품질 0.9).
@@ -58,7 +60,9 @@ def build_session(args, start: datetime):
     })]
     seq, t = 0, 0
     seg = args.segment_ms
-    for seconds, deltas in ((args.normal_sec, NORMAL), (args.bad_sec, BAD), (args.recover_sec, NORMAL)):
+    # (D-39) --rest-sec: 정상 뒤에 휴식(phase rest, 특징 없음) 구간 — 판정에서 빠지는 제외 구간(PAUSE)
+    parts = ((args.normal_sec, NORMAL), (args.rest_sec, None), (args.bad_sec, BAD), (args.recover_sec, NORMAL))
+    for seconds, deltas in parts:
         for _ in range(int(round(seconds * 1000 / seg))):
             body = {
                 "schema_version": "2.0",
@@ -67,14 +71,16 @@ def build_session(args, start: datetime):
                 "sequence": seq,
                 "start_ms": t,
                 "end_ms": t + seg,
-                "phase": "running",
-                "measurement_quality": "good",
-                "features": {**deltas, "current_quality": 0.9, "baseline_quality": 0.9},
+                "phase": "running" if deltas is not None else "rest",
+                "measurement_quality": "good" if deltas is not None else "poor",
+                "features": {**deltas, "current_quality": 0.9, "baseline_quality": 0.9} if deltas is not None else None,
             }
             msgs.append(envelope(session_id, args.user_id, start + timedelta(milliseconds=t + seg), "features", body))
             seq += 1
             t += seg
-    msgs.append(envelope(session_id, args.user_id, start + timedelta(milliseconds=t), "session_ended", {"end_ms": t}))
+    # (D-39) --end-gap-ms: 마지막 구간 뒤 공백을 두고 끝냄 — 그 공백은 누락 제외 구간(MISSING)
+    end = t + args.end_gap_ms
+    msgs.append(envelope(session_id, args.user_id, start + timedelta(milliseconds=end), "session_ended", {"end_ms": end}))
     return session_id, msgs
 
 
@@ -86,6 +92,8 @@ def main() -> int:
     ap.add_argument("--normal-sec", type=float, default=5.0)
     ap.add_argument("--bad-sec", type=float, default=70.0)
     ap.add_argument("--recover-sec", type=float, default=10.0)
+    ap.add_argument("--rest-sec", type=float, default=0.0, help="(D-39) 정상 뒤 휴식(rest) 구간 길이")
+    ap.add_argument("--end-gap-ms", type=int, default=0, help="(D-39) 마지막 구간과 종료 사이 공백(누락)")
     ap.add_argument("--segment-ms", type=int, default=500)
     ap.add_argument("--batch", type=int, default=20, help="한 번의 HTTP 요청에 담을 메시지 수(1~200)")
     ap.add_argument("--pace", choices=["fast", "realtime"], default="fast",
@@ -96,6 +104,8 @@ def main() -> int:
     args = ap.parse_args()
     if not 1 <= args.batch <= 200 or not 1 <= args.segment_ms <= 1500:
         ap.error("--batch는 1~200, --segment-ms는 1~1500")
+    if args.rest_sec < 0 or args.end_gap_ms < 0:
+        ap.error("--rest-sec·--end-gap-ms는 0 이상")
 
     start = datetime.now(timezone.utc)
     session_id, msgs = build_session(args, start)

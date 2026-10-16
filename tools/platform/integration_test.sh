@@ -551,7 +551,7 @@ else
 fi
 
 # ---------------------------------------------------------------------
-step "11. 판정 결과 저장 (D-30·D-51)"
+step "11. 판정 결과 저장 (D-30·D-51·D-39)"
 # 저장 결과(GET /report/sessions/<id>)가 T-10 v1 기대값인지 — 세션 시작 기준 ms. V2.3은 종료 사유 컬럼이 없어
 # 이벤트 종료 방식은 시각으로 판정한 end_kind(RECOVERED·SESSION_END·EXCLUDED), 알림은 시각만(표시 여부 = 세션 alert_enabled).
 d30_expected() {
@@ -616,11 +616,36 @@ PYD
   elif [ -z "$L" ]; then fail "저장 컨슈머 report-store-v1" "그룹 없음 — REPORT_STORE_ENABLED·재빌드 확인"
   else fail "저장 컨슈머 report-store-v1 lag" "$L"; fi
 
-  if [ "${KEEP_D30:-0}" = 1 ]; then skip "시험 세션 삭제" "KEEP_D30=1 — $D_SID 남겨 둠"
+  # (D-39) 제외 구간: 정상 2s → 휴식 2.5s → 정상 2s, 마지막 구간 뒤 1.5s 공백으로 종료
+  #   기대 excluded_interval = PAUSE [2000, 4500) · MISSING [6500, 8000), 세션 종료 8000, good_sec 4.0
+  X_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+  XC="$(curl -s -m 10 -X POST "$API/report/test/sessions/$X_SID")"
+  echo "제외 구간 시험 세션: $XC" >>"$OUT/run.log"
+  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-D39-$TS" --session-id "$X_SID" \
+    --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/d39-replay.log" 2>&1
+  XV=""
+  for _ in $(seq 1 30); do
+    XV="$(curl -s -m 5 "$API/report/sessions/$X_SID")"
+    echo "$XV" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
+    XV=""; sleep 2
+  done
+  echo "제외 구간 저장 결과: ${XV:-없음}" >>"$OUT/run.log"
+  if [ -z "$XV" ]; then fail "제외 구간 저장 (D-39)" "60초 안에 세션 종료가 저장되지 않음 — $OUT/d39-replay.log"
+  elif echo "$XV" | python3 -c "
+import json,sys
+v=json.load(sys.stdin)
+x=[(r['started_ms'],r['ended_ms'],r['exclusion_reason']) for r in v.get('excluded') or []]
+sys.exit(0 if x==[(2000,4500,'PAUSE'),(6500,8000,'MISSING')] and v.get('ended_ms')==8000 and float(v.get('good_sec') or -1)==4.0 else 1)"
+  then pass "제외 구간 저장: PAUSE 2.0~4.5s · MISSING 6.5~8.0s, 종료 8.0s·good_sec 4.0 (D-39)"
+  else fail "제외 구간 저장 (D-39)" "$(echo "$XV" | head -c 500) (기대: PAUSE 2000~4500·MISSING 6500~8000)"; fi
+
+  if [ "${KEEP_D30:-0}" = 1 ]; then skip "시험 세션 삭제" "KEEP_D30=1 — $D_SID·$X_SID 남겨 둠"
   else
     DEL="$(curl -s -m 10 -X DELETE "$API/report/test/sessions/$D_SID")"
-    if echo "$DEL" | grep -q '"deletedSessions": *1'; then pass "시험 세션·계정 삭제 (이벤트·알림·기준 자세는 CASCADE)"
-    else fail "시험 세션 삭제" "$DEL"; fi
+    DEL2="$(curl -s -m 10 -X DELETE "$API/report/test/sessions/$X_SID")"
+    if echo "$DEL" | grep -q '"deletedSessions": *1' && echo "$DEL2" | grep -q '"deletedSessions": *1'; then
+      pass "시험 세션·계정 삭제 2개 (이벤트·알림·제외 구간·기준 자세는 CASCADE)"
+    else fail "시험 세션 삭제" "$DEL / $DEL2"; fi
   fi
 fi
 
