@@ -123,9 +123,6 @@ export function SetupPage({
               설정으로
             </button>
           )}
-          {/* Same choice as settings, shown even with the camera off (2026-10-16); no switching
-              while registering or measuring, since the posture belongs to one camera. */}
-          <CameraPicker camera={camera} disabled={calibrating || counting || measuring} />
           {registered && !registering && !measuring && (
             <button className="chip" disabled={!on} onClick={flow.start}>
               <ArrowCounterClockwise size={14} weight="bold" className="icon" />
@@ -155,7 +152,13 @@ export function SetupPage({
               ) : (
                 <span />
               )}
-              {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
+              <div className="stage-top-end">
+                {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
+                {/* Same choice as settings, on the camera view and even with the camera off
+                    (2026-10-16); locked while registering or measuring, since the posture
+                    belongs to one camera. */}
+                <CameraPicker camera={camera} disabled={calibrating || counting || measuring} />
+              </div>
             </div>
             <div className="stage-bottom">
               {camera.state === 'off' || camera.state === 'error' ? (
