@@ -3,7 +3,7 @@ import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
 import type { Rules } from '../../lib/engine'
-import { cameraSample, holdWhileSettling, SHOULDER_MISSING_NOTICE } from '../../lib/cameraSample'
+import { cameraSample, holdWhileSettling, INPUT_PAUSED_NOTICE, SHOULDER_MISSING_NOTICE } from '../../lib/cameraSample'
 import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
@@ -89,7 +89,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           checkpoint: service.onCheckpoint,
           ended: service.onEnded,
           interrupted: () => {
-            setPauseReason('카메라 입력이 멈췄어요. 준비되면 직접 이어서 측정해 주세요.')
+            setPauseReason(INPUT_PAUSED_NOTICE)
             setPhase('paused')
           },
         }
@@ -129,7 +129,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     if (!service || !isCamera || phase !== 'running') return
     const timer = setInterval(() => {
       if (camera.state !== 'on' || performance.now() - camera.lastFrame.current > 1500) {
-        setPauseReason('카메라 입력이 끊겼습니다. 카메라 준비를 확인하고 직접 재개해 주세요.')
+        setPauseReason(INPUT_PAUSED_NOTICE)
         setPhase('paused')
       }
     }, 250)

@@ -12,6 +12,7 @@ import {
   subscribeConnectionLost,
 } from '../../connection/connectionLost'
 import { popupAlert } from '../../desktop/alertPopup'
+import { INPUT_PAUSED_NOTICE } from '../../../lib/cameraSample'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
 const REALTIME_URL = SERVER.realtimeUrl
@@ -109,7 +110,7 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
         (latest.current.camera.state !== 'on' ||
           performance.now() - latest.current.camera.lastFrame.current > 1000)
       ) {
-        next.pause('카메라 입력이 끊겼습니다. 준비를 확인하고 직접 재개해 주세요.', false)
+        next.pause(INPUT_PAUSED_NOTICE, false)
       }
     }, 250)
     return () => {

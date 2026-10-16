@@ -22,6 +22,7 @@ import {
   syntheticClient,
   view,
 } from './testFixtures'
+import { INPUT_PAUSED_NOTICE } from '../../../lib/cameraSample'
 
 const controls = vi.hoisted(() => ({ client: null as unknown as SessionClient }))
 vi.mock('./client', async (original) => ({
@@ -171,7 +172,7 @@ describe('server screen lifecycle without camera permissions or local time decis
       vi.advanceTimersByTime(1500)
     })
     expect(latest.phase).toBe('paused')
-    expect(latest.message).toContain('카메라 입력이 끊겼습니다')
+    expect(latest.message).toBe(INPUT_PAUSED_NOTICE)
     expect(latest.live.totalSeconds).toBe(0)
     camera.lastFrame.current = Date.now()
     act(() => {

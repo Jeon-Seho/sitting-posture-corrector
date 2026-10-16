@@ -5,6 +5,11 @@ import type { ReturnSettle } from './returnSettle'
 
 /** Notices for the 2 s shoulder grace (2026-10-13). The live view keys on these exact texts. */
 export const SHOULDER_GRACE_NOTICE = '어깨가 잘 보이지 않아 잠시 머리로만 확인하고 있어요.'
+/**
+ * Camera input stopped for a moment and measuring paused: it does not resume by itself, and
+ * 「측정 재개」 stays disabled until the person is recognized again (2026-10-16, user wording).
+ */
+export const INPUT_PAUSED_NOTICE = '인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.'
 export const SHOULDER_MISSING_NOTICE = '어깨가 보이지 않아 측정을 잠시 멈췄어요. 어깨가 화면에 들어오면 바로 이어가요.'
 
 export function cameraSample(camera: CameraController): Sample {
