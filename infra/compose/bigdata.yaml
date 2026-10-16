@@ -15,7 +15,7 @@
 #   - Spark: apache/spark (Apache 공식)
 #   - HDFS: bde2020/hadoop-namenode, hadoop-datanode (커뮤니티 유지보수)
 #   - Redis: redis (Docker 공식 이미지)
-#   - api-server: backend/processing/Dockerfile 로 로컬 빌드 (Spring Boot)
+#   - api-server: infra/docker/java.Dockerfile target processing 로 로컬 빌드 (Spring Boot, Gradle — D-52)
 #   - inference-service: backend/inference/Dockerfile 로 로컬 빌드 (Python)
 #   ※ 원래 Kafka·Spark는 bitnami/* 이미지를 썼으나, Bitnami가 2025년
 #     8월부터 무료 카탈로그 정책을 바꿔 버전 태그(예: bitnami/kafka:3.7)를
@@ -261,8 +261,11 @@ services:
   # collapse_events/sessions 테이블에 직접 기록한다. 판정 파라미터는
   # application.yml의 cep.* 값(기본 3s/3s/60s) 참고.
   api-server:
+    # (D-52) Gradle 모듈 backend/processing — 팀 공용 java.Dockerfile의 processing target
     build:
-      context: ../../backend/processing
+      context: ../..
+      dockerfile: infra/docker/java.Dockerfile
+      target: processing
     container_name: api-server
     restart: unless-stopped
     logging: *default-logging
@@ -314,7 +317,8 @@ services:
     # unhealthy로 번지지 않게. DB/Redis 상태는 /actuator/health(전체) 또는
     # /actuator/health/readiness로 따로 확인한다.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/liveness || exit 1"]
+      # (D-52) 공용 런타임 이미지에는 wget이 없고 curl이 있다
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/liveness > /dev/null || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -359,3 +363,86 @@ services:
       timeout: 10s
       retries: 10
       start_period: 20s
+
+  # ================= 입출구 서버 (D-48, 아키텍처 v5.2 입출구 층) =================
+  # 팀 backend/api(DB/BE, 「PoseGood API 명세서」 dc2de48 — REST 22개 + /v1/realtime)를 서버 PC에 올린다.
+  # 프로필 io로만 뜬다(빅데이터 플랫폼만 쓸 때는 영향 없음):
+  #   docker compose -f infra/compose/bigdata.yaml --profile io up -d --build
+  # 지금 단계(2026-10-15, 배포·연결 먼저): 코드는 그대로다. 판정은 API 안 메모리 엔진,
+  # 점수는 아래 inference(팀 model/inference FastAPI)를 HTTP로 부른다. ws → Kafka 전환(PM)은 다음 단계.
+  # DB: 외부 MySQL의 posture_service(V2.3). 접속 정보는 ./.env의 DB_*(env_file)를 컨테이너 안 Spring이 치환한다
+  #   ($$로 compose 치환을 막음 — compose가 .env를 어느 폴더에서 읽든 같은 값).
+  #   다른 계정·스키마를 쓰려면 .env에 IO_DB_USER·IO_DB_PASSWORD·IO_DB_NAME.
+  # 내부 토큰: ./secrets/posegood.internal-token (32자 이상, Git 제외 — infra/README.md 절차).
+  # 포트: 기본 127.0.0.1:8090(서버 PC 안에서만). LAN에 열 때는 .env에 IO_API_BIND=0.0.0.0 (D-43 정리 전 임시).
+  io-api:
+    profiles: ["io"]
+    build:
+      context: ../..
+      dockerfile: infra/docker/java.Dockerfile
+      target: api
+    image: posegood-api:local
+    container_name: io-api
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 768m
+    env_file:
+      - ./.env
+    environment:
+      TZ: "Asia/Seoul"
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: 8090
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      SPRING_DATASOURCE_URL: "jdbc:mysql://$${DB_HOST}:$${DB_PORT:3306}/$${IO_DB_NAME:posture_service}?connectionTimeZone=Asia/Seoul"
+      SPRING_DATASOURCE_USERNAME: "$${IO_DB_USER:$${DB_USER}}"
+      SPRING_DATASOURCE_PASSWORD: "$${IO_DB_PASSWORD:$${DB_PASSWORD}}"
+      POSEGOOD_INFERENCE_URL: http://inference:8092
+      POSEGOOD_INTERNAL_HOSTS_ENABLED: "true"
+      POSEGOOD_COOKIE_SECURE: ${POSEGOOD_COOKIE_SECURE:-false}
+      POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
+    ports:
+      - "${IO_API_BIND:-127.0.0.1}:8090:8090"
+    depends_on:
+      inference:
+        condition: service_healthy
+    volumes:
+      - ./secrets/posegood.internal-token:/run/secrets/posegood.internal-token:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  # io-api가 부르는 점수 계산(팀 model/inference, POST /v2/infer). 포트를 열지 않는다(app-network 안에서만).
+  # io-api는 이름이 "inference"인 내부 주소만 허용하므로 서비스 이름을 바꾸지 않는다.
+  # Kafka 추론(inference-service, backend/inference)과는 다른 것 — ws → Kafka 전환이 끝나면 뺀다.
+  inference:
+    profiles: ["io"]
+    build:
+      context: ../..
+      dockerfile: infra/docker/inference.Dockerfile
+    image: posegood-inference:local
+    container_name: io-inference
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 256m
+    environment:
+      TZ: "Asia/Seoul"
+      POSEGOOD_REQUIRE_INTERNAL_TOKEN: "true"
+      POSEGOOD_INTERNAL_TOKEN_FILE: /run/secrets/posegood.internal-token
+    volumes:
+      - ./secrets/posegood.internal-token:/run/secrets/posegood.internal-token:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
