@@ -1,7 +1,7 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성: 2026-10-11 · 최신화: 2026-10-15(BE 브랜치 비교, DB V2.3 대조, 아키텍처 v5.2 공지 반영, 실시간 v2 확정) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
-> 확인 기준: BE 브랜치 `feat/backend-data-platform-architecture` `316877d`(10/14, DevOps·`feature/repo-backend-db-v2`를 합침, 10/15에도 변경 없음), [실시간 계약 v1](../../contracts/realtime/README.md)·[v2](../../contracts/realtime/realtime-ws.v2.schema.json), DevOps/BE 회신(10/11), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`, 10/15에도 변경 없음), 아키텍처 v5.2 전환 공지(DB·BE, 10/15)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-16(합친 뒤 코드와 대조, 탈퇴 철회 없어짐) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
+> 확인 기준: 이 저장소 `backend/api`(10/15 BE 브랜치가 develop을 받아 합침, `0fe1bd6`), [실시간 계약 v1](../../contracts/realtime/README.md)·[v2](../../contracts/realtime/realtime-ws.v2.schema.json), DevOps/BE 회신(10/11), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`, 10/15에도 변경 없음), 아키텍처 v5.2 전환 공지(DB·BE, 10/15)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
 > 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md), [연동 명세](api-ws-spec.md), [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
 

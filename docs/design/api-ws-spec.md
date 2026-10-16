@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성: 2026-10-13 · 최신화: 2026-10-15(DB 저장 이름·단위·자세 방향, 아키텍처 v5.2 배치 번호) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-16(탈퇴 철회 없어짐 0.7, 합친 뒤 코드와 대조) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드는 이 저장소의 `backend/api`다(10/15 BE 브랜치 `feat/backend-data-platform-architecture`가 develop을 받아 합침, Java 17·Spring Boot 4·Gradle, DB V2.3). 그 코드의 `/v1/realtime`은 서버를 먼저 돌려 보려고 섞인 임시 상태이고, 실시간은 이 문서의 `/v2/realtime`으로 간다(BE 확인 10/15). BE가 진행 중인 것은 [FE 제안서](fe-server-proposal.md) 1장.
 > 근거 결정: 10/12 회의, 10/13 FE 결정, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)(끊기면 세션 종료, 재연결 없음)
 

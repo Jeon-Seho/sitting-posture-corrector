@@ -1,8 +1,7 @@
 # AI·서비스 경계 계약
 
 MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API v2](accounts.v2.md)를 따른다.
-계정·설정·기준·세션 REST는 v2(`/v2/…`, DB V2.3)로 바뀐다. 계약 문서 `accounts.v2.md`·`consent-documents.v2.md`는 BE 브랜치
-`feature/repo-backend-db-v2`에 있고 병합 전이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/api-ws-spec.md)에 있다.
+계정·설정·기준·세션 REST는 v2(`/v2/…`, DB V2.3)로 바뀐다. 계약 문서는 [계정 API v2](accounts.v2.md)·[동의 문서 v2](consent-documents.v2.md)(BE, 10/15 합침)이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/api-ws-spec.md)에 있다.
 
 AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초안](realtime/README.md)에 있다(팀 확인 전).
@@ -42,7 +41,7 @@ Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초
 ## 특징 입력 v2와 응답 v1
 
 [특징 입력 v2](inference-request.v2.schema.json)는 FastAPI `POST /v2/infer`와
-API `POST /v1/sessions/{UUID}/features`가 공유한다. 기존 FastAPI `/v1/infer`의 두 임시 특징은 보존한다.
+API `POST /v2/sessions/{UUID}/features`(v1 실시간이 남아 있는 동안)가 공유한다. 기존 FastAPI `/v1/infer`의 두 임시 특징은 보존한다.
 [합성 요청](examples/v2/synthetic-feature-request.json)과
 [TS·Python 공유 합성 사례](examples/v2/reference-feature-cases.json)를 함께 검증한다.
 [합성 응답](examples/v2/synthetic-feature-response.json)은 이 요청의 1초 이탈 후보와 아직 확정 사건이 없는 요약을 보여준다.
