@@ -202,29 +202,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(localStorage.setItem).not.toHaveBeenCalled()
     expect(data.get(KEYS.profile)).toBe(before)
   })
-  it('does not overwrite an unresolved checkpoint when a new session is requested', () => {
-    const raw = JSON.stringify(draft())
-    data.set(KEYS.draft, raw)
-    mount()
-    login()
-    click('측정 시작')
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    expect(text(renderer!.root)).toContain('중단된 측정을 이어하거나')
-    expect(data.get(KEYS.draft)).toBe(raw)
-  })
-  it('retries a failed recovered result with the same ID and end time and saves it once', () => {
+  it('saves a measurement interrupted by closing the app as a record instead of resuming it', () => {
     data.set(KEYS.draft, JSON.stringify(draft()))
     mount()
     login()
-    vi.mocked(localStorage.setItem).mockImplementationOnce(() => {
-      throw new Error('Synthetic quota failure')
-    })
-    click('여기까지 종료·저장')
-    expect(text(renderer!.root)).toContain('저장하지 못했습니다')
-    expect(data.has(KEYS.draft)).toBe(true)
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
     const records = readLocal<RecordItem[]>(KEYS.records, [])
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({
@@ -236,33 +217,46 @@ describe('service recovery and saving with synthetic storage only', () => {
       rules: DEFAULT_RULES,
     })
     expect(data.has(KEYS.draft)).toBe(false)
+    expect(text(renderer!.root)).toContain('그때까지의 측정을 기록으로 저장했어요')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '이어하기')).toBe(false)
   })
-  it('distinguishes final-save success from draft-cleanup failure and never offers duplicate recovery', () => {
+  it('retries a failed save of an interrupted measurement with the same ID and end time, once', () => {
     data.set(KEYS.draft, JSON.stringify(draft()))
+    let fail = true
+    vi.mocked(localStorage.setItem).mockImplementation((key: string, value: string) => {
+      if (key === KEYS.records && fail) {
+        fail = false
+        throw new Error('Synthetic quota failure')
+      }
+      data.set(key, value)
+    })
     mount()
     login()
-    vi.mocked(localStorage.removeItem).mockImplementationOnce(() => {
-      throw new Error('Synthetic cleanup failure')
+    expect(text(renderer!.root)).toContain('저장하지 못했습니다')
+    expect(data.has(KEYS.draft)).toBe(true)
+    act(() => {
+      vi.advanceTimersByTime(5000)
     })
-    click('여기까지 종료·저장')
+    const records = readLocal<RecordItem[]>(KEYS.records, [])
+    expect(records).toHaveLength(1)
+    expect(records[0]).toMatchObject({ id: draft().id, endedAt: draft().savedAt, total: 120 })
+    expect(data.has(KEYS.draft)).toBe(false)
+  })
+  it('distinguishes final-save success from draft-cleanup failure and never saves twice', () => {
+    data.set(KEYS.draft, JSON.stringify(draft()))
+    let fail = true
+    vi.mocked(localStorage.removeItem).mockImplementation((key: string) => {
+      if (key === KEYS.draft && fail) {
+        fail = false
+        throw new Error('Synthetic cleanup failure')
+      }
+      data.delete(key)
+    })
+    mount()
+    login()
     expect(text(renderer!.root)).toContain('결과는 저장했습니다')
     expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
     expect(loadLocalState().draft).toBeNull()
-    expect(data.has(KEYS.draft)).toBe(true)
-  })
-  it('restores paused totals, preserves them across page navigation and ends without loss', () => {
-    data.set(KEYS.draft, JSON.stringify(draft()))
-    mount()
-    login()
-    click('이어하기')
-    expect(text(renderer!.root)).toContain('쉬는 중')
-    click('기록')
-    click('측정하기')
-    click('측정 종료')
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0]).toMatchObject({ total: 120, valid: 120, good: 100 })
-    expect(text(renderer!.root)).toContain('이 기기에 저장했어요')
   })
   it('keeps develop real-camera-only preparation and quiet login without requesting permission', () => {
     mount()
