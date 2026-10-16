@@ -1,0 +1,6 @@
+# 참가자·부하 CSV는 서버 PC에만 둔다(저장소 규칙: 참가자 자료는 Git 밖)
+*.csv
+# 통합 테스트·용량 측정 결과 (서버 PC 로컬 기록)
+it-results/
+capacity-results/
+__pycache__/

@@ -1,30 +1,32 @@
 #!/usr/bin/env bash
 # =====================================================================
 # (T-11) 최대 동시 접속 측정 — 한 단계(동시 사용자 N명)를 깨끗한 상태에서
-# 실행하고 결과를 capacity-results/<시각>-n<N>/ 에 남긴다.
+# 실행하고 결과를 tools/platform/capacity-results/<시각>-n<N>/ 에 남긴다.
 #
 # 순서: api-server·inference-service 재시작 → 컨슈머 재참여·lag 0 대기
 #       → lag/자원 기록 시작 → N명 동시 재생(실시간 속도, 지금 시각)
 #       → 전송 종료 후 lag 0까지 걸린 시간(드레인) 측정 → 요약 출력
 #
 # 사용법 (저장소 루트 또는 아무 위치에서):
-#   mysql/run_capacity_stage.sh <동시 사용자 수> [라운드 수=6] [CSV=mysql/load-300.csv]
+#   tools/platform/run_capacity_stage.sh <동시 사용자 수> [라운드 수=6] [CSV=tools/platform/load-300.csv]
 #
 # 한 라운드 = 세션 1개 길이(약 54초). 라운드 6이면 N명이 약 5~6분 동안 이어서 접속한다
 # (재생 세션 수 = N × 라운드). CSV에는 세션이 N × 라운드 개 이상 있어야 한다.
 # =====================================================================
 set -eu   # pipefail은 쓰지 않음 — kafka CLI가 순간 실패해도 awk가 0을 내고 계속 진행
 
-N=${1:?"동시 사용자 수를 지정하세요. 예: mysql/run_capacity_stage.sh 15"}
+N=${1:?"동시 사용자 수를 지정하세요. 예: tools/platform/run_capacity_stage.sh 15"}
 ROUNDS=${2:-6}
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# (D-50) 저장소 루트에서 돈다
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
-CSV=${3:-mysql/load-300.csv}
+DC="docker compose -f infra/compose/bigdata.yaml"
+CSV=${3:-tools/platform/load-300.csv}
 LIMIT=$((N * ROUNDS))
-OUT="capacity-results/$(date +%Y%m%d-%H%M%S)-n${N}"
+OUT="tools/platform/capacity-results/$(date +%Y%m%d-%H%M%S)-n${N}"
 mkdir -p "$OUT"
 
-KG="docker compose exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group"
+KG="$DC exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group"
 
 # describe 출력에서 posture.* 토픽 행만 골라 합계를 낸다 (컬럼: GROUP TOPIC PARTITION CURRENT LOG-END LAG CONSUMER-ID ...)
 sum_lag()      { awk '$2 ~ /^posture\./ && $6 ~ /^[0-9]+$/ {l += $6} END {print l + 0}'; }
@@ -50,7 +52,7 @@ lag_zero()  { [ "$(lag_of api-server-cep)" -eq 0 ] && [ "$(lag_of inference-serv
 echo "== T-11 단계: 동시 ${N}명 × ${ROUNDS}라운드 (세션 ${LIMIT}개), 결과 → ${OUT}"
 
 echo "[1/5] api-server · inference-service 재시작"
-docker compose restart api-server inference-service >/dev/null
+$DC restart api-server inference-service >/dev/null
 wait_until 180 "컨슈머 재참여" cep_ready
 echo "[2/5] lag 0 대기"
 wait_until 300 "시작 전 lag 0" lag_zero
@@ -80,7 +82,7 @@ trap 'kill $LAG_PID $STATS_PID 2>/dev/null || true' EXIT
 echo "[4/5] 재생 (동시 ${N}명, 실시간 속도, 전송 시각 사용)"
 SEND_START=$SECONDS
 set +e
-python3 mysql/replay_posture_pilot_csv.py --file "$CSV" --pace realtime \
+python3 tools/platform/replay_posture_pilot_csv.py --file "$CSV" --pace realtime \
   --concurrency "$N" --limit-sessions "$LIMIT" --live-timestamps > "$OUT/replay.log" 2>&1
 REPLAY_RC=$?
 set -e

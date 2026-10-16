@@ -2,12 +2,13 @@
 # =====================================================================
 # 빅데이터 플랫폼 통합 테스트 (ToDo T-12)
 #
-# 서버 PC에서 platform/ 폴더 기준으로 실행한다.
-#   ./integration_test.sh            # 전체 (약 2~3분)
-#   ./integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
-#   ./integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
-#   ./integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
-#   EXPECT_PROJECT=platform ./integration_test.sh   # compose 프로젝트 이름까지 확인할 때
+# 서버 PC에서 실행한다. 어디서 실행해도 저장소 루트로 옮겨 가서 돈다(D-50).
+# compose 파일은 infra/compose/bigdata.yaml(프로젝트 이름 platform), 비밀값은 infra/compose/.env.
+#   tools/platform/integration_test.sh            # 전체 (약 2~3분)
+#   tools/platform/integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
+#   tools/platform/integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
+#   tools/platform/integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
+#   EXPECT_PROJECT=platform tools/platform/integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
 #   0. 사전 확인   : docker, python3+requests, .env 형식, compose 프로젝트·Kafka 볼륨(정보)
@@ -15,7 +16,7 @@
 #   2. Kafka       : 브로커, 토픽·파티션, 임시 토픽 produce→consume 왕복
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
-#   5. Spark       : Spark↔HDFS Parquet 왕복 (hdfs_parquet_roundtrip.py)
+#   5. Spark       : Spark↔HDFS Parquet 왕복 (bigdata/tools/hdfs_parquet_roundtrip.py)
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB 준비(D-32·D-41, 목표 버전 SERVICE_DB_SPEC_VERSION)
 #   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
 #                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
@@ -24,14 +25,21 @@
 #   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
 #                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:v1:judge:<id> 저장·삭제 확인(D-37)
 #
-# 결과: it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
+# 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
 # 끝나면 지운다. 단, T-10·v1 재생은 실제 판정 경로를 타므로 sessions/collapse_events에 테스트 행이 남는다(userId=IT-<시각>, IT-V1-<시각>).
 # =====================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR" || exit 1
+# (D-50) 저장소 루트에서 돈다. compose·비밀값·도구 경로는 아래 변수로만 쓴다.
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$ROOT" || exit 1
+COMPOSE_FILE_PATH="infra/compose/bigdata.yaml"
+DC="docker compose -f $COMPOSE_FILE_PATH"
+ENV_FILE="infra/compose/.env"
+export IT_ENV_FILE="$ENV_FILE"
+TOOLS="tools/platform"
 
 QUICK=0; E2E=1; RESTART=0
 for a in "$@"; do
@@ -48,9 +56,9 @@ API="${API_URL:-http://localhost:8080}"
 INFER="${INFERENCE_URL:-http://localhost:8000}"
 # 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
 EXPECTED_PROJECT="${EXPECT_PROJECT:-}"
-SOURCE_CSV="${SOURCE_CSV:-mysql/posture-pilot-P01.csv}"
+SOURCE_CSV="${SOURCE_CSV:-$TOOLS/posture-pilot-P01.csv}"
 TS="$(date +%Y%m%d-%H%M%S)"
-OUT="it-results/$TS"
+OUT="$TOOLS/it-results/$TS"
 mkdir -p "$OUT"
 KT="docker exec kafka /opt/kafka/bin"
 BS="--bootstrap-server localhost:9092"
@@ -72,19 +80,19 @@ step "0. 사전 확인"
 if ! command -v docker >/dev/null; then fail "docker 명령"; echo "docker가 없습니다."; exit 1; fi
 pass "docker 명령"
 if python3 -c "import requests" 2>/dev/null; then pass "python3 + requests"
-else fail "python3 + requests" "pip install -r mysql/requirements.txt"; fi
+else fail "python3 + requests" "pip install -r $TOOLS/requirements.txt"; fi
 
 # .env 형식 점검: 숫자여야 하는 값(…_SECONDS/_SIZE/_CONCURRENCY/_PORT)에 다른 글자가 붙어 있지 않은지,
 # 파일 끝 줄바꿈이 있는지(없으면 echo >> 로 덧붙인 줄이 앞 줄에 붙음 — 2026-10-07 실제 장애 원인)
-if [ -f .env ]; then
-  BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' .env | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
+if [ -f "$ENV_FILE" ]; then
+  BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' "$ENV_FILE" | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
   if [ -n "$BAD" ]; then fail ".env 숫자 값 형식" "숫자가 아닌 값: $BAD"; else pass ".env 숫자 값 형식"; fi
-  if [ -n "$(tail -c1 .env)" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
+  if [ -n "$(tail -c1 "$ENV_FILE")" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
 else
-  fail ".env 파일" "platform/.env 없음"
+  fail ".env 파일" "$ENV_FILE 없음 — 옛 platform/.env를 복사"
 fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
-log "  compose 프로젝트: ${PROJ:-?} (docker compose ps/down은 이 프로젝트 이름으로 동작)"
+log "  compose 프로젝트: ${PROJ:-?} ($DC ps/down은 이 프로젝트 이름으로 동작)"
 if [ -n "$EXPECTED_PROJECT" ]; then
   if [ "$PROJ" = "$EXPECTED_PROJECT" ]; then pass "compose 프로젝트 이름 = $PROJ"
   else fail "compose 프로젝트 이름" "실제='$PROJ', 기대='$EXPECTED_PROJECT'"; fi
@@ -109,7 +117,7 @@ for c in kafka redis hdfs-namenode hdfs-datanode spark api-server inference-serv
   [ "$z" = "+0900" ] || TZ_BAD="$TZ_BAD $c($z)"
 done
 if [ -z "$TZ_BAD" ]; then pass "컨테이너 시간대 KST(+0900) 7개 (D-20)"
-else fail "컨테이너 시간대" "KST 아님:$TZ_BAD — docker compose up -d --force-recreate 필요(D-20)"; fi
+else fail "컨테이너 시간대" "KST 아님:$TZ_BAD — $DC up -d --force-recreate 필요(D-20)"; fi
 
 # ---------------------------------------------------------------------
 step "2. Kafka"
@@ -171,9 +179,9 @@ $H hdfs dfs -rm -skipTrash "$HP" >>"$OUT/run.log" 2>&1 || true
 # ---------------------------------------------------------------------
 step "5. Spark ↔ HDFS"
 if [ "$QUICK" = 1 ]; then skip "Parquet 왕복" "--quick"
-elif [ ! -f hdfs_parquet_roundtrip.py ]; then skip "Parquet 왕복" "hdfs_parquet_roundtrip.py 없음"
+elif [ ! -f bigdata/tools/hdfs_parquet_roundtrip.py ]; then skip "Parquet 왕복" "bigdata/tools/hdfs_parquet_roundtrip.py 없음"
 else
-  docker cp hdfs_parquet_roundtrip.py spark:/opt/spark/it_roundtrip.py >>"$OUT/run.log" 2>&1
+  docker cp bigdata/tools/hdfs_parquet_roundtrip.py spark:/opt/spark/it_roundtrip.py >>"$OUT/run.log" 2>&1
   timeout 300 docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_roundtrip.py >"$OUT/spark-roundtrip.log" 2>&1
   if grep -q "왕복 테스트 성공" "$OUT/spark-roundtrip.log"; then pass "Parquet 쓰기→읽기 (spark-submit)"
   else fail "Parquet 왕복" "$OUT/spark-roundtrip.log 확인"; fi
@@ -217,7 +225,7 @@ if [ "$E2E" = 0 ]; then skip "T-10 종단 시험" "--no-e2e"
 elif [ ! -f "$SOURCE_CSV" ]; then skip "T-10 종단 시험" "$SOURCE_CSV 없음(저장소 밖 파일 — 기존 클론에서 복사하거나 SOURCE_CSV=경로 지정)"
 else
   T10="$OUT/t10.csv"
-  python3 mysql/generate_collapse_test_csv.py --input "$SOURCE_CSV" --output "$T10" >"$OUT/t10-generate.log" 2>&1
+  python3 $TOOLS/generate_collapse_test_csv.py --input "$SOURCE_CSV" --output "$T10" >"$OUT/t10-generate.log" 2>&1
   SID="$(grep -oE 'session_id\(capture_id\) = [0-9a-f-]+' "$OUT/t10-generate.log" | awk '{print $3}')"
   if [ -z "$SID" ]; then fail "T-10 CSV 생성" "$OUT/t10-generate.log 확인"
   else
@@ -232,7 +240,7 @@ h=rows[0]; i=h.index("participant_code")
 for r in rows[1:]: r[i]=u
 w=csv.writer(open(p,"w",newline="",encoding="utf-8")); w.writerows(rows)
 PY
-    python3 mysql/replay_posture_pilot_csv.py --file "$T10" --pace fast >"$OUT/t10-replay.log" 2>&1
+    python3 $TOOLS/replay_posture_pilot_csv.py --file "$T10" --pace fast >"$OUT/t10-replay.log" 2>&1
     if grep -qE '성공\(202\): 850 / 실패: 0' "$OUT/t10-replay.log"; then pass "재생 850건 전송 (HTTP 202)"
     else fail "재생 전송" "$OUT/t10-replay.log 확인"; fi
 
@@ -288,11 +296,11 @@ sys.exit(0 if d['pendingSessions']==0 and d['pendingEvents']==0 and d['consecuti
       skip "DB 쓰기 버퍼" "/cep/db-writer 없음(HTTP $DW_CODE) — D-18 적용 전 서버"
     fi
 
-    # MySQL 직접 확인 — mysql 클라이언트가 없으면 python mysql-connector(mysql/requirements.txt)로 확인
-    if [ -f .env ] && python3 -c "import mysql.connector" 2>/dev/null; then
+    # MySQL 직접 확인 — mysql 클라이언트가 없으면 python mysql-connector(tools/platform/requirements.txt)로 확인
+    if [ -f "$ENV_FILE" ] && python3 -c "import mysql.connector" 2>/dev/null; then
       ROW="$(python3 - "$SID" <<'PY2' 2>>"$OUT/run.log"
 import sys, mysql.connector
-env = dict(l.rstrip("\n").split("=", 1) for l in open(".env", encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
+env = dict(l.rstrip("\n").split("=", 1) for l in open(__import__("os").environ["IT_ENV_FILE"], encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
 c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
                             password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
 cur = c.cursor()
@@ -306,7 +314,7 @@ PY2
       # (D-20) 저장 기준 KST 확인: 방금 만든 세션의 started_at(=지금 시각)이 DB NOW()(KST)와 몇 초 차이인지
       LAG_S="$(python3 - "$SID" <<'PY3' 2>>"$OUT/run.log"
 import sys, mysql.connector
-env = dict(l.rstrip("\n").split("=", 1) for l in open(".env", encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
+env = dict(l.rstrip("\n").split("=", 1) for l in open(__import__("os").environ["IT_ENV_FILE"], encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
 c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
                             password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
 cur = c.cursor()
@@ -317,26 +325,26 @@ PY3
 )"
       if [ -n "$LAG_S" ] && [ "${LAG_S#-}" -lt 1800 ]; then pass "DB 시각 기준 KST (세션 시작 ↔ DB NOW() ${LAG_S}초, D-20)"
       else fail "DB 시각 기준" "세션 시작과 DB NOW() 차이 '${LAG_S:-행 없음}'초 — 약 ±32400초면 9시간 어긋남(D-20)"; fi
-    elif command -v mysql >/dev/null && [ -f .env ]; then
-      DBH="$(grep -E '^DB_HOST=' .env | cut -d= -f2-)"; DBP="$(grep -E '^DB_PORT=' .env | cut -d= -f2-)"
-      DBU="$(grep -E '^DB_USER=' .env | cut -d= -f2-)"; DBN="$(grep -E '^DB_NAME=' .env | cut -d= -f2-)"
-      ROW="$(MYSQL_PWD="$(grep -E '^DB_PASSWORD=' .env | cut -d= -f2-)" mysql -h "$DBH" -P "${DBP:-3306}" -u "$DBU" "${DBN:-posture_app}" -N -e \
+    elif command -v mysql >/dev/null && [ -f "$ENV_FILE" ]; then
+      DBH="$(grep -E '^DB_HOST=' "$ENV_FILE" | cut -d= -f2-)"; DBP="$(grep -E '^DB_PORT=' "$ENV_FILE" | cut -d= -f2-)"
+      DBU="$(grep -E '^DB_USER=' "$ENV_FILE" | cut -d= -f2-)"; DBN="$(grep -E '^DB_NAME=' "$ENV_FILE" | cut -d= -f2-)"
+      ROW="$(MYSQL_PWD="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)" mysql -h "$DBH" -P "${DBP:-3306}" -u "$DBU" "${DBN:-posture_app}" -N -e \
         "SELECT duration_seconds, alert_count, recovered FROM collapse_events WHERE session_id='$SID'" 2>>"$OUT/run.log")"
       if echo "$ROW" | grep -qE '^73\.1[0-9]*\s+2\s+1$'; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
       else fail "MySQL collapse_events 행" "'$ROW'"; fi
     else
-      skip "MySQL 직접 확인" "mysql 클라이언트·mysql-connector 없음 — pip install -r mysql/requirements.txt"
+      skip "MySQL 직접 확인" "mysql 클라이언트·mysql-connector 없음 — pip install -r $TOOLS/requirements.txt"
     fi
 
     # (선택) posture-sink → HDFS 적재 확인
     if [ "$QUICK" = 1 ]; then skip "HDFS 적재(posture-sink)" "--quick"
     elif ! docker exec spark pgrep -f posture_sink_stream.py >/dev/null 2>&1; then
-      skip "HDFS 적재(posture-sink)" "posture-sink 미실행 — ./run_posture_sink.sh 로 시작 후 다시 실행"
-    elif [ ! -f check_session.py ]; then skip "HDFS 적재(posture-sink)" "check_session.py 없음"
+      skip "HDFS 적재(posture-sink)" "posture-sink 미실행 — bigdata/legacy/run_posture_sink.sh 로 시작 후 다시 실행"
+    elif [ ! -f bigdata/legacy/check_session.py ]; then skip "HDFS 적재(posture-sink)" "bigdata/legacy/check_session.py 없음"
     else
       log "  posture-sink 마이크로배치(10초) 대기 25초..."
       sleep 25
-      docker cp check_session.py spark:/opt/spark/it_check_session.py >>"$OUT/run.log" 2>&1
+      docker cp bigdata/legacy/check_session.py spark:/opt/spark/it_check_session.py >>"$OUT/run.log" 2>&1
       timeout 300 docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_check_session.py "$SID" >"$OUT/hdfs-sink-check.log" 2>&1
       N="$(grep -oE '로 [0-9]+건 발견' "$OUT/hdfs-sink-check.log" | grep -oE '[0-9]+')"
       if [ "${N:-0}" -ge 850 ]; then pass "HDFS 적재: posture.summary ${N}건 (Kafka → Spark → HDFS)"
@@ -361,10 +369,10 @@ ok=(k==['collapse_confirmed','reminder','recovery_confirmed','session_ended'] an
 sys.exit(0 if ok else 1)"
 }
 if [ "$E2E" = 0 ]; then skip "v1 종단 시험" "--no-e2e"
-elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 종단 시험" "mysql/replay_realtime_v1.py 없음"
+elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "v1 종단 시험" "$TOOLS/replay_realtime_v1.py 없음"
 else
   V1_USER="IT-V1-$TS"
-  python3 mysql/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "$V1_USER" --dump "$OUT/v1-messages.jsonl" >"$OUT/v1-replay.log" 2>&1
+  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "$V1_USER" --dump "$OUT/v1-messages.jsonl" >"$OUT/v1-replay.log" 2>&1
   V1_SID="$(grep -oE 'session_id = [0-9a-f-]+' "$OUT/v1-replay.log" | awk '{print $3}')"
   if grep -qE '성공\(202\) 172 / 실패 0' "$OUT/v1-replay.log"; then pass "v1 재생 172건 전송 (시작 1 + 0.5초 구간 170 + 종료 1, HTTP 202)"
   else fail "v1 재생 전송" "$OUT/v1-replay.log 확인 (404면 REALTIME_TEST_ENTRY_ENABLED·재빌드 확인)"; fi
@@ -423,11 +431,11 @@ fi
 step "9. v1 판정 상태 복원 (D-37)"
 if [ "$RESTART" = 0 ]; then skip "v1 재시작 복원" "--restart 옵션으로 실행(api-server를 재시작함)"
 elif [ "$E2E" = 0 ]; then skip "v1 재시작 복원" "--no-e2e"
-elif [ ! -f mysql/replay_realtime_v1.py ]; then skip "v1 재시작 복원" "mysql/replay_realtime_v1.py 없음"
+elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "v1 재시작 복원" "$TOOLS/replay_realtime_v1.py 없음"
 else
   R_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
   R_USER="IT-V1R-$TS"
-  RP="python3 mysql/replay_realtime_v1.py --api $API/api/v1/realtime/features --user-id $R_USER --session-id $R_SID"
+  RP="python3 $TOOLS/replay_realtime_v1.py --api $API/api/v1/realtime/features --user-id $R_USER --session-id $R_SID"
   $RP --range 0:60 >"$OUT/v1-restart-1.log" 2>&1
   if grep -qE '성공\(202\) 60 / 실패 0' "$OUT/v1-restart-1.log"; then pass "재시작 전 전송 60건 (시작 1 + 구간 sequence 0~58)"
   else fail "재시작 전 전송" "$OUT/v1-restart-1.log"; fi
@@ -447,7 +455,7 @@ else
   else fail "Redis v1 판정 상태 저장" "EXISTS=${RK2:-?}"; fi
 
   RESTART_AT="$(date +%s)"
-  docker compose restart api-server >>"$OUT/run.log" 2>&1
+  $DC restart api-server >>"$OUT/run.log" 2>&1
   UP=0
   for _ in $(seq 1 60); do
     if curl -s -m 3 "$API/actuator/health/readiness" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('status')=='UP' else 1)" 2>/dev/null; then UP=1; break; fi

@@ -102,3 +102,16 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
 빅데이터 전달·분석은 [플랫폼 책임과 후속 작업](../docs/design/data-platform-boundary.md)을 따른다.
+
+## 빅데이터 플랫폼 (서버 PC)
+
+Kafka·Redis·HDFS·Spark와 판정 서비스(`backend/processing`)·추론 서비스(`backend/inference`)는
+[compose/bigdata.yaml](compose/bigdata.yaml)로 따로 띄운다(DevOps, 아키텍처 v5.2). MySQL은 컨테이너가 아닌 외부 서버다.
+프로젝트 이름은 파일 안의 `name: platform`으로 고정해 옛 `platform/` 위치의 볼륨(`platform_*`)을 그대로 쓴다.
+
+```sh
+cp infra/compose/env.example infra/compose/.env           # 값 채우기(커밋하지 않음)
+cp infra/compose/hadoop.env.example infra/compose/hadoop.env
+docker compose -f infra/compose/bigdata.yaml up -d --build
+tools/platform/integration_test.sh --quick
+```
