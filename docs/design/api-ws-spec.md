@@ -1,7 +1,7 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
 > 작성: 2026-10-13 · 최신화: 2026-10-15(DB 저장 이름·단위·자세 방향, 아키텍처 v5.2 배치 번호) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
-> 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드는 BE 브랜치 `feat/backend-data-platform-architecture` `316877d`(10/14, `feature/repo-backend-db-v2`를 #46으로 합침, Java 17·Spring Boot 4·Gradle, DB V2.3). 그 브랜치의 `/v1/realtime`은 서버를 먼저 돌려 보려고 섞인 임시 상태이고, 실시간은 이 문서의 `/v2/realtime`으로 간다(BE 확인 10/15). BE가 진행 중인 것은 [FE 제안서](fe-server-proposal.md) 1장.
+> 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드는 이 저장소의 `backend/api`다(10/15 BE 브랜치 `feat/backend-data-platform-architecture`가 develop을 받아 합침, Java 17·Spring Boot 4·Gradle, DB V2.3). 그 코드의 `/v1/realtime`은 서버를 먼저 돌려 보려고 섞인 임시 상태이고, 실시간은 이 문서의 `/v2/realtime`으로 간다(BE 확인 10/15). BE가 진행 중인 것은 [FE 제안서](fe-server-proposal.md) 1장.
 > 근거 결정: 10/12 회의, 10/13 FE 결정, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)(끊기면 세션 종료, 재연결 없음)
 
 ## 0. BE가 먼저 볼 것
@@ -45,7 +45,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 
 | # | 검토 내용 | FE 답 | 이 문서에 반영한 곳 |
 |---|---|---|---|
-| A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입·탈퇴 철회(A8) 뒤. 비밀번호 변경(A6) 뒤에는 모든 로그인이 끊기므로 로그인 화면으로(C2) |
+| A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입 뒤(탈퇴 철회 A8은 10/15 없어짐). 비밀번호 변경(A6) 뒤에는 모든 로그인이 끊기므로 로그인 화면으로(C2) |
 | A2 | S1 201 ~ `ready` 사이 공백 | **안 1.** 앱은 `t_ms` 0부터 구간을 만들어 두고 `ready` 뒤 순번대로 1개씩 연달아 보낸다(밀린 구간도 메시지마다 1개) | 1.1, 6.1 |
 | A3 | 관측 10,000건 한도(0.5초 구간 약 83분) | 동의. 시간 기준 한도와 `closed(limit_reached)`. 앱은 종료 화면 + "측정 가능한 시간을 넘었어요" | 5.3, 계약 v2 |
 | A4 | `stalled` 뒤 연결을 닫는가 | 동의. **`stalled`는 알림만, 연결 유지.** 앱은 문구만 띄우고 다음 `progress`·`observation`에서 지운다 | 5.3 |
@@ -53,7 +53,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | A6 | R3 409와 공통 `CONFLICT` 충돌 | R3도 공통 `CONFLICT`를 쓴다(10/15: BE 코드 이름에 맞춰 R3 전용 코드 `RECORD_ARCHIVED` 대신 공통 `CONFLICT`를 쓴다). 앱은 R3에서 받은 `CONFLICT`만 적재된 기록으로 본다. **적재(J1, 매시간)된 기록은 사용자가 지울 수 없다**(10/14 결정). 적재 전에만 지울 수 있고, 탈퇴하면 모두 지워진다 | 2장, 4.5 |
 | A7 | 해상도와 기준 자세 | **640×480 고정(팀 결정, DB V2.3 머리말 `CAPTURE_RESOLUTION`).** 앱은 640×480을 요청하고, 실제로 다른 크기가 오면 측정·등록을 시작하지 않고 안내한다. (10/14 한때 "어느 크기든 허용"으로 답했으나 DB·DevOps 모두 고정을 전제로 해 되돌렸다. 같은 날 실습 카메라(720p까지)로 16:9를 검토했으나, 판정에 필요한 위아래 범위는 늘지 않고 데이터 재촬영이 따라와 640×480 고정을 다시 확인했다) | 5.2 |
 | C1 | 「기록까지 m:ss」가 서버 처리만큼 늦음 | 5분 미만도 저장하므로(10/14 정정) 이 안내는 없앤다 | 5.3 |
-| C2 | A1을 다시 받는 시점 | A8 뒤 추가. A6 뒤에는 로그인 화면으로 | 3장 |
+| C2 | A1을 다시 받는 시점 | A8 뒤 추가(10/15 A8 없어짐). A6 뒤에는 로그인 화면으로 | 3장 |
 | C3 | S1 200·201 | 둘 다 성공 처리 | 4.4 |
 | C4 | `ready` 5초 초과 뒤 | 그 세션은 끝난 것으로 보고 **새 `session_id`로 S1부터** 다시 | 1.1 |
 | C5 | 기록 화면에서 오늘을 아예 빼면 방금 기록을 볼 곳이 없음 | **10/14 결정: 통계(합산·그래프)는 어제까지, 목록에는 오늘 세션도 하나씩 보인다**(합치지 않음). W1 `records`도 같은 규칙 | 4.5 |
@@ -107,7 +107,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | X13 | S1 응답부터 구간을 만들고 `ready` 뒤 순번대로 1개씩 보냄(안 1). 메시지마다 구간 1개 | 1.1, 6.1 |
 | X14 | 등록 WS는 3·2·1이 시작될 때 연다(B10), `end`는 마지막 `end_ms` ≥ 3000일 때(B7) | 1.1, 6.2 |
 | X15 | `p:null`이면 `valid`를 넣지 않고 서버는 판정 불가로 본다(C6) | 5.2 |
-| X16 | A8(탈퇴 철회) 뒤에도 A1을 다시 받는다 | 3장 |
+| X16 | ~~A8(탈퇴 철회) 뒤에도 A1을 다시 받는다~~ 10/15 BE가 A8을 없앴다(아키텍처 v5.2, 탈퇴는 되돌릴 수 없음) | 0.7 |
 
 **앱 쪽 확인 (BE 명세와 같아 고칠 것 없음)**
 
@@ -116,17 +116,18 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 - 비밀번호 12자·72바이트: 서버는 그대로 둔다. 앱은 72바이트를 이미 검사하고(`password.ts`), 12자 검사만 서버를 붙일 때 켠다(Q3, 7장).
 - 7장에 적었던 `GET /records?date=…`는 BE 명세에 없는 이 문서의 잘못이라 "R1 전체를 받아 날짜로 거름"으로 고쳤다. 필터는 선택 요청(Q6).
 
-나머지(경로·CSRF·계정 헤더·오류 본문, A1~A8·C1·W1·W2·B2·S1·S3·S4의 나머지, WS `hello`·`features`·`end`, `posture.frames.v1`, 서버 메시지, `closed` 사유, `calibration_result`, T1 필드, `POST …/features`·`POST /records` 없앰)는 BE 명세와 같다.
+나머지(경로·CSRF·계정 헤더·오류 본문, A1~A7·C1·W1·W2·B2·S1·S3·S4의 나머지, WS `hello`·`features`·`end`, `posture.frames.v1`, 서버 메시지, `closed` 사유, `calibration_result`, T1 필드, `POST …/features`·`POST /records` 없앰)는 BE 명세와 같다.
 
 ### 0.6 BE 코드와 REST 필드 대조 (10/15)
 
-BE 브랜치 `feat/backend-data-platform-architecture` `316877d`의 `backend/api` 코드(요청·응답 record, `AuthController`·`WorkspaceService`·`SessionController`·`BaselineController`)와 4장을 필드 단위로 맞춰 봤다. **이름·모양이 다르면 앱이 BE에 맞춘다(10/15 결정).** 아래는 4장에 반영했다. WS는 BE가 v2로 바꾸는 중이라 대조하지 않았다.
+BE 브랜치 `feat/backend-data-platform-architecture` `316877d`(지금은 이 저장소에 합쳐짐)의 `backend/api` 코드(요청·응답 record, `AuthController`·`WorkspaceService`·`SessionController`·`BaselineController`)와 4장을 필드 단위로 맞춰 봤다. **이름·모양이 다르면 앱이 BE에 맞춘다(10/15 결정).** 아래는 4장에 반영했다. WS는 BE가 v2로 바꾸는 중이라 대조하지 않았다.
 
 | ID | BE 코드 | 4장 반영 |
 |---|---|---|
 | 공통 | JSON은 `SNAKE_CASE`, 모르는 필드 400, **빠진 필드도 400**(`fail-on-missing-creator-properties`), 문자열↔숫자 자동 변환 없음 | 값이 없으면 필드를 빼지 말고 `null`을 보낸다(1장 본문) |
 | A1 | 200 `{header_name, token}` | `token`을 `X-CSRF-TOKEN`에 |
-| A2·A3·A4·A8 | 200 `{user_id, email, profile:{name, age, occupation}}`. A8 본문은 A3와 같은 `{email, password}`이고 성공하면 로그인 상태 | 같다 |
+| A2·A3·A4 | 200 `{user_id, email, profile:{name, age, occupation}}` | 같다 |
+| A8 | 10/15 없어짐(0.7) | — |
 | A5·A6·A7 | 204. A6 `{current_password, new_password}`, **A7 `{password}`**(DELETE 본문) | 탈퇴 확인창에서 비밀번호를 받아야 한다(지금 화면에는 없음, 계정 연결 F12 때) |
 | C1 | `{agreed, document_version}` → W1 모양 | 같다 |
 | W1·W2 | W1 `{schema_version:"2.0", profile, rules, preferences:{alerts_on}, consents:{optional_profile}, records}`. W2 `rules`는 `holdSeconds` 0~10, `realertSeconds` 0~180 | 같다 |
@@ -135,6 +136,20 @@ BE 브랜치 `feat/backend-data-platform-architecture` `316877d`의 `backend/api
 | S3 | `{end_ms}` → `SessionView`(`ended:true`) | `ended`만 본다 |
 | S4 | `SessionView` | 종료 화면은 `summary`로 |
 | R3 | 204. 적재된 세션은 409 `CONFLICT` | 2장 |
+
+### 0.7 탈퇴는 되돌릴 수 없다 (10/15, 아키텍처 v5.2)
+
+BE가 탈퇴 철회(A8 `POST /v2/auth/withdrawal/cancel`)와 `WITHDRAWAL_NOT_CANCELLABLE`을 없앴다(`dc2de48`). API는 탈퇴 접수만 하고(계정 CLOSED), 30일 뒤 최종 삭제는 Spark J3(매일 04:00)가 한다.
+
+| 경우 | 서버 | 앱 |
+|---|---|---|
+| A7 탈퇴 | 본문 `{password}`, 204 | 확인창에 「되돌릴 수 없고 30일 뒤 완전히 삭제되며, 그 전에는 같은 이메일로 다시 가입할 수 없어요」를 보이고 비밀번호를 받는다 |
+| 탈퇴한 계정으로 로그인(비밀번호 맞음) | 403 `ACCOUNT_CLOSED` | "자세한 사항을 아래 번호 또는 이메일로 남겨주세요. 010 - 1234 - 5678 / klaod@naver.com" (FE 결정 10/16) |
+| 탈퇴한 계정으로 로그인(비밀번호 틀림) | 401 `INVALID_CREDENTIALS` | 보통의 로그인 실패. 탈퇴 여부가 남에게 드러나지 않는다 |
+| 최종 삭제 뒤 로그인 | 401 `INVALID_CREDENTIALS`(계정 없음) | 보통의 로그인 실패 |
+| 최종 삭제 전 같은 이메일로 가입 | 409 `ACCOUNT_EXISTS`(사용 중인 이메일과 같은 코드) | 이메일 칸 안내 |
+
+「탈퇴했고 30일이 안 된 사람인가」를 알리는 API는 따로 만들지 않는다. `ACCOUNT_CLOSED`가 곧 「탈퇴 후 최종 삭제 전」이다. J3가 늦게 돌면 30일이 지나도 삭제 전까지는 같은 응답이 온다.
 
 ## 1. 공통 규칙
 
@@ -176,7 +191,7 @@ BE 브랜치 `feat/backend-data-platform-architecture` `316877d`의 `backend/api
 | 401 | `UNAUTHENTICATED` | 로그인 화면 |
 | 401 | `INVALID_CREDENTIALS` | "이메일이나 비밀번호가 맞지 않아요" |
 | 403 | `ACCESS_DENIED` | CSRF 토큰을 다시 받아 한 번 재시도, 또 실패하면 새로고침 안내 |
-| 403 | `ACCOUNT_CLOSED` | 탈퇴 철회(A8) 안내 |
+| 403 | `ACCOUNT_CLOSED` | 탈퇴했고 아직 최종 삭제 전인 계정(비밀번호가 맞을 때만 온다). 로그인 화면에 "자세한 사항을 아래 번호 또는 이메일로 남겨주세요. 010 - 1234 - 5678 / klaod@naver.com" 안내(0.7) |
 | 404 | `SESSION_NOT_FOUND`·`SESSION_LOST` | 측정을 끝내고 마지막 `progress`로 종료 화면 |
 | 404 | `BASELINE_NOT_FOUND` | 측정하기에서 자세 등록부터 |
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
@@ -184,7 +199,6 @@ BE 브랜치 `feat/backend-data-platform-architecture` `316877d`의 `backend/api
 | 409 | `BASELINE_REQUIRED` | 측정하기 자세 등록으로 |
 | 409 | `CONFLICT` | R3(기록 삭제)면 적재된 기록이라 "지금은 지울 수 없어요"(A6). 그 밖에는 W1·B2를 다시 받고 사용자가 다시 시작 |
 | 409 | `SESSION_ENDED` | 종료 화면 |
-| 409 | `WITHDRAWAL_NOT_CANCELLABLE` | 안내만 |
 | 429 | `LIMIT_REACHED` | 측정을 끝내고 새로 시작 안내 |
 | 502·503 | `INFERENCE_FAILED`·`STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |
 
@@ -194,14 +208,13 @@ BE 명세에 ID가 없는 두 개(기록 하나 조회, 일별 통계)는 FE가 
 
 | ID | 메서드·경로 | 앱이 부르는 때 |
 |---|---|---|
-| A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입·탈퇴 철회(A8) 뒤 |
+| A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입 뒤 |
 | A2 | `POST /v2/auth/register` | 회원가입 2단계(계정 정보) 「다음」 |
 | A3 | `POST /v2/auth/login` | 로그인 |
 | A4 | `GET /v2/auth/me` | 앱 시작(쿠키가 살아 있으면 로그인 화면을 건너뜀), `AUTH_CHANGED` 뒤 |
 | A5 | `POST /v2/auth/logout` | 계정 메뉴 「로그아웃」 |
 | A6 | `PUT /v2/auth/password` | 설정 › 비밀번호 변경 |
 | A7 | `DELETE /v2/auth/account` | 프로필 › 탈퇴 |
-| A8 | `POST /v2/auth/withdrawal/cancel` | 로그인에서 `ACCOUNT_CLOSED`를 받은 뒤 |
 | C1 | `PUT /v2/consents/optional-profile` | 프로필 › 선택 정보 동의 켜기·끄기 |
 | W1 | `GET /v2/workspace` | 로그인·가입 직후 한 번 |
 | W2 | `PUT /v2/workspace` | 설정·프로필 저장 |
@@ -401,7 +414,7 @@ sequenceDiagram
 | 단계 | 앱 | 서버 |
 |---|---|---|
 | 1 | A1 `GET /v2/auth/csrf` | 토큰 |
-| 2 | 가입: A2 `POST /v2/auth/register`(4.1) / 로그인: A3 | 200 사용자 + 쿠키 / 409 `ACCOUNT_EXISTS` / 401 / 403 `ACCOUNT_CLOSED` |
+| 2 | 가입: A2 `POST /v2/auth/register`(4.1) / 로그인: A3 | 200 사용자 + 쿠키 / 409 `ACCOUNT_EXISTS`(탈퇴 후 최종 삭제 전인 이메일도 같은 코드) / 401 / 403 `ACCOUNT_CLOSED`(연락처 안내) |
 | 3 | A1 다시 → W1 | workspace |
 | 4 | 가입이면 3단계 자세 등록(6.2, 선택), 로그인이면 측정하기 | — |
 
@@ -444,7 +457,7 @@ sequenceDiagram
 2. **판정 불가:** 어깨 2초 유예가 끝난 프레임에 `valid:false`를 붙인다.
 3. **종료:** `end` 뒤 `closed(ended)`까지 연결 유지, 10초 대기 후 S4.
 4. **자세 등록:** `savedBaseline.ts`의 읽기·쓰기를 B2 조회와 WS calibration으로 바꾼다. 화면(측정하기, 가입 3단계, 설정 다시 등록)은 그대로.
-5. **계정:** 로컬 로그인·가입을 A1~A8·W1로 바꾸고 비밀번호 12자 검사를 켠다.
+5. **계정(BE 담당, F12):** 로컬 로그인·가입을 A1~A7·W1로 바꾸고 비밀번호 12자 검사를 켠다.
 
 ### 7.3 화면 상태와 서버 메시지
 

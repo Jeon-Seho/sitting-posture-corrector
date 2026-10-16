@@ -7,23 +7,23 @@
 
 ## 배경
 
-PM·DB(BE)가 10/14에 팀은 Gradle을 쓴다고 했다. FE는 Maven 때문에 `make check`가 계속 실패한다고 의심했다. 아래 원인 분석으로 Maven과 무관함을 확인했다.
+FE는 빌드 도구 때문에 `make check`가 계속 실패한다고 의심했다. 아래 원인 분석으로 빌드 도구와 무관함을 확인했다.
 
 빌드 도구: BE가 10/14에 BE 브랜치(`feat/backend-data-platform-architecture`)에서 백엔드를 Java 17·Spring Boot 4.0.8·Gradle로 바꿨다(그 브랜치의 ADR 0023·계획 0028, `a716135`).
-`tools/`도 같은 커밋에서 Gradle Wrapper로 바뀌었다. Docker 이미지·CI는 그 계획에 팀원 작업으로 남아 있다. FE는 따로 전환하지 않고, BE 브랜치를 합칠 때 받는다([계획 0029](0029-merge-backend-data-platform.md)).
+`tools/`도 같은 커밋에서 Gradle Wrapper로 바뀌었다. Docker 이미지·CI는 그 계획에 팀원 작업으로 남아 있다. FE는 따로 전환하지 않았고, 10/15 BE 브랜치가 develop을 받아 합쳐지면서 이 저장소도 Gradle이 됐다([계획 0029](0029-merge-backend-data-platform.md)).
 
 ## 원인 분석 (2026-10-14, Windows 노트북, `lee_app3` `fd1c4a7`)
 
 `make check` = ① `check-repo` → ② `test` → ③ `check-frontend` → ④ `check-backend` → ⑤ `check-browser` → ⑥ `check-compose`.
 
-| 단계 | 결과 | 원인 | Maven 탓인가 |
+| 단계 | 결과 | 원인 | 빌드 도구 탓인가 |
 |---|---|---|---|
-| ④ `check-backend` (Maven `verify`) | **통과.** Java 시험 59개, 실패 0, 14개 건너뜀(MySQL 없음). 서비스 왕복 PASS | — | 아니다 |
+| ④ `check-backend` | **통과.** Java 시험 59개, 실패 0, 14개 건너뜀(MySQL 없음). 서비스 왕복 PASS | — | 아니다 |
 | ⑤ `check-browser` | **실패.** 첫 단계 `camera-preview.mjs`의 `picker.options.length`에서 `TypeError` | 10/14 `9f3bc92`(lellon0403)가 자세 데이터 수집 화면의 기본 `<select id="capture-task">`를 앱 모양 `SelectMenu`로 바꿨다. 시나리오는 아직 `<select>`의 `options`를 읽는다. 그 전(10/13)에는 "first episode confirms at exactly 3 seconds" 항목이 실패했다(원인 미확인) | 아니다 |
 | ⑥ `check-compose` | **실패.** 이 PC는 Docker 데몬이 꺼져 있어 돌리지 못했다. 데몬이 있어도 실패한다 | `infra/mysql/initdb/10-posegood-schema.sh`가 지워진 `schema_V1_1.sql`을 찾는다(`database/schema`에는 V2_2·V2_3만). 계정 브라우저 시나리오는 지운 계정 모드(`VITE_SERVER_ACCOUNTS`)를 쓴다 | 아니다 |
 | CI (`.github/workflows/harness.yml`) | ⑤·⑥ 때문에 실패 | `make check` 전체를 돌린다 | 아니다 |
 
-**결론: 지금 `make check` 실패는 Maven 때문이 아니다.** 실패는 화면이 바뀌었는데 브라우저 시나리오를 고치지 않은 것(⑤)과 DB V2.3·계정 모드 제거를 Compose가 따라가지 못한 것(⑥)에서 온다. Gradle로 바꿔도 이 실패는 그대로다.
+**결론: 지금 `make check` 실패는 빌드 도구 때문이 아니다.** 실패는 화면이 바뀌었는데 브라우저 시나리오를 고치지 않은 것(⑤)과 DB V2.3·계정 모드 제거를 Compose가 따라가지 못한 것(⑥)에서 온다. 빌드 도구를 바꿔도 이 실패는 그대로다.
 
 앞으로 실패할 수 있는 곳: BE 브랜치는 API가 MySQL 없이 시작하지 않는다(그 브랜치의 ADR 0020). 그 코드가 들어오면 ④·⑤도 임시 MySQL이 필요하다.
 
@@ -44,12 +44,12 @@ PM·DB(BE)가 10/14에 팀은 Gradle을 쓴다고 했다. FE는 Maven 때문에 
 ## 작업 단계
 
 - [ ] G1~G3: 브라우저 시나리오 수정 후 `check-browser` 통과
-- [ ] G4·G5: BE 브랜치 합친 뒤(계획 0029) DB·DevOps와 Compose 수정, `check-compose` 통과
+- [ ] G4·G5: DB·DevOps와 Compose 수정(Compose 이미지·CI 반영은 BE 계획 0028), `check-compose` 통과
 - [ ] CI 확인과 결과 기록
 
 ## 결정과 진행 기록
 
-- 2026-10-14: 원인 분석. Maven `check-backend`는 통과했다. `make check` 실패는 ⑤·⑥이고 Maven과 무관하다.
+- 2026-10-14: 원인 분석. `check-backend`는 통과했다. `make check` 실패는 ⑤·⑥이고 빌드 도구와 무관하다.
 - 2026-10-15: Gradle 전환은 BE가 BE 브랜치에서 끝냈다. 이 계획에서 전환 부분을 빼고 0028 → 0030으로 옮겼다(BE 계획 0028과 번호 겹침).
 
 ## 검증 결과와 남은 한계
