@@ -38,8 +38,8 @@ backend/
     .../account/          인증·CSRF·현재 주체·비밀번호·탈퇴
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
     .../workspace/        설정·앱 기록 저장과 검증
-    .../realtime/         /v1/realtime WebSocket
-    .../system/           health, 스키마 V2.0 확인
+    .../realtime/         /v2/realtime WebSocket(좌표 프레임), 전환 기간에는 /v1/realtime도
+    .../system/           health, DB V2.3 확인
 
 model/
   prototype/              브라우저 특징·개인 기준 보정
