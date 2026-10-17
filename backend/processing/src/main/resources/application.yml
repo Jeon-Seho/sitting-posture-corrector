@@ -78,12 +78,13 @@ app:
     posture-inference-concurrency: ${POSTURE_INFERENCE_CONCURRENCY:3}
     # (D-21) 실시간 계약 v1 토픽 — 키 session_id, 파티션 수는 위 concurrency와 맞춘다
     realtime-partitions: ${REALTIME_TOPIC_PARTITIONS:3}
-    posture-inference-v1-group: ${POSTURE_INFERENCE_V1_CONSUMER_GROUP:api-server-cep-v1}
   # (D-21) 시험용 입구 POST /api/v1/realtime/features — 최종 입구는 팀 입구 API·게이트웨이
   realtime:
     test-entry:
       enabled: ${REALTIME_TEST_ENTRY_ENABLED:true}
 
+# 옛 posture.summary 경로(cep 패키지 — PostureCepEngine) 설정. (D-53) v1 판정기는 아래 judge 설정을 쓴다.
+# 이 묶음은 옛 경로와 함께 D-38에서 지운다.
 # posture-cep(Python) 상태머신을 이식하면서 그대로 옮긴 파라미터
 # (2026-10-02 아키텍처 v4 전환 결정, D-13). 값은 VM에서 이미 검증된
 # 지속(3s)/회복(3s)/재알림(60s)을 잠정 유지 — 팀 회의에서 다른 값으로
@@ -94,8 +95,6 @@ cep:
   realert-seconds: ${CEP_REALERT_SECONDS:60}
   session-timeout-seconds: ${CEP_SESSION_TIMEOUT_SECONDS:300}
   session-expiry-interval-seconds: ${CEP_SESSION_EXPIRY_INTERVAL_SECONDS:60}
-  # (D-21) v1 관측의 붕괴 후보 기준(점수 ≥ 이 값이면 BAD). 세션 정책(policy.threshold) 적용은 D-23
-  collapse-threshold: ${CEP_COLLAPSE_THRESHOLD:0.7}
   # (D-04) 상태머신 상태를 Redis posture:state:{sessionId}(Hash)에 저장해 api-server
   # 재시작 후에도 진행 중이던 판정을 이어간다. 키 TTL은 v4 설계(5.9절)대로 1시간.
   # false면 기존처럼 메모리에만 둔다(Redis 장애 시에도 판정은 메모리로 계속됨).
@@ -111,14 +110,29 @@ cep:
   state-store:
     enabled: ${CEP_STATE_STORE_ENABLED:true}
     ttl-seconds: ${CEP_STATE_TTL_SECONDS:3600}
-  # (D-37) v1 판정기 상태를 Redis posture:v1:judge:{session_id}(JSON 문자열, TTL = state-store.ttl-seconds)에 저장해
-  # api-server 재시작 뒤 진행 중 세션의 판정(누적 시간·진행 중 사건·event_id·요약)을 이어간다. false면 메모리에만 둔다.
-  v1-state-store:
-    enabled: ${CEP_V1_STATE_STORE_ENABLED:true}
+
+# (D-22, D-53) v1 판정기 — posture.inference.v1 → posture.episodes.v1. 상태머신이며 CEP 엔진을 쓰지 않는다
+# (옛 이름: 패키지 cep.v1, 운영 API /cep/v1/*, 그룹 api-server-cep-v1, 환경변수 CEP_*).
+judge:
+  # 컨슈머 그룹. 바꾸면 새 그룹은 커밋 위치가 없어 처음부터(earliest) 읽는다 — 서버에서는 먼저 latest로 위치를 만든다(infra/README.md).
+  consumer-group: ${JUDGE_CONSUMER_GROUP:judge-v1}
+  # 세션 시작 메시지에 정책이 없을 때 쓰는 기본값(확정 3초·복귀 3초·재알림 60초·붕괴 후보 점수 0.7)
+  hold-seconds: ${JUDGE_HOLD_SECONDS:3}
+  recovery-seconds: ${JUDGE_RECOVERY_SECONDS:3}
+  reminder-seconds: ${JUDGE_REMINDER_SECONDS:60}
+  threshold: ${JUDGE_THRESHOLD:0.7}
+  # 입력이 이 시간 동안 없는 세션은 끊김(missing)으로 닫는다. 검사 주기는 expiry-interval
+  session-timeout-seconds: ${JUDGE_SESSION_TIMEOUT_SECONDS:300}
+  session-expiry-interval-seconds: ${JUDGE_SESSION_EXPIRY_INTERVAL_SECONDS:60}
+  # (D-37) 판정 상태를 Redis posture:v1:judge:{session_id}(JSON 문자열)에 저장해 재시작 뒤 진행 중 세션의 판정을 이어간다.
+  # false면 메모리에만 둔다.
+  state-store:
+    enabled: ${JUDGE_STATE_STORE_ENABLED:true}
+    ttl-seconds: ${JUDGE_STATE_TTL_SECONDS:3600}
 
 # (D-32, D-51) 확정 서비스 DB — DB 명세서 V2.3 `posture_service`(팀 backend/api 기준). 테스트용 posture_app과 같은 MySQL 서버에 있어
 # 연결 풀을 따로 두지 않고 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
-# 준비 확인(GET /cep/service-db)과 판정 결과 저장(D-30)이 쓴다.
+# 준비 확인(GET /store/service-db, D-53 전 /cep/service-db)과 판정 결과 저장(D-30)이 쓴다.
 service-db:
   enabled: ${SERVICE_DB_ENABLED:true}
   schema: ${SERVICE_DB_SCHEMA:posture_service}

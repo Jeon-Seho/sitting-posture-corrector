@@ -94,6 +94,13 @@ pass "docker 명령"
 if python3 -c "import requests" 2>/dev/null; then pass "python3 + requests"
 else fail "python3 + requests" "pip install -r $TOOLS/requirements.txt"; fi
 
+# (D-62) 비밀값 파일이 저장소에 커밋돼 있지 않은지 — .env 사본(2.env 등)이 실제 비밀번호와 함께 올라간 일이 있었다(10/16)
+if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  TRACKED="$(git ls-files | grep -E '(^|/)([^/]*\.env|\.env\.[^/]*|hadoop\.env)$' | grep -vE '(^|/)(\.env\.example|env\.example|hadoop\.env\.example)$' | tr '\n' ' ')"
+  if [ -n "$TRACKED" ]; then fail "저장소에 비밀값 파일 없음" "커밋된 파일: $TRACKED — git rm 하고 비밀번호를 바꾼다"
+  else pass "저장소에 비밀값 파일 없음 (.env·사본)"; fi
+fi
+
 # .env 형식 점검: 숫자여야 하는 값(…_SECONDS/_SIZE/_CONCURRENCY/_PORT)에 다른 글자가 붙어 있지 않은지,
 # 파일 끝 줄바꿈이 있는지(없으면 echo >> 로 덧붙인 줄이 앞 줄에 붙음 — 2026-10-07 실제 장애 원인)
 if [ -f "$ENV_FILE" ]; then
@@ -211,6 +218,10 @@ if $H bash -c "echo '$MSG' > /tmp/it.txt && hdfs dfs -mkdir -p /tmp && hdfs dfs 
    && [ "$($H hdfs dfs -cat "$HP" 2>/dev/null)" = "$MSG" ]; then pass "파일 put→cat"
 else fail "파일 put→cat"; fi
 $H hdfs dfs -rm -skipTrash "$HP" >>"$OUT/run.log" 2>&1 || true
+# (D-61) 단일 DataNode라 복제 수는 1이어야 한다 — 3으로 쓴 파일이 있으면 복제 부족 블록으로 남는다
+UNDER="$(echo "$REPORT" | grep -m1 -oE 'Under replicated blocks: [0-9]+' | grep -oE '[0-9]+$')"
+if [ "${UNDER:-0}" = "0" ]; then pass "복제 부족 블록 0"
+else fail "복제 부족 블록" "${UNDER}개 — Spark가 복제 3으로 쓴 파일: docker exec hdfs-namenode hdfs dfs -setrep -R 1 / (infra/README.md D-61)"; fi
 
 # ---------------------------------------------------------------------
 step "5. Spark ↔ HDFS"
@@ -221,6 +232,10 @@ else
   timeout 300 docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_roundtrip.py >"$OUT/spark-roundtrip.log" 2>&1
   if grep -q "왕복 테스트 성공" "$OUT/spark-roundtrip.log"; then pass "Parquet 쓰기→읽기 (spark-submit)"
   else fail "Parquet 왕복" "$OUT/spark-roundtrip.log 확인"; fi
+  # (D-61) Spark가 쓴 파일의 복제 수 — spark-defaults.conf(spark.hadoop.dfs.replication 1)가 적용됐는지
+  REPS="$($H hdfs dfs -ls -R /posture/features/roundtrip-test 2>/dev/null | awk '$1 ~ /^-/ {print $2}' | sort -u | tr '\n' ' ')"
+  if [ "$REPS" = "1 " ]; then pass "Spark 쓰기 복제 수 1"
+  else fail "Spark 쓰기 복제 수" "복제 수 ${REPS:-없음} — infra/compose/spark-defaults.conf 마운트 확인(spark 컨테이너 다시 만들기)"; fi
 fi
 
 # ---------------------------------------------------------------------
@@ -234,10 +249,10 @@ for comp in db redis; do
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
 # (D-32·D-51) 확정 서비스 DB(posture_service V2.3) — 테이블 13개·판정 결과 컬럼·지운 컬럼 없음·기본 정책(값 4개)·계정 권한
-SDB="$(curl -s -m 15 "$API/cep/service-db")"
+SDB="$(curl -s -m 15 "$API/store/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
 if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
-  fail "서비스 DB (D-32·D-51)" "GET /cep/service-db 응답 없음 — api-server 재빌드 확인"
+  fail "서비스 DB (D-32·D-51)" "GET /store/service-db 응답 없음 — api-server 재빌드 확인"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('enabled') is False else 1)"; then
   skip "서비스 DB (D-32·D-51)" "SERVICE_DB_ENABLED=false"
 elif echo "$SDB" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ok') else 1)"; then
@@ -392,7 +407,7 @@ fi
 
 # ---------------------------------------------------------------------
 step "8. 실시간 계약 v1 (D-21·D-22·D-36)"
-# v1 판정기 결과(GET /cep/v1/sessions/<id>)가 T-10 기대값인지 — 8단계·9단계 공통 (누락 구간 0까지 확인)
+# v1 판정기 결과(GET /judge/v1/sessions/<id>)가 T-10 기대값인지 — 8단계·9단계 공통 (누락 구간 0까지 확인)
 v1_expected() {
   python3 -c "
 import json,sys
@@ -417,13 +432,13 @@ else
   V1VIEW=""
   if [ -n "$V1_SID" ]; then
     for _ in $(seq 1 30); do
-      V1VIEW="$(curl -s -m 5 "$API/cep/v1/sessions/$V1_SID")"
+      V1VIEW="$(curl -s -m 5 "$API/judge/v1/sessions/$V1_SID")"
       echo "$V1VIEW" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
       V1VIEW=""; sleep 2
     done
   fi
   echo "v1 판정: ${V1VIEW:-없음}" >>"$OUT/run.log"
-  if [ -z "$V1VIEW" ]; then fail "v1 판정 결과" "60초 안에 session_id=${V1_SID:-?} 종료 안 됨 (curl $API/cep/v1/sessions/<id>, docker logs inference-service / api-server)"
+  if [ -z "$V1VIEW" ]; then fail "v1 판정 결과" "60초 안에 session_id=${V1_SID:-?} 종료 안 됨 (curl $API/judge/v1/sessions/<id>, docker logs inference-service / api-server)"
   elif echo "$V1VIEW" | v1_expected; then pass "v1 판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
   else fail "v1 판정 결과" "$(echo "$V1VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
 
@@ -443,12 +458,16 @@ else
   else fail "posture.episodes.v1 발행" "decision ${ND:-0}건(기대 4), progress ${NP:-0}건 — $OUT/v1-episodes.jsonl"; fi
 
   sleep 3
-  for g in inference-service-v1 api-server-cep-v1; do
+  for g in inference-service-v1 judge-v1; do
     L="$($KT/kafka-consumer-groups.sh $BS --describe --group "$g" 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
     if [ "$L" = "0" ]; then pass "v1 컨슈머 $g lag 0"
     elif [ -z "$L" ]; then fail "v1 컨슈머 $g" "그룹 없음 — 서비스 재빌드·재생성 확인"
     else fail "v1 컨슈머 $g lag" "$L"; fi
   done
+  # (D-53) 옛 판정 그룹 이름(api-server-cep-v1)이 남아 있으면 안내만 한다 — 지우는 법은 infra/README.md
+  if $KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -qx api-server-cep-v1; then
+    log "  (안내) 옛 컨슈머 그룹 api-server-cep-v1이 남아 있음 — 판정 그룹은 judge-v1(D-53), infra/README.md 절차로 지운다"
+  fi
 
   # (D-36) DLQ — 깨진 메시지를 features.v1에 직접 넣으면 추론이 posture.dlq로 넘기고 계속 처리해야 한다
   DLQ_MARK="it-dlq-$TS-$RANDOM"
@@ -479,13 +498,13 @@ else
   # 판정기가 sequence 58까지 반영하고 사건(확정 8.0s)이 진행 중이어야 한다
   R1=""
   for _ in $(seq 1 30); do
-    R1="$(curl -s -m 5 "$API/cep/v1/sessions/$R_SID")"
+    R1="$(curl -s -m 5 "$API/judge/v1/sessions/$R_SID")"
     echo "$R1" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d.get('last_sequence')==58 and d.get('active') else 1)" 2>/dev/null && break
     R1=""; sleep 2
   done
   echo "재시작 전 v1 판정: ${R1:-없음}" >>"$OUT/run.log"
   if [ -n "$R1" ]; then pass "재시작 전: 사건 진행 중(확정 8.0s), last_sequence 58"
-  else fail "재시작 전 판정" "60초 안에 last_sequence 58·active 안 됨 (curl $API/cep/v1/sessions/$R_SID)"; fi
+  else fail "재시작 전 판정" "60초 안에 last_sequence 58·active 안 됨 (curl $API/judge/v1/sessions/$R_SID)"; fi
   RK2="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
   if [ "$RK2" = "1" ]; then pass "Redis에 v1 판정 상태 저장 (posture:v1:judge:<session_id>)"
   else fail "Redis v1 판정 상태 저장" "EXISTS=${RK2:-?}"; fi
@@ -505,7 +524,7 @@ else
 
   R2=""
   for _ in $(seq 1 45); do
-    R2="$(curl -s -m 5 "$API/cep/v1/sessions/$R_SID")"
+    R2="$(curl -s -m 5 "$API/judge/v1/sessions/$R_SID")"
     echo "$R2" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
     R2=""; sleep 2
   done

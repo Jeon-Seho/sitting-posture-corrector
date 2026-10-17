@@ -74,7 +74,7 @@
 | 스택 | 역할 | 입력 | 출력 | 왜 필요한가 |
 |---|---|---|---|---|
 | Docker Compose | 서버 PC 컨테이너(api-server·추론·Kafka·Redis·HDFS·Spark, 프로필 `io`의 io-api·io-inference)를 한 파일로 | `infra/compose/bigdata.yaml`, `infra/compose/.env`(서버 주소·DB·포트·이미지 태그·비밀값) | 컨테이너·포트·볼륨·KST·메모리 제한·로그 회전 | 같은 구성 재현. 환경마다 다른 값은 `.env`로 두어 K8s ConfigMap·Secret으로 그대로 |
-| 운영 API (api-server) | 시험용 입구, 판정(`/cep/*` — 이름 정리 D-53)·저장(`/report/*`) 조회, 시험 계정·세션 행 | SSH 터널(㉔), 통합 테스트(㉕) | `features.v1` 발행(㉖), MySQL 조회·시험 행(㉗) | 앱 없이 단계별 검증. 8080이 LAN에 열려 있어 정리 필요(D-43) |
+| 운영 API (api-server) | 시험용 입구, 판정(`/judge/v1/*`)·저장(`/report/*`) 조회, 시험 계정·세션 행 | SSH 터널(㉔), 통합 테스트(㉕) | `features.v1` 발행(㉖), MySQL 조회·시험 행(㉗) | 앱 없이 단계별 검증. 8080이 LAN에 열려 있어 정리 필요(D-43) |
 | 통합 테스트 (`tools/platform/integration_test.sh`) | `.env`·컨테이너·Kafka·Redis·HDFS·Spark·서비스 DB·종단 판정·결과 저장·io-api REST 점검 | 재생 도구가 만든 시험 세션 | 단계별 PASS/FAIL, `tools/platform/it-results/` | "Done = 서버에서 확인"의 근거, 회귀 확인(DN-34) |
 
 나중에 더할 것: CI/CD(D-09), K8s 이전, 서비스별 지연·lag 지표(T-14 뒤).

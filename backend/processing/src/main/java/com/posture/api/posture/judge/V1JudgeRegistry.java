@@ -1,4 +1,4 @@
-package com.posture.api.posture.cep.v1;
+package com.posture.api.posture.judge;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,10 +74,10 @@ public class V1JudgeRegistry {
     public V1JudgeRegistry(
             EpisodesSink sink,
             V1JudgeStore store,
-            @Value("${cep.persist-seconds:3}") double holdSeconds,
-            @Value("${cep.recovery-seconds:3}") double recoverySeconds,
-            @Value("${cep.realert-seconds:60}") double reminderSeconds,
-            @Value("${cep.collapse-threshold:0.7}") double threshold) {
+            @Value("${judge.hold-seconds:3}") double holdSeconds,
+            @Value("${judge.recovery-seconds:3}") double recoverySeconds,
+            @Value("${judge.reminder-seconds:60}") double reminderSeconds,
+            @Value("${judge.threshold:0.7}") double threshold) {
         this(sink, store, new V1Policy(Math.round(holdSeconds * 1000), Math.round(recoverySeconds * 1000),
                 Math.round(reminderSeconds * 1000), threshold), System::currentTimeMillis);
     }

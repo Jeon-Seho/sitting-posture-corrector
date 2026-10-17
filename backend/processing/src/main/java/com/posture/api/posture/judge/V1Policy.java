@@ -1,10 +1,10 @@
-package com.posture.api.posture.cep.v1;
+package com.posture.api.posture.judge;
 
 import java.util.Map;
 
 /**
  * (D-22) 세션 판정 정책 — 계약 v1 {@code session_started.body.policy}.
- * 시작 메시지가 없으면 환경변수 기본값(cep.persist/recovery/realert-seconds, cep.collapse-threshold)을 쓴다.
+ * 시작 메시지가 없으면 환경변수 기본값(judge.hold/recovery/reminder-seconds, judge.threshold)을 쓴다.
  */
 public record V1Policy(long holdMs, long recoveryMs, long reminderMs, double threshold) {
 

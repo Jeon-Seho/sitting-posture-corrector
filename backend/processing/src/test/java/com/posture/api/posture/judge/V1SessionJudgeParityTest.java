@@ -1,4 +1,4 @@
-package com.posture.api.posture.cep.v1;
+package com.posture.api.posture.judge;
 
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;

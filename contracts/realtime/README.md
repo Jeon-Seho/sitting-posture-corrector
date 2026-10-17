@@ -24,8 +24,8 @@
 ## 흐름
 
 ```
-앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features.v1 ─▶ 추론 ─▶ posture.inference.v1 ─▶ 판정 CEP
-앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes.v1 ◀────────────────┘
+앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features.v1 ─▶ 추론 ─▶ posture.inference.v1 ─▶ 판정(상태머신)
+앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes.v1 ◀──────────────────────┘
 앱 ◀─WebSocket─ 게이트웨이 ◀── posture.inference.v1 (관측만, 화면 실시간 상태용)
 ```
 

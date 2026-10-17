@@ -260,6 +260,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
+      - ./spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro   # (D-61) HDFS 복제 수 1 등 Spark 기본 설정
     networks:
       - app-network
 
@@ -269,6 +270,8 @@ services:
   # 상태머신 판정(지속·회복·재알림)과 세션 만료 정리를 수행하고,
   # collapse_events/sessions 테이블에 직접 기록한다. 판정 파라미터는
   # application.yml의 cep.* 값(기본 3s/3s/60s) 참고.
+  # (D-22·D-53) Kafka 계약 v1 판정(posture.inference.v1 → posture.episodes.v1)은 judge 패키지·그룹 judge-v1,
+  # 판정 결과 저장(D-30)은 report 패키지·그룹 report-store-v1. 판정은 상태머신이며 CEP 엔진은 쓰지 않는다.
   api-server:
     # (D-52) Gradle 모듈 backend/processing — 팀 공용 java.Dockerfile의 processing target
     build:
@@ -289,8 +292,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       # posture-cep(Python)이 구독하던 토픽 — 이제 api-server 자신이 구독한다
       POSTURE_INFERENCE_TOPIC: ${KAFKA_TOPIC_POSTURE_INFERENCE:-posture.inference}
-      # posture-cep에서 그대로 옮긴 상태머신 파라미터 (D-13). 팀 회의
-      # 확정 전까지 VM 검증값(3s/3s/60s) 유지.
+      # 옛 posture.summary 경로(cep 패키지) 상태머신 파라미터 (D-13) — D-38에서 옛 경로와 함께 지운다.
+      # v1 판정기는 아래 JUDGE_* (D-53).
       CEP_PERSIST_SECONDS: ${CEP_PERSIST_SECONDS:-3}
       CEP_RECOVERY_SECONDS: ${CEP_RECOVERY_SECONDS:-3}
       CEP_REALERT_SECONDS: ${CEP_REALERT_SECONDS:-60}
@@ -299,8 +302,15 @@ services:
       # (D-04) 상태머신 상태 Redis 저장 (posture:state:{userId}, TTL 1시간)
       CEP_STATE_STORE_ENABLED: ${CEP_STATE_STORE_ENABLED:-true}
       CEP_STATE_TTL_SECONDS: ${CEP_STATE_TTL_SECONDS:-3600}
-      # (D-37) v1 판정기 상태 Redis 저장 (posture:v1:judge:{session_id}, TTL은 위와 같음)
-      CEP_V1_STATE_STORE_ENABLED: ${CEP_V1_STATE_STORE_ENABLED:-true}
+      # (D-22, D-53) v1 판정기(judge) — 컨슈머 그룹, 정책 기본값(3s/3s/60s/0.7), 세션 만료,
+      # (D-37) 상태 Redis 저장(posture:v1:judge:{session_id}, TTL 1시간)
+      JUDGE_CONSUMER_GROUP: ${JUDGE_CONSUMER_GROUP:-judge-v1}
+      JUDGE_HOLD_SECONDS: ${JUDGE_HOLD_SECONDS:-3}
+      JUDGE_RECOVERY_SECONDS: ${JUDGE_RECOVERY_SECONDS:-3}
+      JUDGE_REMINDER_SECONDS: ${JUDGE_REMINDER_SECONDS:-60}
+      JUDGE_THRESHOLD: ${JUDGE_THRESHOLD:-0.7}
+      JUDGE_SESSION_TIMEOUT_SECONDS: ${JUDGE_SESSION_TIMEOUT_SECONDS:-300}
+      JUDGE_STATE_STORE_ENABLED: ${JUDGE_STATE_STORE_ENABLED:-true}
       # (D-32, D-51) 확정 서비스 DB(V2.3) — 같은 MySQL 서버의 다른 스키마. 기본 정책은 값 4개로 찾는다(입출구 서버와 같은 값)
       SERVICE_DB_ENABLED: ${SERVICE_DB_ENABLED:-true}
       SERVICE_DB_SCHEMA: ${SERVICE_DB_SCHEMA:?SERVICE_DB_SCHEMA(서비스 DB 이름, 예 posture_service)를 infra/compose/.env에 넣으세요}
