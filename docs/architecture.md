@@ -100,7 +100,8 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.
-실시간 채널(`/v1/realtime`)은 서비스 전달용이며 Kafka 분석용 export가 아니다.
+실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
+앱이 v2로 넘어갈 때까지 `/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다([계획 0031](plans/active/0031-realtime-kafka-transition.md)).
 
 ## 프론트 진입과 로컬 저장
 

@@ -68,7 +68,18 @@
 
 - 2026-10-16 DevOps/BE: 아키텍처 v5.2대로 Kafka 경로로 옮긴다(A안). 근거: v5.2 확정 구조(입출구 서버와 처리 서비스는 Kafka로만), Kafka 경로의 판정 결과 저장(DB V2.3)이 서버에서 확인됨, 같은 규칙의 판정기 두 벌을 유지하지 않음.
 - 합의 전 잠정값: `stalled` 5초, 종료 뒤 최종 `decision(session_ended)` 대기 5초(그 뒤 `closed(ended)`만), `ws` 컨슈머 그룹은 인스턴스마다(`io-ws-${HOSTNAME}`, `auto.offset.reset=latest`).
-- 남은 질문: ADR 0020 대체(DB/BE), `POST /v2/sessions/{id}/features` 처리(FE), 최대 측정 시간(지금 5000초).
+- 2026-10-17 DB/BE·DevOps(실시간 `/v2/realtime` 전환 공유 문서 피드백):
+  - 좌표 → 특징 계산은 API가 `FrameFeatures`로 하고 지금처럼 FastAPI `/v2/infer`를 부른다(공유 문서의 "A안"; 위 10/16 "A안"인 Kafka 전환과는 다른 결정).
+    좌표 계산을 추론으로 옮기는 일은 D-34(`backend/inference`, Kafka)에서 하므로 `model/inference` 입력 변경(공유 문서 M1)은 하지 않는다.
+    FastAPI 정리는 4단계에서 ADR 0020 대체 합의와 함께 한다.
+  - 전환 기간(`/v1/realtime`·`/v2/realtime`을 함께 엶)은 FE가 앱을 v2로 옮길 때까지다. nginx `/api/v2/realtime`과 infra 안내는 반영됐다(D-59, `f7d5a37`).
+  - v1 정리 때 지우는 것: WebSocket `/v1/realtime`, `realtime-ws.v1.schema.json`, `examples/ws-*`, `tests/test_realtime_contracts.py`의 WebSocket 부분,
+    S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`. 남기는 것(Kafka 계약 v1): `kafka-*.v1`, Kafka 예시·시험,
+    처리 서비스 시험용 입구 `POST /api/v1/realtime/features`, `tools/platform/replay_realtime_v1.py`(통합 테스트 8·9·11단계, [Kafka 명세](../../design/kafka-spec.md) 4장).
+  - 최대 측정 시간은 팀 회의 결과를 따른다. 그때까지 `posegood.realtime.max-session-duration` 기본값 5000초를 유지한다.
+- 남은 질문: ADR 0020 대체(DB/BE), 최대 측정 시간(지금 5000초, 팀 회의), `POST /v2/sessions/{id}/features` 처리(FE).
+  FE 세션 HTTP 클라이언트(`frontend/src/features/session/server/client.ts`)가 아직 `/api/v1/sessions`를 부르는데 API REST는 `/v2`라서,
+  WebSocket 없이 HTTP로 측정하는 경로는 지금 API와 맞지 않는다(FE에 알림, 2026-10-17). S2·R2는 FE가 측정을 v2 WebSocket으로 옮긴 뒤 지운다.
 
 ## 검증 결과와 남은 한계
 
