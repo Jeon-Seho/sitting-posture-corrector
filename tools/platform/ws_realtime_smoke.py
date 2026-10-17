@@ -12,11 +12,12 @@
 기대값:
     decision  collapse_confirmed 8000(시작 5000) → reminder 68000 → recovery_confirmed 78000 → session_ended 85000
               (Kafka 경로는 제외 구간 사건 excluded_started·excluded_ended가 섞여 온다 — 그것은 따로 센다)
-    alert     2개(collapse_confirmed·reminder, 새 계정은 알림 켜짐)
+    alert     2개(collapse_confirmed·reminder). 새 계정은 알림이 꺼져 있어(V2.3 sound_alert_enabled 기본 false)
+              세션을 만들기 전에 W2(PUT /v2/workspace)로 알림을 켠다
     closed    ended
     요약      total 85000 · valid 81000 · normal 11000 · deviation 70000 · rest 2500 · missing 1500 · 붕괴 1 · 알림 2
     DB        (--report가 있으면 처리 서비스 GET /report/sessions/{id}로) 종료 85000, good_sec 11.0, 붕괴 1(5000 → 8000 → 회복 78000),
-              알림 8000·68000, 제외 구간 PAUSE 79000~81500 · MISSING 83500~85000
+              알림 8000·68000(표시), 제외 구간 PAUSE 79000~81500 · MISSING 83500~85000
 끝에서 세션을 지우고 계정을 탈퇴 접수한다(io_api_smoke.py와 같은 합성 시험 계정 test-it-*@example.invalid).
 표준 라이브러리만 쓴다(WebSocket 클라이언트도 직접 — 서버 PC에 websockets 패키지가 없어도 된다). 좌표는 로그에 남기지 않는다.
 """
@@ -212,6 +213,16 @@ def scenario(base, report, pipeline):
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS})
     if not check("기준 자세 등록", status == 200 and saved.get("baseline_id"), f"HTTP {status}"):
         return
+    # 새 계정은 알림 꺼짐(V2.3 sound_alert_enabled 기본 false) → 세션이 alert_enabled를 복사하기 전에 켠다
+    status, settings = owner.call("/v2/workspace", "PUT", {
+        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
+        "rules": {"holdSeconds": POLICY["hold_ms"] / 1000, "recoverSeconds": POLICY["recovery_ms"] / 1000,
+                  "realertSeconds": POLICY["reminder_ms"] // 1000, "threshold": POLICY["threshold"]},
+        "preferences": {"alerts_on": True},
+    })
+    alerts_on = isinstance(settings, dict) and (settings.get("preferences") or {}).get("alerts_on")
+    if not check("알림 켜기 (W2 alerts_on true)", status == 200 and alerts_on is True, f"HTTP {status}"):
+        return
     sid = str(uuid.uuid4())
     path = "/v2/sessions/" + sid
     status, _ = owner.call(path, "PUT", {"policy": POLICY, "baseline_id": saved["baseline_id"]})
@@ -313,11 +324,13 @@ def check_records(owner, path, report, sid):
         return
     events = [(e["started_ms"], e["confirmed_ms"], e.get("recovered_ms")) for e in stored.get("events") or []]
     alerts = [a["attempted_ms"] for a in stored.get("alerts") or []]
+    shown = [a.get("displayed") for a in stored.get("alerts") or []]
     spans = [(x["started_ms"], x["ended_ms"], x["exclusion_reason"]) for x in stored.get("excluded") or []]
     check("DB: 종료 85.0s · good_sec 11.0", stored.get("ended_ms") == 85000 and float(stored.get("good_sec") or -1) == 11.0,
           f"ended_ms={stored.get('ended_ms')} good_sec={stored.get('good_sec')}")
-    check("DB: 붕괴 1(5.0 → 8.0 → 회복 78.0) · 알림 8.0·68.0", events == [(5000, 8000, 78000)] and alerts == [8000, 68000],
-          f"events={events} alerts={alerts}")
+    check("DB: 붕괴 1(5.0 → 8.0 → 회복 78.0) · 알림 8.0·68.0(표시)",
+          events == [(5000, 8000, 78000)] and alerts == [8000, 68000] and shown == [True, True],
+          f"events={events} alerts={alerts} displayed={shown}")
     check("DB: 제외 구간 PAUSE 79.0~81.5s · MISSING 83.5~85.0s",
           spans == [(79000, 81500, "PAUSE"), (83500, 85000, "MISSING")], f"받음={spans}")
 
