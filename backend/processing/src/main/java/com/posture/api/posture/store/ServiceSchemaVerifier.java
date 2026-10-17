@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * </ul>
  *
  * <p>검사만 하고 아무것도 만들거나 고치지 않는다(스키마는 DB 담당의 {@code schema_V2_3.sql}로 만든다).
- * 결과가 나빠도 api-server는 그대로 뜬다. 앱 기동 직후 한 번 로그로 남기고, {@code GET /cep/service-db}로 다시 확인한다.
+ * 결과가 나빠도 api-server는 그대로 뜬다. 앱 기동 직후 한 번 로그로 남기고, {@code GET /store/service-db}로 다시 확인한다.
  * 테이블 이름은 대소문자를 구분하지 않는다(Windows MySQL은 {@code lower_case_table_names=1}).
  */
 @Component
@@ -118,7 +118,7 @@ public class ServiceSchemaVerifier {
             log.info("서비스 DB 확인: 준비됨 (schema={}, {}, 기본 정책 {} = id {}, 경고 {})", schema, r.get("specVersion"),
                     defaultPolicy, r.get("defaultPolicyId"), r.get("warnings"));
         } else {
-            log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /cep/service-db)",
+            log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /store/service-db)",
                     schema, r.get("problems"));
         }
     }

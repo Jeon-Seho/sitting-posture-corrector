@@ -19,7 +19,7 @@ api-server의 시험용 입구(POST /api/v1/realtime/features)로 보낸다.
 
 판정 기대값(v1 판정기 D-22, 정책 3000/3000/60000/0.7, 유효 시간 누적):
 collapse_confirmed 8000ms(시작 5000) → reminder 68000ms → recovery_confirmed 78000ms(실제 지속 73.0초) → session_ended 85000ms,
-요약 collapse_count 1·alert_count 2·valid_ms 85000·mean_recovery_ms 70000. 결과: GET /cep/v1/sessions/<session_id>
+요약 collapse_count 1·alert_count 2·valid_ms 85000·mean_recovery_ms 70000. 결과: GET /judge/v1/sessions/<session_id>
 """
 import argparse
 import json

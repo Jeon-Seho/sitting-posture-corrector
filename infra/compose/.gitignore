@@ -1,5 +1,10 @@
 # 비밀값·로컬 설정 — 커밋하지 않는다 (env.example·hadoop.env.example만 커밋)
 .env
 hadoop.env
+# (D-62) .env 사본·백업도 막는다 — 2.env 같은 사본이 실제 비밀번호와 함께 커밋된 일이 있었다(10/16)
+*.env
+.env.*
+*.env.bak
+*.env.orig
 # (D-48) io-api·inference 내부 토큰 — 서버 PC에서 만든다(infra/README.md)
 secrets/

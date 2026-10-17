@@ -120,6 +120,19 @@ docker compose -f infra/compose/bigdata.yaml up -d --build
 tools/platform/integration_test.sh --quick
 ```
 
+### HDFS 복제 수 (D-61)
+
+DataNode가 하나라 복제 수는 1이다. HDFS 컨테이너는 `hadoop.env`의 `HDFS_CONF_dfs_replication=1`, Spark(HDFS 클라이언트)는
+`infra/compose/spark-defaults.conf`(`spark.hadoop.dfs.replication 1`, spark 컨테이너에 읽기 전용 마운트)를 쓴다.
+통합 테스트 4단계가 복제 부족 블록 0을, 5단계가 Spark가 쓴 파일의 복제 수 1을 확인한다.
+
+```bash
+docker compose -f infra/compose/bigdata.yaml up -d spark        # 마운트 반영 — 컨테이너를 다시 만들면 안에서 돌던 posture-sink도 멈춘다
+bigdata/legacy/run_posture_sink.sh                               # posture-sink 다시 시작(옛 경로, D-38까지)
+docker exec hdfs-namenode hdfs dfs -setrep -R 1 /               # 이미 복제 3으로 쓴 파일을 1로(한 번만)
+docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
+```
+
 ### 입출구 서버 (io-api, 서버 PC)
 
 팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`, 전환 기간에는 `/v1/realtime`도)를 같은 compose의 프로필 `io`로 띄운다.
@@ -144,11 +157,28 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 
 처리 서비스(api-server)의 운영·확인 경로는 [처리 서비스 HTTP API](../docs/design/processing-api-spec.md), 토픽·메시지·DLQ는 [Kafka 명세](../docs/design/kafka-spec.md)다.
 
+### 판정 (api-server `judge`, D-22·D-53)
+
+api-server가 `posture.inference.v1`을 그룹 `judge-v1`로 구독해 상태머신으로 판정하고 `posture.episodes.v1`로 발행한다(CEP 엔진은 쓰지 않는다).
+확인은 `GET /judge/v1/status`·`GET /judge/v1/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
+`/cep/*` 경로와 `CEP_*`·그룹 `api-server-cep`는 옛 `posture.summary` 경로(D-38에서 정리)만 쓴다.
+
+D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다. 새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로,
+api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고, 다시 만든 뒤 옛 그룹을 지운다(한 번만).
+
+```bash
+K="docker exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092"
+$K --group judge-v1 --topic posture.inference.v1 --reset-offsets --to-latest --execute
+docker compose -f infra/compose/bigdata.yaml up -d --build api-server
+$K --describe --group judge-v1                 # 컨슈머 3개 참여, LAG 0
+$K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만 지워진다)
+```
+
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 
 api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
 `collapse_event`·`correction_alert`·`excluded_interval`(D-39 제외 구간)과 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
-행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /cep/service-db`(V2.3, 통합 테스트 6단계).
+행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /store/service-db`(V2.3, 통합 테스트 6단계).
 
 - 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
   (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).

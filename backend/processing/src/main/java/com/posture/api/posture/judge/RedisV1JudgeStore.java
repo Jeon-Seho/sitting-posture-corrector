@@ -1,4 +1,4 @@
-package com.posture.api.posture.cep.v1;
+package com.posture.api.posture.judge;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +17,7 @@ import java.util.Optional;
  *
  * <ul>
  *   <li>값: {@code {"user_id": ..., "judge": V1SessionJudge.snapshot()}}. TTL은 기존 상태 저장소와 같은
- *       {@code cep.state-store.ttl-seconds}(기본 1시간) — 정리되지 않은 키도 결국 사라진다.</li>
+ *       {@code judge.state-store.ttl-seconds}(기본 1시간) — 정리되지 않은 키도 결국 사라진다.</li>
  *   <li>Redis 오류 시: 예외를 삼키고 {@value #BACKOFF_MILLIS}ms 동안 Redis 호출을 건너뛴다(D-04와 같은 방식).
  *       Redis가 죽어 있는 동안 메시지마다 명령 타임아웃만큼 컨슈머가 멈추지 않게 하기 위함이다. 판정은 메모리로 계속된다.</li>
  *   <li>읽은 값이 깨졌으면(JSON 오류) 없는 것으로 보고 키를 지운다 — 판정은 처음부터 다시 센다.</li>
@@ -40,8 +40,8 @@ public class RedisV1JudgeStore implements V1JudgeStore {
     public RedisV1JudgeStore(
             StringRedisTemplate redis,
             JsonMapper jsonMapper,
-            @Value("${cep.v1-state-store.enabled:true}") boolean enabled,
-            @Value("${cep.state-store.ttl-seconds:3600}") long ttlSeconds) {
+            @Value("${judge.state-store.enabled:true}") boolean enabled,
+            @Value("${judge.state-store.ttl-seconds:3600}") long ttlSeconds) {
         this.redis = redis;
         this.jsonMapper = jsonMapper;
         this.enabled = enabled;

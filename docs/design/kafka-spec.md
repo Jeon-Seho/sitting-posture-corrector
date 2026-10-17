@@ -29,7 +29,7 @@
 | 토픽 | 파티션 | 키 | 생산 → 소비(컨슈머 그룹) | `kind` | 스키마 |
 | --- | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service-v1`) | `session_started` / `features` / `session_ended` | [kafka-features.v1](../../contracts/realtime/kafka-features.v1.schema.json) |
-| `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`api-server-cep-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
+| `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`judge-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
 | `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
 | `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장 → 입출구 `ws` | (예정, D-54) | 미정 |
