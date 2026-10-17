@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v1/realtime`은 Nginx가 WebSocket으로 전달한다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 앱이 v2로 넘어갈 때까지 `/api/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다.
 
 ## 전체 검증
 
@@ -122,7 +122,7 @@ tools/platform/integration_test.sh --quick
 
 ### 입출구 서버 (io-api, 서버 PC)
 
-팀 `backend/api`(「PoseGood API 명세서」의 REST 22개 + `/v1/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
+팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`, 전환 기간에는 `/v1/realtime`도)를 같은 compose의 프로필 `io`로 띄운다.
 DB는 외부 MySQL의 서비스 DB(V2.3, `.env`의 `SERVICE_DB_SCHEMA`)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다. 처음 한 번 토큰을 만든다.
 
@@ -136,11 +136,13 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 ```
 
 - 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 앱·FE가 LAN에서 붙을 때는 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
-- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`).
+- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`(로그인 쿠키 필요, 통합 테스트 12단계 `ws_realtime_smoke.py`).
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
   준비로 io-api에 Kafka·Redis 주소(`kafka:19092`·`redis`)와 `POSEGOOD_REALTIME_PIPELINE`(기본 `local` = 지금 경로)을 넣었다.
   `kafka`로 바꾸는 것은 `ws` Kafka 연결 코드가 들어간 뒤다.
+
+처리 서비스(api-server)의 운영·확인 경로는 [처리 서비스 HTTP API](../docs/design/processing-api-spec.md), 토픽·메시지·DLQ는 [Kafka 명세](../docs/design/kafka-spec.md)다.
 
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 

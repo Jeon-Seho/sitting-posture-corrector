@@ -6,6 +6,7 @@ MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭
 
 AI 출력과 측정 조회의 기존 버전은 유지한다. [데이터 플랫폼 경계](../docs/design/data-platform-boundary.md)는 별도 export 계약을 요구한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 v1 초안](realtime/README.md)에 있다(팀 확인 전).
+Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시험용 입구)는 [Kafka 명세](../docs/design/kafka-spec.md)다. 「Kafka 계약 v1」과 「WebSocket v1」은 다른 것이다 — WebSocket이 v2로 바뀌어도 Kafka 계약 v1은 그대로 쓴다.
 앱 ↔ 입출구 서버 WebSocket v2는 [realtime-ws.v2](realtime/realtime-ws.v2.schema.json)와 [합성 예시](realtime/examples-v2/)다.
 
 ## 기존 상태 출력 v1
