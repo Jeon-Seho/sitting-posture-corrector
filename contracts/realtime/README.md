@@ -31,6 +31,9 @@
 
 ## Kafka 토픽
 
+> 파티션·컨슈머 그룹·DLQ·보존·시험용 입구와 지금 상태는 [Kafka 명세](../../docs/design/kafka-spec.md)(DevOps/BE)에 있다.
+> 이 Kafka 계약 v1은 WebSocket v1(`realtime-ws.v1`)과 별개다 — WebSocket v1을 지울 때 `kafka-*.v1` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`의 Kafka 부분은 남긴다.
+
 | 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
 | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 입력 v2 / `end_ms` | [kafka-features.v1](kafka-features.v1.schema.json) |
