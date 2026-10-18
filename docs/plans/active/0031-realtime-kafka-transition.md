@@ -46,7 +46,7 @@
 | 5 | `observation.invalid_reason` | `invalidReason(관측, 힌트)` | 없음 | `ws`가 발행 때 계산한 힌트(`head_turn`)와 관측 `valid`로 계산 | PM |
 | 6 | `excluded_interval` | `persist()`가 씀 | 판정이 사건을 내지 않고 저장도 안 씀 | 판정이 `excluded_started`·`excluded_ended` 발행 + 저장이 기록(D-39) | DevOps/BE |
 | 7 | 종료 사유 | 끊김이면 `DISCONNECTED` | `session_ended`에 사유 없음 | 계약 v1 `session_ended.reason`(D-55) | DevOps/BE |
-| 8 | `alert` | `alertEnabled`이고 `collapse_confirmed`·`reminder`일 때 | 없음 | 1단계는 `ws`가 같은 규칙, D-54 뒤 `posture.alerts.v1` | PM → DevOps/BE |
+| 8 | `alert` | `alertEnabled`이고 `collapse_confirmed`·`reminder`일 때 | 없음 | `posture.alerts.v1`(D-54, 10/18 처리 서비스에서 발행 — 계약 `kafka-alerts.v1`). `ws`는 이 토픽을 구독해 그대로 `alert`로 보낸다(1단계에 바로 써도 됨) | DevOps/BE(발행) → PM(`ws` 구독) |
 | 9 | `stalled` | 추론 502·503 | 없음 | 발행한 뒤 5초 동안 관측이 안 오면 `stalled` | PM |
 | 10 | `progress` | 구간마다 `frames()` 응답으로 | `episodes.v1` `progress`(약 1초) | `ack`는 발행 확인 뒤 바로, `progress`는 `episodes.v1`에서 | PM |
 | 11 | 세션 조회·종료 REST | `SessionController`(GET·`/end`·`/metadata`·`/features`), `WorkspaceService.closeForRecord`·`delete`, `ServerRecordVerifier`가 메모리 상태를 읽음 | — | 끝난 세션은 DB, 진행 중 요약은 `ws`가 받은 마지막 `progress`. `POST /v2/sessions/{id}/features`는 Kafka 모드에서 쓰지 않음(FE 확인) | DB/BE |

@@ -179,6 +179,7 @@ $K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만
 api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
 `collapse_event`·`correction_alert`·`excluded_interval`(D-39 제외 구간)과 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
 행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /store/service-db`(V2.3, 통합 테스트 6단계).
+(D-54) 알림 행을 새로 쓰고 세션 알림이 켜져 있고 10초 안의 사건이면 `posture.alerts.v1`(보존 3일)로도 낸다 — 입출구 서버 `ws`가 앱에 `alert`로 보낸다.
 
 - 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
   (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).

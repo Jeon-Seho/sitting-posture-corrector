@@ -72,6 +72,8 @@ app:
       posture-features-v1: ${POSTURE_FEATURES_V1_TOPIC:posture.features.v1}
       posture-inference-v1: ${POSTURE_INFERENCE_V1_TOPIC:posture.inference.v1}
       posture-episodes-v1: ${POSTURE_EPISODES_V1_TOPIC:posture.episodes.v1}
+      # (D-54) 표시할 알림 — 판정 결과 저장 → 입출구 서버 ws
+      posture-alerts-v1: ${POSTURE_ALERTS_V1_TOPIC:posture.alerts.v1}
       # (D-36) 처리 못 한 메시지
       posture-dlq: ${POSTURE_DLQ_TOPIC:posture.dlq}
     # (D-15) posture.inference 컨슈머 스레드 수 = 토픽 파티션 수와 맞출 것
@@ -152,6 +154,10 @@ report:
     group: ${REPORT_STORE_GROUP:report-store-v1}
     concurrency: ${REPORT_STORE_CONCURRENCY:1}
     retry-backoff-ms: ${REPORT_STORE_RETRY_BACKOFF_MS:5000}
+  # (D-54) 표시할 알림을 posture.alerts.v1로 — 새 알림 행 + 세션 알림 켜짐 + 판정에서 나온 지 max-age-ms 안인 사건만
+  alerts:
+    enabled: ${REPORT_ALERTS_ENABLED:true}
+    max-age-ms: ${REPORT_ALERTS_MAX_AGE_MS:10000}
   # 시험용 계정·세션 행 만들기·지우기와 메시지 다시 넣기(POST/DELETE /report/test/...). 시험 서버에서만 켠다.
   test-fixtures:
     enabled: ${REPORT_TEST_FIXTURES_ENABLED:false}

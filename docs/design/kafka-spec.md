@@ -32,10 +32,10 @@
 | `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`judge-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
 | `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
-| `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장 → 입출구 `ws` | (예정, D-54) | 미정 |
+| `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts.v1](../../contracts/realtime/kafka-alerts.v1.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- 보존: 지금은 브로커 기본값(7일). 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
+- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 정리 예정이다(D-38). 새 작업에 쓰지 않는다.
 
@@ -66,9 +66,15 @@
 | inference.v1 | `observation` | [관측 v2](../../contracts/posture-observation.v2.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |
 | episodes.v1 | `decision` | [사건 v1](../../contracts/posture-event.v1.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes.v1 | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
+| alerts.v1 | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.
 `interrupted`·제외 구간의 `reason`: `rest`·`away`·`unmeasurable`·`missing`(·`missing_sequence`), 세션 종료로 끊기면 `ended`.
+
+**알림 발행 규칙(D-54, 판정 결과 저장)**: `collapse_confirmed`·`reminder`를 DB에 알림 행으로 **새로** 기록했고, 세션 `alert_enabled`가 켜져 있고,
+decision의 `produced_at`이 저장 시각보다 10초(`REPORT_ALERTS_MAX_AGE_MS`) 넘게 앞서지 않을 때만 낸다. 재전송(행이 이미 있음)·알림 꺼짐·오래된 사건은 기록만 하고 내지 않는다.
+시간당 상한은 없다(DB V2.3에 칸 없음). 알림은 DB에 먼저 기록하고 발행하며, 발행 실패는 다시 보내지 않는다(그 순간에만 의미가 있음).
+`ws`가 1단계(계획 0031)에서 `decision`으로 임시 판단하던 것은 이 토픽으로 바꾼다.
 
 ### 3.3 순서와 중복
 
@@ -119,4 +125,4 @@ DB 연결 장애는 DLQ가 아니라 같은 메시지를 재시도한다(판정 
 - 본문 필드를 바꾸거나 `kind`를 더하면 스키마(`contracts/realtime/kafka-*.v1.schema.json`)·합성 예시(`contracts/realtime/examples/`)·
   `tests/test_realtime_contracts.py`·동등성 시험 데이터(`contracts/realtime/parity/`)·이 문서를 함께 고친다.
 - 기존 소비자가 읽지 못하는 변경(필드 의미 변경·필수 필드 추가)은 새 토픽 버전(`*.v2`)으로 내고 두 버전을 함께 운영한 뒤 옛 토픽을 정리한다.
-- 예정된 변경: 좌표 구간 본문 v3(D-34), 세션 종료 사유(D-55), 알림 토픽 `posture.alerts.v1`(D-54).
+- 예정된 변경: 좌표 구간 본문 v3(D-34), 세션 종료 사유(D-55).

@@ -1,5 +1,7 @@
 package com.posture.api.report;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,9 +18,18 @@ import java.util.Set;
  * @param onsetMs   붕괴 시작 시각(사건을 찾는 열쇠). session_ended는 timestamp와 같음. 제외 구간 사건은 구간 시작
  * @param reason    interrupted·session_ended의 사유, 제외 구간 사건은 rest·away·unmeasurable·missing(그 밖은 null)
  * @param normalMs  요약 {@code normal_ms} — 세션 종료 때 {@code good_sec}
+ * @param userId    봉투 {@code user_id} — (D-54) 알림 발행에 그대로 넘긴다
+ * @param producedAt 봉투 {@code produced_at}(판정이 발행한 시각) — (D-54) 오래된 사건이면 알림을 내지 않는다. 없으면 null
+ * @param deviationType 사건 {@code deviation_type} — (D-54) 알림 본문
  */
 public record EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
-                              String reason, long normalMs) {
+                              String reason, long normalMs, String userId, Instant producedAt, String deviationType) {
+
+    /** 시험용: 봉투 값(user_id·produced_at·deviation_type) 없이. */
+    public EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
+                           String reason, long normalMs) {
+        this(sessionId, eventId, kind, timestampMs, onsetMs, reason, normalMs, null, null, "unspecified");
+    }
 
     static final Set<String> KINDS = Set.of(
             "collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended",
@@ -67,7 +78,17 @@ public record EpisodeDecision(String sessionId, long eventId, String kind, long 
         if (k.startsWith("excluded_") && !EXCLUSION_REASONS.containsKey(reason)) {
             throw new IllegalArgumentException("제외 구간 사유 오류: " + reason);
         }
-        return new EpisodeDecision(sid, eventId, k, ts, onset, reason, normal);
+        String userId = msg.get("user_id") instanceof String u ? u : null;
+        Instant producedAt = null;
+        if (msg.get("produced_at") instanceof String p) {
+            try {
+                producedAt = Instant.parse(p);
+            } catch (DateTimeParseException exc) {
+                throw new IllegalArgumentException("produced_at 형식 오류: " + p);
+            }
+        }
+        String deviation = event.get("deviation_type") instanceof String dt ? dt : "unspecified";
+        return new EpisodeDecision(sid, eventId, k, ts, onset, reason, normal, userId, producedAt, deviation);
     }
 
     private static long nonNegative(Map<String, Object> m, String key) {
