@@ -28,7 +28,7 @@
 #                    REST 점검 tools/platform/io_api_smoke.py(가입 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제 → 탈퇴, D-48)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
 #  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.3)에
-#                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
+#                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -177,12 +177,16 @@ if [ -n "$PC" ]; then
   else fail "posture.inference 파티션" "$PC개 (3개 필요: kafka-topics.sh --alter --partitions 3)"; fi
 fi
 # (D-21) 계약 v1 토픽 — api-server가 시작할 때 만든다(파티션 3)
-for t in posture.features.v1 posture.inference.v1 posture.episodes.v1 posture.dlq; do
+# (D-54) 알림 토픽 posture.alerts.v1도 같은 방식(파티션 3, 보존 3일)
+for t in posture.features.v1 posture.inference.v1 posture.episodes.v1 posture.alerts.v1 posture.dlq; do
   PC="$($KT/kafka-topics.sh $BS --describe --topic "$t" 2>/dev/null | grep -oE 'PartitionCount: *[0-9]+' | grep -oE '[0-9]+')"
   if [ -z "$PC" ]; then fail "토픽 $t" "없음 — D-21 적용 후 api-server 재빌드·재생성 필요"
   elif [ "$PC" -ge 3 ] || { [ "$t" = posture.dlq ] && [ "$PC" -ge 1 ]; }; then pass "토픽 $t (파티션 $PC개)"
   else fail "토픽 $t 파티션" "$PC개 (3개 필요)"; fi
 done
+RET="$($KT/kafka-configs.sh $BS --describe --entity-type topics --entity-name posture.alerts.v1 2>/dev/null | grep -oE 'retention.ms=[0-9]+' | head -1)"
+if [ "$RET" = "retention.ms=259200000" ]; then pass "토픽 posture.alerts.v1 보존 3일 (D-54)"
+else fail "토픽 posture.alerts.v1 보존" "${RET:-설정 없음} (기대 259200000 = 3일 — 토픽을 새로 만들 때만 들어감)"; fi
 IT_TOPIC="it.smoke.$TS"
 MSG="it-$TS-$RANDOM"
 if $KT/kafka-topics.sh $BS --create --topic "$IT_TOPIC" --partitions 1 --replication-factor 1 >>"$OUT/run.log" 2>&1 \
@@ -570,7 +574,7 @@ else
 fi
 
 # ---------------------------------------------------------------------
-step "11. 판정 결과 저장 (D-30·D-51·D-39)"
+step "11. 판정 결과 저장 (D-30·D-51·D-39·D-54)"
 # 저장 결과(GET /report/sessions/<id>)가 T-10 v1 기대값인지 — 세션 시작 기준 ms. V2.3은 종료 사유 컬럼이 없어
 # 이벤트 종료 방식은 시각으로 판정한 end_kind(RECOVERED·SESSION_END·EXCLUDED), 알림은 시각만(표시 여부 = 세션 alert_enabled).
 d30_expected() {
@@ -628,6 +632,21 @@ PYD
 )"
   if [ "$NDD" = "4" ] && [ "$SAME" = "same" ]; then pass "재전송 멱등: decision 4건을 다시 넣어도 행·순번 그대로 (C-3)"
   else fail "재전송 멱등" "decision ${NDD}건(기대 4), 결과 $SAME — $OUT/run.log"; fi
+
+  # (D-54) 알림 토픽 — 알림 켜진 시험 세션: 확정·재알림 2건만, 위의 다시 넣기(재전송)는 다시 내지 않는다
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.alerts.v1 --from-beginning --timeout-ms 10000 \
+    2>/dev/null | grep -F "$D_SID" >"$OUT/d54-alerts.jsonl" || true
+  ALERTS="$(python3 - "$OUT/d54-alerts.jsonl" "$D_SID" <<'PYA'
+import json,sys
+rows=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+ok=all(r.get('schema_version')=='1.0' and r.get('kind')=='alert' and r.get('session_id')==sys.argv[2]
+       and set(r.get('body',{}))=={'event_id','kind','deviation_type','timestamp_ms','onset_ms'} for r in rows)
+print(('ok ' if ok else 'bad ')+' '.join(f"{r['body']['kind']}@{r['body']['timestamp_ms']}" for r in rows if 'body' in r))
+PYA
+)"
+  echo "알림 토픽: $ALERTS" >>"$OUT/run.log"
+  if [ "$ALERTS" = "ok collapse_confirmed@8000 reminder@68000" ]; then pass "알림 토픽 posture.alerts.v1: 확정 8.0s·재알림 68.0s 2건, 재전송은 다시 안 냄 (D-54)"
+  else fail "알림 토픽 posture.alerts.v1" "${ALERTS:-없음} (기대: collapse_confirmed@8000 reminder@68000 — $OUT/d54-alerts.jsonl, GET /report/store alertsPublished)"; fi
 
   sleep 2
   L="$($KT/kafka-consumer-groups.sh $BS --describe --group report-store-v1 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"

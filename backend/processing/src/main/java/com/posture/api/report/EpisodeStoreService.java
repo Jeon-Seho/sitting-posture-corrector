@@ -2,8 +2,11 @@ package com.posture.api.report;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -13,6 +16,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * (D-30, D-51) 판정 결과(decision) 하나를 V2.3 결과 테이블에 반영한다.
@@ -29,6 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
  *       시작 시각(PK)으로 찾으므로 재전송에도 같은 행이다. 세션 종료 때 열린 구간이 남아 있으면 닫는다.</li>
  *   <li>알림: V2.3은 알림이 꺼져 있어도 첫 알림·재알림 시점을 기록하고, 표시 여부는 세션 {@code alert_enabled}로 판단한다
  *       (시간당 상한·억제 사유 없음).</li>
+ *   <li>(D-54) 알림 발행: 알림 행을 <b>새로</b> 넣었고, 세션 알림이 켜져 있고({@code alert_enabled}), decision이 판정에서 나온 지
+ *       {@code report.alerts.max-age-ms}(기본 10초) 안이면 {@code posture.alerts.v1}로 낸다. 재전송(행이 이미 있음)·알림 꺼짐·
+ *       오래된 사건(재처리·밀림)은 내지 않는다 — 앱에 늦은 알림이 뜨지 않게. DB 기록이 먼저이고, 발행 실패는 기록을 되돌리지 않는다.</li>
  * </ul>
  *
  * <p>여러 SQL을 트랜잭션으로 묶지 않는다. 각 단계가 멱등이라 중간에 실패해 다시 받아도 남은 단계만 채워진다.
@@ -44,6 +51,13 @@ public class EpisodeStoreService {
     public enum Outcome { STORED, DUPLICATE, SESSION_NOT_FOUND, EVENT_NOT_FOUND }
 
     private final EpisodeStore store;
+    private final AlertPublisher alerts;
+    private final boolean alertsEnabled;
+    private final Duration alertMaxAge;
+    private final Supplier<Instant> clock;
+    private final AtomicLong alertsPublished = new AtomicLong();
+    private final AtomicLong alertsSkippedOff = new AtomicLong();
+    private final AtomicLong alertsSkippedStale = new AtomicLong();
     private final AtomicLong stored = new AtomicLong();
     private final AtomicLong duplicates = new AtomicLong();
     private final AtomicLong sessionNotFound = new AtomicLong();
@@ -56,8 +70,25 @@ public class EpisodeStoreService {
     private final AtomicReference<String> lastStoredAt = new AtomicReference<>();
     private final Set<String> warnedSessions = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    public EpisodeStoreService(EpisodeStore store) {
+    @Autowired
+    public EpisodeStoreService(EpisodeStore store, AlertPublisher alerts,
+                               @Value("${report.alerts.enabled:true}") boolean alertsEnabled,
+                               @Value("${report.alerts.max-age-ms:10000}") long alertMaxAgeMs) {
+        this(store, alerts, alertsEnabled, alertMaxAgeMs, Instant::now);
+    }
+
+    /** 시험용: 알림 발행 없이. */
+    EpisodeStoreService(EpisodeStore store) {
+        this(store, AlertPublisher.NO_OP, false, 10_000, Instant::now);
+    }
+
+    EpisodeStoreService(EpisodeStore store, AlertPublisher alerts, boolean alertsEnabled, long alertMaxAgeMs,
+                        Supplier<Instant> clock) {
         this.store = store;
+        this.alerts = alerts;
+        this.alertsEnabled = alertsEnabled;
+        this.alertMaxAge = Duration.ofMillis(alertMaxAgeMs);
+        this.clock = clock;
     }
 
     public Outcome apply(EpisodeDecision d) {
@@ -109,7 +140,7 @@ public class EpisodeStoreService {
             eventsInserted.incrementAndGet();
             inserted = true;
         }
-        boolean alert = alert(s, eventSeq, d.timestampMs());
+        boolean alert = alert(s, eventSeq, d);
         return inserted || alert ? Outcome.STORED : Outcome.DUPLICATE;
     }
 
@@ -119,11 +150,12 @@ public class EpisodeStoreService {
         if (seq.isEmpty()) {
             return Outcome.EVENT_NOT_FOUND;
         }
-        return alert(s, seq.getAsInt(), d.timestampMs()) ? Outcome.STORED : Outcome.DUPLICATE;
+        return alert(s, seq.getAsInt(), d) ? Outcome.STORED : Outcome.DUPLICATE;
     }
 
     /** @return 새로 넣었으면 true */
-    private boolean alert(SessionRow s, int eventSeq, long atMs) {
+    private boolean alert(SessionRow s, int eventSeq, EpisodeDecision d) {
+        long atMs = d.timestampMs();
         if (store.alertExists(s.id(), eventSeq, atMs)) {
             return false;
         }
@@ -131,8 +163,24 @@ public class EpisodeStoreService {
         alertsInserted.incrementAndGet();
         if (!s.alertEnabled()) {
             alertsWhileOff.incrementAndGet();
+            alertsSkippedOff.incrementAndGet();
+        } else if (alertsEnabled) {
+            publishIfFresh(d);
         }
         return true;
+    }
+
+    /** (D-54) 판정이 낸 지 max-age 안이면 발행. produced_at이 없으면(옛 메시지·시험) 새것으로 본다. */
+    private void publishIfFresh(EpisodeDecision d) {
+        Instant now = clock.get();
+        if (d.producedAt() != null && Duration.between(d.producedAt(), now).compareTo(alertMaxAge) > 0) {
+            alertsSkippedStale.incrementAndGet();
+            log.info("알림 발행 안 함 — 오래된 사건 (session={}, event_id={}, produced_at={})",
+                    d.sessionId(), d.eventId(), d.producedAt());
+            return;
+        }
+        alerts.publish(d);
+        alertsPublished.incrementAndGet();
     }
 
     private Outcome endEvent(SessionRow s, EpisodeDecision d, boolean recovered) {
@@ -190,6 +238,10 @@ public class EpisodeStoreService {
         m.put("eventsInserted", eventsInserted.get());
         m.put("alertsInserted", alertsInserted.get());
         m.put("alertsWhileOff", alertsWhileOff.get());
+        m.put("alertsPublished", alertsPublished.get());
+        m.put("alertsSkippedOff", alertsSkippedOff.get());
+        m.put("alertsSkippedStale", alertsSkippedStale.get());
+        m.put("alertsPublishEnabled", alertsEnabled);
         m.put("sessionsEnded", sessionsEnded.get());
         m.put("excludedWritten", excludedWritten.get());
         m.put("lastStoredAt", lastStoredAt.get());

@@ -30,13 +30,14 @@
 
 | 메서드·경로 | 응답 |
 | --- | --- |
-| `GET /report/store` | 저장 컨슈머(`report-store-v1`) 상태: 받은 수, 저장·중복·세션 없음·이벤트 없음·DLQ·DB 실패 수, 마지막 오류, `testFixturesEnabled` |
+| `GET /report/store` | 저장 컨슈머(`report-store-v1`) 상태: 받은 수, 저장·중복·세션 없음·이벤트 없음·DLQ·DB 실패 수, 마지막 오류, `testFixturesEnabled`, (D-54) 알림 발행 `alertsPublished`·꺼진 세션 `alertsSkippedOff`·오래된 사건 `alertsSkippedStale`·`alertsPublishEnabled` |
 | `GET /report/sessions/{session_id}` | 저장된 세션(종료 `ended_ms`·`good_sec`·기준 자세 id·정책 id·알림 사용)·이벤트(`started_ms`·`confirmed_ms`·`ended_ms`·`recovered_ms`·`end_kind`)·알림(`attempted_ms`·`displayed`)·제외 구간. 시각은 세션 시작 기준 ms. 세션 행이 없으면 404 |
 
 - 저장은 세션 행을 만들지 않는다. 세션 행은 입출구 서버가 측정 시작 때 만들고, 저장은 `client_session_uuid`(= Kafka `session_id`)로 찾기만 한다.
   행이 없는 세션의 메시지는 건너뛰고 `sessionNotFound`로 센다.
 - V2.3에는 종료 사유 칸이 없어 `end_kind`는 시각으로 판정한다: `recovered_at`이 있으면 `RECOVERED`, 세션 종료 시각과 같으면 `SESSION_END`, 그 밖은 `EXCLUDED`.
 - `good_sec`은 바른 자세 시간(ms)을 0.1초 아래 버림한다(입출구 서버와 같음, D-58).
+- (D-54) 표시할 알림은 저장한 뒤 `posture.alerts.v1`로 낸다 — 규칙은 [Kafka 명세](kafka-spec.md) 3.2. 끄려면 `REPORT_ALERTS_ENABLED=false`.
 
 ### 시험용 (`REPORT_TEST_FIXTURES_ENABLED=true`일 때만, 아니면 403)
 
