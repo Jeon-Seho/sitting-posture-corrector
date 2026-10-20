@@ -7,13 +7,25 @@ type CameraMediaSession = MediaSession & { setCameraActive?: (active: boolean) =
 
 export const CAMERA_WINDOW_STYLE = `
   :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-  body { margin: 0; background: #171714; color: #fff; }
-  .camera-window-view { display: grid; gap: 10px; padding: 12px; }
-  .camera-window-view h1 { font-size: 15px; margin: 0; }
-  .camera-window-view video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transform: scaleX(-1); background: #000; }
-  .camera-window-view p { margin: 0; font-size: 12px; line-height: 1.5; }
-  .camera-window-view button { padding: 9px 12px; cursor: pointer; }
-  .camera-window-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  body { margin: 0; background: #171714; color: #fff; overflow: hidden; }
+  .camera-window-view { position: relative; height: 100vh; }
+  .camera-window-view video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #000; }
+  .camera-window-bar { position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 8px 8px 20px 10px; background: linear-gradient(rgb(0 0 0 / 0.55), transparent); opacity: 0; transition: opacity .15s; }
+  .camera-window-view:hover .camera-window-bar, .camera-window-view:focus-within .camera-window-bar,
+  .camera-window-view.is-minimized .camera-window-bar { opacity: 1; }
+  .camera-window-view.is-minimized .camera-window-bar { position: static; padding-bottom: 8px; background: none; }
+  .camera-window-label { font-size: 12px; font-weight: 700; }
+  .camera-window-label::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #5fae7c; }
+  .camera-window-view.status-alert { box-shadow: inset 0 0 0 3px #d0505a; }
+  .camera-window-view.status-alert .camera-window-bar { opacity: 1; }
+  .camera-window-view.status-alert .camera-window-label::before { background: #d0505a; }
+  .camera-window-view.status-unknown .camera-window-label::before,
+  .camera-window-view.status-paused .camera-window-label::before { background: #9a9389; }
+  .camera-window-tools { display: inline-flex; gap: 4px; }
+  .camera-window-tools button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%;
+    background: rgb(0 0 0 / 0.35); color: #fff; cursor: pointer; }
+  .camera-window-tools button:hover { background: rgb(0 0 0 / 0.6); }
 `
 
 /** A preview of the existing stream only; never requests another camera or changes inference refs. */
@@ -83,7 +95,7 @@ export function useCameraWindow(camera: CameraController) {
     try {
       const api = (window as PipHost).documentPictureInPicture
       if (api) {
-        const popup = await api.requestWindow({ width: 360, height: 390 })
+        const popup = await api.requestWindow({ width: 320, height: 240 })
         if (token !== generation.current || camera.streamRef.current !== stream) {
           popup.close()
           return
@@ -115,7 +127,9 @@ export function useCameraWindow(camera: CameraController) {
         }
         setVideoPip(true)
       }
-    } catch {
+    } catch (error) {
+      // Diagnostic for the automatic window (2026-10-20): the reason Chrome refused, if any.
+      console.warn('[PoseGood] camera window did not open', error)
       setMessage('작은 창을 열지 못했습니다. Chrome에서 버튼을 직접 눌러 주세요. 앱 탭은 열어 두세요.')
     } finally {
       pending.current = false
@@ -127,10 +141,16 @@ export function useCameraWindow(camera: CameraController) {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession as CameraMediaSession : undefined
     if (camera.state !== 'on' || !session || !documentPip) return
     try {
-      session.setActionHandler('enterpictureinpicture' as MediaSessionAction, () => { void open() })
+      session.setActionHandler('enterpictureinpicture' as MediaSessionAction, () => {
+        // Diagnostic (2026-10-20): Chrome calls this when switching tabs while the camera is on.
+        console.info('[PoseGood] automatic picture-in-picture requested')
+        void open()
+      })
+      console.info('[PoseGood] automatic picture-in-picture handler registered')
       session.setCameraActive?.(true)
     } catch { /* Manual opening remains available when automatic PiP is unsupported. */ }
     return () => {
+      console.info('[PoseGood] automatic picture-in-picture handler removed')
       try {
         session.setCameraActive?.(false)
         session.setActionHandler('enterpictureinpicture' as MediaSessionAction, null)

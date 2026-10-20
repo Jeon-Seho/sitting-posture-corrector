@@ -13,6 +13,7 @@ import {
 } from '../../connection/connectionLost'
 import { popupAlert } from '../../desktop/alertPopup'
 import { INPUT_PAUSED_NOTICE } from '../../../lib/cameraSample'
+import { publishMeasurementStatus, registerMeasurementEnd, type MeasurementStatus } from '../sessionControl'
 
 /** Development switch for the plan 0022 realtime gateway. Unset keeps the HTTP server mode. */
 const REALTIME_URL = SERVER.realtimeUrl
@@ -122,6 +123,30 @@ export function useServerSessionScreen({ session, camera, service, alertsOn = tr
       controller.current = null
     }
   }, [session.id])
+
+  // The small camera window's X ends this measurement from any tab (2026-10-20).
+  const over = state.phase === 'ended' || state.phase === 'lost' || state.connectionLost
+  useEffect(() => {
+    if (over) return
+    return registerMeasurementEnd(() => controller.current?.end())
+  }, [over])
+
+  // The small camera window shows the posture while another tab is open (2026-10-20).
+  const windowStatus: MeasurementStatus | null = over
+    ? null
+    : state.phase === 'running'
+      ? state.live.alerting
+        ? 'alert'
+        : state.live.state === 'unknown'
+          ? 'unknown'
+          : 'good'
+      : state.phase === 'paused'
+        ? 'paused'
+        : 'unknown'
+  useEffect(() => {
+    publishMeasurementStatus(windowStatus)
+  }, [windowStatus])
+  useEffect(() => () => publishMeasurementStatus(null), [])
 
   // Measurement keeps running while another tab (e.g. records) is open (user decision 2026-10-06).
   useEffect(() => {

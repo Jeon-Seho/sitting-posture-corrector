@@ -13,6 +13,7 @@ import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
 import { PoseDebugRecorder } from './poseDebugExport'
 import { CAMERA_ERRORS } from '../camera/errors'
+import { publishMeasurementStatus, registerMeasurementEnd, type MeasurementStatus } from './sessionControl'
 
 type Options = {
   rules: Rules
@@ -125,6 +126,30 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
       setPhase('ended')
     }
   }, [service, isCamera, phase, camera.state, camera.error])
+  // The small camera window's X ends this measurement from any tab (2026-10-20).
+  useEffect(() => {
+    if (!service || phase === 'ended') return
+    return registerMeasurementEnd((reason) => {
+      setEndReason(reason)
+      setPhase('ended')
+    })
+  }, [service, phase === 'ended'])
+  // The small camera window shows the posture while another tab is open (2026-10-20).
+  const windowStatus: MeasurementStatus | null = !service
+    ? null
+    : phase === 'ended'
+      ? null
+      : phase === 'paused'
+        ? 'paused'
+        : live.alerting
+          ? 'alert'
+          : live.state === 'unknown'
+            ? 'unknown'
+            : 'good'
+  useEffect(() => {
+    publishMeasurementStatus(windowStatus)
+  }, [windowStatus])
+  useEffect(() => () => publishMeasurementStatus(null), [])
   useEffect(() => {
     if (!service || !isCamera || phase !== 'running') return
     const timer = setInterval(() => {

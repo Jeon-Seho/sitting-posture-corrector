@@ -270,6 +270,7 @@ export function ServiceScreens({
         camera={camera}
         floating={!CAMERA_PAGES.includes(view)}
         onExpand={() => go(measuring ? 'session' : 'setup')}
+        measuring={measuring}
       />
     </div>
   )

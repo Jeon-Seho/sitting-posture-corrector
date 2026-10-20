@@ -389,9 +389,35 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(controls.camera.stop).not.toHaveBeenCalled()
     click('측정하기')
     click('기록')
-    act(() => windowButton('측정하기로 돌아가기')[0].props.onClick())
+    act(() => windowButton('측정 화면으로 돌아가기')[0].props.onClick())
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
     expect(controls.camera.stop).not.toHaveBeenCalled()
+  })
+  const startCameraSession = () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+  }
+  it('ends and saves the running measurement from the small window on another tab (X, 2026-10-20)', () => {
+    startCameraSession()
+    click('기록')
+    // The window shows the running measurement's posture, not just that the camera is on.
+    const small = renderer!.root.find(
+      (node) => node.type === 'aside' && node.props['aria-label'] === '카메라 작은 창',
+    )
+    expect(text(small)).toContain('자세를 확인할 수 없어요')
+    expect(small.props.className).toContain('status-unknown')
+    const end = renderer!.root.findAll(
+      (node) => node.type === 'button' && node.props['aria-label'] === '측정 종료',
+    )
+    expect(end).toHaveLength(1)
+    act(() => end[0].props.onClick())
+    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
+    expect(text(renderer!.root.findByType(SessionPage))).toContain('작은 창을 닫아 측정을 끝냈어요')
   })
   it('routes an explicit server opt-in and freezes its baseline, camera shape and rules', () => {
     const screen = startServer()

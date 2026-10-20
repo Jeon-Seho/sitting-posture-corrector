@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react'
-import { ArrowsOutSimple, X } from '@phosphor-icons/react'
+import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { ArrowsOutSimple, Minus, Square, X } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import type { CameraController } from '../../hooks/useCamera'
+import {
+  endRunningMeasurement,
+  useMeasurementStatus,
+  WINDOW_END_REASON,
+  type MeasurementStatus,
+} from '../session/sessionControl'
 import { useCameraWindow } from './useCameraWindow'
 
 function StreamPreview({ camera }: { camera: CameraController }) {
@@ -16,31 +22,68 @@ function StreamPreview({ camera }: { camera: CameraController }) {
   return <video ref={preview} autoPlay muted playsInline aria-label="작은 창 웹캠 미리보기" />
 }
 
-function WindowPreview({ camera, onClose }: { camera: CameraController; onClose: () => void }) {
+/** The dot and words beside it: the posture of the running measurement (2026-10-20). */
+const STATUS_TEXT: Record<MeasurementStatus | 'camera', string> = {
+  camera: '카메라 사용 중',
+  good: '바른 자세예요',
+  alert: '자세가 흐트러졌어요',
+  unknown: '자세를 확인할 수 없어요',
+  paused: '쉬는 중',
+}
+
+type Controls = {
+  status: MeasurementStatus | 'camera'
+  minimized: boolean
+  onMinimize: () => void
+  /** Back to 측정하기, wherever the app is. Absent on the collection screen. */
+  onExpand?: () => void
+  /** While measuring: end and save (2026-10-20). Otherwise: close the window only. */
+  onClose: () => void
+  measuring: boolean
+  /** The draggable label; the out-of-app window is moved by the browser instead. */
+  label: (text: string) => ReactNode
+}
+
+/**
+ * The bar of a picture-in-picture style window, like YouTube's: minimize (hide the video, keep
+ * measuring), expand (back to the measurement) and close. Playback controls do not apply here.
+ */
+function PipBar({ status, minimized, onMinimize, onExpand, onClose, measuring, label }: Controls) {
   return (
-    <section className="camera-window-view" aria-label="카메라 작은 창">
-      <h1>POSE GOOD · 내 카메라</h1>
-      <StreamPreview camera={camera} />
-      <p role="status">{camera.quality ? '자세를 확인하고 있어요.' : '자세를 확인할 수 없어요.'}</p>
-      <p>창을 드래그해 위치를 옮기고 가장자리를 당겨 크기를 바꾸세요.</p>
-      <div className="camera-window-actions">
-        <button onClick={onClose}>작은 창 닫기</button>
-        <button onClick={camera.stop}>카메라 끄기</button>
-      </div>
+    <div className="camera-window-bar">
+      {label(STATUS_TEXT[status])}
+      <span className="camera-window-tools">
+        <button aria-label={minimized ? '영상 보이기' : '최소화'} title={minimized ? '영상 보이기' : '최소화'} onClick={onMinimize}>
+          {minimized ? <Square size={14} weight="bold" aria-hidden="true" /> : <Minus size={16} weight="bold" aria-hidden="true" />}
+        </button>
+        {onExpand && (
+          <button aria-label="측정 화면으로 돌아가기" title="측정 화면으로 돌아가기" onClick={onExpand}>
+            <ArrowsOutSimple size={16} weight="bold" aria-hidden="true" />
+          </button>
+        )}
+        <button aria-label={measuring ? '측정 종료' : '작은 창 닫기'} title={measuring ? '측정 종료·저장' : '닫기'} onClick={onClose}>
+          <X size={16} weight="bold" aria-hidden="true" />
+        </button>
+      </span>
+    </div>
+  )
+}
+
+/** Inside a browser picture-in-picture window, shown over other sites and apps. */
+function WindowPreview({ camera, controls }: { camera: CameraController; controls: Omit<Controls, 'label'> }) {
+  return (
+    <section className={`camera-window-view ${controls.minimized ? 'is-minimized' : ''} status-${controls.status}`} aria-label="카메라 작은 창">
+      {!controls.minimized && <StreamPreview camera={camera} />}
+      <PipBar {...controls} label={(text) => <span className="camera-window-label" role="status">{text}</span>} />
     </section>
   )
 }
 
 /**
- * A small video-only window like a browser picture-in-picture: drag it anywhere, and the bar that
- * appears on hover or focus holds 「측정하기로 돌아가기」 and 「닫기」 (2026-10-19). Closing hides the
- * window only; the camera keeps running so a measurement in progress is not cut off.
+ * The same window inside the app (another tab of PoseGood): drag it anywhere; the bar appears on
+ * hover or focus, and stays while minimized.
  */
-function FloatingPreview({ camera, onExpand, onClose }: {
-  camera: CameraController
-  onExpand?: () => void
-  onClose: () => void
-}) {
+function FloatingPreview({ camera, controls }: { camera: CameraController; controls: Omit<Controls, 'label'> }) {
   const panel = useRef<HTMLElement>(null)
   const drag = useRef<{ pointer: number; dx: number; dy: number } | null>(null)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
@@ -77,7 +120,7 @@ function FloatingPreview({ camera, onExpand, onClose }: {
   }
   const stop = () => { drag.current = null }
   return (
-    <aside ref={panel} className="camera-window-controls" aria-label="카메라 작은 창"
+    <aside ref={panel} className={`camera-window-controls ${controls.minimized ? 'is-minimized' : ''} status-${controls.status}`} aria-label="카메라 작은 창"
       onPointerDown={begin} onPointerMove={(event) => {
         const current = drag.current
         if (current?.pointer === event.pointerId) move(event.clientX - current.dx, event.clientY - current.dy)
@@ -86,50 +129,68 @@ function FloatingPreview({ camera, onExpand, onClose }: {
         left: position.x, top: position.y, right: 'auto', bottom: 'auto',
         maxWidth: `calc(100vw - ${position.x + 8}px)`, maxHeight: `calc(100vh - ${position.y + 8}px)`,
       } : undefined}>
-      <StreamPreview camera={camera} />
-      <div className="camera-window-bar">
-        <button className="camera-window-drag" aria-label="카메라 사용 중 · 방향키로 창 옮기기" onKeyDown={keyboardMove}>
-          카메라 사용 중
+      {!controls.minimized && <StreamPreview camera={camera} />}
+      <PipBar {...controls} label={(text) => (
+        <button className="camera-window-drag" aria-label={`${text} · 방향키로 창 옮기기`} onKeyDown={keyboardMove}>
+          <span role="status">{text}</span>
         </button>
-        <span className="camera-window-tools">
-          {onExpand && (
-            <button aria-label="측정하기로 돌아가기" title="측정하기로 돌아가기" onClick={onExpand}>
-              <ArrowsOutSimple size={16} weight="bold" aria-hidden="true" />
-            </button>
-          )}
-          <button aria-label="작은 창 닫기" title="닫기" onClick={onClose}>
-            <X size={16} weight="bold" aria-hidden="true" />
-          </button>
-        </span>
-      </div>
+      )} />
     </aside>
   )
 }
 
 /**
- * `floating` hides the in-app preview on screens that already show the camera large.
- * `onExpand` returns to 측정하기; without it (collection screen) only 닫기 is shown.
+ * `floating` hides the in-app window on screens that already show the camera large.
+ * `onExpand` returns to the measurement; without it (collection screen) there is no expand.
+ * `measuring` makes the X end and save the measurement (2026-10-20); otherwise it closes the window.
+ * Leaving the tab opens the same window over other sites where the browser allows it.
  */
-export function CameraWindow({ camera, floating = true, onExpand }: {
+export function CameraWindow({ camera, floating = true, onExpand, measuring = false }: {
   camera: CameraController
   floating?: boolean
   onExpand?: () => void
+  measuring?: boolean
 }) {
   const preview = useCameraWindow(camera)
+  const posture = useMeasurementStatus()
   const [dismissed, setDismissed] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   // Closing lasts until the camera is shown large again (e.g. back on 측정하기).
   useEffect(() => {
-    if (!floating) setDismissed(false)
+    if (!floating) {
+      setDismissed(false)
+      setMinimized(false)
+    }
   }, [floating])
   if (camera.state !== 'on') return null
+  const controls = {
+    status: (measuring && posture) || ('camera' as const),
+    minimized,
+    measuring,
+    onMinimize: () => setMinimized((old) => !old),
+    onExpand: onExpand && (() => {
+      // From a window over another site: bring the app's tab back first.
+      if (preview.pipWindow) {
+        window.focus()
+        preview.close()
+      }
+      onExpand()
+    }),
+    onClose: () => {
+      if (measuring && endRunningMeasurement(WINDOW_END_REASON)) {
+        preview.close()
+        return
+      }
+      if (preview.pipWindow) preview.close()
+      else setDismissed(true)
+    },
+  }
   return (
     <>
-      {floating && !dismissed && (
-        <FloatingPreview camera={camera} onExpand={onExpand} onClose={() => setDismissed(true)} />
-      )}
+      {floating && !dismissed && !preview.pipWindow && <FloatingPreview camera={camera} controls={controls} />}
       <video ref={preview.fallbackVideo} className="capture-source" muted playsInline aria-hidden="true" />
       {preview.pipWindow && createPortal(
-        <WindowPreview camera={camera} onClose={preview.close} />,
+        <WindowPreview camera={camera} controls={controls} />,
         preview.pipWindow.document.body,
       )}
     </>
