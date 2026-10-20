@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-16 · FE(`feature/frontend-features-and-integrationV2`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-20(데스크톱·Vercel 명령) · FE(`feature/frontend-features-and-integrationV2`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)
@@ -38,6 +38,17 @@ npx vitest run <파일 이름>            # 바꾼 파일의 시험만
 npx tsc -b                            # 타입 오류만
 UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases   # 판정 규칙을 바꾼 뒤 합성 시험 데이터 다시 만들기
 cd ..
+
+# 데스크톱 앱 (frontend 폴더에서, 창·팝업 구조는 배포 구상 6장)
+npm run desktop                       # 개발 서버(5174)를 띄우고 Electron 창. 창을 닫으면 서버도 끈다
+npm run desktop:dev                   # 이미 켜 둔 개발 서버(5173)에 창만 붙인다
+npm run dev                           # 브라우저로 같은 화면
+npm run desktop:pack                  # 실행 파일 다시 만들기(아이콘을 바꾼 뒤 등)
+POSEGOOD_DEBUG_PORT=9333 npm run desktop   # 개발 실행에서만 127.0.0.1 CDP 포트(화면 자동 점검)
+
+# Vercel 배포 갱신 (포크 klaod-tech/sitting-posture-corrector, 원격 이름 fork, 배포 구상 4장 1단계)
+git remote add fork https://github.com/klaod-tech/sitting-posture-corrector.git   # 처음 한 번
+git fetch origin && git push fork origin/develop:develop   # 원래 저장소 develop → 포크 develop(Vercel 운영)
 
 # 남은 옛 이름 찾기 / 팀 브랜치 원본 읽기
 grep -rn "<단어>" docs frontend/src

@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-16(탈퇴 철회 없어짐 0.7, 합친 뒤 코드와 대조) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-19(로그인 만료 정정, 640×480 거부 대신 표시) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드는 이 저장소의 `backend/api`다(10/15 BE 브랜치 `feat/backend-data-platform-architecture`가 develop을 받아 합침, Java 17·Spring Boot 4·Gradle, DB V2.3). 그 코드의 `/v1/realtime`은 서버를 먼저 돌려 보려고 섞인 임시 상태이고, 실시간은 이 문서의 `/v2/realtime`으로 간다(BE 확인 10/15). BE가 진행 중인 것은 [FE 제안서](fe-server-proposal.md) 1장.
 > 근거 결정: 10/12 회의, 10/13 FE 결정, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)(끊기면 세션 종료, 재연결 없음)
 
@@ -51,7 +51,7 @@ DevOps 「FE ↔ BE API 명세 3종 대조 검토」의 A·C·D에 대한 FE 답
 | A4 | `stalled` 뒤 연결을 닫는가 | 동의. **`stalled`는 알림만, 연결 유지.** 앱은 문구만 띄우고 다음 `progress`·`observation`에서 지운다 | 5.3 |
 | A5 | 종료 뒤 404의 뜻이 셋 | 5분 미만도 저장하므로(10/14 정정) ⓐ 경우가 없어지고 404는 "없는·남의 세션" 또는 "아직 저장 안 됨"이다. 앱은 404면 마지막 `progress`로 종료 화면을 그리고 "기록에 남지 않음" 안내는 하지 않는다 | 2장, 4.4 |
 | A6 | R3 409와 공통 `CONFLICT` 충돌 | R3도 공통 `CONFLICT`를 쓴다(10/15: BE 코드 이름에 맞춰 R3 전용 코드 `RECORD_ARCHIVED` 대신 공통 `CONFLICT`를 쓴다). 앱은 R3에서 받은 `CONFLICT`만 적재된 기록으로 본다. **적재(J1, 매시간)된 기록은 사용자가 지울 수 없다**(10/14 결정). 적재 전에만 지울 수 있고, 탈퇴하면 모두 지워진다 | 2장, 4.5 |
-| A7 | 해상도와 기준 자세 | **640×480 고정(팀 결정, DB V2.3 머리말 `CAPTURE_RESOLUTION`).** 앱은 640×480을 요청하고, 실제로 다른 크기가 오면 측정·등록을 시작하지 않고 안내한다. (10/14 한때 "어느 크기든 허용"으로 답했으나 DB·DevOps 모두 고정을 전제로 해 되돌렸다. 같은 날 실습 카메라(720p까지)로 16:9를 검토했으나, 판정에 필요한 위아래 범위는 늘지 않고 데이터 재촬영이 따라와 640×480 고정을 다시 확인했다) | 5.2 |
+| A7 | 해상도와 기준 자세 | **640×480 고정(팀 결정, DB V2.3 머리말 `CAPTURE_RESOLUTION`).** 앱은 640×480을 요청하고, 실제 카메라 크기는 측정 화면 위에 작게 보인다(예정, 10/19. 다른 크기면 시작하지 않는 처리는 두지 않는다). (10/14 한때 "어느 크기든 허용"으로 답했으나 DB·DevOps 모두 고정을 전제로 해 되돌렸다. 같은 날 실습 카메라(720p까지)로 16:9를 검토했으나, 판정에 필요한 위아래 범위는 늘지 않고 데이터 재촬영이 따라와 640×480 고정을 다시 확인했다) | 5.2 |
 | C1 | 「기록까지 m:ss」가 서버 처리만큼 늦음 | 5분 미만도 저장하므로(10/14 정정) 이 안내는 없앤다 | 5.3 |
 | C2 | A1을 다시 받는 시점 | A8 뒤 추가(10/15 A8 없어짐). A6 뒤에는 로그인 화면으로 | 3장 |
 | C3 | S1 200·201 | 둘 다 성공 처리 | 4.4 |
@@ -95,7 +95,7 @@ BE 명세 10/13판은 10/14 결정(5분 미만 저장, DevOps 검토, DB 회신)
 | X6 | 7장 R3 "HDFS 파일이 있는 세션은 409(삭제는 J3와 같은 순서가 필요)" | 적재된 기록은 **지울 수 없다**(10/14). 409는 지금 BE 코드 그대로 `CONFLICT`, 삭제 배치는 만들지 않는다 |
 | X7 | 7장 T1 "앱이 오늘 기록을 합치거나 '어제까지'로 표시" | 통계는 **어제까지**, 목록(R1)에는 오늘 세션도 하나씩(4.5) |
 | X8 | 7장 T1 "J2(매일 00:00)", 2장 "cron J3(매일 04:00)" | 맞다. 아키텍처 v5.2(10/15) 번호가 BE 명세와 같다(J2 집계 00:00, J3 탈퇴 삭제 04:00). 고칠 것 없음 |
-| X9 | 5.2 `width`·`height` "기본 640×480" | **640×480 고정이라 `width`·`height`를 지운다(10/15).** 다른 크기면 앱이 측정·등록을 시작하지 않는다(5.2) |
+| X9 | 5.2 `width`·`height` "기본 640×480" | **640×480 고정이라 `width`·`height`를 지운다(10/15).** 실제 크기는 측정 화면에 표시만 한다(10/19, 5.2) |
 
 **더할 것 (BE 명세에 없음)**
 
@@ -156,13 +156,13 @@ BE가 탈퇴 철회(A8 `POST /v2/auth/withdrawal/cancel`)와 `WITHDRAWAL_NOT_CAN
 | 항목 | 규칙 (BE 명세와 같음) | 앱이 하는 일 |
 |---|---|---|
 | 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 개발 중에는 Vite가 `/api`를 입출구 서버로 넘긴다 |
-| 로그인 | HttpOnly·SameSite=Lax 쿠키(`SPRING_SESSION`), 만료 30분. WS도 같은 쿠키. **WS가 열려 있는 동안은 서버가 세션을 갱신하고 만료로 닫지 않는다**(A1) | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면 |
+| 로그인 | HttpOnly·SameSite=Lax 쿠키(`SPRING_SESSION`), 만료 30분. WS도 같은 쿠키. **WS 메시지는 만료를 늘리지 않는다** — 무엇을 하든 30분이 지나면 로그인을 버린다(BE 의도, 10/19 정정. 예전 「WS가 열려 있는 동안 갱신」(A1)은 틀림). 측정은 연결 때 인증했으므로 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
 | CSRF | `GET /v2/auth/csrf`(A1) 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에. 가입·로그인 포함 | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id: <user_id>` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다 |
 | 본문 | JSON snake_case. 요청의 모르는 필드는 400. `/v2/workspace`의 `rules`와 기록만 camelCase | 명세에 없는 필드는 보내지 않고, 명세에 있는 필드는 값이 없어도 빼지 않고 `null`로 보낸다(빠지면 400, 0.6). **응답·서버 메시지의 모르는 필드, 모르는 `type`·`event.kind`는 무시한다**(B11) |
 | 오류 | `{error, code, message}` | `code`로 나눈다(2장) |
 | 시각 | 응답은 UTC ISO-8601. 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 바꾼다 |
-| 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 응답(200, BE 명세는 201)을 받은 순간부터 `t_ms`를 센다. BE 코드 응답에는 `started_at`이 없다(0.6) |
+| 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 응답(200 `SessionView`, BE 명세 10/15 결정)을 받은 순간부터 `t_ms`를 센다. 응답에는 `started_at`이 없다(0.6) |
 | ID | `session_id`·`calibration_id`는 앱 UUID, `baseline_id`는 서버 UUID, `user_id`는 10진 문자열 | 재시도 때 같은 UUID |
 | 시간 기본값 | 판정 3·3·60초는 서버 설정 | 앱은 받은 값만 쓴다 |
 | 판정 규칙 단위 (DB V2.3) | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`), `/v2/workspace` `rules`와 DB `threshold_policy`는 초. DB는 `hold_seconds`·`recover_seconds`가 0.5초 단위, `realert_seconds`가 1초 이상이다. 그래서 ms 값은 500의 배수, `reminder_ms`는 1000 이상이다 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로 보낸다. 앱이 값을 새로 만들지 않으므로 이 조건은 그대로 지켜진다 |
@@ -277,13 +277,13 @@ PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 { "policy": { "hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7 },
   "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60" }
 
-200 (BE 코드 10/15. BE 명세 10/13판은 201 {session_id, started_at, policy, baseline_id, alert_enabled})
-{ "schema_version": "…", "session_id": "3f2a…", "policy": { … }, "timer_policy": "…",
-  "ended": false, "last_sequence": 0, "summary": { … }, "events": [] }
+200 (BE 명세 10/15 결정: S1·S3 모두 200 `SessionView`. 10/13판의 201 새 형식은 쓰지 않는다)
+{ "schema_version": "1.0", "session_id": "3f2a…", "policy": { … }, "timer_policy": "legacy-interrupt-v1",
+  "ended": false, "last_sequence": -1, "summary": { … }, "events": [] }
 ```
 
 - `policy`는 W1 `rules`를 ms로 바꾼 값, `baseline_id`는 B2 값이다. 응답을 받은 순간이 `t_ms` 0이다. 응답에 `started_at`·`alert_enabled`가 없으므로 알림 여부는 W1 `preferences.alerts_on`을 쓴다(0.6).
-- **200·201 모두 성공이다**(C3). 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다(200).
+- 성공은 200이다(C3의 201은 BE가 쓰지 않기로 함). 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다(200).
 - S3 `{ "end_ms": 600000 }` → S1과 같은 모양(`ended: true`). WS가 이미 끊겼을 때만 부른다. 서버가 끊김으로 먼저 끝낸 세션이면 `end_ms`가 달라도 저장된 값으로 200이다(DevOps B2).
 - S4는 측정 `end` 뒤 10초 안에 `closed`가 없을 때만 부른다. 404면 마지막 `progress`로 종료 화면을 그린다.
 
@@ -324,7 +324,7 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 - `phase`: 측정 `running`·`rest`(일시정지)·`away`(카메라 영상이 멈춤, 연결은 그대로), 등록 `calibration`. `rest`·`away`는 `frames: []`. 쓰던 카메라가 빠지면(USB 연결 끊김) `away`가 아니라 `end`로 측정을 끝낸다(10/16, FE 제안서 3.2).
 - `p`: 관절 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `null`이고 이때 `valid`는 넣지 않는다. 서버는 `p:null`도 판정 불가로 본다(C6).
 - `valid: false`: 앱이 위치를 판별하지 못한 프레임(귀·어깨·사용자가 안 보이는 등)에만 붙인다. 서버는 그 프레임을 `unmeasurable`로 본다.
-- 해상도는 보내지 않는다(10/15). 640×480 고정이라 서버가 알 필요가 없다. 앱은 640×480을 요청하고, **실제 크기가 640×480이 아니면 측정·등록을 시작하지 않고** "이 카메라는 640×480을 지원하지 않아요"를 보인다(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`).
+- 해상도는 보내지 않는다(10/15). 640×480 고정이라 서버가 알 필요가 없다. 앱은 640×480을 요청한다(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 다른 크기면 시작하지 않는 처리는 두지 않고, 실제 크기를 측정 화면 위에 작게 보인다(예정, 10/19. 위치는 UI를 보며 정한다).
 - 등록의 `t_ms`·`start_ms`·`end_ms`는 촬영 시작 기준이다.
 
 ### 5.3 서버 → 앱
@@ -422,50 +422,10 @@ sequenceDiagram
 
 | 단계 | 앱 | 서버 |
 |---|---|---|
-| 1 | WS가 끊김. 재연결하지 않고 "서버 연결이 끊겼어요" | 마지막 `end_ms`로 세션 종료(`DISCONNECTED`) |
+| 1 | WS가 끊김. 재연결하지 않고 "서버 연결이 끊겼어요" | 마지막으로 받은 구간 끝에서 세션 종료(BE 명세 11.3. V2.3에 종료 사유 칸은 없다) |
 | 2 | HTTP가 닿으면 S3 `{end_ms}` | `{ended:true}` (이미 끝났으면 그때 값) |
 | 3 | 마지막 `progress`로 종료 화면 | — |
 
-## 7. FE 참고 (BE는 읽지 않아도 됨)
+## 7. FE 참고
 
-서버가 생기기 전이라 앱은 아래처럼 로컬로 돌고 있다. 서버를 붙일 때 바꾼다.
-
-| 항목 | 지금 | 붙일 때 |
-|---|---|---|
-| 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
-| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
-| 기준 자세 | 이 PC에 하나 저장, 어느 카메라든 같은 것(`features/camera/savedBaseline.ts`, 10/16), 앱이 계산 | B2 + WS calibration |
-| 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
-| 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |
-| 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
-| 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
-| 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
-
-### 7.1 연결 설정 (`features/platform/serverConfig.ts`)
-
-| 변수 | 뜻 |
-|---|---|
-| `VITE_REALTIME_URL=ws://…` | 실시간 구간을 WebSocket으로(지금은 `/v1/realtime`). 없으면 HTTP |
-| `VITE_REALTIME_FRAMES=true` | 특징 변화량 대신 좌표 묶음을 보낸다. 아직 연결하지 않음(v2에서 기본으로) |
-| `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
-
-예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13 지웠다.
-
-### 7.2 붙이는 순서 (BE가 준비되는 대로)
-
-1. **좌표 묶음:** `ws`가 v2를 열면 `RealtimeClient`가 특징 변화량 대신 `FrameBatcher`(`frames.ts`) 결과를 `items` 1개로 보낸다. `t_ms` 0은 S1 응답을 받은 시각.
-2. **판정 불가:** 어깨 2초 유예가 끝난 프레임에 `valid:false`를 붙인다.
-3. **종료:** `end` 뒤 `closed(ended)`까지 연결 유지, 10초 대기 후 S4.
-4. **자세 등록:** `savedBaseline.ts`의 읽기·쓰기를 B2 조회와 WS calibration으로 바꾼다. 화면(측정하기, 가입 3단계, 설정 다시 등록)은 그대로.
-5. **계정(BE 담당, F12):** 로컬 로그인·가입을 A1~A7·W1로 바꾸고 비밀번호 12자 검사를 켠다.
-
-### 7.3 화면 상태와 서버 메시지
-
-| 화면 상태(`features/session/liveView.ts`) | 서버에서 오는 것 |
-|---|---|
-| 바른 자세·흐트러짐·복귀 중 | `observation`·`decision` |
-| 측정 불가(회갈색, 기록 제외) | `observation.valid:false`, `progress.paused_reason:"unmeasurable"` |
-| 분석이 잠시 멈춤 | `stalled` |
-| 쉬는 중 | 앱의 `rest` 구간, `progress.paused_reason:"rest"` |
-
-서버가 남은 시간(확정·복귀까지)을 주지 않으면 진행 막대는 숨긴다.
+앱의 지금 상태·연결 설정·화면 상태는 [FE 제안서](fe-server-proposal.md) 4.1·8장으로 옮겼다(10/19). 붙이는 순서는 FE 제안서 7장(F1~F12)이다.

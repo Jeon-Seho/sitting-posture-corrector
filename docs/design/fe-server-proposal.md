@@ -1,6 +1,6 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-16(합친 뒤 코드와 대조, 탈퇴 철회 없어짐) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-19(BE `/v2/realtime` 구현 확인, 640×480 거부 대신 표시, HTTPS 배포, v2 전환 때 정리할 것, 연동 명세 7장·데스크톱 화면 설계를 4.1·8장으로 합침) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
 > 확인 기준: 이 저장소 `backend/api`(10/15 BE 브랜치가 develop을 받아 합침, `0fe1bd6`), [실시간 계약 v1](../../contracts/realtime/README.md)·[v2](../../contracts/realtime/realtime-ws.v2.schema.json), DevOps/BE 회신(10/11), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`, 10/15에도 변경 없음), 아키텍처 v5.2 전환 공지(DB·BE, 10/15)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
 > 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md), [연동 명세](api-ws-spec.md), [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
@@ -11,16 +11,25 @@
 
 ## 1. 남은 질문과 요청
 
-**팀원과 상의할 것은 없다(2026-10-15).** BE가 실시간은 `/v2/realtime`(좌표 스트림, 계약 v2)으로 간다고 확인했다(10/15).
-지금 `backend/api`의 `/v1/realtime`(10/15 BE 브랜치가 develop을 받아 합침)과 ADR 0022(DB V2.3 연동)의 「실시간 v1 유지, 좌표 스트림 제외」는 서버를 먼저 돌려 보려고 섞어 둔 임시 상태다.
+**남은 질문은 DevOps의 HTTPS(아래) 하나다(2026-10-19).** BE가 `/v2/realtime`(좌표 스트림, 계약 v2)을 구현했다(10/17, BE 브랜치 `a0d99a3`. 우리 브랜치에는 아직 받지 않음).
+`/v1/realtime`과 BE ADR 0022의 「실시간 v1 유지, 좌표 스트림 제외」는 서버를 먼저 돌려 보려고 섞어 둔 임시 상태였고, 앱이 v2로 넘어간 뒤 BE가 지운다.
 
 BE 공유(10/16, 「실시간 `/v1` → `/v2` 전환」)에 대한 FE 답: 전환 기간(`/v1`·`/v2` 함께)은 앱의 v2 전환(F1~F3)이 끝날 때까지로 동의. 개발 서버 `/api` 중계에 `ws: true`를 넣었다(`frontend/vite.config.ts`).
+
+BE 피드백 반영·정정(10/17, 기준 `faed2bd`)에 대한 FE 확인(10/19):
+
+- BE가 `/v2/realtime`을 모두 구현했다(`RealtimeHandlerV2`, BE 명세 `docs/design/api-spec.md` 11장). F1~F4는 이제 막힌 것이 없다. F3(`ws: true`)는 `48f5e9b`에서 했다.
+- 「새로 확인」(HTTP 측정 경로가 `/api/v1/sessions`): 맞다. BE에는 `/v1/sessions`가 없어 지금 서버와 맞지 않는다. **HTTP 경로를 v2로 고치지 않고 측정을 WebSocket v2로 옮기면서 지운다**(S2·R2도 전환 뒤 지울 예정이라). 7.1 참고.
+- 로그인 만료: BE 의도는 **무엇을 하든 30분이 지나면 로그인을 버린다**(WS 메시지는 만료를 늘리지 않음). 측정은 연결 때 인증했으므로 끝까지 가고, 30분 넘게 측정하면 끝난 뒤 HTTP가 401일 수 있다. 앱은 기록이 저장됐음을 알리고 로그인 화면으로 보낸다. 연동 명세 0장의 「WS가 열려 있는 동안 갱신」은 이에 맞춰 고쳤다.
+- 최대 측정 시간: 아직 정하지 않았다(사용자가 몇 시간 측정할지 모름, 지금 기본 5,000초). 앱은 값을 두지 않고 `closed(limit_reached)`만 처리하므로 값이 정해져도 바꿀 것이 없다.
+
+DevOps에 물을 것(10/19, 방식은 [배포 구상](fe-domain-idea.md)으로 정함: 도메인 + Cloudflare 이름 있는 터널): **공개 배포는 HTTPS로 한다.** 브라우저·Electron 모두 `https://`나 `localhost`에서만 카메라를 켜고, 로그인 쿠키(Secure)·`wss://`도 HTTPS가 전제다. 공개 도메인을 쓰는지, 서버가 외부에서 접속되는지, 인증서(Let's Encrypt 등)를 nginx에 붙일 수 있는지 확인한다. 자체 서명 인증서는 사용자마다 경고를 넘겨야 해서 공개용으로 쓰지 않는다.
 
 BE가 진행 중인 것(합의대로, 확인만):
 
 | # | 내용 | 시점 |
 |---|---|---|
-| B-1 | `/v2/realtime`과 그에 딸린 `closed(limit_reached)`(지금은 429 `LIMIT_REACHED`). `POST /v2/records`는 v2에서 앱이 부르지 않으므로 v1과 함께 정리. BE 동의 문서(`contracts/consent-documents.v2.md`) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량」도 v2(좌표 프레임 전송)에 맞춘 문구로 | v2 전환 때 |
+| B-1 | ~~`/v2/realtime`과 `closed(limit_reached)`~~ 10/17 구현됨. 남은 것: `POST /v2/records`·S2(앱이 부르지 않음)를 v1과 함께 정리, BE 동의 문서(`contracts/consent-documents.v2.md`) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량」을 v2(좌표 프레임 전송)에 맞춘 문구로 | v1 정리 때(앱 v2 전환 뒤) |
 | B-2 | R1b `GET /v2/records/{id}`(없으면 S4로 대신), T1 `GET /v2/stats/daily` | 연동 명세 4.5 「BE 다음 주 범위」 |
 
 같은 날 FE가 직접 정리한 것(물어볼 필요 없음): 문서 번호 겹침(FE 계획 0028 → [0030](../plans/active/0030-make-check-failures.md), FE ADR 0022(끊기면 세션 종료) → 0024. BE ADR 0022는 그대로), DB 저장 이름·단위·자세 방향(연동 명세 1장, 이 문서 3.2), 아키텍처 v5.2 배치 번호(J2 집계·J3 탈퇴 삭제).
@@ -48,22 +57,24 @@ FE가 정한 것(앱 쪽 동작):
 |---|---|
 | 민감도 | 화면 3단계(느긋하게 0.80 · 보통 0.70 · 꼼꼼하게 0.60)와 세밀 조정(0.5~0.95). 기본은 0.7이고 LSTM으로 바뀌어도 그대로 쓴다. DB에는 threshold 값 하나로 저장한다. 단계 칸은 필요 없다 |
 | 소리 | 저장하지 않는다. 측정마다 꺼진 채 시작하고 측정 화면에서 켠다(브라우저는 사용자 동작 없이 소리를 켤 수 없다). 「자세 알림」 켜기·끄기만 서버에 저장한다(V2.3 `sound_alert_enabled`) |
-| 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청하고 다른 크기면 시작하지 않는다(F13). 고정이라 **서버에 해상도를 보내지 않는다**(10/15, 좌표 구간의 `width`·`height` 삭제) |
+| 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청한다. 고정이라 **서버에 해상도를 보내지 않는다**(10/15, 좌표 구간의 `width`·`height` 삭제). 다른 크기면 시작하지 않는 처리는 두지 않고(10/19), 측정 화면 위에 실제 카메라 크기를 작게 표시한다(예정, F13) |
+| 배포 (10/19) | 공개 배포는 **HTTPS**. 화면은 Vercel `app.<도메인>`, 서버는 Cloudflare 이름 있는 터널 `api.<도메인>`(DevOps). 데스크톱 앱도 PC 파일(`app://posegood`)이 아니라 `https://app.<도메인>`을 연다 — 화면 수정이 서버 배포 없이 반영된다. 자세한 구상은 [배포 구상](fe-domain-idea.md) |
 | 네트워크 끊김 | 세션을 끝내고 화면을 막는 팝업을 띄운다. 재연결·재전송하지 않는다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)) |
 | 카메라 (10/16, [계획 0053](../plans/active/0053-multiple-cameras.md)) | 측정하기 카메라 화면 위에서 메인 카메라를 고른다(설정과 같은 선택). **기준 자세는 카메라와 상관없이 하나**(팀 논의: 카메라마다 등록은 비효율, ML 학습 자료도 사람마다 기준 하나). 쓰던 카메라가 빠지면 측정 종료·저장 |
 | 앱이 닫힌 측정 (10/16) | 측정 중 앱을 닫거나 새로 고치면 다음 로그인 때 그때까지를 기록으로 저장한다. 이어하기는 없다(카메라 빠짐·서버 끊김과 같은 원칙) |
 | 탈퇴 | 되돌릴 수 없다(BE 10/15, A8 없어짐). 탈퇴 확인창에 「되돌릴 수 없고 30일 뒤 완전히 삭제, 그 전에는 같은 이메일로 다시 가입할 수 없음」을 보이고 비밀번호를 받는다. 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 「자세한 사항을 아래 번호 또는 이메일로 남겨주세요. 010 - 1234 - 5678 / klaod@naver.com」를 보인다(10/16). 따로 「30일 이내인가」를 묻는 API는 두지 않는다([연동 명세](api-ws-spec.md) 0.7) |
 
 ```
-앱 ──HTTP /api──▶ 입출구 서버 (auth·api·ws, BE) ──▶ MySQL(계정·설정·세션 행·기록)
-앱 ──WebSocket /ws──▶ ws ──▶ posture.features.v1 ─▶ 추론(GPU PC) ─▶ 판정(api-server)
-   ▲                   │ ◀── posture.inference.v1 (관측: 화면 실시간 상태)
-   └──── push ─────────┘ ◀── posture.episodes.v1 (decision·progress → alert)
+앱 ──HTTP /api/v2──▶ 입출구 서버 (BE `backend/api`) ──▶ MySQL(계정·설정·세션 행·기록)
+앱 ──WebSocket /api/v2/realtime──▶ 같은 서버: 좌표 → 특징 계산(FrameFeatures) → 추론 POST /v2/infer → 판정
+   ▲                                   │
+   └──── push: observation·decision·alert·ack·progress·stalled·closed ─┘
 ```
 
-`ws`가 하는 일(BE): 로그인 세션 확인, 묶음 검사, 순번 중복 제거, Kafka 기록 뒤 `ack`, 세션 시작 때 저장된 기준값 첨부,
-재연결 때 놓친 `decision` 먼저·최신 `progress` 마지막, 첫 `hello`에만 `session_started` 발행, `end`에 최종 결과 뒤 `closed(ended)`.
-로그인 세션이 측정 중에 만료돼도 그 측정은 끝까지 이어 가고, 다음 연결 때 다시 확인한다.
+지금(BE 10/17, `FrameFeatures` 안): 입출구 서버가 연결마다 로그인과 세션 주인을 확인하고(`hello` → `ready`), 좌표 구간으로 특징을 계산해 추론·판정하고, 결과를 같은 연결로 보낸다(BE 명세 11장).
+나중에 Kafka 경로(`posture.features.v1` → 추론 → `posture.inference.v1` → 판정 → `posture.episodes.v1`·`posture.alerts.v1`, BE 계획 0031)로 옮겨도 앱 쪽 계약(WebSocket v2)은 바뀌지 않는다.
+재연결은 없다(ADR 0024). 연결이 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝낸다(BE 명세 11.3).
+로그인은 측정 연결을 열 때 확인하므로 측정은 끝까지 간다. 로그인은 30분이 지나면 버려지므로(BE 의도, 10/19) 긴 측정 뒤 HTTP가 401이면 로그인 화면으로 보낸다.
 
 ## 3. 앱이 보내는 것
 
@@ -133,12 +144,28 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 - DB V2.3: 다시 등록할 때마다 `baseline_posture`에 새 행을 넣는다(이력 보존, 세션은 그때 가장 큰 ID를 쓴다). `registered_at`은 앱이 보정을 끝낸 시각이다.
 - 실패 기준은 BE 명세대로 3초 안에 판정 가능 프레임 15장 미만이거나 중간에 끊긴 경우다. DB의 최소 표본 20은 예전 앱 계산 등록(`POST /v2/baselines`)용이다.
 - 기준 특징값은 저장하지 않고 판정 때 좌표에서 계산한다(BE 명세). 그래서 N8은 ML이 확인만 하면 된다.
-- 지금 앱은 등록한 자세를 이 PC에 카메라별로 저장한다(팀원 구현). 서버가 생기면 등록·조회를 서버로 바꾼다(F2).
+- 지금 앱은 등록한 자세를 이 PC에 하나 저장한다(카메라와 상관없이, 10/16. 2장 카메라). 서버가 생기면 등록·조회를 서버로 바꾼다(F2).
 
 ## 4. 앱이 받는 것
 
 화면은 서버 결과로만 바뀐다. 메시지별 앱 동작(`ready`·`observation`·`progress`·`decision`·`alert`·`stalled`·`calibration_result`·`closed`)은 [연동 명세](api-ws-spec.md) 5.3과 [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json)에 있다.
-판정 불가 사유 `invalid_reason`은 지금 `unmeasurable` 하나만 쓴다. `head_turn`·`settling`은 판정을 세분화할 때 쓰고 언제 나오는지는 서버가 정한다.
+판정 불가 사유 `invalid_reason`은 서버가 정한다. 지금 BE는 쓸 프레임이 없으면 `unmeasurable`, 고개 돌림만 있었으면 `head_turn`을 보낸다(BE 명세 11.3). `settling`은 계약에만 있다. 앱은 셋 다 연동 명세 5.3의 문구로 보인다.
+
+### 4.1 화면 상태와 서버 메시지
+
+`features/session/liveView.ts`가 판정 상태를 아래로 바꾸고, 화면은 이것만 본다. 서버를 붙이면 오른쪽 칸의 메시지로 같은 상태를 만든다. 서버가 남은 시간(확정·복귀까지)을 주지 않으면 진행 막대는 숨긴다.
+
+| 상태 | 뜻 | 알약 문구 | 카메라 위 카드 | 서버에서 오는 것 |
+|---|---|---|---|---|
+| `normal` | 기준과 비슷 | 바른 자세예요 | 없음 | `observation` |
+| `suspect` | 변화가 이어지는 중(지속 시간 채우는 중) | 자세가 조금 달라졌어요 | 진행 막대 + "N초 넘게 이어지면 알려드릴게요" | `observation`(남은 시간은 없음) |
+| `bad` | 알림 확정 | 몸이 한쪽으로 기울었어요 등 | 교정 안내 + 복귀 진행 막대, 카메라 테두리 로즈 | `decision`(`collapse_confirmed`·`reminder`), `alert` |
+| `recovering` | 바른 자세로 돌아오는 중 | 좋아요, 돌아오고 있어요 | 복귀 진행 막대 | `decision`(`recovery_confirmed` 전까지) |
+| `unmeasurable` | 측정 품질 부족 | 자세를 확인할 수 없어요 | "이 시간은 기록에서 빠져요" | `observation.valid:false`, `progress.paused_reason:"unmeasurable"` |
+| `paused` | 사용자가 쉬는 중 | 쉬는 중 | 없음 | 앱의 `rest` 구간, `progress.paused_reason:"rest"` |
+| `analysisPaused` | 서버 판정이 5초간 없음(서버 연결 때) | 분석이 잠시 멈췄어요 | 측정 불가와 같은 회갈색 | `stalled` |
+
+최근 30분 흐름은 화면 표시용으로 5초마다 상태를 샘플링한다. 저장 기록은 판정 합계를 그대로 쓴다.
 
 ## 5. 서버 부담 (동시 50명, 하루 8시간 추정)
 
@@ -167,17 +194,100 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | # | 할 일 | 막힌 것 |
 |---|---|---|
-| F1 | 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다 | BE `/v2/realtime` |
-| F2 | 자세 등록 서버 연결(3.3): `hello` `purpose:"calibration"`, `calibration_result` 처리, B2 조회, `closed(no_baseline)` 안내 | BE `/v2/realtime`·B2 |
-| F3 | `rest`·`away`·`end` 전송(3.2). `end` 뒤 10초 대기, S3·S4 대비책(연동 명세 6.1·6.4) | BE `/v2/realtime` |
-| F4 | 화면을 서버 결과로만 구동(4장). 통계 숫자도 서버 값. `excluded_started/ended`는 받기만 한다 | BE `/v2/realtime` |
+| F1 | 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다. `hello` 2.0(`purpose`) → `ready`(5초) 뒤에만 보내고, 메시지의 `session_id` 검사를 뺀다(v2는 `hello`·`ready`만 ID를 담음). WS 주소는 페이지 주소로 만든다(`https:`면 `wss:`) | — (BE 구현됨 10/17) |
+| F2 | 자세 등록 서버 연결(3.3): `hello` `purpose:"calibration"`, `calibration_result` 처리, B2 조회, `closed(no_baseline)` 안내 | — (BE 구현됨 10/17) |
+| F3 | `rest`·`away`·`end` 전송(3.2). `end` 뒤 10초 대기, S3·S4 대비책(연동 명세 6.1·6.4). `stalled`는 안내만(다시 보내지 않음), `limit_reached`·`bad_message`는 종료 화면 | — (BE 구현됨 10/17) |
+| F4 | 화면을 서버 결과로만 구동(4장). 통계 숫자도 서버 값. 관측 3.0 `invalid_reason`, `progress.paused_reason`. `excluded_started/ended`는 받기만 한다(지금 검증은 사건 종류 5개만 받아 거절함). `alert`는 앱이 거르지 않는다(D-54) | — (BE 구현됨 10/17) |
 | F5 | 로컬 판정 제거(계획 0023 2단계 나머지): 앱 점수·상태 계산, 고개 돌림·복귀 대기 코드 | F4 |
 | F6 | 측정 화면의 "좌표 전송 안 함" 문구 수정 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 | 입출구 서버 |
 | F11 | 판정 불가 표시(3.2): 측정이 안 되는 모든 경우에 `valid:false`를 붙이고 합성 시험 데이터에 사례를 더한다 | — |
 | F12 | 계정 서버 연결(**BE 담당**, 10/14): 로컬 로그인·가입을 A1~A7·W1로 바꾸고(`consentPayload()`), 비밀번호 12자 검사를 켠다. 우리는 가입·동의 화면과 `consentPayload()`를 넘기고 질문에 답한다. BE 코드의 A7(탈퇴)은 본문에 `{password}`를 받으므로 탈퇴 확인창에 비밀번호 칸이 필요하다(연동 명세 0.6) | BE 입출구 서버 |
-| F13 | 카메라 해상도: 640×480을 요청하고 다른 크기가 오면 측정·등록을 시작하지 않고 안내한다(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`. 10/14 "어느 크기든 허용"은 되돌림) | — |
+| F13 | (예정) 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게 보인다. 위치는 UI를 보며 정한다. 다른 크기면 시작하지 않는 처리는 두지 않는다(10/19) | 위치 결정 |
+| F14 | 데스크톱 앱이 `https://app.<도메인>`(Vercel)에서 화면을 연다([배포 구상](fe-domain-idea.md) 4장 5단계): `sameAddress` 검사·알림 팝업 주소·`app://` 파일 제공 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 도메인·Vercel |
+| F15 | v2 전환 때 필요 없어지거나 겹치는 코드 정리(7.1) | F1~F4 |
 
 담당: 기록·달력 화면은 lellon0403이 맡는다(10/14, develop #43~#45에서 오늘 탭·달력 탭으로 개편). 기록 화면의 표시 규칙(오늘 세션 목록, 통계는 어제까지)은 그쪽을 따른다. 측정하기 화면과 자세 데이터 수집(학습용) 화면도 다른 담당자가 맡는다. 우리 쪽은 서버로 보내는 처리(F1~F3), 판정 불가 처리(F11), 회원가입·동의 화면을 한다. 계정 서버 연결(F12)은 BE가 맡는다(10/14, BE 계획 0027과 같은 일).
 
+### 7.0 v2를 다시 할 때 정할 것 (10/19)
+
+10/19에 앱을 v2로 바꿨다가 전략을 바꾸며 되돌렸다(코드는 `48f5e9b` 상태). 그때 정하지 못한 것:
+
+- **서버 결과를 앱이 다시 검사할지:** 되돌린 코드는 서버가 보낸 요약이 이전보다 줄면(되감김) 측정을 멈추고, 2초 넘은 관측은 화면에서 숨겼다. 「서버에서 받은 것만 처리한다」(ADR 0021)에 맞추려면 형식 검사만 남기고 둘 다 빼는 쪽을 권한다(멈춤은 서버 `stalled`가 알려 준다).
+- **서버 측정 화면의 카메라 빠짐:** 결정 3(쓰던 카메라가 빠지면 종료·저장, 계획 0053)은 기본 측정 화면(`useSessionScreen.ts`)에만 있다. 서버 측정 화면(`useServerSessionScreen.ts`)은 빠져도 「영상 1초 넘게 없음」으로 일시정지(`away`)만 된다. v2 때 같은 규칙(`end`로 종료·저장)을 넣는다.
+- **측정 중 들어오는 영상의 장치·크기가 시작 때와 다르면:** 측정 중에는 카메라 선택이 잠겨 드물다(같은 카메라가 다른 해상도로 다시 켜지는 정도). 지금 서버 측정은 멈추고 재개를 막는다. 위와 같이 종료·저장으로 맞추면 단순하다.
+- 그대로 둘 것: 순번 중복 막기(서버 `bad_message` 방지), 좌표를 계약 범위(-1~2)로 자르기, `ready` 5초·`end` 뒤 10초 대기(연동 명세 1.1).
+
+### 7.1 v2 전환 때 정리할 것 (10/19, BE `a0d99a3` 기준)
+
+서버(`/v2/realtime`, S1)가 받지 않거나 서버가 대신 하게 되어 앱에 남길 필요가 없는 것이다. 우리 몫만 적고, 다른 담당의 화면에 걸친 것은 아래에 따로 둔다.
+
+| # | 지금 앱 | v2에서 | 처리 |
+|---|---|---|---|
+| 1 | 측정 시작에 `setup`(카메라 key·이름, 화면 크기, 기준 자세 평균·표준편차·중심·면적)을 보냄 — DB V1.1 때 형식(`server/setup.ts`, `ServerSetup`) | S1은 `policy`·`baseline_id`만 받고 모르는 필드는 400 | 지운다 |
+| 2 | 구간마다 `baseline_id`·`measurement_quality`·특징 변화량(`FrameRequest`, 입력 v2)을 보내려고 앱이 특징을 계산(`serverFeatures`) | 좌표 구간만 받고 서버가 기준 자세로 특징을 계산(`FrameFeatures` 안) | `FrameBatch`로 바꾸고 서버용 특징 계산을 지운다. 판정 불가(`valid:false`) 판단은 남긴다(F11) |
+| 3 | HTTP 측정 경로(`server/client.ts` `/api/v1/sessions/…/features`, `VITE_REALTIME_URL`이 없을 때) | `/v1/sessions` 없음, S2도 전환 뒤 삭제 | 지우고 WS만 쓴다. S1·S3·S4는 `/api/v2`로 |
+| 4 | 확인받지 못한 요청을 보관·재시도(`server/queue.ts`, 체크포인트의 `pending`·`nextSequence`·기준 특징·화면 크기) | 재전송 없음, 순번이 겹치면 `closed(bad_message)` | 지운다 |
+| 5 | WS 재연결·미확인 구간 재전송·30개 묶음·`last_event_id`·알림 거르기(`realtime/client.ts`) | 재연결 없음, 메시지당 구간 1개, 알림은 서버가 거름 | 다시 쓴다(F1) |
+| 6 | 측정 중 앱이 닫히면 다음 로그인 때 앱이 그때까지를 기록으로 저장(10/16), 개발 서버 측정은 이어하기를 물음 | 서버가 끊김을 보고 마지막 구간 끝에서 끝내고 저장(BE 명세 11.3) | 서버 모드에서는 앱이 따로 저장하지 않고 「저장됐어요」 안내만. 앱이 저장하면 기록이 둘이 된다 |
+| 7 | 자세 등록 결과(평균 특징)를 이 PC에 저장(`camera/savedBaseline.ts`) | 서버가 등록 프레임으로 계산·저장, B2로 조회 | F2 때 서버로 바꾸고 지운다. 3·2·1 촬영 화면은 남긴다 |
+| 8 | 개발자 옵션 내보내기 둘: 입력 v2 특징(`kafkaExport.ts`, 예전 `posture.features.v1` 형식), 좌표(`poseDebugExport.ts`) | 앱이 보내는 것은 좌표 구간(`posture.frames.v1`) 하나 | 특징 내보내기는 지우고, 좌표 내보내기를 보내는 형식과 맞출지 ML과 정한다 |
+| 9 | `platform/ports.ts`(아키텍처 v4 초안 연결점, 아무도 가져다 쓰지 않음) | — | 지운다 |
+
+다른 담당 화면에 걸친 겹침(알리기만): 앱 판정(`lib/engine`·`postureScore`·`returnSettle`·`liveView`의 로컬 경로, F5)과 측정하기 화면, 기록 통계의 앱 계산(`lib/stats`·`lib/comparison`, 서버 R1·T1과 겹침)은 lellon0403, 로컬 로그인·기록(`LocalServiceApp`)은 F12(BE)다.
+
 참고: 앱의 옛 판정 구현(고개 돌림 제외·귀 기준 치우침·복귀 대기)은 `lee_app1`의 `676ae89`에 있다. 회의 안건 원문과 BE 문서는 저장소 밖(DevOps)에 있다.
+
+## 8. 지금 앱 (FE 참고)
+
+10/19 [연동 명세](api-ws-spec.md) 7장(FE 참고)과 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)를 여기로 합쳤다. 데스크톱 창·시작 프로그램·알림 팝업은 [배포 구상](fe-domain-idea.md) 6장, 실행 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md)에 있다. 시각 규칙은 [DESIGN.md](../../DESIGN.md), 결정은 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md).
+
+### 8.1 서버를 붙이기 전 상태
+
+10/19 결정과 코드를 대조했다. 지금 동작이 결정과 다르게 잘못된 곳은 없고, 아래 「붙일 때」 칸이 서버 연동 뒤에 바꿀 것이다.
+
+서버가 생기기 전이라 앱은 아래처럼 로컬로 돌고 있다. 서버를 붙일 때 바꾼다.
+
+| 항목 | 지금 | 붙일 때 |
+|---|---|---|
+| 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
+| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
+| 기준 자세 | 이 PC에 하나 저장, 어느 카메라든 같은 것(`features/camera/savedBaseline.ts`, 10/16), 앱이 계산 | B2 + WS calibration |
+| 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
+| 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |
+| 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
+| 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
+| 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
+| 앱 판정 (**삭제 예정**) | 앱이 점수(`referenceScore`·`postureScore`)·상태(`cameraSample`)·알림 확정·복귀·재알림(`engine/machine.ts`, `returnSettle`)을 계산한다. 서버 없이도 측정되는 것은 이 때문이다(Vercel 배포본도 이 방식) | 서버 결과만 표시하고 위 코드를 지운다(F5). 서버 없이 측정을 시작하면 이유를 안내하고 시작하지 않는다(ADR 0021). 어깨 확인(`valid:false`)은 남긴다. 참고: `cameraSample.ts`의 `0.7`은 쓰이지 않는 임시 기준이다 — 바로 다음 단계(`engine/machine.ts` `step`)가 설정값 `rules.threshold`(느긋하게 0.8·보통 0.7·꼼꼼하게 0.6, `SettingsPage`의 `thresholdFor`)로 상태를 다시 정한다. 따로 고치지 않고 F5 때 함께 지운다(10/19 확인) |
+| 기록 통계 계산 | 앱이 기록으로 계산한다(`lib/stats`·`lib/comparison`·`recordsSource.ts`, 오늘 포함). 5분 미만 세션 규칙은 없다 | 서버 값(T1, 어제까지. 5분 미만은 「붕괴까지 걸린 시간」 최소·최대에서만 뺌 — 서버 계산). 화면 담당 lellon0403 |
+| 탈퇴 | 이 브라우저의 자료를 바로 지운다(`WithdrawalDialog.tsx`) | A7: 비밀번호 칸, 「되돌릴 수 없고 30일 뒤 완전히 삭제, 그 전에는 같은 이메일로 다시 가입할 수 없음」. 탈퇴 계정 로그인(403 `ACCOUNT_CLOSED`)에 연락처 안내(2장 탈퇴). 지금 로컬에서는 바로 지워지므로 30일 문구를 미리 넣지 않는다 |
+
+### 8.2 연결 설정 (`features/platform/serverConfig.ts`)
+
+| 변수 | 뜻 |
+|---|---|
+| `VITE_REALTIME_URL=ws://…` | 실시간 구간을 WebSocket으로(지금은 `/v1/realtime`). 없으면 HTTP |
+| `VITE_REALTIME_FRAMES=true` | 특징 변화량 대신 좌표 묶음을 보낸다. 아직 연결하지 않음(v2에서 기본으로) |
+| `VITE_API_BASE_URL=https://…` | API 주소 앞부분. 화면을 다른 곳(Vercel)에서 낼 때 운영은 `https://api.posegood.site`. 없으면 같은 출처 `/api`(10/19, [배포 구상](fe-domain-idea.md)) |
+| `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
+
+예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13 지웠다.
+
+### 8.3 화면과 코드 위치
+
+사이드바 탭은 측정하기·기록·달력·설정 4개다(`app/AppSidebar.tsx`, `app/navigation.ts`의 `tabOf`·`resolvePage`, 조립 `app/ServiceScreens.tsx`). 화면 담당: 측정하기·기록·달력은 lellon0403(10/14).
+
+| 탭 | 화면 | 코드 | 보여 주는 것 |
+|---|---|---|---|
+| 측정하기 | 준비 | `pages/SetupPage.tsx`, `features/camera/CameraPicker.tsx` | 카메라 → 얼굴·어깨 → 등록한 자세가 없으면 3·2·1 뒤 3초 등록 후 자동 측정, 있으면 2.5초 머물 때 자동 시작(`features/camera/useAutoStart.ts`) 또는 「측정 시작」. 카메라 화면 위 메인 카메라 선택(10/16). 자세 등록 탭은 10/13 여기로 합침 |
+| 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
+| 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(통계·사건 표) |
+| 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |
+| 기록 | 오늘 | `features/history/LocalHistory.tsx` | 오늘 측정 목록과 요약(10/13 기록·달력 분리) |
+| 달력 | 고른 날·날짜별 합계 | `features/history/RecordCalendarPage.tsx`, `RecordCalendar.tsx`, `ActivityHeatmap.tsx`, `DayRecord.tsx` | 월 달력, 잔디, 고른 날의 기록 |
+| 설정 | 설정 | `pages/SettingsPage.tsx` | 알림(3단계 선택 + 세밀 조정), 기준 자세 다시 등록(측정하기에서 등록), 컴퓨터를 켤 때, 계정, 개발자 옵션 |
+| 설정 | 프로필 / 자세 데이터 수집 | `features/profile/*`, `pages/CollectionPage.tsx` | 프로필 수정, 학습용 수집(다른 담당) |
+| — | 로그인 | `pages/LoginPage.tsx` | 왼쪽 소개, 오른쪽 입력 |
+| — | 작은 카메라 창(카메라가 켜진 채 다른 탭) | `features/camera/CameraWindow.tsx` | 10/20 유튜브 PiP처럼 영상만 보인다. 마우스를 올리거나 키보드로 들어가면 위쪽 띠에 「● 카메라 사용 중」(끌어서·방향키로 옮기기)과 확장(측정하기로 돌아가기)·X(창만 닫기, 카메라는 켜 둠 — 측정 중이면 끊기지 않게). 측정하기에 다녀오면 다시 뜬다. 카메라 끄기는 측정하기 화면에서. 다른 앱 위에 띄우는 Chrome 문서 PiP(`useCameraWindow`)는 여는 버튼을 뺐고 코드는 남겼다 |
+
+디자인 시안(캔버스 7장: 측정 중·알림·기준 등록·결과·기록·설정·작은 창)은 claude.ai 아티팩트로 공유했다(lellon0403). 시안의 숫자는 화면 예시 값이며 측정 결과가 아니다.
