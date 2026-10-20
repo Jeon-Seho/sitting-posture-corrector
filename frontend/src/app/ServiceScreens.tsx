@@ -266,7 +266,11 @@ export function ServiceScreens({
         )}
         {view === 'profile' && profilePage}
       </main>
-      <CameraWindow camera={camera} floating={!CAMERA_PAGES.includes(view)} />
+      <CameraWindow
+        camera={camera}
+        floating={!CAMERA_PAGES.includes(view)}
+        onExpand={() => go(measuring ? 'session' : 'setup')}
+      />
     </div>
   )
 }
