@@ -273,6 +273,8 @@ X-CSRF-TOKEN: <A1 token>
 
 ### 4.4 측정 S1·S3·S4
 
+> **10/21:** `policy`는 W1 `rules`를 ms로 바꾼 값이어야 한다(계정 값과 다르면 409 `CONFLICT`). W1 연결은 BE의 로그인 작업(F12)에 들어 있어, 그 전까지 앱은 기본 판정 기준을 보낸다. 실제 서버 시험 때 W1 값으로 맞춘다([FE 제안서](fe-server-proposal.md) 1장 B-3).
+
 ```json
 PUT /api/v2/sessions/3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90
 { "policy": { "hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7 },

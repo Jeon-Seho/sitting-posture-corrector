@@ -31,6 +31,7 @@ BE가 진행 중인 것(합의대로, 확인만):
 |---|---|---|
 | B-1 | ~~`/v2/realtime`과 `closed(limit_reached)`~~ 10/17 구현됨. 남은 것: `POST /v2/records`·S2(앱이 부르지 않음)를 v1과 함께 정리, BE 동의 문서(`contracts/consent-documents.v2.md`) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량」을 v2(좌표 프레임 전송)에 맞춘 문구로 | v1 정리 때(앱 v2 전환 뒤) |
 | B-2 | R1b `GET /v2/records/{id}`(없으면 S4로 대신), T1 `GET /v2/stats/daily` | 연동 명세 4.5 「BE 다음 주 범위」 |
+| B-3 | **로그인·가입 `/v2/auth` 연결(F12)과 함께 W1 `GET /v2/workspace`도 붙여 주기.** S1은 `policy`가 계정에 저장된 판정 기준과 같아야 받는다(다르면 409 `CONFLICT`). 그 값은 W1 `rules`에서 온다. 로그인이 끝나면 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 불러 앱의 B1·B2·S1이 계정 정보를 쓰게 한다(10/21) | F12와 같이 |
 
 같은 날 FE가 직접 정리한 것(물어볼 필요 없음): 문서 번호 겹침(FE 계획 0028 → [0030](../plans/active/0030-make-check-failures.md), FE ADR 0022(끊기면 세션 종료) → 0024. BE ADR 0022는 그대로), DB 저장 이름·단위·자세 방향(연동 명세 1장, 이 문서 3.2), 아키텍처 v5.2 배치 번호(J2 집계·J3 탈퇴 삭제).
 아키텍처 v5.2 전환 공지(DB·BE, 10/15)의 ④ 「오늘 통계를 화면에 바로 보여줄지」는 2장 4의 10/14 결정이 답이다: 보여주지 않는다(통계는 어제까지, 목록에는 오늘 세션, 앱이 따로 계산하지 않음). ①(`PROCESSING` 뒤 철회 거부)은 A8 409 `WITHDRAWAL_NOT_CANCELLABLE`로 이미 맞고, ②·③·⑤는 앱 동작이 달라지지 않는다.
@@ -197,7 +198,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | # | 할 일 | 막힌 것 |
 |---|---|---|
-| F1 | 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다. `hello` 2.0(`purpose`) → `ready`(5초) 뒤에만 보내고, 메시지의 `session_id` 검사를 뺀다(v2는 `hello`·`ready`만 ID를 담음). WS 주소는 페이지 주소로 만든다(`https:`면 `wss:`) | — (BE 구현됨 10/17) |
+| F1 | **S1 `policy` (10/21 결정):** W1이 붙기 전에는 앱 기본 판정 기준(`DEFAULT_RULES`를 ms로)을 보낸다. 서버 계정 값과 다르면 409가 나므로, 실제 서버 시험(로그인·W1 연결 뒤) 때 W1 `rules`로 바꾸고 맞춘다(B-3). 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다. `hello` 2.0(`purpose`) → `ready`(5초) 뒤에만 보내고, 메시지의 `session_id` 검사를 뺀다(v2는 `hello`·`ready`만 ID를 담음). WS 주소는 페이지 주소로 만든다(`https:`면 `wss:`) | — (BE 구현됨 10/17) |
 | F2 | 자세 등록 서버 연결(3.3): 앱이 낸 관절 9개 평균을 B1로 저장, B2 조회, `closed(no_baseline)` 안내(10/20 전체 회의로 WS 등록 대신 B1). **10/21 V3에서 B1·B2 연결**, 실제 서버 시험은 로그인(F12, BE) 뒤 | F12(시험) |
 | F3 | `rest`·`away`·`end` 전송(3.2). `end` 뒤 10초 대기, S3·S4 대비책(연동 명세 6.1·6.4). `stalled`는 안내만(다시 보내지 않음), `limit_reached`·`bad_message`는 종료 화면 | — (BE 구현됨 10/17) |
 | F4 | 화면을 서버 결과로만 구동(4장). 통계 숫자도 서버 값. 관측 3.0 `invalid_reason`, `progress.paused_reason`. `excluded_started/ended`는 받기만 한다(지금 검증은 사건 종류 5개만 받아 거절함). `alert`는 앱이 거르지 않는다(D-54) | — (BE 구현됨 10/17) |
