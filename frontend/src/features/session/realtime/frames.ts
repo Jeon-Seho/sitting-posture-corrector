@@ -1,16 +1,15 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 
 /**
- * `posture.frames.v1` (FE proposal 2.1, F1): what the app will send once BE's `ws` accepts
- * coordinate frames instead of feature deltas. Prepared 2026-10-13; not wired to a socket yet.
+ * `posture.frames.v1` (FE proposal 3.1, F1): what the app sends to `/v2/realtime` (LiveSession,
+ * 2026-10-21).
  *
  * - One message per 0.5 s interval `[start_ms, end_ms)`, times relative to the session start.
  * - Every frame inside, as captured (no averaging): 9 joints `[x, y, visibility]`, or `null`
  *   when nobody was tracked. Coordinates are MediaPipe's own (not mirrored, y grows down).
  * - `rest` (user pause) and `away` (camera lost) intervals carry no frames.
  * - `valid: false` marks a frame where the user's position cannot be determined (10/12
- *   meeting: shoulders out of view past the 2 s grace). Field name is the FE proposal; BE to
- *   confirm (FE proposal 2.1, unmeasurable-handling 0장).
+ *   meeting: shoulders out of view past the 2 s grace); the server leaves it out (BE api-spec 11.2).
  */
 export const FRAME_SCHEMA_VERSION = '3.0'
 export const FRAME_FEATURE_VERSION = 'keypoints-9-v1'

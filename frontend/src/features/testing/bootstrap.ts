@@ -100,7 +100,6 @@ export function installSyntheticBrowser() {
           ready: held.ready
         },
         trace,
-        draft: JSON.parse(localStorage.getItem(KEYS.draft) ?? 'null'),
         records: JSON.parse(localStorage.getItem(KEYS.records) ?? '[]')
       }
     },

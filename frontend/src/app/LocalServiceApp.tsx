@@ -11,7 +11,7 @@ import { useSessionPersistence } from '../features/session/useSessionPersistence
 import type { ServiceSession } from '../features/session/types'
 import { useLocalWorkspace } from '../features/storage/useLocalWorkspace'
 import { KEYS, type LocalAccount, type Profile } from '../features/storage/types'
-import { loadLocalState, readLocal, writeLocal } from '../features/storage/localRepository'
+import { readLocal, writeLocal } from '../features/storage/localRepository'
 import { validEmail, validProfileInput } from '../features/storage/validation'
 import { ValidatedInput } from '../components/InlineForm'
 import { ConsentList } from '../features/auth/ConsentList'
@@ -46,7 +46,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const optionalInfo = account ? account.consents.agreed.C3 === true : true
   const [page, setPage] = useState<Page>('home')
   const [error, setError] = useState('')
-  const [serverMode, setServerMode] = useState(false)
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
   const clearError = useCallback(() => setError(''), [])
@@ -76,10 +75,8 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     ended,
     workspace,
     camera,
-    serverMode,
     go,
     setError,
-    signedIn: authed,
   })
   const form = useProfileForm({
     workspace,
@@ -118,7 +115,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       return
     }
     setPassword('')
-    workspace.setDraft(loadLocalState().draft)
     setAuthed(true)
     setPage('home')
     // Greet only after login: before it, the app cannot know who is typing.
@@ -171,7 +167,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     // tracking follows the app shell's element (otherwise the skeleton stops until a restart).
     // connect() awaits the camera before it reads the element, by then the shell is mounted.
     if (camera.state === 'on' || camera.state === 'loading') void camera.connect()
-    workspace.setDraft(loadLocalState().draft)
     setAuthed(true)
     setAuthView('login')
     setError('')
@@ -192,14 +187,12 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     setAuthed(false)
     setAuthView('login')
     setSession(null)
-    workspace.setDraft(loadLocalState().draft)
   }
 
   function clearWorkspace() {
     camera.stop()
     workspace.setProfile(null)
     workspace.setRecords([])
-    workspace.setDraft(null)
     workspace.setRules(DEFAULT_RULES)
     workspace.setShowDemo(false)
     persistence.clearSession()
@@ -386,8 +379,6 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       page={page}
       error={error}
       measuring={measuring}
-      serverMode={serverMode}
-      onServerMode={setServerMode}
       go={go}
       openCollection={openCollection}
       logout={logout}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setServerAuth } from '../platform/serverAuth'
-import { BaselineRequestError, fetchCurrentBaseline, registerBaseline } from './client'
+import { ApiError } from '../platform/api'
+import { fetchCurrentBaseline, registerBaseline } from './client'
 import { BASELINE_JOINT_NAMES, type BaselineLandmarks } from './landmarkCapture'
 
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -18,7 +19,7 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
     const fetch = vi.fn()
     await expect(fetchCurrentBaseline({ fetch })).rejects.toMatchObject({ kind: 'signed_out' })
     await expect(registerBaseline(captured, stored.registered_at, { fetch })).rejects.toBeInstanceOf(
-      BaselineRequestError,
+      ApiError,
     )
     expect(fetch).not.toHaveBeenCalled()
   })

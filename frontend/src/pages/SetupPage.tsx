@@ -27,9 +27,6 @@ export function SetupPage({
   registerAgain = false,
   onBack,
   onOpenSession,
-  serverMode = false,
-  onServerMode,
-  serverModeDisabled = false,
   startLabel = '측정 시작',
 }: {
   camera: CameraController
@@ -40,9 +37,6 @@ export function SetupPage({
   registerAgain?: boolean
   onBack?: () => void
   onOpenSession?: () => void
-  serverMode?: boolean
-  onServerMode?: (enabled: boolean) => void
-  serverModeDisabled?: boolean
   /** Text of the start buttons; sign-up step 3 says 「앱 시작」. */
   startLabel?: string
 }) {
@@ -332,24 +326,6 @@ export function SetupPage({
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body">
-              {onServerMode && (
-                <>
-                  <label className="row">
-                    <input
-                      type="checkbox"
-                      checked={serverMode}
-                      disabled={serverModeDisabled}
-                      onChange={(event) => onServerMode(event.target.checked)}
-                    />
-                    서버 판정 사용 · 개발 연결
-                  </label>
-                  <p className="fine">
-                    개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
-                    보내지 않습니다.
-                    {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
-                  </p>
-                </>
-              )}
               <div className="row">
                 <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
                   자세 데이터 수집으로 이동

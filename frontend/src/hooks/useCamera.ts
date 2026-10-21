@@ -14,8 +14,8 @@ import {
   observeCapture,
   type LandmarkCapture,
 } from '../features/baseline/landmarkCapture'
+import { ApiError } from '../features/platform/api'
 import {
-  BaselineRequestError,
   fetchCurrentBaseline,
   registerBaseline,
   type ServerBaseline,
@@ -148,7 +148,7 @@ export function useCamera() {
         .catch((cause: unknown) => {
           if (!mounted.current) return
           setRegistrationError(
-            cause instanceof BaselineRequestError ? cause.message : '서버에 자세를 저장하지 못했어요. 다시 등록해 주세요.',
+            cause instanceof ApiError ? cause.message : '서버에 자세를 저장하지 못했어요. 다시 등록해 주세요.',
           )
         })
         .finally(() => {

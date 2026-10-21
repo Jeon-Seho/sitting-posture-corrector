@@ -1,5 +1,5 @@
-import type { LiveState, Machine, Rules } from '../../lib/engine'
-import type { ServerCheckpoint, SessionView } from '../session/server/contracts'
+import type { LiveState, Rules } from '../../lib/engine'
+import type { SessionView } from '../session/server/contracts'
 
 /** Age and occupation are optional (sign-up consent C3). */
 export type Profile = { name: string; age?: number; occupation?: string }
@@ -26,18 +26,10 @@ export type RecordItem = {
     view: SessionView | null
   }
 }
-export type Draft = {
-  id: string
-  startedAt: string
-  savedAt?: string
-  mode: 'camera' | 'demo'
-  rules: Rules
-  machine: Machine
-  server?: ServerCheckpoint
-}
 export const KEYS = {
   profile: 'posegood.v2.profile',
   records: 'posegood.v2.records',
+  /** Unfinished measurement of the app's own judgement (removed 2026-10-21); only deleted now. */
   draft: 'posegood.v2.draft',
   settings: 'posegood.v2.settings',
   demo: 'posegood.v2.demo',

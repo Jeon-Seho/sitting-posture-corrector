@@ -1,7 +1,6 @@
-import type { CollapseEvent, Machine, Rules } from '../../lib/engine'
-import { KEYS, type Draft, type LocalAccount, type Profile, type RecordItem } from './types'
-import { validServerCheckpoint, validSessionView, validUuid } from '../session/server/validation'
-import { projectMachine } from '../session/server/projection'
+import type { CollapseEvent, Rules } from '../../lib/engine'
+import { KEYS, type LocalAccount, type Profile, type RecordItem } from './types'
+import { validSessionView, validUuid } from '../session/server/validation'
 import { sameSnapshot, serverRecordEvents } from './serverSnapshots'
 
 const object = (v: unknown): v is Record<string, unknown> =>
@@ -118,49 +117,6 @@ function validEvents(v: unknown, total: number): v is CollapseEvent[] {
     new Set(v.map((e) => e.id)).size === v.length
   )
 }
-export function validMachine(v: unknown): v is Machine {
-  if (
-    !object(v) ||
-    ![
-      'loop',
-      'total',
-      'paused',
-      'unknown',
-      'good',
-      'collapse',
-      'hold',
-      'recover',
-      'lastAlertAt',
-    ].every((k) => nonnegative(v[k])) ||
-    !integer(v.nextId) ||
-    v.nextId < 1 ||
-    !integer(v.alertTick) ||
-    !integer(v.blockId) ||
-    typeof v.interrupted !== 'boolean' ||
-    !(v.onsetAt === null || (nonnegative(v.onsetAt) && v.onsetAt <= (v.total as number))) ||
-    !validEvents(v.events, v.total as number)
-  )
-    return false
-  const total = v.total as number,
-    paused = v.paused as number,
-    unknown = v.unknown as number
-  if (
-    paused + unknown > total + 1e-5 ||
-    !near((v.good as number) + (v.collapse as number), Math.max(0, total - paused - unknown)) ||
-    (v.lastAlertAt as number) > total + 1e-5 ||
-    v.events.some((e) => e.id >= (v.nextId as number) || e.blockId > (v.blockId as number)) ||
-    v.events.reduce((n, e) => n + e.alerts, 0) !== v.alertTick
-  )
-    return false
-  const open = v.events.filter((e) => e.endAt === null)
-  if (v.active === null) return open.length === 0
-  const active = v.active
-  return (
-    validEvent(active, total) &&
-    open.length === 1 &&
-    (Object.keys(open[0]) as (keyof CollapseEvent)[]).every((key) => active[key] === open[0][key])
-  )
-}
 export function validRecord(v: unknown): v is RecordItem {
   return (
     object(v) &&
@@ -205,22 +161,6 @@ function validServerRecord(v: Record<string, unknown>): boolean {
     sameSnapshot(v.events, serverRecordEvents(view, server.confirmed))
   )
 }
-export function validDraft(v: unknown): v is Draft {
-  return (
-    object(v) &&
-    text(v.id, 128) &&
-    date(v.startedAt) &&
-    mode(v.mode) &&
-    validRules(v.rules) &&
-    validMachine(v.machine) &&
-    (v.server === undefined ||
-      (v.mode === 'camera' &&
-        validServerCheckpoint(v.server, v.id, v.rules) &&
-        sameSnapshot(v.machine, projectMachine(v.server.view)))) &&
-    (v.savedAt === undefined ||
-      (date(v.savedAt) && Date.parse(v.savedAt) >= Date.parse(v.startedAt)))
-  )
-}
 export function validLocal(key: string, value: unknown) {
   if (key === KEYS.profile) return validProfile(value)
   if (key === KEYS.records)
@@ -229,7 +169,6 @@ export function validLocal(key: string, value: unknown) {
       value.every(validRecord) &&
       new Set(value.map((r) => r.id)).size === value.length
     )
-  if (key === KEYS.draft) return validDraft(value)
   if (key === KEYS.settings) return validRules(value)
   if (key === KEYS.demo) return typeof value === 'boolean'
   if (key === KEYS.account) return validAccount(value)

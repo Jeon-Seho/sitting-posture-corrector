@@ -10,9 +10,7 @@ import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
-import { RecoveryNotice } from '../features/session/RecoveryNotice'
-import { SessionPage } from '../features/session/SessionPage'
-import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
+import { LiveSessionPage } from '../features/session/live/LiveSessionPage'
 import type { useSessionPersistence } from '../features/session/useSessionPersistence'
 import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
@@ -32,8 +30,6 @@ type Props = {
   page: Page
   error: string
   measuring: boolean
-  serverMode: boolean
-  onServerMode: (enabled: boolean) => void
   go: (page: Page) => void
   openCollection: () => void
   logout: () => void
@@ -65,8 +61,6 @@ export function ServiceScreens({
   page,
   error,
   measuring,
-  serverMode,
-  onServerMode,
   go,
   openCollection,
   logout,
@@ -79,7 +73,7 @@ export function ServiceScreens({
   settingsDisabled = false,
   onClearError,
 }: Props) {
-  const { profile, records, rules, showDemo, draft, canWrite } = workspace
+  const { profile, records, rules, showDemo } = workspace
   const view = resolvePage(page, measuring)
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
   const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
@@ -138,16 +132,6 @@ export function ServiceScreens({
             )}
           </p>
         )}
-        {draft && !session && (
-          <RecoveryNotice
-            draft={draft}
-            canWrite={canWrite}
-            hasPendingResult={!!persistence.pending.current}
-            saveMessage={persistence.saveMessage}
-            onRestore={persistence.restore}
-            onFinish={persistence.finishDraft}
-          />
-        )}
         {view === 'dashboard' && (
           <LocalHistory
             records={shownRecords}
@@ -184,62 +168,29 @@ export function ServiceScreens({
             registerAgain={view === 'posture'}
             onBack={view === 'posture' ? () => go('settings') : undefined}
             onOpenSession={() => go('session')}
-            serverMode={serverMode}
-            onServerMode={onServerMode}
-            serverModeDisabled={measuring}
           />
         )}
         {session && (
           <section className="session-slot" hidden={view !== 'session'}>
-            {session.server ? (
-              <ServerSessionPage
-                key={session.id}
-                session={{ ...session, server: session.server }}
-                camera={camera}
-                alertsOn={alertsOn}
-                onFinish={() => go('home')}
-                onDashboard={() => go('dashboard')}
-                onPrepare={() => go('setup')}
-                service={{
-                  active: view === 'session',
-                  onCheckpoint: persistence.checkpoint,
-                  onEnded: persistence.finish,
-                  onArchive: persistence.archiveServerResult,
-                  saveMessage: persistence.saveMessage,
-                  onRetry: persistence.retrySave,
-                  sessionLabel: sessionLabel(
+            <LiveSessionPage
+              key={session.id}
+              session={session}
+              camera={camera}
+              alertsOn={alertsOn}
+              onDashboard={() => go('dashboard')}
+              onPrepare={() => go('setup')}
+              service={{
+                active: view === 'session',
+                onEnded: persistence.finish,
+                sessionLabel: sessionLabel(
+                  session.startedAt,
+                  daySessionNumber(
+                    records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
                     session.startedAt,
-                    daySessionNumber(
-                      records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
-                      session.startedAt,
-                    ),
                   ),
-                }}
-              />
-            ) : (
-              <SessionPage
-                key={session.id}
-                camera={camera}
-                collection={collection}
-                mode={session.mode}
-                rules={session.rules}
-                alertsOn={alertsOn}
-                onFinish={() => go('home')}
-                onDashboard={() => go('dashboard')}
-                onPrepare={() => go('setup')}
-                service={{
-                  active: view === 'session',
-                  initial: session.initial,
-                  onCheckpoint: persistence.checkpoint,
-                  onEnded: persistence.finish,
-                  saveMessage: persistence.saveMessage,
-                  saveFailed: persistence.saveFailed,
-                  onRetry: persistence.retrySave,
-                  sessionId: session.id,
-                  startedAt: session.startedAt,
-                }}
-              />
-            )}
+                ),
+              }}
+            />
           </section>
         )}
         {view === 'settings' && (

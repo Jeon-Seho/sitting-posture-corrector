@@ -198,11 +198,11 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | # | 할 일 | 막힌 것 |
 |---|---|---|
-| F1 | **S1 `policy` (10/21 결정):** W1이 붙기 전에는 앱 기본 판정 기준(`DEFAULT_RULES`를 ms로)을 보낸다. 서버 계정 값과 다르면 409가 나므로, 실제 서버 시험(로그인·W1 연결 뒤) 때 W1 `rules`로 바꾸고 맞춘다(B-3). 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다. `hello` 2.0(`purpose`) → `ready`(5초) 뒤에만 보내고, 메시지의 `session_id` 검사를 뺀다(v2는 `hello`·`ready`만 ID를 담음). WS 주소는 페이지 주소로 만든다(`https:`면 `wss:`) | — (BE 구현됨 10/17) |
+| F1 | **S1 `policy` (10/21 결정):** W1이 붙기 전에는 앱 기본 판정 기준(`DEFAULT_RULES`를 ms로)을 보낸다. 서버 계정 값과 다르면 409가 나므로, 실제 서버 시험(로그인·W1 연결 뒤) 때 W1 `rules`로 바꾸고 맞춘다(B-3). 좌표 구간 전송(3.1): WebSocket v2 `features`에 0.5초마다 구간 1개. 지금 코드는 v1(특징 변화량)을 보낸다. 준비된 `FrameBatcher`를 붙인다. `hello` 2.0(`purpose`) → `ready`(5초) 뒤에만 보내고, 메시지의 `session_id` 검사를 뺀다(v2는 `hello`·`ready`만 ID를 담음). WS 주소는 페이지 주소로 만든다(`https:`면 `wss:`) | **10/21 V3에서 함(`features/session/live/`)**, 실제 서버 시험은 로그인·W1 뒤 |
 | F2 | 자세 등록 서버 연결(3.3): 앱이 낸 관절 9개 평균을 B1로 저장, B2 조회, `closed(no_baseline)` 안내(10/20 전체 회의로 WS 등록 대신 B1). **10/21 V3에서 B1·B2 연결**, 실제 서버 시험은 로그인(F12, BE) 뒤 | F12(시험) |
-| F3 | `rest`·`away`·`end` 전송(3.2). `end` 뒤 10초 대기, S3·S4 대비책(연동 명세 6.1·6.4). `stalled`는 안내만(다시 보내지 않음), `limit_reached`·`bad_message`는 종료 화면 | — (BE 구현됨 10/17) |
+| F3 | `rest`·`away`·`end` 전송(3.2). `end` 뒤 10초 대기, S3·S4 대비책(연동 명세 6.1·6.4). `stalled`는 안내만(다시 보내지 않음), `limit_reached`·`bad_message`는 종료 화면. 카메라가 빠지거나 영상 크기가 바뀌면 `end`(7.0) | **10/21 V3에서 함**(F1과 함께) |
 | F4 | 화면을 서버 결과로만 구동(4장). 통계 숫자도 서버 값. 관측 3.0 `invalid_reason`, `progress.paused_reason`. `excluded_started/ended`는 받기만 한다(지금 검증은 사건 종류 5개만 받아 거절함). `alert`는 앱이 거르지 않는다(D-54) | — (BE 구현됨 10/17) |
-| F5 | 로컬 판정 제거(계획 0023 2단계 나머지): 앱 점수·상태 계산, 고개 돌림·복귀 대기 코드 | F4 |
+| F5 | 로컬 판정 제거(계획 0023 2단계 나머지): 앱 점수·상태 계산, 고개 돌림·복귀 대기 코드. **10/21 측정 쪽은 지웠다**(사용자 결정: 「측정 시작」은 항상 서버 측정, 로컬 측정 화면·판정 엔진·이어하기 삭제). 남은 것: 학습 데이터 수집 화면이 쓰는 특징 다리, 기록 화면의 앱 통계 계산(서버 기록 R1·T1로 바꿀 때) | 기록 화면(3단계) |
 | F6 | 측정 화면의 "좌표 전송 안 함" 문구 수정 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 | 입출구 서버 |
 | F11 | 판정 불가 표시(3.2): 측정이 안 되는 모든 경우에 `valid:false`를 붙이고 합성 시험 데이터에 사례를 더한다 | — |
@@ -230,15 +230,15 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | # | 지금 앱 | v2에서 | 처리 |
 |---|---|---|---|
-| 1 | 측정 시작에 `setup`(카메라 key·이름, 화면 크기, 기준 자세 평균·표준편차·중심·면적)을 보냄 — DB V1.1 때 형식(`server/setup.ts`, `ServerSetup`) | S1은 `policy`·`baseline_id`만 받고 모르는 필드는 400 | 지운다 |
-| 2 | 구간마다 `baseline_id`·`measurement_quality`·특징 변화량(`FrameRequest`, 입력 v2)을 보내려고 앱이 특징을 계산(`serverFeatures`) | 좌표 구간만 받고 서버가 기준 자세로 특징을 계산(`FrameFeatures` 안) | `FrameBatch`로 바꾸고 서버용 특징 계산을 지운다. 판정 불가(`valid:false`) 판단은 남긴다(F11) |
-| 3 | HTTP 측정 경로(`server/client.ts` `/api/v1/sessions/…/features`, `VITE_REALTIME_URL`이 없을 때) | `/v1/sessions` 없음, S2도 전환 뒤 삭제 | 지우고 WS만 쓴다. S1·S3·S4는 `/api/v2`로 |
-| 4 | 확인받지 못한 요청을 보관·재시도(`server/queue.ts`, 체크포인트의 `pending`·`nextSequence`·기준 특징·화면 크기) | 재전송 없음, 순번이 겹치면 `closed(bad_message)` | 지운다 |
-| 5 | WS 재연결·미확인 구간 재전송·30개 묶음·`last_event_id`·알림 거르기(`realtime/client.ts`) | 재연결 없음, 메시지당 구간 1개, 알림은 서버가 거름 | 다시 쓴다(F1) |
-| 6 | 측정 중 앱이 닫히면 다음 로그인 때 앱이 그때까지를 기록으로 저장(10/16), 개발 서버 측정은 이어하기를 물음 | 서버가 끊김을 보고 마지막 구간 끝에서 끝내고 저장(BE 명세 11.3) | 서버 모드에서는 앱이 따로 저장하지 않고 「저장됐어요」 안내만. 앱이 저장하면 기록이 둘이 된다 |
+| 1 | 측정 시작에 `setup`(카메라 key·이름, 화면 크기, 기준 자세 평균·표준편차·중심·면적)을 보냄 — DB V1.1 때 형식(`server/setup.ts`, `ServerSetup`) | S1은 `policy`·`baseline_id`만 받고 모르는 필드는 400 | **10/21 지웠다** |
+| 2 | 구간마다 `baseline_id`·`measurement_quality`·특징 변화량(`FrameRequest`, 입력 v2)을 보내려고 앱이 특징을 계산(`serverFeatures`) | 좌표 구간만 받고 서버가 기준 자세로 특징을 계산(`FrameFeatures` 안) | **10/21:** `FrameBatch`로 바꿨다. 판정 불가는 어깨가 유예 뒤에도 안 보이는 프레임에 `valid:false`(F11) |
+| 3 | HTTP 측정 경로(`server/client.ts` `/api/v1/sessions/…/features`, `VITE_REALTIME_URL`이 없을 때) | `/v1/sessions` 없음, S2도 전환 뒤 삭제 | **10/21 지웠다.** WS만 쓰고 S1·S4는 `/api/v2`(`features/platform/api.ts`) |
+| 4 | 확인받지 못한 요청을 보관·재시도(`server/queue.ts`, 체크포인트의 `pending`·`nextSequence`·기준 특징·화면 크기) | 재전송 없음, 순번이 겹치면 `closed(bad_message)` | **10/21 지웠다**(이어하기 draft도) |
+| 5 | WS 재연결·미확인 구간 재전송·30개 묶음·`last_event_id`·알림 거르기(`realtime/client.ts`) | 재연결 없음, 메시지당 구간 1개, 알림은 서버가 거름 | **10/21 다시 썼다**(`live/LiveSession.ts`) |
+| 6 | 측정 중 앱이 닫히면 다음 로그인 때 앱이 그때까지를 기록으로 저장(10/16), 개발 서버 측정은 이어하기를 물음 | 서버가 끊김을 보고 마지막 구간 끝에서 끝내고 저장(BE 명세 11.3) | **10/21:** 이어하기·앱 저장을 지웠다. 기록 화면이 서버 기록(R1)을 읽기 전까지는 서버가 확인한 요약을 이 기기에도 R1과 같은 형식으로 남긴다(R1로 바꿀 때 지움) |
 | 7 | 자세 등록 결과(평균 특징)를 이 PC에 저장(`camera/savedBaseline.ts`) | 앱이 낸 관절 평균을 B1로 저장, B2로 조회(10/20) | **10/21 지웠다**(`features/baseline/`). 3·2·1 촬영 화면은 남겼다. 로컬 판정·수집 화면용으로 서버 좌표에서 특징을 계산해 넘기는 다리는 F5 때 지운다 |
-| 8 | 개발자 옵션 내보내기 둘: 입력 v2 특징(`kafkaExport.ts`, 예전 `posture.features.v1` 형식), 좌표(`poseDebugExport.ts`) | 앱이 보내는 것은 좌표 구간(`posture.frames.v1`) 하나 | 특징 내보내기는 지우고, 좌표 내보내기를 보내는 형식과 맞출지 ML과 정한다 |
-| 9 | `platform/ports.ts`(아키텍처 v4 초안 연결점, 아무도 가져다 쓰지 않음) | — | 지운다 |
+| 8 | 개발자 옵션 내보내기 둘: 입력 v2 특징(`kafkaExport.ts`, 예전 `posture.features.v1` 형식), 좌표(`poseDebugExport.ts`) | 앱이 보내는 것은 좌표 구간(`posture.frames.v1`) 하나 | **10/21 둘 다 지웠다**(로컬 측정 화면과 함께). 좌표가 필요하면 보내는 형식(`posture.frames.v1`) 그대로 ML과 정한다 |
+| 9 | `platform/ports.ts`(아키텍처 v4 초안 연결점, 아무도 가져다 쓰지 않음) | — | **10/21 지웠다** |
 
 다른 담당 화면에 걸친 겹침(알리기만): 앱 판정(`lib/engine`·`postureScore`·`returnSettle`·`liveView`의 로컬 경로, F5)과 측정하기 화면, 기록 통계의 앱 계산(`lib/stats`·`lib/comparison`, 서버 R1·T1과 겹침)은 lellon0403, 로컬 로그인·기록(`LocalServiceApp`)은 F12(BE)다.
 
@@ -272,12 +272,10 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | 변수 | 뜻 |
 |---|---|
-| `VITE_REALTIME_URL=ws://…` | 실시간 구간을 WebSocket으로(지금은 `/v1/realtime`). 없으면 HTTP |
-| `VITE_REALTIME_FRAMES=true` | 특징 변화량 대신 좌표 묶음을 보낸다. 아직 연결하지 않음(v2에서 기본으로) |
 | `VITE_API_BASE_URL=https://…` | API 주소 앞부분. 화면을 다른 곳(Vercel)에서 낼 때 운영은 `https://api.posegood.site`. 없으면 같은 출처 `/api`(10/19, [배포 구상](fe-domain-idea.md)) |
 | `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 
-예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13 지웠다.
+예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13, 실시간 스위치 `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`와 개발자 옵션의 「서버 판정 사용」은 2026-10-21 지웠다(앱은 항상 서버로 측정, WS 주소는 API 주소나 페이지 주소에서 만든다).
 
 ### 8.3 화면과 코드 위치
 

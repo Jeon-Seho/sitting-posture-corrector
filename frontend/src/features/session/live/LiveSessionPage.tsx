@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '@phosphor-icons/react'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
@@ -7,129 +6,111 @@ import { Card, Ledger, Stat } from '../../../components/ui'
 import { postureScore } from '../../../lib/postureScore'
 import { formatClock, formatDuration, formatPercent, formatRate } from '../../../lib/stats'
 import { EventTable } from '../SessionEvents'
-import type { ServerSessionDescriptor } from './contracts'
-import { useServerSessionScreen, type ServerSessionService } from './useServerSessionScreen'
-import { ConfirmDialog } from '../../dialog/ConfirmDialog'
+import { collapseEvents } from './events'
+import type { LiveState } from './LiveSession'
+import type { SocketLike } from './LiveSession'
+import { INPUT_PAUSED_NOTICE, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
 
-export type ServerSessionPageProps = {
-  session: ServerSessionDescriptor
+export type LiveSessionPageProps = {
+  session: LiveSessionDescriptor
   camera: CameraController
-  service: ServerSessionService
+  service: LiveSessionService
   alertsOn?: boolean
-  onFinish: () => void
   onDashboard: () => void
   onPrepare: () => void
+  openSocket?: (url: string) => SocketLike
 }
 
-/** Server mode deliberately displays only fields actually supplied by the service contracts. */
-export function ServerSessionPage(props: ServerSessionPageProps) {
-  const { camera, service, session, onDashboard, onPrepare, alertsOn = true } = props
-  const screen = useServerSessionScreen(props)
-  const [archiveConfirm, setArchiveConfirm] = useState(false)
-  const { live, view } = screen
-  const result = screen.phase === 'ended' || screen.archived
-  const running = screen.phase === 'running'
-  const score = postureScore(running && live.state !== 'unknown' ? live.collapseProb : null)
-  const label = screen.connectionLost
-    ? '서버 연결 끊김 · 세션 종료'
-    : running
-      ? live.state === 'unknown'
-        ? '자세를 확인할 수 없어요'
-        : live.state === 'collapse'
-          ? '자세가 흐트러졌어요'
-          : '바른 자세예요'
-      : screen.phase === 'creating'
-        ? '서버 연결 중'
-        : screen.phase === 'restoring'
-          ? '서버 기록 확인 중'
-          : screen.phase === 'ending'
-            ? '서버 종료 확인 중'
-            : screen.phase === 'lost'
-              ? '서버 세션 유실'
-              : '쉬는 중'
-  const tone = !running || live.state === 'unknown' ? 'unknown' : live.state === 'collapse' ? 'collapse' : 'good'
-  const keepRate = view?.summary.keep_rate ?? null
-  const saveNote = screen.archived
-    ? `서버 종료를 확인하지 못했어요. 마지막으로 확인된 요약만 이 기기에 보관해요. ${service.saveMessage}`
-    : result
-      ? service.saveMessage
-      : '서버 판정 · 확정, 복귀, 재알림과 통계는 서버가 보낸 사건을 그대로 보여줘요.'
+function headline(state: LiveState | null, phase: string) {
+  if (!state || phase === 'creating' || phase === 'connecting') return '서버에 연결하고 있어요'
+  if (phase === 'ending') return '측정을 마무리하고 있어요'
+  if (phase === 'failed') return '측정을 시작하지 못했어요'
+  if (phase === 'paused') return state.sending === 'away' ? '카메라 영상을 기다리고 있어요' : '쉬는 중'
+  if (!state.observation?.valid) return '자세를 확인할 수 없어요'
+  return state.alerting ? '자세가 흐트러졌어요' : '바른 자세예요'
+}
 
-  const recovery = (
-    <>
-      {screen.retryable && (
-        <button className="btn btn-sm" onClick={screen.retry}>
-          같은 서버 요청 다시 시도
-        </button>
-      )}
-      {service.onArchive && (screen.retryable || screen.phase === 'lost') && (
-        <>
-          <button className="btn btn-sm" onClick={() => setArchiveConfirm(true)}>
-            서버 종료 미확인 · 확인된 요약만 보관
-          </button>
-          {archiveConfirm && (
-            <ConfirmDialog
-              title="확인된 요약만 보관"
-              confirmLabel="확인된 요약 보관"
-              onCancel={() => setArchiveConfirm(false)}
-              onConfirm={screen.archive}
-            >
-              <p>
-                서버 종료는 확인되지 않았습니다. 마지막 확인 요약만 보관하고 이 기기의 재전송을
-                중단합니다. 미확정 요청과 이후 시간은 유효 통계에 넣지 않습니다.
-              </p>
-            </ConfirmDialog>
-          )}
-        </>
-      )}
-    </>
-  )
+/**
+ * The measurement screen. Every number and state here is what the server sent (ADR 0021,
+ * 2026-10-21): the score is 100 × (1 − collapse_probability), the alert is the server's
+ * confirmed collapse, the statistics are its summary.
+ */
+export function LiveSessionPage(props: LiveSessionPageProps) {
+  const { camera, service, session, onDashboard, onPrepare, alertsOn = true } = props
+  const screen = useLiveSession(props)
+  const { state, phase } = screen
+  const summary = state?.summary
+  const running = phase === 'running'
+  const measurable = running && !!state?.observation?.valid
+  const score = postureScore(measurable ? state!.observation!.collapse_probability : null)
+  const label = headline(state, phase)
+  const tone = !measurable ? 'unknown' : state!.alerting ? 'collapse' : 'good'
+  const keepRate = summary?.keep_rate ?? null
+  const totalSeconds = (summary?.total_ms ?? 0) / 1000
+  const validSeconds = (summary?.valid_ms ?? 0) / 1000
+  const excludedSeconds = ((summary?.rest_ms ?? 0) + (summary?.away_ms ?? 0) + (summary?.unknown_ms ?? 0) + (summary?.missing_ms ?? 0)) / 1000
+  const events = collapseEvents(state?.events ?? [])
 
   const details = (
     <details className="more">
       <summary>자세히 보기 · 서버 사건과 통계</summary>
       <div className="more-body">
         <Ledger cols={4}>
-          <Stat label="유효 측정 시간" value={formatDuration(live.validSeconds)} sub={`전체 ${formatDuration(live.totalSeconds)}`} small />
+          <Stat label="유효 측정 시간" value={formatDuration(validSeconds)} sub={`전체 ${formatDuration(totalSeconds)}`} small />
           <Stat label="기준 자세 유지율" value={formatPercent(keepRate)} small />
           <Stat
             label="자세 이탈"
-            value={`${view?.summary.collapse_count ?? 0}건`}
-            sub={`확정·재알림 ${view?.summary.alert_count ?? 0}회`}
+            value={`${summary?.collapse_count ?? 0}건`}
+            sub={`확정·재알림 ${summary?.alert_count ?? 0}회`}
             small
           />
-          <Stat label="시간당 이탈" value={formatRate(view?.summary.events_per_hour ?? null, '회')} small />
+          <Stat label="시간당 이탈" value={formatRate(summary?.events_per_hour ?? null, '회')} small />
         </Ledger>
         <Ledger cols={4}>
           <Stat
             label="발생 간격 평균"
-            value={formatDuration(view?.summary.mean_interval_ms == null ? null : view.summary.mean_interval_ms / 1000)}
+            value={formatDuration(summary?.mean_interval_ms == null ? null : summary.mean_interval_ms / 1000)}
             small
           />
           <Stat
             label="최초 알림부터 복귀"
-            value={formatDuration(view?.summary.mean_recovery_ms == null ? null : view.summary.mean_recovery_ms / 1000)}
+            value={formatDuration(summary?.mean_recovery_ms == null ? null : summary.mean_recovery_ms / 1000)}
             small
           />
-          <Stat
-            label="집계 제외"
-            value={formatDuration(live.unknownSeconds + live.pausedSeconds)}
-            sub="휴식·자리 비움·측정 불가·관측 공백"
-            small
-          />
-          <Stat label="추론 모델" value={live.modelVersion ?? '확인 전'} small />
+          <Stat label="집계 제외" value={formatDuration(excludedSeconds)} sub="휴식·자리 비움·측정 불가·관측 공백" small />
+          <Stat label="추론 모델" value={state?.observation?.model_version ?? '확인 전'} small />
         </Ledger>
-        <Card title="서버 확정 사건" note="확정과 재알림 횟수는 CEP 결정 수이며 실제 소리 전달 횟수와 다릅니다.">
-          <EventTable events={live.events} muted={new Set()} />
+        <Card title="서버 확정 사건" note="확정과 재알림 횟수는 서버 판정 수이며 실제 소리 전달 횟수와 다릅니다.">
+          <EventTable events={events} muted={new Set()} />
         </Card>
       </div>
     </details>
   )
 
-  if (result)
+  if (phase === 'failed')
+    return (
+      <section className="result" aria-labelledby="live-failed-title">
+        <div>
+          <div className="result-eyebrow">측정</div>
+          <h1 className="result-title" id="live-failed-title">
+            {label}
+          </h1>
+          <p className="fine result-note" style={{ marginTop: 8 }} role="status">
+            {state?.message}
+          </p>
+        </div>
+        <div className="result-actions">
+          <button className="btn btn-primary" onClick={onPrepare}>
+            다시 준비하기
+          </button>
+        </div>
+      </section>
+    )
+
+  if (phase === 'ended')
     return (
       <>
-        <section className="result" aria-labelledby="server-result-title">
+        <section className="result" aria-labelledby="live-result-title">
           <div className="result-head">
             <Ring value={keepRate} label="바른 자세 비율">
               <span className="ring-value" style={{ fontSize: 34 }}>
@@ -139,32 +120,29 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
             </Ring>
             <div>
               <div className="result-eyebrow">측정 결과</div>
-              <h1 className="result-title" id="server-result-title">
-                {formatDuration(live.validSeconds)} 측정했어요
+              <h1 className="result-title" id="live-result-title">
+                {formatDuration(validSeconds)} 측정했어요
               </h1>
               <p className="fine result-note" style={{ marginTop: 8 }}>
-                {saveNote}
+                {screen.note || state?.message || '서버에 저장했어요.'}
               </p>
             </div>
           </div>
           <div className="result-tiles">
             <div className="result-tile">
               <span>자세 이탈</span>
-              <b>{view?.summary.collapse_count ?? 0}건</b>
+              <b>{summary?.collapse_count ?? 0}건</b>
             </div>
             <div className="result-tile">
               <span>알림</span>
-              <b>{view?.summary.alert_count ?? 0}회</b>
+              <b>{summary?.alert_count ?? 0}회</b>
             </div>
             <div className="result-tile">
               <span>집계 제외</span>
-              <b>{formatDuration(live.unknownSeconds + live.pausedSeconds)}</b>
+              <b>{formatDuration(excludedSeconds)}</b>
             </div>
           </div>
           <div className="result-actions">
-            <button className="btn btn-quiet" onClick={service.onRetry}>
-              저장 다시 시도
-            </button>
             <button className="btn" onClick={onDashboard}>
               <ChartBar size={18} weight="bold" className="icon" />
               기록 보기
@@ -178,12 +156,15 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
       </>
     )
 
+  const waitingInput = phase === 'paused' && state?.sending === 'away'
   return (
     <>
       <div className="page-head">
         <div>
           <h1 className="page-title">{label}</h1>
-          <p className="page-desc">{saveNote}</p>
+          <p className="page-desc">
+            {waitingInput ? INPUT_PAUSED_NOTICE : '자세는 서버가 판정해요. 영상은 보내지 않고 관절 좌표만 보내요.'}
+          </p>
         </div>
         <div className="page-actions">
           <button
@@ -197,7 +178,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
       </div>
 
       <div className="measure">
-        <div className={`stage ${live.alerting && running && alertsOn ? 'is-alert' : ''}`}>
+        <div className={`stage ${state?.alerting && running && alertsOn ? 'is-alert' : ''}`}>
           {service.active && <CameraStage camera={camera} showSkeleton={screen.showSkeleton} />}
           <div className="stage-overlay">
             <div className="stage-top">
@@ -207,23 +188,23 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
               </span>
               <span className="pill small">
                 {running && <span className="rec-dot" />}
-                서버 측정 · <span className="num">{formatClock(live.totalSeconds)}</span>
+                측정 · <span className="num">{formatClock(totalSeconds)}</span>
               </span>
             </div>
             <div className="stage-bottom">
-              {running && (live.state === 'unknown' || live.alerting) && (
-                <div className={`nudge ${live.state === 'unknown' || !alertsOn ? 'quiet' : ''}`}>
+              {running && (!measurable || state?.alerting) && (
+                <div className={`nudge ${!measurable || !alertsOn ? 'quiet' : ''}`}>
                   <div className="nudge-icon">
                     <WarningCircle size={24} weight="bold" />
                   </div>
                   <div className="nudge-body">
-                    <div className="nudge-title">
-                      {live.state === 'unknown' ? '자세를 확인할 수 없어요' : '자세를 살짝 고쳐볼까요?'}
-                    </div>
+                    <div className="nudge-title">{!measurable ? '자세를 확인할 수 없어요' : '자세를 살짝 고쳐볼까요?'}</div>
                     <div className="nudge-desc">
-                      {live.state === 'unknown'
-                        ? '유효한 서버 입력이 없어요. 이 시간은 집계에서 빠져요.'
-                        : '서버가 확정한 사건이에요. 정상 복귀가 도착하면 사라져요.'}
+                      {!measurable
+                        ? state?.observation?.invalid_reason === 'head_turn'
+                          ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.'
+                          : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.'
+                        : '바른 자세로 돌아오면 사라져요.'}
                     </div>
                   </div>
                 </div>
@@ -240,11 +221,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
                     측정 재개
                   </button>
                 )}
-                <button
-                  className="btn"
-                  disabled={screen.phase === 'ending' || screen.phase === 'lost'}
-                  onClick={screen.end}
-                >
+                <button className="btn" disabled={phase === 'ending'} onClick={screen.end}>
                   <Stop size={18} weight="fill" className="icon" />
                   측정 종료
                 </button>
@@ -282,10 +259,10 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
               바른 자세 유지<b>{formatPercent(keepRate, 0)}</b>
             </div>
             <div className="kv">
-              측정한 시간<b>{formatDuration(live.validSeconds)}</b>
+              측정한 시간<b>{formatDuration(validSeconds)}</b>
             </div>
             <div className="kv">
-              알림<b>{view?.summary.alert_count ?? 0}회</b>
+              알림<b>{summary?.alert_count ?? 0}회</b>
             </div>
           </section>
           <section className="card panel-fill">
@@ -293,31 +270,19 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
               연결 상태
             </h3>
             <p className="fine" role="status">
-              {screen.message || '기준 대비 변화량만 서버로 보내요. 영상·원본 좌표는 보내지 않아요.'}
+              {state?.stalled
+                ? '분석이 잠시 멈췄어요. 측정은 계속돼요.'
+                : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'}
             </p>
             <p className="fine" style={{ marginTop: 8 }}>
-              전송 대기 {screen.queued}개 · {session.rules.holdSeconds}초 지속 시 확정 ·{' '}
-              {session.rules.recoverSeconds}초 정상 복귀 · 같은 사건 {session.rules.realertSeconds}초 재알림
-            </p>
-            <p className="fine" style={{ marginTop: 8 }}>
-              개발용 메모리 서버라 서버를 다시 켜면 세션이 사라져요.
+              {session.rules.holdSeconds}초 지속 시 확정 · {session.rules.recoverSeconds}초 정상 복귀 · 같은 사건{' '}
+              {session.rules.realertSeconds}초 재알림
             </p>
           </section>
         </div>
       </div>
 
-      {session.server.checkpoint && screen.phase === 'paused' && (
-        <label className="notice info">
-          <input
-            type="checkbox"
-            checked={screen.positionConfirmed}
-            onChange={(event) => screen.setPositionConfirmed(event.target.checked)}
-          />
-          카메라 장치와 위치가 측정 시작 때와 같은지 확인했습니다.
-        </label>
-      )}
       <div className="controls">
-        {recovery}
         <button className="btn btn-sm" onClick={onPrepare}>
           카메라 준비 다시 확인
         </button>
