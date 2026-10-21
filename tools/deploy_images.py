@@ -13,7 +13,6 @@ from deploy.secrets import ROOT
 
 DOCKERFILES = {
     "api": ("infra/docker/java.Dockerfile", "api"),
-    "cep": ("infra/docker/java.Dockerfile", "cep"),
     "inference": ("infra/docker/inference.Dockerfile", None),
     "frontend": ("infra/docker/frontend.Dockerfile", None),
 }

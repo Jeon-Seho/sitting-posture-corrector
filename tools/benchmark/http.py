@@ -29,13 +29,14 @@ class HttpClient:
         self.opener = opener or build_opener(ProxyHandler({}), RejectRedirect()).open
         self.clock = clock
 
-    def request(self, base, path, method, body, validate):
+    def request(self, base, path, method, body, validate, headers=None):
         address = urlsplit(base)
         if address.scheme != "http" or address.hostname != "127.0.0.1" or address.username or address.password:
             raise ValueError("benchmark requests are restricted to task-owned HTTP loopback services")
         data = json.dumps(body, allow_nan=False, separators=(",", ":")).encode("utf-8")
+        # `headers` carries a signed-in account's cookie, CSRF and user headers for the API target.
         request = Request(base + path, data=data, method=method, headers={
-            "Content-Type": "application/json", "Connection": "close",
+            **(headers or {}), "Content-Type": "application/json", "Connection": "close",
         })
         started = self.clock()
         try:

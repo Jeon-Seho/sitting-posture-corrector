@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
-import { ArrowCounterClockwise, SignOut, UserCircle, VideoCamera } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
 import { useDesktopLaunch } from '../features/desktop/useDesktopLaunch'
 import { cameraName } from '../features/camera/mainCamera'
-import { SelectMenu } from '../components/SelectMenu'
+import { CameraPicker, camerasHidden } from '../features/camera/CameraPicker'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
 import { AlertPreview } from '../features/desktop/AlertPreview'
@@ -142,9 +142,7 @@ function baselineDescription(camera?: CameraChoice) {
 
 function MainCamera({ camera }: { camera: CameraChoice }) {
   const { devices } = camera
-  const known = devices.some((d) => d.deviceId === camera.mainDeviceId)
-  // Before camera permission the browser hides names and ids, so there is nothing to choose yet.
-  const hidden = devices.some((d) => !d.deviceId)
+  const hidden = camerasHidden(devices)
   const unnamed = !hidden && devices.some((d) => !d.label)
   const desc =
     devices.length === 0
@@ -159,22 +157,7 @@ function MainCamera({ camera }: { camera: CameraChoice }) {
   return (
     <Row name="메인 카메라" desc={unnamed ? `${desc} 카메라를 한 번 켜면 이름이 보여요.` : desc}>
       <div className="setting-control">
-        {devices.length > 0 && !hidden && (
-          <SelectMenu
-            label="메인 카메라"
-            icon={<VideoCamera size={15} weight="bold" className="icon" />}
-            value={known ? camera.mainDeviceId : ''}
-            onChange={camera.chooseMainCamera}
-            options={[
-              { value: '', label: '기본 카메라 (자동)' },
-              ...devices.map((d, i) => ({
-                value: d.deviceId,
-                label: cameraName(d, i),
-                note: camera.state === 'on' && d.deviceId === camera.deviceId ? '사용 중' : undefined,
-              })),
-            ]}
-          />
-        )}
+        <CameraPicker camera={camera} />
         <button className="chip" onClick={() => void camera.refreshDevices()}>
           다시 찾기
         </button>

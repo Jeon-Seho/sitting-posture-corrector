@@ -28,6 +28,8 @@ type Options = {
   setError: (message: string) => void
   serverMode?: boolean
   repository?: SessionRepository
+  /** Signed in: an interrupted measurement is saved only then, so the notice is seen. */
+  signedIn?: boolean
 }
 
 /** Persists checkpoints/results and retries the same immutable result after a failure. */
@@ -41,6 +43,7 @@ export function useSessionPersistence({
   setError,
   serverMode = false,
   repository,
+  signedIn = true,
 }: Options) {
   const { rules, draft, setDraft, setRecords, requireWriter, writable, reloadStorage } = workspace
   const pending = useRef<RecordItem | null>(repository?.readPending() ?? null)
@@ -58,6 +61,20 @@ export function useSessionPersistence({
       mounted.current = false
     }
   }, [])
+
+  /**
+   * A measurement interrupted by closing or reloading the app is not resumed: what was measured
+   * up to then is saved as a record, like a camera or connection loss (2026-10-16, plan 0053).
+   * Developer server drafts still ask, since ending them needs the server's confirmation.
+   */
+  useEffect(() => {
+    if (!signedIn || !draft || draft.server || session || !writable) return
+    // The notice goes first so a save or cleanup failure message replaces it.
+    setError('측정 중에 앱이 닫혀 그때까지의 측정을 기록으로 저장했어요.')
+    finishDraft()
+    // finishDraft reads the current draft; only a new draft or a freed writer runs it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, draft, session, writable])
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {

@@ -1,6 +1,7 @@
 import type { Rules } from '../../../lib/engine'
 import type { ServerObservation, ServerPendingRequest, SessionView } from './contracts'
 import { validFeatureResponse, validSessionView } from './validation'
+import { SERVER } from '../../platform/serverConfig'
 
 export type ServerReply = { view: SessionView; observation?: ServerObservation }
 export type SessionClient = {
@@ -28,7 +29,7 @@ export function createSessionClient(
 ): SessionClient {
   const fetchRequest = options.fetch ?? globalThis.fetch
   const timeoutMs = options.timeoutMs ?? 5000
-  const base = `/api/v1/sessions/${encodeURIComponent(id)}`
+  const base = `${SERVER.apiBase}/api/v1/sessions/${encodeURIComponent(id)}`
 
   async function request(path: string, signal: AbortSignal, method = 'GET', body?: unknown) {
     const abort = new AbortController()
@@ -47,7 +48,8 @@ export function createSessionClient(
         headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
         cache: 'no-store',
-        credentials: 'omit',
+        // The login cookie must also reach a separate API origin (fe-domain-idea.md 3.2 A-2).
+        credentials: 'include',
       })
       if (!response.ok) {
         const message =

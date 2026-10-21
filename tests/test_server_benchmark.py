@@ -18,13 +18,18 @@ from tools.benchmark.config import BenchmarkConfig
 from tools.benchmark.http import HttpClient, RejectRedirect, Reply
 from tools.benchmark.manifest import is_source_path, source_revision
 from tools.benchmark.measurement import Sample, summarize
-from tools.benchmark.runner import POLICY, load_fixture, run_target, target_passed
+from tools.benchmark.runner import POLICY, Credentials, load_fixture, run_target, target_passed
 from tools.server_benchmark import benchmark, output_path, write_report
 
 
 ENDPOINTS = SimpleNamespace(api="http://127.0.0.1:8001", inference="http://127.0.0.1:8002")
 EXAMPLES = Path(__file__).resolve().parents[1] / "contracts/examples/v2"
 RUN_ID = "11111111-1111-4111-8111-111111111111"
+BASELINE_ID = "22222222-2222-4222-8222-222222222222"
+
+
+def synthetic_sign_in(endpoints):
+    return Credentials({"X-PoseGood-User-Id": "synthetic"}, BASELINE_ID)
 
 
 class Response(io.BytesIO):
@@ -44,15 +49,20 @@ class FakeFeatureServices:
 
     def view(self, session_id, sequence, end_ms, ended=False):
         value = copy.deepcopy(self.template["session"])
-        value.update(session_id=session_id, last_sequence=sequence, ended=ended)
+        # The example response predates the seeded default policy that a new account measures with.
+        value.update(session_id=session_id, last_sequence=sequence, ended=ended, policy=dict(POLICY))
         value["summary"].update(total_ms=end_ms, valid_ms=end_ms, deviation_ms=end_ms,
                                 events_per_hour=0 if end_ms else None, keep_rate=0 if end_ms else None)
         return value
 
-    def request(self, base, path, method, body, validate):
+    def request(self, base, path, method, body, validate, headers=None):
         with self.lock:
             self.calls.append((path, copy.deepcopy(body)))
-            session_id = path.split("/")[3] if path.startswith("/v1/sessions/") else None
+            session_id = path.split("/")[3] if path.startswith("/v2/sessions/") else None
+            if session_id and (headers or {}).get("X-PoseGood-User-Id") != "synthetic":
+                raise AssertionError("API requests must carry the signed-in account headers")
+            if session_id and body.get("baseline_id", BASELINE_ID) != BASELINE_ID:
+                raise AssertionError("sessions and features must name the account's current baseline")
             if method == "PUT":
                 self.sessions[session_id] = (-1, 0)
                 self.feature_sequences[session_id] = []
@@ -176,7 +186,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
         fixture, _ = load_fixture()
         services = FakeFeatureServices()
         config = BenchmarkConfig(warmup=2, repetitions=5, concurrency=2).validate()
-        result = run_target("features", config, ENDPOINTS, fixture, RUN_ID, client=services)
+        result = run_target("features", config, ENDPOINTS, fixture, RUN_ID, client=services, sign_in=synthetic_sign_in)
         self.assertEqual(result["warmup"]["successful"], 2)
         self.assertEqual(result["measurement"]["successful"], 5)
         self.assertEqual(result["measurement"]["scheduled_requests_per_worker"], [3, 2])
@@ -187,11 +197,18 @@ class BenchmarkRunnerTests(unittest.TestCase):
     def test_uncertain_feature_failure_stops_that_session_instead_of_reordering_or_retrying(self):
         fixture, _ = load_fixture()
         services = FakeFeatureServices(fail_feature=True)
-        result = run_target("features", BenchmarkConfig(warmup=0, repetitions=3), ENDPOINTS, fixture, RUN_ID, client=services)
+        result = run_target("features", BenchmarkConfig(warmup=0, repetitions=3), ENDPOINTS, fixture, RUN_ID,
+                            client=services, sign_in=synthetic_sign_in)
         self.assertEqual(result["measurement"]["failure_counts"], {"timeout": 1})
         self.assertEqual(result["measurement"]["skipped"], 2)
         self.assertEqual(sum(path.endswith("/features") for path, _ in services.calls), 1)
         self.assertFalse(target_passed(result))
+
+    def test_features_target_requires_a_signed_in_account(self):
+        fixture, _ = load_fixture()
+        with self.assertRaises(ValueError):
+            run_target("features", BenchmarkConfig(warmup=0, repetitions=1), ENDPOINTS, fixture, RUN_ID,
+                       client=FakeFeatureServices())
 
     def test_inference_failures_do_not_block_independent_later_requests(self):
         fixture, _ = load_fixture()
@@ -286,15 +303,21 @@ class BenchmarkManifestAndOutputTests(unittest.TestCase):
 
     def test_setup_failure_writes_failure_manifest_instead_of_zero_sample_success(self):
         @contextmanager
-        def failing_services(endpoints):
+        def failing_services(endpoints, database):
             raise RuntimeError("synthetic readiness failure")
             yield
+
+        @contextmanager
+        def synthetic_mysql(*arguments):
+            yield SimpleNamespace()
 
         with tempfile.TemporaryDirectory() as folder, \
                 patch("tools.server_benchmark.source_revision", return_value={"head": "synthetic", "dirty_source_patch_sha256": "synthetic"}), \
                 patch("tools.server_benchmark.artifact_hashes", return_value={}), \
                 patch("tools.server_benchmark.runtime_manifest", return_value={}), \
                 patch("tools.server_benchmark.ServiceEndpoints.allocate", return_value=ENDPOINTS), \
+                patch("tools.server_benchmark.mysql_server", synthetic_mysql), \
+                patch("tools.server_benchmark.disposable_database", synthetic_mysql), \
                 patch("tools.server_benchmark.running_services", failing_services):
             destination = Path(folder) / "synthetic-failed.json"
             report = benchmark(BenchmarkConfig(warmup=0, repetitions=1), destination)

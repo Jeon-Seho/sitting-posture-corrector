@@ -3,11 +3,17 @@ import type { CalibrationSummary } from '../../../../model/prototype/calibration
 
 /**
  * The registered posture survives an app restart on this computer (2026-10-13), so a later
- * 「측정하기」 can start without registering again. It belongs to the camera it was taken
- * with: another camera means a new position, so it is not used there. Coordinates of the
- * calibration frames are not stored, only the averaged features.
+ * 「측정하기」 can start without registering again. Coordinates of the calibration frames are
+ * not stored, only the averaged features.
+ *
+ * There is one posture whatever camera is used (2026-10-16, team decision, plan 0053): a person
+ * adjusts the camera to their posture instead of registering again per camera, and training
+ * data keeps one reference per person. `deviceId` only records which camera it was taken with.
+ * Postures kept per camera for a few hours on 10/16 (`posegood.v2.baselines`) are folded into
+ * this one, keeping the newest.
  */
 const KEY = 'posegood.v2.baseline'
+const LIST_KEY = 'posegood.v2.baselines'
 
 export type SavedBaseline = {
   schemaVersion: 1
@@ -48,7 +54,7 @@ export function validSavedBaseline(v: unknown): v is SavedBaseline {
   )
 }
 
-export function readSavedBaseline(): SavedBaseline | null {
+function readSingle(): SavedBaseline | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
@@ -59,16 +65,34 @@ export function readSavedBaseline(): SavedBaseline | null {
   }
 }
 
-export function writeSavedBaseline(saved: Omit<SavedBaseline, 'schemaVersion' | 'savedAt'>) {
+/** The newest posture of the short-lived per-camera list (2026-10-16), if any. */
+function readList(): SavedBaseline | null {
   try {
-    const value: SavedBaseline = { schemaVersion: 1, savedAt: new Date().toISOString(), ...saved }
-    localStorage.setItem(KEY, JSON.stringify(value))
+    const raw = localStorage.getItem(LIST_KEY)
+    if (!raw) return null
+    const value: unknown = JSON.parse(raw)
+    return Array.isArray(value) ? (value.find(validSavedBaseline) ?? null) : null
   } catch {
-    /* Storage blocked: the posture lasts for this run only. */
+    return null
   }
 }
 
-/** A posture taken with another camera does not apply; an unknown id on either side does. */
-export function baselineFits(saved: Pick<SavedBaseline, 'deviceId'>, deviceId: string) {
-  return !saved.deviceId || !deviceId || saved.deviceId === deviceId
+/** The registered posture on this computer, whatever camera it was taken with. */
+export function readSavedBaseline(): SavedBaseline | null {
+  const single = readSingle()
+  const listed = readList()
+  if (!single || !listed) return single ?? listed
+  return Date.parse(listed.savedAt) > Date.parse(single.savedAt) ? listed : single
+}
+
+/** Saves the posture, replacing the earlier one; returns what was saved. */
+export function writeSavedBaseline(saved: Omit<SavedBaseline, 'schemaVersion' | 'savedAt'>): SavedBaseline {
+  const value: SavedBaseline = { schemaVersion: 1, savedAt: new Date().toISOString(), ...saved }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(value))
+    localStorage.removeItem(LIST_KEY)
+  } catch {
+    /* Storage blocked: the posture lasts for this run only. */
+  }
+  return value
 }

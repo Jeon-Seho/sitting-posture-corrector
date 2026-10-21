@@ -38,6 +38,8 @@ const proxy = {
   '/api': {
     target: apiTarget,
     rewrite: (path: string) => apiPrefix + path.replace(/^\/api(?=\/)/, ''),
+    // The realtime channel (/api/v1/realtime, then /api/v2/realtime) is a WebSocket upgrade.
+    ws: true,
   },
 }
 

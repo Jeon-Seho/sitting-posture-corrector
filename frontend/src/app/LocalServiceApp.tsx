@@ -79,6 +79,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     serverMode,
     go,
     setError,
+    signedIn: authed,
   })
   const form = useProfileForm({
     workspace,

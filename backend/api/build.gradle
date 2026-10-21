@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.8'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'org.posegood'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // RestClient.Builder for the FastAPI inference call (a separate module since Spring Boot 4).
+    implementation 'org.springframework.boot:spring-boot-starter-restclient'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Same artifact as the former Maven build: build/libs/session-api-0.1.0-SNAPSHOT.jar.
+tasks.named('bootJar') {
+    archiveBaseName = 'session-api'
+}
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    // `-Pmysql-integration` runs the tests that need a real, disposable MySQL (see backend/README.md).
+    if (project.hasProperty('mysql-integration')) {
+        systemProperty 'posegood.mysql.integration', 'true'
+        // The database comes from environment variables Gradle does not track: never reuse a result.
+        outputs.upToDateWhen { false }
+    }
+}

@@ -2,7 +2,7 @@
 
 > **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws.v2](realtime-ws.v2.schema.json),
 > 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
-> 근거는 BE 「FE ↔ BE API 명세 (입출구 서버)」(10/13)와 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
+> 근거는 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. 아래 v1 WebSocket 부분(`realtime-ws.v1`)은 앱이 v2로 바뀌면 없앤다.
@@ -18,7 +18,7 @@
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
 > (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
-> 새 버전은 위 v2다(10/13). 10/15 기준 BE 브랜치(`feat/backend-data-platform-architecture` `316877d`)의 `backend/api`는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다. 서버를 먼저 돌려 보려고 둔 임시 상태이고, BE도 v2로 간다고 확인했다(10/15, [FE 제안서](../../docs/design/fe-server-proposal.md) 1장).
+> 새 버전은 위 v2다(10/13). 10/16 기준 `backend/api`(10/15 BE 브랜치를 합침)는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다. 서버를 먼저 돌려 보려고 둔 임시 상태이고, BE도 v2로 간다고 확인했다(10/15, [FE 제안서](../../docs/design/fe-server-proposal.md) 1장).
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
 ## 흐름
@@ -55,10 +55,10 @@
 
 ## 통로 나누기
 
-- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 V1.1에 저장하고
+- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 DB V2.0에 저장하고
   `posture.features.v1`에 `session_started`·`session_ended`를 넣는다.
 - **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
-- 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 V1.1 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
+- 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.
 
 ## WebSocket 메시지

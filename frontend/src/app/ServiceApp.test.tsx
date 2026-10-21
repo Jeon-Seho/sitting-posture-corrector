@@ -22,6 +22,7 @@ import { DEFAULT_RULES } from '../data/posture'
 import { newMachine } from '../lib/engine'
 import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
+import { CAMERA_ERRORS } from '../features/camera/errors'
 
 const controls = vi.hoisted(() => ({
   camera: null as unknown as CameraController,
@@ -201,29 +202,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(localStorage.setItem).not.toHaveBeenCalled()
     expect(data.get(KEYS.profile)).toBe(before)
   })
-  it('does not overwrite an unresolved checkpoint when a new session is requested', () => {
-    const raw = JSON.stringify(draft())
-    data.set(KEYS.draft, raw)
-    mount()
-    login()
-    click('측정 시작')
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    expect(text(renderer!.root)).toContain('중단된 측정을 이어하거나')
-    expect(data.get(KEYS.draft)).toBe(raw)
-  })
-  it('retries a failed recovered result with the same ID and end time and saves it once', () => {
+  it('saves a measurement interrupted by closing the app as a record instead of resuming it', () => {
     data.set(KEYS.draft, JSON.stringify(draft()))
     mount()
     login()
-    vi.mocked(localStorage.setItem).mockImplementationOnce(() => {
-      throw new Error('Synthetic quota failure')
-    })
-    click('여기까지 종료·저장')
-    expect(text(renderer!.root)).toContain('저장하지 못했습니다')
-    expect(data.has(KEYS.draft)).toBe(true)
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
     const records = readLocal<RecordItem[]>(KEYS.records, [])
     expect(records).toHaveLength(1)
     expect(records[0]).toMatchObject({
@@ -235,33 +217,46 @@ describe('service recovery and saving with synthetic storage only', () => {
       rules: DEFAULT_RULES,
     })
     expect(data.has(KEYS.draft)).toBe(false)
+    expect(text(renderer!.root)).toContain('그때까지의 측정을 기록으로 저장했어요')
+    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '이어하기')).toBe(false)
   })
-  it('distinguishes final-save success from draft-cleanup failure and never offers duplicate recovery', () => {
+  it('retries a failed save of an interrupted measurement with the same ID and end time, once', () => {
     data.set(KEYS.draft, JSON.stringify(draft()))
+    let fail = true
+    vi.mocked(localStorage.setItem).mockImplementation((key: string, value: string) => {
+      if (key === KEYS.records && fail) {
+        fail = false
+        throw new Error('Synthetic quota failure')
+      }
+      data.set(key, value)
+    })
     mount()
     login()
-    vi.mocked(localStorage.removeItem).mockImplementationOnce(() => {
-      throw new Error('Synthetic cleanup failure')
+    expect(text(renderer!.root)).toContain('저장하지 못했습니다')
+    expect(data.has(KEYS.draft)).toBe(true)
+    act(() => {
+      vi.advanceTimersByTime(5000)
     })
-    click('여기까지 종료·저장')
+    const records = readLocal<RecordItem[]>(KEYS.records, [])
+    expect(records).toHaveLength(1)
+    expect(records[0]).toMatchObject({ id: draft().id, endedAt: draft().savedAt, total: 120 })
+    expect(data.has(KEYS.draft)).toBe(false)
+  })
+  it('distinguishes final-save success from draft-cleanup failure and never saves twice', () => {
+    data.set(KEYS.draft, JSON.stringify(draft()))
+    let fail = true
+    vi.mocked(localStorage.removeItem).mockImplementation((key: string) => {
+      if (key === KEYS.draft && fail) {
+        fail = false
+        throw new Error('Synthetic cleanup failure')
+      }
+      data.delete(key)
+    })
+    mount()
+    login()
     expect(text(renderer!.root)).toContain('결과는 저장했습니다')
     expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
     expect(loadLocalState().draft).toBeNull()
-    expect(data.has(KEYS.draft)).toBe(true)
-  })
-  it('restores paused totals, preserves them across page navigation and ends without loss', () => {
-    data.set(KEYS.draft, JSON.stringify(draft()))
-    mount()
-    login()
-    click('이어하기')
-    expect(text(renderer!.root)).toContain('쉬는 중')
-    click('기록')
-    click('측정하기')
-    click('측정 종료')
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0]).toMatchObject({ total: 120, valid: 120, good: 100 })
-    expect(text(renderer!.root)).toContain('이 기기에 저장했어요')
   })
   it('keeps develop real-camera-only preparation and quiet login without requesting permission', () => {
     mount()
@@ -378,7 +373,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
     expect(controls.camera.stop).toHaveBeenCalledOnce()
   })
-  it('keeps the camera running when visiting records and exposes an explicit stop control', () => {
+  it('keeps the camera running in a small window on records; expand returns to 측정하기, close only hides it', () => {
     controls.camera.state = 'on'
     mount()
     login()
@@ -386,9 +381,43 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('자세 데이터 수집')
     click('기록')
     expect(controls.camera.stop).not.toHaveBeenCalled()
+    const windowButton = (label: string) =>
+      renderer!.root.findAll((node) => node.type === 'button' && node.props['aria-label'] === label)
     expect(text(renderer!.root)).toContain('카메라 사용 중')
-    click('카메라 사용 종료')
-    expect(controls.camera.stop).toHaveBeenCalledOnce()
+    act(() => windowButton('작은 창 닫기')[0].props.onClick())
+    expect(windowButton('작은 창 닫기')).toHaveLength(0)
+    expect(controls.camera.stop).not.toHaveBeenCalled()
+    click('측정하기')
+    click('기록')
+    act(() => windowButton('측정 화면으로 돌아가기')[0].props.onClick())
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
+    expect(controls.camera.stop).not.toHaveBeenCalled()
+  })
+  const startCameraSession = () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+  }
+  it('ends and saves the running measurement from the small window on another tab (X, 2026-10-20)', () => {
+    startCameraSession()
+    click('기록')
+    // The window shows the running measurement's posture, not just that the camera is on.
+    const small = renderer!.root.find(
+      (node) => node.type === 'aside' && node.props['aria-label'] === '카메라 작은 창',
+    )
+    expect(text(small)).toContain('자세를 확인할 수 없어요')
+    expect(small.props.className).toContain('status-unknown')
+    const end = renderer!.root.findAll(
+      (node) => node.type === 'button' && node.props['aria-label'] === '측정 종료',
+    )
+    expect(end).toHaveLength(1)
+    act(() => end[0].props.onClick())
+    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
+    expect(text(renderer!.root.findByType(SessionPage))).toContain('작은 창을 닫아 측정을 끝냈어요')
   })
   it('routes an explicit server opt-in and freezes its baseline, camera shape and rules', () => {
     const screen = startServer()
@@ -584,6 +613,26 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(starts.length).toBe(2) // camera view and side panel
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+  })
+  it('ends and saves the measurement when the camera in use is unplugged (plan 0053)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    mount()
+    login()
+    click('측정하기')
+    const start = renderer!.root.findAllByType('button').find((b) => text(b) === '측정 시작')!
+    act(() => start.props.onClick())
+    advance(3000)
+    // The USB camera is pulled out: its track ends and the camera reports the disconnection.
+    controls.camera.state = 'error'
+    controls.camera.error = CAMERA_ERRORS.disconnected
+    rerender()
+    expect(text(renderer!.root)).toContain('카메라 연결이 끊겨 측정을 끝냈어요')
+    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
+    // Nothing is left open, so 측정하기 is free to choose a camera and start a new measurement.
+    click('측정하기')
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
   })
   it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
     controls.camera.baseline = { ...BASELINE }

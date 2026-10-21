@@ -50,15 +50,20 @@ class ServiceContractTests(unittest.TestCase):
             with self.subTest(patch=patch), self.assertRaises((ValidationError, ValueError)):
                 validate_observation(dict(self.observation, **patch))
 
-    def test_api_has_no_esper_dependency_or_temporal_threshold_comparisons(self):
-        # Architecture regression: API only stores/queries CEP decisions.
-        pom = (ROOT / "backend/api/pom.xml").read_text(encoding="utf-8")
-        self.assertNotIn("esper", pom)
+    def test_temporal_threshold_comparisons_live_only_in_the_decision_rules(self):
+        # Architecture regression (ADR 0020): one API service, no Esper, and the policy
+        # comparisons only in engine/DecisionRules.java.
+        self.assertFalse((ROOT / "backend/cep").exists())
+        for pom in (ROOT / "backend").rglob("pom.xml"):
+            self.assertNotIn("esper", pom.read_text(encoding="utf-8"))
+        rules = ROOT / "backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java"
         for path in (ROOT / "backend/api/src/main/java").rglob("*.java"):
             source = path.read_text(encoding="utf-8")
             self.assertNotIn("com.espertech", source)
-            self.assertNotIn("holdMs() >=", source)
-            self.assertNotIn("recoveryMs() >=", source)
+            if path != rules:
+                for comparison in ("holdMs()", "recoveryMs()", "reminderMs()"):
+                    self.assertNotIn(">= policy." + comparison, source, path)
+        self.assertIn(">= policy.holdMs()", rules.read_text(encoding="utf-8"))
         self.assertNotIn("duration_ms", TestClient(app).get("/health").json())
 
 

@@ -1,6 +1,6 @@
 # BE·DB·DevOps 통합 브랜치와 FE 브랜치 합치기
 
-- 상태: in_progress (10/15 결정: FE 브랜치를 먼저 develop에 PR로 합치고, BE가 develop을 자기 브랜치로 받아 충돌을 푼다)
+- 상태: in_progress (10/15 합침: PR #48로 FE → develop, BE 브랜치가 develop을 받음 `b0140ca`. 10/16부터 FE는 그 결과에서 만든 `feature/frontend-features-and-integrationV2`에서 작업. 남은 것은 BE의 v2 전환)
 - 담당: FE(klaod-tech)가 계획·문서 충돌 정리, 실시간·REST 맞추기는 BE와 함께
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
@@ -88,9 +88,9 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 
 - [x] 1. BE에 Q1을 확인했다(10/15, `/v2/realtime`). Q2·Q3은 합의대로 BE가 진행한다([FE 제안서](../../design/fe-server-proposal.md) 1장 B-1·B-2).
 - [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). FE ADR 0022(끊기면 세션 종료)를 0024로 옮겨 BE ADR 0022와 겹치지 않게 했다(10/15). BE는 번호를 바꾸지 않아도 된다.
-- [ ] 3. FE 브랜치 → develop PR: 사용자가 바뀐 화면을 앱에서 확인한 뒤 올린다. PR 설명에 돌린 검사와 develop에서도 원래 실패하는 검사(`check-browser`, 계획 0030)를 적는다.
-- [ ] 4. PR이 합쳐지면 BE에 「develop을 받아 달라」고 알리고, 위 「글자 충돌」 표(9개)와 D1~D9를 푸는 기준으로 넘긴다. BE ADR 0022의 「실시간 v1 유지」에는 「10/15 임시 상태, v2로 간다」를 덧붙이도록 요청한다.
-- [ ] 5. BE가 develop을 받은 뒤 그 브랜치에서 `check-repo`(링크 D8)·`test`·`check-frontend`가 통과하는지 함께 확인한다.
+- [x] 3. FE 브랜치 → develop PR #48(10/15 merge).
+- [x] 4. BE 브랜치가 develop을 받아 충돌을 풀었다(`b0140ca`, 10/15). 팀장과 함께 쓸모없는 문서를 지웠다.
+- [x] 5. 합친 뒤 `check-repo` 통과(10/16 FE가 끊긴 링크 5개를 고침: `docs/index.md` 4개, BE 계획 0027 1개(D8)). 10/19 V2 브랜치에서 `check-repo`·`check-frontend`(시험 347개, 타입 검사, 빌드) 통과.
 - [ ] 6. BE 작업이 끝나 BE 브랜치가 develop에 들어오면 우리 브랜치도 develop을 받는다(JDK 17·Gradle, 연동 명세·계약은 그때 서버 코드와 한 번 더 대조).
 - [ ] 7. 끝나면 이 계획을 지우고 [지운 문서 기록](../../removed-docs.md)에 남긴다.
 
@@ -98,7 +98,10 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 
 - 2026-10-14: 미리 합쳐 보기로 충돌 범위를 확인했다(위 표). 계정 서버 연결(F12)은 BE 담당으로 정정했다.
 - 2026-10-15: 번호 겹침(4·5)은 물어보지 않고 FE가 정리하기로 했다. BE에 확인할 것은 합의와 BE 코드가 다른 Q1~Q3만 남겼다.
+- 2026-10-19: BE 브랜치가 `/v2/realtime`·nginx `/api/v2/realtime`·`posture.alerts.v1`을 넣었다(`a0d99a3`, 10/17~18). Q1·Q2의 `limit_reached`는 끝났다. 우리 브랜치에 미리 합쳐 보면(`git merge-tree`) 글자 충돌은 `docs/index.md` 하나다. 앱 코드는 아직 v1이다(D1·D6, FE 제안서 7.1). 6단계(BE 브랜치 받기)는 아직 하지 않았다.
 - 2026-10-15: BE 답 — 실시간은 `/v2/realtime`. 지금 BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
+- 2026-10-16: jisung 브랜치(`feature/repo-jisung-local-forecast`, 10/15 BE 브랜치를 받음 `69ffc44`)와 미리 합쳐 봤다. 글자 충돌은 같은 낡은 문구를 둘이 따로 고친 3곳(`contracts/README.md`, `docs/index.md`, BE 계획 0027 링크)뿐이다. 번호는 jisung의 ADR 0020~0038·완료 계획 0023~0051이 기존 번호와 겹친다(jisung 브랜치 안에서만). 큰 변경이 아니라서 jisung 브랜치를 합칠 때 조율한다.
+- 2026-10-16: 합친 결과를 확인했다. 지워진 파일은 develop 쪽 예전 백엔드(Maven·CEP 모듈)와 FE가 지운 문서 6개·ADR 번호 이동(0022 → 0024)뿐이다. 탈퇴 철회(A8)가 없어진 것을 FE 문서에 반영했다(연동 명세 0.7). FE 문서에서 Java 21·Maven 문구를 지웠다(빌드는 BE 설정을 따른다).
 - 2026-10-15: 합치는 방향을 바꿨다. BE 브랜치 문서에 예전 FE 문서와 v1 임시 내용이 섞여 팀원이 헷갈리므로, FE 최신 문서를 develop에 먼저 넣는다. 번호 겹침(ADR 0022, 계획 0028)과 `requirements-front.txt` 충돌은 FE가 미리 없앴다. 남은 글자 충돌 9개는 BE 코드(Gradle·단일 API·`accounts.v2.md`·ADR 0020·0023)를 설명하는 문장이라 그 코드가 develop에 없는 지금은 미리 풀 수 없다(미리 넣으면 develop 문서가 없는 파일을 가리켜 `check-repo`가 실패한다).
 - 2026-10-15: BE 브랜치 문서와 FE 설계의 차이 D1~D9를 정리했다. 모두 v1 임시 상태에서 온 것이라 질문하지 않고 합칠 때 정리한다.
 - 2026-10-15: 합치는 시점 — BE가 그 브랜치에서 작업을 끝낸 뒤 합친다. 그때까지 FE는 우리 브랜치에 계속 push하고 결정·작업을 문서에 적는다. 3단계 직전에 `git fetch`와 미리 합쳐 보기를 다시 해 위 충돌 표를 새로 만든다.
@@ -106,5 +109,5 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 ## 검증 결과와 남은 한계
 
 - 실행: `git merge-tree --write-tree HEAD origin/feat/backend-data-platform-architecture`(충돌 목록만, 작업 폴더 변경 없음), BE 브랜치 컨트롤러의 경로를 `git grep`으로 확인.
-- 아직 안 함: 실제 merge, 합친 뒤 검사 전부.
+- 10/15 PR #48로 합쳤다(3·4단계). 남은 것은 6단계(BE 브랜치가 develop에 들어온 뒤 우리 브랜치가 develop 받기)와 그 뒤 검사다.
 - 한계: BE 브랜치는 계속 바뀌고 있다. 3단계 직전에 `git fetch` 후 미리 합쳐 보기를 다시 한다.
