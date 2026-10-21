@@ -15,11 +15,11 @@ import java.util.Map;
  * 실시간 계약 v1 {@code posture.inference.v1}을 구독한다.
  *
  * <p>(D-21) 처음에는 기존 판정 엔진에 넘겼다. (D-22) 이제 세션별 v1 판정기({@link V1JudgeRegistry})로 판정하고
- * 결과를 {@code posture.episodes.v1}로 발행한다. 옛 {@code posture.inference} 경로({@code cep.PostureInferenceConsumer})와는 따로다.
+ * 결과를 {@code posture.episodes.v1}로 발행한다. (D-38) 옛 {@code posture.inference} 경로({@code cep} 패키지)는 지웠다.
  *
  * <p>(D-53) 판정은 상태머신이고 CEP 엔진을 쓰지 않아 패키지·그룹 이름을 {@code judge}로 바꿨다(옛 그룹 {@code api-server-cep-v1}).
  *
- * <p>컨슈머 그룹은 옛 경로와 따로 둔다({@code judge-v1}). (D-36) 처리할 수 없는 메시지(JSON 오류·봉투 오류·모르는 kind·
+ * <p>컨슈머 그룹은 {@code judge-v1}. (D-36) 처리할 수 없는 메시지(JSON 오류·봉투 오류·모르는 kind·
  * 관측 형식 오류·처리 중 예외)는 {@code posture.dlq}로 넘기고 다음 메시지로 간다. 이미 반영한 sequence의 재전송은
  * 정상 동작이므로 DLQ로 보내지 않는다(판정기가 건너뛰고 수만 센다).
  */

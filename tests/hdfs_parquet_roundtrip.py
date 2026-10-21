@@ -1,17 +1,14 @@
 """
-HDFS/Spark 기능 검증용 테스트 스크립트.
+Spark ↔ HDFS Parquet 왕복 점검 (통합 테스트 5단계, spark 컨테이너 안에서 spark-submit으로 실행).
 
-목적: 계획서의 "빅데이터 플랫폼 구성" 중 posture-sink(Spark Structured
-Streaming)가 궁극적으로 하게 될 일 — 정규화 특징값을 HDFS에 Parquet
-형태로, 이벤트 시각 기준으로 파티셔닝하여 적재 — 을 아주 단순화한
-배치 버전으로 재현해서, "컨테이너가 떠 있다"가 아니라 "Spark가 실제로
-HDFS에 쓰고 다시 읽을 수 있다"를 확인한다.
+pytest가 모으지 않는다(파일 이름이 test_로 시작하지 않음, pyspark는 spark 컨테이너에만 있음).
+tools/platform/integration_test.sh가 spark 컨테이너에 복사해 실행한다:
+    docker cp tests/hdfs_parquet_roundtrip.py spark:/opt/spark/it_roundtrip.py
+    docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_roundtrip.py
 
-posture-sink 자체(Structured Streaming, 5~10초 마이크로배치)는 아직
-구현 대상이 아니다 — 이 스크립트는 그 전 단계인 "Spark ↔ HDFS 배관이
-뚫려 있는가"만 검증하는 1회성 배치 테스트다.
-
-실행 방법은 이 파일과 같은 디렉토리의 README 참고.
+목적: Spark가 HDFS에 Parquet을 이벤트 날짜로 나눠 쓰고 다시 읽을 수 있는지 — "컨테이너가 떠 있다"가 아니라
+"Spark ↔ HDFS 배관이 뚫려 있다"를 확인한다. 배치 잡 J1~J3(bigdata/, D-33·D-05·D-49)의 전제다.
+(D-64, 10/21) bigdata/tools/에서 옮겼다. 옛 posture-sink(bigdata/legacy/)는 D-38에서 지웠다.
 """
 import datetime
 
@@ -33,7 +30,7 @@ def main() -> None:
     now = datetime.datetime.utcnow()
     event_date = now.strftime("%Y-%m-%d")
 
-    # posture.summary 이벤트를 흉내낸 예시 레코드 3건
+    # 예시 레코드 3건(세션·사용자·시각·점수·상태)
     rows = [
         ("session-hdfs-test", "user-1", now.isoformat(), 0.12, "NORMAL"),
         ("session-hdfs-test", "user-1", now.isoformat(), 0.35, "WARNING"),
