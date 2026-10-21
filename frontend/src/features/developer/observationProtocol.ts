@@ -1,17 +1,19 @@
 import type { ComparisonAction } from './comparisonDemo'
 
 export const OBSERVATION_PROTOCOL = {
-  id: 'front-observation-2-5-5x3-v1',
+  id: 'front-observation-2-5-5x3-v2',
   rounds: 3,
   actions: ['head', 'bow', 'body', 'shoulders'],
   phases: [{ id: 'move', durationMs: 2000 }, { id: 'hold', durationMs: 5000 }, { id: 'return', durationMs: 5000 }],
   gapMs: 500,
 } as const
 export type GuidedPhase = typeof OBSERVATION_PROTOCOL.phases[number]['id']
+export type GuideMode = 'auto' | 'manual'
 export type GuidePauseReason = 'user' | 'hidden' | 'tracking_lost' | 'clock_gap'
 export type GuidedStep = { round: number; trial: number; action: Exclude<ComparisonAction, 'neutral'>; phase: GuidedPhase; durationMs: number }
 export type GuideSnapshot = {
-  status: 'idle' | 'running' | 'paused' | 'completed' | 'cancelled'
+  status: 'idle' | 'running' | 'waiting' | 'paused' | 'completed' | 'cancelled'
+  mode: GuideMode
   runId: string; step: GuidedStep | null; stepIndex: number; attempt: number
   elapsedMs: number; remainingMs: number; pauseReason: GuidePauseReason | null
 }
@@ -31,30 +33,43 @@ export class ObservationProtocol {
   private last = 0
   private frozen = 0
   private reason: GuidePauseReason | null = null
+  private mode: GuideMode = 'auto'
 
   snapshot(now: number): GuideSnapshot {
     const step = this.status === 'idle' ? null : OBSERVATION_STEPS[this.index]
     const elapsedMs = Math.max(0, Math.min(step?.durationMs ?? 0, this.status === 'running' ? now - this.started : this.frozen))
-    return { status: this.status, runId: this.runId, step, stepIndex: this.index, attempt: this.attempt, elapsedMs, remainingMs: (step?.durationMs ?? 0) - elapsedMs, pauseReason: this.reason }
+    return { status: this.status, mode: this.mode, runId: this.runId, step, stepIndex: this.index, attempt: this.attempt, elapsedMs, remainingMs: (step?.durationMs ?? 0) - elapsedMs, pauseReason: this.reason }
   }
-  start(now: number, runId: string) {
-    if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused') return false
+  start(now: number, runId: string, mode: GuideMode = 'auto') {
+    if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused' || this.status === 'waiting') return false
+    this.mode = mode
     this.status = 'running'; this.runId = runId; this.index = 0; this.attempt = 1
     this.started = this.last = now; this.frozen = 0; this.reason = null
     return true
   }
-  advance(now: number): 'none' | 'phase' | 'completed' | 'paused' {
+  advance(now: number): 'none' | 'phase' | 'completed' | 'paused' | 'waiting' {
     if (this.status !== 'running') return 'none'
     if (!Number.isFinite(now) || now < this.last || now - this.last > OBSERVATION_PROTOCOL.gapMs) {
       this.pause('clock_gap'); return 'paused'
     }
     this.last = now
     if (now - this.started < OBSERVATION_STEPS[this.index].durationMs) return 'none'
+    if (this.mode === 'manual') {
+      this.frozen = OBSERVATION_STEPS[this.index].durationMs; this.status = 'waiting'; return 'waiting'
+    }
+    return this.transition(now)
+  }
+  next(now: number): 'none' | 'phase' | 'completed' {
+    if (this.status !== 'waiting' || !Number.isFinite(now) || now < this.last) return 'none'
+    this.last = now
+    return this.transition(now)
+  }
+  private transition(now: number): 'phase' | 'completed' {
     if (this.index === OBSERVATION_STEPS.length - 1) {
       this.frozen = OBSERVATION_STEPS[this.index].durationMs; this.status = 'completed'; return 'completed'
     }
     // Each instruction receives its full visible time, even after a delayed callback.
-    this.index++; this.attempt = 1; this.started = now; this.frozen = 0
+    this.status = 'running'; this.index++; this.attempt = 1; this.started = this.last = now; this.frozen = 0
     return 'phase'
   }
   pause(reason: GuidePauseReason) {
@@ -68,7 +83,7 @@ export class ObservationProtocol {
     return true
   }
   cancel(now: number) {
-    if (this.status !== 'running' && this.status !== 'paused') return false
+    if (this.status !== 'running' && this.status !== 'paused' && this.status !== 'waiting') return false
     this.frozen = this.snapshot(now).elapsedMs; this.status = 'cancelled'
     return true
   }

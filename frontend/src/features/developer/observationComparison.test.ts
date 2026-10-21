@@ -9,6 +9,14 @@ const registered = () => {
   return engine
 }
 describe('observation comparison: explicitly synthetic geometry only', () => {
+  it('supports eight continuous reference seconds without changing the default two seconds', () => {
+    const engine = new ObservationComparison(8000); engine.beginReference()
+    for (let t = 0; t < 8000; t += 100) engine.accept(comparisonDemo(t, 'neutral'))
+    expect(engine.reference).toBeNull()
+    engine.accept(comparisonDemo(8000, 'neutral'))
+    expect(engine.reference).not.toBeNull(); expect(engine.registering).toBe(false)
+    expect(registered().reference).not.toBeNull()
+  })
   it('uses fixed reference shoulder width: common image enlargement remains visible while common world translation cancels', () => {
     const v = comparisonValues(comparisonGeometry(comparisonDemo(1, 'body')), reference())!
     expect(v.shoulderScale).toBeCloseTo(20)

@@ -11,7 +11,7 @@ describe('observation CSV: explicitly synthetic scalars only', () => {
   it('exports captured actions only, with full numeric precision, units, window and provenance', () => {
     const csv = comparisonSummaryCsv({ head: { values, elapsedMs: 4100, windowStartMs: 6200, windowEndMs: 7200, sampleCount: 11, segment: 2 } }, context)
     expect(csv.startsWith('\uFEFFschema_version,')).toBe(true)
-    expect(csv).toContain('"observation-comparison-csv-v2"')
+    expect(csv).toContain('"observation-comparison-csv-v3"')
     expect(csv.trim().split('\r\n')).toHaveLength(2)
     expect(csv).toContain('head_gap_delta_pct_ref_image_shoulder_width')
     expect(csv).toContain('relative_z_estimated_m')

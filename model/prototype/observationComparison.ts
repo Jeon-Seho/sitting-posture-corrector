@@ -52,6 +52,9 @@ export function medianComparison(samples: ComparisonSample[]): ComparisonValues 
 
 /** Bounded transient observation state. Never serialized or shared with the service engine. */
 export class ObservationComparison {
+  constructor(private readonly referenceMs: number = COMPARISON_POLICY.referenceMs) {
+    if (!Number.isFinite(referenceMs) || referenceMs < COMPARISON_POLICY.referenceMs || referenceMs > 8000) throw new Error('Invalid reference duration')
+  }
   reference: ComparisonGeometry | null = null
   current: ComparisonGeometry | null = null
   samples: ComparisonSample[] = []
@@ -76,10 +79,10 @@ export class ObservationComparison {
     if (this.registering) {
       if (!geometry.image || this.batch.at(-1)?.geometry.context !== undefined && this.batch.at(-1)!.geometry.context !== geometry.context) { this.batch = []; this.progress = 0 }
       if (geometry.image) {
-        this.batch.push({ time: t, geometry }); this.batch = this.batch.slice(-100)
+        this.batch.push({ time: t, geometry }); this.batch = this.batch.slice(-Math.ceil(this.referenceMs / 1000 * 60 + 1))
         const duration = t - this.batch[0].time
-        this.progress = Math.min(1, duration / COMPARISON_POLICY.referenceMs)
-        if (duration >= COMPARISON_POLICY.referenceMs && this.batch.length >= COMPARISON_POLICY.minimumSamples) {
+        this.progress = Math.min(1, duration / this.referenceMs)
+        if (duration >= this.referenceMs && this.batch.length >= COMPARISON_POLICY.minimumSamples * this.referenceMs / COMPARISON_POLICY.referenceMs) {
           const rows = this.batch.map(b => b.geometry), images = rows.map(r => r.image!)
           const image = Object.fromEntries(Object.keys(images[0]).map(k => [k, median(images.map(r => r[k as keyof ImageGeometry]))])) as ImageGeometry
           const worlds = rows.map(r => r.world)

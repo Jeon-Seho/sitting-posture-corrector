@@ -20,6 +20,8 @@
 [실제 카메라 성능](ml/camera-performance.md) · [촬영과 ML 공백 감사](ml/live-keypoint-audit.md): GPU·모델 비교와 실제 움직임 관찰을 구분한다.
 
 현재 우선순위는 로컬 측정·개인 기준 특징이다. 서버/Kafka 확장은 후순위다.
+[관측 비교 자동·수동 진행](decisions/0040-observation-guide-modes.md): 카메라 연결 후 2초 안내·8초 기준 등록, 측정 5초만 수집하는 CSV v3.
+[관측 키포인트 리플레이](decisions/0041-observation-keypoint-replay.md): 영상 없는 재생·수동 JSON 저장/불러오기·39D 입력 변환 점검. 자동 학습은 하지 않는다.
 [개발자 실험실 `/dev`](design/developer-lab.md): 큰 카메라·구도 가이드·자동 등록, 모델/룰 비교와 합성 데모.
 서비스 승격과 의존성은 [개발 모듈 안내](../frontend/src/features/developer/README.md)에서 분리해 관리한다.
 [개발 실행 경계](decisions/0024-local-development-server-boundary.md): 로컬에서 먼저 검증하고 동일 의미의 입력·결과로 서버에 연결한다. 새 전송 계약과 런타임은 후속 구현이다.

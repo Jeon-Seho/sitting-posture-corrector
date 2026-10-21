@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { ObservationProtocol, OBSERVATION_STEPS } from './observationProtocol'
 
 describe('requested observation guidance clock, independent of measured posture', () => {
+  it('waits after every manual phase, rejects early/repeated next and retains full next-phase duration', () => {
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-manual', 'manual')
+    let now = 0
+    for (const [index, step] of OBSERVATION_STEPS.entries()) {
+      expect(protocol.next(now)).toBe('none')
+      for (let elapsed = 100; elapsed < step.durationMs; elapsed += 100) {
+        now += 100; expect(protocol.advance(now)).toBe('none'); expect(protocol.next(now)).toBe('none')
+      }
+      now += 100; expect(protocol.advance(now)).toBe('waiting')
+      expect(protocol.snapshot(now)).toMatchObject({ status: 'waiting', mode: 'manual', stepIndex: index, remainingMs: 0 })
+      now += 30000
+      expect(protocol.advance(now)).toBe('none')
+      expect(protocol.start(now, 'replace')).toBe(false)
+      expect(protocol.snapshot(now).stepIndex).toBe(index)
+      expect(protocol.next(now)).toBe(index === 35 ? 'completed' : 'phase')
+      expect(protocol.next(now)).toBe('none')
+      if (index < 35) expect(protocol.snapshot(now).remainingMs).toBe(OBSERVATION_STEPS[index + 1].durationMs)
+    }
+    expect(protocol.snapshot(now).status).toBe('completed')
+  })
   it('guides all four actions for three rounds in 36 full phases and exactly 144 nominal seconds', () => {
     const protocol = new ObservationProtocol()
     protocol.start(0, 'synthetic-clock')

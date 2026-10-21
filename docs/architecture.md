@@ -197,3 +197,14 @@ HTTP 응답 완료 지연과 전체 단계 처리량을 구분하고 실패 요�
 Face의 상대 깊이를 Pose world좌표에 섞지 않는다. 기존 알림·정상 수집·LSTM39D는Pose 원본이며
 Face 좌표/영상/비교 표를 서비스 API·진단 export로 보내지 않는다.
 [얼굴 추적 결정](decisions/0037-developer-face-landmarker.md)과 [자료 적용 경계](ml/face-and-public-data.md)를 따른다.
+
+### 관측 비교의 기준 등록과 수집 구간
+
+`/dev?view=observation`은 카메라 연결 후 안내 2초·기준 8초를 자동 진행한다. 기준 엔진의
+시간 옵션은 이 소비자만 8초로 지정하며 다른 경로의 기본 2초를 유지한다. 자동/수동 안내와
+측정 구간만 수집하는 CSV v3는 [ADR 0040](decisions/0040-observation-guide-modes.md)을 따른다.
+
+사용자 요청으로 별도 [키포인트 리플레이](decisions/0041-observation-keypoint-replay.md)를 제공한다.
+관측 화면의 유한 메모리와 명시적인 JSON 다운로드/불러오기만 사용한다. 모든 안내 단계의 Pose
+13점 image/world와 시각·품질 결측·단계 문맥을 보존하며 영상·자동 저장/업로드는 없다.
+리플레이는 실제 카메라·관측 엔진·CSV·서비스·학습 파이프라인을 호출하지 않는다.
