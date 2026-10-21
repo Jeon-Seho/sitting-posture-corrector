@@ -6,6 +6,11 @@
 
 [jisung·백엔드 로컬 병합 기록](plans/completed/0031-jisung-backend-integration.md): 연구 기능 보존, 프론트·Python 검증 결과와 JDK/MySQL/실시간 연동의 남은 한계.
 
+[정면 2D·상대 z 관측 비교](ml/jisung/2026-10-16-mac-observation-comparison.md): `/dev?view=observation`에서
+네 동작을 이동 2초·유지 5초·기준 복귀 5초씩 3바퀴 안내한다. 영상 위 모서리 안내와 단계명·남은 초가 든 두꺼운 게이지를 보며 수행한다. 고정 기준 대비 변화·추이·수동 비교표를
+확인하고 바퀴·단계·재시도를 구분한 파생 시계열을 클릭하여 CSV로 내려받는다.
+자동 판정·자동 저장·학습은 하지 않는다.
+
 [최신 ML 계획](ml/current-plan.md) · [HTML로 보기](ml/current-plan.html): 정상 자료로 등록 검증·중심 고정, 자동 6% 기본 선택과 LSTM 보조 비교.
 [큰 몸 변화 보완](decisions/0034-fixed-image-posture-anchor.md): 등록 영상의 위치·어깨폭에 고정한 별도 점수로 정규화가 놓치는 큰 이동·축소를 확인한다. 작은 움직임 허용과 무음 기본값을 유지하며 실제 기대기 정확도는 미검증이다.
 [현재 허용폭·자동 정상 선별](decisions/0035-posture-and-clean-normal-selection.md): 영상 v2 이동 18%·축소 12%, 자동 후보 종합 0.5배·1초 유지와 이전 자료 재검토 차단.

@@ -9,9 +9,16 @@ import { useDeveloperSession } from './useDeveloperSession'
 import { useNormalCollection } from './useNormalCollection'
 import { useAutoNormalCollection } from './useAutoNormalCollection'
 import { useFaceTracking } from './face/useFaceTracking'
+import ObservationLab from './ObservationLab'
 
 /** A separate research surface: it never creates a user profile or service session. */
 export default function DeveloperRoute({ camera }: { camera: CameraController }) {
+  const search = typeof window === 'undefined' ? '' : window.location?.search ?? ''
+  const params = new URLSearchParams(search), demo = params.get('demo') === '1'
+  return params.get('view') === 'observation' ? <ObservationLab key={demo ? 'demo' : 'camera'} camera={camera} demo={demo} /> : <ForecastDeveloperRoute camera={camera} />
+}
+
+function ForecastDeveloperRoute({ camera }: { camera: CameraController }) {
   const [profile, setProfile] = useState<NormalPostureProfile | null>(null)
   const [options, setOptions] = useState<CameraRuntimeOptions>({ variant: 'full', delegate: 'auto', pacing: 'responsive' })
   const [benchmarkBusy, setBenchmarkBusy] = useState(false)

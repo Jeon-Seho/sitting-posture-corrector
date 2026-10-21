@@ -21,6 +21,7 @@ Pose 상대 z는 어깨 위 촬영에서 유효성을 확인할 후보로 남긴
 
 | 날짜·환경 | 기록 |
 | --- | --- |
+| 2026-10-16 · mac | [정면 2D·상대 z 관측 비교 화면](2026-10-16-mac-observation-comparison.md) |
 | 2026-10-15 · desktop | [ML 재설계·거북목 제안·다른 모델 브랜치·Pose z와 관측 한계](2026-10-15-desktop-ml-scope-and-depth-review.md) |
 | 2026-10-12 · desktop | [개인 기준 특징과 서버 연결 방향](2026-10-12-desktop-posture-feature-decisions.md) |
 | 2026-10-12 · desktop | [코·어깨 3점과 얼굴·어깨 13점 비교 HTML](2026-10-12-desktop-pose-feature-comparison.html) |

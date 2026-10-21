@@ -1,0 +1,196 @@
+.dev-lab.oc-page {
+  --oc-muted: #a1a1aa;
+  --oc-surface: #171719;
+  --oc-lime: #d6ff48;
+  --oc-pink: #ff6489;
+  --oc-cyan: #64d2ff;
+  --oc-purple: #bf9aff;
+  min-height: 100svh;
+  background: #000;
+  color: #f5f5f7;
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+}
+.dev-lab .oc-header { display: flex; align-items: center; gap: 20px; height: 48px; padding: 0 24px; background: #0b0b0c; font-size: 13px; color: var(--oc-muted); }
+.dev-lab .oc-header a { display: flex; align-items: center; gap: 12px; color: #f5f5f7; text-decoration: none; font-size: 18px; }
+.dev-lab .oc-header a svg { color: #929299; }
+.dev-lab .oc-header > span:last-child { margin-left: auto; font-size: 11px; letter-spacing: .5px; }
+.dev-lab .oc-header > .oc-demo-label { color: #ffd385; }
+.dev-lab.oc-page main { max-width: 1680px; margin: auto; padding: 16px 24px 24px; }
+.dev-lab.oc-page button { border: 0; border-radius: 14px; background: #252527; color: #f5f5f7; min-height: 40px; padding: 10px 16px; font: inherit; font-size: 12px; font-weight: 550; cursor: pointer; }
+.dev-lab.oc-page button:hover:not(:disabled) { background: #38383b; }
+.dev-lab.oc-page button:disabled { opacity: .4; cursor: not-allowed; }
+.dev-lab.oc-page button:focus-visible, .dev-lab.oc-page a:focus-visible, .dev-lab.oc-page summary:focus-visible { outline: 3px solid var(--oc-cyan); outline-offset: 4px; }
+.dev-lab.oc-page .oc-primary { background: var(--oc-lime); color: #182000; font-weight: 650; }
+.dev-lab.oc-page .oc-primary:hover:not(:disabled) { background: #e2ff85; }
+.dev-lab.oc-page .oc-csv-button { background: #202b34; color: #9be1ff; }
+.dev-lab .oc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
+.dev-lab .oc-toolbar-title { display: flex; gap: 16px; align-items: center; flex-shrink: 0; }
+.dev-lab .oc-toolbar-title h1 { font-size: 19px; letter-spacing: -.5px; font-weight: 650; }
+.dev-lab .oc-toolbar-title > span { font-size: 11px; color: var(--oc-muted); }
+.dev-lab .oc-toolbar-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.dev-lab .oc-status { min-height: 20px; font-size: 11px; color: #afafb7; line-height: 1.65; margin: 9px 0 12px; }
+.dev-lab .oc-workspace.oc-measurement { display: block; margin: 0 0 18px; scroll-margin-top: 14px; }
+.dev-lab .oc-measurement:focus-visible { outline: 2px solid var(--oc-cyan); outline-offset: 6px; border-radius: 24px; }
+.dev-lab .oc-guide { margin: 0; padding: 0; }
+.dev-lab .oc-stage { position: relative; height: clamp(400px, calc(100svh - 282px), 820px); overflow: hidden; border-radius: 28px; background: #111113; isolation: isolate; }
+.dev-lab.oc-page[data-guiding=true] .oc-toolbar, .dev-lab.oc-page[data-guiding=true] .oc-status { display: none; }
+.dev-lab.oc-page[data-guiding=true] .oc-stage { height: clamp(400px, calc(100svh - 204px), 900px); }
+.dev-lab .oc-camera { position: relative; aspect-ratio: 4 / 3; background: #101012; }
+.dev-lab .oc-stage > .oc-camera { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
+.dev-lab .oc-camera video, .dev-lab .oc-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+.dev-lab .oc-overlay { pointer-events: none; }
+.dev-lab .oc-overlay line { stroke: #64d2ff; stroke-width: 1.6; opacity: .7; }
+.dev-lab .oc-overlay circle { fill: #d6ff48; stroke: #121212; stroke-width: 1.5; }
+.dev-lab .oc-camera-badge { position: absolute; top: 24px; right: 24px; display: inline-flex; align-items: center; gap: 8px; max-width: 230px; padding: 10px 14px; border-radius: 16px; background: #171719e8; color: #b6b6be; font-size: 13px; font-weight: 600; }
+.dev-lab .oc-camera-badge[data-quality=tracked] { color: #84e4ff; }
+.dev-lab .oc-camera-badge[data-quality=waiting] svg { color: #ffcc80; }
+.dev-lab .oc-camera-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 10px; padding: 24px; padding-bottom: 150px; color: #81818c; }
+.dev-lab .oc-camera-empty > svg { color: #51515b; margin-bottom: 6px; }
+.dev-lab .oc-camera-empty strong { font-size: 16px; font-weight: 500; }
+.dev-lab .oc-camera-empty p { font-size: 12px; color: #858590; }
+.dev-lab .oc-guide-clock { position: absolute; top: 24px; left: 24px; width: 260px; padding: 28px; border-radius: 30px; background: #202022e8; backdrop-filter: blur(18px); }
+.dev-lab .oc-guide-clock > span { display: block; color: #c8c8ce; font-size: 18px; font-weight: 500; }
+.dev-lab .oc-guide-clock > .oc-clock-label { font-size: 20px; font-weight: 600; }
+.dev-lab .oc-guide-clock > div { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 12px; }
+.dev-lab .oc-guide-clock strong { font-family: Outfit, 'Pretendard Variable', sans-serif; font-size: 120px; line-height: 1; letter-spacing: -3px; font-weight: 600; color: var(--oc-lime); font-variant-numeric: tabular-nums; }
+.dev-lab .oc-guide-clock > div > span { font-size: 20px; font-weight: 600; }
+.dev-lab .oc-guide-copy { position: absolute; left: 28px; bottom: 24px; max-width: min(400px, calc(50% - 240px)); padding: 16px 20px; border-radius: 20px; background: #171719d9; backdrop-filter: blur(14px); }
+.dev-lab .oc-guide-stage { color: var(--oc-lime); font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+.dev-lab .oc-guide-copy h3 { color: #fff; font-size: clamp(24px, 2.5vw, 38px); line-height: 1.24; font-weight: 650; letter-spacing: -1px; margin: 0 0 8px; text-wrap: balance; }
+.dev-lab .oc-guide-copy > p:last-child { font-size: 15px; line-height: 1.6; color: #d1d1d8; }
+.dev-lab .oc-guide-next { position: absolute; bottom: 24px; right: 24px; width: 226px; padding: 18px 20px; border-radius: 24px; background: #361a24ee; backdrop-filter: blur(18px); color: var(--oc-pink); }
+.dev-lab .oc-guide-next > span { font-size: 13px; display: block; margin-bottom: 6px; }
+.dev-lab .oc-guide-next strong { display: block; color: #ffb1c4; font-size: 16px; font-weight: 550; line-height: 1.4; }
+.dev-lab .oc-guide-next small { display: block; font-size: 32px; font-weight: 650; margin-top: 5px; line-height: 1.2; }
+.dev-lab .oc-guide-controls { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px; background: #171719ed; border-radius: 26px; backdrop-filter: blur(18px); white-space: nowrap; }
+.dev-lab.oc-page .oc-guide-controls button { border-radius: 21px; min-height: 56px; padding: 12px 24px; font-size: 16px; }
+.dev-lab.oc-page .oc-guide-controls button:nth-child(2) { background: #40212b; color: #ff9eb7; }
+.dev-lab .oc-guide.is-paused .oc-guide-controls { left: 24px; transform: none; }
+.dev-lab .oc-guide.is-paused .oc-guide-copy { bottom: 135px; max-width: min(400px, calc(50% - 240px)); padding: 12px 18px; }
+.dev-lab .oc-guide.is-paused .oc-guide-copy h3 { font-size: 24px; }
+.dev-lab .oc-guide.is-paused .oc-guide-copy > p:last-child { font-size: 13px; }
+.dev-lab .oc-guide[data-state=completed] .oc-guide-copy, .dev-lab .oc-guide[data-state=cancelled] .oc-guide-copy { bottom: 110px; max-width: min(500px, 65%); }
+.dev-lab .oc-guide.is-paused .oc-guide-clock strong, .dev-lab .oc-guide.is-paused .oc-guide-stage { color: #ffd480; }
+.dev-lab .oc-guide[data-state=idle] .oc-guide-copy h3 { font-size: 27px; }
+.dev-lab .oc-guide[data-state=idle] .oc-guide-copy { bottom: 113px; max-width: min(600px, 64%); }
+.dev-lab .oc-guide-phases { display: flex; gap: 8px; list-style: none; padding: 0; margin: 12px 0 10px; }
+.dev-lab .oc-guide-phases li { --oc-phase: var(--oc-purple); position: relative; display: flex; align-items: center; justify-content: center; flex-basis: 0; min-width: 100px; height: 56px; border-radius: 18px; background: #242426; overflow: hidden; color: #c2c2ca; font-size: 16px; }
+.dev-lab .oc-guide-phases li[data-phase=hold] { --oc-phase: var(--oc-lime); }
+.dev-lab .oc-guide-phases li[data-phase=return] { --oc-phase: var(--oc-pink); }
+.dev-lab .oc-guide-phases li[aria-current=step] { background: var(--oc-phase); color: #161618; }
+.dev-lab .oc-phase-fill { position: absolute; inset: 0 auto 0 0; background: #bf9aff44; pointer-events: none; }
+.dev-lab .oc-guide-phases li[data-phase=hold] .oc-phase-fill { background: #d6ff4844; }
+.dev-lab .oc-guide-phases li[data-phase=return] .oc-phase-fill { background: #ff648944; }
+.dev-lab .oc-guide-phases li[aria-current=step] .oc-phase-fill { background: #00000018; }
+.dev-lab .oc-phase-label { position: relative; display: inline-flex; align-items: baseline; justify-content: center; gap: 7px; padding: 0 12px; font-weight: 600; }
+.dev-lab .oc-phase-label strong { font-family: Outfit, 'Pretendard Variable', sans-serif; font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; }
+.dev-lab .oc-phase-label small { font-size: 12px; font-weight: 500; }
+.dev-lab .oc-guide.is-paused .oc-guide-phases li[aria-current=step] { background: #ffd480; }
+.dev-lab .oc-guide-footer { display: flex; justify-content: space-between; gap: 20px; color: #9696a1; font-size: 11px; line-height: 1.6; }
+.dev-lab .oc-guide-footer > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.dev-lab .oc-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.dev-lab .oc-demo-help, .dev-lab .oc-analysis, .dev-lab .oc-manual, .dev-lab .oc-manual-table { margin: 0 0 10px; border-radius: 18px; background: var(--oc-surface); overflow: hidden; }
+.dev-lab :is(.oc-demo-help, .oc-analysis, .oc-manual, .oc-manual-table) > summary { cursor: pointer; min-height: 48px; padding: 14px 20px; color: #c0c0ca; font-size: 12px; }
+.dev-lab .oc-demo-help p { font-size: 12px; line-height: 1.8; color: #b0b0bc; margin: 0 20px 12px; }
+.dev-lab .oc-demo-help a { display: inline-block; margin: 0 20px 20px; color: #9bdbff; font-size: 12px; }
+.dev-lab .oc-analysis-grid { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: 24px; padding: 20px; }
+.dev-lab .oc-depth-note { padding: 16px; border-radius: 18px; background: #251a28; align-self: start; }
+.dev-lab .oc-depth-note > span { color: #e3b3fa; font-size: 12px; }
+.dev-lab .oc-depth-note p { margin: 12px 0; font-size: 15px; }
+.dev-lab .oc-depth-note > strong { color: #ffb6ca; font-size: 25px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.dev-lab .oc-depth-note small { display: block; margin-top: 12px; color: #b7aeba; font-size: 12px; line-height: 1.8; }
+.dev-lab .oc-metrics-heading h2, .dev-lab .oc-actions h2, .dev-lab .oc-comparison h2 { font-size: 16px; margin: 0 0 8px; }
+.dev-lab .oc-metrics-heading p, .dev-lab .oc-metric-label p { color: var(--oc-muted); font-size: 11px; line-height: 1.7; }
+.dev-lab .oc-metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 18px; margin-top: 12px; background: #222225; border-radius: 18px; }
+.dev-lab .oc-metric-label > span { color: #a1a1af; font-size: 10px; }
+.dev-lab .oc-metric h3 { font-size: 14px; margin: 4px 0 6px; }
+.dev-lab .oc-metric > strong { align-self: center; font-size: 28px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.dev-lab .oc-trace { grid-column: 1 / -1; color: #8c8c9b; }
+.dev-lab .oc-trace svg { width: 100%; height: 60px; display: block; }
+.dev-lab .oc-trace small { display: flex; justify-content: space-between; font-size: 10px; }
+.dev-lab .oc-actions { padding: 12px 20px 20px; }
+.dev-lab .oc-actions > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 16px 0 12px; }
+.dev-lab .oc-actions button { text-align: left; }
+.dev-lab .oc-actions button small { display: block; color: #aaaab8; font-size: 10px; margin-bottom: 6px; }
+.dev-lab .oc-actions button[aria-pressed=true] { background: #37304e; color: #e4d3ff; }
+.dev-lab .oc-actions button strong { font-size: 12px; }
+.dev-lab .oc-actions > p { color: var(--oc-muted); font-size: 12px; line-height: 1.8; }
+.dev-lab .oc-comparison { padding: 16px 20px 24px; }
+.dev-lab .oc-table-heading, .dev-lab .oc-table-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.dev-lab .oc-table-heading p, .dev-lab .oc-table-footer p, .dev-lab .oc-export-actions p { font-size: 12px; color: var(--oc-muted); line-height: 1.8; }
+.dev-lab .oc-export-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 0; }
+.dev-lab .oc-export-actions > span { font-size: 11px; color: #babac4; }
+.dev-lab .oc-export-actions > p { flex-basis: 100%; }
+.dev-lab .oc-table-scroll { overflow: auto; margin: 20px 0; }
+.dev-lab .oc-comparison table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 12px; }
+.dev-lab .oc-comparison caption { color: #a9a9b8; font-size: 11px; text-align: left; margin-bottom: 14px; }
+.dev-lab .oc-comparison th, .dev-lab .oc-comparison td { padding: 14px 10px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dev-lab .oc-comparison tbody tr:nth-child(odd) { background: #222225; }
+.dev-lab .oc-comparison th:first-child { text-align: left; }
+.dev-lab .oc-comparison thead th { color: #ababbb; font-weight: 500; }
+.dev-lab .oc-comparison td:last-child { color: #ff9bb6; }
+.dev-lab .oc-footer { margin-top: 20px; color: #92929f; font-size: 11px; line-height: 1.8; }
+.dev-lab .oc-workspace:not(.oc-measurement) { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: start; margin: 20px 0; }
+.dev-lab .oc-camera-panel { border-radius: 24px; overflow: hidden; background: #171719; }
+.dev-lab .oc-camera-panel .oc-depth-note { margin: 16px; }
+.dev-lab .oc-demo-warning { padding: 20px; margin-bottom: 20px; background: #332618; color: #ffdaa5; border-radius: 18px; }
+.dev-lab .oc-demo-warning strong { font-size: 19px; }
+.dev-lab .oc-demo-warning p { margin: 8px 0; font-size: 13px; line-height: 1.7; }
+.dev-lab .oc-demo-warning a { color: #ffe3b7; font-size: 13px; }
+.dev-lab.oc-page .confirm-dialog { background: #242426; color: #f5f5f7; border: 0; border-radius: 24px; width: calc(100% - 32px); max-width: 600px; padding: 28px; }
+.dev-lab.oc-page .confirm-dialog p { color: #c4c4cf; font-size: 14px; line-height: 1.8; margin-top: 12px; }
+.dev-lab.oc-page .confirm-dialog::backdrop { background: #000c; }
+.dev-lab.oc-page .confirm-dialog .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.dev-lab.oc-page .confirm-dialog .btn-danger { background: #502530; color: #ffafc4; }
+@media (max-width: 1000px) {
+  .dev-lab .oc-guide-clock { width: 164px; padding: 18px; }
+  .dev-lab .oc-guide-clock strong { font-size: 78px; }
+  .dev-lab .oc-guide-clock > .oc-clock-label { font-size: 15px; }
+  .dev-lab .oc-guide-copy { max-width: min(300px, calc(50% - 150px)); padding: 12px; }
+  .dev-lab .oc-guide-next { width: 190px; padding: 16px; }
+  .dev-lab .oc-guide-next small { font-size: 23px; }
+  .dev-lab.oc-page .oc-guide-controls button { padding: 10px 14px; font-size: 12px; }
+  .dev-lab .oc-guide.is-paused .oc-guide-next { bottom: 106px; }
+}
+@media (min-width: 761px) and (max-height: 800px) {
+  .dev-lab .oc-guide-clock { width: 176px; padding: 16px 20px; }
+  .dev-lab .oc-guide-clock strong { font-size: 76px; }
+  .dev-lab .oc-guide-clock > .oc-clock-label { font-size: 15px; }
+  .dev-lab .oc-guide-clock > span { font-size: 12px; }
+  .dev-lab .oc-guide[data-state=idle] .oc-guide-copy h3 { font-size: 24px; }
+}
+@media (max-width: 760px) {
+  .dev-lab.oc-page main { padding: 12px; }
+  .dev-lab .oc-header { padding: 0 16px; gap: 12px; }
+  .dev-lab .oc-header > span:last-child { display: none; }
+  .dev-lab .oc-toolbar { flex-wrap: wrap; gap: 10px; }
+  .dev-lab .oc-toolbar-controls { justify-content: flex-start; }
+  .dev-lab .oc-toolbar-title { flex-basis: 100%; }
+  .dev-lab .oc-stage { height: 660px; border-radius: 22px; }
+  .dev-lab.oc-page[data-guiding=true] .oc-stage { height: 660px; }
+  .dev-lab .oc-stage > .oc-camera { bottom: 300px; height: calc(100% - 300px); }
+  .dev-lab .oc-guide-clock { top: 14px; left: 14px; width: 122px; border-radius: 20px; padding: 14px; }
+  .dev-lab .oc-guide-clock strong { font-size: 58px; letter-spacing: -2px; }
+  .dev-lab .oc-guide-clock > .oc-clock-label { font-size: 12px; }
+  .dev-lab .oc-guide-clock > span { font-size: 10px; }
+  .dev-lab .oc-camera-badge { top: 14px; right: 14px; font-size: 11px; padding: 8px 10px; }
+  .dev-lab .oc-guide-copy, .dev-lab .oc-guide[data-state=idle] .oc-guide-copy, .dev-lab .oc-guide.is-paused .oc-guide-copy, .dev-lab .oc-guide[data-state=completed] .oc-guide-copy, .dev-lab .oc-guide[data-state=cancelled] .oc-guide-copy { left: 16px; bottom: 164px; max-width: calc(100% - 32px); padding: 0; background: transparent; backdrop-filter: none; }
+  .dev-lab .oc-guide-copy h3, .dev-lab .oc-guide[data-state=idle] .oc-guide-copy h3 { font-size: 25px; }
+  .dev-lab .oc-guide-copy > p:last-child { font-size: 12px; }
+  .dev-lab .oc-guide-next { right: 16px; bottom: 82px; width: calc(100% - 32px); padding: 10px 14px; border-radius: 18px; display: grid; grid-template-columns: 1fr auto; gap: 0 12px; }
+  .dev-lab .oc-guide-next > span { margin-bottom: 2px; }
+  .dev-lab .oc-guide-next strong { font-size: 11px; }
+  .dev-lab .oc-guide-next small { font-size: 20px; grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; }
+  .dev-lab .oc-guide-controls, .dev-lab .oc-guide.is-paused .oc-guide-controls { left: 12px; right: 12px; bottom: 17px; transform: none; max-width: none; flex-wrap: wrap; padding: 6px; border-radius: 18px; }
+  .dev-lab.oc-page .oc-guide-controls button { padding: 9px 12px; min-height: 40px; font-size: 11px; white-space: normal; }
+  .dev-lab .oc-guide.is-paused .oc-guide-next { bottom: 82px; }
+  .dev-lab .oc-guide-phases { gap: 6px; }
+  .dev-lab .oc-guide-phases li { flex-grow: 1 !important; min-width: 0; height: 52px; font-size: 12px; border-radius: 14px; }
+  .dev-lab .oc-phase-label { gap: 4px; flex-wrap: wrap; padding: 0 5px; }
+  .dev-lab .oc-phase-label strong { font-size: 16px; }
+  .dev-lab .oc-phase-label small { font-size: 10px; }
+  .dev-lab .oc-guide-footer { font-size: 10px; gap: 8px; }
+  .dev-lab .oc-analysis-grid, .dev-lab .oc-workspace:not(.oc-measurement) { grid-template-columns: 1fr; }
+  .dev-lab .oc-actions > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dev-lab .oc-table-heading, .dev-lab .oc-table-footer { flex-direction: column; align-items: stretch; }
+}
