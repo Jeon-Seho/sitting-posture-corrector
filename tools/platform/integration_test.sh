@@ -29,6 +29,8 @@
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
 #  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.3)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
+#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계)
+#  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -701,6 +703,34 @@ else
     pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
+  fi
+fi
+
+# ---------------------------------------------------------------------
+step "13. FE ↔ BE 연동 — 화면 nginx(web) 경유 (T-13)"
+# (T-13 1단계) 서버 PC 안에서 FE 화면 컨테이너(팀 frontend.Dockerfile = 화면 + infra/nginx/default.conf)와 io-api를 함께 띄우고,
+#   브라우저가 쓰는 같은 경로(/api/…, /api/v2/realtime)로 REST 점검·WebSocket 왕복이 io-api 직접(10·12단계)과 같은지 본다.
+WEB="http://127.0.0.1:$(envor WEB_HOST_PORT 8088)"
+if ! docker inspect web >/dev/null 2>&1; then
+  skip "FE ↔ BE 연동" "web 컨테이너 없음 — $DC --profile io up -d --build web"
+else
+  st="$(docker inspect web --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}' 2>/dev/null)"
+  if [ "$st" = "running healthy" ]; then pass "web (FE 화면 + nginx, $st)"; else fail "web" "상태=$st (docker logs web)"; fi
+  b="$(docker port web 2>/dev/null | awk '{print $3}' | grep -vE '^127\.0\.0\.1:' | tr '\n' ' ')"
+  if [ -z "$b" ]; then pass "web 포트는 서버 PC 안(127.0.0.1)에만"; else fail "web 포트" "$b — .env WEB_BIND=127.0.0.1"; fi
+  if curl -s -m 10 "$WEB/" | grep -qi '<div id="root"'; then pass "화면 $WEB/ (index.html)"
+  else fail "화면 $WEB/" "index.html이 아님 (docker logs web)"; fi
+  if python3 "$TOOLS/io_api_smoke.py" --base "$WEB/api" >"$OUT/web-rest.log" 2>&1; then
+    pass "화면 경유 REST 점검 $WEB/api ($(tail -1 "$OUT/web-rest.log"))"
+  else
+    fail "화면 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/web-rest.log" | tr '\n' ' ')(상세 $OUT/web-rest.log)"
+  fi
+  if [ "$E2E" = 1 ]; then
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" >"$OUT/web-ws.log" 2>&1; then
+      pass "화면 경유 WebSocket 왕복 /api/v2/realtime ($(tail -1 "$OUT/web-ws.log"))"
+    else
+      fail "화면 경유 WebSocket 왕복" "$(grep -m3 '^FAIL' "$OUT/web-ws.log" | tr '\n' ' ')(상세 $OUT/web-ws.log)"
+    fi
   fi
 fi
 

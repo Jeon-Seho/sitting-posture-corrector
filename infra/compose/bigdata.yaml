@@ -443,7 +443,9 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     networks:
-      - app-network
+      app-network:
+        # (T-13) 팀 nginx 설정(infra/nginx/default.conf)이 API를 "api:8090"으로 찾는다 — 팀 compose.yaml과 같은 이름
+        aliases: [api]
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8090/health"]
       interval: 10s
@@ -476,6 +478,39 @@ services:
       - app-network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # ---------------- (T-13) FE 화면 + nginx(web) — 서버 PC 안 FE ↔ BE 연동 시험 ----------------
+  # 팀 frontend.Dockerfile(화면 빌드 + infra/nginx/default.conf)을 그대로 쓴다. 브라우저·시험 도구는 이 nginx 하나로 들어온다:
+  #   / → 화면, /api/ → io-api(별칭 api:8090), /api/v2/realtime(WebSocket), /health. 화면과 API가 같은 출처라 CORS가 필요 없다.
+  # 포트는 서버 PC 안(127.0.0.1)에만 — 다른 PC의 브라우저는 SSH 터널 ssh -L 8088:127.0.0.1:8088 <계정>@<서버> 후
+  #   http://localhost:8088 (localhost는 브라우저가 안전한 출처로 봐서 웹캠도 쓸 수 있다). 배포 구성(터널·도메인)은 D-43에서 따로.
+  web:
+    profiles: ["io"]
+    build:
+      context: ../..
+      dockerfile: infra/docker/frontend.Dockerfile
+    image: posegood-frontend:local
+    container_name: web
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 128m
+    environment:
+      TZ: "Asia/Seoul"
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_HOST_PORT:-8088}:80"
+    depends_on:
+      io-api:
+        condition: service_healthy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
       interval: 10s
       timeout: 5s
       retries: 20

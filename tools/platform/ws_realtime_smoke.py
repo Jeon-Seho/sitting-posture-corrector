@@ -77,7 +77,8 @@ class WebSocket:
         host, port = parts.hostname, parts.port or 80
         self.sock = socket.create_connection((host, port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()
-        lines = [f"GET {parts.path or '/'} HTTP/1.1", f"Host: {host}:{port}", "Upgrade: websocket",
+        host_header = host if parts.port is None else f"{host}:{port}"
+        lines = [f"GET {parts.path or '/'} HTTP/1.1", f"Host: {host_header}", "Upgrade: websocket",
                  "Connection: Upgrade", f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13"]
         lines += [f"{k}: {v}" for k, v in headers.items()]
         self.sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
@@ -241,7 +242,8 @@ def run_socket(base, owner, sid, pipeline):
     parts = urlsplit(base)
     jar = next(h.cookiejar for h in owner.opener.handlers if isinstance(h, HTTPCookieProcessor))
     cookies = "; ".join(f"{c.name}={c.value}" for c in jar)
-    ws = WebSocket(f"ws://{parts.hostname}:{parts.port or 80}/v2/realtime",
+    # (T-13) --base가 nginx(http://127.0.0.1:8088/api)여도 같은 경로로 — 앞 경로(/api)를 붙인다
+    ws = WebSocket(f"ws://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
                    {"Origin": f"{parts.scheme}://{parts.netloc}", "Cookie": cookies})
     received = []
 
@@ -337,7 +339,8 @@ def check_records(owner, path, report, sid):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--base", default="http://127.0.0.1:8090", help="io-api 주소 (기본 %(default)s)")
+    parser.add_argument("--base", default="http://127.0.0.1:8090",
+                        help="io-api 주소 (기본 %(default)s). FE nginx(web)를 거칠 때는 http://127.0.0.1:8088/api")
     parser.add_argument("--report", default=None,
                         help="처리 서비스(api-server) 주소 — 주면 DB 기록까지 확인 (예: http://127.0.0.1:8080)")
     parser.add_argument("--pipeline", choices=["local", "kafka"], default="local",

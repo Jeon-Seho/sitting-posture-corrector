@@ -120,6 +120,22 @@ docker compose -f infra/compose/bigdata.yaml up -d --build
 tools/platform/integration_test.sh --quick
 ```
 
+### FE ↔ BE 서버 안 연동 시험 (T-13)
+
+FE 화면 컨테이너 `web`(팀 `infra/docker/frontend.Dockerfile` — 화면 빌드 + `infra/nginx/default.conf`)을 프로필 `io`로 io-api와 함께 띄운다.
+화면(`/`)과 API(`/api/` → io-api, `/api/v2/realtime`)가 같은 nginx에서 나와 같은 출처이므로 CORS가 필요 없다. 포트는 `127.0.0.1:${WEB_HOST_PORT:-8088}`.
+
+```sh
+C="docker compose -f infra/compose/bigdata.yaml"
+$C --profile io up -d --build web       # io-api가 healthy가 된 뒤 web이 뜬다
+curl -s http://127.0.0.1:8088/health     # {"status":"ok"} (nginx)
+python3 tools/platform/io_api_smoke.py --base http://127.0.0.1:8088/api
+tools/platform/integration_test.sh --quick   # 13단계
+```
+
+다른 PC 브라우저로 화면을 볼 때는 SSH 터널 `ssh -L 8088:127.0.0.1:8088 <계정>@<서버>` 뒤 `http://localhost:8088`(localhost라 웹캠 허용).
+인터넷 배포(도메인·터널)는 D-43에서 따로 한다.
+
 ### HDFS 복제 수 (D-61)
 
 DataNode가 하나라 복제 수는 1이다. HDFS 컨테이너는 `hadoop.env`의 `HDFS_CONF_dfs_replication=1`, Spark(HDFS 클라이언트)는
@@ -148,7 +164,7 @@ curl -s http://127.0.0.1:8090/health                      # {"status":"ok","stor
 python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 테스트 10단계와 같음)
 ```
 
-- 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 앱·FE가 LAN에서 붙을 때는 `IO_API_BIND=0.0.0.0`(포트 정리는 D-43).
+- 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 화면과 함께 시험할 때는 위 "FE ↔ BE 서버 안 연동 시험"의 web(nginx)으로 들어온다(T-13).
 - 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`(로그인 쿠키 필요, 통합 테스트 12단계 `ws_realtime_smoke.py`).
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
