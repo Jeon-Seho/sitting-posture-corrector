@@ -14,7 +14,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   const [source, setSource] = useState<'camera' | 'synthetic'>(mode)
   const [active, setActive] = useState(false)
   const [action, setAction] = useState<ComparisonAction>('neutral')
-  const [notice, setNotice] = useState(mode === 'synthetic' ? '가상 점으로 화면 표시만 확인합니다. 실제 측정 자료를 모으지 않습니다.' : '카메라를 켠 다음 기준 자세를 등록하세요.')
+  const [notice, setNotice] = useState(mode === 'synthetic' ? '가상 점으로 화면 표시만 확인합니다. 실제 측정 자료를 모으지 않습니다.' : '')
   const [captures, setCaptures] = useState<Partial<Record<ComparisonAction, ComparisonCapture>>>({})
   const protocol = useRef(new ObservationProtocol()), guideSequence = useRef(0)
   const [guide, setGuide] = useState(() => protocol.current.snapshot(0))

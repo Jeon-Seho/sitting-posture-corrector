@@ -37,6 +37,10 @@
 | `--font-body` | Pretendard Variable | 모든 한글, 제목, 버튼 |
 | `--font-num` | Outfit 500–700 | 숫자(점수, %, 시간), 워드마크 `PoseGood` |
 
+관측 비교(`/dev?view=observation`)는 숫자도 Pretendard Variable를 사용하는 별도 연구 화면이다.
+시작 버튼 800·현재 동작 600·남은 숫자 700으로 행동 정보를 강조하고, 보조 정보는 400으로 둔다.
+일반 조작과 분석 영역 제목은 500이다. 상세 범위는 [개발 모듈 안내](frontend/src/features/developer/README.md)를 따른다.
+
 한글은 `word-break: keep-all`로 단어 중간에서 줄을 바꾸지 않는다.
 
 ## 모양
