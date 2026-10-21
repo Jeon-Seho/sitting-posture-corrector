@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
+import {
+  installFakeBaselineServer,
+  removeFakeBaselineServer,
+  type FakeBaselineServer,
+} from '../features/baseline/fakeBaselineServer'
 
 const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.fn() }))
 vi.mock('@mediapipe/tasks-vision', () => ({
@@ -13,6 +18,7 @@ vi.mock('../lib/poseVisual', () => ({ drawPose: vision.draw }))
 describe('camera lifecycle with fake tracks and synthetic landmarks only', () => {
   let renderer: ReactTestRenderer | undefined
   let camera: ReturnType<typeof useCamera>
+  let server: FakeBaselineServer
   let points: Landmark[],
     track: {
       stop: ReturnType<typeof vi.fn>
@@ -55,6 +61,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     vi.stubGlobal('navigator', {
       mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([]) },
     })
+    server = installFakeBaselineServer()
     act(() => {
       renderer = create(<Probe />)
     })
@@ -74,6 +81,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   afterEach(() => {
     act(() => renderer?.unmount())
     renderer = undefined
+    removeFakeBaselineServer()
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -86,16 +94,23 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
       vi.advanceTimersByTime(100)
     })
   }
-  const calibrate = () => {
+  /** Lets the fake B1 answer and the hook apply it. */
+  const settle = async () => {
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+  const calibrate = async () => {
     act(() => camera.calibrate())
     act(() => {
       vi.advanceTimersByTime(5200)
     })
+    await settle()
   }
 
   it('keeps the previous baseline during recalibration and restores it on cancel or poor quality', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const previous = camera.baseline,
       id = camera.calibrationId
     expect(previous).not.toBeNull()
@@ -118,7 +133,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   })
   it('replaces the baseline only after all continuous valid observations are collected', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const previous = camera.baseline,
       id = camera.calibrationId
     points[0].y = 0.3
@@ -130,9 +145,51 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     act(() => {
       vi.advanceTimersByTime(400)
     })
+    expect(camera.progress).toBeNull()
+    expect(camera.registering).toBe(true)
+    await settle()
+    expect(camera.registering).toBe(false)
     expect(camera.baseline).not.toEqual(previous)
     expect(camera.calibrationId).not.toBe(id)
+    // B1 gets the mean of the 9 joints (2026-10-20 team meeting), not the app's features.
+    const sent = server.posts.at(-1)!
+    expect(sent.calibration_ms).toBeGreaterThanOrEqual(3000)
+    expect(sent.sample_count).toBeGreaterThanOrEqual(20)
+    expect(Object.keys(sent.landmarks as object)).toHaveLength(9)
+    expect((sent.landmarks as Record<string, { x: number; y: number }>).nose).toEqual({ x: 0.5, y: 0.3 })
+  })
+  it('explains a registration the server did not save and keeps the previous posture', async () => {
+    await connect()
+    await calibrate()
+    const previous = camera.calibrationId
+    server.failWith.push(401)
+    await calibrate()
+    expect(camera.registrationError).toBe('로그인이 필요해요. 다시 로그인한 뒤 등록해 주세요.')
+    expect(camera.calibrationId).toBe(previous)
+    act(() => camera.calibrate())
+    expect(camera.registrationError).toBeNull()
+  })
+  it('does not send a posture whose mean is out of the frame', async () => {
+    await connect()
+    const before = server.posts.length
+    points[7].x = -0.2
+    await calibrate()
+    expect(camera.registrationError).toBe('얼굴과 양쪽 어깨가 화면 안에 들어오게 앉은 뒤 다시 등록해 주세요.')
+    expect(server.posts).toHaveLength(before)
     expect(camera.progress).toBeNull()
+  })
+  it('loads the registered posture from the server instead of this PC', async () => {
+    await connect()
+    await calibrate()
+    const id = camera.calibrationId
+    act(() => renderer?.unmount())
+    act(() => {
+      renderer = create(<Probe />)
+    })
+    expect(camera.calibrationId).toBeNull()
+    await settle()
+    expect(camera.calibrationId).toBe(id)
+    expect(camera.baseline).not.toBeNull()
   })
   it('cancels pending permission requests and stops late-arriving tracks', async () => {
     const request = defer<MediaStream>()
@@ -207,7 +264,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   })
   it('keeps the registered baseline when the camera is turned off and on again', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const registered = camera.baseline,
       id = camera.calibrationId
     expect(registered).not.toBeNull()
@@ -220,7 +277,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   it('falls back to CPU and keeps the registered baseline on disconnection', async () => {
     vision.create.mockRejectedValueOnce(new Error('Synthetic GPU unavailable'))
     await connect()
-    calibrate()
+    await calibrate()
     expect(vision.create.mock.calls[1][1].baseOptions.delegate).toBe('CPU')
     act(() => track.onended?.())
     expect(camera.state).toBe('error')

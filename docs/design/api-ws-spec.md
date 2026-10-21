@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-19(로그인 만료 정정, 640×480 거부 대신 표시) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-21(자세 등록을 앱 평균 → B1로, 10/20 전체 회의) · FE · 상태: **초안(BE 확인 요청)** · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > 짝 문서: BE 「FE ↔ BE API 명세 (입출구 서버)」(홍규, 10/13). **경로·엔드포인트 ID·메시지 이름은 BE 명세를 그대로 쓴다.** 지금 서버 코드는 이 저장소의 `backend/api`다(10/15 BE 브랜치 `feat/backend-data-platform-architecture`가 develop을 받아 합침, Java 17·Spring Boot 4·Gradle, DB V2.3). 그 코드의 `/v1/realtime`은 서버를 먼저 돌려 보려고 섞인 임시 상태이고, 실시간은 이 문서의 `/v2/realtime`으로 간다(BE 확인 10/15). BE가 진행 중인 것은 [FE 제안서](fe-server-proposal.md) 1장.
 > 근거 결정: 10/12 회의, 10/13 FE 결정, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)(끊기면 세션 종료, 재연결 없음)
 
@@ -163,7 +163,7 @@ BE가 탈퇴 철회(A8 `POST /v2/auth/withdrawal/cancel`)와 `WITHDRAWAL_NOT_CAN
 | 오류 | `{error, code, message}` | `code`로 나눈다(2장) |
 | 시각 | 응답은 UTC ISO-8601. 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 바꾼다 |
 | 세션 시작 | `started_at` = 서버가 S1을 받은 시각 = 앱 `t_ms` 0 | S1 응답(200 `SessionView`, BE 명세 10/15 결정)을 받은 순간부터 `t_ms`를 센다. 응답에는 `started_at`이 없다(0.6) |
-| ID | `session_id`·`calibration_id`는 앱 UUID, `baseline_id`는 서버 UUID, `user_id`는 10진 문자열 | 재시도 때 같은 UUID |
+| ID | `session_id`는 앱 UUID, `baseline_id`는 서버 UUID, `user_id`는 10진 문자열 | 재시도 때 같은 UUID |
 | 시간 기본값 | 판정 3·3·60초는 서버 설정 | 앱은 받은 값만 쓴다 |
 | 판정 규칙 단위 (DB V2.3) | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`), `/v2/workspace` `rules`와 DB `threshold_policy`는 초. DB는 `hold_seconds`·`recover_seconds`가 0.5초 단위, `realert_seconds`가 1초 이상이다. 그래서 ms 값은 500의 배수, `reminder_ms`는 1000 이상이다 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로 보낸다. 앱이 값을 새로 만들지 않으므로 이 조건은 그대로 지켜진다 |
 | DB 제외 사유 (DB V2.3) | `rest` → `PAUSE`, `away` → `ABSENCE`, `valid:false` 프레임 → `UNMEASURABLE`, 서버가 찾은 구간 누락(`event.reason` `missing`·`missing_sequence`) → `MISSING`. 대응과 우선순위는 [FE 제안서 3.2](fe-server-proposal.md) | 앱은 `MISSING`을 보내지 않는다 |
@@ -177,9 +177,8 @@ BE가 탈퇴 철회(A8 `POST /v2/auth/withdrawal/cancel`)와 `WITHDRAWAL_NOT_CAN
 | `hello` → `ready` | 5초 (Q2) | 연결을 닫고 "서버에 연결하지 못했어요". 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터**(C4) |
 | `features` 보내기 | 0.5초마다 구간 1개 (Q1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다(A2). 일시정지·카메라 끊김 중에도 빈 구간을 계속 보낸다 | — |
 | 측정 `end` → `closed(ended)` | 10초 | S4로 종료 화면(404면 마지막 `progress`로) |
-| 등록 WS 열기 | 얼굴·어깨가 보여 3·2·1이 시작될 때(사용자를 기다리는 동안은 열지 않음, 120초 무입력 끊김 회피, B10) | — |
-| 등록 `end` | 마지막 구간 `end_ms`가 3000 이상일 때 보낸다(B7) | — |
-| 등록 `end` → `calibration_result` | 10초 | 실패로 보고 다시 촬영 |
+| 자세 등록 촬영 | 끊기지 않은 3초, 판정 가능 프레임 20장 이상(B1 `sample_count` 최소). 추적 속도가 낮으면 20장이 찰 때까지 이어 찍는다 | 15초가 지나면 실패 안내 |
+| B1 응답 | 5초 (502·503은 같은 본문으로 재시도) | 실패 안내, 「다시 등록」 |
 
 ## 2. 오류 코드별 앱 동작
 
@@ -218,7 +217,8 @@ BE 명세에 ID가 없는 두 개(기록 하나 조회, 일별 통계)는 FE가 
 | C1 | `PUT /v2/consents/optional-profile` | 프로필 › 선택 정보 동의 켜기·끄기 |
 | W1 | `GET /v2/workspace` | 로그인·가입 직후 한 번 |
 | W2 | `PUT /v2/workspace` | 설정·프로필 저장 |
-| B2 | `GET /v2/baselines/current` | 측정하기를 열 때, 자세 등록이 끝난 뒤 |
+| B1 | `POST /v2/baselines` | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 10/20 전체 회의) |
+| B2 | `GET /v2/baselines/current` | 앱 시작·로그인 뒤 |
 | S1 | `PUT /v2/sessions/{id}` | 「측정 시작」 |
 | S3 | `POST /v2/sessions/{id}/end` | WS가 이미 끊긴 뒤에만 |
 | S4 | `GET /v2/sessions/{id}` | 측정 `end` 뒤 10초 안에 `closed`가 없을 때 |
@@ -226,15 +226,15 @@ BE 명세에 ID가 없는 두 개(기록 하나 조회, 일별 통계)는 FE가 
 | R1b | `GET /v2/records/{id}` | 종료 화면 대비책(S4 대신 써도 됨) |
 | R3 | `DELETE /v2/records/{id}` | 기록 삭제 |
 | T1 | `GET /v2/stats/daily?from&to` | 기록 화면의 지난 날짜 그래프·표 |
-| WS | `/v2/realtime` | 측정(`purpose:"measure"`), 자세 등록(`purpose:"calibration"`) |
+| WS | `/v2/realtime` | 측정(`purpose:"measure"`). 자세 등록(`purpose:"calibration"`)은 쓰지 않는다(10/20) |
 
-앱이 **부르지 않는 것**: `POST /v2/sessions/{id}/features`, `POST /v2/records`(BE 명세에서 없앰), `POST /v2/baselines`(서버 계산 등록이 되면 쓰지 않음), `GET /v2/sessions/{id}/metadata`(개발자용 상세에서만).
+앱이 **부르지 않는 것**: `POST /v2/sessions/{id}/features`, `POST /v2/records`(BE 명세에서 없앰), `GET /v2/sessions/{id}/metadata`(개발자용 상세에서만).
 
 ## 4. REST
 
 ### 4.1 가입 A2
 
-회원가입은 3단계다: ① 약관 동의 ② 계정 정보(여기서 A2) ③ 자세 등록(선택, WS calibration).
+회원가입은 3단계다: ① 약관 동의 ② 계정 정보(여기서 A2) ③ 자세 등록(선택, B1).
 
 ```json
 POST /api/v2/auth/register
@@ -269,6 +269,7 @@ X-CSRF-TOKEN: <A1 token>
 - W2는 `{profile, rules, preferences}` 세 개를 모두 보낸다. 다음 측정부터 적용된다.
 - C1로 선택 정보 동의를 끄면 서버가 나이·직업을 비운다. 앱은 응답(W1 형식)으로 화면을 다시 그린다.
 - B2: 200이면 측정하기에 「측정 시작」, 404 `BASELINE_NOT_FOUND`면 자세 등록부터.
+- B1: 자세 등록 촬영이 끝나면 `{registered_at, calibration_ms, sample_count, landmarks}`를 보낸다(6.2). 응답의 `baseline_id`를 S1에 쓴다.
 
 ### 4.4 측정 S1·S3·S4
 
@@ -306,7 +307,6 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 
 ```json
 { "type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "3f2a…" }
-{ "type": "hello", "schema_version": "2.0", "purpose": "calibration", "calibration_id": "7c1d…" }
 
 { "type": "features", "items": [ {
     "schema_version": "3.0", "feature_version": "keypoints-9-v1",
@@ -321,7 +321,7 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 ```
 
 - `items`에는 **항상 구간 1개**를 넣는다(Q1).
-- `phase`: 측정 `running`·`rest`(일시정지)·`away`(카메라 영상이 멈춤, 연결은 그대로), 등록 `calibration`. `rest`·`away`는 `frames: []`. 쓰던 카메라가 빠지면(USB 연결 끊김) `away`가 아니라 `end`로 측정을 끝낸다(10/16, FE 제안서 3.2).
+- `phase`: 측정 `running`·`rest`(일시정지)·`away`(카메라 영상이 멈춤, 연결은 그대로). `rest`·`away`는 `frames: []`. 쓰던 카메라가 빠지면(USB 연결 끊김) `away`가 아니라 `end`로 측정을 끝낸다(10/16, FE 제안서 3.2).
 - `p`: 관절 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `null`이고 이때 `valid`는 넣지 않는다. 서버는 `p:null`도 판정 불가로 본다(C6).
 - `valid: false`: 앱이 위치를 판별하지 못한 프레임(귀·어깨·사용자가 안 보이는 등)에만 붙인다. 서버는 그 프레임을 `unmeasurable`로 본다.
 - 해상도는 보내지 않는다(10/15). 640×480 고정이라 서버가 알 필요가 없다. 앱은 640×480을 요청한다(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 다른 크기면 시작하지 않는 처리는 두지 않고, 실제 크기를 측정 화면 위에 작게 보인다(예정, 10/19. 위치는 UI를 보며 정한다).
@@ -340,12 +340,11 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 | `decision` | 사건 기록과 숫자. `session_ended`면 종료 화면으로 |
 | `alert` | 토스트·소리. 앱은 거르지 않는다 |
 | `stalled` | "분석이 잠시 멈췄어요". **연결은 유지된다**(A4). 다음 `progress`·`observation`이 오면 문구를 지운다 |
-| `calibration_result` | 성공: B2를 다시 받고 「앱 시작」(가입 3단계) 또는 측정 시작. 실패: 아래 안내 후 다시 촬영 |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
 |---|---|
-| `ended` | 측정: 종료 화면 / 등록: 등록 결과 화면 |
+| `ended` | 종료 화면 |
 | `unauthorized` | 로그인 화면 |
 | `not_owner`·`bad_message` | 오류 안내, 앱 버그로 기록 |
 | `session_lost` | 마지막 `progress`로 종료 화면 |
@@ -353,7 +352,6 @@ BE 명세 5.1과 같다(`hello` → `ready` → `features` → `end` → `closed
 | `server_shutdown` | "서버 연결이 끊겼어요"(재연결하지 않음) |
 | `limit_reached` (새로, A3) | 한 번에 측정할 수 있는 시간을 넘음. 종료 화면 + "측정 가능한 시간을 넘었어요" |
 
-`calibration_result.reason` 안내: `too_few_frames` "자세를 알아보기 어려워요. 얼굴과 어깨가 보이게 앉아 주세요" · `incomplete` "등록이 중간에 끊겼어요" · `out_of_frame` "화면 안쪽으로 앉아 주세요" · `server_error` "잠시 뒤 다시 해 주세요".
 
 ## 6. 흐름
 
@@ -390,23 +388,23 @@ sequenceDiagram
 
 ### 6.2 자세 등록 (가입 3단계, 측정하기의 등록)
 
+10/20 전체 회의: **3초 동안의 자세 평균은 앱(FE)이 내서 B1로 보낸다.** WS 등록(`purpose:"calibration"`, BE 명세 11.4)은 쓰지 않는다.
+
 | 단계 | 앱 | 서버 |
 |---|---|---|
-| 1 | 얼굴·어깨가 보여 3·2·1이 시작되면 새 `calibration_id`로 WS 연결 → `hello {purpose:"calibration"}`(B10) | `ready` |
-| 2 | 카운트다운이 끝나면 약 3초 동안 `features {phase:"calibration"}` | (`ack`) |
-| 3 | 마지막 구간 `end_ms`가 3000 이상이면 `end {end_ms}`(B7) | `calibration_result` → `closed(ended)` (10초 안) |
-| 4 | 성공이면 B2 다시 | 새 기준 |
+| 1 | 얼굴·어깨가 보이면 3·2·1 뒤 촬영. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음)만 쓰고, 쓸 수 없는 프레임이나 1초 넘는 빈틈이 있으면 처음부터 다시 센다 | — |
+| 2 | 3초가 지나고 20장 이상 모이면 관절 9개 x·y를 **프레임 수로 나눈 단순 평균**(소수 5자리). 평균이 0~1 밖이면 보내지 않고 "화면 안으로" 안내 | — |
+| 3 | B1 `POST /v2/baselines` `{registered_at(촬영이 끝난 UTC), calibration_ms, sample_count, landmarks}`. 502·503은 같은 본문으로 재시도 | 새 행 저장, `baseline_id` 응답 |
+| 4 | 응답의 `baseline_id`가 현재 기준. 앱을 다시 켜면 B2로 받는다 | — |
 
 ```mermaid
 sequenceDiagram
   participant A as 앱
   participant S as 입출구 서버
-  A->>S: WS 연결, hello {purpose:"calibration", calibration_id}
-  S-->>A: ready
-  A->>S: features {phase:"calibration"} × 약 6 (3초)
-  A->>S: end {end_ms}
-  S-->>A: calibration_result {status, baseline_id | reason} → closed(ended)
-  A->>S: B2 GET /v2/baselines/current (성공했을 때)
+  A->>A: 3·2·1 → 3초 촬영, 관절 9개 평균
+  A->>S: B1 POST /v2/baselines {registered_at, calibration_ms, sample_count, landmarks}
+  S-->>A: 200 {baseline_id, registered_at, landmarks}
+  A->>S: B2 GET /v2/baselines/current (앱 시작·로그인 뒤)
 ```
 
 ### 6.3 가입·로그인

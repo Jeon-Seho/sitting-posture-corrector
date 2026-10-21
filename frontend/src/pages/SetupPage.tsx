@@ -52,6 +52,7 @@ export function SetupPage({
   const calibrating = camera.progress !== null
   const counting = flow.phase === 'countdown'
   const capturing = flow.phase === 'capturing' && calibrating
+  const saving = flow.phase === 'saving'
   const registering = flow.armed
   const ready = registered && !registering && on && camera.quality && !calibrating
   const left = Math.max(1, Math.ceil(CALIBRATION_SECONDS * (1 - (camera.progress ?? 0))))
@@ -60,10 +61,12 @@ export function SetupPage({
   const latest = useRef({ flow, onStart })
   latest.current = { flow, onStart }
   useEffect(() => {
+    // Wait for B2 first: the server may already have a posture.
+    if (camera.baselineLoading && !registerAgain) return
     if ((!registered || registerAgain) && !measuring && !latest.current.flow.armed) latest.current.flow.start()
     // Only when the posture goes missing or the page opens for a new registration.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registered, registerAgain])
+  }, [registered, registerAgain, camera.baselineLoading])
   // A registration that finished here starts the measurement right away.
   useEffect(() => {
     if (flow.phase === 'done' && !measuring && !registerAgain) latest.current.onStart()
@@ -89,6 +92,8 @@ export function SetupPage({
     on,
     quality: camera.quality,
     failed: flow.phase === 'failed',
+    failure: flow.error,
+    saving,
     capturing,
     counting,
     registering: registering || !registered,
@@ -199,6 +204,13 @@ export function SetupPage({
                     <button className="btn" onClick={flow.stop}>
                       등록 취소
                     </button>
+                  </div>
+                ) : saving ? (
+                  <div className="calibrate-card" role="status">
+                    <div>
+                      <div className="nudge-title">기준 자세를 저장하는 중</div>
+                      <div className="nudge-desc">서버에 저장하고 있어요. 잠시만 기다려 주세요.</div>
+                    </div>
                   </div>
                 ) : measuring ? (
                   // A measurement is still open (also after 「카메라 준비 다시 확인」): go back to it.
@@ -360,6 +372,9 @@ function headline(s: {
   on: boolean
   quality: boolean
   failed: boolean
+  /** Why the server did not save it (out of frame, signed out, server error). */
+  failure: string | null
+  saving: boolean
   capturing: boolean
   counting: boolean
   registering: boolean
@@ -374,6 +389,8 @@ function headline(s: {
     return s.registered && !s.registerAgain
       ? ['카메라를 켜 주세요', '등록한 기준 자세로 바로 측정할 수 있어요.']
       : ['카메라를 켜 주세요', '평소 편하게 바로 앉은 자세를 기준 자세로 등록하고, 그 자세에서 멀어질 때만 알려드려요.']
+  if (s.saving) return ['기준 자세를 저장하고 있어요', '서버에 저장되면 바로 다음 단계로 넘어가요.']
+  if (s.failed && s.failure) return ['기준 자세를 저장하지 못했어요', s.failure]
   if (s.failed)
     return ['자세를 알아보기 어려워요', '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉고, 잠시 움직이지 말아 주세요.']
   if (s.capturing) return ['그대로 편하게 있어 주세요', '기준 자세를 기억하고 있어요. 영상은 저장하지 않아요.']

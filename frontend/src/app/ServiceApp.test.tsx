@@ -136,6 +136,9 @@ describe('service recovery and saving with synthetic storage only', () => {
       calibrationId: null,
       calibrationSummary: null,
       progress: null,
+      registering: false,
+      registrationError: null,
+      baselineLoading: false,
       quality: false,
       error: '',
       devices: [],
@@ -592,13 +595,35 @@ describe('service recovery and saving with synthetic storage only', () => {
     rerender()
     expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 기억하는 중')
     expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    // The capture ends and is sent to the server (B1, 2026-10-20).
+    controls.camera.progress = null
+    controls.camera.registering = true
+    rerender()
+    advance(100)
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 저장하는 중')
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
-    controls.camera.progress = null
+    controls.camera.registering = false
     rerender()
     advance(100)
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('waits for the server posture before asking to register (B2 on start)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baselineLoading = true
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    controls.camera.baselineLoading = false
+    rerender()
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
   })
   it('starts at once from the camera view when a posture is registered', () => {
     controls.camera.state = 'on'
@@ -773,8 +798,12 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(text(setup)).toContain('설정으로')
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    controls.camera.registering = true
+    rerender()
+    advance(100)
     controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
     controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
+    controls.camera.registering = false
     rerender()
     advance(100)
     // From settings it ends with a choice instead of measuring by itself.

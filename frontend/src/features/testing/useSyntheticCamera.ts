@@ -226,6 +226,10 @@ export function useCamera(): CameraController {
         }
       : null,
     progress: null,
+    registering: false,
+    registrationError: null,
+    baselineLoading: false,
+    reloadBaseline: async () => {},
     current,
     lastFrame,
     connect,
