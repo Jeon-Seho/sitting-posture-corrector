@@ -8,6 +8,7 @@
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
 - [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
+- [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록. FE 설계(실시간 v2·WS 자세 등록)와 다른 곳은 [계획 0029](plans/active/0029-merge-backend-data-platform.md) D1~D9.
 - [백엔드 Java 17·Spring Boot 4·Gradle 전환](plans/active/0028-backend-java17-boot4-gradle.md)([ADR 0023](decisions/0023-backend-java17-boot4-gradle.md)): 백엔드·개발 도구 변경과 Docker·CI 팀원 작업 요청.
@@ -43,8 +44,8 @@
 | 어떻게 작업·실행하는가? | [AGENTS](../AGENTS.md), [개발 흐름](development.md), [프론트](../frontend/README.md), [백엔드](../backend/README.md) |
 | 브랜치·커밋 이름은? | [Git 명명 규칙](../CONTRIBUTING.md) |
 | 무엇을 검증하는가? | [품질 기준](quality.md) |
-| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md) |
-| 어떻게 배포·복원하는가? | [infra](../infra/README.md) |
+| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md), [Kafka 명세](design/kafka-spec.md)(처리 서비스 층 토픽·메시지·DLQ), [처리 서비스 HTTP API](design/processing-api-spec.md)(운영·확인용) |
+| 어떻게 배포·복원하는가? | [infra](../infra/README.md), 빅데이터 플랫폼(서버 PC)은 같은 문서의 "빅데이터 플랫폼" 절과 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md) |
 | 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
 | 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |

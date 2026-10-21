@@ -37,6 +37,23 @@ public class BaselineRepository {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /** 이 사용자의 기준 중 공개 ID가 {@code id}인 것(없으면 null). 세션은 만들 때의 기준을 쓴다. */
+    public Stored find(long owner, UUID id) {
+        var current = current(owner);
+        if (current != null && current.id().equals(id)) return current;
+        return jdbc.query("SELECT * FROM baseline_posture WHERE user_account_id=? ORDER BY baseline_posture_id DESC",
+                this::read, owner).stream().filter(b -> b.id().equals(id)).findFirst().orElse(null);
+    }
+
+    /**
+     * 서버가 계산한 기준(WebSocket 자세 등록) 저장. 등록 시각은 서버 시각이다.
+     *
+     * Caller holds the account lock and transaction.
+     */
+    public Stored registerComputed(long owner, SessionRequests.Landmarks landmarks) {
+        return register(owner, Instant.now(), landmarks);
+    }
+
     /** Caller holds the account lock and transaction. Existing rows are never updated. */
     public Stored register(long owner, Instant registeredAt, SessionRequests.Landmarks landmarks) {
         var at = KstTime.of(registeredAt);

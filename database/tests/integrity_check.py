@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.2 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.4 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -160,7 +160,9 @@ ok("교정 알림 — 재알림 주기(60초) 뒤", ins_al, (SA, 2, "2026-10-02 
 fails("PK 같은 알림 재전송 (같은 이벤트·같은 시각) 거부", ins_al, (SA, 2, "2026-10-02 01:40:03"), "PRIMARY")
 fails("FK-16 없는 이벤트의 알림", ins_al, (SA, 99, "2026-10-02 01:40:03"), "fk_correction_alert_collapse_event")
 check("BR-21 첫 알림 = 가장 이른 알림 시각", str(one("SELECT MIN(attempted_at) FROM correction_alert WHERE monitor_session_id=%s AND event_seq=2", (SA,))).startswith("2026-10-02 01:40:03"))
-ok("특징값 적재 기록", "INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=1.parquet','2026-10-02 01:00:00','2026-10-02 02:00:00',36000,'2026-10-02 04:00:00')", (SA,))
+# 적재 기록: 세션 폴더 1행 — /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/ (V2.4, 날짜 표기는 합성값)
+ins_arc = "INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,archived_at) VALUES (%s,%s,%s,%s,%s)"
+ok("특징값 적재 기록 (세션 폴더 1행)", ins_arc, (SA, f"/data/users/{A}/2026-10-02/{cu}/", "2026-10-02 01:00:00", "2026-10-02 02:00:00", "2026-10-02 04:00:00"))
 ok("일별 통계 (붕괴까지 걸린 시간 최소 120초·최대 1500초)", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',3540.0,3000.0,1,1,1,120.0,1500.0,'2026-10-03 00:10:00')", (A,))
 fails("BR-17 분자가 분모보다 큼", "INSERT INTO daily_stat VALUES (%s,'2026-10-01',10.0,20.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A,), "ck_daily_stat_subset")
 ok("일별 통계 — 표본이 없는 날은 최소·최대 NULL", "INSERT INTO daily_stat VALUES (%s,'2026-09-30',100.0,50.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A,))
@@ -211,33 +213,21 @@ check("S1-1 유예 중 — 식별 정보·측정 기록은 그대로",
       and one("SELECT COUNT(*) FROM monitor_session WHERE user_account_id=%s", (A,)) == 1)
 fails("S1-1 유예 중 같은 이메일로 재가입 거부 (UK-01)", ins_user, ("test-a@example.invalid", T0, pol), "ux_user_account_login_email")
 
-# 6-1-1 철회: REQUESTED일 때만. 요청 행을 잠그고 상태 확인 → 계정 ACTIVE + 요청 행 삭제
-con.begin()
-cur.execute("SELECT request_status FROM deletion_request WHERE user_account_id=%s AND request_scope='ACCOUNT_ALL' FOR UPDATE", (A,))
-st = cur.fetchone()[0]
-cur.execute("UPDATE user_account SET account_status='ACTIVE' WHERE user_account_id=%s", (A,))
-cur.execute("DELETE FROM deletion_request WHERE user_account_id=%s AND request_scope='ACCOUNT_ALL' AND request_status='REQUESTED'", (A,))
-con.commit()
-check("S1-1-1 철회 — 계정 ACTIVE, 요청 행 없음, 기록 그대로",
-      st == "REQUESTED" and one("SELECT account_status FROM user_account WHERE user_account_id=%s", (A,)) == "ACTIVE"
-      and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (A,)) == 0
-      and one("SELECT COUNT(*) FROM monitor_session WHERE user_account_id=%s", (A,)) == 1)
-
-# 다시 탈퇴. B는 유예 기간이 남은 상태로 둔다
-intake(A, "2026-09-07 09:00:00")
+# 탈퇴는 철회하지 않는다 (아키텍처 v5.2, 2026-10-15) — A의 요청(09-05 접수)이 그대로 유예 종료 대상이 된다.
+# B는 유예 기간이 남은 상태로 둔다
 intake(B, "2026-10-01 09:00:00")
 cur.execute(due_sql, (REF, GRACE)); due = [r[0] for r in cur.fetchall()]
 check("S1-2 유예 종료 대상 — 폐쇄 시각 + 30일이 지난 요청만 (삭제 예정일 컬럼 없이 계산)", due == [A], f"due={due}")
 
 ok("S1-2 PROCESSING", "UPDATE deletion_request SET request_status='PROCESSING' WHERE user_account_id=%s AND request_scope='ACCOUNT_ALL'", (A,))
-ok("S1-2 HDFS 파일 삭제 후 deleted_at 기록", "UPDATE feature_archive fa JOIN monitor_session s USING (monitor_session_id) SET fa.deleted_at='2026-10-08 00:05:00' WHERE s.user_account_id=%s", (A,))
+ok("S1-2 HDFS 세션 폴더 삭제 후 deleted_at 기록", "UPDATE feature_archive fa JOIN monitor_session s USING (monitor_session_id) SET fa.deleted_at='2026-10-08 00:05:00' WHERE s.user_account_id=%s", (A,))
 
 contact = None
 try:
     con.begin()
     cur.execute("SELECT login_email FROM user_account WHERE user_account_id=%s", (A,)); contact = cur.fetchone()[0]   # 4단계 안내용
     left = one("SELECT COUNT(*) FROM feature_archive fa JOIN monitor_session s USING (monitor_session_id) WHERE s.user_account_id=%s AND fa.deleted_at IS NULL", (A,))
-    assert left == 0, "파일이 남은 적재 기록"
+    assert left == 0, "폴더가 남은 적재 기록"
     cur.execute("DELETE fa FROM feature_archive fa JOIN monitor_session s USING (monitor_session_id) WHERE s.user_account_id=%s", (A,))   # 3-1
     cur.execute("DELETE FROM monitor_session WHERE user_account_id=%s", (A,))                                                           # 3-2
     cur.execute("DELETE FROM daily_stat WHERE user_account_id=%s", (A,))                                                                # 3-3
@@ -257,9 +247,10 @@ check("S1 공유 판정 정책은 남음", one("SELECT COUNT(*) FROM threshold_p
 check("S1 유예 중인 다른 계정(B)은 그대로", one("SELECT account_status FROM user_account WHERE user_account_id=%s", (B,)) == "CLOSED")
 ok("S1 최종 삭제 후 같은 이메일로 재가입", ins_user, ("test-a@example.invalid", T0, pol)); A2 = cur.lastrowid
 
-# 실패하면 전부 되돌린다 (6-0 #3) — 파일 삭제 표시 없이 행 삭제를 시도
-ok("S1-실패 준비: B 세션·적재 기록", ins_ses, (U(), T0, B)); SB = cur.lastrowid
-cur.execute("INSERT INTO feature_archive (monitor_session_id,file_uri,range_start_at,range_end_at,row_count,archived_at) VALUES (%s,'hdfs:///features/dt=2026-10-02/s=2.parquet',%s,%s,10,%s)", (SB, T0, T0, T0))
+# 실패하면 전부 되돌린다 (6-0 #3) — 폴더 삭제 표시 없이 행 삭제를 시도
+sb_uuid = U()
+ok("S1-실패 준비: B 세션·적재 기록", ins_ses, (sb_uuid, T0, B)); SB = cur.lastrowid
+cur.execute(ins_arc, (SB, f"/data/users/{B}/2026-10-02/{sb_uuid}/", T0, T0, T0))
 try:
     con.begin()
     cur.execute("DELETE FROM monitor_session WHERE user_account_id=%s", (B,))
@@ -270,7 +261,7 @@ ok("S1-실패 요청을 FAILED + 사유로 둠", "UPDATE deletion_request SET re
 check("S1-실패 되돌린 뒤 B의 계정·세션·요청 행이 그대로",
       one("SELECT COUNT(*) FROM monitor_session WHERE user_account_id=%s", (B,)) == 1 and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (B,)) == 1)
 # 재시도는 같은 요청으로 이어서 한다 (6-0 #4). 3-6(요청 행 삭제)을 건너뛰면 FK-18이 계정 삭제를 막는다
-ok("S1-재시도 파일 삭제 후 deleted_at 기록", "UPDATE feature_archive SET deleted_at='2026-10-08 00:10:00' WHERE monitor_session_id=%s", (SB,))
+ok("S1-재시도 세션 폴더 삭제 후 deleted_at 기록", "UPDATE feature_archive SET deleted_at='2026-10-08 00:10:00' WHERE monitor_session_id=%s", (SB,))
 try:
     con.begin()
     cur.execute("DELETE FROM feature_archive WHERE monitor_session_id=%s", (SB,))
@@ -307,7 +298,7 @@ fails("같은 SESSION_ID 거부", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,
 ok("만료 세션 삭제", "DELETE FROM SPRING_SESSION WHERE EXPIRY_TIME < 3")
 check("로그인 세션 삭제 시 속성 연쇄 삭제", one("SELECT COUNT(*) FROM SPRING_SESSION_ATTRIBUTES") == 0)
 
-# ===================================================================== V2.1·V2.2에서 없앤 테이블·컬럼이 남지 않음
+# ===================================================================== V2.1·V2.2·V2.4에서 없앤 테이블·컬럼이 남지 않음
 gone_t = one("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN "
              "('feature_def','safety_range','baseline_feature','client_record','collapse_type')")
 check("폐기·보류 테이블 없음 (feature_def·safety_range·baseline_feature·client_record·collapse_type)", gone_t == 0, f"{gone_t}개 남음")
@@ -318,11 +309,12 @@ GONE = [("user_account", "auth_epoch"), ("baseline_posture", "feature_version"),
         ("monitor_session", "calibration_uuid"), ("monitor_session", "end_reason"),
         ("collapse_event", "end_reason"), ("collapse_event", "collapse_type_code"),
         ("correction_alert", "correction_alert_id"), ("correction_alert", "attempt_seq"),
-        ("correction_alert", "delivered"), ("correction_alert", "suppress_reason")]                                          # V2.2
+        ("correction_alert", "delivered"), ("correction_alert", "suppress_reason"),                                          # V2.2
+        ("feature_archive", "row_count")]                                                                                       # V2.4
 cur.execute("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()")
 cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
-check("V2.1·V2.2 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered 등 20개)", not left_c, ", ".join(left_c))
+check("V2.1·V2.2·V2.4 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered, row_count 등 21개)", not left_c, ", ".join(left_c))
 check("V2.2 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대)",
       {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
        ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec")} <= cols)

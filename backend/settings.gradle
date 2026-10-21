@@ -1,3 +1,5 @@
 rootProject.name = 'posegood-backend'
 
 include 'api'
+// 판정·판정 결과 저장·운영 API(옛 platform/api-server, D-50·D-52). Kafka 처리 서비스 층.
+include 'processing'
