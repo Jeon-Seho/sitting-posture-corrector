@@ -25,7 +25,7 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 **적용 후 확인** — 테이블 13개, `threshold_policy` 1행이면 정상이다.
 
-**V2.2로 만든 DB** — 지우지 않고 migration 2개를 번호순으로 적용하면 V2.3과 같아진다. 기존 행은 그대로이고, 새 컬럼 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`는 NULL로 시작한다(다음 일별 집계 때 채운다). 되돌리는 방법은 각 파일 머리말에 있다.
+**V2.2로 만든 DB** — 지우지 않고 migration 2개를 번호순으로 적용하면 V2.3과 같아진다. 기존 행은 그대로이고, 새 컬럼 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`는 NULL로 시작한다(Spark J2가 일별 집계 때 채운다 — J2는 구현 전, 11장). 되돌리는 방법은 각 파일 머리말에 있다.
 
 ```bash
 mysql -u <계정> -p posture_service < database/migrations/011_add_until_collapse_daily_stat.sql
@@ -279,7 +279,7 @@ database/
 | 탈퇴 철회 | **하지 않는다** (2026-10-15 결정). 접수한 탈퇴는 되돌릴 수 없다. 30일 유예는 남긴다 — Kafka(3일)·DLQ(7일)·Redis 보존 기간이 모두 30일보다 짧아, 유예 뒤에 지우면 서버 어디에도 데이터가 남지 않는다. `deletion_request` 상태를 바꾸는 쪽은 J3뿐이라 철회·삭제가 겹칠 일이 없다 | 「아키텍처 v5.2 전환 영향」 공지 ① |
 | 탈퇴 최종 삭제 | **Spark J3**가 매일 04:00에 처리한다(입출구 서버는 접수만). 유예가 끝났고 상태가 `REQUESTED`(재시도면 `FAILED`)인 요청만 `PROCESSING`으로 바꾼 뒤 시작한다. 대상은 `account_closed_at + WITHDRAWAL_GRACE_DAY(30일) ≤ 현재`로 계산한다(삭제 예정일 컬럼 없음). 사용자 폴더를 먼저 지우고 `deleted_at`을 채운 뒤, 적재 기록 → 세션 → 일별 통계 → 기준 자세 → 삭제 요청 → 계정을 한 트랜잭션으로 지운다(세션이 기준 자세를 막으므로 세션이 먼저). 동의 기록은 계정 삭제에 연쇄된다(FK-19). 완료 안내는 **J3가 직접**, 커밋 뒤에 미리 읽어 둔 연락처로 보낸다. 롤백(`FAILED`)이면 보내지 않고, 발송이 실패해도 삭제는 되돌리지 않으며 로그에는 사용자 ID만 남긴다 | D-34, DB-04 6-1, 아키텍처 v5.2 ⑳ |
 | 삭제 배치 공통 | (J3) 파일 먼저, 행은 하위부터, 사용자 한 명 단위 트랜잭션. 실패하면 되돌리고 요청을 FAILED로 둔다. 기록만 삭제할 때는 세션을 지운 뒤 현재 기준을 뺀 예전 기준 자세 행도 지운다 | DB-04 6장, D-39 |
-| 비밀번호 변경 | 지금 쓰는 세션을 뺀 그 사용자의 `SPRING_SESSION` 행을 지워 다른 기기의 기존 로그인을 끊는다 | 건의안 0001 #6, V2.1 |
+| 비밀번호 변경 | 지금 쓰는 세션을 포함해 그 사용자의 `SPRING_SESSION` 행을 모두 지운다(`PRINCIPAL_NAME`으로 찾음). 열린 실시간 연결도 닫히고, 앱은 다시 로그인한다 | 건의안 0001 #6, V2.1, `contracts/accounts.v2.md` |
 | 가입 동의 | 계정 행과 필수 동의 5행(`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`·`AGE_14_OVER`)을 한 트랜잭션으로 넣는다. 하나라도 빠지면 가입을 거부한다. 선택 정보(`OPTIONAL_PROFILE`)는 동의했을 때만 넣고, 동의가 없으면 나이·직업을 받지 않는다. 거부는 저장하지 않는다. 만 14세 미만은 가입을 막는다(나이를 입력했는데 14 미만이면 거부 — DB는 검사하지 않는다) | FE 동의 제안서, FK-19 |
 | 동의 변경 | 선택 정보 동의를 철회하면 그 행에 `withdrawn_at`을 채우고 `user_account.age`·`occupation`을 같은 트랜잭션에서 비운다. 다시 동의하면 새 행. 약관이 바뀌면 새 `document_version`으로 다시 동의받아 새 행을 넣는다(종류별 가장 최근 행이 현재 상태). 필수 동의 철회는 탈퇴 요청으로 처리하고, 탈퇴 접수 때는 `withdrawn_at`을 채우지 않는다 — 동의 행은 유예가 끝나 계정을 지울 때 함께 지워진다(FK-19) | 동의 제안서 1·4장 |
 | 로그인 세션 | 서버 DB는 스키마 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 `SPRING_SESSION` 이름이 소문자로 바뀌어 라이브러리가 찾지 못한다 | 건의안 0001 #5 |
@@ -316,13 +316,14 @@ DB를 쓰는 백엔드는 두 곳이고, 둘 다 **V2.3** 기준이다([ADR 0022
 | 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
 | Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_3.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.2로 만든 볼륨은 migration 011·012를 적용한다(1장) |
 
-**아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, 예정)가 맡는다.
+**아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, 예정)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
 
 | 일 | 담당 | 상태 (2026-10-20) |
 |---|---|---|
+| 실시간 판정 결과 저장 (`collapse_event`·`correction_alert`·`excluded_interval`·세션 종료 값) | 지금 입출구 서버(API 안 판정) → 계획 0031 2단계 뒤 처리 서비스만 | 입출구 서버가 쓰는 중. 둘이 함께 쓰지 않도록 전환 시점을 맞춘다 |
 | 탈퇴 접수 | 입출구 서버 `auth` | 구현됨. 철회 없음 |
 | 탈퇴 최종 삭제·완료 안내 | Spark J3 (매일 04:00) | **구현 전.** 입출구 서버의 삭제 스케줄러는 이미 지웠으므로, J3가 생기기 전까지 유예가 끝난 계정이 지워지지 않는다 |
 | `daily_stat` 집계 | Spark J2 (매일 00:00) | **구현 전.** 세션 종료 때 누적하던 코드는 이미 지웠으므로, J2가 생기기 전까지 일별 통계가 채워지지 않는다 |
 | `feature_archive` 기록 | Spark J1 (매시간) | **구현 전.** 세션 폴더 하나를 1행으로 기록하기로 했다(2026-10-15). 컬럼 설명 갱신은 보류 |
 
-- 저장 대응과 남은 한계는 [전환 계획](../docs/removed-docs.md)에 둔다.
+- 실시간 판정을 Kafka 경로로 옮기는 단계와 남은 한계는 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)에 둔다.

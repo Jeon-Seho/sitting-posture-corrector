@@ -77,9 +77,7 @@
 | `database/README.md` 8장 시나리오 1 | "철회하면 계정 ACTIVE + 요청 행 삭제" | 구절 삭제 | 구현 전 |
 | `backend/api/.../account/AuthController.java` 23줄 | 클래스 주석에 "철회" | 주석에서 삭제 | 구현 전 |
 | `backend/README.md` 「다음 결정」 2번 | 지운 계획 0022 링크 | [계획 0031](plans/active/0031-realtime-kafka-transition.md)로 | 구현 전 |
-| `database/README.md` 11장 마지막 줄 | 「전환 계획」 링크가 `docs/removed-docs.md`(지운 문서 기록)를 가리킴 | 계획 0031로 | 구현 전 |
 | `tools/service_smoke.py` 177~179줄 | `daily_stat` 1행을 기대 — API는 이제 쓰지 않음 | 기대값 삭제 (tools 담당) | 구현 전 |
-| `database/README.md` 9장 「비밀번호 변경」 | "지금 쓰는 세션을 뺀" 행을 지운다고 적힘 — 코드·`accounts.v2.md` 24줄·`api-ws-spec.md` 48줄은 현재 로그인 포함 모두 삭제 | README 문구를 코드에 맞춤 | 구현 전 |
 | 계획 0026 52줄 「DB 쓰기」 | `baseline_posture` 사용자당 1행 덮어쓰기, `calibration_uuid` 복사 (V2.1 기준) — 지금은 매번 새 행, `baseline_posture_id` FK(V2.2~) | 계획 표 갱신 | 구현 전 |
 
 ## 4. 미결 결정
@@ -99,3 +97,4 @@
 |---|---|---|
 | 2026-10-21 | 처음 작성 | `b4122e9` 기준 |
 | 2026-10-21 | DevOps·Spark 담당 항목 제거 (처리 서비스, 옛 CEP 경로, J1~J3, 서버 PC 검증 기록) | `3f2bbf8` 이후 |
+| 2026-10-21 | `database/README.md` 9장 비밀번호 변경·11장 링크를 고쳐 불일치 2건 제거 | `3f2bbf8` 이후 |
