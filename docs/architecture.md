@@ -38,18 +38,19 @@ DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18�
 `model/`은 코드의 책임 경계이며 반드시 서버에서 실행한다는 뜻은 아니다.
 현재 계획은 React/TypeScript 클라이언트에서 MediaPipe 키포인트를 추출하고 필요한 특징을 추론 서비스에 전송하며,
 Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다. Python/LSTM 추론 서비스와 사용자 관리 서비스는 분리한다.
-현재 개발 흐름에서는 `model/prototype/serverFeatures.ts`가 브라우저 특징 변화량을 만들고 Python이 규칙 점수를 계산한다.
+앱(FE V3, 2026-10-21)은 관절 9개 좌표를 0.5초 구간으로 `/v2/realtime`에 보내고, 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md), [ADR 0025](decisions/0025-app-always-measures-on-server.md)).
+기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0026](decisions/0026-baseline-average-by-app-b1.md)). `model/prototype/serverFeatures.ts`의 브라우저 특징 변화량은 예전(v1) 개발 흐름이다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
 새 서버 흐름의 지속시간·회복·재알림 판정은 API의 판정 엔진 한 곳에서 수행한다. Spring Boot API는
 검증·전달·저장·조회, FastAPI는 현재 추론 점수를 담당한다. [관측/사건/조회 계약](../contracts/README.md)을 사용한다.
-프론트 서버 모드는 `features/session/server/`의 독립 화면·순서 큐로 서버 사건을 표시한다. 로컬 시간 엔진을 실행하지 않는다.
+앱은 항상 서버로 측정하고(`frontend/src/features/session/live/`) 서버가 보낸 사건·요약만 표시한다. 로컬 시간 엔진은 없다(2026-10-21).
 `/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고(실시간 채널은 WebSocket) DB·추론은 host port를 열지 않는다.
 현재 FastAPI는 규칙 기반 특징 점수이고 학습 모델이 아니다. [실행·검증·한계](../backend/README.md)를 따른다.
 
 시간 정책의 현재 합의는 [ADR 0012](decisions/0012-session-timing-policy.md)를 따른다.
 기본 최초 알림 3초·복귀 3초·같은 사건 재알림 60초, 중단 후 새 사건과 제외 시간,
-세션 시작 시 설정 고정/다음 새 세션 적용을 로컬·서버 구현에 유지한다.
+세션 시작 시 설정 고정/다음 새 세션 적용을 서버 구현에 유지한다(앱은 설정값을 S1 `policy`로 보낸다).
 개발용 특징·관측 구간 계약은 ADR 0013이며 실제 품질 임계값·카메라 시점·장치 성능은 검증 전이다.
 
 ## 의존성과 변경 원칙
@@ -62,7 +63,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## 기존 프론트 통합 예외
 
-[ADR 0003](decisions/0003-retro-integration.md)에 따라 기존 PoseGood 상태 기계 `frontend/src/lib/engine.ts`에서 로컬 모드의 시간 정책을 실행한다. 특징·기준 비교는 `model/prototype/pose.ts`가 소유하고 프론트 어댑터가 기존 내부 Sample 형식에 연결한다. 서버 모드는 별도 계약·화면을 사용한다.
+[ADR 0003](decisions/0003-retro-integration.md)의 예외(`frontend/src/lib/engine.ts`가 로컬 모드 시간 정책을 실행)는 2026-10-21 [ADR 0025](decisions/0025-app-always-measures-on-server.md)로 끝났다. `lib/engine.ts`에는 기록·설정 타입만 남았다. 학습 데이터 수집 화면이 쓰는 특징 계산(`model/prototype/pose.ts`)은 남아 있다.
 
 ## 파일럿 파일 수집
 
@@ -101,7 +102,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.
 실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
-앱이 v2로 넘어갈 때까지 `/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다([계획 0031](plans/active/0031-realtime-kafka-transition.md)).
+앱이 v2로 넘어갈 때까지 `/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다([계획 0031](plans/active/0031-realtime-kafka-transition.md)). FE V3는 2026-10-21 v2로 넘어갔다(develop에 합쳐진 뒤 BE가 v1을 정리).
 
 ## 프론트 진입과 로컬 저장
 
@@ -114,7 +115,8 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
-서버가 없는 동안 프로필·설정·측정 요약·중간 저장·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
+계정 서버 연결(BE) 전까지 프로필·설정·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
+측정과 기준 자세는 서버에 있고(2026-10-21), 기록 화면이 R1을 읽기 전까지 측정 결과를 R1과 같은 형식으로 이 기기에도 남긴다. 중간 저장(이어하기)은 없다.
 이는 서버 저장 API를 대체하는 임시 경계이며, 백엔드 연결 시 같은 지점에서 교체한다.
 [수집 v2 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 

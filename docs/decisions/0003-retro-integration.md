@@ -1,6 +1,6 @@
 # ADR 0003: 기존 PoseGood 프론트에 통합
 
-- 상태: 프로토타입 범위 채택
+- 상태: superseded by [ADR 0025](0025-app-always-measures-on-server.md) (2026-10-21) — `lib/engine.ts`의 로컬 시간 정책(로컬 모드 예외)은 없어졌다. 기존 화면·디자인을 이어받은 것은 지금도 같다
 - 날짜: 2026-09-18
 
 사용자가 프론트 작업 브랜치를 정정했다. `origin/feature/retro-redesign` (60ec460)을 기반으로

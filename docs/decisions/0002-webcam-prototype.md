@@ -1,6 +1,6 @@
 # ADR 0002: 웹캠과 합성 입력을 갖춘 프론트 프로토타입
 
-- 상태: 프로토타입 범위 채택
+- 상태: superseded — UI·시간 정책은 [ADR 0003](0003-retro-integration.md), 앱의 상태 판정은 [ADR 0021](0021-app-sends-information-server-judges.md)·[ADR 0025](0025-app-always-measures-on-server.md)(2026-10-21 앱은 판정하지 않음). MediaPipe를 기기 안에서 돌리는 것과 모델 자산 관리는 지금도 같다
 - 날짜: 2026-09-18
 
 UI 및 시간 정책의 최신 배치는 [ADR 0003](0003-retro-integration.md)으로 대체한다. 아래는 최초 프로토타입 결정 기록이다.

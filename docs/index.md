@@ -19,7 +19,7 @@
 
 - **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe-server-proposal.md) 7.2.
 
-- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md).
+- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0025 앱은 항상 서버로 측정한다](decisions/0025-app-always-measures-on-server.md)(10/21), [ADR 0026 자세 등록은 앱이 3초 평균을 내서 B1로](decisions/0026-baseline-average-by-app-b1.md)(10/20 전체 회의). 옛 방식의 ADR(0002·0003·0010·0012·0013·0017·0019·0022)에는 맨 위 상태 줄에 무엇으로 바뀌었는지 적었다.
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — BE API 명세(10/13)와 같은 ID·경로. 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`. BE에 확인할 것은 0장.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).

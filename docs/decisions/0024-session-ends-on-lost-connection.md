@@ -1,6 +1,6 @@
 # ADR 0024: 서버 연결이 끊기면 세션을 끝낸다
 
-- 상태: accepted (앱 구현 `feature/frontend-camera-select-disconnect`)
+- 상태: accepted (앱 구현 `feature/frontend-camera-select-disconnect`, 2026-10-21 V3 `/v2/realtime` 측정에 다시 구현 — [ADR 0025](0025-app-always-measures-on-server.md). 아래 "결과"의 `realtime/client.ts`·HTTP 큐는 그때 지웠다)
 - 날짜: 2026-10-13 (번호: 예전 0022. BE 브랜치의 ADR 0022(DB V2.3 연동)와 겹쳐 10/15에 0024로 옮겼다)
 - 근거: 2026-10-13 사용자(FE) 결정
 - 대체: [ADR 0021](0021-app-sends-information-server-judges.md) 4번의 "연결이 끊기면 화면을 막지 않게 띄우고,

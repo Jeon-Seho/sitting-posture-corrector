@@ -6,6 +6,7 @@
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. 아래 v1 WebSocket 부분(`realtime-ws.v1`)은 앱이 v2로 바뀌면 없앤다.
+> **2026-10-21:** 앱(FE V3)은 v2로 바뀌었고 `purpose:"measure"`만 쓴다. 자세 등록은 WS `calibration`이 아니라 앱이 낸 평균을 REST B1로 보낸다([ADR 0026](../../docs/decisions/0026-baseline-average-by-app-b1.md)). 앱은 v1 WebSocket을 더 쓰지 않는다([ADR 0025](../../docs/decisions/0025-app-always-measures-on-server.md)).
 > Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).

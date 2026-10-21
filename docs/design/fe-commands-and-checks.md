@@ -99,7 +99,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 |---|---|
 | `python tools/dev.py check-compose` | DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 어느 PC에서나 실패한다(계획 0023) |
 | `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
-| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0024)을 고쳐야 한다(계획 0030 G1~G3) |
+| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0024)을 고쳐야 한다(계획 0030 G1~G3). **10/21 V3:** 앱이 서버 전용이 되어 시나리오의 로컬 측정·「서버 판정 사용」·이어하기가 없어졌다. 가짜 서버나 8088 환경으로 다시 써야 한다(G6) |
 
 정리: 프론트·문서·Python·Java 서버는 매번 검증하고, 브라우저 흐름과 실제 DB(Compose)는 지금 검증하지 못한다.
 작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.

@@ -1,6 +1,6 @@
 # ADR 0021: 앱은 정보만 보내고 판정은 서버가 한다
 
-- 상태: accepted (구현 전. [계획 0023](../plans/active/0023-frontend-server-only.md))
+- 상태: accepted (2026-10-21 앱 구현: 측정 [ADR 0025](0025-app-always-measures-on-server.md), 자세 등록 [ADR 0026](0026-baseline-average-by-app-b1.md). 남은 것은 [계획 0023](../plans/active/0023-frontend-server-only.md))
 - 날짜: 2026-10-11
 - 근거: v4 회의 결정(FE 회신 10/08, 지금은 [FE 제안서](../design/fe-server-proposal.md)), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거)
 - 대체: [ADR 0013](0013-frontend-server-feature-connection.md)의 "앱이 특징 변화량을 만들어 보낸다", "기본 로컬 모드 유지",

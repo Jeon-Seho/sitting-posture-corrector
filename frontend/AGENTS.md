@@ -7,5 +7,6 @@
 - `unmeasurable`, 기준 미등록, 카메라 거부·끊김을 구분해서 보여준다.
 - 신뢰도를 의학적 확률로 표현하지 않는다. 실제 영상을 기본 업로드하거나 보관하지 않는다.
 - 첫 구현 때 실행/빌드/타입/주요 UI 흐름 검증을 문서화하고 루트 게이트에 연결한다.
-- 현재 로컬 프로토타입은 React/TypeScript/Vite다. [ADR 0002](../docs/decisions/0002-webcam-prototype.md)를 따른다.
-- 실행은 `make dev`, 검증은 `make check-frontend`. 특징·분류는 `model/prototype/`, 웹캠·시연 공통 시간 정책은 기존 `src/lib/engine.ts`에 둔다. [ADR 0003](../docs/decisions/0003-retro-integration.md)의 통합 예외를 따른다.
+- 앱은 React/TypeScript/Vite다. **앱은 항상 서버로 측정하고 판정하지 않는다**([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md), [ADR 0025](../docs/decisions/0025-app-always-measures-on-server.md)). 점수·상태·알림·통계는 서버가 보낸 것만 쓴다. 로컬 판정·시간 정책을 다시 넣지 않는다.
+- 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로 보낸다([ADR 0026](../docs/decisions/0026-baseline-average-by-app-b1.md)). 측정은 `src/features/session/live/`, 등록은 `src/features/baseline/`, 서버 요청은 `src/features/platform/api.ts`.
+- 실행은 `make dev`, 검증은 `make check-frontend`.
