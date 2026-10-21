@@ -2,13 +2,12 @@
 
 > 기준: 2026-10-21 · 브랜치 `fix/db-backend-v5-2-sync` · 커밋 `b4122e9` · DB 스키마 V2.3
 > 갱신 규칙: backend/AGENTS.md. 할 일은 계획, 결정 이유는 ADR을 본다.
-> 코드 경로: 입출구 서버는 `backend/api/src/main/java/org/posegood/api/`, 처리 서비스는 `backend/processing/src/main/java/com/posture/api/` 기준(시험은 `src/test/...`).
+> 코드 경로: `backend/api/src/main/java/org/posegood/api/` 기준(시험은 `src/test/...`).
 
 ## 1. 요약
 
-- 지금 앱이 쓰는 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로는 서버 PC에서 동작하지만 앱 입구가 없다([계획 0031](plans/active/0031-realtime-kafka-transition.md)).
+- 지금 앱이 쓰는 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
 - 큰 한계:
-  - Spark J1~J3가 없다. 통계 화면이 비고, 유예가 끝난 탈퇴 계정이 지워지지 않는다.
   - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 `404 SESSION_LOST`.
   - 실제 MySQL 통합 시험(`-Pmysql-integration`) 통과 기록이 없다.
 
@@ -56,29 +55,14 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| 0단계 준비 (동등성 시험, D-39, compose) | DevOps/BE | 구현됨 | 0031 기준, 10/21 확인 |
-| 판정 결과 저장의 `posture.alerts.v1` 발행 (D-54) | DevOps/BE | 구현됨 | `processing/.../report/KafkaAlertPublisher.java`, `a0d99a3` (10/21 확인) |
-| `good_sec` 버림 통일 (D-58) | DevOps/BE | 구현됨 | `processing/.../report/JdbcEpisodeStore.java` 50줄, `faed2bd` (10/21 확인) |
 | 1단계 `ws` Kafka 연결 (`posegood.realtime.pipeline`) | PM | 구현 전 | 0031 기준, 10/21 확인 — `backend/api`에 설정 없음 |
 | 2단계 API 결과 쓰기 중단·REST 정리 | DB/BE | 구현 전 | 0031 2단계 |
-| 3단계 전환 시험 | DevOps/BE | 구현 전 (도구만 준비) | 0031 기준, 10/21 확인 — `tools/platform/ws_realtime_smoke.py` |
 | 4단계 API 안 판정 삭제, ADR 0020 대체 | 전원 | 구현 전 | 0031 4단계 |
-| 옛 CEP 경로 삭제 (`CepJdbcRepository` 등 `posture/cep/`) | DevOps/BE | 구현 전 | D-38, [처리 서비스 API 명세](design/processing-api-spec.md) 5장 (10/21 확인 — 파일 남아 있음) |
 
-### 2.6 Spark 배치 (J1·J2·J3)
-
-| 일 | 담당 | 상태 | 근거 |
-|---|---|---|---|
-| J1 `feature_archive` 기록 (매시간, 세션 폴더 1행) | Spark | 구현 전 | `database/README.md` 11장, `bigdata/README.md` (`jobs/` 없음, 10/21 확인) |
-| J2 `daily_stat` 집계 (매일 00:00) | Spark | 구현 전 — 통계 화면이 비어 있음 | 같음 |
-| J3 탈퇴 최종 삭제·완료 안내 (매일 04:00) | Spark | 구현 전 — 유예가 끝난 계정이 남음 | 같음 |
-
-### 2.7 검증
+### 2.6 검증
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
-| `backend/gradlew -p backend :processing:test :api:test` | 통과 | 2026-10-16 | 서버 PC, 동등성 시험 포함 (0031 검증 기록) |
-| `tools/platform/integration_test.sh --quick` | PASS 60 / FAIL 0 / SKIP 4 | 2026-10-16 | 서버 PC (0031 검증 기록) |
 | `-Pmysql-integration` (실제 MySQL) | 확인 필요 | 2026-10-15 | 접속 거부로 미실행 (0026). [계획 0028](plans/active/0028-backend-java17-boot4-gradle.md)에도 미체크 |
 | `tools/service_smoke.py` | 확인 필요 | — | 아직 `daily_stat` 1행을 기대함 (3장) |
 | `make check-compose` | 확인 필요 | 2026-10-14 | 실패 원인 분석만 있음 ([계획 0030](plans/active/0030-make-check-failures.md)) |
@@ -97,7 +81,6 @@
 | `tools/service_smoke.py` 177~179줄 | `daily_stat` 1행을 기대 — API는 이제 쓰지 않음 | 기대값 삭제 (tools 담당) | 구현 전 |
 | `database/README.md` 9장 「비밀번호 변경」 | "지금 쓰는 세션을 뺀" 행을 지운다고 적힘 — 코드·`accounts.v2.md` 24줄·`api-ws-spec.md` 48줄은 현재 로그인 포함 모두 삭제 | README 문구를 코드에 맞춤 | 구현 전 |
 | 계획 0026 52줄 「DB 쓰기」 | `baseline_posture` 사용자당 1행 덮어쓰기, `calibration_uuid` 복사 (V2.1 기준) — 지금은 매번 새 행, `baseline_posture_id` FK(V2.2~) | 계획 표 갱신 | 구현 전 |
-| 계획 0031 89줄 | `good_sec` 반올림 차이가 남아 있다고 적힘 — D-58에서 버림으로 통일됨 | 검증 기록 갱신 | 구현 전 |
 
 ## 4. 미결 결정
 
@@ -115,3 +98,4 @@
 | 날짜 | 내용 | 커밋 |
 |---|---|---|
 | 2026-10-21 | 처음 작성 | `b4122e9` 기준 |
+| 2026-10-21 | DevOps·Spark 담당 항목 제거 (처리 서비스, 옛 CEP 경로, J1~J3, 서버 PC 검증 기록) | `3f2bbf8` 이후 |
