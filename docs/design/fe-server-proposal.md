@@ -1,6 +1,6 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-19(BE `/v2/realtime` 구현 확인, 640×480 거부 대신 표시, HTTPS 배포, v2 전환 때 정리할 것, 연동 명세 7장·데스크톱 화면 설계를 4.1·8장으로 합침. 10/20 작은 창 X·10분 자동 종료, 10/21 자세 등록 B1(10/20 전체 회의)·7.0 결정) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-19(BE `/v2/realtime` 구현 확인, 640×480 거부 대신 표시, HTTPS 배포, v2 전환 때 정리할 것, 연동 명세 7장·데스크톱 화면 설계를 4.1·8장으로 합침. 10/20 작은 창 X·10분 자동 종료, 10/21 자세 등록 B1(10/20 전체 회의)·7.0 결정·V3 서버 전용 측정(F1·F3)·7.2 다음 할 일) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성)
 > 확인 기준: 이 저장소 `backend/api`(10/15 BE 브랜치가 develop을 받아 합침, `0fe1bd6`), [실시간 계약 v1](../../contracts/realtime/README.md)·[v2](../../contracts/realtime/realtime-ws.v2.schema.json), DevOps/BE 회신(10/11), BE 답변(10/13), DB 스키마 V2.3(`develop` `fa793ba`, 10/15에도 변경 없음), 아키텍처 v5.2 전환 공지(DB·BE, 10/15)
 > FE 검증(10/12): 프론트 303개·브라우저 75개, 이 저장소의 Java 서버 시험(`check-backend`)·Python 시험 통과
 > 관련: [ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [계획 0023](../plans/active/0023-frontend-server-only.md), [연동 명세](api-ws-spec.md), [WebSocket v2 계약](../../contracts/realtime/realtime-ws.v2.schema.json), [FE 작업 명령과 검사](fe-commands-and-checks.md), [API 명세 초안](api-ws-spec.md)
@@ -112,7 +112,7 @@ FE가 정한 것(앱 쪽 동작):
 |---|---|---|
 | ① 계속 측정, 그 구간만 판정 불가(저절로 이어 감) | 어깨가 안 보임, 얼굴·양쪽 어깨를 못 찾음, 추적 품질이 낮음 | 프레임 `valid:false` → `UNMEASURABLE` |
 | ② 일시정지, 「측정 재개」로 이어 감 | 사용자 「잠시 쉬기」 | `rest` → `PAUSE` |
-| | 영상이 1.5초 넘게 안 들어옴(연결은 그대로, 예: 다른 USB를 꽂음, `useSessionScreen`) | `away` → `ABSENCE` |
+| | 영상이 1초 넘게 안 들어옴(연결은 그대로, 예: 다른 USB를 꽂음, `features/session/live/useLiveSession.ts`) | `away` → `ABSENCE` |
 | | 앱 처리가 1.5초 넘게 멈춤(PC가 바쁘거나 절전에서 깨어남, `useSession`) | `away` → `ABSENCE` |
 | | 위 두 경우(앱이 스스로 멈춘 일시정지)의 안내: 「인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.」 「측정 재개」는 사람을 다시 알아볼 때까지 잠겨 있어 저절로 이어지는 줄 오해하기 쉬웠다(10/16) | — |
 | ③ 측정 종료, 그때까지 기록 저장 | 사용자 「측정 종료」 | `end` |
@@ -157,7 +157,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 ### 4.1 화면 상태와 서버 메시지
 
-`features/session/liveView.ts`가 판정 상태를 아래로 바꾸고, 화면은 이것만 본다. 서버를 붙이면 오른쪽 칸의 메시지로 같은 상태를 만든다. 서버가 남은 시간(확정·복귀까지)을 주지 않으면 진행 막대는 숨긴다.
+10/21 V3: 측정 화면(`features/session/live/LiveSessionPage.tsx`)은 오른쪽 칸의 서버 메시지로만 상태를 만든다. 지금 쓰는 상태는 바른 자세(`observation.valid`), 자세가 흐트러졌어요(확정 사건이 열려 있음), 자세를 확인할 수 없어요(`valid:false`, `head_turn`이면 고개 안내), 쉬는 중, 카메라 영상 기다림(`away`), 분석이 잠시 멈췄어요(`stalled`)다. 서버가 남은 시간을 주지 않으므로 `suspect`·`recovering` 진행 막대는 없다.
 
 | 상태 | 뜻 | 알약 문구 | 카메라 위 카드 | 서버에서 오는 것 |
 |---|---|---|---|---|
@@ -220,7 +220,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 10/19에 앱을 v2로 바꿨다가 전략을 바꾸며 되돌렸다(코드는 `48f5e9b` 상태). 그때 정하지 못한 것:
 
 - **서버 결과를 앱이 다시 검사할지:** 되돌린 코드는 서버가 보낸 요약이 이전보다 줄면(되감김) 측정을 멈추고, 2초 넘은 관측은 화면에서 숨겼다. 「서버에서 받은 것만 처리한다」(ADR 0021)에 맞추려면 형식 검사만 남기고 둘 다 빼는 쪽을 권한다(멈춤은 서버 `stalled`가 알려 준다).
-- **서버 측정 화면의 카메라 빠짐:** 결정 3(쓰던 카메라가 빠지면 종료·저장, 계획 0053)은 기본 측정 화면(`useSessionScreen.ts`)에만 있다. 서버 측정 화면(`useServerSessionScreen.ts`)은 빠져도 「영상 1초 넘게 없음」으로 일시정지(`away`)만 된다. v2 때 같은 규칙(`end`로 종료·저장)을 넣는다.
+- **서버 측정 화면의 카메라 빠짐:** 결정 3(쓰던 카메라가 빠지면 종료·저장, 계획 0053)을 서버 측정에도 넣는다(`end`로 종료·저장). 10/21 `useLiveSession.ts`에 넣었다.
 - **측정 중 들어오는 영상의 장치·크기가 시작 때와 다르면:** 측정 중에는 카메라 선택이 잠겨 드물다(같은 카메라가 다른 해상도로 다시 켜지는 정도). 지금 서버 측정은 멈추고 재개를 막는다. 위와 같이 종료·저장으로 맞추면 단순하다.
 - 그대로 둘 것: 순번 중복 막기(서버 `bad_message` 방지), 좌표를 계약 범위(-1~2)로 자르기, `ready` 5초·`end` 뒤 10초 대기(연동 명세 1.1).
 
@@ -244,6 +244,22 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 참고: 앱의 옛 판정 구현(고개 돌림 제외·귀 기준 치우침·복귀 대기)은 `lee_app1`의 `676ae89`에 있다. 회의 안건 원문과 BE 문서는 저장소 밖(DevOps)에 있다.
 
+### 7.2 다음 할 일 (10/21 기준, V3 `f88ffe3`)
+
+10/21에 한 것: F2 자세 등록(B1·B2), F1+F3 측정(S1 → `/v2/realtime`), 로컬 판정·이어하기·v1 서버 코드 삭제. 시험 213개·`check-repo` 통과, 실제 서버 시험은 아직.
+
+| 순서 | 할 일 | 막힌 것 |
+|---|---|---|
+| 1 | **더미 데이터 삭제**(2단계): 발표용 예시 기록 `data/exampleRecords.ts`와 설정의 토글(`KEYS.demo`, `saveDemoPreference`), 합성 시연 `mode: 'demo'`, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라는 남긴다 | — |
+| 2 | **기록 화면을 서버로**(3단계): `recordsSource.ts`에서 W1 `records`·R1·T1. 지금은 측정 결과를 이 기기에도 R1 형식으로 남긴다(`useSessionPersistence.ts` `finish`), R1로 바꾸면 그 복사를 지운다. 기록·달력은 lellon0403 담당(10/14)이라 함께 | BE 로그인(F12) |
+| 3 | `check-browser` 시나리오를 서버 전용으로 다시 쓰기([계획 0030](../plans/active/0030-make-check-failures.md) G6): 가짜 S1·`/v2/realtime`·B1·B2 | — |
+| 4 | 실제 서버 시험: DevOps 8088 환경(`ssh -L 8088:127.0.0.1:8088`)에서 로그인 → 등록 → 측정 → 종료 → 기록. 그 환경의 화면은 BE 브랜치의 `frontend/`로 빌드되므로 V3 화면으로 빌드해야 한다(DevOps와 정하기) | F12·W1 |
+| 5 | S1 `policy`를 W1 `rules`로(B-3) | W1 |
+| 6 | 남은 앱 계산: 수집 화면용 기준 특징 다리(`useCamera` `baselineFeatures`), 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`, T1로) | 2 |
+
+알릴 것: BE — 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(B-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
+V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 한다(Vercel 배포본이 서버 없이는 측정할 수 없게 되므로).
+
 ## 8. 지금 앱 (FE 참고)
 
 10/19 [연동 명세](api-ws-spec.md) 7장(FE 참고)과 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)를 여기로 합쳤다. 데스크톱 창·시작 프로그램·알림 팝업은 [배포 구상](fe-domain-idea.md) 6장, 실행 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md)에 있다. 시각 규칙은 [DESIGN.md](../../DESIGN.md), 결정은 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md).
@@ -258,13 +274,13 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 |---|---|---|
 | 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
 | 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
-| 기준 자세 | 이 PC에 하나 저장, 어느 카메라든 같은 것(`features/camera/savedBaseline.ts`, 10/16), 앱이 계산 | B2 + WS calibration |
-| 실시간 | `/v1/realtime`(특징 변화량) 개발 연결, 좌표 묶음(`features/session/realtime/frames.ts`)은 준비만 | `/v2/realtime`, 좌표 묶음 기본 |
+| 기준 자세 | **10/21 바꿈:** 서버에 하나(앱이 관절 평균을 내서 B1, 조회 B2, `features/baseline/`), 어느 카메라든 같은 것 | — |
+| 실시간 | **10/21 바꿈:** `/v2/realtime` 좌표 구간(`features/session/live/LiveSession.ts`, `realtime/frames.ts`) | — |
 | 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름, Q6), R1b |
 | 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
-| 알림 | 서버 `decision`의 확정·재알림을 기존 알림 경로(`onNotifications`, 데스크톱 팝업)로 한 번만 띄운다 | v2 `alert`를 그대로 |
+| 알림 | **10/21 바꿈:** v2 `alert`를 그대로 소리·토스트·데스크톱 팝업으로 | — |
 | 판정 불가 표시 | 어깨가 안 보여도 2초 동안 머리로 판정하고 안내(`features/camera/shoulderGrace.ts`) | 유예가 끝난 프레임에 `valid:false` |
-| 앱 판정 (**삭제 예정**) | 앱이 점수(`referenceScore`·`postureScore`)·상태(`cameraSample`)·알림 확정·복귀·재알림(`engine/machine.ts`, `returnSettle`)을 계산한다. 서버 없이도 측정되는 것은 이 때문이다(Vercel 배포본도 이 방식) | 서버 결과만 표시하고 위 코드를 지운다(F5). 서버 없이 측정을 시작하면 이유를 안내하고 시작하지 않는다(ADR 0021). 어깨 확인(`valid:false`)은 남긴다. 참고: `cameraSample.ts`의 `0.7`은 쓰이지 않는 임시 기준이다 — 바로 다음 단계(`engine/machine.ts` `step`)가 설정값 `rules.threshold`(느긋하게 0.8·보통 0.7·꼼꼼하게 0.6, `SettingsPage`의 `thresholdFor`)로 상태를 다시 정한다. 따로 고치지 않고 F5 때 함께 지운다(10/19 확인) |
+| 앱 판정 | **10/21 V3에서 지웠다**(판정 엔진·복귀 대기·카메라 샘플·로컬 측정 화면). 점수는 서버 공식 100×(1−collapse_probability)로 표시만(`postureScore`). develop과 Vercel 배포본은 아직 예전 로컬 판정 | — |
 | 기록 통계 계산 | 앱이 기록으로 계산한다(`lib/stats`·`lib/comparison`·`recordsSource.ts`, 오늘 포함). 5분 미만 세션 규칙은 없다 | 서버 값(T1, 어제까지. 5분 미만은 「붕괴까지 걸린 시간」 최소·최대에서만 뺌 — 서버 계산). 화면 담당 lellon0403 |
 | 탈퇴 | 이 브라우저의 자료를 바로 지운다(`WithdrawalDialog.tsx`) | A7: 비밀번호 칸, 「되돌릴 수 없고 30일 뒤 완전히 삭제, 그 전에는 같은 이메일로 다시 가입할 수 없음」. 탈퇴 계정 로그인(403 `ACCOUNT_CLOSED`)에 연락처 안내(2장 탈퇴). 지금 로컬에서는 바로 지워지므로 30일 문구를 미리 넣지 않는다 |
 
@@ -284,9 +300,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 탭 | 화면 | 코드 | 보여 주는 것 |
 |---|---|---|---|
 | 측정하기 | 준비 | `pages/SetupPage.tsx`, `features/camera/CameraPicker.tsx` | 카메라 → 얼굴·어깨 → 등록한 자세가 없으면 3·2·1 뒤 3초 등록 후 자동 측정, 있으면 2.5초 머물 때 자동 시작(`features/camera/useAutoStart.ts`) 또는 「측정 시작」. 카메라 화면 위 메인 카메라 선택(10/16). 자세 등록 탭은 10/13 여기로 합침 |
-| 측정하기 | 측정 중 | `features/session/SessionLive.tsx`, `MeasureParts.tsx` | 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 최근 30분 흐름 |
-| 측정하기 | 결과 | `features/session/SessionResult.tsx` | 바른 자세 비율 링, 한 문장 요약, 알림·회복·확인 못 한 시간, 자세히 보기(통계·사건 표) |
-| 측정하기 | 서버 판정(개발) | `features/session/server/ServerSessionPage.tsx` | 같은 레이아웃, 서버가 준 값만 표시 |
+| 측정하기 | 측정 중·결과 (10/21 V3) | `features/session/live/LiveSessionPage.tsx`, `useLiveSession.ts`, `LiveSession.ts` | 서버가 준 값만: 상태 알약, 교정 카드, 잠시 쉬기/종료/소리 독, 점수 링, 이번 측정 요약, 결과(바른 자세 비율, 이탈·알림·집계 제외, 서버 사건 표). 예전 로컬 측정 화면(`SessionLive`·`SessionResult`·`MeasureParts`, 최근 30분 흐름)은 지웠다 |
 | 기록 | 오늘 | `features/history/LocalHistory.tsx` | 오늘 측정 목록과 요약(10/13 기록·달력 분리) |
 | 달력 | 고른 날·날짜별 합계 | `features/history/RecordCalendarPage.tsx`, `RecordCalendar.tsx`, `ActivityHeatmap.tsx`, `DayRecord.tsx` | 월 달력, 잔디, 고른 날의 기록 |
 | 설정 | 설정 | `pages/SettingsPage.tsx` | 알림(3단계 선택 + 세밀 조정), 기준 자세 다시 등록(측정하기에서 등록), 컴퓨터를 켤 때, 계정, 개발자 옵션 |

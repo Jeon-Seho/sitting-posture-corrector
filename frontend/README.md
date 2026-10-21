@@ -108,10 +108,10 @@ CHOKIDAR_USEPOLLING=1 make dev
 ## 개발 서버 판정
 
 JDK 17과 시험용 MySQL([backend 안내](../backend/README.md))을 준비하고 `make check-backend`로 JAR를 생성한 뒤 `make dev-server`를 실행한다.
-출력된 임시 포트 주소의 앱에서 측정하기의 ‘개발자 옵션 → 서버 판정 사용’을 선택한다.
-Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다. 이 선택은 기본 꺼짐이며 측정 시작 시 고정한다.
-서버 판정은 계정이 필요하다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)). 2026-10-13 프론트 계정 모드를 지웠으므로
-로그인을 BE `auth`에 다시 잇기 전까지 서버 판정 선택은 401로 실패한다.
+출력된 임시 포트 주소의 앱을 연다. 2026-10-21부터 앱은 항상 서버로 측정·자세 등록을 한다(선택 스위치 없음).
+Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
+서버 측정은 계정이 필요하다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)). 로그인을 BE `/v2/auth`에 잇기 전까지
+등록·측정은 「로그인이 필요해요」로 멈춘다(로그인 뒤 `features/platform/serverAuth.ts`의 `setServerAuth`가 계정 정보를 넘긴다).
 수동 API를 연결할 때만 `POSEGOOD_API_URL=http://127.0.0.1:<포트>`를 지정한다. 실시간 채널은 `VITE_REALTIME_URL`로 켠다.
 
 서버 모드는 개인 기준 대비 머리 높이·좌우 치우침·어깨 기울기 변화량과 품질만 전송한다.

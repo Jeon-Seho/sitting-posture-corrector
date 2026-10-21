@@ -1,6 +1,6 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: in_progress (팀 결정·계약 완료, 서버 연결은 BE `/v2/realtime` 대기)
+- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 1장(지금 없음), FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
@@ -60,21 +60,23 @@
 
 - [x] ML용 CSV 판정 라벨 제거, 유형 표시 제거(10/11). 수집 CSV v3(10/12).
 - [x] 예전 계정 모드 제거, 로컬 로그인·회원가입 3단계(10/13).
-- [ ] 로컬 판정 제거: `session/engine/`, `lib/engine.ts`, `lib/returnSettle.ts`, `lib/postureScore.ts`와 이를 쓰는 화면(F5). 서버 연결(3단계) 뒤에 한다.
-- [ ] 측정 화면의 점수·상태를 서버 결과 표시로 바꾼다. 서버 없이는 측정을 시작하지 않는다.
+- [x] 로컬 판정 제거(F5 측정 쪽, 10/21 `f88ffe3`): 판정 엔진(`machine`·`scenario`·`snapshot`), `lib/returnSettle.ts`, `lib/cameraSample.ts`, 로컬 측정 화면, 이어하기. `lib/engine.ts`는 기록 타입만 남김. `postureScore`는 서버 공식(100×(1−collapse_probability)) 표시로 남김.
+- [x] 측정 화면의 점수·상태를 서버 결과 표시로 바꾼다. 서버 없이는 측정을 시작하지 않는다(10/21, 개발자 옵션 「서버 판정 사용」 삭제).
+- [ ] 더미 데이터 삭제(10/21 결정): 발표용 예시 기록(`data/exampleRecords.ts`), 합성 시연 `demo` 기록, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라(`?synthetic=1`)는 남긴다.
+- [ ] 남은 앱 계산: 학습 데이터 수집 화면이 쓰는 기준 특징 다리(`useCamera`의 `baselineFeatures`), 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`) — 서버 기록·통계(R1·T1)로 바꿀 때.
 
 ### 3단계 — 서버 연결 (BE `/v2/realtime` 뒤)
 
-- [ ] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 표시(F11), 해상도 확인(F13).
-- [ ] 화면 구동(F4): `observation`·`progress`·`decision`·`alert`·`stalled`. `excluded_started/ended`는 받기만 한다.
-- [ ] 자세 등록 서버 연결(F2): 측정하기·설정 다시 등록·회원가입 3단계의 등록을 WS calibration으로, 기준 조회를 B2로.
-- [ ] 계정 서버 연결(F12)은 BE 담당(10/14): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 우리는 가입·동의 화면 쪽 질문에 답한다.
-- [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 R1·T1로 붙인다(10/14).
+- [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 남음.
+- [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
+- [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
+- [ ] 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 B-3).
+- [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 R1·T1로 붙인다(10/14). 그때까지 측정 결과를 이 기기에도 R1과 같은 형식(`server.view` = SessionView)으로 남긴다(`useSessionPersistence.ts`, R1로 바꾸면 지움).
 
 ### 4단계 — 검증과 정리
 
 - [ ] 실패 경로 시험: 서버 없음, 연결 끊김, 중복 순번, 로그인 만료, `ready` 5초 초과.
-- [ ] `python tools/dev.py check`, 서버 담당과 연동 시험(T-13, F9).
+- [ ] `python tools/dev.py check`, 서버 담당과 연동 시험(T-13, F9: DevOps 8088 시험 환경, `ssh -L 8088:127.0.0.1:8088`). `check-browser` 시나리오는 서버 전용에 맞춰 다시 쓴다(계획 0030 G6).
 - [ ] 이 계획을 끝내고 지운다(지운 문서 기록에 남김).
 
 ## 결정과 진행 기록
@@ -87,9 +89,13 @@
 - 2026-10-13: 서버 연결이 끊기면 세션을 끝낸다(ADR 0024). 세션 번호는 날짜마다 1부터. 메인 카메라 선택(팀원).
 - 2026-10-13: 어깨 2초 유예(`shoulderGrace.ts`, 팀원). 서버로 옮길 때 같은 규칙을 넘긴다.
 - 2026-10-13: 자세 등록 탭을 측정하기로 합침(팀원 `2be4af8`). 예전 계정 모드 삭제, 로컬 로그인·회원가입 3단계(동의 C1~C6 → 계정 정보 → 자세 등록 선택).
+- 2026-10-20 전체 회의: 자세 등록의 3초 평균은 FE가 내서 B1로 보낸다(WS 등록 쓰지 않음).
+- 2026-10-21: V2를 develop에 넣고(PR #60) V3에 BE 브랜치를 받았다. V3는 서버 전용(로컬 모드 스위치 없음). 7.0 미정 3개는 권장안(형식 검사만, 카메라 빠짐·영상 크기 변경은 `end`). F2(`0449abb`), F1+F3과 로컬 판정·이어하기·v1 서버 코드 삭제(`f88ffe3`). 더미 데이터도 지우기로 했다(사용자: develop에 다 있으니 지운다).
 - 2026-10-13: BE API 명세에 맞춰 연동 명세와 WebSocket v2 계약을 만들었다. 세션 시작 = S1을 받은 시각, 5분 미만 세션도 저장(DB V2.3, 10/14 정정), 오늘 측정은 방금 끝난 세션만 결과에, 기록 화면에는 지난 날짜만.
 
 ## 검증 결과와 남은 한계
+
+2026-10-21, Windows 11 데스크톱(V3 `f88ffe3`): 프론트 단위 시험 213개(로컬 판정 시험 삭제, 서버 측정 11개·자세 등록 13개 추가), `tsc`, 빌드, `check-repo` 통과. 실제 서버 시험은 아직 못 함(BE 로그인 연결 필요). `check-browser`는 서버 전용이 되며 시나리오를 다시 써야 한다(0030 G6).
 
 2026-10-13, Windows 11 노트북(Node 24, Python 3.13): 프론트 단위 시험 321개, `tsc`, 빌드, `check-repo`, Python 계약 시험 통과.
 `check-browser`는 develop 병합 뒤 "첫 사건이 정확히 3초에 확정" 단계에서 실패한다(측정 흐름은 develop 변경, 원인 미확인).

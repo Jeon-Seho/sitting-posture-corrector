@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-20(데스크톱·Vercel 명령) · FE(`feature/frontend-features-and-integrationV2`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-21(브랜치 V3, `check-browser`는 서버 전용 시나리오 필요) · FE(`feature/frontend-features-and-integrationV3`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)

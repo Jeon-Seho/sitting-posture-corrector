@@ -1,6 +1,6 @@
 # BE·DB·DevOps 통합 브랜치와 FE 브랜치 합치기
 
-- 상태: in_progress (10/15 합침: PR #48로 FE → develop, BE 브랜치가 develop을 받음 `b0140ca`. 10/16부터 FE는 그 결과에서 만든 `feature/frontend-features-and-integrationV2`에서 작업. 남은 것은 BE의 v2 전환)
+- 상태: in_progress (10/15 PR #48, 10/21 PR #60으로 FE → develop(#60에는 10/15 BE 코드도 함께). 10/21 BE 브랜치가 develop을 받았고(`d87d497`), FE는 V3 `feature/frontend-features-and-integrationV3`에 BE 브랜치를 받아(`ed7f953`) 작업. 남은 것: BE 브랜치가 develop에 들어오기(겹치는 파일 `docs/index.md` 하나))
 - 담당: FE(klaod-tech)가 계획·문서 충돌 정리, 실시간·REST 맞추기는 BE와 함께
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
