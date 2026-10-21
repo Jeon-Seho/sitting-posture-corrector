@@ -5,7 +5,7 @@
 - 시작일: 2026-10-14
 - 관련 요구사항/ADR: [계정·기준 자세·저장 API v2](../../../contracts/accounts.v2.md), [동의 문서 v2](../../../contracts/consent-documents.v2.md),
   [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md),
-  [계획 0025](0025-backend-db-v23-integration.md), [FE–서버 연결 지도](../../design/fe-server-integration-map.md)
+  [계획 0025](0025-backend-db-v23-integration.md), [FE 연동 명세](../../design/api-ws-spec.md)
 
 ## 문제와 완료 기준
 
@@ -136,7 +136,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 - [x] 프론트 코드를 develop 상태로 되돌리고 수정할 부분을 이 문서에 정리(2026-10-14)
 - [ ] 계정 모드 스위치·동의 버전·비밀번호 길이를 팀과 정함
 - [ ] 1 → 4 → 5 순서로 기준 자세·세션 연결, 그다음 2·3 인증·가입, 6 설정·기록
-- [ ] 7 검증 도구와 문서(`frontend/README.md`, `docs/design/fe-server-integration-map.md`) 동기화
+- [ ] 7 검증 도구와 문서(`frontend/README.md`, `docs/design/api-ws-spec.md`) 동기화
 - [ ] `check-frontend`, `check-backend`, `check-browser`, `check-compose` 실행과 결과 기록
 
 ## 결정과 진행 기록

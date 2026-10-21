@@ -7,10 +7,15 @@
  * - VITE_REALTIME_FRAMES=true  send coordinate frames (posture.frames.v1) instead of feature deltas,
  *                              once BE `ws` accepts them. Prepared, not wired yet (F1).
  *
+ * - VITE_API_BASE_URL=https://… API origin when the page is served elsewhere (Vercel
+ *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe-domain-idea.md).
+ *                              Unset = same origin (`/api/...`).
+ *
  * Development API calls go through the Vite proxy (`/api` → POSEGOOD_API_URL, default
  * http://127.0.0.1:8090); see vite.config.ts.
  */
 export const SERVER = {
+  apiBase: ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/+$/, ''),
   realtimeUrl: (import.meta.env.VITE_REALTIME_URL as string | undefined) || undefined,
   framesProtocol: import.meta.env.VITE_REALTIME_FRAMES === 'true',
 } as const

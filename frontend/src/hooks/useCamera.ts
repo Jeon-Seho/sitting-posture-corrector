@@ -13,7 +13,7 @@ import { createFeatureFilter } from '../lib/skeleton'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
-import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
+import { readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
@@ -70,23 +70,22 @@ export function useCamera() {
   const fpsCap = useRef<number | null>(trackingFps)
   const fpsTrial = useRef<number | null>(null)
   /**
-   * The registered baseline outlives the camera and, since 2026-10-13, the app run: it is
-   * saved on this computer with the camera it was taken with. Connecting another camera
-   * sets it aside (`baselineOtherCamera`); only a new registration replaces it.
+   * The registered baseline outlives the camera and, since 2026-10-13, the app run. One posture
+   * serves every camera (2026-10-16, plan 0053): switching cameras keeps it, and only a new
+   * registration (「다시 등록」) replaces it.
    */
-  const saved = useRef(readSavedBaseline())
+  const [newest] = useState(readSavedBaseline)
   const connectedDevice = useRef('')
-  const [baseline, setBaseline] = useState<Features | null>(() => saved.current?.baseline ?? null)
+  const [baseline, setBaseline] = useState<Features | null>(() => newest?.baseline ?? null)
   const [calibrationId, setCalibrationId] = useState<string | null>(
-    () => saved.current?.calibrationId ?? null,
+    () => newest?.calibrationId ?? null,
   )
   const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(
-    () => saved.current?.summary ?? null,
+    () => newest?.summary ?? null,
   )
-  const [baselineOtherCamera, setBaselineOtherCamera] = useState(false)
   /** When and with which camera the current posture was registered (settings). */
   const [baselineInfo, setBaselineInfo] = useState<{ savedAt: string; deviceId: string } | null>(() =>
-    saved.current ? { savedAt: saved.current.savedAt, deviceId: saved.current.deviceId } : null,
+    newest ? { savedAt: newest.savedAt, deviceId: newest.deviceId } : null,
   )
   const [progress, setProgress] = useState<number | null>(null)
 
@@ -173,16 +172,14 @@ export function useCamera() {
       setBaseline(next.ready)
       setCalibrationSummary(next.summary)
       setCalibrationId(id)
-      setBaselineOtherCamera(false)
       const entry = {
         deviceId: connectedDevice.current,
         calibrationId: id,
         baseline: next.ready,
         summary: next.summary,
       }
-      writeSavedBaseline(entry)
-      saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
-      setBaselineInfo({ savedAt: saved.current.savedAt, deviceId: entry.deviceId })
+      const stored = writeSavedBaseline(entry)
+      setBaselineInfo({ savedAt: stored.savedAt, deviceId: entry.deviceId })
       calibration.current = null
       setProgress(null)
     }
@@ -248,19 +245,6 @@ export function useCamera() {
         const connectedId = track.getSettings().deviceId ?? ''
         connectedDevice.current = connectedId
         setDeviceId(connectedId)
-        // The saved posture applies only to the camera it was taken with.
-        const stored = saved.current
-        if (stored) {
-          const fits = baselineFits(stored, connectedId)
-          setBaselineOtherCamera(!fits)
-          if (fits) {
-            setBaseline((current) => current ?? stored.baseline)
-            setCalibrationId((current) => current ?? stored.calibrationId)
-            setCalibrationSummary((current) => current ?? stored.summary)
-          } else {
-            setBaseline((current) => (current === stored.baseline ? null : current))
-          }
-        }
         setDevices(await listVideoDevices())
         if (!isCurrent()) return
 
@@ -372,7 +356,6 @@ export function useCamera() {
     deviceId,
     mainDeviceId,
     mainMissing,
-    baselineOtherCamera,
     baselineInfo,
     trackingFps,
     setTrackingFps,

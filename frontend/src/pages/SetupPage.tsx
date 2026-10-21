@@ -6,8 +6,7 @@ import { Ring } from '../components/Ring'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
-import { cameraName } from '../features/camera/mainCamera'
-import { SelectMenu } from '../components/SelectMenu'
+import { CameraPicker } from '../features/camera/CameraPicker'
 import { CALIBRATION_MS } from '../../../model/prototype/calibration'
 
 /** Seconds of steady upper-body input needed for the baseline (see calibration.ts). */
@@ -113,9 +112,6 @@ export function SetupPage({
         <div>
           <h1 className="page-title">{title}</h1>
           <p className="page-desc">{desc}</p>
-          {camera.baselineOtherCamera && !registered && (
-            <p className="fine">다른 카메라로 등록한 기준 자세라서 이 카메라로 다시 등록해요.</p>
-          )}
         </div>
         <div className="page-actions">
           {onBack && (
@@ -123,16 +119,6 @@ export function SetupPage({
               <ArrowLeft size={14} weight="bold" className="icon" />
               설정으로
             </button>
-          )}
-          {on && camera.devices.length > 1 && !camera.devices.some((d) => !d.deviceId) && (
-            <SelectMenu
-              label="카메라"
-              icon={<VideoCamera size={15} weight="bold" className="icon" />}
-              value={camera.deviceId}
-              disabled={calibrating || counting || measuring}
-              onChange={(id) => void camera.connect(id)}
-              options={camera.devices.map((d, i) => ({ value: d.deviceId, label: cameraName(d, i) }))}
-            />
           )}
           {registered && !registering && !measuring && (
             <button className="chip" disabled={!on} onClick={flow.start}>
@@ -150,115 +136,124 @@ export function SetupPage({
       </div>
 
       <div className="measure">
-        <div className="stage">
-          <CameraStage camera={camera} />
-          {on && !ready && !capturing && <PoseGuide camera={camera} />}
-          <div className="stage-overlay">
-            <div className="stage-top">
-              {pill ? (
-                <span className={`pill ${pill.tone}`} role="status">
-                  <span className="dot" />
-                  {pill.text}
-                </span>
-              ) : (
-                <span />
-              )}
-              {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
-            </div>
-            <div className="stage-bottom">
-              {camera.state === 'off' || camera.state === 'error' ? (
-                <button className="btn btn-primary btn-lg" onClick={() => void camera.connect()}>
-                  <VideoCamera size={20} weight="fill" className="icon" />
-                  {camera.state === 'error' ? '다시 연결' : '카메라 켜기'}
-                </button>
-              ) : camera.state === 'loading' ? (
-                <button className="btn btn-lg" onClick={camera.stop}>
-                  카메라 준비 취소
-                </button>
-              ) : counting ? (
-                <div className="calibrate-card" role="status">
-                  <span className="ring-value" style={{ fontSize: 40, minWidth: 64, textAlign: 'center' }}>
-                    {flow.countdownLeft}
+        <div className="stage-col">
+          {/* Same choice as settings, right above the camera view so it never covers the video, and
+              shown even with the camera off (2026-10-16). Locked while registering or measuring,
+              since the posture belongs to one camera. */}
+          <div className="stage-bar">
+            <CameraPicker camera={camera} disabled={calibrating || counting || measuring} />
+          </div>
+          <div className="stage">
+            <CameraStage camera={camera} />
+            {on && !ready && !capturing && <PoseGuide camera={camera} />}
+            <div className="stage-overlay">
+              <div className="stage-top">
+                {pill ? (
+                  <span className={`pill ${pill.tone}`} role="status">
+                    <span className="dot" />
+                    {pill.text}
                   </span>
-                  <div>
-                    <div className="nudge-title">3초 뒤 기준 자세를 등록해요</div>
-                    <div className="nudge-desc">편하게 바로 앉아 화면을 봐 주세요</div>
-                  </div>
-                  <button className="btn" onClick={flow.stop}>
-                    등록 취소
+                ) : (
+                  <span />
+                )}
+                {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
+              </div>
+              <div className="stage-bottom">
+                {camera.state === 'off' || camera.state === 'error' ? (
+                  <button className="btn btn-primary btn-lg" onClick={() => void camera.connect()}>
+                    <VideoCamera size={20} weight="fill" className="icon" />
+                    {camera.state === 'error' ? '다시 연결' : '카메라 켜기'}
                   </button>
-                </div>
-              ) : capturing ? (
-                <div className="calibrate-card" role="status">
-                  <Ring value={camera.progress} size={64} stroke={7}>
-                    <span className="ring-value" style={{ fontSize: 22 }}>
-                      {left}
+                ) : camera.state === 'loading' ? (
+                  <button className="btn btn-lg" onClick={camera.stop}>
+                    카메라 준비 취소
+                  </button>
+                ) : counting ? (
+                  <div className="calibrate-card" role="status">
+                    <span className="ring-value" style={{ fontSize: 40, minWidth: 64, textAlign: 'center' }}>
+                      {flow.countdownLeft}
                     </span>
-                  </Ring>
-                  <div>
-                    <div className="nudge-title">기준 자세를 기억하는 중</div>
-                    <div className="nudge-desc">
-                      {camera.quality
-                        ? `${left}초 남았어요${registerAgain ? '' : ' · 끝나면 바로 측정을 시작해요'}`
-                        : '어깨가 다시 보이면 처음부터 시작해요'}
+                    <div>
+                      <div className="nudge-title">3초 뒤 기준 자세를 등록해요</div>
+                      <div className="nudge-desc">편하게 바로 앉아 화면을 봐 주세요</div>
                     </div>
+                    <button className="btn" onClick={flow.stop}>
+                      등록 취소
+                    </button>
                   </div>
-                  <button className="btn" onClick={flow.stop}>
-                    등록 취소
-                  </button>
-                </div>
-              ) : registerAgain && measuring ? (
-                onOpenSession && (
-                  <button className="btn btn-primary btn-lg" onClick={onOpenSession}>
-                    측정 화면으로
-                  </button>
-                )
-              ) : finished ? (
-                <div className="calibrate-card" role="status">
-                  <span className="step-mark done" aria-hidden="true">
-                    <Check size={18} weight="bold" />
-                  </span>
-                  <div>
-                    <div className="nudge-title">새 기준 자세를 등록했어요</div>
-                    <div className="nudge-desc">다음 측정부터 이 자세와 비교해요</div>
+                ) : capturing ? (
+                  <div className="calibrate-card" role="status">
+                    <Ring value={camera.progress} size={64} stroke={7}>
+                      <span className="ring-value" style={{ fontSize: 22 }}>
+                        {left}
+                      </span>
+                    </Ring>
+                    <div>
+                      <div className="nudge-title">기준 자세를 기억하는 중</div>
+                      <div className="nudge-desc">
+                        {camera.quality
+                          ? `${left}초 남았어요${registerAgain ? '' : ' · 끝나면 바로 측정을 시작해요'}`
+                          : '어깨가 다시 보이면 처음부터 시작해요'}
+                      </div>
+                    </div>
+                    <button className="btn" onClick={flow.stop}>
+                      등록 취소
+                    </button>
                   </div>
-                  <button className="btn btn-primary" disabled={!ready} onClick={onStart}>
+                ) : measuring ? (
+                  // A measurement is still open (also after 「카메라 준비 다시 확인」): go back to it.
+                  onOpenSession && (
+                    <button className="btn btn-primary btn-lg" onClick={onOpenSession}>
+                      측정 화면으로
+                    </button>
+                  )
+                ) : finished ? (
+                  <div className="calibrate-card" role="status">
+                    <span className="step-mark done" aria-hidden="true">
+                      <Check size={18} weight="bold" />
+                    </span>
+                    <div>
+                      <div className="nudge-title">새 기준 자세를 등록했어요</div>
+                      <div className="nudge-desc">다음 측정부터 이 자세와 비교해요</div>
+                    </div>
+                    <button className="btn btn-primary" disabled={!ready} onClick={onStart}>
+                      {startLabel}
+                    </button>
+                    {onBack && (
+                      <button className="btn" onClick={onBack}>
+                        설정으로
+                      </button>
+                    )}
+                  </div>
+                ) : auto.left !== null ? (
+                  <div className="calibrate-card" role="status">
+                    <Ring value={auto.progress} size={64} stroke={7}>
+                      <span className="ring-value" style={{ fontSize: 22 }}>
+                        {auto.left}
+                      </span>
+                    </Ring>
+                    <div>
+                      <div className="nudge-title">곧 측정을 시작해요</div>
+                      <div className="nudge-desc">기준 자세와 비교할 준비를 하고 있어요</div>
+                    </div>
+                    <button className="btn btn-primary" onClick={onStart}>
+                      지금 시작
+                    </button>
+                    <button className="btn" onClick={auto.cancel}>
+                      취소
+                    </button>
+                  </div>
+                ) : ready && !measuring ? (
+                  <button className="btn btn-primary btn-lg" onClick={onStart}>
+                    <Play size={20} weight="fill" className="icon" />
                     {startLabel}
                   </button>
-                  {onBack && (
-                    <button className="btn" onClick={onBack}>
-                      설정으로
-                    </button>
-                  )}
-                </div>
-              ) : auto.left !== null ? (
-                <div className="calibrate-card" role="status">
-                  <Ring value={auto.progress} size={64} stroke={7}>
-                    <span className="ring-value" style={{ fontSize: 22 }}>
-                      {auto.left}
-                    </span>
-                  </Ring>
-                  <div>
-                    <div className="nudge-title">곧 측정을 시작해요</div>
-                    <div className="nudge-desc">기준 자세와 비교할 준비를 하고 있어요</div>
-                  </div>
-                  <button className="btn btn-primary" onClick={onStart}>
-                    지금 시작
+                ) : !registering && !registered && on && !measuring ? (
+                  <button className="btn btn-primary btn-lg" onClick={flow.start}>
+                    기준 자세 등록 다시 시작
                   </button>
-                  <button className="btn" onClick={auto.cancel}>
-                    취소
-                  </button>
-                </div>
-              ) : ready && !measuring ? (
-                <button className="btn btn-primary btn-lg" onClick={onStart}>
-                  <Play size={20} weight="fill" className="icon" />
-                  {startLabel}
-                </button>
-              ) : !registering && !registered && on && !measuring ? (
-                <button className="btn btn-primary btn-lg" onClick={flow.start}>
-                  기준 자세 등록 다시 시작
-                </button>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

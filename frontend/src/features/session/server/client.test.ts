@@ -32,7 +32,7 @@ describe('same-origin server client with synthetic HTTP responses', () => {
       `/api/v1/sessions/${SESSION_ID}/features`,
       expect.objectContaining({
         method: 'POST',
-        credentials: 'omit',
+        credentials: 'include',
         body: JSON.stringify(request),
       }),
     ])

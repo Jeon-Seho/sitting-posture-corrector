@@ -26,6 +26,8 @@ type Props = {
   /** Local camera session: download the would-be Kafka messages. */
   onExport?: () => boolean
   exportCount?: number
+  /** Why the measurement ended by itself, e.g. the camera was unplugged. */
+  endReason?: string
 }
 
 export function SessionResult({
@@ -44,6 +46,7 @@ export function SessionResult({
   onReset,
   onExport,
   exportCount = 0,
+  endReason = '',
 }: Props) {
   const alerts = live.events.reduce((a, e) => a + e.alerts, 0)
   const recovery = mean(recoveries)
@@ -70,6 +73,11 @@ export function SessionResult({
                 '확인된 측정 시간이 없어요'
               )}
             </h1>
+            {endReason && (
+              <p role="status" className="fine" style={{ marginTop: 8 }}>
+                {endReason}
+              </p>
+            )}
             {service && <p className="fine" style={{ marginTop: 8 }}>{service.saveMessage}</p>}
           </div>
         </div>

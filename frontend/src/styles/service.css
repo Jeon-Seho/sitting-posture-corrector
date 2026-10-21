@@ -68,67 +68,25 @@
   align-items: center;
 }
 
-/* Floating camera window shown while the camera stays on outside the measure tab. */
+/* Floating camera window shown while the camera stays on outside the measure tab: video only,
+   like a browser picture-in-picture. The bar fades in on hover or keyboard focus; minimized, only
+   the bar stays (2026-10-20). */
 .camera-window-controls {
   position: fixed;
   right: 20px;
   bottom: 20px;
   z-index: 40;
   width: min(320px, calc(100vw - 32px));
+  min-width: min(200px, calc(100vw - 32px));
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 32px);
-  overflow: auto;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  background: var(--bg-side);
-  box-shadow: var(--shadow-float);
-}
-
-.camera-window-controls.is-expanded {
+  overflow: hidden;
   resize: both;
-  min-width: min(260px, calc(100vw - 32px));
-}
-
-.camera-window-heading {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.camera-window-drag,
-.camera-window-collapse {
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  padding: 4px 6px;
-  border-radius: 8px;
-}
-
-.camera-window-drag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  border-radius: var(--radius-lg);
+  background: var(--cam);
+  box-shadow: var(--shadow-float);
   cursor: move;
   touch-action: none;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.camera-window-drag::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--good);
-}
-
-.camera-window-collapse {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
 }
 
 .camera-window-controls video {
@@ -137,18 +95,104 @@
   aspect-ratio: 4 / 3;
   object-fit: cover;
   transform: scaleX(-1);
-  border-radius: var(--radius-md);
   background: var(--cam);
 }
 
-.camera-window-controls .row {
-  flex-wrap: wrap;
+.camera-window-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-top: 10px;
+  padding: 8px 8px 20px 10px;
+  background: linear-gradient(rgb(0 0 0 / 0.55), transparent);
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
 }
 
-.camera-window-controls .fine {
-  margin: 8px 0 0;
+.camera-window-controls:hover .camera-window-bar,
+.camera-window-controls:focus-within .camera-window-bar {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .camera-window-bar {
+    opacity: 1;
+  }
+}
+
+.camera-window-drag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: move;
+}
+
+.camera-window-drag::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.camera-window-controls.is-minimized {
+  width: auto;
+  min-width: 0;
+  resize: none;
+}
+
+.camera-window-controls.is-minimized .camera-window-bar {
+  position: static;
+  padding-bottom: 8px;
+  background: none;
+  opacity: 1;
+}
+
+.camera-window-controls.status-alert {
+  box-shadow: 0 0 0 3px var(--bad, #d0505a), var(--shadow-float);
+}
+
+.camera-window-controls.status-alert .camera-window-bar {
+  opacity: 1;
+}
+
+.camera-window-controls.status-alert .camera-window-drag::before {
+  background: var(--bad, #d0505a);
+}
+
+.camera-window-controls.status-unknown .camera-window-drag::before,
+.camera-window-controls.status-paused .camera-window-drag::before {
+  background: #9a9389;
+}
+
+.camera-window-tools {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.camera-window-tools button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  color: #fff;
+  cursor: pointer;
+}
+
+.camera-window-tools button:hover {
+  background: rgb(0 0 0 / 0.6);
 }
 
 .camera-window-view {

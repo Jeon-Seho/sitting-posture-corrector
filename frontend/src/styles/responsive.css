@@ -5,7 +5,8 @@
   .measure {
     grid-template-columns: minmax(0, 1fr);
   }
-  .measure .stage {
+  .measure .stage,
+  .measure .stage-col {
     width: 100%;
   }
   .measure-panel {

@@ -3,7 +3,7 @@ import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
 import { useSession, type SessionPhase } from '../../hooks/useSession'
 import type { Rules } from '../../lib/engine'
-import { cameraSample, holdWhileSettling, SHOULDER_MISSING_NOTICE } from '../../lib/cameraSample'
+import { cameraSample, holdWhileSettling, INPUT_PAUSED_NOTICE, SHOULDER_MISSING_NOTICE } from '../../lib/cameraSample'
 import { ReturnSettle } from '../../lib/returnSettle'
 import { postureScore } from '../../lib/postureScore'
 import { collapseIntervals, ratio } from '../../lib/stats'
@@ -12,6 +12,8 @@ import { popupAlert, popupNotice } from '../desktop/alertPopup'
 import type { SessionService } from './types'
 import { KafkaFeatureRecorder } from './kafkaExport'
 import { PoseDebugRecorder } from './poseDebugExport'
+import { CAMERA_ERRORS } from '../camera/errors'
+import { publishMeasurementStatus, registerMeasurementEnd, type MeasurementStatus } from './sessionControl'
 
 type Options = {
   rules: Rules
@@ -88,7 +90,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
           checkpoint: service.onCheckpoint,
           ended: service.onEnded,
           interrupted: () => {
-            setPauseReason('카메라 입력이 멈췄어요. 준비되면 직접 이어서 측정해 주세요.')
+            setPauseReason(INPUT_PAUSED_NOTICE)
             setPhase('paused')
           },
         }
@@ -111,11 +113,48 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     document.addEventListener('visibilitychange', hidden)
     return () => document.removeEventListener('visibilitychange', hidden)
   }, [service?.active])
+  /**
+   * The camera in use was unplugged (its track ended): the measurement ends at once and what was
+   * measured so far is saved (2026-10-16, plan 0053). It does not move to another camera; a new
+   * measurement starts from 「측정하기」 with that camera's posture, or a new registration.
+   */
+  const [endReason, setEndReason] = useState('')
+  useEffect(() => {
+    if (!service || !isCamera || phase === 'ended') return
+    if (camera.state === 'error' && camera.error === CAMERA_ERRORS.disconnected) {
+      setEndReason('카메라 연결이 끊겨 측정을 끝냈어요. 끊기기 전까지의 기록은 저장했어요.')
+      setPhase('ended')
+    }
+  }, [service, isCamera, phase, camera.state, camera.error])
+  // The small camera window's X ends this measurement from any tab (2026-10-20).
+  useEffect(() => {
+    if (!service || phase === 'ended') return
+    return registerMeasurementEnd((reason) => {
+      setEndReason(reason)
+      setPhase('ended')
+    })
+  }, [service, phase === 'ended'])
+  // The small camera window shows the posture while another tab is open (2026-10-20).
+  const windowStatus: MeasurementStatus | null = !service
+    ? null
+    : phase === 'ended'
+      ? null
+      : phase === 'paused'
+        ? 'paused'
+        : live.alerting
+          ? 'alert'
+          : live.state === 'unknown'
+            ? 'unknown'
+            : 'good'
+  useEffect(() => {
+    publishMeasurementStatus(windowStatus)
+  }, [windowStatus])
+  useEffect(() => () => publishMeasurementStatus(null), [])
   useEffect(() => {
     if (!service || !isCamera || phase !== 'running') return
     const timer = setInterval(() => {
       if (camera.state !== 'on' || performance.now() - camera.lastFrame.current > 1500) {
-        setPauseReason('카메라 입력이 끊겼습니다. 카메라 준비를 확인하고 직접 재개해 주세요.')
+        setPauseReason(INPUT_PAUSED_NOTICE)
         setPhase('paused')
       }
     }, 250)
@@ -238,6 +277,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
     soundOn,
     soundError,
     pauseReason,
+    endReason,
     isCamera,
     live,
     seekNext,

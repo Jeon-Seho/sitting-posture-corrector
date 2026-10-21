@@ -64,8 +64,17 @@ FE 문서를 연동 명세(BE API 명세 10/13 기준)·WebSocket v2 계약에 �
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/unmeasurable-handling.md` | 10/12 회의 결정(판정 불가는 넓게 하나로, 앱이 `valid:false`로 표시, 서버가 시간·점수에서 뺌)이 FE 제안서와 연동 명세에 들어갔고, 1~4장(10/08 앱 판정 규칙)은 서버 몫이 됐다(10/13 정리). | [FE 제안서](design/fe-server-proposal.md) 3.2, [연동 명세](design/api-ws-spec.md) 5.1 | - |
-| `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/api-ws-spec.md) 3·7장(연결 설정·붙이는 순서) | lellon0403(처음 작성) |
-| `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 7장(화면 상태와 서버 메시지) | lellon0403 |
-| `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 5.1·7장 | - |
+| `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/api-ws-spec.md) 3장, [FE 제안서](design/fe-server-proposal.md) 7장·8.2(10/19 옮김) | lellon0403(처음 작성) |
+| `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [FE 제안서](design/fe-server-proposal.md) 4.1(화면 상태와 서버 메시지, 10/19 옮김) | lellon0403 |
+| `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 5.1, [FE 제안서](design/fe-server-proposal.md) 4.1 | - |
 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json), [연동 명세](design/api-ws-spec.md) | lellon0403 |
 | `docs/plans/active/0024-posture-registration-tab.md` | 끝난 계획이다. 「자세 등록」 탭은 팀원이 측정하기로 합쳤고(`2be4af8`), 회원가입 3단계에서도 등록한다(10/13 정리). | 측정하기(`SetupPage`), [동의 제안서](design/consent-proposal.md) 3장(회원가입 3단계) | lellon0403 |
+
+## 5. 2026-10-19 design 문서 합치기 (FE, 2개)
+
+design 문서가 늘어 겹치는 것을 합쳤다. 되살리기: `git show 48f5e9b:<경로>`.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/surface-brief-frontend.md` | 발표용 UI 데모(10/02 이전 레트로 피치덱)의 최초 시각 방향 기록이다. 화면은 ADR 0017로 다시 설계됐고 지금 규칙은 DESIGN.md다. | [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [DESIGN.md](../DESIGN.md) | lellon0403(처음 작성) |
+| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [배포 구상](design/fe-domain-idea.md) 6장(창·시작 프로그램·알림 팝업), [FE 작업 명령과 검사](design/fe-commands-and-checks.md)(실행 명령) | lellon0403(처음 작성), klaod-tech |

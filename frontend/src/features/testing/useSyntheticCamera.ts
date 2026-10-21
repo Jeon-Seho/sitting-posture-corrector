@@ -203,7 +203,6 @@ export function useCamera(): CameraController {
     deviceId: state === 'on' ? 'explicit-synthetic-device' : '',
     mainDeviceId: '',
     mainMissing: false,
-    baselineOtherCamera: false,
     baselineInfo: null,
     trackingFps: null,
     setTrackingFps: () => {},

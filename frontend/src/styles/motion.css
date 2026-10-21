@@ -19,7 +19,7 @@
 .switch,
 .more > summary,
 .camera-window-drag,
-.camera-window-collapse {
+.camera-window-tools button {
   transition:
     background-color var(--dur-fast) ease,
     border-color var(--dur-fast) ease,
