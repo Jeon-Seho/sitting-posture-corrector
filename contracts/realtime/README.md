@@ -17,7 +17,7 @@
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
-> (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
+> (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
 > 새 버전은 위 v2다(10/13). 10/16 기준 `backend/api`(10/15 BE 브랜치를 합침)는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다. 서버를 먼저 돌려 보려고 둔 임시 상태이고, BE도 v2로 간다고 확인했다(10/15, [FE 제안서](../../docs/design/fe-server-proposal.md) 1장).
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.

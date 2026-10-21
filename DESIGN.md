@@ -2,7 +2,7 @@
 
 따뜻한 건강 톤의 **데스크톱 앱**(Electron 창, 최소 800×600) 기준이다. 발표 설명용 문구를 빼고, 큰 카메라 화면과 짧은 안내로 사용자가
 "지금 내 자세"만 보면 되도록 한다. 토큰의 원본은 `frontend/src/styles/base.css`의 `:root`이며, 결정 배경은
-[ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md), 화면별 구현 위치는 [FE 제안서 8.3](docs/design/fe-server-proposal.md)·[배포 구상 6장](docs/design/fe-domain-idea.md)에 있다.
+[ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md), 화면별 구현 위치는 [FE 제안서 8.3](docs/design/fe-server-proposal.md)·[FE 제안서 8.4](docs/design/fe-server-proposal.md)에 있다.
 이전 레트로 피치덱 규칙은 git 이력과 [지운 문서 기록](docs/removed-docs.md)(최초 브리프)에 남긴다.
 
 ## 색

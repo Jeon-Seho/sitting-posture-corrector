@@ -9,7 +9,7 @@
 ## 데스크톱 앱 (2026-10-02~)
 
 화면은 데스크톱 앱 기준으로 다시 설계했다. 탭은 **측정하기 · 기록 · 달력 · 설정** 4개다(달력은 2026-10-13 추가). 받아서 실행하는 순서는 [루트 README](../README.md#데스크톱-앱-받아서-실행하기-windows)에 있다. 2026-10-12에 따로 만든 「자세 등록」 탭(계획 0024, 끝나서 지움)은 2026-10-13 측정하기로 다시 합쳤다: 등록한 자세가 없으면 등록 후 바로 측정하고, 있으면 바로 측정한다.
-[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/fe-server-proposal.md)(8.3)·[데스크톱 창](../docs/design/fe-domain-idea.md)(6장), [DESIGN.md](../DESIGN.md).
+[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/fe-server-proposal.md)(8.3)·[데스크톱 창](../docs/design/fe-server-proposal.md)(8.4), [DESIGN.md](../DESIGN.md).
 
 ```sh
 npm run desktop      # 개발 서버와 Electron 창을 함께 실행

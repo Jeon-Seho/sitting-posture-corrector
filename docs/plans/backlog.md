@@ -45,4 +45,4 @@ Kafka·Redis는 전달/재생/상태 복구 계약, HDFS·Spark는 승인된 연
 서버 benchmark는 현재 기기의 합성 요청 지연이며 실제 카메라/FPS·장시간·배포 성능 검증을 대체하지 않는다.
 소리 선호 유지·자정 분할·비교 조건별 그룹/제외·보존 기간은 별도 제품 결정과 후속 구현이다.
 
-빅데이터 후속 작업과 producer 책임은 [플랫폼 경계](../design/data-platform-boundary.md)를 따른다.
+빅데이터 후속 작업과 producer 책임은 [아키텍처 v5.2 스택별 역할](../design/architecture_v5.2_stack_roles.md)를 따른다.

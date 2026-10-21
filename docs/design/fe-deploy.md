@@ -1,6 +1,6 @@
-# FE 배포 구상: 도메인 + Vercel + Cloudflare 터널
+# FE 배포: 도메인 + Vercel + Cloudflare 터널
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 상태: **구상(천천히 진행)** · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 최신화: 2026-10-22(이름 `fe-domain-idea.md` → `fe-deploy.md`, 데스크톱 앱 구조는 [FE 제안서](fe-server-proposal.md) 8.4로 옮김) · 상태: **진행 중**(도메인·Cloudflare·Vercel 연결됨, 서버 터널은 DevOps) · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
 > 관련: [FE 제안서](fe-server-proposal.md) 2장 「배포」·1장 DevOps 질문(HTTPS)·F14·8.2(연결 설정), [연동 명세](api-ws-spec.md) 1장, [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 1. 왜 바꾸나
@@ -101,39 +101,9 @@
 - **Cloudflare 무료 한도:** 터널 개수·연결 수 한도를 Cloudflare 공식 문서로 확인한다(블로그마다 설명이 다름).
 - **누가 관리하나:** 도메인·Cloudflare는 klaod-tech 개인 계정이다. 터널은 연결 토큰만 DevOps에 주므로 계정을 나눌 필요가 없다. 토큰은 비밀값이라 저장소에 올리지 않는다(서버의 `.env` 등, D-62와 같은 취급). 그 밖에 DNS를 바꿔야 할 때는 klaod-tech가 한다.
 
-## 6. 데스크톱 앱 지금 구조 (`frontend/electron/`)
+## 6. 진행 기록
 
-10/19 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)에서 옮겼다. 4장 5단계(F14)에서 바꿀 곳이 여기 있다.
-
-| 파일 | 역할 |
-|---|---|
-| `main.cjs` | 창 생성, 외부 주소 차단(`sameAddress`), 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`), 패키징된 앱의 `app://posegood` 파일 제공 |
-| `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보, 시작 프로그램, 자동 카메라, 알림 팝업 설정·표시, 종료)만 노출 |
-| `popup-preload.cjs` | 알림 팝업 창에 `window.posegoodPopup`(문구 받기, 닫기, 앱 열기)만 노출 |
-| `launch-dev.mjs` | 바탕화면 바로가기용: 개발 서버(5174) → 창 → 종료 시 서버 정리 |
-
-- **보안:** IPC는 앱 자신의 주소에서 온 요청만 받는다. `nodeIntegration` 끔, `contextIsolation`·`sandbox` 켬. 화면을 `https://app.<도메인>`에서 열면 이 「앱 자신의 주소」가 바뀐다(F14).
-- **창:** 기본 1360×860, 최소 1180×760. 제목 표시줄은 숨기고(`titleBarStyle: 'hidden'`) Windows는 `titleBarOverlay`로 창 버튼만 크림색(`#fbf5ee`) 위에 그린다. 메뉴는 `removeMenu()`로 없앤다. 개발 실행에서는 F12/Ctrl+Shift+I, Ctrl+R을 유지한다. 페이지는 `data-desktop`과 `--titlebar-h`로 여백을 맞추고 `features/desktop/TitleBar.tsx`가 끌기 영역을 그린다.
-- **아이콘:** `frontend/public/branding/posegood-icon.svg`가 정본이고 PNG·ICO는 같은 SVG에서 내보낸다. 로그인·사이드바의 `BrandMark`, 브라우저 탭, Electron 창이 같은 아이콘을 쓴다. Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 서명만 생략한다(`signAndEditExecutable: false`는 아이콘 편집까지 막아 쓰지 않는다). 빠른 실행기는 `copy-desktop.mjs`의 `/win32icon`으로 같은 ICO를 넣는다. 아이콘을 바꾸면 `npm run desktop:pack`으로 다시 만든다.
-
-### 6.1 시작 프로그램 (설정 → 컴퓨터를 켤 때)
-
-1. `자동으로 PoseGood 열기`: `app.setLoginItemSettings({ openAtLogin, args: ['--launched-at-login'] })`. 패키징 전에는 비활성(개발 실행은 개발 서버가 필요하다).
-2. `열릴 때 카메라 바로 켜기`: 데스크톱 설정 파일에 저장. 시작 프로그램 인자로 열렸고 켜져 있으면 `features/desktop/useLaunchAutomation.ts`가 로그인 후 측정하기에서 카메라를 한 번 연결한다. 등록한 자세가 있으면 2.5초 머물 때 측정이 저절로 시작된다(`useAutoStart.ts`, 10/13).
-3. 남은 것: 트레이/작은 항상-위 창. (설치 파일 패키징과 패키징된 앱의 `dist` 읽기, 저장된 기준 자세 불러오기는 이미 됐다.)
-
-### 6.2 자세 알림 팝업 (10/06 요청, 10/14 모양 변경)
-
-알림(붕괴 확정·재알림)이 울릴 때 앱 창이 가려졌거나 최소화돼 있으면 화면 오른쪽 아래에 작은 팝업(`public/alert-popup.html`)을 띄운다. 앱 창이 포커스를 갖고 보이면 앱 안 토스트·소리만 쓴다(main이 `in-app`으로 건너뜀).
-
-- 항상 위에 뜨지만 포커스를 가져가지 않고(`showInactive`) 8초 뒤 숨는다. 앱 안 스낵바와 같은 짙은 갈색 작은 알약이고, 의자 아이콘을 두른 링이 남은 시간을 보여 준다. 알약을 누르면(또는 Enter) 앱을 열고, X·Esc로 닫고, 좌우로 70px 넘게 밀면 그 방향으로 밀려나며 닫힌다.
-- 문구는 예전 측정 화면의 방향별 제목·안내(`liveView.ts`, 10/21 삭제)와 같았고, 재알림은 "아직 자세가 돌아오지 않았어요."를 앞에 붙인다.
-- 설정 `알림 → 다른 창을 볼 때 팝업`(기본 켜짐)은 데스크톱 설정 파일의 `alertPopup`에 저장한다. 교정 알림을 끄면 팝업도 없다. `개발자 옵션 → 알림 모양 확인 → 앱 밖 알림창`은 앱을 보고 있거나 팝업이 꺼져 있어도 띄운다.
-- 앱 창을 닫으면 숨은 팝업 창도 정리해 앱이 종료된다. 일반 브라우저 탭에는 팝업이 없다.
-- 검증(lellon0403): 패키징 EXE를 숨긴 창·독립 프로필로 실행해 `showAlert`→`popup`, 문구·표시, 설정 끔→`off`를 확인했다. 실제 측정 중 다른 창을 볼 때의 확인은 따로 한다.
-- 팝업 주소는 패키징 때 `app://posegood/alert-popup.html`이라, 화면을 `app.<도메인>`에서 열 때 같이 바꾼다(F14).
-
-## 7. 진행 기록
+- 2026-10-22: 문서 이름을 `fe-deploy.md`로 바꾸고 데스크톱 앱 구조(옛 6장)를 FE 제안서 8.4로 옮겼다. V3(서버 전용)는 서버 없이는 측정할 수 없어, `api.posegood.site` 터널이 붙은 뒤에 develop에 합치고 포크를 최신화한다(ADR 0025).
 
 - 2026-10-20: Cloudflare Active, `https://app.posegood.site`가 Vercel 배포본으로 열린다. DDoS는 `api.`(터널, 프록시)는 Cloudflare가, `app.`은 Vercel이 막는다.
 - 2026-10-20: develop 기준 배포본(https://sitting-posture-corrector.vercel.app/)을 팀에 알렸다: 서버 연결 전이라 처음 여는 브라우저는 회원가입부터, develop에 머지돼도 FE가 포크를 최신화해야 반영, PR별 미리보기 없음. 도메인은 Cloudflare 확인 뒤 `app.posegood.site`로 옮긴다. 팀 서버 PC는 공인 IP가 없어도 이름 있는 터널로 `api.posegood.site`에 연결한다(포트를 열지 않고 서버 IP도 드러나지 않음, 터널에는 nginx `/api`만 등록).

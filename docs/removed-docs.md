@@ -77,4 +77,23 @@ design 문서가 늘어 겹치는 것을 합쳤다. 되살리기: `git show 48f5
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/surface-brief-frontend.md` | 발표용 UI 데모(10/02 이전 레트로 피치덱)의 최초 시각 방향 기록이다. 화면은 ADR 0017로 다시 설계됐고 지금 규칙은 DESIGN.md다. | [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [DESIGN.md](../DESIGN.md) | lellon0403(처음 작성) |
-| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [배포 구상](design/fe-domain-idea.md) 6장(창·시작 프로그램·알림 팝업), [FE 작업 명령과 검사](design/fe-commands-and-checks.md)(실행 명령) | lellon0403(처음 작성), klaod-tech |
+| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [배포 구상](design/fe-deploy.md) 6장(창·시작 프로그램·알림 팝업), [FE 작업 명령과 검사](design/fe-commands-and-checks.md)(실행 명령) | lellon0403(처음 작성), klaod-tech |
+
+## 6. 2026-10-22 design 문서 정리 (FE, 문서 2개 + 절 정리)
+
+V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했다. 원칙: **결정은 ADR, FE 할 일·상태는 [FE 제안서](design/fe-server-proposal.md), 앱이 지키는 연동 동작은 [연동 명세](design/api-ws-spec.md), 필드·본문은 [BE API 명세](design/api-spec.md).** 되살리기: `git show dc2c5d4:<경로>`.
+어디가 어디로 갔는지의 전체 표는 [FE 제안서](design/fe-server-proposal.md) 7.2 「10/22 문서 정리」다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/server-persistence-and-auth.md` | 이 저장소의 예전 v1 백엔드(10/01, MySQL 계정·CEP 재생·outbox) 구현 기록이다. 백엔드는 단일 API·DB V2.3으로 다시 썼고(ADR 0020·0022), 앱의 계정 모드도 10/13 지웠다. | [ADR 0014](decisions/0014-mysql-persistence-and-accounts.md)·[ADR 0020](decisions/0020-single-api-decision-engine.md), [BE API 명세](design/api-spec.md) | jisung(처음), klaod-tech |
+| `docs/design/data-platform-boundary.md` | 10/06 기준 서비스 저장과 빅데이터 플랫폼의 경계다. 「원본 좌표 미전송」 등이 ADR 0021로 바뀌었고, 플랫폼(Kafka·HDFS·Spark)은 DevOps가 운영한다. | [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)·[변경 안내](design/architecture_v5.2_change_notes.md)(DevOps), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) | jisung(처음), klaod-tech |
+
+지운 절(문서는 남김):
+
+| 문서·절 | 지운 이유 | 내용이 간 곳 |
+|---|---|---|
+| 연동 명세 0.1~0.6(10/13~15 BE 명세 「정할 것」 답, BE 요청 Q1~Q6, DevOps 검토 답, DB·BE 회신 답, BE 명세 고칠 곳 X1~X16, BE 코드 필드 대조) | BE 명세가 저장소에 들어와(`docs/design/api-spec.md`) 반영이 끝났다. 남은 결정은 짧은 표로 | 연동 명세 0장 표. 원문 `git show dc2c5d4:docs/design/api-ws-spec.md` |
+| 연동 명세 4장 REST 요청·응답 본문 | BE 명세와 이중이었다 | BE API 명세 4~8장. 앱이 지킬 것만 연동 명세 4장 |
+| FE 제안서 1장의 10/16~19 BE 확인 기록, 7.0의 미정 3개 설명 | 정해졌다(10/21) | ADR 0025, FE 제안서 7.0 한 단락 |
+| FE 제안서 4.1의 로컬 화면 상태 7개(`suspect`·`recovering`·최근 30분 흐름) | 로컬 측정 화면이 10/21 지워졌다 | 연동 명세 5.3 화면 상태 표(V3) |

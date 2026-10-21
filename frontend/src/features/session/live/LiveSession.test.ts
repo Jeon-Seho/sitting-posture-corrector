@@ -150,6 +150,20 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.phase).toBe('running')
   })
 
+  it('switches a rest to away when the camera stops (ABSENCE before PAUSE, DB V2.3)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    live.pause()
+    now += 400
+    live.away()
+    now += 500
+    live.tick()
+    const [rest, away] = socket.features()
+    expect(rest).toMatchObject({ phase: 'rest', start_ms: 0, end_ms: 400 })
+    expect(away).toMatchObject({ phase: 'away', start_ms: 400, end_ms: 900 })
+    expect(live.state).toMatchObject({ phase: 'paused', sending: 'away' })
+  })
+
   it('shows only what the server sent: observation, summary, confirmed alert and recovery', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })

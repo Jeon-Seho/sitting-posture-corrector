@@ -322,9 +322,12 @@ export class LiveSession {
     this.switchTo('rest')
   }
 
-  /** The camera picture stopped (frames over 1 s late): `away` until frames come back. */
+  /**
+   * The camera picture stopped (frames over 1 s late): `away` until the user resumes. Also during
+   * a rest: DB V2.3 puts `ABSENCE` before `PAUSE`, so a stopped camera wins (FE proposal 3.2, 10/15).
+   */
   away() {
-    if (this.state.sending === 'running') this.switchTo('away')
+    this.switchTo('away')
   }
 
   resume() {

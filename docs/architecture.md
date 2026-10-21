@@ -100,7 +100,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.3)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
-연구 export와 분석 시스템은 [플랫폼 경계](design/data-platform-boundary.md)가 소유한다.
+연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.
 실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 앱이 v2로 넘어갈 때까지 `/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다([계획 0031](plans/active/0031-realtime-kafka-transition.md)). FE V3는 2026-10-21 v2로 넘어갔다(develop에 합쳐진 뒤 BE가 v1을 정리).
 

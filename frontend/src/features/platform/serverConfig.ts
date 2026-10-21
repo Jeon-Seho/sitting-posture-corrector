@@ -3,7 +3,7 @@
  * (2026-10-21, no local mode).
  *
  * - VITE_API_BASE_URL=https://… API origin when the page is served elsewhere (Vercel
- *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe-domain-idea.md).
+ *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe-deploy.md).
  *                              Unset = same origin (`/api/...`, and `ws(s)://<page host>/api/v2/realtime`).
  *
  * Development API calls go through the Vite proxy (`/api` → POSEGOOD_API_URL, default

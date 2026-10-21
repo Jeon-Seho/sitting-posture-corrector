@@ -3,7 +3,7 @@
 - 상태: accepted (앱 구현 `feature/frontend-features-and-integrationV3` `0449abb`)
 - 날짜: 2026-10-20 (기록 2026-10-21)
 - 근거: 2026-10-20 전체 회의 — 3초 동안의 자세 평균은 FE가 담당한다
-- 대체: [연동 명세](../design/api-ws-spec.md) 6.2와 FE 제안서 3.3의 예전 안 「앱은 WS `purpose:"calibration"`으로 프레임만 보내고 서버가 `calibration_result`로 등록한다. 앱은 평균을 계산하지 않는다」
+- 대체: 연동 명세 6.2(10/22 정리 뒤 5.4)와 FE 제안서 3.3의 예전 안 「앱은 WS `purpose:"calibration"`으로 프레임만 보내고 서버가 `calibration_result`로 등록한다. 앱은 평균을 계산하지 않는다」
 - 관련: BE 명세 6장 B1·B2, [ADR 0025](0025-app-always-measures-on-server.md), [계획 0053](../plans/active/0053-multiple-cameras.md) 결정 5(기준 자세는 카메라와 상관없이 하나)
 
 ## 결정

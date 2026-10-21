@@ -80,7 +80,7 @@ export async function apiRequest(
         body,
         signal: abort.signal,
         cache: 'no-store',
-        // The login cookie must also reach a separate API origin (fe-domain-idea.md 3.2 A-2).
+        // The login cookie must also reach a separate API origin (docs/design/fe-deploy.md 3.2 A-2).
         credentials: 'include',
       })
     } catch {

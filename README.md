@@ -50,7 +50,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 [계정 앱](http://127.0.0.1:8080/)에서 가입한다.
 [실행·배포·백업](infra/README.md), [계약](contracts/README.md)
-[빅데이터 플랫폼 책임](docs/design/data-platform-boundary.md)을 참고한다.
+[아키텍처 v5.2 스택별 역할](docs/design/architecture_v5.2_stack_roles.md)을 참고한다.
 
 ## 로컬 프로토타입 실행
 

@@ -1,4 +1,4 @@
 # Not listed in search results until the real server is connected (2026-10-20,
-# docs/design/fe-domain-idea.md). Remove this rule when the service goes public.
+# docs/design/fe-deploy.md). Remove this rule when the service goes public.
 User-agent: *
 Disallow: /
