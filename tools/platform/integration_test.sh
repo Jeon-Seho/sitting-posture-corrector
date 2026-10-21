@@ -16,10 +16,10 @@
 #   2. Kafka       : 브로커, 토픽·파티션, 임시 토픽 produce→consume 왕복
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
-#   5. Spark       : Spark↔HDFS Parquet 왕복 (bigdata/tools/hdfs_parquet_roundtrip.py)
+#   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.3 준비(D-32·D-51)
-#   7. 종단(T-10)  : 합성 CSV 재생 → Kafka → 추론 → 판정 → 이벤트 73.1s·재알림 2회,
-#                    컨슈머 lag 0, Redis 상태 키 정리, DB 쓰기 버퍼(D-18), MySQL 행, (선택) HDFS 적재
+#   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
+#                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(v1)·11단계(저장)·12단계(WebSocket)
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
 #                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes.v1 발행, v1 lag 0, DLQ(D-36)
 #   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
@@ -34,7 +34,7 @@
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
-# 끝나면 지운다. 단, T-10·v1 재생은 실제 판정 경로를 타므로 sessions/collapse_events에 테스트 행이 남는다(userId=IT-<시각>, IT-V1-<시각>).
+# 끝나면 지운다. 11단계 시험 행은 끝에서 지운다(KEEP_D30=1이면 남김), 10·12단계 합성 계정은 탈퇴 접수 상태로 남는다.
 # =====================================================================
 set -u
 
@@ -69,7 +69,6 @@ API="${API_URL:-http://localhost:$(envor API_SERVER_HOST_PORT 8080)}"
 INFER="${INFERENCE_URL:-http://localhost:$(envor INFERENCE_HOST_PORT 8000)}"
 # 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
 EXPECTED_PROJECT="${EXPECT_PROJECT:-}"
-SOURCE_CSV="${SOURCE_CSV:-$TOOLS/posture-pilot-P01.csv}"
 TS="$(date +%Y%m%d-%H%M%S)"
 TS_EPOCH="$(date +%s)"
 OUT="$TOOLS/it-results/$TS"
@@ -111,7 +110,8 @@ if [ -f "$ENV_FILE" ]; then
   if [ -n "$(tail -c1 "$ENV_FILE")" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
   # (D-24) 필수 값 — 실행 환경마다 다른 값(env.example 1·2장). 하나라도 없으면 compose도 시작하지 않는다(SERVER_LAN_IP·SERVICE_DB_SCHEMA)
   MISSING=""
-  for k in SERVER_LAN_IP DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD SERVICE_DB_SCHEMA; do
+  # (D-38) DB_NAME(옛 posture_app)은 쓰지 않는다 — 처리 서비스 연결 풀의 기본 DB는 SERVICE_DB_SCHEMA
+  for k in SERVER_LAN_IP DB_HOST DB_PORT DB_USER DB_PASSWORD SERVICE_DB_SCHEMA; do
     [ -n "$(envval "$k")" ] || MISSING="$MISSING $k"
   done
   if [ -n "$MISSING" ]; then fail ".env 필수 값" "없음:$MISSING (infra/compose/env.example 1·2장)"; else pass ".env 필수 값 (서버 주소·DB)"; fi
@@ -169,15 +169,11 @@ step "2. Kafka"
 check "브로커 응답" $KT/kafka-broker-api-versions.sh $BS
 TOPICS="$($KT/kafka-topics.sh $BS --list 2>/dev/null)"
 echo "$TOPICS" >>"$OUT/run.log"
-for t in posture.summary posture.inference; do
-  if echo "$TOPICS" | grep -qx "$t"; then pass "토픽 $t 존재"
-  else skip "토픽 $t" "아직 없음(첫 메시지 때 자동 생성) — 7단계 후 다시 확인"; fi
-done
-PC="$($KT/kafka-topics.sh $BS --describe --topic posture.inference 2>/dev/null | grep -oE 'PartitionCount: *[0-9]+' | grep -oE '[0-9]+')"
-if [ -n "$PC" ]; then
-  if [ "$PC" -ge 3 ]; then pass "posture.inference 파티션 $PC개"
-  else fail "posture.inference 파티션" "$PC개 (3개 필요: kafka-topics.sh --alter --partitions 3)"; fi
-fi
+# (D-38) 옛 경로 토픽·컨슈머 그룹이 서버에 남아 있으면 안내만 한다 — 지우는 법은 infra/README.md "옛 경로 정리"
+OLD_T="$(echo "$TOPICS" | grep -xE 'posture\.summary|posture\.inference' | tr '\n' ' ')"
+[ -n "$OLD_T" ] && log "  (안내) 옛 경로 토픽이 남아 있음: $OLD_T— 쓰는 서비스 없음(D-38), infra/README.md 절차로 지운다"
+OLD_G="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -xE 'api-server-cep|inference-service' | tr '\n' ' ')"
+[ -n "$OLD_G" ] && log "  (안내) 옛 경로 컨슈머 그룹이 남아 있음: $OLD_G— infra/README.md 절차로 지운다"
 # (D-21) 계약 v1 토픽 — api-server가 시작할 때 만든다(파티션 3)
 # (D-54) 알림 토픽 posture.alerts.v1도 같은 방식(파티션 3, 보존 3일)
 for t in posture.features.v1 posture.inference.v1 posture.episodes.v1 posture.alerts.v1 posture.dlq; do
@@ -232,9 +228,9 @@ else fail "복제 부족 블록" "${UNDER}개 — Spark가 복제 3으로 쓴 �
 # ---------------------------------------------------------------------
 step "5. Spark ↔ HDFS"
 if [ "$QUICK" = 1 ]; then skip "Parquet 왕복" "--quick"
-elif [ ! -f bigdata/tools/hdfs_parquet_roundtrip.py ]; then skip "Parquet 왕복" "bigdata/tools/hdfs_parquet_roundtrip.py 없음"
+elif [ ! -f tests/hdfs_parquet_roundtrip.py ]; then skip "Parquet 왕복" "tests/hdfs_parquet_roundtrip.py 없음"
 else
-  docker cp bigdata/tools/hdfs_parquet_roundtrip.py spark:/opt/spark/it_roundtrip.py >>"$OUT/run.log" 2>&1
+  docker cp tests/hdfs_parquet_roundtrip.py spark:/opt/spark/it_roundtrip.py >>"$OUT/run.log" 2>&1
   timeout 300 docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_roundtrip.py >"$OUT/spark-roundtrip.log" 2>&1
   if grep -q "왕복 테스트 성공" "$OUT/spark-roundtrip.log"; then pass "Parquet 쓰기→읽기 (spark-submit)"
   else fail "Parquet 왕복" "$OUT/spark-roundtrip.log 확인"; fi
@@ -268,147 +264,15 @@ else
 fi
 IH="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$INFER/health")"
 if [ "$IH" = "200" ]; then pass "inference-service /health"; else fail "inference-service /health" "HTTP $IH"; fi
-GRP="$($KT/kafka-consumer-groups.sh $BS --describe --group api-server-cep 2>/dev/null)"
+GRP="$($KT/kafka-consumer-groups.sh $BS --describe --group judge-v1 2>/dev/null)"
 echo "$GRP" >>"$OUT/run.log"
-NC="$(echo "$GRP" | awk '$2=="posture.inference" && $7 ~ /consumer/ {print $7}' | sort -u | wc -l)"
-if [ "$NC" -ge 1 ]; then pass "판정 컨슈머 그룹 참여 (${NC}개 스레드)"; else skip "판정 컨슈머 그룹" "아직 할당 없음(토픽 생성 전일 수 있음)"; fi
+NC="$(echo "$GRP" | awk '$2=="posture.inference.v1" && $7 ~ /consumer/ {print $7}' | sort -u | wc -l)"
+if [ "$NC" -ge 1 ]; then pass "v1 판정 컨슈머 그룹 judge-v1 참여 (${NC}개 스레드)"; else skip "v1 판정 컨슈머 그룹" "아직 할당 없음(처음 기동 직후일 수 있음)"; fi
 
 # ---------------------------------------------------------------------
-step "7. 종단 시험 (T-10)"
+# (D-38) 7단계(옛 posture.summary 경로 T-10·posture-sink HDFS 적재)는 옛 경로와 함께 지웠다.
 if ! echo "$RD" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin)['components']['db']['status']=='UP' else 1)" 2>/dev/null; then
-  log "  주의: readiness db가 DOWN — 판정 컨슈머가 DB 대기로 멈춰 종단 시험이 실패할 수 있다(D-18). docker logs api-server 의 'Caused by' 확인"
-fi
-if [ "$E2E" = 0 ]; then skip "T-10 종단 시험" "--no-e2e"
-elif [ ! -f "$SOURCE_CSV" ]; then skip "T-10 종단 시험" "$SOURCE_CSV 없음(저장소 밖 파일 — 기존 클론에서 복사하거나 SOURCE_CSV=경로 지정)"
-else
-  T10="$OUT/t10.csv"
-  python3 $TOOLS/generate_collapse_test_csv.py --input "$SOURCE_CSV" --output "$T10" >"$OUT/t10-generate.log" 2>&1
-  SID="$(grep -oE 'session_id\(capture_id\) = [0-9a-f-]+' "$OUT/t10-generate.log" | awk '{print $3}')"
-  if [ -z "$SID" ]; then fail "T-10 CSV 생성" "$OUT/t10-generate.log 확인"
-  else
-    pass "T-10 CSV 생성 (sessionId=$SID)"
-    # 테스트용 사용자 ID로 바꿔 실제 사용자(P01) 상태와 섞이지 않게 한다
-    IT_USER="IT-$TS"
-    python3 - "$T10" "$IT_USER" <<'PY'
-import csv,sys
-p,u=sys.argv[1],sys.argv[2]
-rows=list(csv.reader(open(p,encoding="utf-8-sig")))
-h=rows[0]; i=h.index("participant_code")
-for r in rows[1:]: r[i]=u
-w=csv.writer(open(p,"w",newline="",encoding="utf-8")); w.writerows(rows)
-PY
-    python3 $TOOLS/replay_posture_pilot_csv.py --file "$T10" --pace fast >"$OUT/t10-replay.log" 2>&1
-    if grep -qE '성공\(202\): 850 / 실패: 0' "$OUT/t10-replay.log"; then pass "재생 850건 전송 (HTTP 202)"
-    else fail "재생 전송" "$OUT/t10-replay.log 확인"; fi
-
-    # 판정 결과 대기 (최대 60초)
-    EV=""
-    for _ in $(seq 1 30); do
-      EV="$(curl -s -m 5 "$API/cep/events/recent" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-m=[e for e in d.get('events',[]) if e.get('sessionId')=='$SID' and not e.get('ongoing')]
-print(json.dumps(m[-1]) if m else '')" 2>/dev/null)"
-      [ -n "$EV" ] && break; sleep 2
-    done
-    echo "이벤트: ${EV:-없음}" >>"$OUT/run.log"
-    if [ -z "$EV" ]; then fail "판정 이벤트" "60초 안에 sessionId=$SID 종료 이벤트 없음 (docker logs api-server 확인)"
-    else
-      if echo "$EV" | python3 -c "
-import json,sys;e=json.load(sys.stdin)
-ok=abs(e['durationSeconds']-73.1)<0.05 and e['alertCount']==2 and e['recovered'] is True
-sys.exit(0 if ok else 1)"; then pass "판정 결과: 지속 73.1s, 재알림 2회, 회복 (DN-24 기대값)"
-      else fail "판정 결과" "$EV (기대: 73.1s / alertCount 2 / recovered true)"; fi
-    fi
-
-    sleep 3
-    LAG="$($KT/kafka-consumer-groups.sh $BS --describe --group api-server-cep 2>/dev/null | awk '$2=="posture.inference" && $6 ~ /^[0-9]+$/ {s+=$6} END{print s+0}')"
-    if [ "$LAG" = "0" ]; then pass "판정 컨슈머 lag 0"; else fail "판정 컨슈머 lag" "$LAG"; fi
-    ILAG="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -i inference | head -1)"
-    [ -n "$ILAG" ] && log "  참고: 추론 컨슈머 그룹 $ILAG lag=$($KT/kafka-consumer-groups.sh $BS --describe --group "$ILAG" 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6} END{print s+0}')"
-
-    # 판정이 끝났을 때만 의미가 있다(판정이 안 돌았으면 키가 처음부터 없어서 0이 나온다)
-    if [ -n "$EV" ]; then
-      # (D-21) 상태 키 = session_id
-      RK="$(docker exec redis redis-cli EXISTS "posture:state:$SID" 2>/dev/null)"
-      if [ "$RK" = "0" ]; then pass "Redis 상태 키 정리 (회복 후 삭제, D-04)"; else fail "Redis 상태 키" "posture:state:$SID 가 남아 있음"; fi
-    else
-      skip "Redis 상태 키 정리" "판정 이벤트가 없어 확인 의미 없음"
-    fi
-
-    # DB 쓰기 버퍼(D-18) — 적용된 서버에서만. 보관분이 모두 DB에 반영됐는지 확인한다(최대 15초 대기).
-    DW_CODE="$(curl -s -m 5 -o "$OUT/db-writer.json" -w '%{http_code}' "$API/cep/db-writer")"
-    if [ "$DW_CODE" = "200" ]; then
-      DW_OK=1
-      for _ in $(seq 1 15); do
-        if python3 -c "
-import json,sys
-d=json.load(open('$OUT/db-writer.json'))
-sys.exit(0 if d['pendingSessions']==0 and d['pendingEvents']==0 and d['consecutiveFailures']==0 else 1)" 2>/dev/null; then DW_OK=0; break; fi
-        sleep 1; curl -s -m 5 -o "$OUT/db-writer.json" "$API/cep/db-writer"
-      done
-      if [ "$DW_OK" = 0 ]; then pass "DB 쓰기 버퍼 비움 (D-18: 보관 0, 연속 실패 0)"
-      else fail "DB 쓰기 버퍼" "$(cat "$OUT/db-writer.json")"; fi
-    else
-      skip "DB 쓰기 버퍼" "/cep/db-writer 없음(HTTP $DW_CODE) — D-18 적용 전 서버"
-    fi
-
-    # MySQL 직접 확인 — mysql 클라이언트가 없으면 python mysql-connector(tools/platform/requirements.txt)로 확인
-    if [ -f "$ENV_FILE" ] && python3 -c "import mysql.connector" 2>/dev/null; then
-      ROW="$(python3 - "$SID" <<'PY2' 2>>"$OUT/run.log"
-import sys, mysql.connector
-env = dict(l.rstrip("\n").split("=", 1) for l in open(__import__("os").environ["IT_ENV_FILE"], encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
-c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
-                            password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
-cur = c.cursor()
-cur.execute("SELECT duration_seconds, alert_count, recovered FROM collapse_events WHERE session_id=%s", (sys.argv[1],))
-r = cur.fetchone()
-print("" if r is None else f"{float(r[0]):.1f} {int(r[1])} {int(r[2])}")
-PY2
-)"
-      if [ "$ROW" = "73.1 2 1" ]; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
-      else fail "MySQL collapse_events 행" "'${ROW:-행 없음}' (기대: 73.1 2 1)"; fi
-      # (D-20) 저장 기준 KST 확인: 방금 만든 세션의 started_at(=지금 시각)이 DB NOW()(KST)와 몇 초 차이인지
-      LAG_S="$(python3 - "$SID" <<'PY3' 2>>"$OUT/run.log"
-import sys, mysql.connector
-env = dict(l.rstrip("\n").split("=", 1) for l in open(__import__("os").environ["IT_ENV_FILE"], encoding="utf-8") if "=" in l and not l.lstrip().startswith("#"))
-c = mysql.connector.connect(host=env["DB_HOST"], port=int(env.get("DB_PORT", "3306")), user=env["DB_USER"],
-                            password=env["DB_PASSWORD"], database=env.get("DB_NAME", "posture_app"), connection_timeout=5)
-cur = c.cursor()
-cur.execute("SELECT TIMESTAMPDIFF(SECOND, started_at, NOW(3)) FROM sessions WHERE session_id=%s", (sys.argv[1],))
-r = cur.fetchone()
-print("" if r is None else int(r[0]))
-PY3
-)"
-      if [ -n "$LAG_S" ] && [ "${LAG_S#-}" -lt 1800 ]; then pass "DB 시각 기준 KST (세션 시작 ↔ DB NOW() ${LAG_S}초, D-20)"
-      else fail "DB 시각 기준" "세션 시작과 DB NOW() 차이 '${LAG_S:-행 없음}'초 — 약 ±32400초면 9시간 어긋남(D-20)"; fi
-    elif command -v mysql >/dev/null && [ -f "$ENV_FILE" ]; then
-      DBH="$(grep -E '^DB_HOST=' "$ENV_FILE" | cut -d= -f2-)"; DBP="$(grep -E '^DB_PORT=' "$ENV_FILE" | cut -d= -f2-)"
-      DBU="$(grep -E '^DB_USER=' "$ENV_FILE" | cut -d= -f2-)"; DBN="$(grep -E '^DB_NAME=' "$ENV_FILE" | cut -d= -f2-)"
-      ROW="$(MYSQL_PWD="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)" mysql -h "$DBH" -P "${DBP:-3306}" -u "$DBU" "${DBN:-posture_app}" -N -e \
-        "SELECT duration_seconds, alert_count, recovered FROM collapse_events WHERE session_id='$SID'" 2>>"$OUT/run.log")"
-      if echo "$ROW" | grep -qE '^73\.1[0-9]*\s+2\s+1$'; then pass "MySQL collapse_events 행 (73.1 / 2 / 1)"
-      else fail "MySQL collapse_events 행" "'$ROW'"; fi
-    else
-      skip "MySQL 직접 확인" "mysql 클라이언트·mysql-connector 없음 — pip install -r $TOOLS/requirements.txt"
-    fi
-
-    # (선택) posture-sink → HDFS 적재 확인
-    if [ "$QUICK" = 1 ]; then skip "HDFS 적재(posture-sink)" "--quick"
-    elif ! docker exec spark pgrep -f posture_sink_stream.py >/dev/null 2>&1; then
-      skip "HDFS 적재(posture-sink)" "posture-sink 미실행 — bigdata/legacy/run_posture_sink.sh 로 시작 후 다시 실행"
-    elif [ ! -f bigdata/legacy/check_session.py ]; then skip "HDFS 적재(posture-sink)" "bigdata/legacy/check_session.py 없음"
-    else
-      log "  posture-sink 마이크로배치(10초) 대기 25초..."
-      sleep 25
-      docker cp bigdata/legacy/check_session.py spark:/opt/spark/it_check_session.py >>"$OUT/run.log" 2>&1
-      timeout 300 docker exec spark /opt/spark/bin/spark-submit --master 'local[2]' /opt/spark/it_check_session.py "$SID" >"$OUT/hdfs-sink-check.log" 2>&1
-      N="$(grep -oE '로 [0-9]+건 발견' "$OUT/hdfs-sink-check.log" | grep -oE '[0-9]+')"
-      if [ "${N:-0}" -ge 850 ]; then pass "HDFS 적재: posture.summary ${N}건 (Kafka → Spark → HDFS)"
-      elif [ "${N:-0}" -gt 0 ]; then fail "HDFS 적재" "${N}건 / 850건 (일부만 적재 — 잠시 후 재확인)"
-      else fail "HDFS 적재" "0건 — $OUT/hdfs-sink-check.log, docker exec spark tail /tmp/posture-sink.log"; fi
-    fi
-  fi
+  log "  주의: readiness db가 DOWN — 11단계 판정 결과 저장이 DB 대기로 멈출 수 있다. docker logs api-server 의 'Caused by' 확인"
 fi
 
 # ---------------------------------------------------------------------
@@ -544,13 +408,6 @@ else
   RK3="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
   if [ "$RK3" = "0" ]; then pass "종료 후 v1 판정 상태 키 삭제"; else fail "종료 후 v1 판정 상태 키" "EXISTS=${RK3:-?}"; fi
 fi
-
-# 7단계 뒤 토픽 재확인 (처음에 없었던 경우)
-for t in posture.summary posture.inference; do
-  if ! echo "$TOPICS" | grep -qx "$t" && $KT/kafka-topics.sh $BS --list 2>/dev/null | grep -qx "$t"; then
-    pass "토픽 $t 생성됨(재생 후)"
-  fi
-done
 
 # ---------------------------------------------------------------------
 step "10. 입출구 서버 (io-api, D-48)"

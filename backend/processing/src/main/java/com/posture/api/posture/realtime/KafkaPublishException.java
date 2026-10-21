@@ -1,4 +1,4 @@
-package com.posture.api.posture.service;
+package com.posture.api.posture.realtime;
 
 /**
  * Kafka 전송이 확인 가능한 시간 안에 성공하지 못했을 때 던진다

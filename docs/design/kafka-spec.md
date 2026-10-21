@@ -3,7 +3,7 @@
 - 담당: DevOps/BE (토픽·봉투·컨슈머 그룹·DLQ·보존). 본문 형식(입력·관측·사건)은 [계약](../../contracts/README.md)의 기존 버전을 그대로 쓴다.
 - 기준: [실시간 계약 v1 스키마](../../contracts/realtime/) `kafka-*.v1.schema.json`, [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md),
   [실시간 판정 Kafka 전환 계획 0031](../plans/active/0031-realtime-kafka-transition.md).
-- 갱신: 2026-10-17
+- 갱신: 2026-10-21
 
 > **이름 주의 — 「v1」이 둘이다.** 이 문서의 v1은 **Kafka 계약 v1**(`posture.*.v1` 토픽, `kafka-*.v1.schema.json`)이다.
 > 앱 ↔ 입출구 서버 **WebSocket v1**(`/v1/realtime`, `realtime-ws.v1.schema.json`)과는 다른 것이고, WebSocket이 v2로 바뀌어도
@@ -37,7 +37,7 @@
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
 - 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
-- 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 정리 예정이다(D-38). 새 작업에 쓰지 않는다.
+- 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.
 
 ## 3. 메시지
 
