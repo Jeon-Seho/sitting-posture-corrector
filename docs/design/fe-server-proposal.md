@@ -1,12 +1,13 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성), 화면(lellon0403)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에) · FE · 대상: DevOps/BE(홍규), DB(유진), ML(지성), 화면(lellon0403)
 > **이 문서의 역할:** FE의 **전제·결정 요약, 남은 질문, 할 일, 지금 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0025](../decisions/0025-app-always-measures-on-server.md)·[0026](../decisions/0026-baseline-average-by-app-b1.md)), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md), 배포는 [배포](fe-deploy.md)다.
-> 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). 서버 코드 기준은 이 브랜치에 받은 BE 브랜치 `d87d497`(10/21).
+> 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). 서버 코드 기준은 이 브랜치에 받은 BE 브랜치 `d87d497`(10/21). 10/22 BE 브랜치 최신 `047a095`는 옛 경로 정리뿐이라 받지 않았고, 앱 로그인 연결(F12)·CORS는 아직 BE 브랜치에 없다(BE가 로컬에서 로그인을 확인했다고 들음).
 
 ## 1. 남은 질문과 요청
 
-남은 질문은 없다(10/22). 공개 배포의 HTTPS는 도메인 + Cloudflare 이름 있는 터널로 정했다([배포](fe-deploy.md), 10/19~20). 10/16~19의 BE 확인 기록은 git 이력(`dc2c5d4` 이 문서 1장)에 있다.
+**BE에 물을 것 1개(10/22):** S1은 성공했는데 WS가 열리지 않았거나 `hello` 전에 끊긴 세션은 서버가 모른 채 열려 있다. 앱이 이때 S3 `POST /v2/sessions/{id}/end`로 닫을까, 서버가 시간이 지나면 정리할까? (측정 중 끊김·`ready` 5초 초과는 서버가 이미 끝낸다. [연동 명세](api-ws-spec.md) 4장 S3·S4)
+ 공개 배포의 HTTPS는 도메인 + Cloudflare 이름 있는 터널로 정했다([배포](fe-deploy.md), 10/19~20). 10/16~19의 BE 확인 기록은 git 이력(`dc2c5d4` 이 문서 1장)에 있다.
 최대 측정 시간은 아직 정하지 않았다(지금 기본 5,000초). 앱은 `closed(limit_reached)`만 처리하므로 값이 정해져도 바꿀 것이 없다.
 
 BE가 진행 중인 것(합의대로, 확인만):
@@ -135,7 +136,7 @@ FE가 정한 것(앱 쪽 동작):
 
 참고: 앱의 옛 판정 구현(고개 돌림 제외·귀 기준 치우침·복귀 대기)은 `lee_app1`의 `676ae89`에 있다. 회의 안건 원문과 BE 문서는 저장소 밖(DevOps)에 있다.
 
-### 7.2 다음 할 일 (10/21 기준, V3 `f88ffe3`)
+### 7.2 다음 할 일 (10/22 기준, V3 `84678a2`)
 
 10/21에 한 것: F2 자세 등록(B1·B2), F1+F3 측정(S1 → `/v2/realtime`), 로컬 판정·이어하기·v1 서버 코드 삭제. 시험 213개·`check-repo` 통과, 실제 서버 시험은 아직.
 

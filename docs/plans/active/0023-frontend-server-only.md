@@ -1,10 +1,10 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
+- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(남은 질문 1장(지금 없음), FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
-  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0022](../../decisions/0024-session-ends-on-lost-connection.md)
+  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0025](../../decisions/0025-app-always-measures-on-server.md)·[0026](../../decisions/0026-baseline-average-by-app-b1.md)
 
 ## 배경
 
@@ -31,7 +31,7 @@
 1. FE 코드(`frontend/src`)에 판정 코드가 없다. 점수·상태·고개 돌림·복귀 대기 계산을 import하는 곳이 없다(검색으로 확인).
 2. 서버 없이 측정을 시작하면 이유를 안내하고 시작하지 않는다.
 3. 측정 중 화면 상태는 서버 메시지로만 바뀐다. WebSocket v2 합성 예시를 넣는 컴포넌트 시험으로 확인한다.
-4. 연결이 끊기면 세션을 끝내고 S3·S4로 종료 화면을 그린다. 가짜 서버 시험으로 확인한다.
+4. 연결이 끊기면 세션을 끝내고 종료 화면을 그린다. 서버가 끊긴 시점까지 저장하므로 앱은 S3를 부르지 않고, `end` 뒤 `closed`가 10초 안에 없으면 S4로 결과를 읽는다(10/22). 가짜 서버 시험으로 확인한다.
 5. 서버 담당이 합성 시험 데이터([규칙 사례](../../../contracts/examples/frames/reference-rule-cases.json))로 같은 결과를 확인했다.
 6. `python tools/dev.py check` 통과. 프론트 시험 수·타입·빌드 결과를 기록한다.
 
@@ -70,12 +70,12 @@
 - [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 남음.
 - [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
-- [ ] 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 B-3).
+- [ ] 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 B-3). 10/22 BE 브랜치 `047a095`에는 아직 없다. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
 - [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 R1·T1로 붙인다(10/14). 그때까지 측정 결과를 이 기기에도 R1과 같은 형식(`server.view` = SessionView)으로 남긴다(`useSessionPersistence.ts`, R1로 바꾸면 지움).
 
 ### 4단계 — 검증과 정리
 
-- [ ] 실패 경로 시험: 서버 없음, 연결 끊김, 중복 순번, 로그인 만료, `ready` 5초 초과.
+- [ ] 실패 경로 시험: 서버 없음, 연결 끊김, 중복 순번, 로그인 만료, `ready` 5초 초과. 10/22 가짜 서버 시험(`LiveSession.test.ts`)으로 연결 끊김·`ready` 5초·`closed(unauthorized)`·S1 무응답 재시도·S1 실패를 확인. 남은 것: 중복 순번(서버가 거름), 실제 서버로 같은 경로.
 - [ ] `python tools/dev.py check`, 서버 담당과 연동 시험(T-13, F9: DevOps 8088 시험 환경, `ssh -L 8088:127.0.0.1:8088`). `check-browser` 시나리오는 서버 전용에 맞춰 다시 쓴다(계획 0030 G6).
 - [ ] 이 계획을 끝내고 지운다(지운 문서 기록에 남김).
 
@@ -87,13 +87,16 @@
 - 2026-10-12: 수집 CSV v3(앱 판정·규칙 특징 열 제거, `bb5fd45`). 「라벨」은 서버·ML 정답만 뜻한다.
 - 2026-10-12: 아키텍처 v5 반영. 게이트웨이는 BE `ws`, 측정 종료는 WebSocket `end`. 두 귀가 모두 있어야 판정(S3).
 - 2026-10-13: 서버 연결이 끊기면 세션을 끝낸다(ADR 0024). 세션 번호는 날짜마다 1부터. 메인 카메라 선택(팀원).
+- 2026-10-13: BE API 명세에 맞춰 연동 명세와 WebSocket v2 계약을 만들었다. 세션 시작 = S1을 받은 시각, 5분 미만 세션도 저장(DB V2.3, 10/14 정정), 오늘 측정은 방금 끝난 세션만 결과에, 기록 화면에는 지난 날짜만.
 - 2026-10-13: 어깨 2초 유예(`shoulderGrace.ts`, 팀원). 서버로 옮길 때 같은 규칙을 넘긴다.
 - 2026-10-13: 자세 등록 탭을 측정하기로 합침(팀원 `2be4af8`). 예전 계정 모드 삭제, 로컬 로그인·회원가입 3단계(동의 C1~C6 → 계정 정보 → 자세 등록 선택).
 - 2026-10-20 전체 회의: 자세 등록의 3초 평균은 FE가 내서 B1로 보낸다(WS 등록 쓰지 않음).
 - 2026-10-21: V2를 develop에 넣고(PR #60) V3에 BE 브랜치를 받았다. V3는 서버 전용(로컬 모드 스위치 없음). 7.0 미정 3개는 권장안(형식 검사만, 카메라 빠짐·영상 크기 변경은 `end`). F2(`0449abb`), F1+F3과 로컬 판정·이어하기·v1 서버 코드 삭제(`f88ffe3`). 더미 데이터도 지우기로 했다(사용자: develop에 다 있으니 지운다).
-- 2026-10-13: BE API 명세에 맞춰 연동 명세와 WebSocket v2 계약을 만들었다. 세션 시작 = S1을 받은 시각, 5분 미만 세션도 저장(DB V2.3, 10/14 정정), 오늘 측정은 방금 끝난 세션만 결과에, 기록 화면에는 지난 날짜만.
+- 2026-10-22: V3 코드 검토. S1·B1은 응답이 없어도 같은 본문으로 다시 보냄, B2가 실패하면 등록을 자동으로 시작하지 않음, S1 응답 전에 끝낸 측정은 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4 한 번. BE 코드 확인 결과 측정 중 끊김은 서버가 닫으므로 앱은 S3를 부르지 않는다(연동 명세 4장).
 
 ## 검증 결과와 남은 한계
+
+2026-10-22, Windows 11 데스크톱(V3 `84678a2`): 프론트 단위 시험 221개(재시도·B2 실패·측정 경계 7개 추가), `tsc`, 빌드, `check-repo` 통과. 실제 서버 시험은 아직(F12가 BE 브랜치에 없음). `check-browser`·`check-backend`·`check-compose`는 돌리지 않음.
 
 2026-10-21, Windows 11 데스크톱(V3 `f88ffe3`): 프론트 단위 시험 213개(로컬 판정 시험 삭제, 서버 측정 11개·자세 등록 13개 추가), `tsc`, 빌드, `check-repo` 통과. 실제 서버 시험은 아직 못 함(BE 로그인 연결 필요). `check-browser`는 서버 전용이 되며 시나리오를 다시 써야 한다(0030 G6).
 
