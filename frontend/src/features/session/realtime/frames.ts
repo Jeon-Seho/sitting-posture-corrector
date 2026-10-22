@@ -38,12 +38,21 @@ export type FrameInput = {
 }
 
 const round = (value: number, digits: number) => Math.round(value * 10 ** digits) / 10 ** digits
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
+/**
+ * The 9 joints as `[x, y, visibility]`. The server rejects the whole interval (and closes the
+ * measurement with `bad_message`) for a joint outside x·y -1..2 or visibility 0..1 (BE
+ * `FrameInterval`), so values are clamped to that range; a joint the tracker did not give, or
+ * gave as a non-number, is `[0, 0, 0]` (visibility 0).
+ */
 export function frameJoints(landmarks: Landmark[]): [number, number, number][] | null {
   if (!landmarks.length) return null
   return FRAME_JOINTS.map((i) => {
     const p = landmarks[i]
-    return p ? [round(p.x, 5), round(p.y, 5), round(p.visibility ?? 0, 2)] : [0, 0, 0]
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return [0, 0, 0]
+    const visibility = Number.isFinite(p.visibility) ? p.visibility! : 0
+    return [round(clamp(p.x, -1, 2), 5), round(clamp(p.y, -1, 2), 5), round(clamp(visibility, 0, 1), 2)]
   })
 }
 

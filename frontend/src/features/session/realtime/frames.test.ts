@@ -21,6 +21,17 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(frameJoints([])).toBeNull()
   })
 
+  it('keeps coordinates inside the range the server accepts (x·y -1..2, visibility 0..1)', () => {
+    const points = body()
+    points[0] = { x: -3.2, y: 2.7, z: 0, visibility: 1.4 }
+    points[11] = { x: Number.NaN, y: 0.5, z: 0, visibility: 0.9 }
+    points[12] = { x: 0.6, y: 0.5, z: 0 }
+    const p = frameJoints(points)!
+    expect(p[0]).toEqual([-1, 2, 1])
+    expect(p[7]).toEqual([0, 0, 0])
+    expect(p[8]).toEqual([0.6, 0.5, 0])
+  })
+
   it('sends every frame of each 0.5 s interval without averaging, with increasing sequence', () => {
     const b = new FrameBatcher(1000)
     const sent = [1000, 1060, 1130, 1490, 1520, 1990, 2010].flatMap((t) => b.push(input(t)))
