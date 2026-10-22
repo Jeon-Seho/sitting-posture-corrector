@@ -155,7 +155,7 @@ FE가 정한 것(앱 쪽 동작):
 | 7 | F12를 받으면 맞출 것: 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 403 `ACCESS_DENIED`면 CSRF를 다시 받아 한 번 재시도(연동 명세 1장. 10/22 기준 `api.ts`는 바로 「로그인이 필요해요」), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | F12 |
 | 8 | S1은 됐는데 WS가 열리지 않은 세션을 S3로 닫을지 BE와 정하기(연동 명세 4장 S3·S4). 측정 중 끊김·`ready` 초과는 서버가 끝낸다 | BE 확인 |
 
-**10/22 V3 코드 검토로 고친 것:** S1·B1은 응답이 없으면(연결 오류·5초 초과) 같은 본문으로 다시 보냄(`retryUnanswered`), B2가 실패하면 등록을 자동으로 시작하지 않고 「다시 불러오기」·「새로 등록」, S1 응답 전에 측정을 끝내면 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4를 한 번만. 같은 날 남은 앱 판정(어깨 유예·머리 판정·고개 돌림·특징값 계산)도 지웠다(F5). 시험 216개 통과.
+**10/22 V3 코드 검토로 고친 것:** S1·B1은 응답이 없으면(연결 오류·5초 초과) 같은 본문으로 다시 보냄(`retryUnanswered`), B2가 실패하면 등록을 자동으로 시작하지 않고 「다시 불러오기」·「새로 등록」, S1 응답 전에 측정을 끝내면 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4를 한 번만. 같은 날 남은 앱 판정(어깨 유예·머리 판정·고개 돌림·특징값 계산)도 지웠다(F5). 시험 217개 통과.
 
 **10/22 서버 연동 전 API·WS 대조** (BE 브랜치 `047a095` 코드 — API 명세·계약·서버 코드가 V3가 받은 `d87d497`과 같음):
 
@@ -186,7 +186,7 @@ FE가 정한 것(앱 쪽 동작):
 | `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. 10/22 기준 서버 구조는 [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md)·[변경 안내](architecture_v5.2_change_notes.md) |
 | 코드: 쉬는 중 카메라 영상이 멈추면 `rest` 유지 | DB V2.3 우선순위(`ABSENCE` 먼저)대로 `away`로 바꿈(`LiveSession.away`, 시험 1개 추가) |
 
-알릴 것: BE — **10/22부터 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`**(전에는 처음 2초는 `valid:true`). 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
+알릴 것: BE — **10/22부터 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`**(전에는 처음 2초는 `valid:true`), 관절을 `[0, 0, 0]`으로 채운 프레임도 `valid:false`. **고개 돌림 구간은 학습 데이터에서 뺀다**(10/22 klaod-tech: 지금 API 판정의 `head_turn` 제외를 유지, Kafka 경로(계획 0031 표 5번)에서도 `head_turn` 힌트를 같은 조건으로 넣어야 함). `FrameFeatures.java` 주석이 가리키는 `pose.ts` `headTurned`·`serverFeatures.ts`는 10/22 앱에서 지웠다(원본은 develop). 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
 V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 한다(Vercel 배포본이 서버 없이는 측정할 수 없게 되므로).
 
 ## 8. 지금 앱 (FE 참고)

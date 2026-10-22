@@ -44,8 +44,18 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  * The 9 joints as `[x, y, visibility]`. The server rejects the whole interval (and closes the
  * measurement with `bad_message`) for a joint outside x·y -1..2 or visibility 0..1 (BE
  * `FrameInterval`), so values are clamped to that range; a joint the tracker did not give, or
- * gave as a non-number, is `[0, 0, 0]` (visibility 0).
+ * gave as a non-number, is `[0, 0, 0]` (visibility 0) and the frame is sent `valid:false`
+ * (`FrameBatcher.push`): the server reads ear positions without a visibility check, so a filled-in
+ * ear would otherwise enter the judgement as a real point (2026-10-22).
  */
+/** All 9 joints came from the tracker as numbers (nothing was filled in with `[0, 0, 0]`). */
+export function jointsComplete(landmarks: Landmark[]): boolean {
+  return FRAME_JOINTS.every((i) => {
+    const p = landmarks[i]
+    return !!p && Number.isFinite(p.x) && Number.isFinite(p.y)
+  })
+}
+
 export function frameJoints(landmarks: Landmark[]): [number, number, number][] | null {
   if (!landmarks.length) return null
   return FRAME_JOINTS.map((i) => {
@@ -81,7 +91,8 @@ export class FrameBatcher {
     const out = this.tick(input.timeMs)
     if (this.phase === 'rest' || this.phase === 'away') return out
     const frame: PoseFrame = { t_ms: this.at(input.timeMs), p: frameJoints(input.landmarks) }
-    if (!input.judgeable && frame.p) frame.valid = false
+    // Not placeable (a shoulder out of view) or a joint filled in: the server leaves the frame out.
+    if (frame.p && (!input.judgeable || !jointsComplete(input.landmarks))) frame.valid = false
     this.frames.push(frame)
     return out
   }

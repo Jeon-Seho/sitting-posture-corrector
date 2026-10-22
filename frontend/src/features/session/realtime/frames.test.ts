@@ -32,6 +32,18 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(p[8]).toEqual([0.6, 0.5, 0])
   })
 
+  it('sends a frame with a filled-in joint as not valid, and a complete one as valid', () => {
+    const batcher = new FrameBatcher(0)
+    const broken = body()
+    delete (broken as Partial<Landmark>[])[7]
+    batcher.push(input(100, { landmarks: broken }))
+    batcher.push(input(200))
+    const [batch] = batcher.finish(500)
+    expect(batch.frames[0]).toMatchObject({ t_ms: 100, valid: false })
+    expect(batch.frames[0].p![3]).toEqual([0, 0, 0])
+    expect(batch.frames[1].valid).toBeUndefined()
+  })
+
   it('sends every frame of each 0.5 s interval without averaging, with increasing sequence', () => {
     const b = new FrameBatcher(1000)
     const sent = [1000, 1060, 1130, 1490, 1520, 1990, 2010].flatMap((t) => b.push(input(t)))
