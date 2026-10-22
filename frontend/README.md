@@ -86,6 +86,7 @@ CSRF 토큰, 로그인 쿠키(`credentials: 'include'`), 로그아웃에 `X-Pose
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
 비밀번호 변경·탈퇴·선택 동의 철회·설정(W1·W2)은 아직 연결하지 않았다([FE 제안서](../docs/design/fe-server-proposal.md) 7.2).
+예전 화면 시험(`src/app/ServiceApp.test.tsx`)만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다. 이 시험 전용 경로는 [계획 0054](../docs/plans/active/0054-pip-fix-and-server-only-login.md) 2단계에서 지운다.
 
 ## 로컬 프로토타입 실행
 
