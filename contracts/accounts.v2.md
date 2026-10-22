@@ -22,8 +22,7 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 | `GET /auth/me` | 사용자 |
 | `POST /auth/logout` | 204 |
 | `PUT /auth/password` | `{current_password,new_password}` → 204, 모든 로그인과 열린 실시간 연결 철회 |
-| `DELETE /auth/account` | `{password}` → 204, 30일 유예 탈퇴 접수 |
-| `POST /auth/withdrawal/cancel` | `{email,password}` → 사용자 + 로그인. 유예 만료·처리 시작은 `409 WITHDRAWAL_NOT_CANCELLABLE` |
+| `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
 | `PUT /consents/optional-profile` | `{agreed:boolean,document_version:"service-v2"}` → workspace |
 
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
@@ -96,6 +95,8 @@ GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으�
 DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 종료·요약이 저장됐음을 뜻한다.
 원래 브라우저가 종료 응답을 받았는지는 DB에서 복원하지 않는다.
 
+서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
+
 판정 상태는 API 메모리이며 재시작 후 `404 SESSION_LOST`다. 상태를 잃은 세션의 미확인 기록 저장은
 알 수 없는 전체 구간을 MISSING으로 제외하고 good=0으로 닫는다. 일별 통계를 추가하지 않는다.
 전체가 MISSING인 기록은 `confirmed:false,view:null`, 수치 합계 0으로 표시해 정상/이탈 시간을 만들어내지 않는다.
@@ -105,6 +106,6 @@ DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 �
 시작/직전 붕괴 종료→다음 붕괴 시작 및 마지막 무붕괴 구간에서 제외 시간을 뺀 표본을 쓴다.
 표본이 없으면 NULL이며 세션 시작 KST 날짜에 누적한다.
 
-탈퇴 접수는 CLOSED와 삭제 요청을 저장하고 모든 로그인을 끊는다. 30일 이내 REQUESTED일 때 철회 가능하다.
+탈퇴 접수는 CLOSED와 삭제 요청을 저장하고 모든 로그인을 끊는다.
 만료 후 적재 파일 삭제 확인→세션→일별 통계→기준→삭제 요청→계정 순서로 지우며 동의는 FK CASCADE다.
 HDFS 파일 삭제와 완료 메일은 아직 구현하지 않았다. 실제 영상·학습 자료는 이 API의 저장 대상이 아니다.

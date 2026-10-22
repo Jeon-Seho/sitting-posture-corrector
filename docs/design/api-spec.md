@@ -38,7 +38,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 
 | 항목 | 규칙 |
 |---|---|
-| 인증 | DB(`SPRING_SESSION`)에 저장하는 로그인 쿠키. HttpOnly, SameSite=Lax, 만료 30분. HTTPS 배포에서는 `POSEGOOD_COOKIE_SECURE=true`로 Secure를 켠다. 만료 시간은 `POSEGOOD_LOGIN_TIMEOUT`(기본 30m)으로 바꾼다. **WebSocket 메시지는 만료 시간을 늘리지 않는다** — HTTP 요청 없이 30분 넘게 측정하면 측정 뒤 HTTP 요청이 401이 될 수 있다. |
+| 인증 | DB(`SPRING_SESSION`)에 저장하는 로그인 쿠키. HttpOnly, SameSite=Lax. **로그인 성공 시점부터 30분이 지나면 HTTP·WebSocket 활동 여부와 관계없이 만료한다**(FE 기준). HTTPS 배포에서는 `POSEGOOD_COOKIE_SECURE=true`로 Secure를 켠다. HTTP 요청과 WebSocket 메시지는 만료 시간을 늘리지 않는다. 만료만으로 이미 인증된 측정 연결을 종료하지 않으며, 만료 후 인증이 필요한 HTTP 요청은 `401 UNAUTHENTICATED`다. 로그아웃·비밀번호 변경·탈퇴에 따른 인증 철회와 연결 종료는 별도다. |
 | CSRF | `GET /v2/auth/csrf`로 받은 토큰을 모든 POST·PUT·DELETE 요청의 `X-CSRF-TOKEN` 헤더에 붙인다. 가입·로그인도 포함한다. 로그인·로그아웃 뒤에는 다시 받는다. |
 | 계정 확인 헤더 | 로그인이 필요한 경로 대부분(아래 "계정 헤더" 표시)에 `X-PoseGood-User-Id: <user_id>`를 붙인다. 로그인 계정과 다르면 `409 AUTH_CHANGED`. 다른 탭에서 계정이 바뀐 화면의 쓰기를 막는 용도이며 인증 수단이 아니다. |
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
@@ -46,8 +46,12 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registered_at`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 그래서 오늘 측정한 세션은 다음 날 00:00 뒤에 일별 통계에 들어간다. |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
+
+로그인 고정 30분 만료는 FE 문서에 맞춘 계약이다. 현재 서버 구현이 이 기준을 충족하는지는 별도 확인 대상이다.
+
+`model_version`·`feature_version` 등 모델명·버전명은 개발·연동용 내부 정보이며 서비스 화면에는 표시하지 않는다(2026-10-22 결정). 이 명세의 요청·응답 필드와 고정값 검증은 유지하며, 같은 이름이 계산 조건의 동일성까지 보장하지는 않는다([내부 관리 기준](../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
 ## 2. 오류 코드
 
@@ -1291,7 +1295,7 @@ S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 �
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `valid_ms` | long | 이 구간에서 판정에 쓴 시간. `valid`면 `end_ms - start_ms`, 아니면 0. |
+| `valid_ms` | long | 해당 전송 구간 안에서 판정에 사용한 유효 하위 구간 길이의 합이다. 판정 불가·휴식·자리 비움·누락 시간은 포함하지 않는다. |
 | `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(고개를 돌린 프레임만 있었음) · `settling`(아직 보내지 않음). |
 | 나머지 | - | Observation 2.0과 같다. |
 
@@ -1512,7 +1516,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 단계 | 내용 |
 |---|---|
 | `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
-| 특징 계산 | 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 좌표가 화면 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음) 중 고개를 돌리지 않은 것(코-귀 중점 변화가 어깨 폭 0.15 이하)의 특징을 평균해 기준을 뺀다. 계산식은 `model/prototype/pose.ts`·`serverFeatures.ts`와 같다. 카메라는 640×480 고정이다. |
+| 특징 계산 | 프레임별 판정 가능 여부와 촬영 시각을 이용해 유효·판정 불가 하위 구간을 구분한다. 특징은 유효한 연속 하위 구간별로 계산하며, 판정 불가 구간 전후의 프레임을 하나의 연속 관측으로 합치지 않는다. 카메라는 640×480 고정이다. |
 | 판정 불가 | 쓸 프레임이 없으면 `measurement_quality: poor`로 추론에 넘기고, `observation.invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
 | 추론·판정 | S2와 같은 흐름(추론 → 판정 → DB 기록). 판정 규칙·DB 기록도 S2와 같다. |
 | 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |

@@ -13,7 +13,7 @@ csv에는 시간과 관절 좌표만 있다. 상태·유형·점수 같은 라�
 | 파일 | 내용 |
 | --- | --- |
 | `posegood-kafka-features-<세션>.txt` | 서버(Kafka)로 보냈을 구간 특징값. JSON Lines, [posture.features.v1](../../contracts/realtime/README.md). 첫 줄 `session_started`에 판정 설정(`policy`)·기준 ID·화면 크기가 있다. 서버 입력이 좌표로 바뀌면([계획 0023](../plans/active/0023-frontend-server-only.md) 3단계) 이 파일도 바뀐다 |
-| `posegood-pose-debug-<세션>.csv` | 프레임별 관절 좌표. **학습·분석에는 이 파일을 쓴다.** |
+| `posegood-pose-debug-<세션>.csv` | 프레임별 관절 좌표. 좌표 분석에 사용한다. 지도학습에 사용하려면 별도로 검토된 정답 라벨을 연결해야 한다. |
 
 txt는 지금 서버 입력 v1(특징 변화량) 형식이다. 앱이 WebSocket v2(좌표 구간, [계약](../../contracts/realtime/realtime-ws.v2.schema.json))로 바뀌면 txt도 좌표 구간으로 바꾼다(2026-10-13).
 
