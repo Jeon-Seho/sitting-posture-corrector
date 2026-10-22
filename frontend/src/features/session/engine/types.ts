@@ -1,7 +1,6 @@
 import {
   DEFAULT_RULES,
   type CollapseType,
-  type Features,
   type Keypoints,
   type PostureState,
   type Segment,
@@ -67,7 +66,6 @@ export type LiveState = {
   collapse: CollapseType | null
   notice: string | null
   keypoints: Keypoints
-  features: Features
   confidence: number
   collapseProb: number
   holdProgress: number

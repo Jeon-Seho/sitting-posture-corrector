@@ -154,7 +154,7 @@ describe('service recovery and saving with synthetic storage only', () => {
   it('starts only a camera session and preserves its rules when settings change', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
-    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
@@ -217,7 +217,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.progress = 0.4
-    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
@@ -486,7 +486,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.registering = true
     rerender()
     advance(100)
-    controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
+    controls.camera.baseline = { ...BASELINE, baselineId: '33333333-3333-4333-8333-333333333333' }
     controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
     controls.camera.registering = false
     rerender()

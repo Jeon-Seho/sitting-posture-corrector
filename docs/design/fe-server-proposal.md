@@ -2,7 +2,7 @@
 
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에) · 대상: 팀 전원 — 팀장(Jeon-Seho), BE·DevOps(홍규, ghdrb1246), DB(유진, sunshine-jyi), ML(지성, jisung), 화면(lellon0403)
 > **사람 표기:** 이 문서의 BE·DevOps는 홍규(ghdrb1246), DB는 유진(sunshine-jyi), ML은 지성(jisung), 화면은 lellon0403(기록·달력·측정하기), FE는 klaod-tech다. 학습용 자세 데이터 수집 화면은 jisung이 진행 중이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API — [연동 명세](api-ws-spec.md) 3장 표. F1~F15는 FE 할 일 — 이 문서 7장. BE-1~BE-3은 BE에 요청한 것 — 이 문서 1장. G1~G6은 `make check` 실패 항목 — [계획 0030](../plans/active/0030-make-check-failures.md). D-nn·T-nn은 BE·DevOps 작업 번호, J2·J3은 서버의 Spark 작업(일별 집계·탈퇴 삭제) — [아키텍처 v5.2](architecture_v5.2_stack_roles.md).
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API — [연동 명세](api-ws-spec.md) 3장 표. F1~F15는 FE 할 일 — 이 문서 7장. BE-1~BE-4는 BE에 요청한 것 — 이 문서 1장. G1~G6은 `make check` 실패 항목 — [계획 0030](../plans/active/0030-make-check-failures.md). D-nn·T-nn은 BE·DevOps 작업 번호, J2·J3은 서버의 Spark 작업(일별 집계·탈퇴 삭제) — [아키텍처 v5.2](architecture_v5.2_stack_roles.md).
 > **이 문서의 역할:** FE의 **전제·결정 요약, 남은 질문, 할 일, 10/22 기준 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0025](../decisions/0025-app-always-measures-on-server.md)·[0026](../decisions/0026-baseline-average-by-app-b1.md)), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md), 배포는 [배포](fe-deploy.md)다.
 > 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). 서버 코드 기준은 이 브랜치에 받은 BE 브랜치 `d87d497`(10/21). 10/22 BE 브랜치 최신 `047a095`는 옛 경로 정리뿐이라 받지 않았고, 앱 로그인 연결(F12)·CORS는 아직 BE 브랜치에 없다(BE가 로컬에서 로그인을 확인했다고 들음).
 
@@ -19,6 +19,7 @@ BE가 하기로 한 것(FE는 결과만 확인한다):
 | BE-1 | (`/v2/realtime`과 `closed(limit_reached)`는 10/17 구현됨) `POST /v2/records`·S2(앱이 부르지 않음)를 v1과 함께 정리, BE 동의 문서(`contracts/consent-documents.v2.md`) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량」을 v2(좌표 프레임 전송)에 맞춘 문구로 | v1 정리 때(앱 v2 전환 뒤) |
 | BE-2 | R1b `GET /v2/records/{id}`(없으면 S4로 대신), T1 `GET /v2/stats/daily` | 연동 명세 4장 R1·R1b·T1 |
 | BE-3 | **로그인·가입 `/v2/auth` 연결(F12)과 함께 W1 `GET /v2/workspace`도 붙여 주기.** S1은 `policy`가 계정에 저장된 판정 기준과 같아야 받는다(다르면 409 `CONFLICT`). 그 값은 W1 `rules`에서 온다. 로그인이 끝나면 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 불러 앱의 B1·B2·S1이 계정 정보를 쓰게 한다(10/21) | F12와 같이 |
+| BE-4 | **판정 시간 규칙 이름 맞추기(10/22 요청).** 같은 값이 W1·W2 `rules`(초)에서는 `holdSeconds`·`recoverSeconds`·`realertSeconds`, S1 `policy`(ms)에서는 `hold_ms`·`recovery_ms`·`reminder_ms`다. 이름(`hold`·`recovery`·`reminder`)과 단위를 하나로 맞추면 앱의 `Rules`·설정 화면·저장 검증도 따라 바꾼다 | BE가 정할 때 |
 
 서버·모델 내부의 정할 것(0.5초 구간 점수 합치기, 자세 유형을 낼지, 짧은 끊김을 같은 사건으로 이어 볼 시간 `EVENT_BREAK_SEC`)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보이므로 어느 쪽이든 영향이 없다.
 일별 집계는 **매일 00:00**에 돈다(10/14 확정, 아키텍처 v5.2의 J2).
@@ -104,7 +105,7 @@ FE가 정한 것(앱 쪽 동작):
 | F2 | 자세 등록: 앱이 낸 관절 9개 3초 평균을 B1로 저장, B2로 조회, `closed(no_baseline)` 안내 | 끝남(10/21 `0449abb`, 10/22 재시도·B2 실패 처리). 실제 서버 시험 남음 | F12 · 연동 명세 5.4, ADR 0026 |
 | F3 | `rest`·`away`·`end` 전송, `end` 뒤 10초 기다린 뒤 S4. 카메라가 빠지거나 영상 크기가 바뀌면 `end` | 끝남(10/21 `f88ffe3`) | 연동 명세 5.2·6장 |
 | F4 | 화면을 서버 메시지로만 구동: 점수·상태·통계, `invalid_reason`, `paused_reason`. `alert`는 앱이 거르지 않음(D-54) | 측정 화면은 끝남(10/21). 사건 종류는 5개만 쓰고 `excluded_started/ended`는 무시한다(`messages.ts`) | 연동 명세 5.3 |
-| F5 | 앱 판정 지우기 | 측정 쪽은 끝남(10/21, ADR 0025). 남은 것: 수집 화면용 기준 특징 다리, 기록 화면의 앱 통계(R1·T1로 바꿀 때) | 기록 화면 서버 연결(7.2의 2번) |
+| F5 | 앱 판정 지우기 | 측정 쪽은 끝남(10/21, ADR 0025). 10/22 어깨 유예·머리 판정·고개 돌림·특징값 계산(기준 특징 다리 포함)도 지움 — 앱은 프레임이 판정 가능한지만 본다. 남은 것: 기록 화면의 앱 통계(R1·T1로 바꿀 때) | 기록 화면 서버 연결(7.2의 2번) |
 | F6 | 측정 화면의 「좌표 전송 안 함」 문구 고치기 | 안 함 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 잡기 | 안 함 | DevOps 8088 환경 |
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
@@ -131,7 +132,7 @@ FE가 정한 것(앱 쪽 동작):
 | 4 | 확인받지 못한 요청을 보관·재시도(`server/queue.ts`, 체크포인트의 `pending`·`nextSequence`·기준 특징·화면 크기) | 재전송 없음, 순번이 겹치면 `closed(bad_message)` | **10/21 지웠다**(이어하기 draft도) |
 | 5 | WS 재연결·미확인 구간 재전송·30개 묶음·`last_event_id`·알림 거르기(`realtime/client.ts`) | 재연결 없음, 메시지당 구간 1개, 알림은 서버가 거름 | **10/21 다시 썼다**(`live/LiveSession.ts`) |
 | 6 | 측정 중 앱이 닫히면 다음 로그인 때 앱이 그때까지를 기록으로 저장(10/16), 개발 서버 측정은 이어하기를 물음 | 서버가 끊김을 보고 마지막 구간 끝에서 끝내고 저장(BE 명세 11.3) | **10/21:** 이어하기·앱 저장을 지웠다. 기록 화면이 서버 기록(R1)을 읽기 전까지는 서버가 확인한 요약을 이 기기에도 R1과 같은 형식으로 남긴다(R1로 바꿀 때 지움) |
-| 7 | 자세 등록 결과(평균 특징)를 이 PC에 저장(`camera/savedBaseline.ts`) | 앱이 낸 관절 평균을 B1로 저장, B2로 조회(10/20) | **10/21 지웠다**(`features/baseline/`). 3·2·1 촬영 화면은 남겼다. 로컬 판정·수집 화면용으로 서버 좌표에서 특징을 계산해 넘기는 다리는 F5 때 지운다 |
+| 7 | 자세 등록 결과(평균 특징)를 이 PC에 저장(`camera/savedBaseline.ts`) | 앱이 낸 관절 평균을 B1로 저장, B2로 조회(10/20) | **10/21 지웠다**(`features/baseline/`). 3·2·1 촬영 화면은 남겼다. 서버 좌표에서 특징을 계산해 넘기던 다리는 10/22 지웠다 |
 | 8 | 개발자 옵션 내보내기 둘: 입력 v2 특징(`kafkaExport.ts`, 예전 `posture.features.v1` 형식), 좌표(`poseDebugExport.ts`) | 앱이 보내는 것은 좌표 구간(`posture.frames.v1`) 하나 | **10/21 둘 다 지웠다**(로컬 측정 화면과 함께). 좌표가 필요하면 보내는 형식(`posture.frames.v1`) 그대로 ML과 정한다 |
 | 9 | `platform/ports.ts`(아키텍처 v4 초안 연결점, 아무도 가져다 쓰지 않음) | — | **10/21 지웠다** |
 
@@ -150,7 +151,7 @@ FE가 정한 것(앱 쪽 동작):
 | 3 | `check-browser` 시나리오를 서버 전용으로 다시 쓰기([계획 0030](../plans/active/0030-make-check-failures.md) G6): 가짜 S1·`/v2/realtime`·B1·B2 | — |
 | 4 | 실제 서버 시험: DevOps 8088 환경(`ssh -L 8088:127.0.0.1:8088`)에서 로그인 → 등록 → 측정 → 종료 → 기록. 그 환경의 화면은 BE 브랜치의 `frontend/`로 빌드되므로 V3 화면으로 빌드해야 한다(DevOps와 정하기) | F12·W1 |
 | 5 | S1 `policy`를 W1 `rules`로(F1-a, BE-3) | W1 |
-| 6 | 남은 앱 계산: 수집 화면용 기준 특징 다리(`useCamera` `baselineFeatures`), 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`, T1로) | 2 |
+| 6 | 남은 앱 계산: 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`, T1로). 기준 특징 다리는 10/22 지움 | 2 |
 | 7 | F12를 받으면 맞출 것: 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 403 `ACCESS_DENIED`면 CSRF를 다시 받아 한 번 재시도(연동 명세 1장. 10/22 기준 `api.ts`는 바로 「로그인이 필요해요」), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | F12 |
 | 8 | S1은 됐는데 WS가 열리지 않은 세션을 S3로 닫을지 BE와 정하기(연동 명세 4장 S3·S4). 측정 중 끊김·`ready` 초과는 서버가 끝낸다 | BE 확인 |
 

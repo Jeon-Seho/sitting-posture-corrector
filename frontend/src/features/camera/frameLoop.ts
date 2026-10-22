@@ -74,7 +74,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
         inferenceSum += inferenceMs
 
         const points = result.landmarks[0] ?? []
-        const { reading, shoulders } = readShoulders(points, video.videoWidth, video.videoHeight)
+        const { measurable, shoulders } = readShoulders(points, video.videoWidth, video.videoHeight)
         const observationGap = time - lastFrame
         lastFrame = time
 
@@ -96,7 +96,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
             videoTimeMs: previousVideoTime * 1_000,
             landmarks: points,
             worldLandmarks: result.worldLandmarks[0] ?? [],
-            features: reading,
+            measurable,
             shoulders,
             inferenceMs,
             delegate,

@@ -1,4 +1,4 @@
-import type { Features, Landmark } from '../../../../model/prototype/pose'
+import type { Landmark } from '../../../../model/prototype/pose'
 
 export type CameraDelegate = 'GPU' | 'CPU'
 export type CameraState = 'off' | 'loading' | 'on' | 'error'
@@ -12,7 +12,8 @@ export type CameraMetrics = {
 export type Observation = {
   timeMs: number
   videoTimeMs: number
-  features: Features | null
+  /** Nose, both shoulders and both ears tracked (`measurable`); the app computes no posture values. */
+  measurable: boolean
   landmarks: Landmark[]
   worldLandmarks: Landmark[]
   inferenceMs: number

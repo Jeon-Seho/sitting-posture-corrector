@@ -38,7 +38,7 @@ FE는 빌드 도구 때문에 `make check`가 계속 실패한다고 의심했�
 | G1 | ⑤ `capture-task`가 `SelectMenu`로 바뀜 | `tools/browser/camera-preview.mjs`(그리고 `scenarios.mjs`의 같은 선택)를 새 목록 상자 조작으로 | 수집 화면 담당(lellon0403)·FE |
 | G2 | ⑤ 첫 사건 3초 확정 항목 | 원인 조사(develop 흐름) | FE |
 | G3 | ⑤ 재연결 항목 | ADR 0024(끊기면 세션 종료)에 맞춰 시나리오 수정 | FE |
-| G6 | 10/21 앱이 서버 전용이 됨(V3): 시나리오의 로컬 측정·「서버 판정 사용」 체크·이어하기가 없어짐 | `tools/browser/scenarios.mjs`·`accounts.mjs`를 가짜 서버(S1·`/v2/realtime`·B1·B2) 또는 8088 시험 환경으로 다시 쓴다. G2·G3은 이 작업에 흡수된다 | FE |
+| G6 | 10/21 앱이 서버 전용이 됨(V3): 시나리오의 로컬 측정·「서버 판정 사용」 체크·이어하기가 없어짐. 10/22부터 합성 프레임 `frame(ms, kind)`는 `poor`면 판정 불가, 나머지는 판정 가능만 뜻한다(`normal`·`deviation` 구분 없음, 앱이 특징값을 만들지 않음) | `tools/browser/scenarios.mjs`·`accounts.mjs`를 가짜 서버(S1·`/v2/realtime`·B1·B2) 또는 8088 시험 환경으로 다시 쓴다. G2·G3은 이 작업에 흡수된다 | FE |
 | G4 | ⑥ `schema_V1_1.sql` 없음 | 초기화 스크립트를 `schema_V2_3.sql`로(DB 브랜치 병합과 함께) | DB·DevOps |
 | G5 | ⑥ 계정 브라우저 시나리오 | 지운 계정 모드 대신 새 가입 화면(`features/auth/`)으로, 또는 서버 계정 연결 뒤 다시 | FE·DevOps |
 

@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import { features, type Features } from '../../../model/prototype/pose'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
 import {
-  baselinePoints,
   beginCapture,
   observeCapture,
   type LandmarkCapture,
@@ -29,18 +27,8 @@ const PREPARATION_TIMEOUT_MS = 30_000
 /** Shoulders lower than this (share of the frame height) are too close to the bottom edge. */
 export const FRAMING_BOTTOM = 0.88
 const EMPTY_METRICS: CameraMetrics = { fps: 0, inferenceMs: 0, delegate: 'CPU' }
-/** The camera is fixed at 640×480 (DB V2.3 `CAPTURE_RESOLUTION`). */
-const FRAME_WIDTH = 640
-const FRAME_HEIGHT = 480
 const OUT_OF_FRAME = '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉은 뒤 다시 등록해 주세요.'
 const BASELINE_LOAD_FAILED = '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.'
-
-/**
- * `Features` of the server baseline for code that still judges or collects locally (session
- * screen, collection). F5 removes those and this bridge with them.
- */
-const baselineFeatures = (saved: ServerBaseline | null): Features | null =>
-  saved ? features(baselinePoints(saved.landmarks), FRAME_WIDTH, FRAME_HEIGHT) : null
 
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -92,7 +80,6 @@ export function useCamera() {
    * it, and only a new registration (「다시 등록」) replaces it.
    */
   const [serverBaseline, setServerBaseline] = useState<ServerBaseline | null>(null)
-  const [baseline, setBaseline] = useState<Features | null>(null)
   /** Being sent to B1 after a finished capture. */
   const [registering, setRegistering] = useState(false)
   /** Why the last registration was not saved (out of frame, signed out, server error). */
@@ -108,7 +95,6 @@ export function useCamera() {
 
   const applyBaseline = useCallback((saved: ServerBaseline | null) => {
     setServerBaseline(saved)
-    setBaseline(baselineFeatures(saved))
     setBaselineError(null)
   }, [])
 
@@ -217,7 +203,7 @@ export function useCamera() {
 
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
     lastFrame.current = observation.timeMs
-    setQuality(!!observation.features)
+    setQuality(observation.measurable)
     setShoulders(observation.shoulders ?? null)
     const l = observation.landmarks[11], r = observation.landmarks[12]
     setFraming(
@@ -227,7 +213,7 @@ export function useCamera() {
 
     if (!capture.current) return
     // A registration needs a measurable frame (both shoulders seen); anything else restarts it.
-    const usable = !!observation.features
+    const usable = observation.measurable
     const next = observeCapture(
       capture.current,
       usable ? observation.landmarks : null,
@@ -430,7 +416,8 @@ export function useCamera() {
     quality,
     shoulders,
     framing,
-    baseline,
+    /** The registered posture from the server (B2·B1), or null. */
+    baseline: serverBaseline,
     /** The server's `baseline_id` (S1 `baseline_id`). */
     calibrationId: serverBaseline?.baselineId ?? null,
     progress,

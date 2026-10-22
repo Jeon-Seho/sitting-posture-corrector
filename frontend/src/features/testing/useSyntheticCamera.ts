@@ -1,26 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Features } from '../../../../model/prototype/pose'
+import type { ServerBaseline } from '../baseline/client'
+import { BASELINE_JOINT_NAMES, type BaselineLandmarks } from '../baseline/landmarkCapture'
 import type { CameraController } from '../../hooks/useCamera'
 import type { Observation } from '../camera/types'
 import type { VisualOptions } from '../../lib/poseVisual'
 import { requireSyntheticMode } from './guard'
 requireSyntheticMode()
 
-export const SYNTHETIC_BASELINE: Features = {
-  headGap: 0.7,
-  offset: 0,
-  tilt: 0,
-  quality: 0.9
+/** Explicitly synthetic registered posture (B1·B2 shape). */
+export const SYNTHETIC_BASELINE: ServerBaseline = {
+  baselineId: '22222222-2222-4222-8222-222222222222',
+  registeredAt: '2026-10-21T08:00:00.000Z',
+  landmarks: Object.fromEntries(BASELINE_JOINT_NAMES.map((n) => [n, { x: 0.5, y: 0.4 }])) as BaselineLandmarks,
 }
 
-type Sink = (features: Features | null) => void
+/** `true` for a measurable frame; the app sends coordinates and computes no posture values. */
+type Sink = (measurable: boolean) => void
 const sinks = new Set<Sink>()
 let stops = 0
 let connected = false
 
-export function emitSyntheticFrame(features: Features | null) {
+export function emitSyntheticFrame(measurable: boolean) {
   if (!connected) throw new Error('The synthetic camera must be connected through the UI.')
-  for (const sink of sinks) sink(features)
+  for (const sink of sinks) sink(measurable)
 }
 
 export function syntheticCameraStatus() {
@@ -47,7 +49,7 @@ export function useCamera(): CameraController {
   const listeners = useRef(new Set<(frame: Observation) => void>())
   const [state, setState] = useState<CameraController['state']>('off')
   const [quality, setQuality] = useState(false)
-  const [baseline, setBaseline] = useState<Features | null>(null)
+  const [baseline, setBaseline] = useState<ServerBaseline | null>(null)
   const [calibrationId, setCalibrationId] = useState<string | null>(null)
   const [visual, setVisual] = useState<VisualOptions>({
     mode: 'skeleton',
@@ -79,13 +81,13 @@ export function useCamera(): CameraController {
   )
   useEffect(
     () => {
-      const receive: Sink = (features) => {
+      const receive: Sink = (measurable) => {
         lastFrame.current = performance.now()
-        setQuality(features !== null)
+        setQuality(measurable)
         const frame: Observation = {
           timeMs: performance.now(),
           videoTimeMs: performance.now(),
-          features,
+          measurable,
           landmarks: [],
           worldLandmarks: [],
           inferenceMs: 0,
@@ -160,7 +162,7 @@ export function useCamera(): CameraController {
   const calibrate = () => {
     if (state !== 'on' || !quality) return
     setBaseline({ ...SYNTHETIC_BASELINE })
-    setCalibrationId('22222222-2222-4222-8222-222222222222')
+    setCalibrationId(SYNTHETIC_BASELINE.baselineId)
   }
   const setOverlayEnabled = useCallback(
     (enabled: boolean) => {

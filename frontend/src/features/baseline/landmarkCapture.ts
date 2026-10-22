@@ -78,12 +78,3 @@ export function observeCapture(
     outOfFrame: false,
   }
 }
-
-/** MediaPipe-indexed points of a baseline, for code that still needs `Features` (F5 removes it). */
-export function baselinePoints(landmarks: BaselineLandmarks): Landmark[] {
-  const points: Landmark[] = []
-  BASELINE_JOINT_NAMES.forEach((name, i) => {
-    points[FRAME_JOINTS[i]] = { ...landmarks[name], z: 0, visibility: 1 }
-  })
-  return points
-}

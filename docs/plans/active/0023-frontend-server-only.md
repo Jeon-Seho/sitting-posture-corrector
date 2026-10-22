@@ -63,7 +63,8 @@
 - [x] 로컬 판정 제거(F5 측정 쪽, 10/21 `f88ffe3`): 판정 엔진(`machine`·`scenario`·`snapshot`), `lib/returnSettle.ts`, `lib/cameraSample.ts`, 로컬 측정 화면, 이어하기. `lib/engine.ts`는 기록 타입만 남김. `postureScore`는 서버 공식(100×(1−collapse_probability)) 표시로 남김.
 - [x] 측정 화면의 점수·상태를 서버 결과 표시로 바꾼다. 서버 없이는 측정을 시작하지 않는다(10/21, 개발자 옵션 「서버 판정 사용」 삭제).
 - [ ] 더미 데이터 삭제(10/21 결정): 발표용 예시 기록(`data/exampleRecords.ts`), 합성 시연 `demo` 기록, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라(`?synthetic=1`)는 남긴다.
-- [ ] 남은 앱 계산: 학습 데이터 수집 화면이 쓰는 기준 특징 다리(`useCamera`의 `baselineFeatures`), 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`) — 서버 기록·통계(R1·T1)로 바꿀 때.
+- [x] 앱의 특징값 계산 삭제(10/22): 어깨 유예·머리 판정, 고개 돌림·점수·분류, 특징값(`features` → `measurable`), 기준 특징 다리(`baselineFeatures`).
+- [ ] 남은 앱 계산: 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`) — 서버 기록·통계(R1·T1)로 바꿀 때.
 
 ### 3단계 — 서버 연결 (BE `/v2/realtime` 뒤)
 
@@ -92,7 +93,7 @@
 - 2026-10-13: 예전 계정 모드 삭제, 로컬 로그인·회원가입 3단계(동의 C1~C6 → 계정 정보 → 자세 등록 선택).
 - 2026-10-20 전체 회의: 자세 등록의 3초 평균은 FE가 내서 B1로 보낸다(WS 등록 쓰지 않음).
 - 2026-10-21: V2를 develop에 넣고(PR #60) V3에 BE 브랜치를 받았다. V3는 서버 전용(로컬 모드 스위치 없음). FE 제안서 7.0의 미정 3개는 FE 권장안대로(klaod-tech 결정, 형식 검사만, 카메라 빠짐·영상 크기 변경은 `end`). F2(`0449abb`), F1+F3과 로컬 판정·이어하기·v1 서버 코드 삭제(`f88ffe3`). 더미 데이터도 지우기로 했다(klaod-tech: develop에 다 있으니 지운다).
-- 2026-10-22: 남은 앱 판정 코드 삭제(klaod-tech 결정: 판정 값이 하나라도 없으면 그때부터 서버 판정부가 처리한다). 어깨 유예와 머리 판정(`shoulderGrace.ts` → `shoulderCheck.ts`, 어깨가 안 보이면 바로 `valid:false`), `model/prototype/pose.ts`의 고개 돌림·점수·분류(`headTurned`·`referenceScore`·`classify`·`payload`)와 `turn` 특징, 쓰지 않던 `calibration.ts`·`serverFeatures.ts`, 특징 필터(`createFeatureFilter`)와 `camera.current`·`calibrationSummary`.
+- 2026-10-22: 남은 앱 판정 코드 삭제(klaod-tech 결정: 판정 값이 하나라도 없으면 그때부터 서버 판정부가 처리한다). 어깨 유예와 머리 판정(`shoulderGrace.ts` → `shoulderCheck.ts`, 어깨가 안 보이면 바로 `valid:false`), `model/prototype/pose.ts`의 고개 돌림·점수·분류(`headTurned`·`referenceScore`·`classify`·`payload`)와 `turn` 특징, 쓰지 않던 `calibration.ts`·`serverFeatures.ts`, 특징 필터(`createFeatureFilter`)와 `camera.current`·`calibrationSummary`. 이어서 특징값(머리 높이·좌우 치우침·어깨 기울기) 계산도 지우고 프레임 검사는 `measurable`(참/거짓)만 남김, `camera.baseline`은 서버 기준 자세 그대로(기준 특징 다리 삭제), 합성 카메라는 「판정 가능/불가」만 낸다.
 - 2026-10-22: V3 코드 검토. S1·B1은 응답이 없어도 같은 본문으로 다시 보냄, B2가 실패하면 등록을 자동으로 시작하지 않음, S1 응답 전에 끝낸 측정은 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4 한 번. BE 코드 확인 결과 측정 중 끊김은 서버가 닫으므로 앱은 S3를 부르지 않는다(연동 명세 4장).
 
 ## 검증 결과와 남은 한계

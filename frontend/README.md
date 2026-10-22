@@ -177,7 +177,7 @@ Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. �
 별도 실행 전에는 `make check-frontend`와 `make check-backend`를 실행한다. 설치된 Chrome을 자동으로 찾지 못하면 실행 파일의 경로를
 `POSEGOOD_CHROME`에 지정한다. 합성 입력은 명시적 개발 테스트 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
 
-- 판정 가능 프레임 검사: `model/prototype/pose.ts` `features`·`shouldersVisible`(코·양 어깨·양 귀). 앱의 점수·고개 돌림 판정은 2026-10-22 지웠다.
+- 판정 가능 프레임 검사: `model/prototype/pose.ts` `measurable`·`shouldersVisible`(코·양 어깨·양 귀). 앱은 특징값·점수를 계산하지 않는다(2026-10-22 고개 돌림·머리 판정·특징값 계산 삭제).
 - 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
 - 자세 등록: `src/features/baseline/`(관절 평균·B1·B2). 서버 요청 공통: `src/features/platform/api.ts`.
 - 앱 조립·화면 전환: `src/app/ServiceApp.tsx`. 프로필·세션 저장/복구·기록 조회·저장 검증은 `src/features/`에서 기능별로 관리한다.
