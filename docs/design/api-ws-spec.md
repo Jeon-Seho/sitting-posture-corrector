@@ -3,6 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0025](../decisions/0025-app-always-measures-on-server.md) 항상 서버로 측정, [0026](../decisions/0026-baseline-average-by-app-b1.md) 자세 등록 B1), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-3(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장. 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../contracts/realtime/examples-v2/). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 0. BE 명세에 대해 FE가 정한 것과 요청
@@ -31,7 +32,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | CSRF | A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함) | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 |
-| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 B-3) |
+| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 
 ### 1.1 앱의 시간 규칙
@@ -86,13 +87,13 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | A5 | `POST /v2/auth/logout` | 계정 메뉴 「로그아웃」 |
 | A6 | `PUT /v2/auth/password` | 설정 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) |
 | A7 | `DELETE /v2/auth/account` | 프로필 › 탈퇴 |
-| C1 | `PUT /v2/consents/optional-profile` | 프로필 › 선택 정보 동의 켜기·끄기 |
+| C1 | `PUT /v2/consents/optional-profile`(동의 항목 C1과 다름) | 프로필 › 선택 정보 동의 켜기·끄기 |
 | W1 | `GET /v2/workspace` | 로그인·가입 직후 한 번 |
 | W2 | `PUT /v2/workspace` | 설정·프로필 저장 |
 | B1 | `POST /v2/baselines` | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 5.4) |
 | B2 | `GET /v2/baselines/current` | 앱 시작·로그인 뒤 |
 | S1 | `PUT /v2/sessions/{id}` | 「측정 시작」 |
-| S3 | `POST /v2/sessions/{id}/end` | 지금 앱은 부르지 않는다. 아래 4장 S3·S4 |
+| S3 | `POST /v2/sessions/{id}/end` | 10/22 기준 앱은 부르지 않는다(4장 S3·S4) |
 | S4 | `GET /v2/sessions/{id}` | 측정 `end` 뒤 10초 안에 `closed`가 없을 때 |
 | R1 | `GET /v2/records` | 기록 화면(W1의 `records`를 먼저 쓰고, 새로 고칠 때) |
 | R1b | `GET /v2/records/{id}` | 종료 화면 대비책(S4 대신 써도 됨) |
@@ -108,7 +109,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 A1 → W1 → 3단계로.
 - **A3·A4 로그인:** A3 200 → A1 → W1 → 측정하기. A4 200(앱 시작)이면 로그인 화면을 건너뛴다. 측정 중 로그아웃·비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다.
-- **W1·W2·C1:** W1 `rules`는 판정 기준, `preferences.alerts_on`은 「자세 알림」. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. C1로 선택 정보 동의를 끄면 서버가 나이·직업을 비운다.
+- **W1·W2·C1:** W1 `rules`는 판정 기준, `preferences.alerts_on`은 「자세 알림」. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비운다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1 `rules`를 ms로, `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이고 알림 여부는 W1 `alerts_on`을 쓴다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
 - **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 7.2). S4는 `end` 뒤 10초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
