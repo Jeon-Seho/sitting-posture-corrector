@@ -43,7 +43,6 @@ export function useCamera(): CameraController {
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
   }, [])
-  const current = useRef<Features | null>(null)
   const lastFrame = useRef(0)
   const listeners = useRef(new Set<(frame: Observation) => void>())
   const [state, setState] = useState<CameraController['state']>('off')
@@ -70,7 +69,6 @@ export function useCamera(): CameraController {
       releasePreview()
       connected = false
       stops++
-      current.current = null
       lastFrame.current = 0
       setState('off')
       setQuality(false)
@@ -82,7 +80,6 @@ export function useCamera(): CameraController {
   useEffect(
     () => {
       const receive: Sink = (features) => {
-        current.current = features
         lastFrame.current = performance.now()
         setQuality(features !== null)
         const frame: Observation = {
@@ -134,7 +131,6 @@ export function useCamera(): CameraController {
         }
       }
       connected = true
-      current.current = { ...SYNTHETIC_BASELINE }
       lastFrame.current = performance.now()
       setState('on')
       setQuality(true)
@@ -216,22 +212,12 @@ export function useCamera(): CameraController {
     framing: null,
     baseline,
     calibrationId,
-    // Explicitly synthetic calibration aggregates, present exactly when the baseline is.
-    calibrationSummary: baseline
-      ? {
-          durationMs: 5000,
-          sampleCount: 20,
-          spread: { headGap: 0, offset: 0, tilt: 0 },
-          placement: { x: 0.5, y: 0.6, area: 0.05 },
-        }
-      : null,
     progress: null,
     registering: false,
     registrationError: null,
     baselineLoading: false,
     baselineError: null,
     reloadBaseline: async () => {},
-    current,
     lastFrame,
     connect,
     stop,

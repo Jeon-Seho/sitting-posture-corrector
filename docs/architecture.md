@@ -39,7 +39,7 @@ DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18�
 현재 계획은 React/TypeScript 클라이언트에서 MediaPipe 키포인트를 추출하고 필요한 특징을 추론 서비스에 전송하며,
 Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다. Python/LSTM 추론 서비스와 사용자 관리 서비스는 분리한다.
 앱(FE V3, 2026-10-21)은 관절 9개 좌표를 0.5초 구간으로 `/v2/realtime`에 보내고, 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md), [ADR 0025](decisions/0025-app-always-measures-on-server.md)).
-기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0026](decisions/0026-baseline-average-by-app-b1.md)). `model/prototype/serverFeatures.ts`의 브라우저 특징 변화량은 예전(v1) 개발 흐름이다.
+기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0026](decisions/0026-baseline-average-by-app-b1.md)). 예전(v1) 개발 흐름의 브라우저 특징 변화량(`model/prototype/serverFeatures.ts`)과 앱의 머리·고개 돌림 판정은 2026-10-22 지웠다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
 새 서버 흐름의 지속시간·회복·재알림 판정은 API의 판정 엔진 한 곳에서 수행한다. Spring Boot API는

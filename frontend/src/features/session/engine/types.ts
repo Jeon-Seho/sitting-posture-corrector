@@ -60,8 +60,6 @@ export type Sample = {
   notice: string | null
   prob: number
   confidence: number
-  /** Unknown because the head is turned (shorter return settle than being away). */
-  headTurn?: boolean
 }
 
 export type LiveState = {

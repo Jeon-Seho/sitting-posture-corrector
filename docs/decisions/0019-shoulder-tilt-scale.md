@@ -1,6 +1,6 @@
 # ADR 0019: 어깨 기울기 판정 기준폭 0.13 → 0.03
 
-- 상태: accepted (동욱 결정, 실측 확인 전). 2026-10-21부터 이 기준폭은 서버 판정에만 쓰인다 — 앱은 점수를 계산하지 않는다([ADR 0025](0025-app-always-measures-on-server.md))
+- 상태: accepted (동욱 결정, 실측 확인 전). 2026-10-21부터 이 기준폭은 서버 판정에만 쓰인다 — 앱은 점수를 계산하지 않는다([ADR 0025](0025-app-always-measures-on-server.md)). 본문의 `pose.ts` `referenceScore`·`classify`는 2026-10-22 앱에서 지웠다
 - 날짜: 2026-10-07
 - 관련 결정: [프론트·서버 특징 연결](0013-frontend-server-feature-connection.md), [세션 시간 정책](0012-session-timing-policy.md)
 

@@ -123,7 +123,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 |---|---|
 | 문서만 | ① (링크 확인) |
 | 프론트 코드 | ① ③, 화면 흐름이 바뀌면 ⑤ |
-| 판정 규칙(`model/prototype/pose.ts`) | ③(규칙 시험 + `UPDATE_RULE_CASES=1 npx vitest run referenceRuleCases`로 합성 시험 데이터 다시 생성), ⑤, ②의 `tests.test_inference_v2` |
+| 판정 가능 프레임 검사(`model/prototype/pose.ts`) | ③. 앱의 판정 규칙과 `referenceRuleCases` 시험은 지웠다(10/21·10/22). 규칙이 바뀌면 서버 쪽 ② `tests.test_inference_v2` |
 | 계약(`contracts/`) | ① ② ③ |
 | 서버(`backend/`, `model/inference/`) | ② ④ ⑤ |
 | 계정·DB·배포 | ⑥ |

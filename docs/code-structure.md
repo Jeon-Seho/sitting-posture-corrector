@@ -42,7 +42,7 @@ backend/
     .../system/           health, DB V2.3 확인
 
 model/
-  prototype/              브라우저 특징·개인 기준 보정
+  prototype/              판정 가능 프레임 검사(코·양 어깨·양 귀). 앱은 판정하지 않는다
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물

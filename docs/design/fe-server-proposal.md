@@ -107,7 +107,7 @@ FE가 정한 것(앱 쪽 동작):
 | F5 | 앱 판정 지우기 | 측정 쪽은 끝남(10/21, ADR 0025). 남은 것: 수집 화면용 기준 특징 다리, 기록 화면의 앱 통계(R1·T1로 바꿀 때) | 기록 화면 서버 연결(7.2의 2번) |
 | F6 | 측정 화면의 「좌표 전송 안 함」 문구 고치기 | 안 함 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 잡기 | 안 함 | DevOps 8088 환경 |
-| F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21, 어깨 2초 유예 뒤) | 연동 명세 5.2 |
+| F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
 | F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **BE 담당(10/14).** BE 브랜치(`047a095`)에 아직 없음. FE는 가입·동의 화면과 `consentPayload()`를 넘기고 질문에 답한다 | BE · 연동 명세 2장 |
 | F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
 | F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · [배포](fe-deploy.md) 4장 5단계 |
@@ -172,7 +172,7 @@ FE가 정한 것(앱 쪽 동작):
 | `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. 10/22 기준 서버 구조는 [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md)·[변경 안내](architecture_v5.2_change_notes.md) |
 | 코드: 쉬는 중 카메라 영상이 멈추면 `rest` 유지 | DB V2.3 우선순위(`ABSENCE` 먼저)대로 `away`로 바꿈(`LiveSession.away`, 시험 1개 추가) |
 
-알릴 것: BE — 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
+알릴 것: BE — **10/22부터 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`**(전에는 처음 2초는 `valid:true`). 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
 V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 한다(Vercel 배포본이 서버 없이는 측정할 수 없게 되므로).
 
 ## 8. 지금 앱 (FE 참고)
@@ -192,7 +192,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 | 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름), R1b |
 | 달력: 날짜별 합계(월 달력·잔디·최근 7일·30일) | 이 PC 기록. `recordsSource.ts` `dailyStats`, `ActivityHeatmap.tsx`, `RecordCalendar.tsx` | T1(≤ 92일, 어제까지). 잔디는 1년(53주)이라 92일씩 5번, 달력은 달마다 요청. 오늘 칸은 R1의 오늘 세션으로 채운다. 알림 총수(재알림 포함)는 T1 행에 없어 `alerted_event_count`로 보인다. 기간 통계는 날짜를 고르지 않았을 때의 오른쪽 칸(`PeriodCard`)에 붙일 예정 |
 | 알림 | **10/21 바꿈:** v2 `alert`를 그대로 소리·토스트·데스크톱 팝업으로 | — |
-| 판정 불가 표시 | **10/21 바꿈:** 어깨가 2초 유예 뒤에도 안 보이는 프레임에 `valid:false`(`features/camera/shoulderGrace.ts`, `LiveSession.ingest`) | — |
+| 판정 불가 표시 | **10/22 바꿈:** 어깨가 하나라도 안 보이는 프레임에 바로 `valid:false`(`features/camera/shoulderCheck.ts`, `LiveSession.ingest`). 2초 동안 머리로 판정하던 유예는 지웠다 | — |
 | 앱 판정 | **10/21 V3에서 지웠다**(판정 엔진·복귀 대기·카메라 샘플·로컬 측정 화면). 점수는 서버 공식 100×(1−collapse_probability)로 표시만(`postureScore`). develop과 Vercel 배포본은 10/22 기준 V2(로컬 판정) | — |
 | 기록 통계 계산 | 앱이 기록으로 계산한다(`lib/stats`·`lib/comparison`·`recordsSource.ts`, 오늘 포함). 5분 미만 세션 규칙은 없다 | 서버 값(T1, 어제까지. 5분 미만은 「붕괴까지 걸린 시간」 최소·최대에서만 뺌 — 서버 계산). 화면 담당 lellon0403 |
 | 탈퇴 | 이 브라우저의 자료를 바로 지운다(`WithdrawalDialog.tsx`) | A7: 비밀번호 칸, 「되돌릴 수 없고 30일 뒤 완전히 삭제, 그 전에는 같은 이메일로 다시 가입할 수 없음」. 탈퇴 계정 로그인(403 `ACCOUNT_CLOSED`)에 연락처 안내(연동 명세 2장 탈퇴). 10/22 기준 로컬에서는 바로 지워지므로 30일 문구를 미리 넣지 않는다 |

@@ -1,6 +1,6 @@
 # ADR 0013: 세 특징 계약과 선택형 서버 판정 연결
 
-- 상태: accepted (사용자가 서버 연결부터 진행하도록 선택한 개발 범위)
+- 상태: superseded by [ADR 0021](0021-app-sends-information-server-judges.md)·[ADR 0025](0025-app-always-measures-on-server.md) — 앱은 특징·점수를 계산하지 않고 좌표만 보낸다(10/11 결정, 10/21 구현). 2026-10-22 앱의 머리·고개 돌림 판정과 어깨 유예, 로컬 점수 함수(`referenceScore`·`classify`·`headTurned`), `serverFeatures.ts`·`calibration.ts`를 지웠다. 아래 본문(세 특징 계약, 선택형 서버 판정, 고개 돌림 제외)은 그 전의 기록이다
 - 날짜: 2026-10-01
 - 관련 결정: [API·CEP 경계](0011-api-cep-boundary.md), [시간 정책](0012-session-timing-policy.md)
 - 개정: [ADR 0018](0018-db-schema-v11-service-storage.md) — 영구 모드의 세션 생성은 기준 요약(평균·표준편차·보정 시간·표본 수·화면 위치)을 보낸다.
@@ -31,7 +31,7 @@ FastAPI v1 입력은 두 임시 변화량만 받았다. 사용자는 DB·인증 
 머리 높이 차이는 `head_gap_delta`, 좌우 치우침 차이는 `lateral_offset_delta`,
 어깨 기울기 차이는 `shoulder_tilt_delta`다. 각도나 거리의 물리 단위가 아니며
 유한수만 허용한다. `[-1,1]`로 자르지 않는다. `current_quality`, `baseline_quality`는 유한한 `[0,1]` 값이다.
-모델 소유의 [어댑터](../../model/prototype/serverFeatures.ts)가 변화량을 만들며
+모델 소유의 어댑터(`model/prototype/serverFeatures.ts`, 2026-10-22 지움)가 변화량을 만들며
 영상·랜드마크·기준 특징 원값·참여자 식별 정보를 서버 요청에 넣지 않는다.
 (영구 모드 세션 생성의 기준 요약은 [ADR 0018](0018-db-schema-v11-service-storage.md)의 예외다.)
 

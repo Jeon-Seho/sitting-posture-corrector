@@ -9,7 +9,7 @@ import type { Landmark } from '../../../../../model/prototype/pose'
  *   when nobody was tracked. Coordinates are MediaPipe's own (not mirrored, y grows down).
  * - `rest` (user pause) and `away` (camera lost) intervals carry no frames.
  * - `valid: false` marks a frame where the user's position cannot be determined (10/12
- *   meeting: shoulders out of view past the 2 s grace); the server leaves it out (BE api-spec 11.2).
+ *   meeting; since 10/22 a shoulder out of view, no grace); the server leaves it out (BE api-spec 11.2).
  */
 export const FRAME_SCHEMA_VERSION = '3.0'
 export const FRAME_FEATURE_VERSION = 'keypoints-9-v1'
@@ -33,7 +33,7 @@ export type FrameInput = {
   /** Same clock as `origin` (performance.now()). */
   timeMs: number
   landmarks: Landmark[]
-  /** False when the app could not determine the user's position (shoulders gone past grace). */
+  /** False when the app could not determine the user's position (a shoulder out of view). */
   judgeable: boolean
 }
 

@@ -301,7 +301,7 @@ export class LiveSession {
 
   /**
    * One camera observation. `judgeable` false marks a frame where the app cannot tell where the
-   * user is (shoulders gone past the grace, F11); the server leaves it out of the judgement.
+   * user is (a shoulder out of view, F11); the server leaves it out of the judgement.
    */
   ingest(timeMs: number, landmarks: Landmark[], judgeable: boolean) {
     if (!this.sendingNow()) return

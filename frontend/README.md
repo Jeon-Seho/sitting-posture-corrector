@@ -117,7 +117,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` → WebSocket `/v2/realtime` `hello` → `ready`(5초) →
 0.5초마다 관절 9개 좌표 구간 1개(`posture.frames.v1`) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」), 쓰던 카메라가 빠지거나 영상 크기가 바뀌거나 작은 창 X를 누르면 `end`.
-어깨가 유예(2초) 뒤에도 안 보이는 프레임은 `valid:false`로 보낸다. 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
+어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`로 보낸다(2026-10-22, 유예 없음). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
 연결이 끊기면 그 측정은 끝나고 서버가 마지막 구간까지 저장한다(재연결·재전송 없음, [ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)).
 진행 중 판정 상태는 API 메모리에 있어 API를 재시작하면 진행 중 세션은 `session_lost`로 끝난다.
 
@@ -177,7 +177,7 @@ Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. �
 별도 실행 전에는 `make check-frontend`와 `make check-backend`를 실행한다. 설치된 Chrome을 자동으로 찾지 못하면 실행 파일의 경로를
 `POSEGOOD_CHROME`에 지정한다. 합성 입력은 명시적 개발 테스트 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
 
-- 특징·기준 비교: `model/prototype/pose.ts`. 기하학적 변화 점수이며 학습 확률이나 실제 관절 각도가 아니다.
+- 판정 가능 프레임 검사: `model/prototype/pose.ts` `features`·`shouldersVisible`(코·양 어깨·양 귀). 앱의 점수·고개 돌림 판정은 2026-10-22 지웠다.
 - 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
 - 자세 등록: `src/features/baseline/`(관절 평균·B1·B2). 서버 요청 공통: `src/features/platform/api.ts`.
 - 앱 조립·화면 전환: `src/app/ServiceApp.tsx`. 프로필·세션 저장/복구·기록 조회·저장 검증은 `src/features/`에서 기능별로 관리한다.

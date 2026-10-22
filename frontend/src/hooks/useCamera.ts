@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { features, type Features } from '../../../model/prototype/pose'
-import type { CalibrationSummary } from '../../../model/prototype/calibration'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
-import { createFeatureFilter } from '../lib/skeleton'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
@@ -53,8 +51,6 @@ export function useCamera() {
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Smoothed features for local judging; observations keep the raw values (server, CSV). */
-  const current = useRef<Features | null>(null)
-  const featureFilter = useRef(createFeatureFilter<Features>())
   const lastFrame = useRef(0)
   const capture = useRef<LandmarkCapture | null>(null)
   const saving = useRef(false)
@@ -78,7 +74,7 @@ export function useCamera() {
    * the frame, where a small lean takes it out of view. Experimental margin, not validated.
    */
   const [framing, setFraming] = useState<'ok' | 'low' | null>(null)
-  /** Shoulder tracking of the latest frame (2 s head-only grace, 2026-10-13). */
+  /** Shoulder tracking of the latest frame. */
   const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
@@ -206,8 +202,6 @@ export function useCamera() {
     // The frame loop stops drawing, so remove the last skeleton instead of freezing it.
     const canvas = canvasRef.current
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-    current.current = null
-    featureFilter.current.reset()
     lastFrame.current = 0
     capture.current = null
   }, [clearLoadingTimer])
@@ -222,12 +216,8 @@ export function useCamera() {
   useEffect(() => () => release(), [release])
 
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
-    if (!observation.features) featureFilter.current.reset()
-    current.current = observation.features
-      ? featureFilter.current.next(observation.features, lastFrame.current ? observation.timeMs - lastFrame.current : 33)
-      : null
     lastFrame.current = observation.timeMs
-    setQuality(!!observation.features && observation.shoulders !== 'grace')
+    setQuality(!!observation.features)
     setShoulders(observation.shoulders ?? null)
     const l = observation.landmarks[11], r = observation.landmarks[12]
     setFraming(
@@ -236,9 +226,8 @@ export function useCamera() {
     for (const listener of listeners.current) listener(observation)
 
     if (!capture.current) return
-    // A registration needs the real shoulders and a measurable frame; a grace frame restarts it
-    // like a missing one.
-    const usable = observation.shoulders !== 'grace' && !!observation.features
+    // A registration needs a measurable frame (both shoulders seen); anything else restarts it.
+    const usable = !!observation.features
     const next = observeCapture(
       capture.current,
       usable ? observation.landmarks : null,
@@ -358,7 +347,6 @@ export function useCamera() {
           },
           onObservation: receiveObservation,
           onFrameUnavailable: () => {
-            current.current = null
             setQuality(false)
             if (capture.current) {
               capture.current = beginCapture()
@@ -445,15 +433,12 @@ export function useCamera() {
     baseline,
     /** The server's `baseline_id` (S1 `baseline_id`). */
     calibrationId: serverBaseline?.baselineId ?? null,
-    /** DB V1.1 aggregates, no longer produced (removed with the old server setup, F15). */
-    calibrationSummary: null as CalibrationSummary | null,
     progress,
     registering,
     registrationError,
     baselineLoading,
     baselineError,
     reloadBaseline,
-    current,
     lastFrame,
     connect,
     stop,

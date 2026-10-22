@@ -7,10 +7,10 @@ import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
 import { CameraPicker } from '../features/camera/CameraPicker'
-import { CALIBRATION_MS } from '../../../model/prototype/calibration'
+import { CAPTURE_MS } from '../features/baseline/landmarkCapture'
 
 /** Seconds of steady upper-body input needed for the baseline (see calibration.ts). */
-const CALIBRATION_SECONDS = CALIBRATION_MS / 1000
+const CALIBRATION_SECONDS = CAPTURE_MS / 1000
 
 /**
  * 「측정하기」 (2026-10-13: registration and measuring are one flow again).

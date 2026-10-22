@@ -112,7 +112,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - `frontend/src/app/ServiceApp.tsx`: 앱 조립·화면 전환
 - `frontend/src/features/`: 프로필·세션·기록·저장·카메라 기능
 - `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 엔진의 공개 진입점
-- `model/prototype/pose.ts`: 품질·정규화·개인 기준 비교
+- `model/prototype/pose.ts`: 판정 가능 프레임 검사(앱은 판정하지 않음, 2026-10-22 로컬 판정 함수 삭제)
 
 검증: `make check` (문서/구조, Python 계약·추론, 프론트 상태 전이·특징·통계, 타입/빌드, Java API·판정 엔진·실제 MySQL, 합성 HTTP·브라우저 흐름).
 전체 게이트에는 JDK 17·Chrome/Chromium·실행 중인 Docker/Compose도 필요하다(Gradle은 `backend/gradlew`가 받는다). 실제 MySQL·계정 UI·재시작/삭제/백업 복원 검증이 포함된다. 프론트만 검증하려면 `make check-frontend`를 사용한다.

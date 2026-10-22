@@ -20,11 +20,10 @@ export type Observation = {
   width: number
   height: number
   /**
-   * `grace`: shoulders out of view for at most SHOULDER_GRACE_MS, the head is judged against
-   * the last seen shoulders. `missing`: longer than that, the frame is unmeasurable.
-   * Absent when nobody is in view.
+   * `missing`: a shoulder is out of view, so the frame goes to the server as `valid:false`
+   * (no grace since 2026-10-22). Absent when nobody is in view.
    */
   shoulders?: ShoulderState
 }
 
-export type ShoulderState = 'seen' | 'grace' | 'missing'
+export type ShoulderState = 'seen' | 'missing'
