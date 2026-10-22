@@ -56,7 +56,7 @@
 | A-1 | API 주소 | `/api/…` 상대 주소(`server/client.ts`), 개발은 Vite 중계 | 운영은 `https://api.<도메인>/api/…`. 주소 앞부분을 환경 변수로(4장 2단계) |
 | A-2 | 쿠키 보내기 | `credentials: 'omit'` | `credentials: 'include'`(출처가 달라서 `same-origin`으로는 안 실린다) |
 | A-3 | WS 주소 | `VITE_REALTIME_URL`(개발용) | 운영은 `wss://api.<도메인>/api/v2/realtime` |
-| A-4 | 계정 | 로컬 로그인(F12는 BE 담당) | CSRF·계정 헤더를 붙이는 자리는 A-1과 같은 곳 |
+| A-4 | 계정 | 10/22부터 항상 서버 계정(`accountClient.ts`, 스위치 없음 — Vercel에 계정용 환경 변수를 넣지 않는다) | 다른 출처라 CORS·`POSEGOOD_COOKIE_SECURE=true`가 있어야 로그인 쿠키가 실린다 |
 
 - **WebSocket 유지:** 앱은 0.5초마다 구간을 보내므로 터널·서버의 유휴 끊김(서버 120초)에 걸리지 않는다. Cloudflare 터널에서 WS가 끊기는 사례가 있다는 글이 있어 실제로 확인한다(DevOps·FE).
 

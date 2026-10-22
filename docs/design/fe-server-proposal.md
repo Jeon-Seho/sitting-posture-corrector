@@ -18,7 +18,7 @@ BE가 하기로 한 것(FE는 결과만 확인한다):
 |---|---|---|
 | BE-1 | (`/v2/realtime`과 `closed(limit_reached)`는 10/17 구현됨) `POST /v2/records`·S2(앱이 부르지 않음)를 v1과 함께 정리, BE 동의 문서(`contracts/consent-documents.v2.md`) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량」을 v2(좌표 프레임 전송)에 맞춘 문구로 | v1 정리 때(앱 v2 전환 뒤) |
 | BE-2 | R1b `GET /v2/records/{id}`(없으면 S4로 대신), T1 `GET /v2/stats/daily` | 연동 명세 4장 R1·R1b·T1 |
-| BE-3 | **로그인·가입 `/v2/auth` 연결(F12)과 함께 W1 `GET /v2/workspace`도 붙여 주기.** S1은 `policy`가 계정에 저장된 판정 기준과 같아야 받는다(다르면 409 `CONFLICT`). 그 값은 W1 `rules`에서 온다. 로그인이 끝나면 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 불러 앱의 B1·B2·S1이 계정 정보를 쓰게 한다(10/21) | F12와 같이 |
+| BE-3 | (로그인·가입 F12는 10/22 ghdrb1246 `f27dd24` → V3로 옮겨 끝남.) **W1 `GET /v2/workspace`도 붙여 주기.** S1은 `policy`가 계정에 저장된 판정 기준과 같아야 받는다(다르면 409 `CONFLICT`). 그 값은 W1 `rules`에서 온다. 로그인이 끝나면 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 불러 앱의 B1·B2·S1이 계정 정보를 쓰게 한다(10/21) | F12와 같이 |
 | BE-4 | **판정 시간 규칙 이름 맞추기(10/22 요청).** 같은 값이 W1·W2 `rules`(초)에서는 `holdSeconds`·`recoverSeconds`·`realertSeconds`, S1 `policy`(ms)에서는 `hold_ms`·`recovery_ms`·`reminder_ms`다. 이름(`hold`·`recovery`·`reminder`)과 단위를 하나로 맞추면 앱의 `Rules`·설정 화면·저장 검증도 따라 바꾼다 | BE가 정할 때 |
 
 서버·모델 내부의 정할 것(0.5초 구간 점수 합치기, 자세 유형을 낼지, 짧은 끊김을 같은 사건으로 이어 볼 시간 `EVENT_BREAK_SEC`)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보이므로 어느 쪽이든 영향이 없다.
@@ -109,7 +109,7 @@ FE가 정한 것(앱 쪽 동작):
 | F6 | 측정 화면의 「좌표 전송 안 함」 문구 고치기 | 안 함 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 잡기 | 안 함 | DevOps 8088 환경 |
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
-| F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **BE 담당(10/14).** 10/22 `feature/fe-v2-auth-login` `f27dd24`(ghdrb1246)에 A1~A5 연결(가입·로그인·로그아웃·`me`, CSRF 403 재시도, 비밀번호 12자). V2 화면 기준이라 V3로 옮겨야 한다(7.2). 비밀번호 변경·탈퇴·선택 동의·W1은 아직. FE는 가입·동의 화면과 `consentPayload()`를 넘기고 질문에 답한다 | BE · 연동 명세 2장 |
+| F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **A1~A5 끝남(10/22 V3):** ghdrb1246의 `f27dd24`(D-66)를 V3로 옮김. 스위치 없이 항상 서버 계정, 로그인·가입·`me` 뒤 `setServerAuth`(B1·B2·S1·S4가 같은 계정·CSRF 토큰), CSRF 403 재시도. 남은 것: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 | BE · 연동 명세 2장 |
 | F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
 | F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · [배포](fe-deploy.md) 4장 5단계 |
 | F15 | v2 전환으로 필요 없어진 코드 정리 | 끝남(10/21, 7.1 표) | — |
@@ -152,19 +152,19 @@ FE가 정한 것(앱 쪽 동작):
 | 4 | 실제 서버 시험: DevOps 8088 환경(`ssh -L 8088:127.0.0.1:8088`)에서 로그인 → 등록 → 측정 → 종료 → 기록. 그 환경의 화면은 BE 브랜치의 `frontend/`로 빌드되므로 V3 화면으로 빌드해야 한다(DevOps와 정하기) | F12·W1 |
 | 5 | S1 `policy`를 W1 `rules`로(F1-a, BE-3) | W1 |
 | 6 | 남은 앱 계산: 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`, T1로). 기준 특징 다리는 10/22 지움 | 2 |
-| 7 | F12를 옮기며 맞출 것(위 「F12 브랜치 검수」): `setServerAuth` 연결, 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 403 `ACCESS_DENIED`면 CSRF를 다시 받아 한 번 재시도(연동 명세 1장. 10/22 기준 `api.ts`는 바로 「로그인이 필요해요」), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | F12 |
+| 7 | F12에 이어 맞출 것: (10/22 끝남: `setServerAuth` 연결, CSRF 403 `ACCESS_DENIED` 재시도) 남은 것: 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | — |
 | 8 | S1은 됐는데 WS가 열리지 않은 세션을 S3로 닫을지 BE와 정하기(연동 명세 4장 S3·S4). 측정 중 끊김·`ready` 초과는 서버가 끝낸다 | BE 확인 |
 
 **10/22 V3 코드 검토로 고친 것:** S1·B1은 응답이 없으면(연결 오류·5초 초과) 같은 본문으로 다시 보냄(`retryUnanswered`), B2가 실패하면 등록을 자동으로 시작하지 않고 「다시 불러오기」·「새로 등록」, S1 응답 전에 측정을 끝내면 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4를 한 번만. 같은 날 남은 앱 판정(어깨 유예·머리 판정·고개 돌림·특징값 계산)도 지웠다(F5). 시험 217개 통과.
 
-**10/22 F12 브랜치 검수** (`origin/feature/fe-v2-auth-login` `f27dd24`, ghdrb1246 — 서버 컨테이너 8088에서 확인. 우리는 Cloudflare 터널 `api.posegood.site`로 붙으므로 검수용으로만 봄):
+**10/22 F12 브랜치 검수 → 같은 날 V3로 옮김** (`origin/feature/fe-v2-auth-login` `f27dd24`, ghdrb1246 — 서버 컨테이너 8088에서 확인. 우리는 Cloudflare 터널 `api.posegood.site`로 붙으므로 검수용으로만 봄):
 
 | 항목 | 그 브랜치 | V3로 옮길 때 |
 |---|---|---|
 | 기준 코드 | BE 브랜치(`047a095`) 위 = V2 화면. `LocalServiceApp`이 `workspace.setDraft(loadLocalState().draft)`를 부른다 | 이어하기(draft)는 V3에서 지웠으므로 그 줄은 빼고 옮긴다. `serverConfig.ts`도 양쪽이 고쳐 충돌한다 |
 | `accountClient.ts`(A1~A5) | `/api/v2/auth`, `credentials: 'include'`, CSRF 캐시(로그인·로그아웃 때 비움), **403 `ACCESS_DENIED`면 토큰을 새로 받아 한 번 재시도**, 로그아웃에 `X-PoseGood-User-Id`, 시간 초과 10초 | 그대로 가져온다. 7.2 7번의 CSRF 403 재시도를 V3 `api.ts`에도 같은 방식으로 넣는다 |
 | 로그인 뒤 V3 서버 요청 | 없음(그 브랜치에는 `setServerAuth`가 없다) | 로그인·가입·`me` 성공 때 `setServerAuth({ userId: view.user_id, csrfToken })`, 로그아웃 때 `setServerAuth(null)`. CSRF 토큰은 `accountClient`의 것을 같이 쓴다(두 군데서 따로 받으면 로그인 때 하나가 낡는다) |
-| `VITE_SERVER_ACCOUNTS` | 다시 만든 스위치. `true`면 서버 계정, 없으면 이 기기 로컬 로그인. 서버 컨테이너 Dockerfile은 `true` | V3는 항상 서버로 측정하므로(ADR 0025) 로컬 로그인으로는 측정할 수 없다. Vercel 운영 환경 변수에 `true`를 넣거나 스위치 없이 항상 서버 계정으로 할지 정한다 |
+| `VITE_SERVER_ACCOUNTS` | 다시 만든 스위치. `true`면 서버 계정, 없으면 이 기기 로컬 로그인. 서버 컨테이너 Dockerfile은 `true` | **10/22 결정(klaod-tech): 스위치 없음, 항상 서버 계정**(로컬로 돌릴 이유가 없다 — 측정이 항상 서버). V3에는 이 변수가 없다. 서버 컨테이너 Dockerfile의 `ARG`는 남아도 영향 없음(BE에 알림) |
 | 앱을 다시 열 때 | `me()`로 로그인 되살림. 실패는 조용히 무시 | V3는 그 뒤 B2(기준 자세)를 받으므로 `me()` 성공 → `setServerAuth` 순서가 맞아야 한다. `me()` 응답은 형식 검사 없이 쓴다(로그인·가입은 검사) |
 | 409 `AUTH_CHANGED` | 로그아웃만 헤더를 보냄, 실패는 무시 | 7.2 7번 그대로: V3 `api.ts`에서 받으면 `me()`로 다시 맞춘다 |
 | 같은 출처 전제 | 8088 화면 컨테이너(같은 출처)에서만 확인 | `app.posegood.site` → `api.posegood.site`는 다른 출처라 CORS(BE, 아직 없음)·`POSEGOOD_COOKIE_SECURE=true`·WS 허용 출처가 있어야 한다([배포](fe-deploy.md)) |
@@ -212,8 +212,8 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 | 항목 | 10/22 앱 | 서버에 붙일 때 |
 |---|---|---|
-| 로그인 | 입력값을 확인하지 않고 이 기기에 가입한 프로필로 들어간다 | A1·A3·A4 |
-| 가입 | 프로필·이메일·동의 선택을 이 기기에 저장. 비밀번호는 저장하지 않고 최소 길이를 보류 | A2(`features/auth/consents.ts`의 `consentPayload()`), 12자 검사 켜기(`features/auth/password.ts`, 72바이트 검사는 이미 함). 이름 30자·나이 14~120은 이미 서버와 같다(`validProfileInput`) |
+| 로그인 | **10/22 바꿈:** A3 로그인·A4 `me`(앱을 다시 열 때)·A5 로그아웃(`features/auth/accountClient.ts`) | — |
+| 가입 | **10/22 바꿈:** A2(`consentPayload()`), 비밀번호 12자·72바이트(`validServerPassword`). 프로필·동의 선택은 화면용 사본을 이 기기에도 둔다 | — |
 | 기준 자세 | **10/21 바꿈:** 서버에 하나(앱이 관절 평균을 내서 B1, 조회 B2, `features/baseline/`), 어느 카메라든 같은 것 | — |
 | 실시간 | **10/21 바꿈:** `/v2/realtime` 좌표 구간(`features/session/live/LiveSession.ts`, `realtime/frames.ts`) | — |
 | 기록(오늘 탭)·달력의 고른 날 | 이 PC 기록. `features/history/recordsSource.ts` `sessionsOn`, `DayRecord.tsx`, `LocalHistory.tsx`, `RecordCalendarPage.tsx`(화면 담당 lellon0403, 10/14) | R1(전체를 받아 날짜로 거름), R1b |
@@ -231,7 +231,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 | `VITE_API_BASE_URL=https://…` | API 주소 앞부분. 화면을 다른 곳(Vercel)에서 낼 때 운영은 `https://api.posegood.site`. 없으면 같은 출처 `/api`(10/19, [배포](fe-deploy.md)) |
 | `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 
-예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13, 실시간 스위치 `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`와 개발자 옵션의 「서버 판정 사용」은 2026-10-21 지웠다(앱은 항상 서버로 측정, WS 주소는 API 주소나 페이지 주소에서 만든다).
+예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13(10/22 F12 브랜치가 다시 만들었지만 V3로 옮기며 빼서 로그인은 항상 서버), 실시간 스위치 `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`와 개발자 옵션의 「서버 판정 사용」은 2026-10-21 지웠다(앱은 항상 서버로 측정, WS 주소는 API 주소나 페이지 주소에서 만든다).
 
 ### 8.3 화면과 코드 위치
 

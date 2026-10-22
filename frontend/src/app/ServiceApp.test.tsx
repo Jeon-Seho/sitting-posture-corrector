@@ -20,6 +20,11 @@ const controls = vi.hoisted(() => ({
   writer: 'ready',
 }))
 vi.mock('../hooks/useCamera', () => ({ useCamera: () => controls.camera }))
+// These screen tests sign in on this device; the account server flow is LocalServiceApp.accounts.test.tsx.
+vi.mock('../features/auth/accountClient', async (original) => ({
+  ...(await original<typeof import('../features/auth/accountClient')>()),
+  createAccountClient: () => null,
+}))
 vi.mock('../hooks/useWriterLock', () => ({
   useWriterLock: () => ({ state: controls.writer, retry: vi.fn() }),
 }))

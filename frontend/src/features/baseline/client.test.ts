@@ -87,4 +87,21 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
     await expect(fetchCurrentBaseline({ fetch: offline, retryDelayMs: 0 })).rejects.toMatchObject({ kind: 'network' })
     expect(offline).toHaveBeenCalledOnce()
   })
+
+  it('replaces a stale CSRF token once and sends the same write again (403 ACCESS_DENIED)', async () => {
+    const asked: boolean[] = []
+    setServerAuth({ userId: USER, csrfToken: async (fresh) => (asked.push(!!fresh), fresh ? 'new' : 'old') })
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(reply(403, { code: 'ACCESS_DENIED' }))
+      .mockResolvedValueOnce(reply(200, stored))
+    expect((await registerBaseline(captured, stored.registered_at, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
+    expect(asked).toEqual([false, true])
+    expect(fetch.mock.calls[1][1].headers['X-CSRF-TOKEN']).toBe('new')
+    const denied = vi.fn().mockResolvedValue(reply(403, { code: 'ACCESS_DENIED' }))
+    await expect(registerBaseline(captured, stored.registered_at, { fetch: denied })).rejects.toMatchObject({
+      kind: 'signed_out',
+    })
+    expect(denied).toHaveBeenCalledTimes(2)
+  })
 })

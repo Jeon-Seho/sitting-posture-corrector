@@ -2,15 +2,17 @@
  * What the signed-in account gives every write to the API (BE api-spec 1장): the CSRF token
  * for `X-CSRF-TOKEN` and the user id for `X-PoseGood-User-Id`.
  *
- * Connecting the app's sign-in to `/v2/auth` is BE work (F12, 2026-10-21). Until that lands
- * nothing is registered here and server calls report that sign-in is needed. The BE sign-in
- * code calls `setServerAuth` after login (and `null` after logout); anything that depends on
- * the account can `subscribeServerAuth` to reload.
+ * The account client (`features/auth/accountClient.ts`, F12) calls `setServerAuth` after
+ * sign-in, sign-up and `me`, and `null` after sign-out; anything that depends on the account
+ * can `subscribeServerAuth` to reload. Signed out, server calls report that sign-in is needed.
  */
 export type ServerAuth = {
   userId: string
-  /** A fresh token after login/logout (A1); the caller sends it on POST·PUT·DELETE. */
-  csrfToken: () => Promise<string>
+  /**
+   * The CSRF token (A1) the caller sends on POST·PUT·DELETE. `fresh` drops the cached one and
+   * asks the server again (after a 403 `ACCESS_DENIED`).
+   */
+  csrfToken: (fresh?: boolean) => Promise<string>
 }
 
 let current: ServerAuth | null = null

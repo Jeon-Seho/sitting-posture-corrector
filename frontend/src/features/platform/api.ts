@@ -5,6 +5,7 @@ import { getServerAuth } from './serverAuth'
  * One way to call the API (BE api-spec 1장): `/api` prefix, login cookie, `X-PoseGood-User-Id`,
  * `X-CSRF-TOKEN` on writes, 502·503 retried with the same body at 1·2·4 s at most 3 times
  * (api-ws-spec 1.1), 5 s timeout. `retryUnanswered` also retries a request that got no answer.
+ * A stale CSRF token (403 `ACCESS_DENIED`) is replaced and the write sent once more (api-ws-spec 1장).
  */
 export type ApiErrorKind = 'signed_out' | 'invalid' | 'conflict' | 'not_found' | 'busy' | 'limit' | 'server' | 'network'
 
@@ -64,6 +65,7 @@ export async function apiRequest(
   const body = init.body === undefined ? undefined : JSON.stringify(init.body)
   const retries = options.retries ?? DEFAULT_RETRIES
   const fetchRequest = options.fetch ?? globalThis.fetch
+  let freshToken = false
   for (let attempt = 0; ; attempt++) {
     const auth = getServerAuth()
     if (!auth) throw new ApiError('signed_out', messages.signed_out)
@@ -71,7 +73,7 @@ export async function apiRequest(
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     if (method !== 'GET') {
       try {
-        headers['X-CSRF-TOKEN'] = await auth.csrfToken()
+        headers['X-CSRF-TOKEN'] = await auth.csrfToken(freshToken)
       } catch {
         throw new ApiError('network', messages.network)
       }
@@ -104,6 +106,10 @@ export async function apiRequest(
       continue
     }
     const error = (await response.json().catch(() => null)) as { code?: unknown } | null
+    if (response.status === 403 && error?.code === 'ACCESS_DENIED' && method !== 'GET' && !freshToken) {
+      freshToken = true
+      continue
+    }
     const kind = kindOf(response.status)
     throw new ApiError(kind, messages[kind], response.status, typeof error?.code === 'string' ? error.code : null)
   }

@@ -15,8 +15,25 @@ import { readLocal, writeLocal } from '../features/storage/localRepository'
 import { validEmail, validProfileInput } from '../features/storage/validation'
 import { ValidatedInput } from '../components/InlineForm'
 import { ConsentList } from '../features/auth/ConsentList'
-import { CONSENT_DOCUMENT_VERSION, consentsComplete, type ConsentChoices } from '../features/auth/consents'
-import { PASSWORD_GUIDANCE, validPassword } from '../features/auth/password'
+import {
+  CONSENT_DOCUMENT_VERSION,
+  consentPayload,
+  consentsComplete,
+  type ConsentChoices,
+} from '../features/auth/consents'
+import {
+  PASSWORD_GUIDANCE,
+  SERVER_PASSWORD_GUIDANCE,
+  validPassword,
+  validServerPassword,
+} from '../features/auth/password'
+import {
+  accountErrorMessage,
+  createAccountClient,
+  fromApiProfile,
+  type AccountClient,
+  type AccountView,
+} from '../features/auth/accountClient'
 import { DEFAULT_RULES } from '../data/posture'
 import type { Rules } from '../lib/engine'
 import { StorageNotice } from './StorageNotice'
@@ -24,6 +41,12 @@ import { CAMERA_PAGES, type Page } from './navigation'
 import { SignupPostureStep } from '../features/auth/SignupPostureStep'
 
 type AuthView = 'login' | 'consent' | 'account' | 'posture'
+
+/**
+ * The app always signs in on the account server `/v2/auth` (D-66; no switch since 2026-10-22,
+ * klaod-tech: the app always measures on the server, ADR 0025, so a local sign-in has no use).
+ */
+const DEFAULT_ACCOUNTS: AccountClient | null = createAccountClient()
 
 function storedAccount() {
   try {
@@ -34,7 +57,14 @@ function storedAccount() {
 }
 
 /** Compose feature controllers and screens; each feature owns its workflow. */
-export function LocalServiceApp({ camera }: { camera: CameraController }) {
+export function LocalServiceApp({
+  camera,
+  accounts = DEFAULT_ACCOUNTS,
+}: {
+  camera: CameraController
+  /** Account server client. `null` signs in on this device and exists only for the older screen tests. */
+  accounts?: AccountClient | null
+}) {
   const [collectionEntry, setCollectionEntry] = useState(() => window.location?.hash === '#collection')
   const [authed, setAuthed] = useState(false)
   const [authView, setAuthView] = useState<AuthView>('login')
@@ -46,6 +76,8 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const optionalInfo = account ? account.consents.agreed.C3 === true : true
   const [page, setPage] = useState<Page>('home')
   const [error, setError] = useState('')
+  // A sign-in/sign-up request to the account server is in flight.
+  const [busy, setBusy] = useState(false)
   const [session, setSession] = useState<ServiceSession | null>(null)
   const ended = useRef(false)
   const clearError = useCallback(() => setError(''), [])
@@ -89,6 +121,42 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const storageNotice = <StorageNotice workspace={workspace} />
   const profileFields = <ProfileFields form={form} canWrite={canWrite} optionalInfo={optionalInfo} />
 
+  // (D-66) A login cookie from an earlier visit signs in again without typing (A4).
+  useEffect(() => {
+    if (!accounts) return
+    let cancelled = false
+    accounts
+      .me()
+      .then((view) => {
+        if (!cancelled && view) enterWithAccount(view, false)
+      })
+      .catch(() => {
+        // Server unreachable: the sign-in screen stays and shows the error on submit.
+      })
+    return () => {
+      cancelled = true
+    }
+    // Only once per mount: later sign-ins go through login()/register().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts])
+
+  /** Signed in on the server: this device keeps a copy of the profile for the screens that read it. */
+  function enterWithAccount(view: AccountView, greet = true) {
+    const next = fromApiProfile(view.profile)
+    try {
+      writeLocal(KEYS.profile, next)
+    } catch {
+      // Only the copy failed; the screens use the profile in memory.
+    }
+    workspace.setProfile(next)
+    form.resetFields(next)
+    setEmail(view.email)
+    setPassword('')
+    setAuthed(true)
+    setPage('home')
+    setError(greet ? `${next.name}님, 다시 오셨네요.` : '')
+  }
+
   function reloadProfileFields(profile: Profile | null) {
     form.resetFields(profile)
   }
@@ -108,8 +176,12 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     go('collection')
   }
 
-  /** No account server yet: credentials are not checked; the profile signed up on this device is used. */
+  /** With the account server (D-66) the credentials are checked by A3; without it the profile signed up on this device is used. */
   function login() {
+    if (accounts) {
+      void loginWithServer(accounts)
+      return
+    }
     if (!profile) {
       setError('이 기기에 가입한 계정이 없어요. 회원가입을 먼저 해 주세요.')
       return
@@ -121,14 +193,32 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     setError(`${profile.name}님, 다시 오셨네요.`)
   }
 
+  async function loginWithServer(client: AccountClient) {
+    if (busy) return
+    if (!validEmail(email.trim()) || !password) {
+      setError('이메일과 비밀번호를 입력해 주세요.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      enterWithAccount(await client.login(email.trim(), password))
+    } catch (error) {
+      setPassword('')
+      setError(accountErrorMessage(error, 'login'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function register() {
     if (!workspace.requireWriter()) return
     if (!validEmail(email.trim())) {
       setError('이메일을 확인해 주세요.')
       return
     }
-    if (!validPassword(password)) {
-      setError(PASSWORD_GUIDANCE)
+    if (accounts ? !validServerPassword(password) : !validPassword(password)) {
+      setError(accounts ? SERVER_PASSWORD_GUIDANCE : PASSWORD_GUIDANCE)
       return
     }
     const withOptional = consents.C3 === true
@@ -147,6 +237,34 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       email: email.trim(),
       consents: { version: CONSENT_DOCUMENT_VERSION, agreed: consents, at: new Date().toISOString() },
     }
+    if (accounts) {
+      void registerWithServer(accounts, next, nextAccount)
+      return
+    }
+    keepSignup(next, nextAccount)
+  }
+
+  /** (D-66) A2 creates the account and signs in; this device keeps the profile and consent choices as before. */
+  async function registerWithServer(client: AccountClient, next: Profile, nextAccount: LocalAccount) {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const view = await client.register({
+        email: nextAccount.email,
+        password,
+        profile: next,
+        consents: consentPayload(consents),
+      })
+      keepSignup(fromApiProfile(view.profile), { ...nextAccount, email: view.email })
+    } catch (error) {
+      setError(accountErrorMessage(error, 'register'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function keepSignup(next: Profile, nextAccount: LocalAccount) {
     try {
       writeLocal(KEYS.profile, next)
       writeLocal(KEYS.account, nextAccount)
@@ -183,6 +301,9 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
       setError('결과 저장을 완료한 뒤 나가 주세요.')
       return
     }
+    // (D-66) End the server login too. A failure (server down, another tab switched accounts)
+    // still signs out here; the login cookie then expires on the server.
+    if (accounts) void accounts.logout().catch(() => undefined)
     camera.stop()
     setAuthed(false)
     setAuthView('login')
@@ -278,9 +399,13 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     return (
       <LoginPage
         title="회원가입 · 2/3 계정 정보"
-        lead="계정 서버 연결 전이라 이 기기에만 저장해요. 비밀번호는 저장하지 않아요."
-        submitLabel="다음"
-        submitDisabled={!canWrite}
+        lead={
+          accounts
+            ? '계정 서버에 가입해요. 비밀번호는 12자 이상이에요.'
+            : '계정 서버 연결 전이라 이 기기에만 저장해요. 비밀번호는 저장하지 않아요.'
+        }
+        submitLabel={busy ? '가입하는 중…' : '다음'}
+        submitDisabled={!canWrite || busy}
         onSubmit={register}
         footer={
           <>
@@ -325,8 +450,13 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     return (
       <LoginPage
         title="로그인"
-        lead="계정 서버 연결 전이라 입력한 값은 확인하지 않고, 이 기기에 가입한 프로필로 들어가요."
-        submitLabel="로그인"
+        lead={
+          accounts
+            ? '가입한 이메일과 비밀번호로 로그인해요.'
+            : '계정 서버 연결 전이라 입력한 값은 확인하지 않고, 이 기기에 가입한 프로필로 들어가요.'
+        }
+        submitLabel={busy ? '로그인하는 중…' : '로그인'}
+        submitDisabled={busy}
         fine="카메라는 측정하기 화면에서 직접 켤 때만 사용해요. 카메라 없이도 저장된 기록을 볼 수 있어요."
         onSubmit={login}
         footer={
