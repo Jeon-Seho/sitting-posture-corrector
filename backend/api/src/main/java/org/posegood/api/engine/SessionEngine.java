@@ -20,10 +20,15 @@ import java.util.UUID;
  * 임계값 비교는 {@link DecisionRules}에만 있다(ADR 0012, ADR 0020).
  */
 public final class SessionEngine {
-    public static final int MAX_OBSERVATIONS = 10_000;
+    /** 기본 최대 측정 시간: 예전 관측 10,000건 한도와 같은 0.5초 구간 10,000개(약 83분). */
+    public static final long DEFAULT_MAX_MS = 5_000_000;
+    /** 메모리 보호: 최대 측정 시간 동안 평균 0.25초 구간까지 받는다. */
+    private static final long MIN_AVERAGE_INTERVAL_MS = 250;
 
     private final UUID id;
     private final Policy policy;
+    private final long maxMs;
+    private final long maxObservations;
     private final Timeline timeline = new Timeline();
     private final EpisodeLedger episodes;
     private final Map<Long, Observation> accepted = new HashMap<>();
@@ -34,8 +39,16 @@ public final class SessionEngine {
     private Observation current;
 
     public SessionEngine(UUID id, Policy policy) {
+        this(id, policy, DEFAULT_MAX_MS);
+    }
+
+    /** {@code maxMs}: 한 세션에서 측정할 수 있는 최대 시간(세션 시작부터, 설정값). 넘는 구간은 429. */
+    public SessionEngine(UUID id, Policy policy, long maxMs) {
+        if (maxMs <= 0) throw new IllegalArgumentException("maximum session time must be positive");
         this.id = id;
         this.policy = policy;
+        this.maxMs = maxMs;
+        maxObservations = Math.max(1, maxMs / MIN_AVERAGE_INTERVAL_MS);
         episodes = new EpisodeLedger(id);
     }
 
@@ -52,8 +65,7 @@ public final class SessionEngine {
         if (ended) throw ApiError.ended();
         if (observation.sequence() <= lastSequence || observation.startMs() < timeline.endMs())
             throw ApiError.conflict("out-of-order or overlapping interval");
-        if (accepted.size() >= MAX_OBSERVATIONS)
-            throw ApiError.limit("session observation limit reached");
+        if (!admits(observation.endMs())) throw ApiError.limit("session time limit reached");
 
         // 빈 시간은 누락으로 제외한다. 순번만 빠졌으면 시간을 만들지 않고 연속성만 끊는다.
         if (observation.startMs() > timeline.endMs()) {
@@ -153,6 +165,35 @@ public final class SessionEngine {
 
     public synchronized int acceptedCount() {
         return accepted.size();
+    }
+
+    /** {@code endMs}에서 끝나는 새 구간을 받을 수 있는지: 최대 측정 시간 안이고 메모리 한도 전이다. */
+    public synchronized boolean admits(long endMs) {
+        return endMs <= maxMs && accepted.size() < maxObservations;
+    }
+
+    /**
+     * 측정이 멈춘 이유(실시간 v2 {@code progress.paused_reason}): 마지막 구간이 휴식이면 {@code rest},
+     * 카메라 끊김이면 {@code away}, 판정 불가면 {@code unmeasurable}, 측정 중이거나 아직 구간이 없으면 null.
+     */
+    public synchronized String pausedReason() {
+        if (current == null) return null;
+        if (current.phase() != Observation.Phase.running) return current.phase().name();
+        return current.valid() ? null : "unmeasurable";
+    }
+
+    /**
+     * 관측 3.0의 {@code invalid_reason}: 유효하면 null. 아니면 API가 좌표에서 찾은 사유
+     * ({@code head_turn}), 그 밖에는 {@code unmeasurable}.
+     *
+     * 계약상 유효하지 않은 구간은 사유가 꼭 있어야 하므로 휴식·자리 비움도 {@code unmeasurable}이고, 멈춘 이유는
+     * {@link #pausedReason}이 알려 준다. {@code settling}은 언제 나오는지 정해지지 않아 아직 쓰지 않는다.
+     */
+    public static String invalidReason(Observation observation, String hint) {
+        if (observation.valid()) return null;
+        return observation.phase() == Observation.Phase.running && "head_turn".equals(hint)
+                ? "head_turn"
+                : "unmeasurable";
     }
 
     public synchronized int eventCount() {

@@ -1,0 +1,53 @@
+// 처리 서비스(옛 platform/api-server): Kafka v1 판정(judge)·판정 결과 저장(report)·운영 API.
+// D-52(2026-10-15): Maven pom.xml을 그대로 옮겼다 — 의존성·Spring Boot 버전·Java 17·JAR 이름이 같다.
+// 빌드: backend/gradlew -p backend :processing:build  (이미지는 infra/docker/java.Dockerfile target processing)
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.8'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+// 패키지 com.posture.api는 그대로 둔다(옮기기만 한 단계, 이름 정리는 따로).
+group = 'com.posture'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // 웹 + 헬스체크(/actuator/health, liveness·readiness 그룹은 application.yml)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // 외부 MySQL(.107) — 확정 서비스 DB posture_service(V2.x)
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    // 판정 상태 저장(D-04·D-37)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // Boot 4부터 Kafka 자동설정은 spring-boot-kafka 모듈 — 스타터로 받아야 KafkaTemplate이 생긴다.
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Boot 4부터 @WebMvcTest 지원은 별도 테스트 스타터.
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Maven 때와 같은 파일 이름: build/libs/api-server.jar
+tasks.named('bootJar') {
+    archiveFileName = 'api-server.jar'
+}
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

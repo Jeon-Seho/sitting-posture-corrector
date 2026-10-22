@@ -1,6 +1,6 @@
 # database — 자세교정 서비스 DB
 
-MySQL 서비스 스키마의 실행 파일(스키마·시드·마이그레이션)과 ERD를 둔다. 설계 문서는 `docs/db/`에 있다 (DB-01~04).
+MySQL 서비스 스키마의 실행 파일(스키마·시드·마이그레이션)과 ERD를 둔다. DB 명세서, 버전별 「DB-V2.x-변경사항」, 설계 문서(DB-01~04)는 저장소 밖 팀 공유 위치에 있다. 자료별 식별 정보와 문의 대상은 [외부 문서 참조](#외부-문서-참조)를 확인한다.
 
 ---
 
@@ -10,12 +10,12 @@ MySQL 서비스 스키마의 실행 파일(스키마·시드·마이그레이션
 
 | 순서 | 파일 | 하는 일 | 앞 단계가 필요한 이유 |
 |---|---|---|---|
-| 1 | `schema/schema_V2_3.sql` | 데이터베이스 `posture_service`와 테이블 13개 생성 | — |
+| 1 | `schema/schema_V2_4.sql` | 데이터베이스 `posture_service`와 테이블 13개 생성 | — |
 | 2 | `seed/seed_04_threshold_policy.sql` | 기본 판정 정책 1건 | 테이블이 있어야 한다 |
 
 ```bash
 # 1) 스키마 (데이터베이스 생성 포함)
-mysql -u <계정> -p < database/schema/schema_V2_3.sql
+mysql -u <계정> -p < database/schema/schema_V2_4.sql
 
 # 2) 시드 — 번호순
 for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
@@ -25,14 +25,22 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 **적용 후 확인** — 테이블 13개, `threshold_policy` 1행이면 정상이다.
 
-**V2.2로 만든 DB** — 지우지 않고 migration 2개를 번호순으로 적용하면 V2.3과 같아진다. 기존 행은 그대로이고, 새 컬럼 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`는 NULL로 시작한다(다음 일별 집계 때 채운다). 되돌리는 방법은 각 파일 머리말에 있다.
+**V2.3으로 만든 DB** — 지우지 않고 migration 2개(013·014)를 번호순으로 적용하면 V2.4와 같아진다. 기존 행은 그대로이고 `feature_archive.row_count` 값만 사라진다(쓰는 코드·요구사항이 없다). 나머지는 설명만 바뀐다. 되돌리는 방법은 각 파일 머리말에 있다.
+
+```bash
+mysql -u <계정> -p posture_service < database/migrations/013_alter_feature_archive.sql
+mysql -u <계정> -p posture_service < database/migrations/014_update_comment_v24.sql
+```
+
+**V2.2로 만든 DB** — migration 4개(011~014)를 번호순으로 적용하면 V2.4와 같아진다. 011·012를 먼저 적용하고 이어서 위 013·014를 적용한다. 새 컬럼 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`는 NULL로 시작한다(Spark J2가 일별 집계 때 채운다 — J2는 구현 전, 11장).
 
 ```bash
 mysql -u <계정> -p posture_service < database/migrations/011_add_until_collapse_daily_stat.sql
 mysql -u <계정> -p posture_service < database/migrations/012_create_user_consent.sql
+# 이어서 013·014
 ```
 
-**적용 후 확인 (V2.2 → V2.3)** — 테이블 13개(`user_consent` 추가), `daily_stat` 컬럼 10개면 정상이다.
+**적용 후 확인 (V2.2·V2.3 → V2.4)** — 테이블 13개(`user_consent` 포함), `daily_stat` 컬럼 10개, `feature_archive` 컬럼 7개(`row_count` 없음)면 정상이다.
 
 **V2.1·V2.0·V1.x로 만든 DB** — migration으로 올리지 않는다. V2.0·V2.1은 테이블을 지운 변경이고(작업규칙 1.4), V2.2는 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 기존 세션을 새 구조로 옮길 수 없다. 필요한 데이터를 먼저 백업하고, `posture_service` 데이터베이스를 지운 뒤 1번부터 다시 만든다.
 
@@ -51,16 +59,26 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 | 항목 | 내용 |
 |---|---|
-| 스키마 파일 | `schema/schema_V2_3.sql` (현재, 새 DB용). `schema/schema_V2_2.sql`은 `migrations/`(011~)의 출발점으로 둔다 |
-| 대응 명세서 | DB 명세서 V2.3 (2026-10-13) — V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
+| 스키마 파일 | `schema/schema_V2_4.sql` (현재, 새 DB용). `schema/schema_V2_3.sql`은 이전 버전으로 남겨 둔다(FE 시험 `consents.test.ts`가 읽는다). `schema/schema_V2_2.sql`은 `migrations/`(011~)의 출발점으로 둔다 |
+| 대응 명세서 | DB 명세서 V2.4 (2026-10-21) — V2.3 + 아키텍처 v5.2 결정 반영: `feature_archive.row_count` 삭제, 설명 갱신 (「DB-V2.4-변경사항」). V2.3은 V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
 | 데이터베이스 이름 | `posture_service` (가칭, DB-03 D-33) |
 | DBMS | MySQL 8.0.16 이상 (CHECK 제약 강제) |
-| 문자셋 | `utf8mb4` / `utf8mb4_0900_ai_ci`. 파일 위치(`feature_archive.file_uri`)만 `utf8mb4_bin`(대소문자 구분) |
+| 문자셋 | `utf8mb4` / `utf8mb4_0900_ai_ci`. 세션 폴더 경로(`feature_archive.file_uri`)만 `utf8mb4_bin`(대소문자 구분) |
 | 시간대 | `SPRING_SESSION`을 뺀 모든 `DATETIME(3)`은 **KST(한국 표준시, +09:00)**로 저장한다. 일별 통계의 날짜 기준(`STAT_TIMEZONE`)도 `Asia/Seoul` (CR-04) |
 
-**스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다.
+**스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다. V2.4는 쓰는 곳이 없는 컬럼 1개(`row_count`)를 지우고 설명을 바꾼 변경이다. 지우는 값은 사라져도 되므로(「DB-V2.4-변경사항」 결정 4) DB를 새로 만들지 않고 migration 013·014로 올린다.
 
-**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다.
+**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. `schema_V2_4.sql`은 「DB-V2.4-변경사항」으로 V2.3에서 만들었다. 명세서 V2.4를 고친 뒤 명세서에서 다시 생성해 맞춘다.
+
+### 외부 문서 참조
+
+| 자료 | 식별 정보 | 접근 안내·문의 대상 |
+|---|---|---|
+| DB 명세서·버전별 변경사항 | 위 "대응 명세서" 행의 판본·문서명 | 저장소 밖 팀 공유 자료. 공유 주소는 미기재이며 DB 담당에 문의 |
+| DB-01~04·REQ-01·작업규칙 | 본문의 문서 ID와 절·규칙 번호. 개별 판본이 적히지 않은 인용은 원문 판본 미확인 | DB 담당에 해당 원문과 인용 절 확인. 요구사항 공유 위치는 [문서 이동 안내](../docs/removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개) 참고 |
+| DB-05 인덱스 시트 | 5장에 인용한 시트명. 개별 판본·갱신일 미기재 | 공유 주소 미기재. DB 담당에 원문 위치 문의 |
+
+저장소 안에서 실행 구조는 [스키마 파일](schema/), [마이그레이션](migrations/), [ERD](erd/)로 확인한다. 외부 원문과 별개인 로컬 산출물이며, 외부 공유 주소를 확인한 항목은 위 표에 추가한다.
 
 ---
 
@@ -72,15 +90,18 @@ database/
 ├── .gitignore                         ← 커밋 금지 대상 (4장)
 ├── schema/
 │   ├── schema_V2_2.sql                ← migrations의 출발점 (DB CI 기준 스키마)
-│   └── schema_V2_3.sql                ← 현재. 새 DB는 이 파일로 만든다
+│   ├── schema_V2_3.sql                ← 이전 버전 (FE 시험이 읽는다)
+│   └── schema_V2_4.sql                ← 현재. 새 DB는 이 파일로 만든다
 ├── seed/
 │   └── seed_04_threshold_policy.sql   ← 기본 판정 정책 (6장)
-├── migrations/                        ← V2.2 → V2.3. 다음 번호 013 (7장)
+├── migrations/                        ← V2.2 → V2.3 → V2.4. 다음 번호 015 (7장)
 │   ├── 011_add_until_collapse_daily_stat.sql
-│   └── 012_create_user_consent.sql
+│   ├── 012_create_user_consent.sql
+│   ├── 013_alter_feature_archive.sql
+│   └── 014_update_comment_v24.sql
 ├── tests/
 │   └── integrity_check.py             ← 무결성 검사 (8장)
-└── erd/
+└── erd/                               ← 아직 V2.3 (V2.4 반영 전 — `feature_archive.row_count` 줄 삭제 필요)
     ├── posture_erd_V2_3.drawio        ← 원본 (개념·논리 2페이지)
     ├── posture_erd_V2_3-개념 ERD.png   ← draw.io에서 내보낸 그림
     └── posture_erd_V2_3-논리 ERD.png
@@ -109,14 +130,24 @@ database/
 
 ## 5. 스키마 범위
 
-**13개 테이블, 99개 컬럼.** V2.0(16개)에서 V2.1 추가 수정으로 4개를 지웠고, V2.2에서 컬럼 13개를 지우고 2개를 더했다(12개 테이블, 92개 컬럼). V2.3에서 `daily_stat` 컬럼 2개를 더하고 `user_consent`(5개 컬럼)를 새로 설계해 넣었다. 키와 제약은 아래와 같다.
+**13개 테이블, 98개 컬럼.** V2.0(16개)에서 V2.1 추가 수정으로 4개를 지웠고, V2.2에서 컬럼 13개를 지우고 2개를 더했다(12개 테이블, 92개 컬럼). V2.3에서 `daily_stat` 컬럼 2개를 더하고 `user_consent`(5개 컬럼)를 새로 설계해 넣었다(99개 컬럼). V2.4에서 `feature_archive.row_count`를 지웠다. 키와 제약은 아래와 같다.
 
 | 구분 | 수 | 비고 |
 |---|---|---|
 | PK | 13 | `baseline_posture`는 `baseline_posture_id`(대리키), `correction_alert`는 (`monitor_session_id`, `event_seq`, `attempted_at`) |
 | UK | 7 | UK-01·03·05·06·13·14·15. UK-13은 `SPRING_SESSION.SESSION_ID` |
 | FK | 13 | 삭제 동작은 DB-04 1-1절. FK-27은 세션 → 기준 자세 (사용자 일치 복합 FK), FK-19는 동의 → 계정 (CASCADE) |
-| CHECK | 51 | 허용값, 범위(관절 좌표 18개 포함), 행 간 규칙 (세션 종료, 이벤트 회복, 삭제 요청 등) |
+| CHECK | 50 | 허용값, 범위(관절 좌표 18개 포함), 행 간 규칙 (세션 종료, 이벤트 회복, 삭제 요청 등) |
+
+**V2.4에서 바꾼 것** (「DB-V2.4-변경사항」, migration 013·014)
+
+| 대상 | 내용 |
+|---|---|
+| `feature_archive.row_count`, CHECK `ck_feature_archive_row_count` | 삭제 (013). 쓰는 코드·요구사항이 없다 |
+| `feature_archive` 설명 | 세션 폴더 1행 기준으로 (013). 경로 `/data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/`, 폴더 하나에 파일 3개. Spark J1이 기록하고 J3가 지운다 |
+| `user_account.account_status`·`sound_alert_enabled` 설명 | 탈퇴 철회 없음, 알림 켜기·끄기 원본 (014) |
+| `monitor_session.good_sec`, `daily_stat` 시간 값 설명 | 0.1초 아래 버림을 세션(최소·최대는 표본)마다 하고 합계는 다시 버리지 않는다. `daily_stat`은 Spark J2만 쓴다 (014) |
+| `deletion_request.request_status` 설명 | 입출구 서버는 `REQUESTED`만 넣고 상태는 J3만 바꾼다 (014). 구조(`request_scope`·`DONE`·`data_deleted_at`)는 그대로 — 다음 버전에서 정한다 |
 
 **V2.3에서 더한 것** (「DB-V2.3-변경사항」, migration 011·012)
 
@@ -154,7 +185,7 @@ database/
 | 대상 | 이유 |
 |---|---|
 | T-26 `capture_device`, `monitor_session.capture_device_id` | 장치 정보를 저장하지 않는다 |
-| T-32 `model_version`, `monitor_session.model_version_code` | 모델 버전 관리를 하지 않는다 (팀 회의) |
+| T-32 `model_version`, `monitor_session.model_version_code` | 서비스 DB에는 모델 버전 관리 테이블·세션별 버전 칼럼을 두지 않는다 (팀 회의). 개발·연동·연구의 내부 관리는 별도이며 서비스 화면에는 표시하지 않는다([내부 관리 기준](../contracts/README.md#모델명특징-버전의-내부-관리)) |
 | T-42 `deployment`, T-43 `error_log` | 배포는 이미지 태그·CI 기록으로, 오류는 애플리케이션 로그로 남긴다 |
 | T-44 `input_result`, T-45 `cep_outbox`, T-46 `confirmed_snapshot`, T-47 `cep_cleanup` | CEP를 쓰지 않는다. 붕괴 확정·회복·재알림 판정은 백엔드가 맡는다 |
 | `ck_user_account_identity` | 식별 컬럼 3개(`login_email`, `password_hash`, `display_name`)를 다시 NOT NULL로 했다. 탈퇴 때 비우지 않고 행째 지운다 (9장) |
@@ -210,14 +241,16 @@ database/
 - 인덱스는 테이블 생성과 다른 파일에 둔다. 초기 적재 때 인덱스 없이 넣기 위해서다.
 - migration과 시드 파일은 `SET NAMES utf8mb4;`로 시작한다. 빠지면 접속 문자셋에 따라 한글이 깨진 채 저장된다.
 - 새 DB는 최신 스키마 파일로 만들고, `migrations/`는 이미 만든 DB를 올릴 때만 적용한다.
-- 테이블을 지우거나 기존 데이터를 옮길 수 없는 변경은 migration을 만들지 않고 DB를 새로 만든다(작업규칙 1.4). V2.0 → V2.1, V2.1 → V2.2가 이 경우다.
+- 테이블을 지우거나 기존 데이터를 옮길 수 없는 변경은 migration을 만들지 않고 DB를 새로 만든다(작업규칙 1.4). V2.0 → V2.1, V2.1 → V2.2가 이 경우다. V2.4의 컬럼 삭제(`row_count`)는 값이 사라져도 되는 컬럼이라 migration으로 한다(2장).
 - 파일마다 머리말에 되돌리는 방법(롤백 SQL)을 적는다.
-- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했다. 번호는 다시 쓰지 않으므로 **다음 파일은 013**부터 매긴다.
+- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했다. 번호는 다시 쓰지 않으므로 **다음 파일은 015**부터 매긴다.
 
 | 파일 | 버전 | 내용 | 기존 데이터 |
 |---|---|---|---|
 | `011_add_until_collapse_daily_stat.sql` | V2.2 → V2.3 | `daily_stat`에 `min_until_collapse_sec`·`max_until_collapse_sec`와 CHECK 3개 추가 | 그대로. 새 컬럼은 NULL |
 | `012_create_user_consent.sql` | V2.2 → V2.3 | `user_consent` 테이블 생성 (FK-19, CHECK 2개) | 영향 없음. 이미 가입한 사용자의 동의 행은 비어 있다(언제 받을지는 백엔드가 정한다) |
+| `013_alter_feature_archive.sql` | V2.3 → V2.4 | `feature_archive.row_count`와 CHECK 삭제, 세션 폴더 기준 설명 | 행은 그대로. `row_count` 값은 사라지고 되돌려도 0이 된다 |
+| `014_update_comment_v24.sql` | V2.3 → V2.4 | `user_account`·`monitor_session`·`daily_stat`·`deletion_request` 설명만 | 영향 없음 |
 
 ---
 
@@ -230,9 +263,11 @@ database/
 | 3 | 애플리케이션 기동 → 연결·기본 조회 성공 | **백엔드 연결 후 확인** — 대신 아래 무결성 검사로 기본 쓰기·조회를 확인 |
 | 4 | 롤백(데이터베이스 삭제 후 재적용) 1회 성공 | 통과 |
 
-**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(`schema_V2_3.sql`) + 시드로 만든 DB와, 기준 스키마(`schema_V2_2.sql`) + 시드 + `migrations/` 011·012로 만든 DB의 구조·마스터 데이터를 비교한다. 두 결과가 같아야 한다(2026-10-13 로컬 재현 350줄 일치). 테이블 수(13)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
+**V2.4는 아직 재현 검증 전이다.** 위 표와 아래 개수는 V2.3 결과다. V2.4 스키마·migration 013·014와 고친 무결성 검사는 실행하지 않았다(2026-10-21). DB CI 또는 로컬 MySQL로 확인한 뒤 이 장을 갱신한다.
 
-**무결성 검사 (`tests/integrity_check.py`) — 130개 항목 모두 통과.** 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
+**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(V2.4부터 `schema_V2_4.sql`, 파일 이름순으로 가장 뒤의 파일) + 시드로 만든 DB와, 기준 스키마(`schema_V2_2.sql`) + 시드 + `migrations/` 전부(011~014)로 만든 DB의 구조·마스터 데이터를 비교한다. 설명(COMMENT)도 비교 대상이다. 두 결과가 같아야 한다(V2.3: 2026-10-13 로컬 재현 350줄 일치). 테이블 수(13)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
+
+**무결성 검사 (`tests/integrity_check.py`) — V2.3 기준 130개 항목 모두 통과(2026-10-13).** V2.4에 맞춰 철회 검사(S1-1-1)를 지우고 `row_count`를 뺐으며 적재 경로를 세션 폴더 형식으로 바꿨다 — 실행 전이라 새 개수는 아직 모른다. 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
 
 | 분류 | 확인한 것 |
 |---|---|
@@ -245,12 +280,12 @@ database/
 | 이벤트·알림 | 종료 시각 없는 회복 시각, 종료 뒤·확정 전 회복 시각 거부. 종료 사유를 시각으로 판정(회복·세션 종료·제외 구간 중단). 첫 알림 = 가장 이른 알림 시각 |
 | 행 간 규칙·허용값 | 분자 > 분모 통계, 붕괴까지 걸린 시간의 최소 > 최대·한쪽만 있음·음수, 0.5 단위 위반, 제외 구간 종료 < 시작, 없는 제외 사유·사유 NULL, 나이 범위(1~120) — 모두 거부 (제외 사유 4개는 허용) |
 | 삭제 차단 | 적재 기록이 남은 세션, 세션이 남은 사용자, 사용 중인 정책, 삭제 요청 행이 남은 사용자 — 모두 삭제 거부 |
-| 시나리오 1 (탈퇴, DB-04 V0.2 6-1) | 접수하면 계정 CLOSED와 함께 그 사용자의 로그인 세션·속성이 지워지고 다른 사용자의 로그인 세션은 그대로. 유예 중에는 식별 정보·기록이 그대로이고 같은 이메일 재가입은 거부. 철회하면 계정 ACTIVE + 요청 행 삭제. 유예 종료 대상은 폐쇄 시각 + 30일로 계산. 최종 삭제는 한 트랜잭션에서 성공하고(세션 → 기준 자세 순) 제외 구간·이벤트·알림이 연쇄 삭제. 삭제 뒤 같은 이메일로 재가입 가능. 중간에 실패하면 전부 되돌아감 |
+| 시나리오 1 (탈퇴, DB-04 V0.2 6-1) | 접수하면 계정 CLOSED와 함께 그 사용자의 로그인 세션·속성이 지워지고 다른 사용자의 로그인 세션은 그대로. 유예 중에는 식별 정보·기록이 그대로이고 같은 이메일 재가입은 거부(철회 없음). 유예 종료 대상은 폐쇄 시각 + 30일로 계산. 최종 삭제는 한 트랜잭션에서 성공하고(세션 → 기준 자세 순) 제외 구간·이벤트·알림이 연쇄 삭제. 삭제 뒤 같은 이메일로 재가입 가능. 중간에 실패하면 전부 되돌아감 |
 | 시나리오 2 (기록 삭제) | 세션을 지워도 일별 통계는 그대로. 세션을 지운 뒤 현재 기준만 남기고 예전 기준 자세 삭제(D-39) |
 | 세션 없는 계정 삭제 | 기준 자세·일별 통계 연쇄 삭제 (FK-04·17) |
 | 로그인 세션 | 로그인 세션 삭제 시 속성 연쇄 삭제 |
 | 사용자 동의 | 가입 동의 6행 저장, 같은 동의 재전송·없는 종류(학습용)·없는 사용자·동의 전 철회 시각 거부. 선택 정보 철회 때 나이·직업 비움. 약관 개정 재동의는 새 행, 현재 상태는 가장 최근 행. 탈퇴 최종 삭제 때 함께 삭제, 기록만 삭제할 때는 남음 |
-| 폐기 확인 | 폐기·보류 테이블 5개와 V2.1·V2.2 폐기 컬럼 20개가 DB에 없고, V2.2·V2.3 추가 컬럼 4개가 있음 |
+| 폐기 확인 | 폐기·보류 테이블 5개와 V2.1·V2.2·V2.4 폐기 컬럼 21개(V2.4 `row_count` 포함)가 DB에 없고, V2.2·V2.3 추가 컬럼 4개가 있음 |
 
 ---
 
@@ -261,7 +296,7 @@ database/
 | 모든 시각 | KST로 저장한다. 연결할 때 세션 시간대를 `Asia/Seoul`로 둔다 (`connectionTimeZone=Asia/Seoul`) | CR-04 |
 | 가입 | 기본 정책을 설정에 둔 값 4개(threshold·hold·recover·realert)로 찾는다. 없으면 같은 값으로 새로 넣고(중복 오류 1062가 나면 다시 찾음) 사용자가 그 행을 가리키게 한다. 값은 6장 시드와 같아야 한다 | UK-03 |
 | 비밀번호 | 백엔드에서 단방향 해시로 만들어 `password_hash`에 넣는다. 평문은 저장하지도 응답하지도 않는다 | SER-004 |
-| 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴 유예 중(CLOSED)에도 이메일·비밀번호 해시가 남아 있으므로, 비밀번호가 맞아도 철회 외에는 막아야 한다 | D-34, DB-04 9장 #4 |
+| 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴를 접수한 계정(CLOSED)은 유예 중에도 이메일·비밀번호 해시가 남아 있지만, 비밀번호가 맞아도 막는다(403 `ACCOUNT_CLOSED` — 되돌릴 수 없고 30일 뒤 삭제된다고 안내) | D-34, 탈퇴 철회 없음 (2026-10-15) |
 | 로그인 끊기의 전제 | 로그인 수단은 Spring Session뿐이다(remember-me 쿠키·JWT 같은 세션 밖 인증을 쓰지 않는다). `PRINCIPAL_NAME`은 항상 채운다. 이메일 변경 기능을 넣으면 변경 때 예전 세션도 정리한다 | V2.1 (`auth_epoch` 삭제) |
 | 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. 최소 표본(20) 검사는 넣기 전에 한다. `registered_at`은 서버 시각이 아니라 **프론트엔드가 보정을 끝낸 시각**을 넣는다 — 재전송 때도 같은 값이 와서 UK-14가 중복을 막는다. 중복 오류(1062)면 이미 반영된 것으로 보고 그 행을 돌려준다 | BR-63, UK-14 |
 | 기준 자세 좌표 | MediaPipe 정규화 좌표(0~1), 촬영 동안의 평균. 0~1 밖의 값(화면 밖 추정)은 DB가 거부하므로 보정 실패로 처리한다. 좌표 수집 조건(MediaPipe 모델·`CAPTURE_RESOLUTION`·관절 목록)을 바꾸면 모든 사용자가 다시 촬영한다 | ck_baseline_posture_* |
@@ -273,15 +308,15 @@ database/
 | 붕괴 이벤트 종료 | 세션 종료로 끝나면 `ended_at`에 세션 종료 시각을, 제외로 끝나면 제외 구간 시작 시각을 **그대로** 넣는다. 회복으로 끝나면 `recovered_at`도 채운다. 종료 사유는 이 시각으로 판정한다 | SFR-025, ck_collapse_event_recovered |
 | 교정 알림 | 알림이 켜져 있든 꺼져 있든 이벤트 확정 때 1회, 이후 `realert_seconds`마다 행을 넣는다. `attempted_at`은 판정기가 메시지에 담은 시각(저장 시각 금지) — 재전송은 PK 중복(1062)으로 막힌다. 표시 여부는 세션 `alert_enabled`로 판단한다. 회복 시간은 첫 알림(가장 이른 시각)부터 잰다 | BR-13, BR-21 |
 | 설정 변경 | 같은 값 조합의 정책을 찾고, 없으면 새로 넣는다. 넣다가 중복 오류(1062)가 나면 다시 찾아 그 행을 쓴다. 그다음 사용자가 그 정책을 가리키게 한다. 정책 행은 UPDATE하지 않는다 | BR-64, BR-65, UK-03 |
-| 일별 통계 | 세션 시작 시각의 KST 날짜로 집계한다. `alerted_event_count`는 `alert_enabled`가 참인 세션에서 알림 행이 있는 이벤트 수 | BR-61, BR-22, CR-04 |
-| 붕괴까지 걸린 시간 (최소·최대) | 실행 시간(`started_at` → `ended_at`)이 5분(`STAT_MIN_SESSION_SEC`) 이상인 세션만 쓴다 — 더 짧은 세션은 시험·잘못 시작한 기록으로 보고 뺀다. 세션마다 구간을 나눈다: 세션 시작 또는 직전 붕괴 이벤트의 `ended_at` → 다음 붕괴의 `started_at`, 마지막 구간은 → 세션 `ended_at`(붕괴 없이 끝난 구간도 표본에 넣는다). 각 구간 길이에서 겹친 제외 구간 시간을 뺀다. 그날 모든 표본의 최솟값·최댓값을 넣고, 표본이 없으면 둘 다 NULL. 주·월 값은 일별 최솟값의 최솟값, 최댓값의 최댓값 | BR-20, BR-53, ck_daily_stat_until_collapse |
-| 탈퇴 접수 | 삭제 요청(`REQUESTED`, `account_closed_at`)과 계정 CLOSED를 한 트랜잭션으로 처리하고, 그 사용자의 `SPRING_SESSION` 행을 모두 지운다(`PRINCIPAL_NAME`으로 찾음). 식별 정보와 기록은 지우지 않는다 | D-34, DB-04 6-1 |
-| 탈퇴 철회 | 요청 행을 잠그고 `REQUESTED`일 때만, 계정 ACTIVE + 요청 행 삭제를 한 트랜잭션으로. 이력은 남기지 않는다 | DB-04 6-1-1 |
-| 탈퇴 최종 삭제 | 대상은 `account_closed_at + WITHDRAWAL_GRACE_DAY(30일) ≤ 현재`로 계산한다(삭제 예정일 컬럼 없음). 파일을 먼저 지우고 `deleted_at`을 채운 뒤, 적재 기록 → 세션 → 일별 통계 → 기준 자세 → 삭제 요청 → 계정을 한 트랜잭션으로 지운다(세션이 기준 자세를 막으므로 세션이 먼저). 동의 기록은 계정 삭제에 연쇄된다(FK-19). 완료 안내는 커밋 뒤에, 미리 읽어 둔 연락처로 보낸다 | D-34, DB-04 6-1 |
-| 삭제 배치 공통 | 파일 먼저, 행은 하위부터, 사용자 한 명 단위 트랜잭션. 실패하면 되돌리고 요청을 FAILED로 둔다. 기록만 삭제할 때는 세션을 지운 뒤 현재 기준을 뺀 예전 기준 자세 행도 지운다 | DB-04 6장, D-39 |
-| 비밀번호 변경 | 지금 쓰는 세션을 뺀 그 사용자의 `SPRING_SESSION` 행을 지워 다른 기기의 기존 로그인을 끊는다 | 건의안 0001 #6, V2.1 |
+| 일별 통계 | **Spark J2**가 매일 00:00에 전날(KST) 세션을 사용자별로 집계해 쓴다. 입출구 서버는 읽기만 한다 — 둘 다 쓰면 두 번 더해진다. 세션 시작 시각의 KST 날짜로 집계한다. `alerted_event_count`는 `alert_enabled`가 참인 세션에서 알림 행이 있는 이벤트 수 | BR-61, BR-22, CR-04 |
+| 붕괴까지 걸린 시간 (최소·최대) | J2가 함께 계산한다. 실행 시간(`started_at` → `ended_at`)이 5분(`STAT_MIN_SESSION_SEC`) 이상인 세션만 쓴다 — 더 짧은 세션은 시험·잘못 시작한 기록으로 보고 뺀다. 세션마다 구간을 나눈다: 세션 시작 또는 직전 붕괴 이벤트의 `ended_at` → 다음 붕괴의 `started_at`, 마지막 구간은 → 세션 `ended_at`(붕괴 없이 끝난 구간도 표본에 넣는다). 각 구간 길이에서 겹친 제외 구간 시간을 뺀다. 그날 모든 표본의 최솟값·최댓값을 넣고, 표본이 없으면 둘 다 NULL. 주·월 값은 일별 최솟값의 최솟값, 최댓값의 최댓값 | BR-20, BR-53, ck_daily_stat_until_collapse |
+| 탈퇴 접수 | 삭제 요청(`REQUESTED`, `account_closed_at`)과 계정 CLOSED를 한 트랜잭션으로 처리하고, 그 사용자의 `SPRING_SESSION` 행을 모두 지운다(`PRINCIPAL_NAME`으로 찾음). 식별 정보와 기록은 지우지 않는다. **되돌릴 수 없다**(철회 없음) | D-34, DB-04 6-1 |
+| 탈퇴 철회 | **하지 않는다** (2026-10-15 결정). 접수한 탈퇴는 되돌릴 수 없다. 30일 유예는 남긴다 — Kafka(3일)·DLQ(7일)·Redis 보존 기간이 모두 30일보다 짧아, 유예 뒤에 지우면 서버 어디에도 데이터가 남지 않는다. `deletion_request` 상태를 바꾸는 쪽은 J3뿐이라 철회·삭제가 겹칠 일이 없다 | 「아키텍처 v5.2 전환 영향」 공지 ① |
+| 탈퇴 최종 삭제 | **Spark J3**가 매일 04:00에 처리한다(입출구 서버는 접수만). 유예가 끝났고 상태가 `REQUESTED`(재시도면 `FAILED`)인 요청만 `PROCESSING`으로 바꾼 뒤 시작한다. 대상은 `account_closed_at + WITHDRAWAL_GRACE_DAY(30일) ≤ 현재`로 계산한다(삭제 예정일 컬럼 없음). 사용자 폴더를 먼저 지우고 `deleted_at`을 채운 뒤, 적재 기록 → 세션 → 일별 통계 → 기준 자세 → 삭제 요청 → 계정을 한 트랜잭션으로 지운다(세션이 기준 자세를 막으므로 세션이 먼저). 동의 기록은 계정 삭제에 연쇄된다(FK-19). 완료 안내는 **J3가 직접**, 커밋 뒤에 미리 읽어 둔 연락처로 보낸다. 롤백(`FAILED`)이면 보내지 않고, 발송이 실패해도 삭제는 되돌리지 않으며 로그에는 사용자 ID만 남긴다 | D-34, DB-04 6-1, 아키텍처 v5.2 ⑳ |
+| 삭제 배치 공통 | (J3) 파일 먼저, 행은 하위부터, 사용자 한 명 단위 트랜잭션. 실패하면 되돌리고 요청을 FAILED로 둔다. 기록만 삭제할 때는 세션을 지운 뒤 현재 기준을 뺀 예전 기준 자세 행도 지운다 | DB-04 6장, D-39 |
+| 비밀번호 변경 | 지금 쓰는 세션을 포함해 그 사용자의 `SPRING_SESSION` 행을 모두 지운다(`PRINCIPAL_NAME`으로 찾음). 열린 실시간 연결도 닫히고, 앱은 다시 로그인한다 | 건의안 0001 #6, V2.1, `contracts/accounts.v2.md` |
 | 가입 동의 | 계정 행과 필수 동의 5행(`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`·`AGE_14_OVER`)을 한 트랜잭션으로 넣는다. 하나라도 빠지면 가입을 거부한다. 선택 정보(`OPTIONAL_PROFILE`)는 동의했을 때만 넣고, 동의가 없으면 나이·직업을 받지 않는다. 거부는 저장하지 않는다. 만 14세 미만은 가입을 막는다(나이를 입력했는데 14 미만이면 거부 — DB는 검사하지 않는다) | FE 동의 제안서, FK-19 |
-| 동의 변경 | 선택 정보 동의를 철회하면 그 행에 `withdrawn_at`을 채우고 `user_account.age`·`occupation`을 같은 트랜잭션에서 비운다. 다시 동의하면 새 행. 약관이 바뀌면 새 `document_version`으로 다시 동의받아 새 행을 넣는다(종류별 가장 최근 행이 현재 상태). 필수 동의 철회는 탈퇴 요청으로 처리하고, 탈퇴 접수 때는 `withdrawn_at`을 채우지 않는다(유예 중 철회하면 그대로 유효) | 동의 제안서 1·4장 |
+| 동의 변경 | 선택 정보 동의를 철회하면 그 행에 `withdrawn_at`을 채우고 `user_account.age`·`occupation`을 같은 트랜잭션에서 비운다. 다시 동의하면 새 행. 약관이 바뀌면 새 `document_version`으로 다시 동의받아 새 행을 넣는다(종류별 가장 최근 행이 현재 상태). 필수 동의 철회는 탈퇴 요청으로 처리하고, 탈퇴 접수 때는 `withdrawn_at`을 채우지 않는다 — 동의 행은 유예가 끝나 계정을 지울 때 함께 지워진다(FK-19) | 동의 제안서 1·4장 |
 | 로그인 세션 | 서버 DB는 스키마 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 `SPRING_SESSION` 이름이 소문자로 바뀌어 라이브러리가 찾지 못한다 | 건의안 0001 #5 |
 
 ---
@@ -301,19 +336,29 @@ database/
 
 ## 11. 백엔드 코드와의 관계
 
-API(`backend/api`) 영구 모드는 아직 **V1.1 테이블**을 쓴다([ADR 0018](../docs/decisions/0018-db-schema-v11-service-storage.md)). 아래를 V2.3에 맞게 고치기 전까지 V2.3 스키마로는 API 영구 모드와 Compose `db`가 시작되지 않는다.
+DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.4**, 처리 서비스는 아직 **V2.3** 표기로 확인한다([ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)). 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
 
-| 고칠 곳 | 내용 |
+| 구성 | 위치 | 시작할 때 DB 확인 | 맞지 않으면 |
+|---|---|---|---|
+| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 13개, V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 9개(기준 자세 ID·좌표, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at` 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지 | **시작하지 않는다** — V2.3 DB는 013·014를 적용해야 시작한다 |
+| 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 13개, 지운 테이블, 저장에 쓸 컬럼, V2.3 표시(migration 011·012), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. V2.4 표기·`row_count` 확인은 DevOps 반영 전 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다 |
+
+**설정**
+
+| 항목 | 값 |
 |---|---|
-| `SchemaVerifier` | 확인하는 테이블 24개 → 13개. `model_version`의 `REFERENCE-RULE-1` 확인을 뺀다. 기본 정책을 이름 대신 값 4개로 확인한다 |
-| `ThresholdPolicyStore` | 기본 정책을 `policy_name` 대신 값 4개로 찾는다. `notify_max_per_hour`·`policy_name`·`created_by`를 쓰지 않는다 |
-| `JdbcSessionStore`, `SessionSetup`, `UserStore`, `PersistentSessionService` | V2.0·V2.1에서 지운 테이블·컬럼(`capture_device`, `input_result`, `cep_outbox`, `confirmed_snapshot`, `cep_cleanup`, `feature_def`, `safety_range`, `baseline_feature`, `client_record`, `auth_epoch`, `monitor_session.capture_device_id`·`model_version_code`·`frame_width`·`frame_height`, V2.2에서 지운 컬럼 13개)을 쓰지 않게 한다. 기준 자세·세션 생성·탈퇴는 9장대로 바꾼다 |
-| `application-persistent.properties` | `connectionTimeZone=UTC` → `Asia/Seoul`, `posegood.model-version-code` 삭제 |
-| `compose.yaml`, `tools/compose_smoke.py` | 접속 주소의 `connectionTimeZone=UTC` → `Asia/Seoul` |
-| `infra/mysql/initdb/10-posegood-schema.sh` | `schema_V1_1.sql` → `schema_V2_3.sql` |
-| 테스트 | `PersistentMySqlTest` 등 V1.1 테이블을 쓰는 검증 |
+| 접속 시간대 | `connectionTimeZone=Asia/Seoul` — `backend/api` `application.properties`, `compose.yaml` |
+| 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
+| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_4.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.3으로 만든 볼륨은 migration 013·014를, V2.2로 만든 볼륨은 011~014를 적용한다(1장) |
 
-- API는 테이블을 만들거나 마이그레이션하지 않는다. 시작할 때 테이블·`user_account` 컬럼·시드를 확인하고, 없으면 시작하지 않는다.
-- Compose `db`는 **빈 볼륨에서만** `infra/mysql/initdb`가 1장 순서(스키마 → 시드)를 그대로 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.2로 만든 볼륨은 migration 011·012를 적용한다(1장).
-- 기본 정책은 이름이 아니라 값 4개로 찾는다. API 설정 `posegood.default-policy-name`(기본 `DEFAULT_TEMP`)은 기본값 4개 설정으로 바꾼다.
-- 저장 대응과 남은 한계는 [전환 계획](../docs/removed-docs.md)에 둔다.
+**아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, 예정)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
+
+| 일 | 담당 | 상태 (2026-10-20) |
+|---|---|---|
+| 실시간 판정 결과 저장 (`collapse_event`·`correction_alert`·`excluded_interval`·세션 종료 값) | 지금 입출구 서버(API 안 판정) → 계획 0031 2단계 뒤 처리 서비스만 | 입출구 서버가 쓰는 중. 둘이 함께 쓰지 않도록 전환 시점을 맞춘다 |
+| 탈퇴 접수 | 입출구 서버 `auth` | 구현됨. 철회 없음 |
+| 탈퇴 최종 삭제·완료 안내 | Spark J3 (매일 04:00) | **구현 전.** 입출구 서버의 삭제 스케줄러는 이미 지웠으므로, J3가 생기기 전까지 유예가 끝난 계정이 지워지지 않는다 |
+| `daily_stat` 집계 | Spark J2 (매일 00:00) | **구현 전.** 세션 종료 때 누적하던 코드는 이미 지웠으므로, J2가 생기기 전까지 일별 통계가 채워지지 않는다 |
+| `feature_archive` 기록 | Spark J1 (매시간) | **구현 전.** 세션 폴더 하나를 1행으로 기록한다(2026-10-15). 경로와 컬럼 설명은 V2.4에 반영했다(5장) |
+
+- 실시간 판정을 Kafka 경로로 옮기는 단계와 남은 한계는 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)에 둔다.

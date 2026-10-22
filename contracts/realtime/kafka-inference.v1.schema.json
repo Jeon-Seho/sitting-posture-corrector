@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/kafka-inference.v1.schema.json",
-  "title": "Topic posture.inference.v1 (draft): inference -> decision CEP",
+  "title": "Topic posture.inference.v1 (draft): inference -> decision (state machine)",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],

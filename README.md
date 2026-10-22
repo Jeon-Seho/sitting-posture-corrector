@@ -70,7 +70,7 @@ make dev
 
 개발 서버 모드는 JDK 17로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다(백엔드는 Gradle Wrapper로 빌드, [ADR 0023](docs/decisions/0023-backend-java17-boot4-gradle.md)).
 출력된 임시 포트 주소에서 측정하기 준비 화면의 ‘서버 판정 사용 · 개발 연결’을 선택한다. 종료는 Ctrl+C다.
-Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장은 메모리이며 완료 요약은 브라우저에 보관한다.
+Windows에서는 `python tools/dev.py dev-server`를 사용한다.
 이 개발 명령은 임시 MySQL DB를 만들고 끝나면 지운다. 영구 저장은 위 Compose 모드로 실행한다.
 
 ## 화면 구성
@@ -93,7 +93,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - 기본 3초 지속 후 이벤트·화면 알림, 60초 재알림 간격, 3초 정상 복귀 확인([ADR 0012](docs/decisions/0012-session-timing-policy.md), 2026-10-06 2초 → 3초)
 - 휴식·측정 불가는 유효 시간에서 제외하고 연속 이벤트를 끊음
 - 설정에서 시간·임계값 변경 가능 (모델 재학습 불필요, 다음 측정부터 적용)
-- 측정 종료 결과는 지금 이 브라우저에 저장됨(서버 연결 뒤에는 서버가 저장하고, 5분 미만 측정은 저장하지 않음). 예시 표시를 끄면 실제 기록을 보여줌
+- 측정 종료 결과는 지금 이 브라우저에 저장됨(서버 연결 뒤에는 서버가 저장함). 예시 표시를 끄면 실제 기록을 보여줌
 - 카메라는 측정하기에서 직접 켜고, 카메라가 필요 없는 화면으로 나가면 꺼짐 (측정 진행 중이면 유지)
 - 영상·음성 저장/업로드 없음. 자세 등록은 관절 좌표 CSV로만 내려받으며 측정 통계와 분리됨
 

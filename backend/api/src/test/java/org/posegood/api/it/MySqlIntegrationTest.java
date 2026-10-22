@@ -603,6 +603,187 @@ class MySqlIntegrationTest {
         assertEquals("ended", socket.next("closed").get("reason").asString());
     }
 
+    /** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨), 어깨 폭 약 192px. */
+    private static final double[][] UPRIGHT = {
+        {0.51234, 0.40211}, {0.53011, 0.3712}, {0.49012, 0.372}, {0.56021, 0.39012}, {0.46011, 0.391},
+        {0.52, 0.44}, {0.5, 0.44}, {0.66011, 0.62}, {0.36012, 0.62}
+    };
+
+    /** 관절 9개 프레임. {@code shift}만큼 머리(코·눈·귀·입)를 옆으로 옮긴다: 0.09면 좌우 치우침 약 0.3. */
+    private static ObjectNode frame(long t, double shift) {
+        var frame = MAPPER.createObjectNode().put("t_ms", t);
+        var p = frame.putArray("p");
+        for (int i = 0; i < 9; i++)
+            p.addArray().add(UPRIGHT[i][0] + (i < 7 ? shift : 0)).add(UPRIGHT[i][1]).add(0.95);
+        return frame;
+    }
+
+    /** v2 features 메시지(구간 1개, 0.5초). {@code shift}가 null이면 사람이 없는 프레임만 있다. */
+    private static ObjectNode frames(long sequence, String phase, Double shift) {
+        var message = MAPPER.createObjectNode().put("type", "features");
+        var item = message.putArray("items").addObject();
+        long start = sequence * 500;
+        item.put("schema_version", "3.0")
+                .put("feature_version", "keypoints-9-v1")
+                .put("sequence", sequence)
+                .put("start_ms", start)
+                .put("end_ms", start + 500)
+                .put("phase", phase);
+        var list = item.putArray("frames");
+        for (long t = start; t < start + 500; t += 125) {
+            if (shift == null) list.addObject().put("t_ms", t).putNull("p");
+            else list.add(frame(t, shift));
+        }
+        return message;
+    }
+
+    private static ObjectNode helloV2(String purpose, UUID id) {
+        return MAPPER.createObjectNode()
+                .put("type", "hello")
+                .put("schema_version", "2.0")
+                .put("purpose", purpose)
+                .put(purpose.equals("measure") ? "session_id" : "calibration_id", id.toString());
+    }
+
+    private static ObjectNode endV2(long endMs) {
+        return MAPPER.createObjectNode().put("type", "end").put("end_ms", endMs);
+    }
+
+    @Test
+    void realtimeV2RegistersABaselineAndMeasuresUntilEnd() throws Exception {
+        var api = client();
+        api.register(email());
+
+        // 자세 등록: 3초(구간 6개 x 판정 가능 프레임 4장) -> 서버가 평균을 저장하고 calibration_result(ok).
+        UUID calibrationId = UUID.randomUUID();
+        var calibration = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        calibration.send(helloV2("calibration", calibrationId));
+        assertEquals(calibrationId.toString(), calibration.next("ready").get("calibration_id").asString());
+        for (long sequence = 0; sequence < 6; sequence++) calibration.send(frames(sequence, "calibration", 0.0));
+        calibration.send(endV2(3000));
+        var result = calibration.next("calibration_result");
+        assertEquals("ok", result.get("status").asString());
+        assertEquals(24, result.get("valid_frames").asInt());
+        assertEquals(0.51234, result.get("landmarks").get("nose").get("x").asDouble(), 1e-9);
+        assertEquals("ended", calibration.next("closed").get("reason").asString());
+        UUID baseline = UUID.fromString(result.get("baseline_id").asString());
+        assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
+
+        // 실패한 등록(3초 미만)은 저장하지 않고 이전 기준이 그대로다.
+        var brief = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        brief.send(helloV2("calibration", UUID.randomUUID()));
+        brief.next("ready");
+        brief.send(frames(0, "calibration", 0.0));
+        brief.send(endV2(500));
+        assertEquals("incomplete", brief.next("calibration_result").get("reason").asString());
+        assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
+
+        // 측정: 3.5초 치우침(3초에 붕괴 확정) -> 0.5초 사람 없음 -> end 5초.
+        UUID id = UUID.randomUUID();
+        assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
+        var socket = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        socket.send(helloV2("measure", id));
+        assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
+        for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
+        var observation = socket.next("observation").get("observation");
+        assertEquals("3.0", observation.get("schema_version").asString());
+        assertTrue(observation.get("valid").asBoolean());
+        assertEquals(500, observation.get("valid_ms").asLong());
+        assertEquals("left_lean", observation.get("deviation_type").asString());
+        var decision = socket.next("decision", "collapse_confirmed");
+        assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
+        assertFalse(decision.has("session_id"));
+        JsonNode ack;
+        do ack = socket.next("ack");
+        while (ack.get("last_sequence").asLong() != 6);
+        socket.send(frames(7, "running", null));
+        JsonNode unmeasurable;
+        do unmeasurable = socket.next("observation").get("observation");
+        while (unmeasurable.get("sequence").asLong() != 7);
+        assertFalse(unmeasurable.get("valid").asBoolean());
+        assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
+        JsonNode progress;
+        do progress = socket.next("progress");
+        while (progress.get("last_sequence").asLong() != 7);
+        assertEquals("unmeasurable", progress.get("paused_reason").asString());
+
+        socket.send(endV2(5000));
+        var ended = socket.next("decision", "session_ended");
+        assertEquals(5000, ended.get("summary").get("total_ms").asLong());
+        assertEquals(3500, ended.get("summary").get("valid_ms").asLong());
+        assertEquals("ended", socket.next("closed").get("reason").asString());
+
+        // 끝난 세션으로 다시 hello하면 session_lost.
+        var again = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        again.send(helloV2("measure", id));
+        assertEquals("session_lost", again.next("closed").get("reason").asString());
+
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var row =
+                    statement.executeQuery(
+                            "SELECT COUNT(*),MAX(b.nose_x),MAX(b.right_shoulder_x) FROM baseline_posture b JOIN"
+                                    + " monitor_session m ON m.user_account_id=b.user_account_id WHERE"
+                                    + " m.client_session_uuid='" + id + "'");
+            assertTrue(row.next());
+            assertEquals(1, row.getInt(1));
+            assertEquals(0, new BigDecimal("0.51234").compareTo(row.getBigDecimal(2)));
+            assertEquals(0, new BigDecimal("0.36012").compareTo(row.getBigDecimal(3)));
+
+            var session =
+                    statement.executeQuery(
+                            "SELECT monitor_session_id,started_at,ended_at,good_sec FROM monitor_session"
+                                    + " WHERE client_session_uuid='" + id + "'");
+            assertTrue(session.next());
+            long key = session.getLong(1);
+            var started = session.getObject(2, LocalDateTime.class);
+            assertEquals(started.plusSeconds(5), session.getObject(3, LocalDateTime.class));
+            assertEquals(0, session.getBigDecimal(4).signum());
+
+            var episode =
+                    statement.executeQuery(
+                            "SELECT confirmed_at FROM collapse_event WHERE monitor_session_id=" + key);
+            assertTrue(episode.next());
+            assertEquals(started.plusSeconds(3), episode.getObject(1, LocalDateTime.class));
+            assertFalse(episode.next());
+
+            var excluded =
+                    statement.executeQuery(
+                            "SELECT exclusion_reason,TIMESTAMPDIFF(MICROSECOND,started_at,ended_at) FROM"
+                                    + " excluded_interval WHERE monitor_session_id=" + key + " ORDER BY started_at");
+            assertTrue(excluded.next());
+            assertEquals("UNMEASURABLE", excluded.getString(1));
+            assertEquals(500_000, excluded.getLong(2));
+            assertTrue(excluded.next());
+            assertEquals("MISSING", excluded.getString(1));
+            assertEquals(1_000_000, excluded.getLong(2));
+            assertFalse(excluded.next());
+        }
+    }
+
+    @Test
+    void realtimeV2DisconnectEndsTheSessionAtTheLastInterval() throws Exception {
+        var api = client();
+        api.register(email());
+        UUID id = UUID.randomUUID(), baseline = baseline(api);
+        assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
+        var socket = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        socket.send(helloV2("measure", id));
+        socket.next("ready");
+        for (long sequence = 0; sequence < 4; sequence++) socket.send(frames(sequence, "running", 0.0));
+        JsonNode ack;
+        do ack = socket.next("ack");
+        while (ack.get("last_sequence").asLong() != 3);
+        socket.abort();
+
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        JsonNode view;
+        do view = api.get("/v2/sessions/" + id).body();
+        while (!view.get("ended").asBoolean() && System.nanoTime() < deadline);
+        assertTrue(view.get("ended").asBoolean());
+        assertEquals(2000, view.get("summary").get("total_ms").asLong());
+        assertEquals(2000, view.get("summary").get("normal_ms").asLong());
+    }
+
     private static ObjectNode hello(UUID id, long lastEventId) {
         return MAPPER.createObjectNode()
                 .put("type", "hello")
@@ -687,13 +868,22 @@ class MySqlIntegrationTest {
         private WebSocket socket;
 
         static Socket open(int port, String cookie) throws Exception {
+            return open(port, cookie, "/v1/realtime");
+        }
+
+        static Socket open(int port, String cookie, String path) throws Exception {
             var listener = new Socket();
             var builder = HttpClient.newHttpClient().newWebSocketBuilder().header("Origin", "http://127.0.0.1:" + port);
             if (cookie != null) builder.header("Cookie", cookie);
             listener.socket =
-                    builder.buildAsync(URI.create("ws://127.0.0.1:" + port + "/v1/realtime"), listener)
+                    builder.buildAsync(URI.create("ws://127.0.0.1:" + port + path), listener)
                             .get(5, TimeUnit.SECONDS);
             return listener;
+        }
+
+        /** 앱이 끊긴 것처럼 연결을 끊는다(closed를 주고받지 않음). */
+        void abort() {
+            socket.abort();
         }
 
         void send(JsonNode message) throws Exception {

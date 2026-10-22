@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/kafka-episodes.v1.schema.json",
-  "title": "Topic posture.episodes.v1 (draft): decision CEP -> gateway (events and periodic progress)",
+  "title": "Topic posture.episodes.v1 (draft): decision (state machine) -> gateway (events and periodic progress)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -67,7 +67,7 @@
       }
     },
     "progress": {
-      "description": "Periodic (about 1 s) CEP state: everything up to last_sequence is counted in summary.",
+      "description": "Periodic (about 1 s) decision state: everything up to last_sequence is counted in summary.",
       "type": "object",
       "additionalProperties": false,
       "required": [

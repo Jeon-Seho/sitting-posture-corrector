@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "message_id": "00000000-0000-4000-8000-0000000000b1",
+  "session_id": "00000000-0000-4000-8000-0000000000a1",
+  "user_id": "synthetic-user-1",
+  "produced_at": "2026-10-18T06:00:08.120Z",
+  "kind": "alert",
+  "body": {
+    "event_id": 1,
+    "kind": "collapse_confirmed",
+    "deviation_type": "forward_slouch",
+    "timestamp_ms": 8000,
+    "onset_ms": 5000
+  }
+}

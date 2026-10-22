@@ -2,12 +2,13 @@
 
 ## 현재 상태와 작업
 
-웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.3 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
-앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 서버의 실시간은 지금 `/v1/realtime`이고 `/v2/realtime`으로 바꾸는 중이다([연동 명세](design/api-ws-spec.md)).
+웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
+서버 연동 뒤 앱은 관절 좌표를 보내고 판정은 서버가 하는 구조다([ADR 0021](decisions/0021-app-sends-information-server-judges.md), [연동 명세](design/api-ws-spec.md)). 서버의 실시간 구현 상태는 [백엔드 개발 상태](backend-status.md), 앱의 v2 전환 작업은 [계획 0023](plans/active/0023-frontend-server-only.md)을 확인한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
-- [팀 서비스 요구사항](removed-docs.md): 기능·역할·수용 기준·협의 항목.
+- 팀 서비스 요구사항: 기능·역할·수용 기준·협의 항목은 저장소 밖 팀 구글 시트(디스코드 공유)에서 관리한다. [문서 이동 안내](removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개)는 이동 기록이며 요구사항 원문은 아니다. 실제 시트 주소는 저장소에 미기재다.
+- [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록. FE 설계(실시간 v2·WS 자세 등록)와 다른 곳은 [계획 0029](plans/active/0029-merge-backend-data-platform.md) D1~D9.
 - [백엔드 Java 17·Spring Boot 4·Gradle 전환](plans/active/0028-backend-java17-boot4-gradle.md)([ADR 0023](decisions/0023-backend-java17-boot4-gradle.md)): 백엔드·개발 도구 변경과 Docker·CI 팀원 작업 요청.
@@ -22,7 +23,7 @@
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
 - **배포 구상:** [도메인 + Vercel + Cloudflare 터널](design/fe-domain-idea.md) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`), 가짜 서버 모드로 화면 작업을 서버와 분리(10/19, 천천히 진행).
 - **동의:** [개인정보 수집 동의](design/consent-proposal.md) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
-- **10/12~14 결정 요약:** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 통계는 서버가 계산하고 앱은 표시만. 오늘 측정은 끝났을 때 그 세션만 결과에 보이고, 기록 목록에는 오늘 세션도 보이되 통계는 어제까지(10/14). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
+- **10/12~14 결정 요약(통계 표시 10/22 보완):** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 세션 판정·사건·요약과 어제까지의 일별 통계는 서버가 계산한다. 방금 끝난 세션은 결과 화면에 따로 표시하고, 오늘 목록·합산·달력·그래프는 로컬에 수집한 서버 결과로 표시한다. 기간 화면은 서버의 과거 통계와 로컬 오늘 값을 함께 사용한다([연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
 - **10/16 탈퇴:** 탈퇴는 되돌릴 수 없다(BE 10/15, 철회 A8 없어짐). 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 앱은 연락처 안내를 보인다([연동 명세](design/api-ws-spec.md) 0.7).
 - **10/15 정리:** BE와 이름이 다르면 BE에 맞춘다(적재된 기록 삭제 거부는 409 `CONFLICT`). 배치 번호는 아키텍처 v5.2(J1 적재, J2 집계 00:00, J3 탈퇴 삭제 04:00). DB 저장 이름·단위는 [연동 명세](design/api-ws-spec.md) 1장. 실시간은 `/v2/realtime`으로 확정(BE 답). BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
@@ -43,8 +44,8 @@
 | 어떻게 작업·실행하는가? | [AGENTS](../AGENTS.md), [개발 흐름](development.md), [프론트](../frontend/README.md), [백엔드](../backend/README.md) |
 | 브랜치·커밋 이름은? | [Git 명명 규칙](../CONTRIBUTING.md) |
 | 무엇을 검증하는가? | [품질 기준](quality.md) |
-| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md) |
-| 어떻게 배포·복원하는가? | [infra](../infra/README.md) |
+| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [플랫폼 책임](design/data-platform-boundary.md), [Kafka 명세](design/kafka-spec.md)(처리 서비스 층 토픽·메시지·DLQ), [처리 서비스 HTTP API](design/processing-api-spec.md)(운영·확인용) |
+| 어떻게 배포·복원하는가? | [infra](../infra/README.md), 빅데이터 플랫폼(서버 PC)은 같은 문서의 "빅데이터 플랫폼" 절과 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md) |
 | 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 진입 결정](decisions/0016-collection-entry-and-camera-preview-window.md) |
 | 시간·특징 정책은? | [시간 정책](decisions/0012-session-timing-policy.md), [서버 특징](decisions/0013-frontend-server-feature-connection.md), [어깨 척도](decisions/0019-shoulder-tilt-scale.md) |
@@ -53,12 +54,10 @@
 
 ## 이력과 근거
 
-[완료 계획](plans/completed/)에는 구현 범위와 당시 검증을, [감사 기록](removed-docs.md)에는 시점별 결과·한계를 남긴다.
-최근 개인 파일럿은 [완료 0019](removed-docs.md), 카메라 창은 [완료 0018](removed-docs.md),
-계정·Compose는 [완료 0017](removed-docs.md)을 참고한다.
+[완료 계획 폴더](plans/completed/)는 완료 문서의 보관 위치다. 삭제된 개인 파일럿(0019)·카메라 창(0018)·계정·Compose(0017) 문서의 정리 내역은 [지운 문서 목록](removed-docs.md)에서 확인한다. 이 목록은 원문의 구현 범위·검증 결과를 대신하지 않는다.
 [현재 DB V2.3 연동 결정](decisions/0022-db-v23-feature-v2-integration.md)을 우선 참고한다.
 과거 백엔드 V2(DB V2.2) 구현 범위·남은 일·문제는 [2026-10-10 현황](audits/2026-10-10-backend-v2-status.md)에 있다.
-[Mac 통합 점검](removed-docs.md), [lee 브랜치 기록](removed-docs.md), [페르소나 메모](removed-docs.md)는 해당 시점의 참고다.
+Mac 통합 점검·lee 브랜치 기록·페르소나 메모는 삭제된 문서이며, [정리 내역](removed-docs.md)을 참고한다.
 과거 계획서의 스택·수치와 과거 작업 승인은 현재 작업의 의무나 권한으로 취급하지 않는다.
 
 ## 문서의 권위와 유지
