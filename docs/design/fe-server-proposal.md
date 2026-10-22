@@ -1,10 +1,10 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에) · 대상: 팀 전원 — 팀장(Jeon-Seho), BE·DevOps(홍규, ghdrb1246), DB(유진, sunshine-jyi), ML(지성, jisung), 화면(lellon0403)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에. 저녁: 남은 앱 판정 삭제(F5), API·WS 대조와 F12 브랜치 검수를 7.2에, BE-4) · 대상: 팀 전원 — 팀장(Jeon-Seho), BE·DevOps(홍규, ghdrb1246), DB(유진, sunshine-jyi), ML(지성, jisung), 화면(lellon0403)
 > **사람 표기:** 이 문서의 BE·DevOps는 홍규(ghdrb1246), DB는 유진(sunshine-jyi), ML은 지성(jisung), 화면은 lellon0403(기록·달력·측정하기), FE는 klaod-tech다. 학습용 자세 데이터 수집 화면은 jisung이 진행 중이다.
 > **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API — [연동 명세](api-ws-spec.md) 3장 표. F1~F15는 FE 할 일 — 이 문서 7장. BE-1~BE-4는 BE에 요청한 것 — 이 문서 1장. G1~G6은 `make check` 실패 항목 — [계획 0030](../plans/active/0030-make-check-failures.md). D-nn·T-nn은 BE·DevOps 작업 번호, J2·J3은 서버의 Spark 작업(일별 집계·탈퇴 삭제) — [아키텍처 v5.2](architecture_v5.2_stack_roles.md).
 > **이 문서의 역할:** FE의 **전제·결정 요약, 남은 질문, 할 일, 10/22 기준 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0025](../decisions/0025-app-always-measures-on-server.md)·[0026](../decisions/0026-baseline-average-by-app-b1.md)), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md), 배포는 [배포](fe-deploy.md)다.
-> 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). 서버 코드 기준은 이 브랜치에 받은 BE 브랜치 `d87d497`(10/21). 10/22 BE 브랜치 최신 `047a095`는 옛 경로 정리뿐이라 받지 않았고, 앱 로그인 연결(F12)·CORS는 아직 BE 브랜치에 없다(BE가 로컬에서 로그인을 확인했다고 들음).
+> 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). 서버 코드 기준은 이 브랜치에 받은 BE 브랜치 `d87d497`(10/21). 10/22 BE 브랜치 최신 `047a095`는 옛 경로 정리뿐이라 받지 않았고, 앱 로그인 연결(F12)은 ghdrb1246이 10/22 `feature/fe-v2-auth-login`(`f27dd24`, BE 브랜치 위의 V2 화면 기준)에 올렸고, 서버 안 화면 컨테이너(8088, 같은 출처)에서 확인했다. V3에 옮길 때 맞출 것은 7.2의 「F12 브랜치 검수」. CORS는 아직 BE 코드에 없다.
 
 ## 1. 남은 질문과 요청
 
@@ -109,7 +109,7 @@ FE가 정한 것(앱 쪽 동작):
 | F6 | 측정 화면의 「좌표 전송 안 함」 문구 고치기 | 안 함 | — |
 | F9 | 서버 PC 왕복 시험(T-13) 일정 잡기 | 안 함 | DevOps 8088 환경 |
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
-| F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **BE 담당(10/14).** BE 브랜치(`047a095`)에 아직 없음. FE는 가입·동의 화면과 `consentPayload()`를 넘기고 질문에 답한다 | BE · 연동 명세 2장 |
+| F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **BE 담당(10/14).** 10/22 `feature/fe-v2-auth-login` `f27dd24`(ghdrb1246)에 A1~A5 연결(가입·로그인·로그아웃·`me`, CSRF 403 재시도, 비밀번호 12자). V2 화면 기준이라 V3로 옮겨야 한다(7.2). 비밀번호 변경·탈퇴·선택 동의·W1은 아직. FE는 가입·동의 화면과 `consentPayload()`를 넘기고 질문에 답한다 | BE · 연동 명세 2장 |
 | F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
 | F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · [배포](fe-deploy.md) 4장 5단계 |
 | F15 | v2 전환으로 필요 없어진 코드 정리 | 끝남(10/21, 7.1 표) | — |
@@ -152,10 +152,23 @@ FE가 정한 것(앱 쪽 동작):
 | 4 | 실제 서버 시험: DevOps 8088 환경(`ssh -L 8088:127.0.0.1:8088`)에서 로그인 → 등록 → 측정 → 종료 → 기록. 그 환경의 화면은 BE 브랜치의 `frontend/`로 빌드되므로 V3 화면으로 빌드해야 한다(DevOps와 정하기) | F12·W1 |
 | 5 | S1 `policy`를 W1 `rules`로(F1-a, BE-3) | W1 |
 | 6 | 남은 앱 계산: 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`, T1로). 기준 특징 다리는 10/22 지움 | 2 |
-| 7 | F12를 받으면 맞출 것: 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 403 `ACCESS_DENIED`면 CSRF를 다시 받아 한 번 재시도(연동 명세 1장. 10/22 기준 `api.ts`는 바로 「로그인이 필요해요」), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | F12 |
+| 7 | F12를 옮기며 맞출 것(위 「F12 브랜치 검수」): `setServerAuth` 연결, 409 `AUTH_CHANGED`면 A4로 계정을 다시 받고 `setServerAuth` 갱신(10/22 기준 일반 `conflict` 안내), 403 `ACCESS_DENIED`면 CSRF를 다시 받아 한 번 재시도(연동 명세 1장. 10/22 기준 `api.ts`는 바로 「로그인이 필요해요」), 계정이 바뀐 뒤 도착한 이전 계정의 B1·B2 응답은 버리기 | F12 |
 | 8 | S1은 됐는데 WS가 열리지 않은 세션을 S3로 닫을지 BE와 정하기(연동 명세 4장 S3·S4). 측정 중 끊김·`ready` 초과는 서버가 끝낸다 | BE 확인 |
 
 **10/22 V3 코드 검토로 고친 것:** S1·B1은 응답이 없으면(연결 오류·5초 초과) 같은 본문으로 다시 보냄(`retryUnanswered`), B2가 실패하면 등록을 자동으로 시작하지 않고 「다시 불러오기」·「새로 등록」, S1 응답 전에 측정을 끝내면 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4를 한 번만. 같은 날 남은 앱 판정(어깨 유예·머리 판정·고개 돌림·특징값 계산)도 지웠다(F5). 시험 217개 통과.
+
+**10/22 F12 브랜치 검수** (`origin/feature/fe-v2-auth-login` `f27dd24`, ghdrb1246 — 서버 컨테이너 8088에서 확인. 우리는 Cloudflare 터널 `api.posegood.site`로 붙으므로 검수용으로만 봄):
+
+| 항목 | 그 브랜치 | V3로 옮길 때 |
+|---|---|---|
+| 기준 코드 | BE 브랜치(`047a095`) 위 = V2 화면. `LocalServiceApp`이 `workspace.setDraft(loadLocalState().draft)`를 부른다 | 이어하기(draft)는 V3에서 지웠으므로 그 줄은 빼고 옮긴다. `serverConfig.ts`도 양쪽이 고쳐 충돌한다 |
+| `accountClient.ts`(A1~A5) | `/api/v2/auth`, `credentials: 'include'`, CSRF 캐시(로그인·로그아웃 때 비움), **403 `ACCESS_DENIED`면 토큰을 새로 받아 한 번 재시도**, 로그아웃에 `X-PoseGood-User-Id`, 시간 초과 10초 | 그대로 가져온다. 7.2 7번의 CSRF 403 재시도를 V3 `api.ts`에도 같은 방식으로 넣는다 |
+| 로그인 뒤 V3 서버 요청 | 없음(그 브랜치에는 `setServerAuth`가 없다) | 로그인·가입·`me` 성공 때 `setServerAuth({ userId: view.user_id, csrfToken })`, 로그아웃 때 `setServerAuth(null)`. CSRF 토큰은 `accountClient`의 것을 같이 쓴다(두 군데서 따로 받으면 로그인 때 하나가 낡는다) |
+| `VITE_SERVER_ACCOUNTS` | 다시 만든 스위치. `true`면 서버 계정, 없으면 이 기기 로컬 로그인. 서버 컨테이너 Dockerfile은 `true` | V3는 항상 서버로 측정하므로(ADR 0025) 로컬 로그인으로는 측정할 수 없다. Vercel 운영 환경 변수에 `true`를 넣거나 스위치 없이 항상 서버 계정으로 할지 정한다 |
+| 앱을 다시 열 때 | `me()`로 로그인 되살림. 실패는 조용히 무시 | V3는 그 뒤 B2(기준 자세)를 받으므로 `me()` 성공 → `setServerAuth` 순서가 맞아야 한다. `me()` 응답은 형식 검사 없이 쓴다(로그인·가입은 검사) |
+| 409 `AUTH_CHANGED` | 로그아웃만 헤더를 보냄, 실패는 무시 | 7.2 7번 그대로: V3 `api.ts`에서 받으면 `me()`로 다시 맞춘다 |
+| 같은 출처 전제 | 8088 화면 컨테이너(같은 출처)에서만 확인 | `app.posegood.site` → `api.posegood.site`는 다른 출처라 CORS(BE, 아직 없음)·`POSEGOOD_COOKIE_SECURE=true`·WS 허용 출처가 있어야 한다([배포](fe-deploy.md)) |
+| 시험 | `accountClient.test.ts`, `LocalServiceApp.accounts.test.tsx` | 함께 옮긴다 |
 
 **10/22 서버 연동 전 API·WS 대조** (BE 브랜치 `047a095` 코드 — API 명세·계약·서버 코드가 V3가 받은 `d87d497`과 같음):
 

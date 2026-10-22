@@ -71,7 +71,7 @@
 - [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 남음.
 - [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
-- [ ] 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 BE 브랜치 `047a095`에는 아직 없다. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
+- [ ] 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
 - [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 R1·T1로 붙인다(10/14). 그때까지 측정 결과를 이 기기에도 R1과 같은 형식(`server.view` = SessionView)으로 남긴다(`useSessionPersistence.ts`, R1로 바꾸면 지움).
 
 ### 4단계 — 검증과 정리
