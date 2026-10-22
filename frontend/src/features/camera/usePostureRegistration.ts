@@ -20,7 +20,9 @@ const TICK_MS = 100
  * to register again.
  */
 export function usePostureRegistration(camera: CameraController, measuring: boolean) {
-  const [armed, setArmed] = useState(() => !camera.baseline && !camera.baselineLoading)
+  const [armed, setArmed] = useState(
+    () => !camera.baseline && !camera.baselineLoading && !camera.baselineError,
+  )
   const [phase, setPhase] = useState<RegistrationPhase>('waiting')
   const [now, setNow] = useState(() => performance.now())
   /** Why the last attempt failed; null for the capture time limit (the headline explains it). */

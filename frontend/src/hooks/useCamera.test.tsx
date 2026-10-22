@@ -191,6 +191,25 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.calibrationId).toBe(id)
     expect(camera.baseline).not.toBeNull()
   })
+  it('says when the registered posture could not be loaded and clears it on a successful reload', async () => {
+    await connect()
+    await calibrate()
+    const id = camera.calibrationId
+    act(() => renderer?.unmount())
+    server.failCurrent.push(0)
+    act(() => {
+      renderer = create(<Probe />)
+    })
+    await settle()
+    expect(camera.baselineLoading).toBe(false)
+    expect(camera.baseline).toBeNull()
+    expect(camera.baselineError).toBe('서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.')
+    await act(async () => {
+      await camera.reloadBaseline()
+    })
+    expect(camera.baselineError).toBeNull()
+    expect(camera.calibrationId).toBe(id)
+  })
   it('cancels pending permission requests and stops late-arriving tracks', async () => {
     const request = defer<MediaStream>()
     getUserMedia.mockReturnValueOnce(request.promise)

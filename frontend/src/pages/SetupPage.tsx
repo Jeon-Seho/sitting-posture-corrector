@@ -55,12 +55,12 @@ export function SetupPage({
   const latest = useRef({ flow, onStart })
   latest.current = { flow, onStart }
   useEffect(() => {
-    // Wait for B2 first: the server may already have a posture.
-    if (camera.baselineLoading && !registerAgain) return
+    // Wait for B2 first: the server may already have a posture. If B2 failed, the user chooses.
+    if ((camera.baselineLoading || camera.baselineError) && !registerAgain) return
     if ((!registered || registerAgain) && !measuring && !latest.current.flow.armed) latest.current.flow.start()
     // Only when the posture goes missing or the page opens for a new registration.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registered, registerAgain, camera.baselineLoading])
+  }, [registered, registerAgain, camera.baselineLoading, camera.baselineError])
   // A registration that finished here starts the measurement right away.
   useEffect(() => {
     if (flow.phase === 'done' && !measuring && !registerAgain) latest.current.onStart()
@@ -78,11 +78,13 @@ export function SetupPage({
   cameraRef.current = camera
   useEffect(() => () => cameraRef.current.cancelCalibration(), [])
 
+  const loadFailed = !registered && !registering && !registerAgain && !measuring ? camera.baselineError : null
   const step = !on ? 0 : !camera.quality ? 1 : registering || !registered ? 2 : 3
   const [title, desc] = headline({
     registerAgain,
     measuring,
     finished,
+    loadFailed,
     on,
     quality: camera.quality,
     failed: flow.phase === 'failed',
@@ -118,6 +120,17 @@ export function SetupPage({
               <ArrowLeft size={14} weight="bold" className="icon" />
               설정으로
             </button>
+          )}
+          {loadFailed && (
+            <>
+              <button className="chip" disabled={camera.baselineLoading} onClick={() => void camera.reloadBaseline()}>
+                <ArrowCounterClockwise size={14} weight="bold" className="icon" />
+                다시 불러오기
+              </button>
+              <button className="chip" disabled={!on} onClick={flow.start}>
+                새로 등록
+              </button>
+            </>
           )}
           {registered && !registering && !measuring && (
             <button className="chip" disabled={!on} onClick={flow.start}>
@@ -345,6 +358,8 @@ function headline(s: {
   registerAgain: boolean
   measuring: boolean
   finished: boolean
+  /** B2 failed (why); the user loads it again or registers a new posture. */
+  loadFailed: string | null
   on: boolean
   quality: boolean
   failed: boolean
@@ -361,6 +376,7 @@ function headline(s: {
   if (s.registerAgain && s.measuring)
     return ['측정 중에는 기준 자세를 바꿀 수 없어요', '진행 중인 측정을 마친 뒤 다시 등록해 주세요.']
   if (s.finished) return ['새 기준 자세를 등록했어요', '이제 이 자세와 비교해서 알려드려요.']
+  if (s.loadFailed) return ['등록한 기준 자세를 불러오지 못했어요', s.loadFailed]
   if (!s.on)
     return s.registered && !s.registerAgain
       ? ['카메라를 켜 주세요', '등록한 기준 자세로 바로 측정할 수 있어요.']

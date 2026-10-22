@@ -64,13 +64,20 @@ export function baselineBody(captured: CapturedBaseline, registeredAt: string) {
   }
 }
 
-/** B1 `POST /v2/baselines`: saves the captured posture and returns what the server stored. */
+/**
+ * B1 `POST /v2/baselines`: saves the captured posture and returns what the server stored. A
+ * repeat with the same `registered_at` and coordinates returns the same row, so a request that
+ * got no answer is sent again.
+ */
 export async function registerBaseline(
   captured: CapturedBaseline,
   registeredAt: string,
   options: ApiOptions = {},
 ): Promise<ServerBaseline> {
   return parsed(
-    await apiRequest('/v2/baselines', { method: 'POST', body: baselineBody(captured, registeredAt) }, MESSAGES, options),
+    await apiRequest('/v2/baselines', { method: 'POST', body: baselineBody(captured, registeredAt) }, MESSAGES, {
+      retryUnanswered: true,
+      ...options,
+    }),
   )
 }

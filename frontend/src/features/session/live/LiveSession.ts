@@ -167,7 +167,8 @@ export class LiveSession {
           `/v2/sessions/${encodeURIComponent(sessionId)}`,
           { method: 'PUT', body: { policy, baseline_id: baselineId } },
           MESSAGES,
-          this.options.api,
+          // No answer: the same id and body again (api-ws-spec 4장 S1).
+          { retryUnanswered: true, ...this.options.api },
         ),
       )
       if (!view) throw new ApiError('server', MESSAGES.server)
@@ -178,7 +179,8 @@ export class LiveSession {
       this.finish({ phase: 'failed', message })
       return
     }
-    if (this.disposed) return
+    // Ended (「측정 종료」, the small window's X) while S1 was still on its way.
+    if (this.disposed || this.over()) return
     // `t_ms` 0 is the moment S1 answered (api-ws-spec 4.4).
     this.origin = this.now()
     this.batcher = new FrameBatcher(this.origin, this.state.sending)
@@ -208,6 +210,8 @@ export class LiveSession {
     this.socket = null
     if (this.over()) return
     if (this.state.phase === 'ending') {
+      // S4 now instead of after the 10 s wait.
+      this.clearTimer()
       void this.fetchResult()
       return
     }

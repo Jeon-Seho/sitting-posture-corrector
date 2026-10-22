@@ -35,6 +35,7 @@ const EMPTY_METRICS: CameraMetrics = { fps: 0, inferenceMs: 0, delegate: 'CPU' }
 const FRAME_WIDTH = 640
 const FRAME_HEIGHT = 480
 const OUT_OF_FRAME = '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉은 뒤 다시 등록해 주세요.'
+const BASELINE_LOAD_FAILED = '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.'
 
 /**
  * `Features` of the server baseline for code that still judges or collects locally (session
@@ -102,11 +103,17 @@ export function useCamera() {
   const [registrationError, setRegistrationError] = useState<string | null>(null)
   /** B2 has not answered yet: do not ask to register a posture the server may already have. */
   const [baselineLoading, setBaselineLoading] = useState(() => !!getServerAuth())
+  /**
+   * B2 failed: the server may still have a posture, so the app does not ask to register a new
+   * one by itself; the user loads it again or chooses to register.
+   */
+  const [baselineError, setBaselineError] = useState<string | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
 
   const applyBaseline = useCallback((saved: ServerBaseline | null) => {
     setServerBaseline(saved)
     setBaseline(baselineFeatures(saved))
+    setBaselineError(null)
   }, [])
 
   /** B2: the newest registered posture of the signed-in account (none when signed out). */
@@ -117,11 +124,14 @@ export function useCamera() {
       return
     }
     setBaselineLoading(true)
+    setBaselineError(null)
     try {
       const saved = await fetchCurrentBaseline()
       if (mounted.current) applyBaseline(saved)
-    } catch {
-      /* Keep what is shown; the next registration or sign-in tries again. */
+    } catch (cause) {
+      // Keep what is shown and say why; 「다시 불러오기」 or the next sign-in tries again.
+      if (mounted.current)
+        setBaselineError(cause instanceof ApiError && cause.kind === 'signed_out' ? cause.message : BASELINE_LOAD_FAILED)
     } finally {
       if (mounted.current) setBaselineLoading(false)
     }
@@ -441,6 +451,7 @@ export function useCamera() {
     registering,
     registrationError,
     baselineLoading,
+    baselineError,
     reloadBaseline,
     current,
     lastFrame,

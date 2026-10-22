@@ -67,8 +67,24 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
       kind: 'conflict',
     })
     const offline = vi.fn().mockRejectedValue(new TypeError('offline'))
-    await expect(registerBaseline(captured, stored.registered_at, { fetch: offline })).rejects.toMatchObject({
-      kind: 'network',
-    })
+    await expect(
+      registerBaseline(captured, stored.registered_at, { fetch: offline, retryDelayMs: 0 }),
+    ).rejects.toMatchObject({ kind: 'network' })
+    expect(offline).toHaveBeenCalledTimes(4)
+  })
+
+  it('sends B1 again with the same body when no answer came back (B1 returns the same row)', async () => {
+    setServerAuth({ userId: USER, csrfToken: async () => 'token' })
+    const fetch = vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(reply(200, stored))
+    expect((await registerBaseline(captured, stored.registered_at, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body)
+  })
+
+  it('does not repeat B2 when no answer came back', async () => {
+    setServerAuth({ userId: USER, csrfToken: async () => 'token' })
+    const offline = vi.fn().mockRejectedValue(new TypeError('offline'))
+    await expect(fetchCurrentBaseline({ fetch: offline, retryDelayMs: 0 })).rejects.toMatchObject({ kind: 'network' })
+    expect(offline).toHaveBeenCalledOnce()
   })
 })

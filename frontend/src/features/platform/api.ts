@@ -4,7 +4,7 @@ import { getServerAuth } from './serverAuth'
 /**
  * One way to call the API (BE api-spec 1장): `/api` prefix, login cookie, `X-PoseGood-User-Id`,
  * `X-CSRF-TOKEN` on writes, 502·503 retried with the same body at 1·2·4 s at most 3 times
- * (api-ws-spec 1.1), 5 s timeout.
+ * (api-ws-spec 1.1), 5 s timeout. `retryUnanswered` also retries a request that got no answer.
  */
 export type ApiErrorKind = 'signed_out' | 'invalid' | 'conflict' | 'not_found' | 'busy' | 'limit' | 'server' | 'network'
 
@@ -26,6 +26,12 @@ export type ApiOptions = {
   timeoutMs?: number
   retries?: number
   retryDelayMs?: number
+  /**
+   * Also retry when no answer came back (network error, timeout). Only for requests the server
+   * treats as the same request when repeated: S1 (same id and body) and B1 (same `registered_at`
+   * and coordinates), api-ws-spec 4장.
+   */
+  retryUnanswered?: boolean
 }
 
 const DEFAULT_TIMEOUT_MS = 5000
@@ -84,10 +90,14 @@ export async function apiRequest(
         credentials: 'include',
       })
     } catch {
-      throw new ApiError('network', messages.network)
-    } finally {
       clearTimeout(timer)
+      if (options.retryUnanswered && attempt < retries) {
+        await wait((options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS) * 2 ** attempt)
+        continue
+      }
+      throw new ApiError('network', messages.network)
     }
+    clearTimeout(timer)
     if (response.ok) return response.json().catch(() => null)
     if ((response.status === 502 || response.status === 503) && attempt < retries) {
       await wait((options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS) * 2 ** attempt)

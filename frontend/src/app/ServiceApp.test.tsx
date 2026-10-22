@@ -72,6 +72,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       registering: false,
       registrationError: null,
       baselineLoading: false,
+      baselineError: null,
       quality: false,
       error: '',
       devices: [],
@@ -87,6 +88,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       connect: vi.fn(),
       calibrate: vi.fn(),
       cancelCalibration: vi.fn(),
+      reloadBaseline: vi.fn(),
       setOverlayEnabled: vi.fn(),
       setVisualMode: vi.fn(),
       reassemble: vi.fn(),
@@ -332,6 +334,22 @@ describe('service recovery and saving with synthetic storage only', () => {
     rerender()
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
+  })
+  it('lets the user load again or register when B2 failed, without registering by itself', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baselineError = '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.'
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세를 불러오지 못했어요')
+    click('다시 불러오기')
+    expect(controls.camera.reloadBaseline).toHaveBeenCalledOnce()
+    click('새로 등록')
+    advance(3500)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
   it('starts at once from the camera view when a posture is registered', () => {
     controls.camera.state = 'on'

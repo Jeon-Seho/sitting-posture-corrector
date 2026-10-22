@@ -112,6 +112,44 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(socket.sent).toEqual([{ type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: SESSION }])
   })
 
+  it('sends S1 again with the same id and body when no answer came back', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('offline'))
+    const live = make()
+    const starting = live.start()
+    await vi.advanceTimersByTimeAsync(100)
+    await starting
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls[1][0]).toBe(fetch.mock.calls[0][0])
+    expect(fetch.mock.calls[1][1]!.body).toBe(fetch.mock.calls[0][1]!.body)
+    expect(live.state.phase).toBe('connecting')
+  })
+
+  it('does not connect when the measurement was ended while S1 was on its way', async () => {
+    let answer: (value: Response) => void = () => {}
+    fetch.mockReturnValueOnce(new Promise<Response>((resolve) => (answer = resolve)))
+    const opened = vi.fn()
+    const live = new LiveSession({
+      sessionId: SESSION,
+      policy: POLICY,
+      baselineId: BASELINE,
+      now: () => now,
+      api: { fetch, retryDelayMs: 0 },
+      openSocket: (url) => {
+        opened()
+        return new FakeSocket(url)
+      },
+      onChange: (state) => states.push(state),
+      onEnded: (state) => ended.push(state),
+    })
+    const starting = live.start()
+    live.end()
+    answer(reply(200, view()))
+    await starting
+    expect(opened).not.toHaveBeenCalled()
+    expect(live.state.phase).toBe('ended')
+    expect(ended).toHaveLength(1)
+  })
+
   it('sends one 0.5 s interval per message, those made before ready first and in order', async () => {
     const live = await started()
     for (let t = 0; t < 1200; t += 100) live.ingest(now + t, points, true)
@@ -217,6 +255,18 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${SESSION}`)
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 1 })
     expect(live.state.summary.total_ms).toBe(900)
+  })
+
+  it('reads S4 once, right away, when the socket closes while ending', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: 0 })))
+    live.end()
+    socket.drop()
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 0 })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('treats a dropped connection as the end; the server keeps what it received', async () => {

@@ -13,6 +13,8 @@ export type FakeBaselineServer = {
   current: Record<string, unknown> | null
   /** Status for the next B1 calls instead of saving (e.g. 401, 503). */
   failWith: number[]
+  /** Status for the next B2 calls instead of answering (e.g. 503); 0 drops the request. */
+  failCurrent: number[]
 }
 
 let next = 0
@@ -23,12 +25,17 @@ export function baselineResponse(landmarks: unknown, registeredAt = '2026-10-21T
 }
 
 export function installFakeBaselineServer(initial: Record<string, unknown> | null = null): FakeBaselineServer {
-  const server: FakeBaselineServer = { posts: [], current: initial, failWith: [] }
+  const server: FakeBaselineServer = { posts: [], current: initial, failWith: [], failCurrent: [] }
   const json = (status: number, body: unknown) =>
     ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/v2/baselines/current') && server.failCurrent.length) {
+        const status = server.failCurrent.shift()!
+        if (!status) throw new TypeError('offline')
+        return json(status, { code: 'FAKE' })
+      }
       if (url.endsWith('/api/v2/baselines/current')) return server.current ? json(200, server.current) : json(404, {})
       if (url.endsWith('/api/v2/baselines') && init?.method === 'POST') {
         const status = server.failWith.shift()
