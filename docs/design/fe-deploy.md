@@ -1,6 +1,6 @@
 # FE 배포: 도메인 + Vercel + Cloudflare 터널
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 최신화: 2026-10-22(이름 `fe-domain-idea.md` → `fe-deploy.md`, 데스크톱 앱 구조는 [FE 제안서](fe-server-proposal.md) 8.4로 옮김) · 상태: **진행 중**(도메인·Cloudflare·Vercel 연결됨, 서버 터널은 DevOps) · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 최신화: 2026-10-25(3.2 「지금 앱」 칸을 V3 코드로, `VITE_REALTIME_URL` 삭제 반영, 검색 노출 막기 끝남) · 2026-10-22(이름 `fe-domain-idea.md` → `fe-deploy.md`, 데스크톱 앱 구조는 [FE 제안서](fe-server-proposal.md) 8.4로 옮김) · 상태: **진행 중**(도메인·Cloudflare·Vercel 연결됨, 서버 터널은 DevOps) · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
 > 관련: [FE 제안서](fe-server-proposal.md) 2장 「배포」·1장 DevOps 질문(HTTPS)·F14·8.2(연결 설정), [연동 명세](api-ws-spec.md) 1장, [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 1. 왜 바꾸나
@@ -35,7 +35,7 @@
 
 | # | 항목 | 지금 BE | 분리 뒤 | 종류 | 누가 |
 |---|---|---|---|---|---|
-| S-1 | **CORS** | 설정이 없다(`SecurityConfiguration`에 `.cors()` 없음). 다른 출처의 요청은 브라우저가 먼저 보내는 확인 요청(OPTIONS)부터 로그인 필요로 막힌다 | 허용 출처 `https://app.<도메인>`, 쿠키 포함 허용, 메서드 GET·POST·PUT·DELETE, 헤더 `Content-Type`·`X-CSRF-TOKEN`·`X-PoseGood-User-Id`. 확인 요청은 로그인 없이 통과. 허용 출처는 WS처럼 환경 변수로 | **코드** | BE |
+| S-1 | **CORS** | 설정이 없다(10/25 develop `3285cce`에도 없음. `SecurityConfiguration`에 `.cors()` 없음). 다른 출처의 요청은 브라우저가 먼저 보내는 확인 요청(OPTIONS)부터 로그인 필요로 막힌다 | 허용 출처 `https://app.<도메인>`, 쿠키 포함 허용, 메서드 GET·POST·PUT·DELETE, 헤더 `Content-Type`·`X-CSRF-TOKEN`·`X-PoseGood-User-Id`. 확인 요청은 로그인 없이 통과. 허용 출처는 WS처럼 환경 변수로 | **코드** | BE |
 | S-2 | 로그인 쿠키 Secure | `server.servlet.session.cookie.secure=${POSEGOOD_COOKIE_SECURE:false}` | `POSEGOOD_COOKIE_SECURE=true` | 설정 | BE·DevOps |
 | S-3 | WS 허용 출처 | `POSEGOOD_REALTIME_ALLOWED_ORIGINS` 비어 있음 = 같은 출처만 | `https://app.<도메인>`(`/v1`·`/v2` 둘 다 이 값을 씀) | 설정 | DevOps |
 | S-4 | nginx 화면 파일 | `default.conf`가 API와 함께 화면(`/`, `/mediapipe/`)도 낸다 | 화면은 Vercel이 내므로 `api.`에서는 필요 없다. 지워도 되고 둬도 해는 없다 | 설정 | DevOps |
@@ -53,9 +53,9 @@
 
 | # | 항목 | 지금 앱 | 분리 뒤 |
 |---|---|---|---|
-| A-1 | API 주소 | `/api/…` 상대 주소(`server/client.ts`), 개발은 Vite 중계 | 운영은 `https://api.<도메인>/api/…`. 주소 앞부분을 환경 변수로(4장 2단계) |
-| A-2 | 쿠키 보내기 | `credentials: 'omit'` | `credentials: 'include'`(출처가 달라서 `same-origin`으로는 안 실린다) |
-| A-3 | WS 주소 | `VITE_REALTIME_URL`(개발용) | 운영은 `wss://api.<도메인>/api/v2/realtime` |
+| A-1 | API 주소 | **10/19 끝남:** `VITE_API_BASE_URL`(`features/platform/serverConfig.ts`, 요청은 `features/platform/api.ts`). 비우면 같은 출처 `/api/…`, 개발은 Vite 중계 | 운영은 `VITE_API_BASE_URL=https://api.<도메인>` |
+| A-2 | 쿠키 보내기 | **10/19 끝남:** `credentials: 'include'`(`api.ts`·`accountClient.ts`) | 그대로(출처가 달라서 `same-origin`으로는 안 실린다) |
+| A-3 | WS 주소 | **10/21 바꿈:** `VITE_REALTIME_URL`을 지우고 API 주소(없으면 페이지 주소)에서 만든다(`https:`면 `wss:`) | `VITE_API_BASE_URL`만 넣으면 `wss://api.<도메인>/api/v2/realtime`가 된다 |
 | A-4 | 계정 | 10/22부터 항상 서버 계정(`accountClient.ts`, 스위치 없음 — Vercel에 계정용 환경 변수를 넣지 않는다) | 다른 출처라 CORS·`POSEGOOD_COOKIE_SECURE=true`가 있어야 로그인 쿠키가 실린다 |
 
 - **WebSocket 유지:** 앱은 0.5초마다 구간을 보내므로 터널·서버의 유휴 끊김(서버 120초)에 걸리지 않는다. Cloudflare 터널에서 WS가 끊기는 사례가 있다는 글이 있어 실제로 확인한다(DevOps·FE).
@@ -73,11 +73,11 @@
   3. [x] **운영 브랜치 develop(10/19, 자주 바꾸지 않음):** 처음엔 main으로 잡혀 있어 develop으로 바꿨다(Settings → Environments → Production → Branch Tracking). 팀 전체가 합친 결과가 나가고, V2 작업은 develop에 PR로 합친 뒤에 나간다.
   4. [ ] 확인할 것: Settings → Build and Deployment에서 「Include files outside the root directory」 켜짐(`../model`), Node.js 24.x.
   5. [x] `app.posegood.site` 연결(10/20): Vercel → Settings → Environments → Production → Domains에 추가 → Vercel이 준 레코드를 Cloudflare DNS에 넣음(CNAME `app` → `6af83c80925fbc79.vercel-dns-017.com`, **DNS only**). Cloudflare가 「프록시를 켜라」고 권하지만 `app.`은 회색으로 둔다(HTTPS·CDN·DDoS는 Vercel이 맡음, 겹치면 인증서·캐시가 꼬임). 확인: `https://app.posegood.site` 200(Vercel), `http://`는 308로 https, 모델·wasm 파일 200.
-  6. [ ] **검색 노출 막기(10/20, 실제 연동 전까지):** `frontend/public/robots.txt`(`Disallow: /`)와 `vercel.json` 응답 헤더 `X-Robots-Tag: noindex, nofollow`. 접속을 막는 게 아니라 검색 결과에 안 나오게 하는 것. `app.`은 DNS only라 Cloudflare의 AI·검색 봇 설정은 적용되지 않아서 앱 쪽에 둔다. 배포본에는 develop에 머지하고 포크를 최신화한 뒤 반영된다. **정식 공개 때 두 줄을 지운다.**
-  7. [ ] 운영 환경 변수(서버가 붙은 뒤): `VITE_API_BASE_URL=https://api.posegood.site`, 앱이 v2로 바뀐 뒤 `VITE_REALTIME_URL=wss://api.posegood.site/api/v2/realtime`.
-  - 준비된 것: `frontend/vercel.json`(빌드·출력, 빌드 건너뛰기 `git diff --quiet HEAD^ HEAD -- . ../model`). 아직 커밋 전이라 포크에는 없고, 그동안은 이 단계의 Vercel 화면 설정이 쓰인다. 앱이 `frontend` 밖에서 빌드에 쓰는 것은 `model/`뿐이다(`contracts/`는 시험에서만). 화면 이동은 주소의 `#`만 쓰므로 경로 재작성(rewrites)은 필요 없다.
+  6. [x] **검색 노출 막기(10/20, 실제 연동 전까지, develop `72ab5ec`):** `frontend/public/robots.txt`(`Disallow: /`)와 `vercel.json` 응답 헤더 `X-Robots-Tag: noindex, nofollow`. 접속을 막는 게 아니라 검색 결과에 안 나오게 하는 것. `app.`은 DNS only라 Cloudflare의 AI·검색 봇 설정은 적용되지 않아서 앱 쪽에 둔다. 배포본에는 develop에 머지하고 포크를 최신화한 뒤 반영된다. **정식 공개 때 두 줄을 지운다.**
+  7. [ ] 운영 환경 변수(서버가 붙은 뒤): `VITE_API_BASE_URL=https://api.posegood.site` 하나(WS 주소도 여기서 만든다, 10/21).
+  - 준비된 것: `frontend/vercel.json`(빌드·출력, 빌드 건너뛰기 `git diff --quiet HEAD^ HEAD -- . ../model`, `X-Robots-Tag`). develop에 들어갔고(`72ab5ec`) 포크에는 포크를 최신화할 때 반영된다. 앱이 `frontend` 밖에서 빌드에 쓰는 것은 `model/`뿐이다(`contracts/`는 시험에서만). 화면 이동은 주소의 `#`만 쓰므로 경로 재작성(rewrites)은 필요 없다.
   - 갱신: 포크는 원래 저장소를 자동으로 따라가지 않는다(GitHub 「Sync fork」는 기본 브랜치만). 원래 저장소 develop을 포크로: `git fetch origin && git push fork origin/develop:develop`. 원래 저장소 PR에는 미리보기가 생기지 않는다.
-- [x] **2. 주소 설정 (FE):** 10/19 `VITE_API_BASE_URL`(비우면 지금처럼 같은 출처 `/api`, `features/platform/serverConfig.ts`), HTTP 요청은 `credentials: 'include'`(A-2). WS는 기존 `VITE_REALTIME_URL`. 개발은 지금처럼 Vite `/api` 중계. `check-frontend` 통과(시험 347개, 타입 검사, 빌드).
+- [x] **2. 주소 설정 (FE):** 10/19 `VITE_API_BASE_URL`(비우면 지금처럼 같은 출처 `/api`, `features/platform/serverConfig.ts`), HTTP 요청은 `credentials: 'include'`(A-2). WS는 그때 `VITE_REALTIME_URL`이었고 10/21에 지웠다(A-3). 개발은 지금처럼 Vite `/api` 중계. `check-frontend` 통과(시험 347개, 타입 검사, 빌드).
 - [ ] **3. 가짜 서버 모드 (FE):** 계약 v2 예시(`contracts/realtime/examples-v2/`)대로 응답하는 가짜 S1·WS. 개발 PC와 Vercel 미리보기의 기본값으로 둬서 문구·버튼을 고칠 때 서버가 필요 없게 한다.
 - [ ] **4. 서버 쪽 (DevOps·BE):** 3.1의 S-1(CORS, BE 코드)과 S-2~S-6(설정). BE에 보낼 요청은 S-1 하나다.
 - [ ] **5. 데스크톱 (FE, F14):** 패키징된 앱이 `https://app.<도메인>`을 연다. 허용 주소 검사(`sameAddress`)·알림 팝업 주소·`app://` 파일 제공을 정리하고, 열 수 없으면 「서버에 연결할 수 없어요」.
@@ -103,6 +103,7 @@
 
 ## 6. 진행 기록
 
+- 2026-10-25: 3.2 「지금 앱」 칸을 V3 코드로 고침(A-1·A-2 끝남, A-3 `VITE_REALTIME_URL` 삭제). 운영 환경 변수는 `VITE_API_BASE_URL` 하나. CORS(S-1)는 develop `3285cce`에도 아직 없다.
 - 2026-10-22: 문서 이름을 `fe-deploy.md`로 바꾸고 데스크톱 앱 구조(옛 6장)를 FE 제안서 8.4로 옮겼다. V3(서버 전용)는 서버 없이는 측정할 수 없어, `api.posegood.site` 터널이 붙은 뒤에 develop에 합치고 포크를 최신화한다(ADR 0025).
 
 - 2026-10-20: Cloudflare Active, `https://app.posegood.site`가 Vercel 배포본으로 열린다. DDoS는 `api.`(터널, 프록시)는 Cloudflare가, `app.`은 Vercel이 막는다.
