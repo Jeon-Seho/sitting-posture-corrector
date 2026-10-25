@@ -5,7 +5,7 @@
 - 근거: v4 회의 결정(FE 회신 10/08, 지금은 [FE 제안서](../design/fe-server-proposal.md)), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거)
 - 대체: [ADR 0013](0013-frontend-server-feature-connection.md)의 "앱이 특징 변화량을 만들어 보낸다", "기본 로컬 모드 유지",
   [ADR 0012](0012-session-timing-policy.md)의 로컬 모드 시간 정책
-- 바꾸는 문서: 데이터 플랫폼 경계(`data-platform-boundary.md`, 2026-10-22 지움 — [지운 문서 기록](../removed-docs.md))의 "원본 좌표 미전송",
+- 바꾸는 문서: 데이터 플랫폼 경계([`data-platform-boundary.md`](../design/data-platform-boundary.md), FE가 2026-10-22 지웠다가 팀장이 같은 날 고쳐 써 10/25 되살림 — [지운 문서 기록](../removed-docs.md))의 "원본 좌표 미전송",
   [실시간 계약 v1](../../contracts/realtime/README.md)의 "좌표를 넣지 않는다"
 
 ## 결정

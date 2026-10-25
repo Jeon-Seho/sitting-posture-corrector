@@ -2,7 +2,7 @@
 
 > 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
-> 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0025](../decisions/0025-app-always-measures-on-server.md) 항상 서버로 측정, [0026](../decisions/0026-baseline-average-by-app-b1.md) 자세 등록 B1), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
+> 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0025](../decisions/0025-app-always-measures-on-server.md) 항상 서버로 측정, [0026](../decisions/0026-baseline-average-by-app-b1.md) 자세 등록 B1, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
 > **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-4(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장. 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../contracts/realtime/examples-v2/). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
@@ -133,7 +133,7 @@ R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 
 
 오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다. 10/25 기준 앱은 종료 결과를 R1 형식으로 이 기기에 남기고(`useSessionPersistence.ts` `finish`, UUID로 덮어씀), 기록·달력은 아직 전체 기간을 로컬에서 집계한다.
 
-**팀 참고 — 한 PC 여러 계정(10/25 klaod-tech 결정, 알려진 한계):** 로컬 기록은 계정과 상관없이 localStorage 키 하나(`posegood.v2.records`)에 둔다. 보통 PC 한 대를 한 사람이 쓰므로 계정별로 나누지 않는다. 그래서 같은 PC·같은 브라우저에서 다른 계정으로 로그인하면 앞 계정의 오늘 기록이 목록·합산에 함께 보인다(서버 DB·T1에는 영향 없음). 사용자 안내 문구는 두지 않는다. 문제가 되면 키를 계정 ID별로 나누면 된다.
+**팀 참고 — 한 PC 여러 계정(10/25 klaod-tech 결정, [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md), 알려진 한계):** 로컬 기록은 계정과 상관없이 localStorage 키 하나(`posegood.v2.records`)에 둔다. 보통 PC 한 대를 한 사람이 쓰므로 계정별로 나누지 않는다. 그래서 같은 PC·같은 브라우저에서 다른 계정으로 로그인하면 앞 계정의 오늘 기록이 목록·합산에 함께 보인다(서버 DB·T1에는 영향 없음). 사용자 안내 문구는 두지 않는다. 문제가 되면 키를 계정 ID별로 나누면 된다.
 
 ## 5. WebSocket `/v2/realtime`
 

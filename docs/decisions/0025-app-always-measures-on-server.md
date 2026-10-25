@@ -1,6 +1,6 @@
 # ADR 0025: 앱은 항상 서버로 측정한다 (로컬 모드 없음)
 
-- 상태: accepted (앱 구현 `feature/frontend-features-and-integrationV3` `f88ffe3`)
+- 상태: accepted (앱 구현 `feature/frontend-features-and-integrationV3` `f88ffe3`). 7번의 「R1로 바꾸면 이 복사를 지운다」는 [ADR 0027](0027-today-records-from-collected-server-results.md)(2026-10-22 팀장 결정, 10/25 기록)로 바뀌었다 — 복사는 오늘 화면용으로 남긴다
 - 날짜: 2026-10-21
 - 근거: 2026-10-21 사용자(FE) 결정 — 「이젠 무조건 서버 모드로 개발해야지」, 「develop에 다 있으니까 판정 계산이나 더미 데이터는 다 지워버리자」
 - 대체: [ADR 0003](0003-retro-integration.md)의 「`frontend/src/lib/engine.ts`가 웹캠과 시연의 공통 시간 정책을 담당한다」(로컬 모드 예외),
