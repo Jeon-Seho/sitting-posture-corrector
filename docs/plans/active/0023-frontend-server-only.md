@@ -73,7 +73,7 @@
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
 - [x] 계정 서버 연결 A1~A5(F12, 10/22): ghdrb1246 `f27dd24`(D-66)를 V3로 옮김 — 스위치 없이 항상 서버 계정, 로그인 뒤 `setServerAuth`, CSRF 403 재시도. 남은 것: A6·A7·C1·W1·W2, `AUTH_CHANGED`.
 - [ ] (옛 기록) 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
-- [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 과거 기록 R1·R1b와 어제까지의 통계 T1로 붙인다. 오늘 목록·집계는 서버 결과를 로컬에 수집해 사용하며 해당 수집·집계 처리는 남긴다(10/22 확정, 연동 명세 4.5). V3는 측정 결과를 R1과 같은 형식(`server.view` = SessionView)으로 이 기기에 계정별로 남긴다(`useSessionPersistence.ts`) — R1로 바꿔도 오늘 표시용으로 유지.
+- [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 과거 기록 R1·R1b와 어제까지의 통계 T1로 붙인다. 오늘 목록·집계는 서버 결과를 로컬에 수집해 사용하며 해당 수집·집계 처리는 남긴다(10/22 확정, 연동 명세 4.5). V3는 측정 결과를 R1과 같은 형식(`server.view` = SessionView)으로 이 기기에 남긴다(`useSessionPersistence.ts`, 키 하나 — 계정별로 나누지 않음, 연동 명세 4.5 「팀 참고」) — R1로 바꿔도 오늘 표시용으로 유지.
 
 ### 4단계 — 검증과 정리
 
