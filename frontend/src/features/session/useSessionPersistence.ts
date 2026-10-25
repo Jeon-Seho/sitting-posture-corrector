@@ -26,9 +26,9 @@ type Options = {
  * Starts a server measurement and keeps its result for the 기록 screens.
  *
  * The server stores every measurement (S1…`end`, a lost connection included); nothing is
- * resumed or resent here (ADR 0024). Until the 기록 screens read the server (R1, stage 3 of
- * the 2026-10-21 cleanup) the confirmed summary is also kept on this device so they still
- * show it.
+ * resumed or resent here (ADR 0024). The confirmed summary is also kept on this device: the
+ * 기록 screens show today from these copies even after they read R1·T1 for earlier days
+ * (ADR 0027). One key for every account on this device, by choice (ADR 0027).
  */
 export function useSessionPersistence({ session, setSession, ended, workspace, camera, go, setError }: Options) {
   const { rules, setRecords } = workspace
