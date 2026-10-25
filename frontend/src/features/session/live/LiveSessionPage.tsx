@@ -78,7 +78,6 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
             small
           />
           <Stat label="집계 제외" value={formatDuration(excludedSeconds)} sub="휴식·자리 비움·측정 불가·관측 공백" small />
-          <Stat label="추론 모델" value={state?.observation?.model_version ?? '확인 전'} small />
         </Ledger>
         <Card title="서버 확정 사건" note="확정과 재알림 횟수는 서버 판정 수이며 실제 소리 전달 횟수와 다릅니다.">
           <EventTable events={events} muted={new Set()} />
