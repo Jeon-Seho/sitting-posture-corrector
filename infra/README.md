@@ -143,8 +143,7 @@ DataNode가 하나라 복제 수는 1이다. HDFS 컨테이너는 `hadoop.env`�
 통합 테스트 4단계가 복제 부족 블록 0을, 5단계가 Spark가 쓴 파일의 복제 수 1을 확인한다.
 
 ```bash
-docker compose -f infra/compose/bigdata.yaml up -d spark        # 마운트 반영 — 컨테이너를 다시 만들면 안에서 돌던 posture-sink도 멈춘다
-bigdata/legacy/run_posture_sink.sh                               # posture-sink 다시 시작(옛 경로, D-38까지)
+docker compose -f infra/compose/bigdata.yaml up -d spark        # 마운트 반영
 docker exec hdfs-namenode hdfs dfs -setrep -R 1 /               # 이미 복제 3으로 쓴 파일을 1로(한 번만)
 docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 ```
@@ -177,7 +176,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 
 api-server가 `posture.inference.v1`을 그룹 `judge-v1`로 구독해 상태머신으로 판정하고 `posture.episodes.v1`로 발행한다(CEP 엔진은 쓰지 않는다).
 확인은 `GET /judge/v1/status`·`GET /judge/v1/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
-`/cep/*` 경로와 `CEP_*`·그룹 `api-server-cep`는 옛 `posture.summary` 경로(D-38에서 정리)만 쓴다.
+옛 `posture.summary` 경로(`/cep/*`·`CEP_*`·그룹 `api-server-cep`)는 D-38에서 지웠다 — 아래 "옛 경로 정리".
 
 D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다. 새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로,
 api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고, 다시 만든 뒤 옛 그룹을 지운다(한 번만).
@@ -189,6 +188,29 @@ docker compose -f infra/compose/bigdata.yaml up -d --build api-server
 $K --describe --group judge-v1                 # 컨슈머 3개 참여, LAG 0
 $K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만 지워진다)
 ```
+
+### 옛 경로 정리 (D-38, 2026-10-21)
+
+옛 `posture.summary` 경로 — `/api/v1/posture/summary` → `posture.summary` → 추론 옛 컨슈머(그룹 `inference-service`) → `posture.inference`
+→ 처리 서비스 `cep` 패키지(그룹 `api-server-cep`, Redis `posture:state:*`, 테스트용 DB `posture_app`) → posture-sink(HDFS `/posture/features/stream`) —
+를 코드에서 지웠다. 추론 서비스는 v1 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
+새 이미지로 바꾼 뒤 서버에 남은 것을 한 번 지운다(쓰는 서비스가 없어 지워도 영향 없음).
+
+```bash
+C="docker compose -f infra/compose/bigdata.yaml"
+docker exec spark pkill -f posture_sink_stream.py || true          # 돌고 있던 posture-sink 멈춤
+$C up -d --build api-server inference-service
+K="docker exec kafka /opt/kafka/bin"; B="--bootstrap-server localhost:9092"
+$K/kafka-consumer-groups.sh $B --delete --group api-server-cep     # 멤버 없을 때만 지워진다
+$K/kafka-consumer-groups.sh $B --delete --group inference-service
+$K/kafka-topics.sh $B --delete --topic posture.summary
+$K/kafka-topics.sh $B --delete --topic posture.inference
+docker exec redis sh -c "redis-cli --scan --pattern 'posture:state:*' | xargs -r redis-cli del"
+docker exec hdfs-namenode hdfs dfs -rm -r -skipTrash /posture/features/stream /posture/checkpoints/posture-sink
+```
+
+`.env`의 `DB_NAME`·`CEP_*`는 더 이상 읽지 않는다(남아 있어도 무시). MySQL의 `posture_app` 스키마(옛 시험 행)는 DB 담당과 정한 뒤 지운다.
+통합 테스트 7단계(옛 경로 T-10·posture-sink 적재)는 없어졌고, 2단계가 옛 토픽·그룹이 남아 있으면 안내한다.
 
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 

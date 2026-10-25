@@ -1,4 +1,4 @@
-// 처리 서비스(옛 platform/api-server): Kafka 판정(cep)·판정 결과 저장(report)·운영 API.
+// 처리 서비스(옛 platform/api-server): Kafka v1 판정(judge)·판정 결과 저장(report)·운영 API.
 // D-52(2026-10-15): Maven pom.xml을 그대로 옮겼다 — 의존성·Spring Boot 버전·Java 17·JAR 이름이 같다.
 // 빌드: backend/gradlew -p backend :processing:build  (이미지는 infra/docker/java.Dockerfile target processing)
 plugins {
@@ -26,7 +26,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    // 외부 MySQL(.107) — posture_app(테스트용)·posture_service(V2.x)
+    // 외부 MySQL(.107) — 확정 서비스 DB posture_service(V2.x)
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     runtimeOnly 'com.mysql:mysql-connector-j'
     // 판정 상태 저장(D-04·D-37)

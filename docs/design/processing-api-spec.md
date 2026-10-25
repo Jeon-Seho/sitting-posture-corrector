@@ -1,12 +1,12 @@
 # 처리 서비스 HTTP API — 운영·확인용 (`backend/processing`, 컨테이너 `api-server`)
 
-- 담당: DevOps/BE. 갱신: 2026-10-17
+- 담당: DevOps/BE. 갱신: 2026-10-21
 - 이 API는 **앱이 부르지 않는다.** 앱 ↔ 서버 API는 [API 명세](api-spec.md)(입출구 서버 `backend/api`)와 [연동 명세](api-ws-spec.md)다.
   여기 있는 것은 서버 PC에서 처리 서비스(판정·판정 결과 저장)의 상태를 보고 시험하는 경로다. 서비스 사이 데이터는 [Kafka 명세](kafka-spec.md)로 오간다.
 - 주소: `http://<서버>:<API_SERVER_HOST_PORT>`(기본 8080, `infra/compose/.env`). 지금은 LAN에 열려 있고 인증이 없다 —
   내부 전용으로 내리고 SSH 터널로만 쓰는 정리는 D-43이다. 운영 환경에서는 시험용 API를 끈다(아래 `REPORT_TEST_FIXTURES_ENABLED`).
 - 이름(D-53): 판정은 CEP 엔진이 아니라 상태머신이라 v1 판정 조회는 `/judge/v1/*`, 서비스 DB 확인은 `/store/service-db`다(옛 이름 `/cep/v1/*`·`/cep/service-db`).
-  `/cep/*`로 남은 것은 5장 옛 경로뿐이고 옛 경로와 함께 지운다(D-38).
+  옛 경로(`POST /api/v1/posture/summary`·`/cep/*`, 테스트용 스키마 `posture_app`)는 D-38(10/21)에서 지웠다.
 
 ## 1. 상태 확인
 
@@ -52,16 +52,10 @@
 `POST /api/v1/realtime/features` — `posture.features.v1` 메시지를 그대로 발행한다. 형식·규칙은 [Kafka 명세](kafka-spec.md) 4장.
 입출구 서버(`ws`)가 Kafka에 이어지면(계획 0031) 시험에만 남는다.
 
-## 5. 옛 경로 (정리 예정, D-38)
+## 5. 옛 경로 (지움, D-38)
 
-아키텍처 v4 이전 경로다. 새 작업에 쓰지 않는다. 테스트용 스키마 `posture_app`에 쓴다.
-
-| 메서드·경로 | 하는 일 |
-| --- | --- |
-| `POST /api/v1/posture/summary` | 프레임 1건 → Kafka `posture.summary` |
-| `GET /cep/active`, `GET /cep/events/recent?limit=20` | 옛 판정 엔진의 진행 중·최근 이벤트 |
-| `GET /cep/db-writer` | 옛 경로 DB 쓰기 버퍼 상태 |
-| `POST /cep/sessions/expire` | 옛 경로 세션 만료 검사 즉시 실행 |
+아키텍처 v4 이전 경로(`POST /api/v1/posture/summary` → `posture.summary` → `posture.inference` → `/cep/*`, 테스트용 스키마 `posture_app`)는
+2026-10-21에 코드에서 지웠다. 서버에 남은 토픽·그룹·HDFS 적재분 정리는 [infra](../../infra/README.md) "옛 경로 정리".
 
 ## 6. 확인 방법
 

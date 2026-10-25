@@ -10,8 +10,8 @@ import java.util.Optional;
 /**
  * (D-32) 기존 연결 풀(JdbcTemplate)로 같은 MySQL 서버의 서비스 DB를 조회한다.
  *
- * <p>테스트용 {@code posture_app}과 확정 {@code posture_service}가 같은 MySQL 서버(.107)에 있으므로 연결 풀을 따로 만들지 않고
- * 스키마 이름을 붙여 조회한다(같은 계정에 {@code posture_service.*} 권한 필요). 스키마 이름은 {@link ServiceSchemaVerifier}가
+ * <p>(D-38) 연결 풀의 기본 DB가 확정 {@code posture_service}다(옛 테스트용 {@code posture_app} 접속은 지움). 조회는 계속
+ * 스키마 이름을 붙여 한다(같은 계정에 {@code posture_service.*} 권한 필요). 스키마 이름은 {@link ServiceSchemaVerifier}가
  * 영문·숫자·밑줄만 허용한 값이다.
  */
 @Component

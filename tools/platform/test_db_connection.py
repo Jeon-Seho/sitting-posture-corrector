@@ -8,12 +8,12 @@ DB 생성 권한이 없어도(스키마를 만들 필요 없이) MySQL에 실제
 않는다(READ ONLY 성격의 점검 스크립트).
 
 사용 예:
-  # .env 파일을 그대로 읽어서 확인 (DB_HOST·DB_PORT·DB_USER·DB_PASSWORD·DB_NAME — 권장, D-24)
+  # .env 파일을 그대로 읽어서 확인 (DB_HOST·DB_PORT·DB_USER·DB_PASSWORD·SERVICE_DB_SCHEMA — 권장, D-24·D-38)
   python3 tools/platform/test_db_connection.py --env-file infra/compose/.env
 
   # 값을 직접 줄 때 (<DB_HOST>는 DB 담당 PC의 LAN IP — infra/compose/.env와 같은 값)
   python3 tools/platform/test_db_connection.py --host <DB_HOST> --user posture_app \
-      --password '<비밀번호>' --database posture_app
+      --password '<비밀번호>' --database posture_service
 
   # DB가 아직 없어도 서버 자체 접속만 확인 (database 생략)
   python3 tools/platform/test_db_connection.py --host <DB_HOST> --user <계정> --password '<비밀번호>'
@@ -105,25 +105,19 @@ def main() -> None:
     parser.add_argument("--password", default="")
     parser.add_argument("--database", default=None, help="생략하면 서버 접속 자체만 확인")
     parser.add_argument("--timeout", type=float, default=5.0)
-    parser.add_argument("--env-file", help=".env 파일을 읽어 서비스DB(DB_*)/연구DB(RESEARCH_DB_*) 둘 다 확인")
+    parser.add_argument("--env-file", help=".env 파일을 읽어 확정 서비스 DB(DB_*·SERVICE_DB_SCHEMA)를 확인")
     args = parser.parse_args()
 
     ok = True
     if args.env_file:
         env = load_env_file(args.env_file)
+        # (D-38) 옛 테스트용 posture_app(DB_NAME)·연구DB(D-01에서 제거)는 확인하지 않는다
+        schema = env.get("SERVICE_DB_SCHEMA", "posture_service")
         ok &= check(
-            "서비스DB (posture_app)",
+            f"서비스 DB ({schema})",
             env.get("DB_HOST", ""), int(env.get("DB_PORT", 3306)),
             env.get("DB_USER", "posture_app"), env.get("DB_PASSWORD", ""),
-            env.get("DB_NAME", "posture_app"), args.timeout,
-        )
-        ok &= check(
-            "연구DB (posture_research)",
-            env.get("RESEARCH_DB_HOST", env.get("DB_HOST", "")),
-            int(env.get("RESEARCH_DB_PORT", 3306)),
-            env.get("RESEARCH_DB_USER", "posture_research"),
-            env.get("RESEARCH_DB_PASSWORD", ""),
-            env.get("RESEARCH_DB_NAME", "posture_research"), args.timeout,
+            schema, args.timeout,
         )
     else:
         if not args.host or not args.user:

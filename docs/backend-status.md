@@ -6,7 +6,7 @@
 
 ## 1. 요약
 
-- 지금 앱이 쓰는 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
+- 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
 - 큰 한계:
   - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 `404 SESSION_LOST`.
   - 실제 MySQL 통합 시험(`-Pmysql-integration`) 통과 기록이 없다.
@@ -32,6 +32,8 @@
 | 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled` | DB/BE | 구현됨 | ADR 0022, `backend/README.md` |
+
+표시 정책(2026-10-22 확정): 서버 통계(T1)는 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 표시 정책의 확정이며, 앱의 T1 연결·로컬 오늘 수집 구현 완료를 뜻하지 않는다.
 
 ### 2.3 기준 자세
 
@@ -73,8 +75,6 @@
 
 | 위치 | 어긋난 내용 | 고칠 곳 | 상태 |
 |---|---|---|---|
-| `contracts/accounts.v2.md` 26줄 | 탈퇴 철회 `POST /auth/withdrawal/cancel`, `WITHDRAWAL_NOT_CANCELLABLE`가 남음 | 행 삭제 | 구현 전 |
-| `docs/design/api-ws-spec.md` 48·187·204줄 | 같은 철회 경로(A8)와 409 코드, A1 설명의 "탈퇴 철회(A8) 뒤" | FE 명세에서 삭제 (FE 담당) | 구현 전 |
 | `backend/api/.../account/AuthController.java` 23줄 | 클래스 주석에 "철회" | 주석에서 삭제 | 구현 전 |
 | `backend/README.md` 「다음 결정」 2번 | 지운 계획 0022 링크 | [계획 0031](plans/active/0031-realtime-kafka-transition.md)로 | 구현 전 |
 | `tools/service_smoke.py` 177~179줄 | `daily_stat` 1행을 기대 — API는 이제 쓰지 않음 | 기대값 삭제 (tools 담당) | 구현 전 |
@@ -85,7 +85,6 @@
 | 질문 | 담당 | 관련 문서 |
 |---|---|---|
 | API 다중 인스턴스 (진행 상태 공유·세션 고정) | DB/BE·DevOps | `backend/README.md` 「다음 결정」 1, D-42 |
-| 오늘 통계를 화면에 바로 보여 줄지 | FE·BE | 「아키텍처 v5.2 전환 영향」 공지 ④, [FE 제안](design/fe-server-proposal.md) |
 | 최대 측정 시간 (지금 5000초) | 팀 회의 | 계획 0031 10/17 기록, `application.properties` 44줄 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
 | 알림 기본값 (ADR 0022는 false, FE 화면은 켜짐) | DB·FE | ADR 0022 |
@@ -100,3 +99,4 @@
 | 2026-10-21 | DevOps·Spark 담당 항목 제거 (처리 서비스, 옛 CEP 경로, J1~J3, 서버 PC 검증 기록) | `3f2bbf8` 이후 |
 | 2026-10-21 | `database/README.md` 9장 비밀번호 변경·11장 링크를 고쳐 불일치 2건 제거 | `3f2bbf8` 이후 |
 | 2026-10-21 | DB V2.4 작업본 반영: `SchemaVerifier` V2.4 확인, 무결성 검사·README 철회 문구 정리(불일치 2건 제거), `row_count` 미결 → 확정(삭제), 보류 결정 2건 추가 | 커밋 전 |
+| 2026-10-22 | 탈퇴 철회 경로 삭제, 서버 통계는 어제까지·오늘 화면은 로컬 수집 결과 사용으로 표시 정책 명시 | - |

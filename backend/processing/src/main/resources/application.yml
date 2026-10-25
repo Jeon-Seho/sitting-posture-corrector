@@ -15,8 +15,9 @@ spring:
     # 운영(신뢰할 수 없는 네트워크)에서는 대신 sslMode=REQUIRED로 TLS 연결을 쓴다.
     # serverTimezone=Asia/Seoul (D-20, 2026-10-07 KST 통일 결정): Instant를 DATETIME에 쓸 때·읽을 때
     # 한국 시각으로 변환한다 → DB의 일시 컬럼은 KST. 컨테이너(JVM) 시간대와 상관없이 이 값이 기준이다.
-    # 시각 비교는 DB 함수(NOW()/UTC_TIMESTAMP()) 대신 서버가 계산한 값을 바인딩한다(CepJdbcRepository 참고).
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:posture_app}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    # 시각 비교는 DB 함수(NOW()/UTC_TIMESTAMP()) 대신 서버가 계산한 값을 바인딩한다.
+    # (D-38) 기본 DB는 확정 서비스 DB(SERVICE_DB_SCHEMA, 기본 posture_service). 옛 테스트용 posture_app(DB_NAME) 접속은 지웠다.
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${SERVICE_DB_SCHEMA:posture_service}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
     username: ${DB_USER:posture_app}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -25,10 +26,8 @@ spring:
       # (연결 재시도는 /actuator/health 가 계속 감시)
       initialization-fail-timeout: -1
       connection-timeout: 5000
-      # (D-15) 동시에 DB를 쓰는 주체: posture.inference 컨슈머 스레드(기본 3)
-      # + 세션 만료 스케줄러(1) + 헬스체크(1) = 5. 여유를 두어 8.
-      # 컨슈머 concurrency를 올리면 이 값도 함께 올린다(DB max_connections=151).
-      # (D-30) 판정 결과 저장 컨슈머(기본 1) + 시험·확인 API를 더해 10.
+      # DB를 쓰는 주체: 판정 결과 저장 컨슈머(기본 1, D-30) + 서비스 DB 확인·시험 API + 헬스체크. 여유를 두어 10.
+      # (D-38) 옛 posture.inference 컨슈머(3스레드)의 DB 쓰기는 지웠다. 저장 컨슈머 concurrency를 올리면 이 값도 함께 올린다.
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       # (D-11) 기본값에 기대지 않고 커넥션 수명 관련 값을 명시한다.
       pool-name: posture-app-pool
@@ -56,9 +55,7 @@ spring:
       acks: all
       retries: 3
     consumer:
-      # posture-cep(Python)이 쓰던 설정과 동일하게 맞춘다 — PostureInferenceConsumer
-      # (D-13)가 posture.inference를 구독한다. 테스트 단계라 earliest 유지.
-      group-id: ${POSTURE_INFERENCE_CONSUMER_GROUP:api-server-cep}
+      # 컨슈머 그룹은 리스너마다 따로 정한다(judge.consumer-group·report.store.group). 테스트 단계라 earliest 유지.
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -67,8 +64,6 @@ spring:
 app:
   kafka:
     topic:
-      posture-summary: ${POSTURE_SUMMARY_TOPIC:posture.summary}
-      posture-inference: ${POSTURE_INFERENCE_TOPIC:posture.inference}
       posture-features-v1: ${POSTURE_FEATURES_V1_TOPIC:posture.features.v1}
       posture-inference-v1: ${POSTURE_INFERENCE_V1_TOPIC:posture.inference.v1}
       posture-episodes-v1: ${POSTURE_EPISODES_V1_TOPIC:posture.episodes.v1}
@@ -76,7 +71,7 @@ app:
       posture-alerts-v1: ${POSTURE_ALERTS_V1_TOPIC:posture.alerts.v1}
       # (D-36) 처리 못 한 메시지
       posture-dlq: ${POSTURE_DLQ_TOPIC:posture.dlq}
-    # (D-15) posture.inference 컨슈머 스레드 수 = 토픽 파티션 수와 맞출 것
+    # v1 판정 컨슈머(posture.inference.v1) 스레드 수 = 토픽 파티션 수와 맞출 것 (이름은 D-15 때 그대로)
     posture-inference-concurrency: ${POSTURE_INFERENCE_CONCURRENCY:3}
     # (D-21) 실시간 계약 v1 토픽 — 키 session_id, 파티션 수는 위 concurrency와 맞춘다
     realtime-partitions: ${REALTIME_TOPIC_PARTITIONS:3}
@@ -84,34 +79,6 @@ app:
   realtime:
     test-entry:
       enabled: ${REALTIME_TEST_ENTRY_ENABLED:true}
-
-# 옛 posture.summary 경로(cep 패키지 — PostureCepEngine) 설정. (D-53) v1 판정기는 아래 judge 설정을 쓴다.
-# 이 묶음은 옛 경로와 함께 D-38에서 지운다.
-# posture-cep(Python) 상태머신을 이식하면서 그대로 옮긴 파라미터
-# (2026-10-02 아키텍처 v4 전환 결정, D-13). 값은 VM에서 이미 검증된
-# 지속(3s)/회복(3s)/재알림(60s)을 잠정 유지 — 팀 회의에서 다른 값으로
-# 확정되면 그때 바꾼다(아키텍처_v4_검토의견_2026-10-02.md 참고).
-cep:
-  persist-seconds: ${CEP_PERSIST_SECONDS:3}
-  recovery-seconds: ${CEP_RECOVERY_SECONDS:3}
-  realert-seconds: ${CEP_REALERT_SECONDS:60}
-  session-timeout-seconds: ${CEP_SESSION_TIMEOUT_SECONDS:300}
-  session-expiry-interval-seconds: ${CEP_SESSION_EXPIRY_INTERVAL_SECONDS:60}
-  # (D-04) 상태머신 상태를 Redis posture:state:{sessionId}(Hash)에 저장해 api-server
-  # 재시작 후에도 진행 중이던 판정을 이어간다. 키 TTL은 v4 설계(5.9절)대로 1시간.
-  # false면 기존처럼 메모리에만 둔다(Redis 장애 시에도 판정은 메모리로 계속됨).
-  # (D-16) /cep/events/recent 조회용으로 메모리에 남겨둘 최근 종료 이벤트 수
-  recent-events-capacity: ${CEP_RECENT_EVENTS_CAPACITY:1000}
-  # (D-18) DB 쓰기를 판정 경로에서 분리한 쓰기 버퍼. 컨슈머는 메모리에만 넘기고,
-  # 별도 스레드가 flush-interval-ms마다 묶어서 쓴다. DB 실패 시 기록을 보관하고
-  # 1초→2초→…→max-backoff-ms 간격으로 재시도. 이벤트 보관 한도를 넘으면 오래된 것부터 버린다.
-  db-writer:
-    flush-interval-ms: ${CEP_DB_WRITER_FLUSH_INTERVAL_MS:1000}
-    event-capacity: ${CEP_DB_WRITER_EVENT_CAPACITY:10000}
-    max-backoff-ms: ${CEP_DB_WRITER_MAX_BACKOFF_MS:30000}
-  state-store:
-    enabled: ${CEP_STATE_STORE_ENABLED:true}
-    ttl-seconds: ${CEP_STATE_TTL_SECONDS:3600}
 
 # (D-22, D-53) v1 판정기 — posture.inference.v1 → posture.episodes.v1. 상태머신이며 CEP 엔진을 쓰지 않는다
 # (옛 이름: 패키지 cep.v1, 운영 API /cep/v1/*, 그룹 api-server-cep-v1, 환경변수 CEP_*).
@@ -132,8 +99,8 @@ judge:
     enabled: ${JUDGE_STATE_STORE_ENABLED:true}
     ttl-seconds: ${JUDGE_STATE_TTL_SECONDS:3600}
 
-# (D-32, D-51) 확정 서비스 DB — DB 명세서 V2.3 `posture_service`(팀 backend/api 기준). 테스트용 posture_app과 같은 MySQL 서버에 있어
-# 연결 풀을 따로 두지 않고 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
+# (D-32, D-51) 확정 서비스 DB — DB 명세서 V2.3 `posture_service`(팀 backend/api 기준). (D-38) 연결 풀의 기본 DB이고,
+# 조회는 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
 # 준비 확인(GET /store/service-db, D-53 전 /cep/service-db)과 판정 결과 저장(D-30)이 쓴다.
 service-db:
   enabled: ${SERVICE_DB_ENABLED:true}
