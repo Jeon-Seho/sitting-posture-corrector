@@ -148,9 +148,14 @@ FE가 정한 것(앱 쪽 동작):
 
 참고: 앱의 옛 판정 구현(고개 돌림 제외·귀 기준 치우침·복귀 대기)은 `lee_app1`의 `676ae89`에 있다. 회의 안건 원문과 BE 문서는 저장소 밖(DevOps)에 있다.
 
-### 7.2 다음 할 일 (10/25 기준, V3에 develop 합친 뒤)
+### 7.2 다음 할 일 (10/26 기준, V3에 develop 합친 뒤)
 
-10/25에 한 것: develop(PR #63) 합침, 팀장 10/22 결정을 연동 명세·이 문서에 옮김, 모델명·버전 화면 표시 삭제(5-a). 시험 231개·`tsc`·빌드·`check-repo` 통과.
+**10/26 인계 (데스크톱 → 노트북):** V3 `origin/feature/frontend-features-and-integrationV3`에 모두 푸시했다. 노트북에서 `git fetch origin` 뒤 `git merge --ff-only origin/feature/frontend-features-and-integrationV3`로 받는다. 원격의 `DevOps` 브랜치는 지워졌으니 fetch 설정에 남아 있으면 지운다(`git config --unset remote.origin.fetch '\+refs/heads/DevOps:.*'`).
+- 보낼 것(디스코드, klaod-tech): 홍규 — 1장 **BE-5**(①~⑤), 팀장 — 1장 맨 위 「팀장에게 물을 것」(`data-platform-boundary.md` 계속 쓸지). 답이 오면 이 문서·연동 명세에 반영한다.
+- 이어서 할 일: 아래 표 1번(더미 데이터 삭제)부터. 9번(자동 PiP)·10번(시험 전용 로컬 로그인 삭제)은 [계획 0054](../plans/active/0054-pip-fix-and-server-only-login.md).
+- 10/26에 정한 것: 로컬 기록은 키 하나, 계정별로 나누지 않음([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)). 포크(Vercel)는 그대로 `11126de`(fe-deploy 6장).
+
+10/25~26에 한 것: develop(PR #63) 합침, 팀장 10/22 결정을 연동 명세·이 문서에 옮김, 모델명·버전 화면 표시 삭제(5-a), design 문서 점검(fe-deploy·명령·동의 제안서 고침, 다른 담당 문서는 BE-5 ⑤), ADR 0027. 시험 231개·`tsc`·빌드·`check-repo` 통과.
 10/21에 한 것: F2 자세 등록(B1·B2), F1+F3 측정(S1 → `/v2/realtime`), 로컬 판정·이어하기·v1 서버 코드 삭제. 시험 213개·`check-repo` 통과, 실제 서버 시험은 아직.
 
 | 순서 | 할 일 | 막힌 것 |
