@@ -1,7 +1,6 @@
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { CollectionPage } from '../pages/CollectionPage'
-import { CameraWindow } from '../features/camera/CameraWindow'
 
 /** Local CSV capture does not require a profile or read/write the account API. */
 export function CollectionEntry({ camera, collection, onBack }: {
@@ -19,7 +18,6 @@ export function CollectionEntry({ camera, collection, onBack }: {
       </div>
       {unsaved && <p className="fine">돌아가기 전에 촬영을 마치고 CSV를 내려받아 주세요.</p>}
       <CollectionPage camera={camera} collection={collection} />
-      <CameraWindow camera={camera} />
     </main>
   )
 }

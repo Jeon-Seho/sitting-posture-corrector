@@ -259,7 +259,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
     expect(controls.camera.stop).toHaveBeenCalledOnce()
   })
-  it('keeps the camera running in a small window on records; expand returns to 측정하기, close only hides it', () => {
+  it('keeps the camera running on records without a small window (web, 2026-10-26)', () => {
     controls.camera.state = 'on'
     mount()
     login()
@@ -267,15 +267,8 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('자세 데이터 수집')
     click('기록')
     expect(controls.camera.stop).not.toHaveBeenCalled()
-    const windowButton = (label: string) =>
-      renderer!.root.findAll((node) => node.type === 'button' && node.props['aria-label'] === label)
-    expect(text(renderer!.root)).toContain('카메라 사용 중')
-    act(() => windowButton('작은 창 닫기')[0].props.onClick())
-    expect(windowButton('작은 창 닫기')).toHaveLength(0)
-    expect(controls.camera.stop).not.toHaveBeenCalled()
+    expect(text(renderer!.root)).not.toContain('카메라 사용 중')
     click('측정하기')
-    click('기록')
-    act(() => windowButton('측정 화면으로 돌아가기')[0].props.onClick())
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
     expect(controls.camera.stop).not.toHaveBeenCalled()
   })

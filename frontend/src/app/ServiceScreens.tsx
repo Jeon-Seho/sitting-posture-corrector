@@ -6,7 +6,6 @@ import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
-import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
@@ -19,7 +18,7 @@ import { historyFor } from '../lib/history'
 import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
-import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
+import { resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
   camera: CameraController
@@ -217,12 +216,6 @@ export function ServiceScreens({
         )}
         {view === 'profile' && profilePage}
       </main>
-      <CameraWindow
-        camera={camera}
-        floating={!CAMERA_PAGES.includes(view)}
-        onExpand={() => go(measuring ? 'session' : 'setup')}
-        measuring={measuring}
-      />
     </div>
   )
 }
