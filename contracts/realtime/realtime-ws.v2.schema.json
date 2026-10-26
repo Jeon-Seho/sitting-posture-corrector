@@ -162,7 +162,8 @@
           "required": [
             "type",
             "purpose",
-            "session_id"
+            "session_id",
+            "started_at"
           ],
           "properties": {
             "type": {
@@ -173,6 +174,11 @@
             },
             "session_id": {
               "$ref": "#/$defs/uuid"
+            },
+            "started_at": {
+              "description": "When the server started the session = monitor_session.started_at (when the server took S1), UTC ISO. The app keeps it as the record's start and takes today's KST date from it (BE fix/repo-backend-sync b903751, FE ADR 0029).",
+              "type": "string",
+              "format": "date-time"
             }
           }
         },
@@ -593,7 +599,8 @@
       "additionalProperties": false,
       "required": [
         "type",
-        "reason"
+        "reason",
+        "ended_at"
       ],
       "properties": {
         "type": {
@@ -609,6 +616,18 @@
             "bad_message",
             "server_shutdown",
             "limit_reached"
+          ]
+        },
+        "ended_at": {
+          "description": "When the session ended on this connection: started_at + summary total_ms, the same value as monitor_session.ended_at. null when the connection closed before the session ended (bad message, signed out, server shutdown) or for a calibration connection; the app then keeps the record as not confirmed (BE b903751, FE ADR 0029).",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }

@@ -90,6 +90,18 @@ class RealtimeWsV2Tests(unittest.TestCase):
         failed = self.example("calibration-result-failed")
         self.rejects({**failed, "reason": "camera_off"})
 
+    def test_server_times(self):
+        # BE b903751 (fix/repo-backend-sync), FE ADR 0029: the record's start and end come from the server.
+        ready = self.example("ready-measure")
+        self.rejects({k: v for k, v in ready.items() if k != "started_at"})
+        # A number (e.g. epoch ms) instead of an ISO-8601 string is refused.
+        self.rejects({**ready, "started_at": 12345})
+        closed = self.example("closed")
+        # null: the connection closed before the session ended (the app keeps it as not confirmed).
+        self.validator.validate({**closed, "reason": "server_shutdown", "ended_at": None})
+        self.rejects({"type": "closed", "reason": "ended"})
+        self.rejects({**closed, "ended_at": 12345})
+
     def test_closed_reasons_and_unknown_types(self):
         self.rejects({"type": "closed", "reason": "reconnect"})
         self.rejects({"type": "resume", "last_event_id": 1})
