@@ -27,6 +27,7 @@ export function useSession(
   lifecycle?: {
     initial?: Machine
     checkpoint?: (machine: Machine) => void
+    observed?: (machine: Machine) => void
     interrupted?: () => void
     ended?: (live: LiveState) => void
   },
@@ -94,6 +95,7 @@ export function useSession(
         )
       }
       lastSample.current = s
+      lifecycleRef.current?.observed?.(m.current)
       setLive(snapshot(m.current, s, current.rules))
       if (ts - checkpointAt.current > 2000) {
         checkpointAt.current = ts

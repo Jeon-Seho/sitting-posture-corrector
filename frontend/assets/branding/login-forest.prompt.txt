@@ -1,0 +1,7 @@
+Built-in imagegen edit, 2026-10-26.
+Edit target/style reference: frontend/public/illustrations/login-posture-45.webp.
+Selected output: login-forest-source.png; delivery format: public/illustrations/login-forest.webp.
+
+Edit the supplied existing PoseGood login illustration. This exact existing illustration is the edit target and style reference. Preserve its simplified flat graphic character, small round featureless head, solid hair shape, flat color blocks, thin simplified fingers, desktop monitor, orange chair, desk, rear three-quarter view, proportions, and overall composition. The person must look as simple and nonrealistic as in the original. No realistic hair strands, no realistic clothing folds, no skin details, no facial features, no 3D rendering, no photography, no new anatomy details. Change ONLY the palette/background and slightly refine crisp contours for the new UI. Replace the pale peach background with a uniform solid forest green #21332C, change the person's shirt to muted sage #91B29B, keep the chair a clear burnt orange #E67E45, desk and monitor warm ivory #F2EBDD, trousers deep charcoal green. Maintain simple flat vector-like illustration, only the extremely subtle flat shading already in the source. Background must be the same solid green edge to edge, no gradient, no border, no vignette. No text, logos, numbers, captions, extra people or objects. Finished landscape asset for an app login panel.
+
+The earlier realistic 3D-style generation was rejected by the user and is not consumed by the project.

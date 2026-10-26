@@ -17,6 +17,7 @@ import type { ServerCheckpoint, SessionView } from './server/contracts'
 import { serverSetup } from './server/setup'
 import { serverRecordEvents } from '../storage/serverSnapshots'
 import type { SessionRepository } from './repository'
+import { DailyMeasurementLedger, machineTotals } from '../storage/dailyMeasurement'
 
 type Options = {
   session: ServiceSession | null
@@ -54,6 +55,17 @@ export function useSessionPersistence({
   )
   const [saveFailed, setSaveFailed] = useState(false)
   const measuring = !!session && !ended.current
+  const daily = useRef<{ id: string; ledger: DailyMeasurementLedger | null } | null>(null)
+  function ledger() {
+    if (!session) return null
+    if (daily.current?.id !== session.id) daily.current = {
+      id: session.id,
+      ledger: (session.initial || session.server?.checkpoint) && !session.days
+        ? null : new DailyMeasurementLedger(session.startedAt, session.days),
+    }
+    return daily.current.ledger
+  }
+  function observed(machine: Machine) { ledger()?.observe(machineTotals(machine)) }
 
   useEffect(() => {
     mounted.current = true
@@ -243,6 +255,8 @@ export function useSessionPersistence({
     serverConfirmed = true,
   ) {
     if (!session) return
+    const dayLedger = ledger()
+    dayLedger?.observe({ total: live.totalSeconds, valid: live.validSeconds, good: live.goodSeconds, events: live.events })
     ended.current = true
     saveResult({
       id: session.id,
@@ -254,6 +268,7 @@ export function useSessionPersistence({
       good: live.goodSeconds,
       total: live.totalSeconds,
       events: session.server ? serverRecordEvents(live.view ?? null, serverConfirmed) : live.events,
+      ...(dayLedger ? { days: dayLedger.snapshot() } : {}),
       ...(session.server
         ? {
             server: {
@@ -282,6 +297,8 @@ export function useSessionPersistence({
       return false
     }
     try {
+      observed(machine)
+      const days = ledger()?.snapshot()
       const nextDraft = {
         id: session.id,
         startedAt: session.startedAt,
@@ -289,10 +306,12 @@ export function useSessionPersistence({
         rules: session.rules,
         savedAt: new Date().toISOString(),
         machine,
+        ...(days ? { days } : {}),
         ...(server ? { server } : {}),
       }
       if (repository) repository.saveDraft(nextDraft)
       else saveDraft(nextDraft)
+      if (days && days.length > 1) setDraft(nextDraft)
       return true
     } catch {
       setError('중간 기록을 저장하지 못했어요. 새로고침하면 기록을 잃을 수 있어요.')
@@ -309,6 +328,7 @@ export function useSessionPersistence({
             startedAt: draft.startedAt,
             mode: draft.mode,
             rules: draft.rules,
+            days: draft.days,
             server: {
               baselineId: draft.server.baselineId,
               baseline: draft.server.baseline,
@@ -334,6 +354,7 @@ export function useSessionPersistence({
         startedAt: draft.startedAt,
         mode: draft.mode,
         rules: draft.rules,
+        days: draft.days,
         server: {
           baselineId: draft.server.baselineId,
           baseline: draft.server.baseline,
@@ -365,6 +386,7 @@ export function useSessionPersistence({
     finish,
     archiveServerResult,
     checkpoint,
+    observed,
     restore,
     finishDraft,
     retrySave,

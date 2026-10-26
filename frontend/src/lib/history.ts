@@ -1,10 +1,11 @@
 import { summary, type RecordItem } from './serviceStore'
+import { kstDay, kstDayStart, DAY_MS } from './kstDay'
+import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 export type Period = 'today' | 'week' | 'month' | 'all'
 export type HistoryMode = RecordItem['mode'] | 'all'
 export function localDay(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return kstDay(iso)
 }
 export function historyFor(
   records: RecordItem[],
@@ -12,22 +13,19 @@ export function historyFor(
   period: Period,
   now = new Date(),
 ) {
-  const start = new Date(now),
-    end = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  end.setHours(24, 0, 0, 0)
-  start.setDate(start.getDate() - (period === 'week' ? 6 : period === 'month' ? 29 : 0))
-  return records.filter(
+  const end = kstDayStart(kstDay(now)) + DAY_MS
+  const start = end - DAY_MS * (period === 'week' ? 7 : period === 'month' ? 30 : 1)
+  return recordsByDay(records).filter(
     (r) =>
       (mode === 'all' || r.mode === mode) &&
       (period === 'all' ||
-        (Date.parse(r.endedAt) >= start.getTime() && Date.parse(r.endedAt) < end.getTime())),
+        (kstDayStart(r.dayPartition?.date ?? localDay(r.startedAt)) >= start && kstDayStart(r.dayPartition?.date ?? localDay(r.startedAt)) < end)),
   )
 }
 export function dailyHistory(records: RecordItem[]) {
   const groups = new Map<string, RecordItem[]>()
-  for (const record of records) {
-    const date = localDay(record.endedAt)
+  for (const record of recordsByDay(records)) {
+    const date = record.dayPartition?.date ?? localDay(record.startedAt)
     groups.set(date, [...(groups.get(date) ?? []), record])
   }
   return [...groups]

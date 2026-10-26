@@ -1,4 +1,5 @@
 import { tip } from '../../components/TipLayer'
+import { useRef, useState } from 'react'
 import { formatDuration } from '../../lib/stats'
 import { activityLevel, addDays, dateOf, type DailyStat } from './recordsSource'
 
@@ -14,10 +15,14 @@ export function dayLabel(day: string) {
 /**
  * 측정한 날 (2026-10-14): a year of days, darker = longer measured that day. Columns are
  * weeks (Sunday on top) and stretch to fill the card; the last column is this week.
- * Display only: days are picked in the month calendar.
+ * Days can be selected here or in the month calendar.
  */
-export function ActivityHeatmap({ stats, today }: { stats: DailyStat[]; today: string }) {
+export function ActivityHeatmap({ stats, today, selected, onSelect }: {
+  stats: DailyStat[]; today: string; selected?: string | null; onSelect?: (day: string) => void
+}) {
   const byDay = new Map(stats.map((s) => [s.date, s]))
+  const grid = useRef<HTMLDivElement>(null)
+  const [focused, setFocused] = useState(today)
   // Start on the Sunday 52 weeks before this week's Sunday.
   const start = addDays(today, -dateOf(today).getDay() - (HEATMAP_WEEKS - 1) * 7)
   const weeks = Array.from({ length: HEATMAP_WEEKS }, (_, w) =>
@@ -33,7 +38,7 @@ export function ActivityHeatmap({ stats, today }: { stats: DailyStat[]; today: s
             <span key={w}>{i % 2 ? w : ''}</span>
           ))}
         </div>
-        <div className="heatmap-grid" role="img" aria-label="최근 1년 측정한 날">
+        <div ref={grid} className="heatmap-grid" role="group" aria-label="최근 1년 측정한 날. 방향키로 날짜 이동, Enter로 기록 보기">
           {weeks.map((week, w) => {
             const first = dateOf(week[0])
             const showMonth = w > 0 && first.getDate() <= 7
@@ -44,8 +49,25 @@ export function ActivityHeatmap({ stats, today }: { stats: DailyStat[]; today: s
                   const s = byDay.get(day)
                   const future = day > today
                   return (
-                    <i
+                    <button
                       key={day}
+                      type="button"
+                      data-day={day}
+                      disabled={future || !onSelect}
+                      aria-hidden={future ? true : undefined}
+                      aria-label={`${dayLabel(day)} · ${s ? `${formatDuration(s.valid_sec)} 측정` : '측정 없음'} 기록 보기`}
+                      aria-pressed={day === selected}
+                      tabIndex={day === focused ? 0 : -1}
+                      onFocus={() => setFocused(day)}
+                      onClick={() => { if (!future) onSelect?.(day) }}
+                      onKeyDown={event => {
+                        const delta: Record<string, number> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }
+                        if (!(event.key in delta) && event.key !== 'Home' && event.key !== 'End') return
+                        event.preventDefault()
+                        const next = event.key === 'Home' ? start : event.key === 'End' ? today : addDays(day, delta[event.key])
+                        const clamped = next < start ? start : next > today ? today : next
+                        grid.current?.querySelector<HTMLButtonElement>(`[data-day="${clamped}"]`)?.focus()
+                      }}
                       className={`heatmap-cell level-${s ? activityLevel(s.valid_sec) : 0} ${future ? 'is-future' : ''} ${day === today ? 'is-today' : ''}`}
                       {...(future
                         ? {}

@@ -23,6 +23,7 @@ import { newMachine } from '../lib/engine'
 import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
 import { CAMERA_ERRORS } from '../features/camera/errors'
+import type { DesktopBridge } from '../features/desktop/bridge'
 
 const controls = vi.hoisted(() => ({
   camera: null as unknown as CameraController,
@@ -67,6 +68,14 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => {
       renderer = create(<App />)
     })
+  const enableDesktop = () => {
+    window.posegoodDesktop = {
+      version: 1, platform: 'win32',
+      getLaunchInfo: vi.fn(async () => null),
+      setLaunchAtLogin: vi.fn(async () => null),
+      setAutoCamera: vi.fn(async () => null),
+    } satisfies DesktopBridge
+  }
   const prepareServerCamera = () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
@@ -186,7 +195,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     login()
     expect(text(renderer!.root)).toContain('기존 자료는 유지됩니다')
     expect(data.get(KEYS.records)).toBe(raw)
-    click('측정 시작')
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
     expect(text(renderer!.root)).toContain('새 측정을 시작할 수 없습니다')
     expect(data.get(KEYS.records)).toBe(raw)
@@ -262,7 +270,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     mount()
     login()
     expect(text(renderer!.root)).not.toContain('저장했어요.')
-    click('측정 시작')
     const setup = renderer!.root.findByType(SetupPage)
     expect(setup.props.mode).toBeUndefined()
     expect(text(setup)).not.toContain('발표용 시연')
@@ -303,7 +310,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     data.set(KEYS.records, JSON.stringify(records))
     mount()
     login()
-    click('달력')
+    click('기록')
     const goodSec = () =>
       (renderer!.root.findByType(MonthCalendar).props.stats as DailyStat[]).reduce((n, s) => n + s.good_sec, 0)
     expect(goodSec()).toBe(100)
@@ -374,12 +381,13 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(controls.camera.stop).toHaveBeenCalledOnce()
   })
   it('keeps the camera running in a small window on records; expand returns to 측정하기, close only hides it', () => {
+    enableDesktop()
     controls.camera.state = 'on'
     mount()
     login()
     click('설정')
     click('자세 데이터 수집')
-    click('기록')
+    click('오늘')
     expect(controls.camera.stop).not.toHaveBeenCalled()
     const windowButton = (label: string) =>
       renderer!.root.findAll((node) => node.type === 'button' && node.props['aria-label'] === label)
@@ -388,7 +396,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(windowButton('작은 창 닫기')).toHaveLength(0)
     expect(controls.camera.stop).not.toHaveBeenCalled()
     click('측정하기')
-    click('기록')
+    click('오늘')
     act(() => windowButton('측정 화면으로 돌아가기')[0].props.onClick())
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
     expect(controls.camera.stop).not.toHaveBeenCalled()
@@ -403,8 +411,9 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
   }
   it('ends and saves the running measurement from the small window on another tab (X, 2026-10-20)', () => {
+    enableDesktop()
     startCameraSession()
-    click('기록')
+    click('오늘')
     // The window shows the running measurement's posture, not just that the camera is on.
     const small = renderer!.root.find(
       (node) => node.type === 'aside' && node.props['aria-label'] === '카메라 작은 창',
@@ -418,6 +427,19 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => end[0].props.onClick())
     expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
     expect(text(renderer!.root.findByType(SessionPage))).toContain('작은 창을 닫아 측정을 끝냈어요')
+  })
+  it('keeps web measurement running on records without mounting a floating window or PiP source', () => {
+    startCameraSession()
+    click('오늘')
+    expect(renderer!.root.findAllByProps({ 'aria-label': '카메라 작은 창' })).toHaveLength(0)
+    const videos = renderer!.root.findAllByType('video')
+    expect(videos.length).toBeGreaterThan(0)
+    expect(videos.every((video) => video.props.disablePictureInPicture === true)).toBe(true)
+    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(0)
+    expect(controls.camera.stop).not.toHaveBeenCalled()
+    click('측정하기')
+    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(renderer!.root.findAllByProps({ 'aria-label': '실제 웹캠 미리보기' })[0].props.disablePictureInPicture).toBe(true)
   })
   it('routes an explicit server opt-in and freezes its baseline, camera shape and rules', () => {
     const screen = startServer()
@@ -453,6 +475,28 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('측정하기')
     expect(renderer!.root.findByType(ServerSessionPage).props.service.active).toBe(true)
     expect(controls.camera.connect).not.toHaveBeenCalled()
+  })
+  it('persists both KST dates across midnight without replacing the running measurement', () => {
+    vi.setSystemTime(new Date('2026-10-26T23:59:58+09:00'))
+    startCameraSession()
+    const screen = renderer!.root.findByType(SessionPage)
+    const first = newMachine(); first.total = 2; first.good = 2
+    act(() => screen.props.service.onObserved(first))
+    vi.setSystemTime(new Date('2026-10-27T00:00:04+09:00'))
+    const second = newMachine(); second.total = 6; second.good = 4; second.unknown = 2
+    act(() => screen.props.service.onObserved(second))
+    act(() => screen.props.service.onCheckpoint(second))
+    expect(readLocal<Draft>(KEYS.draft, null as unknown as Draft).days).toMatchObject([
+      { date: '2026-10-26', total: 2, valid: 2, good: 2 },
+      { date: '2026-10-27', total: 4, valid: 2, good: 2 },
+    ])
+    expect(controls.camera.stop).not.toHaveBeenCalled()
+    act(() => screen.props.service.onEnded({ totalSeconds: 6, validSeconds: 4, goodSeconds: 4, events: [] }))
+    const records = readLocal<RecordItem[]>(KEYS.records, [])
+    expect(records).toHaveLength(1)
+    expect(records[0].days).toHaveLength(2)
+    expect(records[0].days!.reduce((n, day) => n + day.total, 0)).toBe(6)
+    expect(data.has(KEYS.draft)).toBe(false)
   })
   it('saves the server checkpoint and confirmed final snapshot without feature payloads in records', () => {
     const screen = startServer()
@@ -569,7 +613,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     const tabs = renderer!.root
       .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
       .map((button) => text(button))
-    expect(tabs).toEqual(['측정하기', '기록', '달력', '설정'])
+    expect(tabs).toEqual(['측정하기', '오늘', '기록', '설정'])
   })
   const advance = (ms: number) =>
     act(() => {
@@ -610,7 +654,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
-    expect(starts.length).toBe(2) // camera view and side panel
+    expect(starts.length).toBe(1) // one primary action on the camera view
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
   })

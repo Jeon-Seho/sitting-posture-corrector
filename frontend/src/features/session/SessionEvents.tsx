@@ -80,7 +80,7 @@ export function EventTable({ events, muted }: { events: CollapseEvent[]; muted: 
                   {e.recoverySec === null ? '—' : formatDuration(e.recoverySec)}
                 </td>
                 <td>
-                  {e.endReason
+                  {e.continued ? '다음 날 계속' : e.endReason
                     ? e.endReason === 'paused'
                       ? '휴식으로 중단'
                       : e.endReason === 'unknown'

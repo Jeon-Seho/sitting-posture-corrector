@@ -1,4 +1,4 @@
-import { FastForward, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '@phosphor-icons/react'
+import { FastForward, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../components/icons'
 import { Segmented } from '../../components/Segmented'
 import type { CameraController } from '../../hooks/useCamera'
 import type { CollectionController } from '../../hooks/useCollection'
