@@ -75,7 +75,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 4. 기준 자세 등록·복원 (`hooks/useCamera.ts`, 새 훅)
 
-- [ ] 등록이 끝나면 `POST /baselines`로 `{registered_at,calibration_ms,sample_count,landmarks}`를 보낸다. `registered_at`은 촬영 완료 시각을 고정해 재시도에도 그대로 쓴다.
+- [ ] 등록이 끝나면 `POST /baselines`로 `{registered_at,calibration_ms,sample_count,landmarks}`를 보낸다. `registered_at`은 촬영 완료 시각을 고정해 재시도에도 그대로 쓴다. (2026-10-26 바뀜: DB V2.5로 `registration_id`(촬영마다 UUID)를 보내고 등록 시각은 서버가 정한다 — [ADR 0026](../../decisions/0026-baseline-average-by-app-b1.md) 4번.)
 - [ ] 로그인 직후 `GET /baselines/current`로 기준을 불러온다. `404 BASELINE_NOT_FOUND`면 등록 화면으로 보낸다.
 - [ ] 저장 응답의 평균 좌표로 기준 특징(`Features`)을 다시 만든다. 카메라가 연결되면 실제 영상 크기로 다시 계산한다.
 - [ ] 계정 모드에서는 PC(localStorage) 기준을 읽거나 쓰지 않는다. 남은 PC 기준이 계정 기준을 가리지 않게 하기 위해서다.

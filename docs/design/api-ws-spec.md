@@ -1,9 +1,9 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0025](../decisions/0025-app-always-measures-on-server.md) 항상 서버로 측정, [0026](../decisions/0026-baseline-average-by-app-b1.md) 자세 등록 B1, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
-> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-4(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장. 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-6(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(BE와 다른 곳 한눈에는 1.0). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../contracts/realtime/examples-v2/). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 0. BE 명세에 대해 FE가 정한 것과 요청
@@ -32,7 +32,8 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 로그인 | HttpOnly·SameSite=Lax 쿠키. **로그인한 때부터 30분이 지나면 HTTP·WS 활동과 상관없이 만료**(10/22 BE 명세 1장, FE 기준. 10/25 기준 서버는 `spring.session.timeout=30m` — 마지막 요청부터 세는 방식이라 아직 다름). WS도 같은 쿠키. 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
 | CSRF | A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함) | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
-| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로 |
+| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 시각(A4 `server_time` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, `ready`, `closed`, R1·T1 `today`)의 KST 날짜. 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`은 BE 브랜치 `fix/repo-backend-sync` `b903751`에 있고(develop 미병합), A4 `server_time`은 BE-6 요청 중. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
+| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의, BE-6 요청 중) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 
@@ -84,7 +85,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입 뒤 |
 | A2 | `POST /v2/auth/register` | 회원가입 2단계(계정 정보) 「다음」 |
 | A3 | `POST /v2/auth/login` | 로그인 |
-| A4 | `GET /v2/auth/me` | 앱 시작(쿠키가 살아 있으면 로그인 화면을 건너뜀), `AUTH_CHANGED` 뒤 |
+| A4 | `GET /v2/auth/me` | 앱 시작(쿠키가 살아 있으면 로그인 화면을 건너뜀), `AUTH_CHANGED` 뒤. 10/26부터 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) |
 | A5 | `POST /v2/auth/logout` | 계정 메뉴 「로그아웃」 |
 | A6 | `PUT /v2/auth/password` | 설정 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) |
 | A7 | `DELETE /v2/auth/account` | 프로필 › 탈퇴 |
@@ -102,7 +103,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | T1 | `GET /v2/stats/daily?from&to` | 기록 화면의 지난 날짜 그래프·표 |
 | WS | `/v2/realtime` | 측정(`purpose:"measure"`)만. 자세 등록 `purpose:"calibration"`은 쓰지 않는다(ADR 0026) |
 
-R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르지 않는 것**: S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`, S5 metadata.
+R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르지 않는 것**: S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`, S5 metadata. R2·S2는 서버 코드에 아직 있다 — BE 명세 머리말대로 앱이 v2로 넘어간 뒤 BE가 지운다(BE-1).
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -118,7 +119,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
 
-R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 그대로 받는다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 10/25 기준 서버에 R1b·T1이 아직 없다(BE-2).
+R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 그대로 받는다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 10/26 기준 서버에 R1b·T1이 아직 없다(develop·BE 브랜치 모두, BE-2 — BE 10/26 정리 문서 B-e에 할 일로 있음).
 
 **오늘과 과거의 데이터 출처(10/22 팀장 결정, 10/14 「통계는 어제까지」를 대체):** T1은 어제까지의 일별 통계만 제공하고 앱은 그 값을 표시한다. 오늘 화면은 측정 중 받은 서버 요약·사건과 종료 결과를 앱이 로컬에 모아 쓴다. R1·W1 `records`에 오늘 세션이 들어 있어도 오늘 표시값의 출처는 로컬 기록이다.
 
@@ -131,7 +132,7 @@ R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 
 | 어제까지의 일별 통계·과거 세션 상세 | 통계는 T1, 목록·상세는 R1·R1b |
 | 최근 7일·30일 등 기간 화면 | 어제까지는 T1, 오늘은 로컬 집계. 과거 날짜의 로컬 기록을 T1에 더하지 않는다 |
 
-오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다. 10/25 기준 앱은 종료 결과를 R1 형식으로 이 기기에 남기고(`useSessionPersistence.ts` `finish`, UUID로 덮어씀), 기록·달력은 아직 전체 기간을 로컬에서 집계한다.
+오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 측정은 자정에 서버가 끊으므로 세션의 시작 날짜 = 끝난 날짜이고, 기록은 시작 시각(`ready.started_at`)의 KST 날짜에 넣는다. 오늘이 며칠인지는 가장 최근에 받은 서버 시각으로 정한다(ADR 0029). 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다. 10/26 기준 앱은 종료 결과를 R1 형식으로 이 기기에 남기고(`useSessionPersistence.ts` `finish`, UUID로 덮어씀, 시작·종료는 서버 시각), 기록·달력은 아직 전체 기간을 로컬에서 KST 날짜로 집계한다.
 
 **팀 참고 — 한 PC 여러 계정(10/25 klaod-tech 결정, [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md), 알려진 한계):** 로컬 기록은 계정과 상관없이 localStorage 키 하나(`posegood.v2.records`)에 둔다. 보통 PC 한 대를 한 사람이 쓰므로 계정별로 나누지 않는다. 그래서 같은 PC·같은 브라우저에서 다른 계정으로 로그인하면 앞 계정의 오늘 기록이 목록·합산에 함께 보인다(서버 DB·T1에는 영향 없음). 사용자 안내 문구는 두지 않는다. 문제가 되면 키를 계정 ID별로 나누면 된다.
 
@@ -163,6 +164,7 @@ R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 
 | ③ 측정 종료, 그때까지 저장 | 사용자 「측정 종료」, 작은 카메라 창 X(10/20, 10/26부터 데스크톱 앱에만 있음 — ADR 0028), 쓰던 카메라가 빠짐(10/16), 측정 중 영상 크기가 바뀜(10/21) | `end {end_ms}` | — |
 | | 앱을 닫거나 새로 고침, 네트워크 끊김 | (연결이 끊김) 서버가 마지막 구간 끝에서 끝내고 저장. 앱은 다시 연결하지 않는다 | — |
 | | 일시정지가 10분 이어짐(10/20) | 서버가 자기 시계로 끝내고 알린다(BE). 앱에는 타이머가 없다 | — |
+| | KST 00:00(팀 회의, ADR 0029) | 서버가 자기 시계로 그때까지 저장하고 끝낸다(안: `closed(day_changed)`, BE-6). 앱은 새 측정을 바로 시작한다 | — |
 | | 서버가 닫음: `limit_reached`, `unauthorized`, `session_lost`, `server_shutdown` | 5.3 | — |
 
 DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
@@ -177,7 +179,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | `type` | 앱이 하는 일 |
 |---|---|
-| `ready` | `features`를 보내기 시작한다(밀린 구간부터) |
+| `ready` | `features`를 보내기 시작한다(밀린 구간부터). `started_at`(서버가 S1을 받은 시각, BE `b903751`)을 기록의 시작 시각·오늘 날짜로 |
 | `ack` | 아무것도 하지 않는다(재전송 없음) |
 | `observation` | 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만). `invalid_reason`: `unmeasurable` 「얼굴과 어깨가 보이지 않아요」, `head_turn` 「고개를 돌린 동안은 판정하지 않아요」 |
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
@@ -188,7 +190,8 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 
 | `closed.reason` | 앱 |
 |---|---|
-| `ended` | 종료 화면 |
+| `ended` | 종료 화면. `ended_at`(= `started_at` + `total_ms`, BE `b903751`)을 기록의 종료 시각·오늘 날짜로. 다른 사유에서 `ended_at`이 null이면(끝나기 전에 닫힘) 기록은 「종료 미확인」, 종료 시각은 서버 시작 + 마지막 `progress`의 `total_ms`로 둔다 |
+| (BE-6 요청 중) `day_changed` | 자정에 끊김. 그때까지의 기록을 남기고 카메라를 켠 채 새 측정(새 `session_id`)을 바로 시작, 「자정이 지나 새 측정으로 이어졌어요」 |
 | `limit_reached` | 종료 화면 + 「한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요」 |
 | `session_lost`·`server_shutdown` | 종료 화면(끊기기 전까지 저장됨 안내) |
 | `unauthorized` | 「로그인이 만료됐어요」, 로그인 화면 |
@@ -216,7 +219,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 |---|---|---|
 | 1 | 얼굴·어깨가 보이면 3·2·1 뒤 촬영. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음, 어깨 유예 프레임 제외)만 쓰고, 쓸 수 없는 프레임이나 1초 넘는 빈틈이 있으면 처음부터 다시 센다 | — |
 | 2 | 3초가 지나고 20장 이상이면 관절 9개 x·y를 **쓴 프레임 수로 나눈 단순 평균**(소수 5자리). 평균이 0~1 밖이면 보내지 않고 「화면 안으로」 안내 | — |
-| 3 | B1 `{registered_at(촬영이 끝난 UTC), calibration_ms, sample_count, landmarks}`. 502·503은 같은 본문으로 재시도 | 새 행 저장(다시 등록할 때마다 새 행, 이력 보존), `baseline_id` 응답 |
+| 3 | B1 `{registration_id(촬영마다 새 UUID), calibration_ms, sample_count, landmarks}`. 502·503·응답 없음은 같은 본문(같은 `registration_id`)으로 재시도. `registered_at`은 보내지 않는다(보내면 400, DB V2.5 — BE `fix/repo-backend-sync` `cab11c1`, 10/26 앱 맞춤) | 새 행 저장(다시 등록할 때마다 새 행, 이력 보존), `baseline_id`와 **서버가 받은 시각** `registered_at` 응답. 같은 `registration_id`에 같은 좌표면 그 행, 다른 좌표면 409 |
 | 4 | 응답의 `baseline_id`가 현재 기준. 앱을 켜거나 로그인하면 B2로 받는다(받기 전에는 등록을 시작하지 않음). 404면 등록부터. B2가 실패하면(연결·서버 오류) 서버에 기준이 있을 수 있어 등록을 자동으로 시작하지 않고 「다시 불러오기」·「새로 등록」을 고르게 한다(10/22) | — |
 
 기준 특징값은 저장하지 않고 판정 때 서버가 좌표에서 계산한다. 이 PC에는 기준을 저장하지 않는다.

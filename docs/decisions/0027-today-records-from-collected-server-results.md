@@ -4,6 +4,7 @@
 - 날짜: 2026-10-25 (근거 결정 2026-10-22)
 - 근거: 2026-10-22 팀장(Jeon-Seho) 결정(develop `db220d8`, [연동 명세 4.5](../design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)), 2026-10-25 사용자(FE) 결정 — 「왠만해선 1PC에 1명의 사람이 사용하니」 키를 나누지 않고 팀원용 주의사항으로 남긴다
 - 대체: [ADR 0025](0025-app-always-measures-on-server.md) 7번의 「R1로 바꾸면 이 복사를 지운다」, 10/14 결정 「합산·그래프 같은 통계는 어제까지만 그린다」(DevOps 검토 C5)
+- 보완(2026-10-26): [ADR 0029](0029-midnight-cut-and-server-time.md) — 측정은 KST 자정에 서버가 끊고, 「오늘」과 기록 시각은 서버 시각을 따른다(1번의 KST 나누기를 서버 시각으로)
 - 관련: [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [FE 제안서](../design/fe-server-proposal.md) 2장 4·7.2, [계획 0023](../plans/active/0023-frontend-server-only.md)
 
 ## 배경

@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-25(브랜치 이름 V3로, 지운 `referenceRuleCases` 명령 삭제, CEP·`schema_V1_1.sql` 문구 정리) · 2026-10-21(브랜치 V3, `check-browser`는 서버 전용 시나리오 필요) · FE(`feature/frontend-features-and-integrationV3`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-26(`check-browser`의 `camera-preview.mjs`에서 웹 작은 창 항목 정리, WS 계약 시험 `tests/test_realtime_ws_v2.py`는 `python tools/dev.py setup`으로 만든 `.venv`에서 통과 — 같은 `dev.py test`의 `test_deploy_configuration` 3개는 Docker가 없어 오류) · 2026-10-25(브랜치 이름 V3로, 지운 `referenceRuleCases` 명령 삭제, CEP·`schema_V1_1.sql` 문구 정리) · 2026-10-21(브랜치 V3, `check-browser`는 서버 전용 시나리오 필요) · FE(`feature/frontend-features-and-integrationV3`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)

@@ -1,6 +1,6 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
+- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(BE에 물을 것 1장, FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
@@ -102,7 +102,11 @@
 - 2026-10-22: 오늘 표시 기준을 정리했다. 서버 연동 뒤에도 오늘 세션 목록·요약·달력·그래프는 로컬에 수집한 서버 결과를 사용한다. 어제까지의 일별 통계는 T1으로 제공·표시한다. 앞선 기록의 오늘 제외 설명은 이 결정으로 대체하며, 세션 결과 화면은 방금 끝난 세션만 표시한다.
 - 2026-10-25: develop(PR #63, 팀장 `db220d8`)을 V3에 합침. 모델명·버전 화면 표시를 지움(팀장 10/22 결정). 오늘 표시용 로컬 기록은 키 하나로 두고 계정별로 나누지 않는다(klaod-tech: 한 PC 한 사람이 보통이고, 나누면 계정 ID를 넘기는 곳이 늘어 복잡해진다. 한계는 연동 명세 4.5 「팀 참고」).
 
+- 2026-10-26: 웹 작은 창 삭제·숨은 탭 측정(Worker 타이머)·데스크톱 작은 창([ADR 0028](../../decisions/0028-no-web-camera-window-desktop-only.md), 계획 0054·0055). 화면의 날짜·시각을 서버 시각으로(기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 「오늘」 = 가장 최근 서버 시각의 KST 날짜, KST 고정, [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)). BE 브랜치 `fix/repo-backend-sync`(김유진)에 맞춰 B1 `registration_id`. 기록·달력 로직은 FE가 고치기로 함(화면 모양은 lellon0403).
+
 ## 검증 결과와 남은 한계
+
+2026-10-26, Windows 11 데스크톱(V3): 프론트 단위 시험 238개, `tsc`, 빌드, `check-repo`, WS 계약 시험(`tests/test_realtime_ws_v2.py`·`test_realtime_contracts.py` 16개) 통과. 데스크톱 작은 창은 개발 실행으로 짧게 확인. 실제 서버 시험은 아직(BE 브랜치 병합·터널 필요).
 
 2026-10-25, Windows 11 데스크톱(V3, develop `3285cce` 합침): 프론트 단위 시험 231개, `tsc`, 빌드, `check-repo` 통과. 모델 버전 표시 삭제로 기록 상세 시험 2곳을 「보이지 않음」 확인으로 바꿈. 실제 서버 시험·`check-browser`·`check-backend`·`check-compose`는 돌리지 않음.
 
@@ -114,4 +118,4 @@
 
 2026-10-13, Windows 11 노트북(Node 24, Python 3.13): 프론트 단위 시험 321개, `tsc`, 빌드, `check-repo`, Python 계약 시험 통과.
 `check-browser`는 develop 병합 뒤 "첫 사건이 정확히 3초에 확정" 단계에서 실패한다(측정 흐름은 develop 변경, 원인 미확인).
-`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-jyi 파일, [명령과 검사](../../design/fe-commands-and-checks.md)).
+`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-yj 파일, [명령과 검사](../../design/fe-commands-and-checks.md)).

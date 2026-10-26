@@ -54,6 +54,6 @@
 
 ## 검증 결과와 남은 한계
 
-- 2026-10-26: `npm run check`(= `check-frontend`) 통과 — 시험 230개(새 시험 5개), 타입 검사, 빌드. `node --check electron/main.cjs`·`preload.cjs`·`tools/browser/camera-preview.mjs` 통과. `check-repo` 통과.
+- 2026-10-26: `npm run check`(= `check-frontend`) 통과 — 시험 230개(새 시험 5개), 타입 검사, 빌드(같은 날 저녁 서버 시각 작업 뒤 238개). `node --check electron/main.cjs`·`preload.cjs`·`tools/browser/camera-preview.mjs` 통과. `check-repo` 통과.
 - 2026-10-26 수동(데스크톱 개발 실행, 화면만 보는 가짜 계정 서버): 로그인 → 측정하기에서 카메라 켬 → 다른 창으로 가면 오른쪽 아래 작은 창이 보이고, PoseGood 창으로 돌아오면 숨는 것을 짧게 확인했다(klaod-tech).
 - 남은 한계: 가짜 서버에는 측정이 없어 측정 중 상태 표시·X 종료는 단위 시험으로만 확인했다. 서버를 붙인 뒤 확인한다. 패키징 실행 파일 확인과 `check-browser`(G1·G6로 이미 실패)는 하지 않았다.

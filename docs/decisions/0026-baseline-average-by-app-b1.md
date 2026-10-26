@@ -14,8 +14,9 @@
    — BE 명세 11.3과 같은 조건). 쓸 수 없는 프레임이나 1초 넘는 빈틈이 있으면 처음부터 다시 센다.
 3. 3초가 지나고 **20장 이상**(B1 `sample_count` 최소)이면 끝난다. 추적 속도가 낮으면 20장이 찰 때까지 이어 찍고, 15초가 지나면 실패로 안내한다.
    평균이 화면 밖(0~1 밖)이면 보내지 않고 「화면 안으로」 안내한다.
-4. 결과를 **B1 `POST /v2/baselines`** `{registered_at, calibration_ms, sample_count, landmarks}`로 보낸다(CSRF·계정 헤더).
-   `registered_at`은 촬영이 끝난 UTC 시각이고, 502·503은 같은 본문으로 1·2·4초 뒤 최대 3번 다시 보낸다(B1은 같은 본문에 같은 행을 돌려준다).
+4. 결과를 **B1 `POST /v2/baselines`** `{registration_id, calibration_ms, sample_count, landmarks}`로 보낸다(CSRF·계정 헤더).
+   `registration_id`는 촬영 한 번마다 앱이 만드는 UUID이고, 502·503·응답 없음은 같은 본문으로 1·2·4초 뒤 최대 3번 다시 보낸다(B1은 같은 `registration_id`·좌표에 같은 행을 돌려준다).
+   (2026-10-26 갱신: 처음에는 촬영이 끝난 UTC 시각 `registered_at`을 보냈다. DB V2.5와 BE의 서버 시각 ADR(`fix/repo-backend-sync` `cab11c1`)로 등록 시각은 서버가 정하고, 앱이 `registered_at`을 보내면 400이다. 응답의 `registered_at`은 서버가 받은 시각.)
 5. 응답의 `baseline_id`가 현재 기준이고 S1에 쓴다. 앱을 켜거나 로그인하면 **B2 `GET /v2/baselines/current`**로 받는다.
    B2를 받기 전에는 등록을 시작하지 않는다(서버에 이미 기준이 있을 수 있음). 404면 등록부터.
 6. 이 PC에는 기준 자세를 저장하지 않는다(예전 `savedBaseline.ts` 삭제). WS 등록(`purpose:"calibration"`)은 쓰지 않는다.
