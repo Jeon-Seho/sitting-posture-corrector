@@ -12,7 +12,7 @@ export function CollectionEntry({ camera, collection, onBack }: {
   const unsaved = collection.active || (collection.count > 0 && !collection.downloaded)
   return (
     <main className="collection-entry">
-      <video ref={camera.videoRef} className="capture-source" muted playsInline aria-hidden="true" />
+      <video ref={camera.videoRef} className="capture-source" muted playsInline disablePictureInPicture aria-hidden="true" />
       <div className="collection-entry-nav">
         <strong>PoseGood · 자세 데이터 수집</strong>
         <button className="btn" disabled={unsaved} onClick={onBack}>시작 화면으로</button>

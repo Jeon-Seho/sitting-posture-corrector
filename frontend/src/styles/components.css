@@ -510,3 +510,9 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+.camera-window-launch {
+  position: fixed; right: 24px; bottom: 20px; z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px; border-radius: 16px; background: var(--bg-side); box-shadow: var(--shadow-float);
+  color: var(--ink-2); font-size: 13px;
+}

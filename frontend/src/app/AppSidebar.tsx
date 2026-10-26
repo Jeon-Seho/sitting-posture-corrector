@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { CaretUp, SignOut, UserCircle } from '@phosphor-icons/react'
+import { CaretUp, SignOut, UserCircle } from '../components/icons'
 import { BrandMark } from '../components/BrandMark'
 import { ThumbLayer, useSlidingThumb } from '../components/Segmented'
 import { formatDuration } from '../lib/stats'
 import { NAV_TABS, tabOf, type Page, type Tab } from './navigation'
+import { tip } from '../components/TipLayer'
 
 type Props = {
   page: Page
@@ -32,8 +33,9 @@ export function AppSidebar({ page, measuring, go, onLogout, onProfile, name, tod
       <nav ref={ref} className={`nav ${thumb ? 'has-thumb' : ''}`} aria-label="주요 화면">
         <ThumbLayer thumb={thumb} className="nav-thumb" />
         {NAV_TABS.map(({ tab, label, icon: TabIcon }) => (
-          <button className="nav-item" key={tab} aria-current={current === tab} onClick={() => go(tab)}>
-            <TabIcon size={20} weight={current === tab ? 'fill' : 'bold'} className="icon" />
+          <button className="nav-item" key={tab} aria-current={current === tab} onClick={() => go(tab)}
+            {...tip(label, [['기능', tab === 'measure' ? '카메라를 켜고 자세를 측정해요' : tab === 'records' ? '오늘 측정한 시간과 자세를 확인해요' : tab === 'calendar' ? '날짜별 지난 기록과 최근 흐름을 확인해요' : '알림·카메라·계정 설정을 바꿔요']])}>
+            <TabIcon size={28} weight={current === tab ? 'fill' : 'bold'} className="icon" />
             {label}
             {tab === 'measure' && measuring && <span className="nav-live" aria-label="측정 중" />}
           </button>

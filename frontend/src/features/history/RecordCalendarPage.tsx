@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from '../../components/ui'
 import type { RecordItem } from '../../lib/serviceStore'
 import { ActivityHeatmap, HeatmapLegend } from './ActivityHeatmap'
 import { DaySummary } from './DaySummary'
 import { MonthCalendar, PeriodCard } from './RecordCalendar'
 import { RecordModeChips, useRecordMode } from './recordMode'
-import { addDays, dailyStats, dayKey } from './recordsSource'
+import { addDays, dailyStats } from './recordsSource'
+import { useKstDay } from '../../hooks/useKstDay'
 
 /**
  * 달력 tab (2026-10-14), after well-known diary and calendar apps:
@@ -24,11 +25,11 @@ export function RecordCalendarPage({
   /** 발표용 예시 기록 are shown instead of this device's records. */
   example?: boolean
 }) {
-  const today = dayKey(new Date())
+  const today = useKstDay()
   const [selected, setSelected] = useState<string | null>(null)
   const { mode, setMode, hasDemo, records, label } = useRecordMode(allRecords)
   // A year of heatmap plus room for the calendar to page back.
-  const stats = dailyStats(records, addDays(today, -400), today)
+  const stats = useMemo(() => dailyStats(records, addDays(today, -400), today), [records, today])
   // The picked day opens under the calendar; bring it into view.
   const dayRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -39,7 +40,7 @@ export function RecordCalendarPage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">달력</h1>
+          <h1 className="page-title">기록</h1>
           {example ? (
             <p className="page-desc">발표용 예시 기록 · 실제 측정 기록이 아니에요</p>
           ) : (
@@ -52,7 +53,7 @@ export function RecordCalendarPage({
 
       <div className="records-stack">
         <Card title="측정한 날" action={<HeatmapLegend />} className="year-card">
-          <ActivityHeatmap stats={stats} today={today} />
+          <ActivityHeatmap stats={stats} today={today} selected={selected} onSelect={setSelected} />
         </Card>
 
         <div className="calendar-layout">

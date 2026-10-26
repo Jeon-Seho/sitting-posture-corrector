@@ -1,10 +1,10 @@
-/* Desktop posture alert popup: a small deep-brown pill, like the in-app snackbar
+/* Desktop posture alert popup: a small forest-green pill, like the in-app snackbar
    (--snack, 2026-10-14). The window is transparent; the pill sits at its bottom right. */
 :root {
-  --snack: #3a2d26;
-  --snack-ink: #fffaf4;
-  --snack-muted: #d9c9bb;
-  --ring: #f0923f;
+  --snack: #21332c;
+  --snack-ink: #f1f2e9;
+  --snack-muted: #b0c3b1;
+  --ring: #91b597;
   --ring-track: rgba(255, 250, 244, 0.16);
 }
 
@@ -104,7 +104,9 @@ body {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: grayscale(1) brightness(0) invert(.88);
 }
+#close img { filter: grayscale(1) brightness(0) invert(.88); }
 
 strong {
   font-size: 14px;

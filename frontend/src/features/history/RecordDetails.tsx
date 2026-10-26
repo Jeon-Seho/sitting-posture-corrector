@@ -22,7 +22,7 @@ export function RecordDetails({
   titleId: string
 }) {
   const server = record.server
-  const view = server?.view
+  const view = record.dayPartition ? null : server?.view
   const rules = recordedRules(record)
   const stats = periodStats([record], '', '')
   const alerts = view?.summary.alert_count ?? stats.alerts
@@ -30,6 +30,7 @@ export function RecordDetails({
     <section id={id} aria-labelledby={titleId} className="history-record-details">
       <h4 id={titleId}>측정 기록 상세</h4>
       <RecordSummary record={record} />
+      {record.dayPartition && <p className="fine">{record.dayPartition.date} 측정분 · 자정에도 측정은 이어졌어요.</p>}
       {record.mode === 'demo' && (
         <p className="history-warning">
           합성 시연 기록이에요. 실제 자세 개선의 근거로 쓸 수 없어요.
@@ -51,10 +52,10 @@ export function RecordDetails({
           </p>
         )}
         <dl className="history-detail-grid">
-          <Fact label="측정 시작" value={new Date(record.startedAt).toLocaleString()} />
+          <Fact label="측정 시작" value={new Date(record.startedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} />
           <Fact
             label={server && !server.confirmed ? '요약 보관 시각' : '기록 종료 시각'}
-            value={new Date(record.endedAt).toLocaleString()}
+            value={new Date(record.endedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
           />
           <Fact label="집계된 전체 시간" value={duration(record.total)} />
           <Fact label="유효 측정 시간" value={duration(record.valid)} />
@@ -70,7 +71,7 @@ export function RecordDetails({
           />
           <Fact
             label="이탈 사건"
-            value={`${view?.summary.collapse_count ?? record.events.length}건`}
+            value={`${view?.summary.collapse_count ?? record.dayPartition?.eventCount ?? record.events.length}건`}
           />
           <Fact label="알림" value={`${alerts}회`} />
           <Fact
@@ -102,7 +103,7 @@ export function RecordDetails({
           </>
         ) : (
           <p className="fine">
-            {server
+            {record.dayPartition ? '한국 시간 날짜별 집계입니다. 전체 세션의 원본 기록은 그대로 보관합니다.' : server
               ? '서버 상세 응답이 기록에 없습니다. 확인된 측정 시간과 추론 모델을 알 수 없습니다.'
               : '휴식·자리 비움·측정 불가·관측 공백별 제외 시간은 기록에 남아 있지 않아 구분할 수 없습니다.'}
           </p>
@@ -143,11 +144,11 @@ export function RecordDetails({
  * and four plain numbers. Exact seconds and settings stay in 개발자용 상세.
  */
 function RecordSummary({ record }: { record: RecordItem }) {
-  const view = record.server?.view
+  const view = record.dayPartition ? null : record.server?.view
   const stats = periodStats([record], '', '')
   const rate = view ? view.summary.keep_rate : stats.keepRate
   const time = (iso: string) =>
-    new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+    new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Seoul' })
   return (
     <div className="record-summary">
       <RateRing rate={rate} size={92} />
@@ -164,7 +165,7 @@ function RecordSummary({ record }: { record: RecordItem }) {
             good: record.good,
             deviation: view ? view.summary.deviation_ms / 1000 : record.valid - record.good,
             unknown: Math.max(0, record.total - record.valid),
-            warnings: view?.summary.collapse_count ?? record.events.length,
+            warnings: view?.summary.collapse_count ?? record.dayPartition?.eventCount ?? record.events.length,
             alerts: view?.summary.alert_count ?? stats.alerts,
             interval: view ? seconds(view.summary.mean_interval_ms) : stats.meanInterval,
             recovery: view ? seconds(view.summary.mean_recovery_ms) : stats.meanRecovery,

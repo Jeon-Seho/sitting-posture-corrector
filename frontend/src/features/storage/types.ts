@@ -9,6 +9,17 @@ export type LocalAccount = {
   consents: { version: string; agreed: Record<string, boolean>; at: string }
 }
 export type Mode = 'camera' | 'demo'
+export type DailyMeasurement = {
+  date: string
+  from: number
+  to: number
+  total: number
+  valid: number
+  good: number
+  eventIds: number[]
+  eventAlerts: Record<string, number>
+  alerts: number
+}
 export type RecordItem = {
   id: string
   startedAt: string
@@ -19,6 +30,9 @@ export type RecordItem = {
   total: number
   events: LiveState['events']
   rules?: Rules
+  days?: DailyMeasurement[]
+  /** Read-only date projection; never persisted as a replacement for the original server record. */
+  dayPartition?: { date: string; sourceId: string; alerts: number; eventCount: number }
   server?: {
     baselineId: string
     modelVersion: string
@@ -33,6 +47,7 @@ export type Draft = {
   mode: 'camera' | 'demo'
   rules: Rules
   machine: Machine
+  days?: DailyMeasurement[]
   server?: ServerCheckpoint
 }
 export const KEYS = {

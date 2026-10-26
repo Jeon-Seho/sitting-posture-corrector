@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { ArrowCounterClockwise, ArrowLeft, Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowLeft, Check, Play, Square, VideoCamera } from '../components/icons'
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
+import { useSlidingThumb } from '../components/Segmented'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
@@ -82,6 +83,7 @@ export function SetupPage({
   useEffect(() => () => cameraRef.current.cancelCalibration(), [])
 
   const step = !on ? 0 : !camera.quality ? 1 : registering || !registered ? 2 : 3
+  const { ref: stepsRef, thumb: stepDrop } = useSlidingThumb<HTMLOListElement>('.step-mark.active')
   const [title, desc] = headline({
     registerAgain,
     measuring,
@@ -156,7 +158,7 @@ export function SetupPage({
                 ) : (
                   <span />
                 )}
-                {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
+
               </div>
               <div className="stage-bottom">
                 {camera.state === 'off' || camera.state === 'error' ? (
@@ -263,7 +265,11 @@ export function SetupPage({
             <h3 className="card-title" style={{ marginBottom: 16 }}>
               준비 단계
             </h3>
-            <ol className="steps" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+            <ol ref={stepsRef} className={`steps ${stepDrop ? 'has-drop' : ''}`} style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {stepDrop && <li className="step-drop" aria-hidden="true"
+                style={{ width: stepDrop.w, height: stepDrop.h, transform: `translate(${stepDrop.x}px, ${stepDrop.y}px)` }}>
+                <span key={step} className="step-drop-fluid" />
+              </li>}
               {[
                 ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
                 ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
@@ -273,50 +279,23 @@ export function SetupPage({
                     ? '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요'
                     : `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 돼요`,
                 ],
-              ].map(([name, hint], i) => (
-                <li className="step" key={name}>
+              ].map(([name], i) => (
+                <li className="step" key={i} aria-current={step === i ? 'step' : undefined}>
                   <span className={`step-mark ${step > i ? 'done' : step === i ? 'active' : ''}`}>
                     {step > i ? <Check size={16} weight="bold" /> : i + 1}
                   </span>
                   <div>
                     <div className="step-title">{name}</div>
-                    <div className="step-desc">{hint}</div>
                   </div>
                 </li>
               ))}
             </ol>
           </section>
 
-          <section className="card tips-card">
-            <h3 className="card-title" style={{ marginBottom: 14 }}>
-              이렇게 앉으면 좋아요
-            </h3>
-            <div className="tips">
-              <div className="tip">
-                <span className="tip-icon">
-                  <User size={20} weight="bold" />
-                </span>
-                화면 가운데에 앉아 점선 안에 머리를 맞춰요
-              </div>
-              <div className="tip">
-                <span className="tip-icon">
-                  <VideoCamera size={20} weight="bold" />
-                </span>
-                카메라를 옮겼다면 기준 자세를 다시 등록해요
-              </div>
-              <div className="tip">
-                <span className="tip-icon">
-                  <Leaf size={20} weight="bold" />
-                </span>
-                억지로 펴지 말고 평소의 편한 자세로
-              </div>
-            </div>
-          </section>
-
-          <button className="btn btn-primary btn-lg btn-block" disabled={!ready || measuring} onClick={onStart}>
-            <Play size={18} weight="fill" className="icon" />
-            {startLabel}
-          </button>
+          <div className="posture-note">
+            <img src="/illustrations/baseline-seat-light.webp" alt="" aria-hidden="true" />
+            <span>편하게 앉은 자세를 기억해요.</span>
+          </div>
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body">
@@ -373,7 +352,7 @@ function headline(s: {
   if (!s.on)
     return s.registered && !s.registerAgain
       ? ['카메라를 켜 주세요', '등록한 기준 자세로 바로 측정할 수 있어요.']
-      : ['카메라를 켜 주세요', '평소 편하게 바로 앉은 자세를 기준 자세로 등록하고, 그 자세에서 멀어질 때만 알려드려요.']
+      : ['카메라를 켜 주세요', '얼굴과 양쪽 어깨가 보이면 준비가 시작돼요.']
   if (s.failed)
     return ['자세를 알아보기 어려워요', '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉고, 잠시 움직이지 말아 주세요.']
   if (s.capturing) return ['그대로 편하게 있어 주세요', '기준 자세를 기억하고 있어요. 영상은 저장하지 않아요.']

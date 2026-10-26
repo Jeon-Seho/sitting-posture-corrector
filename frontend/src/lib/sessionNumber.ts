@@ -5,11 +5,8 @@
  */
 
 /** Local calendar day of an ISO time, e.g. "2026-10-13". */
-export function localDay(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+export { kstDay as localDay } from './kstDay'
+import { kstDay as localDay } from './kstDay'
 
 /**
  * Number of the session that started at `startedAt` among `otherStarts`. Earlier starts on the

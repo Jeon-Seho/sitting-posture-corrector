@@ -1,6 +1,7 @@
 import type { LiveState, Machine, Rules } from '../../lib/engine'
 import type { Features } from '../../../../model/prototype/pose'
 import type { ServerCheckpoint, ServerSetup } from './server/contracts'
+import type { DailyMeasurement } from '../storage/types'
 
 export type ServerSessionDescriptor = {
   baselineId: string
@@ -19,6 +20,7 @@ export type ServiceSession = {
   mode: 'camera' | 'demo'
   rules: Rules
   initial?: Machine
+  days?: DailyMeasurement[]
   server?: ServerSessionDescriptor
 }
 
@@ -26,6 +28,7 @@ export type SessionService = {
   active: boolean
   initial?: Machine
   onCheckpoint: (machine: Machine) => void
+  onObserved?: (machine: Machine) => void
   onEnded: (live: LiveState) => void
   saveMessage: string
   /** Only a failed or unconfirmed save shows the retry button. */

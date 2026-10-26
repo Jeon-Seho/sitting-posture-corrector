@@ -22,8 +22,10 @@ import type { Rules } from '../lib/engine'
 import { StorageNotice } from './StorageNotice'
 import { CAMERA_PAGES, type Page } from './navigation'
 import { SignupPostureStep } from '../features/auth/SignupPostureStep'
+import { MailAccessPage } from '../features/auth/MailAccessPage'
+import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 
-type AuthView = 'login' | 'consent' | 'account' | 'posture'
+type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
 
 function storedAccount() {
   try {
@@ -37,7 +39,22 @@ function storedAccount() {
 export function LocalServiceApp({ camera }: { camera: CameraController }) {
   const [collectionEntry, setCollectionEntry] = useState(() => window.location?.hash === '#collection')
   const [authed, setAuthed] = useState(false)
-  const [authView, setAuthView] = useState<AuthView>('login')
+  const [authView, setAuthView] = useState<AuthView>(() => mailRoute(window.location?.hash ?? '') ? 'mail' : 'login')
+  const [mailPurpose, setMailPurpose] = useState<MailPurpose>('reset')
+  const [mailReturn, setMailReturn] = useState<AuthView>('login')
+  const [mailEntry, setMailEntry] = useState(0)
+  useEffect(() => {
+    const receiveMailLink = () => {
+      const route = mailRoute(window.location.hash)
+      if (!route || authed) return
+      setMailPurpose(route.purpose)
+      setMailReturn('login')
+      setMailEntry(v => v + 1)
+      setAuthView('mail')
+    }
+    window.addEventListener('hashchange', receiveMailLink)
+    return () => window.removeEventListener('hashchange', receiveMailLink)
+  }, [authed])
   const [account, setAccount] = useState<LocalAccount | null>(storedAccount)
   const [email, setEmail] = useState(() => account?.email ?? '')
   const [password, setPassword] = useState('')
@@ -246,6 +263,10 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     </p>
   )
 
+  if (!authed && authView === 'mail') {
+    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)} />
+  }
+
   if (!authed && authView === 'consent') {
     return (
       <LoginPage
@@ -293,6 +314,7 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
           <>
             {storageNotice}
             {errorLine}
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>
             <button type="button" className="btn btn-quiet" onClick={() => openAuth('consent')}>
               이전
             </button>
@@ -332,12 +354,13 @@ export function LocalServiceApp({ camera }: { camera: CameraController }) {
     return (
       <LoginPage
         title="로그인"
-        lead="계정 서버 연결 전이라 입력한 값은 확인하지 않고, 이 기기에 가입한 프로필로 들어가요."
+        lead="로컬 미리보기 · 비밀번호 인증 없이 이 기기 프로필로 들어가요."
         submitLabel="로그인"
-        fine="카메라는 측정하기 화면에서 직접 켤 때만 사용해요. 카메라 없이도 저장된 기록을 볼 수 있어요."
+        fine="카메라는 직접 켤 때만 사용해요. 영상은 저장하지 않아요."
         onSubmit={login}
         footer={
           <>
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 재설정</button>
             <button type="button" className="btn btn-quiet" onClick={() => {
               setConsents({})
               openAuth('consent')

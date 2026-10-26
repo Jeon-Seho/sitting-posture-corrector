@@ -14,7 +14,7 @@ export function summary(records: RecordItem[]) {
     valid,
     good,
     rate: valid > 0 ? good / valid : null,
-    count: records.reduce((n, r) => n + r.events.length, 0),
+    count: records.reduce((n, r) => n + (r.dayPartition?.eventCount ?? r.events.length), 0),
   }
 }
 export function resumeMachine(machine: Machine): Machine {
@@ -43,5 +43,6 @@ export function recordFromDraft(draft: Draft, endedAt: string): RecordItem {
     valid: Math.max(0, m.total - m.paused - m.unknown),
     good: m.good,
     events: m.events,
+    ...(draft.days ? { days: draft.days } : {}),
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '@phosphor-icons/react'
+import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../../components/icons'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
 import { Ring } from '../../../components/Ring'
@@ -133,7 +133,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
           <div className="result-head">
             <Ring value={keepRate} label="바른 자세 비율">
               <span className="ring-value" style={{ fontSize: 34 }}>
-                {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
+                {keepRate === null ? '—' : <>{Math.round(keepRate * 100)}<small>%</small></>}
               </span>
               <span className="ring-label">바른 자세</span>
             </Ring>
@@ -167,7 +167,7 @@ export function ServerSessionPage(props: ServerSessionPageProps) {
             </button>
             <button className="btn" onClick={onDashboard}>
               <ChartBar size={18} weight="bold" className="icon" />
-              기록 보기
+              오늘 기록 보기
             </button>
             <button className="btn btn-primary" onClick={onPrepare}>
               다시 측정

@@ -106,10 +106,14 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 
 ## 프론트 진입과 로컬 저장
 
+2026-10-26부터 새 측정은 KST 00시 전후의 관측 누적값을 `days`에 분리해 중간/종료 기록에 보관한다.
+세션 ID·카메라·판정/알림 누적은 자정에 초기화하지 않는다. 기록·달력·오늘 요약은 같은 날짜별 투영을 사용하고
+서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0025-kst-daily-measurement-parts.md).
+
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
 로컬 `/#collection`은 같은 앱의 프로필 없는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
 [ADR 0016](decisions/0016-collection-entry-and-camera-preview-window.md)에 따라 카메라는 일반 화면 이동에도 유지하고
-앱 내부 이동/크기 조절 창·지원 브라우저 PiP로 기존 스트림만 미리보기한다. 명시적 종료·로그아웃·인증 변경은 해제한다.
+Electron 앱은 frame 없는 always-on-top 자식 창에 React portal로 기존 스트림을 미리보기한다. 브라우저 PiP API는 사용하지 않고, 웹은 작은 창과 PiP를 제공하지 않는다(2026-10-26). 명시적 종료·로그아웃·인증 변경은 해제한다.
 미리보기 유지와 수집은 구분하며 탭/수집 화면 이동의 촬영 중단 규칙을 유지한다.
 프로필·세션 저장/복구·측정 화면·기록 조회·저장 검증은 `frontend/src/features/`로 나눴다.
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
