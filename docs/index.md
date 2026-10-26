@@ -19,7 +19,7 @@
 
 - **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe-server-proposal.md) 7.2.
 
-- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0025 앱은 항상 서버로 측정한다](decisions/0025-app-always-measures-on-server.md)(10/21), [ADR 0026 자세 등록은 앱이 3초 평균을 내서 B1로](decisions/0026-baseline-average-by-app-b1.md)(10/20 전체 회의), [ADR 0027 오늘 기록은 앱이 모은 서버 결과로, 이 기기에 키 하나](decisions/0027-today-records-from-collected-server-results.md)(10/22 팀장·10/25 FE). 옛 방식의 ADR(0002·0003·0010·0012·0013·0017·0019·0022)에는 맨 위 상태 줄에 무엇으로 바뀌었는지 적었다.
+- **결정:** [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0025 앱은 항상 서버로 측정한다](decisions/0025-app-always-measures-on-server.md)(10/21), [ADR 0026 자세 등록은 앱이 3초 평균을 내서 B1로](decisions/0026-baseline-average-by-app-b1.md)(10/20 전체 회의), [ADR 0027 오늘 기록은 앱이 모은 서버 결과로, 이 기기에 키 하나](decisions/0027-today-records-from-collected-server-results.md)(10/22 팀장·10/25 FE), [ADR 0028 웹에는 작은 카메라 창을 두지 않고 데스크톱 앱에서만](decisions/0028-no-web-camera-window-desktop-only.md)(10/26 FE). 옛 방식의 ADR(0002·0003·0010·0012·0013·0017·0019·0022)에는 맨 위 상태 줄에 무엇으로 바뀌었는지 적었다.
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
@@ -30,7 +30,8 @@
 - **10/15 정리:** BE와 이름이 다르면 BE에 맞춘다(적재된 기록 삭제 거부는 409 `CONFLICT`). 배치 번호는 아키텍처 v5.2(J1 적재, J2 집계 00:00, J3 탈퇴 삭제 04:00). DB 저장 이름·단위는 [연동 명세](design/api-ws-spec.md) 1장, DB 제외 사유는 5.2. 실시간은 `/v2/realtime`으로 확정(BE 답). BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
 - **BE 브랜치와 합치기:** [계획 0029](plans/active/0029-merge-backend-data-platform.md). 10/15 PR #48, 10/21 PR #60으로 FE를 develop에 넣었다. 10/21 FE V3가 BE 브랜치를 받았다. 남은 것은 BE 브랜치가 develop에 들어오는 것.
-- **작은 카메라 창·서버 로그인만:** [계획 0054](plans/active/0054-pip-fix-and-server-only-login.md)(10/22): 자동 PiP가 안 열리는 문제를 먼저 고치고, 그다음 시험 전용 로컬 로그인을 지워 서버 로그인만 남긴다.
+- **작은 카메라 창·서버 로그인만:** [계획 0054](plans/active/0054-pip-fix-and-server-only-login.md)(10/22): 자동 PiP가 안 열리는 문제를 먼저 고치고, 그다음 시험 전용 로컬 로그인을 지워 서버 로그인만 남긴다. 10/26: 카메라만으로는 Chrome이 자동 PiP를 열지 않아 웹 작은 창을 지우고 숨은 탭 측정을 고쳤다(ADR 0028). 로그인 정리는 남음.
+- **데스크톱 작은 카메라 창:** [계획 0055](plans/active/0055-desktop-camera-window.md)(10/26): PoseGood 창이 가려지거나 최소화되면 작은 창이 저절로 보이고, 앞으로 오면 숨는다.
 - **카메라 여러 대:** [내장 + USB 카메라](plans/active/0053-multiple-cameras.md)(0053, 10/16: 측정하기에서 메인 카메라 선택, 기준 자세는 카메라와 상관없이 하나, 쓰던 카메라가 빠지면 측정 종료·저장. 10/21부터 기준 자세는 서버(B1·B2)에 있고, 앱이 닫힌 측정은 서버가 저장한다. 남은 것: 외장 자동 우선, 꽂으면 알림, 640×480 아니면 시작 안 함).
 - **`make check` 실패:** [원인과 고칠 것](plans/active/0030-make-check-failures.md)(0030, 빌드 도구와 무관). 빌드는 BE 설정(Gradle Wrapper)을 따른다.
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).

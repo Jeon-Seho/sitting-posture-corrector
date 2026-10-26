@@ -4,6 +4,7 @@
 - 날짜: 2026-10-02
 - 근거: 사용자 요청 — 자세 선택 확인, 다른 주소에서도 이동 가능한 카메라 창
 - 부분 변경: [ADR 0017](0017-desktop-app-shell-and-redesign.md) — 데스크톱 시작 프로그램의 선택형 자동 카메라, 큰 카메라 화면에서 작은 창 숨김
+- 부분 대체(2026-10-26): [ADR 0028](0028-no-web-camera-window-desktop-only.md) — 앱 안 떠 있는 창·외부 탭 Document PiP·video PiP·자동 PiP를 지움. 앱 밖 작은 창은 데스크톱 앱에서만. 수집 바로가기(`/#collection`)는 그대로
 
 ## 결정
 
