@@ -163,7 +163,7 @@ public class AccountRepository {
             long policyId,
             boolean alertsEnabled) {
         public AccountContracts.View view() {
-            return new AccountContracts.View(Long.toString(id), email, profile);
+            return new AccountContracts.View(Long.toString(id), email, profile, KstTime.today().toString());
         }
     }
 }

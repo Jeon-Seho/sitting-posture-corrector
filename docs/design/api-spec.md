@@ -201,7 +201,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -244,7 +245,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -264,6 +266,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요
 
 - 앱 시작 시 로그인 상태와 user_id를 확인할 때 쓴다. 받은 user_id를 이후 X-PoseGood-User-Id에 넣는다.
+- `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다. 앱은 「오늘」을 이 값으로 정한다(BE-6, FE ADR 0029). 가입(A2)·로그인(A3) 응답에도 같은 필드가 있다.
 
 **요청 본문**: 없음
 
@@ -277,7 +280,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -979,7 +983,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 로그인 필요 · 계정 헤더
 
-- 닫힌 세션을 최신순으로 RecordItem 배열로 돌려준다.
+- 닫힌 세션을 최신순으로 RecordItem 목록(`records`)으로 돌려준다. 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
+- **2026-10-27부터 배열 대신 객체 `{today, records}`다(BE-6). 예전처럼 배열로 읽으면 깨진다.**
 - 자세 방향은 저장 칸이 없어 unspecified, 바른 자세 시간은 0.1초 정밀도다.
 
 **요청 본문**: 없음
@@ -987,46 +992,49 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 **응답 200 (예시)**
 
 ```json
-[
-  {
-    "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-    "startedAt": "2026-10-13T08:00:00.000Z",
-    "endedAt": "2026-10-13T08:10:00.000Z",
-    "mode": "camera",
-    "valid": 580,
-    "good": 520,
-    "total": 600,
-    "events": [
-      {
-        "id": 1,
-        "type": "forwardHead",
-        "startAt": 35,
-        "confirmedAt": 38,
-        "endAt": 44,
-        "durationSec": 9,
-        "alerts": 1,
-        "blockId": 0,
-        "recovered": true,
-        "endedBySession": false,
-        "endReason": null,
-        "firstAlertAt": 38,
-        "recoverySec": 6
+{
+  "today": "2026-10-13",
+  "records": [
+    {
+      "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+      "startedAt": "2026-10-13T08:00:00.000Z",
+      "endedAt": "2026-10-13T08:10:00.000Z",
+      "mode": "camera",
+      "valid": 580,
+      "good": 520,
+      "total": 600,
+      "events": [
+        {
+          "id": 1,
+          "type": "forwardHead",
+          "startAt": 35,
+          "confirmedAt": 38,
+          "endAt": 44,
+          "durationSec": 9,
+          "alerts": 1,
+          "blockId": 0,
+          "recovered": true,
+          "endedBySession": false,
+          "endReason": null,
+          "firstAlertAt": 38,
+          "recoverySec": 6
+        }
+      ],
+      "rules": {
+        "holdSeconds": 3,
+        "recoverSeconds": 3,
+        "realertSeconds": 60,
+        "threshold": 0.7
+      },
+      "server": {
+        "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
+        "modelVersion": "reference-feature-rule-v1",
+        "confirmed": true,
+        "view": "{ SessionView, ended: true }"
       }
-    ],
-    "rules": {
-      "holdSeconds": 3,
-      "recoverSeconds": 3,
-      "realertSeconds": 60,
-      "threshold": 0.7
-    },
-    "server": {
-      "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-      "modelVersion": "reference-feature-rule-v1",
-      "confirmed": true,
-      "view": "{ SessionView, ended: true }"
     }
-  }
-]
+  ]
+}
 ```
 
 **오류**
@@ -1617,6 +1625,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-27 | `fix/repo-backend-sync` | A2·A3·A4 응답에 `today`(KST 날짜). **R1 응답을 배열에서 `{today, records}` 객체로 바꿈 — 호환성 깨짐**(BE-6 ③) |
 | 2026-10-26 | `fix/repo-backend-sync` | 최대 측정 시간 5,000초 → 기본 24시간(계약 상한, 제품 한도 없음). 재전송 기억을 최근 120개 구간으로. 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 끝내고 저장, `closed(unmeasurable_timeout)` — 설정 `unmeasurable-timeout`, 앱 처리 전까지 끔(11.3·11.5) |
 | 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |
 | 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행) |

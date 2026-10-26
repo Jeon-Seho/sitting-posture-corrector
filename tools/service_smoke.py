@@ -183,7 +183,9 @@ def scenario(endpoints, database):
     assert owner.request("/v2/baselines/current")["baseline_id"] == measurement.baseline
     print("PASS: schema V2.3 rows: baseline, session end, exclusions, episode and daily statistics", flush=True)
 
-    records = owner.request("/v2/records")
+    listed = owner.request("/v2/records")
+    assert len(listed["today"]) == 10, listed
+    records = listed["records"]
     assert [record["id"] for record in records] == [measurement.id], records
     assert (records[0]["total"], records[0]["good"], records[0]["server"]["confirmed"]) == (9, 3, True), records[0]
     print("PASS: the record is rebuilt from the session tables", flush=True)

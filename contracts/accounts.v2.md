@@ -17,7 +17,7 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 
 | 경로 | 요청과 결과 |
 | --- | --- |
-| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile}` + 로그인 |
+| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile,today}` + 로그인 |
 | `POST /auth/login` | `{email,password}` → 사용자 + 로그인. 탈퇴 대기 계정은 `403 ACCOUNT_CLOSED` |
 | `GET /auth/me` | 사용자 |
 | `POST /auth/logout` | 204 |
@@ -25,6 +25,7 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 | `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
 | `PUT /consents/optional-profile` | `{agreed:boolean,document_version:"service-v2"}` → workspace |
 
+사용자 응답의 `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다(2026-10-27, BE-6).
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
 직업 `null` 또는 공백이 아닌 1..80자다. 나이·직업은 선택 동의가 있어야 입력할 수 있다.
 새 비밀번호는 최소 12자·최대 UTF-8 72바이트. 이메일은 검증 후 공백 제거·소문자로 정규화한다.
@@ -90,6 +91,7 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
 `GET /records`, `POST /records`, `DELETE /records/{id}`는 [RecordItem](../frontend/src/features/storage/types.ts)을 쓴다.
+`GET /records`는 2026-10-27부터 배열이 아니라 `{today, records: RecordItem[]}` 객체다(BE-6).
 POST는 소유 세션의 확인받은 요약·사건·정책·기준과 일치하는 기록만 받고 DB의 날짜를 응답한다.
 GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으므로 `unspecified`, 순번은 -1,
 바른 자세 시간은 `good_sec`의 0.1초 정밀도다. `recovered_at`이 있으면 회복, 그 외 세션 종료와 같은 시각이면

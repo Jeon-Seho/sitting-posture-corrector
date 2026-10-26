@@ -3,6 +3,7 @@ package org.posegood.api.common;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -20,6 +21,11 @@ public final class KstTime {
 
     public static LocalDateTime now() {
         return of(Instant.now());
+    }
+
+    /** 서버 기준 오늘 날짜(KST). 앱의 「오늘」은 이 값을 따른다(FE ADR 0029, BE-6). */
+    public static LocalDate today() {
+        return LocalDate.now(ZONE);
     }
 
     public static LocalDateTime of(Instant value) {

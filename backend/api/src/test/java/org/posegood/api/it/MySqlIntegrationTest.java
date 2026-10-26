@@ -157,7 +157,9 @@ class MySqlIntegrationTest {
         var api = client();
         String email = email();
         assertEquals(200, api.register(email).status());
-        assertEquals(email, api.get("/v2/auth/me").body().get("email").asString());
+        var me = api.get("/v2/auth/me").body();
+        assertEquals(email, me.get("email").asString());
+        assertTrue(me.get("today").asString().matches("\\d{4}-\\d{2}-\\d{2}"));
 
         var workspace = api.get("/v2/workspace").body();
         assertEquals(3, workspace.get("rules").get("holdSeconds").asInt());
@@ -337,7 +339,9 @@ class MySqlIntegrationTest {
         assertEquals(400, api.post("/v2/records", local).status());
 
         // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다).
-        var records = api.get("/v2/records").body();
+        var list = api.get("/v2/records").body();
+        assertTrue(list.get("today").asString().matches("\\d{4}-\\d{2}-\\d{2}"));
+        var records = list.get("records");
         assertEquals(1, records.size());
         var rebuilt = records.get(0);
         assertEquals(saved.body().get("startedAt"), rebuilt.get("startedAt"));
@@ -450,7 +454,7 @@ class MySqlIntegrationTest {
             assertNotNull(reasons.getObject(2));
             assertEquals(0, reasons.getBigDecimal(3).signum());
         }
-        var records = api.get("/v2/records").body();
+        var records = api.get("/v2/records").body().get("records");
         assertEquals(2, records.size());
         for (var rebuilt : records) {
             if (rebuilt.get("id").asString().equals(b.toString())) {
