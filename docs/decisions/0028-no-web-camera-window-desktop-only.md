@@ -1,6 +1,6 @@
 # ADR 0028: 웹에는 작은 카메라 창을 두지 않고, 데스크톱 앱에서만 앱 밖 작은 창을 띄운다
 
-- 상태: accepted (웹 삭제는 V3 `409de69`, 숨은 탭 측정은 `86b7a46`. 데스크톱 작은 창은 [계획 0055](../plans/active/0055-desktop-camera-window.md))
+- 상태: accepted (웹 삭제는 V3 `409de69`, 숨은 탭 측정은 `86b7a46`. 데스크톱 작은 창은 10/26 구현 — [계획 0055](../plans/active/0055-desktop-camera-window.md), 서버를 붙인 뒤 측정 중 동작을 다시 확인)
 - 날짜: 2026-10-26
 - 근거: 2026-10-26 같은 PC(Windows 11, Chrome 156) 시험과 사용자(FE, klaod-tech) 결정 — 「웹에서는 pip모드가 안된다고 알리고 앱에서는 가능하다고 하면 되겠네」, 「웹에서는 그냥 pip 관련되서 전부 안한다」
 - 대체: [ADR 0016](0016-collection-entry-and-camera-preview-window.md)의 앱 안 떠 있는 창·외부 탭 Document PiP·video PiP·`enterpictureinpicture` 자동 PiP, [ADR 0017](0017-desktop-app-shell-and-redesign.md) 6번(작은 창 숨김 규칙), 10/20 결정 「다른 탭으로 가면 저절로 열고 수동 버튼은 두지 않는다」([FE 제안서](../design/fe-server-proposal.md) 2장·8.3)
@@ -27,7 +27,8 @@
 2. **웹에서도 다른 탭·다른 프로그램에 있는 동안 측정은 이어진다.** 프레임 반복 타이머를 Worker로 돌린다(`features/camera/frameTimer.ts`).
 3. **앱 밖 작은 창은 데스크톱 앱(Electron)에서만 띄운다.** 메인 창이 앞에 있으면 숨기고, 포커스를 잃거나 최소화되면 보인다. 클릭이나 묻는 안내 없이 Electron이 정한다. 모양과 버튼(최소화·확대·X)은 10/20 시안을 따른다. X는 측정 중이면 종료·저장이다(10/20 결정 유지).
 4. 측정 상태와 종료를 작은 창에 잇는 `features/session/sessionControl.ts`는 데스크톱 작은 창이 쓰므로 남긴다.
-5. 사용자에게는 「작은 카메라 창은 데스크톱 앱에서 쓸 수 있다」고 알린다. 문구와 위치는 계획 0055에서 정한다.
+5. 사용자에게는 「작은 카메라 창은 데스크톱 앱에서 쓸 수 있다」고 알린다. 웹의 측정하기 준비 화면 「이렇게 앉으면 좋아요」 카드에 한 줄: 「다른 탭에 가도 측정은 이어져요. 작은 카메라 창은 데스크톱 앱에서 쓸 수 있어요」(데스크톱 앱에서는 숨김).
+6. 데스크톱 작은 창 방식: 화면이 `window.open('about:blank', 'posegood-camera-window')`로 열고 main(`setWindowOpenHandler`)이 이 요청 하나만 테두리 없는 항상-위 창으로 허락한다. 같은 출처의 자식 창이라 React portal로 같은 스트림을 그린다(새 `getUserMedia` 없음). 보이기·숨기기는 main이 앱 창의 포커스·최소화로 정한다.
 
 ## 이유
 

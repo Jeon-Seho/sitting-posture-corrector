@@ -36,16 +36,24 @@
 ## 작업 단계
 
 - [x] 문서: ADR 0028, 이 계획, 계획 0054 기록, FE 제안서 8.3·8.4·7.2, 문서 목록
-- [ ] main·preload: 창 열기 허락, 보이기/숨기기, `focusApp`, 메인 창 닫힘 정리
-- [ ] 화면: 작은 창 훅·컴포넌트(`features/desktop/`), `ServiceScreens` 연결, `bridge.ts` 타입
-- [ ] 웹 안내 문구
-- [ ] 시험: 훅(가짜 `window.open`·브리지)의 열기·닫기·카메라 끔·X 종료, 웹에서 안 열림
-- [ ] `check-frontend`, 데스크톱 개발 실행(`npm run desktop`) 수동 확인, 패키징(`npm run desktop:pack`) 확인
+- [x] main·preload: 창 열기 허락(`allowCameraWindow`), 보이기/숨기기(`syncCameraWindow`), `focusApp`, 최소화 때 띠 높이로(`setCameraWindowCompact`), 메인 창 닫힘 정리
+- [x] 화면: `features/desktop/useDesktopCameraWindow.ts`·`DesktopCameraWindow.tsx`, `ServiceScreens` 연결, `bridge.ts` 타입
+- [x] 웹 안내 문구: 측정하기 준비 화면 「이렇게 앉으면 좋아요」 카드에 한 줄(데스크톱 앱이 아닐 때만)
+- [x] 시험: `DesktopCameraWindow.test.tsx` 5개 — 카메라 켜짐/꺼짐에 따른 열기·닫기, 브라우저·옛 셸에서 안 열림, 측정 상태 표시와 X 종료, 측정 아닐 때 X는 다음 카메라까지 닫음, 최소화·확대
+- [x] `check-frontend` 통과, 데스크톱 개발 실행(`npm run desktop`) 짧은 수동 확인
+- [x] 낡은 문서·시험 정리: `frontend/README.md`, `docs/architecture.md`, `docs/code-structure.md`, `research/guided-collection-v2.md`, 연동 명세 5.2 표, `tools/browser/camera-preview.mjs`(웹 작은 창·PiP 항목 → 「작은 창 없음」 확인)
+- [ ] 서버를 붙인 뒤 다시 확인: 측정 중 작은 창 상태 점·문구, X = 측정 종료·저장, 자세 알림 팝업과 겹침, 긴 측정에서 숨은 동안 추적
+- [ ] 패키징(`npm run desktop:pack`) 실행 파일로 확인
 
 ## 결정과 진행 기록
 
 - 2026-10-26: 웹 작은 창을 지우고 데스크톱에서만 만들기로 함(ADR 0028). 방식은 `window.open` + `setWindowOpenHandler`(같은 스트림을 portal로), 보이기·숨기기는 main이 메인 창 포커스로 정함.
 
+- 2026-10-26: 작은 창의 띠는 늘 보이게 했다. 데스크톱 창에서 끄는 영역(`-webkit-app-region: drag`)은 마우스 이벤트를 가져가 「마우스를 올리면 나타나는 띠」를 안정적으로 잡을 수 없다. 띠 전체가 끄는 손잡이이고 버튼만 누를 수 있다.
+- 2026-10-26: 측정 중이 아닐 때의 X는 그 카메라가 꺼질 때까지 작은 창을 닫는다(다음에 카메라를 켜면 다시 연다). 측정 중 X로 측정이 끝나면 측정 종료 처리가 카메라를 끄므로 작은 창도 닫힌다.
+
 ## 검증 결과와 남은 한계
 
-아직 없음.
+- 2026-10-26: `npm run check`(= `check-frontend`) 통과 — 시험 230개(새 시험 5개), 타입 검사, 빌드. `node --check electron/main.cjs`·`preload.cjs`·`tools/browser/camera-preview.mjs` 통과. `check-repo` 통과.
+- 2026-10-26 수동(데스크톱 개발 실행, 화면만 보는 가짜 계정 서버): 로그인 → 측정하기에서 카메라 켬 → 다른 창으로 가면 오른쪽 아래 작은 창이 보이고, PoseGood 창으로 돌아오면 숨는 것을 짧게 확인했다(klaod-tech).
+- 남은 한계: 가짜 서버에는 측정이 없어 측정 중 상태 표시·X 종료는 단위 시험으로만 확인했다. 서버를 붙인 뒤 확인한다. 패키징 실행 파일 확인과 `check-browser`(G1·G6로 이미 실패)는 하지 않았다.

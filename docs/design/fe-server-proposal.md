@@ -276,7 +276,8 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 | 파일 | 역할 |
 |---|---|
 | `main.cjs` | 창 생성, 외부 주소 차단(`sameAddress`), 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`), 패키징된 앱의 `app://posegood` 파일 제공 |
-| `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보, 시작 프로그램, 자동 카메라, 알림 팝업 설정·표시, 종료)만 노출 |
+| `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보, 시작 프로그램, 자동 카메라, 알림 팝업 설정·표시, 종료, 10/26 작은 카메라 창 `cameraWindow`·`focusApp`·`setCameraWindowCompact`)만 노출 |
+| (10/26) 작은 카메라 창 | `main.cjs`가 `window.open('about:blank', 'posegood-camera-window')` 하나만 테두리 없는 항상-위 창으로 허락하고(`allowCameraWindow`), 앱 창이 포커스를 잃거나 최소화되면 `showInactive`, 앞으로 오면 숨긴다(`syncCameraWindow`). 화면은 `features/desktop/DesktopCameraWindow.tsx`가 portal로 그린다. [계획 0055](../plans/active/0055-desktop-camera-window.md) |
 | `popup-preload.cjs` | 알림 팝업 창에 `window.posegoodPopup`(문구 받기, 닫기, 앱 열기)만 노출 |
 | `launch-dev.mjs` | 바탕화면 바로가기용: 개발 서버(5174) → 창 → 종료 시 서버 정리 |
 

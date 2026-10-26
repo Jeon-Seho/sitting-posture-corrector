@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { until } from './cdp.mjs'
 
-/** Real rendering/native PiP with a clearly marked canvas stream; no camera permission. */
+/** The direct collection entry with a clearly marked canvas stream; no camera permission. */
 export async function verifyCollectionPreview(browser, base) {
   const cdp = browser.cdp
   let checks = 0
@@ -38,53 +38,17 @@ export async function verifyCollectionPreview(browser, base) {
   check('direct capture does not write a profile or request a camera automatically',
     await cdp.evaluate(`localStorage.getItem('posegood.v2.profile') === ${JSON.stringify(originalProfile)} && window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0`))
   await click('카메라 켜기')
-  await until(() => cdp.evaluate(`document.querySelector('.camera-window-controls video')?.readyState >= 2`), 'canvas-only preview readiness')
+  await until(() => cdp.evaluate(`document.querySelector('.capture-source')?.readyState >= 2`), 'canvas-only capture readiness')
   await browser.screenshot('collection-preview-synthetic')
-  check('floating preview shares the capture stream and does not request camera permission', await cdp.evaluate(`(() => {
+  // 2026-10-26 (ADR 0028): the web has no small camera window (no floating window, no PiP).
+  check('the camera uses the synthetic stream without a permission request or a small window', await cdp.evaluate(`(() => {
     const source = document.querySelector('.capture-source');
-    const preview = document.querySelector('.camera-window-controls video');
-    return source.srcObject === preview.srcObject && source.srcObject.getVideoTracks()[0].readyState === 'live' &&
-      window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0;
+    return source.srcObject.getVideoTracks()[0].readyState === 'live' &&
+      window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0 &&
+      !document.querySelector('.camera-window-controls') && !window.documentPictureInPicture?.window;
   })()`))
-  const rect = await cdp.evaluate(`(() => { const r = document.querySelector('.camera-window-drag').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`)
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mousePressed', ...rect, button: 'left', clickCount: 1 })
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 160, y: 40, button: 'left', buttons: 1 })
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 160, y: 40, button: 'left', clickCount: 1 })
-  check('floating camera can be dragged and remains inside the viewport', await until(() => cdp.evaluate(`(() => {
-    const r = document.querySelector('.camera-window-controls').getBoundingClientRect();
-    return r.left >= 0 && r.top >= 0 && r.left < 200 && r.right <= innerWidth;
-  })()`), 'rendered camera drag position'))
-  const beforeKeyboard = await cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().x`)
-  await cdp.evaluate(`document.querySelector('.camera-window-drag').focus()`)
-  await cdp.call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 })
-  await cdp.call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 })
-  check('keyboard users can move the floating camera', await until(() => cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().x > ${beforeKeyboard}`), 'rendered keyboard camera position'))
-  const beforeResize = await cdp.evaluate(`(() => {
-    const r = document.querySelector('.camera-window-controls').getBoundingClientRect();
-    return { x: r.right - 4, y: r.bottom - 4, width: r.width };
-  })()`)
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: beforeResize.x, y: beforeResize.y, button: 'left', clickCount: 1 })
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: beforeResize.x - 30, y: beforeResize.y - 30, button: 'left', buttons: 1 })
-  await cdp.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: beforeResize.x - 30, y: beforeResize.y - 30, button: 'left', clickCount: 1 })
-  check('floating camera can be resized using its corner', await until(() => cdp.evaluate(`document.querySelector('.camera-window-controls').getBoundingClientRect().width < ${beforeResize.width}`), 'rendered camera resize'))
-  await browser.screenshot('collection-preview-moved-synthetic')
-  await click('접기')
-  check('collapsing the preview keeps the capture stream alive', await cdp.evaluate(`!document.querySelector('.camera-window-controls video') && document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState === 'live'`))
-  await click('펼치기')
-  await click('카메라 작은 창 열기')
-  await until(() => cdp.evaluate(`!!window.documentPictureInPicture?.window?.document.querySelector('video')?.srcObject`), 'real native document PiP portal')
-  check('native PiP has the same stream and working controls in its own document', await cdp.evaluate(`(() => {
-    const popup = window.documentPictureInPicture.window;
-    return popup.document.querySelector('video').srcObject === document.querySelector('.capture-source').srcObject &&
-      popup.document.body.textContent.includes('카메라 끄기');
-  })()`))
-  await click('작은 창 닫기')
-  await until(() => cdp.evaluate(`!window.documentPictureInPicture.window`), 'native PiP close')
-  check('closing native PiP leaves the capture alive', await cdp.evaluate(`document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState === 'live'`))
-  await click('카메라 작은 창 열기')
-  await until(() => cdp.evaluate(`!!window.documentPictureInPicture.window`), 'native PiP reopen')
-  await click('카메라 사용 종료')
-  await until(() => cdp.evaluate(`!window.documentPictureInPicture.window && !document.querySelector('.camera-window-controls')`), 'camera and preview shutdown')
-  check('camera shutdown removes both previews and clears the capture stream', await cdp.evaluate(`document.querySelector('.capture-source').srcObject === null && !window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().camera.connected`))
+  await click('카메라 끄기')
+  await until(() => cdp.evaluate(`document.querySelector('.capture-source').srcObject === null`), 'camera shutdown')
+  check('turning the camera off clears the capture stream', await cdp.evaluate(`!window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().camera.connected`))
   return checks
 }

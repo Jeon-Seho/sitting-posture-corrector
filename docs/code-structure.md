@@ -67,7 +67,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 확인창 키보드·초점 | [공통 확인창](../frontend/src/features/dialog/ConfirmDialog.tsx), [초점 처리](../frontend/src/features/dialog/modalFocus.ts) | 취소 우선·native modal·Tab 순환·초점 복귀·중복 실행 차단 |
 | 측정 시작·결과 보관 | [세션 hook](../frontend/src/features/session/useSessionPersistence.ts) | 서버 측정을 시작하고, 서버 기록 화면(R1)이 붙기 전까지 결과를 이 기기에도 남긴다. 이어하기·재전송은 없다(ADR 0024). |
 | 서버 측정 (`/v2/realtime`) | [LiveSession](../frontend/src/features/session/live/LiveSession.ts), [메시지](../frontend/src/features/session/live/messages.ts), [좌표 구간](../frontend/src/features/session/realtime/frames.ts) | S1 → `hello`·`ready` → 0.5초 좌표 구간 → `end`. 판정은 하지 않고 서버가 보낸 것만 상태로 만든다(ADR 0021). |
-| 측정 화면 | [화면 hook](../frontend/src/features/session/live/useLiveSession.ts), [화면](../frontend/src/features/session/live/LiveSessionPage.tsx) | 카메라 프레임 전달, 영상 멈춤(`away`)·카메라 빠짐·크기 변경 종료, 소리·알림·작은 창. |
+| 측정 화면 | [화면 hook](../frontend/src/features/session/live/useLiveSession.ts), [화면](../frontend/src/features/session/live/LiveSessionPage.tsx) | 카메라 프레임 전달, 영상 멈춤(`away`)·카메라 빠짐·크기 변경 종료, 소리·알림, 측정 상태·종료를 작은 창에 알림(`sessionControl.ts`). |
 | 자세 등록 | [평균](../frontend/src/features/baseline/landmarkCapture.ts), [B1·B2](../frontend/src/features/baseline/client.ts) | 앱이 관절 9개 3초 평균을 내서 B1로 저장, B2로 조회(10/20 전체 회의). |
 | 서버 요청 공통 | [API](../frontend/src/features/platform/api.ts), [로그인 정보](../frontend/src/features/platform/serverAuth.ts) | `/api` 접두사, 쿠키, CSRF·계정 헤더, 502·503 재시도. 로그인 정보는 BE 로그인 연결이 채운다. |
 | 기록 속 서버 결과 | [SessionView 형식](../frontend/src/features/session/server/contracts.ts), [검증](../frontend/src/features/session/server/validation.ts), [사건 투영](../frontend/src/features/session/server/projection.ts) | R1 `RecordItem.server.view`의 형식·일관성 검사와 기록 화면용 사건 행. |
@@ -75,7 +75,8 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 저장 읽기·쓰기 | [저장소](../frontend/src/features/storage/localRepository.ts) | 원본 보존, 쓰기 전 검증을 담당한다. |
 | 기록 집계 | [기록 함수](../frontend/src/features/storage/records.ts), [기록 화면](../frontend/src/features/history/LocalHistory.tsx) | 계산/변환과 React 표시를 분리한다. |
 | 기록 상세·달력 | [상세](../frontend/src/features/history/RecordDetails.tsx), [달력](../frontend/src/features/history/RecordCalendarPage.tsx), [발표용 예시 기록](../frontend/src/data/exampleRecords.ts) | 저장된 사건·설정을 표시하며 없는 자료는 추정하지 않는다. 예시 기록은 설정의 토글로만 보이고 저장하지 않는다. |
-| 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [카메라 기능](../frontend/src/features/camera/) | React 생명주기와 순수 처리/모델 어댑터를 구분한다. |
+| 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [카메라 기능](../frontend/src/features/camera/) | React 생명주기와 순수 처리/모델 어댑터를 구분한다. 프레임 반복 타이머는 숨은 탭에서도 늦춰지지 않게 Worker로(`frameTimer.ts`, 2026-10-26). |
+| 데스크톱 작은 창 | [작은 창](../frontend/src/features/desktop/DesktopCameraWindow.tsx), [열기·닫기](../frontend/src/features/desktop/useDesktopCameraWindow.ts), [Electron main](../frontend/electron/main.cjs) | 데스크톱 앱에서만. 화면이 `window.open`으로 열고 portal로 같은 스트림을 그리며, 보이기·숨기기는 main이 앱 창 포커스로 정한다([ADR 0028](decisions/0028-no-web-camera-window-desktop-only.md)). |
 | 색·서체·간격 | [토큰](../frontend/src/styles/base.css), [스타일 진입](../frontend/src/styles.css) | import 순서는 기존 cascade와 같게 유지한다. |
 
 `lib/engine.ts`, `lib/serviceStore.ts`는 기존 소비자에게 같은 API를 제공하는 작은 export 진입점이다.
