@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 
 /** `value: null` draws no bar (e.g. a day without measurement). */
 export type Bar = { label: string; sub?: string; value: number | null }
@@ -73,8 +73,21 @@ export function ComboChart({
   const x = (i: number) => i * STEP + STEP / 2
   const lineY = (v: number) => BASE - (v / lineMax) * (BASE - TOP)
   const [active, setActive] = useState<number | null>(null)
+  const [tipVisible, setTipVisible] = useState(false)
+  const keyboard = useRef(false)
+  useEffect(() => {
+    setTipVisible(active !== null && keyboard.current)
+    if (active === null || keyboard.current) return
+    const timer = setTimeout(() => setTipVisible(true), 500)
+    return () => clearTimeout(timer)
+  }, [active])
+  const lastActive = useRef(0)
+  useLayoutEffect(() => {
+    if (active !== null) lastActive.current = active
+  }, [active])
 
   function pick(event: PointerEvent<HTMLDivElement>) {
+    keyboard.current = false
     const rect = box.current?.getBoundingClientRect()
     if (!rect || !rect.width) return
     const i = Math.floor(((event.clientX - rect.left) / rect.width) * n)
@@ -83,12 +96,13 @@ export function ComboChart({
 
   // A hover from a longer period (30 → 7 days) must not point past the last column.
   useLayoutEffect(() => setActive(null), [n])
-  const shown = Math.min(active ?? 0, Math.max(0, n - 1))
+  // Fade out where the pointer left; resetting to column zero flashes a band on the left.
+  const shown = Math.min(active ?? lastActive.current, Math.max(0, n - 1))
   const left = (x(shown) / W) * 100
   return (
     <div
       ref={box}
-      className={`combo ${active !== null ? 'is-hovering' : ''}`}
+      className={`combo ${active !== null ? 'is-hovering' : ''} ${tipVisible && active !== null ? 'is-tip-visible' : ''}`}
       tabIndex={0}
       role="group"
       aria-label={`${barName}${line ? `·${lineName}` : ''} 차트. 방향키로 날짜를 이동합니다.`}
@@ -98,6 +112,8 @@ export function ComboChart({
       onKeyDown={(event) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
         event.preventDefault()
+        keyboard.current = true
+        setTipVisible(true)
         setActive((old) => Math.max(0, Math.min(n - 1, (old ?? (event.key === 'ArrowLeft' ? n : -1)) + (event.key === 'ArrowLeft' ? -1 : 1))))
       }}
     >
@@ -172,6 +188,7 @@ export function ComboChart({
 
       <div
         className="combo-tip"
+        aria-hidden={!tipVisible || active === null}
         role="status"
         aria-live="polite"
         // Beside the hovered column, never over it (2026-10-13): right of it in the left half,

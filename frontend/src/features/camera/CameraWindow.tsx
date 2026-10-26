@@ -10,6 +10,7 @@ import {
 } from '../session/sessionControl'
 import { useCameraWindow } from './useCameraWindow'
 import { desktopBridge } from '../desktop/bridge'
+import { CAMERA_TEST_EVENT, publishCameraTest, type CameraTestAction } from './cameraWindowTesting'
 
 function StreamPreview({ camera }: { camera: CameraController }) {
   const preview = useRef<HTMLVideoElement>(null)
@@ -167,6 +168,32 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
   const posture = useMeasurementStatus()
   const [dismissed, setDismissed] = useState(false)
   const [minimized, setMinimized] = useState(false)
+  useEffect(() => {
+    if (!preview.supported) return
+    const report = () => publishCameraTest({ opened: !!preview.pipWindow, collapsed: minimized, message: preview.message })
+    const receive = (event: Event) => {
+      const action = (event as CustomEvent<CameraTestAction>).detail
+      if (action === 'status') { report(); return }
+      if (camera.state !== 'on' || !preview.supported) return
+      if (action === 'open') { void preview.open(); return }
+      if (action === 'close') { preview.close(); return }
+      if (action === 'return') {
+        void desktopBridge()?.returnFromCameraWindow?.()
+        preview.close()
+        onExpand?.()
+        return
+      }
+      if ((action === 'collapse' || action === 'restore') && preview.pipWindow) {
+        const collapsed = action === 'collapse'
+        void desktopBridge()?.collapseCameraWindow?.(collapsed).then(ok => {
+          if (ok) setMinimized(collapsed)
+        })
+      }
+    }
+    window.addEventListener(CAMERA_TEST_EVENT, receive)
+    report()
+    return () => window.removeEventListener(CAMERA_TEST_EVENT, receive)
+  }, [camera.state, preview.supported, preview.pipWindow, preview.message, preview.open, preview.close, minimized, onExpand])
   useEffect(() => {
     if (preview.pipWindow) {
       setMinimized(false)

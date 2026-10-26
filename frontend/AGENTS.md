@@ -9,3 +9,4 @@
 - 첫 구현 때 실행/빌드/타입/주요 UI 흐름 검증을 문서화하고 루트 게이트에 연결한다.
 - 현재 로컬 프로토타입은 React/TypeScript/Vite다. [ADR 0002](../docs/decisions/0002-webcam-prototype.md)를 따른다.
 - 실행은 `make dev`, 검증은 `make check-frontend`. 특징·분류는 `model/prototype/`, 웹캠·시연 공통 시간 정책은 기존 `src/lib/engine.ts`에 둔다. [ADR 0003](../docs/decisions/0003-retro-integration.md)의 통합 예외를 따른다.
+- 새 사용자 기능에는 기존 개발자 옵션 그룹에 최소 재현/상태 확인을 함께 추가한다. 실제 동작을 재사용하고 기본으로 접어 둔다([개발자 옵션](README.md#개발자-옵션)).

@@ -95,7 +95,7 @@
 .sidebar .me-menu { --surface:#ffffff; --surface-2:#f1f3f5; --ink-2:#33434d; --line:#dce2e7; --alert:#b42335; --alert-tint:#fff0f1; color:var(--ink-2); color-scheme:light; }
 .sidebar .me-menu .posegood-icon img { filter:grayscale(1); }
 .heatmap-body { padding:5px; }
-.heatmap-grid .heatmap-cell { position:relative; border:0; padding:0; cursor:pointer; transition:transform 100ms ease-out, box-shadow 100ms ease-out; }
+.heatmap-grid .heatmap-cell { position:relative; border:0; padding:0; cursor:pointer; transition:transform 160ms ease-out, box-shadow 160ms ease-out; }
 .heatmap-grid .heatmap-cell:hover:not(:disabled), .heatmap-grid .heatmap-cell:focus-visible { transform:scale(1.4); z-index:2; box-shadow:0 1px 5px rgb(0 0 0 / 18%); }
 .heatmap-grid .heatmap-cell[aria-pressed='true'] { box-shadow:inset 0 0 0 2px var(--primary); }
 .heatmap-grid .heatmap-cell:disabled { cursor:default; }
@@ -107,11 +107,12 @@
 .step-drop-fluid { display:block; width:100%; height:100%; border-radius:50%; background:var(--primary); animation:step-fluid-settle 340ms ease-out; }
 @keyframes step-fluid-settle { 0% { transform:scale(.9,1.12); border-radius:45% 45% 50% 50%; } 65% { transform:scale(1.08,.94); } 100% { transform:scale(1); } }
 @keyframes records-appear { from { opacity:.7; } to { opacity:1; } }
-.records-stack { animation:records-appear 120ms ease-out; }
-.main:has(.year-card) .page-head, .records-stack .combo .chart { animation:records-appear 120ms ease-out; }
-.records-stack .combo-band { transition:opacity 90ms ease-out; }
-.records-stack .combo-tip { transition:opacity 90ms ease-out; translate:none; }
-.records-stack .combo-dot { transition:transform 100ms ease-out; }
+.records-stack { animation:records-appear 180ms ease-out; }
+.main:has(.year-card) .page-head, .records-stack .combo .chart { animation:records-appear 180ms ease-out; }
+.records-stack .combo-band { transition:x 140ms ease-out, opacity 120ms ease-out; }
+.records-stack .combo-tip { transition:left 140ms ease-out, transform 140ms ease-out, opacity 120ms ease-out; translate:none; }
+.combo.is-hovering:not(.is-tip-visible) .combo-tip { opacity:0; }
+.records-stack .combo-dot { transition:transform 140ms ease-out; }
 .records-stack .combo-dot.is-active { transform:scale(1.25); }
 .stage-col { gap: 12px; }
 .stage-bar { min-height: 28px; }
@@ -214,3 +215,23 @@
   .today-line b { font-size:16px; }
   .camera-window-launch { right:12px; bottom:12px; }
 }
+
+/* Developer checks stay collapsed by purpose; preview controls never write records. */
+.dev-tools { display:grid; gap:10px; }
+.dev-group { min-width:0; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+.dev-group>summary { padding:12px; font-size:14px; font-weight:600; cursor:pointer; }
+.dev-group-body { padding:0 12px 12px; min-width:0; }
+.dev-group-body .setting-row { align-items:flex-start; flex-wrap:wrap; gap:12px; }
+.dev-group-body .setting-row:first-child { padding-top:8px; }
+.dev-group-body .mono { overflow-wrap:anywhere; font-size:12px; }
+.dev-actions { flex-wrap:wrap; gap:8px; }
+.dev-interaction { display:grid; gap:16px; padding-top:8px; }
+.dev-chart { min-width:0; overflow:hidden; }
+.dev-chart .combo-tip { min-width:130px; padding:8px; }
+.dev-interaction .steps { gap:14px; }
+.dev-interaction .step-title { font-size:14px; }
+.dev-group-body .setting-row>div, .dev-group-body .rate-check { min-width:0; max-width:100%; }
+.dev-group-body .setting-row-stack>div { width:100%; }
+.dev-group-body .setting-control { flex-wrap:wrap; justify-content:flex-start; }
+.dev-group-body .rate-results { width:100%; overflow-x:auto; }
+.dev-actions .chip:disabled { background:var(--surface-2); color:var(--muted); border-color:var(--line); cursor:not-allowed; }
