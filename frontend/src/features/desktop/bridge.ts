@@ -30,6 +30,15 @@ export type DesktopBridge = {
   setAlertPopup?: (enabled: boolean) => Promise<LaunchInfo | null>
   /** `preview` (개발자 옵션) shows the popup even while the app is in view or popups are off. */
   showAlert?: (alert: { title: string; body: string; preview?: boolean }) => Promise<AlertDelivery>
+  /**
+   * The small camera window (plan 0055): the shell allows one `window.open('about:blank', name)` and
+   * shows it while the app window is covered or minimized. Absent in shells built before 2026-10-26.
+   */
+  cameraWindow?: { name: string }
+  /** Restores and focuses the app window (the small window's expand). */
+  focusApp?: () => Promise<boolean>
+  /** Shrinks the small window to its bar while the video is hidden. */
+  setCameraWindowCompact?: (compact: boolean) => Promise<boolean>
 }
 
 declare global {

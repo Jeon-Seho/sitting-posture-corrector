@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { ArrowCounterClockwise, ArrowLeft, Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowLeft, Check, Leaf, PictureInPicture, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
@@ -8,6 +8,7 @@ import { usePostureRegistration } from '../features/camera/usePostureRegistratio
 import { useAutoStart } from '../features/camera/useAutoStart'
 import { CameraPicker } from '../features/camera/CameraPicker'
 import { CAPTURE_MS } from '../features/baseline/landmarkCapture'
+import { desktopBridge } from '../features/desktop/bridge'
 
 /** Seconds of steady upper-body input needed for the baseline (see calibration.ts). */
 const CALIBRATION_SECONDS = CAPTURE_MS / 1000
@@ -329,6 +330,15 @@ export function SetupPage({
                 </span>
                 억지로 펴지 말고 평소의 편한 자세로
               </div>
+              {/* Browser only: the small camera window exists in the desktop app (ADR 0028). */}
+              {!desktopBridge() && (
+                <div className="tip">
+                  <span className="tip-icon">
+                    <PictureInPicture size={20} weight="bold" />
+                  </span>
+                  다른 탭에 가도 측정은 이어져요. 작은 카메라 창은 데스크톱 앱에서 쓸 수 있어요
+                </div>
+              )}
             </div>
           </section>
 

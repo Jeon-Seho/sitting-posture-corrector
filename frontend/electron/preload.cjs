@@ -13,4 +13,8 @@ contextBridge.exposeInMainWorld('posegoodDesktop', {
   setAlertPopup: (enabled) => ipcRenderer.invoke('desktop:set-alert-popup', enabled === true),
   // 자세 알림을 앱 밖 팝업으로도 보낸다. 앱을 보고 있으면 main이 'in-app'으로 건너뛴다.
   showAlert: (alert) => ipcRenderer.invoke('desktop:alert', { title: String(alert?.title ?? ''), body: String(alert?.body ?? ''), preview: alert?.preview === true }),
+  // 작은 카메라 창(계획 0055): main이 이 이름의 window.open만 허락하고 보이기·숨기기를 정한다.
+  cameraWindow: { name: 'posegood-camera-window' },
+  focusApp: () => ipcRenderer.invoke('desktop:focus-app'),
+  setCameraWindowCompact: (compact) => ipcRenderer.invoke('desktop:camera-window-compact', compact === true),
 })

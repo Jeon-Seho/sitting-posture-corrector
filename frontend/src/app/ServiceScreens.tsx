@@ -6,6 +6,7 @@ import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
+import { DesktopCameraWindow } from '../features/desktop/DesktopCameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
@@ -216,6 +217,7 @@ export function ServiceScreens({
         )}
         {view === 'profile' && profilePage}
       </main>
+      <DesktopCameraWindow camera={camera} measuring={measuring} onExpand={() => go(measuring ? 'session' : 'setup')} />
     </div>
   )
 }
