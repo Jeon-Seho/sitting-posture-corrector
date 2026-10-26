@@ -46,6 +46,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -75,6 +76,8 @@ class RealtimeHandlerV2Test {
                     .build();
     private static final long OWNER = 7;
     private static final UUID SESSION = UUID.fromString("3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90");
+    /** 서버의 세션 시작 시각. ready.started_at, closed.ended_at(= 시작 + SUMMARY.total_ms)의 기준(ADR 0028). */
+    private static final Instant STARTED = Instant.parse("2026-10-26T01:00:00.120Z");
     private static final SessionView.Summary SUMMARY =
             new SessionView.Summary(21500, 20500, 17000, 3500, 0, 0, 1000, 0, 1, 1, 0, 0.8293, 175.6, null, null);
     private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1, 0);
@@ -117,7 +120,7 @@ class RealtimeHandlerV2Test {
     }
 
     private Fake measuring() throws Exception {
-        when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true));
+        when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
         var fake = connect(handler);
         send(fake, example("ws-hello-measure.json"));
         same(example("ws-ready-measure.json"), fake.only("ready"));
@@ -175,7 +178,7 @@ class RealtimeHandlerV2Test {
 
     @Test
     void alertsAreNotSentWhenTheSessionTurnedThemOff() throws Exception {
-        when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, false));
+        when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, false, STARTED));
         var fake = connect(handler);
         send(fake, example("ws-hello-measure.json"));
         var event = new SessionView.DecisionEvent("1.0", SESSION, 1, "collapse_confirmed", 21000, 18000, 17000,
@@ -214,6 +217,8 @@ class RealtimeHandlerV2Test {
         message.withArray("items").add(message.withArray("items").get(0).deepCopy());
         send(two, message);
         assertEquals("bad_message", two.only("closed").get("reason").asString());
+        // 세션이 이 연결에서 끝나기 전에 닫혔으니 서버 종료 시각은 아직 없다(앱은 나중에 기록 조회로 받는다).
+        assertTrue(two.only("closed").get("ended_at").isNull());
         verify(sessions).finish(OWNER, SESSION, null); // 측정 중 끊김 → 마지막 구간 끝에서 종료
 
         var wrongPhase = measuring();

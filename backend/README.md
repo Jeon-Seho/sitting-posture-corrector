@@ -97,7 +97,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 계산식은 `model/prototype/pose.ts`·`serverFeatures.ts`).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
-- `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`. 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
+- `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`(`started_at` = 서버의 세션 시작 시각, ADR 0028). 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
   준비가 `posegood.realtime.ready-timeout`(5초, 앱 대기 시간)을 넘으면 그 세션을 끝내고 `session_lost`.
 - `features`는 메시지마다 구간 1개다. 2개 이상·목적과 맞지 않는 `phase`·64KB 초과·형식 오류·중복/역순 순번은 `closed: bad_message`.
   구간마다 `observation`(관측 3.0: `valid_ms`, `invalid_reason`), 새 사건마다 `decision`과 알림을 켠 세션이면 `alert`, 끝에 `ack`·`progress`(`paused_reason`).
@@ -106,7 +106,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
 - 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다.
 - 최대 측정 시간을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
-- `end` → `decision(session_ended)` → `closed: ended`. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
+- `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
 - `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의
   관절 평균만 모으고 `end` 때 `calibration_result` → `closed: ended`. 실패 사유는 `incomplete`(마지막 `end_ms` < 3000) →

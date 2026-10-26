@@ -69,9 +69,10 @@ final class RealtimeMessages {
     static final class V2 {
         private V2() {}
 
-        record ReadyMeasure(String type, String purpose, UUID sessionId) {
-            ReadyMeasure(UUID sessionId) {
-                this("ready", "measure", sessionId);
+        /** {@code startedAt}: 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱의 오늘 기록 시각·날짜 기준(ADR 0028). */
+        record ReadyMeasure(String type, String purpose, UUID sessionId, Instant startedAt) {
+            ReadyMeasure(UUID sessionId, Instant startedAt) {
+                this("ready", "measure", sessionId, startedAt);
             }
         }
 
@@ -163,9 +164,13 @@ final class RealtimeMessages {
             }
         }
 
-        record Closed(String type, String reason) {
-            Closed(String reason) {
-                this("closed", reason);
+        /**
+         * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).
+         * 끝나기 전에 닫히거나 등록 연결이면 null(ADR 0028).
+         */
+        record Closed(String type, String reason, Instant endedAt) {
+            Closed(String reason, Instant endedAt) {
+                this("closed", reason, endedAt);
             }
         }
     }

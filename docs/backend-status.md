@@ -51,6 +51,7 @@
 | 세션 REST (`PUT`·`/end`·`GET`·`/metadata`·`DELETE`) | DB/BE | 구현됨 | `session/SessionController.java` |
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
 | `/v1/realtime` WebSocket | DB/BE | 구현됨 (FE가 v2로 옮기면 삭제) | `realtime/RealtimeHandler.java`, 계획 0031 10/17 기록 |
+| `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
 | `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
 | HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features` | DB/BE | 구현됨 (v1 정리 때 삭제) | `SessionController.java`, 계획 0031 10/17 기록 |
 | 시작 시 스키마 확인 (V2.5, 13테이블, `baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
@@ -76,7 +77,8 @@
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
-| `backend/gradlew -p backend :api:test` (단위) | 66개 중 57 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-26 | V2.5 등록 식별자 변경 후(컴파일 포함). 로컬 JDK 17 |
+| `backend/gradlew -p backend :api:test` (단위) | 66개 중 57 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-26 | ④ `ready`·`closed` 변경 후(`RealtimeHandlerV2Test` 9개 통과). 로컬 JDK 17 |
+| `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 7개·8개 통과 | 2026-10-26 | 임시 가상환경(jsonschema 4.23.0)에서 실행 |
 | `-Pmysql-integration` (실제 MySQL) | 확인 필요 | 2026-10-15 | 접속 거부로 미실행 (0026). [계획 0028](plans/active/0028-backend-java17-boot4-gradle.md)에도 미체크. V2.4 스키마로도 아직 실행 전 |
 | `database/tests/integrity_check.py` | 확인 필요 | — | V2.4·V2.5에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13) |
 | `tools/service_smoke.py` | 확인 필요 | — | `daily_stat` 기대값을 「세션 종료 직후 0행」으로 고침(2026-10-26), 실행 전. `make check-backend`의 마지막 단계 |
@@ -102,7 +104,6 @@
 | WebSocket 등록(`purpose: calibration`)을 남길지 | DB/BE | FE ADR 0026 「남길지는 BE가 정한다」 |
 | S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
-| 오늘 기록 시각(④) — 결정: WebSocket `ready`에 `started_at`, `closed`에 `ended_at`(서버 시각, ④-A). 남은 것: 필드 이름·위치를 FE와 확정하고 구현 | DB/BE·FE | ADR 0028 3번 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
 
 ## 5. 갱신 기록
@@ -115,4 +116,5 @@
 | 2026-10-21 | DB V2.4 작업본 반영: `SchemaVerifier` V2.4 확인, 무결성 검사·README 철회 문구 정리(불일치 2건 제거), `row_count` 미결 → 확정(삭제), 보류 결정 2건 추가 | 커밋 전 |
 | 2026-10-22 | 탈퇴 철회 경로 삭제, 서버 통계는 어제까지·오늘 화면은 로컬 수집 결과 사용으로 표시 정책 명시 | - |
 | 2026-10-26 | 기준을 `develop`으로. 불일치 4건 해결(`AuthController` 주석, `backend/README.md` 링크, `service_smoke.py` 기대값, 계획 0026 표) → 새 불일치 3건 기록. FE V3의 요청(BE-1·3·4, T1·R1b, CORS)과 미결 4건 추가 | `2de7c83` |
-| 2026-10-26 | ADR 0028: B1 등록 시각 서버화·`registration_id`, DB V2.5(migration 015). `registered_at` 설명 불일치 해결, 미결 1건 결정, ④-A·③ 기록 | 커밋 전 |
+| 2026-10-26 | ADR 0028: B1 등록 시각 서버화·`registration_id`, DB V2.5(migration 015). `registered_at` 설명 불일치 해결, 미결 1건 결정, ④-A·③ 기록 | `cab11c1` |
+| 2026-10-26 | ADR 0028 ④ 구현: `/v2/realtime` `ready.started_at`·`closed.ended_at`, 계약·예시·시험. 미결 1건 → 구현됨 | 커밋 전 |

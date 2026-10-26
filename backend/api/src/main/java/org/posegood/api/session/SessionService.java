@@ -147,7 +147,7 @@ public class SessionService {
         var stored = baselines.find(owner, session.row().baselineId());
         var features = stored == null ? null : FrameFeatures.baseline(stored.landmarks());
         if (features == null) throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
-        return new Realtime(features, session.row().alertEnabled());
+        return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
     }
 
     /**
@@ -479,7 +479,8 @@ public class SessionService {
     private record Accepted(Observation observation, SessionView view) {}
 
     /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
-    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled) {}
+    /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */
+    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled, Instant startedAt) {}
 
     /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
     public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}

@@ -28,6 +28,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -209,7 +210,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             return;
         }
         channel.state.set(State.MEASURE);
-        send(channel, new RealtimeMessages.V2.ReadyMeasure(id));
+        send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
     }
 
     /** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
@@ -336,6 +337,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         }
         if (update.ended()) {
             channel.ended = true;
+            // DB에 저장하는 종료 시각과 같은 식(started_at + total_ms). 저장은 이 이벤트 뒤에 일어난다.
+            channel.endedAt = channel.realtime.startedAt().plusMillis(update.summary().totalMs());
             finishClosed(channel, channel.endReason);
         }
     }
@@ -414,7 +417,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     /** {@code closed(reason)}를 보내고 닫는다. 한 연결에 한 번만. */
     private void closed(Channel channel, String reason) {
         if (!channel.closedSent.compareAndSet(false, true)) return;
-        send(channel, new RealtimeMessages.V2.Closed(reason));
+        send(channel, new RealtimeMessages.V2.Closed(reason, channel.endedAt));
         close(channel, CloseStatus.NORMAL);
     }
 
@@ -472,6 +475,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         private volatile long lastSequence = -1;
         /** 세션이 끝났다는 이벤트를 받았다(연결이 닫혀도 다시 끝내지 않는다). */
         private volatile boolean ended;
+        /** 이 연결에서 세션이 끝났을 때의 서버 종료 시각. closed에 싣는다(그 전에는 null). */
+        private volatile Instant endedAt;
         /** 세션이 끝났을 때 보낼 closed 사유(시간 한도면 limit_reached). */
         private volatile String endReason = "ended";
         /** 등록: calibration_id와 수집 상태. */

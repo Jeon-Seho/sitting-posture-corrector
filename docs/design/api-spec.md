@@ -1544,7 +1544,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | type | 필드 | 설명 |
 |---|---|---|
-| `ready` | purpose, session_id 또는 calibration_id | `hello`를 받아들였다. `features`를 보내기 시작한다. |
+| `ready` | purpose, session_id(+ started_at) 또는 calibration_id | `hello`를 받아들였다. `features`를 보내기 시작한다. 측정이면 `started_at` = 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱은 오늘 기록의 시각·날짜를 이 값으로 정한다(ADR 0028). |
 | `ack` | last_sequence | 여기까지 처리 완료. 표시만 하고 다시 보내지 않는다. |
 | `observation` | observation | 구간마다 [Observation 3.0](#observation-30--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
@@ -1552,7 +1552,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
 | `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
 | `calibration_result` | 11.4 | 등록 결과. |
-| `closed` | reason | 서버가 연결을 닫기 직전(아래 표). |
+| `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔거나 등록이면 `null`(ADR 0028). |
 
 | `closed.reason` | 언제 |
 |---|---|
@@ -1568,7 +1568,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 **서버 → 앱 (예시)**
 
 ```json
-{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90" }
+{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90", "started_at": "2026-10-26T01:00:00.120Z" }
 ```
 
 ```json
@@ -1613,7 +1613,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 ```
 
 ```json
-{ "type": "closed", "reason": "ended" }
+{ "type": "closed", "reason": "ended", "ended_at": "2026-10-26T01:00:21.620Z" }
 ```
 
 ## 변경 이력
@@ -1622,6 +1622,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-26 | `fix/repo-backend-sync` | `/v2/realtime`: `ready`(측정)에 `started_at`, `closed`에 `ended_at`(서버 시각, 모르면 null). 계약 `realtime-ws.v2`·예시 변경 — 앱 검증과 함께 바꿔야 함 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md) 3번) |
 | 2026-10-26 | `fix/repo-backend-sync` | B1: 요청의 `registered_at` → `registration_id`(UUID, 재시도 구분). `registered_at`은 서버 시각. DB V2.5(migration 015). 호환성 깨짐 — 예전 본문은 400 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)) |
 | 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |
 | 2026-10-16 | `dc2de48` | HTML 명세서를 Markdown으로 옮김(내용 같음). WebSocket 사용 조건(`VITE_REALTIME_URL`) 한 줄 추가 |
