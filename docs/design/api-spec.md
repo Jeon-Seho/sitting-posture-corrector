@@ -16,7 +16,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
 > 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 구간 입력(S2)·기록 저장(R2)은 아직 남아 있다(앱 v2 전환 뒤 삭제, BE-1).
-> 일별 통계 조회 T1(`GET /v2/stats/daily`)과 기록 하나 조회 R1b(`GET /v2/records/{id}`)는 없앤 경로라 제공하지 않는다.
+> 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
 
@@ -47,7 +47,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 일별 통계를 조회하는 API(T1)는 없다. 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 
 로그인 고정 30분 만료는 FE 문서에 맞춘 계약이고 서버가 구현한다(2026-10-26, `account/LoginLifetime`). 로그인할 때 시각을 세션에 적고, 그 뒤 30분(`posegood.login-lifetime`, `POSEGOOD_LOGIN_LIFETIME`)이 지난 첫 HTTP 요청·WebSocket 연결에서 세션을 지운다. 30분 동안 요청이 없으면 Spring Session의 유휴 만료(`spring.session.timeout`, 같은 30분)로도 끝난다.
@@ -1160,6 +1160,74 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 
+<a id="t1"></a>
+
+### T1 · `GET /v2/stats/daily` — 일별 통계 (설계 확정, 구현 전)
+
+로그인 필요 · 계정 헤더
+
+> [!NOTE]
+> 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다. J2가 돌기 전에는 모든 날이 0으로 채워진다.
+
+- 로그인한 사용자 본인의 `daily_stat`을 날짜순으로 돌려준다.
+- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+- **행이 없는 날은 0으로 채운다.** `from`~`to`(자른 뒤)의 모든 날짜가 `days`에 한 번씩 들어간다.
+  `valid_sec`·`good_sec`은 0.0, 횟수는 0, `min_until_collapse_sec`·`max_until_collapse_sec`·`computed_at`은 null(DB에서도 「표본 없음」은 NULL이다).
+- **객체로 감싼다.** 날짜 목록은 `days`에 넣고, 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
+- **필드 이름은 DB `daily_stat` 컬럼 이름 그대로**(snake_case)다. 초 단위 값은 0.1초 정밀도다.
+
+**요청 쿼리**
+
+| 이름 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `from` | `YYYY-MM-DD` | 필수 | 시작 날짜(KST) |
+| `to` | `YYYY-MM-DD` | 필수 | 끝 날짜(KST, 포함). 오늘 이후면 어제로 자름. 자른 뒤 `from`보다 앞이면 `days`는 빈 배열 |
+
+**응답 200 (예시)** — 10/26에 10/24~10/30을 요청한 경우
+
+```json
+{
+  "today": "2026-10-26",
+  "from": "2026-10-24",
+  "to": "2026-10-25",
+  "days": [
+    {
+      "stat_date": "2026-10-24",
+      "valid_sec": 3600.0,
+      "good_sec": 2950.5,
+      "session_count": 3,
+      "event_count": 5,
+      "alerted_event_count": 4,
+      "min_until_collapse_sec": 120.0,
+      "max_until_collapse_sec": 900.0,
+      "computed_at": "2026-10-24T15:00:03.120Z"
+    },
+    {
+      "stat_date": "2026-10-25",
+      "valid_sec": 0.0,
+      "good_sec": 0.0,
+      "session_count": 0,
+      "event_count": 0,
+      "alerted_event_count": 0,
+      "min_until_collapse_sec": null,
+      "max_until_collapse_sec": null,
+      "computed_at": null
+    }
+  ]
+}
+```
+
+| 필드 | 뜻 (DB `daily_stat` 설명) |
+|---|---|
+| `stat_date` | 집계 날짜. KST, 세션 시작 날짜 기준 |
+| `valid_sec` | 유효 측정 시간 합(유지율의 분모) |
+| `good_sec` | 바른 자세 시간 합(분자) |
+| `session_count` | 세션 수 |
+| `event_count` | 붕괴 사건 수 |
+| `alerted_event_count` | 알림이 표시된 사건 수 |
+| `min_until_collapse_sec`·`max_until_collapse_sec` | 바른 자세에서 붕괴까지 걸린 시간의 최솟값·최댓값(5분 이상 세션만). 표본이 없으면 null |
+| `computed_at` | J2가 집계한 시각(UTC). 0으로 채운 날은 null |
+
 <a id="h1"></a>
 
 ### H1 · `GET /health` — 상태 확인
@@ -1547,7 +1615,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행). T1·R1b는 제공하지 않음을 명시 |
+| 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |
+| 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행) |
 | 2026-10-26 | `fix/repo-backend-sync` | `/v2/realtime`: `ready`(측정)에 `started_at`, `closed`에 `ended_at`(서버 시각, 모르면 null). 계약 `realtime-ws.v2`·예시 변경 — 앱 검증과 함께 바꿔야 함 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md) 3번) |
 | 2026-10-26 | `fix/repo-backend-sync` | B1: 요청의 `registered_at` → `registration_id`(UUID, 재시도 구분). `registered_at`은 서버 시각. DB V2.5(migration 015). 호환성 깨짐 — 예전 본문은 400 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)) |
 | 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |

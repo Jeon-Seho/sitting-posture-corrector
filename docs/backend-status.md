@@ -33,9 +33,9 @@
 | 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled` | DB/BE | 구현됨 | ADR 0022, `backend/README.md` |
-| 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 제공하지 않음 — 없앤 경로(2026-10-26 확인). FE 문서에 남은 요청은 FE가 정리 | FE 요청 BE-2·BE-5 ([FE 제안서](design/fe-server-proposal.md) 1장, V3 브랜치), `api-spec.md` 머리말·1장 |
+| 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2가 채우므로 J2 전에는 0만 나옴. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
 
-표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 같은 정책의 「서버 통계(T1)는 어제까지 제공·표시」는 T1을 없애 BE가 제공하지 않는다(2026-10-26).
+표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
 
 ### 2.3 기준 자세
 
@@ -71,7 +71,7 @@
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
 | BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 일부 — `/v1/realtime` 삭제함, S2·R2·동의 문구는 구현 전 | FE 제안서 1장, 계획 0031 10/26 기록 |
-| BE-5: ① 로그인 고정 만료, ② `valid_ms` 하위 구간, ③ T1·R1b, ④ 옛 프로토타입 주석, ⑤ 문서에 남은 옛 앱 동작 | DB/BE | ①④⑤ 끝, ③ 제공하지 않음, ② 보류(2.4·4장) | FE 제안서 1장(V3 브랜치) |
+| BE-5: ① 로그인 고정 만료, ② `valid_ms` 하위 구간, ③ T1·R1b, ④ 옛 프로토타입 주석, ⑤ 문서에 남은 옛 앱 동작 | DB/BE | ①④⑤ 끝, ③ T1 형식 확정·구현 전, R1b 구현 전(2.2), ② 보류(2.4·4장) | FE 제안서 1장(V3 브랜치) |
 | BE-3: 앱에 W1 `GET /v2/workspace` 연결 (S1 `policy`가 계정 값과 달라 409가 나지 않게) | 확인 필요 — 앱 코드 작업이라 FE와 담당 정리 | 구현 전 | FE 제안서 1장 |
 | BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
 | 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현 전 (FE 배포 구상 단계) | `design/fe-deploy.md`(V3, develop은 `fe-domain-idea.md`) 3.1 S-1 |
@@ -126,4 +126,5 @@
 | 2026-10-26 | 기준을 `develop`으로. 불일치 4건 해결(`AuthController` 주석, `backend/README.md` 링크, `service_smoke.py` 기대값, 계획 0026 표) → 새 불일치 3건 기록. FE V3의 요청(BE-1·3·4, T1·R1b, CORS)과 미결 4건 추가 | `2de7c83` |
 | 2026-10-26 | ADR 0028: B1 등록 시각 서버화·`registration_id`, DB V2.5(migration 015). `registered_at` 설명 불일치 해결, 미결 1건 결정, ④-A·③ 기록 | `cab11c1` |
 | 2026-10-26 | ADR 0028 ④ 구현: `/v2/realtime` `ready.started_at`·`closed.ended_at`, 계약·예시·시험. 미결 1건 → 구현됨 | `b903751` |
-| 2026-10-26 | FE 요청 BE-5 반영: ① 로그인 고정 30분 만료 구현(refresh 토큰 전환 예정, 4장), ③ T1·R1b 제공하지 않음, ④ 옛 프로토타입 주석 정리, ⑤ 옛 앱 동작 문서 정리(BE 문서만: api-spec 11.4·README. infra·아키텍처 문서는 담당에 요청, 3장). ② `valid_ms` 하위 구간은 보류(4장). BE-1·계획 0031의 `/v1/realtime` 삭제 | 커밋 전 |
+| 2026-10-26 | FE 요청 BE-5 반영: ① 로그인 고정 30분 만료 구현(refresh 토큰 전환 예정, 4장), ③ T1·R1b 제공하지 않음, ④ 옛 프로토타입 주석 정리, ⑤ 옛 앱 동작 문서 정리(BE 문서만: api-spec 11.4·README. infra·아키텍처 문서는 담당에 요청, 3장). ② `valid_ms` 하위 구간은 보류(4장). BE-1·계획 0031의 `/v1/realtime` 삭제 | `7034f0e` |
+| 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | 커밋 전 |

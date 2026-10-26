@@ -149,5 +149,5 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 3. 알림의 실제 표시 여부 전달(현재 DB에는 시도만 기록).
 4. Spark 배치 전환 시점(공지 ⑤): 이 API는 이미 `daily_stat` 누적과 탈퇴 최종 삭제를 하지 않는다. J2가 켜지기 전까지 서버의 일별 통계는 비고,
    J3가 켜지기 전까지 유예가 끝난 탈퇴 계정이 남는다. J2 첫 실행 때 이 변경 이후 날짜를 다시 계산하고, J3는 밀린 요청부터 지운다.
-   오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
-   일별 통계 조회 T1(`GET /v2/stats/daily`)과 기록 하나 조회 R1b(`GET /v2/records/{id}`)는 없앤 경로라 API가 제공하지 않는다(2026-10-26).
+   오늘 화면은 서버의 일별 통계와 별개로 로컬 수집 결과를 사용한다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+   T1(`GET /v2/stats/daily`)은 이 API가 `daily_stat`을 읽어 돌려줄 경로로, 형식만 정했고 구현 전이다([API 명세 T1](../docs/design/api-spec.md#t1)). R1b(`GET /v2/records/{id}`)도 구현 전이다.
