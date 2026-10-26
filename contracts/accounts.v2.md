@@ -60,14 +60,16 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 
 ## 기준 자세
 
-`POST /baselines`는 `{registered_at,calibration_ms,sample_count,landmarks}`를 받는다.
-`registered_at`은 프론트가 촬영을 완료한 UTC ISO 시각이며 재시도에 그대로 쓴다.
+`POST /baselines`는 `{registration_id,calibration_ms,sample_count,landmarks}`를 받는다(2026-10-26 ADR 0028).
+`registration_id`는 앱이 촬영 한 번마다 한 번 만드는 UUID이며 재시도에 그대로 쓴다. 앱은 시각을 보내지 않는다 —
+예전 `registered_at` 필드를 보내면 모르는 필드라 `400 INVALID_CONTRACT`다.
 연속 촬영 3,000..999,900ms, 유효 좌표 표본 20..100,000개를 확인한다. 두 수치는 검증만 하며 DB에 저장하지 않는다.
 `landmarks`는 `nose,left_eye,right_eye,left_ear,right_ear,mouth_left,mouth_right,left_shoulder,right_shoulder`의
 `{x,y}` 평균 좌표(각 0..1)다. 영상·개별 프레임·장치 ID를 저장하지 않는다. 좌표는 소수 다섯째 자리로 반올림한다.
 
 응답은 `{schema_version:"2.0",baseline_id,registered_at,landmarks}`이며 저장된 정밀도의 좌표를 돌려준다.
-동일 사용자·등록 시각·정규화 좌표의 재전송은 같은 행을 반환한다. 같은 시각의 다른 좌표는 409다.
+`registered_at`은 서버가 등록을 받은 시각(UTC ISO)이다.
+동일 사용자·`registration_id`·정규화 좌표의 재전송은 같은 행을 반환한다. 같은 `registration_id`의 다른 좌표는 409다.
 새 등록은 INSERT하며 과거 행을 수정하지 않는다. `GET /baselines/current`는 사용자별 가장 큰 DB ID의 행,
 없으면 `404 BASELINE_NOT_FOUND`다.
 공개 `baseline_id`는 `UUID.nameUUIDFromBytes(UTF8("posegood:baseline:"+userId+":"+baselinePostureId))`다.

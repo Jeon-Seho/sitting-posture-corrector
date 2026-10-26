@@ -44,7 +44,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 예시와 고정값 | 엔드포인트마다 있는 JSON 블록의 값은 **예시**다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
-| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registered_at`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
+| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
@@ -558,7 +558,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
 
 - 항상 새 행을 추가하고 과거 행은 고치지 않는다.
-- 같은 registered_at과 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 시각에 다른 좌표면 409.
+- 같은 `registration_id`와 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 `registration_id`에 다른 좌표면 409.
+- `registered_at`은 서버가 등록을 받은 시각이다. 앱은 시각을 보내지 않는다(2026-10-26 [ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)).
 - 좌표는 소수 다섯째 자리로 반올림해 저장하고, 저장된 값을 응답한다.
 - baseline_id는 DB 키로 만든 이름 기반 UUID다.
 
@@ -566,7 +567,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | 필드 | 타입 | 필수 | 규칙 |
 |---|---|---|---|
-| `registered_at` | `ISO-8601` | 필수 | 앱이 촬영을 끝낸 UTC 시각. 재시도 때 같은 값 |
+| `registration_id` | `UUID` | 필수 | 촬영 한 번마다 앱이 한 번 만든다. 재시도 때 같은 값. (예전 `registered_at`은 보내면 400) |
 | `calibration_ms` | `long` | 필수 | 3,000~999,900 (검증만 하고 저장하지 않음) |
 | `sample_count` | `int` | 필수 | 20~100,000 (검증만 하고 저장하지 않음) |
 | `landmarks.{관절}` | `{x, y}` | 필수 | nose, left_eye, right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder. 각 0~1 |
@@ -575,7 +576,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ```json
 {
-  "registered_at": "2026-10-13T08:00:00.000Z",
+  "registration_id": "3f2b8c1e-7a4d-4e9b-9c61-0d5a2e8f4b17",
   "calibration_ms": 5000,
   "sample_count": 120,
   "landmarks": {
@@ -1621,6 +1622,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-26 | `fix/repo-backend-sync` | B1: 요청의 `registered_at` → `registration_id`(UUID, 재시도 구분). `registered_at`은 서버 시각. DB V2.5(migration 015). 호환성 깨짐 — 예전 본문은 400 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)) |
 | 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |
 | 2026-10-16 | `dc2de48` | HTML 명세서를 Markdown으로 옮김(내용 같음). WebSocket 사용 조건(`VITE_REALTIME_URL`) 한 줄 추가 |
 | 2026-10-15 | `dc2de48` | 아키텍처 v5.2 전환 1차: 탈퇴 철회(A8)·`WITHDRAWAL_NOT_CANCELLABLE` 삭제, 탈퇴 최종 삭제는 Spark J3, `daily_stat`은 Spark J2(S3에서 쓰지 않음). S1·S3 응답은 200 `SessionView`로 확정. R3·S6의 적재 기록 409는 공통 `CONFLICT`(전용 코드 없음) |

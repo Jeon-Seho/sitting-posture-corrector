@@ -71,9 +71,8 @@ class Account:
 
 def register_baseline(account):
     """Register a synthetic 9-landmark baseline; sessions must name the account's current one."""
-    from datetime import datetime, timezone
     saved = account.request("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20,
         "landmarks": {
             "nose": {"x": 0.5, "y": 0.4}, "left_eye": {"x": 0.52, "y": 0.37},

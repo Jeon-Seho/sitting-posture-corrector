@@ -2,7 +2,7 @@
 
 Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md), [ADR 0023](../docs/decisions/0023-backend-java17-boot4-gradle.md)).
 현재 프론트 특징 v2 유지 범위는 [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)를 따른다.
-DB는 MySQL [스키마 V2.4](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
+DB는 MySQL [스키마 V2.5](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
 ## 코드 구조
@@ -19,7 +19,7 @@ backend/api/src/main/java/org/posegood/api/
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
 ├── realtime/   # /v1/realtime·/v2/realtime WebSocket
-└── system/     # /health, 시작 시 스키마 V2.4 확인
+└── system/     # /health, 시작 시 스키마 V2.5 확인
 ```
 
 흐름: `SessionController`·`RealtimeHandler`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
@@ -32,7 +32,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 시점 | DB에 쓰는 것 |
 | --- | --- |
 | 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
-| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각·좌표가 같은 재시도는 기존 행 반환. `/v2/realtime` 등록은 서버가 평균을 계산해 서버 시각으로 추가 |
+| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). `/v2/realtime` 등록은 서버가 평균을 계산해 서버 시각·서버가 만든 식별자로 추가 |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
 | 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
 | 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
@@ -131,7 +131,7 @@ make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 F
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_4.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_5.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Gradle을 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh

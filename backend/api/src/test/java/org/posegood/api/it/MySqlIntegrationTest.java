@@ -2,6 +2,7 @@ package org.posegood.api.it;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -90,7 +91,7 @@ class MySqlIntegrationTest {
     }
 
     private static ObjectNode registration(double noseX) {
-        var b = MAPPER.createObjectNode().put("registered_at", java.time.Instant.now().toString()).put("calibration_ms", 3000).put("sample_count", 20);
+        var b = MAPPER.createObjectNode().put("registration_id", UUID.randomUUID().toString()).put("calibration_ms", 3000).put("sample_count", 20);
         var landmarks = b.putObject("landmarks");
         landmarks.putObject("nose").put("x", noseX).put("y", 0.4);
         landmarks.putObject("left_eye").put("x", 0.52).put("y", 0.37);
@@ -504,12 +505,24 @@ class MySqlIntegrationTest {
         assertEquals(404, api.get("/v2/baselines/current").status());
         assertEquals(409, api.put("/v2/sessions/" + UUID.randomUUID(), create(UUID.randomUUID())).status());
         var registration = registration(0.5);
+        var before = java.time.Instant.now().minusSeconds(1);
         var saved = api.post("/v2/baselines", registration);
         assertEquals(200, saved.status());
+        // The server stamps registered_at itself (ADR 0028); the app no longer sends a time.
+        var registeredAt = java.time.Instant.parse(saved.body().get("registered_at").asString());
+        assertTrue(!registeredAt.isBefore(before) && !registeredAt.isAfter(java.time.Instant.now().plusSeconds(1)), registeredAt.toString());
+        // A retry with the same registration_id returns the stored row, even seconds later.
         assertEquals(saved.body(), api.post("/v2/baselines", registration).body());
         ((ObjectNode) registration.get("landmarks").get("nose")).put("x", 0.51);
         assertEquals(409, api.post("/v2/baselines", registration).status());
-        UUID baseline = UUID.fromString(saved.body().get("baseline_id").asString());
+        // A new registration_id is a new capture: a new row becomes the current baseline.
+        registration.put("registration_id", UUID.randomUUID().toString());
+        var second = api.post("/v2/baselines", registration);
+        assertEquals(200, second.status());
+        assertNotEquals(saved.body().get("baseline_id").asString(), second.body().get("baseline_id").asString());
+        registration.remove("registration_id");
+        assertEquals(400, api.post("/v2/baselines", registration).status());
+        UUID baseline = UUID.fromString(second.body().get("baseline_id").asString());
         UUID id = UUID.randomUUID();
         String path = "/v2/sessions/" + id;
         assertEquals(200, api.put(path, create(baseline)).status());
