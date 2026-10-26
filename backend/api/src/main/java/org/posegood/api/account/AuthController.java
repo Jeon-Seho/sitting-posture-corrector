@@ -122,8 +122,9 @@ public class AuthController {
     /** 로그인 처리: 세션 ID를 새로 만들고 인증 정보와 CSRF 토큰을 DB 세션에 저장한다. */
     private void signIn(
             Authentication auth, HttpServletRequest request, HttpServletResponse response) {
-        request.getSession(true);
+        var session = request.getSession(true);
         request.changeSessionId();
+        session.setAttribute(LoginLifetime.SIGNED_IN_AT, System.currentTimeMillis()); // 고정 만료의 기준(BE 명세 1장)
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);

@@ -208,8 +208,8 @@ class MySqlIntegrationTest {
         var stale = client();
         assertEquals(200, stale.login(email, "synthetic-password-1").status());
         var socket = Socket.open(port, stale.cookieHeader());
-        socket.send(hello(quiet, 0));
-        socket.next("ack");
+        socket.send(helloV2("measure", quiet));
+        socket.next("ready");
         var change =
                 MAPPER.createObjectNode()
                         .put("current_password", "synthetic-password-1")
@@ -577,45 +577,6 @@ class MySqlIntegrationTest {
         }
     }
 
-    @Test
-    void realtimeChannelPushesObservationsDecisionsAndTheEnd() throws Exception {
-        var api = client();
-        api.register(email());
-        UUID id = UUID.randomUUID(), baseline = baseline(api);
-        assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
-
-        var unauthenticated = Socket.open(port, null);
-        unauthenticated.send(hello(id, 0));
-        assertEquals("unauthorized", unauthenticated.next("closed").get("reason").asString());
-
-        var socket = Socket.open(port, api.cookieHeader());
-        socket.send(hello(id, 0));
-        assertEquals(-1, socket.next("ack").get("last_sequence").asLong());
-        socket.next("progress");
-
-        var frame = MAPPER.createObjectNode().put("type", "features").put("session_id", id.toString());
-        var items = frame.putArray("items");
-        for (int index = 0; index < 4; index++)
-            items.add(feature(baseline, index, index * 1000L, (index + 1) * 1000L, 0.3));
-        socket.send(frame);
-        var decision = socket.next("decision");
-        assertEquals("collapse_confirmed", decision.get("event").get("kind").asString());
-        assertEquals(1, decision.get("summary").get("collapse_count").asLong());
-        assertEquals(1, socket.next("alert").get("event_id").asLong());
-        assertEquals(3, socket.next("ack").get("last_sequence").asLong());
-        assertEquals(4000, socket.next("progress").get("summary").get("total_ms").asLong());
-
-        // 다시 연결하면 last_event_id 뒤의 사건, ack, progress 순서로 받는다.
-        var resumed = Socket.open(port, api.cookieHeader());
-        resumed.send(hello(id, 0));
-        assertEquals(1, resumed.next("decision").get("event").get("event_id").asLong());
-        assertEquals(3, resumed.next("ack").get("last_sequence").asLong());
-
-        assertEquals(200, api.post("/v2/sessions/" + id + "/end", MAPPER.createObjectNode().put("end_ms", 4000)).status());
-        assertEquals("session_ended", socket.next("decision", "session_ended").get("event").get("kind").asString());
-        assertEquals("ended", socket.next("closed").get("reason").asString());
-    }
-
     /** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨), 어깨 폭 약 192px. */
     private static final double[][] UPRIGHT = {
         {0.51234, 0.40211}, {0.53011, 0.3712}, {0.49012, 0.372}, {0.56021, 0.39012}, {0.46011, 0.391},
@@ -669,7 +630,7 @@ class MySqlIntegrationTest {
 
         // 자세 등록: 3초(구간 6개 x 판정 가능 프레임 4장) -> 서버가 평균을 저장하고 calibration_result(ok).
         UUID calibrationId = UUID.randomUUID();
-        var calibration = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        var calibration = Socket.open(port, api.cookieHeader());
         calibration.send(helloV2("calibration", calibrationId));
         assertEquals(calibrationId.toString(), calibration.next("ready").get("calibration_id").asString());
         for (long sequence = 0; sequence < 6; sequence++) calibration.send(frames(sequence, "calibration", 0.0));
@@ -683,7 +644,7 @@ class MySqlIntegrationTest {
         assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
 
         // 실패한 등록(3초 미만)은 저장하지 않고 이전 기준이 그대로다.
-        var brief = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        var brief = Socket.open(port, api.cookieHeader());
         brief.send(helloV2("calibration", UUID.randomUUID()));
         brief.next("ready");
         brief.send(frames(0, "calibration", 0.0));
@@ -694,7 +655,7 @@ class MySqlIntegrationTest {
         // 측정: 3.5초 치우침(3초에 붕괴 확정) -> 0.5초 사람 없음 -> end 5초.
         UUID id = UUID.randomUUID();
         assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
-        var socket = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        var socket = Socket.open(port, api.cookieHeader());
         socket.send(helloV2("measure", id));
         assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
@@ -727,7 +688,7 @@ class MySqlIntegrationTest {
         assertEquals("ended", socket.next("closed").get("reason").asString());
 
         // 끝난 세션으로 다시 hello하면 session_lost.
-        var again = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        var again = Socket.open(port, api.cookieHeader());
         again.send(helloV2("measure", id));
         assertEquals("session_lost", again.next("closed").get("reason").asString());
 
@@ -779,7 +740,7 @@ class MySqlIntegrationTest {
         api.register(email());
         UUID id = UUID.randomUUID(), baseline = baseline(api);
         assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
-        var socket = Socket.open(port, api.cookieHeader(), "/v2/realtime");
+        var socket = Socket.open(port, api.cookieHeader());
         socket.send(helloV2("measure", id));
         socket.next("ready");
         for (long sequence = 0; sequence < 4; sequence++) socket.send(frames(sequence, "running", 0.0));
@@ -795,14 +756,6 @@ class MySqlIntegrationTest {
         assertTrue(view.get("ended").asBoolean());
         assertEquals(2000, view.get("summary").get("total_ms").asLong());
         assertEquals(2000, view.get("summary").get("normal_ms").asLong());
-    }
-
-    private static ObjectNode hello(UUID id, long lastEventId) {
-        return MAPPER.createObjectNode()
-                .put("type", "hello")
-                .put("schema_version", "1.0")
-                .put("session_id", id.toString())
-                .put("last_event_id", lastEventId);
     }
 
     /** 측정한 조회 응답에 대한 앱 기록(RecordItem, frontend/src/features/storage/types.ts). */
@@ -881,15 +834,11 @@ class MySqlIntegrationTest {
         private WebSocket socket;
 
         static Socket open(int port, String cookie) throws Exception {
-            return open(port, cookie, "/v1/realtime");
-        }
-
-        static Socket open(int port, String cookie, String path) throws Exception {
             var listener = new Socket();
             var builder = HttpClient.newHttpClient().newWebSocketBuilder().header("Origin", "http://127.0.0.1:" + port);
             if (cookie != null) builder.header("Cookie", cookie);
             listener.socket =
-                    builder.buildAsync(URI.create("ws://127.0.0.1:" + port + path), listener)
+                    builder.buildAsync(URI.create("ws://127.0.0.1:" + port + "/v2/realtime"), listener)
                             .get(5, TimeUnit.SECONDS);
             return listener;
         }

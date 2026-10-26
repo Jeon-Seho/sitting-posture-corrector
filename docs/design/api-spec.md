@@ -2,7 +2,7 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `c7b8605`(2026-10-16, DB 스키마 V2.3)이다.
+Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `c7b8605`(2026-10-16, DB 스키마 V2.3)이다.
 
 | 항목 | 내용 |
 |---|---|
@@ -15,7 +15,8 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))이 새 경로다. `/v1/realtime`과 구간 입력(S2)·기록 저장(R2)은 앱이 v2로 넘어갈 때까지 그대로 두고, 넘어간 뒤 지운다.
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 구간 입력(S2)·기록 저장(R2)은 아직 남아 있다(앱 v2 전환 뒤 삭제, BE-1).
+> 일별 통계 조회 T1(`GET /v2/stats/daily`)과 기록 하나 조회 R1b(`GET /v2/records/{id}`)는 없앤 경로라 제공하지 않는다.
 
 ## 목차
 
@@ -28,7 +29,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 7. [측정 세션](#7-측정-세션)
 8. [기록·시스템](#8-기록시스템)
 9. [공통 응답 객체](#9-공통-응답-객체)
-10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime)
+10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime) (삭제)
 11. [WebSocket `/v2/realtime`](#11-websocket-v2realtime)
 - [변경 이력](#변경-이력)
 
@@ -46,10 +47,11 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 일별 통계를 조회하는 API(T1)는 없다. 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 
-로그인 고정 30분 만료는 FE 문서에 맞춘 계약이다. 현재 서버 구현이 이 기준을 충족하는지는 별도 확인 대상이다.
+로그인 고정 30분 만료는 FE 문서에 맞춘 계약이고 서버가 구현한다(2026-10-26, `account/LoginLifetime`). 로그인할 때 시각을 세션에 적고, 그 뒤 30분(`posegood.login-lifetime`, `POSEGOOD_LOGIN_LIFETIME`)이 지난 첫 HTTP 요청·WebSocket 연결에서 세션을 지운다. 30분 동안 요청이 없으면 Spring Session의 유휴 만료(`spring.session.timeout`, 같은 30분)로도 끝난다.
+로그인 방식은 refresh 토큰으로 바꿀 예정이다(방식 미정, [백엔드 상태](../backend-status.md) 4장). 바뀌면 이 절과 4장을 함께 고친다.
 
 `model_version`·`feature_version` 등 모델명·버전명은 개발·연동용 내부 정보이며 서비스 화면에는 표시하지 않는다(2026-10-22 결정). 이 명세의 요청·응답 필드와 고정값 검증은 유지하며, 같은 이름이 계산 조건의 동일성까지 보장하지는 않는다([내부 관리 기준](../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
@@ -106,7 +108,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [R2](#r2) | POST | `/v2/records` | 필요 | 기록 저장 | 200 |
 | [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
-| [WS](#websocket-연결) | WS | `/v1/realtime` | 쿠키 | 실시간 특징 입력·판정 push (v2 전환 뒤 삭제) | 101 |
 | [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | 쿠키 | 좌표 프레임 측정·자세 등록, 판정 push | 101 |
 
 ## 4. 계정
@@ -1350,87 +1351,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 <a id="websocket-연결"></a>
 
 > [!NOTE]
-> 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가면 지운다. v2는 이 장의 `last_event_id`·놓친 사건 다시 보내기를 쓰지 않는다.
-
-측정 중 특징 입력과 판정 결과 push를 하나의 연결로 처리한다. 로그인 쿠키로 인증하고 같은 출처 페이지만 허용한다. 세션 생성·종료는 HTTP로 한다. 메시지 하나는 64KB 이하, 120초 동안 아무 메시지가 없으면 연결이 끊긴다.
-
-> [!NOTE]
-> 연결 순서: WebSocket 연결 → `hello` → 서버가 놓친 `decision`, `ack`, `progress`를 보냄 → 앱이 `features`를 보내고 서버가 구간마다 결과를 push.
->
-> 앱은 FE 빌드 설정 `VITE_REALTIME_URL`이 있을 때만 이 채널을 쓰고, 없으면(기본값) S2(HTTP)로 구간을 보낸다.
-
-| 방향 | type | 필드 | 설명 |
-|---|---|---|---|
-| 앱 → 서버 | `hello` | schema_version "1.0", session_id, last_event_id | 세션에 연결. last_event_id 뒤의 사건을 다시 받는다. |
-| 앱 → 서버 | `features` | session_id, items[1..30] | S2 요청 본문을 최대 30개 묶어 보낸다. hello가 먼저여야 한다. |
-| 서버 → 앱 | `observation` | session_id, observation | 구간마다 추론 결과. |
-| 서버 → 앱 | `decision` | session_id, event, summary | 새 판정 사건과 그 시점의 요약. |
-| 서버 → 앱 | `alert` | session_id, event_id, kind, deviation_type | collapse_confirmed·reminder일 때. 앱은 알림을 표시한다. |
-| 서버 → 앱 | `ack` | session_id, last_sequence | 여기까지 처리 완료. |
-| 서버 → 앱 | `progress` | session_id, last_sequence, summary | 누적 요약. |
-| 서버 → 앱 | `stalled` | session_id, since_last_sequence: -1 | 추론·DB 일시 장애. 서버가 연결을 닫는다. |
-| 서버 → 앱 | `closed` | session_id, reason | ended · unauthorized · not_owner · session_lost · server_shutdown |
-
-**앱 → 서버 (예시)**
-
-```json
-{
-  "type": "hello",
-  "schema_version": "1.0",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "last_event_id": 0
-}
-```
-
-```json
-{
-  "type": "features",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "items": [
-    "{ S2 요청 본문 }",
-    "..."
-  ]
-}
-```
-
-**서버 → 앱 (예시)**
-
-```json
-{
-  "type": "decision",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "event": {
-    "schema_version": "1.0",
-    "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-    "event_id": 1,
-    "kind": "collapse_confirmed",
-    "timestamp_ms": 38000,
-    "onset_ms": 35000,
-    "onset_valid_ms": 33000,
-    "deviation_type": "forward_slouch",
-    "reason": null
-  },
-  "summary": "{ summary }"
-}
-```
-
-```json
-{
-  "type": "alert",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "event_id": 1,
-  "kind": "collapse_confirmed",
-  "deviation_type": "forward_slouch"
-}
-```
-
-```json
-{
-  "type": "closed",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "reason": "ended"
-}
-```
+> **2026-10-26 삭제.** 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가 서버 경로·계약(`realtime-ws.v1`)·예시를 지웠다. 이 경로로 연결하면 실패한다.
+> 장 번호는 다른 문서의 참조(11.3 등)를 지키려고 남긴다. 예전 내용은 git 기록에 있다.
 
 ## 11. WebSocket `/v2/realtime`
 
@@ -1540,6 +1462,9 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 실패하면 저장하지 않고 이전 기준이 그대로 현재 기준이다. `end` 전에 끊기면 아무것도 저장하지 않는다.
 
+> [!NOTE]
+> 앱은 이 경로를 쓰지 않고, 관절 평균을 앱에서 계산해 B1(`POST /v2/baselines`)으로 보낸다(FE ADR 0026, V3 브랜치). 서버 경로를 남길지는 [백엔드 상태](../backend-status.md) 4장 미결이다.
+
 ### 11.5 서버 → 앱
 
 | type | 필드 | 설명 |
@@ -1622,6 +1547,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행). T1·R1b는 제공하지 않음을 명시 |
 | 2026-10-26 | `fix/repo-backend-sync` | `/v2/realtime`: `ready`(측정)에 `started_at`, `closed`에 `ended_at`(서버 시각, 모르면 null). 계약 `realtime-ws.v2`·예시 변경 — 앱 검증과 함께 바꿔야 함 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md) 3번) |
 | 2026-10-26 | `fix/repo-backend-sync` | B1: 요청의 `registered_at` → `registration_id`(UUID, 재시도 구분). `registered_at`은 서버 시각. DB V2.5(migration 015). 호환성 깨짐 — 예전 본문은 400 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)) |
 | 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |

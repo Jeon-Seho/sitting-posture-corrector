@@ -87,7 +87,7 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
 `POST /sessions/{UUID}/features`는 기존 특징 v2, `POST .../end`는 `{end_ms}`(고정 재시도),
 `GET /sessions/{UUID}`는 조회 v1, `GET .../metadata`는 `{started_at,ended_at,baseline_id,model_version}`다.
-WebSocket은 `/v1/realtime`이며 기존 hello/features/observation/ack/progress/decision/alert/closed를 쓴다.
+WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
 `GET /records`, `POST /records`, `DELETE /records/{id}`는 [RecordItem](../frontend/src/features/storage/types.ts)을 쓴다.
 POST는 소유 세션의 확인받은 요약·사건·정책·기준과 일치하는 기록만 받고 DB의 날짜를 응답한다.
@@ -97,7 +97,7 @@ GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으�
 DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 종료·요약이 저장됐음을 뜻한다.
 원래 브라우저가 종료 응답을 받았는지는 DB에서 복원하지 않는다.
 
-서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
+일별 통계 조회 T1(`GET /stats/daily`)과 기록 하나 조회 R1b(`GET /records/{id}`)는 없앤 경로라 서버가 제공하지 않는다(2026-10-26). 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
 
 판정 상태는 API 메모리이며 재시작 후 `404 SESSION_LOST`다. 상태를 잃은 세션의 미확인 기록 저장은
 알 수 없는 전체 구간을 MISSING으로 제외하고 good=0으로 닫는다. 일별 통계를 추가하지 않는다.

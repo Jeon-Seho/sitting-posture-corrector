@@ -77,6 +77,10 @@
     S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`. 남기는 것(Kafka 계약 v1): `kafka-*.v1`, Kafka 예시·시험,
     처리 서비스 시험용 입구 `POST /api/v1/realtime/features`, `tools/platform/replay_realtime_v1.py`(통합 테스트 8·9·11단계, [Kafka 명세](../../design/kafka-spec.md) 4장).
   - 최대 측정 시간은 팀 회의 결과를 따른다. 그때까지 `posegood.realtime.max-session-duration` 기본값 5000초를 유지한다.
+- 2026-10-26 DB/BE: v1 정리 중 WebSocket 부분을 끝냈다 — `/v1/realtime`(`RealtimeHandler`, v1 메시지 형식, 보안 공개 경로), `realtime-ws.v1.schema.json`,
+  `examples/ws-*` 9개, nginx `/api/v1/realtime`, `tests/test_realtime_contracts.py`의 v1 부분(알림·묶음 크기 검사는 v2 스키마로 옮김), MySQL 통합 시험의 v1 시험.
+  S2·R2는 시험·점검 도구(`MySqlIntegrationTest`, `tools/service_smoke.py`, `tools/deploy/smoke.py`, `tools/benchmark/runner.py` 등)가 아직 써서 남겼다.
+  처리 서비스의 `POST /api/v1/realtime/features`와 Kafka 계약 v1은 그대로다.
 - 남은 질문: ADR 0020 대체(DB/BE), 최대 측정 시간(지금 5000초, 팀 회의), `POST /v2/sessions/{id}/features` 처리(FE).
   FE 세션 HTTP 클라이언트(`frontend/src/features/session/server/client.ts`)가 아직 `/api/v1/sessions`를 부르는데 API REST는 `/v2`라서,
   WebSocket 없이 HTTP로 측정하는 경로는 지금 API와 맞지 않는다(FE에 알림, 2026-10-17). S2·R2는 FE가 측정을 v2 WebSocket으로 옮긴 뒤 지운다.

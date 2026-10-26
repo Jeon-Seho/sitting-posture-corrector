@@ -5,7 +5,7 @@
 > 근거는 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
-> 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. 아래 v1 WebSocket 부분(`realtime-ws.v1`)은 앱이 v2로 바뀌면 없앤다.
+> 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`)은 2026-10-26 지웠다.
 > Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).
@@ -18,7 +18,7 @@
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
 > (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
-> 새 버전은 위 v2다(10/13). 10/16 기준 `backend/api`(10/15 BE 브랜치를 합침)는 아직 `/v1/realtime`(이 v1, 특징 변화량)만 있다. 서버를 먼저 돌려 보려고 둔 임시 상태이고, BE도 v2로 간다고 확인했다(10/15, [FE 제안서](../../docs/design/fe-server-proposal.md) 1장).
+> 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/v2/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
 ## 흐름
@@ -32,7 +32,7 @@
 ## Kafka 토픽
 
 > 파티션·컨슈머 그룹·DLQ·보존·시험용 입구와 지금 상태는 [Kafka 명세](../../docs/design/kafka-spec.md)(DevOps/BE)에 있다.
-> 이 Kafka 계약 v1은 WebSocket v1(`realtime-ws.v1`)과 별개다 — WebSocket v1을 지울 때 `kafka-*.v1` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`의 Kafka 부분은 남긴다.
+> 이 Kafka 계약 v1은 WebSocket v1(`realtime-ws.v1`, 2026-10-26 삭제)과 별개다 — `kafka-*.v1` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`는 남겼다.
 
 | 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
 | --- | --- | --- | --- | --- |
@@ -73,19 +73,8 @@
 
 ## WebSocket 메시지
 
-스키마: [realtime-ws.v1](realtime-ws.v1.schema.json)
-
-| `type` | 방향 | 역할 |
-| --- | --- | --- |
-| `hello` | 앱 → 게이트웨이 | 입장과 이어받기. 게이트웨이는 로그인 사용자와 세션 주인을 확인하고, `last_event_id` 이후 사건을 다시 보낸다. 실패하면 `closed`로 거절한다 |
-| `features` | 앱 → 게이트웨이 | 약 0.5초 분량의 입력 v2 구간 1~30개를 순번 순서로 보낸다 |
-| `ack` | 게이트웨이 → 앱 | `last_sequence`까지 Kafka에 넣었다는 영수증. 앱은 재전송 대기열에서 지운다 |
-| `observation` | 게이트웨이 → 앱 | 구간 하나의 추론 결과(관측 v2). 화면의 실시간 상태("바른 자세예요" 등)를 바꾼다. 재연결 때 다시 보내지 않는다 |
-| `progress` | 게이트웨이 → 앱 | 판정의 최신 요약(약 1초마다). 화면의 측정 시간·유지율 등 숫자를 바꾼다. 재연결 때는 가장 최신 것 하나만 보낸다 |
-| `decision` | 게이트웨이 → 앱 | 확정된 판정 사건과 그 시점 요약. 화면 상태와 숫자는 이것으로만 바꾼다. 재연결 때 다시 받는다 |
-| `alert` | 게이트웨이 → 앱 | 이탈 확정·재알림일 때만 알림(토스트·소리)을 띄우라는 신호. 지난 알림은 다시 보내지 않는다 |
-| `stalled` | 게이트웨이 → 앱 | 5초 동안 판정 진행이 없다. 화면은 "분석이 잠시 멈췄어요"(`analysisPaused`)를 보인다 |
-| `closed` | 게이트웨이 → 앱 | 채널 종료와 이유: `ended`, `unauthorized`, `not_owner`, `session_lost`, `server_shutdown` |
+v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws.v2](realtime-ws.v2.schema.json)와
+[BE API 명세](../../docs/design/api-spec.md) 11장을 본다. 아래 원칙은 v2에도 그대로다.
 
 `decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
 `observation`도 그 순간의 상태라 다시 보내지 않는다.
@@ -96,9 +85,9 @@
 
 ## 합성 예제와 검증
 
-[examples](examples/)의 15개 파일은 손으로 만든 합성 세션 하나다. 실제 사람의 측정값이 아니다.
-`tests/test_realtime_contracts.py`가 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치·알림 대상이 아닌 사건·묶음 크기 초과 거부,
-봉투와 사건의 `session_id` 일치를 검사한다.
+[examples](examples/)의 7개 파일(Kafka)과 [examples-v2](examples-v2/)(WebSocket v2)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
+`tests/test_realtime_contracts.py`가 Kafka 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치 거부, 봉투와 사건의 `session_id` 일치,
+WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. v2 메시지 전체는 `tests/test_realtime_ws_v2.py`가 본다.
 
 ## 아직 정하지 않은 것
 

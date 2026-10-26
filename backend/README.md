@@ -18,11 +18,11 @@ backend/api/src/main/java/org/posegood/api/
 ├── account/    # 가입·로그인·CSRF·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
-├── realtime/   # /v1/realtime·/v2/realtime WebSocket
+├── realtime/   # /v2/realtime WebSocket
 └── system/     # /health, 시작 시 스키마 V2.5 확인
 ```
 
-흐름: `SessionController`·`RealtimeHandler`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
+흐름: `SessionController`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
 세션 하나의 요청은 세션 잠금 안에서 차례로 처리한다(추론 호출 포함). 판정 결과는 처리 직후 DB에 쓰고 실시간 채널로 보낸다.
 
 ## 진행 중 상태와 DB
@@ -47,6 +47,9 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 false)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
 - 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
   사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
+- 로그인은 성공 시점부터 30분이 지나면 활동과 관계없이 끝난다(`account/LoginLifetime`, `posegood.login-lifetime`, [BE API 명세](../docs/design/api-spec.md) 1장).
+  HTTP 요청·WebSocket 메시지는 만료를 늘리지 않는다. 이미 인증된 측정 연결은 만료만으로 끊지 않고, 만료 뒤 보호된 HTTP는 `401 UNAUTHENTICATED`, 새 연결의 `hello`는 `closed: unauthorized`다.
+  refresh 토큰 방식으로 바꿀 예정이다(방식 미정, [백엔드 상태](../docs/backend-status.md) 4장).
 - 비밀번호 변경·탈퇴는 그 사용자의 `SPRING_SESSION` 행을 지우고 열린 실시간 연결을 닫는다(V2.1에서 `auth_epoch` 삭제).
 - 아키텍처 v5.2(2026-10-15 공지): API는 `daily_stat`을 읽기만 하고, 탈퇴는 접수만 한다. 탈퇴는 철회할 수 없고
   CLOSED 계정은 로그인 `403 ACCOUNT_CLOSED`, 같은 이메일 재가입은 최종 삭제 전까지 `409`다.
@@ -67,7 +70,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | `GET /v2/sessions/{UUID}`, `GET .../metadata`, `DELETE /v2/sessions/{UUID}` | 조회 v1, 시작·종료 시각·기준 ID, 삭제 |
 | `POST /v2/baselines`, `GET /v2/baselines/current` | 독립 기준 등록·현재 기준 조회 |
 | `PUT /v2/consents/optional-profile` | 선택 정보 동의·철회 |
-| `GET /v1/realtime`, `GET /v2/realtime` (WebSocket) | 실시간 채널(아래). v1은 앱이 v2로 넘어간 뒤 지운다 |
+| `GET /v2/realtime` (WebSocket) | 실시간 채널(아래). v1(`/v1/realtime`)은 2026-10-26 삭제 |
 | `GET /health` | DB 연결 확인 |
 
 ### 판정 규칙
@@ -81,20 +84,10 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 실시간 채널
 
-`/v1/realtime`은 [실시간 계약 v1 초안](../contracts/realtime/README.md)의 WebSocket 메시지를 Kafka 없이 처리한다.
-세션 생성·종료·복구는 HTTP로 한다.
-
-- 로그인 쿠키로 인증한다. 같은 출처 페이지만 허용한다(`posegood.realtime.allowed-origins`로 추가). 프록시는 원래 Host(포트 포함)를 넘긴다.
-- `hello` → `last_event_id` 뒤 사건(`decision`)을 다시 보내고, `ack`·`progress`를 보낸다. 끝난 세션이면 `closed: ended`.
-- `features`(1~30구간) → 구간마다 `observation`, 새 사건마다 `decision`(그 시점 요약 포함)과 알림 대상이면 `alert`, 묶음 끝에 `ack`·`progress`.
-- 추론·DB 일시 장애는 `stalled`를 보내고 연결을 닫는다. 앱은 다시 연결해 확인받지 못한 구간을 다시 보낸다.
-  로그인 없음은 `unauthorized`, 다른 사람 세션은 `not_owner`, 상태 없음·계약 위반은 `session_lost`다.
-- HTTP로 종료하면 연결된 채널에 `session_ended` 사건, `progress`, `closed: ended`를 보낸다.
-- 프론트는 `VITE_REALTIME_URL`(예: `ws://127.0.0.1:8080/api/v1/realtime`)을 지정하면 이 채널을 쓴다.
-
-`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. 연결 하나가 측정 한 번 또는 자세 등록 한 번이고
+`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. 로그인 쿠키로 인증하고 같은 출처 페이지만 허용한다
+(`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번 또는 자세 등록 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
-보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 계산식은 `model/prototype/pose.ts`·`serverFeatures.ts`).
+보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
 - `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`(`started_at` = 서버의 세션 시작 시각, ADR 0028). 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
@@ -111,8 +104,8 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의
   관절 평균만 모으고 `end` 때 `calibration_result` → `closed: ended`. 실패 사유는 `incomplete`(마지막 `end_ms` < 3000) →
   `too_few_frames`(15장 미만) → `out_of_frame`(평균 좌표가 0~1 밖) → `server_error`(저장 실패) 순서로 정하고, 실패하면 저장하지 않는다.
-  끊기면 아무것도 저장하지 않는다.
-- v1의 `last_event_id`와 놓친 사건 다시 보내기는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
+  끊기면 아무것도 저장하지 않는다. 앱은 이 경로 대신 앱에서 낸 평균을 B1으로 보낸다(FE ADR 0026, V3 브랜치). 남길지는 [백엔드 상태](../docs/backend-status.md) 4장.
+- 놓친 사건 다시 보내기(삭제한 v1의 `last_event_id`)는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
 
 ## 준비와 검증
 
@@ -156,4 +149,5 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 3. 알림의 실제 표시 여부 전달(현재 DB에는 시도만 기록).
 4. Spark 배치 전환 시점(공지 ⑤): 이 API는 이미 `daily_stat` 누적과 탈퇴 최종 삭제를 하지 않는다. J2가 켜지기 전까지 서버의 일별 통계는 비고,
    J3가 켜지기 전까지 유예가 끝난 탈퇴 계정이 남는다. J2 첫 실행 때 이 변경 이후 날짜를 다시 계산하고, J3는 밀린 요청부터 지운다.
-   오늘 화면은 서버의 일별 통계와 별개로 로컬 수집 결과를 사용한다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+   오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+   일별 통계 조회 T1(`GET /v2/stats/daily`)과 기록 하나 조회 R1b(`GET /v2/records/{id}`)는 없앤 경로라 API가 제공하지 않는다(2026-10-26).

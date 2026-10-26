@@ -37,7 +37,7 @@ import java.util.UUID;
 @Service
 public class SessionService {
     private static final Logger log = LoggerFactory.getLogger(SessionService.class);
-    /** 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(calibration.ts, 2026-10-06 사용자 결정). */
+    /** WebSocket 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(BE 명세 11.4, 2026-10-06 사용자 결정). */
     static final int CALIBRATION_MIN_FRAMES = 15;
     static final long CALIBRATION_MS = 3000;
 

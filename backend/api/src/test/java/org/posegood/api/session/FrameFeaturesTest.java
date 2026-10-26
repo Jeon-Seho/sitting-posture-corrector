@@ -20,10 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 좌표 → 특징 변화량 계산이 model/prototype의 pose.ts {@code features}·serverFeatures.ts {@code featureDeltas}와
- * 같은지 확인한다.
+ * 좌표 → 특징 변화량 계산을 고정된 기대값으로 확인한다.
  *
- * 기대값은 같은 합성 좌표를 Node로 pose.ts에 넣어 얻은 값이다(2026-10-16, 640×480). 입력 구간과 기준은
+ * 기대값은 같은 합성 좌표를 그때의 앱 프로토타입(develop의 model/prototype/pose.ts, FE V3에서 지움 — git 이력에 남음)에
+ * Node로 넣어 얻은 값이다(2026-10-16, 640×480). 입력 구간과 기준은
  * contracts/realtime/examples-v2의 예시를 그대로 읽는다. 모든 좌표는 합성이다.
  */
 class FrameFeaturesTest {
