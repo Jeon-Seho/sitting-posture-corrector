@@ -51,12 +51,12 @@
 |---|---|---|---|
 | 세션 REST (`PUT`·`/end`·`GET`·`/metadata`·`DELETE`) | DB/BE | 구현됨 | `session/SessionController.java` |
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
-| `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | 계획 0031 10/26 기록 |
+| `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | `api-spec.md` 10장, `7034f0e` |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
 | `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
-| 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, 계획 0031 10/26 |
+| 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, `api-spec.md` 11.3 |
 | 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨 (브랜치, **기본 꺼짐**) — 앱이 새 사유를 처리한 뒤 `POSEGOOD_UNMEASURABLE_TIMEOUT=5m`. 계약 `realtime-ws.v2`에 사유 추가 → FE 계약도 맞춰야 함 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
-| HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features` | DB/BE | 구현됨 (v1 정리 때 삭제 — 시험·점검 도구가 아직 써서 남김) | `SessionController.java`, 계획 0031 10/26 기록 |
+| HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features` | DB/BE | 구현됨 (v1 정리 때 삭제 — 시험·점검 도구가 아직 써서 남김) | `SessionController.java`, 2.6 BE-1 |
 | `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | **보류** (2026-10-26) — 지금은 구간 안 판정 가능 프레임 전체를 평균 내고, 유효하면 구간 전체 길이를 `valid_ms`·판정 시간에 더함. 유효·판정 불가 프레임이 섞인 구간에서만 다름 | `session/FrameFeatures.java`, `engine/Timeline.java`, FE 요청 BE-5 ②, 4장 |
 | 시작 시 스키마 확인 (V2.5, 13테이블, `baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
 
@@ -72,7 +72,7 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 일부 — `/v1/realtime` 삭제함, S2·R2·동의 문구는 구현 전 | FE 제안서 1장, 계획 0031 10/26 기록 |
+| BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 일부 — `/v1/realtime` 삭제함, S2·R2·동의 문구는 구현 전 | FE 제안서 1장, `7034f0e` |
 | BE-5: ① 로그인 고정 만료, ② `valid_ms` 하위 구간, ③ T1·R1b, ④ 옛 프로토타입 주석, ⑤ 문서에 남은 옛 앱 동작 | DB/BE | ①④⑤ 끝, ③ T1 형식 확정·구현 전, R1b 구현 전(2.2), ② 보류(2.4·4장) | FE 제안서 1장(V3 브랜치) |
 | BE-3: 앱에 W1 `GET /v2/workspace` 연결 (S1 `policy`가 계정 값과 달라 409가 나지 않게) | 확인 필요 — 앱 코드 작업이라 FE와 담당 정리 | 구현 전 | FE 제안서 1장 |
 | BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
@@ -99,6 +99,7 @@
 | `infra/nginx/default.conf` `location = /api/v1/realtime`, `infra/README.md` 44·153줄 | API에서 지운 `/v1/realtime`을 아직 전달·안내함(연결하면 실패) | DevOps(infra 담당)에 삭제 요청 | 요청 전 |
 | `docs/architecture.md` 105줄 | "`/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다" | 문서 담당에 갱신 요청 | 요청 전 |
 | `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0026, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
+| `docs/plans/active/0031-realtime-kafka-transition.md` 79·84줄 | 최대 측정 시간을 「팀 회의 결과를 따른다, 5000초 유지」로 적음 — 2026-10-26 결정(제품 한도 없음, 측정불가 5분 자동 종료)과 다름. 10/26 v1 정리 기록도 없음 | 계획 공동 담당(DevOps·PM)에 갱신 요청(BE가 계획 0031을 직접 고치지 않기로 함) | 요청 전 |
 | `tools/platform/io_api_smoke.py` 172줄 | R1을 배열로 읽음 — 2026-10-27부터 `{today, records}` 객체 | DevOps에 수정 요청 | 요청 전 |
 | `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
 
@@ -135,4 +136,5 @@
 | 2026-10-26 | FE 요청 BE-5 반영: ① 로그인 고정 30분 만료 구현(refresh 토큰 전환 예정, 4장), ③ T1·R1b 제공하지 않음, ④ 옛 프로토타입 주석 정리, ⑤ 옛 앱 동작 문서 정리(BE 문서만: api-spec 11.4·README. infra·아키텍처 문서는 담당에 요청, 3장). ② `valid_ms` 하위 구간은 보류(4장). BE-1·계획 0031의 `/v1/realtime` 삭제 | `7034f0e` |
 | 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | `fdd1269` |
 | 2026-10-26 | 최대 측정 시간 결정(D안): 제품 한도 없앰·재전송 기억 120개, 측정불가 5분 자동 종료(기본 꺼짐). 미결 「최대 측정 시간」 → 「자동 종료 켜는 시점」 | `725bca0` |
-| 2026-10-27 | BE-6 ③: A2·A3·A4 `today`, R1을 `{today, records}` 객체로(호환성 깨짐). BE-6 ① 자정 끊기 보류. `closed` 사유 이름 `unmeasurable_timeout` 유지 | 커밋 전 |
+| 2026-10-27 | BE-6 ③: A2·A3·A4 `today`, R1을 `{today, records}` 객체로(호환성 깨짐). BE-6 ① 자정 끊기 보류. `closed` 사유 이름 `unmeasurable_timeout` 유지 | `d27a97d` |
+| 2026-10-27 | 계획 0031에 넣었던 BE 기록을 되돌리고(공동 문서), 그 근거를 이 문서·api-spec으로 옮김. 계획 0031 갱신은 담당에 요청(3장) | 커밋 전 |
