@@ -1,5 +1,6 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import type { Landmark } from '../../../../model/prototype/pose'
+import { createFrameTimer } from './frameTimer'
 import { readShoulders } from './shoulderCheck'
 import { drawPose, type VisualOptions } from '../../lib/poseVisual'
 import { createPointFilter, inferenceInterval } from '../../lib/skeleton'
@@ -28,7 +29,7 @@ type FrameLoopOptions = {
 /** Raw observations and display smoothing stay separate throughout the loop. */
 export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   const { video, detector, delegate } = options
-  let timer: ReturnType<typeof setTimeout> | null = null
+  const timer = createFrameTimer()
   let previousVideoTime = -1
   let previousRun = 0
   let previousDraw = 0
@@ -46,9 +47,32 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   let metricStart = performance.now()
   let frameCount = 0
   let inferenceSum = 0
+  // Diagnostic (plan 0054, 2026-10-26): did tracking keep up while the tab was hidden?
+  let hiddenSince = 0
+  let hiddenRuns = 0
+  let hiddenGap = 0
+  let hiddenLastRun = 0
+  const visibility = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenSince = performance.now()
+      hiddenRuns = 0
+      hiddenGap = 0
+      hiddenLastRun = hiddenSince
+      return
+    }
+    if (!hiddenSince) return
+    const seconds = (performance.now() - hiddenSince) / 1_000
+    console.info('[PoseGood] tracking while the tab was hidden', {
+      seconds: Math.round(seconds),
+      perSecond: Number((hiddenRuns / seconds).toFixed(1)),
+      longestGapMs: Math.round(Math.max(hiddenGap, performance.now() - hiddenLastRun)),
+    })
+    hiddenSince = 0
+  }
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility)
 
   const scheduleNextFrame = () => {
-    timer = setTimeout(() => render(performance.now()), DRAW_INTERVAL_MS)
+    timer.next(DRAW_INTERVAL_MS, () => render(performance.now()))
   }
   const render = (time: number) => {
     if (!options.isCurrent()) return
@@ -72,6 +96,11 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
         inferenceMs = performance.now() - started
         frameCount++
         inferenceSum += inferenceMs
+        if (hiddenSince) {
+          hiddenRuns++
+          hiddenGap = Math.max(hiddenGap, time - hiddenLastRun)
+          hiddenLastRun = time
+        }
 
         const points = result.landmarks[0] ?? []
         const { measurable, shoulders } = readShoulders(points, video.videoWidth, video.videoHeight)
@@ -146,6 +175,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
 
   scheduleNextFrame()
   return () => {
-    if (timer !== null) clearTimeout(timer)
+    timer.stop()
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility)
   }
 }
