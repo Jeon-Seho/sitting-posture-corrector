@@ -54,6 +54,8 @@
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | 계획 0031 10/26 기록 |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
 | `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
+| 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, 계획 0031 10/26 |
+| 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨 (브랜치, **기본 꺼짐**) — 앱이 새 사유를 처리한 뒤 `POSEGOOD_UNMEASURABLE_TIMEOUT=5m`. 계약 `realtime-ws.v2`에 사유 추가 → FE 계약도 맞춰야 함 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
 | HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features` | DB/BE | 구현됨 (v1 정리 때 삭제 — 시험·점검 도구가 아직 써서 남김) | `SessionController.java`, 계획 0031 10/26 기록 |
 | `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | **보류** (2026-10-26) — 지금은 구간 안 판정 가능 프레임 전체를 평균 내고, 유효하면 구간 전체 길이를 `valid_ms`·판정 시간에 더함. 유효·판정 불가 프레임이 섞인 구간에서만 다름 | `session/FrameFeatures.java`, `engine/Timeline.java`, FE 요청 BE-5 ②, 4장 |
 | 시작 시 스키마 확인 (V2.5, 13테이블, `baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
@@ -102,7 +104,7 @@
 | 질문 | 담당 | 관련 문서 |
 |---|---|---|
 | API 다중 인스턴스 (진행 상태 공유·세션 고정) | DB/BE·DevOps | `backend/README.md` 「다음 결정」 1, D-42 |
-| 최대 측정 시간 (지금 5000초) | 팀 회의 | 계획 0031 10/17 기록, `application.properties` 44줄 |
+| 측정불가 자동 종료를 켜는 시점 (`unmeasurable-timeout` 0 → 5m) — 앱이 `closed(unmeasurable_timeout)`을 처리한 뒤. 앱의 「쉬기 10분 자동 종료」(FE ADR 0029)는 별개로 남음 | DB/BE·FE | 2.4, `api-spec.md` 11.3 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
 | 알림 기본값 (ADR 0022는 false, FE 화면은 켜짐) | DB·FE | ADR 0022 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
@@ -127,4 +129,5 @@
 | 2026-10-26 | ADR 0028: B1 등록 시각 서버화·`registration_id`, DB V2.5(migration 015). `registered_at` 설명 불일치 해결, 미결 1건 결정, ④-A·③ 기록 | `cab11c1` |
 | 2026-10-26 | ADR 0028 ④ 구현: `/v2/realtime` `ready.started_at`·`closed.ended_at`, 계약·예시·시험. 미결 1건 → 구현됨 | `b903751` |
 | 2026-10-26 | FE 요청 BE-5 반영: ① 로그인 고정 30분 만료 구현(refresh 토큰 전환 예정, 4장), ③ T1·R1b 제공하지 않음, ④ 옛 프로토타입 주석 정리, ⑤ 옛 앱 동작 문서 정리(BE 문서만: api-spec 11.4·README. infra·아키텍처 문서는 담당에 요청, 3장). ② `valid_ms` 하위 구간은 보류(4장). BE-1·계획 0031의 `/v1/realtime` 삭제 | `7034f0e` |
-| 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | 커밋 전 |
+| 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | `fdd1269` |
+| 2026-10-26 | 최대 측정 시간 결정(D안): 제품 한도 없앰·재전송 기억 120개, 측정불가 5분 자동 종료(기본 꺼짐). 미결 「최대 측정 시간」 → 「자동 종료 켜는 시점」 | 커밋 전 |

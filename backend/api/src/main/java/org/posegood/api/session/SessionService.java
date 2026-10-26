@@ -51,6 +51,8 @@ public class SessionService {
     private final TransactionTemplate tx;
     private final ApplicationEventPublisher events;
     private final long maxSessionMs;
+    /** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
+    private final long unmeasurableTimeoutMs;
 
     public SessionService(
             LiveSessions live,
@@ -62,7 +64,8 @@ public class SessionService {
             UserLocks locks,
             TransactionTemplate tx,
             ApplicationEventPublisher events,
-            @Value("${posegood.realtime.max-session-duration}") Duration maxSession) {
+            @Value("${posegood.realtime.max-session-duration}") Duration maxSession,
+            @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout) {
         this.live = live;
         this.sessions = sessions;
         this.baselines = baselines;
@@ -73,6 +76,7 @@ public class SessionService {
         this.tx = tx;
         this.events = events;
         this.maxSessionMs = maxSession.toMillis();
+        this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
     }
 
     /**
@@ -197,7 +201,7 @@ public class SessionService {
                     if (endMs == null) session.endReason("DISCONNECTED");
                     int before = engine.eventCount();
                     engine.end(endMs == null ? last : Math.max(endMs, last));
-                    publish(session, null, before, null);
+                    publish(session, null, before, null, null);
                     persist(session);
                     return null;
                 });
@@ -267,7 +271,14 @@ public class SessionService {
         var observation = inference.infer(request);
         var result = engine.accept(observation);
         session.remember(request.sequence(), digest, observation);
-        publish(session, observation, before, invalidReason);
+        String closedReason = null;
+        if (unmeasurableTimeoutMs > 0 && !result.ended() && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
+            // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
+            session.endReason("UNMEASURABLE_TIMEOUT");
+            result = engine.end(result.summary().totalMs());
+            closedReason = "unmeasurable_timeout";
+        }
+        publish(session, observation, before, invalidReason, closedReason);
         persist(session);
         return new Accepted(observation, result);
     }
@@ -283,7 +294,7 @@ public class SessionService {
                 () -> {
                     int before = session.engine().eventCount();
                     var view = session.engine().end(endMs);
-                    if (session.engine().eventCount() > before) publish(session, null, before, null);
+                    if (session.engine().eventCount() > before) publish(session, null, before, null, null);
                     persist(session);
                     return view;
                 });
@@ -304,7 +315,7 @@ public class SessionService {
                             session.endReason("DISCONNECTED");
                             int before = engine.eventCount();
                             engine.end(engine.summary().totalMs());
-                            publish(session, null, before, null);
+                            publish(session, null, before, null, null);
                         }
                         persist(session);
                         return null;
@@ -375,8 +386,9 @@ public class SessionService {
         return inference.modelVersion();
     }
 
-    /** 새 결과를 실시간 채널로 알린다. */
-    private void publish(LiveSession session, Observation observation, int before, String invalidReason) {
+    /** 새 결과를 실시간 채널로 알린다. {@code closedReason}은 서버가 스스로 끝냈을 때만 있다. */
+    private void publish(
+            LiveSession session, Observation observation, int before, String invalidReason, String closedReason) {
         var engine = session.engine();
         events.publishEvent(
                 new SessionUpdates.Progressed(
@@ -389,7 +401,8 @@ public class SessionService {
                         observation == null
                                 ? null
                                 : Observation.V3.of(observation, SessionEngine.invalidReason(observation, invalidReason)),
-                        engine.pausedReason()));
+                        engine.pausedReason(),
+                        closedReason));
     }
 
     private static Status status(SessionEngine engine) {

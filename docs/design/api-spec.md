@@ -45,7 +45,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 예시와 고정값 | 엔드포인트마다 있는 JSON 블록의 값은 **예시**다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
-| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
+| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 재전송은 최근 120개 구간까지 알아보고, 더 오래된 순번은 역순으로 보아 409다. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
@@ -76,7 +76,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 | 측정 종료 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 | 같은 요청 재시도 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -742,7 +742,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 
@@ -818,7 +818,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 |
 | 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
@@ -1436,7 +1436,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
 | 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
-| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 5,000초, `POSEGOOD_MAX_SESSION_DURATION`) |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(결정 5분, 앱 처리 전까지 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`) |
 
 ### 11.1 순서
 
@@ -1512,7 +1512,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 추론·판정 | S2와 같은 흐름(추론 → 판정 → DB 기록). 판정 규칙·DB 기록도 S2와 같다. |
 | 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
-| 시간 한도 | 구간 끝이 최대 측정 시간을 넘으면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 평균 0.25초보다 짧은 구간이 이어지면 메모리 보호로 그 전에 같은 처리를 한다. |
+| 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
+| 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(결정 5분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. HTTP S2로 받은 구간도 같고, 그때는 응답의 `session.ended`가 true다. **앱이 이 사유를 처리하기 전까지는 설정 0으로 꺼 둔다** — 지금 앱은 모르는 사유를 측정 실패로 처리한다. |
 | `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
 | 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
 
@@ -1557,6 +1558,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `bad_message` | 형식 오류, `hello` 순서·10초 제한 위반, 구간 1개가 아님, 목적과 맞지 않는 `phase`, 64KB 초과, 중복·역순 순번, 같은 세션의 두 번째 연결 |
 | `server_shutdown` | 서버 종료. 측정 중이던 세션은 끊김과 같이 끝난다. |
 | `limit_reached` | 최대 측정 시간 초과(11.3) |
+| `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(결정 5분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
 
 **서버 → 앱 (예시)**
 
@@ -1615,6 +1617,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-26 | `fix/repo-backend-sync` | 최대 측정 시간 5,000초 → 기본 24시간(계약 상한, 제품 한도 없음). 재전송 기억을 최근 120개 구간으로. 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 끝내고 저장, `closed(unmeasurable_timeout)` — 설정 `unmeasurable-timeout`, 앱 처리 전까지 끔(11.3·11.5) |
 | 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |
 | 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행) |
 | 2026-10-26 | `fix/repo-backend-sync` | `/v2/realtime`: `ready`(측정)에 `started_at`, `closed`에 `ended_at`(서버 시각, 모르면 null). 계약 `realtime-ws.v2`·예시 변경 — 앱 검증과 함께 바꿔야 함 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md) 3번) |

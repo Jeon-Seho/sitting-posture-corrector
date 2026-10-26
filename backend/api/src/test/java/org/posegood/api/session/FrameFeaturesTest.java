@@ -192,7 +192,7 @@ class FrameFeaturesTest {
     /** 자세 등록 판정(저장 전 단계만; 저장은 MySQL 통합 시험). */
     @Test
     void calibrationFailureReasons() throws Exception {
-        var service = new SessionService(null, null, null, null, null, null, null, null, null, Duration.ofHours(1));
+        var service = new SessionService(null, null, null, null, null, null, null, null, null, Duration.ofHours(1), Duration.ZERO);
 
         var capture = new SessionService.Capture();
         capture.add(example("ws-features-calibration.json")); // 1500~2000ms, 판정 가능 1장

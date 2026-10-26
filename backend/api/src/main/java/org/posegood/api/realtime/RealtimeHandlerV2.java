@@ -339,7 +339,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             channel.ended = true;
             // DB에 저장하는 종료 시각과 같은 식(started_at + total_ms). 저장은 이 이벤트 뒤에 일어난다.
             channel.endedAt = channel.realtime.startedAt().plusMillis(update.summary().totalMs());
-            finishClosed(channel, channel.endReason);
+            finishClosed(channel, update.closedReason() != null ? update.closedReason() : channel.endReason);
         }
     }
 

@@ -80,7 +80,8 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 관측 점수가 `threshold` 이상이면 이탈 후보다. 후보가 연속으로 `hold_ms` 이상이면 `collapse_confirmed`(최초 알림),
   같은 사건에서 마지막 알림 뒤 `reminder_ms`가 지나고 계속 이탈이면 `reminder`, 기준 내 자세가 연속 `recovery_ms` 이상이면 `recovery_confirmed`다.
 - 휴식·자리 비움·저품질·시간 공백·순번 누락은 열린 사건을 중단(`interrupted`)하고 연속 누적을 0으로 만든다. 정상이나 회복으로 바꾸지 않는다.
-- 같은 sequence·같은 본문의 재시도는 처음 결과를 돌려준다. 다른 본문 중복, 역순·겹친 구간, 종료 후 입력은 409다. 세션 시작부터 최대 측정 시간(`posegood.realtime.max-session-duration`, 기본 5,000초 = 예전 0.5초 구간 10,000개)까지 받는다(429). 메모리 보호로 평균 0.25초보다 짧은 구간이 이어지면 그 전에 429다.
+- 같은 sequence·같은 본문의 재시도는 처음 결과를 돌려준다. 다른 본문 중복, 역순·겹친 구간, 종료 후 입력은 409다. 재전송은 최근 120개 구간(`SessionEngine.RETRY_WINDOW`)까지 알아보고, 더 오래된 순번은 역순으로 409다. 그래서 측정이 길어도 세션 메모리가 늘지 않는다.
+  제품 한도는 없고(2026-10-26), 계약의 시각 상한인 24시간(`posegood.realtime.max-session-duration`)을 넘는 구간만 429다.
 
 ### 실시간 채널
 
@@ -98,7 +99,9 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
   휴식·자리 비움 구간도 계약상 사유가 필요해 `unmeasurable`이고, 멈춘 이유는 `paused_reason`(`rest`·`away`·`unmeasurable`)이 알린다. `settling`은 기준이 정해지지 않아 아직 보내지 않는다.
 - 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
 - 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다.
-- 최대 측정 시간을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
+- 최대 측정 시간(24시간)을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
+- 판정 불가·자리 비움(`away`)이 이어진 시간이 `posegood.realtime.unmeasurable-timeout`(결정 5분)에 닿으면 그 구간 끝에서 끝내고 저장한 뒤
+  `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 앱이 이 사유를 처리하기 전까지 기본 0(끔).
 - `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
 - `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의

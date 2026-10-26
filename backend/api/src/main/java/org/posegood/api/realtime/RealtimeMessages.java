@@ -18,7 +18,7 @@ final class RealtimeMessages {
      * {@code /v2/realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
      *
      * 계약: contracts/realtime/realtime-ws.v2.schema.json. closed 사유: ended, unauthorized, not_owner, session_lost,
-     * no_baseline, bad_message, server_shutdown, limit_reached.
+     * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout.
      */
     static final class V2 {
         private V2() {}
