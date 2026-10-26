@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-/** /v2/auth/* 계정 HTTP 경로: CSRF, 가입, 로그인, 로그아웃, 비밀번호, 탈퇴, 철회. */
+/** /v2/auth/* 계정 HTTP 경로: CSRF, 가입, 로그인, 로그아웃, 비밀번호, 탈퇴 접수(철회 없음). */
 @RestController
 @RequestMapping("/v2/auth")
 public class AuthController {

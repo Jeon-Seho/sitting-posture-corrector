@@ -1,6 +1,6 @@
 # 백엔드 개발 상태
 
-> 기준: 2026-10-21 · 브랜치 `fix/db-backend-v5-2-sync` · 커밋 `b4122e9` · DB 스키마 V2.4 (작업본, 커밋 전)
+> 기준: 2026-10-26 · 브랜치 `develop`(PR #63 `3285cce` 이후) · DB 스키마 V2.4. FE `feature/frontend-features-and-integrationV3`(미병합)의 요청·결정도 함께 본다.
 > 갱신 규칙: backend/AGENTS.md. 할 일은 계획, 결정 이유는 ADR을 본다.
 > 코드 경로: `backend/api/src/main/java/org/posegood/api/` 기준(시험은 `src/test/...`).
 
@@ -32,6 +32,7 @@
 | 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled` | DB/BE | 구현됨 | ADR 0022, `backend/README.md` |
+| 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1이 없으면 서버 연동 뒤 지난 날짜 통계가 비고, `daily_stat`을 채울 J2도 구현 전 | FE 요청 BE-2 ([FE 제안서](design/fe-server-proposal.md) 1장, V3 브랜치), [FE 연동 명세](design/api-ws-spec.md) 4.5 |
 
 표시 정책(2026-10-22 확정): 서버 통계(T1)는 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 표시 정책의 확정이며, 앱의 T1 연결·로컬 오늘 수집 구현 완료를 뜻하지 않는다.
 
@@ -40,7 +41,7 @@
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
 | `POST /v2/baselines`, `GET /v2/baselines/current` (이력 행 추가) | DB/BE | 구현됨 | `session/BaselineController.java`, ADR 0022 |
-| WebSocket 등록 (`purpose: calibration` → `calibration_result`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java` |
+| WebSocket 등록 (`purpose: calibration` → `calibration_result`) | DB/BE | 구현됨 — 앱은 쓰지 않기로 함(앱 평균 → B1, FE ADR 0026, V3 브랜치). 남길지는 4장 | `realtime/RealtimeHandlerV2.java` |
 
 ### 2.4 측정·실시간 판정 (API 안)
 
@@ -61,24 +62,32 @@
 | 2단계 API 결과 쓰기 중단·REST 정리 | DB/BE | 구현 전 | 0031 2단계 |
 | 4단계 API 안 판정 삭제, ADR 0020 대체 | 전원 | 구현 전 | 0031 4단계 |
 
-### 2.6 검증
+### 2.6 FE 요청·배포 (V3 브랜치 기준)
+
+| 일 | 담당 | 상태 | 근거 |
+|---|---|---|---|
+| BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 구현 전 (앱 v2 전환 뒤) | FE 제안서 1장 |
+| BE-3: 앱에 W1 `GET /v2/workspace` 연결 (S1 `policy`가 계정 값과 달라 409가 나지 않게) | 확인 필요 — 앱 코드 작업이라 FE와 담당 정리 | 구현 전 | FE 제안서 1장 |
+| BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
+| 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현 전 (FE 배포 구상 단계) | `design/fe-deploy.md`(V3, develop은 `fe-domain-idea.md`) 3.1 S-1 |
+
+### 2.7 검증
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
 | `backend/gradlew -p backend :api:test` (단위) | 66개 중 57 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-21 | V2.4 `SchemaVerifier` 변경 후. 로컬 JDK 17 |
 | `-Pmysql-integration` (실제 MySQL) | 확인 필요 | 2026-10-15 | 접속 거부로 미실행 (0026). [계획 0028](plans/active/0028-backend-java17-boot4-gradle.md)에도 미체크. V2.4 스키마로도 아직 실행 전 |
 | `database/tests/integrity_check.py` | 확인 필요 | — | V2.4에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13) |
-| `tools/service_smoke.py` | 확인 필요 | — | 아직 `daily_stat` 1행을 기대함 (3장) |
+| `tools/service_smoke.py` | 확인 필요 | — | `daily_stat` 기대값을 「세션 종료 직후 0행」으로 고침(2026-10-26), 실행 전. `make check-backend`의 마지막 단계 |
 | `make check-compose` | 확인 필요 | 2026-10-14 | 실패 원인 분석만 있음 ([계획 0030](plans/active/0030-make-check-failures.md)) |
 
 ## 3. 문서·코드 불일치
 
 | 위치 | 어긋난 내용 | 고칠 곳 | 상태 |
 |---|---|---|---|
-| `backend/api/.../account/AuthController.java` 23줄 | 클래스 주석에 "철회" | 주석에서 삭제 | 구현 전 |
-| `backend/README.md` 「다음 결정」 2번 | 지운 계획 0022 링크 | [계획 0031](plans/active/0031-realtime-kafka-transition.md)로 | 구현 전 |
-| `tools/service_smoke.py` 177~179줄 | `daily_stat` 1행을 기대 — API는 이제 쓰지 않음 | 기대값 삭제 (tools 담당) | 구현 전 |
-| 계획 0026 52줄 「DB 쓰기」 | `baseline_posture` 사용자당 1행 덮어쓰기, `calibration_uuid` 복사 (V2.1 기준) — 지금은 매번 새 행, `baseline_posture_id` FK(V2.2~) | 계획 표 갱신 | 구현 전 |
+| `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
+| `backend/README.md` 111~112줄, `docs/design/api-spec.md` 11.4 | WebSocket 등록을 앱의 등록 경로로 설명 — 앱은 B1만 쓰기로 함(FE ADR 0026, V3) | V3 병합 뒤 BE 문서 정리 (WebSocket 등록을 남길지 4장 결정에 따름) | 구현 전 |
+| `database/schema/schema_V2_4.sql` 108·26줄 `registered_at` 설명 | "FE가 정한 값을 그대로 저장" — WebSocket 등록은 서버 시각 | 다음 스키마 버전(V2.5)에서 4장 결정과 함께 | 보류 |
 
 ## 4. 미결 결정
 
@@ -90,6 +99,10 @@
 | 알림 기본값 (ADR 0022는 false, FE 화면은 켜짐) | DB·FE | ADR 0022 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
+| 기준 등록 `registered_at`을 서버 시각으로 바꿀지, 바꾸면 재전송 구분(앱 등록 ID / 중복 허용) | DB/BE·FE | FE ADR 0026(B1 재시도는 같은 본문 = 같은 행에 기댐), 「서버 기준 시각 변경 영향」 검토 문서 |
+| WebSocket 등록(`purpose: calibration`)을 남길지 | DB/BE | FE ADR 0026 「남길지는 BE가 정한다」 |
+| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
+| 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 
 ## 5. 갱신 기록
 
@@ -100,3 +113,4 @@
 | 2026-10-21 | `database/README.md` 9장 비밀번호 변경·11장 링크를 고쳐 불일치 2건 제거 | `3f2bbf8` 이후 |
 | 2026-10-21 | DB V2.4 작업본 반영: `SchemaVerifier` V2.4 확인, 무결성 검사·README 철회 문구 정리(불일치 2건 제거), `row_count` 미결 → 확정(삭제), 보류 결정 2건 추가 | 커밋 전 |
 | 2026-10-22 | 탈퇴 철회 경로 삭제, 서버 통계는 어제까지·오늘 화면은 로컬 수집 결과 사용으로 표시 정책 명시 | - |
+| 2026-10-26 | 기준을 `develop`으로. 불일치 4건 해결(`AuthController` 주석, `backend/README.md` 링크, `service_smoke.py` 기대값, 계획 0026 표) → 새 불일치 3건 기록. FE V3의 요청(BE-1·3·4, T1·R1b, CORS)과 미결 4건 추가 | 커밋 전 |
