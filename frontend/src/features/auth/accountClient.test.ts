@@ -8,6 +8,7 @@ import {
 } from './accountClient'
 import { allAgreed, consentPayload } from './consents'
 import { getServerAuth, setServerAuth } from '../platform/serverAuth'
+import { resetServerClock, serverToday } from '../platform/serverClock'
 
 type Call = { url: string; method: string; headers: Record<string, string>; body: unknown }
 
@@ -93,6 +94,26 @@ describe('account server client (D-66, contracts/accounts.v2.md A1–A5)', () =>
     expect((closed as AccountError).code).toBe('ACCOUNT_CLOSED')
     expect(accountErrorMessage(closed, 'login')).toContain('탈퇴한 계정')
     expect(accountErrorMessage(new TypeError('offline'), 'login')).toContain('연결하지 못했어요')
+  })
+
+  it('takes 「오늘」 from A4 server_time, also when asked again on return (ADR 0029)', async () => {
+    resetServerClock()
+    const s = server([
+      [200, { ...VIEW, server_time: '2026-10-25T14:00:00.000Z', today: '2026-10-25' }],
+      [200, { ...VIEW, server_time: '2026-10-25T16:00:00.000Z', today: '2026-10-26' }],
+      [401],
+    ])
+    const client = createAccountClient({ fetch: s.fetch, base: '' })
+    await client.me()
+    expect(serverToday()).toBe('2026-10-25')
+    await client.refreshServerTime?.()
+    expect(serverToday()).toBe('2026-10-26')
+    // A failed refresh changes neither the day nor the sign-in.
+    await client.refreshServerTime?.()
+    expect(serverToday()).toBe('2026-10-26')
+    expect(client.userId()).toBe('42')
+    resetServerClock()
+    setServerAuth(null)
   })
 
   it('treats 401 on /me as signed out and a signed-out logout as done', async () => {

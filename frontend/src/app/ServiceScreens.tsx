@@ -8,6 +8,7 @@ import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { DesktopCameraWindow } from '../features/desktop/DesktopCameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
+import { useServerToday } from '../features/platform/serverClock'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
 import { LiveSessionPage } from '../features/session/live/LiveSessionPage'
@@ -78,7 +79,8 @@ export function ServiceScreens({
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
   const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
   const shownRecords = example ?? records
-  const today = summary(historyFor(records, 'all', 'today'))
+  const serverDay = useServerToday()
+  const today = summary(historyFor(records, 'all', 'today', serverDay))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
   const main = useRef<HTMLElement>(null)

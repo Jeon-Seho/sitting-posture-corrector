@@ -2,7 +2,7 @@ import { CalendarDots } from '@phosphor-icons/react'
 import type { RecordItem } from '../../lib/serviceStore'
 import { DayRecord } from './DayRecord'
 import { RecordModeChips, useRecordMode } from './recordMode'
-import { dayKey } from './recordsSource'
+import { useServerToday } from '../platform/serverClock'
 
 /**
  * 기록 tab: today only (2026-10-13 split). Other days, the heatmap and period charts live
@@ -24,7 +24,8 @@ export function LocalHistory({
   /** Opens the 달력 tab. */
   onCalendar?: () => void
 }) {
-  const today = dayKey(new Date())
+  // 「오늘」 is the server's KST day (ADR 0029), not this computer's clock.
+  const today = useServerToday()
   const { mode, setMode, hasDemo, records, label } = useRecordMode(allRecords)
 
   return (

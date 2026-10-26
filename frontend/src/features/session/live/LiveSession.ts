@@ -1,5 +1,6 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 import { apiRequest, ApiError, type ApiErrorKind, type ApiOptions } from '../../platform/api'
+import { noteServerTime } from '../../platform/serverClock'
 import { SERVER } from '../../platform/serverConfig'
 import { FrameBatcher, type FrameBatch, type FramePhase } from '../realtime/frames'
 import {
@@ -39,6 +40,9 @@ export type LiveState = {
   message: string
   /** Ended because the connection was lost or the server shut down. */
   lost: boolean
+  /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
+  startedAt: string | null
+  endedAt: string | null
 }
 
 export type Policy = { hold_ms: number; recovery_ms: number; reminder_ms: number; threshold: number }
@@ -96,6 +100,13 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
 }
 const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.'
 
+/** A server time from a message: kept as given and moves 「오늘」 (ADR 0029); null when absent or not a time. */
+function serverTime(value: unknown): string | null {
+  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) return null
+  noteServerTime(value)
+  return value
+}
+
 export function realtimeUrl(): string {
   if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}/api/v2/realtime`
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
@@ -115,6 +126,8 @@ export class LiveSession {
     stalled: false,
     message: '',
     lost: false,
+    startedAt: null,
+    endedAt: null,
   }
   private socket: SocketLike | null = null
   private batcher: FrameBatcher | null = null
@@ -234,7 +247,7 @@ export class LiveSession {
         if (this.ready) return
         this.ready = true
         this.clearTimer()
-        this.set({ phase: this.state.sending === 'running' ? 'running' : 'paused' })
+        this.set({ phase: this.state.sending === 'running' ? 'running' : 'paused', startedAt: serverTime(message.started_at) })
         // Intervals made before `ready` go first, one per message in order (api-ws-spec 1.1).
         for (const batch of this.waiting.splice(0)) this.send(batch)
         return
@@ -273,6 +286,7 @@ export class LiveSession {
           phase: known.failed ? 'failed' : 'ended',
           message: known.message,
           lost: !!known.lost,
+          endedAt: serverTime(message.ended_at),
         })
         return
       }

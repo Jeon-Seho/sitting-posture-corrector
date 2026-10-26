@@ -1,5 +1,6 @@
 import { SERVER } from '../platform/serverConfig'
 import { setServerAuth } from '../platform/serverAuth'
+import { noteServerTime } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
 import type { ConsentType } from './consents'
 
@@ -47,6 +48,11 @@ export type AccountClient = {
   logout: () => Promise<void>
   /** The `user_id` of the last successful me/register/login, null after logout. */
   userId: () => string | null
+  /**
+   * A4 only for the server's time (when the app window comes back, ADR 0029). Changes nothing
+   * about the sign-in, and a failure is ignored.
+   */
+  refreshServerTime?: () => Promise<void>
 }
 
 /** Profile on this device (optional values left out) ↔ API (`null`). */
@@ -116,6 +122,8 @@ export function createAccountClient(
         payload = null
       }
     }
+    // A4 (and any answer) may carry the server's time: it decides 「오늘」 (BE-6, ADR 0029).
+    if (payload && typeof payload === 'object' && 'server_time' in payload) noteServerTime((payload as { server_time: unknown }).server_time)
     if (!response.ok) {
       const code = payload && typeof payload === 'object' && 'code' in payload ? String((payload as { code: unknown }).code) : null
       throw new AccountError(`계정 요청 실패 (${response.status})`, response.status, code)
@@ -207,5 +215,12 @@ export function createAccountClient(
       }
     },
     userId: () => user,
+    async refreshServerTime() {
+      try {
+        await send('/me', 'GET')
+      } catch {
+        /* Signed out or offline: 「오늘」 stays as it was. */
+      }
+    },
   }
 }

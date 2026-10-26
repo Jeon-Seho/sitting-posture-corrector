@@ -42,7 +42,8 @@ export function installFakeBaselineServer(initial: Record<string, unknown> | nul
         if (status) return json(status, { code: 'FAKE' })
         const body = JSON.parse(String(init.body)) as Record<string, unknown>
         server.posts.push(body)
-        server.current = baselineResponse(body.landmarks, String(body.registered_at))
+        // The server sets the registration time (DB V2.5); the app sends `registration_id` only.
+        server.current = baselineResponse(body.landmarks)
         return json(200, server.current)
       }
       return json(404, {})

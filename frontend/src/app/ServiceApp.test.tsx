@@ -48,6 +48,8 @@ describe('service recovery and saving with synthetic storage only', () => {
     stalled: false,
     message: '',
     lost: false,
+    startedAt: null,
+    endedAt: null,
   })
   const text = (node: ReactTestInstance | string): string =>
     typeof node === 'string' ? node : node.children.map(text).join('')

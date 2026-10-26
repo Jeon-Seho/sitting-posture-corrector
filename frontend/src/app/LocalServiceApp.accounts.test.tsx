@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
+import { AppSidebar } from './AppSidebar'
 import { LocalServiceApp } from './LocalServiceApp'
 import { LoginPage } from '../pages/LoginPage'
 import { SetupPage } from '../pages/SetupPage'
@@ -134,6 +135,18 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     expect(body.consents.map((c: { type: string }) => c.type)).toContain('OPTIONAL_PROFILE')
     expect(renderer!.root.findByType(SetupPage).props.registerAgain).toBe(true)
     expect(text(renderer!.root)).toContain('3/3 자세 등록')
+  })
+
+  it('asks the server day again on opening 기록·달력, at most once a minute (ADR 0029)', async () => {
+    accounts.me.mockResolvedValueOnce(VIEW)
+    accounts.refreshServerTime = vi.fn(async () => undefined)
+    await mount()
+    const openTab = (tab: string) =>
+      act(() => renderer!.root.findByType(AppSidebar).props.go(tab))
+    openTab('records')
+    expect(accounts.refreshServerTime).toHaveBeenCalledOnce()
+    openTab('calendar')
+    expect(accounts.refreshServerTime).toHaveBeenCalledOnce()
   })
 
   it('ends the server login on logout', async () => {

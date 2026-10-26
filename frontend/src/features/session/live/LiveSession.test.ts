@@ -244,6 +244,25 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(ended).toHaveLength(1)
   })
 
+  it('keeps the server start and end times from ready and closed (ADR 0029, BE-6)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION, started_at: '2026-10-26T01:00:00.000Z' })
+    expect(live.state.startedAt).toBe('2026-10-26T01:00:00.000Z')
+    live.end()
+    socket.push({ type: 'closed', reason: 'ended', ended_at: '2026-10-26T01:30:00.000Z' })
+    expect(live.state.endedAt).toBe('2026-10-26T01:30:00.000Z')
+    expect(ended[0].endedAt).toBe('2026-10-26T01:30:00.000Z')
+  })
+
+  it('leaves the times empty when the server does not send them yet', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION, started_at: 12 })
+    expect(live.state.startedAt).toBeNull()
+    live.end()
+    socket.push({ type: 'closed', reason: 'ended' })
+    expect(live.state.endedAt).toBeNull()
+  })
+
   it('reads the saved result with S4 when closed does not come within 10 s', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })

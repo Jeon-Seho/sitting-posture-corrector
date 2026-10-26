@@ -6,6 +6,7 @@ import { BASELINE_JOINT_NAMES, type BaselineLandmarks } from './landmarkCapture'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 const ID = '9b1c0e0a-2c4d-4f6a-8e1b-5a7c9d2e4f60'
+const REGISTRATION = '5d6e7f80-1a2b-4c3d-8e9f-0a1b2c3d4e5f'
 const landmarks = Object.fromEntries(BASELINE_JOINT_NAMES.map((n) => [n, { x: 0.5, y: 0.4 }])) as BaselineLandmarks
 const stored = { schema_version: '2.0', baseline_id: ID, registered_at: '2026-10-21T08:00:00.000Z', landmarks }
 const reply = (status: number, body: unknown = {}) =>
@@ -18,7 +19,7 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
   it('needs a signed-in account', async () => {
     const fetch = vi.fn()
     await expect(fetchCurrentBaseline({ fetch })).rejects.toMatchObject({ kind: 'signed_out' })
-    await expect(registerBaseline(captured, stored.registered_at, { fetch })).rejects.toBeInstanceOf(
+    await expect(registerBaseline(captured, REGISTRATION, { fetch })).rejects.toBeInstanceOf(
       ApiError,
     )
     expect(fetch).not.toHaveBeenCalled()
@@ -40,15 +41,16 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
   it('sends B1 with CSRF and account headers and retries 502·503 with the same body', async () => {
     setServerAuth({ userId: USER, csrfToken: async () => 'token' })
     const fetch = vi.fn().mockResolvedValueOnce(reply(503)).mockResolvedValueOnce(reply(200, stored))
-    const saved = await registerBaseline(captured, stored.registered_at, { fetch, retryDelayMs: 0 })
+    const saved = await registerBaseline(captured, REGISTRATION, { fetch, retryDelayMs: 0 })
     expect(saved.baselineId).toBe(ID)
     expect(fetch).toHaveBeenCalledTimes(2)
     const [url, init] = fetch.mock.calls[0]
     expect(url).toBe('/api/v2/baselines')
     expect(init.method).toBe('POST')
     expect(init.headers).toMatchObject({ 'X-CSRF-TOKEN': 'token', 'X-PoseGood-User-Id': USER })
+    // DB V2.5: one id per capture, no `registered_at` (the server sets the time; sending it is a 400).
     expect(JSON.parse(init.body)).toEqual({
-      registered_at: stored.registered_at,
+      registration_id: REGISTRATION,
       calibration_ms: 3000,
       sample_count: 90,
       landmarks,
@@ -59,16 +61,16 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
   it('rejects a reply that is not a posture and explains HTTP errors', async () => {
     setServerAuth({ userId: USER, csrfToken: async () => 'token' })
     const bad = vi.fn().mockResolvedValue(reply(200, { ...stored, baseline_id: 'x' }))
-    await expect(registerBaseline(captured, stored.registered_at, { fetch: bad })).rejects.toMatchObject({
+    await expect(registerBaseline(captured, REGISTRATION, { fetch: bad })).rejects.toMatchObject({
       kind: 'server',
     })
     const conflict = vi.fn().mockResolvedValue(reply(409))
-    await expect(registerBaseline(captured, stored.registered_at, { fetch: conflict })).rejects.toMatchObject({
+    await expect(registerBaseline(captured, REGISTRATION, { fetch: conflict })).rejects.toMatchObject({
       kind: 'conflict',
     })
     const offline = vi.fn().mockRejectedValue(new TypeError('offline'))
     await expect(
-      registerBaseline(captured, stored.registered_at, { fetch: offline, retryDelayMs: 0 }),
+      registerBaseline(captured, REGISTRATION, { fetch: offline, retryDelayMs: 0 }),
     ).rejects.toMatchObject({ kind: 'network' })
     expect(offline).toHaveBeenCalledTimes(4)
   })
@@ -76,7 +78,7 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
   it('sends B1 again with the same body when no answer came back (B1 returns the same row)', async () => {
     setServerAuth({ userId: USER, csrfToken: async () => 'token' })
     const fetch = vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(reply(200, stored))
-    expect((await registerBaseline(captured, stored.registered_at, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
+    expect((await registerBaseline(captured, REGISTRATION, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
     expect(fetch).toHaveBeenCalledTimes(2)
     expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body)
   })
@@ -95,11 +97,11 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
       .fn()
       .mockResolvedValueOnce(reply(403, { code: 'ACCESS_DENIED' }))
       .mockResolvedValueOnce(reply(200, stored))
-    expect((await registerBaseline(captured, stored.registered_at, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
+    expect((await registerBaseline(captured, REGISTRATION, { fetch, retryDelayMs: 0 })).baselineId).toBe(ID)
     expect(asked).toEqual([false, true])
     expect(fetch.mock.calls[1][1].headers['X-CSRF-TOKEN']).toBe('new')
     const denied = vi.fn().mockResolvedValue(reply(403, { code: 'ACCESS_DENIED' }))
-    await expect(registerBaseline(captured, stored.registered_at, { fetch: denied })).rejects.toMatchObject({
+    await expect(registerBaseline(captured, REGISTRATION, { fetch: denied })).rejects.toMatchObject({
       kind: 'signed_out',
     })
     expect(denied).toHaveBeenCalledTimes(2)

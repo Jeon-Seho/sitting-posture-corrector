@@ -133,7 +133,8 @@ export function useCamera() {
     (captured: Parameters<typeof registerBaseline>[0]) => {
       saving.current = true
       setRegistering(true)
-      registerBaseline(captured, new Date().toISOString())
+      // One id per capture; retries inside registerBaseline send the same one (DB V2.5).
+      registerBaseline(captured, crypto.randomUUID())
         .then((saved) => {
           if (mounted.current) applyBaseline(saved)
         })

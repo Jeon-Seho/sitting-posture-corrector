@@ -29,8 +29,8 @@ export type ApiOptions = {
   retryDelayMs?: number
   /**
    * Also retry when no answer came back (network error, timeout). Only for requests the server
-   * treats as the same request when repeated: S1 (same id and body) and B1 (same `registered_at`
-   * and coordinates), api-ws-spec 4장.
+   * treats as the same request when repeated: S1 (same id and body) and B1 (same `registration_id`
+   * and coordinates, DB V2.5), api-ws-spec 4장.
    */
   retryUnanswered?: boolean
 }

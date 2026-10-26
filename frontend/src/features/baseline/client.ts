@@ -1,4 +1,5 @@
 import { ApiError, apiRequest, type ApiErrorKind, type ApiOptions } from '../platform/api'
+import { noteServerTime } from '../platform/serverClock'
 import { BASELINE_JOINT_NAMES, type BaselineLandmarks, type CapturedBaseline } from './landmarkCapture'
 
 /** B1·B2 response (BE api-spec 6장). */
@@ -54,10 +55,14 @@ export async function fetchCurrentBaseline(options: ApiOptions = {}): Promise<Se
   }
 }
 
-/** The B1 body; `registeredAt` is when the capture ended and stays the same on retries. */
-export function baselineBody(captured: CapturedBaseline, registeredAt: string) {
+/**
+ * The B1 body (DB V2.5, BE `fix/repo-backend-sync` `cab11c1`): `registrationId` is one UUID per
+ * capture, the same on retries. The server sets the registration time itself; sending
+ * `registered_at` is refused (400).
+ */
+export function baselineBody(captured: CapturedBaseline, registrationId: string) {
   return {
-    registered_at: registeredAt,
+    registration_id: registrationId,
     calibration_ms: captured.calibrationMs,
     sample_count: captured.sampleCount,
     landmarks: captured.landmarks,
@@ -66,18 +71,21 @@ export function baselineBody(captured: CapturedBaseline, registeredAt: string) {
 
 /**
  * B1 `POST /v2/baselines`: saves the captured posture and returns what the server stored. A
- * repeat with the same `registered_at` and coordinates returns the same row, so a request that
- * got no answer is sent again.
+ * repeat with the same `registration_id` and coordinates returns the same row (different
+ * coordinates: 409), so a request that got no answer is sent again. The response's
+ * `registered_at` is the server's time and also moves 「오늘」 (ADR 0029).
  */
 export async function registerBaseline(
   captured: CapturedBaseline,
-  registeredAt: string,
+  registrationId: string,
   options: ApiOptions = {},
 ): Promise<ServerBaseline> {
-  return parsed(
-    await apiRequest('/v2/baselines', { method: 'POST', body: baselineBody(captured, registeredAt) }, MESSAGES, {
+  const saved = parsed(
+    await apiRequest('/v2/baselines', { method: 'POST', body: baselineBody(captured, registrationId) }, MESSAGES, {
       retryUnanswered: true,
       ...options,
     }),
   )
+  noteServerTime(saved.registeredAt)
+  return saved
 }

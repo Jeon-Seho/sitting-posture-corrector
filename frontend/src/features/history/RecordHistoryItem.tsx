@@ -1,18 +1,19 @@
 import { useId, useState } from 'react'
 import { CaretDown, Clock } from '@phosphor-icons/react'
 import { RECORD_SOURCE_LABEL, recordSource } from '../../lib/comparison'
+import { kstDay, kstTime } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
 import { formatDuration } from '../../lib/stats'
+import { dateOf } from './recordsSource'
 import { RateRing } from '../../components/RateRing'
 import { RecordDetails } from './RecordDetails'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 
-/** "10/2 (금) 오후 4:57": short enough for the 320px side column. */
+/** "10/2 (금) 오후 4:57" in KST: short enough for the 320px side column. */
 function shortDate(iso: string) {
-  const d = new Date(iso)
-  const time = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
-  return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY[d.getDay()]}) ${time}`
+  const d = dateOf(kstDay(iso))
+  return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY[d.getDay()]}) ${kstTime(iso)}`
 }
 
 /** `sessionNumber`: order of this session within its day (1 = first session that day). */
@@ -21,7 +22,7 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
   const detailsId = useId()
   const titleId = `${detailsId}-title`
   const date = sessionNumber
-    ? `세션 ${sessionNumber} · ${new Date(record.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}`
+    ? `세션 ${sessionNumber} · ${kstTime(record.startedAt)}`
     : shortDate(record.startedAt)
   const rate = record.valid ? record.good / record.valid : null
   return (

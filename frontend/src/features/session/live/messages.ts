@@ -60,14 +60,16 @@ export type ClosedReason =
   | 'limit_reached'
 
 export type ServerMessage =
-  | { type: 'ready'; session_id: string }
+  /** `started_at`: when the server started the session (ISO 8601, FE proposal BE-6, ADR 0029). */
+  | { type: 'ready'; session_id: string; started_at?: string }
   | { type: 'ack'; last_sequence: number }
   | { type: 'observation'; observation: LiveObservation }
   | { type: 'progress'; last_sequence: number; summary: Summary; paused_reason: PausedReason }
   | { type: 'decision'; event: Decision; summary: Summary }
   | { type: 'alert'; event_id: number; kind: 'collapse_confirmed' | 'reminder'; deviation_type: Deviation }
   | { type: 'stalled'; since_last_sequence: number }
-  | { type: 'closed'; reason: ClosedReason | string }
+  /** `ended_at`: when the server ended the session (ISO 8601, BE-6). */
+  | { type: 'closed'; reason: ClosedReason | string; ended_at?: string }
 
 /** S1·S3·S4 `SessionView` fields the app reads. */
 export type SessionView = {

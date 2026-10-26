@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
 import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
+import { KST } from '../lib/kst'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
@@ -130,6 +131,7 @@ function baselineDescription(camera?: CameraChoice) {
   const info = camera.baselineInfo
   if (!info) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
   const when = new Date(info.savedAt).toLocaleString('ko-KR', {
+    timeZone: KST,
     month: 'long',
     day: 'numeric',
     hour: 'numeric',

@@ -140,6 +140,29 @@ export function LocalServiceApp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts])
 
+  // 「오늘」 comes from the server (ADR 0029). The app does not count time itself, so the day turns
+  // over when it asks A4 again: on coming back to the app and on opening 기록·달력, at most once a
+  // minute (a day changes once, so a minute late at midnight is enough).
+  const lastTimeRefresh = useRef(0)
+  const refreshToday = useCallback(() => {
+    const refresh = accounts?.refreshServerTime
+    if (!authed || !refresh || Date.now() - lastTimeRefresh.current < 60_000) return
+    lastTimeRefresh.current = Date.now()
+    void refresh()
+  }, [accounts, authed])
+  useEffect(() => {
+    if (typeof document === 'undefined' || !window.addEventListener) return
+    const back = () => {
+      if (document.visibilityState !== 'hidden') refreshToday()
+    }
+    window.addEventListener('focus', back)
+    document.addEventListener('visibilitychange', back)
+    return () => {
+      window.removeEventListener('focus', back)
+      document.removeEventListener('visibilitychange', back)
+    }
+  }, [refreshToday])
+
   /** Signed in on the server: this device keeps a copy of the profile for the screens that read it. */
   function enterWithAccount(view: AccountView, greet = true) {
     const next = fromApiProfile(view.profile)
@@ -165,6 +188,8 @@ export function LocalServiceApp({
   function go(next: Page) {
     setError('')
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
+    // 기록·달력 show 「오늘」: ask the server's day first (e.g. the app left open past midnight).
+    if (next === 'dashboard' || next === 'calendar') refreshToday()
     setPage(next)
   }
 

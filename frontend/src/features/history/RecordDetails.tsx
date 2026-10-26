@@ -1,5 +1,6 @@
 import { RECORD_SOURCE_LABEL, periodStats, recordedRules, recordSource } from '../../lib/comparison'
 import type { ReactNode } from 'react'
+import { kstDateTime, kstTime } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatPercent, formatRate } from '../../lib/stats'
 import { EventTable } from '../session/SessionEvents'
@@ -51,10 +52,10 @@ export function RecordDetails({
           </p>
         )}
         <dl className="history-detail-grid">
-          <Fact label="측정 시작" value={new Date(record.startedAt).toLocaleString()} />
+          <Fact label="측정 시작" value={kstDateTime(record.startedAt)} />
           <Fact
             label={server && !server.confirmed ? '요약 보관 시각' : '기록 종료 시각'}
-            value={new Date(record.endedAt).toLocaleString()}
+            value={kstDateTime(record.endedAt)}
           />
           <Fact label="집계된 전체 시간" value={duration(record.total)} />
           <Fact label="유효 측정 시간" value={duration(record.valid)} />
@@ -145,8 +146,7 @@ function RecordSummary({ record }: { record: RecordItem }) {
   const view = record.server?.view
   const stats = periodStats([record], '', '')
   const rate = view ? view.summary.keep_rate : stats.keepRate
-  const time = (iso: string) =>
-    new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+  const time = kstTime
   return (
     <div className="record-summary">
       <RateRing rate={rate} size={92} />
