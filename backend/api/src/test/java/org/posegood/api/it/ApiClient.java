@@ -8,10 +8,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.stream.Collectors;
 
 /**
- * 통합 시험용 HTTP 클라이언트(쿠키 로그인, CSRF, 사용자 헤더).
+ * 통합 시험용 HTTP 클라이언트: access 토큰(Bearer), refresh 쿠키, 사용자 헤더(ADR 0031).
  */
 final class ApiClient {
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -19,7 +18,7 @@ final class ApiClient {
     private final String base;
     private final CookieManager cookies = new CookieManager();
     private final HttpClient http;
-    private String csrf;
+    private String accessToken;
     String userId;
 
     ApiClient(String base) {
@@ -45,39 +44,39 @@ final class ApiClient {
         return send("DELETE", path, body);
     }
 
-    /** CSRF 토큰 새로 받기. 로그인·로그아웃 뒤마다 필요하다. */
-    void refreshCsrf() throws Exception {
-        csrf = get("/v2/auth/csrf").body().get("token").asString();
+    /** refresh 쿠키로 새 access 토큰을 받는다(성공하면 바꿔 끼운다). */
+    Response refresh() throws Exception {
+        var response = post("/v2/auth/refresh", null);
+        if (response.status() == 200) accessToken = response.body().get("access_token").asString();
+        return response;
     }
 
     Response register(String email) throws Exception {
-        refreshCsrf();
         var body = MAPPER.createObjectNode();
         body.put("email", email).put("password", "synthetic-password-1");
         var consents = body.putArray("consents");
         for (var type : java.util.List.of("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER", "OPTIONAL_PROFILE"))
             consents.addObject().put("type", type).put("document_version", "service-v2");
         body.putObject("profile").put("name", "합성 사용자").put("age", 30).put("occupation", "합성 시험");
-        var response = post("/v2/auth/register", body);
-        if (response.status() == 200) userId = response.body().get("user_id").asString();
-        refreshCsrf();
-        return response;
+        return signedIn(post("/v2/auth/register", body));
     }
 
     Response login(String email, String password) throws Exception {
-        refreshCsrf();
         var body = MAPPER.createObjectNode().put("email", email).put("password", password);
-        var response = post("/v2/auth/login", body);
-        if (response.status() == 200) userId = response.body().get("user_id").asString();
-        refreshCsrf();
-        return response;
+        return signedIn(post("/v2/auth/login", body));
     }
 
-    /** WebSocket 연결에 붙일 {@code Cookie} 헤더. */
-    String cookieHeader() {
-        return cookies.getCookieStore().getCookies().stream()
-                .map(cookie -> cookie.getName() + "=" + cookie.getValue())
-                .collect(Collectors.joining("; "));
+    /** 실시간 hello에 넣을 access 토큰(로그인 전이면 null). */
+    String accessToken() {
+        return accessToken;
+    }
+
+    private Response signedIn(Response response) {
+        if (response.status() == 200) {
+            userId = response.body().get("user_id").asString();
+            accessToken = response.body().get("access_token").asString();
+        }
+        return response;
     }
 
     String base() {
@@ -86,7 +85,7 @@ final class ApiClient {
 
     private Response send(String method, String path, Object body) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create(base + path)).header("Accept", "application/json");
-        if (csrf != null && !"GET".equals(method)) builder.header("X-CSRF-TOKEN", csrf);
+        if (accessToken != null) builder.header("Authorization", "Bearer " + accessToken);
         if (userId != null) builder.header("X-PoseGood-User-Id", userId);
         if (body == null) builder.method(method, HttpRequest.BodyPublishers.noBody());
         else

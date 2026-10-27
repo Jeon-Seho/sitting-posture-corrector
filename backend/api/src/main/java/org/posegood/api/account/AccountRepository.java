@@ -129,12 +129,15 @@ public class AccountRepository {
     }
 
     /**
-     * 그 사용자의 로그인 세션 행을 모두 지운다 = 모든 기기 로그아웃.
+     * 그 사용자의 refresh 토큰을 모두 철회한다 = 모든 기기에서 로그인 유지를 끊는다(V2.6, ADR 0031).
      *
-     * `PRINCIPAL_NAME`은 계정 ID를 10진수 문자열로 쓴 값이다({@link AccountPrincipal}).
+     * 이미 발급된 access 토큰은 만료(최대 30분)까지 남는다. 열린 실시간 연결은 {@code LoginsRemoved}로 바로 닫힌다.
      */
     public void removeLogins(long id) {
-        jdbc.update("DELETE FROM SPRING_SESSION WHERE PRINCIPAL_NAME=?", Long.toString(id));
+        jdbc.update(
+                "UPDATE refresh_token SET revoked_at=? WHERE user_account_id=? AND revoked_at IS NULL",
+                KstTime.now(),
+                id);
     }
 
     private Account account(ResultSet row, int n) throws SQLException {
