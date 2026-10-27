@@ -109,7 +109,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 
 2026-10-26부터 새 측정은 KST 00시 전후의 관측 누적값을 `days`에 분리해 중간/종료 기록에 보관한다.
 세션 ID·카메라·판정/알림 누적은 자정에 초기화하지 않는다. 기록·달력·오늘 요약은 같은 날짜별 투영을 사용하고
-서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0031-kst-daily-measurement-parts.md).
+서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0033-kst-daily-measurement-parts.md).
 
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
 로컬 `/#collection`은 같은 앱의 프로필 없는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.

@@ -103,7 +103,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 전체/유효/정상 시간과 사건·알림을 따로 보관한다. 중간 저장·종료 저장과 오늘/달력/기간 집계가 같은 분할을 쓴다.
 표시용 날짜별 기록은 원 세션이나 원 서버 snapshot을 덮어쓰지 않는다. 과거 합계만 있는 기록은 임의로 복원하지 않는다.
 이는 앱의 로컬 보관/집계이며 서버 DB 배치 변경이나 API 세션 강제 분할이 아니다.
-상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0031-kst-daily-measurement-parts.md)을 따른다.
+상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0033-kst-daily-measurement-parts.md)을 따른다.
 
 `tools/browser/midnight.mjs`의 합성 자정 검증은 `check-browser`에 포함돼 있다. 실제 UI에서 자동 등록·측정 → 자정 통과 →
 종료 저장 → 두 날짜 조회와 합계 보존을 검사하며 실제 카메라/계정 자료를 사용하지 않는다.

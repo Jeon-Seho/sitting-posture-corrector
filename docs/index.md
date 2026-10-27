@@ -44,7 +44,7 @@
 
 ## 질문별 진입점
 
-- [포레스트 테마·KST 날짜별 기록 적용](plans/active/0058-forest-theme-and-kst-day-records.md), [날짜별 보관 결정](decisions/0031-kst-daily-measurement-parts.md): 최종 밝은 정보 영역·고유 자산·자정 관측 분리와 검증.
+- [포레스트 테마·KST 날짜별 기록 적용](plans/active/0058-forest-theme-and-kst-day-records.md), [날짜별 보관 결정](decisions/0033-kst-daily-measurement-parts.md): 최종 밝은 정보 영역·고유 자산·자정 관측 분리와 검증.
 
 - [색상·레이아웃 재디자인 판단(2026-10-26)](audits/2026-10-26-visual-design-review.md): 실제 주요 화면 관찰, 브랜드 유지 범위, 배치·상태색 개선안.
 

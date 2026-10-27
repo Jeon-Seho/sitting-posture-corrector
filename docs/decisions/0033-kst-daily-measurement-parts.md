@@ -1,6 +1,6 @@
-# ADR 0031: 연속 측정의 KST 날짜별 보관
+# ADR 0033: 연속 측정의 KST 날짜별 보관
 
-- 상태: accepted (lellon0403, develop PR #64. 10/27 V3에 합치며 번호를 0025 → 0031로 옮김 — V3 ADR 0025와 겹침. V3는 로컬 엔진이 없어 측정 중 받은 서버 누적 요약(`progress`의 `summary`)을 `ready.started_at`부터 나눈다 — `useSessionPersistence.ts` `observe`. [ADR 0029](0029-midnight-cut-and-server-time.md)대로 서버가 KST 자정에 측정을 끊게 되면 측정 하나는 하루뿐이라 나눌 일이 없고, 그 전까지와 끊기 전 기록에 쓰인다)
+- 상태: accepted (lellon0403, develop PR #64. 10/27 V3에 합치며 번호를 0025 → 0033으로 옮김 — V3 ADR 0025, BE ADR 0031(토큰 로그인)과 겹침. V3는 로컬 엔진이 없어 측정 중 받은 서버 누적 요약(`progress`의 `summary`)을 `ready.started_at`부터 나눈다 — `useSessionPersistence.ts` `observe`. [ADR 0029](0029-midnight-cut-and-server-time.md)대로 서버가 KST 자정에 측정을 끊게 되면 측정 하나는 하루뿐이라 나눌 일이 없고, 그 전까지와 끊기 전 기록에 쓰인다)
 - 날짜: 2026-10-26
 - 근거: 사용자가 자정을 넘긴 측정을 해당 날짜에 나눠 표시·저장하도록 요청했다.
 
