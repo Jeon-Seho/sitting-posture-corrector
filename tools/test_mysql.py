@@ -7,7 +7,7 @@ A loopback server is chosen in this order and never skipped:
 2. Otherwise a temporary Docker container of the Compose MySQL image, removed afterwards.
 
 Each database is named posture_service_it_<random> and built from the DB owner's unchanged
-schema_V2_4.sql and seed (only the database name is substituted).
+schema_V2_5.sql and seed (only the database name is substituted).
 """
 
 import os
@@ -143,7 +143,7 @@ def disposable_database(server):
     database = Database(server, name)
     try:
         with server.connect() as connection, connection.cursor() as cursor:
-            for path in ["database/schema/schema_V2_4.sql", *(f"database/seed/{seed}" for seed in SEEDS)]:
+            for path in ["database/schema/schema_V2_5.sql", *(f"database/seed/{seed}" for seed in SEEDS)]:
                 cursor.execute(script(path, name))
                 while cursor.nextset():
                     pass

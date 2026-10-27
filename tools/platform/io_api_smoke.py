@@ -14,7 +14,6 @@ import argparse
 import json
 import sys
 import uuid
-from datetime import datetime, timezone
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPCookieProcessor, Request, build_opener
@@ -136,7 +135,7 @@ def scenario(base):
     # --- 설정·기준 자세 (W1, B1, B2) ---
     expect("W1 GET /v2/workspace", owner.call("/v2/workspace"), 200)
     saved = expect("B1 기준 자세 등록 (관절 9개 평균 좌표)", owner.call("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS,
     }), 200, lambda b: None if b.get("baseline_id") else "baseline_id 없음")
     if saved is None:

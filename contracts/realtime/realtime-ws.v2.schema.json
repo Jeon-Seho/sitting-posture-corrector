@@ -176,7 +176,7 @@
               "$ref": "#/$defs/uuid"
             },
             "started_at": {
-              "description": "When the server started the session = monitor_session.started_at (when the server took S1), UTC ISO. The app keeps it as the record's start and takes today's KST date from it (BE fix/repo-backend-sync b903751, FE ADR 0029).",
+              "description": "Server session start (when the server received S1), UTC. The app dates and times today's record with it (ADR 0028).",
               "type": "string",
               "format": "date-time"
             }
@@ -606,6 +606,14 @@
         "type": {
           "const": "closed"
         },
+        "ended_at": {
+          "description": "Server session end (same value as the stored ended_at), UTC, when the measurement session ended on this connection. Null if the connection closed before the session ended, or for registration (ADR 0028).",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
         "reason": {
           "enum": [
             "ended",
@@ -617,18 +625,6 @@
             "server_shutdown",
             "limit_reached",
             "unmeasurable_timeout"
-          ]
-        },
-        "ended_at": {
-          "description": "When the session ended on this connection: started_at + summary total_ms, the same value as monitor_session.ended_at. null when the connection closed before the session ended (bad message, signed out, server shutdown) or for a calibration connection; the app then keeps the record as not confirmed (BE b903751, FE ADR 0029).",
-          "anyOf": [
-            {
-              "type": "string",
-              "format": "date-time"
-            },
-            {
-              "type": "null"
-            }
           ]
         }
       }

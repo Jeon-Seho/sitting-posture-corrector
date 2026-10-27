@@ -10,8 +10,9 @@ import java.util.List;
 /**
  * 좌표 프레임 → 기준 대비 특징 변화량(A안: API가 계산하고 추론 {@code POST /v2/infer} 입력은 그대로).
  *
- * 계산식은 model/prototype/pose.ts {@code features}·{@code headTurned}와 serverFeatures.ts {@code featureDeltas}를
- * 그대로 옮겼다. 값은 어깨 폭으로 정규화한다(ADR 0013). 0.65·0.02·0.1·0.15는 프로토타입의 검증 전 값이다.
+ * 규칙은 BE API 명세 11.3과 FE가 넘긴 판정 규칙(2026-10-11, 합성 기준값 contracts/examples/frames/reference-rule-cases.json)이다.
+ * 처음 계산식은 앱 프로토타입(develop의 model/prototype/pose.ts·serverFeatures.ts — FE V3에서 앱 판정과 함께 지움, git 이력에 남음)에서
+ * 옮겼다. 값은 어깨 폭으로 정규화한다(ADR 0013). 0.65·0.02·0.1·0.15는 프로토타입의 검증 전 값이다.
  * 카메라는 640×480 고정이다(DB V2.3 CAPTURE_RESOLUTION). 실험용 규칙이며 의료 측정이 아니다.
  */
 public final class FrameFeatures {
@@ -20,7 +21,7 @@ public final class FrameFeatures {
     static final double MIN_QUALITY = 0.65;
     static final double EDGE = 0.02;
     static final double MIN_SPAN = 0.1;
-    /** 코-귀 중점 변화가 이보다 크면 고개를 돌린 것으로 보고 판정하지 않는다(pose.ts HEAD_TURN_LIMIT). */
+    /** 코-귀 중점 변화가 이보다 크면 고개를 돌린 것으로 보고 판정하지 않는다(고개 돌림, BE 명세 11.3 {@code head_turn}). */
     static final double HEAD_TURN_LIMIT = 0.15;
 
     private static final int NOSE = 0;
@@ -31,7 +32,7 @@ public final class FrameFeatures {
 
     private FrameFeatures() {}
 
-    /** 프레임 하나의 특징(pose.ts {@code Features}). */
+    /** 프레임 하나의 특징: 머리-어깨 간격, 좌우 치우침, 어깨 기울기, 품질, 고개 돌림(코-귀 중점). */
     public record Features(double headGap, double offset, double tilt, double quality, double turn) {}
 
     /**
@@ -107,7 +108,7 @@ public final class FrameFeatures {
     /**
      * 구간의 특징 변화량. 고개를 돌리지 않은 판정 가능 프레임의 특징을 평균해 기준을 뺀다.
      *
-     * 프레임마다의 판정은 pose.ts {@code classify}처럼 고개 돌림 프레임을 뺀다. 원시 변화량은 자르지 않는다.
+     * 고개를 돌린 프레임은 판정에서 뺀다(BE 명세 11.3). 원시 변화량은 자르지 않는다.
      */
     public static Result interval(FrameInterval interval, Features baseline) {
         if (interval.phase() != FrameInterval.Phase.running) return new Result(null, null);
@@ -124,7 +125,7 @@ public final class FrameFeatures {
         return deltas == null ? new Result(null, "unmeasurable") : new Result(deltas, null);
     }
 
-    /** serverFeatures.ts {@code featureDeltas}: 현재 − 기준. 유한하지 않으면 null. */
+    /** 특징 변화량: 현재 − 기준. 유한하지 않으면 null. */
     static FeatureDeltas deltas(Features current, Features baseline) {
         if (!valid(current) || !valid(baseline)) return null;
         double headGap = current.headGap() - baseline.headGap();
@@ -138,7 +139,7 @@ public final class FrameFeatures {
         return Math.abs(current.turn() - baseline.turn()) > HEAD_TURN_LIMIT;
     }
 
-    /** pose.ts {@code average}. */
+    /** 프레임 특징의 단순 평균. */
     static Features average(List<Features> samples) {
         double headGap = 0, offset = 0, tilt = 0, quality = 0, turn = 0;
         for (var s : samples) {
@@ -152,7 +153,7 @@ public final class FrameFeatures {
         return new Features(headGap / n, offset / n, tilt / n, quality / n, turn / n);
     }
 
-    /** pose.ts {@code validFeatures}. */
+    /** 특징 값이 모두 유한한지. */
     private static boolean valid(Features value) {
         return value != null
                 && Double.isFinite(value.headGap())

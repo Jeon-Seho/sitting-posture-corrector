@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.4 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.5 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -90,15 +90,20 @@ check("현재 약관 동의 = 가장 최근 행의 버전",
 # 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
 PARTS = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder")
 COORDS = [f"{p}_{a}" for p in PARTS for a in "xy"]
-ins_base = (f"INSERT INTO baseline_posture (user_account_id,registered_at,{','.join(COORDS)}) "
-            f"VALUES (%s,%s,{','.join(['0.5'] * len(COORDS))})")
+# (사용자, 등록 식별자, 등록 시각). V2.5: 등록 시각은 서버 시각, 재전송은 등록 식별자로 막는다 (UK-16, ADR 0028)
+ins_base = (f"INSERT INTO baseline_posture (user_account_id,client_registration_uuid,registered_at,{','.join(COORDS)}) "
+            f"VALUES (%s,%s,%s,{','.join(['0.5'] * len(COORDS))})")
 cur_base = "SELECT MAX(baseline_posture_id) FROM baseline_posture WHERE user_account_id=%s"   # 현재 기준 = 가장 큰 ID
-ok("기준 자세 등록 A", ins_base, (A, T0)); BA1 = cur.lastrowid
-fails("UK-14 같은 보정 결과 재전송 (같은 사용자·같은 등록 시각) 거부", ins_base, (A, T0), "ux_baseline_posture_registered")
-ok("기준 자세 등록 B (A와 같은 등록 시각이어도 다른 사용자라 허용)", ins_base, (B, T0)); BB = cur.lastrowid
+RA = U()
+ok("기준 자세 등록 A", ins_base, (A, RA, T0)); BA1 = cur.lastrowid
+fails("UK-16 같은 등록 재전송 (같은 사용자·같은 등록 식별자) 거부", ins_base, (A, RA, "2026-10-02 01:00:05"), "ux_baseline_posture_registration")
+fails("등록 식별자 길이가 UUID가 아님", ins_base, (A, "short", T0), "ck_baseline_posture_client_registration_uuid")
+ok("기준 자세 등록 B (A와 같은 등록 식별자여도 다른 사용자라 허용)", ins_base, (B, RA, T0)); BB = cur.lastrowid
+ok("UK-14 없음 — 같은 사용자·같은 등록 시각이어도 등록 식별자가 다르면 허용 (V2.5)", ins_base, (B, U(), T0))
+cur.execute("DELETE FROM baseline_posture WHERE baseline_posture_id=%s", (cur.lastrowid,))   # B의 현재 기준을 BB로 되돌린다
 fails("좌표 범위 밖 (1 초과) 거부", "UPDATE baseline_posture SET nose_x=1.2 WHERE baseline_posture_id=%s", (BA1,), "ck_baseline_posture_nose_x")
 fails("좌표 범위 밖 (음수) 거부", "UPDATE baseline_posture SET right_shoulder_y=-0.1 WHERE baseline_posture_id=%s", (BA1,), "ck_baseline_posture_right_shoulder_y")
-fails("FK-04 없는 사용자의 기준 자세", ins_base, (999999, T0), "fk_baseline_posture_user_account")
+fails("FK-04 없는 사용자의 기준 자세", ins_base, (999999, U(), T0), "fk_baseline_posture_user_account")
 
 # 세션 시작: 현재 기준(가장 큰 ID)·정책·알림 설정(sound_alert_enabled → alert_enabled)을 세션에 넣는다
 ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,baseline_posture_id,threshold_policy_id,alert_enabled,started_at) "
@@ -121,14 +126,14 @@ fails("종료 시각만 있고 바른 자세 시간 없음", "UPDATE monitor_ses
 ok("세션 종료 (종료 시각·바른 자세 시간 함께)", "UPDATE monitor_session SET ended_at='2026-10-02 02:00:00', good_sec=3000.0 WHERE monitor_session_id=%s", (SA,))
 
 # 기준 자세 다시 촬영: 새 행을 넣는다. 예전 기준은 남고, 예전 세션은 예전 기준을 그대로 가리킨다
-ok("다시 촬영 — 새 기준 자세 행", ins_base, (A, "2026-10-02 03:00:00")); BA2 = cur.lastrowid
+ok("다시 촬영 — 새 기준 자세 행", ins_base, (A, U(), "2026-10-02 03:00:00")); BA2 = cur.lastrowid
 check("다시 촬영 후 A의 기준 자세 2행 (예전 기준 보존)", one("SELECT COUNT(*) FROM baseline_posture WHERE user_account_id=%s", (A,)) == 2)
 check("현재 기준 = 새 행", one(cur_base, (A,)) == BA2)
 check("예전 세션은 예전 기준 유지", one("SELECT baseline_posture_id FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == BA1)
 ok("다시 촬영 뒤 세션 시작 A", ins_ses, (U(), "2026-10-02 03:10:00", A)); SA_NEW = cur.lastrowid
 check("새 세션은 새 기준 — 기준이 바뀐 시점 구분", one("SELECT baseline_posture_id FROM monitor_session WHERE monitor_session_id=%s", (SA_NEW,)) == BA2)
-# 시계가 늦은 기기에서 다시 촬영해도 나중에 저장한 행이 현재 기준이다 (등록 시각으로 고르지 않는다)
-ok("시계가 늦은 기기에서 다시 촬영 (등록 시각이 예전 행보다 앞섬)", ins_base, (A, "2026-10-01 23:00:00")); BA3 = cur.lastrowid
+# 등록 시각이 예전 행보다 앞서도(서버 시계 조정 등) 나중에 저장한 행이 현재 기준이다 (등록 시각으로 고르지 않는다)
+ok("다시 촬영 — 등록 시각이 예전 행보다 앞섬", ins_base, (A, U(), "2026-10-01 23:00:00")); BA3 = cur.lastrowid
 check("현재 기준 = 나중에 저장한 행 (등록 시각과 무관)", one(cur_base, (A,)) == BA3)
 fails("FK-27 세션이 쓴 기준 자세 삭제 거부", "DELETE FROM baseline_posture WHERE baseline_posture_id=%s", (BA1,), "fk_monitor_session_baseline_posture")
 fails("FK-27 기준 자세 ID 변경 거부", "UPDATE baseline_posture SET baseline_posture_id=999999 WHERE baseline_posture_id=%s", (BA1,), "foreign key constraint fails")
@@ -274,8 +279,8 @@ except pymysql.err.MySQLError as e:
 
 # ===================================================================== 시나리오 2: 세션만 삭제, 통계 보존 (6-2)
 ok("S2 준비: A2 가입 동의", ins_con, (A2, "TERMS", T0, "terms-2026-10"))
-ok("S2 준비: A2 기준 자세 (예전)", ins_base, (A2, T0))
-ok("S2 준비: A2 기준 자세 (현재)", ins_base, (A2, "2026-10-02 02:00:00")); BA2_CUR = cur.lastrowid
+ok("S2 준비: A2 기준 자세 (예전)", ins_base, (A2, U(), T0))
+ok("S2 준비: A2 기준 자세 (현재)", ins_base, (A2, U(), "2026-10-02 02:00:00")); BA2_CUR = cur.lastrowid
 ok("S2 준비: A2 세션", ins_ses, (U(), "2026-10-02 02:10:00", A2)); SA2 = cur.lastrowid
 ok("S2 준비: A2 통계", "INSERT INTO daily_stat VALUES (%s,'2026-10-02',100.0,50.0,1,0,0,NULL,NULL,'2026-10-03 00:10:00')", (A2,))
 ok("S2 세션 삭제", "DELETE FROM monitor_session WHERE monitor_session_id=%s", (SA2,))
@@ -315,9 +320,12 @@ cur.execute("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHER
 cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
 check("V2.1·V2.2·V2.4 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered, row_count 등 21개)", not left_c, ", ".join(left_c))
-check("V2.2 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대)",
+check("V2.2·V2.3·V2.5 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자)",
       {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
-       ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec")} <= cols)
+       ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec"),
+       ("baseline_posture", "client_registration_uuid")} <= cols)
+check("V2.5 UK-14(사용자, 등록 시각) 인덱스 없음 — 재전송은 UK-16이 막는다",
+      one("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND INDEX_NAME='ux_baseline_posture_registered'") == 0)
 
 # ===================================================================== 정리 — 테스트 행 삭제 (6-1 순서)
 cur.execute("DELETE FROM feature_archive"); cur.execute("DELETE FROM monitor_session")

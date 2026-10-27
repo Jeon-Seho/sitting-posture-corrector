@@ -45,6 +45,8 @@ DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배
   앱의 「서버 판정 사용」은 401로 실패하고, 계정 브라우저 시나리오·`check-compose`의 계정 UI 단계도 develop과 같이 깨진다.
 - 2026-10-14 사용자 요청으로 프론트 코드(`frontend/src`, `frontend/vite.config.ts`, `model/prototype/`)를 develop 상태로 되돌렸다.
   세션 v2 경로·기준 좌표 평균 변경도 빠졌다. 프론트 연결에 필요한 수정은 [계획 0027](0027-frontend-backend-v2-connection.md)에 정리했다.
+- 2026-10-21 DB를 V2.4로 올렸다(`feature_archive.row_count` 삭제, v5.2 결정에 맞춘 설명, migration 013·014). API는 `SchemaVerifier`로 V2.4를 확인한다.
+  이 계획의 V2.3 연동 내용은 그대로 유효하다. 남은 일은 그대로 「전체 게이트 검증」이다(실제 MySQL 통합 시험·`check-compose` 미실행, [개발 상태](../../backend-status.md) 2.7).
 
 ## 검증 결과와 남은 한계
 

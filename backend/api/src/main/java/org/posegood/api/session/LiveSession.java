@@ -4,7 +4,6 @@ import org.posegood.api.common.ApiError;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.engine.SessionEngine;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +19,8 @@ public final class LiveSession {
     private final SessionRepository.Stored row;
     private final SessionEngine engine;
     private final ReentrantLock lock = new ReentrantLock();
-    private final Map<Long, Input> inputs = new HashMap<>();
+    /** 재전송 확인용: 최근 {@link SessionEngine#RETRY_WINDOW}개 구간만 둔다. 더 오래된 순번은 역순으로 409다. */
+    private final Map<Long, Input> inputs = SessionEngine.recent(SessionEngine.RETRY_WINDOW);
     private int persistedEvents;
     private int persistedEpisodes;
     private boolean closePersisted;
@@ -95,7 +95,7 @@ public final class LiveSession {
         return closePersisted;
     }
 
-    /** 종료 원인(USER_STOP·DISCONNECTED). V2.3에서 `monitor_session.end_reason`이 없어져 DB에 쓰지 않고, 지금은 읽는 곳이 없다. */
+    /** 종료 원인(USER_STOP·DISCONNECTED·UNMEASURABLE_TIMEOUT). V2.3에서 `monitor_session.end_reason`이 없어져 DB에 쓰지 않고, 지금은 읽는 곳이 없다. */
     String endReason() {
         return endReason;
     }
