@@ -615,7 +615,8 @@
             "no_baseline",
             "bad_message",
             "server_shutdown",
-            "limit_reached"
+            "limit_reached",
+            "unmeasurable_timeout"
           ]
         },
         "ended_at": {

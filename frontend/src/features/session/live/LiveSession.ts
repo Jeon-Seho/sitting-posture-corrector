@@ -97,6 +97,16 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   session_lost: { message: '서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요.', failed: false, lost: true },
   server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.', failed: false, lost: true },
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
+  // BE 10/27: no judgeable posture or away for 5 min; the server stored it and ended it.
+  unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 5분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
+}
+/**
+ * Closed while measuring (after `ready`): the server still stored up to the last interval (BE
+ * 10/27), so the record is kept like a lost connection. Before `ready` these stay failures.
+ */
+const CLOSED_WHILE_MEASURING: Record<string, { message: string; failed: boolean; lost?: boolean }> = {
+  unauthorized: { message: '로그인이 만료돼 측정을 마쳤어요. 그때까지 저장됐어요. 다시 로그인해 주세요.', failed: false, lost: true },
+  bad_message: { message: '측정을 이어갈 수 없어 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
 }
 const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.'
 
@@ -281,7 +291,8 @@ export class LiveSession {
         this.set({ stalled: true })
         return
       case 'closed': {
-        const known = CLOSED[message.reason] ?? CLOSED.bad_message
+        const reason = message.reason in CLOSED ? message.reason : 'bad_message'
+        const known = (this.ready && CLOSED_WHILE_MEASURING[reason]) || CLOSED[reason]
         this.finish({
           phase: known.failed ? 'failed' : 'ended',
           message: known.message,

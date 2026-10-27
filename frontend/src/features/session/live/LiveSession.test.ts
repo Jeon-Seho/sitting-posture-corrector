@@ -311,4 +311,21 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.push({ type: 'closed', reason: 'unauthorized' })
     expect(signedOut.state).toMatchObject({ phase: 'failed', message: '로그인이 만료됐어요. 다시 로그인해 주세요.' })
   })
+
+  it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
+    const reasons: [string, boolean, string][] = [
+      ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],
+      ['unauthorized', true, '로그인이 만료돼 측정을 마쳤어요'],
+      ['bad_message', true, '측정을 이어갈 수 없어 마쳤어요'],
+      ['some_new_reason', true, '측정을 이어갈 수 없어 마쳤어요'],
+    ]
+    for (const [reason, lost, message] of reasons) {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'closed', reason, ended_at: lost ? null : '2026-10-27T01:05:00.000Z' })
+      expect(live.state.phase).toBe('ended')
+      expect(live.state.lost).toBe(lost)
+      expect(live.state.message).toContain(message)
+    }
+  })
 })

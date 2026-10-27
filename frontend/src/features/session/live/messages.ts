@@ -58,6 +58,7 @@ export type ClosedReason =
   | 'bad_message'
   | 'server_shutdown'
   | 'limit_reached'
+  | 'unmeasurable_timeout'
 
 export type ServerMessage =
   /** `started_at`: when the server started the session (ISO 8601, FE proposal BE-6, ADR 0029). */

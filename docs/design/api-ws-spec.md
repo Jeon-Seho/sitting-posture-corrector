@@ -32,7 +32,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 로그인 | HttpOnly·SameSite=Lax 쿠키. **로그인한 때부터 30분이 지나면 HTTP·WS 활동과 상관없이 만료**(10/22 BE 명세 1장, FE 기준. 10/25 기준 서버는 `spring.session.timeout=30m` — 마지막 요청부터 세는 방식이라 아직 다름). WS도 같은 쿠키. 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
 | CSRF | A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함) | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
-| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`은 BE 브랜치 `fix/repo-backend-sync` `b903751`에 있고(develop 미병합), A4 `today`는 BE-6 요청 중. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
+| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 BE 브랜치 `fix/repo-backend-sync`에 있다(develop 미병합). 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의, BE-6 요청 중) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
@@ -119,7 +119,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
 
-R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 그대로 받는다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 10/26 기준 서버에 R1b·T1이 아직 없다(develop·BE 브랜치 모두, BE-2 — BE 10/26 정리 문서 B-e에 할 일로 있음).
+**응답 형식(BE 10/27 `d27a97d`·`fdd1269`):** R1은 배열이 아니라 `{ "today": "YYYY-MM-DD", "records": [RecordItem…] }`(최신순)이고, 앱은 `records`를 읽고 `today`로 「오늘」을 갱신한다. T1(구현 전, 형식 확정)은 `{ today, from, to, days }`이고 `to`는 어제까지로 잘린다. `days`의 필드는 DB `daily_stat` 칸 이름 그대로(`stat_date`·`valid_sec`·`good_sec`·`session_count`·`event_count`·`alerted_event_count`·`min_`·`max_until_collapse_sec`·`computed_at`), 빈 날은 0으로 채우고 min·max·`computed_at`은 null. J2가 돌기 전에는 0만 온다. 앱은 아직 R1·T1을 부르지 않는다(FE 제안서 7.2 2번에서 붙임). R1의 `RecordItem`은 앱 기록 형식(camelCase, `server.view` = `SessionView`) 그대로다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 10/26 기준 서버에 R1b·T1이 아직 없다(develop·BE 브랜치 모두, BE-2 — BE 10/26 정리 문서 B-e에 할 일로 있음).
 
 **오늘과 과거의 데이터 출처(10/22 팀장 결정, 10/14 「통계는 어제까지」를 대체):** T1은 어제까지의 일별 통계만 제공하고 앱은 그 값을 표시한다. 오늘 화면은 측정 중 받은 서버 요약·사건과 종료 결과를 앱이 로컬에 모아 쓴다. R1·W1 `records`에 오늘 세션이 들어 있어도 오늘 표시값의 출처는 로컬 기록이다.
 
@@ -193,10 +193,11 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `ended` | 종료 화면. `ended_at`(= `started_at` + `total_ms`, BE `b903751`)을 기록의 종료 시각·오늘 날짜로. 다른 사유에서 `ended_at`이 null이면(끝나기 전에 닫힘) 기록은 「종료 미확인」, 종료 시각은 서버 시작 + 마지막 `progress`의 `total_ms`로 둔다 |
 | (BE-6 요청 중) `day_changed` | 자정에 끊김. 그때까지의 기록을 남기고 카메라를 켠 채 새 측정(새 `session_id`)을 바로 시작, 「자정이 지나 새 측정으로 이어졌어요」 |
 | `limit_reached` | 종료 화면 + 「한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요」 |
+| `unmeasurable_timeout`(BE 10/27, 서버 기본 꺼짐) | 판별 불가·자리 비움이 5분 이어져 서버가 저장하고 끝냄. 종료 화면 + 「자세를 확인할 수 없는 상태가 5분 이어져 측정을 마쳤어요. 그때까지 저장됐어요」. 앱이 처리하므로 서버에서 켜도 된다(`POSEGOOD_UNMEASURABLE_TIMEOUT=5m`) |
 | `session_lost`·`server_shutdown` | 종료 화면(끊기기 전까지 저장됨 안내) |
-| `unauthorized` | 「로그인이 만료됐어요」, 로그인 화면 |
+| `unauthorized` | 측정 중(`ready` 뒤)이면 서버가 그때까지 저장하므로 「저장됨」(`lost`)으로 기록을 남기고 「로그인이 만료돼 측정을 마쳤어요」. `ready` 전이면 「로그인이 만료됐어요」, 로그인 화면 |
 | `no_baseline` | 「기준 자세가 없어요」, 자세 등록으로 |
-| `not_owner`·`bad_message` | 「측정을 이어갈 수 없어요」, 앱 버그로 기록 |
+| `not_owner`·`bad_message` | 「측정을 이어갈 수 없어요」, 앱 버그로 기록. `bad_message`가 측정 중(`ready` 뒤)이면 서버가 그때까지 저장하므로 기록을 「저장됨」(`lost`)으로 남긴다(BE 10/27). 모르는 사유도 `bad_message`로 본다 |
 
 측정 화면의 상태(`features/session/live/LiveSessionPage.tsx`): 서버가 남은 시간을 주지 않으므로 확정·복귀까지의 진행 막대는 없다.
 
