@@ -33,7 +33,7 @@
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
 - **BE 브랜치와 합치기:** [계획 0029](plans/active/0029-merge-backend-data-platform.md). 10/15 PR #48, 10/21 PR #60으로 FE를 develop에 넣었다. 10/21 FE V3가 BE 브랜치를 받았다. 남은 것은 BE 브랜치가 develop에 들어오는 것.
 - **작은 카메라 창·서버 로그인만:** [계획 0054](plans/active/0054-pip-fix-and-server-only-login.md)(10/22): 자동 PiP가 안 열리는 문제를 먼저 고치고, 그다음 시험 전용 로컬 로그인을 지워 서버 로그인만 남긴다. 10/26: 카메라만으로는 Chrome이 자동 PiP를 열지 않아 웹 작은 창을 지우고 숨은 탭 측정을 고쳤다(ADR 0028). 로그인 정리는 남음.
-- **측정 중 WS 줄이기·결과는 API로:** [계획 0059](plans/active/0059-slim-realtime-results-over-api.md)(10/27 제안, 팀장·BE와 정하기 전): 측정 중에는 점수·유지율·알림·측정 시간만, 나머지는 끝난 뒤 S4로. 측정 시간은 앱이 더함
+- **측정 중 WS 줄이기·결과는 API로:** [계획 0059](plans/active/0059-slim-realtime-results-over-api.md)(10/27 제안, 두 단계, 팀장·BE와 정하기 전. 정한 것: 측정 시계는 앱이 전체 시간으로, 측정 중 `keep_rate` 남김, S1 `policy` 빼기 BE-11): 측정 중에는 점수·판정 불가·`alerting`·`keep_rate`·알림만, 나머지는 끝난 뒤 S4로. 측정 시간은 앱이 더함
 - **데스크톱 작은 카메라 창:** [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64, 10/26): 주소 없는 Electron 창, 접기·앱으로 돌아가기. V3의 [계획 0055](plans/active/0055-desktop-camera-window.md)는 10/27 이것으로 바꿈
 - **카메라 여러 대:** [내장 + USB 카메라](plans/active/0053-multiple-cameras.md)(0053, 10/16: 측정하기에서 메인 카메라 선택, 기준 자세는 카메라와 상관없이 하나, 쓰던 카메라가 빠지면 측정 종료·저장. 10/21부터 기준 자세는 서버(B1·B2)에 있고, 앱이 닫힌 측정은 서버가 저장한다. 남은 것: 외장 자동 우선, 꽂으면 알림, 640×480 아니면 시작 안 함).
 - **`make check` 실패:** [원인과 고칠 것](plans/active/0030-make-check-failures.md)(0030, 빌드 도구와 무관). 빌드는 BE 설정(Gradle Wrapper)을 따른다.
