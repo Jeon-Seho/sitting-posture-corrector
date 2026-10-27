@@ -3,6 +3,7 @@ const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
+const { installCameraWindow } = require('./camera-window.cjs')
 
 // 일체형 제목 표시줄: OS 기본 틀 대신 앱 화면을 창 끝까지 그리고, 창 버튼만 위에 겹친다.
 // 높이와 색은 frontend/src/styles/base.css의 --titlebar-h, --bg와 맞춘다.
@@ -153,77 +154,6 @@ function appInView() {
   return !!mainWindow && mainWindow.isVisible() && !mainWindow.isMinimized() && mainWindow.isFocused()
 }
 
-// 작은 카메라 창(ADR 0028, 계획 0055): 카메라가 켜지면 화면이 window.open으로 열고, 그 문서에 같은 스트림을 그린다.
-// 앱 창이 앞에 있으면 숨기고, 포커스를 잃거나 최소화되면 포커스를 가져가지 않고 보인다. 웹에는 이 창이 없다.
-const CAMERA_WINDOW_NAME = 'posegood-camera-window'
-const CAMERA_WIDTH = 320
-const CAMERA_HEIGHT = 240
-const CAMERA_COMPACT_HEIGHT = 44
-let cameraWindow = null
-
-function cameraWindowAlive() {
-  return !!cameraWindow && !cameraWindow.isDestroyed()
-}
-
-function syncCameraWindow() {
-  if (!cameraWindowAlive()) return
-  if (appInView()) cameraWindow.hide()
-  else if (!cameraWindow.isVisible()) cameraWindow.showInactive()
-}
-
-// 자세 알림 팝업 자리(오른쪽 아래) 바로 위에 둔다.
-function placeCameraWindow(child) {
-  const area = screen.getDisplayMatching(mainWindow ? mainWindow.getBounds() : child.getBounds()).workArea
-  child.setBounds({
-    x: Math.round(area.x + area.width - CAMERA_WIDTH - 12),
-    y: Math.round(area.y + area.height - CAMERA_HEIGHT - POPUP_HEIGHT - 24),
-    width: CAMERA_WIDTH, height: CAMERA_HEIGHT,
-  })
-}
-
-function allowCameraWindow({ url, frameName }) {
-  if (url !== 'about:blank' || frameName !== CAMERA_WINDOW_NAME) return { action: 'deny' }
-  // 카메라를 껐다 바로 켜면 이전 창이 아직 닫히는 중일 수 있다. 새 요청이 이기게 이전 창을 바로 정리한다.
-  if (cameraWindowAlive()) cameraWindow.destroy()
-  return {
-    action: 'allow',
-    overrideBrowserWindowOptions: {
-      width: CAMERA_WIDTH, height: CAMERA_HEIGHT, minWidth: 200, minHeight: CAMERA_COMPACT_HEIGHT,
-      show: false, frame: false, resizable: true, minimizable: false, maximizable: false, fullscreenable: false,
-      skipTaskbar: true, alwaysOnTop: true, backgroundColor: '#171714',
-      title: 'PoseGood 카메라 작은 창',
-    },
-  }
-}
-
-function adoptCameraWindow(child) {
-  cameraWindow = child
-  child.setAlwaysOnTop(true, 'floating')
-  placeCameraWindow(child)
-  child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  child.webContents.on('will-navigate', (event) => event.preventDefault())
-  child.on('closed', () => {
-    if (cameraWindow === child) cameraWindow = null
-  })
-  syncCameraWindow()
-}
-
-ipcMain.handle('desktop:focus-app', (event) => {
-  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
-  return true
-})
-// 최소화(영상만 숨김)일 때는 띠 높이로 줄인다. 너비와 위치는 그대로 둔다.
-ipcMain.handle('desktop:camera-window-compact', (event, compact) => {
-  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !cameraWindowAlive()) return false
-  const bounds = cameraWindow.getBounds()
-  const height = compact === true ? CAMERA_COMPACT_HEIGHT : Math.round(bounds.width * 3 / 4)
-  cameraWindow.setBounds({ x: bounds.x, y: bounds.y + bounds.height - height, width: bounds.width, height })
-  return true
-})
-
 ipcMain.handle('desktop:alert', async (event, alert) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return null
   // 개발자 옵션의 미리보기는 설정·앱 화면 여부와 상관없이 띄운다.
@@ -266,22 +196,22 @@ async function createWindow() {
     title: 'PoseGood',
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'branding',
       process.platform === 'win32' ? 'posegood-icon.ico' : 'posegood-icon.png'),
-    backgroundColor: '#fbf5ee',
+    backgroundColor: '#f6f7f9',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
-    ...(isMac ? {} : { titleBarOverlay: { color: '#fbf5ee', symbolColor: '#5e4f46', height: TITLEBAR_HEIGHT } }),
+    ...(isMac ? {} : { titleBarOverlay: { color: '#f6f7f9', symbolColor: '#202b33', height: TITLEBAR_HEIGHT } }),
     webPreferences: {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      // Camera inference and its native preview must continue while the main window is minimized.
+      backgroundThrottling: false,
     },
   })
   mainWindow = window
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', hidePopup)
-  for (const name of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide']) window.on(name, syncCameraWindow)
   window.on('closed', () => {
     mainWindow = null
     if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()
-    if (cameraWindowAlive()) cameraWindow.destroy()
   })
   // Alt를 눌러도 File/Edit 메뉴 바가 나타나지 않게 메뉴 자체를 없앤다(macOS는 시스템 메뉴 유지).
   if (!isMac) window.removeMenu()
@@ -299,12 +229,7 @@ async function createWindow() {
       }
     })
   }
-  // 새 창은 작은 카메라 창 하나만 허락한다.
-  window.webContents.setWindowOpenHandler(allowCameraWindow)
-  window.webContents.on('did-create-window', (child, details) => {
-    if (details.frameName === CAMERA_WINDOW_NAME) adoptCameraWindow(child)
-    else child.destroy()
-  })
+  installCameraWindow({ mainWindow: window, screen, ipcMain, trusted })
   window.webContents.on('will-navigate', (event, url) => {
     if (!sameAddress(new URL(url))) event.preventDefault()
   })

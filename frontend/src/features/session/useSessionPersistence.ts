@@ -25,6 +25,19 @@ export function recordTimes(state: Pick<LiveState, 'startedAt' | 'endedAt' | 'su
     (state.startedAt ? new Date(Date.parse(state.startedAt) + state.summary.total_ms).toISOString() : new Date().toISOString())
   return { startedAt, endedAt }
 }
+import { DailyMeasurementLedger } from '../storage/dailyMeasurement'
+
+/** The server's running totals in seconds, as the day split (`DailyMeasurementLedger`) reads them. */
+function dayTotals(state: LiveState) {
+  const alerts = state.events.filter((e) => e.kind === 'collapse_confirmed' || e.kind === 'reminder')
+  return {
+    total: state.summary.total_ms / 1000,
+    valid: state.summary.valid_ms / 1000,
+    good: state.summary.normal_ms / 1000,
+    events: collapseEvents(state.events),
+    lastAlertAt: alerts.length ? alerts[alerts.length - 1].timestamp_ms / 1000 : undefined,
+  }
+}
 
 type Options = {
   session: ServiceSession | null
@@ -48,6 +61,26 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
   const { rules, setRecords } = workspace
   const pending = useRef<RecordItem | null>(null)
   const measuring = !!session && !ended.current
+  // A measurement over KST midnight is kept per day as well (PR #64 ADR 0025): the server's running
+  // totals are split at each midnight as they arrive. Once the server ends measurements at
+  // midnight (ADR 0029, BE-6) there is only ever one day.
+  const daily = useRef<{ id: string; ledger: DailyMeasurementLedger } | null>(null)
+
+  /** The server's running totals for the day split (every `progress`). */
+  function observe(state: LiveState) {
+    if (!session || ended.current || state.summary.total_ms === 0) return
+    dayLedger(state)?.observe(dayTotals(state))
+  }
+
+  function dayLedger(state: LiveState) {
+    if (!session) return null
+    if (daily.current?.id !== session.id) {
+      // Days are counted from the server's start; wait for `ready.started_at` (ADR 0029).
+      if (!state.startedAt) return null
+      daily.current = { id: session.id, ledger: new DailyMeasurementLedger(state.startedAt) }
+    }
+    return daily.current.ledger
+  }
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {
@@ -117,6 +150,9 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     const confirmed = !state.lost && view.ended
     const checked = validSessionView(view, session.id, session.rules) ? (view as SessionView) : null
     const times = recordTimes(state, session.startedAt)
+    const ledger = dayLedger(state)
+    ledger?.observe(dayTotals(state))
+    const days = ledger?.snapshot()
     const record: RecordItem = {
       id: session.id,
       startedAt: times.startedAt,
@@ -127,6 +163,8 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       good: state.summary.normal_ms / 1000,
       total: state.summary.total_ms / 1000,
       events: checked ? serverRecordEvents(checked, confirmed) : collapseEvents(state.events).filter((e) => e.endAt !== null),
+      // Only the days of this record's own start (the split counts from the server start).
+      ...(days && times.startedAt === state.startedAt ? { days } : {}),
       ...(checked
         ? {
             server: {
@@ -152,5 +190,5 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     pending.current = null
   }
 
-  return { start, finish, clearSession, pending }
+  return { start, finish, observe, clearSession, pending }
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
-import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, SignOut, UserCircle, Bell, Timer, VideoCamera, SlidersHorizontal, ClockCounterClockwise, Power } from '../components/icons'
 import { KST } from '../lib/kst'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
@@ -169,11 +169,14 @@ function MainCamera({ camera }: { camera: CameraChoice }) {
 }
 
 function Row({ name, desc, children }: { name: string; desc: string; children: ReactNode }) {
+  const Icon = name.includes('카메라') || name.includes('기준 자세') ? VideoCamera
+    : name.includes('간격') ? ClockCounterClockwise : name.includes('시간') ? Timer
+    : name.includes('민감') ? SlidersHorizontal : name.includes('열기') ? Power : Bell
   return (
     <div className="setting-row">
       <div>
-        <div className="setting-name">{name}</div>
-        <div className="setting-desc">{desc}</div>
+        <div className="setting-name"><Icon size={24} weight="bold" aria-hidden="true" />{name}</div>
+        {desc && <div className="setting-desc">{desc}</div>}
       </div>
       {children}
     </div>
@@ -223,7 +226,7 @@ export function SettingsPage({
           <Card title="알림">
             <Row
               name="자세 알림"
-              desc="자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요."
+              desc=""
             >
               {serviceMode ? (
                 <span className="badge good">
@@ -234,6 +237,7 @@ export function SettingsPage({
                 <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
               )}
             </Row>
+            {desktop.desktop && (
             <Row
               name="다른 창을 볼 때 팝업"
               desc={
@@ -249,7 +253,8 @@ export function SettingsPage({
                 disabled={!desktop.info}
               />
             </Row>
-            <Row name="얼마나 민감하게" desc="꼼꼼할수록 작은 변화에도 알려드려요.">
+            )}
+            <Row name="얼마나 민감하게" desc="">
               <Choice
                 label="알림 민감도"
                 options={SENSITIVITY}
@@ -258,7 +263,7 @@ export function SettingsPage({
                 onChange={(v) => set({ threshold: thresholdFor(v) })}
               />
             </Row>
-            <Row name="알리기까지 기다리는 시간" desc="잠깐 움직인 건 넘어가요.">
+            <Row name="알리기까지 기다리는 시간" desc="">
               <Choice
                 label="알림 대기 시간"
                 options={HOLD}
@@ -267,7 +272,7 @@ export function SettingsPage({
                 onChange={(v) => set({ holdSeconds: v })}
               />
             </Row>
-            <Row name="다시 알리는 간격" desc="같은 자세가 계속될 때 다시 알려드려요.">
+            <Row name="다시 알리는 간격" desc="">
               <Choice
                 label="재알림 간격"
                 options={REALERT}
@@ -337,6 +342,7 @@ export function SettingsPage({
             {camera && <MainCamera camera={camera} />}
           </Card>
 
+          {desktop.desktop && (
           <Card title="컴퓨터를 켤 때">
             <Row
               name="자동으로 PoseGood 열기"
@@ -372,6 +378,7 @@ export function SettingsPage({
               </p>
             )}
           </Card>
+          )}
 
         </div>
 

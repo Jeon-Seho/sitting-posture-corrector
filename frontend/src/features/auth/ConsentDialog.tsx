@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef } from 'react'
-import { X } from '@phosphor-icons/react'
+import { X } from '../../components/icons'
 import { activateModal, trapTab } from '../dialog/modalFocus'
 import type { ConsentItem } from './consents'
 

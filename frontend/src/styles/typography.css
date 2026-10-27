@@ -1,38 +1,47 @@
 /*
- * One type scale for the whole app (2026-10-13). Everything is Pretendard Variable, and roles
- * differ by weight as well as size: titles heavy, labels semibold, body regular, numbers
- * extra bold with light units (see Amount). Numbers no longer switch to a Latin face, so
- * digits and their Korean units match.
+ * Reading scale (2026-10-26). Loaded after theme and responsive geometry.
+ * Fluent / Atlassian references and Korean layout decisions: DESIGN.md.
  */
 :root {
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
-  --fw-label: 650;
+  --fw-label: 600;
   --fw-bold: 700;
-  --fw-strong: 750;
-  --fw-heavy: 800;
+  --fw-strong: 700;
+  --fw-heavy: 700;
+  --text-body: 0.9375rem;
+  --text-body-line: 1.5rem;
+  --text-support: 0.875rem;
+  --text-support-line: 1.375rem;
+  --text-caption: 0.75rem;
+  --text-caption-line: 1rem;
 }
 
 body {
   font-weight: var(--fw-regular);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 /* Titles */
 .page-title {
-  font-size: 28px;
+  font-size: 1.625rem;
+  line-height: 2.125rem;
   font-weight: var(--fw-heavy);
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
 }
 .card-title,
 .history-record-details h4,
 .confirm-dialog h2,
 .connection-lost h2 {
   font-weight: var(--fw-bold);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 .card-title {
-  font-size: 16px;
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 .nudge-title {
   font-weight: var(--fw-strong);
@@ -45,7 +54,7 @@ body {
 .day-text strong,
 .service-record-text strong {
   font-weight: var(--fw-label);
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
 }
 .stat-label,
 .metric-group-items dt,
@@ -64,7 +73,8 @@ body {
   font-weight: var(--fw-regular);
 }
 .fine {
-  font-size: 12.5px;
+  font-size: var(--text-support);
+  line-height: var(--text-support-line);
   font-weight: var(--fw-regular);
   color: var(--muted);
 }
@@ -85,7 +95,7 @@ body {
 .today-card-value,
 .records-stat-value {
   font-weight: var(--fw-heavy);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 .rate-ring-value small,
 .today-card-value small {
@@ -107,4 +117,68 @@ body {
 .nav-item[aria-current='true'],
 .nav-item[aria-current='page'] {
   font-weight: var(--fw-bold);
+}
+
+/* Supporting information stays readable instead of squeezing more text into a row. */
+.page-desc, .card-note, .setting-desc, .step-desc, .nudge-desc,
+.day-text span, .service-record-text > span, .day-summary-sub,
+.cover-form .lead, .cover-form .fine, .webcam-message span, .posture-note {
+  font-size: var(--text-support);
+  line-height: var(--text-support-line);
+  letter-spacing: 0;
+}
+.page-desc { margin-top: 8px; }
+.card-head { margin-bottom: 20px; }
+.card-note, .setting-desc { margin-top: 6px; }
+.card { padding: 24px; }
+.setting-name, .step-title, .service-record-text strong, .day-text strong {
+  line-height: 1.5rem;
+}
+.setting-name, .day-text strong { font-size: 1rem; }
+.step-title, .service-record-text strong { font-size: 0.9375rem; }
+.stat-label, .metric-group-items dt { font-size: var(--text-support); }
+.service-record .service-record-text > span { font-size: var(--text-support); line-height: var(--text-support-line); }
+.service-record-text > span { margin-top: 4px; }
+.history-record-row { padding-block: 16px; }
+.metric-group-items { gap: 16px; }
+.metric-group-items dt { line-height: var(--text-support-line); }
+.metric-group-items dd { margin-top: 8px; }
+.amount-n, .stat-value .amount, .stat-value .amount-n {
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+}
+.amount-u { font-weight: var(--fw-regular); }
+.stat-value { line-height: 1.25; }
+.today-card-value { line-height: 1.3; }
+.today-hero { padding-block: 12px; gap: 32px; }
+.today-hero-caption { font-size: 0.875rem; line-height: 1.25rem; font-weight: var(--fw-medium); }
+.today-line { gap: 16px; font-size: 1rem; line-height: 1.5rem; }
+.today-line b, .today-line .records-stat-value { font-weight: var(--fw-bold); font-size: 22px; }
+.today-line > span { display: flex; align-items: baseline; gap: 6px; }
+.ring-value, .rate-ring-value { letter-spacing: 0; }
+.ring-value small { font-size: 0.45em; font-weight: var(--fw-medium); margin-left: 3px; color: var(--muted); }
+.rate-ring-value { line-height: 1.2; }
+.ring-label { line-height: var(--text-caption-line); margin-top: 8px; }
+.btn, .chip, .pill, .select-trigger, .nav-item {
+  line-height: var(--text-body-line);
+  letter-spacing: 0;
+}
+.btn, .select-trigger, .nav-item { font-size: var(--text-body); }
+.btn-sm, .chip { font-size: var(--text-support); }
+.btn-lg { font-size: 1rem; }
+.day-timeline-ticks { font-size: 0.75rem; line-height: 1rem; }
+.field { gap: 8px; }
+.field label, .field > span { font-size: var(--text-support); font-weight: var(--fw-semibold); line-height: var(--text-support-line); }
+.input { font-size: 1rem; line-height: 1.5rem; }
+.cover-hero h1 { letter-spacing: -0.025em; line-height: 1.3; }
+.cover-form h2 { font-size: 1.6875rem; line-height: 2.25rem; letter-spacing: -0.02em; }
+.cover-hero p { font-size: 1rem; line-height: 1.5rem; }
+
+@media (max-width: 600px) {
+  .card { padding: 20px; }
+  .page-title { font-size: 1.5rem; line-height: 2rem; }
+  .today-hero { gap: 24px; }
+  .today-hero .today-line { justify-self: center; gap: 12px 20px; }
+  .today-line b, .today-line .records-stat-value { font-size: 1rem; }
+  .today-line { font-size: 0.875rem; }
 }

@@ -20,6 +20,8 @@ export type LiveSessionService = {
   active: boolean
   /** The measurement is over; `note` says why when it was not the user's 「측정 종료」. */
   onEnded: (state: LiveState, note: string) => void
+  /** Every state change while measuring (the record's KST day split reads the running totals). */
+  onObserved?: (state: LiveState) => void
   /** "2026-10-13 · 세션 2", shown when the connection is lost. */
   sessionLabel?: string
 }
@@ -79,7 +81,10 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
       policy: policyFor(session.rules),
       baselineId: session.baselineId,
       openSocket,
-      onChange: setState,
+      onChange: (changed) => {
+        setState(changed)
+        latest.current.service.onObserved?.(changed)
+      },
       onAlert: (kind) => {
         if (!latest.current.alertsOn) return
         if (latest.current.soundOn && !playCorrection())

@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
-import { WifiSlash } from '@phosphor-icons/react'
+import { WifiSlash } from '../../components/icons'
 import { trapTab } from '../dialog/modalFocus'
 import { quitApp, useConnectionLost } from './connectionLost'
 

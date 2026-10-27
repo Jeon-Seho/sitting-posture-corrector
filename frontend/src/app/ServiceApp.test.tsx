@@ -129,7 +129,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     login()
     expect(text(renderer!.root)).toContain('기존 자료는 유지됩니다')
     expect(data.get(KEYS.records)).toBe(raw)
-    click('측정 시작')
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
     expect(text(renderer!.root)).toContain('새 측정을 시작할 수 없습니다')
     expect(data.get(KEYS.records)).toBe(raw)
@@ -149,7 +148,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     mount()
     login()
     expect(text(renderer!.root)).not.toContain('저장했어요.')
-    click('측정 시작')
     const setup = renderer!.root.findByType(SetupPage)
     expect(setup.props.mode).toBeUndefined()
     expect(text(setup)).not.toContain('발표용 시연')
@@ -175,6 +173,31 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
+  it('keeps a measurement over KST midnight per day from the server running totals (PR #64 day split)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
+    // The server started at 23:59:58 KST; days count from `ready.started_at`, not this computer.
+    const at = (total: number, normal: number, unknown: number): LiveState => ({
+      ...endedState(),
+      phase: 'running',
+      startedAt: '2026-10-26T14:59:58.000Z',
+      summary: { ...EMPTY_SUMMARY, total_ms: total, valid_ms: total - unknown, normal_ms: normal, unknown_ms: unknown },
+    })
+    act(() => service().onObserved(at(2000, 2000, 0)))
+    act(() => service().onEnded({ ...at(6000, 4000, 2000), phase: 'ended' }, ''))
+    const [record] = readLocal<RecordItem[]>(KEYS.records, [])
+    expect(record.startedAt).toBe('2026-10-26T14:59:58.000Z')
+    expect(record.days).toMatchObject([
+      { date: '2026-10-26', total: 2, valid: 2, good: 2 },
+      { date: '2026-10-27', total: 4, valid: 2, good: 2 },
+    ])
+  })
   it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {
       id: 'synthetic-camera',
@@ -190,7 +213,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     data.set(KEYS.records, JSON.stringify(records))
     mount()
     login()
-    click('달력')
+    click('기록')
     const goodSec = () =>
       (renderer!.root.findByType(MonthCalendar).props.stats as DailyStat[]).reduce((n, s) => n + s.good_sec, 0)
     expect(goodSec()).toBe(100)
@@ -267,7 +290,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     login()
     click('설정')
     click('자세 데이터 수집')
-    click('기록')
+    click('오늘')
     expect(controls.camera.stop).not.toHaveBeenCalled()
     expect(text(renderer!.root)).not.toContain('카메라 사용 중')
     click('측정하기')
@@ -280,7 +303,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     const tabs = renderer!.root
       .findAll((node) => node.type === 'button' && node.props.className === 'nav-item')
       .map((button) => text(button))
-    expect(tabs).toEqual(['측정하기', '기록', '달력', '설정'])
+    expect(tabs).toEqual(['측정하기', '오늘', '기록', '설정'])
   })
   const advance = (ms: number) =>
     act(() => {
@@ -360,7 +383,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     advance(5000)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
     const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
-    expect(starts.length).toBe(2) // camera view and side panel
+    expect(starts.length).toBe(1) // one primary action on the camera view
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
   })

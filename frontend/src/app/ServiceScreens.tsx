@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { ArrowLeft, CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle, WarningCircle, X } from '../components/icons'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
-import { DesktopCameraWindow } from '../features/desktop/DesktopCameraWindow'
+import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
 import { useServerToday } from '../features/platform/serverClock'
 import { LocalHistory } from '../features/history/LocalHistory'
@@ -20,7 +20,7 @@ import { historyFor } from '../lib/history'
 import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
-import { resolvePage, type Page, type Tab } from './navigation'
+import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
   camera: CameraController
@@ -105,6 +105,7 @@ export function ServiceScreens({
         className="capture-source"
         muted
         playsInline
+        disablePictureInPicture
         aria-hidden="true"
       />
       <AppSidebar
@@ -184,6 +185,7 @@ export function ServiceScreens({
               service={{
                 active: view === 'session',
                 onEnded: persistence.finish,
+                onObserved: persistence.observe,
                 sessionLabel: sessionLabel(
                   session.startedAt,
                   daySessionNumber(
@@ -219,7 +221,12 @@ export function ServiceScreens({
         )}
         {view === 'profile' && profilePage}
       </main>
-      <DesktopCameraWindow camera={camera} measuring={measuring} onExpand={() => go(measuring ? 'session' : 'setup')} />
+      <CameraWindow
+        camera={camera}
+        floating={!CAMERA_PAGES.includes(view)}
+        onExpand={() => go(measuring ? 'session' : 'setup')}
+        measuring={measuring}
+      />
     </div>
   )
 }

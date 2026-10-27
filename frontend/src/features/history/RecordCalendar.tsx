@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight } from '../../components/icons'
 import { Card, ComboChart, Legend } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
 import { GOOD_RATE } from '../../components/RateRing'
 import { formatDuration } from '../../lib/stats'
-import { addDays, dateOf, dayKey, type DailyStat } from './recordsSource'
+import { addDays, dateOf, type DailyStat } from './recordsSource'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -68,7 +68,7 @@ export function MonthCalendar({
   const byDay = new Map(stats.map((s) => [s.date, s]))
   const first = new Date(month.y, month.m, 1, 12)
   const daysInMonth = new Date(month.y, month.m + 1, 0).getDate()
-  const firstKey = dayKey(first)
+  const firstKey = `${month.y}-${String(month.m + 1).padStart(2, '0')}-01`
   const weekCount = Math.ceil((first.getDay() + daysInMonth) / 7)
   const thisWeek = addDays(today, -dateOf(today).getDay())
   const weeks = Array.from({ length: weekCount }, (_, w) => {
@@ -177,7 +177,7 @@ export function PeriodCard({ stats, today }: { stats: DailyStat[]; today: string
         </Segmented>
       }
     >
-      <PeriodChart stats={stats} today={today} days={days} />
+      <PeriodChart key={days} stats={stats} today={today} days={days} />
     </Card>
   )
 }

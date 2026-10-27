@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { CheckCircle, WarningCircle, X } from '../../components/icons'
 import { alertPopupText } from './alertPopup'
 import { desktopBridge } from './bridge'
 

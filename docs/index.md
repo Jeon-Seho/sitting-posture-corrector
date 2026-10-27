@@ -2,6 +2,8 @@
 
 ## 현재 상태와 작업
 
+- [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
+
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.3 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/api-ws-spec.md), [ADR 0025](decisions/0025-app-always-measures-on-server.md)). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
@@ -31,7 +33,7 @@
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
 - **BE 브랜치와 합치기:** [계획 0029](plans/active/0029-merge-backend-data-platform.md). 10/15 PR #48, 10/21 PR #60으로 FE를 develop에 넣었다. 10/21 FE V3가 BE 브랜치를 받았다. 남은 것은 BE 브랜치가 develop에 들어오는 것.
 - **작은 카메라 창·서버 로그인만:** [계획 0054](plans/active/0054-pip-fix-and-server-only-login.md)(10/22): 자동 PiP가 안 열리는 문제를 먼저 고치고, 그다음 시험 전용 로컬 로그인을 지워 서버 로그인만 남긴다. 10/26: 카메라만으로는 Chrome이 자동 PiP를 열지 않아 웹 작은 창을 지우고 숨은 탭 측정을 고쳤다(ADR 0028). 로그인 정리는 남음.
-- **데스크톱 작은 카메라 창:** [계획 0055](plans/active/0055-desktop-camera-window.md)(10/26): PoseGood 창이 가려지거나 최소화되면 작은 창이 저절로 보이고, 앞으로 오면 숨는다.
+- **데스크톱 작은 카메라 창:** [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64, 10/26): 주소 없는 Electron 창, 접기·앱으로 돌아가기. V3의 [계획 0055](plans/active/0055-desktop-camera-window.md)는 10/27 이것으로 바꿈
 - **카메라 여러 대:** [내장 + USB 카메라](plans/active/0053-multiple-cameras.md)(0053, 10/16: 측정하기에서 메인 카메라 선택, 기준 자세는 카메라와 상관없이 하나, 쓰던 카메라가 빠지면 측정 종료·저장. 10/21부터 기준 자세는 서버(B1·B2)에 있고, 앱이 닫힌 측정은 서버가 저장한다. 남은 것: 외장 자동 우선, 꽂으면 알림, 640×480 아니면 시작 안 함).
 - **`make check` 실패:** [원인과 고칠 것](plans/active/0030-make-check-failures.md)(0030, 빌드 도구와 무관). 빌드는 BE 설정(Gradle Wrapper)을 따른다.
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
@@ -40,6 +42,12 @@
 - **지운 문서:** 끝났거나 다른 문서와 겹친 문서는 지우고 [지운 문서 기록](removed-docs.md)에 이유·간 곳·되살리는 법을 남겼다. 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.
 
 ## 질문별 진입점
+
+- [포레스트 테마·KST 날짜별 기록 적용](plans/active/0058-forest-theme-and-kst-day-records.md), [날짜별 보관 결정](decisions/0031-kst-daily-measurement-parts.md): 최종 밝은 정보 영역·고유 자산·자정 관측 분리와 검증.
+
+- [색상·레이아웃 재디자인 판단(2026-10-26)](audits/2026-10-26-visual-design-review.md): 실제 주요 화면 관찰, 브랜드 유지 범위, 배치·상태색 개선안.
+
+- [앱·웹 PiP와 사용자 흐름 검토(2026-10-26)](audits/2026-10-26-pip-design-review.md): Chrome 출처 표시 제약, 현행 작은 창 문제, 정상 경로 조작 수와 재디자인 우선순위.
 
 | 질문 | 기준 문서 |
 | --- | --- |
@@ -57,6 +65,10 @@
 | 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |
 
 ## 이력과 근거
+
+- [구간별 UI 검수(2026-10-26)](audits/2026-10-26-section-ui-review.md): 회원가입·측정·중단·종료·기록·설정·오류/작은 창의 배치와 대비 보정.
+
+- [글자·여백 조사와 적용(2026-10-26)](audits/2026-10-26-typography-spacing-review.md): Fluent·Atlassian 공식 기준, 원형 지표의 안쪽 여백, 공통 글자 크기·행간·간격.
 
 [완료 계획 폴더](plans/completed/)는 완료 문서의 보관 위치다. 삭제된 개인 파일럿(0019)·카메라 창(0018)·계정·Compose(0017) 문서의 정리 내역은 [지운 문서 목록](removed-docs.md)에서 확인한다. 이 목록은 원문의 구현 범위·검증 결과를 대신하지 않는다.
 [현재 DB V2.3 연동 결정](decisions/0022-db-v23-feature-v2-integration.md)을 우선 참고한다.

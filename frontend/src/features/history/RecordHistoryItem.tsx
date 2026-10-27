@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { CaretDown, Clock } from '@phosphor-icons/react'
+import { CaretDown, Clock } from '../../components/icons'
 import { RECORD_SOURCE_LABEL, recordSource } from '../../lib/comparison'
 import { kstDay, kstTime } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
@@ -38,11 +38,11 @@ export function RecordHistoryItem({ record, sessionNumber }: { record: RecordIte
         <div className="service-record-text">
           <strong>{date}</strong>
           <span data-tip={RECORD_SOURCE_LABEL[recordSource(record)]}>
-            {formatDuration(record.valid)} 측정 · 자세 경고 {record.events.length}번
+            {formatDuration(record.valid)} 측정 · 자세 경고 {record.dayPartition?.eventCount ?? record.events.length}번
             {record.server && !record.server.confirmed && ' · 서버 종료 미확인'}
           </span>
         </div>
-        <RateRing rate={rate} size={46} />
+        <RateRing rate={rate} size={56} />
         <button
           type="button"
           className="btn btn-icon btn-sm history-detail-button"

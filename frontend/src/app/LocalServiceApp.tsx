@@ -39,8 +39,10 @@ import type { Rules } from '../lib/engine'
 import { StorageNotice } from './StorageNotice'
 import { CAMERA_PAGES, type Page } from './navigation'
 import { SignupPostureStep } from '../features/auth/SignupPostureStep'
+import { MailAccessPage } from '../features/auth/MailAccessPage'
+import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 
-type AuthView = 'login' | 'consent' | 'account' | 'posture'
+type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
 
 /**
  * The app always signs in on the account server `/v2/auth` (D-66; no switch since 2026-10-22,
@@ -67,7 +69,22 @@ export function LocalServiceApp({
 }) {
   const [collectionEntry, setCollectionEntry] = useState(() => window.location?.hash === '#collection')
   const [authed, setAuthed] = useState(false)
-  const [authView, setAuthView] = useState<AuthView>('login')
+  const [authView, setAuthView] = useState<AuthView>(() => mailRoute(window.location?.hash ?? '') ? 'mail' : 'login')
+  const [mailPurpose, setMailPurpose] = useState<MailPurpose>('reset')
+  const [mailReturn, setMailReturn] = useState<AuthView>('login')
+  const [mailEntry, setMailEntry] = useState(0)
+  useEffect(() => {
+    const receiveMailLink = () => {
+      const route = mailRoute(window.location.hash)
+      if (!route || authed) return
+      setMailPurpose(route.purpose)
+      setMailReturn('login')
+      setMailEntry(v => v + 1)
+      setAuthView('mail')
+    }
+    window.addEventListener('hashchange', receiveMailLink)
+    return () => window.removeEventListener('hashchange', receiveMailLink)
+  }, [authed])
   const [account, setAccount] = useState<LocalAccount | null>(storedAccount)
   const [email, setEmail] = useState(() => account?.email ?? '')
   const [password, setPassword] = useState('')
@@ -385,6 +402,10 @@ export function LocalServiceApp({
     </p>
   )
 
+  if (!authed && authView === 'mail') {
+    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)} />
+  }
+
   if (!authed && authView === 'consent') {
     return (
       <LoginPage
@@ -436,6 +457,7 @@ export function LocalServiceApp({
           <>
             {storageNotice}
             {errorLine}
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>
             <button type="button" className="btn btn-quiet" onClick={() => openAuth('consent')}>
               이전
             </button>
@@ -486,6 +508,7 @@ export function LocalServiceApp({
         onSubmit={login}
         footer={
           <>
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 재설정</button>
             <button type="button" className="btn btn-quiet" onClick={() => {
               setConsents({})
               openAuth('consent')

@@ -2,6 +2,7 @@ import { periodStats } from '../../lib/comparison'
 import { localDay } from '../../lib/history'
 import { addDayKey } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
+import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
  * Where the records screen gets its numbers (2026-10-13 records redesign). Shapes follow
@@ -38,7 +39,7 @@ export function dateOf(day: string): Date {
 
 /** Sessions that started on `day`, newest first (API order). */
 export function sessionsOn(records: RecordItem[], day: string): RecordItem[] {
-  return records
+  return recordsByDay(records)
     .filter((r) => localDay(r.startedAt) === day)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 }
@@ -46,7 +47,7 @@ export function sessionsOn(records: RecordItem[], day: string): RecordItem[] {
 /** One row per day in [from, to] that has at least one session. */
 export function dailyStats(records: RecordItem[], from: string, to: string): DailyStat[] {
   const byDay = new Map<string, RecordItem[]>()
-  for (const r of records) {
+  for (const r of recordsByDay(records)) {
     const day = localDay(r.startedAt)
     if (day < from || day > to) continue
     byDay.set(day, [...(byDay.get(day) ?? []), r])

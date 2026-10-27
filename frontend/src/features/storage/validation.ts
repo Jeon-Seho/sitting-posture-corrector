@@ -2,6 +2,7 @@ import type { CollapseEvent, Rules } from '../../lib/engine'
 import { KEYS, type LocalAccount, type Profile, type RecordItem } from './types'
 import { validSessionView, validUuid } from '../session/server/validation'
 import { sameSnapshot, serverRecordEvents } from './serverSnapshots'
+import { DAY_MS, kstDay, kstDayStart } from '../../lib/kstDay'
 
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -136,6 +137,8 @@ export function validRecord(v: unknown): v is RecordItem {
     ) &&
     v.events.every((e) => e.endAt !== null) &&
     (v.rules === undefined || validRules(v.rules)) &&
+    v.dayPartition === undefined &&
+    (v.days === undefined || validDaily(v.days, v.startedAt, v.total, v.valid, v.good)) &&
     (v.server === undefined || validServerRecord(v))
   )
 }
@@ -173,4 +176,26 @@ export function validLocal(key: string, value: unknown) {
   if (key === KEYS.demo) return typeof value === 'boolean'
   if (key === KEYS.account) return validAccount(value)
   return false
+}
+
+function validDaily(value: unknown, startedAt: string, total: number, valid: number, good: number): boolean {
+  if (!Array.isArray(value)) return false
+  let elapsed = 0, measured = 0, normal = 0
+  const dates = new Set<string>(), events = new Set<number>()
+  for (const row of value) {
+    if (!object(row) || typeof row.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) ||
+      !['from', 'to', 'total', 'valid', 'good'].every(key => nonnegative(row[key])) ||
+      !integer(row.alerts) || !Array.isArray(row.eventIds) || !row.eventIds.every(integer) || !object(row.eventAlerts) ||
+      !Object.entries(row.eventAlerts).every(([id, count]) => /^[1-9]\d*$/.test(id) && integer(count)) ||
+      Object.values(row.eventAlerts).reduce((n: number, count) => n + (count as number), 0) !== row.alerts) return false
+    const from = row.from as number, to = row.to as number
+    if (!Number.isFinite(new Date(Date.parse(startedAt) + to * 1000).getTime())) return false
+    if (!near(from, elapsed) || to < from || !near(row.total as number, to - from) ||
+      (row.good as number) > (row.valid as number) + 1e-5 || (row.valid as number) > (row.total as number) + 1e-5 ||
+      row.date !== kstDay(Date.parse(startedAt) + from * 1000 + 0.001) ||
+      Date.parse(startedAt) + to * 1000 > kstDayStart(row.date) + DAY_MS + 0.002 || dates.has(row.date)) return false
+    for (const id of row.eventIds) { if (id < 1 || events.has(id)) return false; events.add(id) }
+    dates.add(row.date); elapsed = to; measured += row.valid as number; normal += row.good as number
+  }
+  return near(elapsed, total) && near(measured, valid) && near(normal, good)
 }

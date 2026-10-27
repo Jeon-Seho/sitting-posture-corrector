@@ -2,6 +2,7 @@ import type { RecordItem } from './serviceStore'
 import type { Rules } from './engine'
 import { addDayKey, kstDay } from './kst'
 import { collapseIntervals, mean, ratio } from './stats'
+import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 /**
  * 실제 기록의 전후 비교. 초기 구간은 첫 측정일부터, 최근 구간은 오늘까지의 같은 길이다.
@@ -158,8 +159,8 @@ export function comparisonRecordGroups(
   comparison: Extract<Comparison, { status: 'ready' | 'short' }>,
 ) {
   const within = (period: PeriodStats) =>
-    records.filter((record) => {
-      const day = kstDay(record.startedAt)
+    recordsByDay(records).filter((record) => {
+      const day = record.dayPartition?.date ?? kstDay(record.startedAt)
       return day >= period.from && day <= period.to
     })
   return { early: within(comparison.early), recent: within(comparison.recent) }
@@ -177,7 +178,7 @@ export function periodStats(records: RecordItem[], from: string, to: string): Pe
   const good = records.reduce((n, r) => n + r.good, 0)
   const events = records.flatMap((r) => r.events)
   // 발생 간격은 같은 세션 안의 연속 사건 사이만 잰다. 세션 사이의 공백은 간격이 아니다.
-  const intervals = records.flatMap((r) => collapseIntervals(r.events))
+  const intervals = records.flatMap((r) => collapseIntervals(r.events.filter(e => !e.carried)))
   const recoveries = events.flatMap((e) => (e.recoverySec === null ? [] : [e.recoverySec]))
   return {
     from,
@@ -185,10 +186,10 @@ export function periodStats(records: RecordItem[], from: string, to: string): Pe
     sessions: records.length,
     valid,
     good,
-    events: events.length,
-    alerts: events.reduce((n, e) => n + e.alerts, 0),
+    events: records.reduce((n, r) => n + (r.dayPartition?.eventCount ?? r.events.length), 0),
+    alerts: records.reduce((n, r) => n + (r.dayPartition?.alerts ?? r.events.reduce((sum, e) => sum + e.alerts, 0)), 0),
     keepRate: ratio(good, valid),
-    perHour: valid > 0 ? events.length / (valid / 3600) : null,
+    perHour: valid > 0 ? records.reduce((n, r) => n + (r.dayPartition?.eventCount ?? r.events.length), 0) / (valid / 3600) : null,
     meanInterval: mean(intervals),
     meanRecovery: mean(recoveries),
   }
@@ -199,8 +200,9 @@ export function compareFirstAndRecent(
   now = new Date(),
   rules = COMPARE_RULES,
 ): Comparison {
+  records = recordsByDay(records)
   if (records.length === 0) return { status: 'empty' }
-  const first = records.map((r) => kstDay(r.startedAt)).sort()[0]
+  const first = records.map((r) => r.dayPartition?.date ?? kstDay(r.startedAt)).sort()[0]
   const earlyEnd = addDayKey(first, rules.days - 1)
   const today = kstDay(now)
   const recentStart = addDayKey(today, -(rules.days - 1))
@@ -211,7 +213,7 @@ export function compareFirstAndRecent(
   }
   const within = (from: string, to: string) =>
     records.filter((r) => {
-      const d = kstDay(r.startedAt)
+      const d = r.dayPartition?.date ?? kstDay(r.startedAt)
       return d >= from && d <= to
     })
   const early = periodStats(within(first, earlyEnd), first, earlyEnd)

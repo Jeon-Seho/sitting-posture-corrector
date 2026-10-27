@@ -1,4 +1,4 @@
-import { CalendarDots } from '@phosphor-icons/react'
+import { CalendarDots } from '../../components/icons'
 import type { RecordItem } from '../../lib/serviceStore'
 import { DayRecord } from './DayRecord'
 import { RecordModeChips, useRecordMode } from './recordMode'
@@ -32,15 +32,15 @@ export function LocalHistory({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">기록</h1>
+          <h1 className="page-title">오늘</h1>
           <p className="page-desc">
-            {example ? '발표용 예시 기록 · 실제 측정 기록이 아니에요' : `${label}오늘 측정한 기록 · 이 기기에 저장된 기록`}
+            {example ? '발표용 예시 기록 · 실제 측정 기록이 아니에요' : `${label}${today} · 오늘의 측정`}
           </p>
         </div>
         {onCalendar && (
           <button className="btn btn-sm" onClick={onCalendar}>
             <CalendarDots size={16} weight="bold" className="icon" />
-            지난 기록은 달력에서
+            지난 기록 보기
           </button>
         )}
       </div>

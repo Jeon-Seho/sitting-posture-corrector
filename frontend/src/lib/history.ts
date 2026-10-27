@@ -1,5 +1,6 @@
 import { addDayKey, kstDay } from './kst'
 import { summary, type RecordItem } from './serviceStore'
+import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 export type Period = 'today' | 'week' | 'month' | 'all'
 export type HistoryMode = RecordItem['mode'] | 'all'
@@ -16,16 +17,17 @@ export function historyFor(
   today: string,
 ) {
   const from = addDayKey(today, period === 'week' ? -6 : period === 'month' ? -29 : 0)
-  return records.filter((r) => {
+  // A measurement over KST midnight is shown as one part per day (PR #64, plan 0055).
+  return recordsByDay(records).filter((r) => {
     if (mode !== 'all' && r.mode !== mode) return false
-    const day = kstDay(r.startedAt)
+    const day = r.dayPartition?.date ?? kstDay(r.startedAt)
     return period === 'all' || (day >= from && day <= today)
   })
 }
 export function dailyHistory(records: RecordItem[]) {
   const groups = new Map<string, RecordItem[]>()
-  for (const record of records) {
-    const date = localDay(record.startedAt)
+  for (const record of recordsByDay(records)) {
+    const date = record.dayPartition?.date ?? localDay(record.startedAt)
     groups.set(date, [...(groups.get(date) ?? []), record])
   }
   return [...groups]

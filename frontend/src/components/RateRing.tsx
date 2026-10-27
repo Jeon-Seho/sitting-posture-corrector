@@ -10,7 +10,7 @@ export function RateRing({ rate, size = 60 }: { rate: number | null; size?: numb
     <Ring
       value={rate}
       size={size}
-      stroke={Math.round(size / 8)}
+      stroke={Math.round(size / 7)}
       color={percent !== null && percent < GOOD_RATE * 100 ? 'var(--alert-soft)' : undefined}
       label={percent === null ? '측정한 시간 없음' : `바른 자세 ${percent}%`}
     >

@@ -1,4 +1,4 @@
-import { CalendarDots, ChartBar, GearSix, Pulse, type Icon } from '@phosphor-icons/react'
+import { CalendarDots, ChartBar, GearSix, Pulse, type Icon } from '../components/icons'
 
 /** Internal routes. Several routes share one sidebar tab (see NAV_TABS). */
 export type Page =
@@ -22,8 +22,8 @@ export type Tab = 'measure' | 'records' | 'calendar' | 'settings'
  */
 export const NAV_TABS: { tab: Tab; label: string; icon: Icon }[] = [
   { tab: 'measure', label: '측정하기', icon: Pulse },
-  { tab: 'records', label: '기록', icon: ChartBar },
-  { tab: 'calendar', label: '달력', icon: CalendarDots },
+  { tab: 'records', label: '오늘', icon: ChartBar },
+  { tab: 'calendar', label: '기록', icon: CalendarDots },
   { tab: 'settings', label: '설정', icon: GearSix },
 ]
 
