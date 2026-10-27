@@ -63,7 +63,7 @@
       "$ref": "../session-view.v1.schema.json#/properties/summary"
     },
     "hello": {
-      "description": "app -> server, first message. measure: after PUT /v2/sessions/{id} succeeded (200, or 201 in the BE spec draft). calibration: a new calibration_id per registration.",
+      "description": "app -> server, first message. measure: after PUT /v2/sessions/{id} succeeded (200, or 201 in the BE spec draft). calibration: a new calibration_id per registration. access_token: the login access token (JWT) from login/refresh (ADR 0031); checked once, so it may expire during the connection.",
       "type": "object",
       "oneOf": [
         {
@@ -72,7 +72,8 @@
             "type",
             "schema_version",
             "purpose",
-            "session_id"
+            "session_id",
+            "access_token"
           ],
           "properties": {
             "type": {
@@ -86,6 +87,11 @@
             },
             "session_id": {
               "$ref": "#/$defs/uuid"
+            },
+            "access_token": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
             }
           }
         },
@@ -95,7 +101,8 @@
             "type",
             "schema_version",
             "purpose",
-            "calibration_id"
+            "calibration_id",
+            "access_token"
           ],
           "properties": {
             "type": {
@@ -109,6 +116,11 @@
             },
             "calibration_id": {
               "$ref": "#/$defs/uuid"
+            },
+            "access_token": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
             }
           }
         }

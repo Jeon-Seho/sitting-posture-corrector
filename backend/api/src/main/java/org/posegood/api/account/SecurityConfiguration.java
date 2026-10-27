@@ -1,30 +1,41 @@
 package org.posegood.api.account;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 
-import java.time.Clock;
-import java.time.Duration;
+import java.util.Set;
 
 /**
- * 보안 설정: 비밀번호 해시(BCrypt), 공개 경로, CSRF, 401·403 JSON 응답, 로그인 고정 만료({@link LoginLifetime}).
+ * 보안 설정(ADR 0031): 비밀번호 해시(BCrypt), 공개 경로, access 토큰(JWT, {@code Authorization: Bearer}) 확인,
+ * 401·403 JSON 응답.
  *
- * 로그인 세션은 DB(`SPRING_SESSION`)에 둔다. {@code /v2/realtime}은 HTTP 단계에서 열어 둔다.
- * 로그인이 없으면 연결 실패 대신 hello 응답 {@code closed: unauthorized}로 알려 앱이 계속 재시도하지 않게 한다.
+ * 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음). 로그인 유지는 refresh 토큰 쿠키로 {@code /v2/auth/refresh}에서만
+ * 한다({@link AuthTokens}). {@code /v2/realtime}은 HTTP 단계에서 열어 두고 hello의 {@code access_token}으로 확인한다.
+ * 로그인이 없으면 연결 실패 대신 {@code closed: unauthorized}로 알려 앱이 계속 재시도하지 않게 한다.
  */
 @Configuration
 public class SecurityConfiguration {
+    /** 로그인 없이 부르는 경로. 여기에는 access 토큰이 붙어 와도 보지 않는다(만료된 토큰으로 로그인·갱신을 막지 않게). */
+    static final Set<String> PUBLIC =
+            Set.of(
+                    "/health",
+                    "/v2/auth/register",
+                    "/v2/auth/login",
+                    "/v2/auth/refresh",
+                    "/v2/auth/logout",
+                    "/v2/realtime");
+
     @Bean
     PasswordEncoder passwords() {
         return new BCryptPasswordEncoder(12);
@@ -35,65 +46,37 @@ public class SecurityConfiguration {
         return new ProviderManager(provider);
     }
 
+    /** 요청 보안 규칙: 공개 경로 외에는 유효한 access 토큰이 필요하다. */
     @Bean
-    HttpSessionSecurityContextRepository contexts() {
-        return new HttpSessionSecurityContextRepository();
-    }
-
-    @Bean
-    HttpSessionCsrfTokenRepository csrfTokens() {
-        var repository = new HttpSessionCsrfTokenRepository();
-        repository.setHeaderName("X-CSRF-TOKEN");
-        return repository;
-    }
-
-    /** 요청 보안 규칙: 공개 경로 외에는 로그인 필요, 상태를 바꾸는 요청은 CSRF 검사. */
-    @Bean
-    SecurityFilterChain accounts(
-            HttpSecurity http,
-            HttpSessionSecurityContextRepository contexts,
-            HttpSessionCsrfTokenRepository tokens,
-            @Value("${posegood.login-lifetime}") Duration loginLifetime)
-            throws Exception {
-        return http.securityContext(
-                        context -> context.securityContextRepository(contexts).requireExplicitSave(true))
-                .csrf(
-                        csrf ->
-                                csrf.csrfTokenRepository(tokens)
-                                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+    SecurityFilterChain accounts(HttpSecurity http, AuthTokens tokens) throws Exception {
+        AuthenticationEntryPoint unauthenticated =
+                (request, response, error) -> json(response, 401, "UNAUTHENTICATED", "authentication required");
+        return http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(
-                        auth ->
-                                auth.requestMatchers(
-                                                "/health",
-                                                "/v2/auth/csrf",
-                                                "/v2/auth/register",
-                                                "/v2/auth/login",
-                                                "/v2/realtime")
-                                        .permitAll()
-                                        .anyRequest()
-                                        .authenticated())
+                        auth -> auth.requestMatchers(PUBLIC.toArray(String[]::new)).permitAll().anyRequest().authenticated())
+                .oauth2ResourceServer(
+                        resource ->
+                                resource.bearerTokenResolver(bearerTokens())
+                                        .authenticationEntryPoint(unauthenticated)
+                                        .jwt(jwt -> jwt.decoder(tokens.decoder())
+                                                .jwtAuthenticationConverter(AuthTokens::authentication)))
                 .exceptionHandling(
                         errors ->
-                                errors.authenticationEntryPoint(
-                                                (request, response, error) ->
-                                                        json(
-                                                                response,
-                                                                401,
-                                                                "UNAUTHENTICATED",
-                                                                "authentication required"))
+                                errors.authenticationEntryPoint(unauthenticated)
                                         .accessDeniedHandler(
                                                 (request, response, error) ->
-                                                        json(
-                                                                response,
-                                                                403,
-                                                                "ACCESS_DENIED",
-                                                                "CSRF or access denied")))
-                .addFilterBefore(new LoginLifetime(loginLifetime, Clock.systemUTC()), AnonymousAuthenticationFilter.class)
+                                                        json(response, 403, "ACCESS_DENIED", "access denied")))
                 .addFilterAfter(new IdentityGuard(), AnonymousAuthenticationFilter.class)
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .build();
+    }
+
+    private static BearerTokenResolver bearerTokens() {
+        var header = new DefaultBearerTokenResolver();
+        return request -> PUBLIC.contains(request.getRequestURI()) ? null : header.resolve(request);
     }
 
     private static void json(

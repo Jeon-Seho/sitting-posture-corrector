@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -26,6 +27,8 @@ import jakarta.validation.Validation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.posegood.api.account.AccountService;
+import org.posegood.api.account.AuthTokens;
 import org.posegood.api.account.CurrentUser;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.Json;
@@ -36,7 +39,7 @@ import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.session.FrameFeatures;
 import org.posegood.api.session.SessionService;
 import org.posegood.api.session.SessionUpdates;
-import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -100,7 +103,12 @@ class RealtimeHandlerV2Test {
     private RealtimeHandlerV2 handler(Duration hello) {
         var current = mock(CurrentUser.class);
         when(current.id(any(Authentication.class))).thenReturn(OWNER);
-        return new RealtimeHandlerV2(sessions, current, new Json(MAPPER),
+        // 예시 hello의 access_token만 유효하다(ADR 0031). 그 밖의 토큰은 401.
+        var tokens = mock(AuthTokens.class);
+        when(tokens.authenticate(any())).thenThrow(new ApiError(401, "UNAUTHENTICATED", "authentication required"));
+        doReturn(UsernamePasswordAuthenticationToken.authenticated("synthetic", null, java.util.List.of()))
+                .when(tokens).authenticate("synthetic-access-token");
+        return new RealtimeHandlerV2(sessions, current, tokens, new Json(MAPPER),
                 Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5));
     }
 
@@ -255,10 +263,8 @@ class RealtimeHandlerV2Test {
         send(other, example("ws-hello-measure.json"));
         assertEquals("not_owner", other.only("closed").get("reason").asString());
 
-        var anonymous = new Fake("anonymous", handler);
-        when(anonymous.socket.getPrincipal()).thenReturn(null);
-        handler.afterConnectionEstablished(anonymous.socket);
-        send(anonymous, example("ws-hello-calibration.json"));
+        var anonymous = connect(handler);
+        send(anonymous, example("ws-hello-calibration.json").put("access_token", "expired-access-token"));
         assertEquals("unauthorized", anonymous.only("closed").get("reason").asString());
         // 받아들여지지 않은 연결이 끊겨도 세션을 끝내지 않는다.
         verify(sessions, never()).finish(anyLong(), any(), any());
@@ -305,6 +311,16 @@ class RealtimeHandlerV2Test {
         assertEquals("unmeasurable_timeout", closed.get("reason").asString());
         assertEquals(STARTED.plusMillis(SUMMARY.totalMs()), Instant.parse(closed.get("ended_at").asString()));
         verify(sessions, never()).finish(eq(OWNER), eq(SESSION), any());
+    }
+
+    @Test
+    void removedLoginsCloseOnlyThatUsersConnections() throws Exception {
+        // 측정 중에는 토큰을 다시 확인하지 않는다. 비밀번호 변경·탈퇴만 hello 때 정한 사용자로 찾아 바로 닫는다.
+        var fake = measuring();
+        handler.loginsRemoved(new AccountService.LoginsRemoved(OWNER + 1));
+        assertFalse(fake.closed.get());
+        handler.loginsRemoved(new AccountService.LoginsRemoved(OWNER));
+        assertEquals("unauthorized", fake.only("closed").get("reason").asString());
     }
 
     @Test
@@ -357,7 +373,6 @@ class RealtimeHandlerV2Test {
         /** 닫으면 실제 컨테이너처럼 {@code afterConnectionClosed}가 불린다. */
         Fake(String id, RealtimeHandlerV2 owner) throws Exception {
             when(socket.getId()).thenReturn(id);
-            when(socket.getPrincipal()).thenReturn(new TestingAuthenticationToken("synthetic", "x", "ROLE_USER"));
             when(socket.isOpen()).thenAnswer(call -> !closed.get());
             doAnswer(call -> {
                         WebSocketMessage<?> message = call.getArgument(0);
