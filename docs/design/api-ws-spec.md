@@ -206,7 +206,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 연결 중 | 서버에 연결하고 있어요 | S1 응답 전·`ready` 전 |
 | 바른 자세 | 바른 자세예요 | `observation.valid: true`, 열린 사건 없음 |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
-| 판정 불가 | 자세를 확인할 수 없어요 | `observation.valid: false` |
+| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `valid: false`·`p: null`)는 서버를 기다리지 않고 바로(10/27, `LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
 | 영상 기다림 | 카메라 영상을 기다리고 있어요 | 앱의 `away` |
 | 분석 멈춤 | 연결 상태 칸에 안내 | `stalled` |

@@ -28,6 +28,12 @@ export type LiveState = {
   /** What the app sends while not running: the user's pause or camera input that stopped. */
   sending: FramePhase
   observation: LiveObservation | null
+  /**
+   * The app's own verdict on the latest frame (ADR 0021 10/12 exception): false while it cannot
+   * tell where the user is (a shoulder out of view, nobody tracked). The screen hides the score at
+   * once instead of waiting for the server's `observation.valid` (10/27).
+   */
+  placeable: boolean
   summary: Summary
   events: Decision[]
   /** The last interval the server reported on (`progress`, S4); -1 before any. */
@@ -128,6 +134,7 @@ export class LiveSession {
     phase: 'creating',
     sending: 'running',
     observation: null,
+    placeable: true,
     summary: EMPTY_SUMMARY,
     events: [],
     lastSequence: -1,
@@ -330,6 +337,8 @@ export class LiveSession {
    */
   ingest(timeMs: number, landmarks: Landmark[], judgeable: boolean) {
     if (!this.sendingNow()) return
+    const placeable = judgeable && landmarks.length > 0
+    if (placeable !== this.state.placeable) this.set({ placeable })
     this.sendAll(this.batcher!.push({ timeMs, landmarks, judgeable }))
   }
 

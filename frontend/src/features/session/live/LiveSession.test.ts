@@ -312,6 +312,18 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(signedOut.state).toMatchObject({ phase: 'failed', message: '로그인이 만료됐어요. 다시 로그인해 주세요.' })
   })
 
+  it('knows its own 「판정 불가」 at once, without waiting for the server (10/27)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    expect(live.state.placeable).toBe(true)
+    live.ingest(now + 100, points, false)
+    expect(live.state.placeable).toBe(false)
+    live.ingest(now + 200, [], true)
+    expect(live.state.placeable).toBe(false)
+    live.ingest(now + 300, points, true)
+    expect(live.state.placeable).toBe(true)
+  })
+
   it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
     const reasons: [string, boolean, string][] = [
       ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],

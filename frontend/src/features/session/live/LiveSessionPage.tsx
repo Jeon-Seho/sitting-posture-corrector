@@ -26,7 +26,7 @@ function headline(state: LiveState | null, phase: string) {
   if (phase === 'ending') return '측정을 마무리하고 있어요'
   if (phase === 'failed') return '측정을 시작하지 못했어요'
   if (phase === 'paused') return state.sending === 'away' ? '카메라 영상을 기다리고 있어요' : '쉬는 중'
-  if (!state.observation?.valid) return '자세를 확인할 수 없어요'
+  if (!state.placeable || !state.observation?.valid) return '자세를 확인할 수 없어요'
   return state.alerting ? '자세가 흐트러졌어요' : '바른 자세예요'
 }
 
@@ -41,7 +41,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const { state, phase } = screen
   const summary = state?.summary
   const running = phase === 'running'
-  const measurable = running && !!state?.observation?.valid
+  // The app's own 「판정 불가」 shows at once; the server's `valid` covers what only it can tell (head turn, quality).
+  const measurable = running && !!state?.placeable && !!state?.observation?.valid
   const score = postureScore(measurable ? state!.observation!.collapse_probability : null)
   const label = headline(state, phase)
   const tone = !measurable ? 'unknown' : state!.alerting ? 'collapse' : 'good'
@@ -200,7 +201,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
                     <div className="nudge-title">{!measurable ? '자세를 확인할 수 없어요' : '자세를 살짝 고쳐볼까요?'}</div>
                     <div className="nudge-desc">
                       {!measurable
-                        ? state?.observation?.invalid_reason === 'head_turn'
+                        ? state?.placeable && state?.observation?.invalid_reason === 'head_turn'
                           ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.'
                           : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.'
                         : '바른 자세로 돌아오면 사라져요.'}

@@ -40,6 +40,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     phase: 'ended',
     sending: 'running',
     observation: null,
+    placeable: true,
     summary: { ...EMPTY_SUMMARY, total_ms: 1000, valid_ms: 1000, normal_ms: 1000, keep_rate: 1, events_per_hour: 0 },
     events: [],
     lastSequence: 1,

@@ -153,7 +153,7 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
     : phase === 'running'
       ? state?.alerting
         ? 'alert'
-        : state?.observation?.valid
+        : state?.placeable && state?.observation?.valid
           ? 'good'
           : 'unknown'
       : phase === 'paused'
