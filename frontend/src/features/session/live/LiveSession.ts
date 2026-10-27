@@ -1,5 +1,6 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 import { apiRequest, ApiError, type ApiErrorKind, type ApiOptions } from '../../platform/api'
+import { getServerAuth } from '../../platform/serverAuth'
 import { noteServerTime } from '../../platform/serverClock'
 import { SERVER } from '../../platform/serverConfig'
 import { FrameBatcher, type FrameBatch, type FramePhase } from '../realtime/frames'
@@ -108,10 +109,12 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
 }
 /**
  * Closed while measuring (after `ready`): the server still stored up to the last interval (BE
- * 10/27), so the record is kept like a lost connection. Before `ready` these stay failures.
+ * 10/27), so the record is kept like a lost connection. Before `ready` these stay failures. With the
+ * token login the connection is signed in once at `hello`, so `unauthorized` while measuring means a
+ * password change or withdrawal (BE ADR 0031), not an expired login.
  */
 const CLOSED_WHILE_MEASURING: Record<string, { message: string; failed: boolean; lost?: boolean }> = {
-  unauthorized: { message: '로그인이 만료돼 측정을 마쳤어요. 그때까지 저장됐어요. 다시 로그인해 주세요.', failed: false, lost: true },
+  unauthorized: { message: '비밀번호 변경이나 탈퇴로 로그인이 끝나 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
   bad_message: { message: '측정을 이어갈 수 없어 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
 }
 const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.'
@@ -215,6 +218,18 @@ export class LiveSession {
     this.origin = this.now()
     this.batcher = new FrameBatcher(this.origin, this.state.sending)
     this.set({ phase: 'connecting' })
+    // `hello` signs the connection in once with the access token (BE ADR 0031); S1 just renewed
+    // it if it was about to end, so this is normally the token in memory.
+    let accessToken: string
+    try {
+      const auth = getServerAuth()
+      if (!auth) throw new ApiError('signed_out', MESSAGES.signed_out)
+      accessToken = await auth.accessToken()
+    } catch {
+      this.finish({ phase: 'failed', message: getServerAuth() ? MESSAGES.network : MESSAGES.signed_out })
+      return
+    }
+    if (this.disposed || this.over()) return
     let socket: SocketLike
     try {
       socket = (this.options.openSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike))(realtimeUrl())
@@ -224,7 +239,15 @@ export class LiveSession {
     }
     this.socket = socket
     socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: sessionId }))
+      socket.send(
+        JSON.stringify({
+          type: 'hello',
+          schema_version: '2.0',
+          purpose: 'measure',
+          session_id: sessionId,
+          access_token: accessToken,
+        }),
+      )
     }
     socket.onmessage = (event) => {
       if (typeof event.data === 'string') this.receive(event.data)

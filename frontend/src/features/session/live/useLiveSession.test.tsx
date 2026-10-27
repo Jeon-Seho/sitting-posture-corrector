@@ -85,7 +85,7 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
         }),
       ),
     )
-    setServerAuth({ userId: '7', csrfToken: async () => 'csrf' })
+    setServerAuth({ userId: '7', accessToken: async () => 'access' })
   })
   afterEach(() => {
     act(() => renderer?.unmount())

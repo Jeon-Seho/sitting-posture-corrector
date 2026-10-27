@@ -49,7 +49,7 @@ export function installFakeBaselineServer(initial: Record<string, unknown> | nul
       return json(404, {})
     }),
   )
-  setServerAuth({ userId: FAKE_USER_ID, csrfToken: async () => 'fake-csrf' })
+  setServerAuth({ userId: FAKE_USER_ID, accessToken: async () => 'fake-token' })
   return server
 }
 

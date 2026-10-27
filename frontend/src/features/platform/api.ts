@@ -2,10 +2,11 @@ import { SERVER } from './serverConfig'
 import { getServerAuth } from './serverAuth'
 
 /**
- * One way to call the API (BE api-spec 1장): `/api` prefix, login cookie, `X-PoseGood-User-Id`,
- * `X-CSRF-TOKEN` on writes, 502·503 retried with the same body at 1·2·4 s at most 3 times
+ * One way to call the API (BE api-spec 1장): `/api` prefix, `Authorization: Bearer` access token,
+ * `X-PoseGood-User-Id`, 502·503 retried with the same body at 1·2·4 s at most 3 times
  * (api-ws-spec 1.1), 5 s timeout. `retryUnanswered` also retries a request that got no answer.
- * A stale CSRF token (403 `ACCESS_DENIED`) is replaced and the write sent once more (api-ws-spec 1장).
+ * A 401 renews the access token (A8) and sends the request once more — the backup for a renewal
+ * timer that ran late in a hidden tab or after sleep (api-ws-spec 1장 「로그인 유지」).
  */
 export type ApiErrorKind = 'signed_out' | 'invalid' | 'conflict' | 'not_found' | 'busy' | 'limit' | 'server' | 'network'
 
@@ -71,12 +72,11 @@ export async function apiRequest(
     if (!auth) throw new ApiError('signed_out', messages.signed_out)
     const headers: Record<string, string> = { 'X-PoseGood-User-Id': auth.userId }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
-    if (method !== 'GET') {
-      try {
-        headers['X-CSRF-TOKEN'] = await auth.csrfToken(freshToken)
-      } catch {
-        throw new ApiError('network', messages.network)
-      }
+    try {
+      headers.Authorization = `Bearer ${await auth.accessToken(freshToken)}`
+    } catch {
+      // The renewal itself said the login is over (the account client signs out), or no answer.
+      throw getServerAuth() ? new ApiError('network', messages.network) : new ApiError('signed_out', messages.signed_out)
     }
     const abort = new AbortController()
     const timer = setTimeout(() => abort.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
@@ -88,7 +88,7 @@ export async function apiRequest(
         body,
         signal: abort.signal,
         cache: 'no-store',
-        // The login cookie must also reach a separate API origin (docs/design/fe-deploy.md 3.2 A-2).
+        // Kept for the refresh cookie on a separate API origin (docs/design/fe-deploy.md 3.2 A-2).
         credentials: 'include',
       })
     } catch {
@@ -106,7 +106,7 @@ export async function apiRequest(
       continue
     }
     const error = (await response.json().catch(() => null)) as { code?: unknown } | null
-    if (response.status === 403 && error?.code === 'ACCESS_DENIED' && method !== 'GET' && !freshToken) {
+    if (response.status === 401 && !freshToken) {
       freshToken = true
       continue
     }

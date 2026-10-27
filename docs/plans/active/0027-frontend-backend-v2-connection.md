@@ -46,7 +46,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 2. 로그인·가입을 서버 계정에 연결 (`features/auth/`, `app/LocalServiceApp.tsx`)
 
-- [ ] API 클라이언트: `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
+- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
       로그인한 `user_id`를 `X-PoseGood-User-Id`에 붙인다. 401·403·`409 AUTH_CHANGED`·503 재시도를 처리한다.
       (`ce57f56:frontend/src/features/accounts/client.ts`의 `createAccountClient`를 옮긴다.)
 - [ ] `LocalServiceApp.login()`: 입력값을 확인하지 않는 로컬 로그인을 `POST /auth/login`으로 바꾼다. 앱 시작 때 `GET /auth/me`로 로그인 상태를 복원한다.
@@ -132,7 +132,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 **프론트 팀 확인·결정 요청**
 
 - [ ] 서버 판정 단계를 계정 로그인·기준 자세 등록(위 2·4·5)이 생긴 뒤 v2 흐름으로 고칠지, 그 전까지 `scenarios.mjs`에서 서버 판정 단계를 어떻게 다룰지 정한다.
-- [ ] `scenarios.mjs`의 직접 API 호출(`/api/v1/sessions/...`, 173·235행 부근)을 v2 경로와 로그인 쿠키·CSRF·`X-PoseGood-User-Id` 헤더로 바꾼다.
+- [ ] `scenarios.mjs`의 직접 API 호출(`/api/v1/sessions/...`, 173·235행 부근)을 v2 경로와 로그인 쿠키·CSRF·`X-PoseGood-User-Id` 헤더로 바꾼다(토큰 로그인 뒤에는 `Authorization: Bearer`·`X-PoseGood-User-Id`, CSRF 없음).
 - [ ] 계정 UI 시나리오(`accounts.mjs`)는 지금 `check-compose`에서만 쓴다. 새 가입 화면(`features/auth/`)의 선택자로 고치거나 `scenarios.mjs`로 합칠지 정한다.
 - [ ] 이 PC처럼 Docker·MySQL이 없는 환경에서 브라우저 검증을 어떻게 돌릴지 정한다(백엔드 담당과 협의).
 

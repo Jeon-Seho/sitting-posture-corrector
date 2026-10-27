@@ -21,13 +21,10 @@ export function createMailApi({ enabled = false, fetcher = fetch }: { enabled?: 
     const deadline = AbortSignal.timeout(15_000)
     const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
     try {
-      const csrf = await fetcher('/api/v2/auth/csrf', { credentials: 'same-origin', signal: requestSignal, cache: 'no-store' })
-      if (!csrf.ok) throw new MailApiError('UNAVAILABLE', '인증 서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.')
-      const data = await csrf.json()
-      if (typeof data.token !== 'string' || !data.token) throw new MailApiError('UNAVAILABLE', '인증 서버 응답을 확인할 수 없어요.')
+      // No CSRF since the token login (BE ADR 0031, 2026-10-27): these routes need no sign-in.
       const response = await fetcher(`/api/v2/auth/${path}`, {
         method: 'POST', credentials: 'same-origin', signal: requestSignal, cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': data.token }, body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
       if (response.ok) return
       if (response.status === 429) throw new MailApiError('RATE_LIMITED', '요청이 많아요. 잠시 기다린 뒤 다시 시도해 주세요.')
