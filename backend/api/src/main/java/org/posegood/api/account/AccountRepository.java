@@ -14,10 +14,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 계정 SQL 모음: user_account(계정·설정), deletion_request(탈퇴), SPRING_SESSION(로그인).
+ * 계정 SQL 모음: user_account(계정·설정), deletion_request(탈퇴), refresh_token 철회(로그인 끊기).
  *
  * 식별 컬럼은 NOT NULL이다(CR-04). 탈퇴한 계정은 유예 기간(30일)에 그대로 두고, 최종 삭제는 Spark J3가 한다.
- * 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행 삭제로 한다(V2.1에서 `auth_epoch` 삭제).
+ * 로그인 끊기는 그 사용자의 refresh 토큰 철회로 한다(V2.6, ADR 0031).
  */
 @Repository
 public class AccountRepository {
@@ -56,7 +56,7 @@ public class AccountRepository {
     /**
      * 가입: 계정 행 추가. 이미 있는 이메일이면 409.
      *
-     * 알림은 sound_alert_enabled의 기본값 false로 시작한다(V2.3).
+     * 알림은 sound_alert_enabled의 기본값 true(켜짐)로 시작한다(V2.6, FE 화면 기본값).
      * 동의 테이블(T-41)이 보류라 가입 동의는 저장하지 않는다.
      */
     public long insert(String email, String hash, AccountContracts.Profile profile, long policy) {

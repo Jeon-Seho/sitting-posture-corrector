@@ -36,7 +36,6 @@ public record FrameInterval(
 
     public enum Phase {
         running,
-        calibration,
         rest,
         away
     }

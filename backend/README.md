@@ -32,7 +32,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 시점 | DB에 쓰는 것 |
 | --- | --- |
 | 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
-| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). `/v2/realtime` 등록은 서버가 평균을 계산해 서버 시각·서버가 만든 식별자로 추가 |
+| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). 등록은 이 경로뿐(WebSocket 등록은 2026-10-27 삭제) |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
 | 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
 | 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
@@ -44,7 +44,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
   그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 기록 저장 확인을 위해 30분 보관한다(`posegood.ended-session-retention`).
 - 모든 `DATETIME(3)`은 KST다. JDBC 연결도 `connectionTimeZone=Asia/Seoul`이다. API 응답 시각은 UTC ISO-8601이다.
 - 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.
-- 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 false)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
+- 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 true, DB V2.6)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
 - 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
   사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
 - 로그인([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md), `account/AuthTokens`): access 토큰(JWT HS256, 30분, `Authorization: Bearer`, 저장 안 함)과
@@ -88,7 +88,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 ### 실시간 채널
 
 `/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
-(`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번 또는 자세 등록 한 번이고
+(`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). REST API를 다른 출처 화면(Vercel)에서 부를 때는 `posegood.cors.allowed-origins`(`POSEGOOD_CORS_ALLOWED_ORIGINS`)에 그 출처를 넣는다([BE API 명세](../docs/design/api-spec.md) 1장). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
 보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
 
@@ -106,10 +106,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
   `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 앱이 이 사유를 처리하기 전까지 기본 0(끔).
 - `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
-- `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의
-  관절 평균만 모으고 `end` 때 `calibration_result` → `closed: ended`. 실패 사유는 `incomplete`(마지막 `end_ms` < 3000) →
-  `too_few_frames`(15장 미만) → `out_of_frame`(평균 좌표가 0~1 밖) → `server_error`(저장 실패) 순서로 정하고, 실패하면 저장하지 않는다.
-  끊기면 아무것도 저장하지 않는다. 앱은 이 경로 대신 앱에서 낸 평균을 B1으로 보낸다(FE ADR 0021, V3 브랜치). 남길지는 [백엔드 상태](../docs/backend-status.md) 4장.
+- 자세 등록은 B1(`POST /v2/baselines`)뿐이다. WebSocket 등록(`purpose: calibration`, `calibration_result`)은 2026-10-27 지웠다 — 보내면 `closed: bad_message`.
 - 놓친 사건 다시 보내기(삭제한 v1의 `last_event_id`)는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
 
 ## 준비와 검증
@@ -129,7 +126,7 @@ make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 F
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_5.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_6.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Gradle을 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh

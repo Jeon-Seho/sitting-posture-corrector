@@ -127,10 +127,10 @@ ins_ses = ("INSERT INTO monitor_session (client_session_uuid,user_account_id,bas
 cu = U()
 ok("세션 시작 A (현재 기준 자세 ID·정책·알림 설정 복사)", ins_ses, (cu, T0, A)); SA = cur.lastrowid
 check("세션의 기준 자세 = 현재 기준 (A의 첫 기준 자세)", one("SELECT baseline_posture_id FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == BA1)
-check("세션 알림 설정 = 사용자 sound_alert_enabled (기본 거짓)", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == 0)
-ok("B 알림 켜기", "UPDATE user_account SET sound_alert_enabled=TRUE WHERE user_account_id=%s", (B,))
+check("세션 알림 설정 = 사용자 sound_alert_enabled (기본 참, V2.6)", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SA,)) == 1)
+ok("B 알림 끄기", "UPDATE user_account SET sound_alert_enabled=FALSE WHERE user_account_id=%s", (B,))
 ok("세션 시작 B", ins_ses, (U(), T0, B)); SB0 = cur.lastrowid
-check("켠 사용자의 세션은 alert_enabled 참", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SB0,)) == 1)
+check("끈 사용자의 세션은 alert_enabled 거짓", one("SELECT alert_enabled FROM monitor_session WHERE monitor_session_id=%s", (SB0,)) == 0)
 cur.execute("DELETE FROM monitor_session WHERE monitor_session_id=%s", (SB0,))
 fails("UK-05 같은 클라이언트 세션 식별자 재전송", ins_ses, (cu, T0, A), "ux_monitor_session_client_uuid")
 fails("UUID 길이가 아닌 세션 식별자", ins_ses, ("short", T0, A), "ck_monitor_session_client_session_uuid")

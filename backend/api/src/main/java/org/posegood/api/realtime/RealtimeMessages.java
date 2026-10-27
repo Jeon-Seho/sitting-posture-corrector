@@ -1,7 +1,6 @@
 package org.posegood.api.realtime;
 
 import org.posegood.api.contract.Observation;
-import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.contract.SessionView.Summary;
 
@@ -27,12 +26,6 @@ final class RealtimeMessages {
         record ReadyMeasure(String type, String purpose, UUID sessionId, Instant startedAt) {
             ReadyMeasure(UUID sessionId, Instant startedAt) {
                 this("ready", "measure", sessionId, startedAt);
-            }
-        }
-
-        record ReadyCalibration(String type, String purpose, UUID calibrationId) {
-            ReadyCalibration(UUID calibrationId) {
-                this("ready", "calibration", calibrationId);
             }
         }
 
@@ -93,34 +86,9 @@ final class RealtimeMessages {
             }
         }
 
-        record CalibrationOk(
-                String type,
-                String status,
-                UUID calibrationId,
-                UUID baselineId,
-                Instant registeredAt,
-                SessionRequests.Landmarks landmarks,
-                int validFrames) {
-            CalibrationOk(
-                    UUID calibrationId,
-                    UUID baselineId,
-                    Instant registeredAt,
-                    SessionRequests.Landmarks landmarks,
-                    int validFrames) {
-                this("calibration_result", "ok", calibrationId, baselineId, registeredAt, landmarks, validFrames);
-            }
-        }
-
-        /** 실패 사유: too_few_frames, incomplete, out_of_frame, server_error. */
-        record CalibrationFailed(String type, String status, UUID calibrationId, int validFrames, String reason) {
-            CalibrationFailed(UUID calibrationId, int validFrames, String reason) {
-                this("calibration_result", "failed", calibrationId, validFrames, reason);
-            }
-        }
-
         /**
          * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).
-         * 끝나기 전에 닫히거나 등록 연결이면 null(ADR 0028).
+         * 끝나기 전에 닫히면 null(ADR 0028).
          */
         record Closed(String type, String reason, Instant endedAt) {
             Closed(String reason, Instant endedAt) {

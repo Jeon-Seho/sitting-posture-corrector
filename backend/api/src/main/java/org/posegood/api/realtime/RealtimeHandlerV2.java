@@ -39,7 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 실시간 v2 채널({@code /v2/realtime}): 연결 하나가 측정 한 번 또는 자세 등록 한 번이다. 재연결은 없다(ADR 0024).
+ * 실시간 v2 채널({@code /v2/realtime}): 연결 하나가 측정 한 번이다. 재연결은 없다(ADR 0024).
+ * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
  * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
@@ -58,8 +59,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     static final int MAX_BYTES = 64 * 1024;
     private static final Set<String> HELLO_MEASURE =
             Set.of("type", "schema_version", "purpose", "session_id", "access_token");
-    private static final Set<String> HELLO_CALIBRATION =
-            Set.of("type", "schema_version", "purpose", "calibration_id", "access_token");
     private static final Set<String> FEATURES = Set.of("type", "items");
     private static final Set<String> END = Set.of("type", "end_ms");
 
@@ -162,41 +161,26 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
                     default -> reject(channel);
                 }
             }
-            case CALIBRATION -> {
-                switch (type) {
-                    case "features" -> capture(channel, frame);
-                    case "end" -> endCalibration(channel, frame);
-                    default -> reject(channel);
-                }
-            }
             default -> reject(channel);
         }
     }
 
-    /** hello: 목적(measure·calibration)에 따라 확인하고 {@code ready}를 보낸다. */
+    /** hello: 측정({@code purpose: measure})만 받는다. 확인 뒤 {@code ready}를 보낸다. */
     private void hello(Channel channel, WebSocketSession socket, JsonNode frame) {
         long started = System.nanoTime();
-        String purpose = Json.text(frame.path("purpose"));
-        boolean measure = "measure".equals(purpose);
         if (!"2.0".equals(Json.text(frame.path("schema_version"), null))
-                || !(measure ? exactly(frame, HELLO_MEASURE) : "calibration".equals(purpose) && exactly(frame, HELLO_CALIBRATION))) {
+                || !"measure".equals(Json.text(frame.path("purpose"), null))
+                || !exactly(frame, HELLO_MEASURE)) {
             reject(channel);
             return;
         }
-        UUID id = uuid(frame.path(measure ? "session_id" : "calibration_id"));
+        UUID id = uuid(frame.path("session_id"));
         if (id == null) {
             reject(channel);
             return;
         }
         try {
             channel.owner = current.id(tokens.authenticate(Json.text(frame.path("access_token"), null)));
-            if (!measure) {
-                channel.capture = new SessionService.Capture();
-                channel.calibration = id;
-                channel.state.set(State.CALIBRATION);
-                send(channel, new RealtimeMessages.V2.ReadyCalibration(id));
-                return;
-            }
             channel.realtime = sessions.openRealtime(channel.owner, id);
         } catch (ApiError refused) {
             finishClosed(channel, refusal(refused));
@@ -222,7 +206,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     /** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
     private void measure(Channel channel, JsonNode frame) {
         var interval = interval(frame);
-        if (interval == null || interval.phase() == FrameInterval.Phase.calibration) {
+        if (interval == null) {
             reject(channel);
             return;
         }
@@ -275,53 +259,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             log.warn("realtime v2 end persist failed: {}", storage.getClass().getSimpleName());
         }
         if (channel.state.get() != State.CLOSING) finishClosed(channel, channel.endReason);
-    }
-
-    /** 등록 구간 하나: 판정 가능 프레임 수와 관절 합만 남긴다. */
-    private void capture(Channel channel, JsonNode frame) {
-        var interval = interval(frame);
-        if (interval == null) {
-            reject(channel);
-            return;
-        }
-        try {
-            channel.capture.add(interval);
-        } catch (ApiError invalid) {
-            reject(channel);
-            return;
-        }
-        send(channel, new RealtimeMessages.V2.Ack(interval.sequence()));
-    }
-
-    /** 등록 end: {@code calibration_result} → {@code closed(ended)}. 실패하면 저장하지 않는다. */
-    private void endCalibration(Channel channel, JsonNode frame) {
-        if (endMs(frame) == null) {
-            reject(channel);
-            return;
-        }
-        SessionService.Calibration result;
-        try {
-            result = sessions.calibrate(channel.owner, channel.capture, true);
-        } catch (ApiError refused) {
-            finishClosed(channel, refusal(refused));
-            return;
-        }
-        if (result.ok()) {
-            var baseline = result.baseline();
-            send(
-                    channel,
-                    new RealtimeMessages.V2.CalibrationOk(
-                            channel.calibration,
-                            baseline.id(),
-                            baseline.registeredAt(),
-                            baseline.landmarks(),
-                            result.validFrames()));
-        } else {
-            send(
-                    channel,
-                    new RealtimeMessages.V2.CalibrationFailed(channel.calibration, result.validFrames(), result.reason()));
-        }
-        finishClosed(channel, "ended");
     }
 
     /**
@@ -455,7 +392,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         /** hello 확인 중. */
         PREPARING,
         MEASURE,
-        CALIBRATION,
         /** closed를 보냈거나 끊김. */
         CLOSING
     }
@@ -477,9 +413,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         private volatile Instant endedAt;
         /** 세션이 끝났을 때 보낼 closed 사유(시간 한도면 limit_reached). */
         private volatile String endReason = "ended";
-        /** 등록: calibration_id와 수집 상태. */
-        private volatile UUID calibration;
-        private volatile SessionService.Capture capture;
 
         private Channel(WebSocketSession socket) {
             this.socket = socket;

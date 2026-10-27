@@ -20,12 +20,12 @@ PC 시계가 틀리면 등록 시각도 틀리고, 재전송 구분이 그 시�
    - `baseline_posture.registered_at`은 서버가 등록을 받은 시각이다.
    - 재전송은 `baseline_posture.client_registration_uuid`와 UK-16(사용자, 등록 식별자)으로 막는다. 같은 식별자·같은 좌표는 그 행, 다른 좌표는 409다.
    - UK-14(사용자, 등록 시각)는 지운다. FK-04(사용자) 인덱스 역할은 UK-16이 이어받는다.
-   - 서버가 계산하는 WebSocket 등록(`purpose: calibration`)은 재전송이 없어 서버가 식별자를 만든다. 앱은 이 경로를 쓰지 않는다(FE ADR 0021). 지울지는 따로 정한다.
+   - WebSocket 등록(`purpose: calibration`)은 2026-10-27 지웠다. 등록은 B1뿐이라 식별자는 항상 앱이 만든다(FE ADR 0021).
    - DB 스키마 V2.5, migration 015. 기존 행의 식별자는 `UUID()`로 채운다.
 3. **④ 오늘 기록 시각 (구현):** WebSocket `ready`(측정)에 `started_at`, `closed`에 `ended_at`을 서버 시각(UTC ISO)으로 싣는다.
    - `started_at`은 DB `monitor_session.started_at`(서버가 S1을 받은 시각)이다.
    - `ended_at`은 이 연결에서 세션이 끝났을 때 `started_at + 요약 total_ms`다. DB에 저장하는 `ended_at`과 같은 식이다(`closed`가 저장보다 먼저 나가서 DB를 읽지 않는다).
-     끝나기 전에 닫혔거나(잘못된 메시지·로그인 끊김·서버 종료 등) 등록 연결이면 `null`이고, 앱은 나중에 기록 조회로 받는다.
+     끝나기 전에 닫혔으면(잘못된 메시지·로그인 끊김·서버 종료 등) `null`이고, 앱은 나중에 기록 조회로 받는다.
    - 앱은 오늘 기록의 시각과 날짜(서버 `started_at`의 KST 날짜)를 이 값으로 정한다. 계약 `realtime-ws.v2`(엄격한 스키마)와 FE V3 검증을 함께 바꾼다.
    - Kafka 경로(계획 0031)의 `ws`도 같은 필드를 보내야 한다.
 4. **③ 세션 안 시각 (보류):** 경과 ms를 서버 수신 시각으로 바꾸지 않는다(판정 간격에 네트워크 지연이 섞이고 재전송 중복 방지가 깨진다). 서버 시계로 경과 시간의 상한을 검사하는 안은 나중에 다시 정한다.

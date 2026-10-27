@@ -12,11 +12,8 @@ import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
 import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.policy.ThresholdPolicyRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -28,7 +25,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리, 자세 등록(실시간 v2).
+ * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리.
  *
  * HTTP와 실시간 채널이 함께 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
  * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
@@ -36,10 +33,6 @@ import java.util.UUID;
  */
 @Service
 public class SessionService {
-    private static final Logger log = LoggerFactory.getLogger(SessionService.class);
-    /** WebSocket 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(BE 명세 11.4, 2026-10-06 사용자 결정). */
-    static final int CALIBRATION_MIN_FRAMES = 15;
-    static final long CALIBRATION_MS = 3000;
 
     private final LiveSessions live;
     private final SessionRepository sessions;
@@ -160,8 +153,6 @@ public class SessionService {
      * v2는 재전송이 없으므로 같은 순번은 409 CONFLICT다.
      */
     public Status frames(long owner, UUID id, FrameInterval interval, FrameFeatures.Features baseline) {
-        if (interval.phase() == FrameInterval.Phase.calibration)
-            throw ApiError.badRequest("calibration interval on a measurement");
         var computed = FrameFeatures.interval(interval, baseline);
         var session = require(owner, id);
         return session.locked(
@@ -205,49 +196,6 @@ public class SessionService {
                     persist(session);
                     return null;
                 });
-    }
-
-    /**
-     * 자세 등록 결과 계산과 저장(실시간 v2 calibration).
-     *
-     * {@code completed}는 앱이 {@code end}를 보냈는지다. 실패하면 저장하지 않고 이전 기준이 그대로 현재 기준이다.
-     * 순서: 끊김·마지막 구간 끝 3초 미만 {@code incomplete} → 판정 가능 프레임 15장 미만 {@code too_few_frames} →
-     * 평균 좌표가 0~1 밖이거나 그 평균으로 특징을 못 구하면 {@code out_of_frame} → 저장 실패 {@code server_error}.
-     */
-    public Calibration calibrate(long owner, Capture capture, boolean completed) {
-        int frames = capture.validFrames();
-        if (!completed || capture.lastEndMs() < CALIBRATION_MS) return Calibration.failed(frames, "incomplete");
-        if (frames < CALIBRATION_MIN_FRAMES) return Calibration.failed(frames, "too_few_frames");
-        var mean = capture.mean();
-        for (double value : mean)
-            if (!(value >= 0 && value <= 1)) return Calibration.failed(frames, "out_of_frame");
-        var points = new SessionRequests.Point[FrameInterval.JOINTS];
-        for (int index = 0; index < points.length; index++)
-            points[index] = new SessionRequests.Point(mean[index * 2], mean[index * 2 + 1]);
-        var landmarks =
-                new SessionRequests.Landmarks(
-                        points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7],
-                        points[8]);
-        if (FrameFeatures.baseline(landmarks) == null) return Calibration.failed(frames, "out_of_frame");
-        try {
-            var stored =
-                    locks.withLock(
-                            owner,
-                            () ->
-                                    tx.execute(
-                                            status -> {
-                                                accounts.requireActive(owner);
-                                                return baselines.registerComputed(owner, landmarks);
-                                            }));
-            return new Calibration(true, frames, null, stored);
-        } catch (ApiError refused) {
-            if (refused.status() < 500) throw refused;
-            log.warn("baseline registration failed: {}", refused.code());
-            return Calibration.failed(frames, "server_error");
-        } catch (DataAccessException failed) {
-            log.warn("baseline registration failed: {}", failed.getClass().getSimpleName());
-            return Calibration.failed(frames, "server_error");
-        }
     }
 
     /** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
@@ -497,60 +445,4 @@ public class SessionService {
 
     /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
     public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}
-
-    /** 자세 등록 결과. 성공이면 {@code baseline}, 실패면 {@code reason}이 있다. */
-    public record Calibration(boolean ok, int validFrames, String reason, BaselineRepository.Stored baseline) {
-        static Calibration failed(int validFrames, String reason) {
-            return new Calibration(false, validFrames, reason, null);
-        }
-    }
-
-    /**
-     * 자세 등록 한 번의 수집 상태: 판정 가능 프레임 수와 관절 좌표 합만 둔다(좌표 원본은 버린다).
-     *
-     * 구간은 순번·시간 순서대로 와야 한다. 아니면 409 CONFLICT.
-     */
-    public static final class Capture {
-        private final double[] sums = new double[FrameInterval.JOINTS * 2];
-        private int validFrames;
-        private long lastSequence = -1;
-        private long lastEndMs;
-
-        public void add(FrameInterval interval) {
-            if (interval.phase() != FrameInterval.Phase.calibration)
-                throw ApiError.badRequest("measurement interval on a calibration");
-            if (interval.sequence() <= lastSequence || interval.startMs() < lastEndMs)
-                throw ApiError.conflict("out-of-order or overlapping interval");
-            for (var frame : interval.frames()) {
-                if (!FrameFeatures.usable(frame)) continue;
-                validFrames++;
-                for (int index = 0; index < FrameInterval.JOINTS; index++) {
-                    var joint = frame.joint(index);
-                    sums[index * 2] += joint[0];
-                    sums[index * 2 + 1] += joint[1];
-                }
-            }
-            lastSequence = interval.sequence();
-            lastEndMs = interval.endMs();
-        }
-
-        public int validFrames() {
-            return validFrames;
-        }
-
-        public long lastSequence() {
-            return lastSequence;
-        }
-
-        public long lastEndMs() {
-            return lastEndMs;
-        }
-
-        /** 관절 9개의 평균 x, y(18개). 판정 가능 프레임이 없으면 NaN. */
-        double[] mean() {
-            var mean = new double[sums.length];
-            for (int index = 0; index < sums.length; index++) mean[index] = sums[index] / validFrames;
-            return mean;
-        }
-    }
 }
