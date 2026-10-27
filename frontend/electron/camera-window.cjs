@@ -51,12 +51,12 @@ function installCameraWindow({ mainWindow, screen, ipcMain, trusted }) {
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {
-        width: 360, height: 314, minWidth: 320, minHeight: 48,
-        x: Math.max(area.x, area.x + area.width - 380),
-        y: Math.max(area.y, area.y + area.height - 334),
+        width: 400, height: 225, minWidth: 280, minHeight: 48,
+        x: Math.max(area.x, area.x + area.width - 420),
+        y: Math.max(area.y, area.y + area.height - 245),
         frame: false, show: false, alwaysOnTop: true, skipTaskbar: true,
         minimizable: false, maximizable: false, fullscreenable: false,
-        backgroundColor: '#2f2620', title: 'PoseGood · 카메라 작은 창',
+        backgroundColor: '#111111', title: 'PoseGood · 카메라 작은 창',
       },
     }
   })

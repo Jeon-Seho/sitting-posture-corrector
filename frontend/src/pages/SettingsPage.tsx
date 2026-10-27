@@ -19,8 +19,6 @@ type CameraChoice = Pick<
   | 'devices'
   | 'deviceId'
   | 'state'
-  | 'connect'
-  | 'error'
   | 'mainDeviceId'
   | 'mainMissing'
   | 'chooseMainCamera'
@@ -429,7 +427,7 @@ export function SettingsPage({
                 )}
               </DeveloperGroup>
               <DeveloperGroup title="카메라·작은 창">
-                <CameraWindowTest cameraOn={camera?.state === 'on'} cameraLoading={camera?.state === 'loading'} cameraError={camera?.error} onConnect={camera ? () => camera.connect() : undefined} />
+                <CameraWindowTest />
                 {camera && (
                   <div className="setting-row setting-row-stack">
                     <div>

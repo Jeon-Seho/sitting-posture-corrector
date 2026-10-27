@@ -48,18 +48,16 @@ try {
   assert.equal(await evaluate(`window.posegoodDesktop.cameraWindow`), true)
   await click('설정')
   await evaluate(`[...document.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent.startsWith('개발자 옵션')).open=true; [...document.querySelectorAll('.dev-group')].find(d=>d.querySelector('summary').textContent==='카메라·작은 창').open=true`)
-  assert.equal(await evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&b.disabled)`), true)
-  await click('테스트 카메라 켜기')
-  await until(() => evaluate(`!!document.querySelector('.capture-source')?.srcObject?.active`), 'shared camera started from developer options')
-  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&!b.disabled)`), 'camera ready enables PiP')
+  assert.equal(await evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&!b.disabled)`), true)
+  assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject`), null)
   await click('PiP 열기')
-  const popupReady = `!!window.open('', 'posegood-camera')?.document.querySelector('video')?.srcObject`
+  const popupReady = `!!window.open('', 'posegood-camera')?.document.querySelector('.camera-window-demo')`
   // Inspect the named window, without requesting another camera or opening arbitrary content.
   await until(() => evaluate(popupReady), 'native portal video')
   assert.equal(await evaluate(`(() => {
     const popup = window.open('', 'posegood-camera');
     return popup.location.href === 'about:blank' &&
-      popup.document.querySelector('video').srcObject === document.querySelector('.capture-source').srcObject &&
+      !!popup.document.querySelector('.camera-window-demo') && !popup.document.querySelector('video') && document.querySelector('.capture-source').srcObject === null &&
       !window.documentPictureInPicture?.window && !document.pictureInPictureElement &&
       window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0;
   })()`), true)
@@ -72,21 +70,32 @@ try {
   })`)
   await until(()=>evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 접기'&&!b.disabled)`),'developer state')
   await click('PiP 접기')
-  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight < 100 && !p.document.querySelector('video'); })()`), 'compact native status bar')
+  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight < 100 && !p.document.querySelector('.camera-window-demo'); })()`), 'compact native status bar')
   await click('PiP 펼치기')
-  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight >= 300 && !!p.document.querySelector('video')?.srcObject; })()`), 'native size and stream restored')
+  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight >= 220 && !!p.document.querySelector('.camera-window-demo'); })()`), 'native size and stream restored')
   const popupPage = pages.find(page => page.type === 'page' && page.url === 'about:blank')
   const popupCdp = await Cdp.connect(popupPage.webSocketDebuggerUrl)
   try {
+    await popupCdp.evaluate(`Promise.all([...document.images].map(image => image.decode()))`)
+    await popupCdp.call('Emulation.setFocusEmulationEnabled', { enabled: true })
+    await popupCdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 180, y: 100 })
+    await new Promise(resolve => setTimeout(resolve, 250))
+    assert.equal(await popupCdp.evaluate(`getComputedStyle(document.querySelector('.camera-window-bar')).position`), 'absolute')
+    assert.equal(await popupCdp.evaluate(`Number(getComputedStyle(document.querySelector('.camera-window-bar')).opacity)`), 1)
+    await popupCdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 500, y: 300 })
+    await new Promise(resolve => setTimeout(resolve, 250))
+    assert.equal(await popupCdp.evaluate(`Number(getComputedStyle(document.querySelector('.camera-window-bar')).opacity)`), 0)
+    await popupCdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 180, y: 100 })
+    await new Promise(resolve => setTimeout(resolve, 250))
     const { data } = await popupCdp.call('Page.captureScreenshot', { format: 'png' })
     const { writeFile } = await import('node:fs/promises')
     await writeFile(resolve(artifacts, 'native-camera.png'), Buffer.from(data, 'base64'))
   } finally { popupCdp.close() }
   assert.equal(await evaluate(`window.open('https://example.com', 'other') === null`), true)
   await click('테스트 창 닫기')
-  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === '작은 창 열기')`), 'native close reflected in React')
-  assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState`), 'live')
-  await click('작은 창 열기')
+  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'PiP 접기' && b.disabled)`), 'native close reflected in React')
+  assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject`), null)
+  await click('PiP 열기')
   await until(() => evaluate(popupReady), 'native reopen')
   await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === '앱으로 복귀' && !b.disabled)`), 'return control')
   await click('앱으로 복귀')
@@ -99,8 +108,8 @@ try {
     const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
     return !pages.some(page => page.type === 'page' && page.url === 'about:blank')
   }, 'native child cleanup')
-  assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState`), 'live')
-  console.log('PASS: developer PiP open/collapse/restore/return/close/reopen, native window shares stream, closing test preserves camera, no web PiP')
+  assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject`), null)
+  console.log('PASS: developer PiP open/collapse/restore/return/close/reopen, camera stays off with zero permission calls, native example without video, no web PiP')
 } catch (error) {
   if (cdp) console.error(await cdp.evaluate(`(() => {
     const child = window.open('', 'posegood-camera');

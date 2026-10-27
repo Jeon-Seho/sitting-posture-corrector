@@ -21,11 +21,13 @@ describe('native camera window lifecycle with synthetic streams only', () => {
     }
     return child
   }
+  let demo = false
   let child: ReturnType<typeof makeChild>
   let host: { posegoodDesktop?: unknown; open: ReturnType<typeof vi.fn> }
-  function Harness() { controls = useCameraWindow(camera); return null }
+  function Harness() { controls = useCameraWindow(camera, demo); return null }
   const mount = () => act(() => { renderer = create(<Harness />) })
   beforeEach(() => {
+    demo = false
     enabled.mockReset().mockResolvedValue(true)
     show.mockClear(); remove.mockClear(); request = undefined
     child = makeChild()
@@ -45,7 +47,7 @@ describe('native camera window lifecycle with synthetic streams only', () => {
     const capture = camera.videoRef.current
     mount()
     await act(async () => { await controls.open() })
-    expect(host.open).toHaveBeenCalledWith('about:blank', 'posegood-camera', 'width=360,height=314')
+    expect(host.open).toHaveBeenCalledWith('about:blank', 'posegood-camera', 'width=400,height=225')
     expect(controls.pipWindow).toBe(child)
     expect(camera.streamRef.current).toBe(stream)
     expect(camera.videoRef.current).toBe(capture)
@@ -56,6 +58,18 @@ describe('native camera window lifecycle with synthetic streams only', () => {
     expect(child.close).toHaveBeenCalledOnce()
     expect(controls.pipWindow).toBeNull()
     expect(camera.streamRef.current).toBe(stream)
+  })
+  it('opens an explicit demo with the camera off and no stream, without automatic blur requests', async () => {
+    demo = true
+    camera.state = 'off'
+    camera.streamRef.current = null
+    mount()
+    await act(async () => { await controls.open() })
+    expect(controls.pipWindow).toBe(child)
+    expect(camera.streamRef.current).toBeNull()
+    expect(request).toBeUndefined()
+    act(() => controls.close())
+    expect(child.close).toHaveBeenCalledOnce()
   })
   it('responds to a native blur/minimize request and unregisters on shutdown', async () => {
     mount()

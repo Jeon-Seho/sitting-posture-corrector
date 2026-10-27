@@ -38,7 +38,7 @@ try {
   await cdp.call('Runtime.enable')
   const evaluate = expression => cdp.evaluate(expression)
   const click = label => evaluate(`(() => {
-    const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(label)} && !b.disabled);
+    const button = [...document.querySelectorAll('button')].find(b => (b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)}) && !b.disabled);
     if (!button) throw new Error('Missing button: ' + ${JSON.stringify(label)});
     button.click();
   })()`)
@@ -46,6 +46,7 @@ try {
   assert.equal(await evaluate(`window.posegoodDesktop.cameraWindow`), true)
   await click('카메라 켜기')
   await until(() => evaluate(`document.querySelector('.webcam-preview')?.readyState >= 2`), 'synthetic camera')
+  assert.equal(await evaluate(`!!document.querySelector('.camera-stage-pip')?.closest('.stage') && !document.querySelector('.camera-window-launch')`), true)
   await click('작은 창 열기')
   const popupReady = `!!window.open('', 'posegood-camera')?.document.querySelector('video')?.srcObject`
   // Inspect the named window, without requesting another camera or opening arbitrary content.
@@ -67,7 +68,7 @@ try {
   await evaluate(`window.open('', 'posegood-camera').document.querySelector('[aria-label="최소화"]').click()`)
   await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight < 100 && !p.document.querySelector('video'); })()`), 'compact native status bar')
   await evaluate(`window.open('', 'posegood-camera').document.querySelector('[aria-label="영상 보이기"]').click()`)
-  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight >= 300 && !!p.document.querySelector('video')?.srcObject; })()`), 'native size and stream restored')
+  await until(() => evaluate(`(() => { const p = window.open('', 'posegood-camera'); return p.outerHeight >= 220 && !!p.document.querySelector('video')?.srcObject; })()`), 'native size and stream restored')
   const popupPage = pages.find(page => page.type === 'page' && page.url === 'about:blank')
   const popupCdp = await Cdp.connect(popupPage.webSocketDebuggerUrl)
   try {
@@ -77,7 +78,7 @@ try {
   } finally { popupCdp.close() }
   assert.equal(await evaluate(`window.open('https://example.com', 'other') === null`), true)
   await evaluate(`window.open('', 'posegood-camera').close()`)
-  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === '작은 창 열기')`), 'native close reflected in React')
+  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === '작은 창 열기')`), 'native close reflected in React')
   assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject.getVideoTracks()[0].readyState`), 'live')
   await click('작은 창 열기')
   await until(() => evaluate(popupReady), 'native reopen')

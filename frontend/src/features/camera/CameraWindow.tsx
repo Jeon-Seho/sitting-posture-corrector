@@ -25,8 +25,9 @@ function StreamPreview({ camera }: { camera: CameraController }) {
 }
 
 /** The dot and words beside it: the posture of the running measurement (2026-10-20). */
-const STATUS_TEXT: Record<MeasurementStatus | 'camera', string> = {
+const STATUS_TEXT: Record<MeasurementStatus | 'camera' | 'demo', string> = {
   camera: '카메라 사용 중',
+  demo: 'PiP 예시 · 카메라 미사용',
   good: '바른 자세예요',
   alert: '자세가 흐트러졌어요',
   unknown: '자세를 확인할 수 없어요',
@@ -34,7 +35,7 @@ const STATUS_TEXT: Record<MeasurementStatus | 'camera', string> = {
 }
 
 type Controls = {
-  status: MeasurementStatus | 'camera'
+  status: MeasurementStatus | 'camera' | 'demo'
   minimized: boolean
   onMinimize: () => void
   /** Back to 측정하기, wherever the app is. Absent on the collection screen. */
@@ -72,11 +73,13 @@ function PipBar({ status, minimized, onMinimize, onExpand, onClose, measuring, l
 }
 
 /** Inside the frameless native child window, shown over other applications. */
-function WindowPreview({ camera, controls }: { camera: CameraController; controls: Omit<Controls, 'label'> }) {
+function WindowPreview({ camera, controls, demo = false }: { camera: CameraController; controls: Omit<Controls, 'label'>; demo?: boolean }) {
   useEffect(() => { void desktopBridge()?.showCameraWindow?.() }, [])
   return (
     <section className={`camera-window-view ${controls.minimized ? 'is-minimized' : ''} status-${controls.status}`} aria-label="카메라 작은 창">
-      {!controls.minimized && <StreamPreview camera={camera} />}
+      {!controls.minimized && (demo ? <div className="camera-window-demo" aria-label="카메라 없는 PiP 예시 화면">
+        <img src="/illustrations/baseline-seat-light.webp" alt="" /><p>예시 화면 · 카메라를 사용하지 않아요</p>
+      </div> : <StreamPreview camera={camera} />)}
       <PipBar {...controls} label={(text) => <span className="camera-window-label" role="status">{text}</span>} />
     </section>
   )
@@ -164,7 +167,15 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
   onExpand?: () => void
   measuring: boolean
 }) {
-  const preview = useCameraWindow(camera)
+  const [demo, setDemo] = useState(false)
+  const queuedOpen = useRef<'demo' | 'camera' | null>(null)
+  const preview = useCameraWindow(camera, demo)
+  useEffect(() => {
+    if (queuedOpen.current === (demo ? 'demo' : 'camera')) {
+      queuedOpen.current = null
+      void preview.open()
+    }
+  }, [demo, preview.open])
   const posture = useMeasurementStatus()
   const [dismissed, setDismissed] = useState(false)
   const [minimized, setMinimized] = useState(false)
@@ -174,13 +185,23 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
     const receive = (event: Event) => {
       const action = (event as CustomEvent<CameraTestAction>).detail
       if (action === 'status') { report(); return }
-      if (camera.state !== 'on' || !preview.supported) return
-      if (action === 'open') { void preview.open(); return }
-      if (action === 'close') { preview.close(); return }
+      if (action === 'demo') {
+        if (demo) void preview.open()
+        else { queuedOpen.current = 'demo'; setDemo(true) }
+        return
+      }
+      if (action === 'close') { preview.close(); setDemo(false); return }
+      if (!demo && camera.state !== 'on') return
+      if (action === 'open') {
+        if (demo) { queuedOpen.current = 'camera'; setDemo(false) }
+        else void preview.open()
+        return
+      }
       if (action === 'return') {
         void desktopBridge()?.returnFromCameraWindow?.()
         preview.close()
-        onExpand?.()
+        setDemo(false)
+        if (!demo) onExpand?.()
         return
       }
       if ((action === 'collapse' || action === 'restore') && preview.pipWindow) {
@@ -193,7 +214,7 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
     window.addEventListener(CAMERA_TEST_EVENT, receive)
     report()
     return () => window.removeEventListener(CAMERA_TEST_EVENT, receive)
-  }, [camera.state, preview.supported, preview.pipWindow, preview.message, preview.open, preview.close, minimized, onExpand])
+  }, [demo, camera.state, preview.supported, preview.pipWindow, preview.message, preview.open, preview.close, minimized, onExpand])
   useEffect(() => {
     if (preview.pipWindow) {
       setMinimized(false)
@@ -206,11 +227,11 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
       if (!preview.pipWindow) setMinimized(false)
     }
   }, [floating, preview.pipWindow])
-  if (camera.state !== 'on') return null
+  if (camera.state !== 'on' && !demo) return null
   const controls = {
-    status: (measuring && posture) || ('camera' as const),
+    status: demo ? 'demo' as const : (measuring && posture) || ('camera' as const),
     minimized,
-    measuring,
+    measuring: measuring && !demo,
     onMinimize: () => {
       if (preview.pipWindow) void desktopBridge()?.collapseCameraWindow?.(!minimized)
       setMinimized((old) => !old)
@@ -221,9 +242,11 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
         void desktopBridge()?.returnFromCameraWindow?.()
         preview.close()
       }
-      onExpand()
+      setDemo(false)
+      if (!demo) onExpand()
     }),
     onClose: () => {
+      if (demo) { preview.close(); setDemo(false); return }
       if (measuring && endRunningMeasurement(WINDOW_END_REASON)) {
         preview.close()
         return
@@ -234,15 +257,9 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
   }
   return (
     <>
-      {floating && !dismissed && !preview.pipWindow && <FloatingPreview camera={camera} controls={controls} />}
-      {preview.supported && !preview.pipWindow && (
-        <div className="camera-window-launch">
-          <button className="btn btn-sm" onClick={() => void preview.open()}>작은 창 열기</button>
-          {preview.message && <span role="status">{preview.message}</span>}
-        </div>
-      )}
+      {floating && !demo && !dismissed && !preview.pipWindow && <FloatingPreview camera={camera} controls={controls} />}
       {preview.pipWindow && createPortal(
-        <WindowPreview camera={camera} controls={controls} />,
+        <WindowPreview camera={camera} controls={controls} demo={demo} />,
         preview.pipWindow.document.body,
       )}
     </>
