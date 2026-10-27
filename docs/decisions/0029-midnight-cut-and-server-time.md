@@ -19,7 +19,7 @@
 2. 자정에 끊긴 뒤 측정은 이어진다. FE 기본안(BE와 정함): 서버가 새 사유(안: `closed(day_changed)`)로 닫고, 앱은 카메라를 켠 채 새 측정(새 `session_id`, S1 + WS)을 바로 시작하며 「자정이 지나 새 측정으로 이어졌어요」를 보인다.
 3. **화면에 보이는 날짜·시각은 서버 시각을 따른다. 앱은 시간을 세지 않는다.**
    - 기록의 시작·종료 시각: WS `ready.started_at`, `closed.ended_at`(서버가 받은 시각, DB 값과 같음).
-   - 오늘 날짜: **가장 최근에 받은 서버 시각의 KST 날짜.** 서버 시각은 A4 `server_time`(앱 시작, 창·탭으로 돌아올 때, 기록·달력 화면을 열 때 — 1분에 한 번까지), `ready`, `closed`, R1·T1 `today`에서 받는다. 실시간으로 받지 않는다. 측정하지 않고 앱을 띄워 둔 채 자정이 지나도 기록·달력을 열면 그 자리에서 날짜가 바뀐다.
+   - 오늘 날짜: **가장 최근에 받은 서버 날짜(KST).** A4 `today`(앱 시작, 창·탭으로 돌아올 때, 기록·달력 화면을 열 때 — 1분에 한 번까지), R1·T1 `today`, `ready`·`closed` 시각의 KST 날짜에서 받는다(10/26 수정: A4 `server_time` 대신 `today` — 앱은 날짜만 쓴다). 실시간으로 받지 않는다. 측정하지 않고 앱을 띄워 둔 채 자정이 지나도 기록·달력을 열면 그 자리에서 날짜가 바뀐다.
    - 날짜 계산과 시각 표시는 KST(`Asia/Seoul`)로 고정한다.
 4. **예외 — 앱 시계를 쓰는 것:**
    - 측정 안의 시간축(좌표 구간 `t_ms`·`start_ms`·`end_ms`, 단조 시계). 프레임을 찍은 순간은 앱만 알고, 서버가 받은 시각을 쓰면 네트워크 지연이 판정(3초 확정 등)에 섞인다. 화면에 보이는 값이 아니라 서버에 보내는 입력이다.
@@ -36,7 +36,7 @@
 ## 결과
 
 - **BE (했음, 브랜치 `fix/repo-backend-sync`, develop 미병합):** `ready.started_at`(필수, = `monitor_session.started_at`), `closed.ended_at`(필수, null 가능 — 끝나기 전에 닫혔으면 null) — `b903751`. B1 `registration_id`·서버 등록 시각(DB V2.5) — `cab11c1`.
-- **BE (남음, BE-6):** KST 자정 끊기, A4 `server_time`·`today`, R1·T1 `today`, J2 실행 시점(`Cache-Control: no-store`는 Spring Security 기본값으로 이미 붙어 요청 철회 — 10/26 BE 확인)(자정에 끊긴 세션의 저장과 겹치지 않게). Kafka 모드(`ws`, 계획 0031)도 같은 규칙.
+- **BE (남음, BE-6):** KST 자정 끊기, A4 `today`, R1·T1 `today`, J2 실행 시점(`Cache-Control: no-store`는 Spring Security 기본값으로 이미 붙어 요청 철회 — 10/26 BE 확인)(자정에 끊긴 세션의 저장과 겹치지 않게). Kafka 모드(`ws`, 계획 0031)도 같은 규칙.
 - **계약(FE가 쓴 문서, 10/13 `d1575aa`):** 10/26 `realtime-ws.v2.schema.json`의 `ready.started_at`(필수)·`closed.ended_at`(필수, null 가능)을 BE `b903751`과 같은 정의로 맞추고 예시·시험(`tests/test_realtime_ws_v2.py`)을 고쳤다. 두 브랜치가 같은 줄을 고쳐 합칠 때 충돌이 나면 내용은 같으니 어느 쪽을 골라도 된다. 자정에 끊길 때의 메시지(A안 `closed` 새 사유 또는 B안 새 메시지)는 방식을 정한 뒤 넣는다.
 - **FE (10/26 함):** 서버 시각 저장소(`features/platform/serverClock.ts`, 가장 최근 서버 시각 → 오늘), 기록 시작·종료에 서버 시각(`useSessionPersistence.ts` `recordTimes`. `ended_at`이 null이거나 `closed`가 없으면 서버 시작 + 서버가 잰 전체 시간으로 두고 기록은 「종료 미확인」(`server.confirmed: false`), R1을 읽게 되면 R1 값으로 덮어씀), B1 `registration_id`(`hooks/useCamera.ts`·`features/baseline/client.ts`, 응답의 서버 `registered_at`도 「오늘」에 반영), 창·탭으로 돌아올 때와 기록·달력을 열 때 A4(`accountClient.refreshServerTime`, 1분에 한 번까지), 날짜 함수 KST 고정(`lib/kst.ts`, `history`·`comparison`·`sessionNumber`·`recordsSource`)과 시작 시각 기준 통일, 시각 표시 KST(기록 목록·상세·하루 띠·설정의 등록 시각). **남은 것:** 자정에 끊긴 뒤 측정을 잇는 처리(방식을 정한 뒤).
 - **순서 주의:** 지금 앱은 모르는 `closed` 사유를 `bad_message`로 보고 측정 실패로 처리해 기록을 남기지 않는다(`LiveSession.ts`). 그래서 FE가 새 사유를 먼저 처리한 뒤 서버가 자정 끊기를 켜야 한다.

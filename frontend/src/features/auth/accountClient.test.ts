@@ -96,11 +96,11 @@ describe('account server client (D-66, contracts/accounts.v2.md A1–A5)', () =>
     expect(accountErrorMessage(new TypeError('offline'), 'login')).toContain('연결하지 못했어요')
   })
 
-  it('takes 「오늘」 from A4 server_time, also when asked again on return (ADR 0029)', async () => {
+  it('takes 「오늘」 from A4 today, also when asked again on return (ADR 0029)', async () => {
     resetServerClock()
     const s = server([
-      [200, { ...VIEW, server_time: '2026-10-25T14:00:00.000Z', today: '2026-10-25' }],
-      [200, { ...VIEW, server_time: '2026-10-25T16:00:00.000Z', today: '2026-10-26' }],
+      [200, { ...VIEW, today: '2026-10-25' }],
+      [200, { ...VIEW, today: '2026-10-26' }],
       [401],
     ])
     const client = createAccountClient({ fetch: s.fetch, base: '' })

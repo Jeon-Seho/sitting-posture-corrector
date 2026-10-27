@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addDayKey, kstDay, kstDayStart } from '../../lib/kst'
 import { recordTimes } from '../session/useSessionPersistence'
 import { EMPTY_SUMMARY } from '../session/live/messages'
-import { noteServerTime, resetServerClock, serverToday } from './serverClock'
+import { noteServerDay, noteServerTime, resetServerClock, serverToday } from './serverClock'
 
 describe('KST days and the server clock (ADR 0029)', () => {
   afterEach(resetServerClock)
@@ -26,6 +26,19 @@ describe('KST days and the server clock (ADR 0029)', () => {
     noteServerTime('not a time')
     noteServerTime(undefined)
     expect(serverToday()).toBe('2026-10-26')
+  })
+
+  it('takes A4 today as it is, and only a newer day moves it', () => {
+    noteServerDay('2026-10-26')
+    expect(serverToday()).toBe('2026-10-26')
+    noteServerDay('2026-10-25')
+    noteServerTime('2026-10-25T13:00:00.000Z') // 22:00 KST on the 25th
+    expect(serverToday()).toBe('2026-10-26')
+    noteServerDay('2026-10-27T00:00:00Z')
+    noteServerDay(20261027)
+    expect(serverToday()).toBe('2026-10-26')
+    noteServerDay('2026-10-27')
+    expect(serverToday()).toBe('2026-10-27')
   })
 
   it('stores a record with the server start and end', () => {

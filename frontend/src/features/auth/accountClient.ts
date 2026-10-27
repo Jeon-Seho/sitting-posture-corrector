@@ -1,6 +1,6 @@
 import { SERVER } from '../platform/serverConfig'
 import { setServerAuth } from '../platform/serverAuth'
-import { noteServerTime } from '../platform/serverClock'
+import { noteServerDay } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
 import type { ConsentType } from './consents'
 
@@ -122,8 +122,8 @@ export function createAccountClient(
         payload = null
       }
     }
-    // A4 (and any answer) may carry the server's time: it decides 「오늘」 (BE-6, ADR 0029).
-    if (payload && typeof payload === 'object' && 'server_time' in payload) noteServerTime((payload as { server_time: unknown }).server_time)
+    // A4 (and any answer) may carry the server's KST day: it decides 「오늘」 (BE-6, ADR 0029).
+    if (payload && typeof payload === 'object' && 'today' in payload) noteServerDay((payload as { today: unknown }).today)
     if (!response.ok) {
       const code = payload && typeof payload === 'object' && 'code' in payload ? String((payload as { code: unknown }).code) : null
       throw new AccountError(`계정 요청 실패 (${response.status})`, response.status, code)
