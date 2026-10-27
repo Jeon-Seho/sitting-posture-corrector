@@ -23,6 +23,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.WebSocket;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -42,9 +44,10 @@ import java.util.concurrent.TimeUnit;
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"server.address=127.0.0.1"})
+        properties = {"server.address=127.0.0.1", "posegood.cors.allowed-origins=" + MySqlIntegrationTest.APP_ORIGIN})
 @EnabledIfSystemProperty(named = "posegood.mysql.integration", matches = "true")
 class MySqlIntegrationTest {
+    static final String APP_ORIGIN = "https://app.example.test";
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static DisposableDatabase database;
     private static SyntheticInference inference;
@@ -234,6 +237,39 @@ class MySqlIntegrationTest {
         assertEquals("unauthorized", socket.next("closed").get("reason").asString());
         assertEquals(401, client().login(email, "synthetic-password-1").status());
         assertEquals(200, client().login(email, "synthetic-password-2").status());
+    }
+
+    private HttpRequest preflight(String path, String origin, String headers) {
+        return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                .header("Origin", origin)
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", headers)
+                .build();
+    }
+
+    @Test
+    void anotherOriginPageCallsTheApiOnlyWhenAllowed() throws Exception {
+        // fe-deploy S-1: 확인 요청(OPTIONS)은 보호 경로라도 로그인 없이 답하고, 허용한 출처에만 쿠키를 허락한다.
+        var http = HttpClient.newHttpClient();
+        for (var path : List.of("/v2/auth/login", "/v2/sessions/" + UUID.randomUUID())) {
+            var allowed = http.send(preflight(path, APP_ORIGIN, "authorization,content-type"), BodyHandlers.discarding());
+            assertEquals(200, allowed.statusCode());
+            assertEquals(APP_ORIGIN, allowed.headers().firstValue("Access-Control-Allow-Origin").orElse(null));
+            assertEquals("true", allowed.headers().firstValue("Access-Control-Allow-Credentials").orElse(null));
+        }
+        var evil = http.send(preflight("/v2/auth/login", "https://evil.example", "content-type"), BodyHandlers.discarding());
+        assertEquals(403, evil.statusCode());
+        assertTrue(evil.headers().firstValue("Access-Control-Allow-Origin").isEmpty());
+
+        // 실제 요청도 허용 출처에만 허락 헤더가 붙고, 인증 규칙은 그대로다.
+        var me = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/v2/auth/me")).header("Origin", APP_ORIGIN).build();
+        var anonymous = http.send(me, BodyHandlers.discarding());
+        assertEquals(401, anonymous.statusCode());
+        assertEquals(APP_ORIGIN, anonymous.headers().firstValue("Access-Control-Allow-Origin").orElse(null));
+        var forged = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/health")).header("Origin", "https://evil.example").build();
+        assertEquals(403, http.send(forged, BodyHandlers.discarding()).statusCode());
+        assertEquals(200, client().get("/health").status());
     }
 
     @Test

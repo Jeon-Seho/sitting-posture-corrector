@@ -386,7 +386,7 @@ DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**, 처리 �
 |---|---|
 | 접속 시간대 | `connectionTimeZone=Asia/Seoul` — `backend/api` `application.properties`, `compose.yaml` |
 | 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
-| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_5.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.5로 만든 볼륨은 migration 016을, V2.4는 015~016을, V2.3은 013~016을, V2.2는 011~016을 적용한다(1장). **초기화 스크립트는 아직 `schema_V2_5.sql`을 가리킨다 — V2.6으로 바꾸는 것은 DevOps 몫** |
+| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_6.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.5로 만든 볼륨은 migration 016을, V2.4는 015~016을, V2.3은 013~016을, V2.2는 011~016을 적용한다(1장). |
 
 **아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, 예정)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
 

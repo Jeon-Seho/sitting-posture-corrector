@@ -88,7 +88,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 ### 실시간 채널
 
 `/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
-(`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
+(`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). REST API를 다른 출처 화면(Vercel)에서 부를 때는 `posegood.cors.allowed-origins`(`POSEGOOD_CORS_ALLOWED_ORIGINS`)에 그 출처를 넣는다([BE API 명세](../docs/design/api-spec.md) 1장). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
 보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
 
@@ -126,7 +126,7 @@ make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 F
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_5.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_6.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Gradle을 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh

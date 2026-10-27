@@ -78,7 +78,7 @@
 | BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
 | BE-6 (자정 끊기·서버 시각, FE ADR 0029): ① KST 자정에 측정 끊기, ② `ready.started_at`·`closed.ended_at`, ③ A4·R1·T1 `today`, ④ `Cache-Control`, ⑤ J2 실행 시점, ⑥ 계약 맞춤 | DB/BE | ② 끝(`b903751`), ④ FE 철회, ⑤ Spark 몫, ① **보류**(A안 `closed` 새 사유 / B안 같은 연결에서 세션 넘김 — 4장), ③ A4·R1 `today` 구현(R1은 `{today, records}` 객체로 — 호환성 깨짐), T1은 형식에 포함, ⑥ 병합 때(`unmeasurable_timeout` 추가 알림) | FE 제안서 1장·1.1(V3 `259c752`) |
 | R1 `GET /v2/records` 응답을 `{today, records}` 객체로, A2·A3·A4에 `today` | DB/BE | 구현됨 (브랜치, MySQL로는 미확인) — **호환성 깨짐**: R1을 배열로 읽는 곳(FE 연동 명세, DevOps `tools/platform/io_api_smoke.py` 172줄)을 맞춰야 함 | `workspace/WorkspaceController.java`, `common/KstTime.today()`, `api-spec.md` R1·A4 |
-| 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현 전 (FE 배포 구상 단계) | `design/fe-deploy.md`(V3, develop은 `fe-domain-idea.md`) 3.1 S-1 |
+| 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현됨 (`POSEGOOD_CORS_ALLOWED_ORIGINS`, 비우면 CORS 없음). DevOps 요청: `compose.yaml` `api`·`bigdata.yaml` `io-api`에 변수 전달(`compose.yaml`은 목록에 없으면 컨테이너에 안 닿음), 서버 값 `https://app.posegood.site` | `design/fe-deploy.md`(V3, develop은 `fe-domain-idea.md`) 3.1 S-1 |
 
 ### 2.7 검증
 
@@ -100,7 +100,7 @@
 | `docs/architecture.md` 105줄 | "`/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다" | 문서 담당에 갱신 요청 | 요청 전 |
 | `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0021, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
 | `docs/plans/active/0031-realtime-kafka-transition.md` 79·84줄 | 최대 측정 시간을 「팀 회의 결과를 따른다, 5000초 유지」로 적음 — 2026-10-26 결정(제품 한도 없음, 측정불가 5분 자동 종료)과 다름. 10/26 v1 정리 기록도 없음 | 계획 공동 담당(DevOps·PM)에 갱신 요청(BE가 계획 0031을 직접 고치지 않기로 함) | 요청 전 |
-| `infra/mysql/initdb/10-posegood-schema.sh` | 빈 볼륨에 `schema_V2_5.sql`을 적용함 — API는 V2.6(`refresh_token`)이 없으면 시작하지 않음 | DevOps에 `schema_V2_6.sql`로 바꿔 달라고 요청. Compose 비밀값에 `POSEGOOD_JWT_SECRET`(32바이트 이상) 추가 요청 | 요청 전 |
+| `infra/mysql/initdb/10-posegood-schema.sh` | ~~빈 볼륨에 `schema_V2_5.sql`을 적용함~~ → 2026-10-27 `schema_V2_6.sql`로 고침(DB). 남은 것: Compose `api`에 `POSEGOOD_JWT_SECRET`(32바이트 이상) 전달 | DevOps에 `POSEGOOD_JWT_SECRET` 추가 요청 | 초기화 스크립트 완료, 비밀값 요청 전 |
 | `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | 쿠키·CSRF 로그인(`/v2/auth/csrf`)과 쿠키 WS 인증을 씀 — 토큰 로그인(ADR 0031)에서 실패 | DevOps에 Bearer 토큰·`hello.access_token`으로 바꿔 달라고 요청 | 요청 전 |
 | `tools/platform/io_api_smoke.py` 172줄 | R1을 배열로 읽음 — 2026-10-27부터 `{today, records}` 객체 | DevOps에 수정 요청 | 요청 전 |
 | `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
@@ -141,6 +141,7 @@
 | 2026-10-27 | 로그인 토큰(ADR 0031): JWT access + refresh, DB V2.6(`refresh_token`, migration 016), 쿠키 세션·CSRF·`LoginLifetime` 삭제, WS `hello.access_token`. 미결 「refresh 토큰」 → 구현됨. DevOps 요청 2건(초기화 스크립트·JWT 비밀값, 점검 도구) 추가 | 커밋 전 |
 | 2026-10-27 | 알림 기본값 결정: 새 계정 켜짐(DB V2.6 `sound_alert_enabled` 기본값 참, 버전은 그대로 V2.6). 미결 「알림 기본값」 삭제 | 커밋 전 |
 | 2026-10-27 | WebSocket 자세 등록 삭제(코드·계약·예시·시험, `phase: calibration` 포함). 미결 「WS 등록을 남길지」 → 삭제. api-spec 머리말 갱신(V2.6) | 커밋 전 |
+| 2026-10-27 | FE 요청(서버 공개 연결) 반영: REST CORS 구현(fe-deploy S-1, 단위·MySQL 통합 시험). DB 초기화 스크립트 V2.5 → V2.6(불일치 1건 해결) | 커밋 전 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

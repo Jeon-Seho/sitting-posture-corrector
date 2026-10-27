@@ -49,6 +49,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
+| 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
 로그인 방식은 2026-10-27 쿠키 세션 + 로그인 고정 30분에서 access·refresh 토큰으로 바꿨다([ADR 0031](../decisions/0031-jwt-access-refresh-login.md)).
 - access 토큰은 철회하지 않는다. 로그아웃·비밀번호 변경·탈퇴 뒤에도 남은 시간(최대 30분)은 통하고, refresh 토큰은 바로 막힌다. 열린 실시간 연결은 비밀번호 변경·탈퇴 때 바로 `closed(unauthorized)`로 닫힌다.
@@ -1618,6 +1619,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 2026-10-27 | `feature/repo-auth-refresh-token` | 새 계정의 알림 기본값 켜짐(`alerts_on: true`, DB V2.6 `sound_alert_enabled` 기본값 참). 기존 계정 값은 그대로 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | **로그인을 쿠키 세션 + 고정 30분에서 access 토큰(JWT, Bearer, 30분) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지)으로 바꿈 — 호환성 깨짐.** A1 CSRF 삭제, A8 refresh 추가, A2·A3 응답에 토큰, A5 로그아웃은 refresh 쿠키로, WS `hello`에 `access_token`(11장). DB V2.6 `refresh_token` (ADR 0031) |
 | 2026-10-27 | `fix/repo-backend-sync` | A2·A3·A4 응답에 `today`(KST 날짜). **R1 응답을 배열에서 `{today, records}` 객체로 바꿈 — 호환성 깨짐**(BE-6 ③) |
+| 2026-10-27 | `feature/repo-remove-ws-calibration` | 다른 출처 화면용 CORS(`POSEGOOD_CORS_ALLOWED_ORIGINS`, 1장). 비우면 지금과 같다 |
 | 2026-10-26 | `fix/repo-backend-sync` | 최대 측정 시간 5,000초 → 기본 24시간(계약 상한, 제품 한도 없음). 재전송 기억을 최근 120개 구간으로. 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 끝내고 저장, `closed(unmeasurable_timeout)` — 설정 `unmeasurable-timeout`, 앱 처리 전까지 끔(11.3·11.5) |
 | 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |
 | 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행) |
