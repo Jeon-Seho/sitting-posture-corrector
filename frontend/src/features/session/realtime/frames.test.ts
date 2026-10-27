@@ -32,16 +32,16 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(p[8]).toEqual([0.6, 0.5, 0])
   })
 
-  it('sends a frame with a filled-in joint as not valid, and a complete one as valid', () => {
+  it('sends a frame with a missing joint as the 「판정 불가」 signal only, and a complete one with coordinates', () => {
     const batcher = new FrameBatcher(0)
     const broken = body()
     delete (broken as Partial<Landmark>[])[7]
     batcher.push(input(100, { landmarks: broken }))
     const [first] = batcher.push(input(200))
     const [second] = batcher.finish(500)
-    expect(first.frames[0]).toMatchObject({ t_ms: 100, valid: false })
-    expect(first.frames[0].p![3]).toEqual([0, 0, 0])
+    expect(first.frames[0]).toEqual({ t_ms: 100, p: null, valid: false })
     expect(second.frames[0].valid).toBeUndefined()
+    expect(second.frames[0].p).toHaveLength(9)
   })
 
   it('sends each frame on its own, ending its interval when the next frame arrives (10/27)', () => {
@@ -61,14 +61,12 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(sent[0]).not.toHaveProperty('height')
   })
 
-  it('marks frames the app could not place as not valid but still sends the coordinates', () => {
+  it('sends frames the app could not place without coordinates (ADR 0032), and nobody as p null', () => {
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))
     const [first] = b.push(input(20, { landmarks: [] }))
     const [second] = b.finish(100)
-    expect(first.frames).toHaveLength(1)
-    expect(first.frames[0]).toMatchObject({ t_ms: 10, valid: false })
-    expect(first.frames[0].p).toHaveLength(9)
+    expect(first.frames).toEqual([{ t_ms: 10, p: null, valid: false }])
     expect(second.frames).toEqual([{ t_ms: 20, p: null }])
   })
 

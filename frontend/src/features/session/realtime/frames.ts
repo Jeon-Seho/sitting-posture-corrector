@@ -11,8 +11,10 @@ import type { Landmark } from '../../../../../model/prototype/pose'
  * - The frame as captured: 9 joints `[x, y, visibility]`, or `null` when nobody was tracked.
  *   Coordinates are MediaPipe's own (not mirrored, y grows down).
  * - `rest` (user pause) and `away` (camera lost) intervals carry no frames.
- * - `valid: false` marks a frame where the user's position cannot be determined (10/12
- *   meeting; since 10/22 a shoulder out of view, no grace); the server leaves it out (BE api-spec 11.2).
+ * - A frame where the user's position cannot be determined (a shoulder out of view, or a joint the
+ *   tracker did not give) is sent as the signal only: `{ t_ms, p: null, valid: false }`, no
+ *   coordinates (ADR 0032, 2026-10-27; before, ADR 0021's 10/12 exception sent them along). The
+ *   server counts it as unmeasurable time.
  */
 export const FRAME_SCHEMA_VERSION = '3.0'
 export const FRAME_FEATURE_VERSION = 'keypoints-9-v1'
@@ -48,9 +50,8 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  * The 9 joints as `[x, y, visibility]`. The server rejects the whole interval (and closes the
  * measurement with `bad_message`) for a joint outside x·y -1..2 or visibility 0..1 (BE
  * `FrameInterval`), so values are clamped to that range; a joint the tracker did not give, or
- * gave as a non-number, is `[0, 0, 0]` (visibility 0) and the frame is sent `valid:false`
- * (`FrameBatcher.push`): the server reads ear positions without a visibility check, so a filled-in
- * ear would otherwise enter the judgement as a real point (2026-10-22).
+ * gave as a non-number, is `[0, 0, 0]` (visibility 0). Such a frame is not sent with coordinates
+ * at all: `FrameBatcher.push` sends it as the 「판정 불가」 signal only (ADR 0032).
  */
 /** All 9 joints came from the tracker as numbers (nothing was filled in with `[0, 0, 0]`). */
 export function jointsComplete(landmarks: Landmark[]): boolean {
@@ -97,10 +98,14 @@ export class FrameBatcher {
   push(input: FrameInput): FrameBatch[] {
     const out = this.tick(input.timeMs)
     if (this.phase === 'rest' || this.phase === 'away') return out
-    const frame: PoseFrame = { t_ms: this.at(input.timeMs), p: frameJoints(input.landmarks) }
+    const joints = frameJoints(input.landmarks)
+    // Not placeable (a shoulder out of view) or a joint missing: the 「판정 불가」 signal only, no
+    // coordinates — a frame with a missing keypoint is no use for judging or for training (ADR 0032).
+    const frame: PoseFrame =
+      joints && (!input.judgeable || !jointsComplete(input.landmarks))
+        ? { t_ms: this.at(input.timeMs), p: null, valid: false }
+        : { t_ms: this.at(input.timeMs), p: joints }
     if (this.frames.length && frame.t_ms > this.start) out.push(this.close(frame.t_ms))
-    // Not placeable (a shoulder out of view) or a joint filled in: the server leaves the frame out.
-    if (frame.p && (!input.judgeable || !jointsComplete(input.landmarks))) frame.valid = false
     this.frames.push(frame)
     return out
   }
