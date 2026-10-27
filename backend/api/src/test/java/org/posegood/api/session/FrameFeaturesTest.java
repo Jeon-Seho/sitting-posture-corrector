@@ -167,13 +167,13 @@ class FrameFeaturesTest {
         var edge = new double[9][];
         for (int i = 0; i < 9; i++) edge[i] = SLOUCH[i].clone();
         edge[8][0] = 0.01;
-        assertFalse(FrameFeatures.usable(frame(0, edge, null)));
+        assertNull(FrameFeatures.features(frame(0, edge, null)));
         var narrow = new double[9][];
         for (int i = 0; i < 9; i++) narrow[i] = SLOUCH[i].clone();
         narrow[7][0] = 0.55;
         narrow[8][0] = 0.5;
-        assertFalse(FrameFeatures.usable(frame(0, narrow, null)));
-        assertTrue(FrameFeatures.usable(frame(0, SLOUCH, null)));
+        assertNull(FrameFeatures.features(frame(0, narrow, null)));
+        assertNotNull(FrameFeatures.features(frame(0, SLOUCH, null)));
     }
 
     @Test
@@ -189,53 +189,4 @@ class FrameFeaturesTest {
                 () -> new FrameInterval("3.0", "keypoints-9-v1", 0, 0, 1600, FrameInterval.Phase.running, List.of()));
     }
 
-    /** 자세 등록 판정(저장 전 단계만; 저장은 MySQL 통합 시험). */
-    @Test
-    void calibrationFailureReasons() throws Exception {
-        var service = new SessionService(null, null, null, null, null, null, null, null, null, Duration.ofHours(1), Duration.ZERO);
-
-        var capture = new SessionService.Capture();
-        capture.add(example("ws-features-calibration.json")); // 1500~2000ms, 판정 가능 1장
-        assertEquals(1, capture.validFrames());
-        var result = service.calibrate(1, capture, true);
-        assertFalse(result.ok());
-        assertEquals("incomplete", result.reason());
-
-        capture = calibration(6, 2); // 3000ms, 12장
-        assertEquals("too_few_frames", service.calibrate(1, capture, true).reason());
-        assertEquals(12, service.calibrate(1, capture, true).validFrames());
-
-        capture = calibration(6, 3); // 3000ms, 18장
-        assertEquals("incomplete", service.calibrate(1, capture, false).reason());
-
-        var out = new SessionService.Capture();
-        var outside = new double[9][];
-        for (int i = 0; i < 9; i++) outside[i] = SLOUCH[i].clone();
-        outside[5][0] = 1.2; // 입 왼쪽이 화면 밖으로 추정됨(판정 프레임으로는 쓸 수 있다)
-        for (int s = 0; s < 6; s++) {
-            var frames = new ArrayList<FrameInterval.Frame>();
-            for (int f = 0; f < 3; f++) frames.add(frame(s * 500L + f * 100, outside, null));
-            out.add(new FrameInterval("3.0", "keypoints-9-v1", s, s * 500L, s * 500L + 500,
-                    FrameInterval.Phase.calibration, frames));
-        }
-        assertEquals("out_of_frame", service.calibrate(1, out, true).reason());
-
-        var measure = running(frame(0, SLOUCH, null));
-        assertThrows(ApiError.class, () -> new SessionService.Capture().add(measure));
-        var ordered = calibration(2, 1);
-        assertThrows(ApiError.class, () -> ordered.add(new FrameInterval("3.0", "keypoints-9-v1", 1, 500, 1000,
-                FrameInterval.Phase.calibration, List.of())));
-    }
-
-    private static SessionService.Capture calibration(int intervals, int framesPerInterval) {
-        var capture = new SessionService.Capture();
-        for (int s = 0; s < intervals; s++) {
-            var frames = new ArrayList<FrameInterval.Frame>();
-            for (int f = 0; f < framesPerInterval; f++) frames.add(frame(s * 500L + f * 100, SLOUCH, null));
-            frames.add(frame(s * 500L + 450, null, null));
-            capture.add(new FrameInterval("3.0", "keypoints-9-v1", s, s * 500L, s * 500L + 500,
-                    FrameInterval.Phase.calibration, frames));
-        }
-        return capture;
-    }
 }

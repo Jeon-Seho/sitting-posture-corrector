@@ -12,7 +12,7 @@
     "sequence": { "type": "integer", "minimum": 0 },
     "start_ms": { "type": "integer", "minimum": 0 },
     "end_ms": { "type": "integer", "minimum": 1 },
-    "phase": { "enum": ["running", "calibration", "rest", "away"] },
+    "phase": { "enum": ["running", "rest", "away"] },
     "frames": {
       "type": "array",
       "maxItems": 30,

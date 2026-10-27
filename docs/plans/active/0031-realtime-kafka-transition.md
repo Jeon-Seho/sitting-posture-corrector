@@ -32,7 +32,7 @@
 - 제외:
   - 앱 화면과 WebSocket v2 계약.
   - 좌표 → 특징 계산을 추론으로 옮기는 일(D-34, 본문 v3). 이 계획에서는 `ws`가 지금의 Java `FrameFeatures`로 계산해 입력 v2 본문으로 보낸다.
-  - 자세 등록 계산을 추론으로 옮기는 일(D-35). 등록 연결(`purpose: calibration`)은 지금처럼 API 안에서 계산·저장한다.
+  - 자세 등록. 앱 평균 → B1뿐이라(2026-10-27 WebSocket 등록 삭제) Kafka 경로와 관계없다.
   - 입출구 서버 여러 대(D-42).
 
 ## 지금 API가 하는데 Kafka 경로에 없는 것
@@ -62,7 +62,7 @@
 - [ ] 3. 전환 시험(DevOps/BE) — 통합 테스트에 WebSocket 시나리오(가입 → 기준 → 세션 → `/v2/realtime` → 구간 → `end` → `closed(ended)` → 세션 조회), DB 세 곳 일치, `local`로 되돌리기 확인.
   도구 `tools/platform/ws_realtime_smoke.py`·통합 테스트 12단계 준비됨(10/16) — 지금 `local`로 기준값을 확인하고, 1단계 뒤 `kafka`로 같은 기대값을 확인한다.
 - [ ] 4. 전환·정리(전원) — 서버 기본값 `kafka` → 앱 왕복(T-13) → API 안 판정·io-inference 삭제, ADR 0020 대체 ADR, `tests/test_service_contracts.py`의 ADR 0020 회귀 시험을 새 구조에 맞춤, `docs/architecture.md` 갱신.
-- [ ] 다음 계획 — D-34(좌표 계산을 추론으로, 본문 v3), D-35(등록 계산을 추론으로).
+- [ ] 다음 계획 — D-34(좌표 계산을 추론으로, 본문 v3). D-35(등록 계산을 추론으로)는 WebSocket 등록 삭제(2026-10-27)로 필요 없어짐.
 
 ## 결정과 진행 기록
 

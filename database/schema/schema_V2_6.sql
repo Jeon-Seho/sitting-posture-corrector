@@ -14,7 +14,8 @@
 --   baseline_posture.calibration_uuid·calibration_sec·sample_count, UK-04
 --   monitor_session.calibration_uuid·end_reason, collapse_event.end_reason
 --   correction_alert.correction_alert_id·attempt_seq·delivered·suppress_reason, UK-07
--- 추가 (V2.6): T-51 refresh_token, UK-17, FK-28, CHECK 4개 (migration 016). SPRING_SESSION·SPRING_SESSION_ATTRIBUTES는
+-- 추가 (V2.6): T-51 refresh_token, UK-17, FK-28, CHECK 4개 (migration 016). user_account.sound_alert_enabled 기본값 거짓 → 참,
+--   baseline_posture.client_registration_uuid 설명(WebSocket 등록 삭제) SPRING_SESSION·SPRING_SESSION_ATTRIBUTES는
 --   API가 더 쓰지 않지만 테이블은 남긴다(정리는 나중에)
 -- 추가·삭제 (V2.5): baseline_posture.client_registration_uuid, UK-16, ck_baseline_posture_client_registration_uuid 추가,
 --   UK-14(사용자, 등록 시각) 삭제. registered_at은 서버가 등록을 받은 시각 (migration 015)
@@ -96,7 +97,7 @@ CREATE TABLE user_account (
   account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED. 철회 없음 — CLOSED는 ACTIVE로 되돌아오지 않고, 유예 기간(30일) 뒤 Spark J3가 계정 행을 지운다',
   joined_at DATETIME(3) NOT NULL COMMENT '가입 시각',
   threshold_policy_id BIGINT NOT NULL COMMENT '다음 측정부터 적용할 판정 정책 (사용자 설정 병합)',
-  sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '알림 켜기·끄기 (API preferences.alerts_on). 측정 시작 때 monitor_session.alert_enabled로 복사한다. 기본값(DB 거짓 / FE 켜짐)과 컬럼 이름 변경 여부는 미정',
+  sound_alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '알림 켜기·끄기 (API preferences.alerts_on). 측정 시작 때 monitor_session.alert_enabled로 복사한다. 기본값 참(켜짐) — FE 화면 기본값에 맞춤(2026-10-27). 컬럼 이름 변경 여부는 미정',
   age INT NULL COMMENT '가입 시 입력한 나이. 선택. NULL: 입력 안 함',
   occupation VARCHAR(80) NULL COMMENT '가입 시 입력한 직업(자유 입력). 선택. NULL: 입력 안 함',
   CONSTRAINT pk_user_account PRIMARY KEY (user_account_id),
@@ -112,7 +113,7 @@ CREATE TABLE user_account (
 CREATE TABLE baseline_posture (
   baseline_posture_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '기준 자세 식별자. 다시 촬영할 때마다 새 행. 사용자별로 가장 큰 값이 현재 기준',
   user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 사용자별로 baseline_posture_id가 가장 큰 행이 현재 기준',
-  client_registration_uuid VARCHAR(36) NOT NULL COMMENT '등록 식별자(UUID). 앱이 등록마다 한 번 발급하고 재전송에도 같은 값을 보낸다 — (사용자, 등록 식별자) 유일 제약(UK-16)이 중복 저장을 막는다. 서버가 계산한 등록(WebSocket)은 서버가 발급',
+  client_registration_uuid VARCHAR(36) NOT NULL COMMENT '등록 식별자(UUID). 앱이 등록마다 한 번 발급하고 재전송에도 같은 값을 보낸다 — (사용자, 등록 식별자) 유일 제약(UK-16)이 중복 저장을 막는다. 등록은 B1뿐(WebSocket 등록은 V2.6에서 삭제)',
   registered_at DATETIME(3) NOT NULL COMMENT '등록 시각. 서버가 등록을 받은 시각(KST)이다. 현재 기준 판단에는 쓰지 않는다 — 현재 기준은 baseline_posture_id가 가장 큰 행',
   nose_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
   nose_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',

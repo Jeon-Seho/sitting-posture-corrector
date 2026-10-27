@@ -230,7 +230,9 @@ class RealtimeHandlerV2Test {
         verify(sessions).finish(OWNER, SESSION, null); // 측정 중 끊김 → 마지막 구간 끝에서 종료
 
         var wrongPhase = measuring();
-        send(wrongPhase, example("ws-features-calibration.json"));
+        var calibrationPhase = example("ws-features.json");
+        ((ObjectNode) calibrationPhase.get("items").get(0)).put("phase", "calibration"); // 등록 구간은 더 받지 않음
+        send(wrongPhase, calibrationPhase);
         assertEquals("bad_message", wrongPhase.only("closed").get("reason").asString());
 
         var large = measuring();
@@ -264,7 +266,7 @@ class RealtimeHandlerV2Test {
         assertEquals("not_owner", other.only("closed").get("reason").asString());
 
         var anonymous = connect(handler);
-        send(anonymous, example("ws-hello-calibration.json").put("access_token", "expired-access-token"));
+        send(anonymous, example("ws-hello-measure.json").put("access_token", "expired-access-token"));
         assertEquals("unauthorized", anonymous.only("closed").get("reason").asString());
         // 받아들여지지 않은 연결이 끊겨도 세션을 끝내지 않는다.
         verify(sessions, never()).finish(anyLong(), any(), any());
@@ -324,24 +326,13 @@ class RealtimeHandlerV2Test {
     }
 
     @Test
-    void calibrationCollectsFramesAndAnswersOnEnd() throws Exception {
+    void calibrationIsNoLongerAccepted() throws Exception {
+        // WebSocket 자세 등록은 2026-10-27 삭제(B1만). purpose: calibration hello는 계약 위반이다.
         var fake = connect(handler);
-        send(fake, example("ws-hello-calibration.json"));
-        same(example("ws-ready-calibration.json"), fake.only("ready"));
-        send(fake, example("ws-features-calibration.json"));
-        assertEquals(3, fake.only("ack").get("last_sequence").asLong());
-
-        when(sessions.calibrate(eq(OWNER), any(SessionService.Capture.class), eq(true)))
-                .thenReturn(new SessionService.Calibration(false, 9, "too_few_frames", null));
-        send(fake, example("ws-end.json"));
-        same(example("ws-calibration-result-failed.json"), fake.only("calibration_result"));
-        assertEquals("ended", fake.only("closed").get("reason").asString());
+        var hello = example("ws-hello-measure.json").put("purpose", "calibration");
+        send(fake, hello);
+        assertEquals("bad_message", fake.only("closed").get("reason").asString());
         verify(sessions, never()).openRealtime(anyLong(), any());
-
-        var running = connect(handler);
-        send(running, example("ws-hello-calibration.json"));
-        send(running, example("ws-features.json"));
-        assertEquals("bad_message", running.only("closed").get("reason").asString());
     }
 
     /** 값이 같은지(숫자는 0과 0.0처럼 표기가 달라도 같은 값이면 같다). */
@@ -411,7 +402,6 @@ class RealtimeHandlerV2Test {
             String type = message.get("type").asString();
             return switch (type) {
                 case "ready" -> "ws-ready-" + message.get("purpose").asString() + ".json";
-                case "calibration_result" -> "ws-calibration-result-" + message.get("status").asString() + ".json";
                 default -> "ws-" + type + ".json";
             };
         }

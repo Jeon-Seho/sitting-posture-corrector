@@ -165,7 +165,7 @@ class MySqlIntegrationTest {
         assertEquals(3, workspace.get("rules").get("holdSeconds").asInt());
         assertEquals(60, workspace.get("rules").get("realertSeconds").asInt());
         assertEquals(0.7, workspace.get("rules").get("threshold").asDouble());
-        assertFalse(workspace.get("preferences").get("alerts_on").asBoolean());
+        assertTrue(workspace.get("preferences").get("alerts_on").asBoolean()); // 새 계정은 알림 켜짐(V2.6 기본값)
 
         var update = MAPPER.createObjectNode();
         update.putObject("profile").put("name", "바뀐 이름").put("age", 31).put("occupation", "합성");
@@ -648,33 +648,28 @@ class MySqlIntegrationTest {
     }
 
     @Test
-    void realtimeV2RegistersABaselineAndMeasuresUntilEnd() throws Exception {
+    void realtimeV2MeasuresUntilEnd() throws Exception {
         var api = client();
         api.register(email());
 
-        // 자세 등록: 3초(구간 6개 x 판정 가능 프레임 4장) -> 서버가 평균을 저장하고 calibration_result(ok).
-        UUID calibrationId = UUID.randomUUID();
-        var calibration = Socket.open(port);
-        calibration.send(helloV2(api, "calibration", calibrationId));
-        assertEquals(calibrationId.toString(), calibration.next("ready").get("calibration_id").asString());
-        for (long sequence = 0; sequence < 6; sequence++) calibration.send(frames(sequence, "calibration", 0.0));
-        calibration.send(endV2(3000));
-        var result = calibration.next("calibration_result");
-        assertEquals("ok", result.get("status").asString());
-        assertEquals(24, result.get("valid_frames").asInt());
-        assertEquals(0.51234, result.get("landmarks").get("nose").get("x").asDouble(), 1e-9);
-        assertEquals("ended", calibration.next("closed").get("reason").asString());
-        UUID baseline = UUID.fromString(result.get("baseline_id").asString());
-        assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
+        // 자세 등록은 B1뿐이다(WebSocket 등록은 2026-10-27 삭제). 합성 기준 좌표 UPRIGHT를 앱이 낸 평균으로 보낸다.
+        var registration = MAPPER.createObjectNode()
+                .put("registration_id", UUID.randomUUID().toString())
+                .put("calibration_ms", 3000)
+                .put("sample_count", 24);
+        var landmarks = registration.putObject("landmarks");
+        String[] joints = {"nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right",
+                "left_shoulder", "right_shoulder"};
+        for (int i = 0; i < joints.length; i++)
+            landmarks.putObject(joints[i]).put("x", UPRIGHT[i][0]).put("y", UPRIGHT[i][1]);
+        var saved = api.post("/v2/baselines", registration);
+        assertEquals(200, saved.status());
+        UUID baseline = UUID.fromString(saved.body().get("baseline_id").asString());
 
-        // 실패한 등록(3초 미만)은 저장하지 않고 이전 기준이 그대로다.
-        var brief = Socket.open(port);
-        brief.send(helloV2(api, "calibration", UUID.randomUUID()));
-        brief.next("ready");
-        brief.send(frames(0, "calibration", 0.0));
-        brief.send(endV2(500));
-        assertEquals("incomplete", brief.next("calibration_result").get("reason").asString());
-        assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
+        // WebSocket 등록을 요청하면 계약 위반으로 닫는다.
+        var calibration = Socket.open(port);
+        calibration.send(helloV2(api, "measure", UUID.randomUUID()).put("purpose", "calibration"));
+        assertEquals("bad_message", calibration.next("closed").get("reason").asString());
 
         // 측정: 3.5초 치우침(3초에 붕괴 확정) -> 0.5초 사람 없음 -> end 5초.
         UUID id = UUID.randomUUID();

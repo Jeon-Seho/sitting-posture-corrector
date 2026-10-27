@@ -49,15 +49,6 @@ public class BaselineRepository {
     }
 
     /**
-     * 서버가 계산한 기준(WebSocket 자세 등록) 저장. 재전송이 없어 등록 식별자는 서버가 발급한다.
-     *
-     * Caller holds the account lock and transaction.
-     */
-    public Stored registerComputed(long owner, SessionRequests.Landmarks landmarks) {
-        return register(owner, UUID.randomUUID(), landmarks);
-    }
-
-    /**
      * 같은 등록 식별자가 이미 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다.
      * 새 행의 등록 시각은 서버 시각이다. Caller holds the account lock and transaction. Existing rows are never updated.
      */

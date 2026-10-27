@@ -42,16 +42,19 @@ class RealtimeWsV2Tests(unittest.TestCase):
 
     def test_every_example_matches(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 18)
+        self.assertEqual(len(names), 13)
         for path in EXAMPLES.glob("*.json"):
             with self.subTest(example=path.name):
                 self.validator.validate(load(path))
 
-    def test_hello_names_exactly_one_target_for_its_purpose(self):
+    def test_hello_is_measure_only(self):
         measure = self.example("hello-measure")
         self.rejects({**measure, "calibration_id": measure["session_id"]})
         self.rejects({k: v for k, v in measure.items() if k != "session_id"})
-        self.rejects({**self.example("hello-calibration"), "purpose": "measure"})
+        self.rejects({k: v for k, v in measure.items() if k != "access_token"})
+        # WebSocket posture registration was removed on 2026-10-27 (B1 only).
+        calibration = {k: v for k, v in measure.items() if k != "session_id"}
+        self.rejects({**calibration, "purpose": "calibration", "calibration_id": measure["session_id"]})
         # v1 resume fields are gone (no reconnection, ADR 0024).
         self.rejects({**measure, "last_event_id": 0})
 
@@ -80,15 +83,13 @@ class RealtimeWsV2Tests(unittest.TestCase):
         ended["event"]["recorded"] = True
         self.rejects(ended)
 
-    def test_calibration_result_shapes(self):
-        ok = self.example("calibration-result-ok")
-        self.rejects({k: v for k, v in ok.items() if k != "baseline_id"})
-        self.rejects({**ok, "reason": "too_few_frames"})
-        partial = copy.deepcopy(ok)
-        del partial["landmarks"]["right_shoulder"]
-        self.rejects(partial)
-        failed = self.example("calibration-result-failed")
-        self.rejects({**failed, "reason": "camera_off"})
+    def test_calibration_messages_are_gone(self):
+        self.rejects({"type": "ready", "purpose": "calibration", "calibration_id": self.example("hello-measure")["session_id"]})
+        self.rejects({"type": "calibration_result", "status": "failed", "calibration_id": self.example("hello-measure")["session_id"],
+                      "valid_frames": 0, "reason": "incomplete"})
+        calibration_phase = copy.deepcopy(self.example("features"))
+        calibration_phase["items"][0]["phase"] = "calibration"
+        self.rejects(calibration_phase)
 
     def test_closed_reasons_and_unknown_types(self):
         self.rejects({"type": "closed", "reason": "reconnect"})

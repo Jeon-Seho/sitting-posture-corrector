@@ -163,6 +163,8 @@ database/
 |---|---|
 | T-51 `refresh_token`, UK-17(토큰 해시), FK-28(→ `user_account`, CASCADE), CHECK 4개 | 추가. 로그인 유지 토큰(refresh, 14일)의 SHA-256과 교체·철회 시각. 원문은 앱의 HttpOnly 쿠키에만 있다. access 토큰(JWT, 30분)은 저장하지 않는다 |
 | `SPRING_SESSION`, `SPRING_SESSION_ATTRIBUTES` | API가 더 쓰지 않는다. 테이블은 남겨 둔다(정리는 나중에) |
+| `user_account.sound_alert_enabled` 기본값 | 거짓 → **참**(FE 화면 기본값 「알림 켜짐」에 맞춤). 새 계정만 해당, 기존 행은 그대로 (016의 `MODIFY`) |
+| `baseline_posture.client_registration_uuid` 설명 | WebSocket 등록(서버 발급)을 지워 "등록은 B1뿐"으로. 값·제약은 그대로 (016의 `MODIFY`) |
 
 **V2.5에서 바꾼 것** ([ADR 0028](../docs/decisions/0028-server-time-for-baseline-registration.md), migration 015)
 
@@ -285,7 +287,7 @@ database/
 | `013_alter_feature_archive.sql` | V2.3 → V2.4 | `feature_archive.row_count`와 CHECK 삭제, 세션 폴더 기준 설명 | 행은 그대로. `row_count` 값은 사라지고 되돌려도 0이 된다 |
 | `014_update_comment_v24.sql` | V2.3 → V2.4 | `user_account`·`monitor_session`·`daily_stat`·`deletion_request` 설명만 | 영향 없음 |
 | `015_alter_baseline_posture_registration.sql` | V2.4 → V2.5 | `baseline_posture.client_registration_uuid`·UK-16·CHECK 추가, UK-14 삭제, `registered_at` 설명 | 행은 그대로. 기존 행의 등록 식별자는 `UUID()`로 채운다. 되돌릴 때 같은 사용자·같은 등록 시각 행이 있으면 UK-14를 다시 만들지 못한다 |
-| `016_create_refresh_token.sql` | V2.5 → V2.6 | T-51 `refresh_token`·UK-17·FK-28·CHECK 4개 추가 | 행은 그대로. 남아 있는 `SPRING_SESSION` 로그인은 의미가 없어져 모든 사용자가 다시 로그인한다. 되돌리기는 `DROP TABLE refresh_token` |
+| `016_create_refresh_token.sql` | V2.5 → V2.6 | T-51 `refresh_token`·UK-17·FK-28·CHECK 4개 추가, `sound_alert_enabled` 기본값 참 | 행은 그대로. 남아 있는 `SPRING_SESSION` 로그인은 의미가 없어져 모든 사용자가 다시 로그인한다. 되돌리기는 `DROP TABLE refresh_token` |
 
 ---
 
@@ -333,7 +335,7 @@ database/
 | 비밀번호 | 백엔드에서 단방향 해시로 만들어 `password_hash`에 넣는다. 평문은 저장하지도 응답하지도 않는다 | SER-004 |
 | 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴를 접수한 계정(CLOSED)은 유예 중에도 이메일·비밀번호 해시가 남아 있지만, 비밀번호가 맞아도 막는다(403 `ACCOUNT_CLOSED` — 되돌릴 수 없고 30일 뒤 삭제된다고 안내) | D-34, 탈퇴 철회 없음 (2026-10-15) |
 | 로그인 끊기의 전제 | 로그인 수단은 Spring Session뿐이다(remember-me 쿠키·JWT 같은 세션 밖 인증을 쓰지 않는다). `PRINCIPAL_NAME`은 항상 채운다. 이메일 변경 기능을 넣으면 변경 때 예전 세션도 정리한다 | V2.1 (`auth_epoch` 삭제) |
-| 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. `registered_at`은 **서버가 등록을 받은 시각**이다(앱은 시각을 보내지 않는다, ADR 0028). **REST `POST /v2/baselines`(B1)**: 앱이 낸 평균과 `registration_id`(촬영마다 앱이 한 번 만드는 UUID)를 받는다. 표본 20 이상·촬영 3초 이상을 넣기 전에 검사한다. 재전송 때도 같은 `registration_id`가 온다 — 같은 (사용자, 등록 식별자) 행이 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다(UK-16). **WebSocket `/v2/realtime` 등록(`purpose: calibration`)**: 서버가 판정 가능 프레임 15장 이상으로 평균을 내고 등록 식별자도 서버가 만든다. 재전송이 없다. 앱은 B1만 쓰기로 했다(FE ADR 0026, V3 브랜치) — WebSocket 등록을 남길지는 미결([개발 상태](../docs/backend-status.md) 4장) | BR-63, UK-16, ADR 0028 |
+| 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. `registered_at`은 **서버가 등록을 받은 시각**이다(앱은 시각을 보내지 않는다, ADR 0028). **REST `POST /v2/baselines`(B1)**: 앱이 낸 평균과 `registration_id`(촬영마다 앱이 한 번 만드는 UUID)를 받는다. 표본 20 이상·촬영 3초 이상을 넣기 전에 검사한다. 재전송 때도 같은 `registration_id`가 온다 — 같은 (사용자, 등록 식별자) 행이 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다(UK-16). WebSocket 등록(`purpose: calibration`)은 2026-10-27 삭제했다(등록은 B1뿐) | BR-63, UK-16, ADR 0028 |
 | 기준 자세 좌표 | MediaPipe 정규화 좌표(0~1), 촬영 동안의 평균. 0~1 밖의 값(화면 밖 추정)은 DB가 거부하므로 보정 실패로 처리한다. 좌표 수집 조건(MediaPipe 모델·`CAPTURE_RESOLUTION`·관절 목록)을 바꾸면 모든 사용자가 다시 촬영한다 | ck_baseline_posture_* |
 | 안전 범위 검사 | 하지 않는다 (2026-10-10 결정). `safety_range` 테이블도 없다 | V2.1, BR-04 |
 | 세션 생성 | 그 사용자의 기준 자세가 없으면 측정을 시작하지 않는다. 시작할 때 현재 기준(그 사용자의 `baseline_posture_id`가 가장 큰 행 — 등록 시각으로 고르지 않는다)의 ID, `user_account.threshold_policy_id`, `user_account.sound_alert_enabled`(→ `alert_enabled`)를 세션에 넣는다. `alert_enabled`는 측정 중에 바꾸지 않는다. 해상도는 저장하지 않는다(프론트엔드가 실제로 받은 해상도가 다르면 시작하지 않는다) | BR-02, BR-64, FK-27 |

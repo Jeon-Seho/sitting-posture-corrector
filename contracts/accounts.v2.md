@@ -50,7 +50,7 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
   "schema_version": "2.0",
   "profile": {"name": "합성 예제", "age": null, "occupation": null},
   "rules": {"holdSeconds": 3, "recoverSeconds": 3, "realertSeconds": 60, "threshold": 0.7},
-  "preferences": {"alerts_on": false},
+  "preferences": {"alerts_on": true},
   "consents": {"optional_profile": false},
   "records": []
 }
@@ -59,7 +59,7 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 `PUT /workspace`는 `{profile,rules,preferences}` 전체를 받는다. 동의·기록은 이 요청으로 변경하지 않는다.
 정책 행은 불변이며 네 값으로 찾거나 추가한다. 기본값은 기존 3초/3초/60초/0.7을 설정으로 지정한다.
 `holdSeconds`·`recoverSeconds`는 0.5초 단위, `realertSeconds`는 정수, `threshold`는 소수 셋째 자리까지다.
-`alerts_on`은 DB가 세션 알림 원본으로 정한 `user_account.sound_alert_enabled`에 대응한다(기본 false).
+`alerts_on`은 DB가 세션 알림 원본으로 정한 `user_account.sound_alert_enabled`에 대응한다(기본 true — 2026-10-27 FE 화면 기본값에 맞춤, DB V2.6).
 기기의 소리 재생 허용과 데모 표시는 DB에 저장하지 않는다.
 
 ## 기준 자세
