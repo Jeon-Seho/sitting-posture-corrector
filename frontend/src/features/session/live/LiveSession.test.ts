@@ -150,7 +150,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(ended).toHaveLength(1)
   })
 
-  it('sends one 0.5 s interval per message, those made before ready first and in order', async () => {
+  it('sends one frame per message, those made before ready first and in order', async () => {
     const live = await started()
     for (let t = 0; t < 1200; t += 100) live.ingest(now + t, points, true)
     now += 1200
@@ -159,15 +159,16 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     expect(live.state.phase).toBe('running')
     const sent = socket.features()
-    expect(sent.map((b) => b.sequence)).toEqual([0, 1])
+    // 12 frames: each interval ends when the next frame arrives, the last one is still open.
+    expect(sent.map((b) => b.sequence)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     expect(sent[0]).toMatchObject({
       schema_version: '3.0',
       feature_version: 'keypoints-9-v1',
       start_ms: 0,
-      end_ms: 500,
+      end_ms: 100,
       phase: 'running',
     })
-    expect((sent[0].frames as unknown[]).length).toBe(5)
+    expect(sent.every((b) => (b.frames as unknown[]).length === 1)).toBe(true)
     expect(socket.sent.filter((m) => m.type === 'features').every((m) => (m.items as unknown[]).length === 1)).toBe(true)
   })
 

@@ -32,7 +32,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 로그인 | HttpOnly·SameSite=Lax 쿠키. **로그인한 때부터 30분이 지나면 HTTP·WS 활동과 상관없이 만료**(10/22 BE 명세 1장, FE 기준. 10/25 기준 서버는 `spring.session.timeout=30m` — 마지막 요청부터 세는 방식이라 아직 다름). WS도 같은 쿠키. 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
 | CSRF | A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함) | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
-| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 시각(A4 `server_time` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, `ready`, `closed`, R1·T1 `today`)의 KST 날짜. 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`은 BE 브랜치 `fix/repo-backend-sync` `b903751`에 있고(develop 미병합), A4 `server_time`은 BE-6 요청 중. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
+| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`은 BE 브랜치 `fix/repo-backend-sync` `b903751`에 있고(develop 미병합), A4 `today`는 BE-6 요청 중. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의, BE-6 요청 중) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
@@ -44,7 +44,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 502·503 재시도 | 1·2·4초 간격, 최대 3번(같은 본문) | 오류 안내 |
 | 요청 응답 | 5초 | 「서버에 연결하지 못했어요」. S1·B1만 같은 본문으로 502·503과 같은 간격으로 다시 보낸다(둘 다 같은 요청이면 같은 결과, 10/22) |
 | `hello` → `ready` | 5초 | 연결을 닫고 「서버에 연결하지 못했어요」. 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터** |
-| `features` | 0.5초마다 구간 1개. `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
+| `features` | **프레임마다 구간 1개**(10/27 팀장 결정, 5.1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
 | 카메라 영상 | 프레임이 1초 넘게 없으면 `away` | 카메라가 돌아와야 「측정 재개」 |
 | 측정 `end` → `closed(ended)` | 10초 | S4로 결과(실패하면 마지막 `progress`로 종료 화면) |
 | 자세 등록 촬영 | 끊기지 않은 3초, 판정 가능 프레임 20장 이상. 추적 속도가 낮으면 20장까지 이어 찍는다 | 15초가 지나면 실패 안내 |
@@ -142,15 +142,15 @@ R1은 앱 기록 형식(`RecordItem`, camelCase, `server.view` = `SessionView`) 
 
 ### 5.1 좌표 구간 (`posture.frames.v1`)
 
-**0.5초에 구간 1개. 그 안에 찍힌 프레임을 평균 내지 않고 그대로 담는다**(`items`에 항상 1개, 약 2~7KB). 필드와 예시는 BE 명세 11.2와 계약.
+**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간마다 판정하므로 프레임마다 결과(`observation`)가 온다. 필드와 예시는 BE 명세 11.2와 계약.
 
 - **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `p: null`(이때 `valid`는 넣지 않는다).
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
 - **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절은 `[0, 0, 0]`으로 채운 뒤 그 프레임을 `valid:false`로 보낸다(10/22. 서버는 귀 좌표를 visibility 없이 쓰므로 채운 값이 실제 위치로 판정에 들어가지 않게).
 - **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 쓸지 말지는 서버가 정한다.
-- **프레임 수는 일정하지 않다.** 보통 0.5초에 약 8개, 느린 PC는 3~5개. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다.
-- **`valid: false`:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 관절을 `[0, 0, 0]`으로 채운 프레임에만 붙인다. 서버는 그 프레임 한 장만 빼고 같은 구간의 나머지 프레임으로 판정한다(BE `FrameFeatures.interval`). 서버는 그 프레임을 판정에서 빼고 `UNMEASURABLE`로 센다.
-- **왜 평균을 내지 않나:** 0.5초 안에 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 가짜 치우침을 만든다. 어느 장을 뺄지도 판단이라 서버 몫이다.
+- **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다.
+- **`valid: false`:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 관절을 `[0, 0, 0]`으로 채운 프레임에만 붙인다. 구간에 그 프레임 하나뿐이므로 서버는 그 구간을 판정 불가로 본다(`UNMEASURABLE`).
+- **왜 프레임마다 보내나(10/27):** 여러 장을 묶으면 서버가 쓸 수 있는 장을 평균해 판정하는데(BE `FrameFeatures.interval`), 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 판정을 흐린다. 프레임마다 보내면 장마다 따로 판정되고, 판별 가능 시간(`valid_ms`)도 프레임 단위로 정확해진다. 서버 부담(추론·저장이 초당 약 10번)은 감수하기로 했다. BE에 알린 것은 [FE 제안서](fe-server-proposal.md) BE-8.
 
 ### 5.2 쉬기·자리 비움·판정 불가·종료
 
@@ -233,7 +233,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 1 | (앱 시작 때) B2 | 200 기준 / 404 → 자세 등록 |
 | 2 | 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
-| 4 | 0.5초마다 `features {items:[구간 1개]}`(밀린 구간부터) | `ack`·`observation`·`progress`, 사건이 있으면 `decision`·`alert` |
+| 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | `ack`·`observation`·`progress`, 사건이 있으면 `decision`·`alert` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
 | 6 | 10초 안에 `closed`가 없으면 S4 | 저장된 결과 |
 
@@ -245,7 +245,7 @@ sequenceDiagram
   S-->>A: 200 SessionView (t_ms 0)
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready
-  loop 0.5초마다
+  loop 프레임마다(10/27)
     A->>S: features {items:[구간 1개]}
     S-->>A: ack · observation · progress
     S-->>A: decision · alert (사건이 있을 때)
