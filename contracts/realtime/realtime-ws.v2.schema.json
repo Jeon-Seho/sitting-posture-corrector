@@ -162,7 +162,8 @@
           "required": [
             "type",
             "purpose",
-            "session_id"
+            "session_id",
+            "started_at"
           ],
           "properties": {
             "type": {
@@ -173,6 +174,11 @@
             },
             "session_id": {
               "$ref": "#/$defs/uuid"
+            },
+            "started_at": {
+              "description": "Server session start (when the server received S1), UTC. The app dates and times today's record with it (ADR 0028).",
+              "type": "string",
+              "format": "date-time"
             }
           }
         },
@@ -593,11 +599,20 @@
       "additionalProperties": false,
       "required": [
         "type",
-        "reason"
+        "reason",
+        "ended_at"
       ],
       "properties": {
         "type": {
           "const": "closed"
+        },
+        "ended_at": {
+          "description": "Server session end (same value as the stored ended_at), UTC, when the measurement session ended on this connection. Null if the connection closed before the session ended, or for registration (ADR 0028).",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
         },
         "reason": {
           "enum": [
@@ -608,7 +623,8 @@
             "no_baseline",
             "bad_message",
             "server_shutdown",
-            "limit_reached"
+            "limit_reached",
+            "unmeasurable_timeout"
           ]
         }
       }

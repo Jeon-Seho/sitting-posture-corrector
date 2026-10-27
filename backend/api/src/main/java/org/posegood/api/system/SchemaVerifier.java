@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 시작할 때 DB V2.4의 저장 계약을 확인한다.
+ * 시작할 때 DB V2.5의 저장 계약을 확인한다.
  *
  * API는 테이블을 만들거나 고치지 않는다. 스키마와 시드는 DB 담당 절차로 적용한다
- * (V2.2 → V2.3은 마이그레이션 011·012, V2.3 → V2.4는 013·014).
+ * (V2.2 → V2.3은 마이그레이션 011·012, V2.3 → V2.4는 013·014, V2.4 → V2.5는 015).
  */
 @Component
 public class SchemaVerifier implements ApplicationRunner {
@@ -66,25 +66,27 @@ public class SchemaVerifier implements ApplicationRunner {
                         String.class)) present.add(table.toLowerCase(Locale.ROOT));
         var missing = TABLES.stream().filter(table -> !present.contains(table.toLowerCase(Locale.ROOT))).toList();
         if (!missing.isEmpty())
-            throw new IllegalStateException("database schema V2.4 is not applied; missing " + missing);
+            throw new IllegalStateException("database schema V2.5 is not applied; missing " + missing);
         var retired = RETIRED.stream().filter(table -> present.contains(table.toLowerCase(Locale.ROOT))).toList();
         if (!retired.isEmpty())
             throw new IllegalStateException(
                     "database has tables removed in V2.0/V2.1 " + retired + "; rebuild it (database/README.md)");
         for (var required : List.of(
                 "baseline_posture.baseline_posture_id", "baseline_posture.registered_at", "baseline_posture.nose_x",
+                "baseline_posture.client_registration_uuid",
                 "monitor_session.baseline_posture_id", "user_account.sound_alert_enabled",
                 "daily_stat.min_until_collapse_sec", "daily_stat.max_until_collapse_sec",
                 "user_consent.document_version", "correction_alert.attempted_at")) {
             var parts = required.split("\\.");
             if (!hasColumn(parts[0], parts[1]))
-                throw new IllegalStateException("database schema V2.4 is not applied; missing " + required);
+                throw new IllegalStateException("database schema V2.5 is not applied; missing " + required
+                        + " (V2.4 DB: apply migration 015, database/README.md)");
         }
         for (var removed : RETIRED_COLUMNS) {
             var parts = removed.split("\\.");
             if (hasColumn(parts[0], parts[1]))
                 throw new IllegalStateException(
-                        "database schema V2.4 is not applied; " + removed
+                        "database schema V2.5 is not applied; " + removed
                                 + " was removed in V2.4; apply migrations 013 and 014 (database/README.md)");
         }
     }

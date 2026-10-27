@@ -17,7 +17,7 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 
 | 경로 | 요청과 결과 |
 | --- | --- |
-| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile}` + 로그인 |
+| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile,today}` + 로그인 |
 | `POST /auth/login` | `{email,password}` → 사용자 + 로그인. 탈퇴 대기 계정은 `403 ACCOUNT_CLOSED` |
 | `GET /auth/me` | 사용자 |
 | `POST /auth/logout` | 204 |
@@ -25,6 +25,7 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 | `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
 | `PUT /consents/optional-profile` | `{agreed:boolean,document_version:"service-v2"}` → workspace |
 
+사용자 응답의 `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다(2026-10-27, BE-6).
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
 직업 `null` 또는 공백이 아닌 1..80자다. 나이·직업은 선택 동의가 있어야 입력할 수 있다.
 새 비밀번호는 최소 12자·최대 UTF-8 72바이트. 이메일은 검증 후 공백 제거·소문자로 정규화한다.
@@ -60,14 +61,16 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 
 ## 기준 자세
 
-`POST /baselines`는 `{registered_at,calibration_ms,sample_count,landmarks}`를 받는다.
-`registered_at`은 프론트가 촬영을 완료한 UTC ISO 시각이며 재시도에 그대로 쓴다.
+`POST /baselines`는 `{registration_id,calibration_ms,sample_count,landmarks}`를 받는다(2026-10-26 ADR 0028).
+`registration_id`는 앱이 촬영 한 번마다 한 번 만드는 UUID이며 재시도에 그대로 쓴다. 앱은 시각을 보내지 않는다 —
+예전 `registered_at` 필드를 보내면 모르는 필드라 `400 INVALID_CONTRACT`다.
 연속 촬영 3,000..999,900ms, 유효 좌표 표본 20..100,000개를 확인한다. 두 수치는 검증만 하며 DB에 저장하지 않는다.
 `landmarks`는 `nose,left_eye,right_eye,left_ear,right_ear,mouth_left,mouth_right,left_shoulder,right_shoulder`의
 `{x,y}` 평균 좌표(각 0..1)다. 영상·개별 프레임·장치 ID를 저장하지 않는다. 좌표는 소수 다섯째 자리로 반올림한다.
 
 응답은 `{schema_version:"2.0",baseline_id,registered_at,landmarks}`이며 저장된 정밀도의 좌표를 돌려준다.
-동일 사용자·등록 시각·정규화 좌표의 재전송은 같은 행을 반환한다. 같은 시각의 다른 좌표는 409다.
+`registered_at`은 서버가 등록을 받은 시각(UTC ISO)이다.
+동일 사용자·`registration_id`·정규화 좌표의 재전송은 같은 행을 반환한다. 같은 `registration_id`의 다른 좌표는 409다.
 새 등록은 INSERT하며 과거 행을 수정하지 않는다. `GET /baselines/current`는 사용자별 가장 큰 DB ID의 행,
 없으면 `404 BASELINE_NOT_FOUND`다.
 공개 `baseline_id`는 `UUID.nameUUIDFromBytes(UTF8("posegood:baseline:"+userId+":"+baselinePostureId))`다.
@@ -85,9 +88,10 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
 `POST /sessions/{UUID}/features`는 기존 특징 v2, `POST .../end`는 `{end_ms}`(고정 재시도),
 `GET /sessions/{UUID}`는 조회 v1, `GET .../metadata`는 `{started_at,ended_at,baseline_id,model_version}`다.
-WebSocket은 `/v1/realtime`이며 기존 hello/features/observation/ack/progress/decision/alert/closed를 쓴다.
+WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
 `GET /records`, `POST /records`, `DELETE /records/{id}`는 [RecordItem](../frontend/src/features/storage/types.ts)을 쓴다.
+`GET /records`는 2026-10-27부터 배열이 아니라 `{today, records: RecordItem[]}` 객체다(BE-6).
 POST는 소유 세션의 확인받은 요약·사건·정책·기준과 일치하는 기록만 받고 DB의 날짜를 응답한다.
 GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으므로 `unspecified`, 순번은 -1,
 바른 자세 시간은 `good_sec`의 0.1초 정밀도다. `recovered_at`이 있으면 회복, 그 외 세션 종료와 같은 시각이면
@@ -95,7 +99,7 @@ GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으�
 DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 종료·요약이 저장됐음을 뜻한다.
 원래 브라우저가 종료 응답을 받았는지는 DB에서 복원하지 않는다.
 
-서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
+서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). T1 형식은 [API 명세 T1](../docs/design/api-spec.md#t1)(구현 전). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
 
 판정 상태는 API 메모리이며 재시작 후 `404 SESSION_LOST`다. 상태를 잃은 세션의 미확인 기록 저장은
 알 수 없는 전체 구간을 MISSING으로 제외하고 good=0으로 닫는다. 일별 통계를 추가하지 않는다.

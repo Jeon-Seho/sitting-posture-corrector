@@ -31,7 +31,6 @@ import struct
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 from urllib.error import URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPCookieProcessor, Request, urlopen
@@ -210,7 +209,7 @@ def scenario(base, report, pipeline):
     owner.user_id = user["user_id"]
     owner.refresh_csrf()
     status, saved = owner.call("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS})
     if not check("기준 자세 등록", status == 200 and saved.get("baseline_id"), f"HTTP {status}"):
         return

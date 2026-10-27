@@ -2,7 +2,7 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `c7b8605`(2026-10-16, DB 스키마 V2.3)이다.
+Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `feat/backend-data-platform-architecture` 브랜치 `c7b8605`(2026-10-16, DB 스키마 V2.3)이다.
 
 | 항목 | 내용 |
 |---|---|
@@ -15,7 +15,8 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))이 새 경로다. `/v1/realtime`과 구간 입력(S2)·기록 저장(R2)은 앱이 v2로 넘어갈 때까지 그대로 두고, 넘어간 뒤 지운다.
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 구간 입력(S2)·기록 저장(R2)은 아직 남아 있다(앱 v2 전환 뒤 삭제, BE-1).
+> 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
 
@@ -28,7 +29,7 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 7. [측정 세션](#7-측정-세션)
 8. [기록·시스템](#8-기록시스템)
 9. [공통 응답 객체](#9-공통-응답-객체)
-10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime)
+10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime) (삭제)
 11. [WebSocket `/v2/realtime`](#11-websocket-v2realtime)
 - [변경 이력](#변경-이력)
 
@@ -44,12 +45,13 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 2개의 요청·응답·
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 예시와 고정값 | 엔드포인트마다 있는 JSON 블록의 값은 **예시**다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
-| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registered_at`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. |
+| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 재전송은 최근 120개 구간까지 알아보고, 더 오래된 순번은 역순으로 보아 409다. |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 
-로그인 고정 30분 만료는 FE 문서에 맞춘 계약이다. 현재 서버 구현이 이 기준을 충족하는지는 별도 확인 대상이다.
+로그인 고정 30분 만료는 FE 문서에 맞춘 계약이고 서버가 구현한다(2026-10-26, `account/LoginLifetime`). 로그인할 때 시각을 세션에 적고, 그 뒤 30분(`posegood.login-lifetime`, `POSEGOOD_LOGIN_LIFETIME`)이 지난 첫 HTTP 요청·WebSocket 연결에서 세션을 지운다. 30분 동안 요청이 없으면 Spring Session의 유휴 만료(`spring.session.timeout`, 같은 30분)로도 끝난다.
+로그인 방식은 refresh 토큰으로 바꿀 예정이다(방식 미정, [백엔드 상태](../backend-status.md) 4장). 바뀌면 이 절과 4장을 함께 고친다.
 
 `model_version`·`feature_version` 등 모델명·버전명은 개발·연동용 내부 정보이며 서비스 화면에는 표시하지 않는다(2026-10-22 결정). 이 명세의 요청·응답 필드와 고정값 검증은 유지하며, 같은 이름이 계산 조건의 동일성까지 보장하지는 않는다([내부 관리 기준](../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
@@ -74,7 +76,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 | 측정 종료 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 | 같은 요청 재시도 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -106,7 +108,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [R2](#r2) | POST | `/v2/records` | 필요 | 기록 저장 | 200 |
 | [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
-| [WS](#websocket-연결) | WS | `/v1/realtime` | 쿠키 | 실시간 특징 입력·판정 push (v2 전환 뒤 삭제) | 101 |
 | [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | 쿠키 | 좌표 프레임 측정·자세 등록, 판정 push | 101 |
 
 ## 4. 계정
@@ -200,7 +201,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -243,7 +245,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -263,6 +266,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요
 
 - 앱 시작 시 로그인 상태와 user_id를 확인할 때 쓴다. 받은 user_id를 이후 X-PoseGood-User-Id에 넣는다.
+- `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다. 앱은 「오늘」을 이 값으로 정한다(BE-6, FE ADR 0029). 가입(A2)·로그인(A3) 응답에도 같은 필드가 있다.
 
 **요청 본문**: 없음
 
@@ -276,7 +280,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "name": "홍길동",
     "age": null,
     "occupation": null
-  }
+  },
+  "today": "2026-10-13"
 }
 ```
 
@@ -558,7 +563,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
 
 - 항상 새 행을 추가하고 과거 행은 고치지 않는다.
-- 같은 registered_at과 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 시각에 다른 좌표면 409.
+- 같은 `registration_id`와 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 `registration_id`에 다른 좌표면 409.
+- `registered_at`은 서버가 등록을 받은 시각이다. 앱은 시각을 보내지 않는다(2026-10-26 [ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)).
 - 좌표는 소수 다섯째 자리로 반올림해 저장하고, 저장된 값을 응답한다.
 - baseline_id는 DB 키로 만든 이름 기반 UUID다.
 
@@ -566,7 +572,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | 필드 | 타입 | 필수 | 규칙 |
 |---|---|---|---|
-| `registered_at` | `ISO-8601` | 필수 | 앱이 촬영을 끝낸 UTC 시각. 재시도 때 같은 값 |
+| `registration_id` | `UUID` | 필수 | 촬영 한 번마다 앱이 한 번 만든다. 재시도 때 같은 값. (예전 `registered_at`은 보내면 400) |
 | `calibration_ms` | `long` | 필수 | 3,000~999,900 (검증만 하고 저장하지 않음) |
 | `sample_count` | `int` | 필수 | 20~100,000 (검증만 하고 저장하지 않음) |
 | `landmarks.{관절}` | `{x, y}` | 필수 | nose, left_eye, right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder. 각 0~1 |
@@ -575,7 +581,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ```json
 {
-  "registered_at": "2026-10-13T08:00:00.000Z",
+  "registration_id": "3f2b8c1e-7a4d-4e9b-9c61-0d5a2e8f4b17",
   "calibration_ms": 5000,
   "sample_count": 120,
   "landmarks": {
@@ -740,7 +746,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 
@@ -816,7 +822,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
 | 409 | `SESSION_ENDED` | 끝난 세션에 입력 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 5,000초) 초과, 진행 중 세션 512개 초과 |
+| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 |
 | 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
@@ -977,7 +983,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 로그인 필요 · 계정 헤더
 
-- 닫힌 세션을 최신순으로 RecordItem 배열로 돌려준다.
+- 닫힌 세션을 최신순으로 RecordItem 목록(`records`)으로 돌려준다. 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
+- **2026-10-27부터 배열 대신 객체 `{today, records}`다(BE-6). 예전처럼 배열로 읽으면 깨진다.**
 - 자세 방향은 저장 칸이 없어 unspecified, 바른 자세 시간은 0.1초 정밀도다.
 
 **요청 본문**: 없음
@@ -985,46 +992,49 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 **응답 200 (예시)**
 
 ```json
-[
-  {
-    "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-    "startedAt": "2026-10-13T08:00:00.000Z",
-    "endedAt": "2026-10-13T08:10:00.000Z",
-    "mode": "camera",
-    "valid": 580,
-    "good": 520,
-    "total": 600,
-    "events": [
-      {
-        "id": 1,
-        "type": "forwardHead",
-        "startAt": 35,
-        "confirmedAt": 38,
-        "endAt": 44,
-        "durationSec": 9,
-        "alerts": 1,
-        "blockId": 0,
-        "recovered": true,
-        "endedBySession": false,
-        "endReason": null,
-        "firstAlertAt": 38,
-        "recoverySec": 6
+{
+  "today": "2026-10-13",
+  "records": [
+    {
+      "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+      "startedAt": "2026-10-13T08:00:00.000Z",
+      "endedAt": "2026-10-13T08:10:00.000Z",
+      "mode": "camera",
+      "valid": 580,
+      "good": 520,
+      "total": 600,
+      "events": [
+        {
+          "id": 1,
+          "type": "forwardHead",
+          "startAt": 35,
+          "confirmedAt": 38,
+          "endAt": 44,
+          "durationSec": 9,
+          "alerts": 1,
+          "blockId": 0,
+          "recovered": true,
+          "endedBySession": false,
+          "endReason": null,
+          "firstAlertAt": 38,
+          "recoverySec": 6
+        }
+      ],
+      "rules": {
+        "holdSeconds": 3,
+        "recoverSeconds": 3,
+        "realertSeconds": 60,
+        "threshold": 0.7
+      },
+      "server": {
+        "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
+        "modelVersion": "reference-feature-rule-v1",
+        "confirmed": true,
+        "view": "{ SessionView, ended: true }"
       }
-    ],
-    "rules": {
-      "holdSeconds": 3,
-      "recoverSeconds": 3,
-      "realertSeconds": 60,
-      "threshold": 0.7
-    },
-    "server": {
-      "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-      "modelVersion": "reference-feature-rule-v1",
-      "confirmed": true,
-      "view": "{ SessionView, ended: true }"
     }
-  }
-]
+  ]
+}
 ```
 
 **오류**
@@ -1157,6 +1167,74 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | HTTP | code | 의미 |
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+
+<a id="t1"></a>
+
+### T1 · `GET /v2/stats/daily` — 일별 통계 (설계 확정, 구현 전)
+
+로그인 필요 · 계정 헤더
+
+> [!NOTE]
+> 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다. J2가 돌기 전에는 모든 날이 0으로 채워진다.
+
+- 로그인한 사용자 본인의 `daily_stat`을 날짜순으로 돌려준다.
+- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+- **행이 없는 날은 0으로 채운다.** `from`~`to`(자른 뒤)의 모든 날짜가 `days`에 한 번씩 들어간다.
+  `valid_sec`·`good_sec`은 0.0, 횟수는 0, `min_until_collapse_sec`·`max_until_collapse_sec`·`computed_at`은 null(DB에서도 「표본 없음」은 NULL이다).
+- **객체로 감싼다.** 날짜 목록은 `days`에 넣고, 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
+- **필드 이름은 DB `daily_stat` 컬럼 이름 그대로**(snake_case)다. 초 단위 값은 0.1초 정밀도다.
+
+**요청 쿼리**
+
+| 이름 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `from` | `YYYY-MM-DD` | 필수 | 시작 날짜(KST) |
+| `to` | `YYYY-MM-DD` | 필수 | 끝 날짜(KST, 포함). 오늘 이후면 어제로 자름. 자른 뒤 `from`보다 앞이면 `days`는 빈 배열 |
+
+**응답 200 (예시)** — 10/26에 10/24~10/30을 요청한 경우
+
+```json
+{
+  "today": "2026-10-26",
+  "from": "2026-10-24",
+  "to": "2026-10-25",
+  "days": [
+    {
+      "stat_date": "2026-10-24",
+      "valid_sec": 3600.0,
+      "good_sec": 2950.5,
+      "session_count": 3,
+      "event_count": 5,
+      "alerted_event_count": 4,
+      "min_until_collapse_sec": 120.0,
+      "max_until_collapse_sec": 900.0,
+      "computed_at": "2026-10-24T15:00:03.120Z"
+    },
+    {
+      "stat_date": "2026-10-25",
+      "valid_sec": 0.0,
+      "good_sec": 0.0,
+      "session_count": 0,
+      "event_count": 0,
+      "alerted_event_count": 0,
+      "min_until_collapse_sec": null,
+      "max_until_collapse_sec": null,
+      "computed_at": null
+    }
+  ]
+}
+```
+
+| 필드 | 뜻 (DB `daily_stat` 설명) |
+|---|---|
+| `stat_date` | 집계 날짜. KST, 세션 시작 날짜 기준 |
+| `valid_sec` | 유효 측정 시간 합(유지율의 분모) |
+| `good_sec` | 바른 자세 시간 합(분자) |
+| `session_count` | 세션 수 |
+| `event_count` | 붕괴 사건 수 |
+| `alerted_event_count` | 알림이 표시된 사건 수 |
+| `min_until_collapse_sec`·`max_until_collapse_sec` | 바른 자세에서 붕괴까지 걸린 시간의 최솟값·최댓값(5분 이상 세션만). 표본이 없으면 null |
+| `computed_at` | J2가 집계한 시각(UTC). 0으로 채운 날은 null |
 
 <a id="h1"></a>
 
@@ -1349,87 +1427,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 <a id="websocket-연결"></a>
 
 > [!NOTE]
-> 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가면 지운다. v2는 이 장의 `last_event_id`·놓친 사건 다시 보내기를 쓰지 않는다.
-
-측정 중 특징 입력과 판정 결과 push를 하나의 연결로 처리한다. 로그인 쿠키로 인증하고 같은 출처 페이지만 허용한다. 세션 생성·종료는 HTTP로 한다. 메시지 하나는 64KB 이하, 120초 동안 아무 메시지가 없으면 연결이 끊긴다.
-
-> [!NOTE]
-> 연결 순서: WebSocket 연결 → `hello` → 서버가 놓친 `decision`, `ack`, `progress`를 보냄 → 앱이 `features`를 보내고 서버가 구간마다 결과를 push.
->
-> 앱은 FE 빌드 설정 `VITE_REALTIME_URL`이 있을 때만 이 채널을 쓰고, 없으면(기본값) S2(HTTP)로 구간을 보낸다.
-
-| 방향 | type | 필드 | 설명 |
-|---|---|---|---|
-| 앱 → 서버 | `hello` | schema_version "1.0", session_id, last_event_id | 세션에 연결. last_event_id 뒤의 사건을 다시 받는다. |
-| 앱 → 서버 | `features` | session_id, items[1..30] | S2 요청 본문을 최대 30개 묶어 보낸다. hello가 먼저여야 한다. |
-| 서버 → 앱 | `observation` | session_id, observation | 구간마다 추론 결과. |
-| 서버 → 앱 | `decision` | session_id, event, summary | 새 판정 사건과 그 시점의 요약. |
-| 서버 → 앱 | `alert` | session_id, event_id, kind, deviation_type | collapse_confirmed·reminder일 때. 앱은 알림을 표시한다. |
-| 서버 → 앱 | `ack` | session_id, last_sequence | 여기까지 처리 완료. |
-| 서버 → 앱 | `progress` | session_id, last_sequence, summary | 누적 요약. |
-| 서버 → 앱 | `stalled` | session_id, since_last_sequence: -1 | 추론·DB 일시 장애. 서버가 연결을 닫는다. |
-| 서버 → 앱 | `closed` | session_id, reason | ended · unauthorized · not_owner · session_lost · server_shutdown |
-
-**앱 → 서버 (예시)**
-
-```json
-{
-  "type": "hello",
-  "schema_version": "1.0",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "last_event_id": 0
-}
-```
-
-```json
-{
-  "type": "features",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "items": [
-    "{ S2 요청 본문 }",
-    "..."
-  ]
-}
-```
-
-**서버 → 앱 (예시)**
-
-```json
-{
-  "type": "decision",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "event": {
-    "schema_version": "1.0",
-    "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-    "event_id": 1,
-    "kind": "collapse_confirmed",
-    "timestamp_ms": 38000,
-    "onset_ms": 35000,
-    "onset_valid_ms": 33000,
-    "deviation_type": "forward_slouch",
-    "reason": null
-  },
-  "summary": "{ summary }"
-}
-```
-
-```json
-{
-  "type": "alert",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "event_id": 1,
-  "kind": "collapse_confirmed",
-  "deviation_type": "forward_slouch"
-}
-```
-
-```json
-{
-  "type": "closed",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "reason": "ended"
-}
-```
+> **2026-10-26 삭제.** 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가 서버 경로·계약(`realtime-ws.v1`)·예시를 지웠다. 이 경로로 연결하면 실패한다.
+> 장 번호는 다른 문서의 참조(11.3 등)를 지키려고 남긴다. 예전 내용은 git 기록에 있다.
 
 ## 11. WebSocket `/v2/realtime`
 
@@ -1445,7 +1444,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
 | 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
-| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 5,000초, `POSEGOOD_MAX_SESSION_DURATION`) |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(결정 5분, 앱 처리 전까지 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`) |
 
 ### 11.1 순서
 
@@ -1521,7 +1520,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 추론·판정 | S2와 같은 흐름(추론 → 판정 → DB 기록). 판정 규칙·DB 기록도 S2와 같다. |
 | 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
-| 시간 한도 | 구간 끝이 최대 측정 시간을 넘으면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 평균 0.25초보다 짧은 구간이 이어지면 메모리 보호로 그 전에 같은 처리를 한다. |
+| 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
+| 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(결정 5분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. HTTP S2로 받은 구간도 같고, 그때는 응답의 `session.ended`가 true다. **앱이 이 사유를 처리하기 전까지는 설정 0으로 꺼 둔다** — 지금 앱은 모르는 사유를 측정 실패로 처리한다. |
 | `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
 | 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
 
@@ -1539,11 +1539,14 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 실패하면 저장하지 않고 이전 기준이 그대로 현재 기준이다. `end` 전에 끊기면 아무것도 저장하지 않는다.
 
+> [!NOTE]
+> 앱은 이 경로를 쓰지 않고, 관절 평균을 앱에서 계산해 B1(`POST /v2/baselines`)으로 보낸다(FE ADR 0026, V3 브랜치). 서버 경로를 남길지는 [백엔드 상태](../backend-status.md) 4장 미결이다.
+
 ### 11.5 서버 → 앱
 
 | type | 필드 | 설명 |
 |---|---|---|
-| `ready` | purpose, session_id 또는 calibration_id | `hello`를 받아들였다. `features`를 보내기 시작한다. |
+| `ready` | purpose, session_id(+ started_at) 또는 calibration_id | `hello`를 받아들였다. `features`를 보내기 시작한다. 측정이면 `started_at` = 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱은 오늘 기록의 시각·날짜를 이 값으로 정한다(ADR 0028). |
 | `ack` | last_sequence | 여기까지 처리 완료. 표시만 하고 다시 보내지 않는다. |
 | `observation` | observation | 구간마다 [Observation 3.0](#observation-30--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
@@ -1551,7 +1554,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
 | `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
 | `calibration_result` | 11.4 | 등록 결과. |
-| `closed` | reason | 서버가 연결을 닫기 직전(아래 표). |
+| `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔거나 등록이면 `null`(ADR 0028). |
 
 | `closed.reason` | 언제 |
 |---|---|
@@ -1563,11 +1566,12 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `bad_message` | 형식 오류, `hello` 순서·10초 제한 위반, 구간 1개가 아님, 목적과 맞지 않는 `phase`, 64KB 초과, 중복·역순 순번, 같은 세션의 두 번째 연결 |
 | `server_shutdown` | 서버 종료. 측정 중이던 세션은 끊김과 같이 끝난다. |
 | `limit_reached` | 최대 측정 시간 초과(11.3) |
+| `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(결정 5분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
 
 **서버 → 앱 (예시)**
 
 ```json
-{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90" }
+{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90", "started_at": "2026-10-26T01:00:00.120Z" }
 ```
 
 ```json
@@ -1612,7 +1616,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 ```
 
 ```json
-{ "type": "closed", "reason": "ended" }
+{ "type": "closed", "reason": "ended", "ended_at": "2026-10-26T01:00:21.620Z" }
 ```
 
 ## 변경 이력
@@ -1621,6 +1625,12 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-27 | `fix/repo-backend-sync` | A2·A3·A4 응답에 `today`(KST 날짜). **R1 응답을 배열에서 `{today, records}` 객체로 바꿈 — 호환성 깨짐**(BE-6 ③) |
+| 2026-10-26 | `fix/repo-backend-sync` | 최대 측정 시간 5,000초 → 기본 24시간(계약 상한, 제품 한도 없음). 재전송 기억을 최근 120개 구간으로. 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 끝내고 저장, `closed(unmeasurable_timeout)` — 설정 `unmeasurable-timeout`, 앱 처리 전까지 끔(11.3·11.5) |
+| 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |
+| 2026-10-26 | `fix/repo-backend-sync` | 로그인 고정 30분 만료 구현(1장, `LoginLifetime`) — 활동해도 늘지 않는다. `/v1/realtime` 삭제(10장, 3장 WS 행) |
+| 2026-10-26 | `fix/repo-backend-sync` | `/v2/realtime`: `ready`(측정)에 `started_at`, `closed`에 `ended_at`(서버 시각, 모르면 null). 계약 `realtime-ws.v2`·예시 변경 — 앱 검증과 함께 바꿔야 함 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md) 3번) |
+| 2026-10-26 | `fix/repo-backend-sync` | B1: 요청의 `registered_at` → `registration_id`(UUID, 재시도 구분). `registered_at`은 서버 시각. DB V2.5(migration 015). 호환성 깨짐 — 예전 본문은 400 ([ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)) |
 | 2026-10-16 | `c7b8605` | `/v2/realtime` 추가(11장: 좌표 프레임 측정·자세 등록, `ready`·`calibration_result`, `closed` 사유 `no_baseline`·`bad_message`·`limit_reached`, `stalled` 뒤 연결 유지, Observation 3.0). 429 관측 10,000건 한도 → 최대 측정 시간(기본 5,000초). `/v1/realtime`은 v2 전환 뒤 삭제 |
 | 2026-10-16 | `dc2de48` | HTML 명세서를 Markdown으로 옮김(내용 같음). WebSocket 사용 조건(`VITE_REALTIME_URL`) 한 줄 추가 |
 | 2026-10-15 | `dc2de48` | 아키텍처 v5.2 전환 1차: 탈퇴 철회(A8)·`WITHDRAWAL_NOT_CANCELLABLE` 삭제, 탈퇴 최종 삭제는 Spark J3, `daily_stat`은 Spark J2(S3에서 쓰지 않음). S1·S3 응답은 200 `SessionView`로 확정. R3·S6의 적재 기록 409는 공통 `CONFLICT`(전용 코드 없음) |

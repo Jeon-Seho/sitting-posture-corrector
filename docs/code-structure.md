@@ -38,7 +38,7 @@ backend/
     .../account/          인증·CSRF·현재 주체·비밀번호·탈퇴
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
     .../workspace/        설정·앱 기록 저장과 검증
-    .../realtime/         /v2/realtime WebSocket(좌표 프레임), 전환 기간에는 /v1/realtime도
+    .../realtime/         /v2/realtime WebSocket(좌표 프레임)
     .../system/           health, DB V2.3 확인
 
 model/
@@ -92,7 +92,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 입력 순서·종료 | [SessionEngine](../backend/api/src/main/java/org/posegood/api/engine/SessionEngine.java) | 중복·역순·누락과 결정 적용 조정 |
 | 시간 누적·사건 통계 | [Timeline](../backend/api/src/main/java/org/posegood/api/engine/Timeline.java), [EpisodeLedger](../backend/api/src/main/java/org/posegood/api/engine/EpisodeLedger.java) | 유효/제외 시간과 사건 이력; 시간 임계값 비교 없음 |
 | 시간 조건 | [DecisionRules](../backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java) | 시간 임계값 비교는 이 파일 하나에 유지 |
-| 실시간 채널 | [RealtimeHandler](../backend/api/src/main/java/org/posegood/api/realtime/RealtimeHandler.java) | WebSocket 메시지, 같은 처리 경로 사용 |
+| 실시간 채널 | [RealtimeHandlerV2](../backend/api/src/main/java/org/posegood/api/realtime/RealtimeHandlerV2.java) | `/v2/realtime` 좌표 프레임 → `FrameFeatures`, 같은 처리 경로 사용 |
 | 계정·탈퇴 | [AccountService](../backend/api/src/main/java/org/posegood/api/account/AccountService.java) | 가입·비밀번호·탈퇴 유예·일괄 삭제 |
 | FastAPI 앱 조립 | [app.py](../model/inference/app.py) | 앱 생성, 라우터·오류 처리 연결; 기존 `model.inference.app:app` 실행 유지 |
 | 추론 계약·현재 점수·HTTP | [schemas.py](../model/inference/schemas.py), [service.py](../model/inference/service.py), [routes.py](../model/inference/routes.py) | 계약/점수/전달 분리; 학습 모델이나 시간 엔진이 아님 |

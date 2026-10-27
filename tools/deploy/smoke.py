@@ -122,9 +122,8 @@ def exercise_accounts(base):
         raise AssertionError("Cookie authentication did not preserve the registered account")
     checks += 2
     session_id = str(uuid.uuid4())
-    from datetime import datetime, timezone
     registration = {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
             "calibration_ms": 3000, "sample_count": 20,
         "landmarks": synthetic_setup(None)["baseline"]["landmarks"],
     }

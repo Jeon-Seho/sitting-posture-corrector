@@ -9,69 +9,24 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 실시간 채널이 보내는 메시지 형식 모음: ack, observation, progress, decision, alert, stalled, closed.
- *
- * 계약: contracts/realtime/realtime-ws.v1.schema.json(전송 형식은 snake_case). v2 형식(ready·calibration_result 추가,
- * progress.paused_reason, 세션 ID 없음)은 {@link V2}에 있다.
+ * 실시간 채널({@code /v2/realtime})이 보내는 메시지 형식 모음. 형식은 {@link V2}에 있다(전송 형식은 snake_case).
  */
 final class RealtimeMessages {
     private RealtimeMessages() {}
-
-    record Ack(String type, UUID sessionId, long lastSequence) {
-        Ack(UUID sessionId, long lastSequence) {
-            this("ack", sessionId, lastSequence);
-        }
-    }
-
-    record ObservationPush(String type, UUID sessionId, Observation observation) {
-        ObservationPush(UUID sessionId, Observation observation) {
-            this("observation", sessionId, observation);
-        }
-    }
-
-    record Progress(String type, UUID sessionId, long lastSequence, Summary summary) {
-        Progress(UUID sessionId, long lastSequence, Summary summary) {
-            this("progress", sessionId, lastSequence, summary);
-        }
-    }
-
-    record Decision(String type, UUID sessionId, DecisionEvent event, Summary summary) {
-        Decision(UUID sessionId, DecisionEvent event, Summary summary) {
-            this("decision", sessionId, event, summary);
-        }
-    }
-
-    record Alert(String type, UUID sessionId, long eventId, String kind, String deviationType) {
-        Alert(UUID sessionId, DecisionEvent event) {
-            this("alert", sessionId, event.eventId(), event.kind(), event.deviationType());
-        }
-    }
-
-    record Stalled(String type, UUID sessionId, long sinceLastSequence) {
-        Stalled(UUID sessionId, long sinceLastSequence) {
-            this("stalled", sessionId, sinceLastSequence);
-        }
-    }
-
-    /** 사유: ended, unauthorized, not_owner, session_lost, server_shutdown. */
-    record Closed(String type, UUID sessionId, String reason) {
-        Closed(UUID sessionId, String reason) {
-            this("closed", sessionId, reason);
-        }
-    }
 
     /**
      * {@code /v2/realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
      *
      * 계약: contracts/realtime/realtime-ws.v2.schema.json. closed 사유: ended, unauthorized, not_owner, session_lost,
-     * no_baseline, bad_message, server_shutdown, limit_reached.
+     * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout.
      */
     static final class V2 {
         private V2() {}
 
-        record ReadyMeasure(String type, String purpose, UUID sessionId) {
-            ReadyMeasure(UUID sessionId) {
-                this("ready", "measure", sessionId);
+        /** {@code startedAt}: 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱의 오늘 기록 시각·날짜 기준(ADR 0028). */
+        record ReadyMeasure(String type, String purpose, UUID sessionId, Instant startedAt) {
+            ReadyMeasure(UUID sessionId, Instant startedAt) {
+                this("ready", "measure", sessionId, startedAt);
             }
         }
 
@@ -163,9 +118,13 @@ final class RealtimeMessages {
             }
         }
 
-        record Closed(String type, String reason) {
-            Closed(String reason) {
-                this("closed", reason);
+        /**
+         * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).
+         * 끝나기 전에 닫히거나 등록 연결이면 null(ADR 0028).
+         */
+        record Closed(String type, String reason, Instant endedAt) {
+            Closed(String reason, Instant endedAt) {
+                this("closed", reason, endedAt);
             }
         }
     }

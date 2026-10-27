@@ -28,6 +28,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,10 +43,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * 실시간 v2 채널({@code /v2/realtime}): 연결 하나가 측정 한 번 또는 자세 등록 한 번이다. 재연결은 없다(ADR 0024).
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 v1과 같은
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
  * {@link SessionService} 판정 흐름에 넣고(A안), 결과는 세션 변경 이벤트로 받아 보낸다.
  *
- * <p>v1({@link RealtimeHandler})과 달리 추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
+ * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
  * 세션을 끝낸다. 형식·순서가 틀리면 {@code closed(bad_message)}. 좌표·특징 값은 로그에 남기지 않는다.
  */
@@ -209,7 +210,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             return;
         }
         channel.state.set(State.MEASURE);
-        send(channel, new RealtimeMessages.V2.ReadyMeasure(id));
+        send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
     }
 
     /** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
@@ -336,7 +337,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         }
         if (update.ended()) {
             channel.ended = true;
-            finishClosed(channel, channel.endReason);
+            // DB에 저장하는 종료 시각과 같은 식(started_at + total_ms). 저장은 이 이벤트 뒤에 일어난다.
+            channel.endedAt = channel.realtime.startedAt().plusMillis(update.summary().totalMs());
+            finishClosed(channel, update.closedReason() != null ? update.closedReason() : channel.endReason);
         }
     }
 
@@ -414,7 +417,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     /** {@code closed(reason)}를 보내고 닫는다. 한 연결에 한 번만. */
     private void closed(Channel channel, String reason) {
         if (!channel.closedSent.compareAndSet(false, true)) return;
-        send(channel, new RealtimeMessages.V2.Closed(reason));
+        send(channel, new RealtimeMessages.V2.Closed(reason, channel.endedAt));
         close(channel, CloseStatus.NORMAL);
     }
 
@@ -472,6 +475,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         private volatile long lastSequence = -1;
         /** 세션이 끝났다는 이벤트를 받았다(연결이 닫혀도 다시 끝내지 않는다). */
         private volatile boolean ended;
+        /** 이 연결에서 세션이 끝났을 때의 서버 종료 시각. closed에 싣는다(그 전에는 null). */
+        private volatile Instant endedAt;
         /** 세션이 끝났을 때 보낼 closed 사유(시간 한도면 limit_reached). */
         private volatile String endReason = "ended";
         /** 등록: calibration_id와 수집 상태. */

@@ -8,7 +8,7 @@ import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.contract.SessionView.Summary;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -20,23 +20,26 @@ import java.util.UUID;
  * 임계값 비교는 {@link DecisionRules}에만 있다(ADR 0012, ADR 0020).
  */
 public final class SessionEngine {
-    /** 기본 최대 측정 시간: 예전 관측 10,000건 한도와 같은 0.5초 구간 10,000개(약 83분). */
-    public static final long DEFAULT_MAX_MS = 5_000_000;
-    /** 메모리 보호: 최대 측정 시간 동안 평균 0.25초 구간까지 받는다. */
-    private static final long MIN_AVERAGE_INTERVAL_MS = 250;
+    /**
+     * 기본 최대 측정 시간: 계약의 시각 상한(24시간, {@code *_ms} 최대 86,400,000)과 같다. 제품 한도는 두지 않고
+     * 측정불가가 이어지면 끝낸다({@link #unmeasurableMs}, 2026-10-26 결정).
+     */
+    public static final long DEFAULT_MAX_MS = 86_400_000;
+    /** 재전송 확인에 기억하는 최근 구간 수(0.5초 구간이면 1분). 메모리가 측정 시간에 따라 늘지 않게 한다. */
+    public static final int RETRY_WINDOW = 120;
 
     private final UUID id;
     private final Policy policy;
     private final long maxMs;
-    private final long maxObservations;
     private final Timeline timeline = new Timeline();
     private final EpisodeLedger episodes;
-    private final Map<Long, Observation> accepted = new HashMap<>();
+    private final Map<Long, Observation> accepted = recent(RETRY_WINDOW);
     /** 사건마다 그 직후의 요약(실시간 decision 메시지용). */
     private final List<Summary> eventSummaries = new ArrayList<>();
     private long lastSequence = -1;
     private boolean ended;
     private Observation current;
+    private long unmeasurableMs;
 
     public SessionEngine(UUID id, Policy policy) {
         this(id, policy, DEFAULT_MAX_MS);
@@ -48,8 +51,17 @@ public final class SessionEngine {
         this.id = id;
         this.policy = policy;
         this.maxMs = maxMs;
-        maxObservations = Math.max(1, maxMs / MIN_AVERAGE_INTERVAL_MS);
         episodes = new EpisodeLedger(id);
+    }
+
+    /** 가장 오래된 것부터 지우며 최근 {@code size}개만 두는 순번 → 값 맵. */
+    public static <V> Map<Long, V> recent(int size) {
+        return new LinkedHashMap<>() {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Long, V> eldest) {
+                return size() > size;
+            }
+        };
     }
 
     /**
@@ -76,6 +88,7 @@ public final class SessionEngine {
         }
 
         current = observation;
+        countUnmeasurable(observation);
         if (observation.phase() != Observation.Phase.running || !observation.valid()) {
             String reason =
                     observation.phase() == Observation.Phase.running
@@ -163,13 +176,19 @@ public final class SessionEngine {
         return lastSequence;
     }
 
-    public synchronized int acceptedCount() {
-        return accepted.size();
+    /** {@code endMs}에서 끝나는 새 구간을 받을 수 있는지: 최대 측정 시간 안이다. */
+    public synchronized boolean admits(long endMs) {
+        return endMs <= maxMs;
     }
 
-    /** {@code endMs}에서 끝나는 새 구간을 받을 수 있는지: 최대 측정 시간 안이고 메모리 한도 전이다. */
-    public synchronized boolean admits(long endMs) {
-        return endMs <= maxMs && accepted.size() < maxObservations;
+    /**
+     * 측정불가가 이어진 시간: 판정 불가({@code running}인데 유효하지 않음)와 자리 비움({@code away}) 구간 길이의 합.
+     *
+     * 유효한 측정 구간이나 사용자가 누른 쉬기({@code rest})가 오면 0이 된다. 구간 사이 빈 시간(누락)은 더하지도
+     * 지우지도 않는다.
+     */
+    public synchronized long unmeasurableMs() {
+        return unmeasurableMs;
     }
 
     /**
@@ -233,6 +252,13 @@ public final class SessionEngine {
         episodes.interrupt(reason, at);
         timeline.resetContinuity();
         snapshot();
+    }
+
+    private void countUnmeasurable(Observation observation) {
+        boolean unmeasurable =
+                observation.phase() == Observation.Phase.away
+                        || (observation.phase() == Observation.Phase.running && !observation.valid());
+        unmeasurableMs = unmeasurable ? unmeasurableMs + observation.endMs() - observation.startMs() : 0;
     }
 
     private void snapshot() {

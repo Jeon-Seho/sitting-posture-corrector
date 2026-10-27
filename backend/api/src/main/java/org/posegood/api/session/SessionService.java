@@ -37,7 +37,7 @@ import java.util.UUID;
 @Service
 public class SessionService {
     private static final Logger log = LoggerFactory.getLogger(SessionService.class);
-    /** 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(calibration.ts, 2026-10-06 사용자 결정). */
+    /** WebSocket 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(BE 명세 11.4, 2026-10-06 사용자 결정). */
     static final int CALIBRATION_MIN_FRAMES = 15;
     static final long CALIBRATION_MS = 3000;
 
@@ -51,6 +51,8 @@ public class SessionService {
     private final TransactionTemplate tx;
     private final ApplicationEventPublisher events;
     private final long maxSessionMs;
+    /** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
+    private final long unmeasurableTimeoutMs;
 
     public SessionService(
             LiveSessions live,
@@ -62,7 +64,8 @@ public class SessionService {
             UserLocks locks,
             TransactionTemplate tx,
             ApplicationEventPublisher events,
-            @Value("${posegood.realtime.max-session-duration}") Duration maxSession) {
+            @Value("${posegood.realtime.max-session-duration}") Duration maxSession,
+            @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout) {
         this.live = live;
         this.sessions = sessions;
         this.baselines = baselines;
@@ -73,6 +76,7 @@ public class SessionService {
         this.tx = tx;
         this.events = events;
         this.maxSessionMs = maxSession.toMillis();
+        this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
     }
 
     /**
@@ -147,7 +151,7 @@ public class SessionService {
         var stored = baselines.find(owner, session.row().baselineId());
         var features = stored == null ? null : FrameFeatures.baseline(stored.landmarks());
         if (features == null) throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
-        return new Realtime(features, session.row().alertEnabled());
+        return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
     }
 
     /**
@@ -197,7 +201,7 @@ public class SessionService {
                     if (endMs == null) session.endReason("DISCONNECTED");
                     int before = engine.eventCount();
                     engine.end(endMs == null ? last : Math.max(endMs, last));
-                    publish(session, null, before, null);
+                    publish(session, null, before, null, null);
                     persist(session);
                     return null;
                 });
@@ -267,7 +271,14 @@ public class SessionService {
         var observation = inference.infer(request);
         var result = engine.accept(observation);
         session.remember(request.sequence(), digest, observation);
-        publish(session, observation, before, invalidReason);
+        String closedReason = null;
+        if (unmeasurableTimeoutMs > 0 && !result.ended() && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
+            // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
+            session.endReason("UNMEASURABLE_TIMEOUT");
+            result = engine.end(result.summary().totalMs());
+            closedReason = "unmeasurable_timeout";
+        }
+        publish(session, observation, before, invalidReason, closedReason);
         persist(session);
         return new Accepted(observation, result);
     }
@@ -283,7 +294,7 @@ public class SessionService {
                 () -> {
                     int before = session.engine().eventCount();
                     var view = session.engine().end(endMs);
-                    if (session.engine().eventCount() > before) publish(session, null, before, null);
+                    if (session.engine().eventCount() > before) publish(session, null, before, null, null);
                     persist(session);
                     return view;
                 });
@@ -304,7 +315,7 @@ public class SessionService {
                             session.endReason("DISCONNECTED");
                             int before = engine.eventCount();
                             engine.end(engine.summary().totalMs());
-                            publish(session, null, before, null);
+                            publish(session, null, before, null, null);
                         }
                         persist(session);
                         return null;
@@ -375,8 +386,9 @@ public class SessionService {
         return inference.modelVersion();
     }
 
-    /** 새 결과를 실시간 채널로 알린다. */
-    private void publish(LiveSession session, Observation observation, int before, String invalidReason) {
+    /** 새 결과를 실시간 채널로 알린다. {@code closedReason}은 서버가 스스로 끝냈을 때만 있다. */
+    private void publish(
+            LiveSession session, Observation observation, int before, String invalidReason, String closedReason) {
         var engine = session.engine();
         events.publishEvent(
                 new SessionUpdates.Progressed(
@@ -389,7 +401,8 @@ public class SessionService {
                         observation == null
                                 ? null
                                 : Observation.V3.of(observation, SessionEngine.invalidReason(observation, invalidReason)),
-                        engine.pausedReason()));
+                        engine.pausedReason(),
+                        closedReason));
     }
 
     private static Status status(SessionEngine engine) {
@@ -479,7 +492,8 @@ public class SessionService {
     private record Accepted(Observation observation, SessionView view) {}
 
     /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
-    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled) {}
+    /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */
+    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled, Instant startedAt) {}
 
     /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
     public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}

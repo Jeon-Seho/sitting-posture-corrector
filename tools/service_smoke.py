@@ -71,9 +71,8 @@ class Account:
 
 def register_baseline(account):
     """Register a synthetic 9-landmark baseline; sessions must name the account's current one."""
-    from datetime import datetime, timezone
     saved = account.request("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20,
         "landmarks": {
             "nose": {"x": 0.5, "y": 0.4}, "left_eye": {"x": 0.52, "y": 0.37},
@@ -174,16 +173,19 @@ def scenario(endpoints, database):
     assert [row[0] for row in excluded] == ["PAUSE", "UNMEASURABLE", "MISSING"], excluded
     episodes = query(database, "SELECT recovered_at IS NOT NULL FROM collapse_event WHERE monitor_session_id=%s", key)
     assert episodes == ((1,),), episodes
-    daily = query(database, "SELECT valid_sec, good_sec, session_count, event_count FROM daily_stat"
-                            " WHERE user_account_id=%s", int(owner.user_id))
-    assert [tuple(str(value) for value in row) for row in daily] == [("6.0", "3.0", "1", "1")], daily
+    # The API never writes daily_stat (architecture v5.2): Spark J2 aggregates the previous KST day at 00:00.
+    # A row here would mean the API accumulates again and J2 would count the session twice.
+    daily = query(database, "SELECT COUNT(*) FROM daily_stat WHERE user_account_id=%s", int(owner.user_id))
+    assert daily == ((0,),), daily
     baseline = query(database, "SELECT COUNT(*) FROM baseline_posture WHERE user_account_id=%s",
                      int(owner.user_id))
     assert baseline == ((1,),), baseline
     assert owner.request("/v2/baselines/current")["baseline_id"] == measurement.baseline
     print("PASS: schema V2.3 rows: baseline, session end, exclusions, episode and daily statistics", flush=True)
 
-    records = owner.request("/v2/records")
+    listed = owner.request("/v2/records")
+    assert len(listed["today"]) == 10, listed
+    records = listed["records"]
     assert [record["id"] for record in records] == [measurement.id], records
     assert (records[0]["total"], records[0]["good"], records[0]["server"]["confirmed"]) == (9, 3, True), records[0]
     print("PASS: the record is rebuilt from the session tables", flush=True)
