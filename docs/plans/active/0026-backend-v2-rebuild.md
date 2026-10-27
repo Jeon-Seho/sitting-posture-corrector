@@ -1,13 +1,13 @@
 # 백엔드 재작성: DB V2.2·프론트 계약 기준 단일 API
 
-> 2026-10-13 후속: 현재 DB V2.3·계정 API v2 연동은 [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md)에 따른다. 아래 V2.2 요구·결과는 당시 작업 기록이다.
+> 2026-10-13 후속: 현재 DB V2.3·계정 API v2 연동은 [옛 ADR 0022](../../removed-docs.md)에 따른다. 아래 V2.2 요구·결과는 당시 작업 기록이다.
 
 - 상태: in_progress
 - 담당: sunshine-yj 요청, Claude 구현 (브랜치 `feature/repo-backend-db-v2`, DB V2.2 작업과 한 브랜치)
 - 시작일: 2026-10-09
 - 관련 요구사항/ADR: [DB 안내](../../../database/README.md) (V2.2, CR-04), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
-  [ADR 0011](../../decisions/0011-api-cep-boundary.md)(대체됨), [ADR 0012](../../decisions/0012-session-timing-policy.md),
-  [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md), [계정 계약](../../../contracts/accounts.v1.md),
+  [옛 ADR 0011](../../removed-docs.md)(대체됨), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
+  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [계정 계약](../../../contracts/accounts.v1.md),
   [실시간 계약](../../../contracts/realtime/README.md)
 
 ## 문제와 완료 기준

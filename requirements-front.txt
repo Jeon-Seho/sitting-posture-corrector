@@ -10,7 +10,7 @@ Python         | 3.9 이상    | winget install Python.Python.3.13              
 
 # 서버 검사 (check-backend, check-browser)
 JDK            | 17 이상     | winget install EclipseAdoptium.Temurin.17.JDK   | check-backend, check-browser
-# Gradle·Maven은 설치하지 않는다. backend/gradlew(Gradle Wrapper)가 처음 실행할 때 Gradle 9.7.1을 받는다(ADR 0023).
+# Gradle·Maven은 설치하지 않는다. backend/gradlew(Gradle Wrapper)가 처음 실행할 때 Gradle 9.7.1을 받는다(backend/README.md).
 Chrome         | 최신        | winget install Google.Chrome                    | check-browser
 
 # 영구 저장 검사 (check-compose)

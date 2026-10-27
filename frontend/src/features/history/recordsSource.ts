@@ -1,5 +1,6 @@
 import { periodStats } from '../../lib/comparison'
 import { localDay } from '../../lib/history'
+import { addDayKey } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
 import { recordsByDay } from '../storage/dailyMeasurement'
 
@@ -25,13 +26,12 @@ export type DailyStat = {
   excluded_sec: number
 }
 
-/** "2026-10-13" for a local date. */
+/** "2026-10-13": the KST day of an instant. */
 export const dayKey = (date: Date) => localDay(date.toISOString())
 
-export function addDays(day: string, n: number): string {
-  return new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
-}
+export const addDays = addDayKey
 
+/** A Date for showing the calendar parts of `day` (weekday, date); not an instant to compare. */
 export function dateOf(day: string): Date {
   const [y, m, d] = day.split('-').map(Number)
   return new Date(y, m - 1, d, 12)

@@ -1,12 +1,8 @@
-import type { CollapseEvent, Machine } from '../../lib/engine'
+import type { CollapseEvent } from '../../lib/engine'
 import { DAY_MS, kstDay, kstDayStart } from '../../lib/kstDay'
 import type { DailyMeasurement, RecordItem } from './types'
 
 type Totals = { total: number; valid: number; good: number; events: CollapseEvent[]; lastAlertAt?: number }
-export function machineTotals(machine: Machine): Totals {
-  return { total: machine.total, valid: Math.max(0, machine.total - machine.paused - machine.unknown), good: machine.good,
-    events: machine.events, lastAlertAt: machine.lastAlertAt }
-}
 
 /** Aggregates observed counters, not video or posture predictions. The source session never resets at midnight. */
 export class DailyMeasurementLedger {

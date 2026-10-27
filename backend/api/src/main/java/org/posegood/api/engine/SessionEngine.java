@@ -17,7 +17,7 @@ import java.util.UUID;
  * 세션 하나의 판정 엔진: 관측을 순서대로 받아 시간을 누적하고 판정 사건을 만든다.
  *
  * 입력 순서·중복·공백 처리, 중단 시 초기화 정책({@code legacy-interrupt-v1}), 통계는 예전 CEP와 같다.
- * 임계값 비교는 {@link DecisionRules}에만 있다(ADR 0012, ADR 0020).
+ * 임계값 비교는 {@link DecisionRules}에만 있다(ADR 0020).
  */
 public final class SessionEngine {
     /**

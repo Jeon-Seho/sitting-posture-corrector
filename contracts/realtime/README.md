@@ -6,6 +6,7 @@
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, `progress.paused_reason`, 재연결 없음(ADR 0024). WebSocket 자세 등록(`calibration`, `calibration_result`)은 2026-10-27 지웠다 — 등록은 B1뿐.
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`)은 2026-10-26 지웠다.
+> **2026-10-21:** 앱(FE V3)은 v2로 바뀌었고 `purpose:"measure"`만 쓴다. 자세 등록은 WS `calibration`이 아니라 앱이 낸 평균을 REST B1로 보낸다([ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md) 5절). 앱은 v1 WebSocket을 더 쓰지 않는다(같은 ADR 4절).
 > Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).
@@ -16,7 +17,7 @@
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
-> (형식과 서버가 돌려줄 것: [FE 제안서](../../docs/design/fe-server-proposal.md) 3장·4장). "좌표를 넣지 않는다"는
+> (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
 > 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/v2/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
@@ -91,7 +92,7 @@ WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 �
 
 ## 아직 정하지 않은 것
 
-아래는 v1 기준이다. v2에서 메시지 단위(0.5초 구간 1개씩), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
+아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.

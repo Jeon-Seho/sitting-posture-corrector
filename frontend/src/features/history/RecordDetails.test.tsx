@@ -183,7 +183,7 @@ describe('readable stored record details', () => {
     expect(fact('이탈 사건')).toBe('2건')
     expect(fact('알림')).toBe('3회')
     expect(text).toContain(BASELINE_ID)
-    expect(text).toContain('reference-feature-rule-v1')
+    expect(text).not.toContain('reference-feature-rule-v1')
   })
 
   it('preserves a still-open server episode instead of fabricating recovery or end after archive', () => {
@@ -227,10 +227,11 @@ describe('readable stored record details', () => {
     expect(text).toContain('서버에 확인된 사건이 없습니다')
   })
 
-  it('shows absent local baseline, model, settings and excluded breakdown without current defaults', () => {
+  it('shows absent local baseline, settings and excluded breakdown (no model version) without current defaults', () => {
     const text = renderRecord(localRecord())
     expect(text).toContain('기준 ID가 기록에 없음')
-    expect(text).toContain('모델 버전이 기록에 없음')
+    // Model names and versions are internal (contracts README, 2026-10-22): never shown.
+    expect(text).not.toContain('모델 버전')
     expect(text).toContain('기록에 적용 설정이 남아 있지 않습니다')
     expect(text).toContain('구분할 수 없습니다')
     expect(fact('집계 제외 시간')).toBe('11초')
@@ -276,7 +277,7 @@ describe('readable stored record details', () => {
     const text = renderRecord(record)
     expect(text).toContain('실제 웹캠 · 서버 판정')
     expect(text).toContain('서버 상세 응답이 기록에 없습니다')
-    expect(fact('모델 버전')).toBe('확인할 수 없음 · 서버 상세 응답 없음')
+    expect(text).not.toContain('모델 버전')
     expect(fact('기준 자세 유지율')).toBe('계산 불가')
   })
 })

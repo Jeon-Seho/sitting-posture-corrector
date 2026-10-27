@@ -55,7 +55,7 @@ public class InferenceClient {
         return result;
     }
 
-    /** 결과가 이 요청에 대한 것이고, 품질이 낮은 구간을 유효로 표시하지 않았는지 확인한다(ADR 0013). */
+    /** 결과가 이 요청에 대한 것이고, 품질이 낮은 구간을 유효로 표시하지 않았는지 확인한다(ADR 0020). */
     void require(InferenceRequest request, Observation observation) {
         boolean measurable =
                 request.phase() == Observation.Phase.running

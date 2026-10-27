@@ -12,7 +12,7 @@ import java.util.List;
  *
  * 규칙은 BE API 명세 11.3과 FE가 넘긴 판정 규칙(2026-10-11, 합성 기준값 contracts/examples/frames/reference-rule-cases.json)이다.
  * 처음 계산식은 앱 프로토타입(develop의 model/prototype/pose.ts·serverFeatures.ts — FE V3에서 앱 판정과 함께 지움, git 이력에 남음)에서
- * 옮겼다. 값은 어깨 폭으로 정규화한다(ADR 0013). 0.65·0.02·0.1·0.15는 프로토타입의 검증 전 값이다.
+ * 옮겼다. 값은 어깨 폭으로 정규화한다(ADR 0020). 0.65·0.02·0.1·0.15는 프로토타입의 검증 전 값이다.
  * 카메라는 640×480 고정이다(DB V2.3 CAPTURE_RESOLUTION). 실험용 규칙이며 의료 측정이 아니다.
  */
 public final class FrameFeatures {

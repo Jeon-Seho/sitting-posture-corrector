@@ -1,7 +1,7 @@
 # 백엔드 — 세션·계정·판정 API
 
-Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md), [ADR 0023](../docs/decisions/0023-backend-java17-boot4-gradle.md)).
-현재 프론트 특징 v2 유지 범위는 [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)를 따른다.
+Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
+앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 특징 변화량 경로 `POST /v2/sessions/{id}/features`는 서버에 남아 있지만 앱은 쓰지 않는다(남길지는 BE가 정한다).
 DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
@@ -77,7 +77,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 판정 규칙
 
-[ADR 0012](../docs/decisions/0012-session-timing-policy.md)와 [계약 설명](../contracts/README.md)을 따른다. 정책은 세션 생성 때 고정한다.
+[ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)와 [계약 설명](../contracts/README.md)을 따른다. 정책은 세션 생성 때 고정한다.
 
 - 관측 점수가 `threshold` 이상이면 이탈 후보다. 후보가 연속으로 `hold_ms` 이상이면 `collapse_confirmed`(최초 알림),
   같은 사건에서 마지막 알림 뒤 `reminder_ms`가 지나고 계속 이탈이면 `reminder`, 기준 내 자세가 연속 `recovery_ms` 이상이면 `recovery_confirmed`다.

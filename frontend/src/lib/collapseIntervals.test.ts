@@ -1,28 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import { collapseIntervals } from './stats'
 import { periodStats } from './comparison'
-import { DEFAULT_RULES } from '../data/posture'
-import { closeOpenEvent, newMachine, step, sampleAt } from './engine'
+import type { CollapseEvent } from './engine'
 import { validRecord } from './serviceStore'
 
-// Synthetic constant samples only, no real camera or user storage.
-const sample = (prob: number) => ({ ...sampleAt(0), prob, confidence: 1, state: 'good' as const })
-const run = () => {
-  const m = newMachine()
-  step(m, 3, 'running', DEFAULT_RULES, sample(0.9))
-  step(m, 2, 'running', DEFAULT_RULES, sample(0.1))
-  step(m, 100, 'paused', DEFAULT_RULES, sample(0.9))
-  step(m, 20, 'running', DEFAULT_RULES, { ...sample(0.9), state: 'unknown' })
-  step(m, 3, 'running', DEFAULT_RULES, sample(0.9))
-  return m
-}
+/**
+ * Two collapses of one measurement, as the server reports them (fixed values; the app's own
+ * judging engine was removed on 2026-10-21): the second one after a 100 s rest and 20 s of
+ * unmeasurable time, so 5 s apart on valid time and in a new block.
+ */
+const event = (id: number, startAt: number, validStartAt: number, blockId: number): CollapseEvent => ({
+  id,
+  type: 'forwardHead',
+  startAt,
+  validStartAt,
+  confirmedAt: startAt + 3,
+  endAt: null,
+  durationSec: 0,
+  alerts: 1,
+  firstAlertAt: startAt + 3,
+  recovered: false,
+  recoverySec: null,
+  endedBySession: false,
+  endReason: null,
+  blockId,
+})
+const run = () => ({ events: [event(1, 0, 0, 0), event(2, 125, 5, 1)] })
+const closed = (events: CollapseEvent[]) =>
+  events.map((e) => ({ ...e, endAt: e.startAt + 3, durationSec: 3, endReason: 'ended' as const, endedBySession: true }))
+
 describe('same-session collapse cycle on valid time', () => {
   it('excludes rest and unknown while preserving the existing interrupt timer policy', () => {
     const m = run()
     expect(m.events.map((e) => e.validStartAt).sort((a, b) => a! - b!)).toEqual([0, 5])
     expect(collapseIntervals(m.events)).toEqual([5])
-    expect(m.paused).toBe(100)
-    expect(m.unknown).toBe(20)
   })
   it('does not double count duplicate events and accepts reverse event list order', () => {
     const events = run().events
@@ -55,17 +66,15 @@ describe('same-session collapse cycle on valid time', () => {
     ).toBeNull()
   })
   it('validates optional cumulative time and keeps old complete records compatible', () => {
-    const m = run()
-    closeOpenEvent(m)
     const record = {
       id: 'synthetic',
       startedAt: '2026-09-30T00:00:00Z',
       endedAt: '2026-09-30T00:05:00Z',
       mode: 'camera',
-      total: m.total,
+      total: 128,
       valid: 8,
-      good: m.good,
-      events: m.events,
+      good: 2,
+      events: closed(run().events),
     }
     expect(validRecord(record)).toBe(true)
     expect(

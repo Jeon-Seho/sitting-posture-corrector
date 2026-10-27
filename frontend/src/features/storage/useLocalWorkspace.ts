@@ -15,7 +15,6 @@ export function useLocalWorkspace(
   const [records, setRecords] = useState(initial.records)
   const [rules, setRules] = useState(initial.settings)
   const [showDemo, setShowDemo] = useState(initial.demo)
-  const [draft, setDraft] = useState(initial.draft)
   const canWrite = writer.state === 'ready' && storageIssues.length === 0
   const writable = useRef(canWrite)
   writable.current = canWrite
@@ -35,7 +34,6 @@ export function useLocalWorkspace(
       setProfile(next.profile)
       setRules(next.settings)
       setShowDemo(next.demo)
-      setDraft(next.draft)
       onProfileReload(next.profile)
     }
   }
@@ -57,7 +55,6 @@ export function useLocalWorkspace(
     records,
     rules,
     showDemo,
-    draft,
     canWrite,
     writable,
     requireWriter,
@@ -66,7 +63,6 @@ export function useLocalWorkspace(
     setRecords,
     setRules,
     setShowDemo,
-    setDraft,
   }
 }
 

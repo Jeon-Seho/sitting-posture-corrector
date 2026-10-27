@@ -111,7 +111,7 @@
 
 이 문서를 쓸 때 작업 트리에 아직 커밋하지 않은 변경이 있었다. 진행 중이므로 이 문서를 쓰면서 시험을 다시 돌리지는 않았다.
 
-- 문서: [계획 0025 백엔드·프론트·DB V2.3 연동](../plans/active/0025-backend-db-v23-integration.md)(담당 표기: Codex), [ADR 0022](../decisions/0022-db-v23-feature-v2-integration.md), [계정 API v2](../../contracts/accounts.v2.md), [동의 문서 v2](../../contracts/consent-documents.v2.md)
+- 문서: [계획 0025 백엔드·프론트·DB V2.3 연동](../plans/active/0025-backend-db-v23-integration.md)(담당 표기: Codex), [옛 ADR 0022](../removed-docs.md), [계정 API v2](../../contracts/accounts.v2.md), [동의 문서 v2](../../contracts/consent-documents.v2.md)
 - 규모: 수정 70개 파일(+752 / −810)과 새 파일 약 10개. 백엔드 계정·세션·작업공간, 프론트 계정·서버 세션, 도구가 대부분이다.
 - 주요 결정(ADR 0022):
   - DB V2.3을 정본으로 두고, 백엔드에서 삭제된 컬럼을 쓰지 않는다. DB는 바꾸지 않는다.

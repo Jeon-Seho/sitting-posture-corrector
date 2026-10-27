@@ -3,6 +3,11 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { CAMERA_ERRORS } from '../features/camera/errors'
 import { useCamera } from './useCamera'
+import {
+  baselineResponse,
+  installFakeBaselineServer,
+  removeFakeBaselineServer,
+} from '../features/baseline/fakeBaselineServer'
 
 /**
  * Several cameras (built-in + USB) with the behavior as of 2026-10-16, before plan 0053.
@@ -119,6 +124,7 @@ describe('several cameras (synthetic devices only)', () => {
     })
   })
   afterEach(() => {
+    removeFakeBaselineServer()
     act(() => renderer?.unmount())
     renderer = undefined
     vi.useRealTimers()
@@ -210,20 +216,27 @@ describe('several cameras (synthetic devices only)', () => {
 
   it('keeps the one posture when switching cameras, without asking to register again (plan 0053)', async () => {
     const calibrationId = '22222222-2222-4222-8222-222222222222'
-    store.set(
-      'posegood.v2.baseline',
-      JSON.stringify({
-        schemaVersion: 1,
-        savedAt: new Date(0).toISOString(),
-        deviceId: USB,
+    const joint = { x: 0.5, y: 0.5 }
+    installFakeBaselineServer(
+      baselineResponse(
+        {
+          nose: { x: 0.5, y: 0.25 },
+          left_eye: joint,
+          right_eye: joint,
+          left_ear: joint,
+          right_ear: joint,
+          mouth_left: joint,
+          mouth_right: joint,
+          left_shoulder: { x: 0.3, y: 0.5 },
+          right_shoulder: { x: 0.7, y: 0.5 },
+        },
+        new Date(0).toISOString(),
         calibrationId,
-        baseline: { headGap: 0.6, offset: 0, tilt: 0, quality: 0.9, turn: 0 },
-        summary: null,
-      }),
+      ),
     )
     mount()
     await connect()
-    // Taken with the USB camera, used as is on the built-in one.
+    // Registered on the server (no camera kept), used as is on either camera.
     expect(camera.deviceId).toBe(BUILT_IN)
     expect(camera.calibrationId).toBe(calibrationId)
     expect(camera.baseline).not.toBeNull()

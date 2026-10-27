@@ -1,6 +1,6 @@
 import type { CollapseType } from '../../../data/posture'
 import type { CollapseEvent, Machine } from '../../../lib/engine'
-import type { DecisionEvent, ServerLiveState, ServerObservation, SessionView } from './contracts'
+import type { DecisionEvent, SessionView } from './contracts'
 
 function collapseType(type: DecisionEvent['deviation_type']): CollapseType {
   if (type === 'forward_slouch') return 'forwardHead'
@@ -77,37 +77,5 @@ export function projectMachine(view: SessionView | null): Machine {
     alertTick: s?.alert_count ?? 0,
     blockId,
     interrupted: !active,
-  }
-}
-
-export function projectLive(
-  view: SessionView | null,
-  observation: ServerObservation | null,
-  modelVersion: string | null = observation?.model_version ?? null,
-): ServerLiveState {
-  const machine = projectMachine(view)
-  const measurable = !!observation?.valid && !view?.ended
-  const collapse = measurable && observation.collapse_probability >= (view?.policy.threshold ?? 1)
-  return {
-    view,
-    modelVersion,
-    state: measurable ? (collapse ? 'collapse' : 'good') : 'unknown',
-    collapse: measurable && collapse ? collapseType(observation.deviation_type) : null,
-    notice: measurable
-      ? null
-      : view?.ended
-        ? '측정을 종료했습니다.'
-        : '서버에서 확인한 유효 입력을 기다리고 있습니다.',
-    confidence: 0,
-    collapseProb: measurable ? observation.collapse_probability : 0,
-    alerting: machine.active !== null,
-    totalSeconds: machine.total,
-    pausedSeconds: machine.paused,
-    unknownSeconds: machine.unknown,
-    validSeconds: view ? view.summary.valid_ms / 1000 : 0,
-    goodSeconds: machine.good,
-    collapseSeconds: machine.collapse,
-    events: machine.events,
-    alertTick: machine.alertTick,
   }
 }

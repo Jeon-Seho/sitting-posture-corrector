@@ -41,7 +41,7 @@ describe('KST daily measurement partitions with explicit synthetic counters', ()
       { date: '2026-10-26', valid_sec: 2, good_sec: 2, excluded_sec: 0 },
       { date: '2026-10-27', valid_sec: 2, good_sec: 0, excluded_sec: 2 },
     ])
-    expect(historyFor([record], 'camera', 'today', new Date('2026-10-27T01:00:00+09:00'))[0].valid).toBe(2)
+    expect(historyFor([record], 'camera', 'today', '2026-10-27')[0].valid).toBe(2)
     expect(dailyHistory([record]).map(d => d.valid)).toEqual([2, 2])
   })
   it('splits a single uniform observation crossing midnight and keeps its sums', () => {

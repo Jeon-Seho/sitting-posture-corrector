@@ -91,7 +91,7 @@
       }
     },
     "features": {
-      "description": "app -> server. Coordinate intervals in sequence order. The server allows 1-30; the app sends one every 0.5 s (FE spec Q1).",
+      "description": "app -> server. Coordinate intervals in sequence order. The server allows 1-30; the app sends one interval holding one frame per message, ending when the next frame arrives, or after 0.5 s without one (FE decision 2026-10-27, FE spec 5.1).",
       "type": "object",
       "additionalProperties": false,
       "required": [

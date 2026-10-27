@@ -1,5 +1,5 @@
 import type { Landmark } from '../../../model/prototype/pose'
-import { CALIBRATION_MS } from '../../../model/prototype/calibration'
+import { CAPTURE_MS } from '../features/baseline/landmarkCapture'
 import type { Observation } from '../hooks/useCamera'
 import modelAsset from '../../model-asset.json'
 import {
@@ -184,7 +184,7 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     width: o.width,
     height: o.height,
     pose_model: modelAsset.modelId,
-    calibration_seconds: CALIBRATION_MS / 1000,
+    calibration_seconds: CAPTURE_MS / 1000,
     target_sample_hz: 10,
     task_id: task.id,
     activity: task.activity,

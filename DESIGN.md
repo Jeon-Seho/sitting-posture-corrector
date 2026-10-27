@@ -68,10 +68,10 @@
 ## 기록과 날짜
 
 날짜는 한국 시간 00시 기준이다. 자정에도 세션·알림은 이어지고, 날짜별 측정분을 중간/종료 기록에 따로 보관한다.
-오늘·달력·기간 요약은 같은 분할을 사용한다. [날짜별 보관 결정](docs/decisions/0025-kst-daily-measurement-parts.md)을 따른다.
+오늘·달력·기간 요약은 같은 분할을 사용한다. [날짜별 보관 결정](docs/decisions/0027-today-records-from-collected-server-results.md)을 따른다.
 
 과거 디자인의 검토 이유는 [시각 디자인 검토](docs/audits/2026-10-26-visual-design-review.md), 이번 적용·검증은
-[실행 계획](docs/plans/active/0055-forest-theme-and-kst-day-records.md)에 기록한다.
+[실행 계획](docs/plans/active/0058-forest-theme-and-kst-day-records.md)에 기록한다.
 
 ## 실제 앱 검수 후 대비 보정
 
