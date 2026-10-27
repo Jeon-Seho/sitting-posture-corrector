@@ -44,4 +44,20 @@ public final class AccountContracts {
      * 오늘 날짜(KST {@code YYYY-MM-DD})로, 앱의 「오늘」을 정한다(BE-6, FE ADR 0029).
      */
     public record View(String userId, String email, Profile profile, String today) {}
+
+    /**
+     * 가입·로그인 응답: 사용자 정보와 access 토큰(ADR 0031). {@code expiresIn}은 access 토큰의 남은 초다.
+     * refresh 토큰은 본문에 넣지 않고 HttpOnly 쿠키로만 준다.
+     */
+    public record SignedIn(
+            String userId, String email, Profile profile, String today, String accessToken, String tokenType,
+            long expiresIn) {
+        static SignedIn of(View view, AuthTokens.Issued issued) {
+            return new SignedIn(view.userId(), view.email(), view.profile(), view.today(), issued.accessToken(),
+                    "Bearer", issued.expiresIn());
+        }
+    }
+
+    /** {@code POST /v2/auth/refresh} 응답: 새 access 토큰. 새 refresh 토큰은 쿠키로 바뀐다. */
+    public record Refreshed(String userId, String accessToken, String tokenType, long expiresIn, String today) {}
 }
