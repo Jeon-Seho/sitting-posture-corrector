@@ -276,7 +276,7 @@ export function SetupPage({
           <details className="more">
             <summary>개발자 옵션</summary>
             <div className="more-body dev-tools">
-              <DeveloperGroup title="카메라·작은 창"><CameraWindowTest cameraOn={on} /></DeveloperGroup>
+              <DeveloperGroup title="카메라·작은 창"><CameraWindowTest cameraOn={on} cameraLoading={camera.state === 'loading'} cameraError={camera.error} onConnect={() => camera.connect()} /></DeveloperGroup>
               <DeveloperGroup title="화면·모션"><InteractionPreview /></DeveloperGroup>
               <DeveloperGroup title="연결·데이터 수집">
                 {onServerMode && (

@@ -46,9 +46,12 @@ try {
   await click('로그인')
   await until(() => evaluate(`!!document.querySelector('.shell')`), 'shell')
   assert.equal(await evaluate(`window.posegoodDesktop.cameraWindow`), true)
-  await click('카메라 켜기')
-  await until(() => evaluate(`document.querySelector('.webcam-preview')?.readyState >= 2`), 'synthetic camera')
-  await evaluate(`document.querySelector('.measure-panel details.more').open=true; [...document.querySelectorAll('.dev-group')].find(d=>d.querySelector('summary').textContent==='카메라·작은 창').open=true`)
+  await click('설정')
+  await evaluate(`[...document.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent.startsWith('개발자 옵션')).open=true; [...document.querySelectorAll('.dev-group')].find(d=>d.querySelector('summary').textContent==='카메라·작은 창').open=true`)
+  assert.equal(await evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&b.disabled)`), true)
+  await click('테스트 카메라 켜기')
+  await until(() => evaluate(`!!document.querySelector('.capture-source')?.srcObject?.active`), 'shared camera started from developer options')
+  await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&!b.disabled)`), 'camera ready enables PiP')
   await click('PiP 열기')
   const popupReady = `!!window.open('', 'posegood-camera')?.document.querySelector('video')?.srcObject`
   // Inspect the named window, without requesting another camera or opening arbitrary content.
@@ -88,6 +91,7 @@ try {
   await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === '앱으로 복귀' && !b.disabled)`), 'return control')
   await click('앱으로 복귀')
   await until(() => evaluate(`!![...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'PiP 접기' && b.disabled)`), 'returned to main window')
+  await click('설정')
   await click('PiP 열기')
   await until(() => evaluate(popupReady), 'reopen after return')
   await click('테스트 창 닫기')

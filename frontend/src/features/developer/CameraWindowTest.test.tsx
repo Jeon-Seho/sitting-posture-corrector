@@ -6,6 +6,30 @@ import { CAMERA_TEST_EVENT, publishCameraTest } from '../camera/cameraWindowTest
 describe('developer camera checks', () => {
   let renderer: ReactTestRenderer | undefined
   afterEach(() => { act(() => renderer?.unmount()); vi.unstubAllGlobals() })
+  it('starts the shared camera locally and keeps PiP disabled until the camera is ready', async () => {
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { posegoodDesktop: { version: 1, cameraWindow: true } }))
+    let complete: () => void = () => {}
+    const connect = vi.fn(() => new Promise<void>(resolve => { complete = resolve }))
+    act(() => { renderer = create(<CameraWindowTest cameraOn={false} onConnect={connect} />) })
+    const buttons = () => renderer!.root.findAllByType('button')
+    act(() => buttons().find(button => button.children.join('') === '테스트 카메라 켜기')!.props.onClick())
+    expect(connect).toHaveBeenCalledOnce()
+    expect(buttons().find(button => button.children.join('') === '카메라 준비 중…')!.props.disabled).toBe(true)
+    expect(buttons().find(button => button.children.join('') === 'PiP 열기')!.props.disabled).toBe(true)
+    await act(async () => { complete(); await Promise.resolve() })
+    act(() => renderer!.update(<CameraWindowTest cameraOn onConnect={connect} />))
+    expect(buttons().find(button => button.children.join('') === 'PiP 열기')!.props.disabled).toBe(false)
+  })
+  it('reports camera start failure and allows retry without opening PiP', async () => {
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { posegoodDesktop: { version: 1, cameraWindow: true } }))
+    const connect = vi.fn(async () => { throw new Error('synthetic denial') })
+    act(() => { renderer = create(<CameraWindowTest cameraOn={false} onConnect={connect} />) })
+    await act(async () => { await renderer!.root.findAllByType('button')[0].props.onClick(); await Promise.resolve() })
+    expect(renderer!.root.findAllByProps({ role: 'alert' })).toHaveLength(1)
+    expect(renderer!.root.findAllByType('button')[0].children.join('')).toBe('카메라 다시 연결')
+    act(() => renderer!.update(<CameraWindowTest cameraOn={false} cameraError="카메라 권한이 꺼져 있어요." onConnect={connect} />))
+    expect(JSON.stringify(renderer!.toJSON())).toContain('카메라 권한이 꺼져 있어요.')
+  })
   it('disables PiP on web and while the desktop camera is off', () => {
     vi.stubGlobal('window', new EventTarget())
     act(() => { renderer = create(<CameraWindowTest cameraOn />) })
