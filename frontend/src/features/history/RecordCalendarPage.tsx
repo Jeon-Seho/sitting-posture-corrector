@@ -6,7 +6,7 @@ import { DaySummary } from './DaySummary'
 import { MonthCalendar, PeriodCard } from './RecordCalendar'
 import { RecordModeChips, useRecordMode } from './recordMode'
 import { addDays, dailyStats } from './recordsSource'
-import { useKstDay } from '../../hooks/useKstDay'
+import { useServerToday } from '../platform/serverClock'
 
 /**
  * 달력 tab (2026-10-14), after well-known diary and calendar apps:
@@ -25,7 +25,8 @@ export function RecordCalendarPage({
   /** 발표용 예시 기록 are shown instead of this device's records. */
   example?: boolean
 }) {
-  const today = useKstDay()
+  // 「오늘」 is the server's KST day (ADR 0029), not this computer's clock.
+  const today = useServerToday()
   const [selected, setSelected] = useState<string | null>(null)
   const { mode, setMode, hasDemo, records, label } = useRecordMode(allRecords)
   // A year of heatmap plus room for the calendar to page back.

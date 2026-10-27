@@ -1,12 +1,12 @@
 import type { RecordItem } from './serviceStore'
 import type { Rules } from './engine'
+import { addDayKey, kstDay } from './kst'
 import { collapseIntervals, mean, ratio } from './stats'
-import { DAY_MS, kstDay, kstDayStart } from './kstDay'
 import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 /**
  * 실제 기록의 전후 비교. 초기 구간은 첫 측정일부터, 최근 구간은 오늘까지의 같은 길이다.
- * 두 값은 팀 합의 전 임시값이다(docs/decisions/0010-record-comparison.md).
+ * 두 값은 팀 합의 전 임시값이다.
  */
 export const COMPARE_RULES = { days: 7, minValidSeconds: 30 * 60 }
 
@@ -166,14 +166,12 @@ export function comparisonRecordGroups(
   return { early: within(comparison.early), recent: within(comparison.recent) }
 }
 
-/** All record dates use the same Korean calendar boundary. */
+/**
+ * 기록은 시작한 KST 날짜에 속한다. 측정은 KST 자정에 서버가 끊으므로 끝난 날짜도 같다
+ * (ADR 0029). 기록·달력의 날짜와 같은 기준이다.
+ */
 export const dayKey = (date: Date) => kstDay(date)
-const startOfDay = (date: Date) => {
-  return new Date(kstDayStart(kstDay(date)))
-}
-const addDays = (date: Date, days: number) => {
-  return new Date(date.getTime() + days * DAY_MS)
-}
+const daysBetween = (from: string, to: string) => (Date.parse(to) - Date.parse(from)) / 86400000
 
 export function periodStats(records: RecordItem[], from: string, to: string): PeriodStats {
   const valid = records.reduce((n, r) => n + r.valid, 0)
@@ -204,25 +202,22 @@ export function compareFirstAndRecent(
 ): Comparison {
   records = recordsByDay(records)
   if (records.length === 0) return { status: 'empty' }
-  const days = records.map((r) => kstDayStart(r.dayPartition?.date ?? kstDay(r.startedAt)))
-  const first = new Date(Math.min(...days))
-  const earlyEnd = addDays(first, rules.days - 1)
-  const today = startOfDay(now)
-  const recentStart = addDays(today, -(rules.days - 1))
+  const first = records.map((r) => r.dayPartition?.date ?? kstDay(r.startedAt)).sort()[0]
+  const earlyEnd = addDayKey(first, rules.days - 1)
+  const today = kstDay(now)
+  const recentStart = addDayKey(today, -(rules.days - 1))
   // 두 구간이 겹치면 전후 비교가 아니다. 첫 측정일부터 2배 기간이 지나야 비교한다.
   if (recentStart <= earlyEnd) {
-    const daysLeft = Math.round(
-      (addDays(earlyEnd, rules.days).getTime() - today.getTime()) / 86400000,
-    )
-    return { status: 'waiting', firstDay: dayKey(first), daysLeft }
+    const daysLeft = Math.round(daysBetween(today, addDayKey(earlyEnd, rules.days)))
+    return { status: 'waiting', firstDay: first, daysLeft }
   }
-  const within = (from: Date, to: Date) =>
+  const within = (from: string, to: string) =>
     records.filter((r) => {
-      const d = new Date(kstDayStart(r.dayPartition?.date ?? kstDay(r.startedAt)))
+      const d = r.dayPartition?.date ?? kstDay(r.startedAt)
       return d >= from && d <= to
     })
-  const early = periodStats(within(first, earlyEnd), dayKey(first), dayKey(earlyEnd))
-  const recent = periodStats(within(recentStart, today), dayKey(recentStart), dayKey(today))
+  const early = periodStats(within(first, earlyEnd), first, earlyEnd)
+  const recent = periodStats(within(recentStart, today), recentStart, today)
   const enough = early.valid >= rules.minValidSeconds && recent.valid >= rules.minValidSeconds
   return { status: enough ? 'ready' : 'short', early, recent }
 }

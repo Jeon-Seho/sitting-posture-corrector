@@ -21,7 +21,7 @@
 | **로그인 토큰**(ADR 0031): access 토큰(JWT HS256, 30분, Bearer, 저장 안 함) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지), `POST /v2/auth/refresh`, WS `hello.access_token`. 쿠키 세션·CSRF·`LoginLifetime` 삭제 | DB/BE | 구현됨 (브랜치 `feature/repo-auth-refresh-token`, MySQL로는 미확인) — **호환성 깨짐**: FE 토큰 처리, DevOps 도구·초기화 스크립트·`POSEGOOD_JWT_SECRET` 필요(3장) | `account/AuthTokens.java`, `RefreshTokenRepository.java`, `SecurityConfiguration.java`, `AuthTokensTest`, `api-spec.md` 1·4장 A8, DB V2.6 |
 | 비밀번호 변경 (그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫기. access 토큰은 만료까지 남음) | DB/BE | 구현됨 | `AuthController.java` `PUT /v2/auth/password`, `AccountRepository.removeLogins` |
 | 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`) | DB/BE | 구현됨 | `AuthController.java` `DELETE /v2/auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록 |
-| 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0022](decisions/0022-db-v23-feature-v2-integration.md) |
+| 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 3절(좌표 전송 동의 필수), [DB 안내](../database/README.md)(`user_consent`) |
 | 선택 정보 동의 철회 (나이·직업 비움) | DB/BE | 구현됨 | `workspace/WorkspaceController.java` `PUT /v2/consents/optional-profile` |
 | 매시간 탈퇴 삭제 스케줄러 제거 | DB/BE | 구현됨 | 계획 0026 10/15 기록 (`purgeWithdrawn` 삭제) |
 
@@ -32,7 +32,7 @@
 | 설정 조회·저장 `/v2/workspace` | DB/BE | 구현됨 | `workspace/WorkspaceController.java` |
 | 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
-| 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled` | DB/BE | 구현됨 | ADR 0022, `backend/README.md` |
+| 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled` | DB/BE | 구현됨 | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 1절 5번, [DB 안내](../database/README.md) 세션 줄, `backend/README.md` |
 | 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2가 채우므로 J2 전에는 0만 나옴. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
 
 표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
@@ -41,9 +41,9 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| `POST /v2/baselines`, `GET /v2/baselines/current` (이력 행 추가) | DB/BE | 구현됨 | `session/BaselineController.java`, ADR 0022 |
+| `POST /v2/baselines`, `GET /v2/baselines/current` (이력 행 추가) | DB/BE | 구현됨 | `session/BaselineController.java`, [ADR 0028](decisions/0028-server-time-for-baseline-registration.md), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 5절 |
 | B1 등록 시각을 서버 시각으로, 재전송은 `registration_id`(UK-16)로 (DB V2.5, migration 015) | DB/BE | 구현됨 (브랜치, MySQL로는 미확인) — **호환성 깨짐**: `registered_at`을 보내는 FE V3는 400. FE가 함께 바꿔야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md), `session/BaselineRepository.java` |
-| WebSocket 등록 (`purpose: calibration` → `calibration_result`) | DB/BE | 구현됨 — 앱은 쓰지 않기로 함(앱 평균 → B1, FE ADR 0026, V3 브랜치). 남길지는 4장 | `realtime/RealtimeHandlerV2.java` |
+| WebSocket 등록 (`purpose: calibration` → `calibration_result`) | DB/BE | 구현됨 — 앱은 쓰지 않기로 함(앱 평균 → B1, FE ADR 0021, V3 브랜치). 남길지는 4장 | `realtime/RealtimeHandlerV2.java` |
 
 ### 2.4 측정·실시간 판정 (API 안)
 
@@ -98,7 +98,7 @@
 |---|---|---|---|
 | `infra/nginx/default.conf` `location = /api/v1/realtime`, `infra/README.md` 44·153줄 | API에서 지운 `/v1/realtime`을 아직 전달·안내함(연결하면 실패) | DevOps(infra 담당)에 삭제 요청 | 요청 전 |
 | `docs/architecture.md` 105줄 | "`/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다" | 문서 담당에 갱신 요청 | 요청 전 |
-| `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0026, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
+| `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0021, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
 | `docs/plans/active/0031-realtime-kafka-transition.md` 79·84줄 | 최대 측정 시간을 「팀 회의 결과를 따른다, 5000초 유지」로 적음 — 2026-10-26 결정(제품 한도 없음, 측정불가 5분 자동 종료)과 다름. 10/26 v1 정리 기록도 없음 | 계획 공동 담당(DevOps·PM)에 갱신 요청(BE가 계획 0031을 직접 고치지 않기로 함) | 요청 전 |
 | `infra/mysql/initdb/10-posegood-schema.sh` | 빈 볼륨에 `schema_V2_5.sql`을 적용함 — API는 V2.6(`refresh_token`)이 없으면 시작하지 않음 | DevOps에 `schema_V2_6.sql`로 바꿔 달라고 요청. Compose 비밀값에 `POSEGOOD_JWT_SECRET`(32바이트 이상) 추가 요청 | 요청 전 |
 | `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | 쿠키·CSRF 로그인(`/v2/auth/csrf`)과 쿠키 WS 인증을 씀 — 토큰 로그인(ADR 0031)에서 실패 | DevOps에 Bearer 토큰·`hello.access_token`으로 바꿔 달라고 요청 | 요청 전 |
@@ -113,10 +113,10 @@
 | KST 자정 끊기 (BE-6 ①, 보류) — A안(닫고 앱이 새 S1 — 예전 401 문제는 토큰 로그인(ADR 0031)으로 풀림) / B안(같은 연결에서 서버가 새 세션 생성·`session_rollover`, 연결=세션 구조·계약·DB insert 변경). 최대 측정 시간을 없애 자정을 넘는 측정은 모두 해당 | DB/BE·FE | 2.6, FE ADR 0029 |
 | 측정불가 자동 종료를 켜는 시점 (`unmeasurable-timeout` 0 → 5m) — 앱이 `closed(unmeasurable_timeout)`을 처리한 뒤. 앱의 「쉬기 10분 자동 종료」(FE ADR 0029)는 별개로 남음 | DB/BE·FE | 2.4, `api-spec.md` 11.3 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
-| 알림 기본값 (ADR 0022는 false, FE 화면은 켜짐) | DB·FE | ADR 0022 |
+| 알림 기본값 (DB `sound_alert_enabled` 기본 false, FE 화면은 켜짐 — 정하지 않음, ADR 없음) | DB·FE | [DB 안내](../database/README.md), 스키마 V2.6 `sound_alert_enabled` 설명 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
-| WebSocket 등록(`purpose: calibration`)을 남길지 | DB/BE | FE ADR 0026 「남길지는 BE가 정한다」 |
+| WebSocket 등록(`purpose: calibration`)을 남길지 | DB/BE | FE ADR 0021 「남길지는 BE가 정한다」 |
 | S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |

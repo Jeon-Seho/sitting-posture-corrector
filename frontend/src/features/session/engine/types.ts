@@ -1,7 +1,6 @@
 import {
   DEFAULT_RULES,
   type CollapseType,
-  type Features,
   type Keypoints,
   type PostureState,
   type Segment,
@@ -63,8 +62,6 @@ export type Sample = {
   notice: string | null
   prob: number
   confidence: number
-  /** Unknown because the head is turned (shorter return settle than being away). */
-  headTurn?: boolean
 }
 
 export type LiveState = {
@@ -72,7 +69,6 @@ export type LiveState = {
   collapse: CollapseType | null
   notice: string | null
   keypoints: Keypoints
-  features: Features
   confidence: number
   collapseProb: number
   holdProgress: number

@@ -1,8 +1,8 @@
 # 계정·기준 자세·저장 API v2
 
-현재 MySQL [DB V2.3](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
+현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
 v1의 가입·workspace·세션 생성 형식과 호환되지 않아 별도 경로를 쓴다. 기존 v1 계정 경로는 제공하지 않는다.
-특징 요청·관측 v2, 사건·조회·WebSocket v1은 그대로 유지한다. [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md).
+측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. 특징 요청(`POST /v2/sessions/{id}/features`)은 서버에 남아 있지만 앱은 쓰지 않는다.
 
 ## 인증
 

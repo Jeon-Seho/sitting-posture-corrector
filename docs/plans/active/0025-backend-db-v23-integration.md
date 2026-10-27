@@ -16,7 +16,7 @@ V2.3 스키마·시드로 기동하고 가입·설정·기준 등록·측정·�
 백엔드 저장 계층·HTTP/실시간 계약, 필요한 프론트 어댑터와 가입/프로필 흐름, 초기화·검증 도구와 문서를 변경한다.
 DB V2.3 테이블 구조는 유지한다. 학습 모델·HDFS 적재·운영 배포는 포함하지 않는다.
 사용자 답변에 따라 현재 특징 v2 API를 유지한다. 좌표 스트림 v3·Kafka 전환은 별도 범위다.
-구현 결정은 [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md)와 [계정 API v2](../../../contracts/accounts.v2.md)에 기록했다.
+구현 결정은 [옛 ADR 0022](../../removed-docs.md)와 [계정 API v2](../../../contracts/accounts.v2.md)에 기록했다.
 
 ## 작업 단계
 

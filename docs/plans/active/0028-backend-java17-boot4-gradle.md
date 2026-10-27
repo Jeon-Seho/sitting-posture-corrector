@@ -3,7 +3,7 @@
 - 상태: in_progress (백엔드·도구·Docker 이미지 완료, CI·`tests/test_service_contracts.py`는 담당 팀원 작업 대기 — 2026-10-26 확인)
 - 담당: sunshine-yj 요청(백엔드·DB 담당), Claude 구현. `backend/` 밖은 각 담당 팀원
 - 시작일: 2026-10-14
-- 관련 요구사항/ADR: [ADR 0023](../../decisions/0023-backend-java17-boot4-gradle.md), [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [백엔드 안내](../../../backend/README.md)
+- 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md) 1절(옛 ADR 0023을 합침), [백엔드 안내](../../../backend/README.md)
 
 ## 문제와 완료 기준
 
@@ -31,7 +31,7 @@
 
 - Boot 4 모듈 분리: `spring-boot-starter-webmvc`, `-session-jdbc`, `-restclient`(추론 호출 `RestClient.Builder`가 없으면 시작 실패), 시험용 `-webmvc-test`.
 - Jackson 3: 패키지 이름, `JsonProcessingException`→`JacksonException`, `JsonDeserializer`→`ValueDeserializer`, `@JsonComponent`→`@JacksonComponent`, `fieldNames()`→`propertyNames()`.
-- 동작 보존 두 가지(ADR 0023 4항): 중복 키 거부를 `common/JsonConfiguration`으로 다시 켬, 클라이언트 입력은 Jackson 2와 같은 값을 주는 `Json.text()`로 읽음.
+- 동작 보존 두 가지(옛 ADR 0023 4항): 중복 키 거부를 `common/JsonConfiguration`으로 다시 켬, 클라이언트 입력은 Jackson 2와 같은 값을 주는 `Json.text()`로 읽음.
   둘 다 `common/JsonTest` 단위 시험이 있다.
 - Java 17: `getFirst()/getLast()` → `get(0)/get(size-1)`, 시험의 `ExecutorService` try-with-resources → `shutdown()`·`awaitTermination()`.
 - DB: 변경 없음. Spring Session JDBC 4.0.5의 MySQL 테이블 정의와 스키마 V2.3의 `SPRING_SESSION` 컬럼이 같다.
@@ -82,7 +82,7 @@
 
 - [x] Gradle 빌드·Wrapper, Java 17, Spring Boot 4.0.8, Jackson 3 전환(`backend/`)
 - [x] 동작 보존(중복 키 거부, 입력 글자 변환)과 단위 시험 추가
-- [x] 버전을 언급하는 현재 문서 갱신, ADR 0023
+- [x] 버전을 언급하는 현재 문서 갱신, 옛 ADR 0023
 - [ ] 실제 MySQL 통합 시험(`-Pmysql-integration`) 실행
 - [x] 개발 도구 1과 결합된 시험(4의 첫 항목) 반영
 - [ ] 실제 MySQL로 `make check-backend`·`check-browser` 확인

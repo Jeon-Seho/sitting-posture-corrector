@@ -6,12 +6,12 @@ import { GOOD_RATE } from '../../components/RateRing'
 import { Ring } from '../../components/Ring'
 import { tip } from '../../components/TipLayer'
 import type { RecordItem } from '../../lib/serviceStore'
+import { kstDayStart, kstTime } from '../../lib/kst'
 import { daySessionNumber } from '../../lib/sessionNumber'
 import { formatDuration } from '../../lib/stats'
 import { dayLabel } from './ActivityHeatmap'
 import { RecordHistoryItem } from './RecordHistoryItem'
 import { dailyStats, sessionsOn } from './recordsSource'
-import { kstDayStart } from '../../lib/kstDay'
 import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
@@ -122,6 +122,7 @@ export function DayRecord({
 
 /** When the day's sessions ran, on a 0–24 h strip; each block is tinted by its keep rate. */
 export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: string }) {
+  // The strip is the KST day 00:00–24:00 (ADR 0029).
   const start = kstDayStart(day)
   const span = 24 * 3600 * 1000
   const at = (iso: string) => Math.max(0, Math.min(1, (Date.parse(iso) - start) / span)) * 100
@@ -131,7 +132,7 @@ export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: st
         {sessions.map((r) => {
           const rate = r.valid ? r.good / r.valid : null
           const left = at(r.startedAt)
-          const time = new Date(r.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Seoul' })
+          const time = kstTime(r.startedAt)
           return (
             <span
               key={r.id}

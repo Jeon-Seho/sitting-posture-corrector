@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Segmented } from '../components/Segmented'
 import { ArrowCounterClockwise, SignOut, UserCircle, Bell, Timer, VideoCamera, SlidersHorizontal, ClockCounterClockwise, Power } from '../components/icons'
+import { KST } from '../lib/kst'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
@@ -132,7 +133,7 @@ function baselineDescription(camera?: CameraChoice) {
   const info = camera.baselineInfo
   if (!info) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
   const when = new Date(info.savedAt).toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
+    timeZone: KST,
     month: 'long',
     day: 'numeric',
     hour: 'numeric',

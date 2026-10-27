@@ -4,7 +4,7 @@
 - 담당: 미정 (feature/repo-backend-db-v2에서 정리)
 - 시작일: 2026-10-14
 - 관련 요구사항/ADR: [계정·기준 자세·저장 API v2](../../../contracts/accounts.v2.md), [동의 문서 v2](../../../contracts/consent-documents.v2.md),
-  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md),
+  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [옛 ADR 0022](../../removed-docs.md),
   [계획 0025](0025-backend-db-v23-integration.md), [FE 연동 명세](../../design/api-ws-spec.md)
 
 ## 문제와 완료 기준
@@ -46,7 +46,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 2. 로그인·가입을 서버 계정에 연결 (`features/auth/`, `app/LocalServiceApp.tsx`)
 
-- [ ] API 클라이언트: `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
+- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
       로그인한 `user_id`를 `X-PoseGood-User-Id`에 붙인다. 401·403·`409 AUTH_CHANGED`·503 재시도를 처리한다.
       (`ce57f56:frontend/src/features/accounts/client.ts`의 `createAccountClient`를 옮긴다.)
 - [ ] `LocalServiceApp.login()`: 입력값을 확인하지 않는 로컬 로그인을 `POST /auth/login`으로 바꾼다. 앱 시작 때 `GET /auth/me`로 로그인 상태를 복원한다.
@@ -75,7 +75,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 4. 기준 자세 등록·복원 (`hooks/useCamera.ts`, 새 훅)
 
-- [ ] 등록이 끝나면 `POST /baselines`로 `{registered_at,calibration_ms,sample_count,landmarks}`를 보낸다. `registered_at`은 촬영 완료 시각을 고정해 재시도에도 그대로 쓴다.
+- [ ] 등록이 끝나면 `POST /baselines`로 `{registered_at,calibration_ms,sample_count,landmarks}`를 보낸다. `registered_at`은 촬영 완료 시각을 고정해 재시도에도 그대로 쓴다. (2026-10-26 바뀜: DB V2.5로 `registration_id`(촬영마다 UUID)를 보내고 등록 시각은 서버가 정한다 — [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 4번.)
 - [ ] 로그인 직후 `GET /baselines/current`로 기준을 불러온다. `404 BASELINE_NOT_FOUND`면 등록 화면으로 보낸다.
 - [ ] 저장 응답의 평균 좌표로 기준 특징(`Features`)을 다시 만든다. 카메라가 연결되면 실제 영상 크기로 다시 계산한다.
 - [ ] 계정 모드에서는 PC(localStorage) 기준을 읽거나 쓰지 않는다. 남은 PC 기준이 계정 기준을 가리지 않게 하기 위해서다.
@@ -132,7 +132,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 **프론트 팀 확인·결정 요청**
 
 - [ ] 서버 판정 단계를 계정 로그인·기준 자세 등록(위 2·4·5)이 생긴 뒤 v2 흐름으로 고칠지, 그 전까지 `scenarios.mjs`에서 서버 판정 단계를 어떻게 다룰지 정한다.
-- [ ] `scenarios.mjs`의 직접 API 호출(`/api/v1/sessions/...`, 173·235행 부근)을 v2 경로와 로그인 쿠키·CSRF·`X-PoseGood-User-Id` 헤더로 바꾼다.
+- [ ] `scenarios.mjs`의 직접 API 호출(`/api/v1/sessions/...`, 173·235행 부근)을 v2 경로와 로그인 쿠키·CSRF·`X-PoseGood-User-Id` 헤더로 바꾼다(토큰 로그인 뒤에는 `Authorization: Bearer`·`X-PoseGood-User-Id`, CSRF 없음).
 - [ ] 계정 UI 시나리오(`accounts.mjs`)는 지금 `check-compose`에서만 쓴다. 새 가입 화면(`features/auth/`)의 선택자로 고치거나 `scenarios.mjs`로 합칠지 정한다.
 - [ ] 이 PC처럼 Docker·MySQL이 없는 환경에서 브라우저 검증을 어떻게 돌릴지 정한다(백엔드 담당과 협의).
 

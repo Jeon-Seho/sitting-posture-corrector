@@ -3,56 +3,54 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'rea
 import App from './ServiceApp'
 import { LoginPage } from '../pages/LoginPage'
 import { SetupPage } from '../pages/SetupPage'
-import { SessionPage } from '../features/session/SessionPage'
-import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
-import { projectLive, projectMachine } from '../features/session/server/projection'
-import {
-  BASELINE,
-  BASELINE_ID,
-  SESSION_ID,
-  checkpoint as serverCheckpoint,
-  view as serverView,
-} from '../features/session/server/testFixtures'
-import type { SessionView } from '../features/session/server/contracts'
+import { LiveSessionPage } from '../features/session/live/LiveSessionPage'
+import type { LiveState } from '../features/session/live/LiveSession'
+import { EMPTY_SUMMARY } from '../features/session/live/messages'
+import { BASELINE, BASELINE_ID } from '../features/session/server/testFixtures'
 import { SettingsPage } from '../pages/SettingsPage'
 import { MonthCalendar } from '../features/history/RecordCalendar'
 import { SelectMenu } from '../components/SelectMenu'
 import type { DailyStat } from '../features/history/recordsSource'
 import { DEFAULT_RULES } from '../data/posture'
-import { newMachine } from '../lib/engine'
-import { KEYS, loadLocalState, readLocal, type Draft, type RecordItem } from '../lib/serviceStore'
+import { KEYS, loadLocalState, readLocal, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
-import { CAMERA_ERRORS } from '../features/camera/errors'
-import type { DesktopBridge } from '../features/desktop/bridge'
 
 const controls = vi.hoisted(() => ({
   camera: null as unknown as CameraController,
   writer: 'ready',
 }))
 vi.mock('../hooks/useCamera', () => ({ useCamera: () => controls.camera }))
+// These screen tests sign in on this device; the account server flow is LocalServiceApp.accounts.test.tsx.
+vi.mock('../features/auth/accountClient', async (original) => ({
+  ...(await original<typeof import('../features/auth/accountClient')>()),
+  createAccountClient: () => null,
+}))
 vi.mock('../hooks/useWriterLock', () => ({
   useWriterLock: () => ({ state: controls.writer, retry: vi.fn() }),
 }))
-vi.mock('../features/session/server/ServerSessionPage', () => ({
-  ServerSessionPage: () => <div data-testid="server-session">서버 측정 테스트</div>,
+// The measurement talks to the server (LiveSession, own tests); here only the app around it.
+vi.mock('../features/session/live/LiveSessionPage', () => ({
+  LiveSessionPage: () => <div data-testid="live-session">서버 측정 테스트</div>,
 }))
 
 describe('service recovery and saving with synthetic storage only', () => {
   let data: Map<string, string>, renderer: ReactTestRenderer | undefined
-  const machine = () => {
-    const m = newMachine()
-    m.total = 120
-    m.good = 100
-    m.collapse = 20
-    return m
-  }
-  const draft = (): Draft => ({
-    id: 'synthetic-draft',
-    startedAt: '2026-09-30T10:00:00Z',
-    savedAt: '2026-09-30T10:02:00Z',
-    mode: 'demo',
-    rules: DEFAULT_RULES,
-    machine: machine(),
+  /** What the server confirmed when a measurement ends (synthetic values). */
+  const endedState = (): LiveState => ({
+    phase: 'ended',
+    sending: 'running',
+    observation: null,
+    placeable: true,
+    summary: { ...EMPTY_SUMMARY, total_ms: 1000, valid_ms: 1000, normal_ms: 1000, keep_rate: 1, events_per_hour: 0 },
+    events: [],
+    lastSequence: 1,
+    alerting: false,
+    pausedReason: null,
+    stalled: false,
+    message: '',
+    lost: false,
+    startedAt: null,
+    endedAt: null,
   })
   const text = (node: ReactTestInstance | string): string =>
     typeof node === 'string' ? node : node.children.map(text).join('')
@@ -68,72 +66,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => {
       renderer = create(<App />)
     })
-  const enableDesktop = () => {
-    window.posegoodDesktop = {
-      version: 1, platform: 'win32',
-      getLaunchInfo: vi.fn(async () => null),
-      setLaunchAtLogin: vi.fn(async () => null),
-      setAutoCamera: vi.fn(async () => null),
-    } satisfies DesktopBridge
-  }
-  const prepareServerCamera = () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { ...BASELINE }
-    controls.camera.calibrationId = BASELINE_ID
-    controls.camera.calibrationSummary = {
-      durationMs: 5000,
-      sampleCount: 20,
-      spread: { headGap: 0.01, offset: 0.01, tilt: 0.01 },
-      placement: { x: 0.5, y: 0.6, area: 0.05 },
-    }
-    controls.camera.deviceId = 'synthetic-device'
-  }
-  const startServer = () => {
-    prepareServerCamera()
-    mount()
-    login()
-    expect(renderer!.root.findByType(SetupPage).props.serverMode).toBe(false)
-    act(() => renderer!.root.findByType(SetupPage).props.onServerMode(true))
-    controls.camera.videoRef = {
-      current: { videoWidth: 640, videoHeight: 480 } as HTMLVideoElement,
-    }
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    return renderer!.root.findByType(ServerSessionPage)
-  }
-  const acknowledgedView = (id: string): SessionView => {
-    const initial = serverView({ session_id: id, last_sequence: 0 })
-    return {
-      ...initial,
-      summary: {
-        ...initial.summary,
-        total_ms: 1000,
-        valid_ms: 1000,
-        normal_ms: 1000,
-        keep_rate: 1,
-        events_per_hour: 0,
-      },
-    }
-  }
-  const recoveredServerDraft = (): Draft => {
-    const view = acknowledgedView(SESSION_ID)
-    const server = serverCheckpoint({
-      view,
-      savedAt: '2026-09-30T10:00:01Z',
-      elapsedMs: 1000,
-      nextSequence: 1,
-      modelVersion: 'reference-feature-rule-v1',
-    })
-    return {
-      id: SESSION_ID,
-      startedAt: '2026-09-30T10:00:00Z',
-      savedAt: server.savedAt,
-      mode: 'camera',
-      rules: { ...DEFAULT_RULES },
-      machine: projectMachine(view),
-      server,
-    }
-  }
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-30T12:00:00Z'))
@@ -143,13 +75,15 @@ describe('service recovery and saving with synthetic storage only', () => {
       state: 'off',
       baseline: null,
       calibrationId: null,
-      calibrationSummary: null,
       progress: null,
+      registering: false,
+      registrationError: null,
+      baselineLoading: false,
+      baselineError: null,
       quality: false,
       error: '',
       devices: [],
       deviceId: '',
-      current: { current: null },
       lastFrame: { current: 0 },
       videoRef: { current: null },
       canvasRef: { current: null },
@@ -160,6 +94,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       connect: vi.fn(),
       calibrate: vi.fn(),
       cancelCalibration: vi.fn(),
+      reloadBaseline: vi.fn(),
       setOverlayEnabled: vi.fn(),
       setVisualMode: vi.fn(),
       reassemble: vi.fn(),
@@ -210,62 +145,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(localStorage.setItem).not.toHaveBeenCalled()
     expect(data.get(KEYS.profile)).toBe(before)
   })
-  it('saves a measurement interrupted by closing the app as a record instead of resuming it', () => {
-    data.set(KEYS.draft, JSON.stringify(draft()))
-    mount()
-    login()
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0]).toMatchObject({
-      id: draft().id,
-      endedAt: draft().savedAt,
-      total: 120,
-      valid: 120,
-      good: 100,
-      rules: DEFAULT_RULES,
-    })
-    expect(data.has(KEYS.draft)).toBe(false)
-    expect(text(renderer!.root)).toContain('그때까지의 측정을 기록으로 저장했어요')
-    expect(renderer!.root.findAllByType('button').some((b) => text(b) === '이어하기')).toBe(false)
-  })
-  it('retries a failed save of an interrupted measurement with the same ID and end time, once', () => {
-    data.set(KEYS.draft, JSON.stringify(draft()))
-    let fail = true
-    vi.mocked(localStorage.setItem).mockImplementation((key: string, value: string) => {
-      if (key === KEYS.records && fail) {
-        fail = false
-        throw new Error('Synthetic quota failure')
-      }
-      data.set(key, value)
-    })
-    mount()
-    login()
-    expect(text(renderer!.root)).toContain('저장하지 못했습니다')
-    expect(data.has(KEYS.draft)).toBe(true)
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0]).toMatchObject({ id: draft().id, endedAt: draft().savedAt, total: 120 })
-    expect(data.has(KEYS.draft)).toBe(false)
-  })
-  it('distinguishes final-save success from draft-cleanup failure and never saves twice', () => {
-    data.set(KEYS.draft, JSON.stringify(draft()))
-    let fail = true
-    vi.mocked(localStorage.removeItem).mockImplementation((key: string) => {
-      if (key === KEYS.draft && fail) {
-        fail = false
-        throw new Error('Synthetic cleanup failure')
-      }
-      data.delete(key)
-    })
-    mount()
-    login()
-    expect(text(renderer!.root)).toContain('결과는 저장했습니다')
-    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
-    expect(loadLocalState().draft).toBeNull()
-  })
   it('keeps develop real-camera-only preparation and quiet login without requesting permission', () => {
     mount()
     login()
@@ -275,25 +154,50 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(text(setup)).not.toContain('발표용 시연')
     act(() => setup.props.onStart())
     expect(text(renderer!.root)).toContain('카메라 연결과 기준 등록을 완료')
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
   it('starts only a camera session and preserves its rules when settings change', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
-    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
     const nextRules = { ...DEFAULT_RULES, holdSeconds: 5 }
     click('설정')
     act(() => renderer!.root.findByType(SettingsPage).props.onRules(nextRules))
-    expect(renderer!.root.findByType(SessionPage).props.rules).toEqual(DEFAULT_RULES)
-    click('측정하기')
-    click('측정 종료')
+    expect(renderer!.root.findByType(LiveSessionPage).props.session.rules).toEqual(DEFAULT_RULES)
+    act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded(endedState(), ''))
     expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
+  })
+  it('keeps a measurement over KST midnight per day from the server running totals (PR #64 day split)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
+    // The server started at 23:59:58 KST; days count from `ready.started_at`, not this computer.
+    const at = (total: number, normal: number, unknown: number): LiveState => ({
+      ...endedState(),
+      phase: 'running',
+      startedAt: '2026-10-26T14:59:58.000Z',
+      summary: { ...EMPTY_SUMMARY, total_ms: total, valid_ms: total - unknown, normal_ms: normal, unknown_ms: unknown },
+    })
+    act(() => service().onObserved(at(2000, 2000, 0)))
+    act(() => service().onEnded({ ...at(6000, 4000, 2000), phase: 'ended' }, ''))
+    const [record] = readLocal<RecordItem[]>(KEYS.records, [])
+    expect(record.startedAt).toBe('2026-10-26T14:59:58.000Z')
+    expect(record.days).toMatchObject([
+      { date: '2026-10-26', total: 2, valid: 2, good: 2 },
+      { date: '2026-10-27', total: 4, valid: 2, good: 2 },
+    ])
   })
   it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {
@@ -344,7 +248,8 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.progress = 0.4
-    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     click('설정')
@@ -380,8 +285,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
     expect(controls.camera.stop).toHaveBeenCalledOnce()
   })
-  it('keeps the camera running in a small window on records; expand returns to 측정하기, close only hides it', () => {
-    enableDesktop()
+  it('keeps the camera running on records without a small window (web, 2026-10-26)', () => {
     controls.camera.state = 'on'
     mount()
     login()
@@ -389,223 +293,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('자세 데이터 수집')
     click('오늘')
     expect(controls.camera.stop).not.toHaveBeenCalled()
-    const windowButton = (label: string) =>
-      renderer!.root.findAll((node) => node.type === 'button' && node.props['aria-label'] === label)
-    expect(text(renderer!.root)).toContain('카메라 사용 중')
-    act(() => windowButton('작은 창 닫기')[0].props.onClick())
-    expect(windowButton('작은 창 닫기')).toHaveLength(0)
-    expect(controls.camera.stop).not.toHaveBeenCalled()
+    expect(text(renderer!.root)).not.toContain('카메라 사용 중')
     click('측정하기')
-    click('오늘')
-    act(() => windowButton('측정 화면으로 돌아가기')[0].props.onClick())
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
     expect(controls.camera.stop).not.toHaveBeenCalled()
-  })
-  const startCameraSession = () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { headGap: 0.7, offset: 0, tilt: 0, quality: 0.9 }
-    mount()
-    login()
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
-  }
-  it('ends and saves the running measurement from the small window on another tab (X, 2026-10-20)', () => {
-    enableDesktop()
-    startCameraSession()
-    click('오늘')
-    // The window shows the running measurement's posture, not just that the camera is on.
-    const small = renderer!.root.find(
-      (node) => node.type === 'aside' && node.props['aria-label'] === '카메라 작은 창',
-    )
-    expect(text(small)).toContain('자세를 확인할 수 없어요')
-    expect(small.props.className).toContain('status-unknown')
-    const end = renderer!.root.findAll(
-      (node) => node.type === 'button' && node.props['aria-label'] === '측정 종료',
-    )
-    expect(end).toHaveLength(1)
-    act(() => end[0].props.onClick())
-    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
-    expect(text(renderer!.root.findByType(SessionPage))).toContain('작은 창을 닫아 측정을 끝냈어요')
-  })
-  it('keeps web measurement running on records without mounting a floating window or PiP source', () => {
-    startCameraSession()
-    click('오늘')
-    expect(renderer!.root.findAllByProps({ 'aria-label': '카메라 작은 창' })).toHaveLength(0)
-    const videos = renderer!.root.findAllByType('video')
-    expect(videos.length).toBeGreaterThan(0)
-    expect(videos.every((video) => video.props.disablePictureInPicture === true)).toBe(true)
-    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(0)
-    expect(controls.camera.stop).not.toHaveBeenCalled()
-    click('측정하기')
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
-    expect(renderer!.root.findAllByProps({ 'aria-label': '실제 웹캠 미리보기' })[0].props.disablePictureInPicture).toBe(true)
-  })
-  it('routes an explicit server opt-in and freezes its baseline, camera shape and rules', () => {
-    const screen = startServer()
-    const started = structuredClone(screen.props.session)
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    expect(started.server).toEqual({
-      baselineId: BASELINE_ID,
-      baseline: BASELINE,
-      deviceId: 'synthetic-device',
-      frameWidth: 640,
-      frameHeight: 480,
-      setup: {
-        device: { key: 'synthetic-device', label: '카메라' },
-        frame: { width: 640, height: 480 },
-        baseline: expect.objectContaining({
-          baseline_id: BASELINE_ID,
-          calibration_ms: 5000,
-          sample_count: 20,
-          target_center_x: 0.5,
-          head_gap: { mean: BASELINE.headGap, std: 0.01 },
-        }),
-      },
-    })
-    controls.camera.baseline!.headGap = 9
-    controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
-    controls.camera.deviceId = 'synthetic-replacement-device'
-    click('설정')
-    act(() =>
-      renderer!.root.findByType(SettingsPage).props.onRules({ ...DEFAULT_RULES, holdSeconds: 5 }),
-    )
-    expect(renderer!.root.findByType(ServerSessionPage).props.session).toEqual(started)
-    expect(renderer!.root.findByType(ServerSessionPage).props.service.active).toBe(false)
-    click('측정하기')
-    expect(renderer!.root.findByType(ServerSessionPage).props.service.active).toBe(true)
-    expect(controls.camera.connect).not.toHaveBeenCalled()
-  })
-  it('persists both KST dates across midnight without replacing the running measurement', () => {
-    vi.setSystemTime(new Date('2026-10-26T23:59:58+09:00'))
-    startCameraSession()
-    const screen = renderer!.root.findByType(SessionPage)
-    const first = newMachine(); first.total = 2; first.good = 2
-    act(() => screen.props.service.onObserved(first))
-    vi.setSystemTime(new Date('2026-10-27T00:00:04+09:00'))
-    const second = newMachine(); second.total = 6; second.good = 4; second.unknown = 2
-    act(() => screen.props.service.onObserved(second))
-    act(() => screen.props.service.onCheckpoint(second))
-    expect(readLocal<Draft>(KEYS.draft, null as unknown as Draft).days).toMatchObject([
-      { date: '2026-10-26', total: 2, valid: 2, good: 2 },
-      { date: '2026-10-27', total: 4, valid: 2, good: 2 },
-    ])
-    expect(controls.camera.stop).not.toHaveBeenCalled()
-    act(() => screen.props.service.onEnded({ totalSeconds: 6, validSeconds: 4, goodSeconds: 4, events: [] }))
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0].days).toHaveLength(2)
-    expect(records[0].days!.reduce((n, day) => n + day.total, 0)).toBe(6)
-    expect(data.has(KEYS.draft)).toBe(false)
-  })
-  it('saves the server checkpoint and confirmed final snapshot without feature payloads in records', () => {
-    const screen = startServer()
-    const id = screen.props.session.id as string
-    const view = acknowledgedView(id)
-    const checkpoint = serverCheckpoint({
-      view,
-      savedAt: new Date().toISOString(),
-      elapsedMs: 1000,
-      nextSequence: 1,
-      modelVersion: 'reference-feature-rule-v1',
-    })
-    act(() => {
-      expect(screen.props.service.onCheckpoint(projectMachine(view), checkpoint)).toBe(true)
-    })
-    expect(readLocal<Draft | null>(KEYS.draft, null)).toMatchObject({
-      id,
-      mode: 'camera',
-      machine: projectMachine(view),
-      server: checkpoint,
-    })
-    const ended: SessionView = {
-      ...view,
-      ended: true,
-      events: [{
-        schema_version: '1.0', session_id: id, event_id: 1, kind: 'session_ended',
-        timestamp_ms: 1000, onset_ms: 1000, onset_valid_ms: 1000,
-        deviation_type: 'none', reason: 'ended',
-      }],
-    }
-    act(() => screen.props.service.onEnded({
-      ...projectLive(ended, null, 'reference-feature-rule-v1'),
-      view: ended,
-    }))
-    const records = readLocal<RecordItem[]>(KEYS.records, [])
-    expect(records).toHaveLength(1)
-    expect(records[0]).toMatchObject({
-      id, total: 1, valid: 1, good: 1, events: [],
-      server: { baselineId: BASELINE_ID, modelVersion: 'reference-feature-rule-v1', confirmed: true, view: ended },
-    })
-    expect(data.has(KEYS.draft)).toBe(false)
-    expect(data.get(KEYS.records)).not.toContain('head_gap_delta')
-    expect(data.get(KEYS.records)).not.toContain('landmarks')
-  })
-  it('archives only the acknowledged summary when server termination is unconfirmed', () => {
-    const screen = startServer()
-    const id = screen.props.session.id as string
-    const initial = serverView({ session_id: id })
-    const view: SessionView = {
-      ...initial,
-      last_sequence: 4,
-      summary: {
-        ...initial.summary, total_ms: 5000, valid_ms: 5000, deviation_ms: 5000,
-        collapse_count: 1, alert_count: 1, keep_rate: 0, events_per_hour: 720,
-      },
-      events: [{
-        schema_version: '1.0', session_id: id, event_id: 1, kind: 'collapse_confirmed',
-        timestamp_ms: 3000, onset_ms: 0, onset_valid_ms: 0,
-        deviation_type: 'left_lean', reason: null,
-      }],
-    }
-    act(() => screen.props.service.onArchive({
-      ...projectLive(view, null, 'reference-feature-rule-v1'),
-      view,
-    }))
-    const record = readLocal<RecordItem[]>(KEYS.records, [])[0]
-    expect(record).toMatchObject({
-      total: 5, valid: 5, good: 0,
-      server: { confirmed: false, view },
-    })
-    expect(record.events).toHaveLength(1)
-    expect(record.events[0]).toMatchObject({
-      endAt: 5, durationSec: 5, recovered: false, recoverySec: null,
-      endReason: 'unknown', endedBySession: false,
-    })
-    expect(record.server!.view!.events).toEqual(view.events)
-    expect(record.server!.view!.ended).toBe(false)
-  })
-  it('restores the saved server identity and checkpoint without mounting the local time engine', () => {
-    const saved = recoveredServerDraft()
-    data.set(KEYS.draft, JSON.stringify(saved))
-    mount()
-    login()
-    click('이어하기')
-    const session = renderer!.root.findByType(ServerSessionPage).props.session
-    expect(session).toMatchObject({
-      id: saved.id, startedAt: saved.startedAt, rules: saved.rules,
-      server: { baselineId: BASELINE_ID, baseline: BASELINE, checkpoint: saved.server },
-    })
-    expect(session.server.finishOnly).toBeUndefined()
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    expect(data.get(KEYS.draft)).toBe(JSON.stringify(saved))
-    expect(data.has(KEYS.records)).toBe(false)
-    expect(controls.camera.connect).not.toHaveBeenCalled()
-  })
-  it('requests server draft termination in finish-only mode and waits for acknowledgement', () => {
-    const saved = recoveredServerDraft()
-    data.set(KEYS.draft, JSON.stringify(saved))
-    mount()
-    login()
-    click('서버 종료 확인·저장')
-    expect(renderer!.root.findByType(ServerSessionPage).props.session).toMatchObject({
-      id: saved.id,
-      server: { checkpoint: saved.server, finishOnly: true, baselineId: BASELINE_ID },
-    })
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    expect(data.get(KEYS.draft)).toBe(JSON.stringify(saved))
-    expect(data.has(KEYS.records)).toBe(false)
-    expect(controls.camera.connect).not.toHaveBeenCalled()
   })
   it('lists 측정하기, 기록, 달력, 설정 in the sidebar (registration lives in 측정하기)', () => {
     mount()
@@ -635,19 +326,58 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.progress = 0.4
     rerender()
     expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 기억하는 중')
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-    controls.camera.baseline = { ...BASELINE }
-    controls.camera.calibrationId = BASELINE_ID
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
+    // The capture ends and is sent to the server (B1, 2026-10-20).
     controls.camera.progress = null
+    controls.camera.registering = true
     rerender()
     advance(100)
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('기준 자세를 저장하는 중')
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    controls.camera.registering = false
+    rerender()
+    advance(100)
+    expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+  })
+  it('waits for the server posture before asking to register (B2 on start)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baselineLoading = true
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    controls.camera.baselineLoading = false
+    rerender()
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+  })
+  it('lets the user load again or register when B2 failed, without registering by itself', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baselineError = '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.'
+    mount()
+    login()
+    click('측정하기')
+    advance(5000)
+    expect(controls.camera.calibrate).not.toHaveBeenCalled()
+    expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세를 불러오지 못했어요')
+    click('다시 불러오기')
+    expect(controls.camera.reloadBaseline).toHaveBeenCalledOnce()
+    click('새로 등록')
+    advance(3500)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
   })
   it('starts at once from the camera view when a posture is registered', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     click('측정하기')
@@ -656,30 +386,11 @@ describe('service recovery and saving with synthetic storage only', () => {
     const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
     expect(starts.length).toBe(1) // one primary action on the camera view
     act(() => starts[0].props.onClick())
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
-  })
-  it('ends and saves the measurement when the camera in use is unplugged (plan 0053)', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { ...BASELINE }
-    mount()
-    login()
-    click('측정하기')
-    const start = renderer!.root.findAllByType('button').find((b) => text(b) === '측정 시작')!
-    act(() => start.props.onClick())
-    advance(3000)
-    // The USB camera is pulled out: its track ends and the camera reports the disconnection.
-    controls.camera.state = 'error'
-    controls.camera.error = CAMERA_ERRORS.disconnected
-    rerender()
-    expect(text(renderer!.root)).toContain('카메라 연결이 끊겨 측정을 끝냈어요')
-    expect(readLocal<RecordItem[]>(KEYS.records, [])).toHaveLength(1)
-    // Nothing is left open, so 측정하기 is free to choose a camera and start a new measurement.
-    click('측정하기')
-    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
+    expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
   })
   it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
     controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     click('측정하기')
@@ -688,13 +399,14 @@ describe('service recovery and saving with synthetic storage only', () => {
     rerender()
     advance(1000)
     expect(text(renderer!.root.findByType(SetupPage))).toContain('곧 측정을 시작해요')
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
     advance(1600)
-    expect(renderer!.root.findByType(SessionPage).props.mode).toBe('camera')
+    expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
     expect(controls.camera.calibrate).not.toHaveBeenCalled()
   })
   it('restarts the wait when the person leaves view and stops on 취소', () => {
     controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     click('측정하기')
@@ -708,34 +420,10 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.quality = true
     rerender()
     advance(2000)
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
     click('취소')
     advance(5000)
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
-  })
-  it('tells the user once when the shoulders leave view and measuring pauses', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { ...BASELINE }
-    mount()
-    login()
-    click('측정하기')
-    const starts = renderer!.root.findAllByType('button').filter((b) => text(b) === '측정 시작')
-    act(() => starts[0].props.onClick())
-    // The synthetic camera keeps delivering frames, so the session does not pause for input.
-    const frames = (ms: number) => {
-      for (let t = 0; t < ms; t += 100) {
-        controls.camera.lastFrame.current = performance.now()
-        advance(100)
-      }
-    }
-    frames(1000)
-    expect(text(renderer!.root)).not.toContain('어깨가 화면에서 벗어나')
-    ;(controls.camera as unknown as { shoulders: string }).shoulders = 'missing'
-    rerender()
-    frames(1000)
-    expect(text(renderer!.root)).toContain('어깨가 화면에서 벗어나 측정을 잠시 멈췄어요')
-    ;(controls.camera as unknown as { shoulders: string | null }).shoulders = null
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
   })
   it('turns the camera on from the camera view, with a posture or not', () => {
     mount()
@@ -743,6 +431,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     click('측정하기')
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
     controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     rerender()
     expect(text(renderer!.root.findByType(SetupPage))).toContain('등록한 기준 자세로 바로')
     expect(renderer!.root.findAllByType('button').some((b) => text(b) === '카메라 켜기')).toBe(true)
@@ -808,6 +497,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
     click('설정')
@@ -817,13 +507,17 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(text(setup)).toContain('설정으로')
     advance(3100)
     expect(controls.camera.calibrate).toHaveBeenCalledOnce()
-    controls.camera.baseline = { ...BASELINE, headGap: BASELINE.headGap + 0.01 }
+    controls.camera.registering = true
+    rerender()
+    advance(100)
+    controls.camera.baseline = { ...BASELINE, baselineId: '33333333-3333-4333-8333-333333333333' }
     controls.camera.calibrationId = '33333333-3333-4333-8333-333333333333'
+    controls.camera.registering = false
     rerender()
     advance(100)
     // From settings it ends with a choice instead of measuring by itself.
     expect(text(renderer!.root.findByType(SetupPage))).toContain('새 기준 자세를 등록했어요')
-    expect(renderer!.root.findAllByType(SessionPage)).toHaveLength(0)
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
     click('설정으로')
     expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
   })

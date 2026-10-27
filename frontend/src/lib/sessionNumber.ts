@@ -1,12 +1,13 @@
+import { kstDay } from './kst'
+
 /**
- * A session is one measurement from 「시작」 to 「종료」. Sessions are numbered per local
+ * A session is one measurement from 「시작」 to 「종료」. Sessions are numbered per KST
  * calendar day in start order: the first session of 2026-10-13 is 1, the next is 2, and
  * the count restarts at 1 on 2026-10-14.
  */
 
-/** Local calendar day of an ISO time, e.g. "2026-10-13". */
-export { kstDay as localDay } from './kstDay'
-import { kstDay as localDay } from './kstDay'
+/** KST calendar day of an ISO time, e.g. "2026-10-13". */
+export const localDay = kstDay
 
 /**
  * Number of the session that started at `startedAt` among `otherStarts`. Earlier starts on the

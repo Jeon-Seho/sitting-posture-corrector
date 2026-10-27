@@ -1,5 +1,6 @@
 import { RECORD_SOURCE_LABEL, periodStats, recordedRules, recordSource } from '../../lib/comparison'
 import type { ReactNode } from 'react'
+import { kstDateTime, kstTime } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
 import { formatDuration, formatPercent, formatRate } from '../../lib/stats'
 import { EventTable } from '../session/SessionEvents'
@@ -52,10 +53,10 @@ export function RecordDetails({
           </p>
         )}
         <dl className="history-detail-grid">
-          <Fact label="측정 시작" value={new Date(record.startedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} />
+          <Fact label="측정 시작" value={kstDateTime(record.startedAt)} />
           <Fact
             label={server && !server.confirmed ? '요약 보관 시각' : '기록 종료 시각'}
-            value={new Date(record.endedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
+            value={kstDateTime(record.endedAt)}
           />
           <Fact label="집계된 전체 시간" value={duration(record.total)} />
           <Fact label="유효 측정 시간" value={duration(record.valid)} />
@@ -104,7 +105,7 @@ export function RecordDetails({
         ) : (
           <p className="fine">
             {record.dayPartition ? '한국 시간 날짜별 집계입니다. 전체 세션의 원본 기록은 그대로 보관합니다.' : server
-              ? '서버 상세 응답이 기록에 없습니다. 확인된 측정 시간과 추론 모델을 알 수 없습니다.'
+              ? '서버 상세 응답이 기록에 없습니다. 확인된 측정 시간을 알 수 없습니다.'
               : '휴식·자리 비움·측정 불가·관측 공백별 제외 시간은 기록에 남아 있지 않아 구분할 수 없습니다.'}
           </p>
         )}
@@ -113,10 +114,9 @@ export function RecordDetails({
           {rules ? <RuleDescription rules={rules} /> : <p>기록에 적용 설정이 남아 있지 않습니다.</p>}
         </div>
         <details className="history-model-details">
-          <summary>개인 기준·모델 정보</summary>
+          <summary>개인 기준 정보</summary>
           <dl className="history-detail-grid">
             <Fact label="개인 기준 ID" value={baselineValue(record)} />
-            <Fact label="모델 버전" value={modelVersionValue(record)} />
           </dl>
           {!server && record.mode === 'camera' && (
             <p className="fine">현재 등록된 기준이나 모델로 과거 기록의 조건을 추정하지 않습니다.</p>
@@ -147,8 +147,7 @@ function RecordSummary({ record }: { record: RecordItem }) {
   const view = record.dayPartition ? null : record.server?.view
   const stats = periodStats([record], '', '')
   const rate = view ? view.summary.keep_rate : stats.keepRate
-  const time = (iso: string) =>
-    new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Seoul' })
+  const time = kstTime
   return (
     <div className="record-summary">
       <RateRing rate={rate} size={92} />
@@ -187,14 +186,6 @@ function baselineValue(record: RecordItem): ReactNode {
   if (record.server) return <code>{record.server.baselineId}</code>
   if (record.mode === 'demo') return '합성 시연 · 실제 개인 기준 없음'
   return '알 수 없음 · 기준 ID가 기록에 없음'
-}
-
-function modelVersionValue(record: RecordItem): ReactNode {
-  const server = record.server
-  if (!server) return '알 수 없음 · 모델 버전이 기록에 없음'
-  if (!server.view) return '확인할 수 없음 · 서버 상세 응답 없음'
-  if (server.modelVersion === 'unmeasured') return '확인할 수 없음 · 추론 결과 없음'
-  return <code>{server.modelVersion}</code>
 }
 
 function Fact({ label, value }: { label: string; value: ReactNode }) {
