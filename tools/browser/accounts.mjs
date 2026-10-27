@@ -206,7 +206,7 @@ export async function runAccountScenarios(browser, base, tag) {
   }, 'server record save and draft cleanup', 20000)
   app.check('final record retains the exact event and summary',
     saved.server.confirmed && saved.server.view.ended && saved.valid === 3 && saved.events.length === 1)
-  await app.click('기록')
+  await app.click('오늘')
   await until(() => app.evaluate(`document.querySelector('[data-stat="count"]')?.textContent.trim() === '1'`), 'rendered saved record count')
   await browser.screenshot('account-history')
   app.check('account results are absent from local record storage',

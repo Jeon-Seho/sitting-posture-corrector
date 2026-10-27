@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CameraController } from '../hooks/useCamera'
+import { desktopBridge } from '../features/desktop/bridge'
 
 /** The capture element stays mounted in App; this view can move between setup/session. */
 export function CameraStage({
@@ -32,6 +33,7 @@ export function CameraStage({
         className="webcam-preview"
         muted
         playsInline
+        disablePictureInPicture={!desktopBridge()}
         aria-label="실제 웹캠 미리보기"
       />
       <canvas
@@ -48,6 +50,7 @@ export function CameraStage({
       ) : (
         camera.state !== 'on' && (
           <div className="webcam-message">
+            {camera.state === 'off' && <img className="state-art" src="/illustrations/ready-camera-matte.webp" alt="" aria-hidden="true" />}
             <strong>{camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}</strong>
             <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
           </div>

@@ -2,6 +2,8 @@
 
 ## 현재 상태와 작업
 
+- [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
+
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 서버 연동 뒤 앱은 관절 좌표를 보내고 판정은 서버가 하는 구조다([ADR 0021](decisions/0021-app-sends-information-server-judges.md), [연동 명세](design/api-ws-spec.md)). 서버의 실시간 구현 상태는 [백엔드 개발 상태](backend-status.md), 앱의 v2 전환 작업은 [계획 0023](plans/active/0023-frontend-server-only.md)을 확인한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
@@ -37,6 +39,12 @@
 
 ## 질문별 진입점
 
+- [포레스트 테마·KST 날짜별 기록 적용](plans/active/0055-forest-theme-and-kst-day-records.md), [날짜별 보관 결정](decisions/0025-kst-daily-measurement-parts.md): 최종 밝은 정보 영역·고유 자산·자정 관측 분리와 검증.
+
+- [색상·레이아웃 재디자인 판단(2026-10-26)](audits/2026-10-26-visual-design-review.md): 실제 주요 화면 관찰, 브랜드 유지 범위, 배치·상태색 개선안.
+
+- [앱·웹 PiP와 사용자 흐름 검토(2026-10-26)](audits/2026-10-26-pip-design-review.md): Chrome 출처 표시 제약, 현행 작은 창 문제, 정상 경로 조작 수와 재디자인 우선순위.
+
 | 질문 | 기준 문서 |
 | --- | --- |
 | 무엇을 만드는가? | [제품 범위](product-spec.md), [원래 자료와 출처](references/README.md) |
@@ -53,6 +61,10 @@
 | 현재·다음 작업은? | [활성 계획](plans/active/), [백로그](plans/backlog.md), [계획 양식](plans/template.md) |
 
 ## 이력과 근거
+
+- [구간별 UI 검수(2026-10-26)](audits/2026-10-26-section-ui-review.md): 회원가입·측정·중단·종료·기록·설정·오류/작은 창의 배치와 대비 보정.
+
+- [글자·여백 조사와 적용(2026-10-26)](audits/2026-10-26-typography-spacing-review.md): Fluent·Atlassian 공식 기준, 원형 지표의 안쪽 여백, 공통 글자 크기·행간·간격.
 
 [완료 계획 폴더](plans/completed/)는 완료 문서의 보관 위치다. 삭제된 개인 파일럿(0019)·카메라 창(0018)·계정·Compose(0017) 문서의 정리 내역은 [지운 문서 목록](removed-docs.md)에서 확인한다. 이 목록은 원문의 구현 범위·검증 결과를 대신하지 않는다.
 [현재 DB V2.3 연동 결정](decisions/0022-db-v23-feature-v2-integration.md)을 우선 참고한다.

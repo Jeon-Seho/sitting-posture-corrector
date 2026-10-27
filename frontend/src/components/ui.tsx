@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Info } from '@phosphor-icons/react'
+import { Info } from './icons'
 import { Amount } from './Amount'
 import { STATE_LABEL, type PostureState } from '../data/posture'
 

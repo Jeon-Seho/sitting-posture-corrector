@@ -1,4 +1,4 @@
-import { VideoCamera } from '@phosphor-icons/react'
+import { VideoCamera } from '../../components/icons'
 import { SelectMenu } from '../../components/SelectMenu'
 import type { CameraController } from '../../hooks/useCamera'
 import { cameraName } from './mainCamera'

@@ -14,3 +14,10 @@ execFileSync(compiler, [
   `/out:${join(frontend, 'PoseGood.exe')}`, join(frontend, 'electron', 'Launcher.cs'),
 ], { stdio: 'inherit', windowsHide: true })
 console.log('Fast launcher ready: frontend/PoseGood.exe (keep release/win-unpacked alongside it)')
+// User preference: every desktop package refreshes the same Desktop shortcut.
+execFileSync('powershell.exe', [
+  '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+  '-File', join(frontend, 'scripts', 'create-desktop-shortcut.ps1'),
+  '-TargetExe', join(frontend, 'PoseGood.exe'),
+  '-IconPath', join(frontend, 'public', 'branding', 'posegood-icon.ico'),
+], { stdio: 'inherit', windowsHide: true })

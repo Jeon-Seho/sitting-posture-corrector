@@ -23,6 +23,12 @@ export type DesktopBridge = {
   version: 1
   platform: string
   getLaunchInfo: () => Promise<LaunchInfo | null>
+  cameraWindow?: boolean
+  setCameraWindowEnabled?: (enabled: boolean) => Promise<boolean>
+  showCameraWindow?: () => Promise<boolean>
+  returnFromCameraWindow?: () => Promise<boolean>
+  collapseCameraWindow?: (collapsed: boolean) => Promise<boolean>
+  onCameraWindowRequested?: (callback: () => void) => () => void
   setLaunchAtLogin: (enabled: boolean) => Promise<LaunchInfo | null>
   setAutoCamera: (enabled: boolean) => Promise<LaunchInfo | null>
   /** Closes the whole app. Absent in desktop shells built before 2026-10-13. */

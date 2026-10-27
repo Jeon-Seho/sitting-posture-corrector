@@ -88,6 +88,7 @@ export function useSessionScreen({ rules, alertsOn, camera, mode, collection, se
       ? {
           initial: service.initial,
           checkpoint: service.onCheckpoint,
+          observed: service.onObserved,
           ended: service.onEnded,
           interrupted: () => {
             setPauseReason(INPUT_PAUSED_NOTICE)

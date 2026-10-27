@@ -3,6 +3,7 @@ const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
+const { installCameraWindow } = require('./camera-window.cjs')
 
 // 일체형 제목 표시줄: OS 기본 틀 대신 앱 화면을 창 끝까지 그리고, 창 버튼만 위에 겹친다.
 // 높이와 색은 frontend/src/styles/base.css의 --titlebar-h, --bg와 맞춘다.
@@ -195,12 +196,14 @@ async function createWindow() {
     title: 'PoseGood',
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'branding',
       process.platform === 'win32' ? 'posegood-icon.ico' : 'posegood-icon.png'),
-    backgroundColor: '#fbf5ee',
+    backgroundColor: '#f6f7f9',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
-    ...(isMac ? {} : { titleBarOverlay: { color: '#fbf5ee', symbolColor: '#5e4f46', height: TITLEBAR_HEIGHT } }),
+    ...(isMac ? {} : { titleBarOverlay: { color: '#f6f7f9', symbolColor: '#202b33', height: TITLEBAR_HEIGHT } }),
     webPreferences: {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      // Camera inference and its native preview must continue while the main window is minimized.
+      backgroundThrottling: false,
     },
   })
   mainWindow = window
@@ -226,7 +229,7 @@ async function createWindow() {
       }
     })
   }
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  installCameraWindow({ mainWindow: window, screen, ipcMain, trusted })
   window.webContents.on('will-navigate', (event, url) => {
     if (!sameAddress(new URL(url))) event.preventDefault()
   })

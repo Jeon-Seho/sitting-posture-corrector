@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowsClockwise, BellSlash, Hourglass, Person, Question } from '@phosphor-icons/react'
+import { ArrowsClockwise, BellSlash, Hourglass, Person, Question } from '../../components/icons'
 import { Ring } from '../../components/Ring'
 import { Meter } from '../../components/ui'
 import { formatClock, formatDuration, formatPercent } from '../../lib/stats'

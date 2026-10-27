@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { ArrowLeft, CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle, WarningCircle, X } from '../components/icons'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
@@ -22,6 +22,9 @@ import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
+import { useKstDay } from '../hooks/useKstDay'
+import { recordsByDay } from '../features/storage/dailyMeasurement'
+import { recordFromDraft } from '../features/storage/records'
 
 type Props = {
   camera: CameraController
@@ -83,8 +86,15 @@ export function ServiceScreens({
   const view = resolvePage(page, measuring)
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
   const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
-  const shownRecords = example ?? records
-  const today = summary(historyFor(records, 'all', 'today'))
+  const calendarDay = useKstDay()
+  const historyRecords = useMemo(() => {
+    if (!draft?.days?.length || draft.server || records.some(r => r.id === draft.id)) return records
+    const closedDays = recordsByDay([recordFromDraft(draft, draft.savedAt ?? draft.startedAt)])
+      .filter(record => record.dayPartition && record.dayPartition.date < calendarDay)
+    return [...records, ...closedDays]
+  }, [records, draft, calendarDay])
+  const shownRecords = example ?? historyRecords
+  const today = summary(historyFor(historyRecords, 'all', 'today'))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
   const main = useRef<HTMLElement>(null)
@@ -109,6 +119,7 @@ export function ServiceScreens({
         className="capture-source"
         muted
         playsInline
+        disablePictureInPicture
         aria-hidden="true"
       />
       <AppSidebar
@@ -231,6 +242,7 @@ export function ServiceScreens({
                   active: view === 'session',
                   initial: session.initial,
                   onCheckpoint: persistence.checkpoint,
+                  onObserved: persistence.observed,
                   onEnded: persistence.finish,
                   saveMessage: persistence.saveMessage,
                   saveFailed: persistence.saveFailed,

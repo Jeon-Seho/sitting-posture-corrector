@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { CaretDown } from '@phosphor-icons/react'
+import { CaretDown } from './icons'
 
 type Heights = { peek: number; full: number }
 

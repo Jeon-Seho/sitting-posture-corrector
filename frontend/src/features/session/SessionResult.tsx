@@ -1,4 +1,4 @@
-import { ArrowCounterClockwise, ChartBar } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ChartBar } from '../../components/icons'
 import type { LiveState } from '../../lib/engine'
 import { MODEL_VERSION } from '../../data/posture'
 import type { CollectionController } from '../../hooks/useCollection'
@@ -54,9 +54,9 @@ export function SessionResult({
     <>
       <section className="result" aria-labelledby="result-title">
         <div className="result-head">
-          <Ring value={keepRate} size={188} stroke={20} label="바른 자세 비율">
-            <span className="ring-value" style={{ fontSize: 54 }}>
-              {keepRate === null ? '—' : `${Math.round(keepRate * 100)}%`}
+          <Ring value={keepRate} size={188} stroke={16} label="바른 자세 비율">
+            <span className="ring-value" style={{ fontSize: 44 }}>
+              {keepRate === null ? '—' : <>{Math.round(keepRate * 100)}<small>%</small></>}
             </span>
             <span className="ring-label">바른 자세</span>
           </Ring>
@@ -110,7 +110,7 @@ export function SessionResult({
           )}
           <button className="btn" onClick={onDashboard}>
             <ChartBar size={18} weight="bold" className="icon" />
-            기록 보기
+            오늘 기록 보기
           </button>
           <button
             className="btn btn-primary"

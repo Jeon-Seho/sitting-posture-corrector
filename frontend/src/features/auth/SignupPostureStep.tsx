@@ -33,7 +33,7 @@ export function SignupPostureStep({
   return (
     <div className="signup-posture">
       {/* The hidden capture element the pose model reads; the app shell is not mounted yet. */}
-      <video ref={camera.videoRef} className="capture-source" muted playsInline aria-hidden="true" />
+      <video ref={camera.videoRef} className="capture-source" muted playsInline disablePictureInPicture aria-hidden="true" />
       <header className="signup-posture-head">
         <div className="cover-brand">
           <BrandMark />

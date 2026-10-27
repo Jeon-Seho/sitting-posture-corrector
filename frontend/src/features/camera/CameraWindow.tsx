@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { ArrowsOutSimple, Minus, Square, X } from '@phosphor-icons/react'
+import { ArrowsOutSimple, Minus, Square, X } from '../../components/icons'
 import { createPortal } from 'react-dom'
 import type { CameraController } from '../../hooks/useCamera'
 import {
@@ -9,6 +9,7 @@ import {
   type MeasurementStatus,
 } from '../session/sessionControl'
 import { useCameraWindow } from './useCameraWindow'
+import { desktopBridge } from '../desktop/bridge'
 
 function StreamPreview({ camera }: { camera: CameraController }) {
   const preview = useRef<HTMLVideoElement>(null)
@@ -40,7 +41,7 @@ type Controls = {
   /** While measuring: end and save (2026-10-20). Otherwise: close the window only. */
   onClose: () => void
   measuring: boolean
-  /** The draggable label; the out-of-app window is moved by the browser instead. */
+  /** The draggable label; the native window is moved through its OS drag region. */
   label: (text: string) => ReactNode
 }
 
@@ -69,8 +70,9 @@ function PipBar({ status, minimized, onMinimize, onExpand, onClose, measuring, l
   )
 }
 
-/** Inside a browser picture-in-picture window, shown over other sites and apps. */
+/** Inside the frameless native child window, shown over other applications. */
 function WindowPreview({ camera, controls }: { camera: CameraController; controls: Omit<Controls, 'label'> }) {
+  useEffect(() => { void desktopBridge()?.showCameraWindow?.() }, [])
   return (
     <section className={`camera-window-view ${controls.minimized ? 'is-minimized' : ''} status-${controls.status}`} aria-label="카메라 작은 창">
       {!controls.minimized && <StreamPreview camera={camera} />}
@@ -143,7 +145,7 @@ function FloatingPreview({ camera, controls }: { camera: CameraController; contr
  * `floating` hides the in-app window on screens that already show the camera large.
  * `onExpand` returns to the measurement; without it (collection screen) there is no expand.
  * `measuring` makes the X end and save the measurement (2026-10-20); otherwise it closes the window.
- * Leaving the tab opens the same window over other sites where the browser allows it.
+ * Camera windows are a desktop-app feature; web pages render no floating preview or PiP source.
  */
 export function CameraWindow({ camera, floating = true, onExpand, measuring = false }: {
   camera: CameraController
@@ -151,27 +153,45 @@ export function CameraWindow({ camera, floating = true, onExpand, measuring = fa
   onExpand?: () => void
   measuring?: boolean
 }) {
+  if (!desktopBridge()) return null
+  return <DesktopCameraWindow camera={camera} floating={floating} onExpand={onExpand} measuring={measuring} />
+}
+
+function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
+  camera: CameraController
+  floating: boolean
+  onExpand?: () => void
+  measuring: boolean
+}) {
   const preview = useCameraWindow(camera)
   const posture = useMeasurementStatus()
   const [dismissed, setDismissed] = useState(false)
   const [minimized, setMinimized] = useState(false)
+  useEffect(() => {
+    if (preview.pipWindow) {
+      setMinimized(false)
+    }
+  }, [preview.pipWindow])
   // Closing lasts until the camera is shown large again (e.g. back on 측정하기).
   useEffect(() => {
     if (!floating) {
       setDismissed(false)
-      setMinimized(false)
+      if (!preview.pipWindow) setMinimized(false)
     }
-  }, [floating])
+  }, [floating, preview.pipWindow])
   if (camera.state !== 'on') return null
   const controls = {
     status: (measuring && posture) || ('camera' as const),
     minimized,
     measuring,
-    onMinimize: () => setMinimized((old) => !old),
+    onMinimize: () => {
+      if (preview.pipWindow) void desktopBridge()?.collapseCameraWindow?.(!minimized)
+      setMinimized((old) => !old)
+    },
     onExpand: onExpand && (() => {
-      // From a window over another site: bring the app's tab back first.
+      // Restore the main native window before navigating to the measurement.
       if (preview.pipWindow) {
-        window.focus()
+        void desktopBridge()?.returnFromCameraWindow?.()
         preview.close()
       }
       onExpand()
@@ -188,7 +208,12 @@ export function CameraWindow({ camera, floating = true, onExpand, measuring = fa
   return (
     <>
       {floating && !dismissed && !preview.pipWindow && <FloatingPreview camera={camera} controls={controls} />}
-      <video ref={preview.fallbackVideo} className="capture-source" muted playsInline aria-hidden="true" />
+      {preview.supported && !preview.pipWindow && (
+        <div className="camera-window-launch">
+          <button className="btn btn-sm" onClick={() => void preview.open()}>작은 창 열기</button>
+          {preview.message && <span role="status">{preview.message}</span>}
+        </div>
+      )}
       {preview.pipWindow && createPortal(
         <WindowPreview camera={camera} controls={controls} />,
         preview.pipWindow.document.body,
