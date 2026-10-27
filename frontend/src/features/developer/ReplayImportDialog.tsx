@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { UploadSimple } from '@phosphor-icons/react'
 import { ConfirmDialog } from '../dialog/ConfirmDialog'
 import { parseObservationReplay, REPLAY_FILE_LIMIT, type ObservationReplayData } from './observationReplay'
 import { boldNumbers } from './observationTypography'
@@ -30,7 +31,7 @@ export function ReplayImportDialog({ onCancel, onLoad }: Props) {
   return <div className="oc-replay-import-dialog"><ConfirmDialog title="리플레이 파일 불러오기" confirmLabel="불러오기" disabled={!file || reading} onCancel={onCancel} onConfirm={load} formatError={failure => failure instanceof Error ? failure.message : '파일을 읽지 못했어요.'}>
     <input ref={input} className="oc-sr-only" type="file" accept=".json,application/json" aria-label="리플레이 JSON 파일" tabIndex={-1} disabled={reading} onChange={event => { select(event.currentTarget.files); event.currentTarget.value = '' }} />
     <button type="button" className="oc-replay-dropzone" data-dragging={dragging} aria-label="리플레이 JSON 파일 선택" disabled={reading} onClick={() => input.current?.click()} onDragOver={event => { event.preventDefault(); if (!reading) { event.dataTransfer.dropEffect = 'copy'; setDragging(true) } }} onDragLeave={() => setDragging(false)} onDrop={drop}>
-      <span>JSON 파일을 여기에 놓으세요</span><span className="oc-replay-drop-pick">또는 파일 선택</span><small>{boldNumbers('파일 1개 · 최대 32MB')}</small>
+      <UploadSimple size={34} weight="duotone" aria-hidden="true" /><span>JSON 파일을 여기에 놓으세요</span><span className="oc-replay-drop-pick">또는 파일 선택</span><small>{boldNumbers('파일 1개 · 최대 32MB')}</small>
     </button>
     {file && <p className="oc-replay-selected-file">{file.name}</p>}
     {error && <p role="alert">{error}</p>}

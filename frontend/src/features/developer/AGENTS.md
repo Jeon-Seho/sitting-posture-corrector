@@ -12,3 +12,5 @@
 - CSS는 `.dev-lab` 범위, 키프레임은 `dev-`/`dc-` 접두사를 사용한다. 기본 다크 및 저감 모션을 유지한다.
 - 서비스 승격은 [모듈 안내](README.md)의 독립 추출·검증 절차로 한다.
 - `face/`의 Face 윤곽·bitmap·비교 집계는 /dev 메모리 전용이다. Face 상대z를 기존 Pose world39D에 섞지 않고 정상 수집·진단 export에 추가하지 않는다. [얼굴 추적 결정](../../../../docs/decisions/0037-developer-face-landmarker.md)을 따른다.
+
+- `/dev`의 커스텀 세로 스크롤은 `ObservationScrollPanel`을 재사용한다. 네이티브 스크롤바 대신 더 볼 내용이 있는 위/아래 중앙에 배경 없는 부유 막대를 표시한다. 도움말·설정 팝업도 같은 규칙을 따른다. 키보드/트랙패드 조작·초점·누락 없는 내용 접근과 reduced-motion을 유지한다.

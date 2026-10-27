@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { useObservationMotion } from './useObservationMotion'
+import { ObservationStopButton } from './ObservationStopButton'
 import { COMPARISON_ACTIONS } from './comparisonDemo'
 import { OBSERVATION_STEPS, type GuideMode, type GuideSnapshot } from './observationProtocol'
 import type { ReferenceSetup } from './useObservationComparison'
@@ -6,15 +8,16 @@ import { boldNumbers } from './observationTypography'
 
 type Props = {
   guide: GuideSnapshot; ready: boolean; active?: boolean
+  hasRecording?: boolean; onDownload?: () => void
   setup?: ReferenceSetup; mode?: GuideMode; onNext?: () => void
   children?: ReactNode
-  onStart: () => void; onPause: () => void; onResume: () => void
+  onStart: () => void; onPause: () => void; onResume: () => void; onStop: () => void
 }
 const phaseTitles = { move: '준비 · 동작으로 이동', hold: '측정 · 그대로 유지', return: '복귀 준비' }
 const phaseShortTitles = { move: '준비', hold: '측정', return: '복귀 준비' }
 const pauseReasons = { user: '잠깐 멈췄어요.', hidden: '탭이 숨겨져 멈췄어요.', tracking_lost: '2D 추적이 끊겨 멈췄어요.', clock_gap: '화면 진행이 지연되어 멈췄어요.' }
 
-export function ObservationGuide({ guide, ready, active, setup = { status: 'idle', remainingMs: 0 }, mode = guide.mode, onNext, children, onStart, onPause, onResume }: Props) {
+export function ObservationGuide({ guide, ready, active, hasRecording = false, onDownload, setup = { status: 'idle', remainingMs: 0 }, mode = guide.mode, onNext, children, onStart, onPause, onResume, onStop }: Props) {
   const step = guide.step, running = guide.status === 'running', paused = guide.status === 'paused', waiting = guide.status === 'waiting'
   const finished = guide.status === 'completed' || guide.status === 'cancelled'
   const settingUp = ['connecting', 'preparing', 'registering'].includes(setup.status)
@@ -28,9 +31,14 @@ export function ObservationGuide({ guide, ready, active, setup = { status: 'idle
   const next = OBSERVATION_STEPS[step ? guide.stepIndex + 1 : 0]
   const nextTask = COMPARISON_ACTIONS.find(action => action.id === next?.action)
   const seconds = settingUp ? setup.remainingMs : guide.remainingMs
-  return <section className={`oc-guide${running ? ' is-running' : ''}${paused ? ' is-paused' : ''}`} data-state={guide.status} aria-label="동작 안내">
+  const panel = useRef<HTMLDivElement>(null)
+  useObservationMotion(panel, `${cameraActive}:${setup.status}:${guide.status}:${mode}:${!!next}`)
+  return <section className={`oc-guide${running ? ' is-running' : ''}${paused ? ' is-paused' : ''}`} data-state={guide.status} data-camera-active={cameraActive} aria-label="동작 안내">
     <div className="oc-stage">
       {children}
+      {(cameraActive || finished) && <span className="oc-guide-progress" aria-hidden="true">{boldNumbers(`${completed} / ${OBSERVATION_STEPS.length}구간`)}</span>}
+    </div>
+    <div className="oc-guide-panel" ref={panel}>
       {cameraActive && <div className="oc-guide-clock" role="timer" aria-live="off" aria-label="현재 단계 남은 시간">
         <h3 className="oc-clock-task">{setupTitle ?? (finished ? title : step ? step.phase === 'return' ? '편안한 기준 자세' : task?.title : ready ? '동작 안내를 시작하세요' : '카메라를 켜 주세요')}</h3>
         <div className="oc-clock-meta"><span className="oc-clock-label">{boldNumbers(settingUp ? setup.status === 'registering' ? '기준 등록 · 8초' : setup.status === 'connecting' ? '시작 준비' : '2초 뒤 기준 등록' : paused ? '일시 정지' : waiting ? '시간 완료 · 다음 대기' : running && step ? phaseTitles[step.phase] : finished ? '측정 종료' : '시작 준비')}</span><span className="oc-clock-position">{boldNumbers(step ? `${step.round} / 3바퀴 · ${(step.trial - 1) % 4 + 1} / 4동작` : '4동작 · 3바퀴')}</span></div>
@@ -38,13 +46,13 @@ export function ObservationGuide({ guide, ready, active, setup = { status: 'idle
         {!finished && !settingUp && <p className="oc-guide-next" aria-label="다음 안내"><span>{step ? '다음' : '첫 동작'}</span><strong>{boldNumbers(next ? next.phase === 'return' ? '편안한 기준 자세' : nextTask?.title ?? '' : '3바퀴 완료 · CSV 받기')}</strong><small>{boldNumbers(next ? `· ${phaseShortTitles[next.phase]} ${next.durationMs / 1000}초` : '카메라가 꺼지고 자료는 남아요.')}</small></p>}
       </div>}
       <div className="oc-guide-controls">
-        {!cameraActive && <button className="oc-primary oc-start-guide" onClick={onStart}>카메라 켜기</button>}
+        {!cameraActive && <button className="oc-primary oc-start-guide" onClick={onStart}>{hasRecording ? '다시 측정' : '카메라 켜기'}</button>}
+        {!cameraActive && hasRecording && <button className="oc-json-download" onClick={onDownload}>JSON 다운로드</button>}
         {cameraActive && mode === 'manual' && !finished && <button className="oc-primary oc-next-guide" disabled={!waiting || !ready} onClick={onNext}>{step && !next ? '완료' : '다음'}</button>}
-        {cameraActive && running && <button className="oc-pause-guide" onClick={onPause}>잠깐 멈춤</button>}
-        {cameraActive && paused && <button className="oc-primary" disabled={!ready} onClick={onResume}>현재 단계 처음부터 재개</button>}
+        {cameraActive && <button className={`oc-pause-guide${paused ? ' oc-resume-guide' : ''}`} disabled={paused ? !ready : !running} aria-label={paused ? '현재 단계 처음부터 재개' : '잠깐 멈춤'} title={paused ? '현재 단계를 처음부터 재개' : undefined} onClick={paused ? onResume : onPause}>{paused ? '재개' : '잠깐 멈춤'}</button>}
+        {cameraActive && <ObservationStopButton onStop={onStop} />}
       </div>
       {!finished && <p className="oc-sr-only" role="status" aria-atomic="true">{settingUp ? setup.status === 'registering' ? '편안한 정면 자세를 8초 유지하세요. 기준 등록이 끝나면 선택한 모드로 이어집니다.' : '2초 뒤 기준 자세를 8초 등록합니다. 얼굴과 양어깨가 보이도록 앉아 주세요.' : running || paused || waiting ? `${title} · ${instruction}` : ''}</p>}
-      {(cameraActive || finished) && <span className="oc-guide-progress" aria-hidden="true">{boldNumbers(`${completed} / ${OBSERVATION_STEPS.length}구간`)}</span>}
     </div>
     <progress className="oc-sr-only" value={completed} max={OBSERVATION_STEPS.length} aria-label="완료한 안내 구간" />
   </section>

@@ -1,3 +1,4 @@
+export const OBSERVATION_REFERENCE_MS = 8000
 import type { ComparisonAction } from './comparisonDemo'
 
 export const OBSERVATION_PROTOCOL = {

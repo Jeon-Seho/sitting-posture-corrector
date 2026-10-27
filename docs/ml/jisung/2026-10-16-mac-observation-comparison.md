@@ -1,5 +1,8 @@
 # 정면 2D·상대 z 관측 비교 화면
 
+현재 진입 주소는 `/dev`, 분리된 예시는 `/dev?demo=1`이다. 아래는 당시 구현 기록이며
+[2026-10-26 경로 통일](../../decisions/0042-unified-dev-observation-route.md)이 이전 주소/실험실 진입을 대체한다.
+
 - 날짜·환경: 2026-10-16 / mac
 - 브랜치·기준: `feature/repo-jisung-local-forecast` / `5ae2e72`
 - 상태: 연구용 관측 화면 구현. 실제 네 동작의 구분 가능성을 확인한 결과는 아님.

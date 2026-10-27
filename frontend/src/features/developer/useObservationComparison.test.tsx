@@ -1,11 +1,20 @@
+import type { ReactNode } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import type { CameraController, Observation } from '../../hooks/useCamera'
 import { useObservationComparison } from './useObservationComparison'
 import ObservationLab from './ObservationLab'
+import { ConfirmDialog } from '../dialog/ConfirmDialog'
+import { ObservationGuide } from './ObservationGuide'
+import { ObservationReplay } from './ObservationReplayPanel'
 import { comparisonDemo } from './comparisonDemo'
+import { downloadObservationReplay } from './observationReplay'
 import { downloadComparisonCsv } from './observationCsv'
 vi.mock('./observationCsv', async importOriginal => ({ ...await importOriginal<typeof import('./observationCsv')>(), downloadComparisonCsv: vi.fn() }))
+vi.mock('./observationReplay', async original => ({ ...await original<typeof import('./observationReplay')>(), downloadObservationReplay: vi.fn() }))
+// Test-renderer has no DOM portal host. Render portal children inline; placement is browser-verified.
+vi.mock('react-dom', async original => ({ ...await original<typeof import('react-dom')>(), createPortal: (children: ReactNode) => children }))
+const previewNodes = { createNodeMock: (element: { props: { className?: string } }) => element.props.className === 'oc-replay-preview-host' ? { nodeType: 1 } : null }
 const text = (node: ReactTestInstance | string): string => typeof node === 'string' ? node : node.children.map(text).join('')
 
 describe('observation flow with explicit synthetic frames and clock', () => {
@@ -32,7 +41,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     return lines.map(line => Object.fromEntries(header.split(',').map((key, i) => [key, line.split(',')[i].replace(/^"(.*)"$/, '$1')])))
   }
   beforeEach(() => {
-    vi.mocked(downloadComparisonCsv).mockClear()
+    vi.mocked(downloadComparisonCsv).mockClear(); vi.mocked(downloadObservationReplay).mockClear()
     wall = 0; vi.useFakeTimers(); vi.spyOn(performance, 'now').mockImplementation(() => wall)
     doc = Object.assign(new EventTarget(), { visibilityState: 'visible', title: 'test' }); vi.stubGlobal('document', doc)
     win = new EventTarget(); vi.stubGlobal('window', win)
@@ -40,9 +49,9 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   })
   afterEach(() => { if (renderer) act(() => renderer.unmount()); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); unsubscribe.mockClear() })
   it('opens without using the camera and keeps modes inside the start modal', () => {
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(camera.connect).not.toHaveBeenCalled()
-    expect(renderer.root.findAllByType('button').map(text)).toContain('기준 8초 등록')
+    expect(renderer.root.findAllByType('button').map(text)).not.toContain('기준 8초 등록')
     expect(renderer.root.findAllByProps({ className: 'oc-mode-picker' })).toHaveLength(0)
     expect(renderer.root.findAllByType('header')).toHaveLength(0)
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜기')!.props.onClick())
@@ -56,14 +65,14 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('switches themes without reconnecting the camera and remembers the choice on remount', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) })
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('dark')
     act(() => renderer.root.findByProps({ 'aria-label': '라이트 모드로 전환' }).props.onClick())
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('light')
     expect(camera.connect).not.toHaveBeenCalled(); expect(camera.stop).not.toHaveBeenCalled()
     expect(camera.subscribe).toHaveBeenCalledOnce()
     act(() => renderer.unmount())
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('light')
     act(() => renderer.root.findByProps({ 'aria-label': '다크 모드로 전환' }).props.onClick())
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('dark')
@@ -71,13 +80,13 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('ignores invalid saved themes and permits switching when preference storage is blocked', () => {
     const getItem = vi.fn().mockReturnValue('unknown')
     vi.stubGlobal('localStorage', { getItem, setItem: () => { throw new Error('storage blocked') } })
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('dark')
     act(() => renderer.root.findByProps({ 'aria-label': '라이트 모드로 전환' }).props.onClick())
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('light')
     act(() => renderer.unmount())
     getItem.mockImplementation(() => { throw new Error('storage blocked') })
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('dark')
     expect(camera.connect).not.toHaveBeenCalled()
   })
@@ -111,28 +120,103 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     emit(16000); expect(current.replayCount).toBe(count)
   })
   it('connects a completed measurement cycle directly to the replay UI without a file or load button', async () => {
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
-    const button = (label: string) => renderer.root.findAllByType('button').find(b => text(b) === label)!
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({type:'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    for (let t = 0; t <= 154000; t += 100) {
+    // A continuous 5 Hz stream covers every protocol boundary without rendering 1,540 UI frames.
+    for (let t = 0; t <= 154000; t += 200) {
       wall = t
       act(() => listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t }))
     }
-    act(() => renderer.root.findByProps({ 'aria-label': '관측 도구 열기' }).props.onClick())
-    act(() => renderer.root.findAllByProps({role:'tab'})[3].props.onClick())
-    expect(button('측정 사이클').props['aria-pressed']).toBe(true)
+    act(() => renderer.root.findAllByProps({role:'tab'})[1].props.onClick())
+    expect(button('최근 측정 보기').props['aria-pressed']).toBe(true)
     expect(button('재생').props.disabled).toBe(false)
     expect(renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.max).toBe(154000)
     expect(renderer.root.findAllByType('button').some(b => text(b) === '현재 기록 불러오기')).toBe(false)
     expect(renderer.root.findAllByProps({type:'file'})).toHaveLength(0)
+  }, 15000)
+  it('keeps the preview, registered guide and replay recording alive across analysis tabs', async () => {
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
+    act(() => button('카메라 켜기').props.onClick())
+    act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    frames(0, 13000)
+    const preview = renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })
+    const guide = renderer.root.findByType(ObservationGuide).props.guide
+    const replay = renderer.root.findByType(ObservationReplay).props.getRecording()
+    const connected = vi.mocked(camera.connect).mock.calls.length, stopped = vi.mocked(camera.stop).mock.calls.length
+    expect(guide.runId).not.toBe(''); expect(replay.frames.length).toBeGreaterThan(0)
+    expect(renderer.root.findAllByType('button').some(b => text(b) === '영상 크게')).toBe(false)
+    act(() => renderer.root.findAllByProps({ role: 'tab' })[1].props.onClick())
+    act(() => renderer.root.findAllByProps({ role: 'tab' })[0].props.onClick())
+    expect(renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })).toBe(preview)
+    expect(renderer.root.findByType(ObservationGuide).props.guide).toBe(guide)
+    expect(renderer.root.findByType(ObservationReplay).props.getRecording().frames).toEqual(replay.frames)
+    expect(camera.connect).toHaveBeenCalledTimes(connected); expect(camera.stop).toHaveBeenCalledTimes(stopped)
+    frames(13100, 13200)
+    expect(renderer.root.findByType(ObservationReplay).props.getRecording().frames.length).toBeGreaterThan(replay.frames.length)
+  })
+  it('uses the preview for replay while preserving the live node and prioritizing ongoing measurement', async () => {
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
+    const tabs = () => renderer.root.findAllByProps({ role: 'tab' })
+    const live = () => renderer.root.findByProps({ className: 'oc-live-preview' })
+    const video = renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })
+    act(() => tabs()[1].props.onClick()); expect(live().props.hidden).toBe(true)
+    act(() => tabs()[0].props.onClick()); expect(live().props.hidden).toBe(false)
+    act(() => button('카메라 켜기').props.onClick())
+    act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    frames(0, 13000)
+    act(() => tabs()[1].props.onClick())
+    expect(live().props.hidden).toBe(false)
+    expect(renderer.root.findAllByType('button').some(b => text(b) === '파일 불러오기')).toBe(false)
+    act(() => button('측정 종료').props.onClick()); act(() => renderer.root.findByType(ConfirmDialog).props.onConfirm())
+    expect(live().props.hidden).toBe(true)
+    expect(renderer.root.findAllByType(ObservationReplay)).toHaveLength(1)
+    expect(button('재생').props.disabled).toBe(false)
+    const position = () => renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.value
+    act(() => button('재생').props.onClick())
+    act(() => { wall += 200; vi.advanceTimersByTime(200) })
+    const playingPosition = position(); expect(playingPosition).toBeGreaterThan(0)
+    act(() => tabs()[0].props.onClick())
+    act(() => { wall += 500; vi.advanceTimersByTime(500) })
+    expect(live().props.hidden).toBe(false)
+    expect(renderer.root.findAllByProps({ 'aria-label': '리플레이 위치' })).toHaveLength(0)
+    act(() => tabs()[1].props.onClick())
+    expect(live().props.hidden).toBe(true); expect(position()).toBe(playingPosition)
+    expect(renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })).toBe(video)
+    expect(camera.connect).toHaveBeenCalledOnce()
+  })
+  it('centers the comparison panel without stopping or remounting an ongoing camera session', async () => {
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
+    act(() => button('카메라 켜기').props.onClick())
+    act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    frames(0, 13000)
+    const preview = renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })
+    const stopped = vi.mocked(camera.stop).mock.calls.length
+    act(() => renderer.root.findAllByProps({ role: 'tab' })[2].props.onClick())
+    expect(renderer.root.findByProps({ className: 'oc-preview-pane' }).props.hidden).toBe(true)
+    expect(renderer.root.findByProps({ className: 'oc-coview' }).props['data-mode']).toBe('table')
+    expect(renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })).toBe(preview)
+    frames(13100, 13200)
+    expect(camera.stop).toHaveBeenCalledTimes(stopped)
+    const controls = renderer.root.findByProps({ className: 'oc-table-session' })
+    act(() => controls.findAllByType('button').find(b => text(b) === '측정 종료')!.props.onClick()); act(() => renderer.root.findByType(ConfirmDialog).props.onConfirm())
+    expect(camera.stop).toHaveBeenCalledTimes(stopped + 1)
+    act(() => renderer.root.findAllByProps({ role: 'tab' })[1].props.onClick())
+    expect(button('재생').props.disabled).toBe(false)
   })
   it('starts manual guidance from the modal and preserves recorded data through a later mode choice', async () => {
-    act(() => { renderer = create(<ObservationLab camera={camera} />) })
-    const button = (label: string) => renderer.root.findAllByType('button').find(b => b.props.children === label)!
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
     const pick = async (mode: 'auto' | 'manual') => {
-      act(() => button('카메라 켜기').props.onClick())
+      act(() => (button('다시 측정') ?? button('카메라 켜기')).props.onClick())
       act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === mode)!.props.onChange())
       await act(async () => { await button('카메라 켜고 시작').props.onClick() })
     }
@@ -141,9 +225,14 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(renderer.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
     expect(button('다음').props.disabled).toBe(false)
     act(() => button('다음').props.onClick()); frames(12100, 13100)
-    act(() => button('측정 종료').props.onClick())
+    act(() => button('측정 종료').props.onClick()); act(() => renderer.root.findByType(ConfirmDialog).props.onConfirm())
     expect(renderer.root.findAllByProps({ className: 'oc-status' })).toHaveLength(0)
     expect(renderer.root.findAllByProps({ className: 'oc-guide-notice' })).toHaveLength(0)
+    expect(button('다시 측정')).toBeDefined()
+    act(() => button('JSON 다운로드').props.onClick())
+    const downloaded = vi.mocked(downloadObservationReplay).mock.calls.at(-1)![0]
+    expect(downloaded.frames.length).toBeGreaterThan(0)
+    expect(downloaded.frames.some(frame => frame.measurement)).toBe(true)
     await pick('auto')
     expect(camera.connect).toHaveBeenCalledOnce()
     expect(renderer.root.findByType('dialog').findByType('h2').props.children).toBe('기존 측정 자료를 유지할까요?')
@@ -179,7 +268,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('focuses the workspace once when registration automatically starts guidance', async () => {
     const scrollIntoView = vi.fn(), focus = vi.fn()
     act(() => { renderer = create(<ObservationLab camera={camera} />, { createNodeMock: element => element.props['aria-label'] === '카메라와 동작 안내' ? { scrollIntoView, focus } : null }) })
-    const click = (label: string) => act(() => renderer.root.findAllByType('button').find(button => button.props.children === label)!.props.onClick())
+    const click = (label: string) => act(() => renderer.root.findAllByType('button').find(button => (button.props['aria-label'] ?? button.props.children) === label)!.props.onClick())
     click('카메라 켜기'); act(() => renderer.root.findAllByProps({ type: 'radio' })[0].props.onChange())
     await act(async () => { await renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜고 시작')!.props.onClick() }); frames(0, 9900); expect(focus).not.toHaveBeenCalled()
     emit(10000); expect(scrollIntoView).toHaveBeenCalledOnce(); expect(focus).toHaveBeenCalledWith({ preventScroll: true })
@@ -299,6 +388,21 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => current.cancelReset()); expect(current.traceCount).toBe(count)
     act(() => current.exportCsv('trace')); expect(downloadComparisonCsv).toHaveBeenCalledOnce()
     start(); act(() => current.confirmReset()); expect(current.active).toBe(true); expect(current.traceCount).toBe(0)
+  })
+  it('automatically publishes a completed hold to the table and summary CSV, then clears only the table', () => {
+    mount(); register(); frames(10100, 16900)
+    expect(current.rows.head).toBeUndefined()
+    emit(17000); expect(current.rows.head).toBeDefined()
+    act(() => current.exportCsv('summary'))
+    const summary = vi.mocked(downloadComparisonCsv).mock.calls.at(-1)![1]
+    expect(summary).toContain('guided_task_not_ground_truth')
+    expect(summary).toContain('head')
+    act(() => current.stop()); const traceCount = current.traceCount
+    act(() => current.clear()); expect(current.pendingReset).toBe('clear')
+    act(() => current.confirmReset()); expect(current.rows).toEqual({})
+    expect(current.traceCount).toBe(traceCount)
+    const exports = vi.mocked(downloadComparisonCsv).mock.calls.length
+    act(() => current.exportCsv('summary')); expect(downloadComparisonCsv).toHaveBeenCalledTimes(exports)
   })
   it('protects table clearing separately while preserving traces', () => {
     mount(); register(); frames(10100, 13100); act(() => current.capture()); act(() => current.stop())

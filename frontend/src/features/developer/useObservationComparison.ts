@@ -3,11 +3,12 @@ import { ObservationComparison, COMPARISON_POLICY, type ComparisonFrame, type Co
 import type { CameraController } from '../../hooks/useCamera'
 import { comparisonDemo, type ComparisonAction } from './comparisonDemo'
 import { COMPARISON_TRACE_LIMIT, comparisonSummaryCsv, comparisonTraceCsv, downloadComparisonCsv, type ComparisonCapture, type ComparisonTrace } from './observationCsv'
-import { ObservationProtocol, type GuideMode, type GuidePauseReason, type GuideSnapshot } from './observationProtocol'
+import { OBSERVATION_REFERENCE_MS, ObservationProtocol, type GuideMode, type GuidePauseReason, type GuideSnapshot } from './observationProtocol'
+import { automaticComparisonCaptures } from './observationAutoSummary'
 import { ObservationReplayArchive, type ReplayPhase } from './observationReplay'
 
 export type ReferenceSetup = { status: 'idle' | 'connecting' | 'preparing' | 'registering' | 'interrupted'; remainingMs: number }
-export const OBSERVATION_REFERENCE_MS = 8000
+export { OBSERVATION_REFERENCE_MS } from './observationProtocol'
 const PREPARE_REFERENCE_MS = 2000
 const locked = (guide: GuideSnapshot) => ['running', 'waiting', 'paused'].includes(guide.status)
 const measuring = (guide: GuideSnapshot) => guide.status === 'running' && guide.step?.phase === 'hold' && guide.remainingMs > 0
@@ -28,7 +29,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   }, [])
   const [action, setAction] = useState<ComparisonAction>('neutral')
   const [notice, setNotice] = useState(mode === 'synthetic' ? '가상 점으로 화면 표시만 확인합니다. 실제 측정 자료를 모으지 않습니다.' : '')
-  const [captures, setCaptures] = useState<Partial<Record<ComparisonAction, ComparisonCapture>>>({})
+  const [captures, setCaptures] = useState<Partial<Record<ComparisonAction, ComparisonCapture>> | null>({})
   const protocol = useRef(new ObservationProtocol()), guideSequence = useRef(0)
   const [guide, setGuide] = useState(() => protocol.current.snapshot(0))
   const trace = useRef<ComparisonTrace[]>([]), dropped = useRef(0), segment = useRef(0)
@@ -204,7 +205,8 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
       setNotice('카메라 연결이 끊겼어요. 기존 자료를 보존했습니다. 카메라를 다시 켜 주세요.')
     }
   }, [camera.state, interrupt, updateSetup, appendTrace])
-  const hasData = trace.current.length > 0 || Object.keys(captures).length > 0 || replay.current.count > 0
+  const effectiveCaptures = captures === null ? {} : { ...automaticComparisonCaptures(trace.current), ...captures }
+  const hasData = trace.current.length > 0 || Object.keys(captures ?? {}).length > 0 || replay.current.count > 0
   useEffect(() => {
     if (!hasData || typeof window === 'undefined') return
     const protect = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
@@ -263,20 +265,20 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (!activeRef.current) requestReset('start')
   }
   const register = () => { if (activeRef.current && !guideLocked) requestReset('register') }
-  const clear = () => { if (Object.keys(captures).length) requestReset('clear') }
+  const clear = () => { if (Object.keys(effectiveCaptures).length) requestReset('clear') }
   const cancelReset = () => { setPendingReset(null); setNotice('초기화를 취소했어요. 기존 자료와 CSV는 그대로 유지합니다.') }
   const confirmReset = () => {
     const kind = pendingReset; setPendingReset(null)
     if (kind === 'start') startNow(mode)
     if (kind === 'register') registerNow()
-    if (kind === 'clear') { setCaptures({}); setNotice('비교표만 비웠어요. 관측 시계열은 유지합니다.') }
+    if (kind === 'clear') { setCaptures(null); setNotice('비교표만 비웠어요. 관측 시계열은 유지합니다.') }
   }
   const exportCsv = (kind: 'summary' | 'trace') => {
     if (mode !== 'camera') return
-    if (kind === 'summary' ? !Object.keys(captures).length : !trace.current.length) return
+    if (kind === 'summary' ? !Object.keys(effectiveCaptures).length : !trace.current.length) return
     const context = { runId: run.current.runId, startedAt: run.current.startedAt, source, reference: exportReference.current, dropped: dropped.current }
-    downloadComparisonCsv(kind, kind === 'summary' ? comparisonSummaryCsv(captures, context) : comparisonTraceCsv(trace.current, context), source)
+    downloadComparisonCsv(kind, kind === 'summary' ? comparisonSummaryCsv(effectiveCaptures, context) : comparisonTraceCsv(trace.current, context), source)
   }
-  const rows = Object.fromEntries(Object.entries(captures).map(([key, capture]) => [key, capture.values])) as Partial<Record<ComparisonAction, ComparisonValues>>
+  const rows = Object.fromEntries(Object.entries(effectiveCaptures).map(([key, capture]) => [key, capture.values])) as Partial<Record<ComparisonAction, ComparisonValues>>
   return { ...view, source, active, action, notice, rows, replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, guideMode, changeGuideMode, setup, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
 }

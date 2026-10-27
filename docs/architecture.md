@@ -144,6 +144,10 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 
 ## 합성 브라우저 검증 경계
 
+2026-10-26의 [개발 경로 통일](decisions/0042-unified-dev-observation-route.md) 이후 `/dev`는
+`ObservationLab`만 조립한다. 아래 기존 예측 실험실·수집·모델 비교 관련 설명은 보존된 연구 모듈의
+경계이며 현재 `/dev` 진입에서 실행하지 않는다. 관측의 현재 수집/리플레이 경계는 이 문서 끝을 따른다.
+
 `#forecast`와 `/dev`는 서버 없이 예측·기준 거리/시간 규칙을 비교하는 별도 연구 화면이다.
 코어는 `model/prototype/forecast.ts`, UI 연결은 `features/forecast/`에 두며 기존 서비스·CEP 출력에 영향을 주지 않는다.
 Panoptic→MediaPipe 근사 입력 대응의 한계와 실험 설정은 [ADR 0025](decisions/0025-local-forecast-experiment.md),
@@ -200,7 +204,7 @@ Face 좌표/영상/비교 표를 서비스 API·진단 export로 보내지 않�
 
 ### 관측 비교의 기준 등록과 수집 구간
 
-`/dev?view=observation`은 카메라 연결 후 안내 2초·기준 8초를 자동 진행한다. 기준 엔진의
+`/dev`는 카메라 연결 후 안내 2초·기준 8초를 자동 진행한다. 기준 엔진의
 시간 옵션은 이 소비자만 8초로 지정하며 다른 경로의 기본 2초를 유지한다. 자동/수동 안내와
 측정 구간만 수집하는 CSV v3는 [ADR 0040](decisions/0040-observation-guide-modes.md)을 따른다.
 
