@@ -20,7 +20,7 @@ type Shown = { title: string; rows: TipRow[]; x: number; y: number; below: boole
  * App-styled hover cards (2026-10-14). A native `title` opens the operating system's black
  * tooltip, so elements carry `data-tip` (see `tip()`) and this one layer, mounted once at
  * the root, shows the card above the element (below it near the top edge). Keyboard focus
- * shows it too; screen readers keep using aria-label.
+ * shows it immediately after Tab navigation; pointer hover waits 500ms.
  */
 export function TipLayer() {
   const [shown, setShown] = useState<Shown | null>(null)
@@ -28,6 +28,15 @@ export function TipLayer() {
   const tooltipId = useId()
 
   useEffect(() => {
+    let keyboardNavigation = false
+    let keyboardTip = false
+    let pending: Element | null = null
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const cancelHover = () => {
+      clearTimeout(timer)
+      timer = undefined
+      pending = null
+    }
     const detach = () => {
       const target = current.current
       if (!target) return
@@ -35,10 +44,10 @@ export function TipLayer() {
       if (ids.length) target.setAttribute('aria-describedby', ids.join(' '))
       else target.removeAttribute('aria-describedby')
     }
-    const show = (event: Event) => {
-      const source = event.target as Element | null
-      const target = source?.closest?.('[data-tip]') ?? (event.type === 'focusin' ? source?.closest?.('button, summary, input[aria-label], [role="button"]') : null)
-      if (!target || target === current.current) return
+    const reveal = (target: Element, keyboard: boolean) => {
+      cancelHover()
+      if (!target.isConnected) return
+      if (target === current.current) { keyboardTip = keyboard; return }
       const title = target.getAttribute('data-tip') || target.getAttribute('aria-label') || target.textContent?.trim()
       if (!title) return
       let rows: TipRow[] = []
@@ -49,26 +58,47 @@ export function TipLayer() {
       }
       detach()
       current.current = target
+      keyboardTip = keyboard
       target.setAttribute('aria-describedby', [...new Set([...(target.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean), tooltipId])].join(' '))
       const box = target.getBoundingClientRect()
       const below = box.top < 120
       setShown({ title, rows, x: box.left + box.width / 2, y: below ? box.bottom + 10 : box.top - 10, below })
     }
+    const show = (event: Event) => {
+      const source = event.target as Element | null
+      const focus = event.type === 'focusin'
+      if (focus && !keyboardNavigation) return
+      const target = source?.closest?.('[data-tip]') ?? (focus ? source?.closest?.('button, summary, input[aria-label], [role="button"]') : null)
+      if (!target) return
+      if (focus) { reveal(target, true); return }
+      if (target === current.current || target === pending) return
+      cancelHover()
+      pending = target
+      timer = setTimeout(() => reveal(target, false), 500)
+    }
     const hide = (event: Event) => {
-      if (event.type === 'pointerout' && current.current === document.activeElement) return
       const target = (event.target as Element | null)?.closest?.('[data-tip]')
       const next = (event as PointerEvent | FocusEvent).relatedTarget as Element | null
       if (target && next && target.contains(next)) return
+      cancelHover()
+      if (event.type === 'pointerout' && keyboardTip && current.current === document.activeElement) return
       detach()
       current.current = null
       setShown(null)
     }
     const clear = () => {
+      cancelHover()
       detach()
       current.current = null
       setShown(null)
     }
+    const pointerDown = () => { keyboardNavigation = false; clear() }
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') keyboardNavigation = true
+      if (event.key === 'Escape') clear()
+    }
     const scroll = () => {
+      cancelHover()
       const target = current.current
       if (!target || target !== document.activeElement) { clear(); return }
       const box = target.getBoundingClientRect()
@@ -80,15 +110,18 @@ export function TipLayer() {
     document.addEventListener('focusin', show)
     document.addEventListener('focusout', hide)
     document.addEventListener('scroll', scroll, true)
-    document.addEventListener('pointerdown', clear)
+    document.addEventListener('pointerdown', pointerDown, true)
+    document.addEventListener('keydown', keyDown, true)
     return () => {
+      cancelHover()
       detach()
       document.removeEventListener('pointerover', show)
       document.removeEventListener('pointerout', hide)
       document.removeEventListener('focusin', show)
       document.removeEventListener('focusout', hide)
       document.removeEventListener('scroll', scroll, true)
-      document.removeEventListener('pointerdown', clear)
+      document.removeEventListener('pointerdown', pointerDown, true)
+      document.removeEventListener('keydown', keyDown, true)
     }
   }, [tooltipId])
 

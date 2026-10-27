@@ -39,7 +39,7 @@ describe('native camera window policy', () => {
     expect(s.policy('https://example.com').action).toBe('deny')
     expect(s.policy('about:blank', 'other').action).toBe('deny')
     expect(s.policy().overrideBrowserWindowOptions).toMatchObject({
-      frame: false, alwaysOnTop: true, skipTaskbar: true, show: false, x: -380, y: 266,
+      frame: false, alwaysOnTop: true, skipTaskbar: true, show: false, width: 400, height: 225, x: -420, y: 355,
     })
     s.contents.emit('did-create-window', s.child, { frameName: 'posegood-camera' })
     expect(s.policy().action).toBe('deny')
