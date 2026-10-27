@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { CameraController } from '../hooks/useCamera'
+import { ArrowsOutSimple } from './icons'
+import { requestCameraTest } from '../features/camera/cameraWindowTesting'
 import { desktopBridge } from '../features/desktop/bridge'
 
 /** The capture element stays mounted in App; this view can move between setup/session. */
@@ -28,6 +30,9 @@ export function CameraStage({
   }, [camera.state, camera.streamRef])
   return (
     <>
+      {desktopBridge()?.cameraWindow && camera.state === 'on' && <button className="camera-stage-pip" aria-label="작은 창 열기" onClick={() => requestCameraTest('open')}>
+        <ArrowsOutSimple size={18} aria-hidden="true" /> 작은 창
+      </button>}
       <video
         ref={preview}
         className="webcam-preview"

@@ -9,6 +9,8 @@ import { cameraName } from '../features/camera/mainCamera'
 import { CameraPicker, camerasHidden } from '../features/camera/CameraPicker'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
+import { CameraWindowTest } from '../features/developer/CameraWindowTest'
+import { DeveloperGroup, InteractionPreview } from '../features/developer/DeveloperGroup'
 import { AlertPreview } from '../features/desktop/AlertPreview'
 import type { CameraController } from '../hooks/useCamera'
 
@@ -407,53 +409,65 @@ export function SettingsPage({
           )}
 
           <details className="more">
-            <summary>개발자 옵션 · 시연, 데이터 수집, 버전 정보</summary>
-            <div className="more-body">
-              <Row
-                name="발표용 예시 기록 표시"
-                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
-              >
-                <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
-              </Row>
-              {onCollect && (
-                <Row name="자세 데이터 수집" desc="연구용 라벨 촬영 화면이에요. 관절 위치만 CSV로 저장해요.">
-                  <button className="chip" onClick={onCollect}>
-                    자세 데이터 수집
+            <summary>개발자 옵션 · 테스트와 진단</summary>
+            <div className="more-body dev-tools">
+              <DeveloperGroup title="기록·데이터">
+                <Row
+                  name="발표용 예시 기록 표시"
+                  desc={`켜면 오늘·기록 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
+                >
+                  <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
+                </Row>
+                {onCollect && (
+                  <Row name="자세 데이터 수집" desc="연구용 라벨 촬영 화면이에요. 관절 위치만 CSV로 저장해요.">
+                    <button className="chip" onClick={onCollect}>
+                      자세 데이터 수집
+                    </button>
+                  </Row>
+                )}
+              </DeveloperGroup>
+              <DeveloperGroup title="카메라·작은 창">
+                <CameraWindowTest />
+                {camera && (
+                  <div className="setting-row setting-row-stack">
+                    <div>
+                      <div className="setting-name">추적 속도</div>
+                      <div className="setting-desc">
+                        스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
+                      </div>
+                    </div>
+                    <TrackingRateCheck camera={camera} />
+                  </div>
+                )}
+              </DeveloperGroup>
+              <DeveloperGroup title="화면·모션·알림">
+                  <InteractionPreview />
+                  <AlertPreview />
+              </DeveloperGroup>
+              <DeveloperGroup title="연결·진단">
+                <Row
+                  name="서버 연결 끊김 화면"
+                  desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
+                >
+                  <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
+                    끊김 화면 확인
                   </button>
                 </Row>
-              )}
-              {camera && (
-                <div className="setting-row setting-row-stack">
-                  <div>
-                    <div className="setting-name">추적 속도</div>
-                    <div className="setting-desc">
-                      스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
-                    </div>
-                  </div>
-                  <TrackingRateCheck camera={camera} />
+              </DeveloperGroup>
+              <DeveloperGroup title="버전 정보">
+                <div className="setting-row">
+                  <div className="setting-name">판정 방식</div>
+                  <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>
                 </div>
-              )}
-              <AlertPreview />
-              <Row
-                name="서버 연결 끊김 화면"
-                desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
-              >
-                <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
-                  끊김 화면 확인
-                </button>
-              </Row>
-              <div className="setting-row">
-                <div className="setting-name">판정 방식</div>
-                <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>
-              </div>
-              <div className="setting-row">
-                <div className="setting-name">전처리</div>
-                <span className="mono">shoulder-normalized-v0.1</span>
-              </div>
-              <div className="setting-row">
-                <div className="setting-name">관절 추출</div>
-                <span className="mono">MediaPipe Pose (client)</span>
-              </div>
+                <div className="setting-row">
+                  <div className="setting-name">전처리</div>
+                  <span className="mono">shoulder-normalized-v0.1</span>
+                </div>
+                <div className="setting-row">
+                  <div className="setting-name">관절 추출</div>
+                  <span className="mono">MediaPipe Pose (client)</span>
+                </div>
+              </DeveloperGroup>
             </div>
           </details>
         </div>

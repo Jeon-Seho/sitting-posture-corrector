@@ -3,7 +3,9 @@ import { ArrowCounterClockwise, ArrowLeft, Check, Play, Square, VideoCamera } fr
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
-import { useSlidingThumb } from '../components/Segmented'
+import { PreparationSteps } from '../components/PreparationSteps'
+import { CameraWindowTest } from '../features/developer/CameraWindowTest'
+import { DeveloperGroup, InteractionPreview } from '../features/developer/DeveloperGroup'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
@@ -83,7 +85,6 @@ export function SetupPage({
   useEffect(() => () => cameraRef.current.cancelCalibration(), [])
 
   const step = !on ? 0 : !camera.quality ? 1 : registering || !registered ? 2 : 3
-  const { ref: stepsRef, thumb: stepDrop } = useSlidingThumb<HTMLOListElement>('.step-mark.active')
   const [title, desc] = headline({
     registerAgain,
     measuring,
@@ -265,31 +266,7 @@ export function SetupPage({
             <h3 className="card-title" style={{ marginBottom: 16 }}>
               준비 단계
             </h3>
-            <ol ref={stepsRef} className={`steps ${stepDrop ? 'has-drop' : ''}`} style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-              {stepDrop && <li className="step-drop" aria-hidden="true"
-                style={{ width: stepDrop.w, height: stepDrop.h, transform: `translate(${stepDrop.x}px, ${stepDrop.y}px)` }}>
-                <span key={step} className="step-drop-fluid" />
-              </li>}
-              {[
-                ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
-                ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
-                [
-                  registered && !registering ? '기준 자세 등록됨' : '기준 자세 등록',
-                  registered && !registering
-                    ? '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요'
-                    : `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 돼요`,
-                ],
-              ].map(([name], i) => (
-                <li className="step" key={i} aria-current={step === i ? 'step' : undefined}>
-                  <span className={`step-mark ${step > i ? 'done' : step === i ? 'active' : ''}`}>
-                    {step > i ? <Check size={16} weight="bold" /> : i + 1}
-                  </span>
-                  <div>
-                    <div className="step-title">{name}</div>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <PreparationSteps step={step} labels={['카메라 연결', '얼굴·어깨 확인', registered && !registering ? '기준 자세 등록됨' : '기준 자세 등록']} />
           </section>
 
           <div className="posture-note">
@@ -298,31 +275,35 @@ export function SetupPage({
           </div>
           <details className="more">
             <summary>개발자 옵션</summary>
-            <div className="more-body">
-              {onServerMode && (
-                <>
-                  <label className="row">
-                    <input
-                      type="checkbox"
-                      checked={serverMode}
-                      disabled={serverModeDisabled}
-                      onChange={(event) => onServerMode(event.target.checked)}
-                    />
-                    서버 판정 사용 · 개발 연결
-                  </label>
-                  <p className="fine">
-                    개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
-                    보내지 않습니다.
-                    {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
-                  </p>
-                </>
-              )}
-              <div className="row">
-                <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
-                  자세 데이터 수집으로 이동
-                </button>
-                <span className="fine">연구용 라벨 촬영 화면입니다.</span>
-              </div>
+            <div className="more-body dev-tools">
+              <DeveloperGroup title="카메라·작은 창"><CameraWindowTest /></DeveloperGroup>
+              <DeveloperGroup title="화면·모션"><InteractionPreview /></DeveloperGroup>
+              <DeveloperGroup title="연결·데이터 수집">
+                {onServerMode && (
+                  <>
+                    <label className="row">
+                      <input
+                        type="checkbox"
+                        checked={serverMode}
+                        disabled={serverModeDisabled}
+                        onChange={(event) => onServerMode(event.target.checked)}
+                      />
+                      서버 판정 사용 · 개발 연결
+                    </label>
+                    <p className="fine">
+                      개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
+                      보내지 않습니다.
+                      {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
+                    </p>
+                  </>
+                )}
+                <div className="row">
+                  <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
+                    자세 데이터 수집으로 이동
+                  </button>
+                  <span className="fine">연구용 라벨 촬영 화면입니다.</span>
+                </div>
+              </DeveloperGroup>
             </div>
           </details>
         </div>
