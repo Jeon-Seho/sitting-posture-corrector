@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0032)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0025](../decisions/0025-app-always-measures-on-server.md) 항상 서버로 측정, [0026](../decisions/0026-baseline-average-by-app-b1.md) 자세 등록 B1, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
 > **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-6(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(BE와 다른 곳 한눈에는 1.0). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
@@ -29,11 +29,11 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
 | 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([배포](fe-deploy.md)). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
-| 로그인 | HttpOnly·SameSite=Lax 쿠키. **로그인한 때부터 30분이 지나면 HTTP·WS 활동과 상관없이 만료**(10/22 BE 명세 1장, FE 기준. 10/25 기준 서버는 `spring.session.timeout=30m` — 마지막 요청부터 세는 방식이라 아직 다름). WS도 같은 쿠키. 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
+| 로그인 | HttpOnly·SameSite=Lax 쿠키. **로그인한 때부터 30분이 지나면 HTTP·WS 활동과 상관없이 만료**(10/22 BE 명세 1장, develop `7034f0e` 구현. 리프레시 토큰으로 바뀔 예정 — BE가 만들면 앱 적용, 10/26 회의). WS도 같은 쿠키. 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 긴 측정 뒤 401이면 기록은 서버가 이미 저장했음을 알리고 로그인 화면으로 |
 | CSRF | A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함) | 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
-| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 BE 브랜치 `fix/repo-backend-sync`에 있다(develop 미병합). 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
-| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의, BE-6 요청 중) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
+| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
+| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의. 10/27 서버 미구현·보류, BE 의견 A안 — FE 제안서 7.2 18번) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 
@@ -142,7 +142,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 ### 5.1 좌표 구간 (`posture.frames.v1`)
 
-**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간마다 판정하므로 프레임마다 결과(`observation`)가 온다. 필드와 예시는 BE 명세 11.2와 계약.
+**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 지금 서버는 구간마다 판정해 프레임마다 결과(`observation`)가 오지만, BE는 받은 프레임을 서버가 자체적으로 묶어 처리하기로 했다(10/27) — 그러면 결과는 서버가 묶은 단위마다 온다. 앱은 결과의 구간 값을 쓰지 않으므로 어느 쪽이든 동작한다(묶은 뒤 확인할 것은 FE 제안서 BE-8). 필드와 예시는 BE 명세 11.2와 계약.
 
 - **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `p: null`(이때 `valid`는 넣지 않는다).
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
@@ -173,7 +173,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 - 제외 구간의 시작·끝은 서버가 0.5초 경계에 맞춘다. 앱은 `rest`·`away`로 바뀐 시각을 `t_ms` 그대로 보낸다(그 시각에 구간을 닫는다).
 - 앱은 `MISSING`을 보내지 않는다. 서버가 구간이 빠진 것을 찾으면(`event.reason` `missing`·`missing_sequence`) 서버가 저장한다.
 - 판정 불가 시간을 빼는 규칙은 서버가 정한다. 앱은 받은 대로 보인다. 짧은 끊김을 같은 사건으로 잇는 처리는 요청하지 않는다(10/22).
-- `observation.valid_ms`는 그 구간에서 판정에 쓴 유효 하위 구간 길이의 합이고, 판정 불가 앞뒤 프레임은 하나로 합치지 않는다(10/22 BE 명세 Observation 3.0). 앱은 `valid_ms`를 받은 그대로 보이며 프레임 `t_ms`를 촬영 시각 그대로 보내면 된다. 10/25 기준 서버(`Timeline.addMeasured`·`FrameFeatures.interval`)는 아직 유효한 구간 전체 길이를 더하고 판정 가능 프레임 전부를 평균한다.
+- `observation.valid_ms`는 그 구간에서 판정에 쓴 유효 하위 구간 길이의 합이고, 판정 불가 앞뒤 프레임은 하나로 합치지 않는다(10/22 BE 명세 Observation 3.0). 앱은 `observation.valid_ms`를 쓰지 않고(측정 시간은 `summary`), 프레임 `t_ms`를 촬영 시각 그대로 보내면 된다. 10/27 기준 서버(`Timeline.addMeasured`·`FrameFeatures.interval`)는 아직 유효한 구간 전체 길이를 더하고 판정 가능 프레임 전부를 평균한다(BE 보류, BE-5 ②). 앱이 프레임마다 보내므로 구간 = 프레임 1장이면 같은 값이 되지만, 서버가 프레임을 묶어 처리하기로 해(BE 10/27) 묶는 방식에 따라 달라진다(FE 제안서 BE-8).
 
 ### 5.3 서버 → 앱
 
@@ -181,7 +181,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 |---|---|
 | `ready` | `features`를 보내기 시작한다(밀린 구간부터). `started_at`(서버가 S1을 받은 시각, BE `b903751`)을 기록의 시작 시각·오늘 날짜로 |
 | `ack` | 아무것도 하지 않는다(재전송 없음) |
-| `observation` | 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만). `invalid_reason`: `unmeasurable` 「얼굴과 어깨가 보이지 않아요」, `head_turn` 「고개를 돌린 동안은 판정하지 않아요」 |
+| `observation` | 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만). `valid`·`invalid_reason`은 서버만 아는 판정 불가(고개 돌림, 코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만)를 위해서만 본다 — 앱이 정한 판정 불가(어깨 안 보임·관절 빠짐·사람 없음)는 서버를 기다리지 않고 바로 표시(10/27). `invalid_reason`은 서버가 보내는 코드이고 문구는 앱: `head_turn` 「고개를 돌린 동안은 판정하지 않아요」, 그 밖 「얼굴과 어깨가 보이지 않아요」(`settling`은 서버가 아직 안 보냄). `start_ms`·`end_ms`·`valid_ms`·`model_version`은 화면에 쓰지 않음(`model_version`은 기록에 저장만) |
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
 | `alert` | 토스트·소리·데스크톱 팝업. 앱은 거르지 않는다 |

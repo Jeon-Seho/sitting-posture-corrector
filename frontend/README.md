@@ -157,7 +157,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 수동 API를 연결할 때만 `POSEGOOD_API_URL=http://127.0.0.1:<포트>`를 지정한다. 실시간 채널은 같은 `/api` 중계(`/api/v2/realtime`)로 간다.
 
 측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` → WebSocket `/v2/realtime` `hello` → `ready`(5초) →
-0.5초마다 관절 9개 좌표 구간 1개(`posture.frames.v1`) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
+프레임마다 관절 9개 좌표 구간 1개(`posture.frames.v1`, 10/27부터 — 서버가 받아 묶음. 앱이 판정 불가로 본 프레임은 좌표 없이 `p: null`·`valid: false`, ADR 0032) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」), 쓰던 카메라가 빠지거나 영상 크기가 바뀌거나 데스크톱 앱 작은 창의 X를 누르면 `end`.
 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`로 보낸다(2026-10-22, 유예 없음). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
 연결이 끊기면 그 측정은 끝나고 서버가 마지막 구간까지 저장한다(재연결·재전송 없음, [ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)).
