@@ -1,6 +1,6 @@
 # 백엔드 개발 상태
 
-> 기준: 2026-10-26 · 브랜치 `develop`(PR #63 `3285cce` 이후) · DB 스키마 V2.4(`develop`), V2.5(`fix/repo-backend-sync`, ADR 0028). FE `feature/frontend-features-and-integrationV3`(미병합)의 요청·결정도 함께 본다.
+> 기준: 2026-10-27 · 브랜치 `develop`(PR #65 `2e1fd2b`, DB 스키마 V2.5) · 작업 브랜치 `feature/repo-auth-refresh-token`(로그인 토큰, DB V2.6, ADR 0031). FE `feature/frontend-features-and-integrationV3`(미병합)의 요청·결정도 함께 본다.
 > 갱신 규칙: backend/AGENTS.md. 할 일은 계획, 결정 이유는 ADR을 본다.
 > 코드 경로: `backend/api/src/main/java/org/posegood/api/` 기준(시험은 `src/test/...`).
 
@@ -17,9 +17,9 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| 가입·로그인·로그아웃·CSRF·`/v2/auth/me` | DB/BE | 구현됨 | `account/AuthController.java` |
-| 로그인 고정 30분 만료 (로그인 시점부터, 활동해도 늘지 않음. 열린 측정 연결은 끊지 않음) | DB/BE | 구현됨 (브랜치, MySQL로는 미확인) — refresh 토큰 방식으로 바꿀 예정(4장) | `account/LoginLifetime.java`, `LoginLifetimeTest`, `api-spec.md` 1장, FE 요청 BE-5 |
-| 비밀번호 변경 (현재 로그인 포함 `SPRING_SESSION` 행 모두 삭제, 실시간 연결 닫기) | DB/BE | 구현됨 | `AuthController.java` `PUT /v2/auth/password`, `AccountRepository.removeLogins` |
+| 가입·로그인·로그아웃·`/v2/auth/me` | DB/BE | 구현됨 | `account/AuthController.java` |
+| **로그인 토큰**(ADR 0031): access 토큰(JWT HS256, 30분, Bearer, 저장 안 함) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지), `POST /v2/auth/refresh`, WS `hello.access_token`. 쿠키 세션·CSRF·`LoginLifetime` 삭제 | DB/BE | 구현됨 (브랜치 `feature/repo-auth-refresh-token`, MySQL로는 미확인) — **호환성 깨짐**: FE 토큰 처리, DevOps 도구·초기화 스크립트·`POSEGOOD_JWT_SECRET` 필요(3장) | `account/AuthTokens.java`, `RefreshTokenRepository.java`, `SecurityConfiguration.java`, `AuthTokensTest`, `api-spec.md` 1·4장 A8, DB V2.6 |
+| 비밀번호 변경 (그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫기. access 토큰은 만료까지 남음) | DB/BE | 구현됨 | `AuthController.java` `PUT /v2/auth/password`, `AccountRepository.removeLogins` |
 | 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`) | DB/BE | 구현됨 | `AuthController.java` `DELETE /v2/auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록 |
 | 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 3절(좌표 전송 동의 필수), [DB 안내](../database/README.md)(`user_consent`) |
 | 선택 정보 동의 철회 (나이·직업 비움) | DB/BE | 구현됨 | `workspace/WorkspaceController.java` `PUT /v2/consents/optional-profile` |
@@ -58,7 +58,7 @@
 | 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨 (브랜치, **기본 꺼짐**) — 앱이 새 사유를 처리한 뒤 `POSEGOOD_UNMEASURABLE_TIMEOUT=5m`. 계약 `realtime-ws.v2`에 사유 추가 → FE 계약도 맞춰야 함 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
 | HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features` | DB/BE | 구현됨 (v1 정리 때 삭제 — 시험·점검 도구가 아직 써서 남김) | `SessionController.java`, 2.6 BE-1 |
 | `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | **보류** (2026-10-26) — 지금은 구간 안 판정 가능 프레임 전체를 평균 내고, 유효하면 구간 전체 길이를 `valid_ms`·판정 시간에 더함. 유효·판정 불가 프레임이 섞인 구간에서만 다름 | `session/FrameFeatures.java`, `engine/Timeline.java`, FE 요청 BE-5 ②, 4장 |
-| 시작 시 스키마 확인 (V2.5, 13테이블, `baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
+| 시작 시 스키마 확인 (V2.6, 12테이블(`SPRING_SESSION` 2개는 확인 안 함), `refresh_token`·`baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
 
 ### 2.5 Kafka 전환 (계획 0031)
 
@@ -84,11 +84,11 @@
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
-| `backend/gradlew -p backend :api:test` (단위) | 68개 중 60 통과, 실패 0, 건너뜀 8 (`MySqlIntegrationTest`) | 2026-10-26 | BE-5·v1 삭제 후(`LoginLifetimeTest` 3개 추가, v1 통합 시험 삭제 — 통합 시험은 컴파일만 확인). 로컬 JDK 17 |
-| `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 7개·8개 통과 | 2026-10-26 | v1 삭제 후. 임시 가상환경(jsonschema 4.23.0)에서 실행 |
+| `backend/gradlew -p backend :api:test` (단위) | 76개 중 67 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-27 | 로그인 토큰 후(`AuthTokensTest` 5개, 핸들러 로그인 철회 시험 추가, `LoginLifetimeTest` 삭제, 통합 시험은 토큰 방식으로 고치고 컴파일만 확인). 로컬 JDK 17 |
+| `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 7개·8개 통과 | 2026-10-27 | `hello.access_token` 추가 후. 임시 가상환경(jsonschema 4.23.0)에서 실행 |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
 | `-Pmysql-integration` (실제 MySQL) | 확인 필요 | 2026-10-15 | 접속 거부로 미실행 (0026). [계획 0028](plans/active/0028-backend-java17-boot4-gradle.md)에도 미체크. V2.4 스키마로도 아직 실행 전 |
-| `database/tests/integrity_check.py` | 확인 필요 | — | V2.4·V2.5에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13) |
+| `database/tests/integrity_check.py` | 확인 필요 | — | V2.4~V2.6에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13). V2.6: `refresh_token` 제약·탈퇴 철회·CASCADE 검사 추가 |
 | `tools/service_smoke.py` | 확인 필요 | — | `daily_stat` 기대값을 「세션 종료 직후 0행」으로 고침(2026-10-26), 실행 전. `make check-backend`의 마지막 단계 |
 | `make check-compose` | 확인 필요 | 2026-10-14 | 실패 원인 분석만 있음 ([계획 0030](plans/active/0030-make-check-failures.md)) |
 
@@ -100,6 +100,8 @@
 | `docs/architecture.md` 105줄 | "`/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다" | 문서 담당에 갱신 요청 | 요청 전 |
 | `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0021, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
 | `docs/plans/active/0031-realtime-kafka-transition.md` 79·84줄 | 최대 측정 시간을 「팀 회의 결과를 따른다, 5000초 유지」로 적음 — 2026-10-26 결정(제품 한도 없음, 측정불가 5분 자동 종료)과 다름. 10/26 v1 정리 기록도 없음 | 계획 공동 담당(DevOps·PM)에 갱신 요청(BE가 계획 0031을 직접 고치지 않기로 함) | 요청 전 |
+| `infra/mysql/initdb/10-posegood-schema.sh` | 빈 볼륨에 `schema_V2_5.sql`을 적용함 — API는 V2.6(`refresh_token`)이 없으면 시작하지 않음 | DevOps에 `schema_V2_6.sql`로 바꿔 달라고 요청. Compose 비밀값에 `POSEGOOD_JWT_SECRET`(32바이트 이상) 추가 요청 | 요청 전 |
+| `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | 쿠키·CSRF 로그인(`/v2/auth/csrf`)과 쿠키 WS 인증을 씀 — 토큰 로그인(ADR 0031)에서 실패 | DevOps에 Bearer 토큰·`hello.access_token`으로 바꿔 달라고 요청 | 요청 전 |
 | `tools/platform/io_api_smoke.py` 172줄 | R1을 배열로 읽음 — 2026-10-27부터 `{today, records}` 객체 | DevOps에 수정 요청 | 요청 전 |
 | `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
 
@@ -108,17 +110,16 @@
 | 질문 | 담당 | 관련 문서 |
 |---|---|---|
 | API 다중 인스턴스 (진행 상태 공유·세션 고정) | DB/BE·DevOps | `backend/README.md` 「다음 결정」 1, D-42 |
-| KST 자정 끊기 (BE-6 ①, 보류) — A안(닫고 앱이 새 S1, 로그인 고정 30분이면 401 → refresh 토큰 뒤) / B안(같은 연결에서 서버가 새 세션 생성·`session_rollover`, 연결=세션 구조·계약·DB insert 변경). 최대 측정 시간을 없애 자정을 넘는 측정은 모두 해당 | DB/BE·FE | 2.6, FE ADR 0029 |
+| KST 자정 끊기 (BE-6 ①, 보류) — A안(닫고 앱이 새 S1 — 예전 401 문제는 토큰 로그인(ADR 0031)으로 풀림) / B안(같은 연결에서 서버가 새 세션 생성·`session_rollover`, 연결=세션 구조·계약·DB insert 변경). 최대 측정 시간을 없애 자정을 넘는 측정은 모두 해당 | DB/BE·FE | 2.6, FE ADR 0029 |
 | 측정불가 자동 종료를 켜는 시점 (`unmeasurable-timeout` 0 → 5m) — 앱이 `closed(unmeasurable_timeout)`을 처리한 뒤. 앱의 「쉬기 10분 자동 종료」(FE ADR 0029)는 별개로 남음 | DB/BE·FE | 2.4, `api-spec.md` 11.3 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
-| 알림 기본값 (DB `sound_alert_enabled` 기본 false, FE 화면은 켜짐 — 정하지 않음, ADR 없음) | DB·FE | [DB 안내](../database/README.md), 스키마 V2.5 `sound_alert_enabled` 설명 |
+| 알림 기본값 (DB `sound_alert_enabled` 기본 false, FE 화면은 켜짐 — 정하지 않음, ADR 없음) | DB·FE | [DB 안내](../database/README.md), 스키마 V2.6 `sound_alert_enabled` 설명 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
 | WebSocket 등록(`purpose: calibration`)을 남길지 | DB/BE | FE ADR 0021 「남길지는 BE가 정한다」 |
 | S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
-| 로그인 방식을 refresh 토큰으로 바꾸기 (예정) — 토큰 수명·저장 위치(쿠키/앱), WebSocket 인증, `SPRING_SESSION`·CSRF와의 관계, 비밀번호 변경·탈퇴 때 토큰 철회. 정해지면 ADR로 남기고 고정 30분(`LoginLifetime`)을 대체 | DB/BE·FE | 2.1, `api-spec.md` 1장 |
 | `valid_ms` 하위 구간 (BE-5 ②, 보류) — 특징을 낼 조각(가장 긴 조각/조각별 추론), 구간 안 판정 불가가 연속 시간을 끊는지, 그 시간을 `excluded_interval`에 남길지(`RecordRebuild`가 행 합계로 유효 시간을 다시 만듦), Kafka 판정과 맞추기. 줄어든 시간은 `unknown_ms`로(FE 앱이 `valid = normal + deviation`, `total = 각 시간 합`을 검사) | DB/BE·DevOps | 2.4, `api-spec.md` 11.3 |
 
 ## 5. 갱신 기록
@@ -137,8 +138,9 @@
 | 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | `fdd1269` |
 | 2026-10-26 | 최대 측정 시간 결정(D안): 제품 한도 없앰·재전송 기억 120개, 측정불가 5분 자동 종료(기본 꺼짐). 미결 「최대 측정 시간」 → 「자동 종료 켜는 시점」 | `725bca0` |
 | 2026-10-27 | BE-6 ③: A2·A3·A4 `today`, R1을 `{today, records}` 객체로(호환성 깨짐). BE-6 ① 자정 끊기 보류. `closed` 사유 이름 `unmeasurable_timeout` 유지 | `d27a97d` |
-| 2026-10-27 | 계획 0031에 넣었던 BE 기록을 되돌리고(공동 문서), 그 근거를 이 문서·api-spec으로 옮김. 계획 0031 갱신은 담당에 요청(3장) | 커밋 전 |
+| 2026-10-27 | 계획 0031에 넣었던 BE 기록을 되돌리고(공동 문서), 그 근거를 이 문서·api-spec으로 옮김. 계획 0031 갱신은 담당에 요청(3장) | `80ba7db` |
 
+| 2026-10-27 | 로그인 토큰(ADR 0031): JWT access + refresh, DB V2.6(`refresh_token`, migration 016), 쿠키 세션·CSRF·`LoginLifetime` 삭제, WS `hello.access_token`. 미결 「refresh 토큰」 → 구현됨. DevOps 요청 2건(초기화 스크립트·JWT 비밀값, 점검 도구) 추가 | 커밋 전 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

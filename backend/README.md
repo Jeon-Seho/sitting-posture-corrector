@@ -2,7 +2,7 @@
 
 Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
 앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 특징 변화량 경로 `POST /v2/sessions/{id}/features`는 서버에 남아 있지만 앱은 쓰지 않는다(남길지는 BE가 정한다).
-DB는 MySQL [스키마 V2.5](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
+DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
 ## 코드 구조
@@ -15,11 +15,11 @@ backend/api/src/main/java/org/posegood/api/
 ├── engine/     # 판정 엔진: SessionEngine(순서·누락·중복), Timeline(시간 누적),
 │               # EpisodeLedger(사건·통계), DecisionRules(정책 임계 비교 — 이곳에만 있다)
 ├── policy/     # threshold_policy 찾기·추가 (행은 고치지 않는다)
-├── account/    # 가입·로그인·CSRF·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
+├── account/    # 가입·로그인(JWT access + refresh 토큰)·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
 ├── realtime/   # /v2/realtime WebSocket
-└── system/     # /health, 시작 시 스키마 V2.5 확인
+└── system/     # /health, 시작 시 스키마 V2.6 확인
 ```
 
 흐름: `SessionController`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
@@ -47,21 +47,23 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 false)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
 - 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
   사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
-- 로그인은 성공 시점부터 30분이 지나면 활동과 관계없이 끝난다(`account/LoginLifetime`, `posegood.login-lifetime`, [BE API 명세](../docs/design/api-spec.md) 1장).
-  HTTP 요청·WebSocket 메시지는 만료를 늘리지 않는다. 이미 인증된 측정 연결은 만료만으로 끊지 않고, 만료 뒤 보호된 HTTP는 `401 UNAUTHENTICATED`, 새 연결의 `hello`는 `closed: unauthorized`다.
-  refresh 토큰 방식으로 바꿀 예정이다(방식 미정, [백엔드 상태](../docs/backend-status.md) 4장).
-- 비밀번호 변경·탈퇴는 그 사용자의 `SPRING_SESSION` 행을 지우고 열린 실시간 연결을 닫는다(V2.1에서 `auth_epoch` 삭제).
+- 로그인([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md), `account/AuthTokens`): access 토큰(JWT HS256, 30분, `Authorization: Bearer`, 저장 안 함)과
+  refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, DB `refresh_token`에는 SHA-256만). `POST /v2/auth/refresh`가 refresh 토큰을 바꿔 준다.
+  바꾼 토큰의 30초 안 재사용은 허용, 그 뒤 재사용은 그 사용자의 refresh 토큰을 모두 철회한다. 서명 키는 `POSEGOOD_JWT_SECRET`(32바이트 이상, 배포 필수).
+  서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음). `SPRING_SESSION` 테이블은 쓰지 않지만 남겨 둔다.
+- 로그아웃은 그 기기의 refresh 토큰, 비밀번호 변경·탈퇴는 그 사용자의 refresh 토큰을 모두 철회하고, 비밀번호 변경·탈퇴는 열린 실시간 연결도 닫는다.
+  access 토큰은 철회하지 않는다(만료까지 최대 30분). 탈퇴한 계정은 요청마다 계정 상태를 확인해 바로 401이다.
 - 아키텍처 v5.2(2026-10-15 공지): API는 `daily_stat`을 읽기만 하고, 탈퇴는 접수만 한다. 탈퇴는 철회할 수 없고
   CLOSED 계정은 로그인 `403 ACCOUNT_CLOSED`, 같은 이메일 재가입은 최종 삭제 전까지 `409`다.
   30일 유예 뒤 최종 삭제(사용자 HDFS 폴더 → `feature_archive.deleted_at` → 행)와 삭제 완료 안내 메일은 Spark J3(cron 매일 04:00)가 맡는다.
 
 ## API
 
-모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·CSRF·소유권·오류 형식은 [계정·저장 API v2](../contracts/accounts.v2.md)을 따른다.
+모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·토큰·소유권·오류 형식은 [계정·저장 API v2](../contracts/accounts.v2.md)을 따른다.
 
 | 경로 | 역할 |
 | --- | --- |
-| `GET /v2/auth/csrf`, `POST /v2/auth/register`, `POST /v2/auth/login`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인 |
+| `POST /v2/auth/register`, `POST /v2/auth/login`, `POST /v2/auth/refresh`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인·로그인 유지 |
 | `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
 | `GET`·`PUT /v2/workspace`, `GET`·`POST /v2/records`, `DELETE /v2/records/{id}` | 설정·앱 기록 |
 | `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
@@ -85,7 +87,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 실시간 채널
 
-`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. 로그인 쿠키로 인증하고 같은 출처 페이지만 허용한다
+`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
 (`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번 또는 자세 등록 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
 보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).

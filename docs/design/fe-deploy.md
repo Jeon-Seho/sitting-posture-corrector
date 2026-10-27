@@ -6,7 +6,7 @@
 ## 1. 왜 바꾸나
 
 - **화면을 조금 고칠 때마다 서버를 다시 올리는 건 맞지 않다(10/19).** 화면은 서버와 따로 배포하고, 서버는 API만 맡는다.
-- **공개 배포는 HTTPS가 필요하다.** 브라우저·Electron은 `https://`(또는 `localhost`)에서만 카메라를 켜고, 로그인 쿠키(Secure)·`wss://`도 HTTPS가 전제다.
+- **공개 배포는 HTTPS가 필요하다.** 브라우저·Electron은 `https://`(또는 `localhost`)에서만 카메라를 켜고, 로그인 유지 쿠키(refresh, Secure)·`wss://`도 HTTPS가 전제다.
 - 화면은 Vercel이 무료로 HTTPS를 준다. 남는 것은 서버(API·WebSocket)의 HTTPS 하나이고, 도메인 하나와 Cloudflare 무료 터널로 푼다.
 
 ## 2. 정한 것 (10/19)
@@ -35,26 +35,26 @@
 
 | # | 항목 | 지금 BE | 분리 뒤 | 종류 | 누가 |
 |---|---|---|---|---|---|
-| S-1 | **CORS** | 설정이 없다(10/25 develop `3285cce`에도 없음. `SecurityConfiguration`에 `.cors()` 없음). 다른 출처의 요청은 브라우저가 먼저 보내는 확인 요청(OPTIONS)부터 로그인 필요로 막힌다 | 허용 출처 `https://app.<도메인>`, 쿠키 포함 허용, 메서드 GET·POST·PUT·DELETE, 헤더 `Content-Type`·`X-CSRF-TOKEN`·`X-PoseGood-User-Id`. 확인 요청은 로그인 없이 통과. 허용 출처는 WS처럼 환경 변수로 | **코드** | BE |
-| S-2 | 로그인 쿠키 Secure | `server.servlet.session.cookie.secure=${POSEGOOD_COOKIE_SECURE:false}` | `POSEGOOD_COOKIE_SECURE=true` | 설정 | BE·DevOps |
+| S-1 | **CORS** | 설정이 없다(10/25 develop `3285cce`에도 없음. `SecurityConfiguration`에 `.cors()` 없음). 다른 출처의 요청은 브라우저가 먼저 보내는 확인 요청(OPTIONS)부터 로그인 필요로 막힌다 | 허용 출처 `https://app.<도메인>`, 쿠키 포함 허용(refresh 쿠키), 메서드 GET·POST·PUT·DELETE, 헤더 `Content-Type`·`Authorization`·`X-PoseGood-User-Id`(토큰 로그인 뒤 `X-CSRF-TOKEN` 없음, BE ADR 0031). 10/27 BE 토큰 브랜치에도 REST `.cors()`는 아직 없다(FE 제안서 BE-12 ②). 확인 요청은 로그인 없이 통과. 허용 출처는 WS처럼 환경 변수로 | **코드** | BE |
+| S-2 | 로그인 쿠키 Secure | `server.servlet.session.cookie.secure=${POSEGOOD_COOKIE_SECURE:false}`(토큰 로그인 뒤에는 refresh 쿠키 `posegood_refresh`에 같은 변수, 그리고 `POSEGOOD_JWT_SECRET` 32바이트 이상 필수) | `POSEGOOD_COOKIE_SECURE=true` | 설정 | BE·DevOps |
 | S-3 | WS 허용 출처 | `POSEGOOD_REALTIME_ALLOWED_ORIGINS` 비어 있음 = 같은 출처만 | `https://app.<도메인>`(`/v1`·`/v2` 둘 다 이 값을 씀) | 설정 | DevOps |
 | S-4 | nginx 화면 파일 | `default.conf`가 API와 함께 화면(`/`, `/mediapipe/`)도 낸다 | 화면은 Vercel이 내므로 `api.`에서는 필요 없다. 지워도 되고 둬도 해는 없다 | 설정 | DevOps |
 | S-5 | nginx `X-Forwarded-Proto` | `$scheme`을 넘긴다 | 터널(cloudflared) → nginx 구간은 HTTP라 `http`로 넘어간다. 10/22 기준 서버는 이 값을 쓰는 곳이 없어 당장 문제는 없지만, 나중을 위해 `https`로 고정하는 것을 권한다 | 설정 | DevOps |
 | S-6 | 터널 | 없음 | 이름 있는 터널 `api.<도메인>` → nginx(80). 경로 `/api` 접두사는 지금처럼 nginx가 뗀다 | 설정 | DevOps |
 
 **바꾸지 않아도 되는 것:**
-- **CSRF:** 토큰을 세션에 두고 `GET /v2/auth/csrf` 응답 본문으로 준다(`HttpSessionCsrfTokenRepository`). 쿠키에서 읽는 방식이 아니라서, 출처가 달라도 응답을 읽어 헤더로 보내면 된다.
-- **SameSite=Lax:** `app.`과 `api.`는 같은 사이트라 HTTP 요청과 WS 연결 모두에 쿠키가 실린다. 쿠키 `Domain` 지정도 필요 없다(`api.` 쿠키면 됨).
-- **로그인 30분, WS 계약, 판정:** 그대로다.
+- **CSRF:** 토큰을 세션에 두고 `GET /v2/auth/csrf` 응답 본문으로 준다(`HttpSessionCsrfTokenRepository`). 쿠키에서 읽는 방식이 아니라서, 출처가 달라도 응답을 읽어 헤더로 보내면 된다. **토큰 로그인(BE ADR 0031, 10/27 BE 브랜치) 뒤에는 CSRF가 없다.**
+- **SameSite=Lax:** `app.`과 `api.`는 같은 사이트라 HTTP 요청과 WS 연결 모두에 쿠키가 실린다. 쿠키 `Domain` 지정도 필요 없다(`api.` 쿠키면 됨). 토큰 로그인 뒤에는 refresh 쿠키만 이 규칙을 따르고, 요청 인증은 `Authorization: Bearer`, WS는 `hello.access_token`이다.
+- **WS 계약, 판정:** 그대로다(토큰 로그인 뒤 `hello`에 `access_token` 필수). 로그인 30분 고정은 토큰 로그인으로 없어진다(access 30분을 refresh 14일로 계속 갱신).
 
-**주의:** Vercel 기본 주소(`*.vercel.app`)에서 열면 `api.<도메인>`과 **다른 사이트**라 Lax 쿠키가 실리지 않아 로그인이 안 된다. 실제 서버는 `app.<도메인>`에서만 쓰고, 미리보기는 가짜 서버로 띄운다(4장 3단계). 미리보기 주소는 서버 허용 목록에 넣지 않는다.
+**주의:** Vercel 기본 주소(`*.vercel.app`)에서 열면 `api.<도메인>`과 **다른 사이트**라 Lax 쿠키가 실리지 않아 로그인이 안 된다(토큰 로그인 뒤에도 refresh 쿠키가 안 실려 로그인 유지가 안 된다. 설치용 데스크톱 앱의 `app://posegood`도 같다 — F14로 `https://app.<도메인>`을 열어야 한다). 실제 서버는 `app.<도메인>`에서만 쓰고, 미리보기는 가짜 서버로 띄운다(4장 3단계). 미리보기 주소는 서버 허용 목록에 넣지 않는다.
 
 ### 3.2 앱 쪽
 
 | # | 항목 | 지금 앱 | 분리 뒤 |
 |---|---|---|---|
 | A-1 | API 주소 | **10/19 끝남:** `VITE_API_BASE_URL`(`features/platform/serverConfig.ts`, 요청은 `features/platform/api.ts`). 비우면 같은 출처 `/api/…`, 개발은 Vite 중계 | 운영은 `VITE_API_BASE_URL=https://api.<도메인>` |
-| A-2 | 쿠키 보내기 | **10/19 끝남:** `credentials: 'include'`(`api.ts`·`accountClient.ts`) | 그대로(출처가 달라서 `same-origin`으로는 안 실린다) |
+| A-2 | 쿠키 보내기 | **10/19 끝남:** `credentials: 'include'`(`api.ts`·`accountClient.ts`) | 그대로(출처가 달라서 `same-origin`으로는 안 실린다). 토큰 로그인 뒤에는 refresh 쿠키 때문에 유지 |
 | A-3 | WS 주소 | **10/21 바꿈:** `VITE_REALTIME_URL`을 지우고 API 주소(없으면 페이지 주소)에서 만든다(`https:`면 `wss:`) | `VITE_API_BASE_URL`만 넣으면 `wss://api.<도메인>/api/v2/realtime`가 된다 |
 | A-4 | 계정 | 10/22부터 항상 서버 계정(`accountClient.ts`, 스위치 없음 — Vercel에 계정용 환경 변수를 넣지 않는다) | 다른 출처라 CORS·`POSEGOOD_COOKIE_SECURE=true`가 있어야 로그인 쿠키가 실린다 |
 

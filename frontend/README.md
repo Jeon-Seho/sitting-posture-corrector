@@ -119,8 +119,8 @@ MediaPipe Pose Landmarker Lite로 상체를 추적하고, 관절 좌표를 서�
 회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([동의 제안서](../docs/design/consent-proposal.md))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
 
 가입·로그인·로그아웃은 항상 입출구 서버 `/v2/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
-CSRF 토큰, 로그인 쿠키(`credentials: 'include'`), 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
-앱을 다시 열면 `GET /v2/auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1)이 같은 계정·CSRF 토큰을 쓴다.
+토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /v2/auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
+앱을 다시 열면 A8로 토큰을 받고 `GET /v2/auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
 비밀번호 변경·탈퇴·선택 동의 철회·설정(W1·W2)은 아직 연결하지 않았다([FE 제안서](../docs/design/fe-server-proposal.md) 7.2).

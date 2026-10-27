@@ -39,14 +39,14 @@ backend/
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
     .../workspace/        설정·앱 기록 저장과 검증
     .../realtime/         /v2/realtime WebSocket(좌표 프레임)
-    .../system/           health, DB V2.5 확인
+    .../system/           health, DB V2.6 확인
 
 model/
   prototype/              판정 가능 프레임 검사(코·양 어깨·양 귀). 앱은 판정하지 않는다
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
-database/                 DB 담당 스키마 V2.5·시드·마이그레이션(API는 검증만)
+database/                 DB 담당 스키마 V2.6·시드·마이그레이션(API는 검증만)
 infra/                    컨테이너 빌드·Nginx·배포 안내
 compose.yaml              서버 개발용 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제

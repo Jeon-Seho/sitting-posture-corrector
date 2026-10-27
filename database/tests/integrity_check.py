@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.5 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.6 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -85,6 +85,21 @@ check("선택 정보 동의 철회 — 동의 행에 철회 시각, 나이·직�
 ok("약관 개정 후 재동의 — 새 버전으로 새 행", ins_con, (A, "TERMS", "2026-10-05 09:00:00", "terms-2026-11"))
 check("현재 약관 동의 = 가장 최근 행의 버전",
       one("SELECT document_version FROM user_consent WHERE user_account_id=%s AND consent_type='TERMS' ORDER BY agreed_at DESC LIMIT 1", (A,)) == "terms-2026-11")
+
+# ===================================================================== 로그인 유지 토큰 (V2.6, ADR 0031)
+# 원문 대신 SHA-256(16진수 64자)만 둔다. 쓸 때마다 교체(rotated_at), 철회는 revoked_at
+ins_rt = "INSERT INTO refresh_token (user_account_id,token_hash,issued_at,expires_at) VALUES (%s,%s,%s,%s)"
+T14 = "2026-10-16 01:00:00.000"
+ok("refresh 토큰 저장 — A 기기 2개", ins_rt, (A, "a" * 64, T0, T14))
+ok("refresh 토큰 저장 — A 두 번째", ins_rt, (A, "b" * 64, T0, T14))
+ok("refresh 토큰 저장 — B", ins_rt, (B, "c" * 64, T0, T14))
+fails("UK-17 같은 토큰 해시 거부", ins_rt, (B, "a" * 64, T0, T14), "ux_refresh_token_token_hash")
+fails("토큰 해시 64자가 아니면 거부", ins_rt, (A, "d" * 63, T0, T14), "ck_refresh_token_token_hash")
+fails("만료가 발급보다 앞서면 거부", ins_rt, (A, "e" * 64, T0, "2026-10-01 00:00:00"), "ck_refresh_token_expires_at")
+fails("FK-28 없는 사용자의 토큰", ins_rt, (999999, "f" * 64, T0, T14), "fk_refresh_token_user_account")
+ok("교체 시각 기록", "UPDATE refresh_token SET rotated_at=%s WHERE token_hash=%s", ("2026-10-02 01:29:00", "a" * 64))
+fails("교체 시각이 발급보다 앞서면 거부", "UPDATE refresh_token SET rotated_at='2026-10-01 00:00:00' WHERE token_hash=%s", ("b" * 64,), "ck_refresh_token_rotated_at")
+fails("철회 시각이 발급보다 앞서면 거부", "UPDATE refresh_token SET revoked_at='2026-10-01 00:00:00' WHERE token_hash=%s", ("b" * 64,), "ck_refresh_token_revoked_at")
 
 # ===================================================================== 기준 자세·세션
 # 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
@@ -198,21 +213,17 @@ def intake(uid, at):
     con.begin()
     cur.execute("INSERT INTO deletion_request (user_account_id,requested_at,request_scope,account_closed_at) VALUES (%s,%s,'ACCOUNT_ALL',%s)", (uid, at, at))
     cur.execute("UPDATE user_account SET account_status='CLOSED' WHERE user_account_id=%s", (uid,))
-    # 로그인 무효화: auth_epoch 대신 그 사용자의 로그인 세션 행을 지운다 (PRINCIPAL_NAME = 로그인 이메일)
-    cur.execute("DELETE s FROM SPRING_SESSION s JOIN user_account u ON s.PRINCIPAL_NAME = u.login_email WHERE u.user_account_id=%s", (uid,))
+    # 로그인 무효화 (V2.6): 그 사용자의 refresh 토큰을 모두 철회한다. access 토큰(JWT)은 저장하지 않는다
+    # (시험 데이터는 접수 시각이 토큰 발급보다 앞서므로 발급 시각 이후로 맞춘다 — ck_refresh_token_revoked_at)
+    cur.execute("UPDATE refresh_token SET revoked_at=GREATEST(issued_at,%s) WHERE user_account_id=%s AND revoked_at IS NULL", (at, uid))
     con.commit()
 
 
-ok("S1-0 준비: A 로그인 세션 2개 + 속성", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,9999999999999,'test-a@example.invalid'),(%s,%s,1,1,1800,9999999999999,'test-a@example.invalid')",
-   ("a1" * 18, "s1" * 18, "a2" * 18, "s2" * 18))
-ok("S1-0 준비: A 로그인 세션 속성", "INSERT INTO SPRING_SESSION_ATTRIBUTES VALUES (%s,'SPRING_SECURITY_CONTEXT',X'00')", ("a1" * 18,))
-ok("S1-0 준비: B 로그인 세션", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,9999999999999,'test-b@example.invalid')", ("b1" * 18, "s3" * 18))
 intake(A, "2026-09-05 09:00:00"); check("S1-0 접수 — 삭제 요청 REQUESTED + 계정 CLOSED (한 트랜잭션)",
       one("SELECT account_status FROM user_account WHERE user_account_id=%s", (A,)) == "CLOSED")
-check("S1-0 접수 — A의 로그인 세션·속성 삭제, 다른 사용자(B) 세션은 그대로",
-      one("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME='test-a@example.invalid'") == 0
-      and one("SELECT COUNT(*) FROM SPRING_SESSION_ATTRIBUTES") == 0
-      and one("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME='test-b@example.invalid'") == 1)
+check("S1-0 접수 — A의 refresh 토큰 모두 철회, 다른 사용자(B) 토큰은 그대로",
+      one("SELECT COUNT(*) FROM refresh_token WHERE user_account_id=%s AND revoked_at IS NULL", (A,)) == 0
+      and one("SELECT COUNT(*) FROM refresh_token WHERE user_account_id=%s AND revoked_at IS NULL", (B,)) == 1)
 check("S1-1 유예 중 — 식별 정보·측정 기록은 그대로",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s AND login_email IS NOT NULL", (A,)) == 1
       and one("SELECT COUNT(*) FROM monitor_session WHERE user_account_id=%s", (A,)) == 1)
@@ -246,6 +257,7 @@ check("S1-4 완료 안내용 연락처를 삭제 전에 읽음", contact == "tes
 cnt = {t: one(f"SELECT COUNT(*) FROM {t}") for t in ("excluded_interval", "collapse_event", "correction_alert")}
 check("S1 연쇄 삭제 — 제외 구간·이벤트·알림 0행", all(v == 0 for v in cnt.values()), str(cnt))
 check("S1 동의 기록도 계정과 함께 삭제 (FK-19 CASCADE)", one("SELECT COUNT(*) FROM user_consent WHERE user_account_id=%s", (A,)) == 0)
+check("S1 refresh 토큰도 계정과 함께 삭제 (FK-28 CASCADE)", one("SELECT COUNT(*) FROM refresh_token WHERE user_account_id=%s", (A,)) == 0)
 check("S1 계정 행과 삭제 요청 행이 남지 않음",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s", (A,)) == 0 and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (A,)) == 0)
 check("S1 공유 판정 정책은 남음", one("SELECT COUNT(*) FROM threshold_policy") == 1)
@@ -296,7 +308,7 @@ ok("세션 없는 계정 삭제 → 기준 자세·통계·동의 연쇄", "DELE
 left = {t: one(f"SELECT COUNT(*) FROM {t} WHERE user_account_id=%s", (A2,)) for t in ("baseline_posture", "daily_stat", "user_consent")}
 check("CASCADE 결과 0행", all(v == 0 for v in left.values()), str(left))
 
-# ===================================================================== 로그인 세션 (Spring Session 표준 정의)
+# ===================================================================== 로그인 세션 (Spring Session 표준 정의 — V2.6부터 API가 안 쓰지만 테이블은 남김)
 ok("로그인 세션 저장", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,2,'test-b@example.invalid')", ("p" * 36, "x" * 36))
 ok("로그인 세션 속성 저장", "INSERT INTO SPRING_SESSION_ATTRIBUTES VALUES (%s,'SPRING_SECURITY_CONTEXT',X'00')", ("p" * 36,))
 fails("같은 SESSION_ID 거부", "INSERT INTO SPRING_SESSION VALUES (%s,%s,1,1,1800,2,NULL)", ("q" * 36, "x" * 36), "SPRING_SESSION_IX1")
@@ -320,10 +332,10 @@ cur.execute("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHER
 cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
 check("V2.1·V2.2·V2.4 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered, row_count 등 21개)", not left_c, ", ".join(left_c))
-check("V2.2·V2.3·V2.5 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자)",
+check("V2.2·V2.3·V2.5·V2.6 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자, refresh 토큰 해시)",
       {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
        ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec"),
-       ("baseline_posture", "client_registration_uuid")} <= cols)
+       ("baseline_posture", "client_registration_uuid"), ("refresh_token", "token_hash")} <= cols)
 check("V2.5 UK-14(사용자, 등록 시각) 인덱스 없음 — 재전송은 UK-16이 막는다",
       one("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND INDEX_NAME='ux_baseline_posture_registered'") == 0)
 

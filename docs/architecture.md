@@ -3,7 +3,7 @@
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
-지금 앱(FE V3, 2026-10-21~)은 DB V2.5·HTTP 계정 v2에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
+지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 현재 체험용 구현의 초기 선택은 옛 ADR 0002(지금 [ADR 0007](decisions/0007-lite-pose-tracker.md) 1절)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상·원본 좌표는 서버에 보내지 않는다.
@@ -85,7 +85,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 ## MySQL 영구 모드
 
 [계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
-인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다.([ADR 0020](decisions/0020-single-api-decision-engine.md)).
+인증은 access·refresh 토큰([ADR 0031](decisions/0031-jwt-access-refresh-login.md), 2026-10-27)이고 소유자는 서버 인증 주체에서 얻는다.([ADR 0020](decisions/0020-single-api-decision-engine.md)).
 진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간은 종료 때 짧은 트랜잭션으로 저장한다.
 일별 통계(`daily_stat`)는 API가 읽기만 하고 Spark J2가 매일 00:00에 전날(KST)을 집계하도록 설계했다.
 탈퇴는 API가 접수만 하고(철회 없음), 30일 유예 뒤 최종 삭제는 Spark J3가 매일 04:00에 하도록 설계했다.
@@ -96,7 +96,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
 동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
-앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.5)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.

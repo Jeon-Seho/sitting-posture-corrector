@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-27 밤(BE 토큰 로그인 공지 반영 — 1장 로그인·로그인 유지·CSRF, 3장 A1·A4·A8) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-27 밤(BE 토큰 로그인 develop PR #68 — 1장 로그인·로그인 유지, 2장 403, 3장 A4·A8, 6.2, CSRF·A1 삭제) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
 > **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(BE와 다른 곳 한눈에는 1.0). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
@@ -29,10 +29,9 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
 | 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([배포](fe-deploy.md)). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
-| 로그인 | **지금(develop):** HttpOnly·SameSite=Lax 쿠키 세션, 로그인한 때부터 30분 고정 만료(`7034f0e`). WS도 같은 쿠키. **바뀜(BE ADR 0031, 브랜치 `feature/repo-auth-refresh-token` `351eb3f`, 김유진 10/27 공지):** access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`). 쿠키 세션·CSRF·A1·30분 고정을 없앰(이행 기간 없음, DB V2.6 `refresh_token`). **이전 앱과 같이 쓸 수 없어 BE 브랜치와 FE 토큰 처리를 같은 날 develop에 합친다.** 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | 지금: 쿠키를 직접 다루지 않는다. 401이면 로그인 화면. 바뀐 뒤: access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지. 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
+| 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신. 자정에 새 측정을 이어 붙일 때(ADR 0029 A안)의 S1도 이 경로라 401이 나지 않는다 |
-| CSRF | 지금: A1 토큰을 POST·PUT·DELETE의 `X-CSRF-TOKEN`에(가입·로그인 포함). **토큰 전환 뒤 없어짐**(A1 경로 삭제) | 지금: 앱 시작·로그인·로그아웃 뒤 다시 받는다. 403 `ACCESS_DENIED`면 한 번만 다시 받아 재시도. 토큰 전환 때 이 처리를 지운다 |
-| 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, csrfToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
+| 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의. 10/27 서버 미구현·보류, BE 의견 A안 — FE 제안서 7.2 18번) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3). **10/27 FE 결정: S1에서 `policy`를 빼고 서버가 계정 정책으로 고정하게 요청(BE-11).** BE가 `policy` 없는 S1을 받게 한 뒤 앱이 뺀다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버(프레임 `t_ms`로), 앱은 설정 화면 표시에만 W1 값을 쓴다 |
@@ -59,7 +58,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 400 | `CONSENT_REQUIRED` | 가입 1단계(약관 동의)로 |
 | 401 | `UNAUTHENTICATED` | 로그인 화면 |
 | 401 | `INVALID_CREDENTIALS` | 「이메일이나 비밀번호가 맞지 않아요」 |
-| 403 | `ACCESS_DENIED` | CSRF 토큰을 다시 받아 한 번 재시도, 또 실패하면 새로고침 안내(토큰 전환 뒤에는 CSRF가 없어 일반 거절) |
+| 403 | `ACCESS_DENIED` | 접근 거부. 일반 오류로 안내(토큰 로그인 뒤 CSRF는 없다) |
 | 403 | `ACCOUNT_CLOSED` | 탈퇴했고 최종 삭제 전인 계정(비밀번호가 맞을 때만 온다). 「자세한 사항을 아래 번호 또는 이메일로 남겨주세요. 010 - 1234 - 5678 / klaod@naver.com」(아래 탈퇴) |
 | 404 | `SESSION_NOT_FOUND`·`SESSION_LOST` | 측정을 끝내고 마지막 `progress`로 종료 화면 |
 | 404 | `BASELINE_NOT_FOUND` | 측정하기에서 자세 등록부터 |
@@ -83,12 +82,11 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | ID | 메서드·경로 | 앱이 부르는 때 |
 |---|---|---|
-| A1 | `GET /v2/auth/csrf` | 앱 시작, 로그인·로그아웃·가입 뒤. **토큰 전환 뒤 삭제** |
 | A2 | `POST /v2/auth/register` | 회원가입 2단계(계정 정보) 「다음」 |
 | A3 | `POST /v2/auth/login` | 로그인 |
-| A4 | `GET /v2/auth/me` | 앱 시작(지금: 쿠키가 살아 있으면 로그인 화면을 건너뜀. 토큰 전환 뒤: A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 10/26부터 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) |
+| A4 | `GET /v2/auth/me` | 앱 시작(A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 10/26부터 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) |
 | A5 | `POST /v2/auth/logout` | 계정 메뉴 「로그아웃」 |
-| A8 | `POST /v2/auth/refresh` | **토큰 전환 뒤(BE ADR 0031).** 만료 1~2분 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) |
+| A8 | `POST /v2/auth/refresh` | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) |
 | A6 | `PUT /v2/auth/password` | 설정 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) |
 | A7 | `DELETE /v2/auth/account` | 프로필 › 탈퇴 |
 | C1 | `PUT /v2/consents/optional-profile`(동의 항목 C1과 다름) | 프로필 › 선택 정보 동의 켜기·끄기 |
@@ -112,7 +110,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 본문은 BE 명세 4~8장이다.
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 A1 → W1 → 3단계로.
-- **A3·A4 로그인:** A3 200 → A1 → W1 → 측정하기(토큰 전환 뒤: A3 200의 `access_token`을 메모리에 → W1, A1 없음). A4 200(앱 시작)이면 로그인 화면을 건너뛴다(토큰 전환 뒤: A8 200 → A4). 측정 중 로그아웃·비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. 토큰 전환 뒤 `hello`에는 `access_token`이 필수다.
+- **A3·A4 로그인:** A3 200의 `access_token`을 메모리에 → W1 → 측정하기. 앱 시작 때는 A8 200 → A4로 로그인 화면을 건너뛴다. 측정 중 비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. `hello`에는 `access_token`이 필수다.
 - **W1·W2·C1:** W1 `rules`는 판정 기준, `preferences.alerts_on`은 「자세 알림」. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비운다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`(`policy`는 빼기로 정함 — BE-11, 서버가 받게 한 뒤). `policy`는 W1 `rules`를 ms로, `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이고 알림 여부는 W1 `alerts_on`을 쓴다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
@@ -261,10 +259,9 @@ sequenceDiagram
 
 | 단계 | 앱 | 서버 |
 |---|---|---|
-| 1 | A1 | 토큰 |
-| 2 | 가입: A2(4장) / 로그인: A3 | 200 사용자 + 쿠키 / 409 `ACCOUNT_EXISTS` / 401 / 403 `ACCOUNT_CLOSED` |
-| 3 | A1 다시 → W1 → B2 | workspace, 기준 |
-| 4 | 가입이면 3단계 자세 등록(5.4, 선택), 로그인이면 측정하기 | — |
+| 1 | 가입: A2(4장) / 로그인: A3 | 200 사용자 + access 토큰(본문)·refresh 쿠키 / 409 `ACCOUNT_EXISTS` / 401 / 403 `ACCOUNT_CLOSED` |
+| 2 | W1 → B2 | workspace, 기준 |
+| 3 | 가입이면 3단계 자세 등록(5.4, 선택), 로그인이면 측정하기 | — |
 
 ### 6.3 측정 중 끊김
 

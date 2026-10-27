@@ -20,7 +20,7 @@
    (관절 9개 `[x, y, visibility]`, 2026-10-27부터 프레임마다 1건, 서버가 받아 묶음)을 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
 3. **서버 없이 쓰는 로컬 모드는 없다.** 앱은 로그인한 서버 모드만 있다. 서버가 없으면 측정을 시작하지 않는다.
 4. **ML용 내보내기에 앱 판정 라벨을 붙이지 않는다**(`state`·`type`·`score` 열 제거). 자세 데이터 수집 화면은 BE·ML 요구를 다시 받아 만든다.
-5. 앱 설정 중 소리 켜기는 저장하지 않는다. 「자세 알림」 켜기·끄기만 서버에 저장한다: `user_account.sound_alert_enabled`(DB V2.5), 측정 시작 때 `monitor_session.alert_enabled`로 복사([DB 안내](../../database/README.md)). 기본값은 DB가 false, 앱 화면이 켜짐으로 서로 달라 아직 정하지 않았다([백엔드 상태](../backend-status.md) 미결 표).
+5. 앱 설정 중 소리 켜기는 저장하지 않는다. 「자세 알림」 켜기·끄기만 서버에 저장한다: `user_account.sound_alert_enabled`(DB V2.6), 측정 시작 때 `monitor_session.alert_enabled`로 복사([DB 안내](../../database/README.md)). 기본값은 DB가 false, 앱 화면이 켜짐으로 서로 달라 아직 정하지 않았다([백엔드 상태](../backend-status.md) 미결 표).
 
 ## 2. 이유
 

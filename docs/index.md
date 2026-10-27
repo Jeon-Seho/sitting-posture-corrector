@@ -4,7 +4,7 @@
 
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
 
-웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.5 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
+웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
 학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
@@ -21,8 +21,8 @@
 
 - **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe-server-proposal.md) 7.2.
 
-- **결정(2026-10-27 정리, 13개):** 분야별로 묶었다. 합치거나 지운 ADR은 [지운 문서 기록](removed-docs.md) 7절.
-  - FE·BE 경계: [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md)(측정·자세 등록 B1·판정 불가 신호 포함), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0028 절대 시각은 서버가 정한다](decisions/0028-server-time-for-baseline-registration.md), [ADR 0029 측정은 KST 자정에 서버가 끊고, 날짜·시각은 서버 시각](decisions/0029-midnight-cut-and-server-time.md)
+- **결정(2026-10-27 정리, 14개):** 분야별로 묶었다. 합치거나 지운 ADR은 [지운 문서 기록](removed-docs.md) 7절.
+  - FE·BE 경계: [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md)(측정·자세 등록 B1·판정 불가 신호 포함), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0028 절대 시각은 서버가 정한다](decisions/0028-server-time-for-baseline-registration.md), [ADR 0029 측정은 KST 자정에 서버가 끊고, 날짜·시각은 서버 시각](decisions/0029-midnight-cut-and-server-time.md), [ADR 0031 access·refresh 토큰 로그인](decisions/0031-jwt-access-refresh-login.md)
   - FE: [ADR 0005 점수 방향과 화면 표시](decisions/0005-score-visuals.md), [ADR 0008 단일 앱](decisions/0008-single-app-entry.md), [ADR 0017 데스크톱 앱과 작은 카메라 창](decisions/0017-desktop-app-shell-and-redesign.md), [ADR 0027 오늘 기록](decisions/0027-today-records-from-collected-server-results.md)
   - BE: [ADR 0020 판정은 API 하나 안에서(구조·시간 정책·특징·계정)](decisions/0020-single-api-decision-engine.md) / 서버 운영: [ADR 0015 Compose·배포](decisions/0015-compose-and-deployment.md)
   - ML: [ADR 0007 추적 모델과 수집](decisions/0007-lite-pose-tracker.md) / 공통: [ADR 0001 하네스](decisions/0001-repository-harness.md), [ADR 0009 검증 진입점](decisions/0009-cross-platform-dev-entry.md)
@@ -76,7 +76,7 @@
 - [글자·여백 조사와 적용(2026-10-26)](audits/2026-10-26-typography-spacing-review.md): Fluent·Atlassian 공식 기준, 원형 지표의 안쪽 여백, 공통 글자 크기·행간·간격.
 
 [완료 계획 폴더](plans/completed/)는 완료 문서의 보관 위치다. 삭제된 개인 파일럿(0019)·카메라 창(0018)·계정·Compose(0017) 문서의 정리 내역은 [지운 문서 목록](removed-docs.md)에서 확인한다. 이 목록은 원문의 구현 범위·검증 결과를 대신하지 않는다.
-지금 DB 기준은 [DB 안내](../database/README.md)(V2.5)다.
+지금 DB 기준은 [DB 안내](../database/README.md)(V2.6)다.
 과거 백엔드 V2(DB V2.2) 구현 범위·남은 일·문제는 [2026-10-10 현황](audits/2026-10-10-backend-v2-status.md)에 있다.
 Mac 통합 점검·lee 브랜치 기록·페르소나 메모는 삭제된 문서이며, [정리 내역](removed-docs.md)을 참고한다.
 과거 계획서의 스택·수치와 과거 작업 승인은 현재 작업의 의무나 권한으로 취급하지 않는다.

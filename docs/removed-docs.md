@@ -126,5 +126,5 @@ BE 쪽(0011·0012·0013·0014·0018·0019·0022·0023)은 2026-10-27 BE 피드�
 | `docs/decisions/0032-unmeasurable-frame-signal-only.md` | klaod-tech | 0021의 판정 불가 예외를 바꾼 것이다 | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 6절 |
 | `docs/decisions/0033-kst-daily-measurement-parts.md` | lellon0403 | 0027과 같은 주제(이 기기의 기록)이고 서버 자정 끊기 뒤 필요 없어진다 | [ADR 0027](decisions/0027-today-records-from-collected-server-results.md) 4절 |
 
-남은 ADR(13개): 0001·0009(공통), 0005·0008·0017·0027(FE), 0007(ML), 0015·0020(서버 운영·BE), 0021·0024·0028·0029(FE·BE 경계). BE 토큰 로그인 ADR 0031은 BE 브랜치에 있다(develop 미병합).
+남은 ADR(13개, 그 뒤 develop PR #68로 BE 0031이 더해져 14개): 0001·0009(공통), 0005·0008·0017·0027(FE), 0007(ML), 0015·0020(서버 운영·BE), 0021·0024·0028·0029·0031(FE·BE 경계).
 코드 주석의 ADR 번호도 바꿨다: BE `Policy.java`·`SessionEngine.java`·`FeatureDeltas.java`·`FrameFeatures.java`·`InferenceClient.java`, `model/inference/service.py`(0012·0013·0019 → 0020), `tools/runtime.py`·`requirements-front.txt`(0023 → `backend/README.md`), FE 코드(0025·0026·0032 → 0021, 0033 → 0027).

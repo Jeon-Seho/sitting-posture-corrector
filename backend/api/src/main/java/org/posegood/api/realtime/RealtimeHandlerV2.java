@@ -4,8 +4,8 @@ import tools.jackson.databind.JsonNode;
 
 import jakarta.validation.Validator;
 
-import org.posegood.api.account.AccountPrincipal;
 import org.posegood.api.account.AccountService;
+import org.posegood.api.account.AuthTokens;
 import org.posegood.api.account.CurrentUser;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.CanonicalUuidDeserializer;
@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataAccessException;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -49,19 +48,24 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
  * 세션을 끝낸다. 형식·순서가 틀리면 {@code closed(bad_message)}. 좌표·특징 값은 로그에 남기지 않는다.
+ *
+ * <p>로그인은 hello의 {@code access_token}(JWT)으로 한 번만 확인한다(ADR 0031). 측정 중에는 다시 확인하지 않아
+ * 토큰이 만료돼도 연결은 끝까지 간다. 비밀번호 변경·탈퇴 때는 그 사용자의 연결을 바로 닫는다.
  */
 @Component
 public class RealtimeHandlerV2 extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(RealtimeHandlerV2.class);
     static final int MAX_BYTES = 64 * 1024;
-    private static final Set<String> HELLO_MEASURE = Set.of("type", "schema_version", "purpose", "session_id");
+    private static final Set<String> HELLO_MEASURE =
+            Set.of("type", "schema_version", "purpose", "session_id", "access_token");
     private static final Set<String> HELLO_CALIBRATION =
-            Set.of("type", "schema_version", "purpose", "calibration_id");
+            Set.of("type", "schema_version", "purpose", "calibration_id", "access_token");
     private static final Set<String> FEATURES = Set.of("type", "items");
     private static final Set<String> END = Set.of("type", "end_ms");
 
     private final SessionService sessions;
     private final CurrentUser current;
+    private final AuthTokens tokens;
     private final Json json;
     private final Validator validator;
     private final Duration helloTimeout;
@@ -80,12 +84,14 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     public RealtimeHandlerV2(
             SessionService sessions,
             CurrentUser current,
+            AuthTokens tokens,
             Json json,
             Validator validator,
             @Value("${posegood.realtime.hello-timeout}") Duration helloTimeout,
             @Value("${posegood.realtime.ready-timeout}") Duration readyTimeout) {
         this.sessions = sessions;
         this.current = current;
+        this.tokens = tokens;
         this.json = json;
         this.validator = validator;
         this.helloTimeout = helloTimeout;
@@ -183,7 +189,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             return;
         }
         try {
-            channel.owner = owner(socket);
+            channel.owner = current.id(tokens.authenticate(Json.text(frame.path("access_token"), null)));
             if (!measure) {
                 channel.capture = new SessionService.Capture();
                 channel.calibration = id;
@@ -354,9 +360,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     @EventListener
     public void loginsRemoved(AccountService.LoginsRemoved removed) {
         for (var channel : channels.values()) {
-            if (!(channel.socket.getPrincipal() instanceof Authentication authentication)
-                    || !(authentication.getPrincipal() instanceof AccountPrincipal principal)
-                    || principal.id() != removed.userId()) continue;
+            if (channel.owner != removed.userId()) continue;
             finishClosed(channel, "unauthorized");
         }
     }
@@ -366,12 +370,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     public void shutdown() {
         for (var channel : channels.values()) finishClosed(channel, "server_shutdown");
         timer.shutdownNow();
-    }
-
-    private long owner(WebSocketSession socket) {
-        if (!(socket.getPrincipal() instanceof Authentication authentication))
-            throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        return current.id(authentication);
     }
 
     private static String refusal(ApiError refused) {

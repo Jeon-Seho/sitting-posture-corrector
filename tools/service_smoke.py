@@ -24,20 +24,20 @@ POLICY = {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold
 
 
 class Account:
-    """A browser-like client: cookie login, CSRF header and the stale-tab user header."""
+    """A browser-like client: Bearer access token, refresh cookie and the stale-tab user header (ADR 0031)."""
 
     def __init__(self, base):
         self.base = base
         self.cookies = CookieJar()
         self.opener = build_opener(HTTPCookieProcessor(self.cookies))
-        self.csrf = None
+        self.access_token = None
         self.user_id = None
 
     def headers(self, method="GET"):
         """Login headers for a client without this cookie jar (the server benchmark)."""
         headers = {}
-        if self.csrf and method != "GET":
-            headers["X-CSRF-TOKEN"] = self.csrf
+        if self.access_token:
+            headers["Authorization"] = "Bearer " + self.access_token
         if self.user_id:
             headers["X-PoseGood-User-Id"] = self.user_id
         return headers
@@ -57,7 +57,6 @@ class Account:
         return json.loads(raw) if raw else None
 
     def register(self):
-        self.csrf = self.request("/v2/auth/csrf")["token"]
         user = self.request("/v2/auth/register", "POST", {
             "email": f"test-{uuid.uuid4()}@example.invalid",
             "password": "synthetic-password-1",
@@ -65,7 +64,7 @@ class Account:
             "consents": [{"type": t, "document_version": "service-v2"} for t in ("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER", "OPTIONAL_PROFILE")],
         })
         self.user_id = user["user_id"]
-        self.csrf = self.request("/v2/auth/csrf")["token"]
+        self.access_token = user["access_token"]
         return user
 
 

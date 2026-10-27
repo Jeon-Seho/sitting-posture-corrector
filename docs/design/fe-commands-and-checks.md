@@ -37,6 +37,10 @@ npx vitest run <파일 이름>            # 바꾼 파일의 시험만
 npx tsc -b                            # 타입 오류만
 cd ..
 
+# 가짜 서버로 화면 보기 (frontend 폴더에서, 실제 BE·DB 없이 — 판정은 단순 규칙, 저장 없음)
+node scripts/fake-server.mjs          # 127.0.0.1:8090(Vite /api 중계 기본 주소). 다른 터미널에서 npm run dev, 아무 이메일·비밀번호로 로그인
+FAKE_ACCESS_SECONDS=120 node scripts/fake-server.mjs   # access 토큰 2분: 미리 갱신(A8)이 도는지 보기
+
 # 데스크톱 앱 (frontend 폴더에서, 창·팝업 구조는 FE 제안서 8.4)
 npm run desktop                       # 개발 서버(5174)를 띄우고 Electron 창. 창을 닫으면 서버도 끈다
 npm run desktop:dev                   # 이미 켜 둔 개발 서버(5173)에 창만 붙인다

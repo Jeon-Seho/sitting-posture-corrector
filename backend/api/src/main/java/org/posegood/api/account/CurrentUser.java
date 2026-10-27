@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 /**
  * 요청을 보낸 로그인 사용자의 ID를 꺼낸다(정상 계정이 아니면 401).
  *
- * 끊긴 로그인은 `SPRING_SESSION` 행이 없으므로 여기까지 오지 않는다.
+ * access 토큰이 없거나 만료되면 보안 필터에서 401이 되어 여기까지 오지 않는다. 탈퇴한 계정은 여기서 401이다.
  */
 @Component
 public class CurrentUser {

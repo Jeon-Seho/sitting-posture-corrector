@@ -39,8 +39,8 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 
 | 항목 | 규칙 |
 |---|---|
-| 인증 | DB(`SPRING_SESSION`)에 저장하는 로그인 쿠키. HttpOnly, SameSite=Lax. **로그인 성공 시점부터 30분이 지나면 HTTP·WebSocket 활동 여부와 관계없이 만료한다**(FE 기준). HTTPS 배포에서는 `POSEGOOD_COOKIE_SECURE=true`로 Secure를 켠다. HTTP 요청과 WebSocket 메시지는 만료 시간을 늘리지 않는다. 만료만으로 이미 인증된 측정 연결을 종료하지 않으며, 만료 후 인증이 필요한 HTTP 요청은 `401 UNAUTHENTICATED`다. 로그아웃·비밀번호 변경·탈퇴에 따른 인증 철회와 연결 종료는 별도다. |
-| CSRF | `GET /v2/auth/csrf`로 받은 토큰을 모든 POST·PUT·DELETE 요청의 `X-CSRF-TOKEN` 헤더에 붙인다. 가입·로그인도 포함한다. 로그인·로그아웃 뒤에는 다시 받는다. |
+| 인증 | **access 토큰(JWT HS256, 30분)**을 `Authorization: Bearer <token>`으로 보낸다. 가입·로그인 응답 본문으로 받는다. 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음, ADR 0031). 만료 뒤 인증이 필요한 요청은 `401 UNAUTHENTICATED`. |
+| 로그인 유지 | **refresh 토큰(14일)**은 HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`, HTTPS 배포에서 `POSEGOOD_COOKIE_SECURE=true`로 Secure)로만 준다. 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 [A8](#a8) `POST /v2/auth/refresh`로 새 토큰을 받는다. refresh 토큰은 쓸 때마다 바뀐다. |
 | 계정 확인 헤더 | 로그인이 필요한 경로 대부분(아래 "계정 헤더" 표시)에 `X-PoseGood-User-Id: <user_id>`를 붙인다. 로그인 계정과 다르면 `409 AUTH_CHANGED`. 다른 탭에서 계정이 바뀐 화면의 쓰기를 막는 용도이며 인증 수단이 아니다. |
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 예시와 고정값 | 엔드포인트마다 있는 JSON 블록의 값은 **예시**다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. |
@@ -50,8 +50,11 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 
-로그인 고정 30분 만료는 FE 문서에 맞춘 계약이고 서버가 구현한다(2026-10-26, `account/LoginLifetime`). 로그인할 때 시각을 세션에 적고, 그 뒤 30분(`posegood.login-lifetime`, `POSEGOOD_LOGIN_LIFETIME`)이 지난 첫 HTTP 요청·WebSocket 연결에서 세션을 지운다. 30분 동안 요청이 없으면 Spring Session의 유휴 만료(`spring.session.timeout`, 같은 30분)로도 끝난다.
-로그인 방식은 refresh 토큰으로 바꿀 예정이다(방식 미정, [백엔드 상태](../backend-status.md) 4장). 바뀌면 이 절과 4장을 함께 고친다.
+로그인 방식은 2026-10-27 쿠키 세션 + 로그인 고정 30분에서 access·refresh 토큰으로 바꿨다([ADR 0031](../decisions/0031-jwt-access-refresh-login.md)).
+- access 토큰은 철회하지 않는다. 로그아웃·비밀번호 변경·탈퇴 뒤에도 남은 시간(최대 30분)은 통하고, refresh 토큰은 바로 막힌다. 열린 실시간 연결은 비밀번호 변경·탈퇴 때 바로 `closed(unauthorized)`로 닫힌다.
+- 바꾼 refresh 토큰을 30초(유예) 안에 다시 쓰면(여러 탭이 동시에 갱신) 한 번 더 새 토큰을 준다. 그 뒤에 다시 쓰면 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다.
+- 실시간 연결은 `hello`의 `access_token`으로 한 번만 확인한다. 측정 중에 토큰이 만료돼도 연결은 끝까지 간다(11장).
+- 설정: `POSEGOOD_JWT_SECRET`(서명 키, 32바이트 이상, 배포에서 필수), `POSEGOOD_ACCESS_TOKEN_LIFETIME`(30m), `POSEGOOD_REFRESH_TOKEN_LIFETIME`(14d).
 
 `model_version`·`feature_version` 등 모델명·버전명은 개발·연동용 내부 정보이며 서비스 화면에는 표시하지 않는다(2026-10-22 결정). 이 명세의 요청·응답 필드와 고정값 검증은 유지하며, 같은 이름이 계산 조건의 동일성까지 보장하지는 않는다([내부 관리 기준](../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
@@ -66,7 +69,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 400 | `CONSENT_REQUIRED` | 필수 동의 누락·중복·다른 문서 버전, 선택 동의 없이 나이·직업 입력 | 동의 화면으로 |
 | 401 | `UNAUTHENTICATED` | 로그인 없음 또는 만료 | 로그인 화면으로 |
 | 401 | `INVALID_CREDENTIALS` | 이메일·비밀번호 불일치 | 입력 안내 |
-| 403 | `ACCESS_DENIED` | CSRF 토큰 없음·불일치 | 토큰 다시 받고 재시도 |
+| 403 | `ACCESS_DENIED` | 접근 거부 | — |
 | 403 | `ACCOUNT_CLOSED` | 탈퇴 접수한 계정으로 로그인 (철회 불가, 30일 뒤 삭제) | "탈퇴 처리 중, 30일 뒤 삭제" 안내 |
 | 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 | 측정 종료 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 | 마지막 확인 요약으로 기록 저장 |
@@ -86,13 +89,13 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | No | Method | 경로 | 로그인 | 설명 | 성공 |
 |---|---|---|---|---|---|
-| [A1](#a1) | GET | `/v2/auth/csrf` | - | CSRF 토큰 발급 | 200 |
 | [A2](#a2) | POST | `/v2/auth/register` | - | 회원가입 | 200 |
 | [A3](#a3) | POST | `/v2/auth/login` | - | 로그인 | 200 |
 | [A4](#a4) | GET | `/v2/auth/me` | 필요 | 내 정보 | 200 |
-| [A5](#a5) | POST | `/v2/auth/logout` | 필요 | 로그아웃 | 204 |
+| [A5](#a5) | POST | `/v2/auth/logout` | 쿠키 | 로그아웃 | 204 |
 | [A6](#a6) | PUT | `/v2/auth/password` | 필요 | 비밀번호 변경 | 204 |
 | [A7](#a7) | DELETE | `/v2/auth/account` | 필요 | 탈퇴 접수 | 204 |
+| [A8](#a8) | POST | `/v2/auth/refresh` | 쿠키 | 로그인 유지(새 access·refresh 토큰) | 200 |
 | [C1](#c1) | PUT | `/v2/consents/optional-profile` | 필요 | 선택 정보 동의·철회 | 200 |
 | [W1](#w1) | GET | `/v2/workspace` | 필요 | 설정 + 기록 조회 | 200 |
 | [W2](#w2) | PUT | `/v2/workspace` | 필요 | 설정 저장 | 200 |
@@ -108,39 +111,26 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [R2](#r2) | POST | `/v2/records` | 필요 | 기록 저장 | 200 |
 | [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
-| [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | 쿠키 | 좌표 프레임 측정·자세 등록, 판정 push | 101 |
+| [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | hello 토큰 | 좌표 프레임 측정·자세 등록, 판정 push | 101 |
 
 ## 4. 계정
 
-가입·로그인·로그아웃·비밀번호·탈퇴 접수. 탈퇴는 철회할 수 없다. 비밀번호는 BCrypt(강도 12)로 저장한다.
+가입·로그인·로그인 유지·로그아웃·비밀번호·탈퇴 접수. 탈퇴는 철회할 수 없다. 비밀번호는 BCrypt(강도 12)로 저장한다. 토큰 규칙은 [1장](#1-공통-규칙)과 [ADR 0031](../decisions/0031-jwt-access-refresh-login.md).
 
 <a id="a1"></a>
 
-### A1 · `GET /v2/auth/csrf` — CSRF 토큰 발급
+### A1 · ~~`GET /v2/auth/csrf`~~ — 삭제 (2026-10-27)
 
-공개
-
-- 상태를 바꾸는 모든 요청 전에 받는다. 로그인 전에도 호출할 수 있다.
-
-**요청 본문**: 없음
-
-**응답 200 (예시)**
-
-```json
-{
-  "header_name": "X-CSRF-TOKEN",
-  "token": "c1f0...e9"
-}
-```
+토큰 로그인으로 바꿔 CSRF 토큰이 필요 없어졌다(ADR 0031). 로그인 유지는 [A8](#a8).
 
 <a id="a2"></a>
 
 ### A2 · `POST /v2/auth/register` — 회원가입
 
-공개 · `X-CSRF-TOKEN`
+공개
 
 - 계정 행과 동의 행을 한 트랜잭션으로 저장하고 기본 판정 정책(3초/3초/60초/0.7)을 연결한다.
-- 성공하면 바로 로그인 상태가 된다(세션 ID 새로 발급).
+- 성공하면 바로 로그인 상태가 된다: 본문에 access 토큰, `Set-Cookie`로 refresh 토큰(로그인 A3와 같음).
 - 이메일은 앞뒤 공백을 지우고 소문자로 바꿔 저장한다.
 
 **요청 필드**
@@ -191,7 +181,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 }
 ```
 
-**응답 200 (예시)** + Set-Cookie (로그인 세션)
+**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…; HttpOnly; SameSite=Lax; Path=/`
 
 ```json
 {
@@ -202,7 +192,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "age": null,
     "occupation": null
   },
-  "today": "2026-10-13"
+  "today": "2026-10-13",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0MjQwMCwiZXhwIjoxNzYwMzQ0MjAwfQ.c2lnbmF0dXJl",
+  "token_type": "Bearer",
+  "expires_in": 1800
 }
 ```
 
@@ -214,15 +207,14 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 400 | `INVALID_PASSWORD` | 비밀번호 규칙(12자 이상, UTF-8 72바이트 이하) 위반 또는 현재 비밀번호 불일치 |
 | 400 | `CONSENT_REQUIRED` | 필수 동의 누락·중복·다른 문서 버전, 선택 동의 없이 나이·직업 입력 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) |
-| 403 | `ACCESS_DENIED` | CSRF 토큰 없음·불일치 |
 
 <a id="a3"></a>
 
 ### A3 · `POST /v2/auth/login` — 로그인
 
-공개 · `X-CSRF-TOKEN`
+공개
 
-- 성공하면 세션 ID를 새로 발급한다(세션 고정 공격 방지).
+- 성공하면 access 토큰(본문)과 새 refresh 토큰(`Set-Cookie`)을 발급한다. `expires_in`은 access 토큰의 남은 초다.
 - 없는 이메일도 더미 해시와 비교해서 응답 시간으로 계정 유무를 알 수 없게 한다.
 - 탈퇴 접수한(CLOSED) 계정은 로그인할 수 없다. 비밀번호가 맞으면 403 ACCOUNT_CLOSED로 따로 알려 앱이 "탈퇴 처리 중, 30일 뒤 삭제"를 안내하게 한다.
 
@@ -235,7 +227,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 }
 ```
 
-**응답 200 (예시)** + Set-Cookie
+**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…`
 
 ```json
 {
@@ -246,7 +238,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "age": null,
     "occupation": null
   },
-  "today": "2026-10-13"
+  "today": "2026-10-13",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0MjQwMCwiZXhwIjoxNzYwMzQ0MjAwfQ.c2lnbmF0dXJl",
+  "token_type": "Bearer",
+  "expires_in": 1800
 }
 ```
 
@@ -257,7 +252,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 401 | `INVALID_CREDENTIALS` | 이메일·비밀번호 불일치 |
 | 403 | `ACCOUNT_CLOSED` | 탈퇴 접수한 계정으로 로그인 (철회 불가, 30일 뒤 삭제) |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
-| 403 | `ACCESS_DENIED` | CSRF 토큰 없음·불일치 |
 
 <a id="a4"></a>
 
@@ -295,29 +289,23 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### A5 · `POST /v2/auth/logout` — 로그아웃
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+공개 · refresh 쿠키
 
-- 현재 로그인 세션만 지운다. 다른 기기의 로그인은 유지된다.
+- 이 기기의 refresh 토큰을 철회하고 쿠키를 지운다(`Max-Age=0`). 다른 기기의 로그인은 유지된다.
+- access 토큰은 철회하지 않는다. 앱이 버린다(만료까지 최대 30분 남음). 쿠키가 없거나 모르는 토큰이어도 204.
 
 **요청 본문**: 없음
 
-**응답 204**: 본문 없음
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 |
-| 403 | `ACCESS_DENIED` | CSRF 토큰 없음·불일치 |
+**응답 204**: 본문 없음 + `Set-Cookie: posegood_refresh=; Max-Age=0`
 
 <a id="a6"></a>
 
 ### A6 · `PUT /v2/auth/password` — 비밀번호 변경
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
-- 그 계정의 SPRING_SESSION 행을 모두 지워 모든 기기에서 로그아웃시킨다.
-- 열린 WebSocket은 closed: unauthorized로 닫는다. 새 비밀번호로 다시 로그인해야 한다.
+- 그 계정의 refresh 토큰을 모두 철회해 모든 기기에서 로그인 유지를 끊는다. 이 기기의 쿠키도 지운다.
+- 열린 WebSocket은 closed: unauthorized로 닫는다. 이미 발급된 access 토큰은 만료(최대 30분)까지 남는다. 새 비밀번호로 다시 로그인해야 한다.
 
 **요청 필드**
 
@@ -350,9 +338,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### A7 · `DELETE /v2/auth/account` — 탈퇴 접수
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
-- deletion_request(REQUESTED)를 추가하고 계정을 CLOSED로 바꾼다. 모든 로그인을 지우고 진행 중 세션을 메모리에서 뺀다.
+- deletion_request(REQUESTED)를 추가하고 계정을 CLOSED로 바꾼다. refresh 토큰을 모두 철회하고 진행 중 세션을 메모리에서 뺀다. CLOSED 계정은 남은 access 토큰으로도 401이다.
 - 되돌릴 수 없다(철회 없음). 유예 30일 동안 계정·기록은 그대로 두고, 유예가 끝나면 Spark J3(cron 매일 04:00)가 HDFS 사용자 폴더와 DB 행을 지운다. API는 삭제하지 않는다.
 - 최종 삭제 전까지 같은 이메일로 다시 가입할 수 없다(ACCOUNT_EXISTS).
 
@@ -375,6 +363,37 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 |
 
+<a id="a8"></a>
+
+### A8 · `POST /v2/auth/refresh` — 로그인 유지
+
+공개 · refresh 쿠키 (2026-10-27, ADR 0031)
+
+- 쿠키 `posegood_refresh`로 새 access 토큰과 새 refresh 토큰을 받는다. 옛 refresh 토큰은 바뀐 것으로 표시된다.
+- 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 부른다. 동시에 나가는 요청은 갱신 한 번을 같이 기다리게 한다(FE 공통 처리).
+- 바꾼 토큰을 30초 안에 다시 쓰면 한 번 더 새 토큰을 준다(여러 탭). 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한 뒤 401.
+- 실패(401)하면 쿠키를 지운다. 앱은 로그인 화면으로 보낸다. 네트워크 오류·5xx는 로그아웃하지 말고 다시 시도한다.
+
+**요청 본문**: 없음
+
+**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…` (새 토큰)
+
+```json
+{
+  "user_id": "42",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0NDEwMCwiZXhwIjoxNzYwMzQ1OTAwfQ.c2lnbmF0dXJl",
+  "token_type": "Bearer",
+  "expires_in": 1800,
+  "today": "2026-10-13"
+}
+```
+
+**오류**
+
+| HTTP | code | 의미 |
+|---|---|---|
+| 401 | `UNAUTHENTICATED` | 쿠키 없음, 모르는 토큰, 만료(14일), 철회(로그아웃·비밀번호 변경·탈퇴), 유예 뒤 재사용, 탈퇴한 계정 |
+
 ## 5. 동의·설정
 
 판정 기준과 자세 알림은 user_account가 가리키는 threshold_policy 행과 sound_alert_enabled에 저장된다. 정책 행은 고치지 않고, 같은 값의 행을 찾거나 새로 추가한다.
@@ -383,7 +402,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### C1 · `PUT /v2/consents/optional-profile` — 선택 정보 동의·철회
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - 철회하면 기존 동의 행에 withdrawn_at을 기록하고 나이·직업을 NULL로 비운다.
 - 다시 동의하면 새 행을 추가한다. 같은 상태를 반복해서 보내면 아무것도 바뀌지 않는다.
@@ -479,7 +498,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### W2 · `PUT /v2/workspace` — 설정 저장
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - profile, rules, preferences 세 개를 모두 보낸다. 동의와 기록은 이 요청으로 바뀌지 않는다.
 - 바꾼 판정 기준은 다음 세션부터 적용된다.
@@ -560,7 +579,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### B1 · `POST /v2/baselines` — 기준 자세 등록
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - 항상 새 행을 추가하고 과거 행은 고치지 않는다.
 - 같은 `registration_id`와 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 `registration_id`에 다른 좌표면 409.
@@ -672,7 +691,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S1 · `PUT /v2/sessions/{id}` — 세션 생성
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - policy와 baseline_id는 계정의 현재 정책·현재 기준과 같아야 한다(설정 화면에서 받은 값을 그대로 보냄).
 - monitor_session에 정책·기준·알림 설정을 고정하고 메모리에 판정 엔진을 만든다.
@@ -754,7 +773,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S2 · `POST /v2/sessions/{id}/features` — 특징 입력 → 추론 → 판정
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - 구간 하나(1~1,500ms)의 특징을 받아 FastAPI에 추론을 요청하고, 결과로 판정 엔진을 진행시킨다.
 - 세션 잠금 안에서 순서대로 처리한다. sequence는 이전보다 커야 하고 start_ms는 이전 구간 끝 이상이어야 한다.
@@ -832,7 +851,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S3 · `POST /v2/sessions/{id}/end` — 세션 종료
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - 마지막 구간 뒤 남은 시간은 MISSING으로 제외하고, 열린 사건을 interrupted(ended)로 끝낸 뒤 session_ended 사건을 만든다.
 - monitor_session 종료 시각·good_sec과 excluded_interval을 한 트랜잭션으로 한 번만 반영한다. daily_stat은 쓰지 않는다(Spark J2가 다음 날 00:00에 집계).
@@ -957,7 +976,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S6 · `DELETE /v2/sessions/{id}` — 세션 삭제
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - monitor_session과 하위 행(사건·알림·제외 구간)을 지운다. 일별 통계는 그대로 둔다.
 - 특징 적재 파일(feature_archive)이 연결돼 있으면(J1이 HDFS에 적재한 세션) 409 CONFLICT. 적재된 기록은 사용자가 지울 수 없고, 탈퇴하면 J3가 모두 지운다. 전용 코드는 두지 않는다(10/15).
@@ -1047,7 +1066,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### R2 · `POST /v2/records` — 기록 저장
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - server가 포함된 카메라 측정 기록만 받는다.
 - 합계·사건·정책·기준·모델 버전이 서버가 확인해 준 판정과 다르면 409.
@@ -1153,7 +1172,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### R3 · `DELETE /v2/records/{id}` — 기록 삭제
 
-로그인 필요 · `X-CSRF-TOKEN` · 계정 헤더
+로그인 필요 · 계정 헤더
 
 - S6과 같다. UUID가 아닌 ID나 이미 없는 세션은 204로 조용히 넘어간다.
 - 409 CONFLICT = HDFS에 적재된 기록이라 지울 수 없음. 앱은 R3에서 받은 409를 이 뜻으로 본다.
@@ -1440,7 +1459,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 항목 | 규칙 |
 |---|---|
-| 인증 | 로그인 쿠키. HTTP 단계는 열려 있고, 로그인이 없으면 `hello`에 `closed(unauthorized)`로 답한다. 같은 출처 페이지만 허용한다(`POSEGOOD_REALTIME_ALLOWED_ORIGINS`로 추가). |
+| 인증 | `hello`의 `access_token`(로그인 access 토큰)으로 연결 때 **한 번만** 확인한다(ADR 0031). 측정 중에는 다시 확인하지 않아 토큰이 만료돼도 연결은 끝까지 가고, 비밀번호 변경·탈퇴 때만 `closed(unauthorized)`로 바로 닫는다. HTTP 단계는 열려 있고, 토큰이 없거나 틀리면 `hello`에 `closed(unauthorized)`로 답한다. 같은 출처 페이지만 허용한다(`POSEGOOD_REALTIME_ALLOWED_ORIGINS`로 추가). |
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
 | 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
@@ -1464,7 +1483,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | type | 필드 | 설명 |
 |---|---|---|
-| `hello` | schema_version **고정** "2.0", purpose, session_id 또는 calibration_id | measure는 S1이 성공한 세션. calibration은 등록마다 새 UUID. |
+| `hello` | schema_version **고정** "2.0", purpose, session_id 또는 calibration_id, **access_token** | measure는 S1이 성공한 세션. calibration은 등록마다 새 UUID. access_token은 지금 가진 access 토큰(만료가 가까우면 A8로 먼저 갱신). |
 | `features` | items[**정확히 1개**] | 좌표 구간 하나(아래 표). 2개 이상이면 `closed(bad_message)`. |
 | `end` | end_ms | 측정: 사용자가 종료. 등록: 촬영 끝(마지막 구간 `end_ms`가 3000 이상일 때). |
 
@@ -1625,6 +1644,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-27 | `feature/repo-auth-refresh-token` | **로그인을 쿠키 세션 + 고정 30분에서 access 토큰(JWT, Bearer, 30분) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지)으로 바꿈 — 호환성 깨짐.** A1 CSRF 삭제, A8 refresh 추가, A2·A3 응답에 토큰, A5 로그아웃은 refresh 쿠키로, WS `hello`에 `access_token`(11장). DB V2.6 `refresh_token` (ADR 0031) |
 | 2026-10-27 | `fix/repo-backend-sync` | A2·A3·A4 응답에 `today`(KST 날짜). **R1 응답을 배열에서 `{today, records}` 객체로 바꿈 — 호환성 깨짐**(BE-6 ③) |
 | 2026-10-26 | `fix/repo-backend-sync` | 최대 측정 시간 5,000초 → 기본 24시간(계약 상한, 제품 한도 없음). 재전송 기억을 최근 120개 구간으로. 측정불가(판정 불가·자리 비움) 5분이면 그 지점에서 끝내고 저장, `closed(unmeasurable_timeout)` — 설정 `unmeasurable-timeout`, 앱 처리 전까지 끔(11.3·11.5) |
 | 2026-10-26 | 설계(구현 전) | [T1](#t1) `GET /v2/stats/daily` 형식 확정: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로. 「T1·R1b 제공하지 않음」은 잘못 적은 것이라 되돌림 |

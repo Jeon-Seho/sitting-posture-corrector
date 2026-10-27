@@ -1,15 +1,17 @@
 # 계정·기준 자세·저장 API v2
 
-현재 MySQL [DB V2.5](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
+현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
 v1의 가입·workspace·세션 생성 형식과 호환되지 않아 별도 경로를 쓴다. 기존 v1 계정 경로는 제공하지 않는다.
 측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. 특징 요청(`POST /v2/sessions/{id}/features`)은 서버에 남아 있지만 앱은 쓰지 않는다.
 
 ## 인증
 
-DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`.
-`GET /auth/csrf`의 `{header_name:"X-CSRF-TOKEN",token}`을 모든 변경 요청에 붙인다. 로그인·로그아웃 뒤 재발급한다.
+로그인은 access 토큰(JWT, 30분)과 refresh 토큰(14일)이다(2026-10-27, [ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md)).
+access 토큰은 가입·로그인·갱신 응답의 `access_token`으로 받고 `Authorization: Bearer`로 보낸다. 서버는 저장하지 않는다.
+refresh 토큰은 HttpOnly·SameSite=Lax 쿠키 `posegood_refresh`로만 오고, `POST /auth/refresh`로 새 토큰을 받는다(쓸 때마다 바뀜).
+HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/csrf` 삭제).
 보호 요청은 로그인으로 확인한 10진 문자열 `user_id`를 `X-PoseGood-User-Id`에 붙인다.
-다른 탭의 계정 변경은 `409 AUTH_CHANGED`, 미인증 401, CSRF 실패 403, 타인 세션 404다.
+다른 탭의 계정 변경은 `409 AUTH_CHANGED`, 미인증·만료 401, 타인 세션 404다.
 이 헤더는 인증 수단이 아니다. 응답에 비밀번호·토큰·SQL·입력 자료를 노출하지 않는다.
 `503 ACCOUNT_BUSY`, `SESSION_BUSY`, `STORAGE_UNAVAILABLE`은 같은 본문으로 재시도한다.
 
@@ -17,11 +19,12 @@ DB에 저장하는 HttpOnly·SameSite=Lax 로그인 쿠키를 쓴다. HTTPS에�
 
 | 경로 | 요청과 결과 |
 | --- | --- |
-| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile,today}` + 로그인 |
-| `POST /auth/login` | `{email,password}` → 사용자 + 로그인. 탈퇴 대기 계정은 `403 ACCOUNT_CLOSED` |
+| `POST /auth/register` | `{email,password,profile,consents}` → `{user_id,email,profile,today,access_token,token_type,expires_in}` + refresh 쿠키 |
+| `POST /auth/login` | `{email,password}` → 가입과 같은 응답 + refresh 쿠키. 탈퇴 대기 계정은 `403 ACCOUNT_CLOSED` |
+| `POST /auth/refresh` | refresh 쿠키 → `{user_id,access_token,token_type,expires_in,today}` + 새 refresh 쿠키. 실패 401(쿠키 지움) |
 | `GET /auth/me` | 사용자 |
-| `POST /auth/logout` | 204 |
-| `PUT /auth/password` | `{current_password,new_password}` → 204, 모든 로그인과 열린 실시간 연결 철회 |
+| `POST /auth/logout` | refresh 쿠키 철회·삭제 → 204. access 토큰은 만료까지 남음 |
+| `PUT /auth/password` | `{current_password,new_password}` → 204, 그 사용자의 refresh 토큰 모두 철회, 열린 실시간 연결 닫음 |
 | `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
 | `PUT /consents/optional-profile` | `{agreed:boolean,document_version:"service-v2"}` → workspace |
 
@@ -110,6 +113,6 @@ DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 �
 시작/직전 붕괴 종료→다음 붕괴 시작 및 마지막 무붕괴 구간에서 제외 시간을 뺀 표본을 쓴다.
 표본이 없으면 NULL이며 세션 시작 KST 날짜에 누적한다.
 
-탈퇴 접수는 CLOSED와 삭제 요청을 저장하고 모든 로그인을 끊는다.
+탈퇴 접수는 CLOSED와 삭제 요청을 저장하고 그 사용자의 refresh 토큰을 모두 철회한다.
 만료 후 적재 파일 삭제 확인→세션→일별 통계→기준→삭제 요청→계정 순서로 지우며 동의는 FK CASCADE다.
 HDFS 파일 삭제와 완료 메일은 아직 구현하지 않았다. 실제 영상·학습 자료는 이 API의 저장 대상이 아니다.

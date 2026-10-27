@@ -209,27 +209,48 @@ class MySqlIntegrationTest {
 
         var stale = client();
         assertEquals(200, stale.login(email, "synthetic-password-1").status());
-        var socket = Socket.open(port, stale.cookieHeader());
-        socket.send(helloV2("measure", quiet));
+        var socket = Socket.open(port);
+        socket.send(helloV2(stale, "measure", quiet));
         socket.next("ready");
         var change =
                 MAPPER.createObjectNode()
                         .put("current_password", "synthetic-password-1")
                         .put("new_password", "synthetic-password-2");
         assertEquals(204, api.put("/v2/auth/password", change).status());
-        // 그 계정의 SPRING_SESSION 행이 모두 없어졌다(V2.1에는 auth_epoch가 없다).
+        // 그 계정의 refresh 토큰이 모두 철회됐다(V2.6, ADR 0031).
         try (var connection = database.connect();
                 var query =
-                        connection.prepareStatement("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME=?")) {
+                        connection.prepareStatement(
+                                "SELECT COUNT(*),SUM(revoked_at IS NULL) FROM refresh_token WHERE user_account_id=?")) {
             query.setString(1, api.userId);
             var row = query.executeQuery();
             assertTrue(row.next());
-            assertEquals(0, row.getInt(1));
+            assertTrue(row.getInt(1) >= 2);
+            assertEquals(0, row.getInt(2));
         }
-        assertEquals(401, stale.get("/v2/auth/me").status());
+        // access 토큰은 철회하지 않는다: 남은 시간(최대 30분)은 통하고, 로그인 유지(refresh)는 바로 막힌다.
+        assertEquals(200, stale.get("/v2/auth/me").status());
+        assertEquals(401, stale.refresh().status());
         assertEquals("unauthorized", socket.next("closed").get("reason").asString());
         assertEquals(401, client().login(email, "synthetic-password-1").status());
         assertEquals(200, client().login(email, "synthetic-password-2").status());
+    }
+
+    @Test
+    void refreshKeepsTheLoginAndLogoutEndsIt() throws Exception {
+        // ADR 0031: access 토큰(Bearer)으로 요청하고, refresh 쿠키로 새 토큰을 받는다. 로그아웃하면 refresh가 막힌다.
+        var api = client();
+        api.register(email());
+        assertEquals(401, client().get("/v2/auth/me").status());
+        assertEquals(200, api.get("/v2/auth/me").status());
+        var refreshed = api.refresh();
+        assertEquals(200, refreshed.status());
+        assertEquals(api.userId, refreshed.body().get("user_id").asString());
+        assertEquals("Bearer", refreshed.body().get("token_type").asString());
+        assertEquals(1800, refreshed.body().get("expires_in").asLong());
+        assertEquals(200, api.get("/v2/auth/me").status());
+        assertEquals(204, api.post("/v2/auth/logout", null).status());
+        assertEquals(401, api.refresh().status());
     }
 
     @Test
@@ -491,7 +512,6 @@ class MySqlIntegrationTest {
             assertEquals(1, rows.getInt(2));
         }
         var anonymous = client();
-        anonymous.refreshCsrf();
         String rejected = email();
         var body = MAPPER.createObjectNode().put("email", rejected).put("password", "synthetic-password-1");
         body.putObject("profile").put("name", "합성").putNull("age").putNull("occupation");
@@ -557,7 +577,6 @@ class MySqlIntegrationTest {
         assertEquals("ACCOUNT_CLOSED", closed.body().get("code").asString());
         assertEquals(409, client().register(email).status());
         var anonymous = client();
-        anonymous.refreshCsrf();
         var cancel = MAPPER.createObjectNode().put("email", email).put("password", "synthetic-password-1");
         assertEquals(401, anonymous.post("/v2/auth/withdrawal/cancel", cancel).status());
 
@@ -567,7 +586,7 @@ class MySqlIntegrationTest {
                     statement.executeQuery(
                             "SELECT u.account_status,d.request_scope,d.request_status,d.account_closed_at IS NOT NULL,"
                                     + "(SELECT COUNT(*) FROM monitor_session m WHERE m.user_account_id=u.user_account_id),"
-                                    + "(SELECT COUNT(*) FROM SPRING_SESSION s WHERE s.PRINCIPAL_NAME=CAST(u.user_account_id AS CHAR))"
+                                    + "(SELECT COUNT(*) FROM refresh_token r WHERE r.user_account_id=u.user_account_id AND r.revoked_at IS NULL)"
                                     + " FROM user_account u JOIN deletion_request d ON d.user_account_id=u.user_account_id"
                                     + " WHERE u.login_email='" + email + "'");
             assertTrue(rows.next());
@@ -615,12 +634,13 @@ class MySqlIntegrationTest {
         return message;
     }
 
-    private static ObjectNode helloV2(String purpose, UUID id) {
+    private static ObjectNode helloV2(ApiClient api, String purpose, UUID id) {
         return MAPPER.createObjectNode()
                 .put("type", "hello")
                 .put("schema_version", "2.0")
                 .put("purpose", purpose)
-                .put(purpose.equals("measure") ? "session_id" : "calibration_id", id.toString());
+                .put(purpose.equals("measure") ? "session_id" : "calibration_id", id.toString())
+                .put("access_token", api.accessToken());
     }
 
     private static ObjectNode endV2(long endMs) {
@@ -634,8 +654,8 @@ class MySqlIntegrationTest {
 
         // 자세 등록: 3초(구간 6개 x 판정 가능 프레임 4장) -> 서버가 평균을 저장하고 calibration_result(ok).
         UUID calibrationId = UUID.randomUUID();
-        var calibration = Socket.open(port, api.cookieHeader());
-        calibration.send(helloV2("calibration", calibrationId));
+        var calibration = Socket.open(port);
+        calibration.send(helloV2(api, "calibration", calibrationId));
         assertEquals(calibrationId.toString(), calibration.next("ready").get("calibration_id").asString());
         for (long sequence = 0; sequence < 6; sequence++) calibration.send(frames(sequence, "calibration", 0.0));
         calibration.send(endV2(3000));
@@ -648,8 +668,8 @@ class MySqlIntegrationTest {
         assertEquals(baseline.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
 
         // 실패한 등록(3초 미만)은 저장하지 않고 이전 기준이 그대로다.
-        var brief = Socket.open(port, api.cookieHeader());
-        brief.send(helloV2("calibration", UUID.randomUUID()));
+        var brief = Socket.open(port);
+        brief.send(helloV2(api, "calibration", UUID.randomUUID()));
         brief.next("ready");
         brief.send(frames(0, "calibration", 0.0));
         brief.send(endV2(500));
@@ -659,8 +679,8 @@ class MySqlIntegrationTest {
         // 측정: 3.5초 치우침(3초에 붕괴 확정) -> 0.5초 사람 없음 -> end 5초.
         UUID id = UUID.randomUUID();
         assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
-        var socket = Socket.open(port, api.cookieHeader());
-        socket.send(helloV2("measure", id));
+        var socket = Socket.open(port);
+        socket.send(helloV2(api, "measure", id));
         assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
         var observation = socket.next("observation").get("observation");
@@ -692,8 +712,8 @@ class MySqlIntegrationTest {
         assertEquals("ended", socket.next("closed").get("reason").asString());
 
         // 끝난 세션으로 다시 hello하면 session_lost.
-        var again = Socket.open(port, api.cookieHeader());
-        again.send(helloV2("measure", id));
+        var again = Socket.open(port);
+        again.send(helloV2(api, "measure", id));
         assertEquals("session_lost", again.next("closed").get("reason").asString());
 
         try (var connection = database.connect(); var statement = connection.createStatement()) {
@@ -744,8 +764,8 @@ class MySqlIntegrationTest {
         api.register(email());
         UUID id = UUID.randomUUID(), baseline = baseline(api);
         assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
-        var socket = Socket.open(port, api.cookieHeader());
-        socket.send(helloV2("measure", id));
+        var socket = Socket.open(port);
+        socket.send(helloV2(api, "measure", id));
         socket.next("ready");
         for (long sequence = 0; sequence < 4; sequence++) socket.send(frames(sequence, "running", 0.0));
         JsonNode ack;
@@ -837,10 +857,9 @@ class MySqlIntegrationTest {
         private final StringBuilder partial = new StringBuilder();
         private WebSocket socket;
 
-        static Socket open(int port, String cookie) throws Exception {
+        static Socket open(int port) throws Exception {
             var listener = new Socket();
             var builder = HttpClient.newHttpClient().newWebSocketBuilder().header("Origin", "http://127.0.0.1:" + port);
-            if (cookie != null) builder.header("Cookie", cookie);
             listener.socket =
                     builder.buildAsync(URI.create("ws://127.0.0.1:" + port + "/v2/realtime"), listener)
                             .get(5, TimeUnit.SECONDS);

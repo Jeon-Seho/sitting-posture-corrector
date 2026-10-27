@@ -92,7 +92,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     alerts = []
     fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(reply(200, view()))
     vi.stubGlobal('location', { protocol: 'https:', host: 'app.example.test' })
-    setServerAuth({ userId: '7', csrfToken: async () => 'csrf' })
+    setServerAuth({ userId: '7', accessToken: async () => 'access' })
   })
   afterEach(() => {
     setServerAuth(null)
@@ -107,9 +107,11 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(url).toBe(`/api/v2/sessions/${SESSION}`)
     expect(init.method).toBe('PUT')
     expect(JSON.parse(String(init.body))).toEqual({ policy: POLICY, baseline_id: BASELINE })
-    expect(init.headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf', 'X-PoseGood-User-Id': '7' })
+    expect(init.headers).toMatchObject({ Authorization: 'Bearer access', 'X-PoseGood-User-Id': '7' })
     expect(socket.url).toBe('wss://app.example.test/api/v2/realtime')
-    expect(socket.sent).toEqual([{ type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: SESSION }])
+    expect(socket.sent).toEqual([
+      { type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: SESSION, access_token: 'access' },
+    ])
   })
 
   it('sends S1 again with the same id and body when no answer came back', async () => {
@@ -327,7 +329,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
   it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
     const reasons: [string, boolean, string][] = [
       ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],
-      ['unauthorized', true, '로그인이 만료돼 측정을 마쳤어요'],
+      ['unauthorized', true, '비밀번호 변경이나 탈퇴로 로그인이 끝나'],
       ['bad_message', true, '측정을 이어갈 수 없어 마쳤어요'],
       ['some_new_reason', true, '측정을 이어갈 수 없어 마쳤어요'],
     ]

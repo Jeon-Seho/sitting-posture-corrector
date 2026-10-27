@@ -162,7 +162,8 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     await connect()
     await calibrate()
     const previous = camera.calibrationId
-    server.failWith.push(401)
+    // Still 401 after the token was renewed once (api.ts): the login is over.
+    server.failWith.push(401, 401)
     await calibrate()
     expect(camera.registrationError).toBe('로그인이 필요해요. 다시 로그인한 뒤 등록해 주세요.')
     expect(camera.calibrationId).toBe(previous)
