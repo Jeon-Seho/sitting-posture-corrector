@@ -102,8 +102,8 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
 - 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다.
 - 최대 측정 시간(24시간)을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
-- 판정 불가·자리 비움(`away`)이 이어진 시간이 `posegood.realtime.unmeasurable-timeout`(결정 5분)에 닿으면 그 구간 끝에서 끝내고 저장한 뒤
-  `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 앱이 이 사유를 처리하기 전까지 기본 0(끔).
+- 판정 불가·자리 비움(`away`)이 이어진 시간이 `posegood.realtime.unmeasurable-timeout`(기본 30분, 10/28 결정)에 닿으면 그 구간 끝에서 끝내고 저장한 뒤
+  `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 0이면 끈다.
 - `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
 - 자세 등록은 B1(`POST /v2/baselines`)뿐이다. WebSocket 등록(`purpose: calibration`, `calibration_result`)은 2026-10-27 지웠다 — 보내면 `closed: bad_message`.
