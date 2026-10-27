@@ -13,7 +13,7 @@ import type { Landmark } from '../../../../../model/prototype/pose'
  * - `rest` (user pause) and `away` (camera lost) intervals carry no frames.
  * - A frame where the user's position cannot be determined (a shoulder out of view, or a joint the
  *   tracker did not give) is sent as the signal only: `{ t_ms, p: null, valid: false }`, no
- *   coordinates (ADR 0032, 2026-10-27; before, ADR 0021's 10/12 exception sent them along). The
+ *   coordinates (ADR 0021 section 6, 2026-10-27; before, the 10/12 exception sent them along). The
  *   server counts it as unmeasurable time.
  */
 export const FRAME_SCHEMA_VERSION = '3.0'
@@ -51,7 +51,7 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  * measurement with `bad_message`) for a joint outside x·y -1..2 or visibility 0..1 (BE
  * `FrameInterval`), so values are clamped to that range; a joint the tracker did not give, or
  * gave as a non-number, is `[0, 0, 0]` (visibility 0). Such a frame is not sent with coordinates
- * at all: `FrameBatcher.push` sends it as the 「판정 불가」 signal only (ADR 0032).
+ * at all: `FrameBatcher.push` sends it as the 「판정 불가」 signal only (ADR 0021).
  */
 /** All 9 joints came from the tracker as numbers (nothing was filled in with `[0, 0, 0]`). */
 export function jointsComplete(landmarks: Landmark[]): boolean {
@@ -100,7 +100,7 @@ export class FrameBatcher {
     if (this.phase === 'rest' || this.phase === 'away') return out
     const joints = frameJoints(input.landmarks)
     // Not placeable (a shoulder out of view) or a joint missing: the 「판정 불가」 signal only, no
-    // coordinates — a frame with a missing keypoint is no use for judging or for training (ADR 0032).
+    // coordinates — a frame with a missing keypoint is no use for judging or for training (ADR 0021).
     const frame: PoseFrame =
       joints && (!input.judgeable || !jointsComplete(input.landmarks))
         ? { t_ms: this.at(input.timeMs), p: null, valid: false }

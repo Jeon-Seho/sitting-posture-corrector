@@ -1,10 +1,10 @@
 # 작은 카메라 창(자동 PiP) 고치기, 그다음 시험 전용 로컬 로그인 지우기
 
 - 작성자: klaod-tech(FE)
-- 상태: in_progress (2026-10-22 작성. 순서: 1 PiP → 2 로그인. **1은 2026-10-26 방향을 바꿔 끝남**: 웹 작은 창 삭제·숨은 탭 측정 수정, 데스크톱 작은 창은 [계획 0055](0055-desktop-camera-window.md), 결정은 [ADR 0028](../../decisions/0028-no-web-camera-window-desktop-only.md). 2는 남음)
+- 상태: in_progress (2026-10-22 작성. 순서: 1 PiP → 2 로그인. **1은 2026-10-26 방향을 바꿔 끝남**: 웹 작은 창 삭제·숨은 탭 측정 수정, 데스크톱 작은 창은 [계획 0055](0055-desktop-camera-window.md), 결정은 [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md). 2는 남음)
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-22
-- 관련: [FE 제안서](../../design/fe-server-proposal.md) 7.2(다음 할 일)·8.3(작은 카메라 창), [ADR 0025](../../decisions/0025-app-always-measures-on-server.md)(항상 서버로 측정),
+- 관련: [FE 제안서](../../design/fe-server-proposal.md) 7.2(다음 할 일)·8.3(작은 카메라 창), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
   [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe-deploy.md)(`app.posegood.site`, Cloudflare 터널)
 
 ## 문제와 완료 기준
@@ -69,7 +69,7 @@
 
 - 2026-10-22: 로그인은 스위치 없이 항상 서버 계정(klaod-tech: 로컬로 돌릴 이유가 없다). 시험 전용 로컬 로그인은 PiP를 고친 뒤 지운다(이 계획).
 - 2026-10-26 (1단계 원인): 카메라만 쓰는 페이지는 Chrome이 자동 PiP 처리기를 부르지 않는다. 앱에 진단 줄을 넣어 탭을 바꿨을 때 `isSecureContext: true`·영상 트랙 1개·`userActivation.hasBeenActive: true`·처리기 등록을 확인했지만 `requested`가 없었다. 앱 코드를 뺀 최소 시험 페이지(카메라만, 처리기 + 문서 PiP)도 자동으로는 안 열리고 클릭으로는 열렸다. 사이트 설정 「자동 PIP」 허용. 같은 PC에서 Chrome 공식 화상회의 예제(카메라+마이크)는 열렸다. 마이크는 쓰지 않기로 해(사용자) 비교 시험에서 뺐다.
-- 2026-10-26 (방향): 클릭으로 연 창은 앱 탭에서도 떠 있어 측정 화면을 방해하고, 닫으면 다시 열 때 클릭이 필요하다. 「측정을 시작할 때 띄울지 묻기」도 검토했지만 같은 문제가 남아, **웹에서는 작은 창을 모두 지우고 데스크톱 앱에서만 만들기로** 했다(사용자, [ADR 0028](../../decisions/0028-no-web-camera-window-desktop-only.md)). 10/20 「자동 열기, 수동 버튼 없음」 결정은 ADR 0028이 대체한다.
+- 2026-10-26 (방향): 클릭으로 연 창은 앱 탭에서도 떠 있어 측정 화면을 방해하고, 닫으면 다시 열 때 클릭이 필요하다. 「측정을 시작할 때 띄울지 묻기」도 검토했지만 같은 문제가 남아, **웹에서는 작은 창을 모두 지우고 데스크톱 앱에서만 만들기로** 했다(사용자, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md)). 10/20 「자동 열기, 수동 버튼 없음」 결정은 ADR 0028이 대체한다.
 - 2026-10-26 (숨은 탭): 최소 시험 페이지에서 숨은 탭의 프레임 읽기를 비교했다(Chrome 156, 카메라만). 55초 숨김: `setTimeout` 초당 1.6장(최대 공백 1011ms), Worker 타이머 30.7장(41ms), `MediaStreamTrackProcessor` 30.4장(54ms), `requestVideoFrameCallback` 0.7장. 456초 숨김(5분 넘는 강한 지연 확인): `setTimeout` 1.0장(1029ms), Worker 30.3장(218ms), TrackProcessor 30.0장(238ms). 프레임은 지금처럼 `<video>`에서 읽고 타이머만 Worker로 바꿨다(`features/camera/frameTimer.ts`, V3 `86b7a46`). 9/28 rAF → `setTimeout`으로 바꾼 뒤 숨은 탭 측정은 시험한 적이 없었다(당시 문서 「장시간 백그라운드 관측 미검증」).
 - 2026-10-26 (삭제): `useCameraWindow.ts`·`CameraWindow.tsx`와 시험, 작은 창 CSS를 지웠다(V3 `409de69`). `sessionControl.ts`는 데스크톱 작은 창용으로 남겼다.
 

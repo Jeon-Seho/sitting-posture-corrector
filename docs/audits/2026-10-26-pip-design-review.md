@@ -1,6 +1,6 @@
 # 앱·웹 PiP와 사용자 흐름 검토
 
-> 후속 사용자 결정(2026-10-26): 웹의 작은 창·PiP를 끄고 Electron 앱에만 유지한다. 아래는 결정 전 조사 기록이며 웹 PiP 비교 구현 제안은 현재 작업 범위에서 제외한다. 적용 기준은 [ADR 0016](../decisions/0016-collection-entry-and-camera-preview-window.md)이다.
+> 후속 사용자 결정(2026-10-26): 웹의 작은 창·PiP를 끄고 Electron 앱에만 유지한다. 아래는 결정 전 조사 기록이며 웹 PiP 비교 구현 제안은 현재 작업 범위에서 제외한다. 적용 기준은 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md)이다.
 
 - 날짜: 2026-10-26
 - 기준: develop `3285cce` (작업 시작 시 원격 동기화)

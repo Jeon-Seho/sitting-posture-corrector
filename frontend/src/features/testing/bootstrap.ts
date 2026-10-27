@@ -72,7 +72,7 @@ export function installSyntheticBrowser() {
   const bridge = {
     frame(milliseconds: number, kind: 'normal' | 'deviation' | 'poor' = 'deviation') {
       advanceClock(milliseconds)
-      // The app computes no posture values; the server judges the coordinates (ADR 0025).
+      // The app computes no posture values; the server judges the coordinates (ADR 0021).
       emitSyntheticFrame(kind !== 'poor')
     },
     advance: advanceClock,

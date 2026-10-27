@@ -9,7 +9,7 @@
 
 FE는 빌드 도구 때문에 `make check`가 계속 실패한다고 의심했다. 아래 원인 분석으로 빌드 도구와 무관함을 확인했다.
 
-빌드 도구: BE가 10/14에 BE 브랜치(`feat/backend-data-platform-architecture`)에서 백엔드를 Java 17·Spring Boot 4.0.8·Gradle로 바꿨다(그 브랜치의 ADR 0023·계획 0028, `a716135`).
+빌드 도구: BE가 10/14에 BE 브랜치(`feat/backend-data-platform-architecture`)에서 백엔드를 Java 17·Spring Boot 4.0.8·Gradle로 바꿨다(그 브랜치의 옛 ADR 0023·계획 0028, `a716135`).
 `tools/`도 같은 커밋에서 Gradle Wrapper로 바뀌었다. Docker 이미지·CI는 그 계획에 팀원 작업으로 남아 있다. FE는 따로 전환하지 않았고, 10/15 BE 브랜치가 develop을 받아 합쳐지면서 이 저장소도 Gradle이 됐다([계획 0029](0029-merge-backend-data-platform.md)).
 
 ## 원인 분석 (2026-10-14, Windows 노트북, `lee_app3` `fd1c4a7`)

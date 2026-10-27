@@ -2,8 +2,8 @@
 
 > **결정 변경(2026-10-11, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보낸다.
 > 화면·기록의 유형(머리·좌우 기울임) 표시와 csv 내보내기의 판정 열은 2026-10-11 없앴다.
-> **2026-10-21(V3, [ADR 0025](../docs/decisions/0025-app-always-measures-on-server.md)):** 로컬 모드·앱 판정·이어하기를 지웠다. 앱은 항상 서버로 측정하고
-> 서버가 보낸 결과만 보인다. 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로 보낸다([ADR 0026](../docs/decisions/0026-baseline-average-by-app-b1.md)).
+> **2026-10-21(V3, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)):** 로컬 모드·앱 판정·이어하기를 지웠다. 앱은 항상 서버로 측정하고
+> 서버가 보낸 결과만 보인다. 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)).
 > 로그인을 서버에 잇기(BE) 전에는 등록·측정이 「로그인이 필요해요」로 멈춘다.
 
 ## 데스크톱 앱 (2026-10-02~)
@@ -76,7 +76,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 카메라 종료·로그아웃·메인 화면 새로고침·앱 종료에는 작은 창도 정리한다.
 웹 페이지 이동·앱 닫기는 카메라를 종료한다. 수집 중 다른 탭으로 이동하면 촬영은 기존대로 중단된다.
 웹은 다른 탭에 가도 측정이 이어진다(프레임 타이머를 Worker로, `src/features/camera/frameTimer.ts`). 작은 창 구현은 `src/features/camera/CameraWindow.tsx`·`useCameraWindow.ts`, `electron/camera-window.cjs`([계획 0057](../docs/plans/active/0057-native-camera-window-and-design-review.md), lellon0403 develop PR #64). V3가 10/26에 따로 만든 `features/desktop/DesktopCameraWindow`는 10/27 이 구현으로 바꾸며 지웠다.
-자세 데이터 수집 자료는 자동 업로드하지 않는다. [결정과 수명 경계](../docs/decisions/0016-collection-entry-and-camera-preview-window.md).
+자세 데이터 수집 자료는 자동 업로드하지 않는다. [결정과 수명 경계](../docs/decisions/0007-lite-pose-tracker.md).
 
 주소 없는 창의 합성 검증: 터미널 하나에서 `npm run dev -- --mode browser-smoke --port 5191`을 실행한 뒤,
 저장소 루트에서 `node frontend/scripts/smoke-camera-window.mjs http://127.0.0.1:5191`을 실행한다.
@@ -103,7 +103,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 전체/유효/정상 시간과 사건·알림을 따로 보관한다. 중간 저장·종료 저장과 오늘/달력/기간 집계가 같은 분할을 쓴다.
 표시용 날짜별 기록은 원 세션이나 원 서버 snapshot을 덮어쓰지 않는다. 과거 합계만 있는 기록은 임의로 복원하지 않는다.
 이는 앱의 로컬 보관/집계이며 서버 DB 배치 변경이나 API 세션 강제 분할이 아니다.
-상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0033-kst-daily-measurement-parts.md)을 따른다.
+상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0027-today-records-from-collected-server-results.md)을 따른다.
 
 `tools/browser/midnight.mjs`의 합성 자정 검증은 `check-browser`에 포함돼 있다. 실제 UI에서 자동 등록·측정 → 자정 통과 →
 종료 저장 → 두 날짜 조회와 합계 보존을 검사하며 실제 카메라/계정 자료를 사용하지 않는다.
@@ -157,7 +157,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 수동 API를 연결할 때만 `POSEGOOD_API_URL=http://127.0.0.1:<포트>`를 지정한다. 실시간 채널은 같은 `/api` 중계(`/api/v2/realtime`)로 간다.
 
 측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` → WebSocket `/v2/realtime` `hello` → `ready`(5초) →
-프레임마다 관절 9개 좌표 구간 1개(`posture.frames.v1`, 10/27부터 — 서버가 받아 묶음. 앱이 판정 불가로 본 프레임은 좌표 없이 `p: null`·`valid: false`, ADR 0032) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
+프레임마다 관절 9개 좌표 구간 1개(`posture.frames.v1`, 10/27부터 — 서버가 받아 묶음. 앱이 판정 불가로 본 프레임은 좌표 없이 `p: null`·`valid: false`, ADR 0021) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」), 쓰던 카메라가 빠지거나 영상 크기가 바뀌거나 데스크톱 앱 작은 창의 X를 누르면 `end`.
 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`로 보낸다(2026-10-22, 유예 없음). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
 연결이 끊기면 그 측정은 끝나고 서버가 마지막 구간까지 저장한다(재연결·재전송 없음, [ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)).
@@ -178,7 +178,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 
 ## 알림과 기록
 
-기본 시간 정책과 설정 적용 범위는 [ADR 0012](../docs/decisions/0012-session-timing-policy.md)에서 확정했다. 2026-10-21부터 이 정책은 서버만 적용하고, 앱은 설정값을 측정 시작 때 S1 `policy`로 보낸다(아래는 서버 판정의 규칙이다).
+기본 시간 정책과 설정 적용 범위는 [ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)에서 확정했다. 2026-10-21부터 이 정책은 서버만 적용하고, 앱은 설정값을 측정 시작 때 S1 `policy`로 보낸다(아래는 서버 판정의 규칙이다).
 
 확정한 기본 시간 정책은 이탈이 3초 연속 지속되면 최초 알림, 정상 자세가 3초 연속 유지되면 복귀(2026-10-06 2초 → 3초 개정),
 같은 사건이 계속되면 직전 실제 알림부터 60초마다 재알림이다. 복귀·휴식·측정 불가로 기존 사건이 끝난 뒤
@@ -250,7 +250,7 @@ Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. �
 
 ## 점수와 표시 모드
 
-자세 점수는 서버가 보낸 붕괴 확률로 100×(1−collapse_probability)를 표시한다. 100점에 가까울수록 바른 자세다. 언제 알릴지는 서버가 정하고 앱은 서버의 `alert`를 그대로 보인다(2026-10-21, ADR 0025).
+자세 점수는 서버가 보낸 붕괴 확률로 100×(1−collapse_probability)를 표시한다. 100점에 가까울수록 바른 자세다. 언제 알릴지는 서버가 정하고 앱은 서버의 `alert`를 그대로 보인다(2026-10-21, ADR 0021).
 설정도 같은 점수 방향으로 표시한다. 예전 수집 CSV(v1·v2)의 `rule_score`는 종전의 변화 점수이므로 `100 * (1 - rule_score)`로 환산한다. 수집 v3에는 이 열이 없다.
 전체 키포인트는 Pose의 눈·입·귀·몸·팔·다리 중 보이는 점을 표시한다. 턱 추적은 포함하지 않는다.
 웹캠 준비/측정의 `매트릭스 효과`는 점이 모이는 장식용 연출이다. `다시 모으기`, `애니메이션 줄이기`를 제공한다.

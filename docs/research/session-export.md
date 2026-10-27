@@ -1,6 +1,6 @@
 # 측정 결과 내보내기 규격 (txt·csv)
 
-> **2026-10-21 앱에서 이 내보내기(개발자 옵션의 txt·csv)를 지웠다**([ADR 0025](../decisions/0025-app-always-measures-on-server.md)). 이 문서는 그 전에 받은 파일을 읽을 때만 쓴다. 좌표가 필요하면 앱이 서버로 보내는 형식(`posture.frames.v1`)으로 ML과 정한다.
+> **2026-10-21 앱에서 이 내보내기(개발자 옵션의 txt·csv)를 지웠다**([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 이 문서는 그 전에 받은 파일을 읽을 때만 쓴다. 좌표가 필요하면 앱이 서버로 보내는 형식(`posture.frames.v1`)으로 ML과 정한다.
 
 ML 담당이 측정 결과 파일을 해석하기 위한 기준 문서다. 의료적 진단 자료가 아니다.
 

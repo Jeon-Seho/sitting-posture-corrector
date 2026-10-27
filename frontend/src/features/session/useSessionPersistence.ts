@@ -61,7 +61,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
   const { rules, setRecords } = workspace
   const pending = useRef<RecordItem | null>(null)
   const measuring = !!session && !ended.current
-  // A measurement over KST midnight is kept per day as well (PR #64, ADR 0033): the server's running
+  // A measurement over KST midnight is kept per day as well (PR #64, ADR 0027): the server's running
   // totals are split at each midnight as they arrive. Once the server ends measurements at
   // midnight (ADR 0029, BE-6) there is only ever one day.
   const daily = useRef<{ id: string; ledger: DailyMeasurementLedger } | null>(null)

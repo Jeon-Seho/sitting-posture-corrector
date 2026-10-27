@@ -3,7 +3,7 @@
 - 상태: in_progress
 - 담당: Codex
 - 시작일: 2026-10-26
-- 관련 요구사항/ADR: 사용자 요청, [ADR 0016](../../decisions/0016-collection-entry-and-camera-preview-window.md)
+- 관련 요구사항/ADR: 사용자 요청, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md)
 
 ## 문제와 완료 기준
 

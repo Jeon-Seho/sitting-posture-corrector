@@ -1,7 +1,7 @@
 # 백엔드 — 세션·계정·판정 API
 
-Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md), [ADR 0023](../docs/decisions/0023-backend-java17-boot4-gradle.md)).
-현재 프론트 특징 v2 유지 범위는 [ADR 0022](../docs/decisions/0022-db-v23-feature-v2-integration.md)를 따른다.
+Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
+앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 특징 변화량 경로 `POST /v2/sessions/{id}/features`는 서버에 남아 있지만 앱은 쓰지 않는다(남길지는 BE가 정한다).
 DB는 MySQL [스키마 V2.5](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
@@ -75,7 +75,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 판정 규칙
 
-[ADR 0012](../docs/decisions/0012-session-timing-policy.md)와 [계약 설명](../contracts/README.md)을 따른다. 정책은 세션 생성 때 고정한다.
+[ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)와 [계약 설명](../contracts/README.md)을 따른다. 정책은 세션 생성 때 고정한다.
 
 - 관측 점수가 `threshold` 이상이면 이탈 후보다. 후보가 연속으로 `hold_ms` 이상이면 `collapse_confirmed`(최초 알림),
   같은 사건에서 마지막 알림 뒤 `reminder_ms`가 지나고 계속 이탈이면 `reminder`, 기준 내 자세가 연속 `recovery_ms` 이상이면 `recovery_confirmed`다.
@@ -107,7 +107,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - `purpose: calibration`: 세션 행을 만들지 않는다. 판정 가능 프레임(코·양 어깨 visibility 0.65 이상, 화면 2% 안쪽, 어깨 폭 10% 이상, 양 귀 좌표)의
   관절 평균만 모으고 `end` 때 `calibration_result` → `closed: ended`. 실패 사유는 `incomplete`(마지막 `end_ms` < 3000) →
   `too_few_frames`(15장 미만) → `out_of_frame`(평균 좌표가 0~1 밖) → `server_error`(저장 실패) 순서로 정하고, 실패하면 저장하지 않는다.
-  끊기면 아무것도 저장하지 않는다. 앱은 이 경로 대신 앱에서 낸 평균을 B1으로 보낸다(FE ADR 0026, V3 브랜치). 남길지는 [백엔드 상태](../docs/backend-status.md) 4장.
+  끊기면 아무것도 저장하지 않는다. 앱은 이 경로 대신 앱에서 낸 평균을 B1으로 보낸다(FE ADR 0021, V3 브랜치). 남길지는 [백엔드 상태](../docs/backend-status.md) 4장.
 - 놓친 사건 다시 보내기(삭제한 v1의 `last_event_id`)는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
 
 ## 준비와 검증

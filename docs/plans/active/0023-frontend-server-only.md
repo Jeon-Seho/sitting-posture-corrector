@@ -4,12 +4,12 @@
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(BE에 물을 것 1장, FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
-  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0025](../../decisions/0025-app-always-measures-on-server.md)·[0026](../../decisions/0026-baseline-average-by-app-b1.md)
+  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(옛 0025·0026 포함)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
 
 10/20까지(V2) 앱은 서버 없이도 혼자 판정했다. 점수, 상태(좋음/무너짐/측정 불가), 고개 돌림 제외, 복귀 대기를 브라우저가 계산했다.
-서버가 없던 시기의 FE 개발·시연용 구성이었다. 10/21 V3에서 측정 쪽 판정을 지웠다(ADR 0025).
+서버가 없던 시기의 FE 개발·시연용 구성이었다. 10/21 V3에서 측정 쪽 판정을 지웠다(ADR 0021).
 
 2026-10-11 팀 결정: **앱은 판정하지 않는다.** 앱 판정 자체와 ML용 CSV 판정 라벨을 모두 없앤다.
 
@@ -102,7 +102,7 @@
 - 2026-10-22: 오늘 표시 기준을 정리했다. 서버 연동 뒤에도 오늘 세션 목록·요약·달력·그래프는 로컬에 수집한 서버 결과를 사용한다. 어제까지의 일별 통계는 T1으로 제공·표시한다. 앞선 기록의 오늘 제외 설명은 이 결정으로 대체하며, 세션 결과 화면은 방금 끝난 세션만 표시한다.
 - 2026-10-25: develop(PR #63, 팀장 `db220d8`)을 V3에 합침. 모델명·버전 화면 표시를 지움(팀장 10/22 결정). 오늘 표시용 로컬 기록은 키 하나로 두고 계정별로 나누지 않는다(klaod-tech: 한 PC 한 사람이 보통이고, 나누면 계정 ID를 넘기는 곳이 늘어 복잡해진다. 한계는 연동 명세 4.5 「팀 참고」).
 
-- 2026-10-26: 웹 작은 창 삭제·숨은 탭 측정(Worker 타이머)·데스크톱 작은 창([ADR 0028](../../decisions/0028-no-web-camera-window-desktop-only.md), 계획 0054·0055). 화면의 날짜·시각을 서버 시각으로(기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 「오늘」 = 가장 최근 서버 시각의 KST 날짜, KST 고정, [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)). BE 브랜치 `fix/repo-backend-sync`(김유진)에 맞춰 B1 `registration_id`. 기록·달력 로직은 FE가 고치기로 함(화면 모양은 lellon0403).
+- 2026-10-26: 웹 작은 창 삭제·숨은 탭 측정(Worker 타이머)·데스크톱 작은 창([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md), 계획 0054·0055). 화면의 날짜·시각을 서버 시각으로(기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 「오늘」 = 가장 최근 서버 시각의 KST 날짜, KST 고정, [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)). BE 브랜치 `fix/repo-backend-sync`(김유진)에 맞춰 B1 `registration_id`. 기록·달력 로직은 FE가 고치기로 함(화면 모양은 lellon0403).
 
 ## 검증 결과와 남은 한계
 

@@ -61,7 +61,7 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(sent[0]).not.toHaveProperty('height')
   })
 
-  it('sends frames the app could not place without coordinates (ADR 0032), and nobody as p null', () => {
+  it('sends frames the app could not place without coordinates (ADR 0021), and nobody as p null', () => {
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))
     const [first] = b.push(input(20, { landmarks: [] }))

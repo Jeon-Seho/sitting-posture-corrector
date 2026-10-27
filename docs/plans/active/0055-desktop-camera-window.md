@@ -3,7 +3,7 @@
 - 상태: superseded (2026-10-27) — klaod-tech가 요청해 lellon0403이 만든 작은 창(develop PR #64 `ad7cd42`, [계획 0057](0057-native-camera-window-and-design-review.md))으로 바꿨다. V3의 `features/desktop/DesktopCameraWindow`·`useDesktopCameraWindow`와 `main.cjs`의 같은 기능은 10/27 develop을 V3에 합치며 지웠다. 아래는 기록으로 남긴다
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-26
-- 관련 요구사항/ADR: [ADR 0028](../../decisions/0028-no-web-camera-window-desktop-only.md)(웹에는 작은 창 없음, 데스크톱만), [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 「남은 결정」의 작은 항상-위 창, [FE 제안서](../../design/fe-server-proposal.md) 8.3·8.4, [계획 0054](0054-pip-fix-and-server-only-login.md) 1단계(시험 기록)
+- 관련 요구사항/ADR: [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 「작은 카메라 창」(웹에는 작은 창 없음, 데스크톱만), [FE 제안서](../../design/fe-server-proposal.md) 8.3·8.4, [계획 0054](0054-pip-fix-and-server-only-login.md) 1단계(시험 기록)
 
 ## 문제와 완료 기준
 

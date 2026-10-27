@@ -3,7 +3,7 @@
 - 상태: draft (2026-10-27, klaod-tech 제안. 팀장 방향 「WS는 좌표 같은 기본값 말고는 최대한 받지 않는다」와 같음 — BE 합의 전. 같은 날 FE가 정한 것: 측정 시계·`keep_rate`·판정 불가 형식·S1 `policy`·종료 중 로딩 — 아래 「정한 것과 남은 것」. 시간 판정을 `t_ms`로 할지는 회의 — 제안서 7.2 22번)
 - 담당: FE(klaod-tech), 계약·서버는 BE(김유진), Kafka 모드는 PM, 화면 표시는 lellon0403과 확인
 - 시작일: 2026-10-27
-- 관련: [연동 명세](../../design/api-ws-spec.md) 4·5장, [WS v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(오늘 기록은 앱이 모은 서버 결과), [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)(자정), [ADR 0032](../../decisions/0032-unmeasurable-frame-signal-only.md)(판정 불가 신호), [FE 제안서](../../design/fe-server-proposal.md) BE-8(프레임마다 전송)
+- 관련: [연동 명세](../../design/api-ws-spec.md) 4·5장, [WS v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(오늘 기록은 앱이 모은 서버 결과), [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)(자정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정 불가 신호), [FE 제안서](../../design/fe-server-proposal.md) BE-8(프레임마다 전송)
 
 ## 문제
 
@@ -71,7 +71,7 @@
 
 ## 이미 정한 것 (10/27)
 
-- 판정 불가 프레임은 좌표 없이 신호만(ADR 0032). 앱이 정한 판정 불가는 서버를 기다리지 않고 바로 표시(`LiveState.placeable`).
+- 판정 불가 프레임은 좌표 없이 신호만(ADR 0021). 앱이 정한 판정 불가는 서버를 기다리지 않고 바로 표시(`LiveState.placeable`).
 - 점수·붕괴 확정·다시 알림·회복과 그 시간 규칙은 서버(ADR 0021). 앱은 확정·회복을 세지 않는다.
 - 서버는 받은 프레임을 자체적으로 묶어 판정한다(BE 10/27). 묶은 뒤 확인할 것은 제안서 BE-8.
 

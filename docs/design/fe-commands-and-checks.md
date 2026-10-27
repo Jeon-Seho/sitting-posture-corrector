@@ -134,7 +134,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 ### 빌드 도구
 
-백엔드 빌드는 BE가 정한 대로 따른다([ADR 0023](../decisions/0023-backend-java17-boot4-gradle.md), [BE 계획 0028](../plans/active/0028-backend-java17-boot4-gradle.md)). FE는 따로 설정하지 않는다. Compose 이미지·CI 반영 전까지 `check-compose`는 실패한다(BE 계획 0028). `make check` 실패 원인은 [계획 0030](../plans/active/0030-make-check-failures.md).
+백엔드 빌드는 BE가 정한 대로 따른다([ADR 0020](../decisions/0020-single-api-decision-engine.md) 1절, [BE 계획 0028](../plans/active/0028-backend-java17-boot4-gradle.md)). FE는 따로 설정하지 않는다. Compose 이미지·CI 반영 전까지 `check-compose`는 실패한다(BE 계획 0028). `make check` 실패 원인은 [계획 0030](../plans/active/0030-make-check-failures.md).
 
 ### PC별 제약
 

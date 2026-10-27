@@ -6,7 +6,7 @@ import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 /**
  * 실제 기록의 전후 비교. 초기 구간은 첫 측정일부터, 최근 구간은 오늘까지의 같은 길이다.
- * 두 값은 팀 합의 전 임시값이다(docs/decisions/0010-record-comparison.md).
+ * 두 값은 팀 합의 전 임시값이다.
  */
 export const COMPARE_RULES = { days: 7, minValidSeconds: 30 * 60 }
 

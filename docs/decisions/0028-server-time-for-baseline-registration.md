@@ -3,7 +3,7 @@
 - 상태: accepted (②·④는 브랜치 `fix/repo-backend-sync`에 구현, ③은 보류)
 - 날짜: 2026-10-26 (번호: FE 브랜치 `feature/frontend-features-and-integrationV3`가 0025~0027을 써서 0028부터)
 - 근거: 2026-10-26 사용자(DB·BE) 결정 — 「시간 입력 기준을 서버로 통일한다」. 범위 검토는 「서버 기준 시각으로 통일할 때 영향 범위」(DB·BE 검토 문서, 2026-10-26)
-- 대체: [ADR 0022](0022-db-v23-feature-v2-integration.md) 「완료 시각을 고정해 재시도한다」, FE ADR 0026 4번의 「`registered_at`은 촬영이 끝난 UTC 시각, 같은 본문으로 재시도」(V3 브랜치)
+- 대체: [옛 ADR 0022](../removed-docs.md) 「완료 시각을 고정해 재시도한다」, FE ADR 0021 5절(옛 0026 4번)의 「`registered_at`은 촬영이 끝난 UTC 시각, 같은 본문으로 재시도」(V3 브랜치)
 
 ## 배경
 
@@ -20,7 +20,7 @@ PC 시계가 틀리면 등록 시각도 틀리고, 재전송 구분이 그 시�
    - `baseline_posture.registered_at`은 서버가 등록을 받은 시각이다.
    - 재전송은 `baseline_posture.client_registration_uuid`와 UK-16(사용자, 등록 식별자)으로 막는다. 같은 식별자·같은 좌표는 그 행, 다른 좌표는 409다.
    - UK-14(사용자, 등록 시각)는 지운다. FK-04(사용자) 인덱스 역할은 UK-16이 이어받는다.
-   - 서버가 계산하는 WebSocket 등록(`purpose: calibration`)은 재전송이 없어 서버가 식별자를 만든다. 앱은 이 경로를 쓰지 않는다(FE ADR 0026). 지울지는 따로 정한다.
+   - 서버가 계산하는 WebSocket 등록(`purpose: calibration`)은 재전송이 없어 서버가 식별자를 만든다. 앱은 이 경로를 쓰지 않는다(FE ADR 0021). 지울지는 따로 정한다.
    - DB 스키마 V2.5, migration 015. 기존 행의 식별자는 `UUID()`로 채운다.
 3. **④ 오늘 기록 시각 (구현):** WebSocket `ready`(측정)에 `started_at`, `closed`에 `ended_at`을 서버 시각(UTC ISO)으로 싣는다.
    - `started_at`은 DB `monitor_session.started_at`(서버가 S1을 받은 시각)이다.

@@ -2,7 +2,7 @@
 
 2026-10-01에 기존 동작을 유지하면서 앱 조립, 기능별 상태·저장, HTTP, 추론, 시간 판정을 분리했다.
 구조 정리는 프레임워크·라이브러리·버전·저장 키·기존 계약을 유지했다.
-후속 서버 연결은 새 입력/응답 계약과 선택 필드·`dev-server` 명령을 추가했다([ADR 0013](decisions/0013-frontend-server-feature-connection.md)).
+후속 서버 연결은 새 입력/응답 계약과 선택 필드·`dev-server` 명령을 추가했다([ADR 0020](decisions/0020-single-api-decision-engine.md)).
 전체 저장소를 하나의 거대한 계층 구조로 재배치하지 않고 기존 frontend/backend/model/contracts 경계를 유지한다.
 
 ## 전체 지도
@@ -39,14 +39,14 @@ backend/
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
     .../workspace/        설정·앱 기록 저장과 검증
     .../realtime/         /v2/realtime WebSocket(좌표 프레임)
-    .../system/           health, DB V2.3 확인
+    .../system/           health, DB V2.5 확인
 
 model/
   prototype/              판정 가능 프레임 검사(코·양 어깨·양 귀). 앱은 판정하지 않는다
   inference/              Python 추론 HTTP 경계와 규칙 점수
   analysis/               별도 CSV 연구 분석
     dataset/              명시적 설정·CSV 검증·참여자 분할·시간 창·산출물
-database/                 DB 담당 스키마 V2.3·시드·마이그레이션(API는 검증만)
+database/                 DB 담당 스키마 V2.5·시드·마이그레이션(API는 검증만)
 infra/                    컨테이너 빌드·Nginx·배포 안내
 compose.yaml              서버 개발용 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제
@@ -76,7 +76,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 기록 집계 | [기록 함수](../frontend/src/features/storage/records.ts), [기록 화면](../frontend/src/features/history/LocalHistory.tsx) | 계산/변환과 React 표시를 분리한다. |
 | 기록 상세·달력 | [상세](../frontend/src/features/history/RecordDetails.tsx), [달력](../frontend/src/features/history/RecordCalendarPage.tsx), [발표용 예시 기록](../frontend/src/data/exampleRecords.ts) | 저장된 사건·설정을 표시하며 없는 자료는 추정하지 않는다. 예시 기록은 설정의 토글로만 보이고 저장하지 않는다. |
 | 카메라 | [카메라 hook](../frontend/src/hooks/useCamera.ts), [카메라 기능](../frontend/src/features/camera/) | React 생명주기와 순수 처리/모델 어댑터를 구분한다. 프레임 반복 타이머는 숨은 탭에서도 늦춰지지 않게 Worker로(`frameTimer.ts`, 2026-10-26). |
-| 데스크톱 작은 창 | [작은 창](../frontend/src/features/camera/CameraWindow.tsx), [열기·닫기](../frontend/src/features/camera/useCameraWindow.ts), [Electron 창 정책](../frontend/electron/camera-window.cjs) | 데스크톱 앱에서만. 화면이 `window.open('about:blank', 'posegood-camera')`로 열고 portal로 같은 스트림을 그린다. 크기·테두리 없음·항상 위·허용 주소는 main이 정한다([ADR 0028](decisions/0028-no-web-camera-window-desktop-only.md), [계획 0057](plans/active/0057-native-camera-window-and-design-review.md), lellon0403 develop PR #64). |
+| 데스크톱 작은 창 | [작은 창](../frontend/src/features/camera/CameraWindow.tsx), [열기·닫기](../frontend/src/features/camera/useCameraWindow.ts), [Electron 창 정책](../frontend/electron/camera-window.cjs) | 데스크톱 앱에서만. 화면이 `window.open('about:blank', 'posegood-camera')`로 열고 portal로 같은 스트림을 그린다. 크기·테두리 없음·항상 위·허용 주소는 main이 정한다([ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [계획 0057](plans/active/0057-native-camera-window-and-design-review.md), lellon0403 develop PR #64). |
 | 색·서체·간격 | [토큰](../frontend/src/styles/base.css), [스타일 진입](../frontend/src/styles.css) | import 순서는 기존 cascade와 같게 유지한다. |
 
 `lib/engine.ts`, `lib/serviceStore.ts`는 기존 소비자에게 같은 API를 제공하는 작은 export 진입점이다.

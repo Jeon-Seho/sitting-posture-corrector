@@ -3,14 +3,12 @@
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
-2026-10-13 현재 계정 앱은 [ADR 0022](decisions/0022-db-v23-feature-v2-integration.md)에 따라 특징 v2를 유지하며
-DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18개를 저장하고 측정 중에는 특징 변화량을 전송한다.
-아래 ADR 0021의 좌표 스트림·Kafka 내용은 후속 전환 방향이다.
+지금 앱(FE V3, 2026-10-21~)은 DB V2.5·HTTP 계정 v2에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
-현재 체험용 구현의 초기 선택은 [ADR 0002](decisions/0002-webcam-prototype.md)에 따라 `frontend/`와 `model/prototype/`를
+현재 체험용 구현의 초기 선택은 옛 ADR 0002(지금 [ADR 0007](decisions/0007-lite-pose-tracker.md) 1절)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상·원본 좌표는 서버에 보내지 않는다.
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
-[ADR 0013](decisions/0013-frontend-server-feature-connection.md)에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송한다.
+그때는 옛 ADR 0013에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송했다(지금은 아래 결정 변경).
 
 > **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
@@ -38,8 +36,8 @@ DB V2.3·HTTP 계정 v2에 연결한다. 기준 등록 때만 평균 좌표 18�
 `model/`은 코드의 책임 경계이며 반드시 서버에서 실행한다는 뜻은 아니다.
 현재 계획은 React/TypeScript 클라이언트에서 MediaPipe 키포인트를 추출하고 필요한 특징을 추론 서비스에 전송하며,
 Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다. Python/LSTM 추론 서비스와 사용자 관리 서비스는 분리한다.
-앱(FE V3, 2026-10-21)은 관절 9개 좌표를 0.5초 구간으로 `/v2/realtime`에 보내고, 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md), [ADR 0025](decisions/0025-app-always-measures-on-server.md)).
-기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0026](decisions/0026-baseline-average-by-app-b1.md)). 예전(v1) 개발 흐름의 브라우저 특징 변화량(`model/prototype/serverFeatures.ts`)과 앱의 머리·고개 돌림 판정은 2026-10-22 지웠다.
+앱(FE V3, 2026-10-21)은 관절 9개 좌표를 `/v2/realtime`에 보내고(10/21 0.5초 구간, 2026-10-27부터 프레임마다), 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)).
+기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 예전(v1) 개발 흐름의 브라우저 특징 변화량(`model/prototype/serverFeatures.ts`)과 앱의 머리·고개 돌림 판정은 2026-10-22 지웠다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
 새 서버 흐름의 지속시간·회복·재알림 판정은 API의 판정 엔진 한 곳에서 수행한다. Spring Boot API는
@@ -48,10 +46,10 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 `/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고(실시간 채널은 WebSocket) DB·추론은 host port를 열지 않는다.
 현재 FastAPI는 규칙 기반 특징 점수이고 학습 모델이 아니다. [실행·검증·한계](../backend/README.md)를 따른다.
 
-시간 정책의 현재 합의는 [ADR 0012](decisions/0012-session-timing-policy.md)를 따른다.
+시간 정책의 현재 합의는 [ADR 0020](decisions/0020-single-api-decision-engine.md)를 따른다.
 기본 최초 알림 3초·복귀 3초·같은 사건 재알림 60초, 중단 후 새 사건과 제외 시간,
 세션 시작 시 설정 고정/다음 새 세션 적용을 서버 구현에 유지한다(앱은 설정값을 S1 `policy`로 보낸다).
-개발용 특징·관측 구간 계약은 ADR 0013이며 실제 품질 임계값·카메라 시점·장치 성능은 검증 전이다.
+개발용 특징·관측 구간 계약은 ADR 0020 3절(옛 0013)이며 실제 품질 임계값·카메라 시점·장치 성능은 검증 전이다.
 
 ## 의존성과 변경 원칙
 
@@ -63,7 +61,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## 기존 프론트 통합 예외
 
-[ADR 0003](decisions/0003-retro-integration.md)의 예외(`frontend/src/lib/engine.ts`가 로컬 모드 시간 정책을 실행)는 2026-10-21 [ADR 0025](decisions/0025-app-always-measures-on-server.md)로 끝났다. `lib/engine.ts`에는 기록·설정 타입만 남았다. 학습 데이터 수집 화면이 쓰는 특징 계산(`model/prototype/pose.ts`)은 남아 있다.
+[옛 ADR 0003](removed-docs.md)의 예외(`frontend/src/lib/engine.ts`가 로컬 모드 시간 정책을 실행)는 2026-10-21 [ADR 0021](decisions/0021-app-sends-information-server-judges.md)로 끝났다. `lib/engine.ts`에는 기록·설정 타입만 남았다. 학습 데이터 수집 화면이 쓰는 특징 계산(`model/prototype/pose.ts`)은 남아 있다.
 
 ## 파일럿 파일 수집
 
@@ -86,7 +84,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## MySQL 영구 모드
 
-[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0014-mysql-persistence-and-accounts.md)을 따른다.
+[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
 인증은 DB 서버 세션·CSRF를 사용하고 소유자는 서버 인증 주체에서 얻는다.([ADR 0020](decisions/0020-single-api-decision-engine.md)).
 진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간은 종료 때 짧은 트랜잭션으로 저장한다.
 일별 통계(`daily_stat`)는 API가 읽기만 하고 Spark J2가 매일 00:00에 전날(KST)을 집계하도록 설계했다.
@@ -98,23 +96,23 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
 동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
-앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.3)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.5)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.
 실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
-앱이 v2로 넘어갈 때까지 `/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다([계획 0031](plans/active/0031-realtime-kafka-transition.md)). FE V3는 2026-10-21 v2로 넘어갔다(develop에 합쳐진 뒤 BE가 v1을 정리).
+FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 ## 프론트 진입과 로컬 저장
 
 2026-10-26부터 새 측정은 KST 00시 전후의 관측 누적값을 `days`에 분리해 중간/종료 기록에 보관한다.
 세션 ID·카메라·판정/알림 누적은 자정에 초기화하지 않는다. 기록·달력·오늘 요약은 같은 날짜별 투영을 사용하고
-서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0033-kst-daily-measurement-parts.md).
+서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0027-today-records-from-collected-server-results.md).
 
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
 로컬 `/#collection`은 같은 앱의 프로필 없는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
-[ADR 0016](decisions/0016-collection-entry-and-camera-preview-window.md)에 따라 카메라는 일반 화면 이동에도 유지하고
-Electron 앱은 frame 없는 always-on-top 자식 창에 React portal로 기존 스트림을 미리보기한다. 브라우저 PiP API는 사용하지 않고, 웹은 작은 창과 PiP를 제공하지 않는다(2026-10-26). 명시적 종료·로그아웃·인증 변경은 해제한다. 결정은 [ADR 0028](decisions/0028-no-web-camera-window-desktop-only.md), 구현은 [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64). 웹은 다른 탭에 가도 측정이 이어진다(프레임 타이머를 Worker로).
+[ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md)에 따라 카메라는 일반 화면 이동에도 유지하고
+Electron 앱은 frame 없는 always-on-top 자식 창에 React portal로 기존 스트림을 미리보기한다. 브라우저 PiP API는 사용하지 않고, 웹은 작은 창과 PiP를 제공하지 않는다(2026-10-26). 명시적 종료·로그아웃·인증 변경은 해제한다. 결정은 [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), 구현은 [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64). 웹은 다른 탭에 가도 측정이 이어진다(프레임 타이머를 Worker로).
 미리보기 유지와 수집은 구분하며 탭/수집 화면 이동의 촬영 중단 규칙을 유지한다.
 프로필·세션 저장/복구·측정 화면·기록 조회·저장 검증은 `frontend/src/features/`로 나눴다.
 API는 account/session/engine/workspace/realtime 경계로 구현한다.

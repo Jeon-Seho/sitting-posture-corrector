@@ -34,7 +34,7 @@
 - 추가 피드백: 색이 많아 보인다는 의견에 따라 주황 UI 강조를 제거했다. 중립적인 흰/회색 본문에 초록 버튼·그래프·선택 표시만 사용하고 로고 SVG·PNG·ICO와 상태 그림도 맞췄다.
 - 글자/여백 피드백: [공식 가이드 조사](../../audits/2026-10-26-typography-spacing-review.md)를 바탕으로 공통 글자 크기·행간·굵기·자간과 카드/항목 간격을 정리했다. 오늘 원형 지표는 156px/선10px, 숫자36px로 수정했다.
 - 자산: 생성 일러스트 1개(WebP, PNG 원본/프롬프트), 코드 기반 상태 그림 SVG 3개. 실제 조작은 Phosphor 벡터 아이콘과 접근성 이름을 유지한다.
-- 구현 규칙은 [KST 날짜별 보관](../../decisions/0033-kst-daily-measurement-parts.md)을 따른다. API/DB 계약은 변경하지 않았다.
+- 구현 규칙은 [KST 날짜별 보관](../../decisions/0027-today-records-from-collected-server-results.md)을 따른다. API/DB 계약은 변경하지 않았다.
 
 ## 검증 결과와 남은 한계
 

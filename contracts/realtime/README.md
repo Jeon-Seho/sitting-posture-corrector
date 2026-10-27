@@ -6,7 +6,7 @@
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`·`calibration`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, 등록 결과 `calibration_result`, `progress.paused_reason`, 재연결 없음(ADR 0024).
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`)은 2026-10-26 지웠다.
-> **2026-10-21:** 앱(FE V3)은 v2로 바뀌었고 `purpose:"measure"`만 쓴다. 자세 등록은 WS `calibration`이 아니라 앱이 낸 평균을 REST B1로 보낸다([ADR 0026](../../docs/decisions/0026-baseline-average-by-app-b1.md)). 앱은 v1 WebSocket을 더 쓰지 않는다([ADR 0025](../../docs/decisions/0025-app-always-measures-on-server.md)).
+> **2026-10-21:** 앱(FE V3)은 v2로 바뀌었고 `purpose:"measure"`만 쓴다. 자세 등록은 WS `calibration`이 아니라 앱이 낸 평균을 REST B1로 보낸다([ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md) 5절). 앱은 v1 WebSocket을 더 쓰지 않는다(같은 ADR 4절).
 > Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).
@@ -92,7 +92,7 @@ WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 �
 
 ## 아직 정하지 않은 것
 
-아래는 v1 기준이다. v2에서 메시지 단위(0.5초 구간 1개씩), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
+아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.
