@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 
 from tools.deploy.backup import backup_database
 from tools.deploy.config import ssh_settings, validate_manifest
-from tools.deploy.secrets import ROOT, SECRET_NAMES, create_secrets, mysql_options
+from tools.deploy.secrets import JWT_SECRET, ROOT, SECRET_NAMES, create_secrets, mysql_options
 from tools.deploy.ssh import bundle_release, verify_known_host
 from tools.deploy.restore import compose_rows, restore_database
 from tools.deploy.host import apply_release, atomic_json, deployment_lock
@@ -63,6 +63,34 @@ class DeploymentConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             create_secrets(directory)
         self.assertEqual((directory / "spring.datasource.password").read_text(), original)
+
+    def test_login_signing_key_is_added_once_to_existing_directories_and_never_rotated(self):
+        directory = create_secrets(self.folder / "secrets")
+        key = (directory / JWT_SECRET).read_text()
+        self.assertGreaterEqual(len(key), 32)
+        self.assertNotIn("\n", key)
+        (directory / JWT_SECRET).unlink()  # a directory made before the key existed
+        create_secrets(directory)
+        added = (directory / JWT_SECRET).read_text()
+        self.assertNotEqual(added, key)
+        create_secrets(directory)
+        self.assertEqual((directory / JWT_SECRET).read_text(), added)
+        if os.name != "nt":
+            self.assertEqual((directory / JWT_SECRET).stat().st_mode & 0o777, 0o444)
+        existing = {name: (directory / name).read_text() for name in SECRET_NAMES[:3]}
+        create_secrets(directory, {**existing, JWT_SECRET: added})
+        with self.assertRaisesRegex(ValueError, "rotation"):
+            create_secrets(directory, {**existing, JWT_SECRET: "rotated_" + "k" * 40})
+        self.assertEqual((directory / JWT_SECRET).read_text(), added)
+
+    def test_supplied_login_signing_key_is_validated_before_writing(self):
+        values = {"spring.datasource.password": "a" * 40, "mysql_root_password": "b" * 40,
+                  "posegood.internal-token": "c" * 40}
+        with self.assertRaises(ValueError):
+            create_secrets(self.folder / "secrets", {**values, JWT_SECRET: "short"})
+        self.assertFalse((self.folder / "secrets").exists())
+        directory = create_secrets(self.folder / "secrets", {**values, JWT_SECRET: "d" * 40})
+        self.assertEqual((directory / JWT_SECRET).read_text(), "d" * 40)
 
     def test_public_or_unignored_secret_directories_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "Git-ignored"):

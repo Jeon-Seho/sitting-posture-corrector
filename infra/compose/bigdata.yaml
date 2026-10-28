@@ -406,7 +406,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: "$${IO_DB_PASSWORD:$${DB_PASSWORD}}"
       POSEGOOD_INFERENCE_URL: http://inference:8092
       POSEGOOD_INTERNAL_HOSTS_ENABLED: "true"
+      # (D-71) 토큰 로그인(ADR 0031)·다른 출처 화면(Vercel app.<도메인>). 출처는 끝 / 없이, 쉼표로 여러 개, * 금지.
+      # 비우면 같은 출처 화면(web 8088)만. 서명 키는 env가 아니라 아래 secrets 파일(posegood.auth.jwt-secret, configtree)
       POSEGOOD_COOKIE_SECURE: ${POSEGOOD_COOKIE_SECURE:-false}
+      POSEGOOD_CORS_ALLOWED_ORIGINS: ${POSEGOOD_CORS_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_PIPELINE: ${POSEGOOD_REALTIME_PIPELINE:-local}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
@@ -423,6 +426,8 @@ services:
         condition: service_healthy
     volumes:
       - ./secrets/posegood.internal-token:/run/secrets/posegood.internal-token:ro
+      # (D-71) 로그인 토큰 서명 키(32바이트 이상). 없이 띄우면 docker가 빈 폴더를 만들어 키가 매번 바뀐다 → 통합 테스트 0단계가 막는다
+      - ./secrets/posegood.auth.jwt-secret:/run/secrets/posegood.auth.jwt-secret:ro
       - /etc/localtime:/etc/localtime:ro
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     networks:
