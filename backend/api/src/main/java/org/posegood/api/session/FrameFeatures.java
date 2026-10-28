@@ -87,6 +87,11 @@ public final class FrameFeatures {
         return features(points);
     }
 
+    /** 자세 등록에 쓸 수 있는 프레임(판정 가능 프레임, BE 명세 11.3). */
+    static boolean usable(FrameInterval.Frame frame) {
+        return features(frame) != null;
+    }
+
     /**
      * 저장된 기준 좌표 18개의 특징. DB에는 visibility가 없으므로 1로 둔다.
      *

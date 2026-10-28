@@ -64,16 +64,28 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 
 ## 기준 자세
 
-`POST /baselines`는 `{registration_id,calibration_ms,sample_count,landmarks}`를 받는다(2026-10-26 ADR 0028).
+`POST /baselines`는 `{registration_id,frames}`를 받는다(2026-10-28 [계획 0060](../docs/plans/active/0060-baseline-frames-over-rest.md) — 호환성 깨짐: 예전
+`{calibration_ms,sample_count,landmarks}` 본문은 모르는 필드라 `400 INVALID_CONTRACT`다).
 `registration_id`는 앱이 촬영 한 번마다 한 번 만드는 UUID이며 재시도에 그대로 쓴다. 앱은 시각을 보내지 않는다 —
-예전 `registered_at` 필드를 보내면 모르는 필드라 `400 INVALID_CONTRACT`다.
-연속 촬영 3,000..999,900ms, 유효 좌표 표본 20..100,000개를 확인한다. 두 수치는 검증만 하며 DB에 저장하지 않는다.
-`landmarks`는 `nose,left_eye,right_eye,left_ear,right_ear,mouth_left,mouth_right,left_shoulder,right_shoulder`의
-`{x,y}` 평균 좌표(각 0..1)다. 영상·개별 프레임·장치 ID를 저장하지 않는다. 좌표는 소수 다섯째 자리로 반올림한다.
+예전 `registered_at` 필드를 보내면 모르는 필드라 `400 INVALID_CONTRACT`다(2026-10-26 ADR 0028).
+`frames`는 촬영한 프레임 0..500개이고 각 프레임은 [posture.frames.v1](realtime/frames/posture-frames.v1.schema.json)의
+프레임 `{t_ms, p, valid?}`와 같다(`t_ms`는 촬영 시작부터 ms, `p`는 관절 9개 `[x, y, visibility]` 또는 null).
+`t_ms`가 늘어나지 않으면 400이다. 서버는 판정 가능 프레임(BE 명세 11.3)의 관절 9개 x·y를 단순 평균한다.
+평균을 낼 수 없으면 `422 BASELINE_REJECTED`와 `reason`을 아래 순서로 돌려주고 저장하지 않는다.
+
+| `reason` | 조건 |
+| --- | --- |
+| `incomplete` | 첫 프레임부터 마지막 프레임까지 3,000ms 미만 |
+| `too_few_frames` | 판정 가능 프레임 15장 미만 |
+| `out_of_frame` | 평균 좌표가 0..1 밖이거나 그 평균으로 기준 특징을 구할 수 없음 |
+
+1초 넘는 빈틈은 앱만 거절한다(서버는 보지 않는다). 영상·개별 프레임·장치 ID를 저장하지 않고 평균만 저장한다.
+평균은 `nose,left_eye,right_eye,left_ear,right_ear,mouth_left,mouth_right,left_shoulder,right_shoulder`의
+`{x,y}`(각 0..1)이고 소수 다섯째 자리로 반올림해 저장한다.
 
 응답은 `{schema_version:"2.0",baseline_id,registered_at,landmarks}`이며 저장된 정밀도의 좌표를 돌려준다.
 `registered_at`은 서버가 등록을 받은 시각(UTC ISO)이다.
-동일 사용자·`registration_id`·정규화 좌표의 재전송은 같은 행을 반환한다. 같은 `registration_id`의 다른 좌표는 409다.
+동일 사용자·`registration_id`·같은 평균(정규화 좌표)의 재전송은 같은 행을 반환한다. 같은 `registration_id`에 평균이 다른 프레임은 409다.
 새 등록은 INSERT하며 과거 행을 수정하지 않는다. `GET /baselines/current`는 사용자별 가장 큰 DB ID의 행,
 없으면 `404 BASELINE_NOT_FOUND`다.
 공개 `baseline_id`는 `UUID.nameUUIDFromBytes(UTF8("posegood:baseline:"+userId+":"+baselinePostureId))`다.

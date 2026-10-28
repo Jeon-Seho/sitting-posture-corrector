@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import org.junit.jupiter.api.AfterAll;
@@ -93,19 +94,29 @@ class MySqlIntegrationTest {
         return body;
     }
 
+    /** B1 본문: 같은 자세를 0~3000ms에 20장 찍은 프레임(서버가 평균을 낸다, 계획 0060). */
     private static ObjectNode registration(double noseX) {
-        var b = MAPPER.createObjectNode().put("registration_id", UUID.randomUUID().toString()).put("calibration_ms", 3000).put("sample_count", 20);
-        var landmarks = b.putObject("landmarks");
-        landmarks.putObject("nose").put("x", noseX).put("y", 0.4);
-        landmarks.putObject("left_eye").put("x", 0.52).put("y", 0.37);
-        landmarks.putObject("right_eye").put("x", 0.48).put("y", 0.37);
-        landmarks.putObject("left_ear").put("x", 0.56).put("y", 0.38);
-        landmarks.putObject("right_ear").put("x", 0.44).put("y", 0.38);
-        landmarks.putObject("mouth_left").put("x", 0.515).put("y", 0.45);
-        landmarks.putObject("mouth_right").put("x", 0.485).put("y", 0.45);
-        landmarks.putObject("left_shoulder").put("x", 0.65).put("y", 0.62);
-        landmarks.putObject("right_shoulder").put("x", 0.35).put("y", 0.623456);
+        double[][] points = {
+            {noseX, 0.4}, {0.52, 0.37}, {0.48, 0.37}, {0.56, 0.38}, {0.44, 0.38},
+            {0.515, 0.45}, {0.485, 0.45}, {0.65, 0.62}, {0.35, 0.623456}
+        };
+        return registration(points);
+    }
+
+    private static ObjectNode registration(double[][] points) {
+        var b = MAPPER.createObjectNode().put("registration_id", UUID.randomUUID().toString());
+        b.set("frames", captureFrames(points));
         return b;
+    }
+
+    private static ArrayNode captureFrames(double[][] points) {
+        var frames = MAPPER.createArrayNode();
+        for (int i = 0; i < 20; i++) {
+            var frame = frames.addObject().put("t_ms", 3000L * i / 19);
+            var p = frame.putArray("p");
+            for (var joint : points) p.addArray().add(joint[0]).add(joint[1]).add(1.0);
+        }
+        return frames;
     }
 
     private static UUID baseline(ApiClient api) throws Exception {
@@ -330,7 +341,7 @@ class MySqlIntegrationTest {
             var started = session.getObject(2, LocalDateTime.class);
             assertEquals(started.plusSeconds(9), session.getObject(3, LocalDateTime.class));
             assertEquals(new BigDecimal("3.0"), session.getBigDecimal(4));
-            assertFalse(session.getBoolean(5));
+            assertTrue(session.getBoolean(5)); // 새 계정은 알림 켜짐(V2.6 기본값)을 세션이 복사한다
 
             var episode =
                     statement.executeQuery(
@@ -573,8 +584,24 @@ class MySqlIntegrationTest {
         assertTrue(!registeredAt.isBefore(before) && !registeredAt.isAfter(java.time.Instant.now().plusSeconds(1)), registeredAt.toString());
         // A retry with the same registration_id returns the stored row, even seconds later.
         assertEquals(saved.body(), api.post("/v2/baselines", registration).body());
-        ((ObjectNode) registration.get("landmarks").get("nose")).put("x", 0.51);
+        registration.set("frames", registration(0.51).get("frames"));
         assertEquals(409, api.post("/v2/baselines", registration).status());
+        // The server averages the frames itself: under 3 s or under 15 usable frames is 422 with a reason.
+        var brief = registration(0.5);
+        for (var frame : brief.get("frames")) ((ObjectNode) frame).put("t_ms", frame.get("t_ms").asLong() / 2);
+        var rejected = api.post("/v2/baselines", brief);
+        assertEquals(422, rejected.status());
+        assertEquals("BASELINE_REJECTED", rejected.body().get("code").asString());
+        assertEquals("incomplete", rejected.body().get("reason").asString());
+        var blurred = registration(0.5);
+        for (int i = 0; i < 6; i++)
+            ((ArrayNode) blurred.get("frames").get(i).get("p").get(7)).set(2, MAPPER.getNodeFactory().numberNode(0.3));
+        assertEquals("too_few_frames", api.post("/v2/baselines", blurred).body().get("reason").asString());
+        // The old body (app-side mean) is refused.
+        var old = registration(0.5);
+        old.remove("frames");
+        old.put("calibration_ms", 3000).put("sample_count", 20).putObject("landmarks");
+        assertEquals(400, api.post("/v2/baselines", old).status());
         // A new registration_id is a new capture: a new row becomes the current baseline.
         registration.put("registration_id", UUID.randomUUID().toString());
         var second = api.post("/v2/baselines", registration);
@@ -688,16 +715,8 @@ class MySqlIntegrationTest {
         var api = client();
         api.register(email());
 
-        // 자세 등록은 B1뿐이다(WebSocket 등록은 2026-10-27 삭제). 합성 기준 좌표 UPRIGHT를 앱이 낸 평균으로 보낸다.
-        var registration = MAPPER.createObjectNode()
-                .put("registration_id", UUID.randomUUID().toString())
-                .put("calibration_ms", 3000)
-                .put("sample_count", 24);
-        var landmarks = registration.putObject("landmarks");
-        String[] joints = {"nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right",
-                "left_shoulder", "right_shoulder"};
-        for (int i = 0; i < joints.length; i++)
-            landmarks.putObject(joints[i]).put("x", UPRIGHT[i][0]).put("y", UPRIGHT[i][1]);
+        // 자세 등록은 B1뿐이다(WebSocket 등록은 2026-10-27 삭제). 합성 기준 좌표 UPRIGHT를 3초치 프레임으로 보낸다.
+        var registration = registration(UPRIGHT);
         var saved = api.post("/v2/baselines", registration);
         assertEquals(200, saved.status());
         UUID baseline = UUID.fromString(saved.body().get("baseline_id").asString());

@@ -44,6 +44,7 @@
 | `POST /v2/baselines`, `GET /v2/baselines/current` (이력 행 추가) | DB/BE | 구현됨 | `session/BaselineController.java`, [ADR 0028](decisions/0028-server-time-for-baseline-registration.md), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 5절 |
 | B1 등록 시각을 서버 시각으로, 재전송은 `registration_id`(UK-16)로 (DB V2.5, migration 015) | DB/BE | 구현됨 (브랜치, MySQL로는 미확인) — **호환성 깨짐**: `registered_at`을 보내는 FE V3는 400. FE가 함께 바꿔야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md), `session/BaselineRepository.java` |
 | WebSocket 등록 (`purpose: calibration` → `calibration_result`) | DB/BE | **삭제함** (브랜치, 2026-10-27) — 등록은 B1뿐. 코드·계약·예시 5개·시험 정리 | `api-spec.md` 11.4 |
+| B1이 프레임 배열을 받아 서버가 평균 (`frames` 최대 500, 3초·판정 가능 15장, 422 `BASELINE_REJECTED` + `reason`) | BE | 구현됨 (브랜치, 2026-10-28, `check-backend` MySQL 통합·HTTP smoke 통과) — **호환성 깨짐**: 예전 `{calibration_ms, sample_count, landmarks}` 본문은 400. 지금 앱(FE V3)은 예전 본문을 보내므로 FE가 맞춰야 함(팀원에게 알림). DB 그대로 | `session/BaselineFrames.java`, [계획 0060](plans/active/0060-baseline-frames-over-rest.md) |
 
 ### 2.4 측정·실시간 판정 (API 안)
 
@@ -98,7 +99,7 @@
 |---|---|---|---|
 | `infra/nginx/default.conf` `location = /api/v1/realtime`, `infra/README.md` 44·153줄 | API에서 지운 `/v1/realtime`을 아직 전달·안내함(연결하면 실패) | DevOps(infra 담당)에 삭제 요청 | 요청 전 |
 | `docs/architecture.md` 105줄 | "`/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다" | 문서 담당에 갱신 요청 | 요청 전 |
-| `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 앱은 3초 평균을 B1으로 보냄(FE ADR 0021, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
+| `docs/design/architecture_v5.2_change_notes.md` 「자세 등록」·FE 줄, `architecture_v5.2_stack_roles.md` 추론 서비스 줄 | 등록 전용 WS·추론이 평균 계산 — 지금은 앱이 3초치 프레임을 B1으로 보내고 API가 평균(10/28 계획 0060, BE-5 ⑤) | PM·DevOps(문서 담당)에 갱신 요청 | 요청 전 |
 | `docs/plans/active/0031-realtime-kafka-transition.md` 79·84줄 | 최대 측정 시간을 「팀 회의 결과를 따른다, 5000초 유지」로 적음 — 2026-10-26 결정(제품 한도 없음, 측정불가 5분 자동 종료)과 다름. 10/26 v1 정리 기록도 없음 | 계획 공동 담당(DevOps·PM)에 갱신 요청(BE가 계획 0031을 직접 고치지 않기로 함) | 요청 전 |
 | `infra/mysql/initdb/10-posegood-schema.sh` | ~~빈 볼륨에 `schema_V2_5.sql`을 적용함~~ → 2026-10-27 `schema_V2_6.sql`로 고침(DB). 남은 것: Compose `api`에 `POSEGOOD_JWT_SECRET`(32바이트 이상) 전달 | DevOps에 `POSEGOOD_JWT_SECRET` 추가 요청 | 초기화 스크립트 완료, 비밀값 요청 전 |
 | `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | 쿠키·CSRF 로그인(`/v2/auth/csrf`)과 쿠키 WS 인증을 씀 — 토큰 로그인(ADR 0031)에서 실패 | DevOps에 Bearer 토큰·`hello.access_token`으로 바꿔 달라고 요청 | 요청 전 |
@@ -130,6 +131,7 @@
 | 2026-10-22 | 탈퇴 철회 경로 삭제, 서버 통계는 어제까지·오늘 화면은 로컬 수집 결과 사용으로 표시 정책 명시 | - |
 | 2026-10-26 | 기준을 `develop`으로. 불일치 4건 해결(`AuthController` 주석, `backend/README.md` 링크, `service_smoke.py` 기대값, 계획 0026 표) → 새 불일치 3건 기록. FE V3의 요청(BE-1·3·4, T1·R1b, CORS)과 미결 4건 추가 | `2de7c83` |
 | 2026-10-26 | ADR 0028: B1 등록 시각 서버화·`registration_id`, DB V2.5(migration 015). `registered_at` 설명 불일치 해결, 미결 1건 결정, ④-A·③ 기록 | `cab11c1` |
+| 2026-10-28 | B1을 프레임 배열 + 서버 평균으로 바꿈(계획 0060, FE ADR 0021 5절 갱신은 FE). 422 `BASELINE_REJECTED` 추가 | 커밋 전 |
 | 2026-10-26 | ADR 0028 ④ 구현: `/v2/realtime` `ready.started_at`·`closed.ended_at`, 계약·예시·시험. 미결 1건 → 구현됨 | `b903751` |
 | 2026-10-26 | FE 요청 BE-5 반영: ① 로그인 고정 30분 만료 구현(refresh 토큰 전환 예정, 4장), ③ T1·R1b 제공하지 않음, ④ 옛 프로토타입 주석 정리, ⑤ 옛 앱 동작 문서 정리(BE 문서만: api-spec 11.4·README. infra·아키텍처 문서는 담당에 요청, 3장). ② `valid_ms` 하위 구간은 보류(4장). BE-1·계획 0031의 `/v1/realtime` 삭제 | `7034f0e` |
 | 2026-10-26 | BE-5 ③ 「T1·R1b 제공하지 않음」을 되돌림(없앤 경로가 아니라 구현 전). T1 형식 확정(API 명세 T1) | `fdd1269` |

@@ -69,17 +69,15 @@ class Account:
 
 
 def register_baseline(account):
-    """Register a synthetic 9-landmark baseline; sessions must name the account's current one."""
+    """Register a synthetic 9-landmark baseline; sessions must name the account's current one.
+
+    B1 takes the capture's frames and the server averages them (plan 0060): 20 identical frames over 3 s.
+    """
+    joints = [[0.5, 0.4], [0.52, 0.37], [0.48, 0.37], [0.56, 0.38], [0.44, 0.38],
+              [0.515, 0.45], [0.485, 0.45], [0.65, 0.62], [0.35, 0.62]]
     saved = account.request("/v2/baselines", "POST", {
         "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
-        "calibration_ms": 3000, "sample_count": 20,
-        "landmarks": {
-            "nose": {"x": 0.5, "y": 0.4}, "left_eye": {"x": 0.52, "y": 0.37},
-            "right_eye": {"x": 0.48, "y": 0.37}, "left_ear": {"x": 0.56, "y": 0.38},
-            "right_ear": {"x": 0.44, "y": 0.38}, "mouth_left": {"x": 0.515, "y": 0.45},
-            "mouth_right": {"x": 0.485, "y": 0.45}, "left_shoulder": {"x": 0.65, "y": 0.62},
-            "right_shoulder": {"x": 0.35, "y": 0.62},
-        },
+        "frames": [{"t_ms": 3000 * i // 19, "p": [[x, y, 1.0] for x, y in joints]} for i in range(20)],
     })
     return saved["baseline_id"]
 
