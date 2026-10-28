@@ -249,7 +249,7 @@ FE가 정한 것(앱 쪽 동작):
 - 보낼 것(디스코드, klaod-tech): 김유진(DB·BE) — **이 문서 그대로**(1.0 BE와 다른 곳, 1.1 10/26 정리 문서에 대한 답과 추가 요청, BE-5·BE-6. BE-6 ⑤ J2 실행 시점은 J2 담당과 함께), 홍규(DevOps) — BE 10/26 정리 문서 5.2(migration 015 등)와 [배포](fe-deploy.md) 3.1, 팀장 — 1장 맨 위 「팀장에게 물을 것」(`data-platform-boundary.md` 계속 쓸지). 답이 오면 이 문서·연동 명세에 반영한다.
 - 이어서 할 일: 아래 표 1번(더미 데이터 삭제)부터. 9번(자동 PiP)·10번(시험 전용 로컬 로그인 삭제)은 [계획 0054](../plans/active/0054-pip-fix-and-server-only-login.md).
 - 10/26 오후: 9번은 방향을 바꿔 끝냈다 — 웹 작은 창 삭제(V3 `409de69`), 숨은 탭에서도 측정이 이어지게 프레임 타이머를 Worker로(`86b7a46`), 결정 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md). 데스크톱 작은 창은 [계획 0055](../plans/active/0055-desktop-camera-window.md)(11번).
-- 10/26에 정한 것: 로컬 기록은 키 하나, 계정별로 나누지 않음([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)). 포크(Vercel)는 그대로 `11126de`(fe-deploy 6장).
+- 10/26에 정한 것: 로컬 기록은 키 하나, 계정별로 나누지 않음([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)). 포크(Vercel)는 그대로 `11126de`(fe-deploy 7장 진행 기록).
 
 10/25~26에 한 것: develop(PR #63) 합침, 팀장 10/22 결정을 연동 명세·이 문서에 옮김, 모델명·버전 화면 표시 삭제(5-a), design 문서 점검(fe-deploy·명령·동의 제안서 고침, 다른 담당 문서는 BE-5 ⑤), ADR 0027. 10/26 오후~저녁: 웹 작은 창 삭제·숨은 탭 측정·데스크톱 작은 창(9·11번), 서버 시각·KST·B1 `registration_id`·ADR 0028·0030(12·13번). 시험 238개·`tsc`·빌드·`check-repo`·WS 계약 시험 통과.
 10/21에 한 것: F2 자세 등록(B1·B2), F1+F3 측정(S1 → `/v2/realtime`), 로컬 판정·이어하기·v1 서버 코드 삭제. 시험 213개·`check-repo` 통과, 실제 서버 시험은 아직.
