@@ -34,7 +34,8 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   const frames = (from: number, to: number) => { for (let t = from; t <= to; t += 100) emit(t) }
   const mount = () => act(() => { renderer = create(<Probe />) })
   const start = () => act(() => current.start('camera'))
-  const register = () => { start(); frames(0, 10000) }
+  const register = () => { start(); frames(0, 1900); act(() => current.startReference()); frames(2000, 10000) }
+  const registerUI = () => { frames(0, 1900); act(() => renderer.root.findByProps({ 'aria-label': '기준 자세 등록 시작' }).props.onClick()) }
   const exportRows = () => {
     act(() => current.exportCsv('trace'))
     const [header, ...lines] = vi.mocked(downloadComparisonCsv).mock.calls.at(-1)![1].slice(1).trimEnd().split('\r\n')
@@ -51,6 +52,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('opens without using the camera and keeps modes inside the start modal', () => {
     act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(camera.connect).not.toHaveBeenCalled()
+    expect(text(renderer.root.findByProps({ className: 'oc-camera-empty' }))).toBe('카메라를 켜 주세요')
     expect(renderer.root.findAllByType('button').map(text)).not.toContain('기준 8초 등록')
     expect(renderer.root.findAllByProps({ className: 'oc-mode-picker' })).toHaveLength(0)
     expect(renderer.root.findAllByType('header')).toHaveLength(0)
@@ -90,14 +92,25 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(renderer.root.findByProps({ className: 'dev-lab oc-page' }).props['data-theme']).toBe('dark')
     expect(camera.connect).not.toHaveBeenCalled()
   })
-  it('automatically gives two seconds of notice, then registers eight seconds before starting guidance', () => {
+  it('waits for confirmation before registering eight seconds and starting guidance', () => {
     mount(); start(); frames(0, 1900)
     expect(current.setup.status).toBe('preparing'); expect(current.registering).toBe(false); expect(current.traceCount).toBe(0)
-    emit(2000); expect(current.setup).toEqual({ status: 'registering', remainingMs: 8000 })
+    expect(current.canStartReference).toBe(true); expect(current.reference).toBeNull()
+    act(() => current.startReference()); expect(current.setup).toEqual({ status: 'registering', remainingMs: 8000 }); emit(2000)
     frames(2100, 9900); expect(current.reference).toBeNull(); expect(current.traceCount).toBe(0)
     emit(10000)
     expect(current.reference).not.toBeNull(); expect(current.guide).toMatchObject({ status: 'running', mode: 'auto', step: { phase: 'move' } })
     expect(current.measuring).toBe(false)
+  })
+  it('never starts registration by waiting and rejects confirmation without fresh tracking', () => {
+    mount(); start(); frames(0, 15000)
+    expect(current.setup.status).toBe('preparing'); expect(current.registering).toBe(false); expect(current.reference).toBeNull()
+    wall = 16000; act(() => current.startReference())
+    expect(current.setup.status).toBe('preparing'); expect(current.reference).toBeNull()
+    emit(16100); act(() => current.startReference())
+    expect(current.setup.status).toBe('registering'); expect(current.reference).toBeNull()
+    frames(16200, 24100); expect(current.reference).toBeNull()
+    emit(24200); expect(current.reference).not.toBeNull()
   })
   it('records replay points across stages while keeping measurement CSV hold-only and protects early replay data', () => {
     mount(); start(); frames(0, 1500)
@@ -108,7 +121,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(current.pendingReset).toBe('start'); expect(current.getReplay()!.frames).toEqual(early.frames)
     act(() => current.cancelReset()); start(); act(() => current.confirmReset())
     expect(current.replayCount).toBe(0)
-    frames(2000, 15100)
+    emit(2000); act(() => current.startReference()); frames(2100, 15100)
     const replay = current.getReplay()!
     expect(replay.frames.some(f => f.phase === 'registering')).toBe(true)
     expect(replay.frames.some(f => f.phase === 'move' && !f.measurement)).toBe(true)
@@ -129,6 +142,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     for (let t = 0; t <= 154000; t += 200) {
       wall = t
       act(() => listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t }))
+      if (t === 1800) act(() => button('기준 자세 등록 시작').props.onClick())
     }
     act(() => renderer.root.findAllByProps({role:'tab'})[1].props.onClick())
     expect(button('최근 측정 보기').props['aria-pressed']).toBe(true)
@@ -143,7 +157,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    frames(0, 13000)
+    registerUI(); frames(2000, 13000)
     const preview = renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })
     const guide = renderer.root.findByType(ObservationGuide).props.guide
     const replay = renderer.root.findByType(ObservationReplay).props.getRecording()
@@ -170,7 +184,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    frames(0, 13000)
+    registerUI(); frames(2000, 13000)
     act(() => tabs()[1].props.onClick())
     expect(live().props.hidden).toBe(false)
     expect(renderer.root.findAllByType('button').some(b => text(b) === '파일 불러오기')).toBe(false)
@@ -197,7 +211,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    frames(0, 13000)
+    registerUI(); frames(2000, 13000)
     const preview = renderer.root.findByProps({ 'aria-label': '좌우 반전된 실시간 웹캠' })
     const stopped = vi.mocked(camera.stop).mock.calls.length
     act(() => renderer.root.findAllByProps({ role: 'tab' })[2].props.onClick())
@@ -221,10 +235,17 @@ describe('observation flow with explicit synthetic frames and clock', () => {
       await act(async () => { await button('카메라 켜고 시작').props.onClick() })
     }
     await pick('manual'); expect(camera.connect).toHaveBeenCalledOnce()
-    frames(0, 12000)
+    registerUI(); frames(2000, 12000)
     expect(renderer.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
-    expect(button('다음').props.disabled).toBe(false)
-    act(() => button('다음').props.onClick()); frames(12100, 13100)
+    expect(button('측정 시작').props.disabled).toBe(false)
+    expect(renderer.root.findByProps({ className: 'oc-camera-badge' }).props['data-status']).toBe('waiting')
+    const measurement = renderer.root.findByProps({ className: 'oc-workspace oc-measurement' })
+    const key = { key: 'Enter', repeat: false, isDefaultPrevented: () => false, nativeEvent: { isComposing: false }, preventDefault: vi.fn(), target: { closest: () => null } }
+    act(() => measurement.props.onKeyDown({ ...key, target: { closest: () => ({}) } }))
+    expect(renderer.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
+    act(() => measurement.props.onKeyDown(key)); expect(key.preventDefault).toHaveBeenCalledOnce()
+    expect(renderer.root.findByProps({ className: 'oc-camera-badge' }).props['data-status']).toBe('measuring')
+    frames(12100, 13100)
     act(() => button('측정 종료').props.onClick()); act(() => renderer.root.findByType(ConfirmDialog).props.onConfirm())
     expect(renderer.root.findAllByProps({ className: 'oc-status' })).toHaveLength(0)
     expect(renderer.root.findAllByProps({ className: 'oc-guide-notice' })).toHaveLength(0)
@@ -239,23 +260,39 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('취소').props.onClick())
     expect(button('관측 시계열 CSV').props.disabled).toBe(false)
   })
+  it('advances on Enter from the page background only when waiting and no dialog is open', async () => {
+    const querySelector = vi.fn().mockReturnValue(null)
+    Object.assign(doc, { body: doc, querySelector })
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
+    act(() => button('카메라 켜기').props.onClick())
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    registerUI(); frames(2000, 12000)
+    const enter = () => { const event = new Event('keydown', { cancelable: true }); Object.assign(event, { key: 'Enter', repeat: false, isComposing: false }); act(() => { doc.dispatchEvent(event) }); return event }
+    querySelector.mockReturnValueOnce({})
+    expect(enter().defaultPrevented).toBe(false)
+    expect(renderer.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
+    expect(enter().defaultPrevented).toBe(true)
+    expect(renderer.root.findByProps({ 'aria-label': '동작 안내' }).props['data-measuring']).toBe(true)
+  })
   it('does not start the reference clock while camera connection is still loading', () => {
     camera = { ...camera, state: 'loading' }; mount(); start()
     wall = 5000; act(() => { vi.advanceTimersByTime(100) })
     expect(current.setup.status).toBe('connecting'); expect(current.reference).toBeNull()
     camera = { ...camera, state: 'on' }; act(() => renderer.update(<Probe />))
-    frames(5000, 14900); expect(current.reference).toBeNull()
+    frames(5000, 6900); act(() => current.startReference()); frames(7000, 14900); expect(current.reference).toBeNull()
     emit(15000); expect(current.reference).not.toBeNull()
   })
   it('offers a new connection after camera failure during reference registration', () => {
-    mount(); start(); frames(0, 3000)
+    mount(); start(); frames(0, 1900); act(() => current.startReference()); frames(2000, 3000)
     camera = { ...camera, state: 'error' }; act(() => renderer.update(<Probe />))
     expect(current.active).toBe(false); expect(current.setup.status).toBe('interrupted')
     expect(current.registering).toBe(false)
     start(); expect(current.pendingReset).toBe('start')
+    camera = { ...camera, state: 'loading' }; act(() => renderer.update(<Probe />))
     act(() => current.confirmReset()); expect(camera.connect).toHaveBeenCalledTimes(2)
     camera = { ...camera, state: 'on' }; act(() => renderer.update(<Probe />))
-    frames(3100, 13100); expect(current.reference).not.toBeNull()
+    frames(3100, 4900); act(() => current.startReference()); frames(5000, 13100); expect(current.reference).not.toBeNull()
   })
   it('unlocks a disconnected guided run so a new connection can be requested with retained-data protection', () => {
     mount(); register(); frames(10100, 13000)
@@ -265,12 +302,29 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     const count = current.traceCount
     start(); expect(current.pendingReset).toBe('start'); expect(current.traceCount).toBe(count)
   })
+  it('keeps recorded data and unlocks the UI when the camera is stopped during an effect refresh', () => {
+    function RefreshProbe({ selected }: { selected: 'camera' | 'synthetic' }) {
+      current = useObservationComparison(camera, selected); return null
+    }
+    act(() => { renderer = create(<RefreshProbe selected="camera" />) })
+    register(); frames(10100, 13000)
+    const count = current.traceCount, replayCount = current.replayCount
+    expect(count).toBeGreaterThan(0); expect(current.active).toBe(true)
+    // An effect refresh invokes cleanup while React retains the session state.
+    act(() => renderer.update(<RefreshProbe selected="synthetic" />))
+    camera = { ...camera, state: 'off' }
+    act(() => renderer.update(<RefreshProbe selected="camera" />))
+    expect(current.active).toBe(false); expect(current.guideLocked).toBe(false)
+    expect(current.traceCount).toBeGreaterThanOrEqual(count); expect(current.replayCount).toBe(replayCount)
+    act(() => current.start('camera'))
+    expect(current.pendingReset).toBe('start'); expect(current.replayCount).toBe(replayCount)
+  })
   it('focuses the workspace once when registration automatically starts guidance', async () => {
     const scrollIntoView = vi.fn(), focus = vi.fn()
     act(() => { renderer = create(<ObservationLab camera={camera} />, { createNodeMock: element => element.props['aria-label'] === '카메라와 동작 안내' ? { scrollIntoView, focus } : null }) })
     const click = (label: string) => act(() => renderer.root.findAllByType('button').find(button => (button.props['aria-label'] ?? button.props.children) === label)!.props.onClick())
     click('카메라 켜기'); act(() => renderer.root.findAllByProps({ type: 'radio' })[0].props.onChange())
-    await act(async () => { await renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜고 시작')!.props.onClick() }); frames(0, 9900); expect(focus).not.toHaveBeenCalled()
+    await act(async () => { await renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜고 시작')!.props.onClick() }); registerUI(); frames(2000, 9900); expect(focus).not.toHaveBeenCalled()
     emit(10000); expect(scrollIntoView).toHaveBeenCalledOnce(); expect(focus).toHaveBeenCalledWith({ preventScroll: true })
     frames(10100, 12300); click('잠깐 멈춤'); emit(12400); click('현재 단계 처음부터 재개')
     expect(scrollIntoView).toHaveBeenCalledOnce(); expect(focus).toHaveBeenCalledOnce()
@@ -278,8 +332,8 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('waits for tracking before reference preparation and restarts eight seconds on registration quality loss', () => {
     mount(); start()
     for (let t = 0; t <= 5000; t += 100) emit(t, { invalid: true })
-    expect(current.setup).toEqual({ status: 'preparing', remainingMs: 2000 })
-    frames(5100, 9000); expect(current.registering).toBe(true)
+    expect(current.setup).toEqual({ status: 'preparing', remainingMs: 0 }); expect(current.canStartReference).toBe(false); act(() => current.startReference()); expect(current.registering).toBe(false)
+    emit(5100); act(() => current.startReference()); frames(5200, 9000); expect(current.registering).toBe(true)
     emit(9100, { invalid: true }); frames(9200, 17100); expect(current.reference).toBeNull()
     emit(17200); expect(current.reference).not.toBeNull()
   })
@@ -300,13 +354,22 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(observations.every(r => +r.observation_time_ms >= 15000 && +r.observation_time_ms < 20000)).toBe(true)
     expect(rows.filter(r => r.event !== 'observation').every(r => r.head_gap_delta_pct_ref_image_shoulder_width === '')).toBe(true)
   })
+  it('records manual preparation as immediate waiting with a versioned zero-duration phase', () => {
+    mount(); act(() => current.changeGuideMode('manual')); register()
+    expect(current.guide).toMatchObject({ status: 'waiting', step: { phase: 'move', durationMs: 0 } })
+    const rows = exportRows(), phase = rows.filter(row => row.event === 'protocol_phase_completed')
+    expect(phase).toHaveLength(1)
+    expect(phase[0]).toMatchObject({ protocol_id: 'front-observation-manual-ready-5-5x3-v3', protocol_mode: 'manual', protocol_phase: 'move', protocol_phase_duration_ms: '0' })
+    expect(rows.filter(row => row.event === 'observation')).toHaveLength(0)
+  })
   it('rejects early and repeated next calls, then gives every manual phase its full time', () => {
     mount(); act(() => current.changeGuideMode('manual')); register()
-    frames(10100, 11900); act(() => current.nextGuide()); expect(current.guide.stepIndex).toBe(0)
-    emit(12000); act(() => current.nextGuide()); act(() => current.nextGuide())
+    expect(current.guide).toMatchObject({ status: 'waiting', stepIndex: 0, remainingMs: 0 })
+    emit(10100); act(() => current.nextGuide()); act(() => current.nextGuide())
     expect(current.guide).toMatchObject({ status: 'running', stepIndex: 1, remainingMs: 5000 })
-    frames(12100, 16900); act(() => current.nextGuide()); expect(current.guide.stepIndex).toBe(1)
-    emit(17000); expect(current.guide.status).toBe('waiting')
+    frames(10200, 15000); act(() => current.nextGuide()); expect(current.guide.stepIndex).toBe(1)
+    emit(15100); expect(current.guide.status).toBe('waiting')
+    emit(15200)
     act(() => current.nextGuide()); expect(current.guide).toMatchObject({ stepIndex: 2, remainingMs: 5000 })
     act(() => current.changeGuideMode('auto')); expect(current.guideMode).toBe('manual')
   })
@@ -339,14 +402,14 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(starts.map(r => r.protocol_phase_attempt)).toEqual(['1', '2'])
     expect(starts[0].segment_id).not.toBe(starts[1].segment_id)
   })
-  it('interrupts hidden registration and requires a new two-second notice before another eight seconds', () => {
-    mount(); start(); frames(0, 4000)
+  it('interrupts hidden registration and requires a new explicit confirmation', () => {
+    mount(); start(); frames(0, 1900); act(() => current.startReference()); frames(2000, 4000)
     act(() => { doc.visibilityState = 'hidden'; doc.dispatchEvent(new Event('visibilitychange')) })
     expect(current.setup.status).toBe('interrupted'); expect(current.registering).toBe(false)
     act(() => { doc.visibilityState = 'visible' }); frames(4100, 15000)
     expect(current.reference).toBeNull()
     act(() => current.register()); expect(current.pendingReset).toBe('register')
-    act(() => current.confirmReset()); frames(15100, 25100)
+    act(() => current.confirmReset()); frames(15100, 16900); act(() => current.startReference()); frames(17000, 25100)
     expect(current.reference).not.toBeNull()
   })
   it('pauses on lost 2D and does not resume or collect until explicit recovery', () => {
@@ -375,9 +438,10 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     const csv = vi.mocked(downloadComparisonCsv).mock.calls.at(-1)![1]
     expect(csv).toContain('explicit-synthetic-illustration:640x480'); expect(csv).not.toContain('different-extractor')
   })
-  it('locks action labels and registration while guiding and only permits snapshots during measurement', () => {
+  it('confirms re-registration during guidance and only permits snapshots during measurement', () => {
     mount(); register(); act(() => current.capture()); expect(current.rows).toEqual({})
-    act(() => current.choose('body')); act(() => current.register()); expect(current.action).toBe('head'); expect(current.pendingReset).toBeNull()
+    act(() => current.choose('body')); act(() => current.register()); expect(current.action).toBe('head'); expect(current.pendingReset).toBe('register')
+    expect(current.active).toBe(true); act(() => current.cancelReset()); expect(current.active).toBe(true)
     frames(10100, 13100); act(() => current.capture()); expect(current.rows.head).toBeDefined()
     act(() => current.stop()); const retained = current.rows.head
     act(() => current.capture()); expect(current.rows.head).toBe(retained)
@@ -388,6 +452,16 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => current.cancelReset()); expect(current.traceCount).toBe(count)
     act(() => current.exportCsv('trace')); expect(downloadComparisonCsv).toHaveBeenCalledOnce()
     start(); act(() => current.confirmReset()); expect(current.active).toBe(true); expect(current.traceCount).toBe(0)
+  })
+  it('keeps recording until re-registration is confirmed, then starts a fresh reference', () => {
+    mount(); register(); frames(10100, 13000); const count = current.traceCount
+    expect(count).toBeGreaterThan(0)
+    act(() => current.register())
+    expect(current.pendingReset).toBe('register'); expect(current.traceCount).toBe(count); expect(current.active).toBe(true)
+    act(() => current.cancelReset())
+    expect(current.active).toBe(true); expect(current.traceCount).toBe(count)
+    act(() => current.register()); act(() => current.confirmReset())
+    expect(current.active).toBe(true); expect(current.traceCount).toBe(0); expect(current.reference).toBeNull()
   })
   it('automatically publishes a completed hold to the table and summary CSV, then clears only the table', () => {
     mount(); register(); frames(10100, 16900)

@@ -19,6 +19,18 @@ describe('display-only filtering of synthetic guide points', () => {
     }
     expect(displayTravel).toBeLessThan(rawTravel * .5)
   })
+  it('reduces alternating synthetic jitter at the observation screen’s 10 Hz rate', () => {
+    const filter = new GuideDisplayFilter()
+    let raw = .5, shown = .5, rawTravel = 0, displayTravel = 0
+    filter.update(frame(0))
+    for (let n = 1; n <= 60; n++) {
+      const input = frame(n * 100, .5 + (n % 2 ? .003 : -.003))
+      const output = filter.update(input)!
+      rawTravel += Math.abs(input.points[0].x - raw); raw = input.points[0].x
+      displayTravel += Math.abs(output.points[0].x - shown); shown = output.points[0].x
+    }
+    expect(displayTravel).toBeLessThan(rawTravel * .8)
+  })
   it('follows deliberate motion and resets after loss, timestamp reversal and a new crop', () => {
     const filter = new GuideDisplayFilter()
     filter.update(frame(0))

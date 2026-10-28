@@ -9,7 +9,6 @@ import { ObservationReplayArchive, type ReplayPhase } from './observationReplay'
 
 export type ReferenceSetup = { status: 'idle' | 'connecting' | 'preparing' | 'registering' | 'interrupted'; remainingMs: number }
 export { OBSERVATION_REFERENCE_MS } from './observationProtocol'
-const PREPARE_REFERENCE_MS = 2000
 const locked = (guide: GuideSnapshot) => ['running', 'waiting', 'paused'].includes(guide.status)
 const measuring = (guide: GuideSnapshot) => guide.status === 'running' && guide.step?.phase === 'hold' && guide.remainingMs > 0
 
@@ -22,7 +21,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   const [source, setSource] = useState<'camera' | 'synthetic'>(mode)
   const [active, setActive] = useState(false)
   const modeRef = useRef<GuideMode>('auto'), [guideMode, setGuideMode] = useState<GuideMode>('auto')
-  const setupRef = useRef<ReferenceSetup>({ status: 'idle', remainingMs: 0 }), setupStarted = useRef(0)
+  const setupRef = useRef<ReferenceSetup>({ status: 'idle', remainingMs: 0 })
   const [setup, setSetup] = useState(setupRef.current)
   const updateSetup = useCallback((status: ReferenceSetup['status'], remainingMs = 0) => {
     setupRef.current = { status, remainingMs }; setSetup(setupRef.current)
@@ -84,12 +83,14 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     const now = performance.now()
     if (!protocol.current.start(now, `${run.current.runId}-guide-${++guideSequence.current}`, modeRef.current)) return
     const snapshot = protocol.current.snapshot(now)
-    segment.current++; guideAction(snapshot); appendTrace('protocol_phase_started', null, null, snapshot); setGuide(snapshot)
-    setNotice('기준 등록 완료. 준비 2초 → 측정 5초 → 복귀 준비 5초로 진행합니다. 측정 시간에만 자료를 모읍니다.')
+    segment.current++; guideAction(snapshot); appendTrace('protocol_phase_started', null, null, snapshot)
+    if (snapshot.status === 'waiting') appendTrace('protocol_phase_completed', null, null, snapshot)
+    setGuide(snapshot)
+    setNotice(modeRef.current === 'manual' ? '기준 등록 완료. 자세를 잡고 준비되면 측정을 시작하세요.' : '기준 등록 완료. 준비 2초 → 측정 5초 → 복귀 준비 5초로 진행합니다. 측정 시간에만 자료를 모읍니다.')
   }, [mode, guideReady, guideAction, appendTrace])
   const finishGuideTransition = useCallback((result: 'none' | 'phase' | 'completed' | 'paused' | 'waiting', now: number) => {
     const next = protocol.current.snapshot(now)
-    if (result === 'phase') { segment.current++; guideAction(next); appendTrace('protocol_phase_started', null, null, next) }
+    if (result === 'phase') { segment.current++; guideAction(next); appendTrace('protocol_phase_started', null, null, next); if (next.status === 'waiting') appendTrace('protocol_phase_completed', null, null, next) }
     setGuide(next)
     if (result === 'completed') {
       appendTrace('protocol_completed', null, null, next)
@@ -110,18 +111,17 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   }, [appendTrace, finishGuideTransition, guideReady, pauseGuide, recordPause])
   const advanceSetup = useCallback(() => {
     if (mode !== 'camera' || activeRef.current !== 'camera' || cameraRef.current.state !== 'on' || document.visibilityState === 'hidden') return
-    const now = performance.now()
     if (setupRef.current.status === 'connecting') {
-      setupStarted.current = now; updateSetup('preparing', PREPARE_REFERENCE_MS)
-      setNotice('기준 자세를 등록합니다. 2초 뒤 시작해 8초 동안 편안한 정면 자세를 유지하세요.')
+      updateSetup('preparing')
+      setNotice('편안한 기준 자세를 잡고 준비되면 등록을 시작하세요.')
     }
-    if (setupRef.current.status !== 'preparing') return
-    if (!engine.current.current?.image || now - receivedAt.current > COMPARISON_POLICY.gapMs) setupStarted.current = now
-    const remaining = Math.max(0, PREPARE_REFERENCE_MS - (now - setupStarted.current))
-    if (remaining > 0) { updateSetup('preparing', remaining); return }
+  }, [mode, updateSetup])
+  const canStartReference = mode === 'camera' && active && camera.state === 'on' && setup.status === 'preparing' && !!view.current?.image && typeof document !== 'undefined' && document.visibilityState !== 'hidden' && performance.now() - receivedAt.current <= COMPARISON_POLICY.gapMs
+  const startReference = () => {
+    if (mode !== 'camera' || activeRef.current !== 'camera' || cameraRef.current.state !== 'on' || setupRef.current.status !== 'preparing' || document.visibilityState === 'hidden' || !engine.current.current?.image || performance.now() - receivedAt.current > COMPARISON_POLICY.gapMs) return
     engine.current.beginReference(); updateSetup('registering', OBSERVATION_REFERENCE_MS); publish(null)
     setNotice('기준 자세 등록 중 · 8초 동안 편안하게 유지하세요. 추적이 끊기면 8초를 다시 셉니다.')
-  }, [mode, publish, updateSetup])
+  }
   const receive = useCallback((frame: ComparisonFrame) => {
     if (!activeRef.current || document.visibilityState === 'hidden') return
     if (frameAt.current !== null && frame.timeMs > frameAt.current && frame.timeMs - frameAt.current < 100) return
@@ -158,11 +158,11 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     publish(frame)
   }, [publish, appendTrace, mode, advanceGuide, pauseGuide, advanceSetup, startGuide, updateSetup])
   const stop = useCallback(() => {
-    if (!activeRef.current) return
+    if (!activeRef.current && !active) return
     if (protocol.current.cancel(performance.now())) { appendTrace('protocol_cancelled', null, null); setGuide(protocol.current.snapshot(performance.now())) }
     token.current++; activeRef.current = null; setActive(false); cameraRef.current.stop()
     engine.current.registering = false; updateSetup('idle'); interrupt('stopped'); setNotice(mode === 'synthetic' ? '화면 예시를 종료했어요. 측정 자료는 수집하지 않았습니다.' : '측정을 종료했어요. 기존 자료를 보존했습니다. CSV를 내려받을 수 있어요.')
-  }, [interrupt, mode, appendTrace, updateSetup])
+  }, [active, interrupt, mode, appendTrace, updateSetup])
   const startNow = useCallback((next: 'camera' | 'synthetic') => {
     if (next !== mode || activeRef.current) return
     cameraRef.current.stop(); resetExport(); const id = ++token.current
@@ -171,7 +171,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (next === 'synthetic') { engine.current.beginReference(); setNotice('합성 예시의 기준을 등록하고 있어요. 실제 동작의 측정 결과가 아닙니다.') }
     else {
       updateSetup('connecting'); setNotice('카메라 연결 후 기준 등록 안내가 자동으로 시작됩니다.')
-      void cameraRef.current.connect(undefined, { variant: 'full', delegate: 'auto', pacing: 'responsive' }).catch(() => {
+      void cameraRef.current.connect(undefined, { variant: 'heavy', delegate: 'auto', pacing: 'responsive' }).catch(() => {
         if (token.current === id) { activeRef.current = null; setActive(false); updateSetup('idle'); interrupt(); setNotice('카메라를 연결하지 못했어요. 권한과 장치 상태를 확인하세요.') }
       })
     }
@@ -191,10 +191,10 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   useEffect(() => {
     const visibility = () => { if (document.visibilityState === 'hidden' && activeRef.current) { if (['connecting', 'preparing', 'registering'].includes(setupRef.current.status)) updateSetup('interrupted'); engine.current.registering = false; interrupt('hidden'); if (protocol.current.snapshot(performance.now()).status !== 'paused') setNotice('탭이 숨겨져 관측을 끊었어요. 진행 중이던 기준 등록은 다시 시작하세요.') } }
     document.addEventListener('visibilitychange', visibility)
-    return () => { document.removeEventListener('visibilitychange', visibility); token.current++; activeRef.current = null; cameraRef.current.stop() }
+    return () => { document.removeEventListener('visibilitychange', visibility); token.current++; cameraRef.current.stop() }
   }, [interrupt, updateSetup])
   useEffect(() => {
-    if (activeRef.current === 'camera' && (camera.state === 'error' || camera.state === 'off')) {
+    if ((activeRef.current === 'camera' || (active && source === 'camera')) && (camera.state === 'error' || camera.state === 'off')) {
       engine.current.registering = false; interrupt()
       if (protocol.current.cancel(performance.now())) {
         appendTrace('protocol_cancelled', null, null); setGuide(protocol.current.snapshot(performance.now()))
@@ -204,7 +204,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
       activeRef.current = null; setActive(false)
       setNotice('카메라 연결이 끊겼어요. 기존 자료를 보존했습니다. 카메라를 다시 켜 주세요.')
     }
-  }, [camera.state, interrupt, updateSetup, appendTrace])
+  }, [camera.state, active, source, interrupt, updateSetup, appendTrace])
   const effectiveCaptures = captures === null ? {} : { ...automaticComparisonCaptures(trace.current), ...captures }
   const hasData = trace.current.length > 0 || Object.keys(captures ?? {}).length > 0 || replay.current.count > 0
   useEffect(() => {
@@ -239,9 +239,9 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (restarting) { startNow(mode); if (mode === 'synthetic') return }
     if (!restarting) resetExport()
     if (mode === 'synthetic') { engine.current.beginReference(); publish(null); setNotice('합성 예시의 기준을 다시 등록합니다. 실제 측정 자료는 모으지 않습니다.'); return }
-    engine.current.reset(); assignAction('neutral'); setupStarted.current = performance.now()
+    engine.current.reset(); assignAction('neutral')
     updateSetup('connecting'); publish(null); advanceSetup()
-    setNotice('기준 자세를 등록합니다. 2초 뒤 시작해 8초 동안 편안한 정면 자세를 유지하세요.')
+    setNotice('편안한 기준 자세를 잡고 준비되면 등록을 시작하세요.')
   }
   const capture = () => {
     if (mode !== 'camera' || !measuring(protocol.current.snapshot(performance.now()))) return
@@ -264,13 +264,13 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (next !== mode) { setNotice('실제 측정과 화면 예시는 분리되어 있습니다. 기존 자료는 그대로 유지합니다.'); return }
     if (!activeRef.current) requestReset('start')
   }
-  const register = () => { if (activeRef.current && !guideLocked) requestReset('register') }
+  const register = () => { if (!activeRef.current) return; if (mode === 'camera') setPendingReset('register'); else if (!guideLocked) requestReset('register') }
   const clear = () => { if (Object.keys(effectiveCaptures).length) requestReset('clear') }
   const cancelReset = () => { setPendingReset(null); setNotice('초기화를 취소했어요. 기존 자료와 CSV는 그대로 유지합니다.') }
   const confirmReset = () => {
     const kind = pendingReset; setPendingReset(null)
     if (kind === 'start') startNow(mode)
-    if (kind === 'register') registerNow()
+    if (kind === 'register') { stop(); registerNow() }
     if (kind === 'clear') { setCaptures(null); setNotice('비교표만 비웠어요. 관측 시계열은 유지합니다.') }
   }
   const exportCsv = (kind: 'summary' | 'trace') => {
@@ -280,5 +280,5 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     downloadComparisonCsv(kind, kind === 'summary' ? comparisonSummaryCsv(effectiveCaptures, context) : comparisonTraceCsv(trace.current, context), source)
   }
   const rows = Object.fromEntries(Object.entries(effectiveCaptures).map(([key, capture]) => [key, capture.values])) as Partial<Record<ComparisonAction, ComparisonValues>>
-  return { ...view, source, active, action, notice, rows, replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, guideMode, changeGuideMode, setup, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
+  return { ...view, source, active, action, notice, rows, replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, guideMode, changeGuideMode, setup, canStartReference: canStartReference && !pendingReset, startReference, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
 }

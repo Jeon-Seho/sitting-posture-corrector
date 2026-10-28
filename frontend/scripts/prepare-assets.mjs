@@ -11,7 +11,7 @@ const primary = JSON.parse(await readFile(new URL('model-asset.json', root), 'ut
 const variants = JSON.parse(await readFile(new URL('model-variants.json', root), 'utf8'));
 const face = JSON.parse(await readFile(new URL('face-model-asset.json', root), 'utf8'));
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-// Service retains Heavy; /dev's measured default uses Full. Lite is opt-in via
+// Service and /dev use Heavy; Full remains available for comparisons. Lite is opt-in via
 // prepare-benchmark-assets.mjs, so normal setup does not need every comparison model.
 for (const metadata of [primary, variants.full, face]) {
   const officialFaceUrl = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';

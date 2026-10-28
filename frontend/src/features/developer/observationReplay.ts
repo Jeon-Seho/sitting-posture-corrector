@@ -9,6 +9,7 @@ export const REPLAY_FILE_LIMIT = 32 * 1024 * 1024
 const POINT_COUNT = 13
 export const REPLAY_PHASES = ['connecting', 'preparing', 'registering', 'interrupted', 'idle', 'move', 'hold', 'return', 'waiting', 'paused', 'completed', 'cancelled'] as const
 export type ReplayPhase = typeof REPLAY_PHASES[number]
+const LEGACY_PROTOCOL_ID = 'front-observation-2-5-5x3-v2'
 export type ReplayPoint = { x: number; y: number; z: number; visibility: number | null }
 export type ReplayContext = { phase: ReplayPhase; task: ComparisonAction; round: number | null; trial: number | null; attempt: number; segment: number; measurement: boolean }
 export type ReplayFrame = ReplayContext & {
@@ -19,7 +20,7 @@ export type ReplayFrame = ReplayContext & {
 export type ReplayMarker = { elapsedMs: number; afterFrame: number; reason: 'hidden' | 'interrupted' | 'stopped' }
 export type ObservationReplayData = {
   schema_version: 'observation-keypoint-replay-v1'; source: 'camera' | 'synthetic'
-  runId: string; startedAt: string; protocolId: typeof OBSERVATION_PROTOCOL.id
+  runId: string; startedAt: string; protocolId: typeof OBSERVATION_PROTOCOL.id | typeof LEGACY_PROTOCOL_ID
   pointIndices: number[]; forecastOrder: number[]; mirrored: false
   labelKind: 'guided_task_not_ground_truth'; scope: 'all_phases_replay_only'
   frames: ReplayFrame[]; markers: ReplayMarker[]; droppedFrames: number
@@ -89,7 +90,7 @@ export function parseObservationReplay(content: string): ObservationReplayData {
   let data: unknown
   try { data = JSON.parse(content) } catch { return fail() }
   if (!object(data) || data.schema_version !== 'observation-keypoint-replay-v1' || !['camera','synthetic'].includes(String(data.source)) ||
-    !text(data.runId) || !text(data.startedAt, 40) || !Number.isFinite(Date.parse(data.startedAt)) || data.protocolId !== OBSERVATION_PROTOCOL.id ||
+    !text(data.runId) || !text(data.startedAt, 40) || !Number.isFinite(Date.parse(data.startedAt)) || (data.protocolId !== OBSERVATION_PROTOCOL.id && data.protocolId !== LEGACY_PROTOCOL_ID) ||
     !sequence(data.pointIndices, Array.from({length: POINT_COUNT}, (_, i) => i)) || !sequence(data.forecastOrder, LIVE_FORECAST_ORDER) ||
     data.mirrored !== false || data.labelKind !== 'guided_task_not_ground_truth' || data.scope !== 'all_phases_replay_only' ||
     !integer(data.droppedFrames) || !Array.isArray(data.frames) || !data.frames.length || data.frames.length > REPLAY_LIMIT ||
@@ -117,7 +118,7 @@ export function parseObservationReplay(content: string): ObservationReplayData {
     return { elapsedMs: m.elapsedMs, afterFrame: m.afterFrame, reason: m.reason as ReplayMarker['reason'] }
   })
   return { schema_version: 'observation-keypoint-replay-v1', source: data.source as 'camera' | 'synthetic', runId: data.runId, startedAt: data.startedAt,
-    protocolId: OBSERVATION_PROTOCOL.id, pointIndices: Array.from({length: POINT_COUNT}, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER], mirrored: false,
+    protocolId: data.protocolId as ObservationReplayData['protocolId'], pointIndices: Array.from({length: POINT_COUNT}, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER], mirrored: false,
     labelKind: 'guided_task_not_ground_truth', scope: 'all_phases_replay_only', frames, markers, droppedFrames: data.droppedFrames }
 }
 export function replayIndexAt(frames: ReplayFrame[], timeMs: number) {

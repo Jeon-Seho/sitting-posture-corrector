@@ -2,7 +2,7 @@ export const OBSERVATION_REFERENCE_MS = 8000
 import type { ComparisonAction } from './comparisonDemo'
 
 export const OBSERVATION_PROTOCOL = {
-  id: 'front-observation-2-5-5x3-v2',
+  id: 'front-observation-manual-ready-5-5x3-v3',
   rounds: 3,
   actions: ['head', 'bow', 'body', 'shoulders'],
   phases: [{ id: 'move', durationMs: 2000 }, { id: 'hold', durationMs: 5000 }, { id: 'return', durationMs: 5000 }],
@@ -37,14 +37,15 @@ export class ObservationProtocol {
   private mode: GuideMode = 'auto'
 
   snapshot(now: number): GuideSnapshot {
-    const step = this.status === 'idle' ? null : OBSERVATION_STEPS[this.index]
+    const base = this.status === 'idle' ? null : OBSERVATION_STEPS[this.index]
+    const step = base && this.mode === 'manual' && base.phase === 'move' ? { ...base, durationMs: 0 } : base
     const elapsedMs = Math.max(0, Math.min(step?.durationMs ?? 0, this.status === 'running' ? now - this.started : this.frozen))
     return { status: this.status, mode: this.mode, runId: this.runId, step, stepIndex: this.index, attempt: this.attempt, elapsedMs, remainingMs: (step?.durationMs ?? 0) - elapsedMs, pauseReason: this.reason }
   }
   start(now: number, runId: string, mode: GuideMode = 'auto') {
     if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused' || this.status === 'waiting') return false
     this.mode = mode
-    this.status = 'running'; this.runId = runId; this.index = 0; this.attempt = 1
+    this.status = mode === 'manual' ? 'waiting' : 'running'; this.runId = runId; this.index = 0; this.attempt = 1
     this.started = this.last = now; this.frozen = 0; this.reason = null
     return true
   }
@@ -61,7 +62,7 @@ export class ObservationProtocol {
     return this.transition(now)
   }
   next(now: number): 'none' | 'phase' | 'completed' {
-    if (this.status !== 'waiting' || !Number.isFinite(now) || now < this.last) return 'none'
+    if (this.status !== 'waiting' || !Number.isFinite(now) || now <= this.last) return 'none'
     this.last = now
     return this.transition(now)
   }
@@ -70,7 +71,7 @@ export class ObservationProtocol {
       this.frozen = OBSERVATION_STEPS[this.index].durationMs; this.status = 'completed'; return 'completed'
     }
     // Each instruction receives its full visible time, even after a delayed callback.
-    this.status = 'running'; this.index++; this.attempt = 1; this.started = this.last = now; this.frozen = 0
+    this.index++; this.status = this.mode === 'manual' && OBSERVATION_STEPS[this.index].phase === 'move' ? 'waiting' : 'running'; this.attempt = 1; this.started = this.last = now; this.frozen = 0
     return 'phase'
   }
   pause(reason: GuidePauseReason) {

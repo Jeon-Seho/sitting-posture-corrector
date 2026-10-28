@@ -51,6 +51,10 @@ describe('untrusted replay JSON validation', () => {
     expect(data.frames).toHaveLength(2)
     expect(data.scope).toBe('all_phases_replay_only')
   })
+  it('preserves the original protocol ID when importing an older v2 recording', () => {
+    const data = JSON.parse(encoded()); data.protocolId = 'front-observation-2-5-5x3-v2'
+    expect(parseObservationReplay(JSON.stringify(data)).protocolId).toBe(data.protocolId)
+  })
   it.each(['schema_version','pointIndices','forecastOrder','mirrored','labelKind','scope','protocolId','source'])('rejects incompatible %s', field => {
     const data = JSON.parse(encoded()); data[field] = 'unsupported'
     expect(() => parseObservationReplay(JSON.stringify(data))).toThrow()

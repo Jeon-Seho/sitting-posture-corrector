@@ -42,10 +42,11 @@ describe('unified /dev observation route with real camera hook and synthetic med
     } }) })
   })
   afterEach(() => { act(() => renderer?.unmount()); renderer = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
-  const start = async () => {
+  const start = async (mode: 'auto' | 'manual' = 'auto') => {
+    const calls = getUserMedia.mock.calls.length
     act(() => button('카메라 켜기').props.onClick())
-    expect(getUserMedia).not.toHaveBeenCalled()
-    act(() => renderer!.root.findAllByProps({type:'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
+    expect(getUserMedia).toHaveBeenCalledTimes(calls)
+    act(() => renderer!.root.findAllByProps({type:'radio'}).find(r => r.props.value === mode)!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
   }
   it.each([
@@ -62,11 +63,16 @@ describe('unified /dev observation route with real camera hook and synthetic med
     expect(links).toContain(demo ? '/dev' : '/dev?demo=1')
     expect(links.every(href => !href.includes('view=observation'))).toBe(true)
   })
-  it('connects Full only after mode selection, automatically registers and releases the camera on stop', async () => {
+  it('connects Heavy, waits for reference confirmation and releases the camera on stop', async () => {
     await start()
     expect(camera.state).toBe('on'); expect(getUserMedia).toHaveBeenCalledOnce()
-    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetPath: '/mediapipe/pose_landmarker_full.task' })
+    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetPath: '/mediapipe/pose_landmarker_heavy.task' })
     for (let elapsed = 0; elapsed < 14000; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
+    expect(renderer!.root.findByProps({'aria-label':'동작 안내'}).props['data-state']).toBe('idle')
+    const beginReference = renderer!.root.findByProps({ 'aria-label': '기준 자세 등록 시작' })
+    expect(beginReference.props.disabled).toBe(false)
+    act(() => beginReference.props.onClick())
+    for (let elapsed = 0; elapsed < 11000; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
     expect(renderer!.root.findByProps({'aria-label':'동작 안내'}).props['data-state']).toBe('running')
     expect(button('측정 종료').props.disabled).not.toBe(true)
     act(() => button('측정 종료').props.onClick())
@@ -78,8 +84,29 @@ describe('unified /dev observation route with real camera hook and synthetic med
   it('shows the camera timeout when permission never resolves', async () => {
     getUserMedia.mockReturnValue(new Promise(() => {}))
     await start(); expect(camera.state).toBe('loading')
+    expect(renderer!.root.findAllByProps({ className: 'oc-camera-empty' })).toHaveLength(0)
+    expect(renderer!.root.findAllByProps({ role: 'timer' })).toHaveLength(0)
+    expect(renderer!.root.findByProps({ className: 'oc-status' }).props.children).toBe('카메라를 연결하고 있어요.')
     act(() => { vi.advanceTimersByTime(30_001) })
     expect(renderer!.root.findByProps({role:'alert'}).props.children).toContain(CAMERA_ERRORS.preparationTimeout)
     expect(vision.create).not.toHaveBeenCalled()
+  })
+  it('can reconnect after a camera permission failure', async () => {
+    getUserMedia.mockRejectedValueOnce(Object.assign(new Error('synthetic denied'), { name: 'NotAllowedError' }))
+    await start(); expect(camera.state).toBe('error')
+    expect(renderer!.root.findByProps({ role: 'alert' }).props.children).toContain(CAMERA_ERRORS.permissionDenied)
+    await start(); expect(camera.state).toBe('on')
+    expect(getUserMedia).toHaveBeenCalledTimes(2)
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(renderer!.root.findByProps({ 'aria-label': '기준 자세 등록 시작' }).props.disabled).toBe(false)
+  })
+  it('offers manual measurement immediately after reference registration with Heavy', async () => {
+    await start('manual')
+    for (let elapsed = 0; elapsed < 500; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
+    act(() => renderer!.root.findByProps({ 'aria-label': '기준 자세 등록 시작' }).props.onClick())
+    for (let elapsed = 0; elapsed < 8200; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
+    expect(renderer!.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
+    expect(renderer!.root.findByProps({ 'aria-label': '측정 시작' }).props.disabled).toBe(false)
+    expect(vision.create.mock.calls[0][1].baseOptions.modelAssetPath).toBe('/mediapipe/pose_landmarker_heavy.task')
   })
 })

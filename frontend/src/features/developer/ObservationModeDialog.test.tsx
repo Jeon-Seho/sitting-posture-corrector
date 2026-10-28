@@ -6,12 +6,12 @@ describe('explicit observation mode selection before camera use', () => {
   let ui: ReactTestRenderer
   afterEach(() => act(() => ui?.unmount()))
   const button = (label: string) => ui.root.findAllByType('button').find(b => b.props.children === label)!
-  it('keeps start disabled without a selection and cancels without requesting camera use', async () => {
+  it('defaults to manual and cancels without requesting camera use', () => {
     const start = vi.fn(), cancel = vi.fn()
     act(() => { ui = create(<ObservationModeDialog onStart={start} onCancel={cancel} />) })
     expect(ui.root.findByType('dialog').props['aria-modal']).toBe('true')
-    expect(button('카메라 켜고 시작').props.disabled).toBe(true)
-    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    expect(ui.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'manual')!.props.checked).toBe(true)
+    expect(button('카메라 켜고 시작').props.disabled).toBe(false)
     act(() => button('취소').props.onClick())
     expect(start).not.toHaveBeenCalled(); expect(cancel).toHaveBeenCalledOnce()
   })

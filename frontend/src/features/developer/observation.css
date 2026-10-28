@@ -110,7 +110,7 @@
 .dev-lab .oc-measurement:focus-visible { outline: 2px solid var(--oc-cyan); outline-offset: 6px; border-radius: 24px; }
 .dev-lab .oc-guide { margin: 0; padding: 0; }
 .dev-lab .oc-stage { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 28px; background: var(--oc-stage-background); isolation: isolate; }
-.dev-lab.oc-page[data-guiding=true] .oc-toolbar, .dev-lab.oc-page[data-guiding=true] .oc-status { display: none; }
+.dev-lab.oc-page[data-guiding=true] .oc-toolbar { display: none; }
 .dev-lab .oc-camera { position: relative; aspect-ratio: 4 / 3; background: var(--oc-camera-background); }
 .dev-lab .oc-stage > .oc-camera { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
 .dev-lab .oc-camera video, .dev-lab .oc-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
@@ -120,7 +120,7 @@
 .dev-lab .oc-camera-badge { position: absolute; top: 24px; right: 24px; display: inline-flex; align-items: center; gap: 8px; max-width: 230px; padding: 10px 14px; border-radius: 16px; background: var(--oc-badge-background); color: var(--oc-muted); font-size: 13px; font-weight: 400; }
 .dev-lab .oc-camera-badge[data-quality=tracked] { color: var(--oc-tracked); }
 .dev-lab .oc-camera-badge[data-quality=waiting] svg { color: var(--oc-warning); }
-.dev-lab .oc-camera-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 10px; padding: 24px; color: var(--oc-muted); }
+.dev-lab .oc-camera-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 10px; padding: 24px; color: var(--oc-muted); pointer-events: none; }
 .dev-lab .oc-camera-empty > svg { color: var(--oc-placeholder-icon); margin-bottom: 6px; }
 .dev-lab .oc-camera-empty h2 { font-size: 24px; font-weight: 500; margin: 0; }
 .dev-lab .oc-camera-empty p { font-size: 12px; color: var(--oc-muted); }
@@ -719,6 +719,75 @@
 }
 
 .dev-lab.oc-page .oc-coview .oc-guide-controls > button { min-height: 48px; }
+.dev-lab .oc-guide-instruction { grid-column: 1 / -1; margin: 8px 0 0; color: var(--oc-secondary); font-size: 13px; line-height: 1.5; }
+.dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock { text-align: center; }
+.dev-lab .oc-coview .oc-camera-badge { top: 18px; left: 18px; right: auto; }
+.dev-lab .oc-coview[data-layout=compact] .oc-camera-badge { left: 5px; right: auto; }
+.dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-clock-meta,
+.dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-next { display: none; }
+.dev-lab.oc-page .oc-wait-next { display: block; margin: 14px auto; padding: 12px 20px; border-radius: 14px; background: var(--oc-action-blue); color: #fff; font-weight: 700; }
+.dev-lab.oc-page .oc-wait-next:hover:not(:disabled) { background: var(--oc-action-blue-hover); }
+.dev-lab.oc-page .oc-guide-panel > .oc-stop-guide { display: inline-flex; align-items: center; gap: 8px; margin: 8px 16px 16px; padding: 12px; border: 0; border-radius: 14px; background: #d22f40; color: #fff; font-weight: 700; }
+.dev-lab .oc-guide-panel > .oc-stop-guide span { display: inline; }
+@media (min-width: 1100px) and (min-height: 561px) {
+  .dev-lab .oc-coview .oc-guide[data-measuring=true] .oc-guide-clock { left: auto; right: 20px; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock { top: 42%; left: 50%; right: auto; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: min(520px, calc(100% - 48px)); max-width: none; padding: 0; background: none; backdrop-filter: none; color: #fff; text-shadow: 0 2px 5px #000, 0 0 20px #000; pointer-events: none; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-clock-task { margin: 0; color: #fff; font-size: clamp(22px, 2.3vw, 34px); font-weight: 700; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock > .oc-clock-count { margin: 8px 0; justify-content: center; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock > .oc-clock-count > strong { font-size: clamp(64px, 8vw, 112px); }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock > .oc-clock-count > span,
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-instruction { color: #fff; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock > .oc-clock-count > span { font-size: 20px; }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-instruction { max-width: 420px; margin: 0; font-size: clamp(14px, 1.2vw, 18px); font-weight: 600; }
+  .dev-lab.oc-page .oc-coview .oc-wait-next { position: absolute; top: 58%; left: 50%; transform: translateX(-50%); margin: 0; z-index: 2; animation: dev-oc-wait-enter 250ms ease-out both; }
+  .dev-lab.oc-page .oc-coview .oc-guide-panel > .oc-stop-guide { position: absolute; right: 20px; bottom: 20px; z-index: 2; margin: 0; min-height: 48px; overflow: hidden; }
+  .dev-lab .oc-coview .oc-guide-panel > .oc-stop-guide span { display: inline-block; max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width 200ms ease, opacity 200ms ease; }
+  .dev-lab .oc-coview .oc-guide-panel > .oc-stop-guide:is(:hover, :focus-visible) span { max-width: 90px; opacity: 1; }
+  .dev-lab .oc-coview .oc-guide-progress { bottom: 80px; }
+}
+@keyframes dev-oc-wait-enter { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .dev-lab.oc-page .oc-coview .oc-wait-next { animation: none; } .dev-lab .oc-coview .oc-guide-panel > .oc-stop-guide span { transition: none; } }
 @media (max-width: 1099px) {
   .dev-lab.oc-page .oc-coview .oc-guide-controls > button { min-height: 42px; }
 }
+
+/* Status and actions share the camera's edges and a single control bar. */
+.dev-lab .oc-coview .oc-camera-badge,
+.dev-lab .oc-coview[data-layout=compact] .oc-camera-badge { top: 18px; left: 18px; right: auto; width: 34px; height: 34px; box-sizing: border-box; justify-content: center; padding: 0; border-radius: 12px; }
+.dev-lab .oc-camera-badge[data-status=off] { color: #aeb4bd; }
+.dev-lab .oc-camera-badge[data-status=waiting] { color: #ffcb55; }
+.dev-lab .oc-camera-badge[data-status=measuring] { color: #6deb9d; }
+.dev-lab .oc-coview .oc-guide-progress,
+.dev-lab .oc-coview[data-layout=compact] .oc-guide-progress { top: 18px; left: 58px; right: auto; bottom: auto; min-height: 34px; box-sizing: border-box; display: flex; align-items: center; padding: 6px 10px; }
+.dev-lab .oc-action-highlight { color: #cfff60; font-weight: 800; }
+.dev-lab.oc-page .oc-guide-controls :is(.oc-pause-guide, .oc-register-guide) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.dev-lab.oc-page .oc-guide-controls .oc-wait-next { position: static; transform: none; margin: 0; background: var(--oc-action-blue); color: #fff; }
+.dev-lab.oc-page .oc-guide-controls .oc-wait-next span { opacity: .8; }
+.dev-lab.oc-page .oc-guide-controls .oc-stop-guide { min-width: 48px; padding: 12px 15px; background: #d22f40; color: #fff; }
+.dev-lab .oc-guide-controls .oc-stop-guide span { display: inline-block; max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width 200ms ease, opacity 200ms ease; }
+.dev-lab .oc-guide-controls .oc-stop-guide:is(:hover, :focus-visible) span { max-width: 90px; opacity: 1; }
+@media (min-width: 1100px) and (min-height: 561px) {
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock { padding: 16px 22px; box-sizing: border-box; border-radius: 22px; background: rgb(0 0 0 / 52%); backdrop-filter: blur(8px); text-shadow: 0 1px 3px #000; }
+}
+@media (max-width: 1099px) {
+  .dev-lab .oc-coview[data-layout=compact] .oc-camera-badge { top: 10px; left: 10px; }
+  .dev-lab .oc-coview[data-layout=compact] .oc-guide-progress { top: 10px; left: 50px; }
+}
+@media (prefers-reduced-motion: reduce) { .dev-lab .oc-guide-controls .oc-stop-guide span { transition: none; } }
+
+.dev-lab.oc-page .oc-guide-controls :is(.oc-pause-guide, .oc-register-guide, .oc-stop-guide) { box-sizing: border-box; min-width: 48px; width: 48px; padding: 0; justify-content: center; gap: 0; }
+.dev-lab.oc-page .oc-guide-controls .oc-stop-guide:is(:hover, :focus-visible) { width: auto; padding: 0 15px; gap: 8px; }
+.dev-lab .oc-camera-badge[data-status=connecting], .dev-lab .oc-legend-icon[data-status=off], .dev-lab .oc-legend-icon[data-status=connecting] { color: #aeb4bd; }
+.dev-lab .oc-legend-icon[data-status=waiting] { color: #ffcb55; }
+.dev-lab .oc-legend-icon[data-status=measuring] { color: #6deb9d; }
+.dev-lab .oc-status-dots { display: inline-flex; align-items: center; gap: 2px; height: 16px; }
+.dev-lab .oc-status-dots i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.dev-lab .oc-status-dots[data-animated=true] i { animation: dev-oc-status-wave 1s ease-in-out infinite; }
+.dev-lab .oc-status-dots[data-animated=true] i:nth-child(2) { animation-delay: 120ms; }
+.dev-lab .oc-status-dots[data-animated=true] i:nth-child(3) { animation-delay: 240ms; }
+@keyframes dev-oc-status-wave { 0%, 60%, 100% { transform: translateY(0); opacity: .55; } 30% { transform: translateY(-4px); opacity: 1; } }
+.dev-lab .oc-status-legend { display: grid; gap: 10px; padding: 0; margin: 14px 0; list-style: none; }
+.dev-lab .oc-status-legend li { display: flex; align-items: center; gap: 10px; color: var(--oc-secondary); line-height: 1.5; font-size: 13px; }
+.dev-lab .oc-status-legend strong { color: var(--oc-text); }
+.dev-lab .oc-legend-icon { flex: 0 0 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--oc-badge-background); }
+@media (prefers-reduced-motion: reduce) { .dev-lab .oc-status-dots[data-animated=true] i { animation: none; } }
