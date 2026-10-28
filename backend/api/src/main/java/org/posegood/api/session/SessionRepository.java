@@ -42,6 +42,14 @@ public class SessionRepository {
                 id.toString(), owner, baseline, policy, alerts, at);
     }
 
+    /** Midnight rollover: a new row with the previous session's user, baseline, policy and alert setting. */
+    public void insertFollowing(Stored previous, UUID id, LocalDateTime at) {
+        jdbc.update("INSERT INTO monitor_session(client_session_uuid,user_account_id,baseline_posture_id,"
+                        + "threshold_policy_id,alert_enabled,started_at) SELECT ?,user_account_id,baseline_posture_id,"
+                        + "threshold_policy_id,alert_enabled,? FROM monitor_session WHERE monitor_session_id=?",
+                id.toString(), at, previous.key());
+    }
+
     public void applyEvent(Stored session, DecisionEvent event, int episode) {
         var at = at(session, event.timestampMs());
         switch (event.kind()) {

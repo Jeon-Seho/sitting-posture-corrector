@@ -28,6 +28,11 @@ public final class KstTime {
         return LocalDate.now(ZONE);
     }
 
+    /** {@code at} 다음의 KST 자정(그날 00:00이면 하루 뒤). 측정을 자정에 넘길 때 쓴다(BE-6 ①). */
+    public static Instant nextMidnight(Instant at) {
+        return at.atZone(ZONE).toLocalDate().plusDays(1).atStartOfDay(ZONE).toInstant();
+    }
+
     public static LocalDateTime of(Instant value) {
         return LocalDateTime.ofInstant(value.truncatedTo(ChronoUnit.MILLIS), ZONE);
     }

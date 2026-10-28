@@ -104,6 +104,9 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 최대 측정 시간(24시간)을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
 - 판정 불가·자리 비움(`away`)이 이어진 시간이 `posegood.realtime.unmeasurable-timeout`(기본 30분, 10/28 결정)에 닿으면 그 구간 끝에서 끝내고 저장한 뒤
   `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 0이면 끈다.
+- 자정 넘김(`posegood.realtime.midnight-rollover`, 기본 꺼짐): KST 자정을 넘는 구간이 오거나 00:00:30까지 구간이 없으면 이전 세션을 마지막 구간 끝에서 끝내 저장하고,
+  같은 연결에서 서버가 만든 새 세션(`started_at` = 자정, 같은 기준 자세·설정·알림)으로 잇는다 → `decision(session_ended)` → `session_rollover`.
+  앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 자정 위치·순번 기준을 빼서 바꾼다. 새 세션을 못 만들면 `closed: day_changed`(API 명세 11.3).
 - `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
 - 자세 등록은 B1(`POST /v2/baselines`)뿐이다. 앱이 3초치 프레임 배열(`frames`, 최대 500)을 보내고 API가 판정 가능 프레임의 관절 평균을 내서 저장한다(`session/BaselineFrames.java`, 2026-10-28). 3초 미만·판정 가능 15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. WebSocket 등록(`purpose: calibration`, `calibration_result`)은 2026-10-27 지웠다 — 보내면 `closed: bad_message`.

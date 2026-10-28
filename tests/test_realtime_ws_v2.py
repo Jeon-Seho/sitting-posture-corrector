@@ -42,7 +42,7 @@ class RealtimeWsV2Tests(unittest.TestCase):
 
     def test_every_example_matches(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 13)
+        self.assertEqual(len(names), 14)
         for path in EXAMPLES.glob("*.json"):
             with self.subTest(example=path.name):
                 self.validator.validate(load(path))
@@ -102,6 +102,16 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.validator.validate({**closed, "reason": "server_shutdown", "ended_at": None})
         self.rejects({"type": "closed", "reason": "ended"})
         self.rejects({**closed, "ended_at": 12345})
+
+    def test_midnight_rollover(self):
+        # BE-6 1 plan B: the connection moves to a new server-made session at KST midnight.
+        rollover = self.example("session-rollover")
+        self.rejects({k: v for k, v in rollover.items() if k != "at_ms"})
+        self.rejects({**rollover, "ended": {k: v for k, v in rollover["ended"].items() if k != "ended_at"}})
+        self.rejects({**rollover, "at_ms": -1})
+        self.rejects({**rollover, "started_at": 12345})
+        # If the server cannot continue, it closes with day_changed and the previous session's end.
+        self.validator.validate({**self.example("closed"), "reason": "day_changed"})
 
     def test_closed_reasons_and_unknown_types(self):
         self.rejects({"type": "closed", "reason": "reconnect"})

@@ -1476,8 +1476,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 인증 | `hello`의 `access_token`(로그인 access 토큰)으로 연결 때 **한 번만** 확인한다(ADR 0031). 측정 중에는 다시 확인하지 않아 토큰이 만료돼도 연결은 끝까지 가고, 비밀번호 변경·탈퇴 때만 `closed(unauthorized)`로 바로 닫는다. HTTP 단계는 열려 있고, 토큰이 없거나 틀리면 `hello`에 `closed(unauthorized)`로 답한다. 같은 출처 페이지만 허용한다(`POSEGOOD_REALTIME_ALLOWED_ORIGINS`로 추가). |
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
-| 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
-| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(기본 30분, 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`) |
+| 메시지 범위 | 연결 하나가 세션 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. 예외: 자정 넘김(11.3)을 켜면 연결 하나가 세션 둘을 가질 수 있고, 바뀌는 순간을 `session_rollover`가 이전·새 세션 ID와 함께 알린다. |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(기본 30분, 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`), `midnight-rollover`(자정 넘김, 기본 꺼짐, `POSEGOOD_MIDNIGHT_ROLLOVER`) |
 
 ### 11.1 순서
 
@@ -1485,6 +1485,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
        → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
        → end → decision(session_ended) → closed(ended)
+자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
+       → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
 ```
 
 1. 연결 뒤 **10초 안에** 첫 메시지로 `hello`를 보낸다. 없거나 `hello` 전에 다른 메시지가 오면 `closed(bad_message)`.
@@ -1553,7 +1555,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
 | 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
 | 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(기본 30분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. HTTP S2로 받은 구간도 같고, 그때는 응답의 `session.ended`가 true다. 앱은 이 사유를 저장된 정상 종료로 처리한다(10/27). |
-| `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
+| 자정 넘김 | `midnight-rollover`를 켜면(기본 꺼짐 — 앱이 `session_rollover`를 처리한 뒤 켠다) KST 자정에 같은 연결에서 세션을 바꾼다(BE-6 ① B안, 2026-10-28). 자정을 넘는 구간(`started_at + end_ms` ≥ 자정)이 오거나, 00:00:30까지 구간이 없으면(쉬기 중 등): ① 이전 세션을 **마지막으로 받은 구간 끝에서** 끝내 저장한다 — 종료 시각은 자정 전이라 시작 날짜 = 종료 날짜. 진행 중이던 사건은 `interrupted`로 끝난다. ② 서버가 새 세션을 만든다 — ID는 서버가 만들고, `started_at` = 자정, 기준 자세·임계값 설정·알림 설정은 이전 세션 것(S1의 계정 확인은 다시 하지 않는다). ③ `decision(session_ended)` → `session_rollover`를 보낸다. **앱은 시간·순번을 연결 기준으로 계속 보낸다.** 서버가 자정 위치(`at_ms`)와 순번 기준(넘길 때의 마지막 순번 + 1)을 빼서 새 세션 값으로 바꾼다. `ack`·`progress`·`stalled`의 순번은 앱이 보낸 번호 그대로이고, 그 뒤 `summary`·사건 시각은 새 세션 기준(자정 = 0)이다. 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않고 `ack`만 보낸다. 새 세션을 만들지 못하면(자리 없음·DB 장애) `closed(day_changed)`로 닫는다 — 이전 세션은 저장됐고 앱은 새 S1부터 다시 시작한다. 연결의 시간축 상한은 그대로 24시간(`*_ms` ≤ 86,400,000)이라 한 연결에서 넘김은 한 번까지다. HTTP S2만으로 측정하는 세션은 넘기지 않는다. |
+| `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. 자정 넘김을 켰는데 넘기기 전에 `end_ms`가 자정을 지났으면 자정 1ms 전에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
 | 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
 
 <a id="114-자세-등록"></a>
@@ -1573,6 +1576,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
 | `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
+| `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-v2/ws-session-rollover.json) |
 | `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔거나 등록이면 `null`(ADR 0028). |
 
 | `closed.reason` | 언제 |
@@ -1586,6 +1590,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `server_shutdown` | 서버 종료. 측정 중이던 세션은 끊김과 같이 끝난다. |
 | `limit_reached` | 최대 측정 시간 초과(11.3) |
 | `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(기본 30분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
+| `day_changed` | 자정 넘김에서 이전 세션은 끝내 저장했지만 새 세션을 만들지 못함(11.3). `ended_at`(자정 전)이 있다. 앱은 새 S1부터 다시 시작한다 |
 
 **서버 → 앱 (예시)**
 
@@ -1628,6 +1633,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-28 | `fix/repo-backend-followup` | 자정 넘김(BE-6 ① B안, 11.3): 같은 연결에서 서버가 새 세션으로 넘기고 `session_rollover`를 보냄. 앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 바꿔 씀. 실패하면 `closed(day_changed)`. 설정 `midnight-rollover` 기본 꺼짐. 계약 `realtime-ws.v2`에 메시지·사유 추가(더하기만) |
 | 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0060](../plans/active/0060-baseline-frames-over-rest.md)) |
 | 2026-10-28 | `fix/repo-backend-followup` | 측정불가 자동 종료 5분 → 30분, 기본 켬(`unmeasurable-timeout` 0 → 30m). 앱이 `closed(unmeasurable_timeout)`을 처리하므로(10/27) 끄지 않는다 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | WebSocket 자세 등록(`purpose: calibration`, `calibration_result`) 삭제 — 등록은 B1뿐(11.4). `hello`는 `purpose: "measure"`만, 구간 `phase`에서 `calibration` 삭제 |

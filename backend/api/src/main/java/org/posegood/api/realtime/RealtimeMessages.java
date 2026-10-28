@@ -17,7 +17,8 @@ final class RealtimeMessages {
      * {@code /v2/realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
      *
      * 계약: contracts/realtime/realtime-ws.v2.schema.json. closed 사유: ended, unauthorized, not_owner, session_lost,
-     * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout.
+     * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout, day_changed.
+     * 자정 넘김({@code session_rollover})은 연결 안에서 세션을 바꾸므로 이전·새 세션 ID를 함께 담는다.
      */
     static final class V2 {
         private V2() {}
@@ -85,6 +86,20 @@ final class RealtimeMessages {
                 this("stalled", sinceLastSequence);
             }
         }
+
+        /**
+         * 자정 넘김(BE-6 ① B안): 이전 세션이 끝났고 이 연결은 새 세션({@code sessionId}, 자정 {@code startedAt}에 시작)으로
+         * 이어진다. {@code atMs}는 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값이다.
+         */
+        record SessionRollover(String type, Ended ended, UUID sessionId, Instant startedAt, long atMs) {
+            SessionRollover(
+                    UUID previous, Instant endedAt, Summary summary, UUID sessionId, Instant startedAt, long atMs) {
+                this("session_rollover", new Ended(previous, endedAt, summary), sessionId, startedAt, atMs);
+            }
+        }
+
+        /** 자정 넘김으로 끝난 세션: ID, 서버 종료 시각(DB {@code ended_at}과 같은 값, UTC), 최종 요약. */
+        record Ended(UUID sessionId, Instant endedAt, Summary summary) {}
 
         /**
          * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).

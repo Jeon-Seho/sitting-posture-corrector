@@ -46,6 +46,16 @@ public record FrameInterval(
     }
 
     /**
+     * 자정 넘김 뒤: 앱이 연결 기준으로 보낸 시간·순번에서 {@code ms}·{@code sequences}를 빼 새 세션 기준으로 옮긴다.
+     * 프레임 {@code t_ms}는 판정에 쓰지 않아 그대로 둔다.
+     */
+    public FrameInterval shifted(long ms, long sequences) {
+        if (ms == 0 && sequences == 0) return this;
+        return new FrameInterval(
+                schemaVersion, featureVersion, sequence - sequences, startMs - ms, endMs - ms, phase, frames);
+    }
+
+    /**
      * 프레임 하나. {@code p}는 관절 9개 {@code [x, y, visibility]} 또는 사람이 없으면 null.
      *
      * {@code valid:false}는 앱이 위치를 판별하지 못한 프레임에만 붙는다(없으면 null).
