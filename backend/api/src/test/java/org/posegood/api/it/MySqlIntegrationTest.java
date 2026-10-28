@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import tools.jackson.databind.JsonNode;
@@ -16,10 +17,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -40,7 +43,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * 실제 MySQL과 가짜 추론 서버로 API 전체 흐름을 확인하는 통합 시험.
  *
- * 스키마 V2.3·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·특징·기록은 모두 합성이다.
+ * 스키마·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·좌표는 모두 합성이고, 측정은
+ * {@code /v2/realtime}으로 한다(특징 입력 S2·기록 저장 R2는 2026-10-28 삭제, 계획 0061).
  * 실행: {@code backend/gradlew -p backend build -Pmysql-integration}(backend/README.md).
  */
 @SpringBootTest(
@@ -55,6 +59,7 @@ class MySqlIntegrationTest {
 
     @LocalServerPort int port;
     @Autowired LiveSessions live;
+    @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -125,45 +130,49 @@ class MySqlIntegrationTest {
         return UUID.fromString(response.body().get("baseline_id").asString());
     }
 
-    /** 측정 구간 하나. 좌우 치우침 0.3이면 점수 1.0(이탈), 0이면 0(바른 자세). */
-    private static ObjectNode feature(UUID baseline, long sequence, long start, long end, double lateral) {
-        var body = MAPPER.createObjectNode();
-        body.put("schema_version", "2.0")
-                .put("feature_version", "shoulder-relative-deltas-v1")
-                .put("baseline_id", baseline.toString())
-                .put("sequence", sequence)
-                .put("start_ms", start)
-                .put("end_ms", end)
-                .put("phase", "running")
-                .put("measurement_quality", "good");
-        body.putObject("features")
-                .put("head_gap_delta", 0)
-                .put("lateral_offset_delta", lateral)
-                .put("shoulder_tilt_delta", 0)
-                .put("current_quality", 0.9)
-                .put("baseline_quality", 0.9);
-        return body;
+    /** 합성 기준 좌표 UPRIGHT로 등록한 기준 자세. 실시간 측정의 {@link #frame} 치우침은 이 기준과 비교한다. */
+    private static UUID upright(ApiClient api) throws Exception {
+        var response = api.post("/v2/baselines", registration(UPRIGHT));
+        assertEquals(200, response.status());
+        return UUID.fromString(response.body().get("baseline_id").asString());
     }
 
-    private static ObjectNode rest(UUID baseline, long sequence, long start, long end) {
-        var body = feature(baseline, sequence, start, end, 0);
-        body.put("phase", "rest").put("measurement_quality", "poor").putNull("features");
-        return body;
-    }
-
-    /** 3초에 붕괴, 6초에 회복, 7초까지 휴식, 그 뒤 9초 종료까지 공백. */
+    /**
+     * 실시간 v2 측정: 3초 치우침(3초에 붕괴) → 3초 바른 자세(6초에 회복) → 7초까지 쉬기 → 9초 end(2초 누락).
+     *
+     * 특징 입력(S2)은 2026-10-28 삭제했다(계획 0061). 끝난 세션의 조회 응답(S4)을 돌려준다.
+     */
     private JsonNode measure(ApiClient api, UUID id, UUID baseline) throws Exception {
-        String path = "/v2/sessions/" + id;
-        assertEquals(200, api.put(path, create(baseline)).status());
+        assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
+        var socket = Socket.open(port);
+        socket.send(helloV2(api, "measure", id));
+        socket.next("ready");
         long sequence = 0;
-        for (long at = 0; at < 3000; at += 1000)
-            assertEquals(200, api.post(path + "/features", feature(baseline, sequence++, at, at + 1000, 0.3)).status());
-        for (long at = 3000; at < 6000; at += 1000)
-            assertEquals(200, api.post(path + "/features", feature(baseline, sequence++, at, at + 1000, 0)).status());
-        assertEquals(200, api.post(path + "/features", rest(baseline, sequence, 6000, 7000)).status());
-        var end = api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000));
-        assertEquals(200, end.status());
-        return end.body();
+        for (; sequence < 6; sequence++) socket.send(frames(sequence, "running", 0.09));
+        for (; sequence < 12; sequence++) socket.send(frames(sequence, "running", 0.0));
+        for (; sequence < 14; sequence++) socket.send(frames(sequence, "rest", null));
+        socket.send(endV2(9000));
+        socket.next("decision", "session_ended");
+        assertEquals("ended", socket.next("closed").get("reason").asString());
+        var view = api.get("/v2/sessions/" + id);
+        assertEquals(200, view.status());
+        return view.body();
+    }
+
+    @Test
+    void unusedRoutesAreRemoved() {
+        // 계획 0061(2026-10-28): 앱 기능이 없는 S2·S5·S6·R2를 지웠다. 기록 삭제(R3)와 세션 종료(S3)는 남는다.
+        var routes = new ArrayList<String>();
+        mappings.getHandlerMethods().keySet().forEach(info -> info.getPatternValues().forEach(pattern ->
+                info.getMethodsCondition().getMethods().forEach(method -> routes.add(method + " " + pattern))));
+        for (var removed : List.of(
+                "POST /v2/sessions/{id}/features", "GET /v2/sessions/{id}/metadata", "DELETE /v2/sessions/{id}",
+                "POST /v2/records"))
+            assertFalse(routes.contains(removed), removed);
+        for (var kept : List.of(
+                "PUT /v2/sessions/{id}", "POST /v2/sessions/{id}/end", "GET /v2/sessions/{id}", "GET /v2/records",
+                "DELETE /v2/records/{id}"))
+            assertTrue(routes.contains(kept), kept);
     }
 
     @Test
@@ -203,13 +212,21 @@ class MySqlIntegrationTest {
             assertTrue(row.next());
             assertFalse(row.getBoolean(1));
         }
-        // 세션은 계정에 저장한 정책과 알림 설정을 복사한다.
+        // 세션은 계정에 저장한 정책과 알림 설정을 복사한다. 측정은 다른 탭(stale)의 실시간 연결로 한다.
         ((ObjectNode) update.get("rules")).put("holdSeconds", 3).put("recoverSeconds", 3).put("realertSeconds", 60).put("threshold", 0.7);
         assertEquals(200, api.put("/v2/workspace", update).status());
-        UUID quiet = UUID.randomUUID(), quietBaseline = baseline(api);
+        UUID quiet = UUID.randomUUID(), quietBaseline = upright(api);
         assertEquals(200, api.put("/v2/sessions/" + quiet, create(quietBaseline)).status());
-        for (long at = 0; at < 3000; at += 1000)
-            api.post("/v2/sessions/" + quiet + "/features", feature(quietBaseline, at / 1000, at, at + 1000, 0.3));
+        var stale = client();
+        assertEquals(200, stale.login(email, "synthetic-password-1").status());
+        var socket = Socket.open(port);
+        socket.send(helloV2(stale, "measure", quiet));
+        socket.next("ready");
+        for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
+        socket.next("decision", "collapse_confirmed");
+        JsonNode ack;
+        do ack = socket.next("ack");
+        while (ack.get("last_sequence").asLong() != 6);
         try (var connection = database.connect(); var statement = connection.createStatement()) {
             var alert =
                     statement.executeQuery(
@@ -221,11 +238,6 @@ class MySqlIntegrationTest {
             assertNotNull(alert.getObject(2)); // OFF여도 판정 엔진의 알림 시도 이력은 남는다.
         }
 
-        var stale = client();
-        assertEquals(200, stale.login(email, "synthetic-password-1").status());
-        var socket = Socket.open(port);
-        socket.send(helloV2(stale, "measure", quiet));
-        socket.next("ready");
         var change =
                 MAPPER.createObjectNode()
                         .put("current_password", "synthetic-password-1")
@@ -305,7 +317,7 @@ class MySqlIntegrationTest {
         var api = client();
         String email = email();
         api.register(email);
-        UUID id = UUID.randomUUID(), baseline = baseline(api);
+        UUID id = UUID.randomUUID(), baseline = upright(api);
         var view = measure(api, id, baseline);
 
         assertTrue(view.get("ended").asBoolean());
@@ -321,14 +333,9 @@ class MySqlIntegrationTest {
         assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asString());
 
         String path = "/v2/sessions/" + id;
-        // 재시도: 같은 종료·같은 입력은 아무것도 바꾸지 않고, 다른 것은 409.
+        // 재시도: 같은 종료는 아무것도 바꾸지 않고, 다른 종료는 409.
         assertEquals(view, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000)).body());
         assertEquals(409, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9500)).status());
-        var retried = api.post(path + "/features", feature(baseline, 0, 0, 1000, 0.3));
-        assertEquals(200, retried.status());
-        assertEquals(view, retried.body().get("session"));
-        assertEquals(409, api.post(path + "/features", feature(baseline, 0, 0, 1000, 0.1)).status());
-        assertEquals(409, api.post(path + "/features", feature(baseline, 7, 9000, 9500, 0)).status());
 
         try (var connection = database.connect(); var statement = connection.createStatement()) {
             var session =
@@ -391,32 +398,25 @@ class MySqlIntegrationTest {
                                     + "',6.0,3.0,1,1,0,NOW(3) FROM user_account WHERE login_email='" + email + "'"));
         }
 
-        // 앱 기록은 서버 판정과 같아야 하고, 날짜는 DB 값을 쓴다.
-        var record = record(id, baseline, view, true);
-        var saved = api.post("/v2/records", record);
-        assertEquals(200, saved.status());
-        assertNotNull(saved.body().get("startedAt"));
-        assertEquals(saved.body(), api.post("/v2/records", record).body());
-        var changed = record.deepCopy();
-        changed.put("good", 2.5);
-        assertEquals(409, api.post("/v2/records", changed).status());
-        var forged = record(UUID.randomUUID(), baseline, view, true);
-        assertEquals(404, api.post("/v2/records", forged).status());
-        var local = record.deepCopy();
-        local.remove("server");
-        assertEquals(400, api.post("/v2/records", local).status());
-
-        // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다).
+        // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다). 측정을 끝낸 서버가 이미 저장했으므로
+        // 앱은 기록을 보내지 않는다(기록 저장 R2는 2026-10-28 삭제, 계획 0061).
         var list = api.get("/v2/records").body();
         assertTrue(list.get("today").asString().matches("\\d{4}-\\d{2}-\\d{2}"));
         var records = list.get("records");
         assertEquals(1, records.size());
         var rebuilt = records.get(0);
-        assertEquals(saved.body().get("startedAt"), rebuilt.get("startedAt"));
-        assertEquals(saved.body().get("endedAt"), rebuilt.get("endedAt"));
-        assertEquals(record.get("rules"), rebuilt.get("rules"));
-        for (var key : List.of("total", "valid", "good"))
-            assertEquals(record.get(key).asDouble(), rebuilt.get(key).asDouble(), key);
+        assertEquals(id.toString(), rebuilt.get("id").asString());
+        var startedAt = java.time.Instant.parse(rebuilt.get("startedAt").asString());
+        assertEquals(startedAt.plusSeconds(9), java.time.Instant.parse(rebuilt.get("endedAt").asString()));
+        var rules = MAPPER.createObjectNode()
+                .put("holdSeconds", 3)
+                .put("recoverSeconds", 3)
+                .put("realertSeconds", 60)
+                .put("threshold", 0.7);
+        assertEquals(rules, rebuilt.get("rules"));
+        assertEquals(9, rebuilt.get("total").asDouble());
+        assertEquals(6, rebuilt.get("valid").asDouble());
+        assertEquals(3, rebuilt.get("good").asDouble());
         assertTrue(rebuilt.get("server").get("confirmed").asBoolean());
         assertEquals(baseline.toString(), rebuilt.get("server").get("baselineId").asString());
         var rebuiltView = rebuilt.get("server").get("view");
@@ -472,7 +472,11 @@ class MySqlIntegrationTest {
             }
             assertFalse(rows.next());
         }
-        assertEquals(first.toString(), api.get("/v2/sessions/" + a + "/metadata").body().get("baseline_id").asString());
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            var rows = statement.executeQuery("SELECT baseline_posture_id FROM monitor_session WHERE client_session_uuid='" + a + "'");
+            assertTrue(rows.next());
+            assertEquals(first, org.posegood.api.session.BaselineRepository.publicId(Long.parseLong(api.userId), rows.getLong(1)));
+        }
         assertEquals(second.toString(), api.get("/v2/baselines/current").body().get("baseline_id").asString());
         var missingSetup = MAPPER.createObjectNode();
         missingSetup.set("policy", policy());
@@ -481,56 +485,50 @@ class MySqlIntegrationTest {
         var other = client();
         other.register(email());
         assertEquals(404, other.get("/v2/sessions/" + b).status());
-        assertEquals(404, other.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
+        var stranger = Socket.open(port);
+        stranger.send(helloV2(other, "measure", b));
+        assertEquals("not_owner", stranger.next("closed").get("reason").asString());
 
-        // 추론이 거절되면 아무것도 바뀌지 않고, 같은 요청은 나중에 성공한다.
+        // 추론이 거절되면 그 구간은 반영하지 않고 stalled만 보낸다. 연결은 남아 다음 구간은 처리된다(11.3).
+        var socket = Socket.open(port);
+        socket.send(helloV2(api, "measure", b));
+        socket.next("ready");
         inference.fail.set(true);
         try {
-            assertEquals(502, api.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
+            socket.send(frames(0, "running", 0.09));
+            socket.next("stalled");
         } finally {
             inference.fail.set(false);
         }
         assertEquals(-1, api.get("/v2/sessions/" + b).body().get("last_sequence").asLong());
-        assertEquals(200, api.post("/v2/sessions/" + b + "/features", feature(second, 0, 0, 1000, 0.3)).status());
-        assertEquals(409, api.post("/v2/sessions/" + b + "/features", feature(first, 1, 1000, 2000, 0.3)).status());
+        socket.send(frames(1, "running", 0.09));
+        assertEquals(1, socket.next("ack").get("last_sequence").asLong());
 
         // 재시작하면 판정 상태가 사라진다: 행은 남고 API는 404 SESSION_LOST로 답한다.
-        var before = api.get("/v2/sessions/" + b).body();
         live.remove(b, "session_lost");
         var lost = api.get("/v2/sessions/" + b);
         assertEquals(404, lost.status());
         assertEquals("SESSION_LOST", lost.body().get("code").asString());
-        // 마지막으로 받은 조회 응답의 확인 안 된 기록은 DB 값으로 검증해 받고 행을 ERROR로 닫는다.
-        // 다시 만든 기록에는 조회 응답이 없다(판정 상태를 모름).
-        assertEquals(200, api.post("/v2/records", record(b, second, before, false)).status());
-        var metadata = api.get("/v2/sessions/" + b + "/metadata").body();
-        assertEquals(second.toString(), metadata.get("baseline_id").asString());
-        assertFalse(metadata.get("ended_at").isNull());
 
-        // 기록으로 남긴 진행 중 세션은 그 자리에서 끝나고 DISCONNECTED로 닫힌다.
-        var unfinished = api.get("/v2/sessions/" + a).body();
-        assertEquals(200, api.post("/v2/records", record(a, first, unfinished, false)).status());
-        assertTrue(api.get("/v2/sessions/" + a).body().get("ended").asBoolean());
+        // 진행 중 세션은 S3로 끝낸다. 판정 상태를 잃은 세션 행은 닫는 경로가 없어 기록 목록에 나오지 않는다
+        // (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0061 남은 일).
+        assertTrue(api.post("/v2/sessions/" + a + "/end", MAPPER.createObjectNode().put("end_ms", 0)).body().get("ended").asBoolean());
         try (var connection = database.connect(); var statement = connection.createStatement()) {
-            var reasons =
+            var rows =
                     statement.executeQuery(
-                            "SELECT client_session_uuid,ended_at,good_sec FROM monitor_session WHERE"
+                            "SELECT client_session_uuid,ended_at FROM monitor_session WHERE"
                                     + " user_account_id=" + api.userId + " ORDER BY monitor_session_id");
-            assertTrue(reasons.next());
-            assertNotNull(reasons.getObject(2));
-            assertTrue(reasons.next());
-            assertNotNull(reasons.getObject(2));
-            assertEquals(0, reasons.getBigDecimal(3).signum());
+            assertTrue(rows.next());
+            assertEquals(a.toString(), rows.getString(1));
+            assertNotNull(rows.getObject(2));
+            assertTrue(rows.next());
+            assertEquals(b.toString(), rows.getString(1));
+            assertNull(rows.getObject(2));
         }
         var records = api.get("/v2/records").body().get("records");
-        assertEquals(2, records.size());
-        for (var rebuilt : records) {
-            if (rebuilt.get("id").asString().equals(b.toString())) {
-                assertFalse(rebuilt.get("server").get("confirmed").asBoolean());
-                assertTrue(rebuilt.get("server").get("view").isNull());
-                assertEquals(0, rebuilt.get("total").asDouble());
-            } else assertTrue(rebuilt.get("server").get("view").get("ended").asBoolean());
-        }
+        assertEquals(1, records.size());
+        assertEquals(a.toString(), records.get(0).get("id").asString());
+        assertTrue(records.get(0).get("server").get("view").get("ended").asBoolean());
     }
 
     @Test
@@ -613,7 +611,6 @@ class MySqlIntegrationTest {
         UUID id = UUID.randomUUID();
         String path = "/v2/sessions/" + id;
         assertEquals(200, api.put(path, create(baseline)).status());
-        assertEquals(200, api.post(path + "/features", feature(baseline, 0, 0, 1000, 0)).status());
         var end = MAPPER.createObjectNode().put("end_ms", 300000);
         assertEquals(200, api.post(path + "/end", end).status());
         assertEquals(200, api.post(path + "/end", end).status());
@@ -630,7 +627,7 @@ class MySqlIntegrationTest {
         var api = client();
         String email = email();
         api.register(email);
-        measure(api, UUID.randomUUID(), baseline(api));
+        measure(api, UUID.randomUUID(), upright(api));
         assertEquals(400, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "wrong-password-1")).status());
         assertEquals(204, api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
 
@@ -678,7 +675,9 @@ class MySqlIntegrationTest {
         return frame;
     }
 
-    /** v2 features 메시지(구간 1개, 0.5초). {@code shift}가 null이면 사람이 없는 프레임만 있다. */
+    /**
+     * v2 features 메시지(구간 1개, 0.5초). {@code shift}가 null이면 사람이 없는 프레임만 있다. 쉬기·자리 비움은 빈 구간이다.
+     */
     private static ObjectNode frames(long sequence, String phase, Double shift) {
         var message = MAPPER.createObjectNode().put("type", "features");
         var item = message.putArray("items").addObject();
@@ -690,6 +689,7 @@ class MySqlIntegrationTest {
                 .put("end_ms", start + 500)
                 .put("phase", phase);
         var list = item.putArray("frames");
+        if (!phase.equals("running")) return message;
         for (long t = start; t < start + 500; t += 125) {
             if (shift == null) list.addObject().put("t_ms", t).putNull("p");
             else list.add(frame(t, shift));
@@ -830,75 +830,6 @@ class MySqlIntegrationTest {
         assertTrue(view.get("ended").asBoolean());
         assertEquals(2000, view.get("summary").get("total_ms").asLong());
         assertEquals(2000, view.get("summary").get("normal_ms").asLong());
-    }
-
-    /** 측정한 조회 응답에 대한 앱 기록(RecordItem, frontend/src/features/storage/types.ts). */
-    private static ObjectNode record(UUID id, UUID baseline, JsonNode view, boolean confirmed) {
-        var summary = view.get("summary");
-        var record = MAPPER.createObjectNode();
-        record.put("id", id.toString())
-                .put("startedAt", "2026-10-09T00:00:00Z")
-                .put("endedAt", "2026-10-09T00:00:09Z")
-                .put("mode", "camera")
-                .put("valid", summary.get("valid_ms").asLong() / 1000.0)
-                .put("good", summary.get("normal_ms").asLong() / 1000.0)
-                .put("total", summary.get("total_ms").asLong() / 1000.0);
-        record.putObject("rules")
-                .put("holdSeconds", 3)
-                .put("recoverSeconds", 3)
-                .put("realertSeconds", 60)
-                .put("threshold", 0.7);
-        var events = record.putArray("events");
-        JsonNode collapse = null;
-        for (var event : view.get("events")) {
-            String kind = event.get("kind").asString();
-            if (kind.equals("collapse_confirmed")) collapse = event;
-            if (kind.equals("recovery_confirmed") && collapse != null) {
-                double confirmedAt = collapse.get("timestamp_ms").asLong() / 1000.0;
-                double endAt = event.get("timestamp_ms").asLong() / 1000.0;
-                events.addObject()
-                        .put("id", collapse.get("event_id").asLong())
-                        .put("type", "tilt")
-                        .put("startAt", collapse.get("onset_ms").asLong() / 1000.0)
-                        .put("validStartAt", collapse.get("onset_valid_ms").asLong() / 1000.0)
-                        .put("confirmedAt", confirmedAt)
-                        .put("endAt", endAt)
-                        .put("durationSec", endAt - collapse.get("onset_ms").asLong() / 1000.0)
-                        .put("alerts", 1)
-                        .put("firstAlertAt", confirmedAt)
-                        .put("recovered", true)
-                        .put("recoverySec", endAt - confirmedAt)
-                        .put("endedBySession", false)
-                        .putNull("endReason")
-                        .put("blockId", 0);
-                collapse = null;
-            }
-        }
-        if (collapse != null) {
-            double confirmedAt = collapse.get("timestamp_ms").asLong() / 1000.0;
-            double endAt = summary.get("total_ms").asLong() / 1000.0;
-            events.addObject()
-                    .put("id", collapse.get("event_id").asLong())
-                    .put("type", "tilt")
-                    .put("startAt", collapse.get("onset_ms").asLong() / 1000.0)
-                    .put("validStartAt", collapse.get("onset_valid_ms").asLong() / 1000.0)
-                    .put("confirmedAt", confirmedAt)
-                    .put("endAt", endAt)
-                    .put("durationSec", endAt - collapse.get("onset_ms").asLong() / 1000.0)
-                    .put("alerts", 1)
-                    .put("firstAlertAt", confirmedAt)
-                    .put("recovered", false)
-                    .putNull("recoverySec")
-                    .put("endedBySession", false)
-                    .put("endReason", "unknown")
-                    .put("blockId", 0);
-        }
-        record.putObject("server")
-                .put("baselineId", baseline.toString())
-                .put("modelVersion", view.get("last_sequence").asLong() < 0 ? "unmeasured" : "reference-feature-rule-v1")
-                .put("confirmed", confirmed)
-                .set("view", view);
-        return record;
     }
 
     /** 시험용 최소 WebSocket 클라이언트. 메시지를 받은 순서대로 보관한다. */

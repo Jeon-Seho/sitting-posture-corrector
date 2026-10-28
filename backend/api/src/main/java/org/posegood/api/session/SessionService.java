@@ -25,9 +25,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리.
+ * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료.
  *
- * HTTP와 실시간 채널이 함께 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
+ * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
  * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
  * 실시간 v2는 좌표 구간을 받아 {@link FrameFeatures}로 특징 변화량을 계산한 뒤 같은 추론·판정 흐름에 넣는다(A안).
  * KST 자정에는 실시간 연결이 {@link #rollover}로 이전 세션을 끝내고 새 세션으로 잇는다(BE-6 ① B안).
@@ -121,16 +121,6 @@ public class SessionService {
                     var session = new LiveSession(row, new SessionEngine(id, request.policy(), maxSessionMs));
                     live.add(session);
                     return session.engine().view();
-                });
-    }
-
-    /** 특징 입력 처리: 재전송 확인 → 추론 → 판정 → 실시간 알림 → DB 기록. */
-    public SessionRequests.FeatureResponse features(long owner, UUID id, InferenceRequest request) {
-        var session = require(owner, id);
-        return session.locked(
-                () -> {
-                    var accepted = accept(session, request, null);
-                    return response(accepted.observation(), accepted.view());
                 });
     }
 
@@ -245,13 +235,13 @@ public class SessionService {
     }
 
     /** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
-    private Accepted accept(LiveSession session, InferenceRequest request, String invalidReason) {
+    private void accept(LiveSession session, InferenceRequest request, String invalidReason) {
         String digest = fingerprint(request);
         var cached = session.input(request.sequence());
         if (cached != null) {
             if (!cached.fingerprint().equals(digest)) throw ApiError.conflict("conflicting duplicate");
             persist(session);
-            return new Accepted(cached.observation(), session.engine().view());
+            return;
         }
         var engine = session.engine();
         var view = engine.view();
@@ -274,7 +264,6 @@ public class SessionService {
         }
         publish(session, observation, before, invalidReason, closedReason);
         persist(session);
-        return new Accepted(observation, result);
     }
 
     /**
@@ -294,33 +283,6 @@ public class SessionService {
                 });
     }
 
-    /**
-     * 기록을 저장할 때 아직 열린 세션 행을 닫는다.
-     *
-     * 판정 상태가 있으면 마지막 수신 시각에서 끝내 DISCONNECTED로, 상태를 잃었으면 ERROR로 닫는다.
-     */
-    public void closeForRecord(long owner, UUID id, long acknowledgedMs) {
-        var session = live.get(id);
-        if (session != null && session.owner() == owner) {
-            session.locked(
-                    () -> {
-                        var engine = session.engine();
-                        if (!engine.ended()) {
-                            session.endReason("DISCONNECTED");
-                            int before = engine.eventCount();
-                            engine.end(engine.summary().totalMs());
-                            publish(session, null, before, null, null);
-                        }
-                        persist(session);
-                        return null;
-                    });
-            return;
-        }
-        var stored = owned(owner, id);
-        if (stored.endedAt() == null)
-            tx.executeWithoutResult(status -> sessions.closeLost(stored, acknowledgedMs));
-    }
-
     /** 현재 상태 조회. */
     public SessionView get(long owner, UUID id) {
         var session = require(owner, id);
@@ -328,7 +290,7 @@ public class SessionService {
     }
 
     /**
-     * 세션 삭제(DB 행과 메모리 상태).
+     * 세션 삭제(DB 행과 메모리 상태). 기록 삭제(R3)가 쓴다.
      */
     public void delete(long owner, UUID id) {
         var stored = owned(owner, id);
@@ -343,17 +305,6 @@ public class SessionService {
                     live.remove(id, "session_lost");
                     return null;
                 });
-    }
-
-    /** 시작·종료 시각, 기준 자세 ID, 모델 버전. */
-    public Metadata metadata(long owner, UUID id) {
-        var stored = owned(owner, id);
-        var session = live.get(id);
-        String model =
-                session != null && session.locked(() -> session.engine().lastSequence() >= 0)
-                        ? inference.modelVersion()
-                        : null;
-        return new Metadata(stored.startedAt(), stored.endedAt(), stored.baselineId(), model);
     }
 
     /**
@@ -436,10 +387,6 @@ public class SessionService {
                 session.persistedEvents() + pending.size(), episodes, session.closePersisted() || close);
     }
 
-    private static SessionRequests.FeatureResponse response(Observation observation, SessionView view) {
-        return new SessionRequests.FeatureResponse("1.0", observation, view);
-    }
-
     /** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */
     private static void requireSame(LiveSession session, SessionRequests.Create request) {
         var row = session.row();
@@ -479,11 +426,6 @@ public class SessionService {
             throw new IllegalStateException("cannot fingerprint feature request", impossible);
         }
     }
-
-    /** {@code GET /v2/sessions/{id}/metadata} 응답. 모르는 값은 null. */
-    public record Metadata(Instant startedAt, Instant endedAt, UUID baselineId, String modelVersion) {}
-
-    private record Accepted(Observation observation, SessionView view) {}
 
     /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
     /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */

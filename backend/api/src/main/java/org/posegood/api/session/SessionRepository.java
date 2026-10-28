@@ -84,24 +84,6 @@ public class SessionRepository {
         return true;
     }
 
-    /** Lost observations are excluded, never reconstructed as good or deviation time. */
-    public boolean closeLost(Stored session, long acknowledgedMs) {
-        LocalDateTime last = jdbc.queryForObject(
-                "SELECT MAX(t) FROM (SELECT MAX(COALESCE(ended_at,confirmed_at)) AS t FROM collapse_event WHERE monitor_session_id=?"
-                        + " UNION ALL SELECT MAX(attempted_at) FROM correction_alert WHERE monitor_session_id=?) x",
-                (row, n) -> row.getObject(1, LocalDateTime.class), session.key(), session.key());
-        var end = at(session, acknowledgedMs);
-        if (last != null && last.isAfter(end)) end = last;
-        int closed = jdbc.update("UPDATE monitor_session SET ended_at=?,good_sec=0 WHERE monitor_session_id=? AND ended_at IS NULL",
-                end, session.key());
-        if (closed != 1) return false;
-        jdbc.update("UPDATE collapse_event SET ended_at=? WHERE monitor_session_id=? AND ended_at IS NULL", end, session.key());
-        if (end.isAfter(KstTime.of(session.startedAt())))
-            jdbc.update("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason) VALUES(?,?,?,'MISSING')",
-                    session.key(), KstTime.of(session.startedAt()), end);
-        return true;
-    }
-
     public void delete(Stored session) {
         try { jdbc.update("DELETE FROM monitor_session WHERE monitor_session_id=?", session.key()); }
         catch (DataIntegrityViolationException archived) { throw ApiError.conflict("session has archived feature files"); }

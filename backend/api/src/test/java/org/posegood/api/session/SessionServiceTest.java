@@ -18,10 +18,12 @@ import org.posegood.api.account.AccountService;
 import org.posegood.api.account.UserLocks;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.KstTime;
-import org.posegood.api.contract.FeatureDeltas;
+import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.Policy;
+import org.posegood.api.contract.SessionRequests;
+import org.posegood.api.contract.SessionView;
 import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,7 +39,7 @@ import java.util.function.Supplier;
 
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
- * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). DB·추론은 가짜.
+ * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). DB·추론은 가짜.
  */
 class SessionServiceTest {
     private static final long OWNER = 7;
@@ -73,23 +75,50 @@ class SessionServiceTest {
                 tx, events, Duration.ofHours(24), unmeasurableTimeout);
     }
 
-    private static InferenceRequest interval(long sequence, Observation.Phase phase, boolean valid) {
-        return new InferenceRequest("2.0", "shoulder-relative-deltas-v1", BASELINE, sequence, sequence * 500,
-                (sequence + 1) * 500, phase,
-                valid ? InferenceRequest.MeasurementQuality.good : InferenceRequest.MeasurementQuality.poor,
-                valid ? new FeatureDeltas(0, 0, 0, 1, 1) : null);
+    /** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
+    private static final double[][] UPRIGHT = {
+        {0.51234, 0.40211}, {0.53011, 0.3712}, {0.49012, 0.372}, {0.56021, 0.39012}, {0.46011, 0.391},
+        {0.52, 0.44}, {0.5, 0.44}, {0.66011, 0.62}, {0.36012, 0.62}
+    };
+    private static final FrameFeatures.Features STANDARD = FrameFeatures.baseline(landmarks());
+
+    private static SessionRequests.Landmarks landmarks() {
+        var p = new SessionRequests.Point[9];
+        for (int i = 0; i < 9; i++) p[i] = new SessionRequests.Point(UPRIGHT[i][0], UPRIGHT[i][1]);
+        return new SessionRequests.Landmarks(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8]);
+    }
+
+    /** 0.5초 좌표 구간. 판정 가능하면 기준과 같은 자세 1장, 아니면 사람 없는 프레임 1장, 쉬기·자리 비움은 빈 구간. */
+    private static FrameInterval interval(long sequence, FrameInterval.Phase phase, boolean valid) {
+        long start = sequence * 500;
+        List<FrameInterval.Frame> frames = List.of();
+        if (phase == FrameInterval.Phase.running) {
+            List<List<Double>> p = null;
+            if (valid) {
+                p = new ArrayList<>();
+                for (var joint : UPRIGHT) p.add(List.of(joint[0], joint[1], 0.95));
+            }
+            frames = List.of(new FrameInterval.Frame(start, p, null));
+        }
+        return new FrameInterval("3.0", "keypoints-9-v1", sequence, start, start + 500, phase, frames);
+    }
+
+    /** 실시간 v2 구간 하나를 넣고 세션 조회 응답을 돌려준다. */
+    private static SessionView feed(SessionService service, UUID id, FrameInterval interval) {
+        service.frames(OWNER, id, interval, STANDARD);
+        return service.get(OWNER, id);
     }
 
     @Test
     void unmeasurableForTheTimeoutEndsAndStoresTheSessionAtThatPoint() {
         var service = service(Duration.ofSeconds(5));
-        service.features(OWNER, ID, interval(0, Observation.Phase.running, true));
+        feed(service, ID, interval(0, FrameInterval.Phase.running, true));
         // 판정 불가 3초 + 자리 비움 2초 = 5초가 차는 구간에서 끝난다.
         for (long sequence = 1; sequence <= 6; sequence++)
-            assertFalse(service.features(OWNER, ID, interval(sequence, Observation.Phase.running, false)).session().ended());
+            assertFalse(feed(service, ID, interval(sequence, FrameInterval.Phase.running, false)).ended());
         for (long sequence = 7; sequence <= 9; sequence++)
-            assertFalse(service.features(OWNER, ID, interval(sequence, Observation.Phase.away, false)).session().ended());
-        var last = service.features(OWNER, ID, interval(10, Observation.Phase.away, false)).session();
+            assertFalse(feed(service, ID, interval(sequence, FrameInterval.Phase.away, false)).ended());
+        var last = feed(service, ID, interval(10, FrameInterval.Phase.away, false));
         assertTrue(last.ended());
         assertEquals(5500, last.summary().totalMs());
         assertEquals("session_ended", last.events().get(last.events().size() - 1).kind());
@@ -104,15 +133,15 @@ class SessionServiceTest {
     void restResetsTheCountAndZeroTurnsTheRuleOff() {
         var service = service(Duration.ofSeconds(5));
         for (long sequence = 0; sequence < 9; sequence++)
-            service.features(OWNER, ID, interval(sequence, Observation.Phase.running, false));
-        service.features(OWNER, ID, interval(9, Observation.Phase.rest, false)); // 쉬기는 초기화
+            feed(service, ID, interval(sequence, FrameInterval.Phase.running, false));
+        feed(service, ID, interval(9, FrameInterval.Phase.rest, false)); // 쉬기는 초기화
         for (long sequence = 10; sequence < 19; sequence++)
-            assertFalse(service.features(OWNER, ID, interval(sequence, Observation.Phase.running, false)).session().ended());
+            assertFalse(feed(service, ID, interval(sequence, FrameInterval.Phase.running, false)).ended());
 
         published.clear();
         var off = service(Duration.ZERO);
         for (long sequence = 0; sequence < 40; sequence++)
-            assertFalse(off.features(OWNER, ID, interval(sequence, Observation.Phase.away, false)).session().ended());
+            assertFalse(feed(off, ID, interval(sequence, FrameInterval.Phase.away, false)).ended());
         assertNull(published.get(published.size() - 1).closedReason());
         verify(repository, never()).close(any(), any());
     }
@@ -121,7 +150,7 @@ class SessionServiceTest {
     void midnightRolloverEndsThePreviousSessionAndStartsAFollowingOne() {
         var service = service(Duration.ZERO);
         for (long sequence = 0; sequence < 4; sequence++)
-            service.features(OWNER, ID, interval(sequence, Observation.Phase.running, true));
+            feed(service, ID, interval(sequence, FrameInterval.Phase.running, true));
         var midnight = Instant.parse("2026-10-26T15:00:00Z");
         when(repository.find(any(UUID.class))).thenAnswer(call -> new SessionRepository.Stored(2, call.getArgument(0),
                 OWNER, POLICY, BASELINE, true, midnight, null, null, 0, 0));
@@ -139,10 +168,10 @@ class SessionServiceTest {
         var next = service.get(OWNER, result.sessionId());
         assertFalse(next.ended());
         assertEquals(POLICY, next.policy());
-        assertEquals(500, service.features(OWNER, result.sessionId(), interval(0, Observation.Phase.running, true))
-                .session().summary().totalMs());
+        assertEquals(500, feed(service, result.sessionId(), interval(0, FrameInterval.Phase.running, true))
+                .summary().totalMs());
         assertEquals(429, assertThrows(ApiError.class,
-                () -> service.features(OWNER, result.sessionId(), interval(2, Observation.Phase.running, true))).status());
+                () -> feed(service, result.sessionId(), interval(2, FrameInterval.Phase.running, true))).status());
         // 이미 끝난 세션은 다시 넘기지 않는다.
         assertEquals("SESSION_ENDED", assertThrows(ApiError.class,
                 () -> service.rollover(OWNER, ID, midnight, 1000)).code());

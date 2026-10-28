@@ -1,7 +1,7 @@
 # 백엔드 — 세션·계정·판정 API
 
 Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
-앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 특징 변화량 경로 `POST /v2/sessions/{id}/features`는 서버에 남아 있지만 앱은 쓰지 않는다(남길지는 BE가 정한다).
+앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 앱 기능이 없던 특징 입력(S2)·기록 저장(R2)·세션 메타데이터(S5)·세션 삭제(S6)는 2026-10-28 지웠다([계획 0061](../docs/plans/active/0061-remove-unused-apis.md)).
 DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
@@ -34,14 +34,14 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
 | 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). 등록은 이 경로뿐(WebSocket 등록은 2026-10-27 삭제) |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
-| 특징 처리 | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
+| 좌표 구간 처리 (`/v2/realtime`) | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
 | 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
-| 상태를 잃은 종료 | 알 수 없는 전체 시간을 MISSING으로 제외, good=0 |
-| 삭제 | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
+| 기록 삭제 (`DELETE /v2/records/{id}`) | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
 
 - DB 쓰기에 실패하면 503이다. 판정 상태는 이미 반영됐으므로 같은 요청을 다시 보내면 남은 사건을 쓴다.
 - API를 재시작하면 진행 중 세션의 상태는 사라진다. 행이 남은 세션은 `404 SESSION_LOST`로 알리고, 앱은 마지막 확인 요약을 기록으로 남긴다.
-  그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 기록 저장 확인을 위해 30분 보관한다(`posegood.ended-session-retention`).
+  그 세션 행은 닫는 경로가 없어 열린 채 남는다(기록 저장 R2가 닫던 것, 계획 0061 남은 일).
+  그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 끝난 뒤 조회(S4)를 위해 30분 보관한다(`posegood.ended-session-retention`).
 - 모든 `DATETIME(3)`은 KST다. JDBC 연결도 `connectionTimeZone=Asia/Seoul`이다. API 응답 시각은 UTC ISO-8601이다.
 - 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.
 - 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 true, DB V2.6)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
@@ -65,11 +65,10 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | --- | --- |
 | `POST /v2/auth/register`, `POST /v2/auth/login`, `POST /v2/auth/refresh`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인·로그인 유지 |
 | `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
-| `GET`·`PUT /v2/workspace`, `GET`·`POST /v2/records`, `DELETE /v2/records/{id}` | 설정·앱 기록 |
+| `GET`·`PUT /v2/workspace`, `GET /v2/records`, `DELETE /v2/records/{id}` | 설정·기록 조회·기록(= 세션) 삭제 |
 | `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
-| `POST /v2/sessions/{UUID}/features` | 특징 입력 v2 → FastAPI → 판정. [특징 응답 v1](../contracts/feature-response.v1.schema.json) |
 | `POST /v2/sessions/{UUID}/end` | `{end_ms}`로 종료. 같은 값은 멱등, 다른 값은 409 |
-| `GET /v2/sessions/{UUID}`, `GET .../metadata`, `DELETE /v2/sessions/{UUID}` | 조회 v1, 시작·종료 시각·기준 ID, 삭제 |
+| `GET /v2/sessions/{UUID}` | 조회 v1 |
 | `POST /v2/baselines`, `GET /v2/baselines/current` | 독립 기준 등록·현재 기준 조회 |
 | `PUT /v2/consents/optional-profile` | 선택 정보 동의·철회 |
 | `GET /v2/realtime` (WebSocket) | 실시간 채널(아래). v1(`/v1/realtime`)은 2026-10-26 삭제 |
