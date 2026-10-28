@@ -15,7 +15,7 @@
 | `GET /actuator/health/liveness` | `{"status":"UP"}` — 프로세스만 본다 | compose 헬스체크(외부 DB 장애가 컨테이너 재시작으로 번지지 않게) |
 | `GET /actuator/health/readiness` | `db`(MySQL)·`redis` 포함 | 통합 테스트 6단계 |
 | `GET /actuator/health` | 전체 | 수동 확인 |
-| `GET /store/service-db` | 서비스 DB(V2.3 `posture_service`) 준비 상태: `ok`, `specVersion`, `tableCount`(13), 빠진·지운 테이블/컬럼, 기본 정책 id(값 4개로 찾음), 계정 권한, `problems`·`warnings` | 통합 테스트 6단계. 기동 직후 로그에도 한 번 남긴다 |
+| `GET /store/service-db` | 서비스 DB(V2.6 `posture_service`) 준비 상태: `ok`, `specVersion`(V2.3~V2.6 판별 — V2.6이 아니면 적용할 migration을 `problems`에), `tableCount`(실제 테이블 수, V2.6은 14), 빠진·지운 테이블/컬럼, 기본 정책 id(값 4개로 찾음), 계정 권한, `problems`·`warnings` | 통합 테스트 6단계. 기동 직후 로그에도 한 번 남긴다 |
 
 ## 2. 판정 (Kafka `posture.inference.v1` → `posture.episodes.v1`)
 

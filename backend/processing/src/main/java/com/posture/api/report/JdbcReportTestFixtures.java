@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * (D-30, D-51) 시험용 계정·기준 자세·세션 행(DB V2.3) — 입출구 서버를 거치지 않고 저장 경로를 서버에서 시험하려고 둔다.
+ * (D-30, D-51, D-65) 시험용 계정·기준 자세·세션 행(DB V2.6) — 입출구 서버를 거치지 않고 저장 경로를 서버에서 시험하려고 둔다.
  *
  * <p>DB 회신 DB-6: 시험 계정 {@code test-*@example.invalid}, 비밀번호 해시는 가짜 값, 합성 데이터만.
  * V2.3은 세션이 기준 자세를 참조하므로(FK-27) 기준 자세 행(합성 좌표 18개)도 만든다.
@@ -81,16 +81,18 @@ public class JdbcReportTestFixtures {
         long accountId = jdbc.queryForList("SELECT user_account_id FROM " + t("user_account") + " WHERE login_email = ?",
                 Long.class, email).get(0);
 
-        StringBuilder cols = new StringBuilder("user_account_id, registered_at");
-        StringBuilder marks = new StringBuilder("?, ?");
-        Object[] args = new Object[2 + JOINTS.length * 2];
+        // (D-65) V2.5부터 등록 식별자(UUID, NOT NULL, UK-16 — 사용자·등록 식별자)가 필요하다(migration 015)
+        StringBuilder cols = new StringBuilder("user_account_id, client_registration_uuid, registered_at");
+        StringBuilder marks = new StringBuilder("?, ?, ?");
+        Object[] args = new Object[3 + JOINTS.length * 2];
         args[0] = accountId;
-        args[1] = now;
+        args[1] = UUID.randomUUID().toString();
+        args[2] = now;
         for (int i = 0; i < JOINTS.length; i++) {
             cols.append(", ").append(JOINTS[i]).append("_x, ").append(JOINTS[i]).append("_y");
             marks.append(", ?, ?");
-            args[2 + i * 2] = COORDS[i][0];
-            args[3 + i * 2] = COORDS[i][1];
+            args[3 + i * 2] = COORDS[i][0];
+            args[4 + i * 2] = COORDS[i][1];
         }
         jdbc.update("INSERT INTO " + t("baseline_posture") + " (" + cols + ") VALUES (" + marks + ")", args);
         long baselineId = jdbc.queryForList("SELECT MAX(baseline_posture_id) FROM " + t("baseline_posture")

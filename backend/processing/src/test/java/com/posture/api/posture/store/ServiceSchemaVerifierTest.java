@@ -12,10 +12,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** (D-32, D-41, D-51) 확정 서비스 DB(V2.3) 준비 확인. */
+/** (D-32, D-41, D-51, D-65) 확정 서비스 DB(V2.6) 준비 확인. */
 class ServiceSchemaVerifierTest {
 
-    /** V2.3 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
+    /** V2.6 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
     static final class FakeProbe implements ServiceDbProbe {
         final List<String> tables = new ArrayList<>(ServiceSchemaVerifier.EXPECTED_TABLES);
         final Map<String, List<String>> columns = new HashMap<>();
@@ -28,6 +28,7 @@ class ServiceSchemaVerifierTest {
             columns.putAll(ServiceSchemaVerifier.REQUIRED_COLUMNS);
             columns.put("daily_stat", List.of("user_account_id", "stat_date", "min_until_collapse_sec",
                     "max_until_collapse_sec"));
+            columns.put("feature_archive", List.of("feature_archive_id", "monitor_session_id", "file_uri"));
         }
 
         @Override
@@ -69,11 +70,11 @@ class ServiceSchemaVerifierTest {
     }
 
     @Test
-    void readyV23SchemaIsOk() {
+    void readyV26SchemaIsOk() {
         Map<String, Object> r = verifier(true, "posture_service").check();
         assertThat(r.get("ok")).isEqualTo(true);
-        assertThat(r.get("specVersion")).isEqualTo("V2.3");
-        assertThat(r.get("tableCount")).isEqualTo(13);
+        assertThat(r.get("specVersion")).isEqualTo("V2.6");
+        assertThat(r.get("tableCount")).isEqualTo(12);
         assertThat(r.get("defaultPolicyId")).isEqualTo(1L);
         assertThat(list(r, "problems")).isEmpty();
         assertThat(list(r, "warnings")).isEmpty();
@@ -123,6 +124,28 @@ class ServiceSchemaVerifierTest {
         assertThat(r).doesNotContainKey("defaultPolicyId");
     }
 
+    /** 10/28 서버에서 본 것: 처리 서비스가 V2.3 기준이면 V2.6 DB의 기준 자세(등록 식별자 NOT NULL)를 못 넣는다 → 판을 알려 준다. */
+    @Test
+    void olderMinorVersionsNameTheMigrationsToApply() {
+        probe.tables.remove("refresh_token");
+        Map<String, Object> v25 = verifier(true, "posture_service").check();
+        assertThat(v25.get("ok")).isEqualTo(false);
+        assertThat(v25.get("specVersion")).isEqualTo("V2.5");
+        assertThat(String.valueOf(v25.get("problems"))).contains("V2.6 아님").contains("migration 016을")
+                .doesNotContain("V2.6 테이블 없음");
+
+        probe.columns.put("baseline_posture", List.of("baseline_posture_id", "user_account_id", "registered_at"));
+        Map<String, Object> v24 = verifier(true, "posture_service").check();
+        assertThat(v24.get("specVersion")).isEqualTo("V2.4");
+        assertThat(String.valueOf(v24.get("problems"))).contains("migration 015·016을");
+        assertThat(list(v24, "missingColumns")).containsExactly("baseline_posture.client_registration_uuid");
+
+        probe.columns.put("feature_archive", List.of("feature_archive_id", "monitor_session_id", "file_uri", "row_count"));
+        Map<String, Object> v23 = verifier(true, "posture_service").check();
+        assertThat(v23.get("specVersion")).isEqualTo("V2.3");
+        assertThat(String.valueOf(v23.get("problems"))).contains("migration 013·014·015·016을");
+    }
+
     @Test
     void missingBaselineColumnIsReported() {
         probe.columns.put("monitor_session", List.of("monitor_session_id", "client_session_uuid", "user_account_id",
@@ -134,10 +157,21 @@ class ServiceSchemaVerifierTest {
 
     @Test
     void tableNamesAreCaseInsensitive() {
+        probe.tables.remove("refresh_token");
+        probe.tables.remove("user_consent");
+        probe.tables.add("REFRESH_TOKEN");
+        probe.tables.add("User_Consent");
+        Map<String, Object> r = verifier(true, "posture_service").check();
+        assertThat(r.get("ok")).isEqualTo(true);
+        assertThat(r.get("specVersion")).isEqualTo("V2.6");
+    }
+
+    /** V2.6부터 로그인은 토큰이라 SPRING_SESSION 테이블은 없어도 된다(DB에는 남겨 둠). */
+    @Test
+    void springSessionTablesAreNotRequired() {
+        probe.tables.add("SPRING_SESSION");
+        assertThat(verifier(true, "posture_service").check().get("ok")).isEqualTo(true);
         probe.tables.remove("SPRING_SESSION");
-        probe.tables.remove("SPRING_SESSION_ATTRIBUTES");
-        probe.tables.add("spring_session");
-        probe.tables.add("spring_session_attributes");
         assertThat(verifier(true, "posture_service").check().get("ok")).isEqualTo(true);
     }
 

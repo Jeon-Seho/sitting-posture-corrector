@@ -18,7 +18,7 @@
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.3 준비(D-32·D-51)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.6 준비(D-32·D-51·D-65)
 #   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
 #                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(v1)·11단계(저장)·12단계(WebSocket)
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
@@ -29,7 +29,7 @@
 #                    REST 점검 tools/platform/io_api_smoke.py(가입·로그인·토큰 갱신 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제
 #                    → 로그아웃 → 탈퇴, D-48·D-69 — 토큰 로그인 ADR 0031)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
-#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.3)에
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.6)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계)
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
@@ -281,7 +281,8 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32·D-51) 확정 서비스 DB(posture_service V2.3) — 테이블 13개·판정 결과 컬럼·지운 컬럼 없음·기본 정책(값 4개)·계정 권한
+# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.6) — 판(V2.3~V2.6이면 적용할 migration)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
+# 기본 정책(값 4개)·계정 권한
 SDB="$(curl -s -m 15 "$API/store/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
 if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then
