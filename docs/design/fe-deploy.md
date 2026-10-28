@@ -1,6 +1,6 @@
 # FE 배포: 도메인 + Vercel + Cloudflare 터널
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 최신화: 2026-10-26(포크 최신화 기록. 저녁: V3를 develop에 합치는 조건 정정 — 6장) · 2026-10-25(3.2 「지금 앱」 칸을 V3 코드로, `VITE_REALTIME_URL` 삭제 반영, 검색 노출 막기 끝남) · 2026-10-22(이름 `fe-domain-idea.md` → `fe-deploy.md`, 데스크톱 앱 구조는 [FE 제안서](fe-server-proposal.md) 8.4로 옮김) · 상태: **진행 중**(도메인·Cloudflare·Vercel 연결됨, 서버 터널은 DevOps) · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-19 · 최신화: 2026-10-28(포크 `dae2fb1` 최신화, 빌드 건너뛰기를 마지막 배포본 기준으로) · 2026-10-26(포크 최신화 기록. 저녁: V3를 develop에 합치는 조건 정정 — 6장) · 2026-10-25(3.2 「지금 앱」 칸을 V3 코드로, `VITE_REALTIME_URL` 삭제 반영, 검색 노출 막기 끝남) · 2026-10-22(이름 `fe-domain-idea.md` → `fe-deploy.md`, 데스크톱 앱 구조는 [FE 제안서](fe-server-proposal.md) 8.4로 옮김) · 상태: **진행 중**(도메인·Cloudflare·Vercel 연결됨, 서버 터널은 DevOps) · 대상: FE, DevOps(터널·nginx), BE(CORS·출처 허용)
 > 관련: [FE 제안서](fe-server-proposal.md) 2장 「배포」·1장 DevOps 질문(HTTPS)·F14·8.2(연결 설정), [연동 명세](api-ws-spec.md) 1장, [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 1. 왜 바꾸나
@@ -75,7 +75,7 @@
   5. [x] `app.posegood.site` 연결(10/20): Vercel → Settings → Environments → Production → Domains에 추가 → Vercel이 준 레코드를 Cloudflare DNS에 넣음(CNAME `app` → `6af83c80925fbc79.vercel-dns-017.com`, **DNS only**). Cloudflare가 「프록시를 켜라」고 권하지만 `app.`은 회색으로 둔다(HTTPS·CDN·DDoS는 Vercel이 맡음, 겹치면 인증서·캐시가 꼬임). 확인: `https://app.posegood.site` 200(Vercel), `http://`는 308로 https, 모델·wasm 파일 200.
   6. [x] **검색 노출 막기(10/20, 실제 연동 전까지, develop `72ab5ec`):** `frontend/public/robots.txt`(`Disallow: /`)와 `vercel.json` 응답 헤더 `X-Robots-Tag: noindex, nofollow`. 접속을 막는 게 아니라 검색 결과에 안 나오게 하는 것. `app.`은 DNS only라 Cloudflare의 AI·검색 봇 설정은 적용되지 않아서 앱 쪽에 둔다. 배포본에는 develop에 머지하고 포크를 최신화한 뒤 반영된다. **정식 공개 때 두 줄을 지운다.**
   7. [ ] 운영 환경 변수(서버가 붙은 뒤): `VITE_API_BASE_URL=https://api.posegood.site` 하나(WS 주소도 여기서 만든다, 10/21).
-  - 준비된 것: `frontend/vercel.json`(빌드·출력, 빌드 건너뛰기 `git diff --quiet HEAD^ HEAD -- . ../model`, `X-Robots-Tag`). develop에 들어갔고(`72ab5ec`) 포크에는 포크를 최신화할 때 반영된다. 앱이 `frontend` 밖에서 빌드에 쓰는 것은 `model/`뿐이다(`contracts/`는 시험에서만). 화면 이동은 주소의 `#`만 쓰므로 경로 재작성(rewrites)은 필요 없다.
+  - 준비된 것: `frontend/vercel.json`(빌드·출력, 빌드 건너뛰기: 마지막 배포본(`VERCEL_GIT_PREVIOUS_SHA`)과 비교해 `frontend`·`model`이 그대로면 건너뜀, 값이 없으면 빌드(10/28 바꿈, 진행 기록), `X-Robots-Tag`). develop에 들어갔고(`72ab5ec`) 포크에는 포크를 최신화할 때 반영된다. 앱이 `frontend` 밖에서 빌드에 쓰는 것은 `model/`뿐이다(`contracts/`는 시험에서만). 화면 이동은 주소의 `#`만 쓰므로 경로 재작성(rewrites)은 필요 없다.
   - 갱신: 포크는 원래 저장소를 자동으로 따라가지 않는다(GitHub 「Sync fork」는 기본 브랜치만). 원래 저장소 develop을 포크로: `git fetch origin && git push fork origin/develop:develop`. 원래 저장소 PR에는 미리보기가 생기지 않는다.
 - [x] **2. 주소 설정 (FE):** 10/19 `VITE_API_BASE_URL`(비우면 지금처럼 같은 출처 `/api`, `features/platform/serverConfig.ts`), HTTP 요청은 `credentials: 'include'`(A-2). WS는 그때 `VITE_REALTIME_URL`이었고 10/21에 지웠다(A-3). 개발은 지금처럼 Vite `/api` 중계. `check-frontend` 통과(시험 347개, 타입 검사, 빌드).
 - [ ] **3. 가짜 서버 모드 (FE):** 계약 v2 예시(`contracts/realtime/examples-v2/`)대로 응답하는 가짜 S1·WS. 개발 PC와 Vercel 미리보기의 기본값으로 둬서 문구·버튼을 고칠 때 서버가 필요 없게 한다.
@@ -103,6 +103,7 @@
 
 ## 6. 진행 기록
 
+- 2026-10-28: 포크 develop을 `11126de` → `dae2fb1`(PR #64~#70: V3, BE 토큰 로그인, CORS)로 최신화했다(빨리 감기, `fork` 원격 등록). 터널 전이라 운영 화면은 서버 연결 전까지 로그인·측정이 안 된다(사용자 결정). 그런데 Vercel이 「Ignored Build Step」으로 빌드를 취소했다 — 건너뛰기가 `HEAD^`(바로 앞 커밋 `6e768a4`, PR #69)와만 비교해서, 화면을 건드리지 않은 마지막 커밋(PR #70)만 보고 「바뀐 것 없음」으로 판단했다. 포크는 여러 커밋을 몰아서 올리므로 마지막 배포본(`VERCEL_GIT_PREVIOUS_SHA`)과 비교하게 바꿨다. 이 변경은 `frontend/vercel.json` 자체를 바꾸므로 다음 포크 최신화에서 빌드된다.
 - 2026-10-26 저녁: 10/22 기록의 「터널이 붙은 뒤에 develop에 합친다」를 정정 — Vercel 운영은 **포크** develop을 배포하므로 원래 저장소 develop에 합치는 것만으로는 운영 화면이 바뀌지 않는다. 서버(터널·CORS)가 준비된 뒤에 미루는 것은 **포크 최신화**다. 대신 V3는 BE 작업 브랜치 `fix/repo-backend-sync`(B1 `registration_id`, DB V2.5)와 함께 develop에 합친다 — V3만 먼저 들어가면 지금 서버에서 자세 등록이 400이 된다([FE 제안서](fe-server-proposal.md) 7.2 13번).
 - 2026-10-26: 포크 develop 확인 — `11126de`(PR #60, V2 화면)로 10/21 최신화한 그대로다. 그 뒤 원래 저장소 develop에 들어온 PR #63(`3285cce`)은 서버·문서 정리이고 화면 코드는 그대로라(`frontend/README.md`만) 포크를 다시 맞추지 않았다. 이 PC에는 `fork` 원격이 없어 최신화할 때 1단계의 `git remote add fork …`부터 한다.
 - 2026-10-21: 포크 develop을 원래 저장소 develop `11126de`(PR #60, V2: 카메라 여러 대·PiP·Vercel 배포 준비)로 최신화했다(`git push <포크> origin/develop:refs/heads/develop`, 빨리 감기만). Vercel 운영 `app.posegood.site`에 V2가 나갔다.
