@@ -1,0 +1,8 @@
+# (D-43) Cloudflare 터널 경로 설정 — 비밀값 아님(커밋한다). 토큰은 infra/compose/secrets/cloudflared.env(Git 제외).
+# 터널 posegood-api는 명령어로 만든 터널이라 토큰 안에 "어디로 보낼지"가 없다 → 여기서 정한다.
+# 대상은 API 전용 gateway(컨테이너 이름). 처리 서비스(api-server 8080)·web을 가리키지 않는다.
+ingress:
+  - hostname: api.posegood.site
+    service: http://gateway:80
+  # 다른 주소로 온 요청은 404 (Cloudflare 규칙상 마지막 줄 필수)
+  - service: http_status:404

@@ -309,7 +309,8 @@ services:
       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
     ports:
-      - "${API_SERVER_BIND:-0.0.0.0}:${API_SERVER_HOST_PORT:-8080}:8080"
+      # (D-43) 인증 없는 처리 서비스(운영·시험 API) — 서버 PC 안에서만. 인터넷 입구는 gateway(API만)
+      - "${API_SERVER_BIND:-127.0.0.1}:${API_SERVER_HOST_PORT:-8080}:8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -352,7 +353,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       # (D-38·D-63) v1 컨슈머 하나 — posture.features.v1 → 규칙 점수 → posture.inference.v1(토픽 이름은 기본값)
     ports:
-      - "${INFERENCE_BIND:-0.0.0.0}:${INFERENCE_HOST_PORT:-8000}:8000"
+      # (D-43) 서버 PC 안에서만. GPU PC는 Kafka 9094로 붙는다(이 포트를 쓰지 않음)
+      - "${INFERENCE_BIND:-127.0.0.1}:${INFERENCE_HOST_PORT:-8000}:8000"
     depends_on:
       kafka:
         condition: service_healthy
@@ -502,3 +504,54 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  # (D-43) 인터넷 공개 입구 — API만 받는 nginx. 화면은 Vercel(app.<도메인>), 여기서는 /api/…·/api/v2/realtime·/health만.
+  # 호스트 포트를 열지 않는다. 같은 망의 cloudflared만 http://gateway:80으로 부른다(infra/nginx/gateway.conf).
+  # web(8088)은 서버 안 시험용으로 그대로 둔다(화면 + 같은 API 중계).
+  gateway:
+    profiles: ["io"]
+    image: ${GATEWAY_IMAGE:-nginx:1.30-alpine}
+    container_name: gateway
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 64m
+    environment:
+      TZ: "Asia/Seoul"
+    depends_on:
+      io-api:
+        condition: service_healthy
+    volumes:
+      - ../nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # (D-43) Cloudflare 터널 posegood-api(FE 계정) — 서버에서 Cloudflare로 나가는 연결만 만든다(포트 안 엶).
+  # 프로필 edge: 토큰(secrets/cloudflared.env의 TUNNEL_TOKEN, Git 제외)이 있을 때만 켠다 — 같은 터널을 두 곳에서 돌리지 않는다.
+  #   docker compose -f infra/compose/bigdata.yaml --profile io --profile edge up -d --no-build cloudflared
+  # 경로(ingress)는 cloudflared/config.yml: api.posegood.site → http://gateway:80, 나머지 404.
+  cloudflared:
+    profiles: ["edge"]
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.10.1}
+    container_name: cloudflared
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 128m
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    env_file:
+      # TUNNEL_TOKEN=… 한 줄(600). 파일이 없어도 다른 서비스의 compose 해석이 깨지지 않게 required: false
+      - path: ./secrets/cloudflared.env
+        required: false
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - app-network
