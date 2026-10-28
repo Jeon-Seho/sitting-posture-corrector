@@ -12,6 +12,9 @@ SECRET_NAMES = (
     "spring.datasource.password", "mysql_root_password", "posegood.internal-token",
     "mysql-backup.cnf", "mysql-app.cnf",
 )
+# Login token signing key (ADR 0031). Added after the first deployments, so an existing secret directory
+# without it gets one generated once; an existing key is never replaced (replacing it signs everyone out).
+JWT_SECRET = "posegood.auth.jwt-secret"
 
 
 def secret_value(value, name):
@@ -40,6 +43,32 @@ def mysql_options(user, password):
 
 
 def create_secrets(directory, supplied=None):
+    """Create or verify the secret directory. ``supplied`` may also carry ``JWT_SECRET`` (optional)."""
+    supplied = dict(supplied) if supplied else None
+    signing_key = supplied.pop(JWT_SECRET, None) if supplied else None
+    if signing_key is not None:
+        signing_key = secret_value(signing_key, JWT_SECRET)
+    directory = _create_core(directory, supplied)
+    _ensure_added_secret(directory, JWT_SECRET, signing_key)
+    return directory
+
+
+def _ensure_added_secret(directory, name, supplied):
+    path = directory / name
+    if path.exists():
+        if not path.is_file():
+            raise ValueError(name + " must be a file")
+        existing = secret_value(path.read_text(), name)
+        if supplied is not None and existing != supplied:
+            raise ValueError("Existing deployment secrets differ; explicit coordinated rotation is required")
+        return
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(supplied if supplied is not None else secrets.token_urlsafe(48))
+    if os.name != "nt":
+        os.chmod(path, 0o444)
+
+
+def _create_core(directory, supplied):
     directory = private_location(directory)
     values = supplied or {
         "spring.datasource.password": secrets.token_urlsafe(48),

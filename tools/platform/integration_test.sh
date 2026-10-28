@@ -11,13 +11,14 @@
 #   EXPECT_PROJECT=platform tools/platform/integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
-#   0. 사전 확인   : docker, python3+requests, .env 형식·필수 값·주소/포트·이미지 태그(D-24), compose 해석, 프로젝트·Kafka 볼륨(정보)
+#   0. 사전 확인   : docker, python3+requests, .env 형식·필수 값·주소/포트·이미지 태그(D-24)·허용 출처(D-71), compose 해석,
+#                    JWT 서명 키 파일(D-71), 프로젝트·Kafka 볼륨(정보)
 #   1. 컨테이너    : 7개 실행·healthy
 #   2. Kafka       : 브로커, 토픽·파티션, 임시 토픽 produce→consume 왕복
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.3 준비(D-32·D-51)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.6 준비(D-32·D-51·D-65)
 #   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
 #                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(v1)·11단계(저장)·12단계(WebSocket)
 #   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
@@ -25,9 +26,10 @@
 #   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
 #                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:v1:judge:<id> 저장·삭제 확인(D-37)
 #  10. 입출구 서버 : (io-api 컨테이너가 있을 때만 — compose --profile io) io-api·inference healthy·KST,
-#                    REST 점검 tools/platform/io_api_smoke.py(가입 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제 → 탈퇴, D-48)
+#                    REST 점검 tools/platform/io_api_smoke.py(가입·로그인·토큰 갱신 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제
+#                    → 로그아웃 → 탈퇴, D-48·D-69 — 토큰 로그인 ADR 0031)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
-#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.3)에
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.6)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계)
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
@@ -131,10 +133,39 @@ if [ -f "$ENV_FILE" ]; then
   # 이미지 태그 고정(latest 금지, CLAUDE.md 고정 결정)
   LATEST="$(grep -E '^[A-Z0-9_]+_IMAGE=' "$ENV_FILE" | grep -E ':latest[[:space:]]*$|=[^:]*$' | cut -d= -f1 | tr '\n' ' ')"
   if [ -n "$LATEST" ]; then fail ".env 이미지 태그" "latest이거나 태그 없음: $LATEST"; else pass ".env 이미지 태그 고정"; fi
+  # (D-71) 다른 출처 화면 허용 출처 — 브라우저 Origin과 글자 그대로 비교하므로 끝 /·경로·*가 있으면 모든 요청이 거절된다
+  BADO=""
+  for k in POSEGOOD_CORS_ALLOWED_ORIGINS POSEGOOD_REALTIME_ALLOWED_ORIGINS; do
+    v="$(envval "$k")"
+    [ -z "$v" ] && continue
+    for o in $(echo "$v" | tr ',' ' '); do
+      echo "$o" | grep -qE '^https?://[^/*[:space:]]+$' || BADO="$BADO $k=$o"
+    done
+  done
+  if [ -n "$BADO" ]; then fail ".env 허용 출처 형식" "https://호스트 형식(끝 /·경로·* 없이)이 아님:$BADO"
+  else pass ".env 허용 출처 형식 (비었거나 끝 / 없음)"; fi
+  # (D-71) 서명 키는 secrets 파일 하나에만 — .env에도 있으면 어느 값이 쓰이는지 헷갈린다
+  if [ -n "$(envval POSEGOOD_JWT_SECRET)" ]; then
+    fail ".env에 POSEGOOD_JWT_SECRET 없음" "서명 키는 infra/compose/secrets/posegood.auth.jwt-secret 파일로 — .env 줄을 지운다(값은 파일로 옮김)"
+  fi
   if $DC config --quiet >>"$OUT/run.log" 2>&1; then pass "compose 설정 해석 (.env 값 치환)"
   else fail "compose 설정 해석" "$DC config 실패 — $OUT/run.log"; fi
 else
   fail ".env 파일" "$ENV_FILE 없음 — cp infra/compose/env.example infra/compose/.env 후 값 채우기"
+fi
+# (D-71) 로그인 토큰 서명 키(ADR 0031) — io-api가 /run/secrets/에서 읽는다(configtree). 파일 없이 io-api를 띄우면
+# docker가 그 자리에 빈 폴더를 만들고 API는 시작할 때마다 새 키를 써서, 다시 시작할 때마다 모든 사용자가 로그아웃된다.
+JWT_FILE="infra/compose/secrets/posegood.auth.jwt-secret"
+if [ -d "$JWT_FILE" ]; then
+  fail "JWT 서명 키 파일" "$JWT_FILE 이 폴더임(파일 없이 io-api를 띄움) — rmdir 뒤 파일로 만들고 io-api 다시 만들기(infra/README.md 입출구 서버)"
+elif [ -f "$JWT_FILE" ]; then
+  n="$(wc -c <"$JWT_FILE" | tr -d ' ')"; nl="$(grep -c '' "$JWT_FILE")"
+  if [ "$n" -ge 32 ] && [ "$nl" -le 1 ]; then pass "JWT 서명 키 파일 (32바이트 이상·한 줄, 값은 출력 안 함)"
+  else fail "JWT 서명 키 파일" "${n}바이트·${nl}줄 — 32바이트 이상 한 줄이어야 함"; fi
+elif docker inspect io-api >/dev/null 2>&1; then
+  fail "JWT 서명 키 파일" "$JWT_FILE 없음 — infra/README.md 입출구 서버 절로 만든 뒤 io-api 다시 만들기"
+else
+  skip "JWT 서명 키 파일" "io-api 없음(compose --profile io를 쓰지 않음)"
 fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
 log "  compose 프로젝트: ${PROJ:-?} ($DC ps/down은 이 프로젝트 이름으로 동작)"
@@ -250,7 +281,8 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32·D-51) 확정 서비스 DB(posture_service V2.3) — 테이블 13개·판정 결과 컬럼·지운 컬럼 없음·기본 정책(값 4개)·계정 권한
+# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.6) — 판(V2.3~V2.6이면 적용할 migration)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
+# 기본 정책(값 4개)·계정 권한
 SDB="$(curl -s -m 15 "$API/store/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
 if [ -z "$SDB" ] || ! echo "$SDB" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/null; then

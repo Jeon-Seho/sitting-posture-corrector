@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * (D-32) 확정 서비스 DB(V2.3 {@code posture_service})를 조회하는 최소 기능. 검사 로직({@link ServiceSchemaVerifier})을
+ * (D-32) 확정 서비스 DB(V2.6 {@code posture_service})를 조회하는 최소 기능. 검사 로직({@link ServiceSchemaVerifier})을
  * DB 없이 시험할 수 있게 분리했다. 운영 구현은 {@link JdbcServiceDbProbe}.
  */
 interface ServiceDbProbe {
