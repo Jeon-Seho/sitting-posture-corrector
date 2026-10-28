@@ -1,6 +1,6 @@
 # 앱 기능이 없는 REST 4개 삭제
 
-- 상태: in_progress (BE 코드·시험·문서 변경, 단위 빌드 통과. MySQL 통합·HTTP smoke는 아직 — 아래 「검증 결과」)
+- 상태: in_progress (BE 코드·시험·문서 변경, `check-backend` 통과 2026-10-29. 남은 것: 다른 담당 알림)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28
 - 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe-server-proposal.md) 1장)
@@ -53,7 +53,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 - [x] BE 시험을 `/v2/realtime`으로 옮김: `SessionServiceTest`(`frames`), `MySqlIntegrationTest`(측정·추론 실패 `stalled`·남의 세션 `not_owner`·경로 삭제 확인), `service_smoke.py`
 - [x] BE 문서·계약 동기화
 - [x] 단위 빌드 `gradlew -p backend build`
-- [ ] MySQL이 있는 환경에서 `make check-backend`
+- [x] MySQL이 있는 환경에서 `make check-backend` (2026-10-29)
 - [ ] 다른 담당에게 알림(위 표)
 
 ## 결정과 진행 기록
@@ -71,5 +71,5 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
   `SessionServiceTest` 3개는 `/v2/realtime` 입력(`frames`)으로 바꿔 통과.
 - `python -m py_compile tools/service_smoke.py tools/realtime_client.py` — 통과.
 
-실행하지 못한 것: `make check-backend`의 MySQL 통합 시험과 HTTP smoke. 이 PC에는 MySQL80 서비스가 있지만 시험용 비밀번호(`POSEGOOD_TEST_MYSQL_PASSWORD` 또는 `.cache/test-mysql-password`)가 설정돼 있지 않다.
-`MySqlIntegrationTest`의 바뀐 시나리오(실시간 측정 9초 요약, `stalled` 뒤 다음 구간, 열린 채 남는 유실 세션)와 `service_smoke.py`의 실제 추론 + `/v2/realtime` 측정은 아직 돌려 보지 않았다.
+2026-10-29 `python tools/dev.py check-backend`(로컬 MySQL80, 커밋 `1b58f80`) — **통과.** 시험 147개 중 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 — `unusedRoutesAreRemoved`, 실시간 측정 9초 요약, `stalled` 뒤 다음 구간, 열린 채 남는 유실 세션 포함).
+`service_smoke.py`의 실제 추론 + `/v2/realtime` 측정 6단계도 PASS.
