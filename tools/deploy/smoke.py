@@ -1,6 +1,9 @@
-"""Synthetic HTTP checks against the real persistent service, without a camera."""
+"""Synthetic HTTP and `/v2/realtime` checks against the real persistent service, without a camera.
 
-import copy
+Measurement input goes over `/v2/realtime` only: the REST feature input (S2), metadata (S5) and session delete (S6)
+were removed on 2026-10-28 (plan 0062). Records are deleted with R3 (D-75).
+"""
+
 import hashlib
 import http.cookiejar
 import json
@@ -12,6 +15,13 @@ import urllib.request
 import uuid
 
 from .secrets import ROOT
+from realtime_client import RealtimeClient  # tools/ is on sys.path (tools/compose_smoke.py)
+
+# Synthetic baseline joints (nose, eyes, ears, mouth corners, shoulders) in image ratios — as tools/service_smoke.py.
+JOINTS = [[0.5, 0.4], [0.52, 0.37], [0.48, 0.37], [0.56, 0.38], [0.44, 0.38],
+          [0.515, 0.45], [0.485, 0.45], [0.65, 0.62], [0.35, 0.62]]
+JOINT_NAMES = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right",
+               "left_shoulder", "right_shoulder")
 
 
 class Client:
@@ -99,19 +109,20 @@ def wait_health(base, timeout=120):
     raise TimeoutError("Persistent API health did not recover within its deadline")
 
 
-def synthetic_setup(baseline_id):
-    """Explicitly synthetic mean landmark coordinates for the schema V2.1 baseline."""
-    point = {"x": 0.5, "y": 0.5}
-    names = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "mouth_left", "mouth_right",
-             "left_shoulder", "right_shoulder")
-    return {
-        "device": {"key": "synthetic-compose-device", "label": "synthetic camera"},
-        "frame": {"width": 640, "height": 480},
-        "baseline": {
-            "baseline_id": baseline_id, "calibration_ms": 3000, "sample_count": 20,
-            "landmarks": {name: dict(point) for name in names},
-        },
-    }
+def feed(socket, sequence, start, end, shift=0.0):
+    """0.5 s coordinate intervals in [start, end) (realtime-ws.v2 frames); the head moved sideways by `shift`."""
+    while start < end:
+        frames = [{"t_ms": t, "p": [[x + (shift if i < 7 else 0.0), y, 0.95] for i, (x, y) in enumerate(JOINTS)]}
+                  for t in range(start, start + 500, 125)]
+        socket.send({"type": "features", "items": [{
+            "schema_version": "3.0", "feature_version": "keypoints-9-v1", "sequence": sequence,
+            "start_ms": start, "end_ms": start + 500, "phase": "running", "frames": frames,
+        }]})
+        sequence += 1
+        start += 500
+    while socket.next("ack")["last_sequence"] != sequence - 1:
+        pass
+    return sequence
 
 
 def exercise_accounts(base):
@@ -130,7 +141,7 @@ def exercise_accounts(base):
     registration = {
         "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
             "calibration_ms": 3000, "sample_count": 20,
-        "landmarks": synthetic_setup(None)["baseline"]["landmarks"],
+        "landmarks": {name: {"x": x, "y": y} for name, (x, y) in zip(JOINT_NAMES, JOINTS)},
     }
     baseline_id = owner.request("POST", "/v2/baselines", registration)["baseline_id"]
     created = owner.request("PUT", "/v2/sessions/" + session_id, {
@@ -142,27 +153,38 @@ def exercise_accounts(base):
     owner.request("GET", "/v2/sessions/" + session_id, expected=409, identity=False)
     owner.request("GET", "/v2/sessions/" + session_id, expected=409, identity_override=str(uuid.uuid4()))
     checks += 2
-    feature = json.loads((ROOT / "contracts/examples/v2/synthetic-feature-request.json").read_text())
-    feature["baseline_id"] = baseline_id
-    for sequence in range(3):
-        feature.update(sequence=sequence, start_ms=sequence * 1000, end_ms=(sequence + 1) * 1000)
-        reply = owner.request("POST", "/v2/sessions/" + session_id + "/features", feature)
-    view = reply["session"]
-    if view["summary"]["collapse_count"] != 1 or view["summary"]["valid_ms"] != 3000:
-        raise AssertionError("Actual inference and the API decision engine did not confirm the synthetic 3-second deviation")
-    repeated = owner.request("POST", "/v2/sessions/" + session_id + "/features", feature)
-    if repeated != reply:
-        raise AssertionError("Exact feature retry did not preserve the original committed result")
-    ended = owner.request("POST", "/v2/sessions/" + session_id + "/end", {"end_ms": 3000})
-    if not ended["ended"] or ended["summary"]["valid_ms"] != 3000:
+    # Measurement through the frontend NGINX (/api/v2/realtime), real inference and the API decision engine:
+    # 3 s leaning → confirmed at 3 s, 3 s upright → recovered at 6 s (tools/service_smoke.py uses the same coordinates).
+    socket = RealtimeClient(base)
+    try:
+        socket.send({"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": session_id,
+                     "access_token": owner.access_token})
+        if socket.next("ready")["session_id"] != session_id:
+            raise AssertionError("The realtime channel opened a different session")
+        sequence = feed(socket, 0, 0, 3000, shift=0.09)
+        feed(socket, sequence, 3000, 6000)
+        view = owner.request("GET", "/v2/sessions/" + session_id)
+        if [event["kind"] for event in view["events"]] != ["collapse_confirmed", "recovery_confirmed"]:
+            raise AssertionError("Actual inference and the API decision engine did not confirm and recover the synthetic deviation")
+        socket.send({"type": "end", "end_ms": 6000})
+        socket.next("decision", "session_ended")
+        if socket.next("closed")["reason"] != "ended":
+            raise AssertionError("Ending over the realtime channel did not close it as ended")
+    finally:
+        socket.close()
+    ended = owner.request("GET", "/v2/sessions/" + session_id)
+    if not ended["ended"] or ended["summary"]["valid_ms"] != 6000:
         raise AssertionError("Termination did not retain acknowledged valid time")
+    if owner.request("POST", "/v2/sessions/" + session_id + "/end", {"end_ms": 6000}) != ended:
+        raise AssertionError("S3 with the same end did not return the stored session unchanged")
+    owner.request("POST", "/v2/sessions/" + session_id + "/end", {"end_ms": 6500}, expected=409)
     checks += 4
     other = Client(base)
     register(other, uuid.uuid4().hex)
     other.request("GET", "/v2/sessions/" + session_id, expected=404)
     checks += 1
     return {"owner": owner, "other": other, "credentials": credentials, "account": account,
-            "session_id": session_id, "feature": copy.deepcopy(feature), "reply": reply, "checks": checks}
+            "session_id": session_id, "checks": checks}
 
 
 def verify_restart_and_finish(base, state):
@@ -171,11 +193,13 @@ def verify_restart_and_finish(base, state):
     owner.request("POST", "/v2/auth/login", state["credentials"])
     if owner.request("GET", "/v2/auth/me")["user_id"] != state["account"]["user_id"]:
         raise AssertionError("Account identity was lost after service restart")
-    metadata = owner.request("GET", "/v2/sessions/" + state["session_id"] + "/metadata")
-    if metadata["ended_at"] is None or metadata["started_at"] is None:
+    records = owner.request("GET", "/v2/records")["records"]
+    if state["session_id"] not in [record["id"] for record in records]:
         raise AssertionError("The finished session row was not kept across the restart")
     lost = owner.request("GET", "/v2/sessions/" + state["session_id"], expected=404)
     if lost["code"] != "SESSION_LOST":
         raise AssertionError("A session without live state must be reported as SESSION_LOST")
-    owner.request("POST", "/v2/sessions/" + state["session_id"] + "/features", state["feature"], expected=404)
+    owner.request("DELETE", "/v2/records/" + state["session_id"], expected=204)
+    if state["session_id"] in [record["id"] for record in owner.request("GET", "/v2/records")["records"]]:
+        raise AssertionError("Deleting the record (R3) left the stored session in the list")
     return state["checks"] + 4
