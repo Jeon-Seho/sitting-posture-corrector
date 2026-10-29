@@ -97,6 +97,35 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     expect(JSON.parse(data.get(KEYS.profile)!)).toEqual({ name: '합성 서버', age: 31 })
     expect([...data.values()].some((value) => value.includes('synthetic-password-12'))).toBe(false)
   })
+  it('accepts admin/1234 without server login or changing stored profile', async () => {
+    await mount()
+    type('email', 'admin')
+    type('password', '1234')
+    await submit()
+    expect(accounts.login).not.toHaveBeenCalled()
+    expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(0)
+    expect(text(renderer!.root)).toContain('개발자 계정')
+    expect(data.has(KEYS.profile)).toBe(false)
+  })
+  it('rejects a wrong developer password without sending it to the server', async () => {
+    await mount()
+    type('email', 'admin')
+    type('password', 'wrong')
+    await submit()
+    expect(accounts.login).not.toHaveBeenCalled()
+    expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+  })
+  it('ignores a late account restoration after developer entry', async () => {
+    let restore!: (view: AccountView) => void
+    accounts.me.mockImplementation(() => new Promise(resolve => { restore = resolve }))
+    await mount()
+    type('email', 'admin')
+    type('password', '1234')
+    await submit()
+    await act(async () => restore(VIEW))
+    expect(text(renderer!.root)).toContain('개발자 계정')
+    expect(data.has(KEYS.profile)).toBe(false)
+  })
 
   it('stays on the sign-in screen with the server reason when login fails', async () => {
     accounts.login.mockRejectedValueOnce(new AccountError('x', 403, 'ACCOUNT_CLOSED'))

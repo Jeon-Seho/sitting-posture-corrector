@@ -54,6 +54,17 @@ afterEach(() => {
 })
 
 describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', () => {
+  it('cannot restore server authority when a late refresh finishes after developer entry', async () => {
+    let reply!: (response: Response) => void
+    const fetch = vi.fn(() => new Promise<Response>(resolve => { reply = resolve }))
+    const accounts = createAccountClient({ fetch, channel: false })
+    const restoring = accounts.me().catch(() => null)
+    accounts.suspend!()
+    reply(new Response(JSON.stringify(TOKEN('stale'))))
+    await restoring
+    expect(getServerAuth()).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
   it('signs up without CSRF, with a snake_case body, null optional values and agreed consents only', async () => {
     const s = server([SIGNED_IN('a1')])
     const accounts = createAccountClient({ fetch: s.fetch, base: 'https://api.example.invalid', channel: false })

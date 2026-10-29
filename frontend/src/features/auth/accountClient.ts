@@ -42,6 +42,7 @@ export class AccountError extends Error {
 }
 
 export type AccountClient = {
+  suspend?: () => void
   /** A4: the signed-in account, or null when not signed in (401). */
   me: () => Promise<AccountView | null>
   /** A2: creates the account and signs in. */
@@ -107,6 +108,7 @@ export function createAccountClient(
   const timeoutMs = options.timeoutMs ?? 10000
   const now = options.now ?? Date.now
   let login: Login | null = null
+  let generation = 0
   let user: string | null = null
   let renewing: Promise<string> | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -193,12 +195,14 @@ export function createAccountClient(
   function renew(): Promise<string> {
     if (!renewing)
       renewing = (async () => {
+        const attempt = generation
         try {
           const next = tokenOf(await send('/refresh', 'POST'))
+          if (attempt !== generation) throw new AccountError('로그인 확인이 취소됐어요.', 409, 'AUTH_CHANGED')
           keep(next)
           return next.token
         } catch (error) {
-          if (error instanceof AccountError && error.status === 401) signOut()
+          if (attempt === generation && error instanceof AccountError && error.status === 401) signOut()
           throw error
         } finally {
           renewing = null
@@ -215,7 +219,9 @@ export function createAccountClient(
 
   /** A call with the access token; a 401 renews once and sends again. */
   async function authed(path: string, method: string) {
+    const attempt = generation
     for (let fresh = false; ; fresh = true) {
+      if (attempt !== generation) throw new AccountError('계정이 변경됐어요.', 409, 'AUTH_CHANGED')
       const token = await accessToken(fresh)
       try {
         return await send(path, method, undefined, { Authorization: `Bearer ${token}` })
@@ -248,6 +254,7 @@ export function createAccountClient(
   }
 
   function signOut() {
+    generation++
     login = null
     if (timer) clearTimeout(timer)
     timer = null
@@ -255,16 +262,19 @@ export function createAccountClient(
   }
 
   return {
+    suspend: signOut,
     async me() {
+      const attempt = generation
       try {
         // Started without a token (it lives in memory): the refresh cookie gets one first.
         if (!login) await renew()
         const view = viewOf(await authed('/me', 'GET'))
+        if (attempt !== generation) return null
         signIn(view.user_id)
         return view
       } catch (error) {
         if (error instanceof AccountError && error.status === 401) {
-          signOut()
+          if (attempt === generation) signOut()
           return null
         }
         throw error
@@ -281,7 +291,10 @@ export function createAccountClient(
       )
     },
     async login(email, password) {
-      return signedIn(await send('/login', 'POST', { email, password }))
+      const attempt = ++generation
+      const response = await send('/login', 'POST', { email, password })
+      if (attempt !== generation) throw new AccountError('계정이 변경됐어요.', 409, 'AUTH_CHANGED')
+      return signedIn(response)
     },
     async logout() {
       const headers: Record<string, string> = {}

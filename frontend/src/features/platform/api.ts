@@ -67,9 +67,10 @@ export async function apiRequest(
   const retries = options.retries ?? DEFAULT_RETRIES
   const fetchRequest = options.fetch ?? globalThis.fetch
   let freshToken = false
+  const owner = getServerAuth()
   for (let attempt = 0; ; attempt++) {
     const auth = getServerAuth()
-    if (!auth) throw new ApiError('signed_out', messages.signed_out)
+    if (!auth || auth !== owner) throw new ApiError('signed_out', messages.signed_out)
     const headers: Record<string, string> = { 'X-PoseGood-User-Id': auth.userId }
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
@@ -79,6 +80,7 @@ export async function apiRequest(
       throw getServerAuth() ? new ApiError('network', messages.network) : new ApiError('signed_out', messages.signed_out)
     }
     const abort = new AbortController()
+    if (getServerAuth() !== owner) throw new ApiError('signed_out', messages.signed_out)
     const timer = setTimeout(() => abort.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
     let response: Response
     try {
@@ -100,6 +102,7 @@ export async function apiRequest(
       throw new ApiError('network', messages.network)
     }
     clearTimeout(timer)
+    if (getServerAuth() !== owner) throw new ApiError('signed_out', messages.signed_out)
     if (response.ok) return response.json().catch(() => null)
     if ((response.status === 502 || response.status === 503) && attempt < retries) {
       await wait((options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS) * 2 ** attempt)
