@@ -28,6 +28,7 @@ import base64
 import json
 import os
 import socket
+import ssl
 import struct
 import sys
 import time
@@ -37,10 +38,11 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, Client  # noqa: E402
+from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, USER_AGENT, Client  # noqa: E402
 
 PASSED = 0
 FAILED = 0
+ORIGIN = None  # --origin: 다른 출처 화면(Vercel)처럼 보낼 Origin. 없으면 --base와 같은 출처
 SEGMENT_MS = 500
 END_MS = 85000
 
@@ -67,15 +69,17 @@ def check(name, condition, detail=""):
 
 
 # ---------------------------------------------------------------------------
-# 최소 WebSocket 클라이언트(RFC 6455, 텍스트 프레임·ping/pong·close만, TLS 없음 — 서버 PC 안 127.0.0.1용)
+# 최소 WebSocket 클라이언트(RFC 6455, 텍스트 프레임·ping/pong·close만). ws://(서버 PC 안)와 wss://(터널 공개 주소, D-43)
 
 class WebSocket:
     def __init__(self, url, headers, timeout=15):
         parts = urlsplit(url)
-        if parts.scheme != "ws":
-            raise ValueError("ws:// 주소만 지원")
-        host, port = parts.hostname, parts.port or 80
+        if parts.scheme not in ("ws", "wss"):
+            raise ValueError("ws:// 또는 wss:// 주소만 지원")
+        host, port = parts.hostname, parts.port or (443 if parts.scheme == "wss" else 80)
         self.sock = socket.create_connection((host, port), timeout=timeout)
+        if parts.scheme == "wss":
+            self.sock = ssl.create_default_context().wrap_socket(self.sock, server_hostname=host)
         key = base64.b64encode(os.urandom(16)).decode()
         host_header = host if parts.port is None else f"{host}:{port}"
         lines = [f"GET {parts.path or '/'} HTTP/1.1", f"Host: {host_header}", "Upgrade: websocket",
@@ -190,7 +194,7 @@ def plan():
 
 def get_json(url):
     try:
-        with urlopen(Request(url), timeout=10) as response:
+        with urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=10) as response:
             return response.status, json.loads(response.read() or b"null")
     except URLError as error:
         return getattr(error, "code", 0), None
@@ -242,8 +246,10 @@ def scenario(base, report, pipeline):
 def open_socket(base):
     parts = urlsplit(base)
     # (T-13) --base가 nginx(http://127.0.0.1:8088/api)여도 같은 경로로 — 앞 경로(/api)를 붙인다. 출처는 같은 출처(화면과 같음)
-    return WebSocket(f"ws://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
-                     {"Origin": f"{parts.scheme}://{parts.netloc}"})
+    # (D-43) https://api.<도메인>/api면 wss://로, 출처는 --origin(Vercel 화면 주소 — io-api 허용 출처에 있어야 함)
+    scheme = "wss" if parts.scheme == "https" else "ws"
+    return WebSocket(f"{scheme}://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
+                     {"Origin": ORIGIN or f"{parts.scheme}://{parts.netloc}", "User-Agent": USER_AGENT})
 
 
 def check_unauthenticated(base):
@@ -371,7 +377,11 @@ def main():
                         help="처리 서비스(api-server) 주소 — 주면 DB 기록까지 확인 (예: http://127.0.0.1:8080)")
     parser.add_argument("--pipeline", choices=["local", "kafka"], default="local",
                         help="io-api의 POSEGOOD_REALTIME_PIPELINE (kafka면 제외 구간 사건도 기대)")
+    parser.add_argument("--origin", default=None,
+                        help="WebSocket Origin 헤더 (기본: --base와 같은 출처). 터널 공개 주소 시험은 https://app.posegood.site")
     args = parser.parse_args()
+    global ORIGIN
+    ORIGIN = args.origin
     try:
         scenario(args.base, args.report, args.pipeline)
     except (RuntimeError, URLError, OSError) as error:

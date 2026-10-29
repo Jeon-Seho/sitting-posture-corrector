@@ -32,6 +32,8 @@ LANDMARKS = {
 }
 
 REFRESH_COOKIE = "posegood_refresh"
+# (D-43) 터널 경유(Cloudflare)에서는 파이썬 기본 User-Agent(Python-urllib)가 봇으로 막힌다(403) — 이름을 밝힌 값을 쓴다
+USER_AGENT = "PoseGood-IntegrationTest/1.0 (+tools/platform)"
 
 PASSED = 0
 FAILED = 0
@@ -64,7 +66,7 @@ class Client:
         self.user_id = None
 
     def call(self, path, method="GET", body=None):
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
         if self.access_token:
             headers["Authorization"] = "Bearer " + self.access_token
         if self.user_id:
