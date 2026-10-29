@@ -27,6 +27,18 @@ try {
     await evalJS(`document.querySelector('.theme-preset-${palette}').click()`)
     await until(async () => await evalJS('document.documentElement.dataset.palette') === palette, palette+' selection')
     await until(async () => await evalJS('[...document.querySelectorAll(".theme-preset-art img")].every(i=>i.complete && i.naturalWidth>0)'), 'theme assets loaded')
+    const logo = await evalJS(`(async () => {
+      const { contrast } = await import('/src/features/appearance/theme.ts');
+      const root = getComputedStyle(document.documentElement);
+      const bg = root.getPropertyValue('--logo-bg').trim();
+      const ink = root.getPropertyValue('--logo-ink').trim();
+      const rect = document.querySelector('.brand-mark rect');
+      const probe = document.createElement('span'); probe.style.color = bg; document.body.append(probe);
+      const expected = getComputedStyle(probe).color; probe.remove();
+      return { contrast: contrast(bg, ink), fill: getComputedStyle(rect).fill, expected };
+    })()`)
+    assert.equal(logo.fill, logo.expected, 'logo follows selected theme')
+    assert.ok(logo.contrast >= 4.5, 'logo foreground contrast')
     await delay(250)
     await browser.screenshot('preset-'+palette)
   }
@@ -85,7 +97,7 @@ try {
   assert.equal(await evalJS('document.documentElement.scrollWidth <= innerWidth'),true,'mobile horizontal overflow')
   await click('화면 기본값으로 되돌리기');await mode('light')
   assert.equal(browser.errors.length,0,browser.errors.join('\n'))
-  console.log('PASS appearance: seven palettes and images, black chart contrast, gray mode, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
+  console.log('PASS appearance: adaptive logo, seven palettes and images, black chart contrast, gray mode, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
   console.log('Screenshots: '+artifactFolder)
 } catch (error) {
   console.error(await body(), browser.errors)
