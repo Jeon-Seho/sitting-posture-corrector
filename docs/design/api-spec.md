@@ -89,7 +89,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 | 계정 정보 다시 불러오기 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
-| 422 | `BASELINE_REJECTED` | B1 프레임으로 기준을 만들 수 없음. 본문에 `reason`(`incomplete`·`too_few_frames`·`out_of_frame`) | 사유 안내 후 다시 촬영 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -591,7 +590,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 ## 6. 기준 자세
 
 카메라 보정 동안 모은 9개 관절의 평균 좌표를 저장한다. 영상, 개별 프레임, 장치 ID는 저장하지 않는다.
-자세 등록은 B1 하나뿐이다. 앱이 3초치 프레임 배열을 보내고 **서버가** 판정 가능 프레임의 평균을 낸다(2026-10-28, [계획 0060](../plans/active/0060-baseline-frames-over-rest.md). FE [ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 5절은 FE가 갱신 예정). `/v2/realtime` 자세 등록(`purpose: calibration`)은 2026-10-27 삭제했다([11.4](#114-자세-등록)).
+자세 등록은 B1 하나뿐이다. 앱이 3초 동안 판정 가능 프레임의 평균을 내서 보낸다. `/v2/realtime` 자세 등록(`purpose: calibration`)은 2026-10-27 삭제했다([11.4](#114-자세-등록)).
 
 <a id="b1"></a>
 
@@ -600,9 +599,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요 · 계정 헤더
 
 - 항상 새 행을 추가하고 과거 행은 고치지 않는다.
-- 서버가 `frames` 중 판정 가능 프레임(코·양 어깨 visibility 0.65 이상·화면 가장자리 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음 — 측정과 같은 조건)의 관절 9개 x·y를 단순 평균해 저장한다. 프레임 원본은 저장하지 않는다.
-- 촬영 시간은 `t_ms`(마지막 − 처음)로 서버가 센다. 1초 넘는 빈틈은 앱만 거절한다.
-- 같은 `registration_id`와 같은 평균으로 다시 보내면 기존 행을 돌려준다. 같은 `registration_id`에 평균이 다르면 409.
+- 같은 `registration_id`와 같은 좌표로 다시 보내면 기존 행을 돌려준다. 같은 `registration_id`에 다른 좌표면 409.
 - `registered_at`은 서버가 등록을 받은 시각이다. 앱은 시각을 보내지 않는다(2026-10-26 [ADR 0028](../decisions/0028-server-time-for-baseline-registration.md)).
 - 좌표는 소수 다섯째 자리로 반올림해 저장하고, 저장된 값을 응답한다.
 - baseline_id는 DB 키로 만든 이름 기반 UUID다.
@@ -612,20 +609,28 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 필드 | 타입 | 필수 | 규칙 |
 |---|---|---|---|
 | `registration_id` | `UUID` | 필수 | 촬영 한 번마다 앱이 한 번 만든다. 재시도 때 같은 값. (예전 `registered_at`은 보내면 400) |
-| `frames` | 배열 | 필수 | 0~500개. 각 항목은 [posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json)의 프레임 `{t_ms, p, valid?}`. `t_ms`는 촬영 시작부터 ms이고 늘어나야 한다(아니면 400). `p`는 관절 9개 `[x, y, visibility]`(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨) 또는 null |
+| `calibration_ms` | `long` | 필수 | 3,000~999,900 (검증만 하고 저장하지 않음) |
+| `sample_count` | `int` | 필수 | 20~100,000 (검증만 하고 저장하지 않음) |
+| `landmarks.{관절}` | `{x, y}` | 필수 | nose, left_eye, right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder. 각 0~1 |
 
-예전 `calibration_ms`·`sample_count`·`landmarks`(앱이 낸 평균)는 2026-10-28 지웠다. 보내면 모르는 필드라 400이다.
-
-**요청 본문 (실제, 프레임 20장 중 2장만 표시)**
+**요청 본문 (실제 — `tools/service_smoke.py`가 보내는 합성 평균)**
 
 ```json
 {
   "registration_id": "7cc9f623-03be-4303-8a88-8da7e86b8a24",
-  "frames": [
-    {"t_ms": 0, "p": [[0.5, 0.4, 1.0], [0.52, 0.37, 1.0], [0.48, 0.37, 1.0], [0.56, 0.38, 1.0], [0.44, 0.38, 1.0], [0.515, 0.45, 1.0], [0.485, 0.45, 1.0], [0.65, 0.62, 1.0], [0.35, 0.62, 1.0]]},
-    {"t_ms": 157, "p": [[0.5, 0.4, 1.0], [0.52, 0.37, 1.0], [0.48, 0.37, 1.0], [0.56, 0.38, 1.0], [0.44, 0.38, 1.0], [0.515, 0.45, 1.0], [0.485, 0.45, 1.0], [0.65, 0.62, 1.0], [0.35, 0.62, 1.0]]},
-    "… 18장 더 (t_ms 0 ~ 3000, 모두 같은 좌표)"
-  ]
+  "calibration_ms": 3000,
+  "sample_count": 20,
+  "landmarks": {
+    "nose": { "x": 0.5, "y": 0.4 },
+    "left_eye": { "x": 0.52, "y": 0.37 },
+    "right_eye": { "x": 0.48, "y": 0.37 },
+    "left_ear": { "x": 0.56, "y": 0.38 },
+    "right_ear": { "x": 0.44, "y": 0.38 },
+    "mouth_left": { "x": 0.515, "y": 0.45 },
+    "mouth_right": { "x": 0.485, "y": 0.45 },
+    "left_shoulder": { "x": 0.65, "y": 0.62 },
+    "right_shoulder": { "x": 0.35, "y": 0.62 }
+  }
 }
 ```
 
@@ -649,23 +654,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
   }
 }
 ```
-
-**응답 422 (실제, 3초 동안 10장만 보냄)** — 기준을 만들 수 없으면 저장하지 않는다. `reason`은 아래 순서로 하나다.
-
-```json
-{
-  "reason": "too_few_frames",
-  "code": "BASELINE_REJECTED",
-  "message": "baseline frames rejected",
-  "error": "baseline frames rejected"
-}
-```
-
-| `reason` | 조건 |
-|---|---|
-| `incomplete` | 첫 프레임부터 마지막 프레임까지 3,000ms 미만 |
-| `too_few_frames` | 판정 가능 프레임 15장 미만 |
-| `out_of_frame` | 평균 좌표가 0~1 밖이거나 그 평균으로 기준 특징을 구할 수 없음 |
 
 **오류**
 
@@ -1481,7 +1469,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ### 11.4 자세 등록 (삭제)
 
-2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /v2/baselines`로만 한다 — 앱이 3초치 프레임 배열을 보내고 서버가 판정 가능 프레임(11.3과 같은 조건)의 관절 평균을 낸다(2026-10-28). `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
+2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /v2/baselines`로만 한다 — 앱이 3초 동안 판정 가능 프레임(11.3과 같은 조건)의 관절 평균을 내서 보낸다. `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
 
 ### 11.5 서버 → 앱
 
@@ -1553,10 +1541,11 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0060](../plans/completed/0060-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0061](../plans/active/0061-remove-unused-apis.md)) |
 | 2026-10-28 | `fix/repo-backend-followup` | 자정 넘김(BE-6 ① B안, 11.3): 같은 연결에서 서버가 새 세션으로 넘기고 `session_rollover`를 보냄. 앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 바꿔 씀. 실패하면 `closed(day_changed)`. 설정 `midnight-rollover` 기본 꺼짐. 계약 `realtime-ws.v2`에 메시지·사유 추가(더하기만) |
-| 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0060](../plans/active/0060-baseline-frames-over-rest.md)) |
+| 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0060](../plans/completed/0060-baseline-frames-over-rest.md), 10/29 되돌림) |
 | 2026-10-28 | `fix/repo-backend-followup` | 측정불가 자동 종료 5분 → 30분, 기본 켬(`unmeasurable-timeout` 0 → 30m). 앱이 `closed(unmeasurable_timeout)`을 처리하므로(10/27) 끄지 않는다 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | WebSocket 자세 등록(`purpose: calibration`, `calibration_result`) 삭제 — 등록은 B1뿐(11.4). `hello`는 `purpose: "measure"`만, 구간 `phase`에서 `calibration` 삭제 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | 새 계정의 알림 기본값 켜짐(`alerts_on: true`, DB V2.6 `sound_alert_enabled` 기본값 참). 기존 계정 값은 그대로 |

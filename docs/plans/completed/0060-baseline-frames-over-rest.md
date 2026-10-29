@@ -1,9 +1,21 @@
 # 자세 등록: 앱은 프레임을 보내고 서버가 평균
 
-- 상태: in_progress (BE 코드·문서 변경과 `make check-backend` 통과. 앱·FE 문서·다른 도구는 담당에게 알림)
+- 상태: **철회** (2026-10-29). 10/28 `748af6a`로 구현했다가 되돌렸다. B1은 다시 앱이 낸 평균을 받는다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절 그대로)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28
 - 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절(FE 문서, 「앱이 평균」 — FE가 이 계획에 맞춰 갱신), [ADR 0028](../../decisions/0028-server-time-for-baseline-registration.md), [BE API 명세](../../design/api-spec.md) B1, [계약 accounts.v2](../../../contracts/accounts.v2.md)
+
+## 철회 (2026-10-29)
+
+- 결정: BE(Kimyoujin)가 자세 등록을 변경 전 방식, 곧 10/20 전체 회의대로 **앱이 3초 평균을 내서 B1로 보내는 방식**으로 되돌리기로 했다.
+- 방법: `git revert 748af6a`를 한 커밋으로 남겼다. 뒤 커밋(`1b58f80` REST 4개 삭제, `f11f0a8` 명세 예시)과 겹친 곳은 손으로 맞췄다.
+  - `tools/service_smoke.py`: 1b58f80의 실시간 측정은 두고 B1 본문만 평균 형식으로
+  - `api-spec.md`: B1 예시를 평균 형식의 실제 값으로, 422 `BASELINE_REJECTED` 삭제, 변경 이력에 철회 한 줄
+  - `MySqlIntegrationTest`: 1b58f80의 `upright()`가 쓰는 `registration(double[][])`를 평균 형식으로 다시 만듦
+  - 같은 커밋에 있던 alert_enabled 시험 수정(V2.6 기본값 true)은 B1과 무관해 남겼다
+- 영향: 앱(FE V3)·`tools/deploy/smoke.py`·`tools/platform/*_smoke.py`는 원래 평균 본문을 보내므로 **고칠 것이 없다**. 아래 「다른 담당에게 알릴 것」은 더 이상 해당하지 않는다.
+  10/28 `frames` 본문으로 바꾼 사람이 있다면 되돌려야 한다(`frames`는 이제 400).
+- 아래는 10/28 당시 기록이다.
 
 ## 문제와 완료 기준
 

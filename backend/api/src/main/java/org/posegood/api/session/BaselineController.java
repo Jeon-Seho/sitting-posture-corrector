@@ -2,16 +2,16 @@ package org.posegood.api.session;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import org.posegood.api.account.AccountService;
 import org.posegood.api.account.CurrentUser;
 import org.posegood.api.account.UserLocks;
 import org.posegood.api.common.ApiError;
-import org.posegood.api.contract.FrameInterval.Frame;
+import org.posegood.api.contract.SessionRequests;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 /** Measurement-independent registration and current baseline lookup. */
@@ -41,17 +41,14 @@ public class BaselineController {
     @PostMapping
     public BaselineRepository.View register(@Valid @RequestBody Registration body) {
         long owner = current.id();
-        var landmarks = BaselineFrames.mean(body.frames());
         return locks.withLock(owner, () -> tx.execute(status -> {
             accounts.requireActive(owner);
-            return baselines.register(owner, body.registrationId(), landmarks).view();
+            return baselines.register(owner, body.registrationId(), body.landmarks()).view();
         }));
     }
 
-    /**
-     * {@code registration_id} is issued once per capture by the app and repeated on retries (ADR 0028).
-     * {@code frames} are the capture's {@code posture.frames.v1} frames; the server averages them (plan 0060).
-     */
-    public record Registration(@NotNull UUID registrationId,
-                               @NotNull @Size(max = BaselineFrames.MAX_FRAMES) List<@NotNull @Valid Frame> frames) {}
+    /** {@code registration_id} is issued once per capture by the app and repeated on retries (ADR 0028). */
+    public record Registration(@NotNull UUID registrationId, @Min(3000) @Max(999900) long calibrationMs,
+                               @Min(20) @Max(100000) int sampleCount,
+                               @NotNull @Valid SessionRequests.Landmarks landmarks) {}
 }

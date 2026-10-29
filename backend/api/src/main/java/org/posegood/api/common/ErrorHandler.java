@@ -14,16 +14,13 @@ import java.util.Map;
 /**
  * 예외를 JSON 오류 응답으로 바꾼다: ApiError는 그대로, 형식 오류 400, DB 오류 503.
  *
- * 오류 본문은 {@code {error, code, message}}(자세 등록 거절은 {@code reason}도)이고 입력값·SQL·토큰은 돌려주지 않는다.
+ * 오류 본문은 {@code {error, code, message}}이고 입력값·SQL·토큰은 돌려주지 않는다.
  */
 @RestControllerAdvice
 public class ErrorHandler {
     @ExceptionHandler(ApiError.class)
     public ResponseEntity<Map<String, String>> api(ApiError error) {
-        if (error.reason() == null) return body(error.status(), error.code(), error.getMessage());
-        return ResponseEntity.status(error.status())
-                .body(Map.of("error", error.getMessage(), "code", error.code(), "message", error.getMessage(),
-                        "reason", error.reason()));
+        return body(error.status(), error.code(), error.getMessage());
     }
 
     @ExceptionHandler({

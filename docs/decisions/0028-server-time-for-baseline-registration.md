@@ -21,8 +21,6 @@ PC 시계가 틀리면 등록 시각도 틀리고, 재전송 구분이 그 시�
    - 재전송은 `baseline_posture.client_registration_uuid`와 UK-16(사용자, 등록 식별자)으로 막는다. 같은 식별자·같은 좌표는 그 행, 다른 좌표는 409다.
    - UK-14(사용자, 등록 시각)는 지운다. FK-04(사용자) 인덱스 역할은 UK-16이 이어받는다.
    - WebSocket 등록(`purpose: calibration`)은 2026-10-27 지웠다. 등록은 B1뿐이라 식별자는 항상 앱이 만든다(FE ADR 0021).
-   - 2026-10-28부터 B1은 평균 대신 프레임 배열을 받고 서버가 평균을 낸다([계획 0060](../plans/active/0060-baseline-frames-over-rest.md)). 「같은 좌표」는 받은 프레임에서 계산해 소수 5자리로 반올림한 평균이다.
-     같은 프레임을 다시 보내면 평균도 같으므로 재전송 구분은 그대로다.
    - DB 스키마 V2.5, migration 015. 기존 행의 식별자는 `UUID()`로 채운다.
 3. **④ 오늘 기록 시각 (구현):** WebSocket `ready`(측정)에 `started_at`, `closed`에 `ended_at`을 서버 시각(UTC ISO)으로 싣는다.
    - `started_at`은 DB `monitor_session.started_at`(서버가 S1을 받은 시각)이다.

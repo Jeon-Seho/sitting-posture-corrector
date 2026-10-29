@@ -8,17 +8,11 @@ package org.posegood.api.common;
 public class ApiError extends RuntimeException {
     private final int status;
     private final String code;
-    private final String reason;
 
     public ApiError(int status, String code, String message) {
-        this(status, code, message, null);
-    }
-
-    private ApiError(int status, String code, String message, String reason) {
         super(message);
         this.status = status;
         this.code = code;
-        this.reason = reason;
     }
 
     public int status() {
@@ -27,11 +21,6 @@ public class ApiError extends RuntimeException {
 
     public String code() {
         return code;
-    }
-
-    /** 오류 본문의 {@code reason}(없으면 null). 지금은 자세 등록 거절에만 쓴다. */
-    public String reason() {
-        return reason;
     }
 
     public static ApiError badRequest(String message) {
@@ -54,11 +43,6 @@ public class ApiError extends RuntimeException {
     /** 끝난 세션에 새 입력이나 다른 종료가 왔다(409). */
     public static ApiError ended() {
         return new ApiError(409, "SESSION_ENDED", "session ended");
-    }
-
-    /** 자세 등록 프레임으로 기준을 만들 수 없다(422 BASELINE_REJECTED, reason: incomplete·too_few_frames·out_of_frame). */
-    public static ApiError baselineRejected(String reason) {
-        return new ApiError(422, "BASELINE_REJECTED", "baseline frames rejected", reason);
     }
 
     public static ApiError limit(String message) {
