@@ -11,35 +11,41 @@ const profile = await mkdtemp(join(tmpdir(), 'posegood-theme-'))
 const browser = await launchChrome({ executable, port: 19450, profile, artifactFolder })
 const c = browser.cdp
 const evalJS = s => c.evaluate(s)
-const unsafeCharMap = {
-  '<': '\\u003C',
-  '>': '\\u003E',
-  '/': '\\u002F',
-  '\\': '\\\\',
-  '\b': '\\b',
-  '\f': '\\f',
-  '\n': '\\n',
-  '\r': '\\r',
-  '\t': '\\t',
-  '\0': '\\0',
-  '\u2028': '\\u2028',
-  '\u2029': '\\u2029'
-}
-const escapeUnsafeChars = str => str.replace(/[<>\/\\\b\f\n\r\t\0\u2028\u2029]/g, x => unsafeCharMap[x])
 const body = () => evalJS('document.body.innerText')
-const click = label => evalJS(`(() => { const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${escapeUnsafeChars(JSON.stringify(label))}); if(!b)throw Error('Missing button'); b.click(); })()`)
-const fill = (name, value) => evalJS(`(() => { const e=document.querySelector('input[name="${name}"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true})); })()`)
+const click = label => c.invoke(`function(label) {
+  const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === label);
+  if (!button) throw Error('Missing button');
+  button.click();
+}`, label)
+const fill = (name, value) => c.invoke(`function(name, value) {
+  const input = [...document.querySelectorAll('input')].find(input => input.name === name);
+  if (!input) throw Error('Missing input');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}`, name, value)
+const selectPalette = palette => c.invoke(`function(palette) {
+  const button = [...document.querySelectorAll('.theme-preset')].find(b => b.classList.contains('theme-preset-' + palette));
+  if (!button) throw Error('Missing palette');
+  button.click();
+}`, palette)
 const mode = expected => until(async () => await evalJS('document.documentElement.dataset.theme') === expected, expected+' mode')
 try {
   await c.call('Emulation.setEmulatedMedia', { features: [{ name:'prefers-color-scheme', value:'light' }] })
   await c.call('Page.navigate', { url: base })
   await until(async () => (await body()).includes('비밀번호 재설정'), 'login')
+  const payload = `"');globalThis.__posegoodInjected = true;//\\\n</script>\u2028`;
+  await fill('email', payload)
+  assert.equal(await evalJS('document.querySelector("input[name=email]").value'), payload.replaceAll('\n', ''))
+  await assert.rejects(fill(payload, 'unused'), /Missing input/)
+  await assert.rejects(click(payload), /Missing button/)
+  await assert.rejects(selectPalette(payload), /Missing palette/)
+  assert.equal(await evalJS('globalThis.__posegoodInjected === undefined'), true, 'arguments must remain data')
   await fill('email','admin'); await fill('password','1234'); await click('로그인')
   await until(async () => (await body()).includes('개발자 계정'), 'developer entry')
   await click('설정')
   await until(async () => (await body()).includes('화면 꾸미기'), 'appearance settings')
   for (const palette of ['green', 'peach', 'blue', 'teal', 'charcoal', 'black', 'discord']) {
-    await evalJS(`document.querySelector('.theme-preset-${palette}').click()`)
+    await selectPalette(palette)
     await until(async () => await evalJS('document.documentElement.dataset.palette') === palette, palette+' selection')
     await until(async () => await evalJS('[...document.querySelectorAll(".theme-preset-art img")].every(i=>i.complete && i.naturalWidth>0)'), 'theme assets loaded')
     const logo = await evalJS(`(async () => {
@@ -112,7 +118,7 @@ try {
   assert.equal(await evalJS('document.documentElement.scrollWidth <= innerWidth'),true,'mobile horizontal overflow')
   await click('화면 기본값으로 되돌리기');await mode('light')
   assert.equal(browser.errors.length,0,browser.errors.join('\n'))
-  console.log('PASS appearance: adaptive logo, seven palettes and images, black chart contrast, gray mode, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
+  console.log('PASS appearance: code-like arguments remain data, adaptive logo, seven palettes and images, black chart contrast, gray mode, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
   console.log('Screenshots: '+artifactFolder)
 } catch (error) {
   console.error(await body(), browser.errors)
