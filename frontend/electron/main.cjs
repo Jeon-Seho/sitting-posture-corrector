@@ -85,6 +85,13 @@ function sameAddress(url) {
 }
 
 ipcMain.handle('desktop:launch-info', (event) => (trusted(event) ? launchInfo() : null))
+ipcMain.handle('desktop:appearance-tone', (event, tone) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !['light', 'gray', 'dark'].includes(tone)) return false
+  const color = tone === 'dark' ? '#131920' : tone === 'gray' ? '#c7cbd1' : '#f6f7f9'
+  mainWindow.setBackgroundColor(color)
+  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor: tone === 'dark' ? '#f0f4f8' : '#202b33' })
+  return true
+})
 ipcMain.handle('desktop:dark-mode', (event, dark) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
   const color = dark === true ? '#131920' : '#f6f7f9'

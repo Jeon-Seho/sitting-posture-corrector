@@ -23,13 +23,34 @@ try {
   await until(async () => (await body()).includes('개발자 계정'), 'developer entry')
   await click('설정')
   await until(async () => (await body()).includes('화면 꾸미기'), 'appearance settings')
-  for (const palette of ['green', 'peach', 'black', 'discord']) {
+  for (const palette of ['green', 'peach', 'blue', 'teal', 'charcoal', 'black', 'discord']) {
     await evalJS(`document.querySelector('.theme-preset-${palette}').click()`)
     await until(async () => await evalJS('document.documentElement.dataset.palette') === palette, palette+' selection')
     await until(async () => await evalJS('[...document.querySelectorAll(".theme-preset-art img")].every(i=>i.complete && i.naturalWidth>0)'), 'theme assets loaded')
     await delay(250)
     await browser.screenshot('preset-'+palette)
   }
+  await evalJS('document.querySelector(".theme-preset-black").click()')
+  await click('기록')
+  await until(async () => await evalJS('!!document.querySelector(".combo-bar")'), 'example chart')
+  await delay(350)
+  const chart = await evalJS(`(async () => {
+    const { contrast } = await import('/src/features/appearance/theme.ts');
+    const b = document.querySelector('.combo-bar');
+    const card = b.closest('.card');
+    const root = getComputedStyle(document.documentElement);
+    const bg = '#202020';
+    return { bar: getComputedStyle(b).fill, background: getComputedStyle(card).backgroundColor,
+      barContrast: contrast(root.getPropertyValue('--chart-bar').trim(), bg),
+      lineContrast: contrast(root.getPropertyValue('--chart-line').trim(), bg) };
+  })()`)
+  assert.ok(chart.barContrast >= 3, JSON.stringify(chart))
+  assert.ok(chart.lineContrast >= 4.5, JSON.stringify(chart))
+  await evalJS('document.querySelector(".combo").scrollIntoView({block:"center"})')
+  await delay(250)
+  await browser.screenshot('black-chart-visible')
+  await click('설정')
+  await evalJS('document.querySelector(".theme-preset-discord").click()')
   await click('측정하기')
   await until(async () => await evalJS('!!document.querySelector("img[src*=discord-camera]")'), 'camera illustration follows theme')
   await click('설정')
@@ -37,6 +58,8 @@ try {
   await fill('themeHex','#6750a4'); await click('색상 적용')
   assert.equal(await evalJS('getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()'),'#6750a4')
   await delay(250); await browser.screenshot('appearance-light')
+  await click('그레이'); await mode('gray')
+  await delay(250); await browser.screenshot('appearance-gray')
   await click('다크'); await mode('dark')
   assert.equal(await evalJS('getComputedStyle(document.body).backgroundColor'),'rgb(19, 25, 32)')
   await delay(250); await browser.screenshot('appearance-dark')
@@ -62,7 +85,7 @@ try {
   assert.equal(await evalJS('document.documentElement.scrollWidth <= innerWidth'),true,'mobile horizontal overflow')
   await click('화면 기본값으로 되돌리기');await mode('light')
   assert.equal(browser.errors.length,0,browser.errors.join('\n'))
-  console.log('PASS appearance: four palettes and images, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
+  console.log('PASS appearance: seven palettes and images, black chart contrast, gray mode, custom HEX, dark/light/system changes, readable bright colors, invalid input, reload, mobile width, reset')
   console.log('Screenshots: '+artifactFolder)
 } catch (error) {
   console.error(await body(), browser.errors)

@@ -1,21 +1,28 @@
 import { useSyncExternalStore } from 'react'
 import { desktopBridge } from '../desktop/bridge'
 
-export type Appearance = { mode: 'system' | 'light' | 'dark'; accent: string }
+export type Appearance = { mode: 'system' | 'light' | 'gray' | 'dark'; accent: string }
 export const DEFAULT_APPEARANCE: Appearance = { mode: 'system', accent: '#18794e' }
 export const APPEARANCE_KEY = 'posegood.appearance.v1'
 export const THEME_PRESETS = [
   { id: 'green', name: '초록', accent: '#18794e', brand: '#416b56', mode: 'light', description: '익숙하고 편안한 초록' },
-  { id: 'peach', name: '살구', accent: '#c4532a', brand: '#fdcd95', mode: 'light', description: '이전에 사용했던 따뜻한 살구' },
+  { id: 'peach', name: '살구', accent: '#c4532a', brand: '#fdcd95', mode: 'light', description: '포근한 살구빛과 크림 톤' },
+  { id: 'blue', name: '오션', accent: '#2864c8', brand: '#254c7f', mode: 'light', description: '시원한 파랑과 맑은 중립 톤' },
+  { id: 'teal', name: '틸', accent: '#087f8c', brand: '#255d63', mode: 'light', description: '차분한 청록과 부드러운 회색' },
+  { id: 'charcoal', name: '차콜', accent: '#525963', brand: '#34383f', mode: 'gray', description: '담백한 회색과 차콜 포인트' },
   { id: 'black', name: '블랙', accent: '#242424', brand: '#141414', mode: 'dark', description: '차분한 검정과 회색' },
   { id: 'discord', name: '블러플', accent: '#5865f2', brand: '#232428', mode: 'dark', description: '차콜 바탕에 청보라 포인트' },
 ] as const
 export const paletteFor = (accent: string) => THEME_PRESETS.find(p => p.accent === accent.toLowerCase())
+export const illustrationPalette = (accent: string) => {
+  const id = paletteFor(accent)?.id
+  return id === 'blue' || id === 'teal' || id === 'charcoal' ? 'black' : id ?? 'green'
+}
 export const validColor = (color: string) => /^#[0-9a-f]{6}$/i.test(color)
 export function parseAppearance(raw: string | null): Appearance {
   try {
     const value = JSON.parse(raw ?? 'null')
-    if (value && ['system', 'light', 'dark'].includes(value.mode) && typeof value.accent === 'string' && validColor(value.accent))
+    if (value && ['system', 'light', 'gray', 'dark'].includes(value.mode) && typeof value.accent === 'string' && validColor(value.accent))
       return { mode: value.mode, accent: value.accent.toLowerCase() }
   } catch { /* Invalid preferences must never prevent login. */ }
   return { ...DEFAULT_APPEARANCE }
@@ -31,11 +38,11 @@ export function mix(a: string, b: string, amount: number) {
   const other = rgb(b)
   return '#' + rgb(a).map((n, i) => Math.round(n + (other[i] - n) * amount).toString(16).padStart(2, '0')).join('')
 }
-export function readableAccent(accent: string, background: string) {
+export function readableAccent(accent: string, background: string, minimum = 4.5) {
   const target = foreground(background)
   for (let i = 0; i <= 100; i++) {
     const next = mix(accent, target, i / 100)
-    if (contrast(next, background) >= 4.5) return next
+    if (contrast(next, background) >= minimum) return next
   }
   return target
 }
@@ -47,17 +54,38 @@ export function applyAppearance(value: Appearance, systemDark = false) {
   const root = document.documentElement
   const dark = value.mode === 'dark' || (value.mode === 'system' && systemDark)
   const palette = paletteFor(value.accent)
-  root.dataset.theme = dark ? 'dark' : 'light'
+  const tone = dark ? 'dark' : value.mode === 'gray' ? 'gray' : 'light'
+  root.dataset.theme = tone
   root.dataset.palette = palette?.id ?? 'custom'
-  void desktopBridge()?.setDarkMode?.(dark).catch(() => { /* Older shells retain their native chrome. */ })
-  const surface = dark ? palette?.id === 'discord' ? '#313338' : palette?.id === 'black' ? '#202020' : '#1c242d' : '#ffffff'
+  const bridge = desktopBridge()
+  void (bridge?.setAppearanceTone ? bridge.setAppearanceTone(tone) : bridge?.setDarkMode?.(dark))?.catch(() => {})
+  const surface = dark ? palette?.id === 'discord' ? '#313338' : palette?.id === 'black' ? '#202020' : '#1c242d' : tone === 'gray' ? '#dfe2e6' : palette?.id === 'peach' ? '#fffaf4' : '#ffffff'
+  let chartBar = readableAccent(mix(surface, value.accent, 0.55), surface, 3)
+  const initialBar = chartBar
+  for (let i = 0; i <= 100; i++) {
+    const candidate = mix(initialBar, surface, i / 100)
+    if (contrast(candidate, surface) >= 3 && contrast(candidate, foreground(surface)) >= 3) {
+      chartBar = candidate
+      break
+    }
+  }
+  let chartLine = readableAccent(value.accent, surface)
+  // The line crosses the columns, so it also needs contrast against the bar itself.
+  for (let i = 0; i <= 100; i++) {
+    const candidate = mix(chartLine, foreground(surface), i / 100)
+    if (contrast(candidate, surface) >= 4.5 && contrast(candidate, chartBar) >= 3) {
+      chartLine = candidate
+      break
+    }
+  }
   const ink = foreground(value.accent)
   const tokens: Record<string, string> = {
     '--primary': value.accent, '--on-primary': ink,
     '--primary-press': mix(value.accent, ink === '#ffffff' ? '#000000' : '#ffffff', 0.12),
     '--primary-ink': readableAccent(value.accent, surface),
     '--primary-tint': mix(surface, value.accent, dark ? 0.18 : 0.09),
-    '--primary-soft': mix(surface, value.accent, 0.45),
+    '--primary-soft': chartBar,
+    '--chart-bar': chartBar, '--chart-line': chartLine,
     '--brand': palette?.brand ?? mix(value.accent, '#000000', 0.25),
   }
   tokens['--on-brand'] = foreground(tokens['--brand'])
@@ -79,7 +107,7 @@ export function initializeAppearance() {
   return () => { media?.removeEventListener('change', apply); window.removeEventListener('storage', storage) }
 }
 export function saveAppearance(next: Appearance) {
-  if (!validColor(next.accent) || !['system', 'light', 'dark'].includes(next.mode)) return false
+  if (!validColor(next.accent) || !['system', 'light', 'gray', 'dark'].includes(next.mode)) return false
   current = { ...next, accent: next.accent.toLowerCase() }
   applyAppearance(current, media?.matches)
   emit()

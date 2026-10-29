@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '../../components/ui'
 import { Segmented } from '../../components/Segmented'
-import { DEFAULT_APPEARANCE, THEME_PRESETS, saveAppearance, useAppearance, validColor, type Appearance } from './theme'
+import { DEFAULT_APPEARANCE, THEME_PRESETS, illustrationPalette, saveAppearance, useAppearance, validColor, type Appearance } from './theme'
 
 export function AppearanceSettings() {
   const appearance = useAppearance()
@@ -13,14 +13,14 @@ export function AppearanceSettings() {
     <div className="theme-presets" role="group" aria-label="테마 선택">
       {THEME_PRESETS.map(preset => <button key={preset.id} type="button" className={`theme-preset theme-preset-${preset.id}`}
         aria-pressed={appearance.accent === preset.accent} onClick={() => update({ mode: preset.mode, accent: preset.accent })}>
-        <span className="theme-preset-art"><img src={`/illustrations/themes/${preset.id}-login.webp`} alt="" /><span className="theme-preset-swatch" style={{ background: preset.accent }} /></span>
+        <span className="theme-preset-art"><img src={`/illustrations/themes/${illustrationPalette(preset.accent)}-login.webp`} alt="" /><span className="theme-preset-swatch" style={{ background: preset.accent }} /></span>
         <strong>{preset.name}</strong><span>{preset.description}</span>
       </button>)}
     </div>
     <div className="setting-row appearance-row">
       <div><div className="setting-name">화면 모드</div><p className="setting-desc">시스템 설정을 선택하면 컴퓨터의 밝기 모드를 따라가요.</p></div>
-      <Segmented label="화면 모드">{(['system', 'light', 'dark'] as const).map((mode, i) =>
-        <button key={mode} aria-pressed={appearance.mode === mode} onClick={() => update({ ...appearance, mode })}>{['시스템 설정', '라이트', '다크'][i]}</button>
+      <Segmented label="화면 모드">{(['system', 'light', 'gray', 'dark'] as const).map((mode, i) =>
+        <button key={mode} aria-pressed={appearance.mode === mode} onClick={() => update({ ...appearance, mode })}>{['시스템 설정', '라이트', '그레이', '다크'][i]}</button>
       )}</Segmented>
     </div>
     <details className="more appearance-custom"><summary>색상 직접 지정</summary>

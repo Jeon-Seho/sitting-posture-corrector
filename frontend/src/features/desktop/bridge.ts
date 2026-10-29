@@ -24,6 +24,7 @@ export type DesktopBridge = {
   platform: string
   getLaunchInfo: () => Promise<LaunchInfo | null>
   cameraWindow?: boolean
+  setAppearanceTone?: (tone: 'light' | 'gray' | 'dark') => Promise<boolean>
   setDarkMode?: (dark: boolean) => Promise<boolean>
   setCameraWindowEnabled?: (enabled: boolean) => Promise<boolean>
   showCameraWindow?: () => Promise<boolean>

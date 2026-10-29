@@ -93,3 +93,19 @@
 }
 :root:not([data-palette='green']) .stage .webcam-message { background:var(--panel-2); }
 :root:not([data-palette='green']) .stage .webcam-message span { color:var(--muted); }
+
+/* Mid-brightness gray is a separate surface mode, independent of accent. */
+:root[data-theme='gray'] {
+  color-scheme:light;
+  --bg:#c7cbd1; --surface:#dfe2e6; --surface-2:#d1d5db; --surface-3:#bcc3cc;
+  --line:#a1aab6; --line-strong:#687484;
+  --ink:#202833; --ink-2:#374251; --muted:#4a5667; --faint:#566274;
+  --metric-time-bg:#ccd4dd; --metric-warn-bg:#e4d4be; --metric-recover-bg:#cdd9cc;
+}
+.theme-preset-blue .theme-preset-art { background:#254c7f; }
+.theme-preset-teal .theme-preset-art { background:#255d63; }
+.theme-preset-charcoal .theme-preset-art { background:#34383f; }
+.theme-presets { grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); }
+@media(max-width:600px) { .theme-presets { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.appearance-row .segmented { flex-wrap:wrap; }
+.brand-mark { border-radius:22%; box-shadow:0 0 0 1px rgb(255 255 255 / 22%); }
