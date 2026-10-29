@@ -1,3 +1,4 @@
+import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import { useEffect, useRef } from 'react'
 import type { CameraController } from '../hooks/useCamera'
 import { ArrowsOutSimple } from './icons'
@@ -55,7 +56,7 @@ export function CameraStage({
       ) : (
         camera.state !== 'on' && (
           <div className="webcam-message">
-            {camera.state === 'off' && <img className="state-art" src="/illustrations/ready-camera-matte.webp" alt="" aria-hidden="true" />}
+            {camera.state === 'off' && <ThemeIllustration kind="camera" className="state-art" />}
             <strong>{camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}</strong>
             <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
           </div>

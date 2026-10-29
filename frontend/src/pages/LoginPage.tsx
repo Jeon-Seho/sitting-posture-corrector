@@ -1,3 +1,4 @@
+import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import type { FormEvent, ReactNode } from 'react'
 import { ArrowRight } from '../components/icons'
 import { BrandMark } from '../components/BrandMark'
@@ -67,7 +68,6 @@ export function LoginPage({
 /** Three-quarter rear view of a relaxed seated person: decorative only. */
 function SittingArt() {
   return (
-    <img className="cover-art" src="/illustrations/login-light.webp"
-      alt="" aria-hidden="true" width={360} height={240} draggable={false} />
+    <ThemeIllustration kind="login" className="cover-art" width={360} height={240} />
   )
 }

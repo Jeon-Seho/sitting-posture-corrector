@@ -1,3 +1,4 @@
+import { ThemeIllustration } from '../appearance/ThemeIllustration'
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowsOutSimple, Minus, Square, X } from '../../components/icons'
 import { createPortal } from 'react-dom'
@@ -78,7 +79,7 @@ function WindowPreview({ camera, controls, demo = false }: { camera: CameraContr
   return (
     <section className={`camera-window-view ${controls.minimized ? 'is-minimized' : ''} status-${controls.status}`} aria-label="카메라 작은 창">
       {!controls.minimized && (demo ? <div className="camera-window-demo" aria-label="카메라 없는 PiP 예시 화면">
-        <img src="/illustrations/baseline-seat-light.webp" alt="" /><p>예시 화면 · 카메라를 사용하지 않아요</p>
+        <ThemeIllustration kind="baseline" /><p>예시 화면 · 카메라를 사용하지 않아요</p>
       </div> : <StreamPreview camera={camera} />)}
       <PipBar {...controls} label={(text) => <span className="camera-window-label" role="status">{text}</span>} />
     </section>

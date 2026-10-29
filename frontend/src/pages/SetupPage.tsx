@@ -1,3 +1,4 @@
+import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import { useEffect, useRef } from 'react'
 import { ArrowCounterClockwise, ArrowLeft, Check, Play, Square, VideoCamera } from '../components/icons'
 import { CameraStage } from '../components/CameraStage'
@@ -289,7 +290,7 @@ export function SetupPage({
           </section>
 
           <div className="posture-note">
-            <img src="/illustrations/baseline-seat-light.webp" alt="" aria-hidden="true" />
+            <ThemeIllustration kind="baseline" />
             <span>편하게 앉은 자세를 기억해요.</span>
           </div>
           <details className="more">

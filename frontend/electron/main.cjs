@@ -85,6 +85,13 @@ function sameAddress(url) {
 }
 
 ipcMain.handle('desktop:launch-info', (event) => (trusted(event) ? launchInfo() : null))
+ipcMain.handle('desktop:dark-mode', (event, dark) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
+  const color = dark === true ? '#131920' : '#f6f7f9'
+  mainWindow.setBackgroundColor(color)
+  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor: dark === true ? '#f0f4f8' : '#202b33' })
+  return true
+})
 ipcMain.handle('desktop:set-launch-at-login', (event, enabled) => {
   if (!trusted(event)) return null
   if (loginItemSupported) app.setLoginItemSettings({ ...loginOptions, openAtLogin: enabled === true })

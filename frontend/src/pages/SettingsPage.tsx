@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { AppearanceSettings, AppearanceDiagnostics } from '../features/appearance/AppearanceSettings'
 import { Segmented } from '../components/Segmented'
 import { ArrowCounterClockwise, SignOut, UserCircle, Bell, Timer, VideoCamera, SlidersHorizontal, ClockCounterClockwise, Power } from '../components/icons'
 import { KST } from '../lib/kst'
@@ -219,12 +220,13 @@ export function SettingsPage({
       <div className="page-head">
         <div>
           <h1 className="page-title">설정</h1>
-          <p className="page-desc">바뀐 설정은 다음 측정부터 적용돼요.</p>
+          <p className="page-desc">화면 설정은 바로, 측정 설정은 다음 측정부터 적용돼요.</p>
         </div>
       </div>
 
       <div className="view">
         <div className="view-main">
+          <AppearanceSettings />
           <Card title="알림">
             <Row
               name="자세 알림"
@@ -442,6 +444,7 @@ export function SettingsPage({
                 )}
               </DeveloperGroup>
               <DeveloperGroup title="화면·모션·알림">
+                  <AppearanceDiagnostics />
                   <InteractionPreview />
                   <AlertPreview />
               </DeveloperGroup>
