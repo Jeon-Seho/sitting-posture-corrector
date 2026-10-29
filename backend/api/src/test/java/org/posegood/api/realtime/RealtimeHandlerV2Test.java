@@ -48,8 +48,10 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -84,6 +86,11 @@ class RealtimeHandlerV2Test {
     private static final SessionView.Summary SUMMARY =
             new SessionView.Summary(21500, 20500, 17000, 3500, 0, 0, 1000, 0, 1, 1, 0, 0.8293, 175.6, null, null);
     private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1, 0);
+    /** 자정 넘김으로 서버가 만든 새 세션. */
+    private static final UUID NEXT = UUID.fromString("5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e");
+    /** STARTED(KST 10:00:00.120) 다음의 KST 자정과 그 위치(앱이 보내는 시간축, 연결 기준 ms). */
+    private static final Instant MIDNIGHT = Instant.parse("2026-10-26T15:00:00Z");
+    private static final long AT = 50_399_880;
 
     private SessionService sessions;
     private RealtimeHandlerV2 handler;
@@ -101,6 +108,10 @@ class RealtimeHandlerV2Test {
     }
 
     private RealtimeHandlerV2 handler(Duration hello) {
+        return handler(hello, false, Clock.systemUTC());
+    }
+
+    private RealtimeHandlerV2 handler(Duration hello, boolean midnightRollover, Clock clock) {
         var current = mock(CurrentUser.class);
         when(current.id(any(Authentication.class))).thenReturn(OWNER);
         // 예시 hello의 access_token만 유효하다(ADR 0031). 그 밖의 토큰은 401.
@@ -109,7 +120,8 @@ class RealtimeHandlerV2Test {
         doReturn(UsernamePasswordAuthenticationToken.authenticated("synthetic", null, java.util.List.of()))
                 .when(tokens).authenticate("synthetic-access-token");
         return new RealtimeHandlerV2(sessions, current, tokens, new Json(MAPPER),
-                Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5));
+                Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5),
+                midnightRollover, clock);
     }
 
     private static ObjectNode example(String name) throws Exception {
@@ -133,6 +145,30 @@ class RealtimeHandlerV2Test {
         send(fake, example("ws-hello-measure.json"));
         same(example("ws-ready-measure.json"), fake.only("ready"));
         return fake;
+    }
+
+    /** 자정 넘김을 켠 서버로 측정을 시작한다. */
+    private Fake rolling(Clock clock) throws Exception {
+        handler.shutdown();
+        handler = handler(Duration.ofSeconds(10), true, clock);
+        return measuring();
+    }
+
+    /** 예시 features의 순번·시간만 바꾼 구간(앱이 보내는 연결 기준 값). */
+    private static ObjectNode features(long sequence, long startMs, long endMs) throws Exception {
+        var message = example("ws-features.json");
+        ((ObjectNode) message.get("items").get(0)).put("sequence", sequence).put("start_ms", startMs).put("end_ms", endMs);
+        return message;
+    }
+
+    /** 넘김 대역: 이전 세션 종료 이벤트(day_changed)를 보낸 뒤 새 세션을 돌려준다. */
+    private void rollsOver() {
+        doAnswer(call -> {
+                    handler.progressed(ended("day_changed"));
+                    return new SessionService.Rollover(SUMMARY, STARTED.plusMillis(SUMMARY.totalMs()), NEXT, MIDNIGHT, true);
+                })
+                .when(sessions)
+                .rollover(OWNER, SESSION, MIDNIGHT, SessionEngine.DEFAULT_MAX_MS - AT);
     }
 
     @Test
@@ -316,6 +352,95 @@ class RealtimeHandlerV2Test {
     }
 
     @Test
+    void midnightRolloverContinuesInANewSessionOnTheSameConnection() throws Exception {
+        var fake = rolling(Clock.systemUTC());
+        when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
+                .thenReturn(new SessionService.Status(42, SUMMARY, null));
+        send(fake, features(42, AT - 1000, AT - 500));
+        // 자정에 걸친 구간: 이전 세션을 끝내 저장하고 새 세션으로 넘긴 뒤, 그 구간은 버리고 받았다고만 알린다.
+        rollsOver();
+        send(fake, features(43, AT - 300, AT + 200));
+        assertEquals(List.of("ready", "ack", "progress", "decision", "session_rollover", "ack"), fake.types());
+        assertEquals("session_ended", fake.only("decision").get("event").get("kind").asString());
+        same(example("ws-session-rollover.json"), fake.only("session_rollover"));
+        assertEquals(43, fake.all("ack").get(1).get("last_sequence").asLong());
+        assertFalse(fake.closed.get());
+
+        // 넘긴 뒤: 앱은 연결 기준 시간·순번을 그대로 보내고 서버가 새 세션 값(자정 = 0, 순번 43 = 0)으로 바꾼다.
+        // ack·progress의 순번은 앱이 보낸 번호 그대로다.
+        var received = new ArrayList<FrameInterval>();
+        when(sessions.frames(eq(OWNER), eq(NEXT), any(FrameInterval.class), eq(BASELINE)))
+                .thenAnswer(call -> {
+                    received.add(call.getArgument(2));
+                    return new SessionService.Status(1, SUMMARY, null);
+                });
+        send(fake, features(44, AT + 200, AT + 700));
+        var local = received.get(0);
+        assertEquals(List.of(1L, 200L, 700L), List.of(local.sequence(), local.startMs(), local.endMs()));
+        assertEquals(44, fake.all("ack").get(2).get("last_sequence").asLong());
+        assertEquals(44, fake.all("progress").get(1).get("last_sequence").asLong());
+
+        // end_ms도 새 세션 기준으로 바꿔 새 세션을 끝낸다. 이전 세션은 다시 끝내지 않는다.
+        send(fake, example("ws-end.json").put("end_ms", AT + 1000));
+        verify(sessions).finish(OWNER, NEXT, 1000L);
+        verify(sessions, never()).finish(eq(OWNER), eq(SESSION), any());
+    }
+
+    @Test
+    void connectionsWithoutIntervalsRollOverHalfAMinuteAfterMidnight() throws Exception {
+        var fake = rolling(Clock.fixed(MIDNIGHT.plusSeconds(30), ZoneOffset.UTC));
+        rollsOver();
+        handler.midnight();
+        assertEquals(List.of("ready", "decision", "session_rollover"), fake.types());
+        // 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않는다.
+        send(fake, features(0, AT - 500, AT));
+        assertEquals(List.of("ready", "decision", "session_rollover", "ack"), fake.types());
+        verify(sessions, never()).frames(anyLong(), any(), any(), any());
+        assertFalse(fake.closed.get());
+    }
+
+    @Test
+    void rolloverIsOffByDefaultAndNeverBeforeMidnight() throws Exception {
+        var off = measuring();
+        handler.midnight();
+        when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
+                .thenReturn(new SessionService.Status(43, SUMMARY, null));
+        send(off, features(43, AT - 300, AT + 200)); // 끄면 세션은 자정을 넘어 이어진다
+        assertEquals(List.of("ready", "ack", "progress"), off.types());
+
+        var early = rolling(Clock.fixed(MIDNIGHT.minusSeconds(1), ZoneOffset.UTC));
+        handler.midnight();
+        assertEquals(List.of("ready"), early.types());
+        verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong());
+    }
+
+    @Test
+    void failedRolloverClosesWithDayChangedAndTheEndTime() throws Exception {
+        // 이전 세션은 끝나 저장됐지만 새 세션을 못 만들면(자리 없음 등) 닫는다. 앱은 새 S1부터 다시 시작한다.
+        var fake = rolling(Clock.systemUTC());
+        doAnswer(call -> {
+                    handler.progressed(ended("day_changed"));
+                    throw ApiError.limit("live session capacity reached");
+                })
+                .when(sessions)
+                .rollover(OWNER, SESSION, MIDNIGHT, SessionEngine.DEFAULT_MAX_MS - AT);
+        send(fake, features(43, AT - 300, AT + 200));
+        assertEquals(List.of("ready", "decision", "closed"), fake.types());
+        var closed = fake.only("closed");
+        assertEquals("day_changed", closed.get("reason").asString());
+        assertEquals(STARTED.plusMillis(SUMMARY.totalMs()), Instant.parse(closed.get("ended_at").asString()));
+        verify(sessions, never()).finish(anyLong(), any(), any());
+        verify(sessions, never()).frames(anyLong(), any(), any(), any());
+    }
+
+    @Test
+    void endAfterMidnightBeforeAnyRolloverEndsJustBeforeMidnight() throws Exception {
+        var fake = rolling(Clock.systemUTC());
+        send(fake, example("ws-end.json").put("end_ms", AT + 5000));
+        verify(sessions).finish(OWNER, SESSION, AT - 1); // 종료 날짜가 시작 날짜와 같게
+    }
+
+    @Test
     void removedLoginsCloseOnlyThatUsersConnections() throws Exception {
         // 측정 중에는 토큰을 다시 확인하지 않는다. 비밀번호 변경·탈퇴만 hello 때 정한 사용자로 찾아 바로 닫는다.
         var fake = measuring();
@@ -402,7 +527,7 @@ class RealtimeHandlerV2Test {
             String type = message.get("type").asString();
             return switch (type) {
                 case "ready" -> "ws-ready-" + message.get("purpose").asString() + ".json";
-                default -> "ws-" + type + ".json";
+                default -> "ws-" + type.replace('_', '-') + ".json";
             };
         }
 

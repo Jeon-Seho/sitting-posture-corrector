@@ -37,7 +37,7 @@ backend/
     .../policy/           threshold_policy 찾기·추가
     .../account/          인증·CSRF·현재 주체·비밀번호·탈퇴
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
-    .../workspace/        설정·앱 기록 저장과 검증
+    .../workspace/        설정 저장·검증, 기록 조회(세션 테이블에서 다시 만듦)·삭제
     .../realtime/         /v2/realtime WebSocket(좌표 프레임)
     .../system/           health, DB V2.6 확인
 

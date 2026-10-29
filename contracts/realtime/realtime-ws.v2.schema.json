@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/realtime-ws.v2.schema.json",
   "title": "WebSocket /v2/realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
-  "description": "One connection per measurement (purpose measure). Posture registration is B1 POST /v2/baselines only; WebSocket registration (purpose calibration) was removed on 2026-10-27. The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session.",
+  "description": "One connection per measurement (purpose measure). Posture registration is B1 POST /v2/baselines only; WebSocket registration (purpose calibration) was removed on 2026-10-27. The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session, plus session_rollover, which moves the connection to a new server-made session at KST midnight (BE-6 1, plan B).",
   "oneOf": [
     {
       "$ref": "#/$defs/hello"
@@ -36,6 +36,9 @@
     },
     {
       "$ref": "#/$defs/closed"
+    },
+    {
+      "$ref": "#/$defs/session_rollover"
     }
   ],
   "$defs": {
@@ -463,8 +466,61 @@
             "bad_message",
             "server_shutdown",
             "limit_reached",
-            "unmeasurable_timeout"
-          ]
+            "unmeasurable_timeout",
+            "day_changed"
+          ],
+          "description": "day_changed: at KST midnight the previous session ended and was stored, but the server could not continue in a new session (session_rollover); the app starts a new measurement with S1."
+        }
+      }
+    },
+    "session_rollover": {
+      "description": "server -> app at KST midnight when the server switch posegood.realtime.midnight-rollover is on (BE-6 1, plan B). The previous session ended at its last interval before midnight and was stored; this connection continues in a new session the server created with the same baseline, policy and alert setting (no S1). The app keeps sending sequence, start_ms and end_ms on the connection's axis; the server subtracts at_ms and its own sequence base. ack, progress and stalled keep the app's sequence numbers; summaries and decision event times after this message belong to the new session (midnight = 0). An interval that spans midnight, or a pre-midnight interval that arrives after this message, is only acked and belongs to no session.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "ended",
+        "session_id",
+        "started_at",
+        "at_ms"
+      ],
+      "properties": {
+        "type": {
+          "const": "session_rollover"
+        },
+        "ended": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_id",
+            "ended_at",
+            "summary"
+          ],
+          "properties": {
+            "session_id": {
+              "$ref": "#/$defs/uuid"
+            },
+            "ended_at": {
+              "description": "Server end of the previous session (same value as the stored ended_at, before midnight), UTC.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "summary": {
+              "$ref": "#/$defs/summary"
+            }
+          }
+        },
+        "session_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "started_at": {
+          "description": "Server start of the new session: KST midnight, UTC.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "at_ms": {
+          "description": "Where the new session starts on the app's connection time axis (ms from the first session's start).",
+          "$ref": "#/$defs/ms"
         }
       }
     }

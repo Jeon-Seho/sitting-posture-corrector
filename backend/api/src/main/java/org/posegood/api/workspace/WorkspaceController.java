@@ -53,13 +53,7 @@ public class WorkspaceController {
         return new Records(KstTime.today().toString(), workspace.records(current.id()));
     }
 
-    /** 기록 저장. */
-    @PostMapping("/records")
-    public JsonNode save(@RequestBody JsonNode body) {
-        return workspace.save(current.id(), body);
-    }
-
-    /** 기록(= 세션) 삭제. */
+    /** 기록(= 세션) 삭제. 기록 저장(R2)은 2026-10-28 삭제했다 — 서버가 측정 종료 때 직접 저장한다(계획 0062). */
     @DeleteMapping("/records/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable String id) {

@@ -25,11 +25,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리.
+ * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료.
  *
- * HTTP와 실시간 채널이 함께 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
+ * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
  * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
  * 실시간 v2는 좌표 구간을 받아 {@link FrameFeatures}로 특징 변화량을 계산한 뒤 같은 추론·판정 흐름에 넣는다(A안).
+ * KST 자정에는 실시간 연결이 {@link #rollover}로 이전 세션을 끝내고 새 세션으로 잇는다(BE-6 ① B안).
  */
 @Service
 public class SessionService {
@@ -123,16 +124,6 @@ public class SessionService {
                 });
     }
 
-    /** 특징 입력 처리: 재전송 확인 → 추론 → 판정 → 실시간 알림 → DB 기록. */
-    public SessionRequests.FeatureResponse features(long owner, UUID id, InferenceRequest request) {
-        var session = require(owner, id);
-        return session.locked(
-                () -> {
-                    var accepted = accept(session, request, null);
-                    return response(accepted.observation(), accepted.view());
-                });
-    }
-
     /**
      * 실시간 v2 측정 연결 준비: 내 세션인지, 아직 진행 중인지, 판정에 쓸 기준 자세가 있는지 확인한다.
      *
@@ -198,14 +189,59 @@ public class SessionService {
                 });
     }
 
+    /**
+     * 자정 넘김(BE-6 ① B안): 이전 세션을 마지막으로 받은 구간 끝에서 끝내 저장하고, 자정({@code midnight})에 시작하는
+     * 새 세션을 만든다.
+     *
+     * 이전 세션의 종료 시각은 그래서 자정 전이고, 종료 이벤트의 closed 사유는 {@code day_changed}다. 새 세션 ID는
+     * 서버가 만들고 기준 자세·임계값 설정·알림 설정은 이전 세션 것을 쓴다(S1의 계정 확인은 다시 하지 않는다).
+     * {@code limitMs}는 새 세션의 최대 측정 시간 상한이다. 새 세션을 만들지 못하면(자리 없음·DB 장애) 예외가 나고
+     * 이전 세션은 끝난 채 남는다.
+     */
+    public Rollover rollover(long owner, UUID id, Instant midnight, long limitMs) {
+        var previous = require(owner, id);
+        return locks.withLock(
+                owner,
+                () -> {
+                    var ended =
+                            previous.locked(
+                                    () -> {
+                                        var engine = previous.engine();
+                                        if (engine.ended()) throw ApiError.ended();
+                                        previous.endReason("DAY_CHANGED");
+                                        int before = engine.eventCount();
+                                        var view = engine.end(engine.summary().totalMs());
+                                        publish(previous, null, before, null, "day_changed");
+                                        persist(previous);
+                                        return view.summary();
+                                    });
+                    var nextId = UUID.randomUUID();
+                    live.ensureRoom();
+                    var row =
+                            tx.execute(
+                                    status -> {
+                                        sessions.insertFollowing(previous.row(), nextId, KstTime.of(midnight));
+                                        return sessions.find(nextId);
+                                    });
+                    var policy = previous.engine().policy();
+                    live.add(new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs))));
+                    return new Rollover(
+                            ended,
+                            previous.row().startedAt().plusMillis(ended.totalMs()),
+                            nextId,
+                            row.startedAt(),
+                            row.alertEnabled());
+                });
+    }
+
     /** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
-    private Accepted accept(LiveSession session, InferenceRequest request, String invalidReason) {
+    private void accept(LiveSession session, InferenceRequest request, String invalidReason) {
         String digest = fingerprint(request);
         var cached = session.input(request.sequence());
         if (cached != null) {
             if (!cached.fingerprint().equals(digest)) throw ApiError.conflict("conflicting duplicate");
             persist(session);
-            return new Accepted(cached.observation(), session.engine().view());
+            return;
         }
         var engine = session.engine();
         var view = engine.view();
@@ -228,7 +264,6 @@ public class SessionService {
         }
         publish(session, observation, before, invalidReason, closedReason);
         persist(session);
-        return new Accepted(observation, result);
     }
 
     /**
@@ -248,33 +283,6 @@ public class SessionService {
                 });
     }
 
-    /**
-     * 기록을 저장할 때 아직 열린 세션 행을 닫는다.
-     *
-     * 판정 상태가 있으면 마지막 수신 시각에서 끝내 DISCONNECTED로, 상태를 잃었으면 ERROR로 닫는다.
-     */
-    public void closeForRecord(long owner, UUID id, long acknowledgedMs) {
-        var session = live.get(id);
-        if (session != null && session.owner() == owner) {
-            session.locked(
-                    () -> {
-                        var engine = session.engine();
-                        if (!engine.ended()) {
-                            session.endReason("DISCONNECTED");
-                            int before = engine.eventCount();
-                            engine.end(engine.summary().totalMs());
-                            publish(session, null, before, null, null);
-                        }
-                        persist(session);
-                        return null;
-                    });
-            return;
-        }
-        var stored = owned(owner, id);
-        if (stored.endedAt() == null)
-            tx.executeWithoutResult(status -> sessions.closeLost(stored, acknowledgedMs));
-    }
-
     /** 현재 상태 조회. */
     public SessionView get(long owner, UUID id) {
         var session = require(owner, id);
@@ -282,7 +290,7 @@ public class SessionService {
     }
 
     /**
-     * 세션 삭제(DB 행과 메모리 상태).
+     * 세션 삭제(DB 행과 메모리 상태). 기록 삭제(R3)가 쓴다.
      */
     public void delete(long owner, UUID id) {
         var stored = owned(owner, id);
@@ -297,17 +305,6 @@ public class SessionService {
                     live.remove(id, "session_lost");
                     return null;
                 });
-    }
-
-    /** 시작·종료 시각, 기준 자세 ID, 모델 버전. */
-    public Metadata metadata(long owner, UUID id) {
-        var stored = owned(owner, id);
-        var session = live.get(id);
-        String model =
-                session != null && session.locked(() -> session.engine().lastSequence() >= 0)
-                        ? inference.modelVersion()
-                        : null;
-        return new Metadata(stored.startedAt(), stored.endedAt(), stored.baselineId(), model);
     }
 
     /**
@@ -390,10 +387,6 @@ public class SessionService {
                 session.persistedEvents() + pending.size(), episodes, session.closePersisted() || close);
     }
 
-    private static SessionRequests.FeatureResponse response(Observation observation, SessionView view) {
-        return new SessionRequests.FeatureResponse("1.0", observation, view);
-    }
-
     /** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */
     private static void requireSame(LiveSession session, SessionRequests.Create request) {
         var row = session.row();
@@ -434,14 +427,15 @@ public class SessionService {
         }
     }
 
-    /** {@code GET /v2/sessions/{id}/metadata} 응답. 모르는 값은 null. */
-    public record Metadata(Instant startedAt, Instant endedAt, UUID baselineId, String modelVersion) {}
-
-    private record Accepted(Observation observation, SessionView view) {}
-
     /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
     /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */
     public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled, Instant startedAt) {}
+
+    /**
+     * 자정 넘김 결과: 끝난 이전 세션의 요약·서버 종료 시각(DB {@code ended_at}), 새 세션 ID·시작 시각(자정)·알림 설정.
+     */
+    public record Rollover(
+            SessionView.Summary ended, Instant endedAt, UUID sessionId, Instant startedAt, boolean alertEnabled) {}
 
     /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
     public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}

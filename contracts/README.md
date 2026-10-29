@@ -50,11 +50,11 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 
 ## 특징 입력 v2와 응답 v1
 
-[특징 입력 v2](inference-request.v2.schema.json)는 FastAPI `POST /v2/infer`와
-API `POST /v2/sessions/{UUID}/features`(v1 실시간이 남아 있는 동안)가 공유한다. 기존 FastAPI `/v1/infer`의 두 임시 특징은 보존한다.
+[특징 입력 v2](inference-request.v2.schema.json)는 FastAPI `POST /v2/infer`의 입력이다. API가 `/v2/realtime` 좌표 구간에서 계산해 보낸다.
+API의 HTTP 특징 입력 `POST /v2/sessions/{UUID}/features`(S2)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)). 기존 FastAPI `/v1/infer`의 두 임시 특징은 보존한다.
 [합성 요청](examples/v2/synthetic-feature-request.json)과
 [TS·Python 공유 합성 사례](examples/v2/reference-feature-cases.json)를 함께 검증한다.
-[합성 응답](examples/v2/synthetic-feature-response.json)은 이 요청의 1초 이탈 후보와 아직 확정 사건이 없는 요약을 보여준다.
+[합성 응답](examples/v2/synthetic-feature-response.json)은 이 요청의 1초 이탈 후보와 아직 확정 사건이 없는 요약을 보여준다(S2 응답 형식, 아래).
 
 | 필드 | 의미 |
 | --- | --- |
@@ -82,10 +82,10 @@ v2 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.03)*0.
 머리 높이·어깨 기울기 우세나 동점은 `unspecified`이며 전방 굽힘을 단정하지 않는다.
 출력은 관측 v2, 모델명은 `reference-feature-rule-v1`이다.
 
-API는 추론 관측을 판정 엔진에 넣고 [특징 응답 v1](feature-response.v1.schema.json)의
-`{schema_version:"1.0", observation, session}`으로 관측 v2와 최신 확인 조회 v1을 반환한다.
+[특징 응답 v1](feature-response.v1.schema.json)(`{schema_version:"1.0", observation, session}`)은 지운 S2의 응답 형식이다.
+API는 더 이상 내보내지 않지만, 부하 측정 도구(`tools/benchmark/`)가 `/v2/realtime`으로 옮겨질 때까지 계약과 시험을 남긴다(계획 0062).
 입력의 sequence·구간·phase와 관측의 대응, 조회의 수용 범위도 소비자가 검사한다.
-API는 요청 hash·원 추론 출력을 진행 중 세션마다 10,000건까지 메모리에 보관하여 동일 요청을 재시도한다.
+API는 진행 중 세션마다 최근 120개 구간의 요청 hash·추론 출력을 메모리에 두고 같은 순번의 중복을 알아본다(`/v2/realtime`은 중복을 409로 거절).
 고정 기준·고정 모델명·종료·재시작 뒤 404 유실(`SESSION_LOST`)은
 [서비스 안내](../backend/README.md)와 [ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)를 따른다.
 

@@ -2,20 +2,20 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `feature/repo-auth-refresh-token` 브랜치(2026-10-27, DB 스키마 V2.6)다.
+Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `fix/repo-backend-followup` 브랜치(2026-10-28, DB 스키마 V2.6)다.
 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
 | 추론 | FastAPI `POST /v2/infer` |
 | DB | MySQL 8.4 · 스키마 V2.6 |
-| 코드 기준 | `feature/repo-auth-refresh-token` (2026-10-27, develop 미병합) |
-| 개정 | 2026-10-27 (처음 2026-10-13) — [변경 이력](#변경-이력) |
+| 코드 기준 | `fix/repo-backend-followup` (2026-10-28, develop 미병합) |
+| 개정 | 2026-10-29 (처음 2026-10-13) — [변경 이력](#변경-이력) |
 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 구간 입력(S2)·기록 저장(R2)은 아직 남아 있다(앱 v2 전환 뒤 삭제, BE-1).
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
@@ -43,13 +43,23 @@ Spring Boot API가 제공하는 REST 22개와 WebSocket 1개(`/v2/realtime`)의 
 | 로그인 유지 | **refresh 토큰(14일)**은 HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`, HTTPS 배포에서 `POSEGOOD_COOKIE_SECURE=true`로 Secure)로만 준다. 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 [A8](#a8) `POST /v2/auth/refresh`로 새 토큰을 받는다. refresh 토큰은 쓸 때마다 바뀐다. |
 | 계정 확인 헤더 | 로그인이 필요한 경로 대부분(아래 "계정 헤더" 표시)에 `X-PoseGood-User-Id: <user_id>`를 붙인다. 로그인 계정과 다르면 `409 AUTH_CHANGED`. 다른 탭에서 계정이 바뀐 화면의 쓰기를 막는 용도이며 인증 수단이 아니다. |
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
-| 예시와 고정값 | 엔드포인트마다 있는 JSON 블록의 값은 **예시**다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. |
+| 요청·응답 값과 고정값 | **(실제)**가 붙은 JSON은 실제 서버가 주고받은 값이다(아래 「값을 받은 실행」). 토큰만 앞부분을 남기고 `…`로 줄였고, 배열이 긴 곳은 `"… N개 더"`로 줄였다. ID·시각·`user_id`는 호출마다 다르다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. 아직 코드가 없는 T1만 설계 예시다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
-| 멱등성 | 세션 생성(같은 정책·기준), 특징 입력(같은 sequence·같은 본문), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 재전송은 최근 120개 구간까지 알아보고, 더 오래된 순번은 역순으로 보아 409다. |
+| 멱등성 | 세션 생성(같은 정책·기준), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
 | 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:00, 전날 KST 하루치)가 한다(아키텍처 v5.2). 오늘 세션은 다음 날 일별 집계에 들어간다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
+
+**값을 받은 실행 (2026-10-29)**: 브랜치 `fix/repo-backend-followup`에서 API·추론 서버(FastAPI)·빈 MySQL(V2.6)을 띄우고, 합성 계정(`@example.invalid`)과 합성 좌표로 한 번에 호출했다(B1 예시만 10/29 되돌린 평균 형식으로 바꿈 — 좌표는 같은 값). 순서는 H1 → A2 → A4 → A3 → A8 → W1 → C1 → W2 → B1 → B2 → S1 → `/v2/realtime` 측정 → S4 → S3 → R1 → R3 → A6 → A3 → A5 → A7이다. 측정은 0.5초 구간 16개(관절 4프레임씩)로 이렇게 보냈다.
+
+| 시간 | 보낸 것 | 서버 판정 |
+|---|---|---|
+| 0 ~ 3초 | 머리(코·눈·귀·입)를 오른쪽 화면으로 0.09 옮긴 좌표 | 3초에 붕괴 확정(`left_lean`), 알림 |
+| 3 ~ 6초 | 기준과 같은 좌표 | 6초에 회복 확정 |
+| 6 ~ 7초 | `phase: rest`(쉬기) | 휴식 1초 |
+| 7 ~ 8초 | 사람 없음(`p: null`) | 판정 불가 1초 |
+| 8 ~ 9초 | 보내지 않음, 9초에 `end` | 누락 1초, 세션 종료 |
 
 로그인 방식은 2026-10-27 쿠키 세션 + 로그인 고정 30분에서 access·refresh 토큰으로 바꿨다([ADR 0031](../decisions/0031-jwt-access-refresh-login.md)).
 - access 토큰은 철회하지 않는다. 로그아웃·비밀번호 변경·탈퇴 뒤에도 남은 시간(최대 30분)은 통하고, refresh 토큰은 바로 막힌다. 열린 실시간 연결은 비밀번호 변경·탈퇴 때 바로 `closed(unauthorized)`로 닫힌다.
@@ -73,18 +83,18 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 403 | `ACCESS_DENIED` | 접근 거부 | — |
 | 403 | `ACCOUNT_CLOSED` | 탈퇴 접수한 계정으로 로그인 (철회 불가, 30일 뒤 삭제) | "탈퇴 처리 중, 30일 뒤 삭제" 안내 |
 | 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 | 측정 종료 |
-| 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 | 마지막 확인 요약으로 기록 저장 |
+| 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 | 측정 종료(마지막으로 받은 요약을 앱에 남김) |
 | 404 | `BASELINE_NOT_FOUND` | 등록된 기준 자세 없음 | 기준 등록 화면으로 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) | 설정 다시 불러오기. S6·R3에서는 "이 기록은 지울 수 없어요" |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) | 설정 다시 불러오기. R3에서는 "이 기록은 지울 수 없어요" |
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 | 계정 정보 다시 불러오기 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
-| 409 | `SESSION_ENDED` | 끝난 세션에 입력 | 측정 종료 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
-| 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 | 같은 요청 재시도 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
 | 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) | 같은 요청 재시도 |
+
+`SESSION_ENDED`(끝난 세션에 입력)·`INFERENCE_FAILED`(추론 실패)는 HTTP 특징 입력 S2와 함께 REST에서 없어졌다(2026-10-28). 실시간 연결에서는 각각 `closed(ended)`·`stalled`로 알린다(11.3·11.5).
 
 ## 3. 엔드포인트 목록
 
@@ -103,13 +113,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [B1](#b1) | POST | `/v2/baselines` | 필요 | 기준 자세 등록 | 200 |
 | [B2](#b2) | GET | `/v2/baselines/current` | 필요 | 현재 기준 자세 | 200 |
 | [S1](#s1) | PUT | `/v2/sessions/{id}` | 필요 | 세션 생성 | 200 |
-| [S2](#s2) | POST | `/v2/sessions/{id}/features` | 필요 | 특징 입력 → 추론 → 판정 | 200 |
 | [S3](#s3) | POST | `/v2/sessions/{id}/end` | 필요 | 세션 종료 | 200 |
 | [S4](#s4) | GET | `/v2/sessions/{id}` | 필요 | 세션 상태 조회 | 200 |
-| [S5](#s5) | GET | `/v2/sessions/{id}/metadata` | 필요 | 세션 메타데이터 | 200 |
-| [S6](#s6) | DELETE | `/v2/sessions/{id}` | 필요 | 세션 삭제 | 204 |
 | [R1](#r1) | GET | `/v2/records` | 필요 | 기록 목록 | 200 |
-| [R2](#r2) | POST | `/v2/records` | 필요 | 기록 저장 | 200 |
 | [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
 | [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | hello 토큰 | 좌표 프레임 측정, 판정 push | 101 |
@@ -146,14 +152,14 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `consents[].type` | `enum` | 필수 | TERMS, ACCOUNT_INFO, POSE_COORDINATES, MEASUREMENT_RECORD, AGE_14_OVER 모두 + 선택 OPTIONAL_PROFILE |
 | `consents[].document_version` | `string` | 필수 | **고정** `service-v2` |
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
-  "email": "user@example.com",
-  "password": "correct-horse-battery",
+  "email": "demo-c6904326@example.invalid",
+  "password": "synthetic-password-1",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
@@ -182,19 +188,19 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 }
 ```
 
-**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…; HttpOnly; SameSite=Lax; Path=/`
+**응답 200 (실제)** + `Set-Cookie: posegood_refresh=…; Path=/; Max-Age=1209600; Expires=Wed, 11 Nov 2026 16:05:04 GMT; HttpOnly; SameSite=Lax`
 
 ```json
 {
-  "user_id": "42",
-  "email": "user@example.com",
+  "user_id": "1",
+  "email": "demo-c6904326@example.invalid",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
-  "today": "2026-10-13",
-  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0MjQwMCwiZXhwIjoxNzYwMzQ0MjAwfQ.c2lnbmF0dXJl",
+  "today": "2026-10-29",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.…",
   "token_type": "Bearer",
   "expires_in": 1800
 }
@@ -219,28 +225,28 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - 없는 이메일도 더미 해시와 비교해서 응답 시간으로 계정 유무를 알 수 없게 한다.
 - 탈퇴 접수한(CLOSED) 계정은 로그인할 수 없다. 비밀번호가 맞으면 403 ACCOUNT_CLOSED로 따로 알려 앱이 "탈퇴 처리 중, 30일 뒤 삭제"를 안내하게 한다.
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
-  "email": "user@example.com",
-  "password": "correct-horse-battery"
+  "email": "demo-c6904326@example.invalid",
+  "password": "synthetic-password-1"
 }
 ```
 
-**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…`
+**응답 200 (실제)** + `Set-Cookie: posegood_refresh=…; Path=/; Max-Age=1209600; Expires=Wed, 11 Nov 2026 16:05:05 GMT; HttpOnly; SameSite=Lax`
 
 ```json
 {
-  "user_id": "42",
-  "email": "user@example.com",
+  "user_id": "1",
+  "email": "demo-c6904326@example.invalid",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
-  "today": "2026-10-13",
-  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0MjQwMCwiZXhwIjoxNzYwMzQ0MjAwfQ.c2lnbmF0dXJl",
+  "today": "2026-10-29",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.…",
   "token_type": "Bearer",
   "expires_in": 1800
 }
@@ -265,18 +271,18 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)**
 
 ```json
 {
-  "user_id": "42",
-  "email": "user@example.com",
+  "user_id": "1",
+  "email": "demo-c6904326@example.invalid",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
-  "today": "2026-10-13"
+  "today": "2026-10-29"
 }
 ```
 
@@ -297,7 +303,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 204**: 본문 없음 + `Set-Cookie: posegood_refresh=; Max-Age=0`
+**응답 204 (실제)**: 본문 없음 + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax`
 
 <a id="a6"></a>
 
@@ -315,16 +321,16 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `current_password` | `string` | 필수 | 현재 비밀번호 |
 | `new_password` | `string` | 필수 | 12자 이상, UTF-8 72바이트 이하 |
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
-  "current_password": "correct-horse-battery",
-  "new_password": "new-long-passphrase"
+  "current_password": "synthetic-password-1",
+  "new_password": "synthetic-password-2"
 }
 ```
 
-**응답 204**: 본문 없음
+**응답 204 (실제)**: 본문 없음 + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax`
 
 **오류**
 
@@ -345,15 +351,25 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - 되돌릴 수 없다(철회 없음). 유예 30일 동안 계정·기록은 그대로 두고, 유예가 끝나면 Spark J3(cron 매일 04:00)가 HDFS 사용자 폴더와 DB 행을 지운다. API는 삭제하지 않는다.
 - 최종 삭제 전까지 같은 이메일로 다시 가입할 수 없다(ACCOUNT_EXISTS).
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
-  "password": "correct-horse-battery"
+  "password": "synthetic-password-2"
 }
 ```
 
-**응답 204**: 본문 없음
+**응답 204 (실제)**: 본문 없음 + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax` (이 기기의 쿠키도 지운다)
+
+탈퇴한 계정으로 다시 로그인하면(비밀번호가 맞을 때) 실제로 이렇게 답한다.
+
+```json
+{
+  "code": "ACCOUNT_CLOSED",
+  "message": "account is closed and will be deleted 30 days after withdrawal",
+  "error": "account is closed and will be deleted 30 days after withdrawal"
+}
+```
 
 **오류**
 
@@ -377,15 +393,15 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)** + `Set-Cookie: posegood_refresh=…` (새 토큰)
+**응답 200 (실제)** + `Set-Cookie: posegood_refresh=…; Path=/; Max-Age=1209600; Expires=Wed, 11 Nov 2026 16:05:05 GMT; HttpOnly; SameSite=Lax` (새 토큰)
 
 ```json
 {
-  "user_id": "42",
-  "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsImlhdCI6MTc2MDM0NDEwMCwiZXhwIjoxNzYwMzQ1OTAwfQ.c2lnbmF0dXJl",
+  "user_id": "1",
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.…",
   "token_type": "Bearer",
   "expires_in": 1800,
-  "today": "2026-10-13"
+  "today": "2026-10-29"
 }
 ```
 
@@ -408,7 +424,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - 철회하면 기존 동의 행에 withdrawn_at을 기록하고 나이·직업을 NULL로 비운다.
 - 다시 동의하면 새 행을 추가한다. 같은 상태를 반복해서 보내면 아무것도 바뀌지 않는다.
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
@@ -417,13 +433,13 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 }
 ```
 
-**응답 200 (예시)** W1과 같은 형식
+**응답 200 (실제)** W1과 같은 형식
 
 ```json
 {
   "schema_version": "2.0",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
@@ -434,10 +450,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "threshold": 0.7
   },
   "preferences": {
-    "alerts_on": false
+    "alerts_on": true
   },
   "consents": {
-    "optional_profile": false
+    "optional_profile": true
   },
   "records": []
 }
@@ -462,13 +478,13 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)** — 가입 직후(기록 없음, 새 계정 기본값)
 
 ```json
 {
   "schema_version": "2.0",
   "profile": {
-    "name": "홍길동",
+    "name": "합성 사용자",
     "age": null,
     "occupation": null
   },
@@ -515,14 +531,14 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `rules.threshold` | `number` | 필수 | 붕괴 확률 임계값. 0 초과 1 이하, 소수 셋째 자리까지 |
 | `preferences.alerts_on` | `boolean` | 필수 | 자세 알림 켜기(sound_alert_enabled) |
 
-**요청 본문 (예시)**
+**요청 본문 (실제)** — C1로 선택 정보에 동의한 뒤
 
 ```json
 {
   "profile": {
-    "name": "홍길동",
-    "age": null,
-    "occupation": null
+    "name": "합성 사용자",
+    "age": 30,
+    "occupation": "합성 시험"
   },
   "rules": {
     "holdSeconds": 3,
@@ -536,15 +552,15 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 }
 ```
 
-**응답 200 (예시)** W1과 같은 형식
+**응답 200 (실제)** W1과 같은 형식
 
 ```json
 {
   "schema_version": "2.0",
   "profile": {
-    "name": "홍길동",
-    "age": null,
-    "occupation": null
+    "name": "합성 사용자",
+    "age": 30,
+    "occupation": "합성 시험"
   },
   "rules": {
     "holdSeconds": 3,
@@ -553,10 +569,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "threshold": 0.7
   },
   "preferences": {
-    "alerts_on": false
+    "alerts_on": true
   },
   "consents": {
-    "optional_profile": false
+    "optional_profile": true
   },
   "records": []
 }
@@ -597,44 +613,44 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `sample_count` | `int` | 필수 | 20~100,000 (검증만 하고 저장하지 않음) |
 | `landmarks.{관절}` | `{x, y}` | 필수 | nose, left_eye, right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder. 각 0~1 |
 
-**요청 본문 (예시)**
+**요청 본문 (실제 — `tools/service_smoke.py`가 보내는 합성 평균)**
 
 ```json
 {
-  "registration_id": "3f2b8c1e-7a4d-4e9b-9c61-0d5a2e8f4b17",
-  "calibration_ms": 5000,
-  "sample_count": 120,
+  "registration_id": "7cc9f623-03be-4303-8a88-8da7e86b8a24",
+  "calibration_ms": 3000,
+  "sample_count": 20,
   "landmarks": {
-    "nose": {
-      "x": 0.50112,
-      "y": 0.41873
-    },
-    "left_eye": {
-      "x": 0.52741,
-      "y": 0.38902
-    },
-    "...": "right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder"
+    "nose": { "x": 0.5, "y": 0.4 },
+    "left_eye": { "x": 0.52, "y": 0.37 },
+    "right_eye": { "x": 0.48, "y": 0.37 },
+    "left_ear": { "x": 0.56, "y": 0.38 },
+    "right_ear": { "x": 0.44, "y": 0.38 },
+    "mouth_left": { "x": 0.515, "y": 0.45 },
+    "mouth_right": { "x": 0.485, "y": 0.45 },
+    "left_shoulder": { "x": 0.65, "y": 0.62 },
+    "right_shoulder": { "x": 0.35, "y": 0.62 }
   }
 }
 ```
 
-**응답 200 (예시)**
+**응답 200 (실제)**
 
 ```json
 {
   "schema_version": "2.0",
-  "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-  "registered_at": "2026-10-13T08:00:00.000Z",
+  "baseline_id": "6a455fa8-04c6-3fec-bcfb-023f759553cb",
+  "registered_at": "2026-10-28T16:05:05.485Z",
   "landmarks": {
-    "nose": {
-      "x": 0.50112,
-      "y": 0.41873
-    },
-    "left_eye": {
-      "x": 0.52741,
-      "y": 0.38902
-    },
-    "...": "right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder"
+    "nose": { "x": 0.5, "y": 0.4 },
+    "left_eye": { "x": 0.52, "y": 0.37 },
+    "right_eye": { "x": 0.48, "y": 0.37 },
+    "left_ear": { "x": 0.56, "y": 0.38 },
+    "right_ear": { "x": 0.44, "y": 0.38 },
+    "mouth_left": { "x": 0.515, "y": 0.45 },
+    "mouth_right": { "x": 0.485, "y": 0.45 },
+    "left_shoulder": { "x": 0.65, "y": 0.62 },
+    "right_shoulder": { "x": 0.35, "y": 0.62 }
   }
 }
 ```
@@ -644,7 +660,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | HTTP | code | 의미 |
 |---|---|---|
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 
 <a id="b2"></a>
@@ -657,23 +673,23 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)** — B1 직후라 B1 응답과 같다
 
 ```json
 {
   "schema_version": "2.0",
-  "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-  "registered_at": "2026-10-13T08:00:00.000Z",
+  "baseline_id": "6a455fa8-04c6-3fec-bcfb-023f759553cb",
+  "registered_at": "2026-10-28T16:05:05.485Z",
   "landmarks": {
-    "nose": {
-      "x": 0.50112,
-      "y": 0.41873
-    },
-    "left_eye": {
-      "x": 0.52741,
-      "y": 0.38902
-    },
-    "...": "right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder"
+    "nose": { "x": 0.5, "y": 0.4 },
+    "left_eye": { "x": 0.52, "y": 0.37 },
+    "right_eye": { "x": 0.48, "y": 0.37 },
+    "left_ear": { "x": 0.56, "y": 0.38 },
+    "right_ear": { "x": 0.44, "y": 0.38 },
+    "mouth_left": { "x": 0.515, "y": 0.45 },
+    "mouth_right": { "x": 0.485, "y": 0.45 },
+    "left_shoulder": { "x": 0.65, "y": 0.62 },
+    "right_shoulder": { "x": 0.35, "y": 0.62 }
   }
 }
 ```
@@ -697,7 +713,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - policy와 baseline_id는 계정의 현재 정책·현재 기준과 같아야 한다(설정 화면에서 받은 값을 그대로 보냄).
 - monitor_session에 정책·기준·알림 설정을 고정하고 메모리에 판정 엔진을 만든다.
 - 같은 UUID·같은 본문 재시도는 같은 세션을 돌려준다.
-- 응답은 처음·재시도 모두 200 SessionView(빈 요약, ended:false)다. started_at·baseline_id·alert_enabled는 응답에 없다 — 시작 시각은 S5, 알림 여부는 W1의 preferences.alerts_on, 기준은 B2로 확인한다.
+- 응답은 처음·재시도 모두 200 SessionView(빈 요약, ended:false)다. started_at·baseline_id·alert_enabled는 응답에 없다 — 시작 시각은 WS `ready.started_at`, 알림 여부는 W1의 preferences.alerts_on, 기준은 B2로 확인한다.
 
 **요청 필드**
 
@@ -709,7 +725,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `policy.threshold` | `number` | 필수 | 0 초과 1 이하 |
 | `baseline_id` | `UUID` | 필수 | B2의 baseline_id |
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
@@ -719,16 +735,16 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
     "reminder_ms": 60000,
     "threshold": 0.7
   },
-  "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60"
+  "baseline_id": "6a455fa8-04c6-3fec-bcfb-023f759553cb"
 }
 ```
 
-**응답 200 (예시)**
+**응답 200 (실제)**
 
 ```json
 {
   "schema_version": "1.0",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+  "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
   "policy": {
     "hold_ms": 3000,
     "recovery_ms": 3000,
@@ -763,7 +779,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
@@ -772,81 +788,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="s2"></a>
 
-### S2 · `POST /v2/sessions/{id}/features` — 특징 입력 → 추론 → 판정
+### S2 · ~~`POST /v2/sessions/{id}/features`~~ — 삭제 (2026-10-28)
 
-로그인 필요 · 계정 헤더
-
-- 구간 하나(1~1,500ms)의 특징을 받아 FastAPI에 추론을 요청하고, 결과로 판정 엔진을 진행시킨다.
-- 세션 잠금 안에서 순서대로 처리한다. sequence는 이전보다 커야 하고 start_ms는 이전 구간 끝 이상이어야 한다.
-- 구간 사이 빈 시간은 MISSING으로 제외하고, 순번만 건너뛰면 연속 누적을 끊는다.
-- 새 사건(붕괴 확정·재알림·회복·중단)은 응답 전에 DB에 쓴다.
-
-**요청 필드**
-
-| 필드 | 타입 | 필수 | 규칙 |
-|---|---|---|---|
-| `schema_version` | `string` | 필수 | **고정** `"2.0"` |
-| `feature_version` | `string` | 필수 | **고정** `"shoulder-relative-deltas-v1"` |
-| `baseline_id` | `UUID` | 필수 | 세션에 고정된 기준과 같아야 함 |
-| `sequence` | `long` | 필수 | 0부터 증가 |
-| `start_ms / end_ms` | `long` | 필수 | 세션 시작부터 경과 ms. 길이 1~1,500ms |
-| `phase` | `enum` | 필수 | running · rest(휴식) · away(자리 비움) |
-| `measurement_quality` | `enum` | 필수 | good · poor |
-| `features` | `object \| null` | 선택 | 어깨 폭으로 정규화한 (현재 − 기준) 변화량과 품질. 측정 불가면 null |
-
-**요청 본문 (예시)**
-
-```json
-{
-  "schema_version": "2.0",
-  "feature_version": "shoulder-relative-deltas-v1",
-  "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-  "sequence": 41,
-  "start_ms": 41000,
-  "end_ms": 42000,
-  "phase": "running",
-  "measurement_quality": "good",
-  "features": {
-    "head_gap_delta": -0.081,
-    "lateral_offset_delta": 0.012,
-    "shoulder_tilt_delta": 0.02,
-    "current_quality": 0.93,
-    "baseline_quality": 0.95
-  }
-}
-```
-
-**응답 200 (예시)**
-
-```json
-{
-  "schema_version": "1.0",
-  "observation": {
-    "schema_version": "2.0",
-    "sequence": 41,
-    "start_ms": 41000,
-    "end_ms": 42000,
-    "phase": "running",
-    "valid": true,
-    "collapse_probability": 0.82,
-    "deviation_type": "forward_slouch",
-    "model_version": "reference-feature-rule-v1"
-  },
-  "session": "{ SessionView }"
-}
-```
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
-| 409 | `SESSION_ENDED` | 끝난 세션에 입력 |
-| 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
-| 502 | `INFERENCE_FAILED` | 추론 서비스 실패·응답 계약 불일치 |
-| 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
-| 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
-| 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
+앱은 `/v2/realtime`으로만 측정한다(ADR 0021). HTTP 특징 입력과 응답 계약 [특징 응답 v1](../../contracts/feature-response.v1.schema.json)의 API 쪽은 [계획 0062](../plans/active/0062-remove-unused-apis.md)로 지웠다. 판정 규칙(구간 순서, 빈 시간은 MISSING, 새 사건은 응답 전에 DB 기록)은 [11.3](#113-측정--서버가-하는-일)에 있다.
 
 <a id="s3"></a>
 
@@ -858,25 +802,99 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - monitor_session 종료 시각·good_sec과 excluded_interval을 한 트랜잭션으로 한 번만 반영한다. daily_stat은 쓰지 않는다(Spark J2가 다음 날 00:00에 집계).
 - 응답은 200 SessionView(ended:true). 같은 end_ms 재시도는 같은 결과, 이미 끝난 세션에 다른 end_ms를 보내면 409 CONFLICT.
 
-**요청 본문 (예시)**
+**요청 본문 (실제)**
 
 ```json
 {
-  "end_ms": 600000
+  "end_ms": 9000
 }
 ```
 
-**응답 200 (예시)**
+**응답 200 (실제)** — 실시간 연결의 `end`(9000)로 이미 끝난 세션에 같은 `end_ms`를 보냄
 
-```text
-{ SessionView, ended: true }
+```json
+{
+  "schema_version": "1.0",
+  "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+  "policy": {
+    "hold_ms": 3000,
+    "recovery_ms": 3000,
+    "reminder_ms": 60000,
+    "threshold": 0.7
+  },
+  "timer_policy": "legacy-interrupt-v1",
+  "ended": true,
+  "last_sequence": 15,
+  "summary": {
+    "total_ms": 9000,
+    "valid_ms": 6000,
+    "normal_ms": 3000,
+    "deviation_ms": 3000,
+    "rest_ms": 1000,
+    "away_ms": 0,
+    "unknown_ms": 1000,
+    "missing_ms": 1000,
+    "collapse_count": 1,
+    "alert_count": 1,
+    "interval_count": 0,
+    "keep_rate": 0.5,
+    "events_per_hour": 600.0,
+    "mean_interval_ms": null,
+    "mean_recovery_ms": 3000.0
+  },
+  "events": [
+    {
+      "schema_version": "1.0",
+      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+      "event_id": 1,
+      "kind": "collapse_confirmed",
+      "timestamp_ms": 3000,
+      "onset_ms": 0,
+      "onset_valid_ms": 0,
+      "deviation_type": "left_lean",
+      "reason": null
+    },
+    {
+      "schema_version": "1.0",
+      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+      "event_id": 2,
+      "kind": "recovery_confirmed",
+      "timestamp_ms": 6000,
+      "onset_ms": 0,
+      "onset_valid_ms": 0,
+      "deviation_type": "left_lean",
+      "reason": null
+    },
+    {
+      "schema_version": "1.0",
+      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+      "event_id": 3,
+      "kind": "session_ended",
+      "timestamp_ms": 9000,
+      "onset_ms": 9000,
+      "onset_valid_ms": 6000,
+      "deviation_type": "none",
+      "reason": "ended"
+    }
+  ]
+}
+```
+
+**응답 409 (실제)** — 같은 세션에 다른 `end_ms`(9500)
+
+```json
+{
+  "code": "CONFLICT",
+  "message": "conflicting session end",
+  "error": "conflicting session end"
+}
 ```
 
 **오류**
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
 | 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
@@ -891,12 +909,12 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)** — 측정 4.5초(구간 9개) 시점
 
 ```json
 {
   "schema_version": "1.0",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+  "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
   "policy": {
     "hold_ms": 3000,
     "recovery_ms": 3000,
@@ -905,34 +923,34 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
   },
   "timer_policy": "legacy-interrupt-v1",
   "ended": false,
-  "last_sequence": 41,
+  "last_sequence": 8,
   "summary": {
-    "total_ms": 42000,
-    "valid_ms": 40000,
-    "normal_ms": 33000,
-    "deviation_ms": 7000,
+    "total_ms": 4500,
+    "valid_ms": 4500,
+    "normal_ms": 1500,
+    "deviation_ms": 3000,
     "rest_ms": 0,
     "away_ms": 0,
-    "unknown_ms": 2000,
+    "unknown_ms": 0,
     "missing_ms": 0,
     "collapse_count": 1,
     "alert_count": 1,
     "interval_count": 0,
-    "keep_rate": 0.825,
-    "events_per_hour": 90,
+    "keep_rate": 0.3333333333333333,
+    "events_per_hour": 800.0,
     "mean_interval_ms": null,
     "mean_recovery_ms": null
   },
   "events": [
     {
       "schema_version": "1.0",
-      "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
+      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
       "event_id": 1,
       "kind": "collapse_confirmed",
-      "timestamp_ms": 38000,
-      "onset_ms": 35000,
-      "onset_valid_ms": 33000,
-      "deviation_type": "forward_slouch",
+      "timestamp_ms": 3000,
+      "onset_ms": 0,
+      "onset_valid_ms": 0,
+      "deviation_type": "left_lean",
       "reason": null
     }
   ]
@@ -948,54 +966,19 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="s5"></a>
 
-### S5 · `GET /v2/sessions/{id}/metadata` — 세션 메타데이터
+### S5 · ~~`GET /v2/sessions/{id}/metadata`~~ — 삭제 (2026-10-28)
 
-로그인 필요 · 계정 헤더
-
-- DB 행 기준이라 재시작 뒤에도 조회된다. model_version은 메모리에 상태가 있고 관측이 1건 이상일 때만 채운다.
-
-**요청 본문**: 없음
-
-**응답 200 (예시)**
-
-```json
-{
-  "started_at": "2026-10-13T08:00:00.000Z",
-  "ended_at": null,
-  "baseline_id": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-  "model_version": "reference-feature-rule-v1"
-}
-```
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 |
+쓰는 화면이 없었다. 시작·종료 시각은 WS `ready.started_at`·`closed.ended_at`, 기준 자세는 B2, 저장된 세션은 R1로 본다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 <a id="s6"></a>
 
-### S6 · `DELETE /v2/sessions/{id}` — 세션 삭제
+### S6 · ~~`DELETE /v2/sessions/{id}`~~ — 삭제 (2026-10-28)
 
-로그인 필요 · 계정 헤더
-
-- monitor_session과 하위 행(사건·알림·제외 구간)을 지운다. 일별 통계는 그대로 둔다.
-- 특징 적재 파일(feature_archive)이 연결돼 있으면(J1이 HDFS에 적재한 세션) 409 CONFLICT. 적재된 기록은 사용자가 지울 수 없고, 탈퇴하면 J3가 모두 지운다. 전용 코드는 두지 않는다(10/15).
-
-**요청 본문**: 없음
-
-**응답 204**: 본문 없음
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+[R3](#r3) `DELETE /v2/records/{id}`와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 ## 8. 기록·시스템
 
-앱 기록 원문은 저장하지 않는다. 저장 요청은 서버 판정과 대조한 뒤 세션을 닫는 데 쓰고, 조회는 세션 테이블에서 다시 만든다.
+앱 기록 원문은 받지 않는다. 측정은 서버가 종료 때 저장하고(기록 저장 R2는 2026-10-28 삭제), 조회는 세션 테이블에서 다시 만든다.
 
 <a id="r1"></a>
 
@@ -1005,39 +988,41 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 - 닫힌 세션을 최신순으로 RecordItem 목록(`records`)으로 돌려준다. 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
 - **2026-10-27부터 배열 대신 객체 `{today, records}`다(BE-6). 예전처럼 배열로 읽으면 깨진다.**
-- 자세 방향은 저장 칸이 없어 unspecified, 바른 자세 시간은 0.1초 정밀도다.
+- 자세 방향은 DB에 저장 칸이 없다. 그래서 측정 중에는 `left_lean`이던 사건도 R1에서는 `server.view`의 `deviation_type`이 `unspecified`, 기록 사건 `type`이 `referenceChange`다(아래 실제 응답). 바른 자세 시간은 0.1초 정밀도다.
+- 시간 값(`valid`·`good`·`total`, 사건의 `startAt`·`confirmedAt` 등)은 초 단위 소수(`6.0`)다. `server.view`는 문자열이 아니라 SessionView 객체이고, 다시 만든 것이라 `last_sequence`는 -1이다.
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)**
 
 ```json
 {
-  "today": "2026-10-13",
+  "today": "2026-10-29",
   "records": [
     {
-      "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-      "startedAt": "2026-10-13T08:00:00.000Z",
-      "endedAt": "2026-10-13T08:10:00.000Z",
+      "id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+      "startedAt": "2026-10-28T16:05:05.551Z",
+      "endedAt": "2026-10-28T16:05:14.551Z",
       "mode": "camera",
-      "valid": 580,
-      "good": 520,
-      "total": 600,
+      "valid": 6.0,
+      "good": 3.0,
+      "total": 9.0,
       "events": [
         {
           "id": 1,
-          "type": "forwardHead",
-          "startAt": 35,
-          "confirmedAt": 38,
-          "endAt": 44,
-          "durationSec": 9,
+          "type": "referenceChange",
+          "startAt": 0.0,
+          "validStartAt": 0.0,
+          "confirmedAt": 3.0,
+          "endAt": 6.0,
+          "durationSec": 6.0,
           "alerts": 1,
-          "blockId": 0,
+          "firstAlertAt": 3.0,
           "recovered": true,
+          "recoverySec": 3.0,
           "endedBySession": false,
           "endReason": null,
-          "firstAlertAt": 38,
-          "recoverySec": 6
+          "blockId": 0
         }
       ],
       "rules": {
@@ -1047,10 +1032,74 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
         "threshold": 0.7
       },
       "server": {
-        "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
+        "baselineId": "6a455fa8-04c6-3fec-bcfb-023f759553cb",
         "modelVersion": "reference-feature-rule-v1",
         "confirmed": true,
-        "view": "{ SessionView, ended: true }"
+        "view": {
+          "schema_version": "1.0",
+          "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+          "policy": {
+            "hold_ms": 3000,
+            "recovery_ms": 3000,
+            "reminder_ms": 60000,
+            "threshold": 0.7
+          },
+          "timer_policy": "legacy-interrupt-v1",
+          "ended": true,
+          "last_sequence": -1,
+          "summary": {
+            "total_ms": 9000,
+            "valid_ms": 6000,
+            "normal_ms": 3000,
+            "deviation_ms": 3000,
+            "rest_ms": 1000,
+            "away_ms": 0,
+            "unknown_ms": 1000,
+            "missing_ms": 1000,
+            "collapse_count": 1,
+            "alert_count": 1,
+            "interval_count": 0,
+            "keep_rate": 0.5,
+            "events_per_hour": 600.0,
+            "mean_interval_ms": null,
+            "mean_recovery_ms": 3000.0
+          },
+          "events": [
+            {
+              "schema_version": "1.0",
+              "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+              "event_id": 1,
+              "kind": "collapse_confirmed",
+              "timestamp_ms": 3000,
+              "onset_ms": 0,
+              "onset_valid_ms": 0,
+              "deviation_type": "unspecified",
+              "reason": null
+            },
+            {
+              "schema_version": "1.0",
+              "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+              "event_id": 2,
+              "kind": "recovery_confirmed",
+              "timestamp_ms": 6000,
+              "onset_ms": 0,
+              "onset_valid_ms": 0,
+              "deviation_type": "unspecified",
+              "reason": null
+            },
+            {
+              "schema_version": "1.0",
+              "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
+              "event_id": 3,
+              "kind": "session_ended",
+              "timestamp_ms": 9000,
+              "onset_ms": 9000,
+              "onset_valid_ms": 6000,
+              "deviation_type": "none",
+              "reason": "ended"
+            }
+          ]
+        }
       }
     }
   ]
@@ -1065,109 +1114,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="r2"></a>
 
-### R2 · `POST /v2/records` — 기록 저장
+### R2 · ~~`POST /v2/records`~~ — 삭제 (2026-10-28)
 
-로그인 필요 · 계정 헤더
-
-- server가 포함된 카메라 측정 기록만 받는다.
-- 합계·사건·정책·기준·모델 버전이 서버가 확인해 준 판정과 다르면 409.
-- 통과하면 아직 열린 세션을 닫는다. 메모리 상태가 없으면 전체를 MISSING으로 제외하고 good_sec=0으로 닫는다.
-- 응답은 보낸 기록에서 날짜만 DB 시각으로 바꾼 것이다.
-
-**요청 본문 (예시)**
-
-```json
-{
-  "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "startedAt": "2026-10-13T08:00:00.000Z",
-  "endedAt": "2026-10-13T08:10:00.000Z",
-  "mode": "camera",
-  "valid": 580,
-  "good": 520,
-  "total": 600,
-  "events": [
-    {
-      "id": 1,
-      "type": "forwardHead",
-      "startAt": 35,
-      "confirmedAt": 38,
-      "endAt": 44,
-      "durationSec": 9,
-      "alerts": 1,
-      "blockId": 0,
-      "recovered": true,
-      "endedBySession": false,
-      "endReason": null,
-      "firstAlertAt": 38,
-      "recoverySec": 6
-    }
-  ],
-  "rules": {
-    "holdSeconds": 3,
-    "recoverSeconds": 3,
-    "realertSeconds": 60,
-    "threshold": 0.7
-  },
-  "server": {
-    "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-    "modelVersion": "reference-feature-rule-v1",
-    "confirmed": true,
-    "view": "{ SessionView, ended: true }"
-  }
-}
-```
-
-**응답 200 (예시)**
-
-```json
-{
-  "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "startedAt": "2026-10-13T08:00:00.000Z",
-  "endedAt": "2026-10-13T08:10:00.000Z",
-  "mode": "camera",
-  "valid": 580,
-  "good": 520,
-  "total": 600,
-  "events": [
-    {
-      "id": 1,
-      "type": "forwardHead",
-      "startAt": 35,
-      "confirmedAt": 38,
-      "endAt": 44,
-      "durationSec": 9,
-      "alerts": 1,
-      "blockId": 0,
-      "recovered": true,
-      "endedBySession": false,
-      "endReason": null,
-      "firstAlertAt": 38,
-      "recoverySec": 6
-    }
-  ],
-  "rules": {
-    "holdSeconds": 3,
-    "recoverSeconds": 3,
-    "realertSeconds": 60,
-    "threshold": 0.7
-  },
-  "server": {
-    "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-    "modelVersion": "reference-feature-rule-v1",
-    "confirmed": true,
-    "view": "{ SessionView, ended: true }"
-  }
-}
-```
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
-| 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 |
-| 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
+앱 기록을 서버 판정과 대조해 세션을 닫던 경로다. 측정은 서버가 종료(`end`·연결 끊김·S3) 때 직접 저장하므로 앱이 보내지 않는다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
+API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던 일도 이 경로가 했다. 지금은 그 행이 열린 채 남고 R1에 나오지 않는다(계획 0062 남은 일).
 
 <a id="r3"></a>
 
@@ -1175,8 +1125,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 로그인 필요 · 계정 헤더
 
-- S6과 같다. UUID가 아닌 ID나 이미 없는 세션은 204로 조용히 넘어간다.
-- 409 CONFLICT = HDFS에 적재된 기록이라 지울 수 없음. 앱은 R3에서 받은 409를 이 뜻으로 본다.
+- 그 기록(= 세션, `monitor_session`)과 하위 행(사건·알림·제외 구간)을 지운다. 일별 통계는 그대로 둔다.
+- UUID가 아닌 ID나 이미 없는 세션은 204로 조용히 넘어간다.
+- 409 CONFLICT = 특징 적재 파일(feature_archive)이 연결돼 있어(J1이 HDFS에 적재한 세션) 지울 수 없음. 앱은 R3에서 받은 409를 이 뜻으로 본다. 탈퇴하면 J3가 모두 지운다.
 
 **요청 본문**: 없음
 
@@ -1186,7 +1137,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 역순·겹침 구간, 설정·기준 변경, 기록 불일치, HDFS에 적재된 기록 삭제(S6·R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
 
 <a id="t1"></a>
 
@@ -1211,7 +1162,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `from` | `YYYY-MM-DD` | 필수 | 시작 날짜(KST) |
 | `to` | `YYYY-MM-DD` | 필수 | 끝 날짜(KST, 포함). 오늘 이후면 어제로 자름. 자른 뒤 `from`보다 앞이면 `days`는 빈 배열 |
 
-**응답 200 (예시)** — 10/26에 10/24~10/30을 요청한 경우
+**응답 200 (설계 예시, 코드 없음)** — 10/26에 10/24~10/30을 요청한 경우
 
 ```json
 {
@@ -1266,7 +1217,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 **요청 본문**: 없음
 
-**응답 200 (예시)**
+**응답 200 (실제)**
 
 ```json
 {
@@ -1285,53 +1236,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### SessionView — 세션 조회 (schema 1.0)
 
-S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summary`)를 쓴다. 아래 값은 예시다.
+S1·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summary`)를 쓴다. 실제 값은 [S1](#s1)(빈 세션), [S4](#s4)(측정 4.5초, 진행 중), [S3](#s3)(9초에 끝난 세션)에 있다.
 
-```json
-{
-  "schema_version": "1.0",
-  "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "policy": {
-    "hold_ms": 3000,
-    "recovery_ms": 3000,
-    "reminder_ms": 60000,
-    "threshold": 0.7
-  },
-  "timer_policy": "legacy-interrupt-v1",
-  "ended": false,
-  "last_sequence": 41,
-  "summary": {
-    "total_ms": 42000,
-    "valid_ms": 40000,
-    "normal_ms": 33000,
-    "deviation_ms": 7000,
-    "rest_ms": 0,
-    "away_ms": 0,
-    "unknown_ms": 2000,
-    "missing_ms": 0,
-    "collapse_count": 1,
-    "alert_count": 1,
-    "interval_count": 0,
-    "keep_rate": 0.825,
-    "events_per_hour": 90,
-    "mean_interval_ms": null,
-    "mean_recovery_ms": null
-  },
-  "events": [
-    {
-      "schema_version": "1.0",
-      "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-      "event_id": 1,
-      "kind": "collapse_confirmed",
-      "timestamp_ms": 38000,
-      "onset_ms": 35000,
-      "onset_valid_ms": 33000,
-      "deviation_type": "forward_slouch",
-      "reason": null
-    }
-  ]
-}
-```
+실제 실행에서 확인한 것: 붕괴 사건은 `recovery_confirmed`에도 붕괴 때의 `onset_ms`·`deviation_type`이 그대로 붙는다. `session_ended`는 `onset_ms` = 종료 시각, `deviation_type: "none"`, `reason: "ended"`다. `keep_rate`·`events_per_hour`는 유효 시간이 생긴 첫 구간부터 숫자(0.0)다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
@@ -1349,23 +1256,27 @@ S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 �
 
 ### Observation — 추론 결과 (schema 2.0)
 
+API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 않는다). 아래는 계약 예시 요청 [`synthetic-feature-request.json`](../../contracts/examples/v2/synthetic-feature-request.json)(`lateral_offset_delta` 0.2)을 실제 추론 코드에 보낸 응답이다. 점수 = min(1, 0.2 ÷ 0.20) × 0.7 = 0.7.
+
+**응답 200 (실제)**
+
 ```json
 {
   "schema_version": "2.0",
-  "sequence": 41,
-  "start_ms": 41000,
-  "end_ms": 42000,
+  "sequence": 0,
+  "start_ms": 0,
+  "end_ms": 1000,
   "phase": "running",
   "valid": true,
-  "collapse_probability": 0.82,
-  "deviation_type": "forward_slouch",
+  "collapse_probability": 0.7,
+  "deviation_type": "left_lean",
   "model_version": "reference-feature-rule-v1"
 }
 ```
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `sequence` · `start_ms` · `end_ms` · `phase` | - | 요청과 반드시 같다. 다르면 API가 `502 INFERENCE_FAILED`로 거절한다. |
+| `sequence` · `start_ms` · `end_ms` · `phase` | - | 요청과 반드시 같다. 다르면 API가 추론 실패로 본다(실시간 연결에는 `stalled`). |
 | `valid` | boolean | 판정에 쓸 수 있는 구간인지. `phase`가 running이 아니거나, `measurement_quality`가 poor이거나, 품질 값이 0.65 미만이면 반드시 false. |
 | `collapse_probability` | 0 ~ 1 | 붕괴 확률. 정책의 `threshold` 이상이면 이탈 후보. `valid=false`이면 0. |
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
@@ -1375,18 +1286,38 @@ S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 �
 
 `/v2/realtime`의 `observation` 메시지에 담긴다. 추론 응답(2.0)을 API가 바꿔 보낸다.
 
+**실제** — 머리를 옮긴 구간(순번 5). 기울임이 커서 점수가 1.0까지 올라간다.
+
 ```json
 {
   "schema_version": "3.0",
-  "sequence": 42,
-  "start_ms": 21000,
-  "end_ms": 21500,
+  "sequence": 5,
+  "start_ms": 2500,
+  "end_ms": 3000,
   "phase": "running",
   "valid": true,
   "valid_ms": 500,
-  "collapse_probability": 0.82,
-  "deviation_type": "forward_slouch",
+  "collapse_probability": 1.0,
+  "deviation_type": "left_lean",
   "invalid_reason": null,
+  "model_version": "reference-feature-rule-v1"
+}
+```
+
+**실제** — 사람이 없는 구간(순번 14, 모든 프레임 `p: null`). 쉬기(`rest`) 구간도 `phase`만 다르고 같은 모양이다.
+
+```json
+{
+  "schema_version": "3.0",
+  "sequence": 14,
+  "start_ms": 7000,
+  "end_ms": 7500,
+  "phase": "running",
+  "valid": false,
+  "valid_ms": 0,
+  "collapse_probability": 0.0,
+  "deviation_type": "none",
+  "invalid_reason": "unmeasurable",
   "model_version": "reference-feature-rule-v1"
 }
 ```
@@ -1399,48 +1330,22 @@ S1·S2·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 �
 
 ### RecordItem — 앱 기록 (camelCase)
 
-R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 사건 시각은 초 단위다.
+R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실제 값은 [R1](#r1)에 있다. 시간은 모두 초 단위 소수다.
 
-```json
-{
-  "id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90",
-  "startedAt": "2026-10-13T08:00:00.000Z",
-  "endedAt": "2026-10-13T08:10:00.000Z",
-  "mode": "camera",
-  "valid": 580,
-  "good": 520,
-  "total": 600,
-  "events": [
-    {
-      "id": 1,
-      "type": "forwardHead",
-      "startAt": 35,
-      "confirmedAt": 38,
-      "endAt": 44,
-      "durationSec": 9,
-      "alerts": 1,
-      "blockId": 0,
-      "recovered": true,
-      "endedBySession": false,
-      "endReason": null,
-      "firstAlertAt": 38,
-      "recoverySec": 6
-    }
-  ],
-  "rules": {
-    "holdSeconds": 3,
-    "recoverSeconds": 3,
-    "realertSeconds": 60,
-    "threshold": 0.7
-  },
-  "server": {
-    "baselineId": "9b1c0e0a-2c4d-3f6a-8e1b-5a7c9d2e4f60",
-    "modelVersion": "reference-feature-rule-v1",
-    "confirmed": true,
-    "view": "{ SessionView, ended: true }"
-  }
-}
-```
+| 필드 | 설명 |
+|---|---|
+| `id`·`startedAt`·`endedAt` | 세션 UUID, DB 시작·종료 시각(UTC) |
+| `mode` | 항상 `camera` |
+| `valid`·`good`·`total` | 다시 만든 요약의 유효·바른 자세(`normal_ms`)·전체 시간(초). `server.view`가 null이면 모두 0 |
+| `events[].type` | 자세 방향이 DB에 없어 지금은 항상 `referenceChange`(`forward_slouch`이면 `forwardHead`, 좌우면 `tilt`로 바꾸는 코드는 있음) |
+| `events[].startAt`·`validStartAt`·`confirmedAt`·`endAt` | 이탈 시작(전체·유효 시간 축), 붕괴 확정, 끝난 시각(초) |
+| `events[].durationSec`·`alerts`·`firstAlertAt` | `endAt − startAt`, 알림 횟수(최초 + 재알림), 첫 알림 시각 |
+| `events[].recovered`·`recoverySec` | 회복 확정이면 true와 `endAt − firstAlertAt`, 아니면 false와 null |
+| `events[].endedBySession`·`endReason` | 세션 종료로 끊긴 사건이면 true·`ended`. 쉬기는 `paused`, 그 밖의 중단은 `unknown`, 회복이면 null |
+| `events[].blockId` | 회복 없이 끊길 때마다 1씩 늘어나는 묶음 번호 |
+| `rules` | 세션에 고정된 판정 기준(W1 `rules`와 같은 형식) |
+| `server.baselineId`·`modelVersion`·`confirmed` | 세션 기준 자세, 모델 이름(`server.view`가 null이거나 측정 시간이 0이면 `unmeasured`), 서버에 종료·요약이 저장된 세션이면 true |
+| `server.view` | DB에서 다시 만든 SessionView(종료). 판정 불가로 전체가 누락인 세션은 null |
 
 ## 10. WebSocket `/v1/realtime`
 
@@ -1463,8 +1368,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | 인증 | `hello`의 `access_token`(로그인 access 토큰)으로 연결 때 **한 번만** 확인한다(ADR 0031). 측정 중에는 다시 확인하지 않아 토큰이 만료돼도 연결은 끝까지 가고, 비밀번호 변경·탈퇴 때만 `closed(unauthorized)`로 바로 닫는다. HTTP 단계는 열려 있고, 토큰이 없거나 틀리면 `hello`에 `closed(unauthorized)`로 답한다. 같은 출처 페이지만 허용한다(`POSEGOOD_REALTIME_ALLOWED_ORIGINS`로 추가). |
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
-| 메시지 범위 | 연결 하나가 세션(또는 등록) 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. |
-| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(결정 5분, 앱 처리 전까지 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`) |
+| 메시지 범위 | 연결 하나가 세션 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. 예외: 자정 넘김(11.3)을 켜면 연결 하나가 세션 둘을 가질 수 있고, 바뀌는 순간을 `session_rollover`가 이전·새 세션 ID와 함께 알린다. |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(기본 30분, 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`), `midnight-rollover`(자정 넘김, 기본 꺼짐, `POSEGOOD_MIDNIGHT_ROLLOVER`) |
 
 ### 11.1 순서
 
@@ -1472,6 +1377,8 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
        → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
        → end → decision(session_ended) → closed(ended)
+자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
+       → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
 ```
 
 1. 연결 뒤 **10초 안에** 첫 메시지로 `hello`를 보낸다. 없거나 `hello` 전에 다른 메시지가 오면 `closed(bad_message)`.
@@ -1499,9 +1406,13 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `frames[].p` | 관절 9개 `[x, y, visibility]`(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨 = MediaPipe 0·2·5·7·8·9·10·11·12). x·y는 -1~2(화면 비율, 소수 5자리), visibility 0~1. 사람이 없으면 `null`. |
 | `frames[].valid` | `false`만 허용. 앱이 위치를 판별하지 못한 프레임에만 붙이고, 서버는 그 프레임을 판정에서 뺀다. 없으면 생략한다. |
 
+**앱 → 서버 (실제)** — 측정 시작(`access_token`은 줄임)
+
 ```json
-{ "type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90" }
+{"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "access_token": "<access_token>"}
 ```
+
+**실제** — 순번 5(2.5~3초). 0.5초에 프레임 4장(125ms 간격), 머리 쪽 관절 x를 기준보다 0.09 옮긴 좌표
 
 ```json
 {
@@ -1510,22 +1421,32 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
     {
       "schema_version": "3.0",
       "feature_version": "keypoints-9-v1",
-      "sequence": 42,
-      "start_ms": 21000,
-      "end_ms": 21500,
+      "sequence": 5,
+      "start_ms": 2500,
+      "end_ms": 3000,
       "phase": "running",
       "frames": [
-        { "t_ms": 21012, "p": [[0.51234, 0.40211, 0.99], "… 관절 9개"] },
-        { "t_ms": 21075, "p": null },
-        { "t_ms": 21140, "p": [[0.51234, 0.40211, 0.99], "… 관절 9개"], "valid": false }
+        {"t_ms": 2500, "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]]},
+        {"t_ms": 2625, "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]]},
+        {"t_ms": 2750, "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]]},
+        {"t_ms": 2875, "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]]}
       ]
     }
   ]
 }
 ```
 
+**실제** — 쉬기(순번 12)와 사람 없음(순번 14) 구간의 `items[0]`
+
 ```json
-{ "type": "end", "end_ms": 600000 }
+{"schema_version": "3.0", "feature_version": "keypoints-9-v1", "sequence": 12, "start_ms": 6000, "end_ms": 6500, "phase": "rest", "frames": []}
+{"schema_version": "3.0", "feature_version": "keypoints-9-v1", "sequence": 14, "start_ms": 7000, "end_ms": 7500, "phase": "running", "frames": [{"t_ms": 7000, "p": null}, {"t_ms": 7125, "p": null}, {"t_ms": 7250, "p": null}, {"t_ms": 7375, "p": null}]}
+```
+
+**실제** — 측정 종료
+
+```json
+{"type": "end", "end_ms": 9000}
 ```
 
 ### 11.3 측정 — 서버가 하는 일
@@ -1535,12 +1456,13 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
 | 특징 계산 | 프레임별 판정 가능 여부와 촬영 시각을 이용해 유효·판정 불가 하위 구간을 구분한다. 특징은 유효한 연속 하위 구간별로 계산하며, 판정 불가 구간 전후의 프레임을 하나의 연속 관측으로 합치지 않는다. 카메라는 640×480 고정이다. |
 | 판정 불가 | 쓸 프레임이 없으면 `measurement_quality: poor`로 추론에 넘기고, `observation.invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
-| 추론·판정 | S2와 같은 흐름(추론 → 판정 → DB 기록). 판정 규칙·DB 기록도 S2와 같다. |
+| 추론·판정 | 추론(`POST /v2/infer`) → 판정 엔진 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `ack` 전에 DB에 쓴다. |
 | 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
 | 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
-| 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(결정 5분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. HTTP S2로 받은 구간도 같고, 그때는 응답의 `session.ended`가 true다. **앱이 이 사유를 처리하기 전까지는 설정 0으로 꺼 둔다** — 지금 앱은 모르는 사유를 측정 실패로 처리한다. |
-| `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
+| 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(기본 30분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. 앱은 이 사유를 저장된 정상 종료로 처리한다(10/27). |
+| 자정 넘김 | `midnight-rollover`를 켜면(기본 꺼짐 — 앱이 `session_rollover`를 처리한 뒤 켠다) KST 자정에 같은 연결에서 세션을 바꾼다(BE-6 ① B안, 2026-10-28). 자정을 넘는 구간(`started_at + end_ms` ≥ 자정)이 오거나, 00:00:30까지 구간이 없으면(쉬기 중 등): ① 이전 세션을 **마지막으로 받은 구간 끝에서** 끝내 저장한다 — 종료 시각은 자정 전이라 시작 날짜 = 종료 날짜. 진행 중이던 사건은 `interrupted`로 끝난다. ② 서버가 새 세션을 만든다 — ID는 서버가 만들고, `started_at` = 자정, 기준 자세·임계값 설정·알림 설정은 이전 세션 것(S1의 계정 확인은 다시 하지 않는다). ③ `decision(session_ended)` → `session_rollover`를 보낸다. **앱은 시간·순번을 연결 기준으로 계속 보낸다.** 서버가 자정 위치(`at_ms`)와 순번 기준(넘길 때의 마지막 순번 + 1)을 빼서 새 세션 값으로 바꾼다. `ack`·`progress`·`stalled`의 순번은 앱이 보낸 번호 그대로이고, 그 뒤 `summary`·사건 시각은 새 세션 기준(자정 = 0)이다. 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않고 `ack`만 보낸다. 새 세션을 만들지 못하면(자리 없음·DB 장애) `closed(day_changed)`로 닫는다 — 이전 세션은 저장됐고 앱은 새 S1부터 다시 시작한다. 연결의 시간축 상한은 그대로 24시간(`*_ms` ≤ 86,400,000)이라 한 연결에서 넘김은 한 번까지다. |
+| `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. 자정 넘김을 켰는데 넘기기 전에 `end_ms`가 자정을 지났으면 자정 1ms 전에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
 | 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
 
 <a id="114-자세-등록"></a>
@@ -1560,6 +1482,7 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
 | `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
+| `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-v2/ws-session-rollover.json) |
 | `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔거나 등록이면 `null`(ADR 0028). |
 
 | `closed.reason` | 언제 |
@@ -1572,41 +1495,44 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 | `bad_message` | 형식 오류, `hello` 순서·10초 제한 위반, 구간 1개가 아님, 목적과 맞지 않는 `phase`, 64KB 초과, 중복·역순 순번, 같은 세션의 두 번째 연결 |
 | `server_shutdown` | 서버 종료. 측정 중이던 세션은 끊김과 같이 끝난다. |
 | `limit_reached` | 최대 측정 시간 초과(11.3) |
-| `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(결정 5분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
+| `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(기본 30분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
+| `day_changed` | 자정 넘김에서 이전 세션은 끝내 저장했지만 새 세션을 만들지 못함(11.3). `ended_at`(자정 전)이 있다. 앱은 새 S1부터 다시 시작한다 |
 
-**서버 → 앱 (예시)**
+**서버 → 앱 (실제)** — 이 장의 메시지는 위 「값을 받은 실행」([1장](#1-공통-규칙))에서 받은 그대로다.
+
+연결 확인
 
 ```json
-{ "type": "ready", "purpose": "measure", "session_id": "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90", "started_at": "2026-10-26T01:00:00.120Z" }
+{"type": "ready", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "started_at": "2026-10-28T16:05:05.551Z"}
 ```
 
-```json
-{
-  "type": "progress",
-  "last_sequence": 42,
-  "summary": "{ summary }",
-  "paused_reason": null
-}
-```
+순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다.
 
 ```json
-{
-  "type": "decision",
-  "event": {
-    "event_id": 1,
-    "kind": "collapse_confirmed",
-    "timestamp_ms": 21000,
-    "onset_ms": 18000,
-    "onset_valid_ms": 17000,
-    "deviation_type": "forward_slouch",
-    "reason": null
-  },
-  "summary": "{ summary }"
-}
+{"type": "observation", "observation": {"schema_version": "3.0", "sequence": 5, "start_ms": 2500, "end_ms": 3000, "phase": "running", "valid": true, "valid_ms": 500, "collapse_probability": 1.0, "deviation_type": "left_lean", "invalid_reason": null, "model_version": "reference-feature-rule-v1"}}
+{"type": "decision", "event": {"event_id": 1, "kind": "collapse_confirmed", "timestamp_ms": 3000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}}
+{"type": "alert", "event_id": 1, "kind": "collapse_confirmed", "deviation_type": "left_lean"}
+{"type": "ack", "last_sequence": 5}
+{"type": "progress", "last_sequence": 5, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}, "paused_reason": null}
 ```
 
+회복 확정(순번 11, 6초) — `decision`만 옮김
+
 ```json
-{ "type": "closed", "reason": "ended", "ended_at": "2026-10-26T01:00:21.620Z" }
+{"type": "decision", "event": {"event_id": 2, "kind": "recovery_confirmed", "timestamp_ms": 6000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 6000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}}
+```
+
+사람이 없는 구간(순번 14) 뒤의 `progress`
+
+```json
+{"type": "progress", "last_sequence": 14, "summary": {"total_ms": 7500, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 500, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}, "paused_reason": "unmeasurable"}
+```
+
+`end`(9000)에 대한 응답 — 8~9초는 보낸 구간이 없어 누락(`missing_ms` 1000)이 된다
+
+```json
+{"type": "decision", "event": {"event_id": 3, "kind": "session_ended", "timestamp_ms": 9000, "onset_ms": 9000, "onset_valid_ms": 6000, "deviation_type": "none", "reason": "ended"}, "summary": {"total_ms": 9000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 1000, "missing_ms": 1000, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}}
+{"type": "closed", "reason": "ended", "ended_at": "2026-10-28T16:05:14.551Z"}
 ```
 
 ## 변경 이력
@@ -1615,6 +1541,12 @@ R1 응답과 R2 요청에 쓰는 앱 형식이다. `valid`·`good`·`total`과 �
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
+| 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
+| 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |
+| 2026-10-28 | `fix/repo-backend-followup` | 자정 넘김(BE-6 ① B안, 11.3): 같은 연결에서 서버가 새 세션으로 넘기고 `session_rollover`를 보냄. 앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 바꿔 씀. 실패하면 `closed(day_changed)`. 설정 `midnight-rollover` 기본 꺼짐. 계약 `realtime-ws.v2`에 메시지·사유 추가(더하기만) |
+| 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md), 10/29 되돌림) |
+| 2026-10-28 | `fix/repo-backend-followup` | 측정불가 자동 종료 5분 → 30분, 기본 켬(`unmeasurable-timeout` 0 → 30m). 앱이 `closed(unmeasurable_timeout)`을 처리하므로(10/27) 끄지 않는다 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | WebSocket 자세 등록(`purpose: calibration`, `calibration_result`) 삭제 — 등록은 B1뿐(11.4). `hello`는 `purpose: "measure"`만, 구간 `phase`에서 `calibration` 삭제 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | 새 계정의 알림 기본값 켜짐(`alerts_on: true`, DB V2.6 `sound_alert_enabled` 기본값 참). 기존 계정 값은 그대로 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | **로그인을 쿠키 세션 + 고정 30분에서 access 토큰(JWT, Bearer, 30분) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지)으로 바꿈 — 호환성 깨짐.** A1 CSRF 삭제, A8 refresh 추가, A2·A3 응답에 토큰, A5 로그아웃은 refresh 쿠키로, WS `hello`에 `access_token`(11장). DB V2.6 `refresh_token` (ADR 0031) |
