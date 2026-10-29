@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.8'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'checkstyle'
 }
 
 group = 'org.posegood'
@@ -31,6 +32,33 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+checkstyle {
+    toolVersion = '14.3.0'
+    configFile = rootProject.file('naver-checkstyle-rules.xml')
+
+    configProperties = [
+        suppressionFile: rootProject
+            .file('naver-checkstyle-suppressions.xml')
+            .absolutePath
+    ]
+
+    ignoreFailures = false
+    showViolations = true
+    maxErrors = 0
+    maxWarnings = Integer.MAX_VALUE
+}
+
+tasks.withType(Checkstyle).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 // Same artifact as the former Maven build: build/libs/session-api-0.1.0-SNAPSHOT.jar.
