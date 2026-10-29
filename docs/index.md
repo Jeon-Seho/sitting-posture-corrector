@@ -1,5 +1,7 @@
 # 문서 지도
 
+최신 프론트 통합 상태·실제 서버 접속·부서별 후속 작업: [2026-10-29 JWT 인계서](design/frontend-jwt-handoff-2026-10-29.md).
+
 ## 현재 상태와 작업
 
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.

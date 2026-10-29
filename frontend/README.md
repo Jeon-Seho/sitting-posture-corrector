@@ -1,5 +1,7 @@
 # PoseGood 웹캠 프로토타입
 
+개발자 화면 계정은 `admin / 1234`입니다. 서버 권한 없이 예시 화면에 진입하며 실제 측정은 일반 계정으로 합니다. 최신 서버 연결·검증 지침은 [JWT 통합 인계서](../docs/design/frontend-jwt-handoff-2026-10-29.md)를 참고하세요.
+
 > **결정 변경(2026-10-11, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표만 보낸다.
 > 화면·기록의 유형(머리·좌우 기울임) 표시와 csv 내보내기의 판정 열은 2026-10-11 없앴다.
 > **2026-10-21(V3, [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)):** 로컬 모드·앱 판정·이어하기를 지웠다. 앱은 항상 서버로 측정하고

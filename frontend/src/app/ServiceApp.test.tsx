@@ -12,8 +12,14 @@ import { MonthCalendar } from '../features/history/RecordCalendar'
 import { SelectMenu } from '../components/SelectMenu'
 import type { DailyStat } from '../features/history/recordsSource'
 import { DEFAULT_RULES } from '../data/posture'
-import { KEYS, loadLocalState, readLocal, type RecordItem } from '../lib/serviceStore'
+import { KEYS, loadLocalState, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
+import { setServerAuth } from '../features/platform/serverAuth'
+import { pendingRecords } from '../features/storage/serverRecords'
+vi.mock('../features/storage/serverRecords', async original => ({
+  ...(await original<typeof import('../features/storage/serverRecords')>()),
+  fetchServerRecords: vi.fn(async () => []),
+}))
 
 const controls = vi.hoisted(() => ({
   camera: null as unknown as CameraController,
@@ -67,6 +73,7 @@ describe('service recovery and saving with synthetic storage only', () => {
       renderer = create(<App />)
     })
   beforeEach(() => {
+    setServerAuth({ userId: 'synthetic-screen', accessToken: async () => 'synthetic-token' })
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-30T12:00:00Z'))
     vi.spyOn(performance, 'now').mockImplementation(() => Date.now())
@@ -119,6 +126,7 @@ describe('service recovery and saving with synthetic storage only', () => {
   afterEach(() => {
     act(() => renderer?.unmount())
     renderer = undefined
+    setServerAuth(null)
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -171,7 +179,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => renderer!.root.findByType(SettingsPage).props.onRules(nextRules))
     expect(renderer!.root.findByType(LiveSessionPage).props.session.rules).toEqual(DEFAULT_RULES)
     act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded(endedState(), ''))
-    expect(readLocal<RecordItem[]>(KEYS.records, [])[0].rules).toEqual(DEFAULT_RULES)
+    expect(pendingRecords('synthetic-screen')[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
   it('keeps a measurement over KST midnight per day from the server running totals (PR #64 day split)', () => {
@@ -192,7 +200,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     })
     act(() => service().onObserved(at(2000, 2000, 0)))
     act(() => service().onEnded({ ...at(6000, 4000, 2000), phase: 'ended' }, ''))
-    const [record] = readLocal<RecordItem[]>(KEYS.records, [])
+    const [record] = pendingRecords('synthetic-screen')
     expect(record.startedAt).toBe('2026-10-26T14:59:58.000Z')
     expect(record.days).toMatchObject([
       { date: '2026-10-26', total: 2, valid: 2, good: 2 },
