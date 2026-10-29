@@ -5,6 +5,8 @@
 - 근거: 사용자가 영상 대신 키포인트로 동작을 다시 보고 ML 입력 가능성을 확인하도록 요청함
 - 이전: [관측 진행과 CSV](0040-observation-guide-modes.md)
 
+> **2026-10-29 후속:** 기록 범위를 원래 인덱스 0..22로 넓힌 `observation-keypoint-replay-v2`와 기준·이탈·스트레칭 프로토콜은 [ADR 0043](0043-base-deviation-stretch-collection.md)을 따른다. 아래 v1 설명은 기존 파일을 읽을 때의 기준이다.
+
 ## 범위와 결정
 
 `/dev`의 새 실측부터 카메라가 제공하는 원본 Pose 0..12번의 image/world xyz와
