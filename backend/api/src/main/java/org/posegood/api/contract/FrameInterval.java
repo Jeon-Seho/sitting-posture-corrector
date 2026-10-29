@@ -36,7 +36,6 @@ public record FrameInterval(
 
     public enum Phase {
         running,
-        calibration,
         rest,
         away
     }
@@ -44,6 +43,16 @@ public record FrameInterval(
     public FrameInterval {
         if (endMs <= startMs || endMs - startMs > 1500)
             throw new IllegalArgumentException("interval must be 1..1500ms");
+    }
+
+    /**
+     * 자정 넘김 뒤: 앱이 연결 기준으로 보낸 시간·순번에서 {@code ms}·{@code sequences}를 빼 새 세션 기준으로 옮긴다.
+     * 프레임 {@code t_ms}는 판정에 쓰지 않아 그대로 둔다.
+     */
+    public FrameInterval shifted(long ms, long sequences) {
+        if (ms == 0 && sequences == 0) return this;
+        return new FrameInterval(
+                schemaVersion, featureVersion, sequence - sequences, startMs - ms, endMs - ms, phase, frames);
     }
 
     /**

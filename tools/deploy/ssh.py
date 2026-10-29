@@ -62,6 +62,10 @@ def deploy_over_ssh(manifest, environment):
             "posegood.internal-token": secret_value(required(environment, "POSEGOOD_INTERNAL_TOKEN"), "POSEGOOD_INTERNAL_TOKEN"),
         },
     }
+    # Optional: without it the host generates the login token signing key once and keeps it (secrets.JWT_SECRET).
+    if environment.get("POSEGOOD_JWT_SECRET"):
+        payload["secrets"]["posegood.auth.jwt-secret"] = secret_value(
+            environment["POSEGOOD_JWT_SECRET"], "POSEGOOD_JWT_SECRET")
     with tempfile.TemporaryDirectory(prefix="posegood-ssh-") as temporary:
         folder = Path(temporary)
         key, hosts, bundle = folder / "key", folder / "known_hosts", folder / "release.tar.gz"

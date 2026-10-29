@@ -1,8 +1,8 @@
-import { CalendarDots } from '@phosphor-icons/react'
+import { CalendarDots } from '../../components/icons'
 import type { RecordItem } from '../../lib/serviceStore'
 import { DayRecord } from './DayRecord'
 import { RecordModeChips, useRecordMode } from './recordMode'
-import { dayKey } from './recordsSource'
+import { useServerToday } from '../platform/serverClock'
 
 /**
  * 기록 tab: today only (2026-10-13 split). Other days, the heatmap and period charts live
@@ -24,22 +24,23 @@ export function LocalHistory({
   /** Opens the 달력 tab. */
   onCalendar?: () => void
 }) {
-  const today = dayKey(new Date())
+  // 「오늘」 is the server's KST day (ADR 0029), not this computer's clock.
+  const today = useServerToday()
   const { mode, setMode, hasDemo, records, label } = useRecordMode(allRecords)
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">기록</h1>
+          <h1 className="page-title">오늘</h1>
           <p className="page-desc">
-            {example ? '발표용 예시 기록 · 실제 측정 기록이 아니에요' : `${label}오늘 측정한 기록 · 이 기기에 저장된 기록`}
+            {example ? '발표용 예시 기록 · 실제 측정 기록이 아니에요' : `${label}${today} · 오늘의 측정`}
           </p>
         </div>
         {onCalendar && (
           <button className="btn btn-sm" onClick={onCalendar}>
             <CalendarDots size={16} weight="bold" className="icon" />
-            지난 기록은 달력에서
+            지난 기록 보기
           </button>
         )}
       </div>

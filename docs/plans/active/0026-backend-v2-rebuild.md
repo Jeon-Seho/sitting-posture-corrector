@@ -1,13 +1,13 @@
 # 백엔드 재작성: DB V2.2·프론트 계약 기준 단일 API
 
-> 2026-10-13 후속: 현재 DB V2.3·계정 API v2 연동은 [ADR 0022](../../decisions/0022-db-v23-feature-v2-integration.md)에 따른다. 아래 V2.2 요구·결과는 당시 작업 기록이다.
+> 2026-10-13 후속: 현재 DB V2.3·계정 API v2 연동은 [옛 ADR 0022](../../removed-docs.md)에 따른다. 아래 V2.2 요구·결과는 당시 작업 기록이다.
 
 - 상태: in_progress
 - 담당: sunshine-yj 요청, Claude 구현 (브랜치 `feature/repo-backend-db-v2`, DB V2.2 작업과 한 브랜치)
 - 시작일: 2026-10-09
 - 관련 요구사항/ADR: [DB 안내](../../../database/README.md) (V2.2, CR-04), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
-  [ADR 0011](../../decisions/0011-api-cep-boundary.md)(대체됨), [ADR 0012](../../decisions/0012-session-timing-policy.md),
-  [ADR 0013](../../decisions/0013-frontend-server-feature-connection.md), [계정 계약](../../../contracts/accounts.v1.md),
+  [옛 ADR 0011](../../removed-docs.md)(대체됨), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
+  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [계정 계약](../../../contracts/accounts.v1.md),
   [실시간 계약](../../../contracts/realtime/README.md)
 
 ## 문제와 완료 기준
@@ -49,7 +49,7 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 | --- | --- |
 | 판정 엔진 | `session/engine`: 순수 Java. 기존 EPL 세 규칙과 CEP의 시간 누적·사건 기록을 그대로 옮겼다. 사건마다 그 시점 요약을 함께 보관한다 |
 | 진행 중 상태 | API 메모리(`LiveSessions`). V2.2에는 관측·스냅샷 테이블이 없으므로 재시작하면 진행 중 세션은 복구하지 않고 404로 알린다 |
-| DB 쓰기 | 세션 생성: `threshold_policy`(찾기/추가)·`baseline_posture`(사용자당 1행 덮어쓰기)·`monitor_session`(`calibration_uuid`·`alert_enabled` 복사). 사건: `collapse_event`·`correction_alert`(처리 직후). 종료: `monitor_session` 종료 3컬럼, `excluded_interval`. `daily_stat`은 쓰지 않는다(2026-10-15 v5.2, Spark J2가 집계) |
+| DB 쓰기 | 정책: `threshold_policy`(찾기/추가, 행은 고치지 않음). 기준 자세: `baseline_posture`에 등록할 때마다 새 행(V2.2~, 2026-10-13 ADR 0022로 바뀜 — 이전 「사용자당 1행 덮어쓰기」). 세션 생성: `monitor_session`(현재 기준의 `baseline_posture_id` FK·정책·`alert_enabled` 복사). 사건: `collapse_event`·`correction_alert`(처리 직후). 종료: `monitor_session` 종료 3컬럼, `excluded_interval`. `daily_stat`은 쓰지 않는다(2026-10-15 v5.2, Spark J2가 집계) |
 | 기록 | 원문 저장 없음(V2.1). `POST /v1/records`는 검증 후 세션 행을 닫고, 목록은 닫힌 세션을 테이블에서 다시 만든다(`RecordRebuild`) |
 | 재전송 | 세션 메모리에 `sequence → 요청 hash·관측`을 둔다. DB 쓰기 실패는 503이며 같은 요청 재전송 때 남은 사건을 다시 쓴다 |
 | 계정 | 이메일·비밀번호, DB 세션(`SPRING_SESSION`), CSRF. 로그인 끊기는 `SPRING_SESSION` 행 삭제 + 실시간 연결 종료. 「자세 알림」 = `alert_enabled`. 탈퇴는 접수만 한다(CLOSED, 철회 없음). 30일 유예 뒤 최종 삭제는 Spark J3(2026-10-15 v5.2) |
@@ -95,6 +95,7 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
   - 세션 종료 때 `daily_stat` 누적을 지웠다. 일별 통계는 Spark J2(cron 매일 00:00, 전날 KST)만 쓴다. 쓰지 않게 된 `CollapseRanges`를 지웠다.
   - 검증: `backend/gradlew -p backend build` 통과(단위 시험). `-Pmysql-integration`은 로컬 MySQL `root` 비밀번호가 없어 접속 거부로 실행하지 못했다.
     `tools/service_smoke.py`는 아직 `daily_stat` 1행을 기대하므로 `check-backend`의 smoke가 실패한다(tools 담당 수정 필요).
+- 2026-10-26: `tools/service_smoke.py`의 `daily_stat` 기대값을 「세션 종료 직후 0행(API는 쓰지 않음)」으로 바꿨다. 집계 값 확인은 J2 시험의 몫이다. 실행은 아직 하지 않았다.
 
 ## 검증 결과와 남은 한계
 
@@ -117,5 +118,5 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
   같은 날 `tools/service_smoke.py` 7단계 통과, `tests/test_server_benchmark.py`·`test_service_contracts.py` 23개 통과(1개 건너뜀). `JAVA_HOME`이 JDK 17이면 API가 시작하지 않으니 JDK 21을 지정한다.
 - 진행 중 세션은 API 재시작에서 복구하지 않는다(ADR 0020). 앱이 기록을 보내지 않은 끝나지 않은 행은 자동으로 닫지 않는다.
 - 다시 읽은 기록은 사건 방향을 잃는다(T-36 보류). 방향을 남기려면 DB에 `collapse_event` 방향 컬럼 또는 T-36 확정이 필요하다.
-- `database/README.md` 11장(백엔드 코드와의 관계)은 아직 V1.1 백엔드 기준 문구다. DB 담당 문서라 고치지 않았다.
+- ~~`database/README.md` 11장(백엔드 코드와의 관계)은 아직 V1.1 백엔드 기준 문구다.~~ 2026-10-21 해결: 11장을 V2.4·아키텍처 v5.2 기준으로 고쳤다.
 - 시간당 알림 상한·실제 알림 표시 여부·HDFS 적재와 파일 삭제·탈퇴 완료 안내는 구현하지 않았다.

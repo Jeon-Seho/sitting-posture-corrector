@@ -19,7 +19,7 @@ function syntheticCamera() {
       listener({
         timeMs,
         videoTimeMs: timeMs,
-        features: null,
+        measurable: false,
         landmarks,
         worldLandmarks: [],
         inferenceMs: 0,

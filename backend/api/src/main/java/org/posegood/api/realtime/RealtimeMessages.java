@@ -1,7 +1,6 @@
 package org.posegood.api.realtime;
 
 import org.posegood.api.contract.Observation;
-import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.contract.SessionView.Summary;
 
@@ -9,75 +8,25 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 실시간 채널이 보내는 메시지 형식 모음: ack, observation, progress, decision, alert, stalled, closed.
- *
- * 계약: contracts/realtime/realtime-ws.v1.schema.json(전송 형식은 snake_case). v2 형식(ready·calibration_result 추가,
- * progress.paused_reason, 세션 ID 없음)은 {@link V2}에 있다.
+ * 실시간 채널({@code /v2/realtime})이 보내는 메시지 형식 모음. 형식은 {@link V2}에 있다(전송 형식은 snake_case).
  */
 final class RealtimeMessages {
     private RealtimeMessages() {}
-
-    record Ack(String type, UUID sessionId, long lastSequence) {
-        Ack(UUID sessionId, long lastSequence) {
-            this("ack", sessionId, lastSequence);
-        }
-    }
-
-    record ObservationPush(String type, UUID sessionId, Observation observation) {
-        ObservationPush(UUID sessionId, Observation observation) {
-            this("observation", sessionId, observation);
-        }
-    }
-
-    record Progress(String type, UUID sessionId, long lastSequence, Summary summary) {
-        Progress(UUID sessionId, long lastSequence, Summary summary) {
-            this("progress", sessionId, lastSequence, summary);
-        }
-    }
-
-    record Decision(String type, UUID sessionId, DecisionEvent event, Summary summary) {
-        Decision(UUID sessionId, DecisionEvent event, Summary summary) {
-            this("decision", sessionId, event, summary);
-        }
-    }
-
-    record Alert(String type, UUID sessionId, long eventId, String kind, String deviationType) {
-        Alert(UUID sessionId, DecisionEvent event) {
-            this("alert", sessionId, event.eventId(), event.kind(), event.deviationType());
-        }
-    }
-
-    record Stalled(String type, UUID sessionId, long sinceLastSequence) {
-        Stalled(UUID sessionId, long sinceLastSequence) {
-            this("stalled", sessionId, sinceLastSequence);
-        }
-    }
-
-    /** 사유: ended, unauthorized, not_owner, session_lost, server_shutdown. */
-    record Closed(String type, UUID sessionId, String reason) {
-        Closed(UUID sessionId, String reason) {
-            this("closed", sessionId, reason);
-        }
-    }
 
     /**
      * {@code /v2/realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
      *
      * 계약: contracts/realtime/realtime-ws.v2.schema.json. closed 사유: ended, unauthorized, not_owner, session_lost,
-     * no_baseline, bad_message, server_shutdown, limit_reached.
+     * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout, day_changed.
+     * 자정 넘김({@code session_rollover})은 연결 안에서 세션을 바꾸므로 이전·새 세션 ID를 함께 담는다.
      */
     static final class V2 {
         private V2() {}
 
-        record ReadyMeasure(String type, String purpose, UUID sessionId) {
-            ReadyMeasure(UUID sessionId) {
-                this("ready", "measure", sessionId);
-            }
-        }
-
-        record ReadyCalibration(String type, String purpose, UUID calibrationId) {
-            ReadyCalibration(UUID calibrationId) {
-                this("ready", "calibration", calibrationId);
+        /** {@code startedAt}: 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱의 오늘 기록 시각·날짜 기준(ADR 0028). */
+        record ReadyMeasure(String type, String purpose, UUID sessionId, Instant startedAt) {
+            ReadyMeasure(UUID sessionId, Instant startedAt) {
+                this("ready", "measure", sessionId, startedAt);
             }
         }
 
@@ -138,34 +87,27 @@ final class RealtimeMessages {
             }
         }
 
-        record CalibrationOk(
-                String type,
-                String status,
-                UUID calibrationId,
-                UUID baselineId,
-                Instant registeredAt,
-                SessionRequests.Landmarks landmarks,
-                int validFrames) {
-            CalibrationOk(
-                    UUID calibrationId,
-                    UUID baselineId,
-                    Instant registeredAt,
-                    SessionRequests.Landmarks landmarks,
-                    int validFrames) {
-                this("calibration_result", "ok", calibrationId, baselineId, registeredAt, landmarks, validFrames);
+        /**
+         * 자정 넘김(BE-6 ① B안): 이전 세션이 끝났고 이 연결은 새 세션({@code sessionId}, 자정 {@code startedAt}에 시작)으로
+         * 이어진다. {@code atMs}는 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값이다.
+         */
+        record SessionRollover(String type, Ended ended, UUID sessionId, Instant startedAt, long atMs) {
+            SessionRollover(
+                    UUID previous, Instant endedAt, Summary summary, UUID sessionId, Instant startedAt, long atMs) {
+                this("session_rollover", new Ended(previous, endedAt, summary), sessionId, startedAt, atMs);
             }
         }
 
-        /** 실패 사유: too_few_frames, incomplete, out_of_frame, server_error. */
-        record CalibrationFailed(String type, String status, UUID calibrationId, int validFrames, String reason) {
-            CalibrationFailed(UUID calibrationId, int validFrames, String reason) {
-                this("calibration_result", "failed", calibrationId, validFrames, reason);
-            }
-        }
+        /** 자정 넘김으로 끝난 세션: ID, 서버 종료 시각(DB {@code ended_at}과 같은 값, UTC), 최종 요약. */
+        record Ended(UUID sessionId, Instant endedAt, Summary summary) {}
 
-        record Closed(String type, String reason) {
-            Closed(String reason) {
-                this("closed", reason);
+        /**
+         * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).
+         * 끝나기 전에 닫히면 null(ADR 0028).
+         */
+        record Closed(String type, String reason, Instant endedAt) {
+            Closed(String reason, Instant endedAt) {
+                this("closed", reason, endedAt);
             }
         }
     }

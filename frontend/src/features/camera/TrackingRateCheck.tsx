@@ -93,7 +93,7 @@ export function TrackingRateCheck({ camera }: { camera: Camera }) {
       {running !== null && <p className="fine" role="status">가만히 앉아 화면을 봐 주세요.</p>}
       {message && <p className="fine" role="alert">{message}</p>}
       {results && (
-        <table className="rate-table">
+        <div className="rate-results"><table className="rate-table">
           <thead>
             <tr>
               <th>설정</th>
@@ -112,7 +112,7 @@ export function TrackingRateCheck({ camera }: { camera: Camera }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
       {recommended !== null && recommended !== camera.trackingFps && (
         <button className="btn btn-sm btn-primary" onClick={() => camera.setTrackingFps(recommended)}>

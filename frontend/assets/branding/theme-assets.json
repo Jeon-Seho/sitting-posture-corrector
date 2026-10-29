@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-29",
+  "source": "Existing public/illustrations assets; strict color variants via imagegen.",
+  "assets": [
+    {
+      "theme": "peach",
+      "kind": "login",
+      "reference": "../../public/illustrations/login-light.webp",
+      "output": "../../public/illustrations/themes/peach-login.webp",
+      "generatedFile": "exec-34e0eb3d-dfc7-4721-921b-46db6b1ca683.png",
+      "sha256": "98cc30a225b991f3dd44eeb07f19a0adf76dd7ce75e534308c1c7d4562694d37"
+    },
+    {
+      "theme": "peach",
+      "kind": "camera",
+      "reference": "../../public/illustrations/ready-camera-matte.webp",
+      "output": "../../public/illustrations/themes/peach-camera.webp",
+      "generatedFile": "exec-d533f0ad-4f9e-4d26-9557-532e4b298e64.png",
+      "sha256": "e6b3adeaf27bbb460530e9007c066aad461453a86c426a00cea9a6c819dbdf4d"
+    },
+    {
+      "theme": "peach",
+      "kind": "baseline",
+      "reference": "../../public/illustrations/baseline-seat-light.webp",
+      "output": "../../public/illustrations/themes/peach-baseline.webp",
+      "generatedFile": "exec-f5d0dee6-7b33-448e-b9cd-bc75984e9a8e.png",
+      "sha256": "c41489cd5a97e03231c9825c63a7f29521cbcabb2ad3409fd6a398b133a69216"
+    },
+    {
+      "theme": "peach",
+      "kind": "empty",
+      "reference": "../../public/illustrations/empty-records-light.webp",
+      "output": "../../public/illustrations/themes/peach-empty.webp",
+      "generatedFile": "exec-f6c4bd2f-970e-4a5c-b71a-c67856d31537.png",
+      "sha256": "583718dbc76740e71086038ecce583530fe7b603b42c9bd007a01f27f50e4946"
+    },
+    {
+      "theme": "black",
+      "kind": "login",
+      "reference": "../../public/illustrations/login-light.webp",
+      "output": "../../public/illustrations/themes/black-login.webp",
+      "generatedFile": "exec-e13170d4-6e4c-4b39-8f01-e73471d53a30.png",
+      "sha256": "71edeaf027847dbb097e943f587e542a612f1025a18f6f27050b508ac0f37bfa"
+    },
+    {
+      "theme": "black",
+      "kind": "camera",
+      "reference": "../../public/illustrations/ready-camera-matte.webp",
+      "output": "../../public/illustrations/themes/black-camera.webp",
+      "generatedFile": "exec-e782b1a4-0f24-4156-b605-f30dfd5bc158.png",
+      "sha256": "9af0b94f633c3811b4b8992160407a8fa5fc457c59f3edcf8230d0d5497974c2"
+    },
+    {
+      "theme": "black",
+      "kind": "baseline",
+      "reference": "../../public/illustrations/baseline-seat-light.webp",
+      "output": "../../public/illustrations/themes/black-baseline.webp",
+      "generatedFile": "exec-f5e0e3d6-7e49-4ac8-a2a9-e0122c4945ce.png",
+      "sha256": "4e6a5c450a9c879d71559e9ad7090357e08e2812320c6eef53b7c376d5e13727"
+    },
+    {
+      "theme": "black",
+      "kind": "empty",
+      "reference": "../../public/illustrations/empty-records-light.webp",
+      "output": "../../public/illustrations/themes/black-empty.webp",
+      "generatedFile": "exec-52f347fb-4c8a-410b-b413-da13844301fc.png",
+      "sha256": "12e38faa2c8bc2618ec30b9270fcd3a1e153e51f94fa7906c32e6aaab7a1fe2a"
+    },
+    {
+      "theme": "discord",
+      "kind": "login",
+      "reference": "../../public/illustrations/login-light.webp",
+      "output": "../../public/illustrations/themes/discord-login.webp",
+      "generatedFile": "exec-198fd70e-0b60-4eb5-9954-77cd5a0420d1.png",
+      "sha256": "4d86b7d52bc916cf22c20dcf405f6d3d1fa4742b214667026afa3d02084cb4fa"
+    },
+    {
+      "theme": "discord",
+      "kind": "camera",
+      "reference": "../../public/illustrations/ready-camera-matte.webp",
+      "output": "../../public/illustrations/themes/discord-camera.webp",
+      "generatedFile": "exec-c9665c18-058f-4a27-84de-a19f82db55fa.png",
+      "sha256": "a4f84ba77a9e5c05c280b86ac23e2457b59464e79ccb3c06caa8727ddab89283"
+    },
+    {
+      "theme": "discord",
+      "kind": "baseline",
+      "reference": "../../public/illustrations/baseline-seat-light.webp",
+      "output": "../../public/illustrations/themes/discord-baseline.webp",
+      "generatedFile": "exec-dc70663f-757f-43dd-a639-fbb61e6134ee.png",
+      "sha256": "454c3cf52ff4bb9e16808417ce0dcbbc5e01dc82fdb938d9db617ec33f073e36"
+    },
+    {
+      "theme": "discord",
+      "kind": "empty",
+      "reference": "../../public/illustrations/empty-records-light.webp",
+      "output": "../../public/illustrations/themes/discord-empty.webp",
+      "generatedFile": "exec-ab0e6455-ca8c-4d89-8580-4b9b7af55df5.png",
+      "sha256": "40d8b18dd08f5dc174ea0b4d5df82bbe1cd8bfed851eb4d4f62567ba69ee1cd7"
+    }
+  ],
+  "editInstructions": "Preserve existing flat 2D drawing, character identity, pose, object layout and transparent background. Change green fills/outlines only to the theme palette. No new objects, no 3D, no glow or surrounding haze. Login variants refined to remove glow."
+}

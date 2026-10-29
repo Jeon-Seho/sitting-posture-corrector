@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * The running measurement registers how to end it and publishes its status, so the small camera
- * window can show the posture and end it from another tab or from outside the app (2026-10-20).
- * Only one measurement runs at a time.
+ * The running measurement registers how to end it and publishes its status, so a small camera
+ * window can show the posture and end it from outside the measure screen (2026-10-20).
+ * Only one measurement runs at a time. 2026-10-26: the web's small windows are gone (plan 0054);
+ * kept for the desktop app's small window, which comes next.
  */
 export type EndMeasurement = (reason: string) => void
 

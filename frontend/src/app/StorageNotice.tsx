@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowClockwise, Database, LockSimple, X } from '@phosphor-icons/react'
+import { ArrowClockwise, Database, LockSimple, X } from '../components/icons'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
 
 /**

@@ -1,10 +1,12 @@
 import type { RecordItem } from './serviceStore'
 import type { Rules } from './engine'
+import { addDayKey, kstDay } from './kst'
 import { collapseIntervals, mean, ratio } from './stats'
+import { recordsByDay } from '../features/storage/dailyMeasurement'
 
 /**
  * 실제 기록의 전후 비교. 초기 구간은 첫 측정일부터, 최근 구간은 오늘까지의 같은 길이다.
- * 두 값은 팀 합의 전 임시값이다(docs/decisions/0010-record-comparison.md).
+ * 두 값은 팀 합의 전 임시값이다.
  */
 export const COMPARE_RULES = { days: 7, minValidSeconds: 30 * 60 }
 
@@ -157,32 +159,26 @@ export function comparisonRecordGroups(
   comparison: Extract<Comparison, { status: 'ready' | 'short' }>,
 ) {
   const within = (period: PeriodStats) =>
-    records.filter((record) => {
-      const day = dayKey(new Date(record.endedAt))
+    recordsByDay(records).filter((record) => {
+      const day = record.dayPartition?.date ?? kstDay(record.startedAt)
       return day >= period.from && day <= period.to
     })
   return { early: within(comparison.early), recent: within(comparison.recent) }
 }
 
-/** 기록은 끝난 날짜(현지 시간)에 속한다. 홈의 '오늘' 집계와 같은 기준이다. */
-export const dayKey = (date: Date) => date.toLocaleDateString('sv-SE')
-const startOfDay = (date: Date) => {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-const addDays = (date: Date, days: number) => {
-  const d = new Date(date)
-  d.setDate(d.getDate() + days)
-  return d
-}
+/**
+ * 기록은 시작한 KST 날짜에 속한다. 측정은 KST 자정에 서버가 끊으므로 끝난 날짜도 같다
+ * (ADR 0029). 기록·달력의 날짜와 같은 기준이다.
+ */
+export const dayKey = (date: Date) => kstDay(date)
+const daysBetween = (from: string, to: string) => (Date.parse(to) - Date.parse(from)) / 86400000
 
 export function periodStats(records: RecordItem[], from: string, to: string): PeriodStats {
   const valid = records.reduce((n, r) => n + r.valid, 0)
   const good = records.reduce((n, r) => n + r.good, 0)
   const events = records.flatMap((r) => r.events)
   // 발생 간격은 같은 세션 안의 연속 사건 사이만 잰다. 세션 사이의 공백은 간격이 아니다.
-  const intervals = records.flatMap((r) => collapseIntervals(r.events))
+  const intervals = records.flatMap((r) => collapseIntervals(r.events.filter(e => !e.carried)))
   const recoveries = events.flatMap((e) => (e.recoverySec === null ? [] : [e.recoverySec]))
   return {
     from,
@@ -190,10 +186,10 @@ export function periodStats(records: RecordItem[], from: string, to: string): Pe
     sessions: records.length,
     valid,
     good,
-    events: events.length,
-    alerts: events.reduce((n, e) => n + e.alerts, 0),
+    events: records.reduce((n, r) => n + (r.dayPartition?.eventCount ?? r.events.length), 0),
+    alerts: records.reduce((n, r) => n + (r.dayPartition?.alerts ?? r.events.reduce((sum, e) => sum + e.alerts, 0)), 0),
     keepRate: ratio(good, valid),
-    perHour: valid > 0 ? events.length / (valid / 3600) : null,
+    perHour: valid > 0 ? records.reduce((n, r) => n + (r.dayPartition?.eventCount ?? r.events.length), 0) / (valid / 3600) : null,
     meanInterval: mean(intervals),
     meanRecovery: mean(recoveries),
   }
@@ -204,26 +200,24 @@ export function compareFirstAndRecent(
   now = new Date(),
   rules = COMPARE_RULES,
 ): Comparison {
+  records = recordsByDay(records)
   if (records.length === 0) return { status: 'empty' }
-  const days = records.map((r) => startOfDay(new Date(r.endedAt)).getTime())
-  const first = new Date(Math.min(...days))
-  const earlyEnd = addDays(first, rules.days - 1)
-  const today = startOfDay(now)
-  const recentStart = addDays(today, -(rules.days - 1))
+  const first = records.map((r) => r.dayPartition?.date ?? kstDay(r.startedAt)).sort()[0]
+  const earlyEnd = addDayKey(first, rules.days - 1)
+  const today = kstDay(now)
+  const recentStart = addDayKey(today, -(rules.days - 1))
   // 두 구간이 겹치면 전후 비교가 아니다. 첫 측정일부터 2배 기간이 지나야 비교한다.
   if (recentStart <= earlyEnd) {
-    const daysLeft = Math.round(
-      (addDays(earlyEnd, rules.days).getTime() - today.getTime()) / 86400000,
-    )
-    return { status: 'waiting', firstDay: dayKey(first), daysLeft }
+    const daysLeft = Math.round(daysBetween(today, addDayKey(earlyEnd, rules.days)))
+    return { status: 'waiting', firstDay: first, daysLeft }
   }
-  const within = (from: Date, to: Date) =>
+  const within = (from: string, to: string) =>
     records.filter((r) => {
-      const d = startOfDay(new Date(r.endedAt))
+      const d = r.dayPartition?.date ?? kstDay(r.startedAt)
       return d >= from && d <= to
     })
-  const early = periodStats(within(first, earlyEnd), dayKey(first), dayKey(earlyEnd))
-  const recent = periodStats(within(recentStart, today), dayKey(recentStart), dayKey(today))
+  const early = periodStats(within(first, earlyEnd), first, earlyEnd)
+  const recent = periodStats(within(recentStart, today), recentStart, today)
   const enough = early.valid >= rules.minValidSeconds && recent.valid >= rules.minValidSeconds
   return { status: enough ? 'ready' : 'short', early, recent }
 }

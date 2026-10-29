@@ -8,6 +8,7 @@ import { DayTimeline } from './DayRecord'
 import { RecordHistoryItem } from './RecordHistoryItem'
 import { weekAgoLine } from './weekAgo'
 import { dailyStats, sessionsOn } from './recordsSource'
+import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
  * A day picked in the 달력 tab (2026-10-14). Lighter than the 기록 tab's DayRecord so the two
@@ -25,7 +26,7 @@ export function DaySummary({
 }) {
   const sessions = sessionsOn(records, day)
   const [s] = dailyStats(records, day, day)
-  const allStarts = records.map((r) => r.startedAt)
+  const allStarts = recordsByDay(records).map((r) => r.startedAt)
   return (
     <Card
       title={`${dayLabel(day)}`}

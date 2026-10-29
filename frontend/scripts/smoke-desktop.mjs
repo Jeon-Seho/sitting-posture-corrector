@@ -1,10 +1,11 @@
 // 실제 EXE를 숨긴 창·독립 프로필·합성 카메라로 실행한다.
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createServer } from 'node:net'
 import assert from 'node:assert/strict'
+import { Cdp } from '../../tools/browser/cdp.mjs'
 
 const server = createServer()
 await new Promise(r => server.listen(0, '127.0.0.1', r))
@@ -58,12 +59,29 @@ try {
         await new Promise(r => setTimeout(r, 100));
       const info = await window.posegoodDesktop.getLaunchInfo();
       const readyAt = Date.now();
+      const setInput = (name, value) => {
+        const input = document.querySelector('input[name="'+name+'"]');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      setInput('email','admin'); setInput('password','1234');
+      await new Promise(r=>setTimeout(r,100));
+      [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='로그인').click();
+      await new Promise(r=>setTimeout(r,200));
+      [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='설정').click();
+      await new Promise(r=>setTimeout(r,200));
+      document.querySelector('.theme-preset-discord').click();
+      await new Promise(r=>setTimeout(r,600));
+      const invalidIcon = await window.posegoodDesktop.setThemeIcon({accent:'../bad',png:'not-png'});
+      const alertDelivery = await window.posegoodDesktop.showAlert({title:'합성 테마 검증',body:'시험 알림',preview:true});
       const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', '/mediapipe/pose_landmarker_lite.task'];
       const assets = await Promise.all(files.map(async path => {
         const r = await fetch(path); return { path, status: r.status, bytes: (await r.arrayBuffer()).byteLength };
       }));
       const media = await navigator.mediaDevices.getUserMedia({ video: true });
       const camera = media.getVideoTracks().length; media.getTracks().forEach(t => t.stop());
+      [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='로그아웃').click();
+      await new Promise(r=>setTimeout(r,200));
       location.hash = 'collection';
       await new Promise(r => setTimeout(r, 500));
       [...document.querySelectorAll('button')].find(b => b.textContent.includes('카메라 켜기'))?.click();
@@ -75,7 +93,7 @@ try {
       }
       const videoWidth = document.querySelector('video')?.videoWidth || 0;
       [...document.querySelectorAll('button')].find(b => b.textContent.includes('카메라 끄기'))?.click();
-      return { readyAt, url: location.href, text: document.body.innerText, info, assets, camera, modelReady, videoWidth,
+      return { readyAt, url: location.href, text: document.body.innerText, info, assets, camera, modelReady, videoWidth, invalidIcon, alertDelivery,
         secure: isSecureContext, locks: !!navigator.locks };
     })()`,
   })
@@ -92,9 +110,30 @@ try {
   assert.equal(value.modelReady, true, value.text)
   assert.ok(value.videoWidth > 0)
   for (const asset of value.assets) { assert.equal(asset.status, 200); assert.ok(asset.bytes > 1000) }
+  assert.equal(value.invalidIcon, false)
+  assert.equal(value.alertDelivery, 'popup')
+  const savedIcon = JSON.parse(await readFile(join(profile, 'theme-icons', 'current.json'), 'utf8'))
+  assert.equal(savedIcon.accent, '#5865f2')
+  const ico = await readFile(join(profile, 'theme-icons', '5865f2.ico'))
+  assert.equal(ico.readUInt16LE(2), 1)
+  assert.equal(ico.readUInt32LE(18), 22)
+  const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
+  const popupPage = pages.find(p => p.url.includes('alert-popup.html'))
+  assert.ok(popupPage, 'native popup target')
+  const popupCdp = await Cdp.connect(popupPage.webSocketDebuggerUrl)
+  try {
+    const popupColors = await popupCdp.evaluate(`({background:getComputedStyle(document.documentElement).getPropertyValue('--snack').trim(),dark:document.documentElement.dataset.dark})`)
+    assert.equal(popupColors.dark, 'true')
+    assert.notEqual(popupColors.background, '#21332c', 'popup must follow selected theme, not fixed forest')
+  } finally { popupCdp.close() }
+  console.log('PASS packaged theme icon cache, invalid payload rejection, and native popup theme')
   console.log(JSON.stringify({ ...value, text: value.text.slice(0, 250) }, null, 2))
   await call('Runtime.evaluate', { expression: 'window.close()' }).catch(() => {})
 } finally {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ id: 999999, method: 'Browser.close' }))
+    await Promise.race([new Promise(resolve => socket.addEventListener('close', resolve, { once: true })), new Promise(resolve => setTimeout(resolve, 3000))])
+  }
   socket?.close()
   if (child.exitCode === null) await new Promise(r => { child.once('exit', r); setTimeout(r, 5000) })
   if (child.exitCode === null) child.kill()

@@ -12,7 +12,6 @@ import {
 import { captureWindow, DEFAULT_CAPTURE_OPTIONS, TASKS } from './collectionProtocol'
 import { createPointFilter, inferenceInterval } from './skeleton'
 import type { Observation } from '../hooks/useCamera'
-const baseline = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 }
 const capture = () =>
   newCapture('P01', 1000, 'synthetic-capture', '2026-09-19T00:00:00Z')
 const frame = (time: number, missing = false): Observation => ({
@@ -20,7 +19,7 @@ const frame = (time: number, missing = false): Observation => ({
   videoTimeMs: time,
   landmarks: [],
   worldLandmarks: [],
-  features: missing ? null : { ...baseline, headGap: 0.1 },
+  measurable: !missing,
   inferenceMs: 12,
   delegate: 'GPU',
   width: 640,

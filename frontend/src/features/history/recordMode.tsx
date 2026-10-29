@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { HistoryMode } from '../../lib/history'
 import type { RecordItem } from '../../lib/serviceStore'
 
@@ -6,7 +6,7 @@ import type { RecordItem } from '../../lib/serviceStore'
 export function useRecordMode(all: RecordItem[]) {
   const [mode, setMode] = useState<HistoryMode>('all')
   const hasDemo = all.some((r) => r.mode === 'demo')
-  const records = all.filter((r) => mode === 'all' || r.mode === mode)
+  const records = useMemo(() => mode === 'all' ? all : all.filter(r => r.mode === mode), [all, mode])
   const label = !hasDemo
     ? ''
     : mode === 'all'

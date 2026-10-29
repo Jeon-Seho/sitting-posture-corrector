@@ -1,5 +1,9 @@
+import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import { useEffect, useRef } from 'react'
 import type { CameraController } from '../hooks/useCamera'
+import { ArrowsOutSimple } from './icons'
+import { requestCameraTest } from '../features/camera/cameraWindowTesting'
+import { desktopBridge } from '../features/desktop/bridge'
 
 /** The capture element stays mounted in App; this view can move between setup/session. */
 export function CameraStage({
@@ -27,11 +31,15 @@ export function CameraStage({
   }, [camera.state, camera.streamRef])
   return (
     <>
+      {desktopBridge()?.cameraWindow && camera.state === 'on' && <button className="camera-stage-pip" aria-label="작은 창 열기" onClick={() => requestCameraTest('open')}>
+        <ArrowsOutSimple size={18} aria-hidden="true" /> 작은 창
+      </button>}
       <video
         ref={preview}
         className="webcam-preview"
         muted
         playsInline
+        disablePictureInPicture={!desktopBridge()}
         aria-label="실제 웹캠 미리보기"
       />
       <canvas
@@ -48,6 +56,7 @@ export function CameraStage({
       ) : (
         camera.state !== 'on' && (
           <div className="webcam-message">
+            {camera.state === 'off' && <ThemeIllustration kind="camera" className="state-art" />}
             <strong>{camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}</strong>
             <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
           </div>

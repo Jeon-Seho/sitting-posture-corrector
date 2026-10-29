@@ -1,7 +1,7 @@
 # 아키텍처 v5.2 스택별 역할
 
-> 최종 갱신: 2026-10-16 · DevOps/BE · 연결 번호(①~㉙)는 `자세 분석 플랫폼 아키텍처 v5.2.html`의 연결표와 같습니다.
-> 바꾼 점은 `architecture_v5.2_change_notes.md`.
+> 최종 갱신: 2026-10-16 · DevOps/BE · 연결 번호(①~㉙)는 [아키텍처 v5.2 외부 원본](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)의 연결표와 같습니다.
+> 바꾼 점은 [변경 안내](architecture_v5.2_change_notes.md), 저장소 밖 원문은 [외부 원본 참조](architecture_v5.2_change_notes.md#외부-원본-참조)를 확인합니다.
 
 바깥(앱·팀원 PC)과는 API로만, 서버 안 서비스끼리는 Kafka로만 주고받고, 각 서비스는 자기 담당 테이블만 DAO로 씁니다. 적재·분석은 cron이 Spark 배치(J1·J2·J3)를 실행해 HDFS 사용자별 폴더에 둡니다.
 실시간 판정은 **상태머신**으로 합니다. CEP(Esper 등 복합 이벤트 처리 엔진)는 쓰지 않습니다.
@@ -29,9 +29,9 @@
 
 | 스택 | 역할 | 입력 | 출력 | 왜 필요한가 |
 |---|---|---|---|---|
-| 입출구 서버 (팀 `backend/api`, Spring Boot 1대) | `auth`: 가입·로그인·로그아웃·비밀번호·탈퇴 접수(삭제는 J3) / `api`: 설정·기준 조회·세션 행·끊긴 뒤 종료·기록·통계(`/v2`) / `ws`: 좌표 받기·등록 전용 연결·세션 메시지 발행·결과·알림 전달·로그인 1분 갱신(`/v2/realtime`) | 앱 HTTP(쿠키 세션 + CSRF, ①), WebSocket `hello`(`purpose`)·`features`(구간 1개, 약 2~7KB)·`end`(②), Kafka `inference.v1`·`episodes.v1`·`alerts.v1`(⑤⑥) | MySQL(③), Kafka `features.v1`에 `session_started`(기준 좌표 첨부)·`features`·`session_ended`·등록 프레임(④, `ws`만), 앱에 `ready`·`ack`·`observation`·`progress`·`decision`·`alert`·`stalled`·`calibration_result`·`closed` | 앱이 주소 하나만 알면 되고 바깥 포트도 하나(D-43). 같은 앱이라 WebSocket이 HTTP 로그인을 그대로 씀. 세션 메시지를 `ws` 한 곳에서만 내 순서가 지켜짐. 패키지끼리는 공개 인터페이스로만 불러 나중에 서비스로 분리 가능. 측정 중 끊기면 세션을 끝냄(재연결 없음) |
+| 입출구 서버 (팀 `backend/api`, Spring Boot 1대) | `auth`: 가입·로그인·로그아웃·비밀번호·탈퇴 접수(삭제는 J3) / `api`: 설정·기준 조회·세션 행·끊긴 뒤 종료·기록·통계(`/v2`) / `ws`: 좌표 받기·등록 전용 연결·세션 메시지 발행·결과·알림 전달(`/v2/realtime`) | 앱 HTTP(쿠키 세션 + CSRF, ①), WebSocket `hello`(`purpose`)·`features`(구간 1개, 약 2~7KB)·`end`(②), Kafka `inference.v1`·`episodes.v1`·`alerts.v1`(⑤⑥) | MySQL(③), Kafka `features.v1`에 `session_started`(기준 좌표 첨부)·`features`·`session_ended`·등록 프레임(④, `ws`만), 앱에 `ready`·`ack`·`observation`·`progress`·`decision`·`alert`·`stalled`·`calibration_result`·`closed` | 앱이 주소 하나만 알면 되고 바깥 포트도 하나(D-43). 같은 앱이라 WebSocket이 HTTP 로그인을 그대로 씀. 세션 메시지를 `ws` 한 곳에서만 내 순서가 지켜짐. 패키지끼리는 공개 인터페이스로만 불러 나중에 서비스로 분리 가능. 측정 중 끊기면 세션을 끝냄(재연결 없음) |
 
-분담: 일반 REST(`auth`·`api`)와 배포는 DevOps/BE, `ws`는 PM(`ws_구축가이드_PM.md`).
+분담: 일반 REST(`auth`·`api`)와 배포는 DevOps/BE, `ws`는 PM(외부 `ws_구축가이드_PM.md`, [참조 안내](architecture_v5.2_change_notes.md#외부-원본-참조)). 저장소의 작업 단계는 [Kafka 전환 계획](../plans/active/0031-realtime-kafka-transition.md)에서 확인한다.
 
 ## 처리 서비스 층 (Kafka 비동기)
 
@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | cron (서버 PC) | `docker exec spark spark-submit`으로 J1 매시간, J2 매일 00:00, J3 매일 04:00 | 시간표 | 잡 실행 (㉘) | Spark가 상주하지 않아 잡이 도는 동안만 메모리 사용. 새 인프라 필요 없음 |
 | Spark 배치 J1 적재 | v1 토픽 3개를 쌓인 만큼 읽고 끝남(`availableNow`, 체크포인트). 임시 폴더 → 끝난 세션을 사용자별 폴더의 세션 파일로. 5분 미만 세션도 적재 | `features.v1`·`inference.v1`·`episodes.v1` (⑭) | HDFS `/data/users/{user_account_id}/{날짜}/{session_id}/` (⑮), `feature_archive` 행 (⑯) | 판정을 재현·분석할 원본이 남음. 실패해도 보존 3일 안에 이어 감 |
-| Spark 배치 J2 집계 | 매일 00:00 전날(KST) 결과를 사용자별 일별 통계로 | 결과 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`excluded_interval`) (⑰) | `daily_stat` (⑰) | 대시보드가 미리 계산된 행만 읽음. 5분 미만 세션은 붕괴까지 시간 계산에서만 뺌 |
+| Spark 배치 J2 집계 | 매일 00:00 전날(KST) 결과를 사용자별 일별 통계로 | 결과 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`excluded_interval`) (⑰) | `daily_stat` (⑰) | 서버 통계(T1)는 어제까지 제공·표시. 오늘 화면은 앱이 로컬에 수집한 서버 결과로 집계한다(10/22, [연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 5분 미만 세션은 붕괴까지 시간 계산에서만 뺌 |
 | Spark 배치 J3 삭제 | 탈퇴 30일 뒤 그 사용자의 폴더와 행을 지움 | `deletion_request` | 사용자 폴더 삭제 → `feature_archive.deleted_at` → 행 → 요청 완료 (⑳) | 개인정보를 정해진 순서로 빠짐없이. 적재된 기록은 사용자가 따로 지울 수 없어(`RECORD_ARCHIVED`) J3만 지움 |
 | HDFS (NameNode·DataNode) | 판정 과정을 사용자별 폴더의 Parquet로 보관 | J1 (⑮) | J3이 지울 폴더 (⑳) | 하루 약 5GB(50명·8시간, FE 추정)의 시계열은 MySQL보다 파일 저장소가 맞음. 학습 환경과는 연결하지 않음 |
 

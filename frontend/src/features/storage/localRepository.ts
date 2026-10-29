@@ -1,5 +1,5 @@
 import { DEFAULT_RULES } from '../../data/posture'
-import { KEYS, type Draft, type Profile, type RecordItem } from './types'
+import { KEYS, type Profile, type RecordItem } from './types'
 import { validLocal } from './validation'
 
 const labels: Record<string, string> = {
@@ -32,16 +32,6 @@ export function writeLocal(key: string, value: unknown) {
   if (!validLocal(key, value)) throw new Error(`${labels[key]} 값이 올바르지 않습니다.`)
   localStorage.setItem(key, JSON.stringify(value))
 }
-export function saveDraft(draft: Draft) {
-  const previous = readLocal<Draft | null>(KEYS.draft, null)
-  if (previous && previous.id !== draft.id)
-    throw new Error('다른 중간 기록이 있습니다. 먼저 복구하거나 종료해 주세요.')
-  writeLocal(KEYS.draft, draft)
-}
-export function removeSavedDraft(id: string) {
-  const draft = readLocal<Draft | null>(KEYS.draft, null)
-  if (draft?.id === id) localStorage.removeItem(KEYS.draft)
-}
 export function loadLocalState() {
   const issues: string[] = []
   const read = <T>(key: string, fallback: T): T => {
@@ -54,13 +44,11 @@ export function loadLocalState() {
   }
   const profile = read<Profile | null>(KEYS.profile, null),
     records = read<RecordItem[]>(KEYS.records, [])
-  const draft = read<Draft | null>(KEYS.draft, null),
-    settings = read(KEYS.settings, DEFAULT_RULES),
+  const settings = read(KEYS.settings, DEFAULT_RULES),
     demo = read(KEYS.demo, false)
   return {
     profile,
     records,
-    draft: draft && !records.some((r) => r.id === draft.id) ? draft : null,
     settings,
     demo,
     issues,

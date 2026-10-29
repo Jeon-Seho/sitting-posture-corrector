@@ -12,11 +12,8 @@ import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
 import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.policy.ThresholdPolicyRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -28,18 +25,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료, 기록 저장 때 마무리, 자세 등록(실시간 v2).
+ * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료.
  *
- * HTTP와 실시간 채널이 함께 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
+ * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
  * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
  * 실시간 v2는 좌표 구간을 받아 {@link FrameFeatures}로 특징 변화량을 계산한 뒤 같은 추론·판정 흐름에 넣는다(A안).
+ * KST 자정에는 실시간 연결이 {@link #rollover}로 이전 세션을 끝내고 새 세션으로 잇는다(BE-6 ① B안).
  */
 @Service
 public class SessionService {
-    private static final Logger log = LoggerFactory.getLogger(SessionService.class);
-    /** 자세 등록: 판정 가능 프레임 최소 장수와 최소 촬영 시간(calibration.ts, 2026-10-06 사용자 결정). */
-    static final int CALIBRATION_MIN_FRAMES = 15;
-    static final long CALIBRATION_MS = 3000;
 
     private final LiveSessions live;
     private final SessionRepository sessions;
@@ -51,6 +45,8 @@ public class SessionService {
     private final TransactionTemplate tx;
     private final ApplicationEventPublisher events;
     private final long maxSessionMs;
+    /** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
+    private final long unmeasurableTimeoutMs;
 
     public SessionService(
             LiveSessions live,
@@ -62,7 +58,8 @@ public class SessionService {
             UserLocks locks,
             TransactionTemplate tx,
             ApplicationEventPublisher events,
-            @Value("${posegood.realtime.max-session-duration}") Duration maxSession) {
+            @Value("${posegood.realtime.max-session-duration}") Duration maxSession,
+            @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout) {
         this.live = live;
         this.sessions = sessions;
         this.baselines = baselines;
@@ -73,6 +70,7 @@ public class SessionService {
         this.tx = tx;
         this.events = events;
         this.maxSessionMs = maxSession.toMillis();
+        this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
     }
 
     /**
@@ -126,16 +124,6 @@ public class SessionService {
                 });
     }
 
-    /** 특징 입력 처리: 재전송 확인 → 추론 → 판정 → 실시간 알림 → DB 기록. */
-    public SessionRequests.FeatureResponse features(long owner, UUID id, InferenceRequest request) {
-        var session = require(owner, id);
-        return session.locked(
-                () -> {
-                    var accepted = accept(session, request, null);
-                    return response(accepted.observation(), accepted.view());
-                });
-    }
-
     /**
      * 실시간 v2 측정 연결 준비: 내 세션인지, 아직 진행 중인지, 판정에 쓸 기준 자세가 있는지 확인한다.
      *
@@ -147,7 +135,7 @@ public class SessionService {
         var stored = baselines.find(owner, session.row().baselineId());
         var features = stored == null ? null : FrameFeatures.baseline(stored.landmarks());
         if (features == null) throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
-        return new Realtime(features, session.row().alertEnabled());
+        return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
     }
 
     /**
@@ -156,8 +144,6 @@ public class SessionService {
      * v2는 재전송이 없으므로 같은 순번은 409 CONFLICT다.
      */
     public Status frames(long owner, UUID id, FrameInterval interval, FrameFeatures.Features baseline) {
-        if (interval.phase() == FrameInterval.Phase.calibration)
-            throw ApiError.badRequest("calibration interval on a measurement");
         var computed = FrameFeatures.interval(interval, baseline);
         var session = require(owner, id);
         return session.locked(
@@ -197,63 +183,65 @@ public class SessionService {
                     if (endMs == null) session.endReason("DISCONNECTED");
                     int before = engine.eventCount();
                     engine.end(endMs == null ? last : Math.max(endMs, last));
-                    publish(session, null, before, null);
+                    publish(session, null, before, null, null);
                     persist(session);
                     return null;
                 });
     }
 
     /**
-     * 자세 등록 결과 계산과 저장(실시간 v2 calibration).
+     * 자정 넘김(BE-6 ① B안): 이전 세션을 마지막으로 받은 구간 끝에서 끝내 저장하고, 자정({@code midnight})에 시작하는
+     * 새 세션을 만든다.
      *
-     * {@code completed}는 앱이 {@code end}를 보냈는지다. 실패하면 저장하지 않고 이전 기준이 그대로 현재 기준이다.
-     * 순서: 끊김·마지막 구간 끝 3초 미만 {@code incomplete} → 판정 가능 프레임 15장 미만 {@code too_few_frames} →
-     * 평균 좌표가 0~1 밖이거나 그 평균으로 특징을 못 구하면 {@code out_of_frame} → 저장 실패 {@code server_error}.
+     * 이전 세션의 종료 시각은 그래서 자정 전이고, 종료 이벤트의 closed 사유는 {@code day_changed}다. 새 세션 ID는
+     * 서버가 만들고 기준 자세·임계값 설정·알림 설정은 이전 세션 것을 쓴다(S1의 계정 확인은 다시 하지 않는다).
+     * {@code limitMs}는 새 세션의 최대 측정 시간 상한이다. 새 세션을 만들지 못하면(자리 없음·DB 장애) 예외가 나고
+     * 이전 세션은 끝난 채 남는다.
      */
-    public Calibration calibrate(long owner, Capture capture, boolean completed) {
-        int frames = capture.validFrames();
-        if (!completed || capture.lastEndMs() < CALIBRATION_MS) return Calibration.failed(frames, "incomplete");
-        if (frames < CALIBRATION_MIN_FRAMES) return Calibration.failed(frames, "too_few_frames");
-        var mean = capture.mean();
-        for (double value : mean)
-            if (!(value >= 0 && value <= 1)) return Calibration.failed(frames, "out_of_frame");
-        var points = new SessionRequests.Point[FrameInterval.JOINTS];
-        for (int index = 0; index < points.length; index++)
-            points[index] = new SessionRequests.Point(mean[index * 2], mean[index * 2 + 1]);
-        var landmarks =
-                new SessionRequests.Landmarks(
-                        points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7],
-                        points[8]);
-        if (FrameFeatures.baseline(landmarks) == null) return Calibration.failed(frames, "out_of_frame");
-        try {
-            var stored =
-                    locks.withLock(
-                            owner,
-                            () ->
-                                    tx.execute(
-                                            status -> {
-                                                accounts.requireActive(owner);
-                                                return baselines.registerComputed(owner, landmarks);
-                                            }));
-            return new Calibration(true, frames, null, stored);
-        } catch (ApiError refused) {
-            if (refused.status() < 500) throw refused;
-            log.warn("baseline registration failed: {}", refused.code());
-            return Calibration.failed(frames, "server_error");
-        } catch (DataAccessException failed) {
-            log.warn("baseline registration failed: {}", failed.getClass().getSimpleName());
-            return Calibration.failed(frames, "server_error");
-        }
+    public Rollover rollover(long owner, UUID id, Instant midnight, long limitMs) {
+        var previous = require(owner, id);
+        return locks.withLock(
+                owner,
+                () -> {
+                    var ended =
+                            previous.locked(
+                                    () -> {
+                                        var engine = previous.engine();
+                                        if (engine.ended()) throw ApiError.ended();
+                                        previous.endReason("DAY_CHANGED");
+                                        int before = engine.eventCount();
+                                        var view = engine.end(engine.summary().totalMs());
+                                        publish(previous, null, before, null, "day_changed");
+                                        persist(previous);
+                                        return view.summary();
+                                    });
+                    var nextId = UUID.randomUUID();
+                    live.ensureRoom();
+                    var row =
+                            tx.execute(
+                                    status -> {
+                                        sessions.insertFollowing(previous.row(), nextId, KstTime.of(midnight));
+                                        return sessions.find(nextId);
+                                    });
+                    var policy = previous.engine().policy();
+                    live.add(new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs))));
+                    return new Rollover(
+                            ended,
+                            previous.row().startedAt().plusMillis(ended.totalMs()),
+                            nextId,
+                            row.startedAt(),
+                            row.alertEnabled());
+                });
     }
 
     /** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
-    private Accepted accept(LiveSession session, InferenceRequest request, String invalidReason) {
+    private void accept(LiveSession session, InferenceRequest request, String invalidReason) {
         String digest = fingerprint(request);
         var cached = session.input(request.sequence());
         if (cached != null) {
             if (!cached.fingerprint().equals(digest)) throw ApiError.conflict("conflicting duplicate");
             persist(session);
-            return new Accepted(cached.observation(), session.engine().view());
+            return;
         }
         var engine = session.engine();
         var view = engine.view();
@@ -267,9 +255,15 @@ public class SessionService {
         var observation = inference.infer(request);
         var result = engine.accept(observation);
         session.remember(request.sequence(), digest, observation);
-        publish(session, observation, before, invalidReason);
+        String closedReason = null;
+        if (unmeasurableTimeoutMs > 0 && !result.ended() && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
+            // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
+            session.endReason("UNMEASURABLE_TIMEOUT");
+            result = engine.end(result.summary().totalMs());
+            closedReason = "unmeasurable_timeout";
+        }
+        publish(session, observation, before, invalidReason, closedReason);
         persist(session);
-        return new Accepted(observation, result);
     }
 
     /**
@@ -283,37 +277,10 @@ public class SessionService {
                 () -> {
                     int before = session.engine().eventCount();
                     var view = session.engine().end(endMs);
-                    if (session.engine().eventCount() > before) publish(session, null, before, null);
+                    if (session.engine().eventCount() > before) publish(session, null, before, null, null);
                     persist(session);
                     return view;
                 });
-    }
-
-    /**
-     * 기록을 저장할 때 아직 열린 세션 행을 닫는다.
-     *
-     * 판정 상태가 있으면 마지막 수신 시각에서 끝내 DISCONNECTED로, 상태를 잃었으면 ERROR로 닫는다.
-     */
-    public void closeForRecord(long owner, UUID id, long acknowledgedMs) {
-        var session = live.get(id);
-        if (session != null && session.owner() == owner) {
-            session.locked(
-                    () -> {
-                        var engine = session.engine();
-                        if (!engine.ended()) {
-                            session.endReason("DISCONNECTED");
-                            int before = engine.eventCount();
-                            engine.end(engine.summary().totalMs());
-                            publish(session, null, before, null);
-                        }
-                        persist(session);
-                        return null;
-                    });
-            return;
-        }
-        var stored = owned(owner, id);
-        if (stored.endedAt() == null)
-            tx.executeWithoutResult(status -> sessions.closeLost(stored, acknowledgedMs));
     }
 
     /** 현재 상태 조회. */
@@ -323,7 +290,7 @@ public class SessionService {
     }
 
     /**
-     * 세션 삭제(DB 행과 메모리 상태).
+     * 세션 삭제(DB 행과 메모리 상태). 기록 삭제(R3)가 쓴다.
      */
     public void delete(long owner, UUID id) {
         var stored = owned(owner, id);
@@ -338,17 +305,6 @@ public class SessionService {
                     live.remove(id, "session_lost");
                     return null;
                 });
-    }
-
-    /** 시작·종료 시각, 기준 자세 ID, 모델 버전. */
-    public Metadata metadata(long owner, UUID id) {
-        var stored = owned(owner, id);
-        var session = live.get(id);
-        String model =
-                session != null && session.locked(() -> session.engine().lastSequence() >= 0)
-                        ? inference.modelVersion()
-                        : null;
-        return new Metadata(stored.startedAt(), stored.endedAt(), stored.baselineId(), model);
     }
 
     /**
@@ -375,8 +331,9 @@ public class SessionService {
         return inference.modelVersion();
     }
 
-    /** 새 결과를 실시간 채널로 알린다. */
-    private void publish(LiveSession session, Observation observation, int before, String invalidReason) {
+    /** 새 결과를 실시간 채널로 알린다. {@code closedReason}은 서버가 스스로 끝냈을 때만 있다. */
+    private void publish(
+            LiveSession session, Observation observation, int before, String invalidReason, String closedReason) {
         var engine = session.engine();
         events.publishEvent(
                 new SessionUpdates.Progressed(
@@ -389,7 +346,8 @@ public class SessionService {
                         observation == null
                                 ? null
                                 : Observation.V3.of(observation, SessionEngine.invalidReason(observation, invalidReason)),
-                        engine.pausedReason()));
+                        engine.pausedReason(),
+                        closedReason));
     }
 
     private static Status status(SessionEngine engine) {
@@ -427,10 +385,6 @@ public class SessionService {
                         });
         session.persisted(
                 session.persistedEvents() + pending.size(), episodes, session.closePersisted() || close);
-    }
-
-    private static SessionRequests.FeatureResponse response(Observation observation, SessionView view) {
-        return new SessionRequests.FeatureResponse("1.0", observation, view);
     }
 
     /** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */
@@ -473,70 +427,16 @@ public class SessionService {
         }
     }
 
-    /** {@code GET /v2/sessions/{id}/metadata} 응답. 모르는 값은 null. */
-    public record Metadata(Instant startedAt, Instant endedAt, UUID baselineId, String modelVersion) {}
-
-    private record Accepted(Observation observation, SessionView view) {}
-
     /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
-    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled) {}
+    /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */
+    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled, Instant startedAt) {}
+
+    /**
+     * 자정 넘김 결과: 끝난 이전 세션의 요약·서버 종료 시각(DB {@code ended_at}), 새 세션 ID·시작 시각(자정)·알림 설정.
+     */
+    public record Rollover(
+            SessionView.Summary ended, Instant endedAt, UUID sessionId, Instant startedAt, boolean alertEnabled) {}
 
     /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
     public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}
-
-    /** 자세 등록 결과. 성공이면 {@code baseline}, 실패면 {@code reason}이 있다. */
-    public record Calibration(boolean ok, int validFrames, String reason, BaselineRepository.Stored baseline) {
-        static Calibration failed(int validFrames, String reason) {
-            return new Calibration(false, validFrames, reason, null);
-        }
-    }
-
-    /**
-     * 자세 등록 한 번의 수집 상태: 판정 가능 프레임 수와 관절 좌표 합만 둔다(좌표 원본은 버린다).
-     *
-     * 구간은 순번·시간 순서대로 와야 한다. 아니면 409 CONFLICT.
-     */
-    public static final class Capture {
-        private final double[] sums = new double[FrameInterval.JOINTS * 2];
-        private int validFrames;
-        private long lastSequence = -1;
-        private long lastEndMs;
-
-        public void add(FrameInterval interval) {
-            if (interval.phase() != FrameInterval.Phase.calibration)
-                throw ApiError.badRequest("measurement interval on a calibration");
-            if (interval.sequence() <= lastSequence || interval.startMs() < lastEndMs)
-                throw ApiError.conflict("out-of-order or overlapping interval");
-            for (var frame : interval.frames()) {
-                if (!FrameFeatures.usable(frame)) continue;
-                validFrames++;
-                for (int index = 0; index < FrameInterval.JOINTS; index++) {
-                    var joint = frame.joint(index);
-                    sums[index * 2] += joint[0];
-                    sums[index * 2 + 1] += joint[1];
-                }
-            }
-            lastSequence = interval.sequence();
-            lastEndMs = interval.endMs();
-        }
-
-        public int validFrames() {
-            return validFrames;
-        }
-
-        public long lastSequence() {
-            return lastSequence;
-        }
-
-        public long lastEndMs() {
-            return lastEndMs;
-        }
-
-        /** 관절 9개의 평균 x, y(18개). 판정 가능 프레임이 없으면 NaN. */
-        double[] mean() {
-            var mean = new double[sums.length];
-            for (int index = 0; index < sums.length; index++) mean[index] = sums[index] / validFrames;
-            return mean;
-        }
-    }
 }

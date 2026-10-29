@@ -1,16 +1,20 @@
+import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import { useEffect, useRef } from 'react'
-import { ArrowCounterClockwise, ArrowLeft, Check, Leaf, Play, Square, VideoCamera, User } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowLeft, Check, Play, Square, VideoCamera } from '../components/icons'
 import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
+import { PreparationSteps } from '../components/PreparationSteps'
+import { CameraWindowTest } from '../features/developer/CameraWindowTest'
+import { DeveloperGroup, InteractionPreview } from '../features/developer/DeveloperGroup'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
 import { CameraPicker } from '../features/camera/CameraPicker'
-import { CALIBRATION_MS } from '../../../model/prototype/calibration'
+import { CAPTURE_MS } from '../features/baseline/landmarkCapture'
 
 /** Seconds of steady upper-body input needed for the baseline (see calibration.ts). */
-const CALIBRATION_SECONDS = CALIBRATION_MS / 1000
+const CALIBRATION_SECONDS = CAPTURE_MS / 1000
 
 /**
  * 「측정하기」 (2026-10-13: registration and measuring are one flow again).
@@ -27,9 +31,6 @@ export function SetupPage({
   registerAgain = false,
   onBack,
   onOpenSession,
-  serverMode = false,
-  onServerMode,
-  serverModeDisabled = false,
   startLabel = '측정 시작',
 }: {
   camera: CameraController
@@ -40,9 +41,6 @@ export function SetupPage({
   registerAgain?: boolean
   onBack?: () => void
   onOpenSession?: () => void
-  serverMode?: boolean
-  onServerMode?: (enabled: boolean) => void
-  serverModeDisabled?: boolean
   /** Text of the start buttons; sign-up step 3 says 「앱 시작」. */
   startLabel?: string
 }) {
@@ -52,6 +50,7 @@ export function SetupPage({
   const calibrating = camera.progress !== null
   const counting = flow.phase === 'countdown'
   const capturing = flow.phase === 'capturing' && calibrating
+  const saving = flow.phase === 'saving'
   const registering = flow.armed
   const ready = registered && !registering && on && camera.quality && !calibrating
   const left = Math.max(1, Math.ceil(CALIBRATION_SECONDS * (1 - (camera.progress ?? 0))))
@@ -60,10 +59,12 @@ export function SetupPage({
   const latest = useRef({ flow, onStart })
   latest.current = { flow, onStart }
   useEffect(() => {
+    // Wait for B2 first: the server may already have a posture. If B2 failed, the user chooses.
+    if ((camera.baselineLoading || camera.baselineError) && !registerAgain) return
     if ((!registered || registerAgain) && !measuring && !latest.current.flow.armed) latest.current.flow.start()
     // Only when the posture goes missing or the page opens for a new registration.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registered, registerAgain])
+  }, [registered, registerAgain, camera.baselineLoading, camera.baselineError])
   // A registration that finished here starts the measurement right away.
   useEffect(() => {
     if (flow.phase === 'done' && !measuring && !registerAgain) latest.current.onStart()
@@ -81,14 +82,18 @@ export function SetupPage({
   cameraRef.current = camera
   useEffect(() => () => cameraRef.current.cancelCalibration(), [])
 
+  const loadFailed = !registered && !registering && !registerAgain && !measuring ? camera.baselineError : null
   const step = !on ? 0 : !camera.quality ? 1 : registering || !registered ? 2 : 3
   const [title, desc] = headline({
     registerAgain,
     measuring,
     finished,
+    loadFailed,
     on,
     quality: camera.quality,
     failed: flow.phase === 'failed',
+    failure: flow.error,
+    saving,
     capturing,
     counting,
     registering: registering || !registered,
@@ -119,6 +124,17 @@ export function SetupPage({
               <ArrowLeft size={14} weight="bold" className="icon" />
               설정으로
             </button>
+          )}
+          {loadFailed && (
+            <>
+              <button className="chip" disabled={camera.baselineLoading} onClick={() => void camera.reloadBaseline()}>
+                <ArrowCounterClockwise size={14} weight="bold" className="icon" />
+                다시 불러오기
+              </button>
+              <button className="chip" disabled={!on} onClick={flow.start}>
+                새로 등록
+              </button>
+            </>
           )}
           {registered && !registering && !measuring && (
             <button className="chip" disabled={!on} onClick={flow.start}>
@@ -156,7 +172,7 @@ export function SetupPage({
                 ) : (
                   <span />
                 )}
-                {on && <span className="pill small num">{camera.metrics.fps.toFixed(0)} FPS</span>}
+
               </div>
               <div className="stage-bottom">
                 {camera.state === 'off' || camera.state === 'error' ? (
@@ -199,6 +215,13 @@ export function SetupPage({
                     <button className="btn" onClick={flow.stop}>
                       등록 취소
                     </button>
+                  </div>
+                ) : saving ? (
+                  <div className="calibrate-card" role="status">
+                    <div>
+                      <div className="nudge-title">기준 자세를 저장하는 중</div>
+                      <div className="nudge-desc">서버에 저장하고 있어요. 잠시만 기다려 주세요.</div>
+                    </div>
                   </div>
                 ) : measuring ? (
                   // A measurement is still open (also after 「카메라 준비 다시 확인」): go back to it.
@@ -263,87 +286,26 @@ export function SetupPage({
             <h3 className="card-title" style={{ marginBottom: 16 }}>
               준비 단계
             </h3>
-            <ol className="steps" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-              {[
-                ['카메라 연결', '권한을 허용하면 영상은 이 기기 안에서만 처리돼요'],
-                ['얼굴·어깨 확인', '가림 없이 정면을 바라봐 주세요'],
-                [
-                  registered && !registering ? '기준 자세 등록됨' : '기준 자세 등록',
-                  registered && !registering
-                    ? '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요'
-                    : `${CALIBRATION_SECONDS}초 동안 편하게 앉아 있으면 돼요`,
-                ],
-              ].map(([name, hint], i) => (
-                <li className="step" key={name}>
-                  <span className={`step-mark ${step > i ? 'done' : step === i ? 'active' : ''}`}>
-                    {step > i ? <Check size={16} weight="bold" /> : i + 1}
-                  </span>
-                  <div>
-                    <div className="step-title">{name}</div>
-                    <div className="step-desc">{hint}</div>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <PreparationSteps step={step} labels={['카메라 연결', '얼굴·어깨 확인', registered && !registering ? '기준 자세 등록됨' : '기준 자세 등록']} />
           </section>
 
-          <section className="card tips-card">
-            <h3 className="card-title" style={{ marginBottom: 14 }}>
-              이렇게 앉으면 좋아요
-            </h3>
-            <div className="tips">
-              <div className="tip">
-                <span className="tip-icon">
-                  <User size={20} weight="bold" />
-                </span>
-                화면 가운데에 앉아 점선 안에 머리를 맞춰요
-              </div>
-              <div className="tip">
-                <span className="tip-icon">
-                  <VideoCamera size={20} weight="bold" />
-                </span>
-                카메라를 옮겼다면 기준 자세를 다시 등록해요
-              </div>
-              <div className="tip">
-                <span className="tip-icon">
-                  <Leaf size={20} weight="bold" />
-                </span>
-                억지로 펴지 말고 평소의 편한 자세로
-              </div>
-            </div>
-          </section>
-
-          <button className="btn btn-primary btn-lg btn-block" disabled={!ready || measuring} onClick={onStart}>
-            <Play size={18} weight="fill" className="icon" />
-            {startLabel}
-          </button>
+          <div className="posture-note">
+            <ThemeIllustration kind="baseline" />
+            <span>편하게 앉은 자세를 기억해요.</span>
+          </div>
           <details className="more">
             <summary>개발자 옵션</summary>
-            <div className="more-body">
-              {onServerMode && (
-                <>
-                  <label className="row">
-                    <input
-                      type="checkbox"
-                      checked={serverMode}
-                      disabled={serverModeDisabled}
-                      onChange={(event) => onServerMode(event.target.checked)}
-                    />
-                    서버 판정 사용 · 개발 연결
-                  </label>
-                  <p className="fine">
-                    개인 기준 대비 변화량과 품질값만 로컬 개발 서버로 보냅니다. 영상과 관절 좌표는
-                    보내지 않습니다.
-                    {serverMode && ' 서버 기록은 메모리에 보관되어 서버를 다시 켜면 사라집니다.'}
-                  </p>
-                </>
-              )}
-              <div className="row">
-                <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
-                  자세 데이터 수집으로 이동
-                </button>
-                <span className="fine">연구용 라벨 촬영 화면입니다.</span>
-              </div>
+            <div className="more-body dev-tools">
+              <DeveloperGroup title="카메라·작은 창"><CameraWindowTest /></DeveloperGroup>
+              <DeveloperGroup title="화면·모션"><InteractionPreview /></DeveloperGroup>
+              <DeveloperGroup title="데이터 수집">
+                <div className="row">
+                  <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
+                    자세 데이터 수집으로 이동
+                  </button>
+                  <span className="fine">연구용 라벨 촬영 화면입니다.</span>
+                </div>
+              </DeveloperGroup>
             </div>
           </details>
         </div>
@@ -357,9 +319,14 @@ function headline(s: {
   registerAgain: boolean
   measuring: boolean
   finished: boolean
+  /** B2 failed (why); the user loads it again or registers a new posture. */
+  loadFailed: string | null
   on: boolean
   quality: boolean
   failed: boolean
+  /** Why the server did not save it (out of frame, signed out, server error). */
+  failure: string | null
+  saving: boolean
   capturing: boolean
   counting: boolean
   registering: boolean
@@ -370,10 +337,13 @@ function headline(s: {
   if (s.registerAgain && s.measuring)
     return ['측정 중에는 기준 자세를 바꿀 수 없어요', '진행 중인 측정을 마친 뒤 다시 등록해 주세요.']
   if (s.finished) return ['새 기준 자세를 등록했어요', '이제 이 자세와 비교해서 알려드려요.']
+  if (s.loadFailed) return ['등록한 기준 자세를 불러오지 못했어요', s.loadFailed]
   if (!s.on)
     return s.registered && !s.registerAgain
       ? ['카메라를 켜 주세요', '등록한 기준 자세로 바로 측정할 수 있어요.']
-      : ['카메라를 켜 주세요', '평소 편하게 바로 앉은 자세를 기준 자세로 등록하고, 그 자세에서 멀어질 때만 알려드려요.']
+      : ['카메라를 켜 주세요', '얼굴과 양쪽 어깨가 보이면 준비가 시작돼요.']
+  if (s.saving) return ['기준 자세를 저장하고 있어요', '서버에 저장되면 바로 다음 단계로 넘어가요.']
+  if (s.failed && s.failure) return ['기준 자세를 저장하지 못했어요', s.failure]
   if (s.failed)
     return ['자세를 알아보기 어려워요', '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉고, 잠시 움직이지 말아 주세요.']
   if (s.capturing) return ['그대로 편하게 있어 주세요', '기준 자세를 기억하고 있어요. 영상은 저장하지 않아요.']

@@ -20,17 +20,18 @@ class Client:
         self.cookies = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookies))
         self.user_id = None
+        self.access_token = None  # JWT from register/login (ADR 0031); the refresh token stays in the cookie jar
 
     def request(self, method, path, body=None, *, expected=200, csrf=True, identity=True, identity_override=None):
+        # `csrf` is accepted for old callers; the token login has no CSRF step.
         headers = {"Content-Type": "application/json"}
         protected = path.startswith(("/v2/workspace", "/v2/records", "/v2/sessions", "/v2/baselines")) or path in (
             "/v2/auth/logout", "/v2/auth/password", "/v2/auth/account",
         )
         if protected and identity and (identity_override or self.user_id):
             headers["X-PoseGood-User-Id"] = identity_override or self.user_id
-        if csrf and method not in ("GET", "HEAD"):
-            token = self.request("GET", "/v2/auth/csrf")
-            headers[token["header_name"]] = token["token"]
+        if self.access_token:
+            headers["Authorization"] = "Bearer " + self.access_token
         request = urllib.request.Request(
             self.base + path, method=method,
             data=None if body is None else json.dumps(body).encode(), headers=headers,
@@ -46,8 +47,11 @@ class Client:
             document = json.loads(payload) if payload else None
             if response.status == 200 and path in ("/v2/auth/register", "/v2/auth/login", "/v2/auth/me"):
                 self.user_id = document["user_id"]
+            if response.status == 200 and path in ("/v2/auth/register", "/v2/auth/login", "/v2/auth/refresh"):
+                self.access_token = document["access_token"]
             if response.status == 204 and path in ("/v2/auth/logout", "/v2/auth/password", "/v2/auth/account"):
                 self.user_id = None
+                self.access_token = None
             return document
 
 
@@ -118,13 +122,13 @@ def exercise_accounts(base):
     checks += 2
     owner = Client(base)
     credentials, account = register(owner, uuid.uuid4().hex)
-    if owner.request("GET", "/v2/auth/me") != account:
-        raise AssertionError("Cookie authentication did not preserve the registered account")
+    me = owner.request("GET", "/v2/auth/me")
+    if any(me[key] != account[key] for key in ("user_id", "email", "profile")):
+        raise AssertionError("Token authentication did not preserve the registered account")
     checks += 2
     session_id = str(uuid.uuid4())
-    from datetime import datetime, timezone
     registration = {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
             "calibration_ms": 3000, "sample_count": 20,
         "landmarks": synthetic_setup(None)["baseline"]["landmarks"],
     }

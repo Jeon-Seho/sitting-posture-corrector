@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""입출구 서버(팀 backend/api, D-48) REST 점검 — 서버 PC에 띄운 io-api 컨테이너를 실제 DB(V2.3)로 확인한다.
+"""입출구 서버(팀 backend/api, D-48) REST 점검 — 서버 PC에 띄운 io-api 컨테이너를 실제 DB(V2.6)로 확인한다.
 
 통합 테스트 10단계(tools/platform/integration_test.sh)가 부른다. 혼자 실행해도 된다.
     python3 tools/platform/io_api_smoke.py --base http://127.0.0.1:8090
 
-API 명세: DB/BE 「PoseGood API 명세서」(dc2de48). 앱은 /api 접두사를 붙이지만 io-api 컨테이너에는 접두사 없이 보낸다.
+API 명세: 저장소 docs/design/api-spec.md. 앱은 /api 접두사를 붙이지만 io-api 컨테이너에는 접두사 없이 보낸다.
+로그인은 access·refresh 토큰(ADR 0031, D-69): 보호 요청은 Authorization: Bearer, 로그인 유지는 쿠키 posegood_refresh(A8).
 합성 시험 계정(test-it-<임의값>@example.invalid, DB 회신 DB-6의 시험 계정 형식)과 합성 구간만 쓴다.
 끝에서 세션을 지우고 계정을 탈퇴 접수한다(CLOSED). 계정 행의 최종 삭제는 Spark J3(30일 뒤)가 한다.
 표준 라이브러리만 쓴다(서버 PC에 jsonschema·requests가 없어도 된다).
@@ -12,12 +13,11 @@ API 명세: DB/BE 「PoseGood API 명세서」(dc2de48). 앱은 /api 접두사�
 
 import argparse
 import json
+import re
 import sys
 import uuid
-from datetime import datetime, timezone
-from http.cookiejar import CookieJar
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import Request, build_opener
 
 # 새 계정의 기본 정책(DB 시드 DEFAULT_TEMP — threshold 0.7, 3초·3초·60초). 세션 생성 정책은 계정 현재 정책과 같아야 한다.
 POLICY = {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7}
@@ -30,6 +30,8 @@ LANDMARKS = {
     "mouth_right": {"x": 0.485, "y": 0.45}, "left_shoulder": {"x": 0.65, "y": 0.62},
     "right_shoulder": {"x": 0.35, "y": 0.62},
 }
+
+REFRESH_COOKIE = "posegood_refresh"
 
 PASSED = 0
 FAILED = 0
@@ -48,38 +50,68 @@ def bad(name, detail=""):
 
 
 class Client:
-    """브라우저처럼: 로그인 쿠키, CSRF 헤더, 계정 확인 헤더(X-PoseGood-User-Id)."""
+    """앱처럼: access 토큰(Authorization: Bearer), 로그인 유지 쿠키(posegood_refresh), 계정 확인 헤더(X-PoseGood-User-Id).
+
+    쿠키는 직접 다룬다 — 서버가 Secure 쿠키를 주어도(POSEGOOD_COOKIE_SECURE=true) http 시험 주소로 보낼 수 있게.
+    """
 
     def __init__(self, base):
         self.base = base.rstrip("/")
-        self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
-        self.csrf = None
+        self.opener = build_opener()
+        self.access_token = None
+        self.refresh_cookie = None
+        self.cookie_attributes = ""
         self.user_id = None
 
     def call(self, path, method="GET", body=None):
         headers = {"Content-Type": "application/json"}
-        if self.csrf and method != "GET":
-            headers["X-CSRF-TOKEN"] = self.csrf
+        if self.access_token:
+            headers["Authorization"] = "Bearer " + self.access_token
         if self.user_id:
             headers["X-PoseGood-User-Id"] = self.user_id
+        if self.refresh_cookie:
+            headers["Cookie"] = f"{REFRESH_COOKIE}={self.refresh_cookie}"
         data = None if body is None else json.dumps(body, allow_nan=False).encode()
         try:
             with self.opener.open(Request(self.base + path, data=data, method=method, headers=headers),
                                   timeout=15) as response:
-                status, raw = response.status, response.read()
+                status, raw, received = response.status, response.read(), response.headers
         except HTTPError as error:
-            status, raw = error.code, error.read()
+            status, raw, received = error.code, error.read(), error.headers
+        self._remember(received.get_all("Set-Cookie") or [])
         try:
             payload = json.loads(raw) if raw else None
         except ValueError:
             payload = raw[:200]
         return status, payload
 
-    def refresh_csrf(self):
-        status, body = self.call("/v2/auth/csrf")
-        if status != 200 or not isinstance(body, dict) or "token" not in body:
-            raise RuntimeError(f"CSRF 토큰을 받지 못함 (HTTP {status})")
-        self.csrf = body["token"]
+    def _remember(self, set_cookies):
+        for header in set_cookies:
+            first, _, attributes = header.partition(";")
+            name, _, value = first.strip().partition("=")
+            if name != REFRESH_COOKIE:
+                continue
+            gone = not value or re.search(r"max-age=0(?:;|$)", attributes.replace(" ", "").lower())
+            self.refresh_cookie = None if gone else value
+            self.cookie_attributes = attributes.lower()
+
+    def sign_in(self, body):
+        """A2·A3·A8 응답의 토큰을 쓴다."""
+        self.access_token = body["access_token"]
+        self.user_id = body["user_id"]
+
+
+def signed_in(client):
+    """가입·로그인 응답 검사: 사용자, access 토큰(Bearer, 남은 초), HttpOnly 로그인 유지 쿠키."""
+    def check(body):
+        if not body.get("user_id"):
+            return "user_id 없음"
+        if not body.get("access_token") or body.get("token_type") != "Bearer" or not body.get("expires_in", 0) > 0:
+            return f"토큰 형식 다름(token_type={body.get('token_type')}, expires_in={body.get('expires_in')})"
+        if not client.refresh_cookie or "httponly" not in client.cookie_attributes:
+            return f"로그인 유지 쿠키 {REFRESH_COOKIE}(HttpOnly) 없음"
+        return None
+    return check
 
 
 def expect(name, result, status, check=None):
@@ -117,26 +149,41 @@ def scenario(base):
     expect("H1 GET /health (DB 연결)", owner.call("/health"), 200,
            lambda b: None if b.get("status") == "ok" else f"status={b.get('status')}")
 
-    # --- 계정 (A1~A4) ---
-    owner.refresh_csrf()
+    # --- 계정 (A2·A3·A4·A8, 토큰 로그인 ADR 0031) ---
     email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
-    user = expect("A2 가입 (합성 시험 계정)", owner.call("/v2/auth/register", "POST", {
+    user = expect("A2 가입 → access 토큰·로그인 유지 쿠키 (합성 시험 계정)", owner.call("/v2/auth/register", "POST", {
         "email": email, "password": PASSWORD,
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
-    }), 200, lambda b: None if b.get("user_id") else "user_id 없음")
+    }), 200, signed_in(owner))
     if user is None:
         return
-    owner.user_id = user["user_id"]
-    owner.refresh_csrf()
-    expect("A4 GET /v2/auth/me", owner.call("/v2/auth/me"), 200,
+    owner.sign_in(user)
+    secure = "secure" in [a.strip() for a in owner.cookie_attributes.split(";")]
+    print(f"  참고: 로그인 유지 쿠키 Secure={'예' if secure else '아니요'} (POSEGOOD_COOKIE_SECURE)", flush=True)
+    expect("A4 GET /v2/auth/me (Bearer)", owner.call("/v2/auth/me"), 200,
            lambda b: None if b["user_id"] == owner.user_id else "다른 계정")
-    expect("인증 없는 요청은 401", Client(base).call("/v2/auth/me"), 401)
+    expect("토큰 없는 요청은 401", Client(base).call("/v2/auth/me"), 401)
+
+    device = Client(base)  # 다른 기기: A3 로그인 → 아래에서 A5 로그아웃
+    signed = expect("A3 로그인 (다른 기기)", device.call("/v2/auth/login", "POST", {"email": email, "password": PASSWORD}),
+                    200, signed_in(device))
+    if signed is not None:
+        device.sign_in(signed)
+
+    old_cookie = owner.refresh_cookie
+    refreshed = expect("A8 POST /v2/auth/refresh → 새 access 토큰, 쿠키 교체", owner.call("/v2/auth/refresh", "POST"), 200,
+                       lambda b: None if b.get("access_token") and b.get("user_id") == owner.user_id
+                       and owner.refresh_cookie and owner.refresh_cookie != old_cookie else "토큰·쿠키가 바뀌지 않음")
+    if refreshed is not None:
+        owner.sign_in(refreshed)
+        expect("A8 새 토큰으로 A4", owner.call("/v2/auth/me"), 200)
+    expect("A8 쿠키 없이는 401", Client(base).call("/v2/auth/refresh", "POST"), 401)
 
     # --- 설정·기준 자세 (W1, B1, B2) ---
     expect("W1 GET /v2/workspace", owner.call("/v2/workspace"), 200)
     saved = expect("B1 기준 자세 등록 (관절 9개 평균 좌표)", owner.call("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS,
     }), 200, lambda b: None if b.get("baseline_id") else "baseline_id 없음")
     if saved is None:
@@ -170,15 +217,24 @@ def scenario(base):
     expect("S3 다른 end_ms 재요청은 409", owner.call(path + "/end", "POST", {"end_ms": 6500}), 409)
     expect("S4 세션 조회", owner.call(path), 200, lambda b: None if b["ended"] else "종료 안 됨")
     expect("S5 세션 메타데이터", owner.call(path + "/metadata"), 200)
-    expect("R1 기록 목록에 방금 세션", owner.call("/v2/records"), 200,
-           lambda b: None if sid in [r.get("id") for r in b] else "목록에 없음")
+    expect("R1 기록 목록 {today, records}에 방금 세션", owner.call("/v2/records"), 200,
+           lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid in [r.get("id") for r in b["records"]]
+           else f"today={b.get('today')} / 목록에 없음")
     expect("S6 세션 삭제 (204)", owner.call(path, "DELETE"), 204)
     expect("S6 삭제 뒤 조회는 404", owner.call(path), 404)
 
+    # --- 로그아웃 (A5): 이 기기의 로그인 유지만 끊는다 ---
+    if signed is not None:
+        revoked = device.refresh_cookie
+        expect("A5 로그아웃 (204, 쿠키 지움)", device.call("/v2/auth/logout", "POST"), 204,
+               lambda _: None if device.refresh_cookie is None else "쿠키가 남음")
+        device.refresh_cookie = revoked
+        expect("A5 로그아웃한 쿠키로 A8은 401", device.call("/v2/auth/refresh", "POST"), 401)
+
     # --- 탈퇴 접수 (A7, 철회 없음 — 최종 삭제는 J3) ---
     expect("A7 탈퇴 접수 (204)", owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD}), 204)
+    expect("탈퇴 뒤 남은 access 토큰도 401", owner.call("/v2/auth/me"), 401)
     again = Client(base)
-    again.refresh_csrf()
     expect("탈퇴한 계정 로그인은 403 ACCOUNT_CLOSED",
            again.call("/v2/auth/login", "POST", {"email": email, "password": PASSWORD}), 403,
            lambda b: None if b.get("code") == "ACCOUNT_CLOSED" else f"code={b.get('code')}")

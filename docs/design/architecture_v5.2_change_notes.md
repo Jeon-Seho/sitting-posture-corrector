@@ -1,8 +1,9 @@
 # 아키텍처 v5.2 변경 안내
 
 > 최종 갱신: 2026-10-16 · DevOps/BE
-> 구성도·연결표: `자세 분석 플랫폼 아키텍처 v5.2.html` (원본 페이지 https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)
-> 스택별 역할: `architecture_v5.2_stack_roles.md` · 데이터 흐름: `사용자데이터_입출력시나리오_v5.2.md` · 결정 근거: `결정기록.md` · API: `FE_BE_API명세_2026-10-14.md`
+> 구성도·연결표: [자세 분석 플랫폼 아키텍처 v5.2 외부 원본](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)
+> 저장소 문서: [스택별 역할](architecture_v5.2_stack_roles.md) · [아키텍처](../architecture.md) · [결정 이력](../decisions/) · [API 명세](api-spec.md) · [FE 연동 명세](api-ws-spec.md)
+> 이 문서가 인용한 저장소 밖 원문은 아래 [외부 원본 참조](#외부-원본-참조)에서 구분한다.
 
 **자세 분석 플랫폼 아키텍처를 v5.2로 갱신했습니다.** v5의 큰 틀(앱은 입출구 서버 하나와만, 서버 안은 Kafka로만, 학습은 CSV 수동)과 v5.1의 적재·분석 배치(cron → Spark → HDFS 사용자별 폴더)는 그대로입니다. v5.2는 10/13~10/14 FE·DB와 정한 API 명세를 반영해 **입출구 서버를 팀 `backend/api` 위에 만들고, 재연결을 없애고, 알림 판단과 자세 등록 경로를 확정**한 판입니다.
 실시간 판정은 처음부터 **상태머신**입니다. CEP(Esper 등 복합 이벤트 처리 엔진)는 쓰지 않으며, v1 판정 경로에 남아 있던 `cep` 이름은 D-53(10/17)에서 `judge`로 바꿨습니다(운영 API `/judge/v1/*`, 그룹 `judge-v1`). `cep`는 옛 `posture.summary` 경로에만 남고 D-38에서 함께 지웁니다.
@@ -21,7 +22,6 @@
 | 서비스 DB | V2.1 | **V2.3**(팀 `backend/api` 기준) — `user_consent` 추가, `correction_alert` 키 변경, 기준 특징값은 저장 안 함 | 서버 DB가 이미 최신화됨, 우리 코드는 D-51에서 맞춤(10/16 완료) |
 | 짧은 세션 | 5분 미만은 저장 안 함(10/12 회의) | **모두 저장**. 5분은 붕괴까지 시간 통계에서만 뺌 | 10/14 결정 |
 | 적재 기록 삭제 | 정하지 않음 | 사용자가 지울 수 없음(`409 RECORD_ARCHIVED`), 탈퇴 J3 때만 | 적재 기록 삭제 배치를 만들지 않음 |
-| 측정 중 로그인 | 30분 비활동 만료 | `ws`가 열린 연결의 로그인을 1분마다 갱신 | 만료로 닫히면 재연결이 없어 측정이 끊김 |
 | Kafka 토픽 | `features`·`inference`·`episodes`·`dlq` | + `posture.alerts.v1` | 알림 판단 결과 |
 | 연결 | 28개 | **29개** — ㉙ 판정 결과 저장 → `alerts.v1` | |
 
@@ -30,7 +30,7 @@
 | 담당 | 달라지는 것 | 할 일 |
 |---|---|---|
 | FE | 주소 `/api/v2/…`(중계가 `/v2/…`로), WebSocket `/api/v2/realtime`. `hello`에 `purpose`, `ready`를 받은 뒤 전송, 끊기면 재연결하지 않음, 등록은 따로 연결 | API 명세 #12·#13 회의, 계약 파일(`lee_app3`) 갱신(#15) |
-| PM(`ws`) | 팀 `backend/api`의 `/v2/realtime`을 Kafka 중계로 — 세션 메시지 발행, 결과·알림 전달, 등록 연결, 로그인 갱신 | `ws_구축가이드_PM.md` |
+| PM(`ws`) | 팀 `backend/api`의 `/v2/realtime`을 Kafka 중계로 — 세션 메시지 발행, 결과·알림 전달, 등록 연결 | 외부 `ws_구축가이드_PM.md`([참조 안내](#외부-원본-참조)), 저장소의 [Kafka 전환 계획](../plans/active/0031-realtime-kafka-transition.md) |
 | DevOps/BE(입출구 REST·배포) | 팀 `backend/api`를 서버 compose에 배포(10/16 완료), `ws`가 쓸 공개 인터페이스(`MeasurementSessions`), REST를 Kafka 경로로 | D-48 2단계, D-43 |
 | DevOps/BE(처리 서비스) | 판정 결과 저장에 알림 토픽 발행, 종료 사유 계약, 좌표 입력·등록 계산(추론), `cep` 이름 정리 | D-54·D-55·D-34·D-35·D-53 |
 | DB | V2.3 기준. 배치 번호(J1 적재·J2 집계·J3 삭제)로 문서 최신화 | 문서 갱신 |
@@ -90,4 +90,16 @@
 | **v5.2** | **10/14** | 입출구 서버 = 팀 `backend/api`(`/v2`, `/v2/realtime`), 재연결 없음, 알림 토픽 ㉙, 등록 전용 연결, 좌표 입력 v3, DB V2.3, 5분 미만도 저장, 연결 29개 |
 | v5.2 문서 | 10/16 | 구성 변경 없음. 문서 이름 영문화(`architecture_v5.2_change_notes.md`·`architecture_v5.2_stack_roles.md`), 판정은 상태머신·CEP 미사용 표현 통일, 상태 갱신(D-51·D-30 완료, 입출구 REST 배포, `ws`는 PM) |
 
-남은 안건은 `결정기록.md` 맨 아래 "남은 안건"에 있습니다.
+외부 원문의 남은 안건은 `결정기록.md`의 "남은 안건" 절을 뜻합니다. 원문 접근 안내는 아래 표를, 저장소의 전환 작업은 [Kafka 전환 계획](../plans/active/0031-realtime-kafka-transition.md)을 확인합니다.
+
+## 외부 원본 참조
+
+아래 원문은 저장소에 포함되어 있지 않다. 문의 담당은 관련 작업의 담당이며, 작성자나 원문 내용의 동일성을 뜻하지 않는다. 저장소 문서는 위 링크에서 확인한다.
+
+| 인용 원문 | 확인 가능한 판본 | 접근 안내·문의 담당 |
+|---|---|---|
+| `자세 분석 플랫폼 아키텍처 v5.2.html` | v5.2 | [기존에 공유된 원본 페이지](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX). DevOps/BE에 문의 |
+| `사용자데이터_입출력시나리오_v5.2.md` | 파일명 기준 v5.2 | 공유 주소 미기재. DevOps/BE에 원문 위치 확인 |
+| `결정기록.md` | 개별 판본·갱신일 미기재 | 공유 주소 미기재. DevOps/BE에 원문과 "남은 안건" 절 확인 |
+| `FE_BE_API명세_2026-10-14.md` | 파일명 기준 2026-10-14판 | 공유 주소 미기재. BE에 원문 위치 확인. 현재 저장소의 API 설명은 [API 명세](api-spec.md)에서 확인 |
+| `ws_구축가이드_PM.md` | 개별 판본·갱신일 미기재 | 공유 주소 미기재. PM(`ws` 담당)에 원문 위치 확인 |

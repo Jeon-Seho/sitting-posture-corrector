@@ -1,0 +1,14 @@
+Mode: built-in image_gen, transparent_background=true
+Use case: stylized-concept.
+Asset type: ONE cohesive raster emoji/pictogram sprite sheet for the PoseGood posture record app. The user explicitly wants AI image creation with a clean SVG-like FLAT emoji feel, not actual SVG, not 3D.
+Create a precise 7-column by 7-row grid on a square transparent canvas. Every cell is exactly the same size. Each cell contains one centered isolated icon, inside the middle 65% of its cell, with equal safe padding. No drawn grid lines and no cell background tiles. Final six cells are empty.
+STRICT SHARED STYLE for every symbol: flat 2D vector-like sticker emoji, simple rounded solid silhouettes with a consistent broad rounded dark forest-green outline, light sage green fills and small warm ivory negative spaces. Only #315b42, #91aa93, #e7eee5, #f5f5f3. No gradients, shadows, bevel, perspective, material texture, lighting effects, realistic objects, photography, complex detail, faces, orange, text, labels, numbers or watermark. Calm, friendly, uncluttered. All icons must look drawn by the same illustrator with the same stroke weight, same corner radius and same visual size; useful at 24-32 pixels.
+Exact row-by-row icon contents:
+Row 1: simple posture chair; three bar chart columns; calendar with date dots; six-lobed settings cog; video camera; round clock; stopwatch.
+Row 2: clock with counterclockwise arrow; notification bell; muted bell with slash; three adjustment sliders; power symbol; abstract person silhouette; circular profile silhouette.
+Row 3: logout doorway with right arrow; play triangle; pause bars; stop square; stop square; fast-forward double triangles; left arrow.
+Row 4: right arrow; left chevron; right chevron; up chevron; down chevron; horizontal minus; diagonal close X.
+Row 5: checkmark; checkmark in circle; exclamation stem and dot in circle; information dot and stem in circle; question curve and dot in circle; clockwise circular arrow; counterclockwise circular arrow.
+Row 6: two-arrow refresh cycle; expand window four corners; hourglass; two-layer database cylinder; padlock; speaker with two sound arcs; muted speaker with slash.
+Row 7: offline wifi arcs with slash; empty; empty; empty; empty; empty; empty.
+Consistency across the whole sheet is the main priority. This is a single unified flat emoji icon set, not a moodboard or collection of different styles.

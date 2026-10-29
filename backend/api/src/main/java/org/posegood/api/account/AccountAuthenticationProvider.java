@@ -44,7 +44,7 @@ public class AccountAuthenticationProvider implements AuthenticationProvider {
         return authenticated(account);
     }
 
-    /** DB 로그인 세션에 저장할 인증 정보(사용자 ID만 담음)를 만든다. */
+    /** 로그인 확인 결과(사용자 ID만 담음). 토큰 발급에 쓴다. */
     static Authentication authenticated(AccountRepository.Account account) {
         return UsernamePasswordAuthenticationToken.authenticated(
                 new AccountPrincipal(account.id()),

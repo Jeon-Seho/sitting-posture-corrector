@@ -42,6 +42,14 @@ public class SessionRepository {
                 id.toString(), owner, baseline, policy, alerts, at);
     }
 
+    /** Midnight rollover: a new row with the previous session's user, baseline, policy and alert setting. */
+    public void insertFollowing(Stored previous, UUID id, LocalDateTime at) {
+        jdbc.update("INSERT INTO monitor_session(client_session_uuid,user_account_id,baseline_posture_id,"
+                        + "threshold_policy_id,alert_enabled,started_at) SELECT ?,user_account_id,baseline_posture_id,"
+                        + "threshold_policy_id,alert_enabled,? FROM monitor_session WHERE monitor_session_id=?",
+                id.toString(), at, previous.key());
+    }
+
     public void applyEvent(Stored session, DecisionEvent event, int episode) {
         var at = at(session, event.timestampMs());
         switch (event.kind()) {
@@ -73,24 +81,6 @@ public class SessionRepository {
         for (var span : closing.excluded())
             jdbc.update("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason) VALUES(?,?,?,?)",
                     session.key(), at(session, span.startMs()), at(session, span.endMs()), span.reason().name());
-        return true;
-    }
-
-    /** Lost observations are excluded, never reconstructed as good or deviation time. */
-    public boolean closeLost(Stored session, long acknowledgedMs) {
-        LocalDateTime last = jdbc.queryForObject(
-                "SELECT MAX(t) FROM (SELECT MAX(COALESCE(ended_at,confirmed_at)) AS t FROM collapse_event WHERE monitor_session_id=?"
-                        + " UNION ALL SELECT MAX(attempted_at) FROM correction_alert WHERE monitor_session_id=?) x",
-                (row, n) -> row.getObject(1, LocalDateTime.class), session.key(), session.key());
-        var end = at(session, acknowledgedMs);
-        if (last != null && last.isAfter(end)) end = last;
-        int closed = jdbc.update("UPDATE monitor_session SET ended_at=?,good_sec=0 WHERE monitor_session_id=? AND ended_at IS NULL",
-                end, session.key());
-        if (closed != 1) return false;
-        jdbc.update("UPDATE collapse_event SET ended_at=? WHERE monitor_session_id=? AND ended_at IS NULL", end, session.key());
-        if (end.isAfter(KstTime.of(session.startedAt())))
-            jdbc.update("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason) VALUES(?,?,?,'MISSING')",
-                    session.key(), KstTime.of(session.startedAt()), end);
         return true;
     }
 

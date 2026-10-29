@@ -3,6 +3,11 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../../model/prototype/pose'
 import { useCamera } from '../../hooks/useCamera'
 import { usePostureRegistration } from './usePostureRegistration'
+import {
+  installFakeBaselineServer,
+  removeFakeBaselineServer,
+  type FakeBaselineServer,
+} from '../baseline/fakeBaselineServer'
 
 const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.fn() }))
 vi.mock('@mediapipe/tasks-vision', () => ({
@@ -17,6 +22,7 @@ describe('posture registration with the real camera hook', () => {
   let camera: ReturnType<typeof useCamera>
   let flow: ReturnType<typeof usePostureRegistration>
   let points: Landmark[]
+  let server: FakeBaselineServer
   function Probe() {
     camera = useCamera()
     flow = usePostureRegistration(camera, false)
@@ -47,6 +53,7 @@ describe('posture registration with the real camera hook', () => {
     vi.stubGlobal('navigator', {
       mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(incoming), enumerateDevices: vi.fn().mockResolvedValue([]) },
     })
+    server = installFakeBaselineServer()
     act(() => {
       renderer = create(<Probe />)
     })
@@ -65,8 +72,13 @@ describe('posture registration with the real camera hook', () => {
     await act(async () => {
       await camera.connect()
     })
+    // The registration page arms the flow once B2 said nothing is registered (SetupPage).
+    expect(camera.baselineLoading).toBe(false)
+    expect(camera.baseline).toBeNull()
+    act(() => flow.start())
   })
   afterEach(() => {
+    removeFakeBaselineServer()
     act(() => renderer?.unmount())
     renderer = undefined
     vi.useRealTimers()
@@ -74,12 +86,21 @@ describe('posture registration with the real camera hook', () => {
     vi.unstubAllGlobals()
   })
 
-  it('counts down, captures and ends by itself with a steady pose', () => {
+  const settle = async () => {
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('counts down, captures, saves on the server and ends by itself with a steady pose', async () => {
     advance(300)
     expect(flow.phase).toBe('countdown')
     advance(3000)
     expect(flow.phase).toBe('capturing')
     advance(3600)
+    expect(flow.phase).toBe('saving')
+    await settle()
+    expect(server.posts).toHaveLength(1)
     expect(camera.baseline).not.toBeNull()
     expect(camera.progress).toBeNull()
     expect(flow.phase).toBe('done')
@@ -102,5 +123,22 @@ describe('posture registration with the real camera hook', () => {
     }
     expect(flow.phase).toBe('failed')
     expect(camera.progress).toBeNull()
+  })
+
+  it('says why the server did not save the posture', async () => {
+    server.failWith.push(503, 503, 503, 503)
+    advance(6900)
+    expect(flow.phase).toBe('saving')
+    // Retried at 1·2·4 s with the same body, then explained.
+    for (const ms of [1000, 2000, 4000, 0]) {
+      await settle()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+    expect(server.posts).toHaveLength(0)
+    expect(flow.phase).toBe('failed')
+    expect(flow.error).toBe('서버가 다른 작업을 처리하고 있어요. 잠시 뒤 다시 등록해 주세요.')
+    expect(camera.baseline).toBeNull()
   })
 })

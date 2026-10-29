@@ -12,12 +12,13 @@
 기대값:
     decision  collapse_confirmed 8000(시작 5000) → reminder 68000 → recovery_confirmed 78000 → session_ended 85000
               (Kafka 경로는 제외 구간 사건 excluded_started·excluded_ended가 섞여 온다 — 그것은 따로 센다)
-    alert     2개(collapse_confirmed·reminder). 새 계정은 알림이 꺼져 있어(V2.3 sound_alert_enabled 기본 false)
+    alert     2개(collapse_confirmed·reminder). 새 계정 알림 기본값은 DB에 따라 다를 수 있어(V2.6 016 새 판은 켜짐)
               세션을 만들기 전에 W2(PUT /v2/workspace)로 알림을 켠다
     closed    ended
     요약      total 85000 · valid 81000 · normal 11000 · deviation 70000 · rest 2500 · missing 1500 · 붕괴 1 · 알림 2
     DB        (--report가 있으면 처리 서비스 GET /report/sessions/{id}로) 종료 85000, good_sec 11.0, 붕괴 1(5000 → 8000 → 회복 78000),
               알림 8000·68000(표시), 제외 구간 PAUSE 79000~81500 · MISSING 83500~85000
+인증은 토큰 로그인(ADR 0031, D-69): REST는 Authorization: Bearer, WebSocket은 hello.access_token(연결 때 한 번).
 끝에서 세션을 지우고 계정을 탈퇴 접수한다(io_api_smoke.py와 같은 합성 시험 계정 test-it-*@example.invalid).
 표준 라이브러리만 쓴다(WebSocket 클라이언트도 직접 — 서버 PC에 websockets 패키지가 없어도 된다). 좌표는 로그에 남기지 않는다.
 """
@@ -31,10 +32,9 @@ import struct
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 from urllib.error import URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPCookieProcessor, Request, urlopen
+from urllib.request import Request, urlopen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, Client  # noqa: E402
@@ -198,23 +198,23 @@ def get_json(url):
 
 def scenario(base, report, pipeline):
     owner = Client(base)
-    owner.refresh_csrf()
     email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
     status, user = owner.call("/v2/auth/register", "POST", {
         "email": email, "password": PASSWORD,
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
     })
-    if not check("가입 (합성 시험 계정)", status == 200 and isinstance(user, dict) and user.get("user_id"), f"HTTP {status}"):
+    if not check("가입 (합성 시험 계정, access 토큰)",
+                 status == 200 and isinstance(user, dict) and user.get("user_id") and user.get("access_token"),
+                 f"HTTP {status}"):
         return
-    owner.user_id = user["user_id"]
-    owner.refresh_csrf()
+    owner.sign_in(user)
     status, saved = owner.call("/v2/baselines", "POST", {
-        "registered_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS})
     if not check("기준 자세 등록", status == 200 and saved.get("baseline_id"), f"HTTP {status}"):
         return
-    # 새 계정은 알림 꺼짐(V2.3 sound_alert_enabled 기본 false) → 세션이 alert_enabled를 복사하기 전에 켠다
+    # 새 계정 알림 기본값은 DB 판에 따라 다르다(V2.6 016 새 판은 켜짐) → 세션이 alert_enabled를 복사하기 전에 켠다
     status, settings = owner.call("/v2/workspace", "PUT", {
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "rules": {"holdSeconds": POLICY["hold_ms"] / 1000, "recoverSeconds": POLICY["recovery_ms"] / 1000,
@@ -233,18 +233,43 @@ def scenario(base, report, pipeline):
     try:
         run_socket(base, owner, sid, pipeline)
         check_records(owner, path, report, sid)
+        check_unauthenticated(base)
     finally:
         owner.call(path, "DELETE")
         owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD})
 
 
-def run_socket(base, owner, sid, pipeline):
+def open_socket(base):
     parts = urlsplit(base)
-    jar = next(h.cookiejar for h in owner.opener.handlers if isinstance(h, HTTPCookieProcessor))
-    cookies = "; ".join(f"{c.name}={c.value}" for c in jar)
-    # (T-13) --base가 nginx(http://127.0.0.1:8088/api)여도 같은 경로로 — 앞 경로(/api)를 붙인다
-    ws = WebSocket(f"ws://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
-                   {"Origin": f"{parts.scheme}://{parts.netloc}", "Cookie": cookies})
+    # (T-13) --base가 nginx(http://127.0.0.1:8088/api)여도 같은 경로로 — 앞 경로(/api)를 붙인다. 출처는 같은 출처(화면과 같음)
+    return WebSocket(f"ws://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
+                     {"Origin": f"{parts.scheme}://{parts.netloc}"})
+
+
+def check_unauthenticated(base):
+    """hello의 access_token이 틀리면 closed(unauthorized) — 토큰은 연결 때 한 번 확인한다(ADR 0031).
+    (필드 자체가 없으면 형식 오류라 closed(bad_message)다.)"""
+    ws = open_socket(base)
+    closed = None
+    try:
+        ws.send({"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": str(uuid.uuid4()),
+                 "access_token": "not-a-valid-token"})
+        deadline = time.monotonic() + 6
+        while time.monotonic() < deadline:
+            message = ws.recv(max(0.1, deadline - time.monotonic()))
+            if message is not None and message.get("type") == "closed":
+                closed = message
+                break
+    except (ConnectionError, OSError):
+        pass
+    finally:
+        ws.close()
+    check("틀린 access_token의 hello → closed(unauthorized)",
+          closed is not None and closed.get("reason") == "unauthorized", f"받음={closed}")
+
+
+def run_socket(base, owner, sid, pipeline):
+    ws = open_socket(base)
     received = []
 
     def until(predicate, timeout):
@@ -259,7 +284,8 @@ def run_socket(base, owner, sid, pipeline):
         return None
 
     try:
-        ws.send({"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": sid})
+        ws.send({"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": sid,
+                 "access_token": owner.access_token})
         ready = until(lambda m: m.get("type") in ("ready", "closed"), 6)
         if not check("hello → ready", ready is not None and ready.get("type") == "ready", f"받음={ready}"):
             return

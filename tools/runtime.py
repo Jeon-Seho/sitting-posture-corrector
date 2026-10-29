@@ -49,7 +49,7 @@ def java_executable() -> str:
 
 
 def gradle_executable() -> str:
-    """The backend's Gradle Wrapper (ADR 0023); it downloads Gradle itself and needs only Java 17+."""
+    """The backend's Gradle Wrapper (backend/README.md); it downloads Gradle itself and needs only Java 17+."""
     wrapper = ROOT / "backend" / ("gradlew.bat" if os.name == "nt" else "gradlew")
     if not wrapper.is_file():
         sys.exit("backend/gradlew가 없습니다. Java 17 이상과 backend/README.md의 준비 절차를 확인하세요.")

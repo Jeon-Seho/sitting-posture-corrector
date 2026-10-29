@@ -17,9 +17,7 @@
 .nav-item,
 .segmented button,
 .switch,
-.more > summary,
-.camera-window-drag,
-.camera-window-tools button {
+.more > summary {
   transition:
     background-color var(--dur-fast) ease,
     border-color var(--dur-fast) ease,
@@ -194,9 +192,4 @@
 
 .meter > span {
   transition: width var(--dur) var(--ease-soft);
-}
-
-/* Floating camera window and toasts slide in. */
-.camera-window-controls {
-  animation: view-in var(--dur) var(--ease-soft);
 }

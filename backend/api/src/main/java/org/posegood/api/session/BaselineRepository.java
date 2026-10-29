@@ -16,7 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** V2.3 기준 자세 이력. 등록 시각은 클라이언트가 고정하고 재시도에도 보존한다. */
+/**
+ * 기준 자세 이력(DB V2.5). 등록 시각은 서버가 정하고, 재시도는 앱이 등록마다 발급한
+ * 등록 식별자(UK-16)로 알아본다(ADR 0028).
+ */
 @Repository
 public class BaselineRepository {
     private static final List<String> JOINTS = List.of("nose", "left_eye", "right_eye", "left_ear",
@@ -46,19 +49,13 @@ public class BaselineRepository {
     }
 
     /**
-     * 서버가 계산한 기준(WebSocket 자세 등록) 저장. 등록 시각은 서버 시각이다.
-     *
-     * Caller holds the account lock and transaction.
+     * 같은 등록 식별자가 이미 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다.
+     * 새 행의 등록 시각은 서버 시각이다. Caller holds the account lock and transaction. Existing rows are never updated.
      */
-    public Stored registerComputed(long owner, SessionRequests.Landmarks landmarks) {
-        return register(owner, Instant.now(), landmarks);
-    }
-
-    /** Caller holds the account lock and transaction. Existing rows are never updated. */
-    public Stored register(long owner, Instant registeredAt, SessionRequests.Landmarks landmarks) {
-        var at = KstTime.of(registeredAt);
-        var existing = jdbc.query("SELECT * FROM baseline_posture WHERE user_account_id=? AND registered_at=?",
-                this::read, owner, at);
+    public Stored register(long owner, UUID registrationId, SessionRequests.Landmarks landmarks) {
+        var registration = registrationId.toString();
+        var existing = jdbc.query("SELECT * FROM baseline_posture WHERE user_account_id=? AND client_registration_uuid=?",
+                this::read, owner, registration);
         var values = values(landmarks);
         if (!existing.isEmpty()) {
             if (!values(existing.get(0).landmarks()).equals(values))
@@ -67,12 +64,13 @@ public class BaselineRepository {
         }
         var args = new ArrayList<Object>();
         args.add(owner);
-        args.add(at);
+        args.add(registration);
+        args.add(KstTime.now());
         args.addAll(values);
-        jdbc.update("INSERT INTO baseline_posture(user_account_id,registered_at," + COORDINATES
-                + ") VALUES(" + "?,".repeat(19) + "?)", args.toArray());
-        return jdbc.queryForObject("SELECT * FROM baseline_posture WHERE user_account_id=? AND registered_at=?",
-                this::read, owner, at);
+        jdbc.update("INSERT INTO baseline_posture(user_account_id,client_registration_uuid,registered_at," + COORDINATES
+                + ") VALUES(" + "?,".repeat(20) + "?)", args.toArray());
+        return jdbc.queryForObject("SELECT * FROM baseline_posture WHERE user_account_id=? AND client_registration_uuid=?",
+                this::read, owner, registration);
     }
 
     private static List<BigDecimal> values(SessionRequests.Landmarks landmarks) {

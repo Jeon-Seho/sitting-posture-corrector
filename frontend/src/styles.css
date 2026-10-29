@@ -1,4 +1,4 @@
-/* Base tokens first, then shared blocks, then screens; responsive overrides stay last. */
+/* Base tokens, shared blocks, screens, responsive geometry, theme, then reading scale. */
 @import './styles/base.css';
 @import './styles/layout.css';
 @import './styles/components.css';
@@ -17,5 +17,8 @@
 @import './styles/auth.css';
 @import './styles/connection.css';
 @import './styles/motion.css';
-@import './styles/typography.css';
 @import './styles/responsive.css';
+@import './styles/forest.css';
+@import './styles/typography.css';
+
+@import './styles/appearance.css';

@@ -9,23 +9,26 @@ export const REGISTRATION_COUNTDOWN_MS = 3000
  */
 export const REGISTRATION_LIMIT_MS = 15000
 
-export type RegistrationPhase = 'waiting' | 'countdown' | 'capturing' | 'done' | 'stopped' | 'failed'
+export type RegistrationPhase = 'waiting' | 'countdown' | 'capturing' | 'saving' | 'done' | 'stopped' | 'failed'
 
 const TICK_MS = 100
 
 /**
  * The 「자세 등록」 tab flow (plan 0024): once the face and both shoulders are visible it counts
- * down 3·2·1, captures the posture and ends by itself. It runs only on this tab and only
- * when there is no registered posture yet or the user asked to register again.
+ * down 3·2·1, captures the posture, saves it on the server (B1, 2026-10-20) and ends by itself.
+ * It runs only on this tab and only when there is no registered posture yet or the user asked
+ * to register again.
  */
 export function usePostureRegistration(camera: CameraController, measuring: boolean) {
-  const [armed, setArmed] = useState(() => !camera.baseline)
+  const [armed, setArmed] = useState(
+    () => !camera.baseline && !camera.baselineLoading && !camera.baselineError,
+  )
   const [phase, setPhase] = useState<RegistrationPhase>('waiting')
   const [now, setNow] = useState(() => performance.now())
+  /** Why the last attempt failed; null for the capture time limit (the headline explains it). */
+  const [error, setError] = useState<string | null>(null)
   const countdownStart = useRef<number | null>(null)
   const captureStart = useRef<number | null>(null)
-  const captureId = useRef<string | null>(null)
-  const captureBaseline = useRef<CameraController['baseline']>(null)
   const sawProgress = useRef(false)
   const latest = useRef(camera)
   latest.current = camera
@@ -57,22 +60,33 @@ export function usePostureRegistration(camera: CameraController, measuring: bool
       if (now - countdownStart.current >= REGISTRATION_COUNTDOWN_MS) {
         countdownStart.current = null
         captureStart.current = now
-        captureId.current = cam.calibrationId
-        captureBaseline.current = cam.baseline
         sawProgress.current = false
+        setError(null)
         cam.calibrate()
         setPhase('capturing')
       }
       return
     }
-    if (phase !== 'capturing') return
-    if (cam.progress !== null) sawProgress.current = true
-    // A finished capture replaces the baseline; the id alone is not enough (it can repeat).
-    if (cam.baseline && (cam.baseline !== captureBaseline.current || cam.calibrationId !== captureId.current)) {
-      setPhase('done')
+    if (phase === 'saving') {
+      // Wait for the server: the new baseline, or the reason it was not saved.
+      if (cam.registering && !cam.registrationError) return
+      if (cam.registrationError) setError(cam.registrationError)
+      setPhase(cam.registrationError ? 'failed' : 'done')
       setArmed(false)
       return
     }
+    if (phase !== 'capturing') return
+    if (cam.registering) {
+      setPhase('saving')
+      return
+    }
+    if (cam.registrationError) {
+      setError(cam.registrationError)
+      setPhase('failed')
+      setArmed(false)
+      return
+    }
+    if (cam.progress !== null) sawProgress.current = true
     if (sawProgress.current && cam.progress === null) {
       // Cancelled outside this flow (camera turned off, tab change): wait and try again.
       setPhase('waiting')
@@ -83,7 +97,17 @@ export function usePostureRegistration(camera: CameraController, measuring: bool
       setPhase('failed')
       setArmed(false)
     }
-  }, [armed, measuring, phase, ready, now, camera.progress, camera.calibrationId, camera.baseline])
+  }, [
+    armed,
+    measuring,
+    phase,
+    ready,
+    now,
+    camera.progress,
+    camera.calibrationId,
+    camera.registering,
+    camera.registrationError,
+  ])
 
   const countdownLeft =
     phase === 'countdown' && countdownStart.current !== null
@@ -94,6 +118,7 @@ export function usePostureRegistration(camera: CameraController, measuring: bool
     phase,
     armed,
     countdownLeft,
+    error,
     /** 「측정 종료」: stops the countdown or capture and keeps any earlier registration. */
     stop() {
       latest.current.cancelCalibration()
@@ -105,6 +130,7 @@ export function usePostureRegistration(camera: CameraController, measuring: bool
     start() {
       if (measuring) return
       countdownStart.current = null
+      setError(null)
       setArmed(true)
       setPhase('waiting')
     },

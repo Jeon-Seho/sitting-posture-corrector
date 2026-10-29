@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { AppearanceSettings, AppearanceDiagnostics } from '../features/appearance/AppearanceSettings'
 import { Segmented } from '../components/Segmented'
-import { ArrowCounterClockwise, SignOut, UserCircle } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, SignOut, UserCircle, Bell, Timer, VideoCamera, SlidersHorizontal, ClockCounterClockwise, Power } from '../components/icons'
+import { KST } from '../lib/kst'
 import { postureScore } from '../lib/postureScore'
 import { DEFAULT_RULES } from '../data/posture'
 import { Card, Switch } from '../components/ui'
@@ -9,6 +11,8 @@ import { cameraName } from '../features/camera/mainCamera'
 import { CameraPicker, camerasHidden } from '../features/camera/CameraPicker'
 import { TrackingRateCheck } from '../features/camera/TrackingRateCheck'
 import { reportConnectionLost } from '../features/connection/connectionLost'
+import { CameraWindowTest } from '../features/developer/CameraWindowTest'
+import { DeveloperGroup, InteractionPreview } from '../features/developer/DeveloperGroup'
 import { AlertPreview } from '../features/desktop/AlertPreview'
 import type { CameraController } from '../hooks/useCamera'
 
@@ -130,6 +134,7 @@ function baselineDescription(camera?: CameraChoice) {
   const info = camera.baselineInfo
   if (!info) return '카메라 위치나 의자를 바꿨다면 다시 등록해 주세요.'
   const when = new Date(info.savedAt).toLocaleString('ko-KR', {
+    timeZone: KST,
     month: 'long',
     day: 'numeric',
     hour: 'numeric',
@@ -167,11 +172,14 @@ function MainCamera({ camera }: { camera: CameraChoice }) {
 }
 
 function Row({ name, desc, children }: { name: string; desc: string; children: ReactNode }) {
+  const Icon = name.includes('카메라') || name.includes('기준 자세') ? VideoCamera
+    : name.includes('간격') ? ClockCounterClockwise : name.includes('시간') ? Timer
+    : name.includes('민감') ? SlidersHorizontal : name.includes('열기') ? Power : Bell
   return (
     <div className="setting-row">
       <div>
-        <div className="setting-name">{name}</div>
-        <div className="setting-desc">{desc}</div>
+        <div className="setting-name"><Icon size={24} weight="bold" aria-hidden="true" />{name}</div>
+        {desc && <div className="setting-desc">{desc}</div>}
       </div>
       {children}
     </div>
@@ -212,16 +220,17 @@ export function SettingsPage({
       <div className="page-head">
         <div>
           <h1 className="page-title">설정</h1>
-          <p className="page-desc">바뀐 설정은 다음 측정부터 적용돼요.</p>
+          <p className="page-desc">화면 설정은 바로, 측정 설정은 다음 측정부터 적용돼요.</p>
         </div>
       </div>
 
       <div className="view">
         <div className="view-main">
+          <AppearanceSettings />
           <Card title="알림">
             <Row
               name="자세 알림"
-              desc="자세가 흐트러진 채로 이어지면 알려드려요. 소리는 측정 화면에서 켜고 끌 수 있어요."
+              desc=""
             >
               {serviceMode ? (
                 <span className="badge good">
@@ -232,6 +241,7 @@ export function SettingsPage({
                 <Switch checked={alertsOn} onChange={onAlerts} label="교정 알림 사용" />
               )}
             </Row>
+            {desktop.desktop && (
             <Row
               name="다른 창을 볼 때 팝업"
               desc={
@@ -247,7 +257,8 @@ export function SettingsPage({
                 disabled={!desktop.info}
               />
             </Row>
-            <Row name="얼마나 민감하게" desc="꼼꼼할수록 작은 변화에도 알려드려요.">
+            )}
+            <Row name="얼마나 민감하게" desc="">
               <Choice
                 label="알림 민감도"
                 options={SENSITIVITY}
@@ -256,7 +267,7 @@ export function SettingsPage({
                 onChange={(v) => set({ threshold: thresholdFor(v) })}
               />
             </Row>
-            <Row name="알리기까지 기다리는 시간" desc="잠깐 움직인 건 넘어가요.">
+            <Row name="알리기까지 기다리는 시간" desc="">
               <Choice
                 label="알림 대기 시간"
                 options={HOLD}
@@ -265,7 +276,7 @@ export function SettingsPage({
                 onChange={(v) => set({ holdSeconds: v })}
               />
             </Row>
-            <Row name="다시 알리는 간격" desc="같은 자세가 계속될 때 다시 알려드려요.">
+            <Row name="다시 알리는 간격" desc="">
               <Choice
                 label="재알림 간격"
                 options={REALERT}
@@ -335,6 +346,7 @@ export function SettingsPage({
             {camera && <MainCamera camera={camera} />}
           </Card>
 
+          {desktop.desktop && (
           <Card title="컴퓨터를 켤 때">
             <Row
               name="자동으로 PoseGood 열기"
@@ -370,6 +382,7 @@ export function SettingsPage({
               </p>
             )}
           </Card>
+          )}
 
         </div>
 
@@ -399,53 +412,66 @@ export function SettingsPage({
           )}
 
           <details className="more">
-            <summary>개발자 옵션 · 시연, 데이터 수집, 버전 정보</summary>
-            <div className="more-body">
-              <Row
-                name="발표용 예시 기록 표시"
-                desc={`켜면 기록·달력 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
-              >
-                <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
-              </Row>
-              {onCollect && (
-                <Row name="자세 데이터 수집" desc="연구용 라벨 촬영 화면이에요. 관절 위치만 CSV로 저장해요.">
-                  <button className="chip" onClick={onCollect}>
-                    자세 데이터 수집
+            <summary>개발자 옵션 · 테스트와 진단</summary>
+            <div className="more-body dev-tools">
+              <DeveloperGroup title="기록·데이터">
+                <Row
+                  name="발표용 예시 기록 표시"
+                  desc={`켜면 오늘·기록 화면에 발표용 예시 기록을, 끄면 이 기기에 저장된 실제 측정 기록을 보여줘요.`}
+                >
+                  <Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" />
+                </Row>
+                {onCollect && (
+                  <Row name="자세 데이터 수집" desc="연구용 라벨 촬영 화면이에요. 관절 위치만 CSV로 저장해요.">
+                    <button className="chip" onClick={onCollect}>
+                      자세 데이터 수집
+                    </button>
+                  </Row>
+                )}
+              </DeveloperGroup>
+              <DeveloperGroup title="카메라·작은 창">
+                <CameraWindowTest />
+                {camera && (
+                  <div className="setting-row setting-row-stack">
+                    <div>
+                      <div className="setting-name">추적 속도</div>
+                      <div className="setting-desc">
+                        스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
+                      </div>
+                    </div>
+                    <TrackingRateCheck camera={camera} />
+                  </div>
+                )}
+              </DeveloperGroup>
+              <DeveloperGroup title="화면·모션·알림">
+                  <AppearanceDiagnostics />
+                  <InteractionPreview />
+                  <AlertPreview />
+              </DeveloperGroup>
+              <DeveloperGroup title="연결·진단">
+                <Row
+                  name="서버 연결 끊김 화면"
+                  desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
+                >
+                  <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
+                    끊김 화면 확인
                   </button>
                 </Row>
-              )}
-              {camera && (
-                <div className="setting-row setting-row-stack">
-                  <div>
-                    <div className="setting-name">추적 속도</div>
-                    <div className="setting-desc">
-                      스켈레톤이 떨리면 떨림 점검으로 이 PC에 맞는 속도를 찾아요. 카메라를 켜고 가만히 앉은 채로 눌러 주세요.
-                    </div>
-                  </div>
-                  <TrackingRateCheck camera={camera} />
+              </DeveloperGroup>
+              <DeveloperGroup title="버전 정보">
+                <div className="setting-row">
+                  <div className="setting-name">판정 방식</div>
+                  <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>
                 </div>
-              )}
-              <AlertPreview />
-              <Row
-                name="서버 연결 끊김 화면"
-                desc="실제 끊김과 같은 경로로 띄워요. 측정 중이면 그 세션이 끝나고, 종료하기를 누르면 앱이 닫혀요."
-              >
-                <button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>
-                  끊김 화면 확인
-                </button>
-              </Row>
-              <div className="setting-row">
-                <div className="setting-name">판정 방식</div>
-                <span className="mono">reference-rules-v0.2 · 3초 기준 등록</span>
-              </div>
-              <div className="setting-row">
-                <div className="setting-name">전처리</div>
-                <span className="mono">shoulder-normalized-v0.1</span>
-              </div>
-              <div className="setting-row">
-                <div className="setting-name">관절 추출</div>
-                <span className="mono">MediaPipe Pose (client)</span>
-              </div>
+                <div className="setting-row">
+                  <div className="setting-name">전처리</div>
+                  <span className="mono">shoulder-normalized-v0.1</span>
+                </div>
+                <div className="setting-row">
+                  <div className="setting-name">관절 추출</div>
+                  <span className="mono">MediaPipe Pose (client)</span>
+                </div>
+              </DeveloperGroup>
             </div>
           </details>
         </div>

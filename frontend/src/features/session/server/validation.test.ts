@@ -1,23 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_RULES } from '../../../data/posture'
-import { validMachine } from '../../storage/validation'
 import type { DecisionEvent } from './contracts'
 import { projectMachine } from './projection'
-import {
-  validFeatureResponse,
-  validFrameRequest,
-  validServerCheckpoint,
-  validSessionView,
-  validUuid,
-} from './validation'
-import {
-  SESSION_ID,
-  checkpoint,
-  frameRequest,
-  observation,
-  syntheticClient,
-  view,
-} from './testFixtures'
+import { validSessionView, validUuid } from './validation'
+import { SESSION_ID, view } from './testFixtures'
 
 function episodeView() {
   const s = view()
@@ -67,13 +53,12 @@ function episodeView() {
   return s
 }
 
-describe('strict server contracts and read-only compatibility projection', () => {
+describe('server SessionView in records (R1 format) and its read-only projection', () => {
   it('projects decisions into episodes without counting reminder/recovery as new collapses', () => {
     const source = episodeView()
     const original = structuredClone(source)
     expect(validSessionView(source, SESSION_ID, DEFAULT_RULES)).toBe(true)
     const machine = projectMachine(source)
-    expect(validMachine(machine)).toBe(true)
     expect(machine.events).toHaveLength(2)
     expect(machine.events[0]).toMatchObject({
       id: 1,
@@ -104,7 +89,6 @@ describe('strict server contracts and read-only compatibility projection', () =>
     s.summary.rest_ms = 0
     expect(validSessionView(s)).toBe(true)
     const m = projectMachine(s)
-    expect(validMachine(m)).toBe(true)
     expect(m.active?.id).toBe(4)
     expect(m.hold).toBe(0)
     expect(m.recover).toBe(0)
@@ -125,75 +109,7 @@ describe('strict server contracts and read-only compatibility projection', () =>
       expect(validSessionView(bad)).toBe(false)
   })
 
-  it('accepts schema-compatible good quality with absent features while inference reports invalid', () => {
-    const request = { ...frameRequest(), features: null }
-    expect(validFrameRequest(request)).toBe(true)
-    const reply = syntheticClient().respond({ kind: 'features', body: request })
-    expect(
-      validFeatureResponse(
-        { schema_version: '1.0', session: reply.view, observation: reply.observation },
-        request,
-        SESSION_ID,
-        DEFAULT_RULES,
-      ),
-    ).toBe(true)
-  })
-
-  it('rejects malformed or mismatched inference even with a valid session snapshot', () => {
-    const request = frameRequest()
-    const reply = syntheticClient().respond({ kind: 'features', body: request })
-    const response = {
-      schema_version: '1.0',
-      session: reply.view,
-      observation: observation(request),
-    }
-    expect(validFeatureResponse(response, request, SESSION_ID, DEFAULT_RULES)).toBe(true)
-    expect(
-      validFeatureResponse(
-        { ...response, observation: { ...response.observation, sequence: 99 } },
-        request,
-        SESSION_ID,
-        DEFAULT_RULES,
-      ),
-    ).toBe(false)
-    expect(
-      validFeatureResponse(
-        {
-          ...response,
-          observation: { ...response.observation, valid: false, collapse_probability: 0.8 },
-        },
-        request,
-        SESSION_ID,
-        DEFAULT_RULES,
-      ),
-    ).toBe(false)
-    expect(
-      validFeatureResponse(
-        { ...response, observation: { ...response.observation, model_version: 'different-model' } },
-        request,
-        SESSION_ID,
-        DEFAULT_RULES,
-      ),
-    ).toBe(false)
-  })
-
   it('rejects array/number enum values without coercing them into contract strings', () => {
-    const request = frameRequest()
-    const reply = syntheticClient().respond({ kind: 'features', body: request })
-    const response = {
-      schema_version: '1.0',
-      session: reply.view,
-      observation: observation(request),
-    }
-    for (const bad of [['none'], 0])
-      expect(
-        validFeatureResponse(
-          { ...response, observation: { ...response.observation, deviation_type: bad } },
-          request,
-          SESSION_ID,
-          DEFAULT_RULES,
-        ),
-      ).toBe(false)
     for (const field of ['kind', 'deviation_type', 'reason']) {
       const source = episodeView()
       const original = source.events[0][field as keyof DecisionEvent]
@@ -205,46 +121,7 @@ describe('strict server contracts and read-only compatibility projection', () =>
     }
   })
 
-  it('whitelists checkpoint fields, rejects raw-coordinate additions and preserves baseline identity', () => {
-    expect(validServerCheckpoint(checkpoint(), SESSION_ID, DEFAULT_RULES)).toBe(true)
-    expect(validServerCheckpoint({ ...checkpoint(), landmarks: [] })).toBe(false)
-    expect(
-      validServerCheckpoint({
-        ...checkpoint(),
-        baseline: { ...checkpoint().baseline, quality: 0.1 },
-      }),
-    ).toBe(false)
-    expect(
-      validServerCheckpoint({
-        ...checkpoint(),
-        pending: { kind: 'features', body: { ...frameRequest(), baseline_id: SESSION_ID } },
-        nextSequence: 1,
-        elapsedMs: 100,
-      }),
-    ).toBe(false)
-    expect(
-      validServerCheckpoint(
-        {
-          ...checkpoint(),
-          view: { ...view(), session_id: '33333333-3333-4333-8333-333333333333' },
-        },
-        SESSION_ID,
-      ),
-    ).toBe(false)
-    expect(
-      validServerCheckpoint(checkpoint(), SESSION_ID, { ...DEFAULT_RULES, holdSeconds: 7 }),
-    ).toBe(false)
-  })
-
-  it('rejects nonfinite/unknown frame data and follows canonical UUID syntax', () => {
-    expect(
-      validFrameRequest({
-        ...frameRequest(),
-        features: { ...frameRequest().features, head_gap_delta: Infinity },
-      }),
-    ).toBe(false)
-    expect(validFrameRequest({ ...frameRequest(), landmarks: [] })).toBe(false)
-    expect(validFrameRequest({ ...frameRequest(), end_ms: 1501 })).toBe(false)
+  it('follows canonical UUID syntax', () => {
     expect(validUuid('00000000-0000-0000-0000-000000000000')).toBe(true)
     expect(validUuid('invalid')).toBe(false)
   })

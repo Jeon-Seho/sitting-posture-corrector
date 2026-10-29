@@ -1,6 +1,6 @@
 import { KEYS } from '../storage/types'
 import { advanceClock, installClock } from './syntheticClock'
-import { emitSyntheticFrame, syntheticCameraStatus, SYNTHETIC_BASELINE } from './useSyntheticCamera'
+import { emitSyntheticFrame, syntheticCameraStatus } from './useSyntheticCamera'
 import { requireSyntheticMode } from './guard'
 import { legacySyntheticRecord } from './legacySyntheticRecord'
 
@@ -72,10 +72,8 @@ export function installSyntheticBrowser() {
   const bridge = {
     frame(milliseconds: number, kind: 'normal' | 'deviation' | 'poor' = 'deviation') {
       advanceClock(milliseconds)
-      emitSyntheticFrame(kind === 'poor' ? null : kind === 'normal' ? { ...SYNTHETIC_BASELINE } : {
-        ...SYNTHETIC_BASELINE,
-        headGap: 1.14
-      })
+      // The app computes no posture values; the server judges the coordinates (ADR 0021).
+      emitSyntheticFrame(kind !== 'poor')
     },
     advance: advanceClock,
     holdNext(kind: 'features' | 'end') {
@@ -100,7 +98,6 @@ export function installSyntheticBrowser() {
           ready: held.ready
         },
         trace,
-        draft: JSON.parse(localStorage.getItem(KEYS.draft) ?? 'null'),
         records: JSON.parse(localStorage.getItem(KEYS.records) ?? '[]')
       }
     },

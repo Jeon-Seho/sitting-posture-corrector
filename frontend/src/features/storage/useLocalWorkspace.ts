@@ -7,15 +7,15 @@ export function useLocalWorkspace(
   measuring: boolean,
   onError: (message: string) => void,
   onProfileReload: (profile: Profile | null) => void,
+  localRecords = true,
 ) {
   const writer = useWriterLock()
   const [initial] = useState(loadLocalState)
   const [storageIssues, setStorageIssues] = useState(initial.issues)
   const [profile, setProfile] = useState(initial.profile)
-  const [records, setRecords] = useState(initial.records)
+  const [records, setRecords] = useState(localRecords ? initial.records : [])
   const [rules, setRules] = useState(initial.settings)
   const [showDemo, setShowDemo] = useState(initial.demo)
-  const [draft, setDraft] = useState(initial.draft)
   const canWrite = writer.state === 'ready' && storageIssues.length === 0
   const writable = useRef(canWrite)
   writable.current = canWrite
@@ -29,13 +29,12 @@ export function useLocalWorkspace(
   function reloadStorage() {
     const next = loadLocalState()
     setStorageIssues(next.issues)
-    setRecords(next.records)
+    if (localRecords) setRecords(next.records)
     // Active sessions keep the profile and the policy captured at their start.
-    if (!measuring) {
+    if (!measuring && localRecords) {
       setProfile(next.profile)
       setRules(next.settings)
       setShowDemo(next.demo)
-      setDraft(next.draft)
       onProfileReload(next.profile)
     }
   }
@@ -48,7 +47,7 @@ export function useLocalWorkspace(
     }
     window.addEventListener('storage', changed)
     return () => window.removeEventListener('storage', changed)
-  }, [measuring])
+  }, [measuring, localRecords])
 
   return {
     writer,
@@ -57,7 +56,6 @@ export function useLocalWorkspace(
     records,
     rules,
     showDemo,
-    draft,
     canWrite,
     writable,
     requireWriter,
@@ -66,7 +64,6 @@ export function useLocalWorkspace(
     setRecords,
     setRules,
     setShowDemo,
-    setDraft,
   }
 }
 

@@ -72,6 +72,7 @@ DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실�
 | Variables | `DEPLOY_HOST_FINGERPRINT` | 별도 경로로 확인한 SSH host public key의 SHA256 fingerprint |
 | Secrets | `DEPLOY_KNOWN_HOSTS`, `DEPLOY_SSH_KEY` | 고정한 known_hosts 한 줄과 전용 SSH 접속 키 |
 | Secrets | `MYSQL_APP_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `POSEGOOD_INTERNAL_TOKEN` | 초기 생성 후 유지할 DB/서비스 비밀값 |
+| Secrets (선택) | `POSEGOOD_JWT_SECRET` | 로그인 토큰 서명 키(32자 이상, ADR 0031). 없으면 호스트가 처음 한 번 만들어 `shared/secrets`에 유지한다. 바꾸면 모든 사용자가 다시 로그인 |
 
 GHCR 로그인은 workflow의 `GITHUB_TOKEN`을 사용한다. 호스트는 Linux·Python 3.9+·Docker/Compose가 필요하다.
 게시 workflow는 `linux/amd64,linux/arm64` 두 플랫폼의 index digest를 기록한다.
@@ -101,7 +102,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [플랫폼 책임과 후속 작업](../docs/design/data-platform-boundary.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.2 스택별 역할](../docs/design/architecture_v5.2_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 
@@ -151,20 +152,25 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 ### 입출구 서버 (io-api, 서버 PC)
 
 팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`, 전환 기간에는 `/v1/realtime`도)를 같은 compose의 프로필 `io`로 띄운다.
-DB는 외부 MySQL의 서비스 DB(V2.3, `.env`의 `SERVICE_DB_SCHEMA`)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
-점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다. 처음 한 번 토큰을 만든다.
+DB는 외부 MySQL의 서비스 DB(V2.6, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
+점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
+로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
+처음 한 번 두 비밀값 파일을 만든다(Git 제외, 값은 화면·문서·채팅에 남기지 않는다).
 
 ```sh
-mkdir -p infra/compose/secrets
+mkdir -p infra/compose/secrets && chmod 700 infra/compose/secrets
 python3 -c "import secrets; print(secrets.token_urlsafe(48))" > infra/compose/secrets/posegood.internal-token
-chmod 644 infra/compose/secrets/posegood.internal-token   # 컨테이너 사용자(uid 10001)가 읽는다. Git 제외
+# 로그인 토큰 서명 키(32바이트 이상, 줄바꿈 없이). 바꾸면 모든 사용자가 다시 로그인한다
+python3 -c "import secrets,sys; sys.stdout.write(secrets.token_urlsafe(48))" > infra/compose/secrets/posegood.auth.jwt-secret
+chmod 644 infra/compose/secrets/posegood.internal-token infra/compose/secrets/posegood.auth.jwt-secret   # 컨테이너 사용자(uid 10001)가 읽는다
 docker compose -f infra/compose/bigdata.yaml --profile io up -d --build io-api
 curl -s http://127.0.0.1:8090/health                      # {"status":"ok","storage":"mysql"}
 python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 테스트 10단계와 같음)
 ```
 
 - 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 화면과 함께 시험할 때는 위 "FE ↔ BE 서버 안 연동 시험"의 web(nginx)으로 들어온다(T-13).
-- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/csrf`). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`(로그인 쿠키 필요, 통합 테스트 12단계 `ws_realtime_smoke.py`).
+- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/me`). 보호 요청은 로그인 응답의 `access_token`을 `Authorization: Bearer`로 보낸다(CSRF 없음). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`, 인증은 `hello.access_token`(통합 테스트 12단계 `ws_realtime_smoke.py`).
+- 다른 출처 화면(Vercel `https://app.posegood.site`)이 부를 때는 `.env`의 `POSEGOOD_CORS_ALLOWED_ORIGINS`(REST)·`POSEGOOD_REALTIME_ALLOWED_ORIGINS`(WebSocket)에 출처를 **끝 `/` 없이** 넣고, HTTPS 공개 때 `POSEGOOD_COOKIE_SECURE=true`. 비우면 같은 출처(web 8088)만 된다.
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
   준비로 io-api에 Kafka·Redis 주소(`kafka:19092`·`redis`)와 `POSEGOOD_REALTIME_PIPELINE`(기본 `local` = 지금 경로)을 넣었다.

@@ -23,8 +23,8 @@ import java.util.UUID;
 /**
  * 설정과 기록 처리 서비스.
  *
- * 설정은 `user_account`와 바뀌지 않는 `threshold_policy` 행에 있다. 앱 기록 원문은 저장하지 않는다
- * (V2.1에서 `client_record` 삭제): 저장은 서버 판정과 대조하고 세션 행을 닫으며, 조회는
+ * 설정은 `user_account`와 바뀌지 않는 `threshold_policy` 행에 있다. 앱 기록 원문은 받지 않는다
+ * (V2.1에서 `client_record` 삭제, 2026-10-28 기록 저장 R2 삭제): 측정은 서버가 종료 때 저장하고, 조회는
  * 세션 테이블에서 다시 만든다({@link RecordHistory}).
  */
 @Service
@@ -34,7 +34,6 @@ public class WorkspaceService {
     private final AccountRepository accountRows;
     private final ThresholdPolicyRepository policies;
     private final SessionService sessions;
-    private final ServerRecordVerifier verifier;
     private final RecordHistory history;
     private final UserLocks locks;
     private final ConsentRepository consents;
@@ -46,7 +45,6 @@ public class WorkspaceService {
             AccountRepository accountRows,
             ThresholdPolicyRepository policies,
             SessionService sessions,
-            ServerRecordVerifier verifier,
             RecordHistory history,
             UserLocks locks, ConsentRepository consents, TransactionTemplate tx) {
         this.json = json;
@@ -54,7 +52,6 @@ public class WorkspaceService {
         this.accountRows = accountRows;
         this.policies = policies;
         this.sessions = sessions;
-        this.verifier = verifier;
         this.history = history;
         this.locks = locks;
         this.consents = consents;
@@ -117,23 +114,6 @@ public class WorkspaceService {
     /** 기록 목록(세션 테이블에서 다시 만듦). */
     public List<JsonNode> records(long owner) {
         return history.list(owner);
-    }
-
-    /**
-     * 기록 저장: 서버 판정과 대조한 뒤 세션 행을 닫는다.
-     *
-     * 서버 측정 기록만 받는다. 검증({@link ServerRecordVerifier}) 뒤 세션 행이 열려 있으면 닫고,
-     * 보낸 기록을 날짜만 DB 시각으로 바꿔 돌려준다.
-     */
-    public JsonNode save(long owner, JsonNode body) {
-        RecordValidator.record(body);
-        if (!body.has("server")) throw ApiError.badRequest("only server session records are stored");
-        ObjectNode canonical = (ObjectNode) body.deepCopy();
-        verifier.verify(owner, canonical);
-        var view = body.get("server").get("view");
-        long acknowledged = view.isNull() ? 0 : view.get("summary").get("total_ms").asLong();
-        sessions.closeForRecord(owner, UUID.fromString(Json.text(body.get("id"))), acknowledged);
-        return canonical;
     }
 
     /**

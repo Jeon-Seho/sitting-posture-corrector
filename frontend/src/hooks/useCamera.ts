@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
-import { placement, type Features } from '../../../model/prototype/pose'
-import {
-  beginCalibration,
-  observeCalibration,
-  type Calibration,
-  type CalibrationSummary,
-} from '../../../model/prototype/calibration'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
-import { createFeatureFilter } from '../lib/skeleton'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
-import { readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
+import {
+  beginCapture,
+  observeCapture,
+  type LandmarkCapture,
+} from '../features/baseline/landmarkCapture'
+import { ApiError } from '../features/platform/api'
+import {
+  fetchCurrentBaseline,
+  registerBaseline,
+  type ServerBaseline,
+} from '../features/baseline/client'
+import { getServerAuth, subscribeServerAuth } from '../features/platform/serverAuth'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
@@ -24,6 +27,8 @@ const PREPARATION_TIMEOUT_MS = 30_000
 /** Shoulders lower than this (share of the frame height) are too close to the bottom edge. */
 export const FRAMING_BOTTOM = 0.88
 const EMPTY_METRICS: CameraMetrics = { fps: 0, inferenceMs: 0, delegate: 'CPU' }
+const OUT_OF_FRAME = '얼굴과 양쪽 어깨가 화면 안에 들어오게 앉은 뒤 다시 등록해 주세요.'
+const BASELINE_LOAD_FAILED = '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.'
 
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -34,10 +39,10 @@ export function useCamera() {
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Smoothed features for local judging; observations keep the raw values (server, CSV). */
-  const current = useRef<Features | null>(null)
-  const featureFilter = useRef(createFeatureFilter<Features>())
   const lastFrame = useRef(0)
-  const calibration = useRef<Calibration | null>(null)
+  const capture = useRef<LandmarkCapture | null>(null)
+  const saving = useRef(false)
+  const mounted = useRef(true)
   const listeners = useRef(new Set<(observation: Observation) => void>())
 
   const [visual, updateVisual] = useState<VisualOptions>(() => ({
@@ -57,7 +62,7 @@ export function useCamera() {
    * the frame, where a small lean takes it out of view. Experimental margin, not validated.
    */
   const [framing, setFraming] = useState<'ok' | 'low' | null>(null)
-  /** Shoulder tracking of the latest frame (2 s head-only grace, 2026-10-13). */
+  /** Shoulder tracking of the latest frame. */
   const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
@@ -70,24 +75,82 @@ export function useCamera() {
   const fpsCap = useRef<number | null>(trackingFps)
   const fpsTrial = useRef<number | null>(null)
   /**
-   * The registered baseline outlives the camera and, since 2026-10-13, the app run. One posture
-   * serves every camera (2026-10-16, plan 0053): switching cameras keeps it, and only a new
-   * registration (「다시 등록」) replaces it.
+   * The registered posture lives on the server (B1·B2, 2026-10-20 team meeting); this PC keeps
+   * no copy. One posture serves every camera (2026-10-16, plan 0053): switching cameras keeps
+   * it, and only a new registration (「다시 등록」) replaces it.
    */
-  const [newest] = useState(readSavedBaseline)
-  const connectedDevice = useRef('')
-  const [baseline, setBaseline] = useState<Features | null>(() => newest?.baseline ?? null)
-  const [calibrationId, setCalibrationId] = useState<string | null>(
-    () => newest?.calibrationId ?? null,
-  )
-  const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(
-    () => newest?.summary ?? null,
-  )
-  /** When and with which camera the current posture was registered (settings). */
-  const [baselineInfo, setBaselineInfo] = useState<{ savedAt: string; deviceId: string } | null>(() =>
-    newest ? { savedAt: newest.savedAt, deviceId: newest.deviceId } : null,
-  )
+  const [serverBaseline, setServerBaseline] = useState<ServerBaseline | null>(null)
+  /** Being sent to B1 after a finished capture. */
+  const [registering, setRegistering] = useState(false)
+  /** Why the last registration was not saved (out of frame, signed out, server error). */
+  const [registrationError, setRegistrationError] = useState<string | null>(null)
+  /** B2 has not answered yet: do not ask to register a posture the server may already have. */
+  const [baselineLoading, setBaselineLoading] = useState(() => !!getServerAuth())
+  /**
+   * B2 failed: the server may still have a posture, so the app does not ask to register a new
+   * one by itself; the user loads it again or chooses to register.
+   */
+  const [baselineError, setBaselineError] = useState<string | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
+
+  const applyBaseline = useCallback((saved: ServerBaseline | null) => {
+    setServerBaseline(saved)
+    setBaselineError(null)
+  }, [])
+
+  /** B2: the newest registered posture of the signed-in account (none when signed out). */
+  const reloadBaseline = useCallback(async () => {
+    if (!getServerAuth()) {
+      applyBaseline(null)
+      setBaselineLoading(false)
+      return
+    }
+    setBaselineLoading(true)
+    setBaselineError(null)
+    try {
+      const saved = await fetchCurrentBaseline()
+      if (mounted.current) applyBaseline(saved)
+    } catch (cause) {
+      // Keep what is shown and say why; 「다시 불러오기」 or the next sign-in tries again.
+      if (mounted.current)
+        setBaselineError(cause instanceof ApiError && cause.kind === 'signed_out' ? cause.message : BASELINE_LOAD_FAILED)
+    } finally {
+      if (mounted.current) setBaselineLoading(false)
+    }
+  }, [applyBaseline])
+
+  useEffect(() => {
+    mounted.current = true
+    void reloadBaseline()
+    const unsubscribe = subscribeServerAuth(() => void reloadBaseline())
+    return () => {
+      mounted.current = false
+      unsubscribe()
+    }
+  }, [reloadBaseline])
+
+  const save = useCallback(
+    (captured: Parameters<typeof registerBaseline>[0]) => {
+      saving.current = true
+      setRegistering(true)
+      // One id per capture; retries inside registerBaseline send the same one (DB V2.5).
+      registerBaseline(captured, crypto.randomUUID())
+        .then((saved) => {
+          if (mounted.current) applyBaseline(saved)
+        })
+        .catch((cause: unknown) => {
+          if (!mounted.current) return
+          setRegistrationError(
+            cause instanceof ApiError ? cause.message : '서버에 자세를 저장하지 못했어요. 다시 등록해 주세요.',
+          )
+        })
+        .finally(() => {
+          saving.current = false
+          if (mounted.current) setRegistering(false)
+        })
+    },
+    [applyBaseline],
+  )
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
     const next = { ...visualRef.current, ...patch }
@@ -126,10 +189,8 @@ export function useCamera() {
     // The frame loop stops drawing, so remove the last skeleton instead of freezing it.
     const canvas = canvasRef.current
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-    current.current = null
-    featureFilter.current.reset()
     lastFrame.current = 0
-    calibration.current = null
+    capture.current = null
   }, [clearLoadingTimer])
 
   const stop = useCallback(() => {
@@ -142,12 +203,8 @@ export function useCamera() {
   useEffect(() => () => release(), [release])
 
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
-    if (!observation.features) featureFilter.current.reset()
-    current.current = observation.features
-      ? featureFilter.current.next(observation.features, lastFrame.current ? observation.timeMs - lastFrame.current : 33)
-      : null
     lastFrame.current = observation.timeMs
-    setQuality(!!observation.features && observation.shoulders !== 'grace')
+    setQuality(observation.measurable)
     setShoulders(observation.shoulders ?? null)
     const l = observation.landmarks[11], r = observation.landmarks[12]
     setFraming(
@@ -155,35 +212,27 @@ export function useCamera() {
     )
     for (const listener of listeners.current) listener(observation)
 
-    if (!calibration.current) return
-    // A registration needs the real shoulders; a grace frame restarts it like a missing one.
-    const own = observation.shoulders === 'grace' ? null : observation.features
-    const next = observeCalibration(
-      calibration.current,
-      own,
+    if (!capture.current) return
+    // A registration needs a measurable frame (both shoulders seen); anything else restarts it.
+    const usable = observation.measurable
+    const next = observeCapture(
+      capture.current,
+      usable ? observation.landmarks : null,
       observation.timeMs,
       observationGap,
-      own ? placement(observation.landmarks) : null,
     )
-    calibration.current = next.draft
+    capture.current = next.capture
     setProgress(next.progress)
-    if (next.ready) {
-      const id = crypto.randomUUID()
-      setBaseline(next.ready)
-      setCalibrationSummary(next.summary)
-      setCalibrationId(id)
-      const entry = {
-        deviceId: connectedDevice.current,
-        calibrationId: id,
-        baseline: next.ready,
-        summary: next.summary,
-      }
-      const stored = writeSavedBaseline(entry)
-      setBaselineInfo({ savedAt: stored.savedAt, deviceId: entry.deviceId })
-      calibration.current = null
+    if (next.outOfFrame) {
+      capture.current = null
       setProgress(null)
+      setRegistrationError(OUT_OF_FRAME)
+    } else if (next.ready) {
+      capture.current = null
+      setProgress(null)
+      save(next.ready)
     }
-  }, [])
+  }, [save])
 
   const refreshDevices = useCallback(async () => {
     setDevices(await listVideoDevices())
@@ -243,7 +292,6 @@ export function useCamera() {
         stream.current = incoming
         const track = incoming.getVideoTracks()[0]
         const connectedId = track.getSettings().deviceId ?? ''
-        connectedDevice.current = connectedId
         setDeviceId(connectedId)
         setDevices(await listVideoDevices())
         if (!isCurrent()) return
@@ -286,10 +334,9 @@ export function useCamera() {
           },
           onObservation: receiveObservation,
           onFrameUnavailable: () => {
-            current.current = null
             setQuality(false)
-            if (calibration.current) {
-              calibration.current = beginCalibration()
+            if (capture.current) {
+              capture.current = beginCapture()
               setProgress(0)
             }
           },
@@ -332,12 +379,14 @@ export function useCamera() {
   }
 
   const calibrate = () => {
-    if (state !== 'on' || !quality || calibration.current) return
+    if (state !== 'on' || !quality || capture.current || saving.current) return
+    setRegistrationError(null)
     setProgress(0)
-    calibration.current = beginCalibration()
+    capture.current = beginCapture()
   }
+  /** Stops an unfinished capture; a capture already being saved still completes. */
   const cancelCalibration = () => {
-    calibration.current = null
+    capture.current = null
     setProgress(null)
   }
 
@@ -356,7 +405,8 @@ export function useCamera() {
     deviceId,
     mainDeviceId,
     mainMissing,
-    baselineInfo,
+    /** When the current posture was registered (settings); the server keeps no camera. */
+    baselineInfo: serverBaseline ? { savedAt: serverBaseline.registeredAt, deviceId: '' } : null,
     trackingFps,
     setTrackingFps,
     tryTrackingFps,
@@ -367,11 +417,16 @@ export function useCamera() {
     quality,
     shoulders,
     framing,
-    baseline,
-    calibrationId,
-    calibrationSummary,
+    /** The registered posture from the server (B2·B1), or null. */
+    baseline: serverBaseline,
+    /** The server's `baseline_id` (S1 `baseline_id`). */
+    calibrationId: serverBaseline?.baselineId ?? null,
     progress,
-    current,
+    registering,
+    registrationError,
+    baselineLoading,
+    baselineError,
+    reloadBaseline,
     lastFrame,
     connect,
     stop,
