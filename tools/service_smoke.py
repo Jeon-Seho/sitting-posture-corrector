@@ -1,7 +1,7 @@
 """Verify the loopback API with the real FastAPI inference on a disposable database.
 
 Only explicit synthetic accounts and 9-joint coordinates are used; no camera or participant data.
-Measurement goes through `/v2/realtime` (the HTTP feature input S2 was removed on 2026-10-28, plan 0061);
+Measurement goes through `/v2/realtime` (the HTTP feature input S2 was removed on 2026-10-28, plan 0062);
 session views are checked against the versioned JSON Schemas in contracts/.
 """
 

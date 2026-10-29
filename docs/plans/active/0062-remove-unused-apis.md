@@ -2,7 +2,7 @@
 
 - 상태: in_progress (BE 코드·시험·문서 변경, `check-backend` 통과 2026-10-29. 남은 것: 다른 담당 알림)
 - 담당: Kimyoujin(BE)
-- 시작일: 2026-10-28
+- 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060·0061과 번호가 겹쳐 0061 → 0062로 바꿈)
 - 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe-server-proposal.md) 1장)
 
 ## 문제와 완료 기준
@@ -41,9 +41,10 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 | --- | --- | --- |
 | FE | `docs/design/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
 | FE | `tools/browser/scenarios.mjs`(check-browser) | 옛 앱의 S2 흐름(`/features` 요청·재전송)을 확인한다. 이 변경 전부터 V3 앱과 맞지 않는다 |
-| DevOps | `tools/deploy/smoke.py`(check-compose) | S2로 측정하고 S5로 재시작 뒤를 확인한다 — `/v2/realtime`과 S4·R1로. B1도 계획 0060의 `frames` 본문으로(이미 알림) |
+| DevOps | `tools/deploy/smoke.py`(check-compose) | S2로 측정하고 S5로 재시작 뒤를 확인한다 — `/v2/realtime`과 S4·R1로 |
 | 부하 측정(benchmark-server) | `tools/benchmark/runner.py`, `tools/server_benchmark.py` | S2로 부하를 건다 — `/v2/realtime`으로 옮기기. 옮긴 뒤 `feature-response.v1` 계약·예시·시험을 지울 수 있다 |
 | 데이터 플랫폼 | `tools/platform/io_api_smoke.py`(S2·S5·S6) | S2 → `/v2/realtime`(`ws_realtime_smoke.py`), S5 빼기, S6 → R3 |
+| 데이터 플랫폼 | `tools/platform/ws_realtime_smoke.py` 정리 단계(`finally`) | S6 → R3. 결과를 보지 않아 시험은 통과하지만 세션 행이 지워지지 않고 남는다 |
 | PM·문서 | `docs/index.md` | 이 계획 링크 |
 
 ## 작업 단계

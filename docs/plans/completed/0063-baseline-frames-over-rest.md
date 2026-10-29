@@ -2,7 +2,7 @@
 
 - 상태: **철회** (2026-10-29). 10/28 `748af6a`로 구현했다가 되돌렸다. B1은 다시 앱이 낸 평균을 받는다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절 그대로)
 - 담당: Kimyoujin(BE)
-- 시작일: 2026-10-28
+- 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060과 번호가 겹쳐 0060 → 0063으로 바꿈)
 - 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절(FE 문서, 「앱이 평균」 — FE가 이 계획에 맞춰 갱신), [ADR 0028](../../decisions/0028-server-time-for-baseline-registration.md), [BE API 명세](../../design/api-spec.md) B1, [계약 accounts.v2](../../../contracts/accounts.v2.md)
 
 ## 철회 (2026-10-29)

@@ -1,7 +1,7 @@
 # 백엔드 — 세션·계정·판정 API
 
 Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
-앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 앱 기능이 없던 특징 입력(S2)·기록 저장(R2)·세션 메타데이터(S5)·세션 삭제(S6)는 2026-10-28 지웠다([계획 0061](../docs/plans/active/0061-remove-unused-apis.md)).
+앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 앱 기능이 없던 특징 입력(S2)·기록 저장(R2)·세션 메타데이터(S5)·세션 삭제(S6)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
 DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
@@ -40,7 +40,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 - DB 쓰기에 실패하면 503이다. 판정 상태는 이미 반영됐으므로 같은 요청을 다시 보내면 남은 사건을 쓴다.
 - API를 재시작하면 진행 중 세션의 상태는 사라진다. 행이 남은 세션은 `404 SESSION_LOST`로 알리고, 앱은 마지막 확인 요약을 기록으로 남긴다.
-  그 세션 행은 닫는 경로가 없어 열린 채 남는다(기록 저장 R2가 닫던 것, 계획 0061 남은 일).
+  그 세션 행은 닫는 경로가 없어 열린 채 남는다(기록 저장 R2가 닫던 것, 계획 0062 남은 일).
   그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 끝난 뒤 조회(S4)를 위해 30분 보관한다(`posegood.ended-session-retention`).
 - 모든 `DATETIME(3)`은 KST다. JDBC 연결도 `connectionTimeZone=Asia/Seoul`이다. API 응답 시각은 UTC ISO-8601이다.
 - 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.

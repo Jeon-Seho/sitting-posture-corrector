@@ -49,14 +49,14 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| 세션 REST (`PUT`·`/end`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28 삭제(앱 기능 없음, 기록 삭제는 R3) | `session/SessionController.java`, [계획 0061](plans/active/0061-remove-unused-apis.md) |
+| 세션 REST (`PUT`·`/end`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28 삭제(앱 기능 없음, 기록 삭제는 R3) | `session/SessionController.java`, [계획 0062](plans/active/0062-remove-unused-apis.md) |
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | `api-spec.md` 10장, `7034f0e` |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
 | `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
 | 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, `api-spec.md` 11.3 |
 | 측정불가(판정 불가·자리 비움) 30분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨, **기본 켜짐 30분**(10/28, 5분에서 바꿈 — `POSEGOOD_UNMEASURABLE_TIMEOUT`, 0이면 끔). 앱은 10/27부터 이 사유를 처리 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
-| HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features`, 기록 저장 R2 `POST /v2/records` | DB/BE | **삭제함** (브랜치, 2026-10-28) — 앱이 쓰지 않음. MySQL 통합 시험·`service_smoke.py`는 `/v2/realtime`으로 옮김. compose·배포·부하·데이터 플랫폼 도구는 담당에게 알림(계획 0061). 판정 상태를 잃은 세션 행을 닫던 R2가 없어져 그 행은 열린 채 남음 | [계획 0061](plans/active/0061-remove-unused-apis.md), 2.6 BE-1 |
+| HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features`, 기록 저장 R2 `POST /v2/records` | DB/BE | **삭제함** (브랜치, 2026-10-28) — 앱이 쓰지 않음. MySQL 통합 시험·`service_smoke.py`는 `/v2/realtime`으로 옮김. compose·배포·부하·데이터 플랫폼 도구는 담당에게 알림(계획 0062). 판정 상태를 잃은 세션 행을 닫던 R2가 없어져 그 행은 열린 채 남음 | [계획 0062](plans/active/0062-remove-unused-apis.md), 2.6 BE-1 |
 | `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | **보류** (2026-10-26) — 지금은 구간 안 판정 가능 프레임 전체를 평균 내고, 유효하면 구간 전체 길이를 `valid_ms`·판정 시간에 더함. 유효·판정 불가 프레임이 섞인 구간에서만 다름 | `session/FrameFeatures.java`, `engine/Timeline.java`, FE 요청 BE-5 ②, 4장 |
 | 시작 시 스키마 확인 (V2.6, 12테이블(`SPRING_SESSION` 2개는 확인 안 함), `refresh_token`·`baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
 
@@ -72,7 +72,7 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 일부 — `/v1/realtime`·S2·R2 삭제함(R2·S2는 10/28, 계획 0061), 동의 문구는 구현 전 | FE 제안서 1장, `7034f0e` |
+| BE-1: v1 정리 때 `POST /v2/records`·S2 삭제, 동의 문서 `POSE_COORDINATES` 문구를 좌표 프레임 전송에 맞춤 | DB/BE | 일부 — `/v1/realtime`·S2·R2 삭제함(R2·S2는 10/28, 계획 0062), 동의 문구는 구현 전 | FE 제안서 1장, `7034f0e` |
 | BE-5: ① 로그인 고정 만료, ② `valid_ms` 하위 구간, ③ T1·R1b, ④ 옛 프로토타입 주석, ⑤ 문서에 남은 옛 앱 동작 | DB/BE | ①④⑤ 끝, ③ T1 형식 확정·구현 전, R1b 구현 전(2.2), ② 보류(2.4·4장) | FE 제안서 1장(V3 브랜치) |
 | BE-3: 앱에 W1 `GET /v2/workspace` 연결 (S1 `policy`가 계정 값과 달라 409가 나지 않게) | 확인 필요 — 앱 코드 작업이라 FE와 담당 정리 | 구현 전 | FE 제안서 1장 |
 | BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
@@ -87,7 +87,7 @@
 | `backend/gradlew -p backend :api:test` (단위) | 76개 중 67 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-27 | 로그인 토큰 후(`AuthTokensTest` 5개, 핸들러 로그인 철회 시험 추가, `LoginLifetimeTest` 삭제, 통합 시험은 토큰 방식으로 고치고 컴파일만 확인). 로컬 JDK 17 |
 | `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 7개·8개 통과 | 2026-10-27 | `hello.access_token` 추가 후. 임시 가상환경(jsonschema 4.23.0)에서 실행 |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
-| `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0061(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
+| `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0062(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
 | `database/tests/integrity_check.py` | 확인 필요 | — | V2.4~V2.6에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13). V2.6: `refresh_token` 제약·탈퇴 철회·CASCADE 검사 추가 |
 | `tools/service_smoke.py` | 통과 | 2026-10-29 | 위 `check-backend`의 마지막 단계. 실제 추론 + `/v2/realtime` 측정, `daily_stat` 0행 확인 |
 | `make check-compose` | 확인 필요 | 2026-10-14 | 실패 원인 분석만 있음 ([계획 0030](plans/active/0030-make-check-failures.md)) |
@@ -144,7 +144,7 @@
 | 2026-10-28 | 측정불가 자동 종료 5분 → 30분으로 바꾸고 기본으로 켬(앱이 `closed(unmeasurable_timeout)`을 10/27부터 처리). 미결 「측정불가 자동 종료를 켜는 시점」 삭제 | 커밋 전 |
 | 2026-10-28 | 자정 넘김 B안 구현(BE-6 ①): 자정을 넘는 구간 또는 00:00:30에 이전 세션을 마지막 구간 끝에서 끝내 저장하고 같은 연결에서 서버가 만든 새 세션(같은 기준 자세·설정·알림, `started_at` = 자정)으로 넘김, `session_rollover`. 앱 시간·순번은 연결 기준 그대로 받아 서버가 바꿈. 실패하면 `closed(day_changed)`. 기본 꺼짐. 계약·예시·단위 시험. 실제 MySQL 시험(`INSERT … SELECT`)은 아직 | 커밋 전 |
 | 2026-10-29 | `check-backend`(MySQL 통합 11개·smoke 포함) 통과 기록. api-spec의 요청·응답 예시를 합성 실행에서 받은 실제 값으로 바꿈(R1 `type`·소수 시간·`server.view` 객체, WS `hello.access_token` 등 예시와 달랐던 곳 바로잡음) | 커밋 전 |
-| 2026-10-29 | 10/28 B1 프레임 배열·서버 평균(`748af6a`)을 되돌림: B1은 다시 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)을 받는다. 422 `BASELINE_REJECTED` 삭제. alert_enabled 시험 수정(V2.6 기본값)은 유지. 철회 이유는 [계획 0060](plans/completed/0060-baseline-frames-over-rest.md) | 커밋 전 |
+| 2026-10-29 | 10/28 B1 프레임 배열·서버 평균(`748af6a`)을 되돌림: B1은 다시 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)을 받는다. 422 `BASELINE_REJECTED` 삭제. alert_enabled 시험 수정(V2.6 기본값)은 유지. 철회 이유는 [계획 0063](plans/completed/0063-baseline-frames-over-rest.md) | 커밋 전 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

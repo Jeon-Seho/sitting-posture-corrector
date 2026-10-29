@@ -11,7 +11,7 @@ import java.util.Set;
  * 설정 JSON 형식 검사(틀리면 400). {@code PUT /v2/workspace}가 쓴다.
  *
  * 형식: frontend/src/features/storage/types.ts. 저장 형식만 보며 자세나 시간을 판정하지 않는다.
- * 앱 기록 검사는 기록 저장(R2)과 함께 2026-10-28 삭제했다(계획 0061).
+ * 앱 기록 검사는 기록 저장(R2)과 함께 2026-10-28 삭제했다(계획 0062).
  */
 final class RecordValidator {
     private RecordValidator() {}

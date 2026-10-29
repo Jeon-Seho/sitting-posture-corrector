@@ -15,7 +15,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0061](../plans/active/0061-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
@@ -790,7 +790,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S2 · ~~`POST /v2/sessions/{id}/features`~~ — 삭제 (2026-10-28)
 
-앱은 `/v2/realtime`으로만 측정한다(ADR 0021). HTTP 특징 입력과 응답 계약 [특징 응답 v1](../../contracts/feature-response.v1.schema.json)의 API 쪽은 [계획 0061](../plans/active/0061-remove-unused-apis.md)로 지웠다. 판정 규칙(구간 순서, 빈 시간은 MISSING, 새 사건은 응답 전에 DB 기록)은 [11.3](#113-측정--서버가-하는-일)에 있다.
+앱은 `/v2/realtime`으로만 측정한다(ADR 0021). HTTP 특징 입력과 응답 계약 [특징 응답 v1](../../contracts/feature-response.v1.schema.json)의 API 쪽은 [계획 0062](../plans/active/0062-remove-unused-apis.md)로 지웠다. 판정 규칙(구간 순서, 빈 시간은 MISSING, 새 사건은 응답 전에 DB 기록)은 [11.3](#113-측정--서버가-하는-일)에 있다.
 
 <a id="s3"></a>
 
@@ -968,13 +968,13 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S5 · ~~`GET /v2/sessions/{id}/metadata`~~ — 삭제 (2026-10-28)
 
-쓰는 화면이 없었다. 시작·종료 시각은 WS `ready.started_at`·`closed.ended_at`, 기준 자세는 B2, 저장된 세션은 R1로 본다([계획 0061](../plans/active/0061-remove-unused-apis.md)).
+쓰는 화면이 없었다. 시작·종료 시각은 WS `ready.started_at`·`closed.ended_at`, 기준 자세는 B2, 저장된 세션은 R1로 본다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 <a id="s6"></a>
 
 ### S6 · ~~`DELETE /v2/sessions/{id}`~~ — 삭제 (2026-10-28)
 
-[R3](#r3) `DELETE /v2/records/{id}`와 같은 일을 해서 지웠다(기록 = 세션, [계획 0061](../plans/active/0061-remove-unused-apis.md)).
+[R3](#r3) `DELETE /v2/records/{id}`와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 ## 8. 기록·시스템
 
@@ -1116,8 +1116,8 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### R2 · ~~`POST /v2/records`~~ — 삭제 (2026-10-28)
 
-앱 기록을 서버 판정과 대조해 세션을 닫던 경로다. 측정은 서버가 종료(`end`·연결 끊김·S3) 때 직접 저장하므로 앱이 보내지 않는다([계획 0061](../plans/active/0061-remove-unused-apis.md)).
-API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던 일도 이 경로가 했다. 지금은 그 행이 열린 채 남고 R1에 나오지 않는다(계획 0061 남은 일).
+앱 기록을 서버 판정과 대조해 세션을 닫던 경로다. 측정은 서버가 종료(`end`·연결 끊김·S3) 때 직접 저장하므로 앱이 보내지 않는다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
+API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던 일도 이 경로가 했다. 지금은 그 행이 열린 채 남고 R1에 나오지 않는다(계획 0062 남은 일).
 
 <a id="r3"></a>
 
@@ -1541,11 +1541,11 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0060](../plans/completed/0060-baseline-frames-over-rest.md) 철회 기록) |
+| 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
-| 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0061](../plans/active/0061-remove-unused-apis.md)) |
+| 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |
 | 2026-10-28 | `fix/repo-backend-followup` | 자정 넘김(BE-6 ① B안, 11.3): 같은 연결에서 서버가 새 세션으로 넘기고 `session_rollover`를 보냄. 앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 바꿔 씀. 실패하면 `closed(day_changed)`. 설정 `midnight-rollover` 기본 꺼짐. 계약 `realtime-ws.v2`에 메시지·사유 추가(더하기만) |
-| 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0060](../plans/completed/0060-baseline-frames-over-rest.md), 10/29 되돌림) |
+| 2026-10-28 | `fix/repo-backend-followup` | **B1 본문을 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)에서 프레임 배열 `frames`(최대 500)로 바꿈 — 호환성 깨짐.** 서버가 판정 가능 프레임을 평균하고, 3초 미만·15장 미만·화면 밖은 422 `BASELINE_REJECTED` + `reason`. DB는 그대로. 앱·FE 문서는 FE가 맞춤 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md), 10/29 되돌림) |
 | 2026-10-28 | `fix/repo-backend-followup` | 측정불가 자동 종료 5분 → 30분, 기본 켬(`unmeasurable-timeout` 0 → 30m). 앱이 `closed(unmeasurable_timeout)`을 처리하므로(10/27) 끄지 않는다 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | WebSocket 자세 등록(`purpose: calibration`, `calibration_result`) 삭제 — 등록은 B1뿐(11.4). `hello`는 `purpose: "measure"`만, 구간 `phase`에서 `calibration` 삭제 |
 | 2026-10-27 | `feature/repo-auth-refresh-token` | 새 계정의 알림 기본값 켜짐(`alerts_on: true`, DB V2.6 `sound_alert_enabled` 기본값 참). 기존 계정 값은 그대로 |

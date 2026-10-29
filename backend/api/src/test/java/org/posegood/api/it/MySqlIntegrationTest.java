@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
  * 실제 MySQL과 가짜 추론 서버로 API 전체 흐름을 확인하는 통합 시험.
  *
  * 스키마·시드를 그대로 쓴 실제 MySQL과 참조 규칙의 loopback 추론 스텁을 쓴다. 계정·좌표는 모두 합성이고, 측정은
- * {@code /v2/realtime}으로 한다(특징 입력 S2·기록 저장 R2는 2026-10-28 삭제, 계획 0061).
+ * {@code /v2/realtime}으로 한다(특징 입력 S2·기록 저장 R2는 2026-10-28 삭제, 계획 0062).
  * 실행: {@code backend/gradlew -p backend build -Pmysql-integration}(backend/README.md).
  */
 @SpringBootTest(
@@ -140,7 +140,7 @@ class MySqlIntegrationTest {
     /**
      * 실시간 v2 측정: 3초 치우침(3초에 붕괴) → 3초 바른 자세(6초에 회복) → 7초까지 쉬기 → 9초 end(2초 누락).
      *
-     * 특징 입력(S2)은 2026-10-28 삭제했다(계획 0061). 끝난 세션의 조회 응답(S4)을 돌려준다.
+     * 특징 입력(S2)은 2026-10-28 삭제했다(계획 0062). 끝난 세션의 조회 응답(S4)을 돌려준다.
      */
     private JsonNode measure(ApiClient api, UUID id, UUID baseline) throws Exception {
         assertEquals(200, api.put("/v2/sessions/" + id, create(baseline)).status());
@@ -161,7 +161,7 @@ class MySqlIntegrationTest {
 
     @Test
     void unusedRoutesAreRemoved() {
-        // 계획 0061(2026-10-28): 앱 기능이 없는 S2·S5·S6·R2를 지웠다. 기록 삭제(R3)와 세션 종료(S3)는 남는다.
+        // 계획 0062(2026-10-28): 앱 기능이 없는 S2·S5·S6·R2를 지웠다. 기록 삭제(R3)와 세션 종료(S3)는 남는다.
         var routes = new ArrayList<String>();
         mappings.getHandlerMethods().keySet().forEach(info -> info.getPatternValues().forEach(pattern ->
                 info.getMethodsCondition().getMethods().forEach(method -> routes.add(method + " " + pattern))));
@@ -399,7 +399,7 @@ class MySqlIntegrationTest {
         }
 
         // 기록은 세션 테이블에서 다시 만든다(V2.1에는 client_record가 없다). 측정을 끝낸 서버가 이미 저장했으므로
-        // 앱은 기록을 보내지 않는다(기록 저장 R2는 2026-10-28 삭제, 계획 0061).
+        // 앱은 기록을 보내지 않는다(기록 저장 R2는 2026-10-28 삭제, 계획 0062).
         var list = api.get("/v2/records").body();
         assertTrue(list.get("today").asString().matches("\\d{4}-\\d{2}-\\d{2}"));
         var records = list.get("records");
@@ -511,7 +511,7 @@ class MySqlIntegrationTest {
         assertEquals("SESSION_LOST", lost.body().get("code").asString());
 
         // 진행 중 세션은 S3로 끝낸다. 판정 상태를 잃은 세션 행은 닫는 경로가 없어 기록 목록에 나오지 않는다
-        // (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0061 남은 일).
+        // (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
         assertTrue(api.post("/v2/sessions/" + a + "/end", MAPPER.createObjectNode().put("end_ms", 0)).body().get("ended").asBoolean());
         try (var connection = database.connect(); var statement = connection.createStatement()) {
             var rows =

@@ -2,7 +2,7 @@
 
 현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
 v1의 가입·workspace·세션 생성 형식과 호환되지 않아 별도 경로를 쓴다. 기존 v1 계정 경로는 제공하지 않는다.
-측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /v2/sessions/{id}/features`)·기록 저장(R2 `POST /v2/records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0061](../docs/plans/active/0061-remove-unused-apis.md)).
+측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /v2/sessions/{id}/features`)·기록 저장(R2 `POST /v2/records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
 
 ## 인증
 
@@ -103,7 +103,7 @@ DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 �
 서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). T1 형식은 [API 명세 T1](../docs/design/api-spec.md#t1)(구현 전). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
 
 판정 상태는 API 메모리이며 재시작 후 `404 SESSION_LOST`다. 그 세션 행을 닫던 기록 저장(R2)은 2026-10-28 지웠고,
-지금은 닫는 경로가 없어 열린 채 남는다(계획 0061 남은 일). 예전에 R2로 닫힌 행(전체가 MISSING)은
+지금은 닫는 경로가 없어 열린 채 남는다(계획 0062 남은 일). 예전에 R2로 닫힌 행(전체가 MISSING)은
 `confirmed:false,view:null`, 수치 합계 0으로 표시해 정상/이탈 시간을 만들어내지 않는다.
 기록 삭제는 세션과 하위 행을 지우며 일별 통계는 유지한다. 적재 파일이 연결된 세션은 409다.
 
