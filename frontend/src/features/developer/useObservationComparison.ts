@@ -3,7 +3,7 @@ import { ObservationComparison, COMPARISON_POLICY, type ComparisonFrame, type Co
 import type { CameraController } from '../../hooks/useCamera'
 import { comparisonDemo, type ComparisonAction } from './comparisonDemo'
 import { COMPARISON_TRACE_LIMIT, comparisonSummaryCsv, comparisonTraceCsv, downloadComparisonCsv, type ComparisonCapture, type ComparisonTrace } from './observationCsv'
-import { OBSERVATION_REFERENCE_MS, ObservationProtocol, type GuideMode, type GuidePauseReason, type GuideSnapshot } from './observationProtocol'
+import { DEFAULT_GUIDE_PLAN, OBSERVATION_REFERENCE_MS, ObservationProtocol, type GuideMode, type GuidePauseReason, type GuidePlan, type GuideSnapshot } from './observationProtocol'
 import { automaticComparisonCaptures } from './observationAutoSummary'
 import { ObservationReplayArchive, type ReplayPhase } from './observationReplay'
 
@@ -21,6 +21,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   const [source, setSource] = useState<'camera' | 'synthetic'>(mode)
   const [active, setActive] = useState(false)
   const modeRef = useRef<GuideMode>('auto'), [guideMode, setGuideMode] = useState<GuideMode>('auto')
+  const planRef = useRef<GuidePlan>(DEFAULT_GUIDE_PLAN), [guidePlan, setGuidePlan] = useState<GuidePlan>(DEFAULT_GUIDE_PLAN)
   const setupRef = useRef<ReferenceSetup>({ status: 'idle', remainingMs: 0 })
   const [setup, setSetup] = useState(setupRef.current)
   const updateSetup = useCallback((status: ReferenceSetup['status'], remainingMs = 0) => {
@@ -81,12 +82,13 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   const startGuide = useCallback(() => {
     if (mode !== 'camera' || locked(protocol.current.snapshot(performance.now())) || !guideReady()) return
     const now = performance.now()
-    if (!protocol.current.start(now, `${run.current.runId}-guide-${++guideSequence.current}`, modeRef.current)) return
+    if (!protocol.current.start(now, `${run.current.runId}-guide-${++guideSequence.current}`, modeRef.current, planRef.current)) return
+    replay.current.setPlan(planRef.current)
     const snapshot = protocol.current.snapshot(now)
     segment.current++; guideAction(snapshot); appendTrace('protocol_phase_started', null, null, snapshot)
     if (snapshot.status === 'waiting') appendTrace('protocol_phase_completed', null, null, snapshot)
     setGuide(snapshot)
-    setNotice(modeRef.current === 'manual' ? '기준 등록 완료. 자세를 잡고 준비되면 측정을 시작하세요.' : '기준 등록 완료. 준비 2초 → 측정 5초 → 복귀 준비 5초로 진행합니다. 측정 시간에만 자료를 모읍니다.')
+    setNotice(modeRef.current === 'manual' ? '기준 등록 완료. 자세를 잡고 준비되면 측정을 시작하세요.' : '기준 등록 완료. 준비 2초 → 측정(이탈 5초·스트레칭 8초) → 복귀 준비 5초로 진행합니다. 측정 시간에만 자료를 모읍니다.')
   }, [mode, guideReady, guideAction, appendTrace])
   const finishGuideTransition = useCallback((result: 'none' | 'phase' | 'completed' | 'paused' | 'waiting', now: number) => {
     const next = protocol.current.snapshot(now)
@@ -97,7 +99,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
       token.current++; activeRef.current = null; setActive(false); cameraRef.current.stop()
       replay.current.mark(performance.now() - run.current.start, 'stopped')
       engine.current.registering = false; interrupt('stopped')
-      setNotice('네 동작씩 3바퀴 안내를 마쳤어요. 카메라를 끄고 자료를 보존했습니다. 관측 시계열 CSV를 내려받으세요. 실제 수행을 자동 확인한 결과는 아닙니다.')
+      setNotice(`이탈·스트레칭 ${next.plan.rounds}바퀴 안내를 마쳤어요. 카메라를 끄고 자료를 보존했습니다. JSON과 CSV를 내려받으세요. 실제 수행을 자동 확인한 결과는 아닙니다.`)
     }
   }, [appendTrace, guideAction, interrupt])
   const advanceGuide = useCallback(() => {
@@ -140,7 +142,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (!before && engine.current.reference) {
       exportReference.current = engine.current.reference
       updateSetup('idle')
-      setNotice(mode === 'synthetic' ? '화면 조작 예시입니다. 수집·비교표 저장·CSV 다운로드는 하지 않습니다.' : engine.current.reference.world ? '기준 등록 완료. 기준 자세에서 3바퀴 자동 안내를 시작하세요.' : '2D 기준만 등록했어요. z 기준이 필요하면 추적을 확인하고 다시 등록하세요.')
+      setNotice(mode === 'synthetic' ? '화면 조작 예시입니다. 수집·비교표 저장·CSV 다운로드는 하지 않습니다.' : engine.current.reference.world ? '기준 등록 완료. 기준 자세에서 안내를 시작하세요.' : '2D 기준만 등록했어요. z 기준이 필요하면 추적을 확인하고 다시 등록하세요.')
       if (mode === 'camera') startGuide()
     }
     if (mode === 'camera' && engine.current.registering) updateSetup('registering', (1 - engine.current.progress) * OBSERVATION_REFERENCE_MS)
@@ -219,6 +221,10 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (locked(protocol.current.snapshot(performance.now()))) return
     modeRef.current = next; setGuideMode(next)
   }
+  const changeGuidePlan = (next: GuidePlan) => {
+    if (locked(protocol.current.snapshot(performance.now()))) return
+    planRef.current = { ...next }; setGuidePlan(planRef.current)
+  }
   const nextGuide = () => {
     if (!guideReady()) return
     const now = performance.now()
@@ -280,5 +286,5 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     downloadComparisonCsv(kind, kind === 'summary' ? comparisonSummaryCsv(effectiveCaptures, context) : comparisonTraceCsv(trace.current, context), source)
   }
   const rows = Object.fromEntries(Object.entries(effectiveCaptures).map(([key, capture]) => [key, capture.values])) as Partial<Record<ComparisonAction, ComparisonValues>>
-  return { ...view, source, active, action, notice, rows, replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, guideMode, changeGuideMode, setup, canStartReference: canStartReference && !pendingReset, startReference, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
+  return { ...view, source, active, action, notice, rows, replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, guideMode, changeGuideMode, guidePlan, changeGuidePlan, setup, canStartReference: canStartReference && !pendingReset, startReference, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
 }

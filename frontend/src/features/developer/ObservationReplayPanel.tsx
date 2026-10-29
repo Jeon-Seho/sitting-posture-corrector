@@ -4,7 +4,7 @@ import { SelectMenu } from '../../components/SelectMenu'
 import { ObservationPlayerSurface } from './ObservationPlayerSurface'
 import { createPortal } from 'react-dom'
 import { ObservationPreviewContext } from './ObservationPreviewContext'
-import { COMPARISON_ACTIONS } from './comparisonDemo'
+import { taskTitle } from './comparisonDemo'
 import { LIVE_FORECAST_ORDER } from '../../../../model/prototype/forecast'
 import { boldNumbers } from './observationTypography'
 import { downloadObservationReplay, replayFeatures, replayFrameAt, replayImageValid, replayIndexAt,
@@ -17,7 +17,8 @@ import { ReplayImportDialog } from './ReplayImportDialog'
 
 const phaseLabels: Record<ReplayPhase, string> = { connecting: '연결', preparing: '기준 준비', registering: '기준 등록', interrupted: '등록 중단', idle: '대기', move: '준비', hold: '측정', return: '복귀 준비', waiting: '다음 대기', paused: '일시 정지', completed: '완료', cancelled: '중단' }
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2,'0')}:${(ms / 1000 % 60).toFixed(1).padStart(4,'0')}`
-const links = [[2,5],[9,10],[0,11],[0,12],[11,12]]
+// Arm links only draw when both ends are visible; v1 files simply have no index 13+.
+const links = [[2,5],[9,10],[0,11],[0,12],[11,12],[11,13],[13,15],[12,14],[14,16],[15,17],[15,19],[16,18],[16,20]]
 type Props = { visible: boolean; active: boolean; count: number; dropped: number; getRecording: () => ObservationReplayData | null }
 export function ObservationReplay({ visible, active, count, dropped, getRecording }: Props) {
   const [data, setData] = useState<ObservationReplayData | null>(null)
@@ -104,7 +105,7 @@ export function ObservationReplay({ visible, active, count, dropped, getRecordin
     <div className="oc-replay-timeline"><output aria-live="off">{boldNumbers(`${clock(position - start)} / ${clock(end - start)}`)}</output><input type="range" aria-label="리플레이 위치" min={start} max={end} step={1} style={{ '--oc-seek-progress': `${end > start ? (position - start) / (end - start) * 100 : 0}%` } as CSSProperties} value={position} disabled={active} onChange={event => seek(Number(event.currentTarget.value))} /></div>
   </div> : null
   const utilities = <div className="oc-player-utilities">{settings}</div>
-  const posture = metadata ? COMPARISON_ACTIONS.find(action => action.id === metadata.task)?.title ?? '라벨 없음' : '등록된 자세 없음'
+  const posture = metadata ? taskTitle(metadata.task) ?? '라벨 없음' : '등록된 자세 없음'
   const badges = <div className="oc-replay-badges"><span className="oc-replay-posture" aria-label="현재 자세 라벨"><strong>{posture}</strong>{metadata && <small>{phaseLabels[metadata.phase]}</small>}</span></div>
   const stage = <ObservationPlayerSurface hasData={!!data} playing={playing} transport={transport} footer={<>{controls}{utilities}</>}>
     {data ? <><svg viewBox={view === 'image' ? `0 0 ${frame?.width ?? metadata?.width ?? 640} ${frame?.height ?? metadata?.height ?? 480}` : '-2 -2 4 4'} role="img" aria-label="영상 없는 키포인트 재생" className={`oc-replay-points${view === 'image' ? '' : ' oc-replay-model-points'}`}>

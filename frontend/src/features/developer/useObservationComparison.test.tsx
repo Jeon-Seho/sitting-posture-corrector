@@ -44,6 +44,8 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   beforeEach(() => {
     vi.mocked(downloadComparisonCsv).mockClear(); vi.mocked(downloadObservationReplay).mockClear()
     wall = 0; vi.useFakeTimers(); vi.spyOn(performance, 'now').mockImplementation(() => wall)
+    // Shuffle keeps deviation first unless a test asks otherwise.
+    vi.spyOn(Math, 'random').mockReturnValue(0.9)
     doc = Object.assign(new EventTarget(), { visibilityState: 'visible', title: 'test' }); vi.stubGlobal('document', doc)
     win = new EventTarget(); vi.stubGlobal('window', win)
     camera = { subscribe: vi.fn(fn => { listener = fn; return unsubscribe }), connect: vi.fn().mockResolvedValue(undefined), stop: vi.fn(), state: 'on', error: '', videoRef: { current: null }, streamRef: { current: null } } as unknown as CameraController
@@ -59,7 +61,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜기')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled()
     expect(renderer.root.findByType('dialog').props['aria-modal']).toBe('true')
-    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['auto', 'manual'])
+    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['auto', 'manual', 1, 3])
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '취소')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled(); expect(renderer.root.findAllByType('dialog')).toHaveLength(0)
 
@@ -138,8 +140,8 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({type:'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    // A continuous 5 Hz stream covers every protocol boundary without rendering 1,540 UI frames.
-    for (let t = 0; t <= 154000; t += 200) {
+    // A continuous 5 Hz stream covers every boundary of one default round (registration ends at 10 s, the round lasts 27 s).
+    for (let t = 0; t <= 40000; t += 200) {
       wall = t
       act(() => listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t }))
       if (t === 1800) act(() => button('기준 자세 등록 시작').props.onClick())
@@ -147,7 +149,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => renderer.root.findAllByProps({role:'tab'})[1].props.onClick())
     expect(button('최근 측정 보기').props['aria-pressed']).toBe(true)
     expect(button('재생').props.disabled).toBe(false)
-    expect(renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.max).toBe(154000)
+    expect(renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.max).toBe(37000)
     expect(renderer.root.findAllByType('button').some(b => text(b) === '현재 기록 불러오기')).toBe(false)
     expect(renderer.root.findAllByProps({type:'file'})).toHaveLength(0)
   }, 15000)
@@ -359,7 +361,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(current.guide).toMatchObject({ status: 'waiting', step: { phase: 'move', durationMs: 0 } })
     const rows = exportRows(), phase = rows.filter(row => row.event === 'protocol_phase_completed')
     expect(phase).toHaveLength(1)
-    expect(phase[0]).toMatchObject({ protocol_id: 'front-observation-manual-ready-5-5x3-v3', protocol_mode: 'manual', protocol_phase: 'move', protocol_phase_duration_ms: '0' })
+    expect(phase[0]).toMatchObject({ protocol_id: 'front-observation-deviation-stretch-v4', protocol_mode: 'manual', protocol_phase: 'move', protocol_phase_duration_ms: '0' })
     expect(rows.filter(row => row.event === 'observation')).toHaveLength(0)
   })
   it('rejects early and repeated next calls, then gives every manual phase its full time', () => {
@@ -373,16 +375,17 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => current.nextGuide()); expect(current.guide).toMatchObject({ stepIndex: 2, remainingMs: 5000 })
     act(() => current.changeGuideMode('auto')); expect(current.guideMode).toBe('manual')
   })
-  it('records all 36 automatic boundaries and only 12 holds, then stops without losing CSV', () => {
-    mount(); register(); frames(10100, 154000)
+  it('records all 18 automatic boundaries of three rounds and only 6 holds, then stops without losing CSV', () => {
+    mount(); act(() => current.changeGuidePlan({ rounds: 3, shuffle: false })); register(); frames(10100, 95000)
     expect(current.guide.status).toBe('completed'); expect(current.active).toBe(false)
     const rows = exportRows(), boundaries = rows.filter(r => r.event === 'protocol_phase_completed')
-    expect(boundaries).toHaveLength(36)
-    expect(new Set(boundaries.map(r => r.segment_id)).size).toBe(36)
+    expect(boundaries).toHaveLength(18)
+    expect(new Set(boundaries.map(r => r.segment_id)).size).toBe(18)
     expect(boundaries.every(r => r.protocol_phase_elapsed_ms === r.protocol_phase_duration_ms)).toBe(true)
     const observations = rows.filter(r => r.event === 'observation')
-    expect(new Set(observations.map(r => `${r.protocol_round}:${r.protocol_task_action}`)).size).toBe(12)
-    expect(observations.every(r => r.protocol_phase === 'hold' && +r.protocol_phase_elapsed_ms < 5000 && r.protocol_mode === 'auto')).toBe(true)
+    expect(new Set(observations.map(r => `${r.protocol_round}:${r.protocol_task_action}`)).size).toBe(6)
+    expect(observations.every(r => r.protocol_phase === 'hold' && +r.protocol_phase_elapsed_ms < (r.protocol_task_action === 'stretch' ? 8000 : 5000) && r.protocol_mode === 'auto')).toBe(true)
+    expect(current.getReplay()!.plan).toEqual({ rounds: 3, shuffle: false })
     expect(rows.at(-1)).toMatchObject({ event: 'stopped', protocol_state: 'completed' })
   })
   it('pauses hidden measurements, excludes recovered frames until explicit resume and separates retries', () => {
@@ -440,11 +443,11 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   })
   it('confirms re-registration during guidance and only permits snapshots during measurement', () => {
     mount(); register(); act(() => current.capture()); expect(current.rows).toEqual({})
-    act(() => current.choose('body')); act(() => current.register()); expect(current.action).toBe('head'); expect(current.pendingReset).toBe('register')
+    act(() => current.choose('stretch')); act(() => current.register()); expect(current.action).toBe('deviation'); expect(current.pendingReset).toBe('register')
     expect(current.active).toBe(true); act(() => current.cancelReset()); expect(current.active).toBe(true)
-    frames(10100, 13100); act(() => current.capture()); expect(current.rows.head).toBeDefined()
-    act(() => current.stop()); const retained = current.rows.head
-    act(() => current.capture()); expect(current.rows.head).toBe(retained)
+    frames(10100, 13100); act(() => current.capture()); expect(current.rows.deviation).toBeDefined()
+    act(() => current.stop()); const retained = current.rows.deviation
+    act(() => current.capture()); expect(current.rows.deviation).toBe(retained)
   })
   it('guards new runs with retained CSV and supports cancel/download before explicit reset', () => {
     mount(); register(); frames(10100, 13000); act(() => current.stop()); const count = current.traceCount
@@ -465,12 +468,12 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   })
   it('automatically publishes a completed hold to the table and summary CSV, then clears only the table', () => {
     mount(); register(); frames(10100, 16900)
-    expect(current.rows.head).toBeUndefined()
-    emit(17000); expect(current.rows.head).toBeDefined()
+    expect(current.rows.deviation).toBeUndefined()
+    emit(17000); expect(current.rows.deviation).toBeDefined()
     act(() => current.exportCsv('summary'))
     const summary = vi.mocked(downloadComparisonCsv).mock.calls.at(-1)![1]
     expect(summary).toContain('guided_task_not_ground_truth')
-    expect(summary).toContain('head')
+    expect(summary).toContain('deviation')
     act(() => current.stop()); const traceCount = current.traceCount
     act(() => current.clear()); expect(current.pendingReset).toBe('clear')
     act(() => current.confirmReset()); expect(current.rows).toEqual({})
@@ -481,7 +484,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
   it('protects table clearing separately while preserving traces', () => {
     mount(); register(); frames(10100, 13100); act(() => current.capture()); act(() => current.stop())
     act(() => current.clear()); expect(current.pendingReset).toBe('clear')
-    act(() => current.cancelReset()); expect(current.rows.head).toBeDefined()
+    act(() => current.cancelReset()); expect(current.rows.deviation).toBeDefined()
     const count = current.traceCount
     act(() => current.clear()); act(() => current.confirmReset()); expect(current.rows).toEqual({}); expect(current.traceCount).toBe(count)
   })

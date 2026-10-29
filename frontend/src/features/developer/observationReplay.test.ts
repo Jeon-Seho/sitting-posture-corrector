@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonDemo } from './comparisonDemo'
 import { ObservationReplayArchive, parseObservationReplay, replayFeatures, replayFrameAt, replayImageValid, REPLAY_LIMIT, type ReplayContext } from './observationReplay'
-const context: ReplayContext = { phase: 'hold', task: 'head', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
+const context: ReplayContext = { phase: 'hold', task: 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
 const archive = () => new ObservationReplayArchive('explicit-synthetic-test', '2026-10-21T00:00:00.000Z')
-const recording = () => { const a = archive(); a.append(comparisonDemo(100, 'neutral'), 0, context); a.append(comparisonDemo(200, 'head'), 100, context); return a }
+const recording = () => { const a = archive(); a.append(comparisonDemo(100, 'neutral'), 0, context); a.append(comparisonDemo(200, 'deviation'), 100, context); return a }
 const encoded = () => JSON.stringify({ ...recording().snapshot(), source: 'synthetic' })
 describe('bounded keypoint-only replay archive', () => {
   it('copies raw image/world points, metadata and missing values without video or derived features', () => {
-    const a = archive(), frame = comparisonDemo(100, 'head')
+    const a = archive(), frame = comparisonDemo(100, 'deviation')
     frame.landmarks[1].x = NaN
     a.append({ ...frame, videoTimeMs: 90 }, 0, { ...context, phase: 'preparing', measurement: false })
     frame.landmarks[0].x = .8
@@ -15,7 +15,9 @@ describe('bounded keypoint-only replay archive', () => {
     expect(data.frames[0].image[0]?.x).toBe(.5)
     expect(data.frames[0].image[1]).toBeNull()
     expect(data.frames[0]).toMatchObject({ observationTimeMs: 100, videoTimeMs: 90, phase: 'preparing', measurement: false, width: 640, height: 480 })
-    expect(data.frames[0].world).toHaveLength(13)
+    expect(data.frames[0].world).toHaveLength(23)
+    expect(data.pointIndices).toEqual(Array.from({ length: 23 }, (_, i) => i))
+    expect(data.frames[0].image[15]).toMatchObject({ visibility: .05 })
     expect(JSON.stringify(data)).not.toMatch(/data:image|bitmap|videoBlob|features39/)
     data.frames[0].image[0]!.x = .1
     expect(a.snapshot().frames[0].image[0]?.x).toBe(.5)
@@ -28,8 +30,8 @@ describe('bounded keypoint-only replay archive', () => {
     a.mark(150, 'hidden'); a.mark(160, 'hidden')
     expect(a.snapshot().markers).toHaveLength(1)
     expect(replayFrameAt(a.snapshot(), 150)).toBeNull()
-    a.append(comparisonDemo(300, 'bow'), 200, context)
-    expect(replayFrameAt(a.snapshot(), 200)?.task).toBe('head')
+    a.append(comparisonDemo(300, 'stretch'), 200, context)
+    expect(replayFrameAt(a.snapshot(), 200)?.task).toBe('deviation')
     a.append(comparisonDemo(200, 'neutral'), 300, context)
     expect(a.snapshot().frames.at(-1)?.observationTimeMs).toBeNull()
     expect(replayFeatures(a.snapshot().frames.at(-1)!)).toBeNull()
@@ -51,9 +53,30 @@ describe('untrusted replay JSON validation', () => {
     expect(data.frames).toHaveLength(2)
     expect(data.scope).toBe('all_phases_replay_only')
   })
-  it('preserves the original protocol ID when importing an older v2 recording', () => {
-    const data = JSON.parse(encoded()); data.protocolId = 'front-observation-2-5-5x3-v2'
-    expect(parseObservationReplay(JSON.stringify(data)).protocolId).toBe(data.protocolId)
+  it('keeps arm points null when a frame carries none, never zero or copied', () => {
+    const a = archive(), { armLandmarks: _arms, armWorldLandmarks: _world, ...frame } = comparisonDemo(100, 'neutral')
+    a.append(frame, 0, context)
+    const [first] = a.snapshot().frames
+    expect(first.image.slice(13)).toEqual(Array(10).fill(null)); expect(first.world.slice(13)).toEqual(Array(10).fill(null))
+    expect(first.image[12]).not.toBeNull()
+  })
+  it('records the run plan and rejects v2 files without one or with old tasks', () => {
+    const a = recording(); a.setPlan({ rounds: 3, shuffle: false })
+    expect(parseObservationReplay(JSON.stringify(a.snapshot())).plan).toEqual({ rounds: 3, shuffle: false })
+    const missing = JSON.parse(encoded()); delete missing.plan
+    expect(() => parseObservationReplay(JSON.stringify(missing))).toThrow()
+    const old = JSON.parse(encoded()); old.frames[1].task = 'head'
+    expect(() => parseObservationReplay(JSON.stringify(old))).toThrow()
+  })
+  it.each(['front-observation-2-5-5x3-v2', 'front-observation-manual-ready-5-5x3-v3'])('still imports an older 13-point v1 recording of %s', protocolId => {
+    const data = JSON.parse(encoded())
+    const legacy = { ...data, schema_version: 'observation-keypoint-replay-v1', protocolId, pointIndices: data.pointIndices.slice(0, 13),
+      frames: data.frames.map((f: { image: unknown[]; world: unknown[] }) => ({ ...f, task: 'head', image: f.image.slice(0, 13), world: f.world.slice(0, 13) })) }
+    delete legacy.plan
+    const parsed = parseObservationReplay(JSON.stringify(legacy))
+    expect(parsed).toMatchObject({ schema_version: 'observation-keypoint-replay-v1', protocolId, plan: null })
+    expect(parsed.frames[0].image).toHaveLength(13); expect(parsed.frames[0].task).toBe('head')
+    expect(() => parseObservationReplay(JSON.stringify({ ...legacy, pointIndices: data.pointIndices }))).toThrow()
   })
   it.each(['schema_version','pointIndices','forecastOrder','mirrored','labelKind','scope','protocolId','source'])('rejects incompatible %s', field => {
     const data = JSON.parse(encoded()); data[field] = 'unsupported'

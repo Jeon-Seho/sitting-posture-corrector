@@ -5,10 +5,10 @@ import { SelectMenu } from '../../components/SelectMenu'
 import { ObservationMetrics } from './ObservationMetrics'
 import { ReplayImportDialog } from './ReplayImportDialog'
 import { ObservationReplayArchive, downloadObservationReplay, type ReplayContext } from './observationReplay'
-import { comparisonDemo } from './comparisonDemo'
+import { changedFrame } from './syntheticChanges.test-utils'
 vi.mock('./observationReplay', async original => ({ ...await original<typeof import('./observationReplay')>(), downloadObservationReplay: vi.fn() }))
-const context: ReplayContext = { phase: 'hold', task: 'head', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
-const data = () => { const a = new ObservationReplayArchive('synthetic-replay-ui', '2026-10-21T00:00:00.000Z'); for(let i=0;i<=10;i++) a.append(comparisonDemo(i*100,'head'),i*100,context); return { ...a.snapshot(), source: 'synthetic' as const } }
+const context: ReplayContext = { phase: 'hold', task: 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
+const data = () => { const a = new ObservationReplayArchive('synthetic-replay-ui', '2026-10-21T00:00:00.000Z'); for(let i=0;i<=10;i++) a.append(changedFrame(i*100,'head'),i*100,context); return { ...a.snapshot(), source: 'synthetic' as const } }
 describe('isolated keypoint player', () => {
   let ui: ReactTestRenderer, doc: EventTarget & { visibilityState: string }
   const getRecording = vi.fn(data)
@@ -119,15 +119,15 @@ describe('isolated keypoint player', () => {
     expect(button('파일 불러오기').props.disabled).toBe(false)
   })
   it('uses the recorded task at the playback position as the posture label', () => {
-    const next = data(); next.runId = 'synthetic-changing-label'; next.frames[5] = { ...next.frames[5], task: 'bow', phase: 'return' }
+    const next = data(); next.runId = 'synthetic-changing-label'; next.frames[5] = { ...next.frames[5], task: 'stretch', phase: 'return' }
     getRecording.mockReturnValueOnce(next)
     act(() => ui.update(<ObservationReplay {...props()} count={12} />))
     const label = () => ui.root.findByProps({ 'aria-label': '현재 자세 라벨' }).findByType('strong').props.children
-    expect(label()).toBe('머리 앞으로 내밀기')
+    expect(label()).toBe('이탈 자세')
     act(() => position().props.onChange({ currentTarget: { value: '500' } }))
-    expect(label()).toBe('고개 숙이기')
+    expect(label()).toBe('앉은 채 스트레칭')
     act(() => position().props.onChange({ currentTarget: { value: '0' } }))
-    expect(label()).toBe('머리 앞으로 내밀기')
+    expect(label()).toBe('이탈 자세')
     expect(ui.root.findByType(ObservationMetrics).props.values).toBeNull()
   })
 

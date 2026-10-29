@@ -29,7 +29,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => ui.root.findByProps({ 'aria-label': '기준 자세 등록 시작' }).props.onClick())
     expect(onStartReference).toHaveBeenCalledOnce()
     const meta = ui.root.findByProps({ className: 'oc-clock-meta' })
-    expect(meta.findAllByType('span').map(text)).toEqual(['시작 준비', '4동작 · 3바퀴'])
+    expect(meta.findAllByType('span').map(text)).toEqual(['시작 준비', '2동작 · 1바퀴'])
     expect(timer().props['aria-live']).toBe('off')
     const stop = ui.root.findAllByType('button').find(button => button.props['aria-label'] === '측정 종료')!
     expect(stop.props.disabled).not.toBe(true)
@@ -72,7 +72,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     protocol.pause('tracking_lost')
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(3000)} ready {...controls} />) })
-    expect(text(ui.root)).toContain('머리 앞으로 내밀기 · 일시 정지')
+    expect(text(ui.root)).toContain('이탈 자세 · 일시 정지')
     expect(text(ui.root)).toContain('자세를 다시 잡고 추적을 확인한 뒤 재개')
     expect(text(ui.root)).toContain('측정 5초를 다시 셉니다')
     act(() => ui.unmount())
@@ -99,12 +99,12 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     expect(pause().props.disabled).toBe(false)
     act(() => ui.unmount())
   })
-  it('keeps the bilateral task and next instruction visible during measurement', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-bilateral-copy')
-    for (let now = 100; now <= 38000; now += 100) protocol.advance(now)
+  it('keeps the seated stretch task and next instruction visible during its longer measurement', () => {
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-stretch-copy')
+    for (let now = 100; now <= 17000; now += 100) protocol.advance(now)
     let ui!: ReturnType<typeof create>
-    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(38000)} ready {...controls} />) })
-    expect(text(ui.root.findByProps({ role: 'status' }))).toContain('양쪽 어깨를 함께 올린 채 유지')
+    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(17000)} ready {...controls} />) })
+    expect(text(ui.root.findByProps({ role: 'status' }))).toContain('앉은 채 스트레칭을 이어가세요')
     expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('05초')
     expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('편안한 기준 자세· 복귀 준비 5초')
     act(() => ui.unmount())
@@ -124,7 +124,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     for (let now = 10100; now <= 15000; now += 100) protocol.advance(now)
     act(() => ui.update(<ObservationGuide guide={protocol.snapshot(15000)} ready {...controls} />))
     expect(text(ui.root.findByProps({ className: 'oc-clock-label' }))).toBe('복귀 준비')
-    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('고개 숙이기')
+    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('앉은 채 스트레칭')
     act(() => ui.unmount())
   })
   it('marks only an active hold as measuring and shows instructions for other phases', () => {
@@ -155,10 +155,10 @@ describe('guided camera workspace with explicit synthetic clock', () => {
   })
   it('retains completed progress and offers camera restart with downloads delegated to the tools', () => {
     const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-completed')
-    for (let now = 100; now <= 144000; now += 100) protocol.advance(now)
+    for (let now = 100; now <= 27000; now += 100) protocol.advance(now)
     let ui!: ReturnType<typeof create>
-    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(144000)} ready={false} active={false} {...controls} />) })
-    expect(ui.root.findByType('progress').props).toMatchObject({ value: 36, max: 36 })
+    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(27000)} ready={false} active={false} {...controls} />) })
+    expect(ui.root.findByType('progress').props).toMatchObject({ value: 6, max: 6 })
     expect(ui.root.findAllByType('button').map(text)).toEqual(['카메라 켜기'])
     expect(ui.root.findAllByProps({ role: 'status' })).toHaveLength(0)
     act(() => ui.unmount())

@@ -1,15 +1,20 @@
 export const OBSERVATION_REFERENCE_MS = 8000
 import type { ComparisonAction } from './comparisonDemo'
 
+/** Base → deviation → base → seated stretch. Labels are guided tasks, never verified movement. */
 export const OBSERVATION_PROTOCOL = {
-  id: 'front-observation-manual-ready-5-5x3-v3',
-  rounds: 3,
-  actions: ['head', 'bow', 'body', 'shoulders'],
-  phases: [{ id: 'move', durationMs: 2000 }, { id: 'hold', durationMs: 5000 }, { id: 'return', durationMs: 5000 }],
+  id: 'front-observation-deviation-stretch-v4',
+  actions: ['deviation', 'stretch'],
+  roundOptions: [1, 3],
+  moveMs: 2000,
+  holdMs: { deviation: 5000, stretch: 8000 },
+  returnMs: 5000,
   gapMs: 500,
 } as const
-export type GuidedPhase = typeof OBSERVATION_PROTOCOL.phases[number]['id']
+export type GuidedPhase = 'move' | 'hold' | 'return'
 export type GuideMode = 'auto' | 'manual'
+export type GuidePlan = { rounds: typeof OBSERVATION_PROTOCOL.roundOptions[number]; shuffle: boolean }
+export const DEFAULT_GUIDE_PLAN: GuidePlan = { rounds: 1, shuffle: true }
 export type GuidePauseReason = 'user' | 'hidden' | 'tracking_lost' | 'clock_gap'
 export type GuidedStep = { round: number; trial: number; action: Exclude<ComparisonAction, 'neutral'>; phase: GuidedPhase; durationMs: number }
 export type GuideSnapshot = {
@@ -17,12 +22,18 @@ export type GuideSnapshot = {
   mode: GuideMode
   runId: string; step: GuidedStep | null; stepIndex: number; attempt: number
   elapsedMs: number; remainingMs: number; pauseReason: GuidePauseReason | null
+  plan: GuidePlan; stepCount: number; next: GuidedStep | null
 }
-export const OBSERVATION_STEPS: readonly GuidedStep[] = Array.from({ length: OBSERVATION_PROTOCOL.rounds }, (_, round) =>
-  OBSERVATION_PROTOCOL.actions.flatMap((action, i) => OBSERVATION_PROTOCOL.phases.map(phase => ({
-    round: round + 1, trial: round * OBSERVATION_PROTOCOL.actions.length + i + 1, action, phase: phase.id, durationMs: phase.durationMs,
-  }))),
-).flat()
+
+/** Each round guides both actions once; shuffle only changes the order inside a round. */
+export function observationSteps(plan: GuidePlan = DEFAULT_GUIDE_PLAN, random: () => number = Math.random): GuidedStep[] {
+  return Array.from({ length: plan.rounds }, (_, round) => {
+    const actions = [...OBSERVATION_PROTOCOL.actions]
+    if (plan.shuffle && random() < 0.5) actions.reverse()
+    return actions.flatMap((action, i) => ([['move', OBSERVATION_PROTOCOL.moveMs], ['hold', OBSERVATION_PROTOCOL.holdMs[action]], ['return', OBSERVATION_PROTOCOL.returnMs]] as const)
+      .map(([phase, durationMs]) => ({ round: round + 1, trial: round * actions.length + i + 1, action, phase, durationMs })))
+  }).flat()
+}
 
 /** Guides requested tasks; it does not infer or verify a person's movement. */
 export class ObservationProtocol {
@@ -35,16 +46,21 @@ export class ObservationProtocol {
   private frozen = 0
   private reason: GuidePauseReason | null = null
   private mode: GuideMode = 'auto'
+  private plan: GuidePlan = DEFAULT_GUIDE_PLAN
+  private steps: readonly GuidedStep[] = observationSteps({ ...DEFAULT_GUIDE_PLAN, shuffle: false })
 
   snapshot(now: number): GuideSnapshot {
-    const base = this.status === 'idle' ? null : OBSERVATION_STEPS[this.index]
+    const base = this.status === 'idle' ? null : this.steps[this.index]
     const step = base && this.mode === 'manual' && base.phase === 'move' ? { ...base, durationMs: 0 } : base
     const elapsedMs = Math.max(0, Math.min(step?.durationMs ?? 0, this.status === 'running' ? now - this.started : this.frozen))
-    return { status: this.status, mode: this.mode, runId: this.runId, step, stepIndex: this.index, attempt: this.attempt, elapsedMs, remainingMs: (step?.durationMs ?? 0) - elapsedMs, pauseReason: this.reason }
+    const next = this.steps[this.status === 'idle' ? 0 : this.index + 1] ?? null
+    return { status: this.status, mode: this.mode, runId: this.runId, step, stepIndex: this.index, attempt: this.attempt, elapsedMs, remainingMs: (step?.durationMs ?? 0) - elapsedMs, pauseReason: this.reason,
+      plan: this.plan, stepCount: this.steps.length, next }
   }
-  start(now: number, runId: string, mode: GuideMode = 'auto') {
+  start(now: number, runId: string, mode: GuideMode = 'auto', plan: GuidePlan = { ...DEFAULT_GUIDE_PLAN, shuffle: false }, random: () => number = Math.random) {
     if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused' || this.status === 'waiting') return false
-    this.mode = mode
+    if (!OBSERVATION_PROTOCOL.roundOptions.includes(plan.rounds)) return false
+    this.mode = mode; this.plan = { ...plan }; this.steps = observationSteps(this.plan, random)
     this.status = mode === 'manual' ? 'waiting' : 'running'; this.runId = runId; this.index = 0; this.attempt = 1
     this.started = this.last = now; this.frozen = 0; this.reason = null
     return true
@@ -55,9 +71,9 @@ export class ObservationProtocol {
       this.pause('clock_gap'); return 'paused'
     }
     this.last = now
-    if (now - this.started < OBSERVATION_STEPS[this.index].durationMs) return 'none'
+    if (now - this.started < this.steps[this.index].durationMs) return 'none'
     if (this.mode === 'manual') {
-      this.frozen = OBSERVATION_STEPS[this.index].durationMs; this.status = 'waiting'; return 'waiting'
+      this.frozen = this.steps[this.index].durationMs; this.status = 'waiting'; return 'waiting'
     }
     return this.transition(now)
   }
@@ -67,11 +83,11 @@ export class ObservationProtocol {
     return this.transition(now)
   }
   private transition(now: number): 'phase' | 'completed' {
-    if (this.index === OBSERVATION_STEPS.length - 1) {
-      this.frozen = OBSERVATION_STEPS[this.index].durationMs; this.status = 'completed'; return 'completed'
+    if (this.index === this.steps.length - 1) {
+      this.frozen = this.steps[this.index].durationMs; this.status = 'completed'; return 'completed'
     }
     // Each instruction receives its full visible time, even after a delayed callback.
-    this.index++; this.status = this.mode === 'manual' && OBSERVATION_STEPS[this.index].phase === 'move' ? 'waiting' : 'running'; this.attempt = 1; this.started = this.last = now; this.frozen = 0
+    this.index++; this.status = this.mode === 'manual' && this.steps[this.index].phase === 'move' ? 'waiting' : 'running'; this.attempt = 1; this.started = this.last = now; this.frozen = 0
     return 'phase'
   }
   pause(reason: GuidePauseReason) {

@@ -15,6 +15,14 @@ describe('explicit observation mode selection before camera use', () => {
     act(() => button('취소').props.onClick())
     expect(start).not.toHaveBeenCalled(); expect(cancel).toHaveBeenCalledOnce()
   })
+  it('passes the chosen round count and shuffle choice with the mode', async () => {
+    const start = vi.fn()
+    act(() => { ui = create(<ObservationModeDialog onStart={start} onCancel={vi.fn()} />) })
+    act(() => ui.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 3)!.props.onChange())
+    act(() => ui.root.findByProps({ type: 'checkbox' }).props.onChange({ target: { checked: false } }))
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    expect(start).toHaveBeenCalledExactlyOnceWith('manual', { rounds: 3, shuffle: false })
+  })
   it.each(['auto', 'manual'])('starts exactly once with explicitly selected %s mode', async mode => {
     const start = vi.fn()
     act(() => { ui = create(<ObservationModeDialog onStart={start} onCancel={vi.fn()} />) })
@@ -22,6 +30,6 @@ describe('explicit observation mode selection before camera use', () => {
     act(() => radio.props.onChange())
     expect(radio.props.checked).toBe(true); expect(start).not.toHaveBeenCalled()
     await act(async () => { const confirm = button('카메라 켜고 시작').props.onClick; await Promise.all([confirm(), confirm()]) })
-    expect(start).toHaveBeenCalledExactlyOnceWith(mode)
+    expect(start).toHaveBeenCalledExactlyOnceWith(mode, { rounds: 1, shuffle: true })
   })
 })

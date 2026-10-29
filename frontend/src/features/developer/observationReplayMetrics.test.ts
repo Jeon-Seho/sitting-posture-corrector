@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonDemo } from './comparisonDemo'
+import { changedFrame } from './syntheticChanges.test-utils'
 import { ObservationReplayArchive, type ObservationReplayData, type ReplayContext } from './observationReplay'
 import { replayMetricSeries, replayMetricsAt } from './observationReplayMetrics'
 
@@ -8,9 +9,9 @@ function recording(options: { noRegistration?: boolean; missingWorld?: boolean; 
   for (let time = 0; time <= 20000; time += 100) {
     if (options.interruptedRegistration && time > 5000 && time < 7000) continue
     const phase = options.noRegistration ? 'hold' : time < 2000 ? 'preparing' : time < 10000 ? 'registering' : 'hold'
-    const frame = comparisonDemo(100000 + time, time < 11000 ? 'neutral' : 'head')
+    const frame = time < 11000 ? comparisonDemo(100000 + time, 'neutral') : changedFrame(100000 + time, 'head')
     if (options.missingWorld && time === 6000) frame.worldLandmarks = []
-    const context: ReplayContext = { phase, task: time < 11000 ? 'neutral' : 'head', round: 1, trial: 1, attempt: 1, segment: 1, measurement: phase === 'hold' }
+    const context: ReplayContext = { phase, task: time < 11000 ? 'neutral' : 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: phase === 'hold' }
     archive.append(frame, time, context)
   }
   return { ...archive.snapshot(), source: 'synthetic' as const }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonGeometry, comparisonValues, ObservationComparison } from '../../../../model/prototype/observationComparison'
 import { comparisonDemo } from './comparisonDemo'
+import { changedFrame as changed } from './syntheticChanges.test-utils'
 
 const reference = () => comparisonGeometry(comparisonDemo(0, 'neutral'))
 const registered = () => {
@@ -18,26 +19,26 @@ describe('observation comparison: explicitly synthetic geometry only', () => {
     expect(registered().reference).not.toBeNull()
   })
   it('uses fixed reference shoulder width: common image enlargement remains visible while common world translation cancels', () => {
-    const v = comparisonValues(comparisonGeometry(comparisonDemo(1, 'body')), reference())!
+    const v = comparisonValues(comparisonGeometry(changed(1, 'body')), reference())!
     expect(v.shoulderScale).toBeCloseTo(20)
     expect(v.headGap).toBeGreaterThan(0)
     expect(v.relativeZ).toBeCloseTo(0)
   })
   it('keeps independent 2D/depth transformations separate rather than assigning a posture class', () => {
-    const v = comparisonValues(comparisonGeometry(comparisonDemo(1, 'head')), reference())!
+    const v = comparisonValues(comparisonGeometry(changed(1, 'head')), reference())!
     expect(v.relativeZ).toBeCloseTo(-20)
     expect(v.shoulderScale).toBeCloseTo(0)
     expect(v).not.toHaveProperty('state')
-    const bow = comparisonValues(comparisonGeometry(comparisonDemo(1, 'bow')), reference())!
+    const bow = comparisonValues(comparisonGeometry(changed(1, 'bow')), reference())!
     expect(bow.faceHeight).toBeLessThan(0)
-    const lift = comparisonValues(comparisonGeometry(comparisonDemo(1, 'shoulders')), reference())!
+    const lift = comparisonValues(comparisonGeometry(changed(1, 'shoulders')), reference())!
     expect(lift.shoulderLift).toBeGreaterThan(0)
     expect(lift.headGap).toBeLessThan(0)
   })
   it('corrects normalized image y by aspect ratio and retains relative world units', () => {
     const frame = comparisonDemo(0, 'neutral'), g = comparisonGeometry(frame)
     expect(g.image!.gap).toBeCloseTo((.7 - .35) * 480 / 640)
-    const shifted = comparisonDemo(1, 'head')
+    const shifted = changed(1, 'head')
     for (const p of shifted.worldLandmarks) p.z += 20
     expect(comparisonGeometry(shifted).world!.relativeZ).toBeCloseTo(-.08)
   })
@@ -73,27 +74,27 @@ describe('observation comparison: explicitly synthetic geometry only', () => {
     const e = new ObservationComparison(); e.beginReference()
     for (let t = 0; t <= 2000; t += 100) e.accept({ ...comparisonDemo(t, 'neutral'), worldLandmarks: [] })
     expect(e.reference!.world).toBeNull()
-    e.accept(comparisonDemo(2100, 'head'))
+    e.accept(changed(2100, 'head'))
     expect(e.samples.at(-1)!.values!.relativeZ).toBeNull()
   })
   it('uses only continuous recent samples after the manual action boundary for a snapshot', () => {
     const e = registered()
-    for (let t = 2100; t <= 4000; t += 100) e.accept(comparisonDemo(t, 'head'))
+    for (let t = 2100; t <= 4000; t += 100) e.accept(changed(t, 'head'))
     expect(e.capture(3000)!.relativeZ).toBeCloseTo(-20)
     expect(e.capture(3950)).toBeNull()
-    e.accept({ ...comparisonDemo(4100, 'head'), landmarks: [] })
+    e.accept({ ...changed(4100, 'head'), landmarks: [] })
     expect(e.capture(3000)).toBeNull()
   })
   it('breaks on gaps/reversed timestamps and invalidates a changed extraction context', () => {
-    const e = registered(); e.accept(comparisonDemo(3000, 'head'))
+    const e = registered(); e.accept(changed(3000, 'head'))
     expect(e.samples.some(s => s.values === null)).toBe(true)
-    e.accept(comparisonDemo(2900, 'head')); expect(e.current).toBeNull()
-    e.accept({ ...comparisonDemo(3100, 'head'), width: 1280 })
+    e.accept(changed(2900, 'head')); expect(e.current).toBeNull()
+    e.accept({ ...changed(3100, 'head'), width: 1280 })
     expect(e.reference).toBeNull(); expect(e.capture(0)).toBeNull()
   })
   it('bounds in-memory charts and replaces the reference explicitly', () => {
     const e = registered()
-    for (let t = 2100; t <= 30000; t += 100) e.accept(comparisonDemo(t, 'head'))
+    for (let t = 2100; t <= 30000; t += 100) e.accept(changed(t, 'head'))
     expect(e.samples.length).toBeLessThanOrEqual(120)
     e.beginReference(); expect(e.samples).toEqual([]); expect(e.reference).toBeNull()
   })

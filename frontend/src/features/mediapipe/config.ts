@@ -3,6 +3,8 @@ import modelVariants from '../../../model-variants.json'
 
 /** Original Pose indices 0..12: face and both shoulders. */
 export const SHOULDER_UP_LANDMARK_COUNT = 13
+/** Exclusive end of the /dev-only arm range: elbows 13·14, wrists 15·16, hands 17..22. */
+export const ARM_LANDMARK_END = 23
 
 /** Extra models are opt-in /dev assets; the service default stays Heavy. */
 export const POSE_MODELS = { ...modelVariants, heavy: modelAsset }

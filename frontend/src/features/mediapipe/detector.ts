@@ -1,6 +1,6 @@
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { POSE_CONFIG, POSE_MODELS } from './config'
-import { shoulderUpLandmarks } from './landmarks'
+import { armLandmarks, shoulderUpLandmarks } from './landmarks'
 import type { PoseDelegate, PoseTracker, PoseTrackerDiagnostics, PoseTrackerOptions } from './types'
 
 function gpuCanvas() {
@@ -92,6 +92,7 @@ export async function createPoseTracker(
       const inferenceMs = performance.now() - started
       return {
         ...shoulderUpLandmarks(result),
+        ...armLandmarks(result),
         poseModelId: asset.modelId,
         timeMs,
         videoTimeMs,

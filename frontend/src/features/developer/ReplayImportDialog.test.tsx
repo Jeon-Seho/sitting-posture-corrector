@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReplayImportDialog } from './ReplayImportDialog'
 import { ObservationReplayArchive, type ReplayContext } from './observationReplay'
 import { comparisonDemo } from './comparisonDemo'
-const context: ReplayContext = { phase: 'hold', task: 'head', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
-const content = () => { const a = new ObservationReplayArchive('synthetic-file-dialog','2026-10-21T00:00:00.000Z'); a.append(comparisonDemo(0,'head'),0,context); return JSON.stringify({...a.snapshot(),source:'synthetic'}) }
+const context: ReplayContext = { phase: 'hold', task: 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
+const content = () => { const a = new ObservationReplayArchive('synthetic-file-dialog','2026-10-21T00:00:00.000Z'); a.append(comparisonDemo(0,'deviation'),0,context); return JSON.stringify({...a.snapshot(),source:'synthetic'}) }
 const file = (text = content(), patch: Partial<File> = {}) => ({ name: 'explicit-synthetic.json', size: text.length, text: async () => text, ...patch }) as File
 
 describe('replay import modal', () => {

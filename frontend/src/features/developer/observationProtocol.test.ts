@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { ObservationProtocol, OBSERVATION_STEPS } from './observationProtocol'
+import { ObservationProtocol, observationSteps } from './observationProtocol'
+
+const THREE = { rounds: 3, shuffle: false } as const
+const STEPS = observationSteps(THREE)
 
 describe('requested observation guidance clock, independent of measured posture', () => {
   it('waits immediately on every manual move, retains timed holds and rejects repeated next', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-manual', 'manual')
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-manual', 'manual', THREE)
     let now = 0
-    for (const [index, step] of OBSERVATION_STEPS.entries()) {
+    for (const [index, step] of STEPS.entries()) {
       if (step.phase === 'move') {
         expect(protocol.snapshot(now)).toMatchObject({ status: 'waiting', stepIndex: index, remainingMs: 0, step: { durationMs: 0 } })
         expect(protocol.next(now)).toBe('none')
@@ -21,27 +24,36 @@ describe('requested observation guidance clock, independent of measured posture'
       expect(protocol.advance(now)).toBe('none')
       expect(protocol.start(now, 'replace')).toBe(false)
       expect(protocol.snapshot(now).stepIndex).toBe(index)
-      expect(protocol.next(now)).toBe(index === 35 ? 'completed' : 'phase')
+      expect(protocol.next(now)).toBe(index === STEPS.length - 1 ? 'completed' : 'phase')
       expect(protocol.next(now)).toBe('none')
-      if (index < 35) expect(protocol.snapshot(now).remainingMs).toBe(OBSERVATION_STEPS[index + 1].phase === 'move' ? 0 : OBSERVATION_STEPS[index + 1].durationMs)
+      if (index < STEPS.length - 1) expect(protocol.snapshot(now).remainingMs).toBe(STEPS[index + 1].phase === 'move' ? 0 : STEPS[index + 1].durationMs)
     }
     expect(protocol.snapshot(now).status).toBe('completed')
   })
-  it('guides all four actions for three rounds in 36 full phases and exactly 144 nominal seconds', () => {
+  it('guides deviation then stretch for three rounds in 18 full phases and exactly 81 nominal seconds', () => {
     const protocol = new ObservationProtocol()
-    protocol.start(0, 'synthetic-clock')
+    protocol.start(0, 'synthetic-clock', 'auto', THREE)
     const boundaries: number[] = [], completed = []
-    for (let now = 100; now <= 144000; now += 100) {
+    for (let now = 100; now <= 81000; now += 100) {
       const before = protocol.snapshot(now), result = protocol.advance(now)
       if (result === 'phase' || result === 'completed') { boundaries.push(now); completed.push(before) }
     }
-    expect(boundaries.slice(0, 6)).toEqual([2000, 7000, 12000, 14000, 19000, 24000])
-    expect(completed).toHaveLength(36)
-    expect(completed.map(s => s.step)).toEqual(OBSERVATION_STEPS)
-    expect(completed.every(s => s.elapsedMs === s.step!.durationMs)).toBe(true)
-    expect(completed.filter(s => s.step!.phase === 'hold').map(s => [s.step!.round, s.step!.action])).toEqual([1, 2, 3].flatMap(round => ['head','bow','body','shoulders'].map(action => [round, action])))
-    expect(protocol.snapshot(144000).status).toBe('completed')
+    expect(boundaries.slice(0, 6)).toEqual([2000, 7000, 12000, 14000, 22000, 27000])
+    expect(completed).toHaveLength(18)
+    expect(completed.map(s => s.step)).toEqual(STEPS)
+    expect(completed.every(s => s.elapsedMs === s.step!.durationMs && s.stepCount === 18)).toBe(true)
+    expect(completed.filter(s => s.step!.phase === 'hold').map(s => [s.step!.round, s.step!.action, s.step!.durationMs])).toEqual([1, 2, 3].flatMap(round => [[round, 'deviation', 5000], [round, 'stretch', 8000]]))
+    expect(protocol.snapshot(81000).status).toBe('completed')
     expect(protocol.advance(200000)).toBe('none')
+  })
+  it('defaults to one unshuffled round and only reorders actions inside each round when shuffling', () => {
+    expect(observationSteps({ rounds: 1, shuffle: false }).filter(s => s.phase === 'hold').map(s => s.action)).toEqual(['deviation', 'stretch'])
+    const rolls = [0.1, 0.9, 0.1]
+    const shuffled = observationSteps({ rounds: 3, shuffle: true }, () => rolls.shift()!).filter(s => s.phase === 'hold')
+    expect(shuffled.map(s => [s.round, s.trial, s.action])).toEqual([[1, 1, 'stretch'], [1, 2, 'deviation'], [2, 3, 'deviation'], [2, 4, 'stretch'], [3, 5, 'stretch'], [3, 6, 'deviation']])
+    const protocol = new ObservationProtocol()
+    expect(protocol.snapshot(0)).toMatchObject({ stepCount: 6, plan: { rounds: 1 }, next: { action: 'deviation', phase: 'move' } })
+    expect(protocol.start(0, 'synthetic-bad-plan', 'auto', { rounds: 2 as 1, shuffle: false })).toBe(false)
   })
   it('freezes a paused hold and restarts that phase with a separate attempt on explicit resume', () => {
     const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-pause')
