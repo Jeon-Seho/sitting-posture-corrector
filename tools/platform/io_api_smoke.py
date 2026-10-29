@@ -6,8 +6,10 @@
 
 API 명세: 저장소 docs/design/api-spec.md. 앱은 /api 접두사를 붙이지만 io-api 컨테이너에는 접두사 없이 보낸다.
 로그인은 access·refresh 토큰(ADR 0031, D-69): 보호 요청은 Authorization: Bearer, 로그인 유지는 쿠키 posegood_refresh(A8).
-합성 시험 계정(test-it-<임의값>@example.invalid, DB 회신 DB-6의 시험 계정 형식)과 합성 구간만 쓴다.
-끝에서 세션을 지우고 계정을 탈퇴 접수한다(CLOSED). 계정 행의 최종 삭제는 Spark J3(30일 뒤)가 한다.
+합성 시험 계정(test-it-<임의값>@example.invalid, DB 회신 DB-6의 시험 계정 형식)만 쓴다.
+측정(좌표 → 추론 → 판정)은 /v2/realtime으로만 한다 — ws_realtime_smoke.py(12단계)가 본다. REST 구간 입력(S2)·메타데이터(S5)·
+세션 삭제(S6)는 2026-10-28 API에서 지웠다(계획 0062, D-75). 여기서는 세션을 S1로 만들고 S3로 닫는다.
+끝에서 기록을 지우고(R3) 계정을 탈퇴 접수한다(CLOSED). 계정 행의 최종 삭제는 Spark J3(30일 뒤)가 한다.
 표준 라이브러리만 쓴다(서버 PC에 jsonschema·requests가 없어도 된다).
 """
 
@@ -135,17 +137,6 @@ def expect(name, result, status, check=None):
     return body
 
 
-def interval(baseline, sequence, start, end, head):
-    """특징 입력 v2 구간 하나(S2, 지금 코드 기준 — /v2/realtime 전환 때 바뀐다)."""
-    return {
-        "schema_version": "2.0", "feature_version": "shoulder-relative-deltas-v1",
-        "baseline_id": baseline, "sequence": sequence, "start_ms": start, "end_ms": end,
-        "phase": "running", "measurement_quality": "good",
-        "features": {"head_gap_delta": head, "lateral_offset_delta": 0.0, "shoulder_tilt_delta": 0.0,
-                     "current_quality": 0.9, "baseline_quality": 0.9},
-    }
-
-
 def scenario(base):
     owner = Client(base)
     expect("H1 GET /health (DB 연결)", owner.call("/health"), 200,
@@ -194,36 +185,31 @@ def scenario(base):
     expect("B2 현재 기준 자세 조회", owner.call("/v2/baselines/current"), 200,
            lambda b: None if b["baseline_id"] == baseline else "등록한 기준과 다름")
 
-    # --- 세션 (S1~S6) ---
+    # --- 세션 (S1·S3·S4) — 측정 입력은 /v2/realtime(ws_realtime_smoke.py) ---
     sid = str(uuid.uuid4())
     path = "/v2/sessions/" + sid
     expect("S1 세션 생성 (200 SessionView)", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}),
            200, lambda b: None if b["last_sequence"] == -1 and not b["ended"] else "새 세션 상태 아님")
     expect("S1 같은 요청 재시도는 멱등", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}), 200)
 
-    # 추론 연결(io-api → inference 컨테이너 /v2/infer)과 판정: 이탈 3초 → 확정, 정상 3초 → 회복
-    seq, last = 0, None
-    for start in range(0, 6000, 1000):
-        head = 0.3 if start < 3000 else 0.0
-        last = owner.call(path + "/features", "POST", interval(baseline, seq, start, start + 1000, head))
-        if last[0] != 200:
-            break
-        seq += 1
-    expect("S2 구간 입력 6개 → 추론 → 판정 (확정·회복)", last, 200, lambda b: (
-        None if [e["kind"] for e in b["session"]["events"]] == ["collapse_confirmed", "recovery_confirmed"]
-        else f"사건={[e['kind'] for e in b['session']['events']]}"))
-
+    # 구간 없이 닫는다(WS가 열리지 않은 세션을 닫는 경로 — 계획 0062가 S3를 남긴 이유). 입력이 없으니 전부 누락
     expect("S3 세션 종료 (200 SessionView)", owner.call(path + "/end", "POST", {"end_ms": 6000}), 200, lambda b: (
         None if b["ended"] and b["summary"]["total_ms"] == 6000 and b["events"][-1]["kind"] == "session_ended"
         else f"ended={b.get('ended')} total={b['summary'].get('total_ms')}"))
     expect("S3 다른 end_ms 재요청은 409", owner.call(path + "/end", "POST", {"end_ms": 6500}), 409)
     expect("S4 세션 조회", owner.call(path), 200, lambda b: None if b["ended"] else "종료 안 됨")
-    expect("S5 세션 메타데이터", owner.call(path + "/metadata"), 200)
+
+    # --- 기록 (R1·R3) — 기록 = 저장된 세션 ---
+    def listed(b):
+        return [r.get("id") for r in b["records"]]
     expect("R1 기록 목록 {today, records}에 방금 세션", owner.call("/v2/records"), 200,
-           lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid in [r.get("id") for r in b["records"]]
+           lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid in listed(b)
            else f"today={b.get('today')} / 목록에 없음")
-    expect("S6 세션 삭제 (204)", owner.call(path, "DELETE"), 204)
-    expect("S6 삭제 뒤 조회는 404", owner.call(path), 404)
+    expect("R3 기록 삭제 (204)", owner.call("/v2/records/" + sid, "DELETE"), 204)
+    expect("R3 삭제 뒤 S4는 404", owner.call(path), 404)
+    expect("R3 같은 기록 재삭제도 204 (멱등)", owner.call("/v2/records/" + sid, "DELETE"), 204)
+    expect("R3 삭제 뒤 R1 목록에 없음", owner.call("/v2/records"), 200,
+           lambda b: None if sid not in listed(b) else "목록에 남음")
 
     # --- 로그아웃 (A5): 이 기기의 로그인 유지만 끊는다 ---
     if signed is not None:
