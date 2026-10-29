@@ -51,7 +51,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
-**값을 받은 실행 (2026-10-29)**: 브랜치 `fix/repo-backend-followup`에서 API·추론 서버(FastAPI)·빈 MySQL(V2.6)을 띄우고, 합성 계정(`@example.invalid`)과 합성 좌표로 한 번에 호출했다. 순서는 H1 → A2 → A4 → A3 → A8 → W1 → C1 → W2 → B1(422, 200) → B2 → S1 → `/v2/realtime` 측정 → S4 → S3 → R1 → R3 → A6 → A3 → A5 → A7이다. 측정은 0.5초 구간 16개(관절 4프레임씩)로 이렇게 보냈다.
+**값을 받은 실행 (2026-10-29)**: 브랜치 `fix/repo-backend-followup`에서 API·추론 서버(FastAPI)·빈 MySQL(V2.6)을 띄우고, 합성 계정(`@example.invalid`)과 합성 좌표로 한 번에 호출했다(B1 예시만 10/29 되돌린 평균 형식으로 바꿈 — 좌표는 같은 값). 순서는 H1 → A2 → A4 → A3 → A8 → W1 → C1 → W2 → B1 → B2 → S1 → `/v2/realtime` 측정 → S4 → S3 → R1 → R3 → A6 → A3 → A5 → A7이다. 측정은 0.5초 구간 16개(관절 4프레임씩)로 이렇게 보냈다.
 
 | 시간 | 보낸 것 | 서버 판정 |
 |---|---|---|
