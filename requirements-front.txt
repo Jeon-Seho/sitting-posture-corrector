@@ -3,18 +3,19 @@
 # 이 파일은 자동으로 받지 못하는 프로그램만 적는다. 기계가 읽는 형식이 아니라 사람이 보는 목록이다.
 # 형식: 이름 | 버전 | 어디서 받나(Windows) | 어느 검사에 필요한가 (docs/design/fe-commands-and-checks.md 명령 모음)
 
-# 기본 (python tools/dev.py setup, check-repo, test, check-frontend)
+# 기본 (python tools/dev.py setup, test, check-frontend)
 Git            | 최신        | winget install Git.Git                          | 전부
-Node.js        | 24 이상     | winget install OpenJS.NodeJS.LTS                | check-frontend, check-browser
+Node.js        | 24 이상     | winget install OpenJS.NodeJS.LTS                | check-frontend, 수동 브라우저 점검
 Python         | 3.9 이상    | winget install Python.Python.3.13               | test, 모든 tools/*.py
 
-# 서버 검사 (check-backend, check-browser)
-JDK            | 17 이상     | winget install EclipseAdoptium.Temurin.17.JDK   | check-backend, check-browser
+# 서버 기본 검사 (check-backend)
+JDK            | 17          | winget install EclipseAdoptium.Temurin.17.JDK   | 컴파일·기본 시험 (check-backend)
 # Gradle·Maven은 설치하지 않는다. backend/gradlew(Gradle Wrapper)가 처음 실행할 때 Gradle 9.7.1을 받는다(backend/README.md).
-Chrome         | 최신        | winget install Google.Chrome                    | check-browser
+JDK            | 21          | winget install EclipseAdoptium.Temurin.21.JDK   | Checkstyle (check-backend)
+Chrome         | 최신        | winget install Google.Chrome                    | 수동 테마·JWT·자정 점검
 
-# 영구 저장 검사 (check-compose)
-Docker Desktop | 최신        | winget install Docker.DockerDesktop             | check-compose (실행 중이어야 함)
+# 별도 개발·DB 통합·배포 환경 (기본 check에는 불필요)
+Docker Desktop | 최신        | winget install Docker.DockerDesktop             | dev-server의 임시 MySQL 선택·Compose 배포 (실행 중이어야 함)
 
 # 환경변수 (사용자 변수, 설정 뒤 터미널·VS Code를 새로 연다)
 # JAVA_HOME        = C:\Program Files\Eclipse Adoptium\jdk-17.x.x-hotspot   (17 이상)

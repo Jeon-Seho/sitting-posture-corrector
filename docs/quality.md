@@ -7,9 +7,9 @@
 | 변경 범위 | 필요한 검증 |
 | --- | --- |
 | 읽기 전용 조사 | 요청에 필요한 조회·분석. 테스트 실행은 필수가 아니다 |
-| 문서·작업 규칙만 | `make check-repo` |
-| 프론트 내부 | `make check-frontend`; 화면·확인창·저장 생명주기는 준비된 빌드/JAR로 `make check-browser` |
-| API·판정 엔진 | `make check-backend`; 앱 연결 흐름이면 준비된 빌드/JAR로 `make check-browser` |
+| 문서·작업 규칙만 | `git diff --check`와 변경한 로컬 링크의 대상 확인 |
+| 프론트 내부 | `make check-frontend`; 테마·레이아웃은 수동 테마 점검, 인증 연결은 수동 JWT 점검 |
+| API·판정 엔진 | `make check-backend`; 저장·연결 변경은 명시적 MySQL 통합과 해당 수동 점검 |
 | Python·연구 도구 내부 | `make test`와 해당 합성 CLI 검증 |
 | 계약·DB·CI·여러 컴포넌트 경계 | `make check` 전체 |
 
@@ -19,30 +19,39 @@
 
 | 게이트 | 명령 | 실패 조건 |
 | --- | --- | --- |
-| 저장소·문서·산출물 | `make check-repo` | 필수 파일 누락, AGENTS 비대화, 로컬 링크 누락·경로 이탈, 실제 데이터/가중치/환경 파일 후보 포함 |
-| 출력 계약·자료 준비·검사기 | `make test` | 스키마/합성 예제 오류, 잘못된 입력 수용, 참여자 누수·hash/시각·창 경계 오류, 검사기 회귀 |
+| 출력 계약·자료 준비·추론 | `make test` | 남은 합성 계약·추론·인증·연구 분할/품질 경계·배포 보호 테스트 실패 |
 | 프론트 | `make check-frontend` | 품질·상태 전이·저장·알림 테스트, TypeScript 또는 빌드 실패 |
-| API | `make check-backend` | Java 판정·경계·재시도/실패 사례, 실제 MySQL 통합(HTTP·WebSocket·V2.3 행), 실제 FastAPI HTTP smoke·프로세스 정리 실패. MySQL이 없으면 실패 |
-| 합성 브라우저 | `make check-browser` | 실제 앱·서버의 측정/종료/복구·기록 불일치, 확인창·초점/배경 차단, 브라우저 오류·정리 실패 |
-| MySQL·Compose·계정 | `make check-compose` | 실제 마이그레이션·인증/CSRF·소유권·재시도·복구·삭제, 백업 복원·격리·계정 UI·자원 정리 실패 |
+| API·처리 서비스 | `make check-backend` | 기본 Java 시험·Checkstyle·빌드 실패. MySQL 통합 시험은 별도 실행 |
 
-`make check`는 위 게이트를 모두 포함한다. `check-local`은 Compose 검증을 제외한다.
-Python 테스트의 Compose 구성 확인에는 Docker CLI가 필요하지만 daemon은 필요하지 않다.
-전체 게이트에는 실행 중인 Docker/Compose와 Chrome/Chromium이 필요하다. 준비 방법은 [개발 흐름](development.md)을 따른다.
+`make check`와 `check-local`은 위 세 게이트를 같은 순서로 실행한다. 기본 검사에는 MySQL·Chrome·Docker·Compose가 필요하지 않다.
+Python 3.9+, Node.js 24+, 컴파일·시험용 JDK 17과 Checkstyle용 JDK 21이 필요하다. 준비 방법은 [개발 흐름](development.md)을 따른다.
+구형 저장소 검사·종합 브라우저/Compose 검사·서버 benchmark는 2026-10-29 제거했다. 삭제한 단계를 성공 stub으로 남기지 않는다.
 
-CI는 `make check`를 실행한다. 원격 CI 실행·브랜치 보호는 로컬 검증과 구분한다.
+수동/reusable harness는 `make check`를 실행하며 배포 전 검증도 이 범위를 따른다. 기본 검사 성공은 실제 DB·브라우저·배포 연결 성공을 뜻하지 않는다.
+별도 FE PR CI는 `typecheck`·`lint`, BE PR CI는 컴파일·`checkstyleMain`을 실행한다. `npm run check`에는 lint가 포함되지 않는다. DB CI는 별도로 유지한다.
+원격 CI 실행·브랜치 보호는 로컬 검증과 구분한다.
+
+## 명시적으로 실행하는 검증
+
+- MySQL 통합: 시험 loopback 서버와 `POSEGOOD_TEST_MYSQL_URL`·`_USER`·`_PASSWORD`를 준비하고 `backend/gradlew -p backend build -Pmysql-integration`을 실행한다. Windows는 `backend\gradlew.bat`이다. 시험 DB 생성·삭제 권한과 방법은 [백엔드](../backend/README.md#준비와-검증)를 따른다.
+- 테마: `node tools/browser/appearance.mjs <프론트 URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`. Vite·Chrome에서 대표 라이트/다크·이미지·사용자 색상·복원·좁은 화면을 확인한다.
+- JWT: `node tools/browser/jwt-integration.mjs <프론트 URL> "<Chrome 실행 파일>"`. 인증 연결 변경 시 테스트 API·DB·Vite·Chrome과 합성 계정을 사용한다.
+- 날짜별 누적값: `node tools/browser/midnight.mjs`로 기존 `dailyMeasurement.test.ts`만 실행한다. 프론트 의존성만 필요하며 Chrome·Vite 서버·API·DB는 사용하지 않는다. 대상 테스트는 기존 FE 검사에도 포함된다. 실제 자정 UI나 BE의 새 세션 전환 검증과 구분한다.
+- 변경한 개발 실행은 시험용 MySQL·빌드된 API JAR로 `python tools/dev.py dev-server`의 준비·프록시 접근·종료를 확인한다.
+
+수동 점검을 기본 `check`·`setup`·CI에 자동 연결하지 않는다. 필요한 실행 환경이 없거나 기존 문제로 실패하면 항목·원인과 미검증 범위를 기록한다. 보존한 플랫폼 도구의 기존 API 불일치를 이번 정리에서 고치지 않는다.
 
 ## 검증 경계와 수용 기준
 
 - fixture는 명시적인 합성 자료다. 브라우저는 독립 임시 프로필과 개발 serve 전용 합성 카메라를 사용하며 실제 getUserMedia를 거부한다. preview·생산 번들에는 이 모드를 활성화하지 않는다.
-- Compose는 임시 MySQL·합성 계정과 실제 Nginx/API/추론을 사용한다. 운영 DB·실제 영상·참여자 자료에는 접근하지 않는다. 백업 복원과 시험 서버·볼륨·포트 정리도 성공 조건이다.
+- DB·브라우저 수동 실행은 시험 서버·합성 계정과 독립 임시 프로필을 사용한다. 운영 DB·실제 영상·참여자 자료에는 접근하지 않는다. 자신이 시작한 프로세스와 시험 DB의 종료·회수 여부를 기록한다.
 - 측정 불가·등록 전·카메라 재연결을 정상/이탈로 오인하지 않는다. 일시 동작·지속 이탈·누락·재등록의 합성 상태 전이와 타임스탬프 역전/간격 급증을 검증한다.
 - 생산자·소비자는 동일한 합성 계약 fixture로 검증한다. 저장 손상 원본, 재시도 ID/시각, 타 세션 자료, 미확인 종료와 원래 서버 사건·통계를 보존한다.
 - 연구 기준은 [프로토콜](research/protocol.md), 자료 준비는 [규격](research/dataset-preparation.md), 개인 학습은 [개인 실험](research/personal-pilot-training.md)을 따른다. 개인 창별 성능을 새 참여자·실생활 정확도로 보고하지 않는다.
-- 짧은 benchmark는 계약·실패·정리를 검증하며 지연 합격 임계값을 두지 않는다. 실제 10 FPS·p95·음향·장시간 동작은 장치/해상도/환경을 기록한 별도 측정 대상이다. [측정·해석](removed-docs.md)
+- 실제 FPS·지연·음향·장시간 동작은 장치/해상도/환경을 기록한 별도 측정 대상이다. [측정·해석](removed-docs.md)
 
 기존 Mac 회귀와 확인창·수집 창·서버 흐름의 검증 기록은 [감사](removed-docs.md)와 [완료 계획](plans/completed/)에 남긴다.
-문서 링크 검사는 로컬 인라인 경로만, 민감 산출물 검사는 경로/확장자만 확인하며 내용 전체나 외부 URL을 보증하지 않는다.
+변경한 문서의 링크와 산출물 범위는 일회성으로 확인한다. 새 상시 문서 검사기나 정확한 파일 수 assertion을 추가하지 않는다.
 
 ## 결과 보고
 

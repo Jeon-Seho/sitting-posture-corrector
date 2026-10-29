@@ -8,5 +8,5 @@
 - 자세 분류·개인 보정은 `model/`의 책임이다. 경계 입력은 [계약](../contracts/README.md)으로 검증한다.
 - DB 정본은 `database/`다. 호환 조건과 적용 절차는 DB 안내를 따른다. API는 테이블을 만들거나 바꾸지 않는다.
 - 실제 영상·랜드마크·특징 값·식별 정보를 로그에 남기지 않는다. 오류 응답에 입력 값을 넣지 않는다.
-- 변경 후 `make check-backend`(단위 → 실제 MySQL → HTTP smoke)로 검증한다. MySQL이 없다고 건너뛰지 않는다.
+- 변경 후 `make check-backend`(기본 시험·Checkstyle·빌드)로 검증한다. DB·연결 변경은 시험 MySQL과 `-Pmysql-integration`을 명시적으로 실행하고 기본 검사와 결과를 구분한다([준비](README.md#준비와-검증)).
 - 백엔드 동작·API·DB 사용을 바꾸면 같은 커밋에서 [개발 상태](../docs/backend-status.md)를 갱신한다.

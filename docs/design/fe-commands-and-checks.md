@@ -1,6 +1,6 @@
 # FE 작업 명령과 검사
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-26(`check-browser`의 `camera-preview.mjs`에서 웹 작은 창 항목 정리, WS 계약 시험 `tests/test_realtime_ws_v2.py`는 `python tools/dev.py setup`으로 만든 `.venv`에서 통과 — 같은 `dev.py test`의 `test_deploy_configuration` 3개는 Docker가 없어 오류) · 2026-10-25(브랜치 이름 V3로, 지운 `referenceRuleCases` 명령 삭제, CEP·`schema_V1_1.sql` 문구 정리) · 2026-10-21(브랜치 V3, `check-browser`는 서버 전용 시나리오 필요) · FE(`feature/frontend-features-and-integrationV3`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
+> 작성자: klaod-tech(FE) · 작성: 2026-10-12 · 최신화: 2026-10-26(WS 계약 시험 `tests/test_realtime_ws_v2.py`는 `python tools/dev.py setup`으로 만든 `.venv`에서 통과 — 같은 `dev.py test`의 `test_deploy_configuration` 3개는 Docker가 없어 오류) · 2026-10-25(브랜치 이름 V3로, 지운 `referenceRuleCases` 명령 삭제, CEP·`schema_V1_1.sql` 문구 정리) · 2026-10-21(브랜치 V3) · FE(`feature/frontend-features-and-integrationV3`). 공통 개발 흐름은 [개발 흐름](../development.md)과 [품질 기준](../quality.md)을 따른다.
 > 이 문서는 FE가 실제로 쓰는 명령과 각 검사가 확인하는 것을 모은 것이다. 직접 설치할 프로그램은 [requirements-front.txt](../../requirements-front.txt).
 
 ## 명령 모음 (복사해서 쓰기)
@@ -19,13 +19,12 @@ git status --short
 git diff --stat
 
 # 자동 검사
-python tools/dev.py check-repo        # 문서 링크·금지 파일
 python tools/dev.py test              # Python 시험 전체
 python tools/dev.py check-frontend    # 프론트 시험 → 타입 검사 → 빌드
-python tools/dev.py check-browser     # 실제 Chrome 합성 흐름 (약 75개)
-python tools/dev.py check-backend     # Java 서버 시험 (JDK 17 필요, Gradle Wrapper 사용)
-python tools/dev.py check-compose     # Docker·MySQL 계정·영구 저장 (Docker 필요)
-python tools/dev.py check             # 위 전체
+npm --prefix frontend run typecheck   # 타입 검사만 (2026-10-29 추가)
+npm --prefix frontend run lint        # 프론트·브라우저 prototype 코드 스타일 (2026-10-29 추가)
+python tools/dev.py check-backend     # Java 기본 시험·Checkstyle·빌드 (JDK 17·21, Gradle Wrapper 사용)
+python tools/dev.py check             # Python·프론트·백엔드 기본 검사
 
 # Python 부분 시험 (빠른 확인)
 .venv/Scripts/python.exe -m unittest tests.test_inference_v2
@@ -36,6 +35,11 @@ cd frontend
 npx vitest run <파일 이름>            # 바꾼 파일의 시험만
 npx tsc -b                            # 타입 오류만
 cd ..
+
+# 2026-10-29 추가: 필요한 기능만 수동 확인 (저장소 루트에서)
+node tools/browser/appearance.mjs <Vite URL> "<Chrome 경로>" "<캡처 폴더>"
+node tools/browser/jwt-integration.mjs <Vite URL> "<Chrome 경로>"
+node tools/browser/midnight.mjs        # 기존 날짜별 누적값 계산만, Chrome·서버·DB 불필요
 
 # 가짜 서버로 화면 보기 (frontend 폴더에서, 실제 BE·DB 없이 — 판정은 단순 규칙, 저장 없음)
 node scripts/fake-server.mjs          # 127.0.0.1:8090(Vite /api 중계 기본 주소). 다른 터미널에서 npm run dev, 아무 이메일·비밀번호로 로그인
@@ -67,14 +71,16 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 ### 1. 자동 검사
 
+2026-10-29 추가: 현재 프론트 검사는 `check-frontend`를 사용하고, FE PR CI는 `typecheck`·`lint`를 실행한다. `npm run check`에는 lint가 포함되지 않는다.
+
 | 명령 | 검증하는 것 | 언제 |
 |---|---|---|
-| `python tools/dev.py check-repo` | 문서 링크가 실제 파일을 가리키는지, 금지 파일(영상·자료·비밀값)이 없는지 | 문서를 고칠 때마다 |
 | `python tools/dev.py check-frontend` | `vitest run`(프론트 시험) → `tsc -b`(타입 오류) → `vite build`(배포 빌드) | 프론트 코드를 고칠 때마다 |
-| `python tools/dev.py check-browser` | 실제 Chrome에서 합성 입력으로 화면 흐름 약 75개 항목. 앱·API·추론을 띄운다(CEP는 10/22 PR #63으로 지워짐). 10/21 V3부터 서버 전용 시나리오로 다시 써야 한다(4번 표) | 화면 흐름이나 판정 규칙을 바꿨을 때 |
 | `python tools/dev.py test` | Python 시험 전체(계약, 추론, 자료 준비 도구 등). `test_deploy_configuration`의 Windows 제약 오류 3개는 원래 난다 | 매 작업 끝(관련 모듈만 고르지 않는다) |
 | `.venv/Scripts/python.exe -m unittest tests.test_inference_v2` | 추론 서비스 v2와 합성 계약 예제가 맞는지(빠른 부분 확인) | 판정 규칙이나 계약을 바꿨을 때 |
 | `.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation` | 자료 준비 도구가 예전 수집 CSV(v1·v2)를 그대로 읽는지(빠른 부분 확인) | 수집 CSV를 바꿨을 때 |
+| `npm --prefix frontend run typecheck` | TypeScript 타입 검사(`tsc --noEmit`) | 타입 오류만 먼저 확인할 때 (2026-10-29 추가) |
+| `npm --prefix frontend run lint` | `frontend/src`·`model/prototype`의 ESLint 검사 | 프론트·브라우저 prototype 코드를 바꿨을 때 (2026-10-29 추가) |
 
 ### 2. 빠른 부분 검사 (`frontend`에서)
 
@@ -93,55 +99,51 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 | `grep -rn "<단어>"` (또는 `rg`) | 없어진 기능 이름이 남은 문서·코드를 찾는다(자동 검사가 못 잡는 오래된 설명) |
 | `git show <브랜치>:<파일>` | 팀 브랜치(DB 스키마, 팀 API 계약)를 받지 않고 원본 그대로 읽는다 |
 
-### 4. 지금 못 돌리는 것
-
-| 명령 | 이유 |
-|---|---|
-| `python tools/dev.py check-compose` | 10/13~ DB 초기화 스크립트가 지워진 `schema_V1_1.sql`을 찾아 실패했다. 10/25 기준 그 참조는 `infra`·`tools`·`database`에 없다. 계정 브라우저 시나리오(⑥)가 깨진 것은 그대로라 다시 돌려 확인해야 한다 |
-| `python tools/dev.py check` | 위 때문에 전체를 한 번에 돌릴 수 없다 |
-| `python tools/dev.py check-browser` | 10/14부터 첫 단계에서 실패한다. 수집 화면의 `<select id="capture-task">`가 `SelectMenu`로 바뀌었는데(`9f3bc92`) `camera-preview.mjs`가 아직 `options`를 읽는다. 그 뒤에도 "first episode confirms at exactly 3 seconds"(원인 미확인)와 재연결 항목(ADR 0024)을 고쳐야 한다(계획 0030 G1~G3). **10/21 V3:** 앱이 서버 전용이 되어 시나리오의 로컬 측정·「서버 판정 사용」·이어하기가 없어졌다. 가짜 서버나 8088 환경으로 다시 써야 한다(G6). **10/26:** 웹 작은 창을 지워(ADR 0028) `camera-preview.mjs`의 떠 있는 창·문서 PiP 항목을 「작은 창 없음·카메라 끄기」 확인으로 바꿨다(앞의 `options` 문제는 그대로) |
-
-정리: 프론트·문서·Python·Java 서버는 매번 검증하고, 브라우저 흐름과 실제 DB(Compose)는 지금 검증하지 못한다.
 작업을 마칠 때는 돌린 명령과 못 돌린 명령(이유 포함)을 함께 보고한다.
 
 ## 검사별로 실제 확인하는 것 (2026-10-12 정리)
 
-`make check` = `check-local`(①~⑤) + `check-compose`(⑥). Windows는 `python tools/dev.py <대상>`.
+`make check`와 `check-local`은 Python 시험 → 프론트 시험·타입·빌드 → 백엔드 기본 검사를 실행한다. Windows는 `python tools/dev.py <대상>`.
+
+2026-10-29 추가: 현재 프론트 단계는 `npm run check`의 Vitest·Node 아이콘 시험·TypeScript·Vite 빌드이며, 전체 저장소 검사의 현재 범위는 [개발 흐름](../development.md)·[품질 기준](../quality.md)을 따른다.
 
 | # | 대상 | 실제로 실행하는 것 | 확인하는 것 | 필요한 것 |
 |---|---|---|---|---|
-| ① | `check-repo` | `tools/check_repository.py` | 저장소 구조, **Markdown 상대 링크가 실제 파일을 가리키는지**, 영상·자료·비밀값 같은 금지 파일 경로가 없는지 | Python만 |
 | ② | `test` | `tests/`의 Python `unittest` 전체(18개 파일) | 계약 JSON 스키마·예제(`contracts/`, 실시간 WebSocket v2 포함), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
 | ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 가능 프레임 검사·저장·가짜 서버로 측정·등록·계정. 앱 판정 규칙 시험은 10/21 지움), **타입 검사**, 배포 빌드 | Node 24 |
-| ④ | `check-backend` | Gradle `build`(`backend/`) → 실제 MySQL 통합 시험 → `tools/service_smoke.py` | Java API·판정 엔진 시험, 실제 MySQL 저장, 실제 API→추론 HTTP 왕복(합성) | JDK 17, MySQL 또는 Docker |
-| ⑤ | `check-browser` | `tools/browser_smoke.py` → `tools/browser/scenarios.mjs` | 실제 Chrome(독립 임시 프로필)으로 앱을 열어 **합성 입력**으로 자세 등록 → 측정 → 사건 확정 시각·복귀·재연결·새로고침 복구·기록 화면·탈퇴 확인창(키보드 초점) 등 약 75개 항목. 실제 카메라는 쓰지 않음 | ④의 JAR, Chrome |
-| ⑥ | `check-compose` | `tools/compose_smoke.py` | 격리된 실제 Docker Compose(MySQL 포함)로 계정 가입·로그인·영구 저장·재시작 후 복구·백업 복원, **계정 브라우저 시나리오**(`tools/browser/accounts.mjs`) | Docker 실행 중. **2026-10-13부터 계정 브라우저 시나리오는 깨진다**: 프론트 계정 모드(`VITE_SERVER_ACCOUNTS`)를 지웠다. Compose·Dockerfile·`compose_smoke.py`·`account_browser_smoke.*`는 다른 팀원 파일이라 그대로 두었다 |
+| ④ | `check-backend` | Gradle `build`(`backend/`) | Java 기본 시험·Checkstyle·빌드 | JDK 17·21 |
 
 ### 작업 종류별로 돌리는 검사
 
 | 바꾼 것 | 최소로 돌리는 검사 |
 |---|---|
-| 문서만 | ① (링크 확인) |
-| 프론트 코드 | ① ③, 화면 흐름이 바뀌면 ⑤ |
+| 문서만 | `git diff --check`와 변경한 로컬 링크 확인 |
+| 프론트 코드 | ③, 화면 흐름이 바뀌면 아래 수동 점검 추가 |
 | 판정 가능 프레임 검사(`model/prototype/pose.ts`) | ③. 앱의 판정 규칙과 `referenceRuleCases` 시험은 지웠다(10/21·10/22). 규칙이 바뀌면 서버 쪽 ② `tests.test_inference_v2` |
-| 계약(`contracts/`) | ① ② ③ |
-| 서버(`backend/`, `model/inference/`) | ② ④ ⑤ |
-| 계정·DB·배포 | ⑥ |
+| 계약(`contracts/`) | ② ③ |
+| 서버(`backend/`, `model/inference/`) | ② ④ |
+| 계정·DB·배포 | [품질 기준](../quality.md)의 해당 범위 확인 |
+
+2026-10-29 추가: 문서 변경은 `git diff --check`와 바뀐 링크를 확인한다. 테마·레이아웃 변경은 준비된 Vite·Chrome에서 `appearance.mjs`, 인증·프로필 연결 변경은 시험 API·DB·Vite·Chrome에서 `jwt-integration.mjs`를 별도로 실행한다. 두 브라우저 점검은 기본 검사·CI에 자동 연결하지 않는다.
+
+날짜별 누적값만 확인할 때는 `node tools/browser/midnight.mjs`로 기존 `dailyMeasurement.test.ts`를 실행한다. 이 시험은 FE 기본 검사에도 이미 포함되므로 전체 FE 검사가 통과했다면 중복 실행할 필요는 없다. 실제 자정 UI나 서버의 새 세션 전환을 검증하는 명령은 아니다.
 
 ### 이 저장소 검사로 잡지 못하는 것 (빈틈)
 
 - **실제 카메라·MediaPipe 정확도:** 모든 자동 검사는 합성 입력이다. 실제 촬영(사람이 직접 찍은 csv 재생)으로만 확인한다.
-- **문장 검사:** 오래된 설명(예: 없어진 기능을 설명하는 문서)은 ①이 못 잡는다. 바꾼 기능 이름으로 `rg`를 돌려 직접 찾는다.
+- **문장 검사:** 오래된 설명(예: 없어진 기능을 설명하는 문서)은 자동 검사가 못 잡는다. 바꾼 기능 이름으로 `rg`를 돌려 직접 찾는다.
 - **코드 스타일 검사(ESLint 등):** 프론트에 lint 단계가 없다. 타입 검사(`tsc -b`)만 있다.
+  - 2026-10-29 추가: 현재는 `npm --prefix frontend run lint`와 FE PR CI의 lint 단계가 있다. 위 문장은 도입 전 기록이며, `check-frontend` 성공과 lint 성공은 구분한다.
 - **데스크톱 패키지:** Electron EXE 검사(`node scripts/smoke-desktop.mjs`)는 `make check`에 없다. 패키징을 바꿀 때 따로 실행한다.
 - **다른 팀 서버:** DevOps Kafka 경로·입출구 서버와의 실제 왕복은 이 저장소에 없다(T-13).
 
 ### 빌드 도구
 
-백엔드 빌드는 BE가 정한 대로 따른다([ADR 0020](../decisions/0020-single-api-decision-engine.md) 1절, [BE 계획 0028](../plans/active/0028-backend-java17-boot4-gradle.md)). FE는 따로 설정하지 않는다. Compose 이미지·CI 반영 전까지 `check-compose`는 실패한다(BE 계획 0028). `make check` 실패 원인은 [계획 0030](../plans/active/0030-make-check-failures.md).
+백엔드 빌드는 BE가 정한 대로 따른다([ADR 0020](../decisions/0020-single-api-decision-engine.md) 1절, [BE 계획 0028](../plans/active/0028-backend-java17-boot4-gradle.md)). FE는 따로 설정하지 않는다.
 
 ### PC별 제약
 
+2026-10-29 추가: 아래 항목은 해당 날짜 PC의 기록이다. 현재 프론트 개발은 Node.js 24 이상을 사용하며, `make`가 없는 Windows에서는 `python tools/dev.py check-frontend` 또는 `npm --prefix frontend run check`를 사용할 수 있다. 수동 브라우저 점검에는 해당 PC의 Chrome 경로를 지정한다.
+
 - Windows 노트북: JDK 17(Temurin 17.0.20.1, 10/15 설치)이 있어 Gradle Wrapper가 찾아 쓴다. ②는 `test_deploy_configuration`의 Windows 제약 오류 3개가 원래 있다.
 - Windows PC(10/11): Docker가 있다.
-- ⑥은 DB 초기화 스크립트(`infra/mysql/initdb/10-posegood-schema.sh`)가 지워진 `schema_V1_1.sql`을 찾아 실패한다(10/14에도 `database/schema`에는 V2_2·V2_3만 있음, `develop`도 같음). DB 담당 브랜치가 들어오기 전까지 실패한다.

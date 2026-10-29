@@ -114,12 +114,9 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 - `frontend/src/lib/engine.ts`: 웹캠·시연 공통 세션 엔진의 공개 진입점
 - `model/prototype/pose.ts`: 판정 가능 프레임 검사(앱은 판정하지 않음, 2026-10-22 로컬 판정 함수 삭제)
 
-검증: `make check` (문서/구조, Python 계약·추론, 프론트 상태 전이·특징·통계, 타입/빌드, Java API·판정 엔진·실제 MySQL, 합성 HTTP·브라우저 흐름).
-전체 게이트에는 JDK 17·Chrome/Chromium·실행 중인 Docker/Compose도 필요하다(Gradle은 `backend/gradlew`가 받는다). 실제 MySQL·계정 UI·재시작/삭제/백업 복원 검증이 포함된다. 프론트만 검증하려면 `make check-frontend`를 사용한다.
-브라우저 검사는 `make check-frontend`로 프론트 빌드와 `make check-backend`로 JAR를 준비한 뒤 `make check-browser`로 따로 실행할 수 있다.
-독립 임시 브라우저와 합성 입력을 사용하며 실제 카메라 권한이나 기존 브라우저 자료에 접근하지 않는다.
-
-`make benchmark-server`는 준비된 JAR로 추론 단독·API→추론 지연과 처리량을 측정한다(API 대상은 합성 계정으로 로그인한 뒤 측정).
-측정 조건과 해석은 [아키텍처](docs/architecture.md) "합성 브라우저 검증 경계" 절을 따른다. 실제 카메라 FPS와는 별도다.
+검증: `make check` (`make`가 없으면 `python tools/dev.py check`)는 남은 Python 합성 테스트 → 프론트 테스트·TypeScript·빌드 → Java 기본 시험·Checkstyle·빌드를 실행한다. `check-local`도 같은 검사다.
+Python 3.9+, Node.js 24+, 컴파일·시험용 JDK 17과 Checkstyle용 JDK 21이 필요하다. 기본 검사에는 MySQL·Chrome·Docker·Compose가 필요하지 않다.
+DB 통합은 시험 MySQL과 기존 `-Pmysql-integration` 명령, 테마·JWT·자정 브라우저 점검은 직접 Node 명령으로 실행한다([품질 기준](docs/quality.md)). 기본 검사 성공을 DB·브라우저·운영 연결 검증으로 해석하지 않는다.
+구형 종합 브라우저/Compose·저장소 검사와 서버 benchmark는 2026-10-29 제거했다. 기존 배포·백업·복원·수동 플랫폼 도구와 계약은 보존한다.
 [참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
 실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.

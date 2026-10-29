@@ -37,5 +37,6 @@
 
 - 최초 환경 준비: `make setup`
 - 전체 검증: `make check` (`make`가 없는 Windows: `python tools/dev.py check`)
+- 기본 검사는 Python·FE 테스트/타입/빌드·BE 기본 시험/Checkstyle/빌드다. MySQL 통합·브라우저 점검은 [품질 기준](docs/quality.md)의 직접 명령으로 별도 실행한다.
 - 세부 기준: [품질 기준](docs/quality.md), [연구 프로토콜](docs/research/protocol.md)
 - 프레임워크 설치, 원격 푸시, 배포는 현재 하네스 작업의 완료 조건이 아니다.

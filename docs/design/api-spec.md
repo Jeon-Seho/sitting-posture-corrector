@@ -613,7 +613,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `sample_count` | `int` | 필수 | 20~100,000 (검증만 하고 저장하지 않음) |
 | `landmarks.{관절}` | `{x, y}` | 필수 | nose, left_eye, right_eye, left_ear, right_ear, mouth_left, mouth_right, left_shoulder, right_shoulder. 각 0~1 |
 
-**요청 본문 (실제 — `tools/service_smoke.py`가 보내는 합성 평균)**
+**요청 본문 (합성 평균 예시 — 삭제된 `tools/service_smoke.py`의 당시 요청 형식)**
 
 ```json
 {

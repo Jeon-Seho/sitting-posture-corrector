@@ -15,6 +15,8 @@
 - `make`가 없는 환경에서는 `python tools/dev.py setup`, `python tools/dev.py check`를 사용한다.
 - `tests/test_repository.py`가 `Makefile` 대상과 `tools/dev.py` 명령의 일치를 검사한다.
 
+2026-10-29 변경: 위 Makefile 일치 자동 검사와 구형 저장소 검사 명령은 사용자 승인 정리로 제거했다. 공통 `tools/dev.py` 위임은 유지하며, 대상과 CLI 일치는 변경 시 일회성으로 확인한다. 아래 검증 결과는 당시 기록이다.
+
 ## 결과와 한계
 
 Windows 11(Python 3.13, Node 24)에서 `python tools/dev.py check` 통과를 확인했다. Linux의 `make` 경로는 이 변경 시점에 로컬에서 실행하지 못했고 CI에서 확인한다. Python 3.9 호환은 문법 검사로만 확인했다.

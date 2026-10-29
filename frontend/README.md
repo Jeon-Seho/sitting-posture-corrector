@@ -101,14 +101,19 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 로그인 일러스트는 기존 단순한 그림을 참고한 `public/illustrations/login-forest.webp`이며 원본과 생성 프롬프트는
 `assets/branding/login-forest-source.png`·`login-forest.prompt.txt`에 둔다. 카메라 준비·빈 기록·자세 안내는 직접 만든 SVG를 사용한다.
 
-새 측정은 자정을 넘겨도 같은 카메라/세션/판정·알림 상태를 유지한다. 한국 시간 00시를 기준으로 `days`의 각 날짜에
-전체/유효/정상 시간과 사건·알림을 따로 보관한다. 중간 저장·종료 저장과 오늘/달력/기간 집계가 같은 분할을 쓴다.
+기존 날짜별 누적값 계산(`DailyMeasurementLedger`)은 하나의 원본 기록을 한국 시간 00시 기준으로 나누고 `days`의 각 날짜에
+전체/유효/정상 시간과 사건·알림을 보관한다. 이것은 기록의 날짜별 투영 계산이며 실제 서버의 자정 종료·새 세션 전환을 검증하는 기능이 아니다.
 표시용 날짜별 기록은 원 세션이나 원 서버 snapshot을 덮어쓰지 않는다. 과거 합계만 있는 기록은 임의로 복원하지 않는다.
 이는 앱의 로컬 보관/집계이며 서버 DB 배치 변경이나 API 세션 강제 분할이 아니다.
 상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0027-today-records-from-collected-server-results.md)을 따른다.
 
-`tools/browser/midnight.mjs`의 합성 자정 검증은 `check-browser`에 포함돼 있다. 실제 UI에서 자동 등록·측정 → 자정 통과 →
-종료 저장 → 두 날짜 조회와 합계 보존을 검사하며 실제 카메라/계정 자료를 사용하지 않는다.
+`tools/browser/midnight.mjs`는 기존 `src/features/storage/dailyMeasurement.test.ts`만 실행한다.
+KST 자정 경계, 날짜별 누적값 합계 보존, 복원·중복 집계 방지, 측정 불가 구간과 소수 시간 경계를 합성 값으로 확인한다.
+프론트 의존성을 준비한 뒤 저장소 루트에서 직접 실행한다. Chrome·Vite 서버·API·DB는 필요하지 않다.
+
+```powershell
+node tools/browser/midnight.mjs
+```
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
 MediaPipe Pose Landmarker Lite로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
@@ -217,11 +222,13 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 
 탈퇴·서버 종료 미확인 요약 보관 확인창은 취소 버튼에 초기 초점을 둔다. Tab/Shift+Tab으로 창 안에서 이동하고
 Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. 실행 버튼이 사라지면 새 화면의 주영역으로 이동한다.
-처리 중 중복 실행과 취소를 막고 배경 화면 조작을 차단한다. 합성 브라우저 게이트에서 두 확인창의 키보드 동작을 확인한다.
+처리 중 중복 실행과 취소를 막고 배경 화면 조작을 차단한다. 구형 종합 브라우저 게이트는 제거했으며 확인창의 실제 키보드 동작은 관련 화면 변경 시 별도 확인한다.
 
-`make check-browser`는 Chrome/Chromium·서버 JAR·프로덕션 프론트 빌드가 필요하다. `make check`는 준비 순서대로 이를 실행한다.
-별도 실행 전에는 `make check-frontend`와 `make check-backend`를 실행한다. 설치된 Chrome을 자동으로 찾지 못하면 실행 파일의 경로를
-`POSEGOOD_CHROME`에 지정한다. 합성 입력은 명시적 개발 테스트 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
+`make check-frontend`는 테스트·TypeScript·생산 빌드를 실행하며 `npm run lint`는 별도 FE CI에서 실행한다.
+브라우저 점검은 수동 명령으로 실행한다. 테마·레이아웃 변경에는 `node tools/browser/appearance.mjs <Vite URL> "<Chrome 경로>" "<캡처 폴더>"`,
+로그인·인증·프로필 연결 변경에는 `node tools/browser/jwt-integration.mjs <Vite URL> "<Chrome 경로>"`를 저장소 루트에서 실행한다.
+JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미리보기를 사용한다. 두 검사는 기본 `make check`·CI에 자동 연결하지 않는다.
+합성 카메라 입력은 명시적 `browser-smoke` 개발 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
 
 - 판정 가능 프레임 검사: `model/prototype/pose.ts` `measurable`·`shouldersVisible`(코·양 어깨·양 귀). 앱은 특징값·점수를 계산하지 않는다(2026-10-22 고개 돌림·머리 판정·특징값 계산 삭제).
 - 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.

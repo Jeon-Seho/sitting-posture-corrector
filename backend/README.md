@@ -113,26 +113,28 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ## 준비와 검증
 
-JDK 17 이상, Python 3.9+, Node 24+가 필요하다(설치 목록: [requirements-front.txt](../requirements-front.txt)). Gradle은 설치하지 않아도 된다.
+컴파일·시험용 JDK 17과 Checkstyle용 JDK 21, Python 3.9+, Node 24+가 필요하다(설치 목록: [requirements-front.txt](../requirements-front.txt)). Gradle은 설치하지 않아도 된다.
 `backend/gradlew`(Gradle Wrapper 9.7.1)가 처음 실행할 때 Gradle을 받는다. 의존성은 Maven Central·PyPI에서 받는다.
 `make` 명령(`tools/`)도 이 Wrapper를 부르며, 개인 설정이 섞이지 않도록 Gradle 홈을 `.cache/gradle`(Git 제외)로 따로 둔다. `POSEGOOD_GRADLE_HOME`으로 바꿀 수 있다.
 
 ```sh
 make setup
-make check-backend   # 단위 시험 → 실제 MySQL 통합 시험 → 실제 FastAPI HTTP smoke
+make check-backend   # 기본 단위 시험·Checkstyle·빌드 (MySQL 불필요)
 ```
 
-`check-backend`의 MySQL은 다음 순서로 고른다. 없으면 실패하며 건너뛰지 않는다.
+MySQL 통합 시험은 기본 검사에 포함하지 않는다. Gradle 직접 명령 전에 loopback 시험 MySQL을 준비하고 `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`(기본 `root`)·`POSEGOOD_TEST_MYSQL_PASSWORD`를 설정한다. 값은 문서나 커밋에 기록하지 않는다.
+
+개발 실행 `dev-server`의 `tools/test_mysql.py`는 다음 순서로 MySQL을 고른다. 이 선택 helper와 Gradle 직접 실행의 환경변수 경로는 다르다.
 
 1. `POSEGOOD_TEST_MYSQL_PASSWORD` 또는 Git 제외 파일 `.cache/test-mysql-password`(로컬 loopback MySQL, 기본 `root`).
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
 시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_6.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
-Gradle을 직접 실행할 때는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. Windows는 `backend\gradlew.bat`을 쓴다.
+Gradle 직접 실행에서는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. `.cache/test-mysql-password`를 자동으로 읽거나 Docker MySQL을 자동 시작하지 않는다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh
-backend/gradlew -p backend build                        # 컴파일·단위 시험·JAR
+backend/gradlew -p backend build                        # 컴파일·기본 시험·Checkstyle·JAR
 backend/gradlew -p backend build -Pmysql-integration    # + 실제 MySQL (위 환경변수 필요)
 ```
 
@@ -144,7 +146,7 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 
 수동 실행: API는 MySQL(`POSEGOOD_DATABASE_URL`·`_USER`·`_PASSWORD`, 기본 `127.0.0.1:3306/posture_service`)과
 추론(`make dev-inference`, 127.0.0.1:8092)이 필요하다. `make dev-api`로 JAR를 실행한다.
-`make dev-server`는 임시 DB·API·추론·계정 모드 프론트를 함께 띄우고 끝나면 DB를 지운다. 실제 배포는 [Compose 안내](../infra/README.md)를 따른다.
+`make dev-server`는 임시 DB·API·추론·일반 Vite 프록시를 함께 띄우고 끝나면 자신이 시작한 프로세스와 DB를 정리한다. 실제 배포는 [Compose 안내](../infra/README.md)를 따른다.
 
 ## 다음 결정
 

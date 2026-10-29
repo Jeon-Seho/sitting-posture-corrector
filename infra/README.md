@@ -51,7 +51,8 @@ make check
 ```
 
 전체 개발 게이트는 JDK 17·Node 24+·Python 3.9+·Chrome/Chromium·실행 중인 Docker가 필요하다. 백엔드는 Gradle Wrapper로 빌드한다.
-`make check-compose`는 실제 MySQL과 컨테이너·계정 UI를 별도로 검증한다. 임시 프로젝트/볼륨과 독립 브라우저만 사용한다.
+구형 Compose 종합 검사는 2026-10-29 제거했다. 기본 `make check`는 Python·FE·BE 기본 검사이며 DB·브라우저 연결을 검증하지 않는다.
+MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직접 명령을 따른다. 배포·백업·복원 도구와 DB CI는 유지한다.
 Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 Compose를 제외한 검증이며 전체 검증 성공을 의미하지 않는다.
 실제 카메라·의학적 효과·연구 정확도·외부 배포 검증은 포함하지 않는다.
 
