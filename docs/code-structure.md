@@ -97,7 +97,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 추론 계약·현재 점수·HTTP | [schemas.py](../model/inference/schemas.py), [service.py](../model/inference/service.py), [routes.py](../model/inference/routes.py) | 계약/점수/전달 분리; 학습 모델이나 시간 엔진이 아님 |
 | 개발 명령 | [dev.py](../tools/dev.py), [dev_tasks.py](../tools/dev_tasks.py), [runtime.py](../tools/runtime.py) | CLI/작업 순서/실행 경로 분리 |
 | 개발 서비스 생명주기 | [service_processes.py](../tools/service_processes.py) | 로컬 API·추론의 준비·종료·회수. 구형 종합 HTTP 검사는 삭제했다. |
-| 브라우저 점검·날짜별 계산 진입점 | [browser](../tools/browser/), [합성 입력](../frontend/src/features/testing/) | 공통 CDP·Chrome과 수동 테마·JWT 점검. `midnight.mjs`는 기존 날짜별 누적값 단위 테스트만 실행하며 브라우저·서버를 열지 않는다. 일반 개발·빌드는 합성 카메라 입력을 활성화하지 않는다. |
+| 브라우저 점검 | [browser](../tools/browser/), [합성 입력](../frontend/src/features/testing/) | 공통 CDP·Chrome과 수동 테마·JWT·자정 점검. `midnight.mjs`는 준비된 시험 API·DB·Vite를 대상으로 합성 카메라 입력을 보내 등록·측정·날짜별 보관·기록 표시를 확인한다. 일반 개발·빌드는 합성 입력을 활성화하지 않는다. |
 | 학습 자료 준비 | [dataset](../model/analysis/dataset/) | 참여자 분할 후 실제 시각·품질·라벨·구간 경계를 유지해 창을 만든다. |
 | 서버 개발 실행 | [server_dev.py](../tools/server_dev.py), [frontend_proxy.py](../tools/frontend_proxy.py) | loopback 개발 프록시·세 서비스 실행과 전체 종료 감시 |
 

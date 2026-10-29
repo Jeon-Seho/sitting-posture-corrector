@@ -36,7 +36,7 @@ Python 3.9+, Node.js 24+, 컴파일·시험용 JDK 17과 Checkstyle용 JDK 21이
 - MySQL 통합: 시험 loopback 서버와 `POSEGOOD_TEST_MYSQL_URL`·`_USER`·`_PASSWORD`를 준비하고 `backend/gradlew -p backend build -Pmysql-integration`을 실행한다. Windows는 `backend\gradlew.bat`이다. 시험 DB 생성·삭제 권한과 방법은 [백엔드](../backend/README.md#준비와-검증)를 따른다.
 - 테마: `node tools/browser/appearance.mjs <프론트 URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`. Vite·Chrome에서 대표 라이트/다크·이미지·사용자 색상·복원·좁은 화면을 확인한다.
 - JWT: `node tools/browser/jwt-integration.mjs <프론트 URL> "<Chrome 실행 파일>"`. 인증 연결 변경 시 테스트 API·DB·Vite·Chrome과 합성 계정을 사용한다.
-- 날짜별 누적값: `node tools/browser/midnight.mjs`로 기존 `dailyMeasurement.test.ts`만 실행한다. 프론트 의존성만 필요하며 Chrome·Vite 서버·API·DB는 사용하지 않는다. 대상 테스트는 기존 FE 검사에도 포함된다. 실제 자정 UI나 BE의 새 세션 전환 검증과 구분한다.
+- 자정 브라우저: 시험 API·DB와 연결한 `browser-smoke` 모드 Vite, 합성 시험 계정, Chrome을 준비하고 `node tools/browser/midnight.mjs <Vite URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`를 실행한다([준비](../frontend/README.md#시각-스타일과-자정-측정2026-10-26)). 계정은 `POSEGOOD_MIDNIGHT_EMAIL`·`POSEGOOD_MIDNIGHT_PASSWORD`로 지정한다. 서버 시작 시각이 KST 자정 전 10초 이내인 환경에서 실제 REST/WS·R1 기록 조회와 합성 카메라를 사용해 등록·측정·자정 전후 카메라 유지·날짜별 로컬 보관·오늘/달력 표시를 확인한다. 서버의 자정 세션 전환은 별도 검증이며 날짜별 계산 단위 테스트는 기존 FE 검사에 포함된다.
 - 변경한 개발 실행은 시험용 MySQL·빌드된 API JAR로 `python tools/dev.py dev-server`의 준비·프록시 접근·종료를 확인한다.
 
 수동 점검을 기본 `check`·`setup`·CI에 자동 연결하지 않는다. 필요한 실행 환경이 없거나 기존 문제로 실패하면 항목·원인과 미검증 범위를 기록한다. 보존한 플랫폼 도구의 기존 API 불일치를 이번 정리에서 고치지 않는다.

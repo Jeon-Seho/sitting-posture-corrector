@@ -42,7 +42,7 @@
 - **측정 중 WS 줄이기·결과는 API로:** [계획 0059](plans/active/0059-slim-realtime-results-over-api.md)(10/27 제안, 두 단계, 팀장·BE와 정하기 전. 정한 것: 측정 시계는 앱이 전체 시간으로, 측정 중 `keep_rate` 남김, S1 `policy` 빼기 BE-11): 측정 중에는 점수·판정 불가·`alerting`·`keep_rate`·알림만, 나머지는 끝난 뒤 S4로. 측정 시간은 앱이 더함
 - **데스크톱 작은 카메라 창:** [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64, 10/26): 주소 없는 Electron 창, 접기·앱으로 돌아가기. V3의 [계획 0055](plans/active/0055-desktop-camera-window.md)는 10/27 이것으로 바꿈
 - **카메라 여러 대:** [내장 + USB 카메라](plans/active/0053-multiple-cameras.md)(0053, 10/16: 측정하기에서 메인 카메라 선택, 기준 자세는 카메라와 상관없이 하나, 쓰던 카메라가 빠지면 측정 종료·저장. 10/21부터 기준 자세는 서버(B1·B2)에 있고, 앱이 닫힌 측정은 서버가 저장한다. 남은 것: 외장 자동 우선, 꽂으면 알림, 640×480 아니면 시작 안 함).
-- **기본 검사:** [품질 기준](quality.md), [구형 검사 정리 결과](plans/completed/0064-prune-legacy-test-tools.md). [과거 실패 분석](plans/active/0030-make-check-failures.md)의 smoke 복구 과제는 삭제 결정으로 대체했다. 빌드는 BE 설정(Gradle Wrapper)을 따른다.
+- **기본 검사:** [품질 기준](quality.md), [과거 실패 분석](plans/active/0030-make-check-failures.md)의 smoke 복구 과제는 삭제 결정으로 대체했다. 빌드는 BE 설정(Gradle Wrapper)을 따른다.
 - **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md). 측정 결과 내보내기([session-export](research/session-export.md))는 10/21 앱에서 지웠다(예전 파일을 읽을 때만).
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다.

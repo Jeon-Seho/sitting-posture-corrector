@@ -39,7 +39,8 @@ cd ..
 # 2026-10-29 추가: 필요한 기능만 수동 확인 (저장소 루트에서)
 node tools/browser/appearance.mjs <Vite URL> "<Chrome 경로>" "<캡처 폴더>"
 node tools/browser/jwt-integration.mjs <Vite URL> "<Chrome 경로>"
-node tools/browser/midnight.mjs        # 기존 날짜별 누적값 계산만, Chrome·서버·DB 불필요
+# 시험 API·DB와 연결한 browser-smoke Vite, 시험 계정 환경변수 준비
+node tools/browser/midnight.mjs <browser-smoke Vite URL> "<Chrome 경로>" "<캡처 폴더>"
 
 # 가짜 서버로 화면 보기 (frontend 폴더에서, 실제 BE·DB 없이 — 판정은 단순 규칙, 저장 없음)
 node scripts/fake-server.mjs          # 127.0.0.1:8090(Vite /api 중계 기본 주소). 다른 터미널에서 npm run dev, 아무 이메일·비밀번호로 로그인
@@ -126,7 +127,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 2026-10-29 추가: 문서 변경은 `git diff --check`와 바뀐 링크를 확인한다. 테마·레이아웃 변경은 준비된 Vite·Chrome에서 `appearance.mjs`, 인증·프로필 연결 변경은 시험 API·DB·Vite·Chrome에서 `jwt-integration.mjs`를 별도로 실행한다. 두 브라우저 점검은 기본 검사·CI에 자동 연결하지 않는다.
 
-날짜별 누적값만 확인할 때는 `node tools/browser/midnight.mjs`로 기존 `dailyMeasurement.test.ts`를 실행한다. 이 시험은 FE 기본 검사에도 이미 포함되므로 전체 FE 검사가 통과했다면 중복 실행할 필요는 없다. 실제 자정 UI나 서버의 새 세션 전환을 검증하는 명령은 아니다.
+자정 브라우저 검사는 준비된 시험 API·DB와 연결한 `browser-smoke` 모드 Vite, Chrome에서 `midnight.mjs`를 직접 실행한다([준비와 범위](../../frontend/README.md)). `POSEGOOD_MIDNIGHT_EMAIL`·`POSEGOOD_MIDNIGHT_PASSWORD`의 합성 시험 계정으로 실제 등록·측정·자정 전후 카메라 유지·날짜별 로컬 보관·R1 조회·오늘/달력 표시를 확인한다. 서버 시작 시각은 KST 자정 전 10초 이내로 준비하며 REST/WS 응답은 실제 서버가 제공한다. 서버의 자정 세션 전환은 별도 검증이다. 기본 검사·CI에 연결하지 않으며 계산의 세부 경계는 기존 FE 검사의 `dailyMeasurement.test.ts`가 확인한다.
 
 ### 이 저장소 검사로 잡지 못하는 것 (빈틈)
 

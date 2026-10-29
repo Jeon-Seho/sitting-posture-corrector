@@ -107,13 +107,30 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 이는 앱의 로컬 보관/집계이며 서버 DB 배치 변경이나 API 세션 강제 분할이 아니다.
 상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0027-today-records-from-collected-server-results.md)을 따른다.
 
-`tools/browser/midnight.mjs`는 기존 `src/features/storage/dailyMeasurement.test.ts`만 실행한다.
-KST 자정 경계, 날짜별 누적값 합계 보존, 복원·중복 집계 방지, 측정 불가 구간과 소수 시간 경계를 합성 값으로 확인한다.
-프론트 의존성을 준비한 뒤 저장소 루트에서 직접 실행한다. Chrome·Vite 서버·API·DB는 필요하지 않다.
+`tools/browser/midnight.mjs`는 실제 Chrome과 준비된 시험 API·DB를 연결해 기준 등록 → 측정 → 자정 통과 → 종료 → 오늘·달력 표시를 확인한다.
+`browser-smoke`의 카메라 입력과 측정 경과 시간은 합성이며 REST·WebSocket·R1 기록 조회는 실제 서버를 사용한다.
+서버 `ready.started_at`이 KST 자정 전 10초 이내가 되도록 시험 환경을 준비하고 13초의 합성 측정을 진행한다.
+날짜별 로컬 누적값의 합계 보존, 서버 종료 기록과 오늘·달력의 두 날짜 표시를 확인한다. 브라우저 시계는 서버 시작 시각을 바꾸지 않는다.
+같은 세션의 날짜별 보관을 점검하므로 시험 API는 기본 설정인 `POSEGOOD_MIDNIGHT_ROLLOVER=false`를 사용한다.
+서버의 자정 종료·새 세션 전환은 별도 검증이며 기본 `make check`에는 연결하지 않는다.
+
+프론트 의존성·Chrome·합성 시험 계정(`@example.invalid`)을 준비하고, 프론트 디렉터리에서 시험 API를 바라보는 전용 Vite를 실행한다.
 
 ```powershell
-node tools/browser/midnight.mjs
+$env:POSEGOOD_API_URL = 'http://127.0.0.1:8090'
+node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort --mode browser-smoke
 ```
+
+다른 터미널의 저장소 루트에서 시험 계정을 지정하고 실행한다. URL은 위 Vite의 loopback 주소다.
+
+```powershell
+$env:POSEGOOD_MIDNIGHT_EMAIL = 'midnight-test@example.invalid'
+$env:POSEGOOD_MIDNIGHT_PASSWORD = '<시험 계정 비밀번호>'
+node tools/browser/midnight.mjs http://127.0.0.1:5173 "C:/Program Files/Google/Chrome/Application/chrome.exe" .cache/browser-midnight
+```
+
+API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거나 종료하지 않는다. 시험 계정과 생성된 측정 기록의 정리는 시험 환경에서 관리한다.
+날짜별 계산의 세부 경계는 기존 `src/features/storage/dailyMeasurement.test.ts`가 담당하며 FE 기본 검사에 포함된다.
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
 MediaPipe Pose Landmarker Lite로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
