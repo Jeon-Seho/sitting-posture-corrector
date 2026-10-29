@@ -38,6 +38,7 @@ export function AppearanceSettings() {
     </details>
     <div className="appearance-preview"><span>미리보기</span><button type="button" className="btn btn-primary" onClick={() => setMessage('선택한 색상의 버튼이에요.')}>선택한 색상의 버튼</button><span className="pill good">바른 자세</span><span className="pill collapse">자세 알림</span></div>
     <p className="fine">이 기기에만 저장돼요. 자세 상태와 경고 색상은 그대로 유지돼요.</p>
+    <p className="fine">데스크톱 앱의 창 아이콘과 알림 팝업도 함께 바뀌어요. 바탕화면 바로가기는 Windows 새로고침이나 다음 실행 후 보일 수 있어요.</p>
     <button type="button" className="btn" onClick={() => update(DEFAULT_APPEARANCE)}>화면 기본값으로 되돌리기</button>
     <p role="status" className="fine">{message}</p>
   </Card>

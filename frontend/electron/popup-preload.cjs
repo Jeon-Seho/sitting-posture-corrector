@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('posegoodPopup', {
   onShow: (listener) => ipcRenderer.on('popup:show', (_event, alert) => listener(alert)),
   onHide: (listener) => ipcRenderer.on('popup:hide', () => listener()),
+  onTheme: (listener) => ipcRenderer.on('popup:theme', (_event, theme) => listener(theme)),
   close: () => ipcRenderer.send('popup:close'),
   openApp: () => ipcRenderer.send('popup:open-app'),
 })

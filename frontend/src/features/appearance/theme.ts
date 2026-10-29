@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { desktopBridge } from '../desktop/bridge'
+import { updateDesktopIcon } from './desktopIcon'
 
 export type Appearance = { mode: 'system' | 'light' | 'gray' | 'dark'; accent: string }
 export const DEFAULT_APPEARANCE: Appearance = { mode: 'system', accent: '#18794e' }
@@ -79,9 +80,17 @@ export function applyAppearance(value: Appearance, systemDark = false) {
     }
   }
   const ink = foreground(value.accent)
+  updateDesktopIcon(value.accent, ink)
+  const snack = mix(surface, value.accent, 0.08)
+  const snackInk = foreground(snack)
+  const popup = { background: snack, text: snackInk, muted: mix(snackInk, snack, 0.22),
+    accent: readableAccent(value.accent, snack), track: mix(snack, snackInk, 0.3), dark: snackInk === '#ffffff' }
+  void bridge?.setPopupTheme?.(popup).catch(() => {})
   const tokens: Record<string, string> = {
     '--primary': value.accent, '--on-primary': ink,
     '--logo-bg': value.accent, '--logo-ink': ink,
+    '--snack': snack, '--snack-ink': snackInk, '--snack-muted': popup.muted,
+    '--snack-good': readableAccent('#238653', snack), '--snack-warn': readableAccent('#8c651f', snack), '--snack-bad': readableAccent('#b44b55', snack),
     '--primary-press': mix(value.accent, ink === '#ffffff' ? '#000000' : '#ffffff', 0.12),
     '--primary-ink': readableAccent(value.accent, surface),
     '--primary-tint': mix(surface, value.accent, dark ? 0.18 : 0.09),
