@@ -11,8 +11,23 @@ const profile = await mkdtemp(join(tmpdir(), 'posegood-theme-'))
 const browser = await launchChrome({ executable, port: 19450, profile, artifactFolder })
 const c = browser.cdp
 const evalJS = s => c.evaluate(s)
+const unsafeCharMap = {
+  '<': '\\u003C',
+  '>': '\\u003E',
+  '/': '\\u002F',
+  '\\': '\\\\',
+  '\b': '\\b',
+  '\f': '\\f',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+  '\0': '\\0',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029'
+}
+const escapeUnsafeChars = str => str.replace(/[<>\/\\\b\f\n\r\t\0\u2028\u2029]/g, x => unsafeCharMap[x])
 const body = () => evalJS('document.body.innerText')
-const click = label => evalJS(`(() => { const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)}); if(!b)throw Error('Missing button'); b.click(); })()`)
+const click = label => evalJS(`(() => { const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${escapeUnsafeChars(JSON.stringify(label))}); if(!b)throw Error('Missing button'); b.click(); })()`)
 const fill = (name, value) => evalJS(`(() => { const e=document.querySelector('input[name="${name}"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true})); })()`)
 const mode = expected => until(async () => await evalJS('document.documentElement.dataset.theme') === expected, expected+' mode')
 try {
