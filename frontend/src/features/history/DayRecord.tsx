@@ -1,3 +1,4 @@
+import { ThemeIllustration } from '../appearance/ThemeIllustration'
 import { Play } from '../../components/icons'
 import { Card } from '../../components/ui'
 import { Amount } from '../../components/Amount'
@@ -46,7 +47,7 @@ export function DayRecord({
       <div className="day-record">
         {!s ? (
           <div className="day-record-empty">
-            <img className="state-art" src="/illustrations/empty-records-light.webp" alt="" aria-hidden="true" />
+            <ThemeIllustration kind="empty" className="state-art" />
             <p className="fine">{isToday ? '오늘은 아직 측정하지 않았어요.' : '이날은 측정한 기록이 없어요.'}</p>
             {isToday && (
               <button className="btn btn-primary btn-sm" onClick={onStart}>

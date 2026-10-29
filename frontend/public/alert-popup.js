@@ -14,7 +14,17 @@
     pill.style.opacity = ''
   }
 
-  bridge.onShow(({ title, body, durationMs }) => {
+  function applyTheme(theme) {
+    if (!theme) return
+    const keys = { background: '--snack', text: '--snack-ink', muted: '--snack-muted', accent: '--ring', track: '--ring-track' }
+    for (const [key, token] of Object.entries(keys)) {
+      if (typeof theme[key] === 'string' && /^#[0-9a-f]{6}$/i.test(theme[key])) document.documentElement.style.setProperty(token, theme[key])
+    }
+    document.documentElement.dataset.dark = String(theme.dark === true)
+  }
+  bridge.onTheme?.(applyTheme)
+  bridge.onShow(({ title, body, durationMs, theme }) => {
+    applyTheme(theme)
     document.getElementById('title').textContent = title
     document.getElementById('body').textContent = body
     reset()

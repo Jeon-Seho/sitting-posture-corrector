@@ -6,6 +6,9 @@ import { markDesktopShell } from './features/desktop/bridge'
 import { TitleBar } from './features/desktop/TitleBar'
 import { TipLayer } from './components/TipLayer'
 import './styles.css'
+import { initializeAppearance } from './features/appearance/theme'
+
+initializeAppearance()
 
 async function start() {
   if (import.meta.env.DEV && import.meta.env.MODE === 'browser-smoke') {

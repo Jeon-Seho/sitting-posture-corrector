@@ -244,8 +244,8 @@ function PeriodChart({ stats, today, days }: { stats: DailyStat[]; today: string
       />
       <Legend
         items={[
-          { color: 'var(--primary-soft)', label: '바른 자세 유지율' },
-          { color: 'var(--primary)', label: '측정 시간' },
+          { color: 'var(--chart-bar, var(--primary-soft))', label: '바른 자세 유지율' },
+          { color: 'var(--chart-line, var(--primary))', label: '측정 시간' },
         ]}
       />
     </>

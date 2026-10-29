@@ -20,3 +20,5 @@
 @import './styles/responsive.css';
 @import './styles/forest.css';
 @import './styles/typography.css';
+
+@import './styles/appearance.css';

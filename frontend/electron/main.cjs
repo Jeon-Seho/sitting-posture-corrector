@@ -1,9 +1,10 @@
 // Main process: PC 창의 생성, 시작 프로그램 등록, 앱 종료를 담당한다.
-const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen, nativeImage, shell } = require('electron')
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
 const { installCameraWindow } = require('./camera-window.cjs')
+const { installThemeIcon } = require('./theme-icon.cjs')
 
 // 일체형 제목 표시줄: OS 기본 틀 대신 앱 화면을 창 끝까지 그리고, 창 버튼만 위에 겹친다.
 // 높이와 색은 frontend/src/styles/base.css의 --titlebar-h, --bg와 맞춘다.
@@ -11,6 +12,11 @@ const TITLEBAR_HEIGHT = 40
 const MIN_WIDTH = 1180
 const MIN_HEIGHT = 760
 const isMac = process.platform === 'darwin'
+// Test artifacts and icon persistence must stay in the smoke test's isolated profile.
+if (process.argv.includes('--posegood-smoke-hidden')) {
+  const profileArg = process.argv.find(arg => arg.startsWith('--user-data-dir='))
+  if (profileArg) app.setPath('userData', path.resolve(profileArg.slice('--user-data-dir='.length)))
+}
 
 // 설치용(패키징) 앱은 빌드된 dist를 app://posegood 으로 제공한다. 절대 경로(/mediapipe/...)가 그대로 동작한다.
 const APP_URL = 'app://posegood/index.html'
@@ -85,6 +91,34 @@ function sameAddress(url) {
 }
 
 ipcMain.handle('desktop:launch-info', (event) => (trusted(event) ? launchInfo() : null))
+let applyThemeIcon = null
+let popupTheme = null
+ipcMain.handle('desktop:popup-theme', (event, theme) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !theme ||
+    !['background', 'text', 'muted', 'accent', 'track'].every(key => typeof theme[key] === 'string' && /^#[0-9a-f]{6}$/i.test(theme[key]))) return false
+  popupTheme = Object.fromEntries(['background', 'text', 'muted', 'accent', 'track'].map(key => [key, theme[key]]))
+  popupTheme.dark = theme.dark === true
+  if (popupWindow && !popupWindow.isDestroyed()) popupWindow.webContents.send('popup:theme', popupTheme)
+  return true
+})
+ipcMain.handle('desktop:theme-icon', (event, payload) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
+  return applyThemeIcon?.(payload) ?? false
+})
+ipcMain.handle('desktop:appearance-tone', (event, tone) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !['light', 'gray', 'dark'].includes(tone)) return false
+  const color = tone === 'dark' ? '#131920' : tone === 'gray' ? '#c7cbd1' : '#f6f7f9'
+  mainWindow.setBackgroundColor(color)
+  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor: tone === 'dark' ? '#f0f4f8' : '#202b33' })
+  return true
+})
+ipcMain.handle('desktop:dark-mode', (event, dark) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
+  const color = dark === true ? '#131920' : '#f6f7f9'
+  mainWindow.setBackgroundColor(color)
+  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor: dark === true ? '#f0f4f8' : '#202b33' })
+  return true
+})
 ipcMain.handle('desktop:set-launch-at-login', (event, enabled) => {
   if (!trusted(event)) return null
   if (loginItemSupported) app.setLoginItemSettings({ ...loginOptions, openAtLogin: enabled === true })
@@ -169,8 +203,8 @@ ipcMain.handle('desktop:alert', async (event, alert) => {
     y: Math.round(area.y + area.height - POPUP_HEIGHT - 12),
     width: POPUP_WIDTH, height: POPUP_HEIGHT,
   })
-  popup.webContents.send('popup:show', { title, body, durationMs: POPUP_MS })
-  popup.showInactive()
+  popup.webContents.send('popup:show', { title, body, durationMs: POPUP_MS, theme: popupTheme })
+  if (!process.argv.includes('--posegood-smoke-hidden')) popup.showInactive()
   if (popupTimer) clearTimeout(popupTimer)
   popupTimer = setTimeout(hidePopup, POPUP_MS)
   return 'popup'
@@ -207,6 +241,8 @@ async function createWindow() {
     },
   })
   mainWindow = window
+  applyThemeIcon = installThemeIcon({ app, nativeImage, shell, mainWindow: window,
+    executable: loginExecutable, isolated: process.argv.includes('--posegood-smoke-hidden') })
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', hidePopup)
   window.on('closed', () => {
