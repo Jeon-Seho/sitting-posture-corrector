@@ -38,7 +38,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, Client  # noqa: E402
+from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, USER_AGENT, Client  # noqa: E402
 
 PASSED = 0
 FAILED = 0
@@ -194,7 +194,7 @@ def plan():
 
 def get_json(url):
     try:
-        with urlopen(Request(url), timeout=10) as response:
+        with urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=10) as response:
             return response.status, json.loads(response.read() or b"null")
     except URLError as error:
         return getattr(error, "code", 0), None
@@ -249,7 +249,7 @@ def open_socket(base):
     # (D-43) https://api.<도메인>/api면 wss://로, 출처는 --origin(Vercel 화면 주소 — io-api 허용 출처에 있어야 함)
     scheme = "wss" if parts.scheme == "https" else "ws"
     return WebSocket(f"{scheme}://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
-                     {"Origin": ORIGIN or f"{parts.scheme}://{parts.netloc}"})
+                     {"Origin": ORIGIN or f"{parts.scheme}://{parts.netloc}", "User-Agent": USER_AGENT})
 
 
 def check_unauthenticated(base):

@@ -682,7 +682,7 @@ else
   fi
   if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
     pass "터널 경유 REST 점검 $PUB/api ($(tail -1 "$OUT/public-rest.log"))"
-  else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log)"; fi
+  else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log — 403이면 Cloudflare 봇 차단·요청 제한 규칙)"; fi
   if [ "$E2E" = 1 ]; then
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
     if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} >"$OUT/public-ws.log" 2>&1; then
