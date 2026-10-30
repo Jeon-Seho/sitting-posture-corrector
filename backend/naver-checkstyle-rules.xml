@@ -322,8 +322,8 @@ The following rules in the Naver coding convention cannot be checked by this con
 		<!-- [space-between-keyword-parentheses] -->
 		<module name="WhitespaceAround">
 			<property name="tokens" value="
-				DO_WHILE, LITERAL_ASSERT, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_RETURN,
-			 	LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE,"
+				DO_WHILE, LITERAL_ASSERT, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_RETURN, 
+				LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE,"
 			/>
 			<message key="ws.notFollowed"
 					 value="[space-between-keyword-parentheses] ''{0}'' is not followed by whitespace."/>
