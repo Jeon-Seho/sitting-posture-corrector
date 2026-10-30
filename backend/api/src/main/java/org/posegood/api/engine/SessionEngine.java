@@ -33,7 +33,8 @@ public final class SessionEngine {
     private final long maxMs;
     private final Timeline timeline = new Timeline();
     private final EpisodeLedger episodes;
-    private final Map<Long, Observation> accepted = recent(RETRY_WINDOW);
+    /** 순번마다 받은 구간 조각(재전송 대조용). */
+    private final Map<Long, List<Observation>> accepted = recent(RETRY_WINDOW);
     /** 사건마다 그 직후의 요약(실시간 decision 메시지용). */
     private final List<Summary> eventSummaries = new ArrayList<>();
     private long lastSequence = -1;
@@ -69,36 +70,57 @@ public final class SessionEngine {
      * 측정 불가면 제외 시간, 측정되면 시간 누적 후 규칙 판정.
      */
     public synchronized SessionView accept(Observation observation) {
-        var duplicate = accepted.get(observation.sequence());
+        return accept(List.of(observation));
+    }
+
+    /**
+     * 좌표 구간 하나를 프레임별 조각으로 처리한다(계획 0064): 순서·중복·누락은 구간 단위로 보고, 시간 누적과 규칙
+     * 판정은 조각마다 한다. 조각은 같은 순번·같은 phase이고 빈틈없이 이어져야 한다.
+     *
+     * 판정 불가 조각은 지금처럼 연속 시간을 끊는다(중단 후 초기화).
+     */
+    public synchronized SessionView accept(List<Observation> parts) {
+        var first = requireParts(parts);
+        var last = parts.get(parts.size() - 1);
+        var duplicate = accepted.get(first.sequence());
         if (duplicate != null) {
-            if (!duplicate.equals(observation)) throw ApiError.conflict("conflicting duplicate");
+            if (!duplicate.equals(parts)) throw ApiError.conflict("conflicting duplicate");
             return view();
         }
         if (ended) throw ApiError.ended();
-        if (observation.sequence() <= lastSequence || observation.startMs() < timeline.endMs())
+        if (first.sequence() <= lastSequence || first.startMs() < timeline.endMs())
             throw ApiError.conflict("out-of-order or overlapping interval");
-        if (!admits(observation.endMs())) throw ApiError.limit("session time limit reached");
+        if (!admits(last.endMs())) throw ApiError.limit("session time limit reached");
 
         // 빈 시간은 누락으로 제외한다. 순번만 빠졌으면 시간을 만들지 않고 연속성만 끊는다.
-        if (observation.startMs() > timeline.endMs()) {
+        if (first.startMs() > timeline.endMs()) {
             interrupt("missing", timeline.endMs());
-            timeline.addMissing(observation.startMs());
-        } else if (lastSequence >= 0 && observation.sequence() != lastSequence + 1) {
+            timeline.addMissing(first.startMs());
+        } else if (lastSequence >= 0 && first.sequence() != lastSequence + 1) {
             interrupt("missing_sequence", timeline.endMs());
         }
 
-        current = observation;
-        countUnmeasurable(observation);
-        if (observation.phase() != Observation.Phase.running || !observation.valid()) {
-            String reason =
-                    observation.phase() == Observation.Phase.running
-                            ? "unmeasurable"
-                            : observation.phase().name();
-            interrupt(reason, observation.startMs());
-            timeline.addExcluded(observation);
+        for (var part : parts) take(part);
+        accepted.put(first.sequence(), List.copyOf(parts));
+        lastSequence = first.sequence();
+        return view();
+    }
+
+    /** 실시간 관측 4.0의 {@code posture}: 이 점수가 세션 임계값 이상이면 bad. */
+    public String posture(double collapseProbability) {
+        return DecisionRules.candidate(collapseProbability, policy) ? "bad" : "good";
+    }
+
+    private void take(Observation part) {
+        current = part;
+        countUnmeasurable(part);
+        if (part.phase() != Observation.Phase.running || !part.valid()) {
+            String reason = part.phase() == Observation.Phase.running ? "unmeasurable" : part.phase().name();
+            interrupt(reason, part.startMs());
+            timeline.addExcluded(part);
         } else {
-            boolean candidate = observation.collapseProbability() >= policy.threshold();
-            timeline.addMeasured(observation, candidate);
+            boolean candidate = DecisionRules.candidate(part.collapseProbability(), policy);
+            timeline.addMeasured(part, candidate);
             apply(
                     DecisionRules.evaluate(
                             candidate,
@@ -108,9 +130,20 @@ public final class SessionEngine {
                             episodes.sinceAlertMs(timeline.endMs()),
                             policy));
         }
-        accepted.put(observation.sequence(), observation);
-        lastSequence = observation.sequence();
-        return view();
+    }
+
+    private static Observation requireParts(List<Observation> parts) {
+        if (parts.isEmpty()) throw new IllegalArgumentException("an interval needs at least one part");
+        var first = parts.get(0);
+        for (int index = 1; index < parts.size(); index++) {
+            var previous = parts.get(index - 1);
+            var part = parts.get(index);
+            if (part.sequence() != first.sequence()
+                    || part.phase() != first.phase()
+                    || part.startMs() != previous.endMs())
+                throw new IllegalArgumentException("parts must be one contiguous interval");
+        }
+        return first;
     }
 
     /**
@@ -199,20 +232,6 @@ public final class SessionEngine {
         if (current == null) return null;
         if (current.phase() != Observation.Phase.running) return current.phase().name();
         return current.valid() ? null : "unmeasurable";
-    }
-
-    /**
-     * 관측 3.0의 {@code invalid_reason}: 유효하면 null. 아니면 API가 좌표에서 찾은 사유
-     * ({@code head_turn}), 그 밖에는 {@code unmeasurable}.
-     *
-     * 계약상 유효하지 않은 구간은 사유가 꼭 있어야 하므로 휴식·자리 비움도 {@code unmeasurable}이고, 멈춘 이유는
-     * {@link #pausedReason}이 알려 준다. {@code settling}은 언제 나오는지 정해지지 않아 아직 쓰지 않는다.
-     */
-    public static String invalidReason(Observation observation, String hint) {
-        if (observation.valid()) return null;
-        return observation.phase() == Observation.Phase.running && "head_turn".equals(hint)
-                ? "head_turn"
-                : "unmeasurable";
     }
 
     public synchronized int eventCount() {

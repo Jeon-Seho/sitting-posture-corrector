@@ -75,6 +75,22 @@ class RealtimeWsV2Tests(unittest.TestCase):
         bad["observation"]["invalid_reason"] = None
         self.rejects(bad)
 
+    def test_observation_4_carries_only_the_live_status(self):
+        # 4.0 (plan 0064): one per server batch; posture is good/bad when valid, null otherwise.
+        valid = self.example("observation")
+        self.assertEqual(valid["observation"]["schema_version"], "4.0")
+        self.assertEqual(set(valid["observation"]),
+                         {"schema_version", "valid", "posture", "collapse_probability", "invalid_reason"})
+        for gone in ("sequence", "start_ms", "end_ms", "phase", "valid_ms", "deviation_type", "model_version"):
+            with self.subTest(field=gone):
+                self.rejects({**valid, "observation": {**valid["observation"], gone: 0}})
+        self.rejects({**valid, "observation": {**valid["observation"], "posture": None}})
+        self.rejects({**valid, "observation": {**valid["observation"], "posture": "unknown"}})
+        invalid = self.example("observation-unmeasurable")
+        self.rejects({**invalid, "observation": {**invalid["observation"], "posture": "good"}})
+        self.rejects({**invalid, "observation": {**invalid["observation"], "collapse_probability": 0.5}})
+        self.rejects({**valid, "observation": {**valid["observation"], "schema_version": "3.0"}})
+
     def test_no_five_minute_fields(self):
         # 10/14: sessions under 5 min are stored (DB V2.3), so these fields were dropped.
         self.rejects({**self.example("ready-measure"), "min_record_ms": 300000})

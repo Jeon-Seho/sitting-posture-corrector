@@ -48,8 +48,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
- * {@link SessionService} 판정 흐름에 넣고(A안), 결과는 세션 변경 이벤트로 받아 보낸다.
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 받은 구간은 바로 {@code ack}하고 {@link SessionService}가
+ * 서버 시계로 약 3초 묶어 프레임마다 판정한다(계획 0064). 결과는 세션 변경 이벤트로 받아 묶음마다
+ * {@code observation} → {@code decision}(→ {@code alert}) → {@code progress} 순서로 보낸다.
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
@@ -239,7 +240,10 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
     }
 
-    /** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
+    /**
+     * 측정 구간 하나: 받아서 묶음에 넣고 {@code ack}, 묶음을 넘길 때면 판정한다. observation·decision·alert·progress는
+     * 판정이 끝나면 세션 이벤트로 보낸다.
+     */
     private void measure(Channel channel, JsonNode frame) {
         var interval = interval(frame);
         if (interval == null) {
@@ -258,11 +262,10 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             UUID id = channel.session;
             try {
                 var local = interval.shifted(channel.offsetMs, channel.sequenceOffset);
-                var status = sessions.frames(channel.owner, id, local, channel.realtime.baseline());
-                long last = status.lastSequence() + channel.sequenceOffset;
-                channel.lastSequence = last;
-                send(channel, new RealtimeMessages.V2.Ack(last));
-                send(channel, new RealtimeMessages.V2.Progress(last, status.summary(), status.pausedReason()));
+                long received = sessions.frames(channel.owner, id, local, channel.realtime.baseline());
+                channel.lastSequence = received + channel.sequenceOffset;
+                send(channel, new RealtimeMessages.V2.Ack(channel.lastSequence));
+                sessions.flush(channel.owner, id);
             } catch (ApiError refused) {
                 if (refused.status() == 502 || refused.status() == 503) {
                     stalled(channel);
@@ -372,9 +375,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     }
 
     /**
-     * 세션에 새 결과가 생기면 그 세션의 v2 연결에 보낸다: observation → decision(→ alert) → 끝났으면 closed.
+     * 세션에 새 결과가 생기면 그 세션의 v2 연결에 보낸다: observation → decision(→ alert) → progress, 끝났으면 closed.
      *
-     * 알림을 끈 세션에는 alert를 보내지 않는다.
+     * 알림을 끈 세션에는 alert를 보내지 않는다. progress의 순번은 앱이 보낸 번호(연결 기준)다.
      */
     @EventListener
     public void progressed(SessionUpdates.Progressed update) {
@@ -388,6 +391,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
                     && ("collapse_confirmed".equals(event.kind()) || "reminder".equals(event.kind())))
                 send(channel, new RealtimeMessages.V2.Alert(event));
         }
+        if (update.live() != null && !update.ended())
+            send(channel, new RealtimeMessages.V2.Progress(
+                    update.lastSequence() + channel.sequenceOffset, update.summary(), update.pausedReason()));
         if (update.ended()) {
             // DB에 저장하는 종료 시각과 같은 식(started_at + total_ms). 저장은 이 이벤트 뒤에 일어난다.
             channel.endedAt = channel.realtime.startedAt().plusMillis(update.summary().totalMs());
@@ -398,6 +404,13 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
             channel.ended = true;
             finishClosed(channel, update.closedReason() != null ? update.closedReason() : channel.endReason);
         }
+    }
+
+    /** 서버가 스스로 넘긴 묶음의 추론·DB가 일시 장애였다. 연결은 유지한다. */
+    @EventListener
+    public void stalled(SessionUpdates.Stalled update) {
+        var channel = bySession.get(update.sessionId());
+        if (channel != null) stalled(channel);
     }
 
     /** 세션이 메모리에서 빠지면 연결을 닫는다. */

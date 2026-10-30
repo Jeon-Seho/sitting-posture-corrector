@@ -8,7 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 좌표 프레임 → 기준 대비 특징 변화량(A안: API가 계산하고 추론 {@code POST /v2/infer} 입력은 그대로).
+ * 좌표 프레임 → 기준 대비 특징 변화량.
+ *
+ * 계획 0064(2026-10-30)부터 실시간 판정의 특징 계산은 추론 서버(model/inference/frames.py, {@code POST /v3/infer})가
+ * 프레임마다 한다. 이 클래스는 hello의 기준 자세 확인({@link #baseline}), 같은 규칙의 Java 기준값(시험·합성 추론)으로
+ * 남는다. 두 구현은 같은 합성 사례(아래)로 시험한다. {@link #interval}의 구간 평균은 v2 경로용이며 실시간에는 쓰지 않는다.
  *
  * 규칙은 BE API 명세 11.3과 FE가 넘긴 판정 규칙(2026-10-11, 합성 기준값 contracts/examples/frames/reference-rule-cases.json)이다.
  * 처음 계산식은 앱 프로토타입(develop의 model/prototype/pose.ts·serverFeatures.ts — FE V3에서 앱 판정과 함께 지움, git 이력에 남음)에서
@@ -117,6 +121,17 @@ public final class FrameFeatures {
         }
         if (usable.isEmpty()) return new Result(null, turned ? "head_turn" : "unmeasurable");
         var deltas = deltas(average(usable), baseline);
+        return deltas == null ? new Result(null, "unmeasurable") : new Result(deltas, null);
+    }
+
+    /**
+     * 프레임 하나의 판정(추론 v3와 같은 규칙): 판정 불가면 변화량 없이 사유({@code unmeasurable}·{@code head_turn}).
+     */
+    public static Result frame(FrameInterval.Frame frame, Features baseline) {
+        var current = features(frame);
+        if (current == null || baseline == null) return new Result(null, "unmeasurable");
+        if (headTurned(current, baseline)) return new Result(null, "head_turn");
+        var deltas = deltas(current, baseline);
         return deltas == null ? new Result(null, "unmeasurable") : new Result(deltas, null);
     }
 

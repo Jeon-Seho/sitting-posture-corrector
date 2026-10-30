@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/inference-request.v3.schema.json",
+  "title": "Frame inference request v3 (API -> inference POST /v3/infer, plan 0064)",
+  "description": "The API groups the coordinate frames it received for about 3 s of server time and sends them as they were captured, with the session baseline. The inference service judges every frame on its own (no averaging) and keeps no state. Frames are in capture order; t_ms is the app clock relative to the session start. Coordinates are never logged or stored.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "feature_version",
+    "baseline",
+    "frames"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0"
+    },
+    "feature_version": {
+      "const": "keypoints-9-v1"
+    },
+    "baseline": {
+      "description": "Registered baseline (B1): the 9 joints [x, y] in posture.frames.v1 order, 0-1 ratios. No visibility is stored, so it counts as 1.",
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 240,
+      "items": {
+        "$ref": "#/$defs/frame"
+      }
+    }
+  },
+  "$defs": {
+    "joint": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 2
+        },
+        {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 2
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ],
+      "items": false,
+      "minItems": 3
+    },
+    "frame": {
+      "description": "posture.frames.v1 frame as received. valid:false (the app could not place the user) carries no coordinates.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t_ms",
+        "p"
+      ],
+      "properties": {
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400000
+        },
+        "p": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/joint"
+              },
+              "minItems": 9,
+              "maxItems": 9
+            }
+          ]
+        },
+        "valid": {
+          "const": false
+        }
+      }
+    }
+  }
+}

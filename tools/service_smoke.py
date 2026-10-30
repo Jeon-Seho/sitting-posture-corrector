@@ -90,7 +90,7 @@ def register_baseline(account):
 
 
 class Measurement:
-    """Ordered synthetic 0.5 s coordinate intervals over `/v2/realtime` and the real inference service."""
+    """Ordered synthetic 0.5 s coordinate intervals over `/v2/realtime`, judged in server batches by real inference v3."""
 
     def __init__(self, account, api_base):
         self.account = account
@@ -128,6 +128,9 @@ class Measurement:
             start += 500
         last = self.sequence - 1
         while self.socket.next("ack")["last_sequence"] != last:
+            pass
+        # The server holds intervals for about 3 s of server time, then judges them (plan 0064): wait for that batch.
+        while self.socket.next("progress")["last_sequence"] != last:
             pass
         view = self.account.request(self.path)
         validate_view(view)

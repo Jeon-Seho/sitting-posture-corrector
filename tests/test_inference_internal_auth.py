@@ -33,7 +33,7 @@ class InferenceInternalAuthTests(unittest.TestCase):
 
     def test_health_is_public_but_inference_and_documentation_require_service_auth(self):
         self.assertEqual(self.client.get("/health").status_code, 200)
-        for path in ("/v1/infer", "/v2/infer", "/docs", "/openapi.json"):
+        for path in ("/v1/infer", "/v2/infer", "/v3/infer", "/docs", "/openapi.json"):
             with self.subTest(path=path):
                 response = self.client.post(path, json=self.body)
                 self.assertEqual(response.status_code, 401)

@@ -6,7 +6,7 @@
 
 ## 1. 요약
 
-- 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
+- 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → 세션별 3초 묶음 → FastAPI `/v3/infer`(프레임마다) → `engine/SessionEngine` → MySQL([계획 0064](plans/active/0064-server-3s-frame-batch-inference.md), 2026-10-30, 브랜치 `feature/repo-server-frame-batch-inference`). Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
 - 큰 한계:
   - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 `404 SESSION_LOST`.
   - 실제 MySQL 통합 시험(`-Pmysql-integration`)은 2026-10-29 이 PC의 MySQL 8로 통과했다(`make check-backend`, 4장). CI·서버 MySQL에서는 아직이다.
@@ -53,11 +53,12 @@
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | `api-spec.md` 10장, `7034f0e` |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
-| `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
+| `/v2/realtime` WebSocket | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
+| 서버 3초 묶음·프레임마다 판정: 받은 구간은 바로 `ack`, 서버 시계 `posegood.realtime.batch-window`(기본 3초)마다 프레임째로 `POST /v3/infer`, 쉬기·자리 비움·종료·끊김·자정은 바로. 프레임 하나는 다음 프레임까지(최대 0.5초) 판정, 판정 불가 프레임은 제외 시간. 추론 실패는 1번 다시, 그래도 실패면 그 묶음은 누락·`stalled`. `observation` 4.0(`valid`·`posture`·`collapse_probability`·`invalid_reason`)은 묶음마다 1개, 그 뒤 `progress`. 새 사건은 `decision` 전에 DB에 씀 | DB/BE | 구현됨 (브랜치 `feature/repo-server-frame-batch-inference`, 2026-10-30) — **호환성 깨짐**: 앱의 `observation` 검사(FE 공지), 알림이 최대 3초 늦음. 특징 계산은 추론 서버(`model/inference/frames.py`)로 옮김 | [계획 0064](plans/active/0064-server-3s-frame-batch-inference.md), `session/FrameBatch.java`·`SessionService.java`, `contract/FrameInference.java`, `FrameBatchTest`·`SessionServiceTest`, `tests/test_inference_v3.py` |
 | 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, `api-spec.md` 11.3 |
 | 측정불가(판정 불가·자리 비움) 30분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨, **기본 켜짐 30분**(10/28, 5분에서 바꿈 — `POSEGOOD_UNMEASURABLE_TIMEOUT`, 0이면 끔). 앱은 10/27부터 이 사유를 처리 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
 | HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features`, 기록 저장 R2 `POST /v2/records` | DB/BE | **삭제함** (브랜치, 2026-10-28) — 앱이 쓰지 않음. MySQL 통합 시험·`service_smoke.py`는 `/v2/realtime`으로 옮김. compose·배포·부하·데이터 플랫폼 도구는 담당에게 알림(계획 0062). 판정 상태를 잃은 세션 행을 닫던 R2가 없어져 그 행은 열린 채 남음 | [계획 0062](plans/active/0062-remove-unused-apis.md), 2.6 BE-1 |
-| `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | **보류** (2026-10-26) — 지금은 구간 안 판정 가능 프레임 전체를 평균 내고, 유효하면 구간 전체 길이를 `valid_ms`·판정 시간에 더함. 유효·판정 불가 프레임이 섞인 구간에서만 다름 | `session/FrameFeatures.java`, `engine/Timeline.java`, FE 요청 BE-5 ②, 4장 |
+| `/v2/realtime` `valid_ms`·특징을 유효 하위 구간마다 계산 (`api-spec.md` 11.3) | DB/BE | 구현됨 (2026-10-30, 계획 0064) — 프레임마다 판정하고 판별 가능한 프레임 시간만 `valid_ms`에 더함. 판정 불가 프레임은 `unknown_ms`(제외)로 가고 연속 시간을 끊음(중단 후 초기화, 예전 구간 단위와 같음) | `engine/SessionEngine.accept(List)`, `session/FrameBatch.java`, FE 요청 BE-5 ② |
 | 시작 시 스키마 확인 (V2.6, 12테이블(`SPRING_SESSION` 2개는 확인 안 함), `refresh_token`·`baseline_posture.client_registration_uuid` 필수, V2.4에서 지운 `feature_archive.row_count`가 남으면 거부) | DB/BE | 구현됨 (MySQL로는 미확인) | `system/SchemaVerifier.java`, `database/README.md` 11장 |
 
 ### 2.5 Kafka 전환 (계획 0031)
@@ -84,6 +85,8 @@
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
+| `python tools/dev.py check-backend` (계획 0064) | 통과 — API 99개(`MySqlIntegrationTest` 11개 포함)·처리 서비스 62개, 실패 0·건너뜀 0, smoke 8단계 PASS(실제 FastAPI `/v3/infer`, 기본 3초 묶음) | 2026-10-30 | 브랜치 `feature/repo-server-frame-batch-inference`, 커밋 전. 로컬 MySQL80 일회용 DB |
+| Python `unittest discover -s tests` | 163개 중 159 통과, 건너뜀 1, 오류 3 | 2026-10-30 | 오류 3개는 `test_deploy_configuration`(Docker CLI 없음, 이 변경과 무관). 새 `test_inference_v3.py` 7개 통과 |
 | `backend/gradlew -p backend :api:test` (단위) | 76개 중 67 통과, 실패 0, 건너뜀 9 (`MySqlIntegrationTest`) | 2026-10-27 | 로그인 토큰 후(`AuthTokensTest` 5개, 핸들러 로그인 철회 시험 추가, `LoginLifetimeTest` 삭제, 통합 시험은 토큰 방식으로 고치고 컴파일만 확인). 로컬 JDK 17 |
 | `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 7개·8개 통과 | 2026-10-27 | `hello.access_token` 추가 후. 임시 가상환경(jsonschema 4.23.0)에서 실행 |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
@@ -117,7 +120,7 @@
 | S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
-| `valid_ms` 하위 구간 (BE-5 ②, 보류) — 특징을 낼 조각(가장 긴 조각/조각별 추론), 구간 안 판정 불가가 연속 시간을 끊는지, 그 시간을 `excluded_interval`에 남길지(`RecordRebuild`가 행 합계로 유효 시간을 다시 만듦), Kafka 판정과 맞추기. 줄어든 시간은 `unknown_ms`로(FE 앱이 `valid = normal + deviation`, `total = 각 시간 합`을 검사) | DB/BE·DevOps | 2.4, `api-spec.md` 11.3 |
+| `valid_ms` 하위 구간 (BE-5 ②) — 10/30 결정·구현(계획 0064: 프레임마다, 판정 불가는 `unknown_ms`·연속 시간 끊음, `excluded_interval` UNMEASURABLE로 남음). 남은 것: Kafka 판정과 맞추기 | DB/BE·DevOps | 2.4, 계획 0031 |
 
 ## 5. 갱신 기록
 
@@ -137,6 +140,7 @@
 | 2026-10-27 | BE-6 ③: A2·A3·A4 `today`, R1을 `{today, records}` 객체로(호환성 깨짐). BE-6 ① 자정 끊기 보류. `closed` 사유 이름 `unmeasurable_timeout` 유지 | `d27a97d` |
 | 2026-10-27 | 계획 0031에 넣었던 BE 기록을 되돌리고(공동 문서), 그 근거를 이 문서·api-spec으로 옮김. 계획 0031 갱신은 담당에 요청(3장) | `80ba7db` |
 
+| 2026-10-30 | 계획 0064: 서버 3초 묶음·프레임마다 판정(추론 `/v3/infer`), `observation` 4.0, BE-5 ② `valid_ms` 해결. 미결 1건 → 일부 해결(Kafka만 남음) | 커밋 전 |
 | 2026-10-27 | 로그인 토큰(ADR 0031): JWT access + refresh, DB V2.6(`refresh_token`, migration 016), 쿠키 세션·CSRF·`LoginLifetime` 삭제, WS `hello.access_token`. 미결 「refresh 토큰」 → 구현됨. DevOps 요청 2건(초기화 스크립트·JWT 비밀값, 점검 도구) 추가 | 커밋 전 |
 | 2026-10-27 | 알림 기본값 결정: 새 계정 켜짐(DB V2.6 `sound_alert_enabled` 기본값 참, 버전은 그대로 V2.6). 미결 「알림 기본값」 삭제 | 커밋 전 |
 | 2026-10-27 | WebSocket 자세 등록 삭제(코드·계약·예시·시험, `phase: calibration` 포함). 미결 「WS 등록을 남길지」 → 삭제. api-spec 머리말 갱신(V2.6) | 커밋 전 |

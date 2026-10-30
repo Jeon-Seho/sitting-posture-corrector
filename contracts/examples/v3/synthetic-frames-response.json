@@ -1,0 +1,48 @@
+{
+  "schema_version": "3.0",
+  "model_version": "reference-feature-rule-v1",
+  "frames": [
+    {
+      "t_ms": 21000,
+      "valid": true,
+      "collapse_probability": 0.0,
+      "deviation_type": "none",
+      "invalid_reason": null
+    },
+    {
+      "t_ms": 21100,
+      "valid": true,
+      "collapse_probability": 0.8750000000000009,
+      "deviation_type": "left_lean",
+      "invalid_reason": null
+    },
+    {
+      "t_ms": 21200,
+      "valid": false,
+      "collapse_probability": 0.0,
+      "deviation_type": "none",
+      "invalid_reason": "head_turn"
+    },
+    {
+      "t_ms": 21300,
+      "valid": false,
+      "collapse_probability": 0.0,
+      "deviation_type": "none",
+      "invalid_reason": "unmeasurable"
+    },
+    {
+      "t_ms": 21400,
+      "valid": false,
+      "collapse_probability": 0.0,
+      "deviation_type": "none",
+      "invalid_reason": "unmeasurable"
+    },
+    {
+      "t_ms": 21500,
+      "valid": true,
+      "collapse_probability": 0.7159090909090908,
+      "deviation_type": "unspecified",
+      "invalid_reason": null
+    }
+  ]
+}

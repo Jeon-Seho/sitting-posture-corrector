@@ -36,8 +36,8 @@ final class RealtimeMessages {
             }
         }
 
-        record ObservationPush(String type, Observation.V3 observation) {
-            ObservationPush(Observation.V3 observation) {
+        record ObservationPush(String type, Observation.V4 observation) {
+            ObservationPush(Observation.V4 observation) {
                 this("observation", observation);
             }
         }

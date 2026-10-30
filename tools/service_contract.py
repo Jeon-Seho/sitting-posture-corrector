@@ -16,6 +16,8 @@ OBSERVATION = validator('posture-observation.v2.schema.json')
 VIEW = validator('session-view.v1.schema.json')
 EVENT = validator('posture-event.v1.schema.json')
 INFERENCE_REQUEST_V2 = validator('inference-request.v2.schema.json')
+INFERENCE_REQUEST_V3 = validator('inference-request.v3.schema.json')
+INFERENCE_RESPONSE_V3 = validator('inference-response.v3.schema.json')
 FEATURE_RESPONSE = validator('feature-response.v1.schema.json')
 
 
@@ -41,6 +43,21 @@ def validate_inference_request_v2(value):
     INFERENCE_REQUEST_V2.validate(value)
     if not 0 < value['end_ms'] - value['start_ms'] <= 1500:
         raise ValueError('interval must be 1..1500ms')
+
+
+def validate_inference_request_v3(value):
+    json.dumps(value, allow_nan=False)
+    INFERENCE_REQUEST_V3.validate(value)
+
+
+def validate_inference_response_v3(value, inference_request=None):
+    # One result per request frame, in the same order and with the same t_ms.
+    json.dumps(value, allow_nan=False)
+    INFERENCE_RESPONSE_V3.validate(value)
+    if inference_request is not None:
+        sent = [frame['t_ms'] for frame in inference_request['frames']]
+        if [frame['t_ms'] for frame in value['frames']] != sent:
+            raise ValueError('inference request/response frame mismatch')
 
 
 def validate_feature_response(value, inference_request=None):

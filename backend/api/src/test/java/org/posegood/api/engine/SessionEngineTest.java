@@ -309,7 +309,7 @@ class SessionEngineTest {
     }
 
     @Test
-    void pausedAndInvalidReasonsFollowTheLastInterval() {
+    void pausedReasonFollowsTheLastIntervalAndPostureUsesTheThreshold() {
         assertNull(engine.pausedReason());
         feed(0, 1000, 0.1);
         assertNull(engine.pausedReason());
@@ -320,13 +320,47 @@ class SessionEngineTest {
         phase(3000, 4000, 0, false, Observation.Phase.away);
         assertEquals("away", engine.pausedReason());
 
-        var valid = observation(0, 0, 500, 0.2, true, Observation.Phase.running);
-        var invalid = observation(0, 0, 500, 0, false, Observation.Phase.running);
-        var rest = observation(0, 0, 500, 0, false, Observation.Phase.rest);
-        assertNull(SessionEngine.invalidReason(valid, "head_turn"));
-        assertEquals("head_turn", SessionEngine.invalidReason(invalid, "head_turn"));
-        assertEquals("unmeasurable", SessionEngine.invalidReason(invalid, null));
-        assertEquals("unmeasurable", SessionEngine.invalidReason(rest, "head_turn"));
+        // 실시간 관측 4.0의 good·bad는 이탈 후보와 같은 임계값(0.7 이상이면 bad).
+        assertEquals("good", engine.posture(0.69));
+        assertEquals("bad", engine.posture(0.7));
+    }
+
+    @Test
+    void framePartsOfOneIntervalAddOnlyJudgeableTimeAndKeepIntervalOrdering() {
+        // 계획 0064: 구간 하나(0~500)를 프레임 조각으로. 판정 불가 프레임(200~300)은 제외 시간이고 연속 시간을 끊는다.
+        var parts = List.of(
+                observation(0, 0, 200, 0.9, true, Observation.Phase.running),
+                observation(0, 200, 300, 0, false, Observation.Phase.running),
+                observation(0, 300, 500, 0.9, true, Observation.Phase.running));
+        var view = engine.accept(parts);
+        assertEquals(0, view.lastSequence());
+        assertEquals(500, view.summary().totalMs());
+        assertEquals(400, view.summary().validMs());
+        assertEquals(400, view.summary().deviationMs());
+        assertEquals(100, view.summary().unknownMs());
+        assertEquals(view, engine.accept(parts)); // 같은 조각의 재전송은 같은 결과
+        assertEquals(409, assertThrows(ApiError.class, () -> engine.accept(List.of(
+                observation(0, 0, 500, 0.9, true, Observation.Phase.running)))).status());
+        // 끊긴 뒤 다시 3초가 이어져야 확정된다: 300~3300.
+        sequence = 1;
+        feed(500, 3299, 0.9);
+        assertEquals(0, count("collapse_confirmed"));
+        feed(3299, 3300, 0.9);
+        assertEquals(1, count("collapse_confirmed"));
+        assertEquals(300, engine.view().events().get(0).onsetMs());
+    }
+
+    @Test
+    void partsMustBeOneContiguousInterval() {
+        var gap = List.of(
+                observation(0, 0, 200, 0.1, true, Observation.Phase.running),
+                observation(0, 250, 500, 0.1, true, Observation.Phase.running));
+        assertThrows(IllegalArgumentException.class, () -> engine.accept(gap));
+        var mixed = List.of(
+                observation(0, 0, 200, 0.1, true, Observation.Phase.running),
+                observation(1, 200, 500, 0.1, true, Observation.Phase.running));
+        assertThrows(IllegalArgumentException.class, () -> engine.accept(mixed));
+        assertThrows(IllegalArgumentException.class, () -> engine.accept(List.of()));
     }
 
     // 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.

@@ -178,7 +178,7 @@
       }
     },
     "observation": {
-      "description": "server -> app, one per interval: live status. Score on screen = 100 x (1 - collapse_probability).",
+      "description": "server -> app, one per server batch (plan 0064: the server groups received intervals for about 3 s of server time, then judges every frame). Live status of the last judgeable frame of the batch. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-10-30) keeps only what the measuring screen uses; the processed position is in ack/progress last_sequence, the pause in progress.paused_reason, times in summary.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -194,51 +194,32 @@
           "additionalProperties": false,
           "required": [
             "schema_version",
-            "sequence",
-            "start_ms",
-            "end_ms",
-            "phase",
             "valid",
-            "valid_ms",
+            "posture",
             "collapse_probability",
-            "deviation_type",
-            "invalid_reason",
-            "model_version"
+            "invalid_reason"
           ],
           "properties": {
             "schema_version": {
-              "const": "3.0"
-            },
-            "sequence": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "start_ms": {
-              "$ref": "#/$defs/ms"
-            },
-            "end_ms": {
-              "$ref": "#/$defs/ms"
-            },
-            "phase": {
-              "enum": [
-                "running",
-                "rest",
-                "away"
-              ]
+              "const": "4.0"
             },
             "valid": {
+              "description": "true when the batch had at least one judgeable frame.",
               "type": "boolean"
             },
-            "valid_ms": {
-              "$ref": "#/$defs/ms"
+            "posture": {
+              "description": "good or bad for the last judgeable frame: the session policy threshold applied by the server. Momentary; alerts are still confirmed by decision/alert. null when not valid.",
+              "enum": [
+                null,
+                "good",
+                "bad"
+              ]
             },
             "collapse_probability": {
+              "description": "Probability of bad posture for the same frame, 0 when not valid. Rule score until a trained model (ADR 0043); not calibrated.",
               "type": "number",
               "minimum": 0,
               "maximum": 1
-            },
-            "deviation_type": {
-              "$ref": "#/$defs/deviation_type"
             },
             "invalid_reason": {
               "enum": [
@@ -247,11 +228,6 @@
                 "head_turn",
                 "settling"
               ]
-            },
-            "model_version": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
             }
           },
           "if": {
@@ -265,6 +241,12 @@
             "properties": {
               "invalid_reason": {
                 "const": null
+              },
+              "posture": {
+                "enum": [
+                  "good",
+                  "bad"
+                ]
               }
             }
           },
@@ -276,6 +258,12 @@
                   "head_turn",
                   "settling"
                 ]
+              },
+              "posture": {
+                "const": null
+              },
+              "collapse_probability": {
+                "const": 0
               }
             }
           }

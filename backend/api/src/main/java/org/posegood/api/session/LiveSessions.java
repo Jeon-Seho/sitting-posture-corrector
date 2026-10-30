@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +42,11 @@ public class LiveSessions {
     /** 세션 상태 조회(없으면 null). */
     public LiveSession get(UUID id) {
         return sessions.get(id);
+    }
+
+    /** 메모리에 있는 모든 세션(묶음 스케줄러가 훑는다). */
+    Collection<LiveSession> all() {
+        return sessions.values();
     }
 
     /**

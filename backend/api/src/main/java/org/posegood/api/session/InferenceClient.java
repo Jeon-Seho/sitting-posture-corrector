@@ -1,6 +1,7 @@
 package org.posegood.api.session;
 
 import org.posegood.api.common.ApiError;
+import org.posegood.api.contract.FrameInference;
 import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,9 +15,11 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 
 /**
- * FastAPI 추론 호출(POST /v2/infer)과 결과 검증. 실패하거나 맞지 않으면 502.
+ * FastAPI 추론 호출과 결과 검증. 실패하거나 맞지 않으면 502.
  *
- * 결과는 판정 엔진에 넣기 전에 요청과 대조한다. 맞지 않으면 502이고 세션 상태는 바뀌지 않는다.
+ * 실시간 판정은 v3({@code POST /v3/infer}, 프레임 묶음, 계획 0064)를 쓴다. v2({@code POST /v2/infer}, 구간 특징
+ * 하나)는 Kafka 경로·비교 시험이 옮길 때까지 남긴다. 결과는 판정 엔진에 넣기 전에 요청과 대조한다. 맞지 않으면
+ * 502이고 세션 상태는 바뀌지 않는다.
  */
 @Component
 public class InferenceClient {
@@ -53,6 +56,53 @@ public class InferenceClient {
         if (result == null) throw ApiError.upstream("empty inference response");
         require(request, result);
         return result;
+    }
+
+    /**
+     * 프레임 묶음 추론(v3). 연결·응답 오류는 한 번만 다시 부른다(계획 0064). 계약과 맞지 않는 응답은 다시 부르지 않는다.
+     */
+    public FrameInference.Response infer(FrameInference.Request request) {
+        FrameInference.Response result = null;
+        for (int attempt = 0; result == null; attempt++) {
+            try {
+                result = client.post().uri("/v3/infer").body(request).retrieve().body(FrameInference.Response.class);
+                if (result == null) throw ApiError.upstream("empty inference response");
+            } catch (RestClientException unavailable) {
+                if (attempt >= 1) throw ApiError.upstream("inference unavailable or rejected input");
+            }
+        }
+        require(request, result);
+        return result;
+    }
+
+    /**
+     * 결과가 이 요청의 프레임마다 하나씩, 같은 순서·같은 {@code t_ms}이고, 판정에 쓸 수 없는 프레임(사람 없음·앱의
+     * 판정 불가 표시)을 유효로 표시하지 않았는지 확인한다.
+     */
+    void require(FrameInference.Request request, FrameInference.Response response) {
+        if (!"3.0".equals(response.schemaVersion())
+                || !modelVersion.equals(response.modelVersion())
+                || response.frames() == null
+                || response.frames().size() != request.frames().size())
+            throw ApiError.upstream("inference response contract mismatch");
+        for (int index = 0; index < response.frames().size(); index++) {
+            var result = response.frames().get(index);
+            var frame = request.frames().get(index);
+            boolean usable =
+                    result != null
+                            && result.tMs() == frame.tMs()
+                            && Double.isFinite(result.collapseProbability())
+                            && result.collapseProbability() >= 0
+                            && result.collapseProbability() <= 1
+                            && result.deviationType() != null
+                            && (result.valid()
+                                    ? frame.tracked() && result.invalidReason() == null
+                                    : result.collapseProbability() == 0
+                                            && result.deviationType() == Observation.DeviationType.none
+                                            && ("unmeasurable".equals(result.invalidReason())
+                                                    || "head_turn".equals(result.invalidReason())));
+            if (!usable) throw ApiError.upstream("inference response contract mismatch");
+        }
     }
 
     /** 결과가 이 요청에 대한 것이고, 품질이 낮은 구간을 유효로 표시하지 않았는지 확인한다(ADR 0020). */

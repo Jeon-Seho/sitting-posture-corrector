@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/inference-response.v3.schema.json",
+  "title": "Frame inference response v3 (POST /v3/infer, plan 0064)",
+  "description": "One result per request frame, same order and t_ms. collapse_probability is the probability of bad posture (rule score until a trained model, ADR 0043; not calibrated). Timing rules (3 s hold, recovery, reminder) and the good/bad threshold stay in the API decision engine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_version",
+    "frames"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0"
+    },
+    "model_version": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]{1,64}$"
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 240,
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t_ms",
+        "valid",
+        "collapse_probability",
+        "deviation_type",
+        "invalid_reason"
+      ],
+      "properties": {
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400000
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "collapse_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "deviation_type": {
+          "description": "Kept for decision/alert until the binary model; removed then (ADR 0043, on hold).",
+          "enum": [
+            "none",
+            "forward_slouch",
+            "left_lean",
+            "right_lean",
+            "unspecified"
+          ]
+        },
+        "invalid_reason": {
+          "enum": [
+            null,
+            "unmeasurable",
+            "head_turn"
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "valid": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "invalid_reason": {
+            "const": null
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "invalid_reason": {
+            "enum": [
+              "unmeasurable",
+              "head_turn"
+            ]
+          },
+          "collapse_probability": {
+            "const": 0
+          },
+          "deviation_type": {
+            "const": "none"
+          }
+        }
+      }
+    }
+  }
+}

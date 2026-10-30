@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from .schemas import InferenceRequest, InferenceRequestV2
-from .service import MODEL_VERSION, predict_feature_observation, predict_observation
+from .schemas import InferenceRequest, InferenceRequestV2, InferenceRequestV3
+from .service import MODEL_VERSION, predict_feature_observation, predict_frames, predict_observation
 
 
 router = APIRouter()
@@ -22,3 +22,8 @@ def infer(request: InferenceRequest):
 @router.post("/v2/infer")
 def infer_features(request: InferenceRequestV2):
     return predict_feature_observation(request)
+
+
+@router.post("/v3/infer")
+def infer_frames(request: InferenceRequestV3):
+    return predict_frames(request)

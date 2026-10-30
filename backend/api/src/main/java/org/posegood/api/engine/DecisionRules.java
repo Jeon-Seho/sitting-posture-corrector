@@ -18,6 +18,11 @@ final class DecisionRules {
 
     private DecisionRules() {}
 
+    /** 이탈 후보(나쁜 자세): 점수가 정책 임계값 이상. 실시간 관측 4.0의 {@code posture}도 이것으로 나눈다. */
+    static boolean candidate(double collapseProbability, Policy policy) {
+        return collapseProbability >= policy.threshold();
+    }
+
     /** 지금 구간에서 나오는 판정(없으면 NONE). */
     static Decision evaluate(
             boolean candidate,

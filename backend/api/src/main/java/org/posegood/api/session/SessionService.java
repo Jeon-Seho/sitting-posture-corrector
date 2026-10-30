@@ -3,37 +3,42 @@ package org.posegood.api.session;
 import org.posegood.api.account.AccountService;
 import org.posegood.api.account.UserLocks;
 import org.posegood.api.common.ApiError;
-import org.posegood.api.common.Json;
 import org.posegood.api.common.KstTime;
+import org.posegood.api.contract.FrameInference;
 import org.posegood.api.contract.FrameInterval;
-import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
 import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.policy.ThresholdPolicyRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataAccessException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * 측정 흐름: 세션 생성, 특징 처리(추론 → 판정 → DB 기록), 종료.
+ * 측정 흐름: 세션 생성, 좌표 처리(묶음 → 추론 → 판정 → DB 기록), 종료.
  *
- * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 입력마다 세션 잠금 안에서 추론, 판정, 새 사건의 DB 기록을 한다.
- * DB 쓰기가 실패해도 판정 상태는 유지되고, 같은 요청을 다시 보내면 남은 사건을 쓴다(503 다음 성공).
- * 실시간 v2는 좌표 구간을 받아 {@link FrameFeatures}로 특징 변화량을 계산한 뒤 같은 추론·판정 흐름에 넣는다(A안).
+ * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 실시간 v2는 받은 좌표 구간을 세션마다 묶어 두고, 서버 시계로
+ * {@code posegood.realtime.batch-window}(기본 3초)가 지나면 프레임째로 추론 v3에 넘겨 프레임마다 판정한다(계획 0064).
+ * 쉬기·자리 비움 구간, 종료·끊김·자정 넘김에는 기다리지 않고 넘긴다. 묶음 처리는 세션 잠금 안에서 하고, 새 사건은
+ * DB에 쓴다. DB 쓰기가 실패해도 판정 상태는 유지되고 다음 처리 때 남은 사건을 쓴다.
  * KST 자정에는 실시간 연결이 {@link #rollover}로 이전 세션을 끝내고 새 세션으로 잇는다(BE-6 ① B안).
  */
 @Service
 public class SessionService {
+    private static final Logger log = LoggerFactory.getLogger(SessionService.class);
 
     private final LiveSessions live;
     private final SessionRepository sessions;
@@ -47,6 +52,17 @@ public class SessionService {
     private final long maxSessionMs;
     /** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
     private final long unmeasurableTimeoutMs;
+    /** 좌표 구간을 모으는 서버 시간. 0이면 받을 때마다 판정한다. */
+    private final long batchWindowNanos;
+    /** 3초가 지난 묶음을 스스로 넘기는 일꾼(새 구간이 오지 않을 때). 세션마다 잠금으로 차례를 지킨다. */
+    private final ExecutorService flusher =
+            Executors.newFixedThreadPool(
+                    4,
+                    work -> {
+                        var thread = new Thread(work, "realtime-batch");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
 
     public SessionService(
             LiveSessions live,
@@ -59,7 +75,8 @@ public class SessionService {
             TransactionTemplate tx,
             ApplicationEventPublisher events,
             @Value("${posegood.realtime.max-session-duration}") Duration maxSession,
-            @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout) {
+            @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout,
+            @Value("${posegood.realtime.batch-window}") Duration batchWindow) {
         this.live = live;
         this.sessions = sessions;
         this.baselines = baselines;
@@ -71,6 +88,7 @@ public class SessionService {
         this.events = events;
         this.maxSessionMs = maxSession.toMillis();
         this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
+        this.batchWindowNanos = batchWindow.toNanos();
     }
 
     /**
@@ -133,38 +151,112 @@ public class SessionService {
         var session = require(owner, id);
         if (session.locked(() -> session.engine().ended())) throw ApiError.ended();
         var stored = baselines.find(owner, session.row().baselineId());
-        var features = stored == null ? null : FrameFeatures.baseline(stored.landmarks());
-        if (features == null) throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
-        return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
+        if (stored == null || FrameFeatures.baseline(stored.landmarks()) == null)
+            throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
+        return new Realtime(stored.landmarks(), session.row().alertEnabled(), session.row().startedAt());
     }
 
     /**
-     * 실시간 v2 좌표 구간 하나: 특징 변화량 계산 → 기존 추론·판정 흐름. 처리 뒤의 진행 상황을 돌려준다.
+     * 실시간 v2 좌표 구간 하나를 받아 묶음에 넣는다(판정은 {@link #flush}). 받은 순번을 돌려준다.
      *
-     * v2는 재전송이 없으므로 같은 순번은 409 CONFLICT다.
+     * v2는 재전송이 없으므로 같은 순번·앞선 순번·겹치는 시간은 409 CONFLICT, 최대 측정 시간을 넘으면 429다.
+     * {@code baseline}은 세션 기준 자세이고 추론에 함께 넘긴다.
      */
-    public Status frames(long owner, UUID id, FrameInterval interval, FrameFeatures.Features baseline) {
-        var computed = FrameFeatures.interval(interval, baseline);
+    public long frames(long owner, UUID id, FrameInterval interval, SessionRequests.Landmarks baseline) {
         var session = require(owner, id);
         return session.locked(
                 () -> {
-                    if (session.input(interval.sequence()) != null) throw ApiError.conflict("duplicate interval");
-                    var request =
-                            new InferenceRequest(
-                                    "2.0",
-                                    "shoulder-relative-deltas-v1",
-                                    session.row().baselineId(),
-                                    interval.sequence(),
-                                    interval.startMs(),
-                                    interval.endMs(),
-                                    Observation.Phase.valueOf(interval.phase().name()),
-                                    computed.deltas() == null
-                                            ? InferenceRequest.MeasurementQuality.poor
-                                            : InferenceRequest.MeasurementQuality.good,
-                                    computed.deltas());
-                    accept(session, request, computed.invalidReason());
-                    return status(session.engine());
+                    var engine = session.engine();
+                    if (engine.ended()) throw ApiError.ended();
+                    if (interval.sequence() <= session.receivedSequence()
+                            || interval.startMs() < session.receivedEndMs())
+                        throw ApiError.conflict("duplicate, out-of-order or overlapping interval");
+                    if (!engine.admits(interval.endMs())) throw ApiError.limit("session time limit reached");
+                    session.hold(interval, baseline, System.nanoTime());
+                    return interval.sequence();
                 });
+    }
+
+    /**
+     * 묶음을 넘길 때면(서버 시계로 batch-window가 지남, 쉬기·자리 비움, 프레임 수가 참) 추론·판정·DB 기록을 한다.
+     * 실시간 채널이 구간을 받을 때마다 부른다. 추론·DB 일시 장애는 502·503이고 그 묶음은 누락이 된다.
+     */
+    public void flush(long owner, UUID id) {
+        var session = require(owner, id);
+        session.locked(
+                () -> {
+                    if (session.due(System.nanoTime(), batchWindowNanos)) drain(session);
+                    return null;
+                });
+    }
+
+    /** 200ms마다: 새 구간이 오지 않아도 batch-window가 지난 묶음을 넘긴다. 실패는 실시간 채널에 stalled로 알린다. */
+    @Scheduled(fixedDelay = 200)
+    public void flushWaiting() {
+        long now = System.nanoTime();
+        for (var session : live.all())
+            if (session.waiting(now, batchWindowNanos) && session.queue()) flusher.execute(() -> flushQuietly(session));
+    }
+
+    @jakarta.annotation.PreDestroy
+    public void shutdown() {
+        flusher.shutdownNow();
+    }
+
+    private void flushQuietly(LiveSession session) {
+        try {
+            session.locked(
+                    () -> {
+                        if (session.due(System.nanoTime(), batchWindowNanos)) drain(session);
+                        return null;
+                    });
+        } catch (ApiError | DataAccessException failed) {
+            log.debug("realtime batch skipped: {}", failed.getClass().getSimpleName());
+            events.publishEvent(new SessionUpdates.Stalled(session.id()));
+        } finally {
+            session.dequeued();
+        }
+    }
+
+    /**
+     * 묶음 하나 처리(세션 잠금 안): 추론 v3 → 구간마다 프레임별 조각을 판정 엔진에 → DB 기록 → 관측 4.0·사건 알림.
+     *
+     * 묶음은 먼저 꺼내 비우므로 추론이 실패하면 다시 판정하지 않는다(다음 구간과의 시간은 누락). 측정불가 시간
+     * 초과에 닿으면 그 구간 끝에서 끝내고 남은 구간은 버린다.
+     */
+    private void drain(LiveSession session) {
+        var batch = new FrameBatch(session.takePending());
+        var engine = session.engine();
+        if (batch.isEmpty() || engine.ended()) return;
+        List<FrameInference.Result> results =
+                batch.needsInference() ? inference.infer(batch.request(session.baseline())).frames() : List.of();
+        int before = engine.eventCount();
+        String closedReason = null;
+        for (var parts : batch.parts(results, inference.modelVersion())) {
+            engine.accept(parts);
+            if (unmeasurableTimeoutMs > 0 && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
+                // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
+                session.endReason("UNMEASURABLE_TIMEOUT");
+                engine.end(engine.summary().totalMs());
+                closedReason = "unmeasurable_timeout";
+                break;
+            }
+        }
+        // 새 사건은 decision을 보내기 전에 DB에 쓴다. DB가 실패해도 결과는 보내고(그 뒤 stalled), 다음 처리 때 다시 쓴다.
+        try {
+            persist(session);
+        } finally {
+            publish(session, FrameBatch.live(results, engine::posture), before, closedReason);
+        }
+    }
+
+    /** 끝내기 전에 남은 묶음을 판정한다. 추론·DB가 실패하면 그 구간은 버리고(누락) 종료는 그대로 한다. */
+    private void drainBeforeEnd(LiveSession session) {
+        try {
+            drain(session);
+        } catch (ApiError | DataAccessException failed) {
+            log.debug("realtime batch dropped at end: {}", failed.getClass().getSimpleName());
+        }
     }
 
     /**
@@ -178,12 +270,13 @@ public class SessionService {
         session.locked(
                 () -> {
                     var engine = session.engine();
+                    drainBeforeEnd(session);
                     if (engine.ended()) return null;
                     long last = engine.summary().totalMs();
                     if (endMs == null) session.endReason("DISCONNECTED");
                     int before = engine.eventCount();
                     engine.end(endMs == null ? last : Math.max(endMs, last));
-                    publish(session, null, before, null, null);
+                    publish(session, null, before, null);
                     persist(session);
                     return null;
                 });
@@ -207,11 +300,12 @@ public class SessionService {
                             previous.locked(
                                     () -> {
                                         var engine = previous.engine();
+                                        drainBeforeEnd(previous);
                                         if (engine.ended()) throw ApiError.ended();
                                         previous.endReason("DAY_CHANGED");
                                         int before = engine.eventCount();
                                         var view = engine.end(engine.summary().totalMs());
-                                        publish(previous, null, before, null, "day_changed");
+                                        publish(previous, null, before, "day_changed");
                                         persist(previous);
                                         return view.summary();
                                     });
@@ -234,38 +328,6 @@ public class SessionService {
                 });
     }
 
-    /** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
-    private void accept(LiveSession session, InferenceRequest request, String invalidReason) {
-        String digest = fingerprint(request);
-        var cached = session.input(request.sequence());
-        if (cached != null) {
-            if (!cached.fingerprint().equals(digest)) throw ApiError.conflict("conflicting duplicate");
-            persist(session);
-            return;
-        }
-        var engine = session.engine();
-        var view = engine.view();
-        if (view.ended()) throw ApiError.ended();
-        if (request.sequence() <= view.lastSequence() || request.startMs() < view.summary().totalMs())
-            throw ApiError.conflict("out-of-order or overlapping interval");
-        if (!engine.admits(request.endMs())) throw ApiError.limit("session time limit reached");
-        if (!session.row().baselineId().equals(request.baselineId()))
-            throw ApiError.conflict("baseline already frozen");
-        int before = engine.eventCount();
-        var observation = inference.infer(request);
-        var result = engine.accept(observation);
-        session.remember(request.sequence(), digest, observation);
-        String closedReason = null;
-        if (unmeasurableTimeoutMs > 0 && !result.ended() && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
-            // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
-            session.endReason("UNMEASURABLE_TIMEOUT");
-            result = engine.end(result.summary().totalMs());
-            closedReason = "unmeasurable_timeout";
-        }
-        publish(session, observation, before, invalidReason, closedReason);
-        persist(session);
-    }
-
     /**
      * 세션 종료(같은 end_ms 재전송은 같은 결과).
      *
@@ -275,9 +337,10 @@ public class SessionService {
         var session = require(owner, id);
         return session.locked(
                 () -> {
+                    drainBeforeEnd(session);
                     int before = session.engine().eventCount();
                     var view = session.engine().end(endMs);
-                    if (session.engine().eventCount() > before) publish(session, null, before, null, null);
+                    if (session.engine().eventCount() > before) publish(session, null, before, null);
                     persist(session);
                     return view;
                 });
@@ -332,26 +395,18 @@ public class SessionService {
     }
 
     /** 새 결과를 실시간 채널로 알린다. {@code closedReason}은 서버가 스스로 끝냈을 때만 있다. */
-    private void publish(
-            LiveSession session, Observation observation, int before, String invalidReason, String closedReason) {
+    private void publish(LiveSession session, Observation.V4 live, int before, String closedReason) {
         var engine = session.engine();
         events.publishEvent(
                 new SessionUpdates.Progressed(
                         session.id(),
-                        observation,
                         engine.eventsAfter(before),
                         engine.lastSequence(),
                         engine.summary(),
                         engine.ended(),
-                        observation == null
-                                ? null
-                                : Observation.V3.of(observation, SessionEngine.invalidReason(observation, invalidReason)),
+                        live,
                         engine.pausedReason(),
                         closedReason));
-    }
-
-    private static Status status(SessionEngine engine) {
-        return new Status(engine.lastSequence(), engine.summary(), engine.pausedReason());
     }
 
     /**
@@ -397,46 +452,15 @@ public class SessionService {
     }
 
     /**
-     * 재전송 비교용 요청 지문(SHA-256). 특징 값은 저장하지 않는다.
+     * 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세(추론에 함께 넘김), 알림을 켰는지, 시작 시각.
+     *
+     * {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028).
      */
-    static String fingerprint(InferenceRequest request) {
-        try {
-            var bytes = new ByteArrayOutputStream();
-            try (var output = new DataOutputStream(bytes)) {
-                output.writeUTF(request.schemaVersion());
-                output.writeUTF(request.featureVersion());
-                output.writeUTF(request.baselineId().toString());
-                output.writeLong(request.sequence());
-                output.writeLong(request.startMs());
-                output.writeLong(request.endMs());
-                output.writeUTF(request.phase().name());
-                output.writeUTF(request.measurementQuality().name());
-                output.writeBoolean(request.features() != null);
-                if (request.features() != null) {
-                    var features = request.features();
-                    output.writeDouble(features.headGapDelta());
-                    output.writeDouble(features.lateralOffsetDelta());
-                    output.writeDouble(features.shoulderTiltDelta());
-                    output.writeDouble(features.currentQuality());
-                    output.writeDouble(features.baselineQuality());
-                }
-            }
-            return Json.sha256(bytes.toByteArray());
-        } catch (IOException impossible) {
-            throw new IllegalStateException("cannot fingerprint feature request", impossible);
-        }
-    }
-
-    /** 실시간 v2 측정 연결에 필요한 것: 세션 기준 자세의 특징, 알림을 켰는지. */
-    /** {@code startedAt}은 서버가 S1을 받은 시각(DB {@code started_at})이다. 앱에 그대로 알린다(ADR 0028). */
-    public record Realtime(FrameFeatures.Features baseline, boolean alertEnabled, Instant startedAt) {}
+    public record Realtime(SessionRequests.Landmarks baseline, boolean alertEnabled, Instant startedAt) {}
 
     /**
      * 자정 넘김 결과: 끝난 이전 세션의 요약·서버 종료 시각(DB {@code ended_at}), 새 세션 ID·시작 시각(자정)·알림 설정.
      */
     public record Rollover(
             SessionView.Summary ended, Instant endedAt, UUID sessionId, Instant startedAt, boolean alertEnabled) {}
-
-    /** 실시간 v2 진행 상황: 마지막 순번, 요약, 측정이 멈춘 이유(없으면 null). */
-    public record Status(long lastSequence, SessionView.Summary summary, String pausedReason) {}
 }

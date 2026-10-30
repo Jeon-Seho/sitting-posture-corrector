@@ -223,10 +223,10 @@ class MySqlIntegrationTest {
         socket.send(helloV2(stale, "measure", quiet));
         socket.next("ready");
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
-        socket.next("decision", "collapse_confirmed");
-        JsonNode ack;
+        JsonNode ack; // ack는 받은 즉시, 판정은 묶음 뒤(계획 0064)
         do ack = socket.next("ack");
         while (ack.get("last_sequence").asLong() != 6);
+        socket.next("decision", "collapse_confirmed");
         try (var connection = database.connect(); var statement = connection.createStatement()) {
             var alert =
                     statement.executeQuery(
@@ -716,27 +716,33 @@ class MySqlIntegrationTest {
         var socket = Socket.open(port);
         socket.send(helloV2(api, "measure", id));
         assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
+        // 받은 구간은 바로 ack, 판정은 서버 시계로 약 3초 묶은 뒤 프레임마다(계획 0064, batch-window 기본값 3초).
+        long sent = System.nanoTime();
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
-        var observation = socket.next("observation").get("observation");
-        assertEquals("3.0", observation.get("schema_version").asString());
-        assertTrue(observation.get("valid").asBoolean());
-        assertEquals(500, observation.get("valid_ms").asLong());
-        assertEquals("left_lean", observation.get("deviation_type").asString());
-        var decision = socket.next("decision", "collapse_confirmed");
-        assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
-        assertFalse(decision.has("session_id"));
         JsonNode ack;
         do ack = socket.next("ack");
         while (ack.get("last_sequence").asLong() != 6);
+        var observation = socket.next("observation").get("observation");
+        assertTrue(System.nanoTime() - sent >= Duration.ofMillis(2900).toNanos(), "judged before the batch window");
+        assertEquals("4.0", observation.get("schema_version").asString());
+        assertTrue(observation.get("valid").asBoolean());
+        assertEquals("bad", observation.get("posture").asString());
+        assertTrue(observation.get("collapse_probability").asDouble() >= 0.7);
+        for (var gone : List.of("sequence", "start_ms", "end_ms", "phase", "valid_ms", "deviation_type", "model_version"))
+            assertFalse(observation.has(gone), gone);
+        var decision = socket.next("decision", "collapse_confirmed");
+        assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
+        assertEquals("left_lean", decision.get("event").get("deviation_type").asString()); // 이진 모델 전까지 유지(보류)
+        assertFalse(decision.has("session_id"));
+        assertEquals(6, socket.next("progress").get("last_sequence").asLong());
         socket.send(frames(7, "running", null));
-        JsonNode unmeasurable;
-        do unmeasurable = socket.next("observation").get("observation");
-        while (unmeasurable.get("sequence").asLong() != 7);
+        assertEquals(7, socket.next("ack").get("last_sequence").asLong());
+        var unmeasurable = socket.next("observation").get("observation");
         assertFalse(unmeasurable.get("valid").asBoolean());
+        assertTrue(unmeasurable.get("posture").isNull());
         assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
-        JsonNode progress;
-        do progress = socket.next("progress");
-        while (progress.get("last_sequence").asLong() != 7);
+        var progress = socket.next("progress");
+        assertEquals(7, progress.get("last_sequence").asLong());
         assertEquals("unmeasurable", progress.get("paused_reason").asString());
 
         socket.send(endV2(5000));

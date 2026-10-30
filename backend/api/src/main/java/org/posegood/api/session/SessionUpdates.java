@@ -18,21 +18,27 @@ public final class SessionUpdates {
     /**
      * 새 관측·사건·요약.
      *
-     * {@code observation}이 null이면 종료만으로 사건이 생긴 경우다. v2 채널은 관측 3.0({@code live})과
-     * {@code pausedReason}을 보낸다. {@code closedReason}은 서버가 스스로 끝냈을 때의 closed 사유
-     * (측정불가 시간 초과면 {@code unmeasurable_timeout}, 자정 넘김이면 {@code day_changed})이고, 그 밖에는 null이다.
+     * {@code live}가 null이면 종료만으로 사건이 생긴 경우다. 있으면 서버 묶음 하나(계획 0064)를 판정한 결과이고,
+     * v2 채널은 관측 4.0 → 사건 → {@code progress}를 보낸다. {@code closedReason}은 서버가 스스로 끝냈을 때의 closed
+     * 사유(측정불가 시간 초과면 {@code unmeasurable_timeout}, 자정 넘김이면 {@code day_changed})이고, 그 밖에는 null이다.
      * {@code day_changed}면 실시간 채널은 닫지 않고 새 세션으로 잇는다.
      */
     public record Progressed(
             UUID sessionId,
-            Observation observation,
             List<SessionEngine.Decided> decided,
             long lastSequence,
             Summary summary,
             boolean ended,
-            Observation.V3 live,
+            Observation.V4 live,
             String pausedReason,
             String closedReason) {}
+
+    /**
+     * 서버가 스스로 넘긴 묶음(3초가 지남)의 추론·DB가 일시 장애였다. 실시간 채널은 {@code stalled}를 보낸다.
+     *
+     * 그 묶음은 다시 판정하지 않아 그 시간은 누락이 된다.
+     */
+    public record Stalled(UUID sessionId) {}
 
     /**
      * 세션이 메모리에서 빠짐.

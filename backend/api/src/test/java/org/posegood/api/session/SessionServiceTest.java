@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,8 +19,8 @@ import org.posegood.api.account.AccountService;
 import org.posegood.api.account.UserLocks;
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.KstTime;
+import org.posegood.api.contract.FrameInference;
 import org.posegood.api.contract.FrameInterval;
-import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.Policy;
 import org.posegood.api.contract.SessionRequests;
@@ -35,11 +36,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
- * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). DB·추론은 가짜.
+ * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). 받은 구간은
+ * 서버 시계로 묶었다가 프레임마다 판정한다(계획 0064). DB·추론은 가짜.
  */
 class SessionServiceTest {
     private static final long OWNER = 7;
@@ -50,20 +53,33 @@ class SessionServiceTest {
     private final SessionRepository repository = mock(SessionRepository.class);
     private final InferenceClient inference = mock(InferenceClient.class);
     private final List<SessionUpdates.Progressed> published = new ArrayList<>();
+    /** 켜면 가짜 추론이 502로 실패한다. */
+    private final AtomicBoolean failing = new AtomicBoolean();
 
+    /** 받을 때마다 판정한다(batch-window 0). */
     private SessionService service(Duration unmeasurableTimeout) {
+        return service(unmeasurableTimeout, Duration.ZERO);
+    }
+
+    private SessionService service(Duration unmeasurableTimeout, Duration batchWindow) {
         ApplicationEventPublisher events = event -> {
             if (event instanceof SessionUpdates.Progressed progressed) published.add(progressed);
         };
         var tx = mock(TransactionTemplate.class);
         when(tx.execute(any())).thenAnswer(call -> ((TransactionCallback<?>) call.getArgument(0)).doInTransaction(null));
-        when(inference.infer(any(InferenceRequest.class))).thenAnswer(call -> {
-            InferenceRequest request = call.getArgument(0);
-            boolean valid = request.measurementQuality() == InferenceRequest.MeasurementQuality.good;
-            return new Observation("2.0", request.sequence(), request.startMs(), request.endMs(), request.phase(),
-                    valid, valid ? 0.1 : 0, Observation.DeviationType.none,
-                    "synthetic-v1");
+        // 가짜 추론 v3: 사람이 있는 프레임은 점수 0.1(좋음), 없거나 앱이 판정 불가로 표시한 프레임은 판정 불가.
+        when(inference.infer(any(FrameInference.Request.class))).thenAnswer(call -> {
+            if (failing.get()) throw ApiError.upstream("synthetic inference failure");
+            FrameInference.Request request = call.getArgument(0);
+            var results = request.frames().stream()
+                    .map(frame -> frame.tracked()
+                            ? new FrameInference.Result(frame.tMs(), true, 0.1, Observation.DeviationType.none, null)
+                            : new FrameInference.Result(frame.tMs(), false, 0, Observation.DeviationType.none,
+                                    "unmeasurable"))
+                    .toList();
+            return new FrameInference.Response("3.0", "synthetic-v1", results);
         });
+        when(inference.modelVersion()).thenReturn("synthetic-v1");
         var live = new LiveSessions(events, 8, Duration.ofMinutes(30), Duration.ofHours(6));
         var locks = mock(UserLocks.class);
         when(locks.withLock(anyLong(), any())).thenAnswer(call -> ((Supplier<?>) call.getArgument(1)).get());
@@ -72,7 +88,7 @@ class SessionServiceTest {
         live.add(new LiveSession(row, new SessionEngine(ID, POLICY)));
         return new SessionService(live, repository, mock(BaselineRepository.class),
                 mock(ThresholdPolicyRepository.class), mock(AccountService.class), inference, locks,
-                tx, events, Duration.ofHours(24), unmeasurableTimeout);
+                tx, events, Duration.ofHours(24), unmeasurableTimeout, batchWindow);
     }
 
     /** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
@@ -80,7 +96,7 @@ class SessionServiceTest {
         {0.51234, 0.40211}, {0.53011, 0.3712}, {0.49012, 0.372}, {0.56021, 0.39012}, {0.46011, 0.391},
         {0.52, 0.44}, {0.5, 0.44}, {0.66011, 0.62}, {0.36012, 0.62}
     };
-    private static final FrameFeatures.Features STANDARD = FrameFeatures.baseline(landmarks());
+    private static final SessionRequests.Landmarks BASELINE_POINTS = landmarks();
 
     private static SessionRequests.Landmarks landmarks() {
         var p = new SessionRequests.Point[9];
@@ -103,10 +119,101 @@ class SessionServiceTest {
         return new FrameInterval("3.0", "keypoints-9-v1", sequence, start, start + 500, phase, frames);
     }
 
-    /** 실시간 v2 구간 하나를 넣고 세션 조회 응답을 돌려준다. */
+    /** 프레임이 {@code times}에 찍힌 구간. {@code tracked}가 false인 프레임은 사람이 없다. */
+    private static FrameInterval interval(long sequence, long start, long end, long[] times, boolean[] tracked) {
+        var frames = new ArrayList<FrameInterval.Frame>();
+        for (int index = 0; index < times.length; index++) {
+            List<List<Double>> p = null;
+            if (tracked[index]) {
+                p = new ArrayList<>();
+                for (var joint : UPRIGHT) p.add(List.of(joint[0], joint[1], 0.95));
+            }
+            frames.add(new FrameInterval.Frame(times[index], p, null));
+        }
+        return new FrameInterval("3.0", "keypoints-9-v1", sequence, start, end, FrameInterval.Phase.running, frames);
+    }
+
+    /** 실시간 v2 구간 하나를 넣고(묶음을 넘길 때면 판정) 세션 조회 응답을 돌려준다. */
     private static SessionView feed(SessionService service, UUID id, FrameInterval interval) {
-        service.frames(OWNER, id, interval, STANDARD);
+        service.frames(OWNER, id, interval, BASELINE_POINTS);
+        service.flush(OWNER, id);
         return service.get(OWNER, id);
+    }
+
+    private SessionUpdates.Progressed lastBatch() {
+        for (int index = published.size() - 1; index >= 0; index--)
+            if (published.get(index).live() != null) return published.get(index);
+        throw new AssertionError("no batch was judged");
+    }
+
+    @Test
+    void intervalsWaitForTheWindowAndEndJudgesTheRestFrameByFrame() {
+        var service = service(Duration.ZERO, Duration.ofSeconds(3));
+        for (long sequence = 0; sequence < 3; sequence++)
+            assertEquals(0, feed(service, ID, interval(sequence, FrameInterval.Phase.running, true)).summary().totalMs());
+        verify(inference, never()).infer(any(FrameInference.Request.class));
+        // 같은 순번·앞선 순번은 묶음에 있어도 409다.
+        assertEquals(409, assertThrows(ApiError.class,
+                () -> service.frames(OWNER, ID, interval(2, FrameInterval.Phase.running, true), BASELINE_POINTS)).status());
+
+        service.finish(OWNER, ID, null); // 끊김·종료는 기다리지 않고 남은 묶음을 판정한 뒤 끝낸다
+        verify(inference, times(1)).infer(any(FrameInference.Request.class));
+        var view = service.get(OWNER, ID);
+        assertTrue(view.ended());
+        assertEquals(1500, view.summary().totalMs());
+        assertEquals(1500, view.summary().validMs());
+        var batch = lastBatch();
+        assertEquals(new Observation.V4("4.0", true, "good", 0.1, null), batch.live());
+        assertEquals(2, batch.lastSequence());
+    }
+
+    @Test
+    void restOrAwaySendsTheBatchAtOnce() {
+        var service = service(Duration.ZERO, Duration.ofSeconds(3));
+        feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+        feed(service, ID, interval(1, FrameInterval.Phase.running, false));
+        assertTrue(published.isEmpty());
+        var view = feed(service, ID, interval(2, FrameInterval.Phase.rest, false));
+        assertEquals(1500, view.summary().totalMs());
+        assertEquals(500, view.summary().restMs());
+        // 마지막 판정 가능 프레임은 순번 0의 것이다(순번 1은 사람이 없었다).
+        assertEquals(new Observation.V4("4.0", true, "good", 0.1, null), lastBatch().live());
+        assertEquals("rest", lastBatch().pausedReason());
+    }
+
+    @Test
+    void onlyJudgeableFrameTimeIsValidAndOneFrameCoversAtMostHalfASecond() {
+        var service = service(Duration.ZERO);
+        // 0·200ms 프레임은 다음 프레임까지, 100ms 프레임은 사람이 없다. 200ms 프레임은 0.5초까지만(200~700) 판정한다.
+        var view = feed(service, ID, interval(0, 0, 1000, new long[] {0, 100, 200}, new boolean[] {true, false, true}));
+        assertEquals(1000, view.summary().totalMs());
+        assertEquals(600, view.summary().validMs());
+        assertEquals(400, view.summary().unknownMs());
+        // 구간의 마지막 300ms는 판정 불가라 멈춘 이유는 unmeasurable이다. 관측 4.0은 마지막 판정 가능 프레임(200ms)이다.
+        assertEquals("unmeasurable", lastBatch().pausedReason());
+        assertTrue(lastBatch().live().valid());
+    }
+
+    @Test
+    void aFailedBatchIsDroppedAndItsTimeBecomesMissing() {
+        var service = service(Duration.ZERO);
+        feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+        failing.set(true);
+        service.frames(OWNER, ID, interval(1, FrameInterval.Phase.running, true), BASELINE_POINTS);
+        assertEquals(502, assertThrows(ApiError.class, () -> service.flush(OWNER, ID)).status());
+        failing.set(false);
+        var view = feed(service, ID, interval(2, FrameInterval.Phase.running, true));
+        assertEquals(1500, view.summary().totalMs());
+        assertEquals(500, view.summary().missingMs());
+        assertEquals(1000, view.summary().validMs());
+    }
+
+    @Test
+    void anUnmeasurableBatchSaysWhy() {
+        var service = service(Duration.ZERO);
+        feed(service, ID, interval(0, FrameInterval.Phase.running, false));
+        assertEquals(new Observation.V4("4.0", false, null, 0, "unmeasurable"), lastBatch().live());
+        assertEquals("unmeasurable", lastBatch().pausedReason());
     }
 
     @Test
