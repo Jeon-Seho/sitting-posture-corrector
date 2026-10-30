@@ -31,5 +31,5 @@ it('keeps arm indices 13–22 apart from the shoulder-up observation for /dev re
   expect(arms.armWorldLandmarks).toEqual(world.slice(13, 23))
   points[15].x = 0.9
   expect(arms.armLandmarks[2].x).toBe(15 / 33)
-  expect(armLandmarks({ landmarks: [], worldLandmarks: [] })).toEqual({ armLandmarks: [], armWorldLandmarks: [] })
+  expect(armLandmarks({ landmarks: [], worldLandmarks: [] })).toEqual({ armLandmarks: [], armWorldLandmarks: [], extraLandmarks: [], extraWorldLandmarks: [] })
 })

@@ -10,6 +10,7 @@ import { boldNumbers } from './observationTypography'
 import { downloadObservationReplay, replayFeatures, replayFrameAt, replayImageValid, replayIndexAt,
   type ObservationReplayData, type ReplayPhase } from './observationReplay'
 import { DepthNote, ObservationMetrics } from './ObservationMetrics'
+import { downloadObservationFeatures } from './observationFeatureExport'
 import { replayMetricSeries, replayMetricsAt } from './observationReplayMetrics'
 import { ObservationReplaySettings } from './ObservationReplaySettings'
 import { ObservationReplayInfo } from './ObservationReplayInfo'
@@ -86,7 +87,8 @@ export function ObservationReplay({ visible, active, count, dropped, getRecordin
     <div className="oc-player-file-actions">
       <button disabled={active} aria-pressed={source === 'file' && !!data} onClick={openImport}>파일 불러오기</button>
       <button disabled={active || !count} aria-pressed={source === 'cycle' && !!data} onClick={currentRecording}>최근 측정 보기</button>
-      <button disabled={active || !data} onClick={() => { if (data) downloadObservationReplay(data) }}>키포인트 JSON 저장</button>
+      <button disabled={active || !data} onClick={() => { if (data) downloadObservationReplay(data) }}>전체 데이터 JSON</button>
+      <button disabled={active || !data} onClick={() => { if (data) downloadObservationFeatures(data) }}>ML 후보 특징 JSON</button>
     </div>
     <div className="oc-setting-field"><span>재생 속도</span><SelectMenu label="재생 속도" value={String(speed)} disabled={active || !data} onChange={value => setSpeed(Number(value))} options={[.25,.5,1,2].map(rate => ({ value: String(rate), label: `${rate}배` }))} /></div>
     <div className="oc-setting-field"><span>좌표 보기</span><SelectMenu label="리플레이 좌표 보기" value={view} disabled={active || !data} onChange={value => setView(value as typeof view)} options={[{ value: 'image', label: '화면 키포인트' }, { value: 'model-front', label: 'ML 입력 · 정면' }, { value: 'model-side', label: 'ML 입력 · 측면' }]} /></div>

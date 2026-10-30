@@ -35,7 +35,7 @@ describe('isolated keypoint player', () => {
     act(() => button('재생').props.onClick()); act(() => { vi.advanceTimersByTime(1000) })
     expect(position().props.value).toBe(1000); expect(button('재생')).toBeDefined()
     expect(getRecording).toHaveBeenCalledOnce()
-    act(() => button('키포인트 JSON 저장').props.onClick()); expect(downloadObservationReplay).toHaveBeenCalledOnce()
+    act(() => button('전체 데이터 JSON').props.onClick()); expect(downloadObservationReplay).toHaveBeenCalledOnce()
   })
   it('seeks by five seconds from a nonzero start, clamps endpoints and pauses', () => {
     const next = data(); next.runId = 'synthetic-five-second-seek'

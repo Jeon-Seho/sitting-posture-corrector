@@ -1,5 +1,7 @@
 # 아키텍처와 경계
 
+2026-10-30부터 `/dev` 사이클은 [ADR 0044](decisions/0044-optional-stretch-cycles.md)를 따른다. 기존 이탈·스트레칭 고정 순서 설명보다 우선한다.
+
 2026-10-12 개발 우선순위는 로컬 측정·개인 기준 특징이다. 서버 확장은 후순위로 둔다.
 [로컬 개발과 서버 연결 경계](decisions/0024-local-development-server-boundary.md): 모델 코어·버전 있는 결과·실행 어댑터를 분리해 서버 연결을 준비한다. 아래 FE 서버 전용 전환은 현재 로컬 ML 개발 경로와 구분한다.
 완료된 기준 등록의 13점 시계열은 [기준 자료 보존 결정](decisions/0022-local-baseline-archive.md)에 따라 별도 IndexedDB에 저장하며 서버로 보내지 않는다.

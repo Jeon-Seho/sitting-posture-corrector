@@ -1,11 +1,11 @@
 export const OBSERVATION_REFERENCE_MS = 8000
 import type { ComparisonAction } from './comparisonDemo'
 
-/** Base → deviation → base → seated stretch. Labels are guided tasks, never verified movement. */
+/** Base → deviation → base → deviation or seated stretch. Labels are guided tasks, never verified movement. */
 export const OBSERVATION_PROTOCOL = {
-  id: 'front-observation-deviation-stretch-v4',
+  id: 'front-observation-optional-stretch-v6',
   actions: ['deviation', 'stretch'],
-  roundOptions: [1, 3],
+  roundOptions: [1, 2, 3, 4, 5],
   moveMs: 2000,
   holdMs: { deviation: 5000, stretch: 8000 },
   returnMs: 5000,
@@ -13,23 +13,22 @@ export const OBSERVATION_PROTOCOL = {
 } as const
 export type GuidedPhase = 'move' | 'hold' | 'return'
 export type GuideMode = 'auto' | 'manual'
-export type GuidePlan = { rounds: typeof OBSERVATION_PROTOCOL.roundOptions[number]; shuffle: boolean }
-export const DEFAULT_GUIDE_PLAN: GuidePlan = { rounds: 1, shuffle: true }
+export type GuidePlan = { rounds: typeof OBSERVATION_PROTOCOL.roundOptions[number]; shuffle: boolean; cycle?: 'repeat' | 'stretch'; stretchNote?: string }
+export const DEFAULT_GUIDE_PLAN: GuidePlan = { rounds: 1, shuffle: false, cycle: 'repeat', stretchNote: '' }
 export type GuidePauseReason = 'user' | 'hidden' | 'tracking_lost' | 'clock_gap'
 export type GuidedStep = { round: number; trial: number; action: Exclude<ComparisonAction, 'neutral'>; phase: GuidedPhase; durationMs: number }
 export type GuideSnapshot = {
-  status: 'idle' | 'running' | 'waiting' | 'paused' | 'completed' | 'cancelled'
+  status: 'idle' | 'running' | 'waiting' | 'note' | 'paused' | 'completed' | 'cancelled'
   mode: GuideMode
   runId: string; step: GuidedStep | null; stepIndex: number; attempt: number
   elapsedMs: number; remainingMs: number; pauseReason: GuidePauseReason | null
   plan: GuidePlan; stepCount: number; next: GuidedStep | null
 }
 
-/** Each round guides both actions once; shuffle only changes the order inside a round. */
-export function observationSteps(plan: GuidePlan = DEFAULT_GUIDE_PLAN, random: () => number = Math.random): GuidedStep[] {
+/** Each round has two tasks, each followed by a return to the reference posture. */
+export function observationSteps(plan: GuidePlan = DEFAULT_GUIDE_PLAN, _random: () => number = Math.random): GuidedStep[] {
   return Array.from({ length: plan.rounds }, (_, round) => {
-    const actions = [...OBSERVATION_PROTOCOL.actions]
-    if (plan.shuffle && random() < 0.5) actions.reverse()
+    const actions: Array<'deviation' | 'stretch'> = plan.cycle === 'stretch' ? ['deviation', 'stretch'] : ['deviation', 'deviation']
     return actions.flatMap((action, i) => ([['move', OBSERVATION_PROTOCOL.moveMs], ['hold', OBSERVATION_PROTOCOL.holdMs[action]], ['return', OBSERVATION_PROTOCOL.returnMs]] as const)
       .map(([phase, durationMs]) => ({ round: round + 1, trial: round * actions.length + i + 1, action, phase, durationMs })))
   }).flat()
@@ -58,8 +57,8 @@ export class ObservationProtocol {
       plan: this.plan, stepCount: this.steps.length, next }
   }
   start(now: number, runId: string, mode: GuideMode = 'auto', plan: GuidePlan = { ...DEFAULT_GUIDE_PLAN, shuffle: false }, random: () => number = Math.random) {
-    if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused' || this.status === 'waiting') return false
-    if (!OBSERVATION_PROTOCOL.roundOptions.includes(plan.rounds)) return false
+    if (!Number.isFinite(now) || this.status === 'running' || this.status === 'paused' || this.status === 'waiting' || this.status === 'note') return false
+    if (!OBSERVATION_PROTOCOL.roundOptions.includes(plan.rounds) || (plan.cycle !== undefined && !['repeat', 'stretch'].includes(plan.cycle)) || (plan.stretchNote !== undefined && (typeof plan.stretchNote !== 'string' || plan.stretchNote.length > 120))) return false
     this.mode = mode; this.plan = { ...plan }; this.steps = observationSteps(this.plan, random)
     this.status = mode === 'manual' ? 'waiting' : 'running'; this.runId = runId; this.index = 0; this.attempt = 1
     this.started = this.last = now; this.frozen = 0; this.reason = null
@@ -87,8 +86,13 @@ export class ObservationProtocol {
       this.frozen = this.steps[this.index].durationMs; this.status = 'completed'; return 'completed'
     }
     // Each instruction receives its full visible time, even after a delayed callback.
-    this.index++; this.status = this.mode === 'manual' && this.steps[this.index].phase === 'move' ? 'waiting' : 'running'; this.attempt = 1; this.started = this.last = now; this.frozen = 0
+    this.index++; const step = this.steps[this.index]; this.status = step.action === 'stretch' && step.phase === 'move' ? 'note' : this.mode === 'manual' && step.phase === 'move' ? 'waiting' : 'running'; this.attempt = 1; this.started = this.last = now; this.frozen = 0
     return 'phase'
+  }
+  finishNote(now: number) {
+    if (this.status !== 'note' || !Number.isFinite(now) || now < this.last) return false
+    this.status = this.mode === 'manual' ? 'waiting' : 'running'; this.started = this.last = now; this.frozen = 0
+    return true
   }
   pause(reason: GuidePauseReason) {
     if (this.status !== 'running') return false
@@ -101,7 +105,7 @@ export class ObservationProtocol {
     return true
   }
   cancel(now: number) {
-    if (this.status !== 'running' && this.status !== 'paused' && this.status !== 'waiting') return false
+    if (this.status !== 'running' && this.status !== 'paused' && this.status !== 'waiting' && this.status !== 'note') return false
     this.frozen = this.snapshot(now).elapsedMs; this.status = 'cancelled'
     return true
   }

@@ -1,5 +1,7 @@
 # 개발자 실험실 `/dev`
 
+> 현재 사이클은 [ADR 0044](../decisions/0044-optional-stretch-cycles.md)를 따른다. 기본은 이탈·복귀 반복이며 스트레칭은 선택한다.
+
 2026-10-26부터 `/dev`는 [동작 관측·리플레이 화면](../decisions/0042-unified-dev-observation-route.md)으로
 통일했다.
 

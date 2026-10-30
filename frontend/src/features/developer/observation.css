@@ -791,3 +791,53 @@
 .dev-lab .oc-status-legend strong { color: var(--oc-text); }
 .dev-lab .oc-legend-icon { flex: 0 0 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--oc-badge-background); }
 @media (prefers-reduced-motion: reduce) { .dev-lab .oc-status-dots[data-animated=true] i { animation: none; } }
+
+.dev-lab .oc-mode-options input[type=text] { display: block; width: 100%; margin-top: 10px; }
+
+/* Keep the dialog actions fixed and use the same floating scroll cues as the observation tools. */
+.dev-lab.oc-page .oc-mode-dialog .confirm-dialog[open] { display: flex; flex-direction: column; max-height: calc(100svh - 32px); overflow: hidden; box-sizing: border-box; }
+.dev-lab.oc-page .oc-mode-dialog .profile-text { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.dev-lab .oc-mode-scroll { height: 100%; max-height: 100%; }
+.dev-lab .oc-mode-scroll .oc-panel-scroll { padding: 4px 4px 24px; }
+.dev-lab .oc-cycle-count { margin-top: 22px; }
+.dev-lab .oc-cycle-count > label, .dev-lab .oc-stretch-dialog label { display: block; font-size: 13px; font-weight: 650; color: var(--oc-text); }
+.dev-lab .oc-cycle-count > p { margin: 4px 0 8px; }
+.dev-lab .oc-cycle-count input { width: 100px; }
+.dev-lab .oc-cycle-count [role=alert] { display: block; color: var(--oc-warning); font-size: 12px; }
+.dev-lab .oc-stretch-dialog input { width: 100%; box-sizing: border-box; margin-top: 8px; }
+@media (min-width: 1100px) and (min-height: 561px) {
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock { background: rgb(0 0 0 / 30%); backdrop-filter: blur(4px); }
+  .dev-lab .oc-coview .oc-guide[data-measuring=false] .oc-guide-clock > .oc-clock-count > strong { color: #d5ff72; }
+}
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog::backdrop { background: rgb(0 0 0 / 24%); }
+
+/* shadcn/ui-inspired input, dialog and button states using the observation theme. */
+.dev-lab.oc-page { --oc-field-border: #494b50; --oc-field-bg: #18181b; --oc-field-placeholder: #a1a1aa; --oc-field-ring: rgb(96 165 250 / 32%); }
+.dev-lab.oc-page[data-theme=light] { --oc-field-border: #d4d4d8; --oc-field-bg: #fff; --oc-field-placeholder: #71717a; --oc-field-ring: rgb(37 99 235 / 22%); }
+.dev-lab.oc-page .oc-field-input { display: block; width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; padding: 0 13px; border: 1px solid var(--oc-field-border); border-radius: 8px; background: var(--oc-field-bg); color: var(--oc-text); font: inherit; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 2px rgb(0 0 0 / 5%); transition: border-color 150ms ease, box-shadow 150ms ease; }
+.dev-lab.oc-page .oc-field-input::placeholder { color: var(--oc-field-placeholder); opacity: 1; }
+.dev-lab.oc-page .oc-field-input:focus-visible { outline: none; border-color: var(--oc-action-blue); box-shadow: 0 0 0 3px var(--oc-field-ring); }
+.dev-lab.oc-page .oc-field-input[aria-invalid=true] { border-color: #ef6474; }
+.dev-lab.oc-page .oc-field-input[aria-invalid=true]:focus-visible { box-shadow: 0 0 0 3px rgb(239 100 116 / 24%); }
+.dev-lab .oc-cycle-count > p { margin: 6px 0 12px; font-size: 13px; line-height: 1.5; }
+.dev-lab .oc-count-input { position: relative; width: 140px; max-width: 100%; }
+.dev-lab .oc-count-input .oc-field-input { width: 100%; padding-right: 48px; font-variant-numeric: tabular-nums; }
+.dev-lab .oc-count-input > span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--oc-muted); font-size: 13px; pointer-events: none; }
+.dev-lab .oc-count-input input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+.dev-lab .oc-count-input input::-webkit-inner-spin-button, .dev-lab .oc-count-input input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.dev-lab .oc-cycle-count [role=alert] { margin-top: 8px; color: #ef6474; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog { width: min(480px, calc(100% - 32px)); padding: 26px; border: 1px solid var(--oc-field-border); border-radius: 12px; box-sizing: border-box; box-shadow: 0 20px 60px rgb(0 0 0 / 28%); }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog h2 { margin: 0; font-size: 19px; line-height: 1.35; letter-spacing: -.025em; font-weight: 650; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .oc-stretch-description { margin: 8px 0 0; font-size: 14px; line-height: 1.6; }
+.dev-lab .oc-stretch-field { margin-top: 24px; }
+.dev-lab .oc-stretch-field label { display: flex; align-items: baseline; gap: 7px; font-size: 14px; font-weight: 600; }
+.dev-lab .oc-stretch-field label span { color: var(--oc-muted); font-size: 12px; font-weight: 400; }
+.dev-lab .oc-stretch-field .oc-field-input { margin-top: 9px; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .oc-stretch-field p { margin: 8px 0 0; color: var(--oc-muted); font-size: 12px; line-height: 1.6; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions { gap: 8px; margin-top: 26px; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions button { min-height: 40px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions .btn:not(.btn-danger) { border: 1px solid var(--oc-field-border); background: transparent; color: var(--oc-text); }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions .btn:not(.btn-danger):hover { background: var(--oc-button); }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions .btn-danger { background: var(--oc-action-blue); color: #fff; }
+.dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions .btn-danger:hover { background: var(--oc-action-blue-hover); }
+@media (max-width: 480px) { .dev-lab.oc-page .oc-stretch-dialog .confirm-dialog { padding: 22px; } .dev-lab.oc-page .oc-stretch-dialog .confirm-dialog .form-actions { flex-wrap: wrap; } }

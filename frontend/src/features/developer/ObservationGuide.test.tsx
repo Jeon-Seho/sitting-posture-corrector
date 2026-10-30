@@ -29,7 +29,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => ui.root.findByProps({ 'aria-label': '기준 자세 등록 시작' }).props.onClick())
     expect(onStartReference).toHaveBeenCalledOnce()
     const meta = ui.root.findByProps({ className: 'oc-clock-meta' })
-    expect(meta.findAllByType('span').map(text)).toEqual(['시작 준비', '2동작 · 1바퀴'])
+    expect(meta.findAllByType('span').map(text)).toEqual(['시작 준비', '2동작 · 1사이클'])
     expect(timer().props['aria-live']).toBe('off')
     const stop = ui.root.findAllByType('button').find(button => button.props['aria-label'] === '측정 종료')!
     expect(stop.props.disabled).not.toBe(true)
@@ -100,8 +100,8 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => ui.unmount())
   })
   it('keeps the seated stretch task and next instruction visible during its longer measurement', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-stretch-copy')
-    for (let now = 100; now <= 17000; now += 100) protocol.advance(now)
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-stretch-copy', 'auto', { rounds: 1, shuffle: false, cycle: 'stretch' })
+    for (let now = 100; now <= 17000; now += 100) { protocol.advance(now); if (protocol.snapshot(now).status === 'note') protocol.finishNote(now) }
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(17000)} ready {...controls} />) })
     expect(text(ui.root.findByProps({ role: 'status' }))).toContain('앉은 채 스트레칭을 이어가세요')
@@ -124,7 +124,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     for (let now = 10100; now <= 15000; now += 100) protocol.advance(now)
     act(() => ui.update(<ObservationGuide guide={protocol.snapshot(15000)} ready {...controls} />))
     expect(text(ui.root.findByProps({ className: 'oc-clock-label' }))).toBe('복귀 준비')
-    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('앉은 채 스트레칭')
+    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('이탈 자세')
     act(() => ui.unmount())
   })
   it('marks only an active hold as measuring and shows instructions for other phases', () => {
@@ -148,7 +148,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(0)} ready={false} active={false} hasRecording onDownload={onDownload} {...controls} onStart={onStart} />) })
     const buttons = ui.root.findAllByType('button')
-    expect(buttons.map(text)).toEqual(['다시 측정', 'JSON 다운로드'])
+    expect(buttons.map(text)).toEqual(['다시 측정', '전체 데이터 JSON', 'ML 후보 특징 JSON'])
     act(() => buttons[0].props.onClick()); expect(onStart).toHaveBeenCalledOnce()
     act(() => buttons[1].props.onClick()); expect(onDownload).toHaveBeenCalledOnce()
     act(() => ui.unmount())

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ObservationProtocol, observationSteps } from './observationProtocol'
 
-const THREE = { rounds: 3, shuffle: false } as const
+const THREE = { rounds: 3, shuffle: false, cycle: 'stretch' } as const
 const STEPS = observationSteps(THREE)
 
 describe('requested observation guidance clock, independent of measured posture', () => {
@@ -9,6 +9,7 @@ describe('requested observation guidance clock, independent of measured posture'
     const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-manual', 'manual', THREE)
     let now = 0
     for (const [index, step] of STEPS.entries()) {
+      if (protocol.snapshot(now).status === 'note') { expect(protocol.next(now + 1)).toBe('none'); expect(protocol.finishNote(now)).toBe(true) }
       if (step.phase === 'move') {
         expect(protocol.snapshot(now)).toMatchObject({ status: 'waiting', stepIndex: index, remainingMs: 0, step: { durationMs: 0 } })
         expect(protocol.next(now)).toBe('none')
@@ -37,6 +38,7 @@ describe('requested observation guidance clock, independent of measured posture'
     for (let now = 100; now <= 81000; now += 100) {
       const before = protocol.snapshot(now), result = protocol.advance(now)
       if (result === 'phase' || result === 'completed') { boundaries.push(now); completed.push(before) }
+      if (protocol.snapshot(now).status === 'note') protocol.finishNote(now)
     }
     expect(boundaries.slice(0, 6)).toEqual([2000, 7000, 12000, 14000, 22000, 27000])
     expect(completed).toHaveLength(18)
@@ -46,14 +48,33 @@ describe('requested observation guidance clock, independent of measured posture'
     expect(protocol.snapshot(81000).status).toBe('completed')
     expect(protocol.advance(200000)).toBe('none')
   })
-  it('defaults to one unshuffled round and only reorders actions inside each round when shuffling', () => {
-    expect(observationSteps({ rounds: 1, shuffle: false }).filter(s => s.phase === 'hold').map(s => s.action)).toEqual(['deviation', 'stretch'])
-    const rolls = [0.1, 0.9, 0.1]
-    const shuffled = observationSteps({ rounds: 3, shuffle: true }, () => rolls.shift()!).filter(s => s.phase === 'hold')
-    expect(shuffled.map(s => [s.round, s.trial, s.action])).toEqual([[1, 1, 'stretch'], [1, 2, 'deviation'], [2, 3, 'deviation'], [2, 4, 'stretch'], [3, 5, 'stretch'], [3, 6, 'deviation']])
+  it('defaults to repeating deviation and offers a separate stretch cycle', () => {
+    expect(observationSteps().filter(s => s.phase === 'hold').map(s => s.action)).toEqual(['deviation', 'deviation'])
+    expect(observationSteps({ rounds: 1, shuffle: false, cycle: 'stretch' }).map(s => [s.action, s.phase])).toEqual([
+      ['deviation', 'move'], ['deviation', 'hold'], ['deviation', 'return'],
+      ['stretch', 'move'], ['stretch', 'hold'], ['stretch', 'return'],
+    ])
     const protocol = new ObservationProtocol()
-    expect(protocol.snapshot(0)).toMatchObject({ stepCount: 6, plan: { rounds: 1 }, next: { action: 'deviation', phase: 'move' } })
-    expect(protocol.start(0, 'synthetic-bad-plan', 'auto', { rounds: 2 as 1, shuffle: false })).toBe(false)
+    expect(protocol.snapshot(0)).toMatchObject({ stepCount: 6, plan: { rounds: 1, cycle: 'repeat' }, next: { action: 'deviation', phase: 'move' } })
+    expect(protocol.start(0, 'synthetic-bad-plan', 'auto', { rounds: 6 as 1, shuffle: false })).toBe(false)
+  })
+  it.each(['auto', 'manual'] as const)('waits before every stretch until a note is submitted in %s mode', mode => {
+    const protocol = new ObservationProtocol()
+    protocol.start(0, 'synthetic-note', mode, { rounds: 2, shuffle: false, cycle: 'stretch' })
+    let now = 0, prompts = 0
+    while (protocol.snapshot(now).status !== 'completed' && now < 200000) {
+      const state = protocol.snapshot(now)
+      if (state.status === 'note') {
+        prompts++; const before = state.stepIndex
+        now += 10000
+        expect(protocol.advance(now)).toBe('none')
+        expect(protocol.next(now)).toBe('none')
+        expect(protocol.snapshot(now)).toMatchObject({ status: 'note', stepIndex: before, elapsedMs: 0 })
+        expect(protocol.finishNote(now)).toBe(true)
+      } else if (state.status === 'waiting') { now += 100; protocol.next(now) }
+      else { now += 100; protocol.advance(now) }
+    }
+    expect(prompts).toBe(2); expect(protocol.snapshot(now).status).toBe('completed')
   })
   it('freezes a paused hold and restarts that phase with a separate attempt on explicit resume', () => {
     const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-pause')

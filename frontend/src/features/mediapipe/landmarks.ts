@@ -20,5 +20,7 @@ export function armLandmarks(result: PoseResult) {
   return {
     armLandmarks: copy(result.landmarks[0] ?? []),
     armWorldLandmarks: copy(result.worldLandmarks[0] ?? []),
+    extraLandmarks: (result.landmarks[0] ?? []).slice(ARM_LANDMARK_END, 33).map(point => ({ ...point })),
+    extraWorldLandmarks: (result.worldLandmarks[0] ?? []).slice(ARM_LANDMARK_END, 33).map(point => ({ ...point })),
   }
 }

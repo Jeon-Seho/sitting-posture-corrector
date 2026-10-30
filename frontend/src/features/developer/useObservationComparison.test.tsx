@@ -61,11 +61,26 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜기')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled()
     expect(renderer.root.findByType('dialog').props['aria-modal']).toBe('true')
-    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['auto', 'manual', 1, 3])
+    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['repeat', 'stretch', 'manual', 'auto'])
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '취소')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled(); expect(renderer.root.findAllByType('dialog')).toHaveLength(0)
 
   })
+  it('prompts for the stretch at the camera immediately before preparing it', async () => {
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
+    act(() => button('카메라 켜기').props.onClick())
+    act(() => renderer.root.findAllByProps({type: 'radio'}).find(r => r.props.value === 'stretch')!.props.onChange())
+    expect(renderer.root.findAllByProps({id: 'stretch-note'})).toHaveLength(0)
+    act(() => renderer.root.findAllByProps({type: 'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
+    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
+    registerUI(); frames(2000, 22000)
+    const input = renderer.root.findByProps({ id: 'stretch-note' })
+    expect(text(renderer.root.findByType('dialog'))).toContain('어떤 스트레칭을 할까요?')
+    act(() => input.props.onChange({ target: { value: '팔 뻗기' } }))
+    await act(async () => { await button('준비하기').props.onClick() })
+    expect(renderer.root.findAllByProps({ id: 'stretch-note' })).toHaveLength(0)
+  }, 15000)
   it('switches themes without reconnecting the camera and remembers the choice on remount', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) })
@@ -104,6 +119,19 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(current.reference).not.toBeNull(); expect(current.guide).toMatchObject({ status: 'running', mode: 'auto', step: { phase: 'move' } })
     expect(current.measuring).toBe(false)
   })
+  it('stops safely at the recording limit and retains every recorded frame', () => {
+    mount(); start()
+    act(() => {
+      for (let t = 0; t < 600000; t += 100) {
+        wall = t
+        listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t })
+      }
+    })
+    expect(current.recordingLimitReached).toBe(true); expect(current.active).toBe(false)
+    expect(current.replayCount).toBe(6000); expect(current.replayDropped).toBe(0)
+    expect(current.getReplay()!.frames.at(-1)?.elapsedMs).toBe(599900)
+    expect(camera.stop).toHaveBeenCalled()
+  }, 30000)
   it('never starts registration by waiting and rejects confirmation without fresh tracking', () => {
     mount(); start(); frames(0, 15000)
     expect(current.setup.status).toBe('preparing'); expect(current.registering).toBe(false); expect(current.reference).toBeNull()
@@ -140,7 +168,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => button('카메라 켜기').props.onClick())
     act(() => renderer.root.findAllByProps({type:'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
     await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    // A continuous 5 Hz stream covers every boundary of one default round (registration ends at 10 s, the round lasts 27 s).
+    // A continuous 5 Hz stream covers every boundary of one default round (registration ends at 10 s, the default round lasts 24 s).
     for (let t = 0; t <= 40000; t += 200) {
       wall = t
       act(() => listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t }))
@@ -149,7 +177,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => renderer.root.findAllByProps({role:'tab'})[1].props.onClick())
     expect(button('최근 측정 보기').props['aria-pressed']).toBe(true)
     expect(button('재생').props.disabled).toBe(false)
-    expect(renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.max).toBe(37000)
+    expect(renderer.root.findByProps({ 'aria-label': '리플레이 위치' }).props.max).toBe(34000)
     expect(renderer.root.findAllByType('button').some(b => text(b) === '현재 기록 불러오기')).toBe(false)
     expect(renderer.root.findAllByProps({type:'file'})).toHaveLength(0)
   }, 15000)
@@ -252,7 +280,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(renderer.root.findAllByProps({ className: 'oc-status' })).toHaveLength(0)
     expect(renderer.root.findAllByProps({ className: 'oc-guide-notice' })).toHaveLength(0)
     expect(button('다시 측정')).toBeDefined()
-    act(() => button('JSON 다운로드').props.onClick())
+    act(() => button('전체 데이터 JSON').props.onClick())
     const downloaded = vi.mocked(downloadObservationReplay).mock.calls.at(-1)![0]
     expect(downloaded.frames.length).toBeGreaterThan(0)
     expect(downloaded.frames.some(frame => frame.measurement)).toBe(true)
@@ -325,7 +353,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     const scrollIntoView = vi.fn(), focus = vi.fn()
     act(() => { renderer = create(<ObservationLab camera={camera} />, { createNodeMock: element => element.props['aria-label'] === '카메라와 동작 안내' ? { scrollIntoView, focus } : null }) })
     const click = (label: string) => act(() => renderer.root.findAllByType('button').find(button => (button.props['aria-label'] ?? button.props.children) === label)!.props.onClick())
-    click('카메라 켜기'); act(() => renderer.root.findAllByProps({ type: 'radio' })[0].props.onChange())
+    click('카메라 켜기'); act(() => renderer.root.findAllByProps({ type: 'radio' }).find(r => r.props.value === 'auto')!.props.onChange())
     await act(async () => { await renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜고 시작')!.props.onClick() }); registerUI(); frames(2000, 9900); expect(focus).not.toHaveBeenCalled()
     emit(10000); expect(scrollIntoView).toHaveBeenCalledOnce(); expect(focus).toHaveBeenCalledWith({ preventScroll: true })
     frames(10100, 12300); click('잠깐 멈춤'); emit(12400); click('현재 단계 처음부터 재개')
@@ -361,7 +389,7 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(current.guide).toMatchObject({ status: 'waiting', step: { phase: 'move', durationMs: 0 } })
     const rows = exportRows(), phase = rows.filter(row => row.event === 'protocol_phase_completed')
     expect(phase).toHaveLength(1)
-    expect(phase[0]).toMatchObject({ protocol_id: 'front-observation-deviation-stretch-v4', protocol_mode: 'manual', protocol_phase: 'move', protocol_phase_duration_ms: '0' })
+    expect(phase[0]).toMatchObject({ protocol_id: 'front-observation-optional-stretch-v6', protocol_mode: 'manual', protocol_phase: 'move', protocol_phase_duration_ms: '0' })
     expect(rows.filter(row => row.event === 'observation')).toHaveLength(0)
   })
   it('rejects early and repeated next calls, then gives every manual phase its full time', () => {
@@ -376,7 +404,14 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => current.changeGuideMode('auto')); expect(current.guideMode).toBe('manual')
   })
   it('records all 18 automatic boundaries of three rounds and only 6 holds, then stops without losing CSV', () => {
-    mount(); act(() => current.changeGuidePlan({ rounds: 3, shuffle: false })); register(); frames(10100, 95000)
+    mount(); act(() => current.changeGuidePlan({ rounds: 3, shuffle: false, cycle: 'stretch', stretchNote: '' })); register(); frames(10100, 22000)
+    expect(current.guide.status).toBe('note'); const before = current.traceCount
+    frames(22100, 24000); expect(current.traceCount).toBe(before)
+    act(() => current.finishStretchNote('팔 뻗기'))
+    frames(24100, 51000); expect(current.guide.status).toBe('note'); act(() => current.finishStretchNote('기지개'))
+    frames(51100, 78000); expect(current.guide.status).toBe('note'); act(() => current.finishStretchNote(''))
+    frames(78100, 95000)
+    expect(current.getReplay()!.stretchNotes).toEqual([{round: 1, trial: 2, note: '팔 뻗기'}, {round: 2, trial: 4, note: '기지개'}, {round: 3, trial: 6, note: ''}])
     expect(current.guide.status).toBe('completed'); expect(current.active).toBe(false)
     const rows = exportRows(), boundaries = rows.filter(r => r.event === 'protocol_phase_completed')
     expect(boundaries).toHaveLength(18)
@@ -385,8 +420,16 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     const observations = rows.filter(r => r.event === 'observation')
     expect(new Set(observations.map(r => `${r.protocol_round}:${r.protocol_task_action}`)).size).toBe(6)
     expect(observations.every(r => r.protocol_phase === 'hold' && +r.protocol_phase_elapsed_ms < (r.protocol_task_action === 'stretch' ? 8000 : 5000) && r.protocol_mode === 'auto')).toBe(true)
-    expect(current.getReplay()!.plan).toEqual({ rounds: 3, shuffle: false })
+    expect(current.getReplay()!.plan).toEqual({ rounds: 3, shuffle: false, cycle: 'stretch', stretchNote: '' })
     expect(rows.at(-1)).toMatchObject({ event: 'stopped', protocol_state: 'completed' })
+  })
+  it('keeps the automatic timer paused when tracking is lost during the stretch note', () => {
+    mount(); act(() => current.changeGuidePlan({ rounds: 1, shuffle: false, cycle: 'stretch', stretchNote: '' }))
+    register(); frames(10100, 22000); expect(current.guide.status).toBe('note')
+    emit(22100, { invalid: true }); act(() => current.finishStretchNote('팔 뻗기'))
+    expect(current.guide).toMatchObject({ status: 'paused', pauseReason: 'tracking_lost', elapsedMs: 0 })
+    expect(current.measuring).toBe(false)
+    expect(current.getReplay()!.stretchNotes).toEqual([{ round: 1, trial: 2, note: '팔 뻗기' }])
   })
   it('pauses hidden measurements, excludes recovered frames until explicit resume and separates retries', () => {
     mount(); register(); frames(10100, 13000)

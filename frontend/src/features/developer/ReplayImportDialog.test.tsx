@@ -29,7 +29,7 @@ describe('replay import modal', () => {
   })
   it.each(['multiple','oversized','extension'])('rejects %s selection and disables confirmation', kind => {
     const {onLoad} = mount()
-    drop(kind === 'multiple' ? [file(),file()] : [file(undefined, kind === 'oversized' ? {size:33*1024*1024} : {name:'wrong.csv'})])
+    drop(kind === 'multiple' ? [file(),file()] : [file(undefined, kind === 'oversized' ? {size:65*1024*1024} : {name:'wrong.csv'})])
     expect(ui.root.findByProps({role:'alert'})).toBeDefined()
     expect(button('불러오기').props.disabled).toBe(true); expect(onLoad).not.toHaveBeenCalled()
   })

@@ -26,6 +26,9 @@ export type PoseFrame = {
   /** Original indices 13..22 for the /dev keypoint replay only; service judging never reads them. */
   armLandmarks?: Landmark[]
   armWorldLandmarks?: Landmark[]
+  /** Original indices 23..32, retained for explicit /dev full export only. */
+  extraLandmarks?: Landmark[]
+  extraWorldLandmarks?: Landmark[]
   inferenceMs: number
   delegate: PoseDelegate
   width: number

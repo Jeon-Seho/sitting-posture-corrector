@@ -1,3 +1,5 @@
+> 현재 `/dev` 측정 사이클은 [선택형 스트레칭 결정](../docs/decisions/0044-optional-stretch-cycles.md)을 따른다. 기본은 이탈·기준 복귀 반복이다.
+
 # PoseGood 웹캠 프로토타입
 
 ## 개발자 실험실

@@ -1,5 +1,9 @@
 # PoseGood 디자인 시스템
 
+## 필수 UI 기준
+
+모든 신규·수정 UI는 **[shadcn/ui](https://ui.shadcn.com/)**를 디자인 기준으로 한다. [Input](https://ui.shadcn.com/docs/components/radix/input), [Button](https://ui.shadcn.com/docs/components/radix/button), [Dialog](https://ui.shadcn.com/docs/components/radix/dialog)의 구조와 시각적 위계, 상태·키보드 접근성을 따른다. 프로젝트의 색·타이포그래피를 테마로 적용하고 기본 브라우저 입력 스타일을 그대로 두지 않는다. 기존 컴포넌트의 동작과 접근성을 보존하며, 실제 shadcn 컴포넌트 도입 여부는 현재 의존성과 구현을 확인한다. 이 기준은 아래의 과거 모양 지침과 충돌하면 우선한다.
+
 따뜻한 건강 톤의 **데스크톱 앱**(Electron 창, 최소 800×600) 기준이다. 발표 설명용 문구를 빼고, 큰 카메라 화면과 짧은 안내로 사용자가
 "지금 내 자세"만 보면 되도록 한다. 토큰의 원본은 `frontend/src/styles/base.css`의 `:root`이며, 결정 배경은
 [ADR 0017](docs/decisions/0017-desktop-app-shell-and-redesign.md), 화면별 구현 위치는 [데스크톱 앱 설계](docs/design/desktop-app.md)에 있다.

@@ -6,6 +6,8 @@
 - 이전: [관측 진행과 CSV](0040-observation-guide-modes.md), [관측 키포인트 리플레이](0041-observation-keypoint-replay.md)
 - 상세: [재설계 계획 G4](../ml/rebuild-plan.md#출력-점수-3클래스-softmax-2026-10-29-사용자-결정), [리플레이 점검 기록](../ml/jisung/2026-10-29-desktop-replay-training-feasibility.md)
 
+> 2026-10-30 후속: 기본 사이클과 선택형 스트레칭은 [ADR 0044](0044-optional-stretch-cycles.md)가 4번 결정을 대체한다. 기존 v2 기록은 원래 의미를 유지한다.
+
 ## 결정
 
 1. **목적은 "알림을 보낼 자세인가"의 판정이다.** 분류기는 기준·이탈·스트레칭 3클래스 softmax 확률을 낸다.

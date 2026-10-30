@@ -2,6 +2,10 @@
 
 ## 현재 상태와 작업
 
+[관측 내보내기](../contracts/observation-export.v1.md): 원본 영상 없는 전체 33점과 별도 ML 후보 특징 JSON.
+
+[선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md): 기본은 이탈·복귀 반복, 스트레칭은 별도 선택이다.
+
 2026-10-26부터 [`/dev` 진입은 동작 관측·리플레이로 통일](decisions/0042-unified-dev-observation-route.md)했다.
 기존 실험실/수집/모델 비교는 경로에서 제외했고, 예시는 `/dev?demo=1`이다.
 
