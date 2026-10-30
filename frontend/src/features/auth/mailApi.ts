@@ -31,6 +31,7 @@ export function createMailApi({ enabled = false, fetcher = fetch }: { enabled?: 
       if (response.status === 400 || response.status === 410) throw new MailApiError('INVALID_TOKEN', '링크가 만료됐거나 이미 사용됐어요. 새 메일을 요청해 주세요.')
       throw new MailApiError('UNAVAILABLE', '요청을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.')
     } catch (error) {
+      console.error('[features/auth/mailApi.ts:post] Operation failed', error)
       if (signal?.aborted || error instanceof MailApiError) throw error
       throw new MailApiError('UNAVAILABLE', '네트워크 연결을 확인한 뒤 다시 시도해 주세요.')
     }

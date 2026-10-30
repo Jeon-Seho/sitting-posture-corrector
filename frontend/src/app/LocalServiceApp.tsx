@@ -56,7 +56,8 @@ const DEFAULT_ACCOUNTS: AccountClient | null = createAccountClient()
 function storedAccount() {
   try {
     return readLocal<LocalAccount | null>(KEYS.account, null)
-  } catch {
+  } catch (caughtError) {
+    console.error('[app/LocalServiceApp.tsx:storedAccount] Operation failed', caughtError)
     return null
   }
 }
@@ -159,7 +160,8 @@ export function LocalServiceApp({
       .then((view) => {
         if (!cancelled && view && attempt === authAttempt.current) enterWithAccount(view, false)
       })
-      .catch(() => {
+      .catch((caughtError) => {
+        console.error('[app/LocalServiceApp.tsx:LocalServiceApp] Operation failed', caughtError)
         // Server unreachable: the sign-in screen stays and shows the error on submit.
       })
     return () => {
@@ -199,7 +201,8 @@ export function LocalServiceApp({
     const next = fromApiProfile(view.profile)
     try {
       writeLocal(KEYS.profile, next)
-    } catch {
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:enterWithAccount] Operation failed', caughtError)
       // Only the copy failed; the screens use the profile in memory.
     }
     workspace.setProfile(next)
@@ -217,6 +220,7 @@ export function LocalServiceApp({
 
   // Keep a running session mounted when visiting another page.
   function go(next: Page) {
+    if (next === 'developer' && !developer) return
     if (accountMutation.current) { setError('계정 변경을 확인한 뒤 이동해 주세요.'); return }
     setError('')
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
@@ -226,6 +230,7 @@ export function LocalServiceApp({
   }
 
   function openCollection() {
+    if (!developer) return
     if (measuring) {
       setError('진행 중인 측정을 마친 뒤 이동해 주세요.')
       return
@@ -246,7 +251,7 @@ export function LocalServiceApp({
       camera.stop()
       workspace.setProfile({ name: '개발자' })
       workspace.setRecords([])
-      workspace.setShowDemo(true)
+      workspace.setShowDemo(false)
       setDeveloper(true)
       setPassword('')
       setAuthed(true)
@@ -280,6 +285,7 @@ export function LocalServiceApp({
     try {
       enterWithAccount(await client.login(email.trim(), password))
     } catch (error) {
+      console.error('[app/LocalServiceApp.tsx:loginWithServer] Operation failed', error)
       setPassword('')
       setError(accountErrorMessage(error, 'login'))
     } finally {
@@ -334,6 +340,7 @@ export function LocalServiceApp({
       })
       keepSignup(fromApiProfile(view.profile), { ...nextAccount, email: view.email })
     } catch (error) {
+      console.error('[app/LocalServiceApp.tsx:registerWithServer] Operation failed', error)
       setError(accountErrorMessage(error, 'register'))
     } finally {
       setBusy(false)
@@ -344,7 +351,8 @@ export function LocalServiceApp({
     try {
       writeLocal(KEYS.profile, next)
       writeLocal(KEYS.account, nextAccount)
-    } catch {
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:keepSignup] Operation failed', caughtError)
       setError('브라우저에 저장하지 못했습니다. 저장 공간과 권한을 확인해 주세요.')
       return
     }
@@ -387,7 +395,10 @@ export function LocalServiceApp({
     // still signs out here; the login cookie then expires on the server.
     if (accounts && !developer) {
       setBusy(true)
-      void accounts.logout().catch(() => setError('서버 로그아웃을 확인하지 못했어요. 연결 후 다시 시도해 주세요.')).finally(() => setBusy(false))
+      void accounts.logout().catch((caughtError) => {
+        console.error('[app/LocalServiceApp.tsx:logout] Operation failed', caughtError)
+        return setError('서버 로그아웃을 확인하지 못했어요. 연결 후 다시 시도해 주세요.')
+      }).finally(() => setBusy(false))
     }
     authAttempt.current++
     setDeveloper(false)
@@ -420,7 +431,8 @@ export function LocalServiceApp({
       writeLocal(KEYS.settings, next)
       workspace.setRules(next)
       setError('저장했어요. 다음 측정부터 적용돼요.')
-    } catch {
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:saveRules] Operation failed', caughtError)
       setError('설정을 저장하지 못했어요.')
     }
   }
@@ -431,12 +443,13 @@ export function LocalServiceApp({
     try {
       writeLocal(KEYS.demo, next)
       workspace.setShowDemo(next)
-    } catch {
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:saveDemoPreference] Operation failed', caughtError)
       setError('시연 옵션을 저장하지 못했어요.')
     }
   }
 
-  if (!authed && collectionEntry) {
+  if (authed && developer && collectionEntry) {
     return <CollectionEntry camera={camera} collection={collection} onBack={() => {
       camera.stop()
       collection.clear()
@@ -597,6 +610,7 @@ export function LocalServiceApp({
 
   return (
     <ServiceScreens
+      developer={developer}
       onClearError={clearError}
       camera={camera}
       collection={collection}

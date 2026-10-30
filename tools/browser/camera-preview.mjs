@@ -18,7 +18,17 @@ export async function verifyCollectionPreview(browser, base) {
     })()`)
   }
   await cdp.call('Page.navigate', { url: `${base}/?synthetic=1&preview=1#collection` })
-  await until(() => cdp.evaluate(`!!document.querySelector('#capture-task')`), 'direct collection entry', 30_000)
+  await until(() => cdp.evaluate(`!!document.querySelector('input[name="email"]')`), 'direct collection requires login', 30_000)
+  check('collection is hidden before developer login', await cdp.evaluate(`!document.querySelector('#capture-task')`))
+  await cdp.evaluate(`(() => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    for (const [name, value] of [['email', 'admin'], ['password', '1234']]) {
+      const input = document.querySelector('input[name="' + name + '"]');
+      setter.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  })()`)
+  await click('로그인')
+  await until(() => cdp.evaluate(`!!document.querySelector('#capture-task')`), 'developer collection entry', 30_000)
   const originalProfile = await cdp.evaluate(`localStorage.getItem('posegood.v2.profile')`)
   for (const width of [1440, 690, 390]) {
     await cdp.call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false })

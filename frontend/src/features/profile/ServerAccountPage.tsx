@@ -32,14 +32,20 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy }: {
       if (!live) return
       if (!w?.profile || !w.rules || !w.preferences || !w.consents) throw Error('설정 응답을 확인하지 못했어요.')
       setBase(w); setName(w.profile.name); setAge(w.profile.age === null ? '' : String(w.profile.age)); setOccupation(w.profile.occupation ?? '')
-    }).catch(() => { if (live) setMessage('서버 설정을 불러오지 못했어요. 다시 열어 주세요.') })
+    }).catch((caughtError) => {
+      console.error('[features/profile/ServerAccountPage.tsx:ServerAccountPage] Operation failed', caughtError)
+      if (live) setMessage('서버 설정을 불러오지 못했어요. 다시 열어 주세요.')
+    })
     return () => { live = false }
   }, [])
   const disabled = blocked || busy || !base
   async function run(action: () => Promise<void>) {
     if (disabled) return
     setBusy(true); onBusy(true); setMessage('')
-    try { await action() } catch (error) { setMessage(error instanceof Error ? error.message : '변경하지 못했어요.') }
+    try { await action() } catch (error) {
+      console.error('[features/profile/ServerAccountPage.tsx:run] Operation failed', error)
+      setMessage(error instanceof Error ? error.message : '변경하지 못했어요.')
+    }
     finally { setBusy(false); onBusy(false); setCurrentPassword(''); setNewPassword('') }
   }
   async function save() {

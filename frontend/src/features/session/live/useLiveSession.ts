@@ -177,7 +177,8 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
       await enableSound()
       setSoundOn(true)
       setSoundError('')
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/session/live/useLiveSession.ts:toggleSound] Operation failed', caughtError)
       setSoundError('이 브라우저에서 소리를 켜지 못했습니다.')
     }
   }

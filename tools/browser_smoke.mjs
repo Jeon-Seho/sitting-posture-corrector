@@ -37,6 +37,7 @@ try {
   const midnightCount = await verifyMidnight(browser, base)
   const count = await runScenarios(browser, base, control)
   await verifyOrdinaryApp(browser, ordinaryBase)
+  browser.verifyExpectedErrors()
   if (browser.errors.length) throw new Error(`Browser console errors: ${browser.errors.join('\n')}`)
   console.log(`PASS: ${count + previewCount + midnightCount + 2} browser regression checks; real React/API/inference/CEP, explicit synthetic input only`)
 } catch (error) {

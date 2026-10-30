@@ -22,7 +22,8 @@ export function createFrameTimer(): FrameTimer {
         tick?.()
       }
     }
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/frameTimer.ts:createFrameTimer] Operation failed', caughtError)
     worker = null
   }
   if (!worker) {

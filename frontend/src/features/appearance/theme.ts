@@ -25,7 +25,9 @@ export function parseAppearance(raw: string | null): Appearance {
     const value = JSON.parse(raw ?? 'null')
     if (value && ['system', 'light', 'gray', 'dark'].includes(value.mode) && typeof value.accent === 'string' && validColor(value.accent))
       return { mode: value.mode, accent: value.accent.toLowerCase() }
-  } catch { /* Invalid preferences must never prevent login. */ }
+  } catch (caughtError) {
+    console.error('[features/appearance/theme.ts:parseAppearance] Operation failed', caughtError)
+    /* Invalid preferences must never prevent login. */ }
   return { ...DEFAULT_APPEARANCE }
 }
 const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
@@ -59,7 +61,9 @@ export function applyAppearance(value: Appearance, systemDark = false) {
   root.dataset.theme = tone
   root.dataset.palette = palette?.id ?? 'custom'
   const bridge = desktopBridge()
-  void (bridge?.setAppearanceTone ? bridge.setAppearanceTone(tone) : bridge?.setDarkMode?.(dark))?.catch(() => {})
+  void (bridge?.setAppearanceTone ? bridge.setAppearanceTone(tone) : bridge?.setDarkMode?.(dark))?.catch((caughtError) => {
+    console.error('[features/appearance/theme.ts:applyAppearance] Operation failed', caughtError)
+  })
   const surface = dark ? palette?.id === 'discord' ? '#313338' : palette?.id === 'black' ? '#202020' : '#1c242d' : tone === 'gray' ? '#dfe2e6' : palette?.id === 'peach' ? '#fffaf4' : '#ffffff'
   let chartBar = readableAccent(mix(surface, value.accent, 0.55), surface, 3)
   const initialBar = chartBar
@@ -85,7 +89,9 @@ export function applyAppearance(value: Appearance, systemDark = false) {
   const snackInk = foreground(snack)
   const popup = { background: snack, text: snackInk, muted: mix(snackInk, snack, 0.22),
     accent: readableAccent(value.accent, snack), track: mix(snack, snackInk, 0.3), dark: snackInk === '#ffffff' }
-  void bridge?.setPopupTheme?.(popup).catch(() => {})
+  void bridge?.setPopupTheme?.(popup).catch((caughtError) => {
+    console.error('[features/appearance/theme.ts:applyAppearance] Operation failed', caughtError)
+  })
   const tokens: Record<string, string> = {
     '--primary': value.accent, '--on-primary': ink,
     '--logo-bg': value.accent, '--logo-ink': ink,
@@ -104,7 +110,10 @@ export function applyAppearance(value: Appearance, systemDark = false) {
   for (const [name, color] of Object.entries(tokens)) root.style.setProperty(name, color)
 }
 export function initializeAppearance() {
-  try { current = parseAppearance(localStorage.getItem(APPEARANCE_KEY)) } catch { current = DEFAULT_APPEARANCE }
+  try { current = parseAppearance(localStorage.getItem(APPEARANCE_KEY)) } catch (caughtError) {
+    console.error('[features/appearance/theme.ts:initializeAppearance] Operation failed', caughtError)
+    current = DEFAULT_APPEARANCE
+  }
   media = window.matchMedia('(prefers-color-scheme: dark)')
   const apply = () => applyAppearance(current, media?.matches)
   const storage = (event: StorageEvent) => {
@@ -121,6 +130,9 @@ export function saveAppearance(next: Appearance) {
   current = { ...next, accent: next.accent.toLowerCase() }
   applyAppearance(current, media?.matches)
   emit()
-  try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(current)); return true } catch { return false }
+  try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(current)); return true } catch (caughtError) {
+    console.error('[features/appearance/theme.ts:saveAppearance] Operation failed', caughtError)
+    return false
+  }
 }
 export const useAppearance = () => useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener) } }, () => current, () => DEFAULT_APPEARANCE)

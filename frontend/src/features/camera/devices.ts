@@ -18,7 +18,8 @@ export async function listVideoDevices(): Promise<MediaDeviceInfo[]> {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices()
     return devices.filter((device) => device.kind === 'videoinput')
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/devices.ts:listVideoDevices] Operation failed', caughtError)
     return []
   }
 }

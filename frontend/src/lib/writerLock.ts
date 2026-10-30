@@ -23,7 +23,8 @@ export function claimWriter(
         unlock = resolve
       })
     })
-    .catch(() => {
+    .catch((caughtError) => {
+      console.error('[lib/writerLock.ts:finished] Operation failed', caughtError)
       if (!disposed) update('unavailable')
     })
   return Object.assign(

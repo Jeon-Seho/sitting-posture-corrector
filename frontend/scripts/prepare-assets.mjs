@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const destination = new URL('public/mediapipe/', root);
 await mkdir(destination, { recursive: true });
 await cp(new URL('node_modules/@mediapipe/tasks-vision/wasm', root), new URL('wasm', destination), { recursive: true });
+await cp(new URL('node_modules/@mediapipe/tasks-vision/vision_bundle.js', root), new URL('vision_bundle.js', destination));
 const metadata = JSON.parse(await readFile(new URL('model-asset.json', root), 'utf8'));
 if (!/^pose_landmarker_[a-z]+\.task$/.test(metadata.filename)) throw new Error('Invalid model filename');
 const model = new URL(metadata.filename, destination);

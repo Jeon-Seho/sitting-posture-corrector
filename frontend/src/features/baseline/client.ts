@@ -50,6 +50,8 @@ export async function fetchCurrentBaseline(options: ApiOptions = {}): Promise<Se
   try {
     return parsed(await apiRequest('/v2/baselines/current', {}, MESSAGES, options))
   } catch (cause) {
+    console.error('[features/baseline/client.ts:fetchCurrentBaseline] Operation failed', cause,
+      cause instanceof ApiError && cause.kind === 'not_found' && cause.status === 404 ? 'expected:baseline-missing' : 'unexpected')
     if (cause instanceof ApiError && cause.kind === 'not_found') return null
     throw cause
   }

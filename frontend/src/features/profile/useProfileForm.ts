@@ -54,7 +54,8 @@ export function useProfileForm({
       setProfile(next)
       setError(notify ? '저장했어요.' : '')
       return true
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/profile/useProfileForm.ts:saveProfile] Operation failed', caughtError)
       setError('저장하지 못했어요. 저장 공간과 권한을 확인해 주세요.')
       return false
     }
@@ -85,7 +86,8 @@ export function useProfileForm({
       setConsent(false)
       setConfirmDelete(false)
       setError('이 기기의 사용자 자료를 삭제했어요.')
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/profile/useProfileForm.ts:withdraw] Operation failed', caughtError)
       setConfirmDelete(false)
       reloadStorage()
       setError('자료를 모두 삭제하지 못했어요. 남은 자료를 확인한 뒤 다시 시도해 주세요.')

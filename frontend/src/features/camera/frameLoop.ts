@@ -1,4 +1,4 @@
-import type { PoseLandmarker } from '@mediapipe/tasks-vision'
+import type { PoseDetector } from './cpuWorker'
 import type { Landmark } from '../../../../model/prototype/pose'
 import { createFrameTimer } from './frameTimer'
 import { readShoulders } from './shoulderCheck'
@@ -12,7 +12,7 @@ const METRIC_INTERVAL_MS = 500
 
 type FrameLoopOptions = {
   video: HTMLVideoElement
-  detector: PoseLandmarker
+  detector: PoseDetector
   delegate: CameraDelegate
   isCurrent: () => boolean
   getCanvas: () => HTMLCanvasElement | null
@@ -21,7 +21,7 @@ type FrameLoopOptions = {
   onObservation: (observation: Observation, observationGap: number) => void
   onFrameUnavailable: () => void
   onMetrics: (metrics: CameraMetrics) => void
-  onTrackingError: () => void
+  onTrackingError: (inferenceFailed: boolean) => void
   /** Upper bound on tracking runs per second (settings › 추적 속도). Default: as fast as the device allows up to 30. */
   getMaxFps?: () => number | null
 }
@@ -30,6 +30,7 @@ type FrameLoopOptions = {
 export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   const { video, detector, delegate } = options
   const timer = createFrameTimer()
+  let stopped = false
   let previousVideoTime = -1
   let previousRun = 0
   let previousDraw = 0
@@ -72,10 +73,15 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility)
 
   const scheduleNextFrame = () => {
-    timer.next(DRAW_INTERVAL_MS, () => render(performance.now()))
+    timer.next(DRAW_INTERVAL_MS, () => {
+      void render(performance.now()).catch((error) => {
+        console.error('[camera] Frame rendering failed', error)
+        if (!stopped && options.isCurrent()) options.onTrackingError(false)
+      })
+    })
   }
-  const render = (time: number) => {
-    if (!options.isCurrent()) return
+  const render = async (time: number) => {
+    if (stopped || !options.isCurrent()) return
 
     const interval = inferenceInterval(delegate, inferenceMs, options.getMaxFps?.() ?? null)
     if (
@@ -86,13 +92,17 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
       previousVideoTime = video.currentTime
       previousRun = time - ((time - previousRun) % interval)
 
+      let inferenceCompleted = false
       try {
         const started = performance.now()
         // 2026-10-13: pass the frame's own time, not the timer tick. MediaPipe smooths landmarks
         // over these timestamps; timer jitter made its smoothing misjudge speed and shake.
         const stamp = Math.max(lastStamp + 1, Math.round(previousVideoTime * 1_000))
         lastStamp = stamp
-        const result = detector.detectForVideo(video, stamp)
+        const detection = detector.detectForVideo(video, stamp)
+        const result = detection instanceof Promise ? await detection : detection
+        if (stopped || !options.isCurrent()) return
+        inferenceCompleted = true
         inferenceMs = performance.now() - started
         frameCount++
         inferenceSum += inferenceMs
@@ -134,8 +144,9 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
           },
           observationGap,
         )
-      } catch {
-        options.onTrackingError()
+      } catch (caughtError) {
+        console.error('[features/camera/frameLoop.ts:render] Operation failed', caughtError)
+        options.onTrackingError(!inferenceCompleted)
         return
       }
     }
@@ -175,6 +186,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
 
   scheduleNextFrame()
   return () => {
+    stopped = true
     timer.stop()
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility)
   }

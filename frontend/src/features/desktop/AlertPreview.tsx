@@ -28,7 +28,10 @@ export function AlertPreview() {
       setShown('warn')
       return
     }
-    await send({ ...alertPopupText(false), preview: true }).catch(() => null)
+    await send({ ...alertPopupText(false), preview: true }).catch((caughtError) => {
+      console.error('[features/desktop/AlertPreview.tsx:popup] Operation failed', caughtError)
+      return null
+    })
   }
 
   return (

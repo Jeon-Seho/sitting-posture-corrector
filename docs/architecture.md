@@ -110,9 +110,10 @@ FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 �
 서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0027-today-records-from-collected-server-results.md).
 
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
-로컬 `/#collection`은 같은 앱의 프로필 없는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
+로컬 `/#collection`은 개발자 계정 로그인 후에만 열리는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
 [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md)에 따라 카메라는 일반 화면 이동에도 유지하고
 Electron 앱은 frame 없는 always-on-top 자식 창에 React portal로 기존 스트림을 미리보기한다. 브라우저 PiP API는 사용하지 않고, 웹은 작은 창과 PiP를 제공하지 않는다(2026-10-26). 명시적 종료·로그아웃·인증 변경은 해제한다. 결정은 [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), 구현은 [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64). 웹은 다른 탭에 가도 측정이 이어진다(프레임 타이머를 Worker로).
+CPU 추론은 지원 환경에서 별도 classic Worker로 옮겨 메인 스레드의 화면 처리를 유지한다. Worker 초기화 실패 시 로그를 남기고 기존 CPU 경로를 사용한다. 영상 프레임은 기기 안에서 ImageBitmap으로 전달하고 처리·취소 후 해제한다.
 미리보기 유지와 수집은 구분하며 탭/수집 화면 이동의 촬영 중단 규칙을 유지한다.
 프로필·세션 저장/복구·측정 화면·기록 조회·저장 검증은 `frontend/src/features/`로 나눴다.
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
