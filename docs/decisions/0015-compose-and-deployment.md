@@ -18,7 +18,8 @@ Compose는 실행할 서비스·네트워크·포트·볼륨·설정 주입·준
 | --- | --- | --- |
 | 루트 [compose.yaml](../../compose.yaml) | `db`·`api`·`inference`·`frontend`를 함께 실행한다. 로컬 일괄 실행과 아래 GHCR/SSH 자동 배포가 사용하는 구성이다 | MySQL 컨테이너와 `mysql_data` 볼륨. 기본 공개 포트는 `frontend`의 `127.0.0.1:8080`뿐이다 |
 | 서버 PC [infra/compose/bigdata.yaml](../../infra/compose/bigdata.yaml) 기본 구성 | Kafka·Redis·HDFS NameNode/DataNode·Spark·`api-server`·`inference-service`를 실행한다. 프로젝트 이름은 `platform`으로 유지한다 | 외부 MySQL을 사용한다. Kafka·Redis·HDFS 자료는 플랫폼 볼륨에 보관한다. 일부 포트는 LAN에 공개하므로 루트 구성의 내부망 정책과 다르다 |
-| 같은 파일의 `io` 프로필 | `io-api`·`inference`·`web`을 추가한다. API와 화면을 서버 PC에서 연결해 시험하는 구성이다 | 외부 MySQL 사용. 기본 `io-api`는 `127.0.0.1:8090`, `web`은 `127.0.0.1:8088`. `inference`는 호스트 포트를 열지 않는다 |
+| 같은 파일의 `io` 프로필 | `io-api`·`inference`·`web`·`gateway`를 추가한다. `web`은 서버 안 화면 연동 시험, `gateway`는 API 전용 공개 입구다 | 외부 MySQL 사용. 기본 `io-api`는 `127.0.0.1:8090`, `web`은 `127.0.0.1:8088`. `inference`·`gateway`는 호스트 포트를 열지 않는다 |
+| 같은 파일의 `edge` 프로필 | `cloudflared`가 Cloudflare 터널을 연결하고 같은 네트워크의 `gateway:80`으로 요청을 전달한다. `io` 프로필과 함께 사용한다 | 호스트 포트 없이 외부로 터널 연결을 만든다. 실행에는 별도의 터널 토큰이 필요하다 |
 | FE 분리 배포 | [frontend/vercel.json](../../frontend/vercel.json)에 따라 화면을 빌드해 Vercel에 배포한다. FE 배포 문서상 연결 대상은 포크의 `develop`이다 | 화면 `app.posegood.site`와 API `api.posegood.site`를 분리하는 결정이다. GitHub의 루트 Compose 배포와 별도 경로다 |
 
 현재 앱의 측정 경로는 `frontend/web → api/io-api → model/inference`이며 판정은 API 안에서 한다.
@@ -38,6 +39,9 @@ Compose는 실행할 서비스·네트워크·포트·볼륨·설정 주입·준
 docker compose --env-file infra/compose/.env -f infra/compose/bigdata.yaml up -d --build
 docker compose --env-file infra/compose/.env -f infra/compose/bigdata.yaml --profile io up -d --build
 ```
+
+공개 터널은 `infra/compose/secrets/cloudflared.env`에 토큰을 준비한 뒤 `--profile io --profile edge`로 명시적으로 실행한다.
+`gateway`와 `cloudflared`는 지정된 외부 이미지를 사용하며 앱 빌드나 GHCR 게시 대상에는 추가되지 않는다.
 
 Gradle로 Java 앱을 직접 빌드·실행하면 Compose가 자동으로 실행되거나 환경 파일을 읽지는 않는다.
 
@@ -74,6 +78,8 @@ Gradle로 Java 앱을 직접 빌드·실행하면 Compose가 자동으로 실행
 | [infra/compose/hadoop.env.example](../../infra/compose/hadoop.env.example), [infra/compose/spark-defaults.conf](../../infra/compose/spark-defaults.conf) | HDFS 컨테이너용 `hadoop.env`의 원본과 Spark 클라이언트 설정이다. 단일 DataNode에 맞춰 복제 수 1을 사용한다 |
 | [backend/api/src/main/resources/application.properties](../../backend/api/src/main/resources/application.properties), [backend/processing/src/main/resources/application.yml](../../backend/processing/src/main/resources/application.yml) | 각 Java 프로세스의 DB·인증·추론·Kafka·Redis 등 런타임 설정과 환경 변수 매핑을 정의한다. Compose의 `environment`·`env_file`·비밀 마운트가 값을 공급한다. 직접 실행 시 dotenv 파일을 자동 로드하는 설정은 없다 |
 | [infra/nginx/default.conf](../../infra/nginx/default.conf) | `frontend`·`web` 이미지가 공유하는 정적 화면·SPA fallback·`/health`·API 프록시 설정이다. `/api/` 접두사를 제거해 `api:8090`으로 전달하고 `/api/v2/realtime`은 WebSocket upgrade를 전달한다. 플랫폼 `io-api`는 이를 위해 `api` 네트워크 별칭을 갖는다 |
+| [infra/nginx/gateway.conf](../../infra/nginx/gateway.conf) | 플랫폼 `gateway`에 읽기 전용으로 마운트하는 API 전용 nginx 설정이다. `/api/`·`/api/v2/realtime`·`/health`를 제공하고 나머지는 404로 응답한다. 전달 프로토콜은 `https`, 사용자 IP는 Cloudflare 헤더를 사용하며 외부의 내부 토큰 헤더를 제거한다 |
+| [infra/compose/cloudflared/config.yml](../../infra/compose/cloudflared/config.yml) | `api.posegood.site`를 `http://gateway:80`으로 전달하고 나머지는 404로 처리하는 터널 경로다. 비밀값이 없는 설정이며 터널 토큰은 별도 Git 제외 파일 `infra/compose/secrets/cloudflared.env`의 `TUNNEL_TOKEN`으로 공급한다 |
 | [compose.test.yaml](../../compose.test.yaml) | 루트 구성에 겹쳐 쓸 때 시험 DB만 임의의 loopback 포트로 여는 오버레이다. 단독 배포 구성이 아니며 현재 `make check`·배포 워크플로에서 자동 사용하지 않는다 |
 
 준비 확인도 구성별로 다르다. 루트 API의 `/health`는 DB의 `SELECT 1`을 확인하고 nginx의 `/health`는 nginx 응답만 확인한다.
@@ -91,7 +97,9 @@ Vercel 화면은 [frontend/src/features/platform/serverConfig.ts](../../frontend
 Dockerfile에 남은 `VITE_SERVER_ACCOUNTS`는 현재 FE 코드가 읽지 않으므로 계정 모드 전환 설정으로 설명하지 않는다.
 
 [FE 배포 문서](../design/fe-deploy.md)의 공개 경로 결정은 Vercel 화면과 Cloudflare 터널 → API 전용 `gateway`다.
-현재 저장소에는 `gateway`·`cloudflared` 서비스와 전용 설정 파일이 없으므로, 기존 `web` nginx와 구현 완료 상태를 구분한다.
+현재 저장소에는 이를 위한 `gateway`(`io`)·`cloudflared`(`edge`) 서비스와 위 설정 파일이 있다.
+`web`은 정적 화면을 함께 제공하는 서버 안 시험용으로 유지하며 공개 터널은 API 전용 `gateway`로 연결한다.
+설정 구현과 실제 토큰 등록·터널 연결 성공은 구분한다.
 서버 PC의 8080은 처리 서비스 포트이며 공개 사용자 API의 입구로 사용하지 않는다.
 
 ## 4. 검증·게시·배포 파일의 책임
@@ -145,6 +153,7 @@ GHCR 인증은 워크플로의 `GITHUB_TOKEN`을 사용한다. 도메인·TLS·�
 `make check`에는 실제 MySQL 통합·Chrome·Docker/Compose·SSH 배포가 포함되지 않는다.
 FE PR의 lint와 DB CI도 배포의 harness 호출에 자동 포함되는 검사가 아니며, 브랜치 보호 required checks는 GitHub 설정의 책임이다.
 플랫폼 점검은 [tools/platform/integration_test.sh](../../tools/platform/integration_test.sh)를 명시적으로 실행한다.
+삭제한 종합 Compose 검사의 컨테이너 재생성 후 자료 보존·제공 자산 해시·실제 백업 복원은 현재 기본 검사에서 확인하지 않는다.
 파일이 존재하거나 기본 검증이 통과한 사실만으로 서버 연결·터널·원격 배포 성공을 판단하지 않는다.
 
 2026-10-30 최신화는 저장소 파일과 호출 관계를 대조한 문서 갱신이다.

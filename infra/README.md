@@ -50,22 +50,25 @@ make setup
 make check
 ```
 
-전체 개발 게이트는 JDK 17·Node 24+·Python 3.9+·Chrome/Chromium·실행 중인 Docker가 필요하다. 백엔드는 Gradle Wrapper로 빌드한다.
+기본 개발 게이트는 JDK 17·Checkstyle용 JDK 21·Node 24+·Python 3.9+가 필요하다. 백엔드는 Gradle Wrapper로 빌드한다.
 구형 Compose 종합 검사는 2026-10-29 제거했다. 기본 `make check`는 Python·FE·BE 기본 검사이며 DB·브라우저 연결을 검증하지 않는다.
 MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직접 명령을 따른다. 배포·백업·복원 도구와 DB CI는 유지한다.
-Docker가 없으면 해당 게이트는 실패한다. `make check-local`은 Compose를 제외한 검증이며 전체 검증 성공을 의미하지 않는다.
+`make check-local`과 `make check`는 현재 같은 기본 검사를 실행하며 Chrome·Docker를 요구하지 않는다.
+실제 DB 통합·브라우저 점검과 Compose 실행은 각각 준비한 시험 환경에서 명시적으로 수행한다.
+종합 Compose 검사가 하던 컨테이너 재생성 후 자료 보존·제공 자산 해시·실제 백업 복원 검증은 기본 검사에 포함되지 않는다.
 실제 카메라·의학적 효과·연구 정확도·외부 배포 검증은 포함하지 않는다.
 
 ## GitHub Actions
 
-[harness](../.github/workflows/harness.yml)는 PR/push에서 검증한다.
-[deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 전체 검증 성공 후
-네 앱 이미지를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
+[harness](../.github/workflows/harness.yml)는 수동 실행 또는 다른 워크플로의 호출로 기본 검사를 실행한다.
+[deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 harness의 기본 검증 성공 후
+`api`·`inference`·`frontend` 앱 이미지 3개를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.3·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.6·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
-배포 서버는 아직 미정이다. 다음 환경 설정은 서버 준비 뒤 등록한다.
+루트 Compose의 SSH 자동 배포 대상과 다음 `production` 설정의 실제 등록 여부는 별도로 확인한다.
+아래 서버 PC 플랫폼·터널 구성과 이 자동 배포 대상을 구분한다.
 
 | `production` 설정 | 이름 | 값 |
 | --- | --- | --- |
