@@ -9,18 +9,19 @@ import jakarta.validation.constraints.DecimalMin;
  * 값은 어깨 폭으로 정규화한 (현재 - 기준)이다(ADR 0020). 관절 좌표는 보내지 않는다.
  */
 public record FeatureDeltas(
-        double headGapDelta,
-        double lateralOffsetDelta,
-        double shoulderTiltDelta,
-        @DecimalMin("0") @DecimalMax("1") double currentQuality,
-        @DecimalMin("0") @DecimalMax("1") double baselineQuality) {
+	double headGapDelta,
+	double lateralOffsetDelta,
+	double shoulderTiltDelta,
+	@DecimalMin("0") @DecimalMax("1") double currentQuality,
+	@DecimalMin("0") @DecimalMax("1") double baselineQuality) {
 
-    public FeatureDeltas {
-        if (!Double.isFinite(headGapDelta)
-                || !Double.isFinite(lateralOffsetDelta)
-                || !Double.isFinite(shoulderTiltDelta)
-                || !Double.isFinite(currentQuality)
-                || !Double.isFinite(baselineQuality))
-            throw new IllegalArgumentException("feature values must be finite");
-    }
+	public FeatureDeltas {
+		if (!Double.isFinite(headGapDelta)
+			|| !Double.isFinite(lateralOffsetDelta)
+			|| !Double.isFinite(shoulderTiltDelta)
+			|| !Double.isFinite(currentQuality)
+			|| !Double.isFinite(baselineQuality)) {
+			throw new IllegalArgumentException("feature values must be finite");
+		}
+	}
 }

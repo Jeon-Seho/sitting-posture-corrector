@@ -6,9 +6,10 @@ package com.posture.api.report;
  */
 public interface AlertPublisher {
 
-    /** 시험·끔 설정용: 아무것도 보내지 않는다. */
-    AlertPublisher NO_OP = d -> { };
+	/** 시험·끔 설정용: 아무것도 보내지 않는다. */
+	AlertPublisher NO_OP = d -> {
+	};
 
-    /** @param d 알림을 낸 decision(collapse_confirmed·reminder) */
-    void publish(EpisodeDecision d);
+	/** @param d 알림을 낸 decision(collapse_confirmed·reminder) */
+	void publish(EpisodeDecision decision);
 }
