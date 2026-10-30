@@ -15,14 +15,14 @@ export const SYNTHETIC_BASELINE: ServerBaseline = {
 }
 
 /** `true` for a measurable frame; the app sends coordinates and computes no posture values. */
-type Sink = (measurable: boolean) => void
+type Sink = (measurable: boolean, frame?: Observation) => void
 const sinks = new Set<Sink>()
 let stops = 0
 let connected = false
 
-export function emitSyntheticFrame(measurable: boolean) {
+export function emitSyntheticFrame(measurable: boolean, frame?: Observation) {
   if (!connected) throw new Error('The synthetic camera must be connected through the UI.')
-  for (const sink of sinks) sink(measurable)
+  for (const sink of sinks) sink(measurable, frame)
 }
 
 export function syntheticCameraStatus() {
@@ -81,10 +81,10 @@ export function useCamera(): CameraController {
   )
   useEffect(
     () => {
-      const receive: Sink = (measurable) => {
+      const receive: Sink = (measurable, suppliedFrame) => {
         lastFrame.current = performance.now()
         setQuality(measurable)
-        const frame: Observation = {
+        const frame: Observation = suppliedFrame ? { ...suppliedFrame, measurable } : {
           timeMs: performance.now(),
           videoTimeMs: performance.now(),
           measurable,
@@ -193,6 +193,7 @@ export function useCamera(): CameraController {
       inferenceMs: 0,
       delegate: 'CPU'
     },
+    trackerDiagnostics: null,
     subscribe,
     videoRef,
     canvasRef,

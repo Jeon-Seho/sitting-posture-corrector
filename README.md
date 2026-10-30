@@ -48,7 +48,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 `docker compose down`으로 종료하면 DB 볼륨은 유지된다.
 
-[계정 앱](http://127.0.0.1:8080/)에서 가입한다.
+[프론트 화면](http://127.0.0.1:8080/)을 연다. 현재 프론트의 가입·로그인은 로컬이며 계정 API v2 연결은 위 연결 계획에 남아 있다.
 [실행·배포·백업](infra/README.md), [계약](contracts/README.md)
 [아키텍처 v5.2 스택별 역할](docs/design/architecture_v5.2_stack_roles.md)을 참고한다.
 
@@ -100,7 +100,7 @@ Windows에서는 `python tools/dev.py dev-server`를 사용한다. 서버 저장
 ## 자세 데이터 수집 (좌표 수집)
 
 설정 › 개발자 옵션의 `자세 데이터 수집`에서 자세를 골라 5초 준비 후 촬영하고, 실제로 한 자세를 확인한 뒤 CSV로 내려받는다.
-[수집 v2 지침과 pandas 분석](docs/research/guided-collection-v2.md)을 참고한다. 화면에 실제 추적 FPS·추론 시간이 표시된다.
+[Heavy 수집 v3 지침과 pandas 분석](docs/research/guided-collection-v2.md)을 참고한다. 화면에 실제 추적 FPS·추론 시간이 표시된다.
 
 ## 구조와 개발
 
@@ -120,3 +120,7 @@ DB 통합은 시험 MySQL과 기존 `-Pmysql-integration` 명령, 테마·JWT·�
 구형 종합 브라우저/Compose·저장소 검사와 서버 benchmark는 2026-10-29 제거했다. 기존 배포·백업·복원·수동 플랫폼 도구와 계약은 보존한다.
 [참여자 분할·시간 창 준비](docs/research/dataset-preparation.md)는 명시적 합성 예제로 바로 실행할 수 있다.
 실제 자료의 수집·학습은 별도이며 출력은 Git 제외/외부 위치에 보관한다.
+
+## 로컬 관측과 연구
+
+`/dev`는 공통 Heavy 카메라를 사용해 기준·이탈 및 선택형 스트레칭을 로컬에서 관측하고 영상 없이 전체 좌표 또는 ML 후보 특징을 명시적으로 내려받는다. `/#forecast`는 별도의 연구용 예측 실험이다. [관측 내보내기 계약](contracts/observation-export.v1.md)과 [연구 계획](docs/ml/rebuild-plan.md)을 따른다.

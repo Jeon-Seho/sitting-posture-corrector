@@ -1,12 +1,16 @@
 # 아키텍처와 경계
 
+2026-10-30부터 `/dev` 사이클은 [ADR 0044](decisions/0044-optional-stretch-cycles.md)를 따른다. 기존 이탈·스트레칭 고정 순서 설명보다 우선한다.
+
+서비스 `/`와 로컬 관측 `/dev`는 동일한 Heavy 카메라에서 33점의 원본 프레임을 받는다. 서비스는 기준 자세와 판정을 서버에서 관리하며, `/dev`는 자체 기준과 측정 자료를 탭 메모리에서 관리하고 사용자가 명시적으로 내려받는다. 새 서비스 기준 등록은 이전 IndexedDB 기록을 만들지 않는다. 과거 저장 자료는 [이전 기준 자료 결정](decisions/0022-local-baseline-archive.md)에 남아 있다.
+
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
 지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 현재 체험용 구현의 초기 선택은 옛 ADR 0002(지금 [ADR 0007](decisions/0007-lite-pose-tracker.md) 1절)에 따라 `frontend/`와 `model/prototype/`를
-같은 브라우저에서 실행한다. 영상·원본 좌표는 서버에 보내지 않는다.
+같은 브라우저에서 실행한다. 영상은 서버에 보내지 않는다. 서비스에는 9점 좌표를 전송한다.
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
 그때는 옛 ADR 0013에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송했다(지금은 아래 결정 변경).
 
@@ -42,7 +46,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
 새 서버 흐름의 지속시간·회복·재알림 판정은 API의 판정 엔진 한 곳에서 수행한다. Spring Boot API는
 검증·전달·저장·조회, FastAPI는 현재 추론 점수를 담당한다. [관측/사건/조회 계약](../contracts/README.md)을 사용한다.
-앱은 항상 서버로 측정하고(`frontend/src/features/session/live/`) 서버가 보낸 사건·요약만 표시한다. 로컬 시간 엔진은 없다(2026-10-21).
+서비스 `/`는 서버로 측정하고(`frontend/src/features/session/live/`) 서버가 보낸 사건·요약만 표시한다. 로컬 시간 엔진은 없다(2026-10-21).
 `/api` 개발 프록시는 loopback으로만 연결한다. Compose는 Nginx가 내부 API로 proxy하고(실시간 채널은 WebSocket) DB·추론은 host port를 열지 않는다.
 현재 FastAPI는 규칙 기반 특징 점수이고 학습 모델이 아니다. [실행·검증·한계](../backend/README.md)를 따른다.
 
@@ -61,16 +65,16 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## 기존 프론트 통합 예외
 
-[옛 ADR 0003](removed-docs.md)의 예외(`frontend/src/lib/engine.ts`가 로컬 모드 시간 정책을 실행)는 2026-10-21 [ADR 0021](decisions/0021-app-sends-information-server-judges.md)로 끝났다. `lib/engine.ts`에는 기록·설정 타입만 남았다. 학습 데이터 수집 화면이 쓰는 특징 계산(`model/prototype/pose.ts`)은 남아 있다.
+[옛 ADR 0003](removed-docs.md)의 예외(`frontend/src/lib/engine.ts`가 로컬 모드 시간 정책을 실행)는 2026-10-21 [ADR 0021](decisions/0021-app-sends-information-server-judges.md)로 끝났다. `lib/engine.ts`에는 기록·설정 타입만 남았다. 기존 연구용 특징 계산은 `model/prototype/legacyPose.ts`에 격리하며 서비스 판정에 사용하지 않는다.
 
 ## 파일럿 파일 수집
 
-`useCamera.subscribe`는 새 추론 프레임의 평활화 전 특징과 33개 영상/world 좌표를 전달한다.
+공통 카메라의 `modelLoader.ts`는 Heavy 모델을 GPU 우선으로 불러오고 실패 시 CPU로 전환한다. `frameLoop.ts`는 Pose 0~32번의 image/world 원본 좌표와 측정 가능 여부를 전달한다. 서비스는 9점만 서버에 보내며 `/dev`는 전체 좌표를 로컬 내보내기에 사용한다. [기존 MediaPipe 연구 모듈](../frontend/src/features/mediapipe/README.md)은 실험 코드에 남아 있다.
 `useCollection`은 명시적 시작 후 준비 시간을 제외한 관측만 최대 10Hz로 버퍼링한다.
-안내 과제·실제 자세·재석 상태·측정 품질을 분리하고 촬영 후 자기 보고 검토를 거쳐 v2 CSV로 내보낸다.
-전용 수집 화면(사용자 표시명 `자세 등록`, 코드상 `CollectionPage`)은 교정 알림을 실행하지 않는다. 영상·음성 저장/업로드는 없다.
+안내 과제·실제 자세·재석 상태를 분리하고 촬영 후 자기 보고 검토를 거쳐 v3 CSV로 내보낸다. 앱 판정·특징·품질 판정 열은 없으며 품질은 ML 자료 준비에서 좌표로 확인한다.
+전용 수집 화면(사용자 표시명 `자세 데이터 수집`, 코드상 `CollectionPage`)은 교정 알림을 실행하지 않는다. `자세 등록`은 별도 기준 등록 탭이다. 영상·음성 저장/업로드는 없다.
 
-연구 자료 준비는 `model/analysis/dataset/`에서 v2 CSV의 hash·소유권·기준 등록을 검증한다.
+기존 연구 자료 준비는 `model/analysis/dataset/`에서 v1/v2 CSV의 hash·소유권·기준 등록을 검증한다. 특징·규칙 열을 뺀 현재 v3는 아직 이 도구의 입력으로 지원하지 않는다.
 명시적 참여자 분할을 먼저 만들고 실제 시각의 연속 구간별로 시간 창을 생성한다.
 기준 등록 자료는 개인 보정용으로 별도 출력하며 평가 창이나 전역 학습 자료에 합치지 않는다.
 저품질·미검토·전이·누락 경계 양쪽을 연결하거나 보간하지 않는다. 실제 자료와 manifest는 Git 제외/외부 위치에 둔다.
@@ -122,7 +126,7 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 계정 서버 연결(BE) 전까지 프로필·설정·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
 측정과 기준 자세는 서버에 있고(2026-10-21), 기록 화면이 R1을 읽기 전까지 측정 결과를 R1과 같은 형식으로 이 기기에도 남긴다. 중간 저장(이어하기)은 없다.
 이는 서버 저장 API를 대체하는 임시 경계이며, 백엔드 연결 시 같은 지점에서 교체한다.
-[수집 v2 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
+[수집 v3 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 
 `serviceStore`는 읽기/쓰기 전에 요약·사건·전체 Machine의 수치와 구조를 검사한다.
 읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.v2.writer`를 가진 탭만
@@ -148,3 +152,64 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 합성 카메라를 선택하지 않으며 테스트 입력은 실제 영상·랜드마크나 카메라 권한을 사용하지 않는다.
 
 구형 서버 benchmark도 같은 정리에서 제거했다. 기존 측정 기록은 당시 환경의 기록이며 현재 카메라 FPS·배포 성능 검증을 뜻하지 않는다.
+
+## 로컬 관측과 연구 경계
+
+2026-10-26의 [개발 경로 통일](decisions/0042-unified-dev-observation-route.md) 이후 `/dev`는
+`ObservationLab`만 조립한다. 아래 기존 예측 실험실·수집·모델 비교 관련 설명은 보존된 연구 모듈의
+경계이며 현재 `/dev` 진입에서 실행하지 않는다. 관측의 현재 수집/리플레이 경계는 이 문서 끝을 따른다.
+
+`#forecast`와 `/dev`는 서버 없이 예측·기준 거리/시간 규칙을 비교하는 별도 연구 화면이다.
+코어는 `model/prototype/forecast.ts`, UI 연결은 `features/forecast/`에 두며 기존 서비스·CEP 출력에 영향을 주지 않는다.
+Panoptic→MediaPipe 근사 입력 대응의 한계와 실험 설정은 [ADR 0025](decisions/0025-local-forecast-experiment.md),
+내부 출력은 [실험 계약](../contracts/forecast-experiment.v1.md)을 따른다.
+
+`/dev`는 `features/developer/`에서 독립 다크/라이트 테마·큰 카메라·구도 안내/자동 기준 등록·수치 집계·현재 탭의 실험 기록을
+제공한다. 기본 단순 예측은 가중치 없이 작동하고 LSTM만 실제 모델을 요구한다.
+`model/prototype/developerGuidance.ts`의 연구용 구도 기하를 별도로 소비하며, live/reference 가이드
+좌표는 표시용 메모리에만 둔다. 일반 서비스는 개발자 모듈을 가져오지 않고 공통 카메라 관측만 재사용한다.
+명시적 합성 데모는 같은 코어를 사용하되 실제 관측과 출처를 분리한다. 원본 영상·좌표를
+저장/전송하지 않으며 [개발자 실험실](design/developer-lab.md)의 메모리·다운로드 경계를 따른다.
+
+### `/dev` 정상 구간 수집과 관측 기반 알림 (2026-10-14)
+
+[최신 ML 계획](ml/current-plan.md)과 [ADR 0028](decisions/0028-normal-only-developer-model.md)에 따라
+정상 구간 수집을 일반 서비스 및 진단 내보내기와 분리한다. 명시적으로 수집한 좌표를 사용자 확인 후
+별도 JSON으로 내보내며, 자동 저장/업로드는 없다. 개인 정상 범위 fitting은 `model/prototype/normalPosture.ts`,
+수집·표시는 개발자 모듈이 담당한다. 학습한 정상 중심과 허용 폭을 고정한다. 같은 추출기의 새 등록 중앙값을 비교해 정상 범위 밖 후보는 등록하지 않는다.
+정상 범위 또는 기본 거리와 지속시간이 기본 알림 경로이고 LSTM은 보조 비교다.
+새 관측 모드는 예측 시간축과 실제 관측을 분리하여 예측 준비가 유효한 룰 알림을 차단하지 않는다.
+표시 평활화는 원본 수집·등록·판정 입력을 바꾸지 않는다. 실제 사람에 대한 정상성·정확도 검증은 후속이다.
+
+[ADR 0029](decisions/0029-automatic-normal-labels-and-forecast-display.md)에 따라 `/dev`는 등록 기준 거리 선택 기준 이하(기본 6%, 0.5/3/6% 선택)의
+새 실측을 최대 10Hz로 자동 수집한다. `정상자세(자동)`은 규칙이 붙인 임시 라벨이며 수동 30초의
+`정상자세(수동)`·자기 보고 확인과 분리한다. 자동 자료의 원본 좌표·등록 기준·구간 경계는 별도 메모리 버퍼와
+수집 내보내기에만 둔다. 자동 자료를 개인 프로파일에 적용하거나 서비스 서버로 전송하지 않는다.
+실제 예측 13점과 입력 좌표는 표시용 상태로만 제공하며 진단 내보내기에서 제외한다.
+카메라 보정 없는 world→영상 직접 투영 대신, 정규화 모델 좌표의 전면·측면 도식으로 예측 방향을 보여준다.
+
+### MediaPipe 재학습 연결
+
+수집 JSON은 [별도 로컬 학습 도구](ml/mediapipe-training.md)에서 검증하고 참여자 단위로 분할한 후 시간 창을 만든다.
+연구용 PyTorch LSTM 출력 `forecast-weights-v2`는 `/dev`가 실제 카메라 추출기 ID를 확인한 뒤 소비한다.
+기존 Panoptic v1 경로와 일반 서비스는 그대로 유지한다. 자세 판정 성능과 의료적 정상 여부는 이 연결로 검증되지 않는다.
+
+### /dev 얼굴 전용 비교
+
+`features/developer/face/`는 별도 Face Worker와 현재 탭의10초 비교 집계를 소유한다.
+공식 얼굴 모델·WASM과 번들 Worker는 준비 스크립트가 Git 제외 로컬 자산으로 생성한다.
+같은 카메라 스트림의 프레임 한 장만 동시에 복사하며 Worker에서 얼굴을 추출한다.
+Face의 상대 깊이를 Pose world좌표에 섞지 않는다. 기존 알림·정상 수집·LSTM39D는Pose 원본이며
+Face 좌표/영상/비교 표를 서비스 API·진단 export로 보내지 않는다.
+[얼굴 추적 결정](decisions/0037-developer-face-landmarker.md)과 [자료 적용 경계](ml/face-and-public-data.md)를 따른다.
+
+### 관측 비교의 기준 등록과 수집 구간
+
+`/dev`는 카메라 연결 후 사용자의 시작 확인을 받아 기준 8초를 진행한다. 기준 엔진의
+시간 옵션은 이 소비자만 8초로 지정하며 다른 경로의 기본 2초를 유지한다. 자동/수동 안내와
+측정 구간만 수집하는 CSV v3는 [ADR 0040](decisions/0040-observation-guide-modes.md)을 따른다.
+
+사용자 요청으로 별도 [키포인트 리플레이](decisions/0041-observation-keypoint-replay.md)를 제공한다.
+관측 화면의 유한 메모리와 명시적인 JSON 다운로드/불러오기만 사용한다. 모든 안내 단계의 Pose
+33점 image/world와 시각·품질 결측·단계 문맥을 보존하며 영상·자동 저장/업로드는 없다.
+리플레이는 실제 카메라·관측 엔진·CSV·서비스·학습 파이프라인을 호출하지 않는다.

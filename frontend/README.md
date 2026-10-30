@@ -1,3 +1,5 @@
+> 현재 `/dev` 측정 사이클은 [선택형 스트레칭 결정](../docs/decisions/0044-optional-stretch-cycles.md)을 따른다. 기본은 이탈·기준 복귀 반복이다.
+
 # PoseGood 웹캠 프로토타입
 
 ## 웹 카메라 성능과 오류 확인
@@ -152,7 +154,7 @@ API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거�
 날짜별 계산의 세부 경계는 기존 `src/features/storage/dailyMeasurement.test.ts`가 담당하며 FE 기본 검사에 포함된다.
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
-MediaPipe Pose Landmarker Lite로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
+MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
 프로필·설정은 아직 브라우저 localStorage에 두고,
 자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
 
@@ -282,7 +284,7 @@ JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미�
 
 ## 자세 데이터 수집 (안내형 좌표 수집)
 
-화면 이름은 `자세 데이터 수집`이며 설정 › 개발자 옵션에서 연다([ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md)). 사이드바의 「자세 등록」은 기준 자세 등록 탭으로 이 화면과 다르다([계획 0024](../docs/removed-docs.md)). 코드는 `CollectionPage`, `useCollection`이고 CSV는 [수집 v3](../docs/research/guided-collection-v2.md)(좌표·촬영 조건·자기 보고 확인만, 앱 판정 열 없음)다.
+화면 이름은 `자세 데이터 수집`이며 설정 › 개발자 옵션에서 연다([ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md)). 기준 자세 등록은 측정하기·회원가입에 통합되어 수집 화면과 다르다([이전 계획 0024 정리](../docs/removed-docs.md)). 코드는 `CollectionPage`, `useCollection`이고 CSV는 [수집 v3](../docs/research/guided-collection-v2.md)(좌표·촬영 조건·자기 보고 확인만, 앱 판정 열 없음)다.
 자세 등록 후 설정 › 개발자 옵션의 `자세 데이터 수집`을 연다. 측정이 진행 중이면 먼저 종료해야 한다.
 화면 상단에서 카메라 켜기/끄기·준비 취소·자세 등록/등록 취소를 할 수 있다. 등록 목적과 3단계 안내가 있고, 카메라 방향·거리·높이·책상 배치는 접이식 `카메라·책상 환경`에 있다.
 찍을 자세 선택 → `준비됐어요 · 5초 뒤 촬영 시작` → 10/20/30/60초 촬영 → 실제 자세 확인(`맞아요 · 이대로 저장`) 또는 제외 → CSV 다운로드 순서다.
@@ -297,7 +299,8 @@ JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미�
 
 자세 점수는 서버가 보낸 붕괴 확률로 100×(1−collapse_probability)를 표시한다. 100점에 가까울수록 바른 자세다. 언제 알릴지는 서버가 정하고 앱은 서버의 `alert`를 그대로 보인다(2026-10-21, ADR 0021).
 설정도 같은 점수 방향으로 표시한다. 예전 수집 CSV(v1·v2)의 `rule_score`는 종전의 변화 점수이므로 `100 * (1 - rule_score)`로 환산한다. 수집 v3에는 이 열이 없다.
-전체 키포인트는 Pose의 눈·입·귀·몸·팔·다리 중 보이는 점을 표시한다. 턱 추적은 포함하지 않는다.
+`얼굴·어깨 키포인트`는 Pose의 얼굴 11개와 양쪽 어깨 2개 중 보이는 점을 표시한다.
+어깨 아래의 점·연결선·몸통 파티클은 표시하지 않는다. 공통 관측과 수집 CSV도 원래 index 0~12(어깨 포함 머리)의 최대 13개 좌표만 유지한다([ADR 0020](../docs/decisions/0020-shoulder-up-landmarks.md)). 현재 과제 수집은 v3이며 이전 33개 자료는 ML 입력 준비에서 같은 인덱스만 선택한다.
 웹캠 준비/측정의 `매트릭스 효과`는 점이 모이는 장식용 연출이다. `다시 모으기`, `애니메이션 줄이기`를 제공한다.
 측정 화면의 `키포인트 표시`를 끄면 효과도 숨긴다. 추가 학습 데이터나 실제 3D 모델이 아니다.
 
@@ -399,3 +402,7 @@ Windows 패키지의 새 개발자 페이지는 `npm --prefix frontend run deskt
 
 
 최종 확인: Vitest 352개 + Node 5개, 타입·Vite 빌드·문서 검사 통과. 새 Windows EXE에서 카메라 오류 10종의 주입 경로, WebGL 제한/확인 불가 2종, GPU 복구 4종, DeV 배지, 최상단 토글, 실제 알림/작은 창과 기록·테마 이동을 확인했다. 실제 getUserMedia 호출과 처리되지 않은 JS 예외는 0이었다. 새 EXE와 바탕화면 바로가기를 갱신했다. 전체 서버 통합은 Docker 미실행으로 미검증이다.
+
+## 로컬 관측 화면
+
+`/dev`에서 자동·수동, 기준·이탈 또는 스트레칭을 선택하고 1~5사이클을 측정한다. 기준은 로컬에서 등록하며 원본 영상 없이 전체 33점 JSON과 ML 후보 특징 JSON을 직접 내려받는다([내보내기 계약](../contracts/observation-export.v1.md)). `/dev?demo=1`은 합성 화면이다. `/#forecast`는 별도 연구 예측 화면이다.

@@ -1,0 +1,17 @@
+.forecast-notice { padding: 16px 20px; border: 1px solid #b5d0df; border-radius: 12px; background: #f1f7fa; margin-bottom: 20px; }
+.forecast-notice p { margin: 8px 0 0; line-height: 1.6; }
+.forecast-controls { margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.forecast-controls label { display: flex; align-items: center; gap: 8px; }
+.forecast-controls select { padding: 9px; border-radius: 8px; max-width: 100%; }
+.forecast-results { min-width: 0; }
+.forecast-result { padding: 20px; border: 1px solid #cdd8df; border-radius: 12px; margin-bottom: 14px; }
+.forecast-result h2 { font-size: 17px; margin: 0 0 10px; }
+.forecast-result p { margin: 0; font-size: 19px; line-height: 1.5; }
+.forecast-result progress { width: 100%; margin-top: 14px; }
+.forecast-metrics { margin: 20px 0; }
+.forecast-metrics div { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 10px 0; border-bottom: 1px solid #e2e8ec; }
+.forecast-metrics dt { line-height: 1.5; }
+.forecast-metrics dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.forecast-instructions { padding-left: 24px; line-height: 1.8; }
+.forecast-entry a[aria-disabled="true"] { opacity: .5; }
+@media (max-width: 700px) { .forecast-controls label { width: 100%; } .forecast-result p { font-size: 17px; } }

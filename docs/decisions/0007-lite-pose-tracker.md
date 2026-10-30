@@ -5,6 +5,10 @@
 - 분야: ML (추적 모델, 학습 자료 수집)
 - 관련: [안내형 수집 v2](../research/guided-collection-v2.md), [파일럿 CSV](../research/pilot-csv.md), [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 좌표만 보냄)
 
+## 2026-10-30 공통 카메라 변경
+
+사용자 요청으로 서비스와 `/dev`는 공통 Pose Landmarker Heavy 모델과 GPU 우선·CPU 복구를 사용한다. 기존 서버 기준에는 모델 ID가 없어 Lite 기준과 Heavy 관측이 섞일 가능성이 있다. 반영 전 기준 재등록 또는 모델별 기준 관리가 필요하다. 실제 장치 성능 차이는 미검증이다.
+
 ## 1. 공통: 기기 안 추론과 모델 자산 (옛 0002·0006·0007)
 
 - MediaPipe Pose Landmarker는 기기(브라우저·데스크톱 앱) 안에서 돌린다. 영상은 서버로 보내지 않는다.

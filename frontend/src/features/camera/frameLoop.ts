@@ -5,6 +5,7 @@ import { readShoulders } from './shoulderCheck'
 import { drawPose, type VisualOptions } from '../../lib/poseVisual'
 import { createPointFilter, inferenceInterval } from '../../lib/skeleton'
 import type { CameraDelegate, CameraMetrics, Observation } from './types'
+import modelAsset from '../../../model-asset.json'
 
 const FRAME_EXPIRY_MS = 1_000
 const DRAW_INTERVAL_MS = 33
@@ -133,6 +134,7 @@ export function startPoseFrameLoop(options: FrameLoopOptions): () => void {
           {
             timeMs: time,
             videoTimeMs: previousVideoTime * 1_000,
+            poseModelId: modelAsset.modelId,
             landmarks: points,
             worldLandmarks: result.worldLandmarks[0] ?? [],
             measurable,

@@ -27,6 +27,7 @@ export function SelectMenu({
   id?: string
 }) {
   const id = useId()
+  const trigger = useRef<HTMLButtonElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const [open, setOpen] = useState(false)
@@ -49,7 +50,7 @@ export function SelectMenu({
 
   function choose(index: number) {
     const option = options[index]
-    setOpen(false)
+    setOpen(false); trigger.current?.focus()
     if (option && option.value !== value) onChange(option.value)
   }
 
@@ -59,7 +60,8 @@ export function SelectMenu({
     else if (event.key === 'Home') setActive(0)
     else if (event.key === 'End') setActive(options.length - 1)
     else if (event.key === 'Enter' || event.key === ' ') choose(active)
-    else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false)
+    else if (event.key === 'Escape') { setOpen(false); trigger.current?.focus(); event.stopPropagation() }
+    else if (event.key === 'Tab') { setOpen(false); trigger.current?.focus(); return }
     else return
     event.preventDefault()
   }
@@ -67,6 +69,7 @@ export function SelectMenu({
   return (
     <div className={`select-menu ${open ? 'is-open' : ''}`} ref={box}>
       <button
+        ref={trigger}
         id={triggerId}
         type="button"
         className="select-trigger"

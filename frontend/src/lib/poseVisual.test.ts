@@ -22,12 +22,11 @@ describe('intuitive display score', () => {
   })
 })
 describe('real joints and decorative particles', () => {
-  it('includes eyes, mouth, hand and leg connections without inventing model indices', () => {
+  it('includes only face and shoulder connections using the original model indices', () => {
     expect(POSE_EDGES).toContainEqual([1, 2])
     expect(POSE_EDGES).toContainEqual([9, 10])
-    expect(POSE_EDGES).toContainEqual([15, 21])
-    expect(POSE_EDGES).toContainEqual([28, 32])
-    expect(POSE_EDGES.every((edge) => edge.every((i) => i >= 0 && i < 33))).toBe(true)
+    expect(POSE_EDGES).toContainEqual([11, 12])
+    expect(POSE_EDGES.every((edge) => edge.every((i) => i >= 0 && i < 13))).toBe(true)
   })
   it('hides occluded, invalid and offscreen joints and avoids bridging them', () => {
     const p = points()
@@ -45,9 +44,10 @@ describe('real joints and decorative particles', () => {
     const p = points(),
       before = JSON.stringify(p),
       a = cloudTargets(p)
-    expect(a.length).toBeLessThanOrEqual(445)
+    expect(a.length).toBeLessThanOrEqual(80)
     expect(a.length).toBeGreaterThan(33)
     expect(cloudTargets(p)).toEqual(a)
+    expect(cloudTargets(p.slice(0, 13))).toEqual(a)
     expect(JSON.stringify(p)).toBe(before)
     expect(
       a.every((v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z)),

@@ -1,5 +1,11 @@
 # AI·서비스 경계 계약
 
+별도 로컬 연구 화면의 [예측 실험 출력 v1](forecast-experiment.v1.md)은 기존 서비스 계약과 구분한다.
+`/dev`의 정상 자세 좌표 수집은 [수동 30초 수집 v1](normal-posture-collection.v1.md)과 [자동 선택 범위 v2](auto-normal-posture-collection.v2.md)를 구분한다. 자동은 기본 6%, 0.5%·3%·6% 선택이며 행별 선별값을 보존한다. [기존 자동 0.5% v1](auto-normal-posture-collection.v1.md)의 의미는 유지한다.
+자동 라벨은 초기 실험용 규칙 약라벨이며 평가 정답이 아니다. 좌표 없는 결과 저장은 [개발자 진단 export v1](developer-lab-export.v1.md)을 따른다.
+고정된 모델을 새 촬영으로 비교하는 자료는 [평가 전용 수집 v1](forecast-evaluation-collection.v1.md)을 사용한다. 정상 라벨·프로파일을 만들지 않고 학습 입력에서 거부한다.
+[MediaPipe 로컬 학습](../docs/ml/mediapipe-training.md)은 알려진 동일 추출기의 수집 파일·분할·hash를 검사하고 `forecast-weights-v2`를 생성한다. [정상 등록 검증과 학습 결정](../docs/decisions/0032-normal-reference-and-mediapipe-training.md)은 일반 서비스 계약과 별개의 개발 경로다.
+
 MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API v2](accounts.v2.md)를 따른다.
 계정·설정·기준·세션 REST는 v2(`/v2/…`, DB V2.3)로 바뀐다(지금 DB V2.6). 계약 문서는 [계정 API v2](accounts.v2.md)·[동의 문서 v2](consent-documents.v2.md)(BE, 10/15 합침)이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/api-ws-spec.md)에 있다.
 
@@ -104,3 +110,9 @@ API는 진행 중 세션마다 최근 120개 구간의 요청 hash·추론 출�
 유효 시간·사건 간격 통계에서 제외한다. 측정 불가를 정상 관측이나 복귀로 대체하지 않는다.
 세션에 적용한 설정은 고정하며 사용자의 설정 변경은 다음 측정 세션부터 적용한다.
 기존 동작을 확정한 문서 동기화이므로 관측/사건/조회 스키마와 전송 값 `legacy-interrupt-v1`은 유지한다.
+
+- [/dev 관측 전체·ML 후보 특징 내보내기](observation-export.v1.md)
+
+## 로컬 연구 내보내기
+
+[/dev 관측 전체·ML 후보 특징 내보내기](observation-export.v1.md)는 서비스 전송 계약과 별도다.

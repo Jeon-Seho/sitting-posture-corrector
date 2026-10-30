@@ -12,10 +12,17 @@ export type CameraMetrics = {
 export type Observation = {
   timeMs: number
   videoTimeMs: number
+  poseModelId?: string
   /** Nose, both shoulders and both ears tracked (`measurable`); the app computes no posture values. */
-  measurable: boolean
+  measurable?: boolean
   landmarks: Landmark[]
   worldLandmarks: Landmark[]
+  /** Compatibility with earlier research frames; production tracking returns all 33 points above. */
+  armLandmarks?: Landmark[]
+  armWorldLandmarks?: Landmark[]
+  extraLandmarks?: Landmark[]
+  extraWorldLandmarks?: Landmark[]
+  features?: { headGap: number; offset: number; tilt: number; quality: number; turn?: number } | null
   inferenceMs: number
   delegate: CameraDelegate
   width: number
