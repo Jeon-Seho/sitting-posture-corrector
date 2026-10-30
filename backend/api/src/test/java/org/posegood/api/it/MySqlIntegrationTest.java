@@ -292,7 +292,7 @@ class MySqlIntegrationTest {
 
 	@Test
 	void anotherOriginPageCallsTheApiOnlyWhenAllowed() throws Exception {
-		// fe-deploy S-1: 확인 요청(OPTIONS)은 보호 경로라도 로그인 없이 답하고, 허용한 출처에만 쿠키를 허락한다.
+		// FE 제안서 9.3.1 S-1: 확인 요청(OPTIONS)은 보호 경로라도 로그인 없이 답하고, 허용한 출처에만 쿠키를 허락한다.
 		var http = HttpClient.newHttpClient();
 		for (var path : List.of("/v2/auth/login", "/v2/sessions/" + UUID.randomUUID())) {
 			var allowed = http.send(preflight(path, APP_ORIGIN, "authorization,content-type"),

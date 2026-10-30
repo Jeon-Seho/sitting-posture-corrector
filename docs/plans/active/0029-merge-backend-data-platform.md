@@ -42,7 +42,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | `docs/code-structure.md` | 내용 | `backend/` 구조는 BE, `frontend/` 구조는 우리 |
 | `docs/design/fe-commands-and-checks.md` | 내용 | 우리 것을 기준으로, BE가 바꾼 빌드 도구(JDK 17·Gradle Wrapper) 내용을 반영 |
 | `docs/index.md` | 내용 | 두 쪽을 합친다. FE 절은 우리, 계획·ADR 목록은 번호 정리 뒤 기준 |
-| `docs/design/fe-server-integration-map.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 고친 문구(JDK 17·Gradle, ADR 0023 링크)는 [FE 명령과 검사](../../design/fe-commands-and-checks.md)에 옮긴다 |
+| `docs/design/fe-server-integration-map.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 고친 문구(JDK 17·Gradle, ADR 0023 링크)는 [FE 명령과 검사(지움)](../../removed-docs.md)에 옮긴다 |
 | `docs/plans/active/0022-kafka-realtime-pipeline.md` | 우리가 지움 / BE가 고침 | 지운 채로 둔다. BE가 더한 기록(ADR 0020, `/v1/realtime` 유지)과 Gradle 문구는 [지운 문서 기록](../../removed-docs.md)에 남긴다. BE가 이 계획을 계속 쓴다면 되살린다 |
 
 ### 내용 충돌 (글자 충돌로 안 잡힘)

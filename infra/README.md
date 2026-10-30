@@ -184,7 +184,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 
 ### 인터넷 공개 입구 (D-43, gateway·Cloudflare 터널)
 
-화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [fe-deploy](../docs/design/fe-deploy.md) 6장).
+화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6).
 
 ```
 브라우저 ─ https://api.posegood.site/api/… · wss://…/api/v2/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
@@ -225,7 +225,7 @@ tools/platform/integration_test.sh --quick               # 14단계(터널 경�
 
 - `--config`와 토큰을 같이 쓰는 실행이 안 되면 `command`를 `["tunnel", "--no-autoupdate", "run", "--url", "http://gateway:80"]`로 바꾼다(경로가 하나뿐이라 같은 결과).
 - 멈출 때는 프로필을 모두 붙인다: `$C --profile io --profile edge down`(프로필 없는 `down`은 io·edge 서비스를 남긴다). 터널만 끌 때는 `$C --profile edge stop cloudflared`.
-- 문제가 생기면 볼 곳은 [fe-deploy](../docs/design/fe-deploy.md) 6장 5-3 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
+- 문제가 생기면 볼 곳은 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
 
 ### 판정 (api-server `judge`, D-22·D-53)
 

@@ -77,7 +77,7 @@ design 문서가 늘어 겹치는 것을 합쳤다. 되살리기: `git show 48f5
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/surface-brief-frontend.md` | 발표용 UI 데모(10/02 이전 레트로 피치덱)의 최초 시각 방향 기록이다. 화면은 ADR 0017로 다시 설계됐고 지금 규칙은 DESIGN.md다. | [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [DESIGN.md](../DESIGN.md) | lellon0403(처음 작성) |
-| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [배포 구상](design/fe-deploy.md) 6장(창·시작 프로그램·알림 팝업), [FE 작업 명령과 검사](design/fe-commands-and-checks.md)(실행 명령) | lellon0403(처음 작성), klaod-tech |
+| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [FE 제안서](design/fe-server-proposal.md) 8.4(창·시작 프로그램·알림 팝업), [frontend README](../frontend/README.md)(실행 명령, FE 작업 명령과 검사 문서는 10/30 지움 — 8장) | lellon0403(처음 작성), klaod-tech |
 
 ## 6. 2026-10-22 design 문서 정리 (FE, 문서 2개 + 절 정리)
 
@@ -128,3 +128,12 @@ BE 쪽(0011·0012·0013·0014·0018·0019·0022·0023)은 2026-10-27 BE 피드�
 
 남은 ADR(13개, 그 뒤 develop PR #68로 BE 0031이 더해져 14개): 0001·0009(공통), 0005·0008·0017·0027(FE), 0007(ML), 0015·0020(서버 운영·BE), 0021·0024·0028·0029·0031(FE·BE 경계).
 코드 주석의 ADR 번호도 바꿨다: BE `Policy.java`·`SessionEngine.java`·`FeatureDeltas.java`·`FrameFeatures.java`·`InferenceClient.java`, `model/inference/service.py`(0012·0013·0019 → 0020), `tools/runtime.py`·`requirements-front.txt`(0023 → `backend/README.md`), FE 코드(0025·0026·0032 → 0021, 0033 → 0027).
+
+## 8. 2026-10-30 FE 명령·배포 문서 정리 (FE, 2개)
+
+서버 공개 연결이 끝나(10/29, [FE 제안서](design/fe-server-proposal.md) 0장) FE 전용 명령 모음을 따로 둘 필요가 없어졌다. 공통 명령은 [개발 흐름](development.md), 프론트 명령은 [frontend README](../frontend/README.md)를 본다. 되살리기: `git show 29089f8:<경로>`.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe-commands-and-checks.md` | FE가 쓰던 명령과 검사 설명을 모은 문서다. 브랜치 이름(V3)·「지금 못 돌리는 것」 등 10/26 기준 내용이 낡았고, 공통 개발 흐름·frontend README와 겹친다. 검사 도구도 팀장 CI 브랜치(`chore/update-workflow-ci-cd`)에서 다시 정리 중이다. | [개발 흐름](development.md)(검사 명령), [frontend README](../frontend/README.md)(개발 서버·데스크톱), `frontend/scripts/fake-server.mjs` 머리 주석(가짜 서버), [FE 제안서](design/fe-server-proposal.md) 9.4 1단계(Vercel 포크 갱신), [계획 0030](plans/active/0030-make-check-failures.md)(`make check` 실패), [requirements-front.txt](../requirements-front.txt)(설치할 프로그램) | BE(빌드 도구 문구, 계획 0028·0029) |
+| `docs/design/fe-deploy.md` | 화면·서버 분리 배포(도메인·Vercel·Cloudflare 터널)의 결정·진행 문서다. 10/29 공개 연결이 끝나 FE 상태 문서 하나로 모았다(내용은 그대로, 장 번호만 9.x로). | [FE 제안서](design/fe-server-proposal.md) 9장(옛 1~7장 → 9.1~9.7), 결과 요약은 0장 | DevOps(6장 B안 답) |

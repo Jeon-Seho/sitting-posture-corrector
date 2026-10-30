@@ -4,7 +4,7 @@
 - 날짜: 2026-10-01
 - 최신화: 2026-10-30, 현재 저장소의 Compose·Dockerfile·빌드 설정·워크플로·배포 도구 기준
 - 근거: Docker Compose 실행과 GitHub Actions 자동 배포 결정, 서버 PC용 플랫폼 분리, FE의 Vercel 분리 배포 결정.
-- 관련: [인프라 실행 안내](../../infra/README.md), [FE 배포 결정과 진행 기록](../design/fe-deploy.md),
+- 관련: [인프라 실행 안내](../../infra/README.md), [FE 배포 결정과 진행 기록](../design/fe-server-proposal.md#9-배포-도메인--vercel--cloudflare-터널),
   [현재 API 판정 구조](0020-single-api-decision-engine.md), [Kafka 전환 계획](../plans/active/0031-realtime-kafka-transition.md).
 
 ## 1. 결정과 실행 구성
@@ -96,7 +96,7 @@ Vercel 화면은 [frontend/src/features/platform/serverConfig.ts](../../frontend
 정확한 출처를 넣고 HTTPS 공개에는 `POSEGOOD_COOKIE_SECURE=true`를 적용한다.
 Dockerfile에 남은 `VITE_SERVER_ACCOUNTS`는 현재 FE 코드가 읽지 않으므로 계정 모드 전환 설정으로 설명하지 않는다.
 
-[FE 배포 문서](../design/fe-deploy.md)의 공개 경로 결정은 Vercel 화면과 Cloudflare 터널 → API 전용 `gateway`다.
+[FE 배포 문서](../design/fe-server-proposal.md#9-배포-도메인--vercel--cloudflare-터널)의 공개 경로 결정은 Vercel 화면과 Cloudflare 터널 → API 전용 `gateway`다.
 현재 저장소에는 이를 위한 `gateway`(`io`)·`cloudflared`(`edge`) 서비스와 위 설정 파일이 있다.
 `web`은 정적 화면을 함께 제공하는 서버 안 시험용으로 유지하며 공개 터널은 API 전용 `gateway`로 연결한다.
 설정 구현과 실제 토큰 등록·터널 연결 성공은 구분한다.
@@ -158,5 +158,5 @@ FE PR의 lint와 DB CI도 배포의 harness 호출에 자동 포함되는 검사
 
 2026-10-30 최신화는 저장소 파일과 호출 관계를 대조한 문서 갱신이다.
 실제 GitHub `production` 설정·이미지 게시·현재 실행 중인 컨테이너·외부 도메인/터널·백업 복원 상태는 이번 작업에서 확인하지 않았다.
-FE 도메인·Vercel의 기존 진행 기록은 [FE 배포 문서](../design/fe-deploy.md)를 따르되, 이 ADR에서 현재 운영 상태로 재확인한 것은 아니다.
+FE 도메인·Vercel의 기존 진행 기록은 [FE 배포 문서](../design/fe-server-proposal.md#9-배포-도메인--vercel--cloudflare-터널)를 따르되, 이 ADR에서 현재 운영 상태로 재확인한 것은 아니다.
 실행 명령은 [인프라 안내](../../infra/README.md), 범위별 검증과 완료 판단은 [품질 기준](../quality.md)을 함께 따른다.
