@@ -118,4 +118,4 @@
 
 2026-10-13, Windows 11 노트북(Node 24, Python 3.13): 프론트 단위 시험 321개, `tsc`, 빌드, `check-repo`, Python 계약 시험 통과.
 `check-browser`는 develop 병합 뒤 "첫 사건이 정확히 3초에 확정" 단계에서 실패한다(측정 흐름은 develop 변경, 원인 미확인).
-`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-yj 파일, [명령과 검사](../../design/fe-commands-and-checks.md)).
+`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-yj 파일, [명령과 검사(지움)](../../removed-docs.md)).

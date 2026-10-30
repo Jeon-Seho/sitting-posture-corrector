@@ -3,7 +3,7 @@
 - 상태: superseded (2026-10-29 도구 간소화로 종합 브라우저·Compose 복구 과제 폐기. 아래 원인과 실행 결과는 당시 기록)
 - 담당: FE(klaod-tech)가 원인 분석·브라우저 시나리오, Compose는 DB·DevOps
 - 시작일: 2026-10-14 (예전 번호 0028. BE 브랜치의 계획 0028과 겹쳐 10/15에 0030으로 옮기고 Gradle 전환 부분을 뺐다)
-- 관련: [FE 명령과 검사](../../design/fe-commands-and-checks.md), [계획 0029](0029-merge-backend-data-platform.md), [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)
+- 관련: [FE 명령과 검사(지움)](../../removed-docs.md), [계획 0029](0029-merge-backend-data-platform.md), [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
 

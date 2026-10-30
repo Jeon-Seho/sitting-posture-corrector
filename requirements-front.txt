@@ -1,7 +1,7 @@
 # FE 개발 PC에 직접 설치하는 프로그램 (2026-10-12)
 # requirements-dev.txt(Python 패키지)와 frontend/package.json(npm 패키지)은 설치 명령이 자동으로 받는다.
 # 이 파일은 자동으로 받지 못하는 프로그램만 적는다. 기계가 읽는 형식이 아니라 사람이 보는 목록이다.
-# 형식: 이름 | 버전 | 어디서 받나(Windows) | 어느 검사에 필요한가 (docs/design/fe-commands-and-checks.md 명령 모음)
+# 형식: 이름 | 버전 | 어디서 받나(Windows) | 어느 검사에 필요한가 (docs/development.md)
 
 # 기본 (python tools/dev.py setup, test, check-frontend)
 Git            | 최신        | winget install Git.Git                          | 전부

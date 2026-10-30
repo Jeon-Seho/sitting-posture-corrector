@@ -14,7 +14,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.DefaultCorsProcessor;
 
-/** 다른 출처 화면의 요청 허용(fe-deploy S-1). 전체 필터 체인은 MySQL 통합 시험이 확인한다. */
+/** 다른 출처 화면의 요청 허용(FE 제안서 9.3.1 S-1). 전체 필터 체인은 MySQL 통합 시험이 확인한다. */
 class SecurityConfigurationTest {
 	private static final String APP = "https://app.example.test";
 
