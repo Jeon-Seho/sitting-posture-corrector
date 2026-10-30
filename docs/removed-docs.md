@@ -137,3 +137,11 @@ BE 쪽(0011·0012·0013·0014·0018·0019·0022·0023)은 2026-10-27 BE 피드�
 |---|---|---|---|
 | `docs/design/fe-commands-and-checks.md` | FE가 쓰던 명령과 검사 설명을 모은 문서다. 브랜치 이름(V3)·「지금 못 돌리는 것」 등 10/26 기준 내용이 낡았고, 공통 개발 흐름·frontend README와 겹친다. 검사 도구도 팀장 CI 브랜치(`chore/update-workflow-ci-cd`)에서 다시 정리 중이다. | [개발 흐름](development.md)(검사 명령), [frontend README](../frontend/README.md)(개발 서버·데스크톱), `frontend/scripts/fake-server.mjs` 머리 주석(가짜 서버), [FE 제안서](design/fe-server-proposal.md) 9.4 1단계(Vercel 포크 갱신), [계획 0030](plans/active/0030-make-check-failures.md)(`make check` 실패), [requirements-front.txt](../requirements-front.txt)(설치할 프로그램) | BE(빌드 도구 문구, 계획 0028·0029) |
 | `docs/design/fe-deploy.md` | 화면·서버 분리 배포(도메인·Vercel·Cloudflare 터널)의 결정·진행 문서다. 10/29 공개 연결이 끝나 FE 상태 문서 하나로 모았다(내용은 그대로, 장 번호만 9.x로). | [FE 제안서](design/fe-server-proposal.md) 9장(옛 1~7장 → 9.1~9.7), 결과 요약은 0장 | DevOps(6장 B안 답) |
+
+## 9. 2026-10-31 자정 점검 작업 문서 (FE, 1개)
+
+팀장 인계서(10/30)의 합성 카메라 정비(1·2번)와 서버 자정 넘김(`session_rollover`)을 실제 자정에 로컬 서버로 확인해(10/31 00:00, 통과) 작업 문서를 닫았다. 확인 결과 보고서는 팀에 따로 공유했다(저장소 밖). 되살리기: `git show c1be533:<경로>`.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe-camera-midnight-test.md` | 합성 카메라 정비(인계서 1·2번)와 자정 실행 방법을 적은 작업 문서다. 1·2번은 PR #87·#88에 들어갔고 실제 자정 확인도 끝나 남은 일이 없다. 4·5번(rollover 시나리오, 앱 날짜 나누기 삭제)은 팀 공유 계획에서 다룬다. | [frontend README](../frontend/README.md) 자정 측정 절(합성 카메라 동작), [ADR 0029](decisions/0029-midnight-cut-and-server-time.md)(자정 넘김 B안), 팀 공유 결과 보고서·후속 계획(저장소 밖) | - |

@@ -9,7 +9,7 @@ import { EventTable } from '../SessionEvents'
 import { collapseEvents } from './events'
 import type { LiveState } from './LiveSession'
 import type { SocketLike } from './LiveSession'
-import { INPUT_PAUSED_NOTICE, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
+import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
 
 export type LiveSessionPageProps = {
   session: LiveSessionDescriptor
@@ -287,6 +287,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
           카메라 준비 다시 확인
         </button>
       </div>
+      {screen.rolledOver && running && <p role="status" className="notice">{ROLLED_OVER}</p>}
       {screen.soundError && <p role="status" className="notice">{screen.soundError}</p>}
       {details}
 

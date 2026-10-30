@@ -25,6 +25,11 @@ import {
 export type LivePhase = 'creating' | 'connecting' | 'running' | 'paused' | 'ending' | 'ended' | 'failed'
 
 export type LiveState = {
+  /**
+   * The server session this connection measures now: the S1 id, then the server-made id after a KST
+   * midnight `session_rollover` (BE api-spec 11.3). Records and S4 use this, not the S1 id.
+   */
+  sessionId: string
   phase: LivePhase
   /** What the app sends while not running: the user's pause or camera input that stopped. */
   sending: FramePhase
@@ -72,6 +77,8 @@ type Options = {
   onAlert?: (kind: 'collapse_confirmed' | 'reminder') => void
   /** Called once when the measurement is over (ended, lost or failed). */
   onEnded?: (state: LiveState) => void
+  /** KST midnight: the previous session as the server stored it; the measurement goes on (`session_rollover`). */
+  onRolledOver?: (previous: LiveState) => void
   now?: () => number
   openSocket?: (url: string) => SocketLike
   api?: ApiOptions
@@ -106,6 +113,8 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
   // BE 10/27: no judgeable posture or away for 5 min; the server stored it and ended it.
   unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 5분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
+  // BE 11.3: at midnight the server stored the day but could not go on in a new session.
+  day_changed: { message: '자정이 지나 측정을 마쳤어요. 자정 전까지 저장됐어요. 새 측정을 시작해 주세요.', failed: false },
 }
 /**
  * Closed while measuring (after `ready`): the server still stored up to the last interval (BE
@@ -134,6 +143,7 @@ export function realtimeUrl(): string {
 
 export class LiveSession {
   state: LiveState = {
+    sessionId: '',
     phase: 'creating',
     sending: 'running',
     observation: null,
@@ -156,10 +166,13 @@ export class LiveSession {
   private waiting: FrameBatch[] = []
   private timer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
+  /** The user (or the app) sent `end`; a server `session_ended` alone does not set this. */
+  private ending = false
   private readonly now: () => number
 
   constructor(private readonly options: Options) {
     this.now = options.now ?? (() => performance.now())
+    this.state = { ...this.state, sessionId: options.sessionId }
   }
 
   private set(patch: Partial<LiveState>) {
@@ -334,9 +347,40 @@ export class LiveSession {
         })
         return
       }
+      case 'session_rollover':
+        if (this.ready) this.rollOver(message)
+        return
       case 'ack':
         return
     }
+  }
+
+  /**
+   * KST midnight (BE api-spec 11.3): the server already sent `decision(session_ended)` and stored
+   * the previous session; hand that over as ended and go on with the new one from zero. Times and
+   * sequences keep the connection's axis (the server converts them), so the batcher is untouched.
+   */
+  private rollOver(message: Extract<ServerMessage, { type: 'session_rollover' }>) {
+    const previous: LiveState = {
+      ...this.state,
+      sessionId: message.ended.session_id,
+      phase: 'ended',
+      summary: message.ended.summary,
+      endedAt: serverTime(message.ended.ended_at),
+      alerting: false,
+    }
+    if (!this.disposed) this.options.onRolledOver?.(previous)
+    const sending = this.state.sending === 'running' ? 'running' : 'paused'
+    this.set({
+      sessionId: message.session_id,
+      phase: this.ending ? 'ending' : sending,
+      startedAt: serverTime(message.started_at),
+      endedAt: null,
+      summary: EMPTY_SUMMARY,
+      events: [],
+      alerting: false,
+      stalled: false,
+    })
   }
 
   private send(batch: FrameBatch) {
@@ -406,6 +450,7 @@ export class LiveSession {
       this.finish({ phase: 'ended' })
       return
     }
+    this.ending = true
     const now = this.now()
     this.sendAll(this.batcher.finish(now))
     const endMs = Math.max(0, Math.round(now - this.origin))
@@ -420,7 +465,7 @@ export class LiveSession {
     if (this.over()) return
     try {
       const view: SessionView | null = parseSessionView(
-        await apiRequest(`/v2/sessions/${encodeURIComponent(this.options.sessionId)}`, {}, MESSAGES, this.options.api),
+        await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
       if (view) {
         this.finish({ phase: 'ended', summary: view.summary, events: view.events, lastSequence: view.last_sequence })

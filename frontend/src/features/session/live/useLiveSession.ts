@@ -22,6 +22,8 @@ export type LiveSessionService = {
   onEnded: (state: LiveState, note: string) => void
   /** Every state change while measuring (the record's KST day split reads the running totals). */
   onObserved?: (state: LiveState) => void
+  /** KST midnight: the previous session ended and was stored; the measurement goes on as a new one. */
+  onRolledOver?: (previous: LiveState) => void
   /** "2026-10-13 · 세션 2", shown when the connection is lost. */
   sessionLabel?: string
 }
@@ -39,6 +41,7 @@ export const INPUT_GAP_MS = 1000
 export const INPUT_PAUSED_NOTICE = '인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.'
 const CAMERA_UNPLUGGED = '쓰던 카메라가 빠져 측정을 마쳤어요. 그때까지의 기록은 저장했어요.'
 const FRAME_CHANGED = '카메라 영상 크기가 바뀌어 측정을 마쳤어요. 그때까지의 기록은 저장했어요.'
+export const ROLLED_OVER = '자정이 지나 새 측정으로 이어졌어요.'
 
 const inputReady = (camera: CameraController) =>
   camera.state === 'on' && performance.now() - camera.lastFrame.current <= INPUT_GAP_MS
@@ -60,6 +63,8 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  /** A KST midnight `session_rollover` happened in this measurement (shown until it ends). */
+  const [rolledOver, setRolledOver] = useState(false)
   /** Camera frames are arriving (checked every 250 ms, so 「측정 재개」 follows the camera). */
   const [inputOk, setInputOk] = useState(true)
   const live = useRef<LiveSession | null>(null)
@@ -93,6 +98,10 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
         setToast(kind === 'reminder' ? '흐트러진 자세가 이어져 다시 알려드려요.' : '흐트러진 자세가 이어지고 있어요.')
         if (toastTimer.current !== null) clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3000)
+      },
+      onRolledOver: (previous) => {
+        latest.current.service.onRolledOver?.(previous)
+        setRolledOver(true)
       },
       onEnded: (ended) => {
         latest.current.camera.stop()
@@ -188,6 +197,7 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
     state: state ?? live.current?.state ?? null,
     phase,
     note,
+    rolledOver,
     soundOn,
     soundError,
     toggleSound,
