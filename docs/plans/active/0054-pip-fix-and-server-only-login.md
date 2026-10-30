@@ -63,7 +63,7 @@
 
 ### 공통
 
-- [ ] `python tools/dev.py check-frontend`, `check-repo`. 결과를 아래에 기록.
+- [ ] `python tools/dev.py check-frontend` 결과를 아래에 기록.
 
 ## 결정과 진행 기록
 
