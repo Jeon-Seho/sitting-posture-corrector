@@ -4,9 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 const { installCameraWindow } = createRequire(import.meta.url)('../../../electron/camera-window.cjs')
 
+type IpcHandler = (event: { sender: unknown; trusted: boolean }, ...args: unknown[]) => unknown
+type OpenPolicy = { action: 'allow' | 'deny'; overrideBrowserWindowOptions?: Record<string, unknown> }
+
 function setup() {
-  const handlers = new Map<string, (...args: any[]) => unknown>()
-  let policy!: (details: { url: string; frameName: string }) => any
+  const handlers = new Map<string, IpcHandler>()
+  let policy!: (details: { url: string; frameName: string }) => OpenPolicy
   const contents = Object.assign(new EventEmitter(), {
     setWindowOpenHandler: vi.fn(callback => { policy = callback }), send: vi.fn(),
   })
@@ -15,10 +18,10 @@ function setup() {
     getBounds: () => ({}), restore: vi.fn(), show: vi.fn(), focus: vi.fn(),
   })
   const ipcMain = {
-    handle: (name: string, handler: (...args: any[]) => unknown) => handlers.set(name, handler),
+    handle: (name: string, handler: IpcHandler) => handlers.set(name, handler),
     removeHandler: vi.fn((name: string) => handlers.delete(name)),
   }
-  installCameraWindow({ mainWindow: main, ipcMain, trusted: (event: any) => event.trusted,
+  installCameraWindow({ mainWindow: main, ipcMain, trusted: (event: { trusted: boolean }) => event.trusted,
     screen: { getDisplayMatching: () => ({ workArea: { x: -800, y: 0, width: 800, height: 600 } }) },
   })
   const event = { sender: contents, trusted: true }
