@@ -1,0 +1,5 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+redis==5.0.8
+kafka-python==2.0.2
+# (D-63) 시험 LSTM과 torch는 지웠다 — 모델이 정해지면(ML, D-34) 그때 의존성을 더한다.

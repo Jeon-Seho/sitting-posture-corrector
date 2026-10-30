@@ -21,12 +21,39 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(frameJoints([])).toBeNull()
   })
 
-  it('sends every frame of each 0.5 s interval without averaging, with increasing sequence', () => {
+  it('keeps coordinates inside the range the server accepts (x·y -1..2, visibility 0..1)', () => {
+    const points = body()
+    points[0] = { x: -3.2, y: 2.7, z: 0, visibility: 1.4 }
+    points[11] = { x: Number.NaN, y: 0.5, z: 0, visibility: 0.9 }
+    points[12] = { x: 0.6, y: 0.5, z: 0 }
+    const p = frameJoints(points)!
+    expect(p[0]).toEqual([-1, 2, 1])
+    expect(p[7]).toEqual([0, 0, 0])
+    expect(p[8]).toEqual([0.6, 0.5, 0])
+  })
+
+  it('sends a frame with a missing joint as the 「판정 불가」 signal only, and a complete one with coordinates', () => {
+    const batcher = new FrameBatcher(0)
+    const broken = body()
+    delete (broken as Partial<Landmark>[])[7]
+    batcher.push(input(100, { landmarks: broken }))
+    const [first] = batcher.push(input(200))
+    const [second] = batcher.finish(500)
+    expect(first.frames[0]).toEqual({ t_ms: 100, p: null, valid: false })
+    expect(second.frames[0].valid).toBeUndefined()
+    expect(second.frames[0].p).toHaveLength(9)
+  })
+
+  it('sends each frame on its own, ending its interval when the next frame arrives (10/27)', () => {
     const b = new FrameBatcher(1000)
     const sent = [1000, 1060, 1130, 1490, 1520, 1990, 2010].flatMap((t) => b.push(input(t)))
     expect(sent.map((m) => [m.sequence, m.start_ms, m.end_ms, m.frames.map((f) => f.t_ms)])).toEqual([
-      [0, 0, 500, [0, 60, 130, 490]],
-      [1, 500, 1000, [520, 990]],
+      [0, 0, 60, [0]],
+      [1, 60, 130, [60]],
+      [2, 130, 490, [130]],
+      [3, 490, 520, [490]],
+      [4, 520, 990, [520]],
+      [5, 990, 1010, [990]],
     ])
     expect(sent[0]).toMatchObject({ schema_version: '3.0', feature_version: 'keypoints-9-v1', phase: 'running' })
     // 640x480 is fixed (DB V2.3 CAPTURE_RESOLUTION), so the camera size is not sent.
@@ -34,14 +61,22 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(sent[0]).not.toHaveProperty('height')
   })
 
-  it('marks frames the app could not place as not valid but still sends the coordinates', () => {
+  it('sends frames the app could not place without coordinates (ADR 0021), and nobody as p null', () => {
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))
-    b.push(input(20, { landmarks: [] }))
-    const [batch] = b.finish(100)
-    expect(batch.frames[0]).toMatchObject({ t_ms: 10, valid: false })
-    expect(batch.frames[0].p).toHaveLength(9)
-    expect(batch.frames[1]).toEqual({ t_ms: 20, p: null })
+    const [first] = b.push(input(20, { landmarks: [] }))
+    const [second] = b.finish(100)
+    expect(first.frames).toEqual([{ t_ms: 10, p: null, valid: false }])
+    expect(second.frames).toEqual([{ t_ms: 20, p: null }])
+  })
+
+  it('still closes an interval after 0.5 s without a new frame, so time stays continuous', () => {
+    const b = new FrameBatcher(0)
+    b.push(input(100))
+    expect(b.tick(700).map((m) => [m.start_ms, m.end_ms, m.frames.length])).toEqual([[0, 500, 1]])
+    expect(b.tick(1100).map((m) => [m.start_ms, m.end_ms, m.frames.length])).toEqual([[500, 1000, 0]])
+    b.push(input(1200))
+    expect(b.push(input(1300)).map((m) => [m.start_ms, m.end_ms, m.frames.map((f) => f.t_ms)])).toEqual([[1000, 1300, [1200]]])
   })
 
   it('ends the interval at a pause and sends rest intervals without frames', () => {

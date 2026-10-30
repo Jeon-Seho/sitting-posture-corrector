@@ -1,4 +1,4 @@
-import { average, validFeatures, type Features } from './pose'
+import { average, validFeatures, type Features } from './legacyPose'
 
 /** Normalized frame position of the calibrated upper body (see `placement` in pose.ts). */
 export type Placement = { x: number; y: number; area: number }

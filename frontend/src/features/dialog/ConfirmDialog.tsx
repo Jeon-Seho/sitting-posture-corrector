@@ -60,6 +60,7 @@ export function ConfirmDialog({
     try {
       await onConfirm()
     } catch (failure) {
+      console.error('[features/dialog/ConfirmDialog.tsx:confirm] Operation failed', failure)
       if (mounted.current)
         setError(formatError?.(failure) ?? '처리하지 못했어요. 취소하거나 다시 시도해 주세요.')
     } finally {

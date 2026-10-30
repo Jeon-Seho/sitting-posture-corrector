@@ -1,6 +1,6 @@
 import modelAsset from '../../../model-asset.json'
 import type { CalibrationSummary } from '../../../../model/prototype/calibration'
-import type { Features } from '../../../../model/prototype/pose'
+import type { Features } from '../../../../model/prototype/legacyPose'
 import type { Observation } from './types'
 
 export type BaselineRecord = {

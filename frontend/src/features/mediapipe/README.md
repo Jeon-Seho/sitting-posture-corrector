@@ -1,5 +1,7 @@
 # MediaPipe Pose 개발 진입점
 
+**2026-10-30 통합:** 아래 모듈은 기존 연구·비교 실험용으로 보존한다. 현재 공통 서비스와 `/dev` 카메라는 `features/camera/modelLoader.ts`와 `frameLoop.ts`를 통해 Heavy 33점을 추출한다. 서비스는 9점을 서버로 보내고 `/dev`는 33점을 로컬에 보관한다. GPU 실패 시 CPU 복구는 공통 카메라가 담당한다.
+
 MediaPipe 모델 준비·원본 좌표 선택·추론 주기를 카메라 화면에서 분리한 브라우저 모듈이다.
 React·canvas·저장소·자세 판정에 의존하지 않는다. SDK 패키지 직접 import는 `detector.ts` 한 곳에만 있다.
 

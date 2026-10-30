@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 세션 API 요청·응답 본문 모음: 생성, 종료, 특징 응답, 기준 자세.
+ * 세션 API 요청 본문 모음: 생성, 종료, 기준 자세.
  *
  * 계약: contracts/accounts.v2.md의 세션 부분.
  */
@@ -27,9 +27,6 @@ public final class SessionRequests {
 
     /** 세션 종료 요청: 종료 시점(세션 시작부터 ms). */
     public record End(@PositiveOrZero @Max(86400000) long endMs) {}
-
-    /** 특징 응답 v1: 관측 v2와 최신 세션 조회 응답. */
-    public record FeatureResponse(String schemaVersion, Observation observation, SessionView session) {}
 
     /**
      * 보정 동안 9개 관절의 MediaPipe 정규화 좌표 평균. 0~1 밖의 값(화면 밖 추정)은

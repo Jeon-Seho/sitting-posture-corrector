@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { CheckCircle, WarningCircle, X } from '../../components/icons'
 import { alertPopupText } from './alertPopup'
 import { desktopBridge } from './bridge'
 
@@ -28,7 +28,12 @@ export function AlertPreview() {
       setShown('warn')
       return
     }
-    await send({ ...alertPopupText(false), preview: true }).catch(() => null)
+    const delivery = await send({ ...alertPopupText(false), preview: true }).catch((caughtError) => {
+      console.error('[features/desktop/AlertPreview.tsx:popup] Operation failed', caughtError)
+      return null
+    })
+    setNote(delivery === 'popup' ? '화면 오른쪽 아래에 앱 밖 알림창을 열었어요.' : '앱 밖 알림창을 열지 못했어요. 창 상태와 알림 설정을 확인해 주세요.')
+    setShown(delivery === 'popup' ? 'ok' : 'warn')
   }
 
   return (

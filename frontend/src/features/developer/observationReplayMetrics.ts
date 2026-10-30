@@ -6,7 +6,7 @@ type MetricFrame = { current: ComparisonGeometry | null; reference: ComparisonGe
 export type ReplayMetricSeries = { frames: MetricFrame[]; samples: ComparisonSample[] }
 function input(frame: ReplayFrame): ComparisonFrame {
   const points = (values: ReplayFrame['image']) => values.map(p => p ? { ...p, visibility: p.visibility ?? 0 } : { x: NaN, y: NaN, z: NaN, visibility: 0 })
-  return { timeMs: frame.observationTimeMs ?? NaN, width: frame.width, height: frame.height, poseModelId: frame.poseModelId ?? undefined, landmarks: points(frame.image), worldLandmarks: points(frame.world) }
+  return { timeMs: frame.observationTimeMs ?? NaN, width: frame.width, height: frame.height, poseModelId: frame.poseModelId ?? undefined, measurable: frame.measurable ?? undefined, landmarks: points(frame.image), worldLandmarks: points(frame.world) }
 }
 
 /** Display-only reconstruction. Registration uses the same engine as live capture. */

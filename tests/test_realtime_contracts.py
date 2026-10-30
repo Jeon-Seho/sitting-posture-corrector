@@ -1,4 +1,4 @@
-"""Draft Kafka topic and WebSocket contracts (plan 0022 step 1), synthetic examples only."""
+"""Draft Kafka topic contracts (plan 0022 step 1) and shared WebSocket v2 rules, synthetic examples only."""
 
 import copy
 import json
@@ -12,11 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 REALTIME = CONTRACTS / "realtime"
 EXAMPLES = REALTIME / "examples"
+EXAMPLES_V2 = REALTIME / "examples-v2"
 SCHEMAS = {
     "features-": "kafka-features.v1.schema.json",
     "inference-": "kafka-inference.v1.schema.json",
     "episodes-": "kafka-episodes.v1.schema.json",
-    "ws-": "realtime-ws.v1.schema.json",
+    "alerts-": "kafka-alerts.v1.schema.json",
 }
 
 
@@ -50,7 +51,7 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 15)
+        self.assertEqual(len(names), 7)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):
@@ -82,19 +83,48 @@ class RealtimeContractTests(unittest.TestCase):
             with self.subTest(kind=payload["kind"]), self.assertRaises(ValidationError):
                 validator("kafka-episodes.v1.schema.json").validate(payload)
 
+    def test_excluded_interval_events_carry_an_exclusion_reason(self):
+        # D-39: excluded_started/excluded_ended mark spans left out of the judgement (excluded_interval).
+        decision = self.example("episodes-decision.json")
+        schema = validator("kafka-episodes.v1.schema.json")
+        for kind in ("excluded_started", "excluded_ended"):
+            for reason in ("rest", "away", "unmeasurable", "missing"):
+                payload = copy.deepcopy(decision)
+                payload["body"]["event"].update(kind=kind, reason=reason, deviation_type="none")
+                with self.subTest(kind=kind, reason=reason):
+                    schema.validate(payload)
+        for change in ({"reason": "ended"}, {"reason": None}, {"deviation_type": "left_lean"}):
+            payload = copy.deepcopy(decision)
+            payload["body"]["event"].update({"kind": "excluded_ended", "reason": "rest", "deviation_type": "none"})
+            payload["body"]["event"].update(change)
+            with self.subTest(change=change), self.assertRaises(ValidationError):
+                schema.validate(payload)
+
     def test_only_notifying_events_become_alerts(self):
-        alert = self.example("ws-alert.json")
+        alert = load(EXAMPLES_V2 / "ws-alert.json")
         with self.assertRaises(ValidationError):
-            validator("realtime-ws.v1.schema.json").validate(dict(alert, kind="recovery_confirmed"))
+            validator("realtime-ws.v2.schema.json").validate(dict(alert, kind="recovery_confirmed"))
+
+    def test_alerts_topic_carries_only_notifying_events(self):
+        """(D-54) posture.alerts.v1 — only collapse_confirmed and reminder, no unknown fields."""
+        alert = self.example("alerts-alert.json")
+        schema = validator("kafka-alerts.v1.schema.json")
+        schema.validate(dict(alert, body=dict(alert["body"], kind="reminder")))
+        for body in (dict(alert["body"], kind="recovery_confirmed"), dict(alert["body"], extra=1),
+                     {k: v for k, v in alert["body"].items() if k != "deviation_type"}):
+            with self.subTest(body=body), self.assertRaises(ValidationError):
+                schema.validate(dict(alert, body=body))
+        with self.assertRaises(ValidationError):
+            schema.validate(dict(alert, kind="decision"))
 
     def test_feature_batches_are_bounded(self):
-        frame = self.example("ws-features.json")
+        frame = load(EXAMPLES_V2 / "ws-features.json")
         for items in ([], frame["items"] * 31):
             with self.subTest(size=len(items)), self.assertRaises(ValidationError):
-                validator("realtime-ws.v1.schema.json").validate(dict(frame, items=items))
+                validator("realtime-ws.v2.schema.json").validate(dict(frame, items=items))
 
     def test_nested_event_must_belong_to_the_message_session(self):
-        for name in ("episodes-decision.json", "ws-decision.json"):
+        for name in ("episodes-decision.json",):
             payload = copy.deepcopy(self.example(name))
             event = payload.get("event") or payload["body"]["event"]
             event["session_id"] = "00000000-0000-4000-8000-0000000000ff"

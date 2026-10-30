@@ -1,142 +1,102 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
-
-type DocumentPip = { requestWindow: (options: { width: number; height: number }) => Promise<Window> }
-type PipHost = Window & { documentPictureInPicture?: DocumentPip }
-type CameraMediaSession = MediaSession & { setCameraActive?: (active: boolean) => void }
+import { desktopBridge } from '../desktop/bridge'
 
 export const CAMERA_WINDOW_STYLE = `
-  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-  body { margin: 0; background: #171714; color: #fff; }
-  .camera-window-view { display: grid; gap: 10px; padding: 12px; }
-  .camera-window-view h1 { font-size: 15px; margin: 0; }
-  .camera-window-view video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transform: scaleX(-1); background: #000; }
-  .camera-window-view p { margin: 0; font-size: 12px; line-height: 1.5; }
-  .camera-window-view button { padding: 9px 12px; cursor: pointer; }
-  .camera-window-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  :root { color-scheme:dark; font-family:system-ui,sans-serif; }
+  body { margin:0; background:#111; color:#fff; overflow:hidden; }
+  .camera-window-view { position:relative; height:100vh; background:#111; -webkit-app-region:drag; }
+  .camera-window-view video { display:block; width:100%; height:100%; object-fit:contain; transform:scaleX(-1); }
+  .camera-window-bar { position:absolute; inset:0; background:linear-gradient(#0009,transparent 40%,transparent 65%,#0008); opacity:0; transition:opacity 180ms ease-out; pointer-events:none; }
+  .camera-window-view:hover .camera-window-bar, .camera-window-view:focus-within .camera-window-bar,
+  .camera-window-view.is-minimized .camera-window-bar, .camera-window-view.status-alert .camera-window-bar { opacity:1; }
+  .camera-window-label { position:absolute; bottom:12px; left:12px; font-size:12px; font-weight:600; text-shadow:0 1px 3px #000; }
+  .camera-window-label::before { content:''; display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:#52c58c; }
+  .camera-window-tools { position:absolute; top:8px; right:8px; display:flex; gap:4px; pointer-events:auto; -webkit-app-region:no-drag; }
+  .camera-window-tools button { display:grid; place-items:center; width:32px; height:32px; border:0; border-radius:50%; background:#0007; color:white; cursor:pointer; }
+  .camera-window-tools button:hover { background:#000c; }
+  .camera-window-tools button:focus-visible { outline:2px solid white; outline-offset:2px; }
+  .camera-window-view.is-minimized .camera-window-bar { background:#171717; }
+  .camera-window-view.is-minimized .camera-window-label { bottom:16px; }
+  .camera-window-view.status-alert { box-shadow:inset 0 0 0 3px #E5484D; }
+  .status-alert .camera-window-label::before { background:#E5484D; }
+  .status-unknown .camera-window-label::before, .status-paused .camera-window-label::before { background:#b7bec3; }
+  .camera-window-demo { height:100%; display:grid; place-content:center; justify-items:center; gap:12px; background:#18212a; }
+  .camera-window-demo img { width:90px; height:100px; object-fit:contain; }
+  .camera-window-demo p { margin:0; font-size:12px; color:#cbd5df; }
+  .posegood-icon img { filter:grayscale(1) brightness(0) invert(1); }
+  @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
 `
 
-/** A preview of the existing stream only; never requests another camera or changes inference refs. */
-export function useCameraWindow(camera: CameraController) {
+/** Same-origin native child window, with the existing camera stream rendered through a portal. */
+export function useCameraWindow(camera: CameraController, demo = false) {
   const [pipWindow, setPipWindow] = useState<Window | null>(null)
-  const [videoPip, setVideoPip] = useState(false)
   const [message, setMessage] = useState('')
-  const fallbackVideo = useRef<HTMLVideoElement>(null)
   const nativeWindow = useRef<Window | null>(null)
+  const opening = useRef(false)
   const generation = useRef(0)
-  const pending = useRef(false)
-  const documentPip = (window as PipHost).documentPictureInPicture
-  const supported = !!documentPip || !!document.pictureInPictureEnabled
-
+  const bridge = desktopBridge()
+  const supported = bridge?.cameraWindow === true
+  const stream = demo ? null : camera.streamRef.current
+  const ready = demo || camera.state === 'on'
   const close = useCallback(() => {
-    const popup = nativeWindow.current
+    const child = nativeWindow.current
     nativeWindow.current = null
-    popup?.close()
+    child?.close()
     setPipWindow(null)
-    if (fallbackVideo.current && document.pictureInPictureElement === fallbackVideo.current)
-      void document.exitPictureInPicture().catch(() => {})
-    setVideoPip(false)
   }, [])
-
-  useEffect(() => {
-    if (camera.state !== 'on') {
-      close()
-      setMessage('')
-    }
-    // Cancel an opening request on disconnect/reconnect, even if it resolves after a new stream starts.
-    return () => {
-      generation.current++
-      const popup = nativeWindow.current
-      nativeWindow.current = null
-      popup?.close()
-      if (fallbackVideo.current && document.pictureInPictureElement === fallbackVideo.current)
-        void document.exitPictureInPicture().catch(() => {})
-    }
-  }, [camera.state, close])
-
-  useEffect(() => {
-    const video = fallbackVideo.current
-    if (camera.state !== 'on' || !video) return
-    video.srcObject = camera.streamRef.current
-    void video.play().catch(() => {})
-    const left = () => setVideoPip(false)
-    video.addEventListener('leavepictureinpicture', left)
-    return () => {
-      video.removeEventListener('leavepictureinpicture', left)
-      if (document.pictureInPictureElement === video)
-        void document.exitPictureInPicture().catch(() => {})
-      video.srcObject = null
-    }
-  }, [camera.state, camera.streamRef])
-
   const open = useCallback(async () => {
-    const stream = camera.streamRef.current
-    if (camera.state !== 'on' || !stream || pending.current) return
+    if (!supported || !ready || (!demo && !stream) || opening.current) return
     if (nativeWindow.current && !nativeWindow.current.closed) {
-      nativeWindow.current.focus()
+      await bridge?.showCameraWindow?.()
       return
     }
-    if (document.pictureInPictureElement === fallbackVideo.current && fallbackVideo.current) return
+    opening.current = true
     const token = generation.current
-    pending.current = true
+    let child: Window | null = null
     setMessage('')
     try {
-      const api = (window as PipHost).documentPictureInPicture
-      if (api) {
-        const popup = await api.requestWindow({ width: 360, height: 390 })
-        if (token !== generation.current || camera.streamRef.current !== stream) {
-          popup.close()
-          return
-        }
-        popup.document.title = 'PoseGood · 카메라 작은 창'
-        const style = popup.document.createElement('style')
-        style.textContent = CAMERA_WINDOW_STYLE
-        popup.document.head.appendChild(style)
-        nativeWindow.current = popup
-        popup.addEventListener('pagehide', () => {
-          if (nativeWindow.current !== popup) return
-          nativeWindow.current = null
-          setPipWindow(null)
-        }, { once: true })
-        setPipWindow(popup)
-      } else {
-        const video = fallbackVideo.current
-        if (!document.pictureInPictureEnabled || !video?.requestPictureInPicture)
-          throw new Error('unsupported')
-        if (video.readyState === 0) {
-          setMessage('카메라 영상이 준비되면 작은 창 열기를 다시 눌러 주세요.')
-          return
-        }
-        await video.requestPictureInPicture()
-        if (token !== generation.current || camera.streamRef.current !== stream) {
-          if (document.pictureInPictureElement === video)
-            await document.exitPictureInPicture()
-          return
-        }
-        setVideoPip(true)
-      }
-    } catch {
-      setMessage('작은 창을 열지 못했습니다. Chrome에서 버튼을 직접 눌러 주세요. 앱 탭은 열어 두세요.')
+      if (!await bridge?.setCameraWindowEnabled?.(true)) throw new Error('unavailable')
+      if (token !== generation.current) return
+      child = window.open('about:blank', 'posegood-camera', 'width=400,height=225')
+      if (!child) throw new Error('blocked')
+      if (token !== generation.current) { child.close(); return }
+      child.document.title = 'PoseGood · 카메라 작은 창'
+      const style = child.document.createElement('style')
+      style.textContent = CAMERA_WINDOW_STYLE
+      child.document.head.appendChild(style)
+      nativeWindow.current = child
+      const opened = child
+      child.addEventListener('pagehide', () => {
+        if (nativeWindow.current !== opened) return
+        nativeWindow.current = null
+        setPipWindow(null)
+      }, { once: true })
+      setPipWindow(child)
+    } catch (caughtError) {
+      console.error('[features/camera/useCameraWindow.ts:open] Operation failed', caughtError)
+      child?.close()
+      setMessage('작은 창을 열지 못했어요. 다시 눌러 주세요.')
     } finally {
-      pending.current = false
+      opening.current = false
     }
-  }, [camera.state, camera.streamRef])
-
-  // Supported browsers may invoke this when switching tabs; browser permissions decide auto PiP.
+  }, [supported, bridge, ready, demo, stream])
   useEffect(() => {
-    const session = typeof navigator !== 'undefined' ? navigator.mediaSession as CameraMediaSession : undefined
-    if (camera.state !== 'on' || !session || !documentPip) return
-    try {
-      session.setActionHandler('enterpictureinpicture' as MediaSessionAction, () => { void open() })
-      session.setCameraActive?.(true)
-    } catch { /* Manual opening remains available when automatic PiP is unsupported. */ }
+    if (!supported) return
+    const remove = !demo ? bridge?.onCameraWindowRequested?.(() => { void open() }) : undefined
+    void bridge?.setCameraWindowEnabled?.(ready).catch((caughtError) => {
+      console.error('[features/camera/useCameraWindow.ts:useCameraWindow] Operation failed', caughtError)
+      setMessage('작은 창을 준비하지 못했어요. 다시 눌러 주세요.')
+    })
+    if (!ready) { close(); setMessage('') }
     return () => {
-      try {
-        session.setCameraActive?.(false)
-        session.setActionHandler('enterpictureinpicture' as MediaSessionAction, null)
-      } catch { /* Unsupported action. */ }
+      generation.current++
+      remove?.()
+      close()
+      void bridge?.setCameraWindowEnabled?.(false).catch((caughtError) => {
+        console.error('[features/camera/useCameraWindow.ts:useCameraWindow] Operation failed', caughtError)
+      })
     }
-  }, [camera.state, documentPip, open])
-
-  return { pipWindow, videoPip, fallbackVideo, supported, message, open, close }
+  }, [supported, bridge, ready, demo, stream, open, close])
+  return { pipWindow, supported, message, open, close }
 }

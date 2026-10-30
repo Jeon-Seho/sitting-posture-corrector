@@ -3,156 +3,123 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { CameraController } from '../../hooks/useCamera'
 import { useCameraWindow } from './useCameraWindow'
 
-describe('camera window lifecycle with synthetic streams only', () => {
+describe('native camera window lifecycle with synthetic streams only', () => {
   let renderer: ReactTestRenderer
   let camera: CameraController
   let controls: ReturnType<typeof useCameraWindow>
-  let host: Record<string, unknown>
-  let doc: { pictureInPictureEnabled: boolean; pictureInPictureElement: unknown; exitPictureInPicture: ReturnType<typeof vi.fn> }
-  let video: Record<string, unknown>
-  let events: Map<string, () => void>
-  function Harness() {
-    controls = useCameraWindow(camera)
-    return <video ref={controls.fallbackVideo} />
-  }
-  function mount() {
-    act(() => { renderer = create(<Harness />, { createNodeMock: () => video }) })
-  }
-  function popup() {
-    const listeners = new Map<string, () => void>()
-    const win = {
+  let request: (() => void) | undefined
+  const enabled = vi.fn(async (_value: boolean) => true)
+  const show = vi.fn(async () => true)
+  const remove = vi.fn()
+  const makeChild = () => {
+    const events = new Map<string, () => void>()
+    const child = {
       closed: false,
-      focus: vi.fn(),
-      close: vi.fn(() => { win.closed = true; listeners.get('pagehide')?.() }),
-      addEventListener: vi.fn((name: string, handler: () => void) => listeners.set(name, handler)),
+      close: vi.fn(() => { child.closed = true; events.get('pagehide')?.() }),
+      addEventListener: vi.fn((name: string, handler: () => void) => events.set(name, handler)),
       document: { title: '', createElement: vi.fn(() => ({ textContent: '' })), head: { appendChild: vi.fn() } },
     }
-    return win
+    return child
   }
+  let demo = false
+  let child: ReturnType<typeof makeChild>
+  let host: { posegoodDesktop?: unknown; open: ReturnType<typeof vi.fn> }
+  function Harness() { controls = useCameraWindow(camera, demo); return null }
+  const mount = () => act(() => { renderer = create(<Harness />) })
   beforeEach(() => {
-    events = new Map()
-    host = {}
-    doc = {
-      pictureInPictureEnabled: true,
-      pictureInPictureElement: null,
-      exitPictureInPicture: vi.fn(async () => { doc.pictureInPictureElement = null }),
+    demo = false
+    enabled.mockReset().mockResolvedValue(true)
+    show.mockClear(); remove.mockClear(); request = undefined
+    child = makeChild()
+    host = {
+      posegoodDesktop: {
+        version: 1, cameraWindow: true, setCameraWindowEnabled: enabled, showCameraWindow: show,
+        onCameraWindowRequested: vi.fn((callback: () => void) => { request = callback; return remove }),
+      },
+      open: vi.fn(() => child),
     }
-    video = {
-      srcObject: null,
-      readyState: 4,
-      play: vi.fn(async () => {}),
-      requestPictureInPicture: vi.fn(async () => { doc.pictureInPictureElement = video }),
-      addEventListener: vi.fn((name: string, handler: () => void) => events.set(name, handler)),
-      removeEventListener: vi.fn((name: string) => events.delete(name)),
-    }
-    camera = {
-      state: 'on', streamRef: { current: { synthetic: true } },
-      videoRef: { current: { originalCapture: true } }, canvasRef: { current: { originalOverlay: true } },
-    } as unknown as CameraController
+    camera = { state: 'on', streamRef: { current: { synthetic: true } }, videoRef: { current: { capture: true } } } as unknown as CameraController
     vi.stubGlobal('window', host)
-    vi.stubGlobal('document', doc)
-    vi.stubGlobal('navigator', {})
   })
-  afterEach(() => {
-    act(() => renderer?.unmount())
-    vi.unstubAllGlobals()
-  })
-  it('opens one native window using the same stream and leaves inference refs unchanged', async () => {
-    const win = popup()
-    const request = vi.fn(async () => win)
-    host.documentPictureInPicture = { requestWindow: request }
-    const source = camera.videoRef.current
-    const canvas = camera.canvasRef.current
+  afterEach(() => { act(() => renderer?.unmount()); vi.unstubAllGlobals() })
+  it('opens one frameless native child without replacing the capture stream', async () => {
+    const stream = camera.streamRef.current
+    const capture = camera.videoRef.current
     mount()
     await act(async () => { await controls.open() })
-    expect(controls.pipWindow).toBe(win)
-    expect(video.srcObject).toBe(camera.streamRef.current)
-    expect(camera.videoRef.current).toBe(source)
-    expect(camera.canvasRef.current).toBe(canvas)
+    expect(host.open).toHaveBeenCalledWith('about:blank', 'posegood-camera', 'width=400,height=225')
+    expect(controls.pipWindow).toBe(child)
+    expect(camera.streamRef.current).toBe(stream)
+    expect(camera.videoRef.current).toBe(capture)
     await act(async () => { await controls.open() })
-    expect(request).toHaveBeenCalledOnce()
-    expect(win.focus).toHaveBeenCalledOnce()
+    expect(host.open).toHaveBeenCalledOnce()
+    expect(show).toHaveBeenCalledOnce()
     act(() => controls.close())
-    expect(win.close).toHaveBeenCalledOnce()
+    expect(child.close).toHaveBeenCalledOnce()
     expect(controls.pipWindow).toBeNull()
+    expect(camera.streamRef.current).toBe(stream)
+  })
+  it('opens an explicit demo with the camera off and no stream, without automatic blur requests', async () => {
+    demo = true
+    camera.state = 'off'
+    camera.streamRef.current = null
+    mount()
+    await act(async () => { await controls.open() })
+    expect(controls.pipWindow).toBe(child)
+    expect(camera.streamRef.current).toBeNull()
+    expect(request).toBeUndefined()
+    act(() => controls.close())
+    expect(child.close).toHaveBeenCalledOnce()
+  })
+  it('responds to a native blur/minimize request and unregisters on shutdown', async () => {
+    mount()
+    await act(async () => { request?.() })
+    expect(controls.pipWindow).toBe(child)
+    camera.state = 'off'
+    await act(async () => { renderer.update(<Harness />) })
+    expect(child.closed).toBe(true)
+    expect(enabled).toHaveBeenLastCalledWith(false)
+    expect(remove).toHaveBeenCalled()
+  })
+  it('tracks native close without ending the camera stream and can reopen', async () => {
+    mount()
+    await act(async () => { await controls.open() })
+    act(() => child.close())
+    expect(controls.pipWindow).toBeNull()
+    const next = makeChild(); host.open.mockReturnValue(next)
+    await act(async () => { await controls.open() })
+    expect(controls.pipWindow).toBe(next)
     expect(camera.streamRef.current).not.toBeNull()
   })
-  it('tracks closing the native window through browser controls', async () => {
-    const win = popup()
-    host.documentPictureInPicture = { requestWindow: async () => win }
+  it('cancels a pending open on stream replacement', async () => {
     mount()
-    await act(async () => { await controls.open() })
-    act(() => win.close())
-    expect(controls.pipWindow).toBeNull()
-  })
-  it('closes a window that resolves after the camera was disconnected and reconnected', async () => {
-    const win = popup()
-    let finish!: (value: unknown) => void
-    host.documentPictureInPicture = { requestWindow: vi.fn(() => new Promise((resolve) => { finish = resolve })) }
-    mount()
+    let finish!: (value: boolean) => void
+    enabled.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve }))
     let opening!: Promise<void>
     act(() => { opening = controls.open() })
-    camera.state = 'off'
-    act(() => renderer.update(<Harness />))
-    camera.state = 'on'
     camera.streamRef.current = { anotherSyntheticStream: true } as unknown as MediaStream
     act(() => renderer.update(<Harness />))
-    await act(async () => { finish(win); await opening })
-    expect(win.close).toHaveBeenCalledOnce()
+    await act(async () => { finish(true); await opening })
+    expect(host.open).not.toHaveBeenCalled()
     expect(controls.pipWindow).toBeNull()
   })
-  it('falls back to native video PiP and tracks the browser close event', async () => {
+  it('reports native creation failure and allows retry', async () => {
+    host.open.mockReturnValue(null)
     mount()
     await act(async () => { await controls.open() })
-    expect(video.requestPictureInPicture).toHaveBeenCalledOnce()
-    expect(controls.videoPip).toBe(true)
-    act(() => { doc.pictureInPictureElement = null; events.get('leavepictureinpicture')?.() })
-    expect(controls.videoPip).toBe(false)
+    expect(controls.message).toContain('작은 창을 열지 못했어요')
+    host.open.mockReturnValue(child)
+    await act(async () => { await controls.open() })
+    expect(controls.pipWindow).toBe(child)
+    expect(controls.message).toBe('')
   })
-  it('closes its video PiP and detaches preview streams when the camera stops', async () => {
+  it.each([undefined, { version: 2, cameraWindow: true }, { version: 1 }])('does not open windows or register automatic requests without native support (%s)', async (bridge) => {
+    host.posegoodDesktop = bridge
     mount()
     await act(async () => { await controls.open() })
-    camera.state = 'off'
-    act(() => renderer.update(<Harness />))
-    expect(doc.exitPictureInPicture).toHaveBeenCalled()
-    expect(video.srcObject).toBeNull()
-    expect(controls.videoPip).toBe(false)
-  })
-  it('does not exit a picture-in-picture element owned by another video', () => {
-    doc.pictureInPictureElement = { anotherVideo: true }
-    mount()
-    act(() => controls.close())
-    expect(doc.exitPictureInPicture).not.toHaveBeenCalled()
-  })
-  it('reports unsupported or denied PiP without replacing the camera stream', async () => {
-    doc.pictureInPictureEnabled = false
-    mount()
-    const stream = camera.streamRef.current
     expect(controls.supported).toBe(false)
-    await act(async () => { await controls.open() })
-    expect(controls.message).toContain('작은 창을 열지 못했습니다')
-    expect(camera.streamRef.current).toBe(stream)
-    host.documentPictureInPicture = { requestWindow: async () => { throw new Error('denied') } }
-    await act(async () => { await controls.open() })
-    expect(controls.pipWindow).toBeNull()
-  })
-  it('waits for real video metadata rather than requesting an unready video window', async () => {
-    video.readyState = 0
-    mount()
-    await act(async () => { await controls.open() })
-    expect(video.requestPictureInPicture).not.toHaveBeenCalled()
-    expect(controls.message).toContain('카메라 영상이 준비되면')
-  })
-  it('clears the automatic PiP action when the camera disconnects', () => {
-    const session = { setActionHandler: vi.fn(), setCameraActive: vi.fn() }
-    vi.stubGlobal('navigator', { mediaSession: session })
-    host.documentPictureInPicture = { requestWindow: async () => popup() }
-    mount()
-    expect(session.setCameraActive).toHaveBeenCalledWith(true)
-    expect(session.setActionHandler).toHaveBeenCalledWith('enterpictureinpicture', expect.any(Function))
-    camera.state = 'off'
-    act(() => renderer.update(<Harness />))
-    expect(session.setCameraActive).toHaveBeenLastCalledWith(false)
-    expect(session.setActionHandler).toHaveBeenLastCalledWith('enterpictureinpicture', null)
+    expect(host.open).not.toHaveBeenCalled()
+    expect(enabled).not.toHaveBeenCalled()
+    expect(request).toBeUndefined()
   })
 })

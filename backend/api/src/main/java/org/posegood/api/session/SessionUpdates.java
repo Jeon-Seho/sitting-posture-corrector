@@ -18,7 +18,10 @@ public final class SessionUpdates {
     /**
      * 새 관측·사건·요약.
      *
-     * {@code observation}이 null이면 종료만으로 사건이 생긴 경우다.
+     * {@code observation}이 null이면 종료만으로 사건이 생긴 경우다. v2 채널은 관측 3.0({@code live})과
+     * {@code pausedReason}을 보낸다. {@code closedReason}은 서버가 스스로 끝냈을 때의 closed 사유
+     * (측정불가 시간 초과면 {@code unmeasurable_timeout}, 자정 넘김이면 {@code day_changed})이고, 그 밖에는 null이다.
+     * {@code day_changed}면 실시간 채널은 닫지 않고 새 세션으로 잇는다.
      */
     public record Progressed(
             UUID sessionId,
@@ -26,7 +29,10 @@ public final class SessionUpdates {
             List<SessionEngine.Decided> decided,
             long lastSequence,
             Summary summary,
-            boolean ended) {}
+            boolean ended,
+            Observation.V3 live,
+            String pausedReason,
+            String closedReason) {}
 
     /**
      * 세션이 메모리에서 빠짐.

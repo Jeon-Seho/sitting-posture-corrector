@@ -32,7 +32,9 @@
         "recovery_confirmed",
         "reminder",
         "interrupted",
-        "session_ended"
+        "session_ended",
+        "excluded_started",
+        "excluded_ended"
       ]
     },
     "timestamp_ms": {
@@ -67,5 +69,35 @@
         "ended"
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "D-39: excluded_started/excluded_ended mark a span left out of the judgement (excluded_interval). onset_ms = span start, timestamp_ms = start or end, reason = rest (PAUSE), away (ABSENCE), unmeasurable (UNMEASURABLE) or missing (MISSING).",
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "excluded_started",
+              "excluded_ended"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deviation_type": {
+            "const": "none"
+          },
+          "reason": {
+            "enum": [
+              "rest",
+              "away",
+              "unmeasurable",
+              "missing"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

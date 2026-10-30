@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/kafka-alerts.v1.schema.json",
+  "title": "Topic posture.alerts.v1: decision storage -> gateway (ws), alerts that should be shown",
+  "description": "Published by the decision storage service (backend/processing report) after it records a collapse_confirmed or reminder decision, only when the session has alerts on (monitor_session.alert_enabled) and the decision is fresh (produced at most 10 s before it was stored). Re-delivered decisions are not published again. The gateway turns each message into a WebSocket alert as is; it does not filter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "message_id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "user_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "produced_at": {"type": "string", "format": "date-time"},
+    "kind": {"const": "alert"},
+    "body": {"$ref": "#/$defs/alert"}
+  },
+  "$defs": {
+    "alert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind", "deviation_type", "timestamp_ms", "onset_ms"],
+      "properties": {
+        "event_id": {"type": "integer", "minimum": 1, "description": "event_id of the decision (episodes.v1) that raised this alert"},
+        "kind": {"enum": ["collapse_confirmed", "reminder"]},
+        "deviation_type": {"$ref": "../posture-event.v1.schema.json#/properties/deviation_type"},
+        "timestamp_ms": {"type": "integer", "minimum": 0, "description": "alert time, ms from session start"},
+        "onset_ms": {"type": "integer", "minimum": 0, "description": "collapse start, ms from session start"}
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
-import { Play } from '@phosphor-icons/react'
+import { ThemeIllustration } from '../appearance/ThemeIllustration'
+import { Play } from '../../components/icons'
 import { Card } from '../../components/ui'
 import { Amount } from '../../components/Amount'
 import { MetricGroups, metricGroupsFor } from '../../components/MetricGroups'
@@ -6,11 +7,13 @@ import { GOOD_RATE } from '../../components/RateRing'
 import { Ring } from '../../components/Ring'
 import { tip } from '../../components/TipLayer'
 import type { RecordItem } from '../../lib/serviceStore'
+import { kstDayStart, kstTime } from '../../lib/kst'
 import { daySessionNumber } from '../../lib/sessionNumber'
 import { formatDuration } from '../../lib/stats'
 import { dayLabel } from './ActivityHeatmap'
 import { RecordHistoryItem } from './RecordHistoryItem'
 import { dailyStats, sessionsOn } from './recordsSource'
+import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
  * Today's record in the 기록 tab (2026-10-14, Oura-style). One number leads: a large
@@ -34,7 +37,7 @@ export function DayRecord({
   const sessions = sessionsOn(records, day)
   const [s] = dailyStats(records, day, day)
   const isToday = day === today
-  const allStarts = records.map((r) => r.startedAt)
+  const allStarts = recordsByDay(records).map((r) => r.startedAt)
   const rate = s?.good_ratio ?? null
   // Colour by the shown percent: 74.9% reads as 75% and should look the same as 75%.
   const percent = rate === null ? null : Math.round(rate * 100)
@@ -44,6 +47,7 @@ export function DayRecord({
       <div className="day-record">
         {!s ? (
           <div className="day-record-empty">
+            <ThemeIllustration kind="empty" className="state-art" />
             <p className="fine">{isToday ? '오늘은 아직 측정하지 않았어요.' : '이날은 측정한 기록이 없어요.'}</p>
             {isToday && (
               <button className="btn btn-primary btn-sm" onClick={onStart}>
@@ -58,7 +62,7 @@ export function DayRecord({
               <Ring
                 value={rate}
                 size={188}
-                stroke={20}
+                stroke={16}
                 color={good ? 'var(--good)' : 'var(--alert-soft)'}
                 label={percent === null ? '측정한 시간 없음' : `바른 자세 ${percent}%`}
               >
@@ -76,7 +80,7 @@ export function DayRecord({
                 알림 <b className="records-stat-value">{`${s.alert_count}회`}</b>
               </span>
               <span>
-                세션 <span data-stat="count">{s.session_count}</span>회
+                세션 <span><span data-stat="count">{s.session_count}</span>회</span>
               </span>
             </p>
           </div>
@@ -119,8 +123,8 @@ export function DayRecord({
 
 /** When the day's sessions ran, on a 0–24 h strip; each block is tinted by its keep rate. */
 export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: string }) {
-  const [y, m, d] = day.split('-').map(Number)
-  const start = new Date(y, m - 1, d).getTime()
+  // The strip is the KST day 00:00–24:00 (ADR 0029).
+  const start = kstDayStart(day)
   const span = 24 * 3600 * 1000
   const at = (iso: string) => Math.max(0, Math.min(1, (Date.parse(iso) - start) / span)) * 100
   return (
@@ -129,7 +133,7 @@ export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: st
         {sessions.map((r) => {
           const rate = r.valid ? r.good / r.valid : null
           const left = at(r.startedAt)
-          const time = new Date(r.startedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+          const time = kstTime(r.startedAt)
           return (
             <span
               key={r.id}
@@ -142,7 +146,7 @@ export function DayTimeline({ sessions, day }: { sessions: RecordItem[]; day: st
                   rate === null ? '—' : `${Math.round(rate * 100)}%`,
                   rate !== null && Math.round(rate * 100) >= GOOD_RATE * 100 ? 'var(--good)' : 'var(--alert-soft)',
                 ],
-                ['자세 경고', `${r.events.length}번`],
+                ['자세 경고', `${r.dayPartition?.eventCount ?? r.events.length}번`],
               ])}
             />
           )

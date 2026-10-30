@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { ArrowLeft, CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle, WarningCircle, X } from '../components/icons'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
+import { DeveloperToolsPage } from '../pages/DeveloperToolsPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { kstDay } from '../lib/kst'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { CameraWindow } from '../features/camera/CameraWindow'
 import { useLaunchAutomation } from '../features/desktop/useLaunchAutomation'
+import { useServerToday } from '../features/platform/serverClock'
 import { LocalHistory } from '../features/history/LocalHistory'
 import { RecordCalendarPage } from '../features/history/RecordCalendarPage'
-import { RecoveryNotice } from '../features/session/RecoveryNotice'
-import { SessionPage } from '../features/session/SessionPage'
-import { ServerSessionPage } from '../features/session/server/ServerSessionPage'
+import { LiveSessionPage } from '../features/session/live/LiveSessionPage'
 import type { useSessionPersistence } from '../features/session/useSessionPersistence'
 import type { ServiceSession } from '../features/session/types'
 import type { LocalWorkspace } from '../features/storage/useLocalWorkspace'
@@ -24,6 +25,7 @@ import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
+  developer?: boolean
   camera: CameraController
   collection: CollectionController
   workspace: LocalWorkspace
@@ -32,8 +34,6 @@ type Props = {
   page: Page
   error: string
   measuring: boolean
-  serverMode: boolean
-  onServerMode: (enabled: boolean) => void
   go: (page: Page) => void
   openCollection: () => void
   logout: () => void
@@ -57,6 +57,7 @@ function noticeTone(text: string) {
 
 /** The local prototype and signed-in account share measurement/history presentation. */
 export function ServiceScreens({
+  developer = false,
   camera,
   collection,
   workspace,
@@ -65,8 +66,6 @@ export function ServiceScreens({
   page,
   error,
   measuring,
-  serverMode,
-  onServerMode,
   go,
   openCollection,
   logout,
@@ -79,12 +78,17 @@ export function ServiceScreens({
   settingsDisabled = false,
   onClearError,
 }: Props) {
-  const { profile, records, rules, showDemo, draft, canWrite } = workspace
-  const view = resolvePage(page, measuring)
+  const { profile, records, rules, showDemo } = workspace
+  const view = resolvePage((page === 'developer' || page === 'collection') && !developer ? 'settings' : page, measuring)
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
-  const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
+  const serverDay = useServerToday()
+  const example = useMemo(() => {
+    if (!showDemo) return null
+    const reference = serverDay === kstDay(Date.now()) ? new Date() : new Date(`${serverDay}T23:59:59+09:00`)
+    return exampleRecords(reference)
+  }, [showDemo, serverDay])
   const shownRecords = example ?? records
-  const today = summary(historyFor(records, 'all', 'today'))
+  const today = summary(historyFor(records, 'all', 'today', serverDay))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
   const main = useRef<HTMLElement>(null)
@@ -98,7 +102,8 @@ export function ServiceScreens({
   }, [error, onClearError])
 
   function openTab(tab: Tab) {
-    if (tab === 'measure') go(measuring ? 'session' : 'setup')
+    if (tab === 'developer') { if (developer) go('developer') }
+    else if (tab === 'measure') go(measuring ? 'session' : 'setup')
     else go(tab === 'records' ? 'dashboard' : tab === 'calendar' ? 'calendar' : 'settings')
   }
 
@@ -109,9 +114,11 @@ export function ServiceScreens({
         className="capture-source"
         muted
         playsInline
+        disablePictureInPicture
         aria-hidden="true"
       />
       <AppSidebar
+        developer={developer}
         page={view}
         measuring={measuring}
         go={openTab}
@@ -137,16 +144,6 @@ export function ServiceScreens({
               </button>
             )}
           </p>
-        )}
-        {draft && !session && (
-          <RecoveryNotice
-            draft={draft}
-            canWrite={canWrite}
-            hasPendingResult={!!persistence.pending.current}
-            saveMessage={persistence.saveMessage}
-            onRestore={persistence.restore}
-            onFinish={persistence.finishDraft}
-          />
         )}
         {view === 'dashboard' && (
           <LocalHistory
@@ -184,62 +181,30 @@ export function ServiceScreens({
             registerAgain={view === 'posture'}
             onBack={view === 'posture' ? () => go('settings') : undefined}
             onOpenSession={() => go('session')}
-            serverMode={serverMode}
-            onServerMode={onServerMode}
-            serverModeDisabled={measuring}
           />
         )}
         {session && (
           <section className="session-slot" hidden={view !== 'session'}>
-            {session.server ? (
-              <ServerSessionPage
-                key={session.id}
-                session={{ ...session, server: session.server }}
-                camera={camera}
-                alertsOn={alertsOn}
-                onFinish={() => go('home')}
-                onDashboard={() => go('dashboard')}
-                onPrepare={() => go('setup')}
-                service={{
-                  active: view === 'session',
-                  onCheckpoint: persistence.checkpoint,
-                  onEnded: persistence.finish,
-                  onArchive: persistence.archiveServerResult,
-                  saveMessage: persistence.saveMessage,
-                  onRetry: persistence.retrySave,
-                  sessionLabel: sessionLabel(
+            <LiveSessionPage
+              key={session.id}
+              session={session}
+              camera={camera}
+              alertsOn={alertsOn}
+              onDashboard={() => go('dashboard')}
+              onPrepare={() => go('setup')}
+              service={{
+                active: view === 'session',
+                onEnded: persistence.finish,
+                onObserved: persistence.observe,
+                sessionLabel: sessionLabel(
+                  session.startedAt,
+                  daySessionNumber(
+                    records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
                     session.startedAt,
-                    daySessionNumber(
-                      records.filter((record) => record.id !== session.id).map((record) => record.startedAt),
-                      session.startedAt,
-                    ),
                   ),
-                }}
-              />
-            ) : (
-              <SessionPage
-                key={session.id}
-                camera={camera}
-                collection={collection}
-                mode={session.mode}
-                rules={session.rules}
-                alertsOn={alertsOn}
-                onFinish={() => go('home')}
-                onDashboard={() => go('dashboard')}
-                onPrepare={() => go('setup')}
-                service={{
-                  active: view === 'session',
-                  initial: session.initial,
-                  onCheckpoint: persistence.checkpoint,
-                  onEnded: persistence.finish,
-                  saveMessage: persistence.saveMessage,
-                  saveFailed: persistence.saveFailed,
-                  onRetry: persistence.retrySave,
-                  sessionId: session.id,
-                  startedAt: session.startedAt,
-                }}
-              />
-            )}
+                ),
+              }}
+            />
           </section>
         )}
         {view === 'settings' && (
@@ -264,9 +229,15 @@ export function ServiceScreens({
             />
           </fieldset>
         )}
+        {developer && view === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} onCamera={() => go('setup')} onSettings={() => go('settings')} onRecords={() => go('dashboard')} onCalendar={() => go('calendar')} />}
         {view === 'profile' && profilePage}
       </main>
-      <CameraWindow camera={camera} floating={!CAMERA_PAGES.includes(view)} />
+      <CameraWindow
+        camera={camera}
+        floating={!CAMERA_PAGES.includes(view)}
+        onExpand={() => go(measuring ? 'session' : 'setup')}
+        measuring={measuring}
+      />
     </div>
   )
 }

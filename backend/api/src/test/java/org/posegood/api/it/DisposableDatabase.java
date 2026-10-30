@@ -13,9 +13,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
- * 통합 시험용 임시 DB: V2.2 스키마로 만들고 끝나면 지운다.
+ * 통합 시험용 임시 DB: V2.6 스키마로 만들고 끝나면 지운다.
  *
- * loopback MySQL에 고유한 이름의 DB를 DB 담당의 `schema_V2_3.sql`·시드 그대로(이름만 바꿔) 만든다.
+ * loopback MySQL에 고유한 이름의 DB를 DB 담당의 `schema_V2_6.sql`·시드 그대로(이름만 바꿔) 만든다.
  *
  * <p>환경변수: {@code POSEGOOD_TEST_MYSQL_URL}(기본 {@code jdbc:mysql://127.0.0.1:3306/}),
  * {@code POSEGOOD_TEST_MYSQL_USER}(기본 {@code root}), {@code POSEGOOD_TEST_MYSQL_PASSWORD}.
@@ -47,7 +47,7 @@ public final class DisposableDatabase implements AutoCloseable {
         var database = new DisposableDatabase(server, credentials, name);
         try (Connection connection = DriverManager.getConnection(server, credentials);
                 var statement = connection.createStatement()) {
-            run(statement, script("database/schema/schema_V2_3.sql", name));
+            run(statement, script("database/schema/schema_V2_6.sql", name));
             run(statement, script("database/seed/seed_04_threshold_policy.sql", name));
         } catch (SQLException failure) {
             database.close();

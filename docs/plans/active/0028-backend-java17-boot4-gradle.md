@@ -1,9 +1,9 @@
 # 백엔드 Java 17·Spring Boot 4.0.8·Gradle 전환
 
-- 상태: in_progress (백엔드 완료, `backend/` 밖의 도구·이미지·CI는 담당 팀원 작업 대기)
+- 상태: in_progress (백엔드·도구·Docker 이미지 완료, CI·`tests/test_service_contracts.py`는 담당 팀원 작업 대기 — 2026-10-26 확인)
 - 담당: sunshine-yj 요청(백엔드·DB 담당), Claude 구현. `backend/` 밖은 각 담당 팀원
 - 시작일: 2026-10-14
-- 관련 요구사항/ADR: [ADR 0023](../../decisions/0023-backend-java17-boot4-gradle.md), [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [백엔드 안내](../../../backend/README.md)
+- 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md) 1절(옛 ADR 0023을 합침), [백엔드 안내](../../../backend/README.md)
 
 ## 문제와 완료 기준
 
@@ -31,7 +31,7 @@
 
 - Boot 4 모듈 분리: `spring-boot-starter-webmvc`, `-session-jdbc`, `-restclient`(추론 호출 `RestClient.Builder`가 없으면 시작 실패), 시험용 `-webmvc-test`.
 - Jackson 3: 패키지 이름, `JsonProcessingException`→`JacksonException`, `JsonDeserializer`→`ValueDeserializer`, `@JsonComponent`→`@JacksonComponent`, `fieldNames()`→`propertyNames()`.
-- 동작 보존 두 가지(ADR 0023 4항): 중복 키 거부를 `common/JsonConfiguration`으로 다시 켬, 클라이언트 입력은 Jackson 2와 같은 값을 주는 `Json.text()`로 읽음.
+- 동작 보존 두 가지(옛 ADR 0023 4항): 중복 키 거부를 `common/JsonConfiguration`으로 다시 켬, 클라이언트 입력은 Jackson 2와 같은 값을 주는 `Json.text()`로 읽음.
   둘 다 `common/JsonTest` 단위 시험이 있다.
 - Java 17: `getFirst()/getLast()` → `get(0)/get(size-1)`, 시험의 `ExecutorService` try-with-resources → `shutdown()`·`awaitTermination()`.
 - DB: 변경 없음. Spring Session JDBC 4.0.5의 MySQL 테이블 정의와 스키마 V2.3의 `SPRING_SESSION` 컬럼이 같다.
@@ -55,21 +55,22 @@
 
 ### 2. Docker 이미지 (`infra/docker/java.Dockerfile`) — 담당: 배포·인프라 담당
 
-- [ ] 빌드 단계 `maven:3.9.16-eclipse-temurin-21` + `mvn -B -f backend/pom.xml -DskipTests package` →
+- [x] 빌드 단계 `maven:3.9.16-eclipse-temurin-21` + `mvn -B -f backend/pom.xml -DskipTests package` →
   JDK 17 이미지(예: `eclipse-temurin:17-jdk-jammy`)에서 `cd backend && ./gradlew --no-daemon bootJar`.
   Wrapper가 처음에 `services.gradle.org`에서 Gradle 9.7.1을 받으므로 빌드 환경이 이 주소에 접근할 수 있어야 한다.
-- [ ] 실행 단계 `eclipse-temurin:21-jre-jammy` → `eclipse-temurin:17-jre-jammy`.
-- [ ] JAR 복사 경로 `/source/backend/api/target/...` → `/source/backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`.
+- [x] 실행 단계 `eclipse-temurin:21-jre-jammy` → `eclipse-temurin:17-jre-jammy`.
+- [x] JAR 복사 경로 `/source/backend/api/target/...` → `/source/backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`.
+- 2026-10-26 확인: `infra/docker/java.Dockerfile`이 JDK 17 이미지·Gradle Wrapper(`:api:bootJar`, `:processing:bootJar`)·`build/libs` 경로를 쓴다(담당 팀원 반영).
 
 ### 3. CI (`.github/workflows/harness.yml`) — 담당: CI 담당
 
-- [ ] `actions/setup-java`의 `java-version: '21'`(33행) → `'17'`. Maven 캐시를 쓰고 있다면 Gradle 캐시(`cache: gradle` 또는 `gradle/actions/setup-gradle`)로 바꾼다.
+- [ ] `actions/setup-java`의 `java-version: '21'`(33행) → `'17'`. (2026-10-26 확인: 아직 `'21'`) Maven 캐시를 쓰고 있다면 Gradle 캐시(`cache: gradle` 또는 `gradle/actions/setup-gradle`)로 바꾼다.
 
 ### 4. Python 시험 (`tests/`) — 담당: 개발·검증 도구 담당
 
 - [x] `tests/test_deploy_configuration.py`(316~336행): 1과 함께 Gradle 명령 기대값으로 바꿨다(이 시험이 1의 명령을 고정하므로 같이 고치지 않으면 `make test`가 실패한다).
 - [ ] `tests/test_service_contracts.py`(57행): `backend/`의 `pom.xml`에서 Esper 의존성이 없는지 본다. 이제 `pom.xml`이 없어 검사가 아무것도 확인하지 않는다.
-  `backend/**/build.gradle`과 `settings.gradle`을 보도록 바꾼다.
+  `backend/**/build.gradle`과 `settings.gradle`을 보도록 바꾼다. (2026-10-26 확인: 아직 `pom.xml`을 찾음)
 - `tests/test_server_benchmark.py`(242행)의 `backend/api/target/example.java`는 비공개 경로 거부 예시라 바꾸지 않아도 된다.
 
 ### 5. 설치 안내 (프론트 포함 모든 팀원)
@@ -81,7 +82,7 @@
 
 - [x] Gradle 빌드·Wrapper, Java 17, Spring Boot 4.0.8, Jackson 3 전환(`backend/`)
 - [x] 동작 보존(중복 키 거부, 입력 글자 변환)과 단위 시험 추가
-- [x] 버전을 언급하는 현재 문서 갱신, ADR 0023
+- [x] 버전을 언급하는 현재 문서 갱신, 옛 ADR 0023
 - [ ] 실제 MySQL 통합 시험(`-Pmysql-integration`) 실행
 - [x] 개발 도구 1과 결합된 시험(4의 첫 항목) 반영
 - [ ] 실제 MySQL로 `make check-backend`·`check-browser` 확인

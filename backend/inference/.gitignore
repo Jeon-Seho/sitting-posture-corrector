@@ -1,0 +1,4 @@
+# 가중치는 저장소에 넣지 않는다 — 서버 PC·GPU PC에만 둔다
+*.pt
+__pycache__/
+.pytest_cache/

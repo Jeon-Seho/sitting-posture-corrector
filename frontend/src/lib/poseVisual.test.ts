@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { postureScore } from './postureScore'
 import { cloudTargets, POSE_EDGES, validEdges, visiblePoint } from './poseVisual'
-import { newMachine, sampleAt, step } from './engine'
-import { DEFAULT_RULES } from '../data/posture'
 import type { Landmark } from '../../../model/prototype/pose'
 const points = (): Landmark[] =>
   Array.from({ length: 33 }, (_, i) => ({
@@ -21,20 +19,6 @@ describe('intuitive display score', () => {
     expect(postureScore(NaN)).toBeNull()
     expect(postureScore(-1)).toBe(100)
     expect(postureScore(2)).toBe(0)
-  })
-  it('retains warning behavior while reversing the displayed score', () => {
-    for (const threshold of [0.5, 0.7, 0.95])
-      for (const change of [0.1, 0.49, 0.5, 0.69, 0.7, 0.94, 0.95, 1]) {
-        const m = newMachine()
-        step(
-          m,
-          3,
-          'running',
-          { ...DEFAULT_RULES, threshold },
-          { ...sampleAt(0), prob: change, state: 'good' },
-        )
-        expect(m.events.length === 1).toBe(postureScore(change)! <= postureScore(threshold)!)
-      }
   })
 })
 describe('real joints and decorative particles', () => {

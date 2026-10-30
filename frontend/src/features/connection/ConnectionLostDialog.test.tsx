@@ -34,19 +34,29 @@ describe('server connection lost', () => {
     expect(cancel.preventDefault).toHaveBeenCalled()
   })
 
-  it('keeps the first report and marks a developer test', () => {
+  it('prioritizes a real outage over a developer preview', () => {
     reportConnectionLost({ reason: 'test' })
     reportConnectionLost({ reason: 'network', session: 'later' })
-    expect(connectionLost()).toEqual({ reason: 'test' })
+    expect(connectionLost()).toEqual({ reason: 'network', session: 'later' })
     mount()
-    expect(text()).toContain('개발 확인용')
+    expect(text()).not.toContain('개발 확인용')
   })
 
+  it('returns from a developer test without closing the app', async () => {
+    const quit = vi.fn()
+    vi.stubGlobal('window', { posegoodDesktop: { version: 1, quit } })
+    reportConnectionLost({ reason: 'test' })
+    mount()
+    expect(text()).toContain('테스트 종료')
+    await act(async () => quitButton().props.onClick())
+    expect(connectionLost()).toBeNull()
+    expect(quit).not.toHaveBeenCalled()
+  })
   it('quits the desktop app through the bridge', async () => {
     const quit = vi.fn(async () => true)
     const close = vi.fn()
     vi.stubGlobal('window', { posegoodDesktop: { version: 1, quit }, close, closed: false })
-    reportConnectionLost({ reason: 'test' })
+    reportConnectionLost({ reason: 'network' })
     mount()
     await act(async () => quitButton().props.onClick())
     expect(quit).toHaveBeenCalledOnce()

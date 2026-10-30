@@ -20,7 +20,7 @@ describe('unified /dev observation route with real camera hook and synthetic med
   let renderer: ReactTestRenderer | undefined, camera: CameraController
   let getUserMedia: ReturnType<typeof vi.fn>, close: ReturnType<typeof vi.fn>, stop: ReturnType<typeof vi.fn>
   let win: EventTarget & { location: { search: string } }
-  function App() { camera = useCamera(); return <DeveloperRoute camera={camera} /> }
+  function App() { camera = useCamera({ baselineMode: 'local' }); return <DeveloperRoute camera={camera} /> }
   const button = (label: string) => renderer!.root.findAllByType('button').find(node => text(node) === label)!
   beforeEach(async () => {
     vi.useFakeTimers(); vi.setSystemTime(0)
@@ -32,6 +32,7 @@ describe('unified /dev observation route with real camera hook and synthetic med
     vision.resolve.mockReset().mockResolvedValue({})
     vision.create.mockReset().mockResolvedValue({ close, detectForVideo: vi.fn(() => ({ landmarks: [points], worldLandmarks: [points] })) })
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([]) } })
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() })
     vi.stubGlobal('document', Object.assign(new EventTarget(), { title: 'synthetic test', visibilityState: 'visible', createElement: vi.fn(() => ({ getContext: () => null, click: vi.fn() })) }))
     win = Object.assign(new EventTarget(), { location: { search: '' } }); vi.stubGlobal('window', win)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
@@ -66,7 +67,7 @@ describe('unified /dev observation route with real camera hook and synthetic med
   it('connects Heavy, waits for reference confirmation and releases the camera on stop', async () => {
     await start()
     expect(camera.state).toBe('on'); expect(getUserMedia).toHaveBeenCalledOnce()
-    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetPath: '/mediapipe/pose_landmarker_heavy.task' })
+    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetPath: expect.stringMatching(/\/mediapipe\/pose_landmarker_heavy\.task$/) })
     for (let elapsed = 0; elapsed < 14000; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
     expect(renderer!.root.findByProps({'aria-label':'동작 안내'}).props['data-state']).toBe('idle')
     const beginReference = renderer!.root.findByProps({ 'aria-label': '기준 자세 등록 시작' })
@@ -79,7 +80,15 @@ describe('unified /dev observation route with real camera hook and synthetic med
     expect(camera.state).toBe('on')
     act(() => renderer!.root.findByType(ConfirmDialog).props.onConfirm())
     expect(camera.state).toBe('off'); expect(stop).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce()
-    expect(renderer!.root.findByType(ObservationReplay).props.getRecording().frames.length).toBeGreaterThan(0)
+    const recording = renderer!.root.findByType(ObservationReplay).props.getRecording()
+    expect(recording.frames.length).toBeGreaterThan(0)
+    expect(recording.frames[0].image).toHaveLength(33)
+    expect(recording.frames[0].world).toHaveLength(33)
+    expect(recording.frames[0].image.every((point: unknown) => point !== null)).toBe(true)
+    expect(recording.frames[0].world.every((point: unknown) => point !== null)).toBe(true)
+    expect(recording.frames[0]).toMatchObject({ measurable: true, poseModelId: expect.stringContaining('heavy') })
+    expect(recording.frames[0].rawFeatures).toMatchObject({ quality: .99 })
+    expect(fetch).not.toHaveBeenCalled()
   })
   it('shows the camera timeout when permission never resolves', async () => {
     getUserMedia.mockReturnValue(new Promise(() => {}))
@@ -107,6 +116,6 @@ describe('unified /dev observation route with real camera hook and synthetic med
     for (let elapsed = 0; elapsed < 8200; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
     expect(renderer!.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
     expect(renderer!.root.findByProps({ 'aria-label': '측정 시작' }).props.disabled).toBe(false)
-    expect(vision.create.mock.calls[0][1].baseOptions.modelAssetPath).toBe('/mediapipe/pose_landmarker_heavy.task')
+    expect(vision.create.mock.calls[0][1].baseOptions.modelAssetPath).toMatch(/\/mediapipe\/pose_landmarker_heavy\.task$/)
   })
 })

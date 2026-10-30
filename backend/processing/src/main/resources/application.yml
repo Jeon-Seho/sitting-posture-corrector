@@ -1,0 +1,161 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-server
+
+  # 외부 로컬 환경에 구축된 MySQL에 접속한다 (컨테이너화하지 않음).
+  # DB_HOST/DB_PORT 등은 .env 파일(compose의 env_file)로 주입된다.
+  datasource:
+    # allowPublicKeyRetrieval=true (2026-10-06, T-11 장애 원인): MySQL 8 기본 인증(caching_sha2_password)은
+    # 서버의 인증 캐시가 비어 있을 때(MySQL 재시작 직후 등) 비밀번호를 RSA 공개키로 암호화해 보내야 하는데,
+    # useSSL=false에서는 Connector/J가 공개키 요청을 기본으로 막아 새 연결이 전부
+    # "Public Key Retrieval is not allowed"로 실패했다. 테스트 LAN 환경이라 허용한다.
+    # 운영(신뢰할 수 없는 네트워크)에서는 대신 sslMode=REQUIRED로 TLS 연결을 쓴다.
+    # serverTimezone=Asia/Seoul (D-20, 2026-10-07 KST 통일 결정): Instant를 DATETIME에 쓸 때·읽을 때
+    # 한국 시각으로 변환한다 → DB의 일시 컬럼은 KST. 컨테이너(JVM) 시간대와 상관없이 이 값이 기준이다.
+    # 시각 비교는 DB 함수(NOW()/UTC_TIMESTAMP()) 대신 서버가 계산한 값을 바인딩한다.
+    # (D-38) 기본 DB는 확정 서비스 DB(SERVICE_DB_SCHEMA, 기본 posture_service). 옛 테스트용 posture_app(DB_NAME) 접속은 지웠다.
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${SERVICE_DB_SCHEMA:posture_service}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    username: ${DB_USER:posture_app}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # DB가 아직 안 떠 있어도 애플리케이션 컨텍스트 시작은 막지 않는다.
+      # (연결 재시도는 /actuator/health 가 계속 감시)
+      initialization-fail-timeout: -1
+      connection-timeout: 5000
+      # DB를 쓰는 주체: 판정 결과 저장 컨슈머(기본 1, D-30) + 서비스 DB 확인·시험 API + 헬스체크. 여유를 두어 10.
+      # (D-38) 옛 posture.inference 컨슈머(3스레드)의 DB 쓰기는 지웠다. 저장 컨슈머 concurrency를 올리면 이 값도 함께 올린다.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      # (D-11) 기본값에 기대지 않고 커넥션 수명 관련 값을 명시한다.
+      pool-name: posture-app-pool
+      # 커넥션 최대 수명 30분 — DB의 wait_timeout(기본 8시간)보다 반드시 짧게.
+      # DB가 먼저 끊은 커넥션을 풀이 꺼내 쓰다 실패하는 일을 막는다.
+      max-lifetime: 1800000
+      # 유휴 커넥션에 5분마다 가벼운 ping — 공유기/방화벽이 오래 놀던 TCP
+      # 연결을 조용히 끊는 경우를 대비. max-lifetime보다 짧아야 한다.
+      keepalive-time: 300000
+      # 커넥션 유효성 검사 대기 상한 (connection-timeout보다 짧게)
+      validation-timeout: 3000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      timeout: 3000ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # 단일 브로커(KRaft) 테스트 환경 기준. 컨트롤러가 죽지 않는 한 재시도로 충분.
+      acks: all
+      retries: 3
+    consumer:
+      # 컨슈머 그룹은 리스너마다 따로 정한다(judge.consumer-group·report.store.group). 테스트 단계라 earliest 유지.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# 애플리케이션 자체 설정 (posture 도메인)
+app:
+  kafka:
+    topic:
+      posture-features-v1: ${POSTURE_FEATURES_V1_TOPIC:posture.features.v1}
+      posture-inference-v1: ${POSTURE_INFERENCE_V1_TOPIC:posture.inference.v1}
+      posture-episodes-v1: ${POSTURE_EPISODES_V1_TOPIC:posture.episodes.v1}
+      # (D-54) 표시할 알림 — 판정 결과 저장 → 입출구 서버 ws
+      posture-alerts-v1: ${POSTURE_ALERTS_V1_TOPIC:posture.alerts.v1}
+      # (D-36) 처리 못 한 메시지
+      posture-dlq: ${POSTURE_DLQ_TOPIC:posture.dlq}
+    # v1 판정 컨슈머(posture.inference.v1) 스레드 수 = 토픽 파티션 수와 맞출 것 (이름은 D-15 때 그대로)
+    posture-inference-concurrency: ${POSTURE_INFERENCE_CONCURRENCY:3}
+    # (D-21) 실시간 계약 v1 토픽 — 키 session_id, 파티션 수는 위 concurrency와 맞춘다
+    realtime-partitions: ${REALTIME_TOPIC_PARTITIONS:3}
+  # (D-21) 시험용 입구 POST /api/v1/realtime/features — 최종 입구는 팀 입구 API·게이트웨이
+  realtime:
+    test-entry:
+      enabled: ${REALTIME_TEST_ENTRY_ENABLED:true}
+
+# (D-22, D-53) v1 판정기 — posture.inference.v1 → posture.episodes.v1. 상태머신이며 CEP 엔진을 쓰지 않는다
+# (옛 이름: 패키지 cep.v1, 운영 API /cep/v1/*, 그룹 api-server-cep-v1, 환경변수 CEP_*).
+judge:
+  # 컨슈머 그룹. 바꾸면 새 그룹은 커밋 위치가 없어 처음부터(earliest) 읽는다 — 서버에서는 먼저 latest로 위치를 만든다(infra/README.md).
+  consumer-group: ${JUDGE_CONSUMER_GROUP:judge-v1}
+  # 세션 시작 메시지에 정책이 없을 때 쓰는 기본값(확정 3초·복귀 3초·재알림 60초·붕괴 후보 점수 0.7)
+  hold-seconds: ${JUDGE_HOLD_SECONDS:3}
+  recovery-seconds: ${JUDGE_RECOVERY_SECONDS:3}
+  reminder-seconds: ${JUDGE_REMINDER_SECONDS:60}
+  threshold: ${JUDGE_THRESHOLD:0.7}
+  # 입력이 이 시간 동안 없는 세션은 끊김(missing)으로 닫는다. 검사 주기는 expiry-interval
+  session-timeout-seconds: ${JUDGE_SESSION_TIMEOUT_SECONDS:300}
+  session-expiry-interval-seconds: ${JUDGE_SESSION_EXPIRY_INTERVAL_SECONDS:60}
+  # (D-37) 판정 상태를 Redis posture:v1:judge:{session_id}(JSON 문자열)에 저장해 재시작 뒤 진행 중 세션의 판정을 이어간다.
+  # false면 메모리에만 둔다.
+  state-store:
+    enabled: ${JUDGE_STATE_STORE_ENABLED:true}
+    ttl-seconds: ${JUDGE_STATE_TTL_SECONDS:3600}
+
+# (D-32, D-51) 확정 서비스 DB — DB 명세서 V2.3 `posture_service`(팀 backend/api 기준). (D-38) 연결 풀의 기본 DB이고,
+# 조회는 스키마 이름을 붙여 쓴다(같은 계정에 posture_service.* SELECT·INSERT·UPDATE·DELETE 필요).
+# 준비 확인(GET /store/service-db, D-53 전 /cep/service-db)과 판정 결과 저장(D-30)이 쓴다.
+service-db:
+  enabled: ${SERVICE_DB_ENABLED:true}
+  schema: ${SERVICE_DB_SCHEMA:posture_service}
+  # (D-51) 기본 판정 정책 값 4개 — V2.3 정책 행에는 이름이 없어 값 조합(UK-03)으로 찾는다.
+  # 입출구 서버(backend/api)의 posegood.default-policy.*·시드 seed_04와 같은 값(0.7·3초·3초·60초)이어야 한다.
+  default-policy:
+    threshold: ${SERVICE_DB_DEFAULT_THRESHOLD:0.7}
+    hold-seconds: ${SERVICE_DB_DEFAULT_HOLD_SECONDS:3}
+    recover-seconds: ${SERVICE_DB_DEFAULT_RECOVER_SECONDS:3}
+    realert-seconds: ${SERVICE_DB_DEFAULT_REALERT_SECONDS:60}
+
+# (D-30, D-51) 판정 결과 저장 — posture.episodes.v1 → posture_service(V2.3) 결과 테이블. 판정과 다른 컨슈머 그룹이라
+# DB 장애 때 이 그룹만 멈추고(retry-backoff-ms마다 다시 시도) 판정은 계속한다. 세션 행은 입출구 서버가 만든다(DB 회신 C-2).
+report:
+  store:
+    enabled: ${REPORT_STORE_ENABLED:true}
+    group: ${REPORT_STORE_GROUP:report-store-v1}
+    concurrency: ${REPORT_STORE_CONCURRENCY:1}
+    retry-backoff-ms: ${REPORT_STORE_RETRY_BACKOFF_MS:5000}
+  # (D-54) 표시할 알림을 posture.alerts.v1로 — 새 알림 행 + 세션 알림 켜짐 + 판정에서 나온 지 max-age-ms 안인 사건만
+  alerts:
+    enabled: ${REPORT_ALERTS_ENABLED:true}
+    max-age-ms: ${REPORT_ALERTS_MAX_AGE_MS:10000}
+  # 시험용 계정·세션 행 만들기·지우기와 메시지 다시 넣기(POST/DELETE /report/test/...). 시험 서버에서만 켠다.
+  test-fixtures:
+    enabled: ${REPORT_TEST_FIXTURES_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      # 세 구성요소(db/redis/kafka) 각각의 상태를 개별적으로 노출한다.
+      probes:
+        enabled: true
+      # (D-11) 헬스 그룹 분리
+      #  - liveness  (/actuator/health/liveness):  "프로세스가 살아있나"만 본다.
+      #    컨테이너 헬스체크(docker-compose)와 향후 K8s livenessProbe가 쓴다.
+      #    외부 DB가 잠깐 끊겨도 컨테이너가 unhealthy/재시작되지 않게 하려는 것.
+      #  - readiness (/actuator/health/readiness): 트래픽을 받아도 되나 — DB/Redis
+      #    의존성까지 포함. 향후 K8s readinessProbe용.
+      #  - 전체(/actuator/health)는 지금처럼 모든 구성요소 상세를 보는 모니터링용.
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
+    kafka:
+      enabled: true

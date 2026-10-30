@@ -102,6 +102,26 @@ export class Cdp {
     return reply.result.value
   }
 
+  /** Use a fixed function body and pass variable values as CDP data, never code fragments. */
+  async invoke(functionDeclaration, ...args) {
+    const { result } = await this.call('Runtime.evaluate', { expression: 'globalThis', returnByValue: false })
+    const objectId = result.objectId
+    try {
+      const reply = await this.call('Runtime.callFunctionOn', {
+        functionDeclaration,
+        objectId,
+        arguments: args.map(value => ({ value })),
+        awaitPromise: true,
+        returnByValue: true,
+        userGesture: true,
+      })
+      if (reply.exceptionDetails) throw new Error(reply.exceptionDetails.exception?.description ?? reply.exceptionDetails.text)
+      return reply.result.value
+    } finally {
+      await this.call('Runtime.releaseObject', { objectId }).catch(() => {})
+    }
+  }
+
   close() {
     this.socket.close()
   }

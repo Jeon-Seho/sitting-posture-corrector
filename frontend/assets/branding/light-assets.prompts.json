@@ -1,0 +1,22 @@
+{
+  "mode": "built-in image_gen; transparent_background=true",
+  "assets": [
+    {
+      "name": "login-light",
+      "prompt": "Edit this illustration of a person at a desk. Preserve its simplified faceless cartoon person, three-quarter rear composition and relaxed seated pose. Do not make the person realistic or add face/hair/clothing detail. Remove the entire dark background to true transparency. Replace the orange chair with a medium sage chair, use light sage clothing, warm white desk and monitor, deeper green trousers and muted natural skin. Clean flat 2D illustration with a few broad rounded shapes, no shadows, no texture, no 3D. Palette should blend naturally on a #416b56 introduction panel. Keep clear separation between chair, person and desk; no text or extra objects."
+    },
+    {
+      "name": "ready-camera-light",
+      "prompt": "PoseGood posture app illustration. Consistent clean flat 2D SVG-like illustrated emoji style, rounded simple solid shapes, restrained medium green #416b56 outlines, light sage #b9d8c5 and soft mint #e7f3eb fills, warm white highlights. No gradients, 3D, realism, photographic textures, neon, orange, text, letters, numbers, logos, cast shadows or decorative background. Genuinely transparent alpha background, centered with 12% safe padding. Looks calm, friendly and legible when shown at 80-140 pixels. ONE webcam/monitor pictogram: a softly rounded pale mint monitor housing with one large clear camera lens in the middle, a small green status dot and a simple base. Bold simple friendly geometry, not a realistic camera."
+    },
+    {
+      "name": "empty-records-light",
+      "prompt": "PoseGood posture app illustration. Consistent clean flat 2D SVG-like illustrated emoji style, rounded simple solid shapes, restrained medium green #416b56 outlines, light sage #b9d8c5 and soft mint #e7f3eb fills, warm white highlights. No gradients, 3D, realism, photographic textures, neon, orange, text, letters, numbers, logos, cast shadows or decorative background. Genuinely transparent alpha background, centered with 12% safe padding. Looks calm, friendly and legible when shown at 80-140 pixels. ONE empty record illustration: a small rounded light mint paper document with a folded corner, two short medium-green lines and one clean upward chart stroke. Plain clean flat forms. Do not add a face or symbols around it."
+    },
+    {
+      "name": "baseline-seat-light",
+      "prompt": "PoseGood posture app illustration. Consistent clean flat 2D SVG-like illustrated emoji style, rounded simple solid shapes, restrained medium green #416b56 outlines, light sage #b9d8c5 and soft mint #e7f3eb fills, warm white highlights. No gradients, 3D, realism, photographic textures, neon, orange, text, letters, numbers, logos, cast shadows or decorative background. Genuinely transparent alpha background, centered with 12% safe padding. Looks calm, friendly and legible when shown at 80-140 pixels. ONE posture illustration: a simple faceless abstract person sitting comfortably upright in profile on a small chair at a compact desk. One circle head, rounded simple torso and limbs. Clear flat silhouette. Minimal geometry, no realistic anatomical detail."
+    }
+  ],
+  "heroEdgeEdit": "Edit only the edge/background treatment of this image. Remove ALL surrounding glow, halo, bloom, drop shadows and soft colored haze completely, leaving genuinely transparent empty space. All outer object edges must be crisp antialiased flat illustration edges with immediate transparency outside. Preserve the exact simplified faceless cartoon person, same pose, sage chair, light sage shirt, warm white desk, monitor and composition. Remove shading gradients within objects as much as possible: flat 2D color fields, no 3D, no realistic textures, no face or hair details. Keep muted medium green, light sage and ivory palette. This will be displayed on a solid green #416b56 webpage panel and must not have any light halo rectangle or glow behind it. No text."
+}

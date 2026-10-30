@@ -20,7 +20,7 @@ function notify() {
 
 /** The first loss wins; later reports while the dialog is open change nothing. */
 export function reportConnectionLost(loss: ConnectionLoss) {
-  if (current) return
+  if (current && (current.reason !== 'test' || loss.reason === 'test')) return
   current = { ...loss }
   notify()
 }
@@ -55,10 +55,18 @@ export async function quitApp(): Promise<boolean> {
   if (quit) {
     try {
       if (await quit()) return true
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/connection/connectionLost.ts:quitApp] Operation failed', caughtError)
       /* Fall through to the browser path. */
     }
   }
   window.close()
   return window.closed
+}
+
+/** Dismiss only an isolated developer preview, never a real outage. */
+export function dismissConnectionTest() {
+  if (current?.reason !== 'test') return
+  current = null
+  notify()
 }

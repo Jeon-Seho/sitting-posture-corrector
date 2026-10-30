@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { CaretDown, Check } from '@phosphor-icons/react'
+import { CaretDown, Check } from './icons'
 
 export type SelectOption = { value: string; label: string; note?: string }
 

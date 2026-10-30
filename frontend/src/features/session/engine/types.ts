@@ -1,7 +1,6 @@
 import {
   DEFAULT_RULES,
   type CollapseType,
-  type Features,
   type Keypoints,
   type PostureState,
   type Segment,
@@ -11,6 +10,9 @@ export type Rules = typeof DEFAULT_RULES
 export type SessionPhase = 'running' | 'paused' | 'ended'
 
 export type CollapseEvent = {
+  /** Date-specific display only; the original event continues across midnight. */
+  continued?: boolean
+  carried?: boolean
   id: number
   type: CollapseType
   /** 변화 점수(시연에서는 합성 점수)가 임계값을 넘은 시각 */
@@ -60,8 +62,6 @@ export type Sample = {
   notice: string | null
   prob: number
   confidence: number
-  /** Unknown because the head is turned (shorter return settle than being away). */
-  headTurn?: boolean
 }
 
 export type LiveState = {
@@ -69,7 +69,6 @@ export type LiveState = {
   collapse: CollapseType | null
   notice: string | null
   keypoints: Keypoints
-  features: Features
   confidence: number
   collapseProb: number
   holdProgress: number

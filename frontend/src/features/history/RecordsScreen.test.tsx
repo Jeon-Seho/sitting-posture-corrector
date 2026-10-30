@@ -55,7 +55,7 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(text()).not.toContain('지난주')
     // The detailed numbers are folded.
     expect(renderer!.root.findAll((n) => n.type === 'details' && n.props.className === 'more')).toHaveLength(1)
-    act(() => button('지난 기록은 달력에서').props.onClick())
+    act(() => button('지난 기록 보기').props.onClick())
     expect(onCalendar).toHaveBeenCalledOnce()
   })
 
@@ -94,13 +94,23 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
     expect(rows()).toHaveLength(0)
   })
 
-  it('keeps the 잔디 display-only and pages months with the calendar', () => {
+  it('opens the selected heatmap date, synchronizes its month and supports empty dates', () => {
     act(() => {
       renderer = create(<RecordCalendarPage records={records} />)
     })
-    const cells = renderer!.root.findAll((n) => n.type === 'i' && String(n.props.className).startsWith('heatmap-cell'))
+    const cells = renderer!.root.findAll((n) => n.type === 'button' && String(n.props.className).startsWith('heatmap-cell'))
     expect(cells.length).toBeGreaterThan(90)
-    expect(cells.every((n) => !n.props.onClick)).toBe(true)
+    expect(cells.filter(n => n.props.tabIndex === 0)).toHaveLength(1)
+    const september = cells.find(n => n.props['data-day'] === '2026-09-28')!
+    act(() => september.props.onClick())
+    expect(text()).toContain('9월 28일 (월)')
+    expect(text()).toContain('2026년 9월')
+    expect(rows()).toHaveLength(1)
+    act(() => cells.find(n => n.props['data-day'] === '2026-10-01')!.props.onClick())
+    expect(text()).toContain('2026년 10월')
+    expect(rows()).toHaveLength(0)
+    expect(text()).toContain('측정한 기록이 없어요')
+    expect(cells.filter(n => String(n.props.className).includes('is-future')).every(n => n.props.disabled)).toBe(true)
     expect(cells.find((n) => String(n.props['data-tip']).startsWith('10월 2일'))!.props.className).toContain('level-4')
 
     act(() => renderer!.root.findByProps({ 'aria-label': '이전 달' }).props.onClick())

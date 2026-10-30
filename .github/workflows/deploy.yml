@@ -75,4 +75,5 @@ jobs:
           MYSQL_APP_PASSWORD: ${{ secrets.MYSQL_APP_PASSWORD }}
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
           POSEGOOD_INTERNAL_TOKEN: ${{ secrets.POSEGOOD_INTERNAL_TOKEN }}
+          POSEGOOD_JWT_SECRET: ${{ secrets.POSEGOOD_JWT_SECRET }}
         run: python3 tools/deploy_ssh.py --manifest .cache/release/images.json

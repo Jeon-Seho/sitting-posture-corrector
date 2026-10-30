@@ -1,46 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { placement, type Features } from '../../../model/prototype/pose'
-import {
-  beginCalibration,
-  observeCalibration,
-  type Calibration,
-  type CalibrationSummary,
-} from '../../../model/prototype/calibration'
+import type { PoseDetector } from '../features/camera/cpuWorker'
+import type { PoseTrackerDiagnostics, PoseTrackerOptions } from '../features/mediapipe/types'
+import modelAsset from '../../model-asset.json'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
-import { createFeatureFilter } from '../lib/skeleton'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
-import { baselineFits, readSavedBaseline, writeSavedBaseline } from '../features/camera/savedBaseline'
+import { useServerBaseline } from '../features/baseline/useServerBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
-import { createPoseTracker, type PoseTracker, type PoseTrackerOptions, type PoseTrackerDiagnostics } from '../features/mediapipe'
-import { baselineRecord, saveBaseline } from '../features/camera/baselineArchive'
+import { loadPoseDetector } from '../features/camera/modelLoader'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
 
-export type CameraRuntimeOptions = PoseTrackerOptions & { pacing?: 'legacy' | 'responsive' }
-
 export type { Observation } from '../features/camera/types'
+export type CameraRuntimeOptions = PoseTrackerOptions & { pacing?: 'legacy' | 'responsive' }
 
 const PREPARATION_TIMEOUT_MS = 30_000
 /** Shoulders lower than this (share of the frame height) are too close to the bottom edge. */
 export const FRAMING_BOTTOM = 0.88
 const EMPTY_METRICS: CameraMetrics = { fps: 0, inferenceMs: 0, delegate: 'CPU' }
 
-export function useCamera() {
+export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stream = useRef<MediaStream | null>(null)
-  const tracker = useRef<PoseTracker | null>(null)
+  const detector = useRef<PoseDetector | null>(null)
   const generation = useRef(0)
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Smoothed features for local judging; observations keep the raw values (server, CSV). */
-  const current = useRef<Features | null>(null)
-  const featureFilter = useRef(createFeatureFilter<Features>())
   const lastFrame = useRef(0)
-  const calibration = useRef<Calibration | null>(null)
-  const calibrationFrames = useRef<Observation[]>([])
   const listeners = useRef(new Set<(observation: Observation) => void>())
 
   const [visual, updateVisual] = useState<VisualOptions>(() => ({
@@ -61,7 +50,7 @@ export function useCamera() {
    * the frame, where a small lean takes it out of view. Experimental margin, not validated.
    */
   const [framing, setFraming] = useState<'ok' | 'low' | null>(null)
-  /** Shoulder tracking of the latest frame (2 s head-only grace, 2026-10-13). */
+  /** Shoulder tracking of the latest frame. */
   const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
@@ -73,26 +62,11 @@ export function useCamera() {
   const [trackingFps, setTrackingFpsState] = useState<number | null>(readTrackingFps)
   const fpsCap = useRef<number | null>(trackingFps)
   const fpsTrial = useRef<number | null>(null)
-  /**
-   * The registered baseline outlives the camera and, since 2026-10-13, the app run: it is
-   * saved on this computer with the camera it was taken with. Connecting another camera
-   * sets it aside (`baselineOtherCamera`); only a new registration replaces it.
-   */
-  const saved = useRef(readSavedBaseline())
-  const connectedDevice = useRef('')
-  const [baseline, setBaseline] = useState<Features | null>(() => saved.current?.baseline ?? null)
-  const [calibrationId, setCalibrationId] = useState<string | null>(
-    () => saved.current?.calibrationId ?? null,
-  )
-  const [calibrationSummary, setCalibrationSummary] = useState<CalibrationSummary | null>(
-    () => saved.current?.summary ?? null,
-  )
-  const [baselineOtherCamera, setBaselineOtherCamera] = useState(false)
-  /** When and with which camera the current posture was registered (settings). */
-  const [baselineInfo, setBaselineInfo] = useState<{ savedAt: string; deviceId: string } | null>(() =>
-    saved.current ? { savedAt: saved.current.savedAt, deviceId: saved.current.deviceId } : null,
-  )
-  const [progress, setProgress] = useState<number | null>(null)
+  const {
+    baseline: serverBaseline, registering, registrationError, baselineLoading, baselineError,
+    progress, reloadBaseline, observe: observeBaseline, begin: beginBaseline,
+    clearCapture, interruptCapture, cancel: cancelCalibration, resetProgress,
+  } = useServerBaseline(options.baselineMode !== 'local')
 
   const changeVisual = useCallback((patch: Partial<VisualOptions>) => {
     const next = { ...visualRef.current, ...patch }
@@ -125,35 +99,28 @@ export function useCamera() {
     clearLoadingTimer()
     stopCameraTracks(stream.current)
     stream.current = null
-    tracker.current?.close()
-    tracker.current = null
+    detector.current?.close()
+    detector.current = null
     if (videoRef.current) videoRef.current.srcObject = null
     // The frame loop stops drawing, so remove the last skeleton instead of freezing it.
     const canvas = canvasRef.current
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-    current.current = null
-    featureFilter.current.reset()
     lastFrame.current = 0
-    calibration.current = null
-    calibrationFrames.current = []
-  }, [clearLoadingTimer])
+    clearCapture()
+  }, [clearLoadingTimer, clearCapture])
 
   const stop = useCallback(() => {
     release()
     setState('off')
     setError('')
     setQuality(false)
-    setProgress(null)
-  }, [release])
+    resetProgress()
+  }, [release, resetProgress])
   useEffect(() => () => release(), [release])
 
   const receiveObservation = useCallback((observation: Observation, observationGap: number) => {
-    if (!observation.features) featureFilter.current.reset()
-    current.current = observation.features
-      ? featureFilter.current.next(observation.features, lastFrame.current ? observation.timeMs - lastFrame.current : 33)
-      : null
     lastFrame.current = observation.timeMs
-    setQuality(!!observation.features && observation.shoulders !== 'grace')
+    setQuality(observation.measurable === true)
     setShoulders(observation.shoulders ?? null)
     const l = observation.landmarks[11], r = observation.landmarks[12]
     setFraming(
@@ -161,41 +128,8 @@ export function useCamera() {
     )
     for (const listener of listeners.current) listener(observation)
 
-    if (!calibration.current) return
-    // A registration needs the real shoulders; a grace frame restarts it like a missing one.
-    const own = observation.shoulders === 'grace' ? null : observation.features
-    const next = observeCalibration(
-      calibration.current,
-      own,
-      observation.timeMs,
-      observationGap,
-      own ? placement(observation.landmarks) : null,
-    )
-    calibration.current = next.draft
-    if (next.draft.start === null) calibrationFrames.current = []
-    else calibrationFrames.current.push(structuredClone(observation))
-    setProgress(next.progress)
-    if (next.ready) {
-      const id = crypto.randomUUID()
-      setBaseline(next.ready)
-      setCalibrationSummary(next.summary)
-      setCalibrationId(id)
-      if (next.summary) void saveBaseline(baselineRecord(id, next.ready, next.summary, calibrationFrames.current))
-      calibrationFrames.current = []
-      setBaselineOtherCamera(false)
-      const entry = {
-        deviceId: connectedDevice.current,
-        calibrationId: id,
-        baseline: next.ready,
-        summary: next.summary,
-      }
-      writeSavedBaseline(entry)
-      saved.current = { schemaVersion: 1, savedAt: new Date().toISOString(), ...entry }
-      setBaselineInfo({ savedAt: saved.current.savedAt, deviceId: entry.deviceId })
-      calibration.current = null
-      setProgress(null)
-    }
-  }, [])
+    observeBaseline(observation, observationGap)
+  }, [observeBaseline])
 
   const refreshDevices = useCallback(async () => {
     setDevices(await listVideoDevices())
@@ -213,7 +147,7 @@ export function useCamera() {
 
   const connect = useCallback(
     /** An explicit `selectedId` also becomes the main camera. */
-    async (selectedId?: string, options?: CameraRuntimeOptions) => {
+    async (selectedId?: string) => {
       if (selectedId) {
         writeMainCamera(selectedId)
         setMainDeviceId(selectedId)
@@ -227,14 +161,14 @@ export function useCamera() {
       setState('loading')
       setQuality(false)
       setError('')
-      setProgress(null)
+      resetProgress()
 
       loadingTimer.current = setTimeout(() => {
         if (!isCurrent()) return
         release()
         setState('error')
         setQuality(false)
-        setProgress(null)
+        resetProgress()
         setError(CAMERA_ERRORS.preparationTimeout)
       }, PREPARATION_TIMEOUT_MS)
 
@@ -244,6 +178,7 @@ export function useCamera() {
           incoming = await requestCamera(wanted || undefined)
           setMainMissing(false)
         } catch (cause) {
+          console.error('[hooks/useCamera.ts:connect] Operation failed', cause)
           if (!wanted || !missingDevice(cause)) throw cause
           // The saved main camera is unplugged: keep the choice and use the default camera.
           incoming = await requestCamera()
@@ -256,21 +191,7 @@ export function useCamera() {
         stream.current = incoming
         const track = incoming.getVideoTracks()[0]
         const connectedId = track.getSettings().deviceId ?? ''
-        connectedDevice.current = connectedId
         setDeviceId(connectedId)
-        // The saved posture applies only to the camera it was taken with.
-        const stored = saved.current
-        if (stored) {
-          const fits = baselineFits(stored, connectedId)
-          setBaselineOtherCamera(!fits)
-          if (fits) {
-            setBaseline((current) => current ?? stored.baseline)
-            setCalibrationId((current) => current ?? stored.calibrationId)
-            setCalibrationSummary((current) => current ?? stored.summary)
-          } else {
-            setBaseline((current) => (current === stored.baseline ? null : current))
-          }
-        }
         setDevices(await listVideoDevices())
         if (!isCurrent()) return
 
@@ -279,18 +200,21 @@ export function useCamera() {
           release()
           setState('error')
           setQuality(false)
-          setProgress(null)
+          resetProgress()
           setError(CAMERA_ERRORS.disconnected)
         }
 
-        const loaded = await createPoseTracker(isCurrent, options)
+        const modelStarted = performance.now()
+        let loaded = await loadPoseDetector(isCurrent)
         if (!loaded) return
         if (!isCurrent()) {
-          loaded.close()
+          loaded.detector.close()
           return
         }
-        tracker.current = loaded
-        setTrackerDiagnostics(loaded.diagnostics ?? null)
+        detector.current = loaded.detector
+        setTrackerDiagnostics({ variant: 'heavy', modelId: modelAsset.modelId, requestedDelegate: 'auto',
+          actualDelegate: loaded.delegate, fallbackReason: loaded.delegate === 'CPU' ? 'gpu_initialization_failed' : null,
+          initializationMs: performance.now() - modelStarted })
         const video = videoRef.current
         if (!video) throw new Error(CAMERA_ERRORS.videoUnavailable)
         video.srcObject = incoming
@@ -300,37 +224,74 @@ export function useCamera() {
         clearLoadingTimer()
         setState('on')
         visualRef.current = { ...visualRef.current, startedAt: performance.now() }
-        stopFrameLoop.current = startPoseFrameLoop({
-          video,
-          tracker: loaded,
-          pacing: options?.pacing,
-          isCurrent,
-          getMaxFps: () => fpsTrial.current ?? fpsCap.current,
-          getCanvas: () => canvasRef.current,
-          getVisual: () => visualRef.current,
-          onPoseStarted: () => {
-            visualRef.current = { ...visualRef.current, startedAt: performance.now() }
-          },
-          onObservation: receiveObservation,
-          onFrameUnavailable: () => {
-            current.current = null
-            setQuality(false)
-            if (calibration.current) {
-              calibration.current = beginCalibration()
-              calibrationFrames.current = []
-              setProgress(0)
-            }
-          },
-          onMetrics: setMetrics,
-          onTrackingError: () => {
-            release()
-            setState('error')
-            setQuality(false)
-            setProgress(null)
-            setError(CAMERA_ERRORS.trackingFailed)
-          },
-        })
+        const startTracking = () => {
+          if (!loaded || !isCurrent()) return
+          const active = loaded
+          setMetrics({ ...EMPTY_METRICS, delegate: active.delegate })
+          stopFrameLoop.current = startPoseFrameLoop({
+            video,
+            detector: active.detector,
+            delegate: active.delegate,
+            isCurrent,
+            getMaxFps: () => fpsTrial.current ?? fpsCap.current,
+            getCanvas: () => canvasRef.current,
+            getVisual: () => visualRef.current,
+            onPoseStarted: () => {
+              visualRef.current = { ...visualRef.current, startedAt: performance.now() }
+            },
+            onObservation: receiveObservation,
+            onFrameUnavailable: () => {
+              setQuality(false)
+              interruptCapture()
+            },
+            onMetrics: setMetrics,
+            onTrackingError: (inferenceFailed) => {
+              if (!isCurrent()) return
+              if (active.delegate === 'GPU' && inferenceFailed) {
+                stopFrameLoop.current?.()
+                stopFrameLoop.current = null
+                active.detector.close()
+                detector.current = null
+                setQuality(false)
+                lastFrame.current = 0
+                interruptCapture()
+                setState('loading')
+                loadingTimer.current = setTimeout(() => {
+                  if (!isCurrent()) return
+                  release()
+                  setState('error')
+                  resetProgress()
+                  setError(CAMERA_ERRORS.preparationTimeout)
+                }, PREPARATION_TIMEOUT_MS)
+                void loadPoseDetector(isCurrent, 'CPU').then((cpu) => {
+                  if (!cpu || !isCurrent()) return
+                  loaded = cpu
+                  detector.current = cpu.detector
+                  setTrackerDiagnostics(previous => previous ? { ...previous, actualDelegate: 'CPU', fallbackReason: 'gpu_inference_failed' } : previous)
+                  clearLoadingTimer()
+                  setState('on')
+                  startTracking()
+                }).catch((cause: unknown) => {
+                  console.error('[camera] CPU tracking recovery failed', cause)
+                  if (!isCurrent()) return
+                  release()
+                  setState('error')
+                  resetProgress()
+                  setError(CAMERA_ERRORS.trackingFailed)
+                })
+                return
+              }
+              release()
+              setState('error')
+              setQuality(false)
+              resetProgress()
+              setError(CAMERA_ERRORS.trackingFailed)
+            },
+          })
+        }
+        startTracking()
       } catch (cause) {
+        console.error('[hooks/useCamera.ts:connect] Operation failed', cause)
         if (!isCurrent()) return
         release()
         setState('error')
@@ -338,7 +299,7 @@ export function useCamera() {
         setError(cameraPreparationError(cause))
       }
     },
-    [clearLoadingTimer, receiveObservation, release],
+    [clearLoadingTimer, interruptCapture, receiveObservation, release, resetProgress],
   )
 
   /** Saves the tracking rate cap (`null` = device default) and applies it at once. */
@@ -360,15 +321,7 @@ export function useCamera() {
   }
 
   const calibrate = () => {
-    if (state !== 'on' || !quality || calibration.current) return
-    setProgress(0)
-    calibrationFrames.current = []
-    calibration.current = beginCalibration()
-  }
-  const cancelCalibration = () => {
-    calibration.current = null
-    calibrationFrames.current = []
-    setProgress(null)
+    if (state === 'on' && quality) beginBaseline()
   }
 
   return {
@@ -387,8 +340,8 @@ export function useCamera() {
     deviceId,
     mainDeviceId,
     mainMissing,
-    baselineOtherCamera,
-    baselineInfo,
+    /** When the current posture was registered (settings); the server keeps no camera. */
+    baselineInfo: serverBaseline ? { savedAt: serverBaseline.registeredAt, deviceId: '' } : null,
     trackingFps,
     setTrackingFps,
     tryTrackingFps,
@@ -399,11 +352,16 @@ export function useCamera() {
     quality,
     shoulders,
     framing,
-    baseline,
-    calibrationId,
-    calibrationSummary,
+    /** The registered posture from the server (B2·B1), or null. */
+    baseline: serverBaseline,
+    /** The server's `baseline_id` (S1 `baseline_id`). */
+    calibrationId: serverBaseline?.baselineId ?? null,
     progress,
-    current,
+    registering,
+    registrationError,
+    baselineLoading,
+    baselineError,
+    reloadBaseline,
     lastFrame,
     connect,
     stop,

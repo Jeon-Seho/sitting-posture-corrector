@@ -1,6 +1,8 @@
 import { periodStats } from '../../lib/comparison'
 import { localDay } from '../../lib/history'
+import { addDayKey } from '../../lib/kst'
 import type { RecordItem } from '../../lib/serviceStore'
+import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
  * Where the records screen gets its numbers (2026-10-13 records redesign). Shapes follow
@@ -24,14 +26,12 @@ export type DailyStat = {
   excluded_sec: number
 }
 
-/** "2026-10-13" for a local date. */
+/** "2026-10-13": the KST day of an instant. */
 export const dayKey = (date: Date) => localDay(date.toISOString())
 
-export function addDays(day: string, n: number): string {
-  const [y, m, d] = day.split('-').map(Number)
-  return dayKey(new Date(y, m - 1, d + n, 12))
-}
+export const addDays = addDayKey
 
+/** A Date for showing the calendar parts of `day` (weekday, date); not an instant to compare. */
 export function dateOf(day: string): Date {
   const [y, m, d] = day.split('-').map(Number)
   return new Date(y, m - 1, d, 12)
@@ -39,7 +39,7 @@ export function dateOf(day: string): Date {
 
 /** Sessions that started on `day`, newest first (API order). */
 export function sessionsOn(records: RecordItem[], day: string): RecordItem[] {
-  return records
+  return recordsByDay(records)
     .filter((r) => localDay(r.startedAt) === day)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 }
@@ -47,7 +47,7 @@ export function sessionsOn(records: RecordItem[], day: string): RecordItem[] {
 /** One row per day in [from, to] that has at least one session. */
 export function dailyStats(records: RecordItem[], from: string, to: string): DailyStat[] {
   const byDay = new Map<string, RecordItem[]>()
-  for (const r of records) {
+  for (const r of recordsByDay(records)) {
     const day = localDay(r.startedAt)
     if (day < from || day > to) continue
     byDay.set(day, [...(byDay.get(day) ?? []), r])

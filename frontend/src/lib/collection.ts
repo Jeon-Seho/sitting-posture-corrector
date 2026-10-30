@@ -1,7 +1,6 @@
 import type { Landmark } from '../../../model/prototype/pose'
-import { CALIBRATION_MS } from '../../../model/prototype/calibration'
+import { CAPTURE_MS } from '../features/baseline/landmarkCapture'
 import type { Observation } from '../hooks/useCamera'
-import { SHOULDER_UP_LANDMARK_COUNT } from '../features/camera/types'
 import modelAsset from '../../model-asset.json'
 import {
   DEFAULT_CAPTURE_OPTIONS,
@@ -113,7 +112,7 @@ export function newCapture(
 function landmarkJson(points: Landmark[]) {
   const finite = (n: number | undefined) => (n !== undefined && Number.isFinite(n) ? n : null)
   return JSON.stringify(
-    points.slice(0, SHOULDER_UP_LANDMARK_COUNT).map((p, index) => ({
+    points.slice(0, 33).map((p, index) => ({
       index,
       x: finite(p.x),
       y: finite(p.y),
@@ -185,7 +184,7 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     width: o.width,
     height: o.height,
     pose_model: modelAsset.modelId,
-    calibration_seconds: CALIBRATION_MS / 1000,
+    calibration_seconds: CAPTURE_MS / 1000,
     target_sample_hz: 10,
     task_id: task.id,
     activity: task.activity,
@@ -204,7 +203,7 @@ export function appendObservation(c: Capture, o: Observation, label: Label): boo
     stop_reason: '',
     calibration_id: c.calibrationId,
     pose_detected: o.landmarks.length > 0 ? 1 : 0,
-    landmark_count: Math.min(o.landmarks.length, SHOULDER_UP_LANDMARK_COUNT),
+    landmark_count: o.landmarks.length,
     landmarks_json: landmarkJson(o.landmarks),
     world_landmarks_json: landmarkJson(o.worldLandmarks),
   })

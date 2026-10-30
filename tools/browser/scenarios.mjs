@@ -383,7 +383,7 @@ export async function runScenarios(browser, base, restartApi) {
   // Since 2026-10-06 opening another tab keeps the measurement running.
   const restBeforeRecords = snapshot.draft.server.view.summary.rest_ms
   const validBeforeRecords = snapshot.draft.server.view.summary.valid_ms
-  await app.click('기록')
+  await app.click('오늘')
   snapshot = await app.frames(2, 'normal')
   app.check(
     'internal navigation keeps measuring without recording rest',
@@ -439,7 +439,7 @@ export async function runScenarios(browser, base, restartApi) {
       recordMatchesView(snapshot.records[0], actualEnded) &&
       !snapshot.camera.connected,
   )
-  await app.click('기록')
+  await app.click('오늘')
   await app.verifyHistory(snapshot.records)
   await browser.screenshot('confirmed-dashboard')
   const reloadId = await app.startSession()
@@ -506,7 +506,7 @@ export async function runScenarios(browser, base, restartApi) {
       !snapshot.camera.connected &&
       !snapshot.trace.some((entry) => entry.path.endsWith('/end')),
   )
-  await app.click('기록')
+  await app.click('오늘')
   await app.text('서버 종료 미확인')
   await app.verifyHistory(snapshot.records)
   await browser.screenshot('unconfirmed-dashboard')
@@ -530,7 +530,7 @@ export async function runScenarios(browser, base, restartApi) {
   await app.evaluate(`${BRIDGE}.appendLegacyFixture()`)
   await app.cdp.call('Page.reload', { ignoreCache: true })
   await app.click('로그인')
-  await app.click('달력')
+  await app.click('기록')
   // The first-vs-recent comparison was removed from the app (2026-10-14).
   snapshot = await app.snapshot()
   app.check(

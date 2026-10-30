@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
-import { readTrackingDiagnostics } from '../features/mediapipe/trackingDiagnostics'
+import {
+  installFakeBaselineServer,
+  removeFakeBaselineServer,
+  type FakeBaselineServer,
+} from '../features/baseline/fakeBaselineServer'
 
 const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.fn() }))
-const archive = vi.hoisted(() => ({ save: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('../features/camera/baselineArchive', async (original) => ({
-  ...await original<typeof import('../features/camera/baselineArchive')>(), saveBaseline: archive.save,
-}))
 vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
@@ -18,6 +18,7 @@ vi.mock('../lib/poseVisual', () => ({ drawPose: vision.draw }))
 describe('camera lifecycle with fake tracks and synthetic landmarks only', () => {
   let renderer: ReactTestRenderer | undefined
   let camera: ReturnType<typeof useCamera>
+  let server: FakeBaselineServer
   let points: Landmark[],
     track: {
       stop: ReturnType<typeof vi.fn>
@@ -57,10 +58,10 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     vision.resolve.mockReset().mockResolvedValue({})
     vision.create.mockReset().mockResolvedValue({ close, detectForVideo: detect })
     vision.draw.mockClear()
-    archive.save.mockClear()
     vi.stubGlobal('navigator', {
       mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([]) },
     })
+    server = installFakeBaselineServer()
     act(() => {
       renderer = create(<Probe />)
     })
@@ -80,6 +81,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   afterEach(() => {
     act(() => renderer?.unmount())
     renderer = undefined
+    removeFakeBaselineServer()
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -92,70 +94,39 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
       vi.advanceTimersByTime(100)
     })
   }
-  const calibrate = () => {
+  /** Lets the fake B1 answer and the hook apply it. */
+  const settle = async () => {
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+  const calibrate = async () => {
     act(() => camera.calibrate())
     act(() => {
       vi.advanceTimersByTime(5200)
     })
+    await settle()
   }
 
-  it('archives completed calibration only, with independent raw samples and an assumed label', async () => {
+  it('keeps the local camera independent of the signed-in server baseline', async () => {
+    const video = camera.videoRef.current
+    act(() => renderer?.unmount())
+    vi.mocked(fetch).mockClear()
+    function LocalProbe() { camera = useCamera({ baselineMode: 'local' }); return null }
+    act(() => { renderer = create(<LocalProbe />) })
+    Object.assign(camera.videoRef, { current: video })
     await connect()
-    act(() => camera.calibrate())
-    act(() => { vi.advanceTimersByTime(1000) })
-    act(() => camera.cancelCalibration())
-    expect(archive.save).not.toHaveBeenCalled()
-    calibrate()
-    expect(archive.save).toHaveBeenCalledTimes(1)
-    const record = archive.save.mock.calls[0][0]
-    expect(record.calibration_id).toBe(camera.calibrationId)
-    expect(record.frames).toHaveLength(camera.calibrationSummary!.sampleCount)
-    expect(record.label).toBe('baseline_posture')
-    expect(record.ground_truth_verified).toBe(false)
-    expect(record.frames.every((frame: { landmarks: unknown[] }) => frame.landmarks.length === 13)).toBe(true)
-    points[0].x = 0.9
-    expect(record.frames[0].landmarks[0].x).toBe(0.5)
-    act(() => camera.stop())
-    expect(archive.save).toHaveBeenCalledTimes(1)
-  })
-
-  it('drops interrupted calibration samples before saving the restarted baseline', async () => {
-    await connect()
-    act(() => camera.calibrate())
-    act(() => { vi.advanceTimersByTime(1000) })
-    points[0].visibility = 0.1
-    act(() => { vi.advanceTimersByTime(100) })
-    points[0].visibility = 0.95
-    act(() => { vi.advanceTimersByTime(3200) })
-    const record = archive.save.mock.calls[0][0]
-    expect(record.frames).toHaveLength(camera.calibrationSummary!.sampleCount)
-    expect(record.frames[0].timeMs).toBeGreaterThan(1100)
-  })
-
-  it('shares only raw face and shoulder coordinates, preserving poor-quality observations', async () => {
-    const world = points.map((p) => ({ ...p, x: p.x * 2 }))
-    detect.mockImplementation(() => ({ landmarks: [points], worldLandmarks: [world] }))
-    const listener = vi.fn()
-    camera.subscribe(listener)
-    await connect()
-    let observation = listener.mock.calls.at(-1)![0]
-    expect(observation.landmarks).toEqual(points.slice(0, 13))
-    expect(observation.worldLandmarks).toEqual(world.slice(0, 13))
-    expect(observation.features).not.toBeNull()
-    points[0].visibility = 0.1
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-    observation = listener.mock.calls.at(-1)![0]
-    expect(observation.features).toBeNull()
-    expect(observation.landmarks).toHaveLength(13)
-    expect(observation.landmarks[0].visibility).toBe(0.1)
-    expect(points).toHaveLength(33)
+    await calibrate()
+    await act(async () => { await camera.reloadBaseline() })
+    expect(camera.baseline).toBeNull()
+    expect(camera.progress).toBeNull()
+    expect(server.posts).toHaveLength(0)
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('keeps the previous baseline during recalibration and restores it on cancel or poor quality', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const previous = camera.baseline,
       id = camera.calibrationId
     expect(previous).not.toBeNull()
@@ -178,7 +149,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   })
   it('replaces the baseline only after all continuous valid observations are collected', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const previous = camera.baseline,
       id = camera.calibrationId
     points[0].y = 0.3
@@ -190,9 +161,71 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     act(() => {
       vi.advanceTimersByTime(400)
     })
+    expect(camera.progress).toBeNull()
+    expect(camera.registering).toBe(true)
+    await settle()
+    expect(camera.registering).toBe(false)
     expect(camera.baseline).not.toEqual(previous)
     expect(camera.calibrationId).not.toBe(id)
+    // B1 gets the mean of the 9 joints (2026-10-20 team meeting), not the app's features.
+    const sent = server.posts.at(-1)!
+    expect(sent.calibration_ms).toBeGreaterThanOrEqual(3000)
+    expect(sent.sample_count).toBeGreaterThanOrEqual(20)
+    expect(Object.keys(sent.landmarks as object)).toHaveLength(9)
+    expect((sent.landmarks as Record<string, { x: number; y: number }>).nose).toEqual({ x: 0.5, y: 0.3 })
+  })
+  it('explains a registration the server did not save and keeps the previous posture', async () => {
+    await connect()
+    await calibrate()
+    const previous = camera.calibrationId
+    // Still 401 after the token was renewed once (api.ts): the login is over.
+    server.failWith.push(401, 401)
+    await calibrate()
+    expect(camera.registrationError).toBe('로그인이 필요해요. 다시 로그인한 뒤 등록해 주세요.')
+    expect(camera.calibrationId).toBe(previous)
+    act(() => camera.calibrate())
+    expect(camera.registrationError).toBeNull()
+  })
+  it('does not send a posture whose mean is out of the frame', async () => {
+    await connect()
+    const before = server.posts.length
+    points[7].x = -0.2
+    await calibrate()
+    expect(camera.registrationError).toBe('얼굴과 양쪽 어깨가 화면 안에 들어오게 앉은 뒤 다시 등록해 주세요.')
+    expect(server.posts).toHaveLength(before)
     expect(camera.progress).toBeNull()
+  })
+  it('loads the registered posture from the server instead of this PC', async () => {
+    await connect()
+    await calibrate()
+    const id = camera.calibrationId
+    act(() => renderer?.unmount())
+    act(() => {
+      renderer = create(<Probe />)
+    })
+    expect(camera.calibrationId).toBeNull()
+    await settle()
+    expect(camera.calibrationId).toBe(id)
+    expect(camera.baseline).not.toBeNull()
+  })
+  it('says when the registered posture could not be loaded and clears it on a successful reload', async () => {
+    await connect()
+    await calibrate()
+    const id = camera.calibrationId
+    act(() => renderer?.unmount())
+    server.failCurrent.push(0)
+    act(() => {
+      renderer = create(<Probe />)
+    })
+    await settle()
+    expect(camera.baselineLoading).toBe(false)
+    expect(camera.baseline).toBeNull()
+    expect(camera.baselineError).toBe('서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.')
+    await act(async () => {
+      await camera.reloadBaseline()
+    })
+    expect(camera.baselineError).toBeNull()
+    expect(camera.calibrationId).toBe(id)
   })
   it('cancels pending permission requests and stops late-arriving tracks', async () => {
     const request = defer<MediaStream>()
@@ -267,7 +300,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   })
   it('keeps the registered baseline when the camera is turned off and on again', async () => {
     await connect()
-    calibrate()
+    await calibrate()
     const registered = camera.baseline,
       id = camera.calibrationId
     expect(registered).not.toBeNull()
@@ -280,7 +313,7 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
   it('falls back to CPU and keeps the registered baseline on disconnection', async () => {
     vision.create.mockRejectedValueOnce(new Error('Synthetic GPU unavailable'))
     await connect()
-    calibrate()
+    await calibrate()
     expect(vision.create.mock.calls[1][1].baseOptions.delegate).toBe('CPU')
     act(() => track.onended?.())
     expect(camera.state).toBe('error')
@@ -289,7 +322,57 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.calibrationId).not.toBeNull()
     expect(close).toHaveBeenCalledOnce()
   })
-  it('reports tracking failures and releases resources', async () => {
+  it('recovers from the first GPU inference failure using CPU without reopening the camera', async () => {
+    await connect()
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU inference failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('on')
+    expect(camera.metrics.delegate).toBe('CPU')
+    expect(vision.create.mock.calls[1][1].baseOptions.delegate).toBe('CPU')
+    expect(getUserMedia).toHaveBeenCalledOnce()
+    expect(track.stop).not.toHaveBeenCalled()
+    expect(close).toHaveBeenCalledOnce()
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(camera.quality).toBe(true)
+  })
+  it('closes a CPU recovery that finishes after the user stops the camera', async () => {
+    await connect()
+    const late = defer<{ close: typeof close; detectForVideo: typeof detect }>()
+    const cpuClose = vi.fn()
+    vision.create.mockReturnValueOnce(late.promise)
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('loading')
+    act(() => camera.stop())
+    await act(async () => { late.resolve({ close: cpuClose, detectForVideo: detect }) })
+    expect(camera.state).toBe('off')
+    expect(cpuClose).toHaveBeenCalledOnce()
+    expect(track.stop).toHaveBeenCalledOnce()
+  })
+  it('ends tracking if an observation consumer fails without changing inference delegates', async () => {
+    await connect()
+    camera.subscribe(() => { throw new Error('Synthetic consumer failure') })
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('error')
+    expect(vision.create).toHaveBeenCalledOnce()
+    expect(track.stop).toHaveBeenCalledOnce()
+  })
+  it('releases camera resources if CPU recovery times out', async () => {
+    await connect()
+    const late = defer<{ close: typeof close; detectForVideo: typeof detect }>()
+    const cpuClose = vi.fn()
+    vision.create.mockReturnValueOnce(late.promise)
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    act(() => { vi.advanceTimersByTime(30_001) })
+    expect(camera.state).toBe('error')
+    expect(track.stop).toHaveBeenCalledOnce()
+    await act(async () => { late.resolve({ close: cpuClose, detectForVideo: detect }) })
+    expect(cpuClose).toHaveBeenCalledOnce()
+    expect(camera.state).toBe('error')
+  })
+  it('reports CPU tracking failures and releases resources without retrying again', async () => {
+    vision.create.mockRejectedValueOnce(new Error('Synthetic GPU unavailable'))
     await connect()
     detect.mockImplementationOnce(() => {
       throw new Error('Synthetic inference failure')
@@ -301,26 +384,6 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.error).toContain('추적')
     expect(track.stop).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
-  })
-  it('forwards developer model, delegate and pacing options and restores service defaults on reconnect', async () => {
-    await act(async () => { await camera.connect('synthetic-device', { variant: 'full', delegate: 'CPU', pacing: 'responsive' }) })
-    expect(vision.create.mock.calls[0][1].baseOptions).toEqual({ modelAssetPath: '/mediapipe/pose_landmarker_full.task', delegate: 'CPU' })
-    expect(camera.trackerDiagnostics).toMatchObject({ variant: 'full', requestedDelegate: 'CPU', actualDelegate: 'CPU', fallbackReason: null })
-    expect(readTrackingDiagnostics()).toMatchObject({ active: true, pacing: 'responsive', delegate: 'CPU' })
-    act(() => camera.stop())
-    expect(readTrackingDiagnostics()?.active).toBe(false)
-    await act(async () => { await camera.connect() })
-    expect(vision.create.mock.calls[1][1].baseOptions).toEqual({ modelAssetPath: '/mediapipe/pose_landmarker_heavy.task', delegate: 'GPU' })
-    expect(camera.trackerDiagnostics).toMatchObject({ variant: 'heavy', requestedDelegate: 'auto', actualDelegate: 'GPU' })
-    expect(readTrackingDiagnostics()).toMatchObject({ pacing: 'legacy', delegate: 'GPU' })
-  })
-  it('reports an explicit GPU failure without silently starting a CPU camera', async () => {
-    vision.create.mockRejectedValueOnce(new Error('Synthetic strict GPU failure'))
-    await act(async () => { await camera.connect(undefined, { variant: 'lite', delegate: 'GPU' }) })
-    expect(vision.create).toHaveBeenCalledOnce()
-    expect(camera.state).toBe('error')
-    expect(camera.trackerDiagnostics).toBeNull()
-    expect(track.stop).toHaveBeenCalledOnce()
-    expect(detect).not.toHaveBeenCalled()
+    expect(vision.create).toHaveBeenCalledTimes(2)
   })
 })

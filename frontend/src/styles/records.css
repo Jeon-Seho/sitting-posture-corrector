@@ -329,10 +329,10 @@
 }
 .today-hero-value {
   font-size: 44px;
-  line-height: 1;
+  line-height: 52px;
 }
 .today-hero-caption {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
@@ -359,13 +359,14 @@
 .today-hero-value.records-stat-value {
   margin: 0;
 }
-/* The one big number: the shared Amount is 24px, far too small inside the ring. */
+/* Keep a generous inset even for 100%; units share the number's baseline. */
 .today-hero-value .amount-n {
-  font-size: 54px;
-  line-height: 1;
+  font-size: inherit;
+  line-height: inherit;
 }
 .today-hero-value .amount-u {
-  font-size: 22px;
+  font-size: 18px;
+  margin-left: 3px;
 }
 
 /* 달력's picked day (DaySummary): a small ring and one line, unlike the 기록 tab's hero. */

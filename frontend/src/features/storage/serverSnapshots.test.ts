@@ -1,17 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_RULES } from '../../data/posture'
-import { projectMachine } from '../session/server/projection'
-import {
-  BASELINE_ID,
-  SESSION_ID,
-  checkpoint,
-  frameRequest,
-  view,
-} from '../session/server/testFixtures'
+import { BASELINE_ID, SESSION_ID, view } from '../session/server/testFixtures'
 import type { SessionView } from '../session/server/contracts'
-import { validDraft, validRecord } from './validation'
+import { validRecord } from './validation'
 import { serverRecordEvents } from './serverSnapshots'
-import type { Draft, RecordItem } from './types'
+import type { RecordItem } from './types'
 
 /** Hand-written synthetic decisions, never captured camera or participant data. */
 function activeView(): SessionView {
@@ -103,62 +96,11 @@ function record(snapshot: SessionView | null, confirmed: boolean): RecordItem {
 }
 
 describe('acknowledged server storage (synthetic only)', () => {
-  const draft = (): Draft => ({
-    id: SESSION_ID,
-    startedAt: new Date(0).toISOString(),
-    mode: 'camera',
-    rules: DEFAULT_RULES,
-    machine: projectMachine(view()),
-    server: checkpoint(),
-  })
-
-  it('keeps pending request bytes and requires the display snapshot to agree with the server', () => {
-    const body = frameRequest()
-    const saved = {
-      ...draft(),
-      server: checkpoint({
-        elapsedMs: 100,
-        nextSequence: 1,
-        pending: { kind: 'features' as const, body },
-      }),
-    }
-    expect(validDraft(saved)).toBe(true)
-    expect(saved.server.pending?.body).toEqual(body)
-    expect(
-      validDraft({
-        ...saved,
-        machine: { ...saved.machine, total: 1, good: 1 },
-      }),
-    ).toBe(false)
-    expect(validDraft({ ...saved, mode: 'demo' })).toBe(false)
-  })
-
-  it('rejects unknown raw data and a pending request from another baseline', () => {
-    const saved = draft()
-    expect(
-      validDraft({
-        ...saved,
-        server: { ...saved.server, video: 'forbidden synthetic field' },
-      }),
-    ).toBe(false)
-    expect(
-      validDraft({
-        ...saved,
-        server: checkpoint({
-          elapsedMs: 100,
-          nextSequence: 1,
-          pending: {
-            kind: 'features',
-            body: { ...frameRequest(), baseline_id: SESSION_ID },
-          },
-        }),
-      }),
-    ).toBe(false)
-  })
-
   it('accepts canonical UUIDs independently of version and variant', () => {
-    const canonical = '11111111-1111-1111-1111-111111111111'
-    expect(validDraft({ ...draft(), server: checkpoint({ baselineId: canonical }) })).toBe(true)
+    const saved = record(endedView(), true)
+    expect(validRecord({ ...saved, server: { ...saved.server!, baselineId: '11111111-1111-1111-1111-111111111111' } })).toBe(
+      true,
+    )
   })
 
   it('retains left/right and interruption reasons in the authoritative final snapshot', () => {

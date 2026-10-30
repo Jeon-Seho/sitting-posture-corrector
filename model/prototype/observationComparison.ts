@@ -2,7 +2,7 @@ import type { Landmark } from './pose'
 
 /** Research display only: no posture class, score, learned model or alert. */
 export const COMPARISON_POLICY = { visibility: .5, gapMs: 500, referenceMs: 2000, minimumSamples: 10, captureMs: 1000, captureSamples: 5 } as const
-export type ComparisonFrame = { timeMs: number; width: number; height: number; poseModelId?: string; landmarks: Landmark[]; worldLandmarks: Landmark[] }
+export type ComparisonFrame = { timeMs: number; width: number; height: number; poseModelId?: string; measurable?: boolean; landmarks: Landmark[]; worldLandmarks: Landmark[] }
 export type ImageGeometry = { gap: number; faceHeight: number; shoulderY: number; shoulderWidth: number }
 export type WorldGeometry = { relativeZ: number; shoulderWidth: number }
 export type ComparisonGeometry = { image: ImageGeometry | null; world: WorldGeometry | null; context: string }
@@ -15,6 +15,7 @@ const median = (values: number[]) => { const a = [...values].sort((x, y) => x - 
 export function comparisonGeometry(frame: ComparisonFrame): ComparisonGeometry {
   const { landmarks: p, worldLandmarks: w, width, height } = frame
   const context = `${frame.poseModelId ?? 'unknown'}:${width}x${height}`
+  if (frame.measurable === false) return { image: null, world: null, context }
   let image: ImageGeometry | null = null, world: WorldGeometry | null = null
   if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0 && imageIndices.every(i => finitePoint(p[i], true))) {
     const y = height / width, shoulderY = (p[11].y + p[12].y) / 2 * y

@@ -33,7 +33,8 @@ export function useLaunchAutomation({ camera, ready }: { camera: CameraControlle
         settled.current = true
         void now.camera.connect()
       })
-      .catch(() => {
+      .catch((caughtError) => {
+        console.error('[features/desktop/useLaunchAutomation.ts:useLaunchAutomation] Operation failed', caughtError)
         settled.current = true
       })
   }, [ready, camera.state])

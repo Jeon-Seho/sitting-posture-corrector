@@ -7,6 +7,7 @@ const root = new URL('../', import.meta.url);
 const destination = new URL('public/mediapipe/', root);
 await mkdir(destination, { recursive: true });
 await cp(new URL('node_modules/@mediapipe/tasks-vision/wasm', root), new URL('wasm', destination), { recursive: true });
+await cp(new URL('node_modules/@mediapipe/tasks-vision/vision_bundle.js', root), new URL('vision_bundle.js', destination));
 const primary = JSON.parse(await readFile(new URL('model-asset.json', root), 'utf8'));
 const variants = JSON.parse(await readFile(new URL('model-variants.json', root), 'utf8'));
 const face = JSON.parse(await readFile(new URL('face-model-asset.json', root), 'utf8'));

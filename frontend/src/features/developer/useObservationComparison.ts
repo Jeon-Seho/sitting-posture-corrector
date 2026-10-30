@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ObservationComparison, COMPARISON_POLICY, type ComparisonFrame, type ComparisonValues } from '../../../../model/prototype/observationComparison'
+import { features as rawPoseFeatures } from '../../../../model/prototype/legacyPose'
 import type { CameraController } from '../../hooks/useCamera'
 import { comparisonDemo, type ComparisonAction } from './comparisonDemo'
 import { COMPARISON_TRACE_LIMIT, comparisonSummaryCsv, comparisonTraceCsv, downloadComparisonCsv, type ComparisonCapture, type ComparisonTrace } from './observationCsv'
@@ -181,12 +182,17 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (next === 'synthetic') { engine.current.beginReference(); setNotice('합성 예시의 기준을 등록하고 있어요. 실제 동작의 측정 결과가 아닙니다.') }
     else {
       updateSetup('connecting'); setNotice('카메라 연결 후 기준 등록 안내가 자동으로 시작됩니다.')
-      void cameraRef.current.connect(undefined, { variant: 'heavy', delegate: 'auto', pacing: 'responsive' }).catch(() => {
+      void cameraRef.current.connect().catch(() => {
         if (token.current === id) { activeRef.current = null; setActive(false); updateSetup('idle'); interrupt(); setNotice('카메라를 연결하지 못했어요. 권한과 장치 상태를 확인하세요.') }
       })
     }
   }, [interrupt, publish, resetExport, mode, updateSetup])
-  useEffect(() => camera.subscribe(frame => { if (activeRef.current === 'camera') receive(frame) }), [camera.subscribe, receive])
+  useEffect(() => camera.subscribe(frame => {
+    if (activeRef.current !== 'camera') return
+    const observed = { ...frame, features: frame.measurable === true
+      ? rawPoseFeatures(frame.landmarks, frame.width, frame.height) : null }
+    receive(observed)
+  }), [camera.subscribe, receive])
   useEffect(() => {
     if (!active) return
     const timer = setInterval(() => {

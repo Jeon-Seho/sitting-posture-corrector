@@ -1,7 +1,7 @@
 # ADR 0024: 서버 연결이 끊기면 세션을 끝낸다
 
-- 상태: accepted (앱 구현 `feature/frontend-camera-select-disconnect`)
-- 날짜: 2026-10-13 (번호: 예전 0022. BE 브랜치의 ADR 0022(DB V2.3 연동)와 겹쳐 10/15에 0024로 옮겼다)
+- 상태: accepted (앱 구현 `feature/frontend-camera-select-disconnect`, 2026-10-21 V3 `/v2/realtime` 측정에 다시 구현 — [ADR 0021](0021-app-sends-information-server-judges.md). 아래 "결과"의 `realtime/client.ts`·HTTP 큐는 그때 지웠다)
+- 날짜: 2026-10-13 (번호: 예전 0022. BE 브랜치의 옛 ADR 0022(DB V2.3 연동)와 겹쳐 10/15에 0024로 옮겼다)
 - 근거: 2026-10-13 사용자(FE) 결정
 - 대체: [ADR 0021](0021-app-sends-information-server-judges.md) 4번의 "연결이 끊기면 화면을 막지 않게 띄우고,
   정보를 쌓아 두었다가 다시 연결되면 같은 순번으로 다시 보낸다"
@@ -34,7 +34,7 @@
 - 짧은 네트워크 흔들림에도 세션이 끝난다. 사용자는 앱을 다시 열어 새 세션을 시작한다.
 - 브라우저 통합 시험(`tools/browser/scenarios.mjs`)의 "쉬는 중 API 재시작 → 새로고침 뒤 서버 세션 유실(404)" 시나리오는
   옛 동작을 기대한다. 쉬는 중에도 0.25초마다 휴식 구간을 보내므로, 이제는 재시작 중 502로 세션이 끝나고 끊김 팝업이 뜬다.
-  이 시나리오는 새 동작에 맞게 고쳐야 한다(2026-10-13 이 PC에 JDK 21·Maven이 없어 `check-backend`·`check-browser`를 실행하지 못했다).
+  이 시나리오는 새 동작에 맞게 고쳐야 한다(2026-10-13 이 PC에서 `check-backend`·`check-browser`를 실행하지 못했다).
 - 앱의 재연결·재전송 코드(`realtime/client.ts`의 재연결, HTTP 큐의 다시 시도)는 끊김에 대해서는 쓰이지 않는다.
   서버 거절에 대한 다시 시도는 남는다.
 - 서버·게이트웨이 쪽 재연결 처리(실시간 계약의 `hello`·놓친 `decision` 재전송)는 앱이 쓰지 않는다. 계약 정리는 BE와 정한다.

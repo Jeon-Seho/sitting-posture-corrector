@@ -12,7 +12,7 @@ import org.posegood.api.contract.SessionRequests;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
+import java.util.UUID;
 
 /** Measurement-independent registration and current baseline lookup. */
 @RestController
@@ -43,11 +43,12 @@ public class BaselineController {
         long owner = current.id();
         return locks.withLock(owner, () -> tx.execute(status -> {
             accounts.requireActive(owner);
-            return baselines.register(owner, body.registeredAt(), body.landmarks()).view();
+            return baselines.register(owner, body.registrationId(), body.landmarks()).view();
         }));
     }
 
-    public record Registration(@NotNull Instant registeredAt, @Min(3000) @Max(999900) long calibrationMs,
+    /** {@code registration_id} is issued once per capture by the app and repeated on retries (ADR 0028). */
+    public record Registration(@NotNull UUID registrationId, @Min(3000) @Max(999900) long calibrationMs,
                                @Min(20) @Max(100000) int sampleCount,
                                @NotNull @Valid SessionRequests.Landmarks landmarks) {}
 }

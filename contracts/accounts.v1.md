@@ -134,4 +134,4 @@ DB V2.2 절차(database/README.md 9장)를 따른다.
 ## 내부 경계
 
 Compose에서 FastAPI는 내부 토큰을 검증한다. `/health`만 토큰 없이 접근할 수 있고 외부 브라우저에 토큰을 전달하지 않는다.
-[데이터 플랫폼 책임](../docs/design/data-platform-boundary.md)을 따른다.
+[아키텍처 v5.2 스택별 역할](../docs/design/architecture_v5.2_stack_roles.md)을 따른다.

@@ -1,22 +1,37 @@
-import type { Features } from '../../../../model/prototype/pose'
-import type { PoseDelegate, PoseFrame, PoseMetrics } from '../mediapipe/types'
+import type { Landmark } from '../../../../model/prototype/pose'
 
-/** Original MediaPipe indices 0..12: face and both shoulders. */
-export { SHOULDER_UP_LANDMARK_COUNT } from '../mediapipe/config'
-
-export type CameraDelegate = PoseDelegate
+export type CameraDelegate = 'GPU' | 'CPU'
 export type CameraState = 'off' | 'loading' | 'on' | 'error'
 
-export type CameraMetrics = PoseMetrics
+export type CameraMetrics = {
+  fps: number
+  inferenceMs: number
+  delegate: CameraDelegate
+}
 
-export type Observation = PoseFrame & {
-  features: Features | null
+export type Observation = {
+  timeMs: number
+  videoTimeMs: number
+  poseModelId?: string
+  /** Nose, both shoulders and both ears tracked (`measurable`); the app computes no posture values. */
+  measurable?: boolean
+  landmarks: Landmark[]
+  worldLandmarks: Landmark[]
+  /** Compatibility with earlier research frames; production tracking returns all 33 points above. */
+  armLandmarks?: Landmark[]
+  armWorldLandmarks?: Landmark[]
+  extraLandmarks?: Landmark[]
+  extraWorldLandmarks?: Landmark[]
+  features?: { headGap: number; offset: number; tilt: number; quality: number; turn?: number } | null
+  inferenceMs: number
+  delegate: CameraDelegate
+  width: number
+  height: number
   /**
-   * Grace judges the head against the last seen shoulders for at most SHOULDER_GRACE_MS.
-   * Missing means the frame is unmeasurable. Absent when nobody is in view.
-   * Raw landmarks are never replaced with remembered shoulders.
+   * `missing`: a shoulder is out of view, so the frame goes to the server as `valid:false`
+   * (no grace since 2026-10-22). Absent when nobody is in view.
    */
   shoulders?: ShoulderState
 }
 
-export type ShoulderState = 'seen' | 'grace' | 'missing'
+export type ShoulderState = 'seen' | 'missing'

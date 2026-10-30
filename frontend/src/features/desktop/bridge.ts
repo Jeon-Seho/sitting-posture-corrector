@@ -23,6 +23,16 @@ export type DesktopBridge = {
   version: 1
   platform: string
   getLaunchInfo: () => Promise<LaunchInfo | null>
+  cameraWindow?: boolean
+  setThemeIcon?: (icon: { accent: string; png: string }) => Promise<boolean>
+  setPopupTheme?: (theme: { background: string; text: string; muted: string; accent: string; track: string; dark: boolean }) => Promise<boolean>
+  setAppearanceTone?: (tone: 'light' | 'gray' | 'dark') => Promise<boolean>
+  setDarkMode?: (dark: boolean) => Promise<boolean>
+  setCameraWindowEnabled?: (enabled: boolean) => Promise<boolean>
+  showCameraWindow?: () => Promise<boolean>
+  returnFromCameraWindow?: () => Promise<boolean>
+  collapseCameraWindow?: (collapsed: boolean) => Promise<boolean>
+  onCameraWindowRequested?: (callback: () => void) => () => void
   setLaunchAtLogin: (enabled: boolean) => Promise<LaunchInfo | null>
   setAutoCamera: (enabled: boolean) => Promise<LaunchInfo | null>
   /** Closes the whole app. Absent in desktop shells built before 2026-10-13. */

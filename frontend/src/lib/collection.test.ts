@@ -12,7 +12,6 @@ import {
 import { captureWindow, DEFAULT_CAPTURE_OPTIONS, TASKS } from './collectionProtocol'
 import { createPointFilter, inferenceInterval } from './skeleton'
 import type { Observation } from '../hooks/useCamera'
-const baseline = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 }
 const capture = () =>
   newCapture('P01', 1000, 'synthetic-capture', '2026-09-19T00:00:00Z')
 const frame = (time: number, missing = false): Observation => ({
@@ -20,7 +19,7 @@ const frame = (time: number, missing = false): Observation => ({
   videoTimeMs: time,
   landmarks: [],
   worldLandmarks: [],
-  features: missing ? null : { ...baseline, headGap: 0.1 },
+  measurable: !missing,
   inferenceMs: 12,
   delegate: 'GPU',
   width: 640,
@@ -97,7 +96,7 @@ describe('pilot collection', () => {
     expect(csv).not.toMatch(/NaN|undefined/)
     expect(csv.split('\r\n')[1]).toContain(',,')
   })
-  it('keeps only face and shoulders in raw and world exports even with poor quality', () => {
+  it('keeps all 33 raw and world points even with poor quality', () => {
     const c = capture()
     const points = Array.from({ length: 33 }, (_, i) => ({
       x: i / 33,
@@ -119,13 +118,13 @@ describe('pilot collection', () => {
     expect(row).toMatchObject({
       schema_version: 'posture-pilot-v3',
       pose_detected: 1,
-      landmark_count: 13,
+      landmark_count: 33,
       pose_training_eligible: 0,
     })
-    expect(JSON.parse(String(row.landmarks_json))).toHaveLength(13)
-    expect(JSON.parse(String(row.world_landmarks_json))).toHaveLength(13)
+    expect(JSON.parse(String(row.landmarks_json))).toHaveLength(33)
+    expect(JSON.parse(String(row.world_landmarks_json))).toHaveLength(33)
     expect(JSON.parse(String(row.landmarks_json)).map((p: { index: number }) => p.index)).toEqual(
-      Array.from({ length: 13 }, (_, i) => i),
+      Array.from({ length: 33 }, (_, i) => i),
     )
     expect(JSON.parse(String(row.landmarks_json))[0]).toMatchObject({
       index: 0,
