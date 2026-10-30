@@ -40,7 +40,7 @@ export async function runCameraErrorScenario(
         loaded?.detector.close()
       } catch (error) {
         console.error('[developer] Model scenario failed', error)
-        throw new Error(CAMERA_ERRORS[key])
+        throw new Error(CAMERA_ERRORS[key], { cause: error })
       }
     } else if (key === 'trackingFailed') {
       phase('tracking')

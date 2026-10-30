@@ -50,7 +50,7 @@ export function TipLayer() {
       if (target === current.current) { keyboardTip = keyboard; return }
       const title = target.getAttribute('data-tip') || target.getAttribute('aria-label') || target.textContent?.trim()
       if (!title) return
-      let rows: TipRow[] = []
+      let rows: TipRow[]
       try {
         rows = JSON.parse(target.getAttribute('data-tip-rows') ?? '[]') as TipRow[]
       } catch (caughtError) {
