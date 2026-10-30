@@ -1,0 +1,26 @@
+{
+    "files.eol": "\n",
+    "editor.formatOnSave": false,
+    "java.format.settings.url": "https://raw.githubusercontent.com/naver/hackday-conventions-java/master/rule-config/naver-eclipse-formatter.xml",
+    "java.format.settings.profile": "Naver coding convention",
+    "[java]": {
+        "editor.defaultFormatter": "redhat.java",
+        "editor.formatOnSave": true,
+        "editor.detectIndentation": false,
+        "editor.insertSpaces": false,
+        "editor.tabSize": 4,
+        "editor.rulers": [
+            120
+        ]
+    },
+    "[javascript][javascriptreact][typescript][typescriptreact]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "never"
+        },
+        "editor.detectIndentation": false
+    }
+}
