@@ -136,7 +136,8 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 서버의 자정 종료·새 세션 전환은 별도 검증이며 기본 `make check`에는 연결하지 않는다.
 합성 카메라의 `frame(ms, 'normal')`은 고정한 바른 자세 관절 9개 좌표(`src/features/testing/syntheticPose.ts`, 서버 프레임 조건 통과 값)를 보낸다.
 자세 등록은 실제 카메라와 같은 `useServerBaseline`으로 3초 평균 → B1 저장을 거치며, 서버가 돌려준 기준 ID를 쓴다(고정 합성 기준 없음, 2026-10-30).
-`'deviation'`은 아직 좌표 없이 보낸다.
+다른 종류도 실제 카메라와 같은 길(`readShoulders` → `FrameBatcher`)로 현재 WS 형식(`posture.frames.v1` 3.0)을 보낸다(2026-10-30):
+`'deviation'`은 고개를 어깨 쪽으로 숙인 좌표(판정은 서버), `'poor'`는 어깨가 화면 밖인 `{ p: null, valid: false }`, `'absent'`는 사람 없음 `{ p: null }`.
 
 프론트 의존성·Chrome·합성 시험 계정(`@example.invalid`)을 준비하고, 프론트 디렉터리에서 시험 API를 바라보는 전용 Vite를 실행한다.
 

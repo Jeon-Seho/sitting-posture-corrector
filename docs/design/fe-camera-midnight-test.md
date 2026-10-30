@@ -31,7 +31,10 @@
 - **등록:** 별도 알고리즘을 만들지 않고 실제 `useCamera`와 같은 `useServerBaseline`을 쓴다.
   3초 평균(`observeCapture`)·B1 저장·진행률·저장 중·실패·기존 등록 불러오기(B2)가 실제와 같고, 서버가 돌려준 기준 ID를 쓴다.
 - **어깨 상태:** `shoulders`·`framing`을 실제 `useCamera`와 같은 계산으로 채운다(등록 화면이 읽음).
-- **범위 밖:** `'deviation'` 프레임은 계속 좌표 없이 보낸다(자정 도구는 쓰지 않음). 예측·`/dev`는 `baselineMode: 'local'`이라 서버 등록을 하지 않는다.
+- **합성 프레임 종류(10/30 추가):** 모든 종류를 실제 카메라와 같은 길(`readShoulders` → `LiveSession` → `FrameBatcher`)로 보내 현재 WS 형식과 같게 한다.
+  예전 `'deviation'`·`'poor'`는 좌표 없이(`landmarks: []`) 보내 서버에 「사람 없음」(`p: null`)으로만 갔다.
+  `'deviation'` = 바른 자세에서 얼굴 7점을 0.12 아래로(고개 돌림 0, 서버 프레임 조건 통과, 판정은 서버), `'poor'` = 양 어깨가 화면 아래 → `{ p: null, valid: false }`, `'absent'` = 사람 없음 → `{ p: null }`.
+- **범위 밖:** 예측·`/dev`는 `baselineMode: 'local'`이라 서버 등록을 하지 않는다.
 
 ## 3. 작업 단계
 
@@ -39,11 +42,12 @@
 - [x] 1번: `frame(ms, 'normal')`에 좌표 싣기 — `bootstrap.ts`, `syntheticPose.ts`
 - [x] 2번: 합성 카메라를 `useServerBaseline`에 연결 — `useSyntheticCamera.ts`
 - [x] 단위 테스트 3개 — `useSyntheticCamera.test.tsx`
+- [x] 합성 프레임 종류 모두 현재 WS 형식으로(10/30, `fix/fe-synthetic-frame-kinds`) — 종류별 `features` 메시지 시험
 - [x] `frontend/README.md` 자정 측정 절에 바뀐 동작 기록
 - [ ] 시험 서버(시험 DB·`@example.invalid` 계정) 준비 — 팀장·BE와 협의
 - [ ] `browser-smoke` + 시험 서버로 등록 → `ready`까지 수동 확인
 - [ ] `midnight.mjs` 실제 자정 실행(아래 4장) 후 결과 기록
-- [ ] PR 및 develop 병합
+- [x] PR 및 develop 병합(#87)
 
 ## 4. 자정 실행 방법(3번) 제안
 
@@ -68,3 +72,4 @@
 ## 7. 진행 기록
 
 - 2026-10-30: 인계서 대조, 1·2번 구현과 단위 테스트, 이 문서 작성.
+- 2026-10-30: #87 병합. 합성 `'deviation'`·`'poor'`가 옛 방식(좌표 없음)이라 모든 종류를 실제 카메라와 같은 길로 보내게 고침, `'absent'` 추가.

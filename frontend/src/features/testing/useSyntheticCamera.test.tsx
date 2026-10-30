@@ -1,7 +1,7 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CameraController } from '../../hooks/useCamera'
-import { frameJoints, jointsComplete } from '../session/realtime/frames'
+import { FrameBatcher } from '../session/realtime/frames'
 
 const server = vi.hoisted(() => ({
   registerBaseline: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock('../platform/serverAuth', () => ({
 }))
 
 const { emitSyntheticFrame, useCamera } = await import('./useSyntheticCamera')
-const { normalLandmarks } = await import('./syntheticPose')
+const { syntheticObservation } = await import('./syntheticPose')
 
 let camera: CameraController
 function Probe() {
@@ -23,10 +23,23 @@ function Probe() {
   return null
 }
 
-const normalFrame = (timeMs: number) => ({
-  timeMs, videoTimeMs: timeMs, landmarks: normalLandmarks(), worldLandmarks: [], measurable: true,
-  shoulders: 'seen' as const, width: 640, height: 480, inferenceMs: 1, delegate: 'CPU' as const,
-})
+const normalFrame = (timeMs: number) => syntheticObservation('normal', timeMs)
+
+/** The `/v2/realtime` message LiveSession sends for one synthetic frame (same path as `useLiveSession`). */
+function wire(kind: 'normal' | 'deviation' | 'poor' | 'absent') {
+  const frame = syntheticObservation(kind, 1000)
+  const batcher = new FrameBatcher(1000)
+  batcher.push({ timeMs: frame.timeMs, landmarks: frame.landmarks, judgeable: frame.shoulders !== 'missing' })
+  const [item] = batcher.finish(1250)
+  return JSON.parse(JSON.stringify({ type: 'features', items: [item] }))
+}
+
+/** BE `FrameFeatures.features`: nose and shoulders visible inside the edges, shoulders 10 % apart. */
+function judgeableByServer(p: [number, number, number][]) {
+  const [nose, left, right] = [p[0], p[7], p[8]]
+  const inside = [nose, left, right].every(([x, y, v]) => v >= .65 && v <= 1 && x >= .02 && x <= .98 && y >= .02 && y <= .98)
+  return inside && Math.hypot((left[0] - right[0]) * 640, (left[1] - right[1]) * 480) >= 64
+}
 
 describe('synthetic browser camera', () => {
   let renderer: ReactTestRenderer | undefined
@@ -37,13 +50,24 @@ describe('synthetic browser camera', () => {
     vi.clearAllMocks()
   })
 
-  it('sends all 9 joints of the normal pose with coordinates', () => {
-    const landmarks = normalLandmarks()
-    expect(jointsComplete(landmarks)).toBe(true)
-    const joints = frameJoints(landmarks)!
-    expect(joints).toHaveLength(9)
-    expect(joints.every(([x, y, visibility]) => x >= .02 && x <= .98 && y >= .02 && y <= .98 && visibility >= .65)).toBe(true)
-    expect(Math.abs(joints[7][0] - joints[8][0])).toBeGreaterThanOrEqual(.1)
+  it('sends each kind in the current posture.frames.v1 format', () => {
+    const normal = wire('normal')
+    expect(normal).toMatchObject({
+      type: 'features',
+      items: [{ schema_version: '3.0', feature_version: 'keypoints-9-v1', sequence: 0, start_ms: 0, end_ms: 250, phase: 'running' }],
+    })
+    const [frame] = normal.items[0].frames
+    expect(Object.keys(frame)).toEqual(['t_ms', 'p'])
+    expect(frame.p).toHaveLength(9)
+    expect(judgeableByServer(frame.p)).toBe(true)
+
+    const deviation = wire('deviation').items[0].frames[0]
+    expect(judgeableByServer(deviation.p)).toBe(true)
+    expect(deviation.p[0][1]).toBeGreaterThan(frame.p[0][1])
+    expect(deviation.p[0][0] - (deviation.p[3][0] + deviation.p[4][0]) / 2).toBeCloseTo(frame.p[0][0] - (frame.p[3][0] + frame.p[4][0]) / 2)
+
+    expect(wire('poor').items[0].frames).toEqual([{ t_ms: 0, p: null, valid: false }])
+    expect(wire('absent').items[0].frames).toEqual([{ t_ms: 0, p: null }])
   })
 
   it('registers through the app capture and B1, and uses the server baseline id', async () => {
