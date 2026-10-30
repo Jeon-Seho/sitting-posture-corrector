@@ -1,10 +1,11 @@
 // Synthetic blank-frame inference only: no camera, account server or real landmarks.
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { createServer as netServer } from 'node:net'
 import { createServer } from 'vite'
 import { launchChrome } from '../../tools/browser/chrome.mjs'
+const modelFile = JSON.parse(await readFile(new URL('../model-asset.json', import.meta.url), 'utf8')).filename
 const root = fileURLToPath(new URL('../', import.meta.url))
 const artifacts = fileURLToPath(new URL('../../.cache/cpu-worker-smoke/', import.meta.url))
 await mkdir(artifacts, { recursive: true })
@@ -22,7 +23,7 @@ try {
   await cdp.call('Page.navigate', { url: server.resolvedUrls.local[0] + '__cpu-smoke' })
   const result = await cdp.evaluate(`(async () => {
     const { createCpuWorker } = await import('/src/features/camera/cpuWorker.ts');
-    const detector = await createCpuWorker({ baseOptions: { modelAssetPath: location.origin + '/mediapipe/pose_landmarker_lite.task', delegate: 'CPU' }, runningMode: 'VIDEO', numPoses: 1 });
+    const detector = await createCpuWorker({ baseOptions: { modelAssetPath: location.origin + ${JSON.stringify('/mediapipe/' + modelFile)}, delegate: 'CPU' }, runningMode: 'VIDEO', numPoses: 1 });
     try {
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
       canvas.getContext('2d').fillRect(0, 0, 640, 480);

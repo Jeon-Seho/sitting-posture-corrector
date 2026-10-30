@@ -1,10 +1,11 @@
 // Actual packaged EXE with an isolated profile. No real camera or account is used.
 import { spawn } from 'node:child_process'
-import { mkdtemp, mkdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { Cdp, until } from '../../tools/browser/cdp.mjs'
+const modelFile = JSON.parse(await readFile(new URL('../model-asset.json', import.meta.url), 'utf8')).filename
 const root=fileURLToPath(new URL('../../', import.meta.url)).replace(/[\\/]$/, '')
 const artifacts=root+'/.cache/repackage-verification'
 await mkdir(artifacts,{recursive:true})
@@ -21,7 +22,7 @@ try {
  await until(()=>cdp.evaluate(`!!document.querySelector('input[name=email]')`),'login')
  assert.equal(await cdp.evaluate(`window.posegoodDesktop.getLaunchInfo().then(i=>i.packaged)`),true)
  await cdp.evaluate(`window.cameraCalls=0;navigator.mediaDevices.getUserMedia=async()=>{window.cameraCalls++;throw Error('Camera forbidden during smoke')}`)
- const assets=await cdp.evaluate(`Promise.all(['/pose-cpu-worker.js','/mediapipe/vision_bundle.js','/mediapipe/pose_landmarker_lite.task'].map(async p=>{const r=await fetch(p);return {p,status:r.status,bytes:(await r.arrayBuffer()).byteLength}}))`)
+ const assets=await cdp.evaluate(`Promise.all(['/pose-cpu-worker.js','/mediapipe/vision_bundle.js',${JSON.stringify('/mediapipe/' + modelFile)}].map(async p=>{const r=await fetch(p);return {p,status:r.status,bytes:(await r.arrayBuffer()).byteLength}}))`)
  for(const asset of assets){assert.equal(asset.status,200);assert.ok(asset.bytes>100)}
  await cdp.evaluate(`(()=>{const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [name,value]of [['email','admin'],['password','1234']]){const input=document.querySelector('input[name='+name+']');set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}))}})()`)
  await cdp.evaluate(`document.querySelector('form').requestSubmit()`)

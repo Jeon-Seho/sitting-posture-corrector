@@ -21,7 +21,7 @@ describe('app-styled select', () => {
     return onChange
   }
   const trigger = () => renderer!.root.findByProps({ className: 'select-trigger' })
-  const key = (k: string) => ({ key: k, preventDefault: vi.fn() })
+  const key = (k: string) => ({ key: k, preventDefault: vi.fn(), stopPropagation: vi.fn() })
 
   it('shows the chosen label and opens a listbox', () => {
     mount()
@@ -45,7 +45,9 @@ describe('app-styled select', () => {
   it('closes on Escape and does not report the current value again', () => {
     const onChange = mount()
     act(() => trigger().props.onClick())
-    act(() => renderer!.root.findByProps({ role: 'listbox' }).props.onKeyDown(key('Escape')))
+    const escape = key('Escape')
+    act(() => renderer!.root.findByProps({ role: 'listbox' }).props.onKeyDown(escape))
+    expect(escape.stopPropagation).toHaveBeenCalledOnce()
     expect(renderer!.root.findAllByProps({ role: 'listbox' })).toHaveLength(0)
     act(() => trigger().props.onClick())
     act(() => renderer!.root.findAllByProps({ role: 'option' })[1].props.onClick())

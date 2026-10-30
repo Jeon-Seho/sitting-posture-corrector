@@ -108,6 +108,22 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     await settle()
   }
 
+  it('keeps the local camera independent of the signed-in server baseline', async () => {
+    const video = camera.videoRef.current
+    act(() => renderer?.unmount())
+    vi.mocked(fetch).mockClear()
+    function LocalProbe() { camera = useCamera({ baselineMode: 'local' }); return null }
+    act(() => { renderer = create(<LocalProbe />) })
+    Object.assign(camera.videoRef, { current: video })
+    await connect()
+    await calibrate()
+    await act(async () => { await camera.reloadBaseline() })
+    expect(camera.baseline).toBeNull()
+    expect(camera.progress).toBeNull()
+    expect(server.posts).toHaveLength(0)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('keeps the previous baseline during recalibration and restores it on cancel or poor quality', async () => {
     await connect()
     await calibrate()

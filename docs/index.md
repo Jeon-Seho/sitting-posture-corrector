@@ -4,12 +4,16 @@
 
 ## 현재 상태와 작업
 
+[/dev 관측 내보내기](../contracts/observation-export.v1.md) · [선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md) · [ML 연구 계획](ml/rebuild-plan.md) · [jisung 연구 기록](ml/jisung/README.md)
+
+
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
-학습된 LSTM 연결·실제 장치 품질/연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
+프론트의 계정·세션 API v2 연결과 좌표 WebSocket v2 전환은 아직 구현 전이다. 로컬 `/dev`·`#forecast`의 LSTM 비교와 일반 서비스 연결을 구분한다.
+실제 참여자에 대한 모델 정확도·연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
 
 - 팀 서비스 요구사항: 기능·역할·수용 기준·협의 항목은 저장소 밖 팀 구글 시트(디스코드 공유)에서 관리한다. [문서 이동 안내](removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개)는 이동 기록이며 요구사항 원문은 아니다. 실제 시트 주소는 저장소에 미기재다.
 - [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.

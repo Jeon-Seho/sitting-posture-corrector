@@ -70,6 +70,16 @@ export function installSyntheticBrowser() {
     return response
   }
   const bridge = {
+    forecastFrame(milliseconds: number, displacement = 0, poor = false) {
+      advanceClock(milliseconds)
+      const image = Array.from({ length: 13 }, () => ({ x: .5, y: .5, z: 0, visibility: poor ? .1 : .95 }))
+      const world = image.map((p, i) => ({ ...p, x: i === 11 ? -.2 : i === 12 ? .2 : 0,
+        y: i < 11 ? -.3 + displacement : 0, z: 0 }))
+      emitSyntheticFrame(!poor, {
+        timeMs: performance.now(), videoTimeMs: performance.now(), landmarks: image, worldLandmarks: world,
+        measurable: !poor, width: 640, height: 480, inferenceMs: 1, delegate: 'CPU',
+      })
+    },
     frame(milliseconds: number, kind: 'normal' | 'deviation' | 'poor' = 'deviation') {
       advanceClock(milliseconds)
       // The app computes no posture values; the server judges the coordinates (ADR 0021).

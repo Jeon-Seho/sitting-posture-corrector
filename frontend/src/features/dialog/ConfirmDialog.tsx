@@ -5,6 +5,8 @@ type Props = {
   title: string
   children: ReactNode
   confirmLabel: string
+  cancelLabel?: string
+  contentWrapper?: (children: ReactNode) => ReactNode
   disabled?: boolean
   onCancel: () => void
   onConfirm: () => void | Promise<void>
@@ -15,6 +17,8 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = '취소',
+  contentWrapper,
   disabled = false,
   onCancel,
   onConfirm,
@@ -93,13 +97,13 @@ export function ConfirmDialog({
     >
       <h2 id={`${id}-title`}>{title}</h2>
       <div id={`${id}-description`} className="profile-text">
-        {children}
+        {contentWrapper ? contentWrapper(children) : children}
       </div>
       {busy && <p role="status">처리 중입니다. 잠시 기다려 주세요.</p>}
       {error && <p role="alert">{error}</p>}
       <div className="form-actions">
         <button ref={cancelRef} type="button" className="btn" disabled={busy} onClick={cancel}>
-          취소
+          {cancelLabel}
         </button>
         <button
           type="button"

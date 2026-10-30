@@ -11,14 +11,17 @@
 frontend/src/
   app/                    앱 조립, 화면 이동, 사이드바, 저장소 안내
   features/
-    accounts/             서버 로그인·프로필·원격 workspace·계정별 임시 자료
+    auth/                 로컬 가입·동의 화면, 계정 서버 연결 전 입력
     dialog/               공통 확인창·키보드 초점과 동작 생명주기
-    camera/               포즈 모델 준비, 프레임 처리, 카메라 오류 안내
+    mediapipe/            SDK 준비, 13점 원본 선택, 추론 주기·메트릭 (React·그리기·저장 없음)
+    camera/               카메라 장치, 원본 관측의 특징·그리기 연결, 기준 자료 보존
+    developer/            /dev 로컬 연구 화면·수집·모델 비교
+    forecast/             #forecast 로컬 LSTM 비교 실험 연결
     profile/              프로필 편집, 로컬 자료 삭제 확인
     session/              측정 화면, 결과·이벤트 표시, 저장·복구
       engine/             상태·시간 정책, 합성 시나리오, 화면 snapshot
       server/             서버 계약·순서 큐·복구·결과 투영·전용 화면
-    history/              기록 조회·상세·비교 조건 안내
+    history/              기록·달력·상세 조회
     storage/              저장 타입, 검증, 브라우저 IO, 기록 변환
     testing/              명시적 개발 테스트 모드의 합성 카메라·시계
   pages/                  측정 준비·자세 등록·수집·설정·로그인 화면
@@ -101,7 +104,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 합성 브라우저 검증 | [browser](../tools/browser/), [합성 입력](../frontend/src/features/testing/) | 실제 앱/서버와 독립 시험 브라우저를 연결한다. 일반 개발·빌드는 합성 입력을 활성화하지 않는다. |
 | 서버 지연 측정 | [benchmark](../tools/benchmark/) | HTTP 요청·성공/실패 집계·소스/환경 manifest를 분리한다. |
 | 학습 자료 준비 | [dataset](../model/analysis/dataset/) | 참여자 분할 후 실제 시각·품질·라벨·구간 경계를 유지해 창을 만든다. |
-| 서버 개발 실행 | [server_dev.py](../tools/server_dev.py), [frontend_proxy.py](../tools/frontend_proxy.py) | loopback 개발 프록시·세 서비스 실행과 전체 종료 감시 |
+| 서버 개발 실행 | [server_dev.py](../tools/server_dev.py), [frontend_proxy.py](../tools/frontend_proxy.py) | 임시 MySQL·API·FastAPI와 loopback 개발 프록시 실행·전체 종료 감시 |
 
 ## 작성 원칙과 검증
 
@@ -113,3 +116,5 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 - `.editorconfig`의 들여쓰기·개행을 따른다. 이번 포맷 도구는 임시 실행했으며 프로젝트 의존성에 추가하지 않았다.
 
 기본 검증은 `make check`다. [품질 기준](quality.md)을 함께 확인한다.
+
+로컬 관측·연구 경계는 [개발 모듈](../frontend/src/features/developer/README.md)과 [예측 화면](../frontend/src/pages/ForecastPage.tsx)을 따른다.
