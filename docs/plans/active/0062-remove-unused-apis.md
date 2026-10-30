@@ -20,18 +20,18 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 완료 기준:
 
 - 4개 경로가 서버에 없다(`MySqlIntegrationTest.unusedRoutesAreRemoved`가 확인).
-- 이 경로로 측정하던 시험(`MySqlIntegrationTest`, `SessionServiceTest`, `tools/service_smoke.py`)이 `/v2/realtime`으로 같은 것을 확인한다.
-- `make check-backend`(MySQL 통합 포함) 통과.
+- 이 경로로 측정하던 Java 시험(`MySqlIntegrationTest`, `SessionServiceTest`)이 `/v2/realtime`과 현재 `frames` 경로로 같은 동작을 확인한다. 당시 함께 고친 `tools/service_smoke.py`는 후속 도구 정리에서 제거했다.
+- `make check-backend`의 기본 Java 검사와 명시적 `backend/gradlew -p backend build -Pmysql-integration` 결과를 구분해 확인한다. 2026-10-29 통과 기록은 당시 통합 명령 구성이다.
 - 지운 코드는 git 이력(이 계획의 커밋 직전)과 작성자 로컬 백업에 있다.
 
 ## 범위와 제외
 
 - 범위(BE): `backend/api`의 `SessionController`·`SessionService`(`features`·`metadata`·`closeForRecord` 삭제), `WorkspaceController`·`WorkspaceService`(`save` 삭제),
   `ServerRecordVerifier` 파일 삭제, `RecordValidator`의 기록 검사 삭제(설정 검사는 W2가 써서 남김), `SessionRepository.closeLost` 삭제,
-  `SessionRequests.FeatureResponse` 삭제. 시험 `SessionServiceTest`·`RecordValidatorTest`·`MySqlIntegrationTest`, `tools/service_smoke.py`(+ 새 `tools/realtime_client.py`).
+  `SessionRequests.FeatureResponse` 삭제. 시험 `SessionServiceTest`·`RecordValidatorTest`·`MySqlIntegrationTest`. 당시 수정한 `tools/service_smoke.py`는 후속 정리에서 제거했고 `tools/realtime_client.py`는 유지한다.
   문서 [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, 계약 `accounts.v2.md`·`contracts/README.md`, `docs/code-structure.md` 한 줄.
 - 남긴 것(판단 필요): S3 `POST /v2/sessions/{id}/end` — 앱은 부르지 않지만, S1 뒤 WS가 열리지 않은 세션을 닫을 수단이 이것뿐이다. W1 응답의 `records` — R1과 겹치지만 응답 형식을 바꾸는 일이라 FE가 W1을 붙이기 전에 함께 정한다.
-- 남긴 것(다른 쪽이 씀): 계약 `feature-response.v1.schema.json`과 예시·`tests/test_feature_response.py` — 부하 측정 도구가 아직 쓴다. 추론 입력 `inference-request.v2`는 API → FastAPI 계약이라 그대로다.
+- 남긴 계약: `feature-response.v1.schema.json`과 예시는 저장소에 남아 있다. 이를 검사하던 `tests/test_feature_response.py`와 HTTP 부하 측정 도구는 후속 정리에서 제거했으므로 현재 사용을 이유로 유지한다고 설명하지 않는다. 계약 파일의 추가 정리는 이 문서 갱신 범위에 포함하지 않는다. 추론 입력 `inference-request.v2`는 API → FastAPI 계약이라 그대로다.
   `SessionService.accept`의 재전송 지문 비교(같은 순번·같은 본문이면 다시 쓰기)는 S2 재시도용이었다. `/v2/realtime`은 중복 순번을 먼저 409로 거절하므로 지금은 닿지 않는다 — 재전송 기억(120개)과 함께 정리할지 따로 정한다.
 - 제외: DB(V2.6 그대로), 앱 코드, 다른 담당의 도구(아래 표).
 
@@ -40,11 +40,11 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 | 담당 | 고칠 곳 | 내용 |
 | --- | --- | --- |
 | FE | `docs/design/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
-| FE | `tools/browser/scenarios.mjs`(check-browser) | 옛 앱의 S2 흐름(`/features` 요청·재전송)을 확인한다. 이 변경 전부터 V3 앱과 맞지 않는다 |
-| DevOps | `tools/deploy/smoke.py`(check-compose) | S2로 측정하고 S5로 재시작 뒤를 확인한다 — `/v2/realtime`과 S4·R1로 |
-| 부하 측정(benchmark-server) | `tools/benchmark/runner.py`, `tools/server_benchmark.py` | S2로 부하를 건다 — `/v2/realtime`으로 옮기기. 옮긴 뒤 `feature-response.v1` 계약·예시·시험을 지울 수 있다 |
-| 데이터 플랫폼 | `tools/platform/io_api_smoke.py`(S2·S5·S6) | S2 → `/v2/realtime`(`ws_realtime_smoke.py`), S5 빼기, S6 → R3 |
-| 데이터 플랫폼 | `tools/platform/ws_realtime_smoke.py` 정리 단계(`finally`) | S6 → R3. 결과를 보지 않아 시험은 통과하지만 세션 행이 지워지지 않고 남는다 |
+| FE | `tools/browser/scenarios.mjs`·종합 `check-browser` | 도구 간소화로 삭제 유지. 구형 S2 시나리오를 다시 쓰는 과제는 폐기하고 현재 개별 점검은 품질 기준을 따름 |
+| DevOps | `tools/deploy/smoke.py`·종합 `check-compose` | 원격의 WS 전환 수정까지 검토한 뒤 삭제 유지. 해당 종합 검사의 복원·API 수정 과제는 없음 |
+| 부하 측정(benchmark-server) | `tools/benchmark/runner.py`, `tools/server_benchmark.py`, `tests/test_feature_response.py` | 삭제됨. WS 부하 측정 도구로 다시 만드는 과제는 두지 않음. 계약·예시는 남아 있음 |
+| 데이터 플랫폼 | `tools/platform/io_api_smoke.py` | S2·S5 제거와 R3 삭제 사용이 코드에 반영됨. 측정은 별도 `ws_realtime_smoke.py`가 담당하며 실제 서버 성공 여부는 명시적 실행으로 확인 |
+| 데이터 플랫폼 | `tools/platform/ws_realtime_smoke.py` 정리 단계(`finally`) | R3 삭제 사용이 코드에 반영됨. 현재 환경에서 정리 성공까지 확인하는 것은 별도 서버 점검 범위 |
 | PM·문서 | `docs/index.md` | 이 계획 링크 |
 
 ## 작업 단계

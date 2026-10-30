@@ -76,8 +76,8 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 | 명령 | 검증하는 것 | 언제 |
 |---|---|---|
-| `python tools/dev.py check-frontend` | `vitest run`(프론트 시험) → `tsc -b`(타입 오류) → `vite build`(배포 빌드) | 프론트 코드를 고칠 때마다 |
-| `python tools/dev.py test` | Python 시험 전체(계약, 추론, 자료 준비 도구 등). `test_deploy_configuration`의 Windows 제약 오류 3개는 원래 난다 | 매 작업 끝(관련 모듈만 고르지 않는다) |
+| `python tools/dev.py check-frontend` | Vitest → Node 아이콘·콘솔 정책 단위 시험 → `tsc -b` → `vite build` | 프론트 코드를 고칠 때마다 |
+| `python tools/dev.py test` | 남은 Python 시험(계약·v2 추론·인증·자료 준비·개인 학습·배포 보호). | Python·연구 도구를 바꿀 때와 기본 전체 검사 |
 | `.venv/Scripts/python.exe -m unittest tests.test_inference_v2` | 추론 서비스 v2와 합성 계약 예제가 맞는지(빠른 부분 확인) | 판정 규칙이나 계약을 바꿨을 때 |
 | `.venv/Scripts/python.exe -m unittest tests.test_dataset_preparation` | 자료 준비 도구가 예전 수집 CSV(v1·v2)를 그대로 읽는지(빠른 부분 확인) | 수집 CSV를 바꿨을 때 |
 | `npm --prefix frontend run typecheck` | TypeScript 타입 검사(`tsc --noEmit`) | 타입 오류만 먼저 확인할 때 (2026-10-29 추가) |
@@ -106,12 +106,12 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 `make check`와 `check-local`은 Python 시험 → 프론트 시험·타입·빌드 → 백엔드 기본 검사를 실행한다. Windows는 `python tools/dev.py <대상>`.
 
-2026-10-29 추가: 현재 프론트 단계는 `npm run check`의 Vitest·Node 아이콘 시험·TypeScript·Vite 빌드이며, 전체 저장소 검사의 현재 범위는 [개발 흐름](../development.md)·[품질 기준](../quality.md)을 따른다.
+현재 프론트 단계는 `npm run check`의 Vitest·Node 아이콘/콘솔 정책 단위 시험·TypeScript·Vite 빌드이며, 전체 저장소 검사의 현재 범위는 [개발 흐름](../development.md)·[품질 기준](../quality.md)을 따른다.
 
 | # | 대상 | 실제로 실행하는 것 | 확인하는 것 | 필요한 것 |
 |---|---|---|---|---|
-| ② | `test` | `tests/`의 Python `unittest` 전체(18개 파일) | 계약 JSON 스키마·예제(`contracts/`, 실시간 WebSocket v2 포함), 추론 서비스(v1·v2, 내부 인증, 오류 응답), 실시간 계약, 자료 준비·개인 학습 도구(합성 자료), 배포 설정, 서버 개발 도구, 저장소 검사 도구 | `.venv` |
-| ③ | `check-frontend` | `npm run check` = `vitest run` → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험(화면 흐름·판정 가능 프레임 검사·저장·가짜 서버로 측정·등록·계정. 앱 판정 규칙 시험은 10/21 지움), **타입 검사**, 배포 빌드 | Node 24 |
+| ② | `test` | `tests/`에서 Python `unittest` 발견 실행 | 남은 계약·프레임/실시간 예제, v2 추론·내부 인증, 자료 준비·개인 학습의 합성 시험, 배포 비밀값·백업·복원 보호. 구형 v1 전용·저장소·개발 프로세스 mock·benchmark 시험은 제외 | `.venv` |
+| ③ | `check-frontend` | `npm run check` = Vitest → Node 단위 시험 → `tsc -b` → `vite build` | 프론트 단위·컴포넌트 시험, 아이콘·콘솔 정책 단위 시험, **타입 검사**, 배포 빌드. 실제 Chrome 실행은 별도 | Node 24 |
 | ④ | `check-backend` | Gradle `build`(`backend/`) | Java 기본 시험·Checkstyle·빌드 | JDK 17·21 |
 
 ### 작업 종류별로 돌리는 검사
@@ -131,6 +131,7 @@ Git Bash에서 한글 출력이 깨지면 앞에 `PYTHONIOENCODING=utf-8`을 붙
 
 ### 이 저장소 검사로 잡지 못하는 것 (빈틈)
 
+- **삭제한 통합 검사 범위:** 수집 화면의 폭별 배치·Chrome 영상 미리보기와 종료, 컨테이너 재생성 후 기록 보존·제공 자산 해시·실제 백업 복원은 기본 자동 검사에 없다. 필요할 때 시험 환경에서 별도 확인한다. `console-policy` 단위 시험 성공도 실제 브라우저의 HTTP 응답·로그 개수 대조 성공을 뜻하지 않는다.
 - **실제 카메라·MediaPipe 정확도:** 모든 자동 검사는 합성 입력이다. 실제 촬영(사람이 직접 찍은 csv 재생)으로만 확인한다.
 - **문장 검사:** 오래된 설명(예: 없어진 기능을 설명하는 문서)은 자동 검사가 못 잡는다. 바꾼 기능 이름으로 `rg`를 돌려 직접 찾는다.
 - **코드 스타일 검사(ESLint 등):** 프론트에 lint 단계가 없다. 타입 검사(`tsc -b`)만 있다.

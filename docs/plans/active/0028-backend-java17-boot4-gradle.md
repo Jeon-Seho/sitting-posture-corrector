@@ -1,6 +1,6 @@
 # 백엔드 Java 17·Spring Boot 4.0.8·Gradle 전환
 
-- 상태: in_progress (백엔드·도구·Docker 이미지 완료, CI·`tests/test_service_contracts.py`는 담당 팀원 작업 대기 — 2026-10-26 확인)
+- 상태: in_progress (백엔드·도구·Docker 이미지 전환 반영. CI·명시적 통합 검증은 아래 현재 범위로 확인하며 삭제된 검사 복구는 제외)
 - 담당: sunshine-yj 요청(백엔드·DB 담당), Claude 구현. `backend/` 밖은 각 담당 팀원
 - 시작일: 2026-10-14
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md) 1절(옛 ADR 0023을 합침), [백엔드 안내](../../../backend/README.md)
@@ -8,8 +8,9 @@
 ## 문제와 완료 기준
 
 백엔드를 Java 21·Spring Boot 3.5.16·Maven에서 Java 17·Spring Boot 4.0.8·Gradle로 옮긴다. API 경로·계약·DB 스키마 V2.3은 바꾸지 않는다.
-완료 기준: `backend/gradlew -p backend build`(단위 시험)와 `-Pmysql-integration`(실제 MySQL 통합 시험)이 통과하고,
-`make check-backend`·`dev-server`·`check-browser`·`check-compose`·Compose 이미지 빌드가 새 빌드로 동작한다.
+완료 기준: `backend/gradlew -p backend build`(기본 시험·Checkstyle·빌드)와 명시적 `-Pmysql-integration`(실제 MySQL 통합 시험)의 결과를 구분해 확인하고,
+`make check-backend`·`dev-server`·Compose 이미지 빌드·CI가 현재 Gradle 설정으로 동작한다.
+구형 `check-browser`·`check-compose`·benchmark 및 소스 문자열 검사 복구는 도구 삭제로 완료 조건에서 제외한다([품질 기준](../../quality.md)).
 
 ## 범위와 제외
 
@@ -38,8 +39,9 @@
 
 ## 팀원 작업 요청 (`backend/` 밖)
 
-아래 2·3·4의 남은 항목이 반영되기 전까지 `check-compose`, Compose 이미지 빌드, CI(`harness.yml`)는 Maven·`backend/pom.xml`·`target/` 경로를 찾다가 실패한다.
-`make check-backend`·`dev-api`·`dev-server`·`check-browser`·`benchmark-server`는 1의 반영으로 Gradle Wrapper를 쓴다.
+현재 Docker 이미지는 Gradle Wrapper를 사용한다. `make check-backend`·`dev-api`·`dev-server`도 같은 Wrapper를 사용하며,
+기본 검사는 `build`만 실행하고 MySQL 통합은 명시적으로 분리한다.
+삭제된 종합 브라우저·Compose·benchmark·소스 문자열 검사를 Maven에서 Gradle로 다시 옮기는 과제는 폐기한다.
 
 ### 1. 개발 도구 (`tools/`) — 2026-10-14 반영 완료(사용자 요청으로 백엔드 담당이 직접 수정)
 
@@ -64,18 +66,17 @@
 
 ### 3. CI (`.github/workflows/harness.yml`) — 담당: CI 담당
 
-- [ ] `actions/setup-java`의 `java-version: '21'`(33행) → `'17'`. (2026-10-26 확인: 아직 `'21'`) Maven 캐시를 쓰고 있다면 Gradle 캐시(`cache: gradle` 또는 `gradle/actions/setup-gradle`)로 바꾼다.
+- [ ] 컴파일·시험용 JDK 17과 Checkstyle용 JDK 21을 CI에서 모두 찾는지 확인한다. 현재 harness는 JDK 21을 명시하고 BE PR CI는 17·21을 명시한다. 단순히 JDK 21을 17로 교체하는 과제 대신 현재 toolchain·Gradle Wrapper 기준으로 확인하며, 원격 CI 성공은 별도 실행 결과로 기록한다.
 
 ### 4. Python 시험 (`tests/`) — 담당: 개발·검증 도구 담당
 
-- [x] `tests/test_deploy_configuration.py`(316~336행): 1과 함께 Gradle 명령 기대값으로 바꿨다(이 시험이 1의 명령을 고정하므로 같이 고치지 않으면 `make test`가 실패한다).
-- [ ] `tests/test_service_contracts.py`(57행): `backend/`의 `pom.xml`에서 Esper 의존성이 없는지 본다. 이제 `pom.xml`이 없어 검사가 아무것도 확인하지 않는다.
-  `backend/**/build.gradle`과 `settings.gradle`을 보도록 바꾼다. (2026-10-26 확인: 아직 `pom.xml`을 찾음)
-- `tests/test_server_benchmark.py`(242행)의 `backend/api/target/example.java`는 비공개 경로 거부 예시라 바꾸지 않아도 된다.
+- [x] 당시 `tests/test_deploy_configuration.py`의 Gradle 명령 기대값을 함께 변경했다. 후속 정리에서는 해당 명령 고정 검사를 제거하고 대표 비밀값·백업·복원 보호 시험만 남겼다.
+- `tests/test_service_contracts.py`의 Maven/소스 문자열 검사 수정 과제는 파일 삭제로 폐기했다. Gradle 파일 문자열을 검사하는 시험으로 복원하지 않는다.
+- `tests/test_server_benchmark.py`와 benchmark 실행 도구도 제거했으므로 그 안의 옛 `target/` 경로 예시는 현재 수정 대상이 아니다.
 
 ### 5. 설치 안내 (프론트 포함 모든 팀원)
 
-- JDK는 17이면 된다. Maven은 설치하지 않아도 된다(Wrapper가 Gradle을 받는다). `JAVA_HOME`은 JDK 17 이상을 가리켜야 한다.
+- 컴파일·시험은 JDK 17, Checkstyle은 JDK 21을 사용한다. Maven은 설치하지 않아도 된다(Wrapper가 Gradle을 받는다). 설치와 toolchain 인식은 [개발 흐름](../../development.md)을 따른다.
 - `requirements-front.txt`, `README.md`, `docs/development.md`, `docs/design/fe-commands-and-checks.md`의 안내는 이 계획과 함께 고쳤다.
 
 ## 작업 단계
@@ -85,8 +86,8 @@
 - [x] 버전을 언급하는 현재 문서 갱신, 옛 ADR 0023
 - [ ] 실제 MySQL 통합 시험(`-Pmysql-integration`) 실행
 - [x] 개발 도구 1과 결합된 시험(4의 첫 항목) 반영
-- [ ] 실제 MySQL로 `make check-backend`·`check-browser` 확인
-- [ ] 팀원 작업 2·3·4(남은 항목) 반영 후 `check-compose`·Compose 빌드·CI 확인
+- [ ] 현재 `make check-backend`와 필요한 `dev-server` 실행 결과 기록. 기본 검사 성공을 실제 MySQL 연결 성공으로 해석하지 않음
+- [ ] 현재 Compose 이미지 빌드·CI 결과 확인. 삭제한 `check-browser`·`check-compose`의 재실행은 요구하지 않음
 
 ## 결정과 진행 기록
 

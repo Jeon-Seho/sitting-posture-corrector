@@ -18,7 +18,8 @@
 - 기준 자세를 서버에 등록·조회하는 코드가 없다.
 
 완료 기준: 합성 계정으로 가입 → 로그인 → 자세 등록(DB 저장) → 서버 판정 측정 → 종료 → 기록 조회 → 새로고침·재로그인 후 기준 복원이
-실제 API·임시 MySQL에서 동작한다. `check-frontend`, `check-browser`, `check-compose`가 통과한다.
+실제 API·임시 MySQL에서 동작한다. `check-frontend`·`check-backend` 기본 검사와 명시적 MySQL·서버 연결 점검을 구분해 확인한다([품질 기준](../../quality.md)).
+구형 `check-browser`·`check-compose`는 도구 삭제로 완료 조건에서 제외하며 복원 과제를 두지 않는다.
 기록·달력은 서버의 어제까지 통계와 로컬에 수집한 오늘 결과를 함께 표시하며, 날짜·세션 중복 합산이 없는지 확인한다(2026-10-22 결정, [연동 명세 4.5](../../design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
 서비스의 측정·기록·통계·비교 화면에는 내부 관리용 모델명·모델 버전·특징 버전을 표시하지 않는다. API 식별자·검증은 유지한다([내부 관리 기준](../../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
@@ -105,11 +106,14 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 - [ ] `frontend/vite.config.ts`: `/api` 프록시에 `ws: true`를 켜서 실시간 채널(`/v1/realtime`)도 프록시를 지나게 한다.
 - [ ] 합성 카메라(`features/testing/useSyntheticCamera.ts`)에 합성 관절 좌표 9개를 넣는다(`3e7a0f5:frontend/src/features/testing/syntheticLandmarks.ts`).
-- [ ] `tools/browser/scenarios.mjs`의 서버 판정 단계와 `tools/browser/accounts.mjs`·`tools/compose_smoke.py`의 계정 브라우저 시나리오를 새 로그인·가입 화면에 맞춘다(아래 8 참고).
+- `tools/browser/scenarios.mjs`·`accounts.mjs`·`tools/compose_smoke.py`는 제거했다. 새 로그인·가입 화면에 맞춰 구형 종합 시나리오를 다시 쓰는 과제는 폐기한다.
 - [ ] 계정 모드 선택 방법을 정한다. develop은 `VITE_SERVER_ACCOUNTS` 스위치를 지웠지만 `compose.yaml`, `infra/docker/frontend.Dockerfile`, `tools/frontend_proxy.py`에는 아직 남아 있다.
       스위치를 되살릴지, `features/platform/serverConfig.ts`에 새 스위치를 둘지, 서버 연결을 기본으로 할지 정한다.
 
-### 8. 브라우저 검증(`check-browser`) — 프론트 팀 공유 사항
+### 8. 당시 브라우저 검증 구성과 정리
+
+아래 2026-10-14 구성·예상 결과는 삭제 전 기록이다. 해당 종합 진입점과 시나리오는 2026-10-29 제거했으며,
+현재 기본 검사와 개별 브라우저 점검은 품질 기준을 따른다.
 
 **무엇이 바뀌었나 (2026-10-14 정리)**
 
@@ -122,19 +126,17 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
   준비 확인은 옛 `/v1/sessions/{id}` 대신 `/health`로 한다(재시작 뒤 진행 중 세션은 `SESSION_LOST`).
 - `scenarios.mjs`, `browser_smoke.mjs`, 프론트 코드는 바꾸지 않았다.
 
-**지금 예상되는 결과 (실행하지 못함: 2026-10-14 이 PC에 Docker 데몬·로컬 MySQL 설정이 없음)**
+**당시 예상 결과 (실행하지 못함: 2026-10-14 이 PC에 Docker 데몬·로컬 MySQL 설정이 없음)**
 
 - 로그인 화면 표시, 합성 입력 고지 확인까지는 통과할 것으로 본다.
 - 첫 `startSession()`(측정하기 → 개발자 옵션 「서버 판정 사용」)에서 실패한다. 프론트가 `PUT /api/v1/sessions/{id}`를 로그인 없이,
   `{policy, setup}` 본문으로 보내지만 API는 로그인한 사용자의 `PUT /v2/sessions/{id}` `{policy, baseline_id}`만 받는다.
 - MySQL이 없는 PC에서는 시나리오 전에 임시 DB 준비 단계에서 실패한다(`check-backend`와 같은 조건).
 
-**프론트 팀 확인·결정 요청**
+**현재 처리**
 
-- [ ] 서버 판정 단계를 계정 로그인·기준 자세 등록(위 2·4·5)이 생긴 뒤 v2 흐름으로 고칠지, 그 전까지 `scenarios.mjs`에서 서버 판정 단계를 어떻게 다룰지 정한다.
-- [ ] `scenarios.mjs`의 직접 API 호출(`/api/v1/sessions/...`, 173·235행 부근)을 v2 경로와 로그인 쿠키·CSRF·`X-PoseGood-User-Id` 헤더로 바꾼다(토큰 로그인 뒤에는 `Authorization: Bearer`·`X-PoseGood-User-Id`, CSRF 없음).
-- [ ] 계정 UI 시나리오(`accounts.mjs`)는 지금 `check-compose`에서만 쓴다. 새 가입 화면(`features/auth/`)의 선택자로 고치거나 `scenarios.mjs`로 합칠지 정한다.
-- [ ] 이 PC처럼 Docker·MySQL이 없는 환경에서 브라우저 검증을 어떻게 돌릴지 정한다(백엔드 담당과 협의).
+- v1 호출·옛 계정 화면·복구 상태를 전제로 한 시나리오의 수정·통합 과제는 도구 삭제로 폐기했다.
+- 현재 JWT·자정 점검은 준비된 시험 API·DB·Vite·Chrome에 직접 연결한다. 환경이 없는 경우 미실행 사유를 기록하고 기본 검사 성공과 구분한다.
 
 ## 작업 단계
 
@@ -142,7 +144,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 - [ ] 계정 모드 스위치·동의 버전·비밀번호 길이를 팀과 정함
 - [ ] 1 → 4 → 5 순서로 기준 자세·세션 연결, 그다음 2·3 인증·가입, 6 설정·기록
 - [ ] 7 검증 도구와 문서(`frontend/README.md`, `docs/design/api-ws-spec.md`) 동기화
-- [ ] `check-frontend`, `check-backend`, `check-browser`, `check-compose` 실행과 결과 기록
+- [ ] `check-frontend`·`check-backend` 기본 검사와 명시적 MySQL·필요한 개별 서버/브라우저 점검의 결과를 구분해 기록
 
 ## 결정과 진행 기록
 

@@ -90,7 +90,10 @@
 | `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0062(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
 | `database/tests/integrity_check.py` | 확인 필요 | — | V2.4~V2.6에 맞춰 고쳤고 아직 실행 전 (V2.3 기준 130개 통과, 2026-10-13). V2.6: `refresh_token` 제약·탈퇴 철회·CASCADE 검사 추가 |
 | `tools/service_smoke.py` | 통과 | 2026-10-29 | 위 `check-backend`의 마지막 단계. 실제 추론 + `/v2/realtime` 측정, `daily_stat` 0행 확인 |
-| `make check-compose` | 확인 필요 | 2026-10-14 | 실패 원인 분석만 있음 ([계획 0030](plans/active/0030-make-check-failures.md)) |
+| `make check-compose` (구형 종합 검사) | 삭제로 폐기 | 2026-10-29 | 당시 실패 원인 분석은 [계획 0030](plans/active/0030-make-check-failures.md)에 보존. 현재 재실행 과제가 아니며, 기본 검사와 별도 MySQL·플랫폼 점검은 [품질 기준](quality.md)을 따름 |
+
+위 날짜별 통과 결과는 당시 명령 구성의 기록이다. 현재 `check-backend`는 기본 Java 시험·Checkstyle·빌드만 실행하며,
+MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.py`·`check_repository.py`는 제거했으며 과거 통과 수치를 현재 검증으로 사용하지 않는다.
 
 ## 3. 문서·코드 불일치
 
