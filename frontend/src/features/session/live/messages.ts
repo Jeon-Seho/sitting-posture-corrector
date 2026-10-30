@@ -126,7 +126,8 @@ export function parseServerMessage(text: string): ServerMessage | null {
   let v: unknown
   try {
     v = JSON.parse(text)
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/session/live/messages.ts:parseServerMessage] Operation failed', caughtError)
     return null
   }
   if (!obj(v) || typeof v.type !== 'string') return null

@@ -10,7 +10,8 @@ export function readTrackingFps(): number | null {
   try {
     const value = Number(localStorage.getItem(KEY))
     return [30, 20, 15, 10].includes(value) ? value : null
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/trackingRate.ts:readTrackingFps] Operation failed', caughtError)
     return null
   }
 }
@@ -19,7 +20,8 @@ export function writeTrackingFps(fps: number | null) {
   try {
     if (fps) localStorage.setItem(KEY, String(fps))
     else localStorage.removeItem(KEY)
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/trackingRate.ts:writeTrackingFps] Operation failed', caughtError)
     /* Storage blocked: lasts for this run only. */
   }
 }

@@ -19,7 +19,9 @@ function StreamPreview({ camera }: { camera: CameraController }) {
     const video = preview.current
     if (!video) return
     video.srcObject = camera.streamRef.current
-    void video.play().catch(() => {})
+    void video.play().catch((caughtError) => {
+      console.error('[features/camera/CameraWindow.tsx:StreamPreview] Operation failed', caughtError)
+    })
     return () => { video.srcObject = null }
   }, [camera.streamRef])
   return <video ref={preview} autoPlay muted playsInline aria-label="작은 창 웹캠 미리보기" />

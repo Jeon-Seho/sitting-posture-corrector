@@ -136,7 +136,7 @@ tools/platform/integration_test.sh --quick   # 13단계
 ```
 
 다른 PC 브라우저로 화면을 볼 때는 SSH 터널 `ssh -L 8088:127.0.0.1:8088 <계정>@<서버>` 뒤 `http://localhost:8088`(localhost라 웹캠 허용).
-인터넷 배포(도메인·터널)는 D-43에서 따로 한다.
+인터넷 공개는 아래 "인터넷 공개 입구 (D-43)" — 화면은 Vercel, 서버는 API 전용 `gateway`만 터널로 연다. `web`은 서버 안 시험용으로 그대로 둔다.
 
 ### HDFS 복제 수 (D-61)
 
@@ -178,6 +178,51 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
   `kafka`로 바꾸는 것은 `ws` Kafka 연결 코드가 들어간 뒤다.
 
 처리 서비스(api-server)의 운영·확인 경로는 [처리 서비스 HTTP API](../docs/design/processing-api-spec.md), 토픽·메시지·DLQ는 [Kafka 명세](../docs/design/kafka-spec.md)다.
+
+### 인터넷 공개 입구 (D-43, gateway·Cloudflare 터널)
+
+화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [fe-deploy](../docs/design/fe-deploy.md) 6장).
+
+```
+브라우저 ─ https://api.posegood.site/api/… · wss://…/api/v2/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
+  └ 터널 posegood-api ─ cloudflared(프로필 edge, 포트 없음) ─ http://gateway:80 ─ gateway(nginx, API만, 포트 없음) ─ api:8090(io-api)
+서버 안 시험: web(127.0.0.1:8088, 화면 + 같은 API 중계) — SSH -L 8088
+```
+
+| 파일 | 내용 | Git |
+| --- | --- | --- |
+| `infra/nginx/gateway.conf` | `/api/` → io-api, `/api/v2/realtime`, `/health`, 그 밖 404. `X-Forwarded-Proto https`, 실제 사용자 IP(`CF-Connecting-IP`), 내부 토큰 헤더 지움 | 커밋 |
+| `infra/compose/cloudflared/config.yml` | 경로: `api.posegood.site` → `http://gateway:80`, 나머지 404 | 커밋 |
+| `infra/compose/secrets/cloudflared.env` | `TUNNEL_TOKEN=…` 한 줄(FE가 서버에서 직접 넣음, `chmod 600`) | **제외** |
+| `infra/compose/secrets/posegood.auth.jwt-secret` | 로그인 토큰 서명 키(위 입출구 서버 절) | **제외** |
+
+- 처리 서비스(api-server 8080)·추론(8000)은 인증이 없어 `127.0.0.1`에만 연다(`.env`의 `API_SERVER_BIND`·`INFERENCE_BIND`). 터널은 이 포트를 가리키지 않는다.
+- 같은 터널을 두 곳에서 돌리지 않는다(요청이 나뉜다). 서버의 cloudflared 하나만 쓴다. Cloudflare 계정 권한 파일(`cert.pem`)은 서버에 두지 않는다.
+- 토큰·`.env` 값은 화면·로그·채팅·저장소에 남기지 않는다. 토큰이 새면 FE가 터널을 다시 만들고 새 토큰을 넣는다.
+
+```sh
+C="docker compose -f infra/compose/bigdata.yaml"
+# 1) .env — 공개 값(끝 / 없이) — env.example 6·7장
+#    POSEGOOD_CORS_ALLOWED_ORIGINS=https://app.posegood.site
+#    POSEGOOD_REALTIME_ALLOWED_ORIGINS=https://app.posegood.site
+#    POSEGOOD_COOKIE_SECURE=true
+#    API_SERVER_BIND=127.0.0.1  INFERENCE_BIND=127.0.0.1   PUBLIC_API_URL=https://api.posegood.site
+$C up -d --no-build api-server inference-service          # 바인딩 반영
+$C --profile io up -d --no-build --force-recreate io-api  # 출처·쿠키 값 반영
+$C --profile io up -d --no-build gateway
+docker exec gateway wget -q -O - http://127.0.0.1/api/health   # {"status":"ok","storage":"mysql"}
+# 2) 토큰 자리(빈 파일) — 내용은 FE가 서버에서 직접 넣는다
+install -m 600 /dev/null infra/compose/secrets/cloudflared.env
+# 3) 토큰이 들어간 뒤
+$C --profile io --profile edge up -d --no-build cloudflared
+docker logs cloudflared 2>&1 | grep 'Registered tunnel connection'
+curl -i https://api.posegood.site/health                 # 200 (530 = 터널 미연결, 502 = gateway 연결 문제)
+tools/platform/integration_test.sh --quick               # 14단계(터널 경유 REST·wss 포함)
+```
+
+- `--config`와 토큰을 같이 쓰는 실행이 안 되면 `command`를 `["tunnel", "--no-autoupdate", "run", "--url", "http://gateway:80"]`로 바꾼다(경로가 하나뿐이라 같은 결과).
+- 멈출 때는 프로필을 모두 붙인다: `$C --profile io --profile edge down`(프로필 없는 `down`은 io·edge 서비스를 남긴다). 터널만 끌 때는 `$C --profile edge stop cloudflared`.
+- 문제가 생기면 볼 곳은 [fe-deploy](../docs/design/fe-deploy.md) 6장 5-3 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
 
 ### 판정 (api-server `judge`, D-22·D-53)
 

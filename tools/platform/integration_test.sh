@@ -33,6 +33,8 @@
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계)
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
+#  14. 공개 입구   : (D-43) 처리 서비스·추론 포트가 127.0.0.1에만, gateway(API 전용 nginx, 호스트 포트 없음)가 /api만 중계하고 /는 404,
+#                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -56,7 +58,7 @@ for a in "$@"; do
     --quick) QUICK=1 ;;
     --no-e2e) E2E=0 ;;
     --restart) RESTART=1 ;;
-    -h|--help) sed -n 2,35p "$0"; exit 0 ;;
+    -h|--help) sed -n "2,$(grep -n '^# =====' "$0" | sed -n 2p | cut -d: -f1)p" "$0"; exit 0 ;;
     *) echo "알 수 없는 옵션: $a (--help 참고)"; exit 2 ;;
   esac
 done
@@ -620,6 +622,72 @@ else
     else
       fail "화면 경유 WebSocket 왕복" "$(grep -m3 '^FAIL' "$OUT/web-ws.log" | tr '\n' ' ')(상세 $OUT/web-ws.log)"
     fi
+  fi
+fi
+
+# ---------------------------------------------------------------------
+step "14. 인터넷 공개 입구 — gateway·Cloudflare 터널 (D-43)"
+# 화면은 Vercel, 서버는 API 전용 gateway만 터널로 공개한다. 인증 없는 처리 서비스·추론 포트는 서버 PC 안에서만.
+for pair in api-server:API_SERVER_BIND inference-service:INFERENCE_BIND; do
+  c="${pair%%:*}"; var="${pair#*:}"
+  docker inspect "$c" >/dev/null 2>&1 || continue
+  b="$(docker port "$c" 2>/dev/null | awk '{print $3}' | grep -vE '^127\.0\.0\.1:' | tr '\n' ' ')"
+  if [ -z "$b" ]; then pass "$c 포트는 서버 PC 안(127.0.0.1)에만"
+  else fail "$c 포트" "$b — .env $var=127.0.0.1 뒤 $DC up -d --no-build $c (env.example 3장)"; fi
+done
+if ! docker inspect gateway >/dev/null 2>&1; then
+  skip "gateway (API 전용 nginx)" "gateway 컨테이너 없음 — $DC --profile io up -d --no-build gateway"
+else
+  st="$(docker inspect gateway --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}' 2>/dev/null)"
+  if [ "$st" = "running healthy" ]; then pass "gateway ($st)"; else fail "gateway" "상태=$st (docker logs gateway)"; fi
+  if [ -z "$(docker port gateway 2>/dev/null)" ]; then pass "gateway 호스트 포트 없음 (cloudflared만 같은 망에서)"
+  else fail "gateway 포트" "$(docker port gateway | tr '\n' ' ') — gateway는 포트를 열지 않는다"; fi
+  if docker exec gateway wget -q -O - http://127.0.0.1/api/health 2>>"$OUT/run.log" | grep -q '"status":"ok"'; then
+    pass "gateway → io-api /api/health"
+  else fail "gateway → io-api" "/api/health 실패 — io-api 별칭 api·app-network (docker logs gateway)"; fi
+  for path in / /actuator/health /index.html; do
+    if docker exec gateway wget -q -S -O /dev/null "http://127.0.0.1$path" 2>&1 | grep -q ' 404'; then pass "gateway $path 는 404 (화면·운영 경로 없음)"
+    else fail "gateway $path" "404가 아님 — infra/nginx/gateway.conf"; fi
+  done
+fi
+if docker inspect cloudflared >/dev/null 2>&1; then
+  st="$(docker inspect cloudflared --format '{{.State.Status}}' 2>/dev/null)"
+  if [ "$st" = "running" ] && docker logs cloudflared 2>&1 | grep -q 'Registered tunnel connection'; then
+    pass "cloudflared 터널 연결 (Registered tunnel connection)"
+  else fail "cloudflared" "상태=$st, 터널 연결 기록 없음 — docker logs cloudflared(토큰 값은 출력하지 않는다)"; fi
+  TOKF="infra/compose/secrets/cloudflared.env"
+  if [ -f "$TOKF" ] && [ "$(stat -c %a "$TOKF")" = "600" ] && [ -s "$TOKF" ]; then pass "터널 토큰 파일 (비어 있지 않음·600, 값은 출력 안 함)"
+  else fail "터널 토큰 파일" "$TOKF 가 없거나 비었거나 권한이 600이 아님"; fi
+else
+  skip "Cloudflare 터널" "cloudflared 없음 — 공개할 때만 $DC --profile io --profile edge up -d --no-build cloudflared"
+fi
+PUB="$(envval PUBLIC_API_URL)"; PUB="${PUB%/}"
+if [ -z "$PUB" ] || ! docker inspect cloudflared >/dev/null 2>&1; then
+  skip "터널 경유 확인" "PUBLIC_API_URL이 비었거나 cloudflared 없음"
+else
+  if curl -s -m 15 "$PUB/health" | grep -q '"status":"ok"'; then pass "터널 경유 $PUB/health"
+  else fail "터널 경유 $PUB/health" "530이면 cloudflared 미연결, 502면 gateway 연결(config.yml)"; fi
+  for path in / /actuator/health; do
+    code="$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$PUB$path")"
+    if [ "$code" = "404" ]; then pass "터널 경유 $path 는 404"; else fail "터널 경유 $path" "HTTP $code (기대 404)"; fi
+  done
+  ORIG="$(envval POSEGOOD_CORS_ALLOWED_ORIGINS | cut -d, -f1)"
+  if [ -z "$ORIG" ]; then skip "CORS 사전 확인" "POSEGOOD_CORS_ALLOWED_ORIGINS 비어 있음"
+  else
+    HDR="$(curl -s -m 15 -o /dev/null -D - -X OPTIONS "$PUB/api/v2/auth/login" -H "Origin: $ORIG" \
+      -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tr -d '\r')"
+    if echo "$HDR" | grep -qi "^access-control-allow-origin: $ORIG\$" && echo "$HDR" | grep -qi '^access-control-allow-credentials: true'; then
+      pass "CORS 사전 확인 OPTIONS /api/v2/auth/login (Origin $ORIG, credentials)"
+    else fail "CORS 사전 확인" "허용 헤더 없음 — 끝 /·오타, docker exec io-api printenv POSEGOOD_CORS_ALLOWED_ORIGINS"; fi
+  fi
+  if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
+    pass "터널 경유 REST 점검 $PUB/api ($(tail -1 "$OUT/public-rest.log"))"
+  else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log — 403이면 Cloudflare 봇 차단·요청 제한 규칙)"; fi
+  if [ "$E2E" = 1 ]; then
+    WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} >"$OUT/public-ws.log" 2>&1; then
+      pass "터널 경유 wss 왕복 /api/v2/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
+    else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
   fi
 fi
 

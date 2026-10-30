@@ -1,4 +1,4 @@
-import { CalendarDots, ChartBar, GearSix, Pulse, type Icon } from '../components/icons'
+import { CalendarDots, ChartBar, DeveloperCode, GearSix, Pulse, type Icon } from '../components/icons'
 
 /** Internal routes. Several routes share one sidebar tab (see NAV_TABS). */
 export type Page =
@@ -11,8 +11,9 @@ export type Page =
   | 'calendar'
   | 'settings'
   | 'profile'
+  | 'developer'
 
-export type Tab = 'measure' | 'records' | 'calendar' | 'settings'
+export type Tab = 'measure' | 'records' | 'calendar' | 'settings' | 'developer'
 
 /**
  * Preparation, posture registration, live measurement and results live in "측정하기"
@@ -25,9 +26,11 @@ export const NAV_TABS: { tab: Tab; label: string; icon: Icon }[] = [
   { tab: 'records', label: '오늘', icon: ChartBar },
   { tab: 'calendar', label: '기록', icon: CalendarDots },
   { tab: 'settings', label: '설정', icon: GearSix },
+  { tab: 'developer', label: '개발자 도구', icon: DeveloperCode },
 ]
 
 export function tabOf(page: Page): Tab {
+  if (page === 'developer') return 'developer'
   if (page === 'dashboard') return 'records'
   if (page === 'calendar') return 'calendar'
   if (page === 'settings' || page === 'profile' || page === 'collection') return 'settings'

@@ -7,7 +7,8 @@ const KEY = 'posegood.v2.mainCamera'
 export function readMainCamera(): string {
   try {
     return localStorage.getItem(KEY) ?? ''
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/mainCamera.ts:readMainCamera] Operation failed', caughtError)
     return ''
   }
 }
@@ -16,7 +17,8 @@ export function writeMainCamera(deviceId: string) {
   try {
     if (deviceId) localStorage.setItem(KEY, deviceId)
     else localStorage.removeItem(KEY)
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/camera/mainCamera.ts:writeMainCamera] Operation failed', caughtError)
     /* Storage blocked: the choice lasts for this run only. */
   }
 }

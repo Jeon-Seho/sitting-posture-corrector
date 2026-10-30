@@ -75,6 +75,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       setPendingCount(remaining.length)
       latest.current.setRecords(records)
     } catch (error) {
+      console.error('[features/session/useSessionPersistence.ts:syncRecords] Operation failed', error)
       if (getServerAuth()?.userId === userId) latest.current.setError(error instanceof Error ? error.message : '기록을 확인하지 못했어요.')
     } finally { syncing.current = false }
   }
@@ -93,7 +94,10 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
           pending.current = restored[0] ?? null
           setPendingCount(restored.length)
         }
-        catch (error) { latest.current.setError((error as Error).message) }
+        catch (error) {
+          console.error('[features/session/useSessionPersistence.ts:changed] Operation failed', error)
+          latest.current.setError((error as Error).message)
+        }
         void syncRecords()
       }
     }
@@ -115,7 +119,10 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     const record = buildRecord(state)
     if (userId && record && Date.now() - checkpointAt.current >= 1000) {
       try { rememberResult(userId, record); checkpointAt.current = Date.now() }
-      catch { setError('중간 기록을 보관하지 못했어요. 저장 공간을 확인해 주세요.') }
+      catch (caughtError) {
+        console.error('[features/session/useSessionPersistence.ts:observe] Operation failed', caughtError)
+        setError('중간 기록을 보관하지 못했어요. 저장 공간을 확인해 주세요.')
+      }
     }
   }
 
@@ -145,7 +152,10 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       return
     }
     try { pendingRecords(getServerAuth()!.userId) }
-    catch { setError('미확인 기록을 읽지 못했어요. 원본을 보존하고 새 측정을 중단합니다.'); return }
+    catch (caughtError) {
+      console.error('[features/session/useSessionPersistence.ts:start] Operation failed', caughtError)
+      setError('미확인 기록을 읽지 못했어요. 원본을 보존하고 새 측정을 중단합니다.'); return
+    }
     if (pending.current) {
       setError('이전 결과를 서버에서 확인하고 있어요. 확인 후 새 측정을 시작해 주세요.')
       void syncRecords()
@@ -245,7 +255,10 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     pending.current = record
     setPendingCount(1)
     try { rememberResult(userId, record) }
-    catch { setError('결과를 이 기기에 보관하지 못했어요. 창을 닫지 말고 저장 공간을 확인해 주세요.'); return }
+    catch (caughtError) {
+      console.error('[features/session/useSessionPersistence.ts:finish] Operation failed', caughtError)
+      setError('결과를 이 기기에 보관하지 못했어요. 창을 닫지 말고 저장 공간을 확인해 주세요.'); return
+    }
     latest.current.measuring = false
     void syncRecords()
   }

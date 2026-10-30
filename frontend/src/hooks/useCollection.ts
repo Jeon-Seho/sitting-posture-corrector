@@ -166,6 +166,7 @@ export function useCollection(camera: CameraController) {
       setReview('pending')
       setStopReason('')
     } catch (error) {
+      console.error('[hooks/useCollection.ts:start] Operation failed', error)
       setMessage(error instanceof Error ? error.message : '촬영을 시작할 수 없습니다.')
     }
   }
@@ -181,6 +182,7 @@ export function useCollection(camera: CameraController) {
           : '제외했어요. ‘다음 자세 찍기’로 다시 찍을 수 있어요.',
       )
     } catch (error) {
+      console.error('[hooks/useCollection.ts:confirm] Operation failed', error)
       setMessage(error instanceof Error ? error.message : '고른 자세를 확인해 주세요.')
     }
   }

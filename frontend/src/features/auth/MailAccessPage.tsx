@@ -53,6 +53,7 @@ export function MailAccessPage({ purpose: initialPurpose = 'reset', initialEmail
         setMessage(purpose === 'reset' ? '비밀번호를 재설정했어요. 새 비밀번호로 다시 로그인해 주세요.' : '이메일을 확인했어요. 가입을 진행하던 화면으로 돌아가 주세요.')
       }
     } catch (e) {
+      console.error('[features/auth/MailAccessPage.tsx:submit] Operation failed', e)
       if (!controller.signal.aborted) setError(e instanceof Error ? e.message : '요청을 완료하지 못했어요.')
     } finally { if (!controller.signal.aborted) setBusy(false) }
   }

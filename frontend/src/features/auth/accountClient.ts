@@ -134,7 +134,8 @@ export function createAccountClient(
         credentials: 'include',
         signal: abort.signal,
       })
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/auth/accountClient.ts:send] Operation failed', caughtError)
       throw new AccountError('계정 서버에 연결하지 못했어요.', null, null)
     } finally {
       clearTimeout(timer)
@@ -144,7 +145,8 @@ export function createAccountClient(
     if (text) {
       try {
         payload = JSON.parse(text)
-      } catch {
+      } catch (caughtError) {
+        console.error('[features/auth/accountClient.ts:send] Operation failed', caughtError)
         payload = null
       }
     }
@@ -170,6 +172,7 @@ export function createAccountClient(
     timer = setTimeout(() => {
       timer = null
       renew().catch((error) => {
+        console.error('[features/auth/accountClient.ts:plan] Operation failed', error)
         // No answer or a 5xx: still signed in, try again (a 401 already signed out).
         if (login && !(error instanceof AccountError && error.status === 401)) plan(RENEW_RETRY_MS)
       })
@@ -202,6 +205,8 @@ export function createAccountClient(
           keep(next)
           return next.token
         } catch (error) {
+          console.error('[features/auth/accountClient.ts:renew] Operation failed', error,
+          error instanceof AccountError && error.status === 401 ? 'expected:auth-renew-401' : 'unexpected')
           if (attempt === generation && error instanceof AccountError && error.status === 401) signOut()
           throw error
         } finally {
@@ -226,6 +231,7 @@ export function createAccountClient(
       try {
         return await send(path, method, undefined, { Authorization: `Bearer ${token}` })
       } catch (error) {
+        console.error('[features/auth/accountClient.ts:authed] Operation failed', error)
         if (!fresh && error instanceof AccountError && error.status === 401) continue
         throw error
       }
@@ -273,6 +279,8 @@ export function createAccountClient(
         signIn(view.user_id)
         return view
       } catch (error) {
+        console.error('[features/auth/accountClient.ts:me] Operation failed', error,
+          error instanceof AccountError && error.status === 401 ? 'expected:auth-me-401' : 'unexpected')
         if (error instanceof AccountError && error.status === 401) {
           if (attempt === generation) signOut()
           return null
@@ -303,6 +311,7 @@ export function createAccountClient(
       try {
         await send('/logout', 'POST', undefined, headers)
       } catch (error) {
+        console.error('[features/auth/accountClient.ts:logout] Operation failed', error)
         // Already signed out on the server: nothing left to end.
         if (!(error instanceof AccountError && error.status === 401)) throw error
       } finally {
@@ -315,7 +324,8 @@ export function createAccountClient(
       if (!login) return
       try {
         await authed('/me', 'GET')
-      } catch {
+      } catch (caughtError) {
+        console.error('[features/auth/accountClient.ts:refreshServerTime] Operation failed', caughtError)
         /* Signed out or offline: 「오늘」 stays as it was. */
       }
     },

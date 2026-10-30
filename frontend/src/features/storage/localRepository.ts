@@ -14,7 +14,8 @@ export function readLocal<T>(key: string, fallback: T): T {
   let raw: string | null
   try {
     raw = localStorage.getItem(key)
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/storage/localRepository.ts:readLocal] Operation failed', caughtError)
     throw new Error(`${labels[key]} 저장소에 접근하지 못했습니다.`)
   }
   if (raw === null) return fallback
@@ -22,7 +23,8 @@ export function readLocal<T>(key: string, fallback: T): T {
     const parsed: unknown = JSON.parse(raw)
     if (!validLocal(key, parsed)) throw new Error('Invalid local data')
     return parsed as T
-  } catch {
+  } catch (caughtError) {
+    console.error('[features/storage/localRepository.ts:readLocal] Operation failed', caughtError)
     throw new Error(`${labels[key]} 자료를 읽을 수 없습니다. 기존 자료는 유지됩니다.`)
   }
 }
@@ -38,6 +40,7 @@ export function loadLocalState() {
     try {
       return readLocal(key, fallback)
     } catch (e) {
+      console.error('[features/storage/localRepository.ts:read] Operation failed', e)
       issues.push((e as Error).message)
       return fallback
     }

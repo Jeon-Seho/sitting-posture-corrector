@@ -53,7 +53,8 @@ export function TipLayer() {
       let rows: TipRow[] = []
       try {
         rows = JSON.parse(target.getAttribute('data-tip-rows') ?? '[]') as TipRow[]
-      } catch {
+      } catch (caughtError) {
+        console.error('[components/TipLayer.tsx:reveal] Operation failed', caughtError)
         rows = []
       }
       detach()
