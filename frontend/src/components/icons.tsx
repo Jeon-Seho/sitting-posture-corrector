@@ -69,3 +69,7 @@ export const LockSimple = asset('lock-simple')
 export const SpeakerHigh = asset('speaker-high')
 export const SpeakerSlash = asset('speaker-slash')
 export const WifiSlash = asset('wifi-slash')
+
+/** Text mark for developer-only navigation, using the same icon contract. */
+export const DeveloperCode: Icon = ({ size = 28, weight: _weight, mirrored: _mirrored, color, className = '', style, ...props }) =>
+  <span aria-hidden="true" {...props} className={`dev-code-mark ${className}`} style={{ width: size, height: size, color, ...style }} />

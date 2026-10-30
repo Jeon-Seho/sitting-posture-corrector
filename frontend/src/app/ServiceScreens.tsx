@@ -5,6 +5,7 @@ import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
 import { DeveloperToolsPage } from '../pages/DeveloperToolsPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { kstDay } from '../lib/kst'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
 import { CameraWindow } from '../features/camera/CameraWindow'
@@ -80,9 +81,13 @@ export function ServiceScreens({
   const { profile, records, rules, showDemo } = workspace
   const view = resolvePage((page === 'developer' || page === 'collection') && !developer ? 'settings' : page, measuring)
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
-  const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
-  const shownRecords = example ?? records
   const serverDay = useServerToday()
+  const example = useMemo(() => {
+    if (!showDemo) return null
+    const reference = serverDay === kstDay(Date.now()) ? new Date() : new Date(`${serverDay}T23:59:59+09:00`)
+    return exampleRecords(reference)
+  }, [showDemo, serverDay])
+  const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today', serverDay))
   useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
@@ -224,7 +229,7 @@ export function ServiceScreens({
             />
           </fieldset>
         )}
-        {developer && view === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} />}
+        {developer && view === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} onCamera={() => go('setup')} onSettings={() => go('settings')} onRecords={() => go('dashboard')} onCalendar={() => go('calendar')} />}
         {view === 'profile' && profilePage}
       </main>
       <CameraWindow

@@ -45,5 +45,5 @@ export function AppearanceSettings() {
 }
 export function AppearanceDiagnostics() {
   const value = useAppearance()
-  return <p className="fine">화면 설정: {value.mode} · {value.accent} · 설정 위쪽의 ‘화면 꾸미기’에서 실제 화면을 바꿔 확인할 수 있어요.</p>
+  return <p className="fine">화면 설정: {value.mode} · {value.accent} · ‘화면 꾸미기 열기’에서 실제 앱 테마를 바꿔 확인할 수 있어요.</p>
 }

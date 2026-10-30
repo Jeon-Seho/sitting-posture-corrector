@@ -3,11 +3,11 @@ import { desktopBridge } from '../desktop/bridge'
 export type AccelerationStatus = 'available' | 'limited' | 'unknown'
 
 /** A capability hint, not access to the browser's hardware acceleration preference. */
-export function probeAcceleration(): AccelerationStatus {
-  if (typeof document === 'undefined') return 'unknown'
+export function probeAcceleration(createContext?: () => WebGL2RenderingContext | null): AccelerationStatus {
+  if (!createContext && typeof document === 'undefined') return 'unknown'
   let gl: WebGL2RenderingContext | null = null
   try {
-    gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true })
+    gl = createContext ? createContext() : document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true })
     if (!gl) return 'limited'
     const info = gl.getExtension('WEBGL_debug_renderer_info')
     if (!info) return 'unknown'

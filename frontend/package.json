@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run && node --test scripts/theme-icon.test.cjs scripts/console-policy.test.mjs",
     "check": "npm run test && npm run build",
+    "test:developer-page": "node scripts/smoke-developer-page.mjs",
     "test:cpu-worker": "npm run assets && node scripts/smoke-cpu-worker.mjs",
     "assets": "node scripts/prepare-assets.mjs",
     "predev": "npm run assets",
