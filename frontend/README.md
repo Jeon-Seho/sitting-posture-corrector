@@ -134,6 +134,9 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 날짜별 로컬 누적값의 합계 보존, 서버 종료 기록과 오늘·달력의 두 날짜 표시를 확인한다. 브라우저 시계는 서버 시작 시각을 바꾸지 않는다.
 같은 세션의 날짜별 보관을 점검하므로 시험 API는 기본 설정인 `POSEGOOD_MIDNIGHT_ROLLOVER=false`를 사용한다.
 서버의 자정 종료·새 세션 전환은 별도 검증이며 기본 `make check`에는 연결하지 않는다.
+합성 카메라의 `frame(ms, 'normal')`은 고정한 바른 자세 관절 9개 좌표(`src/features/testing/syntheticPose.ts`, 서버 프레임 조건 통과 값)를 보낸다.
+자세 등록은 실제 카메라와 같은 `useServerBaseline`으로 3초 평균 → B1 저장을 거치며, 서버가 돌려준 기준 ID를 쓴다(고정 합성 기준 없음, 2026-10-30).
+`'deviation'`은 아직 좌표 없이 보낸다.
 
 프론트 의존성·Chrome·합성 시험 계정(`@example.invalid`)을 준비하고, 프론트 디렉터리에서 시험 API를 바라보는 전용 Vite를 실행한다.
 
