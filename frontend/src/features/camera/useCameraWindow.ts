@@ -73,7 +73,8 @@ export function useCameraWindow(camera: CameraController, demo = false) {
         setPipWindow(null)
       }, { once: true })
       setPipWindow(child)
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/camera/useCameraWindow.ts:open] Operation failed', caughtError)
       child?.close()
       setMessage('작은 창을 열지 못했어요. 다시 눌러 주세요.')
     } finally {
@@ -83,7 +84,8 @@ export function useCameraWindow(camera: CameraController, demo = false) {
   useEffect(() => {
     if (!supported) return
     const remove = !demo ? bridge?.onCameraWindowRequested?.(() => { void open() }) : undefined
-    void bridge?.setCameraWindowEnabled?.(ready).catch(() => {
+    void bridge?.setCameraWindowEnabled?.(ready).catch((caughtError) => {
+      console.error('[features/camera/useCameraWindow.ts:useCameraWindow] Operation failed', caughtError)
       setMessage('작은 창을 준비하지 못했어요. 다시 눌러 주세요.')
     })
     if (!ready) { close(); setMessage('') }
@@ -91,7 +93,9 @@ export function useCameraWindow(camera: CameraController, demo = false) {
       generation.current++
       remove?.()
       close()
-      void bridge?.setCameraWindowEnabled?.(false).catch(() => {})
+      void bridge?.setCameraWindowEnabled?.(false).catch((caughtError) => {
+        console.error('[features/camera/useCameraWindow.ts:useCameraWindow] Operation failed', caughtError)
+      })
     }
   }, [supported, bridge, ready, demo, stream, open, close])
   return { pipWindow, supported, message, open, close }

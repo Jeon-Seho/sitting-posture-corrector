@@ -3,6 +3,7 @@ import { ArrowLeft, CheckCircle, WarningCircle, X } from '../components/icons'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 import { SetupPage } from '../pages/SetupPage'
+import { DeveloperToolsPage } from '../pages/DeveloperToolsPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { exampleRecords } from '../data/exampleRecords'
 import { CollectionPage } from '../pages/CollectionPage'
@@ -23,6 +24,7 @@ import { AppSidebar } from './AppSidebar'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
+  developer?: boolean
   camera: CameraController
   collection: CollectionController
   workspace: LocalWorkspace
@@ -54,6 +56,7 @@ function noticeTone(text: string) {
 
 /** The local prototype and signed-in account share measurement/history presentation. */
 export function ServiceScreens({
+  developer = false,
   camera,
   collection,
   workspace,
@@ -75,7 +78,7 @@ export function ServiceScreens({
   onClearError,
 }: Props) {
   const { profile, records, rules, showDemo } = workspace
-  const view = resolvePage(page, measuring)
+  const view = resolvePage((page === 'developer' || page === 'collection') && !developer ? 'settings' : page, measuring)
   // 발표용 예시 기록: the same 기록·달력 screens, fed with fixed example records (never stored).
   const example = useMemo(() => (showDemo ? exampleRecords() : null), [showDemo])
   const shownRecords = example ?? records
@@ -94,7 +97,8 @@ export function ServiceScreens({
   }, [error, onClearError])
 
   function openTab(tab: Tab) {
-    if (tab === 'measure') go(measuring ? 'session' : 'setup')
+    if (tab === 'developer') { if (developer) go('developer') }
+    else if (tab === 'measure') go(measuring ? 'session' : 'setup')
     else go(tab === 'records' ? 'dashboard' : tab === 'calendar' ? 'calendar' : 'settings')
   }
 
@@ -109,6 +113,7 @@ export function ServiceScreens({
         aria-hidden="true"
       />
       <AppSidebar
+        developer={developer}
         page={view}
         measuring={measuring}
         go={openTab}
@@ -219,6 +224,7 @@ export function ServiceScreens({
             />
           </fieldset>
         )}
+        {developer && view === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} />}
         {view === 'profile' && profilePage}
       </main>
       <CameraWindow

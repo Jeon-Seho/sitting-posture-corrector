@@ -5,8 +5,6 @@ import { CameraStage } from '../components/CameraStage'
 import { PoseGuide } from '../components/PoseGuide'
 import { Ring } from '../components/Ring'
 import { PreparationSteps } from '../components/PreparationSteps'
-import { CameraWindowTest } from '../features/developer/CameraWindowTest'
-import { DeveloperGroup, InteractionPreview } from '../features/developer/DeveloperGroup'
 import type { CameraController } from '../hooks/useCamera'
 import { usePostureRegistration } from '../features/camera/usePostureRegistration'
 import { useAutoStart } from '../features/camera/useAutoStart'
@@ -26,7 +24,6 @@ const CALIBRATION_SECONDS = CAPTURE_MS / 1000
 export function SetupPage({
   camera,
   onStart,
-  onCollect,
   measuring = false,
   registerAgain = false,
   onBack,
@@ -293,21 +290,7 @@ export function SetupPage({
             <ThemeIllustration kind="baseline" />
             <span>편하게 앉은 자세를 기억해요.</span>
           </div>
-          <details className="more">
-            <summary>개발자 옵션</summary>
-            <div className="more-body dev-tools">
-              <DeveloperGroup title="카메라·작은 창"><CameraWindowTest /></DeveloperGroup>
-              <DeveloperGroup title="화면·모션"><InteractionPreview /></DeveloperGroup>
-              <DeveloperGroup title="데이터 수집">
-                <div className="row">
-                  <button className="btn btn-sm" disabled={!camera.baseline || !on} onClick={onCollect}>
-                    자세 데이터 수집으로 이동
-                  </button>
-                  <span className="fine">연구용 라벨 촬영 화면입니다.</span>
-                </div>
-              </DeveloperGroup>
-            </div>
-          </details>
+
         </div>
       </div>
     </>

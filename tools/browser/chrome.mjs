@@ -1,3 +1,4 @@
+import { createConsolePolicy } from './console-policy.mjs'
 import { spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { Cdp, until } from './cdp.mjs'
@@ -42,6 +43,8 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
     }, 'isolated Chrome readiness', 60_000)
     const cdp = await Cdp.connect(target.webSocketDebuggerUrl)
     const errors = []
+    const consolePolicy = createConsolePolicy()
+    cdp.on('Network.responseReceived', ({ response }) => consolePolicy.response(response))
     const requests = []
     cdp.on(
       'Network.requestWillBeSent',
@@ -56,7 +59,7 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
     cdp.on(
       'Runtime.consoleAPICalled',
       ({ type, args }) => {
-        if (type === 'error') errors.push(args.map((arg) => arg.value ?? arg.description).join(' '))
+        if (type === 'error' && !consolePolicy.expected(args)) errors.push(args.map((arg) => arg.value ?? arg.description).join(' '))
       }
     )
     cdp.on(
@@ -86,6 +89,7 @@ export async function launchChrome({ executable, port, profile, artifactFolder }
     return {
       cdp,
       errors,
+      verifyExpectedErrors: () => consolePolicy.verify(),
       requests,
       async screenshot(name) {
         const { data } = await cdp.call(

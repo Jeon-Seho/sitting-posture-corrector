@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PoseLandmarker } from '@mediapipe/tasks-vision'
+import type { PoseDetector } from '../features/camera/cpuWorker'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
 import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
@@ -34,7 +34,7 @@ export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stream = useRef<MediaStream | null>(null)
-  const detector = useRef<PoseLandmarker | null>(null)
+  const detector = useRef<PoseDetector | null>(null)
   const generation = useRef(0)
   const stopFrameLoop = useRef<(() => void) | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -111,6 +111,7 @@ export function useCamera() {
       const saved = await fetchCurrentBaseline()
       if (mounted.current) applyBaseline(saved)
     } catch (cause) {
+      console.error('[hooks/useCamera.ts:reloadBaseline] Operation failed', cause)
       // Keep what is shown and say why; 「다시 불러오기」 or the next sign-in tries again.
       if (mounted.current)
         setBaselineError(cause instanceof ApiError && cause.kind === 'signed_out' ? cause.message : BASELINE_LOAD_FAILED)
@@ -139,6 +140,7 @@ export function useCamera() {
           if (mounted.current) applyBaseline(saved)
         })
         .catch((cause: unknown) => {
+          console.error('[hooks/useCamera.ts:save] Operation failed', cause)
           if (!mounted.current) return
           setRegistrationError(
             cause instanceof ApiError ? cause.message : '서버에 자세를 저장하지 못했어요. 다시 등록해 주세요.',
@@ -280,6 +282,7 @@ export function useCamera() {
           incoming = await requestCamera(wanted || undefined)
           setMainMissing(false)
         } catch (cause) {
+          console.error('[hooks/useCamera.ts:connect] Operation failed', cause)
           if (!wanted || !missingDevice(cause)) throw cause
           // The saved main camera is unplugged: keep the choice and use the default camera.
           incoming = await requestCamera()
@@ -305,7 +308,7 @@ export function useCamera() {
           setError(CAMERA_ERRORS.disconnected)
         }
 
-        const loaded = await loadPoseDetector(isCurrent)
+        let loaded = await loadPoseDetector(isCurrent)
         if (!loaded) return
         if (!isCurrent()) {
           loaded.detector.close()
@@ -321,35 +324,79 @@ export function useCamera() {
         clearLoadingTimer()
         setState('on')
         visualRef.current = { ...visualRef.current, startedAt: performance.now() }
-        stopFrameLoop.current = startPoseFrameLoop({
-          video,
-          detector: loaded.detector,
-          delegate: loaded.delegate,
-          isCurrent,
-          getMaxFps: () => fpsTrial.current ?? fpsCap.current,
-          getCanvas: () => canvasRef.current,
-          getVisual: () => visualRef.current,
-          onPoseStarted: () => {
-            visualRef.current = { ...visualRef.current, startedAt: performance.now() }
-          },
-          onObservation: receiveObservation,
-          onFrameUnavailable: () => {
-            setQuality(false)
-            if (capture.current) {
-              capture.current = beginCapture()
-              setProgress(0)
-            }
-          },
-          onMetrics: setMetrics,
-          onTrackingError: () => {
-            release()
-            setState('error')
-            setQuality(false)
-            setProgress(null)
-            setError(CAMERA_ERRORS.trackingFailed)
-          },
-        })
+        const startTracking = () => {
+          if (!loaded || !isCurrent()) return
+          const active = loaded
+          setMetrics({ ...EMPTY_METRICS, delegate: active.delegate })
+          stopFrameLoop.current = startPoseFrameLoop({
+            video,
+            detector: active.detector,
+            delegate: active.delegate,
+            isCurrent,
+            getMaxFps: () => fpsTrial.current ?? fpsCap.current,
+            getCanvas: () => canvasRef.current,
+            getVisual: () => visualRef.current,
+            onPoseStarted: () => {
+              visualRef.current = { ...visualRef.current, startedAt: performance.now() }
+            },
+            onObservation: receiveObservation,
+            onFrameUnavailable: () => {
+              setQuality(false)
+              if (capture.current) {
+                capture.current = beginCapture()
+                setProgress(0)
+              }
+            },
+            onMetrics: setMetrics,
+            onTrackingError: (inferenceFailed) => {
+              if (!isCurrent()) return
+              if (active.delegate === 'GPU' && inferenceFailed) {
+                stopFrameLoop.current?.()
+                stopFrameLoop.current = null
+                active.detector.close()
+                detector.current = null
+                setQuality(false)
+                lastFrame.current = 0
+                if (capture.current) {
+                  capture.current = beginCapture()
+                  setProgress(0)
+                }
+                setState('loading')
+                loadingTimer.current = setTimeout(() => {
+                  if (!isCurrent()) return
+                  release()
+                  setState('error')
+                  setProgress(null)
+                  setError(CAMERA_ERRORS.preparationTimeout)
+                }, PREPARATION_TIMEOUT_MS)
+                void loadPoseDetector(isCurrent, 'CPU').then((cpu) => {
+                  if (!cpu || !isCurrent()) return
+                  loaded = cpu
+                  detector.current = cpu.detector
+                  clearLoadingTimer()
+                  setState('on')
+                  startTracking()
+                }).catch((cause: unknown) => {
+                  console.error('[camera] CPU tracking recovery failed', cause)
+                  if (!isCurrent()) return
+                  release()
+                  setState('error')
+                  setProgress(null)
+                  setError(CAMERA_ERRORS.trackingFailed)
+                })
+                return
+              }
+              release()
+              setState('error')
+              setQuality(false)
+              setProgress(null)
+              setError(CAMERA_ERRORS.trackingFailed)
+            },
+          })
+        }
+        startTracking()
       } catch (cause) {
+        console.error('[hooks/useCamera.ts:connect] Operation failed', cause)
         if (!isCurrent()) return
         release()
         setState('error')
