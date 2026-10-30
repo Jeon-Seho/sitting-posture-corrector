@@ -196,6 +196,7 @@ export function ServiceScreens({
                 active: view === 'session',
                 onEnded: persistence.finish,
                 onObserved: persistence.observe,
+                onRolledOver: persistence.rolledOver,
                 sessionLabel: sessionLabel(
                   session.startedAt,
                   daySessionNumber(

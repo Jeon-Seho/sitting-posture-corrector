@@ -59,6 +59,7 @@ export type ClosedReason =
   | 'server_shutdown'
   | 'limit_reached'
   | 'unmeasurable_timeout'
+  | 'day_changed'
 
 export type ServerMessage =
   /** `started_at`: when the server started the session (ISO 8601, FE proposal BE-6, ADR 0029). */
@@ -71,6 +72,18 @@ export type ServerMessage =
   | { type: 'stalled'; since_last_sequence: number }
   /** `ended_at`: when the server ended the session (ISO 8601, BE-6). */
   | { type: 'closed'; reason: ClosedReason | string; ended_at?: string }
+  /**
+   * KST midnight (BE api-spec 11.3, BE-6 ① plan B): the server stored the previous session (`ended`)
+   * and this connection goes on as a new server-made session that started at midnight. The app keeps
+   * sending times and sequences on the connection's axis; the server converts them (`at_ms`).
+   */
+  | {
+      type: 'session_rollover'
+      ended: { session_id: string; ended_at: string; summary: Summary }
+      session_id: string
+      started_at: string
+      at_ms: number
+    }
 
 /** S1·S3·S4 `SessionView` fields the app reads. */
 export type SessionView = {
@@ -121,6 +134,19 @@ function validObservation(v: unknown): v is LiveObservation {
   )
 }
 
+function validRollover(v: Record<string, unknown>) {
+  const ended = v.ended
+  return (
+    obj(ended) &&
+    typeof ended.session_id === 'string' &&
+    typeof ended.ended_at === 'string' &&
+    validSummary(ended.summary) &&
+    typeof v.session_id === 'string' &&
+    typeof v.started_at === 'string' &&
+    num(v.at_ms)
+  )
+}
+
 /** Parses one text frame; null for anything the app does not use or cannot read. */
 export function parseServerMessage(text: string): ServerMessage | null {
   let v: unknown
@@ -150,6 +176,8 @@ export function parseServerMessage(text: string): ServerMessage | null {
       return v as ServerMessage
     case 'closed':
       return typeof v.reason === 'string' ? (v as ServerMessage) : null
+    case 'session_rollover':
+      return validRollover(v) ? (v as ServerMessage) : null
     default:
       return null
   }

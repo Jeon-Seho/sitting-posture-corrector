@@ -18,8 +18,8 @@
 | 1 | 합성 정상 프레임에 관절 좌표가 없어(`landmarks: []`) 서버가 측정 불가로 셈 → `valid_ms` 0 | FE | 처리 |
 | 2 | 합성 등록이 고정 UUID를 바로 넣고 B1을 부르지 않음. `progress`·`registering`이 바뀌지 않아 등록 화면이 15초 제한(`REGISTRATION_LIMIT_MS`)에서 실패 | FE | 처리 |
 | 3 | 자정 기준은 서버 시각(`ready.started_at`). 브라우저 시계로 대신할 수 없음 | BE·시험 | 아래 4장 |
-| 4 | 같은 세션 유지 검사는 `POSEGOOD_MIDNIGHT_ROLLOVER=false` 전제 | BE | 변경 없음 |
-| 5 | R1 기록에 날짜별 `days`가 없어 서버 확정 뒤 자정 넘긴 기록이 시작한 날로 몰림 | FE·BE·dev | 별도(협의 필요) |
+| 4 | 같은 세션 유지 검사는 `POSEGOOD_MIDNIGHT_ROLLOVER=false` 전제 | BE | 10/30: 앱이 `session_rollover`를 처리함. 켜면 시나리오가 바뀜 — 5번과 함께 |
+| 5 | R1 기록에 날짜별 `days`가 없어 서버 확정 뒤 자정 넘긴 기록이 시작한 날로 몰림 | FE·BE·dev | 10/30 방향: 서버 자정 넘김(B안)을 켜 한 기록 = 하루로 만들고 앱 날짜 나누기(ADR 0027)를 지움. 팀 공유 계획(저장소 밖) |
 
 `browser-smoke`는 개발 serve 전용이다. 일반 개발·preview·빌드·실제 카메라 동작은 바뀌지 않는다.
 
@@ -72,4 +72,5 @@
 ## 7. 진행 기록
 
 - 2026-10-30: 인계서 대조, 1·2번 구현과 단위 테스트, 이 문서 작성.
+- 2026-10-30: 5번 방향을 서버 자정 넘김(B안)으로. 앱 `session_rollover` 처리, ADR 0029·연동 명세·제안서를 BE 구현에 맞춤(`feature/fe-midnight-session-rollover`).
 - 2026-10-30: #87 병합. 합성 `'deviation'`·`'poor'`가 옛 방식(좌표 없음)이라 모든 종류를 실제 카메라와 같은 길로 보내게 고침, `'absent'` 추가.
