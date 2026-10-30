@@ -732,7 +732,7 @@ class MySqlIntegrationTest {
             assertFalse(observation.has(gone), gone);
         var decision = socket.next("decision", "collapse_confirmed");
         assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
-        assertEquals("left_lean", decision.get("event").get("deviation_type").asString()); // 이진 모델 전까지 유지(보류)
+        assertEquals("left_lean", decision.get("event").get("deviation_type").asString()); // 학습 모델 전까지 유지(보류, ADR 0045)
         assertFalse(decision.has("session_id"));
         assertEquals(6, socket.next("progress").get("last_sequence").asLong());
         socket.send(frames(7, "running", null));

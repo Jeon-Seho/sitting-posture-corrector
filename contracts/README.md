@@ -57,7 +57,7 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 
 ## 프레임 추론 v3
 
-[요청 v3](inference-request.v3.schema.json)·[응답 v3](inference-response.v3.schema.json)는 FastAPI `POST /v3/infer`다(계획 0064, 2026-10-30). API가 `/v2/realtime`으로 받은 좌표 프레임을 세션마다 서버 시계로 약 3초 모아 세션 기준 자세와 함께 그대로 넘기고, 추론은 프레임마다 결과 하나를 같은 순서·같은 `t_ms`로 돌려준다(평균하지 않음). 특징 계산(판정 가능 검사·고개 돌림·기준 대비 변화량)은 추론 서버 `model/inference/frames.py`가 한다. API의 `FrameFeatures.java`와 같은 규칙이고 [합성 기준값](examples/frames/reference-rule-cases.json)으로 둘 다 시험한다. 시간 규칙과 좋음/나쁨 임계값은 API 판정 엔진에 있다. `deviation_type`은 이진 모델로 바꿀 때 뺀다(보류, [ADR 0043](../docs/decisions/0043-binary-posture-model-output.md)). 예시는 [examples/v3](examples/v3/)이고 응답은 실제 추론 코드의 출력이다.
+[요청 v3](inference-request.v3.schema.json)·[응답 v3](inference-response.v3.schema.json)는 FastAPI `POST /v3/infer`다(계획 0064, 2026-10-30). API가 `/v2/realtime`으로 받은 좌표 프레임을 세션마다 서버 시계로 약 3초 모아 세션 기준 자세와 함께 그대로 넘기고, 추론은 프레임마다 결과 하나를 같은 순서·같은 `t_ms`로 돌려준다(평균하지 않음). 특징 계산(판정 가능 검사·고개 돌림·기준 대비 변화량)은 추론 서버 `model/inference/frames.py`가 한다. API의 `FrameFeatures.java`와 같은 규칙이고 [합성 기준값](examples/frames/reference-rule-cases.json)으로 둘 다 시험한다. 시간 규칙과 좋음/나쁨 임계값은 API 판정 엔진에 있다. `collapse_probability`는 ML 3클래스 모델의 `p(이탈)` 자리다. `deviation_type`은 학습 모델로 바꿀 때 뺀다(보류, [ADR 0045](../docs/decisions/0045-posture-from-three-class-model.md)). 예시는 [examples/v3](examples/v3/)이고 응답은 실제 추론 코드의 출력이다.
 
 ## 특징 입력 v2와 응답 v1
 

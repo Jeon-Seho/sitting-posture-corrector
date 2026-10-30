@@ -37,7 +37,7 @@
 | 6 | `observation`은 묶음마다 1개(A안, 10/30) | 앱은 마지막 `observation` 하나로 화면을 그리므로 프레임마다 보내도 같은 화면 |
 | 7 | `observation`에서 `model_version`을 뺀다(10/30) | DB에 저장하지 않고(T-32 V2.0 폐기), 앱은 기록 비교 경고에만 쓰는데 지난 기록은 서버가 지금 설정값으로 채워 경고가 의미 없다. 추론 응답 검증(`InferenceClient`)에는 계속 쓴다 |
 | 8 | `observation` 형식 번호만 3.0 → 4.0으로 올린다. 계약 파일은 `realtime-ws.v2.schema.json` 그대로 고치고 `realtime-ws.v3`를 새로 만들지 않는다(10/30, A안) | 필드를 빼거나 더하면 호환성이 깨진다(스키마가 모르는 필드를 거부, 앱 `validObservation`). FE·BE가 함께 바꾸고 옛 앱을 따로 지원하지 않으므로 [계약 안내](../../../contracts/README.md) 48행의 「새 계약 파일」 대신 번호만 올린다. 접속 주소 `/v2/realtime`과 좌표 구간 `posture.frames.v1`은 그대로 |
-| 9 | `observation` 4.0은 필드 4개: `valid`·`posture`·`collapse_probability`·`invalid_reason`(10/30, 아래 예시). `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺀다. `bad_ms`는 넣지 않는다 | 앱이 측정 중 화면에 쓰는 값만 남긴다. 처리 위치는 `ack`·`progress`의 `last_sequence`, 상태는 `progress.paused_reason`, 누적 시간은 `summary`에 있다. 자세를 좋음/나쁨 이진으로 판별하므로(모델 결정은 ADR 전) 이탈 종류는 모델 출력에 없다 |
+| 9 | `observation` 4.0은 필드 4개: `valid`·`posture`·`collapse_probability`·`invalid_reason`(10/30, 아래 예시). `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺀다. `bad_ms`는 넣지 않는다 | 앱이 측정 중 화면에 쓰는 값만 남긴다. 처리 위치는 `ack`·`progress`의 `last_sequence`, 상태는 `progress.paused_reason`, 누적 시간은 `summary`에 있다. 모델은 이탈 확률 하나를 내고 서버가 좋음/나쁨으로 나누므로(ADR 0043 3클래스, ADR 0045) 이탈 종류는 모델 출력에 없다 |
 | 10 | `posture`·`collapse_probability`는 묶음의 **마지막 판정 가능 프레임** 값(10/30) | 화면은 「지금 자세」를 보인다. 평균은 판정을 흐린다(3번). 판정 가능 프레임이 없으면 `valid:false` |
 | 11 | `ack`는 받은 즉시, `observation`·`decision`·`alert`·`progress`는 묶음 처리 뒤(10/30) | 앱은 `ack`를 표시에만 쓴다. 판정 결과는 묶음 단위로만 생긴다 |
 | 12 | 추론은 새 경로 `POST /v3/infer`. 요청에 세션 기준 자세 9관절 `[x, y]`를 함께 넣어 추론 서버는 상태 없이 둔다. `/v2/infer`는 Kafka 경로·비교 시험이 옮길 때까지 남긴다(10/30) | 추론 서버를 여러 대로 늘리거나 재시작해도 세션 상태를 잃지 않는다 |
@@ -70,10 +70,11 @@
 ## 남은 질문
 
 - **FE와 함께 배포:** FE는 `messages.ts`의 `LiveObservation`·`validObservation`, `useSessionPersistence.ts`의 `model_version`, `lib/comparison.ts`의 버전 경고를 고쳐야 한다. 서버만 먼저 바꾸면 앱이 `observation`을 버린다 — FE와 함께 배포.
-- **`decision`·`alert`의 `deviation_type` — 보류(10/30 BE):** 이진 모델로 바뀔 때 **완전히 뺀다(B안)**. 모델을 언제 바꿀지 정해지지 않아 이 계획에서는 구현하지 않고, 그때까지 지금처럼 규칙 모델의 종류(`left_lean`·`right_lean`·`unspecified` 등)를 그대로 보낸다. 뺄 때 함께 바꿀 것: 계약 `realtime-ws.v2`의 `decision.event`·`alert`, 서버 `EpisodeLedger`·`RealtimeMessages`·`RecordProjection`(기록 `type`), 앱 `messages.ts` `validDecision`·`events.ts`·`server/projection.ts`·`storage/validation.ts`(기록 `type` 검사), S4 `SessionView` 사건. `observation` 4.0에서 빼는 것(9번)은 이와 별개로 이 계획에서 한다.
-- **이진 자세 모델:** [ADR 0043](../../decisions/0043-binary-posture-model-output.md)(제안, 10/30). ML(HJisung) 확인 전. ML의 미병합 브랜치 `codex/repo-jwt-kafka-checkpoint`(10/27 WIP) ADR 0038·`docs/ml/rebuild-plan.md`와 맞춘다 — 그 계획은 라벨을 `reference`·`deviation`으로 두고 「정상/나쁜 자세로 해석하지 않는다」고 적어, `posture` 값 이름(`good`·`bad`)을 ML과 확인해야 한다.
+- **`decision`·`alert`의 `deviation_type` — 보류(10/30 BE):** 학습 모델(3클래스)로 바뀔 때 **완전히 뺀다(B안, ADR 0045 5절)**. 모델을 언제 바꿀지 정해지지 않아 이 계획에서는 구현하지 않고, 그때까지 지금처럼 규칙 모델의 종류(`left_lean`·`right_lean`·`unspecified` 등)를 그대로 보낸다. 뺄 때 함께 바꿀 것: 계약 `realtime-ws.v2`의 `decision.event`·`alert`, 서버 `EpisodeLedger`·`RealtimeMessages`·`RecordProjection`(기록 `type`), 앱 `messages.ts` `validDecision`·`events.ts`·`server/projection.ts`·`storage/validation.ts`(기록 `type` 검사), S4 `SessionView` 사건. `observation` 4.0에서 빼는 것(9번)은 이와 별개로 이 계획에서 한다.
+- **자세 모델:** ML이 3클래스(기준·이탈·스트레칭, `collapse_probability = p(이탈)`)로 정했다([ADR 0043](../../decisions/0043-base-deviation-stretch-collection.md)). 서비스 쪽은 [ADR 0045](../../decisions/0045-posture-from-three-class-model.md)(채택 10/30 BE): `posture`는 `good`·`bad`. ML 확인에 따라 바뀔 수 있다.
+- **짧은 가림 유지 규칙(ML 요청):** 얼굴만 판정 불가일 때 2초까지 직전 값 유지·타이머 정지([ML 재설계](../../ml/rebuild-plan.md#짧은-가림-유지-규칙-2026-10-29-사용자-결정-be-구현-요청)). BE 검토 중(10/30). 받으면 엔진(`SessionEngine`)과 `observation`의 판정 불가 표시가 바뀐다. 스트레칭 중 시간 규칙도 미정(ADR 0043).
 - 10/30 `contracts/README.md` 「모델명·특징 버전의 내부 관리」에 `observation` 4.0의 `model_version` 제외를 적었다(7번).
-- **팀 확인:** 알림 지연(18번)과 `posture` 이름(`good`·`bad`, ADR 0043)은 팀장·FE·ML 확인 전이다.
+- **팀 확인:** 알림 지연(18번)과 `posture` 이름(`good`·`bad`)은 BE가 정했고(ADR 0045) 알림 지연은 팀장·FE 확인 전이다.
 - **Kafka 경로:** 계획 0031의 `ws` → Kafka 경로는 아직 구간 하나·1500ms 형식이다. 같은 묶음 방식으로 맞출지 계획 0031 담당과 정한다.
 - **정리할 코드:** v2 추론 호출(`InferenceClient.infer(InferenceRequest)`)·`FrameFeatures.interval`(구간 평균)은 실시간에서 쓰지 않는다. Kafka 경로·비교 시험이 옮기면 지운다.
 
@@ -92,6 +93,7 @@
 
 - 2026-10-29: 위 「정한 것」 1~5 확정(BE). 지금 API 명세에는 좌표 프레임을 추론 서버로 넘기는 API가 없다 — `/v2/realtime`은 구간 1개·1500ms·30장 제한, `/v2/infer`는 구간당 특징 1개만 받는다.
 - 2026-10-30: 6~18번 확정(BE), 구현. 브랜치 `feature/repo-server-frame-batch-inference`. 첫 MySQL 통합 시험에서 `decision`을 받은 직후 DB를 읽으면 아직 저장 전인 경우를 찾아 17번으로 고쳤다.
+- 2026-10-30: develop(`66a780c`, PR #83)을 합쳤다. ML ADR 0043(3클래스)과 번호가 겹쳐 BE 모델 출력 ADR을 0045로 옮기고 3클래스에 맞췄다. `posture`는 `good`·`bad`로 확정(BE).
 
 ## 검증 결과와 남은 한계
 

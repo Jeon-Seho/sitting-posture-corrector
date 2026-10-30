@@ -40,8 +40,8 @@ public final class FrameInference {
     public record Response(String schemaVersion, String modelVersion, List<Result> frames) {}
 
     /**
-     * 프레임 하나의 결과. {@code collapseProbability}는 나쁜 자세일 확률(학습 모델 전에는 규칙 점수, ADR 0043).
-     * {@code deviationType}은 이진 모델로 바꿀 때 뺀다(보류). 판정 불가면 {@code invalidReason}이
+     * 프레임 하나의 결과. {@code collapseProbability}는 이탈 확률 {@code p(이탈)}(학습 모델 전에는 규칙 점수, ADR 0045).
+     * {@code deviationType}은 학습 모델로 바꿀 때 뺀다(보류). 판정 불가면 {@code invalidReason}이
      * {@code unmeasurable}·{@code head_turn}이다.
      */
     public record Result(

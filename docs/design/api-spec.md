@@ -1308,7 +1308,7 @@ API가 FastAPI에 보내는 요청이다(앱은 부르지 않는다). 받은 좌
 | `frames[]` | 요청 프레임마다 하나, **같은 순서·같은 `t_ms`**. 다르면 API가 추론 실패로 본다(`stalled`). |
 | `valid` | 판정 가능 프레임인지. 사람 없음·앱의 판정 불가 표시·판정 가능 검사 실패는 `unmeasurable`, 고개 돌림은 `head_turn`. 사람이 없거나 앱이 판정 불가로 표시한 프레임은 유효로 올 수 없다. |
 | `collapse_probability` | 나쁜 자세일 확률 0~1. 학습 모델 전에는 규칙 점수([ADR 0020](../decisions/0020-single-api-decision-engine.md) 3절, 보정된 확률 아님). 판정 불가면 0. |
-| `deviation_type` | 이탈 종류. 이진 모델로 바꿀 때 뺀다(보류, [ADR 0043](../decisions/0043-binary-posture-model-output.md)). 지금은 사건(`decision`·`alert`)에 쓴다. 판정 불가면 `none`. |
+| `deviation_type` | 이탈 종류. 학습 모델(3클래스, ADR 0043)로 바꿀 때 뺀다(보류, [ADR 0045](../decisions/0045-posture-from-three-class-model.md)). 지금은 사건(`decision`·`alert`)에 쓴다. 판정 불가면 `none`. |
 
 API는 연결·응답 오류에 한 번 다시 부르고, 그래도 실패하면 502(실시간 연결에는 `stalled`)다.
 
@@ -1549,7 +1549,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0064): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(이진 모델 때 삭제, 보류) |
+| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0064): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, ADR 0045) |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |
