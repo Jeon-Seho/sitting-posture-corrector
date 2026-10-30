@@ -7,7 +7,7 @@ export function CameraPerformanceDialog() {
   return notice ? <PerformanceDialog notice={notice} /> : null
 }
 
-function PerformanceDialog({ notice }: { notice: string }) {
+export function PerformanceDialog({ notice, onDismiss = dismissPerformanceNotice, preview = false }: { notice: string; onDismiss?: () => void; preview?: boolean }) {
   const id = useId()
   const ref = useRef<HTMLDialogElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -20,7 +20,8 @@ function PerformanceDialog({ notice }: { notice: string }) {
   return (
     <dialog ref={ref} className="confirm-dialog" role="alertdialog" aria-modal="true"
       aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} onKeyDown={trapTab}
-      onCancel={(event) => { event.preventDefault(); dismissPerformanceNotice() }}>
+      onCancel={(event) => { event.preventDefault(); onDismiss() }}>
+      {preview && <p className="fine">사용자 안내 미리보기</p>}
       <h2 id={`${id}-title`}>카메라 처리 성능 안내</h2>
       <div id={`${id}-description`} className="profile-text">
         <p>{notice === 'cpu' ? 'GPU 처리를 시작하지 못해 CPU 처리로 전환했어요.'
@@ -31,7 +32,7 @@ function PerformanceDialog({ notice }: { notice: string }) {
         <p>Chrome·Edge의 설정 → 시스템에서 ‘가능한 경우 그래픽 가속 사용’을 켜고 브라우저를 다시 시작해 주세요. Firefox는 설정 → 일반 → 성능에서 하드웨어 가속을 확인해 주세요.</p>
         <p className="fine">사이트에서는 브라우저 설정을 직접 읽거나 변경할 수 없어요. 그래픽 드라이버나 브라우저의 제한도 원인일 수 있어요.</p>
       </div>
-      <div className="form-actions"><button ref={button} className="btn btn-primary" onClick={dismissPerformanceNotice}>확인</button></div>
+      <div className="form-actions"><button ref={button} className="btn btn-primary" onClick={onDismiss}>확인</button></div>
     </dialog>
   )
 }

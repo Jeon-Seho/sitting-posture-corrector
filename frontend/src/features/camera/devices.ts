@@ -1,8 +1,9 @@
 import { CAMERA_ERRORS } from './errors'
 
-export function requestCamera(selectedId?: string): Promise<MediaStream> {
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error(CAMERA_ERRORS.unsupported)
-  return navigator.mediaDevices.getUserMedia({
+export function requestCamera(selectedId?: string, acquire?: MediaDevices['getUserMedia']): Promise<MediaStream> {
+  const request = acquire ?? navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices)
+  if (!request) throw new Error(CAMERA_ERRORS.unsupported)
+  return request({
     audio: false,
     video: {
       width: { ideal: 640 },

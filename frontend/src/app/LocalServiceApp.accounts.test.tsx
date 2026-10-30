@@ -123,8 +123,8 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     const tabs = renderer!.root.findAllByProps({ className: 'nav-item' }).map(text)
     expect(tabs.slice(-2)).toEqual(['설정', '개발자 도구'])
     click('개발자 도구')
-    expect(text(renderer!.root)).toContain('그래픽 가속·CPU 전환')
-    expect(text(renderer!.root)).toContain('카메라 오류 안내')
+    expect(text(renderer!.root)).toContain('성능 안내 팝업')
+    expect(text(renderer!.root)).toContain('카메라 오류 화면')
     expect(renderer!.root.findAllByType('button').find(n => n.props['aria-label'] === '발표용 예시 기록 표시')?.props['aria-pressed']).toBe(false)
   })
   it('rejects a wrong developer password without sending it to the server', async () => {
@@ -148,8 +148,8 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     const tabs = renderer!.root.findAllByProps({ className: 'nav-item' }).map(text)
     expect(tabs.slice(-2)).toEqual(['설정', '개발자 도구'])
     click('개발자 도구')
-    expect(text(renderer!.root)).toContain('그래픽 가속·CPU 전환')
-    expect(text(renderer!.root)).toContain('카메라 오류 안내')
+    expect(text(renderer!.root)).toContain('성능 안내 팝업')
+    expect(text(renderer!.root)).toContain('카메라 오류 화면')
     expect(renderer!.root.findAllByType('button').find(n => n.props['aria-label'] === '발표용 예시 기록 표시')?.props['aria-pressed']).toBe(false)
   })
 

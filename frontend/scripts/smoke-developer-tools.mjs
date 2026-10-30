@@ -47,7 +47,7 @@ try {
   await until(() => evaluate(`!!document.querySelector('.shell')`), 'shell')
   assert.equal(await evaluate(`window.posegoodDesktop.cameraWindow`), true)
   await click('개발자 도구')
-  await evaluate(`[...document.querySelectorAll('.dev-group')].find(d=>d.querySelector('summary').textContent==='카메라·작은 창').open=true`)
+  await evaluate(`document.querySelector('[data-dev-section="camera"]').scrollIntoView()`)
   assert.equal(await evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='PiP 열기'&&!b.disabled)`), true)
   assert.equal(await evaluate(`document.querySelector('.capture-source').srcObject`), null)
   await click('PiP 열기')

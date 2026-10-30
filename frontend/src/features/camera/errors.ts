@@ -26,7 +26,7 @@ export function cameraPreparationError(cause: unknown): string {
     case 'NotReadableError':
       return CAMERA_ERRORS.deviceBusy
   }
-  if (cause instanceof Error && cause.message.startsWith('이 브라우저')) return cause.message
+  if (cause instanceof Error && Object.values(CAMERA_ERRORS).includes(cause.message)) return cause.message
   if (name === 'OverconstrainedError') return CAMERA_ERRORS.deviceUnavailable
   return CAMERA_ERRORS.preparationFailed
 }
