@@ -1329,7 +1329,7 @@ API는 연결·응답 오류에 한 번 다시 부르고, 그래도 실패하면
 | `valid` | boolean | 묶음에 판정 가능 프레임이 하나라도 있었는지. |
 | `posture` | `good` · `bad` · null | 그 프레임의 점수가 세션 정책 `threshold` 이상이면 `bad`. 그 순간의 판정이며 알림 확정(3초)은 `decision`·`alert`다. `valid:false`면 null. |
 | `collapse_probability` | 0 ~ 1 | 같은 프레임의 나쁜 자세 확률. 점수 = 100 × (1 − 이 값). `valid:false`면 0. |
-| `invalid_reason` | enum \| null | `valid`면 null. 아니면 `head_turn`(고개를 돌린 프레임만 있었음) · `unmeasurable`(그 밖, 쉬기·자리 비움 포함) · `settling`(아직 보내지 않음). |
+| `invalid_reason` | enum \| null | `valid`면 null. 아니면 `head_turn`(고개를 돌린 프레임이 하나라도 있었음) · `unmeasurable`(그 밖, 쉬기·자리 비움 포함) · `settling`(아직 보내지 않음). |
 
 ### RecordItem — 앱 기록 (camelCase)
 
@@ -1460,7 +1460,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | 묶음 | 받은 구간은 바로 `ack`하고 세션마다 모은다. 서버 시계로 `batch-window`(3초)가 지나면(새 구간이 없으면 200ms마다 확인) 넘긴다. 쉬기·자리 비움 구간, `end`, 끊김, 자정 넘김, 프레임 210장 초과에는 기다리지 않는다. 그래서 결과·알림은 최대 3초 늦다. |
 | 특징 계산 | 추론 서버가 프레임마다 한다(평균하지 않음, 판정 가능 검사·고개 돌림 포함). 카메라는 640×480 고정이다. |
 | 시간 나누기 | 프레임 하나는 찍힌 시각(`t_ms`)부터 다음 프레임이 찍힐 때까지를 맡는다(구간의 첫 프레임은 구간 시작부터). 한 프레임이 맡는 판정 시간은 0.5초까지이고 넘는 부분은 판정 불가다. 판정 불가 프레임 시간은 제외(`unknown_ms`)이고 연속 시간을 끊는다. 그래서 `valid_ms`는 판별 가능한 프레임 시간의 합이다(BE-5 ②). 3초 확정·회복·재알림도 이 시간(앱 시계)으로 센다. |
-| 판정 불가 | 묶음에 판정 가능 프레임이 없으면 `observation.valid:false`이고 `invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
+| 판정 불가 | 묶음에 판정 가능 프레임이 없으면 `observation.valid:false`이고 `invalid_reason`은 고개 돌린 프레임이 하나라도 있었으면 `head_turn`, 아니면 `unmeasurable`. |
 | 추론·판정 | 추론(`POST /v3/infer`) → 구간마다 프레임별 조각을 판정 엔진에 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `decision`을 보내기 전에 DB에 쓴다. |
 | 응답 | 구간마다 바로 `ack`. 묶음마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `progress`. |
 | 일시 장애 | 추론 연결 오류는 한 번 다시 부른다. 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다(서버가 3초 뒤 스스로 넘긴 묶음도). 그 묶음은 다시 판정하지 않으므로 그 시간은 누락(MISSING)이 된다. |

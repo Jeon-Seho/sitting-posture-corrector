@@ -42,7 +42,7 @@ public final class FrameFeatures {
     /**
      * 구간 하나의 계산 결과.
      *
-     * {@code deltas}가 null이면 판정에 쓸 프레임이 없다. 그때 {@code invalidReason}은 고개 돌림만 있었으면
+     * {@code deltas}가 null이면 판정에 쓸 프레임이 없다. 그때 {@code invalidReason}은 고개 돌린 프레임이 하나라도 있으면
      * {@code head_turn}, 아니면 {@code unmeasurable}이다. running이 아닌 구간은 둘 다 null이다.
      */
     public record Result(FeatureDeltas deltas, String invalidReason) {}

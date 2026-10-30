@@ -89,7 +89,7 @@ final class FrameBatch {
     }
 
     /**
-     * 앱에 보낼 관측 4.0: 묶음의 마지막 판정 가능 프레임. 없으면 고개 돌림만 있었을 때 {@code head_turn}, 아니면
+     * 앱에 보낼 관측 4.0: 묶음의 마지막 판정 가능 프레임. 없으면 고개 돌린 프레임이 하나라도 있을 때 {@code head_turn}, 아니면
      * {@code unmeasurable}.
      */
     static Observation.V4 live(List<FrameInference.Result> results, DoubleFunction<String> posture) {
