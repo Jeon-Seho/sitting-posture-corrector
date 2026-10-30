@@ -1,6 +1,15 @@
 package org.posegood.api.account;
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.Json;
@@ -23,16 +32,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.List;
-
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 /**
  * 로그인 토큰(ADR 0031): 짧은 access 토큰(JWT HS256, 30분, 저장 안 함)과 로그인 유지 토큰(refresh, 14일).
@@ -44,163 +44,177 @@ import javax.crypto.spec.SecretKeySpec;
  */
 @Component
 public class AuthTokens {
-    /** refresh 토큰을 담는 HttpOnly 쿠키 이름. */
-    public static final String REFRESH_COOKIE = "posegood_refresh";
+	/** refresh 토큰을 담는 HttpOnly 쿠키 이름. */
+	public static final String REFRESH_COOKIE = "posegood_refresh";
 
-    private static final Logger log = LoggerFactory.getLogger(AuthTokens.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
+	private static final Logger log = LoggerFactory.getLogger(AuthTokens.class);
+	private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final RefreshTokenRepository refreshTokens;
-    private final AccountService accounts;
-    private final JwtEncoder encoder;
-    private final JwtDecoder decoder;
-    private final Duration accessLifetime;
-    private final Duration refreshLifetime;
-    private final Duration refreshGrace;
-    private final Clock clock;
+	private final RefreshTokenRepository refreshTokens;
+	private final AccountService accounts;
+	private final JwtEncoder encoder;
+	private final JwtDecoder decoder;
+	private final Duration accessLifetime;
+	private final Duration refreshLifetime;
+	private final Duration refreshGrace;
+	private final Clock clock;
 
-    @Autowired
-    public AuthTokens(
-            RefreshTokenRepository refreshTokens,
-            AccountService accounts,
-            @Value("${posegood.auth.jwt-secret}") String secret,
-            @Value("${posegood.auth.access-lifetime}") Duration accessLifetime,
-            @Value("${posegood.auth.refresh-lifetime}") Duration refreshLifetime,
-            @Value("${posegood.auth.refresh-grace}") Duration refreshGrace) {
-        this(refreshTokens, accounts, key(secret), accessLifetime, refreshLifetime, refreshGrace, Clock.systemUTC());
-    }
+	@Autowired
+	public AuthTokens(
+		RefreshTokenRepository refreshTokens,
+		AccountService accounts,
+		@Value("${posegood.auth.jwt-secret}")
+		String secret,
+		@Value("${posegood.auth.access-lifetime}")
+		Duration accessLifetime,
+		@Value("${posegood.auth.refresh-lifetime}")
+		Duration refreshLifetime,
+		@Value("${posegood.auth.refresh-grace}")
+		Duration refreshGrace) {
+		this(refreshTokens, accounts, key(secret), accessLifetime, refreshLifetime, refreshGrace, Clock.systemUTC());
+	}
 
-    AuthTokens(
-            RefreshTokenRepository refreshTokens,
-            AccountService accounts,
-            SecretKey key,
-            Duration accessLifetime,
-            Duration refreshLifetime,
-            Duration refreshGrace,
-            Clock clock) {
-        this.refreshTokens = refreshTokens;
-        this.accounts = accounts;
-        this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
-        this.decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        this.accessLifetime = accessLifetime;
-        this.refreshLifetime = refreshLifetime;
-        this.refreshGrace = refreshGrace;
-        this.clock = clock;
-    }
+	AuthTokens(
+		RefreshTokenRepository refreshTokens,
+		AccountService accounts,
+		SecretKey key,
+		Duration accessLifetime,
+		Duration refreshLifetime,
+		Duration refreshGrace,
+		Clock clock) {
+		this.refreshTokens = refreshTokens;
+		this.accounts = accounts;
+		this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
+		this.decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		this.accessLifetime = accessLifetime;
+		this.refreshLifetime = refreshLifetime;
+		this.refreshGrace = refreshGrace;
+		this.clock = clock;
+	}
 
-    /** 발급 결과. {@code expiresIn}은 access 토큰의 남은 초다(앱은 만료 전에 미리 갱신한다). */
-    public record Issued(long owner, String accessToken, long expiresIn, String refreshToken) {}
+	/** 발급 결과. {@code expiresIn}은 access 토큰의 남은 초다(앱은 만료 전에 미리 갱신한다). */
+	public record Issued(long owner, String accessToken, long expiresIn, String refreshToken) {
+	}
 
-    /** 로그인·가입: access와 새 refresh 토큰을 발급한다. */
-    public Issued signIn(long owner) {
-        return issue(owner, clock.instant());
-    }
+	/** 로그인·가입: access와 새 refresh 토큰을 발급한다. */
+	public Issued signIn(long owner) {
+		return issue(owner, clock.instant());
+	}
 
-    /**
-     * refresh 토큰으로 새 access·refresh 토큰을 받는다. 없거나 만료·철회·재사용이면 401 {@code UNAUTHENTICATED}.
-     *
-     * 탈퇴한(CLOSED) 계정도 401이다.
-     */
-    public Issued refresh(String refreshToken) {
-        Instant now = clock.instant();
-        var stored = refreshToken == null || refreshToken.isBlank() ? null : refreshTokens.find(hash(refreshToken));
-        if (stored == null || stored.revokedAt() != null || !now.isBefore(stored.expiresAt())) throw expired();
-        if (stored.rotatedAt() != null && now.isAfter(stored.rotatedAt().plus(refreshGrace))) {
-            // 이미 바꾼 토큰을 유예 뒤에 다시 씀: 탈취로 보고 그 사용자의 로그인을 모두 끊는다.
-            refreshTokens.revokeAll(stored.owner(), now);
-            log.warn("refresh token reused after rotation; all logins revoked for one account");
-            throw expired();
-        }
-        accounts.requireActive(stored.owner());
-        refreshTokens.markRotated(stored.id(), now);
-        return issue(stored.owner(), now);
-    }
+	/**
+	 * refresh 토큰으로 새 access·refresh 토큰을 받는다. 없거나 만료·철회·재사용이면 401 {@code UNAUTHENTICATED}.
+	 *
+	 * 탈퇴한(CLOSED) 계정도 401이다.
+	 */
+	public Issued refresh(String refreshToken) {
+		Instant now = clock.instant();
+		var stored = refreshToken == null || refreshToken.isBlank() ? null : refreshTokens.find(hash(refreshToken));
+		if (stored == null || stored.revokedAt() != null || !now.isBefore(stored.expiresAt())) {
+			throw expired();
+		}
+		if (stored.rotatedAt() != null && now.isAfter(stored.rotatedAt().plus(refreshGrace))) {
+			// 이미 바꾼 토큰을 유예 뒤에 다시 씀: 탈취로 보고 그 사용자의 로그인을 모두 끊는다.
+			refreshTokens.revokeAll(stored.owner(), now);
+			log.warn("refresh token reused after rotation; all logins revoked for one account");
+			throw expired();
+		}
+		accounts.requireActive(stored.owner());
+		refreshTokens.markRotated(stored.id(), now);
+		return issue(stored.owner(), now);
+	}
 
-    /** 로그아웃: 이 기기의 refresh 토큰을 철회한다. 없거나 모르는 토큰이면 아무것도 하지 않는다. */
-    public void signOut(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) return;
-        var stored = refreshTokens.find(hash(refreshToken));
-        if (stored != null) refreshTokens.revoke(stored.id(), clock.instant());
-    }
+	/** 로그아웃: 이 기기의 refresh 토큰을 철회한다. 없거나 모르는 토큰이면 아무것도 하지 않는다. */
+	public void signOut(String refreshToken) {
+		if (refreshToken == null || refreshToken.isBlank()) {
+			return;
+		}
+		var stored = refreshTokens.find(hash(refreshToken));
+		if (stored != null) {
+			refreshTokens.revoke(stored.id(), clock.instant());
+		}
+	}
 
-    /** access 토큰 확인(실시간 hello). 틀리거나 만료면 401 {@code UNAUTHENTICATED}. */
-    public UsernamePasswordAuthenticationToken authenticate(String accessToken) {
-        if (accessToken == null || accessToken.isBlank()) throw unauthenticated();
-        try {
-            return authentication(decoder.decode(accessToken));
-        } catch (JwtException invalid) {
-            throw unauthenticated();
-        }
-    }
+	/** access 토큰 확인(실시간 hello). 틀리거나 만료면 401 {@code UNAUTHENTICATED}. */
+	public UsernamePasswordAuthenticationToken authenticate(String accessToken) {
+		if (accessToken == null || accessToken.isBlank()) {
+			throw unauthenticated();
+		}
+		try {
+			return authentication(decoder.decode(accessToken));
+		} catch (JwtException invalid) {
+			throw unauthenticated();
+		}
+	}
 
-    /** 확인된 JWT → 사용자 인증 정보(사용자 ID만 담음). HTTP 요청 필터도 이것을 쓴다. */
-    static UsernamePasswordAuthenticationToken authentication(Jwt jwt) {
-        long owner;
-        try {
-            owner = Long.parseLong(jwt.getSubject());
-        } catch (NumberFormatException | NullPointerException invalid) {
-            throw new JwtException("subject is not an account id");
-        }
-        return UsernamePasswordAuthenticationToken.authenticated(
-                new AccountPrincipal(owner), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-    }
+	/** 확인된 JWT → 사용자 인증 정보(사용자 ID만 담음). HTTP 요청 필터도 이것을 쓴다. */
+	static UsernamePasswordAuthenticationToken authentication(Jwt jwt) {
+		long owner;
+		try {
+			owner = Long.parseLong(jwt.getSubject());
+		} catch (NumberFormatException | NullPointerException invalid) {
+			throw new JwtException("subject is not an account id");
+		}
+		return UsernamePasswordAuthenticationToken.authenticated(
+			new AccountPrincipal(owner), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+	}
 
-    public JwtDecoder decoder() {
-        return decoder;
-    }
+	public JwtDecoder decoder() {
+		return decoder;
+	}
 
-    public Duration refreshLifetime() {
-        return refreshLifetime;
-    }
+	public Duration refreshLifetime() {
+		return refreshLifetime;
+	}
 
-    /** 매일 04:30(KST) 만료된 지 하루가 지난 refresh 토큰 행을 지운다. */
-    @Scheduled(cron = "0 30 4 * * *", zone = "Asia/Seoul")
-    public void purgeExpired() {
-        int removed = refreshTokens.purgeExpired(clock.instant().minus(Duration.ofDays(1)));
-        if (removed > 0) log.info("removed {} expired refresh tokens", removed);
-    }
+	/** 매일 04:30(KST) 만료된 지 하루가 지난 refresh 토큰 행을 지운다. */
+	@Scheduled(cron = "0 30 4 * * *", zone = "Asia/Seoul")
+	public void purgeExpired() {
+		int removed = refreshTokens.purgeExpired(clock.instant().minus(Duration.ofDays(1)));
+		if (removed > 0) {
+			log.info("removed {} expired refresh tokens", removed);
+		}
+	}
 
-    private Issued issue(long owner, Instant now) {
-        var claims =
-                JwtClaimsSet.builder()
-                        .subject(Long.toString(owner))
-                        .issuedAt(now)
-                        .expiresAt(now.plus(accessLifetime))
-                        .build();
-        String access =
-                encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-                        .getTokenValue();
-        var bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        String refresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        refreshTokens.insert(owner, hash(refresh), now, now.plus(refreshLifetime));
-        return new Issued(owner, access, accessLifetime.toSeconds(), refresh);
-    }
+	private Issued issue(long owner, Instant now) {
+		var claims = JwtClaimsSet.builder()
+			.subject(Long.toString(owner))
+			.issuedAt(now)
+			.expiresAt(now.plus(accessLifetime))
+			.build();
+		String access = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+			.getTokenValue();
+		var bytes = new byte[32];
+		RANDOM.nextBytes(bytes);
+		String refresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		refreshTokens.insert(owner, hash(refresh), now, now.plus(refreshLifetime));
+		return new Issued(owner, access, accessLifetime.toSeconds(), refresh);
+	}
 
-    static String hash(String token) {
-        return Json.sha256(token.getBytes(StandardCharsets.UTF_8));
-    }
+	static String hash(String token) {
+		return Json.sha256(token.getBytes(StandardCharsets.UTF_8));
+	}
 
-    /** 서명 키: 설정값(32바이트 이상). 비어 있으면 실행마다 새로 만든다 — 재시작하면 모든 access 토큰이 무효다. */
-    static SecretKey key(String secret) {
-        byte[] bytes;
-        if (secret == null || secret.isBlank()) {
-            log.warn("posegood.auth.jwt-secret is empty; using a random key (access tokens die on restart)");
-            bytes = new byte[32];
-            RANDOM.nextBytes(bytes);
-        } else {
-            bytes = secret.getBytes(StandardCharsets.UTF_8);
-            if (bytes.length < 32)
-                throw new IllegalStateException("posegood.auth.jwt-secret must be at least 32 bytes");
-        }
-        return new SecretKeySpec(bytes, "HmacSHA256");
-    }
+	/** 서명 키: 설정값(32바이트 이상). 비어 있으면 실행마다 새로 만든다 — 재시작하면 모든 access 토큰이 무효다. */
+	static SecretKey key(String secret) {
+		byte[] bytes;
+		if (secret == null || secret.isBlank()) {
+			log.warn("posegood.auth.jwt-secret is empty; using a random key (access tokens die on restart)");
+			bytes = new byte[32];
+			RANDOM.nextBytes(bytes);
+		} else {
+			bytes = secret.getBytes(StandardCharsets.UTF_8);
+			if (bytes.length < 32) {
+				throw new IllegalStateException("posegood.auth.jwt-secret must be at least 32 bytes");
+			}
+		}
+		return new SecretKeySpec(bytes, "HmacSHA256");
+	}
 
-    private static ApiError expired() {
-        return new ApiError(401, "UNAUTHENTICATED", "login expired; sign in again");
-    }
+	private static ApiError expired() {
+		return new ApiError(401, "UNAUTHENTICATED", "login expired; sign in again");
+	}
 
-    private static ApiError unauthenticated() {
-        return new ApiError(401, "UNAUTHENTICATED", "authentication required");
-    }
+	private static ApiError unauthenticated() {
+		return new ApiError(401, "UNAUTHENTICATED", "authentication required");
+	}
 }

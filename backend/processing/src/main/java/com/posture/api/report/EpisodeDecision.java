@@ -23,78 +23,78 @@ import java.util.Set;
  * @param deviationType 사건 {@code deviation_type} — (D-54) 알림 본문
  */
 public record EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
-                              String reason, long normalMs, String userId, Instant producedAt, String deviationType) {
+	String reason, long normalMs, String userId, Instant producedAt, String deviationType) {
 
-    /** 시험용: 봉투 값(user_id·produced_at·deviation_type) 없이. */
-    public EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
-                           String reason, long normalMs) {
-        this(sessionId, eventId, kind, timestampMs, onsetMs, reason, normalMs, null, null, "unspecified");
-    }
+	/** 시험용: 봉투 값(user_id·produced_at·deviation_type) 없이. */
+	public EpisodeDecision(String sessionId, long eventId, String kind, long timestampMs, long onsetMs,
+		String reason, long normalMs) {
+		this(sessionId, eventId, kind, timestampMs, onsetMs, reason, normalMs, null, null, "unspecified");
+	}
 
-    static final Set<String> KINDS = Set.of(
-            "collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended",
-            "excluded_started", "excluded_ended");
+	static final Set<String> KINDS = Set.of(
+		"collapse_confirmed", "reminder", "recovery_confirmed", "interrupted", "session_ended",
+		"excluded_started", "excluded_ended");
 
-    /** (D-39) 제외 구간 사건의 {@code reason} → {@code excluded_interval.exclusion_reason}(V2.3 허용값). */
-    static final Map<String, String> EXCLUSION_REASONS = Map.of(
-            "rest", "PAUSE", "away", "ABSENCE", "unmeasurable", "UNMEASURABLE", "missing", "MISSING");
+	/** (D-39) 제외 구간 사건의 {@code reason} → {@code excluded_interval.exclusion_reason}(V2.3 허용값). */
+	static final Map<String, String> EXCLUSION_REASONS = Map.of(
+		"rest", "PAUSE", "away", "ABSENCE", "unmeasurable", "UNMEASURABLE", "missing", "MISSING");
 
-    /** 봉투째 받은 메시지에서 만든다. decision이 아니면 null. 형식이 틀리면 {@link IllegalArgumentException}. */
-    @SuppressWarnings("unchecked")
-    public static EpisodeDecision fromEnvelope(Map<String, Object> msg) {
-        if (msg == null) {
-            throw new IllegalArgumentException("빈 메시지");
-        }
-        if (!"1.0".equals(msg.get("schema_version")) || !(msg.get("session_id") instanceof String sid)
-                || sid.length() != 36) {
-            throw new IllegalArgumentException("봉투 형식 오류(schema_version 1.0·session_id UUID 필요)");
-        }
-        Object kind = msg.get("kind");
-        if ("progress".equals(kind)) {
-            return null;
-        }
-        if (!"decision".equals(kind)) {
-            throw new IllegalArgumentException("모르는 kind: " + kind);
-        }
-        if (!(msg.get("body") instanceof Map<?, ?> body) || !(body.get("event") instanceof Map<?, ?> ev)) {
-            throw new IllegalArgumentException("decision 본문에 event 없음");
-        }
-        Map<String, Object> event = (Map<String, Object>) ev;
-        Map<String, Object> summary = body.get("summary") instanceof Map<?, ?> s ? (Map<String, Object>) s : Map.of();
-        if (!(event.get("kind") instanceof String k) || !KINDS.contains(k)) {
-            throw new IllegalArgumentException("모르는 사건 종류: " + event.get("kind"));
-        }
-        if (!sid.equals(event.get("session_id"))) {
-            throw new IllegalArgumentException("봉투와 사건의 session_id가 다름");
-        }
-        long ts = nonNegative(event, "timestamp_ms");
-        long onset = nonNegative(event, "onset_ms");
-        long eventId = nonNegative(event, "event_id");
-        long normal = summary.get("normal_ms") instanceof Number n ? Math.max(0, n.longValue()) : 0;
-        if (!"session_ended".equals(k) && onset > ts) {
-            throw new IllegalArgumentException("onset_ms > timestamp_ms");
-        }
-        String reason = event.get("reason") instanceof String r ? r : null;
-        if (k.startsWith("excluded_") && !EXCLUSION_REASONS.containsKey(reason)) {
-            throw new IllegalArgumentException("제외 구간 사유 오류: " + reason);
-        }
-        String userId = msg.get("user_id") instanceof String u ? u : null;
-        Instant producedAt = null;
-        if (msg.get("produced_at") instanceof String p) {
-            try {
-                producedAt = Instant.parse(p);
-            } catch (DateTimeParseException exc) {
-                throw new IllegalArgumentException("produced_at 형식 오류: " + p);
-            }
-        }
-        String deviation = event.get("deviation_type") instanceof String dt ? dt : "unspecified";
-        return new EpisodeDecision(sid, eventId, k, ts, onset, reason, normal, userId, producedAt, deviation);
-    }
+	/** 봉투째 받은 메시지에서 만든다. decision이 아니면 null. 형식이 틀리면 {@link IllegalArgumentException}. */
+	@SuppressWarnings("unchecked")
+	public static EpisodeDecision fromEnvelope(Map<String, Object> msg) {
+		if (msg == null) {
+			throw new IllegalArgumentException("빈 메시지");
+		}
+		if (!"1.0".equals(msg.get("schema_version")) || !(msg.get("session_id") instanceof String sid)
+			|| sid.length() != 36) {
+			throw new IllegalArgumentException("봉투 형식 오류(schema_version 1.0·session_id UUID 필요)");
+		}
+		Object kind = msg.get("kind");
+		if ("progress".equals(kind)) {
+			return null;
+		}
+		if (!"decision".equals(kind)) {
+			throw new IllegalArgumentException("모르는 kind: " + kind);
+		}
+		if (!(msg.get("body") instanceof Map<?, ?> body) || !(body.get("event") instanceof Map<?, ?> ev)) {
+			throw new IllegalArgumentException("decision 본문에 event 없음");
+		}
+		Map<String, Object> event = (Map<String, Object>)ev;
+		Map<String, Object> summary = body.get("summary") instanceof Map<?, ?> s ? (Map<String, Object>)s : Map.of();
+		if (!(event.get("kind") instanceof String k) || !KINDS.contains(k)) {
+			throw new IllegalArgumentException("모르는 사건 종류: " + event.get("kind"));
+		}
+		if (!sid.equals(event.get("session_id"))) {
+			throw new IllegalArgumentException("봉투와 사건의 session_id가 다름");
+		}
+		long ts = nonNegative(event, "timestamp_ms");
+		long onset = nonNegative(event, "onset_ms");
+		long eventId = nonNegative(event, "event_id");
+		long normal = summary.get("normal_ms") instanceof Number n ? Math.max(0, n.longValue()) : 0;
+		if (!"session_ended".equals(k) && onset > ts) {
+			throw new IllegalArgumentException("onset_ms > timestamp_ms");
+		}
+		String reason = event.get("reason") instanceof String r ? r : null;
+		if (k.startsWith("excluded_") && !EXCLUSION_REASONS.containsKey(reason)) {
+			throw new IllegalArgumentException("제외 구간 사유 오류: " + reason);
+		}
+		String userId = msg.get("user_id") instanceof String u ? u : null;
+		Instant producedAt = null;
+		if (msg.get("produced_at") instanceof String p) {
+			try {
+				producedAt = Instant.parse(p);
+			} catch (DateTimeParseException exc) {
+				throw new IllegalArgumentException("produced_at 형식 오류: " + p);
+			}
+		}
+		String deviation = event.get("deviation_type") instanceof String dt ? dt : "unspecified";
+		return new EpisodeDecision(sid, eventId, k, ts, onset, reason, normal, userId, producedAt, deviation);
+	}
 
-    private static long nonNegative(Map<String, Object> m, String key) {
-        if (!(m.get(key) instanceof Number n) || n.longValue() < 0) {
-            throw new IllegalArgumentException(key + " 없음 또는 음수");
-        }
-        return n.longValue();
-    }
+	private static long nonNegative(Map<String, Object> values, String key) {
+		if (!(values.get(key) instanceof Number n) || n.longValue() < 0) {
+			throw new IllegalArgumentException(key + " 없음 또는 음수");
+		}
+		return n.longValue();
+	}
 }

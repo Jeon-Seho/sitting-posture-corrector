@@ -1,10 +1,10 @@
 package org.posegood.api.common;
 
-import tools.jackson.core.StreamReadFeature;
-
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import tools.jackson.core.StreamReadFeature;
 
 /**
  * application.properties로 켤 수 없는 JSON 읽기 규칙.
@@ -14,8 +14,8 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class JsonConfiguration {
-    @Bean
-    JsonMapperBuilderCustomizer strictDuplicateDetection() {
-        return builder -> builder.enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION);
-    }
+	@Bean
+	JsonMapperBuilderCustomizer strictDuplicateDetection() {
+		return builder -> builder.enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION);
+	}
 }

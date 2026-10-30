@@ -12,22 +12,23 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class CurrentUser {
-    private final AccountService accounts;
+	private final AccountService accounts;
 
-    public CurrentUser(AccountService accounts) {
-        this.accounts = accounts;
-    }
+	public CurrentUser(AccountService accounts) {
+		this.accounts = accounts;
+	}
 
-    public long id() {
-        return id(SecurityContextHolder.getContext().getAuthentication());
-    }
+	public long id() {
+		return id(SecurityContextHolder.getContext().getAuthentication());
+	}
 
-    public long id(Authentication authentication) {
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof AccountPrincipal principal))
-            throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
-        accounts.requireActive(principal.id());
-        return principal.id();
-    }
+	public long id(Authentication authentication) {
+		if (authentication == null
+			|| !authentication.isAuthenticated()
+			|| !(authentication.getPrincipal() instanceof AccountPrincipal principal)) {
+			throw new ApiError(401, "UNAUTHENTICATED", "authentication required");
+		}
+		accounts.requireActive(principal.id());
+		return principal.id();
+	}
 }

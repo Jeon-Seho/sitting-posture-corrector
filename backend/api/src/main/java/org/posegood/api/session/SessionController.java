@@ -1,13 +1,19 @@
 package org.posegood.api.session;
 
-import jakarta.validation.Valid;
+import java.util.UUID;
 
 import org.posegood.api.account.CurrentUser;
 import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
+import jakarta.validation.Valid;
 
 /**
  * /v2/sessions/* 측정 HTTP 경로: 생성, 종료, 조회.
@@ -20,30 +26,41 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v2/sessions")
 public class SessionController {
-    private final SessionService sessions;
-    private final CurrentUser current;
+	private final SessionService sessions;
+	private final CurrentUser current;
 
-    public SessionController(SessionService sessions, CurrentUser current) {
-        this.sessions = sessions;
-        this.current = current;
-    }
+	public SessionController(SessionService sessions, CurrentUser current) {
+		this.sessions = sessions;
+		this.current = current;
+	}
 
-    /** 세션 생성(PUT). 같은 요청을 다시 보내면 같은 결과. */
-    @PutMapping("/{id}")
-    public SessionView create(
-            @PathVariable UUID id, @Valid @RequestBody SessionRequests.Create request) {
-        return sessions.create(current.id(), id, request);
-    }
+	/** 세션 생성(PUT). 같은 요청을 다시 보내면 같은 결과. */
+	@PutMapping("/{id}")
+	public SessionView create(
+		@PathVariable
+		UUID id,
+		@Valid
+		@RequestBody
+		SessionRequests.Create request) {
+		return sessions.create(current.id(), id, request);
+	}
 
-    /** 세션 종료. */
-    @PostMapping("/{id}/end")
-    public SessionView end(@PathVariable UUID id, @Valid @RequestBody SessionRequests.End request) {
-        return sessions.end(current.id(), id, request.endMs());
-    }
+	/** 세션 종료. */
+	@PostMapping("/{id}/end")
+	public SessionView end(
+		@PathVariable
+		UUID id,
+		@Valid
+		@RequestBody
+		SessionRequests.End request) {
+		return sessions.end(current.id(), id, request.endMs());
+	}
 
-    /** 현재 상태 조회. */
-    @GetMapping("/{id}")
-    public SessionView get(@PathVariable UUID id) {
-        return sessions.get(current.id(), id);
-    }
+	/** 현재 상태 조회. */
+	@GetMapping("/{id}")
+	public SessionView get(
+		@PathVariable
+		UUID id) {
+		return sessions.get(current.id(), id);
+	}
 }

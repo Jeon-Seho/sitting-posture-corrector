@@ -1,11 +1,5 @@
 package com.posture.api.report;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -17,6 +11,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * (D-30, D-51) 판정 결과(decision) 하나를 V2.3 결과 테이블에 반영한다.
@@ -44,207 +44,213 @@ import java.util.function.Supplier;
 @Component
 public class EpisodeStoreService {
 
-    private static final Logger log = LoggerFactory.getLogger(EpisodeStoreService.class);
-    private static final int WARNED_LIMIT = 1000;
+	private static final Logger log = LoggerFactory.getLogger(EpisodeStoreService.class);
+	private static final int WARNED_LIMIT = 1000;
 
-    /** 반영 결과 */
-    public enum Outcome { STORED, DUPLICATE, SESSION_NOT_FOUND, EVENT_NOT_FOUND }
+	/** 반영 결과 */
+	public enum Outcome {
+		STORED, DUPLICATE, SESSION_NOT_FOUND, EVENT_NOT_FOUND
+	}
 
-    private final EpisodeStore store;
-    private final AlertPublisher alerts;
-    private final boolean alertsEnabled;
-    private final Duration alertMaxAge;
-    private final Supplier<Instant> clock;
-    private final AtomicLong alertsPublished = new AtomicLong();
-    private final AtomicLong alertsSkippedOff = new AtomicLong();
-    private final AtomicLong alertsSkippedStale = new AtomicLong();
-    private final AtomicLong stored = new AtomicLong();
-    private final AtomicLong duplicates = new AtomicLong();
-    private final AtomicLong sessionNotFound = new AtomicLong();
-    private final AtomicLong eventNotFound = new AtomicLong();
-    private final AtomicLong eventsInserted = new AtomicLong();
-    private final AtomicLong alertsInserted = new AtomicLong();
-    private final AtomicLong alertsWhileOff = new AtomicLong();
-    private final AtomicLong sessionsEnded = new AtomicLong();
-    private final AtomicLong excludedWritten = new AtomicLong();
-    private final AtomicReference<String> lastStoredAt = new AtomicReference<>();
-    private final Set<String> warnedSessions = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final EpisodeStore store;
+	private final AlertPublisher alerts;
+	private final boolean alertsEnabled;
+	private final Duration alertMaxAge;
+	private final Supplier<Instant> clock;
+	private final AtomicLong alertsPublished = new AtomicLong();
+	private final AtomicLong alertsSkippedOff = new AtomicLong();
+	private final AtomicLong alertsSkippedStale = new AtomicLong();
+	private final AtomicLong stored = new AtomicLong();
+	private final AtomicLong duplicates = new AtomicLong();
+	private final AtomicLong sessionNotFound = new AtomicLong();
+	private final AtomicLong eventNotFound = new AtomicLong();
+	private final AtomicLong eventsInserted = new AtomicLong();
+	private final AtomicLong alertsInserted = new AtomicLong();
+	private final AtomicLong alertsWhileOff = new AtomicLong();
+	private final AtomicLong sessionsEnded = new AtomicLong();
+	private final AtomicLong excludedWritten = new AtomicLong();
+	private final AtomicReference<String> lastStoredAt = new AtomicReference<>();
+	private final Set<String> warnedSessions = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    @Autowired
-    public EpisodeStoreService(EpisodeStore store, AlertPublisher alerts,
-                               @Value("${report.alerts.enabled:true}") boolean alertsEnabled,
-                               @Value("${report.alerts.max-age-ms:10000}") long alertMaxAgeMs) {
-        this(store, alerts, alertsEnabled, alertMaxAgeMs, Instant::now);
-    }
+	@Autowired
+	public EpisodeStoreService(EpisodeStore store, AlertPublisher alerts,
+		@Value("${report.alerts.enabled:true}")
+		boolean alertsEnabled,
+		@Value("${report.alerts.max-age-ms:10000}")
+		long alertMaxAgeMs) {
+		this(store, alerts, alertsEnabled, alertMaxAgeMs, Instant::now);
+	}
 
-    /** 시험용: 알림 발행 없이. */
-    EpisodeStoreService(EpisodeStore store) {
-        this(store, AlertPublisher.NO_OP, false, 10_000, Instant::now);
-    }
+	/** 시험용: 알림 발행 없이. */
+	EpisodeStoreService(EpisodeStore store) {
+		this(store, AlertPublisher.NO_OP, false, 10_000, Instant::now);
+	}
 
-    EpisodeStoreService(EpisodeStore store, AlertPublisher alerts, boolean alertsEnabled, long alertMaxAgeMs,
-                        Supplier<Instant> clock) {
-        this.store = store;
-        this.alerts = alerts;
-        this.alertsEnabled = alertsEnabled;
-        this.alertMaxAge = Duration.ofMillis(alertMaxAgeMs);
-        this.clock = clock;
-    }
+	EpisodeStoreService(EpisodeStore store, AlertPublisher alerts, boolean alertsEnabled, long alertMaxAgeMs,
+		Supplier<Instant> clock) {
+		this.store = store;
+		this.alerts = alerts;
+		this.alertsEnabled = alertsEnabled;
+		this.alertMaxAge = Duration.ofMillis(alertMaxAgeMs);
+		this.clock = clock;
+	}
 
-    public Outcome apply(EpisodeDecision d) {
-        SessionRow s = store.findSession(d.sessionId()).orElse(null);
-        if (s == null) {
-            sessionNotFound.incrementAndGet();
-            if (warnedSessions.size() < WARNED_LIMIT && warnedSessions.add(d.sessionId())) {
-                log.warn("판정 결과 저장: monitor_session 없음 — 건너뜀 (client_session_uuid={}, 입구 API가 세션 행을 만들어야 함)",
-                        d.sessionId());
-            }
-            return Outcome.SESSION_NOT_FOUND;
-        }
-        Outcome o = switch (d.kind()) {
-            case "collapse_confirmed" -> confirm(s, d);
-            case "reminder" -> remind(s, d);
-            case "recovery_confirmed" -> endEvent(s, d, true);
-            case "interrupted" -> endEvent(s, d, false);
-            case "session_ended" -> endSession(s, d);
-            case "excluded_started" -> startExcluded(s, d);
-            case "excluded_ended" -> endExcluded(s, d);
-            default -> throw new IllegalArgumentException("모르는 사건 종류: " + d.kind());
-        };
-        switch (o) {
-            case STORED -> {
-                stored.incrementAndGet();
-                lastStoredAt.set(Instant.now().toString());
-            }
-            case DUPLICATE -> duplicates.incrementAndGet();
-            case EVENT_NOT_FOUND -> {
-                eventNotFound.incrementAndGet();
-                log.warn("판정 결과 저장: 이벤트 없음 — {} 건너뜀 (session={}, onset_ms={}, event_id={})",
-                        d.kind(), d.sessionId(), d.onsetMs(), d.eventId());
-            }
-            default -> { }
-        }
-        return o;
-    }
+	public Outcome apply(EpisodeDecision decision) {
+		SessionRow session = store.findSession(decision.sessionId()).orElse(null);
+		if (session == null) {
+			sessionNotFound.incrementAndGet();
+			if (warnedSessions.size() < WARNED_LIMIT && warnedSessions.add(decision.sessionId())) {
+				log.warn("판정 결과 저장: monitor_session 없음 — 건너뜀 (client_session_uuid={}, 입구 API가 세션 행을 만들어야 함)",
+					decision.sessionId());
+			}
+			return Outcome.SESSION_NOT_FOUND;
+		}
+		Outcome outcome = switch (decision.kind()) {
+			case "collapse_confirmed" -> confirm(session, decision);
+			case "reminder" -> remind(session, decision);
+			case "recovery_confirmed" -> endEvent(session, decision, true);
+			case "interrupted" -> endEvent(session, decision, false);
+			case "session_ended" -> endSession(session, decision);
+			case "excluded_started" -> startExcluded(session, decision);
+			case "excluded_ended" -> endExcluded(session, decision);
+			default -> throw new IllegalArgumentException("모르는 사건 종류: " + decision.kind());
+		};
+		switch (outcome) {
+			case STORED -> {
+				stored.incrementAndGet();
+				lastStoredAt.set(Instant.now().toString());
+			}
+			case DUPLICATE -> duplicates.incrementAndGet();
+			case EVENT_NOT_FOUND -> {
+				eventNotFound.incrementAndGet();
+				log.warn("판정 결과 저장: 이벤트 없음 — {} 건너뜀 (session={}, onset_ms={}, event_id={})",
+					decision.kind(), decision.sessionId(), decision.onsetMs(), decision.eventId());
+			}
+			default -> {
+			}
+		}
+		return outcome;
+	}
 
-    /** 붕괴 확정: 이벤트 행 + 알림 시도 1. */
-    private Outcome confirm(SessionRow s, EpisodeDecision d) {
-        OptionalInt seq = store.eventSeqByStart(s.id(), d.onsetMs());
-        boolean inserted = false;
-        int eventSeq;
-        if (seq.isPresent()) {
-            eventSeq = seq.getAsInt();
-        } else {
-            eventSeq = store.maxEventSeq(s.id()) + 1;
-            store.insertEvent(s.id(), eventSeq, d.onsetMs(), d.timestampMs());
-            eventsInserted.incrementAndGet();
-            inserted = true;
-        }
-        boolean alert = alert(s, eventSeq, d);
-        return inserted || alert ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	/** 붕괴 확정: 이벤트 행 + 알림 시도 1. */
+	private Outcome confirm(SessionRow session, EpisodeDecision decision) {
+		OptionalInt seq = store.eventSeqByStart(session.id(), decision.onsetMs());
+		boolean inserted = false;
+		int eventSeq;
+		if (seq.isPresent()) {
+			eventSeq = seq.getAsInt();
+		} else {
+			eventSeq = store.maxEventSeq(session.id()) + 1;
+			store.insertEvent(session.id(), eventSeq, decision.onsetMs(), decision.timestampMs());
+			eventsInserted.incrementAndGet();
+			inserted = true;
+		}
+		boolean alert = alert(session, eventSeq, decision);
+		return inserted || alert ? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    /** 재알림: 다음 알림 시도. */
-    private Outcome remind(SessionRow s, EpisodeDecision d) {
-        OptionalInt seq = store.eventSeqByStart(s.id(), d.onsetMs());
-        if (seq.isEmpty()) {
-            return Outcome.EVENT_NOT_FOUND;
-        }
-        return alert(s, seq.getAsInt(), d) ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	/** 재알림: 다음 알림 시도. */
+	private Outcome remind(SessionRow session, EpisodeDecision decision) {
+		OptionalInt seq = store.eventSeqByStart(session.id(), decision.onsetMs());
+		if (seq.isEmpty()) {
+			return Outcome.EVENT_NOT_FOUND;
+		}
+		return alert(session, seq.getAsInt(), decision) ? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    /** @return 새로 넣었으면 true */
-    private boolean alert(SessionRow s, int eventSeq, EpisodeDecision d) {
-        long atMs = d.timestampMs();
-        if (store.alertExists(s.id(), eventSeq, atMs)) {
-            return false;
-        }
-        store.insertAlert(s.id(), eventSeq, atMs);
-        alertsInserted.incrementAndGet();
-        if (!s.alertEnabled()) {
-            alertsWhileOff.incrementAndGet();
-            alertsSkippedOff.incrementAndGet();
-        } else if (alertsEnabled) {
-            publishIfFresh(d);
-        }
-        return true;
-    }
+	/** @return 새로 넣었으면 true */
+	private boolean alert(SessionRow session, int eventSeq, EpisodeDecision decision) {
+		long atMs = decision.timestampMs();
+		if (store.alertExists(session.id(), eventSeq, atMs)) {
+			return false;
+		}
+		store.insertAlert(session.id(), eventSeq, atMs);
+		alertsInserted.incrementAndGet();
+		if (!session.alertEnabled()) {
+			alertsWhileOff.incrementAndGet();
+			alertsSkippedOff.incrementAndGet();
+		} else if (alertsEnabled) {
+			publishIfFresh(decision);
+		}
+		return true;
+	}
 
-    /** (D-54) 판정이 낸 지 max-age 안이면 발행. produced_at이 없으면(옛 메시지·시험) 새것으로 본다. */
-    private void publishIfFresh(EpisodeDecision d) {
-        Instant now = clock.get();
-        if (d.producedAt() != null && Duration.between(d.producedAt(), now).compareTo(alertMaxAge) > 0) {
-            alertsSkippedStale.incrementAndGet();
-            log.info("알림 발행 안 함 — 오래된 사건 (session={}, event_id={}, produced_at={})",
-                    d.sessionId(), d.eventId(), d.producedAt());
-            return;
-        }
-        alerts.publish(d);
-        alertsPublished.incrementAndGet();
-    }
+	/** (D-54) 판정이 낸 지 max-age 안이면 발행. produced_at이 없으면(옛 메시지·시험) 새것으로 본다. */
+	private void publishIfFresh(EpisodeDecision decision) {
+		Instant now = clock.get();
+		if (decision.producedAt() != null && Duration.between(decision.producedAt(), now).compareTo(alertMaxAge) > 0) {
+			alertsSkippedStale.incrementAndGet();
+			log.info("알림 발행 안 함 — 오래된 사건 (session={}, event_id={}, produced_at={})",
+				decision.sessionId(), decision.eventId(), decision.producedAt());
+			return;
+		}
+		alerts.publish(decision);
+		alertsPublished.incrementAndGet();
+	}
 
-    private Outcome endEvent(SessionRow s, EpisodeDecision d, boolean recovered) {
-        OptionalInt seq = store.eventSeqByStart(s.id(), d.onsetMs());
-        if (seq.isEmpty()) {
-            return Outcome.EVENT_NOT_FOUND;
-        }
-        return store.endEvent(s.id(), seq.getAsInt(), d.timestampMs(), recovered)
-                ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	private Outcome endEvent(SessionRow session, EpisodeDecision decision, boolean recovered) {
+		OptionalInt seq = store.eventSeqByStart(session.id(), decision.onsetMs());
+		if (seq.isEmpty()) {
+			return Outcome.EVENT_NOT_FOUND;
+		}
+		return store.endEvent(session.id(), seq.getAsInt(), decision.timestampMs(), recovered)
+			? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    private Outcome endSession(SessionRow s, EpisodeDecision d) {
-        // 판정기는 세션 종료 전에 진행 중 사건을 interrupted(ended)로 닫는다. 그래도 열린 이벤트가 있으면(앞 메시지 유실) 닫는다(BR-12).
-        int closed = store.endOpenEvents(s.id(), d.timestampMs());
-        closed += store.endOpenExcluded(s.id(), d.timestampMs());
-        boolean ended = store.endSession(s.id(), d.timestampMs(), d.normalMs());
-        if (ended) {
-            sessionsEnded.incrementAndGet();
-        }
-        return ended || closed > 0 ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	private Outcome endSession(SessionRow session, EpisodeDecision decision) {
+		// 판정기는 세션 종료 전에 진행 중 사건을 interrupted(ended)로 닫는다. 그래도 열린 이벤트가 있으면(앞 메시지 유실) 닫는다(BR-12).
+		int closed = store.endOpenEvents(session.id(), decision.timestampMs());
+		closed += store.endOpenExcluded(session.id(), decision.timestampMs());
+		boolean ended = store.endSession(session.id(), decision.timestampMs(), decision.normalMs());
+		if (ended) {
+			sessionsEnded.incrementAndGet();
+		}
+		return ended || closed > 0 ? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    /** (D-39) 제외 구간 시작: 종료 시각 없이 행을 연다. */
-    private Outcome startExcluded(SessionRow s, EpisodeDecision d) {
-        boolean inserted = store.startExcluded(s.id(), d.onsetMs(), exclusion(d));
-        if (inserted) {
-            excludedWritten.incrementAndGet();
-        }
-        return inserted ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	/** (D-39) 제외 구간 시작: 종료 시각 없이 행을 연다. */
+	private Outcome startExcluded(SessionRow session, EpisodeDecision decision) {
+		boolean inserted = store.startExcluded(session.id(), decision.onsetMs(), exclusion(decision));
+		if (inserted) {
+			excludedWritten.incrementAndGet();
+		}
+		return inserted ? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    /** (D-39) 제외 구간 끝: 열린 행을 닫는다(행이 없으면 시작·끝을 함께 넣는다). */
-    private Outcome endExcluded(SessionRow s, EpisodeDecision d) {
-        boolean changed = store.endExcluded(s.id(), d.onsetMs(), d.timestampMs(), exclusion(d));
-        if (changed) {
-            excludedWritten.incrementAndGet();
-        }
-        return changed ? Outcome.STORED : Outcome.DUPLICATE;
-    }
+	/** (D-39) 제외 구간 끝: 열린 행을 닫는다(행이 없으면 시작·끝을 함께 넣는다). */
+	private Outcome endExcluded(SessionRow session, EpisodeDecision decision) {
+		boolean changed = store.endExcluded(session.id(), decision.onsetMs(), decision.timestampMs(),
+			exclusion(decision));
+		if (changed) {
+			excludedWritten.incrementAndGet();
+		}
+		return changed ? Outcome.STORED : Outcome.DUPLICATE;
+	}
 
-    private static String exclusion(EpisodeDecision d) {
-        String r = EpisodeDecision.EXCLUSION_REASONS.get(d.reason());
-        if (r == null) {
-            throw new IllegalArgumentException("제외 구간 사유 오류: " + d.reason());
-        }
-        return r;
-    }
+	private static String exclusion(EpisodeDecision decision) {
+		String reason = EpisodeDecision.EXCLUSION_REASONS.get(decision.reason());
+		if (reason == null) {
+			throw new IllegalArgumentException("제외 구간 사유 오류: " + decision.reason());
+		}
+		return reason;
+	}
 
-    public Map<String, Object> status() {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("stored", stored.get());
-        m.put("duplicates", duplicates.get());
-        m.put("sessionNotFound", sessionNotFound.get());
-        m.put("eventNotFound", eventNotFound.get());
-        m.put("eventsInserted", eventsInserted.get());
-        m.put("alertsInserted", alertsInserted.get());
-        m.put("alertsWhileOff", alertsWhileOff.get());
-        m.put("alertsPublished", alertsPublished.get());
-        m.put("alertsSkippedOff", alertsSkippedOff.get());
-        m.put("alertsSkippedStale", alertsSkippedStale.get());
-        m.put("alertsPublishEnabled", alertsEnabled);
-        m.put("sessionsEnded", sessionsEnded.get());
-        m.put("excludedWritten", excludedWritten.get());
-        m.put("lastStoredAt", lastStoredAt.get());
-        return m;
-    }
+	public Map<String, Object> status() {
+		Map<String, Object> status = new LinkedHashMap<>();
+		status.put("stored", stored.get());
+		status.put("duplicates", duplicates.get());
+		status.put("sessionNotFound", sessionNotFound.get());
+		status.put("eventNotFound", eventNotFound.get());
+		status.put("eventsInserted", eventsInserted.get());
+		status.put("alertsInserted", alertsInserted.get());
+		status.put("alertsWhileOff", alertsWhileOff.get());
+		status.put("alertsPublished", alertsPublished.get());
+		status.put("alertsSkippedOff", alertsSkippedOff.get());
+		status.put("alertsSkippedStale", alertsSkippedStale.get());
+		status.put("alertsPublishEnabled", alertsEnabled);
+		status.put("sessionsEnded", sessionsEnded.get());
+		status.put("excludedWritten", excludedWritten.get());
+		status.put("lastStoredAt", lastStoredAt.get());
+		return status;
+	}
 }

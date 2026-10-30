@@ -1,13 +1,5 @@
 package com.posture.api.posture.store;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,6 +12,14 @@ import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
 /**
  * (D-32, D-41, D-51, D-65) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.6, {@code posture_service})가 준비됐는지 확인한다.
  * 입출구 서버(팀 {@code backend/api})는 V2.6이 아니면 시작하지 않는다. 여기서는 몇 판인지 알려 주고, V2.6이 아니면 문제로 본다.
@@ -28,7 +28,8 @@ import java.util.regex.Pattern;
  *   <li>처리 서비스가 쓰거나 확인하는 테이블이 있는지, 지운 테이블(V1.1·V2.0)이 남아 있지 않은지.
  *       {@code SPRING_SESSION}·{@code SPRING_SESSION_ATTRIBUTES}는 V2.6부터 쓰지 않아(토큰 로그인) 보지 않는다.</li>
  *   <li>판정 결과 저장(D-30)·시험 행이 쓸 컬럼이 있는지, V2.2에서 지운 컬럼이 남아 있지 않은지(남아 있으면 V2.1 DB).</li>
- *   <li>판 표시: V2.3 {@code daily_stat.min_until_collapse_sec}·{@code user_consent}(011·012), V2.4 {@code feature_archive.row_count}
+ *   <li>판 표시: V2.3 {@code daily_stat.min_until_collapse_sec}·{@code user_consent}(011·012),
+ *       V2.4 {@code feature_archive.row_count}
  *       삭제(013·014), V2.5 {@code baseline_posture.client_registration_uuid}(015), V2.6 {@code refresh_token}(016).</li>
  *   <li>기본 판정 정책: V2.3은 이름이 없고 값 4개(threshold·hold·recover·realert, UK-03)로 찾는다. 입출구 서버가 가입 때 없으면 만들므로
  *       행이 없는 것은 문제가 아니라 경고로만 알린다.</li>
@@ -42,238 +43,242 @@ import java.util.regex.Pattern;
 @Component
 public class ServiceSchemaVerifier {
 
-    private static final Logger log = LoggerFactory.getLogger(ServiceSchemaVerifier.class);
-    private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9_]{1,64}");
+	private static final Logger log = LoggerFactory.getLogger(ServiceSchemaVerifier.class);
+	private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9_]{1,64}");
 
-    static final String SPEC_VERSION = "V2.6";
+	static final String SPEC_VERSION = "V2.6";
 
-    static final List<String> EXPECTED_TABLES = List.of(
-            "threshold_policy", "user_account", "baseline_posture", "monitor_session", "excluded_interval",
-            "feature_archive", "collapse_event", "correction_alert", "daily_stat", "deletion_request",
-            "user_consent", "refresh_token");
+	static final List<String> EXPECTED_TABLES = List.of(
+		"threshold_policy", "user_account", "baseline_posture", "monitor_session", "excluded_interval",
+		"feature_archive", "collapse_event", "correction_alert", "daily_stat", "deletion_request",
+		"user_consent", "refresh_token");
 
-    /** V1.1·V2.0에 있었고 V2.1에서 지운 테이블. 하나라도 있으면 예전 버전 DB. */
-    static final List<String> REMOVED_TABLES = List.of(
-            "feature_def", "safety_range", "baseline_feature", "client_record", "capture_device", "model_version",
-            "input_result", "cep_outbox", "confirmed_snapshot", "cep_cleanup", "deployment", "error_log");
+	/** V1.1·V2.0에 있었고 V2.1에서 지운 테이블. 하나라도 있으면 예전 버전 DB. */
+	static final List<String> REMOVED_TABLES = List.of(
+		"feature_def", "safety_range", "baseline_feature", "client_record", "capture_device", "model_version",
+		"input_result", "cep_outbox", "confirmed_snapshot", "cep_cleanup", "deployment", "error_log");
 
-    /** 판정 결과 저장(D-30)과 시험 행(시험용 API)이 쓸 컬럼. */
-    static final Map<String, List<String>> REQUIRED_COLUMNS = Map.of(
-            "monitor_session", List.of("monitor_session_id", "client_session_uuid", "user_account_id",
-                    "baseline_posture_id", "threshold_policy_id", "alert_enabled", "started_at", "ended_at",
-                    "good_sec"),
-            "collapse_event", List.of("monitor_session_id", "event_seq", "started_at", "confirmed_at", "ended_at",
-                    "recovered_at"),
-            "correction_alert", List.of("monitor_session_id", "event_seq", "attempted_at"),
-            "excluded_interval", List.of("monitor_session_id", "started_at", "ended_at", "exclusion_reason"),
-            "threshold_policy", List.of("threshold_policy_id", "threshold", "hold_seconds", "recover_seconds",
-                    "realert_seconds", "created_at"),
-            "user_account", List.of("user_account_id", "login_email", "threshold_policy_id", "sound_alert_enabled"),
-            "baseline_posture", List.of("baseline_posture_id", "user_account_id", "client_registration_uuid",
-                    "registered_at"));
+	/** 판정 결과 저장(D-30)과 시험 행(시험용 API)이 쓸 컬럼. */
+	static final Map<String, List<String>> REQUIRED_COLUMNS = Map.of(
+		"monitor_session", List.of("monitor_session_id", "client_session_uuid", "user_account_id",
+			"baseline_posture_id", "threshold_policy_id", "alert_enabled", "started_at", "ended_at",
+			"good_sec"),
+		"collapse_event", List.of("monitor_session_id", "event_seq", "started_at", "confirmed_at", "ended_at",
+			"recovered_at"),
+		"correction_alert", List.of("monitor_session_id", "event_seq", "attempted_at"),
+		"excluded_interval", List.of("monitor_session_id", "started_at", "ended_at", "exclusion_reason"),
+		"threshold_policy", List.of("threshold_policy_id", "threshold", "hold_seconds", "recover_seconds",
+			"realert_seconds", "created_at"),
+		"user_account", List.of("user_account_id", "login_email", "threshold_policy_id", "sound_alert_enabled"),
+		"baseline_posture", List.of("baseline_posture_id", "user_account_id", "client_registration_uuid",
+			"registered_at"));
 
-    /** V2.3 표시 컬럼(migration 011). 없으면 V2.2 이하. */
-    static final String V23_COLUMN = "daily_stat.min_until_collapse_sec";
-    /** V2.5 표시 컬럼(migration 015). 없으면 V2.4 이하. 시험 행(기준 자세)이 이 값을 넣는다. */
-    static final String V25_COLUMN = "baseline_posture.client_registration_uuid";
-    /** V2.6 표시 테이블(migration 016). */
-    static final String V26_TABLE = "refresh_token";
+	/** V2.3 표시 컬럼(migration 011). 없으면 V2.2 이하. */
+	static final String V23_COLUMN = "daily_stat.min_until_collapse_sec";
+	/** V2.5 표시 컬럼(migration 015). 없으면 V2.4 이하. 시험 행(기준 자세)이 이 값을 넣는다. */
+	static final String V25_COLUMN = "baseline_posture.client_registration_uuid";
+	/** V2.6 표시 테이블(migration 016). */
+	static final String V26_TABLE = "refresh_token";
 
-    /** V2.2에서 지운 컬럼(있으면 V2.1 이하로 만든 DB) + V2.1에서 지운 컬럼. */
-    static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
-            "monitor_session", List.of("calibration_uuid", "end_reason", "frame_width", "frame_height",
-                    "capture_device_id", "model_version_code"),
-            "collapse_event", List.of("end_reason"),
-            "correction_alert", List.of("correction_alert_id", "attempt_seq", "delivered", "suppress_reason"),
-            "threshold_policy", List.of("policy_name", "created_by", "notify_max_per_hour"),
-            "user_account", List.of("auth_epoch"));
+	/** V2.2에서 지운 컬럼(있으면 V2.1 이하로 만든 DB) + V2.1에서 지운 컬럼. */
+	static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
+		"monitor_session", List.of("calibration_uuid", "end_reason", "frame_width", "frame_height",
+			"capture_device_id", "model_version_code"),
+		"collapse_event", List.of("end_reason"),
+		"correction_alert", List.of("correction_alert_id", "attempt_seq", "delivered", "suppress_reason"),
+		"threshold_policy", List.of("policy_name", "created_by", "notify_max_per_hour"),
+		"user_account", List.of("auth_epoch"));
 
-    static final List<String> REQUIRED_PRIVILEGES = List.of("SELECT", "INSERT", "UPDATE", "DELETE");
+	static final List<String> REQUIRED_PRIVILEGES = List.of("SELECT", "INSERT", "UPDATE", "DELETE");
 
-    private final ServiceDbProbe probe;
-    private final boolean enabled;
-    private final String schema;
-    private final DefaultPolicy defaultPolicy;
-    private final Supplier<Instant> clock;
+	private final ServiceDbProbe probe;
+	private final boolean enabled;
+	private final String schema;
+	private final DefaultPolicy defaultPolicy;
+	private final Supplier<Instant> clock;
 
-    @Autowired
-    public ServiceSchemaVerifier(
-            ServiceDbProbe probe,
-            @Value("${service-db.enabled:true}") boolean enabled,
-            @Value("${service-db.schema:posture_service}") String schema,
-            DefaultPolicy defaultPolicy) {
-        this(probe, enabled, schema, defaultPolicy, Instant::now);
-    }
+	@Autowired
+	public ServiceSchemaVerifier(
+		ServiceDbProbe probe,
+		@Value("${service-db.enabled:true}")
+		boolean enabled,
+		@Value("${service-db.schema:posture_service}")
+		String schema,
+		DefaultPolicy defaultPolicy) {
+		this(probe, enabled, schema, defaultPolicy, Instant::now);
+	}
 
-    ServiceSchemaVerifier(ServiceDbProbe probe, boolean enabled, String schema, DefaultPolicy defaultPolicy,
-                          Supplier<Instant> clock) {
-        this.probe = probe;
-        this.enabled = enabled;
-        this.schema = schema;
-        this.defaultPolicy = defaultPolicy;
-        this.clock = clock;
-    }
+	ServiceSchemaVerifier(ServiceDbProbe probe, boolean enabled, String schema, DefaultPolicy defaultPolicy,
+		Supplier<Instant> clock) {
+		this.probe = probe;
+		this.enabled = enabled;
+		this.schema = schema;
+		this.defaultPolicy = defaultPolicy;
+		this.clock = clock;
+	}
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void checkOnStartup() {
-        if (!enabled) {
-            log.info("서비스 DB 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
-            return;
-        }
-        Map<String, Object> r = check();
-        if (Boolean.TRUE.equals(r.get("ok"))) {
-            log.info("서비스 DB 확인: 준비됨 (schema={}, {}, 기본 정책 {} = id {}, 경고 {})", schema, r.get("specVersion"),
-                    defaultPolicy, r.get("defaultPolicyId"), r.get("warnings"));
-        } else {
-            log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /store/service-db)",
-                    schema, r.get("problems"));
-        }
-    }
+	@EventListener(ApplicationReadyEvent.class)
+	public void checkOnStartup() {
+		if (!enabled) {
+			log.info("서비스 DB 확인: 사용 안 함 (SERVICE_DB_ENABLED=false)");
+			return;
+		}
+		Map<String, Object> result = check();
+		if (Boolean.TRUE.equals(result.get("ok"))) {
+			log.info("서비스 DB 확인: 준비됨 (schema={}, {}, 기본 정책 {} = id {}, 경고 {})", schema, result.get("specVersion"),
+				defaultPolicy, result.get("defaultPolicyId"), result.get("warnings"));
+		} else {
+			log.warn("서비스 DB 확인: 준비 안 됨 (schema={}) — {} (판정 경로는 영향 없음, GET /store/service-db)",
+				schema, result.get("problems"));
+		}
+	}
 
-    /** 지금 상태를 검사한다. 예외를 밖으로 던지지 않는다. */
-    public Map<String, Object> check() {
-        Map<String, Object> r = new LinkedHashMap<>();
-        r.put("enabled", enabled);
-        r.put("schema", schema);
-        r.put("checkedAt", clock.get().toString());
-        r.put("targetSpecVersion", SPEC_VERSION);
-        List<String> problems = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-        if (!enabled) {
-            r.put("ok", false);
-            r.put("problems", List.of("사용 안 함 (SERVICE_DB_ENABLED=false)"));
-            return r;
-        }
-        if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
-            r.put("ok", false);
-            r.put("problems", List.of("스키마 이름이 올바르지 않음: " + schema));
-            return r;
-        }
-        try {
-            Set<String> tables = lower(probe.tables(schema));
-            r.put("tableCount", tables.size());
-            if (tables.isEmpty()) {
-                problems.add("스키마 " + schema + "가 없거나 테이블이 없음 (또는 권한 없음)");
-            }
-            List<String> missing = new ArrayList<>();
-            for (String t : EXPECTED_TABLES) {
-                if (!tables.contains(t.toLowerCase(Locale.ROOT))) {
-                    missing.add(t);
-                }
-            }
-            List<String> removed = new ArrayList<>();
-            for (String t : REMOVED_TABLES) {
-                if (tables.contains(t.toLowerCase(Locale.ROOT))) {
-                    removed.add(t);
-                }
-            }
-            r.put("missingTables", missing);
-            r.put("removedTablesPresent", removed);
-            if (!tables.isEmpty() && !missing.isEmpty() && !missing.equals(List.of(V26_TABLE))) {
-                problems.add("V2.6 테이블 없음: " + missing);
-            }
-            if (!removed.isEmpty()) {
-                problems.add("V2.1에서 지운 테이블이 남아 있음(예전 버전 DB): " + removed);
-            }
+	/** 지금 상태를 검사한다. 예외를 밖으로 던지지 않는다. */
+	public Map<String, Object> check() {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("enabled", enabled);
+		result.put("schema", schema);
+		result.put("checkedAt", clock.get().toString());
+		result.put("targetSpecVersion", SPEC_VERSION);
+		List<String> problems = new ArrayList<>();
+		List<String> warnings = new ArrayList<>();
+		if (!enabled) {
+			result.put("ok", false);
+			result.put("problems", List.of("사용 안 함 (SERVICE_DB_ENABLED=false)"));
+			return result;
+		}
+		if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
+			result.put("ok", false);
+			result.put("problems", List.of("스키마 이름이 올바르지 않음: " + schema));
+			return result;
+		}
+		try {
+			Set<String> tables = lower(probe.tables(schema));
+			result.put("tableCount", tables.size());
+			if (tables.isEmpty()) {
+				problems.add("스키마 " + schema + "가 없거나 테이블이 없음 (또는 권한 없음)");
+			}
+			List<String> missing = new ArrayList<>();
+			for (String t : EXPECTED_TABLES) {
+				if (!tables.contains(t.toLowerCase(Locale.ROOT))) {
+					missing.add(t);
+				}
+			}
+			List<String> removed = new ArrayList<>();
+			for (String t : REMOVED_TABLES) {
+				if (tables.contains(t.toLowerCase(Locale.ROOT))) {
+					removed.add(t);
+				}
+			}
+			result.put("missingTables", missing);
+			result.put("removedTablesPresent", removed);
+			if (!tables.isEmpty() && !missing.isEmpty() && !missing.equals(List.of(V26_TABLE))) {
+				problems.add("V2.6 테이블 없음: " + missing);
+			}
+			if (!removed.isEmpty()) {
+				problems.add("V2.1에서 지운 테이블이 남아 있음(예전 버전 DB): " + removed);
+			}
 
-            List<String> missingCols = new ArrayList<>();
-            List<String> removedCols = new ArrayList<>();
-            Map<String, List<String>> required = new LinkedHashMap<>(REQUIRED_COLUMNS);
-            required.put("daily_stat", List.of("min_until_collapse_sec"));
-            for (String table : new TreeSet<>(required.keySet())) {
-                if (!tables.contains(table)) {
-                    continue;
-                }
-                Set<String> cols = lower(probe.columns(schema, table));
-                for (String c : required.get(table)) {
-                    if (!cols.contains(c)) {
-                        missingCols.add(table + "." + c);
-                    }
-                }
-                for (String c : REMOVED_COLUMNS.getOrDefault(table, List.of())) {
-                    if (cols.contains(c)) {
-                        removedCols.add(table + "." + c);
-                    }
-                }
-            }
-            r.put("missingColumns", List.copyOf(missingCols));
-            r.put("removedColumnsPresent", removedCols);
-            boolean v23 = tables.contains("user_consent") && !missingCols.contains(V23_COLUMN)
-                    && tables.contains("daily_stat");
-            // V2.4: migration 013이 feature_archive.row_count를 지웠다(남아 있으면 V2.3)
-            boolean v24 = v23 && tables.contains("feature_archive")
-                    && !lower(probe.columns(schema, "feature_archive")).contains("row_count");
-            boolean v25 = v24 && !missingCols.contains(V25_COLUMN);
-            boolean v26 = v25 && tables.contains(V26_TABLE);
-            String version = v26 ? SPEC_VERSION : v25 ? "V2.5" : v24 ? "V2.4" : v23 ? "V2.3"
-                    : (removedCols.isEmpty() ? "V2.2 이하" : "V2.1 이하");
-            r.put("specVersion", version);
-            if (missingCols.remove(V23_COLUMN)) {
-                problems.add("V2.3 아님: " + V23_COLUMN + " 없음 (database/migrations/011_add_until_collapse_daily_stat.sql)");
-            }
-            missingCols.remove(V25_COLUMN);
-            if (v23 && !v26) {
-                String apply = v25 ? "016" : v24 ? "015·016" : "013·014·015·016";
-                problems.add(SPEC_VERSION + " 아님(지금 " + version + "): migration " + apply
-                        + "을 번호순으로 적용 (database/README.md 1장)");
-            }
-            if (!missingCols.isEmpty()) {
-                problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);
-            }
-            if (!removedCols.isEmpty()) {
-                problems.add("V2.2에서 지운 컬럼이 남아 있음(예전 버전 DB — schema_V2_6.sql로 다시 만듦): " + removedCols);
-            }
+			List<String> missingCols = new ArrayList<>();
+			List<String> removedCols = new ArrayList<>();
+			Map<String, List<String>> required = new LinkedHashMap<>(REQUIRED_COLUMNS);
+			required.put("daily_stat", List.of("min_until_collapse_sec"));
+			for (String table : new TreeSet<>(required.keySet())) {
+				if (!tables.contains(table)) {
+					continue;
+				}
+				Set<String> cols = lower(probe.columns(schema, table));
+				for (String c : required.get(table)) {
+					if (!cols.contains(c)) {
+						missingCols.add(table + "." + c);
+					}
+				}
+				for (String c : REMOVED_COLUMNS.getOrDefault(table, List.of())) {
+					if (cols.contains(c)) {
+						removedCols.add(table + "." + c);
+					}
+				}
+			}
+			result.put("missingColumns", List.copyOf(missingCols));
+			result.put("removedColumnsPresent", removedCols);
+			boolean v23 = tables.contains("user_consent") && !missingCols.contains(V23_COLUMN)
+				&& tables.contains("daily_stat");
+			// V2.4: migration 013이 feature_archive.row_count를 지웠다(남아 있으면 V2.3)
+			boolean v24 = v23 && tables.contains("feature_archive")
+				&& !lower(probe.columns(schema, "feature_archive")).contains("row_count");
+			boolean v25 = v24 && !missingCols.contains(V25_COLUMN);
+			boolean v26 = v25 && tables.contains(V26_TABLE);
+			String version = v26 ? SPEC_VERSION : v25 ? "V2.5" : v24 ? "V2.4" : v23 ? "V2.3"
+				: (removedCols.isEmpty() ? "V2.2 이하" : "V2.1 이하");
+			result.put("specVersion", version);
+			if (missingCols.remove(V23_COLUMN)) {
+				problems
+					.add("V2.3 아님: " + V23_COLUMN + " 없음 (database/migrations/011_add_until_collapse_daily_stat.sql)");
+			}
+			missingCols.remove(V25_COLUMN);
+			if (v23 && !v26) {
+				String apply = v25 ? "016" : v24 ? "015·016" : "013·014·015·016";
+				problems.add(SPEC_VERSION + " 아님(지금 " + version + "): migration " + apply
+					+ "을 번호순으로 적용 (database/README.md 1장)");
+			}
+			if (!missingCols.isEmpty()) {
+				problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);
+			}
+			if (!removedCols.isEmpty()) {
+				problems.add("V2.2에서 지운 컬럼이 남아 있음(예전 버전 DB — schema_V2_6.sql로 다시 만듦): " + removedCols);
+			}
 
-            if (tables.contains("threshold_policy") && removedCols.stream().noneMatch(c -> c.startsWith("threshold_policy."))
-                    && missingCols.stream().noneMatch(c -> c.startsWith("threshold_policy."))) {
-                Optional<Long> id = probe.policyIdByValues(schema, defaultPolicy);
-                r.put("defaultPolicy", defaultPolicy.toMap());
-                r.put("defaultPolicyId", id.orElse(null));
-                if (id.isEmpty()) {
-                    warnings.add("기본 판정 정책 " + defaultPolicy + " 행 없음 — 입출구 서버가 첫 가입 때 만든다"
-                            + " (seed_04_threshold_policy.sql과 값이 다르면 SERVICE_DB_DEFAULT_* 확인)");
-                }
-            }
+			if (tables.contains("threshold_policy")
+				&& removedCols.stream().noneMatch(c -> c.startsWith("threshold_policy."))
+				&& missingCols.stream().noneMatch(c -> c.startsWith("threshold_policy."))) {
+				Optional<Long> id = probe.policyIdByValues(schema, defaultPolicy);
+				result.put("defaultPolicy", defaultPolicy.toMap());
+				result.put("defaultPolicyId", id.orElse(null));
+				if (id.isEmpty()) {
+					warnings.add("기본 판정 정책 " + defaultPolicy + " 행 없음 — 입출구 서버가 첫 가입 때 만든다"
+						+ " (seed_04_threshold_policy.sql과 값이 다르면 SERVICE_DB_DEFAULT_* 확인)");
+				}
+			}
 
-            Set<String> privs = upper(probe.privileges(schema));
-            List<String> missingPrivs = new ArrayList<>();
-            if (!privs.contains("ALL PRIVILEGES")) {
-                for (String p : REQUIRED_PRIVILEGES) {
-                    if (!privs.contains(p)) {
-                        missingPrivs.add(p);
-                    }
-                }
-            }
-            r.put("missingPrivileges", missingPrivs);
-            if (!missingPrivs.isEmpty()) {
-                problems.add("계정 권한 부족 (" + schema + ".*): " + missingPrivs);
-            }
-        } catch (RuntimeException exc) {
-            problems.add("조회 실패: " + exc.getMessage());
-        }
-        r.put("ok", problems.isEmpty());
-        r.put("problems", problems);
-        r.put("warnings", warnings);
-        return r;
-    }
+			Set<String> privs = upper(probe.privileges(schema));
+			List<String> missingPrivs = new ArrayList<>();
+			if (!privs.contains("ALL PRIVILEGES")) {
+				for (String p : REQUIRED_PRIVILEGES) {
+					if (!privs.contains(p)) {
+						missingPrivs.add(p);
+					}
+				}
+			}
+			result.put("missingPrivileges", missingPrivs);
+			if (!missingPrivs.isEmpty()) {
+				problems.add("계정 권한 부족 (" + schema + ".*): " + missingPrivs);
+			}
+		} catch (RuntimeException exc) {
+			problems.add("조회 실패: " + exc.getMessage());
+		}
+		result.put("ok", problems.isEmpty());
+		result.put("problems", problems);
+		result.put("warnings", warnings);
+		return result;
+	}
 
-    private static Set<String> lower(List<String> names) {
-        Set<String> s = new TreeSet<>();
-        for (String n : names) {
-            if (n != null) {
-                s.add(n.toLowerCase(Locale.ROOT));
-            }
-        }
-        return s;
-    }
+	private static Set<String> lower(List<String> names) {
+		Set<String> normalized = new TreeSet<>();
+		for (String n : names) {
+			if (n != null) {
+				normalized.add(n.toLowerCase(Locale.ROOT));
+			}
+		}
+		return normalized;
+	}
 
-    private static Set<String> upper(List<String> names) {
-        Set<String> s = new TreeSet<>();
-        for (String n : names) {
-            if (n != null) {
-                s.add(n.trim().toUpperCase(Locale.ROOT));
-            }
-        }
-        return s;
-    }
+	private static Set<String> upper(List<String> names) {
+		Set<String> normalized = new TreeSet<>();
+		for (String n : names) {
+			if (n != null) {
+				normalized.add(n.trim().toUpperCase(Locale.ROOT));
+			}
+		}
+		return normalized;
+	}
 }

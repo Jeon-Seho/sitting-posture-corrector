@@ -70,7 +70,7 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 | D4 | 가입 규칙 표(계획 0027 3절) | 「지금 프론트」를 문서 버전 `terms-2026-10`, 이름 50자, 나이 1~120 등으로 적음 | 10/13~14에 이미 `service-v2`, `[{type,document_version}]`, 이름 30자, 나이 14~120, 72바이트로 맞춤. 남은 것은 12자 검사(서버 연결 때) | 표를 「끝남」으로 |
 | D5 | 담당 | 계획 0027 「담당 미정」에 계정(2·3절)과 세션·등록 전송(1·4·5절)이 함께 있음 | 계정 연결(F12)은 BE, 서버로 보내는 처리·등록 전송(F1~F3)은 FE | 0027을 둘로 나눠 적도록 알린다 |
 | D6 | 개발 프록시(0027 7절) | Vite `/api` 프록시 `ws: true`로 `/v1/realtime` | `/api/v2/realtime`(연동 명세 1장) | 경로만 v2로 |
-| D7 | `check-browser`(0027 8절) | `run_browser()`가 임시 MySQL을 띄우고, 첫 서버 판정 단계(v1 세션)에서 실패 예상 | [계획 0030](0030-make-check-failures.md) G1~G3 | 합친 뒤 0030에 BE 쪽 원인(임시 MySQL, v1 세션)을 더한다 |
+| D7 | 구형 `check-browser`(0027 8절) | 당시 `run_browser()`의 임시 MySQL·v1 세션 불일치 | [계획 0030](0030-make-check-failures.md)의 복구 과제는 도구 삭제로 폐기됨 | 구형 게이트 복원·원인 추가 과제 없음. 현재 기본 검사와 명시적 연결 점검은 [품질 기준](../../quality.md)을 따름 |
 | D8 | 링크 | 계획 0027·`architecture.md`가 우리가 지운 `fe-server-integration-map.md`를 가리킴 | — | 합친 뒤 `check-repo`가 잡는다. [연동 명세](../../design/api-ws-spec.md)로 바꾼다 |
 | D9 | DB 판 | `architecture.md` 「저장은 DB 스키마 V2.0」 | V2.3 | V2.3으로 |
 

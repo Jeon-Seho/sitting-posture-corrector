@@ -1,6 +1,6 @@
 # `make check` 실패 원인과 고칠 것
 
-- 상태: planned (G1~G3는 FE, G4·G5는 DB·DevOps와 함께)
+- 상태: superseded (2026-10-29 도구 간소화로 종합 브라우저·Compose 복구 과제 폐기. 아래 원인과 실행 결과는 당시 기록)
 - 담당: FE(klaod-tech)가 원인 분석·브라우저 시나리오, Compose는 DB·DevOps
 - 시작일: 2026-10-14 (예전 번호 0028. BE 브랜치의 계획 0028과 겹쳐 10/15에 0030으로 옮기고 Gradle 전환 부분을 뺐다)
 - 관련: [FE 명령과 검사](../../design/fe-commands-and-checks.md), [계획 0029](0029-merge-backend-data-platform.md), [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)
@@ -23,15 +23,16 @@ FE는 빌드 도구 때문에 `make check`가 계속 실패한다고 의심했�
 | ⑥ `check-compose` | **실패.** 이 PC는 Docker 데몬이 꺼져 있어 돌리지 못했다. 데몬이 있어도 실패한다 | `infra/mysql/initdb/10-posegood-schema.sh`가 지워진 `schema_V1_1.sql`을 찾는다(`database/schema`에는 V2_2·V2_3만). 계정 브라우저 시나리오는 지운 계정 모드(`VITE_SERVER_ACCOUNTS`)를 쓴다 | 아니다 |
 | CI (`.github/workflows/harness.yml`) | ⑤·⑥ 때문에 실패 | `make check` 전체를 돌린다 | 아니다 |
 
-**결론: 지금 `make check` 실패는 빌드 도구 때문이 아니다.** 실패는 화면이 바뀌었는데 브라우저 시나리오를 고치지 않은 것(⑤)과 DB V2.3·계정 모드 제거를 Compose가 따라가지 못한 것(⑥)에서 온다. 빌드 도구를 바꿔도 이 실패는 그대로다.
+**당시 결론: `make check` 실패는 빌드 도구 때문이 아니었다.** 실패는 화면이 바뀌었는데 브라우저 시나리오를 고치지 않은 것(⑤)과 DB V2.3·계정 모드 제거를 Compose가 따라가지 못한 것(⑥)에서 왔다. 이 분석은 아래 도구 삭제 전 구성에 대한 기록이다.
 
 앞으로 실패할 수 있는 곳: BE 브랜치는 API가 MySQL 없이 시작하지 않는다(그 브랜치의 ADR 0020). 그 코드가 들어오면 ④·⑤도 임시 MySQL이 필요하다. (그 코드는 10/21 V3에, 10/22 PR #63으로 develop에 들어왔다)
 
 ## 문제와 완료 기준
 
-- `python tools/dev.py check-browser`와 `check-compose`가 통과하고, CI(`make check`)가 다시 초록이 된다.
+당시 목표는 `check-browser`·`check-compose`를 복구하는 것이었으나, 두 명령과 구형 시나리오는 2026-10-29 제거했다.
+복구 과제를 취소한 것이며 검사를 통과한 것으로 기록하지 않는다. 현재 기본 검사와 별도 MySQL·브라우저 점검은 [품질 기준](../../quality.md)을 따른다.
 
-## 고칠 것
+## 당시 복구 검토
 
 | # | 실패 | 고칠 곳 | 담당 |
 |---|---|---|---|
@@ -42,16 +43,19 @@ FE는 빌드 도구 때문에 `make check`가 계속 실패한다고 의심했�
 | G4 | ⑥ `schema_V1_1.sql` 없음 | 초기화 스크립트를 `schema_V2_3.sql`로(DB 브랜치 병합과 함께) | DB·DevOps |
 | G5 | ⑥ 계정 브라우저 시나리오 | 지운 계정 모드 대신 새 가입 화면(`features/auth/`)으로, 또는 서버 계정 연결 뒤 다시 | FE·DevOps |
 
-## 작업 단계
+## 과제 처리
 
-- [ ] G1~G3: 브라우저 시나리오 수정 후 `check-browser` 통과
-- [ ] G4·G5: DB·DevOps와 Compose 수정(Compose 이미지·CI 반영은 BE 계획 0028), `check-compose` 통과
-- [ ] CI 확인과 결과 기록
+- G1: `tools/browser/camera-preview.mjs`는 최신 develop 수정본을 개별 수동 점검용으로 보존한다. 현재 수동 실행 진입점 연결과 새로고침 뒤 재로그인 보완이 남아 있다.
+- G2·G3·G6: 구형 브라우저 시나리오 삭제로 복구 과제 폐기.
+- G4·G5: 종합 Compose 검사 복구 과제 폐기. 현재 Compose 실행 설정과 DB 준비는 [인프라 안내](../../../infra/README.md)를 따른다.
+- 삭제한 검사의 CI 재연결은 수행하지 않는다. 현재 CI와 명시적 연결 점검의 범위는 품질 기준에서 관리한다.
 
 ## 결정과 진행 기록
 
 - 2026-10-14: 원인 분석. `check-backend`는 통과했다. `make check` 실패는 ⑤·⑥이고 빌드 도구와 무관하다.
 - 2026-10-15: Gradle 전환은 BE가 BE 브랜치에서 끝냈다. 이 계획에서 전환 부분을 빼고 0028 → 0030으로 옮겼다(BE 계획 0028과 번호 겹침).
+- 2026-10-29 도구 간소화, 2026-10-30 develop 병합 후 삭제 유지: 구형 브라우저·Compose 검사 복구 계획을 대체됨으로 정리했다. 기존 실패·미실행 기록은 보존한다.
+- 2026-10-30 추가 develop 병합: `camera-preview.mjs`는 보존으로 변경했다. 구형 `check-browser`·`check-compose` 명령은 복원하지 않고 기본 검사 범위도 유지한다.
 
 ## 검증 결과와 남은 한계
 

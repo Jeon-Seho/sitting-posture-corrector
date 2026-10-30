@@ -1,6 +1,6 @@
-"""Run the API, inference and the account-mode frontend proxy together for local development.
+"""Run the API, inference and the frontend proxy together for local development.
 
-The API needs MySQL (ADR 0020): a disposable schema V2.2 database on the test MySQL server of
+The API needs MySQL (ADR 0020): a disposable schema V2.6 database on the test MySQL server of
 tools/test_mysql.py is created for the run and dropped afterwards.
 """
 
@@ -21,7 +21,7 @@ def dev_server():
     with mysql_server() as server, disposable_database(server) as database,             running_services(endpoints, database) as processes:
         frontend_processes = []
         with running_frontend_proxy(
-            endpoints.api, processes, on_started=frontend_processes.append, server_accounts=True,
+            endpoints.api, processes, on_started=frontend_processes.append,
         ) as frontend:
             print(f"서버 연결 미리보기: {frontend}", flush=True)
             print("임시 DB의 합성 계정으로 가입한 뒤 측정하세요. 종료하면 DB를 지웁니다. 종료: Ctrl+C", flush=True)

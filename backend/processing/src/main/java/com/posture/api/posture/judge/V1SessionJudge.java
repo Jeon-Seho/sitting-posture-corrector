@@ -40,506 +40,510 @@ import java.util.Set;
  */
 public final class V1SessionJudge {
 
-    static final Set<String> DEVIATION_TYPES =
-            Set.of("none", "forward_slouch", "left_lean", "right_lean", "unspecified");
-    static final long PROGRESS_INTERVAL_MS = 1000;
-    /** (D-39) 제외 구간 사유 = 사건 {@code reason} 값. 저장할 때 DB 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING)으로 바꾼다. */
-    static final Set<String> EXCLUSION_REASONS = Set.of("rest", "away", "unmeasurable", "missing");
+	static final Set<String> DEVIATION_TYPES = Set.of("none", "forward_slouch", "left_lean", "right_lean",
+		"unspecified");
+	static final long PROGRESS_INTERVAL_MS = 1000;
+	/** (D-39) 제외 구간 사유 = 사건 {@code reason} 값. 저장할 때 DB 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING)으로 바꾼다. */
+	static final Set<String> EXCLUSION_REASONS = Set.of("rest", "away", "unmeasurable", "missing");
 
-    /** 관측 1개를 처리한 결과. {@code skipped}가 있으면 반영하지 않은 것. */
-    public record Result(List<Map<String, Object>> decisions, Map<String, Object> progress, String skipped) {
-        static Result skip(String why) {
-            return new Result(List.of(), null, why);
-        }
-    }
+	/** 관측 1개를 처리한 결과. {@code skipped}가 있으면 반영하지 않은 것. */
+	public record Result(List<Map<String, Object>> decisions, Map<String, Object> progress, String skipped) {
+		static Result skip(String why) {
+			return new Result(List.of(), null, why);
+		}
+	}
 
-    private final String sessionId;
-    private final V1Policy policy;
+	private final String sessionId;
+	private final V1Policy policy;
 
-    // 시간 누적 (세션 기준 ms)
-    private long endMs;
-    private long validMs;
-    private long normalMs;
-    private long deviationMs;
-    private long restMs;
-    private long awayMs;
-    private long unknownMs;
-    private long missingMs;
-    private long holdMs;
-    private long recoveryMs;
-    private long onsetMs;
-    private long onsetValidMs;
+	// 시간 누적 (세션 기준 ms)
+	private long endMs;
+	private long validMs;
+	private long normalMs;
+	private long deviationMs;
+	private long restMs;
+	private long awayMs;
+	private long unknownMs;
+	private long missingMs;
+	private long holdMs;
+	private long recoveryMs;
+	private long onsetMs;
+	private long onsetValidMs;
 
-    // 사건 기록
-    private Episode active;
-    private Long previousOnsetValid;
-    private long eventId;
-    private long collapseCount;
-    private long alertCount;
-    private long intervalCount;
-    private long intervalSum;
-    private long recoveryCount;
-    private long recoverySum;
-    private final List<Map<String, Object>> events = new ArrayList<>();
+	// 사건 기록
+	private Episode active;
+	private Long previousOnsetValid;
+	private long eventId;
+	private long collapseCount;
+	private long alertCount;
+	private long intervalCount;
+	private long intervalSum;
+	private long recoveryCount;
+	private long recoverySum;
+	private final List<Map<String, Object>> events = new ArrayList<>();
 
-    private long lastSequence = -1;
-    private boolean ended;
-    private long lastProgressMs;
-    private long duplicates;
-    private long rejected;
-    private String currentDeviationType = "none";
+	private long lastSequence = -1;
+	private boolean ended;
+	private long lastProgressMs;
+	private long duplicates;
+	private long rejected;
+	private String currentDeviationType = "none";
 
-    // (D-39) 열린 제외 구간: 사유(null이면 없음), 시작·끝(세션 기준 ms)
-    private String excludedReason;
-    private long excludedStartMs;
-    private long excludedEndMs;
+	// (D-39) 열린 제외 구간: 사유(null이면 없음), 시작·끝(세션 기준 ms)
+	private String excludedReason;
+	private long excludedStartMs;
+	private long excludedEndMs;
 
-    public V1SessionJudge(String sessionId, V1Policy policy) {
-        this.sessionId = sessionId;
-        this.policy = policy;
-    }
+	public V1SessionJudge(String sessionId, V1Policy policy) {
+		this.sessionId = sessionId;
+		this.policy = policy;
+	}
 
-    private static final List<String> EVENT_KEYS = List.of("schema_version", "session_id", "event_id", "kind",
-            "timestamp_ms", "onset_ms", "onset_valid_ms", "deviation_type", "reason");
+	private static final List<String> EVENT_KEYS = List.of("schema_version", "session_id", "event_id", "kind",
+		"timestamp_ms", "onset_ms", "onset_valid_ms", "deviation_type", "reason");
 
-    /** 스냅샷 형식 버전. 필드 의미가 바뀌면 올리고, 다른 버전은 복원하지 않는다. */
-    static final int SNAPSHOT_VERSION = 1;
+	/** 스냅샷 형식 버전. 필드 의미가 바뀌면 올리고, 다른 버전은 복원하지 않는다. */
+	static final int SNAPSHOT_VERSION = 1;
 
-    /**
-     * (D-37) 판정 상태 전체를 JSON으로 옮길 수 있는 Map으로 만든다(숫자·문자열·불리언·null·List·Map만 사용).
-     */
-    public synchronized Map<String, Object> snapshot() {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("v", SNAPSHOT_VERSION);
-        m.put("session_id", sessionId);
-        Map<String, Object> p = new LinkedHashMap<>();
-        p.put("hold_ms", policy.holdMs());
-        p.put("recovery_ms", policy.recoveryMs());
-        p.put("reminder_ms", policy.reminderMs());
-        p.put("threshold", policy.threshold());
-        m.put("policy", p);
-        m.put("end_ms", endMs);
-        m.put("valid_ms", validMs);
-        m.put("normal_ms", normalMs);
-        m.put("deviation_ms", deviationMs);
-        m.put("rest_ms", restMs);
-        m.put("away_ms", awayMs);
-        m.put("unknown_ms", unknownMs);
-        m.put("missing_ms", missingMs);
-        m.put("hold_acc_ms", holdMs);
-        m.put("recovery_acc_ms", recoveryMs);
-        m.put("onset_ms", onsetMs);
-        m.put("onset_valid_ms", onsetValidMs);
-        if (active != null) {
-            Map<String, Object> a = new LinkedHashMap<>();
-            a.put("onset", active.onset);
-            a.put("onset_valid", active.onsetValid);
-            a.put("first_alert", active.firstAlert);
-            a.put("last_alert", active.lastAlert);
-            a.put("type", active.type);
-            m.put("active", a);
-        } else {
-            m.put("active", null);
-        }
-        m.put("previous_onset_valid", previousOnsetValid);
-        m.put("event_id", eventId);
-        m.put("collapse_count", collapseCount);
-        m.put("alert_count", alertCount);
-        m.put("interval_count", intervalCount);
-        m.put("interval_sum", intervalSum);
-        m.put("recovery_count", recoveryCount);
-        m.put("recovery_sum", recoverySum);
-        List<Map<String, Object>> ev = new ArrayList<>();
-        for (Map<String, Object> e : events) {
-            ev.add(new LinkedHashMap<>(e));
-        }
-        m.put("events", ev);
-        m.put("last_sequence", lastSequence);
-        m.put("ended", ended);
-        m.put("last_progress_ms", lastProgressMs);
-        m.put("duplicates", duplicates);
-        m.put("rejected", rejected);
-        m.put("current_deviation_type", currentDeviationType);
-        if (excludedReason != null) {
-            Map<String, Object> x = new LinkedHashMap<>();
-            x.put("reason", excludedReason);
-            x.put("start_ms", excludedStartMs);
-            x.put("end_ms", excludedEndMs);
-            m.put("excluded", x);
-        } else {
-            m.put("excluded", null);
-        }
-        return m;
-    }
+	/**
+	 * (D-37) 판정 상태 전체를 JSON으로 옮길 수 있는 Map으로 만든다(숫자·문자열·불리언·null·List·Map만 사용).
+	 */
+	public synchronized Map<String, Object> snapshot() {
+		Map<String, Object> snapshot = new LinkedHashMap<>();
+		snapshot.put("v", SNAPSHOT_VERSION);
+		snapshot.put("session_id", sessionId);
+		Map<String, Object> policyValues = new LinkedHashMap<>();
+		policyValues.put("hold_ms", policy.holdMs());
+		policyValues.put("recovery_ms", policy.recoveryMs());
+		policyValues.put("reminder_ms", policy.reminderMs());
+		policyValues.put("threshold", policy.threshold());
+		snapshot.put("policy", policyValues);
+		snapshot.put("end_ms", endMs);
+		snapshot.put("valid_ms", validMs);
+		snapshot.put("normal_ms", normalMs);
+		snapshot.put("deviation_ms", deviationMs);
+		snapshot.put("rest_ms", restMs);
+		snapshot.put("away_ms", awayMs);
+		snapshot.put("unknown_ms", unknownMs);
+		snapshot.put("missing_ms", missingMs);
+		snapshot.put("hold_acc_ms", holdMs);
+		snapshot.put("recovery_acc_ms", recoveryMs);
+		snapshot.put("onset_ms", onsetMs);
+		snapshot.put("onset_valid_ms", onsetValidMs);
+		if (active != null) {
+			Map<String, Object> activeState = new LinkedHashMap<>();
+			activeState.put("onset", active.onset);
+			activeState.put("onset_valid", active.onsetValid);
+			activeState.put("first_alert", active.firstAlert);
+			activeState.put("last_alert", active.lastAlert);
+			activeState.put("type", active.type);
+			snapshot.put("active", activeState);
+		} else {
+			snapshot.put("active", null);
+		}
+		snapshot.put("previous_onset_valid", previousOnsetValid);
+		snapshot.put("event_id", eventId);
+		snapshot.put("collapse_count", collapseCount);
+		snapshot.put("alert_count", alertCount);
+		snapshot.put("interval_count", intervalCount);
+		snapshot.put("interval_sum", intervalSum);
+		snapshot.put("recovery_count", recoveryCount);
+		snapshot.put("recovery_sum", recoverySum);
+		List<Map<String, Object>> ev = new ArrayList<>();
+		for (Map<String, Object> e : events) {
+			ev.add(new LinkedHashMap<>(e));
+		}
+		snapshot.put("events", ev);
+		snapshot.put("last_sequence", lastSequence);
+		snapshot.put("ended", ended);
+		snapshot.put("last_progress_ms", lastProgressMs);
+		snapshot.put("duplicates", duplicates);
+		snapshot.put("rejected", rejected);
+		snapshot.put("current_deviation_type", currentDeviationType);
+		if (excludedReason != null) {
+			Map<String, Object> excludedState = new LinkedHashMap<>();
+			excludedState.put("reason", excludedReason);
+			excludedState.put("start_ms", excludedStartMs);
+			excludedState.put("end_ms", excludedEndMs);
+			snapshot.put("excluded", excludedState);
+		} else {
+			snapshot.put("excluded", null);
+		}
+		return snapshot;
+	}
 
-    /**
-     * (D-37) {@link #snapshot()}로 만든 Map(JSON을 다시 읽은 것 — 숫자는 Integer·Long·Double 어느 것이든)에서 판정기를 되살린다.
-     *
-     * @throws IllegalArgumentException 버전이 다르거나 필수 값이 없을 때
-     */
-    @SuppressWarnings("unchecked")
-    public static V1SessionJudge restore(Map<String, Object> m) {
-        if (m == null || num(m.get("v"), -1) != SNAPSHOT_VERSION) {
-            throw new IllegalArgumentException("스냅샷 버전이 다름: " + (m == null ? null : m.get("v")));
-        }
-        if (!(m.get("session_id") instanceof String sid) || !(m.get("policy") instanceof Map<?, ?> pm)) {
-            throw new IllegalArgumentException("스냅샷에 session_id·policy 없음");
-        }
-        Map<String, Object> p = (Map<String, Object>) pm;
-        V1Policy policy = new V1Policy(req(p, "hold_ms"), req(p, "recovery_ms"), req(p, "reminder_ms"),
-                p.get("threshold") instanceof Number n ? n.doubleValue() : 0.7);
-        V1SessionJudge j = new V1SessionJudge(sid, policy);
-        j.endMs = req(m, "end_ms");
-        j.validMs = req(m, "valid_ms");
-        j.normalMs = req(m, "normal_ms");
-        j.deviationMs = req(m, "deviation_ms");
-        j.restMs = req(m, "rest_ms");
-        j.awayMs = req(m, "away_ms");
-        j.unknownMs = req(m, "unknown_ms");
-        j.missingMs = req(m, "missing_ms");
-        j.holdMs = req(m, "hold_acc_ms");
-        j.recoveryMs = req(m, "recovery_acc_ms");
-        j.onsetMs = req(m, "onset_ms");
-        j.onsetValidMs = req(m, "onset_valid_ms");
-        if (m.get("active") instanceof Map<?, ?> am) {
-            Map<String, Object> a = (Map<String, Object>) am;
-            Episode e = new Episode(req(a, "onset"), req(a, "onset_valid"), req(a, "first_alert"),
-                    a.get("type") instanceof String t ? t : "unspecified");
-            e.lastAlert = req(a, "last_alert");
-            j.active = e;
-        }
-        j.previousOnsetValid = m.get("previous_onset_valid") instanceof Number n ? n.longValue() : null;
-        j.eventId = req(m, "event_id");
-        j.collapseCount = req(m, "collapse_count");
-        j.alertCount = req(m, "alert_count");
-        j.intervalCount = req(m, "interval_count");
-        j.intervalSum = req(m, "interval_sum");
-        j.recoveryCount = req(m, "recovery_count");
-        j.recoverySum = req(m, "recovery_sum");
-        if (m.get("events") instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Map<?, ?> em) {
-                    // 처음 만든 것과 같은 키 순서·타입(Long)으로 다시 만든다. JSON 설정이 null을 빼고 썼어도 reason 키가 남게.
-                    Map<String, Object> src = (Map<String, Object>) em;
-                    Map<String, Object> e = new LinkedHashMap<>();
-                    for (String k : EVENT_KEYS) {
-                        Object x = src.get(k);
-                        e.put(k, x instanceof Number n && !"schema_version".equals(k) ? (Object) n.longValue() : x);
-                    }
-                    j.events.add(e);
-                }
-            }
-        }
-        j.lastSequence = req(m, "last_sequence");
-        j.ended = Boolean.TRUE.equals(m.get("ended"));
-        j.lastProgressMs = req(m, "last_progress_ms");
-        j.duplicates = num(m.get("duplicates"), 0);
-        j.rejected = num(m.get("rejected"), 0);
-        j.currentDeviationType = m.get("current_deviation_type") instanceof String t ? t : "none";
-        // (D-39) D-39 전에 저장된 스냅샷에는 이 키가 없다 — 열린 제외 구간 없음으로 이어간다(그 세션의 구간은 다음 경계부터 기록).
-        if (m.get("excluded") instanceof Map<?, ?> xm && xm.get("reason") instanceof String r
-                && EXCLUSION_REASONS.contains(r)) {
-            Map<String, Object> x = (Map<String, Object>) xm;
-            j.excludedReason = r;
-            j.excludedStartMs = req(x, "start_ms");
-            j.excludedEndMs = req(x, "end_ms");
-        }
-        return j;
-    }
+	/**
+	 * (D-37) {@link #snapshot()}로 만든 Map(JSON을 다시 읽은 것 — 숫자는 Integer·Long·Double 어느 것이든)에서 판정기를 되살린다.
+	 *
+	 * @throws IllegalArgumentException 버전이 다르거나 필수 값이 없을 때
+	 */
+	@SuppressWarnings("unchecked")
+	public static V1SessionJudge restore(Map<String, Object> snapshot) {
+		if (snapshot == null || num(snapshot.get("v"), -1) != SNAPSHOT_VERSION) {
+			throw new IllegalArgumentException("스냅샷 버전이 다름: " + (snapshot == null ? null : snapshot.get("v")));
+		}
+		if (!(snapshot.get("session_id") instanceof String sid) || !(snapshot.get("policy") instanceof Map<?, ?> pm)) {
+			throw new IllegalArgumentException("스냅샷에 session_id·policy 없음");
+		}
+		Map<String, Object> policyValues = (Map<String, Object>)pm;
+		V1Policy policy = new V1Policy(req(policyValues, "hold_ms"), req(policyValues, "recovery_ms"),
+			req(policyValues, "reminder_ms"),
+			policyValues.get("threshold") instanceof Number n ? n.doubleValue() : 0.7);
+		V1SessionJudge judge = new V1SessionJudge(sid, policy);
+		judge.endMs = req(snapshot, "end_ms");
+		judge.validMs = req(snapshot, "valid_ms");
+		judge.normalMs = req(snapshot, "normal_ms");
+		judge.deviationMs = req(snapshot, "deviation_ms");
+		judge.restMs = req(snapshot, "rest_ms");
+		judge.awayMs = req(snapshot, "away_ms");
+		judge.unknownMs = req(snapshot, "unknown_ms");
+		judge.missingMs = req(snapshot, "missing_ms");
+		judge.holdMs = req(snapshot, "hold_acc_ms");
+		judge.recoveryMs = req(snapshot, "recovery_acc_ms");
+		judge.onsetMs = req(snapshot, "onset_ms");
+		judge.onsetValidMs = req(snapshot, "onset_valid_ms");
+		if (snapshot.get("active") instanceof Map<?, ?> am) {
+			Map<String, Object> activeState = (Map<String, Object>)am;
+			Episode activeEpisode = new Episode(req(activeState, "onset"), req(activeState, "onset_valid"),
+				req(activeState, "first_alert"),
+				activeState.get("type") instanceof String t ? t : "unspecified");
+			activeEpisode.lastAlert = req(activeState, "last_alert");
+			judge.active = activeEpisode;
+		}
+		judge.previousOnsetValid = snapshot.get("previous_onset_valid") instanceof Number n ? n.longValue() : null;
+		judge.eventId = req(snapshot, "event_id");
+		judge.collapseCount = req(snapshot, "collapse_count");
+		judge.alertCount = req(snapshot, "alert_count");
+		judge.intervalCount = req(snapshot, "interval_count");
+		judge.intervalSum = req(snapshot, "interval_sum");
+		judge.recoveryCount = req(snapshot, "recovery_count");
+		judge.recoverySum = req(snapshot, "recovery_sum");
+		if (snapshot.get("events") instanceof List<?> list) {
+			for (Object o : list) {
+				if (o instanceof Map<?, ?> em) {
+					// 처음 만든 것과 같은 키 순서·타입(Long)으로 다시 만든다. JSON 설정이 null을 빼고 썼어도 reason 키가 남게.
+					Map<String, Object> src = (Map<String, Object>)em;
+					Map<String, Object> event = new LinkedHashMap<>();
+					for (String k : EVENT_KEYS) {
+						Object value = src.get(k);
+						event.put(k, value instanceof Number n && !"schema_version".equals(k)
+							? (Object)n.longValue() : value);
+					}
+					judge.events.add(event);
+				}
+			}
+		}
+		judge.lastSequence = req(snapshot, "last_sequence");
+		judge.ended = Boolean.TRUE.equals(snapshot.get("ended"));
+		judge.lastProgressMs = req(snapshot, "last_progress_ms");
+		judge.duplicates = num(snapshot.get("duplicates"), 0);
+		judge.rejected = num(snapshot.get("rejected"), 0);
+		judge.currentDeviationType = snapshot.get("current_deviation_type") instanceof String t ? t : "none";
+		// (D-39) D-39 전에 저장된 스냅샷에는 이 키가 없다 — 열린 제외 구간 없음으로 이어간다(그 세션의 구간은 다음 경계부터 기록).
+		if (snapshot.get("excluded") instanceof Map<?, ?> xm && xm.get("reason") instanceof String r
+			&& EXCLUSION_REASONS.contains(r)) {
+			Map<String, Object> excludedState = (Map<String, Object>)xm;
+			judge.excludedReason = r;
+			judge.excludedStartMs = req(excludedState, "start_ms");
+			judge.excludedEndMs = req(excludedState, "end_ms");
+		}
+		return judge;
+	}
 
-    private static long req(Map<String, Object> m, String key) {
-        if (!(m.get(key) instanceof Number n)) {
-            throw new IllegalArgumentException("스냅샷에 " + key + " 없음");
-        }
-        return n.longValue();
-    }
+	private static long req(Map<String, Object> values, String key) {
+		if (!(values.get(key) instanceof Number n)) {
+			throw new IllegalArgumentException("스냅샷에 " + key + " 없음");
+		}
+		return n.longValue();
+	}
 
-    private static long num(Object v, long fallback) {
-        return v instanceof Number n ? n.longValue() : fallback;
-    }
+	private static long num(Object value, long fallback) {
+		return value instanceof Number n ? n.longValue() : fallback;
+	}
 
-    public synchronized Result accept(V1Observation o) {
-        if (ended) {
-            rejected++;
-            return Result.skip("세션 종료 후 관측");
-        }
-        if (o.sequence() <= lastSequence) {
-            duplicates++;
-            return Result.skip("이미 반영한 sequence " + o.sequence() + " (마지막 " + lastSequence + ")");
-        }
-        if (o.startMs() < endMs) {
-            rejected++;
-            return Result.skip("구간 겹침 start_ms " + o.startMs() + " < 마지막 end_ms " + endMs);
-        }
-        List<Map<String, Object>> emitted = new ArrayList<>();
+	public synchronized Result accept(V1Observation observation) {
+		if (ended) {
+			rejected++;
+			return Result.skip("세션 종료 후 관측");
+		}
+		if (observation.sequence() <= lastSequence) {
+			duplicates++;
+			return Result.skip("이미 반영한 sequence " + observation.sequence() + " (마지막 " + lastSequence + ")");
+		}
+		if (observation.startMs() < endMs) {
+			rejected++;
+			return Result.skip("구간 겹침 start_ms " + observation.startMs() + " < 마지막 end_ms " + endMs);
+		}
+		List<Map<String, Object>> emitted = new ArrayList<>();
 
-        if (o.startMs() > endMs) {
-            interrupt("missing", endMs, emitted);
-            missingMs += o.startMs() - endMs;
-            exclude("missing", endMs, o.startMs(), emitted);
-        } else if (lastSequence >= 0 && o.sequence() != lastSequence + 1) {
-            interrupt("missing_sequence", endMs, emitted);
-        }
+		if (observation.startMs() > endMs) {
+			interrupt("missing", endMs, emitted);
+			missingMs += observation.startMs() - endMs;
+			exclude("missing", endMs, observation.startMs(), emitted);
+		} else if (lastSequence >= 0 && observation.sequence() != lastSequence + 1) {
+			interrupt("missing_sequence", endMs, emitted);
+		}
 
-        currentDeviationType = DEVIATION_TYPES.contains(o.deviationType()) ? o.deviationType() : "unspecified";
-        long d = o.durationMs();
-        if (!"running".equals(o.phase()) || !o.valid()) {
-            String reason = "running".equals(o.phase()) ? "unmeasurable" : o.phase();
-            interrupt(reason, o.startMs(), emitted);
-            exclude(reason, o.startMs(), o.endMs(), emitted);
-            endMs = o.endMs();
-            switch (o.phase()) {
-                case "rest" -> restMs += d;
-                case "away" -> awayMs += d;
-                default -> unknownMs += d;
-            }
-        } else {
-            closeExcluded(emitted);
-            boolean candidate = o.collapseProbability() >= policy.threshold();
-            endMs = o.endMs();
-            if (candidate && holdMs == 0) {
-                onsetMs = o.startMs();
-                onsetValidMs = validMs;
-            }
-            validMs += d;
-            if (candidate) {
-                deviationMs += d;
-                holdMs += d;
-                recoveryMs = 0;
-            } else {
-                normalMs += d;
-                holdMs = 0;
-                recoveryMs += d;
-            }
-            if (candidate && active == null && holdMs >= policy.holdMs()) {
-                confirmCollapse(emitted);
-            } else if (!candidate && active != null && recoveryMs >= policy.recoveryMs()) {
-                confirmRecovery(emitted);
-            } else if (candidate && active != null && endMs - active.lastAlert >= policy.reminderMs()) {
-                remind(emitted);
-            }
-        }
-        lastSequence = o.sequence();
+		currentDeviationType = DEVIATION_TYPES.contains(observation.deviationType())
+			? observation.deviationType() : "unspecified";
+		long durationMs = observation.durationMs();
+		if (!"running".equals(observation.phase()) || !observation.valid()) {
+			String reason = "running".equals(observation.phase()) ? "unmeasurable" : observation.phase();
+			interrupt(reason, observation.startMs(), emitted);
+			exclude(reason, observation.startMs(), observation.endMs(), emitted);
+			endMs = observation.endMs();
+			switch (observation.phase()) {
+				case "rest" -> restMs += durationMs;
+				case "away" -> awayMs += durationMs;
+				default -> unknownMs += durationMs;
+			}
+		} else {
+			closeExcluded(emitted);
+			boolean candidate = observation.collapseProbability() >= policy.threshold();
+			endMs = observation.endMs();
+			if (candidate && holdMs == 0) {
+				onsetMs = observation.startMs();
+				onsetValidMs = validMs;
+			}
+			validMs += durationMs;
+			if (candidate) {
+				deviationMs += durationMs;
+				holdMs += durationMs;
+				recoveryMs = 0;
+			} else {
+				normalMs += durationMs;
+				holdMs = 0;
+				recoveryMs += durationMs;
+			}
+			if (candidate && active == null && holdMs >= policy.holdMs()) {
+				confirmCollapse(emitted);
+			} else if (!candidate && active != null && recoveryMs >= policy.recoveryMs()) {
+				confirmRecovery(emitted);
+			} else if (candidate && active != null && endMs - active.lastAlert >= policy.reminderMs()) {
+				remind(emitted);
+			}
+		}
+		lastSequence = observation.sequence();
 
-        Map<String, Object> summary = summary();
-        List<Map<String, Object>> decisions = new ArrayList<>();
-        for (Map<String, Object> event : emitted) {
-            decisions.add(decisionBody(event, summary));
-        }
-        Map<String, Object> progress = null;
-        if (endMs - lastProgressMs >= PROGRESS_INTERVAL_MS) {
-            progress = progressBody(summary);
-            lastProgressMs = endMs;
-        }
-        return new Result(decisions, progress, null);
-    }
+		Map<String, Object> summary = summary();
+		List<Map<String, Object>> decisions = new ArrayList<>();
+		for (Map<String, Object> event : emitted) {
+			decisions.add(decisionBody(event, summary));
+		}
+		Map<String, Object> progress = null;
+		if (endMs - lastProgressMs >= PROGRESS_INTERVAL_MS) {
+			progress = progressBody(summary);
+			lastProgressMs = endMs;
+		}
+		return new Result(decisions, progress, null);
+	}
 
-    /** {@code session_ended}(end_ms) 처리. 이미 끝났으면 건너뜀. */
-    public synchronized Result end(long atMs) {
-        if (ended) {
-            duplicates++;
-            return Result.skip("이미 종료된 세션");
-        }
-        List<Map<String, Object>> emitted = new ArrayList<>();
-        long at = Math.max(atMs, endMs);
-        if (at > endMs) {
-            interrupt("missing", endMs, emitted);
-            missingMs += at - endMs;
-            exclude("missing", endMs, at, emitted);
-        }
-        interrupt("ended", endMs, emitted);
-        closeExcluded(emitted);
-        endMs = at;
-        ended = true;
-        emitted.add(event("session_ended", at, at, validMs, "none", "ended"));
-        Map<String, Object> summary = summary();
-        List<Map<String, Object>> decisions = new ArrayList<>();
-        for (Map<String, Object> event : emitted) {
-            decisions.add(decisionBody(event, summary));
-        }
-        lastProgressMs = endMs;
-        return new Result(decisions, progressBody(summary), null);
-    }
+	/** {@code session_ended}(end_ms) 처리. 이미 끝났으면 건너뜀. */
+	public synchronized Result end(long atMs) {
+		if (ended) {
+			duplicates++;
+			return Result.skip("이미 종료된 세션");
+		}
+		List<Map<String, Object>> emitted = new ArrayList<>();
+		long at = Math.max(atMs, endMs);
+		if (at > endMs) {
+			interrupt("missing", endMs, emitted);
+			missingMs += at - endMs;
+			exclude("missing", endMs, at, emitted);
+		}
+		interrupt("ended", endMs, emitted);
+		closeExcluded(emitted);
+		endMs = at;
+		ended = true;
+		emitted.add(event("session_ended", at, at, validMs, "none", "ended"));
+		Map<String, Object> summary = summary();
+		List<Map<String, Object>> decisions = new ArrayList<>();
+		for (Map<String, Object> event : emitted) {
+			decisions.add(decisionBody(event, summary));
+		}
+		lastProgressMs = endMs;
+		return new Result(decisions, progressBody(summary), null);
+	}
 
-    /**
-     * 입력이 끊긴 채 만료될 때: 진행 중 사건을 끊김(missing)으로 닫고, 세션도 {@code session_ended}(reason = missing)로 끝낸다.
-     * (D-30) 판정 결과 저장이 세션 종료 사유를 {@code DISCONNECTED}로 기록할 수 있게 — 사용자 종료는 reason = ended.
-     */
-    public synchronized Result expire() {
-        if (ended) {
-            return Result.skip("이미 종료된 세션");
-        }
-        List<Map<String, Object>> emitted = new ArrayList<>();
-        interrupt("missing", endMs, emitted);
-        closeExcluded(emitted);
-        ended = true;
-        emitted.add(event("session_ended", endMs, endMs, validMs, "none", "missing"));
-        Map<String, Object> summary = summary();
-        List<Map<String, Object>> decisions = new ArrayList<>();
-        for (Map<String, Object> event : emitted) {
-            decisions.add(decisionBody(event, summary));
-        }
-        lastProgressMs = endMs;
-        return new Result(decisions, progressBody(summary), null);
-    }
+	/**
+	 * 입력이 끊긴 채 만료될 때: 진행 중 사건을 끊김(missing)으로 닫고, 세션도 {@code session_ended}(reason = missing)로 끝낸다.
+	 * (D-30) 판정 결과 저장이 세션 종료 사유를 {@code DISCONNECTED}로 기록할 수 있게 — 사용자 종료는 reason = ended.
+	 */
+	public synchronized Result expire() {
+		if (ended) {
+			return Result.skip("이미 종료된 세션");
+		}
+		List<Map<String, Object>> emitted = new ArrayList<>();
+		interrupt("missing", endMs, emitted);
+		closeExcluded(emitted);
+		ended = true;
+		emitted.add(event("session_ended", endMs, endMs, validMs, "none", "missing"));
+		Map<String, Object> summary = summary();
+		List<Map<String, Object>> decisions = new ArrayList<>();
+		for (Map<String, Object> event : emitted) {
+			decisions.add(decisionBody(event, summary));
+		}
+		lastProgressMs = endMs;
+		return new Result(decisions, progressBody(summary), null);
+	}
 
-    public synchronized boolean ended() {
-        return ended;
-    }
+	public synchronized boolean ended() {
+		return ended;
+	}
 
-    public synchronized boolean hasInput() {
-        return lastSequence >= 0;
-    }
+	public synchronized boolean hasInput() {
+		return lastSequence >= 0;
+	}
 
-    /** 관리 API용 현재 상태. */
-    public synchronized Map<String, Object> view() {
-        Map<String, Object> v = new LinkedHashMap<>();
-        v.put("session_id", sessionId);
-        Map<String, Object> p = new LinkedHashMap<>();
-        p.put("hold_ms", policy.holdMs());
-        p.put("recovery_ms", policy.recoveryMs());
-        p.put("reminder_ms", policy.reminderMs());
-        p.put("threshold", policy.threshold());
-        v.put("policy", p);
-        v.put("ended", ended);
-        v.put("active", active != null);
-        v.put("last_sequence", lastSequence);
-        v.put("summary", summary());
-        v.put("events", List.copyOf(events));
-        v.put("duplicates_ignored", duplicates);
-        v.put("rejected", rejected);
-        return v;
-    }
+	/** 관리 API용 현재 상태. */
+	public synchronized Map<String, Object> view() {
+		Map<String, Object> view = new LinkedHashMap<>();
+		view.put("session_id", sessionId);
+		Map<String, Object> policyValues = new LinkedHashMap<>();
+		policyValues.put("hold_ms", policy.holdMs());
+		policyValues.put("recovery_ms", policy.recoveryMs());
+		policyValues.put("reminder_ms", policy.reminderMs());
+		policyValues.put("threshold", policy.threshold());
+		view.put("policy", policyValues);
+		view.put("ended", ended);
+		view.put("active", active != null);
+		view.put("last_sequence", lastSequence);
+		view.put("summary", summary());
+		view.put("events", List.copyOf(events));
+		view.put("duplicates_ignored", duplicates);
+		view.put("rejected", rejected);
+		return view;
+	}
 
-    // ------------------------------------------------------------------
+	// ------------------------------------------------------------------
 
-    private void confirmCollapse(List<Map<String, Object>> out) {
-        active = new Episode(onsetMs, onsetValidMs, endMs, currentDeviationType);
-        collapseCount++;
-        alertCount++;
-        if (previousOnsetValid != null) {
-            intervalCount++;
-            intervalSum += onsetValidMs - previousOnsetValid;
-        }
-        previousOnsetValid = onsetValidMs;
-        out.add(episodeEvent("collapse_confirmed", endMs, null));
-    }
+	private void confirmCollapse(List<Map<String, Object>> out) {
+		active = new Episode(onsetMs, onsetValidMs, endMs, currentDeviationType);
+		collapseCount++;
+		alertCount++;
+		if (previousOnsetValid != null) {
+			intervalCount++;
+			intervalSum += onsetValidMs - previousOnsetValid;
+		}
+		previousOnsetValid = onsetValidMs;
+		out.add(episodeEvent("collapse_confirmed", endMs, null));
+	}
 
-    private void remind(List<Map<String, Object>> out) {
-        alertCount++;
-        active.lastAlert = endMs;
-        out.add(episodeEvent("reminder", endMs, null));
-    }
+	private void remind(List<Map<String, Object>> out) {
+		alertCount++;
+		active.lastAlert = endMs;
+		out.add(episodeEvent("reminder", endMs, null));
+	}
 
-    private void confirmRecovery(List<Map<String, Object>> out) {
-        recoveryCount++;
-        recoverySum += endMs - active.firstAlert;
-        out.add(episodeEvent("recovery_confirmed", endMs, null));
-        active = null;
-        recoveryMs = 0;
-    }
+	private void confirmRecovery(List<Map<String, Object>> out) {
+		recoveryCount++;
+		recoverySum += endMs - active.firstAlert;
+		out.add(episodeEvent("recovery_confirmed", endMs, null));
+		active = null;
+		recoveryMs = 0;
+	}
 
-    private void interrupt(String reason, long at, List<Map<String, Object>> out) {
-        if (active != null) {
-            out.add(episodeEvent("interrupted", at, reason));
-        }
-        active = null;
-        holdMs = 0;
-        recoveryMs = 0;
-    }
+	private void interrupt(String reason, long at, List<Map<String, Object>> out) {
+		if (active != null) {
+			out.add(episodeEvent("interrupted", at, reason));
+		}
+		active = null;
+		holdMs = 0;
+		recoveryMs = 0;
+	}
 
-    /**
-     * (D-39) [from, to) 구간을 제외 구간에 넣는다. 열린 구간과 사유가 같고 바로 이어지면 늘리기만 하고(사건 없음),
-     * 아니면 열린 구간을 닫고({@code excluded_ended}) 새 구간을 연다({@code excluded_started}).
-     */
-    private void exclude(String reason, long from, long to, List<Map<String, Object>> out) {
-        if (excludedReason != null && excludedReason.equals(reason) && excludedEndMs == from) {
-            excludedEndMs = to;
-            return;
-        }
-        closeExcluded(out);
-        excludedReason = reason;
-        excludedStartMs = from;
-        excludedEndMs = to;
-        out.add(event("excluded_started", from, from, validMs, "none", reason));
-    }
+	/**
+	 * (D-39) [from, to) 구간을 제외 구간에 넣는다. 열린 구간과 사유가 같고 바로 이어지면 늘리기만 하고(사건 없음),
+	 * 아니면 열린 구간을 닫고({@code excluded_ended}) 새 구간을 연다({@code excluded_started}).
+	 */
+	private void exclude(String reason, long from, long to, List<Map<String, Object>> out) {
+		if (excludedReason != null && excludedReason.equals(reason) && excludedEndMs == from) {
+			excludedEndMs = to;
+			return;
+		}
+		closeExcluded(out);
+		excludedReason = reason;
+		excludedStartMs = from;
+		excludedEndMs = to;
+		out.add(event("excluded_started", from, from, validMs, "none", reason));
+	}
 
-    /** (D-39) 열린 제외 구간이 있으면 그 끝 시각으로 닫는다. */
-    private void closeExcluded(List<Map<String, Object>> out) {
-        if (excludedReason == null) {
-            return;
-        }
-        out.add(event("excluded_ended", excludedEndMs, excludedStartMs, validMs, "none", excludedReason));
-        excludedReason = null;
-    }
+	/** (D-39) 열린 제외 구간이 있으면 그 끝 시각으로 닫는다. */
+	private void closeExcluded(List<Map<String, Object>> out) {
+		if (excludedReason == null) {
+			return;
+		}
+		out.add(event("excluded_ended", excludedEndMs, excludedStartMs, validMs, "none", excludedReason));
+		excludedReason = null;
+	}
 
-    private Map<String, Object> episodeEvent(String kind, long at, String reason) {
-        return event(kind, at, active.onset, active.onsetValid, active.type, reason);
-    }
+	private Map<String, Object> episodeEvent(String kind, long at, String reason) {
+		return event(kind, at, active.onset, active.onsetValid, active.type, reason);
+	}
 
-    private Map<String, Object> event(String kind, long at, long onset, long onsetValid, String type, String reason) {
-        Map<String, Object> e = new LinkedHashMap<>();
-        e.put("schema_version", "1.0");
-        e.put("session_id", sessionId);
-        e.put("event_id", ++eventId);
-        e.put("kind", kind);
-        e.put("timestamp_ms", at);
-        e.put("onset_ms", onset);
-        e.put("onset_valid_ms", onsetValid);
-        e.put("deviation_type", type);
-        e.put("reason", reason);
-        events.add(e);
-        return e;
-    }
+	private Map<String, Object> event(String kind, long at, long onset, long onsetValid, String type, String reason) {
+		Map<String, Object> event = new LinkedHashMap<>();
+		event.put("schema_version", "1.0");
+		event.put("session_id", sessionId);
+		event.put("event_id", ++eventId);
+		event.put("kind", kind);
+		event.put("timestamp_ms", at);
+		event.put("onset_ms", onset);
+		event.put("onset_valid_ms", onsetValid);
+		event.put("deviation_type", type);
+		event.put("reason", reason);
+		events.add(event);
+		return event;
+	}
 
-    private Map<String, Object> decisionBody(Map<String, Object> event, Map<String, Object> summary) {
-        Map<String, Object> b = new LinkedHashMap<>();
-        b.put("last_sequence", lastSequence);
-        b.put("event", event);
-        b.put("summary", summary);
-        return b;
-    }
+	private Map<String, Object> decisionBody(Map<String, Object> event, Map<String, Object> summary) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("last_sequence", lastSequence);
+		body.put("event", event);
+		body.put("summary", summary);
+		return body;
+	}
 
-    private Map<String, Object> progressBody(Map<String, Object> summary) {
-        Map<String, Object> b = new LinkedHashMap<>();
-        b.put("last_sequence", lastSequence);
-        b.put("summary", summary);
-        return b;
-    }
+	private Map<String, Object> progressBody(Map<String, Object> summary) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("last_sequence", lastSequence);
+		body.put("summary", summary);
+		return body;
+	}
 
-    Map<String, Object> summary() {
-        Map<String, Object> s = new LinkedHashMap<>();
-        s.put("total_ms", endMs);
-        s.put("valid_ms", validMs);
-        s.put("normal_ms", normalMs);
-        s.put("deviation_ms", deviationMs);
-        s.put("rest_ms", restMs);
-        s.put("away_ms", awayMs);
-        s.put("unknown_ms", unknownMs);
-        s.put("missing_ms", missingMs);
-        s.put("collapse_count", collapseCount);
-        s.put("alert_count", alertCount);
-        s.put("interval_count", intervalCount);
-        s.put("keep_rate", validMs == 0 ? null : (double) normalMs / validMs);
-        s.put("events_per_hour", validMs == 0 ? null : collapseCount * 3_600_000.0 / validMs);
-        s.put("mean_interval_ms", intervalCount == 0 ? null : (double) intervalSum / intervalCount);
-        s.put("mean_recovery_ms", recoveryCount == 0 ? null : (double) recoverySum / recoveryCount);
-        return s;
-    }
+	Map<String, Object> summary() {
+		Map<String, Object> summary = new LinkedHashMap<>();
+		summary.put("total_ms", endMs);
+		summary.put("valid_ms", validMs);
+		summary.put("normal_ms", normalMs);
+		summary.put("deviation_ms", deviationMs);
+		summary.put("rest_ms", restMs);
+		summary.put("away_ms", awayMs);
+		summary.put("unknown_ms", unknownMs);
+		summary.put("missing_ms", missingMs);
+		summary.put("collapse_count", collapseCount);
+		summary.put("alert_count", alertCount);
+		summary.put("interval_count", intervalCount);
+		summary.put("keep_rate", validMs == 0 ? null : (double)normalMs / validMs);
+		summary.put("events_per_hour", validMs == 0 ? null : collapseCount * 3_600_000.0 / validMs);
+		summary.put("mean_interval_ms", intervalCount == 0 ? null : (double)intervalSum / intervalCount);
+		summary.put("mean_recovery_ms", recoveryCount == 0 ? null : (double)recoverySum / recoveryCount);
+		return summary;
+	}
 
-    private static final class Episode {
-        final long onset;
-        final long onsetValid;
-        final long firstAlert;
-        final String type;
-        long lastAlert;
+	private static final class Episode {
+		final long onset;
+		final long onsetValid;
+		final long firstAlert;
+		final String type;
+		long lastAlert;
 
-        Episode(long onset, long onsetValid, long at, String type) {
-            this.onset = onset;
-            this.onsetValid = onsetValid;
-            this.firstAlert = at;
-            this.lastAlert = at;
-            this.type = type;
-        }
-    }
+		Episode(long onset, long onsetValid, long at, String type) {
+			this.onset = onset;
+			this.onsetValid = onsetValid;
+			this.firstAlert = at;
+			this.lastAlert = at;
+			this.type = type;
+		}
+	}
 }

@@ -1,5 +1,7 @@
 package org.posegood.api.realtime;
 
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,8 +9,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
-
-import java.util.Arrays;
 
 /**
  * /v2/realtime WebSocket 등록과 허용 출처·메시지 크기 설정.
@@ -20,28 +20,31 @@ import java.util.Arrays;
 @Configuration
 @EnableWebSocket
 public class RealtimeConfiguration implements WebSocketConfigurer {
-    private final RealtimeHandlerV2 handlerV2;
-    private final String[] origins;
+	private final RealtimeHandlerV2 handlerV2;
+	private final String[] origins;
 
-    public RealtimeConfiguration(
-            RealtimeHandlerV2 handlerV2,
-            @Value("${posegood.realtime.allowed-origins:}") String origins) {
-        this.handlerV2 = handlerV2;
-        this.origins =
-                Arrays.stream(origins.split(",")).map(String::strip).filter(o -> !o.isEmpty()).toArray(String[]::new);
-    }
+	public RealtimeConfiguration(
+		RealtimeHandlerV2 handlerV2,
+		@Value("${posegood.realtime.allowed-origins:}")
+		String origins) {
+		this.handlerV2 = handlerV2;
+		this.origins = Arrays.stream(origins.split(",")).map(String::strip).filter(o -> !o.isEmpty())
+			.toArray(String[]::new);
+	}
 
-    @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        var v2 = registry.addHandler(handlerV2, "/v2/realtime");
-        if (origins.length > 0) v2.setAllowedOrigins(origins);
-    }
+	@Override
+	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+		var v2 = registry.addHandler(handlerV2, "/v2/realtime");
+		if (origins.length > 0) {
+			v2.setAllowedOrigins(origins);
+		}
+	}
 
-    @Bean
-    ServletServerContainerFactoryBean webSocketContainer() {
-        var container = new ServletServerContainerFactoryBean();
-        container.setMaxTextMessageBufferSize(2 * RealtimeHandlerV2.MAX_BYTES);
-        container.setMaxSessionIdleTimeout(120_000L);
-        return container;
-    }
+	@Bean
+	ServletServerContainerFactoryBean webSocketContainer() {
+		var container = new ServletServerContainerFactoryBean();
+		container.setMaxTextMessageBufferSize(2 * RealtimeHandlerV2.MAX_BYTES);
+		container.setMaxSessionIdleTimeout(120_000L);
+		return container;
+	}
 }

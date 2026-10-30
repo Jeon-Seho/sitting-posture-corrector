@@ -11,12 +11,14 @@ import jakarta.validation.constraints.Positive;
  * 나중에 설정을 바꾸면 다음 세션부터 적용된다(ADR 0020).
  */
 public record Policy(
-        @Positive @Max(86400000) long holdMs,
-        @Positive @Max(86400000) long recoveryMs,
-        @Positive @Max(86400000) long reminderMs,
-        @DecimalMin(value = "0", inclusive = false) @DecimalMax("1") double threshold) {
+	@Positive @Max(86400000) long holdMs,
+	@Positive @Max(86400000) long recoveryMs,
+	@Positive @Max(86400000) long reminderMs,
+	@DecimalMin(value = "0", inclusive = false) @DecimalMax("1") double threshold) {
 
-    public Policy {
-        if (!Double.isFinite(threshold)) throw new IllegalArgumentException("threshold must be finite");
-    }
+	public Policy {
+		if (!Double.isFinite(threshold)) {
+			throw new IllegalArgumentException("threshold must be finite");
+		}
+	}
 }

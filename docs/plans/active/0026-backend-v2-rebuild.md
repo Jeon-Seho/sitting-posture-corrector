@@ -61,11 +61,11 @@ HDFS 적재(`feature_archive` 쓰기), 학습 모델 연결.
 - [x] 판정 엔진과 CEP 동등성 시험 (이전 CEP 시험 16개를 같은 입력·기대값으로 이전)
 - [x] 저장소·서비스·HTTP·WebSocket 구현
 - [x] Java 단위 시험
-- [ ] 실제 MySQL 통합 시험(`-Pmysql-integration`)과 HTTP smoke 실행
+- [ ] 시험 MySQL의 명시적 `-Pmysql-integration`과 필요한 플랫폼 REST·WS 연결 점검 실행. 현재 기본 `check-backend`와 구분한다([품질 기준](../../quality.md)).
 - [x] Compose·Docker·Nginx·배포 도구에서 CEP 제거, HTTP smoke를 계정·MySQL 흐름으로 전환
 - [x] 문서·ADR·계약 설명 동기화
 - [x] 후속: 브라우저 smoke 서버 시나리오와 서버 benchmark를 계정 로그인 흐름으로 전환 (2026-10-13. 브라우저는 [계획 0025](0025-backend-db-v23-integration.md)의 계정 UI 시나리오, 서버 benchmark는 아래 기록)
-- [ ] 후속: `make check-compose`(Docker) 전체 실행
+- 구형 `make check-compose` 전체 실행 과제는 도구 삭제로 폐기했다. 당시 HTTP·Compose 검사 결과는 아래 기록으로 보존한다.
 - [x] DB V2.2 반영: 스키마 확인, 계정(`alert_enabled`, `auth_epoch` 제거), 좌표 기준 자세, 테이블 기반 기록, 프론트 setup, 도구·Compose initdb
 - [ ] 후속: 앱 설정 화면의 소리 스위치(`sound_alert_enabled`), 해상도(640×480) 불일치 시 시작 거부
 
