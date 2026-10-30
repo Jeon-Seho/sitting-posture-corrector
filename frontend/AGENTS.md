@@ -11,3 +11,4 @@
 - 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 측정은 `src/features/session/live/`, 등록은 `src/features/baseline/`, 서버 요청은 `src/features/platform/api.ts`.
 - 실행은 `make dev`, 검증은 `make check-frontend`.
 - 새 사용자 기능에는 기존 개발자 옵션 그룹에 최소 재현/상태 확인을 함께 추가한다. 실제 동작을 재사용하고 기본으로 접어 둔다([개발자 옵션](README.md#개발자-옵션)).
+- 코드 작업 후 `npm run lint`를 실행하여 오류 또는 경고가 있는지 확인하고 발견 시 수정한다.
