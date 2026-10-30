@@ -1,4 +1,4 @@
-# Lite 안내형 좌표 수집 (v3)
+# Heavy 안내형 좌표 수집 (v3)
 
 상태: 탐색용 수집 구현. 모델 학습·정확도 검증·연구 프로토콜 동결은 별도다.
 **좌표와 촬영 조건, 참여자의 자기 보고 확인만 수집한다.** 앱은 판정하지 않는다(점수·예측·판정 가능 여부·특징값 없음, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)).
@@ -59,7 +59,7 @@
 - 준비 이전 표본과 종료 시각 이상의 표본은 저장하지 않는다. 구간은 `[start, end)`이다.
 - `video_time_ms`는 추론에 사용한 프레임의 카메라 재생 시간이며 영상 파일의 시간축이 아니다.
 - `capture_id`는 촬영별 고유 ID, `calibration_id`는 완료된 기준 등록의 고유 ID다. 같은 기준으로 여러 과제를 촬영했는지 확인할 수 있다.
-- 기준 등록 자체의 33개 관절 시계열은 저장하지 않는다. 추가 특징의 개인 기준이 필요하면 같은 calibration_id의 별도 기준 자세 과제에서 계산한다.
+- 기준 등록 자체의 13점 시계열은 별도 IndexedDB에 저장한다. 수집 화면 ‘기준 자세 모음’에서 JSON으로 내려받는다. 같은 calibration_id로 과제 CSV와 연결한다. 라벨은 검증되지 않은 정상 가정이며 [보존 결정](../decisions/0022-local-baseline-archive.md)을 따른다.
 - `segment_id`는 과제 변경이나 1초 초과 관측 간격에서 분리된다(v3부터 품질 변화로는 나누지 않는다). 사람·촬영·구간 경계를 넘겨 학습 창을 만들지 않는다.
 
 v2의 head_forward는 머리만 앞으로인 과제로 좁혔고 몸통 숙임은 trunk_forward로 분리했으므로 v1 자료와 그대로 섞지 않는다.
@@ -82,12 +82,15 @@ v2의 head_forward는 머리만 앞으로인 과제로 좁혔고 몸통 숙임�
 | stop_reason | completed / manual_stop / tab_hidden / camera_disconnected / session_interrupted |
 | calibration_id | 기준 등록 UUID |
 | pose_detected / landmark_count | 추적기의 포즈 출력 유무와 좌표 수. 실제 사람이 없다는 정답으로 사용하지 않음 |
-| landmarks_json | MediaPipe 영상 좌표: 최대 33개의 index,x,y,z,visibility 객체 |
+| landmarks_json | MediaPipe 영상 좌표: 원래 index 0~12(어깨 포함 머리), 최대 13개의 index,x,y,z,visibility 객체 |
 | world_landmarks_json | MediaPipe 추정 world 좌표: 같은 객체 형식. 실측 모션캡처 정답이 아님 |
 
 landmarks_json의 x/y는 영상 너비/높이 기준 정규화 좌표다. z와 world 좌표의 정의는
 [공식 웹 가이드](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker/web_js)를 따른다.
-입력은 좌우 반전하지 않은 원본 카메라 영상이며 화면 미리보기의 거울 표시와 구분한다. 좌/우는 참여자 본인 기준이다.
+입력은 좌우 반전하지 않은 원본 카메라 영상이며 화면 미리보기의 거울 표시와 구분한다. 좌/우 라벨은 참여자 본인 기준이다.
+2026-10-12부터 공통 카메라 관측과 CSV는 어깨 포함 머리 13개만 유지한다([ADR 0020](../decisions/0020-shoulder-up-landmarks.md)).
+이전 v2 CSV의 최대 33개 배열도 읽을 수 있다. 함께 학습할 때는 index 0~12만 선택하고 좌표 범위를 일치시킨다.
+v3의 배열도 가변 길이이며 포인트 index 의미는 이전 규격과 같다. 앱 판정·특징 열은 위에 명시한 대로 삭제했다.
 좌표는 화면 보간/평활화 전 추정값이다. 낮은 가시성 좌표도 보존하되 비유한 값은 null로 쓴다.
 포즈 미검출은 빈 배열이다. 가시성이 낮아도 추적기에 남아 있는 좌표를 보존한다.
 판정 가능 여부와 학습에 쓸 품질 기준은 서버·ML이 좌표로 정한다.
@@ -113,7 +116,7 @@ Lite/Heavy, 촬영 시점, 스키마 버전이 다른 자료를 무조건 합치
 
 ## 저장과 한계
 
-실제 파일은 database/temp 등 Git 제외 경로에서만 관리한다. 서버/DB/브라우저 영구 저장은 없다.
+실제 파일은 database/temp 등 Git 제외 경로에서만 관리한다. 과제 CSV는 브라우저 영구 저장하지 않는다. 완료된 기준 등록 자료만 별도 IndexedDB에 보존하며 서버 업로드는 없다.
 한 번에 최대 60초만 메모리에 모으므로 기존 18,000행 상한보다 작다. 새로고침 시 미다운로드 기록은 사라진다.
 영상이 없으므로 촬영 후 실제 동작을 다시 보고 검수하거나 이미지 기반 모델을 재학습할 수는 없다.
-현재 수집기는 Lite 관절 추정기를 사용한다. 이는 자세·활동 분류 모델을 새로 학습한 것이 아니다. 실제 M1 Air FPS와 관절 정확도는 별도 검증 대상이다. 기존 Heavy CSV와 새 Lite CSV는 `pose_model`로 구분하고, 모델 차이를 검증하기 전에는 같은 분포로 간주하지 않는다.
+2026-10-12 사용자 요청으로 현재 수집기는 Heavy 관절 추정기를 사용한다([ADR 0021](../decisions/0021-heavy-pose-tracker.md)). 이는 자세·활동 분류 모델을 새로 학습한 것이 아니다. 실제 M1 Air FPS와 관절 정확도는 별도 검증 대상이다. 기존 Lite/Heavy CSV와 새 Heavy CSV는 `pose_model`로 구분하고, 모델 차이를 검증하기 전에는 같은 분포로 간주하지 않는다.

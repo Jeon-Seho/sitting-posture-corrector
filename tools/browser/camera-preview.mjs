@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { until } from './cdp.mjs'
+import { verifyPoseTracking } from './pose-tracking.mjs'
 
 /** Web camera stays in the page; desktop-only PiP is covered by component tests. */
 export async function verifyCollectionPreview(browser, base) {
@@ -18,8 +19,50 @@ export async function verifyCollectionPreview(browser, base) {
     })()`)
   }
   await cdp.call('Page.navigate', { url: `${base}/?synthetic=1&preview=1#collection` })
-  await until(() => cdp.evaluate(`!!document.querySelector('#capture-task')`), 'direct collection entry', 30_000)
+  await until(() => cdp.evaluate(`!!document.querySelector('input[name="email"]')`), 'direct collection requires login', 30_000)
+  check('collection is hidden before developer login', await cdp.evaluate(`!document.querySelector('#capture-task')`))
+  await cdp.evaluate(`(() => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    for (const [name, value] of [['email', 'admin'], ['password', '1234']]) {
+      const input = document.querySelector('input[name="' + name + '"]');
+      setter.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  })()`)
+  await click('로그인')
+  await until(() => cdp.evaluate(`!!document.querySelector('#capture-task')`), 'developer collection entry', 30_000)
   const originalProfile = await cdp.evaluate(`localStorage.getItem('posegood.v2.profile')`)
+  await cdp.evaluate(`(async () => {
+    const archive = await import('/src/features/camera/baselineArchive.ts');
+    const feature = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 };
+    const points = Array.from({ length: 13 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.95 }));
+    const frames = [{ timeMs: 100, videoTimeMs: 100, features: feature, landmarks: points,
+      worldLandmarks: [], inferenceMs: 1, delegate: 'CPU', width: 640, height: 480 }];
+    await archive.saveBaseline(archive.baselineRecord('synthetic-browser-baseline-only', feature,
+      { durationMs: 3000, sampleCount: 1, spread: { headGap: 0, offset: 0, tilt: 0 }, placement: null }, frames));
+    if (archive.archiveError()) throw new Error(archive.archiveError());
+  })()`)
+  check('baseline archive appears separately in the collection screen', await until(() =>
+    cdp.evaluate(`document.querySelector('[aria-label="기준 자세 모음"]').textContent.includes('1건')`), 'baseline archive count'))
+  await cdp.call('Page.reload', { ignoreCache: true })
+  await until(() => cdp.evaluate(`performance.getEntriesByType('navigation')[0]?.type === 'reload' && !!document.querySelector('#capture-task')`), 'new collection document after reload')
+  check('baseline archive survives reload with all 13 points and an unverified assumed label', await until(() =>
+    cdp.evaluate(`(async () => {
+      const archive = await import('/src/features/camera/baselineArchive.ts');
+      const records = await archive.listBaselines();
+      return records.length === 1 && records[0].frames[0].landmarks.length === 13 &&
+        records[0].label === 'baseline_posture' && records[0].normal_assumed && !records[0].ground_truth_verified &&
+        document.querySelector('[aria-label="기준 자세 모음"]')?.textContent.includes('1건');
+    })()`), 'persisted baseline after reload'))
+  await cdp.evaluate(`(() => {
+    const original = URL.createObjectURL;
+    URL.createObjectURL = (blob) => { window.__syntheticBaselineDownload = blob.text(); return original(blob); };
+  })()`)
+  await click('기준 자료 내려받기 (JSON)')
+  check('baseline JSON download retains registration identity and label provenance', await cdp.evaluate(`(async () => {
+    const records = JSON.parse(await window.__syntheticBaselineDownload);
+    return records.length === 1 && records[0].calibration_id === 'synthetic-browser-baseline-only' &&
+      records[0].label_source === 'registration_assumption' && records[0].participant_code === null;
+  })()`))
   for (const width of [1440, 690, 390]) {
     await cdp.call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false })
     check(`collection task/length are visible before camera connection at ${width}px`, await cdp.evaluate(`(() => {

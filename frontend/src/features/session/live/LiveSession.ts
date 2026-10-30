@@ -206,6 +206,7 @@ export class LiveSession {
       )
       if (!view) throw new ApiError('server', MESSAGES.server)
     } catch (cause) {
+      console.error('[features/session/live/LiveSession.ts:start] Operation failed', cause)
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
         error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' : error.message
@@ -225,7 +226,8 @@ export class LiveSession {
       const auth = getServerAuth()
       if (!auth) throw new ApiError('signed_out', MESSAGES.signed_out)
       accessToken = await auth.accessToken()
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
       this.finish({ phase: 'failed', message: getServerAuth() ? MESSAGES.network : MESSAGES.signed_out })
       return
     }
@@ -233,7 +235,8 @@ export class LiveSession {
     let socket: SocketLike
     try {
       socket = (this.options.openSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike))(realtimeUrl())
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
       this.finish({ phase: 'failed', message: MESSAGES.network })
       return
     }
@@ -423,7 +426,8 @@ export class LiveSession {
         this.finish({ phase: 'ended', summary: view.summary, events: view.events, lastSequence: view.last_sequence })
         return
       }
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
       /* Show what the last `progress` said. */
     }
     this.finish({ phase: 'ended' })

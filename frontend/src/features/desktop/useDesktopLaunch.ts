@@ -10,7 +10,10 @@ export function useDesktopLaunch() {
     desktopBridge()
       ?.getLaunchInfo()
       .then((next) => alive && setInfo(next))
-      .catch(() => alive && setMessage('데스크톱 설정을 읽지 못했어요.'))
+      .catch((caughtError) => {
+        console.error('[features/desktop/useDesktopLaunch.ts:useDesktopLaunch] Operation failed', caughtError)
+        return alive && setMessage('데스크톱 설정을 읽지 못했어요.')
+      })
     return () => {
       alive = false
     }
@@ -20,7 +23,8 @@ export function useDesktopLaunch() {
       const next = await call()
       if (next) setInfo(next)
       setMessage('')
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/desktop/useDesktopLaunch.ts:update] Operation failed', caughtError)
       setMessage('데스크톱 설정을 바꾸지 못했어요.')
     }
   }, [])

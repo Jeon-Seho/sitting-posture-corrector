@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { WifiSlash } from '../../components/icons'
 import { trapTab } from '../dialog/modalFocus'
-import { quitApp, useConnectionLost } from './connectionLost'
+import { dismissConnectionTest, quitApp, useConnectionLost } from './connectionLost'
 
 /** App-wide and blocking: no cancel, Escape or backdrop close. The only way on is quitting. */
 export function ConnectionLostDialog() {
@@ -46,7 +46,7 @@ function LostDialog({ session, test }: { session?: string; test: boolean }) {
       aria-describedby={`${id}-description`}
       tabIndex={-1}
       onKeyDown={trapTab}
-      onCancel={(event) => event.preventDefault()}
+      onCancel={(event) => { event.preventDefault(); if (test) dismissConnectionTest() }}
     >
       <span className="connection-lost-icon" aria-hidden="true">
         <WifiSlash size={28} weight="bold" />
@@ -67,9 +67,9 @@ function LostDialog({ session, test }: { session?: string; test: boolean }) {
         type="button"
         className="btn btn-primary btn-lg"
         disabled={quitting}
-        onClick={() => void quit()}
+        onClick={() => { if (test) dismissConnectionTest(); else void quit() }}
       >
-        {quitting ? '종료하는 중…' : '종료하기'}
+        {test ? '테스트 종료' : quitting ? '종료하는 중…' : '종료하기'}
       </button>
     </dialog>
   )

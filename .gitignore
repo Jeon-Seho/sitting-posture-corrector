@@ -313,6 +313,8 @@ sketch
 
 # Downloaded MediaPipe runtime/model assets and browser QA output
 /frontend/public/mediapipe/
+/frontend/public/research-model/
+forecast-experiment-*.json
 /frontend/test-results/
 /frontend/playwright-report/
 /frontend/.qa/

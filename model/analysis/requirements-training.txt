@@ -1,0 +1,6 @@
+# CPU research baselines; supports the harness Python 3.9 and 3.12 matrix.
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.6.1
+joblib==1.4.2
+threadpoolctl==3.5.0

@@ -259,8 +259,11 @@ describe('service recovery and saving with synthetic storage only', () => {
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
     mount()
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'email')!.props.onChange({ target: { value: 'admin' } }))
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'password')!.props.onChange({ target: { value: '1234' } }))
     login()
-    click('설정')
+    vi.mocked(controls.camera.stop).mockClear()
+    click('개발자 도구')
     click('자세 데이터 수집')
     // Leaving the measure tab already cancels an unfinished calibration once.
     const before = vi.mocked(controls.camera.cancelCalibration).mock.calls.length
@@ -273,7 +276,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(controls.camera.stop).toHaveBeenCalledOnce()
     expect(controls.camera.connect).not.toHaveBeenCalled()
   })
-  it('opens the direct collection link without creating or changing a local profile', () => {
+  it('requires developer login for a direct collection link', () => {
     const before = new Map(data)
     vi.stubGlobal('window', {
       location: { hash: '#collection', pathname: '/', search: '' },
@@ -281,6 +284,12 @@ describe('service recovery and saving with synthetic storage only', () => {
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     })
     mount()
+    expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+    expect(text(renderer!.root)).not.toContain('1. 찍을 자세 선택')
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'email')!.props.onChange({ target: { value: 'admin' } }))
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'password')!.props.onChange({ target: { value: '1234' } }))
+    login()
+    vi.mocked(controls.camera.stop).mockClear()
     expect(text(renderer!.root)).toContain('1. 찍을 자세 선택')
     const picker = () => renderer!.root.findAllByType(SelectMenu).find((menu) => menu.props.id === 'capture-task')!
     expect(picker().props.disabled).toBe(false)
@@ -290,14 +299,17 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(data).toEqual(before)
     expect(controls.camera.connect).not.toHaveBeenCalled()
     click('시작 화면으로')
-    expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
     expect(controls.camera.stop).toHaveBeenCalledOnce()
   })
   it('keeps the camera running on records without a small window (web, 2026-10-26)', () => {
     controls.camera.state = 'on'
     mount()
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'email')!.props.onChange({ target: { value: 'admin' } }))
+    act(() => renderer!.root.findAllByType('input').find(n => n.props.name === 'password')!.props.onChange({ target: { value: '1234' } }))
     login()
-    click('설정')
+    vi.mocked(controls.camera.stop).mockClear()
+    click('개발자 도구')
     click('자세 데이터 수집')
     click('오늘')
     expect(controls.camera.stop).not.toHaveBeenCalled()

@@ -7,6 +7,7 @@ import { createServer } from 'node:net'
 import assert from 'node:assert/strict'
 import { Cdp } from '../../tools/browser/cdp.mjs'
 
+const modelFile = JSON.parse(await readFile(new URL('../model-asset.json', import.meta.url), 'utf8')).filename
 const server = createServer()
 await new Promise(r => server.listen(0, '127.0.0.1', r))
 const port = server.address().port
@@ -74,7 +75,7 @@ try {
       await new Promise(r=>setTimeout(r,600));
       const invalidIcon = await window.posegoodDesktop.setThemeIcon({accent:'../bad',png:'not-png'});
       const alertDelivery = await window.posegoodDesktop.showAlert({title:'합성 테마 검증',body:'시험 알림',preview:true});
-      const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', '/mediapipe/pose_landmarker_lite.task'];
+      const files = ['/mediapipe/wasm/vision_wasm_internal.wasm', ${JSON.stringify('/mediapipe/' + modelFile)}];
       const assets = await Promise.all(files.map(async path => {
         const r = await fetch(path); return { path, status: r.status, bytes: (await r.arrayBuffer()).byteLength };
       }));

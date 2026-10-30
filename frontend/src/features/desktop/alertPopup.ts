@@ -20,12 +20,16 @@ export function alertPopupText(reminder = false) {
 export function popupAlert(reminder = false) {
   void desktopBridge()
     ?.showAlert?.(alertPopupText(reminder))
-    ?.catch(() => {})
+    ?.catch((caughtError) => {
+      console.error('[features/desktop/alertPopup.ts:popupAlert] Operation failed', caughtError)
+    })
 }
 
 /** The same outside-the-app popup for a measurement notice that is not a posture alert. */
 export function popupNotice(alert: { title: string; body: string }) {
   void desktopBridge()
     ?.showAlert?.(alert)
-    ?.catch(() => {})
+    ?.catch((caughtError) => {
+      console.error('[features/desktop/alertPopup.ts:popupNotice] Operation failed', caughtError)
+    })
 }

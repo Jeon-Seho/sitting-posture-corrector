@@ -3,6 +3,7 @@ import { CameraStage } from '../components/CameraStage'
 import { CollectionPanel } from '../components/CollectionPanel'
 import { CollectionTaskPicker } from '../components/CollectionTaskPicker'
 import { VisualControls } from '../components/VisualControls'
+import { BaselineArchivePanel } from '../components/BaselineArchivePanel'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
 
@@ -31,6 +32,8 @@ export function CollectionPage({
           </p>
         </div>
         <div className="row">
+          <a className="btn" href="#forecast" aria-disabled={collection.hasCapture}
+            onClick={e => { if (collection.hasCapture) e.preventDefault() }}>예측 실험 열기</a>
           {camera.state === 'loading' ? (
             <button className="btn" onClick={camera.stop}>
               카메라 준비 취소
@@ -65,6 +68,7 @@ export function CollectionPage({
         </div>
       </div>
       <CollectionTaskPicker collection={collection} />
+      <BaselineArchivePanel />
       <section className="collection-intro" aria-label="자세 데이터 수집 안내">
         <div>
           <h2>왜 촬영하나요?</h2>
@@ -98,7 +102,7 @@ export function CollectionPage({
             <CameraStage camera={camera} />
             <div className="stage-overlay">
               <div className="stage-top">
-                <span className="stage-tag">MediaPipe Lite</span>
+                <span className="stage-tag">MediaPipe Heavy</span>
                 <span className="stage-tag">
                   {camera.metrics.fps.toFixed(1)} FPS · {camera.metrics.inferenceMs.toFixed(0)}ms ·{' '}
                   {camera.metrics.delegate}
@@ -120,7 +124,7 @@ export function CollectionPage({
           </p>
           {camera.state === 'on' && camera.metrics.fps > 0 && camera.metrics.fps < 10 && (
             <p className="capture-note">
-              추적 속도가 10 FPS 미만입니다. Lite의 처리 시간과 기기 부하를 확인하세요. 부족한
+              추적 속도가 10 FPS 미만입니다. Heavy의 처리 시간과 기기 부하를 확인하세요. 부족한
               프레임을 복제하지 않습니다.
             </p>
           )}

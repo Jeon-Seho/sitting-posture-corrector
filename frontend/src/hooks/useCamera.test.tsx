@@ -108,6 +108,22 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     await settle()
   }
 
+  it('keeps the local camera independent of the signed-in server baseline', async () => {
+    const video = camera.videoRef.current
+    act(() => renderer?.unmount())
+    vi.mocked(fetch).mockClear()
+    function LocalProbe() { camera = useCamera({ baselineMode: 'local' }); return null }
+    act(() => { renderer = create(<LocalProbe />) })
+    Object.assign(camera.videoRef, { current: video })
+    await connect()
+    await calibrate()
+    await act(async () => { await camera.reloadBaseline() })
+    expect(camera.baseline).toBeNull()
+    expect(camera.progress).toBeNull()
+    expect(server.posts).toHaveLength(0)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('keeps the previous baseline during recalibration and restores it on cancel or poor quality', async () => {
     await connect()
     await calibrate()
@@ -306,7 +322,57 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.calibrationId).not.toBeNull()
     expect(close).toHaveBeenCalledOnce()
   })
-  it('reports tracking failures and releases resources', async () => {
+  it('recovers from the first GPU inference failure using CPU without reopening the camera', async () => {
+    await connect()
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU inference failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('on')
+    expect(camera.metrics.delegate).toBe('CPU')
+    expect(vision.create.mock.calls[1][1].baseOptions.delegate).toBe('CPU')
+    expect(getUserMedia).toHaveBeenCalledOnce()
+    expect(track.stop).not.toHaveBeenCalled()
+    expect(close).toHaveBeenCalledOnce()
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(camera.quality).toBe(true)
+  })
+  it('closes a CPU recovery that finishes after the user stops the camera', async () => {
+    await connect()
+    const late = defer<{ close: typeof close; detectForVideo: typeof detect }>()
+    const cpuClose = vi.fn()
+    vision.create.mockReturnValueOnce(late.promise)
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('loading')
+    act(() => camera.stop())
+    await act(async () => { late.resolve({ close: cpuClose, detectForVideo: detect }) })
+    expect(camera.state).toBe('off')
+    expect(cpuClose).toHaveBeenCalledOnce()
+    expect(track.stop).toHaveBeenCalledOnce()
+  })
+  it('ends tracking if an observation consumer fails without changing inference delegates', async () => {
+    await connect()
+    camera.subscribe(() => { throw new Error('Synthetic consumer failure') })
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(camera.state).toBe('error')
+    expect(vision.create).toHaveBeenCalledOnce()
+    expect(track.stop).toHaveBeenCalledOnce()
+  })
+  it('releases camera resources if CPU recovery times out', async () => {
+    await connect()
+    const late = defer<{ close: typeof close; detectForVideo: typeof detect }>()
+    const cpuClose = vi.fn()
+    vision.create.mockReturnValueOnce(late.promise)
+    detect.mockImplementationOnce(() => { throw new Error('Synthetic GPU failure') })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    act(() => { vi.advanceTimersByTime(30_001) })
+    expect(camera.state).toBe('error')
+    expect(track.stop).toHaveBeenCalledOnce()
+    await act(async () => { late.resolve({ close: cpuClose, detectForVideo: detect }) })
+    expect(cpuClose).toHaveBeenCalledOnce()
+    expect(camera.state).toBe('error')
+  })
+  it('reports CPU tracking failures and releases resources without retrying again', async () => {
+    vision.create.mockRejectedValueOnce(new Error('Synthetic GPU unavailable'))
     await connect()
     detect.mockImplementationOnce(() => {
       throw new Error('Synthetic inference failure')
@@ -318,5 +384,6 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(camera.error).toContain('추적')
     expect(track.stop).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
+    expect(vision.create).toHaveBeenCalledTimes(2)
   })
 })

@@ -20,7 +20,10 @@ class RealtimeClient:
         self.sock = socket.create_connection((host, port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()
         origin = f"{parts.scheme}://{parts.netloc}"  # the server accepts same-origin pages only
-        request = (f"GET /v2/realtime HTTP/1.1\r\nHost: {parts.netloc}\r\nUpgrade: websocket\r\n"
+        # A path in api_base is kept: through the frontend NGINX (http://host:port/api) the channel is /api/v2/realtime
+        # (tools/deploy/smoke.py, D-75). A bare API address (service_smoke) still uses /v2/realtime.
+        path = parts.path.rstrip("/") + "/v2/realtime"
+        request = (f"GET {path} HTTP/1.1\r\nHost: {parts.netloc}\r\nUpgrade: websocket\r\n"
                    f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
                    f"Origin: {origin}\r\n\r\n")
         self.sock.sendall(request.encode())

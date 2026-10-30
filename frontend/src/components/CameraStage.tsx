@@ -24,7 +24,9 @@ export function CameraStage({
     const video = preview.current
     if (!video) return
     video.srcObject = camera.streamRef.current
-    if (video.srcObject) void video.play().catch(() => {})
+    if (video.srcObject) void video.play().catch((caughtError) => {
+      console.error('[components/CameraStage.tsx:CameraStage] Operation failed', caughtError)
+    })
     return () => {
       video.srcObject = null
     }

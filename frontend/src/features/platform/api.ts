@@ -75,7 +75,8 @@ export async function apiRequest(
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
       headers.Authorization = `Bearer ${await auth.accessToken(freshToken)}`
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/platform/api.ts:apiRequest] Operation failed', caughtError)
       // The renewal itself said the login is over (the account client signs out), or no answer.
       throw getServerAuth() ? new ApiError('network', messages.network) : new ApiError('signed_out', messages.signed_out)
     }
@@ -93,7 +94,8 @@ export async function apiRequest(
         // Kept for the refresh cookie on a separate API origin (docs/design/fe-deploy.md 3.2 A-2).
         credentials: 'include',
       })
-    } catch {
+    } catch (caughtError) {
+      console.error('[features/platform/api.ts:apiRequest] Operation failed', caughtError)
       clearTimeout(timer)
       if (options.retryUnanswered && attempt < retries) {
         await wait((options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS) * 2 ** attempt)
@@ -103,12 +105,18 @@ export async function apiRequest(
     }
     clearTimeout(timer)
     if (getServerAuth() !== owner) throw new ApiError('signed_out', messages.signed_out)
-    if (response.ok) return response.json().catch(() => null)
+    if (response.ok) return response.json().catch((caughtError) => {
+      console.error('[features/platform/api.ts:apiRequest] Operation failed', caughtError)
+      return null
+    })
     if ((response.status === 502 || response.status === 503) && attempt < retries) {
       await wait((options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS) * 2 ** attempt)
       continue
     }
-    const error = (await response.json().catch(() => null)) as { code?: unknown } | null
+    const error = (await response.json().catch((caughtError) => {
+      console.error('[features/platform/api.ts:error] Operation failed', caughtError)
+      return null
+    })) as { code?: unknown } | null
     if (response.status === 401 && !freshToken) {
       freshToken = true
       continue
