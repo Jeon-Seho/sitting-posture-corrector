@@ -9,15 +9,15 @@ import java.util.Optional;
  */
 interface ServiceDbProbe {
 
-    /** 스키마의 테이블 이름 목록. 스키마가 없으면 빈 목록. */
-    List<String> tables(String schema);
+	/** 스키마의 테이블 이름 목록. 스키마가 없으면 빈 목록. */
+	List<String> tables(String schema);
 
-    /** 테이블의 컬럼 이름 목록. */
-    List<String> columns(String schema, String table);
+	/** 테이블의 컬럼 이름 목록. */
+	List<String> columns(String schema, String table);
 
-    /** (D-51) 값 4개(threshold·hold·recover·realert, UK-03)가 같은 판정 정책의 ID. V2.3 정책에는 이름이 없다. */
-    Optional<Long> policyIdByValues(String schema, DefaultPolicy policy);
+	/** (D-51) 값 4개(threshold·hold·recover·realert, UK-03)가 같은 판정 정책의 ID. V2.3 정책에는 이름이 없다. */
+	Optional<Long> policyIdByValues(String schema, DefaultPolicy policy);
 
-    /** 지금 접속한 계정이 이 스키마에 가진 권한(스키마 단위 + 전역). 예: SELECT, INSERT. */
-    List<String> privileges(String schema);
+	/** 지금 접속한 계정이 이 스키마에 가진 권한(스키마 단위 + 전역). 예: SELECT, INSERT. */
+	List<String> privileges(String schema);
 }

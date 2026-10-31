@@ -19,7 +19,7 @@ Electron 창 정책·preload·React 작은 창·검증·디자인 검토 문서.
 - [x] native 작은 창 구현 및 웹 차단·창 종료·중복 방지 검증
 - [x] 주요 화면과 색상·레이아웃 비교 검토
 - [x] 문서 갱신·프론트와 Electron 검증·결과 기록
-- [ ] Docker를 준비한 환경에서 전체 `check-browser` 통과 확인
+- 전체 `check-browser` 통과 대기는 도구 삭제로 폐기했다. 현재 화면 변경 시 필요한 개별 점검은 [품질 기준](../../quality.md)을 따르며 아래 미검증 환경을 통과로 간주하지 않는다.
 
 ## 결정과 진행 기록
 
@@ -34,5 +34,5 @@ Electron 창 정책·preload·React 작은 창·검증·디자인 검토 문서.
 - native 창 정책 테스트에서 허용 URL/발신자, blur/minimize 요청, reload/종료 정리와 접기 크기를 검증했다. 실제 OS 최소화·다중 모니터·장시간 실제 카메라·macOS/Linux는 미검증.
 - 웹의 기존 별도 카메라 검사 7개를 같은 구현에서 다시 실행해 웹 PiP 차단과 카메라 생명주기를 확인했다.
 - 비교 시안의 측정/기록/설정 전환·작은 창 표시 전환·390px 가로 넘침을 Chrome에서 확인했다. 시안은 기능이 연결되지 않은 비교용이다.
-- `python tools/dev.py check-browser`: Docker daemon이 없어 임시 MySQL 생성 단계 실패. 준비된 환경에서 전체 게이트를 다시 실행해야 하므로 계획은 활성 상태로 둔다.
+- 당시 `python tools/dev.py check-browser`는 Docker daemon이 없어 임시 MySQL 생성 단계에서 실패했다. 해당 종합 검사는 이후 제거했으며 재실행 대기는 해제한다. 이 삭제가 실제 서버·미검증 OS 확인을 완료했다는 뜻은 아니다.
 - 패키징 EXE 생성·배포는 하지 않았다.

@@ -5,6 +5,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.8'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'checkstyle'
 }
 
 // 패키지 com.posture.api는 그대로 둔다(옮기기만 한 단계, 이름 정리는 따로).
@@ -38,6 +39,33 @@ dependencies {
     // Boot 4부터 @WebMvcTest 지원은 별도 테스트 스타터.
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+checkstyle {
+    toolVersion = '14.3.0'
+    configFile = rootProject.file('naver-checkstyle-rules.xml')
+
+    configProperties = [
+        suppressionFile: rootProject
+            .file('naver-checkstyle-suppressions.xml')
+            .absolutePath
+    ]
+
+    ignoreFailures = false
+    showViolations = true
+    maxErrors = 0
+    maxWarnings = Integer.MAX_VALUE
+}
+
+tasks.withType(Checkstyle).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 // Maven 때와 같은 파일 이름: build/libs/api-server.jar

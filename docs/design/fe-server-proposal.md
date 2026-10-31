@@ -1,10 +1,54 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-27 밤(BE 토큰 로그인 공지 확인 — 1.0·BE-12·7.2 21번, V3 ADR 0031 → 0033) · 2026-10-27 저녁(계획 0059 정한 것 — BE-10, S1 `policy` 빼기·S4 DB 답 — BE-11, 리프레시 토큰 7.2 21번, `t_ms` 회의 7.2 22번) · 2026-10-27(BE PR #65 병합 반영 1.0 표·BE-5·BE-6, 프레임마다 전송·BE 묶음 답 BE-8, 판정 불가 좌표 없이 ADR 0021·BE-9, 시간 필드 BE-7, 측정 중 WS 줄이기 계획 0059, develop PR #64 디자인·작은 창 합침, 7.2 14~20) · 2026-10-26(웹 작은 창 삭제·숨은 탭 측정, ADR 0028 — 2장·7.2 9·11번·8.3·8.4. 저녁: 자정 끊기·서버 시각, ADR 0029 — 1장 BE-6·2장·7.2 12번. 회의: 리프레시 토큰은 BE 완료 뒤 적용, WS 판정 메시지 유지 — BE-6 ①, `valid_ms` 예시 — BE-5 ②, A4 `today`만 — BE-6 ③, 시간 필드 설명 요청 — BE-7·1.1 ⑥. 10/27: 좌표 프레임마다 전송 — BE-8·1.1 ⑦) · 2026-10-25(develop 합침, 팀장 10/22 결정 반영 — 2장 4, 7.2 5-a, BE-5) · 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 [배포](fe-deploy.md)에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에. 저녁: 남은 앱 판정 삭제(F5), API·WS 대조와 F12 브랜치 검수를 7.2에, BE-4) · 대상: 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, ghdrb1246), ML(지성, jisung), 화면(lellon0403)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-10-30 저녁(자정 넘김 B안 `session_rollover` 앱 처리 — 1.0 표·7.2 18번) · 2026-10-30(0장 서버 공개 연결 결과 — 10/29 확인·담당·잡은 문제·공개 뒤 피드백·남은 것, 포크 최신화. `fe-commands-and-checks.md` 지움, `fe-deploy.md`를 9장으로 합침) · 2026-10-27 밤(BE 토큰 로그인 공지 확인 — 1.0·BE-12·7.2 21번, V3 ADR 0031 → 0033) · 2026-10-27 저녁(계획 0059 정한 것 — BE-10, S1 `policy` 빼기·S4 DB 답 — BE-11, 리프레시 토큰 7.2 21번, `t_ms` 회의 7.2 22번) · 2026-10-27(BE PR #65 병합 반영 1.0 표·BE-5·BE-6, 프레임마다 전송·BE 묶음 답 BE-8, 판정 불가 좌표 없이 ADR 0021·BE-9, 시간 필드 BE-7, 측정 중 WS 줄이기 계획 0059, develop PR #64 디자인·작은 창 합침, 7.2 14~20) · 2026-10-26(웹 작은 창 삭제·숨은 탭 측정, ADR 0028 — 2장·7.2 9·11번·8.3·8.4. 저녁: 자정 끊기·서버 시각, ADR 0029 — 1장 BE-6·2장·7.2 12번. 회의: 리프레시 토큰은 BE 완료 뒤 적용, WS 판정 메시지 유지 — BE-6 ①, `valid_ms` 예시 — BE-5 ②, A4 `today`만 — BE-6 ③, 시간 필드 설명 요청 — BE-7·1.1 ⑥. 10/27: 좌표 프레임마다 전송 — BE-8·1.1 ⑦) · 2026-10-25(develop 합침, 팀장 10/22 결정 반영 — 2장 4, 7.2 5-a, BE-5) · 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 9장에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에. 저녁: 남은 앱 판정 삭제(F5), API·WS 대조와 F12 브랜치 검수를 7.2에, BE-4) · 대상: 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, ghdrb1246), ML(지성, jisung), 화면(lellon0403)
 > **사람 표기:** 이 문서의 DB·BE는 김유진(GitHub `sunshine-yj`, 커밋 이름 `Kimyoujin`, 10/26 「백엔드·DB 변경사항 정리」 기준), DevOps는 홍규(ghdrb1246), ML은 지성(jisung), 화면은 lellon0403(기록·달력·측정하기), FE는 klaod-tech다. 10/22까지의 BE 작업 일부(로그인 F12 `f27dd24` 등)는 ghdrb1246이 했다. 학습용 자세 데이터 수집 화면은 jisung이 진행 중이다.
 > **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API — [연동 명세](api-ws-spec.md) 3장 표. F1~F15는 FE 할 일 — 이 문서 7장. BE-1~BE-13는 BE에 요청한 것 — 이 문서 1장(BE와 다른 곳 한눈에는 1.0). F-a~F-e·B-a~B-g는 김유진 10/26 정리 문서의 항목 번호. G1~G6은 `make check` 실패 항목 — [계획 0030](../plans/active/0030-make-check-failures.md). D-nn·T-nn은 BE·DevOps 작업 번호, J2·J3은 서버의 Spark 작업(일별 집계·탈퇴 삭제) — [아키텍처 v5.2](architecture_v5.2_stack_roles.md).
-> **이 문서의 역할:** FE의 **전제·결정 요약, BE와 다른 곳·남은 질문, 할 일, 10/26 기준 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0027](../decisions/0027-today-records-from-collected-server-results.md)·[0017](../decisions/0017-desktop-app-shell-and-redesign.md)·[0029](../decisions/0029-midnight-cut-and-server-time.md). BE의 서버 시각 ADR은 BE 브랜치에 있다 — 10/26 같은 0028을 써서 BE가 번호를 옮기기로 함), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md), 배포는 [배포](fe-deploy.md)다.
+> **이 문서의 역할:** FE의 **전제·결정 요약, BE와 다른 곳·남은 질문, 할 일, 10/26 기준 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0027](../decisions/0027-today-records-from-collected-server-results.md)·[0017](../decisions/0017-desktop-app-shell-and-redesign.md)·[0029](../decisions/0029-midnight-cut-and-server-time.md). BE의 서버 시각 ADR은 BE 브랜치에 있다 — 10/26 같은 0028을 써서 BE가 번호를 옮기기로 함), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [개발 흐름](../development.md)과 [frontend README](../../frontend/README.md), 배포는 9장이다.
 > 지금 FE 브랜치: `feature/frontend-features-and-integrationV3`(서버 전용, 10/21). **10/27:** develop `2e1fd2b`에 BE 브랜치(PR #65, 김유진 `fix/repo-backend-sync`)와 lellon0403 디자인·작은 창(PR #64)이 들어갔다. V3는 PR #64를 10/27에 합쳤고(7.2 19번), PR #65를 합친 뒤 develop으로 PR한다(계약 파일 몇 개가 같은 줄을 같은 뜻으로 고쳐 충돌). 앱 로그인 연결(F12)은 ghdrb1246의 `f27dd24`를 10/22 V3로 옮겼다. CORS는 BE 코드에 없다(WS 허용 출처 `POSEGOOD_REALTIME_ALLOWED_ORIGINS`만 있음).
+> **10/30:** 서버 공개 연결이 끝났다(0장). 아래 1장 이후의 10/27 기준 표·할 일 중 0장과 다른 것은 0장이 맞다.
+
+## 0. 서버 공개 연결 결과 (10/29, 10/30 최신화)
+
+10/29부터 앱을 인터넷에서 쓸 수 있다. 화면은 `https://app.posegood.site`(Vercel, 포크 develop), API는 `https://api.posegood.site`(Cloudflare 터널 → 서버 PC의 API 전용 gateway)다. 진행 과정과 설정은 9.4·9.6·9.7, 서버 쪽 구성은 저장소 `infra/README.md` 「인터넷 공개 입구」에 있다.
+
+### 0.1 확인한 것 (10/29)
+
+- **브라우저(`https://app.posegood.site`, FE 확인 10항목 모두 OK):** 첫 화면 A8 401(로그인 전, 정상)·CORS 오류 없음 → 가입 200·`access_token` → `posegood_refresh` 쿠키 HttpOnly·Secure → 새로고침 뒤 로그인 유지(A8 200) → 로그아웃 204·다시 로그인 200 → 자세 등록 B1 200 → 측정 S1 200·`wss://api.posegood.site/api/v2/realtime` 연결 유지 → 몇 분 측정 중 `decision`·`alert` 수신 → 종료 `decision(session_ended)` → `closed(ended)` → 기록 화면에 방금 세션.
+- **서버 통합 시험(DevOps, 서버 PC `tools/platform/integration_test.sh --quick`, 10/29 20:09):** PASS 80 / FAIL 0 / SKIP 2. 터널을 거친 REST 26/0, WebSocket 17/0.
+- **밖에서 curl:** `/health` 200, `/api/health` DB 연결 ok, `/`·`/actuator/health` 404(화면·운영 경로는 밖에 안 나감). CORS 사전 확인 `access-control-allow-origin: https://app.posegood.site`, `allow-credentials: true`.
+
+### 0.2 담당별로 한 것
+
+| 담당 | 한 것 |
+|---|---|
+| FE(klaod-tech) | 도메인·Cloudflare DNS·터널 `posegood-api` 생성, Vercel 화면(`VITE_API_BASE_URL`), 앱 토큰 로그인(7.2 21번, PR #69·#73), 10/29 현장에서 터널 토큰을 서버에 직접 입력, 브라우저 확인 |
+| DB·BE(김유진) | 토큰 로그인(access 30분·refresh 14일, ADR 0031), REST CORS(`POSEGOOD_CORS_ALLOWED_ORIGINS`), DB V2.6(`refresh_token`), WS 자세 등록 삭제, 새 계정 알림 기본 켜짐(PR #68·#70) |
+| DevOps(홍규) | compose에 허용 출처·JWT 서명 키(secrets 파일) 전달, API 전용 gateway·`cloudflared` 컨테이너, 처리 서비스(8080)·추론(8000) 포트를 서버 PC 안으로만, 통합 시험·점검 도구(PR #80 등, D-43·D-65·D-69·D-71) |
+
+이로써 1.0 표의 「로그인 만료」·「CORS」·「알림 기본값」 줄은 끝났다(토큰 로그인, PR #70 CORS, 새 계정 알림 켜짐).
+
+### 0.3 공개 전에 잡은 문제 (모두 해결)
+
+| 문제 | 해결 |
+|---|---|
+| 터널 대상이 인증 없는 처리 서비스(`127.0.0.1:8080`)가 될 뻔함 | 대상을 컨테이너 이름 `http://gateway:80`으로(9.6.2) |
+| 허용 출처 값 끝의 `/`(`https://app.posegood.site/`) | 끝 `/` 없이. 서버 통합 시험 0단계가 형식을 검사 |
+| 터널 경유 점검 도구 403 | Cloudflare 봇 차단이 파이썬 기본 User-Agent를 막음 — 점검 도구가 `PoseGood-IntegrationTest/1.0`을 보냄 |
+| 서버 DB에 migration 016 옛 판 적용 | PR #70으로 고침. 점검 도구는 알림을 직접 켜서 영향 없음 |
+| 처리 서비스 시험용 데이터가 V2.6과 안 맞음 | DevOps가 V2.6에 맞춤(D-65) |
+
+### 0.4 공개 뒤 (10/30)
+
+- **운영 화면 최신화:** 포크 develop이 `d7cd4ac`(10/28)에 머물러 운영 화면이 develop과 달랐다. 10/30 포크를 `29089f8`(PR #80)로 빨리 감기 해 테마 4종·테마별 로고·아이콘·알림 팝업 테마·차트 대비 등이 운영에 나갔다(Vercel 배포 완료 확인).
+- **피드백 — 맥 Chrome에서 측정 중 「자세 추적을 이어갈 수 없어요」:** 그래픽 가속이 꺼진 Chrome에서 생긴다(윈도우는 가속 켬이라 정상). MediaPipe는 GPU·CPU 방식 모두 영상 프레임을 WebGL로 넘기므로 CPU로 다시 만드는 것만으로는 풀리지 않는다(`@mediapipe/tasks-vision` 1.0.1 번들 확인). 「그래픽 가속을 켜 주세요」 안내 문구 방향으로 팀원이 맡았다. 같이 챙길 것: WebGL이 없을 때만 그 문구, 카메라 준비 단계에서 미리 확인, `frameLoop.ts` catch에 원인 기록.
+
+### 0.5 남은 것
+
+- [ ] Cloudflare 요청 제한(`auth-rate-limit`)을 로그인·가입만으로 좁히고 평소 값·시연 날 값 정하기 — FE(9.6.3 Q3)
+- [ ] 정식 공개 때 검색 노출 막기 두 줄 지우기(`robots.txt`, `vercel.json` `X-Robots-Tag`) — FE
+- [ ] 데스크톱 앱이 `https://app.posegood.site`를 열게(F14, 9.4 5단계) — FE
+- [ ] 프론트 lint CI(`chore/update-workflow-ci-cd`, 팀장, develop 미병합)에서 나온 FE 수정 — FE. 10/30 develop `29089f8` 코드로 돌린 결과 오류 9개·경고 11개. 오류는 모두 동작과 무관한 것(`_`로 버리는 인자·속성 4개, 시험 파일 `any` 4개, `TipLayer.tsx` 쓰지 않는 초기값 1개)이라 CI만 막는다. 경고는 `react-hooks/exhaustive-deps` 11개로 CI를 막지 않지만 하나씩 확인한다. `tsc --noEmit` 통과
+- [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72), 아키텍처 문서 v5.3(D-73), 삭제 배치 J3(D-49) — DevOps
 
 ## 1. BE와 다른 곳, 남은 질문과 요청
 
@@ -24,12 +68,12 @@
 | 판정 불가 프레임 | **좌표 없이 `{t_ms, p: null, valid: false}`**(10/27, ADR 0021, BE-9) | 그대로 받음(판정 불가 시간으로 셈) | 알림만 — HDFS·학습 데이터에 좌표 없음 |
 | `valid_ms` 계산 | 서버 값을 보임 | 구간 전체(명세는 유효 부분만) — BE 보류 | BE-5 ②. 서버가 프레임을 묶는 방식과 함께 |
 | 측정 중 WS 요약 | 지금은 `progress`·`decision` 요약 15개를 씀 | 같음 | [계획 0059](../plans/active/0059-slim-realtime-results-over-api.md) 제안(측정 중은 점수·유지율·알림만, 결과는 끝난 뒤 S4) — 합의 전 |
-| 자정에 측정 끊기 | 사유 처리 준비(방식이 정해지면 먼저 넣음) | 없음(보류). BE 의견 A안 | 회의 — 7.2 18번. 이 문서 1.1·BE-6 ①은 B안을 권했으나 BE는 A안(리프레시 토큰으로 401 해결) |
+| 자정에 측정 끊기 | `session_rollover` 처리(10/30 — 이전 세션 기록 닫기, 서버가 만든 새 세션 ID로 이어 감), `day_changed`는 저장된 종료 | **B안 구현**(10/28, 같은 연결에서 서버가 새 세션으로 넘김), 설정 `midnight-rollover` 기본 꺼짐 | 이 FE 배포 뒤 `POSEGOOD_MIDNIGHT_ROLLOVER=true`(DevOps). 앱 날짜 나누기(ADR 0027) 정리는 따로 계획 |
 | 로그인 만료 | **토큰 로그인 적용(10/27, 7.2 21번)** — access 토큰 메모리·Bearer, 만료 1분 30초 전 A8, 401 뒤 한 번 갱신 | **10/27 develop PR #68(ADR 0031): access 30분 + refresh 14일, CSRF·쿠키 세션 삭제** | 맞음. FE는 V3 PR로 같이 들어감. 남은 확인 BE-12 ②(CORS) |
 | J2 실행 시점 | — | 00:00 정각 | BE-6 ⑤ (자정 끊기를 켜면 겹침) |
 | Kafka 모드(`ws`) | — | 계획 0031 1단계(PM) | 같은 규칙으로(서버 시각, `unmeasurable_timeout`, 프레임 묶음) |
 | W1·W2 | S1 `policy`는 앱 기본값 | 앱에 아직 안 붙음 | BE-3 (설정을 바꾸면 S1 409). S1 `policy`를 빼고 서버가 계정 설정을 읽게 하는 안은 BE 여유가 생기면(계획 0059) |
-| CORS | `app.` → `api.` 다른 출처 | 없음 | BE 문서 B-e, [배포](fe-deploy.md) S-1 |
+| CORS | `app.` → `api.` 다른 출처 | 없음 | BE 문서 B-e, 9.3.1 S-1 |
 | 판정 시간 규칙 이름·단위 | `Rules`(초) ↔ S1 `policy`(ms) 변환 | W1·W2 초 / S1 ms | BE-4 |
 | 알림 기본값 | 켜짐 | DB 기본 false | 함께 정하기 |
 | S1 뒤 WS가 안 열린 세션 | 앱은 S3를 부르지 않음 | 서버가 모른 채 열어 둠 | 아래 「BE에 물을 것」 |
@@ -44,7 +88,7 @@ FE가 10/22 문서 정리 때 이 문서를 지웠다(10/06 기준이라 낡았�
 - 필요 없다면: FE가 지우고, 남은 링크 1곳([ADR 0021](../decisions/0021-app-sends-information-server-judges.md))만 정리한다. develop에서 이 문서를 가리키던 README·계약·architecture 등의 링크는 V3에서 이미 지웠다.
 
 **BE에 물을 것 1개(10/22, BE 10/26 정리 문서 7장에도 남은 결정으로 있음):** S1은 성공했는데 WS가 열리지 않았거나 `hello` 전에 끊긴 세션은 서버가 모른 채 열려 있다. 앱이 이때 S3 `POST /v2/sessions/{id}/end`로 닫을까, 서버가 시간이 지나면 정리할까? (측정 중 끊김·`ready` 5초 초과는 서버가 이미 끝낸다. [연동 명세](api-ws-spec.md) 4장 S3·S4)
- 공개 배포의 HTTPS는 도메인 + Cloudflare 이름 있는 터널로 정했다([배포](fe-deploy.md), 10/19~20). 10/16~19의 BE 확인 기록은 git 이력(`dc2c5d4` 이 문서 1장)에 있다.
+ 공개 배포의 HTTPS는 도메인 + Cloudflare 이름 있는 터널로 정했다(9장, 10/19~20). 10/16~19의 BE 확인 기록은 git 이력(`dc2c5d4` 이 문서 1장)에 있다.
 최대 측정 시간은 정하지 않았다(10/22 기준 서버 기본값 5,000초). 앱은 `closed(limit_reached)`만 처리하므로 값이 정해져도 바꿀 것이 없다.
 
 BE에 요청한 것(FE는 결과만 확인한다):
@@ -143,7 +187,7 @@ FE가 정한 것(앱 쪽 동작):
 | 민감도 | 화면 3단계(느긋하게 0.80 · 보통 0.70 · 꼼꼼하게 0.60)와 세밀 조정(0.5~0.95). 기본은 0.7이고 LSTM으로 바뀌어도 그대로 쓴다. DB에는 threshold 값 하나로 저장한다. 단계 칸은 필요 없다 |
 | 소리 | 저장하지 않는다. 측정마다 꺼진 채 시작하고 측정 화면에서 켠다(브라우저는 사용자 동작 없이 소리를 켤 수 없다). 「자세 알림」 켜기·끄기만 서버에 저장한다(V2.3 `sound_alert_enabled`) |
 | 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청한다. 고정이라 **서버에 해상도를 보내지 않는다**(10/15, 좌표 구간의 `width`·`height` 삭제). 다른 크기면 시작하지 않는 처리는 두지 않고(10/19), 측정 화면 위에 실제 카메라 크기를 작게 표시한다(예정, F13) |
-| 배포 (10/19) | 공개 배포는 **HTTPS**. 화면은 Vercel `app.<도메인>`, 서버는 Cloudflare 이름 있는 터널 `api.<도메인>`(DevOps). 데스크톱 앱도 PC 파일(`app://posegood`)이 아니라 `https://app.<도메인>`을 연다 — 화면 수정이 서버 배포 없이 반영된다. 자세한 구상은 [배포](fe-deploy.md) |
+| 배포 (10/19) | 공개 배포는 **HTTPS**. 화면은 Vercel `app.<도메인>`, 서버는 Cloudflare 이름 있는 터널 `api.<도메인>`(DevOps). 데스크톱 앱도 PC 파일(`app://posegood`)이 아니라 `https://app.<도메인>`을 연다 — 화면 수정이 서버 배포 없이 반영된다. 자세한 구상은 9장 |
 | 자세 등록 (10/20 전체 회의, 10/26 갱신) | 앱이 관절 9개 3초 평균을 내서 B1로 보낸다. 이 PC에는 저장하지 않는다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 10/26부터 B1은 `registration_id`(촬영마다 UUID)를 보내고 등록 시각은 서버가 정한다(DB V2.5, BE 브랜치) |
 | 측정 (10/21) | 「측정 시작」은 항상 서버 측정이고 앱은 판정하지 않는다. 서버 결과는 형식만 확인한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)) |
 | 네트워크 끊김 | 세션을 끝내고 화면을 막는 팝업을 띄운다. 재연결·재전송하지 않는다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)) |
@@ -212,7 +256,7 @@ FE가 정한 것(앱 쪽 동작):
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
 | F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **A1~A5 끝남(10/22 V3):** ghdrb1246의 `f27dd24`(D-66)를 V3로 옮김. 스위치 없이 항상 서버 계정, 로그인·가입·`me` 뒤 `setServerAuth`(B1·B2·S1·S4가 같은 계정·CSRF 토큰), CSRF 403 재시도. 남은 것: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 | BE · 연동 명세 2장 |
 | F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
-| F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · [배포](fe-deploy.md) 4장 5단계 |
+| F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · 9.4 5단계 |
 | F15 | v2 전환으로 필요 없어진 코드 정리 | 끝남(10/21, 7.1 표) | — |
 
 담당(10/14 정함): 기록·달력 화면과 측정하기 화면은 lellon0403, 학습용 자세 데이터 수집 화면은 jisung(진행 중). FE(klaod-tech)는 서버로 보내는 처리(F1~F3), 판정 불가 처리(F11), 회원가입·동의 화면을 한다. 계정 서버 연결(F12)은 BE가 맡는다(BE 계획 0027과 같은 일 — A1~A5는 10/22 ghdrb1246 `f27dd24`를 V3로 옮겨 끝났고, A6·A7·C1·W1·W2가 남음). 10/26부터 FE(klaod-tech)가 기록·달력 화면의 API·WS·서버 판별 로직도 고친다(화면 모양은 lellon0403).
@@ -246,10 +290,10 @@ FE가 정한 것(앱 쪽 동작):
 **10/27에 한 것(V3 로컬 커밋, 푸시 전):** A4 `today`(`server_time` 철회), 좌표 프레임마다 전송(BE-8), develop PR #64 합침(디자인·작은 창은 lellon0403 것, 날짜 나누기는 서버 요약으로, 19번), `unmeasurable_timeout`·측정 중 종료 사유 처리(14·15번), 앱이 정한 판정 불가 즉시 표시, 판정 불가 프레임 좌표 없이(ADR 0021), 계획 0059 초안. 시험 273개·`tsc`·빌드·`check-repo` 통과. 남은 것: 실제 서버 확인(16번, 이 PC에 MySQL·Docker 없음), PR #65를 V3에 합치고 develop으로 PR, 회의 안건(18·20·22번, 판정 불가 범위 넓히기). **10/27 저녁:** 계획 0059를 두 단계로(BE-10), 측정 시계는 앱이 전체 시간으로·측정 중 `keep_rate` 남김, S1 `policy` 빼기와 S4 DB 답·J2 시각·재배포 시각 요청(BE-11), 리프레시 토큰 앱 동작(연동 명세 1장, 21번), 종료 중 로딩·창 닫기 막기(계획 0059), `t_ms` 회의 안건(22번), 판정 불가 신호 형식은 그대로(`valid: false`).
 
 **10/26 인계 (데스크톱 → 노트북):** V3 `origin/feature/frontend-features-and-integrationV3`에 모두 푸시했다. 노트북에서 `git fetch origin` 뒤 `git merge --ff-only origin/feature/frontend-features-and-integrationV3`로 받는다. 원격의 `DevOps` 브랜치는 지워졌으니 fetch 설정에 남아 있으면 지운다(`git config --unset remote.origin.fetch '\+refs/heads/DevOps:.*'`).
-- 보낼 것(디스코드, klaod-tech): 김유진(DB·BE) — **이 문서 그대로**(1.0 BE와 다른 곳, 1.1 10/26 정리 문서에 대한 답과 추가 요청, BE-5·BE-6. BE-6 ⑤ J2 실행 시점은 J2 담당과 함께), 홍규(DevOps) — BE 10/26 정리 문서 5.2(migration 015 등)와 [배포](fe-deploy.md) 3.1, 팀장 — 1장 맨 위 「팀장에게 물을 것」(`data-platform-boundary.md` 계속 쓸지). 답이 오면 이 문서·연동 명세에 반영한다.
+- 보낼 것(디스코드, klaod-tech): 김유진(DB·BE) — **이 문서 그대로**(1.0 BE와 다른 곳, 1.1 10/26 정리 문서에 대한 답과 추가 요청, BE-5·BE-6. BE-6 ⑤ J2 실행 시점은 J2 담당과 함께), 홍규(DevOps) — BE 10/26 정리 문서 5.2(migration 015 등)와 9.3.1, 팀장 — 1장 맨 위 「팀장에게 물을 것」(`data-platform-boundary.md` 계속 쓸지). 답이 오면 이 문서·연동 명세에 반영한다.
 - 이어서 할 일: 아래 표 1번(더미 데이터 삭제)부터. 9번(자동 PiP)·10번(시험 전용 로컬 로그인 삭제)은 [계획 0054](../plans/active/0054-pip-fix-and-server-only-login.md).
 - 10/26 오후: 9번은 방향을 바꿔 끝냈다 — 웹 작은 창 삭제(V3 `409de69`), 숨은 탭에서도 측정이 이어지게 프레임 타이머를 Worker로(`86b7a46`), 결정 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md). 데스크톱 작은 창은 [계획 0055](../plans/active/0055-desktop-camera-window.md)(11번).
-- 10/26에 정한 것: 로컬 기록은 키 하나, 계정별로 나누지 않음([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)). 포크(Vercel)는 그대로 `11126de`(fe-deploy 7장 진행 기록).
+- 10/26에 정한 것: 로컬 기록은 키 하나, 계정별로 나누지 않음([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)). 포크(Vercel)는 그대로 `11126de`(배포 9.7 진행 기록).
 
 10/25~26에 한 것: develop(PR #63) 합침, 팀장 10/22 결정을 연동 명세·이 문서에 옮김, 모델명·버전 화면 표시 삭제(5-a), design 문서 점검(fe-deploy·명령·동의 제안서 고침, 다른 담당 문서는 BE-5 ⑤), ADR 0027. 10/26 오후~저녁: 웹 작은 창 삭제·숨은 탭 측정·데스크톱 작은 창(9·11번), 서버 시각·KST·B1 `registration_id`·ADR 0028·0030(12·13번). 시험 238개·`tsc`·빌드·`check-repo`·WS 계약 시험 통과.
 10/21에 한 것: F2 자세 등록(B1·B2), F1+F3 측정(S1 → `/v2/realtime`), 로컬 판정·이어하기·v1 서버 코드 삭제. 시험 213개·`check-repo` 통과, 실제 서버 시험은 아직.
@@ -258,7 +302,7 @@ FE가 정한 것(앱 쪽 동작):
 |---|---|---|
 | 1 | **더미 데이터 삭제**(2단계): 발표용 예시 기록 `data/exampleRecords.ts`와 설정의 토글(`KEYS.demo`, `saveDemoPreference`), 합성 시연 `mode: 'demo'`, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라는 남긴다 | — |
 | 2 | **기록 화면을 서버로**(3단계): `recordsSource.ts`에서 과거는 R1·T1, 오늘은 로컬. 측정 결과를 이 기기에 R1 형식으로 남기는 것(`useSessionPersistence.ts` `finish`)은 10/22 결정으로 R1로 바꿔도 **남긴다**(오늘 표시용. 키 하나로 두고 계정별로 나누지 않음 — 한 PC 여러 계정의 한계는 연동 명세 4.5 「팀 참고」). 기록·달력은 lellon0403 담당(10/14)이라 함께 | BE 로그인(F12) |
-| 3 | `check-browser` 시나리오를 서버 전용으로 다시 쓰기([계획 0030](../plans/active/0030-make-check-failures.md) G6): 가짜 S1·`/v2/realtime`·B1·B2 | — |
+| 3 | 구형 `check-browser` 재작성 과제는 2026-10-29 도구 삭제로 폐기([계획 0030](../plans/active/0030-make-check-failures.md)). 현재 기본 검사와 JWT·자정 등 필요한 개별 점검은 [품질 기준](../quality.md)을 따름 | 복구 과제 없음 |
 | 4 | 실제 서버 시험: DevOps 8088 환경(`ssh -L 8088:127.0.0.1:8088`)에서 로그인 → 등록 → 측정 → 종료 → 기록. 그 환경의 화면은 BE 브랜치(10/22부터 develop)의 `frontend/`로 빌드되므로 V3 화면으로 빌드해야 한다(DevOps와 정하기) | F12·W1 |
 | 5 | S1 `policy`를 W1 `rules`로(F1-a, BE-3) | W1 |
 | 5-a | **10/25 develop 합침**(PR #63 = BE `047a095`+팀장 문서 정리 `db220d8`): 코드는 옛 경로 삭제뿐이라 충돌 없음. 팀장 10/22 결정(오늘 로컬 집계, 모델명 비표시, 로그인 고정 30분, `valid_ms` 정의)을 연동 명세 0·1·4.5·5.2장과 이 문서에 옮김. 모델 버전 표시 2곳 지움. BE와 다른 곳은 1장 BE-5 | — |
@@ -274,8 +318,8 @@ FE가 정한 것(앱 쪽 동작):
 | 15 | ~~측정 중 `bad_message`·`unauthorized`를 「저장됨」으로~~ **10/27 함**(`ready` 뒤에만, 모르는 사유도 같게)(BE 10/27 FE 6): 서버는 이때도 마지막 구간까지 저장한다. 측정 중이었다면 `session_lost`처럼 `lost: true`로 로컬 기록을 남긴다(`LiveSession.ts` `CLOSED`) | — |
 | 16 | **좌표 프레임마다 전송 실제 서버 확인**(10/27 팀장 결정, BE-8): V3 `frames.ts`는 프레임 1장짜리 구간을 다음 프레임이 찍힐 때 보낸다. BE 브랜치 서버에 붙여 `bad_message` 없이 프레임마다 `observation`이 오는지, 요약 시간이 맞는지 앱으로 확인 | 4 |
 | 17 | ~~R1·T1 새 형식~~ **10/27 연동 명세 4.5에 적음**(앱은 아직 R1·T1을 부르지 않아 코드는 2번에서)(BE 10/27 1장 6·10번): R1은 배열이 아니라 `{today, records}`, T1은 `{today, from, to, days}`(필드는 `daily_stat` 칸 이름). 연동 명세 4.5를 고치고, 2번에서 R1·T1을 붙일 때 이 형식으로 읽기. T1이 기록·달력 화면에 맞는지 lellon0403과 확인 | 2, T1 구현 |
-| 18 | **자정 끊기 방식 맞추기**: BE는 A안(`closed(day_changed)` → 앱이 새 S1·WS로 이어감, 로그인 401은 리프레시 토큰으로 해결)을 권한다(BE 10/27 2.1). ADR 0029는 A안, 이 문서 1.1·BE-6 ①은 B안이라 FE 문서끼리 다르다 — 회의에서 정한 뒤 한쪽으로 맞추고, 그 사유 처리를 앱에 먼저 넣는다 | 팀 회의, 리프레시 토큰 |
-| 19 | **develop PR #64(lellon0403 `ad7cd42`, 10/26) 디자인·작은 창을 V3로 가져오기**: klaod-tech가 요청해 lellon0403이 앱 전체 디자인(숲 테마·글꼴·아이콘·그림)과 데스크톱 작은 카메라 창(테두리 없는 Electron 창, 접기·앱으로 돌아가기)을 바꾼 것. **디자인과 작은 창은 PR #64 것을 쓰고 V3의 것(`features/desktop/DesktopCameraWindow` 등)은 뺀다.** 로직(서버 전용 측정, `serverClock`·`lib/kst`, 프레임 전송)은 V3 것을 유지. 미리 합쳐 본 결과 충돌 35개 파일, V3가 지운 파일(웹 `CameraWindow`·`useCameraWindow`, 옛 `SessionLive`·`SessionResult`·`MeasureParts`·`RecoveryNotice`)을 PR #64가 고쳐 둠. 번호 겹침: PR #64의 ADR 0021·계획 0054·0055가 V3의 같은 번호와 겹침. **10/27 합침:** 디자인(아이콘·그림·숲 테마·글꼴, `DESIGN.md`)과 작은 창(`CameraWindow`·`useCameraWindow`·`electron/camera-window.cjs`)은 PR #64 것, V3 `DesktopCameraWindow`·계획 0055는 지움(superseded). 날짜 나누기(`dailyMeasurement.ts`, 그쪽 ADR → 0031)는 V3 서버 누적 요약으로 다시 붙임(`useSessionPersistence` `observe`). 「오늘」은 V3대로 서버 날짜(`useServerToday`), 그쪽 `useKstDay`(PC 시계 1초마다)는 지움, `lib/kstDay.ts`는 `lib/kst` 이름만 남김. 메일 인증 화면은 꺼진 채로 들어옴. 그쪽 계획 → 0057·0058. V3가 지운 옛 로컬 측정 화면·중간 기록·그 시험은 그대로 지움. 시험 271개·`tsc`·빌드·`check-repo` 통과. **남은 것:** 데스크톱 앱에서 작은 창·새 디자인을 실제로 띄워 보기, `check-browser`(Docker 필요) | 실제 앱 확인 |
+| 18 | **자정 끊기 방식 맞추기**: ~~BE는 A안(`closed(day_changed)` → 앱이 새 S1·WS로 이어감, 로그인 401은 리프레시 토큰으로 해결)을 권한다(BE 10/27 2.1). ADR 0029는 A안, 이 문서 1.1·BE-6 ①은 B안이라 FE 문서끼리 다르다~~ **10/30 정리:** BE가 10/28 B안(`session_rollover`, 새 세션 ID는 서버가 만듦)으로 구현해 FE 문서를 모두 B안으로 맞추고(ADR 0029 결정 2, 연동 명세 1·5.2·5.3장) 앱 처리를 넣었다. `day_changed`는 실패했을 때만 오는 사유 | 끝(서버 설정 켜기는 DevOps) |
+| 19 | **develop PR #64(lellon0403 `ad7cd42`, 10/26) 디자인·작은 창을 V3로 가져오기**: klaod-tech가 요청해 lellon0403이 앱 전체 디자인(숲 테마·글꼴·아이콘·그림)과 데스크톱 작은 카메라 창(테두리 없는 Electron 창, 접기·앱으로 돌아가기)을 바꾼 것. **디자인과 작은 창은 PR #64 것을 쓰고 V3의 것(`features/desktop/DesktopCameraWindow` 등)은 뺀다.** 로직(서버 전용 측정, `serverClock`·`lib/kst`, 프레임 전송)은 V3 것을 유지. 미리 합쳐 본 결과 충돌 35개 파일, V3가 지운 파일(웹 `CameraWindow`·`useCameraWindow`, 옛 `SessionLive`·`SessionResult`·`MeasureParts`·`RecoveryNotice`)을 PR #64가 고쳐 둠. 번호 겹침: PR #64의 ADR 0021·계획 0054·0055가 V3의 같은 번호와 겹침. **10/27 합침:** 디자인(아이콘·그림·숲 테마·글꼴, `DESIGN.md`)과 작은 창(`CameraWindow`·`useCameraWindow`·`electron/camera-window.cjs`)은 PR #64 것, V3 `DesktopCameraWindow`·계획 0055는 지움(superseded). 날짜 나누기(`dailyMeasurement.ts`, 그쪽 ADR → 0031)는 V3 서버 누적 요약으로 다시 붙임(`useSessionPersistence` `observe`). 「오늘」은 V3대로 서버 날짜(`useServerToday`), 그쪽 `useKstDay`(PC 시계 1초마다)는 지움, `lib/kstDay.ts`는 `lib/kst` 이름만 남김. 메일 인증 화면은 꺼진 채로 들어옴. 그쪽 계획 → 0057·0058. V3가 지운 옛 로컬 측정 화면·중간 기록·그 시험은 그대로 지움. 시험 271개·`tsc`·빌드·`check-repo` 통과. **남은 것:** 데스크톱 앱에서 작은 창·새 디자인을 실제로 띄워 보기. 구형 `check-browser` 통과 대기는 도구 삭제로 폐기 | 실제 앱 확인 |
 | 20 | **측정 중 WS 줄이기, 결과 상세는 API로**(10/27 계획을 두 단계로 다시 씀 — BE-10)([계획 0059](../plans/active/0059-slim-realtime-results-over-api.md), 10/27 klaod-tech 제안): 측정 중 WS는 점수·판정 불가·`alerting`·유지율(`keep_rate`)(`observation`)과 알림(`alert`)만, 측정 시간은 앱이 `ready`부터 전체 시간으로 세고(10/27 정함), 끝난 뒤 S4로 요약·사건 전체를 받아 기록에. WS 계약을 바꾸므로 BE와 합의 필요 | 팀장·BE 합의 |
 | 21 | **토큰 로그인 적용(BE ADR 0031, BE-12)**: BE 브랜치 `feature/repo-auth-refresh-token` 위에 FE 브랜치를 만들어 — access 토큰 메모리 보관·`Authorization: Bearer`(`features/platform/api.ts`·`accountClient.ts`), 만료 1~2분 전 A8 + 401 뒤 한 번 예비, 갱신 하나로 묶기, 탭 사이 공유(`BroadcastChannel`), 앱 시작 A8 → A4, 로그아웃 때 토큰 버리기, CSRF(A1·`X-CSRF-TOKEN`·403 재시도) 삭제, `hello.access_token`과 계약 사본, 「30분 고정」 문구, 가짜 서버(`frontend/scripts/fake-server.mjs`), 문서(연동 명세 1장, `fe-domain-idea.md`, 계획 0027, `email-account-handoff.md`). BE PR과 같은 날 develop에. **10/27 브랜치 `feature/frontend-auth-token`(V3 + BE `351eb3f`)에서 함:** 위 코드 전부(갱신 1분 30초 전 `RENEW_BEFORE_MS`, 응답 없음·5xx면 30초 뒤 다시), 측정 중 `closed(unauthorized)` 문구를 「비밀번호 변경이나 탈퇴로 로그인이 끝나」로(측정 중 만료는 이제 없음), 꺼져 있는 메일 API(`mailApi.ts`, lellon0403)에서 CSRF 단계 삭제, 가짜 서버 토큰 방식(`FAKE_ACCESS_SECONDS`), 연동 명세·fe-deploy·frontend README·계획 0027·fe-commands-and-checks. 시험 274개·`tsc`·빌드 통과. **남은 것:** 실제 BE로 확인(이 PC에 MySQL 없음), `fe-domain-idea.md`는 이 저장소에 없음(BE 공지 목록), `email-account-handoff.md`는 lellon0403 문서라 넘김 — 「GET `/auth/csrf`」 줄과 「`X-CSRF-TOKEN`과 동일 출처 쿠키」 문장을 토큰 방식으로 | BE는 10/27 develop PR #68로 합쳐짐. FE는 V3에 합쳐 같은 PR로 올림 |
 | 22 | **회의: 시간 판정을 `t_ms`로 할지, 앱이 셀지**(10/27 klaod-tech 질문): 지금은 서버 `SessionEngine`이 구간 `start_ms`·`end_ms`(앱이 찍은 시각, 앱 시계)로 3초 확정·3초 회복·60초 다시 알림을 센다. 안: 앱이 세서 확정. FE 의견은 지금대로 — ① 앱이 확정하면 DB 사건·다시 알림을 서버가 앱 말을 믿고 적어야 해 앱이 판정하게 됨(ADR 0021), ② 앱도 점수를 서버에서 받아야 알아 결국 도착 시각으로 세게 됨(네트워크 지연이 섞임), ③ 두 곳이 세면 화면과 DB가 어긋남. 화면 지연은 `observation.alerting`(BE-10)으로 왕복 시간(보통 0.1~0.3초)뿐 ([연동 명세](api-ws-spec.md) 5.1) | 팀 회의 |
@@ -292,7 +336,7 @@ FE가 정한 것(앱 쪽 동작):
 | `VITE_SERVER_ACCOUNTS` | 다시 만든 스위치. `true`면 서버 계정, 없으면 이 기기 로컬 로그인. 서버 컨테이너 Dockerfile은 `true` | **10/22 결정(klaod-tech): 스위치 없음, 항상 서버 계정**(로컬로 돌릴 이유가 없다 — 측정이 항상 서버). V3에는 이 변수가 없다. 서버 컨테이너 Dockerfile의 `ARG`는 남아도 영향 없음(BE에 알림) |
 | 앱을 다시 열 때 | `me()`로 로그인 되살림. 실패는 조용히 무시 | V3는 그 뒤 B2(기준 자세)를 받으므로 `me()` 성공 → `setServerAuth` 순서가 맞아야 한다. `me()` 응답은 형식 검사 없이 쓴다(로그인·가입은 검사) |
 | 409 `AUTH_CHANGED` | 로그아웃만 헤더를 보냄, 실패는 무시 | 7.2 7번 그대로: V3 `api.ts`에서 받으면 `me()`로 다시 맞춘다 |
-| 같은 출처 전제 | 8088 화면 컨테이너(같은 출처)에서만 확인 | `app.posegood.site` → `api.posegood.site`는 다른 출처라 CORS(BE, 아직 없음)·`POSEGOOD_COOKIE_SECURE=true`·WS 허용 출처가 있어야 한다([배포](fe-deploy.md)) |
+| 같은 출처 전제 | 8088 화면 컨테이너(같은 출처)에서만 확인 | `app.posegood.site` → `api.posegood.site`는 다른 출처라 CORS(BE, 아직 없음)·`POSEGOOD_COOKIE_SECURE=true`·WS 허용 출처가 있어야 한다(9장) |
 | 시험 | `accountClient.test.ts`, `LocalServiceApp.accounts.test.tsx` | 함께 옮긴다 |
 
 **10/22 서버 연동 전 API·WS 대조** (BE 브랜치 `047a095` 코드 — API 명세·계약·서버 코드가 V3가 받은 `d87d497`과 같음):
@@ -329,7 +373,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 ## 8. 지금 앱 (FE 참고)
 
-10/19 연동 명세 7장(FE 참고)과 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)를 여기로 합쳤다. 데스크톱 창·시작 프로그램·알림 팝업은 8.4, 실행 명령은 [FE 작업 명령과 검사](fe-commands-and-checks.md)에 있다. 시각 규칙은 [DESIGN.md](../../DESIGN.md), 결정은 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md).
+10/19 연동 명세 7장(FE 참고)과 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)를 여기로 합쳤다. 데스크톱 창·시작 프로그램·알림 팝업은 8.4, 실행 명령은 [frontend README](../../frontend/README.md)에 있다. 시각 규칙은 [DESIGN.md](../../DESIGN.md), 결정은 [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md).
 
 ### 8.1 서버에 붙은 것과 남은 것 (10/21 V3)
 
@@ -354,7 +398,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 | 변수 | 뜻 |
 |---|---|
-| `VITE_API_BASE_URL=https://…` | API 주소 앞부분. 화면을 다른 곳(Vercel)에서 낼 때 운영은 `https://api.posegood.site`. 없으면 같은 출처 `/api`(10/19, [배포](fe-deploy.md)) |
+| `VITE_API_BASE_URL=https://…` | API 주소 앞부분. 화면을 다른 곳(Vercel)에서 낼 때 운영은 `https://api.posegood.site`. 없으면 같은 출처 `/api`(10/19, 9장) |
 | `POSEGOOD_API_URL` (개발 서버) | `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 
 예전 계정 모드 스위치 `VITE_SERVER_ACCOUNTS`는 2026-10-13(10/22 F12 브랜치가 다시 만들었지만 V3로 옮기며 빼서 로그인은 항상 서버), 실시간 스위치 `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`와 개발자 옵션의 「서버 판정 사용」은 2026-10-21 지웠다(앱은 항상 서버로 측정, WS 주소는 API 주소나 페이지 주소에서 만든다).
@@ -378,7 +422,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 ### 8.4 데스크톱 앱 구조 (`frontend/electron/`)
 
-10/19 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)에서 배포 문서로 옮겼다가, 10/22 배포와 상관없어 여기로 옮겼다. [배포](fe-deploy.md) 4장 5단계(F14)에서 바꿀 곳이 여기 있다.
+10/19 데스크톱 앱 화면 설계(`docs/design/desktop-app.md`, lellon0403)에서 배포 문서로 옮겼다가, 10/22 배포와 상관없어 여기로 옮겼다. 9.4 5단계(F14)에서 바꿀 곳이 여기 있다.
 
 | 파일 | 역할 |
 |---|---|
@@ -408,3 +452,166 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 - 앱 창을 닫으면 숨은 팝업 창도 정리해 앱이 종료된다. 일반 브라우저 탭에는 팝업이 없다.
 - 검증(lellon0403): 패키징 EXE를 숨긴 창·독립 프로필로 실행해 `showAlert`→`popup`, 문구·표시, 설정 끔→`off`를 확인했다. 실제 측정 중 다른 창을 볼 때의 확인은 따로 한다.
 - 팝업 주소는 패키징 때 `app://posegood/alert-popup.html`이라, 화면을 `app.<도메인>`에서 열 때 같이 바꾼다(F14).
+
+## 9. 배포: 도메인 + Vercel + Cloudflare 터널
+
+10/30 `fe-deploy.md`(klaod-tech, 10/19 작성)를 이 장으로 합쳤다. 공개 연결이 10/29에 끝나 결과는 0장, 진행 과정·설정·기록은 이 장에 있다. 관련: [연동 명세](api-ws-spec.md) 1장, [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md), 서버 쪽 구성은 저장소 `infra/README.md` 「인터넷 공개 입구」.
+
+### 9.1 왜 바꾸나
+
+- **화면을 조금 고칠 때마다 서버를 다시 올리는 건 맞지 않다(10/19).** 화면은 서버와 따로 배포하고, 서버는 API만 맡는다.
+- **공개 배포는 HTTPS가 필요하다.** 브라우저·Electron은 `https://`(또는 `localhost`)에서만 카메라를 켜고, 로그인 유지 쿠키(refresh, Secure)·`wss://`도 HTTPS가 전제다.
+- 화면은 Vercel이 무료로 HTTPS를 준다. 남는 것은 서버(API·WebSocket)의 HTTPS 하나이고, 도메인 하나와 Cloudflare 무료 터널로 푼다.
+
+### 9.2 정한 것 (10/19)
+
+| 항목 | 결정 |
+|---|---|
+| 도메인 | **`posegood.site`** — klaod-tech 개인 계정, 가비아에서 10/19 구입(첫해 3,300원, 1년. 연장 가격은 따로 확인). 화면 `app.posegood.site`, 서버 `api.posegood.site` |
+| DNS | Cloudflare 무료. 등록 사이트의 네임서버를 Cloudflare로 바꾼다 |
+| 화면 | `app.<도메인>` → Vercel(내 도메인 연결은 무료). Cloudflare에서 이 레코드는 프록시 끔(DNS only). Vercel 프로젝트는 **klaod-tech의 포크**(`klaod-tech/sitting-posture-corrector`)에 연결한다(10/19, 아래 진행 기록) |
+| 서버 | `api.<도메인>` → Cloudflare 이름 있는 터널(named tunnel) → 팀 서버 nginx. 터널은 도메인이 있는 klaod-tech의 Cloudflare 계정에서 만들고, DevOps는 그 연결 토큰으로 서버에서 `cloudflared`를 띄운다 |
+| 데스크톱 앱 | 화면을 PC 파일(`app://posegood`)이 아니라 `https://app.<도메인>`에서 연다(2장 「배포」, F14). 화면 수정은 Vercel 배포만으로 데스크톱에도 반영된다 |
+
+```
+브라우저 / 데스크톱 앱
+  ├─ https://app.<도메인>                 Vercel (화면 파일만, PR마다 미리보기 주소)
+  ├─ https://api.<도메인>/api/v2/…        Cloudflare 터널 → nginx → BE API
+  └─ wss://api.<도메인>/api/v2/realtime   같은 경로 (WebSocket)
+```
+
+### 9.3 분리하면 바꿀 것 (BE 브랜치 `a0d99a3` 코드로 확인, 10/19)
+
+화면(`app.`)과 API(`api.`)는 **출처는 다르고 사이트는 같다**(같은 도메인 아래 하위 주소).
+**API·WS의 판정 흐름과 계약(REST, WebSocket v2)은 다시 할 것이 없다.** 서버 코드에서 새로 할 것은 CORS 하나이고, 나머지는 설정값이다.
+
+#### 9.3.1 서버 쪽
+
+| # | 항목 | 지금 BE | 분리 뒤 | 종류 | 누가 |
+|---|---|---|---|---|---|
+| S-1 | **CORS** | 설정이 없다(10/25 develop `3285cce`에도 없음. `SecurityConfiguration`에 `.cors()` 없음). 다른 출처의 요청은 브라우저가 먼저 보내는 확인 요청(OPTIONS)부터 로그인 필요로 막힌다 | 허용 출처 `https://app.<도메인>`, 쿠키 포함 허용(refresh 쿠키), 메서드 GET·POST·PUT·DELETE, 헤더 `Content-Type`·`Authorization`·`X-PoseGood-User-Id`(토큰 로그인 뒤 `X-CSRF-TOKEN` 없음, BE ADR 0031). 확인 요청은 로그인 없이 통과. 허용 출처는 WS처럼 환경 변수로. **10/28 develop에 들어감**(PR #70 `0f0f83e`, `POSEGOOD_CORS_ALLOWED_ORIGINS`) — 남은 것은 서버 값(9.6) | **코드**(끝남) | BE |
+| S-2 | 로그인 쿠키 Secure | `server.servlet.session.cookie.secure=${POSEGOOD_COOKIE_SECURE:false}`(토큰 로그인 뒤에는 refresh 쿠키 `posegood_refresh`에 같은 변수, 그리고 `POSEGOOD_JWT_SECRET` 32바이트 이상 필수) | `POSEGOOD_COOKIE_SECURE=true` | 설정 | BE·DevOps |
+| S-3 | WS 허용 출처 | `POSEGOOD_REALTIME_ALLOWED_ORIGINS` 비어 있음 = 같은 출처만 | `https://app.<도메인>`(끝 `/` 없이. `/v1`은 10/27 삭제, `/v2`가 이 값을 씀) | 설정 | DevOps |
+| S-4 | nginx 화면 파일 | `default.conf`가 API와 함께 화면(`/`, `/mediapipe/`)도 낸다 | 화면은 Vercel이 내므로 `api.`에서는 필요 없다. **10/28 DevOps B안:** 터널용 API 전용 gateway를 새로 두고, 지금 `web`(8088)은 서버 안 시험용으로 둔다(9.6) | 설정 | DevOps |
+| S-5 | nginx `X-Forwarded-Proto` | `$scheme`을 넘긴다 | 터널(cloudflared) → nginx 구간은 HTTP라 `http`로 넘어간다. 10/22 기준 서버는 이 값을 쓰는 곳이 없어 당장 문제는 없지만, 나중을 위해 `https`로 고정하는 것을 권한다. **10/28 B안 gateway에서 `https`로 고정** | 설정 | DevOps |
+| S-6 | 터널 | 없음 | 이름 있는 터널 `api.<도메인>` → **compose의 `cloudflared` 컨테이너 → `http://gateway:80`**(10/28 B안). 경로 `/api` 접두사는 지금처럼 gateway가 뗀다. 호스트의 `127.0.0.1:8080`은 처리 서비스(인증 없음)라 가리키면 안 된다 | 설정 | DevOps |
+
+**바꾸지 않아도 되는 것:**
+- **CSRF:** 토큰을 세션에 두고 `GET /v2/auth/csrf` 응답 본문으로 준다(`HttpSessionCsrfTokenRepository`). 쿠키에서 읽는 방식이 아니라서, 출처가 달라도 응답을 읽어 헤더로 보내면 된다. **토큰 로그인(BE ADR 0031, 10/27 BE 브랜치) 뒤에는 CSRF가 없다.**
+- **SameSite=Lax:** `app.`과 `api.`는 같은 사이트라 HTTP 요청과 WS 연결 모두에 쿠키가 실린다. 쿠키 `Domain` 지정도 필요 없다(`api.` 쿠키면 됨). 토큰 로그인 뒤에는 refresh 쿠키만 이 규칙을 따르고, 요청 인증은 `Authorization: Bearer`, WS는 `hello.access_token`이다.
+- **WS 계약, 판정:** 그대로다(토큰 로그인 뒤 `hello`에 `access_token` 필수). 로그인 30분 고정은 토큰 로그인으로 없어진다(access 30분을 refresh 14일로 계속 갱신).
+
+**주의:** Vercel 기본 주소(`*.vercel.app`)에서 열면 `api.<도메인>`과 **다른 사이트**라 Lax 쿠키가 실리지 않아 로그인이 안 된다(토큰 로그인 뒤에도 refresh 쿠키가 안 실려 로그인 유지가 안 된다. 설치용 데스크톱 앱의 `app://posegood`도 같다 — F14로 `https://app.<도메인>`을 열어야 한다). 실제 서버는 `app.<도메인>`에서만 쓰고, 미리보기는 가짜 서버로 띄운다(9.4 3단계). 미리보기 주소는 서버 허용 목록에 넣지 않는다.
+
+#### 9.3.2 앱 쪽
+
+| # | 항목 | 지금 앱 | 분리 뒤 |
+|---|---|---|---|
+| A-1 | API 주소 | **10/19 끝남:** `VITE_API_BASE_URL`(`features/platform/serverConfig.ts`, 요청은 `features/platform/api.ts`). 비우면 같은 출처 `/api/…`, 개발은 Vite 중계 | 운영은 `VITE_API_BASE_URL=https://api.<도메인>` |
+| A-2 | 쿠키 보내기 | **10/19 끝남:** `credentials: 'include'`(`api.ts`·`accountClient.ts`) | 그대로(출처가 달라서 `same-origin`으로는 안 실린다). 토큰 로그인 뒤에는 refresh 쿠키 때문에 유지 |
+| A-3 | WS 주소 | **10/21 바꿈:** `VITE_REALTIME_URL`을 지우고 API 주소(없으면 페이지 주소)에서 만든다(`https:`면 `wss:`) | `VITE_API_BASE_URL`만 넣으면 `wss://api.<도메인>/api/v2/realtime`가 된다 |
+| A-4 | 계정 | 10/22부터 항상 서버 계정(`accountClient.ts`, 스위치 없음 — Vercel에 계정용 환경 변수를 넣지 않는다) | 다른 출처라 CORS·`POSEGOOD_COOKIE_SECURE=true`가 있어야 로그인 쿠키가 실린다 |
+
+- **WebSocket 유지:** 앱은 측정 중 계속 구간을 보내므로(10/27부터 프레임마다, 초당 약 10개) 터널·서버의 유휴 끊김(서버 120초)에 걸리지 않는다. Cloudflare 터널에서 WS가 끊기는 사례가 있다는 글이 있어 실제로 확인한다(DevOps·FE).
+
+### 9.4 진행 단계
+
+- [ ] **0. 도메인·DNS (klaod-tech):**
+  1. [x] 도메인 구입: 10/19 `posegood.site`(가비아, 첫해 3,300원. 해외 업체는 카카오페이를 받지 않아 국내 업체). 웹 호스팅·메일·SSL 같은 부가 상품은 사지 않음.
+  2. [x] Cloudflare 연결: 10/19 Free 요금제로 도메인 추가, 가비아 네임서버 3개를 지우고 `cris.ns.cloudflare.com`·`margaret.ns.cloudflare.com`으로 바꿈. 10/20 **Active**. SSL/TLS 모드는 기본 Full 그대로, **Always Use HTTPS 켬**(서버 nginx에는 http→https 넘기기가 없어 반복 문제 없음. nginx에 넣지 않는다).
+  3. [x] 터널(10/20, **명령어 방식**): Zero Trust 대시보드가 무료 요금제에도 결제 수단을 요구해서 쓰지 않았다. 이 PC에 `cloudflared`(winget, 2026.10.1)를 설치 → `cloudflared tunnel login`(브라우저에서 `posegood.site` 허락, 계정 권한 파일 `cert.pem`은 **klaod-tech PC에만**, 넘기지 않음) → `cloudflared tunnel create posegood-api`(ID `baedb98a-e770-4675-86c6-31cd523e656a`) → `cloudflared tunnel route dns posegood-api api.posegood.site`(Cloudflare가 `api` 레코드를 프록시로 추가). 서버에는 **연결 토큰**만 넣는다(10/28 바꿈, 처음엔 `config.yml`과 인증 파일 `<ID>.json`을 주려 했다): `cloudflared tunnel token posegood-api`로 만들어 klaod-tech가 서버의 비밀값 파일에 직접 입력한다(9.6). 대상은 compose 안 `http://gateway:80`이다 — 호스트의 `127.0.0.1:8080`은 처리 서비스 API(인증 없음)라 그대로 쓰면 그 서비스가 인터넷에 열린다(10/28 DevOps 지적으로 고침). 10/20 확인: `api.posegood.site` DNS는 Cloudflare 주소, 접속은 530(서버 연결 전이라 정상).
+  4. [x] 보안(10/20): 요청 제한 규칙 `auth-rate-limit` — `starts_with(http.request.uri.path, "/api/v2/auth/")`, 같은 IP가 10초에 20번 넘으면 10초 Block(로그인·가입 대입 공격 방지, 같은 실습실 IP 여러 명도 걸리지 않을 만큼 넉넉하게). Bot Fight Mode 켬. 둘 다 프록시된 `api.`에 적용된다(`app.`은 Vercel이 보호). **10/28 Bot Fight Mode 끔** — Vercel 화면에서 부르는 API 요청에 사람 확인이 끼면 요청이 깨지고, 무료 요금제는 예외 규칙을 둘 수 없다. Network → WebSockets 켜짐 확인. 요청 제한 규칙은 9.6 Q3대로 바꾼다.
+- [ ] **1. Vercel 프로젝트 (FE):**
+  1. [x] **포크로 연결(10/19):** 저장소 주인이 팀장 개인 계정이라, 팀장이 GitHub에 Vercel 앱을 설치해도 klaod-tech의 Vercel에는 저장소가 보이지 않았다(개인 계정에 설치한 앱은 그 주인의 Vercel에서만 쓰임). 팀장 계정에 프로젝트를 두는 안은 설정을 바꿀 때마다 팀장 계정이 필요해 고르지 않았다. `klaod-tech/sitting-posture-corrector`(브랜치 전체 복사, 기본 develop)를 만들고, 로컬 원격 `fork`로 등록했다.
+  2. [x] **Import·첫 배포(10/19):** 주소 **https://sitting-posture-corrector.vercel.app/** (팀에 공유함). Root Directory `frontend`, Preset Vite, 빌드·출력·설치 명령은 기본값(`npm run build`·`dist`·`npm install`), 환경 변수 없음. `*.vercel.app` 주소에서 화면이 뜬다. 이 배포본은 서버 없이 도는 V2 앱(로컬 회원가입·로그인, 앱 판정, 기록은 브라우저 저장소)이라 처음 여는 브라우저에서는 회원가입부터 한다.
+  3. [x] **운영 브랜치 develop(10/19, 자주 바꾸지 않음):** 처음엔 main으로 잡혀 있어 develop으로 바꿨다(Settings → Environments → Production → Branch Tracking). 팀 전체가 합친 결과가 나가고, V2 작업은 develop에 PR로 합친 뒤에 나간다.
+  4. [ ] 확인할 것: Settings → Build and Deployment에서 「Include files outside the root directory」 켜짐(`../model`), Node.js 24.x.
+  5. [x] `app.posegood.site` 연결(10/20): Vercel → Settings → Environments → Production → Domains에 추가 → Vercel이 준 레코드를 Cloudflare DNS에 넣음(CNAME `app` → `6af83c80925fbc79.vercel-dns-017.com`, **DNS only**). Cloudflare가 「프록시를 켜라」고 권하지만 `app.`은 회색으로 둔다(HTTPS·CDN·DDoS는 Vercel이 맡음, 겹치면 인증서·캐시가 꼬임). 확인: `https://app.posegood.site` 200(Vercel), `http://`는 308로 https, 모델·wasm 파일 200.
+  6. [x] **검색 노출 막기(10/20, 실제 연동 전까지, develop `72ab5ec`):** `frontend/public/robots.txt`(`Disallow: /`)와 `vercel.json` 응답 헤더 `X-Robots-Tag: noindex, nofollow`. 접속을 막는 게 아니라 검색 결과에 안 나오게 하는 것. `app.`은 DNS only라 Cloudflare의 AI·검색 봇 설정은 적용되지 않아서 앱 쪽에 둔다. 배포본에는 develop에 머지하고 포크를 최신화한 뒤 반영된다. **정식 공개 때 두 줄을 지운다.**
+  7. [x] 운영 환경 변수(10/28 넣음, 서버 터널 전): `VITE_API_BASE_URL=https://api.posegood.site` 하나(WS 주소도 여기서 만든다, 10/21). Vercel Settings → Environment Variables, Type **Config**(빌드된 JS에 드러나는 값이라 Secret이 아님), Production만. `VITE_` 값은 빌드 때 들어가므로 바꾼 뒤 다시 배포한다.
+  - 준비된 것: `frontend/vercel.json`(빌드·출력, 빌드 건너뛰기: 마지막 배포본(`VERCEL_GIT_PREVIOUS_SHA`)과 비교해 `frontend`·`model`이 그대로면 건너뜀. 값이 없거나 같은 커밋을 다시 배포(Redeploy, 환경 변수를 바꾼 뒤)하면 빌드(10/28 바꿈, 진행 기록), `X-Robots-Tag`). develop에 들어갔고(`72ab5ec`) 포크에는 포크를 최신화할 때 반영된다. 앱이 `frontend` 밖에서 빌드에 쓰는 것은 `model/`뿐이다(`contracts/`는 시험에서만). 화면 이동은 주소의 `#`만 쓰므로 경로 재작성(rewrites)은 필요 없다.
+  - 갱신: 포크는 원래 저장소를 자동으로 따라가지 않는다(GitHub 「Sync fork」는 기본 브랜치만). 원래 저장소 develop을 포크로: `git fetch origin && git push fork origin/develop:develop`. 원래 저장소 PR에는 미리보기가 생기지 않는다.
+- [x] **2. 주소 설정 (FE):** 10/19 `VITE_API_BASE_URL`(비우면 지금처럼 같은 출처 `/api`, `features/platform/serverConfig.ts`), HTTP 요청은 `credentials: 'include'`(A-2). WS는 그때 `VITE_REALTIME_URL`이었고 10/21에 지웠다(A-3). 개발은 지금처럼 Vite `/api` 중계. `check-frontend` 통과(시험 347개, 타입 검사, 빌드).
+- [ ] **3. 가짜 서버 모드 (FE):** 계약 v2 예시(`contracts/realtime/examples-v2/`)대로 응답하는 가짜 S1·WS. 개발 PC와 Vercel 미리보기의 기본값으로 둬서 문구·버튼을 고칠 때 서버가 필요 없게 한다.
+- [x] **4. 서버 쪽 (DevOps·BE, 10/29 끝남):** 9.3.1의 S-1(CORS, BE 코드 — 10/28 develop에 들어감)과 S-2~S-6(설정). 10/28 DevOps B안, 10/29 함께 연결(9.6).
+- [ ] **5. 데스크톱 (FE, F14):** 패키징된 앱이 `https://app.<도메인>`을 연다. 허용 주소 검사(`sameAddress`)·알림 팝업 주소·`app://` 파일 제공을 정리하고, 열 수 없으면 「서버에 연결할 수 없어요」.
+- [x] **6. 연동 확인(10/29 처음 확인 끝남, 0.1):** 정해 둔 때(계약이 바뀔 때, 또는 주기적으로)만 실제 서버로 측정·등록·끊김을 확인한다.
+
+| 환경 | 화면 | 서버 |
+|---|---|---|
+| 개발 PC | Vite | 가짜 서버(기본) 또는 로컬 BE |
+| PR 미리보기 | PR마다 생기는 `*.vercel.app` | 가짜 서버(계속. 다른 사이트라 로그인 쿠키가 안 실린다, 9.3.1 주의) |
+| 고정 미리보기 (서버 연동 뒤 추가) | `preview.<도메인>`(develop 브랜치) | 실제 서버. 같은 도메인 아래라 로그인이 된다. 허용 출처(S-1·S-3)에 `preview.`도 넣는다 |
+| 운영 | `app.<도메인>`(**지금은 develop**, 10/19) | `api.<도메인>` |
+
+지금은 운영 브랜치가 develop이라 고정 미리보기는 따로 없다. 나중에 main → `app.`, develop → `preview.`로 나눌 때 위 줄을 쓴다.
+
+고정 미리보기를 붙일 서버는 연동 뒤에 정한다. 안: 운영과 같은 `api.<도메인>` + 시험용 계정(기록이 실제 DB에 섞이므로 계정을 나눔), 또는 시험용 서버를 따로(DevOps 일이 늘어남). 지금 규모에서는 앞의 것을 권한다.
+
+### 9.5 확인할 것
+
+- **Vercel 요금제:** 무료(Hobby)는 비상업용만 허용한다. 포크(klaod-tech 개인 저장소)로 연결하므로 다른 팀원 커밋 제약은 없다. 팀원이 PR 미리보기를 보려면 그 브랜치를 포크에 올려야 한다.
+- **도메인 갱신:** 첫해 값만 보고 산다. 프로젝트가 1년을 넘기면 갱신 가격(수십 달러일 수 있음)을 다시 본다.
+- **Cloudflare 무료 한도:** 터널 개수·연결 수 한도를 Cloudflare 공식 문서로 확인한다(블로그마다 설명이 다름).
+- **누가 관리하나:** 도메인·Cloudflare는 klaod-tech 개인 계정이다. 터널은 연결 토큰만 서버에 넣으므로 계정을 나눌 필요가 없다. 토큰은 비밀값이라 저장소·채팅에 올리지 않고 klaod-tech가 서버 파일에 직접 넣는다(D-62와 같은 취급, 9.6 Q1). 그 밖에 DNS를 바꿔야 할 때는 klaod-tech가 한다.
+
+### 9.6 서버 공개 연결 (DevOps B안에 대한 답, 10/28)
+
+10/28 DevOps(홍규)가 9.3.1 요청에 대한 서버 계획을 보냈다. 안 A(터널 → `web`), **B(API 전용 gateway + `cloudflared` 컨테이너, `web`은 서버 안 시험용으로 유지)**, C(`web` 제거) 중 B를 골랐다. FE는 B에 동의한다.
+
+#### 9.6.1 B안 (DevOps)
+
+- 화면은 Vercel(`app.posegood.site`). 서버에는 API만 받는 nginx **gateway**를 새로 둔다. 경로는 `/api/`·`/api/v2/realtime`·`/health`뿐이고 화면 파일은 내지 않는다. `X-Forwarded-Proto`는 `https`로 고정, 호스트 포트는 열지 않는다.
+- 터널은 compose 컨테이너(`cloudflared`), 대상은 컨테이너 이름 `http://gateway:80`. 지금 `web`(8088)은 서버 안 시험용(SSH 포워딩)으로 남긴다.
+- 서버 값: `POSEGOOD_CORS_ALLOWED_ORIGINS`·`POSEGOOD_REALTIME_ALLOWED_ORIGINS`, 터널을 열 때 `POSEGOOD_COOKIE_SECURE=true`.
+
+#### 9.6.2 고칠 것
+
+| 무엇 | 내용 |
+|---|---|
+| 허용 출처 값 | `https://app.posegood.site/`가 아니라 **`https://app.posegood.site`(끝 `/` 없이)**. 브라우저의 `Origin` 헤더에는 끝 `/`가 없어서 그대로 비교하면 CORS·WS 둘 다 거절된다(`application.properties`: "no trailing /"). 두 변수 모두 같은 값 |
+| 터널 대상 | 이 문서 9.4 0단계 3번의 `127.0.0.1:8080`을 `http://gateway:80`으로 고쳤다(DevOps 지적, 8080은 인증 없는 처리 서비스) |
+
+#### 9.6.3 질문에 대한 답
+
+| # | 질문 | 답 |
+|---|---|---|
+| Q1 | 터널 토큰은 어떻게 받나(채팅·저장소가 아닌 방법) | **10/29 현장에서 klaod-tech가 서버에 직접 입력한다.** `cert.pem`이 klaod-tech 데스크톱에만 있어 토큰은 그 PC에서 `cloudflared tunnel token posegood-api`로 만든다. DevOps는 **비밀값 파일 경로**(compose가 읽는 곳, git 제외, 권한 600)를 정해 둔다. 이 터널은 명령어로 만든 터널이라 토큰에 경로 설정(ingress)이 없다 — 컨테이너에 `api.posegood.site → http://gateway:80`을 알려 줘야 한다(`--url http://gateway:80` 또는 `config.yml`의 `ingress`, 10/29 같이 확인). `cert.pem`·`<ID>.json`은 필요 없다. 토큰이 새면 터널을 다시 만들고 새 토큰을 넣는다 |
+| Q2 | `preview.posegood.site`도 허용 출처에 넣나 | **지금은 넣지 않는다.** 고정 미리보기 환경이 아직 없다(Vercel 운영 = 포크 develop, 9.4 환경 표). 만들 때 두 변수에 쉼표로 더한다 |
+| Q3 | `/api/v2/auth/*` 요청 제한(같은 IP 10초 20번)에 A8 refresh도 걸린다. 학교 공인 IP 하나 뒤에서 여러 명이 쓰면 막힐 수 있다 | 이 제한은 서버가 아니라 **klaod-tech의 Cloudflare 규칙**(`auth-rate-limit`, 9.4 0단계 4번)이라 FE가 바꾼다. Cloudflare는 실제 사용자 IP로 세므로 gateway·서버에서 할 일은 없다. 바꿀 것: ① 대상을 **로그인·가입만**(`/api/v2/auth/login`, `/api/v2/auth/register`)으로 좁혀 A8 refresh·A4 me·A5 logout은 빼고, ② 기준을 넉넉하게(값은 10/29 정함), ③ 시연 날에는 그날만 더 올린다. 10/29 터널 확인 뒤 바꾼다 |
+| Q4 | 순서: BE CORS PR → 서버 설정 → 토큰 → 터널 → Vercel 환경 변수 | **CORS PR과 Vercel은 끝났다.** CORS는 PR #70(`0f0f83e`)으로 develop에 들어갔고, Vercel은 10/28 `VITE_API_BASE_URL=https://api.posegood.site`를 넣어 운영 화면이 이미 `api.posegood.site`를 부른다(지금은 530 — 터널에 연결된 서버가 없어서 정상). 남은 순서는 9.6.4 |
+
+#### 9.6.4 10/29 순서 (DevOps + klaod-tech, 현장)
+
+1. **서버 값 (DevOps):** `POSEGOOD_CORS_ALLOWED_ORIGINS`·`POSEGOOD_REALTIME_ALLOWED_ORIGINS` = `https://app.posegood.site`, `POSEGOOD_COOKIE_SECURE=true`. 그리고 compose에 아직 없는 **`POSEGOOD_JWT_SECRET`**(32바이트 이상, 비밀값 파일) — 비면 API가 시작할 때마다 무작위 값을 만들어 재시작마다 모두 로그아웃된다. 이 값들을 `compose.yaml` `api`와 `infra/compose/bigdata.yaml` `io-api` 중 서버에서 도는 쪽에 넘긴다(PR #70에서 DevOps 몫으로 남긴 것).
+2. **DB (DevOps):** 데이터가 있는 서버 DB에 migration 015·016(V2.6, `refresh_token`)을 적용한다. initdb는 빈 볼륨에서만 돈다. API는 V2.6이 아니면 시작하지 않는다.
+3. **gateway (DevOps):** 9.6.1대로.
+4. **토큰 (klaod-tech):** 데스크톱에서 만들어 DevOps가 정한 경로에 직접 입력. 확인은 `wc -c <경로>`로 크기만(내용은 출력하지 않음).
+5. **터널 (DevOps):** `cloudflared` 컨테이너 실행. 이 터널을 다른 곳(klaod-tech PC 등)에서 동시에 실행하지 않는다 — 요청이 나뉘어 들어간다.
+6. **확인 (함께):**
+   - `https://api.posegood.site/health` → 200
+   - 확인 요청: `curl -i -X OPTIONS https://api.posegood.site/api/v2/auth/login -H "Origin: https://app.posegood.site" -H "Access-Control-Request-Method: POST"` → `Access-Control-Allow-Origin: https://app.posegood.site`
+   - `https://app.posegood.site`에서(개발자 도구 Network): 앱 시작 A8 → 401(로그인 전, 정상), 가입·로그인 → 200, `posegood_refresh` 쿠키에 Secure
+   - 자세 등록(B1) → 측정 시작(`wss://api.posegood.site/api/v2/realtime`) → 몇 분 측정 → 종료·저장
+7. **Cloudflare 요청 제한 (klaod-tech):** 9.6.3 Q3대로 바꾼다.
+
+### 9.7 진행 기록
+
+- 2026-10-30: 포크 develop을 `d7cd4ac` → `29089f8`(PR #73~#80: 테마 4종·테마별 로고·아이콘·알림 팝업 테마·차트 대비, 서버 공개 입구 D-43 등)로 최신화했다(빨리 감기). Vercel이 빌드를 건너뛰지 않고 배포를 끝냈고(GitHub 상태 「Deployment has completed」), `https://app.posegood.site` 200. 이 PC에는 `fork` 원격 없이 포크 주소로 바로 푸시했다.
+- 2026-10-29: 9.6.4 순서대로 서버 공개 연결을 끝냈다. klaod-tech가 터널 토큰을 서버에 직접 입력, DevOps가 gateway·`cloudflared`·허용 출처·JWT 서명 키(secrets 파일)·DB V2.6을 맞췄다. 브라우저 확인 10항목 모두 OK, 서버 통합 시험 PASS 80 / FAIL 0 / SKIP 2(터널 경유 REST 26/0, WS 17/0). 공개 전에 잡은 문제와 결과는 0장. 요청 제한 조정(9.6.3 Q3)은 남음.
+- 2026-10-28 저녁: DevOps 서버 공개 연결 계획(B안)에 답을 썼다(9.6). 터널 대상 `127.0.0.1:8080` → `http://gateway:80`(9.4 0단계 3번), 토큰은 klaod-tech가 10/29 현장에서 서버에 직접 입력. Cloudflare Bot Fight Mode 끔, WebSockets 켜짐 확인. 운영 확인: 새 빌드(`index-D-mTX6_1.js`)가 `https://api.posegood.site`를 부르고 A8 `refresh`는 530, 로그인은 CORS 오류(530 오류 페이지에 CORS 헤더가 없어서) — 터널 전이라 정상.
+- 2026-10-28 저녁: 포크 develop을 `d7cd4ac`(PR #72)로 최신화해 `VITE_API_BASE_URL`이 들어간 빌드가 운영에 나갔다.
+- 2026-10-28 오후: Vercel에 `VITE_API_BASE_URL`을 넣고 Redeploy했는데 「Ignored Build Step command returned exit code 0」으로 취소됐다 — 같은 커밋을 다시 배포하면 마지막 배포본(`VERCEL_GIT_PREVIOUS_SHA`)이 지금 커밋과 같아 차이가 없다고 판단한다. 같은 커밋(`VERCEL_GIT_COMMIT_SHA`)이면 빌드하게 고쳤다. 운영 화면은 터널(`api.posegood.site`)이 붙기 전까지 로그인·측정이 안 된다.
+- 2026-10-28: 포크 develop을 `11126de` → `dae2fb1`(PR #64~#70: V3, BE 토큰 로그인, CORS)로 최신화했다(빨리 감기, `fork` 원격 등록). 터널 전이라 운영 화면은 서버 연결 전까지 로그인·측정이 안 된다(사용자 결정). 그런데 Vercel이 「Ignored Build Step」으로 빌드를 취소했다 — 건너뛰기가 `HEAD^`(바로 앞 커밋 `6e768a4`, PR #69)와만 비교해서, 화면을 건드리지 않은 마지막 커밋(PR #70)만 보고 「바뀐 것 없음」으로 판단했다. 포크는 여러 커밋을 몰아서 올리므로 마지막 배포본(`VERCEL_GIT_PREVIOUS_SHA`)과 비교하게 바꿨다. 이 변경은 `frontend/vercel.json` 자체를 바꾸므로 다음 포크 최신화에서 빌드된다.
+- 2026-10-26 저녁: 10/22 기록의 「터널이 붙은 뒤에 develop에 합친다」를 정정 — Vercel 운영은 **포크** develop을 배포하므로 원래 저장소 develop에 합치는 것만으로는 운영 화면이 바뀌지 않는다. 서버(터널·CORS)가 준비된 뒤에 미루는 것은 **포크 최신화**다. 대신 V3는 BE 작업 브랜치 `fix/repo-backend-sync`(B1 `registration_id`, DB V2.5)와 함께 develop에 합친다 — V3만 먼저 들어가면 지금 서버에서 자세 등록이 400이 된다(7.2 13번).
+- 2026-10-26: 포크 develop 확인 — `11126de`(PR #60, V2 화면)로 10/21 최신화한 그대로다. 그 뒤 원래 저장소 develop에 들어온 PR #63(`3285cce`)은 서버·문서 정리이고 화면 코드는 그대로라(`frontend/README.md`만) 포크를 다시 맞추지 않았다. 이 PC에는 `fork` 원격이 없어 최신화할 때 1단계의 `git remote add fork …`부터 한다.
+- 2026-10-21: 포크 develop을 원래 저장소 develop `11126de`(PR #60, V2: 카메라 여러 대·PiP·Vercel 배포 준비)로 최신화했다(`git push <포크> origin/develop:refs/heads/develop`, 빨리 감기만). Vercel 운영 `app.posegood.site`에 V2가 나갔다.
+- 2026-10-25: 9.3.2 「지금 앱」 칸을 V3 코드로 고침(A-1·A-2 끝남, A-3 `VITE_REALTIME_URL` 삭제). 운영 환경 변수는 `VITE_API_BASE_URL` 하나. CORS(S-1)는 develop `3285cce`에도 아직 없다.
+- 2026-10-22: 문서 이름을 `fe-deploy.md`로 바꾸고 데스크톱 앱 구조(배포 문서의 옛 6장)를 8.4로 옮겼다. V3(서버 전용)는 서버 없이는 측정할 수 없어, `api.posegood.site` 터널이 붙은 뒤에 develop에 합치고 포크를 최신화한다(ADR 0021).
+
+- 2026-10-20: Cloudflare Active, `https://app.posegood.site`가 Vercel 배포본으로 열린다. DDoS는 `api.`(터널, 프록시)는 Cloudflare가, `app.`은 Vercel이 막는다.
+- 2026-10-20: develop 기준 배포본(https://sitting-posture-corrector.vercel.app/)을 팀에 알렸다: 서버 연결 전이라 처음 여는 브라우저는 회원가입부터, develop에 머지돼도 FE가 포크를 최신화해야 반영, PR별 미리보기 없음. 도메인은 Cloudflare 확인 뒤 `app.posegood.site`로 옮긴다. 팀 서버 PC는 공인 IP가 없어도 이름 있는 터널로 `api.posegood.site`에 연결한다(포트를 열지 않고 서버 IP도 드러나지 않음, 터널에는 nginx `/api`만 등록).
+- 2026-10-19: Vercel은 klaod-tech 포크로 연결하기로 했다(사용자). 팀장이 Vercel GitHub 앱을 설치했지만 klaod-tech의 Vercel에는 저장소가 보이지 않았다. 갱신은 필요할 때 포크에 푸시한다.
+- 2026-10-19: 도메인 확장자는 `.site`로 정했다(사용자). 터널은 klaod-tech 계정에서 만들고 연결 토큰을 DevOps에 준다. PR 미리보기는 가짜 서버, 서버 연동 뒤 develop에 `preview.<도메인>`을 더한다(9.4 환경 표).
+- 2026-10-19: BE 브랜치 `a0d99a3` 코드로 분리할 때 바꿀 것을 확인했다(9.3). 서버 코드는 CORS(S-1)만 새로 필요하고 나머지는 설정이다. CSRF·쿠키·WS 계약은 그대로 쓴다.
+- 2026-10-19: 서버와 FE를 함께 바꾸던 방식을 멈추고(앱 v2 전환 코드는 되돌림, 7.1은 할 일로 남김) 화면을 서버와 따로 배포하기로 했다. 도메인은 klaod-tech 계정, DNS는 Cloudflare 무료, 화면은 Vercel, 서버는 DevOps의 이름 있는 터널.

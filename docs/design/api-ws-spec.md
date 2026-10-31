@@ -1,6 +1,6 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-27 밤(BE 토큰 로그인 develop PR #68 — 1장 로그인·로그인 유지, 2장 403, 3장 A4·A8, 6.2, CSRF·A1 삭제) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-30(자정 넘김을 BE 구현 B안 `session_rollover`로 — 1·5.2·5.3장) · 2026-10-27 밤(BE 토큰 로그인 develop PR #68 — 1장 로그인·로그인 유지, 2장 403, 3장 A4·A8, 6.2, CSRF·A1 삭제) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
 > **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(BE와 다른 곳 한눈에는 1.0). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
@@ -28,12 +28,12 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([배포](fe-deploy.md)). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 9장). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신. 자정에 새 측정을 이어 붙일 때(ADR 0029 A안)의 S1도 이 경로라 401이 나지 않는다 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
-| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝낸다(팀 회의. 10/27 서버 미구현·보류, BE 의견 A안 — FE 제안서 7.2 18번) | 새 사유(안: `closed(day_changed)`)를 받으면 새 `session_id`로 S1부터 다시 시작해 측정을 잇는다. 하나의 측정은 하루 안에 있다 |
+| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝내 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다(BE-6 ① B안, BE 10/28 구현, 설정 `midnight-rollover` 기본 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다(10/30 FE 처리) |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3). **10/27 FE 결정: S1에서 `policy`를 빼고 서버가 계정 정책으로 고정하게 요청(BE-11).** BE가 `policy` 없는 S1을 받게 한 뒤 앱이 뺀다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버(프레임 `t_ms`로), 앱은 설정 화면 표시에만 W1 값을 쓴다 |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 
@@ -164,7 +164,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 | ③ 측정 종료, 그때까지 저장 | 사용자 「측정 종료」, 작은 카메라 창 X(10/20, 10/26부터 데스크톱 앱에만 있음 — ADR 0028), 쓰던 카메라가 빠짐(10/16), 측정 중 영상 크기가 바뀜(10/21) | `end {end_ms}` | — |
 | | 앱을 닫거나 새로 고침, 네트워크 끊김 | (연결이 끊김) 서버가 마지막 구간 끝에서 끝내고 저장. 앱은 다시 연결하지 않는다 | — |
 | | 일시정지가 10분 이어짐(10/20) | **아직 아무도 하지 않음** — 서버가 자기 시계로 끝내고 알리는 안을 요청 중(FE 제안서 BE-13). 앱에는 타이머가 없다 | — |
-| | KST 00:00(팀 회의, ADR 0029) | 서버가 자기 시계로 그때까지 저장하고 끝낸다(안: `closed(day_changed)`, BE-6). 앱은 새 측정을 바로 시작한다 | — |
+| | KST 00:00(팀 회의, ADR 0029) | 서버가 자기 시계로 이전 세션을 저장하고 같은 연결을 서버가 만든 새 세션으로 잇는다(`decision(session_ended)` → `session_rollover`, BE-6 ① B안). 새 세션을 못 만들면 `closed(day_changed)` | — |
 | | 서버가 닫음: `limit_reached`, `unauthorized`, `session_lost`, `server_shutdown` | 5.3 | — |
 
 DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
@@ -191,7 +191,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `closed.reason` | 앱 |
 |---|---|
 | `ended` | 종료 화면. `ended_at`(= `started_at` + `total_ms`, BE `b903751`)을 기록의 종료 시각·오늘 날짜로. 다른 사유에서 `ended_at`이 null이면(끝나기 전에 닫힘) 기록은 「종료 미확인」, 종료 시각은 서버 시작 + 마지막 `progress`의 `total_ms`로 둔다 |
-| (BE-6 요청 중) `day_changed` | 자정에 끊김. 그때까지의 기록을 남기고 카메라를 켠 채 새 측정(새 `session_id`)을 바로 시작, 「자정이 지나 새 측정으로 이어졌어요」 |
+| `day_changed` | 자정에 이전 세션은 저장됐지만 서버가 새 세션을 만들지 못함(BE 11.3 — 정상 자정은 `session_rollover`). 기록을 남기고 「자정이 지나 측정을 마쳤어요. 자정 전까지 저장됐어요. 새 측정을 시작해 주세요.」(10/30: 자동으로 새 S1을 하지 않음 — 자리 없음·DB 장애라 바로 다시 해도 실패하기 쉬움) |
 | `limit_reached` | 종료 화면 + 「한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요」 |
 | `unmeasurable_timeout`(BE 10/27, 서버 기본 꺼짐) | 판별 불가·자리 비움이 5분 이어져 서버가 저장하고 끝냄. 종료 화면 + 「자세를 확인할 수 없는 상태가 5분 이어져 측정을 마쳤어요. 그때까지 저장됐어요」. 앱이 처리하므로 서버에서 켜도 된다(`POSEGOOD_UNMEASURABLE_TIMEOUT=5m`) |
 | `session_lost`·`server_shutdown` | 종료 화면(끊기기 전까지 저장됨 안내) |

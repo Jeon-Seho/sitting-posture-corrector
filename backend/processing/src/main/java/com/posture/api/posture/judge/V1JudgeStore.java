@@ -11,29 +11,29 @@ import java.util.Optional;
  */
 public interface V1JudgeStore {
 
-    /** 저장된 상태. {@code judge}는 {@link V1SessionJudge#snapshot()} 형식. */
-    record Stored(String userId, Map<String, Object> judge) {
-    }
+	/** 저장된 상태. {@code judge}는 {@link V1SessionJudge#snapshot()} 형식. */
+	record Stored(String userId, Map<String, Object> judge) {
+	}
 
-    Optional<Stored> load(String sessionId);
+	Optional<Stored> load(String sessionId);
 
-    void save(String sessionId, String userId, Map<String, Object> judgeSnapshot);
+	void save(String sessionId, String userId, Map<String, Object> judgeSnapshot);
 
-    void delete(String sessionId);
+	void delete(String sessionId);
 
-    /** 저장소를 쓰지 않는 구현 (D-22 동작과 같음 — 상태는 메모리에만). */
-    V1JudgeStore NO_OP = new V1JudgeStore() {
-        @Override
-        public Optional<Stored> load(String sessionId) {
-            return Optional.empty();
-        }
+	/** 저장소를 쓰지 않는 구현 (D-22 동작과 같음 — 상태는 메모리에만). */
+	V1JudgeStore NO_OP = new V1JudgeStore() {
+		@Override
+		public Optional<Stored> load(String sessionId) {
+			return Optional.empty();
+		}
 
-        @Override
-        public void save(String sessionId, String userId, Map<String, Object> judgeSnapshot) {
-        }
+		@Override
+		public void save(String sessionId, String userId, Map<String, Object> judgeSnapshot) {
+		}
 
-        @Override
-        public void delete(String sessionId) {
-        }
-    };
+		@Override
+		public void delete(String sessionId) {
+		}
+	};
 }

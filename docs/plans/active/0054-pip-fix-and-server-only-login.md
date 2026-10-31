@@ -5,7 +5,7 @@
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-22
 - 관련: [FE 제안서](../../design/fe-server-proposal.md) 7.2(다음 할 일)·8.3(작은 카메라 창), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
-  [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe-deploy.md)(`app.posegood.site`, Cloudflare 터널)
+  [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe-server-proposal.md)(FE 제안서 9장)(`app.posegood.site`, Cloudflare 터널)
 
 ## 문제와 완료 기준
 
@@ -63,7 +63,7 @@
 
 ### 공통
 
-- [ ] `python tools/dev.py check-frontend`, `check-repo`. 결과를 아래에 기록.
+- [ ] `python tools/dev.py check-frontend` 결과를 아래에 기록.
 
 ## 결정과 진행 기록
 

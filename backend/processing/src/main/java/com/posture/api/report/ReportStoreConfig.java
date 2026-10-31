@@ -16,15 +16,18 @@ import org.springframework.util.backoff.FixedBackOff;
 @Configuration
 public class ReportStoreConfig {
 
-    public static final String FACTORY = "reportStoreContainerFactory";
+	public static final String FACTORY = "reportStoreContainerFactory";
 
-    @Bean(name = FACTORY)
-    public ConcurrentKafkaListenerContainerFactory<String, String> reportStoreContainerFactory(
-            ConsumerFactory<String, String> consumerFactory,
-            @Value("${report.store.retry-backoff-ms:5000}") long backoffMs) {
-        ConcurrentKafkaListenerContainerFactory<String, String> f = new ConcurrentKafkaListenerContainerFactory<>();
-        f.setConsumerFactory(consumerFactory);
-        f.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(backoffMs, FixedBackOff.UNLIMITED_ATTEMPTS)));
-        return f;
-    }
+	@Bean(name = FACTORY)
+	public ConcurrentKafkaListenerContainerFactory<String, String> reportStoreContainerFactory(
+		ConsumerFactory<String, String> consumerFactory,
+		@Value("${report.store.retry-backoff-ms:5000}")
+		long backoffMs) {
+		ConcurrentKafkaListenerContainerFactory<String, String> factory =
+			new ConcurrentKafkaListenerContainerFactory<>();
+		factory.setConsumerFactory(consumerFactory);
+		factory.setCommonErrorHandler(
+			new DefaultErrorHandler(new FixedBackOff(backoffMs, FixedBackOff.UNLIMITED_ATTEMPTS)));
+		return factory;
+	}
 }

@@ -6,13 +6,12 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from jsonschema import ValidationError
+from jsonschema import Draft202012Validator, ValidationError
 
 from model.inference import frames
 from model.inference.app import app
 from model.inference.schemas import FeatureDeltas
 from model.inference.service import REFERENCE_MODEL_VERSION, score_feature_deltas
-from tools.service_contract import validate_inference_request_v3, validate_inference_response_v3
 
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
@@ -20,6 +19,31 @@ CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
 
 def read(path):
     return json.loads((CONTRACTS / path).read_text(encoding="utf-8"))
+
+
+def validator(name):
+    schema = read(name)
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)
+
+
+INFERENCE_REQUEST_V3 = validator("inference-request.v3.schema.json")
+INFERENCE_RESPONSE_V3 = validator("inference-response.v3.schema.json")
+
+
+def validate_inference_request_v3(value):
+    json.dumps(value, allow_nan=False)
+    INFERENCE_REQUEST_V3.validate(value)
+
+
+def validate_inference_response_v3(value, inference_request=None):
+    # One result per request frame, in the same order and with the same t_ms.
+    json.dumps(value, allow_nan=False)
+    INFERENCE_RESPONSE_V3.validate(value)
+    if inference_request is not None:
+        sent = [frame["t_ms"] for frame in inference_request["frames"]]
+        if [frame["t_ms"] for frame in value["frames"]] != sent:
+            raise ValueError("inference request/response frame mismatch")
 
 
 class FrameRuleParityTests(unittest.TestCase):

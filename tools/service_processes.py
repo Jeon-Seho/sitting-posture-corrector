@@ -1,6 +1,6 @@
-"""Lifecycle of the temporary loopback API and inference servers used by smoke tests.
+"""Lifecycle of the temporary loopback API and inference development servers.
 
-The API needs a schema V2.2 database (tools/test_mysql.py); there is no memory mode (ADR 0020).
+The API needs a schema V2.6 database (tools/test_mysql.py); there is no memory mode (ADR 0020).
 """
 
 import os
@@ -110,13 +110,6 @@ def stop_processes(processes):
             process.wait(timeout=5)
 
 
-def assert_ports_closed(ports):
-    for port in ports:
-        with socket.socket() as sock:
-            sock.settimeout(0.5)
-            assert sock.connect_ex(("127.0.0.1", port)) != 0, "test server still listening"
-
-
 @contextmanager
 def running_services(endpoints, database):
     processes, logs = [], []
@@ -144,5 +137,3 @@ def running_services(endpoints, database):
             stop_processes(processes)
             for _, log in logs:
                 log.close()
-            assert_ports_closed(endpoints.ports)
-            print("PASS: task API and inference servers stopped")

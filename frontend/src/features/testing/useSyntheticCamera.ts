@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ServerBaseline } from '../baseline/client'
-import { BASELINE_JOINT_NAMES, type BaselineLandmarks } from '../baseline/landmarkCapture'
-import type { CameraController } from '../../hooks/useCamera'
-import type { Observation } from '../camera/types'
+import { useServerBaseline } from '../baseline/useServerBaseline'
+import { FRAMING_BOTTOM, type CameraController } from '../../hooks/useCamera'
+import type { Observation, ShoulderState } from '../camera/types'
 import type { VisualOptions } from '../../lib/poseVisual'
 import { requireSyntheticMode } from './guard'
 requireSyntheticMode()
-
-/** Explicitly synthetic registered posture (B1·B2 shape). */
-export const SYNTHETIC_BASELINE: ServerBaseline = {
-  baselineId: '22222222-2222-4222-8222-222222222222',
-  registeredAt: '2026-10-21T08:00:00.000Z',
-  landmarks: Object.fromEntries(BASELINE_JOINT_NAMES.map((n) => [n, { x: 0.5, y: 0.4 }])) as BaselineLandmarks,
-}
 
 /** `true` for a measurable frame; the app sends coordinates and computes no posture values. */
 type Sink = (measurable: boolean, frame?: Observation) => void
@@ -31,9 +23,12 @@ export function syntheticCameraStatus() {
     stops
   }
 }
-/** Explicit test adapter: optional canvas-only preview, no camera permission/detector/landmark data. */
+/**
+ * Explicit test adapter: optional canvas-only preview, no camera permission or detector. Landmarks
+ * come only from the synthetic frames; registration runs the app's own capture and B1 save.
+ */
 
-export function useCamera(): CameraController {
+export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}): CameraController {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -46,11 +41,18 @@ export function useCamera(): CameraController {
     if (videoRef.current) videoRef.current.srcObject = null
   }, [])
   const lastFrame = useRef(0)
+  /** Previous synthetic frame time, for the capture's gap check (real camera: `useCamera`). */
+  const previousTime = useRef<number | null>(null)
   const listeners = useRef(new Set<(frame: Observation) => void>())
   const [state, setState] = useState<CameraController['state']>('off')
   const [quality, setQuality] = useState(false)
-  const [baseline, setBaseline] = useState<ServerBaseline | null>(null)
-  const [calibrationId, setCalibrationId] = useState<string | null>(null)
+  const [shoulders, setShoulders] = useState<ShoulderState | null>(null)
+  const [framing, setFraming] = useState<'ok' | 'low' | null>(null)
+  const {
+    baseline, registering, registrationError, baselineLoading, baselineError,
+    progress, reloadBaseline, observe: observeBaseline, begin: beginBaseline,
+    cancel: cancelCalibration,
+  } = useServerBaseline(options.baselineMode !== 'local')
   const [visual, setVisual] = useState<VisualOptions>({
     mode: 'skeleton',
     enabled: true,
@@ -72,12 +74,14 @@ export function useCamera(): CameraController {
       connected = false
       stops++
       lastFrame.current = 0
+      previousTime.current = null
       setState('off')
       setQuality(false)
-      setBaseline(null)
-      setCalibrationId(null)
+      setShoulders(null)
+      setFraming(null)
+      cancelCalibration()
     },
-    [releasePreview]
+    [releasePreview, cancelCalibration]
   )
   useEffect(
     () => {
@@ -95,7 +99,13 @@ export function useCamera(): CameraController {
           width: 640,
           height: 480,
         }
+        setShoulders(frame.shoulders ?? null)
+        const l = frame.landmarks[11], r = frame.landmarks[12]
+        setFraming(frame.shoulders === 'seen' && l && r ? (Math.max(l.y, r.y) > FRAMING_BOTTOM ? 'low' : 'ok') : null)
         for (const listener of listeners.current) listener(frame)
+        const gap = previousTime.current === null ? 0 : frame.timeMs - previousTime.current
+        previousTime.current = frame.timeMs
+        observeBaseline(frame, gap)
       }
       sinks.add(receive)
       return () => {
@@ -104,7 +114,7 @@ export function useCamera(): CameraController {
         releasePreview()
       }
     },
-    [releasePreview]
+    [releasePreview, observeBaseline]
   )
   const connect = useCallback(
     async () => {
@@ -134,10 +144,9 @@ export function useCamera(): CameraController {
       }
       connected = true
       lastFrame.current = performance.now()
+      previousTime.current = null
       setState('on')
       setQuality(true)
-      setBaseline(null)
-      setCalibrationId(null)
       if (videoRef.current) {
         Object.defineProperty(
           videoRef.current,
@@ -160,9 +169,7 @@ export function useCamera(): CameraController {
     [releasePreview]
   )
   const calibrate = () => {
-    if (state !== 'on' || !quality) return
-    setBaseline({ ...SYNTHETIC_BASELINE })
-    setCalibrationId(SYNTHETIC_BASELINE.baselineId)
+    if (state === 'on' && quality) beginBaseline()
   }
   const setOverlayEnabled = useCallback(
     (enabled: boolean) => {
@@ -211,20 +218,20 @@ export function useCamera(): CameraController {
     state,
     error: '',
     quality,
-    shoulders: null,
-    framing: null,
+    shoulders,
+    framing,
     baseline,
-    calibrationId,
-    progress: null,
-    registering: false,
-    registrationError: null,
-    baselineLoading: false,
-    baselineError: null,
-    reloadBaseline: async () => {},
+    calibrationId: baseline?.baselineId ?? null,
+    progress,
+    registering,
+    registrationError,
+    baselineLoading,
+    baselineError,
+    reloadBaseline,
     lastFrame,
     connect,
     stop,
     calibrate,
-    cancelCalibration: () => { },
+    cancelCalibration,
   }
 }

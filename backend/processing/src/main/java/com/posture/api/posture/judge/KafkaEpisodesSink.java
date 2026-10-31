@@ -1,16 +1,17 @@
 package com.posture.api.posture.judge;
 
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * (D-22) 판정 결과를 {@code posture.episodes.v1}에 발행한다(키 = session_id).
@@ -22,36 +23,37 @@ import java.util.UUID;
 @Component
 public class KafkaEpisodesSink implements EpisodesSink {
 
-    private static final Logger log = LoggerFactory.getLogger(KafkaEpisodesSink.class);
+	private static final Logger log = LoggerFactory.getLogger(KafkaEpisodesSink.class);
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final JsonMapper jsonMapper;
-    private final String topic;
+	private final KafkaTemplate<String, String> kafkaTemplate;
+	private final JsonMapper jsonMapper;
+	private final String topic;
 
-    public KafkaEpisodesSink(
-            KafkaTemplate<String, String> kafkaTemplate,
-            JsonMapper jsonMapper,
-            @Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}") String topic) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.jsonMapper = jsonMapper;
-        this.topic = topic;
-    }
+	public KafkaEpisodesSink(
+		KafkaTemplate<String, String> kafkaTemplate,
+		JsonMapper jsonMapper,
+		@Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}")
+		String topic) {
+		this.kafkaTemplate = kafkaTemplate;
+		this.jsonMapper = jsonMapper;
+		this.topic = topic;
+	}
 
-    @Override
-    public void publish(String sessionId, String userId, String kind, Map<String, Object> body) {
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("schema_version", "1.0");
-        envelope.put("message_id", UUID.randomUUID().toString());
-        envelope.put("session_id", sessionId);
-        envelope.put("user_id", userId);
-        envelope.put("produced_at", Instant.now().toString());
-        envelope.put("kind", kind);
-        envelope.put("body", body);
-        String json = jsonMapper.writeValueAsString(envelope);
-        kafkaTemplate.send(topic, sessionId, json).whenComplete((result, error) -> {
-            if (error != null) {
-                log.error("posture.episodes.v1 발행 실패 (sessionId={}, kind={}): {}", sessionId, kind, error.getMessage());
-            }
-        });
-    }
+	@Override
+	public void publish(String sessionId, String userId, String kind, Map<String, Object> body) {
+		Map<String, Object> envelope = new LinkedHashMap<>();
+		envelope.put("schema_version", "1.0");
+		envelope.put("message_id", UUID.randomUUID().toString());
+		envelope.put("session_id", sessionId);
+		envelope.put("user_id", userId);
+		envelope.put("produced_at", Instant.now().toString());
+		envelope.put("kind", kind);
+		envelope.put("body", body);
+		String json = jsonMapper.writeValueAsString(envelope);
+		kafkaTemplate.send(topic, sessionId, json).whenComplete((result, error) -> {
+			if (error != null) {
+				log.error("posture.episodes.v1 발행 실패 (sessionId={}, kind={}): {}", sessionId, kind, error.getMessage());
+			}
+		});
+	}
 }

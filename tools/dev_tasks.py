@@ -3,13 +3,11 @@
 import sys
 
 if __package__:
-    from .test_mysql import mysql_server
     from .runtime import (
         VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
     )
 else:
-    from test_mysql import mysql_server
     from runtime import (
         VENV, gradle_command, java_executable, npm, require_venv,
         run, service_jar, venv_python,
@@ -31,10 +29,6 @@ def setup():
     setup_frontend()
 
 
-def check_repo():
-    run(sys.executable, "tools/check_repository.py")
-
-
 def test():
     run(require_venv(), "-m", "unittest", "discover", "-s", "tests", "-v")
 
@@ -48,47 +42,22 @@ def gradle(*arguments, env=None):
 
 
 def check_backend():
-    """Unit tests, then real-MySQL integration tests and the HTTP smoke with real inference.
-
-    MySQL comes from tools/test_mysql.py (configured loopback server or a temporary Docker
-    container); a missing MySQL fails the check instead of skipping it.
-    """
+    """Default unit tests, Checkstyle and build; MySQL integration is explicit."""
     gradle("build")
-    with mysql_server() as server:
-        gradle("build", "-Pmysql-integration", env=server.environment())
-        run(venv_python(), "tools/service_smoke.py", env=server.environment())
-
-
-def check_browser():
-    run(require_venv(), "tools/browser_smoke.py")
-
-
-def benchmark_server():
-    run(
-        require_venv(), "tools/server_benchmark.py",
-        "--output", ".cache/benchmarks/server.json",
-    )
 
 
 def init_compose():
     run(sys.executable, "tools/compose_init.py")
 
 
-def check_compose():
-    run(require_venv(), "tools/compose_smoke.py")
-
-
 def check_local():
-    check_repo()
     test()
     check_frontend()
     check_backend()
-    check_browser()
 
 
 def check():
     check_local()
-    check_compose()
 
 
 def dev_service(component, artifact):

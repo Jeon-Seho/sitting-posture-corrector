@@ -128,10 +128,10 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
 
   function dayLedger(state: LiveState) {
     if (!session) return null
-    if (daily.current?.id !== session.id) {
+    if (daily.current?.id !== state.sessionId) {
       // Days are counted from the server's start; wait for `ready.started_at` (ADR 0029).
       if (!state.startedAt) return null
-      daily.current = { id: session.id, ledger: new DailyMeasurementLedger(state.startedAt) }
+      daily.current = { id: state.sessionId, ledger: new DailyMeasurementLedger(state.startedAt) }
     }
     return daily.current.ledger
   }
@@ -192,9 +192,11 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     // Nothing was measured (S1 or the connection failed): there is no record.
     if (state.phase === 'failed' || state.summary.total_ms === 0) return null
     // The same shape R1 returns (BE api-spec RecordItem): the server's SessionView in `server`.
+    // The server session, which after a midnight rollover is not the S1 id (BE api-spec 11.3).
+    const id = state.sessionId
     const view = {
       schema_version: '1.0',
-      session_id: session.id,
+      session_id: id,
       policy: policyFor(session.rules),
       timer_policy: 'legacy-interrupt-v1',
       ended: state.events.some((e) => e.kind === 'session_ended'),
@@ -202,7 +204,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       summary: state.summary,
       events: state.events.map((e) => ({
         schema_version: '1.0',
-        session_id: session.id,
+        session_id: id,
         event_id: e.event_id,
         kind: e.kind,
         timestamp_ms: e.timestamp_ms,
@@ -214,13 +216,13 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     }
     // A lost connection is saved by the server too, but the app did not see it confirmed.
     const confirmed = !state.lost && view.ended
-    const checked = validSessionView(view, session.id, session.rules) ? (view as SessionView) : null
+    const checked = validSessionView(view, id, session.rules) ? (view as SessionView) : null
     const times = recordTimes(state, session.startedAt)
     const ledger = dayLedger(state)
     ledger?.observe(dayTotals(state))
     const days = ledger?.snapshot()
     const record: RecordItem = {
-      id: session.id,
+      id,
       startedAt: times.startedAt,
       endedAt: times.endedAt,
       mode: 'camera',
@@ -245,6 +247,22 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     return record
   }
 
+  /**
+   * KST midnight `session_rollover`: the server ended and stored the previous session, and the
+   * measurement goes on as a new one. Keep the previous result like a finished one until R1 confirms it.
+   */
+  function rolledOver(previous: LiveState) {
+    if (!session || ended.current) return
+    const record = buildRecord(previous)
+    const userId = getServerAuth()?.userId
+    if (!record || !userId) return
+    try { rememberResult(userId, record) }
+    catch (caughtError) {
+      console.error('[features/session/useSessionPersistence.ts:rolledOver] Operation failed', caughtError)
+      setError('자정 전 기록을 이 기기에 보관하지 못했어요. 창을 닫지 말고 저장 공간을 확인해 주세요.')
+    }
+  }
+
   function finish(state: LiveState, note: string) {
     if (!session || ended.current) return
     ended.current = true
@@ -253,8 +271,11 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     const userId = getServerAuth()?.userId
     if (!record || !userId) return
     pending.current = record
-    setPendingCount(1)
-    try { rememberResult(userId, record) }
+    try {
+      rememberResult(userId, record)
+      // A midnight rollover left the previous day's result as well.
+      setPendingCount(pendingRecords(userId).length)
+    }
     catch (caughtError) {
       console.error('[features/session/useSessionPersistence.ts:finish] Operation failed', caughtError)
       setError('결과를 이 기기에 보관하지 못했어요. 창을 닫지 말고 저장 공간을 확인해 주세요.'); return
@@ -267,5 +288,5 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     setSession(null)
   }
 
-  return { start, finish, observe, clearSession, pending, pendingCount, syncRecords }
+  return { start, finish, observe, rolledOver, clearSession, pending, pendingCount, syncRecords }
 }

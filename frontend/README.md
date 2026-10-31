@@ -122,14 +122,41 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 로그인 일러스트는 기존 단순한 그림을 참고한 `public/illustrations/login-forest.webp`이며 원본과 생성 프롬프트는
 `assets/branding/login-forest-source.png`·`login-forest.prompt.txt`에 둔다. 카메라 준비·빈 기록·자세 안내는 직접 만든 SVG를 사용한다.
 
-새 측정은 자정을 넘겨도 같은 카메라/세션/판정·알림 상태를 유지한다. 한국 시간 00시를 기준으로 `days`의 각 날짜에
-전체/유효/정상 시간과 사건·알림을 따로 보관한다. 중간 저장·종료 저장과 오늘/달력/기간 집계가 같은 분할을 쓴다.
+기존 날짜별 누적값 계산(`DailyMeasurementLedger`)은 하나의 원본 기록을 한국 시간 00시 기준으로 나누고 `days`의 각 날짜에
+전체/유효/정상 시간과 사건·알림을 보관한다. 이것은 기록의 날짜별 투영 계산이며 실제 서버의 자정 종료·새 세션 전환을 검증하는 기능이 아니다.
 표시용 날짜별 기록은 원 세션이나 원 서버 snapshot을 덮어쓰지 않는다. 과거 합계만 있는 기록은 임의로 복원하지 않는다.
 이는 앱의 로컬 보관/집계이며 서버 DB 배치 변경이나 API 세션 강제 분할이 아니다.
 상세 규칙과 한계는 [KST 날짜별 보관](../docs/decisions/0027-today-records-from-collected-server-results.md)을 따른다.
 
-`tools/browser/midnight.mjs`의 합성 자정 검증은 `check-browser`에 포함돼 있다. 실제 UI에서 자동 등록·측정 → 자정 통과 →
-종료 저장 → 두 날짜 조회와 합계 보존을 검사하며 실제 카메라/계정 자료를 사용하지 않는다.
+`tools/browser/midnight.mjs`는 실제 Chrome과 준비된 시험 API·DB를 연결해 기준 등록 → 측정 → 자정 통과 → 종료 → 오늘·달력 표시를 확인한다.
+`browser-smoke`의 카메라 입력과 측정 경과 시간은 합성이며 REST·WebSocket·R1 기록 조회는 실제 서버를 사용한다.
+서버 `ready.started_at`이 KST 자정 전 10초 이내가 되도록 시험 환경을 준비하고 13초의 합성 측정을 진행한다.
+날짜별 로컬 누적값의 합계 보존, 서버 종료 기록과 오늘·달력의 두 날짜 표시를 확인한다. 브라우저 시계는 서버 시작 시각을 바꾸지 않는다.
+같은 세션의 날짜별 보관을 점검하므로 시험 API는 기본 설정인 `POSEGOOD_MIDNIGHT_ROLLOVER=false`를 사용한다.
+서버의 자정 종료·새 세션 전환은 별도 검증이며 기본 `make check`에는 연결하지 않는다.
+앱은 2026-10-30부터 서버의 자정 넘김(`session_rollover`, 서버가 만든 새 세션 ID)을 처리한다. 서버에서 켜면(`POSEGOOD_MIDNIGHT_ROLLOVER=true`) 이 점검의 「같은 세션 유지」 전제가 바뀌므로, 날짜 나누기 정리와 함께 시나리오를 다시 정한다(팀 공유 계획).
+합성 카메라의 `frame(ms, 'normal')`은 고정한 바른 자세 관절 9개 좌표(`src/features/testing/syntheticPose.ts`, 서버 프레임 조건 통과 값)를 보낸다.
+자세 등록은 실제 카메라와 같은 `useServerBaseline`으로 3초 평균 → B1 저장을 거치며, 서버가 돌려준 기준 ID를 쓴다(고정 합성 기준 없음, 2026-10-30).
+다른 종류도 실제 카메라와 같은 길(`readShoulders` → `FrameBatcher`)로 현재 WS 형식(`posture.frames.v1` 3.0)을 보낸다(2026-10-30):
+`'deviation'`은 고개를 어깨 쪽으로 숙인 좌표(판정은 서버), `'poor'`는 어깨가 화면 밖인 `{ p: null, valid: false }`, `'absent'`는 사람 없음 `{ p: null }`.
+
+프론트 의존성·Chrome·합성 시험 계정(`@example.invalid`)을 준비하고, 프론트 디렉터리에서 시험 API를 바라보는 전용 Vite를 실행한다.
+
+```powershell
+$env:POSEGOOD_API_URL = 'http://127.0.0.1:8090'
+node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort --mode browser-smoke
+```
+
+다른 터미널의 저장소 루트에서 시험 계정을 지정하고 실행한다. URL은 위 Vite의 loopback 주소다.
+
+```powershell
+$env:POSEGOOD_MIDNIGHT_EMAIL = 'midnight-test@example.invalid'
+$env:POSEGOOD_MIDNIGHT_PASSWORD = '<시험 계정 비밀번호>'
+node tools/browser/midnight.mjs http://127.0.0.1:5173 "C:/Program Files/Google/Chrome/Application/chrome.exe" .cache/browser-midnight
+```
+
+API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거나 종료하지 않는다. 시험 계정과 생성된 측정 기록의 정리는 시험 환경에서 관리한다.
+날짜별 계산의 세부 경계는 기존 `src/features/storage/dailyMeasurement.test.ts`가 담당하며 FE 기본 검사에 포함된다.
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
 MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
@@ -238,11 +265,13 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 
 탈퇴·서버 종료 미확인 요약 보관 확인창은 취소 버튼에 초기 초점을 둔다. Tab/Shift+Tab으로 창 안에서 이동하고
 Esc·배경 클릭·취소로 닫으면 실행 버튼에 초점을 돌린다. 실행 버튼이 사라지면 새 화면의 주영역으로 이동한다.
-처리 중 중복 실행과 취소를 막고 배경 화면 조작을 차단한다. 합성 브라우저 게이트에서 두 확인창의 키보드 동작을 확인한다.
+처리 중 중복 실행과 취소를 막고 배경 화면 조작을 차단한다. 구형 종합 브라우저 게이트는 제거했으며 확인창의 실제 키보드 동작은 관련 화면 변경 시 별도 확인한다.
 
-`make check-browser`는 Chrome/Chromium·서버 JAR·프로덕션 프론트 빌드가 필요하다. `make check`는 준비 순서대로 이를 실행한다.
-별도 실행 전에는 `make check-frontend`와 `make check-backend`를 실행한다. 설치된 Chrome을 자동으로 찾지 못하면 실행 파일의 경로를
-`POSEGOOD_CHROME`에 지정한다. 합성 입력은 명시적 개발 테스트 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
+`make check-frontend`는 테스트·TypeScript·생산 빌드를 실행하며 `npm run lint`는 별도 FE CI에서 실행한다.
+브라우저 점검은 수동 명령으로 실행한다. 테마·레이아웃 변경에는 `node tools/browser/appearance.mjs <Vite URL> "<Chrome 경로>" "<캡처 폴더>"`,
+로그인·인증·프로필 연결 변경에는 `node tools/browser/jwt-integration.mjs <Vite URL> "<Chrome 경로>"`를 저장소 루트에서 실행한다.
+JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미리보기를 사용한다. 두 검사는 기본 `make check`·CI에 자동 연결하지 않는다.
+합성 카메라 입력은 명시적 `browser-smoke` 개발 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
 
 - 판정 가능 프레임 검사: `model/prototype/pose.ts` `measurable`·`shouldersVisible`(코·양 어깨·양 귀). 앱은 특징값·점수를 계산하지 않는다(2026-10-22 고개 돌림·머리 판정·특징값 계산 삭제).
 - 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
@@ -353,7 +382,7 @@ EXE 파일 자체에 내장된 아이콘은 차콜이다. 앱에서 바꾸는 �
 - `GPU·CPU 실패 흐름 재현`은 실제 모델 초기화와 같은 `detectorFallback` 함수를 사용해 GPU 실패→CPU 성공, 양쪽 실패, 시간 초과, 취소 및 늦은 모델 해제를 합성 객체로 검증한다. 결과에 시도한 delegate와 해제 횟수가 표시된다. 실제 카메라·서버·영상·좌표는 사용하지 않는다.
 - CPU는 Worker·ImageBitmap·OffscreenCanvas를 사용할 수 있으면 별도 classic Worker에서 추론한다. 동시에 한 프레임만 처리하며 프레임을 넘긴 뒤 결과를 기다린다. 준비/응답 제한 시간은 15초이며 종료 시 Worker와 대기 요청을 정리한다. Worker 초기화가 실패하면 원인을 기록하고 기존 CPU 처리로 복구한다. GPU와 Worker 미지원 환경의 메인 스레드 경로에는 기존 추론 시간 기반 속도 제한을 유지한다.
 - `npm --prefix frontend run test:cpu-worker`는 별도 Chrome과 합성 검은 캔버스로 실제 CPU 모델·WASM을 실행한다. 추론 중 메인 스레드 타이머 실행과 자원 해제를 확인한다. Windows 외에는 `POSEGOOD_CHROME`에 Chrome 실행 경로를 지정한다. 실제 카메라 FPS·정확도 검증은 아니다.
-- 브라우저 게이트는 정상적인 기준 자세 없음(404)과 로그인 복구 실패(401)의 명시적 진단 표식을 실제 HTTP 응답 수와 대조한다. 누락·과도한 중복·다른 콘솔 오류는 실패한다. 원래 console.error 기록은 유지한다.
+- 공통 Chrome 도구의 `console-policy.mjs`는 기준 자세 없음(404)과 로그인 복구 실패(401)의 예상 진단을 분류한다. 정책의 응답·로그 개수 대조는 `npm run test`에 포함된 Node 단위 테스트가 확인한다. 실제 브라우저 종료 시 대조하던 종합 `browser_smoke.mjs`는 제거했으며, 현재 개별 브라우저 점검은 해당 개수 대조를 호출하지 않는다. 원래 `console.error` 기록은 유지한다.
 
 
 GPU·CPU 실패 흐름 재현은 별도 사용자 화면 미리보기에서 실행한다. 준비→CPU 재시도→성공 시 실제 성능 안내 팝업(데스크톱에서도 미리보기 가능)을 표시하고, 양쪽 실패·시간 초과·취소는 카메라 상태 화면과 재시도 버튼으로 보여준다. 준비는 1초 단위의 합성 지연으로 관찰할 수 있게 했고 실제 카메라·모델·측정 세션을 변경하지 않는다. 내부 시도/자원 해제 정보는 접힌 진단 정보에서만 확인한다. 미리보기 닫기와 준비 취소는 늦은 성공 안내를 차단한다.

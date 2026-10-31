@@ -96,7 +96,7 @@ v2 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.03)*0.
 출력은 관측 v2, 모델명은 `reference-feature-rule-v1`이다.
 
 [특징 응답 v1](feature-response.v1.schema.json)(`{schema_version:"1.0", observation, session}`)은 지운 S2의 응답 형식이다.
-API는 더 이상 내보내지 않지만, 부하 측정 도구(`tools/benchmark/`)가 `/v2/realtime`으로 옮겨질 때까지 계약과 시험을 남긴다(계획 0062).
+API는 더 이상 내보내지 않는다.
 입력의 sequence·구간·phase와 관측의 대응, 조회의 수용 범위도 소비자가 검사한다.
 판정 엔진은 진행 중 세션마다 최근 120개 구간을 기억한다. `/v2/realtime`은 같은 순번·앞선 순번·겹치는 시간을 409로 거절한다(받는 단계에서, 판정 전).
 고정 기준·고정 모델명·종료·재시작 뒤 404 유실(`SESSION_LOST`)은
@@ -108,7 +108,7 @@ API는 더 이상 내보내지 않지만, 부하 측정 도구(`tools/benchmark/
 추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 API 판정 엔진이 한다. v1은 기존 흐름 호환성으로 보존한다.
 [사건 v1](posture-event.v1.schema.json), [조회 snapshot v1](session-view.v1.schema.json),
 [수작업 합성 관측](examples/v2/synthetic-observation.json)을 함께 검증한다.
-`make check-backend`는 실제 FastAPI 생산자와 API 소비자를 같은 계약으로 HTTP 검증한다.
+기본 `make check-backend`는 Java 기본 시험·Checkstyle·빌드를 실행한다. 실제 FastAPI와 API의 HTTP 왕복 검증은 기본 검사에 포함되지 않는다.
 구간·순서·재시도·중단·통계 의미는 [서비스 계약 설명](../backend/README.md)을 따른다.
 
 시간 정책은 [ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)에 따라 확정했다.

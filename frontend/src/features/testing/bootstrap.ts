@@ -3,6 +3,7 @@ import { advanceClock, installClock } from './syntheticClock'
 import { emitSyntheticFrame, syntheticCameraStatus } from './useSyntheticCamera'
 import { requireSyntheticMode } from './guard'
 import { legacySyntheticRecord } from './legacySyntheticRecord'
+import { syntheticObservation, type SyntheticKind } from './syntheticPose'
 
 requireSyntheticMode()
 
@@ -80,10 +81,11 @@ export function installSyntheticBrowser() {
         measurable: !poor, width: 640, height: 480, inferenceMs: 1, delegate: 'CPU',
       })
     },
-    frame(milliseconds: number, kind: 'normal' | 'deviation' | 'poor' = 'deviation') {
+    frame(milliseconds: number, kind: SyntheticKind = 'deviation') {
       advanceClock(milliseconds)
       // The app computes no posture values; the server judges the coordinates (ADR 0021).
-      emitSyntheticFrame(kind !== 'poor')
+      const frame = syntheticObservation(kind, performance.now())
+      emitSyntheticFrame(frame.measurable, frame)
     },
     advance: advanceClock,
     holdNext(kind: 'features' | 'end') {

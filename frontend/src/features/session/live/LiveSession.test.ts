@@ -60,6 +60,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
   let states: LiveState[]
   let ended: LiveState[]
   let alerts: string[]
+  let rolled: LiveState[]
   const flush = async () => {
     for (let i = 0; i < 5; i++) await Promise.resolve()
   }
@@ -74,6 +75,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
       onChange: (state) => states.push(state),
       onEnded: (state) => ended.push(state),
       onAlert: (kind) => alerts.push(kind),
+      onRolledOver: (state) => rolled.push(state),
     })
   /** S1 answered, socket open, `hello` sent; `ready` not yet. */
   const started = async () => {
@@ -90,6 +92,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     states = []
     ended = []
     alerts = []
+    rolled = []
     fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(reply(200, view()))
     vi.stubGlobal('location', { protocol: 'https:', host: 'app.example.test' })
     setServerAuth({ userId: '7', accessToken: async () => 'access' })
@@ -329,6 +332,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
   it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
     const reasons: [string, boolean, string][] = [
       ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],
+      ['day_changed', false, '자정이 지나 측정을 마쳤어요'],
       ['unauthorized', true, '비밀번호 변경이나 탈퇴로 로그인이 끝나'],
       ['bad_message', true, '측정을 이어갈 수 없어 마쳤어요'],
       ['some_new_reason', true, '측정을 이어갈 수 없어 마쳤어요'],
@@ -341,5 +345,90 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
       expect(live.state.lost).toBe(lost)
       expect(live.state.message).toContain(message)
     }
+  })
+
+  describe('KST midnight session_rollover (BE api-spec 11.3)', () => {
+    const NEXT = '5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e'
+    const day1 = { ...EMPTY_SUMMARY, total_ms: 1000, valid_ms: 1000, normal_ms: 1000, keep_rate: 1, events_per_hour: 0 }
+    const sessionEnded = {
+      event_id: 1, kind: 'session_ended', timestamp_ms: 1000, onset_ms: 1000, onset_valid_ms: 1000,
+      deviation_type: 'none', reason: 'ended',
+    }
+    const rollover = {
+      type: 'session_rollover',
+      ended: { session_id: SESSION, ended_at: '2026-10-26T14:59:59.000Z', summary: day1 },
+      session_id: NEXT,
+      started_at: '2026-10-26T15:00:00Z',
+      at_ms: 1000,
+    }
+    const measuring = async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION, started_at: '2026-10-26T14:59:58.000Z' })
+      for (let t = 0; t <= 1000; t += 250) live.ingest(1000 + t, points, true)
+      socket.push({ type: 'progress', last_sequence: 3, summary: day1, paused_reason: null })
+      socket.push({ type: 'decision', event: sessionEnded, summary: day1 })
+      return live
+    }
+
+    it('hands over the stored day and goes on as the server-made session', async () => {
+      const live = await measuring()
+      socket.push(rollover)
+      expect(rolled).toHaveLength(1)
+      expect(rolled[0]).toMatchObject({
+        sessionId: SESSION, phase: 'ended', summary: day1,
+        startedAt: '2026-10-26T14:59:58.000Z', endedAt: '2026-10-26T14:59:59.000Z',
+      })
+      expect(rolled[0].events.map((e) => e.kind)).toEqual(['session_ended'])
+      expect(live.state).toMatchObject({
+        sessionId: NEXT, phase: 'running', startedAt: '2026-10-26T15:00:00Z', endedAt: null,
+        summary: EMPTY_SUMMARY, events: [], alerting: false,
+      })
+      expect(ended).toHaveLength(0)
+    })
+
+    it('keeps sending on the connection axis; the server converts times and sequences', async () => {
+      const live = await measuring()
+      const before = socket.features().at(-1)!
+      socket.push(rollover)
+      live.ingest(2250, points, true)
+      const after = socket.features().at(-1)!
+      expect(after.sequence).toBe((before.sequence as number) + 1)
+      expect(after.start_ms).toBe(before.end_ms)
+      expect(socket.sent.filter((m) => m.type === 'hello')).toHaveLength(1)
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('reads S4 for the new session when closed does not come after end', async () => {
+      const live = await measuring()
+      socket.push(rollover)
+      fetch.mockResolvedValueOnce(reply(200, view({ session_id: NEXT, ended: true, last_sequence: 5 })))
+      live.end()
+      await vi.advanceTimersByTimeAsync(10_000)
+      await flush()
+      expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${NEXT}`)
+      expect(live.state).toMatchObject({ sessionId: NEXT, phase: 'ended' })
+    })
+
+    it('stays ending when the user ended it before the server rolled over', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      live.ingest(1500, points, true)
+      live.end()
+      socket.push({ type: 'decision', event: sessionEnded, summary: day1 })
+      socket.push(rollover)
+      expect(rolled).toHaveLength(1)
+      expect(live.state).toMatchObject({ sessionId: NEXT, phase: 'ending' })
+    })
+
+    it('ignores a rollover it cannot read or that comes before ready', async () => {
+      const live = await started()
+      socket.push(rollover)
+      expect(rolled).toHaveLength(0)
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ ...rollover, at_ms: 'x' })
+      socket.push({ ...rollover, ended: { ...rollover.ended, summary: {} } })
+      expect(rolled).toHaveLength(0)
+      expect(live.state.sessionId).toBe(SESSION)
+    })
   })
 })

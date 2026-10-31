@@ -54,9 +54,8 @@ infra/                    컨테이너 빌드·Nginx·배포 안내
 compose.yaml              서버 개발용 전체 서비스·private 네트워크·볼륨
 contracts/                버전 있는 JSON Schema와 합성 예제
 tools/                    실행·검증·시험 서버 관리
-  browser/                Chrome CDP 연결·프로세스·합성 브라우저 시나리오
-  benchmark/              합성 서버 HTTP·측정 집계·환경과 재현 manifest
-tests/                    Python 계약·추론·저장소 검사
+  browser/                공통 CDP·Chrome, 수동 테마·JWT와 날짜별 누적값 검사 진입점
+tests/                    남은 Python 계약·추론·연구·배포 보호 검사
 ```
 
 Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표시다.
@@ -100,9 +99,8 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | FastAPI 앱 조립 | [app.py](../model/inference/app.py) | 앱 생성, 라우터·오류 처리 연결; 기존 `model.inference.app:app` 실행 유지 |
 | 추론 계약·현재 점수·HTTP | [schemas.py](../model/inference/schemas.py), [service.py](../model/inference/service.py), [routes.py](../model/inference/routes.py) | 계약/점수/전달 분리; 학습 모델이나 시간 엔진이 아님 |
 | 개발 명령 | [dev.py](../tools/dev.py), [dev_tasks.py](../tools/dev_tasks.py), [runtime.py](../tools/runtime.py) | CLI/작업 순서/실행 경로 분리 |
-| 합성 HTTP 검증 | [service_smoke.py](../tools/service_smoke.py), [service_processes.py](../tools/service_processes.py) | 검증 시나리오와 시험 프로세스 시작·종료 분리 |
-| 합성 브라우저 검증 | [browser](../tools/browser/), [합성 입력](../frontend/src/features/testing/) | 실제 앱/서버와 독립 시험 브라우저를 연결한다. 일반 개발·빌드는 합성 입력을 활성화하지 않는다. |
-| 서버 지연 측정 | [benchmark](../tools/benchmark/) | HTTP 요청·성공/실패 집계·소스/환경 manifest를 분리한다. |
+| 개발 서비스 생명주기 | [service_processes.py](../tools/service_processes.py) | 로컬 API·추론의 준비·종료·회수. 구형 종합 HTTP 검사는 삭제했다. |
+| 브라우저 점검 | [browser](../tools/browser/), [합성 입력](../frontend/src/features/testing/) | 공통 CDP·Chrome과 수동 테마·JWT·자정 점검. `midnight.mjs`는 준비된 시험 API·DB·Vite를 대상으로 합성 카메라 입력을 보내 등록·측정·날짜별 보관·기록 표시를 확인한다. 일반 개발·빌드는 합성 입력을 활성화하지 않는다. |
 | 학습 자료 준비 | [dataset](../model/analysis/dataset/) | 참여자 분할 후 실제 시각·품질·라벨·구간 경계를 유지해 창을 만든다. |
 | 서버 개발 실행 | [server_dev.py](../tools/server_dev.py), [frontend_proxy.py](../tools/frontend_proxy.py) | 임시 MySQL·API·FastAPI와 loopback 개발 프록시 실행·전체 종료 감시 |
 

@@ -1,5 +1,8 @@
 package org.posegood.api.account;
 
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -8,9 +11,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.UUID;
 
 /**
  * 로그인할 때 이메일·비밀번호를 확인한다. 탈퇴 접수한(CLOSED) 계정은 로그인할 수 없다.
@@ -21,39 +21,42 @@ import java.util.UUID;
  */
 @Component
 public class AccountAuthenticationProvider implements AuthenticationProvider {
-    private final AccountRepository accounts;
-    private final PasswordEncoder passwords;
-    private final String dummyHash;
+	private final AccountRepository accounts;
+	private final PasswordEncoder passwords;
+	private final String dummyHash;
 
-    public AccountAuthenticationProvider(AccountRepository accounts, PasswordEncoder passwords) {
-        this.accounts = accounts;
-        this.passwords = passwords;
-        dummyHash = passwords.encode(UUID.randomUUID().toString());
-    }
+	public AccountAuthenticationProvider(AccountRepository accounts, PasswordEncoder passwords) {
+		this.accounts = accounts;
+		this.passwords = passwords;
+		dummyHash = passwords.encode(UUID.randomUUID().toString());
+	}
 
-    /** 로그인 검증: 계정 조회 → 비밀번호 비교 → 성공하면 인증 정보를 만든다. */
-    @Override
-    public Authentication authenticate(Authentication request) {
-        var account = accounts.findEmail(AccountService.normalize(request.getName()));
-        boolean matches =
-                passwords.matches(
-                        String.valueOf(request.getCredentials()),
-                        account == null ? dummyHash : account.hash());
-        if (account == null || !matches) throw new BadCredentialsException("invalid credentials");
-        if (!account.active()) throw new DisabledException("account closed");
-        return authenticated(account);
-    }
+	/** 로그인 검증: 계정 조회 → 비밀번호 비교 → 성공하면 인증 정보를 만든다. */
+	@Override
+	public Authentication authenticate(Authentication request) {
+		var account = accounts.findEmail(AccountService.normalize(request.getName()));
+		boolean matches = passwords.matches(
+			String.valueOf(request.getCredentials()),
+			account == null ? dummyHash : account.hash());
+		if (account == null || !matches) {
+			throw new BadCredentialsException("invalid credentials");
+		}
+		if (!account.active()) {
+			throw new DisabledException("account closed");
+		}
+		return authenticated(account);
+	}
 
-    /** 로그인 확인 결과(사용자 ID만 담음). 토큰 발급에 쓴다. */
-    static Authentication authenticated(AccountRepository.Account account) {
-        return UsernamePasswordAuthenticationToken.authenticated(
-                new AccountPrincipal(account.id()),
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
-    }
+	/** 로그인 확인 결과(사용자 ID만 담음). 토큰 발급에 쓴다. */
+	static Authentication authenticated(AccountRepository.Account account) {
+		return UsernamePasswordAuthenticationToken.authenticated(
+			new AccountPrincipal(account.id()),
+			null,
+			List.of(new SimpleGrantedAuthority("ROLE_USER")));
+	}
 
-    @Override
-    public boolean supports(Class<?> type) {
-        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(type);
-    }
+	@Override
+	public boolean supports(Class<?> type) {
+		return UsernamePasswordAuthenticationToken.class.isAssignableFrom(type);
+	}
 }

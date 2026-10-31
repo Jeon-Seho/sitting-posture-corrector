@@ -16,31 +16,32 @@ import org.springframework.stereotype.Component;
 @Component
 public class JudgeExpiryScheduler {
 
-    private static final Logger log = LoggerFactory.getLogger(JudgeExpiryScheduler.class);
+	private static final Logger log = LoggerFactory.getLogger(JudgeExpiryScheduler.class);
 
-    private final V1JudgeRegistry registry;
-    private final long timeoutSeconds;
+	private final V1JudgeRegistry registry;
+	private final long timeoutSeconds;
 
-    public JudgeExpiryScheduler(V1JudgeRegistry registry,
-                                @Value("${judge.session-timeout-seconds:300}") long timeoutSeconds) {
-        this.registry = registry;
-        this.timeoutSeconds = timeoutSeconds;
-    }
+	public JudgeExpiryScheduler(V1JudgeRegistry registry,
+		@Value("${judge.session-timeout-seconds:300}")
+		long timeoutSeconds) {
+		this.registry = registry;
+		this.timeoutSeconds = timeoutSeconds;
+	}
 
-    @Scheduled(
-            initialDelayString = "#{${judge.session-expiry-interval-seconds:60} * 1000}",
-            fixedDelayString = "#{${judge.session-expiry-interval-seconds:60} * 1000}")
-    public void scheduledRun() {
-        runOnce();
-    }
+	@Scheduled(
+		initialDelayString = "#{${judge.session-expiry-interval-seconds:60} * 1000}",
+		fixedDelayString = "#{${judge.session-expiry-interval-seconds:60} * 1000}")
+	public void scheduledRun() {
+		runOnce();
+	}
 
-    /** @return 정리한 세션 수(예외가 나면 -1, 다음 주기에 다시 시도) */
-    public int runOnce() {
-        try {
-            return registry.expireStale(timeoutSeconds);
-        } catch (Exception exc) {
-            log.error("v1 판정 세션 만료 처리 중 예외 (다음 주기에 재시도)", exc);
-            return -1;
-        }
-    }
+	/** @return 정리한 세션 수(예외가 나면 -1, 다음 주기에 다시 시도) */
+	public int runOnce() {
+		try {
+			return registry.expireStale(timeoutSeconds);
+		} catch (Exception exc) {
+			log.error("v1 판정 세션 만료 처리 중 예외 (다음 주기에 재시도)", exc);
+			return -1;
+		}
+	}
 }

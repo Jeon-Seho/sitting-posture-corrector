@@ -13,42 +13,52 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class RealtimeTopicsConfig {
 
-    @Bean
-    public NewTopic postureFeaturesV1Topic(
-            @Value("${app.kafka.topic.posture-features-v1:posture.features.v1}") String name,
-            @Value("${app.kafka.realtime-partitions:3}") int partitions) {
-        return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
-    }
+	@Bean
+	public NewTopic postureFeaturesV1Topic(
+		@Value("${app.kafka.topic.posture-features-v1:posture.features.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
+	}
 
-    @Bean
-    public NewTopic postureInferenceV1Topic(
-            @Value("${app.kafka.topic.posture-inference-v1:posture.inference.v1}") String name,
-            @Value("${app.kafka.realtime-partitions:3}") int partitions) {
-        return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
-    }
+	@Bean
+	public NewTopic postureInferenceV1Topic(
+		@Value("${app.kafka.topic.posture-inference-v1:posture.inference.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
+	}
 
-    @Bean
-    public NewTopic postureEpisodesV1Topic(
-            @Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}") String name,
-            @Value("${app.kafka.realtime-partitions:3}") int partitions) {
-        return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
-    }
+	@Bean
+	public NewTopic postureEpisodesV1Topic(
+		@Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1).build();
+	}
 
-    /**
-     * (D-54) 표시할 알림 — 판정 결과 저장 → 입출구 서버 {@code ws}. 키 session_id, 보존 3일(v5.2, 탈퇴 30일 삭제보다 짧게, D-49).
-     * 보존 설정은 토픽을 새로 만들 때만 들어간다.
-     */
-    @Bean
-    public NewTopic postureAlertsV1Topic(
-            @Value("${app.kafka.topic.posture-alerts-v1:posture.alerts.v1}") String name,
-            @Value("${app.kafka.realtime-partitions:3}") int partitions) {
-        return TopicBuilder.name(name).partitions(partitions).replicas(1)
-                .config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000)).build();
-    }
+	/**
+	 * (D-54) 표시할 알림 — 판정 결과 저장 → 입출구 서버 {@code ws}. 키 session_id, 보존 3일(v5.2, 탈퇴 30일 삭제보다 짧게, D-49).
+	 * 보존 설정은 토픽을 새로 만들 때만 들어간다.
+	 */
+	@Bean
+	public NewTopic postureAlertsV1Topic(
+		@Value("${app.kafka.topic.posture-alerts-v1:posture.alerts.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1)
+			.config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000)).build();
+	}
 
-    /** (D-36) 처리 못 한 메시지 보관. 순서가 중요하지 않아 파티션 1개. */
-    @Bean
-    public NewTopic postureDlqTopic(@Value("${app.kafka.topic.posture-dlq:posture.dlq}") String name) {
-        return TopicBuilder.name(name).partitions(1).replicas(1).build();
-    }
+	/** (D-36) 처리 못 한 메시지 보관. 순서가 중요하지 않아 파티션 1개. */
+	@Bean
+	public NewTopic postureDlqTopic(
+		@Value("${app.kafka.topic.posture-dlq:posture.dlq}")
+		String name) {
+		return TopicBuilder.name(name).partitions(1).replicas(1).build();
+	}
 }

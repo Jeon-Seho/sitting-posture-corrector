@@ -1,15 +1,16 @@
 package com.posture.api.posture.judge;
 
-import com.posture.api.posture.judge.V1JudgeRegistry;
-import com.posture.api.posture.realtime.DeadLetterPublisher;
+import java.util.Map;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Map;
+import com.posture.api.posture.realtime.DeadLetterPublisher;
+
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 실시간 계약 v1 {@code posture.inference.v1}을 구독한다.
@@ -26,74 +27,74 @@ import java.util.Map;
 @Component
 public class RealtimeInferenceConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(RealtimeInferenceConsumer.class);
-    static final String CONSUMER_NAME = "judge-v1";
+	private static final Logger log = LoggerFactory.getLogger(RealtimeInferenceConsumer.class);
+	static final String CONSUMER_NAME = "judge-v1";
 
-    private final V1JudgeRegistry registry;
-    private final DeadLetterPublisher dlq;
-    private final JsonMapper jsonMapper;
+	private final V1JudgeRegistry registry;
+	private final DeadLetterPublisher dlq;
+	private final JsonMapper jsonMapper;
 
-    public RealtimeInferenceConsumer(V1JudgeRegistry registry, DeadLetterPublisher dlq, JsonMapper jsonMapper) {
-        this.registry = registry;
-        this.dlq = dlq;
-        this.jsonMapper = jsonMapper;
-    }
+	public RealtimeInferenceConsumer(V1JudgeRegistry registry, DeadLetterPublisher dlq, JsonMapper jsonMapper) {
+		this.registry = registry;
+		this.dlq = dlq;
+		this.jsonMapper = jsonMapper;
+	}
 
-    @KafkaListener(
-            topics = "${app.kafka.topic.posture-inference-v1:posture.inference.v1}",
-            groupId = "${judge.consumer-group:judge-v1}",
-            concurrency = "${app.kafka.posture-inference-concurrency:3}")
-    public void onMessage(ConsumerRecord<String, String> record) {
-        String error = handle(record.value());
-        if (error != null) {
-            dlq.publish(CONSUMER_NAME, record.topic(), record.partition(), record.offset(), record.key(),
-                    error, record.value());
-        }
-    }
+	@KafkaListener(
+		topics = "${app.kafka.topic.posture-inference-v1:posture.inference.v1}",
+		groupId = "${judge.consumer-group:judge-v1}",
+		concurrency = "${app.kafka.posture-inference-concurrency:3}")
+	public void onMessage(ConsumerRecord<String, String> record) {
+		String error = handle(record.value());
+		if (error != null) {
+			dlq.publish(CONSUMER_NAME, record.topic(), record.partition(), record.offset(), record.key(),
+				error, record.value());
+		}
+	}
 
-    /** @return DLQ로 보낼 이유, 정상 처리면 null */
-    String handle(String rawValue) {
-        Map<String, Object> msg;
-        try {
-            msg = jsonMapper.readValue(rawValue, Map.class);
-        } catch (Exception exc) {
-            return "JSON 파싱 실패: " + exc.getMessage();
-        }
-        if (msg == null) {
-            return "빈 메시지";
-        }
-        Object sid = msg.get("session_id");
-        Object kind = msg.get("kind");
-        if (!"1.0".equals(msg.get("schema_version")) || !(sid instanceof String sessionId) || sessionId.isBlank()
-                || !(kind instanceof String k)) {
-            return "봉투 형식 오류(schema_version 1.0·session_id·kind 필요)";
-        }
-        String userId = msg.get("user_id") instanceof String u ? u : null;
-        @SuppressWarnings("unchecked")
-        Map<String, Object> body = msg.get("body") instanceof Map<?, ?> b ? (Map<String, Object>) b : null;
-        if (body == null) {
-            return "body 없음";
-        }
-        try {
-            switch (k) {
-                case "session_started" -> registry.sessionStarted(sessionId, userId, body);
-                case "observation" -> {
-                    String skipped = registry.observation(sessionId, userId, body);
-                    if (skipped != null) {
-                        log.debug("관측 건너뜀 (sessionId={}): {}", sessionId, skipped);
-                    }
-                }
-                case "session_ended" -> registry.sessionEnded(sessionId, userId, body);
-                default -> {
-                    return "모르는 kind: " + k;
-                }
-            }
-        } catch (IllegalArgumentException exc) {
-            return "관측 형식 오류: " + exc.getMessage();
-        } catch (RuntimeException exc) {
-            log.error("v1 판정 처리 중 예외 (sessionId={})", sessionId, exc);
-            return "처리 중 예외: " + exc;
-        }
-        return null;
-    }
+	/** @return DLQ로 보낼 이유, 정상 처리면 null */
+	String handle(String rawValue) {
+		Map<String, Object> msg;
+		try {
+			msg = jsonMapper.readValue(rawValue, Map.class);
+		} catch (Exception exc) {
+			return "JSON 파싱 실패: " + exc.getMessage();
+		}
+		if (msg == null) {
+			return "빈 메시지";
+		}
+		Object sid = msg.get("session_id");
+		Object kind = msg.get("kind");
+		if (!"1.0".equals(msg.get("schema_version")) || !(sid instanceof String sessionId) || sessionId.isBlank()
+			|| !(kind instanceof String k)) {
+			return "봉투 형식 오류(schema_version 1.0·session_id·kind 필요)";
+		}
+		String userId = msg.get("user_id") instanceof String u ? u : null;
+		@SuppressWarnings("unchecked") Map<String, Object> body = msg.get("body") instanceof Map<?, ?> b
+			? (Map<String, Object>)b : null;
+		if (body == null) {
+			return "body 없음";
+		}
+		try {
+			switch (k) {
+				case "session_started" -> registry.sessionStarted(sessionId, userId, body);
+				case "observation" -> {
+					String skipped = registry.observation(sessionId, userId, body);
+					if (skipped != null) {
+						log.debug("관측 건너뜀 (sessionId={}): {}", sessionId, skipped);
+					}
+				}
+				case "session_ended" -> registry.sessionEnded(sessionId, userId, body);
+				default -> {
+					return "모르는 kind: " + k;
+				}
+			}
+		} catch (IllegalArgumentException exc) {
+			return "관측 형식 오류: " + exc.getMessage();
+		} catch (RuntimeException exc) {
+			log.error("v1 판정 처리 중 예외 (sessionId={})", sessionId, exc);
+			return "처리 중 예외: " + exc;
+		}
+		return null;
+	}
 }

@@ -91,7 +91,7 @@ export async function apiRequest(
         body,
         signal: abort.signal,
         cache: 'no-store',
-        // Kept for the refresh cookie on a separate API origin (docs/design/fe-deploy.md 3.2 A-2).
+        // Kept for the refresh cookie on a separate API origin (docs/design/fe-server-proposal.md 9.3.2 A-2).
         credentials: 'include',
       })
     } catch (caughtError) {

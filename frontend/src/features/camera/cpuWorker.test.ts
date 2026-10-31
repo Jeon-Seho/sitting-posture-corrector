@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createCpuWorker } from './cpuWorker'
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+type WorkerReply = { data: { id: number; result?: unknown; error?: string } }
 describe('CPU worker ownership', () => {
   function setup(reply = true) {
     const image = { close: vi.fn() }
-    const worker = { onmessage: null as any, onerror: null as any, terminate: vi.fn(), postMessage: vi.fn((data: any) => {
-      if (reply) queueMicrotask(() => worker.onmessage({ data: { id: data.id, result: data.kind === 'frame' ? { landmarks: [], worldLandmarks: [] } : undefined } }))
+    const worker = { onmessage: null as ((event: WorkerReply) => void) | null, onerror: null as ((event: unknown) => void) | null, terminate: vi.fn(), postMessage: vi.fn((data: { id: number; kind: string }) => {
+      if (reply) queueMicrotask(() => worker.onmessage!({ data: { id: data.id, result: data.kind === 'frame' ? { landmarks: [], worldLandmarks: [] } : undefined } }))
     }) }
     vi.stubGlobal('Worker', class { constructor() { return worker } })
     vi.stubGlobal('createImageBitmap', vi.fn(async () => image))

@@ -7,7 +7,7 @@ package com.posture.api.posture.realtime;
  * 것을 구분해 알려준다.
  */
 public class KafkaPublishException extends RuntimeException {
-    public KafkaPublishException(String message, Throwable cause) {
-        super(message, cause);
-    }
+	public KafkaPublishException(String message, Throwable cause) {
+		super(message, cause);
+	}
 }

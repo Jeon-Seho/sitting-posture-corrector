@@ -43,6 +43,8 @@ describe('service recovery and saving with synthetic storage only', () => {
   let data: Map<string, string>, renderer: ReactTestRenderer | undefined
   /** What the server confirmed when a measurement ends (synthetic values). */
   const endedState = (): LiveState => ({
+    // The S1 id the screen gave LiveSession; the server's until a midnight rollover.
+    sessionId: renderer!.root.findByType(LiveSessionPage).props.session.id,
     phase: 'ended',
     sending: 'running',
     observation: null,
@@ -206,6 +208,37 @@ describe('service recovery and saving with synthetic storage only', () => {
       { date: '2026-10-26', total: 2, valid: 2, good: 2 },
       { date: '2026-10-27', total: 4, valid: 2, good: 2 },
     ])
+  })
+  it('keeps both days as separate records when the server rolls over at midnight (BE 11.3)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
+    const first = endedState().sessionId
+    const next = '5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e'
+    const ended = {
+      event_id: 1, kind: 'session_ended' as const, timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000,
+      deviation_type: 'none' as const, reason: 'ended' as const,
+    }
+    act(() => service().onRolledOver({
+      ...endedState(), startedAt: '2026-10-26T14:59:58.000Z', endedAt: '2026-10-26T14:59:59.900Z', events: [ended],
+      summary: { ...EMPTY_SUMMARY, total_ms: 2000, valid_ms: 2000, normal_ms: 2000, keep_rate: 1, events_per_hour: 0 },
+    }))
+    act(() => service().onEnded({
+      ...endedState(), sessionId: next, startedAt: '2026-10-26T15:00:00Z', endedAt: '2026-10-26T15:00:04.000Z',
+      summary: { ...EMPTY_SUMMARY, total_ms: 4000, valid_ms: 3000, normal_ms: 3000, unknown_ms: 1000, keep_rate: 1, events_per_hour: 0 },
+    }, ''))
+    const records = pendingRecords('synthetic-screen')
+    expect(records.map((r) => [r.id, r.startedAt, r.total])).toEqual([
+      [first, '2026-10-26T14:59:58.000Z', 2],
+      [next, '2026-10-26T15:00:00Z', 4],
+    ])
+    expect(records[0].server?.confirmed).toBe(true)
+    expect(records.every((r) => !r.days || r.days.length === 1)).toBe(true)
   })
   it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {

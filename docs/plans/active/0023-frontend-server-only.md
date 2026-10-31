@@ -78,7 +78,7 @@
 ### 4단계 — 검증과 정리
 
 - [ ] 실패 경로 시험: 서버 없음, 연결 끊김, 중복 순번, 로그인 만료, `ready` 5초 초과. 10/22 가짜 서버 시험(`LiveSession.test.ts`)으로 연결 끊김·`ready` 5초·`closed(unauthorized)`·S1 무응답 재시도·S1 실패를 확인. 남은 것: 중복 순번(서버가 거름), 실제 서버로 같은 경로.
-- [ ] `python tools/dev.py check`, 서버 담당과 연동 시험(T-13, F9: DevOps 8088 시험 환경, `ssh -L 8088:127.0.0.1:8088`). `check-browser` 시나리오는 서버 전용에 맞춰 다시 쓴다(계획 0030 G6).
+- [ ] `python tools/dev.py check`의 기본 검사와 서버 담당과의 명시적 연동 시험(T-13, F9: DevOps 8088 시험 환경, `ssh -L 8088:127.0.0.1:8088`)을 구분해 확인한다. 구형 `check-browser` 재작성 과제는 도구 삭제로 폐기했으며 현재 JWT·자정 등 개별 점검은 [품질 기준](../../quality.md)을 따른다.
 - [ ] 이 계획을 끝내고 지운다(지운 문서 기록에 남김).
 
 ## 결정과 진행 기록
@@ -118,4 +118,4 @@
 
 2026-10-13, Windows 11 노트북(Node 24, Python 3.13): 프론트 단위 시험 321개, `tsc`, 빌드, `check-repo`, Python 계약 시험 통과.
 `check-browser`는 develop 병합 뒤 "첫 사건이 정확히 3초에 확정" 단계에서 실패한다(측정 흐름은 develop 변경, 원인 미확인).
-`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-yj 파일, [명령과 검사](../../design/fe-commands-and-checks.md)).
+`check-compose`는 계정 모드 삭제로 계정 브라우저 시나리오가 깨진다(sunshine-yj 파일, [명령과 검사(지움)](../../removed-docs.md)).

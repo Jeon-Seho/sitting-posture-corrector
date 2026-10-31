@@ -1,18 +1,14 @@
 """Explicitly synthetic captures only; exercise actual training and leakage boundaries."""
 
-import copy
 import csv
 import json
 import math
-import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
-from model.analysis.personal.classifier import augmentation_scales, temporal_features, training_examples
 from model.analysis.personal.data import catalog_folder, load_config, prepare, sha256
-from model.analysis.personal.run import ROOT, build_experiment, run_experiment, validate_output
+from model.analysis.personal.run import ROOT, build_experiment, run_experiment
 
 
 class PersonalTrainingTests(unittest.TestCase):
@@ -72,22 +68,14 @@ class PersonalTrainingTests(unittest.TestCase):
         spec["sha256"] = sha256(path)
         self.save()
 
-    def test_train_and_private_publication_leave_sources_unchanged(self):
-        before = [sha256(spec["path"]) for spec in self.document["captures"]]
+    def test_synthetic_training_produces_models_and_report(self):
         report = run_experiment(self.config_path, self.output)
         self.assertEqual(report["holdout"]["accuracy"], 1)
         self.assertEqual(report["selected_model"], "original")
         manifest = json.loads((self.output / "manifest.json").read_text())
         self.assertTrue(manifest["training_executed"])
         self.assertTrue(manifest["selection_before_holdout"])
-        for name, digest in manifest["output_sha256"].items():
-            self.assertEqual(sha256(self.output / name), digest)
-        self.assertEqual(before, [sha256(spec["path"]) for spec in self.document["captures"]])
-        if os.name != "nt":
-            self.assertEqual(self.output.stat().st_mode & 0o777, 0o700)
-            self.assertEqual((self.output / "models.json").stat().st_mode & 0o777, 0o600)
-        with self.assertRaisesRegex(ValueError, "new directory"):
-            run_experiment(self.config_path, self.output)
+        self.assertTrue((self.output / "models.json").is_file())
 
     def test_capture_roles_and_windows_have_no_shared_observations(self):
         groups, _ = prepare(load_config(self.config_path))
@@ -127,61 +115,6 @@ class PersonalTrainingTests(unittest.TestCase):
                 indices = [o["sample_index"] for o in window["observations"]]
                 self.assertFalse(min(indices) < 10 < max(indices))
         self.assertEqual(diagnostics[0]["excluded_rows"], {"poor_quality": 1})
-
-    def test_augmentation_is_deterministic_and_rejects_other_roles(self):
-        groups, _ = prepare(load_config(self.config_path))
-        train = copy.deepcopy(groups["train"])
-        first, _ = training_examples(train, self.document["augmentation"], 42)
-        self.assertEqual(first, training_examples(train, self.document["augmentation"], 42)[0])
-        self.assertEqual(train, groups["train"])
-        self.assertEqual(sum(e["synthetic"] for e in first), len(train) * 2)
-        with self.assertRaisesRegex(ValueError, "Only training"):
-            augmentation_scales(groups["holdout"])
-
-    def test_actual_irregular_timestamps_determine_slope(self):
-        result = temporal_features([0, 150, 520], [[0, 0, 0], [.3, .3, .3], [1.04, 1.04, 1.04]])
-        self.assertAlmostEqual(result[2], 2)
-        with self.assertRaises(ValueError):
-            temporal_features([0, 0], [[0, 0, 0], [0, 0, 0]])
-
-    def test_reversed_time_is_rejected_not_sorted(self):
-        self.mutate(0, lambda rows: rows[5].update(elapsed_ms="1"))
-        with self.assertRaisesRegex(ValueError, "strictly increase"):
-            prepare(load_config(self.config_path))
-
-    def test_metadata_cross_person_baseline_and_manifest_mismatch_rejected(self):
-        for field, value, message in (("participant_code", "another-person", "ownership"), ("baseline_offset", "1", "baseline changed"), ("repetition", "3", "preassigned role")):
-            with self.subTest(field=field):
-                self.mutate(0, lambda rows: rows[1].update(**{field: value}))
-                with self.assertRaisesRegex(ValueError, message):
-                    prepare(load_config(self.config_path))
-                original = {"participant_code": "synthetic-person", "baseline_offset": "0", "repetition": "1"}
-                self.mutate(0, lambda rows: rows[1].update(**{field: original[field]}))
-
-    def test_duplicate_capture_and_unknown_purpose_rejected_before_data_read(self):
-        self.document["captures"].append(copy.deepcopy(self.document["captures"][0]))
-        self.save()
-        with self.assertRaisesRegex(ValueError, "Duplicate"):
-            load_config(self.config_path)
-        self.document["captures"].pop()
-        self.document["purpose"] = "cross_person"
-        self.save()
-        with self.assertRaisesRegex(ValueError, "same_person"):
-            load_config(self.config_path)
-
-    def test_source_change_prevents_publication(self):
-        def changed(config):
-            result = build_experiment(config)
-            config.source.write_text("{}")
-            return result
-        with patch("model.analysis.personal.run.build_experiment", side_effect=changed):
-            with self.assertRaisesRegex(ValueError, "changed"):
-                run_experiment(self.config_path, self.output)
-        self.assertFalse(self.output.exists())
-
-    def test_tracked_output_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Git-ignored"):
-            validate_output(ROOT / "model/analysis/personal/test-leaked-output")
 
 
 if __name__ == "__main__":

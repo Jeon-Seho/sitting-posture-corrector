@@ -35,7 +35,7 @@
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
-- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe-deploy.md) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe-server-proposal.md) 1.0.
+- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe-server-proposal.md)(FE 제안서 9장, 10/30 공개 연결 끝남 — 0장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe-server-proposal.md) 1.0.
 - **동의:** [개인정보 수집 동의](design/consent-proposal.md) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
 - **10/12~14 결정 요약(통계 표시 10/22 보완):** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 세션 판정·사건·요약과 어제까지의 일별 통계는 서버가 계산한다. 방금 끝난 세션은 결과 화면에 따로 표시하고, 오늘 목록·합산·달력·그래프는 로컬에 수집한 서버 결과로 표시한다. 기간 화면은 서버의 과거 통계와 로컬 오늘 값을 함께 사용한다([연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
 - **10/16 탈퇴:** 탈퇴는 되돌릴 수 없다(BE 10/15, 철회 A8 없어짐). 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 앱은 연락처 안내를 보인다([연동 명세](design/api-ws-spec.md) 0.7).
@@ -47,8 +47,8 @@
 - **서버 3초 묶음·프레임마다 판정:** [계획 0064](plans/active/0064-server-3s-frame-batch-inference.md)(10/30 BE 구현, 10/31 흐름 변경·Kafka 전송, `check-backend` 통과, 커밋 전): 앱은 프레임마다 그대로, API가 구간마다 바로 추론(HTTP `/v3/infer` 또는 Kafka `posture.inference-request.v3`→`posture.inference-result.v3`, 설정 `posegood.inference.transport`)에 넘기고 판정 엔진이 결과를 서버 시계 3초마다 모아 프레임마다 판정, 3초 규칙·`valid_ms`는 `t_ms`로(BE-5 ②·BE-8 답). `observation` 4.0(`valid`·`posture`·`collapse_probability`·`invalid_reason`) — **앱 수정과 함께 배포**
 - **데스크톱 작은 카메라 창:** [계획 0057](plans/active/0057-native-camera-window-and-design-review.md)(lellon0403, develop PR #64, 10/26): 주소 없는 Electron 창, 접기·앱으로 돌아가기. V3의 [계획 0055](plans/active/0055-desktop-camera-window.md)는 10/27 이것으로 바꿈
 - **카메라 여러 대:** [내장 + USB 카메라](plans/active/0053-multiple-cameras.md)(0053, 10/16: 측정하기에서 메인 카메라 선택, 기준 자세는 카메라와 상관없이 하나, 쓰던 카메라가 빠지면 측정 종료·저장. 10/21부터 기준 자세는 서버(B1·B2)에 있고, 앱이 닫힌 측정은 서버가 저장한다. 남은 것: 외장 자동 우선, 꽂으면 알림, 640×480 아니면 시작 안 함).
-- **`make check` 실패:** [원인과 고칠 것](plans/active/0030-make-check-failures.md)(0030, 빌드 도구와 무관). 빌드는 BE 설정(Gradle Wrapper)을 따른다.
-- **명령과 검사:** [FE 작업 명령과 검사](design/fe-commands-and-checks.md), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
+- **기본 검사:** [품질 기준](quality.md), [과거 실패 분석](plans/active/0030-make-check-failures.md)의 smoke 복구 과제는 삭제 결정으로 대체했다. 빌드는 BE 설정(Gradle Wrapper)을 따른다.
+- **명령과 검사:** [개발 흐름](development.md)·[품질 기준](quality.md)·[frontend README](../frontend/README.md)(FE 작업 명령과 검사 문서는 10/30 지움, [지운 문서 기록](removed-docs.md)), 설치할 프로그램 [requirements-front.txt](../requirements-front.txt).
 - **수집:** 자세 데이터 수집 CSV는 [v3](research/guided-collection-v2.md). 측정 결과 내보내기([session-export](research/session-export.md))는 10/21 앱에서 지웠다(예전 파일을 읽을 때만).
 - **용어:** 「라벨」은 서버·ML이 만드는 판정·학습 정답만 뜻한다. 앱은 라벨을 만들지 않는다.
 - **지운 문서:** 끝났거나 다른 문서와 겹친 문서는 지우고 [지운 문서 기록](removed-docs.md)에 이유·간 곳·되살리는 법을 남겼다. 지운 문서를 가리키던 링크는 그 기록으로 바꿨다.

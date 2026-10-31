@@ -1,5 +1,10 @@
 package com.posture.api.posture.realtime;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,12 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * (D-21) <b>시험용 입구</b> — 계약 v1 {@code posture.features.v1} 메시지를 HTTP로 받아 Kafka에 넣는다.
@@ -28,69 +29,71 @@ import java.util.Map;
 @RequestMapping("/api/v1/realtime")
 public class RealtimeTestEntryController {
 
-    static final int MAX_BATCH = 200;
+	static final int MAX_BATCH = 200;
 
-    private final RealtimeFeaturesPublisher publisher;
-    private final JsonMapper jsonMapper;
-    private final boolean enabled;
+	private final RealtimeFeaturesPublisher publisher;
+	private final JsonMapper jsonMapper;
+	private final boolean enabled;
 
-    public RealtimeTestEntryController(
-            RealtimeFeaturesPublisher publisher,
-            JsonMapper jsonMapper,
-            @Value("${app.realtime.test-entry.enabled:true}") boolean enabled) {
-        this.publisher = publisher;
-        this.jsonMapper = jsonMapper;
-        this.enabled = enabled;
-    }
+	public RealtimeTestEntryController(
+		RealtimeFeaturesPublisher publisher,
+		JsonMapper jsonMapper,
+		@Value("${app.realtime.test-entry.enabled:true}")
+		boolean enabled) {
+		this.publisher = publisher;
+		this.jsonMapper = jsonMapper;
+		this.enabled = enabled;
+	}
 
-    @PostMapping("/features")
-    public ResponseEntity<Map<String, Object>> submit(@RequestBody String rawBody) {
-        if (!enabled) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-        Object parsed;
-        try {
-            parsed = jsonMapper.readValue(rawBody, Object.class);
-        } catch (Exception exc) {
-            return badRequest(List.of("JSON 파싱 실패: " + exc.getMessage()));
-        }
-        List<Object> items = parsed instanceof List<?> l ? new ArrayList<>(l) : List.of(parsed);
-        if (items.isEmpty() || items.size() > MAX_BATCH) {
-            return badRequest(List.of("메시지는 1~" + MAX_BATCH + "개여야 함"));
-        }
+	@PostMapping("/features")
+	public ResponseEntity<Map<String, Object>> submit(
+		@RequestBody
+		String rawBody) {
+		if (!enabled) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+		Object parsed;
+		try {
+			parsed = jsonMapper.readValue(rawBody, Object.class);
+		} catch (Exception exc) {
+			return badRequest(List.of("JSON 파싱 실패: " + exc.getMessage()));
+		}
+		List<Object> items = parsed instanceof List<?> l ? new ArrayList<>(l) : List.of(parsed);
+		if (items.isEmpty() || items.size() > MAX_BATCH) {
+			return badRequest(List.of("메시지는 1~" + MAX_BATCH + "개여야 함"));
+		}
 
-        List<String> errors = new ArrayList<>();
-        List<Map<String, Object>> messages = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            if (!(items.get(i) instanceof Map<?, ?> m)) {
-                errors.add("[" + i + "] 객체가 아님");
-                continue;
-            }
-            @SuppressWarnings("unchecked")
-            Map<String, Object> msg = (Map<String, Object>) m;
-            for (String e : RealtimeEnvelopeValidator.validateFeaturesMessage(msg)) {
-                errors.add("[" + i + "] " + e);
-            }
-            messages.add(msg);
-        }
-        if (!errors.isEmpty()) {
-            return badRequest(errors);
-        }
+		List<String> errors = new ArrayList<>();
+		List<Map<String, Object>> messages = new ArrayList<>();
+		for (int i = 0; i < items.size(); i++) {
+			if (!(items.get(i) instanceof Map<?, ?> m)) {
+				errors.add("[" + i + "] 객체가 아님");
+				continue;
+			}
+			@SuppressWarnings("unchecked") Map<String, Object> msg = (Map<String, Object>)m;
+			for (String e : RealtimeEnvelopeValidator.validateFeaturesMessage(msg)) {
+				errors.add("[" + i + "] " + e);
+			}
+			messages.add(msg);
+		}
+		if (!errors.isEmpty()) {
+			return badRequest(errors);
+		}
 
-        for (Map<String, Object> msg : messages) {
-            // 받은 메시지를 바꾸지 않고 그대로 직렬화해 넣는다(필드 순서만 다를 수 있음)
-            publisher.publish((String) msg.get("session_id"), jsonMapper.writeValueAsString(msg));
-        }
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("accepted", messages.size());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(body);
-    }
+		for (Map<String, Object> msg : messages) {
+			// 받은 메시지를 바꾸지 않고 그대로 직렬화해 넣는다(필드 순서만 다를 수 있음)
+			publisher.publish((String)msg.get("session_id"), jsonMapper.writeValueAsString(msg));
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("accepted", messages.size());
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(body);
+	}
 
-    private static ResponseEntity<Map<String, Object>> badRequest(List<String> errors) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", 400);
-        body.put("error", "Bad Request");
-        body.put("errors", errors.size() > 50 ? errors.subList(0, 50) : errors);
-        return ResponseEntity.badRequest().body(body);
-    }
+	private static ResponseEntity<Map<String, Object>> badRequest(List<String> errors) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("status", 400);
+		body.put("error", "Bad Request");
+		body.put("errors", errors.size() > 50 ? errors.subList(0, 50) : errors);
+		return ResponseEntity.badRequest().body(body);
+	}
 }
