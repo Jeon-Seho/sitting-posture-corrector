@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonDemo } from './comparisonDemo'
 import type { GuidedStep } from './observationProtocol'
-import { ObservationReplayArchive, parseObservationReplay, replayFeatures, replayFrameAt, replayImageValid, REPLAY_LIMIT, type ReplayContext } from './observationReplay'
+import { ObservationReplayArchive, parseObservationReplay, replayFeatures, replayFrameAt, replayImageValid, REPLAY_LIMIT, type ObservationReplayData, type ReplayContext } from './observationReplay'
+/** Shortens a parsed frame to the first 23 points of an earlier recording. */
+const first23 = (f: { image: unknown[]; world: unknown[] }) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })
 const context: ReplayContext = { phase: 'hold', task: 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
 const archive = () => new ObservationReplayArchive('explicit-synthetic-test', '2026-10-21T00:00:00.000Z')
 const recording = () => { const a = archive(); a.append(comparisonDemo(100, 'neutral'), 0, context); a.append(comparisonDemo(200, 'deviation'), 100, context); return a }
@@ -93,7 +95,7 @@ describe('untrusted replay JSON validation', () => {
   })
   it('imports v2 plans without changing their meaning and rejects malformed v3 plans', () => {
     const data = JSON.parse(encoded())
-    const v2 = { ...data, schema_version: 'observation-keypoint-replay-v2', protocolId: 'front-observation-deviation-stretch-v4', plan: { rounds: 1, shuffle: true }, pointIndices: data.pointIndices.slice(0, 23), frames: data.frames.map((f: any) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })) }
+    const v2 = { ...data, schema_version: 'observation-keypoint-replay-v2', protocolId: 'front-observation-deviation-stretch-v4', plan: { rounds: 1, shuffle: true }, pointIndices: data.pointIndices.slice(0, 23), frames: data.frames.map(first23) }
     expect(parseObservationReplay(JSON.stringify(v2)).plan).toEqual(v2.plan)
     for (const plan of [{ rounds: 1, shuffle: false }, { rounds: 1, shuffle: true, cycle: 'stretch', stretchNote: '' }, { rounds: 1, shuffle: false, cycle: 'repeat', stretchNote: 'invalid' }, { rounds: 1, shuffle: false, cycle: 'stretch', stretchNote: 'x'.repeat(121) }]) {
       expect(() => parseObservationReplay(JSON.stringify({ ...data, plan }))).toThrow()
@@ -104,7 +106,7 @@ describe('untrusted replay JSON validation', () => {
     a.addStretchNote(1, 2, '팔 뻗기'); a.addStretchNote(2, 4, '기지개')
     const parsed = parseObservationReplay(JSON.stringify(a.snapshot()))
     expect(parsed.stretchNotes).toEqual([{ round: 1, trial: 2, note: '팔 뻗기' }, { round: 2, trial: 4, note: '기지개' }])
-    const previous = JSON.parse(encoded()); previous.schema_version = 'observation-keypoint-replay-v3'; previous.protocolId = 'front-observation-optional-stretch-v5'; previous.pointIndices = previous.pointIndices.slice(0, 23); previous.frames = previous.frames.map((f: any) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })); delete previous.stretchNotes
+    const previous = JSON.parse(encoded()); previous.schema_version = 'observation-keypoint-replay-v3'; previous.protocolId = 'front-observation-optional-stretch-v5'; previous.pointIndices = previous.pointIndices.slice(0, 23); previous.frames = previous.frames.map(first23); delete previous.stretchNotes
     expect(parseObservationReplay(JSON.stringify(previous))).toMatchObject({ schema_version: 'observation-keypoint-replay-v3', protocolId: previous.protocolId })
     for (const notes of [[{ round: 1, trial: 3, note: 'bad' }], [{ round: 6, trial: 12, note: 'bad' }], [{ round: 1, trial: 2, note: 'x'.repeat(121) }], [{ round: 1, trial: 2, note: '' }, { round: 1, trial: 2, note: '' }]]) {
       expect(() => parseObservationReplay(JSON.stringify({ ...a.snapshot(), stretchNotes: notes }))).toThrow()
@@ -112,7 +114,7 @@ describe('untrusted replay JSON validation', () => {
   })
   it('continues to load v4 23-point recordings', () => {
     const original = earlier('observation-keypoint-replay-v4')
-    const v4 = { ...original, pointIndices: original.pointIndices.slice(0, 23), frames: original.frames.map((f: any) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })) }
+    const v4 = { ...original, pointIndices: original.pointIndices.slice(0, 23), frames: original.frames.map(first23) }
     expect(parseObservationReplay(JSON.stringify(v4))).toMatchObject({ schema_version: 'observation-keypoint-replay-v4', pointIndices: v4.pointIndices })
   })
   it('reads earlier v5 recordings and requires the quality flag in v6', () => {
@@ -160,10 +162,10 @@ describe('untrusted replay JSON validation', () => {
   })
   it('rejects nonmonotonic observation clocks, invalid point values, oversized arrays and impossible markers', () => {
     for (const mutate of [
-      (d: any) => { d.frames[1].observationTimeMs = 50 },
-      (d: any) => { d.frames[0].image[0].visibility = 2 },
-      (d: any) => { d.frames = Array(REPLAY_LIMIT + 1).fill(d.frames[0]) },
-      (d: any) => { d.markers = [{ elapsedMs: 50, afterFrame: 20, reason: 'hidden' }] },
+      (d: ObservationReplayData) => { d.frames[1].observationTimeMs = 50 },
+      (d: ObservationReplayData) => { d.frames[0].image[0]!.visibility = 2 },
+      (d: ObservationReplayData) => { d.frames = Array(REPLAY_LIMIT + 1).fill(d.frames[0]) },
+      (d: ObservationReplayData) => { d.markers = [{ elapsedMs: 50, afterFrame: 20, reason: 'hidden' }] },
     ]) { const data = JSON.parse(encoded()); mutate(data); expect(() => parseObservationReplay(JSON.stringify(data))).toThrow() }
     expect(() => parseObservationReplay('{')).toThrow()
     expect(() => parseObservationReplay('{"schema_version":"normal-posture-collection-v1"}')).toThrow()
