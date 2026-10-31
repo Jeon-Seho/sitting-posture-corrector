@@ -7,7 +7,7 @@ export function observationFeatureExport(data: ObservationReplayData) {
   return {
     schema_version: 'observation-ml-candidates-v1',
     source_schema: data.schema_version, runId: data.runId, startedAt: data.startedAt,
-    source: data.source, protocolId: data.protocolId, plan: data.plan, guideMode: data.guideMode ?? null,
+    source: data.source, protocolId: data.protocolId, plan: data.plan, guideMode: data.guideMode ?? null, schedule: data.schedule ?? null,
     labelKind: data.labelKind, mirrored: data.mirrored,
     note: 'Research candidate features; guided tasks are not ground truth. Split by participant before training.',
     feature_definition: 'observation-comparison-v1', arm_indices: Array.from({ length: 10 }, (_, i) => i + 13),

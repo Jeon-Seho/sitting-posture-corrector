@@ -1,6 +1,6 @@
 # 아키텍처와 경계
 
-2026-10-30부터 `/dev` 사이클은 [ADR 0044](decisions/0044-optional-stretch-cycles.md)를 따른다. 기존 이탈·스트레칭 고정 순서 설명보다 우선한다.
+2026-10-31부터 `/dev` 사이클은 [ADR 0046](decisions/0046-base-hold-and-random-hold-length.md)(동작 뒤 기준 측정, 8~15초 랜덤 측정)을, 사이클 선택은 [ADR 0044](decisions/0044-optional-stretch-cycles.md)를 따른다. 기존 이탈·스트레칭 고정 순서 설명보다 우선한다.
 
 서비스 `/`와 로컬 관측 `/dev`는 동일한 Heavy 카메라에서 33점의 원본 프레임을 받는다. 서비스는 기준 자세와 판정을 서버에서 관리하며, `/dev`는 자체 기준과 측정 자료를 탭 메모리에서 관리하고 사용자가 명시적으로 내려받는다. 새 서비스 기준 등록은 이전 IndexedDB 기록을 만들지 않는다. 과거 저장 자료는 [이전 기준 자료 결정](decisions/0022-local-baseline-archive.md)에 남아 있다.
 

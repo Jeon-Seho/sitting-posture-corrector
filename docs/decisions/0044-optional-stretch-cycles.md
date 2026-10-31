@@ -5,6 +5,8 @@
 - 근거: 반복 측정에서 스트레칭을 매번 수행하기 어렵다는 사용자 요청
 - 이전: [ADR 0043](0043-base-deviation-stretch-collection.md)
 
+> 2026-10-31 후속: 복귀 준비 뒤 기준 측정 구간, 8~15초 랜덤 측정, 복귀 준비 3초는 [ADR 0046](0046-base-hold-and-random-hold-length.md)이 대체한다. 새 기록은 v7이다.
+>
 > 2026-10-30 후속: 전체 33점 기록과 ML 후보 특징 분리 내보내기는 [관측 내보내기 계약](../../contracts/observation-export.v1.md)을 따른다. 기존 v4 파일은 계속 읽는다.
 
 ## 결정

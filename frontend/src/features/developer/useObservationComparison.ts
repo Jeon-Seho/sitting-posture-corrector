@@ -85,12 +85,12 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (mode !== 'camera' || locked(protocol.current.snapshot(performance.now())) || !guideReady()) return
     const now = performance.now()
     if (!protocol.current.start(now, `${run.current.runId}-guide-${++guideSequence.current}`, modeRef.current, planRef.current)) return
-    replay.current.setPlan(planRef.current)
+    replay.current.setPlan(planRef.current); replay.current.setSchedule(protocol.current.schedule())
     const snapshot = protocol.current.snapshot(now)
     segment.current++; guideAction(snapshot); appendTrace('protocol_phase_started', null, null, snapshot)
     if (snapshot.status === 'waiting') appendTrace('protocol_phase_completed', null, null, snapshot)
     setGuide(snapshot)
-    setNotice(modeRef.current === 'manual' ? '기준 등록 완료. 자세를 잡고 준비되면 측정을 시작하세요.' : '기준 등록 완료. 준비 2초 → 측정(이탈 5초·스트레칭 8초) → 복귀 준비 5초로 진행합니다. 측정 시간에만 자료를 모읍니다.')
+    setNotice(modeRef.current === 'manual' ? '기준 등록 완료. 자세를 잡고 준비되면 측정을 시작하세요.' : '기준 등록 완료. 준비 2초 → 동작 측정 → 복귀 준비 3초 → 기준 측정으로 진행합니다. 측정은 매번 8~15초 중 1초 단위로 정해집니다. 측정 시간에만 자료를 모읍니다.')
   }, [mode, guideReady, guideAction, appendTrace])
   const finishGuideTransition = useCallback((result: 'none' | 'phase' | 'completed' | 'paused' | 'waiting', now: number) => {
     const next = protocol.current.snapshot(now)

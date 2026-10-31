@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonDemo } from './comparisonDemo'
+import type { GuidedStep } from './observationProtocol'
 import { ObservationReplayArchive, parseObservationReplay, replayFeatures, replayFrameAt, replayImageValid, REPLAY_LIMIT, type ReplayContext } from './observationReplay'
 const context: ReplayContext = { phase: 'hold', task: 'deviation', round: 1, trial: 1, attempt: 1, segment: 1, measurement: true }
 const archive = () => new ObservationReplayArchive('explicit-synthetic-test', '2026-10-21T00:00:00.000Z')
 const recording = () => { const a = archive(); a.append(comparisonDemo(100, 'neutral'), 0, context); a.append(comparisonDemo(200, 'deviation'), 100, context); return a }
 const encoded = () => JSON.stringify({ ...recording().snapshot(), source: 'synthetic' })
+/** v4..v6 recordings kept the earlier protocol and had no drawn schedule. */
+const earlier = (schema: string) => { const data = JSON.parse(encoded()); delete data.schedule; return { ...data, schema_version: schema, protocolId: 'front-observation-optional-stretch-v6' } }
 describe('bounded keypoint-only replay archive', () => {
   it('retains the shared camera’s 33 raw points and its unmeasurable flag', () => {
     const a = archive(), frame = comparisonDemo(100, 'neutral')
@@ -108,20 +111,34 @@ describe('untrusted replay JSON validation', () => {
     }
   })
   it('continues to load v4 23-point recordings', () => {
-    const original = JSON.parse(encoded())
-    const v4 = { ...original, schema_version: 'observation-keypoint-replay-v4', pointIndices: original.pointIndices.slice(0, 23), frames: original.frames.map((f: any) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })) }
+    const original = earlier('observation-keypoint-replay-v4')
+    const v4 = { ...original, pointIndices: original.pointIndices.slice(0, 23), frames: original.frames.map((f: any) => ({ ...f, image: f.image.slice(0, 23), world: f.world.slice(0, 23) })) }
     expect(parseObservationReplay(JSON.stringify(v4))).toMatchObject({ schema_version: 'observation-keypoint-replay-v4', pointIndices: v4.pointIndices })
   })
   it('reads earlier v5 recordings and requires the quality flag in v6', () => {
-    const previous = JSON.parse(encoded())
-    previous.schema_version = 'observation-keypoint-replay-v5'
+    const previous = earlier('observation-keypoint-replay-v5')
     for (const frame of previous.frames) delete frame.measurable
     const parsed = parseObservationReplay(JSON.stringify(previous))
     expect(parsed.schema_version).toBe('observation-keypoint-replay-v5')
     expect(parsed.frames[0].measurable).toBeNull()
-    const invalid = JSON.parse(encoded())
+    const invalid = earlier('observation-keypoint-replay-v6')
+    expect(parseObservationReplay(JSON.stringify(invalid)).schema_version).toBe('observation-keypoint-replay-v6')
     delete invalid.frames[0].measurable
     expect(() => parseObservationReplay(JSON.stringify(invalid))).toThrow()
+  })
+  it('keeps each drawn phase length in v7 and pins each version to its own protocol', () => {
+    const a = recording()
+    const steps: GuidedStep[] = [1, 2].flatMap(trial => ([['deviation', 'move', 2000], ['deviation', 'hold', 9000 + trial * 1000], ['deviation', 'return', 3000], ['neutral', 'hold', 9000 + trial * 1000]] as const)
+      .map(([action, phase, durationMs]) => ({ round: 1, trial, action, phase, durationMs })))
+    a.setSchedule(steps)
+    const data = a.snapshot()
+    expect(data).toMatchObject({ schema_version: 'observation-keypoint-replay-v7', protocolId: 'front-observation-base-hold-v7' })
+    expect(parseObservationReplay(JSON.stringify(data)).schedule).toEqual(steps)
+    expect(parseObservationReplay(encoded()).schedule).toEqual([])
+    expect(() => parseObservationReplay(JSON.stringify({ ...data, schedule: steps.slice(1) }))).toThrow()
+    expect(() => parseObservationReplay(JSON.stringify({ ...data, schedule: [{ ...steps[0], durationMs: 1.5 }, ...steps.slice(1)] }))).toThrow()
+    expect(() => parseObservationReplay(JSON.stringify({ ...data, protocolId: 'front-observation-optional-stretch-v6' }))).toThrow()
+    expect(() => parseObservationReplay(JSON.stringify({ ...earlier('observation-keypoint-replay-v6'), protocolId: 'front-observation-base-hold-v7' }))).toThrow()
   })
   it.each(['front-observation-2-5-5x3-v2', 'front-observation-manual-ready-5-5x3-v3'])('still imports an older 13-point v1 recording of %s', protocolId => {
     const data = JSON.parse(encoded())
