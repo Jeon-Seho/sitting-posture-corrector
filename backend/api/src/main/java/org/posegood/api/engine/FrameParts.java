@@ -1,9 +1,8 @@
-package org.posegood.api.session;
+package org.posegood.api.engine;
 
 import org.posegood.api.contract.FrameInference;
 import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.Observation;
-import org.posegood.api.contract.SessionRequests;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,59 +10,25 @@ import java.util.List;
 import java.util.function.DoubleFunction;
 
 /**
- * 서버가 모은 좌표 구간 묶음(계획 0064): 추론 v3 요청, 프레임별 결과 → 판정 엔진의 구간 조각, 앱에 보낼 관측 4.0.
+ * 좌표 구간 하나와 프레임별 추론 결과 → 판정 엔진의 구간 조각, 묶음의 관측 4.0(계획 0064).
  *
  * 프레임 하나는 찍힌 시각부터 다음 프레임이 찍힐 때까지를 맡는다(구간의 첫 프레임은 구간 시작부터). 시간은 프레임
  * {@code t_ms}(앱 시계)로 센다. 한 프레임이 맡는 판정 시간은 0.5초까지이고(앱이 새 프레임 없이 구간을 닫는 길이와
  * 같음), 넘는 부분과 프레임이 없는 구간은 판정 불가다. 그래서 {@code valid_ms}는 판별 가능한 프레임 시간의 합이다.
  */
-final class FrameBatch {
+public final class FrameParts {
     /** 프레임 하나가 맡을 수 있는 가장 긴 판정 시간. */
     static final long MAX_FRAME_MS = 500;
 
-    private final List<FrameInterval> intervals;
-    /** 구간마다 찍힌 순서로 정렬한 프레임(running 구간만, 그 밖에는 빈 목록). */
-    private final List<List<FrameInterval.Frame>> frames;
+    private FrameParts() {}
 
-    FrameBatch(List<FrameInterval> intervals) {
-        this.intervals = List.copyOf(intervals);
-        this.frames =
-                intervals.stream()
-                        .map(interval ->
-                                interval.phase() == FrameInterval.Phase.running
-                                        ? interval.frames().stream()
-                                                .sorted(Comparator.comparingLong(FrameInterval.Frame::tMs))
-                                                .toList()
-                                        : List.<FrameInterval.Frame>of())
-                        .toList();
+    /** 추론에 넘길 프레임: running 구간의 프레임을 찍힌 순서로. 그 밖의 구간은 빈 목록(추론하지 않는다). */
+    public static List<FrameInterval.Frame> frames(FrameInterval interval) {
+        if (interval.phase() != FrameInterval.Phase.running) return List.of();
+        return interval.frames().stream().sorted(Comparator.comparingLong(FrameInterval.Frame::tMs)).toList();
     }
 
-    boolean isEmpty() {
-        return intervals.isEmpty();
-    }
-
-    /** 추론에 넘길 프레임이 있는지(쉬기·자리 비움·빈 구간뿐이면 부르지 않는다). */
-    boolean needsInference() {
-        return frames.stream().anyMatch(list -> !list.isEmpty());
-    }
-
-    FrameInference.Request request(SessionRequests.Landmarks baseline) {
-        var all = frames.stream().flatMap(List::stream).map(FrameInference.Frame::of).toList();
-        return FrameInference.Request.of(baseline, all);
-    }
-
-    /** 구간마다 판정 엔진에 넣을 조각. {@code results}는 {@link #request} 프레임 순서의 결과다. */
-    List<List<Observation>> parts(List<FrameInference.Result> results, String modelVersion) {
-        var out = new ArrayList<List<Observation>>(intervals.size());
-        int offset = 0;
-        for (int index = 0; index < intervals.size(); index++) {
-            int count = frames.get(index).size();
-            out.add(parts(intervals.get(index), results.subList(offset, offset + count), modelVersion));
-            offset += count;
-        }
-        return out;
-    }
-
+    /** 구간의 조각. {@code results}는 {@link #frames} 순서의 결과다. */
     static List<Observation> parts(FrameInterval interval, List<FrameInference.Result> results, String modelVersion) {
         var phase = Observation.Phase.valueOf(interval.phase().name());
         long start = interval.startMs(), end = interval.endMs();
@@ -92,7 +57,7 @@ final class FrameBatch {
      * 앱에 보낼 관측 4.0: 묶음의 마지막 판정 가능 프레임. 없으면 고개 돌린 프레임이 하나라도 있을 때 {@code head_turn}, 아니면
      * {@code unmeasurable}.
      */
-    static Observation.V4 live(List<FrameInference.Result> results, DoubleFunction<String> posture) {
+    public static Observation.V4 live(List<FrameInference.Result> results, DoubleFunction<String> posture) {
         boolean turned = false;
         for (int index = results.size() - 1; index >= 0; index--) {
             var result = results.get(index);

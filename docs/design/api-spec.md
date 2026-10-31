@@ -7,7 +7,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
-| 추론 | FastAPI `POST /v3/infer`(실시간, 프레임 묶음, 계획 0064) · `POST /v2/infer`(Kafka 경로·비교 시험이 옮길 때까지) |
+| 추론 | FastAPI `POST /v3/infer`(실시간, 받은 구간의 프레임, 계획 0064) 또는 같은 본문의 Kafka `posture.inference-request.v3` → `posture.inference-result.v3`(설정 `posegood.inference.transport=kafka`, 10/31) · `POST /v2/infer`(처리 서비스 Kafka 경로·비교 시험이 옮길 때까지) |
 | DB | MySQL 8.4 · 스키마 V2.6 |
 | 코드 기준 | `fix/repo-backend-followup` (2026-10-28, develop 미병합) |
 | 개정 | 2026-10-30 (처음 2026-10-13) — [변경 이력](#변경-이력) |
@@ -1282,9 +1282,11 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
 | `model_version` | string | API 설정값(`reference-feature-rule-v1`)과 같아야 한다. |
 
-### 추론 v3 — 프레임 묶음 (`POST /v3/infer`, 계획 0064)
+### 추론 v3 — 구간의 프레임 (`POST /v3/infer` 또는 Kafka, 계획 0064)
 
-API가 FastAPI에 보내는 요청이다(앱은 부르지 않는다). 받은 좌표 구간을 세션마다 서버 시계로 약 3초 모아, **프레임째로** 세션 기준 자세와 함께 넘긴다. 추론은 프레임마다 특징·점수를 따로 낸다(평균하지 않음). 시간 규칙(3초 확정·회복·재알림)과 좋음/나쁨 임계값은 API 판정 엔진에 있다. 계약: [`inference-request.v3`](../../contracts/inference-request.v3.schema.json), [`inference-response.v3`](../../contracts/inference-response.v3.schema.json), 예시 [`examples/v3/`](../../contracts/examples/v3/).
+API가 추론 서버에 보내는 요청이다(앱은 부르지 않는다). 받은 좌표 구간마다 바로 **프레임째로** 세션 기준 자세와 함께 넘기고, 결과는 API 판정 엔진이 서버 시계로 약 3초 모아 판정한다(10/31).
+HTTP(기본)는 이 본문을 `POST /v3/infer`로, Kafka(`posegood.inference.transport=kafka`)는 봉투(`schema_version` 1.0·`message_id`·`session_id`·`sequence`·`produced_at`)의 `body`로 보낸다.
+Kafka 요청 토픽은 `posture.inference-request.v3`, 결과 토픽은 `posture.inference-result.v3`이고 키는 `session_id`다(계약 [`kafka-inference-request.v1`](../../contracts/realtime/kafka-inference-request.v1.schema.json)·[`kafka-inference-result.v1`](../../contracts/realtime/kafka-inference-result.v1.schema.json), 예시 [`examples-inference-v3/`](../../contracts/realtime/examples-inference-v3/)). 추론은 프레임마다 특징·점수를 따로 낸다(평균하지 않음). 시간 규칙(3초 확정·회복·재알림)과 좋음/나쁨 임계값은 API 판정 엔진에 있다. 계약: [`inference-request.v3`](../../contracts/inference-request.v3.schema.json), [`inference-response.v3`](../../contracts/inference-response.v3.schema.json), 예시 [`examples/v3/`](../../contracts/examples/v3/).
 
 **요청** (예시 [`synthetic-frames-request.json`](../../contracts/examples/v3/synthetic-frames-request.json)을 줄임)
 
@@ -1362,7 +1364,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 <a id="websocket-v2-연결"></a>
 
-연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 프레임마다 구간 하나로 보내고(10/27), API는 받은 구간을 바로 `ack`한 뒤 세션마다 서버 시계로 약 3초 모아 **프레임째로** 추론(`POST /v3/infer`)에 넘기고 프레임마다 판정한다(계획 0064, 2026-10-30). 결과는 묶음마다 같은 연결로 push한다.
+연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 프레임마다 구간 하나로 보내고(10/27), API는 받은 구간을 바로 **프레임째로** 추론(`POST /v3/infer` 또는 Kafka)에 넘기고 `ack`한 뒤, 판정 엔진이 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0064, 2026-10-30·31). 결과는 묶음마다 같은 연결로 push한다.
 
 계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
 
@@ -1372,7 +1374,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | 재연결 | 없다([ADR 0024](../decisions/0024-session-ends-on-lost-connection.md)). 연결이 끊기면 그 측정은 끝난다. 다시 하려면 새 `session_id`로 S1부터. |
 | 메시지 크기 | 64KB 이하. 넘으면 `closed(bad_message)`. 120초 동안 메시지가 없으면 연결이 끊긴다. |
 | 메시지 범위 | 연결 하나가 세션 하나라 `hello`·`ready`만 ID를 담는다. 나머지 메시지에는 `session_id`가 없다. 예외: 자정 넘김(11.3)을 켜면 연결 하나가 세션 둘을 가질 수 있고, 바뀌는 순간을 `session_rollover`가 이전·새 세션 ID와 함께 알린다. |
-| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(기본 30분, 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`), `midnight-rollover`(자정 넘김, 기본 꺼짐, `POSEGOOD_MIDNIGHT_ROLLOVER`), `batch-window`(구간을 모으는 서버 시간, 기본 3초, 0 = 받을 때마다, `POSEGOOD_REALTIME_BATCH_WINDOW`) |
+| 서버 설정 | `posegood.realtime.hello-timeout`(10초), `ready-timeout`(5초), `max-session-duration`(기본 24시간, `POSEGOOD_MAX_SESSION_DURATION`), `unmeasurable-timeout`(기본 30분, 0 = 끔, `POSEGOOD_UNMEASURABLE_TIMEOUT`), `midnight-rollover`(자정 넘김, 기본 꺼짐, `POSEGOOD_MIDNIGHT_ROLLOVER`), `batch-window`(판정 엔진이 결과를 모으는 서버 시간, 기본 3초, 0 = 올 때마다, `POSEGOOD_REALTIME_BATCH_WINDOW`), `posegood.inference.transport`(`http` 기본 · `kafka`, `POSEGOOD_INFERENCE_TRANSPORT`), `posegood.inference.result-timeout`(추론 결과를 기다리는 시간, 기본 2초, `POSEGOOD_INFERENCE_RESULT_TIMEOUT`) |
 
 ### 11.1 순서
 
@@ -1457,13 +1459,13 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | 단계 | 내용 |
 |---|---|
 | `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
-| 묶음 | 받은 구간은 바로 `ack`하고 세션마다 모은다. 서버 시계로 `batch-window`(3초)가 지나면(새 구간이 없으면 200ms마다 확인) 넘긴다. 쉬기·자리 비움 구간, `end`, 끊김, 자정 넘김, 프레임 210장 초과에는 기다리지 않는다. 그래서 결과·알림은 최대 3초 늦다. |
+| 묶음 | 받은 구간은 판정 엔진에 자리를 잡고 바로 추론에 넘긴 뒤 `ack`한다. 판정 엔진은 추론 결과를 모아 서버 시계로 `batch-window`(3초)가 지나면(새 구간이 없으면 200ms마다 확인) 앞에서부터 채워진 자리까지 판정한다. Kafka 결과는 순서가 바뀌어 와도 순번 순서로 판정하고, 앞 자리 결과를 기다리느라 멈췄으면 그 결과가 오는 즉시 판정한다. 쉬기·자리 비움 구간은 3초를 기다리지 않는다. `end`·끊김·자정 넘김은 아직 오지 않은 결과를 `result-timeout`(2초)까지 기다린 뒤 판정한다. 그래서 결과·알림은 최대 약 3초 늦다. |
 | 특징 계산 | 추론 서버가 프레임마다 한다(평균하지 않음, 판정 가능 검사·고개 돌림 포함). 카메라는 640×480 고정이다. |
 | 시간 나누기 | 프레임 하나는 찍힌 시각(`t_ms`)부터 다음 프레임이 찍힐 때까지를 맡는다(구간의 첫 프레임은 구간 시작부터). 한 프레임이 맡는 판정 시간은 0.5초까지이고 넘는 부분은 판정 불가다. 판정 불가 프레임 시간은 제외(`unknown_ms`)이고 연속 시간을 끊는다. 그래서 `valid_ms`는 판별 가능한 프레임 시간의 합이다(BE-5 ②). 3초 확정·회복·재알림도 이 시간(앱 시계)으로 센다. |
 | 판정 불가 | 묶음에 판정 가능 프레임이 없으면 `observation.valid:false`이고 `invalid_reason`은 고개 돌린 프레임이 하나라도 있었으면 `head_turn`, 아니면 `unmeasurable`. |
-| 추론·판정 | 추론(`POST /v3/infer`) → 구간마다 프레임별 조각을 판정 엔진에 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `decision`을 보내기 전에 DB에 쓴다. |
+| 추론·판정 | 추론(`POST /v3/infer` 또는 Kafka) → 결과를 판정 엔진 자리에 → 판정 때 구간마다 프레임별 조각으로 판정 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `decision`을 보내기 전에 DB에 쓴다. |
 | 응답 | 구간마다 바로 `ack`. 묶음마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `progress`. |
-| 일시 장애 | 추론 연결 오류는 한 번 다시 부른다. 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다(서버가 3초 뒤 스스로 넘긴 묶음도). 그 묶음은 다시 판정하지 않으므로 그 시간은 누락(MISSING)이 된다. |
+| 일시 장애 | HTTP 추론 연결 오류는 한 번 다시 부른다. 추론이 실패했거나 결과가 계약과 맞지 않거나 `result-timeout`(2초) 안에 오지 않은 구간은 버리고 `stalled`만 보내며 **연결을 유지**한다. DB 일시 장애(503)도 `stalled`다. 버린 구간은 다시 판정하지 않으므로 그 시간은 누락(MISSING)이 된다. |
 | 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
 | 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(기본 30분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. 앱은 이 사유를 저장된 정상 종료로 처리한다(10/27). |
 | 자정 넘김 | `midnight-rollover`를 켜면(기본 꺼짐 — 앱이 `session_rollover`를 처리한 뒤 켠다) KST 자정에 같은 연결에서 세션을 바꾼다(BE-6 ① B안, 2026-10-28). 자정을 넘는 구간(`started_at + end_ms` ≥ 자정)이 오거나, 00:00:30까지 구간이 없으면(쉬기 중 등): ① 이전 세션을 **마지막으로 받은 구간 끝에서** 끝내 저장한다 — 종료 시각은 자정 전이라 시작 날짜 = 종료 날짜. 진행 중이던 사건은 `interrupted`로 끝난다. ② 서버가 새 세션을 만든다 — ID는 서버가 만들고, `started_at` = 자정, 기준 자세·임계값 설정·알림 설정은 이전 세션 것(S1의 계정 확인은 다시 하지 않는다). ③ `decision(session_ended)` → `session_rollover`를 보낸다. **앱은 시간·순번을 연결 기준으로 계속 보낸다.** 서버가 자정 위치(`at_ms`)와 순번 기준(넘길 때의 마지막 순번 + 1)을 빼서 새 세션 값으로 바꾼다. `ack`·`progress`·`stalled`의 순번은 앱이 보낸 번호 그대로이고, 그 뒤 `summary`·사건 시각은 새 세션 기준(자정 = 0)이다. 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않고 `ack`만 보낸다. 새 세션을 만들지 못하면(자리 없음·DB 장애) `closed(day_changed)`로 닫는다 — 이전 세션은 저장됐고 앱은 새 S1부터 다시 시작한다. 연결의 시간축 상한은 그대로 24시간(`*_ms` ≤ 86,400,000)이라 한 연결에서 넘김은 한 번까지다. |
@@ -1549,6 +1551,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-10-31 | `feature/repo-server-frame-batch-inference` | **추론은 구간마다 바로, 3초 모으기는 판정 엔진, Kafka 전송 추가**(계획 0064 10/31): API가 받은 구간의 프레임을 바로 추론에 넘기고(`/v3/infer` 본문 그대로) 판정 엔진이 결과를 약 3초 모아 순번 순서로 판정. 추론 전송 설정 `posegood.inference.transport`(`http` 기본·`kafka`), Kafka 토픽 `posture.inference-request.v3`·`posture.inference-result.v3`(키 `session_id`). 결과가 2초(`result-timeout`) 안에 오지 않은 구간은 누락·`stalled`. 앱에 보내는 메시지는 10/30과 같음 |
 | 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0064): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, ADR 0045) |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |

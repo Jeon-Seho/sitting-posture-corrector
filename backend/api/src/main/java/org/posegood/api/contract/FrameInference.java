@@ -5,8 +5,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
- * 추론 v3({@code POST /v3/infer}, 계획 0064): API가 서버 시계로 약 3초 모은 좌표 프레임을 세션 기준 자세와 함께
- * 넘기고, 추론은 프레임마다 결과를 돌려준다(평균하지 않음).
+ * 추론 v3(계획 0064): API가 받은 좌표 구간 하나의 프레임을 세션 기준 자세와 함께 바로 넘기고, 추론은 프레임마다 결과를
+ * 돌려준다(평균하지 않음). HTTP({@code POST /v3/infer})나 Kafka({@link InferenceMessages}) 본문이 같다. 결과는 API
+ * 판정 엔진이 약 3초 모아 판정한다.
  *
  * 계약: contracts/inference-request.v3.schema.json, contracts/inference-response.v3.schema.json. 좌표는 로그·DB에
  * 남기지 않는다. 시간 규칙(3초 확정·회복·재알림)과 좋음/나쁨 임계값은 API 판정 엔진에 있다.

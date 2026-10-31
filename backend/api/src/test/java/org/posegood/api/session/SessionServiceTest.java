@@ -42,7 +42,8 @@ import java.util.function.Supplier;
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
  * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). 받은 구간은
- * 서버 시계로 묶었다가 프레임마다 판정한다(계획 0064). DB·추론은 가짜.
+ * 바로 추론에 넘기고, 판정 엔진이 결과를 서버 시계로 모았다가 프레임마다 판정한다(계획 0064). 추론은 HTTP처럼 바로
+ * 답하거나 Kafka처럼 나중에({@link SessionService#inferred}) 답하는 가짜, DB도 가짜.
  */
 class SessionServiceTest {
     private static final long OWNER = 7;
@@ -51,10 +52,15 @@ class SessionServiceTest {
     private static final Policy POLICY = new Policy(3000, 3000, 60000, 0.7);
 
     private final SessionRepository repository = mock(SessionRepository.class);
-    private final InferenceClient inference = mock(InferenceClient.class);
-    private final List<SessionUpdates.Progressed> published = new ArrayList<>();
+    private final InferenceGateway inference = mock(InferenceGateway.class);
+    private final List<SessionUpdates.Progressed> published = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<SessionUpdates.Stalled> stalled = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** 켜면 가짜 추론이 502로 실패한다. */
     private final AtomicBoolean failing = new AtomicBoolean();
+    /** 켜면 가짜 추론이 Kafka처럼 결과를 바로 돌려주지 않는다(요청만 모은다). */
+    private final AtomicBoolean later = new AtomicBoolean();
+    /** Kafka처럼 보낸 요청: 순번 → 요청. */
+    private final java.util.Map<Long, FrameInference.Request> sent = new java.util.TreeMap<>();
 
     /** 받을 때마다 판정한다(batch-window 0). */
     private SessionService service(Duration unmeasurableTimeout) {
@@ -62,22 +68,25 @@ class SessionServiceTest {
     }
 
     private SessionService service(Duration unmeasurableTimeout, Duration batchWindow) {
+        return service(unmeasurableTimeout, batchWindow, Duration.ofSeconds(2));
+    }
+
+    private SessionService service(Duration unmeasurableTimeout, Duration batchWindow, Duration resultTimeout) {
         ApplicationEventPublisher events = event -> {
             if (event instanceof SessionUpdates.Progressed progressed) published.add(progressed);
+            if (event instanceof SessionUpdates.Stalled update) stalled.add(update);
         };
         var tx = mock(TransactionTemplate.class);
         when(tx.execute(any())).thenAnswer(call -> ((TransactionCallback<?>) call.getArgument(0)).doInTransaction(null));
         // 가짜 추론 v3: 사람이 있는 프레임은 점수 0.1(좋음), 없거나 앱이 판정 불가로 표시한 프레임은 판정 불가.
-        when(inference.infer(any(FrameInference.Request.class))).thenAnswer(call -> {
+        when(inference.submit(any(UUID.class), anyLong(), any(FrameInference.Request.class))).thenAnswer(call -> {
             if (failing.get()) throw ApiError.upstream("synthetic inference failure");
-            FrameInference.Request request = call.getArgument(0);
-            var results = request.frames().stream()
-                    .map(frame -> frame.tracked()
-                            ? new FrameInference.Result(frame.tMs(), true, 0.1, Observation.DeviationType.none, null)
-                            : new FrameInference.Result(frame.tMs(), false, 0, Observation.DeviationType.none,
-                                    "unmeasurable"))
-                    .toList();
-            return new FrameInference.Response("3.0", "synthetic-v1", results);
+            FrameInference.Request request = call.getArgument(2);
+            if (later.get()) {
+                sent.put(call.getArgument(1), request);
+                return null;
+            }
+            return answer(request);
         });
         when(inference.modelVersion()).thenReturn("synthetic-v1");
         var live = new LiveSessions(events, 8, Duration.ofMinutes(30), Duration.ofHours(6));
@@ -88,7 +97,17 @@ class SessionServiceTest {
         live.add(new LiveSession(row, new SessionEngine(ID, POLICY)));
         return new SessionService(live, repository, mock(BaselineRepository.class),
                 mock(ThresholdPolicyRepository.class), mock(AccountService.class), inference, locks,
-                tx, events, Duration.ofHours(24), unmeasurableTimeout, batchWindow);
+                tx, events, Duration.ofHours(24), unmeasurableTimeout, batchWindow, resultTimeout);
+    }
+
+    private static FrameInference.Response answer(FrameInference.Request request) {
+        var results = request.frames().stream()
+                .map(frame -> frame.tracked()
+                        ? new FrameInference.Result(frame.tMs(), true, 0.1, Observation.DeviationType.none, null)
+                        : new FrameInference.Result(frame.tMs(), false, 0, Observation.DeviationType.none,
+                                "unmeasurable"))
+                .toList();
+        return new FrameInference.Response("3.0", "synthetic-v1", results);
     }
 
     /** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
@@ -147,17 +166,19 @@ class SessionServiceTest {
     }
 
     @Test
-    void intervalsWaitForTheWindowAndEndJudgesTheRestFrameByFrame() {
+    void eachIntervalGoesToInferenceAtOnceAndTheEngineJudgesAfterTheWindow() {
         var service = service(Duration.ZERO, Duration.ofSeconds(3));
         for (long sequence = 0; sequence < 3; sequence++)
             assertEquals(0, feed(service, ID, interval(sequence, FrameInterval.Phase.running, true)).summary().totalMs());
-        verify(inference, never()).infer(any(FrameInference.Request.class));
-        // 같은 순번·앞선 순번은 묶음에 있어도 409다.
+        // 추론은 구간마다 바로, 판정은 아직(판정 엔진이 결과를 모으는 중).
+        verify(inference, times(3)).submit(eq(ID), anyLong(), any(FrameInference.Request.class));
+        assertTrue(published.isEmpty());
+        // 같은 순번·앞선 순번은 모으는 중이어도 409다.
         assertEquals(409, assertThrows(ApiError.class,
                 () -> service.frames(OWNER, ID, interval(2, FrameInterval.Phase.running, true), BASELINE_POINTS)).status());
 
-        service.finish(OWNER, ID, null); // 끊김·종료는 기다리지 않고 남은 묶음을 판정한 뒤 끝낸다
-        verify(inference, times(1)).infer(any(FrameInference.Request.class));
+        service.finish(OWNER, ID, null); // 끊김·종료는 3초를 기다리지 않고 남은 결과를 판정한 뒤 끝낸다
+        verify(inference, times(3)).submit(eq(ID), anyLong(), any(FrameInference.Request.class));
         var view = service.get(OWNER, ID);
         assertTrue(view.ended());
         assertEquals(1500, view.summary().totalMs());
@@ -195,12 +216,13 @@ class SessionServiceTest {
     }
 
     @Test
-    void aFailedBatchIsDroppedAndItsTimeBecomesMissing() {
+    void aFailedRequestIsDroppedItsTimeBecomesMissingAndTheAppIsToldStalled() {
         var service = service(Duration.ZERO);
         feed(service, ID, interval(0, FrameInterval.Phase.running, true));
         failing.set(true);
         service.frames(OWNER, ID, interval(1, FrameInterval.Phase.running, true), BASELINE_POINTS);
-        assertEquals(502, assertThrows(ApiError.class, () -> service.flush(OWNER, ID)).status());
+        service.flush(OWNER, ID);
+        assertEquals(List.of(new SessionUpdates.Stalled(ID)), stalled);
         failing.set(false);
         var view = feed(service, ID, interval(2, FrameInterval.Phase.running, true));
         assertEquals(1500, view.summary().totalMs());
@@ -282,6 +304,63 @@ class SessionServiceTest {
         // 이미 끝난 세션은 다시 넘기지 않는다.
         assertEquals("SESSION_ENDED", assertThrows(ApiError.class,
                 () -> service.rollover(OWNER, ID, midnight, 1000)).code());
+    }
+
+    @Test
+    void kafkaResultsMayComeOutOfOrderAndAreJudgedInOrder() {
+        later.set(true);
+        var service = service(Duration.ZERO);
+        for (long sequence = 0; sequence < 3; sequence++)
+            service.frames(OWNER, ID, interval(sequence, FrameInterval.Phase.running, sequence != 1), BASELINE_POINTS);
+        assertEquals(List.of(0L, 1L, 2L), List.copyOf(sent.keySet()));
+        service.inferred(ID, 2, answer(sent.get(2L)));
+        service.flush(OWNER, ID);
+        assertTrue(published.isEmpty()); // 순번 0을 기다린다
+        service.inferred(ID, 0, answer(sent.get(0L)));
+        service.inferred(ID, 1, answer(sent.get(1L)));
+        service.flush(OWNER, ID);
+        var view = service.get(OWNER, ID);
+        assertEquals(2, view.lastSequence());
+        assertEquals(1000, view.summary().validMs());
+        assertEquals(500, view.summary().unknownMs());
+        // 다른 서버의 세션·이미 판정한 구간의 결과는 버린다.
+        service.inferred(UUID.randomUUID(), 0, answer(sent.get(0L)));
+        service.inferred(ID, 0, answer(sent.get(0L)));
+        assertEquals(2, service.get(OWNER, ID).lastSequence());
+    }
+
+    @Test
+    void aKafkaResultThatDoesNotMatchTheRequestIsMissingTime() {
+        later.set(true);
+        var service = service(Duration.ZERO);
+        service.frames(OWNER, ID, interval(0, FrameInterval.Phase.running, true), BASELINE_POINTS);
+        service.frames(OWNER, ID, interval(1, FrameInterval.Phase.running, true), BASELINE_POINTS);
+        var wrongTime = new FrameInference.Response("3.0", "synthetic-v1",
+                List.of(new FrameInference.Result(999, true, 0.1, Observation.DeviationType.none, null)));
+        service.inferred(ID, 0, wrongTime);
+        service.inferred(ID, 1, answer(sent.get(1L)));
+        service.flush(OWNER, ID);
+        assertEquals(List.of(new SessionUpdates.Stalled(ID)), stalled);
+        var view = service.get(OWNER, ID);
+        assertEquals(1, view.lastSequence());
+        assertEquals(500, view.summary().validMs());
+        assertEquals(500, view.summary().missingMs());
+    }
+
+    @Test
+    void endWaitsForKafkaResultsOnlyUntilTheResultTimeout() {
+        later.set(true);
+        var service = service(Duration.ZERO, Duration.ofSeconds(3), Duration.ofMillis(50));
+        service.frames(OWNER, ID, interval(0, FrameInterval.Phase.running, true), BASELINE_POINTS);
+        service.frames(OWNER, ID, interval(1, FrameInterval.Phase.running, true), BASELINE_POINTS);
+        service.inferred(ID, 0, answer(sent.get(0L)));
+        service.finish(OWNER, ID, 1000L); // 순번 1의 결과는 오지 않는다
+        var view = service.get(OWNER, ID);
+        assertTrue(view.ended());
+        assertEquals(1000, view.summary().totalMs());
+        assertEquals(500, view.summary().validMs());
+        assertEquals(500, view.summary().missingMs());
+        assertEquals(List.of(new SessionUpdates.Stalled(ID)), stalled);
     }
 
     private static SessionRepository.Stored row() {

@@ -1,6 +1,6 @@
 # 서버가 3초씩 묶은 좌표 프레임을 추론 서버에 넘기고 프레임마다 판정
 
-- 상태: in_progress (BE 구현·검증 끝, 커밋 전. FE 수정과 함께 배포 — FE 공지 2026-10-30)
+- 상태: in_progress (10/30 구현 커밋, 10/31 흐름 변경·Kafka 전송 구현·검증 끝, 커밋 전. FE 수정과 함께 배포 — FE 공지 2026-10-30)
 - 담당: BE(김유진)
 - 시작일: 2026-10-29
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(판정은 API 안, 특징 A안), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md), [FE 제안서](../../design/fe-server-proposal.md) BE-5 ②·BE-8, [API 명세](../../design/api-spec.md) 9장·11장, [연동 명세](../../design/api-ws-spec.md) 5.1
@@ -29,7 +29,7 @@
 
 | # | 내용 | 근거 |
 | --- | --- | --- |
-| 1 | 묶는 곳은 Spring API. 앱은 지금처럼 프레임마다 보낸다 | BE 10/27 답(BE-8), FE 변경 없이 가능 |
+| 1 | 묶는 곳은 Spring API. 앱은 지금처럼 프레임마다 보낸다 — **10/31 바뀜(19번): 좌표가 아니라 추론 결과를 판정 엔진이 모은다** | BE 10/27 답(BE-8), FE 변경 없이 가능 |
 | 2 | 묶는 주기만 서버 시계 3초. 프레임 길이·`valid_ms`·3초 규칙은 `t_ms` | 도착 시각에는 네트워크 지연이 섞인다(연동 명세 5.1) |
 | 3 | 판정 단위는 프레임마다(B안). 추론 서버에 프레임을 통째로 넘긴다 | 평균이 판정을 흐린다(BE-8 10/27 팀장 결정 이유) |
 | 4 | 프레임을 받는 곳은 FastAPI 추론 서버(`model/inference`). 시간 판정은 계속 API 엔진(`engine/DecisionRules.java`) | ADR 0020, backend/AGENTS.md |
@@ -39,12 +39,12 @@
 | 8 | `observation` 형식 번호만 3.0 → 4.0으로 올린다. 계약 파일은 `realtime-ws.v2.schema.json` 그대로 고치고 `realtime-ws.v3`를 새로 만들지 않는다(10/30, A안) | 필드를 빼거나 더하면 호환성이 깨진다(스키마가 모르는 필드를 거부, 앱 `validObservation`). FE·BE가 함께 바꾸고 옛 앱을 따로 지원하지 않으므로 [계약 안내](../../../contracts/README.md) 48행의 「새 계약 파일」 대신 번호만 올린다. 접속 주소 `/v2/realtime`과 좌표 구간 `posture.frames.v1`은 그대로 |
 | 9 | `observation` 4.0은 필드 4개: `valid`·`posture`·`collapse_probability`·`invalid_reason`(10/30, 아래 예시). `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺀다. `bad_ms`는 넣지 않는다 | 앱이 측정 중 화면에 쓰는 값만 남긴다. 처리 위치는 `ack`·`progress`의 `last_sequence`, 상태는 `progress.paused_reason`, 누적 시간은 `summary`에 있다. 모델은 이탈 확률 하나를 내고 서버가 좋음/나쁨으로 나누므로(ADR 0043 3클래스, ADR 0045) 이탈 종류는 모델 출력에 없다 |
 | 10 | `posture`·`collapse_probability`는 묶음의 **마지막 판정 가능 프레임** 값(10/30) | 화면은 「지금 자세」를 보인다. 평균은 판정을 흐린다(3번). 판정 가능 프레임이 없으면 `valid:false` |
-| 11 | `ack`는 받은 즉시, `observation`·`decision`·`alert`·`progress`는 묶음 처리 뒤(10/30) | 앱은 `ack`를 표시에만 쓴다. 판정 결과는 묶음 단위로만 생긴다 |
-| 12 | 추론은 새 경로 `POST /v3/infer`. 요청에 세션 기준 자세 9관절 `[x, y]`를 함께 넣어 추론 서버는 상태 없이 둔다. `/v2/infer`는 Kafka 경로·비교 시험이 옮길 때까지 남긴다(10/30) | 추론 서버를 여러 대로 늘리거나 재시작해도 세션 상태를 잃지 않는다 |
+| 11 | `ack`는 받은 즉시(10/31부터 추론에 넘긴 뒤 바로), `observation`·`decision`·`alert`·`progress`는 묶음 처리 뒤(10/30) | 앱은 `ack`를 표시에만 쓴다. 판정 결과는 묶음 단위로만 생긴다 |
+| 12 | 추론은 새 경로 `POST /v3/infer`. 요청에 세션 기준 자세 9관절 `[x, y]`를 함께 넣어 추론 서버는 상태 없이 둔다. `/v2/infer`는 Kafka 경로·비교 시험이 옮길 때까지 남긴다(10/30). 10/31 Kafka 전송도 같은 본문(21번) | 추론 서버를 여러 대로 늘리거나 재시작해도 세션 상태를 잃지 않는다 |
 | 13 | 특징 계산은 추론 서버(`model/inference/frames.py`)로 옮긴다. API의 `FrameFeatures.java`는 hello의 기준 자세 확인과 같은 규칙의 Java 기준값으로 남긴다(10/30) | 두 구현을 같은 합성 사례(`reference-rule-cases.json`)로 시험해 값이 갈라지지 않게 한다 |
 | 14 | 프레임 하나는 찍힌 시각부터 다음 프레임까지(구간의 첫 프레임은 구간 시작부터), **최대 0.5초**. 넘는 부분과 판정 불가 프레임은 제외(`unknown_ms`)이고 연속 시간을 끊는다(10/30) | 앱이 새 프레임 없이 구간을 닫는 길이와 같다. 구간 단위일 때의 중단 후 초기화 정책과 같다 |
-| 15 | 3초를 기다리지 않고 넘기는 때: `rest`·`away` 구간, `end`(S3 포함), 연결 끊김, 자정 넘김, 프레임 210장 초과. 측정불가 시간 초과는 묶음 처리 중 그 구간에서 끝내고 남은 구간은 버린다(10/30) | 자정 넘김은 넘기기 전에 묶음을 비우므로 묶음이 두 세션에 걸치지 않는다 |
-| 16 | 추론 연결·응답 오류는 한 번 다시 부르고, 그래도 실패하면 그 묶음은 버리고(누락) `stalled`. 계약과 맞지 않는 응답은 다시 부르지 않는다(10/30) | 지금처럼 다시 받지 않는다(앱은 재전송하지 않음) |
+| 15 | 3초를 기다리지 않고 넘기는 때: `rest`·`away` 구간, `end`(S3 포함), 연결 끊김, 자정 넘김, 프레임 210장 초과(10/31: 210장 조건은 없어지고, `end`·끊김·자정은 남은 결과를 23번 시간까지 기다림). 측정불가 시간 초과는 묶음 처리 중 그 구간에서 끝내고 남은 구간은 버린다(10/30) | 자정 넘김은 넘기기 전에 묶음을 비우므로 묶음이 두 세션에 걸치지 않는다 |
+| 16 | 추론 연결·응답 오류는 한 번 다시 부르고, 그래도 실패하면 그 묶음은 버리고(누락) `stalled`(10/31: 버리는 단위가 묶음이 아니라 구간 하나, 23번). 계약과 맞지 않는 응답은 다시 부르지 않는다(10/30) | 지금처럼 다시 받지 않는다(앱은 재전송하지 않음) |
 | 17 | 새 사건은 `decision`을 보내기 전에 DB에 쓴다. DB가 실패해도 결과는 보내고 `stalled`, 다음 처리 때 다시 쓴다(10/30) | 예전에는 DB에 쓴 뒤에 오는 `ack`가 「저장됨」 신호였는데 `ack`가 판정보다 먼저 가게 됐다 |
 | 18 | 알림이 최대 3초 늦는 것을 받아들이고 팀장·FE에 알린다(10/30 BE, FE 공지) | 묶음의 대가. 설정 `batch-window`로 줄일 수 있다 |
 
@@ -67,6 +67,30 @@
 | `collapse_probability` | 나쁨일 확률 0~1, 앱 점수 = 100 × (1 − 값). `valid:false`면 0 |
 | `invalid_reason` | `valid`면 `null`, 아니면 `unmeasurable`·`head_turn` |
 
+## 바뀐 흐름과 Kafka 전송 (2026-10-31, BE)
+
+팀 논의로 흐름을 바꿨다: **API는 받은 구간을 바로 추론에 넘기고, 판정 엔진(`engine/`)이 추론 결과를 약 3초 모아 판정해 WS로 보낸다.** API ⇄ 추론 서버는 Kafka로도 주고받을 수 있게 했다.
+
+```
+앱 ─WS(프레임마다)─▶ API ─(구간마다 바로)─▶ [Kafka 요청 토픽 또는 HTTP] ─▶ 추론 서버
+                                                                              │ 프레임마다 결과
+앱 ◀─WS(observation·decision·alert·progress)─ API 판정 엔진 ◀─[Kafka 결과 토픽 또는 HTTP 응답]─┘
+                                              (결과를 약 3초 모아 순번 순서로 판정)
+```
+
+| # | 내용 | 근거 |
+| --- | --- | --- |
+| 19 | 3초 모으기는 판정 엔진(`SessionEngine`)이 한다. 구간을 받으면 엔진에 순번 자리를 잡고(`hold`) 추론 결과로 채운다(`fill`). 판정(`judge`)은 앞에서부터 채워진 자리까지만 한다. `session/`은 좌표를 모으지 않는다(`FrameBatch` 삭제, 시간 나누기는 `engine/FrameParts`로 옮김) | 사용자 결정(10/31). 결과가 순서 없이 와도 판정 순서를 지킨다 |
+| 20 | 언제 판정할지는 서버 시계다: 묶음이 `batch-window`(3초)를 모았거나, 쉬기·자리 비움이 들어왔거나, 결과를 기다리느라 멈췄던 자리가 채워졌을 때. 시간 규칙은 그대로 `t_ms`(2번) | 프레임이 끊겨도 결과가 제때 나간다 |
+| 21 | 추론 전송은 설정 `posegood.inference.transport`: `http`(기본, 구간마다 `POST /v3/infer`) · `kafka`(요청 `posture.inference-request.v3` → 결과 `posture.inference-result.v3`, 키 `session_id`). 본문은 `/v3/infer` 요청·응답 그대로, 봉투에 `sequence` | 개발·시험·`check-backend`는 Kafka 없이 돌고, 서버만 바꾼다 |
+| 22 | Kafka 추론은 `model/inference`의 Kafka 워커(`kafka_worker.py`, `POSEGOOD_KAFKA_BOOTSTRAP_SERVERS`가 있을 때만)가 `/v3/infer`와 같은 `predict_frames`로 한다. 처리 서비스 경로의 `backend/inference`와 토픽 `posture.features.v1`·`posture.inference.v1`은 쓰지 않는다 | 점수 코드를 한 벌만 둔다. 처리 서비스 판정기가 같은 결과를 이중으로 판정하지 않는다 |
+| 23 | 결과를 기다리는 시간 `posegood.inference.result-timeout`(기본 2초). 넘으면 그 구간은 버리고(누락) `stalled`. 발행 실패·계약과 맞지 않는 결과도 바로 누락. `end`·끊김·자정은 남은 결과를 이 시간까지 기다린 뒤 판정 | HTTP처럼 실패 응답이 없으므로 시간으로 판단한다 |
+| 24 | Kafka 결과 컨슈머 그룹은 API 서버마다 따로(`io-api-<호스트>`), 최신부터. 이 서버에 없는 세션의 결과는 버린다. 추론 워커 그룹은 `inference-v3`, 최신부터 | 결과는 WS를 가진 서버만 쓸 수 있다. 재연결이 없어 지난 결과는 쓸모없다(ADR 0024) |
+| 25 | 두 토픽 보존 1시간(`posegood.kafka.retention`), 파티션 3, API가 kafka로 시작할 때 없으면 만들고 보존을 맞춘다. 추론 워커는 읽지 못한 요청을 `posture.dlq`에 사유만 남긴다(`payload` null) | 요청에 좌표가 있고 Kafka는 사용자별로 지울 수 없다 |
+| 26 | 서버(`infra/compose/bigdata.yaml`): `io-inference`의 Kafka 워커는 늘 켜고(`kafka:19092`), `io-api`는 `.env`의 `POSEGOOD_INFERENCE_TRANSPORT`(기본 `http`)로 고른다. `compose.yaml`(Kafka 없음)은 `http` 그대로 | 바꾸는 값을 하나로. 배포 전 기본값은 지금과 같다 |
+
+앱에 보내는 메시지·순서·형식(`observation` 4.0)은 10/30과 같다. 그래서 이 변경으로 FE가 더 고칠 것은 없다.
+
 ## 남은 질문
 
 - **FE와 함께 배포:** FE는 `messages.ts`의 `LiveObservation`·`validObservation`, `useSessionPersistence.ts`의 `model_version`, `lib/comparison.ts`의 버전 경고를 고쳐야 한다. 서버만 먼저 바꾸면 앱이 `observation`을 버린다 — FE와 함께 배포.
@@ -76,6 +100,8 @@
 - 10/30 `contracts/README.md` 「모델명·특징 버전의 내부 관리」에 `observation` 4.0의 `model_version` 제외를 적었다(7번).
 - **팀 확인:** 알림 지연(18번)과 `posture` 이름(`good`·`bad`)은 BE가 정했고(ADR 0045) 알림 지연은 팀장·FE 확인 전이다.
 - **Kafka 경로:** 계획 0031의 `ws` → Kafka 경로는 아직 구간 하나·1500ms 형식이다. 같은 묶음 방식으로 맞출지 계획 0031 담당과 정한다.
+- **아키텍처 v5.3과의 차이(10/31, 팀 확인 전):** v5.3은 추론 결과를 처리 서비스 판정기(`backend/processing` judge, 연결 ⑨)가 받는다. 이 계획은 판정을 API 엔진에 두고 별도 토픽(`*.v3`)을 쓴다. v5.3 그림·연결표를 바꿀지, 처리 서비스 경로를 언제 정리할지 팀장·DevOps와 정한다. API의 Kafka 연결은 v5.3에서 PM 담당(D-57)이라 겹치는 부분을 PM과 정리한다.
+- **서버에서 Kafka로 바꾸기(10/31):** 코드와 compose 설정만 준비했다. 서버 PC에서 `POSEGOOD_INFERENCE_TRANSPORT=kafka`로 띄워 실제 지연(앱 프레임 → WS 결과)과 lag을 재는 일은 DevOps와 함께 남았다.
 - **정리할 코드:** v2 추론 호출(`InferenceClient.infer(InferenceRequest)`)·`FrameFeatures.interval`(구간 평균)은 실시간에서 쓰지 않는다. Kafka 경로·비교 시험이 옮기면 지운다.
 
 ## 작업 단계
@@ -87,15 +113,30 @@
 - [x] `backend/api`: 세션별 묶음(`LiveSession`)·서버 시계 3초(`batch-window`)·200ms 스케줄러·즉시 넘기는 때, 프레임 조각(`FrameBatch`)을 엔진에(`SessionEngine.accept(List)`), `observation` 4.0, `stalled` 이벤트
 - [x] 문서 동기화(BE 문서): API 명세 9·11장·변경 이력, ADR 0020 3절, 계약 안내, backend README, 백엔드 개발 상태. FE 문서는 FE 공지로
 - [x] `make check-backend`(단위 → 실제 MySQL → HTTP smoke)와 추론 시험, 결과 기록
+- [x] 10/31 흐름 변경: 3초 모으기를 판정 엔진으로(`SessionEngine.hold`·`fill`·`judge`·`due`, `PendingIntervals`, `FrameParts`), 구간마다 바로 추론(`InferenceGateway`)
+- [x] 10/31 Kafka 전송: `KafkaInferenceGateway`·`InferenceResultListener`, 계약 `kafka-inference-request.v1`·`kafka-inference-result.v1`과 예시, `model/inference/kafka_worker.py`, `bigdata.yaml` 설정
+- [ ] 서버 PC에서 Kafka로 띄워 지연·lag 확인(DevOps와)
 - [ ] 커밋·PR, FE 수정과 함께 develop에 합치기
 
 ## 결정과 진행 기록
 
 - 2026-10-29: 위 「정한 것」 1~5 확정(BE). 지금 API 명세에는 좌표 프레임을 추론 서버로 넘기는 API가 없다 — `/v2/realtime`은 구간 1개·1500ms·30장 제한, `/v2/infer`는 구간당 특징 1개만 받는다.
 - 2026-10-30: 6~18번 확정(BE), 구현. 브랜치 `feature/repo-server-frame-batch-inference`. 첫 MySQL 통합 시험에서 `decision`을 받은 직후 DB를 읽으면 아직 저장 전인 경우를 찾아 17번으로 고쳤다.
+- 2026-10-31: 흐름을 「구간마다 바로 추론 → 판정 엔진이 결과를 약 3초 모아 판정」으로 바꾸고 Kafka 전송을 넣었다(19~26번). 처음에는 Kafka를 `backend/inference`에 붙이려 했으나, 그쪽은 Docker 빌드 위치가 달라 `frames.py`를 복사해야 해서 같은 코드를 쓰는 `model/inference`에 워커를 넣었다.
 - 2026-10-30: develop(`66a780c`, PR #83)을 합쳤다. ML ADR 0043(3클래스)과 번호가 겹쳐 BE 모델 출력 ADR을 0045로 옮기고 3클래스에 맞췄다. `posture`는 `good`·`bad`로 확정(BE).
 
 ## 검증 결과와 남은 한계
+
+2026-10-31(흐름 변경·Kafka 전송), 이 PC(Windows, JDK 17, Python 3.12 `.venv`, 로컬 MySQL80 일회용 DB, Docker 없음):
+
+- `python tools/dev.py check-backend`: 통과 — API 114개(`MySqlIntegrationTest` 11개 포함, 실패 0, 건너뜀 1 = 아래 Python 워커 시험은 `-Pkafka-e2e`에서만), 처리 서비스 그대로, `tools/service_smoke.py` 8단계 PASS(실제 FastAPI, HTTP 전송, 3초 확정·6초 회복).
+- 새 시험: `SessionEngineBatchTest` 9개(순서 바뀐 결과·기다림·누락·실패·강제·종료 대기·측정불가 시간 초과), `SessionServiceTest` 새 3개(Kafka처럼 나중에 오는 결과·계약 불일치·종료 때 기다림), `FramePartsTest`(옛 `FrameBatchTest`), `KafkaInferenceRoundTripTest`(같은 JVM Kafka 브로커로 발행 키·봉투·결과 구독, 11초).
+- `-Pkafka-e2e`: 실제 Python 추론 워커(`kafka_worker.py`, kafka-python 2.2.15)를 같은 브로커에 붙여 API 발행 → 추론 → 결과 구독 → API 결과 확인(`InferenceClient.check`)까지 통과.
+- Python: `tests/test_inference_kafka.py` 5개(예시 = 워커 출력, 계약, 값이 오류 사유에 안 나옴, DLQ에 좌표 없음, 브로커 없으면 꺼짐), `test_inference_v3`·`test_realtime_contracts`·`test_realtime_ws_v2` 통과.
+- 하지 않은 것: 서버 PC의 실제 Kafka(브로커 4.3.1)·Compose로 띄우기, 앱과 함께 돌려 보기, 실제 지연·lag 측정.
+- 남은 한계: Kafka 모드에서 결과가 2초 안에 오지 않으면 그 구간은 누락이다. 서버를 여러 대로 늘리면 서버마다 결과를 모두 읽고 버린다(한 대일 때는 문제없음).
+
+2026-10-30(첫 구현):
 
 2026-10-30, 이 PC(Windows, JDK 17, Python 3.12 `.venv`, 로컬 MySQL80 일회용 DB):
 

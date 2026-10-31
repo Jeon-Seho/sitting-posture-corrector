@@ -5,6 +5,7 @@ import org.posegood.api.contract.FrameInference;
 import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -13,16 +14,19 @@ import org.springframework.web.client.RestClientException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.util.List;
+import java.util.UUID;
 
 /**
- * FastAPI 추론 호출과 결과 검증. 실패하거나 맞지 않으면 502.
+ * FastAPI 추론 HTTP 호출과 결과 검증({@code posegood.inference.transport=http}, 기본). 실패하거나 맞지 않으면 502.
  *
- * 실시간 판정은 v3({@code POST /v3/infer}, 프레임 묶음, 계획 0064)를 쓴다. v2({@code POST /v2/infer}, 구간 특징
- * 하나)는 Kafka 경로·비교 시험이 옮길 때까지 남긴다. 결과는 판정 엔진에 넣기 전에 요청과 대조한다. 맞지 않으면
- * 502이고 세션 상태는 바뀌지 않는다.
+ * 실시간 판정은 v3({@code POST /v3/infer}, 받은 구간마다 그 프레임들, 계획 0064)를 쓴다. v2({@code POST /v2/infer},
+ * 구간 특징 하나)는 처리 서비스 Kafka 경로·비교 시험이 옮길 때까지 남긴다. 결과는 판정 엔진에 넣기 전에 요청과
+ * 대조한다({@link #check}, Kafka 결과도 같은 검사). 맞지 않으면 502이고 그 구간은 누락이 된다.
  */
 @Component
-public class InferenceClient {
+@ConditionalOnProperty(name = "posegood.inference.transport", havingValue = "http", matchIfMissing = true)
+public class InferenceClient implements InferenceGateway {
     private final RestClient client;
     private final String modelVersion;
 
@@ -41,8 +45,15 @@ public class InferenceClient {
         this.modelVersion = modelVersion;
     }
 
+    @Override
     public String modelVersion() {
         return modelVersion;
+    }
+
+    /** HTTP는 결과를 바로 돌려준다(한 번 다시 부르고, 계약 확인까지). */
+    @Override
+    public FrameInference.Response submit(UUID sessionId, long sequence, FrameInference.Request request) {
+        return infer(request);
     }
 
     /** 추론을 부르고 응답이 요청과 맞는지 확인한다. */
@@ -75,19 +86,23 @@ public class InferenceClient {
         return result;
     }
 
-    /**
-     * 결과가 이 요청의 프레임마다 하나씩, 같은 순서·같은 {@code t_ms}이고, 판정에 쓸 수 없는 프레임(사람 없음·앱의
-     * 판정 불가 표시)을 유효로 표시하지 않았는지 확인한다.
-     */
     void require(FrameInference.Request request, FrameInference.Response response) {
+        check(request.frames(), response, modelVersion);
+    }
+
+    /**
+     * 결과가 이 프레임들마다 하나씩, 같은 순서·같은 {@code t_ms}이고, 판정에 쓸 수 없는 프레임(사람 없음·앱의
+     * 판정 불가 표시)을 유효로 표시하지 않았는지 확인한다. HTTP와 Kafka 결과가 같이 쓴다.
+     */
+    static void check(List<FrameInference.Frame> frames, FrameInference.Response response, String modelVersion) {
         if (!"3.0".equals(response.schemaVersion())
                 || !modelVersion.equals(response.modelVersion())
                 || response.frames() == null
-                || response.frames().size() != request.frames().size())
+                || response.frames().size() != frames.size())
             throw ApiError.upstream("inference response contract mismatch");
         for (int index = 0; index < response.frames().size(); index++) {
             var result = response.frames().get(index);
-            var frame = request.frames().get(index);
+            var frame = frames.get(index);
             boolean usable =
                     result != null
                             && result.tMs() == frame.tMs()

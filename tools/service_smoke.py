@@ -129,7 +129,7 @@ class Measurement:
         last = self.sequence - 1
         while self.socket.next("ack")["last_sequence"] != last:
             pass
-        # The server holds intervals for about 3 s of server time, then judges them (plan 0064): wait for that batch.
+        # The judgement engine collects inference results for about 3 s of server time, then judges them (plan 0064): wait for that batch.
         while self.socket.next("progress")["last_sequence"] != last:
             pass
         view = self.account.request(self.path)

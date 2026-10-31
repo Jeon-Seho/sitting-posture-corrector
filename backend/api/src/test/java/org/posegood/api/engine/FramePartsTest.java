@@ -1,7 +1,6 @@
-package org.posegood.api.session;
+package org.posegood.api.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -13,9 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 서버 묶음(계획 0064)의 시간 나누기와 관측 4.0. 합성 결과만 쓴다.
+ * 판정 엔진 묶음(계획 0064)의 프레임 시간 나누기와 관측 4.0. 합성 결과만 쓴다.
  */
-class FrameBatchTest {
+class FramePartsTest {
     private static final String MODEL = "synthetic-v1";
 
     private static FrameInference.Result judged(long t, double score) {
@@ -39,7 +38,7 @@ class FrameBatchTest {
 
     @Test
     void eachFrameCoversUntilTheNextFrameFromTheIntervalStart() {
-        var parts = FrameBatch.parts(running(3, 1000, 1400, 1050, 1200),
+        var parts = FrameParts.parts(running(3, 1000, 1400, 1050, 1200),
                 List.of(judged(1050, 0.9), judged(1200, 0.2)), MODEL);
         assertEquals(List.of(List.of(1000L, 1200L, 1L), List.of(1200L, 1400L, 1L)), spans(parts));
         assertEquals(0.9, parts.get(0).collapseProbability());
@@ -49,18 +48,18 @@ class FrameBatchTest {
 
     @Test
     void aFrameCoversAtMostHalfASecondAndUnjudgedPiecesMerge() {
-        var parts = FrameBatch.parts(running(0, 0, 1500, 0, 100),
+        var parts = FrameParts.parts(running(0, 0, 1500, 0, 100),
                 List.of(unjudged(0, "unmeasurable"), judged(100, 0.1)), MODEL);
         // 0~100 판정 불가, 100~600 판정, 600~1500 판정 불가.
         assertEquals(List.of(List.of(0L, 100L, 0L), List.of(100L, 600L, 1L), List.of(600L, 1500L, 0L)), spans(parts));
-        var lateGap = FrameBatch.parts(running(0, 0, 1500, 0, 1200),
+        var lateGap = FrameParts.parts(running(0, 0, 1500, 0, 1200),
                 List.of(unjudged(0, "unmeasurable"), unjudged(1200, "unmeasurable")), MODEL);
         assertEquals(List.of(List.of(0L, 1500L, 0L)), spans(lateGap));
     }
 
     @Test
     void framesAtTheSameTimeOrOutsideTheIntervalStayInside() {
-        var parts = FrameBatch.parts(running(0, 500, 1000, 400, 700, 700, 2000),
+        var parts = FrameParts.parts(running(0, 500, 1000, 400, 700, 700, 2000),
                 List.of(judged(400, 0.1), judged(700, 0.2), judged(700, 0.3), judged(2000, 0.4)), MODEL);
         // 400은 시작(500)으로, 2000은 끝(1000)으로 당긴다. 같은 시각 700의 앞 프레임과 끝에 닿은 프레임은 시간을 맡지 않는다.
         assertEquals(List.of(List.of(500L, 700L, 1L), List.of(700L, 1000L, 1L)), spans(parts));
@@ -69,21 +68,30 @@ class FrameBatchTest {
 
     @Test
     void restAwayAndEmptyIntervalsAreOneUnjudgedPiece() {
-        var rest = new FrameInterval("3.0", "keypoints-9-v1", 1, 500, 1000, FrameInterval.Phase.rest, List.of());
-        var batch = new FrameBatch(List.of(running(0, 0, 500), rest));
-        assertFalse(batch.needsInference());
-        var parts = batch.parts(List.of(), MODEL);
-        assertEquals(List.of(List.of(0L, 500L, 0L)), spans(parts.get(0)));
-        assertEquals(Observation.Phase.rest, parts.get(1).get(0).phase());
+        var rest = new FrameInterval("3.0", "keypoints-9-v1", 1, 500, 1000, FrameInterval.Phase.rest,
+                List.of(new FrameInterval.Frame(600, null, null)));
+        // 쉬기·자리 비움·빈 구간은 추론할 프레임이 없다.
+        assertTrue(FrameParts.frames(rest).isEmpty());
+        assertTrue(FrameParts.frames(running(0, 0, 500)).isEmpty());
+        assertEquals(List.of(List.of(0L, 500L, 0L)), spans(FrameParts.parts(running(0, 0, 500), List.of(), MODEL)));
+        var parts = FrameParts.parts(rest, List.of(), MODEL);
+        assertEquals(List.of(List.of(500L, 1000L, 0L)), spans(parts));
+        assertEquals(Observation.Phase.rest, parts.get(0).phase());
+    }
+
+    @Test
+    void framesToInferAreSortedByTheirTime() {
+        var frames = FrameParts.frames(running(0, 0, 500, 300, 100, 200));
+        assertEquals(List.of(100L, 200L, 300L), frames.stream().map(FrameInterval.Frame::tMs).toList());
     }
 
     @Test
     void liveIsTheLastJudgeableFrameOrSaysWhyNot() {
         assertEquals(new Observation.V4("4.0", true, "bad", 0.8, null),
-                FrameBatch.live(List.of(judged(0, 0.1), judged(100, 0.8), unjudged(200, "head_turn")),
+                FrameParts.live(List.of(judged(0, 0.1), judged(100, 0.8), unjudged(200, "head_turn")),
                         score -> score >= 0.7 ? "bad" : "good"));
         assertEquals(Observation.V4.unjudged("head_turn"),
-                FrameBatch.live(List.of(unjudged(0, "unmeasurable"), unjudged(100, "head_turn")), score -> "good"));
-        assertEquals(Observation.V4.unjudged("unmeasurable"), FrameBatch.live(List.of(), score -> "good"));
+                FrameParts.live(List.of(unjudged(0, "unmeasurable"), unjudged(100, "head_turn")), score -> "good"));
+        assertEquals(Observation.V4.unjudged("unmeasurable"), FrameParts.live(List.of(), score -> "good"));
     }
 }

@@ -92,7 +92,7 @@ class Frame(BaseModel):
 
 
 class InferenceRequestV3(BaseModel):
-    """Frames the API grouped for about 3 s of server time, with the session baseline."""
+    """Frames of one interval the API received, with the session baseline (HTTP or Kafka body)."""
 
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 

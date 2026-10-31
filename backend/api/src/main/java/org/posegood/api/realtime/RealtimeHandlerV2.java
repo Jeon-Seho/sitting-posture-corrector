@@ -48,9 +48,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 받은 구간은 바로 {@code ack}하고 {@link SessionService}가
- * 서버 시계로 약 3초 묶어 프레임마다 판정한다(계획 0064). 결과는 세션 변경 이벤트로 받아 묶음마다
- * {@code observation} → {@code decision}(→ {@code alert}) → {@code progress} 순서로 보낸다.
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 받은 구간은 바로 추론에 넘기고 {@code ack}한다. 판정 엔진이
+ * 추론 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0064, 추론은 HTTP 또는 Kafka). 결과는 세션 변경 이벤트로
+ * 받아 묶음마다 {@code observation} → {@code decision}(→ {@code alert}) → {@code progress} 순서로 보낸다.
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
@@ -241,8 +241,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
     }
 
     /**
-     * 측정 구간 하나: 받아서 묶음에 넣고 {@code ack}, 묶음을 넘길 때면 판정한다. observation·decision·alert·progress는
-     * 판정이 끝나면 세션 이벤트로 보낸다.
+     * 측정 구간 하나: 받아서 추론에 넘기고 {@code ack}, 판정 엔진이 판정할 때면 판정한다. observation·decision·alert·
+     * progress는 판정이 끝나면 세션 이벤트로 보낸다.
      */
     private void measure(Channel channel, JsonNode frame) {
         var interval = interval(frame);
@@ -406,7 +406,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
         }
     }
 
-    /** 서버가 스스로 넘긴 묶음의 추론·DB가 일시 장애였다. 연결은 유지한다. */
+    /** 추론 결과가 오지 않았거나(실패·시간 초과) DB가 일시 장애였다. 연결은 유지한다. */
     @EventListener
     public void stalled(SessionUpdates.Stalled update) {
         var channel = bySession.get(update.sessionId());

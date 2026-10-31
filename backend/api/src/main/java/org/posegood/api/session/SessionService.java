@@ -9,6 +9,7 @@ import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
+import org.posegood.api.engine.FrameParts;
 import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.slf4j.Logger;
@@ -28,12 +29,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 측정 흐름: 세션 생성, 좌표 처리(묶음 → 추론 → 판정 → DB 기록), 종료.
+ * 측정 흐름: 세션 생성, 좌표 처리(추론 요청 → 판정 엔진이 결과를 모아 판정 → DB 기록), 종료.
  *
- * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다. 실시간 v2는 받은 좌표 구간을 세션마다 묶어 두고, 서버 시계로
- * {@code posegood.realtime.batch-window}(기본 3초)가 지나면 프레임째로 추론 v3에 넘겨 프레임마다 판정한다(계획 0064).
- * 쉬기·자리 비움 구간, 종료·끊김·자정 넘김에는 기다리지 않고 넘긴다. 묶음 처리는 세션 잠금 안에서 하고, 새 사건은
- * DB에 쓴다. DB 쓰기가 실패해도 판정 상태는 유지되고 다음 처리 때 남은 사건을 쓴다.
+ * 생성·종료·조회는 HTTP, 측정 입력은 실시간 채널이 쓴다(계획 0064). 실시간 v2로 받은 좌표 구간은 바로 판정 엔진에
+ * 자리를 잡고 그 프레임을 추론 v3에 넘긴다({@link InferenceGateway}: HTTP면 결과가 바로, Kafka면
+ * {@link #inferred}로 나중에 온다). 판정 엔진은 결과를 모았다가 서버 시계로 {@code posegood.realtime.batch-window}
+ * (기본 3초)마다 앞에서부터 프레임마다 판정한다. 쉬기·자리 비움 구간에는 기다리지 않고, 종료·끊김·자정 넘김에는 남은
+ * 결과를 {@code posegood.inference.result-timeout}까지 기다린 뒤 판정한다. 그 시간 안에 오지 않은 결과는 누락이다.
+ * 판정은 세션 잠금 안에서 하고, 새 사건은 DB에 쓴다. DB 쓰기가 실패해도 판정 상태는 유지되고 다음 처리 때 남은 사건을 쓴다.
  * KST 자정에는 실시간 연결이 {@link #rollover}로 이전 세션을 끝내고 새 세션으로 잇는다(BE-6 ① B안).
  */
 @Service
@@ -45,16 +48,18 @@ public class SessionService {
     private final BaselineRepository baselines;
     private final ThresholdPolicyRepository policies;
     private final AccountService accounts;
-    private final InferenceClient inference;
+    private final InferenceGateway inference;
     private final UserLocks locks;
     private final TransactionTemplate tx;
     private final ApplicationEventPublisher events;
     private final long maxSessionMs;
     /** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
     private final long unmeasurableTimeoutMs;
-    /** 좌표 구간을 모으는 서버 시간. 0이면 받을 때마다 판정한다. */
+    /** 판정 엔진이 결과를 모으는 서버 시간. 0이면 결과가 올 때마다 판정한다. */
     private final long batchWindowNanos;
-    /** 3초가 지난 묶음을 스스로 넘기는 일꾼(새 구간이 오지 않을 때). 세션마다 잠금으로 차례를 지킨다. */
+    /** 추론 결과를 기다리는 가장 긴 서버 시간. 넘으면 그 구간은 누락이다. */
+    private final long resultTimeoutNanos;
+    /** 판정할 때가 된 세션을 스스로 판정하는 일꾼(새 구간이 오지 않을 때·Kafka 결과가 왔을 때). 세션마다 잠금으로 차례를 지킨다. */
     private final ExecutorService flusher =
             Executors.newFixedThreadPool(
                     4,
@@ -70,13 +75,14 @@ public class SessionService {
             BaselineRepository baselines,
             ThresholdPolicyRepository policies,
             AccountService accounts,
-            InferenceClient inference,
+            InferenceGateway inference,
             UserLocks locks,
             TransactionTemplate tx,
             ApplicationEventPublisher events,
             @Value("${posegood.realtime.max-session-duration}") Duration maxSession,
             @Value("${posegood.realtime.unmeasurable-timeout}") Duration unmeasurableTimeout,
-            @Value("${posegood.realtime.batch-window}") Duration batchWindow) {
+            @Value("${posegood.realtime.batch-window}") Duration batchWindow,
+            @Value("${posegood.inference.result-timeout}") Duration resultTimeout) {
         this.live = live;
         this.sessions = sessions;
         this.baselines = baselines;
@@ -89,6 +95,7 @@ public class SessionService {
         this.maxSessionMs = maxSession.toMillis();
         this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
         this.batchWindowNanos = batchWindow.toNanos();
+        this.resultTimeoutNanos = resultTimeout.toNanos();
     }
 
     /**
@@ -157,45 +164,77 @@ public class SessionService {
     }
 
     /**
-     * 실시간 v2 좌표 구간 하나를 받아 묶음에 넣는다(판정은 {@link #flush}). 받은 순번을 돌려준다.
+     * 실시간 v2 좌표 구간 하나를 받아 판정 엔진에 자리를 잡고 그 프레임을 추론에 넘긴다(판정은 {@link #flush}). 받은
+     * 순번을 돌려준다.
      *
      * v2는 재전송이 없으므로 같은 순번·앞선 순번·겹치는 시간은 409 CONFLICT, 최대 측정 시간을 넘으면 429다.
-     * {@code baseline}은 세션 기준 자세이고 추론에 함께 넘긴다.
+     * {@code baseline}은 세션 기준 자세이고 추론에 함께 넘긴다. 추론에 넘기지 못하면 그 구간은 누락이 된다(판정 때
+     * {@code stalled}).
      */
     public long frames(long owner, UUID id, FrameInterval interval, SessionRequests.Landmarks baseline) {
         var session = require(owner, id);
         return session.locked(
                 () -> {
                     var engine = session.engine();
-                    if (engine.ended()) throw ApiError.ended();
-                    if (interval.sequence() <= session.receivedSequence()
-                            || interval.startMs() < session.receivedEndMs())
-                        throw ApiError.conflict("duplicate, out-of-order or overlapping interval");
-                    if (!engine.admits(interval.endMs())) throw ApiError.limit("session time limit reached");
-                    session.hold(interval, baseline, System.nanoTime());
+                    if (engine.hold(interval, System.nanoTime())) submit(session, interval, baseline);
+                    else engine.fill(interval.sequence(), List.of(), inference.modelVersion());
                     return interval.sequence();
                 });
     }
 
+    private void submit(LiveSession session, FrameInterval interval, SessionRequests.Landmarks baseline) {
+        var engine = session.engine();
+        var frames = FrameParts.frames(interval).stream().map(FrameInference.Frame::of).toList();
+        try {
+            var response =
+                    inference.submit(session.id(), interval.sequence(), FrameInference.Request.of(baseline, frames));
+            if (response != null) engine.fill(interval.sequence(), response.frames(), response.modelVersion());
+        } catch (ApiError failed) {
+            log.debug("inference request failed: {}", failed.code());
+            engine.fail(interval.sequence());
+        }
+    }
+
     /**
-     * 묶음을 넘길 때면(서버 시계로 batch-window가 지남, 쉬기·자리 비움, 프레임 수가 참) 추론·판정·DB 기록을 한다.
-     * 실시간 채널이 구간을 받을 때마다 부른다. 추론·DB 일시 장애는 502·503이고 그 묶음은 누락이 된다.
+     * Kafka 추론 결과 하나({@link InferenceResultListener}): 요청한 프레임과 대조해 판정 엔진의 그 구간 자리에 넣는다.
+     *
+     * 세션 잠금 없이 넣는다(종료 처리가 잠금을 잡은 채 결과를 기다린다). 이 서버에 없는 세션이거나 이미 판정·누락된
+     * 구간이면 버린다. 계약과 맞지 않으면 그 구간은 누락이다. 판정할 때가 되면 바로 판정을 맡긴다.
+     */
+    public void inferred(UUID id, long sequence, FrameInference.Response response) {
+        var session = live.get(id);
+        if (session == null) return;
+        var engine = session.engine();
+        var frames = engine.heldFrames(sequence);
+        if (frames == null) return;
+        try {
+            InferenceClient.check(
+                    frames.stream().map(FrameInference.Frame::of).toList(), response, inference.modelVersion());
+            engine.fill(sequence, response.frames(), response.modelVersion());
+        } catch (ApiError mismatch) {
+            log.debug("inference result rejected: {}", mismatch.code());
+            engine.fail(sequence);
+        }
+        schedule(session);
+    }
+
+    /**
+     * 판정할 때면(판정 엔진이 결과를 batch-window만큼 모음, 쉬기·자리 비움, 기다리던 결과가 옴) 판정·DB 기록을 한다.
+     * 실시간 채널이 구간을 받을 때마다 부른다. DB 일시 장애는 503이다.
      */
     public void flush(long owner, UUID id) {
         var session = require(owner, id);
         session.locked(
                 () -> {
-                    if (session.due(System.nanoTime(), batchWindowNanos)) drain(session);
+                    if (due(session)) drain(session, false);
                     return null;
                 });
     }
 
-    /** 200ms마다: 새 구간이 오지 않아도 batch-window가 지난 묶음을 넘긴다. 실패는 실시간 채널에 stalled로 알린다. */
+    /** 200ms마다: 새 구간이 오지 않아도 판정할 때가 된 세션을 판정한다. 실패는 실시간 채널에 stalled로 알린다. */
     @Scheduled(fixedDelay = 200)
     public void flushWaiting() {
-        long now = System.nanoTime();
-        for (var session : live.all())
-            if (session.waiting(now, batchWindowNanos) && session.queue()) flusher.execute(() -> flushQuietly(session));
+        for (var session : live.all()) schedule(session);
     }
 
     @jakarta.annotation.PreDestroy
@@ -203,15 +242,23 @@ public class SessionService {
         flusher.shutdownNow();
     }
 
+    private boolean due(LiveSession session) {
+        return session.engine().due(System.nanoTime(), batchWindowNanos, resultTimeoutNanos);
+    }
+
+    private void schedule(LiveSession session) {
+        if (due(session) && session.queue()) flusher.execute(() -> flushQuietly(session));
+    }
+
     private void flushQuietly(LiveSession session) {
         try {
             session.locked(
                     () -> {
-                        if (session.due(System.nanoTime(), batchWindowNanos)) drain(session);
+                        if (due(session)) drain(session, false);
                         return null;
                     });
         } catch (ApiError | DataAccessException failed) {
-            log.debug("realtime batch skipped: {}", failed.getClass().getSimpleName());
+            log.debug("realtime judgement skipped: {}", failed.getClass().getSimpleName());
             events.publishEvent(new SessionUpdates.Stalled(session.id()));
         } finally {
             session.dequeued();
@@ -219,41 +266,43 @@ public class SessionService {
     }
 
     /**
-     * 묶음 하나 처리(세션 잠금 안): 추론 v3 → 구간마다 프레임별 조각을 판정 엔진에 → DB 기록 → 관측 4.0·사건 알림.
+     * 판정 한 번(세션 잠금 안): 판정 엔진이 모은 결과를 앞에서부터 프레임마다 판정 → DB 기록 → 관측 4.0·사건 알림.
      *
-     * 묶음은 먼저 꺼내 비우므로 추론이 실패하면 다시 판정하지 않는다(다음 구간과의 시간은 누락). 측정불가 시간
-     * 초과에 닿으면 그 구간 끝에서 끝내고 남은 구간은 버린다.
+     * {@code force}면 결과를 기다리지 않고 남은 구간을 모두 처리한다. 추론이 실패했거나 결과가 오지 않은 구간은 버리고
+     * (다음 구간과의 시간은 누락) {@code stalled}를 알린다. 측정불가 시간 초과에 닿으면 그 구간 끝에서 끝낸다.
      */
-    private void drain(LiveSession session) {
-        var batch = new FrameBatch(session.takePending());
+    private void drain(LiveSession session, boolean force) {
         var engine = session.engine();
-        if (batch.isEmpty() || engine.ended()) return;
-        List<FrameInference.Result> results =
-                batch.needsInference() ? inference.infer(batch.request(session.baseline())).frames() : List.of();
+        if (engine.ended()) return;
         int before = engine.eventCount();
+        var batch = engine.judge(System.nanoTime(), resultTimeoutNanos, force, unmeasurableTimeoutMs);
         String closedReason = null;
-        for (var parts : batch.parts(results, inference.modelVersion())) {
-            engine.accept(parts);
-            if (unmeasurableTimeoutMs > 0 && engine.unmeasurableMs() >= unmeasurableTimeoutMs) {
-                // 측정불가가 이어진 시간이 찬 이 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
-                session.endReason("UNMEASURABLE_TIMEOUT");
-                engine.end(engine.summary().totalMs());
-                closedReason = "unmeasurable_timeout";
-                break;
-            }
+        if (batch.timedOut()) {
+            // 측정불가가 이어진 시간이 찬 그 구간 끝에서 끝내고 저장한다(2026-10-26 결정).
+            session.endReason("UNMEASURABLE_TIMEOUT");
+            closedReason = "unmeasurable_timeout";
         }
-        // 새 사건은 decision을 보내기 전에 DB에 쓴다. DB가 실패해도 결과는 보내고(그 뒤 stalled), 다음 처리 때 다시 쓴다.
         try {
-            persist(session);
+            if (batch.judged() == 0) return;
+            // 새 사건은 decision을 보내기 전에 DB에 쓴다. DB가 실패해도 결과는 보내고(그 뒤 stalled), 다음 처리 때 다시 쓴다.
+            try {
+                persist(session);
+            } finally {
+                publish(session, FrameParts.live(batch.results(), engine::posture), before, closedReason);
+            }
         } finally {
-            publish(session, FrameBatch.live(results, engine::posture), before, closedReason);
+            if (batch.dropped() > 0) events.publishEvent(new SessionUpdates.Stalled(session.id()));
         }
     }
 
-    /** 끝내기 전에 남은 묶음을 판정한다. 추론·DB가 실패하면 그 구간은 버리고(누락) 종료는 그대로 한다. */
+    /**
+     * 끝내기 전에 남은 구간을 판정한다. 아직 오지 않은 추론 결과는 {@code posegood.inference.result-timeout}까지 기다리고,
+     * 그래도 오지 않거나 DB가 실패하면 그 구간은 버리고(누락) 종료는 그대로 한다.
+     */
     private void drainBeforeEnd(LiveSession session) {
+        session.engine().awaitSettled(System.nanoTime() + resultTimeoutNanos);
         try {
-            drain(session);
+            drain(session, true);
         } catch (ApiError | DataAccessException failed) {
             log.debug("realtime batch dropped at end: {}", failed.getClass().getSimpleName());
         }
