@@ -9,7 +9,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * 추론 결과 토픽 구독({@code posegood.inference.transport=kafka}, 계획 0064): 결과를 {@code session_id}로 찾은 세션의
+ * 추론 결과 토픽 구독({@code posegood.inference.transport=kafka}, 계획 0084): 결과를 {@code session_id}로 찾은 세션의
  * 판정 엔진 자리에 넣는다({@link SessionService#inferred}).
  *
  * 컨슈머 그룹은 서버(인스턴스)마다 따로 두고({@code posegood.kafka.group-id}) 최신 메시지부터 받는다. 이 서버에 없는

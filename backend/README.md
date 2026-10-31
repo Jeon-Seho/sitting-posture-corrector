@@ -91,7 +91,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
 보내고, API는 받은 구간마다 판정 엔진에 자리를 잡고 그 프레임을 바로 추론 v3에 넘긴다. 추론이 프레임마다 특징·점수를 내고(평균하지 않음),
 판정 엔진(`engine/SessionEngine`)이 결과를 모아 서버 시계로 `posegood.realtime.batch-window`(기본 3초)마다 앞에서부터 판정하며 프레임마다 시간을 더해 3초 규칙을 센다
-(추론 전송은 아래 「추론 전송」, [계획 0064](../docs/plans/active/0064-server-3s-frame-batch-inference.md). 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과
+(추론 전송은 아래 「추론 전송」, [계획 0084](../docs/plans/active/0084-server-3s-frame-batch-inference.md). 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과
 합성 기준값 `contracts/examples/frames/reference-rule-cases.json` — Python `model/inference/frames.py`와 Java `FrameFeatures`를 같은 사례로 시험한다).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
@@ -109,7 +109,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 추론이 실패했거나 결과가 `posegood.inference.result-timeout`(기본 2초) 안에 오지 않은 구간은 버리고 `stalled`를 보내며 연결을 유지한다.
   그 구간은 다시 판정하지 않으므로 그 시간은 누락(MISSING)이 된다. DB 일시 장애도 `stalled`다. `end`·끊김·자정 넘김은 아직 오지 않은 결과를 그 시간까지 기다린다.
 
-#### 추론 전송 (`posegood.inference.transport`, 계획 0064)
+#### 추론 전송 (`posegood.inference.transport`, 계획 0084)
 
 | 값 | 길 | 쓰는 곳 |
 | --- | --- | --- |

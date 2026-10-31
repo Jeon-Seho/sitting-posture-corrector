@@ -1,11 +1,11 @@
 # FE 계획: 서버 3초 묶음 판정(`observation` 4.0)에 앱 맞추기
 
 > 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 상태: **계획**(코드 수정 전)
-> 관련: BE 공지 「서버 3초 묶음·프레임마다 판정 · 실시간 `observation` 4.0」(김유진, 10/30, 저장소 밖), BE 브랜치 `feature/repo-server-frame-batch-inference`의 계획 0064·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) BE-5 ②·BE-8, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버)
+> 관련: BE 공지 「서버 3초 묶음·프레임마다 판정 · 실시간 `observation` 4.0」(김유진, 10/30, 저장소 밖), BE 브랜치 `feature/repo-server-frame-batch-inference`의 계획 0084(옛 0064)·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) BE-5 ②·BE-8, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버)
 
 ## 1. BE가 바꾼 것과 이유
 
-BE 브랜치 `feature/repo-server-frame-batch-inference`(김유진, 10/30, PR 전). 아래 이유는 BE 계획 0064 「정한 것」에서 옮겼다.
+BE 브랜치 `feature/repo-server-frame-batch-inference`(김유진, 10/30, PR 전). 아래 이유는 BE 계획 0084(옛 0064) 「정한 것」에서 옮겼다.
 
 | # | 변경 | BE가 든 이유 |
 | --- | --- | --- |
@@ -100,9 +100,9 @@ BE 브랜치 `feature/repo-server-frame-batch-inference`(김유진, 10/30, PR �
 
 ## 7. 위험과 확인할 것
 
-- **배포 순서:** BE만 먼저면 운영 측정 화면에 점수가 안 나온다. FE만 먼저면 지금 서버의 3.0 메시지를 버린다. **두 PR을 같은 날 넣는다.** 3.0·4.0을 둘 다 받게 만들 수도 있지만, BE가 옛 앱을 따로 지원하지 않기로 정해(계획 0064 8번) 맞추지 않는다.
+- **배포 순서:** BE만 먼저면 운영 측정 화면에 점수가 안 나온다. FE만 먼저면 지금 서버의 3.0 메시지를 버린다. **두 PR을 같은 날 넣는다.** 3.0·4.0을 둘 다 받게 만들 수도 있지만, BE가 옛 앱을 따로 지원하지 않기로 정해(계획 0084 8번) 맞추지 않는다.
 - **서버 재배포와 포크 최신화 시점:** 운영 서버(DevOps)와 Vercel(FE, 포크) 반영을 같은 때로.
-- **계획 번호 충돌:** develop에는 #81이 `docs/plans/completed/0064-frontend-camera-resilience.md`를 이미 썼고, BE 브랜치도 `docs/plans/active/0064-server-3s-frame-batch-inference.md`를 쓴다. 김유진님께 BE 계획 번호를 바꿔 달라고 알린다.
+- **계획 번호 충돌:** develop에는 #81이 `docs/plans/completed/0064-frontend-camera-resilience.md`를 이미 썼고, BE 브랜치도 `docs/plans/active/0064-server-3s-frame-batch-inference.md`를 쓴다. 김유진님께 BE 계획 번호를 바꿔 달라고 알린다. → 10/31 BE가 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)로 바꿈.
 - **`posture` 값 이름:** `good`·`bad`는 ML 확인 전이다(ADR 0043, 제안). 바뀌면 3장 2번 조건도 맞춘다.
 - **① 깜빡임:** `posture`는 묶음의 마지막 프레임 하나의 값이라, 기준선 근처에서는 3초마다 켜졌다 꺼질 수 있다. 화면 확인 때 보고 필요하면 화면 담당과 표시 방식을 정한다.
 

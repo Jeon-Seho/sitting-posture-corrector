@@ -5,7 +5,7 @@ import org.posegood.api.contract.FrameInference;
 import java.util.UUID;
 
 /**
- * 좌표 구간 하나의 프레임을 추론 v3에 넘기는 길(계획 0064). 설정 {@code posegood.inference.transport}로 고른다.
+ * 좌표 구간 하나의 프레임을 추론 v3에 넘기는 길(계획 0084). 설정 {@code posegood.inference.transport}로 고른다.
  *
  * <ul>
  *   <li>{@code http}(기본, 개발·시험): {@link InferenceClient}가 {@code POST /v3/infer}를 불러 결과를 바로 돌려준다.</li>

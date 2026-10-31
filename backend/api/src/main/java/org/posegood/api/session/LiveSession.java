@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * 진행 중 세션 하나의 메모리 상태: DB 행, 판정 엔진(받은 구간 묶음도 엔진이 모은다, 계획 0064), DB 기록 진행 정도.
+ * 진행 중 세션 하나의 메모리 상태: DB 행, 판정 엔진(받은 구간 묶음도 엔진이 모은다, 계획 0084), DB 기록 진행 정도.
  *
  * 모든 접근은 {@link #locked}를 거친다. 예외: Kafka 추론 결과는 잠금 없이 판정 엔진에 바로 넣는다(엔진이 스스로
  * 동기화한다). 종료 처리가 잠금을 잡은 채 남은 결과를 기다리기 때문이다.

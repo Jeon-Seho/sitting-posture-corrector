@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * 통합 시험용 가짜 추론 서버(FastAPI와 같은 참조 규칙).
  *
- * FastAPI {@code POST /v2/infer}·{@code POST /v3/infer}(프레임 묶음, 계획 0064) 대신 쓰는 loopback 서버. 규칙은
+ * FastAPI {@code POST /v2/infer}·{@code POST /v3/infer}(프레임 묶음, 계획 0084) 대신 쓰는 loopback 서버. 규칙은
  * model/inference/service.py·frames.py와 같고, 프레임 특징은 같은 규칙의 Java 구현({@link FrameFeatures#frame})으로 낸다.
  * {@link #fail}을 켜면 다음 호출부터 503으로 답한다.
  */

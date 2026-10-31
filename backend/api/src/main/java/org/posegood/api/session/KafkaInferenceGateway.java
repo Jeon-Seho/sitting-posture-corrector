@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 추론 v3를 Kafka로 넘긴다({@code posegood.inference.transport=kafka}, 계획 0064).
+ * 추론 v3를 Kafka로 넘긴다({@code posegood.inference.transport=kafka}, 계획 0084).
  *
  * 구간마다 요청 토픽({@code posegood.kafka.request-topic})에 키 {@code session_id}로 발행하고 결과를 기다리지 않는다.
  * 결과는 {@link InferenceResultListener}가 받는다. 발행이 바로 실패하면 502로 알려 그 구간을 누락으로 만들고, 나중에

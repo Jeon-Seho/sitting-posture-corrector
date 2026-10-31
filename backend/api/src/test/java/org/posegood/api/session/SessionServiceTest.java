@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
  * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). 받은 구간은
- * 바로 추론에 넘기고, 판정 엔진이 결과를 서버 시계로 모았다가 프레임마다 판정한다(계획 0064). 추론은 HTTP처럼 바로
+ * 바로 추론에 넘기고, 판정 엔진이 결과를 서버 시계로 모았다가 프레임마다 판정한다(계획 0084). 추론은 HTTP처럼 바로
  * 답하거나 Kafka처럼 나중에({@link SessionService#inferred}) 답하는 가짜, DB도 가짜.
  */
 class SessionServiceTest {

@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 추론 v3의 Kafka 메시지(계획 0064, {@code posegood.inference.transport=kafka}): API ⇄ 추론 서버.
+ * 추론 v3의 Kafka 메시지(계획 0084, {@code posegood.inference.transport=kafka}): API ⇄ 추론 서버.
  *
  * 계약: contracts/realtime/kafka-inference-request.v1.schema.json, kafka-inference-result.v1.schema.json. 키는
  * {@code session_id}(같은 세션은 같은 파티션, 순서 유지). 본문은 HTTP {@code POST /v3/infer}의 요청·응답과 같다.

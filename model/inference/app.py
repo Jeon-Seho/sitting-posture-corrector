@@ -18,7 +18,7 @@ async def invalid_request(request: Request, error: RequestValidationError):
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    # Kafka inference v3 runs beside HTTP only when POSEGOOD_KAFKA_BOOTSTRAP_SERVERS is set (plan 0064).
+    # Kafka inference v3 runs beside HTTP only when POSEGOOD_KAFKA_BOOTSTRAP_SERVERS is set (plan 0084).
     worker.start()
     yield
     worker.stop()

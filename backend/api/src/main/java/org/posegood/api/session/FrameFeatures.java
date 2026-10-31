@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 좌표 프레임 → 기준 대비 특징 변화량.
  *
- * 계획 0064(2026-10-30)부터 실시간 판정의 특징 계산은 추론 서버(model/inference/frames.py, {@code POST /v3/infer})가
+ * 계획 0084(2026-10-30)부터 실시간 판정의 특징 계산은 추론 서버(model/inference/frames.py, {@code POST /v3/infer})가
  * 프레임마다 한다. 이 클래스는 hello의 기준 자세 확인({@link #baseline}), 같은 규칙의 Java 기준값(시험·합성 추론)으로
  * 남는다. 두 구현은 같은 합성 사례(아래)로 시험한다. {@link #interval}의 구간 평균은 v2 경로용이며 실시간에는 쓰지 않는다.
  *

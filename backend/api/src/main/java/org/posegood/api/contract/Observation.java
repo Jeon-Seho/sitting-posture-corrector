@@ -11,7 +11,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 /**
  * 추론 결과 한 구간(관측 v2): 측정 가능 여부, 붕괴 확률, 자세 방향.
  *
- * 구간은 [startMs, endMs)이다(끝은 포함하지 않음). 계획 0064부터 판정 엔진은 좌표 구간 하나를 프레임별 조각(같은 순번의
+ * 구간은 [startMs, endMs)이다(끝은 포함하지 않음). 계획 0084부터 판정 엔진은 좌표 구간 하나를 프레임별 조각(같은 순번의
  * 이 형식 여러 개)으로 받는다.
  */
 public record Observation(
@@ -45,7 +45,7 @@ public record Observation(
     }
 
     /**
-     * {@code /v2/realtime} observation 메시지의 관측 4.0(계획 0064, 2026-10-30): 서버 묶음마다 하나.
+     * {@code /v2/realtime} observation 메시지의 관측 4.0(계획 0084, 2026-10-30): 서버 묶음마다 하나.
      *
      * 계약: contracts/realtime/realtime-ws.v2.schema.json. 측정 화면이 쓰는 것만 남겼다. 처리 위치는 ack·progress의
      * {@code last_sequence}, 멈춘 이유는 progress의 {@code paused_reason}, 시간은 요약에 있다. 값은 묶음의 마지막

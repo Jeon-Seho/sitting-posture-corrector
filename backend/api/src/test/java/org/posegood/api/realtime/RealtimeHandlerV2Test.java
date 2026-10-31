@@ -142,7 +142,7 @@ class RealtimeHandlerV2Test {
         return new SessionRequests.Landmarks(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8]);
     }
 
-    /** 판정한 묶음 하나(계획 0064): 관측 4.0, 그 뒤 progress. */
+    /** 판정한 묶음 하나(계획 0084): 관측 4.0, 그 뒤 progress. */
     private static SessionUpdates.Progressed batch(UUID session, long lastSequence) {
         return new SessionUpdates.Progressed(session, List.of(), lastSequence, SUMMARY, false,
                 Observation.V4.judged("bad", 0.82), null, null);
@@ -200,7 +200,7 @@ class RealtimeHandlerV2Test {
         when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE))).thenReturn(42L);
         judges(SESSION, 42);
         send(fake, example("ws-features.json"));
-        // 받은 즉시 ack, 묶음을 판정하면 observation → progress(계획 0064).
+        // 받은 즉시 ack, 묶음을 판정하면 observation → progress(계획 0084).
         assertEquals(List.of("ready", "ack", "observation", "progress"), fake.types());
         assertEquals(42, fake.only("ack").get("last_sequence").asLong());
         same(example("ws-observation.json"), fake.only("observation"));

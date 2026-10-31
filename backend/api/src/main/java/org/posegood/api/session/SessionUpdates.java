@@ -18,7 +18,7 @@ public final class SessionUpdates {
     /**
      * 새 관측·사건·요약.
      *
-     * {@code live}가 null이면 종료만으로 사건이 생긴 경우다. 있으면 판정 엔진이 모은 묶음 하나(계획 0064)를 판정한 결과이고,
+     * {@code live}가 null이면 종료만으로 사건이 생긴 경우다. 있으면 판정 엔진이 모은 묶음 하나(계획 0084)를 판정한 결과이고,
      * v2 채널은 관측 4.0 → 사건 → {@code progress}를 보낸다. {@code closedReason}은 서버가 스스로 끝냈을 때의 closed
      * 사유(측정불가 시간 초과면 {@code unmeasurable_timeout}, 자정 넘김이면 {@code day_changed})이고, 그 밖에는 null이다.
      * {@code day_changed}면 실시간 채널은 닫지 않고 새 세션으로 잇는다.

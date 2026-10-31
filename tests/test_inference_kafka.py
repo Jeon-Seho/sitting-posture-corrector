@@ -1,4 +1,4 @@
-"""Kafka transport of frame inference v3 (plan 0064): message contracts and the worker's pure handling.
+"""Kafka transport of frame inference v3 (plan 0084): message contracts and the worker's pure handling.
 
 Synthetic examples only. The broker round trip on the API side is backend/api KafkaInferenceRoundTripTest.
 """

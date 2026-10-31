@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
  * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 받은 구간은 바로 추론에 넘기고 {@code ack}한다. 판정 엔진이
- * 추론 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0064, 추론은 HTTP 또는 Kafka). 결과는 세션 변경 이벤트로
+ * 추론 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0084, 추론은 HTTP 또는 Kafka). 결과는 세션 변경 이벤트로
  * 받아 묶음마다 {@code observation} → {@code decision}(→ {@code alert}) → {@code progress} 순서로 보낸다.
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은

@@ -1,4 +1,4 @@
-"""Per-frame features from the 9 coordinate joints (plan 0064, ADR 0020 section 3).
+"""Per-frame features from the 9 coordinate joints (plan 0084, ADR 0020 section 3).
 
 Moved from the API (backend/api FrameFeatures.java), which keeps the same rule for its baseline
 check at hello. Both are checked against contracts/examples/frames/reference-rule-cases.json.

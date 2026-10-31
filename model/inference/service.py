@@ -115,7 +115,7 @@ def _unjudged(t_ms: int, reason: str) -> FrameResult:
 
 
 def predict_frames(request: InferenceRequestV3) -> FrameObservation:
-    """Judge every frame on its own (plan 0064): no averaging, no timing rules.
+    """Judge every frame on its own (plan 0084): no averaging, no timing rules.
 
     Frames the app marked valid:false, nobody tracked, or the judgeability check rejected are
     unmeasurable; a turned head is head_turn. The rest are scored like v2 feature deltas.

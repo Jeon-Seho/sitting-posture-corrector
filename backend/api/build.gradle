@@ -25,7 +25,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-restclient'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
-    // Inference v3 over Kafka (posegood.inference.transport=kafka, plan 0064). Boot 4 needs the starter for KafkaTemplate.
+    // Inference v3 over Kafka (posegood.inference.transport=kafka, plan 0084). Boot 4 needs the starter for KafkaTemplate.
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     // Login: short JWT access tokens (HS256, Bearer) + rotating refresh tokens in the DB (refresh_token, V2.6).

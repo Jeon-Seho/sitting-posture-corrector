@@ -327,7 +327,7 @@ class SessionEngineTest {
 
     @Test
     void framePartsOfOneIntervalAddOnlyJudgeableTimeAndKeepIntervalOrdering() {
-        // 계획 0064: 구간 하나(0~500)를 프레임 조각으로. 판정 불가 프레임(200~300)은 제외 시간이고 연속 시간을 끊는다.
+        // 계획 0084: 구간 하나(0~500)를 프레임 조각으로. 판정 불가 프레임(200~300)은 제외 시간이고 연속 시간을 끊는다.
         var parts = List.of(
                 observation(0, 0, 200, 0.9, true, Observation.Phase.running),
                 observation(0, 200, 300, 0, false, Observation.Phase.running),

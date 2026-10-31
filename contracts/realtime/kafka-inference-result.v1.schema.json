@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/kafka-inference-result.v1.schema.json",
-  "title": "Topic posture.inference-result.v3: inference -> API (one result per requested frame, plan 0064)",
+  "title": "Topic posture.inference-result.v3: inference -> API (one result per requested frame, plan 0084)",
   "description": "Key session_id. session_id and sequence are copied from the request. The body is the HTTP POST /v3/infer response: one result per request frame, same order and t_ms. The API judgement engine puts it into that interval's slot.",
   "type": "object",
   "additionalProperties": false,

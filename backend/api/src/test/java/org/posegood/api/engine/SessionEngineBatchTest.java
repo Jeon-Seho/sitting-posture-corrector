@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 판정 엔진이 모으는 묶음(계획 0064): 자리 잡기 → 결과 채우기(순서와 상관없이) → 서버 시계로 앞에서부터 판정.
+ * 판정 엔진이 모으는 묶음(계획 0084): 자리 잡기 → 결과 채우기(순서와 상관없이) → 서버 시계로 앞에서부터 판정.
  *
  * 시각은 가짜 서버 시계(나노초 숫자)이고 좌표·결과는 합성이다.
  */

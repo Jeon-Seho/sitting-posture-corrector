@@ -17,7 +17,7 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 ## 모델명·특징 버전의 내부 관리
 
 2026-10-22 결정: `model_version`과 `feature_version` 등 모델명·버전명은 개발·연동·연구의 내부 관리용이다. 실제 서비스의 측정·기록·통계·비교 화면에는 표시하지 않는다. 비표시는 API 필드 삭제나 고정값 검증 생략을 뜻하지 않는다.
-예외(2026-10-30, BE): 앱에 보내는 실시간 `observation` 4.0에서는 `model_version`을 뺀다([계획 0064](../docs/plans/active/0064-server-3s-frame-batch-inference.md) 7·9번). 앱이 측정 화면에 쓰지 않고 서비스 DB에도 저장하지 않기 때문이다. API가 추론 응답의 `model_version`을 설정값과 대조하는 검증은 그대로 둔다.
+예외(2026-10-30, BE): 앱에 보내는 실시간 `observation` 4.0에서는 `model_version`을 뺀다([계획 0084](../docs/plans/active/0084-server-3s-frame-batch-inference.md) 7·9번). 앱이 측정 화면에 쓰지 않고 서비스 DB에도 저장하지 않기 때문이다. API가 추론 응답의 `model_version`을 설정값과 대조하는 검증은 그대로 둔다.
 
 - `schema_version`은 메시지 계약의 버전이다. 호환성을 깨는 변경은 기존 계약 변경 규칙을 따른다.
 - `model_version`·`feature_version`은 내부 모델·특징 식별자다. 기존 개발 과정에서 계산식이나 특징 의미를 바꾸고도 이름을 유지한 사례가 있으므로, 같은 이름만으로 동일한 계산 조건이라고 판단하지 않는다.
@@ -57,7 +57,7 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 
 ## 프레임 추론 v3
 
-[요청 v3](inference-request.v3.schema.json)·[응답 v3](inference-response.v3.schema.json)는 FastAPI `POST /v3/infer`의 본문이고, Kafka로 보낼 때도 같은 본문을 쓴다(계획 0064, 2026-10-30·31). API는 `/v2/realtime`으로 좌표 구간을 받는 즉시 그 프레임을 세션 기준 자세와 함께 그대로 넘기고, 추론은 프레임마다 결과 하나를 같은 순서·같은 `t_ms`로 돌려준다(평균하지 않음). 결과는 API 판정 엔진이 서버 시계로 약 3초 모아 판정한다. 특징 계산(판정 가능 검사·고개 돌림·기준 대비 변화량)은 추론 서버 `model/inference/frames.py`가 한다. API의 `FrameFeatures.java`와 같은 규칙이고 [합성 기준값](examples/frames/reference-rule-cases.json)으로 둘 다 시험한다. 시간 규칙과 좋음/나쁨 임계값은 API 판정 엔진에 있다. `collapse_probability`는 ML 3클래스 모델의 `p(이탈)` 자리다. `deviation_type`은 학습 모델로 바꿀 때 뺀다(보류, [ADR 0045](../docs/decisions/0045-posture-from-three-class-model.md)). 예시는 [examples/v3](examples/v3/)이고 응답은 실제 추론 코드의 출력이다.
+[요청 v3](inference-request.v3.schema.json)·[응답 v3](inference-response.v3.schema.json)는 FastAPI `POST /v3/infer`의 본문이고, Kafka로 보낼 때도 같은 본문을 쓴다(계획 0084, 2026-10-30·31). API는 `/v2/realtime`으로 좌표 구간을 받는 즉시 그 프레임을 세션 기준 자세와 함께 그대로 넘기고, 추론은 프레임마다 결과 하나를 같은 순서·같은 `t_ms`로 돌려준다(평균하지 않음). 결과는 API 판정 엔진이 서버 시계로 약 3초 모아 판정한다. 특징 계산(판정 가능 검사·고개 돌림·기준 대비 변화량)은 추론 서버 `model/inference/frames.py`가 한다. API의 `FrameFeatures.java`와 같은 규칙이고 [합성 기준값](examples/frames/reference-rule-cases.json)으로 둘 다 시험한다. 시간 규칙과 좋음/나쁨 임계값은 API 판정 엔진에 있다. `collapse_probability`는 ML 3클래스 모델의 `p(이탈)` 자리다. `deviation_type`은 학습 모델로 바꿀 때 뺀다(보류, [ADR 0045](../docs/decisions/0047-posture-from-deviation-probability.md)). 예시는 [examples/v3](examples/v3/)이고 응답은 실제 추론 코드의 출력이다.
 
 Kafka 전송(API 설정 `posegood.inference.transport=kafka`, 2026-10-31): [요청 메시지](realtime/kafka-inference-request.v1.schema.json)는 토픽 `posture.inference-request.v3`(API → 추론), [결과 메시지](realtime/kafka-inference-result.v1.schema.json)는 `posture.inference-result.v3`(추론 → API)이고 키는 둘 다 `session_id`다. 봉투(`schema_version` 1.0·`message_id`·`session_id`·`sequence`·`produced_at`) 안의 `body`가 위 v3 요청·응답이다. `sequence`는 세션 기준 구간 순번이고 결과를 판정 엔진의 그 구간 자리에 넣는 데 쓴다. 처리 서비스 경로의 Kafka 계약 v1(`posture.features.v1` 등)과는 다른 토픽이다. 예시는 [examples-inference-v3](realtime/examples-inference-v3/)이고 결과는 실제 추론 코드(`model/inference/kafka_worker.py`)의 출력이다.
 

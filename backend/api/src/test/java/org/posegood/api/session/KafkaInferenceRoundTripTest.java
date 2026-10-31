@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Kafka 왕복(계획 0064, {@code posegood.inference.transport=kafka}): 같은 JVM 안의 브로커로 API의 발행·구독을 확인한다.
+ * Kafka 왕복(계획 0084, {@code posegood.inference.transport=kafka}): 같은 JVM 안의 브로커로 API의 발행·구독을 확인한다.
  *
  * 시험이 추론 서버 자리에 서서 요청 토픽을 읽고, Python 추론 서버의 실제 출력인 합성 결과 예시
  * (contracts/realtime/examples-inference-v3/result.json)를 결과 토픽에 넣는다. Docker는 쓰지 않는다.

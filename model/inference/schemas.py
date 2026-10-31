@@ -75,7 +75,7 @@ BaselineJoint = Annotated[List[Ratio], Field(min_length=2, max_length=2)]
 
 
 class Frame(BaseModel):
-    """posture.frames.v1 frame as the API received it (plan 0064)."""
+    """posture.frames.v1 frame as the API received it (plan 0084)."""
 
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 

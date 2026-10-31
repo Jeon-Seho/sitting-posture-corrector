@@ -38,7 +38,7 @@
 | `posture.inference-result.v3` | 3 | `session_id` | 추론 서버 Kafka 워커 → 입출구 서버 API(`io-api-<호스트>`, 서버마다 따로) | — | [kafka-inference-result.v1](../../contracts/realtime/kafka-inference-result.v1.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- `*.v3` 두 토픽(계획 0064, 2026-10-31)은 API 안 판정의 추론 전송이다. 처리 서비스 경로(`posture.features.v1` → `posture.inference.v1` → 판정 `judge-v1`)와 토픽·컨슈머가 겹치지 않아 두 판정기가 같은 결과를 이중으로 판정하지 않는다. 본문은 HTTP `POST /v3/infer` 요청·응답과 같고 봉투는 `kind`·`user_id` 없이 `sequence`(세션 기준 구간 순번)를 싣는다. API가 kafka로 시작할 때 없으면 만들고 보존을 1시간으로 맞춘다(요청에 좌표가 있음, `POSEGOOD_KAFKA_RETENTION`). 두 컨슈머 모두 최신(`latest`)부터 읽는다(지난 결과는 쓸모없음). 추론 워커는 읽지 못한 요청을 `posture.dlq`에 사유만 남긴다(좌표가 있어 `payload`는 null).
+- `*.v3` 두 토픽(계획 0084, 2026-10-31)은 API 안 판정의 추론 전송이다. 처리 서비스 경로(`posture.features.v1` → `posture.inference.v1` → 판정 `judge-v1`)와 토픽·컨슈머가 겹치지 않아 두 판정기가 같은 결과를 이중으로 판정하지 않는다. 본문은 HTTP `POST /v3/infer` 요청·응답과 같고 봉투는 `kind`·`user_id` 없이 `sequence`(세션 기준 구간 순번)를 싣는다. API가 kafka로 시작할 때 없으면 만들고 보존을 1시간으로 맞춘다(요청에 좌표가 있음, `POSEGOOD_KAFKA_RETENTION`). 두 컨슈머 모두 최신(`latest`)부터 읽는다(지난 결과는 쓸모없음). 추론 워커는 읽지 못한 요청을 `posture.dlq`에 사유만 남긴다(좌표가 있어 `payload`는 null).
 - 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.

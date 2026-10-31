@@ -7,7 +7,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
-| 추론 | FastAPI `POST /v3/infer`(실시간, 받은 구간의 프레임, 계획 0064) 또는 같은 본문의 Kafka `posture.inference-request.v3` → `posture.inference-result.v3`(설정 `posegood.inference.transport=kafka`, 10/31) · `POST /v2/infer`(처리 서비스 Kafka 경로·비교 시험이 옮길 때까지) |
+| 추론 | FastAPI `POST /v3/infer`(실시간, 받은 구간의 프레임, 계획 0084) 또는 같은 본문의 Kafka `posture.inference-request.v3` → `posture.inference-result.v3`(설정 `posegood.inference.transport=kafka`, 10/31) · `POST /v2/infer`(처리 서비스 Kafka 경로·비교 시험이 옮길 때까지) |
 | DB | MySQL 8.4 · 스키마 V2.6 |
 | 코드 기준 | `fix/repo-backend-followup` (2026-10-28, develop 미병합) |
 | 개정 | 2026-10-30 (처음 2026-10-13) — [변경 이력](#변경-이력) |
@@ -1282,7 +1282,7 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
 | `model_version` | string | API 설정값(`reference-feature-rule-v1`)과 같아야 한다. |
 
-### 추론 v3 — 구간의 프레임 (`POST /v3/infer` 또는 Kafka, 계획 0064)
+### 추론 v3 — 구간의 프레임 (`POST /v3/infer` 또는 Kafka, 계획 0084)
 
 API가 추론 서버에 보내는 요청이다(앱은 부르지 않는다). 받은 좌표 구간마다 바로 **프레임째로** 세션 기준 자세와 함께 넘기고, 결과는 API 판정 엔진이 서버 시계로 약 3초 모아 판정한다(10/31).
 HTTP(기본)는 이 본문을 `POST /v3/infer`로, Kafka(`posegood.inference.transport=kafka`)는 봉투(`schema_version` 1.0·`message_id`·`session_id`·`sequence`·`produced_at`)의 `body`로 보낸다.
@@ -1310,13 +1310,13 @@ Kafka 요청 토픽은 `posture.inference-request.v3`, 결과 토픽은 `posture
 | `frames[]` | 요청 프레임마다 하나, **같은 순서·같은 `t_ms`**. 다르면 API가 추론 실패로 본다(`stalled`). |
 | `valid` | 판정 가능 프레임인지. 사람 없음·앱의 판정 불가 표시·판정 가능 검사 실패는 `unmeasurable`, 고개 돌림은 `head_turn`. 사람이 없거나 앱이 판정 불가로 표시한 프레임은 유효로 올 수 없다. |
 | `collapse_probability` | 나쁜 자세일 확률 0~1. 학습 모델 전에는 규칙 점수([ADR 0020](../decisions/0020-single-api-decision-engine.md) 3절, 보정된 확률 아님). 판정 불가면 0. |
-| `deviation_type` | 이탈 종류. 학습 모델(3클래스, ADR 0043)로 바꿀 때 뺀다(보류, [ADR 0045](../decisions/0045-posture-from-three-class-model.md)). 지금은 사건(`decision`·`alert`)에 쓴다. 판정 불가면 `none`. |
+| `deviation_type` | 이탈 종류. 학습 모델(첫 단계 기준·이탈 2클래스, ADR 0045)로 바꿀 때 뺀다(보류, [ADR 0047](../decisions/0047-posture-from-deviation-probability.md)). 지금은 사건(`decision`·`alert`)에 쓴다. 판정 불가면 `none`. |
 
 API는 연결·응답 오류에 한 번 다시 부르고, 그래도 실패하면 502(실시간 연결에는 `stalled`)다.
 
 ### Observation 4.0 — 실시간 v2 관측
 
-`/v2/realtime`의 `observation` 메시지에 담긴다. **서버 묶음마다 하나**(계획 0064, 2026-10-30)이고 값은 묶음의 **마지막 판정 가능 프레임**이다. 3.0에서 앱이 측정 화면에 쓰지 않는 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`을 뺐다 — 처리 위치는 `ack`·`progress`의 `last_sequence`, 멈춘 이유는 `progress.paused_reason`, 시간은 요약에 있다. 예시는 계약의 합성 예시다.
+`/v2/realtime`의 `observation` 메시지에 담긴다. **서버 묶음마다 하나**(계획 0084, 2026-10-30)이고 값은 묶음의 **마지막 판정 가능 프레임**이다. 3.0에서 앱이 측정 화면에 쓰지 않는 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`을 뺐다 — 처리 위치는 `ack`·`progress`의 `last_sequence`, 멈춘 이유는 `progress.paused_reason`, 시간은 요약에 있다. 예시는 계약의 합성 예시다.
 
 ```json
 {"schema_version": "4.0", "valid": true, "posture": "bad", "collapse_probability": 0.82, "invalid_reason": null}
@@ -1364,7 +1364,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 <a id="websocket-v2-연결"></a>
 
-연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 프레임마다 구간 하나로 보내고(10/27), API는 받은 구간을 바로 **프레임째로** 추론(`POST /v3/infer` 또는 Kafka)에 넘기고 `ack`한 뒤, 판정 엔진이 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0064, 2026-10-30·31). 결과는 묶음마다 같은 연결로 push한다.
+연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 프레임마다 구간 하나로 보내고(10/27), API는 받은 구간을 바로 **프레임째로** 추론(`POST /v3/infer` 또는 Kafka)에 넘기고 `ack`한 뒤, 판정 엔진이 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0084, 2026-10-30·31). 결과는 묶음마다 같은 연결로 push한다.
 
 계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
 
@@ -1483,7 +1483,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | type | 필드 | 설명 |
 |---|---|---|
 | `ready` | purpose, session_id, started_at | `hello`를 받아들였다. `features`를 보내기 시작한다. 측정이면 `started_at` = 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱은 오늘 기록의 시각·날짜를 이 값으로 정한다(ADR 0028). |
-| `ack` | last_sequence | 여기까지 받았다(계획 0064부터 판정 전, 받은 즉시). 표시만 하고 다시 보내지 않는다. |
+| `ack` | last_sequence | 여기까지 받았다(계획 0084부터 판정 전, 받은 즉시). 표시만 하고 다시 보내지 않는다. |
 | `observation` | observation | 서버 묶음마다 [Observation 4.0](#observation-40--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
 | `progress` | last_sequence, summary, paused_reason | 묶음을 판정한 뒤 누적 요약. `last_sequence`는 판정까지 마친 순번. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
@@ -1514,7 +1514,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 ```
 
 > [!NOTE]
-> 아래 메시지는 2026-10-29 실행(계획 0064 **전**, 구간마다 판정)에서 받은 것이다. 계획 0064 뒤에는 순서가 `ack`(구간마다, 받은 즉시) → 서버 묶음마다 `observation`(형식은 [Observation 4.0](#observation-40--실시간-v2-관측)) → `decision`(→ `alert`) → `progress`이다. 3초 확정·6초 회복 시각은 같다(MySQL 통합 시험·`service_smoke.py`로 확인, 2026-10-30). 이 블록을 새 실행에서 받은 값으로 바꾸는 것은 남은 일이다.
+> 아래 메시지는 2026-10-29 실행(계획 0084 **전**, 구간마다 판정)에서 받은 것이다. 계획 0084 뒤에는 순서가 `ack`(구간마다, 받은 즉시) → 서버 묶음마다 `observation`(형식은 [Observation 4.0](#observation-40--실시간-v2-관측)) → `decision`(→ `alert`) → `progress`이다. 3초 확정·6초 회복 시각은 같다(MySQL 통합 시험·`service_smoke.py`로 확인, 2026-10-30). 이 블록을 새 실행에서 받은 값으로 바꾸는 것은 남은 일이다.
 
 순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다.
 
@@ -1551,8 +1551,8 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-10-31 | `feature/repo-server-frame-batch-inference` | **추론은 구간마다 바로, 3초 모으기는 판정 엔진, Kafka 전송 추가**(계획 0064 10/31): API가 받은 구간의 프레임을 바로 추론에 넘기고(`/v3/infer` 본문 그대로) 판정 엔진이 결과를 약 3초 모아 순번 순서로 판정. 추론 전송 설정 `posegood.inference.transport`(`http` 기본·`kafka`), Kafka 토픽 `posture.inference-request.v3`·`posture.inference-result.v3`(키 `session_id`). 결과가 2초(`result-timeout`) 안에 오지 않은 구간은 누락·`stalled`. 앱에 보내는 메시지는 10/30과 같음 |
-| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0064): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, ADR 0045) |
+| 2026-10-31 | `feature/repo-server-frame-batch-inference` | **추론은 구간마다 바로, 3초 모으기는 판정 엔진, Kafka 전송 추가**(계획 0084 10/31): API가 받은 구간의 프레임을 바로 추론에 넘기고(`/v3/infer` 본문 그대로) 판정 엔진이 결과를 약 3초 모아 순번 순서로 판정. 추론 전송 설정 `posegood.inference.transport`(`http` 기본·`kafka`), Kafka 토픽 `posture.inference-request.v3`·`posture.inference-result.v3`(키 `session_id`). 결과가 2초(`result-timeout`) 안에 오지 않은 구간은 누락·`stalled`. 앱에 보내는 메시지는 10/30과 같음 |
+| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0084): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, ADR 0045) |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |

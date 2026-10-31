@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 판정 엔진 묶음(계획 0064)의 프레임 시간 나누기와 관측 4.0. 합성 결과만 쓴다.
+ * 판정 엔진 묶음(계획 0084)의 프레임 시간 나누기와 관측 4.0. 합성 결과만 쓴다.
  */
 class FramePartsTest {
     private static final String MODEL = "synthetic-v1";

@@ -20,7 +20,7 @@ import java.util.UUID;
 /**
  * FastAPI 추론 HTTP 호출과 결과 검증({@code posegood.inference.transport=http}, 기본). 실패하거나 맞지 않으면 502.
  *
- * 실시간 판정은 v3({@code POST /v3/infer}, 받은 구간마다 그 프레임들, 계획 0064)를 쓴다. v2({@code POST /v2/infer},
+ * 실시간 판정은 v3({@code POST /v3/infer}, 받은 구간마다 그 프레임들, 계획 0084)를 쓴다. v2({@code POST /v2/infer},
  * 구간 특징 하나)는 처리 서비스 Kafka 경로·비교 시험이 옮길 때까지 남긴다. 결과는 판정 엔진에 넣기 전에 요청과
  * 대조한다({@link #check}, Kafka 결과도 같은 검사). 맞지 않으면 502이고 그 구간은 누락이 된다.
  */
@@ -70,7 +70,7 @@ public class InferenceClient implements InferenceGateway {
     }
 
     /**
-     * 프레임 묶음 추론(v3). 연결·응답 오류는 한 번만 다시 부른다(계획 0064). 계약과 맞지 않는 응답은 다시 부르지 않는다.
+     * 프레임 묶음 추론(v3). 연결·응답 오류는 한 번만 다시 부른다(계획 0084). 계약과 맞지 않는 응답은 다시 부르지 않는다.
      */
     public FrameInference.Response infer(FrameInference.Request request) {
         FrameInference.Response result = null;

@@ -223,7 +223,7 @@ class MySqlIntegrationTest {
         socket.send(helloV2(stale, "measure", quiet));
         socket.next("ready");
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
-        JsonNode ack; // ack는 받은 즉시, 판정은 묶음 뒤(계획 0064)
+        JsonNode ack; // ack는 받은 즉시, 판정은 묶음 뒤(계획 0084)
         do ack = socket.next("ack");
         while (ack.get("last_sequence").asLong() != 6);
         socket.next("decision", "collapse_confirmed");
@@ -716,7 +716,7 @@ class MySqlIntegrationTest {
         var socket = Socket.open(port);
         socket.send(helloV2(api, "measure", id));
         assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
-        // 받은 구간은 바로 ack, 판정은 서버 시계로 약 3초 묶은 뒤 프레임마다(계획 0064, batch-window 기본값 3초).
+        // 받은 구간은 바로 ack, 판정은 서버 시계로 약 3초 묶은 뒤 프레임마다(계획 0084, batch-window 기본값 3초).
         long sent = System.nanoTime();
         for (long sequence = 0; sequence < 7; sequence++) socket.send(frames(sequence, "running", 0.09));
         JsonNode ack;
@@ -732,7 +732,7 @@ class MySqlIntegrationTest {
             assertFalse(observation.has(gone), gone);
         var decision = socket.next("decision", "collapse_confirmed");
         assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
-        assertEquals("left_lean", decision.get("event").get("deviation_type").asString()); // 학습 모델 전까지 유지(보류, ADR 0045)
+        assertEquals("left_lean", decision.get("event").get("deviation_type").asString()); // 학습 모델 전까지 유지(보류, ADR 0047)
         assertFalse(decision.has("session_id"));
         assertEquals(6, socket.next("progress").get("last_sequence").asLong());
         socket.send(frames(7, "running", null));

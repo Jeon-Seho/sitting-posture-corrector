@@ -76,7 +76,7 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.rejects(bad)
 
     def test_observation_4_carries_only_the_live_status(self):
-        # 4.0 (plan 0064): one per server batch; posture is good/bad when valid, null otherwise.
+        # 4.0 (plan 0084): one per server batch; posture is good/bad when valid, null otherwise.
         valid = self.example("observation")
         self.assertEqual(valid["observation"]["schema_version"], "4.0")
         self.assertEqual(set(valid["observation"]),

@@ -1,4 +1,4 @@
-"""Frame inference v3 (plan 0064): shared synthetic reference cases, per-frame results and contracts."""
+"""Frame inference v3 (plan 0084): shared synthetic reference cases, per-frame results and contracts."""
 
 import copy
 import json

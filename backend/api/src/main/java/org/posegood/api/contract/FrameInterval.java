@@ -47,7 +47,7 @@ public record FrameInterval(
 
     /**
      * 자정 넘김 뒤: 앱이 연결 기준으로 보낸 시간·순번에서 {@code ms}·{@code sequences}를 빼 새 세션 기준으로 옮긴다.
-     * 프레임 {@code t_ms}도 옮긴다(계획 0064부터 프레임 길이를 {@code t_ms}로 센다).
+     * 프레임 {@code t_ms}도 옮긴다(계획 0084부터 프레임 길이를 {@code t_ms}로 센다).
      */
     public FrameInterval shifted(long ms, long sequences) {
         if (ms == 0 && sequences == 0) return this;

@@ -1,4 +1,4 @@
-"""Kafka transport for frame inference v3 (plan 0064).
+"""Kafka transport for frame inference v3 (plan 0084).
 
 posture.inference-request.v3 -> predict_frames (the same stateless code as POST /v3/infer)
 -> posture.inference-result.v3, key session_id. The API judgement engine owns all timing rules.

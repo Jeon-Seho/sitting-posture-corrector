@@ -5,7 +5,7 @@ httpx==0.28.1
 uvicorn==0.39.0
 pydantic==2.13.5
 starlette==0.49.3
-# Kafka transport of frame inference v3 (model/inference/kafka_worker.py, plan 0064); idle unless configured.
+# Kafka transport of frame inference v3 (model/inference/kafka_worker.py, plan 0084); idle unless configured.
 kafka-python==2.2.15
 # Disposable MySQL for development and explicit integration (also used by database/tests).
 # Train and validate the external 13-point research baseline on synthetic fixtures in CI.

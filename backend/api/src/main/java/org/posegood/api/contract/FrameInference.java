@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
- * 추론 v3(계획 0064): API가 받은 좌표 구간 하나의 프레임을 세션 기준 자세와 함께 바로 넘기고, 추론은 프레임마다 결과를
+ * 추론 v3(계획 0084): API가 받은 좌표 구간 하나의 프레임을 세션 기준 자세와 함께 바로 넘기고, 추론은 프레임마다 결과를
  * 돌려준다(평균하지 않음). HTTP({@code POST /v3/infer})나 Kafka({@link InferenceMessages}) 본문이 같다. 결과는 API
  * 판정 엔진이 약 3초 모아 판정한다.
  *
@@ -41,7 +41,7 @@ public final class FrameInference {
     public record Response(String schemaVersion, String modelVersion, List<Result> frames) {}
 
     /**
-     * 프레임 하나의 결과. {@code collapseProbability}는 이탈 확률 {@code p(이탈)}(학습 모델 전에는 규칙 점수, ADR 0045).
+     * 프레임 하나의 결과. {@code collapseProbability}는 이탈 확률 {@code p(이탈)}(학습 모델 전에는 규칙 점수, ADR 0047).
      * {@code deviationType}은 학습 모델로 바꿀 때 뺀다(보류). 판정 불가면 {@code invalidReason}이
      * {@code unmeasurable}·{@code head_turn}이다.
      */

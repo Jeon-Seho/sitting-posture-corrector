@@ -178,7 +178,7 @@
       }
     },
     "observation": {
-      "description": "server -> app, one per server batch (plan 0064: the judgement engine collects the inference results of received intervals for about 3 s of server time, then judges every frame). Live status of the last judgeable frame of the batch. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-10-30) keeps only what the measuring screen uses; the processed position is in ack/progress last_sequence, the pause in progress.paused_reason, times in summary.",
+      "description": "server -> app, one per server batch (plan 0084: the judgement engine collects the inference results of received intervals for about 3 s of server time, then judges every frame). Live status of the last judgeable frame of the batch. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-10-30) keeps only what the measuring screen uses; the processed position is in ack/progress last_sequence, the pause in progress.paused_reason, times in summary.",
       "type": "object",
       "additionalProperties": false,
       "required": [

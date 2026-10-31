@@ -121,7 +121,7 @@ class InferenceClientTest {
                 () -> InferenceClient.requireEndpoint("http://127.0.0.1:8092/path", false, ""));
     }
 
-    // v3(계획 0064): 프레임마다 결과 하나, 같은 순서·같은 t_ms.
+    // v3(계획 0084): 프레임마다 결과 하나, 같은 순서·같은 t_ms.
 
     private static FrameInference.Request frames() {
         var p = Collections.nCopies(9, List.of(0.5, 0.5, 0.9));
