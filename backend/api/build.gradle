@@ -25,6 +25,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-restclient'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    // Inference v3 over Kafka (posegood.inference.transport=kafka, plan 0084). Boot 4 needs the starter for KafkaTemplate.
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     // Login: short JWT access tokens (HS256, Bearer) + rotating refresh tokens in the DB (refresh_token, V2.6).
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
@@ -33,6 +35,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // In-process Kafka broker for the inference round trip test (no Docker).
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -77,6 +81,11 @@ tasks.named('test') {
     if (project.hasProperty('mysql-integration')) {
         systemProperty 'posegood.mysql.integration', 'true'
         // The database comes from environment variables Gradle does not track: never reuse a result.
+        outputs.upToDateWhen { false }
+    }
+    // `-Pkafka-e2e` also runs the real Python inference worker against the in-process Kafka broker (needs .venv).
+    if (project.hasProperty('kafka-e2e')) {
+        systemProperty 'posegood.kafka.e2e', 'true'
         outputs.upToDateWhen { false }
     }
 }

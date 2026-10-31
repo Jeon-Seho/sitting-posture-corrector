@@ -6,9 +6,10 @@ video, landmarks, request-body logs and external calls are outside this service.
 
 from typing import Tuple
 
+from . import frames as frame_rules
 from .schemas import (
-    DeviationType, FeatureDeltas, Features, InferenceRequest,
-    InferenceRequestV2, Observation,
+    DeviationType, FeatureDeltas, Features, FrameObservation, FrameResult, InferenceRequest,
+    InferenceRequestV2, InferenceRequestV3, Observation,
 )
 
 
@@ -101,3 +102,54 @@ def predict_feature_observation(request: InferenceRequestV2) -> Observation:
         "deviation_type": deviation_type,
         "model_version": REFERENCE_MODEL_VERSION,
     }
+
+
+def _unjudged(t_ms: int, reason: str) -> FrameResult:
+    return {
+        "t_ms": t_ms,
+        "valid": False,
+        "collapse_probability": 0.0,
+        "deviation_type": "none",
+        "invalid_reason": reason,
+    }
+
+
+def predict_frames(request: InferenceRequestV3) -> FrameObservation:
+    """Judge every frame on its own (plan 0084): no averaging, no timing rules.
+
+    Frames the app marked valid:false, nobody tracked, or the judgeability check rejected are
+    unmeasurable; a turned head is head_turn. The rest are scored like v2 feature deltas.
+    """
+    baseline = frame_rules.baseline_features(request.baseline)
+    results = []
+    for frame in request.frames:
+        if baseline is None or frame.p is None or frame.valid is False:
+            results.append(_unjudged(frame.t_ms, "unmeasurable"))
+            continue
+        current = frame_rules.features(frame.p)
+        if current is None:
+            results.append(_unjudged(frame.t_ms, "unmeasurable"))
+            continue
+        if frame_rules.head_turned(current, baseline):
+            results.append(_unjudged(frame.t_ms, "head_turn"))
+            continue
+        change = frame_rules.deltas(current, baseline)
+        if change is None:
+            results.append(_unjudged(frame.t_ms, "unmeasurable"))
+            continue
+        head_gap, offset, tilt = change
+        score, deviation_type = score_feature_deltas(FeatureDeltas(
+            head_gap_delta=head_gap,
+            lateral_offset_delta=offset,
+            shoulder_tilt_delta=tilt,
+            current_quality=current.quality,
+            baseline_quality=baseline.quality,
+        ))
+        results.append({
+            "t_ms": frame.t_ms,
+            "valid": True,
+            "collapse_probability": score,
+            "deviation_type": deviation_type,
+            "invalid_reason": None,
+        })
+    return {"schema_version": "3.0", "model_version": REFERENCE_MODEL_VERSION, "frames": results}

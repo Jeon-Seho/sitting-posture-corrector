@@ -89,17 +89,38 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 `/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
 (`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). REST API를 다른 출처 화면(Vercel)에서 부를 때는 `posegood.cors.allowed-origins`(`POSEGOOD_CORS_ALLOWED_ORIGINS`)에 그 출처를 넣는다([BE API 명세](../docs/design/api-spec.md) 1장). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
-보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
+보내고, API는 받은 구간마다 판정 엔진에 자리를 잡고 그 프레임을 바로 추론 v3에 넘긴다. 추론이 프레임마다 특징·점수를 내고(평균하지 않음),
+판정 엔진(`engine/SessionEngine`)이 결과를 모아 서버 시계로 `posegood.realtime.batch-window`(기본 3초)마다 앞에서부터 판정하며 프레임마다 시간을 더해 3초 규칙을 센다
+(추론 전송은 아래 「추론 전송」, [계획 0084](../docs/plans/active/0084-server-3s-frame-batch-inference.md). 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과
+합성 기준값 `contracts/examples/frames/reference-rule-cases.json` — Python `model/inference/frames.py`와 Java `FrameFeatures`를 같은 사례로 시험한다).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
 - `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`(`started_at` = 서버의 세션 시작 시각, ADR 0028). 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
   준비가 `posegood.realtime.ready-timeout`(5초, 앱 대기 시간)을 넘으면 그 세션을 끝내고 `session_lost`.
 - `features`는 메시지마다 구간 1개다. 2개 이상·목적과 맞지 않는 `phase`·64KB 초과·형식 오류·중복/역순 순번은 `closed: bad_message`.
-  구간마다 `observation`(관측 3.0: `valid_ms`, `invalid_reason`), 새 사건마다 `decision`과 알림을 켠 세션이면 `alert`, 끝에 `ack`·`progress`(`paused_reason`).
+  받으면 바로 `ack`. 묶음을 판정하면 `observation`(관측 4.0: `valid`·`posture`·`collapse_probability`·`invalid_reason`, 묶음의 마지막 판정 가능 프레임) →
+  새 사건마다 `decision`과 알림을 켠 세션이면 `alert` → `progress`(`paused_reason`). 쉬기·자리 비움 구간, `end`, 끊김, 자정 넘김에는 3초를 기다리지 않는다.
+  알림은 묶음 때문에 최대 3초 늦다. 새 사건은 `decision`을 보내기 전에 DB에 쓴다.
+- 프레임 하나는 찍힌 시각(`t_ms`)부터 다음 프레임까지(구간의 첫 프레임은 구간 시작부터, 최대 0.5초) 판정한다. 판정 불가 프레임과 0.5초를 넘는 부분은
+  `unknown_ms`(제외)이고 연속 시간을 끊는다. 그래서 `valid_ms`는 판별 가능한 프레임 시간의 합이다(BE-5 ②).
 - 판정 불가 사유: 판정 가능 프레임이 없고 고개 돌림(코-귀 중점 변화 0.15 초과)만 있었으면 `head_turn`, 그 밖에는 `unmeasurable`.
   휴식·자리 비움 구간도 계약상 사유가 필요해 `unmeasurable`이고, 멈춘 이유는 `paused_reason`(`rest`·`away`·`unmeasurable`)이 알린다. `settling`은 기준이 정해지지 않아 아직 보내지 않는다.
 - 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
-- 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다.
+- 추론이 실패했거나 결과가 `posegood.inference.result-timeout`(기본 2초) 안에 오지 않은 구간은 버리고 `stalled`를 보내며 연결을 유지한다.
+  그 구간은 다시 판정하지 않으므로 그 시간은 누락(MISSING)이 된다. DB 일시 장애도 `stalled`다. `end`·끊김·자정 넘김은 아직 오지 않은 결과를 그 시간까지 기다린다.
+
+#### 추론 전송 (`posegood.inference.transport`, 계획 0084)
+
+| 값 | 길 | 쓰는 곳 |
+| --- | --- | --- |
+| `http`(기본) | 구간마다 `POST /v3/infer`(연결 오류는 한 번 다시), 결과를 바로 판정 엔진에 넣는다 | 개발·시험·`compose.yaml`·`check-backend` |
+| `kafka` | 구간마다 `posture.inference-request.v3`에 발행(키 `session_id`) → 추론 서버 Kafka 워커(`model/inference/kafka_worker.py`) → `posture.inference-result.v3` → `InferenceResultListener`가 `session_id`로 세션을 찾아 판정 엔진에 넣는다 | 서버(`infra/compose/bigdata.yaml`의 `POSEGOOD_INFERENCE_TRANSPORT=kafka`) |
+
+Kafka 설정: `KAFKA_BOOTSTRAP_SERVERS`(기본 `127.0.0.1:9092`), 토픽 `POSEGOOD_KAFKA_REQUEST_TOPIC`·`POSEGOOD_KAFKA_RESULT_TOPIC`, 컨슈머 그룹
+`POSEGOOD_KAFKA_GROUP_ID`(기본 `io-api-<호스트 이름>`, 서버마다 따로·최신부터), 보존 `POSEGOOD_KAFKA_RETENTION`(기본 1시간, 요청에 좌표가 있음).
+API가 kafka로 시작하면 두 토픽을 만들고 보존 시간을 맞춘다. 추론 서버의 Kafka 워커는 `POSEGOOD_KAFKA_BOOTSTRAP_SERVERS`가 있을 때만 켜지고 HTTP는 그대로 된다.
+Kafka 왕복 시험: `KafkaInferenceRoundTripTest`(같은 JVM 브로커, Docker 없음). 실제 Python 워커까지는
+`backend/gradlew -p backend :api:test -Pkafka-e2e --tests '*KafkaInferenceRoundTripTest'`(저장소 `.venv`에 `kafka-python` 필요).
 - 최대 측정 시간(24시간)을 넘으면 마지막 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed: limit_reached`.
 - 판정 불가·자리 비움(`away`)이 이어진 시간이 `posegood.realtime.unmeasurable-timeout`(기본 30분, 10/28 결정)에 닿으면 그 구간 끝에서 끝내고 저장한 뒤
   `decision(session_ended)` → `closed: unmeasurable_timeout`. 유효한 구간이나 쉬기(`rest`)가 오면 다시 센다. 0이면 끈다.

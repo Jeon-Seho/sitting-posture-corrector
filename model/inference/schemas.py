@@ -1,6 +1,6 @@
-"""Strict request validation for normalized baseline-feature deltas."""
+"""Strict request validation for normalized baseline-feature deltas and coordinate frames."""
 
-from typing import Literal, Optional, TypedDict
+from typing import Annotated, List, Literal, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -67,6 +67,53 @@ class InferenceRequestV2(BaseModel):
         if not 0 < self.end_ms - self.start_ms <= 1500:
             raise ValueError("interval must be 1..1500ms")
         return self
+
+
+Ratio = Annotated[float, Field(ge=0, le=1)]
+Joint = Annotated[List[float], Field(min_length=3, max_length=3)]
+BaselineJoint = Annotated[List[Ratio], Field(min_length=2, max_length=2)]
+
+
+class Frame(BaseModel):
+    """posture.frames.v1 frame as the API received it (plan 0084)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+    t_ms: int = Field(ge=0, le=86400000)
+    p: Optional[Annotated[List[Joint], Field(min_length=9, max_length=9)]]
+    valid: Optional[Literal[False]] = None
+
+    @model_validator(mode="after")
+    def joints(self):
+        for x, y, visibility in self.p or []:
+            if not (-1 <= x <= 2 and -1 <= y <= 2 and 0 <= visibility <= 1):
+                raise ValueError("joint out of range")
+        return self
+
+
+class InferenceRequestV3(BaseModel):
+    """Frames of one interval the API received, with the session baseline (HTTP or Kafka body)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+    schema_version: Literal["3.0"]
+    feature_version: Literal["keypoints-9-v1"]
+    baseline: Annotated[List[BaselineJoint], Field(min_length=9, max_length=9)]
+    frames: Annotated[List[Frame], Field(min_length=1, max_length=240)]
+
+
+class FrameResult(TypedDict):
+    t_ms: int
+    valid: bool
+    collapse_probability: float
+    deviation_type: DeviationType
+    invalid_reason: Optional[Literal["unmeasurable", "head_turn"]]
+
+
+class FrameObservation(TypedDict):
+    schema_version: Literal["3.0"]
+    model_version: str
+    frames: List[FrameResult]
 
 
 class Observation(TypedDict):
