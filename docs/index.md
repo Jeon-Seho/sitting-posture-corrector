@@ -4,7 +4,7 @@
 
 ## 현재 상태와 작업
 
-[/dev 관측 내보내기](../contracts/observation-export.v1.md) · [선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md) · [기준·이탈 판정 먼저](decisions/0045-base-deviation-first.md) · [ML 연구 계획](ml/rebuild-plan.md) · [jisung 연구 기록](ml/jisung/README.md)
+[/dev 관측 내보내기](../contracts/observation-export.v1.md) · [선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md) · [기준·이탈 판정 먼저](decisions/0045-base-deviation-first.md) · [동작 뒤 기준 측정·랜덤 측정 시간](decisions/0046-base-hold-and-random-hold-length.md) · [ML 연구 계획](ml/rebuild-plan.md) · [jisung 연구 기록](ml/jisung/README.md)
 
 
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.

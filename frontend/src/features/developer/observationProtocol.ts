@@ -1,14 +1,15 @@
 export const OBSERVATION_REFERENCE_MS = 8000
 import type { ComparisonAction } from './comparisonDemo'
 
-/** Base → deviation → base → deviation or seated stretch. Labels are guided tasks, never verified movement. */
+/** Each task is followed by a measured base hold. Labels are guided tasks, never verified movement. */
 export const OBSERVATION_PROTOCOL = {
-  id: 'front-observation-optional-stretch-v6',
+  id: 'front-observation-base-hold-v7',
   actions: ['deviation', 'stretch'],
   roundOptions: [1, 2, 3, 4, 5],
   moveMs: 2000,
-  holdMs: { deviation: 5000, stretch: 8000 },
-  returnMs: 5000,
+  /** Whole seconds, drawn once per task and shared by the task hold and the base hold after it. */
+  holdSeconds: { min: 8, max: 15 },
+  returnMs: 3000,
   gapMs: 500,
 } as const
 export type GuidedPhase = 'move' | 'hold' | 'return'
@@ -16,7 +17,7 @@ export type GuideMode = 'auto' | 'manual'
 export type GuidePlan = { rounds: typeof OBSERVATION_PROTOCOL.roundOptions[number]; shuffle: boolean; cycle?: 'repeat' | 'stretch'; stretchNote?: string }
 export const DEFAULT_GUIDE_PLAN: GuidePlan = { rounds: 1, shuffle: false, cycle: 'repeat', stretchNote: '' }
 export type GuidePauseReason = 'user' | 'hidden' | 'tracking_lost' | 'clock_gap'
-export type GuidedStep = { round: number; trial: number; action: Exclude<ComparisonAction, 'neutral'>; phase: GuidedPhase; durationMs: number }
+export type GuidedStep = { round: number; trial: number; action: ComparisonAction; phase: GuidedPhase; durationMs: number }
 export type GuideSnapshot = {
   status: 'idle' | 'running' | 'waiting' | 'note' | 'paused' | 'completed' | 'cancelled'
   mode: GuideMode
@@ -25,12 +26,20 @@ export type GuideSnapshot = {
   plan: GuidePlan; stepCount: number; next: GuidedStep | null
 }
 
-/** Each round has two tasks, each followed by a return to the reference posture. */
-export function observationSteps(plan: GuidePlan = DEFAULT_GUIDE_PLAN, _random: () => number = Math.random): GuidedStep[] {
+export function randomHoldMs(random: () => number = Math.random) {
+  const { min, max } = OBSERVATION_PROTOCOL.holdSeconds
+  return Math.min(max, min + Math.floor(random() * (max - min + 1))) * 1000
+}
+
+/** Each round has two tasks. Each task is followed by a return and a measured base hold of the same length. */
+export function observationSteps(plan: GuidePlan = DEFAULT_GUIDE_PLAN, random: () => number = Math.random): GuidedStep[] {
   return Array.from({ length: plan.rounds }, (_, round) => {
     const actions: Array<'deviation' | 'stretch'> = plan.cycle === 'stretch' ? ['deviation', 'stretch'] : ['deviation', 'deviation']
-    return actions.flatMap((action, i) => ([['move', OBSERVATION_PROTOCOL.moveMs], ['hold', OBSERVATION_PROTOCOL.holdMs[action]], ['return', OBSERVATION_PROTOCOL.returnMs]] as const)
-      .map(([phase, durationMs]) => ({ round: round + 1, trial: round * actions.length + i + 1, action, phase, durationMs })))
+    return actions.flatMap((action, i) => {
+      const holdMs = randomHoldMs(random), trial = round * actions.length + i + 1
+      return ([[action, 'move', OBSERVATION_PROTOCOL.moveMs], [action, 'hold', holdMs], [action, 'return', OBSERVATION_PROTOCOL.returnMs], ['neutral', 'hold', holdMs]] as const)
+        .map(([stepAction, phase, durationMs]) => ({ round: round + 1, trial, action: stepAction, phase, durationMs }))
+    })
   }).flat()
 }
 
@@ -47,6 +56,9 @@ export class ObservationProtocol {
   private mode: GuideMode = 'auto'
   private plan: GuidePlan = DEFAULT_GUIDE_PLAN
   private steps: readonly GuidedStep[] = observationSteps({ ...DEFAULT_GUIDE_PLAN, shuffle: false })
+
+  /** The drawn schedule of the current run, so a recording can keep each phase's length. */
+  schedule(): GuidedStep[] { return this.steps.map(step => ({ ...step })) }
 
   snapshot(now: number): GuideSnapshot {
     const base = this.status === 'idle' ? null : this.steps[this.index]
