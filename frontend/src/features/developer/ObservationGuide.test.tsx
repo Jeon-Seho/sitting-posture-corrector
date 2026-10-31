@@ -2,8 +2,10 @@ import { act, create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from '../dialog/ConfirmDialog'
 import { ObservationGuide } from './ObservationGuide'
-import { ObservationProtocol } from './observationProtocol'
+import { DEFAULT_GUIDE_PLAN, ObservationProtocol } from './observationProtocol'
 
+/** Synthetic draw that always lands on a 10 s hold. */
+const TEN = () => 2 / 8
 const controls = { onStart: vi.fn(), onPause: vi.fn(), onResume: vi.fn(), onStop: vi.fn() }
 const text = (node: ReactTestInstance | string): string => typeof node === 'string' ? node : node.children.map(text).join('')
 describe('guided camera workspace with explicit synthetic clock', () => {
@@ -67,14 +69,14 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => ui.unmount())
   })
   it('names an interrupted hold and asks the user to regain that task before restarting', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-copy')
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-copy', 'auto', DEFAULT_GUIDE_PLAN, TEN)
     for (let now = 100; now <= 2000; now += 100) protocol.advance(now)
     protocol.pause('tracking_lost')
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(3000)} ready {...controls} />) })
     expect(text(ui.root)).toContain('이탈 자세 · 일시 정지')
     expect(text(ui.root)).toContain('자세를 다시 잡고 추적을 확인한 뒤 재개')
-    expect(text(ui.root)).toContain('측정 5초를 다시 셉니다')
+    expect(text(ui.root)).toContain('측정 10초를 다시 셉니다')
     act(() => ui.unmount())
   })
   it('keeps the same pause slot during setup, running, manual waiting and pause', () => {
@@ -84,47 +86,52 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => { ui = create(<ObservationGuide {...props} guide={protocol.snapshot(0)} setup={{ status: 'registering', remainingMs: 8000 }} />) })
     const pause = () => ui.root.findAllByType('button').find(b => b.props.className?.includes('oc-pause-guide'))!
     const original = pause(); expect(pause().props.disabled).toBe(true)
-    protocol.start(0, 'synthetic-stable-actions', 'manual')
+    protocol.start(0, 'synthetic-stable-actions', 'manual', DEFAULT_GUIDE_PLAN, TEN)
     act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(0)} />))
     expect(pause()).toBe(original); expect(pause().props.disabled).toBe(true)
     protocol.next(100)
     act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(100)} />))
     expect(pause()).toBe(original); expect(pause().props.disabled).toBe(false)
-    for (let t = 200; t <= 5100; t += 100) protocol.advance(t)
-    act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(5100)} />))
+    for (let t = 200; t <= 10100; t += 100) protocol.advance(t)
+    act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(10100)} />))
     expect(pause()).toBe(original); expect(pause().props.disabled).toBe(true)
-    protocol.next(5200); protocol.pause('user')
-    act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(5200)} />))
+    protocol.next(10200); protocol.pause('user')
+    act(() => ui.update(<ObservationGuide {...props} guide={protocol.snapshot(10200)} />))
     expect(pause()).toBe(original); expect(pause().props['aria-label']).toBe('현재 단계 처음부터 재개')
     expect(pause().props.disabled).toBe(false)
     act(() => ui.unmount())
   })
   it('keeps the seated stretch task and next instruction visible during its longer measurement', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-stretch-copy', 'auto', { rounds: 1, shuffle: false, cycle: 'stretch' })
-    for (let now = 100; now <= 17000; now += 100) { protocol.advance(now); if (protocol.snapshot(now).status === 'note') protocol.finishNote(now) }
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-stretch-copy', 'auto', { rounds: 1, shuffle: false, cycle: 'stretch' }, TEN)
+    for (let now = 100; now <= 32000; now += 100) { protocol.advance(now); if (protocol.snapshot(now).status === 'note') protocol.finishNote(now) }
     let ui!: ReturnType<typeof create>
-    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(17000)} ready {...controls} />) })
+    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(32000)} ready {...controls} />) })
     expect(text(ui.root.findByProps({ role: 'status' }))).toContain('앉은 채 스트레칭을 이어가세요')
     expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('05초')
-    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('편안한 기준 자세· 복귀 준비 5초')
+    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('편안한 기준 자세· 복귀 준비 3초')
     act(() => ui.unmount())
   })
-  it('freezes a paused timer, restarts it in full and then displays the neutral return phase', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-phase-gauge')
+  it('freezes a paused timer, restarts it in full and then displays the return and the base hold after it', () => {
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-phase-gauge', 'auto', DEFAULT_GUIDE_PLAN, TEN)
     for (let now = 100; now <= 3100; now += 100) protocol.advance(now)
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(3100)} ready {...controls} />) })
-    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('04초')
+    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('09초')
     protocol.pause('user')
     act(() => ui.update(<ObservationGuide guide={protocol.snapshot(9000)} ready {...controls} />))
-    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('04초')
+    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('09초')
     protocol.resume(10000)
     act(() => ui.update(<ObservationGuide guide={protocol.snapshot(10000)} ready {...controls} />))
-    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('05초')
-    for (let now = 10100; now <= 15000; now += 100) protocol.advance(now)
-    act(() => ui.update(<ObservationGuide guide={protocol.snapshot(15000)} ready {...controls} />))
+    expect(text(ui.root.findByProps({ role: 'timer' }))).toContain('10초')
+    for (let now = 10100; now <= 20000; now += 100) protocol.advance(now)
+    act(() => ui.update(<ObservationGuide guide={protocol.snapshot(20000)} ready {...controls} />))
     expect(text(ui.root.findByProps({ className: 'oc-clock-label' }))).toBe('복귀 준비')
-    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('이탈 자세')
+    expect(text(ui.root.findByProps({ 'aria-label': '다음 안내' }))).toContain('기준 자세· 측정 10초')
+    for (let now = 20100; now <= 23000; now += 100) protocol.advance(now)
+    act(() => ui.update(<ObservationGuide guide={protocol.snapshot(23000)} ready {...controls} />))
+    expect(text(ui.root.findByProps({ className: 'oc-clock-label' }))).toBe('측정 · 그대로 유지')
+    expect(ui.root.findByProps({ 'aria-label': '동작 안내' }).props['data-measuring']).toBe(true)
+    expect(text(ui.root.findByProps({ role: 'status' }))).toContain('편안한 기준 자세를 유지하세요')
     act(() => ui.unmount())
   })
   it('marks only an active hold as measuring and shows instructions for other phases', () => {
@@ -154,11 +161,11 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     act(() => ui.unmount())
   })
   it('retains completed progress and offers camera restart with downloads delegated to the tools', () => {
-    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-completed')
-    for (let now = 100; now <= 27000; now += 100) protocol.advance(now)
+    const protocol = new ObservationProtocol(); protocol.start(0, 'synthetic-completed', 'auto', DEFAULT_GUIDE_PLAN, TEN)
+    for (let now = 100; now <= 50000; now += 100) protocol.advance(now)
     let ui!: ReturnType<typeof create>
-    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(27000)} ready={false} active={false} {...controls} />) })
-    expect(ui.root.findByType('progress').props).toMatchObject({ value: 6, max: 6 })
+    act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(50000)} ready={false} active={false} {...controls} />) })
+    expect(ui.root.findByType('progress').props).toMatchObject({ value: 8, max: 8 })
     expect(ui.root.findAllByType('button').map(text)).toEqual(['카메라 켜기'])
     expect(ui.root.findAllByProps({ role: 'status' })).toHaveLength(0)
     act(() => ui.unmount())

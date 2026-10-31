@@ -43,9 +43,8 @@ it('tracks each video frame once, reports expiry separately, and cancels its clo
 
 it('does not schedule another tick when a frame consumer stops the loop', () => {
   const { video, tracker, handlers } = synthetic()
-  let stop!: () => void
   handlers.onFrame.mockImplementation(() => stop())
-  stop = startPoseTracking({ video, tracker, isCurrent: () => true, ...handlers })
+  const stop = startPoseTracking({ video, tracker, isCurrent: () => true, ...handlers })
   vi.advanceTimersByTime(100)
   expect(handlers.onFrame).toHaveBeenCalledOnce()
   expect(handlers.onTick).toHaveBeenCalledTimes(1) // First 33 ms precedes initial inference.

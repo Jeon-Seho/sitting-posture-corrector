@@ -12,7 +12,7 @@ describe('explicit synthetic feature export', () => {
     archive.append(frame, 8100, { ...context, phase: 'hold', task: 'deviation', round: 1, trial: 1, segment: 1, measurement: true })
     archive.mark(8200, 'hidden')
     const source = parseObservationReplay(JSON.stringify(archive.snapshot())), result = observationFeatureExport(source)
-    expect(result).toMatchObject({ schema_version: 'observation-ml-candidates-v1', labelKind: 'guided_task_not_ground_truth' })
+    expect(result).toMatchObject({ schema_version: 'observation-ml-candidates-v1', source_schema: 'observation-keypoint-replay-v7', labelKind: 'guided_task_not_ground_truth', schedule: [] })
     expect(result.frames.at(-1)).toMatchObject({ phase: 'hold', task: 'deviation', measurement: true, imageValid: true, worldValid: false, features: { relativeZ: null } })
     expect(result.frames.at(-1)?.armsImage).toHaveLength(10)
     expect(result.markers).toEqual([{ elapsedMs: 8200, afterFrame: 81, reason: 'hidden' }])

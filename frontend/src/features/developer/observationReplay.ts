@@ -2,7 +2,7 @@ import { liveForecastPoints, LIVE_FORECAST_ORDER } from '../../../../model/proto
 import type { Landmark } from '../../../../model/prototype/pose'
 import { comparisonGeometry, type ComparisonFrame } from '../../../../model/prototype/observationComparison'
 import { REPLAY_TASKS, type ComparisonAction, type ReplayTask } from './comparisonDemo'
-import { DEFAULT_GUIDE_PLAN, OBSERVATION_PROTOCOL, type GuidePlan } from './observationProtocol'
+import { DEFAULT_GUIDE_PLAN, OBSERVATION_PROTOCOL, type GuidedStep, type GuidePlan } from './observationProtocol'
 
 export const REPLAY_LIMIT = 6000
 export const REPLAY_FILE_LIMIT = 64 * 1024 * 1024
@@ -10,7 +10,10 @@ export const REPLAY_FILE_LIMIT = 64 * 1024 * 1024
 const POINT_COUNT = 33
 const V4_POINT_COUNT = 23
 const LEGACY_POINT_COUNT = 13
-const SCHEMA = 'observation-keypoint-replay-v6'
+const SCHEMA = 'observation-keypoint-replay-v7'
+const V6_SCHEMA = 'observation-keypoint-replay-v6'
+/** v4..v6 files: tasks without a measured base hold, fixed 5 s / 8 s holds. */
+const V6_PROTOCOL = 'front-observation-optional-stretch-v6'
 const V5_SCHEMA = 'observation-keypoint-replay-v5'
 const V4_SCHEMA = 'observation-keypoint-replay-v4'
 const V3_SCHEMA = 'observation-keypoint-replay-v3'
@@ -34,12 +37,14 @@ export type ReplayFrame = Omit<ReplayContext, 'task'> & {
 }
 export type ReplayMarker = { elapsedMs: number; afterFrame: number; reason: 'hidden' | 'interrupted' | 'stopped' }
 export type ObservationReplayData = {
-  schema_version: typeof SCHEMA | typeof V5_SCHEMA | typeof V4_SCHEMA | typeof V3_SCHEMA | typeof V2_SCHEMA | typeof LEGACY_SCHEMA; source: 'camera' | 'synthetic'
-  runId: string; startedAt: string; protocolId: typeof OBSERVATION_PROTOCOL.id | typeof V3_PROTOCOL | typeof V2_PROTOCOL | typeof LEGACY_PROTOCOL_IDS[number]
+  schema_version: typeof SCHEMA | typeof V6_SCHEMA | typeof V5_SCHEMA | typeof V4_SCHEMA | typeof V3_SCHEMA | typeof V2_SCHEMA | typeof LEGACY_SCHEMA; source: 'camera' | 'synthetic'
+  runId: string; startedAt: string; protocolId: typeof OBSERVATION_PROTOCOL.id | typeof V6_PROTOCOL | typeof V3_PROTOCOL | typeof V2_PROTOCOL | typeof LEGACY_PROTOCOL_IDS[number]
   /** v2 only: the run's round count and whether the in-round order was shuffled. */
   plan: GuidePlan | null
   guideMode?: 'auto' | 'manual'
   stretchNotes?: { round: number; trial: number; note: string }[]
+  /** v7 only: every guided phase with its drawn length. Empty until the guide starts. */
+  schedule?: GuidedStep[]
   pointIndices: number[]; forecastOrder: number[]; mirrored: false
   labelKind: 'guided_task_not_ground_truth'; scope: 'all_phases_replay_only'
   frames: ReplayFrame[]; markers: ReplayMarker[]; droppedFrames: number
@@ -66,11 +71,13 @@ export class ObservationReplayArchive {
   private plan: GuidePlan = DEFAULT_GUIDE_PLAN
   private guideMode: 'auto' | 'manual' = 'auto'
   private notes: { round: number; trial: number; note: string }[] = []
+  private schedule: GuidedStep[] = []
   constructor(private runId: string, private startedAt: string) {}
   get count() { return this.frames.length }
   get droppedFrames() { return this.dropped }
   stretchNoteForRound(round: number | undefined) { return this.notes.find(item => item.round === round)?.note ?? '' }
   setGuideMode(mode: 'auto' | 'manual') { this.guideMode = mode }
+  setSchedule(steps: readonly GuidedStep[]) { this.schedule = steps.map(step => ({ ...step })) }
   addStretchNote(round: number, trial: number, note: string) { this.notes.push({ round, trial, note: note.slice(0, 120) }) }
   setPlan(plan: GuidePlan) { this.plan = { ...plan, cycle: plan.cycle ?? 'repeat', stretchNote: plan.cycle === 'stretch' ? (plan.stretchNote ?? '').slice(0, 120) : '' } }
   append(frame: ComparisonFrame & ReplayArmFrame & { videoTimeMs?: number }, elapsedMs: number, context: ReplayContext) {
@@ -98,7 +105,7 @@ export class ObservationReplayArchive {
   }
   snapshot(): ObservationReplayData {
     return { schema_version: SCHEMA, source: 'camera', runId: this.runId, startedAt: this.startedAt,
-      protocolId: OBSERVATION_PROTOCOL.id, plan: { ...this.plan }, guideMode: this.guideMode, stretchNotes: this.notes.map(note => ({ ...note })), pointIndices: Array.from({ length: POINT_COUNT }, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER],
+      protocolId: OBSERVATION_PROTOCOL.id, plan: { ...this.plan }, guideMode: this.guideMode, stretchNotes: this.notes.map(note => ({ ...note })), schedule: this.schedule.map(step => ({ ...step })), pointIndices: Array.from({ length: POINT_COUNT }, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER],
       mirrored: false, labelKind: 'guided_task_not_ground_truth', scope: 'all_phases_replay_only',
       frames: this.frames.map(f => ({ ...f, image: f.image.map(p => p && { ...p }), world: f.world.map(p => p && { ...p }) })),
       markers: this.markers.map(m => ({ ...m })), droppedFrames: this.dropped }
@@ -125,8 +132,9 @@ export function parseObservationReplay(content: string): ObservationReplayData {
   if (new Blob([content]).size > REPLAY_FILE_LIMIT) throw new Error('리플레이 파일은 64MB 이하만 불러올 수 있어요.')
   let data: unknown
   try { data = JSON.parse(content) } catch { return fail() }
-  if (!object(data) || (data.schema_version !== SCHEMA && data.schema_version !== V5_SCHEMA && data.schema_version !== V4_SCHEMA && data.schema_version !== V3_SCHEMA && data.schema_version !== V2_SCHEMA && data.schema_version !== LEGACY_SCHEMA)) return fail()
-  const modern = data.schema_version === SCHEMA || data.schema_version === V5_SCHEMA
+  if (!object(data) || (data.schema_version !== SCHEMA && data.schema_version !== V6_SCHEMA && data.schema_version !== V5_SCHEMA && data.schema_version !== V4_SCHEMA && data.schema_version !== V3_SCHEMA && data.schema_version !== V2_SCHEMA && data.schema_version !== LEGACY_SCHEMA)) return fail()
+  const modern = data.schema_version === SCHEMA || data.schema_version === V6_SCHEMA || data.schema_version === V5_SCHEMA
+  const latest = data.schema_version === SCHEMA
   const legacy = data.schema_version === LEGACY_SCHEMA, count = legacy ? LEGACY_POINT_COUNT : modern ? POINT_COUNT : V4_POINT_COUNT
   const current = modern || data.schema_version === V4_SCHEMA, v3 = data.schema_version === V3_SCHEMA
   const plan = legacy ? null : readPlan(data.plan, current || v3, current)
@@ -135,7 +143,7 @@ export function parseObservationReplay(content: string): ObservationReplayData {
   const rounds = plan?.rounds ?? 3, trials = plan ? plan.rounds * OBSERVATION_PROTOCOL.actions.length : 12
   if (!['camera','synthetic'].includes(String(data.source)) ||
     !text(data.runId) || !text(data.startedAt, 40) || !Number.isFinite(Date.parse(data.startedAt)) ||
-    !(legacy ? (LEGACY_PROTOCOL_IDS as readonly unknown[]).includes(data.protocolId) : (current ? data.protocolId === OBSERVATION_PROTOCOL.id : v3 ? data.protocolId === V3_PROTOCOL : data.protocolId === V2_PROTOCOL)) ||
+    !(legacy ? (LEGACY_PROTOCOL_IDS as readonly unknown[]).includes(data.protocolId) : (current ? data.protocolId === (latest ? OBSERVATION_PROTOCOL.id : V6_PROTOCOL) : v3 ? data.protocolId === V3_PROTOCOL : data.protocolId === V2_PROTOCOL)) ||
     !sequence(data.pointIndices, Array.from({length: count}, (_, i) => i)) || !sequence(data.forecastOrder, LIVE_FORECAST_ORDER) ||
     data.mirrored !== false || data.labelKind !== 'guided_task_not_ground_truth' || data.scope !== 'all_phases_replay_only' ||
     !integer(data.droppedFrames) || !Array.isArray(data.frames) || !data.frames.length || data.frames.length > REPLAY_LIMIT ||
@@ -151,10 +159,20 @@ export function parseObservationReplay(content: string): ObservationReplayData {
       return { round: n.round, trial: n.trial as number, note: n.note }
     })
   }
+  let schedule: GuidedStep[] | undefined
+  if (latest) {
+    const steps = rounds * OBSERVATION_PROTOCOL.actions.length * 4
+    if (!Array.isArray(data.schedule) || data.schedule.length !== 0 && data.schedule.length !== steps) return fail()
+    schedule = data.schedule.map(s => {
+      if (!object(s) || !integer(s.round) || s.round < 1 || s.round > rounds || !integer(s.trial) || s.trial < 1 || s.trial > trials || !tasks.includes(String(s.action)) ||
+        !['move', 'hold', 'return'].includes(String(s.phase)) || !integer(s.durationMs) || s.durationMs > 60000) return fail()
+      return { round: s.round, trial: s.trial, action: s.action, phase: s.phase, durationMs: s.durationMs } as GuidedStep
+    })
+  }
   let previous = -1, lastObservation = -1
   const frames: ReplayFrame[] = data.frames.map(f => {
     if (!object(f) || !nonnegative(f.elapsedMs) || f.elapsedMs <= previous || !(f.observationTimeMs === null || nonnegative(f.observationTimeMs) && f.observationTimeMs > lastObservation) ||
-      (data.schema_version === SCHEMA && !(f.measurable === null || typeof f.measurable === 'boolean')) ||
+      ((latest || data.schema_version === V6_SCHEMA) && !(f.measurable === null || typeof f.measurable === 'boolean')) ||
       !(f.videoTimeMs === null || nonnegative(f.videoTimeMs)) || !finite(f.width) || !finite(f.height) || f.width <= 0 || f.height <= 0 || f.width > 8192 || f.height > 8192 ||
       !(f.poseModelId === null || text(f.poseModelId)) || modern && (!(f.rawObservationTimeMs === null || finite(f.rawObservationTimeMs)) || !(f.rawFeatures === null || object(f.rawFeatures) && ['headGap', 'offset', 'tilt', 'quality'].every(k => finite((f.rawFeatures as Record<string, unknown>)[k])) && (f.rawFeatures.turn === null || finite(f.rawFeatures.turn))) || !(f.inferenceMs === null || nonnegative(f.inferenceMs)) || ![null, 'CPU', 'GPU'].includes(f.delegate as never) || ![null, 'seen', 'grace', 'missing'].includes(f.shoulders as never)) || !REPLAY_PHASES.includes(f.phase as ReplayPhase) || !tasks.includes(String(f.task)) ||
       !(f.round === null || integer(f.round) && f.round >= 1 && f.round <= rounds) || !(f.trial === null || integer(f.trial) && f.trial >= 1 && f.trial <= trials) ||
@@ -174,8 +192,8 @@ export function parseObservationReplay(content: string): ObservationReplayData {
     markerTime = m.elapsedMs; markerFrame = m.afterFrame
     return { elapsedMs: m.elapsedMs, afterFrame: m.afterFrame, reason: m.reason as ReplayMarker['reason'] }
   })
-  return { schema_version: legacy ? LEGACY_SCHEMA : data.schema_version === SCHEMA ? SCHEMA : data.schema_version === V5_SCHEMA ? V5_SCHEMA : data.schema_version === V4_SCHEMA ? V4_SCHEMA : v3 ? V3_SCHEMA : V2_SCHEMA, source: data.source as 'camera' | 'synthetic', runId: data.runId, startedAt: data.startedAt,
-    protocolId: data.protocolId as ObservationReplayData['protocolId'], plan, ...(modern ? { guideMode: data.guideMode as 'auto' | 'manual' } : {}), ...(stretchNotes ? { stretchNotes } : {}), pointIndices: Array.from({length: count}, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER], mirrored: false,
+  return { schema_version: legacy ? LEGACY_SCHEMA : latest ? SCHEMA : data.schema_version === V6_SCHEMA ? V6_SCHEMA : data.schema_version === V5_SCHEMA ? V5_SCHEMA : data.schema_version === V4_SCHEMA ? V4_SCHEMA : v3 ? V3_SCHEMA : V2_SCHEMA, source: data.source as 'camera' | 'synthetic', runId: data.runId, startedAt: data.startedAt,
+    protocolId: data.protocolId as ObservationReplayData['protocolId'], plan, ...(modern ? { guideMode: data.guideMode as 'auto' | 'manual' } : {}), ...(stretchNotes ? { stretchNotes } : {}), ...(schedule ? { schedule } : {}), pointIndices: Array.from({length: count}, (_, i) => i), forecastOrder: [...LIVE_FORECAST_ORDER], mirrored: false,
     labelKind: 'guided_task_not_ground_truth', scope: 'all_phases_replay_only', frames, markers, droppedFrames: data.droppedFrames }
 }
 export function replayIndexAt(frames: ReplayFrame[], timeMs: number) {

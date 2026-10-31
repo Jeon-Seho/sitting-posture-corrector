@@ -3,6 +3,13 @@ import variants from '../../../model-variants.json'
 import { LiveForecastExperiment, forecastModelMatchesPoseModel, predictLstm, readForecastWeights, type ForecastWeightsV1, type ForecastWeightsV2 } from '../../../../model/prototype/forecast'
 
 // All weights/inputs in this file are explicitly synthetic, never trained participant data.
+const REMOVE = Symbol('remove')
+/** Sets or removes one dotted field of a synthetic file, including fields the type would not allow. */
+function editField(target: object, path: string, value: unknown) {
+  const keys = path.split('.'), last = keys.pop()!
+  const parent = keys.reduce((node, key) => node[key] as Record<string, unknown>, target as Record<string, unknown>)
+  if (value === REMOVE) delete parent[last]; else parent[last] = value
+}
 function syntheticV1(): ForecastWeightsV1 {
   return { schema_version: 'forecast-weights-v1', model_id: 'synthetic-v1', source_sha256: 'a'.repeat(64), domain_validated: false,
     config: { steps: 30, dimensions: 39, hidden: 48, horizon: 3, point_definition: 'Panoptic-face9-body4-not-MediaPipe' },
@@ -61,28 +68,28 @@ describe('MediaPipe forecast weights v2 provenance and numerical contract', () =
     }
     expect(forecastModelMatchesPoseModel(readForecastWeights(syntheticV2()), variants.heavy.modelId)).toBe(false)
   })
-  it.each([
-    ['missing training metadata', (v: any) => { delete v.training }],
-    ['wrong domain', (v: any) => { v.data_domain = 'panoptic' }],
-    ['unknown extractor', (v: any) => { v.pose_model_id = 'mediapipe-pose-future' }],
-    ['missing extractor', (v: any) => { delete v.pose_model_id }],
-    ['wrong feature coordinates', (v: any) => { v.feature_definition = 'image-normalized' }],
-    ['wrong point correspondence', (v: any) => { v.config.point_definition = 'Panoptic-face9-body4-not-MediaPipe' }],
-    ['empty model ID', (v: any) => { v.model_id = '' }],
-    ['clinical validation claim', (v: any) => { v.domain_validated = true }],
-    ['negative count', (v: any) => { v.training.labels_used.manual_confirmed_windows = -1 }],
-    ['fractional count', (v: any) => { v.training.split_window_counts.train = 5.5 }],
-    ['unsafe count', (v: any) => { v.training.split_window_counts.train = Number.MAX_SAFE_INTEGER + 1 }],
-    ['label count mismatch', (v: any) => { v.training.labels_used.automatic_weak_windows = 2 }],
-    ['empty train', (v: any) => { v.training.split_window_counts.train = 0; v.training.labels_used = { manual_confirmed_windows: 0, automatic_weak_windows: 0 } }],
-    ['missing train participant', (v: any) => { v.training.split_participant_counts.train = 0 }],
-    ['participants exceed windows', (v: any) => { v.training.split_participant_counts.train = 6 }],
-    ['unknown training mode', (v: any) => { v.training.mode = 'frame_random_split' }],
-    ['pilot with held-out windows', (v: any) => { v.training.split_window_counts.validation = 1 }],
-    ['pilot claims generalization', (v: any) => { v.training.participant_generalization_evaluated = true }],
-    ['pilot claims held-out evaluation', (v: any) => { v.training.evaluation_scope = 'participant_holdout_forecast_only' }],
-  ])('rejects %s', (_name, mutate) => {
-    const input = syntheticV2(); mutate(input)
+  it.each<[string, [string, unknown][]]>([
+    ['missing training metadata', [['training', REMOVE]]],
+    ['wrong domain', [['data_domain', 'panoptic']]],
+    ['unknown extractor', [['pose_model_id', 'mediapipe-pose-future']]],
+    ['missing extractor', [['pose_model_id', REMOVE]]],
+    ['wrong feature coordinates', [['feature_definition', 'image-normalized']]],
+    ['wrong point correspondence', [['config.point_definition', 'Panoptic-face9-body4-not-MediaPipe']]],
+    ['empty model ID', [['model_id', '']]],
+    ['clinical validation claim', [['domain_validated', true]]],
+    ['negative count', [['training.labels_used.manual_confirmed_windows', -1]]],
+    ['fractional count', [['training.split_window_counts.train', 5.5]]],
+    ['unsafe count', [['training.split_window_counts.train', Number.MAX_SAFE_INTEGER + 1]]],
+    ['label count mismatch', [['training.labels_used.automatic_weak_windows', 2]]],
+    ['empty train', [['training.split_window_counts.train', 0], ['training.labels_used', { manual_confirmed_windows: 0, automatic_weak_windows: 0 }]]],
+    ['missing train participant', [['training.split_participant_counts.train', 0]]],
+    ['participants exceed windows', [['training.split_participant_counts.train', 6]]],
+    ['unknown training mode', [['training.mode', 'frame_random_split']]],
+    ['pilot with held-out windows', [['training.split_window_counts.validation', 1]]],
+    ['pilot claims generalization', [['training.participant_generalization_evaluated', true]]],
+    ['pilot claims held-out evaluation', [['training.evaluation_scope', 'participant_holdout_forecast_only']]],
+  ])('rejects %s', (_name, edits) => {
+    const input = syntheticV2(); for (const [path, value] of edits) editField(input, path, value)
     expect(() => readForecastWeights(input)).toThrow()
   })
   it('rejects holdout claims without all evaluation counts and matching scope', () => {
