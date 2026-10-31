@@ -16,7 +16,7 @@ export function readLocal<T>(key: string, fallback: T): T {
     raw = localStorage.getItem(key)
   } catch (caughtError) {
     console.error('[features/storage/localRepository.ts:readLocal] Operation failed', caughtError)
-    throw new Error(`${labels[key]} 저장소에 접근하지 못했습니다.`)
+    throw new Error(`${labels[key]} 저장소에 접근하지 못했습니다.`, { cause: caughtError })
   }
   if (raw === null) return fallback
   try {
@@ -25,7 +25,7 @@ export function readLocal<T>(key: string, fallback: T): T {
     return parsed as T
   } catch (caughtError) {
     console.error('[features/storage/localRepository.ts:readLocal] Operation failed', caughtError)
-    throw new Error(`${labels[key]} 자료를 읽을 수 없습니다. 기존 자료는 유지됩니다.`)
+    throw new Error(`${labels[key]} 자료를 읽을 수 없습니다. 기존 자료는 유지됩니다.`, { cause: caughtError })
   }
 }
 export function writeLocal(key: string, value: unknown) {
