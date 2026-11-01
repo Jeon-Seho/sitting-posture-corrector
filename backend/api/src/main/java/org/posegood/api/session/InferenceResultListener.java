@@ -18,40 +18,42 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "posegood.inference.transport", havingValue = "kafka")
 public class InferenceResultListener {
-    private static final Logger log = LoggerFactory.getLogger(InferenceResultListener.class);
+	private static final Logger log = LoggerFactory.getLogger(InferenceResultListener.class);
 
-    private final SessionService sessions;
-    private final Json json;
+	private final SessionService sessions;
+	private final Json json;
 
-    public InferenceResultListener(SessionService sessions, Json json) {
-        this.sessions = sessions;
-        this.json = json;
-    }
+	public InferenceResultListener(SessionService sessions, Json json) {
+		this.sessions = sessions;
+		this.json = json;
+	}
 
-    @KafkaListener(topics = "${posegood.kafka.result-topic}", groupId = "${posegood.kafka.group-id}")
-    public void onResult(String value) {
-        var message = read(value);
-        if (message == null) return;
-        sessions.inferred(message.sessionId(), message.sequence(), message.body());
-    }
+	@KafkaListener(topics = "${posegood.kafka.result-topic}", groupId = "${posegood.kafka.group-id}")
+	public void onResult(String value) {
+		var message = read(value);
+		if (message == null) {
+			return;
+		}
+		sessions.inferred(message.sessionId(), message.sequence(), message.body());
+	}
 
-    /** 결과 메시지 하나. 형식이 틀리면 null. */
-    InferenceMessages.Result read(String value) {
-        InferenceMessages.Result message;
-        try {
-            message = json.read(value, InferenceMessages.Result.class);
-        } catch (RuntimeException invalid) {
-            log.debug("inference result skipped: unreadable");
-            return null;
-        }
-        if (message == null
-                || !InferenceMessages.SCHEMA_VERSION.equals(message.schemaVersion())
-                || message.sessionId() == null
-                || message.sequence() < 0
-                || message.body() == null) {
-            log.debug("inference result skipped: envelope mismatch");
-            return null;
-        }
-        return message;
-    }
+	/** 결과 메시지 하나. 형식이 틀리면 null. */
+	InferenceMessages.Result read(String value) {
+		InferenceMessages.Result message;
+		try {
+			message = json.read(value, InferenceMessages.Result.class);
+		} catch (RuntimeException invalid) {
+			log.debug("inference result skipped: unreadable");
+			return null;
+		}
+		if (message == null
+				|| !InferenceMessages.SCHEMA_VERSION.equals(message.schemaVersion())
+				|| message.sessionId() == null
+				|| message.sequence() < 0
+				|| message.body() == null) {
+			log.debug("inference result skipped: envelope mismatch");
+			return null;
+		}
+		return message;
+	}
 }

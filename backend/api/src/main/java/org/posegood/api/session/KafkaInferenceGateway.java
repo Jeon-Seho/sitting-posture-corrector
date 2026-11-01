@@ -29,67 +29,68 @@ import java.util.UUID;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "posegood.inference.transport", havingValue = "kafka")
 public class KafkaInferenceGateway implements InferenceGateway {
-    private static final Logger log = LoggerFactory.getLogger(KafkaInferenceGateway.class);
+	private static final Logger log = LoggerFactory.getLogger(KafkaInferenceGateway.class);
 
-    private final KafkaTemplate<String, String> kafka;
-    private final Json json;
-    private final String requestTopic;
-    private final String modelVersion;
-    private final Clock clock = Clock.systemUTC();
+	private final KafkaTemplate<String, String> kafka;
+	private final Json json;
+	private final String requestTopic;
+	private final String modelVersion;
+	private final Clock clock = Clock.systemUTC();
 
-    public KafkaInferenceGateway(
-            KafkaTemplate<String, String> kafka,
-            Json json,
-            @Value("${posegood.kafka.request-topic}") String requestTopic,
-            @Value("${posegood.model-version}") String modelVersion) {
-        this.kafka = kafka;
-        this.json = json;
-        this.requestTopic = requestTopic;
-        this.modelVersion = modelVersion;
-    }
+	public KafkaInferenceGateway(
+			KafkaTemplate<String, String> kafka,
+			Json json,
+			@Value("${posegood.kafka.request-topic}") String requestTopic,
+			@Value("${posegood.model-version}") String modelVersion) {
+		this.kafka = kafka;
+		this.json = json;
+		this.requestTopic = requestTopic;
+		this.modelVersion = modelVersion;
+	}
 
-    @Override
-    public FrameInference.Response submit(UUID sessionId, long sequence, FrameInference.Request request) {
-        var message = InferenceMessages.Request.of(sessionId, sequence, request, clock.instant());
-        try {
-            kafka.send(requestTopic, sessionId.toString(), json.write(message))
-                    .whenComplete((sent, failed) -> {
-                        if (failed != null)
-                            log.debug("inference request not delivered: {}", failed.getClass().getSimpleName());
-                    });
-        } catch (RuntimeException failed) {
-            throw ApiError.upstream("inference request not published");
-        }
-        return null;
-    }
+	@Override
+	public FrameInference.Response submit(UUID sessionId, long sequence, FrameInference.Request request) {
+		var message = InferenceMessages.Request.of(sessionId, sequence, request, clock.instant());
+		try {
+			kafka.send(requestTopic, sessionId.toString(), json.write(message))
+					.whenComplete((sent, failed) -> {
+						if (failed != null) {
+							log.debug("inference request not delivered: {}", failed.getClass().getSimpleName());
+						}
+					});
+		} catch (RuntimeException failed) {
+			throw ApiError.upstream("inference request not published");
+		}
+		return null;
+	}
 
-    @Override
-    public String modelVersion() {
-        return modelVersion;
-    }
+	@Override
+	public String modelVersion() {
+		return modelVersion;
+	}
 
-    /**
-     * 토픽이 없으면 만들고 보존 시간을 맞춘다. 파티션 수는 처리 서비스 토픽과 같은 3이 기본이다. 요청에는 좌표가 있고
-     * Kafka는 사용자별로 지울 수 없으므로 짧게 둔다({@code posegood.kafka.retention}, 기본 1시간).
-     */
-    @Bean
-    NewTopic inferenceRequestTopic(
-            @Value("${posegood.kafka.request-topic}") String name,
-            @Value("${posegood.kafka.partitions}") int partitions,
-            @Value("${posegood.kafka.retention}") Duration retention) {
-        return topic(name, partitions, retention);
-    }
+	/**
+	 * 토픽이 없으면 만들고 보존 시간을 맞춘다. 파티션 수는 처리 서비스 토픽과 같은 3이 기본이다. 요청에는 좌표가 있고
+	 * Kafka는 사용자별로 지울 수 없으므로 짧게 둔다({@code posegood.kafka.retention}, 기본 1시간).
+	 */
+	@Bean
+	NewTopic inferenceRequestTopic(
+			@Value("${posegood.kafka.request-topic}") String name,
+			@Value("${posegood.kafka.partitions}") int partitions,
+			@Value("${posegood.kafka.retention}") Duration retention) {
+		return topic(name, partitions, retention);
+	}
 
-    @Bean
-    NewTopic inferenceResultTopic(
-            @Value("${posegood.kafka.result-topic}") String name,
-            @Value("${posegood.kafka.partitions}") int partitions,
-            @Value("${posegood.kafka.retention}") Duration retention) {
-        return topic(name, partitions, retention);
-    }
+	@Bean
+	NewTopic inferenceResultTopic(
+			@Value("${posegood.kafka.result-topic}") String name,
+			@Value("${posegood.kafka.partitions}") int partitions,
+			@Value("${posegood.kafka.retention}") Duration retention) {
+		return topic(name, partitions, retention);
+	}
 
-    private static NewTopic topic(String name, int partitions, Duration retention) {
-        return new NewTopic(name, partitions, (short) 1)
-                .configs(Map.of(TopicConfig.RETENTION_MS_CONFIG, Long.toString(retention.toMillis())));
-    }
+	private static NewTopic topic(String name, int partitions, Duration retention) {
+		return new NewTopic(name, partitions, (short) 1)
+				.configs(Map.of(TopicConfig.RETENTION_MS_CONFIG, Long.toString(retention.toMillis())));
+	}
 }

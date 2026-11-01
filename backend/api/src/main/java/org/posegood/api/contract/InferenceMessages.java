@@ -11,29 +11,30 @@ import java.util.UUID;
  * {@code sequence}는 세션 기준 구간 순번이고 결과를 그 구간 자리에 넣는 데 쓴다. 좌표는 로그·DB에 남기지 않는다.
  */
 public final class InferenceMessages {
-    public static final String SCHEMA_VERSION = "1.0";
+	public static final String SCHEMA_VERSION = "1.0";
 
-    private InferenceMessages() {}
+	private InferenceMessages() {
+	}
 
-    /** API → 추론: 구간 하나의 프레임과 세션 기준 자세. */
-    public record Request(
-            String schemaVersion,
-            UUID messageId,
-            UUID sessionId,
-            long sequence,
-            Instant producedAt,
-            FrameInference.Request body) {
-        public static Request of(UUID sessionId, long sequence, FrameInference.Request body, Instant now) {
-            return new Request(SCHEMA_VERSION, UUID.randomUUID(), sessionId, sequence, now, body);
-        }
-    }
+	/** API → 추론: 구간 하나의 프레임과 세션 기준 자세. */
+	public record Request(
+			String schemaVersion,
+			UUID messageId,
+			UUID sessionId,
+			long sequence,
+			Instant producedAt,
+			FrameInference.Request body) {
+		public static Request of(UUID sessionId, long sequence, FrameInference.Request body, Instant now) {
+			return new Request(SCHEMA_VERSION, UUID.randomUUID(), sessionId, sequence, now, body);
+		}
+	}
 
-    /** 추론 → API: 그 구간 프레임마다의 결과. */
-    public record Result(
-            String schemaVersion,
-            UUID messageId,
-            UUID sessionId,
-            long sequence,
-            Instant producedAt,
-            FrameInference.Response body) {}
+	/** 추론 → API: 그 구간 프레임마다의 결과. */
+	public record Result(
+			String schemaVersion,
+			UUID messageId,
+			UUID sessionId,
+			long sequence,
+			Instant producedAt,
+			FrameInference.Response body) {}
 }

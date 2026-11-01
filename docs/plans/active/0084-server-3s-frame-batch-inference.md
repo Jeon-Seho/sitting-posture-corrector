@@ -1,6 +1,6 @@
 # 서버가 3초씩 묶은 좌표 프레임을 추론 서버에 넘기고 프레임마다 판정
 
-- 상태: in_progress (10/30 구현 `8aebac7`, 10/31 흐름 변경·Kafka 전송 `412f24a`, develop 합침·검증 끝. PR 전. FE 수정과 함께 배포 — FE 공지 2026-10-30)
+- 상태: in_progress (10/30 구현 `8aebac7`, 10/31 흐름 변경·Kafka 전송 `412f24a`, develop 합침·검증 끝, 11/01 PR #91·들여쓰기·중괄호 맞춤. FE 수정과 함께 배포 — FE 공지 2026-10-30)
 - 담당: BE(김유진)
 - 시작일: 2026-10-29
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(판정은 API 안, 특징 A안), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md), [FE 제안서](../../design/fe-server-proposal.md) BE-5 ②·BE-8, [API 명세](../../design/api-spec.md) 9장·11장, [연동 명세](../../design/api-ws-spec.md) 5.1
@@ -124,9 +124,15 @@
 - 2026-10-30: 6~18번 확정(BE), 구현. 브랜치 `feature/repo-server-frame-batch-inference`. 첫 MySQL 통합 시험에서 `decision`을 받은 직후 DB를 읽으면 아직 저장 전인 경우를 찾아 17번으로 고쳤다.
 - 2026-10-31: 흐름을 「구간마다 바로 추론 → 판정 엔진이 결과를 약 3초 모아 판정」으로 바꾸고 Kafka 전송을 넣었다(19~26번). 처음에는 Kafka를 `backend/inference`에 붙이려 했으나, 그쪽은 Docker 빌드 위치가 달라 `frames.py`를 복사해야 해서 같은 코드를 쓰는 `model/inference`에 워커를 넣었다.
 - 2026-10-31: develop(PR #84~#90)을 두 번 합쳤다. 번호가 겹쳐 이 계획을 0064 → **0084**로(develop `completed/0064-frontend-camera-resilience.md`, FE 요청), BE 모델 출력 ADR을 0045 → **0047**로(develop ML ADR 0045 「기준·이탈 판정 먼저」) 옮겼다. ML 첫 목표가 2클래스로 바뀌어 ADR 0047 배경을 고쳤고 결정은 그대로다. develop이 `tools/service_smoke.py`·`check-repo`를 없애고 `check-backend`를 Gradle 빌드(Checkstyle 포함)로 바꿨다. API Java 충돌은 이 브랜치 내용으로 정했다(develop은 포맷만 바꿈). 이 브랜치 Java는 아직 옛 들여쓰기라 Checkstyle 경고가 난다(규칙이 모두 경고 등급이라 빌드·CI는 통과).
+- 2026-11-01: PR #91을 올렸다. 이 브랜치가 바꾼 API Java 28개의 들여쓰기(공백 → 탭, 들여쓰기 깊이)와 중괄호(NeedBraces 209곳, 빈 생성자)를 develop Checkstyle 규칙에 맞췄다. 공백·중괄호만 바뀌고 코드 내용은 같다. 줄 길이·import 순서·이름 규칙 등 다른 경고 138개는 남았다(경고 등급).
 - 2026-10-30: develop(`66a780c`, PR #83)을 합쳤다. ML ADR 0043(3클래스)과 번호가 겹쳐 BE 모델 출력 ADR을 0045로 옮기고 3클래스에 맞췄다. `posture`는 `good`·`bad`로 확정(BE).
 
 ## 검증 결과와 남은 한계
+
+2026-11-01(들여쓰기·중괄호 맞춘 뒤), 같은 PC:
+
+- `backend/gradlew -p backend build -Pmysql-integration -Pkafka-e2e --rerun-tasks`: API 114개(MySQL 통합 11개, Python 워커 Kafka 왕복 포함)·처리 서비스 62개, 실패 0·건너뜀 0.
+- Checkstyle(API, 이 PC CRLF 경고 제외): 들여쓰기·중괄호 경고 0. 남은 경고 138개(줄 길이 34, import 순서 34, 중괄호 주변 띄어쓰기 26, 이름 규칙 28, 한 줄 여러 변수·문장 16).
 
 2026-10-31(develop PR #84~#88 합친 뒤), 이 PC(Windows, JDK 17·Checkstyle용 JDK 21, Python 3.12 `.venv`, 로컬 MySQL80 일회용 DB, Docker 없음):
 

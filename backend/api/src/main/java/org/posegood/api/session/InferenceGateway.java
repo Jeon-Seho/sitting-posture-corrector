@@ -14,12 +14,12 @@ import java.util.UUID;
  * </ul>
  */
 public interface InferenceGateway {
-    /**
-     * 프레임을 추론에 넘긴다. 결과를 바로 알면 확인한 결과를, 나중에 오면 null을 돌려준다. 넘기지 못했거나 결과가
-     * 계약과 맞지 않으면 502({@link org.posegood.api.common.ApiError#upstream}).
-     */
-    FrameInference.Response submit(UUID sessionId, long sequence, FrameInference.Request request);
+	/**
+	 * 프레임을 추론에 넘긴다. 결과를 바로 알면 확인한 결과를, 나중에 오면 null을 돌려준다. 넘기지 못했거나 결과가
+	 * 계약과 맞지 않으면 502({@link org.posegood.api.common.ApiError#upstream}).
+	 */
+	FrameInference.Response submit(UUID sessionId, long sequence, FrameInference.Request request);
 
-    /** 기대하는 추론 모델 이름. 결과의 {@code model_version}이 이와 같아야 한다. */
-    String modelVersion();
+	/** 기대하는 추론 모델 이름. 결과의 {@code model_version}이 이와 같아야 한다. */
+	String modelVersion();
 }
