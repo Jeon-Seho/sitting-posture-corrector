@@ -1,4 +1,4 @@
-"""통합 테스트 16단계(J3) 준비·확인 도구 — 시험 계정(test-*@example.invalid)만 다룬다 (D-49).
+"""통합 테스트 16·17단계(J3·J1) 준비·확인 도구 — 시험 계정(test-*@example.invalid)만 다룬다 (D-49·D-33).
 
 pytest가 모으지 않는 이름. integration_test.sh가 spark 컨테이너에 복사해 spark-submit으로 돌린다
 (잡 공통 모듈은 /opt/jobs/batch_common.py). 운영 잡 폴더(bigdata/jobs)에는 두지 않는다.
@@ -8,6 +8,8 @@ pytest가 모으지 않는 이름. integration_test.sh가 spark 컨테이너에 
       --session이 있으면 그 세션의 HDFS 세션 폴더(/data/users/{ID}/{시작일}/{UUID}/, 작은 파일 1개)와 feature_archive 1행.
   status --user ID[,ID]
       사용자별 남은 행 수·요청 상태·HDFS 사용자 폴더 유무를 JSON 한 줄로.
+  archive-info --session UUID
+      그 세션의 feature_archive 행(file_uri·구간 시각)과 HDFS 세션 폴더 파일별 줄 수·종류별 개수를 JSON 한 줄로(J1 확인).
 """
 
 import argparse
@@ -67,6 +69,32 @@ def status(spark, jdbc, users):
     print(json.dumps(out), flush=True)
 
 
+def archive_info(spark, jdbc, session):
+    rows = jdbc.query("SELECT fa.file_uri, DATE_FORMAT(fa.range_start_at, '%Y-%m-%d %H:%i:%s.%f') AS range_start_at,"
+                      " DATE_FORMAT(fa.range_end_at, '%Y-%m-%d %H:%i:%s.%f') AS range_end_at,"
+                      " DATE_FORMAT(m.started_at, '%Y-%m-%d %H:%i:%s.%f') AS started_at, m.user_account_id"
+                      " FROM feature_archive fa JOIN monitor_session m ON m.monitor_session_id = fa.monitor_session_id"
+                      " WHERE m.client_session_uuid = ?", (session,))
+    out = {"session": session, "rows": len(rows)}
+    if rows:
+        r = rows[0]
+        out.update({k: (r[k][:23] if k.endswith("_at") else r[k]) for k in r})
+        hdfs = bc.Hdfs(spark)
+        files = {}
+        for name in ("features.jsonl", "inference.jsonl", "episodes.jsonl"):
+            path = r["file_uri"] + name
+            if not hdfs.exists(path):
+                files[name] = None
+                continue
+            kinds = {}
+            for line in hdfs.read_text(path).splitlines():
+                kind = json.loads(line).get("kind")
+                kinds[kind] = kinds.get(kind, 0) + 1
+            files[name] = kinds
+        out["files"] = files
+    print(json.dumps(out), flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -76,13 +104,17 @@ def main():
     p.add_argument("--session")
     s = sub.add_parser("status")
     s.add_argument("--user", type=bc.parse_users, required=True)
+    a = sub.add_parser("archive-info")
+    a.add_argument("--session", required=True)
     args = parser.parse_args()
     db = bc.DbConfig()
-    spark = bc.spark_session("posegood-j3-testkit")
+    spark = bc.spark_session("posegood-batch-testkit")
     try:
         with bc.Jdbc(spark, db) as jdbc:
             if args.cmd == "prepare":
                 prepare(spark, jdbc, args.user, args.closed_days, args.session)
+            elif args.cmd == "archive-info":
+                archive_info(spark, jdbc, args.session)
             else:
                 status(spark, jdbc, args.user)
     finally:

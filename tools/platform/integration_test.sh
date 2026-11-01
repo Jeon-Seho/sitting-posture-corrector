@@ -35,10 +35,14 @@
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
 #  14. 공개 입구   : (D-43) 처리 서비스·추론 포트가 127.0.0.1에만, gateway(API 전용 nginx, 호스트 포트 없음)가 /api만 중계하고 /는 404,
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
+#  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 멱등·삭제 뒤 CASCADE (D-05)
+#  16. Spark J3    : 시험 계정을 탈퇴 상태로(tests/batch_testkit.py) → 30일 지난 계정만 DB 행·HDFS 폴더 전부 삭제 (D-49)
+#  17. Spark J1    : 시험 세션을 Kafka v1로 재생 → Kafka 받기 → HDFS 세션 폴더 파일 3개·feature_archive → J3로 정리 (D-33)
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
 # 끝나면 지운다. 11단계 시험 행은 끝에서 지운다(KEEP_D30=1이면 남김), 10·12단계 합성 계정은 탈퇴 접수 상태로 남는다.
+# 15~17단계는 시험 계정(test-*@example.invalid)의 행·HDFS 폴더만 만들고 지운다. 17단계 J1은 Kafka 읽은 위치(체크포인트)를 운영과 같이 쓴다.
 # =====================================================================
 set -u
 
@@ -759,20 +763,20 @@ PYJ
 fi
 
 step "16. Spark 배치 J3 — 탈퇴 최종 삭제 (D-49)"
-# 시험 계정 2개(C·D)를 탈퇴 상태로 만든다(tests/j3_testkit.py — 시험 계정만 건드림):
+# 시험 계정 2개(C·D)를 탈퇴 상태로 만든다(tests/batch_testkit.py — 시험 계정만 건드림):
 #   C: 세션(재생으로 종료) + J2 일별 통계 + HDFS 세션 폴더·feature_archive, 폐쇄 31일 전 → J3 기본(30일)이 지움
 #   D: 세션만, 폐쇄 29일 전 → 기본 실행에서는 남고, --grace-days 0 --user D 로 지움(정리 겸 유예 옵션 확인)
 # 운영 cron은 --user 없이 돈다. 여기서는 --user로 시험 계정만 대상으로 한다.
 j3_kit() { docker exec spark /opt/spark/bin/spark-submit --master 'local[1]' \
   --packages "${MYSQL_JDBC_PACKAGE:-com.mysql:mysql-connector-j:8.4.0}" --conf spark.jars.ivy=/opt/spark-ivy \
-  --conf spark.driver.extraJavaOptions=-Duser.timezone=Asia/Seoul /tmp/j3_testkit.py "$@" 2>>"$OUT/j3-kit.log" | grep -m1 '^[[{]' ; }
+  --conf spark.driver.extraJavaOptions=-Duser.timezone=Asia/Seoul /tmp/batch_testkit.py "$@" 2>>"$OUT/j3-kit.log" | grep -m1 '^[[{]' ; }
 if [ "$E2E" = 0 ]; then skip "J3 탈퇴 삭제" "--no-e2e"
 elif ! docker exec spark test -f /opt/jobs/j3_withdrawal_delete.py 2>/dev/null; then
   fail "J3 잡 코드" "spark 컨테이너에 /opt/jobs/j3_withdrawal_delete.py 없음 — $DC up -d --no-build spark (bigdata/jobs 마운트)"
 elif ! curl -s -m 5 "$API/report/store" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)" 2>/dev/null; then
   skip "J3 탈퇴 삭제" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 계정을 만들 수 없음"
-elif ! docker cp tests/j3_testkit.py spark:/tmp/j3_testkit.py >/dev/null 2>&1; then
-  fail "J3 시험 도구" "tests/j3_testkit.py를 spark 컨테이너에 복사 못 함 (저장소 루트에서 실행)"
+elif ! docker cp tests/batch_testkit.py spark:/tmp/batch_testkit.py >/dev/null 2>&1; then
+  fail "J3 시험 도구" "tests/batch_testkit.py를 spark 컨테이너에 복사 못 함 (저장소 루트에서 실행)"
 else
   JDAY="$(TZ=Asia/Seoul date +%F)"
   J_C="$(python3 -c 'import uuid;print(uuid.uuid4())')"; J_D="$(python3 -c 'import uuid;print(uuid.uuid4())')"
@@ -826,6 +830,62 @@ PYK
     if python3 -c "import json,sys;d=json.loads(sys.argv[1])[0];sys.exit(0 if d['user_account']==0 and d['monitor_session']==0 and d['deletion_request']==0 else 1)" "$B2" 2>/dev/null; then
       pass "D 정리 — --grace-days 0 --user 로 삭제 (시험 계정 남기지 않음)"
     else fail "J3 시험 계정 D 정리" "${B2:-확인 실패} — $OUT/j3-run2.log"; fi
+  fi
+fi
+
+step "17. Spark 배치 J1 — Kafka v1 → HDFS 세션 폴더 + feature_archive (D-33)"
+# 시험 계정 세션 E를 Kafka v1 경로로 재생(8단계와 같은 172건)해 DB에 저장시킨 뒤, J1을 그 세션만으로(--settle-sec 0) 돌려
+# /data/users/{E}/{날짜}/{세션}/ 파일 3개와 feature_archive 1행을 확인한다. 정리는 J3(탈퇴 상태로 만든 뒤 --grace-days 0)로 —
+# J1이 쓴 폴더·행을 J3가 지우는 것까지 확인. 처음 실행은 Kafka 소스 패키지를 받고, 토픽에 남은 메시지를 처음부터 임시 폴더에 담는다.
+if [ "$E2E" = 0 ]; then skip "J1 HDFS 적재" "--no-e2e"
+elif ! docker exec spark test -f /opt/jobs/j1_hdfs_archive.py 2>/dev/null; then
+  fail "J1 잡 코드" "spark 컨테이너에 /opt/jobs/j1_hdfs_archive.py 없음 — $DC up -d --no-build spark (bigdata/jobs 마운트)"
+elif ! curl -s -m 5 "$API/report/store" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)" 2>/dev/null; then
+  skip "J1 HDFS 적재" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 세션을 만들 수 없음"
+elif ! docker cp tests/batch_testkit.py spark:/tmp/batch_testkit.py >/dev/null 2>&1; then
+  fail "J1 시험 도구" "tests/batch_testkit.py를 spark 컨테이너에 복사 못 함 (저장소 루트에서 실행)"
+else
+  J_E="$(python3 -c 'import uuid;print(uuid.uuid4())')"; T_E0="$(date +%s)"
+  UE="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_E" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
+  if [ -z "$UE" ]; then fail "J1 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
+  else
+    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J1E-$TS" --session-id "$J_E" >"$OUT/j1-replay-e.log" 2>&1
+    for _ in $(seq 1 30); do
+      curl -s -m 5 "$API/report/sessions/$J_E" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
+      sleep 2
+    done
+    # 저장되는 종료 시각은 세션 시작 + 85.0s(재생 시간축)라 재생(약 1초)보다 늦다. J1은 ended_at ≤ 지금인 세션만 고르므로
+    # 시작(시험 세션 생성) 뒤 90초가 지날 때까지 기다린다(마지막 progress가 토픽에 들어갈 시간도 겸함)
+    WAIT_E=$(( T_E0 + 90 - $(date +%s) )); [ "$WAIT_E" -gt 0 ] && sleep "$WAIT_E"
+    if timeout 900 $TOOLS/batch.sh j1 --session "$J_E" --settle-sec 0 >"$OUT/j1-run1.log" 2>&1; then pass "J1 실행 (Kafka 받기 → 임시 폴더 → 세션 정리)"
+    else fail "J1 실행" "$(tail -3 "$OUT/j1-run1.log" | tr '\n' ' ') — tools/platform/batch-logs/ 확인"; fi
+    AI="$(j3_kit archive-info --session "$J_E")"; echo "J1 적재: $AI" >>"$OUT/run.log"
+    if python3 - "$AI" "$UE" "$J_E" <<'PYA'
+import json,sys
+a=json.loads(sys.argv[1]); uid,sid=sys.argv[2],sys.argv[3]
+f=a.get('files') or {}
+ok=(a['rows']==1 and a['file_uri']==f"/data/users/{uid}/{a['started_at'][:10]}/{sid}/"
+    and f.get('features.jsonl')=={'session_started':1,'features':170,'session_ended':1}
+    and f.get('inference.jsonl')=={'session_started':1,'observation':170,'session_ended':1}
+    and (f.get('episodes.jsonl') or {}).get('decision')==4 and (f.get('episodes.jsonl') or {}).get('progress',0)>0
+    and a['started_at']<=a['range_start_at']<a['range_end_at'])
+sys.exit(0 if ok else 1)
+PYA
+    then pass "세션 폴더 파일 3개 — features 172·inference 172·episodes decision 4 + progress, feature_archive 1행(경로·구간 시각)"
+    else fail "J1 적재 결과" "${AI:-확인 실패} — $OUT/j1-run1.log"; fi
+    R2="$($TOOLS/batch.sh j1 --session "$J_E" --settle-sec 0 2>>"$OUT/run.log" | grep -m1 '^{')"
+    if python3 -c "import json,sys;r=json.loads(sys.argv[1]);sys.exit(0 if r['archived']==[] and r['ingested']==0 else 1)" "$R2" 2>/dev/null; then
+      pass "J1 다시 실행 — 새 메시지 0·적재 0 (읽은 위치 이어 읽기, 적재된 세션 건너뜀)"
+    else fail "J1 재실행" "${R2:-없음}"; fi
+    if [ "${KEEP_J1:-0}" = 1 ]; then skip "J1 시험 세션 정리" "KEEP_J1=1 — 세션 $J_E·user $UE 남겨 둠"
+    else
+      j3_kit prepare --user "$UE" --closed-days 0 >>"$OUT/run.log"
+      timeout 600 $TOOLS/batch.sh j3 --user "$UE" --grace-days 0 >"$OUT/j1-cleanup.log" 2>&1
+      BE="$(j3_kit status --user "$UE")"
+      if python3 -c "import json,sys;d=json.loads(sys.argv[1])[0];sys.exit(0 if d['user_account']==0 and d['feature_archive']==0 and not d['hdfs_user_folder'] else 1)" "$BE" 2>/dev/null; then
+        pass "정리 — J3가 J1이 쓴 세션 폴더·feature_archive·계정 삭제"
+      else fail "J1 시험 정리" "${BE:-확인 실패} — $OUT/j1-cleanup.log"; fi
+    fi
   fi
 fi
 

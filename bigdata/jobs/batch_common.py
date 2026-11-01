@@ -184,6 +184,26 @@ class Hdfs:
         """폴더째 지운다. 없으면 False(이미 지워짐 — 재시도에서 정상)."""
         return bool(self.fs.delete(self._path(path), True))
 
+    def list_dirs(self, path):
+        """바로 아래 폴더 경로들(없으면 빈 목록)."""
+        if not self.exists(path):
+            return []
+        return [status.getPath().toUri().getPath() for status in self.fs.listStatus(self._path(path))
+                if status.isDirectory()]
+
+    def read_text(self, path):
+        stream = self.fs.open(self._path(path))
+        try:
+            reader = self._jvm.java.io.BufferedReader(self._jvm.java.io.InputStreamReader(stream, "UTF-8"))
+            lines = []
+            line = reader.readLine()
+            while line is not None:
+                lines.append(line)
+                line = reader.readLine()
+            return "\n".join(lines) + ("\n" if lines else "")
+        finally:
+            stream.close()
+
     def write_text(self, path, text):
         stream = self.fs.create(self._path(path), True)
         try:
