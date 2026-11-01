@@ -47,6 +47,11 @@
 5. 로컬 판정 코드(판정 엔진 `machine`·`scenario`·`snapshot`, 복귀 대기, 카메라 샘플, 로컬 측정 화면, v1 서버 측정 코드, 특징·좌표 내보내기)는 지웠다.
 6. 측정 결과는 이 기기에도 남긴다. 오늘 화면용이다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
+8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, [fe-3sec](../design/fe-3sec.md)).** 서버가 3초 묶음마다 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)).
+   `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
+   3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
+   앱은 `observation`에서 쓰는 필드(`valid`·`collapse_probability`·`invalid_reason`)만 검사한다. 운영 서버가 4.0이 될 때까지 3.0도 읽고, 그 뒤 3.0 통과 시험을 지운다.
+   새 기록에는 모델 이름(`modelVersion`)을 쓰지 않는다(4.0에서 빠짐). 예전 기록은 그대로 읽는다.
 
 ## 5. 자세 등록 (옛 ADR 0026, 2026-10-20 전체 회의)
 
@@ -88,3 +93,4 @@
 - 2026-10-26: B1 등록 시각을 서버가 정함(`registered_at` → `registration_id`).
 - 2026-10-27: 프레임마다 1건으로 보냄, 판정 불가는 좌표 없이 신호만(옛 0032).
 - 2026-10-27: ADR 정리로 0025·0026·0032를 이 문서에 합쳤다([지운 문서 기록](../removed-docs.md) 7절).
+- 2026-11-01: 서버 3초 묶음·`observation` 4.0(BE #91)에 맞춰 4절 8번 추가 — 주의 단계(`posture: 'bad'`, 확정 전), 쓰는 필드만 검사, `modelVersion` 저장 안 함.

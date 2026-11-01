@@ -1,12 +1,12 @@
 # FE 계획: BE PR #91(서버 3초 묶음 판정·`observation` 4.0)과 합치기
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 다시 세움: 2026-11-01(BE PR #91 반영, 합병 계획으로) · 상태: **계획**(코드 수정 전). #91은 11/1 develop 머지(`ed3b206`)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 다시 세움: 2026-11-01(BE PR #91 반영, 합병 계획으로) · 상태: **1단계 코드 끝**(11/1 `8c7b53d`, 이 브랜치에 푸시), 로컬 실제 서버 확인(5.3) 남음. #91은 11/1 develop 머지(`ed3b206`)
 > 관련: BE PR #91 `feature/repo-server-frame-batch-inference`(김유진, 10/31 열림)의 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)·[ADR 0047](../decisions/0047-posture-from-deviation-probability.md)·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) 1.0·BE-5 ②·BE-8·**BE-14(이 일의 요청·질문)**, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)(자정 넘김)
 
 ## 0. 요약
 
 - BE PR #91은 서버가 추론 결과를 약 3초 모아 프레임마다 판정하고, 앱에 보내는 `observation`을 **4.0**으로 바꾼다.
-- 지금 앱은 4.0을 **버린다**(측정 화면에 점수가 안 나옴). 그래서 #91이 develop에 들어오면 FE가 그 develop에 맞춰 대응하고 합친다.
+- develop의 앱은 4.0을 **버린다**(측정 화면에 점수가 안 나옴, 이 브랜치에서 고침). 그래서 #91이 develop에 들어오면 FE가 그 develop에 맞춰 대응하고 합친다.
 - **FE 대응(1단계)**
   - `observation`은 쓰는 필드만 검사한다. 그러면 3.0과 4.0을 모두 받는다.
   - `modelVersion`을 기록에 쓰지 않는다.
@@ -91,8 +91,8 @@
 | 1 | #91이 develop에 머지됨 | 끝(11/1 `ed3b206`) |
 | 2 | 이 브랜치(`docs/fe-3sec-replan`)를 새 develop에 맞춤. `fe-3sec.md`는 #91도 계획 번호 3줄(0064 → 0084)을 고쳐 충돌이 난다 — 번호는 이미 반영했으니 **FE 쪽 내용을 고른다** | 끝(11/1 `430c75e`) |
 | 3 | 1단계 코드·시험(2장 표) | 끝(11/1) |
-| 4 | 로컬 실제 서버 확인: #91이 들어간 develop으로 API·추론 서버(`tools/dev.py dev-server`와 같은 구성) + 이 브랜치 앱(`browser-smoke` 합성 카메라, `'normal'`·`'deviation'` 섞기) | #91 뒤 |
-| 5 | 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8 닫기, BE-14 결과 | 끝(11/1, BE-14 결과는 확인 뒤) |
+| 4 | 로컬 실제 서버 확인: #91이 들어간 develop으로 API·추론 서버(`tools/dev.py dev-server`와 같은 구성) + 이 브랜치 앱(`browser-smoke` 합성 카메라, `'normal'`·`'deviation'` 섞기) | 남음 — Docker Desktop이 꺼져 있어 못 함(11/1). 서버 jar 빌드·Kafka 라이브러리 설치는 끝 |
+| 5 | 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8 닫기, ADR 0021 4절 8번·ADR 0005 이력, BE-14 결과 | 끝(11/1, BE-14 결과는 확인 뒤) |
 | 6 | `npm run check`(typecheck·lint·전체 시험·build) 통과 | 끝(11/1) — 시험 933개 중 932 통과, 실패 1개는 develop에도 있는 로케일 문제(`recordTimezone.test.tsx`) |
 
 ### 5.2 순서
@@ -142,7 +142,7 @@
 - [x] 가짜 서버 4.0(`posture` 포함)·약 3초 묶음
 - [x] 시험: 4.0·3.0 모두 받음, 점수·판정 불가·`head_turn`, 주의 → 확정 순서의 문구·색과 소리, 예전 기록 읽기
 - [ ] 로컬 실제 서버 확인(5.3)
-- [x] 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8·BE-14
+- [x] 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8·BE-14, ADR 0021·0005
 - [x] `npm run check`
 - [ ] FE PR·머지 → 포크 → 운영 서버 재배포(DevOps) → 운영 측정 한 번
 - [ ] 운영 서버가 4.0이 된 뒤 전환 기간용 3.0 통과 시험 삭제
@@ -156,3 +156,4 @@
   - BE·DevOps에 할 요청·질문은 FE 제안서 BE-14로 옮겼다.
 - 2026-11-01: #91이 develop에 머지됐다(`ed3b206`). 이 브랜치에 develop을 합쳤다(`fe-3sec.md` 충돌은 FE 쪽).
 - 2026-11-01: 1단계 코드. BE 계약 예시(`ws-observation*.json`)로 지금 앱이 4.0을 버리는 것을 시험으로 재현한 뒤 고쳤다(`messages.test.ts`). `modelVersion` 선택 필드·모델 버전 경고 삭제, `posture` 주의 단계(`.pill.caution`, `--warn` 토큰), 가짜 서버 4.0·3초 묶음(`FAKE_BATCH_MS`, 기본 3000 — 실행해 `ack` 바로·`observation`·`progress` 묶음마다 확인). 연동 명세 5.1·5.3, 제안서 BE-5 ②·BE-8 반영. typecheck·lint(바꾼 파일 경고 0)·build 통과. 로컬 실제 서버 확인(5.3)은 Docker가 꺼져 있어 남았다.
+- 2026-11-01: 1단계를 `docs/fe-3sec-replan`에 푸시했다(`8c7b53d`, PR 없음). ADR 0021 4절에 8번(측정 화면 상태는 서버 값 그대로 — 주의 단계, 쓰는 필드만 검사, `modelVersion` 안 씀)을, ADR 0005 이력에 4.0에서도 점수 식이 같다는 것을 적었다. 남은 것: 5.3(Docker 필요) → FE PR(말할 때) → 포크 → 운영 재배포.
