@@ -39,6 +39,8 @@
 
 ## 3. 특징과 점수 (옛 0013, 옛 0019)
 
+- **계산 위치(2026-10-30, [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)):** 실시간 판정의 특징·점수는 추론 서버가 **프레임마다** 계산한다(API가 서버 시계로 약 3초 모은 프레임을 `POST /v3/infer`에 그대로 넘김, 평균하지 않음). 그 전에는 API(`FrameFeatures.java`)가 구간마다 평균을 내 `POST /v2/infer`에 넘겼다(A안). 아래 규칙은 그대로이고 `FrameFeatures.java`는 hello의 기준 자세 확인과 같은 규칙의 Java 기준값으로 남는다. 시간 판정·임계값 비교는 계속 API 엔진(`DecisionRules`)이다.
+  2026-10-31: API는 받은 구간마다 프레임을 바로 추론에 넘기고, 결과를 모으는 일(약 3초)은 판정 엔진(`SessionEngine`)이 한다. 추론은 HTTP(`POST /v3/infer`, 기본)나 Kafka(`posture.inference-request.v3`·`posture.inference-result.v3`, 설정 `posegood.inference.transport=kafka`)로 부른다. 어느 쪽이든 판정은 API 안이다(이 ADR 그대로).
 - **판정 가능 검사:** 코·양 어깨 visibility 0.65 이상, 화면 가장자리 2% 안쪽, 어깨 폭이 화면 너비 10% 이상, 양 귀 좌표 있음(`FrameFeatures.java`). 검증 전 값이다.
 - **특징 3개:** 기준 자세 대비 **현재 − 기준**이고 모두 **어깨 너비로 정규화**한다. 물리 단위가 아니며 `[-1,1]`로 자르지 않는다.
   - `head_gap_delta`: 머리 높이 차이
@@ -77,4 +79,5 @@
 - 2026-10-14: 옛 0023 — Java 17·Spring Boot 4.0.8·Gradle 전환(작업 내역, 빌드 방법은 [백엔드 안내](../../backend/README.md)).
 - 2026-10-15: 아키텍처 v5.2 — `daily_stat`은 J2, 탈퇴 철회 없음.
 - 2026-10-21: 실시간은 `/v2/realtime` 좌표 스트림([ADR 0021](0021-app-sends-information-server-judges.md)).
+- 2026-10-30: 특징 계산을 추론 서버로(프레임마다, 계획 0084). 이 ADR의 구조(판정은 API 하나 안)는 그대로.
 - 2026-10-27: ADR 정리 — 옛 0012·0013·0014·0019의 최종 결정을 이 문서로 옮기고, 0011·0012·0013·0014·0018·0019·0022·0023을 지웠다([지운 문서 기록](../removed-docs.md) 7절). 로그인 방식(쿠키 세션 → 토큰)은 [ADR 0031](0031-jwt-access-refresh-login.md)이 정한다(2026-10-27 develop PR #68).

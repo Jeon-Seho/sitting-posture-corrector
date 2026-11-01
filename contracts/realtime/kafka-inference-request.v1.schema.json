@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/kafka-inference-request.v1.schema.json",
+  "title": "Topic posture.inference-request.v3: API -> inference (frames of one received interval, plan 0084)",
+  "description": "Key session_id. The body is the HTTP POST /v3/infer request: the interval's frames in t_ms order and the session baseline. sequence is the session's interval number; the result carries it back. Coordinates never go to logs, the DLQ or storage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "session_id", "sequence", "produced_at", "body"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "session_id": { "type": "string", "format": "uuid" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "body": { "$ref": "../inference-request.v3.schema.json" }
+  }
+}

@@ -1,11 +1,11 @@
 package org.posegood.api.realtime;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.contract.SessionView.Summary;
+
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * 실시간 채널({@code /v2/realtime})이 보내는 메시지 형식 모음. 형식은 {@link V2}에 있다(전송 형식은 snake_case).
@@ -38,8 +38,8 @@ final class RealtimeMessages {
 			}
 		}
 
-		record ObservationPush(String type, Observation.V3 observation) {
-			ObservationPush(Observation.V3 observation) {
+		record ObservationPush(String type, Observation.V4 observation) {
+			ObservationPush(Observation.V4 observation) {
 				this("observation", observation);
 			}
 		}
@@ -52,22 +52,22 @@ final class RealtimeMessages {
 
 		/** 판정 사건(세션 ID·스키마 버전 없이). */
 		record Event(
-			long eventId,
-			String kind,
-			long timestampMs,
-			long onsetMs,
-			long onsetValidMs,
-			String deviationType,
-			String reason) {
+				long eventId,
+				String kind,
+				long timestampMs,
+				long onsetMs,
+				long onsetValidMs,
+				String deviationType,
+				String reason) {
 			Event(DecisionEvent event) {
 				this(
-					event.eventId(),
-					event.kind(),
-					event.timestampMs(),
-					event.onsetMs(),
-					event.onsetValidMs(),
-					event.deviationType(),
-					event.reason());
+						event.eventId(),
+						event.kind(),
+						event.timestampMs(),
+						event.onsetMs(),
+						event.onsetValidMs(),
+						event.deviationType(),
+						event.reason());
 			}
 		}
 
@@ -95,14 +95,13 @@ final class RealtimeMessages {
 		 */
 		record SessionRollover(String type, Ended ended, UUID sessionId, Instant startedAt, long atMs) {
 			SessionRollover(
-				UUID previous, Instant endedAt, Summary summary, UUID sessionId, Instant startedAt, long atMs) {
+					UUID previous, Instant endedAt, Summary summary, UUID sessionId, Instant startedAt, long atMs) {
 				this("session_rollover", new Ended(previous, endedAt, summary), sessionId, startedAt, atMs);
 			}
 		}
 
 		/** 자정 넘김으로 끝난 세션: ID, 서버 종료 시각(DB {@code ended_at}과 같은 값, UTC), 최종 요약. */
-		record Ended(UUID sessionId, Instant endedAt, Summary summary) {
-		}
+		record Ended(UUID sessionId, Instant endedAt, Summary summary) {}
 
 		/**
 		 * {@code endedAt}: 측정 세션이 이 연결에서 끝났으면 서버의 세션 종료 시각(DB {@code ended_at}과 같은 값, UTC).

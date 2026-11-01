@@ -1,14 +1,18 @@
 package org.posegood.api.session;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.posegood.api.contract.FeatureDeltas;
 import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.SessionRequests;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * 좌표 프레임 → 기준 대비 특징 변화량(A안: API가 계산하고 추론 {@code POST /v2/infer} 입력은 그대로).
+ * 좌표 프레임 → 기준 대비 특징 변화량.
+ *
+ * 계획 0084(2026-10-30)부터 실시간 판정의 특징 계산은 추론 서버(model/inference/frames.py, {@code POST /v3/infer})가
+ * 프레임마다 한다. 이 클래스는 hello의 기준 자세 확인({@link #baseline}), 같은 규칙의 Java 기준값(시험·합성 추론)으로
+ * 남는다. 두 구현은 같은 합성 사례(아래)로 시험한다. {@link #interval}의 구간 평균은 v2 경로용이며 실시간에는 쓰지 않는다.
  *
  * 규칙은 BE API 명세 11.3과 FE가 넘긴 판정 규칙(2026-10-11, 합성 기준값 contracts/examples/frames/reference-rule-cases.json)이다.
  * 처음 계산식은 앱 프로토타입(develop의 model/prototype/pose.ts·serverFeatures.ts — FE V3에서 앱 판정과 함께 지움, git 이력에 남음)에서
@@ -34,17 +38,15 @@ public final class FrameFeatures {
 	}
 
 	/** 프레임 하나의 특징: 머리-어깨 간격, 좌우 치우침, 어깨 기울기, 품질, 고개 돌림(코-귀 중점). */
-	public record Features(double headGap, double offset, double tilt, double quality, double turn) {
-	}
+	public record Features(double headGap, double offset, double tilt, double quality, double turn) {}
 
 	/**
 	 * 구간 하나의 계산 결과.
 	 *
-	 * {@code deltas}가 null이면 판정에 쓸 프레임이 없다. 그때 {@code invalidReason}은 고개 돌림만 있었으면
+	 * {@code deltas}가 null이면 판정에 쓸 프레임이 없다. 그때 {@code invalidReason}은 고개 돌린 프레임이 하나라도 있으면
 	 * {@code head_turn}, 아니면 {@code unmeasurable}이다. running이 아닌 구간은 둘 다 null이다.
 	 */
-	public record Result(FeatureDeltas deltas, String invalidReason) {
-	}
+	public record Result(FeatureDeltas deltas, String invalidReason) {}
 
 	/**
 	 * 관절 9개 {@code [x, y, visibility]}의 특징. 판정할 수 없으면 null.
@@ -52,19 +54,17 @@ public final class FrameFeatures {
 	 * 코·양 어깨: visibility 0.65~1, 좌표 0.02~0.98. 어깨 폭은 화면 너비의 10% 이상. 양 귀는 좌표만 있으면 된다.
 	 */
 	static Features features(double[][] points) {
-		double[] nose = points[NOSE];
-		double[] left = points[LEFT_SHOULDER];
-		double[] right = points[RIGHT_SHOULDER];
+		double[] nose = points[NOSE], left = points[LEFT_SHOULDER], right = points[RIGHT_SHOULDER];
 		for (double[] p : new double[][] {nose, left, right}) {
 			if (!Double.isFinite(p[0])
-				|| !Double.isFinite(p[1])
-				|| !Double.isFinite(p[2])
-				|| p[2] < MIN_QUALITY
-				|| p[2] > 1
-				|| p[0] < EDGE
-				|| p[0] > 1 - EDGE
-				|| p[1] < EDGE
-				|| p[1] > 1 - EDGE) {
+					|| !Double.isFinite(p[1])
+					|| !Double.isFinite(p[2])
+					|| p[2] < MIN_QUALITY
+					|| p[2] > 1
+					|| p[0] < EDGE
+					|| p[0] > 1 - EDGE
+					|| p[1] < EDGE
+					|| p[1] > 1 - EDGE) {
 				return null;
 			}
 		}
@@ -72,23 +72,22 @@ public final class FrameFeatures {
 		if (span < WIDTH * MIN_SPAN) {
 			return null;
 		}
-		double cx = (left[0] + right[0]) / 2;
-		double cy = (left[1] + right[1]) / 2;
-		double[] leftEar = points[LEFT_EAR];
-		double[] rightEar = points[RIGHT_EAR];
+		double cx = (left[0] + right[0]) / 2, cy = (left[1] + right[1]) / 2;
+		double[] leftEar = points[LEFT_EAR], rightEar = points[RIGHT_EAR];
 		if (!Double.isFinite(leftEar[0])
-			|| !Double.isFinite(leftEar[1])
-			|| !Double.isFinite(rightEar[0])
-			|| !Double.isFinite(rightEar[1])) {
+				|| !Double.isFinite(leftEar[1])
+				|| !Double.isFinite(rightEar[0])
+				|| !Double.isFinite(rightEar[1])) {
 			return null;
 		}
 		double head = (leftEar[0] + rightEar[0]) / 2;
-		var result = new Features(
-			(cy - nose[1]) * HEIGHT / span,
-			(head - cx) * WIDTH / span,
-			(left[1] - right[1]) * HEIGHT / span,
-			Math.min(nose[2], Math.min(left[2], right[2])),
-			(nose[0] - head) * WIDTH / span);
+		var result =
+				new Features(
+						(cy - nose[1]) * HEIGHT / span,
+						(head - cx) * WIDTH / span,
+						(left[1] - right[1]) * HEIGHT / span,
+						Math.min(nose[2], Math.min(left[2], right[2])),
+						(nose[0] - head) * WIDTH / span);
 		return valid(result) ? result : null;
 	}
 
@@ -147,6 +146,21 @@ public final class FrameFeatures {
 		return deltas == null ? new Result(null, "unmeasurable") : new Result(deltas, null);
 	}
 
+	/**
+	 * 프레임 하나의 판정(추론 v3와 같은 규칙): 판정 불가면 변화량 없이 사유({@code unmeasurable}·{@code head_turn}).
+	 */
+	public static Result frame(FrameInterval.Frame frame, Features baseline) {
+		var current = features(frame);
+		if (current == null || baseline == null) {
+			return new Result(null, "unmeasurable");
+		}
+		if (headTurned(current, baseline)) {
+			return new Result(null, "head_turn");
+		}
+		var deltas = deltas(current, baseline);
+		return deltas == null ? new Result(null, "unmeasurable") : new Result(deltas, null);
+	}
+
 	/** 특징 변화량: 현재 − 기준. 유한하지 않으면 null. */
 	static FeatureDeltas deltas(Features current, Features baseline) {
 		if (!valid(current) || !valid(baseline)) {
@@ -167,11 +181,7 @@ public final class FrameFeatures {
 
 	/** 프레임 특징의 단순 평균. */
 	static Features average(List<Features> samples) {
-		double headGap = 0;
-		double offset = 0;
-		double tilt = 0;
-		double quality = 0;
-		double turn = 0;
+		double headGap = 0, offset = 0, tilt = 0, quality = 0, turn = 0;
 		for (var s : samples) {
 			headGap += s.headGap();
 			offset += s.offset();
@@ -179,20 +189,19 @@ public final class FrameFeatures {
 			quality += s.quality();
 			turn += s.turn();
 		}
-		int sampleCount = samples.size();
-		return new Features(headGap / sampleCount, offset / sampleCount, tilt / sampleCount,
-			quality / sampleCount, turn / sampleCount);
+		int n = samples.size();
+		return new Features(headGap / n, offset / n, tilt / n, quality / n, turn / n);
 	}
 
 	/** 특징 값이 모두 유한한지. */
 	private static boolean valid(Features value) {
 		return value != null
-			&& Double.isFinite(value.headGap())
-			&& Double.isFinite(value.offset())
-			&& Double.isFinite(value.tilt())
-			&& Double.isFinite(value.quality())
-			&& Double.isFinite(value.turn())
-			&& value.quality() >= MIN_QUALITY
-			&& value.quality() <= 1;
+				&& Double.isFinite(value.headGap())
+				&& Double.isFinite(value.offset())
+				&& Double.isFinite(value.tilt())
+				&& Double.isFinite(value.quality())
+				&& Double.isFinite(value.turn())
+				&& value.quality() >= MIN_QUALITY
+				&& value.quality() <= 1;
 	}
 }
