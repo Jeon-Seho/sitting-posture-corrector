@@ -1,7 +1,7 @@
 # FE 계획: BE PR #91(서버 3초 묶음 판정·`observation` 4.0)과 합치기
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 다시 세움: 2026-11-01(BE PR #91 반영, 합병 계획으로) · 상태: **계획**(코드 수정 전, #91 머지 대기)
-> 관련: BE PR #91 `feature/repo-server-frame-batch-inference`(김유진, 10/31 열림)의 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)·[ADR 0047](../decisions/0047-posture-from-deviation-probability.md)·[API 명세](api-spec.md) 9·11장(develop에 없으면 PR #91에서 읽는다), [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) 1.0·BE-5 ②·BE-8·**BE-14(이 일의 요청·질문)**, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)(자정 넘김)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 다시 세움: 2026-11-01(BE PR #91 반영, 합병 계획으로) · 상태: **계획**(코드 수정 전). #91은 11/1 develop 머지(`ed3b206`)
+> 관련: BE PR #91 `feature/repo-server-frame-batch-inference`(김유진, 10/31 열림)의 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)·[ADR 0047](../decisions/0047-posture-from-deviation-probability.md)·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) 1.0·BE-5 ②·BE-8·**BE-14(이 일의 요청·질문)**, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)(자정 넘김)
 
 ## 0. 요약
 
@@ -88,8 +88,8 @@
 
 | # | 필요한 것 | 상태 |
 | --- | --- | --- |
-| 1 | #91이 develop에 머지됨 | BE 대기 |
-| 2 | 이 브랜치(`docs/fe-3sec-replan`)를 새 develop에 맞춤. `fe-3sec.md`는 #91도 계획 번호 3줄(0064 → 0084)을 고쳐 충돌이 난다 — 번호는 이미 반영했으니 **FE 쪽 내용을 고른다** | #91 뒤 |
+| 1 | #91이 develop에 머지됨 | 끝(11/1 `ed3b206`) |
+| 2 | 이 브랜치(`docs/fe-3sec-replan`)를 새 develop에 맞춤. `fe-3sec.md`는 #91도 계획 번호 3줄(0064 → 0084)을 고쳐 충돌이 난다 — 번호는 이미 반영했으니 **FE 쪽 내용을 고른다** | 끝(11/1 `430c75e`) |
 | 3 | 1단계 코드·시험(2장 표) | #91 뒤 |
 | 4 | 로컬 실제 서버 확인: #91이 들어간 develop으로 API·추론 서버(`tools/dev.py dev-server`와 같은 구성) + 이 브랜치 앱(`browser-smoke` 합성 카메라, `'normal'`·`'deviation'` 섞기) | #91 뒤 |
 | 5 | 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8 닫기, BE-14 결과 | 코드와 함께 |
@@ -135,7 +135,7 @@
 
 ## 8. 작업 단계
 
-- [ ] #91 develop 머지 확인 → 이 브랜치를 develop에 맞춤(`fe-3sec.md`는 FE 쪽)
+- [x] #91 develop 머지 확인 → 이 브랜치를 develop에 맞춤(`fe-3sec.md`는 FE 쪽, 11/1)
 - [ ] `messages.ts` 쓰는 필드만 검사(3.0·4.0), 타입 4.0
 - [ ] `modelVersion` 선택 필드, 기록에 안 씀, 모델 버전 경고 삭제
 - [ ] `posture` 주의 단계: `headline()`·`tone`, `.pill` 주의 색
@@ -153,3 +153,4 @@
   - `observation`은 쓰는 필드만 검사해 3.0·4.0을 모두 받는다. 「같은 날 배포」는 필요 없다. #91이 들어간 develop에 맞춰 FE를 하고, 운영 서버 재배포만 포크 반영 뒤로 한다.
   - 점수 계산은 표시용 변환이라 그대로 둔다. `posture: 'bad'`는 3초 확정 **전** 순간 판정이라 주의 문구를 1단계에 넣는다(3초 카운트·확정은 BE `decision`).
   - BE·DevOps에 할 요청·질문은 FE 제안서 BE-14로 옮겼다.
+- 2026-11-01: #91이 develop에 머지됐다(`ed3b206`). 이 브랜치에 develop을 합쳤다(`fe-3sec.md` 충돌은 FE 쪽).
