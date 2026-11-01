@@ -90,10 +90,10 @@
 | --- | --- | --- |
 | 1 | #91이 develop에 머지됨 | 끝(11/1 `ed3b206`) |
 | 2 | 이 브랜치(`docs/fe-3sec-replan`)를 새 develop에 맞춤. `fe-3sec.md`는 #91도 계획 번호 3줄(0064 → 0084)을 고쳐 충돌이 난다 — 번호는 이미 반영했으니 **FE 쪽 내용을 고른다** | 끝(11/1 `430c75e`) |
-| 3 | 1단계 코드·시험(2장 표) | #91 뒤 |
+| 3 | 1단계 코드·시험(2장 표) | 끝(11/1) |
 | 4 | 로컬 실제 서버 확인: #91이 들어간 develop으로 API·추론 서버(`tools/dev.py dev-server`와 같은 구성) + 이 브랜치 앱(`browser-smoke` 합성 카메라, `'normal'`·`'deviation'` 섞기) | #91 뒤 |
-| 5 | 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8 닫기, BE-14 결과 | 코드와 함께 |
-| 6 | `npm run check`(typecheck·lint·전체 시험·build) 통과 | 코드와 함께 |
+| 5 | 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8 닫기, BE-14 결과 | 끝(11/1, BE-14 결과는 확인 뒤) |
+| 6 | `npm run check`(typecheck·lint·전체 시험·build) 통과 | 끝(11/1) — 시험 933개 중 932 통과, 실패 1개는 develop에도 있는 로케일 문제(`recordTimezone.test.tsx`) |
 
 ### 5.2 순서
 
@@ -136,14 +136,14 @@
 ## 8. 작업 단계
 
 - [x] #91 develop 머지 확인 → 이 브랜치를 develop에 맞춤(`fe-3sec.md`는 FE 쪽, 11/1)
-- [ ] `messages.ts` 쓰는 필드만 검사(3.0·4.0), 타입 4.0
-- [ ] `modelVersion` 선택 필드, 기록에 안 씀, 모델 버전 경고 삭제
-- [ ] `posture` 주의 단계: `headline()`·`tone`, `.pill` 주의 색
-- [ ] 가짜 서버 4.0(`posture` 포함)·약 3초 묶음
-- [ ] 시험: 4.0·3.0 모두 받음, 점수·판정 불가·`head_turn`, 주의 → 확정 순서의 문구·색과 소리, 예전 기록 읽기
+- [x] `messages.ts` 쓰는 필드만 검사(3.0·4.0), 타입 4.0
+- [x] `modelVersion` 선택 필드, 기록에 안 씀, 모델 버전 경고 삭제
+- [x] `posture` 주의 단계: `headline()`·`tone`, `.pill` 주의 색
+- [x] 가짜 서버 4.0(`posture` 포함)·약 3초 묶음
+- [x] 시험: 4.0·3.0 모두 받음, 점수·판정 불가·`head_turn`, 주의 → 확정 순서의 문구·색과 소리, 예전 기록 읽기
 - [ ] 로컬 실제 서버 확인(5.3)
-- [ ] 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8·BE-14
-- [ ] `npm run check`
+- [x] 문서: 연동 명세 5.1·5.3, FE 제안서 1.0 표·BE-5 ②·BE-8·BE-14
+- [x] `npm run check`
 - [ ] FE PR·머지 → 포크 → 운영 서버 재배포(DevOps) → 운영 측정 한 번
 - [ ] 운영 서버가 4.0이 된 뒤 전환 기간용 3.0 통과 시험 삭제
 
@@ -155,3 +155,4 @@
   - 점수 계산은 표시용 변환이라 그대로 둔다. `posture: 'bad'`는 3초 확정 **전** 순간 판정이라 주의 문구를 1단계에 넣는다(3초 카운트·확정은 BE `decision`).
   - BE·DevOps에 할 요청·질문은 FE 제안서 BE-14로 옮겼다.
 - 2026-11-01: #91이 develop에 머지됐다(`ed3b206`). 이 브랜치에 develop을 합쳤다(`fe-3sec.md` 충돌은 FE 쪽).
+- 2026-11-01: 1단계 코드. BE 계약 예시(`ws-observation*.json`)로 지금 앱이 4.0을 버리는 것을 시험으로 재현한 뒤 고쳤다(`messages.test.ts`). `modelVersion` 선택 필드·모델 버전 경고 삭제, `posture` 주의 단계(`.pill.caution`, `--warn` 토큰), 가짜 서버 4.0·3초 묶음(`FAKE_BATCH_MS`, 기본 3000 — 실행해 `ack` 바로·`observation`·`progress` 묶음마다 확인). 연동 명세 5.1·5.3, 제안서 BE-5 ②·BE-8 반영. typecheck·lint(바꾼 파일 경고 0)·build 통과. 로컬 실제 서버 확인(5.3)은 Docker가 꺼져 있어 남았다.

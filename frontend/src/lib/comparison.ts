@@ -42,9 +42,6 @@ export type ComparisonConditions = {
   sources: { source: RecordSource; sessions: number }[]
   settings: { rules: Rules; sessions: number }[]
   missingSettings: number
-  modelVersions: string[]
-  missingModelVersions: number
-  unmeasuredModels: number
   baselineIds: string[]
   missingBaselineIds: number
   unconfirmedServerSessions: number
@@ -81,9 +78,6 @@ export function comparisonConditions(records: RecordItem[]): ComparisonCondition
     sources: [],
     settings: [],
     missingSettings: 0,
-    modelVersions: [],
-    missingModelVersions: 0,
-    unmeasuredModels: 0,
     baselineIds: [],
     missingBaselineIds: 0,
     unconfirmedServerSessions: 0,
@@ -102,11 +96,6 @@ export function comparisonConditions(records: RecordItem[]): ComparisonCondition
     } else conditions.missingSettings += 1
 
     const server = record.server
-    if (!server || !server.view) conditions.missingModelVersions += 1
-    else if (server.modelVersion === 'unmeasured') conditions.unmeasuredModels += 1
-    else if (!conditions.modelVersions.includes(server.modelVersion)) {
-      conditions.modelVersions.push(server.modelVersion)
-    }
     if (record.mode === 'camera') {
       if (!server) conditions.missingBaselineIds += 1
       else if (!conditions.baselineIds.includes(server.baselineId)) {
@@ -130,7 +119,6 @@ export function comparisonWarnings(conditions: ComparisonConditions): string[] {
       '적용 설정이 다릅니다. 이탈 확정·복귀 확인·재알림 시간과 변화 기준의 차이가 결과에 영향을 줄 수 있습니다.',
     )
   }
-  if (conditions.modelVersions.length > 1) warnings.push('추론 모델 버전이 서로 다릅니다.')
   if (conditions.baselineIds.length > 1) {
     warnings.push(
       '개인 기준 ID가 서로 다릅니다. 다시 등록한 기준으로 측정한 기록이 함께 포함됩니다.',
@@ -140,9 +128,6 @@ export function comparisonWarnings(conditions: ComparisonConditions): string[] {
     warnings.push(
       '일부 웹캠 기록에 개인 기준 ID가 없어 같은 기준으로 측정했는지 확인할 수 없습니다.',
     )
-  }
-  if (conditions.missingModelVersions > 0) {
-    warnings.push('일부 기록에 모델 버전이 없어 같은 판정 모델인지 확인할 수 없습니다.')
   }
   if (conditions.missingSettings > 0) warnings.push('일부 기록에 적용 설정이 남아 있지 않습니다.')
   if (conditions.unconfirmedServerSessions > 0) {

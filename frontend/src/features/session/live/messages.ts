@@ -35,16 +35,18 @@ export type Decision = {
   reason: null | 'missing' | 'missing_sequence' | 'unmeasurable' | 'rest' | 'away' | 'ended'
 }
 
+/**
+ * `observation` 4.0 (plan 0084): the live status of the last judgeable frame of a ~3 s server batch.
+ * `posture` is the server's momentary good/bad (threshold applied, ADR 0047), before the 3 s confirmation
+ * that still comes as `decision`·`alert`. Only `valid`·`collapse_probability`·`invalid_reason` are required,
+ * so a 3.0 message (same three fields) is read too while the running server is not redeployed (fe-3sec).
+ */
 export type LiveObservation = {
-  sequence: number
-  start_ms: number
-  end_ms: number
-  phase: 'running' | 'rest' | 'away'
+  schema_version?: string
   valid: boolean
+  posture?: 'good' | 'bad' | null
   collapse_probability: number
-  deviation_type: Deviation
   invalid_reason: null | 'unmeasurable' | 'head_turn' | 'settling'
-  model_version: string
 }
 
 export type PausedReason = null | 'rest' | 'away' | 'unmeasurable'
@@ -125,12 +127,9 @@ function validDecision(v: unknown): v is Decision {
 function validObservation(v: unknown): v is LiveObservation {
   return (
     obj(v) &&
-    num(v.sequence) &&
-    num(v.start_ms) &&
-    num(v.end_ms) &&
     typeof v.valid === 'boolean' &&
     num(v.collapse_probability) &&
-    typeof v.deviation_type === 'string'
+    (v.invalid_reason === null || typeof v.invalid_reason === 'string')
   )
 }
 

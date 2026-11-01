@@ -215,6 +215,11 @@
   color: var(--alert-ink);
 }
 
+.pill.caution {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+
 .pill.unknown {
   background: var(--unknown-tint);
   color: var(--ink-2);

@@ -237,7 +237,6 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
         ? {
             server: {
               baselineId: session.baselineId,
-              modelVersion: state.observation?.model_version ?? 'unmeasured',
               confirmed,
               view: checked,
             },

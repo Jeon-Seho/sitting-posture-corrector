@@ -97,7 +97,7 @@ describe('saved comparison conditions', () => {
     ])
   })
 
-  it('discloses source differences and absent local metadata without inventing model or baseline IDs', () => {
+  it('discloses source differences and absent local metadata without inventing baseline IDs', () => {
     const local = record('local', 8, 1, 3600, 3000)
     const demo = { ...record('demo', 8, 2, 3600, 3000), mode: 'demo' as const }
     const server = serverRecord('server', 27)
@@ -109,7 +109,6 @@ describe('saved comparison conditions', () => {
     ])
     expect(conditions.baselineIds).toEqual([BASELINE_ID])
     expect(conditions.missingBaselineIds).toBe(1)
-    expect(conditions.missingModelVersions).toBe(2)
     expect(conditions.missingSettings).toBe(2)
     expect(comparisonWarnings(conditions).join(' ')).toContain(
       '같은 기준으로 측정했는지 확인할 수 없습니다',
@@ -117,34 +116,27 @@ describe('saved comparison conditions', () => {
     expect(recordedRules(local)).toBeNull()
   })
 
-  it('discloses different known baselines and model versions without mutating the saved records', () => {
+  it('discloses different known baselines without mutating the saved records', () => {
     const early = serverRecord('early', 1)
     const recent = serverRecord('recent', 27)
     recent.server!.baselineId = '33333333-3333-4333-8333-333333333333'
-    recent.server!.modelVersion = 'synthetic-other-model-v2'
     const before = structuredClone([early, recent])
     const conditions = comparisonConditions([early, recent])
     expect(conditions.baselineIds).toHaveLength(2)
-    expect(conditions.modelVersions).toHaveLength(2)
-    expect(comparisonWarnings(conditions).join(' ')).toContain('모델 버전이 서로 다릅니다')
     expect(comparisonWarnings(conditions).join(' ')).toContain('개인 기준 ID가 서로 다릅니다')
     conditions.settings[0].rules.holdSeconds = 999
     expect([early, recent]).toEqual(before)
   })
 
-  it('keeps an unconfirmed server record and distinguishes absent response from absent inference', () => {
+  it('keeps an unconfirmed server record in the statistics and discloses it', () => {
     const unconfirmed = serverRecord('unconfirmed', 1)
     unconfirmed.server!.confirmed = false
     unconfirmed.server!.view = null
-    const unmeasured = serverRecord('unmeasured', 27)
-    unmeasured.server!.modelVersion = 'unmeasured'
-    const conditions = comparisonConditions([unconfirmed, unmeasured])
-    expect(conditions.modelVersions).toEqual([])
-    expect(conditions.missingModelVersions).toBe(1)
-    expect(conditions.unmeasuredModels).toBe(1)
+    const confirmed = serverRecord('confirmed', 27)
+    const conditions = comparisonConditions([unconfirmed, confirmed])
     expect(conditions.unconfirmedServerSessions).toBe(1)
     expect(comparisonWarnings(conditions).join(' ')).toContain('서버 종료를 확인하지 못한 기록')
-    expect(periodStats([unconfirmed, unmeasured], '', '').sessions).toBe(2)
+    expect(periodStats([unconfirmed, confirmed], '', '').sessions).toBe(2)
   })
 })
 const record = (

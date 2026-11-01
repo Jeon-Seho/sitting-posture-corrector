@@ -21,18 +21,27 @@ export type LiveSessionPageProps = {
   openSocket?: (url: string) => SocketLike
 }
 
-function headline(state: LiveState | null, phase: string) {
+export function headline(state: LiveState | null, phase: string) {
   if (!state || phase === 'creating' || phase === 'connecting') return '서버에 연결하고 있어요'
   if (phase === 'ending') return '측정을 마무리하고 있어요'
   if (phase === 'failed') return '측정을 시작하지 못했어요'
   if (phase === 'paused') return state.sending === 'away' ? '카메라 영상을 기다리고 있어요' : '쉬는 중'
   if (!state.placeable || !state.observation?.valid) return '자세를 확인할 수 없어요'
-  return state.alerting ? '자세가 흐트러졌어요' : '바른 자세예요'
+  if (state.alerting) return '자세가 흐트러졌어요'
+  return state.observation.posture === 'bad' ? '자세가 흐트러지고 있어요' : '바른 자세예요'
+}
+
+/** Pill colour; `measured` is null while nothing can be judged. */
+export function statusTone(measured: LiveState | null) {
+  if (!measured) return 'unknown'
+  if (measured.alerting) return 'collapse'
+  return measured.observation?.posture === 'bad' ? 'caution' : 'good'
 }
 
 /**
  * The measurement screen. Every number and state here is what the server sent (ADR 0021,
- * 2026-10-21): the score is 100 × (1 − collapse_probability), the alert is the server's
+ * 2026-10-21): the score is 100 × (1 − collapse_probability), the caution is the server's momentary
+ * `posture: 'bad'` before the 3 s confirmation (no sound, fe-3sec), the alert is the server's
  * confirmed collapse, the statistics are its summary.
  */
 export function LiveSessionPage(props: LiveSessionPageProps) {
@@ -45,7 +54,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const measurable = running && !!state?.placeable && !!state?.observation?.valid
   const score = postureScore(measurable ? state!.observation!.collapse_probability : null)
   const label = headline(state, phase)
-  const tone = !measurable ? 'unknown' : state!.alerting ? 'collapse' : 'good'
+  const tone = statusTone(measurable ? state : null)
   const keepRate = summary?.keep_rate ?? null
   const totalSeconds = (summary?.total_ms ?? 0) / 1000
   const validSeconds = (summary?.valid_ms ?? 0) / 1000

@@ -4,7 +4,8 @@
 //   npm run dev                             # 다른 터미널에서. 아무 이메일·비밀번호로 로그인된다
 //
 // 흉내 내는 것: 토큰 로그인(A2·A3·A4·A5·A8, BE ADR 0031 — access 토큰 + refresh 쿠키), B1·B2 기준 자세, S1·S4 세션, R1 기록(빈 목록),
-// WS /v2/realtime(hello → ready, features → ack·observation·progress, 판정 사건·alert, end → closed).
+// WS /v2/realtime(hello → ready, features → ack 바로, observation·판정 사건·alert·progress는 약 3초 묶음마다(계획 0084), end → closed).
+// observation은 4.0(valid·posture·collapse_probability·invalid_reason), 묶음의 마지막 판정 가능 프레임 값이다.
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
 // S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
 import { createHash, randomUUID } from 'node:crypto'
@@ -13,6 +14,8 @@ import { createServer } from 'node:http'
 const PORT = Number(process.env.FAKE_SERVER_PORT ?? 8090)
 // access 토큰 수명(초). 갱신을 보려면 짧게: FAKE_ACCESS_SECONDS=120
 const ACCESS_SECONDS = Number(process.env.FAKE_ACCESS_SECONDS ?? 1800)
+// 판정 결과를 모아 보내는 주기(ms, 서버 batch-window 흉내). 바로 보려면 FAKE_BATCH_MS=0
+const BATCH_MS = Number(process.env.FAKE_BATCH_MS ?? 3000)
 const today = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const user = { user_id: '1', email: 'fake@posegood.local', profile: { name: '테스트', age: null, occupation: null } }
 let signedIn = false
@@ -111,7 +114,7 @@ function newSession(id, policy) {
   return {
     id, policy, startedAt: new Date().toISOString(), ended: false, lastSequence: -1, events: [], recoveries: [],
     t: { total_ms: 0, valid_ms: 0, normal_ms: 0, deviation_ms: 0, rest_ms: 0, away_ms: 0, unknown_ms: 0, missing_ms: 0 },
-    hold: 0, recover: 0, collapsed: false, onset: 0, onsetValid: 0, firstAlert: 0, lastAlert: 0, lastProgress: 0,
+    hold: 0, recover: 0, collapsed: false, onset: 0, onsetValid: 0, firstAlert: 0, lastAlert: 0,
   }
 }
 
@@ -149,10 +152,8 @@ function judge(s, interval, out) {
   out.push({
     type: 'observation',
     observation: {
-      schema_version: '3.0', sequence: interval.sequence, start_ms: interval.start_ms, end_ms: interval.end_ms,
-      phase: interval.phase, valid, valid_ms: valid ? duration : 0, collapse_probability: valid ? probability : 0,
-      deviation_type: valid && probability >= s.policy.threshold ? 'forward_slouch' : 'none',
-      invalid_reason: valid ? null : 'unmeasurable', model_version: 'fake-rule',
+      schema_version: '4.0', valid, posture: valid ? (probability >= s.policy.threshold ? 'bad' : 'good') : null,
+      collapse_probability: valid ? probability : 0, invalid_reason: valid ? null : 'unmeasurable',
     },
   })
   const event = (kind, extra = {}) => {
@@ -194,6 +195,19 @@ server.on('upgrade', (req, socket) => {
   console.log('WS open')
   let buffer = Buffer.alloc(0)
   let session = null
+  // 판정 결과 묶음: observation은 마지막 판정 가능한 것 하나, 사건·alert는 순서대로, 끝에 progress.
+  let pending = []
+  let paused = null
+  const flush = () => {
+    if (!session || !pending.length) return
+    const observations = pending.filter((o) => o.type === 'observation')
+    const last = observations.findLast((o) => o.observation.valid) ?? observations.at(-1)
+    if (last) write(last)
+    pending.filter((o) => o.type !== 'observation').forEach(write)
+    pending = []
+    write({ type: 'progress', last_sequence: session.lastSequence, summary: summary(session), paused_reason: paused })
+  }
+  const timer = BATCH_MS > 0 ? setInterval(flush, BATCH_MS) : null
   const write = (message) => {
     if (socket.destroyed) return
     const data = Buffer.from(JSON.stringify(message))
@@ -203,6 +217,7 @@ server.on('upgrade', (req, socket) => {
     socket.write(Buffer.concat([head, data]))
   }
   const close = (reason) => {
+    if (timer) clearInterval(timer)
     write({ type: 'closed', reason, ended_at: session?.ended ? new Date(Date.parse(session.startedAt) + session.t.total_ms).toISOString() : null })
     socket.end(Buffer.from([0x88, 0]))
     console.log(`WS closed(${reason})`)
@@ -220,18 +235,16 @@ server.on('upgrade', (req, socket) => {
     if (!session) return close('bad_message')
     if (m.type === 'features') {
       for (const interval of m.items ?? []) {
-        const out = []
-        judge(session, interval, out)
+        judge(session, interval, pending)
+        paused = interval.phase === 'running' ? null : interval.phase
         write({ type: 'ack', last_sequence: session.lastSequence })
-        out.forEach(write)
-        if (session.t.total_ms - session.lastProgress >= 1000 || out.some((o) => o.type === 'decision')) {
-          session.lastProgress = session.t.total_ms
-          write({ type: 'progress', last_sequence: session.lastSequence, summary: summary(session), paused_reason: interval.phase === 'running' ? null : interval.phase })
-        }
+        // 쉬기·자리 비움은 묶음을 기다리지 않는다(계획 0084 15번).
+        if (BATCH_MS <= 0 || paused) flush()
       }
       return
     }
     if (m.type === 'end') {
+      flush()
       session.t.total_ms = Math.max(session.t.total_ms, m.end_ms ?? 0)
       session.ended = true
       session.events.push({
@@ -264,7 +277,10 @@ server.on('upgrade', (req, socket) => {
     }
   })
   socket.on('error', () => {})
-  socket.on('close', () => console.log('WS gone'))
+  socket.on('close', () => {
+    if (timer) clearInterval(timer)
+    console.log('WS gone')
+  })
 })
 
 server.listen(PORT, '127.0.0.1', () => console.log(`가짜 서버: http://127.0.0.1:${PORT} (Ctrl+C로 끝)`))

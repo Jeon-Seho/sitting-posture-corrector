@@ -213,11 +213,12 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     socket.push({
       type: 'observation',
-      observation: {
-        schema_version: '3.0', sequence: 0, start_ms: 0, end_ms: 500, phase: 'running', valid: true, valid_ms: 500,
-        collapse_probability: 0.82, deviation_type: 'forward_slouch', invalid_reason: null, model_version: 'm',
-      },
+      observation: { schema_version: '4.0', valid: true, posture: 'bad', collapse_probability: 0.82, invalid_reason: null },
     })
+    // The momentary `posture: 'bad'` is only a caution on screen: no alert until the server confirms (fe-3sec).
+    expect(live.state.observation?.posture).toBe('bad')
+    expect(live.state.alerting).toBe(false)
+    expect(alerts).toEqual([])
     const summary = { ...EMPTY_SUMMARY, total_ms: 500, valid_ms: 500, deviation_ms: 500, collapse_count: 1, alert_count: 1, keep_rate: 0, events_per_hour: 7200 }
     const decision = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
     socket.push({ type: 'decision', event: decision, summary })
