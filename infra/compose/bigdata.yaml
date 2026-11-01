@@ -79,6 +79,7 @@ volumes:
   redis-data:
   hdfs-namenode-data:
   hdfs-datanode-data:
+  spark-ivy:
 
 # 모든 서비스 공통 로그 크기 제한. 컨테이너당 최대 30MB(10MB×3)로
 # 캡을 걸어, 장시간 /health·/actuator/health 폴링만으로 디스크가
@@ -254,12 +255,18 @@ services:
     command: ["tail", "-f", "/dev/null"]
     ports:
       - "127.0.0.1:${SPARK_UI_HOST_PORT:-4040}:4040"   # spark-submit 실행 중에만 뜨는 Spark 애플리케이션 UI — 서버 PC 내부 전용
+    # (D-05·D-49·D-33) Spark 배치 J1·J2·J3가 서비스 DB에 접속 — 처리 서비스와 같은 DB_HOST·DB_PORT·DB_USER·
+    # DB_PASSWORD·SERVICE_DB_SCHEMA. 잡은 tools/platform/batch.sh가 docker exec spark-submit으로 실행(cron)
+    env_file:
+      - ./.env
     environment:
       TZ: "Asia/Seoul"   # (D-20) 컨테이너 시각을 한국 시각으로
     volumes:
       - /etc/localtime:/etc/localtime:ro            # (D-20) 호스트(서버 PC, KST) 시간대
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro  # (D-20) 시간대 DB가 없는 이미지(alpine·slim) 대비
       - ./spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro   # (D-61) HDFS 복제 수 1 등 Spark 기본 설정
+      - ../../bigdata/jobs:/opt/jobs:ro             # (D-05) 배치 잡 코드 — 저장소에서 바로 읽음(이미지 다시 빌드 없음)
+      - spark-ivy:/opt/spark-ivy                    # (D-05) --packages로 받은 MySQL JDBC 드라이버 보관(처음 한 번만 받음)
     networks:
       - app-network
 

@@ -1,0 +1,139 @@
+"""Spark 배치(J1·J2·J3) 공통 — 설정, Spark 세션, 서비스 DB 읽기·쓰기 (아키텍처 v5.3 ㉘).
+
+서버 PC의 spark 컨테이너에서 spark-submit으로 실행한다(tools/platform/batch.sh). DB 접속 값은 처리 서비스와 같은
+infra/compose/.env 값을 컨테이너 환경 변수로 받는다: DB_HOST·DB_PORT·DB_USER·DB_PASSWORD·SERVICE_DB_SCHEMA.
+MySQL JDBC 드라이버는 spark-submit --packages(com.mysql:mysql-connector-j)로 받는다.
+
+시각: DB의 DATETIME은 모두 KST(한국 시각)다. 시간대 변환이 끼지 않도록 시각 계산은 SQL 안에서 끝내고
+(세션 시작 기준 밀리초), Spark에는 숫자만 넘긴다. 날짜 경계도 KST 문자열('YYYY-MM-DD 00:00:00')로 비교한다.
+로그에 이메일·좌표 같은 개인정보를 남기지 않는다(사용자 ID와 개수만).
+"""
+
+import datetime as dt
+import os
+import re
+import sys
+from zoneinfo import ZoneInfo
+
+KST = ZoneInfo("Asia/Seoul")
+MYSQL_DRIVER = "com.mysql.cj.jdbc.Driver"
+
+
+def log(job, message):
+    print(f"[{dt.datetime.now(KST):%Y-%m-%d %H:%M:%S}] {job} {message}", flush=True)
+
+
+def now_kst_text():
+    """DB DATETIME(3)에 넣을 지금 시각(KST)."""
+    return dt.datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S.%f")[:23]
+
+
+def yesterday_kst():
+    return dt.datetime.now(KST).date() - dt.timedelta(days=1)
+
+
+def parse_date(text):
+    return dt.date.fromisoformat(text)
+
+
+def parse_users(text):
+    """'12,34' → [12, 34]. 숫자만 받는다(SQL에 그대로 넣기 때문)."""
+    if not text:
+        return []
+    users = [int(part) for part in text.split(",") if part.strip()]
+    if any(user <= 0 for user in users):
+        raise ValueError("user_account_id는 1 이상")
+    return users
+
+
+class DbConfig:
+    """infra/compose/.env의 DB 값. 비밀번호는 출력하지 않는다."""
+
+    def __init__(self, env=None):
+        env = os.environ if env is None else env
+        missing = [k for k in ("DB_HOST", "DB_USER", "DB_PASSWORD", "SERVICE_DB_SCHEMA") if not env.get(k)]
+        if missing:
+            raise SystemExit("DB 설정 없음: " + ", ".join(missing) + " — spark 컨테이너에 infra/compose/.env가 들어가는지 확인")
+        self.host = env["DB_HOST"]
+        self.port = int(env.get("DB_PORT") or 3306)
+        self.user = env["DB_USER"]
+        self.password = env["DB_PASSWORD"]
+        self.schema = env["SERVICE_DB_SCHEMA"]
+        if not re.fullmatch(r"[A-Za-z0-9_]+", self.schema):
+            raise SystemExit("SERVICE_DB_SCHEMA는 영문·숫자·_만")
+
+    @property
+    def url(self):
+        # 처리 서비스(backend/processing application.yml)와 같은 접속 옵션
+        return (f"jdbc:mysql://{self.host}:{self.port}/{self.schema}"
+                "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul")
+
+
+def spark_session(app_name):
+    from pyspark.sql import SparkSession
+
+    spark = (SparkSession.builder.appName(app_name)
+             .config("spark.sql.session.timeZone", "Asia/Seoul")
+             .config("spark.ui.showConsoleProgress", "false")
+             .getOrCreate())
+    spark.sparkContext.setLogLevel("WARN")
+    return spark
+
+
+def read_query(spark, db, sql):
+    """SQL 결과를 DataFrame으로. 값은 호출하는 쪽이 검사한 숫자·날짜만 넣는다."""
+    return (spark.read.format("jdbc")
+            .option("url", db.url).option("driver", MYSQL_DRIVER)
+            .option("user", db.user).option("password", db.password)
+            .option("query", sql).load())
+
+
+class Jdbc:
+    """쓰기용 JDBC 연결(드라이버 JVM). Spark JDBC 쓰기는 upsert·삭제를 못 해서 직접 연결한다.
+
+    DriverManager 대신 드라이버 객체로 연다 — --packages로 받은 드라이버는 DriverManager가 못 찾는 경우가 있다.
+    with 블록 하나가 트랜잭션 하나다: 예외가 나면 rollback, 아니면 commit.
+    """
+
+    def __init__(self, spark, db):
+        jvm = spark.sparkContext._jvm
+        props = jvm.java.util.Properties()
+        props.setProperty("user", db.user)
+        props.setProperty("password", db.password)
+        self.connection = jvm.com.mysql.cj.jdbc.Driver().connect(db.url, props)
+        self.connection.setAutoCommit(False)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, value, trace):
+        try:
+            if kind is None:
+                self.connection.commit()
+            else:
+                self.connection.rollback()
+        finally:
+            self.connection.close()
+        return False
+
+    def execute(self, sql, params=()):
+        """바뀐 행 수를 돌려준다. 값은 ?로만 넘긴다."""
+        statement = self.connection.prepareStatement(sql)
+        try:
+            for index, value in enumerate(params, start=1):
+                if value is None:
+                    statement.setObject(index, None)
+                elif isinstance(value, bool):
+                    statement.setBoolean(index, value)
+                elif isinstance(value, int):
+                    statement.setLong(index, value)
+                else:
+                    statement.setString(index, str(value))
+            return statement.executeUpdate()
+        finally:
+            statement.close()
+
+
+def fail(job, message, code=1):
+    log(job, "FAIL " + message)
+    sys.exit(code)

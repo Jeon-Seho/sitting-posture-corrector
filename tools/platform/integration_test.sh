@@ -692,6 +692,73 @@ else
 fi
 
 # ---------------------------------------------------------------------
+step "15. Spark 배치 J2 — 일별 통계 daily_stat (D-05)"
+# 오늘(KST) 시험 세션 2개를 만들어(11단계와 같은 재생) J2를 오늘 날짜·그 시험 계정만으로 돌리고, 저장된 행을 확인한다
+# (운영 cron은 어제 날짜, 실제 사용자 행은 건드리지 않음).
+#   A: T-10 기본 재생 85.0s · good 15.0 · 붕괴 1(알림 있음)  /  B: D-39 재생 8.0s · good 4.0 · PAUSE 2.5s + MISSING 1.5s
+# 시험 세션을 지우면 시험 계정과 daily_stat 행도 함께 지워진다(FK CASCADE). 처음 실행은 MySQL JDBC 드라이버를 받는다.
+if [ "$E2E" = 0 ]; then skip "J2 일별 통계" "--no-e2e"
+elif [ ! -x $TOOLS/batch.sh ]; then skip "J2 일별 통계" "$TOOLS/batch.sh 없음"
+elif ! docker exec spark test -f /opt/jobs/j2_daily_stat.py 2>/dev/null; then
+  fail "J2 잡 코드" "spark 컨테이너에 /opt/jobs/j2_daily_stat.py 없음 — $DC up -d --no-build spark (bigdata/jobs 마운트)"
+elif ! curl -s -m 5 "$API/report/store" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)" 2>/dev/null; then
+  skip "J2 일별 통계" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 세션을 만들 수 없음"
+else
+  JDAY="$(TZ=Asia/Seoul date +%F)"
+  J_A="$(python3 -c 'import uuid;print(uuid.uuid4())')"; J_B="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+  UA="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_A" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
+  UB="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_B" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
+  if [ -z "$UA" ] || [ -z "$UB" ]; then fail "J2 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
+  else
+    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J2A-$TS" --session-id "$J_A" >"$OUT/j2-replay-a.log" 2>&1
+    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J2B-$TS" --session-id "$J_B" \
+      --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/j2-replay-b.log" 2>&1
+    VA=""; VB=""
+    for _ in $(seq 1 30); do
+      VA="$(curl -s -m 5 "$API/report/sessions/$J_A")"; VB="$(curl -s -m 5 "$API/report/sessions/$J_B")"
+      python3 -c "import json,sys;sys.exit(0 if all(json.loads(a).get('ended_ms') is not None for a in sys.argv[1:]) else 1)" "$VA" "$VB" 2>/dev/null && break
+      sleep 2
+    done
+    echo "J2 시험 세션: A=$VA B=$VB" >>"$OUT/run.log"
+    # 기대값: 저장 결과(report/sessions)에서 계산 — 유효 = 세션 길이 − 제외 구간 합(0.1초 아래 버림)
+    EXP="$(python3 - "$VA" "$VB" "$UA" "$UB" <<'PYJ'
+import json,sys
+out=[]
+for raw,uid in zip(sys.argv[1:3],sys.argv[3:5]):
+    v=json.loads(raw); end=v['ended_ms']
+    ex=sum(max(0,min(x['ended_ms'] if x['ended_ms'] is not None else end,end)-max(x['started_ms'],0)) for x in v.get('excluded') or [])
+    ds=(end-ex)//100; ev=v.get('events') or []
+    out.append({'user_account_id':int(uid),'valid_sec':f"{ds//10}.{ds%10}",'good_sec':f"{float(v['good_sec']):.1f}",
+                'session_count':1,'event_count':len(ev),
+                'alerted_event_count':len({a['event_seq'] for a in v.get('alerts') or [] if a.get('displayed')}),
+                'min_until_collapse_sec':None,'max_until_collapse_sec':None})
+print(json.dumps(sorted(out,key=lambda r:r['user_account_id'])))
+PYJ
+)"
+    echo "J2 기대값: $EXP" >>"$OUT/run.log"
+    j2_show() { $TOOLS/batch.sh j2 --date "$JDAY" --user "$UA,$UB" --show 2>>"$OUT/run.log" | grep -m1 '^{' ; }
+    if timeout 600 $TOOLS/batch.sh j2 --date "$JDAY" --user "$UA,$UB" >"$OUT/j2-run1.log" 2>&1; then pass "J2 실행 (spark-submit, $JDAY, 시험 계정 2명)"
+    else fail "J2 실행" "$(tail -3 "$OUT/j2-run1.log" | tr '\n' ' ') — tools/platform/batch-logs/ 확인"; fi
+    S1="$(j2_show)"; echo "J2 저장 행: $S1" >>"$OUT/run.log"
+    if python3 -c "import json,sys;sys.exit(0 if json.loads(sys.argv[1])['stored']==json.loads(sys.argv[2]) else 1)" "$S1" "$EXP" 2>/dev/null; then
+      pass "daily_stat 2행 — A 유효·good 15.0·붕괴 1·알림 이벤트 1, B 유효 4.0·good 4.0, 5분 미만이라 붕괴까지 시간 NULL"
+    else fail "daily_stat 값" "저장 ${S1:-없음} / 기대 $EXP"; fi
+    timeout 600 $TOOLS/batch.sh j2 --date "$JDAY" --user "$UA,$UB" >"$OUT/j2-run2.log" 2>&1
+    S2="$(j2_show)"
+    if [ -n "$S1" ] && [ "$S1" = "$S2" ]; then pass "J2 다시 실행해도 같은 행 (지우고 다시 넣기, 멱등)"
+    else fail "J2 재실행" "1차 $S1 / 2차 ${S2:-없음}"; fi
+    if [ "${KEEP_J2:-0}" = 1 ]; then skip "J2 시험 세션 삭제" "KEEP_J2=1 — $J_A·$J_B 남겨 둠"
+    else
+      curl -s -m 10 -X DELETE "$API/report/test/sessions/$J_A" >>"$OUT/run.log"; curl -s -m 10 -X DELETE "$API/report/test/sessions/$J_B" >>"$OUT/run.log"
+      S3="$(j2_show)"
+      if python3 -c "import json,sys;sys.exit(0 if json.loads(sys.argv[1])['stored']==[] else 1)" "$S3" 2>/dev/null; then
+        pass "시험 세션·계정 삭제 → daily_stat 행도 사라짐 (FK CASCADE)"
+      else fail "J2 시험 행 정리" "남은 행 ${S3:-확인 실패}"; fi
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------
 {
   echo "통합 테스트 결과: $TS"
   echo "PASS $PASS / FAIL $FAIL / SKIP $SKIP"
