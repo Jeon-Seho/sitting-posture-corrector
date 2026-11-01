@@ -1,7 +1,7 @@
 # FE 계획: BE PR #91(서버 3초 묶음 판정·`observation` 4.0)과 합치기
 
 > 작성자: klaod-tech(FE) · 작성: 2026-10-30 · 다시 세움: 2026-11-01(BE PR #91 반영, 합병 계획으로) · 상태: **1단계 코드 끝**(11/1 `8c7b53d`, 이 브랜치에 푸시), 로컬 실제 서버 확인(5.3) 남음. #91은 11/1 develop 머지(`ed3b206`)
-> 관련: BE PR #91 `feature/repo-server-frame-batch-inference`(김유진, 10/31 열림)의 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)·[ADR 0047](../decisions/0047-posture-from-deviation-probability.md)·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) 1.0·BE-5 ②·BE-8·**BE-14(이 일의 요청·질문)**, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)(자정 넘김)
+> 관련: BE PR #91 `feature/repo-server-frame-batch-inference`(김유진, 10/31 열림)의 [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)·[ADR 0047](../decisions/0047-posture-from-deviation-probability.md)·[API 명세](api-spec.md) 9·11장, [연동 명세](api-ws-spec.md) 5장, [FE 제안서](fe-server-proposal.md) 1.0·BE-5 ②·BE-8·**BE-14(이 일의 요청·질문)**, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)(자정 넘김), Spark 배치 J1·J2·J3(DevOps `feat/bigdata-batch-jobs`, 계획 0085 — 10장)
 
 ## 0. 요약
 
@@ -157,3 +157,22 @@
 - 2026-11-01: #91이 develop에 머지됐다(`ed3b206`). 이 브랜치에 develop을 합쳤다(`fe-3sec.md` 충돌은 FE 쪽).
 - 2026-11-01: 1단계 코드. BE 계약 예시(`ws-observation*.json`)로 지금 앱이 4.0을 버리는 것을 시험으로 재현한 뒤 고쳤다(`messages.test.ts`). `modelVersion` 선택 필드·모델 버전 경고 삭제, `posture` 주의 단계(`.pill.caution`, `--warn` 토큰), 가짜 서버 4.0·3초 묶음(`FAKE_BATCH_MS`, 기본 3000 — 실행해 `ack` 바로·`observation`·`progress` 묶음마다 확인). 연동 명세 5.1·5.3, 제안서 BE-5 ②·BE-8 반영. typecheck·lint(바꾼 파일 경고 0)·build 통과. 로컬 실제 서버 확인(5.3)은 Docker가 꺼져 있어 남았다.
 - 2026-11-01: 1단계를 `docs/fe-3sec-replan`에 푸시했다(`8c7b53d`, PR 없음). ADR 0021 4절에 8번(측정 화면 상태는 서버 값 그대로 — 주의 단계, 쓰는 필드만 검사, `modelVersion` 안 씀)을, ADR 0005 이력에 4.0에서도 점수 식이 같다는 것을 적었다. 남은 것: 5.3(Docker 필요) → FE PR(말할 때) → 포크 → 운영 재배포.
+- 2026-11-02: DevOps Spark 배치 J1·J2·J3 안내(11/1, `feat/bigdata-batch-jobs`, develop 미병합)를 FE 계획·#91과 대조해 10장에 적었다. 연동 명세 4.5, FE 제안서(J2 00:10, BE-6 ⑤·BE-11 해결, BE-14 ⑥~⑨), ADR 0021·0027·0029에도 반영.
+
+## 10. 고쳐야 할 것 — Spark 배치 J1·J2·J3 대조 (2026-11-02)
+
+DevOps 안내 「Spark 배치 J1·J2·J3 구축 안내」(11/1, ghdrb1246, 브랜치 `feat/bigdata-batch-jobs` — #91 위, develop 미병합, 계획 0085)를 이 계획과 FE 문서에 대조했다.
+서버 PC cron은 11/1에 이미 등록됐다(J2 매일 00:10, J3 04:00, J1 매시간 20분). 첫 자동 실행은 11/2 00:10.
+
+**이 계획(3초 묶음)과 부딪히는 것은 없다.** J2의 유효 시간은 세션 길이 − 제외 구간 전부(`ABSENCE`·`PAUSE`·`MISSING`·`UNMEASURABLE`)라 서버 요약과 같은 기준이고, #91의 결과 누락(`stalled` → `MISSING`)도 똑같이 빠진다.
+
+| # | 고칠 것 | 왜 | 누가 | 기록한 곳 |
+| --- | --- | --- | --- | --- |
+| 1 | **운영 서버 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER`)을 켜고 계속 켜 두기** (가장 급함) | J2는 00:10에 **끝난** 어제 시작 세션만 세고 지난 날짜를 다시 세지 않는다. 지금 운영은 꺼짐 → 23:50~00:30 같은 측정은 어제 통계에서도 오늘 통계에서도 영영 빠진다. kafka 모드에서 자정 넘김을 끄는 동안(자정 계획 Q7)도 같다 | DevOps(설정). FE는 11/2 자정 확인 뒤 「끄지 말고 유지」 요청 | 제안서 BE-14 ⑥, ADR 0029 결과, 연동 명세 4.5, Downloads `자정-넘김-후속-계획.md` |
+| 2 | J2 시각 00:00 → **00:10** 문서 맞추기 | DevOps가 FE 요청(BE-6 ⑤·BE-11)대로 10분 뒤로 잡았다 | FE 문서: **11/2 고침**(제안서 1.0 표·113행·BE-6 ⑤·BE-11·158행, ADR 0027·0029, 연동 명세 4.5). 다른 담당 문서는 알리기만: API 명세 50·802행(BE), `architecture.md` 94행, `architecture_v5.2_change_notes.md`·`architecture_v5.2_stack_roles.md`(DevOps), ADR 0020 1절(BE), 계획 0026(BE) | 이 표 |
+| 3 | T1 연동 때 **00:00~00:10 빈틈** | 자정이 지나면 앱의 「오늘」은 바로 바뀌는데 J2 전이라 T1은 어제를 0으로 준다. 「집계 전」과 「측정 없음」이 둘 다 0이라 앱이 구별 못 함 | BE: T1에 집계된 마지막 날짜(예: `computed_through`) 넣기. FE·화면(lellon0403): 그 10분 동안 어제를 이 기기 기록으로 보일지(연동 명세 4.5 「과거 날짜의 로컬 기록을 T1에 더하지 않는다」의 예외로 적어야 함), 「집계 중」 표시 뒤 다시 부를지 정하기 | 제안서 BE-14 ⑦·T1 줄, 연동 명세 4.5, ADR 0027 결과 |
+| 4 | **J1이 읽는 토픽이 #91 이전 기준** | J1은 v1 토픽(`posture.features.v1`·`inference.v1`·`episodes.v1`)을 읽고 「D-57 뒤 실제 세션이 들어온다」고 전제한다. #91 뒤 앱 측정의 Kafka 길은 `posture.inference-request.v3`·`inference-result.v3`(보관 1시간)다. 계획 0085에 v3·#91 언급이 없다. 운영을 kafka로 바꿔도 J1이 실제 세션을 못 잡을 수 있고, v3를 읽게 해도 매시간 20분 실행과 1시간 보관이 아슬아슬하다 | DevOps·BE·팀장 | 제안서 BE-14 ⑧ |
+| 5 | **좌표를 남기는 곳이 없음** | ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유로 들고, 가입 때 좌표 수집 동의도 이것이 근거다. 그런데 J1 원문에는 좌표가 없고, 좌표가 담긴 v3 요청 토픽은 1시간 뒤 지워진다 | 팀장·BE·DevOps가 남길지 정함. 남기지 않으면 FE가 ADR 0021 2절과 동의 문구를 고침 | 제안서 BE-14 ⑨, ADR 0021 3절 |
+| 6 | 서버 탈퇴 때 이 기기 기록 | 서버 탈퇴(`ServerAccountPage` → A7 `DELETE /v2/auth/account`)는 로그아웃만 하고 이 기기의 기록(`posegood.v2.records`)·저장 대기 서버 기록(`serverRecords`)을 지우지 않는다. 앱만의 탈퇴(`useProfileForm` `withdraw`)는 지운다. J3가 서버에서 다 지워도 기기에는 남는다. 이번 배치 때문에 생긴 것은 아니다 | FE(작음): 서버 탈퇴 접수 뒤 그 기기 기록도 지울지 정하고 고치기 | ADR 0027 결과 |
+
+**정할 순서:** 1(오늘 밤 J2 첫 실행 전부터 해당, 11/2 자정 확인과 함께 DevOps에 전달) → 4·5(팀 회의) → 3(T1 구현 때) → 6(FE 여유 있을 때).
