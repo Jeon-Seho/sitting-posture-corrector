@@ -1,10 +1,5 @@
 package org.posegood.api.session;
 
-import java.time.Duration;
-import java.util.Comparator;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.posegood.api.account.AccountService;
 import org.posegood.api.common.ApiError;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +7,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 메모리에 있는 진행 중 세션 목록(최대 512개). API를 재시작하면 사라진다.
@@ -28,13 +29,10 @@ public class LiveSessions {
 	private final long idleRetentionNanos;
 
 	public LiveSessions(
-		ApplicationEventPublisher events,
-		@Value("${posegood.live-session-capacity}")
-		int capacity,
-		@Value("${posegood.ended-session-retention}")
-		Duration endedRetention,
-		@Value("${posegood.idle-session-retention}")
-		Duration idleRetention) {
+			ApplicationEventPublisher events,
+			@Value("${posegood.live-session-capacity}") int capacity,
+			@Value("${posegood.ended-session-retention}") Duration endedRetention,
+			@Value("${posegood.idle-session-retention}") Duration idleRetention) {
 		this.events = events;
 		this.capacity = capacity;
 		this.endedRetentionNanos = endedRetention.toNanos();
@@ -46,6 +44,11 @@ public class LiveSessions {
 		return sessions.get(id);
 	}
 
+	/** 메모리에 있는 모든 세션(묶음 스케줄러가 훑는다). */
+	Collection<LiveSession> all() {
+		return sessions.values();
+	}
+
 	/**
 	 * 자리가 없으면 가장 오래 쉰 종료 세션부터 뺀다.
 	 *
@@ -53,9 +56,10 @@ public class LiveSessions {
 	 */
 	void ensureRoom() {
 		while (sessions.size() >= capacity) {
-			var oldest = sessions.values().stream()
-				.filter(candidate -> candidate.engine().ended())
-				.max(Comparator.comparingLong(LiveSession::idleNanos));
+			var oldest =
+					sessions.values().stream()
+							.filter(candidate -> candidate.engine().ended())
+							.max(Comparator.comparingLong(LiveSession::idleNanos));
 			if (oldest.isEmpty()) {
 				throw ApiError.limit("live session capacity reached");
 			}
@@ -82,10 +86,10 @@ public class LiveSessions {
 	@EventListener
 	public void accountClosed(AccountService.AccountClosed closed) {
 		sessions.values().stream()
-			.filter(session -> session.owner() == closed.userId())
-			.map(LiveSession::id)
-			.toList()
-			.forEach(id -> remove(id, "unauthorized"));
+				.filter(session -> session.owner() == closed.userId())
+				.map(LiveSession::id)
+				.toList()
+				.forEach(id -> remove(id, "unauthorized"));
 	}
 
 	/**

@@ -380,6 +380,10 @@ services:
   # 점수는 아래 inference(팀 model/inference FastAPI)를 HTTP로 부른다. ws → Kafka 전환(PM)은 다음 단계.
   # (D-57) Kafka 전환 준비: Kafka·Redis 주소와 판정 경로 설정(POSEGOOD_REALTIME_PIPELINE, 기본 local = 지금처럼 API 안 판정).
   #   kafka로 바꾸는 것은 ws Kafka 연결(계획 0031 1단계)이 들어간 뒤. 그 전에는 값이 있어도 쓰는 코드가 없다.
+  # (계획 0084, 2026-10-31) 추론 v3 전송: POSEGOOD_INFERENCE_TRANSPORT=http(기본, POST /v3/infer) | kafka
+  #   (posture.inference-request.v3 → 아래 inference의 Kafka 워커 → posture.inference-result.v3). 판정은 어느 쪽이든
+  #   API 판정 엔진이 결과를 약 3초 모아 한다. kafka로 바꾸려면 .env에 POSEGOOD_INFERENCE_TRANSPORT=kafka 하나만 넣고
+  #   io-api만 다시 띄운다(inference의 Kafka 워커는 늘 켜져 있다).
   # DB: 외부 MySQL의 posture_service(V2.3). 접속 정보는 ./.env의 DB_*(env_file)를 컨테이너 안 Spring이 치환한다
   #   ($$로 compose 치환을 막음 — compose가 .env를 어느 폴더에서 읽든 같은 값).
   #   다른 계정·스키마를 쓰려면 .env에 IO_DB_USER·IO_DB_PASSWORD·IO_DB_NAME.
@@ -414,6 +418,7 @@ services:
       POSEGOOD_CORS_ALLOWED_ORIGINS: ${POSEGOOD_CORS_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_PIPELINE: ${POSEGOOD_REALTIME_PIPELINE:-local}
+      POSEGOOD_INFERENCE_TRANSPORT: ${POSEGOOD_INFERENCE_TRANSPORT:-http}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
@@ -443,9 +448,11 @@ services:
       retries: 30
       start_period: 40s
 
-  # io-api가 부르는 점수 계산(팀 model/inference, POST /v2/infer). 포트를 열지 않는다(app-network 안에서만).
+  # io-api가 부르는 점수 계산(팀 model/inference, POST /v3/infer). 포트를 열지 않는다(app-network 안에서만).
   # io-api는 이름이 "inference"인 내부 주소만 허용하므로 서비스 이름을 바꾸지 않는다.
-  # Kafka 추론(inference-service, backend/inference)과는 다른 것 — ws → Kafka 전환이 끝나면 뺀다.
+  # (계획 0084) 같은 컨테이너의 Kafka 워커가 posture.inference-request.v3를 읽어 같은 코드로 점수를 내고
+  #   posture.inference-result.v3에 쓴다(io-api가 POSEGOOD_INFERENCE_TRANSPORT=kafka일 때 쓰는 길, 그룹 inference-v3).
+  # 처리 서비스 경로의 Kafka 추론(inference-service, backend/inference, posture.features.v1)과는 다른 것이다.
   inference:
     profiles: ["io"]
     build:
@@ -460,6 +467,10 @@ services:
       TZ: "Asia/Seoul"
       POSEGOOD_REQUIRE_INTERNAL_TOKEN: "true"
       POSEGOOD_INTERNAL_TOKEN_FILE: /run/secrets/posegood.internal-token
+      POSEGOOD_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+    depends_on:
+      kafka:
+        condition: service_healthy
     volumes:
       - ./secrets/posegood.internal-token:/run/secrets/posegood.internal-token:ro
       - /etc/localtime:/etc/localtime:ro
