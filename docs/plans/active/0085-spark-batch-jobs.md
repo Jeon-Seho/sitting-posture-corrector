@@ -1,6 +1,6 @@
 # Spark 배치 J2 → J3 → J1 (일별 통계·탈퇴 삭제·HDFS 적재)
 
-- 상태: in_progress (J2 서버 확인 완료 2026-11-01, 다음 J3)
+- 상태: in_progress (J2·J3 서버 확인 2026-11-01, 다음 J1)
 - 담당: DevOps/BE (ghdrb1246)
 - 시작일: 2026-11-01
 - 관련: [database/README.md](../../../database/README.md) 「일별 통계」·「붕괴까지 걸린 시간」·「탈퇴 최종 삭제」·「삭제 배치 공통」, `database/schema/schema_V2_6.sql`(`daily_stat`·`deletion_request`·`feature_archive`), [아키텍처 v5.3 스택별 역할](../../design/architecture_v5.2_stack_roles.md) 적재·분석 층, [bigdata/README.md](../../../bigdata/README.md)
@@ -29,8 +29,10 @@
 - [x] J2 계산·쓰기, `--date`·`--user`·`--dry-run`·`--show`, 실행기, compose 마운트
 - [x] J2 계산 시험(로컬 Spark, 합성 데이터)
 - [x] J2 서버 확인(통합 테스트 15단계)
-- [ ] J2 cron 등록(서버 PC crontab, 00:10)
-- [ ] J3
+- [x] J2 cron 등록(서버 PC crontab, 00:10 — 서버 시간대 KST, 2026-11-01)
+- [x] J3 구현·흐름 시험(가짜 DB·HDFS), 통합 테스트 16단계
+- [x] J3 서버 확인(통합 테스트 16단계)
+- [ ] J3 cron 등록(04:00)
 - [ ] J1
 - [ ] 문서 동기화(DB README 「구현 상태」는 DB/BE에 알림)
 
@@ -42,10 +44,19 @@
 - J2 시각 00:10 — 자정 직전 세션 저장·자정 넘김 저장을 기다림(FE 제안서 BE-11 요청).
 - 쓰기는 Spark JDBC(upsert 없음) 대신 드라이버 JVM의 JDBC 연결로 「그날 행 지우고 다시 넣기」 한 트랜잭션.
 - 드라이버는 `--packages com.mysql:mysql-connector-j:8.4.0`(jar를 저장소에 넣지 않음).
+- J3 대상 상태에 `PROCESSING`도 넣는다 — DB README는 `REQUESTED`·`FAILED`만 적었지만, 실행기 잠금으로 한 번에 하나만 돌기 때문에 시작할 때 남은 `PROCESSING`은 앞 실행이 중간에 멈춘 것이다(넣지 않으면 영영 남음). DB/BE에 알림.
+- J3 성공 때 요청 행은 DB README 순서대로 지운다 — 그래서 `DONE`·`data_deleted_at`은 남지 않는다(완료 기록이 필요하면 DB/BE와 다음 버전에서).
+- J3 파일 단계와 행 단계는 따로 확정한다: 파일을 지우고 `deleted_at`을 채운 것은 행 삭제가 실패해도 남아 재시도 지점이 된다.
+- J3 시험 데이터 준비(시험 계정을 탈퇴 상태로, 적재 기록·HDFS 폴더)는 `tests/j3_testkit.py`(시험 계정만, 통합 테스트가 컨테이너에 복사) — 처리 서비스 코드를 바꾸지 않아 이미지 재빌드가 없다.
+- 완료 안내는 수단이 정해지지 않아 자리만(이메일을 읽지 않음). `RECORDS_ONLY`는 입출구 서버가 만들지 않아 개수만 로그.
 
 ## 검증 결과와 남은 한계
+
+- 2026-11-01 작업 환경(J3): `python -m pytest tests/test_batch_j3_withdrawal_delete.py` 11개 통과(유예 기준 시각·대상 SQL·성공 순서·실패 되돌림과 FAILED·재시도 때 지운 폴더 건너뜀·다른 사용자 폴더 거부·CLOSED 아님·이미 처리됨·한 사용자 실패가 다음 사용자를 막지 않음·`--grace-days`는 `--user`와 함께). `Hdfs` 도우미는 로컬 파일 시스템(`file:///`)으로 쓰기·있음·폴더째 삭제 확인.
 
 - 2026-11-01 작업 환경: `python -m pytest tests/test_batch_j2_daily_stat.py` — pyspark 4.0.1 로컬, 9개 통과(짧은 세션·제외 구간 자르기·세션마다 버림·알림 이벤트·붕괴까지 구간과 제외 겹침·붕괴 없는 세션·여러 세션 최소/최대·쓰기 SQL·날짜 필터).
 - 2026-11-01 서버 PC: spark 컨테이너 다시 만듦(`spark-ivy` 볼륨 생성, `/opt/jobs` 마운트, DB 환경 값 4개 확인). `batch.sh j2 --date 2026-10-31 --dry-run` 끝 코드 0(세션 0개 — 그날 끝난 세션 없음, 드라이버 내려받기·JDBC 읽기 확인).
 - 2026-11-01 서버 PC `integration_test.sh --quick`: PASS 84 / FAIL 0 / SKIP 2. 15단계 4개 PASS — 시험 계정 2명 J2 실행(넣음 2), 저장 행이 `/report/sessions`로 만든 기대값과 같음(A 유효 85.0·good 15.0·붕괴 1·알림 이벤트 1, B 유효 4.0·good 4.0, 붕괴까지 NULL), 재실행 지움 2·넣음 2로 같은 행, 시험 데이터 삭제 뒤 `daily_stat` 행도 사라짐(CASCADE).
-- 남은 한계: 서버 시험은 5분 미만 세션뿐이라 「붕괴까지 걸린 시간」 값은 로컬 계산 시험으로만 확인했다. 실제 사용자 데이터로 돌린 결과는 cron 등록 뒤 확인.
+- 2026-11-01 서버 PC(J3): `batch.sh j3 --dry-run` 끝 코드 0 — 운영 대상 0명(폐쇄 시각 ≤ 10/02, 시험 계정 탈퇴는 10/28부터라 아직). 통합 테스트 `--quick` **PASS 90 / FAIL 0 / SKIP 2** — 16단계 6개 PASS: 준비(C 탈퇴 31일 — 세션·일별 통계·기준 자세·적재 기록·HDFS 폴더, D 탈퇴 29일), dry-run 대상 C만, J3 실행(C 파일 1개·행 6단계 각 1 삭제), C 전부 삭제·HDFS 사용자 폴더 없음·D 그대로, 재실행 삭제 0·실패 0, D `--grace-days 0 --user`로 정리. 15단계(J2) 등 기존 단계 회귀 없음.
+- 남은 한계(J3): 실패 되돌림·`FAILED` 재시도·다른 사용자 폴더 거부는 흐름 시험(가짜 DB·HDFS)으로만 확인. 완료 안내 발송 없음.
+- 남은 한계: 서버 시험은 5분 미만 세션뿐이라 「붕괴까지 걸린 시간」 값은 로컬 계산 시험으로만 확인했다. 실제 사용자 데이터로 돌린 결과는 첫 cron 실행(11/02 00:10) 로그 `batch-logs/j2-*.log`로 확인.

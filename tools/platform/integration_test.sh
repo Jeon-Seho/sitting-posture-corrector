@@ -758,6 +758,77 @@ PYJ
   fi
 fi
 
+step "16. Spark 배치 J3 — 탈퇴 최종 삭제 (D-49)"
+# 시험 계정 2개(C·D)를 탈퇴 상태로 만든다(tests/j3_testkit.py — 시험 계정만 건드림):
+#   C: 세션(재생으로 종료) + J2 일별 통계 + HDFS 세션 폴더·feature_archive, 폐쇄 31일 전 → J3 기본(30일)이 지움
+#   D: 세션만, 폐쇄 29일 전 → 기본 실행에서는 남고, --grace-days 0 --user D 로 지움(정리 겸 유예 옵션 확인)
+# 운영 cron은 --user 없이 돈다. 여기서는 --user로 시험 계정만 대상으로 한다.
+j3_kit() { docker exec spark /opt/spark/bin/spark-submit --master 'local[1]' \
+  --packages "${MYSQL_JDBC_PACKAGE:-com.mysql:mysql-connector-j:8.4.0}" --conf spark.jars.ivy=/opt/spark-ivy \
+  --conf spark.driver.extraJavaOptions=-Duser.timezone=Asia/Seoul /tmp/j3_testkit.py "$@" 2>>"$OUT/j3-kit.log" | grep -m1 '^[[{]' ; }
+if [ "$E2E" = 0 ]; then skip "J3 탈퇴 삭제" "--no-e2e"
+elif ! docker exec spark test -f /opt/jobs/j3_withdrawal_delete.py 2>/dev/null; then
+  fail "J3 잡 코드" "spark 컨테이너에 /opt/jobs/j3_withdrawal_delete.py 없음 — $DC up -d --no-build spark (bigdata/jobs 마운트)"
+elif ! curl -s -m 5 "$API/report/store" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)" 2>/dev/null; then
+  skip "J3 탈퇴 삭제" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 계정을 만들 수 없음"
+elif ! docker cp tests/j3_testkit.py spark:/tmp/j3_testkit.py >/dev/null 2>&1; then
+  fail "J3 시험 도구" "tests/j3_testkit.py를 spark 컨테이너에 복사 못 함 (저장소 루트에서 실행)"
+else
+  JDAY="$(TZ=Asia/Seoul date +%F)"
+  J_C="$(python3 -c 'import uuid;print(uuid.uuid4())')"; J_D="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+  UC="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_C" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
+  UD="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_D" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
+  if [ -z "$UC" ] || [ -z "$UD" ]; then fail "J3 시험 계정 생성" "user_account_id 없음 — $OUT/run.log"
+  else
+    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J3C-$TS" --session-id "$J_C" \
+      --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/j3-replay-c.log" 2>&1
+    for _ in $(seq 1 30); do
+      curl -s -m 5 "$API/report/sessions/$J_C" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
+      sleep 2
+    done
+    timeout 600 $TOOLS/batch.sh j2 --date "$JDAY" --user "$UC" >"$OUT/j3-j2.log" 2>&1
+    PC="$(j3_kit prepare --user "$UC" --closed-days 31 --session "$J_C")"
+    PD="$(j3_kit prepare --user "$UD" --closed-days 29)"
+    echo "J3 준비: C=$PC D=$PD" >>"$OUT/run.log"
+    B0="$(j3_kit status --user "$UC,$UD")"; echo "J3 전: $B0" >>"$OUT/run.log"
+    if python3 - "$B0" <<'PYK'
+import json,sys
+c,d=json.loads(sys.argv[1])
+ok=(c['user_account']==1 and c['monitor_session']==1 and c['daily_stat']==1 and c['baseline_posture']==1
+    and c['feature_archive']==1 and c['request_status']=='REQUESTED' and c['hdfs_user_folder']
+    and d['user_account']==1 and d['request_status']=='REQUESTED')
+sys.exit(0 if ok else 1)
+PYK
+    then pass "J3 준비: C 탈퇴 31일(세션·일별 통계·기준 자세·적재 기록·HDFS 폴더), D 탈퇴 29일"
+    else fail "J3 준비" "${B0:-확인 실패} — $OUT/j3-kit.log"; fi
+    DRY="$($TOOLS/batch.sh j3 --user "$UC,$UD" --dry-run 2>>"$OUT/run.log" | grep -m1 '^{')"
+    if python3 -c "import json,sys;t=[x['user_account_id'] for x in json.loads(sys.argv[1])['targets']];sys.exit(0 if t==[int(sys.argv[2])] else 1)" "$DRY" "$UC" 2>/dev/null; then
+      pass "J3 dry-run 대상은 C만 (D는 유예 29일 — 아직)"
+    else fail "J3 dry-run 대상" "${DRY:-없음} (기대 C=$UC만)"; fi
+    if timeout 600 $TOOLS/batch.sh j3 --user "$UC,$UD" >"$OUT/j3-run1.log" 2>&1; then pass "J3 실행 (spark-submit, 기본 유예 30일)"
+    else fail "J3 실행" "$(tail -3 "$OUT/j3-run1.log" | tr '\n' ' ') — tools/platform/batch-logs/ 확인"; fi
+    B1="$(j3_kit status --user "$UC,$UD")"; echo "J3 뒤: $B1" >>"$OUT/run.log"
+    if python3 - "$B1" <<'PYK'
+import json,sys
+c,d=json.loads(sys.argv[1])
+gone=all(c[k]==0 for k in ('user_account','monitor_session','daily_stat','baseline_posture','feature_archive','deletion_request')) and not c['hdfs_user_folder']
+kept=d['user_account']==1 and d['monitor_session']==1 and d['request_status']=='REQUESTED'
+sys.exit(0 if gone and kept else 1)
+PYK
+    then pass "C 전부 삭제 — 계정·세션·일별 통계·기준 자세·적재 기록·삭제 요청 행, HDFS 사용자 폴더 / D는 그대로"
+    else fail "J3 삭제 결과" "${B1:-확인 실패}"; fi
+    R2="$($TOOLS/batch.sh j3 --user "$UC" 2>>"$OUT/run.log" | grep -m1 '^{')"
+    if python3 -c "import json,sys;r=json.loads(sys.argv[1]);sys.exit(0 if r['deleted']==[] and r['failed']==[] else 1)" "$R2" 2>/dev/null; then
+      pass "J3 다시 실행 — 지운 사용자는 대상 아님 (삭제 0·실패 0)"
+    else fail "J3 재실행" "${R2:-없음}"; fi
+    timeout 600 $TOOLS/batch.sh j3 --user "$UD" --grace-days 0 >"$OUT/j3-run2.log" 2>&1
+    B2="$(j3_kit status --user "$UD")"
+    if python3 -c "import json,sys;d=json.loads(sys.argv[1])[0];sys.exit(0 if d['user_account']==0 and d['monitor_session']==0 and d['deletion_request']==0 else 1)" "$B2" 2>/dev/null; then
+      pass "D 정리 — --grace-days 0 --user 로 삭제 (시험 계정 남기지 않음)"
+    else fail "J3 시험 계정 D 정리" "${B2:-확인 실패} — $OUT/j3-run2.log"; fi
+  fi
+fi
+
 # ---------------------------------------------------------------------
 {
   echo "통합 테스트 결과: $TS"

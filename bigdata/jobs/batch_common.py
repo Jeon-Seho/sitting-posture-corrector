@@ -116,22 +116,85 @@ class Jdbc:
             self.connection.close()
         return False
 
+    def _prepare(self, sql, params):
+        statement = self.connection.prepareStatement(sql)
+        for index, value in enumerate(params, start=1):
+            if value is None:
+                statement.setObject(index, None)
+            elif isinstance(value, bool):
+                statement.setBoolean(index, value)
+            elif isinstance(value, int):
+                statement.setLong(index, value)
+            else:
+                statement.setString(index, str(value))
+        return statement
+
     def execute(self, sql, params=()):
         """바뀐 행 수를 돌려준다. 값은 ?로만 넘긴다."""
-        statement = self.connection.prepareStatement(sql)
+        statement = self._prepare(sql, params)
         try:
-            for index, value in enumerate(params, start=1):
-                if value is None:
-                    statement.setObject(index, None)
-                elif isinstance(value, bool):
-                    statement.setBoolean(index, value)
-                elif isinstance(value, int):
-                    statement.setLong(index, value)
-                else:
-                    statement.setString(index, str(value))
             return statement.executeUpdate()
         finally:
             statement.close()
+
+    def query(self, sql, params=()):
+        """행 목록(dict, 값은 문자열 또는 None). 숫자는 호출하는 쪽이 바꾼다."""
+        statement = self._prepare(sql, params)
+        try:
+            result = statement.executeQuery()
+            meta = result.getMetaData()
+            names = [meta.getColumnLabel(i) for i in range(1, meta.getColumnCount() + 1)]
+            rows = []
+            while result.next():
+                rows.append({name: result.getString(i) for i, name in enumerate(names, start=1)})
+            result.close()
+            return rows
+        finally:
+            statement.close()
+
+    def commit(self):
+        """with 블록 안에서 단계마다 확정할 때(J3 — 상태 바꾸기·파일 삭제 기록은 따로 확정)."""
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+
+HDFS_URI_DEFAULT = "hdfs://hdfs-namenode:9000"
+USER_ROOT = "/data/users"
+
+
+class Hdfs:
+    """HDFS 파일 다루기(드라이버 JVM의 Hadoop FileSystem). 주소는 HDFS_URI(기본 hdfs://hdfs-namenode:9000)."""
+
+    def __init__(self, spark, uri=None):
+        jvm = spark.sparkContext._jvm
+        self._jvm = jvm
+        self.uri = uri or os.environ.get("HDFS_URI") or HDFS_URI_DEFAULT
+        conf = spark.sparkContext._jsc.hadoopConfiguration()
+        self.fs = jvm.org.apache.hadoop.fs.FileSystem.get(jvm.java.net.URI(self.uri), conf)
+
+    def _path(self, path):
+        return self._jvm.org.apache.hadoop.fs.Path(path)
+
+    def exists(self, path):
+        return bool(self.fs.exists(self._path(path)))
+
+    def delete(self, path):
+        """폴더째 지운다. 없으면 False(이미 지워짐 — 재시도에서 정상)."""
+        return bool(self.fs.delete(self._path(path), True))
+
+    def write_text(self, path, text):
+        stream = self.fs.create(self._path(path), True)
+        try:
+            stream.write(bytearray(text.encode("utf-8")))
+        finally:
+            stream.close()
+
+
+def user_folder(user_account_id):
+    """사용자 폴더 /data/users/{user_account_id} — J1이 세션 폴더를 이 아래에 둔다(feature_archive.file_uri)."""
+    return f"{USER_ROOT}/{int(user_account_id)}"
 
 
 def fail(job, message, code=1):

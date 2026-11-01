@@ -6,7 +6,7 @@
 | 잡 | 파일 | 언제 | 하는 일 | 상태 |
 |---|---|---|---|---|
 | J2 일별 통계 | `jobs/j2_daily_stat.py` | 매일 00:10 | 전날(KST) 끝난 세션 → 사용자별 `daily_stat` | 서버 확인(D-05, 11/01) |
-| J3 탈퇴 삭제 | — | 매일 04:00 | 유예 30일 지난 탈퇴 → HDFS 사용자 폴더 → DB 행 | 다음(D-49) |
+| J3 탈퇴 삭제 | `jobs/j3_withdrawal_delete.py` | 매일 04:00 | 유예 30일 지난 탈퇴 → HDFS 사용자 폴더 → DB 행 | 서버 확인(D-49, 11/01) |
 | J1 적재 | — | 매시간 | Kafka v1 토픽 → HDFS 사용자별 폴더 + `feature_archive` | 그다음(D-33) |
 
 ## 실행 방식
@@ -30,16 +30,36 @@ tools/platform/batch.sh j2 --date 2026-10-31 --show      # 저장된 행만 보�
 - 쓰기는 한 트랜잭션에서 그날(·지정 사용자)의 행을 지우고 다시 넣는다 — 다시 돌려도 같다. 세션이 없는 사용자는 행이 없다.
 - 시각을 00:00이 아니라 **00:10**으로 둔다: 자정 직전에 끝난 세션의 저장이 끝나고, 자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 둔다(FE 요청 BE-11).
 
-## cron (서버 PC, 사용자 crontab)
+## J3 탈퇴 최종 삭제
 
-```cron
-CRON_TZ=Asia/Seoul
-10 0 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j2 >/dev/null 2>&1
+```bash
+tools/platform/batch.sh j3 --dry-run                     # 대상만 보기
+tools/platform/batch.sh j3                               # 유예 30일 지난 탈퇴 모두
+tools/platform/batch.sh j3 --user 12 --grace-days 0      # 시험용 — 유예 일수는 --user와 함께만
 ```
 
-로그는 `tools/platform/batch-logs/j2-*.log`. 통합 테스트 15단계가 시험 계정으로 J2를 실제 DB에 돌려 확인한다.
+- 대상: `deletion_request`의 `ACCOUNT_ALL` 요청 중 `account_closed_at + 30일 ≤ 지금(KST)`이고 상태가 `REQUESTED`·`FAILED`(재시도)·`PROCESSING`(앞 실행이 중간에 멈춘 것 — 잠금으로 한 번에 하나만 돈다).
+- 사용자 한 명씩: ① 요청을 `PROCESSING`으로 확정 ② HDFS 사용자 폴더 `/data/users/{id}`(와 그 밖에 기록된 세션 폴더)를 지우고 `feature_archive.deleted_at`을 채워 확정(재시도 지점) ③ 한 트랜잭션에서 적재 기록 → 세션(이벤트·알림·제외 구간 CASCADE) → 일별 통계 → 기준 자세 → 삭제 요청 → 계정(동의·로그인 유지 토큰 CASCADE).
+- ③이 실패하면 되돌리고 요청을 `FAILED`·`failure_reason`으로 둔다 — 다음 날 다시 한다. 한 사용자의 실패가 다른 사용자를 막지 않는다. 실패가 있으면 끝 코드 1.
+- 성공하면 요청 행도 지워져 그 사용자에 대해 남는 것이 없다(DB README 순서). 통합 테스트·점검 도구가 만든 시험 계정(`test-…@example.invalid`, 탈퇴 접수 상태)도 같은 방식으로 30일 뒤 지워진다.
+- 다른 사용자 폴더나 `/data/users` 자체를 가리키는 적재 기록은 지우지 않고 그 사용자를 실패로 남긴다.
+- 지금 하지 않는 것: `RECORDS_ONLY`(기록만 삭제 — 입출구 서버가 만들지 않음, 개수만 로그), 완료 안내 발송(수단 미정 — 자리만, 이메일을 읽지 않음), 보존 주기(Kafka·Redis는 각자 설정, HDFS 임시 폴더 정리는 J1과 함께).
+
+## cron (서버 PC, 사용자 crontab)
+
+서버 PC 시간대가 KST(`timedatectl` → `Asia/Seoul`)라 cron 시각은 그대로 KST다(`CRON_TZ`는 Ubuntu cron이 무시할 수 있어 쓰지 않음).
+
+```cron
+10 0 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j2 >/dev/null 2>&1
+0 4 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j3 >/dev/null 2>&1
+```
+
+등록: `( crontab -l 2>/dev/null; echo '<줄>' ) | crontab -` → `crontab -l`로 확인(2026-11-01 J2·J3 등록).
+
+로그는 `tools/platform/batch-logs/<잡>-*.log`. 통합 테스트 15단계(J2)·16단계(J3)가 시험 계정으로 실제 DB·HDFS에 돌려 확인한다.
 
 ## 시험
 
 - 계산: `python -m pytest tests/test_batch_j2_daily_stat.py` — 합성 세션, 로컬 Spark(pyspark가 없으면 건너뜀).
-- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 멱등 → 삭제 뒤 CASCADE).
+- J3 흐름: `python -m pytest tests/test_batch_j3_withdrawal_delete.py` — 가짜 DB·HDFS(순서·실패 되돌림·재시도·다른 사용자 폴더 거부).
+- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 멱등 → 삭제 뒤 CASCADE), 16단계(시험 계정 C 탈퇴 31일·D 29일 → `tests/j3_testkit.py`로 준비 → J3 → C 행·HDFS 폴더 전부 삭제·D 그대로 → 재실행 0 → D 정리).

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Spark 배치 실행기 (아키텍처 v5.3 ㉘ cron → Spark) — 서버 PC 저장소 루트에서 실행한다.
-#   tools/platform/batch.sh j2 [--date YYYY-MM-DD] [--user 12,34] [--dry-run]     일별 통계 (D-05)
+#   tools/platform/batch.sh j2 [--date YYYY-MM-DD] [--user 12,34] [--dry-run] [--show]   일별 통계 (D-05)
+#   tools/platform/batch.sh j3 [--user 12,34] [--dry-run] [--grace-days N]               탈퇴 최종 삭제 (D-49)
 # 같은 잡이 겹쳐 돌지 않게 잠금(flock)을 잡고, 로그를 tools/platform/batch-logs/<잡>-<시각>.log에 남긴다(30일 보관).
 # 잡 코드는 spark 컨테이너의 /opt/jobs(= bigdata/jobs 마운트), DB 접속 값은 컨테이너 환경(infra/compose/.env).
 # 끝 코드: 잡의 끝 코드(0 성공). cron이 실패를 알 수 있게 그대로 돌려준다.
@@ -10,7 +11,8 @@ MYSQL_JDBC="${MYSQL_JDBC_PACKAGE:-com.mysql:mysql-connector-j:8.4.0}"
 JOB="${1:-}"
 case "$JOB" in
   j2) SCRIPT=/opt/jobs/j2_daily_stat.py ;;
-  *) echo "사용법: $0 j2 [옵션...]" >&2; exit 2 ;;
+  j3) SCRIPT=/opt/jobs/j3_withdrawal_delete.py ;;
+  *) echo "사용법: $0 j2|j3 [옵션...]" >&2; exit 2 ;;
 esac
 shift
 
