@@ -1,6 +1,6 @@
 # 추론 점수 실시간 전송과 지속 이탈 판정 분리
 
-- 상태: in_progress (10/30 구현 `8aebac7`, 10/31 흐름 변경·Kafka 전송 `412f24a`, develop 합침·검증 끝, 11/01 PR #91·들여쓰기·중괄호 맞춤. FE 수정과 함께 배포 — FE 공지 2026-10-30)
+- 상태: in_progress (10/30 구현 `8aebac7`, 10/31 흐름 변경·Kafka 전송 `412f24a`, develop 합침·검증 끝, 11/01 PR #91·들여쓰기·중괄호 맞춤. FE 수정과 함께 배포 — FE 공지 2026-10-30. 11/02 PR #91·#92를 develop에서 되돌림 — develop 코드는 #91 전으로 돌아갔고 이 문서 기록은 남김)
 - 담당: BE(김유진)
 - 시작일: 2026-10-29
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(판정은 API 안, 특징 A안), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md), [FE 제안서](../../design/fe-server-proposal.md) BE-5 ②·BE-8, [API 명세](../../design/api-spec.md) 9장·11장, [연동 명세](../../design/api-ws-spec.md) 5.1
@@ -140,6 +140,7 @@
 
 ## 결정과 진행 기록
 
+- 2026-11-02: develop에서 PR #91(3초 묶음·observation 4.0·추론 Kafka 전송)과 #92(API 명세 실시간 예시)를 되돌렸다(BE). 코드·계약·API 명세는 #91 전으로 돌아갔다. 이 문서와 ADR 0047은 PR #94의 방향 기록 때문에 남겼으므로, 위 체크 목록의 「구현·검증 끝」은 브랜치 `feature/repo-server-frame-batch-inference` 기준이다.
 - 2026-11-02: 점수는 추론 결과 수신 후 빠르게 전송하고, 지속 이탈 확정은 판정 서버가 별도로 처리하는 방향으로 변경. 문서만 갱신했으며 구현·계약 변경과 검증은 남았다.
 - 2026-10-29: 위 「정한 것」 1~5 확정(BE). 지금 API 명세에는 좌표 프레임을 추론 서버로 넘기는 API가 없다 — `/v2/realtime`은 구간 1개·1500ms·30장 제한, `/v2/infer`는 구간당 특징 1개만 받는다.
 - 2026-10-30: 6~18번 확정(BE), 구현. 브랜치 `feature/repo-server-frame-batch-inference`. 첫 MySQL 통합 시험에서 `decision`을 받은 직후 DB를 읽으면 아직 저장 전인 경우를 찾아 17번으로 고쳤다.
