@@ -2,15 +2,15 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `feature/repo-server-frame-batch-inference` 브랜치(2026-11-01, PR #91로 develop에 병합, DB 스키마 V2.6)다.
+Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `fix/repo-backend-followup` 브랜치(2026-10-28, DB 스키마 V2.6)다.
 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
 | 추론 | FastAPI `POST /v3/infer`(실시간, 받은 구간의 프레임, 계획 0084) 또는 같은 본문의 Kafka `posture.inference-request.v3` → `posture.inference-result.v3`(설정 `posegood.inference.transport=kafka`, 10/31) · `POST /v2/infer`(처리 서비스 Kafka 경로·비교 시험이 옮길 때까지) |
 | DB | MySQL 8.4 · 스키마 V2.6 |
-| 코드 기준 | `feature/repo-server-frame-batch-inference` `3e15a05` (2026-11-01, PR #91로 develop에 병합) |
-| 개정 | 2026-11-01 (처음 2026-10-13) — [변경 이력](#변경-이력) |
+| 코드 기준 | `fix/repo-backend-followup` (2026-10-28, develop 미병합) |
+| 개정 | 2026-10-30 (처음 2026-10-13) — [변경 이력](#변경-이력) |
 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
@@ -42,7 +42,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 인증 | **access 토큰(JWT HS256, 30분)**을 `Authorization: Bearer <token>`으로 보낸다. 가입·로그인 응답 본문으로 받는다. 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음, ADR 0031). 만료 뒤 인증이 필요한 요청은 `401 UNAUTHENTICATED`. |
 | 로그인 유지 | **refresh 토큰(14일)**은 HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`, HTTPS 배포에서 `POSEGOOD_COOKIE_SECURE=true`로 Secure)로만 준다. 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 [A8](#a8) `POST /v2/auth/refresh`로 새 토큰을 받는다. refresh 토큰은 쓸 때마다 바뀐다. |
 | 계정 확인 헤더 | 로그인이 필요한 경로 대부분(아래 "계정 헤더" 표시)에 `X-PoseGood-User-Id: <user_id>`를 붙인다. 로그인 계정과 다르면 `409 AUTH_CHANGED`. 다른 탭에서 계정이 바뀐 화면의 쓰기를 막는 용도이며 인증 수단이 아니다. |
-| 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 응답의 기록(RecordItem)은 앱 형식(camelCase)을 그대로 쓴다. |
+| 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 요청·응답 값과 고정값 | **(실제)**가 붙은 JSON은 실제 서버가 주고받은 값이다(아래 「값을 받은 실행」). 토큰만 앞부분을 남기고 `…`로 줄였고, 배열이 긴 곳은 `"… N개 더"`로 줄였다. ID·시각·`user_id`는 호출마다 다르다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. 아직 코드가 없는 T1만 설계 예시다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
@@ -1380,9 +1380,8 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ```
 측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
-       → features × N (구간마다 바로 ack)
-       → 서버 묶음마다(약 3초) observation · decision · alert · progress
-       → end → 남은 묶음의 observation · progress → decision(session_ended) → closed(ended)
+       → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
+       → end → decision(session_ended) → closed(ended)
 자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
        → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
 ```
@@ -1506,54 +1505,44 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(기본 30분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
 | `day_changed` | 자정 넘김에서 이전 세션은 끝내 저장했지만 새 세션을 만들지 못함(11.3). `ended_at`(자정 전)이 있다. 앱은 새 S1부터 다시 시작한다 |
 
-**서버 → 앱 (실제)** — 2026-11-01 실행에서 받은 그대로다. 코드는 `feature/repo-server-frame-batch-inference`(`3e15a05`, 3초 묶음·`observation` 4.0), 서버 설정은 기본값(`batch-window` 3초, 추론 HTTP)이다. 1장 「값을 받은 실행」과 같은 9초 시나리오를 **앱처럼 0.5초마다 구간 하나씩** 실제 시간에 맞춰 보냈다(구간마다 프레임 4장).
+**서버 → 앱 (실제)** — 이 장의 메시지는 위 「값을 받은 실행」([1장](#1-공통-규칙))에서 받은 그대로다.
 
 연결 확인
 
 ```json
-{"type": "ready", "purpose": "measure", "session_id": "86c139b1-8a4e-4e3f-b9aa-31bea643dcac", "started_at": "2026-11-01T07:56:43.029Z"}
+{"type": "ready", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "started_at": "2026-10-28T16:05:05.551Z"}
 ```
 
-받은 때(`hello`를 보낸 뒤 경과 초)와 메시지. `ack`는 구간을 보낼 때마다 바로 오고(순번 0~15), 판정 결과는 묶음마다 한꺼번에 온다.
+> [!NOTE]
+> 아래 메시지는 2026-10-29 실행(계획 0084 **전**, 구간마다 판정)에서 받은 것이다. 계획 0084 뒤에는 순서가 `ack`(구간마다, 받은 즉시) → 서버 묶음마다 `observation`(형식은 [Observation 4.0](#observation-40--실시간-v2-관측)) → `decision`(→ `alert`) → `progress`이다. 3초 확정·6초 회복 시각은 같다(MySQL 통합 시험·`service_smoke.py`로 확인, 2026-10-30). 이 블록을 새 실행에서 받은 값으로 바꾸는 것은 남은 일이다.
 
-| 받은 때 | 묶음을 넘긴 까닭 | 판정한 순번 | 받은 메시지 |
-|---|---|---|---|
-| 3.17초 | 서버 시계 3초 | 0 ~ 6 | `observation` → `decision`(붕괴 확정, 3000) → `alert` → `progress` |
-| 6.05초 | 쉬기 구간(순번 12)은 기다리지 않음 | 7 ~ 12 | `observation` → `decision`(회복 확정, 6000) → `progress` |
-| 6.53초 | 쉬기 구간(순번 13) | 13 | `observation`(판정 불가) → `progress` |
-| 9.05초 | `end`(9000) | 14 ~ 15 | `observation`(판정 불가) → `progress` → `decision`(`session_ended`) → `closed` |
-
-**첫 묶음** — 순번 0~6. `observation`은 묶음의 **마지막 판정 가능 프레임**(순번 6, 3~3.5초, 기준과 같은 좌표) 값이라 `good`이다. 붕괴 확정(3초)은 그 앞 프레임들로 정해져 `decision`·`alert`로 온다.
+순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다.
 
 ```json
-{"type": "observation", "observation": {"schema_version": "4.0", "valid": true, "posture": "good", "collapse_probability": 0.0, "invalid_reason": null}}
+{"type": "observation", "observation": {"schema_version": "3.0", "sequence": 5, "start_ms": 2500, "end_ms": 3000, "phase": "running", "valid": true, "valid_ms": 500, "collapse_probability": 1.0, "deviation_type": "left_lean", "invalid_reason": null, "model_version": "reference-feature-rule-v1"}}
 {"type": "decision", "event": {"event_id": 1, "kind": "collapse_confirmed", "timestamp_ms": 3000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}}
 {"type": "alert", "event_id": 1, "kind": "collapse_confirmed", "deviation_type": "left_lean"}
-{"type": "progress", "last_sequence": 6, "summary": {"total_ms": 3500, "valid_ms": 3500, "normal_ms": 500, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.14285714285714285, "events_per_hour": 1028.5714285714287, "mean_interval_ms": null, "mean_recovery_ms": null}, "paused_reason": null}
+{"type": "ack", "last_sequence": 5}
+{"type": "progress", "last_sequence": 5, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}, "paused_reason": null}
 ```
 
-**회복 묶음** — 순번 7~12. 6초에 회복 확정. 마지막 판정 가능 프레임은 순번 11이다(순번 12는 쉬기).
+회복 확정(순번 11, 6초) — `decision`만 옮김
 
 ```json
-{"type": "observation", "observation": {"schema_version": "4.0", "valid": true, "posture": "good", "collapse_probability": 0.0, "invalid_reason": null}}
 {"type": "decision", "event": {"event_id": 2, "kind": "recovery_confirmed", "timestamp_ms": 6000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 6000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}}
-{"type": "progress", "last_sequence": 12, "summary": {"total_ms": 6500, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 500, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}, "paused_reason": "rest"}
 ```
 
-**쉬기 구간만 있는 묶음** — 순번 13. 쉬기는 판정 가능 프레임이 없어 `valid: false`, `invalid_reason: "unmeasurable"`이고, `progress.paused_reason`은 `rest`다.
+사람이 없는 구간(순번 14) 뒤의 `progress`
 
 ```json
-{"type": "observation", "observation": {"schema_version": "4.0", "valid": false, "posture": null, "collapse_probability": 0.0, "invalid_reason": "unmeasurable"}}
-{"type": "progress", "last_sequence": 13, "summary": {"total_ms": 7000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}, "paused_reason": "rest"}
+{"type": "progress", "last_sequence": 14, "summary": {"total_ms": 7500, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 500, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}, "paused_reason": "unmeasurable"}
 ```
 
-**`end`(9000)에 대한 응답** — 사람이 없는 순번 14~15(7~8초, `p: null`)를 마저 판정한 뒤 세션을 끝낸다. 7~8초는 판정 불가(`unknown_ms` 1000), 8~9초는 보낸 구간이 없어 누락(`missing_ms` 1000)이다.
+`end`(9000)에 대한 응답 — 8~9초는 보낸 구간이 없어 누락(`missing_ms` 1000)이 된다
 
 ```json
-{"type": "observation", "observation": {"schema_version": "4.0", "valid": false, "posture": null, "collapse_probability": 0.0, "invalid_reason": "unmeasurable"}}
-{"type": "progress", "last_sequence": 15, "summary": {"total_ms": 8000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 1000, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}, "paused_reason": "unmeasurable"}
 {"type": "decision", "event": {"event_id": 3, "kind": "session_ended", "timestamp_ms": 9000, "onset_ms": 9000, "onset_valid_ms": 6000, "deviation_type": "none", "reason": "ended"}, "summary": {"total_ms": 9000, "valid_ms": 6000, "normal_ms": 3000, "deviation_ms": 3000, "rest_ms": 1000, "away_ms": 0, "unknown_ms": 1000, "missing_ms": 1000, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.5, "events_per_hour": 600.0, "mean_interval_ms": null, "mean_recovery_ms": 3000.0}}
-{"type": "closed", "reason": "ended", "ended_at": "2026-11-01T07:56:52.029Z"}
+{"type": "closed", "reason": "ended", "ended_at": "2026-10-28T16:05:14.551Z"}
 ```
 
 ## 변경 이력
@@ -1562,9 +1551,8 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-11-01 | `feature/repo-server-frame-batch-inference` `3e15a05` | 문서만(코드 그대로): 11.5 서버 → 앱 메시지를 지금 코드(3초 묶음·`observation` 4.0)로 다시 실행해 받은 **실제 값**으로 바꾸고 받은 때·묶음 표를 더함. 11.1 순서 그림을 묶음 순서(`ack` 먼저, 묶음마다 `observation`·`decision`·`alert`·`progress`)로 고침. 머리말 코드 기준·개정일 갱신, 지운 R2를 가리키던 "`/v2/records` 본문" 문구 고침, 10/30 이력의 ADR 0045 → 0047 |
 | 2026-10-31 | `feature/repo-server-frame-batch-inference` | **추론은 구간마다 바로, 3초 모으기는 판정 엔진, Kafka 전송 추가**(계획 0084 10/31): API가 받은 구간의 프레임을 바로 추론에 넘기고(`/v3/infer` 본문 그대로) 판정 엔진이 결과를 약 3초 모아 순번 순서로 판정. 추론 전송 설정 `posegood.inference.transport`(`http` 기본·`kafka`), Kafka 토픽 `posture.inference-request.v3`·`posture.inference-result.v3`(키 `session_id`). 결과가 2초(`result-timeout`) 안에 오지 않은 구간은 누락·`stalled`. 앱에 보내는 메시지는 10/30과 같음 |
-| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0084): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, [ADR 0047](../decisions/0047-posture-from-deviation-probability.md) — 10/31 0045에서 번호만 옮김) |
+| 2026-10-30 | `feature/repo-server-frame-batch-inference` | **서버 3초 묶음·프레임마다 판정, `observation` 4.0 — 호환성 깨짐**(계획 0084): `ack`는 받은 즉시, 판정은 서버 시계 3초(`batch-window`)마다 프레임째로 새 추론 `POST /v3/infer`(9장)에 넘김. `observation`은 묶음마다 하나이고 `schema_version` 4.0 `{valid, posture, collapse_probability, invalid_reason}`(앱 검사 수정 필요, FE 공지). `progress`는 묶음 뒤. `valid_ms`는 판별 가능한 프레임 시간만(BE-5 ②). 알림 최대 3초 늦음. `decision`·`alert`의 `deviation_type`은 그대로(학습 모델 때 삭제, 보류, ADR 0045) |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |
