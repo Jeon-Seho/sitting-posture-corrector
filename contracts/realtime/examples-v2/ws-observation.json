@@ -1,10 +1,16 @@
 {
   "type": "observation",
   "observation": {
-    "schema_version": "4.0",
+    "schema_version": "3.0",
+    "sequence": 42,
+    "start_ms": 21000,
+    "end_ms": 21500,
+    "phase": "running",
     "valid": true,
-    "posture": "bad",
+    "valid_ms": 500,
     "collapse_probability": 0.82,
-    "invalid_reason": null
+    "deviation_type": "forward_slouch",
+    "invalid_reason": null,
+    "model_version": "reference-feature-rule-v1"
   }
 }
