@@ -5,19 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.posegood.api.common.ApiError;
-import org.posegood.api.contract.Observation;
-import org.posegood.api.contract.Policy;
-import org.posegood.api.contract.SessionView;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.posegood.api.common.ApiError;
+import org.posegood.api.contract.Observation;
+import org.posegood.api.contract.Policy;
+import org.posegood.api.contract.SessionView;
 
 /**
  * 판정 엔진 단위 시험(옛 CEP 시험과 같은 입력·기대값 포함).
@@ -38,17 +38,17 @@ class SessionEngineTest {
 	}
 
 	private Observation observation(
-			long sequence, long from, long to, double probability, boolean valid, Observation.Phase phase) {
+		long sequence, long from, long to, double probability, boolean valid, Observation.Phase phase) {
 		return new Observation(
-				"2.0",
-				sequence,
-				from,
-				to,
-				phase,
-				valid,
-				probability,
-				Observation.DeviationType.forward_slouch,
-				"synthetic-v1");
+			"2.0",
+			sequence,
+			from,
+			to,
+			phase,
+			valid,
+			probability,
+			Observation.DeviationType.forward_slouch,
+			"synthetic-v1");
 	}
 
 	private SessionView feed(long from, long to, double probability) {
@@ -166,8 +166,8 @@ class SessionEngineTest {
 		assertNull(stats.meanRecoveryMs());
 		assertEquals(0, count("recovery_confirmed"));
 		assertEquals(
-				stats.totalMs(),
-				stats.validMs() + stats.awayMs() + stats.unknownMs() + stats.missingMs() + stats.restMs());
+			stats.totalMs(),
+			stats.validMs() + stats.awayMs() + stats.unknownMs() + stats.missingMs() + stats.restMs());
 	}
 
 	@Test
@@ -190,10 +190,10 @@ class SessionEngineTest {
 	@Test
 	void validZeroAndSingleEventHaveUnavailableStatistics() {
 		phase(0, 3000, 0.9, true, Observation.Phase.rest);
-		var s = engine.view().summary();
-		assertNull(s.keepRate());
-		assertNull(s.eventsPerHour());
-		assertNull(s.meanIntervalMs());
+		var summary = engine.view().summary();
+		assertNull(summary.keepRate());
+		assertNull(summary.eventsPerHour());
+		assertNull(summary.meanIntervalMs());
 		feed(3000, 6000, 0.9);
 		assertNull(engine.view().summary().meanIntervalMs());
 	}
@@ -204,11 +204,11 @@ class SessionEngineTest {
 		var before = engine.accept(first);
 		assertEquals(before, engine.accept(first));
 		assertThrows(
-				ApiError.class,
-				() -> engine.accept(observation(0, 0, 1000, 0.1, true, Observation.Phase.running)));
+			ApiError.class,
+			() -> engine.accept(observation(0, 0, 1000, 0.1, true, Observation.Phase.running)));
 		assertThrows(
-				ApiError.class,
-				() -> engine.accept(observation(1, 999, 1500, 0.9, true, Observation.Phase.running)));
+			ApiError.class,
+			() -> engine.accept(observation(1, 999, 1500, 0.9, true, Observation.Phase.running)));
 		assertEquals(before, engine.view());
 	}
 
@@ -262,8 +262,8 @@ class SessionEngineTest {
 		engine = new SessionEngine(UUID.randomUUID(), DEFAULTS, 10_000_000);
 		for (int index = 0; index < 10000; index++) {
 			engine.accept(
-					observation(
-							index, index * 1000L, (index + 1) * 1000L, 0.1, true, Observation.Phase.running));
+				observation(
+					index, index * 1000L, (index + 1) * 1000L, 0.1, true, Observation.Phase.running));
 		}
 		var full = engine.view();
 		assertEquals(9999, full.lastSequence());
@@ -290,7 +290,7 @@ class SessionEngineTest {
 		}
 		var view = engine.view();
 		var recent = observation(count - SessionEngine.RETRY_WINDOW, (count - SessionEngine.RETRY_WINDOW) * 500L,
-				(count - SessionEngine.RETRY_WINDOW + 1) * 500L, 0.1, true, Observation.Phase.running);
+			(count - SessionEngine.RETRY_WINDOW + 1) * 500L, 0.1, true, Observation.Phase.running);
 		assertEquals(view, engine.accept(recent));
 		var forgotten = observation(9, 4500, 5000, 0.1, true, Observation.Phase.running);
 		assertEquals(409, assertThrows(ApiError.class, () -> engine.accept(forgotten)).status());
@@ -315,7 +315,7 @@ class SessionEngineTest {
 	}
 
 	@Test
-	void pausedReasonFollowsTheLastIntervalAndPostureUsesTheThreshold() {
+	void pausedAndInvalidReasonsFollowTheLastInterval() {
 		assertNull(engine.pausedReason());
 		feed(0, 1000, 0.1);
 		assertNull(engine.pausedReason());
@@ -326,47 +326,13 @@ class SessionEngineTest {
 		phase(3000, 4000, 0, false, Observation.Phase.away);
 		assertEquals("away", engine.pausedReason());
 
-		// 실시간 관측 4.0의 good·bad는 이탈 후보와 같은 임계값(0.7 이상이면 bad).
-		assertEquals("good", engine.posture(0.69));
-		assertEquals("bad", engine.posture(0.7));
-	}
-
-	@Test
-	void framePartsOfOneIntervalAddOnlyJudgeableTimeAndKeepIntervalOrdering() {
-		// 계획 0084: 구간 하나(0~500)를 프레임 조각으로. 판정 불가 프레임(200~300)은 제외 시간이고 연속 시간을 끊는다.
-		var parts = List.of(
-				observation(0, 0, 200, 0.9, true, Observation.Phase.running),
-				observation(0, 200, 300, 0, false, Observation.Phase.running),
-				observation(0, 300, 500, 0.9, true, Observation.Phase.running));
-		var view = engine.accept(parts);
-		assertEquals(0, view.lastSequence());
-		assertEquals(500, view.summary().totalMs());
-		assertEquals(400, view.summary().validMs());
-		assertEquals(400, view.summary().deviationMs());
-		assertEquals(100, view.summary().unknownMs());
-		assertEquals(view, engine.accept(parts)); // 같은 조각의 재전송은 같은 결과
-		assertEquals(409, assertThrows(ApiError.class, () -> engine.accept(List.of(
-				observation(0, 0, 500, 0.9, true, Observation.Phase.running)))).status());
-		// 끊긴 뒤 다시 3초가 이어져야 확정된다: 300~3300.
-		sequence = 1;
-		feed(500, 3299, 0.9);
-		assertEquals(0, count("collapse_confirmed"));
-		feed(3299, 3300, 0.9);
-		assertEquals(1, count("collapse_confirmed"));
-		assertEquals(300, engine.view().events().get(0).onsetMs());
-	}
-
-	@Test
-	void partsMustBeOneContiguousInterval() {
-		var gap = List.of(
-				observation(0, 0, 200, 0.1, true, Observation.Phase.running),
-				observation(0, 250, 500, 0.1, true, Observation.Phase.running));
-		assertThrows(IllegalArgumentException.class, () -> engine.accept(gap));
-		var mixed = List.of(
-				observation(0, 0, 200, 0.1, true, Observation.Phase.running),
-				observation(1, 200, 500, 0.1, true, Observation.Phase.running));
-		assertThrows(IllegalArgumentException.class, () -> engine.accept(mixed));
-		assertThrows(IllegalArgumentException.class, () -> engine.accept(List.of()));
+		var valid = observation(0, 0, 500, 0.2, true, Observation.Phase.running);
+		var invalid = observation(0, 0, 500, 0, false, Observation.Phase.running);
+		var rest = observation(0, 0, 500, 0, false, Observation.Phase.rest);
+		assertNull(SessionEngine.invalidReason(valid, "head_turn"));
+		assertEquals("head_turn", SessionEngine.invalidReason(invalid, "head_turn"));
+		assertEquals("unmeasurable", SessionEngine.invalidReason(invalid, null));
+		assertEquals("unmeasurable", SessionEngine.invalidReason(rest, "head_turn"));
 	}
 
 	// 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.
@@ -380,7 +346,7 @@ class SessionEngineTest {
 		engine.accept(observation(sequence++, 4000, 5000, 0.9, true, Observation.Phase.running));
 		var decided = engine.eventsAfter(0);
 		assertEquals(List.of("collapse_confirmed", "interrupted", "collapse_confirmed"),
-				decided.stream().map(d -> d.event().kind()).toList());
+			decided.stream().map(d -> d.event().kind()).toList());
 		var interrupted = decided.get(1);
 		assertEquals("missing", interrupted.event().reason());
 		assertEquals(1, interrupted.summary().collapseCount());
@@ -399,13 +365,13 @@ class SessionEngineTest {
 		feed(7000, 8000, 0.1);
 		engine.end(9500);
 		assertEquals(
-				List.of(
-						new ExcludedSpan(1000, 3000, ExcludedSpan.Reason.PAUSE),
-						new ExcludedSpan(3000, 4000, ExcludedSpan.Reason.ABSENCE),
-						new ExcludedSpan(4000, 5000, ExcludedSpan.Reason.UNMEASURABLE),
-						new ExcludedSpan(5000, 7000, ExcludedSpan.Reason.MISSING),
-						new ExcludedSpan(8000, 9500, ExcludedSpan.Reason.MISSING)),
-				engine.excluded());
+			List.of(
+				new ExcludedSpan(1000, 3000, ExcludedSpan.Reason.PAUSE),
+				new ExcludedSpan(3000, 4000, ExcludedSpan.Reason.ABSENCE),
+				new ExcludedSpan(4000, 5000, ExcludedSpan.Reason.UNMEASURABLE),
+				new ExcludedSpan(5000, 7000, ExcludedSpan.Reason.MISSING),
+				new ExcludedSpan(8000, 9500, ExcludedSpan.Reason.MISSING)),
+			engine.excluded());
 		var summary = engine.view().summary();
 		long excluded = engine.excluded().stream().mapToLong(s -> s.endMs() - s.startMs()).sum();
 		assertEquals(summary.totalMs() - summary.validMs(), excluded);

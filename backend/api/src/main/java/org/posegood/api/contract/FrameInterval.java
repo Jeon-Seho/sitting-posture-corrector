@@ -1,5 +1,11 @@
 package org.posegood.api.contract;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
@@ -7,14 +13,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
-
 import tools.jackson.databind.JsonNode;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 /**
  * 앱이 보내는 좌표 구간 하나(0.5초, 관절 9개 원본 프레임). {@code /v2/realtime} features의 item이다.
@@ -23,13 +22,13 @@ import java.util.Set;
  * 좌표는 로그·DB에 남기지 않는다. 서버는 특징 변화량(측정) 또는 관절 평균(자세 등록)만 계산한다.
  */
 public record FrameInterval(
-		@NotNull @Pattern(regexp = "3\\.0") String schemaVersion,
-		@NotNull @Pattern(regexp = "keypoints-9-v1") String featureVersion,
-		@PositiveOrZero long sequence,
-		@PositiveOrZero @Max(86400000) long startMs,
-		@Positive @Max(86400000) long endMs,
-		@NotNull Phase phase,
-		@NotNull @Size(max = 30) List<@NotNull @Valid Frame> frames) {
+	@NotNull @Pattern(regexp = "3\\.0") String schemaVersion,
+	@NotNull @Pattern(regexp = "keypoints-9-v1") String featureVersion,
+	@PositiveOrZero long sequence,
+	@PositiveOrZero @Max(86400000) long startMs,
+	@Positive @Max(86400000) long endMs,
+	@NotNull Phase phase,
+	@NotNull @Size(max = 30) List<@NotNull @Valid Frame> frames) {
 
 	/** 관절 수: MediaPipe 0·2·5·7·8·9·10·11·12(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
 	public static final int JOINTS = 9;
@@ -48,15 +47,14 @@ public record FrameInterval(
 
 	/**
 	 * 자정 넘김 뒤: 앱이 연결 기준으로 보낸 시간·순번에서 {@code ms}·{@code sequences}를 빼 새 세션 기준으로 옮긴다.
-	 * 프레임 {@code t_ms}도 옮긴다(계획 0084부터 프레임 길이를 {@code t_ms}로 센다).
+	 * 프레임 {@code t_ms}는 판정에 쓰지 않아 그대로 둔다.
 	 */
 	public FrameInterval shifted(long ms, long sequences) {
 		if (ms == 0 && sequences == 0) {
 			return this;
 		}
-		var moved = frames.stream().map(frame -> new Frame(Math.max(0, frame.tMs() - ms), frame.p(), frame.valid())).toList();
 		return new FrameInterval(
-				schemaVersion, featureVersion, sequence - sequences, startMs - ms, endMs - ms, phase, moved);
+			schemaVersion, featureVersion, sequence - sequences, startMs - ms, endMs - ms, phase, frames);
 	}
 
 	/**
@@ -75,14 +73,17 @@ public record FrameInterval(
 				}
 				for (var joint : p) {
 					if (joint == null
-							|| joint.size() != 3
-							|| joint.get(0) == null
-							|| joint.get(1) == null
-							|| joint.get(2) == null) {
+						|| joint.size() != 3
+						|| joint.get(0) == null
+						|| joint.get(1) == null
+						|| joint.get(2) == null) {
 						throw new IllegalArgumentException("joint must be [x, y, visibility]");
 					}
-					double x = joint.get(0), y = joint.get(1), visibility = joint.get(2);
-					if (!(x >= -1 && x <= 2) || !(y >= -1 && y <= 2) || !(visibility >= 0 && visibility <= 1)) {
+					double xCoordinate = joint.get(0);
+					double yCoordinate = joint.get(1);
+					double visibility = joint.get(2);
+					if (!(xCoordinate >= -1 && xCoordinate <= 2)
+						|| !(yCoordinate >= -1 && yCoordinate <= 2) || !(visibility >= 0 && visibility <= 1)) {
 						throw new IllegalArgumentException("joint out of range");
 					}
 				}
@@ -106,19 +107,20 @@ public record FrameInterval(
 					throw new IllegalArgumentException("unknown frame field");
 				}
 			}
-			var t = node.get("t_ms");
-			var p = node.get("p");
+			var timestampNode = node.get("t_ms");
+			var pointsNode = node.get("p");
 			var valid = node.get("valid");
-			if (t == null || !t.isIntegralNumber() || !t.canConvertToLong() || p == null) {
+			if (timestampNode == null || !timestampNode.isIntegralNumber()
+				|| !timestampNode.canConvertToLong() || pointsNode == null) {
 				throw new IllegalArgumentException("t_ms and p are required");
 			}
 			List<List<Double>> points = null;
-			if (!p.isNull()) {
-				if (!p.isArray()) {
+			if (!pointsNode.isNull()) {
+				if (!pointsNode.isArray()) {
 					throw new IllegalArgumentException("p must be an array");
 				}
 				points = new ArrayList<>();
-				for (var joint : p) {
+				for (var joint : pointsNode) {
 					if (!joint.isArray()) {
 						throw new IllegalArgumentException("joint must be an array");
 					}
@@ -135,7 +137,7 @@ public record FrameInterval(
 			if (valid != null && !valid.isBoolean()) {
 				throw new IllegalArgumentException("valid must be false");
 			}
-			return new Frame(t.asLong(), points, valid == null ? null : valid.asBoolean());
+			return new Frame(timestampNode.asLong(), points, valid == null ? null : valid.asBoolean());
 		}
 
 		/** 판정에 쓸 수 있는 후보: 사람이 있고 앱이 판정 불가로 표시하지 않았다. */
