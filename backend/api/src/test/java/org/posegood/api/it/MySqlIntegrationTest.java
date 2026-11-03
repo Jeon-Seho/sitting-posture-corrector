@@ -761,10 +761,17 @@ class MySqlIntegrationTest {
 			socket.send(frames(sequence, "running", 0.09));
 		}
 		var observation = socket.next("observation").get("observation");
-		assertEquals("3.0", observation.get("schema_version").asString());
+		assertEquals("4.0", observation.get("schema_version").asString());
+		assertEquals(0, observation.get("sequence").asLong());
 		assertTrue(observation.get("valid").asBoolean());
-		assertEquals(500, observation.get("valid_ms").asLong());
-		assertEquals("left_lean", observation.get("deviation_type").asString());
+		assertEquals("bad", observation.get("posture").asString());
+		assertEquals(500, observation.get("hold_ms").asLong());
+		assertFalse(observation.has("deviation_type"));
+		JsonNode confirming;
+		do {
+			confirming = socket.next("observation").get("observation");
+		} while (confirming.get("sequence").asLong() != 5);
+		assertEquals(3000, confirming.get("hold_ms").asLong());
 		var decision = socket.next("decision", "collapse_confirmed");
 		assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
 		assertFalse(decision.has("session_id"));
@@ -778,6 +785,9 @@ class MySqlIntegrationTest {
 			unmeasurable = socket.next("observation").get("observation");
 		} while (unmeasurable.get("sequence").asLong() != 7);
 		assertFalse(unmeasurable.get("valid").asBoolean());
+		assertTrue(unmeasurable.get("posture").isNull());
+		assertTrue(unmeasurable.get("collapse_probability").isNull());
+		assertEquals(0, unmeasurable.get("hold_ms").asLong());
 		assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
 		JsonNode progress;
 		do {

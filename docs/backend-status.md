@@ -54,6 +54,7 @@
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (브랜치) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내는 DevOps 몫(3장) | `api-spec.md` 10장, `7034f0e` |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (브랜치) — **호환성 깨짐**: 엄격한 앱 검증은 새 필드를 거부. FE·Kafka `ws`도 맞춰야 함 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
 | `/v2/realtime` WebSocket (좌표 → `FrameFeatures`) | DB/BE | 구현됨 | `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test.java`, [ADR 0024](decisions/0024-session-ends-on-lost-connection.md) |
+| `/v2/realtime` `observation` 3.0 → **4.0** (`sequence`·`valid`·`posture`·`collapse_probability`·`hold_ms`·`invalid_reason`). `sequence`는 앱이 보낸 순번(자정 넘김 뒤에도), `posture`는 세션 `threshold`를 적용한 그 구간의 `good`·`bad`(이탈 후보와 같은 비교 `DecisionRules.candidate`), `hold_ms`는 확정 규칙이 세는 이탈 연속 시간(`Timeline.holdMs`, FE 요청). 판정 불가면 `posture`·점수 null, `hold_ms` 0. 보내는 시점·순서는 그대로(구간마다) | DB/BE | 구현됨 (브랜치 `feature/repo-realtime-observation4`, 2026-11-03, 단위 87개·MySQL 통합 11개 통과) — **호환성 깨짐**: develop 앱의 `validObservation`이 4.0을 버림. FE 4.0 대응(`feature/fe-3sec-batch-observation4`)을 먼저 합치고 함께 배포 | `contract/Observation.java` `V4`, `engine/SessionEngine.live`, `SessionEngineTest`, `RealtimeHandlerV2Test`, [계획 0084](plans/active/0084-server-3s-frame-batch-inference.md), `api-spec.md` 9장 |
 | 최대 측정 시간 없앰(기본 24시간 = 계약 상한), 재전송 기억 최근 120개 구간 | DB/BE | 구현됨 (브랜치) — 2026-10-26 결정. 측정이 길어도 세션 메모리가 늘지 않음 | `engine/SessionEngine.java` `RETRY_WINDOW`, `SessionEngineTest`, `api-spec.md` 11.3 |
 | 측정불가(판정 불가·자리 비움) 30분이면 그 지점에서 종료·저장, `closed(unmeasurable_timeout)` | DB/BE | 구현됨, **기본 켜짐 30분**(10/28, 5분에서 바꿈 — `POSEGOOD_UNMEASURABLE_TIMEOUT`, 0이면 끔). 앱은 10/27부터 이 사유를 처리 | `session/SessionService.java`, `SessionServiceTest`, `api-spec.md` 11.3 |
 | HTTP 특징 입력 S2 `POST /v2/sessions/{id}/features`, 기록 저장 R2 `POST /v2/records` | DB/BE | **삭제함** (브랜치, 2026-10-28) — 앱이 쓰지 않음. MySQL 통합 시험·`service_smoke.py`는 `/v2/realtime`으로 옮김. compose·배포·부하·데이터 플랫폼 도구는 담당에게 알림(계획 0062). 판정 상태를 잃은 세션 행을 닫던 R2가 없어져 그 행은 열린 채 남음 | [계획 0062](plans/active/0062-remove-unused-apis.md), 2.6 BE-1 |
@@ -107,6 +108,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | 쿠키·CSRF 로그인(`/v2/auth/csrf`)과 쿠키 WS 인증을 씀 — 토큰 로그인(ADR 0031)에서 실패 | DevOps에 Bearer 토큰·`hello.access_token`으로 바꿔 달라고 요청 | 요청 전 |
 | `tools/platform/io_api_smoke.py` 172줄 | R1을 배열로 읽음 — 2026-10-27부터 `{today, records}` 객체 | DevOps에 수정 요청 | 요청 전 |
 | `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
+| `docs/design/api-ws-spec.md` 145·176·184줄, `fe-server-proposal.md` 351줄, `fe-3sec.md` 33줄 | `observation` 3.0 필드(`valid_ms`·`start_ms` 등)와 「서버가 3초 묶음」 기준 — 2026-11-03부터 4.0, 구간마다 | FE에 갱신 요청(FE 문서는 BE가 고치지 않음, 계획 0084) | 요청 전 |
 
 ## 4. 미결 결정
 
@@ -148,6 +150,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-10-28 | 자정 넘김 B안 구현(BE-6 ①): 자정을 넘는 구간 또는 00:00:30에 이전 세션을 마지막 구간 끝에서 끝내 저장하고 같은 연결에서 서버가 만든 새 세션(같은 기준 자세·설정·알림, `started_at` = 자정)으로 넘김, `session_rollover`. 앱 시간·순번은 연결 기준 그대로 받아 서버가 바꿈. 실패하면 `closed(day_changed)`. 기본 꺼짐. 계약·예시·단위 시험. 실제 MySQL 시험(`INSERT … SELECT`)은 아직 | 커밋 전 |
 | 2026-10-29 | `check-backend`(MySQL 통합 11개·smoke 포함) 통과 기록. api-spec의 요청·응답 예시를 합성 실행에서 받은 실제 값으로 바꿈(R1 `type`·소수 시간·`server.view` 객체, WS `hello.access_token` 등 예시와 달랐던 곳 바로잡음) | 커밋 전 |
 | 2026-10-29 | 10/28 B1 프레임 배열·서버 평균(`748af6a`)을 되돌림: B1은 다시 앱이 낸 평균(`calibration_ms`·`sample_count`·`landmarks`)을 받는다. 422 `BASELINE_REJECTED` 삭제. alert_enabled 시험 수정(V2.6 기본값)은 유지. 철회 이유는 [계획 0063](plans/completed/0063-baseline-frames-over-rest.md) | 커밋 전 |
+| 2026-11-03 | 실시간 `observation` 4.0(구간마다, `posture`·`hold_ms` 추가, `sequence` 유지, 판정 불가 점수 null, 3.0 필드 6개 삭제 — 호환성 깨짐). 임계값 비교를 `DecisionRules.candidate`로 모음. FE 문서 불일치 1건 추가(3장) | 커밋 전 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

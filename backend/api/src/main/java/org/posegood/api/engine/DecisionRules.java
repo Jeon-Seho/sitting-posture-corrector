@@ -19,6 +19,11 @@ final class DecisionRules {
 	private DecisionRules() {
 	}
 
+	/** 이탈 후보인지: 점수가 정책 임계값 이상이다. */
+	static boolean candidate(double collapseProbability, Policy policy) {
+		return collapseProbability >= policy.threshold();
+	}
+
 	/** 지금 구간에서 나오는 판정(없으면 NONE). */
 	static Decision evaluate(
 		boolean candidate,
