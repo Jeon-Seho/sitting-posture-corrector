@@ -178,7 +178,7 @@
       }
     },
     "observation": {
-      "description": "server -> app, one per interval: live status. Score on screen = 100 x (1 - collapse_probability).",
+      "description": "server -> app, one per interval as soon as the interval is judged: live status of that interval. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-11-03, plan 0084) keeps only what the measuring screen uses; the pause is in progress.paused_reason, times in summary, the deviation type in decision.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -195,50 +195,45 @@
           "required": [
             "schema_version",
             "sequence",
-            "start_ms",
-            "end_ms",
-            "phase",
             "valid",
-            "valid_ms",
+            "posture",
             "collapse_probability",
-            "deviation_type",
-            "invalid_reason",
-            "model_version"
+            "hold_ms",
+            "invalid_reason"
           ],
           "properties": {
             "schema_version": {
-              "const": "3.0"
+              "const": "4.0"
             },
             "sequence": {
+              "description": "Sequence of the interval this result is for, as the app sent it (connection axis, like ack). Lets the app drop a result older than one it already shows and measure the score delay.",
               "type": "integer",
               "minimum": 0
             },
-            "start_ms": {
-              "$ref": "#/$defs/ms"
-            },
-            "end_ms": {
-              "$ref": "#/$defs/ms"
-            },
-            "phase": {
-              "enum": [
-                "running",
-                "rest",
-                "away"
-              ]
-            },
             "valid": {
+              "description": "true when the interval could be judged.",
               "type": "boolean"
             },
-            "valid_ms": {
-              "$ref": "#/$defs/ms"
+            "posture": {
+              "description": "good or bad for this interval: the session policy threshold applied by the server (collapse_probability >= threshold is bad). Momentary; alerts are still confirmed by decision/alert. null when not valid.",
+              "enum": [
+                null,
+                "good",
+                "bad"
+              ]
             },
             "collapse_probability": {
-              "type": "number",
+              "description": "Probability of bad posture for the same interval, null when not valid (not a score; 0 is a valid score meaning no change from the baseline). Rule score until a trained model (ADR 0043); not calibrated.",
+              "type": [
+                "number",
+                "null"
+              ],
               "minimum": 0,
               "maximum": 1
             },
-            "deviation_type": {
-              "$ref": "#/$defs/deviation_type"
+            "hold_ms": {
+              "description": "How long bad posture has lasted up to the end of this interval, by frame time t_ms: the value the server compares with the session policy hold_ms to confirm a collapse. 0 after a good interval or when continuity is broken (not valid, rest, away, missing). Keeps growing after the confirmation while posture stays bad.",
+              "$ref": "#/$defs/ms"
             },
             "invalid_reason": {
               "enum": [
@@ -247,11 +242,6 @@
                 "head_turn",
                 "settling"
               ]
-            },
-            "model_version": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
             }
           },
           "if": {
@@ -265,6 +255,15 @@
             "properties": {
               "invalid_reason": {
                 "const": null
+              },
+              "posture": {
+                "enum": [
+                  "good",
+                  "bad"
+                ]
+              },
+              "collapse_probability": {
+                "type": "number"
               }
             }
           },
@@ -276,6 +275,15 @@
                   "head_turn",
                   "settling"
                 ]
+              },
+              "posture": {
+                "const": null
+              },
+              "collapse_probability": {
+                "const": null
+              },
+              "hold_ms": {
+                "const": 0
               }
             }
           }

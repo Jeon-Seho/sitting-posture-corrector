@@ -60,7 +60,7 @@ import tools.jackson.databind.JsonNode;
  * <p>자정 넘김(BE-6 ① B안, {@code posegood.realtime.midnight-rollover}): KST 자정을 넘는 구간이 오거나 00:00:30까지
  * 구간이 없으면, 이전 세션을 마지막 구간 끝에서 끝내 저장하고 같은 연결을 서버가 만든 새 세션으로 잇는다
  * ({@code session_rollover}). 앱은 시간·순번을 연결 기준으로 계속 보내고, 서버가 자정 위치({@code at_ms})와 순번
- * 기준을 빼서 새 세션 값으로 바꾼다. {@code ack}·{@code progress}·{@code stalled}의 순번은 앱이 보낸 번호 그대로다.
+ * 기준을 빼서 새 세션 값으로 바꾼다. {@code ack}·{@code observation}·{@code progress}·{@code stalled}의 순번은 앱이 보낸 번호 그대로다.
  * 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않는다.
  */
 @Component
@@ -403,7 +403,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			return;
 		}
 		if (update.live() != null) {
-			send(channel, new RealtimeMessages.V2.ObservationPush(update.live()));
+			send(channel, new RealtimeMessages.V2.ObservationPush(update.live().shifted(channel.sequenceOffset)));
 		}
 		for (var decided : update.decided()) {
 			var event = decided.event();
