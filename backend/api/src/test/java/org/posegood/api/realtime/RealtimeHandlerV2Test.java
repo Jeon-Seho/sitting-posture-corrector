@@ -206,7 +206,7 @@ class RealtimeHandlerV2Test {
 			Observation.DeviationType.forward_slouch, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, observation,
 			List.of(new SessionEngine.Decided(event, SUMMARY)), 42, SUMMARY, false,
-			Observation.V4.judged(42, "bad", 0.82, 1500), null, null));
+			Observation.V4.judged(42, "bad", 0.82, 1500, 0), null, null));
 		same(example("ws-observation.json"), fake.only("observation"));
 		same(example("ws-decision.json"), fake.only("decision"));
 		same(example("ws-alert.json"), fake.only("alert"));
@@ -374,7 +374,7 @@ class RealtimeHandlerV2Test {
 			.thenAnswer(call -> {
 				received.add(call.getArgument(2));
 				handler.progressed(new SessionUpdates.Progressed(NEXT, null, List.of(), 1, SUMMARY, false,
-					Observation.V4.judged(1, "good", 0.1, 0), null, null));
+					Observation.V4.judged(1, "good", 0.1, 0, 0), null, null));
 				return new SessionService.Status(1, SUMMARY, null);
 			});
 		send(fake, features(44, AT + 200, AT + 700));

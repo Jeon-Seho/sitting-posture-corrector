@@ -766,6 +766,7 @@ class MySqlIntegrationTest {
 		assertTrue(observation.get("valid").asBoolean());
 		assertEquals("bad", observation.get("posture").asString());
 		assertEquals(500, observation.get("hold_ms").asLong());
+		assertEquals(0, observation.get("recovery_ms").asLong());
 		assertFalse(observation.has("deviation_type"));
 		JsonNode confirming;
 		do {
@@ -788,6 +789,7 @@ class MySqlIntegrationTest {
 		assertTrue(unmeasurable.get("posture").isNull());
 		assertTrue(unmeasurable.get("collapse_probability").isNull());
 		assertEquals(0, unmeasurable.get("hold_ms").asLong());
+		assertEquals(0, unmeasurable.get("recovery_ms").asLong());
 		assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
 		JsonNode progress;
 		do {

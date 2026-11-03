@@ -340,15 +340,16 @@ class SessionEngineTest {
 		// 이탈 후보와 같은 비교: 임계값과 같으면 bad, 바로 아래면 good. 판정 불가는 posture·점수 null.
 		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.8));
 		var at = acceptLive(observation(0, 0, 500, 0.8, true, Observation.Phase.running), null);
-		assertEquals(Observation.V4.judged(0, "bad", 0.8, 500), at);
+		assertEquals(Observation.V4.judged(0, "bad", 0.8, 500, 0), at);
 		assertEquals("4.0", at.schemaVersion());
-		assertEquals(Observation.V4.judged(1, "good", 0.79, 0),
+		assertEquals(Observation.V4.judged(1, "good", 0.79, 0, 0),
 			acceptLive(observation(1, 500, 1000, 0.79, true, Observation.Phase.running), null));
 		var unjudged = acceptLive(observation(2, 1000, 1500, 0.9, false, Observation.Phase.running), "head_turn");
 		assertEquals(Observation.V4.unjudged(2, "head_turn"), unjudged);
 		assertNull(unjudged.posture());
 		assertNull(unjudged.collapseProbability());
 		assertEquals(0, unjudged.holdMs());
+		assertEquals(0, unjudged.recoveryMs());
 		assertEquals(Observation.V4.unjudged(3, "unmeasurable"),
 			acceptLive(observation(3, 1500, 2000, 0, false, Observation.Phase.rest), null));
 	}
@@ -375,10 +376,56 @@ class SessionEngineTest {
 	}
 
 	@Test
+	void liveRecoveryIsTheGoodTimeTheOpenEpisodeCounts() {
+		// recovery_ms = 열린 사건에서 회복 규칙이 세는 바른 연속 시간: 사건이 없으면 0, bad에서 0부터 다시,
+		// 정책 recovery_ms(2000)에 닿은 구간은 회복이 확정돼 사건이 닫히므로 0, 판정 불가는 사건 중단이라 0.
+		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.7));
+		assertEquals(0, acceptLive(observation(0, 0, 500, 0.1, true, Observation.Phase.running), null).recoveryMs());
+		long from = 500;
+		long next = 1;
+		for (int index = 0; index < 6; index++, from += 500) {
+			assertEquals(0, liveAt(next++, from, 0.9).recoveryMs());
+		}
+		assertEquals(1, count("collapse_confirmed"));
+		assertEquals(500, liveAt(next++, from, 0.1).recoveryMs());
+		from += 500;
+		assertEquals(1000, liveAt(next++, from, 0.1).recoveryMs());
+		from += 500;
+		var bad = liveAt(next++, from, 0.9);
+		assertEquals(0, bad.recoveryMs());
+		assertEquals(500, bad.holdMs());
+		from += 500;
+		for (long expected = 500; expected < 2000; expected += 500, from += 500) {
+			assertEquals(expected, liveAt(next++, from, 0.1).recoveryMs());
+		}
+		assertEquals(0, liveAt(next++, from, 0.1).recoveryMs());
+		assertEquals(1, count("recovery_confirmed"));
+		from += 500;
+		assertEquals(0, liveAt(next++, from, 0.1).recoveryMs());
+		from += 500;
+
+		for (int index = 0; index < 6; index++, from += 500) {
+			liveAt(next++, from, 0.9);
+		}
+		assertEquals(2, count("collapse_confirmed"));
+		assertEquals(500, liveAt(next++, from, 0.1).recoveryMs());
+		from += 500;
+		assertEquals(0, acceptLive(observation(next++, from, from + 500, 0, false, Observation.Phase.running), null)
+			.recoveryMs());
+		from += 500;
+		assertEquals(1, count("interrupted"));
+		assertEquals(0, liveAt(next, from, 0.1).recoveryMs());
+	}
+
+	@Test
 	void liveShiftMovesOnlyTheSequence() {
-		var live = Observation.V4.judged(3, "bad", 0.9, 1500);
-		assertEquals(Observation.V4.judged(10, "bad", 0.9, 1500), live.shifted(7));
+		var live = Observation.V4.judged(3, "good", 0.1, 0, 1500);
+		assertEquals(Observation.V4.judged(10, "good", 0.1, 0, 1500), live.shifted(7));
 		assertEquals(Observation.V4.unjudged(10, "head_turn"), Observation.V4.unjudged(3, "head_turn").shifted(7));
+	}
+
+	private Observation.V4 liveAt(long sequence, long from, double score) {
+		return acceptLive(observation(sequence, from, from + 500, score, true, Observation.Phase.running), null);
 	}
 
 	private Observation.V4 acceptLive(Observation observation, String hint) {
