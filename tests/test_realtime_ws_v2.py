@@ -76,19 +76,34 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.rejects(bad)
 
     def test_observation_4_posture_follows_validity(self):
-        # 4.0 (2026-11-03): posture is good/bad only when valid; unjudged has posture null and score 0.
+        # 4.0 (2026-11-03): posture and score only when valid; unjudged has posture and score null, hold 0.
         valid = self.example("observation")
         self.assertEqual(valid["observation"]["schema_version"], "4.0")
         for posture in ("good", "bad"):
             self.validator.validate({**valid, "observation": {**valid["observation"], "posture": posture}})
         self.rejects({**valid, "observation": {**valid["observation"], "posture": None}})
+        # 0 is a real score when valid (no change from the baseline); null is only for not valid.
+        self.validator.validate({**valid, "observation": {**valid["observation"], "collapse_probability": 0}})
+        self.rejects({**valid, "observation": {**valid["observation"], "collapse_probability": None}})
         invalid = self.example("observation-unmeasurable")
         self.rejects({**invalid, "observation": {**invalid["observation"], "posture": "good"}})
-        self.rejects({**invalid, "observation": {**invalid["observation"], "collapse_probability": 0.5}})
+        for score in (0, 0.5):
+            self.rejects({**invalid, "observation": {**invalid["observation"], "collapse_probability": score}})
+        self.rejects({**invalid, "observation": {**invalid["observation"], "hold_ms": 500}})
         # 3.0 fields are gone: the schema refuses unknown fields.
-        for removed in ("sequence", "valid_ms", "deviation_type", "model_version"):
+        for removed in ("start_ms", "valid_ms", "deviation_type", "model_version"):
             self.rejects({**valid, "observation": {**valid["observation"], removed: 0}})
         self.rejects({**valid, "observation": {**valid["observation"], "schema_version": "3.0"}})
+
+    def test_observation_4_sequence_and_hold_are_required(self):
+        # 11/03 FE request: sequence (drop older results, measure delay) and hold_ms (bad time so far).
+        valid = self.example("observation")
+        for field in ("sequence", "hold_ms"):
+            body = copy.deepcopy(valid)
+            del body["observation"][field]
+            self.rejects(body)
+        for field, value in (("sequence", -1), ("hold_ms", -1), ("hold_ms", 1.5)):
+            self.rejects({**valid, "observation": {**valid["observation"], field: value}})
 
     def test_no_five_minute_fields(self):
         # 10/14: sessions under 5 min are stored (DB V2.3), so these fields were dropped.

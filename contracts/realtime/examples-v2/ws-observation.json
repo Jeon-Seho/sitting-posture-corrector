@@ -2,9 +2,11 @@
   "type": "observation",
   "observation": {
     "schema_version": "4.0",
+    "sequence": 42,
     "valid": true,
     "posture": "bad",
     "collapse_probability": 0.82,
+    "hold_ms": 1500,
     "invalid_reason": null
   }
 }

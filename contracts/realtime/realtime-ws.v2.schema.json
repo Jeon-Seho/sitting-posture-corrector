@@ -178,7 +178,7 @@
       }
     },
     "observation": {
-      "description": "server -> app, one per interval as soon as the interval is judged: live status of that interval. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-11-03, plan 0084) keeps only what the measuring screen uses; the processed position is in ack/progress last_sequence, the pause in progress.paused_reason, times in summary, the deviation type in decision.",
+      "description": "server -> app, one per interval as soon as the interval is judged: live status of that interval. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-11-03, plan 0084) keeps only what the measuring screen uses; the pause is in progress.paused_reason, times in summary, the deviation type in decision.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -194,14 +194,21 @@
           "additionalProperties": false,
           "required": [
             "schema_version",
+            "sequence",
             "valid",
             "posture",
             "collapse_probability",
+            "hold_ms",
             "invalid_reason"
           ],
           "properties": {
             "schema_version": {
               "const": "4.0"
+            },
+            "sequence": {
+              "description": "Sequence of the interval this result is for, as the app sent it (connection axis, like ack). Lets the app drop a result older than one it already shows and measure the score delay.",
+              "type": "integer",
+              "minimum": 0
             },
             "valid": {
               "description": "true when the interval could be judged.",
@@ -216,10 +223,17 @@
               ]
             },
             "collapse_probability": {
-              "description": "Probability of bad posture for the same interval, 0 when not valid. Rule score until a trained model (ADR 0043); not calibrated.",
-              "type": "number",
+              "description": "Probability of bad posture for the same interval, null when not valid (not a score; 0 is a valid score meaning no change from the baseline). Rule score until a trained model (ADR 0043); not calibrated.",
+              "type": [
+                "number",
+                "null"
+              ],
               "minimum": 0,
               "maximum": 1
+            },
+            "hold_ms": {
+              "description": "How long bad posture has lasted up to the end of this interval, by frame time t_ms: the value the server compares with the session policy hold_ms to confirm a collapse. 0 after a good interval or when continuity is broken (not valid, rest, away, missing). Keeps growing after the confirmation while posture stays bad.",
+              "$ref": "#/$defs/ms"
             },
             "invalid_reason": {
               "enum": [
@@ -247,6 +261,9 @@
                   "good",
                   "bad"
                 ]
+              },
+              "collapse_probability": {
+                "type": "number"
               }
             }
           },
@@ -263,6 +280,9 @@
                 "const": null
               },
               "collapse_probability": {
+                "const": null
+              },
+              "hold_ms": {
                 "const": 0
               }
             }

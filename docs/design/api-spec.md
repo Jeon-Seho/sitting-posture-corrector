@@ -1285,16 +1285,18 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 ### Observation 4.0 — 실시간 v2 관측
 
 `/v2/realtime`의 `observation` 메시지에 담긴다. 구간을 판정하자마자 하나씩 보낸다. 추론 응답(2.0)을 API가 바꿔 보낸다.
-4.0(2026-11-03, [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md))은 측정 화면이 쓰는 것만 남겼다 — 3.0의 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺐다(**호환성 깨짐**, FE와 함께 배포). 처리 위치는 `ack`·`progress`의 `last_sequence`, 멈춘 이유는 `progress.paused_reason`, 시간은 `summary`, 이탈 종류는 `decision`에 있다.
+4.0(2026-11-03, [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md))은 측정 화면이 쓰는 것만 남겼다 — 3.0의 `start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺐고, `posture`·`hold_ms`를 더했으며, 판정 불가 점수를 0에서 null로 바꿨다(**호환성 깨짐**, FE와 함께 배포). 멈춘 이유는 `progress.paused_reason`, 누적 시간은 `summary`, 이탈 종류는 `decision`에 있다.
 
-**예시** — 이탈 쪽 구간(정책 `threshold` 0.7, 점수 1.0).
+**예시** — 이탈 쪽 구간(순번 5 = 2.5~3초, 정책 `threshold` 0.7, 점수 1.0). 0초부터 이탈이 이어져 `hold_ms`가 정책 `hold_ms`(3000)에 닿았고, 같은 구간에서 `decision(collapse_confirmed)`이 온다.
 
 ```json
 {
   "schema_version": "4.0",
+  "sequence": 5,
   "valid": true,
   "posture": "bad",
   "collapse_probability": 1.0,
+  "hold_ms": 3000,
   "invalid_reason": null
 }
 ```
@@ -1304,18 +1306,22 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 ```json
 {
   "schema_version": "4.0",
+  "sequence": 14,
   "valid": false,
   "posture": null,
-  "collapse_probability": 0,
+  "collapse_probability": null,
+  "hold_ms": 0,
   "invalid_reason": "unmeasurable"
 }
 ```
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
+| `sequence` | long | 이 결과가 어느 구간의 것인지. 앱이 보낸 순번 그대로(연결 기준, 자정 넘김 뒤에도 `ack`처럼 앱 번호). 앱은 이미 보인 것보다 작은 순번을 버리고, 보낸 시각과 비교해 점수 지연을 잴 수 있다. |
 | `valid` | boolean | 이 구간을 판정할 수 있었는지. |
 | `posture` | `good` \| `bad` \| null | 이 구간 점수에 세션 정책 `threshold`를 적용한 그 순간의 판정(점수 ≥ `threshold`면 `bad`, 이탈 후보와 같은 비교). 3초 확정·알림은 계속 `decision`·`alert`다. `valid`가 아니면 null. |
-| `collapse_probability` | number 0~1 | 이탈 점수. 앱 점수 = 100 × (1 − 값). `valid`가 아니면 0. 학습 모델 전까지 규칙 점수이고 보정된 확률이 아니다. |
+| `collapse_probability` | number 0~1 \| null | 이탈 점수. 앱 점수 = 100 × (1 − 값). `valid`가 아니면 **null**(점수가 아님). `valid`인 0은 기준과 차이가 없다는 실제 점수다. 학습 모델 전까지 규칙 점수이고 보정된 확률이 아니다. |
+| `hold_ms` | long | 이 구간 끝까지 이탈 후보(`bad`)가 이어진 시간(프레임 시각 `t_ms` 기준). 판정 엔진이 정책 `hold_ms`와 비교해 붕괴를 확정하는 바로 그 값이다. `good` 구간·판정 불가·쉬기·자리 비움·누락으로 끊기면 0. 확정 뒤에도 `bad`가 이어지면 계속 는다. |
 | `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(고개를 돌린 프레임만 있었음) · `settling`(아직 보내지 않음). |
 
 ### RecordItem — 앱 기록 (camelCase)
@@ -1496,10 +1502,10 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 {"type": "ready", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "started_at": "2026-10-28T16:05:05.551Z"}
 ```
 
-순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다. `observation`은 같은 실행에서 받은 3.0 값을 4.0 형식으로 옮긴 것이다(2026-11-03, 다시 실행하지 않음).
+순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다. `observation`은 같은 실행에서 받은 3.0 값을 4.0 형식으로 옮긴 것이다(2026-11-03, 다시 실행하지 않음. `hold_ms`는 그 실행의 `decision`(`onset_ms` 0, `timestamp_ms` 3000)에서 계산).
 
 ```json
-{"type": "observation", "observation": {"schema_version": "4.0", "valid": true, "posture": "bad", "collapse_probability": 1.0, "invalid_reason": null}}
+{"type": "observation", "observation": {"schema_version": "4.0", "sequence": 5, "valid": true, "posture": "bad", "collapse_probability": 1.0, "hold_ms": 3000, "invalid_reason": null}}
 {"type": "decision", "event": {"event_id": 1, "kind": "collapse_confirmed", "timestamp_ms": 3000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}}
 {"type": "alert", "event_id": 1, "kind": "collapse_confirmed", "deviation_type": "left_lean"}
 {"type": "ack", "last_sequence": 5}
@@ -1531,7 +1537,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-11-03 | `feature/repo-realtime-observation4` | **실시간 `observation` 3.0 → 4.0 — 호환성 깨짐**: 필드를 `valid`·`posture`(`good`·`bad`·null, 세션 `threshold` 적용)·`collapse_probability`(판정 불가면 0)·`invalid_reason` 4개로 줄임. 보내는 시점·순서와 다른 메시지는 그대로(구간마다). 계약 `realtime-ws.v2` 번호만 올림(계획 0084). develop 앱의 `validObservation`은 4.0을 버리므로 FE 4.0 대응과 함께 배포 |
+| 2026-11-03 | `feature/repo-realtime-observation4` | **실시간 `observation` 3.0 → 4.0 — 호환성 깨짐**: 필드를 `sequence`(앱 순번)·`valid`·`posture`(`good`·`bad`·null, 세션 `threshold` 적용)·`collapse_probability`(판정 불가면 **null**)·`hold_ms`(이탈이 이어진 시간, FE 요청)·`invalid_reason` 6개로. `start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version` 삭제. 보내는 시점·순서와 다른 메시지는 그대로(구간마다). 계약 `realtime-ws.v2` 번호만 올림(계획 0084). develop 앱의 `validObservation`은 4.0을 버리므로 FE 4.0 대응과 함께 배포 |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |

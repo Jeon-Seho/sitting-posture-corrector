@@ -239,13 +239,18 @@ public final class SessionEngine {
 	 * 앱에 보낼 관측 4.0: 유효한 구간이면 세션 정책 임계값으로 나눈 그 순간의 good·bad와 점수, 아니면 판정 불가 사유.
 	 *
 	 * 이탈 후보 판단과 같은 비교({@link DecisionRules#candidate})를 쓴다. 알림 확정(3초)은 계속 사건이 한다.
+	 * 이어진 시간은 그 구간을 {@link #accept}한 뒤의 값으로, 확정 규칙이 세는 것과 같다(끊기면 0).
 	 */
-	public Observation.V4 live(Observation observation, String hint) {
+	public synchronized Observation.V4 live(Observation observation, String hint) {
 		if (!observation.valid()) {
-			return Observation.V4.unjudged(invalidReason(observation, hint));
+			return Observation.V4.unjudged(observation.sequence(), invalidReason(observation, hint));
 		}
 		double score = observation.collapseProbability();
-		return Observation.V4.judged(DecisionRules.candidate(score, policy) ? "bad" : "good", score);
+		return Observation.V4.judged(
+			observation.sequence(),
+			DecisionRules.candidate(score, policy) ? "bad" : "good",
+			score,
+			timeline.holdMs());
 	}
 
 	public synchronized int eventCount() {

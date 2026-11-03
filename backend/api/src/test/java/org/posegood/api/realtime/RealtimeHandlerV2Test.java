@@ -206,7 +206,7 @@ class RealtimeHandlerV2Test {
 			Observation.DeviationType.forward_slouch, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, observation,
 			List.of(new SessionEngine.Decided(event, SUMMARY)), 42, SUMMARY, false,
-			Observation.V4.judged("bad", 0.82), null, null));
+			Observation.V4.judged(42, "bad", 0.82, 1500), null, null));
 		same(example("ws-observation.json"), fake.only("observation"));
 		same(example("ws-decision.json"), fake.only("decision"));
 		same(example("ws-alert.json"), fake.only("alert"));
@@ -214,7 +214,7 @@ class RealtimeHandlerV2Test {
 		var invalid = new Observation("2.0", 43, 21500, 22000, Observation.Phase.running, false, 0,
 			Observation.DeviationType.none, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, invalid, List.of(), 43, SUMMARY, false,
-			Observation.V4.unjudged(SessionEngine.invalidReason(invalid, null)), "unmeasurable", null));
+			Observation.V4.unjudged(43, SessionEngine.invalidReason(invalid, null)), "unmeasurable", null));
 		same(example("ws-observation-unmeasurable.json"), fake.all("observation").get(1));
 		assertFalse(fake.closed.get());
 	}
@@ -368,16 +368,19 @@ class RealtimeHandlerV2Test {
 		assertFalse(fake.closed.get());
 
 		// 넘긴 뒤: 앱은 연결 기준 시간·순번을 그대로 보내고 서버가 새 세션 값(자정 = 0, 순번 43 = 0)으로 바꾼다.
-		// ack·progress의 순번은 앱이 보낸 번호 그대로다.
+		// ack·observation·progress의 순번은 앱이 보낸 번호 그대로다.
 		var received = new ArrayList<FrameInterval>();
 		when(sessions.frames(eq(OWNER), eq(NEXT), any(FrameInterval.class), eq(BASELINE)))
 			.thenAnswer(call -> {
 				received.add(call.getArgument(2));
+				handler.progressed(new SessionUpdates.Progressed(NEXT, null, List.of(), 1, SUMMARY, false,
+					Observation.V4.judged(1, "good", 0.1, 0), null, null));
 				return new SessionService.Status(1, SUMMARY, null);
 			});
 		send(fake, features(44, AT + 200, AT + 700));
 		var local = received.get(0);
 		assertEquals(List.of(1L, 200L, 700L), List.of(local.sequence(), local.startMs(), local.endMs()));
+		assertEquals(44, fake.only("observation").get("observation").get("sequence").asLong());
 		assertEquals(44, fake.all("ack").get(2).get("last_sequence").asLong());
 		assertEquals(44, fake.all("progress").get(1).get("last_sequence").asLong());
 

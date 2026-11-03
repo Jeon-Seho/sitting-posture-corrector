@@ -337,19 +337,53 @@ class SessionEngineTest {
 
 	@Test
 	void livePostureSplitsAtTheFrozenThresholdAndUnjudgedHasNoScore() {
-		// 이탈 후보와 같은 비교: 임계값과 같으면 bad, 바로 아래면 good. 판정 불가는 posture null·점수 0.
+		// 이탈 후보와 같은 비교: 임계값과 같으면 bad, 바로 아래면 good. 판정 불가는 posture·점수 null.
 		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.8));
-		var at = engine.live(observation(0, 0, 33, 0.8, true, Observation.Phase.running), null);
-		assertEquals(Observation.V4.judged("bad", 0.8), at);
+		var at = acceptLive(observation(0, 0, 500, 0.8, true, Observation.Phase.running), null);
+		assertEquals(Observation.V4.judged(0, "bad", 0.8, 500), at);
 		assertEquals("4.0", at.schemaVersion());
-		assertEquals(Observation.V4.judged("good", 0.79),
-			engine.live(observation(1, 33, 66, 0.79, true, Observation.Phase.running), null));
-		var unjudged = engine.live(observation(2, 66, 99, 0.9, false, Observation.Phase.running), "head_turn");
-		assertEquals(Observation.V4.unjudged("head_turn"), unjudged);
+		assertEquals(Observation.V4.judged(1, "good", 0.79, 0),
+			acceptLive(observation(1, 500, 1000, 0.79, true, Observation.Phase.running), null));
+		var unjudged = acceptLive(observation(2, 1000, 1500, 0.9, false, Observation.Phase.running), "head_turn");
+		assertEquals(Observation.V4.unjudged(2, "head_turn"), unjudged);
 		assertNull(unjudged.posture());
-		assertEquals(0, unjudged.collapseProbability());
-		assertEquals(Observation.V4.unjudged("unmeasurable"),
-			engine.live(observation(3, 99, 132, 0, false, Observation.Phase.rest), null));
+		assertNull(unjudged.collapseProbability());
+		assertEquals(0, unjudged.holdMs());
+		assertEquals(Observation.V4.unjudged(3, "unmeasurable"),
+			acceptLive(observation(3, 1500, 2000, 0, false, Observation.Phase.rest), null));
+	}
+
+	@Test
+	void liveHoldIsTheContinuousBadTimeTheConfirmationCounts() {
+		// hold_ms = 확정 규칙이 세는 이탈 연속 시간: good·판정 불가에서 0, 확정(3000) 뒤에도 bad면 계속 는다.
+		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.7));
+		assertEquals(500, acceptLive(observation(0, 0, 500, 0.9, true, Observation.Phase.running), null).holdMs());
+		assertEquals(1000, acceptLive(observation(1, 500, 1000, 0.9, true, Observation.Phase.running), null).holdMs());
+		assertEquals(0, acceptLive(observation(2, 1000, 1500, 0.1, true, Observation.Phase.running), null).holdMs());
+		assertEquals(500, acceptLive(observation(3, 1500, 2000, 0.9, true, Observation.Phase.running), null).holdMs());
+		assertEquals(0, acceptLive(observation(4, 2000, 2500, 0, false, Observation.Phase.running), null).holdMs());
+		long hold = 0;
+		for (int index = 0; index < 6; index++) {
+			long from = 2500 + index * 500L;
+			hold = acceptLive(observation(5 + index, from, from + 500, 0.9, true, Observation.Phase.running), null)
+				.holdMs();
+		}
+		assertEquals(3000, hold);
+		assertEquals(1, count("collapse_confirmed"));
+		assertEquals(3500, acceptLive(observation(11, 5500, 6000, 0.9, true, Observation.Phase.running), null)
+			.holdMs());
+	}
+
+	@Test
+	void liveShiftMovesOnlyTheSequence() {
+		var live = Observation.V4.judged(3, "bad", 0.9, 1500);
+		assertEquals(Observation.V4.judged(10, "bad", 0.9, 1500), live.shifted(7));
+		assertEquals(Observation.V4.unjudged(10, "head_turn"), Observation.V4.unjudged(3, "head_turn").shifted(7));
+	}
+
+	private Observation.V4 acceptLive(Observation observation, String hint) {
+		engine.accept(observation);
+		return engine.live(observation, hint);
 	}
 
 	// 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.
