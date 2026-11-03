@@ -17,7 +17,7 @@
    복귀 대기, 시간 판정(확정·복귀·재알림)을 모두 서버가 한다. 화면의 점수(100 × (1 − `collapse_probability`))·상태·알림·통계는 서버가 보낸 것만 쓴다.
    서버 결과를 앱이 다시 검사하지 않고 형식만 확인한다.
 2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [연동 명세](../design/api-ws-spec.md) 5.1
-   (관절 9개 `[x, y, visibility]`, 2026-10-27부터 프레임마다 1건, 서버가 받아 묶음)을 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
+   (관절 9개 `[x, y, visibility]`, 2026-10-27부터 프레임마다 1건, 서버가 받은 구간마다 바로 판정)을 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
 3. **서버 없이 쓰는 로컬 모드는 없다.** 앱은 로그인한 서버 모드만 있다. 서버가 없으면 측정을 시작하지 않는다.
 4. **ML용 내보내기에 앱 판정 라벨을 붙이지 않는다**(`state`·`type`·`score` 열 제거). 자세 데이터 수집 화면은 BE·ML 요구를 다시 받아 만든다.
 5. 앱 설정 중 소리 켜기는 저장하지 않는다. 「자세 알림」 켜기·끄기만 서버에 저장한다: `user_account.sound_alert_enabled`(DB V2.6), 측정 시작 때 `monitor_session.alert_enabled`로 복사([DB 안내](../../database/README.md)). 기본값은 DB가 false, 앱 화면이 켜짐으로 서로 달라 아직 정하지 않았다([백엔드 상태](../backend-status.md) 미결 표).
@@ -48,10 +48,12 @@
 5. 로컬 판정 코드(판정 엔진 `machine`·`scenario`·`snapshot`, 복귀 대기, 카메라 샘플, 로컬 측정 화면, v1 서버 측정 코드, 특징·좌표 내보내기)는 지웠다.
 6. 측정 결과는 이 기기에도 남긴다. 오늘 화면용이다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
-8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, [fe-3sec](../design/fe-3sec.md)).** 서버가 3초 묶음마다 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md)).
+8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27·28, BE `feature/repo-realtime-observation4`). 11/1의 3초 묶음(#91)은 11/2 되돌렸다([인계서](../design/frontend-realtime-handoff-2026-11-03.md)).
    `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
    3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
-   앱은 `observation`에서 쓰는 필드(`valid`·`collapse_probability`·`invalid_reason`)만 검사한다. 운영 서버가 4.0이 될 때까지 3.0도 읽고, 그 뒤 3.0 통과 시험을 지운다.
+   주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
+   판정 불가면 점수가 `null`이라 점수를 그리지 않는다. `sequence`가 화면에 있는 결과보다 작거나 같은 결과는 버린다(늦은 결과가 최신 점수를 덮지 않게).
+   운영 서버가 4.0이 될 때까지 3.0도 읽고(`sequence`·`posture`·`hold_ms`가 없으면 주의·게이지 없음), 그 뒤 3.0 통과 시험을 지운다.
    새 기록에는 모델 이름(`modelVersion`)을 쓰지 않는다(4.0에서 빠짐). 예전 기록은 그대로 읽는다.
 
 ## 5. 자세 등록 (옛 ADR 0026, 2026-10-20 전체 회의)
@@ -96,3 +98,4 @@
 - 2026-10-27: ADR 정리로 0025·0026·0032를 이 문서에 합쳤다([지운 문서 기록](../removed-docs.md) 7절).
 - 2026-11-02: 3절에 좌표 보관 확인 필요를 적었다(Spark 배치 안내 대조).
 - 2026-11-01: 서버 3초 묶음·`observation` 4.0(BE #91)에 맞춰 4절 8번 추가 — 주의 단계(`posture: 'bad'`, 확정 전), 쓰는 필드만 검사, `modelVersion` 저장 안 함.
+- 2026-11-03: #91 되돌림(PR #95) 뒤 BE 4.0 최종 형식(구간마다, `sequence`·`hold_ms`, 판정 불가 점수 `null`)에 맞춰 2절·4절 8번 고침 — 붕괴 게이지는 서버 `hold_ms`, 늦은 결과 버림.
