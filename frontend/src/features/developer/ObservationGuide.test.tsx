@@ -155,7 +155,7 @@ describe('guided camera workspace with explicit synthetic clock', () => {
     let ui!: ReturnType<typeof create>
     act(() => { ui = create(<ObservationGuide guide={protocol.snapshot(0)} ready={false} active={false} hasRecording onDownload={onDownload} {...controls} onStart={onStart} />) })
     const buttons = ui.root.findAllByType('button')
-    expect(buttons.map(text)).toEqual(['다시 측정', '전체 데이터 JSON', 'ML 후보 특징 JSON'])
+    expect(buttons.map(text)).toEqual(['다시 측정', '전체 데이터 JSON'])
     act(() => buttons[0].props.onClick()); expect(onStart).toHaveBeenCalledOnce()
     act(() => buttons[1].props.onClick()); expect(onDownload).toHaveBeenCalledOnce()
     act(() => ui.unmount())

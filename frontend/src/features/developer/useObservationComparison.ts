@@ -9,6 +9,7 @@ import { automaticComparisonCaptures } from './observationAutoSummary'
 import { ObservationReplayArchive, REPLAY_LIMIT, type ReplayPhase } from './observationReplay'
 
 export type ReferenceSetup = { status: 'idle' | 'connecting' | 'preparing' | 'registering' | 'interrupted'; remainingMs: number }
+import { RecordingRate, RecordingSlots } from './recordingRate'
 export { OBSERVATION_REFERENCE_MS } from './observationProtocol'
 const locked = (guide: GuideSnapshot) => ['running', 'waiting', 'note', 'paused'].includes(guide.status)
 const measuring = (guide: GuideSnapshot) => guide.status === 'running' && guide.step?.phase === 'hold' && guide.remainingMs > 0
@@ -23,12 +24,14 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   const [active, setActive] = useState(false)
   const modeRef = useRef<GuideMode>('auto'), [guideMode, setGuideMode] = useState<GuideMode>('auto')
   const planRef = useRef<GuidePlan>(DEFAULT_GUIDE_PLAN), [guidePlan, setGuidePlan] = useState<GuidePlan>(DEFAULT_GUIDE_PLAN)
+  const participantRef = useRef('')
   const setupRef = useRef<ReferenceSetup>({ status: 'idle', remainingMs: 0 })
   const [setup, setSetup] = useState(setupRef.current)
   const updateSetup = useCallback((status: ReferenceSetup['status'], remainingMs = 0) => {
     setupRef.current = { status, remainingMs }; setSetup(setupRef.current)
   }, [])
   const [action, setAction] = useState<ComparisonAction>('neutral')
+  const slots = useRef(new RecordingSlots()), rate = useRef(new RecordingRate()), [recordingHz, setRecordingHz] = useState<number | null>(null)
   const [notice, setNotice] = useState(mode === 'synthetic' ? '가상 점으로 화면 표시만 확인합니다. 실제 측정 자료를 모으지 않습니다.' : '')
   const [captures, setCaptures] = useState<Partial<Record<ComparisonAction, ComparisonCapture>> | null>({})
   const protocol = useRef(new ObservationProtocol()), guideSequence = useRef(0)
@@ -128,12 +131,15 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   }
   const receive = useCallback((frame: ComparisonFrame) => {
     if (!activeRef.current || document.visibilityState === 'hidden') return
-    if (frameAt.current !== null && frame.timeMs > frameAt.current && frame.timeMs - frameAt.current < 100) return
+    if (!slots.current.keep(frameAt.current, frame.timeMs)) return
     const previousReceive = receivedAt.current
     receivedAt.current = performance.now()
     advanceSetup()
     const before = engine.current.reference, previousTime = frameAt.current
     engine.current.accept(frame); frameAt.current = frame.timeMs
+    // A tracking gap is reported as an interruption, not as a slow recording rate.
+    if (previousTime !== null && frame.timeMs - previousTime > COMPARISON_POLICY.gapMs) rate.current.reset()
+    rate.current.add(frame.timeMs); const hz = rate.current.hz(); setRecordingHz(hz === null ? null : Math.round(hz * 10) / 10)
     if (before && !engine.current.reference) {
       // Do not erase the previous buffer or export it against the new extraction context.
       if (protocol.current.cancel(performance.now())) { appendTrace('protocol_cancelled', null, null); setGuide(protocol.current.snapshot(performance.now())) }
@@ -176,8 +182,8 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
   }, [active, interrupt, mode, appendTrace, updateSetup])
   const startNow = useCallback((next: 'camera' | 'synthetic') => {
     if (next !== mode || activeRef.current) return
-    cameraRef.current.stop(); resetExport(); replay.current.setPlan(planRef.current); replay.current.setGuideMode(modeRef.current); const id = ++token.current
-    engine.current.reset(); frameAt.current = null; receivedAt.current = performance.now(); selectedAt.current = 0
+    cameraRef.current.stop(); resetExport(); replay.current.setPlan(planRef.current); replay.current.setGuideMode(modeRef.current); replay.current.setParticipant(participantRef.current); const id = ++token.current
+    engine.current.reset(); frameAt.current = null; slots.current.reset(); rate.current.reset(); setRecordingHz(null); receivedAt.current = performance.now(); selectedAt.current = 0
     actionRef.current = 'neutral'; setAction('neutral'); setSource(next); activeRef.current = next; setActive(true); publish(null)
     if (next === 'synthetic') { engine.current.beginReference(); setNotice('합성 예시의 기준을 등록하고 있어요. 실제 동작의 측정 결과가 아닙니다.') }
     else {
@@ -239,6 +245,7 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     if (locked(protocol.current.snapshot(performance.now()))) return
     planRef.current = { ...next }; setGuidePlan(planRef.current)
   }
+  const changeParticipant = (name: string) => { if (!locked(protocol.current.snapshot(performance.now()))) participantRef.current = name }
   const nextGuide = () => {
     if (!guideReady()) return
     const now = performance.now()
@@ -315,5 +322,5 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     downloadComparisonCsv(kind, kind === 'summary' ? comparisonSummaryCsv(effectiveCaptures, context) : comparisonTraceCsv(trace.current, context), source)
   }
   const rows = Object.fromEntries(Object.entries(effectiveCaptures).map(([key, capture]) => [key, capture.values])) as Partial<Record<ComparisonAction, ComparisonValues>>
-  return { ...view, source, active, action, notice, recordingLimitReached, rows, stretchNote: replay.current.stretchNoteForRound(effectiveCaptures.stretch?.guidance?.step?.round), replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, finishStretchNote, guideMode, changeGuideMode, guidePlan, changeGuidePlan, setup, canStartReference: canStartReference && !pendingReset, startReference, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
+  return { ...view, source, active, action, notice, recordingHz, recordingLimitReached, rows, stretchNote: replay.current.stretchNoteForRound(effectiveCaptures.stretch?.guidance?.step?.round), replayCount: replay.current.count, replayDropped: replay.current.droppedFrames, getReplay, traceCount: trace.current.length, droppedRows: dropped.current, guide, guideLocked, finishStretchNote, guideMode, changeGuideMode, guidePlan, changeGuidePlan, changeParticipant, setup, canStartReference: canStartReference && !pendingReset, startReference, measuring: measuring(guide), nextGuide, canGuide: mode === 'camera' && !pendingReset && guideReady(), startGuide, pauseGuide: () => pauseGuide('user'), resumeGuide, pendingReset, cancelReset, confirmReset, exportCsv, start, stop, choose, register, capture, clear }
 }

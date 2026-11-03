@@ -48,9 +48,25 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     vi.spyOn(Math, 'random').mockReturnValue(2 / 8)
     doc = Object.assign(new EventTarget(), { visibilityState: 'visible', title: 'test' }); vi.stubGlobal('document', doc)
     win = new EventTarget(); vi.stubGlobal('window', win)
+    // The start modal requires a measurer name; a synthetic one is saved from an earlier run.
+    vi.stubGlobal('localStorage', { getItem: (key: string) => key === 'posture-lab-observation-participant-v1' ? '합성 측정자' : null, setItem: () => {} })
     camera = { subscribe: vi.fn(fn => { listener = fn; return unsubscribe }), connect: vi.fn().mockResolvedValue(undefined), stop: vi.fn(), state: 'on', error: '', videoRef: { current: null }, streamRef: { current: null } } as unknown as CameraController
   })
   afterEach(() => { if (renderer) act(() => renderer.unmount()); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); unsubscribe.mockClear() })
+  it('shows the recording rate at the top right and warns while it stays below 7 Hz', async () => {
+    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
+    const chip = () => renderer.root.findAllByProps({ className: 'oc-recording-rate' })
+    act(() => renderer.root.findAllByType('button').find(b => text(b) === '카메라 켜기')!.props.onClick())
+    await act(async () => { await renderer.root.findAllByType('button').find(b => text(b) === '카메라 켜고 시작')!.props.onClick() })
+    frames(0, 1000)
+    expect(chip()).toHaveLength(0)
+    frames(1100, 2000)
+    expect(text(chip()[0])).toBe('10.0Hz'); expect(chip()[0].props['data-low']).toBe(false); expect(chip()[0].props.role).toBeUndefined()
+    for (let t = 2200; t <= 6000; t += 200) emit(t)
+    expect(text(chip()[0])).toBe('5.0Hz · 최소 7Hz 미만'); expect(chip()[0].props['data-low']).toBe(true); expect(chip()[0].props.role).toBe('status')
+    frames(6100, 9100)
+    expect(chip()[0].props['data-low']).toBe(false)
+  })
   it('opens without using the camera and keeps modes inside the start modal', () => {
     act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
     expect(camera.connect).not.toHaveBeenCalled()
@@ -61,26 +77,11 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '카메라 켜기')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled()
     expect(renderer.root.findByType('dialog').props['aria-modal']).toBe('true')
-    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['repeat', 'stretch', 'manual', 'auto'])
+    expect(renderer.root.findAllByProps({ type: 'radio' }).map(radio => radio.props.value)).toEqual(['manual', 'auto'])
     act(() => renderer.root.findAllByType('button').find(b => b.props.children === '취소')!.props.onClick())
     expect(camera.connect).not.toHaveBeenCalled(); expect(renderer.root.findAllByType('dialog')).toHaveLength(0)
 
   })
-  it('prompts for the stretch at the camera immediately before preparing it', async () => {
-    act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
-    const button = (label: string) => renderer.root.findAllByType('button').find(b => (b.props['aria-label'] ?? text(b)) === label)!
-    act(() => button('카메라 켜기').props.onClick())
-    act(() => renderer.root.findAllByProps({type: 'radio'}).find(r => r.props.value === 'stretch')!.props.onChange())
-    expect(renderer.root.findAllByProps({id: 'stretch-note'})).toHaveLength(0)
-    act(() => renderer.root.findAllByProps({type: 'radio'}).find(r => r.props.value === 'auto')!.props.onChange())
-    await act(async () => { await button('카메라 켜고 시작').props.onClick() })
-    registerUI(); frames(2000, 35000)
-    const input = renderer.root.findByProps({ id: 'stretch-note' })
-    expect(text(renderer.root.findByType('dialog'))).toContain('어떤 스트레칭을 할까요?')
-    act(() => input.props.onChange({ target: { value: '팔 뻗기' } }))
-    await act(async () => { await button('준비하기').props.onClick() })
-    expect(renderer.root.findAllByProps({ id: 'stretch-note' })).toHaveLength(0)
-  }, 15000)
   it('switches themes without reconnecting the camera and remembers the choice on remount', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) })
@@ -120,16 +121,19 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(current.measuring).toBe(false)
   })
   it('stops safely at the recording limit and retains every recorded frame', () => {
-    mount(); start()
+    mount(); start(); frames(0, 1900); act(() => current.startReference())
+    // Registration that keeps restarting (face point hidden) stays a recorded phase until the limit.
     act(() => {
-      for (let t = 0; t < 600000; t += 100) {
+      for (let t = 2000; t < 602000; t += 100) {
         wall = t
-        listener({ ...comparisonDemo(t, 'neutral'), features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t })
+        const frame = comparisonDemo(t, 'neutral'); frame.landmarks[0].visibility = 0
+        listener({ ...frame, features: null, inferenceMs: 1, delegate: 'CPU', videoTimeMs: t })
       }
     })
     expect(current.recordingLimitReached).toBe(true); expect(current.active).toBe(false)
     expect(current.replayCount).toBe(6000); expect(current.replayDropped).toBe(0)
-    expect(current.getReplay()!.frames.at(-1)?.elapsedMs).toBe(599900)
+    expect(current.getReplay()!.frames.every(f => f.phase === 'registering')).toBe(true)
+    expect(current.getReplay()!.frames.at(-1)?.elapsedMs).toBe(601900)
     expect(camera.stop).toHaveBeenCalled()
   }, 30000)
   it('never starts registration by waiting and rejects confirmation without fresh tracking', () => {
@@ -142,11 +146,13 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     frames(16200, 24100); expect(current.reference).toBeNull()
     emit(24200); expect(current.reference).not.toBeNull()
   })
-  it('records replay points across stages while keeping measurement CSV hold-only and protects early replay data', () => {
+  it('records only the registration and measured holds, keeps measurement CSV hold-only and protects early replay data', () => {
     mount(); start(); frames(0, 1500)
-    expect(current.replayCount).toBeGreaterThan(0); expect(current.traceCount).toBe(0)
+    // Preparation carries no label and is not recorded.
+    expect(current.replayCount).toBe(0); expect(current.traceCount).toBe(0)
+    act(() => current.startReference()); frames(1600, 4000)
     const early = current.getReplay()!
-    expect(early.frames.every(frame => !frame.measurement)).toBe(true)
+    expect(early.frames.length).toBeGreaterThan(0); expect(early.frames.every(frame => frame.phase === 'registering' && !frame.measurement)).toBe(true)
     act(() => current.stop()); start()
     expect(current.pendingReset).toBe('start'); expect(current.getReplay()!.frames).toEqual(early.frames)
     act(() => current.cancelReset()); start(); act(() => current.confirmReset())
@@ -154,8 +160,8 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     emit(2000); act(() => current.startReference()); frames(2100, 15100)
     const replay = current.getReplay()!
     expect(replay.frames.some(f => f.phase === 'registering')).toBe(true)
-    expect(replay.frames.some(f => f.phase === 'move' && !f.measurement)).toBe(true)
     expect(replay.frames.some(f => f.phase === 'hold' && f.measurement)).toBe(true)
+    expect(replay.frames.every(f => f.phase === 'registering' || f.measurement)).toBe(true)
     expect(exportRows().filter(row => row.event === 'observation').every(row => row.protocol_phase === 'hold')).toBe(true)
     doc.visibilityState = 'hidden'; act(() => { doc.dispatchEvent(new Event('visibilitychange')) })
     expect(current.getReplay()!.markers.at(-1)?.reason).toBe('hidden')
@@ -200,8 +206,9 @@ describe('observation flow with explicit synthetic frames and clock', () => {
     expect(renderer.root.findByType(ObservationGuide).props.guide).toBe(guide)
     expect(renderer.root.findByType(ObservationReplay).props.getRecording().frames).toEqual(replay.frames)
     expect(camera.connect).toHaveBeenCalledTimes(connected); expect(camera.stop).toHaveBeenCalledTimes(stopped)
+    // Manual waiting carries no label, so the recording is kept but not extended.
     frames(13100, 13200)
-    expect(renderer.root.findByType(ObservationReplay).props.getRecording().frames.length).toBeGreaterThan(replay.frames.length)
+    expect(renderer.root.findByType(ObservationReplay).props.getRecording().frames).toEqual(replay.frames)
   })
   it('uses the preview for replay while preserving the live node and prioritizing ongoing measurement', async () => {
     act(() => { renderer = create(<ObservationLab camera={camera} />, previewNodes) })
