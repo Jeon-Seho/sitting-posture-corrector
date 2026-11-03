@@ -35,7 +35,8 @@ export type RecordItem = {
   dayPartition?: { date: string; sourceId: string; alerts: number; eventCount: number }
   server?: {
     baselineId: string
-    modelVersion: string
+    /** Older records only: `observation` 4.0 has no model version, so new records leave it out (fe-3sec). */
+    modelVersion?: string
     confirmed: boolean
     view: SessionView | null
   }

@@ -103,6 +103,14 @@ describe('acknowledged server storage (synthetic only)', () => {
     )
   })
 
+  it('reads records with and without a model version (observation 4.0 has none, fe-3sec)', () => {
+    const saved = record(endedView(), true)
+    const { modelVersion: _, ...withoutModel } = saved.server!
+    expect(validRecord(saved)).toBe(true)
+    expect(validRecord({ ...saved, server: withoutModel })).toBe(true)
+    expect(validRecord({ ...saved, server: { ...saved.server!, modelVersion: 'Not A Version!' } })).toBe(false)
+  })
+
   it('retains left/right and interruption reasons in the authoritative final snapshot', () => {
     const saved = record(endedView(), true)
     expect(validRecord(saved)).toBe(true)

@@ -213,11 +213,12 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     socket.push({
       type: 'observation',
-      observation: {
-        schema_version: '3.0', sequence: 0, start_ms: 0, end_ms: 500, phase: 'running', valid: true, valid_ms: 500,
-        collapse_probability: 0.82, deviation_type: 'forward_slouch', invalid_reason: null, model_version: 'm',
-      },
+      observation: { schema_version: '4.0', sequence: 0, valid: true, posture: 'bad', collapse_probability: 0.82, hold_ms: 500, invalid_reason: null },
     })
+    // The momentary `posture: 'bad'` is only a caution on screen: no alert until the server confirms.
+    expect(live.state.observation?.posture).toBe('bad')
+    expect(live.state.alerting).toBe(false)
+    expect(alerts).toEqual([])
     const summary = { ...EMPTY_SUMMARY, total_ms: 500, valid_ms: 500, deviation_ms: 500, collapse_count: 1, alert_count: 1, keep_rate: 0, events_per_hour: 7200 }
     const decision = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
     socket.push({ type: 'decision', event: decision, summary })
@@ -233,6 +234,21 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.stalled).toBe(true)
     socket.push({ type: 'something_new', x: 1 })
     expect(live.state.phase).toBe('running')
+  })
+
+  it('never lets an older result replace the one on screen (4.0 sequence)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const observation = (sequence: number, collapse_probability: number) => ({
+      type: 'observation',
+      observation: { schema_version: '4.0', sequence, valid: true, posture: 'good', collapse_probability, hold_ms: 0, invalid_reason: null },
+    })
+    socket.push(observation(5, 0.2))
+    socket.push(observation(4, 0.9))
+    socket.push(observation(5, 0.9))
+    expect(live.state.observation?.collapse_probability).toBe(0.2)
+    socket.push(observation(6, 0.3))
+    expect(live.state.observation).toMatchObject({ sequence: 6, collapse_probability: 0.3 })
   })
 
   it('ends with end_ms and closed(ended), once', async () => {

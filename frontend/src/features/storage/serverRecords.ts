@@ -26,6 +26,13 @@ export function rememberResult(userId: string, record: RecordItem) {
   localStorage.setItem(key(userId), JSON.stringify([...previous.filter(r => r.id !== record.id), record]))
 }
 
+/**
+ * The server keeps good time in 0.1 s rounded down (`good_sec`, BE `SessionRepository.tenths`).
+ * Since frame-by-frame judging (PR #91) the live `normal_ms` has millisecond ends, so 38.35 s here
+ * is 38.3 s in R1 and must still count as the same result (fe-3sec 12.7).
+ */
+const storedTenths = (seconds: number) => Math.floor(seconds * 10 + 1e-6) / 10
+
 export function reconcileResults(userId: string, records: RecordItem[]) {
   const remaining = pendingRecords(userId).filter(local => !records.some(remote =>
     remote.id === local.id && remote.server?.view?.ended === true &&
@@ -34,7 +41,7 @@ export function reconcileResults(userId: string, records: RecordItem[]) {
     // Measurement timestamps are not revision numbers. Require the same server start and
     // monotonic acknowledged counters; an older server snapshot cannot erase newer evidence.
     Date.parse(remote.startedAt) === Date.parse(local.startedAt) &&
-    remote.valid >= local.valid && remote.good >= local.good))
+    remote.valid >= local.valid && remote.good + 1e-9 >= storedTenths(local.good)))
   if (remaining.length) localStorage.setItem(key(userId), JSON.stringify(remaining))
   else localStorage.removeItem(key(userId))
   return remaining

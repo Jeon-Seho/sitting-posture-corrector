@@ -4,7 +4,8 @@
 //   npm run dev                             # 다른 터미널에서. 아무 이메일·비밀번호로 로그인된다
 //
 // 흉내 내는 것: 토큰 로그인(A2·A3·A4·A5·A8, BE ADR 0031 — access 토큰 + refresh 쿠키), B1·B2 기준 자세, S1·S4 세션, R1 기록(빈 목록),
-// WS /v2/realtime(hello → ready, features → ack·observation·progress, 판정 사건·alert, end → closed).
+// WS /v2/realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
+// observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
 // S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
 import { createHash, randomUUID } from 'node:crypto'
@@ -146,15 +147,20 @@ function judge(s, interval, out) {
   s.lastSequence = interval.sequence
   const probability = score(interval)
   const valid = probability !== null
-  out.push({
-    type: 'observation',
-    observation: {
-      schema_version: '3.0', sequence: interval.sequence, start_ms: interval.start_ms, end_ms: interval.end_ms,
-      phase: interval.phase, valid, valid_ms: valid ? duration : 0, collapse_probability: valid ? probability : 0,
-      deviation_type: valid && probability >= s.policy.threshold ? 'forward_slouch' : 'none',
-      invalid_reason: valid ? null : 'unmeasurable', model_version: 'fake-rule',
-    },
-  })
+  // observation이 사건보다 먼저 간다. hold_ms는 이 구간을 센 뒤의 값이라 자리만 잡고 끝에서 채운다.
+  const at = out.push(null) - 1
+  const observe = () => {
+    out[at] = {
+      type: 'observation',
+      observation: {
+        schema_version: '4.0', sequence: interval.sequence, valid,
+        posture: valid ? (probability >= s.policy.threshold ? 'bad' : 'good') : null,
+        collapse_probability: valid ? probability : null, hold_ms: valid ? s.hold : 0,
+        // Good time only while a collapse is open; 0 again in the interval that confirms the recovery.
+        recovery_ms: valid && s.collapsed ? s.recover : 0, invalid_reason: valid ? null : 'unmeasurable',
+      },
+    }
+  }
   const event = (kind, extra = {}) => {
     const e = {
       event_id: s.events.length + 1, kind, timestamp_ms: interval.end_ms, onset_ms: s.onset, onset_valid_ms: s.onsetValid,
@@ -170,7 +176,7 @@ function judge(s, interval, out) {
     else s.t.unknown_ms += duration
     if (s.collapsed) { s.collapsed = false; event('interrupted', { reason: interval.phase === 'running' ? 'unmeasurable' : interval.phase }) }
     s.hold = 0; s.recover = 0
-    return
+    return observe()
   }
   const deviating = probability >= s.policy.threshold
   if (deviating && s.hold === 0) { s.onset = interval.start_ms; s.onsetValid = s.t.valid_ms }
@@ -183,6 +189,7 @@ function judge(s, interval, out) {
   } else if (s.collapsed && !deviating && s.recover >= s.policy.recovery_ms) {
     s.collapsed = false; s.recoveries.push(interval.end_ms - s.firstAlert); event('recovery_confirmed')
   }
+  observe()
 }
 
 // ---------- WebSocket (RFC 6455 텍스트 프레임만) ----------
@@ -220,10 +227,11 @@ server.on('upgrade', (req, socket) => {
     if (!session) return close('bad_message')
     if (m.type === 'features') {
       for (const interval of m.items ?? []) {
+        // 서버와 같은 순서: observation → (decision → alert) → ack → progress.
         const out = []
         judge(session, interval, out)
-        write({ type: 'ack', last_sequence: session.lastSequence })
         out.forEach(write)
+        write({ type: 'ack', last_sequence: session.lastSequence })
         if (session.t.total_ms - session.lastProgress >= 1000 || out.some((o) => o.type === 'decision')) {
           session.lastProgress = session.t.total_ms
           write({ type: 'progress', last_sequence: session.lastSequence, summary: summary(session), paused_reason: interval.phase === 'running' ? null : interval.phase })
@@ -264,7 +272,9 @@ server.on('upgrade', (req, socket) => {
     }
   })
   socket.on('error', () => {})
-  socket.on('close', () => console.log('WS gone'))
+  socket.on('close', () => {
+    console.log('WS gone')
+  })
 })
 
 server.listen(PORT, '127.0.0.1', () => console.log(`가짜 서버: http://127.0.0.1:${PORT} (Ctrl+C로 끝)`))

@@ -35,16 +35,26 @@ export type Decision = {
   reason: null | 'missing' | 'missing_sequence' | 'unmeasurable' | 'rest' | 'away' | 'ended'
 }
 
+/**
+ * `observation` 4.0 (plan 0084 27·28, BE `feature/repo-realtime-observation4`): one per interval, sent as
+ * soon as the interval is judged. `posture` is the server's momentary good/bad (threshold applied,
+ * ADR 0047) and `hold_ms` how long bad has lasted by frame time — the value the server compares with the
+ * policy hold time, 0 once continuity breaks — and `recovery_ms` the same for good time while a collapse
+ * is open (plan 0084 29). The 3 s confirmation and recovery still come as `decision`·`alert`.
+ * Not judgeable: `posture` and the score are null. `sequence`·`posture`·`hold_ms`·`recovery_ms` are optional so a 3.0
+ * message is read too while the running server is not redeployed (3.0 sends a score of 0 then).
+ */
 export type LiveObservation = {
-  sequence: number
-  start_ms: number
-  end_ms: number
-  phase: 'running' | 'rest' | 'away'
+  schema_version?: string
+  /** The app's interval sequence this result is for (connection axis, like `ack`). */
+  sequence?: number
   valid: boolean
-  collapse_probability: number
-  deviation_type: Deviation
+  posture?: 'good' | 'bad' | null
+  collapse_probability: number | null
+  hold_ms?: number
+  /** Good time in the open collapse event (plan 0084 29); 0 while no event is open. */
+  recovery_ms?: number
   invalid_reason: null | 'unmeasurable' | 'head_turn' | 'settling'
-  model_version: string
 }
 
 export type PausedReason = null | 'rest' | 'away' | 'unmeasurable'
@@ -125,12 +135,13 @@ function validDecision(v: unknown): v is Decision {
 function validObservation(v: unknown): v is LiveObservation {
   return (
     obj(v) &&
-    num(v.sequence) &&
-    num(v.start_ms) &&
-    num(v.end_ms) &&
     typeof v.valid === 'boolean' &&
-    num(v.collapse_probability) &&
-    typeof v.deviation_type === 'string'
+    // A judged interval has a score; a not-judgeable one has none (4.0) or 0 (3.0).
+    (num(v.collapse_probability) || (!v.valid && v.collapse_probability === null)) &&
+    (v.invalid_reason === null || typeof v.invalid_reason === 'string') &&
+    (v.sequence === undefined || (Number.isInteger(v.sequence) && (v.sequence as number) >= 0)) &&
+    (v.posture === undefined || v.posture === null || v.posture === 'good' || v.posture === 'bad') &&
+    [v.hold_ms, v.recovery_ms].every((ms) => ms === undefined || (num(ms) && ms >= 0))
   )
 }
 

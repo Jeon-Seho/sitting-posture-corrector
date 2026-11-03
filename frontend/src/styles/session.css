@@ -1,10 +1,41 @@
 /* ---------- Measure screens: big camera + slim side panel ---------- */
 
+/*
+ * The camera keeps the webcam's 4:3 shape and never grows past the visible height (header + gaps
+ * + bottom padding are subtracted), so in a wide, short window it stops before its column ends.
+ * The camera column is capped at that same width and the camera + side panel pair is centred,
+ * so the spare width goes to both outer edges instead of opening a gap between them (2026-11-03).
+ * The page head above uses the pair's width too, so the title stays right above the camera.
+ */
+.measure,
+.page-head:has(+ .measure) {
+  --stage-offset: calc(
+    var(--titlebar-h) + var(--main-pad-top) + var(--head-h) + var(--view-gap) +
+      var(--main-pad-bottom)
+  );
+  --stage-w: calc((100dvh - var(--stage-offset)) * 4 / 3);
+}
+/* 「측정하기」 puts the camera choice in its own row above the view (2026-10-16), so the view's
+   height budget also subtracts that row. */
+.measure:has(> .stage-col),
+.page-head:has(+ .measure > .stage-col) {
+  --stage-bar-h: 44px;
+  --stage-offset: calc(
+    var(--titlebar-h) + var(--main-pad-top) + var(--head-h) + var(--view-gap) +
+      var(--main-pad-bottom) + var(--stage-bar-h)
+  );
+}
+
 .measure {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--side-w);
+  grid-template-columns: minmax(0, var(--stage-w)) var(--side-w);
+  justify-content: center;
   gap: var(--view-gap);
   align-items: start;
+}
+.page-head:has(+ .measure) {
+  width: min(100%, calc(var(--stage-w) + var(--view-gap) + var(--side-w)));
+  margin-inline: auto;
 }
 
 .measure-panel {
@@ -23,40 +54,20 @@
   transition: box-shadow 0.25s ease;
 }
 
-/*
- * The camera keeps the webcam's 4:3 shape at every window size, and never grows past
- * the visible height (header + gaps + bottom padding are subtracted), so it is neither
- * stretched into a tall strip nor pushed below the fold.
- */
+/* Fills the capped column (see .measure), so it is neither stretched into a tall strip nor
+   pushed below the fold. */
 .measure .stage {
-  --stage-offset: calc(
-    var(--titlebar-h) + var(--main-pad-top) + var(--head-h) + var(--view-gap) +
-      var(--main-pad-bottom)
-  );
   min-height: 0;
   aspect-ratio: 4 / 3;
-  width: min(100%, calc((100dvh - var(--stage-offset)) * 4 / 3));
+  width: 100%;
 }
 
-/*
- * 「측정하기」 puts the camera choice in its own row above the camera view (2026-10-16), so it
- * never covers the video. The row and the view share one width, and the view's height budget
- * also subtracts the row.
- */
+/* The camera-choice row and the view share the column's width; the row never covers the video. */
 .measure .stage-col {
-  --stage-bar-h: 44px;
-  --stage-offset: calc(
-    var(--titlebar-h) + var(--main-pad-top) + var(--head-h) + var(--view-gap) +
-      var(--main-pad-bottom) + var(--stage-bar-h)
-  );
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  width: min(100%, calc((100dvh - var(--stage-offset)) * 4 / 3));
-}
-.measure .stage-col .stage {
-  width: 100%;
 }
 .stage-bar {
   display: flex;
@@ -213,6 +224,11 @@
 .pill.collapse {
   background: var(--alert-tint);
   color: var(--alert-ink);
+}
+
+.pill.caution {
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 
 .pill.unknown {

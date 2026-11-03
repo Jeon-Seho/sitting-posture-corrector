@@ -1,9 +1,9 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-10-30(자정 넘김을 BE 구현 B안 `session_rollover`로 — 1·5.2·5.3장) · 2026-10-27 밤(BE 토큰 로그인 develop PR #68 — 1장 로그인·로그인 유지, 2장 403, 3장 A4·A8, 6.2, CSRF·A1 삭제) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
+> 작성자: klaod-tech(FE) · 작성: 2026-10-13 · 최신화: 2026-11-03(#91 되돌림 뒤 BE `observation` 4.0 최종 형식 — 구간마다, `sequence`·`hold_ms`, 판정 불가 점수 `null`, 붕괴 게이지는 서버 `hold_ms` — 5.1·5.2·5.3) · 2026-11-02(Spark J2 매일 00:10, T1 00:00~00:10 빈틈 — 4.5) · 2026-11-01(서버 3초 묶음·`observation` 4.0, PR #91 — 5.1·5.3, `posture` 주의 단계, 기록에 모델 버전 저장 안 함) · 2026-10-30(자정 넘김을 BE 구현 B안 `session_rollover`로 — 1·5.2·5.3장) · 2026-10-27 밤(BE 토큰 로그인 develop PR #68 — 1장 로그인·로그인 유지, 2장 403, 3장 A4·A8, 6.2, CSRF·A1 삭제) · 2026-10-27 저녁(리프레시 토큰 앱 동작 — 1장, S1 `policy` 빼기 예정(BE-11) — 1·4장, S4는 서버 메모리만 읽음 — 3장, 종료 중 로딩 — 1장, 측정 중 WS 줄이기 정한 것은 계획 0059, `t_ms` 시간축 회의 안건 — 5.1) · 2026-10-27(좌표 프레임마다 전송·서버 묶음 — 1장 표·5.1·6장, 판정 불가 좌표 없이(ADR 0021)·앱 즉시 표시 — 5.1·5.3, `unmeasurable_timeout`·측정 중 종료 사유 — 5.3, R1·T1 형식·`today` 구현 — 4.5·1장, PR #65 병합 반영, 측정 중 WS 줄이기 제안은 계획 0059) · 2026-10-26(서버 시각·KST·자정 끊기(ADR 0029) — 1·4.5·5.2·5.3장, B1 `registration_id`(DB V2.5) — 5.4, 작은 창 X는 데스크톱만(ADR 0028)) · 2026-10-25(develop `db220d8` 팀장 10/22 결정 반영: 오늘은 로컬 집계(4.5), 모델명 비표시, 로그인 고정 30분, `valid_ms`) · 2026-10-22(문서 정리: BE 명세와 겹치는 본문·끝난 검토 답변(옛 0.1~0.6)을 빼고, FE 제안서 3·4장의 앱 동작을 이리로 옮김. 같은 날 코드 검토: S1·B1 무응답 재시도(1.1), S3는 앱이 부르지 않음(3·4장), B2 실패 때 등록을 자동으로 시작하지 않음(5.4), 어깨 유예 삭제와 좌표 범위 자르기(5.1)) · 대상: BE(입출구 서버 `auth`·`api`·`ws`), DevOps
 > **이 문서의 역할:** 경로·필드·요청과 응답 본문은 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다. 이 문서는 그 위에 **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**만 적는다.
 > 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
-> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(BE와 다른 곳 한눈에는 1.0). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(남은 일 1.0, BE와 다른 곳 1.1, 요청 1.2). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../contracts/realtime/examples-v2/). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 0. BE 명세에 대해 FE가 정한 것과 요청
@@ -132,6 +132,8 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 | 어제까지의 일별 통계·과거 세션 상세 | 통계는 T1, 목록·상세는 R1·R1b |
 | 최근 7일·30일 등 기간 화면 | 어제까지는 T1, 오늘은 로컬 집계. 과거 날짜의 로컬 기록을 T1에 더하지 않는다 |
 
+**T1 데이터가 생기는 시각(11/2 추가):** T1의 `daily_stat`은 Spark J2가 **매일 00:10**(KST)에 어제치를 쓴다(11/1부터, 계획 0085). 00:00~00:10에는 앱의 「오늘」이 이미 바뀌었는데 T1은 어제를 0으로 준다. 어떻게 보일지(그 10분만 어제를 로컬 기록으로 보이기 — 위 「더하지 않는다」의 예외로 적어야 함 — 또는 「집계 중」 표시 뒤 다시 부르기)는 T1을 붙일 때 정한다. 「아직 집계 전」을 구별할 값은 FE 제안서 BE-14 ⑦로 요청했다. J2는 그 시각에 끝난 세션만 세므로, 서버 자정 넘김이 꺼져 있으면 자정을 넘긴 측정은 T1에 들어가지 않는다(BE-14 ⑥).
+
 오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 측정은 자정에 서버가 끊으므로 세션의 시작 날짜 = 끝난 날짜이고, 기록은 시작 시각(`ready.started_at`)의 KST 날짜에 넣는다. 오늘이 며칠인지는 가장 최근에 받은 서버 시각으로 정한다(ADR 0029). 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다. 10/26 기준 앱은 종료 결과를 R1 형식으로 이 기기에 남기고(`useSessionPersistence.ts` `finish`, UUID로 덮어씀, 시작·종료는 서버 시각), 기록·달력은 아직 전체 기간을 로컬에서 KST 날짜로 집계한다.
 
 **팀 참고 — 한 PC 여러 계정(10/25 klaod-tech 결정, [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md), 알려진 한계):** 로컬 기록은 계정과 상관없이 localStorage 키 하나(`posegood.v2.records`)에 둔다. 보통 PC 한 대를 한 사람이 쓰므로 계정별로 나누지 않는다. 그래서 같은 PC·같은 브라우저에서 다른 계정으로 로그인하면 앞 계정의 오늘 기록이 목록·합산에 함께 보인다(서버 DB·T1에는 영향 없음). 사용자 안내 문구는 두지 않는다. 문제가 되면 키를 계정 ID별로 나누면 된다.
@@ -142,7 +144,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 ### 5.1 좌표 구간 (`posture.frames.v1`)
 
-**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 지금 서버는 구간마다 판정해 프레임마다 결과(`observation`)가 오지만, BE는 받은 프레임을 서버가 자체적으로 묶어 처리하기로 했다(10/27) — 그러면 결과는 서버가 묶은 단위마다 온다. 앱은 결과의 구간 값을 쓰지 않으므로 어느 쪽이든 동작한다(묶은 뒤 확인할 것은 FE 제안서 BE-8). 필드와 예시는 BE 명세 11.2와 계약.
+**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간을 받으면 바로 추론·판정해 `observation` → (`decision` → `alert`) → `ack` → `progress` 순서로 보낸다(구간마다, 프레임마다). 판정 시각은 프레임 `t_ms`다. 11/1에 들어간 서버 3초 묶음(PR #91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95, [인계서](frontend-realtime-handoff-2026-11-03.md)). 필드와 예시는 BE 명세 11.2와 계약.
 
 - **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `p: null`(이때 `valid`는 넣지 않는다).
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
@@ -173,7 +175,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 - 제외 구간의 시작·끝은 서버가 0.5초 경계에 맞춘다. 앱은 `rest`·`away`로 바뀐 시각을 `t_ms` 그대로 보낸다(그 시각에 구간을 닫는다).
 - 앱은 `MISSING`을 보내지 않는다. 서버가 구간이 빠진 것을 찾으면(`event.reason` `missing`·`missing_sequence`) 서버가 저장한다.
 - 판정 불가 시간을 빼는 규칙은 서버가 정한다. 앱은 받은 대로 보인다. 짧은 끊김을 같은 사건으로 잇는 처리는 요청하지 않는다(10/22).
-- `observation.valid_ms`는 그 구간에서 판정에 쓴 유효 하위 구간 길이의 합이고, 판정 불가 앞뒤 프레임은 하나로 합치지 않는다(10/22 BE 명세 Observation 3.0). 앱은 `observation.valid_ms`를 쓰지 않고(측정 시간은 `summary`), 프레임 `t_ms`를 촬영 시각 그대로 보내면 된다. 10/27 기준 서버(`Timeline.addMeasured`·`FrameFeatures.interval`)는 아직 유효한 구간 전체 길이를 더하고 판정 가능 프레임 전부를 평균한다(BE 보류, BE-5 ②). 앱이 프레임마다 보내므로 구간 = 프레임 1장이면 같은 값이 되지만, 서버가 프레임을 묶어 처리하기로 해(BE 10/27) 묶는 방식에 따라 달라진다(FE 제안서 BE-8).
+- `summary.valid_ms`는 판정한 구간 길이만 더한다. 구간이 프레임 1장이라 판별 가능한 프레임 시간과 같다(BE-5 ② 닫음). 프레임 하나는 찍힌 시각부터 다음 프레임까지 최대 0.5초다. 앱은 측정 시간을 `summary`로 보이고, 프레임 `t_ms`를 촬영 시각 그대로 보내면 된다. `observation` 4.0에는 `valid_ms`가 없다.
 
 ### 5.3 서버 → 앱
 
@@ -181,11 +183,11 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 |---|---|
 | `ready` | `features`를 보내기 시작한다(밀린 구간부터). `started_at`(서버가 S1을 받은 시각, BE `b903751`)을 기록의 시작 시각·오늘 날짜로 |
 | `ack` | 아무것도 하지 않는다(재전송 없음) |
-| `observation` | 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만). `valid`·`invalid_reason`은 서버만 아는 판정 불가(고개 돌림, 코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만)를 위해서만 본다 — 앱이 정한 판정 불가(어깨 안 보임·관절 빠짐·사람 없음)는 서버를 기다리지 않고 바로 표시(10/27). `invalid_reason`은 서버가 보내는 코드이고 문구는 앱: `head_turn` 「고개를 돌린 동안은 판정하지 않아요」, 그 밖 「얼굴과 어깨가 보이지 않아요」(`settling`은 서버가 아직 안 보냄). `start_ms`·`end_ms`·`valid_ms`·`model_version`은 화면에 쓰지 않음(`model_version`은 기록에 저장만) |
+| `observation` | **4.0**(BE `feature/repo-realtime-observation4` `45c5c19`, 계획 0084 27·28 — FE 요청 반영): `sequence`·`valid`·`posture`·`collapse_probability`·`hold_ms`·`recovery_ms`(계획 0084 29, `61365a4`)·`invalid_reason`. 구간마다 바로 온다(초당 20~30번). 판정 불가면 `posture`·`collapse_probability`는 `null`, `hold_ms`·`recovery_ms`는 0. 경고 중 good이면 회복 상자 「좋아요, 그대로 있어 주세요」와 게이지(`recovery_ms` ÷ 정책 회복 시간, 열린 사건에서만 값이 있음). 앱은 `sequence`가 화면에 있는 결과보다 작거나 같으면 버린다. `hold_ms`(서버가 3초 확정에 쓰는 이탈 연속 시간)는 주의 상자의 게이지(÷ 정책 hold 시간)로 그대로 그린다 — 앱은 시간을 세지 않는다. 운영 서버 재배포 전까지 3.0도 읽는다(`valid`·`collapse_probability`·`invalid_reason`만 필수, 3.0이면 주의·게이지 없음). 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만, 표시용 변환). `posture: 'bad'`(서버가 `threshold`를 적용한 순간 판정)이면 확정 전이라도 주의 「자세가 흐트러지고 있어요」 — 소리·팝업 없음, 3초 확정은 `decision`. `valid`·`invalid_reason`은 서버만 아는 판정 불가(고개 돌림, 코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만)를 위해서만 본다 — 앱이 정한 판정 불가(어깨 안 보임·관절 빠짐·사람 없음)는 서버를 기다리지 않고 바로 표시(10/27). `invalid_reason`은 서버가 보내는 코드이고 문구는 앱: `head_turn` 「고개를 돌린 동안은 판정하지 않아요」, 그 밖 「얼굴과 어깨가 보이지 않아요」(`settling`은 서버가 아직 안 보냄). 기록에 모델 버전을 저장하지 않는다(4.0에 없음, 예전 기록의 `modelVersion`은 그대로 읽음) |
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
 | `alert` | 토스트·소리·데스크톱 팝업. 앱은 거르지 않는다 |
-| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다 |
+| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
@@ -205,6 +207,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 |---|---|---|
 | 연결 중 | 서버에 연결하고 있어요 | S1 응답 전·`ready` 전 |
 | 바른 자세 | 바른 자세예요 | `observation.valid: true`, 열린 사건 없음 |
+| 흐트러지기 시작 | 자세가 흐트러지고 있어요(주의 색, 소리 없음). 주의 상자에 게이지(`hold_ms` ÷ 정책 hold 시간) | `observation.posture: 'bad'`, 열린 사건 없음(확정 전, 4.0 서버만) |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
 | 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `valid: false`·`p: null`)는 서버를 기다리지 않고 바로(10/27, `LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
@@ -234,7 +237,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 1 | (앱 시작 때) B2 | 200 기준 / 404 → 자세 등록 |
 | 2 | 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
-| 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | `ack`·`observation`·`progress`, 사건이 있으면 `decision`·`alert` |
+| 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `ack` → `progress` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
 | 6 | 10초 안에 `closed`가 없으면 S4 | 저장된 결과 |
 
@@ -248,8 +251,9 @@ sequenceDiagram
   S-->>A: ready
   loop 프레임마다(10/27)
     A->>S: features {items:[구간 1개]}
-    S-->>A: ack · observation · progress
+    S-->>A: observation
     S-->>A: decision · alert (사건이 있을 때)
+    S-->>A: ack · progress
   end
   A->>S: end {end_ms}
   S-->>A: decision(session_ended) → closed(ended)

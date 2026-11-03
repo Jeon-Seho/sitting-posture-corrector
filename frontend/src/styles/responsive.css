@@ -9,6 +9,10 @@
   .measure .stage-col {
     width: 100%;
   }
+  .page-head:has(+ .measure) {
+    width: auto;
+    margin-inline: 0;
+  }
   .measure-panel {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

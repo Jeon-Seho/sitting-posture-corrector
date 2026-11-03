@@ -147,8 +147,8 @@ function validServerRecord(v: Record<string, unknown>): boolean {
   if (
     !object(server) ||
     !validUuid(server.baselineId) ||
-    typeof server.modelVersion !== 'string' ||
-    !/^[a-z0-9._-]{1,64}$/.test(server.modelVersion) ||
+    (server.modelVersion !== undefined &&
+      (typeof server.modelVersion !== 'string' || !/^[a-z0-9._-]{1,64}$/.test(server.modelVersion))) ||
     typeof server.confirmed !== 'boolean' ||
     v.mode !== 'camera' ||
     !validRules(v.rules)
