@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { parseServerMessage } from './messages'
 
-/** The BE 4.0 contract examples (`feature/repo-realtime-observation4` `45c5c19`, plan 0084 27·28). */
+/** The BE 4.0 contract examples (develop `e01ba49` + `61365a4` recovery_ms, plan 0084 27~29). */
 const JUDGED = {
-  schema_version: '4.0', sequence: 42, valid: true, posture: 'bad', collapse_probability: 0.82, hold_ms: 1500, invalid_reason: null,
+  schema_version: '4.0', sequence: 42, valid: true, posture: 'bad', collapse_probability: 0.82, hold_ms: 1500, recovery_ms: 0, invalid_reason: null,
 }
 const NOT_JUDGED = {
-  schema_version: '4.0', sequence: 43, valid: false, posture: null, collapse_probability: null, hold_ms: 0, invalid_reason: 'unmeasurable',
+  schema_version: '4.0', sequence: 43, valid: false, posture: null, collapse_probability: null, hold_ms: 0, recovery_ms: 0, invalid_reason: 'unmeasurable',
 }
 const read = (observation: unknown) => parseServerMessage(JSON.stringify({ type: 'observation', observation }))
 
@@ -39,5 +39,7 @@ describe('observation 4.0 (plan 0084)', () => {
     expect(read({ ...JUDGED, sequence: 1.5 })).toBeNull()
     expect(read({ ...JUDGED, posture: 'maybe' })).toBeNull()
     expect(read({ ...JUDGED, hold_ms: -1 })).toBeNull()
+    expect(read({ ...JUDGED, recovery_ms: -1 })).toBeNull()
+    expect(read({ ...JUDGED, recovery_ms: '1' })).toBeNull()
   })
 })

@@ -14,7 +14,7 @@
 
 ### 1.0 지금 남은 일
 
-- [ ] **실시간 `observation` 4.0 함께 배포** — BE `feature/repo-realtime-observation4`(`45c5c19`, PR 전)는 구간마다 4.0을 보내고, FE 요청(`sequence`·`hold_ms`·판정 불가 점수 `null`)을 반영했다(계획 0084 27·28). FE 대응은 `feature/fe-3sec-batch-observation4`(붕괴 게이지는 서버 `hold_ms`, 늦은 결과 버림, 3.0도 읽음). 남은 것: 둘을 로컬에서 함께 실행해 지연·게이지·두 번째 측정 확인 → FE PR을 develop에 먼저 → BE PR → 운영 재배포는 FE가 포크에 올라간 뒤. 경위·형식·FE 구현은 [인계서](frontend-realtime-handoff-2026-11-03.md) — FE·BE
+- [ ] **실시간 `observation` 4.0 FE PR 합치기** — BE 4.0(구간마다, `sequence`·`hold_ms`·판정 불가 점수 `null`, 계획 0084 27·28)은 11/3 develop에 먼저 들어갔다(PR #96, `e01ba49`). develop 앱은 4.0을 버리므로 FE PR(`feature/fe-3sec-batch-observation4`)을 바로 합친다. `recovery_ms`(계획 0084 29, BE `docs/docs-backend-api-spec-refresh` `61365a4`)는 FE 브랜치에 합쳐 함께 올림. FE: 붕괴 게이지 `hold_ms`, 회복 게이지 `recovery_ms`, 늦은 결과 버림, 3.0도 읽음, 측정 화면 A 가운데 배치, 가입·프로필 나이 칸 0 고정 수정. 11/3 로컬 함께 실행 통과(나쁨 3초 끝에 확정, 좋음 3초 끝에 회복, 1.5·1초 나쁨은 확정 없음, 두 번째 측정 정상, 실제 웹캠 확인). 남은 것: PR 합치기 → 운영 재배포는 FE가 포크에 올라간 뒤. 경위·형식·FE 구현은 [인계서](frontend-realtime-handoff-2026-11-03.md) — FE·BE
 - [ ] bad 사이에 good 한 프레임이 끼면 3초를 다시 셀지(짧은 끊김 봐주기) — 4.0은 초당 20~30번 와서 점수 30 근처에서 주의가 깜빡일 수 있다. 서버 규칙으로 정한다(인계서 「남은 것」의 안 4개) — BE·ML·FE
 - [ ] Cloudflare 요청 제한(`auth-rate-limit`)을 로그인·가입만으로 좁히고 평소 값·시연 날 값 정하기 — FE(9.6.3 Q3)
 - [ ] 정식 공개 때 검색 노출 막기 두 줄 지우기([robots.txt](../../frontend/public/robots.txt), [vercel.json](../../frontend/vercel.json) `X-Robots-Tag`) — FE

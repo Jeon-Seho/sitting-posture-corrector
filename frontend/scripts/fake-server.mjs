@@ -5,7 +5,7 @@
 //
 // 흉내 내는 것: 토큰 로그인(A2·A3·A4·A5·A8, BE ADR 0031 — access 토큰 + refresh 쿠키), B1·B2 기준 자세, S1·S4 세션, R1 기록(빈 목록),
 // WS /v2/realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
-// observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·invalid_reason).
+// observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
 // S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
 import { createHash, randomUUID } from 'node:crypto'
@@ -155,7 +155,9 @@ function judge(s, interval, out) {
       observation: {
         schema_version: '4.0', sequence: interval.sequence, valid,
         posture: valid ? (probability >= s.policy.threshold ? 'bad' : 'good') : null,
-        collapse_probability: valid ? probability : null, hold_ms: valid ? s.hold : 0, invalid_reason: valid ? null : 'unmeasurable',
+        collapse_probability: valid ? probability : null, hold_ms: valid ? s.hold : 0,
+        // Good time only while a collapse is open; 0 again in the interval that confirms the recovery.
+        recovery_ms: valid && s.collapsed ? s.recover : 0, invalid_reason: valid ? null : 'unmeasurable',
       },
     }
   }

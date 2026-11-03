@@ -25,6 +25,20 @@ export const PHASES = [
   { name: 'alternate', seconds: 15, kinds: ALTERNATE },
 ]
 
+/**
+ * A custom run instead of PHASES, e.g. POSEGOOD_REALTIME_PHASES="normal:3,deviation:3,normal:1.5":
+ * synthetic kind and seconds per step (multiples of 0.25 s). Steps get numbered names (1-normal …).
+ */
+export function customPhases(spec) {
+  if (!spec) return null
+  return spec.split(',').map((part, i) => {
+    const [kind, seconds] = part.trim().split(':')
+    assert.ok(['normal', 'deviation', 'poor', 'absent'].includes(kind), `unknown kind: ${kind}`)
+    assert.ok(Number(seconds) > 0 && (Number(seconds) * 1000) % TICK_MS === 0, `seconds must be a multiple of ${TICK_MS / 1000}: ${part}`)
+    return { name: `${i + 1}-${kind}`, seconds: Number(seconds), kinds: [kind] }
+  })
+}
+
 // Counts alert chimes; headless audio may stay blocked, so toasts and WS alerts are checked too.
 const SOUND_PROBE = `(() => {
   const proto = window.BaseAudioContext?.prototype
@@ -41,11 +55,12 @@ const SAMPLE = `function() {
     alertStage: !!document.querySelector('.stage.is-alert'),
     nudge: document.querySelector('.nudge-title')?.textContent.trim() ?? null,
     toast: !!document.querySelector('.toast'),
+    gauge: document.querySelector('.nudge .meter > span')?.style.width ?? null,
     sounds: window.__realtimeObservationSounds ?? 0,
   };
 }`
 
-export async function runRealtimeObservation(browser, base) {
+export async function runRealtimeObservation(browser, base, phases = PHASES) {
   const c = browser.cdp
   const e = expression => c.evaluate(expression)
   const t0 = Date.now()
@@ -112,7 +127,7 @@ export async function runRealtimeObservation(browser, base) {
   const phaseStarts = {}
   let tick = 0
   const startedAt = Date.now()
-  for (const step of PHASES) {
+  for (const step of phases) {
     phase = step.name
     phaseStarts[step.name] = now()
     const ticks = step.seconds * 1000 / TICK_MS
@@ -221,6 +236,47 @@ export function report({ ready, phaseStarts, messages, samples, record, pendingC
   }
 }
 
+/** Per step of a custom run: what the server sent and what the screen showed, times from the step start. */
+export function stepReport({ phaseStarts, messages, samples, setupErrors, errors, record, pendingCleared }) {
+  const names = Object.keys(phaseStarts).filter(name => name !== 'ending')
+  const observations = messages.filter(m => m.type === 'observation')
+  const gaps = observations.slice(1).map((m, i) => m.t - observations[i].t)
+  const steps = names.map((name, i) => {
+    const start = phaseStarts[name]
+    const end = phaseStarts[names[i + 1]] ?? phaseStarts.ending
+    const inStep = list => list.filter(m => m.t >= start && m.t < end)
+    const obs = inStep(observations).map(m => m.observation)
+    const shown = inStep(samples)
+    return {
+      step: name,
+      observations: obs.length,
+      posture: obs.reduce((count, o) => ({ ...count, [o?.posture ?? 'null']: (count[o?.posture ?? 'null'] ?? 0) + 1 }), {}),
+      hold_ms_max: obs.length ? Math.max(...obs.map(o => o?.hold_ms ?? 0)) : null,
+      recovery_ms_max: obs.length ? Math.max(...obs.map(o => o?.recovery_ms ?? 0)) : null,
+      boxes: [...new Set(shown.map(s => s.nudge).filter(Boolean))],
+      decisions: inStep(messages.filter(m => m.type === 'decision')).map(m => `${m.event?.kind} +${m.t - start}ms`),
+      alerts: inStep(messages.filter(m => m.type === 'alert')).length,
+      screen_tones: [...new Set(shown.map(s => s.tone))],
+      gauge_max: shown.reduce((max, s) => Math.max(max, parseFloat(s.gauge ?? '0') || 0), 0) + '%',
+      alert_stage: shown.some(s => s.alertStage),
+    }
+  })
+  return {
+    steps,
+    checks: {
+      'observation 4.0 shape (sequence, posture, hold_ms, recovery_ms)': observations.length > 0 && observations.every(m =>
+        Number.isInteger(m.observation?.sequence) && 'posture' in m.observation && Number.isFinite(m.observation?.hold_ms)
+        && Number.isFinite(m.observation?.recovery_ms)),
+      'sequences only go up': observations.every((m, i) => !i || m.observation.sequence > observations[i - 1].observation.sequence),
+      'score updates per interval (median gap under 250 ms)': gaps.length > 5 && median(gaps) < 300,
+      'R1 record confirmed with the server summary': !!record && record.server?.confirmed === true,
+      'pending result cleared so the next measurement can start': pendingCleared,
+      'no browser errors while measuring': errors.length === 0,
+    },
+    numbers: { observation_gap_ms: gaps.length ? { median: median(gaps), max: Math.max(...gaps) } : null, setup_errors: setupErrors.length },
+  }
+}
+
 const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]
 
 async function main() {
@@ -237,8 +293,9 @@ async function main() {
   let browser
   try {
     browser = await launchChrome({ executable, port, profile, artifactFolder })
-    const run = await runRealtimeObservation(browser, base)
-    const result = report(run)
+    const custom = customPhases(process.env.POSEGOOD_REALTIME_PHASES)
+    const run = await runRealtimeObservation(browser, base, custom ?? PHASES)
+    const result = custom ? stepReport(run) : report(run)
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     await writeFile(join(artifactFolder, `run-${stamp}.json`), JSON.stringify({ ...run, report: result }, null, 2))
     console.log(JSON.stringify(result, null, 2))

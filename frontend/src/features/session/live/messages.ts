@@ -39,8 +39,9 @@ export type Decision = {
  * `observation` 4.0 (plan 0084 27·28, BE `feature/repo-realtime-observation4`): one per interval, sent as
  * soon as the interval is judged. `posture` is the server's momentary good/bad (threshold applied,
  * ADR 0047) and `hold_ms` how long bad has lasted by frame time — the value the server compares with the
- * policy hold time, 0 once continuity breaks. The 3 s confirmation still comes as `decision`·`alert`.
- * Not judgeable: `posture` and the score are null. `sequence`·`posture`·`hold_ms` are optional so a 3.0
+ * policy hold time, 0 once continuity breaks — and `recovery_ms` the same for good time while a collapse
+ * is open (plan 0084 29). The 3 s confirmation and recovery still come as `decision`·`alert`.
+ * Not judgeable: `posture` and the score are null. `sequence`·`posture`·`hold_ms`·`recovery_ms` are optional so a 3.0
  * message is read too while the running server is not redeployed (3.0 sends a score of 0 then).
  */
 export type LiveObservation = {
@@ -51,6 +52,8 @@ export type LiveObservation = {
   posture?: 'good' | 'bad' | null
   collapse_probability: number | null
   hold_ms?: number
+  /** Good time in the open collapse event (plan 0084 29); 0 while no event is open. */
+  recovery_ms?: number
   invalid_reason: null | 'unmeasurable' | 'head_turn' | 'settling'
 }
 
@@ -138,7 +141,7 @@ function validObservation(v: unknown): v is LiveObservation {
     (v.invalid_reason === null || typeof v.invalid_reason === 'string') &&
     (v.sequence === undefined || (Number.isInteger(v.sequence) && (v.sequence as number) >= 0)) &&
     (v.posture === undefined || v.posture === null || v.posture === 'good' || v.posture === 'bad') &&
-    (v.hold_ms === undefined || (num(v.hold_ms) && v.hold_ms >= 0))
+    [v.hold_ms, v.recovery_ms].every((ms) => ms === undefined || (num(ms) && ms >= 0))
   )
 }
 

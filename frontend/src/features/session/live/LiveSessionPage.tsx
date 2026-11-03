@@ -56,19 +56,54 @@ export function ringColor(measured: LiveState | null) {
  */
 export function nudgeKind(state: LiveState | null, measurable: boolean) {
   if (!measurable) return awaitingFirstResult(state) ? null : 'unknown'
-  if (state!.alerting) return 'alert'
-  return state!.observation!.posture === 'bad' ? 'caution' : null
+  const good = state!.observation!.posture === 'good'
+  if (state!.alerting) return good ? 'recovering' : 'alert'
+  return good || !state!.observation!.posture ? null : 'caution'
+}
+
+export type NudgeKind = NonNullable<ReturnType<typeof nudgeKind>>
+
+/** Title and line of each box; the hold and recovery times are the session's own rules. */
+export function nudgeText(kind: NudgeKind, state: LiveState | null, rules: { holdSeconds: number; recoverSeconds: number }) {
+  if (kind === 'unknown') {
+    const turned = state?.placeable && state?.observation?.invalid_reason === 'head_turn'
+    return {
+      title: '자세를 확인할 수 없어요',
+      desc: turned ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.' : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.',
+    }
+  }
+  if (kind === 'caution') return { title: '자세가 흐트러지고 있어요', desc: `${rules.holdSeconds}초 넘게 이어지면 알려드려요.` }
+  if (kind === 'recovering') return { title: '좋아요, 그대로 있어 주세요', desc: `바르게 앉으면 ${rules.recoverSeconds}초 뒤에 알림이 사라져요.` }
+  return { title: '자세를 살짝 고쳐볼까요?', desc: '바른 자세로 돌아오면 사라져요.' }
+}
+
+/** The server's count (`hold_ms`·`recovery_ms`, 4.0) over the policy time; null when not sent (3.0). */
+function serverProgress(ms: number | undefined, seconds: number) {
+  if (ms === undefined || seconds <= 0) return null
+  return Math.min(ms / (seconds * 1000), 1)
 }
 
 /**
- * The caution gauge: the server's own count of bad time (`hold_ms`, 4.0) over the policy hold time,
+ * The caution gauge: the server's own count of bad time (`hold_ms`) over the policy hold time,
  * so it empties exactly when the server's count breaks and is full when the confirmation comes.
- * The app does not count time (ADR 0029). Null when the server sends no count (3.0).
+ * The app does not count time (ADR 0029).
  */
 export function holdProgress(state: LiveState | null, holdSeconds: number) {
-  const holdMs = state?.observation?.hold_ms
-  if (holdMs === undefined || holdSeconds <= 0) return null
-  return Math.min(holdMs / (holdSeconds * 1000), 1)
+  return serverProgress(state?.observation?.hold_ms, holdSeconds)
+}
+
+/**
+ * The recovery gauge during a confirmed alert: good time in the open event (`recovery_ms`) over the
+ * policy recovery time; the alert ends with the server's `recovery_confirmed` when it is full.
+ */
+export function recoveryProgress(state: LiveState | null, recoverSeconds: number) {
+  return serverProgress(state?.observation?.recovery_ms, recoverSeconds)
+}
+
+/** Box colour: caution waits (amber), recovery is calm (default, green gauge), unknown is quiet. */
+function nudgeTone(kind: NudgeKind, alertsOn: boolean) {
+  if (kind === 'caution') return 'wait'
+  return kind === 'unknown' || !alertsOn ? 'quiet' : ''
 }
 
 /** Pill colour; `measured` is null while nothing can be judged. */
@@ -97,6 +132,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const tone = statusTone(measurable ? state : null)
   const nudge = running ? nudgeKind(state, measurable) : null
   const hold = holdProgress(state, session.rules.holdSeconds)
+  const recovery = recoveryProgress(state, session.rules.recoverSeconds)
+  const nudgeBox = nudge ? nudgeText(nudge, state, session.rules) : null
   const keepRate = summary?.keep_rate ?? null
   const totalSeconds = (summary?.total_ms ?? 0) / 1000
   const validSeconds = (summary?.valid_ms ?? 0) / 1000
@@ -243,29 +280,16 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
               </span>
             </div>
             <div className="stage-bottom">
-              {nudge && (
-                <div className={`nudge ${nudge === 'caution' ? 'wait' : nudge === 'unknown' || !alertsOn ? 'quiet' : ''}`}>
+              {nudge && nudgeBox && (
+                <div className={`nudge ${nudgeTone(nudge, alertsOn)}`}>
                   <div className="nudge-icon">
                     <WarningCircle size={24} weight="bold" />
                   </div>
                   <div className="nudge-body">
-                    <div className="nudge-title">
-                      {nudge === 'unknown'
-                        ? '자세를 확인할 수 없어요'
-                        : nudge === 'caution'
-                          ? '자세가 흐트러지고 있어요'
-                          : '자세를 살짝 고쳐볼까요?'}
-                    </div>
-                    <div className="nudge-desc">
-                      {nudge === 'unknown'
-                        ? state?.placeable && state?.observation?.invalid_reason === 'head_turn'
-                          ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.'
-                          : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.'
-                        : nudge === 'caution'
-                          ? `${session.rules.holdSeconds}초 넘게 이어지면 알려드려요.`
-                          : '바른 자세로 돌아오면 사라져요.'}
-                    </div>
+                    <div className="nudge-title">{nudgeBox.title}</div>
+                    <div className="nudge-desc">{nudgeBox.desc}</div>
                     {nudge === 'caution' && hold !== null && <Meter value={hold} />}
+                    {nudge === 'recovering' && recovery !== null && <Meter value={recovery} />}
                   </div>
                 </div>
               )}

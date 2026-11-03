@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { ProfileForm } from './useProfileForm'
 import { ValidatedInput } from '../../components/InlineForm'
 
@@ -18,6 +19,12 @@ export function ProfileFields({
   optionalInfo?: boolean
 }) {
   const { name, age, occupation, setName, setAge, setOccupation } = form
+  // The box keeps what was typed: Number('') is 0, so clearing it used to leave a 0 that typing
+  // then prefixed (「024」). An empty box is NaN, which the profile check rejects like any bad age.
+  const [ageText, setAgeText] = useState(() => (Number.isFinite(age) ? String(age) : ''))
+  useEffect(() => {
+    setAgeText((text) => (Number(text) === age || (text === '' && !Number.isFinite(age)) ? text : String(age)))
+  }, [age])
   return (
     <>
       <label className="field">
@@ -41,8 +48,11 @@ export function ProfileFields({
               type="number"
               min={14}
               max={120}
-              value={age}
-              onChange={(e) => setAge(Number(e.target.value))}
+              value={ageText}
+              onChange={(e) => {
+                setAgeText(e.target.value)
+                setAge(e.target.value === '' ? Number.NaN : Number(e.target.value))
+              }}
               required
             />
           </label>

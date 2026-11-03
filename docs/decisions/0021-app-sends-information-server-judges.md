@@ -51,7 +51,7 @@
 8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27·28, BE `feature/repo-realtime-observation4`). 11/1의 3초 묶음(#91)은 11/2 되돌렸다([인계서](../design/frontend-realtime-handoff-2026-11-03.md)).
    `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
    3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
-   주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
+   주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간, 경고 중 바로 앉으면 나오는 회복 상자의 게이지는 서버가 센 회복 연속 시간(`recovery_ms`) ÷ 정책 회복 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
    판정 불가면 점수가 `null`이라 점수를 그리지 않는다. `sequence`가 화면에 있는 결과보다 작거나 같은 결과는 버린다(늦은 결과가 최신 점수를 덮지 않게).
    운영 서버가 4.0이 될 때까지 3.0도 읽고(`sequence`·`posture`·`hold_ms`가 없으면 주의·게이지 없음), 그 뒤 3.0 통과 시험을 지운다.
    새 기록에는 모델 이름(`modelVersion`)을 쓰지 않는다(4.0에서 빠짐). 예전 기록은 그대로 읽는다.

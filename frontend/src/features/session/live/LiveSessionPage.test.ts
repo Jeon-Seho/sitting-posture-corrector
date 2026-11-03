@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveState } from './LiveSession'
 import type { LiveObservation } from './messages'
-import { awaitingFirstResult, headline, holdProgress, nudgeKind, ringColor, statusTone } from './LiveSessionPage'
+import { awaitingFirstResult, headline, holdProgress, nudgeKind, nudgeText, recoveryProgress, ringColor, statusTone } from './LiveSessionPage'
 
 /** Synthetic states only: what the measuring screen shows for each server status (observation 4.0). */
 const state = (observation: LiveObservation | null, alerting = false) =>
   ({ placeable: true, alerting, observation, sending: 'running' }) as LiveState
-const observation = (posture: LiveObservation['posture'], valid = true, hold_ms = 0): LiveObservation => ({
+const observation = (posture: LiveObservation['posture'], valid = true, hold_ms = 0, recovery_ms = 0): LiveObservation => ({
   schema_version: '4.0', sequence: 0, valid, posture, collapse_probability: valid ? (posture === 'bad' ? 0.82 : 0.1) : null,
-  hold_ms, invalid_reason: valid ? null : 'unmeasurable',
+  hold_ms, recovery_ms, invalid_reason: valid ? null : 'unmeasurable',
 })
 
 describe('measuring screen status (synthetic only)', () => {
@@ -61,5 +61,16 @@ describe('measuring screen status (synthetic only)', () => {
     const v3 = { ...observation('bad'), hold_ms: undefined }
     expect(holdProgress(state(v3), 3)).toBeNull()
     expect(holdProgress(null, 3)).toBeNull()
+  })
+
+  it('shows the recovery box and fills it with the server good time while the alert is open', () => {
+    expect(nudgeKind(state(observation('good'), true), true)).toBe('recovering')
+    expect(nudgeKind(state(observation('bad'), true), true)).toBe('alert')
+    expect(nudgeText('recovering', null, { holdSeconds: 3, recoverSeconds: 3 })).toEqual({
+      title: '좋아요, 그대로 있어 주세요', desc: '바르게 앉으면 3초 뒤에 알림이 사라져요.',
+    })
+    expect(recoveryProgress(state(observation('good', true, 0, 1500), true), 3)).toBe(0.5)
+    expect(recoveryProgress(state(observation('good', true, 0, 0), true), 3)).toBe(0)
+    expect(recoveryProgress(state({ ...observation('good'), recovery_ms: undefined }), 3)).toBeNull()
   })
 })
