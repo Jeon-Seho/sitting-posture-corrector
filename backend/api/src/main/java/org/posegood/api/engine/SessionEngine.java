@@ -105,7 +105,7 @@ public final class SessionEngine {
 			interrupt(reason, observation.startMs());
 			timeline.addExcluded(observation);
 		} else {
-			boolean candidate = observation.collapseProbability() >= policy.threshold();
+			boolean candidate = DecisionRules.candidate(observation.collapseProbability(), policy);
 			timeline.addMeasured(observation, candidate);
 			apply(
 				DecisionRules.evaluate(
@@ -220,7 +220,7 @@ public final class SessionEngine {
 	}
 
 	/**
-	 * 관측 3.0의 {@code invalid_reason}: 유효하면 null. 아니면 API가 좌표에서 찾은 사유
+	 * 관측 4.0의 {@code invalid_reason}: 유효하면 null. 아니면 API가 좌표에서 찾은 사유
 	 * ({@code head_turn}), 그 밖에는 {@code unmeasurable}.
 	 *
 	 * 계약상 유효하지 않은 구간은 사유가 꼭 있어야 하므로 휴식·자리 비움도 {@code unmeasurable}이고, 멈춘 이유는
@@ -233,6 +233,26 @@ public final class SessionEngine {
 		return observation.phase() == Observation.Phase.running && "head_turn".equals(hint)
 			? "head_turn"
 			: "unmeasurable";
+	}
+
+	/**
+	 * 앱에 보낼 관측 4.0: 유효한 구간이면 세션 정책 임계값으로 나눈 그 순간의 good·bad와 점수, 아니면 판정 불가 사유.
+	 *
+	 * 이탈 후보 판단과 같은 비교({@link DecisionRules#candidate})를 쓴다. 알림 확정(3초)은 계속 사건이 한다.
+	 * 이어진 시간은 그 구간을 {@link #accept}한 뒤의 값으로, 확정 규칙이 세는 것과 같다(끊기면 0).
+	 * 회복 쪽은 열린 사건이 있을 때만 센다. 사건이 없으면, 이 구간에서 회복이 확정돼 사건이 닫혔어도 0이다.
+	 */
+	public synchronized Observation.V4 live(Observation observation, String hint) {
+		if (!observation.valid()) {
+			return Observation.V4.unjudged(observation.sequence(), invalidReason(observation, hint));
+		}
+		double score = observation.collapseProbability();
+		return Observation.V4.judged(
+			observation.sequence(),
+			DecisionRules.candidate(score, policy) ? "bad" : "good",
+			score,
+			timeline.holdMs(),
+			episodes.active() ? timeline.recoveryMs() : 0);
 	}
 
 	public synchronized int eventCount() {

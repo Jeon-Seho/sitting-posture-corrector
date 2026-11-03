@@ -378,7 +378,7 @@ public class SessionService {
 				engine.ended(),
 				observation == null
 					? null
-					: Observation.V3.of(observation, SessionEngine.invalidReason(observation, invalidReason)),
+					: engine.live(observation, invalidReason),
 				engine.pausedReason(),
 				closedReason));
 	}

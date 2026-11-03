@@ -95,7 +95,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`(`started_at` = 서버의 세션 시작 시각, ADR 0028). 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
   준비가 `posegood.realtime.ready-timeout`(5초, 앱 대기 시간)을 넘으면 그 세션을 끝내고 `session_lost`.
 - `features`는 메시지마다 구간 1개다. 2개 이상·목적과 맞지 않는 `phase`·64KB 초과·형식 오류·중복/역순 순번은 `closed: bad_message`.
-  구간마다 `observation`(관측 3.0: `valid_ms`, `invalid_reason`), 새 사건마다 `decision`과 알림을 켠 세션이면 `alert`, 끝에 `ack`·`progress`(`paused_reason`).
+  구간마다 `observation`(관측 4.0: `sequence`·`valid`·`posture`·`collapse_probability`·`hold_ms`·`recovery_ms`·`invalid_reason`, 2026-11-03 — `sequence`는 앱이 보낸 순번, `posture`는 세션 `threshold`를 적용한 그 구간의 `good`·`bad`, `hold_ms`는 확정 규칙이 세는 이탈 연속 시간, `recovery_ms`는 회복 규칙이 세는 열린 사건의 바른 연속 시간(사건이 없으면 0), 판정 불가면 점수 null·`hold_ms`·`recovery_ms` 0), 새 사건마다 `decision`과 알림을 켠 세션이면 `alert`, 끝에 `ack`·`progress`(`paused_reason`).
 - 판정 불가 사유: 판정 가능 프레임이 없고 고개 돌림(코-귀 중점 변화 0.15 초과)만 있었으면 `head_turn`, 그 밖에는 `unmeasurable`.
   휴식·자리 비움 구간도 계약상 사유가 필요해 `unmeasurable`이고, 멈춘 이유는 `paused_reason`(`rest`·`away`·`unmeasurable`)이 알린다. `settling`은 기준이 정해지지 않아 아직 보내지 않는다.
 - 기준 자세의 특징은 저장된 좌표 18개로 계산한다. DB에 visibility가 없어 기준 품질은 1이다.
