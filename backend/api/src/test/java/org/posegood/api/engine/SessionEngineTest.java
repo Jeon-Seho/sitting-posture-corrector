@@ -335,6 +335,23 @@ class SessionEngineTest {
 		assertEquals("unmeasurable", SessionEngine.invalidReason(rest, "head_turn"));
 	}
 
+	@Test
+	void livePostureSplitsAtTheFrozenThresholdAndUnjudgedHasNoScore() {
+		// 이탈 후보와 같은 비교: 임계값과 같으면 bad, 바로 아래면 good. 판정 불가는 posture null·점수 0.
+		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.8));
+		var at = engine.live(observation(0, 0, 33, 0.8, true, Observation.Phase.running), null);
+		assertEquals(Observation.V4.judged("bad", 0.8), at);
+		assertEquals("4.0", at.schemaVersion());
+		assertEquals(Observation.V4.judged("good", 0.79),
+			engine.live(observation(1, 33, 66, 0.79, true, Observation.Phase.running), null));
+		var unjudged = engine.live(observation(2, 66, 99, 0.9, false, Observation.Phase.running), "head_turn");
+		assertEquals(Observation.V4.unjudged("head_turn"), unjudged);
+		assertNull(unjudged.posture());
+		assertEquals(0, unjudged.collapseProbability());
+		assertEquals(Observation.V4.unjudged("unmeasurable"),
+			engine.live(observation(3, 99, 132, 0, false, Observation.Phase.rest), null));
+	}
+
 	// 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.
 
 	@Test

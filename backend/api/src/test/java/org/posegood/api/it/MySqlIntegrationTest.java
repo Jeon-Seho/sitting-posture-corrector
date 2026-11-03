@@ -761,10 +761,10 @@ class MySqlIntegrationTest {
 			socket.send(frames(sequence, "running", 0.09));
 		}
 		var observation = socket.next("observation").get("observation");
-		assertEquals("3.0", observation.get("schema_version").asString());
+		assertEquals("4.0", observation.get("schema_version").asString());
 		assertTrue(observation.get("valid").asBoolean());
-		assertEquals(500, observation.get("valid_ms").asLong());
-		assertEquals("left_lean", observation.get("deviation_type").asString());
+		assertEquals("bad", observation.get("posture").asString());
+		assertFalse(observation.has("deviation_type"));
 		var decision = socket.next("decision", "collapse_confirmed");
 		assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
 		assertFalse(decision.has("session_id"));
@@ -773,11 +773,10 @@ class MySqlIntegrationTest {
 			ack = socket.next("ack");
 		} while (ack.get("last_sequence").asLong() != 6);
 		socket.send(frames(7, "running", null));
-		JsonNode unmeasurable;
-		do {
-			unmeasurable = socket.next("observation").get("observation");
-		} while (unmeasurable.get("sequence").asLong() != 7);
+		// 관측 4.0에는 순번이 없다: ack 6까지 읽었으므로 다음 observation은 구간 7의 것이다.
+		var unmeasurable = socket.next("observation").get("observation");
 		assertFalse(unmeasurable.get("valid").asBoolean());
+		assertTrue(unmeasurable.get("posture").isNull());
 		assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
 		JsonNode progress;
 		do {

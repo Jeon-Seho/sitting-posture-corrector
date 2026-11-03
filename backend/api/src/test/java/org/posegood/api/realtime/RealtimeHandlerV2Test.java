@@ -206,7 +206,7 @@ class RealtimeHandlerV2Test {
 			Observation.DeviationType.forward_slouch, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, observation,
 			List.of(new SessionEngine.Decided(event, SUMMARY)), 42, SUMMARY, false,
-			Observation.V3.of(observation, null), null, null));
+			Observation.V4.judged("bad", 0.82), null, null));
 		same(example("ws-observation.json"), fake.only("observation"));
 		same(example("ws-decision.json"), fake.only("decision"));
 		same(example("ws-alert.json"), fake.only("alert"));
@@ -214,7 +214,7 @@ class RealtimeHandlerV2Test {
 		var invalid = new Observation("2.0", 43, 21500, 22000, Observation.Phase.running, false, 0,
 			Observation.DeviationType.none, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, invalid, List.of(), 43, SUMMARY, false,
-			Observation.V3.of(invalid, SessionEngine.invalidReason(invalid, null)), "unmeasurable", null));
+			Observation.V4.unjudged(SessionEngine.invalidReason(invalid, null)), "unmeasurable", null));
 		same(example("ws-observation-unmeasurable.json"), fake.all("observation").get(1));
 		assertFalse(fake.closed.get());
 	}

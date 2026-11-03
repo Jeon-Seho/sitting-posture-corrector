@@ -1282,51 +1282,41 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
 | `model_version` | string | API 설정값(`reference-feature-rule-v1`)과 같아야 한다. |
 
-### Observation 3.0 — 실시간 v2 관측
+### Observation 4.0 — 실시간 v2 관측
 
-`/v2/realtime`의 `observation` 메시지에 담긴다. 추론 응답(2.0)을 API가 바꿔 보낸다.
+`/v2/realtime`의 `observation` 메시지에 담긴다. 구간을 판정하자마자 하나씩 보낸다. 추론 응답(2.0)을 API가 바꿔 보낸다.
+4.0(2026-11-03, [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md))은 측정 화면이 쓰는 것만 남겼다 — 3.0의 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺐다(**호환성 깨짐**, FE와 함께 배포). 처리 위치는 `ack`·`progress`의 `last_sequence`, 멈춘 이유는 `progress.paused_reason`, 시간은 `summary`, 이탈 종류는 `decision`에 있다.
 
-**실제** — 머리를 옮긴 구간(순번 5). 기울임이 커서 점수가 1.0까지 올라간다.
+**예시** — 이탈 쪽 구간(정책 `threshold` 0.7, 점수 1.0).
 
 ```json
 {
-  "schema_version": "3.0",
-  "sequence": 5,
-  "start_ms": 2500,
-  "end_ms": 3000,
-  "phase": "running",
+  "schema_version": "4.0",
   "valid": true,
-  "valid_ms": 500,
+  "posture": "bad",
   "collapse_probability": 1.0,
-  "deviation_type": "left_lean",
-  "invalid_reason": null,
-  "model_version": "reference-feature-rule-v1"
+  "invalid_reason": null
 }
 ```
 
-**실제** — 사람이 없는 구간(순번 14, 모든 프레임 `p: null`). 쉬기(`rest`) 구간도 `phase`만 다르고 같은 모양이다.
+**예시** — 사람이 없는 구간(모든 프레임 `p: null`). 쉬기(`rest`)·자리 비움(`away`) 구간도 같은 모양이고, 멈춘 이유는 `progress.paused_reason`이 알린다.
 
 ```json
 {
-  "schema_version": "3.0",
-  "sequence": 14,
-  "start_ms": 7000,
-  "end_ms": 7500,
-  "phase": "running",
+  "schema_version": "4.0",
   "valid": false,
-  "valid_ms": 0,
-  "collapse_probability": 0.0,
-  "deviation_type": "none",
-  "invalid_reason": "unmeasurable",
-  "model_version": "reference-feature-rule-v1"
+  "posture": null,
+  "collapse_probability": 0,
+  "invalid_reason": "unmeasurable"
 }
 ```
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `valid_ms` | long | 해당 전송 구간 안에서 판정에 사용한 유효 하위 구간 길이의 합이다. 판정 불가·휴식·자리 비움·누락 시간은 포함하지 않는다. |
+| `valid` | boolean | 이 구간을 판정할 수 있었는지. |
+| `posture` | `good` \| `bad` \| null | 이 구간 점수에 세션 정책 `threshold`를 적용한 그 순간의 판정(점수 ≥ `threshold`면 `bad`, 이탈 후보와 같은 비교). 3초 확정·알림은 계속 `decision`·`alert`다. `valid`가 아니면 null. |
+| `collapse_probability` | number 0~1 | 이탈 점수. 앱 점수 = 100 × (1 − 값). `valid`가 아니면 0. 학습 모델 전까지 규칙 점수이고 보정된 확률이 아니다. |
 | `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(고개를 돌린 프레임만 있었음) · `settling`(아직 보내지 않음). |
-| 나머지 | - | Observation 2.0과 같다. |
 
 ### RecordItem — 앱 기록 (camelCase)
 
@@ -1477,7 +1467,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 |---|---|---|
 | `ready` | purpose, session_id, started_at | `hello`를 받아들였다. `features`를 보내기 시작한다. 측정이면 `started_at` = 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱은 오늘 기록의 시각·날짜를 이 값으로 정한다(ADR 0028). |
 | `ack` | last_sequence | 여기까지 처리 완료. 표시만 하고 다시 보내지 않는다. |
-| `observation` | observation | 구간마다 [Observation 3.0](#observation-30--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
+| `observation` | observation | 구간마다 [Observation 4.0](#observation-40--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
@@ -1506,10 +1496,10 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 {"type": "ready", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "started_at": "2026-10-28T16:05:05.551Z"}
 ```
 
-순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다.
+순번 5(2.5~3초)를 보낸 뒤 받은 메시지 전부, 받은 순서대로. 3초 이탈이 쌓여 붕괴가 확정되고 알림이 켜진 세션이라 `alert`가 온다. `observation`은 같은 실행에서 받은 3.0 값을 4.0 형식으로 옮긴 것이다(2026-11-03, 다시 실행하지 않음).
 
 ```json
-{"type": "observation", "observation": {"schema_version": "3.0", "sequence": 5, "start_ms": 2500, "end_ms": 3000, "phase": "running", "valid": true, "valid_ms": 500, "collapse_probability": 1.0, "deviation_type": "left_lean", "invalid_reason": null, "model_version": "reference-feature-rule-v1"}}
+{"type": "observation", "observation": {"schema_version": "4.0", "valid": true, "posture": "bad", "collapse_probability": 1.0, "invalid_reason": null}}
 {"type": "decision", "event": {"event_id": 1, "kind": "collapse_confirmed", "timestamp_ms": 3000, "onset_ms": 0, "onset_valid_ms": 0, "deviation_type": "left_lean", "reason": null}, "summary": {"total_ms": 3000, "valid_ms": 3000, "normal_ms": 0, "deviation_ms": 3000, "rest_ms": 0, "away_ms": 0, "unknown_ms": 0, "missing_ms": 0, "collapse_count": 1, "alert_count": 1, "interval_count": 0, "keep_rate": 0.0, "events_per_hour": 1200.0, "mean_interval_ms": null, "mean_recovery_ms": null}}
 {"type": "alert", "event_id": 1, "kind": "collapse_confirmed", "deviation_type": "left_lean"}
 {"type": "ack", "last_sequence": 5}
@@ -1541,6 +1531,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-03 | `feature/repo-realtime-observation4` | **실시간 `observation` 3.0 → 4.0 — 호환성 깨짐**: 필드를 `valid`·`posture`(`good`·`bad`·null, 세션 `threshold` 적용)·`collapse_probability`(판정 불가면 0)·`invalid_reason` 4개로 줄임. 보내는 시점·순서와 다른 메시지는 그대로(구간마다). 계약 `realtime-ws.v2` 번호만 올림(계획 0084). develop 앱의 `validObservation`은 4.0을 버리므로 FE 4.0 대응과 함께 배포 |
 | 2026-10-29 | `fix/repo-backend-followup` | **10/28 B1 `frames`(서버 평균) 변경을 되돌림(`748af6a` revert) — 호환성 깨짐**: B1은 다시 앱이 낸 평균 `{registration_id, calibration_ms, sample_count, landmarks}`(표본 20개 이상)를 받는다. `frames` 본문은 400, 422 `BASELINE_REJECTED`는 없어짐. 앱·다른 도구는 원래 본문 그대로라 고칠 것 없음 ([계획 0063](../plans/completed/0063-baseline-frames-over-rest.md) 철회 기록) |
 | 2026-10-29 | `fix/repo-backend-followup` | 문서만(코드 그대로): 요청·응답 JSON 예시를 합성 실행에서 받은 **실제 값**으로 바꿈(1장 「값을 받은 실행」). 예시가 실제와 달랐던 곳: R1 사건 `type`은 `referenceChange`(방향 저장 칸 없음)·`validStartAt` 있음·시간은 소수·`server.view`는 객체(`last_sequence` -1), WS `hello`에 `access_token`, A6·A7도 refresh 쿠키를 지움, 오류 본문 예시. T1(구현 전)만 설계 예시로 남김 |
 | 2026-10-28 | `fix/repo-backend-followup` | **앱 기능이 없는 REST 4개 삭제 — 호환성 깨짐**: S2 `POST /v2/sessions/{id}/features`, S5 `GET /v2/sessions/{id}/metadata`, S6 `DELETE /v2/sessions/{id}`(R3와 같음), R2 `POST /v2/records`. REST 22 → 18개. REST에서 `SESSION_ENDED`·`INFERENCE_FAILED`가 없어짐. 판정 상태를 잃은 세션 행은 이제 닫히지 않음 ([계획 0062](../plans/active/0062-remove-unused-apis.md)) |
