@@ -123,4 +123,4 @@ DB 통합은 시험 MySQL과 기존 `-Pmysql-integration` 명령, 테마·JWT·�
 
 ## 로컬 관측과 연구
 
-`/dev`는 공통 Heavy 카메라를 사용해 기준·이탈 및 선택형 스트레칭을 로컬에서 관측하고 영상 없이 전체 좌표 또는 ML 후보 특징을 명시적으로 내려받는다. `/#forecast`는 별도의 연구용 예측 실험이다. [관측 내보내기 계약](contracts/observation-export.v1.md)과 [연구 계획](docs/ml/rebuild-plan.md)을 따른다.
+`/dev`는 공통 Heavy 카메라를 사용해 기준·이탈 반복을 로컬에서 관측하고 영상 없이 전체 좌표 JSON을 명시적으로 내려받는다. `/#forecast`는 별도의 연구용 예측 실험이다. [관측 내보내기 계약](contracts/observation-export.v1.md)과 [연구 계획](docs/ml/rebuild-plan.md)을 따른다.

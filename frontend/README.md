@@ -1,4 +1,4 @@
-> 현재 `/dev` 측정 사이클은 [선택형 스트레칭 결정](../docs/decisions/0044-optional-stretch-cycles.md)을 따른다. 기본은 이탈·기준 복귀 반복이다.
+> 현재 `/dev` 시작 창은 「이탈 → 기준」 반복 사이클만 제공한다(2026-11-03). 스트레칭 사이클은 시작 창에서 뺐고 코드와 예전 파일 불러오기는 남았다([내보내기 계약](../contracts/observation-export.v1.md)).
 
 # PoseGood 웹캠 프로토타입
 
@@ -410,4 +410,4 @@ Windows 패키지의 새 개발자 페이지는 `npm --prefix frontend run deskt
 
 ## 로컬 관측 화면
 
-`/dev`에서 자동·수동, 기준·이탈 또는 스트레칭을 선택하고 1~5사이클을 측정한다. 기준은 로컬에서 등록하며 원본 영상 없이 전체 33점 JSON과 ML 후보 특징 JSON을 직접 내려받는다([내보내기 계약](../contracts/observation-export.v1.md)). `/dev?demo=1`은 합성 화면이다. `/#forecast`는 별도 연구 예측 화면이다.
+`/dev`에서 자동·수동을 고르고 「이탈 → 기준」 반복 사이클을 1~5회 측정한다. 기준은 로컬에서 등록하며 원본 영상 없이 전체 33점 JSON 하나를 직접 내려받는다([내보내기 계약](../contracts/observation-export.v1.md)). `/dev?demo=1`은 합성 화면이다. `/#forecast`는 별도 연구 예측 화면이다.
