@@ -33,14 +33,13 @@
 | S1 `policy` | 앱이 설정 값을 ms로 바꿔 보냄 | 계정 정책과 다르면 409 | BE-11(보내지 않게) |
 | 판정 시간 규칙 이름·단위 | `Rules`(초) ↔ S1 `policy`(ms) 변환 | W1·W2 초 / S1 ms | BE-4 |
 | 쉬기 10분 자동 종료 | 타이머 없음 | 없음(판정 불가 30분 `unmeasurable_timeout`만) | BE-13 |
-| S1 뒤 WS가 안 열린 세션 | S3를 부르지 않음 | 서버가 모른 채 열어 둠 | 아래 「BE에 물을 것」 |
 | 동의 문구 `POSE_COORDINATES` | 좌표 프레임 전송 | 「기준 대비 특징 변화량」 문구 | BE-1 |
 | 측정 중 WS 줄이기 | 지금은 `progress`·`decision` 요약을 씀 | 같음 | BE-10(계획 0059) — 합의 전. BE-14와 같이 정하기 |
 | Kafka 경로 판정 | — | BE 판정기 브랜치(`feature/repo-realtime-processing-judge`, 계획 0085)는 보류, #91 방식이 남아 있음 | 다시 시작할 때 BE-14 기준으로 |
 
-**팀장(Jeon-Seho)에게 물을 것(10/25):** `docs/design/data-platform-boundary.md`를 계속 쓰실 건가요? 팀장님이 10/22 develop `db220d8`에서 현행 기준으로 고쳐 써서 남겨 두었다. 계속 쓰면 [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md)과 겹치는 부분을 한쪽으로, 필요 없으면 FE가 지우고 남은 링크([ADR 0021](../decisions/0021-app-sends-information-server-judges.md))를 정리한다.
-
-**BE에 물을 것(10/22):** S1은 성공했는데 WS가 열리지 않았거나 `hello` 전에 끊긴 세션은 서버가 모른 채 열려 있다(`ended_at` NULL 행이 J1·J2·기록 목록에 남음). 앱이 S3 `POST /v2/sessions/{id}/end`로 닫을까, 서버가 시간이 지나면 정리할까? (측정 중 끊김·`ready` 5초 초과는 서버가 이미 끝낸다. [연동 명세](api-ws-spec.md) 4장 S3·S4)
+**닫은 질문 2개(11/3):**
+- ~~팀장에게: `data-platform-boundary.md`를 계속 쓸지~~ — 팀장님이 10/22 develop `db220d8`에서 현행 기준으로 고쳐 쓴 뒤 2주 동안 그대로 쓰여(ADR 0021이 가리킴) **유지**로 본다. [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md)과 겹치는 부분 정리는 팀장 문서 몫이고 FE는 지우지 않는다.
+- ~~BE에: S1 뒤 WS가 안 열린 세션을 앱이 S3로 닫을지~~ — **서버 코드로 답이 나옴(앱 S3 불필요):** `LiveSessions.evict()`가 1분마다 돌며 아무 연결도 없는 세션을 6시간(`posegood.idle-session-retention=6h`) 뒤 메모리에서 뺀다. DB 행은 `ended_at` NULL로 남지만 R1(`RecordHistory`)과 J2(PR #93)는 `ended_at IS NOT NULL`만 읽어 기록·통계에는 나오지 않는다. 남은 것은 쓰지 않는 빈 행이 쌓이는 것뿐이라, 지울지는 BE·DB가 정할 일(선택)이다.
 
 ### 1.2 BE에 요청한 것 (남은 것)
 
