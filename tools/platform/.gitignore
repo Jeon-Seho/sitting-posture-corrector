@@ -4,3 +4,5 @@
 it-results/
 capacity-results/
 __pycache__/
+# Spark 배치 로그 (서버 PC 로컬 기록, tools/platform/batch.sh)
+batch-logs/
