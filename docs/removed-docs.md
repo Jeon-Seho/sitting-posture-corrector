@@ -131,7 +131,7 @@ BE 쪽(0011·0012·0013·0014·0018·0019·0022·0023)은 2026-10-27 BE 피드�
 
 ## 8. 2026-10-30 FE 명령·배포 문서 정리 (FE, 2개)
 
-서버 공개 연결이 끝나(10/29, [FE 제안서](design/fe-server-proposal.md) 0장) FE 전용 명령 모음을 따로 둘 필요가 없어졌다. 공통 명령은 [개발 흐름](development.md), 프론트 명령은 [frontend README](../frontend/README.md)를 본다. 되살리기: `git show 29089f8:<경로>`.
+서버 공개 연결이 끝나(10/29, [FE 제안서](design/fe-server-proposal.md) 10장, 11/3 전에는 0장) FE 전용 명령 모음을 따로 둘 필요가 없어졌다. 공통 명령은 [개발 흐름](development.md), 프론트 명령은 [frontend README](../frontend/README.md)를 본다. 되살리기: `git show 29089f8:<경로>`.
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
