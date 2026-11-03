@@ -14,7 +14,8 @@
 
 ### 1.0 지금 남은 일
 
-- [ ] 실시간 판정 다시 만들기 — 팀이 방향을 정한 뒤. FE 쪽 정리(지연 원인, 3초 세는 방법, `observation`에서 볼 것)는 [인계서](frontend-realtime-handoff-2026-11-03.md) — BE·FE
+- [ ] 실시간 판정 다시 만들기 — 팀이 방향을 정한 뒤. FE 쪽 정리(지연 원인, 3초 세는 방법, `observation`에서 볼 것, 짧은 끊김 봐주기 안)는 [인계서](frontend-realtime-handoff-2026-11-03.md) — BE·FE
+  - **`observation` 4.0(형식 변경)이 나올 때 FE가 다시 확인하고, 그 뒤에 BE에 요구사항을 보낸다.** 그때 확인할 것: `sequence`·`end_ms`(`t_ms`)를 빼지 않기(지금 3.0은 필수 — [realtime-ws.v2.schema.json](../../contracts/realtime/realtime-ws.v2.schema.json)), `posture` 추가, `valid`는 그 프레임 기준, 판정 불가면 `collapse_probability` `null`, `model_version`·`deviation_type`은 빼도 됨(인계서 「앱이 받는 `observation`」 표)
 - [ ] Cloudflare 요청 제한(`auth-rate-limit`)을 로그인·가입만으로 좁히고 평소 값·시연 날 값 정하기 — FE(9.6.3 Q3)
 - [ ] 정식 공개 때 검색 노출 막기 두 줄 지우기([robots.txt](../../frontend/public/robots.txt), [vercel.json](../../frontend/vercel.json) `X-Robots-Tag`) — FE
 - [ ] 데스크톱 앱이 `https://app.posegood.site`를 열게(F14, 9.4 5단계). 그 전까지 설치용 앱은 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다 — FE
