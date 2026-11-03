@@ -29,7 +29,7 @@
 
 ### 3초를 세는 방법
 
-「0~3초, 0.1~3.1초 …」 창을 매번 다시 보지 않는다. develop의 `engine/Timeline.java`·`DecisionRules`처럼
+「0~3초, 0.1~3.1초 …」 창을 매번 다시 보지 않는다. develop의 [Timeline.java](../../backend/api/src/main/java/org/posegood/api/engine/Timeline.java)·[DecisionRules.java](../../backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java)처럼
 세션마다 누적값 몇 개만 두면 프레임마다 같은 결과를 더하기 한 번으로 얻는다.
 
 ```
@@ -53,7 +53,7 @@ good → holdMs = 0
 
 ### 앱이 받는 `observation`
 
-BE 요청은 [FE 제안서](fe-server-proposal.md) BE-14. 지금 develop은 3.0(`posture` 없음)이다.
+BE에는 아직 요청하지 않았다(실시간 판정을 다시 만들 때 팀이 같이 정한다). 지금 develop은 3.0(`posture` 없음)이다.
 #91의 4.0은 `posture`를 더하면서 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`을 뺐는데,
 필드를 줄인 것은 3초 묶음을 전제로 한 결정이라 즉시 전송에는 맞지 않는다.
 
@@ -91,7 +91,7 @@ function toReading(o: LiveObservation): Reading {
 
 #91에서 측정 한 번 뒤 다음 측정이 시작되지 않았다. 프레임마다 판정하면 바른 자세 시간에 ms 끝자리가 생기는데(38.35초),
 서버는 `good_sec`를 0.1초 내림으로 저장해서(38.3초) 앱이 「서버에 저장됨」을 확인하지 못했다.
-프레임 단위 판정으로 다시 가면 `frontend/src/features/storage/serverRecords.ts`의 비교를 같이 고친다.
+프레임 단위 판정으로 다시 가면 [serverRecords.ts](../../frontend/src/features/storage/serverRecords.ts)의 비교를 같이 고친다.
 
 ```ts
 const storedTenths = (seconds: number) => Math.floor(seconds * 10 + 1e-6) / 10
