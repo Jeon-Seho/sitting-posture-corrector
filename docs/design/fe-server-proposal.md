@@ -540,7 +540,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 ### 10.5 끝난 것 (10/30~11/3)
 
-- **프론트 lint CI(10/31):** 팀장 lint CI(`1ce3345`)가 develop에 들어갔고, FE 오류는 PR #85(klaod-tech)와 `4fe47e1`(HJisung, 남은 29개)로 고쳤다. 11/3 develop `096cc3c`에서 `npx eslint .` 오류·경고 0개.
+- **프론트 lint CI(10/31):** 팀장 lint CI(`1ce3345`)가 develop에 들어갔고, FE 오류는 PR #85(klaod-tech)와 `4fe47e1`(HJisung, 남은 29개)로 고쳤다. 11/3 develop `096cc3c`에서 `npm run lint` 오류 0개(경고 27개는 모두 `react-hooks/exhaustive-deps`로 CI를 막지 않음 — 하나씩 확인할 것).
 - **자정 점검용 합성 카메라(10/30, PR #87):** 팀장 인계서 1·2번. 정상 자세 좌표 프레임을 보내고 실제 자세 등록(B1) 흐름에 붙였다.
 - **앱의 자정 넘김 처리(10/30, PR #88):** `session_rollover`를 받으면 이전 세션 기록을 닫고 서버가 만든 새 세션 ID로 이어 간다. `closed(day_changed)`는 저장된 종료(7.2 12·18번).
 - **실제 자정 확인(10/31 00:00, 통과):** 자정 넘김을 켠 로컬 서버로 측정을 이어 두었다. `session_rollover` 00:00:00.051 수신, R1 기록 2개, 오늘·달력에 날짜별로 표시. 작업 문서 `fe-camera-midnight-test.md`는 닫았다([지운 문서 기록](../removed-docs.md) 9장).
