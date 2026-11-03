@@ -118,6 +118,7 @@
 | --- | --- | --- |
 | 27 | `sequence`(앱이 보낸 순번)와 `hold_ms`(이 구간 끝까지 이탈 후보가 이어진 시간)를 넣는다. 9번의 「`bad_ms`는 넣지 않는다」를 대체. `sequence`는 `ack`처럼 연결 기준(자정 넘김 뒤 `sequenceOffset`을 더함). `hold_ms`는 엔진 `Timeline.holdMs` 그대로 — 정책 `hold_ms`와 비교해 확정하는 값이고 `good`·판정 불가·쉬기·자리 비움·누락에서 0, 확정 뒤에도 `bad`면 는다. 이름은 FE 요청대로 정책 `hold_ms`와 짝(이 값이 정책 값에 닿으면 확정) | FE 요청. `sequence`: 점수 경로를 나누면 결과가 늦거나 뒤바뀔 수 있어 앱이 오래된 점수를 버리고(최신 방향), 보낸 시각과 비교해 점수 지연을 잰다(완료 기준). `hold_ms`: 확정 전 주의 단계에 진행 정도를 보인다. 판정이 실제로 세는 값이라 판정 방식은 그대로 |
 | 28 | 판정 불가면 `collapse_probability`는 `0` 대신 `null`. `hold_ms`는 0(끊긴 연속은 실제 값) | `valid`인 0(기준과 차이 없음, 100점)과 판정 불가 0이 같은 숫자였다. 앱이 `valid`를 놓치면 100점이 뜬다. 추론 응답 2.0은 내부 계약이라 그대로 0 |
+| 29 | `recovery_ms`(열린 사건에서 이 구간 끝까지 `good`이 이어진 시간)를 넣는다. 엔진 `Timeline.recoveryMs`이되 열린 사건이 있을 때만 — 없으면(첫 확정 전, `recovery_confirmed`·`interrupted` 뒤, 회복이 확정된 그 구간) 0. `bad`에서 0부터 다시, 판정 불가는 사건 중단이라 0. 이름은 `hold_ms`처럼 정책 `recovery_ms`와 짝. 4.0이 아직 FE에 배포되지 않아 번호는 그대로 | FE 요청. 바르게 앉은 뒤 확정까지(기본 3초) 경고가 남는 이유를 앱이 진행 정도로 보일 수 있다. `Timeline.recoveryMs`는 사건이 없어도 바른 구간마다 늘어 그대로 보내면 뜻이 없는 값이 된다. 판정 방식은 그대로 |
 
 ## 남은 질문
 
@@ -150,6 +151,7 @@
 
 ## 결정과 진행 기록
 
+- 2026-11-03: 4.0 보완(29번) — FE 요청으로 `recovery_ms`를 넣는다(BE). `SessionEngine.live`가 열린 사건이 있을 때만 `Timeline.recoveryMs`를 담는다. 검증: `:api:test` 88개(실패 0, 건너뜀 11 = MySQL 통합), 바꾼 파일 Checkstyle 경고 0(CRLF 제외), Python `test_realtime_ws_v2` 11개 통과. `-Pmysql-integration`은 이번에 실행하지 않았다(`MySqlIntegrationTest`에 `recovery_ms` 0 확인 2줄만 더함). FE `validObservation`은 아직 이 필드를 모른다.
 - 2026-11-03: 4.0 보완(27·28번) — FE 요청으로 `sequence`·`hold_ms`를 넣고 판정 불가 점수를 `null`로(BE). `Observation.V4.shifted`로 실시간 채널이 앱 순번으로 옮긴다. FE 4.0 브랜치의 `validObservation`은 `num(collapse_probability)`라 null을 거부한다 — 서버만 먼저 바꾸면 판정 불가 `observation`이 버려져 직전 점수가 남으므로 FE가 null 허용과 함께 배포. 검증: `:api:test` 87개(실패 0, 건너뜀 11 = MySQL 통합), 바꾼 파일 Checkstyle 경고 0(CRLF 제외), Python `test_realtime_ws_v2`·`test_realtime_contracts` 19개 통과, `-Pmysql-integration` `MySqlIntegrationTest` 11개 통과(이 PC MySQL80, 일회용 DB) — 순번 0의 `hold_ms` 500, 확정 구간(순번 5) 3000, 판정 불가 구간 점수 null·`hold_ms` 0 확인.
 - 2026-11-03: 1단계 — 묶음 없이 구간마다 `observation` 4.0(`valid`·`posture`·`collapse_probability`·`invalid_reason`)을 보낸다(BE). `posture`는 세션 `threshold`를 적용한 그 구간의 `good`·`bad`이고, 비교는 이탈 후보와 같은 `DecisionRules.candidate`로 모았다. 계약은 `realtime-ws.v2` 번호만 올림(8번과 같은 이유). develop 앱은 4.0을 버리므로 FE 4.0 대응을 먼저 합친다. 검증: `:api:test` 85개(실패 0, 건너뜀 11 = MySQL 통합), Checkstyle 통과, Python 계약 시험 18개 통과. `-Pmysql-integration` `MySqlIntegrationTest` 11개 통과(이 PC MySQL80, 일회용 DB).
 - 2026-11-02: develop에서 PR #91(3초 묶음·observation 4.0·추론 Kafka 전송)과 #92(API 명세 실시간 예시)를 되돌렸다(BE). 코드·계약·API 명세는 #91 전으로 돌아갔다. 이 문서와 ADR 0047은 PR #94의 방향 기록 때문에 남겼으므로, 위 체크 목록의 「구현·검증 끝」은 브랜치 `feature/repo-server-frame-batch-inference` 기준이다.

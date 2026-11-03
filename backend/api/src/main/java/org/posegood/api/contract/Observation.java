@@ -51,8 +51,9 @@ public record Observation(
 	 * 측정 화면이 쓰는 것만 남겼다. 멈춘 이유는 progress의 {@code paused_reason}, 누적 시간은 요약, 이탈 종류는
 	 * decision에 있다. {@code sequence}는 이 결과의 구간 순번(앱이 보낸 번호는 실시간 채널이 맞춘다),
 	 * {@code posture}는 세션 정책 임계값으로 나눈 그 구간의 good·bad이고(알림 확정은 decision),
-	 * {@code holdMs}는 이 구간까지 이탈 후보가 이어진 시간(정책 {@code hold_ms}에 닿으면 확정)이다.
-	 * 판정 불가면 posture·점수는 null, 이어진 시간은 0이며 사유는 {@code unmeasurable}·{@code head_turn}·
+	 * {@code holdMs}는 이 구간까지 이탈 후보가 이어진 시간(정책 {@code hold_ms}에 닿으면 확정),
+	 * {@code recoveryMs}는 열린 사건에서 바른 구간이 이어진 시간(정책 {@code recovery_ms}에 닿으면 회복 확정)이다.
+	 * 판정 불가면 posture·점수는 null, 이어진 시간은 둘 다 0이며 사유는 {@code unmeasurable}·{@code head_turn}·
 	 * {@code settling} 중 하나다.
 	 */
 	public record V4(
@@ -62,19 +63,23 @@ public record Observation(
 		String posture,
 		Double collapseProbability,
 		long holdMs,
+		long recoveryMs,
 		String invalidReason) {
 
-		public static V4 judged(long sequence, String posture, double collapseProbability, long holdMs) {
-			return new V4("4.0", sequence, true, posture, collapseProbability, holdMs, null);
+		public static V4 judged(
+			long sequence, String posture, double collapseProbability, long holdMs, long recoveryMs) {
+			return new V4("4.0", sequence, true, posture, collapseProbability, holdMs, recoveryMs, null);
 		}
 
 		public static V4 unjudged(long sequence, String invalidReason) {
-			return new V4("4.0", sequence, false, null, null, 0, invalidReason);
+			return new V4("4.0", sequence, false, null, null, 0, 0, invalidReason);
 		}
 
 		/** 순번을 {@code offset}만큼 옮긴 같은 관측(자정 넘김 뒤 세션 순번 → 앱이 보낸 번호). */
 		public V4 shifted(long offset) {
-			return new V4(schemaVersion, sequence + offset, valid, posture, collapseProbability, holdMs, invalidReason);
+			return new V4(
+				schemaVersion, sequence + offset, valid, posture, collapseProbability, holdMs, recoveryMs,
+				invalidReason);
 		}
 	}
 }

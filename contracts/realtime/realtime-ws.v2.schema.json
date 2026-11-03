@@ -199,6 +199,7 @@
             "posture",
             "collapse_probability",
             "hold_ms",
+            "recovery_ms",
             "invalid_reason"
           ],
           "properties": {
@@ -233,6 +234,10 @@
             },
             "hold_ms": {
               "description": "How long bad posture has lasted up to the end of this interval, by frame time t_ms: the value the server compares with the session policy hold_ms to confirm a collapse. 0 after a good interval or when continuity is broken (not valid, rest, away, missing). Keeps growing after the confirmation while posture stays bad.",
+              "$ref": "#/$defs/ms"
+            },
+            "recovery_ms": {
+              "description": "How long good posture has lasted in the open collapse event up to the end of this interval, by frame time t_ms: the value the server compares with the session policy recovery_ms to confirm a recovery. 0 while no event is open (before the first collapse_confirmed, after recovery_confirmed or interrupted), after a bad interval, and in the interval whose recovery_confirmed closes the event. Not valid, rest, away and missing interrupt the event, so 0 too.",
               "$ref": "#/$defs/ms"
             },
             "invalid_reason": {
@@ -283,6 +288,9 @@
                 "const": null
               },
               "hold_ms": {
+                "const": 0
+              },
+              "recovery_ms": {
                 "const": 0
               }
             }

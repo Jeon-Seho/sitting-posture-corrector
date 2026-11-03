@@ -76,7 +76,7 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.rejects(bad)
 
     def test_observation_4_posture_follows_validity(self):
-        # 4.0 (2026-11-03): posture and score only when valid; unjudged has posture and score null, hold 0.
+        # 4.0 (2026-11-03): posture and score only when valid; unjudged has posture and score null, hold and recovery 0.
         valid = self.example("observation")
         self.assertEqual(valid["observation"]["schema_version"], "4.0")
         for posture in ("good", "bad"):
@@ -89,20 +89,23 @@ class RealtimeWsV2Tests(unittest.TestCase):
         self.rejects({**invalid, "observation": {**invalid["observation"], "posture": "good"}})
         for score in (0, 0.5):
             self.rejects({**invalid, "observation": {**invalid["observation"], "collapse_probability": score}})
-        self.rejects({**invalid, "observation": {**invalid["observation"], "hold_ms": 500}})
+        for field in ("hold_ms", "recovery_ms"):
+            self.rejects({**invalid, "observation": {**invalid["observation"], field: 500}})
         # 3.0 fields are gone: the schema refuses unknown fields.
         for removed in ("start_ms", "valid_ms", "deviation_type", "model_version"):
             self.rejects({**valid, "observation": {**valid["observation"], removed: 0}})
         self.rejects({**valid, "observation": {**valid["observation"], "schema_version": "3.0"}})
 
-    def test_observation_4_sequence_and_hold_are_required(self):
-        # 11/03 FE request: sequence (drop older results, measure delay) and hold_ms (bad time so far).
+    def test_observation_4_sequence_hold_and_recovery_are_required(self):
+        # 11/03 FE request: sequence (drop older results, measure delay), hold_ms (bad time so far)
+        # and recovery_ms (good time so far in the open event).
         valid = self.example("observation")
-        for field in ("sequence", "hold_ms"):
+        for field in ("sequence", "hold_ms", "recovery_ms"):
             body = copy.deepcopy(valid)
             del body["observation"][field]
             self.rejects(body)
-        for field, value in (("sequence", -1), ("hold_ms", -1), ("hold_ms", 1.5)):
+        for field, value in (("sequence", -1), ("hold_ms", -1), ("hold_ms", 1.5), ("recovery_ms", -1),
+                             ("recovery_ms", 1.5)):
             self.rejects({**valid, "observation": {**valid["observation"], field: value}})
 
     def test_no_five_minute_fields(self):
