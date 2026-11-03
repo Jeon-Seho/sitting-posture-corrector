@@ -1,8 +1,18 @@
 package org.posegood.api.realtime;
 
-import tools.jackson.databind.JsonNode;
-
-import jakarta.validation.Validator;
+import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.posegood.api.account.AccountService;
 import org.posegood.api.account.AuthTokens;
@@ -29,28 +39,16 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import jakarta.validation.Validator;
+import tools.jackson.databind.JsonNode;
 
 /**
  * 실시간 v2 채널({@code /v2/realtime}): 연결 하나가 측정 한 번이다(자정 넘김이면 세션은 둘). 재연결은 없다(ADR 0024).
  * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 받은 구간은 바로 추론에 넘기고 {@code ack}한다. 판정 엔진이
- * 추론 결과를 서버 시계로 약 3초 모아 프레임마다 판정한다(계획 0084, 추론은 HTTP 또는 Kafka). 결과는 세션 변경 이벤트로
- * 받아 묶음마다 {@code observation} → {@code decision}(→ {@code alert}) → {@code progress} 순서로 보낸다.
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
+ * {@link SessionService} 판정 흐름에 넣고(A안), 결과는 세션 변경 이벤트로 받아 보낸다.
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
@@ -69,8 +67,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private static final Logger log = LoggerFactory.getLogger(RealtimeHandlerV2.class);
 	static final int MAX_BYTES = 64 * 1024;
-	private static final Set<String> HELLO_MEASURE =
-			Set.of("type", "schema_version", "purpose", "session_id", "access_token");
+	private static final Set<String> HELLO_MEASURE = Set.of("type", "schema_version", "purpose", "session_id",
+		"access_token");
 	private static final Set<String> FEATURES = Set.of("type", "items");
 	private static final Set<String> END = Set.of("type", "end_ms");
 	private static final String DAY_CHANGED = "day_changed";
@@ -85,41 +83,43 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	/** 자정에 같은 연결에서 새 세션으로 넘길지. 끄면 세션은 자정을 넘어 이어진다. */
 	private final boolean midnightRollover;
 	private final Clock clock;
-	private final ScheduledExecutorService timer =
-			Executors.newSingleThreadScheduledExecutor(
-					work -> {
-						var thread = new Thread(work, "realtime-v2-hello");
-						thread.setDaemon(true);
-						return thread;
-					});
+	private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(
+		work -> {
+			var thread = new Thread(work, "realtime-v2-hello");
+			thread.setDaemon(true);
+			return thread;
+		});
 	private final ConcurrentHashMap<String, Channel> channels = new ConcurrentHashMap<>();
 	/** 측정 세션마다 연결은 하나다(자정 넘김 뒤에는 새 세션으로 옮긴다). */
 	private final ConcurrentHashMap<UUID, Channel> bySession = new ConcurrentHashMap<>();
 
 	@Autowired
 	public RealtimeHandlerV2(
-			SessionService sessions,
-			CurrentUser current,
-			AuthTokens tokens,
-			Json json,
-			Validator validator,
-			@Value("${posegood.realtime.hello-timeout}") Duration helloTimeout,
-			@Value("${posegood.realtime.ready-timeout}") Duration readyTimeout,
-			@Value("${posegood.realtime.midnight-rollover}") boolean midnightRollover) {
+		SessionService sessions,
+		CurrentUser current,
+		AuthTokens tokens,
+		Json json,
+		Validator validator,
+		@Value("${posegood.realtime.hello-timeout}")
+		Duration helloTimeout,
+		@Value("${posegood.realtime.ready-timeout}")
+		Duration readyTimeout,
+		@Value("${posegood.realtime.midnight-rollover}")
+		boolean midnightRollover) {
 		this(sessions, current, tokens, json, validator, helloTimeout, readyTimeout, midnightRollover,
-				Clock.systemUTC());
+			Clock.systemUTC());
 	}
 
 	RealtimeHandlerV2(
-			SessionService sessions,
-			CurrentUser current,
-			AuthTokens tokens,
-			Json json,
-			Validator validator,
-			Duration helloTimeout,
-			Duration readyTimeout,
-			boolean midnightRollover,
-			Clock clock) {
+		SessionService sessions,
+		CurrentUser current,
+		AuthTokens tokens,
+		Json json,
+		Validator validator,
+		Duration helloTimeout,
+		Duration readyTimeout,
+		boolean midnightRollover,
+		Clock clock) {
 		this.sessions = sessions;
 		this.current = current;
 		this.tokens = tokens;
@@ -136,15 +136,14 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	public void afterConnectionEstablished(WebSocketSession socket) {
 		var channel = new Channel(new ConcurrentWebSocketSessionDecorator(socket, 5000, 1 << 20));
 		channels.put(socket.getId(), channel);
-		channel.timeout =
-				timer.schedule(
-						() -> {
-							if (channel.state.compareAndSet(State.WAITING, State.CLOSING)) {
-								closed(channel, "bad_message");
-							}
-						},
-						helloTimeout.toMillis(),
-						TimeUnit.MILLISECONDS);
+		channel.timeout = timer.schedule(
+			() -> {
+				if (channel.state.compareAndSet(State.WAITING, State.CLOSING)) {
+					closed(channel, "bad_message");
+				}
+			},
+			helloTimeout.toMillis(),
+			TimeUnit.MILLISECONDS);
 	}
 
 	/** 연결이 끊김: 측정 중이었으면 마지막으로 받은 구간 끝에서 세션을 끝낸다(ADR 0024). 등록은 저장하지 않는다. */
@@ -214,8 +213,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private void hello(Channel channel, WebSocketSession socket, JsonNode frame) {
 		long started = System.nanoTime();
 		if (!"2.0".equals(Json.text(frame.path("schema_version"), null))
-				|| !"measure".equals(Json.text(frame.path("purpose"), null))
-				|| !exactly(frame, HELLO_MEASURE)) {
+			|| !"measure".equals(Json.text(frame.path("purpose"), null))
+			|| !exactly(frame, HELLO_MEASURE)) {
 			reject(channel);
 			return;
 		}
@@ -249,10 +248,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
 	}
 
-	/**
-	 * 측정 구간 하나: 받아서 추론에 넘기고 {@code ack}, 판정 엔진이 판정할 때면 판정한다. observation·decision·alert·
-	 * progress는 판정이 끝나면 세션 이벤트로 보낸다.
-	 */
+	/** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
 	private void measure(Channel channel, JsonNode frame) {
 		var interval = interval(frame);
 		if (interval == null) {
@@ -275,10 +271,11 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			UUID id = channel.session;
 			try {
 				var local = interval.shifted(channel.offsetMs, channel.sequenceOffset);
-				long received = sessions.frames(channel.owner, id, local, channel.realtime.baseline());
-				channel.lastSequence = received + channel.sequenceOffset;
-				send(channel, new RealtimeMessages.V2.Ack(channel.lastSequence));
-				sessions.flush(channel.owner, id);
+				var status = sessions.frames(channel.owner, id, local, channel.realtime.baseline());
+				long last = status.lastSequence() + channel.sequenceOffset;
+				channel.lastSequence = last;
+				send(channel, new RealtimeMessages.V2.Ack(last));
+				send(channel, new RealtimeMessages.V2.Progress(last, status.summary(), status.pausedReason()));
 			} catch (ApiError refused) {
 				if (refused.status() == 502 || refused.status() == 503) {
 					stalled(channel);
@@ -339,7 +336,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		}
 		bySession.remove(previous, channel);
 		channel.session = next.sessionId();
-		channel.realtime = new SessionService.Realtime(channel.realtime.baseline(), next.alertEnabled(), next.startedAt());
+		channel.realtime = new SessionService.Realtime(channel.realtime.baseline(), next.alertEnabled(),
+			next.startedAt());
 		channel.offsetMs = at;
 		channel.sequenceOffset = channel.lastSequence + 1;
 		channel.dayEnded = false;
@@ -347,7 +345,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		bySession.put(next.sessionId(), channel);
 		nextMidnight(channel);
 		send(channel, new RealtimeMessages.V2.SessionRollover(
-				previous, next.endedAt(), next.ended(), next.sessionId(), next.startedAt(), at));
+			previous, next.endedAt(), next.ended(), next.sessionId(), next.startedAt(), at));
 		return true;
 	}
 
@@ -366,8 +364,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		for (var channel : channels.values()) {
 			synchronized (channel) {
 				if (channel.state.get() == State.MEASURE
-						&& channel.cutMs != Long.MAX_VALUE
-						&& !channel.midnight.isAfter(now)) {
+					&& channel.cutMs != Long.MAX_VALUE
+					&& !channel.midnight.isAfter(now)) {
 					rollover(channel);
 				}
 			}
@@ -394,9 +392,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	}
 
 	/**
-	 * 세션에 새 결과가 생기면 그 세션의 v2 연결에 보낸다: observation → decision(→ alert) → progress, 끝났으면 closed.
+	 * 세션에 새 결과가 생기면 그 세션의 v2 연결에 보낸다: observation → decision(→ alert) → 끝났으면 closed.
 	 *
-	 * 알림을 끈 세션에는 alert를 보내지 않는다. progress의 순번은 앱이 보낸 번호(연결 기준)다.
+	 * 알림을 끈 세션에는 alert를 보내지 않는다.
 	 */
 	@EventListener
 	public void progressed(SessionUpdates.Progressed update) {
@@ -411,13 +409,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			var event = decided.event();
 			send(channel, new RealtimeMessages.V2.Decision(event, decided.summary()));
 			if (channel.realtime.alertEnabled()
-					&& ("collapse_confirmed".equals(event.kind()) || "reminder".equals(event.kind()))) {
+				&& ("collapse_confirmed".equals(event.kind()) || "reminder".equals(event.kind()))) {
 				send(channel, new RealtimeMessages.V2.Alert(event));
 			}
-		}
-		if (update.live() != null && !update.ended()) {
-			send(channel, new RealtimeMessages.V2.Progress(
-					update.lastSequence() + channel.sequenceOffset, update.summary(), update.pausedReason()));
 		}
 		if (update.ended()) {
 			// DB에 저장하는 종료 시각과 같은 식(started_at + total_ms). 저장은 이 이벤트 뒤에 일어난다.
@@ -428,15 +422,6 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			}
 			channel.ended = true;
 			finishClosed(channel, update.closedReason() != null ? update.closedReason() : channel.endReason);
-		}
-	}
-
-	/** 추론 결과가 오지 않았거나(실패·시간 초과) DB가 일시 장애였다. 연결은 유지한다. */
-	@EventListener
-	public void stalled(SessionUpdates.Stalled update) {
-		var channel = bySession.get(update.sessionId());
-		if (channel != null) {
-			stalled(channel);
 		}
 	}
 
