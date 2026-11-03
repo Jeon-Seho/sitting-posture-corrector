@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveState } from './LiveSession'
 import type { LiveObservation } from './messages'
-import { headline, statusTone } from './LiveSessionPage'
+import { awaitingFirstResult, headline, holdProgress, nudgeKind, ringColor, statusTone } from './LiveSessionPage'
 
-/** Synthetic states only: what the measuring screen shows for each server status (fe-3sec 3장 3번). */
+/** Synthetic states only: what the measuring screen shows for each server status (observation 4.0). */
 const state = (observation: LiveObservation | null, alerting = false) =>
   ({ placeable: true, alerting, observation, sending: 'running' }) as LiveState
-const observation = (posture: LiveObservation['posture'], valid = true): LiveObservation => ({
-  schema_version: '4.0', valid, posture, collapse_probability: posture === 'bad' ? 0.82 : 0.1, invalid_reason: valid ? null : 'unmeasurable',
+const observation = (posture: LiveObservation['posture'], valid = true, hold_ms = 0): LiveObservation => ({
+  schema_version: '4.0', sequence: 0, valid, posture, collapse_probability: valid ? (posture === 'bad' ? 0.82 : 0.1) : null,
+  hold_ms, invalid_reason: valid ? null : 'unmeasurable',
 })
 
 describe('measuring screen status (synthetic only)', () => {
@@ -26,5 +27,39 @@ describe('measuring screen status (synthetic only)', () => {
     const invalid = state(observation(null, false))
     expect(headline(invalid, 'running')).toBe('자세를 확인할 수 없어요')
     expect(statusTone(null)).toBe('unknown')
+  })
+
+  it('asks for an upright pose until the first server result, not 「cannot judge」', () => {
+    const waiting = state(null)
+    expect([headline(waiting, 'running'), awaitingFirstResult(waiting)]).toEqual(['자세를 똑바로 해주세요', true])
+    const outOfView = { ...waiting, placeable: false } as LiveState
+    expect([headline(outOfView, 'running'), awaitingFirstResult(outOfView)]).toEqual(['자세를 확인할 수 없어요', false])
+    expect(awaitingFirstResult(state(observation('good')))).toBe(false)
+  })
+
+  it('puts caution in the same box as 「cannot judge」 and the confirmed alert', () => {
+    expect(nudgeKind(state(observation('good')), true)).toBeNull()
+    expect(nudgeKind(state(observation('bad')), true)).toBe('caution')
+    expect(nudgeKind(state(observation('bad'), true), true)).toBe('alert')
+    expect(nudgeKind(state(observation(null, false)), false)).toBe('unknown')
+    expect(nudgeKind(state(null), false)).toBeNull()
+  })
+
+  it('colours the score ring by the score it draws: never green when bad, never red when recovering', () => {
+    expect(ringColor(state(observation('good')))).toBeUndefined()
+    expect(ringColor(state(observation('bad')))).toBe('var(--warn-fill)')
+    expect(ringColor(state(observation('bad'), true))).toBe('var(--alert)')
+    expect(ringColor(state(observation('good'), true))).toBeUndefined()
+    expect(ringColor(null)).toBeUndefined()
+  })
+
+  it('fills the caution gauge with the server bad time, not an app timer (ADR 0029)', () => {
+    expect(holdProgress(state(observation('bad', true, 0)), 3)).toBe(0)
+    expect(holdProgress(state(observation('bad', true, 1500)), 3)).toBe(0.5)
+    expect(holdProgress(state(observation('bad', true, 4500)), 3)).toBe(1)
+    expect(holdProgress(state(observation(null, false)), 3)).toBe(0)
+    const v3 = { ...observation('bad'), hold_ms: undefined }
+    expect(holdProgress(state(v3), 3)).toBeNull()
+    expect(holdProgress(null, 3)).toBeNull()
   })
 })

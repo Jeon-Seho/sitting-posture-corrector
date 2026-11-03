@@ -24,6 +24,8 @@ def dev_server():
             endpoints.api, processes, on_started=frontend_processes.append,
         ) as frontend:
             print(f"서버 연결 미리보기: {frontend}", flush=True)
+            # A browser-smoke Vite (synthetic camera) points POSEGOOD_API_URL here.
+            print(f"API: {endpoints.api} · 추론: {endpoints.inference}", flush=True)
             print("임시 DB의 합성 계정으로 가입한 뒤 측정하세요. 종료하면 DB를 지웁니다. 종료: Ctrl+C", flush=True)
             while all(process.poll() is None for process in [*processes, *frontend_processes]):
                 time.sleep(0.25)

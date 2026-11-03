@@ -36,16 +36,21 @@ export type Decision = {
 }
 
 /**
- * `observation` 4.0 (plan 0084): the live status of the last judgeable frame of a ~3 s server batch.
- * `posture` is the server's momentary good/bad (threshold applied, ADR 0047), before the 3 s confirmation
- * that still comes as `decision`·`alert`. Only `valid`·`collapse_probability`·`invalid_reason` are required,
- * so a 3.0 message (same three fields) is read too while the running server is not redeployed (fe-3sec).
+ * `observation` 4.0 (plan 0084 27·28, BE `feature/repo-realtime-observation4`): one per interval, sent as
+ * soon as the interval is judged. `posture` is the server's momentary good/bad (threshold applied,
+ * ADR 0047) and `hold_ms` how long bad has lasted by frame time — the value the server compares with the
+ * policy hold time, 0 once continuity breaks. The 3 s confirmation still comes as `decision`·`alert`.
+ * Not judgeable: `posture` and the score are null. `sequence`·`posture`·`hold_ms` are optional so a 3.0
+ * message is read too while the running server is not redeployed (3.0 sends a score of 0 then).
  */
 export type LiveObservation = {
   schema_version?: string
+  /** The app's interval sequence this result is for (connection axis, like `ack`). */
+  sequence?: number
   valid: boolean
   posture?: 'good' | 'bad' | null
-  collapse_probability: number
+  collapse_probability: number | null
+  hold_ms?: number
   invalid_reason: null | 'unmeasurable' | 'head_turn' | 'settling'
 }
 
@@ -128,8 +133,12 @@ function validObservation(v: unknown): v is LiveObservation {
   return (
     obj(v) &&
     typeof v.valid === 'boolean' &&
-    num(v.collapse_probability) &&
-    (v.invalid_reason === null || typeof v.invalid_reason === 'string')
+    // A judged interval has a score; a not-judgeable one has none (4.0) or 0 (3.0).
+    (num(v.collapse_probability) || (!v.valid && v.collapse_probability === null)) &&
+    (v.invalid_reason === null || typeof v.invalid_reason === 'string') &&
+    (v.sequence === undefined || (Number.isInteger(v.sequence) && (v.sequence as number) >= 0)) &&
+    (v.posture === undefined || v.posture === null || v.posture === 'good' || v.posture === 'bad') &&
+    (v.hold_ms === undefined || (num(v.hold_ms) && v.hold_ms >= 0))
   )
 }
 

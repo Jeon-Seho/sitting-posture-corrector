@@ -36,6 +36,19 @@ describe('durable result handoff', () => {
     expect(reconcileResults('a', [record(2, true)])).toHaveLength(1)
     expect(reconcileResults('a', [{ ...record(4, true), startedAt: '2026-10-28T00:00:00Z' }])).toHaveLength(1)
   })
+  it('matches good time the server stored in 0.1 s rounded down (frame-by-frame ms, PR #91)', () => {
+    const timed = (goodMs: number, ended = false) => {
+      const r = record(2, ended)
+      const summary = { ...r.server!.view!.summary, valid_ms: 1500, unknown_ms: 500, normal_ms: goodMs, deviation_ms: 1500 - goodMs,
+        keep_rate: goodMs / 1500, events_per_hour: 0 }
+      return { ...r, valid: 1.5, good: goodMs / 1000, server: { ...r.server!, view: { ...r.server!.view!, summary } } }
+    }
+    rememberResult('a', timed(1350))
+    expect(reconcileResults('a', [timed(1200, true)])).toHaveLength(1)
+    expect(reconcileResults('a', [timed(1300, true)])).toEqual([])
+    rememberResult('a', timed(1300))
+    expect(reconcileResults('a', [timed(1300, true)])).toEqual([])
+  })
   it('acknowledges persisted connection-loss endings without claiming user confirmation', () => {
     rememberResult('a', record())
     const remote = record(3, true)

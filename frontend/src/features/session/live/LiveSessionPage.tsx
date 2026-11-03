@@ -2,7 +2,7 @@ import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle }
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
 import { Ring } from '../../../components/Ring'
-import { Card, Ledger, Stat } from '../../../components/ui'
+import { Card, Ledger, Meter, Stat } from '../../../components/ui'
 import { postureScore } from '../../../lib/postureScore'
 import { formatClock, formatDuration, formatPercent, formatRate } from '../../../lib/stats'
 import { EventTable } from '../SessionEvents'
@@ -26,9 +26,49 @@ export function headline(state: LiveState | null, phase: string) {
   if (phase === 'ending') return '측정을 마무리하고 있어요'
   if (phase === 'failed') return '측정을 시작하지 못했어요'
   if (phase === 'paused') return state.sending === 'away' ? '카메라 영상을 기다리고 있어요' : '쉬는 중'
+  if (awaitingFirstResult(state)) return '자세를 똑바로 해주세요'
   if (!state.placeable || !state.observation?.valid) return '자세를 확인할 수 없어요'
   if (state.alerting) return '자세가 흐트러졌어요'
   return state.observation.posture === 'bad' ? '자세가 흐트러지고 있어요' : '바른 자세예요'
+}
+
+/**
+ * The person is in view but the server's first judgement has not come yet (the first interval's
+ * round trip), so this is not 「cannot be judged」.
+ */
+export function awaitingFirstResult(state: LiveState | null) {
+  return !!state?.placeable && !state.observation
+}
+
+/**
+ * Score ring colour follows the score it draws: the server's momentary `posture` (bad = score
+ * under 30 at threshold 0.7), red while that bad posture is a confirmed collapse. A recovering
+ * score during the confirmed alert is not red. The app sets no score bands (ADR 0021).
+ */
+export function ringColor(measured: LiveState | null) {
+  if (measured?.observation?.posture !== 'bad') return undefined
+  return measured.alerting ? 'var(--alert)' : 'var(--warn-fill)'
+}
+
+/**
+ * The box above the controls: 「cannot judge」, the confirmed alert, or the caution before it — in
+ * the same place, so a server `posture: 'bad'` is as visible as an unmeasurable frame.
+ */
+export function nudgeKind(state: LiveState | null, measurable: boolean) {
+  if (!measurable) return awaitingFirstResult(state) ? null : 'unknown'
+  if (state!.alerting) return 'alert'
+  return state!.observation!.posture === 'bad' ? 'caution' : null
+}
+
+/**
+ * The caution gauge: the server's own count of bad time (`hold_ms`, 4.0) over the policy hold time,
+ * so it empties exactly when the server's count breaks and is full when the confirmation comes.
+ * The app does not count time (ADR 0029). Null when the server sends no count (3.0).
+ */
+export function holdProgress(state: LiveState | null, holdSeconds: number) {
+  const holdMs = state?.observation?.hold_ms
+  if (holdMs === undefined || holdSeconds <= 0) return null
+  return Math.min(holdMs / (holdSeconds * 1000), 1)
 }
 
 /** Pill colour; `measured` is null while nothing can be judged. */
@@ -41,7 +81,7 @@ export function statusTone(measured: LiveState | null) {
 /**
  * The measurement screen. Every number and state here is what the server sent (ADR 0021,
  * 2026-10-21): the score is 100 × (1 − collapse_probability), the caution is the server's momentary
- * `posture: 'bad'` before the 3 s confirmation (no sound, fe-3sec), the alert is the server's
+ * `posture: 'bad'` before the 3 s confirmation (no sound), the alert is the server's
  * confirmed collapse, the statistics are its summary.
  */
 export function LiveSessionPage(props: LiveSessionPageProps) {
@@ -55,6 +95,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const score = postureScore(measurable ? state!.observation!.collapse_probability : null)
   const label = headline(state, phase)
   const tone = statusTone(measurable ? state : null)
+  const nudge = running ? nudgeKind(state, measurable) : null
+  const hold = holdProgress(state, session.rules.holdSeconds)
   const keepRate = summary?.keep_rate ?? null
   const totalSeconds = (summary?.total_ms ?? 0) / 1000
   const validSeconds = (summary?.valid_ms ?? 0) / 1000
@@ -201,20 +243,29 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
               </span>
             </div>
             <div className="stage-bottom">
-              {running && (!measurable || state?.alerting) && (
-                <div className={`nudge ${!measurable || !alertsOn ? 'quiet' : ''}`}>
+              {nudge && (
+                <div className={`nudge ${nudge === 'caution' ? 'wait' : nudge === 'unknown' || !alertsOn ? 'quiet' : ''}`}>
                   <div className="nudge-icon">
                     <WarningCircle size={24} weight="bold" />
                   </div>
                   <div className="nudge-body">
-                    <div className="nudge-title">{!measurable ? '자세를 확인할 수 없어요' : '자세를 살짝 고쳐볼까요?'}</div>
+                    <div className="nudge-title">
+                      {nudge === 'unknown'
+                        ? '자세를 확인할 수 없어요'
+                        : nudge === 'caution'
+                          ? '자세가 흐트러지고 있어요'
+                          : '자세를 살짝 고쳐볼까요?'}
+                    </div>
                     <div className="nudge-desc">
-                      {!measurable
+                      {nudge === 'unknown'
                         ? state?.placeable && state?.observation?.invalid_reason === 'head_turn'
                           ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.'
                           : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.'
-                        : '바른 자세로 돌아오면 사라져요.'}
+                        : nudge === 'caution'
+                          ? `${session.rules.holdSeconds}초 넘게 이어지면 알려드려요.`
+                          : '바른 자세로 돌아오면 사라져요.'}
                     </div>
+                    {nudge === 'caution' && hold !== null && <Meter value={hold} />}
                   </div>
                 </div>
               )}
@@ -249,7 +300,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
 
         <div className="measure-panel">
           <section className="card score-card" aria-label="자세 점수">
-            <Ring value={score === null ? null : score / 100}>
+            <Ring value={score === null ? null : score / 100} color={ringColor(measurable ? state : null)}>
               <span className="ring-value" style={{ fontSize: 40 }}>
                 {score === null ? '—' : Math.round(score)}
               </span>

@@ -164,6 +164,8 @@ export class LiveSession {
   private origin = 0
   private ready = false
   private waiting: FrameBatch[] = []
+  /** Sequence of the observation on screen; the connection's axis, so it keeps going across midnight. */
+  private shownSequence = -1
   private timer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
   /** The user (or the app) sent `end`; a server `session_ended` alone does not set this. */
@@ -308,7 +310,7 @@ export class LiveSession {
         for (const batch of this.waiting.splice(0)) this.send(batch)
         return
       case 'observation':
-        this.set({ observation: message.observation, stalled: false })
+        this.show(message.observation)
         return
       case 'progress':
         this.set({
@@ -360,6 +362,16 @@ export class LiveSession {
    * the previous session; hand that over as ended and go on with the new one from zero. Times and
    * sequences keep the connection's axis (the server converts them), so the batcher is untouched.
    */
+  /** A result older than the one on screen never replaces it (4.0 `sequence`, plan 0084 27). */
+  private show(observation: LiveObservation) {
+    const sequence = observation.sequence
+    if (sequence !== undefined) {
+      if (sequence <= this.shownSequence) return
+      this.shownSequence = sequence
+    }
+    this.set({ observation, stalled: false })
+  }
+
   private rollOver(message: Extract<ServerMessage, { type: 'session_rollover' }>) {
     const previous: LiveState = {
       ...this.state,
