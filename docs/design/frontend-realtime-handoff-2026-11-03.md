@@ -51,6 +51,36 @@ good → holdMs = 0
 - 부하는 3초 계산이 아니라 프레임마다의 추론 호출·DB 쓰기·메시지 수에서 생긴다.
   추론은 여러 세션을 0.1~0.2초씩 모아 부를 수 있지만, 판정과 전송은 결과가 오는 즉시 한다. DB에는 사건만 쓴다.
 
+### 앱이 받는 `observation`
+
+BE 요청은 [FE 제안서](fe-server-proposal.md) BE-14. 지금 develop은 3.0(`posture` 없음)이다.
+#91의 4.0은 `posture`를 더하면서 `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`을 뺐는데,
+필드를 줄인 것은 3초 묶음을 전제로 한 결정이라 즉시 전송에는 맞지 않는다.
+
+| 필드 | 정할 것 | 이유 |
+| --- | --- | --- |
+| `posture` | 추가(`good`·`bad`, 판정 불가 `null`) | 기준(0.7)은 서버가 적용, 앱은 점수 구간을 두지 않음 |
+| `sequence` | 필수 유지 | 늦게 온 결과 버리기, 보낸 프레임과 맞춰 지연 재기, 빠진 결과 알기 |
+| `end_ms`(`t_ms`) | 유지 | 게이지·지연 분석. 3초 판정은 서버가 `t_ms`로 셈(`sequence`는 프레임 간격이 일정하지 않아 시간을 못 셈) |
+| `valid` | 그 프레임 기준 | 2초 bad 뒤 판정 불가면 바로 `valid: false`. 4.0의 「묶음에 하나라도 있으면 true」면 이때 `bad`로 남음 |
+| `collapse_probability` | 판정 불가면 `null` | 0이면 화면 100점과 같은 값 |
+| `model_version`·`deviation_type` | 빼도 됨 | 앱이 쓰지 않음. 안내 문구는 「자세가 무너졌습니다. 바로 잡아주세요」 하나 |
+
+앱은 메시지를 받는 곳 한 군데에서 판정 불가를 먼저 걸러, 판정 불가 상태에는 점수 필드가 없는 모양으로 바꾼다.
+화면은 그 아래에서 `posture`(good·bad)만 나눈다. 화면 곳곳에서 `valid`를 확인하는 방식은 하나만 빠뜨려도 100점이 보인다.
+
+```ts
+type Reading =
+  | { kind: 'unmeasurable'; reason: InvalidReason; sequence: number }
+  | { kind: 'measured'; posture: 'good' | 'bad'; score: number; sequence: number }
+
+function toReading(o: LiveObservation): Reading {
+  if (!o.valid || o.posture === null) return { kind: 'unmeasurable', reason: o.invalid_reason, sequence: o.sequence }
+  return { kind: 'measured', posture: o.posture, score: Math.round(100 * (1 - o.collapse_probability)), sequence: o.sequence }
+}
+// 이미 받은 것보다 sequence가 작은 결과는 버린다
+```
+
 ### 같이 정할 것
 
 - **bad 사이에 good 한 프레임이 끼면?** 지금 규칙은 holdMs를 바로 0으로 돌린다. 점수 30 근처에서는 확정이 안 날 수 있다.
