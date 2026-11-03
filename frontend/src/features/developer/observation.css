@@ -120,6 +120,8 @@
 .dev-lab .oc-camera-badge { position: absolute; top: 24px; right: 24px; display: inline-flex; align-items: center; gap: 8px; max-width: 230px; padding: 10px 14px; border-radius: 16px; background: var(--oc-badge-background); color: var(--oc-muted); font-size: 13px; font-weight: 400; }
 .dev-lab .oc-camera-badge[data-quality=tracked] { color: var(--oc-tracked); }
 .dev-lab .oc-camera-badge[data-quality=waiting] svg { color: var(--oc-warning); }
+.dev-lab .oc-recording-rate { position: absolute; top: 18px; right: 18px; max-width: calc(100% - 80px); padding: 8px 12px; border-radius: 12px; background: var(--oc-badge-background); color: var(--oc-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dev-lab .oc-recording-rate[data-low=true] { background: var(--oc-warning-background); color: var(--oc-warning); font-weight: 500; }
 .dev-lab .oc-camera-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 10px; padding: 24px; color: var(--oc-muted); pointer-events: none; }
 .dev-lab .oc-camera-empty > svg { color: var(--oc-placeholder-icon); margin-bottom: 6px; }
 .dev-lab .oc-camera-empty h2 { font-size: 24px; font-weight: 500; margin: 0; }
@@ -237,6 +239,7 @@
   .dev-lab .oc-guide-clock > .oc-clock-count > span { font-size: 16px; }
   .dev-lab .oc-guide-next { margin-top: 12px; font-size: 11px; }
   .dev-lab .oc-camera-badge { top: 14px; right: 14px; max-width: 76px; font-size: 10px; padding: 8px; }
+  .dev-lab .oc-recording-rate { top: 10px; right: 10px; font-size: 11px; padding: 6px 9px; }
 
   .dev-lab.oc-page main { padding: 12px; }
   .dev-lab.oc-page main:has(> .oc-measurement) { max-width: none; }
@@ -803,6 +806,7 @@
 .dev-lab .oc-cycle-count > label, .dev-lab .oc-stretch-dialog label { display: block; font-size: 13px; font-weight: 650; color: var(--oc-text); }
 .dev-lab .oc-cycle-count > p { margin: 4px 0 8px; }
 .dev-lab .oc-cycle-count input { width: 100px; }
+.dev-lab .oc-participant input { width: 100%; max-width: 320px; }
 .dev-lab .oc-cycle-count [role=alert] { display: block; color: var(--oc-warning); font-size: 12px; }
 .dev-lab .oc-stretch-dialog input { width: 100%; box-sizing: border-box; margin-top: 8px; }
 @media (min-width: 1100px) and (min-height: 561px) {

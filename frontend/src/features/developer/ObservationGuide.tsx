@@ -9,7 +9,7 @@ import { ArrowCounterClockwise, Pause, Play } from '@phosphor-icons/react'
 
 type Props = {
   guide: GuideSnapshot; ready: boolean; active?: boolean
-  hasRecording?: boolean; onDownload?: () => void; onDownloadFeatures?: () => void
+  hasRecording?: boolean; onDownload?: () => void
   setup?: ReferenceSetup; mode?: GuideMode; onNext?: () => void
   children?: ReactNode
   onStart: () => void; onPause: () => void; onResume: () => void; onStop: () => void; onRegister?: () => void; onStartReference?: () => void; canStartReference?: boolean
@@ -24,7 +24,7 @@ function emphasize(text: string, terms: (string | undefined)[]) {
   return <>{text.slice(0, index)}<strong className="oc-action-highlight">{term}</strong>{text.slice(index + term.length)}</>
 }
 
-export function ObservationGuide({ guide, ready, active, hasRecording = false, onDownload, onDownloadFeatures, setup = { status: 'idle', remainingMs: 0 }, mode = guide.mode, onNext, children, onStart, onPause, onResume, onStop, onRegister, onStartReference, canStartReference = false }: Props) {
+export function ObservationGuide({ guide, ready, active, hasRecording = false, onDownload, setup = { status: 'idle', remainingMs: 0 }, mode = guide.mode, onNext, children, onStart, onPause, onResume, onStop, onRegister, onStartReference, canStartReference = false }: Props) {
   const step = guide.step, running = guide.status === 'running', paused = guide.status === 'paused', waiting = guide.status === 'waiting'
   const finished = guide.status === 'completed' || guide.status === 'cancelled'
   const settingUp = ['connecting', 'preparing', 'registering'].includes(setup.status)
@@ -60,7 +60,6 @@ export function ObservationGuide({ guide, ready, active, hasRecording = false, o
       <div className="oc-guide-controls">
         {!cameraActive && <button className="oc-primary oc-start-guide" onClick={onStart}>{hasRecording ? '다시 측정' : '카메라 켜기'}</button>}
         {!cameraActive && hasRecording && <button className="oc-json-download" onClick={onDownload}>전체 데이터 JSON</button>}
-        {!cameraActive && hasRecording && <button className="oc-json-download" onClick={onDownloadFeatures}>ML 후보 특징 JSON</button>}
         {cameraActive && setup.status === 'preparing' && <button className="oc-primary oc-wait-next" aria-label="기준 자세 등록 시작" disabled={!canStartReference} onClick={onStartReference}>기준 자세 등록 시작 <span aria-hidden="true">↵</span></button>}
         {cameraActive && waiting && mode === 'manual' && <button className="oc-primary oc-wait-next" aria-label={nextLabel} disabled={!ready} onClick={onNext}>{nextLabel} <span aria-hidden="true">↵</span></button>}
         {cameraActive && <button className={`oc-pause-guide${paused ? ' oc-resume-guide' : ''}`} disabled={paused ? !ready : !running} aria-label={paused ? '현재 단계 처음부터 재개' : '잠깐 멈춤'} title={paused ? '현재 단계를 처음부터 재개' : '잠깐 멈춤'} onClick={paused ? onResume : onPause}>{paused ? <Play size={18} weight="fill" aria-hidden="true" /> : <Pause size={18} weight="fill" aria-hidden="true" />}</button>}

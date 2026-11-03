@@ -32,7 +32,8 @@ describe('unified /dev observation route with real camera hook and synthetic med
     vision.resolve.mockReset().mockResolvedValue({})
     vision.create.mockReset().mockResolvedValue({ close, detectForVideo: vi.fn(() => ({ landmarks: [points], worldLandmarks: [points] })) })
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([]) } })
-    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() })
+    // The start modal requires a measurer name; a synthetic one is saved from an earlier run.
+    vi.stubGlobal('localStorage', { getItem: (key: string) => key === 'posture-lab-observation-participant-v1' ? '합성 측정자' : null, setItem: vi.fn(), removeItem: vi.fn() })
     vi.stubGlobal('document', Object.assign(new EventTarget(), { title: 'synthetic test', visibilityState: 'visible', createElement: vi.fn(() => ({ getContext: () => null, click: vi.fn() })) }))
     win = Object.assign(new EventTarget(), { location: { search: '' } }); vi.stubGlobal('window', win)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))

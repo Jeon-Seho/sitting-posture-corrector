@@ -111,8 +111,8 @@ API는 진행 중 세션마다 최근 120개 구간의 요청 hash·추론 출�
 세션에 적용한 설정은 고정하며 사용자의 설정 변경은 다음 측정 세션부터 적용한다.
 기존 동작을 확정한 문서 동기화이므로 관측/사건/조회 스키마와 전송 값 `legacy-interrupt-v1`은 유지한다.
 
-- [/dev 관측 전체·ML 후보 특징 내보내기](observation-export.v1.md)
+- [/dev 관측 전체 내보내기](observation-export.v1.md)
 
 ## 로컬 연구 내보내기
 
-[/dev 관측 전체·ML 후보 특징 내보내기](observation-export.v1.md)는 서비스 전송 계약과 별도다.
+[/dev 관측 전체 내보내기](observation-export.v1.md)는 서비스 전송 계약과 별도다.
