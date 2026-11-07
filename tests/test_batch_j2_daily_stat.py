@@ -128,5 +128,88 @@ class DailyStatWriteTest(unittest.TestCase):
                                                     "2026-11-01 00:10:00.000"]))
 
 
+class DailyStatRecomputeTest(unittest.TestCase):
+    """D-81: 최근 N일 다시 계산 — 날짜 목록, 저장된 행과 비교, 바뀐 날만 쓰기, 한 날짜 실패는 다른 날짜를 막지 않음."""
+
+    ROW = {"user_account_id": 7, "valid_sec": "81.0", "good_sec": "15.0", "session_count": 1, "event_count": 1,
+           "alerted_event_count": 1, "min_until_collapse_sec": None, "max_until_collapse_sec": None}
+
+    def setUp(self):
+        import j2_daily_stat
+        self.job = j2_daily_stat
+
+    def test_target_days_oldest_first_ending_at_end_date(self):
+        import datetime as dt
+        days = self.job.target_days(dt.date(2026, 11, 7), 3)
+        self.assertEqual(days, [dt.date(2026, 11, 5), dt.date(2026, 11, 6), dt.date(2026, 11, 7)])
+        self.assertEqual(self.job.target_days(dt.date(2026, 11, 7), 1), [dt.date(2026, 11, 7)])
+
+    def test_parse_days_range(self):
+        self.assertEqual(self.job.parse_days("7"), 7)
+        for bad in ("0", "32", "-1"):
+            with self.assertRaises(ValueError):
+                self.job.parse_days(bad)
+
+    def test_same_rows_ignores_key_order_and_detects_any_change(self):
+        stored = [dict(reversed(list(self.ROW.items())))]
+        self.assertTrue(self.job.same_rows([dict(self.ROW)], stored))
+        self.assertFalse(self.job.same_rows([dict(self.ROW, good_sec="15.1")], stored))
+        self.assertFalse(self.job.same_rows([], stored))                       # 세션이 지워진 날
+        self.assertFalse(self.job.same_rows([dict(self.ROW)], []))             # 늦게 닫혀 처음 생긴 날
+        self.assertTrue(self.job.same_rows([], []))
+
+    def run_day(self, computed, stored, dry_run=False, good_le_valid=True):
+        import datetime as dt
+        from unittest import mock
+        frame = mock.MagicMock()
+        frame.cache.return_value = frame
+        frame.count.return_value = len(computed)
+        rows = [dict(r, _good_le_valid=good_le_valid) for r in computed]
+        with mock.patch.object(self.job.bc, "read_query", return_value=frame), \
+                mock.patch.object(self.job, "compute"), \
+                mock.patch.object(self.job, "to_rows", return_value=rows), \
+                mock.patch.object(self.job, "show_rows", return_value=stored), \
+                mock.patch.object(self.job.bc, "Jdbc"), \
+                mock.patch.object(self.job.bc, "log"), \
+                mock.patch.object(self.job, "write", return_value=(len(stored), len(computed))) as write:
+            result = self.job.run_day(None, None, dt.date(2026, 11, 5), [], dry_run)
+        return result, write
+
+    def test_unchanged_day_is_not_written(self):
+        result, write = self.run_day([self.ROW], [dict(self.ROW)])
+        self.assertFalse(result["changed"])
+        write.assert_not_called()
+
+    def test_changed_day_is_rewritten(self):
+        result, write = self.run_day([self.ROW], [])
+        self.assertTrue(result["changed"])
+        write.assert_called_once()
+        self.assertEqual(write.call_args.args[3], [self.ROW])
+
+    def test_dry_run_reports_change_without_writing(self):
+        result, write = self.run_day([self.ROW], [], dry_run=True)
+        self.assertTrue(result["changed"])
+        write.assert_not_called()
+
+    def test_good_over_valid_day_is_error_not_written(self):
+        result, write = self.run_day([self.ROW], [], good_le_valid=False)
+        self.assertIn("error", result)
+        write.assert_not_called()
+
+    def test_main_continues_after_failed_day_and_exits_1(self):
+        from unittest import mock
+        def fake_run_day(spark, db, day, users, dry_run):
+            if day.day == 6:
+                return {"stat_date": day.isoformat(), "error": "x"}
+            return {"stat_date": day.isoformat(), "changed": False, "rows": []}
+        with mock.patch.object(self.job.bc, "DbConfig"), mock.patch.object(self.job.bc, "spark_session"), \
+                mock.patch.object(self.job.bc, "log"), mock.patch("builtins.print"), \
+                mock.patch.object(self.job, "run_day", side_effect=fake_run_day) as run_day:
+            with self.assertRaises(SystemExit) as stop:
+                self.job.main(["--date", "2026-11-07", "--days", "3"])
+        self.assertEqual(stop.exception.code, 1)
+        self.assertEqual([c.args[2].day for c in run_day.call_args_list], [5, 6, 7])
+
+
 if __name__ == "__main__":
     unittest.main()

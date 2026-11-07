@@ -12,9 +12,12 @@
   ended_at → 다음 붕괴의 started_at, 마지막 구간은 → 세션 끝. 길이가 0인 구간은 표본이 아니다. 구간 길이에서 겹친
   제외 구간 시간을 빼고 표본마다 0.1초 아래 버린다. 표본이 없으면 둘 다 NULL.
 - 쓰기: 한 트랜잭션에서 그 날짜(--user면 그 사용자들)의 행을 지우고 새로 넣는다 — 다시 돌려도 같은 결과(멱등).
-  세션이 없는 사용자는 행을 만들지 않는다.
+  세션이 없는 사용자는 행을 만들지 않는다. 계산한 행이 저장된 행과 같으면 쓰지 않는다(computed_at 유지, 「변경 없음」).
+- 다시 계산(D-81): --days N이면 끝 날짜(--date, 기본 어제)부터 N일 전까지 날짜마다 계산한다. J2가 지나간 뒤 닫힌 세션
+  (저장 지연·나중에 닫힘)이나 지워진 세션(R3)을 그 날짜에 반영하려는 것 — cron은 --days 7. 7일보다 늦게 닫힌 세션은
+  --date로 직접 다시 돌린다. 한 날짜가 실패해도 다른 날짜는 계속하고, 실패가 있으면 끝 코드 1.
 
-실행(서버 PC 저장소 루트): tools/platform/batch.sh j2 [--date YYYY-MM-DD] [--user 12,34] [--dry-run | --show]
+실행(서버 PC 저장소 루트): tools/platform/batch.sh j2 [--date YYYY-MM-DD] [--days N] [--user 12,34] [--dry-run | --show]
 """
 
 import argparse
@@ -25,6 +28,7 @@ import batch_common as bc
 
 JOB = "J2"
 STAT_MIN_SESSION_MS = 300_000  # STAT_MIN_SESSION_SEC 5분
+MAX_DAYS = 31                  # --days 상한(한 번에 다시 계산할 날짜 수)
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +170,23 @@ def show_rows(df):
             for r in sorted(df.collect(), key=lambda row: row["user_account_id"])]
 
 
+def target_days(end, days):
+    """끝 날짜부터 days일 전까지, 오래된 날짜부터."""
+    return [end - dt.timedelta(days=i) for i in range(days - 1, -1, -1)]
+
+
+def same_rows(computed, stored):
+    """계산한 행(to_rows, `_good_le_valid` 뺀 뒤)과 저장된 행(show_rows)이 같은가 — 둘 다 사용자 순, 0.1초 문자열."""
+    return [dict(r) for r in computed] == [dict(r) for r in stored]
+
+
+def parse_days(text):
+    value = int(text)
+    if not 1 <= value <= MAX_DAYS:
+        raise ValueError(f"--days는 1~{MAX_DAYS}")
+    return value
+
+
 # ---------------------------------------------------------------------------
 # 쓰기
 
@@ -189,41 +210,68 @@ def write(jdbc, day, users, rows, computed_at):
     return deleted, len(rows)
 
 
+def run_day(spark, db, day, users, dry_run):
+    """한 날짜: 계산 → 저장된 행과 비교 → 다르면 지우고 넣기. 결과 dict(실패면 error)."""
+    sessions = bc.read_query(spark, db, sessions_sql(day, users)).cache()
+    try:
+        excluded = bc.read_query(spark, db, excluded_sql(day, users))
+        events = bc.read_query(spark, db, events_sql(day, users))
+        rows = to_rows(compute(sessions, excluded, events))
+        session_count = sessions.count()
+    finally:
+        sessions.unpersist()
+    bad = [r["user_account_id"] for r in rows if not r.pop("_good_le_valid")]
+    if bad:
+        bc.log(JOB, f"FAIL {day} good_sec > valid_sec 인 사용자 {bad} — 세션 good_sec·제외 구간 확인, 쓰지 않음")
+        return {"stat_date": day.isoformat(), "error": f"good_sec > valid_sec {bad}"}
+    stored = show_rows(bc.read_query(spark, db, stored_sql(day, users)))
+    changed = not same_rows(rows, stored)
+    bc.log(JOB, f"{day} 세션 {session_count}개 · 사용자 {len(rows)}명 계산 · 저장된 행 {len(stored)}개"
+                f" · {'바뀜' if changed else '변경 없음'}")
+    result = {"stat_date": day.isoformat(), "changed": changed, "rows": rows}
+    if dry_run or not changed:
+        if not changed and not dry_run:
+            bc.log(JOB, f"OK {day} 변경 없음 — 쓰지 않음")
+        return result
+    with bc.Jdbc(spark, db) as jdbc:
+        deleted, inserted = write(jdbc, day, users, rows, bc.now_kst_text())
+    bc.log(JOB, f"OK {day} daily_stat 지움 {deleted} · 넣음 {inserted}")
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--date", type=bc.parse_date, default=None, help="집계 날짜 KST (기본: 어제)")
+    parser.add_argument("--date", type=bc.parse_date, default=None, help="집계 날짜 KST (기본: 어제). --days와 함께면 끝 날짜")
+    parser.add_argument("--days", type=parse_days, default=1,
+                        help=f"끝 날짜부터 N일 전까지 다시 계산 (기본 1, 최대 {MAX_DAYS}, cron은 7)")
     parser.add_argument("--user", type=bc.parse_users, default=[], help="이 사용자만 (쉼표로 여러 명, 시험용)")
     parser.add_argument("--dry-run", action="store_true", help="계산만 하고 쓰지 않음 (결과를 JSON으로 출력)")
     parser.add_argument("--show", action="store_true", help="계산하지 않고 저장된 daily_stat 행만 JSON으로 출력(확인용)")
     args = parser.parse_args(argv)
-    day = args.date or bc.yesterday_kst()
+    days = target_days(args.date or bc.yesterday_kst(), args.days)
 
     db = bc.DbConfig()
-    spark = bc.spark_session(f"posegood-j2-daily-stat-{day}")
+    spark = bc.spark_session(f"posegood-j2-daily-stat-{days[-1]}")
+    failed = []
     try:
-        if args.show:
-            stored = show_rows(bc.read_query(spark, db, stored_sql(day, args.user)))
-            print(json.dumps({"stat_date": day.isoformat(), "stored": stored}, ensure_ascii=False), flush=True)
-            bc.log(JOB, f"SHOW {day} daily_stat {len(stored)}행")
-            return
-        sessions = bc.read_query(spark, db, sessions_sql(day, args.user)).cache()
-        excluded = bc.read_query(spark, db, excluded_sql(day, args.user))
-        events = bc.read_query(spark, db, events_sql(day, args.user))
-        rows = to_rows(compute(sessions, excluded, events))
-        bad = [r["user_account_id"] for r in rows if not r.pop("_good_le_valid")]
-        if bad:
-            bc.fail(JOB, f"{day} good_sec > valid_sec 인 사용자 {bad} — 세션 good_sec·제외 구간 확인, 쓰지 않음")
-        bc.log(JOB, f"{day} 세션 {sessions.count()}개 · 사용자 {len(rows)}명 계산")
+        for day in days:
+            if args.show:
+                stored = show_rows(bc.read_query(spark, db, stored_sql(day, args.user)))
+                print(json.dumps({"stat_date": day.isoformat(), "stored": stored}, ensure_ascii=False), flush=True)
+                bc.log(JOB, f"SHOW {day} daily_stat {len(stored)}행")
+                continue
+            result = run_day(spark, db, day, args.user, args.dry_run)
+            if "error" in result:
+                failed.append(day.isoformat())
+            print(json.dumps(result, ensure_ascii=False), flush=True)
         if args.dry_run:
-            print(json.dumps({"stat_date": day.isoformat(), "rows": rows}, ensure_ascii=False), flush=True)
             bc.log(JOB, "DRY-RUN — 쓰지 않음")
-            return
-        with bc.Jdbc(spark, db) as jdbc:
-            deleted, inserted = write(jdbc, day, args.user, rows, bc.now_kst_text())
-        bc.log(JOB, f"OK {day} daily_stat 지움 {deleted} · 넣음 {inserted}")
-        print(json.dumps({"stat_date": day.isoformat(), "rows": rows}, ensure_ascii=False), flush=True)
+        if len(days) > 1:
+            bc.log(JOB, f"{days[0]} ~ {days[-1]} {len(days)}일 끝 · 실패 {len(failed)}일")
     finally:
         spark.stop()
+    if failed:
+        bc.fail(JOB, f"실패한 날짜 {failed} — 다른 날짜는 끝남")
 
 
 if __name__ == "__main__":

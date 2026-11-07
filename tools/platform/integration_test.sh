@@ -35,7 +35,7 @@
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
 #  14. 공개 입구   : (D-43) 처리 서비스·추론 포트가 127.0.0.1에만, gateway(API 전용 nginx, 호스트 포트 없음)가 /api만 중계하고 /는 404,
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
-#  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 멱등·삭제 뒤 CASCADE (D-05)
+#  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 변경 없음·--days·삭제 뒤 CASCADE (D-05·D-81)
 #  16. Spark J3    : 시험 계정을 탈퇴 상태로(tests/batch_testkit.py) → 30일 지난 계정만 DB 행·HDFS 폴더 전부 삭제 (D-49)
 #  17. Spark J1    : 시험 세션을 Kafka v1로 재생 → Kafka 받기 → HDFS 세션 폴더 파일 3개·feature_archive → J3로 정리 (D-33)
 #
@@ -749,8 +749,18 @@ PYJ
     else fail "daily_stat 값" "저장 ${S1:-없음} / 기대 $EXP"; fi
     timeout 600 $TOOLS/batch.sh j2 --date "$JDAY" --user "$UA,$UB" >"$OUT/j2-run2.log" 2>&1
     S2="$(j2_show)"
-    if [ -n "$S1" ] && [ "$S1" = "$S2" ]; then pass "J2 다시 실행해도 같은 행 (지우고 다시 넣기, 멱등)"
-    else fail "J2 재실행" "1차 $S1 / 2차 ${S2:-없음}"; fi
+    if [ -n "$S1" ] && [ "$S1" = "$S2" ] && grep -q "OK $JDAY 변경 없음" "$OUT/j2-run2.log"; then
+      pass "J2 다시 실행 — 계산 결과가 저장된 행과 같아 쓰지 않음 (변경 없음, 멱등)"
+    else fail "J2 재실행" "1차 $S1 / 2차 ${S2:-없음} / 로그 $(grep -m1 -oE 'OK [0-9-]+ [^—]*' "$OUT/j2-run2.log")"; fi
+    # (D-81) --days: 끝 날짜부터 N일 — 날짜마다 한 줄, 오늘은 변경 없음
+    J2D="$(timeout 600 $TOOLS/batch.sh j2 --date "$JDAY" --days 2 --user "$UA,$UB" --dry-run 2>>"$OUT/run.log" | grep '^{')"
+    echo "J2 --days 2: $J2D" >>"$OUT/run.log"
+    if python3 -c "
+import json,sys
+r=[json.loads(l) for l in sys.argv[1].splitlines()]
+sys.exit(0 if len(r)==2 and r[1]['stat_date']==sys.argv[2] and r[1]['changed'] is False and r[0]['stat_date']<r[1]['stat_date'] else 1)" "$J2D" "$JDAY" 2>/dev/null
+    then pass "J2 --days 2 (dry-run) — 이틀을 오래된 날부터, 오늘은 변경 없음 (D-81)"
+    else fail "J2 --days" "결과 ${J2D:-없음}"; fi
     if [ "${KEEP_J2:-0}" = 1 ]; then skip "J2 시험 세션 삭제" "KEEP_J2=1 — $J_A·$J_B 남겨 둠"
     else
       curl -s -m 10 -X DELETE "$API/report/test/sessions/$J_A" >>"$OUT/run.log"; curl -s -m 10 -X DELETE "$API/report/test/sessions/$J_B" >>"$OUT/run.log"
