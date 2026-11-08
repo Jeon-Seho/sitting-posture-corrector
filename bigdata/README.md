@@ -5,7 +5,7 @@
 
 | 잡 | 파일 | 언제 | 하는 일 | 상태 |
 |---|---|---|---|---|
-| J2 일별 통계 | `jobs/j2_daily_stat.py` | 매일 00:10 | 전날(KST) 끝난 세션 → 사용자별 `daily_stat` | 서버 확인(D-05, 11/01) |
+| J2 일별 통계 | `jobs/j2_daily_stat.py` | 매일 00:10 | 어제부터 7일 전까지(KST) 끝난 세션 → 사용자별 `daily_stat`, 바뀐 날만 다시 씀 | 서버 확인(D-05, 11/01) |
 | J3 탈퇴 삭제 | `jobs/j3_withdrawal_delete.py` | 매일 04:00 | 유예 30일 지난 탈퇴 → HDFS 사용자 폴더 → DB 행 | 서버 확인(D-49, 11/01) |
 | J1 적재 | `jobs/j1_hdfs_archive.py` | 매시간 20분 | Kafka v1 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더 + `feature_archive` | 서버 확인(D-33, 11/01) — 실제 세션은 D-57 뒤 |
 
@@ -23,11 +23,15 @@ tools/platform/batch.sh j2                          # 어제(KST)
 tools/platform/batch.sh j2 --date 2026-10-31        # 날짜 지정(다시 계산)
 tools/platform/batch.sh j2 --date 2026-10-31 --dry-run   # 계산만, 쓰지 않음
 tools/platform/batch.sh j2 --date 2026-10-31 --show      # 저장된 행만 보기
+tools/platform/batch.sh j2 --days 7                      # 어제부터 7일 전까지 다시 계산 (cron, D-81)
+tools/platform/batch.sh j2 --date 2026-10-31 --days 3 --dry-run   # 10/29~10/31, 바뀌는 날만 보기
 ```
 
 - 대상: 시작 시각의 KST 날짜가 그날인 **끝난 세션**(`ended_at` 있음). 끝나지 않은 세션 행은 넣지 않는다. 날짜를 넘긴 세션은 시작 날짜에 넣는다.
 - `valid_sec` = 세션마다 (길이 − 겹친 제외 구간)을 0.1초 아래 버려 더함 · `good_sec` = 세션 `good_sec` 합 · `event_count` · `alerted_event_count`(알림 켜진 세션에서 알림 행이 있는 이벤트) · `min/max_until_collapse_sec`(5분 이상 세션, 세션 시작·직전 붕괴 끝 → 다음 붕괴 시작·세션 끝, 겹친 제외 구간을 빼고 표본마다 버림, 없으면 NULL).
 - 쓰기는 한 트랜잭션에서 그날(·지정 사용자)의 행을 지우고 다시 넣는다 — 다시 돌려도 같다. 세션이 없는 사용자는 행이 없다.
+  계산한 행이 저장된 행과 같으면 쓰지 않는다(「변경 없음」, `computed_at` 그대로).
+- **다시 계산(`--days N`, D-81)**: 끝 날짜(`--date`, 기본 어제)부터 N일 전까지 날짜마다 계산해 바뀐 날만 다시 쓴다. J2가 지나간 뒤에 닫힌 세션(저장 지연·나중에 닫힘)이나 지워진 세션(R3)이 그 날짜 통계에 반영된다. cron은 `--days 7` — 7일보다 늦게 닫힌 세션은 `--date`로 직접 돌린다. 한 날짜가 실패해도 나머지 날짜는 계속하고 끝 코드는 1. 처음 cron 전 날짜(10/29·10/30)는 11/04에 `--date`로 채웠다.
 - 시각을 00:00이 아니라 **00:10**으로 둔다: 자정 직전에 끝난 세션의 저장이 끝나고, 자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 둔다(FE 요청 BE-11).
 
 ## J1 판정 과정 적재
@@ -66,20 +70,20 @@ tools/platform/batch.sh j3 --user 12 --grace-days 0      # 시험용 — 유예 
 서버 PC 시간대가 KST(`timedatectl` → `Asia/Seoul`)라 cron 시각은 그대로 KST다(`CRON_TZ`는 Ubuntu cron이 무시할 수 있어 쓰지 않음).
 
 ```cron
-10 0 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j2 >/dev/null 2>&1
+10 0 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j2 --days 7 >/dev/null 2>&1
 0 4 * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j3 >/dev/null 2>&1
 20 * * * * cd /home/bdp/sitting-posture-corrector && tools/platform/batch.sh j1 >/dev/null 2>&1
 ```
 
 J1은 매시간 20분 — 00:10 J2·04:00 J3와 겹치지 않게(잡마다 잠금은 따로라 겹쳐도 돌지만 메모리 2GB 안에서 Spark 두 개는 피함).
 
-등록: `( crontab -l 2>/dev/null; echo '<줄>' ) | crontab -` → `crontab -l`로 확인(2026-11-01 J2·J3·J1 등록).
+등록: `( crontab -l 2>/dev/null; echo '<줄>' ) | crontab -` → `crontab -l`로 확인(2026-11-01 J2·J3·J1 등록, J2는 D-81로 `--days 7`).
 
 로그는 `tools/platform/batch-logs/<잡>-*.log`. 통합 테스트 15단계(J2)·16단계(J3)·17단계(J1)가 시험 계정으로 실제 DB·HDFS에 돌려 확인한다.
 
 ## 시험
 
-- 계산: `python -m pytest tests/test_batch_j2_daily_stat.py` — 합성 세션, 로컬 Spark(pyspark가 없으면 건너뜀).
+- 계산: `python -m pytest tests/test_batch_j2_daily_stat.py` — 합성 세션, 로컬 Spark(pyspark가 없으면 건너뜀). 다시 계산(날짜 목록·비교·바뀐 날만 쓰기·실패한 날 뒤 계속)은 Spark 없이.
 - J3 흐름: `python -m pytest tests/test_batch_j3_withdrawal_delete.py` — 가짜 DB·HDFS(순서·실패 되돌림·재시도·다른 사용자 폴더 거부).
 - J1: `python -m pytest tests/test_batch_j1_hdfs_archive.py` — 로컬 Spark·로컬 파일(임시 폴더 열·중복 빼기·파일 3개·행·dry-run·오래된 임시 폴더). Kafka 받기는 통합 테스트로.
-- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 멱등 → 삭제 뒤 CASCADE), 16단계(시험 계정 C 탈퇴 31일·D 29일 → `tests/batch_testkit.py`로 준비 → J3 → C 행·HDFS 폴더 전부 삭제·D 그대로 → 재실행 0 → D 정리), 17단계(시험 세션 E를 Kafka v1로 재생 → J1 → 세션 폴더 파일 3개·`feature_archive` → 재실행 새 메시지 0 → J3로 정리).
+- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 변경 없음 → `--days 2` dry-run → 삭제 뒤 CASCADE), 16단계(시험 계정 C 탈퇴 31일·D 29일 → `tests/batch_testkit.py`로 준비 → J3 → C 행·HDFS 폴더 전부 삭제·D 그대로 → 재실행 0 → D 정리), 17단계(시험 세션 E를 Kafka v1로 재생 → J1 → 세션 폴더 파일 3개·`feature_archive` → 재실행 새 메시지 0 → J3로 정리).
