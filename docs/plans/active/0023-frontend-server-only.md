@@ -1,6 +1,6 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결, 실제 서버 시험(BE 로그인 뒤))
+- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결. 실제 서버 시험은 10/29 공개 연결 때 끝 — [FE 제안서](../../design/fe-server-proposal.md) 10.1)
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe-server-proposal.md)(BE에 물을 것 1장, FE 할 일 7장), [연동 명세](../../design/api-ws-spec.md),
@@ -71,8 +71,8 @@
 - [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 남음.
 - [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
-- [x] 계정 서버 연결 A1~A5(F12, 10/22): ghdrb1246 `f27dd24`(D-66)를 V3로 옮김 — 스위치 없이 항상 서버 계정, 로그인 뒤 `setServerAuth`, CSRF 403 재시도. 남은 것: A6·A7·C1·W1·W2, `AUTH_CHANGED`.
-- [ ] (옛 기록) 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
+- [x] 계정 서버 연결 A1~A5(F12, 10/22): ghdrb1246 `f27dd24`(D-66)를 V3로 옮김 — 스위치 없이 항상 서버 계정, 로그인 뒤 `setServerAuth`, CSRF 403 재시도. A6·A7·C1·W1·W2·`AUTH_CHANGED`도 그 뒤 붙음(11/4 코드 확인: `features/auth/accountClient.ts`, `features/profile/ServerAccountPage.tsx`). 로그인은 10/27 토큰 방식으로 바뀌어 CSRF는 없어짐(PR #68·#69).
+- [x] (옛 기록, 11/4 위 줄로 끝) 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
 - [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 과거 기록 R1·R1b와 어제까지의 통계 T1로 붙인다. 오늘 목록·집계는 서버 결과를 로컬에 수집해 사용하며 해당 수집·집계 처리는 남긴다(10/22 확정, 연동 명세 4.5). V3는 측정 결과를 R1과 같은 형식(`server.view` = SessionView)으로 이 기기에 남긴다(`useSessionPersistence.ts`, 키 하나 — 계정별로 나누지 않음, 연동 명세 4.5 「팀 참고」) — R1로 바꿔도 오늘 표시용으로 유지.
 
 ### 4단계 — 검증과 정리
@@ -103,6 +103,7 @@
 - 2026-10-25: develop(PR #63, 팀장 `db220d8`)을 V3에 합침. 모델명·버전 화면 표시를 지움(팀장 10/22 결정). 오늘 표시용 로컬 기록은 키 하나로 두고 계정별로 나누지 않는다(klaod-tech: 한 PC 한 사람이 보통이고, 나누면 계정 ID를 넘기는 곳이 늘어 복잡해진다. 한계는 연동 명세 4.5 「팀 참고」).
 
 - 2026-10-26: 웹 작은 창 삭제·숨은 탭 측정(Worker 타이머)·데스크톱 작은 창([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md), 계획 0054·0055). 화면의 날짜·시각을 서버 시각으로(기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 「오늘」 = 가장 최근 서버 시각의 KST 날짜, KST 고정, [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)). BE 브랜치 `fix/repo-backend-sync`(김유진)에 맞춰 B1 `registration_id`. 기록·달력 로직은 FE가 고치기로 함(화면 모양은 lellon0403).
+- 2026-11-04: 계정 API(A6·A7·C1·W1·W2) 연결과 실제 서버 시험(10/29) 끝을 표시. 기록 화면 서버 연결(R1·T1)과 더미 데이터 삭제는 남음.
 
 ## 검증 결과와 남은 한계
 

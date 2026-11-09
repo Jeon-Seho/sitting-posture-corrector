@@ -1,6 +1,6 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-11-03 저녁(BE `observation` 4.0 브랜치 `45c5c19`에 FE 요청 반영 — 1.0·1.1·10.5, 3·4장 요약의 묶음·자동 종료·자정 설명 고침) · 2026-11-03(1장을 develop `096cc3c` 코드로 다시 확인해 남은 것만, 닫힌 질문 삭제. 옛 0장은 10장으로 — 끝난 것 10.5: lint CI, 자정 점검·자정 넘김 확인, #91 되돌림) · 2026-10-30 저녁(자정 넘김 B안 `session_rollover` 앱 처리 — 1.0 표·7.2 18번) · 2026-10-30(0장 서버 공개 연결 결과 — 10/29 확인·담당·잡은 문제·공개 뒤 피드백·남은 것, 포크 최신화. `fe-commands-and-checks.md` 지움, `fe-deploy.md`를 9장으로 합침) · 2026-10-27 밤(BE 토큰 로그인 공지 확인 — 1.0·BE-12·7.2 21번, V3 ADR 0031 → 0033) · 2026-10-27 저녁(계획 0059 정한 것 — BE-10, S1 `policy` 빼기·S4 DB 답 — BE-11, 리프레시 토큰 7.2 21번, `t_ms` 회의 7.2 22번) · 2026-10-27(BE PR #65 병합 반영 1.0 표·BE-5·BE-6, 프레임마다 전송·BE 묶음 답 BE-8, 판정 불가 좌표 없이 ADR 0021·BE-9, 시간 필드 BE-7, 측정 중 WS 줄이기 계획 0059, develop PR #64 디자인·작은 창 합침, 7.2 14~20) · 2026-10-26(웹 작은 창 삭제·숨은 탭 측정, ADR 0028 — 2장·7.2 9·11번·8.3·8.4. 저녁: 자정 끊기·서버 시각, ADR 0029 — 1장 BE-6·2장·7.2 12번. 회의: 리프레시 토큰은 BE 완료 뒤 적용, WS 판정 메시지 유지 — BE-6 ①, `valid_ms` 예시 — BE-5 ②, A4 `today`만 — BE-6 ③, 시간 필드 설명 요청 — BE-7·1.1 ⑥. 10/27: 좌표 프레임마다 전송 — BE-8·1.1 ⑦) · 2026-10-25(develop 합침, 팀장 10/22 결정 반영 — 2장 4, 7.2 5-a, BE-5) · 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 9장에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에. 저녁: 남은 앱 판정 삭제(F5), API·WS 대조와 F12 브랜치 검수를 7.2에, BE-4) · 대상: 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, ghdrb1246), ML(지성, jisung), 화면(lellon0403)
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-11-09(develop `2c21685` 대조 — J2 다시 계산 PR #100은 ADR 0029·연동 명세 4.5에, nginx 정리 담당을 1.0에) · 2026-11-04(develop `fe5058b` — PR #98·#99·#93 머지 반영, 1장에서 코드로 이미 정해진 질문 삭제: `observation` 4.0 합치기·Spark J2 시각·J3·1.1 실시간 줄·BE-6. S1 뒤 WS가 안 열린 세션은 서버 코드상 DB 행이 열린 채라 1.0으로 되살림) · 2026-11-03 저녁(BE `observation` 4.0 브랜치 `45c5c19`에 FE 요청 반영 — 1.0·1.1·10.5, 3·4장 요약의 묶음·자동 종료·자정 설명 고침) · 2026-11-03(1장을 develop `096cc3c` 코드로 다시 확인해 남은 것만, 닫힌 질문 삭제. 옛 0장은 10장으로 — 끝난 것 10.5: lint CI, 자정 점검·자정 넘김 확인, #91 되돌림) · 2026-10-30 저녁(자정 넘김 B안 `session_rollover` 앱 처리 — 1.0 표·7.2 18번) · 2026-10-30(0장 서버 공개 연결 결과 — 10/29 확인·담당·잡은 문제·공개 뒤 피드백·남은 것, 포크 최신화. `fe-commands-and-checks.md` 지움, `fe-deploy.md`를 9장으로 합침) · 2026-10-27 밤(BE 토큰 로그인 공지 확인 — 1.0·BE-12·7.2 21번, V3 ADR 0031 → 0033) · 2026-10-27 저녁(계획 0059 정한 것 — BE-10, S1 `policy` 빼기·S4 DB 답 — BE-11, 리프레시 토큰 7.2 21번, `t_ms` 회의 7.2 22번) · 2026-10-27(BE PR #65 병합 반영 1.0 표·BE-5·BE-6, 프레임마다 전송·BE 묶음 답 BE-8, 판정 불가 좌표 없이 ADR 0021·BE-9, 시간 필드 BE-7, 측정 중 WS 줄이기 계획 0059, develop PR #64 디자인·작은 창 합침, 7.2 14~20) · 2026-10-26(웹 작은 창 삭제·숨은 탭 측정, ADR 0028 — 2장·7.2 9·11번·8.3·8.4. 저녁: 자정 끊기·서버 시각, ADR 0029 — 1장 BE-6·2장·7.2 12번. 회의: 리프레시 토큰은 BE 완료 뒤 적용, WS 판정 메시지 유지 — BE-6 ①, `valid_ms` 예시 — BE-5 ②, A4 `today`만 — BE-6 ③, 시간 필드 설명 요청 — BE-7·1.1 ⑥. 10/27: 좌표 프레임마다 전송 — BE-8·1.1 ⑦) · 2026-10-25(develop 합침, 팀장 10/22 결정 반영 — 2장 4, 7.2 5-a, BE-5) · 2026-10-22(문서 정리: 앱이 보내고 받는 것의 상세를 [연동 명세](api-ws-spec.md)으로 옮기고, 데스크톱 구조를 9장에서 8.4로 옮김. 7.2에 바뀐 곳 기록. 같은 날 V3 코드 검토로 고친 것과 F12 때 맞출 것을 7.2에, BE에 물을 것 1개를 1장에. 저녁: 남은 앱 판정 삭제(F5), API·WS 대조와 F12 브랜치 검수를 7.2에, BE-4) · 대상: 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, ghdrb1246), ML(지성, jisung), 화면(lellon0403)
 > **사람 표기:** 이 문서의 DB·BE는 김유진(GitHub `sunshine-yj`, 커밋 이름 `Kimyoujin`, 10/26 「백엔드·DB 변경사항 정리」 기준), DevOps는 홍규(ghdrb1246), ML은 지성(jisung), 화면은 lellon0403(기록·달력·측정하기), FE는 klaod-tech다. 10/22까지의 BE 작업 일부(로그인 F12 `f27dd24` 등)는 ghdrb1246이 했다. 학습용 자세 데이터 수집 화면은 jisung이 진행 중이다.
 > **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API — [연동 명세](api-ws-spec.md) 3장 표. F1~F15는 FE 할 일 — 이 문서 7장. BE-1~BE-13는 BE에 요청한 것 — 이 문서 1.2(남은 일은 1.0, BE와 다른 곳은 1.1). F-a~F-e·B-a~B-g는 김유진 10/26 정리 문서의 항목 번호. G1~G6은 `make check` 실패 항목 — [계획 0030](../plans/active/0030-make-check-failures.md). D-nn·T-nn은 BE·DevOps 작업 번호, J2·J3은 서버의 Spark 작업(일별 집계·탈퇴 삭제) — [아키텍처 v5.2](architecture_v5.2_stack_roles.md).
 > **이 문서의 역할:** FE의 **전제·결정 요약, BE와 다른 곳·남은 질문, 할 일, 10/26 기준 앱 상태**. 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드·본문은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0021](../decisions/0021-app-sends-information-server-judges.md)·[0027](../decisions/0027-today-records-from-collected-server-results.md)·[0017](../decisions/0017-desktop-app-shell-and-redesign.md)·[0029](../decisions/0029-midnight-cut-and-server-time.md). BE의 서버 시각 ADR은 BE 브랜치에 있다 — 10/26 같은 0028을 써서 BE가 번호를 옮기기로 함), 실행 계획은 [계획 0023](../plans/active/0023-frontend-server-only.md), 명령은 [개발 흐름](../development.md)과 [frontend README](../../frontend/README.md), 배포는 9장이다.
@@ -9,12 +9,12 @@
 
 ## 1. 남은 질문과 요청 (11/3 최신화)
 
-기준: develop `096cc3c`(11/3, PR #95로 #91·#92를 되돌린 상태 — 코드는 10/29 검증 때 `3d2fdfd`와 같다). 남은 것만 남겼다. 끝난 것은 10장, 10/27 이전 기록은 git 이력(`b4ca574` 이 문서 1장)에 있다.
+기준: develop `fe5058b`(11/4 확인 — 11/3 저녁 PR #98 BE `recovery_ms`·명세, PR #99 FE `observation` 4.0, PR #93 Spark J1·J2·J3가 들어감), 11/9 `2c21685`(PR #100·#101)와 다시 대조. 남은 것만 남겼다. 코드로 이미 정해진 것은 묻지 않는다. 끝난 것은 10장, 10/27 이전 기록은 git 이력(`b4ca574` 이 문서 1장)에 있다.
 아래 요청은 #91·#92 되돌림과 관계없다 — 되돌린 커밋에 T1·R1b·규칙 이름·쉬기 종료 구현은 없었다(11/3 diff 확인).
 
 ### 1.0 지금 남은 일
 
-- [ ] **실시간 `observation` 4.0 FE PR 합치기** — BE 4.0(구간마다, `sequence`·`hold_ms`·판정 불가 점수 `null`, 계획 0084 27·28)은 11/3 develop에 먼저 들어갔다(PR #96, `e01ba49`). develop 앱은 4.0을 버리므로 FE PR(`feature/fe-3sec-batch-observation4`)을 바로 합친다. `recovery_ms`(계획 0084 29, BE `docs/docs-backend-api-spec-refresh` `61365a4`)는 FE 브랜치에 합쳐 함께 올림. FE: 붕괴 게이지 `hold_ms`, 회복 게이지 `recovery_ms`, 늦은 결과 버림, 3.0도 읽음, 측정 화면 A 가운데 배치, 가입·프로필 나이 칸 0 고정 수정. 11/3 로컬 함께 실행 통과(나쁨 3초 끝에 확정, 좋음 3초 끝에 회복, 1.5·1초 나쁨은 확정 없음, 두 번째 측정 정상, 실제 웹캠 확인). 남은 것: PR 합치기 → 운영 재배포는 FE가 포크에 올라간 뒤. 경위·형식·FE 구현은 [인계서](frontend-realtime-handoff-2026-11-03.md) — FE·BE
+- [ ] **운영에 `observation` 4.0 올리기** — BE(PR #96·#98)와 FE(PR #99)가 develop `fe5058b`에 다 들어갔다. 순서: 포크 develop을 `fe5058b`로 올려 Vercel 배포 → 그 뒤 운영 서버 재배포. 앱은 3.0·4.0을 다 읽지만 지금 운영 화면은 3.0만 읽어서, 서버를 먼저 올리면 실시간 점수가 안 보인다. 경위·형식은 [인계서](frontend-realtime-handoff-2026-11-03.md) — FE·DevOps
 - [ ] bad 사이에 good 한 프레임이 끼면 3초를 다시 셀지(짧은 끊김 봐주기) — 4.0은 초당 20~30번 와서 점수 30 근처에서 주의가 깜빡일 수 있다. 서버 규칙으로 정한다(인계서 「남은 것」의 안 4개) — BE·ML·FE
 - [ ] Cloudflare 요청 제한(`auth-rate-limit`)을 로그인·가입만으로 좁히고 평소 값·시연 날 값 정하기 — FE(9.6.3 Q3)
 - [ ] 정식 공개 때 검색 노출 막기 두 줄 지우기([robots.txt](../../frontend/public/robots.txt), [vercel.json](../../frontend/vercel.json) `X-Robots-Tag`) — FE
@@ -22,22 +22,23 @@
 - [ ] 운영 서버 자정 넘김 켜기(`POSEGOOD_MIDNIGHT_ROLLOVER=true`, 지금 기본 꺼짐 — [application.properties](../../backend/api/src/main/resources/application.properties)). 앱 처리는 운영 화면에 이미 있다(10.5) — DevOps
 - [ ] 자정 넘김을 켠 뒤 자정 점검([midnight.mjs](../../tools/browser/midnight.mjs)) 시나리오 다시 정하기: 지금은 「자정에도 같은 세션 유지」 전제라 세션이 둘로 나뉘는 흐름으로 바꾼다(팀장 10/30 인계서 4번, [frontend README](../../frontend/README.md) 자정 측정 절) — FE
 - [ ] 앱 날짜 나누기([dailyMeasurement.ts](../../frontend/src/features/storage/dailyMeasurement.ts), [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) 정리: 서버가 자정에 세션을 끊으면 측정 하나가 하루 안에 있어 필요 없어진다. 자정 넘김을 켠 뒤 따로 계획(인계서 5번) — FE·화면
-- [ ] 자정 넘김 실제 MySQL 시험(`INSERT … SELECT`) — BE. Spark J2를 00:05 이후에 돌리기(BE-6 ⑤) — [PR #93](https://github.com/Jeon-Seho/sitting-posture-corrector/pull/93)이 cron 00:10으로 넣음, 머지 대기 — DevOps
-- [ ] 좌표를 남기는 곳 확인: ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 드는데, Spark J1 안내(11/1)에는 원본 좌표를 남기는 곳이 없다. 남길지, ADR·동의 문구를 고칠지 팀에서 정한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 3절 확인 필요) — 팀·ML·DevOps
+- [ ] 자정 넘김 실제 MySQL 시험(`INSERT … SELECT`) — BE
+- [ ] 좌표를 남길지 정하기: 남기는 곳이 없는 것은 코드로 확인됐다 — Spark J1(PR #93)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../bigdata/README.md) J1, `features.v1` 본문은 특징 변화량). ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 든다. 남길지, 아니면 ADR 2절과 동의 문구(BE-1)를 고칠지 팀에서 정한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 3절) — 팀·ML·DevOps
 - [ ] 서버 탈퇴(A7) 때 이 기기의 기록(`posegood.v2.records`)·저장 대기 서버 기록도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) — FE
-- [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72), 아키텍처 문서 v5.3(D-73), 삭제 배치 J3(D-49 — PR #93, 머지 대기) — DevOps
+- [ ] **S1은 됐는데 WS가 안 열렸거나 `hello` 전에 끊긴 세션을 누가 닫을지** — 서버는 메모리에서만 6시간 뒤 뺀다([LiveSessions.java](../../backend/api/src/main/java/org/posegood/api/session/LiveSessions.java) `evict`, `posegood.idle-session-retention=6h`). DB 행은 `ended_at` NULL로 남아 J1·J2·기록 목록에 영향을 준다(J2는 끝난 세션만 센다). 앱이 이때만 S3를 부를지, 서버가 정리하면서 행도 닫을지 정한다. BE 상태 문서 4장 미결과 같은 질문 — BE·FE
+- [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72 — [default.conf](../../infra/nginx/default.conf)에 아직 있음, 11/9 DevOps 요청으로 DB/BE가 맡음, 브랜치 `chore/repo-nginx-remove-v1-realtime`) — DB/BE
+- [ ] 아키텍처 문서 v5.3(D-73) — DevOps
 
-### 1.1 BE와 다른 곳 (11/3 develop 코드로 확인)
+### 1.1 BE와 다른 곳 (11/4 develop `fe5058b` 코드로 확인)
 
 | 항목 | FE | BE 지금(develop) | 필요한 것 |
 |---|---|---|---|
-| T1 `GET /v2/stats/daily` | 화면은 T1 형식(`{today, from, to, days}`)으로 집계 | 형식만 확정, 컨트롤러 없음 | BE-2. 화면과 맞는지 lellon0403과 확인 |
+| T1 `GET /v2/stats/daily` | 화면은 T1 형식(`{today, from, to, days}`)으로 집계 | 형식만 확정, 컨트롤러 없음. 채울 `daily_stat`은 Spark J2(PR #93)가 매일 00:10에 만든다 | BE-2. 화면과 맞는지 lellon0403과 확인 |
 | R1b `GET /v2/records/{id}` | 안 씀(R1·S4로) | 없음([WorkspaceController](../../backend/api/src/main/java/org/posegood/api/workspace/WorkspaceController.java)에 `DELETE /records/{id}`만) | BE-2 |
 | S1 `policy` | 앱이 설정 값을 ms로 바꿔 보냄 | 계정 정책과 다르면 409([SessionService](../../backend/api/src/main/java/org/posegood/api/session/SessionService.java)) | BE-11(보내지 않게) |
 | 판정 시간 규칙 이름·단위 | `Rules`(초) ↔ S1 `policy`(ms) 변환 | W1·W2 초 / S1 ms([ThresholdPolicyRepository](../../backend/api/src/main/java/org/posegood/api/policy/ThresholdPolicyRepository.java)) | BE-4 |
 | 쉬기 10분 자동 종료 | 타이머 없음 | 없음(판정 불가 30분 `unmeasurable_timeout`만) | BE-13 |
 | 동의 문구 `POSE_COORDINATES` | 좌표 프레임 전송 | 「기준 대비 특징 변화량」 문구([consent-documents.v2.md](../../contracts/consent-documents.v2.md)) | BE-1 |
-| 실시간 `observation` | 3.0·4.0 둘 다 읽음, 4.0이면 주의 단계·붕괴 게이지(`hold_ms`) — `feature/fe-3sec-batch-observation4` | develop 3.0. 4.0은 `feature/repo-realtime-observation4`(PR 전) | 함께 배포(1.0) |
 | 측정 중 WS 줄이기 | 지금은 `progress`·`decision` 요약을 씀 | 같음 | BE-10([계획 0059](../plans/active/0059-slim-realtime-results-over-api.md)) — 합의 전 |
 
 ### 1.2 BE에 요청한 것 (남은 것)
@@ -47,13 +48,12 @@
 | BE-1 | 동의 문서([consent-documents.v2.md](../../contracts/consent-documents.v2.md)) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량과 품질을 서버 판정에 사용」을 좌표 프레임 전송에 맞춘 문구로 | 동의 문서 고칠 때 |
 | BE-2 | T1 `GET /v2/stats/daily`(형식 확정), R1b `GET /v2/records/{id}`(없으면 S4로 대신) | [연동 명세](api-ws-spec.md) 4장 R1·R1b·T1 |
 | BE-4 | **판정 시간 규칙 이름·단위 맞추기.** 같은 값이 W1·W2 `rules`(초)에서는 `holdSeconds`·`recoverSeconds`·`realertSeconds`, S1 `policy`(ms)에서는 `hold_ms`·`recovery_ms`·`reminder_ms`다. 하나로 맞추면 앱의 `Rules`·설정 화면·저장 검증도 따라 바꾼다 | BE가 정할 때 |
-| BE-6 | **자정 넘김 남은 것** — ① 운영에서 켜기(1.0), ⑤ J2 실행 시점(PR #93, 00:10). 나머지와 B안 구현·앱 처리는 끝(10.5, [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)) | 1.0과 같이 |
 | BE-7 | **[API 명세](api-spec.md) 필드 표에 없는 시간 필드.** ① 좌표 프레임 `t_ms`(프레임을 찍은 시각, 측정은 S1 응답 시각이 0), ② 사건 `timestamp_ms`(사건이 확정된 시점), ③ 사건 `onset_ms`(이탈이 실제로 시작된 시점, `onset_valid_ms`와 짝). 괄호 안은 FE가 이해한 뜻이니 맞는지 확인해 표에 넣어 주기 | 명세 고칠 때 |
 | BE-10 | **측정 중 WS 줄이기([계획 0059](../plans/active/0059-slim-realtime-results-over-api.md)).** `observation`에 `alerting`(지금 붕괴 확정 상태인지)·`keep_rate` 추가, 뒤에 `progress`·`decision`·`ack`를 줄이고 결과 요약·사건은 끝난 뒤 S4로 | 실시간 판정 다시 만들 때 |
 | BE-11 | **S1 `policy` 빼기.** 서버가 이미 아는 값이라 `policy`가 없으면 계정 정책(`account.policyId`)으로 고정. BE가 받게 한 뒤 FE가 뺀다. 함께: 재배포를 자정과 겹치지 않게, S4가 메모리에 세션이 없으면(종료 30분 뒤·재시작) DB 값으로 답하기(또는 R1b) | BE 여유 있을 때 |
 | BE-13 | **쉬기 10분 자동 종료를 누가 하는지.** 10/20 결정은 「일시정지가 10분 이어지면 측정을 끝내고 저장」인데 서버·앱 모두 구현이 없다. **FE 의견:** `unmeasurable_timeout`과 같은 방식으로 서버가 `rest` 길이를 세어 끝내고 새 사유(안: `closed(rest_timeout)`)를 보낸다. 앱은 타이머를 두지 않는다([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)) | 정할 것 |
 
-끝난 요청(11/3 develop 확인): BE-3(W1·W2 — 프로필 화면이 씀), BE-5(① 로그인은 토큰 방식으로 바뀜, ② `valid_ms`는 구간 = 프레임 1장이라 명세와 같아짐, ③은 BE-2, ④⑤ 정리), BE-8(서버가 프레임을 묶는 방식 — #91 되돌림으로 닫음), BE-9(판정 불가 좌표 없이 — 알림 끝), BE-12(토큰 로그인·CORS PR #68·#70, ③ 데스크톱은 1.0 F14). 10/26 김유진 정리 문서에 대한 답(옛 1.1)과 10/22·10/25 질문(S1 뒤 WS가 안 열린 세션, `data-platform-boundary.md` 유지)도 끝났다.
+끝난 요청(11/4 develop `fe5058b` 확인): BE-3(W1·W2 — 프로필 화면이 씀, [ServerAccountPage.tsx](../../frontend/src/features/profile/ServerAccountPage.tsx) `request('/v2/workspace')`. BE 상태 문서 2.6의 「확인 필요」는 이 코드로 닫음), BE-5(① 로그인은 토큰 방식으로 바뀜, ② `valid_ms`는 구간 = 프레임 1장이라 명세와 같아짐, ③은 BE-2, ④⑤ 정리), BE-8(서버가 프레임을 묶는 방식 — #91 되돌림으로 닫음), BE-6(B안 구현·앱 처리는 10.5, ⑤ J2를 00:10에 — PR #93 [bigdata/README.md](../../bigdata/README.md) cron. 운영에서 켜는 ①만 1.0 DevOps에 남음), BE-9(판정 불가 좌표 없이 — 알림 끝), BE-12(토큰 로그인·CORS PR #68·#70, ③ 데스크톱은 1.0 F14). 10/26 김유진 정리 문서에 대한 답(옛 1.1)과 10/25 질문(`data-platform-boundary.md` 유지)도 끝났다. 10/22 질문(S1 뒤 WS가 안 열린 세션)은 서버 코드로 보니 DB 행이 닫히지 않아 1.0으로 되살렸다.
 서버·모델 내부의 정할 것(점수 합치기, 자세 유형을 낼지)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보인다.
 
 ## 2. 전제와 현재 구조
@@ -548,4 +548,5 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 - **앱의 자정 넘김 처리(10/30, PR #88):** `session_rollover`를 받으면 이전 세션 기록을 닫고 서버가 만든 새 세션 ID로 이어 간다. `closed(day_changed)`는 저장된 종료(7.2 12·18번).
 - **실제 자정 확인(10/31 00:00, 통과):** 자정 넘김을 켠 로컬 서버로 측정을 이어 두었다. `session_rollover` 00:00:00.051 수신, R1 기록 2개, 오늘·달력에 날짜별로 표시. 작업 문서 `fe-camera-midnight-test.md`는 닫았다([지운 문서 기록](../removed-docs.md) 9장).
 - **서버 3초 묶음(#91) 되돌림(11/2, PR #95):** develop 코드는 10/29 검증 때(`3d2fdfd`)와 같다. 경위와 다음 구조에서 지킬 것은 [실시간 측정 다시 만들기 — 프론트 정리](frontend-realtime-handoff-2026-11-03.md).
-- **`observation` 4.0 형식 합의(11/3):** BE 공지(구간마다 4.0)에 FE가 `sequence` 유지·`hold_ms` 추가·판정 불가 점수 `null`을 요청했고 BE가 같은 날 `45c5c19`로 반영. FE 대응·붕괴 게이지는 `feature/fe-3sec-batch-observation4`(시험 939개, `tsc`, lint 오류 0, build). 실제 BE와 함께 실행은 1.0.
+- **`observation` 4.0 형식 합의(11/3):** BE 공지(구간마다 4.0)에 FE가 `sequence` 유지·`hold_ms` 추가·판정 불가 점수 `null`을 요청했고 BE가 같은 날 `45c5c19`로 반영. FE 대응·붕괴 게이지는 `feature/fe-3sec-batch-observation4`(시험 939개, `tsc`, lint 오류 0, build). 11/3 로컬에서 실제 BE와 함께 실행 통과.
+- **develop 머지(11/3 저녁):** PR #98(BE `recovery_ms` `61365a4`·BE 상태·API 명세), PR #99(FE 붕괴·회복 게이지, 늦은 결과 버림), PR #93(Spark J1·J2·J3 — J2 00:10, J3 04:00)이 들어가 develop `fe5058b`. 운영 배포는 1.0.
