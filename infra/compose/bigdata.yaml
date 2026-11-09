@@ -380,7 +380,7 @@ services:
       start_period: 20s
 
   # ================= 입출구 서버 (D-48, 아키텍처 v5.2 입출구 층) =================
-  # 팀 backend/api(DB/BE, 「PoseGood API 명세서」 dc2de48 — REST 22개 + /v1/realtime)를 서버 PC에 올린다.
+  # 팀 backend/api(DB/BE, docs/design/api-spec.md — REST와 WebSocket /v2/realtime)를 서버 PC에 올린다.
   # 프로필 io로만 뜬다(빅데이터 플랫폼만 쓸 때는 영향 없음):
   #   docker compose -f infra/compose/bigdata.yaml --profile io up -d --build
   # 지금 단계(2026-10-15, 배포·연결 먼저): 코드는 그대로다. 판정은 API 안 메모리 엔진,

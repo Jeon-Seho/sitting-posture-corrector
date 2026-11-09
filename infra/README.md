@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 앱이 v2로 넘어갈 때까지 `/api/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
 
 ## 전체 검증
 
@@ -155,7 +155,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 
 ### 입출구 서버 (io-api, 서버 PC)
 
-팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`, 전환 기간에는 `/v1/realtime`도)를 같은 compose의 프로필 `io`로 띄운다.
+팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
 DB는 외부 MySQL의 서비스 DB(V2.6, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
