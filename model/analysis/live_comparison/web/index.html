@@ -9,6 +9,10 @@
 </head>
 <body>
   <header class="topbar"><a class="brand" href="/"><span class="brand-mark">P</span><span>POSE LAB <small>RESEARCH TOOL</small></span></a><span class="local-badge"><i></i> 로컬 실험 환경</span></header>
+  <div class="alert-toasts" aria-live="polite" aria-atomic="false">
+    <div class="alert-toast" id="rule-toast" hidden><strong>규칙 기반 자세 알림</strong><span>기준 자세에서 벗어난 상태가 이어지고 있습니다.</span></div>
+    <div class="alert-toast" id="model-toast" hidden><strong>2단계 모델 자세 알림</strong><span>기준 자세에서 벗어난 상태가 이어지고 있습니다.</span></div>
+  </div>
   <main>
     <div class="intro"><div><p class="eyebrow">POSTURE COMPARISON / 01</p><h1>자세 비교 실험실<span>.</span></h1><p class="subtitle">같은 자세를 두 가지 방식으로 살펴보세요.</p></div><div class="experiment-label"><span class="pulse"></span> LIVE COMPARISON</div></div>
     <div class="workspace">
@@ -20,9 +24,20 @@
       </section>
       <section class="results" aria-labelledby="results-title">
         <div class="section-head result-heading"><div><p class="eyebrow">02 / COMPARISON</p><h2 id="results-title">비교 결과</h2></div><span class="sync-label"><span></span> 같은 관측 창</span></div>
-        <article class="score-card card"><div class="score-head"><div class="score-icon rule-icon">⌁</div><div class="score-title"><p>기존 서버</p><h3>규칙 기반</h3></div><span class="score-state" id="rule-state">대기 중</span></div><div class="score-line"><strong id="rule-score">—</strong><span>점수 / 1.00</span></div><div class="track"><div id="rule-bar" class="bar rule-bar"></div></div><div class="score-footer"><span>비교 기준 0.70</span><span>머리 · 어깨 변화</span></div></article>
-        <article class="score-card card model-card"><div class="score-head"><div class="score-icon model-icon">✳</div><div class="score-title"><p>오프라인 학습</p><h3>2단계 모델</h3></div><span class="score-state" id="model-state">대기 중</span></div><div class="score-line"><strong id="model-score">—</strong><span>점수 / 1.00</span></div><div class="track"><div id="model-bar" class="bar model-bar"></div></div><div class="score-footer"><span id="model-threshold">모델 기준 불러오는 중</span><span>합성 이동 보정 포함</span></div></article>
+        <article class="score-card card"><div class="score-head"><div class="score-icon rule-icon">⌁</div><div class="score-title"><p>기존 서버</p><h3>규칙 기반</h3></div><span class="score-state" id="rule-state">대기 중</span></div><div class="score-line"><strong id="rule-score">—</strong><span>점 / 100점</span></div><div class="track"><div id="rule-bar" class="bar rule-bar"></div></div><div class="score-footer"><span>이탈 기준 30점 이하</span><span>머리 · 어깨 변화</span></div></article>
+        <article class="score-card card model-card"><div class="score-head"><div class="score-icon model-icon">✳</div><div class="score-title"><p>오프라인 학습</p><h3>2단계 모델</h3></div><span class="score-state" id="model-state">대기 중</span></div><div class="score-line"><strong id="model-score">—</strong><span>점 / 100점</span></div><div class="track"><div id="model-bar" class="bar model-bar"></div></div><div class="score-footer"><span id="model-threshold">모델 기준 불러오는 중</span><span>합성 이동 보정 포함</span></div></article>
+        <p class="score-explanation">100점에 가까울수록 등록한 자세에 가깝습니다. 점수는 천천히 변하지만 상태와 알림은 원래 판정을 따릅니다.</p>
         <div class="additional"><div><span>보정 전 모델 점수</span><strong id="raw-score">—</strong></div><div><span>합성 이동 보정값</span><strong id="correction">—</strong></div></div>
+        <section class="alert-comparison card" aria-labelledby="alerts-title">
+          <div class="alert-heading"><div><p class="eyebrow">03 / ALERTS</p><h3 id="alerts-title">알림 횟수 비교</h3></div><span class="alert-session-label">현재 비교 세션</span></div>
+          <p class="alert-description">각 방식에서 이탈이 3초 이어지면 화면에 알립니다. 이탈이 계속되면 60초마다 다시 알립니다.</p>
+          <div class="alert-counts">
+            <div class="alert-count" aria-live="polite"><span>규칙 기반</span><strong><span id="rule-alert-count">0</span><small>회</small></strong><span class="alert-last" id="rule-alert-last">아직 알림 없음</span></div>
+            <div class="alert-count" aria-live="polite"><span>2단계 모델</span><strong><span id="model-alert-count">0</span><small>회</small></strong><span class="alert-last" id="model-alert-last">아직 알림 없음</span></div>
+          </div>
+          <div class="notification-controls"><button type="button" class="button notification-button" id="enable-notifications">시스템 알림 켜기</button><span id="notification-status">화면 알림은 항상 표시됩니다.</span></div>
+          <p class="alert-footnote">화면에서 발생한 알림 횟수입니다. 운영 서비스의 알림 기록은 포함하지 않습니다. 기준을 다시 등록하면 횟수가 초기화됩니다.</p>
+        </section>
         <div class="notice"><div class="notice-mark">✳</div><p><strong>연구용 비교 화면입니다.</strong><br>점수는 실제 자세 이탈 확률이 아닙니다. 이 전체 자료 모델은 독립 검증되지 않았습니다. 측정이 어려운 구간은 판정을 표시하지 않습니다.</p></div>
       </section>
     </div>
