@@ -14,7 +14,7 @@ export async function verifyMidnight(browser, base, { email, password }) {
   const snapshot = () => e('window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot()')
   let socketId, ready, summary, closed
   c.on('Network.webSocketCreated', ({ requestId, url }) => {
-    if (new URL(url).pathname === '/api/v2/realtime') socketId = requestId
+    if (new URL(url).pathname === '/api/realtime') socketId = requestId
   })
   c.on('Network.webSocketFrameReceived', ({ requestId, response }) => {
     if (requestId !== socketId || response.opcode !== 1) return

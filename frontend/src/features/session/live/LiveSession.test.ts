@@ -53,7 +53,7 @@ class FakeSocket implements SocketLike {
   }
 }
 
-describe('server measurement over /v2/realtime (synthetic server only)', () => {
+describe('server measurement over /realtime (synthetic server only)', () => {
   let now = 0
   let fetch: ReturnType<typeof vi.fn<typeof globalThis.fetch>>
   let socket: FakeSocket
@@ -107,11 +107,11 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     await started()
     const [url, request] = fetch.mock.calls[0]
     const init = request!
-    expect(url).toBe(`/api/v2/sessions/${SESSION}`)
+    expect(url).toBe(`/api/sessions/${SESSION}`)
     expect(init.method).toBe('PUT')
     expect(JSON.parse(String(init.body))).toEqual({ policy: POLICY, baseline_id: BASELINE })
     expect(init.headers).toMatchObject({ Authorization: 'Bearer access', 'X-PoseGood-User-Id': '7' })
-    expect(socket.url).toBe('wss://app.example.test/api/v2/realtime')
+    expect(socket.url).toBe('wss://app.example.test/api/realtime')
     expect(socket.sent).toEqual([
       { type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: SESSION, access_token: 'access' },
     ])
@@ -293,7 +293,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.end()
     await vi.advanceTimersByTimeAsync(10_000)
     await flush()
-    expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${SESSION}`)
+    expect(fetch.mock.calls[1][0]).toBe(`/api/sessions/${SESSION}`)
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 1 })
     expect(live.state.summary.total_ms).toBe(900)
   })
@@ -421,7 +421,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
       live.end()
       await vi.advanceTimersByTimeAsync(10_000)
       await flush()
-      expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${NEXT}`)
+      expect(fetch.mock.calls[1][0]).toBe(`/api/sessions/${NEXT}`)
       expect(live.state).toMatchObject({ sessionId: NEXT, phase: 'ended' })
     })
 

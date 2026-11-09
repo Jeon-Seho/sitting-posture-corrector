@@ -18,7 +18,7 @@ import {
 
 /**
  * One measurement against the server (BE api-spec 7장·11장, FE proposal F1·F3, 2026-10-21):
- * S1 creates the session, `/v2/realtime` carries one 0.5 s coordinate interval per message,
+ * S1 creates the session, `/realtime` carries one 0.5 s coordinate interval per message,
  * and everything shown comes from the server. No reconnect, no resend (ADR 0024): a lost
  * connection ends the measurement and the server saves it up to the last interval.
  */
@@ -136,9 +136,9 @@ function serverTime(value: unknown): string | null {
 }
 
 export function realtimeUrl(): string {
-  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}/api/v2/realtime`
+  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}/api/realtime`
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${scheme}://${location.host}/api/v2/realtime`
+  return `${scheme}://${location.host}/api/realtime`
 }
 
 export class LiveSession {
@@ -212,7 +212,7 @@ export class LiveSession {
     try {
       const view = parseSessionView(
         await apiRequest(
-          `/v2/sessions/${encodeURIComponent(sessionId)}`,
+          `/sessions/${encodeURIComponent(sessionId)}`,
           { method: 'PUT', body: { policy, baseline_id: baselineId } },
           MESSAGES,
           // No answer: the same id and body again (api-ws-spec 4장 S1).
@@ -477,7 +477,7 @@ export class LiveSession {
     if (this.over()) return
     try {
       const view: SessionView | null = parseSessionView(
-        await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
+        await apiRequest(`/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
       if (view) {
         this.finish({ phase: 'ended', summary: view.summary, events: view.events, lastSequence: view.last_sequence })

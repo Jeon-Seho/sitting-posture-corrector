@@ -69,7 +69,7 @@ export async function runRealtimeObservation(browser, base, phases = PHASES) {
   const samples = []
   let socketId, phase = 'setup'
   c.on('Network.webSocketCreated', ({ requestId, url }) => {
-    if (new URL(url).pathname === '/api/v2/realtime') socketId = requestId
+    if (new URL(url).pathname === '/api/realtime') socketId = requestId
   })
   c.on('Network.webSocketFrameReceived', ({ requestId, response }) => {
     if (requestId !== socketId || response.opcode !== 1) return

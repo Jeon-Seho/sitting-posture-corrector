@@ -1,7 +1,7 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 
 /**
- * `posture.frames.v1` (FE proposal 3.1, F1): what the app sends to `/v2/realtime` (LiveSession,
+ * `posture.frames.v1` (FE proposal 3.1, F1): what the app sends to `/realtime` (LiveSession,
  * 2026-10-21).
  *
  * - One message per frame (2026-10-27, team lead): the interval `[start_ms, end_ms)` holds one

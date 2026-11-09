@@ -1,8 +1,8 @@
 # 계정·기준 자세·저장 API v2
 
-현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/v2/`는 API `/v2/`로 전달된다.
+현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/…`는 API `/…`로 전달된다(주소에 버전 없음, 2026-11-09).
 v1의 가입·workspace·세션 생성 형식과 호환되지 않아 별도 경로를 쓴다. 기존 v1 계정 경로는 제공하지 않는다.
-측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /v2/sessions/{id}/features`)·기록 저장(R2 `POST /v2/records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
+측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /sessions/{id}/features`)·기록 저장(R2 `POST /records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
 
 ## 인증
 
@@ -90,7 +90,7 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 정책은 ms 단위다. 기준이 없으면 `409 BASELINE_REQUIRED`. 세션은 계정 정책 FK·기준 FK·알림 설정을 고정한다.
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
 `POST .../end`는 `{end_ms}`(고정 재시도), `GET /sessions/{UUID}`는 조회 v1이다.
-WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
+WebSocket은 `/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
 `GET /records`는 [RecordItem](../frontend/src/features/storage/types.ts)을 돌려주고 `DELETE /records/{id}`는 그 기록(= 세션)을 지운다.
 `GET /records`는 2026-10-27부터 배열이 아니라 `{today, records: RecordItem[]}` 객체다(BE-6).

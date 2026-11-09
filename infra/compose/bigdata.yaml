@@ -380,7 +380,7 @@ services:
       start_period: 20s
 
   # ================= 입출구 서버 (D-48, 아키텍처 v5.2 입출구 층) =================
-  # 팀 backend/api(DB/BE, docs/design/api-spec.md — REST와 WebSocket /v2/realtime)를 서버 PC에 올린다.
+  # 팀 backend/api(DB/BE, docs/design/api-spec.md — REST와 WebSocket /realtime)를 서버 PC에 올린다.
   # 프로필 io로만 뜬다(빅데이터 플랫폼만 쓸 때는 영향 없음):
   #   docker compose -f infra/compose/bigdata.yaml --profile io up -d --build
   # 지금 단계(2026-10-15, 배포·연결 먼저): 코드는 그대로다. 판정은 API 안 메모리 엔진,
@@ -450,7 +450,7 @@ services:
       retries: 30
       start_period: 40s
 
-  # io-api가 부르는 점수 계산(팀 model/inference, POST /v2/infer). 포트를 열지 않는다(app-network 안에서만).
+  # io-api가 부르는 점수 계산(팀 model/inference, POST /infer). 포트를 열지 않는다(app-network 안에서만).
   # io-api는 이름이 "inference"인 내부 주소만 허용하므로 서비스 이름을 바꾸지 않는다.
   # Kafka 추론(inference-service, backend/inference)과는 다른 것 — ws → Kafka 전환이 끝나면 뺀다.
   inference:
@@ -481,7 +481,7 @@ services:
 
   # ---------------- (T-13) FE 화면 + nginx(web) — 서버 PC 안 FE ↔ BE 연동 시험 ----------------
   # 팀 frontend.Dockerfile(화면 빌드 + infra/nginx/default.conf)을 그대로 쓴다. 브라우저·시험 도구는 이 nginx 하나로 들어온다:
-  #   / → 화면, /api/ → io-api(별칭 api:8090), /api/v2/realtime(WebSocket), /health. 화면과 API가 같은 출처라 CORS가 필요 없다.
+  #   / → 화면, /api/ → io-api(별칭 api:8090), /api/realtime(WebSocket), /health. 화면과 API가 같은 출처라 CORS가 필요 없다.
   # 포트는 서버 PC 안(127.0.0.1)에만 — 다른 PC의 브라우저는 SSH 터널 ssh -L 8088:127.0.0.1:8088 <계정>@<서버> 후
   #   http://localhost:8088 (localhost는 브라우저가 안전한 출처로 봐서 웹캠도 쓸 수 있다). 배포 구성(터널·도메인)은 D-43에서 따로.
   web:
@@ -512,7 +512,7 @@ services:
       timeout: 5s
       retries: 20
 
-  # (D-43) 인터넷 공개 입구 — API만 받는 nginx. 화면은 Vercel(app.<도메인>), 여기서는 /api/…·/api/v2/realtime·/health만.
+  # (D-43) 인터넷 공개 입구 — API만 받는 nginx. 화면은 Vercel(app.<도메인>), 여기서는 /api/…·/api/realtime·/health만.
   # 호스트 포트를 열지 않는다. 같은 망의 cloudflared만 http://gateway:80으로 부른다(infra/nginx/gateway.conf).
   # web(8088)은 서버 안 시험용으로 그대로 둔다(화면 + 같은 API 중계).
   gateway:

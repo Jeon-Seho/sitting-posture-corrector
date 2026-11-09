@@ -48,7 +48,7 @@ import { ServerAccountPage } from '../features/profile/ServerAccountPage'
 type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
 
 /**
- * The app always signs in on the account server `/v2/auth` (D-66; no switch since 2026-10-22,
+ * The app always signs in on the account server `/auth` (D-66; no switch since 2026-10-22,
  * klaod-tech: the app always measures on the server, ADR 0021, so a local sign-in has no use).
  */
 const DEFAULT_ACCOUNTS: AccountClient | null = createAccountClient()

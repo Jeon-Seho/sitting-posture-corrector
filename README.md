@@ -3,7 +3,7 @@
 웹캠 기반 개인 기준 자세 변화 알림 앱. 데스크톱 화면의 React 앱 하나에서
 로그인·회원가입 → 측정하기(자세 등록 포함) → 기록·달력 → 설정을 다룬다.
 
-- **판정은 서버가 한다**([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 앱은 관절 9개 좌표를 프레임마다(2026-10-27부터) BE 입출구 서버(`/v2/realtime`)에 보내고 결과를 표시한다. 영상은 보내지 않는다.
+- **판정은 서버가 한다**([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 앱은 관절 9개 좌표를 프레임마다(2026-10-27부터) BE 입출구 서버(`/realtime`)에 보내고 결과를 표시한다. 영상은 보내지 않는다.
   계약은 [연동 명세](docs/design/api-ws-spec.md)와 [WebSocket v2](contracts/realtime/realtime-ws.v2.schema.json)다. 앱을 v2로 바꾸는 일은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)에서 한다.
 - **지금 앱(FE V3, 2026-10-21~)은 항상 서버로 측정한다.** 로그인·회원가입·기준 자세(B1)·측정은 서버와 하고, 앱의 로컬 판정과 개발용 서버(v1, 특징 변화량)는 지웠다([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 오늘 기록은 이 기기에도 모은다([ADR 0027](docs/decisions/0027-today-records-from-collected-server-results.md)). 서버 판정은 규칙이며 학습된 LSTM은 미연결이다.
 
@@ -64,8 +64,8 @@ make dev
 `make`가 없는 Windows에서는 `python tools/dev.py setup`, `python tools/dev.py dev`를 사용한다.
 
 [로컬 화면](http://127.0.0.1:5173/) → 회원가입(① 약관 동의 C1~C6 ② 계정 정보 ③ 자세 등록, 선택) → 측정하기 → 카메라 켜기 → (등록한 자세가 없으면) 3·2·1 뒤 3초 등록 → 측정.
-다음부터는 로그인 화면에서 들어간다. 가입·로그인은 항상 서버 계정(BE `/v2/auth`)이다(2026-10-22).
-프로필·동의 선택은 이 브라우저(localStorage)에만 저장하고 비밀번호는 저장하지 않는다. 자세 등록(B1)과 측정(`/v2/realtime`)은 항상 서버로 한다(2026-10-21, 앱은 판정하지 않음). 로그인하면 그 계정으로 등록·측정한다. 그래서 로컬 화면도 입출구 서버(개발 중계 `/api`)가 떠 있어야 가입·로그인할 수 있다.
+다음부터는 로그인 화면에서 들어간다. 가입·로그인은 항상 서버 계정(BE `/auth`)이다(2026-10-22).
+프로필·동의 선택은 이 브라우저(localStorage)에만 저장하고 비밀번호는 저장하지 않는다. 자세 등록(B1)과 측정(`/realtime`)은 항상 서버로 한다(2026-10-21, 앱은 판정하지 않음). 로그인하면 그 계정으로 등록·측정한다. 그래서 로컬 화면도 입출구 서버(개발 중계 `/api`)가 떠 있어야 가입·로그인할 수 있다.
 웹캠 권한을 지원하는 브라우저에서 실행한다.
 
 개발 서버 모드는 JDK 17로 `make check-backend`를 실행해 JAR를 준비한 뒤 `make dev-server`로 연다(백엔드는 Gradle Wrapper로 빌드, [ADR 0020](docs/decisions/0020-single-api-decision-engine.md) 1절).

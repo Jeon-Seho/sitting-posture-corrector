@@ -47,7 +47,7 @@ final class ApiClient {
 
 	/** refresh 쿠키로 새 access 토큰을 받는다(성공하면 바꿔 끼운다). */
 	Response refresh() throws Exception {
-		var response = post("/v2/auth/refresh", null);
+		var response = post("/auth/refresh", null);
 		if (response.status() == 200) {
 			accessToken = response.body().get("access_token").asString();
 		}
@@ -63,12 +63,12 @@ final class ApiClient {
 			consents.addObject().put("type", type).put("document_version", "service-v2");
 		}
 		body.putObject("profile").put("name", "합성 사용자").put("age", 30).put("occupation", "합성 시험");
-		return signedIn(post("/v2/auth/register", body));
+		return signedIn(post("/auth/register", body));
 	}
 
 	Response login(String email, String password) throws Exception {
 		var body = MAPPER.createObjectNode().put("email", email).put("password", password);
-		return signedIn(post("/v2/auth/login", body));
+		return signedIn(post("/auth/login", body));
 	}
 
 	/** 실시간 hello에 넣을 access 토큰(로그인 전이면 null). */

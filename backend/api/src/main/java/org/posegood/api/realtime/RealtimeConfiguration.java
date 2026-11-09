@@ -11,11 +11,11 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 
 /**
- * /v2/realtime WebSocket 등록과 허용 출처·메시지 크기 설정.
+ * /realtime WebSocket 등록과 허용 출처·메시지 크기 설정.
  *
  * 허용 출처를 설정하지 않으면 같은 출처 페이지만 연결할 수 있다(프록시는 원래 Host와 포트를 넘겨야 한다).
  * 메시지는 64KB까지 받고, 넘으면 연결을 끊는 대신 {@code closed(bad_message)}를 보낼 수 있게 컨테이너 버퍼를
- * 그보다 크게(128KB) 둔다. v1(/v1/realtime)은 앱이 v2로 넘어가 삭제했다.
+ * 그보다 크게(128KB) 둔다. 옛 경로 /v1/realtime·/v2/realtime은 2026-11-09 /realtime 하나로 정리했다.
  */
 @Configuration
 @EnableWebSocket
@@ -34,7 +34,7 @@ public class RealtimeConfiguration implements WebSocketConfigurer {
 
 	@Override
 	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		var v2 = registry.addHandler(handlerV2, "/v2/realtime");
+		var v2 = registry.addHandler(handlerV2, "/realtime");
 		if (origins.length > 0) {
 			v2.setAllowedOrigins(origins);
 		}

@@ -43,8 +43,8 @@ import jakarta.validation.Validator;
 import tools.jackson.databind.JsonNode;
 
 /**
- * 실시간 v2 채널({@code /v2/realtime}): 연결 하나가 측정 한 번이다(자정 넘김이면 세션은 둘). 재연결은 없다(ADR 0024).
- * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
+ * 실시간 v2 채널({@code /realtime}): 연결 하나가 측정 한 번이다(자정 넘김이면 세션은 둘). 재연결은 없다(ADR 0024).
+ * 자세 등록은 B1({@code POST /baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
  * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은

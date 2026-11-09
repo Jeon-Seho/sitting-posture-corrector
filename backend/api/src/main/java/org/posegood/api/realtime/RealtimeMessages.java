@@ -8,14 +8,14 @@ import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.contract.SessionView.Summary;
 
 /**
- * 실시간 채널({@code /v2/realtime})이 보내는 메시지 형식 모음. 형식은 {@link V2}에 있다(전송 형식은 snake_case).
+ * 실시간 채널({@code /realtime})이 보내는 메시지 형식 모음. 형식은 {@link V2}에 있다(전송 형식은 snake_case).
  */
 final class RealtimeMessages {
 	private RealtimeMessages() {
 	}
 
 	/**
-	 * {@code /v2/realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
+	 * {@code /realtime} 메시지 형식. 연결 하나가 세션(또는 등록) 하나라 hello·ready만 ID를 담는다.
 	 *
 	 * 계약: contracts/realtime/realtime-ws.v2.schema.json. closed 사유: ended, unauthorized, not_owner, session_lost,
 	 * no_baseline, bad_message, server_shutdown, limit_reached, unmeasurable_timeout, day_changed.

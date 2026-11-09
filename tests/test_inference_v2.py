@@ -19,7 +19,7 @@ class InferenceV2Tests(unittest.TestCase):
         self.body = json.loads((EXAMPLES / "synthetic-feature-request.json").read_text(encoding="utf-8"))
 
     def infer(self, body):
-        response = self.client.post("/v2/infer", json=body)
+        response = self.client.post("/infer", json=body)
         self.assertEqual(response.status_code, 200, response.text)
         result = response.json()
         for field in ("sequence", "start_ms", "end_ms", "phase"):
@@ -45,7 +45,7 @@ class InferenceV2Tests(unittest.TestCase):
                 self.assertEqual(result["deviation_type"], "none")
 
     def test_representative_invalid_request_is_rejected(self):
-        response = self.client.post("/v2/infer", json=dict(self.body, sequence=-1))
+        response = self.client.post("/infer", json=dict(self.body, sequence=-1))
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json(), {"error": "invalid_contract"})
 

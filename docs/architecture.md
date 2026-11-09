@@ -7,7 +7,7 @@
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
-지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
+지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 현재 체험용 구현의 초기 선택은 옛 ADR 0002(지금 [ADR 0007](decisions/0007-lite-pose-tracker.md) 1절)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상은 서버에 보내지 않는다. 서비스에는 9점 좌표를 전송한다.
@@ -40,7 +40,7 @@
 `model/`은 코드의 책임 경계이며 반드시 서버에서 실행한다는 뜻은 아니다.
 현재 계획은 React/TypeScript 클라이언트에서 MediaPipe 키포인트를 추출하고 필요한 특징을 추론 서비스에 전송하며,
 Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다. Python/LSTM 추론 서비스와 사용자 관리 서비스는 분리한다.
-앱(FE V3, 2026-10-21)은 관절 9개 좌표를 `/v2/realtime`에 보내고(10/21 0.5초 구간, 2026-10-27부터 프레임마다), 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)).
+앱(FE V3, 2026-10-21)은 관절 9개 좌표를 `/realtime`에 보내고(10/21 0.5초 구간, 2026-10-27부터 프레임마다), 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)).
 기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 예전(v1) 개발 흐름의 브라우저 특징 변화량(`model/prototype/serverFeatures.ts`)과 앱의 머리·고개 돌림 판정은 2026-10-22 지웠다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
@@ -96,15 +96,15 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 배치의 구현 상태는 [DB 안내](../database/README.md)의 11장을 참고한다.
 API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
-앱의 가입·로그인은 2026-10-22부터 항상 BE `/v2/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
+앱의 가입·로그인은 2026-10-22부터 항상 BE `/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
 서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
 동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
-앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`, WebSocket `/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.
-실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
+실시간 채널(`/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 ## 프론트 진입과 로컬 저장

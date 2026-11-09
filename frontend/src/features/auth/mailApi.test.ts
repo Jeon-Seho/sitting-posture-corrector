@@ -11,7 +11,7 @@ describe('future mail API connection', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(null, { status: 202 }))
     await createMailApi({ enabled: true, fetcher }).request('reset', ' A@Example.com ')
     expect(fetcher).toHaveBeenCalledTimes(1)
-    expect(fetcher.mock.calls[0]).toEqual(['/api/v2/auth/password-reset/requests', expect.objectContaining({
+    expect(fetcher.mock.calls[0]).toEqual(['/api/auth/password-reset/requests', expect.objectContaining({
       body: JSON.stringify({ email: 'a@example.com' }), credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
     })])

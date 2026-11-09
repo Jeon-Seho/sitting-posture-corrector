@@ -34,7 +34,7 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
       landmarks,
     })
     expect(await fetchCurrentBaseline({ fetch })).toBeNull()
-    expect(fetch.mock.calls[0][0]).toBe('/api/v2/baselines/current')
+    expect(fetch.mock.calls[0][0]).toBe('/api/baselines/current')
     expect(fetch.mock.calls[0][1].headers).toEqual({ 'X-PoseGood-User-Id': USER, Authorization: 'Bearer token' })
   })
 
@@ -45,7 +45,7 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
     expect(saved.baselineId).toBe(ID)
     expect(fetch).toHaveBeenCalledTimes(2)
     const [url, init] = fetch.mock.calls[0]
-    expect(url).toBe('/api/v2/baselines')
+    expect(url).toBe('/api/baselines')
     expect(init.method).toBe('POST')
     expect(init.headers).toMatchObject({ Authorization: 'Bearer token', 'X-PoseGood-User-Id': USER })
     // DB V2.5: one id per capture, no `registered_at` (the server sets the time; sending it is a 400).

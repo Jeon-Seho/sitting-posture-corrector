@@ -4,7 +4,7 @@
  *
  * - VITE_API_BASE_URL=https://… API origin when the page is served elsewhere (Vercel
  *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe-server-proposal.md 9장).
- *                              Unset = same origin (`/api/...`, and `ws(s)://<page host>/api/v2/realtime`).
+ *                              Unset = same origin (`/api/...`, and `ws(s)://<page host>/api/realtime`).
  *
  * Development API calls go through the Vite proxy (`/api` → POSEGOOD_API_URL, default
  * http://127.0.0.1:8090, WebSocket included); see vite.config.ts.

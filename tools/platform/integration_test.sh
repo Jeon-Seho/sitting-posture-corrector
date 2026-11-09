@@ -31,7 +31,7 @@
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
 #  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.6)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
-#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계)
+#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계)
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
 #  14. 공개 입구   : (D-43) 처리 서비스·추론 포트가 127.0.0.1에만, gateway(API 전용 nginx, 호스트 포트 없음)가 /api만 중계하고 /는 404,
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
@@ -586,7 +586,7 @@ fi
 
 # ---------------------------------------------------------------------
 step "12. 실시간 WebSocket 왕복 (D-57 3단계)"
-# 앱처럼 io-api /v2/realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
+# 앱처럼 io-api /realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
 # 판정 경로(io-api POSEGOOD_REALTIME_PIPELINE)가 local이든 kafka든 같은 결과여야 한다 — 두 값으로 한 번씩 돌려 비교(계획 0031).
 if [ "$E2E" = 0 ]; then skip "실시간 WebSocket 왕복" "--no-e2e"
 elif ! docker inspect io-api >/dev/null 2>&1; then skip "실시간 WebSocket 왕복" "io-api 컨테이너 없음"
@@ -604,7 +604,7 @@ fi
 # ---------------------------------------------------------------------
 step "13. FE ↔ BE 연동 — 화면 nginx(web) 경유 (T-13)"
 # (T-13 1단계) 서버 PC 안에서 FE 화면 컨테이너(팀 frontend.Dockerfile = 화면 + infra/nginx/default.conf)와 io-api를 함께 띄우고,
-#   브라우저가 쓰는 같은 경로(/api/…, /api/v2/realtime)로 REST 점검·WebSocket 왕복이 io-api 직접(10·12단계)과 같은지 본다.
+#   브라우저가 쓰는 같은 경로(/api/…, /api/realtime)로 REST 점검·WebSocket 왕복이 io-api 직접(10·12단계)과 같은지 본다.
 WEB="http://127.0.0.1:$(envor WEB_HOST_PORT 8088)"
 if ! docker inspect web >/dev/null 2>&1; then
   skip "FE ↔ BE 연동" "web 컨테이너 없음 — $DC --profile io up -d --build web"
@@ -622,7 +622,7 @@ else
   fi
   if [ "$E2E" = 1 ]; then
     if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" >"$OUT/web-ws.log" 2>&1; then
-      pass "화면 경유 WebSocket 왕복 /api/v2/realtime ($(tail -1 "$OUT/web-ws.log"))"
+      pass "화면 경유 WebSocket 왕복 /api/realtime ($(tail -1 "$OUT/web-ws.log"))"
     else
       fail "화면 경유 WebSocket 왕복" "$(grep -m3 '^FAIL' "$OUT/web-ws.log" | tr '\n' ' ')(상세 $OUT/web-ws.log)"
     fi
@@ -678,10 +678,10 @@ else
   ORIG="$(envval POSEGOOD_CORS_ALLOWED_ORIGINS | cut -d, -f1)"
   if [ -z "$ORIG" ]; then skip "CORS 사전 확인" "POSEGOOD_CORS_ALLOWED_ORIGINS 비어 있음"
   else
-    HDR="$(curl -s -m 15 -o /dev/null -D - -X OPTIONS "$PUB/api/v2/auth/login" -H "Origin: $ORIG" \
+    HDR="$(curl -s -m 15 -o /dev/null -D - -X OPTIONS "$PUB/api/auth/login" -H "Origin: $ORIG" \
       -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tr -d '\r')"
     if echo "$HDR" | grep -qi "^access-control-allow-origin: $ORIG\$" && echo "$HDR" | grep -qi '^access-control-allow-credentials: true'; then
-      pass "CORS 사전 확인 OPTIONS /api/v2/auth/login (Origin $ORIG, credentials)"
+      pass "CORS 사전 확인 OPTIONS /api/auth/login (Origin $ORIG, credentials)"
     else fail "CORS 사전 확인" "허용 헤더 없음 — 끝 /·오타, docker exec io-api printenv POSEGOOD_CORS_ALLOWED_ORIGINS"; fi
   fi
   if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
@@ -690,7 +690,7 @@ else
   if [ "$E2E" = 1 ]; then
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
     if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} >"$OUT/public-ws.log" 2>&1; then
-      pass "터널 경유 wss 왕복 /api/v2/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
+      pass "터널 경유 wss 왕복 /api/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
     else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
   fi
 fi

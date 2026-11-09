@@ -61,7 +61,7 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * {@code /v2/realtime} 순서·제한 시험: hello 순서와 제한 시간, ready, features, end, 끊김 종료, bad_message.
+ * {@code /realtime} 순서·제한 시험: hello 순서와 제한 시간, ready, features, end, 끊김 종료, bad_message.
  *
  * 앱 메시지는 contracts/realtime/examples-v2의 예시를 그대로 보내고, 서버 메시지는 같은 종류의 예시와 필드가
  * 같은지 확인한다. 판정·저장은 {@link SessionService} 대역으로 대신한다(실제 흐름은 MySQL 통합 시험).

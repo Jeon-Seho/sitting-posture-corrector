@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/realtime/realtime-ws.v2.schema.json",
-  "title": "WebSocket /v2/realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
-  "description": "One connection per measurement (purpose measure). Posture registration is B1 POST /v2/baselines only; WebSocket registration (purpose calibration) was removed on 2026-10-27. The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session, plus session_rollover, which moves the connection to a new server-made session at KST midnight (BE-6 1, plan B).",
+  "title": "WebSocket /realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
+  "description": "One connection per measurement (purpose measure). Posture registration is B1 POST /baselines only; WebSocket registration (purpose calibration) was removed on 2026-10-27. The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session, plus session_rollover, which moves the connection to a new server-made session at KST midnight (BE-6 1, plan B).",
   "oneOf": [
     {
       "$ref": "#/$defs/hello"
@@ -63,7 +63,7 @@
       "$ref": "../session-view.v1.schema.json#/properties/summary"
     },
     "hello": {
-      "description": "app -> server, first message, after PUT /v2/sessions/{id} succeeded (200). access_token: the login access token (JWT) from login/refresh (ADR 0031); checked once, so it may expire during the connection.",
+      "description": "app -> server, first message, after PUT /sessions/{id} succeeded (200). access_token: the login access token (JWT) from login/refresh (ADR 0031); checked once, so it may expire during the connection.",
       "type": "object",
       "additionalProperties": false,
       "required": [

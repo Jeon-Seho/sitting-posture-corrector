@@ -9,7 +9,7 @@
 
 ## 1. 가입 화면 동의 목록
 
-C1~C6은 동의 항목 번호다(코드 `ConsentId`). 연동 명세의 API C1(`PUT /v2/consents/optional-profile`)과는 다른 번호다.
+C1~C6은 동의 항목 번호다(코드 `ConsentId`). 연동 명세의 API C1(`PUT /consents/optional-profile`)과는 다른 번호다.
 
 | # | 동의 | 필수/선택 | 거부하면 |
 |---|---|---|---|
@@ -47,7 +47,7 @@ C1~C6은 동의 항목 번호다(코드 `ConsentId`). 연동 명세의 API C1(`P
 - 3/3 자세 등록(선택): 측정하기의 「다시 등록」 모드(`SetupPage registerAgain`)를 그대로 넣었다. 개발자 옵션은 숨기고 시작 버튼은 「앱 시작」이다.
   「앱 시작」은 측정하기로, 「건너뛰기」(카메라가 연결되지 않았으면 눈에 띄는 「카메라 없이 넘어가기」)는 첫 화면으로 간다. 오른쪽 아래에 「이전」과 함께 있다.
   가입을 마칠 때 카메라가 켜져 있으면 앱 화면의 영상 요소로 다시 연결한다(그대로 두면 스켈레톤 인식이 멈춘다). 건너뛴 사용자는 측정하기에서 3초 등록을 한다.
-- 10/22부터 가입은 A2 `POST /v2/auth/register`(동의 목록은 `consents.ts` `consentPayload()`), 로그인은 A3로 서버가 확인한다(스위치 없음). 화면용으로 프로필·이메일·동의 선택의 사본을 이 기기에도 두고, 비밀번호는 저장하지 않는다.
+- 10/22부터 가입은 A2 `POST /auth/register`(동의 목록은 `consents.ts` `consentPayload()`), 로그인은 A3로 서버가 확인한다(스위치 없음). 화면용으로 프로필·이메일·동의 선택의 사본을 이 기기에도 두고, 비밀번호는 저장하지 않는다.
 - 코드: `frontend/src/features/auth/`(`consents.ts` 항목·고지·DB 유형, `ConsentList.tsx`, `ConsentDialog.tsx`, `SignupPostureStep.tsx`), `app/LocalServiceApp.tsx`.
 
 ## 4. 저장 (DB V2.3 `user_consent`)
@@ -59,5 +59,5 @@ C1~C6은 동의 항목 번호다(코드 `ConsentId`). 연동 명세의 API C1(`P
 
 ## 5. API에 미치는 것
 
-- `POST /v2/auth/register`(A2)에 동의한 항목만 `consents: [{type, document_version:"service-v2"}]`로 보낸다. `type`은 DB 유형(`AGE_14_OVER` 등), 비동의한 선택 항목은 빼고 보낸다([연동 명세](api-ws-spec.md) 4장 A2).
+- `POST /auth/register`(A2)에 동의한 항목만 `consents: [{type, document_version:"service-v2"}]`로 보낸다. `type`은 DB 유형(`AGE_14_OVER` 등), 비동의한 선택 항목은 빼고 보낸다([연동 명세](api-ws-spec.md) 4장 A2).
 - 지금 계정 계약 v1의 `consent_version: "service-v1"` 하나는 이것으로 바뀐다.

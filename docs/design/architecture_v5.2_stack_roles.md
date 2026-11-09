@@ -10,7 +10,7 @@
 
 | 층 | 스택 | 한 줄 역할 | 상태 |
 |---|---|---|---|
-| 입출구 | 입출구 서버 (팀 `backend/api`, `auth`·`api`·`ws`) | 바깥 입구 하나 — 계정·설정·기록(`/v2`), 실시간·등록(`/v2/realtime`) | REST 서버 배포 완료(10/16, 점검 19개 PASS) · `ws`는 PM 구축 · D-48 |
+| 입출구 | 입출구 서버 (팀 `backend/api`, `auth`·`api`·`ws`) | 바깥 입구 하나 — 계정·설정·기록(`/auth`·`/workspace`·`/records` 등), 실시간·등록(`/realtime`) | REST 서버 배포 완료(10/16, 점검 19개 PASS) · `ws`는 PM 구축 · D-48 |
 | 처리 서비스 | 추론 서비스 | 0.5초 좌표 구간 → good/bad 확률, 등록 평균 좌표 | 규칙 기준 완료(서버 PC 테스트) · 좌표 입력 D-34 · GPU 이전 D-31 |
 | 처리 서비스 | 판정 서비스 | 확률 흐름 → 붕괴 확정·재알림·복귀 사건 | 완료 · DN-39~41 |
 | 처리 서비스 | 판정 결과 저장 | 사건·알림·세션 종료를 DB에, 표시할 알림 발행 | 저장 완료 · DN-46·47 · 알림 발행 D-54(10/18 구현) |
@@ -29,7 +29,7 @@
 
 | 스택 | 역할 | 입력 | 출력 | 왜 필요한가 |
 |---|---|---|---|---|
-| 입출구 서버 (팀 `backend/api`, Spring Boot 1대) | `auth`: 가입·로그인·로그아웃·비밀번호·탈퇴 접수(삭제는 J3) / `api`: 설정·기준 조회·세션 행·끊긴 뒤 종료·기록·통계(`/v2`) / `ws`: 좌표 받기·등록 전용 연결·세션 메시지 발행·결과·알림 전달(`/v2/realtime`) | 앱 HTTP(쿠키 세션 + CSRF, ①), WebSocket `hello`(`purpose`)·`features`(구간 1개, 약 2~7KB)·`end`(②), Kafka `inference.v1`·`episodes.v1`·`alerts.v1`(⑤⑥) | MySQL(③), Kafka `features.v1`에 `session_started`(기준 좌표 첨부)·`features`·`session_ended`·등록 프레임(④, `ws`만), 앱에 `ready`·`ack`·`observation`·`progress`·`decision`·`alert`·`stalled`·`calibration_result`·`closed` | 앱이 주소 하나만 알면 되고 바깥 포트도 하나(D-43). 같은 앱이라 WebSocket이 HTTP 로그인을 그대로 씀. 세션 메시지를 `ws` 한 곳에서만 내 순서가 지켜짐. 패키지끼리는 공개 인터페이스로만 불러 나중에 서비스로 분리 가능. 측정 중 끊기면 세션을 끝냄(재연결 없음) |
+| 입출구 서버 (팀 `backend/api`, Spring Boot 1대) | `auth`: 가입·로그인·로그아웃·비밀번호·탈퇴 접수(삭제는 J3) / `api`: 설정·기준 조회·세션 행·끊긴 뒤 종료·기록·통계(`/workspace`·`/records`·`/stats` 등) / `ws`: 좌표 받기·등록 전용 연결·세션 메시지 발행·결과·알림 전달(`/realtime`) | 앱 HTTP(쿠키 세션 + CSRF, ①), WebSocket `hello`(`purpose`)·`features`(구간 1개, 약 2~7KB)·`end`(②), Kafka `inference.v1`·`episodes.v1`·`alerts.v1`(⑤⑥) | MySQL(③), Kafka `features.v1`에 `session_started`(기준 좌표 첨부)·`features`·`session_ended`·등록 프레임(④, `ws`만), 앱에 `ready`·`ack`·`observation`·`progress`·`decision`·`alert`·`stalled`·`calibration_result`·`closed` | 앱이 주소 하나만 알면 되고 바깥 포트도 하나(D-43). 같은 앱이라 WebSocket이 HTTP 로그인을 그대로 씀. 세션 메시지를 `ws` 한 곳에서만 내 순서가 지켜짐. 패키지끼리는 공개 인터페이스로만 불러 나중에 서비스로 분리 가능. 측정 중 끊기면 세션을 끝냄(재연결 없음) |
 
 분담: 일반 REST(`auth`·`api`)와 배포는 DevOps/BE, `ws`는 PM(외부 `ws_구축가이드_PM.md`, [참조 안내](architecture_v5.2_change_notes.md#외부-원본-참조)). 저장소의 작업 단계는 [Kafka 전환 계획](../plans/active/0031-realtime-kafka-transition.md)에서 확인한다.
 

@@ -12,7 +12,7 @@
 ## 1. 흐름
 
 ```
-앱 ─WebSocket /v2/realtime─▶ 입출구 서버 ws ─▶ posture.features.v1 ─▶ 추론(backend/inference) ─▶ posture.inference.v1
+앱 ─WebSocket /realtime─▶ 입출구 서버 ws ─▶ posture.features.v1 ─▶ 추론(backend/inference) ─▶ posture.inference.v1
                                                                                                       │
 앱 ◀─WebSocket─ 입출구 서버 ws ◀── posture.episodes.v1 ◀── 판정(backend/processing) ◀────────────────┘
                                           │

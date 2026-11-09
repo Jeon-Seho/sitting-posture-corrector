@@ -7,7 +7,7 @@
 API 명세: 저장소 docs/design/api-spec.md. 앱은 /api 접두사를 붙이지만 io-api 컨테이너에는 접두사 없이 보낸다.
 로그인은 access·refresh 토큰(ADR 0031, D-69): 보호 요청은 Authorization: Bearer, 로그인 유지는 쿠키 posegood_refresh(A8).
 합성 시험 계정(test-it-<임의값>@example.invalid, DB 회신 DB-6의 시험 계정 형식)만 쓴다.
-측정(좌표 → 추론 → 판정)은 /v2/realtime으로만 한다 — ws_realtime_smoke.py(12단계)가 본다. REST 구간 입력(S2)·메타데이터(S5)·
+측정(좌표 → 추론 → 판정)은 /realtime으로만 한다 — ws_realtime_smoke.py(12단계)가 본다. REST 구간 입력(S2)·메타데이터(S5)·
 세션 삭제(S6)는 2026-10-28 API에서 지웠다(계획 0062, D-75). 여기서는 세션을 S1로 만들고 S3로 닫는다.
 끝에서 기록을 지우고(R3) 계정을 탈퇴 접수한다(CLOSED). 계정 행의 최종 삭제는 Spark J3(30일 뒤)가 한다.
 표준 라이브러리만 쓴다(서버 PC에 jsonschema·requests가 없어도 된다).
@@ -144,7 +144,7 @@ def scenario(base):
 
     # --- 계정 (A2·A3·A4·A8, 토큰 로그인 ADR 0031) ---
     email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
-    user = expect("A2 가입 → access 토큰·로그인 유지 쿠키 (합성 시험 계정)", owner.call("/v2/auth/register", "POST", {
+    user = expect("A2 가입 → access 토큰·로그인 유지 쿠키 (합성 시험 계정)", owner.call("/auth/register", "POST", {
         "email": email, "password": PASSWORD,
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
@@ -154,40 +154,40 @@ def scenario(base):
     owner.sign_in(user)
     secure = "secure" in [a.strip() for a in owner.cookie_attributes.split(";")]
     print(f"  참고: 로그인 유지 쿠키 Secure={'예' if secure else '아니요'} (POSEGOOD_COOKIE_SECURE)", flush=True)
-    expect("A4 GET /v2/auth/me (Bearer)", owner.call("/v2/auth/me"), 200,
+    expect("A4 GET /auth/me (Bearer)", owner.call("/auth/me"), 200,
            lambda b: None if b["user_id"] == owner.user_id else "다른 계정")
-    expect("토큰 없는 요청은 401", Client(base).call("/v2/auth/me"), 401)
+    expect("토큰 없는 요청은 401", Client(base).call("/auth/me"), 401)
 
     device = Client(base)  # 다른 기기: A3 로그인 → 아래에서 A5 로그아웃
-    signed = expect("A3 로그인 (다른 기기)", device.call("/v2/auth/login", "POST", {"email": email, "password": PASSWORD}),
+    signed = expect("A3 로그인 (다른 기기)", device.call("/auth/login", "POST", {"email": email, "password": PASSWORD}),
                     200, signed_in(device))
     if signed is not None:
         device.sign_in(signed)
 
     old_cookie = owner.refresh_cookie
-    refreshed = expect("A8 POST /v2/auth/refresh → 새 access 토큰, 쿠키 교체", owner.call("/v2/auth/refresh", "POST"), 200,
+    refreshed = expect("A8 POST /auth/refresh → 새 access 토큰, 쿠키 교체", owner.call("/auth/refresh", "POST"), 200,
                        lambda b: None if b.get("access_token") and b.get("user_id") == owner.user_id
                        and owner.refresh_cookie and owner.refresh_cookie != old_cookie else "토큰·쿠키가 바뀌지 않음")
     if refreshed is not None:
         owner.sign_in(refreshed)
-        expect("A8 새 토큰으로 A4", owner.call("/v2/auth/me"), 200)
-    expect("A8 쿠키 없이는 401", Client(base).call("/v2/auth/refresh", "POST"), 401)
+        expect("A8 새 토큰으로 A4", owner.call("/auth/me"), 200)
+    expect("A8 쿠키 없이는 401", Client(base).call("/auth/refresh", "POST"), 401)
 
     # --- 설정·기준 자세 (W1, B1, B2) ---
-    expect("W1 GET /v2/workspace", owner.call("/v2/workspace"), 200)
-    saved = expect("B1 기준 자세 등록 (관절 9개 평균 좌표)", owner.call("/v2/baselines", "POST", {
+    expect("W1 GET /workspace", owner.call("/workspace"), 200)
+    saved = expect("B1 기준 자세 등록 (관절 9개 평균 좌표)", owner.call("/baselines", "POST", {
         "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS,
     }), 200, lambda b: None if b.get("baseline_id") else "baseline_id 없음")
     if saved is None:
         return
     baseline = saved["baseline_id"]
-    expect("B2 현재 기준 자세 조회", owner.call("/v2/baselines/current"), 200,
+    expect("B2 현재 기준 자세 조회", owner.call("/baselines/current"), 200,
            lambda b: None if b["baseline_id"] == baseline else "등록한 기준과 다름")
 
-    # --- 세션 (S1·S3·S4) — 측정 입력은 /v2/realtime(ws_realtime_smoke.py) ---
+    # --- 세션 (S1·S3·S4) — 측정 입력은 /realtime(ws_realtime_smoke.py) ---
     sid = str(uuid.uuid4())
-    path = "/v2/sessions/" + sid
+    path = "/sessions/" + sid
     expect("S1 세션 생성 (200 SessionView)", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}),
            200, lambda b: None if b["last_sequence"] == -1 and not b["ended"] else "새 세션 상태 아님")
     expect("S1 같은 요청 재시도는 멱등", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}), 200)
@@ -202,29 +202,29 @@ def scenario(base):
     # --- 기록 (R1·R3) — 기록 = 저장된 세션 ---
     def listed(b):
         return [r.get("id") for r in b["records"]]
-    expect("R1 기록 목록 {today, records}에 방금 세션", owner.call("/v2/records"), 200,
+    expect("R1 기록 목록 {today, records}에 방금 세션", owner.call("/records"), 200,
            lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid in listed(b)
            else f"today={b.get('today')} / 목록에 없음")
-    expect("R3 기록 삭제 (204)", owner.call("/v2/records/" + sid, "DELETE"), 204)
+    expect("R3 기록 삭제 (204)", owner.call("/records/" + sid, "DELETE"), 204)
     expect("R3 삭제 뒤 S4는 404", owner.call(path), 404)
-    expect("R3 같은 기록 재삭제도 204 (멱등)", owner.call("/v2/records/" + sid, "DELETE"), 204)
-    expect("R3 삭제 뒤 R1 목록에 없음", owner.call("/v2/records"), 200,
+    expect("R3 같은 기록 재삭제도 204 (멱등)", owner.call("/records/" + sid, "DELETE"), 204)
+    expect("R3 삭제 뒤 R1 목록에 없음", owner.call("/records"), 200,
            lambda b: None if sid not in listed(b) else "목록에 남음")
 
     # --- 로그아웃 (A5): 이 기기의 로그인 유지만 끊는다 ---
     if signed is not None:
         revoked = device.refresh_cookie
-        expect("A5 로그아웃 (204, 쿠키 지움)", device.call("/v2/auth/logout", "POST"), 204,
+        expect("A5 로그아웃 (204, 쿠키 지움)", device.call("/auth/logout", "POST"), 204,
                lambda _: None if device.refresh_cookie is None else "쿠키가 남음")
         device.refresh_cookie = revoked
-        expect("A5 로그아웃한 쿠키로 A8은 401", device.call("/v2/auth/refresh", "POST"), 401)
+        expect("A5 로그아웃한 쿠키로 A8은 401", device.call("/auth/refresh", "POST"), 401)
 
     # --- 탈퇴 접수 (A7, 철회 없음 — 최종 삭제는 J3) ---
-    expect("A7 탈퇴 접수 (204)", owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD}), 204)
-    expect("탈퇴 뒤 남은 access 토큰도 401", owner.call("/v2/auth/me"), 401)
+    expect("A7 탈퇴 접수 (204)", owner.call("/auth/account", "DELETE", {"password": PASSWORD}), 204)
+    expect("탈퇴 뒤 남은 access 토큰도 401", owner.call("/auth/me"), 401)
     again = Client(base)
     expect("탈퇴한 계정 로그인은 403 ACCOUNT_CLOSED",
-           again.call("/v2/auth/login", "POST", {"email": email, "password": PASSWORD}), 403,
+           again.call("/auth/login", "POST", {"email": email, "password": PASSWORD}), 403,
            lambda b: None if b.get("code") == "ACCOUNT_CLOSED" else f"code={b.get('code')}")
 
 

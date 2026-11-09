@@ -28,13 +28,13 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 9장). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`(예: `/api/auth/login`), WS는 `/api/realtime`. 주소에 버전이 없다(2026-11-09). 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 9장). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
-| 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신. 자정에 새 측정을 이어 붙일 때(ADR 0029 A안)의 S1도 이 경로라 401이 나지 않는다 |
+| 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신. 자정에 새 측정을 이어 붙일 때(ADR 0029 A안)의 S1도 이 경로라 401이 나지 않는다 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝내 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다(BE-6 ① B안, BE 10/28 구현, 설정 `midnight-rollover` 기본 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다(10/30 FE 처리) |
-| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3). **10/27 FE 결정: S1에서 `policy`를 빼고 서버가 계정 정책으로 고정하게 요청(BE-11).** BE가 `policy` 없는 S1을 받게 한 뒤 앱이 뺀다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버(프레임 `t_ms`로), 앱은 설정 화면 표시에만 W1 값을 쓴다 |
+| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/workspace` `rules`는 초 | W1 `rules`의 초에 1000을 곱해 S1 `policy`로. 계정 값과 다르면 409 `CONFLICT`이므로 W1 값을 그대로 쓴다(W1 연결 전에는 앱 기본값, FE 제안서 1장 BE-3). **10/27 FE 결정: S1에서 `policy`를 빼고 서버가 계정 정책으로 고정하게 요청(BE-11).** BE가 `policy` 없는 S1을 받게 한 뒤 앱이 뺀다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버(프레임 `t_ms`로), 앱은 설정 화면 표시에만 W1 값을 쓴다 |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 
 ### 1.1 앱의 시간 규칙
@@ -82,28 +82,28 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | ID | 메서드·경로 | 앱이 부르는 때 |
 |---|---|---|
-| A2 | `POST /v2/auth/register` | 회원가입 2단계(계정 정보) 「다음」 |
-| A3 | `POST /v2/auth/login` | 로그인 |
-| A4 | `GET /v2/auth/me` | 앱 시작(A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 10/26부터 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) |
-| A5 | `POST /v2/auth/logout` | 계정 메뉴 「로그아웃」 |
-| A8 | `POST /v2/auth/refresh` | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) |
-| A6 | `PUT /v2/auth/password` | 설정 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) |
-| A7 | `DELETE /v2/auth/account` | 프로필 › 탈퇴 |
-| C1 | `PUT /v2/consents/optional-profile`(동의 항목 C1과 다름) | 프로필 › 선택 정보 동의 켜기·끄기 |
-| W1 | `GET /v2/workspace` | 로그인·가입 직후 한 번 |
-| W2 | `PUT /v2/workspace` | 설정·프로필 저장 |
-| B1 | `POST /v2/baselines` | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 5.4) |
-| B2 | `GET /v2/baselines/current` | 앱 시작·로그인 뒤 |
-| S1 | `PUT /v2/sessions/{id}` | 「측정 시작」 |
-| S3 | `POST /v2/sessions/{id}/end` | 10/22 기준 앱은 부르지 않는다(4장 S3·S4) |
-| S4 | `GET /v2/sessions/{id}` | 측정 `end` 뒤 10초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽어(DB 아님) 종료 30분 뒤·서버 재시작 뒤에는 세션 끊김 — DB 값으로 답하게 요청(BE-11) |
-| R1 | `GET /v2/records` | 기록 화면(W1의 `records`를 먼저 쓰고, 새로 고칠 때) |
-| R1b | `GET /v2/records/{id}` | 종료 화면 대비책(S4 대신 써도 됨) |
-| R3 | `DELETE /v2/records/{id}` | 기록 삭제 |
-| T1 | `GET /v2/stats/daily?from&to` | 기록 화면의 지난 날짜 그래프·표 |
-| WS | `/v2/realtime` | 측정(`purpose:"measure"`)만. 자세 등록 `purpose:"calibration"`은 쓰지 않는다(ADR 0021) |
+| A2 | `POST /auth/register` | 회원가입 2단계(계정 정보) 「다음」 |
+| A3 | `POST /auth/login` | 로그인 |
+| A4 | `GET /auth/me` | 앱 시작(A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 10/26부터 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) |
+| A5 | `POST /auth/logout` | 계정 메뉴 「로그아웃」 |
+| A8 | `POST /auth/refresh` | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) |
+| A6 | `PUT /auth/password` | 설정 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) |
+| A7 | `DELETE /auth/account` | 프로필 › 탈퇴 |
+| C1 | `PUT /consents/optional-profile`(동의 항목 C1과 다름) | 프로필 › 선택 정보 동의 켜기·끄기 |
+| W1 | `GET /workspace` | 로그인·가입 직후 한 번 |
+| W2 | `PUT /workspace` | 설정·프로필 저장 |
+| B1 | `POST /baselines` | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 5.4) |
+| B2 | `GET /baselines/current` | 앱 시작·로그인 뒤 |
+| S1 | `PUT /sessions/{id}` | 「측정 시작」 |
+| S3 | `POST /sessions/{id}/end` | 10/22 기준 앱은 부르지 않는다(4장 S3·S4) |
+| S4 | `GET /sessions/{id}` | 측정 `end` 뒤 10초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽어(DB 아님) 종료 30분 뒤·서버 재시작 뒤에는 세션 끊김 — DB 값으로 답하게 요청(BE-11) |
+| R1 | `GET /records` | 기록 화면(W1의 `records`를 먼저 쓰고, 새로 고칠 때) |
+| R1b | `GET /records/{id}` | 종료 화면 대비책(S4 대신 써도 됨) |
+| R3 | `DELETE /records/{id}` | 기록 삭제 |
+| T1 | `GET /stats/daily?from&to` | 기록 화면의 지난 날짜 그래프·표 |
+| WS | `/realtime` | 측정(`purpose:"measure"`)만. 자세 등록 `purpose:"calibration"`은 쓰지 않는다(ADR 0021) |
 
-R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르지 않는 것**: S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`, S5 metadata. R2·S2는 서버 코드에 아직 있다 — BE 명세 머리말대로 앱이 v2로 넘어간 뒤 BE가 지운다(BE-1).
+R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르지 않는 것**: S2 `POST /sessions/{id}/features`, R2 `POST /records`, S5 metadata. R2·S2는 서버 코드에 아직 있다 — BE 명세 머리말대로 앱이 v2로 넘어간 뒤 BE가 지운다(BE-1).
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -138,7 +138,7 @@ R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다. 앱이 **부르�
 
 **팀 참고 — 한 PC 여러 계정(10/25 klaod-tech 결정, [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md), 알려진 한계):** 로컬 기록은 계정과 상관없이 localStorage 키 하나(`posegood.v2.records`)에 둔다. 보통 PC 한 대를 한 사람이 쓰므로 계정별로 나누지 않는다. 그래서 같은 PC·같은 브라우저에서 다른 계정으로 로그인하면 앞 계정의 오늘 기록이 목록·합산에 함께 보인다(서버 DB·T1에는 영향 없음). 사용자 안내 문구는 두지 않는다. 문제가 되면 키를 계정 ID별로 나누면 된다.
 
-## 5. WebSocket `/v2/realtime`
+## 5. WebSocket `/realtime`
 
 순서(BE 명세 11.1): `hello` → `ready` → `features` × N → `end` → `decision(session_ended)` → `closed(ended)`. 연결 하나가 측정 한 번이고 재연결은 없다(ADR 0024).
 
@@ -235,7 +235,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 단계 | 앱 | 서버 |
 |---|---|---|
 | 1 | (앱 시작 때) B2 | 200 기준 / 404 → 자세 등록 |
-| 2 | 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
+| 2 | 「측정 시작」 → S1 `PUT /sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
 | 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `ack` → `progress` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
@@ -245,7 +245,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 sequenceDiagram
   participant A as 앱
   participant S as 입출구 서버(api·ws)
-  A->>S: S1 PUT /v2/sessions/{id} {policy, baseline_id}
+  A->>S: S1 PUT /sessions/{id} {policy, baseline_id}
   S-->>A: 200 SessionView (t_ms 0)
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready

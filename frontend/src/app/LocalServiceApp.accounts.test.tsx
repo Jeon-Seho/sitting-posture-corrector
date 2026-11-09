@@ -46,7 +46,7 @@ function camera(): CameraController {
   } as unknown as CameraController
 }
 
-describe('sign-in with the account server (D-66, /v2/auth)', () => {
+describe('sign-in with the account server (D-66, /auth)', () => {
   let data: Map<string, string>
   let renderer: ReactTestRenderer | undefined
   let accounts: { [K in keyof AccountClient]: ReturnType<typeof vi.fn> }

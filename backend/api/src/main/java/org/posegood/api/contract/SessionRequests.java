@@ -22,7 +22,7 @@ public final class SessionRequests {
 	/**
 	 * 세션 생성 요청: 계정의 현재 판정 정책 + 서버가 등록한 기준 ID.
 	 *
-	 * {@code PUT /v2/sessions/{id}}. {@code baseline_id}는 필수다.
+	 * {@code PUT /sessions/{id}}. {@code baseline_id}는 필수다.
 	 */
 	public record Create(@NotNull @Valid Policy policy, @NotNull UUID baselineId) {
 	}

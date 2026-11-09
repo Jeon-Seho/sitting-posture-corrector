@@ -66,9 +66,9 @@ try {
   console.log('PASS profile editing through current JWT server')
 } finally {
   try { if (fixture) {
-    const login = await fetch(new URL('/api/v2/auth/login', base), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fixture, password: 'Synthetic-test-1234!' }) })
+    const login = await fetch(new URL('/api/auth/login', base), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fixture, password: 'Synthetic-test-1234!' }) })
     const auth = await login.json()
-    const response = await fetch(new URL('/api/v2/auth/account', base), { method: 'DELETE', headers: { Authorization: `Bearer ${auth.access_token}`, 'X-PoseGood-User-Id': auth.user_id, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'Synthetic-test-1234!' }) })
+    const response = await fetch(new URL('/api/auth/account', base), { method: 'DELETE', headers: { Authorization: `Bearer ${auth.access_token}`, 'X-PoseGood-User-Id': auth.user_id, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'Synthetic-test-1234!' }) })
     assert.equal(response.status, 204, 'synthetic account cleanup')
     console.log('PASS synthetic account closed (server retention policy applies)')
   } } finally {

@@ -77,7 +77,7 @@ public class WorkspaceService {
 	/**
 	 * 설정 저장: 프로필, 판정 기준, 자세 알림.
 	 *
-	 * {@code PUT /v2/workspace}는 {profile, rules, preferences} 전체를 받는다. 기록은 바꾸지 않는다.
+	 * {@code PUT /workspace}는 {profile, rules, preferences} 전체를 받는다. 기록은 바꾸지 않는다.
 	 */
 	public ObjectNode update(long owner, JsonNode body) {
 		RecordValidator.shape(body, Set.of("profile", "rules", "preferences"), Set.of());

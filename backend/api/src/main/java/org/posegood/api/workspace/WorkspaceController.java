@@ -10,19 +10,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import tools.jackson.databind.JsonNode;
 
 /**
- * /v2/workspace·/v2/records HTTP 경로: 설정과 기록.
+ * /workspace·/records HTTP 경로: 설정과 기록.
  *
  * 계약: contracts/accounts.v2.md.
  */
 @RestController
-@RequestMapping("/v2")
 public class WorkspaceController {
 	private final WorkspaceService workspace;
 	private final CurrentUser current;

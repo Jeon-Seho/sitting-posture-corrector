@@ -45,7 +45,7 @@ public record Observation(
 	}
 
 	/**
-	 * {@code /v2/realtime} observation 메시지의 관측 4.0(계획 0084, 2026-11-03): 판정한 구간마다 하나.
+	 * {@code /realtime} observation 메시지의 관측 4.0(계획 0084, 2026-11-03): 판정한 구간마다 하나.
 	 *
 	 * 계약: contracts/realtime/realtime-ws.v2.schema.json. 추론 응답은 계속 2.0이고 API가 4.0으로 바꿔 보낸다.
 	 * 측정 화면이 쓰는 것만 남겼다. 멈춘 이유는 progress의 {@code paused_reason}, 누적 시간은 요약, 이탈 종류는

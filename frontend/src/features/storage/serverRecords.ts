@@ -50,7 +50,7 @@ export function reconcileResults(userId: string, records: RecordItem[]) {
 export async function fetchServerRecords(userId: string) {
   const auth = getServerAuth()
   if (!auth || auth.userId !== userId) throw new Error('계정이 변경됐어요.')
-  const response = await apiRequest('/v2/records', { method: 'GET' }, messages) as { today?: unknown; records?: unknown }
+  const response = await apiRequest('/records', { method: 'GET' }, messages) as { today?: unknown; records?: unknown }
   if (getServerAuth() !== auth) throw new Error('계정이 변경됐어요.')
   if (!response || typeof response.today !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(response.today) ||
     !Array.isArray(response.records) || !response.records.every(validRecord)) throw new Error('서버 기록 응답을 확인하지 못했어요.')

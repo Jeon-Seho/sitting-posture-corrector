@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""실시간 WebSocket 왕복 점검(계획 0031 3단계, D-57) — 앱처럼 /v2/realtime으로 좌표를 보내고 결과·저장을 확인한다.
+"""실시간 WebSocket 왕복 점검(계획 0031 3단계, D-57) — 앱처럼 /realtime으로 좌표를 보내고 결과·저장을 확인한다.
 
 판정 경로가 API 안(POSEGOOD_REALTIME_PIPELINE=local, 지금)이든 Kafka(kafka, 1단계 뒤)든 앱이 받는 메시지와 DB 기록은
 같아야 한다. 두 경로에서 이 점검을 한 번씩 돌려 결과를 비교하는 것이 전환 시험이다.
@@ -13,7 +13,7 @@
     decision  collapse_confirmed 8000(시작 5000) → reminder 68000 → recovery_confirmed 78000 → session_ended 85000
               (Kafka 경로는 제외 구간 사건 excluded_started·excluded_ended가 섞여 온다 — 그것은 따로 센다)
     alert     2개(collapse_confirmed·reminder). 새 계정 알림 기본값은 DB에 따라 다를 수 있어(V2.6 016 새 판은 켜짐)
-              세션을 만들기 전에 W2(PUT /v2/workspace)로 알림을 켠다
+              세션을 만들기 전에 W2(PUT /workspace)로 알림을 켠다
     closed    ended
     요약      total 85000 · valid 81000 · normal 11000 · deviation 70000 · rest 2500 · missing 1500 · 붕괴 1 · 알림 2
     DB        (--report가 있으면 처리 서비스 GET /report/sessions/{id}로) 종료 85000, good_sec 11.0, 붕괴 1(5000 → 8000 → 회복 78000),
@@ -204,7 +204,7 @@ def get_json(url):
 def scenario(base, report, pipeline):
     owner = Client(base)
     email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
-    status, user = owner.call("/v2/auth/register", "POST", {
+    status, user = owner.call("/auth/register", "POST", {
         "email": email, "password": PASSWORD,
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
@@ -214,13 +214,13 @@ def scenario(base, report, pipeline):
                  f"HTTP {status}"):
         return
     owner.sign_in(user)
-    status, saved = owner.call("/v2/baselines", "POST", {
+    status, saved = owner.call("/baselines", "POST", {
         "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS})
     if not check("기준 자세 등록", status == 200 and saved.get("baseline_id"), f"HTTP {status}"):
         return
     # 새 계정 알림 기본값은 DB 판에 따라 다르다(V2.6 016 새 판은 켜짐) → 세션이 alert_enabled를 복사하기 전에 켠다
-    status, settings = owner.call("/v2/workspace", "PUT", {
+    status, settings = owner.call("/workspace", "PUT", {
         "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
         "rules": {"holdSeconds": POLICY["hold_ms"] / 1000, "recoverSeconds": POLICY["recovery_ms"] / 1000,
                   "realertSeconds": POLICY["reminder_ms"] // 1000, "threshold": POLICY["threshold"]},
@@ -230,7 +230,7 @@ def scenario(base, report, pipeline):
     if not check("알림 켜기 (W2 alerts_on true)", status == 200 and alerts_on is True, f"HTTP {status}"):
         return
     sid = str(uuid.uuid4())
-    path = "/v2/sessions/" + sid
+    path = "/sessions/" + sid
     status, _ = owner.call(path, "PUT", {"policy": POLICY, "baseline_id": saved["baseline_id"]})
     if not check("세션 생성", status == 200, f"HTTP {status}"):
         return
@@ -241,10 +241,10 @@ def scenario(base, report, pipeline):
         check_unauthenticated(base)
     finally:
         # 기록 = 저장된 세션. R3가 세션 행·사건·알림·제외 구간을 함께 지운다(실패해도 시험 결과는 그대로, 행만 남음)
-        status, _ = owner.call("/v2/records/" + sid, "DELETE")
+        status, _ = owner.call("/records/" + sid, "DELETE")
         if status != 204:
             print(f"  참고: 시험 기록 삭제(R3) HTTP {status} — 세션 행이 DB에 남음", flush=True)
-        owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD})
+        owner.call("/auth/account", "DELETE", {"password": PASSWORD})
 
 
 def open_socket(base):
@@ -252,7 +252,7 @@ def open_socket(base):
     # (T-13) --base가 nginx(http://127.0.0.1:8088/api)여도 같은 경로로 — 앞 경로(/api)를 붙인다. 출처는 같은 출처(화면과 같음)
     # (D-43) https://api.<도메인>/api면 wss://로, 출처는 --origin(Vercel 화면 주소 — io-api 허용 출처에 있어야 함)
     scheme = "wss" if parts.scheme == "https" else "ws"
-    return WebSocket(f"{scheme}://{parts.netloc}{parts.path.rstrip('/')}/v2/realtime",
+    return WebSocket(f"{scheme}://{parts.netloc}{parts.path.rstrip('/')}/realtime",
                      {"Origin": ORIGIN or f"{parts.scheme}://{parts.netloc}", "User-Agent": USER_AGENT})
 
 

@@ -16,7 +16,7 @@ import jakarta.validation.constraints.Size;
 import tools.jackson.databind.JsonNode;
 
 /**
- * 앱이 보내는 좌표 구간 하나(0.5초, 관절 9개 원본 프레임). {@code /v2/realtime} features의 item이다.
+ * 앱이 보내는 좌표 구간 하나(0.5초, 관절 9개 원본 프레임). {@code /realtime} features의 item이다.
  *
  * 계약: contracts/realtime/frames/posture-frames.v1.schema.json. 구간은 [startMs, endMs)이다.
  * 좌표는 로그·DB에 남기지 않는다. 서버는 특징 변화량(측정) 또는 관절 평균(자세 등록)만 계산한다.

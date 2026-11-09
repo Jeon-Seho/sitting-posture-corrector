@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
 
 ## 전체 검증
 
@@ -128,7 +128,7 @@ tools/platform/integration_test.sh --quick
 ### FE ↔ BE 서버 안 연동 시험 (T-13)
 
 FE 화면 컨테이너 `web`(팀 `infra/docker/frontend.Dockerfile` — 화면 빌드 + `infra/nginx/default.conf`)을 프로필 `io`로 io-api와 함께 띄운다.
-화면(`/`)과 API(`/api/` → io-api, `/api/v2/realtime`)가 같은 nginx에서 나와 같은 출처이므로 CORS가 필요 없다. 포트는 `127.0.0.1:${WEB_HOST_PORT:-8088}`.
+화면(`/`)과 API(`/api/` → io-api, `/api/realtime`)가 같은 nginx에서 나와 같은 출처이므로 CORS가 필요 없다. 포트는 `127.0.0.1:${WEB_HOST_PORT:-8088}`.
 
 ```sh
 C="docker compose -f infra/compose/bigdata.yaml"
@@ -155,7 +155,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 
 ### 입출구 서버 (io-api, 서버 PC)
 
-팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
+팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
 DB는 외부 MySQL의 서비스 DB(V2.6, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
@@ -173,7 +173,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 ```
 
 - 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 화면과 함께 시험할 때는 위 "FE ↔ BE 서버 안 연동 시험"의 web(nginx)으로 들어온다(T-13).
-- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/me`). 보호 요청은 로그인 응답의 `access_token`을 `Authorization: Bearer`로 보낸다(CSRF 없음). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`, 인증은 `hello.access_token`(통합 테스트 12단계 `ws_realtime_smoke.py`).
+- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/auth/me`). 보호 요청은 로그인 응답의 `access_token`을 `Authorization: Bearer`로 보낸다(CSRF 없음). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/realtime`, 인증은 `hello.access_token`(통합 테스트 12단계 `ws_realtime_smoke.py`).
 - 다른 출처 화면(Vercel `https://app.posegood.site`)이 부를 때는 `.env`의 `POSEGOOD_CORS_ALLOWED_ORIGINS`(REST)·`POSEGOOD_REALTIME_ALLOWED_ORIGINS`(WebSocket)에 출처를 **끝 `/` 없이** 넣고, HTTPS 공개 때 `POSEGOOD_COOKIE_SECURE=true`. 비우면 같은 출처(web 8088)만 된다.
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
@@ -187,14 +187,14 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6).
 
 ```
-브라우저 ─ https://api.posegood.site/api/… · wss://…/api/v2/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
+브라우저 ─ https://api.posegood.site/api/… · wss://…/api/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
   └ 터널 posegood-api ─ cloudflared(프로필 edge, 포트 없음) ─ http://gateway:80 ─ gateway(nginx, API만, 포트 없음) ─ api:8090(io-api)
 서버 안 시험: web(127.0.0.1:8088, 화면 + 같은 API 중계) — SSH -L 8088
 ```
 
 | 파일 | 내용 | Git |
 | --- | --- | --- |
-| `infra/nginx/gateway.conf` | `/api/` → io-api, `/api/v2/realtime`, `/health`, 그 밖 404. `X-Forwarded-Proto https`, 실제 사용자 IP(`CF-Connecting-IP`), 내부 토큰 헤더 지움 | 커밋 |
+| `infra/nginx/gateway.conf` | `/api/` → io-api, `/api/realtime`, `/health`, 그 밖 404. `X-Forwarded-Proto https`, 실제 사용자 IP(`CF-Connecting-IP`), 내부 토큰 헤더 지움 | 커밋 |
 | `infra/compose/cloudflared/config.yml` | 경로: `api.posegood.site` → `http://gateway:80`, 나머지 404 | 커밋 |
 | `infra/compose/secrets/cloudflared.env` | `TUNNEL_TOKEN=…` 한 줄(FE가 서버에서 직접 넣음, `chmod 600`) | **제외** |
 | `infra/compose/secrets/posegood.auth.jwt-secret` | 로그인 토큰 서명 키(위 입출구 서버 절) | **제외** |

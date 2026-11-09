@@ -25,6 +25,7 @@
 - [ ] 자정 넘김 실제 MySQL 시험(`INSERT … SELECT`) — BE. Spark J2를 00:05 이후에 돌리기(BE-6 ⑤) — [PR #93](https://github.com/Jeon-Seho/sitting-posture-corrector/pull/93)이 cron 00:10으로 넣음, 머지 대기 — DevOps
 - [ ] 좌표를 남기는 곳 확인: ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 드는데, Spark J1 안내(11/1)에는 원본 좌표를 남기는 곳이 없다. 남길지, ADR·동의 문구를 고칠지 팀에서 정한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 3절 확인 필요) — 팀·ML·DevOps
 - [ ] 서버 탈퇴(A7) 때 이 기기의 기록(`posegood.v2.records`)·저장 대기 서버 기록도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) — FE
+- [ ] 주소에서 버전 빼기(2026-11-09, `/api/v2/auth/login` → `/api/auth/login`, `/api/v2/realtime` → `/api/realtime`, [API 명세](api-spec.md) 변경 이력): 서버(io-api·추론·nginx)와 화면(Vercel)을 같은 때 배포하고, Cloudflare 요청 제한 규칙 `auth-rate-limit`의 경로를 `/api/v2/auth/` → `/api/auth/`로 바꾸기(9.4 4번) — DevOps·FE
 - [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72), 아키텍처 문서 v5.3(D-73), 삭제 배치 J3(D-49 — PR #93, 머지 대기) — DevOps
 
 ### 1.1 BE와 다른 곳 (11/3 develop 코드로 확인)

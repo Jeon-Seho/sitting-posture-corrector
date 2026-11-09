@@ -104,7 +104,7 @@ export function createAccountClient(
   options: { fetch?: typeof fetch; base?: string; timeoutMs?: number; now?: () => number; channel?: boolean } = {},
 ): AccountClient {
   const fetchRequest = options.fetch ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init))
-  const base = `${options.base ?? SERVER.apiBase}/api/v2/auth`
+  const base = `${options.base ?? SERVER.apiBase}/api/auth`
   const timeoutMs = options.timeoutMs ?? 10000
   const now = options.now ?? Date.now
   let login: Login | null = null

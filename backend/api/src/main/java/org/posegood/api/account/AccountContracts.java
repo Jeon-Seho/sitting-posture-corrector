@@ -68,7 +68,7 @@ public final class AccountContracts {
 		}
 	}
 
-	/** {@code POST /v2/auth/refresh} 응답: 새 access 토큰. 새 refresh 토큰은 쿠키로 바뀐다. */
+	/** {@code POST /auth/refresh} 응답: 새 access 토큰. 새 refresh 토큰은 쿠키로 바뀐다. */
 	public record Refreshed(String userId, String accessToken, String tokenType, long expiresIn, String today) {
 	}
 }

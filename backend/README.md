@@ -1,8 +1,8 @@
 # 백엔드 — 세션·계정·판정 API
 
 Java 17·Spring Boot 4.0.8·Gradle로 만든 API 하나다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md) 1절).
-앱(FE V3)은 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 앱 기능이 없던 특징 입력(S2)·기록 저장(R2)·세션 메타데이터(S5)·세션 삭제(S6)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
-DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /v2/infer`가 만들고,
+앱(FE V3)은 `/realtime`으로 관절 좌표만 보낸다([ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md)). 앱 기능이 없던 특징 입력(S2)·기록 저장(R2)·세션 메타데이터(S5)·세션 삭제(S6)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
+DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 FastAPI `POST /infer`가 만들고,
 붕괴·회복·재알림 시간 판정은 API 안의 판정 엔진이 한다. 학습된 LSTM, 미래 예측, 사용자별 재학습은 구현하지 않았다.
 
 ## 코드 구조
@@ -18,7 +18,7 @@ backend/api/src/main/java/org/posegood/api/
 ├── account/    # 가입·로그인(JWT access + refresh 토큰)·비밀번호·탈퇴 접수(철회 없음, 최종 삭제는 Spark J3)
 ├── session/    # 세션 생성·특징·종료·삭제, 진행 중 상태(LiveSessions), FastAPI 호출, DB 기록
 ├── workspace/  # 설정(user_account + threshold_policy), 앱 기록 검증·세션 테이블에서 다시 만들기
-├── realtime/   # /v2/realtime WebSocket
+├── realtime/   # /realtime WebSocket
 └── system/     # /health, 시작 시 스키마 V2.6 확인
 ```
 
@@ -32,11 +32,11 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 시점 | DB에 쓰는 것 |
 | --- | --- |
 | 가입·동의 | 계정+필수 5종/선택 동의를 한 트랜잭션으로 저장. 선택 철회 시 나이·직업을 NULL로 비움 |
-| 기준 등록 | `POST /v2/baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). 등록은 이 경로뿐(WebSocket 등록은 2026-10-27 삭제) |
+| 기준 등록 | `POST /baselines`로 이력 행 추가. 등록 시각은 서버 시각이고, 같은 `registration_id`·좌표의 재시도는 기존 행 반환(ADR 0028). 등록은 이 경로뿐(WebSocket 등록은 2026-10-27 삭제) |
 | 세션 생성 | 계정의 현재 정책·기준 FK·알림 설정을 `monitor_session`에 고정 |
-| 좌표 구간 처리 (`/v2/realtime`) | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
+| 좌표 구간 처리 (`/realtime`) | 사건과 알림 시도 시각을 저장. 회복이면 `ended_at`·`recovered_at`, 중단이면 `ended_at` |
 | 종료 | 종료 시각·`good_sec`, 제외 구간을 한 번만 반영. 일별 통계(`daily_stat`)는 쓰지 않는다 — Spark J2가 매일 00:00에 전날(KST)을 집계한다 |
-| 기록 삭제 (`DELETE /v2/records/{id}`) | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
+| 기록 삭제 (`DELETE /records/{id}`) | 세션 행(하위 행 cascade). `feature_archive`가 있으면 409 |
 
 - DB 쓰기에 실패하면 503이다. 판정 상태는 이미 반영됐으므로 같은 요청을 다시 보내면 남은 사건을 쓴다.
 - API를 재시작하면 진행 중 세션의 상태는 사라진다. 행이 남은 세션은 `404 SESSION_LOST`로 알리고, 앱은 마지막 확인 요약을 기록으로 남긴다.
@@ -45,10 +45,10 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 모든 `DATETIME(3)`은 KST다. JDBC 연결도 `connectionTimeZone=Asia/Seoul`이다. API 응답 시각은 UTC ISO-8601이다.
 - 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.
 - 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 true, DB V2.6)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
-- 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /v2/records`는 닫힌 세션을 위 테이블에서 다시 만든다.
+- 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /records`는 닫힌 세션을 위 테이블에서 다시 만든다.
   사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
 - 로그인([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md), `account/AuthTokens`): access 토큰(JWT HS256, 30분, `Authorization: Bearer`, 저장 안 함)과
-  refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, DB `refresh_token`에는 SHA-256만). `POST /v2/auth/refresh`가 refresh 토큰을 바꿔 준다.
+  refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, DB `refresh_token`에는 SHA-256만). `POST /auth/refresh`가 refresh 토큰을 바꿔 준다.
   바꾼 토큰의 30초 안 재사용은 허용, 그 뒤 재사용은 그 사용자의 refresh 토큰을 모두 철회한다. 서명 키는 `POSEGOOD_JWT_SECRET`(32바이트 이상, 배포 필수).
   서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음). `SPRING_SESSION` 테이블은 쓰지 않지만 남겨 둔다.
 - 로그아웃은 그 기기의 refresh 토큰, 비밀번호 변경·탈퇴는 그 사용자의 refresh 토큰을 모두 철회하고, 비밀번호 변경·탈퇴는 열린 실시간 연결도 닫는다.
@@ -63,15 +63,15 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 | 경로 | 역할 |
 | --- | --- |
-| `POST /v2/auth/register`, `POST /v2/auth/login`, `POST /v2/auth/refresh`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인·로그인 유지 |
-| `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
-| `GET`·`PUT /v2/workspace`, `GET /v2/records`, `DELETE /v2/records/{id}` | 설정·기록 조회·기록(= 세션) 삭제 |
-| `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
-| `POST /v2/sessions/{UUID}/end` | `{end_ms}`로 종료. 같은 값은 멱등, 다른 값은 409 |
-| `GET /v2/sessions/{UUID}` | 조회 v1 |
-| `POST /v2/baselines`, `GET /v2/baselines/current` | 독립 기준 등록·현재 기준 조회 |
-| `PUT /v2/consents/optional-profile` | 선택 정보 동의·철회 |
-| `GET /v2/realtime` (WebSocket) | 실시간 채널(아래). v1(`/v1/realtime`)은 2026-10-26 삭제 |
+| `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/logout` | 계정·로그인·로그인 유지 |
+| `PUT /auth/password`, `DELETE /auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
+| `GET`·`PUT /workspace`, `GET /records`, `DELETE /records/{id}` | 설정·기록 조회·기록(= 세션) 삭제 |
+| `PUT /sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
+| `POST /sessions/{UUID}/end` | `{end_ms}`로 종료. 같은 값은 멱등, 다른 값은 409 |
+| `GET /sessions/{UUID}` | 조회 v1 |
+| `POST /baselines`, `GET /baselines/current` | 독립 기준 등록·현재 기준 조회 |
+| `PUT /consents/optional-profile` | 선택 정보 동의·철회 |
+| `GET /realtime` (WebSocket) | 실시간 채널(아래). v1(`/v1/realtime`)은 2026-10-26 삭제 |
 | `GET /health` | DB 연결 확인 |
 
 ### 판정 규칙
@@ -86,10 +86,10 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 실시간 채널
 
-`/v2/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
+`/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
 (`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). REST API를 다른 출처 화면(Vercel)에서 부를 때는 `posegood.cors.allowed-origins`(`POSEGOOD_CORS_ALLOWED_ORIGINS`)에 그 출처를 넣는다([BE API 명세](../docs/design/api-spec.md) 1장). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
 재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
-보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /v2/infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
+보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.
 - `purpose: measure`: 내 세션·진행 중·기준 자세 확인 뒤 `ready`(`started_at` = 서버의 세션 시작 시각, ADR 0028). 끝난 세션은 `session_lost`, 기준 없음은 `no_baseline`, 남의 세션은 `not_owner`.
@@ -108,7 +108,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
   앱은 시간·순번을 연결 기준으로 계속 보내고 서버가 자정 위치·순번 기준을 빼서 바꾼다. 새 세션을 못 만들면 `closed: day_changed`(API 명세 11.3).
 - `end` → `decision(session_ended)` → `closed: ended`. `closed.ended_at`은 이 연결에서 세션이 끝났을 때 서버의 종료 시각(`started_at + total_ms`, DB와 같은 값)이고, 그 전에 닫히면 `null`이다. `end_ms`가 마지막 구간보다 앞서면 마지막 구간 끝을 쓴다.
   측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다.
-- 자세 등록은 B1(`POST /v2/baselines`)뿐이다. WebSocket 등록(`purpose: calibration`, `calibration_result`)은 2026-10-27 지웠다 — 보내면 `closed: bad_message`.
+- 자세 등록은 B1(`POST /baselines`)뿐이다. WebSocket 등록(`purpose: calibration`, `calibration_result`)은 2026-10-27 지웠다 — 보내면 `closed: bad_message`.
 - 놓친 사건 다시 보내기(삭제한 v1의 `last_event_id`)는 없다. 같은 세션에 두 번째 연결은 `bad_message`다.
 
 ## 준비와 검증
@@ -156,4 +156,4 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 4. Spark 배치 전환 시점(공지 ⑤): 이 API는 이미 `daily_stat` 누적과 탈퇴 최종 삭제를 하지 않는다. J2가 켜지기 전까지 서버의 일별 통계는 비고,
    J3가 켜지기 전까지 유예가 끝난 탈퇴 계정이 남는다. J2 첫 실행 때 이 변경 이후 날짜를 다시 계산하고, J3는 밀린 요청부터 지운다.
    오늘 화면은 서버의 일별 통계와 별개로 로컬 수집 결과를 사용한다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
-   T1(`GET /v2/stats/daily`)은 이 API가 `daily_stat`을 읽어 돌려줄 경로로, 형식만 정했고 구현 전이다([API 명세 T1](../docs/design/api-spec.md#t1)). R1b(`GET /v2/records/{id}`)도 구현 전이다.
+   T1(`GET /stats/daily`)은 이 API가 `daily_stat`을 읽어 돌려줄 경로로, 형식만 정했고 구현 전이다([API 명세 T1](../docs/design/api-spec.md#t1)). R1b(`GET /records/{id}`)도 구현 전이다.

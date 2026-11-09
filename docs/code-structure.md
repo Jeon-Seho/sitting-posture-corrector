@@ -41,7 +41,7 @@ backend/
     .../account/          인증·CSRF·현재 주체·비밀번호·탈퇴
     .../session/          세션 생성·특징·종료, 진행 중 상태, 추론 호출, DB 기록
     .../workspace/        설정 저장·검증, 기록 조회(세션 테이블에서 다시 만듦)·삭제
-    .../realtime/         /v2/realtime WebSocket(좌표 프레임)
+    .../realtime/         /realtime WebSocket(좌표 프레임)
     .../system/           health, DB V2.6 확인
 
 model/
@@ -68,7 +68,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 프로필 편집·삭제 확인 | [프로필 hook](../frontend/src/features/profile/useProfileForm.ts), [화면](../frontend/src/features/profile/ProfilePage.tsx) | 입력·저장·취소와 확인창을 구분한다. |
 | 확인창 키보드·초점 | [공통 확인창](../frontend/src/features/dialog/ConfirmDialog.tsx), [초점 처리](../frontend/src/features/dialog/modalFocus.ts) | 취소 우선·native modal·Tab 순환·초점 복귀·중복 실행 차단 |
 | 측정 시작·결과 보관 | [세션 hook](../frontend/src/features/session/useSessionPersistence.ts) | 서버 측정을 시작하고, 서버 기록 화면(R1)이 붙기 전까지 결과를 이 기기에도 남긴다. 이어하기·재전송은 없다(ADR 0024). |
-| 서버 측정 (`/v2/realtime`) | [LiveSession](../frontend/src/features/session/live/LiveSession.ts), [메시지](../frontend/src/features/session/live/messages.ts), [좌표 구간](../frontend/src/features/session/realtime/frames.ts) | S1 → `hello`·`ready` → 0.5초 좌표 구간 → `end`. 판정은 하지 않고 서버가 보낸 것만 상태로 만든다(ADR 0021). |
+| 서버 측정 (`/realtime`) | [LiveSession](../frontend/src/features/session/live/LiveSession.ts), [메시지](../frontend/src/features/session/live/messages.ts), [좌표 구간](../frontend/src/features/session/realtime/frames.ts) | S1 → `hello`·`ready` → 0.5초 좌표 구간 → `end`. 판정은 하지 않고 서버가 보낸 것만 상태로 만든다(ADR 0021). |
 | 측정 화면 | [화면 hook](../frontend/src/features/session/live/useLiveSession.ts), [화면](../frontend/src/features/session/live/LiveSessionPage.tsx) | 카메라 프레임 전달, 영상 멈춤(`away`)·카메라 빠짐·크기 변경 종료, 소리·알림, 측정 상태·종료를 작은 창에 알림(`sessionControl.ts`). |
 | 자세 등록 | [평균](../frontend/src/features/baseline/landmarkCapture.ts), [B1·B2](../frontend/src/features/baseline/client.ts) | 앱이 관절 9개 3초 평균을 내서 B1로 저장, B2로 조회(10/20 전체 회의). |
 | 서버 요청 공통 | [API](../frontend/src/features/platform/api.ts), [로그인 정보](../frontend/src/features/platform/serverAuth.ts) | `/api` 접두사, 쿠키, CSRF·계정 헤더, 502·503 재시도. 로그인 정보는 BE 로그인 연결이 채운다. |
@@ -94,7 +94,7 @@ Java 트리의 `.../`는 `src/main/java/org/posegood/api` 경로를 줄인 표�
 | 입력 순서·종료 | [SessionEngine](../backend/api/src/main/java/org/posegood/api/engine/SessionEngine.java) | 중복·역순·누락과 결정 적용 조정 |
 | 시간 누적·사건 통계 | [Timeline](../backend/api/src/main/java/org/posegood/api/engine/Timeline.java), [EpisodeLedger](../backend/api/src/main/java/org/posegood/api/engine/EpisodeLedger.java) | 유효/제외 시간과 사건 이력; 시간 임계값 비교 없음 |
 | 시간 조건 | [DecisionRules](../backend/api/src/main/java/org/posegood/api/engine/DecisionRules.java) | 시간 임계값 비교는 이 파일 하나에 유지 |
-| 실시간 채널 | [RealtimeHandlerV2](../backend/api/src/main/java/org/posegood/api/realtime/RealtimeHandlerV2.java) | `/v2/realtime` 좌표 프레임 → `FrameFeatures`, 같은 처리 경로 사용 |
+| 실시간 채널 | [RealtimeHandlerV2](../backend/api/src/main/java/org/posegood/api/realtime/RealtimeHandlerV2.java) | `/realtime` 좌표 프레임 → `FrameFeatures`, 같은 처리 경로 사용 |
 | 계정·탈퇴 | [AccountService](../backend/api/src/main/java/org/posegood/api/account/AccountService.java) | 가입·비밀번호·탈퇴 유예·일괄 삭제 |
 | FastAPI 앱 조립 | [app.py](../model/inference/app.py) | 앱 생성, 라우터·오류 처리 연결; 기존 `model.inference.app:app` 실행 유지 |
 | 추론 계약·현재 점수·HTTP | [schemas.py](../model/inference/schemas.py), [service.py](../model/inference/service.py), [routes.py](../model/inference/routes.py) | 계약/점수/전달 분리; 학습 모델이나 시간 엔진이 아님 |

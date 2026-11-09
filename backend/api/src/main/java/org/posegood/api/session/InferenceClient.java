@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * FastAPI 추론 호출(POST /v2/infer)과 결과 검증. 실패하거나 맞지 않으면 502.
+ * FastAPI 추론 호출(POST /infer)과 결과 검증. 실패하거나 맞지 않으면 502.
  *
  * 결과는 판정 엔진에 넣기 전에 요청과 대조한다. 맞지 않으면 502이고 세션 상태는 바뀌지 않는다.
  */
@@ -52,7 +52,7 @@ public class InferenceClient {
 	public Observation infer(InferenceRequest request) {
 		Observation result;
 		try {
-			result = client.post().uri("/v2/infer").body(request).retrieve().body(Observation.class);
+			result = client.post().uri("/infer").body(request).retrieve().body(Observation.class);
 		} catch (RestClientException unavailable) {
 			throw ApiError.upstream("inference unavailable or rejected input; retry same request");
 		}

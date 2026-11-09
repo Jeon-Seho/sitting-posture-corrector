@@ -25,17 +25,17 @@ class InferenceInternalAuthTests(unittest.TestCase):
         self.body = json.loads(example.read_text(encoding="utf-8"))
 
     def test_valid_token_allows_v2_inference(self):
-        response = self.client.post("/v2/infer", json=self.body, headers={"X-PoseGood-Internal-Token": self.token})
+        response = self.client.post("/infer", json=self.body, headers={"X-PoseGood-Internal-Token": self.token})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["valid"])
 
     def test_missing_token_is_rejected(self):
-        response = self.client.post("/v2/infer", json=self.body)
+        response = self.client.post("/infer", json=self.body)
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json(), {"error": "unauthorized_internal_call"})
 
     def test_wrong_token_is_rejected(self):
-        response = self.client.post("/v2/infer", json=self.body, headers={"X-PoseGood-Internal-Token": "wrong-synthetic-token"})
+        response = self.client.post("/infer", json=self.body, headers={"X-PoseGood-Internal-Token": "wrong-synthetic-token"})
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json(), {"error": "unauthorized_internal_call"})
 

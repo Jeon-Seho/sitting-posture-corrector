@@ -1,4 +1,4 @@
-"""Minimal loopback WebSocket client for `/v2/realtime` checks (RFC 6455 text frames, no TLS).
+"""Minimal loopback WebSocket client for `/realtime` checks (RFC 6455 text frames, no TLS).
 
 Only the standard library: the backend smoke runs from the dev venv without a WebSocket package.
 Messages are JSON; only synthetic coordinates are sent.
@@ -20,9 +20,9 @@ class RealtimeClient:
         self.sock = socket.create_connection((host, port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()
         origin = f"{parts.scheme}://{parts.netloc}"  # the server accepts same-origin pages only
-        # A path in api_base is kept: through the frontend NGINX (http://host:port/api) the channel is /api/v2/realtime
-        # (tools/deploy/smoke.py, D-75). A bare API address (service_smoke) still uses /v2/realtime.
-        path = parts.path.rstrip("/") + "/v2/realtime"
+        # A path in api_base is kept: through the frontend NGINX (http://host:port/api) the channel is /api/realtime
+        # (tools/deploy/smoke.py, D-75). A bare API address (service_smoke) still uses /realtime.
+        path = parts.path.rstrip("/") + "/realtime"
         request = (f"GET {path} HTTP/1.1\r\nHost: {parts.netloc}\r\nUpgrade: websocket\r\n"
                    f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
                    f"Origin: {origin}\r\n\r\n")

@@ -22,7 +22,7 @@ export function createMailApi({ enabled = false, fetcher = fetch }: { enabled?: 
     const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
     try {
       // No CSRF since the token login (BE ADR 0031, 2026-10-27): these routes need no sign-in.
-      const response = await fetcher(`/api/v2/auth/${path}`, {
+      const response = await fetcher(`/api/auth/${path}`, {
         method: 'POST', credentials: 'same-origin', signal: requestSignal, cache: 'no-store',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })

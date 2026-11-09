@@ -25,7 +25,7 @@ function Probe() {
 
 const normalFrame = (timeMs: number) => syntheticObservation('normal', timeMs)
 
-/** The `/v2/realtime` message LiveSession sends for one synthetic frame (same path as `useLiveSession`). */
+/** The `/realtime` message LiveSession sends for one synthetic frame (same path as `useLiveSession`). */
 function wire(kind: 'normal' | 'deviation' | 'poor' | 'absent') {
   const frame = syntheticObservation(kind, 1000)
   const batcher = new FrameBatcher(1000)

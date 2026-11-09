@@ -168,9 +168,9 @@ MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서�
 첫 화면은 로그인이고 아래 「회원가입」으로 가입한다.
 회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([동의 제안서](../docs/design/consent-proposal.md))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
 
-가입·로그인·로그아웃은 항상 입출구 서버 `/v2/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
-토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /v2/auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
-앱을 다시 열면 A8로 토큰을 받고 `GET /v2/auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
+가입·로그인·로그아웃은 항상 입출구 서버 `/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
+토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
+앱을 다시 열면 A8로 토큰을 받고 `GET /auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
 비밀번호 변경·탈퇴·선택 동의 철회·설정(W1·W2)은 아직 연결하지 않았다([FE 제안서](../docs/design/fe-server-proposal.md) 7.2).
@@ -202,11 +202,11 @@ CHOKIDAR_USEPOLLING=1 make dev
 JDK 17과 시험용 MySQL([backend 안내](../backend/README.md))을 준비하고 `make check-backend`로 JAR를 생성한 뒤 `make dev-server`를 실행한다.
 출력된 임시 포트 주소의 앱을 연다. 2026-10-21부터 앱은 항상 서버로 측정·자세 등록을 한다(선택 스위치 없음).
 Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
-서버 측정은 계정이 필요하다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)). 로그인을 BE `/v2/auth`에 잇기 전까지
+서버 측정은 계정이 필요하다([ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)). 로그인을 BE `/auth`에 잇기 전까지
 등록·측정은 「로그인이 필요해요」로 멈춘다(로그인 뒤 `features/platform/serverAuth.ts`의 `setServerAuth`가 계정 정보를 넘긴다).
-수동 API를 연결할 때만 `POSEGOOD_API_URL=http://127.0.0.1:<포트>`를 지정한다. 실시간 채널은 같은 `/api` 중계(`/api/v2/realtime`)로 간다.
+수동 API를 연결할 때만 `POSEGOOD_API_URL=http://127.0.0.1:<포트>`를 지정한다. 실시간 채널은 같은 `/api` 중계(`/api/realtime`)로 간다.
 
-측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` → WebSocket `/v2/realtime` `hello` → `ready`(5초) →
+측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /sessions/{id}` `{policy, baseline_id}` → WebSocket `/realtime` `hello` → `ready`(5초) →
 프레임마다 관절 9개 좌표 구간 1개(`posture.frames.v1`, 10/27부터 — 서버가 받아 묶음. 앱이 판정 불가로 본 프레임은 좌표 없이 `p: null`·`valid: false`, ADR 0021) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」), 쓰던 카메라가 빠지거나 영상 크기가 바뀌거나 데스크톱 앱 작은 창의 X를 누르면 `end`.
 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`로 보낸다(2026-10-22, 유예 없음). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
@@ -274,7 +274,7 @@ JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미�
 합성 카메라 입력은 명시적 `browser-smoke` 개발 모드에서만 사용하며 일반 개발/preview/프로덕션에서는 활성화하지 않는다.
 
 - 판정 가능 프레임 검사: `model/prototype/pose.ts` `measurable`·`shouldersVisible`(코·양 어깨·양 귀). 앱은 특징값·점수를 계산하지 않는다(2026-10-22 고개 돌림·머리 판정·특징값 계산 삭제).
-- 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
+- 서버 측정: `src/features/session/live/`(S1·`/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
 - 자세 등록: `src/features/baseline/`(관절 평균·B1·B2). 서버 요청 공통: `src/features/platform/api.ts`.
 - 앱 조립·화면 전환: `src/app/ServiceApp.tsx`. 프로필·세션 저장/복구·기록 조회·저장 검증은 `src/features/`에서 기능별로 관리한다.
 - 로컬 저장: `src/features/storage/`(프로필·설정·기록 복사). 중간 저장(draft)은 2026-10-21 지웠다.

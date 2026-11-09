@@ -1,4 +1,4 @@
-"""WebSocket /v2/realtime contract (BE API spec 2026-10-13, FE 연동 명세), synthetic examples only."""
+"""WebSocket /realtime contract (BE API spec 2026-10-13, FE 연동 명세), synthetic examples only."""
 
 import copy
 import json

@@ -5,7 +5,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from .internal_auth import InternalTokenMiddleware, configured_token
 from .routes import router
-from .schemas import Features, InferenceRequest  # Keep existing import paths available.
 
 
 async def invalid_request(request: Request, error: RequestValidationError):

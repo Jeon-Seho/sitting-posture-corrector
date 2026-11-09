@@ -42,8 +42,8 @@ class SecurityConfigurationTest {
 	void anAllowedOriginGetsTheAllowHeadersWithCredentials() throws Exception {
 		var source = SecurityConfiguration.corsSource(List.of(APP));
 		for (var request : List.of(
-			preflight("/v2/auth/login", APP, "content-type"),
-			preflight("/v2/sessions/00000000-0000-0000-0000-000000000001", APP, "authorization,content-type"))) {
+			preflight("/auth/login", APP, "content-type"),
+			preflight("/sessions/00000000-0000-0000-0000-000000000001", APP, "authorization,content-type"))) {
 			var response = process(source, request);
 			assertEquals(200, response.getStatus());
 			assertEquals(APP, response.getHeader("Access-Control-Allow-Origin"));
@@ -56,11 +56,11 @@ class SecurityConfigurationTest {
 	void otherOriginsMethodsAndHeadersAreRefused() throws Exception {
 		var source = SecurityConfiguration.corsSource(List.of(APP));
 		assertEquals(403,
-			process(source, preflight("/v2/auth/login", "https://evil.example", "content-type")).getStatus());
+			process(source, preflight("/auth/login", "https://evil.example", "content-type")).getStatus());
 		assertEquals(403,
-			process(source, preflight("/v2/auth/login", "http://app.example.test", "content-type")).getStatus());
-		assertEquals(403, process(source, preflight("/v2/auth/login", APP, "x-csrf-token")).getStatus());
-		var patch = preflight("/v2/auth/me", APP, "authorization");
+			process(source, preflight("/auth/login", "http://app.example.test", "content-type")).getStatus());
+		assertEquals(403, process(source, preflight("/auth/login", APP, "x-csrf-token")).getStatus());
+		var patch = preflight("/auth/me", APP, "authorization");
 		patch.removeHeader("Access-Control-Request-Method");
 		patch.addHeader("Access-Control-Request-Method", "PATCH");
 		assertEquals(403, process(source, patch).getStatus());
@@ -70,7 +70,7 @@ class SecurityConfigurationTest {
 	void anEmptySettingLeavesEveryPathWithoutCors() {
 		// 같은 출처 화면이라도 nginx가 Host의 포트를 떼면 다른 출처로 보일 수 있다 — 설정이 없으면 막지 않는다.
 		for (var origins : List.of(List.<String>of(), List.of(""), List.of(" ", " "))) {
-			var request = preflight("/v2/auth/login", "http://localhost:8080", "content-type");
+			var request = preflight("/auth/login", "http://localhost:8080", "content-type");
 			assertNull(SecurityConfiguration.corsSource(origins).getCorsConfiguration(request));
 		}
 	}

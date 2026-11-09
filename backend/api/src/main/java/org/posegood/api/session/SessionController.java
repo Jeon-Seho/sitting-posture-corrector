@@ -16,15 +16,15 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 
 /**
- * /v2/sessions/* 측정 HTTP 경로: 생성, 종료, 조회.
+ * /sessions/* 측정 HTTP 경로: 생성, 종료, 조회.
  *
- * 측정 입력은 {@code /v2/realtime}으로만 받는다. 특징 입력(S2)·메타데이터(S5)·세션 삭제(S6)는 2026-10-28 삭제했다
+ * 측정 입력은 {@code /realtime}으로만 받는다. 특징 입력(S2)·메타데이터(S5)·세션 삭제(S6)는 2026-10-28 삭제했다
  * (기록 삭제는 R3, 계획 0062).
  *
  * 계약: contracts/accounts.v2.md, contracts/README.md.
  */
 @RestController
-@RequestMapping("/v2/sessions")
+@RequestMapping("/sessions")
 public class SessionController {
 	private final SessionService sessions;
 	private final CurrentUser current;

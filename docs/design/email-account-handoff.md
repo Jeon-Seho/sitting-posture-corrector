@@ -26,9 +26,9 @@
 
 ## 3. 제안 API 연결부
 
-프론트는 같은 출처 `/api/v2`를 사용한다. 개발 Vite 프록시가 `/api`를 API에 전달한다. 배포 웹은 reverse proxy가 필요하다. 아래 경로는 구현/합의 전이다.
+프론트는 같은 출처 `/api`를 사용한다(2026-11-09부터 주소에 버전 없음). 개발 Vite 프록시가 `/api`를 API에 전달한다. 배포 웹은 reverse proxy가 필요하다. 아래 경로는 구현/합의 전이다.
 
-| 메서드/경로 (`/api/v2` 뒤) | 본문 | 제안 응답 |
+| 메서드/경로 (`/api` 뒤) | 본문 | 제안 응답 |
 | --- | --- | --- |
 | GET `/auth/csrf` | 없음 | 기존 `{header_name,token}` |
 | POST `/auth/password-reset/requests` | `{email}` | 202; 가입 여부와 무관하게 같은 안내 |

@@ -28,13 +28,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 /**
- * /v2/auth/* 계정 HTTP 경로: 가입, 로그인, 로그인 유지(refresh), 로그아웃, 비밀번호, 탈퇴 접수(철회 없음).
+ * /auth/* 계정 HTTP 경로: 가입, 로그인, 로그인 유지(refresh), 로그아웃, 비밀번호, 탈퇴 접수(철회 없음).
  *
  * 로그인하면 access 토큰(JWT)을 본문으로, refresh 토큰을 HttpOnly 쿠키로 준다(ADR 0031). 앱은 access 토큰을
- * {@code Authorization: Bearer}로 보내고, 만료 전에 {@code POST /v2/auth/refresh}로 새로 받는다.
+ * {@code Authorization: Bearer}로 보내고, 만료 전에 {@code POST /auth/refresh}로 새로 받는다.
  */
 @RestController
-@RequestMapping("/v2/auth")
+@RequestMapping("/auth")
 public class AuthController {
 	private final AccountService accounts;
 	private final CurrentUser current;

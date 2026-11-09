@@ -25,8 +25,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * 보안 설정(ADR 0031): 비밀번호 해시(BCrypt), 공개 경로, access 토큰(JWT, {@code Authorization: Bearer}) 확인,
  * 401·403 JSON 응답.
  *
- * 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음). 로그인 유지는 refresh 토큰 쿠키로 {@code /v2/auth/refresh}에서만
- * 한다({@link AuthTokens}). {@code /v2/realtime}은 HTTP 단계에서 열어 두고 hello의 {@code access_token}으로 확인한다.
+ * 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음). 로그인 유지는 refresh 토큰 쿠키로 {@code /auth/refresh}에서만
+ * 한다({@link AuthTokens}). {@code /realtime}은 HTTP 단계에서 열어 두고 hello의 {@code access_token}으로 확인한다.
  * 로그인이 없으면 연결 실패 대신 {@code closed: unauthorized}로 알려 앱이 계속 재시도하지 않게 한다.
  * 다른 출처 화면(Vercel {@code app.<도메인>})은 {@code posegood.cors.allowed-origins}에 적힌 출처만 부를 수 있다.
  */
@@ -35,11 +35,11 @@ public class SecurityConfiguration {
 	/** 로그인 없이 부르는 경로. 여기에는 access 토큰이 붙어 와도 보지 않는다(만료된 토큰으로 로그인·갱신을 막지 않게). */
 	static final Set<String> PUBLIC = Set.of(
 		"/health",
-		"/v2/auth/register",
-		"/v2/auth/login",
-		"/v2/auth/refresh",
-		"/v2/auth/logout",
-		"/v2/realtime");
+		"/auth/register",
+		"/auth/login",
+		"/auth/refresh",
+		"/auth/logout",
+		"/realtime");
 
 	@Bean
 	PasswordEncoder passwords() {
