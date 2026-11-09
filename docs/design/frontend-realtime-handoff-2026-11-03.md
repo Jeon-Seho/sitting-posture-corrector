@@ -1,7 +1,7 @@
 # 실시간 측정 다시 만들기 — 프론트 정리
 
-기준: 2026-11-03. develop `096cc3c`(PR #95로 #91·#92를 되돌린 상태, 코드는 10/29 검증 때 `3d2fdfd`와 같다),
-BE `feature/repo-realtime-observation4` `45c5c19`(`observation` 4.0, PR 전), FE `feature/fe-3sec-batch-observation4`.
+기준: 2026-11-03(11/4 최신화). develop `fe5058b` — BE `observation` 4.0(PR #96 `45c5c19`, PR #98 `61365a4` `recovery_ms`)과 FE 대응(PR #99, `feature/fe-3sec-batch-observation4`)이 모두 들어갔다.
+그 전 상태는 develop `096cc3c`(PR #95로 #91·#92를 되돌림, 코드는 10/29 검증 때 `3d2fdfd`와 같다).
 경위, 3초를 세는 방법, BE에 요청해 반영된 4.0 형식, FE 구현과 남은 것을 적는다.
 
 ## 무슨 일이 있었나
@@ -71,9 +71,9 @@ good → holdMs = 0
 | `invalid_reason` | `valid`면 `null`, 아니면 `unmeasurable`·`head_turn`·`settling`(아직 안 보냄) | 판정 불가 문구 고르기 |
 
 뺀 것: `start_ms`·`end_ms`·`phase`(`progress.paused_reason`)·`valid_ms`(`summary`)·`deviation_type`(`decision`에 있음)·`model_version`.
-안내 문구는 「자세가 무너졌습니다. 바로 잡아주세요」 하나라 `deviation_type`이 필요 없다. 필드를 빼는 변경이라 FE와 함께 배포한다.
+안내 문구는 「자세가 무너졌습니다. 바로 잡아주세요」 하나라 `deviation_type`이 필요 없다. 필드를 빼는 변경이라 운영에는 FE를 먼저 올린다(FE는 3.0도 읽는다).
 
-## FE 구현 (`feature/fe-3sec-batch-observation4`)
+## FE 구현 (PR #99, `feature/fe-3sec-batch-observation4`)
 
 - [messages.ts](../../frontend/src/features/session/live/messages.ts): 판정 가능하면 점수는 숫자, 판정 불가면 `null`(3.0은 0). `sequence`·`posture`·`hold_ms`는 선택이라 운영 3.0도 읽는다. 운영 4.0 뒤 3.0 시험을 지운다.
 - [LiveSession.ts](../../frontend/src/features/session/live/LiveSession.ts): 화면에 있는 결과보다 `sequence`가 작거나 같으면 버린다.
@@ -101,7 +101,8 @@ good → holdMs = 0
 ## 남은 것
 
 - [x] 실제 BE 4.0과 로컬에서 함께 실행(11/3, 합성 카메라 좋음 3 → 나쁨 3 → 좋음 3 → 나쁨 1.5 → 좋음 1.5 → 나쁨 1 → 좋음 1 → 나쁨 1초, `POSEGOOD_REALTIME_PHASES`) — 나쁨 시작 3.0초 뒤 붕괴 확정(`hold_ms` 3000), 좋음 시작 3.0초 뒤 회복 확정(`recovery_ms` 250 → 2750), 1.5·1초 나쁨은 확정 없음, 두 번째 측정 정상. 실제 웹캠으로도 확인(klaod-tech)
-- [ ] 배포: BE 4.0은 11/3 develop에 먼저 들어갔다(PR #96, `e01ba49`) — develop 앱은 4.0을 버리므로 FE PR을 바로 합친다. `recovery_ms`(`docs/docs-backend-api-spec-refresh`)는 FE 브랜치에 합쳐 함께 올림. 운영 서버 재배포는 FE가 포크(Vercel)에 올라간 뒤
+- [x] develop 합치기(11/3 저녁): BE PR #96·#98, FE PR #99 → develop `fe5058b`
+- [ ] 운영 배포: 포크 develop을 `fe5058b`로 올려 Vercel 배포 → 그 뒤 운영 서버 재배포(서버를 먼저 올리면 지금 운영 화면이 4.0을 버린다). 운영이 4.0이 되면 3.0 통과 시험을 지운다
 - [ ] **bad 사이에 good 한 프레임이 끼면?** 지금 규칙은 holdMs를 바로 0으로 돌린다. 4.0은 초당 20~30번 오므로 점수 30 근처에서 주의 표시가 깜빡이고 확정이 늦어질 수 있다.
   짧은 끊김을 봐줄지는 ML·BE와 정한다(계획 0084: 별도 결정 전까지 적용하지 않음). 서버에서 정하면 `posture`·`hold_ms`·확정이 한 규칙을 따른다. 3초 판별 시간은 그대로 두고 고를 수 있는 안:
 
