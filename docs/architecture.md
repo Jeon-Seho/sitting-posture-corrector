@@ -155,6 +155,10 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 
 ## 로컬 관측과 연구 경계
 
+별도 [웹캠 모델·규칙 비교](../model/analysis/live_comparison/README.md)는 비공개 파일럿 가중치와
+로컬 Pose 관측으로 연구용 창 점수를 비교한다. 서버 서비스·알림 엔진과 분리된 loopback 도구이며,
+영상은 브라우저에서 처리하고 9개 2D 점은 로컬 비교 세션의 휘발성 메모리에서만 사용한다.
+
 2026-10-26의 [개발 경로 통일](decisions/0042-unified-dev-observation-route.md) 이후 `/dev`는
 `ObservationLab`만 조립한다. 아래 기존 예측 실험실·수집·모델 비교 관련 설명은 보존된 연구 모듈의
 경계이며 현재 `/dev` 진입에서 실행하지 않는다. 관측의 현재 수집/리플레이 경계는 이 문서 끝을 따른다.

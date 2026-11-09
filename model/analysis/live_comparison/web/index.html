@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>자세 비교 실험실</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/"><span class="brand-mark">P</span><span>POSE LAB <small>RESEARCH TOOL</small></span></a><span class="local-badge"><i></i> 로컬 실험 환경</span></header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">POSTURE COMPARISON / 01</p><h1>자세 비교 실험실<span>.</span></h1><p class="subtitle">같은 자세를 두 가지 방식으로 살펴보세요.</p></div><div class="experiment-label"><span class="pulse"></span> LIVE COMPARISON</div></div>
+    <div class="workspace">
+      <section class="camera-card card" aria-labelledby="camera-title">
+        <div class="section-head"><div><p class="eyebrow">01 / CAMERA</p><h2 id="camera-title">실시간 관측</h2></div><span class="status-pill" id="camera-status">카메라 꺼짐</span></div>
+        <div class="viewport"><video id="video" autoplay playsinline muted></video><canvas id="overlay"></canvas><div class="camera-placeholder" id="placeholder"><div class="camera-symbol">◎</div><strong>카메라를 시작해 주세요</strong><span>얼굴과 양쪽 어깨가 보이도록 앉아 주세요.</span></div><div class="view-corner top-left"></div><div class="view-corner top-right"></div><div class="view-corner bottom-left"></div><div class="view-corner bottom-right"></div><span class="view-label" id="view-label">대기 중</span></div>
+        <div class="camera-controls"><button class="button primary" id="start">카메라 시작 <span>↗</span></button><button class="button secondary" id="register" disabled>기준 자세 등록</button><button class="button quiet" id="stop" disabled>종료</button></div>
+        <div class="camera-tip"><span class="tip-icon">i</span><p id="guidance">카메라를 켠 뒤 편안한 기준 자세를 취하고 등록해 주세요.</p></div>
+      </section>
+      <section class="results" aria-labelledby="results-title">
+        <div class="section-head result-heading"><div><p class="eyebrow">02 / COMPARISON</p><h2 id="results-title">비교 결과</h2></div><span class="sync-label"><span></span> 같은 관측 창</span></div>
+        <article class="score-card card"><div class="score-head"><div class="score-icon rule-icon">⌁</div><div class="score-title"><p>기존 서버</p><h3>규칙 기반</h3></div><span class="score-state" id="rule-state">대기 중</span></div><div class="score-line"><strong id="rule-score">—</strong><span>점수 / 1.00</span></div><div class="track"><div id="rule-bar" class="bar rule-bar"></div></div><div class="score-footer"><span>비교 기준 0.70</span><span>머리 · 어깨 변화</span></div></article>
+        <article class="score-card card model-card"><div class="score-head"><div class="score-icon model-icon">✳</div><div class="score-title"><p>오프라인 학습</p><h3>2단계 모델</h3></div><span class="score-state" id="model-state">대기 중</span></div><div class="score-line"><strong id="model-score">—</strong><span>점수 / 1.00</span></div><div class="track"><div id="model-bar" class="bar model-bar"></div></div><div class="score-footer"><span id="model-threshold">모델 기준 불러오는 중</span><span>합성 이동 보정 포함</span></div></article>
+        <div class="additional"><div><span>보정 전 모델 점수</span><strong id="raw-score">—</strong></div><div><span>합성 이동 보정값</span><strong id="correction">—</strong></div></div>
+        <div class="notice"><div class="notice-mark">✳</div><p><strong>연구용 비교 화면입니다.</strong><br>점수는 실제 자세 이탈 확률이 아닙니다. 이 전체 자료 모델은 독립 검증되지 않았습니다. 측정이 어려운 구간은 판정을 표시하지 않습니다.</p></div>
+      </section>
+    </div>
+    <footer><span>POSE LAB <b>·</b> RESEARCH ONLY</span><span>영상은 이 기기에서 처리됩니다.</span></footer>
+  </main>
+</body>
+</html>
