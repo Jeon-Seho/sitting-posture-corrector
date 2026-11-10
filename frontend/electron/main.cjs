@@ -18,8 +18,17 @@ if (process.argv.includes('--posegood-smoke-hidden')) {
   if (profileArg) app.setPath('userData', path.resolve(profileArg.slice('--user-data-dir='.length)))
 }
 
-// 설치용(패키징) 앱은 빌드된 dist를 app://posegood 으로 제공한다. 절대 경로(/mediapipe/...)가 그대로 동작한다.
-const APP_URL = 'app://posegood/index.html'
+// 설치용(패키징) 앱은 웹과 같은 주소의 화면을 연다. 같은 사이트라 로그인 유지 쿠키(refresh)가 실려
+// 웹처럼 자동 로그인된다(FE 제안서 F14). POSEGOOD_APP_URL은 https 주소만 받는다.
+const REMOTE_URL = process.env.POSEGOOD_APP_URL || 'https://app.posegood.site/'
+// 연결 중·연결 실패 화면과 자세 알림 팝업은 서버 없이도 떠야 해서 앱에 든 dist를 app://posegood 으로 제공한다.
+const LOCAL = new URL('app://posegood/')
+const LOADING_URL = new URL('offline.html', LOCAL).toString()
+const OFFLINE_URL = `${LOADING_URL}?state=offline`
+const RETRY_URL = new URL('retry', LOCAL).toString()
+// 화면이 이 시간 안에 안 열리면 연결 실패 화면으로 바꾸고, 실패 화면에서는 이 간격으로 다시 시도한다.
+const LOAD_TIMEOUT_MS = 10000
+const RETRY_MS = 10000
 const DIST = path.join(__dirname, '..', 'dist')
 if (app.isPackaged) {
   protocol.registerSchemesAsPrivileged([
@@ -28,9 +37,10 @@ if (app.isPackaged) {
 }
 const DEV_URL = process.env.POSEGOOD_DEV_URL || 'http://127.0.0.1:5173/'
 // 개발 실행은 로컬 개발 서버만 연다. 외부 웹 주소는 받지 않는다.
-const address = new URL(app.isPackaged ? APP_URL : DEV_URL)
+const address = new URL(app.isPackaged ? REMOTE_URL : DEV_URL)
 if (!app.isPackaged && (address.protocol !== 'http:' || address.hostname !== '127.0.0.1'))
   throw new Error('Local development URL required')
+if (app.isPackaged && address.protocol !== 'https:') throw new Error('HTTPS app URL required')
 
 // 개발 실행에서만: POSEGOOD_DEBUG_PORT를 주면 로컬 CDP 포트를 열어 앱 화면을 자동 점검할 수 있다.
 if (!app.isPackaged && /^\d{4,5}$/.test(process.env.POSEGOOD_DEBUG_PORT ?? '')) {
@@ -77,7 +87,8 @@ function launchInfo() {
   }
 }
 
-// IPC 요청은 이 앱 창(로컬 개발 주소)에서 온 것만 받는다.
+// IPC 요청은 이 앱 창이 연 화면 주소(설치용은 웹 주소, 개발은 로컬 개발 주소)에서 온 것만 받는다.
+// 앱에 든 연결 실패 화면(app://)은 IPC를 쓰지 않는다.
 function trusted(event) {
   try {
     return sameAddress(new URL(event.senderFrame.url))
@@ -150,7 +161,7 @@ const POPUP_MS = 8000
 let mainWindow = null
 let popupWindow = null
 let popupTimer = null
-const popupURL = app.isPackaged ? 'app://posegood/alert-popup.html' : new URL('alert-popup.html', DEV_URL).toString()
+const popupURL = app.isPackaged ? new URL('alert-popup.html', LOCAL).toString() : new URL('alert-popup.html', DEV_URL).toString()
 
 function popupText(value, limit) {
   return typeof value === 'string' ? value.trim().slice(0, limit) : ''
@@ -267,17 +278,61 @@ async function createWindow() {
   }
   installCameraWindow({ mainWindow: window, screen, ipcMain, trusted })
   window.webContents.on('will-navigate', (event, url) => {
+    // 연결 실패 화면의 「지금 다시 시도」.
+    if (app.isPackaged && url === RETRY_URL) {
+      event.preventDefault()
+      void openApp(window)
+      return
+    }
     if (!sameAddress(new URL(url))) event.preventDefault()
   })
-  try {
-    // 개발 서버 또는 패키징된 React 화면을 PC 창에서 연다.
-    await window.loadURL(app.isPackaged ? APP_URL : DEV_URL)
-  } catch {
-    dialog.showErrorBox('화면을 열 수 없습니다', app.isPackaged
-      ? '앱 파일을 다시 빌드하거나 복사한 뒤 실행해 주세요.'
-      : '개발 서버를 켜거나 바탕화면 바로가기로 다시 실행해 주세요.')
-    app.quit()
+  if (!app.isPackaged) {
+    try {
+      await window.loadURL(DEV_URL)
+    } catch {
+      dialog.showErrorBox('화면을 열 수 없습니다', '개발 서버를 켜거나 바탕화면 바로가기로 다시 실행해 주세요.')
+      app.quit()
+    }
+    return
   }
+  // 웹 화면을 연 뒤 새로 고침 등으로 다시 못 열면 연결 실패 화면으로 바꾼다(ERR_ABORTED -3은 이동 취소라 뺀다).
+  window.webContents.on('did-fail-load', (_event, code, _description, url, isMainFrame) => {
+    if (!opening && isMainFrame && code !== -3 && sameAddress(new URL(url))) showOffline(window)
+  })
+  // 서버를 기다리는 동안 빈 창 대신 앱에 든 「연결하는 중」 화면을 먼저 보인다.
+  await window.loadURL(LOADING_URL).catch(() => {})
+  await openApp(window)
+}
+
+let retryTimer = null
+// openApp이 웹 화면을 여는 중이면 실패는 openApp이 처리한다(did-fail-load와 겹치지 않게).
+let opening = false
+
+/** 웹 화면을 연다. LOAD_TIMEOUT_MS 안에 못 열면 연결 실패 화면으로 바꾸고 RETRY_MS마다 다시 시도한다. */
+async function openApp(window) {
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = null
+  if (opening || window.isDestroyed()) return
+  opening = true
+  const timeout = setTimeout(() => { if (!window.isDestroyed()) window.webContents.stop() }, LOAD_TIMEOUT_MS)
+  let failed = false
+  try {
+    await window.loadURL(REMOTE_URL)
+  } catch {
+    failed = true
+  } finally {
+    clearTimeout(timeout)
+    opening = false
+  }
+  if (failed) showOffline(window)
+}
+
+/** 실패한 이동은 빈 화면이나 오류 화면을 남기므로 매번 연결 실패 화면을 다시 연다. */
+function showOffline(window) {
+  if (window.isDestroyed()) return
+  window.loadURL(OFFLINE_URL).catch(() => {})
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = setTimeout(() => void openApp(window), RETRY_MS)
 }
 
 // 시작 프로그램과 사용자가 동시에 실행해도 창은 하나만 둔다.
@@ -292,11 +347,11 @@ if (!app.requestSingleInstanceLock()) {
   })
   app.whenReady().then(() => {
     if (app.isPackaged) {
-      // dist 밖의 파일은 제공하지 않는다.
+      // 앱에 든 화면(연결 중·연결 실패, 자세 알림 팝업)만 제공한다. dist 밖의 파일은 제공하지 않는다.
       protocol.handle('app', (request) => {
         try {
           const url = new URL(request.url)
-          if (!sameAddress(url)) return new Response('Not found', { status: 404 })
+          if (url.protocol !== LOCAL.protocol || url.host !== LOCAL.host) return new Response('Not found', { status: 404 })
           const file = path.resolve(DIST, '.' + decodeURIComponent(url.pathname))
           const relative = path.relative(DIST, file)
           if (relative.startsWith('..') || path.isAbsolute(relative)) return new Response('Not found', { status: 404 })

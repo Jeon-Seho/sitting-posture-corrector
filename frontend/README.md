@@ -50,11 +50,13 @@ electron-builder가 `frontend/release/win-unpacked/`에 앱을 만들고 `fronte
 이 버전은 매 실행 시 압축 해제로 느릴 수 있다.
 Windows 압축 해제 후 폴더 rename에서 발생한 `EPERM`을 피하려고 설치된 Electron 배포본을 복사한다.
 이 명령은 Windows용이며 시작 프로그램 등록에는 휴대용 원본 EXE 경로를 사용한다.
-패키징된 앱은 개발 서버 대신 `app://posegood`에서 빌드 화면과 MediaPipe 정적 파일을 제공한다.
+패키징된 앱은 웹과 같은 주소(`https://app.posegood.site`, `POSEGOOD_APP_URL`로 다른 https 주소)의 화면을 연다. 같은 사이트라 로그인 유지 쿠키가 실려 웹처럼 자동 로그인된다(FE 제안서 F14). 앱 기능 요청(IPC)은 이 주소에서 온 것만 받는다.
+앱에 든 파일은 `app://posegood`으로 「연결하는 중」·「서버에 연결할 수 없어요」 화면(`public/offline.html`)과 자세 알림 팝업만 제공한다. 화면을 10초 안에 못 열면 연결 실패 화면을 보이고 10초마다 다시 시도한다. 화면 업데이트는 웹 배포(Vercel)로 바로 반영되므로, 데스크톱 앱 배포 전에 운영 웹이 최신이어야 한다.
 
 패키징 후 `node scripts/smoke-desktop.mjs`로 숨긴 창·독립 임시 프로필·합성 카메라를 사용하는 EXE 검증을 실행한다.
 앱 화면·preload IPC·보안 컨텍스트·Web Locks·모델/WASM 파일·카메라 연결과 모델 초기화를 확인한다.
 실제 카메라·재부팅 후 시작 프로그램 실행·다른 PC에서의 실행은 별도 수동 확인 대상이다.
+주의(2026-11-10): `smoke-desktop.mjs`·`smoke-packaged-ui.mjs`는 앱 화면이 `app://posegood`에 있던 때의 점검이라, 화면이 웹 주소로 바뀐 뒤에는 고쳐야 한다. 지금 확인한 것은 패키징한 EXE를 숨김 창으로 띄워 ① 열 수 없는 주소에서 연결 실패 화면이 바로 뜨고 그 화면의 IPC는 거부되는지, ② 운영 주소에서 웹 화면이 뜨고 IPC가 허용되는지다.
 
 2026-10-02 검증: 프론트 테스트 242개·TypeScript 검사·Vite 빌드·Electron 메인 파일 문법 검사는 통과했다.
 `npm run desktop:pack`과 실제 portable EXE smoke도 통과했다. 합성 카메라 640px 영상,
@@ -111,7 +113,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 `#password-reset?token=...`·`#verify-email?token=...` 링크를 받을 수 있다. 현재 API는 기본 비활성이며
 성공을 가장하지 않고 연결 준비중을 표시한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 후속 같은 출처 API가
 실제로 배포된 웹에서만 빌드 시 활성화한다. SMTP/비밀/DB는 프론트가 처리하지 않는다.
-패키지의 `app://`는 현재 정적 파일만 제공하므로 플래그만 켜지 않는다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
+데스크톱 앱도 웹 주소의 화면을 열므로 웹과 같은 빌드 플래그를 따른다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
 
 최신 밝은 테마는 사이드바/소개 `#416b56`, 흰 작업 면이다. 이미지 모델로 생성한 투명 WebP
 `login-light`·`ready-camera-light`·`empty-records-light`·`baseline-seat-light`를 사용한다.
