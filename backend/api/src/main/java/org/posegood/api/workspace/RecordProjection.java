@@ -2,7 +2,6 @@ package org.posegood.api.workspace;
 
 import org.posegood.api.contract.SessionView;
 
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
@@ -97,34 +96,5 @@ final class RecordProjection {
 			active.put("endReason", "unknown");
 		}
 		return events;
-	}
-
-	/**
-	 * 숫자 3과 3.0을 같게 보는 JSON 비교.
-	 */
-	static boolean same(JsonNode left, JsonNode right) {
-		if (left.isNumber() && right.isNumber()) {
-			return left.asDouble() == right.asDouble();
-		}
-		if (left.getNodeType() != right.getNodeType() || left.size() != right.size()) {
-			return false;
-		}
-		if (left.isObject()) {
-			for (var entry : left.properties()) {
-				if (!right.has(entry.getKey()) || !same(entry.getValue(), right.get(entry.getKey()))) {
-					return false;
-				}
-			}
-			return true;
-		}
-		if (left.isArray()) {
-			for (int i = 0; i < left.size(); i++) {
-				if (!same(left.get(i), right.get(i))) {
-					return false;
-				}
-			}
-			return true;
-		}
-		return left.equals(right);
 	}
 }
