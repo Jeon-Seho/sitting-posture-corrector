@@ -15,6 +15,7 @@
       }
       main { max-width: 420px; padding: 32px 24px; text-align: center; }
       h1 { margin: 0 0 12px; font-size: 22px; }
+      .error-art { width: min(100%, 300px); height: 225px; object-fit: contain; margin-bottom: 20px; }
       p { margin: 0 0 8px; color: var(--muted); line-height: 1.6; }
       .spinner {
         width: 36px; height: 36px; margin: 0 auto 20px; border-radius: 50%;
@@ -36,12 +37,14 @@
         <p>잠시만 기다려 주세요.</p>
       </section>
       <section id="offline" hidden>
+        <img class="error-art" data-error-code="502" src="illustrations/themes/green-error-502.webp" width="300" height="225" alt="" />
         <h1>서버에 연결할 수 없어요</h1>
         <p>사용자 잘못이 아니에요. 인터넷 연결을 확인하거나 잠시 뒤 다시 시도해 주세요.</p>
         <p>연결되면 자동으로 다시 열어요.</p>
         <a class="button" href="/retry">지금 다시 시도</a>
       </section>
     </main>
+    <script src="error-theme.js"></script>
     <script>
       const offline = new URLSearchParams(location.search).get('state') === 'offline'
       document.getElementById('loading').hidden = offline

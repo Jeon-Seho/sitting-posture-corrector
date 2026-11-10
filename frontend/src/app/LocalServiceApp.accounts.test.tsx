@@ -10,6 +10,7 @@ import { AccountError, type AccountClient, type AccountView } from '../features/
 import { setServerAuth } from '../features/platform/serverAuth'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DEFAULT_RULES } from '../data/posture'
+import { AppErrorBoundary } from '../pages/ErrorPage'
 
 vi.mock('../hooks/useWriterLock', () => ({ useWriterLock: () => ({ state: 'ready', retry: vi.fn() }) }))
 
@@ -137,6 +138,26 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     await submit()
     expect(accounts.login).not.toHaveBeenCalled()
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+  })
+  it('opens the selected developer error page without a server request', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('window', { location: { assign }, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    await mount()
+    type('email', 'admin'); type('password', '1234'); await submit()
+    click('개발자 도구')
+    act(() => renderer!.root.findByProps({ 'aria-label': '웹 오류 상황' }).props.onChange({ target: { value: '505' } }))
+    click('실제 오류 페이지 열기')
+    expect(assign).toHaveBeenCalledWith('/error/505')
+    expect(accounts.login).not.toHaveBeenCalled()
+  })
+  it('activates the real rendering error boundary from the developer test button', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await act(async () => { renderer = create(<AppErrorBoundary><LocalServiceApp camera={camera()} accounts={accounts as unknown as AccountClient} /></AppErrorBoundary>) })
+    type('email', 'admin'); type('password', '1234'); await submit()
+    click('개발자 도구')
+    click('화면 오류 재현 (500)')
+    expect(text(renderer!.root)).toContain('화면을 불러오지 못했어요')
+    expect(renderer!.root.findByType('a').props.href).toBe('/')
   })
   it('ignores a late account restoration after developer entry', async () => {
     let restore!: (view: AccountView) => void
