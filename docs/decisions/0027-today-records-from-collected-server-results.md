@@ -37,7 +37,7 @@
 
 ## 4. 자정을 넘긴 측정의 KST 날짜별 보관 (옛 ADR 0033, 2026-10-26)
 
-> **서버가 KST 자정에 측정을 끊게 되면([ADR 0029](0029-midnight-cut-and-server-time.md)) 측정 하나는 하루 안에 있어 이 절은 필요 없어진다.** 그때 이 절과 코드(`useSessionPersistence.ts` `observe`의 날짜 나누기)를 지운다([계획 0059](../plans/active/0059-slim-realtime-results-over-api.md) 3번). 그 전까지와 끊기 전 기록에 쓰인다.
+> **서버가 KST 자정에 측정을 끊게 되면([ADR 0029](0029-midnight-cut-and-server-time.md)) 측정 하나는 하루 안에 있어 이 절은 필요 없어진다.** 그때 이 절과 코드(`useSessionPersistence.ts` `observe`의 날짜 나누기)를 지운다([계획 0059](../plans/completed/0059-slim-realtime-results-over-api.md) 3번). 그 전까지와 끊기 전 기록에 쓰인다.
 
 ### 결정
 
