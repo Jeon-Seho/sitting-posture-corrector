@@ -35,6 +35,7 @@
   - BE: [ADR 0020 판정은 API 하나 안에서(구조·시간 정책·특징·계정)](decisions/0020-single-api-decision-engine.md) / 서버 운영: [ADR 0015 Compose·배포](decisions/0015-compose-and-deployment.md)
   - ML: [ADR 0007 추적 모델과 수집](decisions/0007-lite-pose-tracker.md), [ADR 0047 이탈 확률을 서버가 좋음/나쁨으로](decisions/0047-posture-from-deviation-probability.md)(채택 10/30 BE, 10/31 ADR 0045 2클래스에 맞춤) / 공통: [ADR 0001 하네스](decisions/0001-repository-harness.md), [ADR 0009 검증 진입점](decisions/0009-cross-platform-dev-entry.md)
 - **기능 명세:** [FE 기능 명세](design/fe/fe-feature-spec.md) — 앱 기능, 시작·종료 상태, 구현 상태.
+- **디자인 요청:** [오류·연결 화면 디자인 요청](design/fe/fe-design-request.md) — 연결 중·서버 연결 불가·5xx·오프라인·예상 못 한 4xx·앱 오류 화면의 문구와 조건(lellon0403).
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/fe/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
