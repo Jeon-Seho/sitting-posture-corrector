@@ -1,8 +1,8 @@
 # FE 기능 명세
 
 > 작성자: klaod-tech(FE) · 작성: 2026-11-09 · 상태: 초안(우선순위는 팀 확인 전)
-> **이 문서의 역할:** 앱에 어떤 기능이 있고 지금 어디까지 구현됐는지 한곳에서 본다. API별 요청·응답과 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드 규칙의 기준은 [BE API 명세](api-spec.md), 남은 일과 요청은 [FE 제안서](fe-server-proposal.md) 1장이 기준이다.
-> **범위:** 웹과 데스크톱(Electron) 앱. 휴대폰 앱은 이 명세를 끝낸 뒤 구현하므로 여기 넣지 않는다. `/dev`는 학습 데이터 수집용 개발 도구라 서비스 기능에서 뺀다([개발자 화면 안내](../../frontend/src/features/developer/README.md)).
+> **이 문서의 역할:** 앱에 어떤 기능이 있고 지금 어디까지 구현됐는지 한곳에서 본다. API별 요청·응답과 앱이 언제 무엇을 보내고 받는지는 [연동 명세](api-ws-spec.md), 필드 규칙의 기준은 [BE API 명세](../api-spec.md), 남은 일과 요청은 [FE 제안서](fe-server-proposal.md) 1장이 기준이다.
+> **범위:** 웹과 데스크톱(Electron) 앱. 휴대폰 앱은 이 명세를 끝낸 뒤 구현하므로 여기 넣지 않는다. `/dev`는 학습 데이터 수집용 개발 도구라 서비스 기능에서 뺀다([개발자 화면 안내](../../../frontend/src/features/developer/README.md)).
 
 ## 1. 읽는 법
 
@@ -95,8 +95,19 @@
 **비고**
 
 - 아이디와 닉네임이 없다. 이메일로 로그인하고, 이름은 중복을 검사하지 않는다.
+- 동의 항목 번호(C1~C6)와 서버 유형은 아래와 같다. 고지 문구는 `consents.ts`에 있다. 화면 순서는 C6 → C1 → C2 → C4 → C5 → C3이고, 「자세히」 팝업으로 수집 항목·목적·보유 기간(탈퇴 후 30일)을 보인다.
+
+| 번호 | 항목 | 서버 유형 | 필수 |
+|---|---|---|---|
+| C1 | 서비스 이용약관 | `TERMS` | 필수 |
+| C2 | 회원가입 정보 수집·이용(이메일, 비밀번호 해시, 이름) | `ACCOUNT_INFO` | 필수 |
+| C3 | 선택 정보(나이·직업) 수집·이용 | `OPTIONAL_PROFILE` | 선택 |
+| C4 | 카메라 관절 좌표 수집·이용(영상·사진은 보내지 않음) | `POSE_COORDINATES` | 필수 |
+| C5 | 측정 기록 저장 | `MEASUREMENT_RECORD` | 필수 |
+| C6 | 만 14세 이상 | `AGE_14_OVER` | 필수 |
+
 - 자세 등록을 건너뛰어도 가입은 끝난 상태다. 측정하기에서 등록한 자세가 없으면 그때 등록한다.
-- 코드: [LocalServiceApp.tsx](../../frontend/src/app/LocalServiceApp.tsx) `register`, [SignupPostureStep.tsx](../../frontend/src/features/auth/SignupPostureStep.tsx), [consents.ts](../../frontend/src/features/auth/consents.ts). 서버 규칙은 [API 명세 A2](api-spec.md#a2).
+- 코드: [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `register`, [SignupPostureStep.tsx](../../../frontend/src/features/auth/SignupPostureStep.tsx), [consents.ts](../../../frontend/src/features/auth/consents.ts). 서버 규칙은 [API 명세 A2](../api-spec.md#a2).
 
 ### 로그인
 
@@ -129,7 +140,7 @@
 **비고**
 
 - ID 칸에 `admin`을 넣으면 서버에 보내지 않고 개발자 계정으로 들어간다(비밀번호 `1234`). 서버 측정과 저장은 쓸 수 없는 화면 확인용이다.
-- 코드: [LocalServiceApp.tsx](../../frontend/src/app/LocalServiceApp.tsx) `login`, [accountClient.ts](../../frontend/src/features/auth/accountClient.ts) `accountErrorMessage`.
+- 코드: [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `login`, [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts) `accountErrorMessage`.
 
 ### 로그인 유지
 
@@ -156,7 +167,7 @@
 
 **비고**
 
-- 코드: [accountClient.ts](../../frontend/src/features/auth/accountClient.ts). 규칙은 [연동 명세](api-ws-spec.md) 1장 「로그인 유지」.
+- 코드: [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts). 규칙은 [연동 명세](api-ws-spec.md) 1장 「로그인 유지」.
 
 ### 로그아웃
 
@@ -202,7 +213,7 @@
 
 **비고**
 
-- 구현 전. 설계안은 [이메일 계정 인계](email-account-handoff.md). 코드: [MailAccessPage.tsx](../../frontend/src/features/auth/MailAccessPage.tsx), [mailApi.ts](../../frontend/src/features/auth/mailApi.ts).
+- 구현 전. 설계안은 [이메일 계정 인계](../email-account-handoff.md). 코드: [MailAccessPage.tsx](../../../frontend/src/features/auth/MailAccessPage.tsx), [mailApi.ts](../../../frontend/src/features/auth/mailApi.ts).
 
 ### 프로필 수정
 
@@ -229,7 +240,7 @@
 
 **비고**
 
-- 코드: [ServerAccountPage.tsx](../../frontend/src/features/profile/ServerAccountPage.tsx).
+- 코드: [ServerAccountPage.tsx](../../../frontend/src/features/profile/ServerAccountPage.tsx).
 
 ### 비밀번호 변경
 
@@ -325,7 +336,7 @@
 
 **비고**
 
-- 코드: [LocalServiceApp.tsx](../../frontend/src/app/LocalServiceApp.tsx) `saveRules`, [serverWorkspace.ts](../../frontend/src/features/storage/serverWorkspace.ts), [SettingsPage.tsx](../../frontend/src/pages/SettingsPage.tsx).
+- 코드: [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `saveRules`, [serverWorkspace.ts](../../../frontend/src/features/storage/serverWorkspace.ts), [SettingsPage.tsx](../../../frontend/src/pages/SettingsPage.tsx).
 
 ### 알림 설정
 
@@ -375,7 +386,7 @@
 
 **비고**
 
-- 그래픽 가속이 꺼진 브라우저에서는 안내 팝업을 띄운다([frontend README](../../frontend/README.md)). 코드: [errors.ts](../../frontend/src/features/camera/errors.ts).
+- 그래픽 가속이 꺼진 브라우저에서는 안내 팝업을 띄운다([frontend README](../../../frontend/README.md)). 코드: [errors.ts](../../../frontend/src/features/camera/errors.ts).
 
 ### 기준 자세 등록
 
@@ -403,7 +414,7 @@
 
 **비고**
 
-- 3초 평균은 앱이 낸다(10/20 전체 회의, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 절차는 [연동 명세 5.4](api-ws-spec.md). 코드: [landmarkCapture.ts](../../frontend/src/features/baseline/landmarkCapture.ts), [usePostureRegistration.ts](../../frontend/src/features/camera/usePostureRegistration.ts).
+- 3초 평균은 앱이 낸다(10/20 전체 회의, [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)). 절차는 [연동 명세 5.4](api-ws-spec.md). 코드: [landmarkCapture.ts](../../../frontend/src/features/baseline/landmarkCapture.ts), [usePostureRegistration.ts](../../../frontend/src/features/camera/usePostureRegistration.ts).
 
 ### 측정 시작
 
@@ -435,7 +446,7 @@
 
 **비고**
 
-- 응답이 없으면 S1을 같은 UUID·같은 본문으로 다시 보낸다. 코드: [useSessionPersistence.ts](../../frontend/src/features/session/useSessionPersistence.ts) `start`, [LiveSession.ts](../../frontend/src/features/session/live/LiveSession.ts) `start`.
+- 응답이 없으면 S1을 같은 UUID·같은 본문으로 다시 보낸다. 코드: [useSessionPersistence.ts](../../../frontend/src/features/session/useSessionPersistence.ts) `start`, [LiveSession.ts](../../../frontend/src/features/session/live/LiveSession.ts) `start`.
 
 ### 쉬기·재개
 
@@ -504,7 +515,7 @@
 
 **비고**
 
-- 서버 안쪽을 Kafka로 바꿔도([계획 0031](../plans/active/0031-realtime-kafka-transition.md)) 앱의 연결과 메시지 형식은 그대로다. 메시지 형식은 [연동 명세](api-ws-spec.md) 5장·7장.
+- 서버 안쪽을 Kafka로 바꿔도([계획 0031](../../plans/active/0031-realtime-kafka-transition.md)) 앱의 연결과 메시지 형식은 그대로다. 메시지 형식은 [연동 명세](api-ws-spec.md) 5장·7장.
 
 ### 측정 중 상태 표시
 
@@ -531,7 +542,7 @@
 
 **비고**
 
-- 코드: [LiveSessionPage.tsx](../../frontend/src/features/session/live/LiveSessionPage.tsx). 결정은 [ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 4절 8번.
+- 코드: [LiveSessionPage.tsx](../../../frontend/src/features/session/live/LiveSessionPage.tsx). 결정은 [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 4절 8번.
 
 ### 자세 경고 알림
 
@@ -613,7 +624,7 @@
 
 **비고**
 
-- 결정은 [ADR 0024](../decisions/0024-session-ends-on-lost-connection.md).
+- 결정은 [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md).
 
 ### 자정 넘김 처리
 
@@ -638,7 +649,7 @@
 
 **비고**
 
-- 결정은 [ADR 0029](../decisions/0029-midnight-cut-and-server-time.md).
+- 결정은 [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md).
 
 ### 쉬기 자동 종료
 
@@ -682,7 +693,7 @@
 
 **비고**
 
-- 결정은 [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md). 코드: [serverRecords.ts](../../frontend/src/features/storage/serverRecords.ts).
+- 결정은 [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md). 코드: [serverRecords.ts](../../../frontend/src/features/storage/serverRecords.ts).
 
 ### 기록 조회
 
@@ -726,7 +737,7 @@
 
 **비고**
 
-- 코드: [recordsSource.ts](../../frontend/src/features/history/recordsSource.ts), [RecordCalendar.tsx](../../frontend/src/features/history/RecordCalendar.tsx).
+- 코드: [recordsSource.ts](../../../frontend/src/features/history/recordsSource.ts), [RecordCalendar.tsx](../../../frontend/src/features/history/RecordCalendar.tsx).
 
 ### 기록 삭제
 
@@ -797,7 +808,7 @@
 
 **비고**
 
-- 코드: [theme.ts](../../frontend/src/features/appearance/theme.ts).
+- 코드: [theme.ts](../../../frontend/src/features/appearance/theme.ts).
 
 ### 작은 카메라 창
 
@@ -817,11 +828,11 @@
 
 **예외 / 제한사항**
 
-- 웹에는 없다(10/26 결정, [ADR 0017](../decisions/0017-desktop-app-shell-and-redesign.md)).
+- 웹에는 없다(10/26 결정, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md)).
 
 **비고**
 
-- 코드: [useCameraWindow.ts](../../frontend/src/features/camera/useCameraWindow.ts), [camera-window.cjs](../../frontend/electron/camera-window.cjs).
+- 코드: [useCameraWindow.ts](../../../frontend/src/features/camera/useCameraWindow.ts), [camera-window.cjs](../../../frontend/electron/camera-window.cjs).
 
 ### 컴퓨터 시작 시 실행
 
@@ -844,4 +855,4 @@
 
 **비고**
 
-- 코드: [main.cjs](../../frontend/electron/main.cjs).
+- 코드: [main.cjs](../../../frontend/electron/main.cjs).

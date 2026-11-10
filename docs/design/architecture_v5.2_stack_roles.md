@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | cron (서버 PC) | `docker exec spark spark-submit`으로 J1 매시간, J2 매일 00:00, J3 매일 04:00 | 시간표 | 잡 실행 (㉘) | Spark가 상주하지 않아 잡이 도는 동안만 메모리 사용. 새 인프라 필요 없음 |
 | Spark 배치 J1 적재 | v1 토픽 3개를 쌓인 만큼 읽고 끝남(`availableNow`, 체크포인트). 임시 폴더 → 끝난 세션을 사용자별 폴더의 세션 파일로. 5분 미만 세션도 적재 | `features.v1`·`inference.v1`·`episodes.v1` (⑭) | HDFS `/data/users/{user_account_id}/{날짜}/{session_id}/` (⑮), `feature_archive` 행 (⑯) | 판정을 재현·분석할 원본이 남음. 실패해도 보존 3일 안에 이어 감 |
-| Spark 배치 J2 집계 | 매일 00:00 전날(KST) 결과를 사용자별 일별 통계로 | 결과 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`excluded_interval`) (⑰) | `daily_stat` (⑰) | 서버 통계(T1)는 어제까지 제공·표시. 오늘 화면은 앱이 로컬에 수집한 서버 결과로 집계한다(10/22, [연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 5분 미만 세션은 붕괴까지 시간 계산에서만 뺌 |
+| Spark 배치 J2 집계 | 매일 00:00 전날(KST) 결과를 사용자별 일별 통계로 | 결과 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`excluded_interval`) (⑰) | `daily_stat` (⑰) | 서버 통계(T1)는 어제까지 제공·표시. 오늘 화면은 앱이 로컬에 수집한 서버 결과로 집계한다(10/22, [연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 5분 미만 세션은 붕괴까지 시간 계산에서만 뺌 |
 | Spark 배치 J3 삭제 | 탈퇴 30일 뒤 그 사용자의 폴더와 행을 지움 | `deletion_request` | 사용자 폴더 삭제 → `feature_archive.deleted_at` → 행 → 요청 완료 (⑳) | 개인정보를 정해진 순서로 빠짐없이. 적재된 기록은 사용자가 따로 지울 수 없어(`RECORD_ARCHIVED`) J3만 지움 |
 | HDFS (NameNode·DataNode) | 판정 과정을 사용자별 폴더의 Parquet로 보관 | J1 (⑮) | J3이 지울 폴더 (⑳) | 하루 약 5GB(50명·8시간, FE 추정)의 시계열은 MySQL보다 파일 저장소가 맞음. 학습 환경과는 연결하지 않음 |
 

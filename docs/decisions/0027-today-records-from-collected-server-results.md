@@ -3,11 +3,11 @@
 - 상태: accepted (2026-11-09 코드 기준으로 고침. 처음 결정은 2026-10-25 「오늘 기록은 앱이 모은 서버 결과로」. 기록·달력의 T1 연결은 남음)
 - 날짜: 2026-10-25 (근거 결정 2026-10-22. 2026-10-27 ADR 정리로 옛 0033 「연속 측정의 KST 날짜별 보관」을 4절로 합침. 2026-10-29 코드 변경, 2026-11-09 결정 고침)
 - 분야: FE (앱이 이 기기에 두는 기록)
-- 근거: 2026-10-22 팀장(Jeon-Seho) 결정(develop `db220d8`, [연동 명세 4.5](../design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)), 2026-10-29 [통합 인계서](../design/frontend-jwt-handoff-2026-10-29.md), 2026-11-09 사용자(FE) 결정.
+- 근거: 2026-10-22 팀장(Jeon-Seho) 결정(develop `db220d8`, [연동 명세 4.5](../design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)), 2026-10-29 [통합 인계서](../design/frontend-jwt-handoff-2026-10-29.md), 2026-11-09 사용자(FE) 결정.
   4절은 2026-10-26 lellon0403(develop PR #64) — 자정을 넘긴 측정을 해당 날짜에 나눠 표시·저장
 - 대체: [ADR 0021](0021-app-sends-information-server-judges.md) 4절 6번 옛 문구 「R1로 바꾸면 이 복사를 지운다」, 10/14 결정 「합산·그래프 같은 통계는 어제까지만 그린다」(DevOps 검토 C5), 이 문서의 10/25 결정(기기에 모은 기록, 키 `posegood.v2.records` 하나)
 - 보완(2026-10-26): [ADR 0029](0029-midnight-cut-and-server-time.md) — 측정은 KST 자정에 서버가 끊고, 「오늘」과 기록 시각은 서버 시각을 따른다
-- 관련: [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [FE 제안서](../design/fe-server-proposal.md) 2장 4·7.2, [계획 0023](../plans/active/0023-frontend-server-only.md), [계획 0058](../plans/active/0058-forest-theme-and-kst-day-records.md)
+- 관련: [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 판정하지 않음), [FE 제안서](../design/fe/fe-server-proposal.md) 2장 4·7.2, [계획 0023](../plans/active/0023-frontend-server-only.md), [계획 0058](../plans/active/0058-forest-theme-and-kst-day-records.md)
 
 ## 배경
 
@@ -32,8 +32,8 @@
 - 서버 저장 확인이 끝나지 않은 결과가 있으면 새 측정을 시작하지 않는다(`useSessionPersistence.ts` `start`).
 - 기록을 보려면 서버 연결이 필요하다. 연결이 안 되면 오류 안내를 보인다.
 - 옛 키 `posegood.v2.records`에 쓰는 코드는 없다. 앱만의 탈퇴(`useProfileForm` `withdraw`)는 옛 키를 지운다.
-- T1을 붙이면 00:00~00:10(J2 전)에는 T1이 어제를 0으로 준다. 그 10분의 어제 표시는 T1 연결 때 정한다([연동 명세 4.5](../design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
-- 서버 탈퇴(A7)는 이 기기의 서버 확인 전 결과를 지우지 않는다. 맞추는 일은 [FE 제안서](../design/fe-server-proposal.md) 1.0.
+- T1을 붙이면 00:00~00:10(J2 전)에는 T1이 어제를 0으로 준다. 그 10분의 어제 표시는 T1 연결 때 정한다([연동 명세 4.5](../design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+- 서버 탈퇴(A7)는 이 기기의 서버 확인 전 결과를 지우지 않는다. 맞추는 일은 [FE 제안서](../design/fe/fe-server-proposal.md) 1.0.
 
 ## 4. 자정을 넘긴 측정의 KST 날짜별 보관 (옛 ADR 0033, 2026-10-26)
 

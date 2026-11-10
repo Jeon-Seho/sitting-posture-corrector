@@ -10,7 +10,7 @@
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
-앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
+앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/fe/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
 현재 DB 스키마와 백엔드의 대응 여부는 [DB 안내](../database/README.md)를 확인한다.
 프론트의 계정·세션 API v2 연결과 좌표 WebSocket v2 전환은 아직 구현 전이다. 로컬 `/dev`·`#forecast`의 LSTM 비교와 일반 서비스 연결을 구분한다.
 실제 참여자에 대한 모델 정확도·연구 효과·운영 배포 완료는 이 상태 설명에 포함되지 않는다.
@@ -18,30 +18,31 @@
 - 팀 서비스 요구사항: 기능·역할·수용 기준·협의 항목은 저장소 밖 팀 구글 시트(디스코드 공유)에서 관리한다. [문서 이동 안내](removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개)는 이동 기록이며 요구사항 원문은 아니다. 실제 시트 주소는 저장소에 미기재다.
 - [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.
 - [Spark 배치 J2 → J3 → J1](plans/active/0085-spark-batch-jobs.md)(0085, DevOps/BE, 11/01): 일별 통계 `daily_stat`(J2, 매일 00:10)·탈퇴 최종 삭제(J3, 04:00)·HDFS 적재(J1, 매시간). 실행·cron은 [bigdata/README.md](../bigdata/README.md).
+- [휴대폰에서 측정 기록 보기](plans/active/0086-fe-mobile-records.md)(0086, FE, 11/10): 웹 앱을 휴대폰 화면에 맞춰 R1 기록·통계를 보기. 앱 형태·휴대폰 측정·T1 대기를 정할 것.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록. FE 설계(실시간 v2·WS 자세 등록)와 다른 곳은 [계획 0029](plans/active/0029-merge-backend-data-platform.md) D1~D9.
 - [백엔드 Java 17·Spring Boot 4·Gradle 전환](plans/active/0028-backend-java17-boot4-gradle.md)([ADR 0020](decisions/0020-single-api-decision-engine.md) 1절): 백엔드·개발 도구 변경과 Docker·CI 팀원 작업 요청.
-- [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/fe-server-proposal.md)(8.3)·[데스크톱 창](design/fe-server-proposal.md)(8.4), [시각 규칙](../DESIGN.md).
+- [데스크톱 화면 계획](plans/active/0020-desktop-app-redesign.md): [화면 설계](design/fe/fe-server-proposal.md)(8.3)·[데스크톱 창](design/fe/fe-server-proposal.md)(8.4), [시각 규칙](../DESIGN.md).
 - [현재 환경 인계와 과거 검증](development-handoff.md). main/develop 직접 push 금지.
 
 ## FE 현재 결정과 작업 (2026-10-21, 10/26 최신화, `feature/frontend-features-and-integrationV3`)
 
-- **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe-server-proposal.md) 7.2.
+- **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe/fe-server-proposal.md) 7.2.
 
 - **결정(2026-10-27 정리, 14개):** 분야별로 묶었다. 합치거나 지운 ADR은 [지운 문서 기록](removed-docs.md) 7절.
   - FE·BE 경계: [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md)(측정·자세 등록 B1·판정 불가 신호 포함), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0028 절대 시각은 서버가 정한다](decisions/0028-server-time-for-baseline-registration.md), [ADR 0029 측정은 KST 자정에 서버가 끊고, 날짜·시각은 서버 시각](decisions/0029-midnight-cut-and-server-time.md), [ADR 0031 access·refresh 토큰 로그인](decisions/0031-jwt-access-refresh-login.md)
   - FE: [ADR 0005 점수 방향과 화면 표시](decisions/0005-score-visuals.md), [ADR 0008 단일 앱](decisions/0008-single-app-entry.md), [ADR 0017 데스크톱 앱과 작은 카메라 창](decisions/0017-desktop-app-shell-and-redesign.md), [ADR 0027 오늘 기록](decisions/0027-today-records-from-collected-server-results.md)
   - BE: [ADR 0020 판정은 API 하나 안에서(구조·시간 정책·특징·계정)](decisions/0020-single-api-decision-engine.md) / 서버 운영: [ADR 0015 Compose·배포](decisions/0015-compose-and-deployment.md)
   - ML: [ADR 0007 추적 모델과 수집](decisions/0007-lite-pose-tracker.md), [ADR 0047 이탈 확률을 서버가 좋음/나쁨으로](decisions/0047-posture-from-deviation-probability.md)(채택 10/30 BE, 10/31 ADR 0045 2클래스에 맞춤) / 공통: [ADR 0001 하네스](decisions/0001-repository-harness.md), [ADR 0009 검증 진입점](decisions/0009-cross-platform-dev-entry.md)
-- **기능 명세:** [FE 기능 명세](design/fe-feature-spec.md) — 앱 기능, 시작·종료 상태, 구현 상태.
-- **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
+- **기능 명세:** [FE 기능 명세](design/fe/fe-feature-spec.md) — 앱 기능, 시작·종료 상태, 구현 상태.
+- **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/fe/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
-- **FE 제안서:** [서버 판정 이전과 연동](design/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
-- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe-server-proposal.md)(FE 제안서 9장, 10/30 공개 연결 끝남 — 10장, 남은 일은 1장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe-server-proposal.md) 1.0.
-- **동의:** [개인정보 수집 동의](design/consent-proposal.md) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
-- **10/12~14 결정 요약(통계 표시 10/22 보완):** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 세션 판정·사건·요약과 어제까지의 일별 통계는 서버가 계산한다. 방금 끝난 세션은 결과 화면에 따로 표시하고, 오늘 목록·합산·달력·그래프는 로컬에 수집한 서버 결과로 표시한다. 기간 화면은 서버의 과거 통계와 로컬 오늘 값을 함께 사용한다([연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
-- **10/16 탈퇴:** 탈퇴는 되돌릴 수 없다(BE 10/15, 철회 A8 없어짐). 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 앱은 연락처 안내를 보인다([연동 명세](design/api-ws-spec.md) 0.7).
-- **10/15 정리:** BE와 이름이 다르면 BE에 맞춘다(적재된 기록 삭제 거부는 409 `CONFLICT`). 배치 번호는 아키텍처 v5.2(J1 적재, J2 집계 00:00, J3 탈퇴 삭제 04:00). DB 저장 이름·단위는 [연동 명세](design/api-ws-spec.md) 1장, DB 제외 사유는 5.2. 실시간은 `/v2/realtime`으로 확정(BE 답). BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
+- **FE 제안서:** [서버 판정 이전과 연동](design/fe/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
+- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe/fe-server-proposal.md)(FE 제안서 9장, 10/30 공개 연결 끝남 — 10장, 남은 일은 1장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0.
+- **동의:** [FE 기능 명세 회원가입](design/fe/fe-feature-spec.md#회원가입) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
+- **10/12~14 결정 요약(통계 표시 10/22 보완):** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 세션 판정·사건·요약과 어제까지의 일별 통계는 서버가 계산한다. 방금 끝난 세션은 결과 화면에 따로 표시하고, 오늘 목록·합산·달력·그래프는 로컬에 수집한 서버 결과로 표시한다. 기간 화면은 서버의 과거 통계와 로컬 오늘 값을 함께 사용한다([연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
+- **10/16 탈퇴:** 탈퇴는 되돌릴 수 없다(BE 10/15, 철회 A8 없어짐). 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 앱은 연락처 안내를 보인다([연동 명세](design/fe/api-ws-spec.md) 0.7).
+- **10/15 정리:** BE와 이름이 다르면 BE에 맞춘다(적재된 기록 삭제 거부는 409 `CONFLICT`). 배치 번호는 아키텍처 v5.2(J1 적재, J2 집계 00:00, J3 탈퇴 삭제 04:00). DB 저장 이름·단위는 [연동 명세](design/fe/api-ws-spec.md) 1장, DB 제외 사유는 5.2. 실시간은 `/v2/realtime`으로 확정(BE 답). BE 브랜치의 v1은 서버를 먼저 돌려 보려고 섞인 임시 상태다.
 - **실행 계획:** [앱 판정 제거와 서버 결과 전용 화면](plans/active/0023-frontend-server-only.md)(0023).
 - **BE 브랜치와 합치기:** [계획 0029](plans/active/0029-merge-backend-data-platform.md). 10/15 PR #48, 10/21 PR #60으로 FE를 develop에 넣었다. 10/21 FE V3가 BE 브랜치를 받았다. 남은 것은 BE 브랜치가 develop에 들어오는 것.
 - **작은 카메라 창·서버 로그인만:** [계획 0054](plans/active/0054-pip-fix-and-server-only-login.md)(10/22): 자동 PiP가 안 열리는 문제를 먼저 고치고, 그다음 시험 전용 로컬 로그인을 지워 서버 로그인만 남긴다. 10/26: 카메라만으로는 Chrome이 자동 PiP를 열지 않아 웹 작은 창을 지우고 숨은 탭 측정을 고쳤다(ADR 0028). 로그인 정리는 남음.

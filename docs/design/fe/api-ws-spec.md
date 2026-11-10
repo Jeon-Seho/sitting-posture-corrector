@@ -1,14 +1,14 @@
 # 앱 ↔ 입출구 서버 연동 명세 (FE)
 
 > 작성자: klaod-tech(FE) · 작성: 2026-10-13
-> **이 문서의 역할:** FE의 API 명세다. **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**를 적고, API별 표는 3장, 요청·처리·응답은 7장에 둔다. 필드 규칙이 어긋나면 [BE API 명세](api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다.
-> 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
-> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(남은 일 1.0, BE와 다른 곳 1.1, 요청 1.2). 회원가입 동의 항목 C1~C6([동의 제안서](consent-proposal.md))은 API C1과 다른 번호다.
-> 계약: [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../contracts/realtime/examples-v2/). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
+> **이 문서의 역할:** FE의 API 명세다. **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**를 적고, API별 표는 3장, 요청·처리·응답은 7장에 둔다. 필드 규칙이 어긋나면 [BE API 명세](../api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다.
+> 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(남은 일 1.0, BE와 다른 곳 1.1, 요청 1.2). 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
+> 계약: [WebSocket v2](../../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../../contracts/realtime/examples-v2). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 0. BE 명세에 대해 FE가 정한 것과 요청
 
-10/13~15의 검토 답변·차이 대조(옛 0.1~0.6)는 BE 명세에 반영돼 이 문서에서 뺐다([지운 문서 기록](../removed-docs.md) 6장, 원문은 `git show dc2c5d4:docs/design/api-ws-spec.md`). 지금 유효한 것만 남긴다.
+10/13~15의 검토 답변·차이 대조(옛 0.1~0.6)는 BE 명세에 반영돼 이 문서에서 뺐다([지운 문서 기록](../../removed-docs.md) 6장, 원문은 `git show dc2c5d4:docs/design/api-ws-spec.md`). 지금 유효한 것만 남긴다.
 
 | 항목 | 정한 것 |
 |---|---|
@@ -16,7 +16,7 @@
 | 세션 시작 시각 | 서버가 S1을 받은 시각 = 앱 `t_ms` 0. S1 응답(200 `SessionView`)에는 `started_at`이 없다 |
 | 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청하고 서버에 해상도를 보내지 않는다. 다른 크기여도 시작은 막지 않고, 측정 중 크기가 바뀌면 `end`로 끝낸다(10/21) |
 | 오늘 기록 | 결과 화면에는 방금 끝난 세션만. 목록·합산·달력·그래프는 R1로 받은 기록을 앱이 집계한다. T1을 붙이면 어제까지의 통계에 쓴다(ADR 0027, 4.5) |
-| 모델명·버전 | `model_version`·`feature_version` 등은 개발·연동용 내부 정보라 서비스 화면에 보이지 않는다. API·WS 필드와 검증은 그대로(10/22 팀장 결정, [내부 관리 기준](../../contracts/README.md#모델명특징-버전의-내부-관리)) |
+| 모델명·버전 | `model_version`·`feature_version` 등은 개발·연동용 내부 정보라 서비스 화면에 보이지 않는다. API·WS 필드와 검증은 그대로(10/22 팀장 결정, [내부 관리 기준](../../../contracts/README.md#모델명특징-버전의-내부-관리)) |
 | 적재된 기록 삭제 | 지울 수 없다. R3가 409 `CONFLICT`면 「지금은 지울 수 없어요」(10/14) |
 | 이름·나이·비밀번호 | 이름 1~30자, 나이 14~120, 비밀번호 12자 이상·72바이트 이하는 앱이 보내기 전에 검사한다 |
 | 값이 없는 필드 | 빼지 않고 `null`로 보낸다(BE는 빠진 필드도 400) |
@@ -29,10 +29,10 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
 | 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 9장). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
-| 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
+| 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
-| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
+| 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(10/26 FE: 앱은 시각이 필요 없어 A4 `server_time`은 요청에서 뺌). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. `ready.started_at`·`closed.ended_at`(`b903751`)과 A2·A3·A4 `today`(`d27a97d`)는 10/27 PR #65로 develop에 들어갔다. 값이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝내 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다(BE-6 ① B안, BE 10/28 구현, 설정 `midnight-rollover` 기본 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다(10/30 FE 처리) |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | 판정 기준은 서버 계정에만 둔다(11/10). 앱은 로그인 뒤와 측정하기·설정 화면을 열 때 W1 `rules`를 받고, 설정을 바꾸면 W2로 저장한다. 이 기기에는 남기지 않는다. S1 `policy`는 W1 `rules`의 초에 1000을 곱한 값이다. 서버는 계정 값과 다르면 409 `CONFLICT`로 거절하므로(11/10 실제 서버 확인: 기기에만 바꾼 값은 409, W2로 저장한 값은 200), 다른 기기에서 바꾼 직후라면 측정하기 화면을 다시 열어 W1을 받는다. **10/27 FE 결정: S1에서 `policy`를 빼고 서버가 계정 정책으로 고정하게 요청(BE-11).** BE가 `policy` 없는 S1을 받게 한 뒤 앱이 뺀다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버다(구간 시간으로) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
@@ -137,7 +137,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-삭제된 API: A1 CSRF(10/27), S2 구간 입력·S5 메타데이터·S6 세션 삭제·R2 기록 저장(10/28, [계획 0062](../plans/active/0062-remove-unused-apis.md)). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+삭제된 API: A1 CSRF(10/27), S2 구간 입력·S5 메타데이터·S6 세션 삭제·R2 기록 저장(10/28, [계획 0062](../../plans/active/0062-remove-unused-apis.md)). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -155,7 +155,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 **응답 형식(BE 10/27 `d27a97d`·`fdd1269`):** R1은 배열이 아니라 `{ "today": "YYYY-MM-DD", "records": [RecordItem…] }`(최신순)이고, 앱은 `records`를 읽고 `today`로 「오늘」을 갱신한다. T1(구현 전, 형식 확정)은 `{ today, from, to, days }`이고 `to`는 어제까지로 잘린다. `days`의 필드는 DB `daily_stat` 칸 이름 그대로(`stat_date`·`valid_sec`·`good_sec`·`session_count`·`event_count`·`alerted_event_count`·`min_`·`max_until_collapse_sec`·`computed_at`), 빈 날은 0으로 채우고 min·max·`computed_at`은 null. J2가 돌기 전에는 0만 온다. 앱은 R1을 부르고(`features/storage/serverRecords.ts`), T1은 서버에 없어 부르지 않는다. R1의 `RecordItem`은 앱 기록 형식(camelCase, `server.view` = `SessionView`) 그대로다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 11/9 기준 서버에 R1b·T1이 아직 없다(BE-2).
 
-**오늘과 과거의 데이터 출처([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md), 11/9 고침):** 측정은 끝날 때 서버에 저장되고 R1이 오늘 세션까지 돌려주므로 기록은 R1 하나로 본다. R1 값은 메모리에만 두고 앱을 열 때마다 다시 받는다. localStorage에는 서버 확인 전 결과만 계정별 키(`posegood.account.v3.{user_id}.pending-results`)에 두고, R1에서 확인되면 지운다(`features/storage/serverRecords.ts`).
+**오늘과 과거의 데이터 출처([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md), 11/9 고침):** 측정은 끝날 때 서버에 저장되고 R1이 오늘 세션까지 돌려주므로 기록은 R1 하나로 본다. R1 값은 메모리에만 두고 앱을 열 때마다 다시 받는다. localStorage에는 서버 확인 전 결과만 계정별 키(`posegood.account.v3.{user_id}.pending-results`)에 두고, R1에서 확인되면 지운다(`features/storage/serverRecords.ts`).
 
 | 표시 대상 | 출처·처리 |
 |---|---|
@@ -175,14 +175,14 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 ### 5.1 좌표 구간 (`posture.frames.v1`)
 
-**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간을 받으면 바로 추론·판정해 `observation` → (`decision` → `alert`) → `ack` → `progress` 순서로 보낸다(구간마다, 프레임마다). 판정 시간은 구간 `start_ms`·`end_ms`로 센다(`t_ms`는 서버가 형식만 검사한다, BE 명세 11.2). 11/1에 들어간 서버 3초 묶음(PR #91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95, [인계서](frontend-realtime-handoff-2026-11-03.md)). 필드와 예시는 BE 명세 11.2와 계약.
+**프레임마다 구간 1개**(2026-10-27 팀장 결정, 그 전에는 0.5초에 구간 1개). 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간을 받으면 바로 추론·판정해 `observation` → (`decision` → `alert`) → `ack` → `progress` 순서로 보낸다(구간마다, 프레임마다). 판정 시간은 구간 `start_ms`·`end_ms`로 센다(`t_ms`는 서버가 형식만 검사한다, BE 명세 11.2). 11/1에 들어간 서버 3초 묶음(PR #91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95, [인계서](../frontend-realtime-handoff-2026-11-03.md)). 필드와 예시는 BE 명세 11.2와 계약.
 
 - **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `p: null`(이때 `valid`는 넣지 않는다).
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
 - **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절은 `[0, 0, 0]`으로 채운 뒤 그 프레임을 `valid:false`로 보낸다(10/22. 서버는 귀 좌표를 visibility 없이 쓰므로 채운 값이 실제 위치로 판정에 들어가지 않게).
 - **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 어깨가 화면 안에 있고 9개 관절 값이 모두 있으면 좌표를 보내고, 쓸지 말지(정확도·가장자리·거리·고개 돌림)는 서버가 정한다.
 - **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다. 서버는 3초 확정·회복·다시 알림을 구간 시간으로 센다(서버 현재 시각을 쓰지 않음 — 도착 시각이 아니라 찍은 시각이라 네트워크 지연이 섞이지 않는다). 「`t_ms` 대신 앱이 세서 확정」 안은 회의 안건이다([FE 제안서](fe-server-proposal.md) 7.2 22번).
-- **`valid: false`:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임에만 붙인다. **10/27부터 좌표 없이 `{ t_ms, p: null, valid: false }` 신호만 보낸다**([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 구간에 그 프레임 하나뿐이므로 서버는 그 구간을 판정 불가로 본다(`UNMEASURABLE`).
+- **`valid: false`:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임에만 붙인다. **10/27부터 좌표 없이 `{ t_ms, p: null, valid: false }` 신호만 보낸다**([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 구간에 그 프레임 하나뿐이므로 서버는 그 구간을 판정 불가로 본다(`UNMEASURABLE`).
 - **왜 프레임마다 보내나(10/27):** 여러 장을 묶으면 서버가 쓸 수 있는 장을 평균해 판정하는데(BE `FrameFeatures.interval`), 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 판정을 흐린다. 프레임마다 보내면 장마다 따로 판정되고, 판별 가능 시간(`valid_ms`)도 프레임 단위로 정확해진다. 서버 부담(추론·저장이 초당 약 10번)은 감수하기로 했다. BE에 알린 것은 [FE 제안서](fe-server-proposal.md) BE-8.
 
 ### 5.2 쉬기·자리 비움·판정 불가·종료
@@ -309,7 +309,7 @@ sequenceDiagram
 
 ## 7. API 상세
 
-API마다 요구사항, Request, 시스템 처리, Response 순서로 적는다. 최종 편집: 2026-11-10. 완성도 체크는 「구현됨」(앱과 서버 모두), 「서버만」(앱이 부르지 않음), 「구현 전」(서버에 없음)이다. JSON 예시는 [BE API 명세](api-spec.md)의 실제 실행 값(2026-10-29, 합성 계정)에서 가져왔고, 그와 다른 것은 표시했다. 필드 규칙이 바뀌면 BE API 명세가 기준이다.
+API마다 요구사항, Request, 시스템 처리, Response 순서로 적는다. 최종 편집: 2026-11-10. 완성도 체크는 「구현됨」(앱과 서버 모두), 「서버만」(앱이 부르지 않음), 「구현 전」(서버에 없음)이다. JSON 예시는 [BE API 명세](../api-spec.md)의 실제 실행 값(2026-10-29, 합성 계정)에서 가져왔고, 그와 다른 것은 표시했다. 필드 규칙이 바뀌면 BE API 명세가 기준이다.
 
 ### 7.0 공통 형식
 
@@ -1135,7 +1135,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 #### 요구사항
 
-앱이 좌표를 보내고, 서버의 판정 결과를 같은 연결로 받는다. 연결 하나가 측정 한 번이고 재연결은 없다. 서버 안쪽을 Kafka로 전환해도([계획 0031](../plans/active/0031-realtime-kafka-transition.md)) 앱의 연결과 메시지 형식은 바뀌지 않는다.
+앱이 좌표를 보내고, 서버의 판정 결과를 같은 연결로 받는다. 연결 하나가 측정 한 번이고 재연결은 없다. 서버 안쪽을 Kafka로 전환해도([계획 0031](../../plans/active/0031-realtime-kafka-transition.md)) 앱의 연결과 메시지 형식은 바뀌지 않는다.
 
 #### Request
 
@@ -1278,7 +1278,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 { "type": "closed", "reason": "ended", "ended_at": "2026-10-28T16:05:14.551Z" }
 ```
 
-`stalled`와 `session_rollover`는 [계약 예시](../../contracts/realtime/examples-v2/)를 본다.
+`stalled`와 `session_rollover`는 [계약 예시](../../../contracts/realtime/examples-v2)를 본다.
 
 <a id="api-r1"></a>
 

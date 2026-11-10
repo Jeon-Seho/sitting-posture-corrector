@@ -3,7 +3,7 @@
 - 상태: in_progress (10/30 구현 `8aebac7`, 10/31 흐름 변경·Kafka 전송 `412f24a`, develop 합침·검증 끝, 11/01 PR #91·들여쓰기·중괄호 맞춤. FE 수정과 함께 배포 — FE 공지 2026-10-30. 11/02 PR #91·#92를 develop에서 되돌림 — develop 코드는 #91 전으로 돌아갔고 이 문서 기록은 남김. 11/03 묶음 없이 구간마다 `observation` 4.0을 보내는 1단계 구현 — 브랜치 `feature/repo-realtime-observation4`)
 - 담당: BE(김유진)
 - 시작일: 2026-10-29
-- 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(판정은 API 안, 특징 A안), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md), [FE 제안서](../../design/fe-server-proposal.md) BE-5 ②·BE-8, [API 명세](../../design/api-spec.md) 9장·11장, [연동 명세](../../design/api-ws-spec.md) 5.1
+- 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(판정은 API 안, 특징 A안), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md), [FE 제안서](../../design/fe/fe-server-proposal.md) BE-5 ②·BE-8, [API 명세](../../design/api-spec.md) 9장·11장, [연동 명세](../../design/fe/api-ws-spec.md) 5.1
 
 ## 최신 방향 (2026-11-02, 구현 전)
 

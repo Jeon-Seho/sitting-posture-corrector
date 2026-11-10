@@ -1,5 +1,5 @@
 /**
- * Sign-up consents (docs/design/consent-proposal.md, DB V2.3 `user_consent`, FE task F6).
+ * Sign-up consents (docs/design/fe/fe-feature-spec.md 회원가입, DB V2.3 `user_consent`, FE task F6).
  * Each consent is stored as its own row with the wording version the user saw.
  * Until BE `auth` exists the choices are kept on this device only.
  */
