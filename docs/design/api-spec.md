@@ -1360,7 +1360,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 <a id="websocket-v2-연결"></a>
 
-연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 0.5초 구간으로 묶어 보내고, API가 기준 대비 특징 변화량을 계산해 추론(`POST /v2/infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
+연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표를 프레임마다 구간 하나로 보내고(2026-10-27부터, 그 전에는 0.5초 구간), API가 기준 대비 특징 변화량을 계산해 추론(`POST /v2/infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
 
 계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
 
@@ -1376,7 +1376,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ```
 측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
-       → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
+       → features × N (프레임마다 구간 1개) → observation · decision · alert · ack · progress
        → end → decision(session_ended) → closed(ended)
 자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
        → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
@@ -1414,7 +1414,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 {"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "access_token": "<access_token>"}
 ```
 
-**실제** — 순번 5(2.5~3초). 0.5초에 프레임 4장(125ms 간격), 머리 쪽 관절 x를 기준보다 0.09 옮긴 좌표
+**실제** — 순번 5(2.5~3초). 이 시험은 0.5초 구간에 프레임 4장(125ms 간격)으로 보냈다. 지금 앱은 구간 하나에 프레임 1장을 보낸다. 머리 쪽 관절 x를 기준보다 0.09 옮긴 좌표
 
 ```json
 {
@@ -1543,6 +1543,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |
 | 2026-11-09 | 문서만(코드 그대로) | 코드 기준을 develop `6cae21f`(PR #93·#98·#99·#100, API 코드는 `fe5058b`와 같음)로. J2 최근 7일 다시 계산(D-81, PR #100)을 1장 배치·S3·T1(`computed_at` 포함)에 반영. Observation 4.0의 「develop 앱이 4.0을 버린다」 삭제(FE 대응 PR #99 병합). J2 실행 시각 00:00 → 00:10(PR #93). FE 요청 BE-7(명세에 없던 시간 필드): 9장에 `events[].timestamp_ms`·`onset_ms` 설명을 넣고 `onset_valid_ms` 보충, 11.2에 `frames[].t_ms`. `hold_ms`·`recovery_ms`는 프레임 `t_ms`가 아니라 구간 길이로 센다고 바로잡음 |
 | 2026-11-03 | `61365a4` (PR #98) | 실시간 `observation` 4.0에 `recovery_ms` 추가(FE 요청): 열린 사건에서 `good`이 이어진 시간, 정책 `recovery_ms`와 비교해 회복을 확정하는 값. 사건이 없거나 판정 불가면 0. 필수 필드라 엄격한 앱 검증은 맞춰야 한다. 4.0이 아직 FE에 배포되지 않아 번호는 그대로 |
 | 2026-11-03 | 문서만(코드 그대로) | 코드 기준을 develop `e01ba49`(PR #96)로. 11.3 「특징 계산」을 실제 동작(구간 안 판정 가능 프레임 전체 평균, 하위 구간 계산은 보류)으로 바로잡음. 11.2·11.5에 남은 WebSocket 등록 문구(`end`·`start_ms`·`closed`) 삭제. Observation 4.0에 develop 앱이 아직 4.0을 버린다는 점 기록 |

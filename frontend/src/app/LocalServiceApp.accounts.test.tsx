@@ -7,6 +7,9 @@ import { SetupPage } from '../pages/SetupPage'
 import { KEYS } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
 import { AccountError, type AccountClient, type AccountView } from '../features/auth/accountClient'
+import { setServerAuth } from '../features/platform/serverAuth'
+import { SettingsPage } from '../pages/SettingsPage'
+import { DEFAULT_RULES } from '../data/posture'
 
 vi.mock('../hooks/useWriterLock', () => ({ useWriterLock: () => ({ state: 'ready', retry: vi.fn() }) }))
 
@@ -212,5 +215,41 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     })
     expect(accounts.logout).toHaveBeenCalledOnce()
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+  })
+
+  it('keeps the posture rules on the server: W1 after sign-in, W2 on change, none on this device', async () => {
+    const serverRules = { holdSeconds: 5, recoverSeconds: 3, realertSeconds: 120, threshold: 0.6 }
+    const workspace = (rules: typeof serverRules) => ({
+      schema_version: '2.0', profile: VIEW.profile, rules, preferences: { alerts_on: true },
+      consents: { optional_profile: true }, records: [],
+    })
+    let stored = serverRules
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') stored = JSON.parse(String(init.body)).rules
+      return new Response(JSON.stringify(workspace(stored)), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetch)
+    accounts.login.mockImplementation(async () => {
+      setServerAuth({ userId: '42', accessToken: async () => 'synthetic-token' })
+      return VIEW
+    })
+    try {
+      await mount()
+      type('email', VIEW.email)
+      type('password', 'synthetic-password-12')
+      await submit()
+      await act(async () => {})
+      click('설정')
+      await act(async () => {})
+      expect(renderer!.root.findByType(SettingsPage).props.rules).toEqual(serverRules)
+      const next = { ...DEFAULT_RULES, holdSeconds: 10 }
+      await act(async () => renderer!.root.findByType(SettingsPage).props.onRules(next))
+      await act(async () => {})
+      expect(stored).toEqual(next)
+      expect(renderer!.root.findByType(SettingsPage).props.rules).toEqual(next)
+      expect(data.has(KEYS.settings)).toBe(false)
+    } finally {
+      setServerAuth(null)
+    }
   })
 })

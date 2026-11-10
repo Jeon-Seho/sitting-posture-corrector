@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEFAULT_RULES } from '../../data/posture'
 import { useWriterLock } from '../../hooks/useWriterLock'
 import { KEYS, type Profile } from './types'
 import { loadLocalState } from './localRepository'
@@ -14,7 +15,8 @@ export function useLocalWorkspace(
   const [storageIssues, setStorageIssues] = useState(initial.issues)
   const [profile, setProfile] = useState(initial.profile)
   const [records, setRecords] = useState(localRecords ? initial.records : [])
-  const [rules, setRules] = useState(initial.settings)
+  // Server accounts read the rules from W1 after sign-in; this device keeps none (LocalServiceApp).
+  const [rules, setRules] = useState(localRecords ? initial.settings : DEFAULT_RULES)
   const [showDemo, setShowDemo] = useState(initial.demo)
   const canWrite = writer.state === 'ready' && storageIssues.length === 0
   const writable = useRef(canWrite)
