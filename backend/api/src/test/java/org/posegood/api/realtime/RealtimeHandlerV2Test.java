@@ -117,7 +117,7 @@ class RealtimeHandlerV2Test {
 		when(tokens.authenticate(any())).thenThrow(new ApiError(401, "UNAUTHENTICATED", "authentication required"));
 		doReturn(UsernamePasswordAuthenticationToken.authenticated("synthetic", null, java.util.List.of()))
 			.when(tokens).authenticate("synthetic-access-token");
-		return new RealtimeHandlerV2(sessions, current, tokens, new Json(MAPPER),
+		return new RealtimeHandlerV2(sessions, new LocalPipeline(sessions), current, tokens, new Json(MAPPER),
 			Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5),
 			midnightRollover, clock);
 	}

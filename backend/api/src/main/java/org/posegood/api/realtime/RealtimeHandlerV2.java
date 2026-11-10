@@ -47,8 +47,9 @@ import tools.jackson.databind.JsonNode;
  * 자세 등록은 B1({@code POST /v2/baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
- * {@link SessionService} 판정 흐름에 넣고(A안), 결과는 세션 변경 이벤트로 받아 보낸다.
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 구간을 받은 뒤의 일(판정하는 곳)은
+ * {@link MeasurementPipeline}이 정한다 — {@code local}(기본)은 좌표에서 특징 변화량을 계산해 {@link SessionService}
+ * 판정 흐름에 넣고(A안) 결과를 세션 변경 이벤트로 받아 보낸다(계획 0031, D-57).
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
@@ -73,7 +74,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private static final Set<String> END = Set.of("type", "end_ms");
 	private static final String DAY_CHANGED = "day_changed";
 
+	/** 자정 넘김(이전 세션 종료·새 세션 행)에만 쓴다. 측정 입력·종료는 {@link #pipeline}. */
 	private final SessionService sessions;
+	private final MeasurementPipeline pipeline;
 	private final CurrentUser current;
 	private final AuthTokens tokens;
 	private final Json json;
@@ -96,6 +99,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	@Autowired
 	public RealtimeHandlerV2(
 		SessionService sessions,
+		MeasurementPipeline pipeline,
 		CurrentUser current,
 		AuthTokens tokens,
 		Json json,
@@ -106,12 +110,13 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		Duration readyTimeout,
 		@Value("${posegood.realtime.midnight-rollover}")
 		boolean midnightRollover) {
-		this(sessions, current, tokens, json, validator, helloTimeout, readyTimeout, midnightRollover,
+		this(sessions, pipeline, current, tokens, json, validator, helloTimeout, readyTimeout, midnightRollover,
 			Clock.systemUTC());
 	}
 
 	RealtimeHandlerV2(
 		SessionService sessions,
+		MeasurementPipeline pipeline,
 		CurrentUser current,
 		AuthTokens tokens,
 		Json json,
@@ -121,13 +126,15 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		boolean midnightRollover,
 		Clock clock) {
 		this.sessions = sessions;
+		this.pipeline = pipeline;
 		this.current = current;
 		this.tokens = tokens;
 		this.json = json;
 		this.validator = validator;
 		this.helloTimeout = helloTimeout;
 		this.readyTimeout = readyTimeout;
-		this.midnightRollover = midnightRollover;
+		// 자정 넘김은 API 안 판정(local)에만 묶여 있다. kafka 경로에서는 쓰지 않는다(가이드 11장 #3).
+		this.midnightRollover = midnightRollover && pipeline.local();
 		this.clock = clock;
 	}
 
@@ -163,7 +170,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 				return;
 			}
 			try {
-				sessions.finish(channel.owner, id, null);
+				pipeline.finish(channel.owner, id, null);
 			} catch (ApiError | DataAccessException gone) {
 				log.debug("realtime v2 disconnect end skipped: {}", gone.getClass().getSimpleName());
 			}
@@ -225,7 +232,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		}
 		try {
 			channel.owner = current.id(tokens.authenticate(Json.text(frame.path("access_token"), null)));
-			channel.realtime = sessions.openRealtime(channel.owner, id);
+			channel.realtime = pipeline.open(channel.owner, id);
 		} catch (ApiError refused) {
 			finishClosed(channel, refusal(refused));
 			return;
@@ -248,7 +255,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
 	}
 
-	/** 측정 구간 하나: 특징 계산·추론·판정. observation·decision·alert는 이벤트로, 끝나면 ack·progress. */
+	/** 측정 구간 하나: 뒤쪽({@link MeasurementPipeline})에 넘긴다. observation·decision·alert는 이벤트로, 넘기면 ack(·progress). */
 	private void measure(Channel channel, JsonNode frame) {
 		var interval = interval(frame);
 		if (interval == null) {
@@ -271,11 +278,14 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			UUID id = channel.session;
 			try {
 				var local = interval.shifted(channel.offsetMs, channel.sequenceOffset);
-				var status = sessions.frames(channel.owner, id, local, channel.realtime.baseline());
-				long last = status.lastSequence() + channel.sequenceOffset;
+				var accepted = pipeline.frames(channel.owner, id, local, channel.realtime.baseline());
+				long last = accepted.lastSequence() + channel.sequenceOffset;
 				channel.lastSequence = last;
 				send(channel, new RealtimeMessages.V2.Ack(last));
-				send(channel, new RealtimeMessages.V2.Progress(last, status.summary(), status.pausedReason()));
+				var status = accepted.progress();
+				if (status != null) { // kafka 경로의 progress는 결과 토픽에서 온다
+					send(channel, new RealtimeMessages.V2.Progress(last, status.summary(), status.pausedReason()));
+				}
 			} catch (ApiError refused) {
 				if (refused.status() == 502 || refused.status() == 503) {
 					stalled(channel);
@@ -374,7 +384,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 
 	private void end(Channel channel, Long endMs) {
 		try {
-			sessions.finish(channel.owner, channel.session, endMs);
+			pipeline.finish(channel.owner, channel.session, endMs);
 		} catch (ApiError refused) {
 			if (refused.status() == 503) {
 				stalled(channel);
