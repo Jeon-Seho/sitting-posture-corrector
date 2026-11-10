@@ -4,15 +4,16 @@ import { LocalServiceApp } from './LocalServiceApp'
 import { ConnectionLostDialog } from '../features/connection/ConnectionLostDialog'
 import { CameraPerformanceDialog } from '../features/camera/CameraPerformanceDialog'
 import { ForecastPage } from '../pages/ForecastPage'
-import { ErrorPage, errorCodeForPath, type ErrorCode } from '../pages/ErrorPage'
+import { ErrorPage, errorKindForPath, type ErrorKind } from '../pages/ErrorPage'
 
 const DeveloperRoute = lazy(() => import('../features/developer/DeveloperRoute'))
 export const isDeveloperPath = (path: string) => /^\/dev\/?$/.test(path)
-const route = (): 'service' | 'developer' | 'forecast' | ErrorCode => {
+type Route = 'service' | 'developer' | 'forecast' | { error: ErrorKind }
+const route = (): Route => {
   if (typeof window === 'undefined') return 'service'
   if (isDeveloperPath(window.location?.pathname ?? '/')) return 'developer'
-  const error = errorCodeForPath(window.location?.pathname ?? '/')
-  if (error) return error
+  const error = errorKindForPath(window.location?.pathname ?? '/')
+  if (error) return { error }
   return window.location?.hash === '#forecast' ? 'forecast' : 'service'
 }
 
@@ -36,6 +37,6 @@ export default function ServiceApp() {
     window.addEventListener('hashchange', update)
     return () => { window.removeEventListener('popstate', update); window.removeEventListener('hashchange', update) }
   }, [])
-  if (typeof current === 'number') return <ErrorPage code={current} />
+  if (typeof current === 'object') return <ErrorPage kind={current.error} />
   return current === 'service' ? <ServiceCameraApp /> : <ResearchCameraApp key={current} kind={current} />
 }

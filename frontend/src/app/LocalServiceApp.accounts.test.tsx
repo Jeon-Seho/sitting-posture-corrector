@@ -145,9 +145,9 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     await mount()
     type('email', 'admin'); type('password', '1234'); await submit()
     click('개발자 도구')
-    act(() => renderer!.root.findByProps({ 'aria-label': '웹 오류 상황' }).props.onChange({ target: { value: '505' } }))
+    act(() => renderer!.root.findByProps({ 'aria-label': '웹 오류 상황' }).props.onChange({ target: { value: 'offline' } }))
     click('실제 오류 페이지 열기')
-    expect(assign).toHaveBeenCalledWith('/error/505')
+    expect(assign).toHaveBeenCalledWith('/error/offline')
     expect(accounts.login).not.toHaveBeenCalled()
   })
   it('activates the real rendering error boundary from the developer test button', async () => {
@@ -155,9 +155,9 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     await act(async () => { renderer = create(<AppErrorBoundary><LocalServiceApp camera={camera()} accounts={accounts as unknown as AccountClient} /></AppErrorBoundary>) })
     type('email', 'admin'); type('password', '1234'); await submit()
     click('개발자 도구')
-    click('화면 오류 재현 (500)')
+    click('앱 오류 재현')
     expect(text(renderer!.root)).toContain('화면을 불러오지 못했어요')
-    expect(renderer!.root.findByType('a').props.href).toBe('/')
+    expect(text(renderer!.root)).toContain('새로 고침')
   })
   it('ignores a late account restoration after developer entry', async () => {
     let restore!: (view: AccountView) => void
@@ -236,6 +236,54 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     })
     expect(accounts.logout).toHaveBeenCalledOnce()
     expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+  })
+
+  it('shows the error page only when a screen cannot load, never for a wrong password or a failed save', async () => {
+    const workspace = { schema_version: '2.0', profile: VIEW.profile, rules: DEFAULT_RULES, preferences: { alerts_on: true }, consents: { optional_profile: true }, records: [] }
+    let down = true
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') return new Response(JSON.stringify({ code: 'INTERNAL' }), { status: 500 })
+      if (down) return new Response(JSON.stringify({ code: 'INTERNAL' }), { status: 500 })
+      return new Response(JSON.stringify(url.includes('/v2/records') ? { today: '2026-11-10', records: [] } : workspace), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetch)
+    accounts.login.mockRejectedValueOnce(new AccountError('x', 401, 'INVALID_CREDENTIALS'))
+    accounts.login.mockImplementation(async () => {
+      setServerAuth({ userId: '42', accessToken: async () => 'synthetic-token' })
+      return VIEW
+    })
+    try {
+      await mount()
+      type('email', VIEW.email)
+      type('password', 'synthetic-password-12')
+      await submit()
+      expect(renderer!.root.findAllByType(LoginPage)).toHaveLength(1)
+      expect(text(renderer!.root)).not.toContain('잠시 서버에 문제가 생겼어요')
+
+      type('password', 'synthetic-password-12')
+      await submit()
+      await act(async () => {})
+      // 측정하기 needs W1: the page replaces only the content, the menu stays.
+      expect(text(renderer!.root)).toContain('잠시 서버에 문제가 생겼어요')
+      expect(text(renderer!.root)).toContain('오류 500')
+      expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
+      expect(renderer!.root.findAllByType(AppSidebar)).toHaveLength(1)
+
+      down = false
+      await act(async () => renderer!.root.findAllByType('button').find(b => text(b) === '다시 시도')!.props.onClick())
+      await act(async () => {})
+      expect(text(renderer!.root)).not.toContain('잠시 서버에 문제가 생겼어요')
+      expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(1)
+
+      click('설정')
+      await act(async () => {})
+      await act(async () => renderer!.root.findByType(SettingsPage).props.onRules({ ...DEFAULT_RULES, holdSeconds: 10 }))
+      await act(async () => {})
+      expect(renderer!.root.findAllByType(SettingsPage)).toHaveLength(1)
+      expect(text(renderer!.root)).not.toContain('잠시 서버에 문제가 생겼어요')
+    } finally {
+      setServerAuth(null)
+    }
   })
 
   it('keeps the posture rules on the server: W1 after sign-in, W2 on change, none on this device', async () => {

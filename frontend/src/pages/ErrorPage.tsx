@@ -1,38 +1,90 @@
-import { Component, type ReactNode } from 'react'
+import { Component, useEffect, type ReactNode, type SyntheticEvent } from 'react'
 import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
+import { illustrationPalette, useAppearance } from '../features/appearance/theme'
+import { KST } from '../lib/kst'
 
+/**
+ * Five situations, not one page per HTTP code (fe-design-request 2장): expected answers such as a
+ * wrong password are shown next to the input. The pictures are lellon0403's set (PR #108),
+ * reused by meaning; `connecting` lives in the desktop app's `public/offline.html`.
+ */
 export const ERROR_PAGES = {
-  403: { title: '이 페이지에 접근할 수 없어요', description: '접근 권한이 있는 계정인지 확인해 주세요.' },
-  404: { title: '페이지를 찾을 수 없어요', description: '주소를 확인하거나 홈으로 돌아가 주세요.' },
-  500: { title: '화면을 불러오지 못했어요', description: '잠시 뒤 다시 시도해 주세요.' },
-  502: { title: '서버 연결이 원활하지 않아요', description: '잠시 뒤 다시 시도해 주세요.' },
-  503: { title: '서비스가 잠시 쉬고 있어요', description: '잠시 뒤 다시 방문해 주세요.' },
-  504: { title: '서버 응답이 늦어지고 있어요', description: '잠시 뒤 다시 시도해 주세요.' },
-  505: { title: '이 연결 방식은 지원하지 않아요', description: '최신 브라우저에서 다시 열어 주세요.' },
+  request: { art: 404, title: '요청을 처리하지 못했어요', description: '화면을 새로 고친 뒤 다시 해 주세요.', action: '새로 고침' },
+  server: { art: 503, title: '잠시 서버에 문제가 생겼어요', description: '사용자 잘못이 아니에요. 잠시 뒤 다시 시도해 주세요.', action: '다시 시도' },
+  offline: { art: 502, title: '인터넷 연결을 확인해 주세요', description: '연결되면 자동으로 다시 불러올게요.', action: '다시 시도' },
+  app: { art: 500, title: '화면을 불러오지 못했어요', description: '새로 고치면 대부분 해결돼요.', action: '새로 고침' },
+  not_found: { art: 404, title: '페이지를 찾을 수 없어요', description: '주소를 확인하거나 홈으로 돌아가 주세요.', action: null },
 } as const
-export type ErrorCode = keyof typeof ERROR_PAGES
-export function errorCodeForPath(path: string): ErrorCode | null {
+export type ErrorKind = keyof typeof ERROR_PAGES
+
+/** `/error/<kind>` previews a page; any other unknown path is the not-found page. */
+export function errorKindForPath(path: string): ErrorKind | null {
   if (path === '/' || /^\/dev\/?$/.test(path)) return null
-  const match = /^\/error\/(403|404|500|502|503|504|505)\/?$/.exec(path)
-  return match ? Number(match[1]) as ErrorCode : 404
+  const match = /^\/error\/(request|server|offline|app)\/?$/.exec(path)
+  return match ? match[1] as ErrorKind : 'not_found'
 }
 
-export function ErrorPage({ code = 500, onClose }: { code?: ErrorCode; onClose?: () => void }) {
-  const content = ERROR_PAGES[code]
-  return <main className="error-page" aria-labelledby="error-title">
+const stamp = new Intl.DateTimeFormat('ko-KR', { timeZone: KST, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+function errorStamp(status: number | null | undefined, at: number | undefined) {
+  if (at === undefined) return status ? `오류 ${status}` : ''
+  const part = (type: string) => stamp.formatToParts(at).find(p => p.type === type)?.value ?? ''
+  const time = `${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`
+  return status ? `오류 ${status} · ${time}` : time
+}
+
+type Props = {
+  kind?: ErrorKind
+  /** Inside the signed-in shell: the menu stays and only the content area changes (원칙 5). */
+  inline?: boolean
+  status?: number | null
+  at?: number
+  /** Only for errors on the 기록 screens (3장 「기록 안전 문구」). */
+  recordsSafe?: boolean
+  /** Reloads the failed data; without it the button reloads the whole page. */
+  onRetry?: () => void
+  /** Developer preview only. */
+  onClose?: () => void
+}
+
+export function ErrorPage({ kind = 'app', inline = false, status, at, recordsSafe = false, onRetry, onClose }: Props) {
+  const content = ERROR_PAGES[kind]
+  const code = kind === 'request' || kind === 'server' ? errorStamp(status, at) : ''
+  return <main className={`error-page${inline ? ' is-inline' : ''}`} aria-labelledby="error-title">
     <div className="error-content">
-      <ThemeIllustration className="error-art" kind={`error-${code}`} width="400" height="300" />
-      <p className="error-code">오류 {code}</p>
+      <ThemeIllustration className="error-art" kind={`error-${content.art}`} width="400" height="300" onError={hideArt} />
       <h1 id="error-title">{content.title}</h1>
       <p className="error-description">{content.description}</p>
+      {recordsSafe && kind === 'server' && <p className="error-description">측정한 기록은 저장돼 있어요.</p>}
       <div className="error-actions">
-        {onClose ? <button className="btn btn-primary" onClick={onClose}>미리보기 닫기</button> : <>
-          <a className="btn btn-primary" href="/">홈으로 돌아가기</a>
-          {code !== 403 && code !== 404 && <button className="btn btn-ghost" onClick={() => window.location.reload()}>다시 시도</button>}
-        </>}
+        {onClose ? <button className="btn btn-primary" onClick={onClose}>미리보기 닫기</button>
+          : content.action ? <button className="btn btn-primary" onClick={() => onRetry ? onRetry() : window.location.reload()}>{content.action}</button>
+            : <a className="btn btn-primary" href="/">홈으로 돌아가기</a>}
       </div>
+      {code && <p className="error-code">{code}</p>}
     </div>
   </main>
+}
+
+/** A picture that could not load leaves no broken frame; the words carry the page. */
+function hideArt(event: SyntheticEvent<HTMLImageElement>) {
+  event.currentTarget.style.display = 'none'
+}
+
+const kept = new Map<string, HTMLImageElement>()
+/**
+ * Without a network the offline page cannot fetch its own picture, so it is fetched while still
+ * online. Keeping the element lets the browser reuse the decoded image in this document.
+ */
+export function useOfflineArt(enabled: boolean) {
+  const palette = illustrationPalette(useAppearance().accent)
+  useEffect(() => {
+    if (!enabled || typeof Image === 'undefined' || typeof window === 'undefined' || !window.location?.href) return
+    const src = new URL(`/illustrations/themes/${palette}-error-${ERROR_PAGES.offline.art}.webp`, window.location.href).href
+    if (kept.has(src)) return
+    const image = new Image()
+    image.src = src
+    kept.set(src, image)
+  }, [enabled, palette])
 }
 
 /** A rendering failure must leave recovery controls available without mounting the camera again. */
@@ -40,5 +92,5 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { faile
   state = { failed: false }
   static getDerivedStateFromError() { return { failed: true } }
   componentDidCatch(error: Error) { console.error('[AppErrorBoundary] Screen rendering failed', error) }
-  render() { return this.state.failed ? <ErrorPage code={500} /> : this.props.children }
+  render() { return this.state.failed ? <ErrorPage kind="app" /> : this.props.children }
 }

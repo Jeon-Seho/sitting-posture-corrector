@@ -13,10 +13,11 @@ import { probeAcceleration, type PerformanceNotice } from '../features/camera/ac
 import { PerformanceDialog } from '../features/camera/CameraPerformanceDialog'
 import { CAMERA_ERRORS } from '../features/camera/errors'
 import type { CameraController } from '../hooks/useCamera'
-import { ErrorPage, ERROR_PAGES, type ErrorCode } from './ErrorPage'
+import { ErrorPage, ERROR_PAGES, type ErrorKind } from './ErrorPage'
 
 const SECTIONS = [ ['camera', '카메라·인식'], ['alerts', '알림·연결'], ['appearance', '화면·모션'], ['records', '기록·수집'], ['diagnostics', '상태·버전'] ] as const
 type SectionId = typeof SECTIONS[number][0]
+const WEB_ERRORS = [['request', '400번대'], ['server', '500번대'], ['offline', '인터넷 끊김'], ['app', '앱 오류']] as const
 const ERROR_LABELS: Record<keyof typeof CAMERA_ERRORS, string> = { unsupported: '지원하지 않는 환경', preparationTimeout: '준비 시간 초과', videoUnavailable: '영상 준비 실패', disconnected: '연결 끊김', trackingFailed: '추적 실패', permissionDenied: '권한 거부', deviceMissing: '카메라 없음', deviceBusy: '다른 앱에서 사용 중', deviceUnavailable: '선택 카메라 사용 불가', preparationFailed: '모델·카메라 로드 실패' }
 function Tool({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return <article className="dev-tool-card"><h3>{title}</h3>{description && <p className="setting-desc">{description}</p>}{children}</article>
@@ -34,7 +35,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
   const [selectedNotice, setSelectedNotice] = useState<PerformanceNotice>('cpu')
   const [errorPreview, setErrorPreview] = useState<keyof typeof CAMERA_ERRORS | null>(null)
   const [interaction, setInteraction] = useState(false)
-  const [webError, setWebError] = useState<ErrorCode>(404)
+  const [webError, setWebError] = useState<Exclude<ErrorKind, 'not_found'>>('server')
   const [webErrorPreview, setWebErrorPreview] = useState(false)
   const [renderFailure, setRenderFailure] = useState(false)
   if (renderFailure) throw new Error('Synthetic developer test: screen rendering failure')
@@ -79,10 +80,10 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
     </>)}
     {section('alerts', '앱 안 알림·앱 밖 팝업과 연결 장애 안내를 실제 표시 위치에서 확인해요.', <>
       <Tool title="웹 오류 페이지" description="실제 오류 페이지를 미리 봐요. 서버나 측정 상태는 바뀌지 않아요.">
-        <div className="dev-select-action"><label>웹 오류<select aria-label="웹 오류 상황" value={webError} onChange={event => setWebError(Number(event.target.value) as ErrorCode)}>{Object.entries(ERROR_PAGES).map(([code, content]) => <option key={code} value={code}>{code} · {content.title}</option>)}</select></label>
+        <div className="dev-select-action"><label>웹 오류<select aria-label="웹 오류 상황" value={webError} onChange={event => setWebError(event.target.value as typeof webError)}>{WEB_ERRORS.map(([kind, label]) => <option key={kind} value={kind}>{label} · {ERROR_PAGES[kind].title}</option>)}</select></label>
         <button className="btn btn-sm" onClick={() => setWebErrorPreview(true)}>웹 오류 화면 열기</button>
         <button className="btn btn-sm btn-ghost" onClick={() => window.location.assign(`/error/${webError}`)}>실제 오류 페이지 열기</button></div>
-        <button className="chip" onClick={() => setRenderFailure(true)}>화면 오류 재현 (500)</button>
+        <button className="chip" onClick={() => setRenderFailure(true)}>앱 오류 재현</button>
         <p className="fine">실제 페이지를 열거나 화면 오류를 재현하면 홈으로 돌아가 복구할 수 있어요.</p>
       </Tool>
       <Tool title="알림 표시"><AlertPreview /></Tool>
@@ -100,6 +101,6 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
     {notice && <PerformanceDialog notice={notice} preview onDismiss={() => setNotice(null)} />}
     {errorPreview && <CameraFaultPreview scenario="failed" errorKey={errorPreview} onClose={() => setErrorPreview(null)} />}
     {interaction && <DeveloperPreviewDialog title="준비 단계·차트·설명 표시" onClose={() => setInteraction(false)}><InteractionPreview /></DeveloperPreviewDialog>}
-    {webErrorPreview && <DeveloperPreviewDialog title="웹 오류 페이지" onClose={() => setWebErrorPreview(false)}><ErrorPage code={webError} onClose={() => setWebErrorPreview(false)} /></DeveloperPreviewDialog>}
+    {webErrorPreview && <DeveloperPreviewDialog title="웹 오류 페이지" onClose={() => setWebErrorPreview(false)}><ErrorPage kind={webError} status={webError === 'request' ? 400 : webError === 'server' ? 503 : null} at={Date.now()} recordsSafe onClose={() => setWebErrorPreview(false)} /></DeveloperPreviewDialog>}
   </div>
 }

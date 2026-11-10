@@ -18,7 +18,7 @@
       .error-art { width: min(100%, 300px); height: 225px; object-fit: contain; margin-bottom: 20px; }
       p { margin: 0 0 8px; color: var(--muted); line-height: 1.6; }
       .spinner {
-        width: 36px; height: 36px; margin: 0 auto 20px; border-radius: 50%;
+        width: 28px; height: 28px; margin: 16px auto 0; border-radius: 50%;
         border: 3px solid #d7dde3; border-top-color: var(--accent); animation: spin 0.9s linear infinite;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
@@ -32,9 +32,10 @@
   <body>
     <main>
       <section id="loading">
-        <div class="spinner" aria-hidden="true"></div>
+        <img class="error-art" data-error-code="504" src="illustrations/themes/green-error-504.webp" width="300" height="225" alt="" />
         <h1>연결하는 중이에요</h1>
         <p>잠시만 기다려 주세요.</p>
+        <div class="spinner" aria-hidden="true"></div>
       </section>
       <section id="offline" hidden>
         <img class="error-art" data-error-code="502" src="illustrations/themes/green-error-502.webp" width="300" height="225" alt="" />
