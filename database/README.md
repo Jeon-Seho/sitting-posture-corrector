@@ -213,7 +213,7 @@ database/
 | `baseline_posture.deactivated_at`·`feature_version`·`normalization_scale`·`target_center_x`·`target_center_y`·`target_area_ratio`, UK-10·UK-11 | 정규화 상수와 대상 위치·크기는 좌표에서 계산한다 |
 | `monitor_session.frame_width`·`frame_height` | 지정된 카메라 한 대를 같은 해상도(`CAPTURE_RESOLUTION`)로 쓴다 |
 | T-50 `client_record`, FK-26 | 기록 화면 응답을 정규화 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`threshold_policy`)로 만든다 |
-| `user_account.auth_epoch` | 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행을 지워서 한다 (9장) |
+| `user_account.auth_epoch` | 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행을 지워서 한다. V2.6부터는 `refresh_token` 행 철회로 한다 (9장) |
 
 **V2.0에서 지운 것 (CR-04)**
 
@@ -334,7 +334,7 @@ database/
 | 가입 | 기본 정책을 설정에 둔 값 4개(threshold·hold·recover·realert)로 찾는다. 없으면 같은 값으로 새로 넣고(중복 오류 1062가 나면 다시 찾음) 사용자가 그 행을 가리키게 한다. 값은 6장 시드와 같아야 한다 | UK-03 |
 | 비밀번호 | 백엔드에서 단방향 해시로 만들어 `password_hash`에 넣는다. 평문은 저장하지도 응답하지도 않는다 | SER-004 |
 | 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴를 접수한 계정(CLOSED)은 유예 중에도 이메일·비밀번호 해시가 남아 있지만, 비밀번호가 맞아도 막는다(403 `ACCOUNT_CLOSED` — 되돌릴 수 없고 30일 뒤 삭제된다고 안내) | D-34, 탈퇴 철회 없음 (2026-10-15) |
-| 로그인 끊기의 전제 | 로그인 수단은 Spring Session뿐이다(remember-me 쿠키·JWT 같은 세션 밖 인증을 쓰지 않는다). `PRINCIPAL_NAME`은 항상 채운다. 이메일 변경 기능을 넣으면 변경 때 예전 세션도 정리한다 | V2.1 (`auth_epoch` 삭제) |
+| 로그인 끊기의 전제 | 로그인은 access 토큰(JWT, 30분, 저장하지 않음)과 refresh 토큰(14일, `refresh_token`)으로 한다. 로그인 끊기는 그 사용자의 `refresh_token` 행을 철회(`revoked_at`)해서 한다. access 토큰은 철회하지 않아 만료(최대 30분)까지 남는다 — 탈퇴한 계정은 요청마다 계정 상태를 확인하므로 바로 401이다. `SPRING_SESSION`은 쓰지 않는다. 이메일 변경 기능을 넣으면 변경 때 그 사용자의 refresh 토큰도 철회한다 | ADR 0031, V2.6 (V2.1 `auth_epoch` 삭제) |
 | 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. `registered_at`은 **서버가 등록을 받은 시각**이다(앱은 시각을 보내지 않는다, ADR 0028). **REST `POST /v2/baselines`(B1)**: 앱이 낸 평균과 `registration_id`(촬영마다 앱이 한 번 만드는 UUID)를 받는다. 표본 20 이상·촬영 3초 이상을 넣기 전에 검사한다. 재전송 때도 같은 `registration_id`가 온다 — 같은 (사용자, 등록 식별자) 행이 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다(UK-16). WebSocket 등록(`purpose: calibration`)은 2026-10-27 삭제했다(등록은 B1뿐) | BR-63, UK-16, ADR 0028 |
 | 기준 자세 좌표 | MediaPipe 정규화 좌표(0~1), 촬영 동안의 평균. 0~1 밖의 값(화면 밖 추정)은 DB가 거부하므로 보정 실패로 처리한다. 좌표 수집 조건(MediaPipe 모델·`CAPTURE_RESOLUTION`·관절 목록)을 바꾸면 모든 사용자가 다시 촬영한다 | ck_baseline_posture_* |
 | 안전 범위 검사 | 하지 않는다 (2026-10-10 결정). `safety_range` 테이블도 없다 | V2.1, BR-04 |
