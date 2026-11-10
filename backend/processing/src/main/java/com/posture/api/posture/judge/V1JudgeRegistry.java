@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@code session_started}: 정책으로 판정기를 만든다(이미 관측을 받은 세션이면 무시).</li>
- *   <li>{@code observation}: 판정기에 넣고 나온 decision들을 먼저, 그다음 progress를 발행한다.
+ *   <li>{@code observation}: 판정기에 넣고 그 구간의 관측(D-57) → 나온 decision들 → progress 순으로 발행한다.
  *       시작 메시지 없이 온 세션은 기본 정책으로 만든다.</li>
  *   <li>{@code session_ended}: 최종 decision(끊김·session_ended)과 progress를 발행하고 판정기를 정리한다.</li>
  *   <li>입력이 timeout 동안 없는 세션은 만료: 진행 중 사건만 끊김(missing)으로 닫고 정리한다.</li>
@@ -55,6 +55,7 @@ public class V1JudgeRegistry {
 	};
 	private final AtomicLong decisions = new AtomicLong();
 	private final AtomicLong progresses = new AtomicLong();
+	private final AtomicLong observations = new AtomicLong();
 	private final AtomicLong skipped = new AtomicLong();
 	private final AtomicLong restored = new AtomicLong();
 
@@ -198,6 +199,7 @@ public class V1JudgeRegistry {
 		}
 		status.put("publishedDecisions", decisions.get());
 		status.put("publishedProgress", progresses.get());
+		status.put("publishedObservations", observations.get());
 		status.put("skippedObservations", skipped.get());
 		status.put("restoredSessions", restored.get());
 		status.put("defaultPolicy", defaultPolicy.toString());
@@ -211,6 +213,11 @@ public class V1JudgeRegistry {
 			return;
 		}
 		String uid = userId != null && !userId.isBlank() ? userId : "unknown";
+		// (D-57) 앱으로 가는 순서와 같게: 관측 → 사건 → 진행
+		if (result.observation() != null) {
+			sink.publish(sessionId, uid, "observation", result.observation());
+			observations.incrementAndGet();
+		}
 		for (Map<String, Object> d : result.decisions()) {
 			sink.publish(sessionId, uid, "decision", d);
 			decisions.incrementAndGet();

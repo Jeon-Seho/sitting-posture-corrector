@@ -30,7 +30,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service-v1`) | `session_started` / `features` / `session_ended` | [kafka-features.v1](../../contracts/realtime/kafka-features.v1.schema.json) |
 | `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`judge-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
+| `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
 | `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts.v1](../../contracts/realtime/kafka-alerts.v1.schema.json) |
 
@@ -64,6 +64,7 @@
 | features.v1 | `session_ended` | `end_ms` |
 | inference.v1 | `session_started`·`session_ended` | features.v1에서 받은 것을 **바꾸지 않고** 넘긴다(판정이 한 토픽만 읽도록) |
 | inference.v1 | `observation` | [관측 v2](../../contracts/posture-observation.v2.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |
+| episodes.v1 | `observation` | (D-57) 반영한 구간마다: `sequence`·`start_ms`·`end_ms`·`phase`·`valid`, 정책 threshold로 나눈 `posture`(good·bad), 점수, 이탈 후보가 이어진 `hold_ms`, 열린 사건에서 바른 구간이 이어진 `recovery_ms` — 판정 불가면 null·0. `ws`가 앱 관측 4.0으로 보낸다. 판정 결과 저장은 건너뛴다 |
 | episodes.v1 | `decision` | [사건 v1](../../contracts/posture-event.v1.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes.v1 | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
 | alerts.v1 | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
@@ -80,7 +81,7 @@ decision의 `produced_at`이 저장 시각보다 10초(`REPORT_ALERTS_MAX_AGE_MS
 
 - 키가 `session_id`라 한 세션의 메시지는 한 파티션에서 순서대로 처리된다. 시작 → 구간 → 종료를 **같은 토픽·같은 키**로 보낸다.
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `last_sequence`는 줄어들지 않는다.
-- `event_id`는 세션마다 1부터 1씩 증가한다. 사건(`decision`)은 그 사건이 반영된 `progress`보다 먼저 나간다.
+- `event_id`는 세션마다 1부터 1씩 증가한다. 한 구간의 결과는 `observation` → 그 구간에서 생긴 사건(`decision`) → `progress` 순서로 나간다.
 - 시간은 도착 시각이 아니라 메시지의 `start_ms`·`end_ms`(세션 시작 기준 ms)로 계산한다.
 - 판정 상태는 Redis(`posture:v1:judge:{session_id}`, TTL 1시간)에 저장해 처리 서비스가 다시 시작해도 이어 간다.
 

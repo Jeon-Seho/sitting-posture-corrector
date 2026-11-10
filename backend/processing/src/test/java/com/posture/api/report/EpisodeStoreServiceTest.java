@@ -211,6 +211,8 @@ class EpisodeStoreServiceTest {
 		assertThat(decision.reason()).isEqualTo("ended");
 		assertThat(decision.normalMs()).isEqualTo(15000L);
 		assertThat(EpisodeDecision.fromEnvelope(envelope("progress", Map.of("summary", Map.of())))).isNull();
+		// (D-57) 구간마다의 관측도 저장할 것이 없다 — DLQ로 보내지 않고 건너뛴다
+		assertThat(EpisodeDecision.fromEnvelope(envelope("observation", Map.of("sequence", 0)))).isNull();
 	}
 
 	@Test
