@@ -22,6 +22,8 @@ import { historyFor } from '../lib/history'
 import { daySessionNumber, sessionLabel } from '../lib/sessionNumber'
 import { summary } from '../lib/serviceStore'
 import { AppSidebar } from './AppSidebar'
+import { ErrorPage, useOfflineArt } from '../pages/ErrorPage'
+import { PAGE_ERROR_SCREENS, retryPageErrors, useOnline, usePageErrors, type PageErrorSource } from '../features/connection/pageError'
 import { CAMERA_PAGES, resolvePage, type Page, type Tab } from './navigation'
 
 type Props = {
@@ -46,6 +48,8 @@ type Props = {
   settingsDisabled?: boolean
   /** Clears the floating notice (auto after a few seconds, or with its close button). */
   onClearError?: () => void
+  /** Server accounts only: a screen whose data did not load, or no internet, shows an error page. */
+  pageErrors?: boolean
 }
 
 const NOTICE_MS = 6000
@@ -77,6 +81,7 @@ export function ServiceScreens({
   onAlerts = () => {},
   settingsDisabled = false,
   onClearError,
+  pageErrors: showPageErrors = false,
 }: Props) {
   const { profile, records, rules, showDemo } = workspace
   const view = resolvePage((page === 'developer' || page === 'collection') && !developer ? 'settings' : page, measuring)
@@ -89,7 +94,21 @@ export function ServiceScreens({
   }, [showDemo, serverDay])
   const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today', serverDay))
-  useLaunchAutomation({ camera, ready: !measuring && view === 'setup' })
+  // Never over a measurement: it has its own pause and connection-lost handling (fe-design-request 1장 6).
+  const online = useOnline()
+  const failed = usePageErrors()
+  const source = (Object.keys(PAGE_ERROR_SCREENS) as PageErrorSource[]).find(s => failed[s] && PAGE_ERROR_SCREENS[s].includes(view))
+  const pageError = source ? failed[source] : undefined
+  const errorKind = !showPageErrors || measuring || view === 'session' ? null
+    : !online ? 'offline' : pageError && pageError.kind !== 'offline' ? pageError.kind : null
+  const shown = errorKind ? null : view
+  useOfflineArt(showPageErrors)
+  const wasOnline = useRef(online)
+  useEffect(() => {
+    if (online && !wasOnline.current) retryPageErrors()
+    wasOnline.current = online
+  }, [online])
+  useLaunchAutomation({ camera, ready: !measuring && shown === 'setup' })
   // Each screen opens at its top instead of inheriting the previous tab's scroll.
   const main = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -130,7 +149,17 @@ export function ServiceScreens({
       />
       <main ref={main} className="main service-main">
         {storageNotice}
-        {error && (
+        {errorKind && (
+          <ErrorPage
+            inline
+            kind={errorKind}
+            status={pageError?.status}
+            at={pageError?.at}
+            recordsSafe={source === 'records'}
+            onRetry={errorKind === 'offline' ? retryPageErrors : pageError?.retry}
+          />
+        )}
+        {error && !errorKind && (
           <p role="status" className={`service-notice ${noticeTone(error)}`}>
             {noticeTone(error) === 'is-warn' ? (
               <WarningCircle size={20} weight="fill" className="icon" />
@@ -145,7 +174,7 @@ export function ServiceScreens({
             )}
           </p>
         )}
-        {view === 'dashboard' && (
+        {shown === 'dashboard' && (
           <LocalHistory
             records={shownRecords}
             example={!!example}
@@ -154,13 +183,13 @@ export function ServiceScreens({
             onCalendar={() => go('calendar')}
           />
         )}
-        {view === 'calendar' && (
+        {shown === 'calendar' && (
           <RecordCalendarPage
             records={shownRecords}
             example={!!example}
           />
         )}
-        {view === 'collection' && (
+        {shown === 'collection' && (
           <>
             <div className="page-actions">
               <button className="btn btn-sm" onClick={() => go('settings')}>
@@ -171,7 +200,7 @@ export function ServiceScreens({
             <CollectionPage camera={camera} collection={collection} />
           </>
         )}
-        {(view === 'setup' || view === 'posture') && (
+        {(shown === 'setup' || shown === 'posture') && (
           <SetupPage
             key={view}
             camera={camera}
@@ -208,7 +237,7 @@ export function ServiceScreens({
             />
           </section>
         )}
-        {view === 'settings' && (
+        {shown === 'settings' && (
           <fieldset className="account-fieldset" disabled={settingsDisabled}>
             <SettingsPage
               serviceMode
@@ -230,8 +259,8 @@ export function ServiceScreens({
             />
           </fieldset>
         )}
-        {developer && view === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} onCamera={() => go('setup')} onSettings={() => go('settings')} onRecords={() => go('dashboard')} onCalendar={() => go('calendar')} />}
-        {view === 'profile' && profilePage}
+        {developer && shown === 'developer' && <DeveloperToolsPage camera={camera} hasHistory={showDemo} onHasHistory={saveDemoPreference} onCollect={openCollection} onCamera={() => go('setup')} onSettings={() => go('settings')} onRecords={() => go('dashboard')} onCalendar={() => go('calendar')} />}
+        {shown === 'profile' && profilePage}
       </main>
       <CameraWindow
         camera={camera}

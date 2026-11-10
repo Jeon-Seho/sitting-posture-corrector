@@ -46,6 +46,7 @@ import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
 import { ServerAccountPage } from '../features/profile/ServerAccountPage'
+import { clearPageError, reportPageError } from '../features/connection/pageError'
 
 type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
 
@@ -406,6 +407,7 @@ export function LocalServiceApp({
       }).finally(() => setBusy(false))
     }
     authAttempt.current++
+    clearPageError()
     setDeveloper(false)
     workspace.setRecords([])
     workspace.setRules(DEFAULT_RULES)
@@ -417,6 +419,7 @@ export function LocalServiceApp({
   }
 
   function clearWorkspace() {
+    clearPageError()
     camera.stop()
     workspace.setProfile(null)
     workspace.setRecords([])
@@ -440,10 +443,12 @@ export function LocalServiceApp({
     const ticket = ++rulesRequest.current
     try {
       const saved = await fetchWorkspace()
-      if (ticket === rulesRequest.current) workspace.setRules(saved.rules)
+      if (ticket === rulesRequest.current) { workspace.setRules(saved.rules); clearPageError('rules') }
     } catch (caughtError) {
       console.error('[app/LocalServiceApp.tsx:loadServerRules] Operation failed', caughtError)
-      if (ticket === rulesRequest.current) setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+      if (ticket !== rulesRequest.current) return
+      setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+      reportPageError('rules', caughtError, () => void loadServerRules())
     }
   }
 
@@ -655,6 +660,7 @@ export function LocalServiceApp({
   return (
     <ServiceScreens
       developer={developer}
+      pageErrors={!!accounts && !developer}
       onClearError={clearError}
       camera={camera}
       collection={collection}

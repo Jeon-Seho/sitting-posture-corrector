@@ -10,6 +10,7 @@ import { validSessionView } from './server/validation'
 import { serverRecordEvents } from '../storage/serverSnapshots'
 import type { SessionView } from './server/contracts'
 import { getServerAuth, subscribeServerAuth } from '../platform/serverAuth'
+import { clearPageError, reportPageError } from '../connection/pageError'
 import { fetchServerRecords, pendingRecords, reconcileResults, rememberResult } from '../storage/serverRecords'
 
 /**
@@ -74,9 +75,12 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       pending.current = remaining[0] ?? null
       setPendingCount(remaining.length)
       latest.current.setRecords(records)
+      clearPageError('records')
     } catch (error) {
       console.error('[features/session/useSessionPersistence.ts:syncRecords] Operation failed', error)
-      if (getServerAuth()?.userId === userId) latest.current.setError(error instanceof Error ? error.message : '기록을 확인하지 못했어요.')
+      if (getServerAuth()?.userId !== userId) return
+      latest.current.setError(error instanceof Error ? error.message : '기록을 확인하지 못했어요.')
+      reportPageError('records', error, () => void syncRecords())
     } finally { syncing.current = false }
   }
   useEffect(() => {
