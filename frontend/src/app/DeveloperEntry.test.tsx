@@ -22,7 +22,7 @@ describe('developer entry remains separate from existing user routes', () => {
     ['/dev/', '#forecast', 'isolated-developer-surface'],
     ['/', '', 'existing-user-surface'],
     ['/', '#forecast', 'existing-forecast-surface'],
-    ['/developer', '', 'existing-user-surface'],
+    ['/developer', '', '페이지를 찾을 수 없어요'],
   ])('routes %s %s without starting the camera', async (pathname, hash, expected) => {
     vi.stubGlobal('window', { location: { pathname, hash }, addEventListener: vi.fn(), removeEventListener: vi.fn() })
     await act(async () => { renderer = create(<ServiceApp />) })

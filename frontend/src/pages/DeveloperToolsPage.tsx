@@ -13,6 +13,7 @@ import { probeAcceleration, type PerformanceNotice } from '../features/camera/ac
 import { PerformanceDialog } from '../features/camera/CameraPerformanceDialog'
 import { CAMERA_ERRORS } from '../features/camera/errors'
 import type { CameraController } from '../hooks/useCamera'
+import { ErrorPage, ERROR_PAGES, type ErrorCode } from './ErrorPage'
 
 const SECTIONS = [ ['camera', '카메라·인식'], ['alerts', '알림·연결'], ['appearance', '화면·모션'], ['records', '기록·수집'], ['diagnostics', '상태·버전'] ] as const
 type SectionId = typeof SECTIONS[number][0]
@@ -33,6 +34,10 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
   const [selectedNotice, setSelectedNotice] = useState<PerformanceNotice>('cpu')
   const [errorPreview, setErrorPreview] = useState<keyof typeof CAMERA_ERRORS | null>(null)
   const [interaction, setInteraction] = useState(false)
+  const [webError, setWebError] = useState<ErrorCode>(404)
+  const [webErrorPreview, setWebErrorPreview] = useState(false)
+  const [renderFailure, setRenderFailure] = useState(false)
+  if (renderFailure) throw new Error('Synthetic developer test: screen rendering failure')
   function jump(id: SectionId) {
     setActive(id)
     headings.current[id]?.scrollIntoView({ behavior: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
@@ -73,6 +78,13 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
       <Tool title="작은 카메라 창"><CameraWindowTest /></Tool>
     </>)}
     {section('alerts', '앱 안 알림·앱 밖 팝업과 연결 장애 안내를 실제 표시 위치에서 확인해요.', <>
+      <Tool title="웹 오류 페이지" description="실제 오류 페이지를 미리 봐요. 서버나 측정 상태는 바뀌지 않아요.">
+        <div className="dev-select-action"><label>웹 오류<select aria-label="웹 오류 상황" value={webError} onChange={event => setWebError(Number(event.target.value) as ErrorCode)}>{Object.entries(ERROR_PAGES).map(([code, content]) => <option key={code} value={code}>{code} · {content.title}</option>)}</select></label>
+        <button className="btn btn-sm" onClick={() => setWebErrorPreview(true)}>웹 오류 화면 열기</button>
+        <button className="btn btn-sm btn-ghost" onClick={() => window.location.assign(`/error/${webError}`)}>실제 오류 페이지 열기</button></div>
+        <button className="chip" onClick={() => setRenderFailure(true)}>화면 오류 재현 (500)</button>
+        <p className="fine">실제 페이지를 열거나 화면 오류를 재현하면 홈으로 돌아가 복구할 수 있어요.</p>
+      </Tool>
       <Tool title="알림 표시"><AlertPreview /></Tool>
       <Tool title="서버 연결 끊김" description="실제 장애 안내 팝업을 열어요. 테스트 종료로 돌아오며 실제 서버 연결은 바꾸지 않아요."><button className="chip" onClick={() => reportConnectionLost({ reason: 'test' })}>끊김 화면 확인</button></Tool>
     </>)}
@@ -88,5 +100,6 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
     {notice && <PerformanceDialog notice={notice} preview onDismiss={() => setNotice(null)} />}
     {errorPreview && <CameraFaultPreview scenario="failed" errorKey={errorPreview} onClose={() => setErrorPreview(null)} />}
     {interaction && <DeveloperPreviewDialog title="준비 단계·차트·설명 표시" onClose={() => setInteraction(false)}><InteractionPreview /></DeveloperPreviewDialog>}
+    {webErrorPreview && <DeveloperPreviewDialog title="웹 오류 페이지" onClose={() => setWebErrorPreview(false)}><ErrorPage code={webError} onClose={() => setWebErrorPreview(false)} /></DeveloperPreviewDialog>}
   </div>
 }

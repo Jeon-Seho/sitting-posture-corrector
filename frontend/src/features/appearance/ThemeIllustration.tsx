@@ -1,8 +1,8 @@
 import type { ImgHTMLAttributes } from 'react'
 import { illustrationPalette, useAppearance } from './theme'
 
-/** Exact existing illustrations recolored per theme; decorative, never measurement evidence. */
-export function ThemeIllustration({ kind, ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & { kind: 'login' | 'camera' | 'baseline' | 'empty' }) {
+/** Theme-matched illustrations; decorative, never measurement evidence. */
+export function ThemeIllustration({ kind, ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & { kind: 'login' | 'camera' | 'baseline' | 'empty' | `error-${403 | 404 | 500 | 502 | 503 | 504 | 505}` }) {
   const appearance = useAppearance()
   const palette = illustrationPalette(appearance.accent)
   const path = `/illustrations/themes/${palette}-${kind}.webp`
