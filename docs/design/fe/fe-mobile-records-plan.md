@@ -3,7 +3,7 @@
 - 상태: planned
 - 담당: klaod-tech(FE). BE 요청은 김유진(DB·BE)
 - 시작일: 2026-11-10
-- 관련 요구사항/ADR: [FE 기능 명세](../../design/fe/fe-feature-spec.md)(기록 조회·기간 통계), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(기록은 R1 서버 기록), [연동 명세](../../design/fe/api-ws-spec.md) 3·7장(R1·R1b·T1)
+- 관련 요구사항/ADR: [FE 기능 명세](fe-feature-spec.md)(기록 조회·기간 통계), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(기록은 R1 서버 기록), [연동 명세](api-ws-spec.md) 3·7장(R1·R1b·T1)
 
 ## 문제와 완료 기준
 

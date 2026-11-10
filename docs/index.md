@@ -18,7 +18,7 @@
 - 팀 서비스 요구사항: 기능·역할·수용 기준·협의 항목은 저장소 밖 팀 구글 시트(디스코드 공유)에서 관리한다. [문서 이동 안내](removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개)는 이동 기록이며 요구사항 원문은 아니다. 실제 시트 주소는 저장소에 미기재다.
 - [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.
 - [Spark 배치 J2 → J3 → J1](plans/active/0085-spark-batch-jobs.md)(0085, DevOps/BE, 11/01): 일별 통계 `daily_stat`(J2, 매일 00:10)·탈퇴 최종 삭제(J3, 04:00)·HDFS 적재(J1, 매시간). 실행·cron은 [bigdata/README.md](../bigdata/README.md).
-- [휴대폰에서 측정 기록 보기](plans/active/0086-fe-mobile-records.md)(0086, FE, 11/10): 웹 앱을 휴대폰 화면에 맞춰 R1 기록·통계를 보기. 앱 형태·휴대폰 측정·T1 대기를 정할 것.
+- [휴대폰에서 측정 기록 보기](design/fe/fe-mobile-records-plan.md)(FE 계획, 11/10): 웹 앱을 휴대폰 화면에 맞춰 R1 기록·통계를 보기. 앱 형태·휴대폰 측정·T1 대기를 정할 것.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록. FE 설계(실시간 v2·WS 자세 등록)와 다른 곳은 [계획 0029](plans/active/0029-merge-backend-data-platform.md) D1~D9.
 - [백엔드 Java 17·Spring Boot 4·Gradle 전환](plans/active/0028-backend-java17-boot4-gradle.md)([ADR 0020](decisions/0020-single-api-decision-engine.md) 1절): 백엔드·개발 도구 변경과 Docker·CI 팀원 작업 요청.
