@@ -62,6 +62,7 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
   const submit = () => act(async () => renderer!.root.findByType(LoginPage).props.onSubmit())
   const click = (label: string) =>
     act(() => renderer!.root.findAllByType('button').find((b) => text(b) === label)!.props.onClick())
+  const selectWebError = (kind: string) => act(() => renderer!.root.findByProps({ 'data-error-kind': kind }).props.onClick())
   const mount = () =>
     act(async () => {
       renderer = create(<LocalServiceApp camera={camera()} accounts={accounts as unknown as AccountClient} />)
@@ -127,8 +128,10 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     const tabs = renderer!.root.findAllByProps({ className: 'nav-item' }).map(text)
     expect(tabs.slice(-2)).toEqual(['설정', '개발자 도구'])
     click('개발자 도구')
+    click('카메라·인식')
     expect(text(renderer!.root)).toContain('성능 안내 팝업')
     expect(text(renderer!.root)).toContain('카메라 오류 화면')
+    click('기록·수집')
     expect(renderer!.root.findAllByType('button').find(n => n.props['aria-label'] === '발표용 예시 기록 표시')?.props['aria-pressed']).toBe(false)
   })
   it('rejects a wrong developer password without sending it to the server', async () => {
@@ -145,7 +148,7 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     await mount()
     type('email', 'admin'); type('password', '1234'); await submit()
     click('개발자 도구')
-    act(() => renderer!.root.findByProps({ 'aria-label': '웹 오류 상황' }).props.onChange({ target: { value: 'offline' } }))
+    selectWebError('offline')
     click('실제 오류 페이지 열기')
     expect(assign).toHaveBeenCalledWith('/error/offline')
     expect(accounts.login).not.toHaveBeenCalled()
@@ -155,6 +158,7 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     await act(async () => { renderer = create(<AppErrorBoundary><LocalServiceApp camera={camera()} accounts={accounts as unknown as AccountClient} /></AppErrorBoundary>) })
     type('email', 'admin'); type('password', '1234'); await submit()
     click('개발자 도구')
+    selectWebError('app')
     click('앱 오류 재현')
     expect(text(renderer!.root)).toContain('화면을 불러오지 못했어요')
     expect(text(renderer!.root)).toContain('새로 고침')
@@ -172,8 +176,10 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     const tabs = renderer!.root.findAllByProps({ className: 'nav-item' }).map(text)
     expect(tabs.slice(-2)).toEqual(['설정', '개발자 도구'])
     click('개발자 도구')
+    click('카메라·인식')
     expect(text(renderer!.root)).toContain('성능 안내 팝업')
     expect(text(renderer!.root)).toContain('카메라 오류 화면')
+    click('기록·수집')
     expect(renderer!.root.findAllByType('button').find(n => n.props['aria-label'] === '발표용 예시 기록 표시')?.props['aria-pressed']).toBe(false)
   })
 

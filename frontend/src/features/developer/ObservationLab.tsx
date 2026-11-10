@@ -19,6 +19,7 @@ import { boldNumbers } from './observationTypography'
 import { ObservationReplay } from './ObservationReplayPanel'
 import { downloadObservationReplay } from './observationReplay'
 import { RECORDING_RATE } from './recordingRate'
+import { desktopBridge } from '../desktop/bridge'
 import './developer.css'
 import './observation.css'
 
@@ -100,7 +101,7 @@ export default function ObservationLab({ camera, demo = false }: { camera: Camer
     <main>
       {session.recordingLimitReached && <div className="oc-status" role="alert">기록 한도 6,000프레임에 도달해 측정을 종료했어요. 데이터를 내려받고 새 측정을 시작하세요.</div>}
       {demo && <section className="oc-demo-warning" aria-label="화면 조작 예시"><strong>화면 조작 예시 · 실제 측정이 아닙니다</strong><p>미리 만든 가상 점으로 표시만 확인합니다. 측정 자료를 모으거나 CSV로 내보내지 않습니다.</p><a href="/dev">실제 카메라 측정 화면 열기</a></section>}
-      <div className="oc-heading-row"><h1 className="oc-page-title"><span className="oc-sr-only">동작 관측</span></h1><div className="oc-heading-actions">{help}<button type="button" className="oc-theme-toggle" aria-label={themeLabel} title={themeLabel} onClick={toggleTheme}><span className="oc-theme-symbol" key={theme}>{theme === 'dark' ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}</span></button></div></div>
+      <div className="oc-heading-row"><h1 className="oc-page-title"><span className="oc-sr-only">동작 관측</span></h1><div className="oc-heading-actions">{!!desktopBridge() && !session.active && !session.replayCount && !session.traceCount && !Object.keys(session.rows).length && <a className="oc-home-link" href="/">홈으로</a>}{help}<button type="button" className="oc-theme-toggle" aria-label={themeLabel} title={themeLabel} onClick={toggleTheme}><span className="oc-theme-symbol" key={theme}>{theme === 'dark' ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}</span></button></div></div>
       {demo && <div className="oc-toolbar"><button className="oc-primary" disabled={session.active} onClick={() => session.start('synthetic')}>가상 점으로 화면 확인</button><button disabled={!session.active} onClick={session.stop}>화면 예시 종료</button><span>예시 모드 · 수집 없음 · CSV 없음</span></div>}
       {session.source === 'camera' && (camera.error ? <div className="oc-status" role="alert">{camera.error}</div> : camera.state === 'loading' && <div className="oc-status" role="status">카메라를 연결하고 있어요.</div>)}
       {demo ? <>
