@@ -48,7 +48,7 @@
 5. 로컬 판정 코드(판정 엔진 `machine`·`scenario`·`snapshot`, 복귀 대기, 카메라 샘플, 로컬 측정 화면, v1 서버 측정 코드, 특징·좌표 내보내기)는 지웠다.
 6. 서버 저장을 확인하기 전까지 측정 결과를 이 기기에 남긴다. 표시는 서버 기록(R1)으로 한다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
-8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 11/2 되돌렸다([인계서](../design/frontend-realtime-handoff-2026-11-03.md)).
+8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95).
    `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
    3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
    주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간, 경고 중 바로 앉으면 나오는 회복 상자의 게이지는 서버가 센 회복 연속 시간(`recovery_ms`) ÷ 정책 회복 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
