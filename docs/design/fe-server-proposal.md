@@ -24,7 +24,7 @@
 - [ ] 앱 날짜 나누기([dailyMeasurement.ts](../../frontend/src/features/storage/dailyMeasurement.ts), [ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) 정리: 서버가 자정에 세션을 끊으면 측정 하나가 하루 안에 있어 필요 없어진다. 자정 넘김을 켠 뒤 따로 계획(인계서 5번) — FE·화면
 - [ ] 자정 넘김 실제 MySQL 시험(`INSERT … SELECT`) — BE
 - [ ] 좌표를 남길지 정하기: 남기는 곳이 없는 것은 코드로 확인됐다 — Spark J1(PR #93)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../bigdata/README.md) J1, `features.v1` 본문은 특징 변화량). ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 든다. 남길지, 아니면 ADR 2절과 동의 문구(BE-1)를 고칠지 팀에서 정한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 3절) — 팀·ML·DevOps
-- [ ] 서버 탈퇴(A7) 때 이 기기의 기록(`posegood.v2.records`)·저장 대기 서버 기록도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) — FE
+- [ ] 서버 탈퇴(A7) 때 이 기기의 서버 확인 전 결과도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) — FE
 - [ ] **S1은 됐는데 WS가 안 열렸거나 `hello` 전에 끊긴 세션을 누가 닫을지** — 서버는 메모리에서만 6시간 뒤 뺀다([LiveSessions.java](../../backend/api/src/main/java/org/posegood/api/session/LiveSessions.java) `evict`, `posegood.idle-session-retention=6h`). DB 행은 `ended_at` NULL로 남아 J1·J2·기록 목록에 영향을 준다(J2는 끝난 세션만 센다). 앱이 이때만 S3를 부를지, 서버가 정리하면서 행도 닫을지 정한다. BE 상태 문서 4장 미결과 같은 질문 — BE·FE
 - [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72 — [default.conf](../../infra/nginx/default.conf)에 아직 있음, 11/9 DevOps 요청으로 DB/BE가 맡음, 브랜치 `chore/repo-nginx-remove-v1-realtime`) — DB/BE
 - [ ] 아키텍처 문서 v5.3(D-73) — DevOps
@@ -64,7 +64,7 @@
    예외: 사용자 위치를 판별할 수 없는 순간(어깨선이 안 보이는 등)은 앱이 "판정 불가"로 표시해 보낸다([연동 명세](api-ws-spec.md) 5.2).
 2. **앱은 입출구 서버 하나와만 통신한다**(아키텍처 v5, 10/11). 입출구 서버(`auth`·`api`·`ws`)는 BE가 만든다. FE는 앱 쪽 연결과 API 명세를 함께 쓴다.
 3. **좌표 수집 동의는 가입의 필수 조건이다.** 로컬 모드가 없어 동의 없이는 측정할 수 없다. 실제 서비스에서는 학습용 데이터를 받지 않는다([동의 제안서](consent-proposal.md)).
-4. **세션 판정·결과와 어제까지의 일별 통계는 서버가 계산한다. 오늘 표시값은 앱이 로컬에 모은 서버 결과로 집계한다(10/22 팀장 결정).** 앱은 자세 점수·사건을 다시 판정하지 않는다. 화면별 출처는 [연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위).
+4. **세션 판정·결과와 어제까지의 일별 통계는 서버가 계산한다. 오늘 값도 서버 기록(R1)을 앱이 집계한다(ADR 0027, 11/9 고침).** 앱은 자세 점수·사건을 다시 판정하지 않는다. 화면별 출처는 [연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위).
    - **오늘 측정은 방금 끝난 세션의 결과로만 보인다(10/13 결정).** 예: 12시에 3시간, 6시에 2시간을 측정했으면 6시 측정이 끝났을 때 결과 화면에는 그 2시간만 반영한다. 앞서 한 측정과 합치지 않는다.
    - **기록·달력 화면:** 오늘 세션 목록은 하나씩, 오늘 합산·유지율 링·잔디·그래프는 로컬에 모은 기록으로 계산한다. 서버 통계(T1)는 어제까지(일별 집계 매일 00:00 KST). 기간 화면은 과거 T1과 오늘 로컬 값을 날짜가 겹치지 않게 쓴다. (10/14 「통계는 어제까지만 그린다」를 10/22에 바꿈)
    - **모델명·버전은 화면에 보이지 않는다(10/22 팀장 결정).** 10/25 측정 화면 「추론 모델」, 기록 상세 「모델 버전」을 지웠다. 저장 형식(`server.modelVersion`)과 API 필드는 그대로.

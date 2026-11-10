@@ -46,7 +46,7 @@
    쓰던 카메라가 빠지거나 측정 중 영상 크기가 바뀌면 `end`로 종료·저장한다. 어깨가 하나라도 안 보이는 프레임은 바로 판정 불가다(6절).
 4. 이어하기(앱이 중간 저장을 두었다가 다시 여는 것)는 없다. 앱이 닫히거나 연결이 끊기면 서버가 마지막 구간까지 저장한다([ADR 0024](0024-session-ends-on-lost-connection.md)).
 5. 로컬 판정 코드(판정 엔진 `machine`·`scenario`·`snapshot`, 복귀 대기, 카메라 샘플, 로컬 측정 화면, v1 서버 측정 코드, 특징·좌표 내보내기)는 지웠다.
-6. 측정 결과는 이 기기에도 남긴다. 오늘 화면용이다([ADR 0027](0027-today-records-from-collected-server-results.md)).
+6. 서버 저장을 확인하기 전까지 측정 결과를 이 기기에 남긴다. 표시는 서버 기록(R1)으로 한다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
 8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 11/2 되돌렸다([인계서](../design/frontend-realtime-handoff-2026-11-03.md)).
    `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.

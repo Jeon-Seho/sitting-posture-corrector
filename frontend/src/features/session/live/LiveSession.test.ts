@@ -347,7 +347,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
 
   it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
     const reasons: [string, boolean, string][] = [
-      ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],
+      ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 30분 이어져'],
       ['day_changed', false, '자정이 지나 측정을 마쳤어요'],
       ['unauthorized', true, '비밀번호 변경이나 탈퇴로 로그인이 끝나'],
       ['bad_message', true, '측정을 이어갈 수 없어 마쳤어요'],
