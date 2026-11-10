@@ -15,7 +15,7 @@ import { useServerToday } from '../platform/serverClock'
  * - Beside it: the recent 7/30-day flow. Under both (2026-10-14): the picked day as a light
  *   diary-style summary (DaySummary), unlike the 기록 tab's full DayRecord.
  * Day totals have the `GET /stats/daily` shape, one day's sessions the `GET /records?date=`
- * shape (docs/design/api-ws-spec.md).
+ * shape (docs/design/fe/api-ws-spec.md).
  */
 export function RecordCalendarPage({
   records: allRecords,

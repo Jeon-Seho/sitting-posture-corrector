@@ -6,7 +6,7 @@ import { recordsByDay } from '../storage/dailyMeasurement'
 
 /**
  * Where the records screen gets its numbers (2026-10-13 records redesign). Shapes follow
- * docs/design/api-ws-spec.md so the screen does not change when the server takes over:
+ * docs/design/fe/api-ws-spec.md so the screen does not change when the server takes over:
  * - `GET /records?date=YYYY-MM-DD` → sessions of one day  → `sessionsOn`
  * - `GET /stats/daily?from&to` (≤ 92 days, past days only) → `dailyStats`
  * Until then both are computed from the records saved on this computer.

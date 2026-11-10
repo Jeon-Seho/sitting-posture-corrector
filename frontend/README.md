@@ -32,7 +32,7 @@ CPU도 실패하면 카메라·모델·타이머를 해제하고 오류 상태�
 ## 데스크톱 앱 (2026-10-02~)
 
 화면은 데스크톱 앱 기준으로 다시 설계했다. 탭은 **측정하기 · 기록 · 달력 · 설정** 4개다(달력은 2026-10-13 추가). 받아서 실행하는 순서는 [루트 README](../README.md#데스크톱-앱-받아서-실행하기-windows)에 있다. 2026-10-12에 따로 만든 「자세 등록」 탭(계획 0024, 끝나서 지움)은 2026-10-13 측정하기로 다시 합쳤다: 등록한 자세가 없으면 등록 후 바로 측정하고, 있으면 바로 측정한다.
-[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/fe-server-proposal.md)(8.3)·[데스크톱 창](../docs/design/fe-server-proposal.md)(8.4), [DESIGN.md](../DESIGN.md).
+[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/fe/fe-server-proposal.md)(8.3)·[데스크톱 창](../docs/design/fe/fe-server-proposal.md)(8.4), [DESIGN.md](../DESIGN.md).
 
 ```sh
 npm run desktop      # 개발 서버와 Electron 창을 함께 실행
@@ -50,11 +50,13 @@ electron-builder가 `frontend/release/win-unpacked/`에 앱을 만들고 `fronte
 이 버전은 매 실행 시 압축 해제로 느릴 수 있다.
 Windows 압축 해제 후 폴더 rename에서 발생한 `EPERM`을 피하려고 설치된 Electron 배포본을 복사한다.
 이 명령은 Windows용이며 시작 프로그램 등록에는 휴대용 원본 EXE 경로를 사용한다.
-패키징된 앱은 개발 서버 대신 `app://posegood`에서 빌드 화면과 MediaPipe 정적 파일을 제공한다.
+패키징된 앱은 웹과 같은 주소(`https://app.posegood.site`, `POSEGOOD_APP_URL`로 다른 https 주소)의 화면을 연다. 같은 사이트라 로그인 유지 쿠키가 실려 웹처럼 자동 로그인된다(FE 제안서 F14). 앱 기능 요청(IPC)은 이 주소에서 온 것만 받는다.
+앱에 든 파일은 `app://posegood`으로 「연결하는 중」·「서버에 연결할 수 없어요」 화면(`public/offline.html`)과 자세 알림 팝업만 제공한다. 화면을 10초 안에 못 열면 연결 실패 화면을 보이고 10초마다 다시 시도한다. 화면 업데이트는 웹 배포(Vercel)로 바로 반영되므로, 데스크톱 앱 배포 전에 운영 웹이 최신이어야 한다.
 
 패키징 후 `node scripts/smoke-desktop.mjs`로 숨긴 창·독립 임시 프로필·합성 카메라를 사용하는 EXE 검증을 실행한다.
 앱 화면·preload IPC·보안 컨텍스트·Web Locks·모델/WASM 파일·카메라 연결과 모델 초기화를 확인한다.
 실제 카메라·재부팅 후 시작 프로그램 실행·다른 PC에서의 실행은 별도 수동 확인 대상이다.
+주의(2026-11-10): `smoke-desktop.mjs`·`smoke-packaged-ui.mjs`는 앱 화면이 `app://posegood`에 있던 때의 점검이라, 화면이 웹 주소로 바뀐 뒤에는 고쳐야 한다. 지금 확인한 것은 패키징한 EXE를 숨김 창으로 띄워 ① 열 수 없는 주소에서 연결 실패 화면이 바로 뜨고 그 화면의 IPC는 거부되는지, ② 운영 주소에서 웹 화면이 뜨고 IPC가 허용되는지다.
 
 2026-10-02 검증: 프론트 테스트 242개·TypeScript 검사·Vite 빌드·Electron 메인 파일 문법 검사는 통과했다.
 `npm run desktop:pack`과 실제 portable EXE smoke도 통과했다. 합성 카메라 640px 영상,
@@ -111,7 +113,7 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 `#password-reset?token=...`·`#verify-email?token=...` 링크를 받을 수 있다. 현재 API는 기본 비활성이며
 성공을 가장하지 않고 연결 준비중을 표시한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 후속 같은 출처 API가
 실제로 배포된 웹에서만 빌드 시 활성화한다. SMTP/비밀/DB는 프론트가 처리하지 않는다.
-패키지의 `app://`는 현재 정적 파일만 제공하므로 플래그만 켜지 않는다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
+데스크톱 앱도 웹 주소의 화면을 열므로 웹과 같은 빌드 플래그를 따른다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
 
 최신 밝은 테마는 사이드바/소개 `#416b56`, 흰 작업 면이다. 이미지 모델로 생성한 투명 WebP
 `login-light`·`ready-camera-light`·`empty-records-light`·`baseline-seat-light`를 사용한다.
@@ -166,14 +168,14 @@ MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서�
 ## 로그인과 회원가입
 
 첫 화면은 로그인이고 아래 「회원가입」으로 가입한다.
-회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([동의 제안서](../docs/design/consent-proposal.md))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
+회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([FE 기능 명세 회원가입](../docs/design/fe/fe-feature-spec.md#회원가입))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
 
 가입·로그인·로그아웃은 항상 입출구 서버 `/v2/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
 토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /v2/auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
 앱을 다시 열면 A8로 토큰을 받고 `GET /v2/auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
-비밀번호 변경·탈퇴·선택 동의 철회·설정(W1·W2)은 아직 연결하지 않았다([FE 제안서](../docs/design/fe-server-proposal.md) 7.2).
+비밀번호 변경·탈퇴·선택 동의 철회·설정(W1·W2)은 아직 연결하지 않았다([FE 제안서](../docs/design/fe/fe-server-proposal.md) 7.2).
 예전 화면 시험(`src/app/ServiceApp.test.tsx`)만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다. 이 시험 전용 경로는 [계획 0054](../docs/plans/active/0054-pip-fix-and-server-only-login.md) 2단계에서 지운다.
 
 ## 로컬 프로토타입 실행
@@ -223,7 +225,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 5. `잠시 쉬기`로 휴식한다. 휴식·판정 불가 시간은 서버가 유효 시간에서 제외한다.
 6. `측정 종료`에서 서버가 보낸 이번 세션 통계를 확인한다. 기록 화면이 서버 기록(R1)을 읽기 전까지 결과를 이 브라우저에도 남긴다.
    측정하기·자세 등록·자세 데이터 수집 사이에는 스트림을 공유한다. 로그아웃 시 해제한다.
-7. 카메라 없이 홈·기존 기록을 볼 수 있다. 발표용 예시 기록·합성 시연 기록은 지울 예정이다([FE 제안서](../docs/design/fe-server-proposal.md) 7.2).
+7. 카메라 없이 홈·기존 기록을 볼 수 있다. 발표용 예시 기록·합성 시연 기록은 지울 예정이다([FE 제안서](../docs/design/fe/fe-server-proposal.md) 7.2).
 8. 사이드바 하단 계정 메뉴의 `프로필 설정`에서 이름·나이·직업 수정과 로컬 자료 삭제(탈퇴 체험)를 할 수 있다.
 
 ## 알림과 기록
@@ -255,7 +257,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 설정의 **`발표용 예시 기록 표시`**(새 저장소 기본 꺼짐; 기존 선택 유지)를 켜면 같은 `기록`·`달력` 화면에 고정 시드로 만든 약 4개월치 예시 기록(`src/data/exampleRecords.ts`, 저장하지 않음)을 보여주고 화면에 발표용 예시임을 표시한다(2026-10-14, 예전 예시 대시보드 대체).
 로컬 기록은 기본 합산하며 `실제 웹캠 기록`/`합성 시연 기록`으로 따로 조회할 수 있다. 처음/최근 비교 칸은 2026-10-14에 없앴다. 측정은 KST 자정에 서버가 끊으므로(팀 회의, [ADR 0029](../docs/decisions/0029-midnight-cut-and-server-time.md)) 하나의 측정은 하루 안에 있다. 화면의 날짜·시각은 서버 시각을 따른다(2026-10-26): 기록의 시작·종료는 WS `ready.started_at`·`closed.ended_at`, 「오늘」은 가장 최근에 받은 서버 날짜(A4 `today`, WS 시각의 KST 날짜)(`src/features/platform/serverClock.ts`). 날짜 계산과 시각 표시는 KST 고정(`src/lib/kst.ts`), 기록은 시작한 날에 속한다. 서버가 이 필드를 보내기 전(BE-6)에는 PC 시계를 KST로 읽어 대신한다.
 
-**서버 연동 뒤의 표시 기준(2026-10-22):** 서버 통계(T1)는 어제까지 제공·표시하고, 오늘 목록·요약·달력 링·잔디·기간 그래프의 오늘 값은 로컬에 수집한 서버 세션 요약·사건·종료 결과로 만든다. 오늘 집계 처리는 서버 연동 뒤에도 남긴다. 기간 화면에서는 서버의 과거 통계와 로컬 오늘 값을 함께 사용하되 같은 날짜·세션을 중복 합산하지 않는다. 표시별 출처와 날짜 기준은 [연동 명세 4.5](../docs/design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다. 현재 기록·달력은 전체 기간을 로컬에서 집계하며 서버 통계 조회는 아직 연결되지 않았다.
+**서버 연동 뒤의 표시 기준(2026-10-22):** 서버 통계(T1)는 어제까지 제공·표시하고, 오늘 목록·요약·달력 링·잔디·기간 그래프의 오늘 값은 로컬에 수집한 서버 세션 요약·사건·종료 결과로 만든다. 오늘 집계 처리는 서버 연동 뒤에도 남긴다. 기간 화면에서는 서버의 과거 통계와 로컬 오늘 값을 함께 사용하되 같은 날짜·세션을 중복 합산하지 않는다. 표시별 출처와 날짜 기준은 [연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다. 현재 기록·달력은 전체 기간을 로컬에서 집계하며 서버 통계 조회는 아직 연결되지 않았다.
 
 ## 구현과 한계
 

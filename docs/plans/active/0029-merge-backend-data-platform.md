@@ -4,7 +4,7 @@
 - 담당: FE(klaod-tech)가 계획·문서 충돌 정리, 실시간·REST 맞추기는 BE와 함께
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
-- 관련: [연동 명세](../../design/api-ws-spec.md), [FE 제안서](../../design/fe-server-proposal.md), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
+- 관련: [연동 명세](../../design/fe/api-ws-spec.md), [FE 제안서](../../design/fe/fe-server-proposal.md), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
   [ADR 0024 연결이 끊기면 세션 종료](../../decisions/0024-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0030](0030-make-check-failures.md)
 
 ## 문제와 완료 기준
@@ -71,7 +71,7 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 | D5 | 담당 | 계획 0027 「담당 미정」에 계정(2·3절)과 세션·등록 전송(1·4·5절)이 함께 있음 | 계정 연결(F12)은 BE, 서버로 보내는 처리·등록 전송(F1~F3)은 FE | 0027을 둘로 나눠 적도록 알린다 |
 | D6 | 개발 프록시(0027 7절) | Vite `/api` 프록시 `ws: true`로 `/v1/realtime` | `/api/v2/realtime`(연동 명세 1장) | 경로만 v2로 |
 | D7 | 구형 `check-browser`(0027 8절) | 당시 `run_browser()`의 임시 MySQL·v1 세션 불일치 | [계획 0030](0030-make-check-failures.md)의 복구 과제는 도구 삭제로 폐기됨 | 구형 게이트 복원·원인 추가 과제 없음. 현재 기본 검사와 명시적 연결 점검은 [품질 기준](../../quality.md)을 따름 |
-| D8 | 링크 | 계획 0027·`architecture.md`가 우리가 지운 `fe-server-integration-map.md`를 가리킴 | — | 합친 뒤 `check-repo`가 잡는다. [연동 명세](../../design/api-ws-spec.md)로 바꾼다 |
+| D8 | 링크 | 계획 0027·`architecture.md`가 우리가 지운 `fe-server-integration-map.md`를 가리킴 | — | 합친 뒤 `check-repo`가 잡는다. [연동 명세](../../design/fe/api-ws-spec.md)로 바꾼다 |
 | D9 | DB 판 | `architecture.md` 「저장은 DB 스키마 V2.0」 | V2.3 | V2.3으로 |
 
 같은 것: 세션 생성 본문 `{policy, baseline_id}`, 조회 `SessionView`, 계정·동의·설정 API(연동 명세 0.6), 가입 입력 규칙(이름 1~30자, 나이 14~120, 비밀번호 12~72)은 서버 검사(`AccountContracts`)와 앱이 같다.
@@ -86,7 +86,7 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 
 ## 작업 단계
 
-- [x] 1. BE에 Q1을 확인했다(10/15, `/v2/realtime`). Q2·Q3은 합의대로 BE가 진행한다([FE 제안서](../../design/fe-server-proposal.md) 1장 B-1·B-2).
+- [x] 1. BE에 Q1을 확인했다(10/15, `/v2/realtime`). Q2·Q3은 합의대로 BE가 진행한다([FE 제안서](../../design/fe/fe-server-proposal.md) 1장 B-1·B-2).
 - [x] 2. merge 전에 우리 쪽 정리: 계획 0028을 0030으로 옮기고 Gradle 전환 부분을 뺐다(10/15). FE ADR 0022(끊기면 세션 종료)를 0024로 옮겨 BE ADR 0022와 겹치지 않게 했다(10/15). BE는 번호를 바꾸지 않아도 된다.
 - [x] 3. FE 브랜치 → develop PR #48(10/15 merge).
 - [x] 4. BE 브랜치가 develop을 받아 충돌을 풀었다(`b0140ca`, 10/15). 팀장과 함께 쓸모없는 문서를 지웠다.

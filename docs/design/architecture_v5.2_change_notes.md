@@ -2,7 +2,7 @@
 
 > 최종 갱신: 2026-10-16 · DevOps/BE
 > 구성도·연결표: [자세 분석 플랫폼 아키텍처 v5.2 외부 원본](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)
-> 저장소 문서: [스택별 역할](architecture_v5.2_stack_roles.md) · [아키텍처](../architecture.md) · [결정 이력](../decisions/) · [API 명세](api-spec.md) · [FE 연동 명세](api-ws-spec.md)
+> 저장소 문서: [스택별 역할](architecture_v5.2_stack_roles.md) · [아키텍처](../architecture.md) · [결정 이력](../decisions/) · [API 명세](api-spec.md) · [FE 연동 명세](fe/api-ws-spec.md)
 > 이 문서가 인용한 저장소 밖 원문은 아래 [외부 원본 참조](#외부-원본-참조)에서 구분한다.
 
 **자세 분석 플랫폼 아키텍처를 v5.2로 갱신했습니다.** v5의 큰 틀(앱은 입출구 서버 하나와만, 서버 안은 Kafka로만, 학습은 CSV 수동)과 v5.1의 적재·분석 배치(cron → Spark → HDFS 사용자별 폴더)는 그대로입니다. v5.2는 10/13~10/14 FE·DB와 정한 API 명세를 반영해 **입출구 서버를 팀 `backend/api` 위에 만들고, 재연결을 없애고, 알림 판단과 자세 등록 경로를 확정**한 판입니다.
