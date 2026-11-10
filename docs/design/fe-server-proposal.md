@@ -24,7 +24,6 @@
 - [ ] 좌표를 남길지 정하기: 남기는 곳이 없는 것은 코드로 확인됐다 — Spark J1(PR #93)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../bigdata/README.md) J1, `features.v1` 본문은 특징 변화량). ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 든다. 남길지, 아니면 ADR 2절과 동의 문구(BE-1)를 고칠지 팀에서 정한다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md) 3절) — 팀·ML·DevOps
 - [ ] 서버 탈퇴(A7) 때 이 기기의 서버 확인 전 결과도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../decisions/0027-today-records-from-collected-server-results.md)) — FE
 - [ ] **S1은 됐는데 WS가 안 열렸거나 `hello` 전에 끊긴 세션을 누가 닫을지** — 서버는 메모리에서만 6시간 뒤 뺀다([LiveSessions.java](../../backend/api/src/main/java/org/posegood/api/session/LiveSessions.java) `evict`, `posegood.idle-session-retention=6h`). DB 행은 `ended_at` NULL로 남아 J1·J2·기록 목록에 영향을 준다(J2는 끝난 세션만 센다). 앱이 이때만 S3를 부를지, 서버가 정리하면서 행도 닫을지 정한다. BE 상태 문서 4장 미결과 같은 질문 — BE·FE
-- [ ] 팀 nginx 옛 `/api/v1/realtime` 정리(D-72 — [default.conf](../../infra/nginx/default.conf)에 아직 있음, 11/9 DevOps 요청으로 DB/BE가 맡음, 브랜치 `chore/repo-nginx-remove-v1-realtime`) — DB/BE
 - [ ] 아키텍처 문서 v5.3(D-73) — DevOps
 
 ### 1.1 BE와 다른 곳 (11/4 develop `fe5058b` 코드로 확인)
