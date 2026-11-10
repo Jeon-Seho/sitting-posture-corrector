@@ -6,6 +6,7 @@ import { VisualControls } from '../components/VisualControls'
 import { BaselineArchivePanel } from '../components/BaselineArchivePanel'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
+import { desktopBridge } from '../features/desktop/bridge'
 
 export function CollectionPage({
   camera,
@@ -25,11 +26,12 @@ export function CollectionPage({
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">자세 데이터 수집</h1>
+          <h1 className="page-title">기존 CSV 수집</h1>
           <p className="page-desc">
             바른 자세뿐 아니라 평소에 자주 하는 자세들을 짧게 찍어 두는 곳이에요. 이 화면에서는
             점수나 교정 알림이 뜨지 않아요.
           </p>
+          <p className="fine">이곳은 이전 CSV 수집 도구예요. 카메라·그래프·리플레이가 있는 화면은 <a href="/dev" target={desktopBridge() ? '_self' : '_blank'} rel="noopener noreferrer" aria-disabled={collection.active || (collection.count > 0 && !collection.downloaded)} onClick={event => { if (collection.active || (collection.count > 0 && !collection.downloaded)) event.preventDefault() }}>자세 수집 (/dev)</a>에서 열어 주세요.</p>
         </div>
         <div className="row">
           <a className="btn" href="#forecast" aria-disabled={collection.hasCapture}

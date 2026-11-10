@@ -5,6 +5,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { installCameraWindow } = require('./camera-window.cjs')
 const { installThemeIcon } = require('./theme-icon.cjs')
+const { fallbackAppearance } = require('./fallback-appearance.cjs')
 
 // 일체형 제목 표시줄: OS 기본 틀 대신 앱 화면을 창 끝까지 그리고, 창 버튼만 위에 겹친다.
 // 높이와 색은 frontend/src/styles/base.css의 --titlebar-h, --bg와 맞춘다.
@@ -62,6 +63,9 @@ const launchedAtLogin =
 const loginItemSupported = app.isPackaged && (process.platform === 'win32' || process.platform === 'darwin')
 
 const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.json')
+// Read lazily after smoke-profile setup; the local fallback has a different origin from the website.
+let fallbackTheme = null
+const fallback = () => fallbackTheme ??= fallbackAppearance(app)
 function readSettings() {
   try {
     const value = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))
@@ -104,6 +108,10 @@ function sameAddress(url) {
 ipcMain.handle('desktop:launch-info', (event) => (trusted(event) ? launchInfo() : null))
 let applyThemeIcon = null
 let popupTheme = null
+ipcMain.handle('desktop:fallback-appearance', (event, value) => {
+  if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
+  return fallback().save(value)
+})
 ipcMain.handle('desktop:popup-theme', (event, theme) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !theme ||
     !['background', 'text', 'muted', 'accent', 'track'].every(key => typeof theme[key] === 'string' && /^#[0-9a-f]{6}$/i.test(theme[key]))) return false
@@ -300,7 +308,7 @@ async function createWindow() {
     if (!opening && isMainFrame && code !== -3 && sameAddress(new URL(url))) showOffline(window)
   })
   // 서버를 기다리는 동안 빈 창 대신 앱에 든 「연결하는 중」 화면을 먼저 보인다.
-  await window.loadURL(LOADING_URL).catch(() => {})
+  await window.loadURL(fallback().url(LOADING_URL)).catch(() => {})
   await openApp(window)
 }
 
@@ -330,7 +338,7 @@ async function openApp(window) {
 /** 실패한 이동은 빈 화면이나 오류 화면을 남기므로 매번 연결 실패 화면을 다시 연다. */
 function showOffline(window) {
   if (window.isDestroyed()) return
-  window.loadURL(OFFLINE_URL).catch(() => {})
+  window.loadURL(fallback().url(OFFLINE_URL)).catch(() => {})
   if (retryTimer) clearTimeout(retryTimer)
   retryTimer = setTimeout(() => void openApp(window), RETRY_MS)
 }
