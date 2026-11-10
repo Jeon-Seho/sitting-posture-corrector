@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -18,6 +20,7 @@ import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.Policy;
+import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.session.FrameFeatures;
 import org.posegood.api.session.SessionService;
 import org.slf4j.Logger;
@@ -49,6 +52,7 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	private final long maxSessionMs;
 	private final Clock clock;
 	private final ConcurrentHashMap<UUID, Live> live = new ConcurrentHashMap<>();
+	private volatile AutoCloseable results;
 
 	KafkaPipeline(
 		SessionService sessions,
@@ -124,6 +128,9 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 						: InferenceRequest.MeasurementQuality.good,
 					computed.deltas());
 				send(sessionId, owner, "features", body);
+				if (computed.invalidReason() != null) {
+					state.hints.put(interval.sequence(), computed.invalidReason());
+				}
 				state.lastSequence = interval.sequence();
 				state.lastEndMs = interval.endMs();
 				state.touched = clock.instant();
@@ -157,6 +164,20 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 		return false;
 	}
 
+	/**
+	 * 좌표에서 찾은 판정 불가 사유(예: {@code head_turn}) — 결과 관측의 {@code invalid_reason}에 붙인다. 없으면 null.
+	 * 최근 {@link SessionEngine#RETRY_WINDOW}개 구간만 기억한다(결과는 보통 1초 안에 온다).
+	 */
+	String hint(UUID sessionId, long sequence) {
+		var state = live.get(sessionId);
+		return state == null ? null : state.hints.get(sequence);
+	}
+
+	/** 결과 구독({@link KafkaResults})을 이 파이프라인과 함께 닫는다. */
+	void attach(AutoCloseable subscription) {
+		this.results = subscription;
+	}
+
 	/** 1분마다: 끝난 지(또는 마지막 입력 뒤) 6시간 지난 세션 상태를 지운다. */
 	@Scheduled(fixedDelay = 60_000)
 	public void evict() {
@@ -165,7 +186,10 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	}
 
 	@Override
-	public void close() {
+	public void close() throws Exception {
+		if (results != null) {
+			results.close();
+		}
 		producer.close(Duration.ofSeconds(5));
 	}
 
@@ -202,6 +226,9 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 		private volatile long lastEndMs;
 		private volatile boolean ended;
 		private volatile Instant touched = clock.instant();
+		/** 순번 → 판정 불가 힌트. 세션 잠금 안에서 쓰고 구독 스레드가 읽는다. */
+		private final Map<Long, String> hints =
+			Collections.synchronizedMap(SessionEngine.recent(SessionEngine.RETRY_WINDOW));
 
 		private Live(UUID baselineId) {
 			this.baselineId = baselineId;

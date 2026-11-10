@@ -73,6 +73,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private static final Set<String> FEATURES = Set.of("type", "items");
 	private static final Set<String> END = Set.of("type", "end_ms");
 	private static final String DAY_CHANGED = "day_changed";
+	/** kafka 경로: 마지막 ack 뒤(측정 중)·end 뒤(종료 대기) 이 시간 동안 결과가 없으면 {@code stalled}(2026-10-26 ③). */
+	static final long STALL_NANOS = Duration.ofSeconds(5).toNanos();
 
 	/** 자정 넘김(이전 세션 종료·새 세션 행)에만 쓴다. 측정 입력·종료는 {@link #pipeline}. */
 	private final SessionService sessions;
@@ -136,6 +138,9 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		// 자정 넘김은 API 안 판정(local)에만 묶여 있다. kafka 경로에서는 쓰지 않는다(가이드 11장 #3).
 		this.midnightRollover = midnightRollover && pipeline.local();
 		this.clock = clock;
+		if (!pipeline.local()) {
+			timer.scheduleWithFixedDelay(this::checkStalled, 1, 1, TimeUnit.SECONDS);
+		}
 	}
 
 	/** 새 연결: hello를 기다린다. 제한 시간 안에 없으면 {@code closed(bad_message)}. */
@@ -263,7 +268,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			return;
 		}
 		synchronized (channel) {
-			if (channel.state.get() != State.MEASURE) {
+			if (channel.state.get() != State.MEASURE || channel.ending != 0) {
 				return;
 			}
 			if (interval.endMs() >= channel.cutMs && !rollover(channel)) {
@@ -281,6 +286,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 				var accepted = pipeline.frames(channel.owner, id, local, channel.realtime.baseline());
 				long last = accepted.lastSequence() + channel.sequenceOffset;
 				channel.lastSequence = last;
+				channel.ackedAt = System.nanoTime();
 				send(channel, new RealtimeMessages.V2.Ack(last));
 				var status = accepted.progress();
 				if (status != null) { // kafka 경로의 progress는 결과 토픽에서 온다
@@ -313,7 +319,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			return;
 		}
 		synchronized (channel) {
-			if (channel.state.get() != State.MEASURE) {
+			if (channel.state.get() != State.MEASURE || channel.ending != 0) {
 				return;
 			}
 			// end_ms는 연결 기준이다. 넘기기 전에 자정을 지났으면 자정 직전에서 끝낸다(종료 날짜 = 시작 날짜).
@@ -396,8 +402,65 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. 열린 세션 행은 기록 저장(S3·R2) 때 닫힌다.
 			log.warn("realtime v2 end persist failed: {}", storage.getClass().getSimpleName());
 		}
+		if (!pipeline.local()) {
+			// kafka: 종료 사건(결과 토픽)을 받은 뒤 closed를 보낸다(pipelineResult). 그동안은 stalled로 알린다.
+			channel.ending = System.nanoTime();
+			channel.stalledSent = false;
+			return;
+		}
 		if (channel.state.get() != State.CLOSING) {
 			finishClosed(channel, channel.endReason);
+		}
+	}
+
+	/**
+	 * kafka 경로 결과(D-57): 그 세션의 연결로 앱 메시지를 보낸다. 종료 사건이면 {@code closed}, 측정불가 한도면 끝낸다.
+	 * 이 서버에 그 세션의 연결이 없으면 버린다.
+	 */
+	@EventListener
+	public void pipelineResult(PipelineResult result) {
+		var channel = bySession.get(result.sessionId());
+		if (channel == null) {
+			return;
+		}
+		for (var message : result.messages()) {
+			send(channel, message);
+		}
+		if (result.observedSequence() != null) {
+			channel.observedSequence = Math.max(channel.observedSequence, result.observedSequence());
+			channel.stalledSent = false;
+		}
+		if (result.endedTotalMs() != null) {
+			// DB에 저장하는 종료 시각과 같은 식(started_at + total_ms) — local progressed()와 같다.
+			channel.endedAt = channel.realtime.startedAt().plusMillis(result.endedTotalMs());
+			channel.ended = true;
+			finishClosed(channel, channel.endReason);
+			return;
+		}
+		if (result.unmeasurableEndMs() != null) {
+			synchronized (channel) {
+				if (channel.state.get() == State.MEASURE && channel.ending == 0) {
+					channel.endReason = "unmeasurable_timeout";
+					end(channel, result.unmeasurableEndMs());
+				}
+			}
+		}
+	}
+
+	/** kafka 경로: 1초마다 결과가 밀린 연결에 {@code stalled}를 한 번 보낸다(연결 유지, 결과가 오면 다시 셈). */
+	private void checkStalled() {
+		long now = System.nanoTime();
+		for (var channel : channels.values()) {
+			if (channel.state.get() != State.MEASURE || channel.stalledSent) {
+				continue;
+			}
+			boolean waitingEnd = channel.ending != 0 && now - channel.ending > STALL_NANOS;
+			boolean waitingResult = channel.ending == 0 && channel.lastSequence > channel.observedSequence
+				&& now - channel.ackedAt > STALL_NANOS;
+			if (waitingEnd || waitingResult) {
+				channel.stalledSent = true;
+				stalled(channel);
+			}
 		}
 	}
 
@@ -600,6 +663,11 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		private volatile Instant endedAt;
 		/** 세션이 끝났을 때 보낼 closed 사유(시간 한도면 limit_reached). */
 		private volatile String endReason = "ended";
+		/** kafka 경로: 마지막 ack 시각(nanoTime), 결과로 받은 마지막 관측 순번, 종료를 보낸 시각(0이면 아직), stalled 보냄. */
+		private volatile long ackedAt;
+		private volatile long observedSequence = -1;
+		private volatile long ending;
+		private volatile boolean stalledSent;
 
 		private Channel(WebSocketSession socket) {
 			this.socket = socket;
