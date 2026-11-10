@@ -54,6 +54,19 @@ public class RealtimeTopicsConfig {
 			.config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000)).build();
 	}
 
+	/**
+	 * (D-67) 저장 완료 — 판정 결과 저장 → 입출구 서버 {@code ws}(정상 종료를 저장 뒤에 알림). 키 session_id, 보존 3일(알림과 같음).
+	 */
+	@Bean
+	public NewTopic postureStoredV1Topic(
+		@Value("${app.kafka.topic.posture-stored-v1:posture.stored.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1)
+			.config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000)).build();
+	}
+
 	/** (D-36) 처리 못 한 메시지 보관. 순서가 중요하지 않아 파티션 1개. */
 	@Bean
 	public NewTopic postureDlqTopic(

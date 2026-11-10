@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/kafka-stored.v1.schema.json",
+  "title": "Topic posture.stored.v1: decision storage -> gateway (ws), the session's end values are in the DB",
+  "description": "Published by the decision storage service (backend/processing report) after it writes a session_ended decision (open events, excluded intervals and the session row are closed). A re-delivered session_ended is published again; the gateway ignores sessions it has already closed. The gateway holds the session_ended decision until this arrives (in either order) and then sends it and closed to the app, so a session query after closed already sees the end values (D-67).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "message_id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "user_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "produced_at": {"type": "string", "format": "date-time"},
+    "kind": {"const": "session_stored"},
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["end_ms", "good_ms"],
+      "properties": {
+        "end_ms": {"type": "integer", "minimum": 0, "description": "session end, ms from session start (session_ended timestamp_ms)"},
+        "good_ms": {"type": "integer", "minimum": 0, "description": "good posture time stored for the session, ms (session_ended summary normal_ms)"}
+      }
+    }
+  }
+}

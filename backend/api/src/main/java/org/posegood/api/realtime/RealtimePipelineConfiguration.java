@@ -38,6 +38,8 @@ class RealtimePipelineConfiguration {
 		String episodesTopic,
 		@Value("${posegood.realtime.kafka.alerts-topic:posture.alerts.v1}")
 		String alertsTopic,
+		@Value("${posegood.realtime.kafka.stored-topic:posture.stored.v1}")
+		String storedTopic,
 		@Value("${posegood.realtime.kafka.group-id:io-ws-local}")
 		String groupId,
 		@Value("${posegood.realtime.kafka.send-timeout:3s}")
@@ -55,7 +57,8 @@ class RealtimePipelineConfiguration {
 				var kafka = new KafkaPipeline(
 					sessions, producer(bootstrapServers, sendTimeout), featuresTopic, json, sendTimeout, maxSession,
 					Clock.systemUTC());
-				var results = new KafkaResults(consumer(bootstrapServers, groupId), episodesTopic, alertsTopic, json,
+				var results = new KafkaResults(consumer(bootstrapServers, groupId), episodesTopic, alertsTopic,
+					storedTopic, json,
 					events, kafka::hint, unmeasurableTimeout);
 				kafka.attach(results);
 				results.start();

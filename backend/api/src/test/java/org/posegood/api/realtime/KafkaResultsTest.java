@@ -50,7 +50,8 @@ class KafkaResultsTest {
 	@BeforeEach
 	@SuppressWarnings("unchecked")
 	void setup() {
-		results = new KafkaResults(mock(Consumer.class), "posture.episodes.v1", "posture.alerts.v1", JSON,
+		results = new KafkaResults(mock(Consumer.class), "posture.episodes.v1", "posture.alerts.v1",
+			"posture.stored.v1", JSON,
 			event -> published.add((PipelineResult)event),
 			(session, sequence) -> sequence == 7 ? "head_turn" : null, Duration.ofSeconds(2));
 	}
@@ -141,18 +142,42 @@ class KafkaResultsTest {
 		assertTrue(app(6).get("paused_reason").isNull());
 	}
 
+	private static ObjectNode sessionEnded() throws Exception {
+		var ended = kafka("episodes-decision.json");
+		((ObjectNode)ended.get("body").get("event")).put("kind", "session_ended").put("reason", "ended");
+		((ObjectNode)ended.get("body").get("summary")).put("total_ms", 85000);
+		return ended;
+	}
+
+	private void stored() throws Exception {
+		results.handle("posture.stored.v1", MAPPER.writeValueAsString(kafka("stored-session-stored.json")));
+	}
+
 	@Test
-	void decisionPassesThroughAndSessionEndedEndsTheConnection() throws Exception {
+	void decisionPassesThroughAndSessionEndedWaitsForStored() throws Exception {
 		episodes(kafka("episodes-decision.json"));
 		sameFields("ws-decision.json", app(0));
 		assertEquals("collapse_confirmed", app(0).get("event").get("kind").asString());
 		assertNull(published.get(0).endedTotalMs());
 
-		var ended = kafka("episodes-decision.json");
-		((ObjectNode)ended.get("body").get("event")).put("kind", "session_ended").put("reason", "ended");
-		((ObjectNode)ended.get("body").get("summary")).put("total_ms", 85000);
-		episodes(ended);
+		episodes(sessionEnded());
+		assertEquals(1, published.size()); // 저장 완료 전에는 내지 않는다
+		episodes(sessionEnded()); // 재전송
+		stored();
+		assertEquals(2, published.size());
+		assertEquals("session_ended", app(1).get("event").get("kind").asString());
 		assertEquals(85000L, published.get(1).endedTotalMs());
+		stored(); // 다시 와도(재전송) 더 내지 않는다
+		assertEquals(2, published.size());
+	}
+
+	@Test
+	void storedBeforeTheEndDecisionAlsoEnds() throws Exception {
+		stored();
+		assertTrue(published.isEmpty());
+		episodes(sessionEnded());
+		assertEquals(1, published.size());
+		assertEquals(85000L, published.get(0).endedTotalMs());
 	}
 
 	@Test

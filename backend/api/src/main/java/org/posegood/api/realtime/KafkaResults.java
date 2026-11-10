@@ -19,13 +19,14 @@ import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.databind.JsonNode;
 
 /**
- * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes.v1}·{@code posture.alerts.v1}을 받아 앱 메시지로 바꿔
+ * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes.v1}·{@code posture.alerts.v1}·{@code posture.stored.v1}을 받아 앱 메시지로 바꿔
  * {@link PipelineResult} 이벤트로 낸다. 판정은 하지 않는다 — 처리 서비스가 낸 값을 옮길 뿐이다.
  *
  * <ul>
  *   <li>{@code observation} → {@code observation}(관측 4.0). 판정 불가 사유는 좌표에서 찾은 힌트({@code head_turn})를
  *       local과 같은 규칙으로 붙인다({@code SessionEngine.invalidReason}).</li>
- *   <li>{@code decision} → {@code decision}. {@code session_ended}면 종료(임시 규칙 — 저장 완료 이벤트 D-67 전).</li>
+ *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored.v1} {@code session_stored},
+ *       D-67)를 받을 때까지 쥐고 있다가 함께 낸다(어느 쪽이 먼저 와도) — 앱이 {@code closed} 뒤 조회하면 DB에 종료 값이 있다.</li>
  *   <li>{@code progress} → {@code progress}. 멈춘 이유는 그 세션의 마지막 관측으로(local {@code pausedReason}과 같음).</li>
  *   <li>{@code alerts.v1} {@code alert} → {@code alert} 그대로(알림 켜짐·재전송은 판정 결과 저장이 이미 거름).</li>
  *   <li>측정불가(판정 불가·자리 비움)가 이어진 시간을 관측으로 세어 한도에 닿으면 끝내라고 알린다(local과 같은 규칙).</li>
@@ -42,11 +43,14 @@ final class KafkaResults implements AutoCloseable {
 	private final Consumer<String, String> consumer;
 	private final String episodesTopic;
 	private final String alertsTopic;
+	private final String storedTopic;
 	private final Json json;
 	private final ApplicationEventPublisher events;
 	private final BiFunction<UUID, Long, String> hints;
 	private final long unmeasurableTimeoutMs;
 	private final ConcurrentHashMap<UUID, Live> live = new ConcurrentHashMap<>();
+	/** (D-67) 종료 사건·저장 완료 중 먼저 온 쪽. 둘이 다 오면 지운다. 구독 스레드 하나만 쓴다. */
+	private final ConcurrentHashMap<UUID, Ending> endings = new ConcurrentHashMap<>();
 	private volatile boolean running;
 	private Thread thread;
 
@@ -54,6 +58,7 @@ final class KafkaResults implements AutoCloseable {
 		Consumer<String, String> consumer,
 		String episodesTopic,
 		String alertsTopic,
+		String storedTopic,
 		Json json,
 		ApplicationEventPublisher events,
 		BiFunction<UUID, Long, String> hints,
@@ -61,6 +66,7 @@ final class KafkaResults implements AutoCloseable {
 		this.consumer = consumer;
 		this.episodesTopic = episodesTopic;
 		this.alertsTopic = alertsTopic;
+		this.storedTopic = storedTopic;
 		this.json = json;
 		this.events = events;
 		this.hints = hints;
@@ -77,7 +83,7 @@ final class KafkaResults implements AutoCloseable {
 
 	private void run() {
 		try {
-			consumer.subscribe(List.of(episodesTopic, alertsTopic));
+			consumer.subscribe(List.of(episodesTopic, alertsTopic, storedTopic));
 			while (running) {
 				for (var record : consumer.poll(Duration.ofMillis(500))) {
 					handle(record.topic(), record.value());
@@ -116,6 +122,12 @@ final class KafkaResults implements AutoCloseable {
 				if ("alert".equals(kind)) {
 					publish(sessionId, new RealtimeMessages.V2.Alert("alert", body.path("event_id").asLong(),
 						Json.text(body.path("kind")), Json.text(body.path("deviation_type"))), null, null, null);
+				}
+				return;
+			}
+			if (storedTopic.equals(topic)) {
+				if ("session_stored".equals(kind)) {
+					stored(sessionId);
 				}
 				return;
 			}
@@ -160,12 +172,35 @@ final class KafkaResults implements AutoCloseable {
 	private void decision(UUID sessionId, JsonNode body) {
 		var event = json.convert(body.path("event"), SessionView.DecisionEvent.class);
 		var summary = json.convert(body.path("summary"), SessionView.Summary.class);
-		Long ended = null;
-		if ("session_ended".equals(event.kind())) {
-			ended = summary.totalMs();
-			live.remove(sessionId);
+		var message = new RealtimeMessages.V2.Decision(event, summary);
+		if (!"session_ended".equals(event.kind())) {
+			publish(sessionId, message, null, null, null);
+			return;
 		}
-		publish(sessionId, new RealtimeMessages.V2.Decision(event, summary), null, ended, null);
+		live.remove(sessionId);
+		var ending = endings.computeIfAbsent(sessionId, id -> new Ending());
+		if (ending.decision != null) {
+			return; // 재전송된 종료 사건 — 처음 것을 쥐고 있다
+		}
+		ending.decision = message;
+		ending.totalMs = summary.totalMs();
+		release(sessionId, ending);
+	}
+
+	/** (D-67) 판정 결과 저장이 종료 값을 DB에 쓴 뒤 낸 저장 완료. */
+	private void stored(UUID sessionId) {
+		var ending = endings.computeIfAbsent(sessionId, id -> new Ending());
+		ending.stored = true;
+		release(sessionId, ending);
+	}
+
+	/** 종료 사건과 저장 완료가 다 왔으면 종료 사건을 내고(→ closed) 지운다. */
+	private void release(UUID sessionId, Ending ending) {
+		if (ending.decision == null || !ending.stored) {
+			return;
+		}
+		endings.remove(sessionId);
+		publish(sessionId, ending.decision, null, ending.totalMs, null);
 	}
 
 	private void progress(UUID sessionId, JsonNode body) {
@@ -201,6 +236,9 @@ final class KafkaResults implements AutoCloseable {
 		if (live.size() > 256) {
 			live.entrySet().removeIf(entry -> now - entry.getValue().seenAt > FORGET_NANOS);
 		}
+		if (endings.size() > 256) {
+			endings.entrySet().removeIf(entry -> now - entry.getValue().seenAt > FORGET_NANOS);
+		}
 	}
 
 	/** 세션마다 마지막 관측과 측정불가 누적. 구독 스레드 하나만 쓴다. */
@@ -210,5 +248,13 @@ final class KafkaResults implements AutoCloseable {
 		private long unmeasurableMs;
 		private boolean timedOut;
 		private long seenAt = System.nanoTime();
+	}
+
+	/** (D-67) 쥐고 있는 종료 사건(앱 메시지·총 시간)과 저장 완료 수신 여부. */
+	private static final class Ending {
+		private RealtimeMessages.V2.Decision decision;
+		private long totalMs;
+		private boolean stored;
+		private final long seenAt = System.nanoTime();
 	}
 }

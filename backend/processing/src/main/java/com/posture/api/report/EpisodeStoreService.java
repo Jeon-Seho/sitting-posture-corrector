@@ -36,6 +36,8 @@ import org.springframework.stereotype.Component;
  *   <li>(D-54) 알림 발행: 알림 행을 <b>새로</b> 넣었고, 세션 알림이 켜져 있고({@code alert_enabled}), decision이 판정에서 나온 지
  *       {@code report.alerts.max-age-ms}(기본 10초) 안이면 {@code posture.alerts.v1}로 낸다. 재전송(행이 이미 있음)·알림 꺼짐·
  *       오래된 사건(재처리·밀림)은 내지 않는다 — 앱에 늦은 알림이 뜨지 않게. DB 기록이 먼저이고, 발행 실패는 기록을 되돌리지 않는다.</li>
+ *   <li>(D-67) 저장 완료: {@code session_ended}의 종료 값을 쓴 뒤 {@code posture.stored.v1}을 낸다(재전송이어도 다시 —
+ *       입출구 서버가 이미 닫은 세션이면 버림). 입출구 서버는 이것을 받은 뒤 앱에 정상 종료를 알린다.</li>
  * </ul>
  *
  * <p>여러 SQL을 트랜잭션으로 묶지 않는다. 각 단계가 멱등이라 중간에 실패해 다시 받아도 남은 단계만 채워진다.
@@ -69,6 +71,8 @@ public class EpisodeStoreService {
 	private final AtomicLong alertsWhileOff = new AtomicLong();
 	private final AtomicLong sessionsEnded = new AtomicLong();
 	private final AtomicLong excludedWritten = new AtomicLong();
+	private final AtomicLong storedPublished = new AtomicLong();
+	private SessionStoredPublisher storedPublisher = SessionStoredPublisher.NO_OP;
 	private final AtomicReference<String> lastStoredAt = new AtomicReference<>();
 	private final Set<String> warnedSessions = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -79,6 +83,12 @@ public class EpisodeStoreService {
 		@Value("${report.alerts.max-age-ms:10000}")
 		long alertMaxAgeMs) {
 		this(store, alerts, alertsEnabled, alertMaxAgeMs, Instant::now);
+	}
+
+	/** (D-67) 저장 완료 발행기. 없으면(시험) 내지 않는다. */
+	@Autowired(required = false)
+	void setStoredPublisher(SessionStoredPublisher storedPublisher) {
+		this.storedPublisher = storedPublisher;
 	}
 
 	/** 시험용: 알림 발행 없이. */
@@ -205,6 +215,9 @@ public class EpisodeStoreService {
 		if (ended) {
 			sessionsEnded.incrementAndGet();
 		}
+		// (D-67) 각 SQL은 이미 커밋됐다 — 종료 값이 DB에 있으니 저장 완료를 알린다(재전송이면 다시).
+		storedPublisher.publish(decision);
+		storedPublished.incrementAndGet();
 		return ended || closed > 0 ? Outcome.STORED : Outcome.DUPLICATE;
 	}
 
@@ -249,6 +262,7 @@ public class EpisodeStoreService {
 		status.put("alertsSkippedStale", alertsSkippedStale.get());
 		status.put("alertsPublishEnabled", alertsEnabled);
 		status.put("sessionsEnded", sessionsEnded.get());
+		status.put("storedPublished", storedPublished.get());
 		status.put("excludedWritten", excludedWritten.get());
 		status.put("lastStoredAt", lastStoredAt.get());
 		return status;

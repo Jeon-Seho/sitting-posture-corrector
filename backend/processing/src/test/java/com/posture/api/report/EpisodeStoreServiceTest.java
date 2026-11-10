@@ -127,7 +127,27 @@ class EpisodeStoreServiceTest {
 		assertThat(store.sessionEndedMs).isEqualTo(6000L);
 	}
 
-	/** (D-39) 제외 구간: 시작에 열고 끝에 닫는다, 사유는 DB 값으로, 재전송은 그대로, 시작이 빠져도 끝에서 넣는다. */
+	/** (D-67) 종료를 DB에 쓴 뒤 저장 완료를 낸다 — 재전송이어도 다시, 세션 행이 없으면 내지 않음, 다른 사건은 내지 않음. */
+	@Test
+	void sessionEndPublishesStoredAfterWriting() {
+		List<EpisodeDecision> stored = new ArrayList<>();
+		service.setStoredPublisher(decision -> {
+			assertThat(store.sessionEndedMs).isEqualTo(decision.timestampMs()); // 쓴 뒤에 낸다
+			stored.add(decision);
+		});
+		service.apply(decision(9, "session_ended", 6000, 6000, "ended", 1000)); // 세션 행 없음
+		assertThat(stored).isEmpty();
+		store.addSession(SID, true);
+		for (EpisodeDecision x : t10()) {
+			service.apply(x);
+		}
+		assertThat(stored).extracting(EpisodeDecision::kind).containsExactly("session_ended");
+		assertThat(service.apply(t10().get(3))).isEqualTo(Outcome.DUPLICATE);
+		assertThat(stored).hasSize(2);
+		assertThat(service.status().get("storedPublished")).isEqualTo(2L);
+	}
+
+		/** (D-39) 제외 구간: 시작에 열고 끝에 닫는다, 사유는 DB 값으로, 재전송은 그대로, 시작이 빠져도 끝에서 넣는다. */
 	@Test
 	void excludedIntervalsAreOpenedAndClosed() {
 		store.addSession(SID, true);

@@ -18,6 +18,7 @@ SCHEMAS = {
     "inference-": "kafka-inference.v1.schema.json",
     "episodes-": "kafka-episodes.v1.schema.json",
     "alerts-": "kafka-alerts.v1.schema.json",
+    "stored-": "kafka-stored.v1.schema.json",
 }
 
 
@@ -51,7 +52,7 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 8)
+        self.assertEqual(len(names), 9)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):

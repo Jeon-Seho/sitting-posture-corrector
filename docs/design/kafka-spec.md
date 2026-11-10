@@ -33,9 +33,10 @@
 | `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
 | `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts.v1](../../contracts/realtime/kafka-alerts.v1.schema.json) |
+| `posture.stored.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(D-67) | `session_stored` | [kafka-stored.v1](../../contracts/realtime/kafka-stored.v1.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
+- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`·`posture.stored.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.
 
@@ -68,6 +69,7 @@
 | episodes.v1 | `decision` | [사건 v1](../../contracts/posture-event.v1.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes.v1 | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
 | alerts.v1 | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
+| stored.v1 | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.
 `interrupted`·제외 구간의 `reason`: `rest`·`away`·`unmeasurable`·`missing`(·`missing_sequence`), 세션 종료로 끊기면 `ended`.
