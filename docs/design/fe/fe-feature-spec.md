@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|---|---|
 | auth | 회원가입 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 약관 동의, 계정 정보 입력으로 계정을 만들고 바로 로그인한다. 자세 등록은 선택이다 | A2 | 구현됨 |
 | auth | 로그인 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 이메일과 비밀번호로 로그인한다 | A3 | 구현됨 |
-| auth | 로그인 유지 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | access 토큰을 만료 전에 자동으로 갱신하고, 앱을 다시 열어도 로그인을 유지한다 | A8, A4 | 일부(설치용 데스크톱 앱은 유지 안 됨) |
+| auth | 로그인 유지 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | access 토큰을 만료 전에 자동으로 갱신하고, 앱을 다시 열어도 로그인을 유지한다 | A8, A4 | 구현됨(설치용 데스크톱 앱은 F14 배포 뒤) |
 | auth | 로그아웃 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 로그인을 끝내고 카메라를 끈다 | A5 | 구현됨 |
 | auth | 비밀번호 찾기 | 하 | `UNAUTHENTICATED` | `UNAUTHENTICATED` | 메일로 비밀번호를 재설정한다. 화면만 있고 서버 API와 메일 발송이 없다 | 미정 | 구현 전 |
 | user | 프로필 수정 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이름과, 동의한 경우 나이·직업을 고친다 | W1, W2 | 구현됨 |
@@ -163,7 +163,7 @@
 **예외 / 제한사항**
 
 - A8이 401이면 로그인 화면으로 간다. 네트워크 오류나 5xx면 로그아웃하지 않고 30초 뒤 다시 시도한다.
-- 설치용 데스크톱 앱은 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다(FE 제안서 1.0, F14).
+- 설치용 데스크톱 앱은 지금 배포본이 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다. 웹 주소 화면을 열게 고친 코드(F14)를 배포하면 웹처럼 유지된다. 이때 서버에 못 붙으면 앱에 든 「서버에 연결할 수 없어요」 화면을 보이고 10초마다 다시 시도한다(FE 제안서 1.0).
 
 **비고**
 

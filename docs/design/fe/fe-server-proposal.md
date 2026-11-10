@@ -25,7 +25,7 @@
 - [ ] Kafka 전환(계획 0031) 때 판정 순서 확인 — 지금 판정은 API 한 곳이 세션 메시지를 차례대로 처리해 순서가 지켜진다. Kafka 경로 코드는 키가 `session_id`라 한 세션이 한 파티션에서 순서대로 처리되고, 이미 반영한 `sequence`는 버리며 번호가 건너뛰면 `missing_sequence`로 끊는다([kafka-spec.md](../kafka-spec.md) 3.3, `V1SessionJudge`). 늦게 온 결과를 잠깐 기다렸다 순서대로 넣는 버퍼(#91의 `PendingIntervals`, 최대 2초)는 #91과 함께 빠졌다. 추론이 한 세션 안에서 순서를 바꾸지 않는지 전환 시험에서 확인하고, 바뀌면 버퍼를 다시 넣는다. 판정과 전송은 결과가 오는 즉시 하고 시간은 촬영 시각으로 센다(3초 묶음으로 되돌리지 않는다) — BE·DevOps·PM
 - [ ] Cloudflare 요청 제한(`auth-rate-limit`)을 로그인·가입만으로 좁히고 평소 값·시연 날 값 정하기 — FE(9.6.3 Q3)
 - [ ] 정식 공개 때 검색 노출 막기 두 줄 지우기([robots.txt](../../../frontend/public/robots.txt), [vercel.json](../../../frontend/vercel.json) `X-Robots-Tag`) — FE
-- [ ] 데스크톱 앱이 `https://app.posegood.site`를 열게(F14, 9.4 5단계). 그 전까지 설치용 앱은 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다 — FE
+- [ ] 데스크톱 앱(F14) 배포: 설치용 앱이 웹 주소(`https://app.posegood.site`) 화면을 열어 자동 로그인되게 하는 코드는 끝났다(11/10, `feature/fe-desktop-remote-url`). 데스크톱 앱 화면이 곧 운영 웹이므로 운영 웹(포크)을 최신으로 올린 뒤 앱을 새로 빌드해 배포하고, 실제 계정으로 로그인 → 앱 종료 → 다시 켜기를 확인한다. 패키징 점검 스크립트(`smoke-desktop.mjs`·`smoke-packaged-ui.mjs`)는 `app://` 화면 기준이라 고쳐야 한다 — FE
 - [ ] 운영 서버 자정 넘김 켜기(`POSEGOOD_MIDNIGHT_ROLLOVER=true`, 지금 기본 꺼짐 — [application.properties](../../../backend/api/src/main/resources/application.properties)). 앱 처리는 운영 화면에 이미 있다(10.5) — DevOps
 - [ ] 운영 주의: 서버 재배포를 KST 자정 전후와 겹치지 않게 한다. 재배포하면 진행 중 측정은 끊긴 곳까지 저장되고 끝나는데([ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)), 자정 넘김 처리와 겹치면 기록이 어느 날에 들어갈지 헷갈린다 — DevOps
 - [ ] 자정 넘김을 켠 뒤 자정 점검([midnight.mjs](../../../tools/browser/midnight.mjs)) 시나리오 다시 정하기: 지금은 「자정에도 같은 세션 유지」 전제라 세션이 둘로 나뉘는 흐름으로 바꾼다(팀장 10/30 인계서 4번, [frontend README](../../../frontend/README.md) 자정 측정 절) — FE
@@ -143,7 +143,7 @@ FE가 정한 것(앱 쪽 동작):
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
 | F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **A1~A5 끝남(10/22 V3):** ghdrb1246의 `f27dd24`(D-66)를 V3로 옮김. 스위치 없이 항상 서버 계정, 로그인·가입·`me` 뒤 `setServerAuth`(B1·B2·S1·S4가 같은 계정·CSRF 토큰), CSRF 403 재시도. 남은 것: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 | BE · 연동 명세 2장 |
 | F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
-| F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 안 함 | Vercel 연결 · 9.4 5단계 |
+| F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 코드 끝(11/10), 배포 전 | Vercel 연결 · 9.4 5단계 |
 | F15 | v2 전환으로 필요 없어진 코드 정리 | 끝남(10/21, 7.1 표) | — |
 
 담당(10/14 정함): 기록·달력 화면과 측정하기 화면은 lellon0403, 학습용 자세 데이터 수집 화면은 jisung(진행 중). FE(klaod-tech)는 서버로 보내는 처리(F1~F3), 판정 불가 처리(F11), 회원가입·동의 화면을 한다. 계정 서버 연결(F12)은 BE가 맡는다(BE 계획 0027과 같은 일 — A1~A5는 10/22 ghdrb1246 `f27dd24`를 V3로 옮겨 끝났고, A6·A7·C1·W1·W2가 남음). 10/26부터 FE(klaod-tech)가 기록·달력 화면의 API·WS·서버 판별 로직도 고친다(화면 모양은 lellon0403).
@@ -313,13 +313,13 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 
 | 파일 | 역할 |
 |---|---|
-| `main.cjs` | 창 생성, 외부 주소 차단(`sameAddress`), 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`), 패키징된 앱의 `app://posegood` 파일 제공 |
+| `main.cjs` | 창 생성, 외부 주소 차단(`sameAddress`), 단일 실행, 시작 프로그램 등록, 데스크톱 설정 파일(`userData/desktop-settings.json`), 설치용 앱은 웹 주소 화면을 열고(F14), `app://posegood`으로는 연결 중·연결 실패 화면(`public/offline.html`)과 알림 팝업만 제공. 10초 안에 못 열면 연결 실패 화면, 10초마다 다시 시도 |
 | `preload.cjs` | 페이지에 `window.posegoodDesktop`(launch 정보, 시작 프로그램, 자동 카메라, 알림 팝업 설정·표시, 종료, 10/26 작은 카메라 창 `cameraWindow`·`focusApp`·`setCameraWindowCompact`)만 노출 |
 | (10/26) 작은 카메라 창 | `main.cjs`가 `window.open('about:blank', 'posegood-camera-window')` 하나만 테두리 없는 항상-위 창으로 허락하고(`allowCameraWindow`), 앱 창이 포커스를 잃거나 최소화되면 `showInactive`, 앞으로 오면 숨긴다(`syncCameraWindow`). 화면은 `features/desktop/DesktopCameraWindow.tsx`가 portal로 그린다. [계획 0055](../../plans/active/0055-desktop-camera-window.md) |
 | `popup-preload.cjs` | 알림 팝업 창에 `window.posegoodPopup`(문구 받기, 닫기, 앱 열기)만 노출 |
 | `launch-dev.mjs` | 바탕화면 바로가기용: 개발 서버(5174) → 창 → 종료 시 서버 정리 |
 
-- **보안:** IPC는 앱 자신의 주소에서 온 요청만 받는다. `nodeIntegration` 끔, `contextIsolation`·`sandbox` 켬. 화면을 `https://app.<도메인>`에서 열면 이 「앱 자신의 주소」가 바뀐다(F14).
+- **보안:** IPC는 앱 창이 연 화면 주소에서 온 요청만 받는다. 설치용은 `https://app.posegood.site`(F14), 개발 실행은 로컬 개발 주소다. 앱에 든 연결 실패 화면(`app://`)은 IPC를 쓰지 않는다. `nodeIntegration` 끔, `contextIsolation`·`sandbox` 켬.
 - **창:** 기본 1360×860, 최소 1180×760. 제목 표시줄은 숨기고(`titleBarStyle: 'hidden'`) Windows는 `titleBarOverlay`로 창 버튼만 크림색(`#fbf5ee`) 위에 그린다. 메뉴는 `removeMenu()`로 없앤다. 개발 실행에서는 F12 키/Ctrl+Shift+I, Ctrl+R을 유지한다. 페이지는 `data-desktop`과 `--titlebar-h`로 여백을 맞추고 `features/desktop/TitleBar.tsx`가 끌기 영역을 그린다.
 - **아이콘:** `frontend/public/branding/posegood-icon.svg`가 정본이고 PNG·ICO는 같은 SVG에서 내보낸다. 로그인·사이드바의 `BrandMark`, 브라우저 탭, Electron 창이 같은 아이콘을 쓴다. Windows 패키징은 `win.icon`으로 ICO를 넣고 `signExecutable: false`로 서명만 생략한다(`signAndEditExecutable: false`는 아이콘 편집까지 막아 쓰지 않는다). 빠른 실행기는 `copy-desktop.mjs`의 `/win32icon`으로 같은 ICO를 넣는다. 아이콘을 바꾸면 `npm run desktop:pack`으로 다시 만든다.
 
@@ -338,7 +338,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 - 설정 `알림 → 다른 창을 볼 때 팝업`(기본 켜짐)은 데스크톱 설정 파일의 `alertPopup`에 저장한다. 교정 알림을 끄면 팝업도 없다. `개발자 옵션 → 알림 모양 확인 → 앱 밖 알림창`은 앱을 보고 있거나 팝업이 꺼져 있어도 띄운다.
 - 앱 창을 닫으면 숨은 팝업 창도 정리해 앱이 종료된다. 일반 브라우저 탭에는 팝업이 없다.
 - 검증(lellon0403): 패키징 EXE를 숨긴 창·독립 프로필로 실행해 `showAlert`→`popup`, 문구·표시, 설정 끔→`off`를 확인했다. 실제 측정 중 다른 창을 볼 때의 확인은 따로 한다.
-- 팝업 주소는 패키징 때 `app://posegood/alert-popup.html`이라, 화면을 `app.<도메인>`에서 열 때 같이 바꾼다(F14).
+- 팝업은 서버 없이도 떠야 해서 화면을 웹 주소에서 열어도 앱에 든 `app://posegood/alert-popup.html`을 그대로 쓴다(F14).
 
 ## 9. 배포: 도메인 + Vercel + Cloudflare 터널
 
@@ -421,7 +421,7 @@ V3를 develop에 합치는 것은 `api.posegood.site` 터널이 붙은 뒤에 �
 - [x] **2. 주소 설정 (FE):** 10/19 `VITE_API_BASE_URL`(비우면 지금처럼 같은 출처 `/api`, `features/platform/serverConfig.ts`), HTTP 요청은 `credentials: 'include'`(A-2). WS는 그때 `VITE_REALTIME_URL`이었고 10/21에 지웠다(A-3). 개발은 지금처럼 Vite `/api` 중계. `check-frontend` 통과(시험 347개, 타입 검사, 빌드).
 - [ ] **3. 가짜 서버 모드 (FE):** 계약 v2 예시(`contracts/realtime/examples-v2/`)대로 응답하는 가짜 S1·WS. 개발 PC와 Vercel 미리보기의 기본값으로 둬서 문구·버튼을 고칠 때 서버가 필요 없게 한다.
 - [x] **4. 서버 쪽 (DevOps·BE, 10/29 끝남):** 9.3.1의 S-1(CORS, BE 코드 — 10/28 develop에 들어감)과 S-2~S-6(설정). 10/28 DevOps B안, 10/29 함께 연결(9.6).
-- [ ] **5. 데스크톱 (FE, F14):** 패키징된 앱이 `https://app.<도메인>`을 연다. 허용 주소 검사(`sameAddress`)·알림 팝업 주소·`app://` 파일 제공을 정리하고, 열 수 없으면 「서버에 연결할 수 없어요」.
+- [x] **5. 데스크톱 (FE, F14, 11/10 코드 끝·배포 전):** 패키징된 앱이 `https://app.<도메인>`을 연다. 허용 주소 검사(`sameAddress`)·알림 팝업 주소·`app://` 파일 제공을 정리하고, 열 수 없으면 「서버에 연결할 수 없어요」.
 - [x] **6. 연동 확인(10/29 처음 확인 끝남, 10.1):** 정해 둔 때(계약이 바뀔 때, 또는 주기적으로)만 실제 서버로 측정·등록·끊김을 확인한다.
 
 | 환경 | 화면 | 서버 |
