@@ -56,10 +56,13 @@ public class ThresholdPolicyRepository {
 
 	/**
 	 * 같은 값의 정책 행을 찾고, 없으면 추가한다.
+	 *
+	 * 다른 요청이 같은 조합을 동시에 추가해 중복 오류(UK-03)가 나면 그 행을 잠금 읽기({@code FOR SHARE})로 다시 찾는다.
+	 * 트랜잭션 안의 일반 SELECT는 처음 읽은 시점의 스냅샷(MySQL 기본 REPEATABLE READ)을 보므로, 방금 커밋된 그 행이
+	 * 보이지 않는다.
 	 */
-	public long resolve(Values requested) {
-		var values = requested;
-		var found = find(values);
+	public long resolve(Values values) {
+		var found = find(values, false);
 		if (found != null) {
 			return found;
 		}
@@ -72,16 +75,22 @@ public class ThresholdPolicyRepository {
 				values.recoverSeconds(),
 				values.realertSeconds(),
 				KstTime.now());
+			found = find(values, false);
 		} catch (DuplicateKeyException concurrent) {
-			// 다른 요청이 같은 조합을 먼저 추가했다(UK-03).
+			found = find(values, true);
 		}
-		return find(values);
+		if (found == null) {
+			throw new IllegalStateException("threshold_policy row not found after insert");
+		}
+		return found;
 	}
 
-	private Long find(Values values) {
+	/** {@code latest}: 스냅샷 대신 최신 커밋을 읽는다(잠금 읽기). */
+	private Long find(Values values, boolean latest) {
 		List<Long> rows = jdbc.queryForList(
 			"SELECT threshold_policy_id FROM threshold_policy WHERE threshold=? AND"
-				+ " hold_seconds=? AND recover_seconds=? AND realert_seconds=?",
+				+ " hold_seconds=? AND recover_seconds=? AND realert_seconds=?"
+				+ (latest ? " FOR SHARE" : ""),
 			Long.class,
 			values.threshold(),
 			values.holdSeconds(),
