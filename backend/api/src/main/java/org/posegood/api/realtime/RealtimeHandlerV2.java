@@ -518,13 +518,35 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 		}
 	}
 
-	/** 서버 종료: 앱은 다시 연결하지 않는다. 측정 세션은 연결 종료 처리로 끝난다. */
+	/**
+	 * 서버 종료: 앱은 다시 연결하지 않는다. 측정 세션은 연결 종료 처리로 끝난다.
+	 *
+	 * kafka 경로는 연결이 닫히는 콜백을 기다리지 않고 여기서 먼저 {@code session_ended}를 보낸다 — 그 콜백은 Kafka
+	 * 프로듀서가 닫힌 뒤에 올 수 있다(종료는 세션마다 한 번만 나가므로 두 번 불러도 같다).
+	 */
 	@jakarta.annotation.PreDestroy
 	public void shutdown() {
 		for (var channel : channels.values()) {
+			if (!pipeline.local()) {
+				finishBeforeShutdown(channel);
+			}
 			finishClosed(channel, "server_shutdown");
 		}
 		timer.shutdownNow();
+	}
+
+	private void finishBeforeShutdown(Channel channel) {
+		synchronized (channel) {
+			UUID id = channel.session;
+			if (id == null || channel.ended || channel.state.get() != State.MEASURE) {
+				return;
+			}
+			try {
+				pipeline.finish(channel.owner, id, null);
+			} catch (ApiError | DataAccessException failed) {
+				log.warn("realtime v2 shutdown end failed: {}", failed.getClass().getSimpleName());
+			}
+		}
 	}
 
 	private static String refusal(ApiError refused) {

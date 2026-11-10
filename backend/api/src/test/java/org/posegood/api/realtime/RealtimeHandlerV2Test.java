@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -514,6 +515,41 @@ class RealtimeHandlerV2Test {
 		assertTrue(fake.closed.get());
 		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), isNull()); // 끝난 세션은 끊김 종료를 다시 안 보냄
 		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // kafka는 자정 넘김 안 함
+	}
+
+	/**
+	 * (D-57) kafka 경로의 종료 경로: 연결 끊김·로그인 삭제·서버 종료 모두 {@code session_ended}를 한 번 보내고(끊긴 자리 =
+	 * 마지막 구간 끝), 앱에는 각 사유의 closed. 같은 세션에 두 번 불려도 파이프라인이 한 번만 보낸다(KafkaPipelineTest).
+	 */
+	@Test
+	void kafkaPipelineEndsTheSessionOnDisconnectLogoutAndShutdown() throws Exception {
+		handler.shutdown();
+		var pipeline = mock(MeasurementPipeline.class);
+		when(pipeline.local()).thenReturn(false);
+		when(pipeline.open(eq(OWNER), any())).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
+		handler = handler(Duration.ofSeconds(10), false, Clock.systemUTC(), pipeline);
+
+		var dropped = connect(handler);
+		send(dropped, example("ws-hello-measure.json"));
+		handler.afterConnectionClosed(dropped.socket, CloseStatus.GOING_AWAY);
+		verify(pipeline).finish(OWNER, SESSION, null);
+
+		var other = UUID.fromString("7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d");
+		var loggedOut = connect(handler);
+		var hello = example("ws-hello-measure.json");
+		hello.put("session_id", other.toString());
+		send(loggedOut, hello);
+		handler.loginsRemoved(new AccountService.LoginsRemoved(OWNER));
+		assertEquals("unauthorized", loggedOut.only("closed").get("reason").asString());
+		verify(pipeline).finish(OWNER, other, null);
+
+		var third = UUID.fromString("8c2d3e4f-5061-4b7c-9d8e-0f1a2b3c4d5e");
+		var running = connect(handler);
+		hello.put("session_id", third.toString());
+		send(running, hello);
+		handler.shutdown();
+		assertEquals("server_shutdown", running.only("closed").get("reason").asString());
+		verify(pipeline, atLeastOnce()).finish(OWNER, third, null);
 	}
 
 	private static SessionUpdates.Progressed ended() {
