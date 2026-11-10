@@ -213,7 +213,7 @@ database/
 | `baseline_posture.deactivated_at`·`feature_version`·`normalization_scale`·`target_center_x`·`target_center_y`·`target_area_ratio`, UK-10·UK-11 | 정규화 상수와 대상 위치·크기는 좌표에서 계산한다 |
 | `monitor_session.frame_width`·`frame_height` | 지정된 카메라 한 대를 같은 해상도(`CAPTURE_RESOLUTION`)로 쓴다 |
 | T-50 `client_record`, FK-26 | 기록 화면 응답을 정규화 테이블(`monitor_session`·`collapse_event`·`correction_alert`·`threshold_policy`)로 만든다 |
-| `user_account.auth_epoch` | 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행을 지워서 한다 (9장) |
+| `user_account.auth_epoch` | 로그인 끊기는 그 사용자의 `SPRING_SESSION` 행을 지워서 한다. V2.6부터는 `refresh_token` 행 철회로 한다 (9장) |
 
 **V2.0에서 지운 것 (CR-04)**
 
@@ -331,10 +331,10 @@ database/
 | 상황 | 해야 할 것 | 근거 |
 |---|---|---|
 | 모든 시각 | KST로 저장한다. 연결할 때 세션 시간대를 `Asia/Seoul`로 둔다 (`connectionTimeZone=Asia/Seoul`) | CR-04 |
-| 가입 | 기본 정책을 설정에 둔 값 4개(threshold·hold·recover·realert)로 찾는다. 없으면 같은 값으로 새로 넣고(중복 오류 1062가 나면 다시 찾음) 사용자가 그 행을 가리키게 한다. 값은 6장 시드와 같아야 한다 | UK-03 |
+| 가입 | 기본 정책을 설정에 둔 값 4개(threshold·hold·recover·realert)로 찾는다. 없으면 같은 값으로 새로 넣고(중복 오류 1062가 나면 잠금 읽기로 다시 찾음 — 「설정 변경」 행 참고) 사용자가 그 행을 가리키게 한다. 값은 6장 시드와 같아야 한다 | UK-03 |
 | 비밀번호 | 백엔드에서 단방향 해시로 만들어 `password_hash`에 넣는다. 평문은 저장하지도 응답하지도 않는다 | SER-004 |
 | 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴를 접수한 계정(CLOSED)은 유예 중에도 이메일·비밀번호 해시가 남아 있지만, 비밀번호가 맞아도 막는다(403 `ACCOUNT_CLOSED` — 되돌릴 수 없고 30일 뒤 삭제된다고 안내) | D-34, 탈퇴 철회 없음 (2026-10-15) |
-| 로그인 끊기의 전제 | 로그인 수단은 Spring Session뿐이다(remember-me 쿠키·JWT 같은 세션 밖 인증을 쓰지 않는다). `PRINCIPAL_NAME`은 항상 채운다. 이메일 변경 기능을 넣으면 변경 때 예전 세션도 정리한다 | V2.1 (`auth_epoch` 삭제) |
+| 로그인 끊기의 전제 | 로그인은 access 토큰(JWT, 30분, 저장하지 않음)과 refresh 토큰(14일, `refresh_token`)으로 한다. 로그인 끊기는 그 사용자의 `refresh_token` 행을 철회(`revoked_at`)해서 한다. access 토큰은 철회하지 않아 만료(최대 30분)까지 남는다 — 탈퇴한 계정은 요청마다 계정 상태를 확인하므로 바로 401이다. `SPRING_SESSION`은 쓰지 않는다. 이메일 변경 기능을 넣으면 변경 때 그 사용자의 refresh 토큰도 철회한다 | ADR 0031, V2.6 (V2.1 `auth_epoch` 삭제) |
 | 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. `registered_at`은 **서버가 등록을 받은 시각**이다(앱은 시각을 보내지 않는다, ADR 0028). **REST `POST /v2/baselines`(B1)**: 앱이 낸 평균과 `registration_id`(촬영마다 앱이 한 번 만드는 UUID)를 받는다. 표본 20 이상·촬영 3초 이상을 넣기 전에 검사한다. 재전송 때도 같은 `registration_id`가 온다 — 같은 (사용자, 등록 식별자) 행이 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다(UK-16). WebSocket 등록(`purpose: calibration`)은 2026-10-27 삭제했다(등록은 B1뿐) | BR-63, UK-16, ADR 0028 |
 | 기준 자세 좌표 | MediaPipe 정규화 좌표(0~1), 촬영 동안의 평균. 0~1 밖의 값(화면 밖 추정)은 DB가 거부하므로 보정 실패로 처리한다. 좌표 수집 조건(MediaPipe 모델·`CAPTURE_RESOLUTION`·관절 목록)을 바꾸면 모든 사용자가 다시 촬영한다 | ck_baseline_posture_* |
 | 안전 범위 검사 | 하지 않는다 (2026-10-10 결정). `safety_range` 테이블도 없다 | V2.1, BR-04 |
@@ -344,7 +344,7 @@ database/
 | 제외 구간 | 한 시점에 사유 하나만 붙인다. 겹치면 우선순위 **자리 비움(`ABSENCE`) → 일시정지(`PAUSE`) → 입력 누락(`MISSING`) → 판정 불가(`UNMEASURABLE`)**로 고른다. 사유가 바뀌면 새 행으로 나눈다. 구간이 겹치지 않으므로 유효 측정 시간은 세션 길이에서 구간 합을 빼서 구한다 | BR-52, SFR-029 |
 | 붕괴 이벤트 종료 | 세션 종료로 끝나면 `ended_at`에 세션 종료 시각을, 제외로 끝나면 제외 구간 시작 시각을 **그대로** 넣는다. 회복으로 끝나면 `recovered_at`도 채운다. 종료 사유는 이 시각으로 판정한다 | SFR-025, ck_collapse_event_recovered |
 | 교정 알림 | 알림이 켜져 있든 꺼져 있든 이벤트 확정 때 1회, 이후 `realert_seconds`마다 행을 넣는다. `attempted_at`은 판정기가 메시지에 담은 시각(저장 시각 금지) — 재전송은 PK 중복(1062)으로 막힌다. 표시 여부는 세션 `alert_enabled`로 판단한다. 회복 시간은 첫 알림(가장 이른 시각)부터 잰다 | BR-13, BR-21 |
-| 설정 변경 | 같은 값 조합의 정책을 찾고, 없으면 새로 넣는다. 넣다가 중복 오류(1062)가 나면 다시 찾아 그 행을 쓴다. 그다음 사용자가 그 정책을 가리키게 한다. 정책 행은 UPDATE하지 않는다 | BR-64, BR-65, UK-03 |
+| 설정 변경 | 같은 값 조합의 정책을 찾고, 없으면 새로 넣는다. 넣다가 중복 오류(1062)가 나면 잠금 읽기(`SELECT … FOR SHARE`)로 다시 찾아 그 행을 쓴다 — 트랜잭션 안의 일반 SELECT는 처음 읽은 시점의 스냅샷(REPEATABLE READ)이라 방금 커밋된 행이 보이지 않는다. 그다음 사용자가 그 정책을 가리키게 한다. 정책 행은 UPDATE하지 않는다 | BR-64, BR-65, UK-03 |
 | 일별 통계 | **Spark J2**가 매일 00:10에 어제부터 7일 전까지(KST) 날짜마다 끝난 세션을 사용자별로 다시 집계해, 저장된 행과 달라진 날만 다시 쓴다(D-81 — 늦게 닫힌 세션·지워진 기록 반영, 7일보다 늦으면 날짜를 지정해 직접 실행). 끝나지 않은 세션(`ended_at` NULL)은 넣지 않는다. 입출구 서버는 읽기만 한다 — 둘 다 쓰면 두 번 더해진다. 세션 시작 시각의 KST 날짜로 집계한다. `alerted_event_count`는 `alert_enabled`가 참인 세션에서 알림 행이 있는 이벤트 수 | BR-61, BR-22, CR-04 |
 | 붕괴까지 걸린 시간 (최소·최대) | J2가 함께 계산한다. 실행 시간(`started_at` → `ended_at`)이 5분(`STAT_MIN_SESSION_SEC`) 이상인 세션만 쓴다 — 더 짧은 세션은 시험·잘못 시작한 기록으로 보고 뺀다. 세션마다 구간을 나눈다: 세션 시작 또는 직전 붕괴 이벤트의 `ended_at` → 다음 붕괴의 `started_at`, 마지막 구간은 → 세션 `ended_at`(붕괴 없이 끝난 구간도 표본에 넣는다). 각 구간 길이에서 겹친 제외 구간 시간을 뺀다. 그날 모든 표본의 최솟값·최댓값을 넣고, 표본이 없으면 둘 다 NULL. 주·월 값은 일별 최솟값의 최솟값, 최댓값의 최댓값 | BR-20, BR-53, ck_daily_stat_until_collapse |
 | 탈퇴 접수 | 삭제 요청(`REQUESTED`, `account_closed_at`)과 계정 CLOSED를 한 트랜잭션으로 처리하고, 그 사용자의 `refresh_token` 행을 모두 철회한다(`revoked_at`, V2.6). 식별 정보와 기록은 지우지 않는다. **되돌릴 수 없다**(철회 없음) | D-34, DB-04 6-1 |

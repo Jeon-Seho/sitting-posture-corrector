@@ -30,12 +30,18 @@
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
 | 설정 조회·저장 `/v2/workspace` | DB/BE | 구현됨 | `workspace/WorkspaceController.java` |
-| 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
+| 기록 목록·삭제 `/v2/records` (세션 테이블에서 다시 만듦). 기록 저장(R2)은 2026-10-28 삭제 — 서버가 측정 종료 때 저장(계획 0062) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled`. 새 계정 기본값 켜짐(DB V2.6, 2026-10-27 — 미결이던 DB false / FE 켜짐을 켜짐으로 정함) | DB/BE | 구현됨 (develop PR #70) | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 1절 5번, [DB 안내](../database/README.md) 세션 줄, `backend/README.md`, migration 016 |
 | 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2(매일 00:10, 2026-11-01 서버 cron 등록, PR #93)가 채운다. 11/08부터 어제~7일 전을 매일 다시 계산해 바뀐 날만 쓴다(D-81, PR #100) — 최근 7일 값과 `computed_at`은 바뀔 수 있다. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
 
 표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
+
+기록 재계산의 한계(2026-11-10 확인, `workspace/RecordHistory.java`):
+
+- 기록의 `server.modelVersion`은 측정 당시가 아니라 지금 설정된 모델 버전이다(기록에 모델 버전을 저장하지 않음). 모델을 바꾸면 옛 기록에도 새 버전이 보인다.
+- `GET /v2/workspace`·`GET /v2/records`·`PUT /v2/workspace` 응답은 그 사용자의 끝난 세션 전체와 사건을 매번 다시 계산한다. 기록이 많이 쌓이면 느려질 수 있다.
+- `ended_at`이 비어 있는 세션은 목록에 나오지 않는다(4장 「S1은 됐는데 WebSocket이 열리지 않은 세션」과 같은 원인).
 
 ### 2.3 기준 자세
 
@@ -124,7 +130,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
-| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
+| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한). 측정 종료 저장(`end`·연결 끊김)이 DB 오류로 실패한 세션도 같다 — 판정은 끝났지만 다시 저장하는 길은 S3뿐이고 앱은 S3를 부르지 않는다(`RealtimeHandlerV2.end`, 2026-11-10 확인) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 쉬기 10분 자동 종료를 서버가 할지 (BE-13, 안: `closed(rest_timeout)`) | DB/BE·FE | 2.6, FE 제안서 1장 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
@@ -161,6 +167,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-03 | 실시간 `observation` 4.0에 `recovery_ms` 추가(FE 요청, 계획 0084 29번): 열린 사건의 바른 연속 시간, 사건이 없거나 판정 불가면 0. 판정 방식은 그대로 | `61365a4` (PR #98) |
 | 2026-11-09 | 문서 최신화: 기준을 develop `6cae21f`로(11/04 `fe5058b` 기준 작업에 PR #100 반영). J2 최근 7일 다시 계산(D-81)을 T1 줄·API 명세·DB 안내(규칙·구현 상태 — 계획 0085가 DB/BE에 요청)에 반영. nginx `/v1/realtime` 정리는 DevOps 요청으로 DB/BE 담당(3장). FE observation 4.0 대응(PR #99)이 들어와 「develop 앱이 4.0을 버린다」 위험 삭제(1·2.4장), 3장 FE 문서 불일치 해결. J2 00:10(PR #93)으로 BE-6 ⑤ 끝·4장 문구 고침. BE-3 끝(FE 확인), FE 새 요청 BE-7(명세 시간 필드 — `api-spec.md`에 넣어 끝)·BE-10·BE-11·BE-13 추가. 2.7에 단위 88개·계약 시험 19개 다시 실행 | 이 커밋 |
 | 2026-11-09 | nginx `/api/v1/realtime` 블록과 infra 안내(`infra/README.md`·`bigdata.yaml` 주석)의 v1 문구 삭제(DevOps 요청 D-72). 처리 서비스 시험용 입구 `/api/v1/realtime/features`는 다른 경로라 그대로 | 이 커밋 |
+| 2026-11-10 | 2.2 기록 줄에서 지운 기록 저장(R2) 빼기, 기록 재계산 한계 3건 기록. 4장 「닫히지 않는 세션」에 종료 저장 실패 경우 추가(`ca038e2`) | 커밋 전 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

@@ -56,7 +56,7 @@ public class AccountRepository {
 	 * 가입: 계정 행 추가. 이미 있는 이메일이면 409.
 	 *
 	 * 알림은 sound_alert_enabled의 기본값 true(켜짐)로 시작한다(V2.6, FE 화면 기본값).
-	 * 동의 테이블(T-41)이 보류라 가입 동의는 저장하지 않는다.
+	 * 가입 동의는 같은 트랜잭션 안에서 {@link ConsentRepository#insert}가 user_consent(T-41)에 저장한다.
 	 */
 	public long insert(String email, String hash, AccountContracts.Profile profile, long policy) {
 		var key = new GeneratedKeyHolder();

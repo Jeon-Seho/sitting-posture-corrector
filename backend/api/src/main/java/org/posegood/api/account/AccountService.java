@@ -15,7 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 계정 규칙 처리: 가입, 비밀번호 변경, 탈퇴 접수.
  *
  * 탈퇴는 접수만 한다. 30일 유예 뒤 최종 삭제는 Spark J3(cron 매일 04:00)가 맡는다(아키텍처 v5.2).
- * 근거: contracts/accounts.v2.md, database/README.md 9장(스키마 V2.2).
+ * 근거: contracts/accounts.v2.md, database/README.md 9장.
  */
 @Service
 public class AccountService {
