@@ -124,7 +124,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
 | 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
-| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
+| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한). 측정 종료 저장(`end`·연결 끊김)이 DB 오류로 실패한 세션도 같다 — 판정은 끝났지만 다시 저장하는 길은 S3뿐이고 앱은 S3를 부르지 않는다(`RealtimeHandlerV2.end`, 2026-11-10 확인) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 쉬기 10분 자동 종료를 서버가 할지 (BE-13, 안: `closed(rest_timeout)`) | DB/BE·FE | 2.6, FE 제안서 1장 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |

@@ -25,7 +25,7 @@ public final class SessionEngine {
 	 * 측정불가가 이어지면 끝낸다({@link #unmeasurableMs}, 2026-10-26 결정).
 	 */
 	public static final long DEFAULT_MAX_MS = 86_400_000;
-	/** 재전송 확인에 기억하는 최근 구간 수(0.5초 구간이면 1분). 메모리가 측정 시간에 따라 늘지 않게 한다. */
+	/** 재전송 확인에 기억하는 최근 구간 수(프레임마다 구간이면 약 12초). 메모리가 측정 시간에 따라 늘지 않게 한다. */
 	public static final int RETRY_WINDOW = 120;
 
 	private final UUID id;
