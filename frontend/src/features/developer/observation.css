@@ -12,7 +12,8 @@
   --oc-overlay-blur: blur(8px);
   --oc-control-radius: 14px;
   --oc-control-padding: 9px;
-  --oc-stage-height: clamp(400px, calc(100svh - 150px), 1000px);
+  --oc-viewport-height: calc(100svh - var(--titlebar-h, 0px));
+  --oc-stage-height: clamp(400px, calc(var(--oc-viewport-height) - 150px), 1000px);
   --oc-background: #000;
   --oc-text: #f5f5f7;
   --oc-secondary: #c8c8ce;
@@ -43,6 +44,8 @@
   --oc-border: #414146;
   color-scheme: dark;
   min-height: 100svh;
+  box-sizing: border-box;
+  padding-top: var(--titlebar-h, 0px);
   background: var(--oc-background);
   color: var(--oc-text);
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
@@ -149,7 +152,7 @@
 .dev-lab .oc-help > summary { list-style: none; display: grid; place-items: center; cursor: pointer; width: 36px; height: 36px; border-radius: 12px; color: var(--oc-secondary); }
 .dev-lab .oc-help > summary::-webkit-details-marker { display: none; }
 .dev-lab .oc-help[open] > summary, .dev-lab .oc-help > summary:hover { background: var(--oc-button); color: var(--oc-text); }
-.dev-lab .oc-help-content { position: absolute; right: 0; bottom: calc(100% + 12px); width: min(420px, calc(100vw - 48px)); max-height: min(600px, calc(100svh - 100px)); overflow: auto; padding: 24px; background: var(--oc-dialog-background); color: var(--oc-secondary); border-radius: 20px; box-shadow: 0 16px 56px var(--oc-shadow); }
+.dev-lab .oc-help-content { position: absolute; right: 0; bottom: calc(100% + 12px); width: min(420px, calc(100vw - 48px)); max-height: min(600px, calc(var(--oc-viewport-height) - 100px)); overflow: auto; padding: 24px; background: var(--oc-dialog-background); color: var(--oc-secondary); border-radius: 20px; box-shadow: 0 16px 56px var(--oc-shadow); }
 .dev-lab .oc-help-content h2 { font-size: 17px; font-weight: 500; color: var(--oc-text); margin: 0 0 14px; }
 .dev-lab .oc-help-content p { margin: 0 0 12px; font-size: 13px; line-height: 1.8; }
 .dev-lab .oc-help-content a { color: var(--oc-csv-text); font-size: 12px; }
@@ -214,7 +217,7 @@
 .dev-lab .oc-demo-warning strong { font-size: 19px; }
 .dev-lab .oc-demo-warning p { margin: 8px 0; font-size: 13px; line-height: 1.7; }
 .dev-lab .oc-demo-warning a { color: var(--oc-warning); font-size: 13px; }
-.dev-lab.oc-page .confirm-dialog { background: var(--oc-dialog-background); color: var(--oc-text); border: 0; border-radius: 24px; width: calc(100% - 32px); max-width: 600px; padding: 28px; }
+.dev-lab.oc-page .confirm-dialog { inset-block: var(--titlebar-h, 0px) 0; max-height: calc(var(--oc-viewport-height) - 32px); background: var(--oc-dialog-background); color: var(--oc-text); border: 0; border-radius: 24px; width: calc(100% - 32px); max-width: 600px; padding: 28px; }
 .dev-lab.oc-page .confirm-dialog p { color: var(--oc-secondary); font-size: 14px; line-height: 1.8; margin-top: 12px; }
 .dev-lab.oc-page .confirm-dialog::backdrop { background: var(--oc-backdrop); }
 .dev-lab.oc-page .confirm-dialog .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
@@ -246,7 +249,7 @@
   .dev-lab .oc-toolbar { flex-wrap: wrap; gap: 10px; }
   .dev-lab .oc-toolbar-controls { justify-content: flex-start; }
   .dev-lab .oc-toolbar-title { flex-basis: 100%; }
-  .dev-lab .oc-stage { height: clamp(400px, calc(100svh - 210px), 800px); aspect-ratio: auto; border-radius: 22px; }
+  .dev-lab .oc-stage { height: clamp(400px, calc(var(--oc-viewport-height) - 210px), 800px); aspect-ratio: auto; border-radius: 22px; }
   .dev-lab .oc-stage > .oc-camera { inset: 0; height: 100%; }
   .dev-lab .oc-camera-badge { top: 14px; right: 14px; font-size: 11px; padding: 8px 10px; }
   .dev-lab .oc-guide-controls, .dev-lab .oc-guide.is-paused .oc-guide-controls { left: 12px; right: 12px; bottom: 17px; transform: none; max-width: none; flex-wrap: wrap; padding: 6px; border-radius: 18px; }
@@ -343,6 +346,7 @@
 }
 
 .dev-lab .oc-heading-actions { display: flex; align-items: center; gap: 8px; }
+.dev-lab .oc-home-link { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 12px; border-radius:12px; background:var(--oc-button); color:var(--oc-text); text-decoration:none; font-size:12px; white-space:nowrap; }
 .dev-lab .oc-heading-actions .oc-help-content { top: calc(100% + 12px); bottom: auto; right: -40px; }
 .dev-lab.oc-page .oc-guide-controls .oc-stop-guide { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #d22f40; color: #fff; font-weight: 600; }
 .dev-lab.oc-page .oc-guide-controls .oc-stop-guide:hover:not(:disabled) { background: #b92535; }
@@ -440,7 +444,7 @@
 .dev-lab .oc-replay-preview-host .oc-replay-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; margin: 0; color: var(--oc-muted); font-size: 12px; line-height: 1.7; }
 
 /* Main video on the left, independently scrollable analysis on the right. */
-.dev-lab .oc-coview { --oc-preview-width: min(100%, calc((100svh - 120px) * 4 / 3)); grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 20px 28px; }
+.dev-lab .oc-coview { --oc-preview-width: min(100%, calc((var(--oc-viewport-height) - 120px) * 4 / 3)); grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 20px 28px; }
 .dev-lab .oc-coview > .oc-tools, .dev-lab .oc-coview .oc-tools-body { display: contents; }
 .dev-lab .oc-coview .oc-tools-tabs { grid-column: 1 / -1; grid-row: 1; justify-self: center; margin-bottom: 4px; }
 .dev-lab .oc-coview .oc-tools .oc-scroll-panel { grid-column: 2; grid-row: 2; min-width: 0; }
@@ -524,7 +528,7 @@
 }
 
 @media (min-width: 1100px) and (min-height: 561px) {
-  .dev-lab.oc-page main:has(> .oc-coview) { height: 100svh; display: flex; flex-direction: column; box-sizing: border-box; }
+  .dev-lab.oc-page main:has(> .oc-coview) { height: var(--oc-viewport-height); display: flex; flex-direction: column; box-sizing: border-box; }
   .dev-lab .oc-coview { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
   .dev-lab .oc-coview .oc-preview-pane { position: static; }
   .dev-lab .oc-coview .oc-tools .oc-scroll-panel { height: 100%; min-height: 0; }
@@ -621,7 +625,7 @@
 .dev-lab .oc-tools-tabs > button:hover > :is(svg, span) { transform: scale(1.045); }
 
 .dev-lab .oc-help-content[data-overflow=true], .dev-lab .oc-player-settings-scroll[data-overflow=true] { padding-block: 32px; }
-.dev-lab .oc-help-content[data-overflow=true] > .oc-panel-scroll { max-height: calc(min(600px, calc(100svh - 100px)) - 64px); }
+.dev-lab .oc-help-content[data-overflow=true] > .oc-panel-scroll { max-height: calc(min(600px, calc(var(--oc-viewport-height) - 100px)) - 64px); }
 .dev-lab .oc-player-settings-scroll[data-overflow=true] > .oc-panel-scroll { max-height: calc(var(--oc-settings-height) - 64px); }
 .dev-lab :is(.oc-help-content, .oc-player-settings-scroll) > .oc-scroll-hint { min-height: 24px; }
 .dev-lab :is(.oc-help-content, .oc-player-settings-scroll) > .oc-scroll-hint-up { top: 4px; }
@@ -798,7 +802,7 @@
 .dev-lab .oc-mode-options input[type=text] { display: block; width: 100%; margin-top: 10px; }
 
 /* Keep the dialog actions fixed and use the same floating scroll cues as the observation tools. */
-.dev-lab.oc-page .oc-mode-dialog .confirm-dialog[open] { display: flex; flex-direction: column; max-height: calc(100svh - 32px); overflow: hidden; box-sizing: border-box; }
+.dev-lab.oc-page .oc-mode-dialog .confirm-dialog[open] { display: flex; flex-direction: column; max-height: calc(var(--oc-viewport-height) - 32px); overflow: hidden; box-sizing: border-box; }
 .dev-lab.oc-page .oc-mode-dialog .profile-text { min-height: 0; flex: 1 1 auto; overflow: hidden; }
 .dev-lab .oc-mode-scroll { height: 100%; max-height: 100%; }
 .dev-lab .oc-mode-scroll .oc-panel-scroll { padding: 4px 4px 24px; }

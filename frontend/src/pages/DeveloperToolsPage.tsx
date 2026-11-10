@@ -15,6 +15,7 @@ import { CAMERA_ERRORS } from '../features/camera/errors'
 import type { CameraController } from '../hooks/useCamera'
 import { ErrorPage, ERROR_PAGES } from './ErrorPage'
 import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
+import { desktopBridge } from '../features/desktop/bridge'
 
 const SECTIONS = [ ['errors', '오류 페이지'], ['camera', '카메라·인식'], ['alerts', '알림·연결'], ['appearance', '화면·모션'], ['records', '기록·수집'], ['diagnostics', '상태·버전'] ] as const
 type SectionId = typeof SECTIONS[number][0]
@@ -29,6 +30,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
   onCamera: () => void; onSettings: () => void; onRecords: () => void; onCalendar: () => void
 }) {
   const [active, setActive] = useState<SectionId>('errors')
+  const desktop = !!desktopBridge()
   const tabsId = useId()
   const tabs = useRef<Partial<Record<SectionId, HTMLButtonElement | null>>>({})
   const [simulation, setSimulation] = useState<PerformanceNotice | null>(null)
@@ -104,7 +106,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
       <Tool title="준비 단계·차트·설명 표시"><button className="chip" onClick={() => setInteraction(true)}>화면·모션 미리보기 열기</button></Tool>
     </>)}
     {section('records', '예시 데이터를 실제 오늘·기록 화면에서 보고, 자세 데이터 수집 화면으로 이동해요.', <>
-      <Tool title="동작 관측·수집 (/dev)" description="기준 자세와 이탈 동작을 관측하고 수집한 좌표를 JSON으로 내려받아요."><a className="btn btn-primary" href="/dev" target="_blank" rel="noopener noreferrer">/dev 수집 화면 열기</a><p className="fine">새 탭에서 열어요. 카메라와 수집은 수집 화면에서 직접 시작해 주세요.</p></Tool>
+      <Tool title="동작 관측·수집 (/dev)" description="기준 자세와 이탈 동작을 관측하고 수집한 좌표를 JSON으로 내려받아요."><a className="btn btn-primary" href="/dev" target={desktop ? '_self' : '_blank'} rel="noopener noreferrer">/dev 수집 화면 열기</a><p className="fine">{desktop ? '앱의 현재 창에서 열어요.' : '새 탭에서 열어요.'} 카메라와 수집은 수집 화면에서 직접 시작해 주세요.</p></Tool>
       <Tool title="자세 데이터 수집" description="실제 수집 화면으로 이동해 카메라 연결과 CSV 수집을 시작할 수 있어요."><button className="btn btn-sm" onClick={onCollect}>자세 데이터 수집</button></Tool>
       <Tool title="발표용 테스트 데이터" description="최신 KST 날짜 · 현재 기록 형식 · 오늘의 짧은 측정 포함">
         <div className="dev-tool-actions"><span>{hasHistory ? '예시 데이터 켜짐' : '예시 데이터 꺼짐'}</span><Switch checked={hasHistory} onChange={onHasHistory} label="발표용 예시 기록 표시" /></div>
