@@ -1,10 +1,9 @@
 # FE 제안서: 서버 판정 이전과 연동
 
-> 작성자: klaod-tech(FE) · 작성: 2026-10-11 · 최신화: 2026-11-10(머리말 줄임) · 2026-11-09(develop `2c21685` 대조) · 그 전 이력은 `git log -- docs/design/fe-server-proposal.md`
+> 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** FE의 전제·결정 요약, 남은 일과 BE 요청(1장), 서버 공개 연결과 끝난 일(10장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](api-spec.md), 결정의 근거는 ADR([0021](../decisions/0021-app-sends-information-server-judges.md)·[0024](../decisions/0024-session-ends-on-lost-connection.md)·[0027](../decisions/0027-today-records-from-collected-server-results.md)·[0029](../decisions/0029-midnight-cut-and-server-time.md))이다.
 > **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). F1~F15는 FE 할 일(7장), BE-1~BE-13은 BE 요청(1.2). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
-> **읽을 때:** 2~9장은 10/27까지의 기록이라 지금과 다른 곳이 있다. 지금 상태는 1장과 10장이 맞다.
 
 ## 1. 남은 질문과 요청 (11/3 최신화)
 
