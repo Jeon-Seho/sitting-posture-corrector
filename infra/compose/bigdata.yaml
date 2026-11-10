@@ -400,6 +400,8 @@ services:
       target: api
     image: posegood-api:local
     container_name: io-api
+    # (D-57) kafka 경로 결과 구독 그룹 io-ws-${HOSTNAME} — 컨테이너를 다시 만들어도 같은 이름(io-ws-io-api)이 되게
+    hostname: io-api
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
