@@ -30,7 +30,7 @@
 - [ ] 자정 넘김을 켠 뒤 자정 점검([midnight.mjs](../../../tools/browser/midnight.mjs)) 시나리오 다시 정하기: 지금은 「자정에도 같은 세션 유지」 전제라 세션이 둘로 나뉘는 흐름으로 바꾼다(팀장 10/30 인계서 4번, [frontend README](../../../frontend/README.md) 자정 측정 절) — FE
 - [ ] 앱 날짜 나누기([dailyMeasurement.ts](../../../frontend/src/features/storage/dailyMeasurement.ts), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)) 정리: 서버가 자정에 세션을 끊으면 측정 하나가 하루 안에 있어 필요 없어진다. 자정 넘김을 켠 뒤 따로 계획(인계서 5번) — FE·화면
 - [ ] 자정 넘김 실제 MySQL 시험(`INSERT … SELECT`) — BE
-- [ ] 좌표를 남길지 정하기: 남기는 곳이 없는 것은 코드로 확인됐다 — Spark J1(PR #93)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../../bigdata/README.md) J1, `features.v1` 본문은 특징 변화량). ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 든다. 남길지, 아니면 ADR 2절과 동의 문구(BE-1)를 고칠지 팀에서 정한다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 3절) — 팀·ML·DevOps
+- [ ] 좌표를 남길지 정하기: 남기는 곳이 없는 것은 코드로 확인됐다 — Spark J1(PR #93)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../../bigdata/README.md) J1, `features.v1` 본문은 특징 변화량). ADR 0021 2절은 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」를 좌표를 보내는 이유와 가입 동의의 근거로 든다. 남길지, 아니면 ADR 2절과 동의 문구를 고칠지 팀에서 정한다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 3절) — 팀·ML·DevOps
 - [ ] 서버 탈퇴(A7) 때 이 기기의 서버 확인 전 결과도 지우기 — 지금은 로그아웃만 한다([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)) — FE
 - [ ] **S1은 됐는데 WS가 안 열렸거나 `hello` 전에 끊긴 세션을 누가 닫을지** — 서버는 메모리에서만 6시간 뒤 뺀다([LiveSessions.java](../../../backend/api/src/main/java/org/posegood/api/session/LiveSessions.java) `evict`, `posegood.idle-session-retention=6h`). DB 행은 `ended_at` NULL로 남아 J1·J2·기록 목록에 영향을 준다(J2는 끝난 세션만 센다). 앱이 이때만 S3를 부를지, 서버가 정리하면서 행도 닫을지 정한다. BE 상태 문서 4장 미결과 같은 질문 — BE·FE
 - [ ] 아키텍처 문서 v5.3(D-73) — DevOps
@@ -41,19 +41,17 @@
 |---|---|---|---|
 | T1 `GET /v2/stats/daily` | 부르지 않는다. 기록·달력·기간 통계를 R1 기록으로 직접 계산한다(T1과 같은 형식, `recordsSource.ts`) | 데이터는 Spark J2가 매일 00:10에 `daily_stat`에 채운다. 그런데 API에 이 표를 읽어 돌려주는 코드(컨트롤러)가 없다. 형식만 확정 | BE-2. 지금은 앱 계산으로 충분하고, 기록이 많아지면(휴대폰, [휴대폰 계획](fe-mobile-records-plan.md)) 필요 |
 | 쉬기 자동 종료 | 타이머 없음(앱은 시간을 세지 않는다) | 없음. 판정 불가·자리 비움이 30분 이어지면 끝내는 `unmeasurable_timeout`만 있다 | BE-13. FE 의견: 쉬기도 같은 방식으로 30분 |
-| 동의 문구 `POSE_COORDINATES` | 좌표 프레임 전송 | 「기준 대비 특징 변화량」 문구([consent-documents.v2.md](../../../contracts/consent-documents.v2.md)) | BE-1 |
 
 ### 1.2 BE에 요청한 것 (남은 것)
 
 | # | 내용 | 시점 |
 |---|---|---|
-| BE-1 | 동의 문서([consent-documents.v2.md](../../../contracts/consent-documents.v2.md)) `POSE_COORDINATES`의 「측정 중에는 기준 대비 특징 변화량과 품질을 서버 판정에 사용」을 좌표 프레임 전송에 맞춘 문구로 | 동의 문서 고칠 때 |
 | BE-2 | T1 `GET /v2/stats/daily`(형식 확정). J2가 채운 `daily_stat`을 읽어 돌려주는 API | 휴대폰 기록을 만들 때([휴대폰 계획](fe-mobile-records-plan.md)) |
 | BE-10 | **측정 중 WS 줄이기([계획 0059](../../plans/active/0059-slim-realtime-results-over-api.md)).** `observation`에 `alerting`(지금 붕괴 확정 상태인지)·`keep_rate` 추가, 뒤에 `progress`·`decision`·`ack`를 줄이고 결과 요약·사건은 끝난 뒤 S4로 | 실시간 판정 다시 만들 때 |
 | BE-11 | **S4가 메모리에 세션이 없으면(종료 30분 뒤·서버 재시작) DB 값으로 답하기.** 함께: 재배포를 자정과 겹치지 않게 | BE 여유 있을 때 |
 | BE-13 | **쉬기 자동 종료.** 10/20 계획은 「일시정지가 10분 이어지면 측정을 끝내고 저장」인데 서버·앱 모두 구현이 없다. **FE 의견:** 판정 불가·자리 비움 30분(`unmeasurable_timeout`)과 같은 방식으로, 서버가 쉬기(`rest`) 시간을 세어 30분이면 끝내고 새 사유(안: `closed(rest_timeout)`)를 보낸다. 앱은 타이머를 두지 않는다([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)) | 정할 것 |
 
-끝난·접은 요청(11/10 develop 확인): BE-2의 R1b(기록 하나 조회 — 앱이 R1 목록으로 찾아 쓰지 않음), BE-11의 S1 `policy` 빼기(앱이 W1의 계정 값을 보내 서버 값과 같아짐, 11/10), BE-3(W1·W2 — 프로필 화면과 설정 화면이 씀, [serverWorkspace.ts](../../../frontend/src/features/storage/serverWorkspace.ts)), BE-4(판정 규칙 이름·단위 맞추기 — W1·W2는 초, S1은 ms로 이름이 다르지만 같은 값이고 앱이 변환하므로 11/10 접음), BE-7(시간 필드 `t_ms`·`timestamp_ms`·`onset_ms` 설명이 [API 명세](../api-spec.md) 9장 SessionView·11.2 표에 들어감), BE-5(① 로그인은 토큰 방식으로 바뀜, ② `valid_ms`는 구간 = 프레임 1장이라 명세와 같아짐, ③은 BE-2, ④⑤ 정리), BE-8(서버가 프레임을 묶는 방식 — #91 되돌림으로 닫음), BE-6(B안 구현·앱 처리는 10.5, ⑤ J2를 00:10에 — PR #93 [bigdata/README.md](../../../bigdata/README.md) cron. 운영에서 켜는 ①만 1.0 DevOps에 남음), BE-9(판정 불가 좌표 없이 — 알림 끝), BE-12(토큰 로그인·CORS PR #68·#70, ③ 데스크톱은 1.0 F14). 10/26 김유진 정리 문서에 대한 답(옛 1.1)과 10/25 질문(`data-platform-boundary.md` 유지)도 끝났다. 10/22 질문(S1 뒤 WS가 안 열린 세션)은 서버 코드로 보니 DB 행이 닫히지 않아 1.0으로 되살렸다.
+끝난·접은 요청(11/10 develop 확인): BE-1(동의 문구 — 앱이 보낸 관절 좌표로 서버가 기준 대비 변화량을 계산해 판정하므로 「특징 변화량을 판정에 사용」으로 충분하다고 보고 11/10 접음), BE-2의 R1b(기록 하나 조회 — 앱이 R1 목록으로 찾아 쓰지 않음), BE-11의 S1 `policy` 빼기(앱이 W1의 계정 값을 보내 서버 값과 같아짐, 11/10), BE-3(W1·W2 — 프로필 화면과 설정 화면이 씀, [serverWorkspace.ts](../../../frontend/src/features/storage/serverWorkspace.ts)), BE-4(판정 규칙 이름·단위 맞추기 — W1·W2는 초, S1은 ms로 이름이 다르지만 같은 값이고 앱이 변환하므로 11/10 접음), BE-7(시간 필드 `t_ms`·`timestamp_ms`·`onset_ms` 설명이 [API 명세](../api-spec.md) 9장 SessionView·11.2 표에 들어감), BE-5(① 로그인은 토큰 방식으로 바뀜, ② `valid_ms`는 구간 = 프레임 1장이라 명세와 같아짐, ③은 BE-2, ④⑤ 정리), BE-8(서버가 프레임을 묶는 방식 — #91 되돌림으로 닫음), BE-6(B안 구현·앱 처리는 10.5, ⑤ J2를 00:10에 — PR #93 [bigdata/README.md](../../../bigdata/README.md) cron. 운영에서 켜는 ①만 1.0 DevOps에 남음), BE-9(판정 불가 좌표 없이 — 알림 끝), BE-12(토큰 로그인·CORS PR #68·#70, ③ 데스크톱은 1.0 F14). 10/26 김유진 정리 문서에 대한 답(옛 1.1)과 10/25 질문(`data-platform-boundary.md` 유지)도 끝났다. 10/22 질문(S1 뒤 WS가 안 열린 세션)은 서버 코드로 보니 DB 행이 닫히지 않아 1.0으로 되살렸다.
 서버·모델 내부의 정할 것(점수 합치기, 자세 유형을 낼지)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보인다.
 
 ## 2. 전제와 현재 구조
