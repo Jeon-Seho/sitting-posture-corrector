@@ -29,6 +29,8 @@ dependencies {
     // Login: short JWT access tokens (HS256, Bearer) + rotating refresh tokens in the DB (refresh_token, V2.6).
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
+    // /v2/realtime kafka pipeline (D-57): plain client only, so local mode never connects (no Boot Kafka auto-config).
+    implementation 'org.apache.kafka:kafka-clients'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
