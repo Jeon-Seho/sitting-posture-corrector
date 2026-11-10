@@ -6,7 +6,7 @@
 - 근거: 사용자 요청 — 발표용 화면을 사용자 친화적으로 다시 디자인하고, 웹 페이지가 아니라 데스크톱 앱을 기준으로 개발.
   큰 카메라 화면, 건강을 연상시키는 따뜻한 색, 컴퓨터를 켤 때 자동으로 열려 카메라로 측정할 수 있는 연결을 열어 둘 것.
   작은 창 절은 2026-10-02 수집 화면 요청(옛 0016), 2026-10-26 Chrome 시험과 사용자(FE) 결정(옛 0028), 2026-10-26 Electron 자식 창 전환(lellon0403)
-- 관련: [ADR 0008](0008-single-app-entry.md)(단일 앱), [ADR 0021](0021-app-sends-information-server-judges.md)(항상 서버로 측정), [ADR 0007](0007-lite-pose-tracker.md) 수집 절(옛 0016의 수집 바로가기), [계획 0055](../plans/active/0055-desktop-camera-window.md), [FE 제안서](../design/fe-server-proposal.md) 8.4
+- 관련: [ADR 0008](0008-single-app-entry.md)(단일 앱), [ADR 0021](0021-app-sends-information-server-judges.md)(항상 서버로 측정), [ADR 0007](0007-lite-pose-tracker.md) 수집 절(옛 0016의 수집 바로가기), [계획 0055](../plans/active/0055-desktop-camera-window.md), [FE 제안서](../design/fe/fe-server-proposal.md) 8.4
 
 ## 결정
 

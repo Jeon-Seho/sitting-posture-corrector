@@ -63,12 +63,12 @@ FE 문서를 연동 명세(BE API 명세 10/13 기준)·WebSocket v2 계약에 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/unmeasurable-handling.md` | 10/12 회의 결정(판정 불가는 넓게 하나로, 앱이 `valid:false`로 표시, 서버가 시간·점수에서 뺌)이 FE 제안서와 연동 명세에 들어갔고, 1~4장(10/08 앱 판정 규칙)은 서버 몫이 됐다(10/13 정리). | [FE 제안서](design/fe-server-proposal.md) 3.2, [연동 명세](design/api-ws-spec.md) 5.1 | - |
-| `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/api-ws-spec.md) 3장, [FE 제안서](design/fe-server-proposal.md) 7장·8.2(10/19 옮김) | lellon0403(처음 작성) |
-| `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [FE 제안서](design/fe-server-proposal.md) 4.1(화면 상태와 서버 메시지, 10/19 옮김) | lellon0403 |
-| `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/api-ws-spec.md) 5.1, [FE 제안서](design/fe-server-proposal.md) 4.1 | - |
-| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json), [연동 명세](design/api-ws-spec.md) | lellon0403 |
-| `docs/plans/active/0024-posture-registration-tab.md` | 끝난 계획이다. 「자세 등록」 탭은 팀원이 측정하기로 합쳤고(`2be4af8`), 회원가입 3단계에서도 등록한다(10/13 정리). | 측정하기(`SetupPage`), [동의 제안서](design/consent-proposal.md) 3장(회원가입 3단계) | lellon0403 |
+| `docs/design/unmeasurable-handling.md` | 10/12 회의 결정(판정 불가는 넓게 하나로, 앱이 `valid:false`로 표시, 서버가 시간·점수에서 뺌)이 FE 제안서와 연동 명세에 들어갔고, 1~4장(10/08 앱 판정 규칙)은 서버 몫이 됐다(10/13 정리). | [FE 제안서](design/fe/fe-server-proposal.md) 3.2, [연동 명세](design/fe/api-ws-spec.md) 5.1 | - |
+| `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/fe/api-ws-spec.md) 3장, [FE 제안서](design/fe/fe-server-proposal.md) 7장·8.2(10/19 옮김) | lellon0403(처음 작성) |
+| `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [FE 제안서](design/fe/fe-server-proposal.md) 4.1(화면 상태와 서버 메시지, 10/19 옮김) | lellon0403 |
+| `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/fe/api-ws-spec.md) 5.1, [FE 제안서](design/fe/fe-server-proposal.md) 4.1 | - |
+| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json), [연동 명세](design/fe/api-ws-spec.md) | lellon0403 |
+| `docs/plans/active/0024-posture-registration-tab.md` | 끝난 계획이다. 「자세 등록」 탭은 팀원이 측정하기로 합쳤고(`2be4af8`), 회원가입 3단계에서도 등록한다(10/13 정리). | 측정하기(`SetupPage`), 동의 제안서(`docs/design/consent-proposal.md`, 11장에서 지움) 3장(회원가입 3단계) | lellon0403 |
 
 ## 5. 2026-10-19 design 문서 합치기 (FE, 2개)
 
@@ -77,12 +77,12 @@ design 문서가 늘어 겹치는 것을 합쳤다. 되살리기: `git show 48f5
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/surface-brief-frontend.md` | 발표용 UI 데모(10/02 이전 레트로 피치덱)의 최초 시각 방향 기록이다. 화면은 ADR 0017로 다시 설계됐고 지금 규칙은 DESIGN.md다. | [ADR 0017](decisions/0017-desktop-app-shell-and-redesign.md), [DESIGN.md](../DESIGN.md) | lellon0403(처음 작성) |
-| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [FE 제안서](design/fe-server-proposal.md) 8.4(창·시작 프로그램·알림 팝업), [frontend README](../frontend/README.md)(실행 명령, FE 작업 명령과 검사 문서는 10/30 지움 — 8장) | lellon0403(처음 작성), klaod-tech |
+| `docs/design/desktop-app.md` | 화면 표·상태 문구·데스크톱 창 설명이 FE 문서와 나뉘어 있었다. 지금 코드와 맞춰 옮기고, 끝났거나 바뀐 것(지운 문서 링크, 기록 화면 한 줄 → 기록·달력, 「자세 등록 탭으로 이동」, 패키징·`dist` 읽기·기준 불러오기 「미구현」, 쓰지 않는 `BaselinePort`)은 뺐다. | [FE 제안서](design/fe/fe-server-proposal.md) 4.1(상태 문구)·8.3(화면과 코드), [FE 제안서](design/fe/fe-server-proposal.md) 8.4(창·시작 프로그램·알림 팝업), [frontend README](../frontend/README.md)(실행 명령, FE 작업 명령과 검사 문서는 10/30 지움 — 8장) | lellon0403(처음 작성), klaod-tech |
 
 ## 6. 2026-10-22 design 문서 정리 (FE, 문서 2개 + 절 정리)
 
-V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했다. 원칙: **결정은 ADR, FE 할 일·상태는 [FE 제안서](design/fe-server-proposal.md), 앱이 지키는 연동 동작은 [연동 명세](design/api-ws-spec.md), 필드·본문은 [BE API 명세](design/api-spec.md).** 되살리기: `git show dc2c5d4:<경로>`.
-어디가 어디로 갔는지의 전체 표는 [FE 제안서](design/fe-server-proposal.md) 7.2 「10/22 문서 정리」다.
+V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했다. 원칙: **결정은 ADR, FE 할 일·상태는 [FE 제안서](design/fe/fe-server-proposal.md), 앱이 지키는 연동 동작은 [연동 명세](design/fe/api-ws-spec.md), 필드·본문은 [BE API 명세](design/api-spec.md).** 되살리기: `git show dc2c5d4:<경로>`.
+어디가 어디로 갔는지의 전체 표는 [FE 제안서](design/fe/fe-server-proposal.md) 7.2 「10/22 문서 정리」다.
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
@@ -93,7 +93,7 @@ V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했
 
 | 문서·절 | 지운 이유 | 내용이 간 곳 |
 |---|---|---|
-| 연동 명세 0.1~0.6(10/13~15 BE 명세 「정할 것」 답, BE 요청 Q1~Q6, DevOps 검토 답, DB·BE 회신 답, BE 명세 고칠 곳 X1~X16, BE 코드 필드 대조) | BE 명세가 저장소에 들어와(`docs/design/api-spec.md`) 반영이 끝났다. 남은 결정은 짧은 표로 | 연동 명세 0장 표. 원문 `git show dc2c5d4:docs/design/api-ws-spec.md` |
+| 연동 명세 0.1~0.6(10/13~15 BE 명세 「정할 것」 답, BE 요청 Q1~Q6, DevOps 검토 답, DB·BE 회신 답, BE 명세 고칠 곳 X1~X16, BE 코드 필드 대조) | BE 명세가 저장소에 들어와(`docs/design/api-spec.md`) 반영이 끝났다. 남은 결정은 짧은 표로 | 연동 명세 0장 표. 원문 `git show dc2c5d4:docs/design/fe/api-ws-spec.md` |
 | 연동 명세 4장 REST 요청·응답 본문 | BE 명세와 이중이었다 | BE API 명세 4~8장. 앱이 지킬 것만 연동 명세 4장 |
 | FE 제안서 1장의 10/16~19 BE 확인 기록, 7.0의 미정 3개 설명 | 정해졌다(10/21) | ADR 0025, FE 제안서 7.0 한 단락 |
 | FE 제안서 4.1의 로컬 화면 상태 7개(`suspect`·`recovering`·최근 30분 흐름) | 로컬 측정 화면이 10/21 지워졌다 | 연동 명세 5.3 화면 상태 표(V3) |
@@ -131,12 +131,12 @@ BE 쪽(0011·0012·0013·0014·0018·0019·0022·0023)은 2026-10-27 BE 피드�
 
 ## 8. 2026-10-30 FE 명령·배포 문서 정리 (FE, 2개)
 
-서버 공개 연결이 끝나(10/29, [FE 제안서](design/fe-server-proposal.md) 10장, 11/3 전에는 0장) FE 전용 명령 모음을 따로 둘 필요가 없어졌다. 공통 명령은 [개발 흐름](development.md), 프론트 명령은 [frontend README](../frontend/README.md)를 본다. 되살리기: `git show 29089f8:<경로>`.
+서버 공개 연결이 끝나(10/29, [FE 제안서](design/fe/fe-server-proposal.md) 10장, 11/3 전에는 0장) FE 전용 명령 모음을 따로 둘 필요가 없어졌다. 공통 명령은 [개발 흐름](development.md), 프론트 명령은 [frontend README](../frontend/README.md)를 본다. 되살리기: `git show 29089f8:<경로>`.
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/fe-commands-and-checks.md` | FE가 쓰던 명령과 검사 설명을 모은 문서다. 브랜치 이름(V3)·「지금 못 돌리는 것」 등 10/26 기준 내용이 낡았고, 공통 개발 흐름·frontend README와 겹친다. 검사 도구도 팀장 CI 브랜치(`chore/update-workflow-ci-cd`)에서 다시 정리 중이다. | [개발 흐름](development.md)(검사 명령), [frontend README](../frontend/README.md)(개발 서버·데스크톱), `frontend/scripts/fake-server.mjs` 머리 주석(가짜 서버), [FE 제안서](design/fe-server-proposal.md) 9.4 1단계(Vercel 포크 갱신), [계획 0030](plans/active/0030-make-check-failures.md)(`make check` 실패), [requirements-front.txt](../requirements-front.txt)(설치할 프로그램) | BE(빌드 도구 문구, 계획 0028·0029) |
-| `docs/design/fe-deploy.md` | 화면·서버 분리 배포(도메인·Vercel·Cloudflare 터널)의 결정·진행 문서다. 10/29 공개 연결이 끝나 FE 상태 문서 하나로 모았다(내용은 그대로, 장 번호만 9.x로). | [FE 제안서](design/fe-server-proposal.md) 9장(옛 1~7장 → 9.1~9.7), 결과 요약은 0장 | DevOps(6장 B안 답) |
+| `docs/design/fe-commands-and-checks.md` | FE가 쓰던 명령과 검사 설명을 모은 문서다. 브랜치 이름(V3)·「지금 못 돌리는 것」 등 10/26 기준 내용이 낡았고, 공통 개발 흐름·frontend README와 겹친다. 검사 도구도 팀장 CI 브랜치(`chore/update-workflow-ci-cd`)에서 다시 정리 중이다. | [개발 흐름](development.md)(검사 명령), [frontend README](../frontend/README.md)(개발 서버·데스크톱), `frontend/scripts/fake-server.mjs` 머리 주석(가짜 서버), [FE 제안서](design/fe/fe-server-proposal.md) 9.4 1단계(Vercel 포크 갱신), [계획 0030](plans/active/0030-make-check-failures.md)(`make check` 실패), [requirements-front.txt](../requirements-front.txt)(설치할 프로그램) | BE(빌드 도구 문구, 계획 0028·0029) |
+| `docs/design/fe-deploy.md` | 화면·서버 분리 배포(도메인·Vercel·Cloudflare 터널)의 결정·진행 문서다. 10/29 공개 연결이 끝나 FE 상태 문서 하나로 모았다(내용은 그대로, 장 번호만 9.x로). | [FE 제안서](design/fe/fe-server-proposal.md) 9장(옛 1~7장 → 9.1~9.7), 결과 요약은 0장 | DevOps(6장 B안 답) |
 
 ## 9. 2026-10-31 자정 점검 작업 문서 (FE, 1개)
 
@@ -152,4 +152,20 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 [실시간 측정 다시 만들기 인계서](design/frontend-realtime-handoff-2026-11-03.md), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe-server-proposal.md) 1.0, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
+| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 실시간 측정 다시 만들기 인계서(`docs/design/frontend-realtime-handoff-2026-11-03.md`, 12장에서 지움), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
+
+## 11. 2026-11-10 동의 제안서 (FE, 1개)
+
+회원가입 동의를 설계한 초안이다. 화면(10/13)·계정 서버 연결(10/22)·DB 저장이 모두 끝나 설계안으로 남길 이유가 없어졌다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/consent-proposal.md` | 동의 목록·고지 내용·화면·저장 설계가 모두 구현됐다. 남은 것은 선택 정보 동의 철회(C1 API 연결)뿐이다. | 동의 항목 번호와 서버 유형은 [FE 기능 명세](design/fe/fe-feature-spec.md) 회원가입, 고지 문구는 `frontend/src/features/auth/consents.ts`, 남은 철회는 기능 명세 「선택 정보 동의 철회」. 원문은 `git show 284abce:docs/design/consent-proposal.md` | 없음 |
+
+## 12. 2026-11-10 실시간 측정 다시 만들기 인계서 (FE, 1개)
+
+#91(서버 3초 묶음) 되돌림 뒤 `observation` 4.0과 FE 대응을 정리한 인계서다. 4.0 합치기(PR #96·#98·#99)와 회복 게이지까지 끝나 남은 것만 옮겼다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |

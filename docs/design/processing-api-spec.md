@@ -1,7 +1,7 @@
 # 처리 서비스 HTTP API — 운영·확인용 (`backend/processing`, 컨테이너 `api-server`)
 
 - 담당: DevOps/BE. 갱신: 2026-10-21
-- 이 API는 **앱이 부르지 않는다.** 앱 ↔ 서버 API는 [API 명세](api-spec.md)(입출구 서버 `backend/api`)와 [연동 명세](api-ws-spec.md)다.
+- 이 API는 **앱이 부르지 않는다.** 앱 ↔ 서버 API는 [API 명세](api-spec.md)(입출구 서버 `backend/api`)와 [연동 명세](fe/api-ws-spec.md)다.
   여기 있는 것은 서버 PC에서 처리 서비스(판정·판정 결과 저장)의 상태를 보고 시험하는 경로다. 서비스 사이 데이터는 [Kafka 명세](kafka-spec.md)로 오간다.
 - 주소: `http://<서버>:<API_SERVER_HOST_PORT>`(기본 8080, `infra/compose/.env`). 지금은 LAN에 열려 있고 인증이 없다 —
   내부 전용으로 내리고 SSH 터널로만 쓰는 정리는 D-43이다. 운영 환경에서는 시험용 API를 끈다(아래 `REPORT_TEST_FIXTURES_ENABLED`).

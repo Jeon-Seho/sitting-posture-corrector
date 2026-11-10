@@ -1,4 +1,4 @@
-/* Sign-up consent step (docs/design/consent-proposal.md). */
+/* Sign-up consent step (docs/design/fe/fe-feature-spec.md 회원가입). */
 .consent-list {
   display: flex;
   flex-direction: column;

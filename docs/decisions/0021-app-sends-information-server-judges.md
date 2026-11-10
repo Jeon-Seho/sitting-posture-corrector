@@ -3,20 +3,20 @@
 - 상태: accepted. 앱 구현은 V3(2026-10-21 측정 `f88ffe3`, 자세 등록 `0449abb`, 10/27 판정 불가 신호). 남은 것은 [계획 0023](../plans/active/0023-frontend-server-only.md)
 - 날짜: 2026-10-11 (2026-10-27 ADR 정리로 옛 0025·0026·0032를 합침 — 4~6절)
 - 분야: FE·BE 경계 (앱이 무엇을 보내고 서버가 무엇을 하는지. 한쪽이 바꾸면 다른 쪽도 바뀐다)
-- 근거: v4 회의 결정(FE 회신 10/08, 지금은 [FE 제안서](../design/fe-server-proposal.md)), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거),
+- 근거: v4 회의 결정(FE 회신 10/08, 지금은 [FE 제안서](../design/fe/fe-server-proposal.md)), 2026-10-11 FE 결정(앱 판정·라벨 전부 제거),
   2026-10-20 전체 회의(3초 평균은 FE), 2026-10-21 FE 결정(항상 서버로 측정), 2026-10-27 FE 결정(판정 불가는 신호만)
 - 대체: 옛 0013의 "앱이 특징 변화량을 만들어 보낸다", "기본 로컬 모드 유지", 옛 0012의 로컬 모드 시간 정책(시간 정책 자체는 [ADR 0020](0020-single-api-decision-engine.md) 2절),
   옛 0003의 「`frontend/src/lib/engine.ts`가 공통 시간 정책을 담당한다」, 연동 명세·FE 제안서의 예전 안 「앱은 WS `purpose:"calibration"`으로 프레임만 보내고 서버가 평균을 낸다」
 - 바꾸는 문서: 데이터 플랫폼 경계([`data-platform-boundary.md`](../design/data-platform-boundary.md))의 "원본 좌표 미전송",
   [실시간 계약](../../contracts/realtime/README.md)의 "좌표를 넣지 않는다"
-- 관련: [ADR 0024](0024-session-ends-on-lost-connection.md)(끊기면 세션 종료), [ADR 0027](0027-today-records-from-collected-server-results.md)(오늘 기록), [ADR 0029](0029-midnight-cut-and-server-time.md)(서버 시각), [연동 명세](../design/api-ws-spec.md)
+- 관련: [ADR 0024](0024-session-ends-on-lost-connection.md)(끊기면 세션 종료), [ADR 0027](0027-today-records-from-collected-server-results.md)(오늘 기록), [ADR 0029](0029-midnight-cut-and-server-time.md)(서버 시각), [연동 명세](../design/fe/api-ws-spec.md)
 
 ## 1. 결정
 
 1. **앱은 판정하지 않는다.** 점수, 상태(좋음/무너짐/측정 불가), 유형(머리·좌우 기울임), 판정 가능 검사, 고개 돌림 제외,
    복귀 대기, 시간 판정(확정·복귀·재알림)을 모두 서버가 한다. 화면의 점수(100 × (1 − `collapse_probability`))·상태·알림·통계는 서버가 보낸 것만 쓴다.
    서버 결과를 앱이 다시 검사하지 않고 형식만 확인한다.
-2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [연동 명세](../design/api-ws-spec.md) 5.1
+2. **앱은 관절 좌표 같은 정보만 보낸다.** 계약 이름은 `posture.frames.v1`. 형식은 [연동 명세](../design/fe/api-ws-spec.md) 5.1
    (관절 9개 `[x, y, visibility]`, 2026-10-27부터 프레임마다 1건, 서버가 받은 구간마다 바로 판정)을 따른다. 일시정지(`rest`)·카메라 끊김(`away`)은 판단이 아니라 사실이라 앱이 알린다.
 3. **서버 없이 쓰는 로컬 모드는 없다.** 앱은 로그인한 서버 모드만 있다. 서버가 없으면 측정을 시작하지 않는다.
 4. **ML용 내보내기에 앱 판정 라벨을 붙이지 않는다**(`state`·`type`·`score` 열 제거). 자세 데이터 수집 화면은 BE·ML 요구를 다시 받아 만든다.
@@ -30,25 +30,25 @@
 
 ## 3. 결과
 
-- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [FE 제안서](../design/fe-server-proposal.md) 5장.
+- 서버 부담이 늘어난다(처리 단계 추가, 세션 상태 보관, 장애 시 화면 판정 정지). 목록은 [FE 제안서](../design/fe/fe-server-proposal.md) 5장.
 - 서버가 앱과 같은 결과를 내도록 FE가 [합성 시험 데이터](../../contracts/examples/frames/reference-rule-cases.json)를 넘겼다. 앱 판정 코드는 지웠다(develop 이전 판에 남아 있다).
 - 개인정보 경계가 바뀐다. 좌표를 보내므로 가입 때 좌표 수집 동의를 받는다.
   로컬 모드가 없으므로 **좌표 전송 동의는 서비스 이용의 필수 조건이다.** 동의하지 않으면 가입할 수 없고, 철회하면 측정할 수 없다(학술용 프로젝트라 필수 동의로 정함).
 - 개발·시연에도 서버가 있어야 한다. 서버 없이는 측정·자세 등록을 할 수 없다.
-- **좌표 보관 — 팀 결정 대기(2026-11-02 적음, 11/4 코드 확인):** 2절의 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」는 좌표를 어딘가 남긴다는 전제다. 지금은 남기는 곳이 없다 — Spark J1(PR #93, 계획 0085)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../bigdata/README.md) J1). 좌표가 담겼던 추론 요청 토픽(`posture.inference-request.v3`)은 #91 되돌림(PR #95)으로 없어졌다. 남길지 팀이 정한다([FE 제안서](../design/fe-server-proposal.md) 1.0). 남기지 않으면 2절 이유와 가입 때 좌표 수집 동의 문구를 고친다.
+- **좌표 보관 — 팀 결정 대기(2026-11-02 적음, 11/4 코드 확인):** 2절의 「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」는 좌표를 어딘가 남긴다는 전제다. 지금은 남기는 곳이 없다 — Spark J1(PR #93, 계획 0085)이 HDFS에 쌓는 원문에는 좌표가 없다([bigdata/README.md](../../bigdata/README.md) J1). 좌표가 담겼던 추론 요청 토픽(`posture.inference-request.v3`)은 #91 되돌림(PR #95)으로 없어졌다. 남길지 팀이 정한다([FE 제안서](../design/fe/fe-server-proposal.md) 1.0). 남기지 않으면 2절 이유와 가입 때 좌표 수집 동의 문구를 고친다.
 
 ## 4. 측정 (옛 ADR 0025, 2026-10-21)
 
 1. **「측정 시작」은 항상 서버 측정이다.** 로컬 모드와 개발자 옵션의 「서버 판정 사용」 스위치, `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`를 없앴다.
    서버에 닿지 못하거나 로그인이 없으면 측정을 시작하지 않고 이유를 보여 준다.
-2. 흐름은 S1 `PUT /v2/sessions/{id}` → `/v2/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 10초 안에 `closed`가 안 오면 S4로 결과를 읽는다. 자세한 형식은 [연동 명세](../design/api-ws-spec.md) 4·5장이다.
+2. 흐름은 S1 `PUT /v2/sessions/{id}` → `/v2/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 10초 안에 `closed`가 안 오면 S4로 결과를 읽는다. 자세한 형식은 [연동 명세](../design/fe/api-ws-spec.md) 4·5장이다.
 3. 앱이 보내는 구간: 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」),
    쓰던 카메라가 빠지거나 측정 중 영상 크기가 바뀌면 `end`로 종료·저장한다. 어깨가 하나라도 안 보이는 프레임은 바로 판정 불가다(6절).
 4. 이어하기(앱이 중간 저장을 두었다가 다시 여는 것)는 없다. 앱이 닫히거나 연결이 끊기면 서버가 마지막 구간까지 저장한다([ADR 0024](0024-session-ends-on-lost-connection.md)).
 5. 로컬 판정 코드(판정 엔진 `machine`·`scenario`·`snapshot`, 복귀 대기, 카메라 샘플, 로컬 측정 화면, v1 서버 측정 코드, 특징·좌표 내보내기)는 지웠다.
 6. 서버 저장을 확인하기 전까지 측정 결과를 이 기기에 남긴다. 표시는 서버 기록(R1)으로 한다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
-8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 11/2 되돌렸다([인계서](../design/frontend-realtime-handoff-2026-11-03.md)).
+8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95).
    `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
    3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
    주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간, 경고 중 바로 앉으면 나오는 회복 상자의 게이지는 서버가 센 회복 연속 시간(`recovery_ms`) ÷ 정책 회복 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
@@ -83,7 +83,7 @@
 - 사람이 아예 없는 프레임은 `{ "t_ms": …, "p": null }`(`valid` 없음)이다.
 - 서버는 두 경우 모두 판정 불가 시간(`unknown_ms`, DB `UNMEASURABLE`)으로 센다. 점수·유형·사건·시간 규칙은 여전히 서버가 정한다.
 - 화면은 서버를 기다리지 않고 바로 「자세를 확인할 수 없어요」를 띄운다(`LiveState.placeable`).
-- 정확도 부족·화면 가장자리·거리는 서버가 판정 불가로 정한다(좌표는 보냄). 앱 쪽 범위를 넓힐지는 [계획 0059](../plans/active/0059-slim-realtime-results-over-api.md)에서 정한다.
+- 정확도 부족·화면 가장자리·거리는 서버가 판정 불가로 정한다(좌표는 보냄). 앱 쪽 범위를 넓힐지는 [계획 0059](../plans/completed/0059-slim-realtime-results-over-api.md)에서 정한다.
 - 이유: 관절이 빠진 프레임은 판정에도 LSTM 학습에도 맞지 않다. 빠진 관절을 `[0, 0, 0]`으로 채우면 HDFS에 가짜 좌표가 남아 나중에 가려낼 수 없다.
   「좌표가 남아 있으면 새 규칙을 다시 적용할 수 있다」(2절)는 판정 가능한 프레임에는 그대로 맞지만, 관절이 빠진 프레임은 새 규칙으로도 판정할 수 없다.
 - 결과: 판정 불가 프레임은 HDFS·학습 데이터에 좌표 없이 시각과 「판정 불가」만 남는다. 계약 `posture.frames.v1` 형식은 그대로다(`p`는 이미 null 가능).
