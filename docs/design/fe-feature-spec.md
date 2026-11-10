@@ -32,7 +32,7 @@
 | user | 비밀번호 변경 | 중 | `AUTHENTICATED` | `UNAUTHENTICATED` | 비밀번호를 바꾼다. 모든 로그인이 끊겨 로그인 화면으로 간다 | A6 | 구현됨 |
 | user | 선택 정보 동의 철회 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 선택 정보 동의를 켜고 끈다. 철회하면 나이·직업을 비운다. 서버 API는 있고 앱이 부르지 않는다 | C1 | 구현 전 |
 | user | 회원탈퇴 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 탈퇴를 접수한다. 되돌릴 수 없고, 서버 자료는 30일 뒤 Spark J3가 지운다. 이 기기의 서버 확인 전 결과 삭제는 아직 없다 | A7 | 일부 |
-| setting | 판정 기준 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 붕괴 기준 점수, 확정·회복 시간, 재알림 주기를 바꾼다. 지금은 이 기기에만 저장하고 서버(W2)로 보내지 않는다. 측정 시작 때 S1 `policy`로 보내는데, 서버는 계정 정책과 다르면 409로 거절한다(실행 확인 전) | W2(미연결), S1 | 일부 |
+| setting | 판정 기준 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 붕괴 기준 점수, 확정·회복 시간, 재알림 주기를 바꾼다. 바꾸면 W2로 서버에 저장하고, 로그인 뒤·측정하기와 설정 화면을 열 때 W1으로 받는다. 판정 값은 기기에 남기지 않는다(11/10). 측정 시작 때 이 값을 S1 `policy`로 보낸다 | W1, W2, S1 | 구현됨 |
 | setting | 알림 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 소리는 측정 화면에서 끄고, 데스크톱 알림창은 설정에서 끈다. 설정의 「교정 알림 사용」 스위치는 안내 문구만 띄운다 | 없음 | 일부 |
 | baseline | 카메라 준비 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | 권한을 확인하고 카메라를 고른다. 권한 거부와 장치 없음을 안내한다 | 없음 | 구현됨 |
 | baseline | 기준 자세 등록 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | 앱이 낸 관절 9개의 3초 평균을 서버에 등록한다 | B1, B2 | 구현됨 |

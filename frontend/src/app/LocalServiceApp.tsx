@@ -40,6 +40,8 @@ import { StorageNotice } from './StorageNotice'
 import { CAMERA_PAGES, type Page } from './navigation'
 import { SignupPostureStep } from '../features/auth/SignupPostureStep'
 import { MailAccessPage } from '../features/auth/MailAccessPage'
+import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWorkspace'
+import { getServerAuth } from '../features/platform/serverAuth'
 import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
@@ -207,6 +209,7 @@ export function LocalServiceApp({
     }
     workspace.setProfile(next)
     form.resetFields(next)
+    void loadServerRules()
     setEmail(view.email)
     setPassword('')
     setAuthed(true)
@@ -226,6 +229,8 @@ export function LocalServiceApp({
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     // 기록·달력 show 「오늘」: ask the server's day first (e.g. the app left open past midnight).
     if (next === 'dashboard' || next === 'calendar') refreshToday()
+    // Another device may have changed the rules: S1 must send the account's (409 otherwise).
+    if ((next === 'setup' || next === 'settings') && !measuring) void loadServerRules()
     setPage(next)
   }
 
@@ -403,6 +408,7 @@ export function LocalServiceApp({
     authAttempt.current++
     setDeveloper(false)
     workspace.setRecords([])
+    workspace.setRules(DEFAULT_RULES)
     workspace.setShowDemo(false)
     camera.stop()
     setAuthed(false)
@@ -424,8 +430,46 @@ export function LocalServiceApp({
     setAuthed(false)
   }
 
+  /**
+   * Server accounts keep the posture rules on the server only (W1·W2, api-ws-spec 4장, 2026-11-10).
+   * The newest request wins, so a slider drag that sends several saves ends on its last value.
+   */
+  const rulesRequest = useRef(0)
+  async function loadServerRules() {
+    if (!accounts || !getServerAuth()) return
+    const ticket = ++rulesRequest.current
+    try {
+      const saved = await fetchWorkspace()
+      if (ticket === rulesRequest.current) workspace.setRules(saved.rules)
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:loadServerRules] Operation failed', caughtError)
+      if (ticket === rulesRequest.current) setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+    }
+  }
+
+  async function saveServerRules(next: Rules) {
+    const ticket = ++rulesRequest.current
+    workspace.setRules(next)
+    try {
+      const saved = await saveWorkspaceRules(next)
+      if (ticket !== rulesRequest.current) return
+      workspace.setRules(saved.rules)
+      setError('저장했어요. 다음 측정부터 적용돼요.')
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:saveServerRules] Operation failed', caughtError)
+      if (ticket !== rulesRequest.current) return
+      setError(caughtError instanceof Error ? caughtError.message : '설정을 저장하지 못했어요.')
+      void loadServerRules()
+    }
+  }
+
   function saveRules(next: Rules) {
     if (developer) { workspace.setRules(next); return }
+    if (accounts) {
+      if (!getServerAuth()) { setError('로그인이 필요해요. 다시 로그인해 주세요.'); return }
+      void saveServerRules(next)
+      return
+    }
     if (!workspace.requireWriter()) return
     try {
       writeLocal(KEYS.settings, next)
