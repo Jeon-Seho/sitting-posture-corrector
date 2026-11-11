@@ -23,7 +23,7 @@
 - [x] BE 구현과 단위 시험(`SocialLoginServiceTest`, `PasswordResetServiceTest`)
 - [x] FE 구현과 단위 시험(`socialLogin.test.ts`)
 - [x] 계약·인계·상태 문서
-- [ ] DB 표 V2.7 적용(유진)
+- [x] DB 표 V2.7 파일 작성(유진): `database/migrations/017_create_social_identity_password_reset_token.sql`, `schema_V2_7.sql`, 무결성 검사. DB CI·실제 DB 적용은 아직
 - [ ] 환경변수·Discord Portal Redirect·SMTP(홍규)
 - [ ] MySQL 통합 시험에 두 표 경로 추가, 실제 Discord·메일 확인
 
@@ -32,6 +32,7 @@
 - 2026-11-11: 제공자는 Discord 먼저(사용자 결정). 같은 이메일은 자동 연결하지 않는다. 대기 상태는 서버 메모리(한 인스턴스 전제).
 - 2026-11-11: 임시 비밀번호 대신 일회용 링크로 정했다. 임시 비밀번호도 평문으로 메일함에 남기 때문이다.
 - 2026-11-11(사용자 결정): 제공자는 Discord·카카오·Google·GitHub를 화면에 둔다. 준비 중인 것은 흐리게 두고 누르면 안내한다. BE는 공통 경로 `/{provider}`와 제공자별 어댑터(`SocialProviderClient`)로 만든다. DB CHECK에는 네 제공자를 한 번에 넣는다.
+- 2026-11-11(DB): V2.7을 migration 017과 `schema_V2_7.sql`로 확정했다. 번호는 T-52·T-53, UK-18~20, FK-29·30. 인계 SQL과 달리 보조 인덱스 `ix_password_reset_token_user_issued`는 넣지 않았다 — DB 규칙상 인덱스는 다른 파일에 두고, 사용자별 조회는 FK-30 자동 인덱스로 충분하다(사용자별 행이 적음). 그 밖의 컬럼·제약은 인계 SQL과 같다.
 - 2026-11-11: 로그인 화면의 안내 문구는 폼 아래 빈 자리에 띄워서 로그인 칸이 밀리지 않게 했다. 패키징 앱은 배포된 웹을 열기 때문에, 배포 전 확인은 `npm run desktop`(로컬 코드)으로 한다.
 
 ## 검증 결과와 남은 한계

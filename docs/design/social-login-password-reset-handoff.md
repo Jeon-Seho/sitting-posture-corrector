@@ -23,6 +23,8 @@
 
 ## 2. DB 담당(유진) — 제안 V2.7
 
+> **2026-11-11 확정:** [migration 017](../../database/migrations/017_create_social_identity_password_reset_token.sql)과 `database/schema/schema_V2_7.sql`로 반영했다([DB 안내](../../database/README.md) 5장 「V2.7에서 더한 것」). 아래 제안과 다른 점은 보조 인덱스 `ix_password_reset_token_user_issued`를 넣지 않은 것 하나다(FK-30 자동 인덱스 사용). 운영 DB에 017을 적용한 뒤에 두 기능을 켠다.
+
 `user_account`는 바꾸지 않는다(`password_hash` NOT NULL 그대로, 소셜 전용 계정은 위의 고정값을 쓴다).
 아래 SQL은 **제안**이고, 마이그레이션 번호·주석 형식·ERD·`schema_V2_7.sql`·README·롤백 문서는 DB 절차에 맞춰 확정한다.
 
