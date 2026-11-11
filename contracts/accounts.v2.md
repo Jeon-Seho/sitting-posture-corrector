@@ -41,6 +41,25 @@ HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/c
 재동의는 새 행이며, 동일 상태의 반복 요청은 행을 추가하지 않는다. 필수 철회는 탈퇴로 처리한다.
 V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정 약관의 일괄 재동의 화면은 후속 범위다.
 
+## Discord 로그인·비밀번호 재설정 (2026-11-11, 기본 꺼짐)
+
+둘 다 서버 설정 전에는 `404 SOCIAL_DISABLED`·`404 PASSWORD_RESET_DISABLED`다. 설정·표는 [인계](../docs/design/social-login-password-reset-handoff.md)를 따른다.
+비밀번호를 메일로 보내거나 임시 비밀번호를 만들지 않는다. 주소에는 토큰을 싣지 않는다.
+
+| 경로 | 요청과 결과 |
+| --- | --- |
+| `POST /auth/password-reset/requests` | `{email}` → 202(가입 여부와 관계없이 같음). 형식 오류 400, 출처 한도 429. 가입된 정상 계정이면 30분짜리 일회용 링크 `<app>#password-reset?token=` 메일(60초 재발송 간격, 새 발급 시 이전 링크 무효) |
+| `POST /auth/password-reset/confirm` | `{token,new_password}` → 204. 그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫음, 자동 로그인 없음. 비밀번호 규칙 400 `INVALID_PASSWORD`, 무효·만료·사용됨 410 `RESET_TOKEN_INVALID` |
+| `POST /auth/social/{provider}/login` | `{provider}`는 `discord`·`kakao`·`google`·`github`(지금 켜지는 것은 discord, 나머지는 404 `SOCIAL_DISABLED`). 로그인 없음 → `{authorize_url}` + 대기 쿠키 `posegood_social`(10분). 앱은 그 Discord 주소로 이동 |
+| `POST /auth/social/{provider}/link` | Bearer → 가입과 같음(연결용). 이미 연결 409 `SOCIAL_ALREADY_LINKED` |
+| `GET /auth/social/{provider}/callback` | 제공자가 돌려보냄(시작한 제공자와 경로가 다르면 `expired`) → 302 `<app>#social-result?status=` 또는 `<app>#social-signup`. `signed-in`이면 refresh 쿠키를 준다. 그 밖의 상태: `linked`·`link-required`(같은 이메일 계정 있음, 자동 연결 안 함)·`email-required`·`in-use`·`closed`·`cancelled`·`expired`·`failed` |
+| `GET /auth/social/signup` | 가입 대기 쿠키 `posegood_social_signup`(15분) → `{provider,email,suggested_name}`. 만료 410 `SOCIAL_SIGNUP_EXPIRED` |
+| `POST /auth/social/signup` | `{profile,consents}`(이메일·비밀번호 없음, 동의 규칙은 가입과 같음) → 가입과 같은 응답 + refresh 쿠키. 비밀번호 없는 계정이 된다 |
+| `GET /auth/social` | Bearer → `{password_set,providers:[{provider,available,linked,linked_at}]}` — 네 제공자를 화면 순서(discord·kakao·google·github)로 항상 돌려준다. 준비 중은 `available=false` |
+| `DELETE /auth/social/{provider}` | Bearer → 204. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD`, 연결 없음 404 `SOCIAL_NOT_LINKED` |
+
+비밀번호 없는 계정은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이고, 재설정 메일로 비밀번호를 정할 수 있다.
+
 ## 설정
 
 `GET /workspace`:

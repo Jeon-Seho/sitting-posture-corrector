@@ -12,6 +12,7 @@
 
 
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
+- [Discord 로그인·비밀번호 재설정 인계](design/social-login-password-reset-handoff.md)(2026-11-11, [계획 0088](plans/active/0088-discord-login-and-password-reset.md)): BE·FE 구현(기본 꺼짐), DB 표 제안 V2.7과 DevOps 환경변수. 쉬운 설명: [소셜 로그인 쉽게 이해하기](design/social-login-eli5.md).
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/fe/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.

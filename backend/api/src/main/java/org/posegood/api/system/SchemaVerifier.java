@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -49,9 +50,18 @@ public class SchemaVerifier implements ApplicationRunner {
 	static final List<String> RETIRED_COLUMNS = List.of("feature_archive.row_count");
 
 	private final JdbcTemplate jdbc;
+	private final boolean discord;
+	private final boolean passwordReset;
 
-	public SchemaVerifier(JdbcTemplate jdbc) {
+	public SchemaVerifier(
+		JdbcTemplate jdbc,
+		@Value("${posegood.auth.discord.client-id:}")
+		String discordClientId,
+		@Value("${posegood.auth.password-reset.enabled:false}")
+		boolean passwordReset) {
 		this.jdbc = jdbc;
+		this.discord = !discordClientId.isBlank();
+		this.passwordReset = passwordReset;
 	}
 
 	/** 테이블과 필요한 컬럼을 확인한다. 기본 정책은 가입 때 값 조합으로 찾는다. */
@@ -85,6 +95,21 @@ public class SchemaVerifier implements ApplicationRunner {
 			if (!hasColumn(parts[0], parts[1])) {
 				throw new IllegalStateException("database schema V2.6 is not applied; missing " + required
 					+ " (V2.4 DB: apply migrations 015 and 016, database/README.md)");
+			}
+		}
+		// 켠 기능의 표만 확인한다(제안 V2.7, DB 담당 적용 전에는 기능을 끈 채로 둔다).
+		var optional = new java.util.ArrayList<String>();
+		if (discord) {
+			optional.add("social_identity.provider_subject");
+		}
+		if (passwordReset) {
+			optional.add("password_reset_token.consumed_at");
+		}
+		for (var required : optional) {
+			var parts = required.split("\\.");
+			if (!hasColumn(parts[0], parts[1])) {
+				throw new IllegalStateException("the enabled login feature needs " + required
+					+ " (proposed V2.7, docs/design/social-login-password-reset-handoff.md)");
 			}
 		}
 		for (var removed : RETIRED_COLUMNS) {
