@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** FE의 전제·결정 요약, 남은 일과 BE 요청(1장), 서버 공개 연결과 끝난 일(10장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). F1~F15는 FE 할 일(7장), BE-1~BE-13은 BE 요청(1.2). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). F1~F15는 FE 할 일(7장), BE-1~BE-17은 BE 요청(1.2·1.3). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 1. 남은 질문과 요청
 
@@ -48,10 +48,98 @@
 | # | 내용 | 시점 |
 |---|---|---|
 | BE-2 | T1 `GET /v2/stats/daily`(형식 확정). J2가 채운 `daily_stat`을 읽어 돌려주는 API | 휴대폰 기록을 만들 때([휴대폰 계획](fe-mobile-records-plan.md)) |
+| BE-14~17 | **Kafka 경로 서버가 「살아 있다」면서 일을 안 하는 상태를 쿠버네티스가 알게 하기.** 각 서버 liveness에 자기 Kafka 스레드 포함(BE-14), 다른 서버 상태는 liveness에서 빼기(BE-15), 건너뛴 메시지 수 알림(BE-16), 결과 구독 그룹 이름 고정(BE-17). 자세한 내용은 1.3 | BE-14·16: kafka 모드를 운영에 켜기 전. BE-15·17: 쿠버네티스로 옮길 때 |
 | BE-13 | **쉬기 자동 종료.** 10/20 계획은 「일시정지가 10분 이어지면 측정을 끝내고 저장」인데 서버·앱 모두 구현이 없다. **FE 의견:** 판정 불가·자리 비움 30분(`unmeasurable_timeout`)과 같은 방식으로, 서버가 쉬기(`rest`) 시간을 세어 30분이면 끝내고 새 사유(안: `closed(rest_timeout)`)를 보낸다. 앱은 타이머를 두지 않는다([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)) | 정할 것 |
 
 끝난·접은 요청(11/10 develop 확인): BE-10(측정 중 WS 줄이기 — 판정 정보를 없애는 게 아니라 `observation` 하나로 모으는 최적화라 지금 규모에서는 필요 없어 접음, [계획 0059](../../plans/completed/0059-slim-realtime-results-over-api.md) 닫음), BE-11(S4가 메모리에 없으면 DB 값으로 답하기 — R1이 DB에서 같은 판정 결과를 다시 만들어 주고 앱이 15초마다 R1로 확인하므로 접음), BE-1(동의 문구 — 앱이 보낸 관절 좌표로 서버가 기준 대비 변화량을 계산해 판정하므로 「특징 변화량을 판정에 사용」으로 충분하다고 보고 11/10 접음), BE-2의 R1b(기록 하나 조회 — 앱이 R1 목록으로 찾아 쓰지 않음), BE-11의 S1 `policy` 빼기(앱이 W1의 계정 값을 보내 서버 값과 같아짐, 11/10), BE-3(W1·W2 — 프로필 화면과 설정 화면이 씀, [serverWorkspace.ts](../../../frontend/src/features/storage/serverWorkspace.ts)), BE-4(판정 규칙 이름·단위 맞추기 — W1·W2는 초, S1은 ms로 이름이 다르지만 같은 값이고 앱이 변환하므로 11/10 접음), BE-7(시간 필드 `t_ms`·`timestamp_ms`·`onset_ms` 설명이 [API 명세](../api-spec.md) 9장 SessionView·11.2 표에 들어감), BE-5(① 로그인은 토큰 방식으로 바뀜, ② `valid_ms`는 구간 = 프레임 1장이라 명세와 같아짐, ③은 BE-2, ④⑤ 정리), BE-8(서버가 프레임을 묶는 방식 — #91 되돌림으로 닫음), BE-6(B안 구현·앱 처리는 10.5, ⑤ J2를 00:10에 — PR #93 [bigdata/README.md](../../../bigdata/README.md) cron. 운영에서 켜는 ①만 1.0 DevOps에 남음), BE-9(판정 불가 좌표 없이 — 알림 끝), BE-12(토큰 로그인·CORS PR #68·#70, ③ 데스크톱은 1.0 F14). 10/26 김유진 정리 문서에 대한 답(옛 1.1)과 10/25 질문(`data-platform-boundary.md` 유지)도 끝났다. 10/22 질문(S1 뒤 WS가 안 열린 세션)은 서버 코드로 보니 DB 행이 닫히지 않아 1.0으로 되살렸다.
 서버·모델 내부의 정할 것(점수 합치기, 자세 유형을 낼지)은 BE·ML·DevOps가 정한다. 앱은 서버가 보낸 결과를 그대로 보인다.
+
+### 1.3 Kafka 경로 서버 상태 확인 (BE-14~17)
+
+기준: `feat/ws-kafka-pipeline` `ffdd37e`(D-57·D-67, 2026-11-11 코드로 확인). 측정 종료·저장 흐름은 [측정 종료·저장 확인 계획](fe-measure-end-plan.md)에 있다.
+
+#### 사건의 발단
+
+FE가 D-57 통신 시험 보고서를 검수하면서, 「서버 오류로 Kafka 경로가 제대로 돌지 않을 때 앱이 어떻게 대응할지」를 kafka 브랜치 코드와 맞춰 봤다.
+
+장애는 대부분 이미 대응이 정해져 있다.
+- 추론·판정·저장 서비스나 Kafka가 죽는 경우: 쿠버네티스가 다시 띄운다(BE 답).
+- 처리 중이던 기록: Kafka가 들고 있다가 처리되고 Hadoop에도 남는다.
+- 그보다 큰 장애(데이터 유실): FE는 대비하지 않는다(2026-11-11 결정).
+- 측정을 시작할 때 Kafka가 죽어 있는 경우: 앱이 오류 화면(500 그림)으로 막는다. `hello`에 `ready` 대신 `closed(session_lost)`가 오기 때문이다([계획](fe-measure-end-plan.md) 2.4).
+
+그런데 코드를 따라가 보니 **서버 프로세스는 살아 있어서 health가 200(정상)인데 Kafka 일은 안 하는 상태**가 있다.
+
+대표적인 경우가 io-api의 결과 구독 스레드다. 이 스레드는 예외가 한 번 나면 로그만 남기고 끝나며 다시 시작하지 않는다(`KafkaResults.run`). 그 뒤 벌어지는 일은 이렇다.
+- 로그인·기록 조회·측정 시작은 모두 정상이다.
+- 측정 중 자세 점수와 `closed`는 아무에게도 가지 않는다.
+- `/health`는 API와 DB만 보므로 200이다.
+- 그래서 쿠버네티스도 고장을 모르고 재시작하지 않는다. 사람이 서버를 다시 띄울 때까지 모든 사용자의 측정 화면이 「서버 처리가 늦어요」에 머문다.
+
+앱 쪽에서는 이 상태를 추론 서비스가 잠깐 재시작하는 상황과 구별할 수 없다. 둘 다 `ack`는 오는데 `observation`이 없다. 그래서 확인은 서버에서만 할 수 있다.
+
+반대 방향 문제도 있다. 다른 서버 상태까지 health에 넣은 곳은, 쿠버네티스로 옮기면 Kafka가 잠깐 죽을 때 멀쩡한 서버까지 계속 재시작된다.
+
+찾은 상태:
+
+| # | 서버 | 상태 | 지금 health |
+|---|---|---|---|
+| A | io-api | 결과 구독 스레드가 예외로 끝남 | 200 |
+| B | 추론 | Kafka 입력 스레드가 예외로 끝나거나 처음 만들 때 실패함 | 200, 게다가 상태에 `running: true`로 나온다(스레드 변수를 비우지 않음) |
+| C | io-api | 판정 결과 형식이 안 맞아 메시지를 전부 건너뜀(예: 처리 서비스만 새 버전 배포) | 200, 스레드 살아 있음, lag 0. 로그 경고만 남음 |
+| D | 처리 서비스(판정·저장) | `@KafkaListener` 컨테이너가 멈춤 | Spring 기본 health에는 리스너 상태가 없다. 코드에 `status()` 집계는 있으나 liveness와 이어져 있는지 **BE 확인 필요** |
+| E | io-api | `stalled` 확인 타이머가 예외로 멈춤. Java 예약 작업은 한 번 예외가 나면 그 뒤로 조용히 실행되지 않는다 | 200 (예외 날 곳이 거의 없어 가능성 낮음) |
+| F | 추론 | `/health`가 Kafka·Redis까지 보고 하나라도 안 되면 503 | 쿠버네티스 liveness로 쓰면 Kafka가 잠깐 죽을 때 추론도 계속 재시작된다 |
+| G | io-api | 결과 구독 그룹 이름이 `io-ws-${HOSTNAME}` | compose는 hostname을 `io-api`로 고정했다. 쿠버네티스 파드는 재시작마다 이름이 바뀌어 그룹이 매번 새로 생긴다 |
+
+#### 뭐가 필요한가
+
+| # | 요청 | 대상 상태 |
+|---|---|---|
+| BE-14 | **각 서버 liveness에 「자기」 Kafka 스레드·리스너가 실제로 돌고 있는지 넣는다.** io-api는 결과 구독 스레드와 `stalled` 타이머, 추론은 입력 스레드(`running`을 `thread.is_alive()`로), 처리 서비스는 리스너 컨테이너 | A·B·D·E |
+| BE-15 | **다른 서버(Kafka·Redis·DB) 상태는 liveness에서 뺀다.** 추론 `/health`를 liveness용(자기 프로세스·스레드만)과 정보용(전체)으로 나눈다. 다른 서버 상태가 필요하면 정보용 주소나 readiness로만 본다 | F |
+| BE-16 | **건너뛴 메시지 수를 상태에 내놓고, 늘면 알림을 받는다.** io-api 결과 구독이 건너뛴 수, 처리 서비스 DLQ(`posture.dlq`) 증가 | C |
+| BE-17 | **io-api 결과 구독 그룹 이름을 고정값(환경 변수 `posegood.realtime.kafka.group-id`)으로 준다.** hostname에 기대지 않는다 | G |
+
+#### 어째서 필요한가
+
+- **BE-14:**
+  - 쿠버네티스는 liveness가 실패해야 재시작한다. A·B·D·E는 프로세스가 살아 있어 liveness가 통과하므로 자동 복구가 일어나지 않는다.
+  - 이 상태는 재시작 말고는 고칠 방법이 없다. 그런데 재시작을 해 줄 장치가 없다.
+  - 「쿠버네티스가 다시 띄우니 FE는 대비하지 않는다」는 결정이 성립하려면 이 요청이 전제 조건이다.
+- **BE-15:**
+  - liveness가 실패하면 쿠버네티스는 그 서버를 죽이고 다시 띄운다. 다른 서버 상태를 넣으면, Kafka가 잠깐 죽을 때 멀쩡한 추론 서버가 재시작된다.
+  - 재시작해도 Kafka는 그대로라 또 실패하고, 무한 재시작에 빠진다. 고장 하나가 다른 서버로 번진다.
+  - io-api에 넣으면 측정 중인 모든 사용자의 WS가 끊긴다.
+  - readiness에 넣으면 요청을 아예 안 보내 로그인·기록 보기까지 막힌다.
+  - 저장소에도 같은 원칙이 있다. `infra/compose/bigdata.yaml`의 처리 서비스(`api-server`, 8080) 주석(D-11): 「liveness만 본다 — 외부 DB 일시 장애가 컨테이너 unhealthy로 번지지 않게」.
+- **BE-16:** C는 재시작으로 고쳐지지 않는 배포 문제(형식 불일치)라 사람이 봐야 한다. 지금은 로그 경고뿐이라 아무도 모른 채 모든 측정 결과가 사라진다. 기록은 저장 쪽이 따로 돌아서 남는다.
+- **BE-17:**
+  - 파드가 재시작할 때마다 새 그룹이 생기고 버려진 그룹이 쌓인다.
+  - 통합 시험·모니터링이 「`io-ws-io-api` lag 0」을 기준으로 보는데, 쿠버네티스에서는 이 이름이 없어져 기준이 깨진다.
+  - 동작 자체는 된다. 결과는 최신 위치부터 읽고, 서버마다 그룹을 따로 두는 설계이기 때문이다.
+
+#### 언제 필요한가
+
+| # | 시점 | 그전까지 |
+|---|---|---|
+| BE-14 | **kafka 모드를 운영에 켜기 전.** 늦어도 쿠버네티스로 옮길 때 | local 모드에는 결과 구독 스레드가 없어 A·E가 생기지 않는다 |
+| BE-15 | **쿠버네티스 probe를 쓸 때** | docker compose healthcheck는 unhealthy 표시만 하고 재시작하지 않는다. 지금은 영향 없음 |
+| BE-16 | **kafka 모드를 운영에 켜기 전** (모니터링을 붙일 때) | 통합 시험(`integration_test.sh --kafka`)의 lag·DLQ 확인이 대신한다 |
+| BE-17 | **쿠버네티스로 옮길 때** | compose의 `hostname: io-api`로 충분 |
+
+#### 어디에 필요한가
+
+| # | 서버 | 코드·설정 (`feat/ws-kafka-pipeline`) |
+|---|---|---|
+| BE-14 | io-api | `backend/api/.../realtime/KafkaResults.java` `run`(스레드가 끝나도 표시 없음), `RealtimeHandlerV2.java` `timer`·`checkStalled`, `backend/api/.../system/HealthController.java` `/health`(API·DB만) |
+| BE-14 | 추론 | `backend/inference/app/realtime.py` `status()`의 `running`, `_run` |
+| BE-14 | 처리 서비스 | `backend/processing/.../judge/RealtimeInferenceConsumer.java`, `.../report/EpisodesStoreConsumer.java`(`@KafkaListener`), actuator liveness |
+| BE-15 | 추론 | `backend/inference/app/main.py` `/health`(`check_kafka`·`check_redis`), `infra/compose/bigdata.yaml` 추론 healthcheck, 쿠버네티스 매니페스트(옮길 때) |
+| BE-16 | io-api·처리 서비스 | `KafkaResults.handle`의 건너뜀(`realtime kafka result skipped`), `posture.dlq`, 모니터링 설정 |
+| BE-17 | io-api | `RealtimePipelineConfiguration.java` `posegood.realtime.kafka.group-id`, `infra/compose/bigdata.yaml` io-api `hostname`(D-57 주석), 쿠버네티스 매니페스트 |
+
+담당: io-api·처리 서비스는 BE(김유진)·DevOps(홍규), 추론 health는 DevOps, 쿠버네티스 probe는 DevOps. FE가 할 일은 없다. 측정 시작 때 오류 화면과 `stalled` 안내로 앱 쪽 대응은 끝났다.
 
 ## 2. 전제와 현재 구조
 
