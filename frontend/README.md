@@ -111,8 +111,9 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 
 메일 화면: 로그인에서 **비밀번호 재설정**, 가입 정보에서 **이메일 인증 안내**로 진입한다.
 `#password-reset?token=...`·`#verify-email?token=...` 링크를 받을 수 있다. 현재 API는 기본 비활성이며
-성공을 가장하지 않고 연결 준비중을 표시한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 후속 같은 출처 API가
-실제로 배포된 웹에서만 빌드 시 활성화한다. SMTP/비밀/DB는 프론트가 처리하지 않는다.
+성공을 가장하지 않고 연결 준비중을 표시한다. 비밀번호 재설정은 서버 경로가 생겼으므로(기본 꺼짐) 서버를 켠 배포에서
+`VITE_PASSWORD_RESET_ENABLED=true`로 빌드한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 서버 경로가 아직 없는 이메일 인증까지 켜므로 쓰지 않는다.
+Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`일 때 로그인 화면·프로필 설정에 나타난다(데스크톱 앱에서는 숨김). [인계](../docs/design/social-login-password-reset-handoff.md). SMTP/비밀/DB는 프론트가 처리하지 않는다.
 데스크톱 앱도 웹 주소의 화면을 열므로 웹과 같은 빌드 플래그를 따른다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
 
 최신 밝은 테마는 사이드바/소개 `#416b56`, 흰 작업 면이다. 이미지 모델로 생성한 투명 WebP
