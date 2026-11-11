@@ -3,6 +3,8 @@ package org.posegood.api.realtime;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -12,6 +14,7 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.posegood.api.common.Json;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.SessionView;
+import org.posegood.api.session.SessionResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -32,10 +35,13 @@ import tools.jackson.databind.JsonNode;
  *   <li>측정불가(판정 불가·자리 비움)가 이어진 시간을 관측으로 세어 한도에 닿으면 끝내라고 알린다(local과 같은 규칙).</li>
  * </ul>
  *
+ * <p>(⑧) 세션마다 마지막 {@code progress}·{@code decision} 값을 쥐고 있다가 세션 조회(S4)에 내준다({@link SessionResults}).
+ * 종료 값은 저장 완료와 함께 낼 때 넣는다. 6시간 결과가 없으면 잊는다.
+ *
  * <p>입출구 서버마다 컨슈머 그룹을 따로 두고(모든 결과를 받음) 처음엔 최신 위치부터 읽는다 — 결과는 연결이 있는 동안만 쓸모가
  * 있고 재연결은 없다(ADR 0024). 깨진 메시지는 건너뛴다(로그에 좌표·본문을 남기지 않음).
  */
-final class KafkaResults implements AutoCloseable {
+final class KafkaResults implements AutoCloseable, SessionResults {
 	private static final Logger log = LoggerFactory.getLogger(KafkaResults.class);
 	/** 결과가 오지 않는 세션 상태를 지우는 시간. */
 	private static final long FORGET_NANOS = Duration.ofHours(6).toNanos();
@@ -51,6 +57,8 @@ final class KafkaResults implements AutoCloseable {
 	private final ConcurrentHashMap<UUID, Live> live = new ConcurrentHashMap<>();
 	/** (D-67) 종료 사건·저장 완료 중 먼저 온 쪽. 둘이 다 오면 지운다. 구독 스레드 하나만 쓴다. */
 	private final ConcurrentHashMap<UUID, Ending> endings = new ConcurrentHashMap<>();
+	/** (⑧) 세션 조회용 마지막 결과. 구독 스레드가 바꾸고(통째로 교체) HTTP 스레드가 읽는다. */
+	private final ConcurrentHashMap<UUID, Kept> latest = new ConcurrentHashMap<>();
 	private volatile boolean running;
 	private Thread thread;
 
@@ -109,6 +117,12 @@ final class KafkaResults implements AutoCloseable {
 				Thread.currentThread().interrupt();
 			}
 		}
+	}
+
+	@Override
+	public Optional<SessionResults.Snapshot> latest(UUID sessionId) {
+		var kept = latest.get(sessionId);
+		return kept == null ? Optional.empty() : Optional.of(kept.snapshot);
 	}
 
 	/** 메시지 하나를 앱 메시지로 바꿔 이벤트로 낸다. 형식이 틀리면 건너뛴다. */
@@ -174,6 +188,7 @@ final class KafkaResults implements AutoCloseable {
 		var summary = json.convert(body.path("summary"), SessionView.Summary.class);
 		var message = new RealtimeMessages.V2.Decision(event, summary);
 		if (!"session_ended".equals(event.kind())) {
+			keep(sessionId, lastSequence(body), summary, event, false);
 			publish(sessionId, message, null, null, null);
 			return;
 		}
@@ -184,6 +199,9 @@ final class KafkaResults implements AutoCloseable {
 		}
 		ending.decision = message;
 		ending.totalMs = summary.totalMs();
+		ending.lastSequence = lastSequence(body);
+		ending.event = event;
+		ending.summary = summary;
 		release(sessionId, ending);
 	}
 
@@ -200,13 +218,47 @@ final class KafkaResults implements AutoCloseable {
 			return;
 		}
 		endings.remove(sessionId);
+		keep(sessionId, ending.lastSequence, ending.summary, ending.event, true);
 		publish(sessionId, ending.decision, null, ending.totalMs, null);
 	}
 
 	private void progress(UUID sessionId, JsonNode body) {
 		var summary = json.convert(body.path("summary"), SessionView.Summary.class);
+		keep(sessionId, body.path("last_sequence").asLong(), summary, null, false);
 		publish(sessionId, new RealtimeMessages.V2.Progress(body.path("last_sequence").asLong(), summary,
 			pausedReason(live.get(sessionId))), null, null, null);
+	}
+
+	/** decision 본문의 마지막 순번(없으면 null — 앞의 값을 둔다). */
+	private static Long lastSequence(JsonNode body) {
+		var value = body.path("last_sequence");
+		return value.isNumber() ? value.asLong() : null;
+	}
+
+	/**
+	 * (⑧) 세션 조회용 마지막 결과를 바꾼다. 끝난 세션의 값은 그 뒤 progress로 덮지 않는다(재전송·늦게 온 메시지).
+	 * 사건은 사건 번호로 중복을 지운다.
+	 */
+	private void keep(UUID sessionId, Long lastSequence, SessionView.Summary summary, SessionView.DecisionEvent event,
+		boolean ended) {
+		var before = latest.get(sessionId);
+		if (before != null && before.snapshot.ended()) {
+			return;
+		}
+		var events = new TreeMap<Long, SessionView.DecisionEvent>();
+		long sequence = -1;
+		if (before != null) {
+			before.snapshot.events().forEach(kept -> events.put(kept.eventId(), kept));
+			sequence = before.snapshot.lastSequence();
+		}
+		if (event != null) {
+			events.putIfAbsent(event.eventId(), event);
+		}
+		if (lastSequence != null) {
+			sequence = Math.max(sequence, lastSequence);
+		}
+		var snapshot = new SessionResults.Snapshot(sequence, summary, new ArrayList<>(events.values()), ended);
+		latest.put(sessionId, new Kept(snapshot, System.nanoTime()));
 	}
 
 	/** local {@code SessionEngine.pausedReason}과 같음: 쉬기·자리 비움이면 그 이름, 판정 불가면 unmeasurable. */
@@ -239,6 +291,9 @@ final class KafkaResults implements AutoCloseable {
 		if (endings.size() > 256) {
 			endings.entrySet().removeIf(entry -> now - entry.getValue().seenAt > FORGET_NANOS);
 		}
+		if (latest.size() > 256) {
+			latest.entrySet().removeIf(entry -> now - entry.getValue().seenAt > FORGET_NANOS);
+		}
 	}
 
 	/** 세션마다 마지막 관측과 측정불가 누적. 구독 스레드 하나만 쓴다. */
@@ -254,7 +309,14 @@ final class KafkaResults implements AutoCloseable {
 	private static final class Ending {
 		private RealtimeMessages.V2.Decision decision;
 		private long totalMs;
+		private Long lastSequence;
+		private SessionView.DecisionEvent event;
+		private SessionView.Summary summary;
 		private boolean stored;
 		private final long seenAt = System.nanoTime();
+	}
+
+	/** (⑧) 세션 조회용 마지막 결과와 받은 시각. */
+	private record Kept(SessionResults.Snapshot snapshot, long seenAt) {
 	}
 }

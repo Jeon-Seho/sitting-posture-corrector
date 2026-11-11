@@ -350,11 +350,10 @@ def run_socket(base, owner, sid, pipeline):
 def check_records(owner, path, report, sid, pipeline="local"):
     status, view = owner.call(path)
     ended = status == 200 and isinstance(view, dict) and view.get("ended")
-    if pipeline == "kafka" and not ended:
-        # (D-57) kafka 경로에서 S4는 아직 API 메모리 판정기를 읽는다 — DB에서 읽게 하는 것은 DB/BE 2단계(계획 0031).
-        print(f"SKIP  REST 세션 조회: 종료됨 — kafka 경로는 DB/BE 2단계 전 (HTTP {status})", flush=True)
-    else:
-        check("REST 세션 조회: 종료됨", ended, f"HTTP {status}")
+    # (D-57 ⑧) kafka 경로의 S4는 연결이 받아 둔 마지막 결과 — 종료·저장 완료를 받았으면 최종 요약(local과 같은 값)
+    total = (view.get("summary") or {}).get("total_ms") if ended else None
+    check(f"REST 세션 조회: 종료됨 · 전체 85.0s ({pipeline})", ended and total == 85000,
+          f"HTTP {status} ended={bool(ended)} total_ms={total}")
     if not report:
         return
     stored = None

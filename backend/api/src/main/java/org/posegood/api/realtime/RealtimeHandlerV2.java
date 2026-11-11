@@ -73,8 +73,10 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private static final Set<String> FEATURES = Set.of("type", "items");
 	private static final Set<String> END = Set.of("type", "end_ms");
 	private static final String DAY_CHANGED = "day_changed";
-	/** kafka 경로: 마지막 ack 뒤(측정 중)·end 뒤(종료 대기) 이 시간 동안 결과가 없으면 {@code stalled}(2026-10-26 ③). */
+	/** kafka 경로: 마지막 ack 뒤(측정 중) 이 시간 동안 결과가 없으면 {@code stalled}(2026-10-26 ③). */
 	static final long STALL_NANOS = Duration.ofSeconds(5).toNanos();
+	/** kafka 경로: end 뒤 이 시간 동안 종료(저장 완료)가 오지 않으면 {@code stalled} — 저장 지연(D-57 ⑧, FE 요청 3초). */
+	static final long END_STALL_NANOS = Duration.ofSeconds(3).toNanos();
 
 	/** 자정 넘김(이전 세션 종료·새 세션 행)에만 쓴다. 측정 입력·종료는 {@link #pipeline}. */
 	private final SessionService sessions;
@@ -454,7 +456,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			if (channel.state.get() != State.MEASURE || channel.stalledSent) {
 				continue;
 			}
-			boolean waitingEnd = channel.ending != 0 && now - channel.ending > STALL_NANOS;
+			boolean waitingEnd = channel.ending != 0 && now - channel.ending > END_STALL_NANOS;
 			boolean waitingResult = channel.ending == 0 && channel.lastSequence > channel.observedSequence
 				&& now - channel.ackedAt > STALL_NANOS;
 			if (waitingEnd || waitingResult) {

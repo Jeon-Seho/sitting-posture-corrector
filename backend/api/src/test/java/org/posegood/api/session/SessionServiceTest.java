@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -193,5 +194,27 @@ class SessionServiceTest {
 	private static SessionRepository.Stored row() {
 		return new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
 			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
+	}
+
+	/** (D-57 ⑧) kafka 경로: 세션 조회는 받아 둔 마지막 결과로 요약·사건·순번·종료를 채운다(정책은 그대로). 없으면 엔진 값. */
+	@Test
+	void getOverlaysTheLatestKafkaResult() {
+		var service = service(Duration.ZERO);
+		var engine = service.get(OWNER, ID);
+		assertEquals(-1, engine.lastSequence());
+
+		var summary = new SessionView.Summary(85000, 80000, 70000, 10000, 0, 5000, 0, 0, 1, 1, 170, 0.875, 42.0,
+			null, null);
+		var event = new SessionView.DecisionEvent("1.0", ID, 1, "collapse_confirmed", 3000, 0, 0, "forward_head",
+			null);
+		service.useResults(id -> id.equals(ID)
+			? Optional.of(new SessionResults.Snapshot(169, summary, List.of(event), true))
+			: Optional.empty());
+		var view = service.get(OWNER, ID);
+		assertEquals(169, view.lastSequence());
+		assertEquals(summary, view.summary());
+		assertEquals(List.of(event), view.events());
+		assertTrue(view.ended());
+		assertEquals(engine.policy(), view.policy());
 	}
 }

@@ -47,6 +47,8 @@ public class SessionService {
 	private final long maxSessionMs;
 	/** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
 	private final long unmeasurableTimeoutMs;
+	/** (D-57 ⑧) kafka 경로에서 받아 둔 마지막 결과. local은 없음. */
+	private volatile SessionResults results = SessionResults.NONE;
 
 	public SessionService(
 		LiveSessions live,
@@ -315,7 +317,22 @@ public class SessionService {
 	/** 현재 상태 조회. */
 	public SessionView get(long owner, UUID id) {
 		var session = require(owner, id);
-		return session.locked(() -> session.engine().view());
+		var view = session.locked(() -> session.engine().view());
+		return results.latest(id).map(latest -> overlay(view, latest)).orElse(view);
+	}
+
+	/**
+	 * (D-57 ⑧) kafka 경로: 판정을 처리 서비스가 하므로 이 서버의 엔진에는 결과가 없다. 실시간 연결이 받은 마지막
+	 * {@code progress}·{@code decision}으로 요약·사건·순번을 채운다. {@code ended}는 종료 사건과 저장 완료를 다 받았을 때만
+	 * true다(그때 요약이 최종 값).
+	 */
+	public void useResults(SessionResults results) {
+		this.results = results;
+	}
+
+	private static SessionView overlay(SessionView view, SessionResults.Snapshot latest) {
+		return new SessionView(view.schemaVersion(), view.sessionId(), view.policy(), view.timerPolicy(),
+			latest.ended(), latest.lastSequence(), latest.summary(), latest.events());
 	}
 
 	/**

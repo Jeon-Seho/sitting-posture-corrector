@@ -315,6 +315,13 @@ class RealtimeHandlerV2Test {
 		verify(sessions, never()).finish(anyLong(), any(), any());
 	}
 
+	/** (D-57 ⑧) kafka 경로의 stalled: 측정 중 결과 지연은 5초, end 뒤 저장 지연은 3초(FE 요청). */
+	@Test
+	void kafkaStallThresholdsAreFiveSecondsMeasuringAndThreeAfterEnd() {
+		assertEquals(5, Duration.ofNanos(RealtimeHandlerV2.STALL_NANOS).toSeconds());
+		assertEquals(3, Duration.ofNanos(RealtimeHandlerV2.END_STALL_NANOS).toSeconds());
+	}
+
 	@Test
 	void inferenceFailureSendsStalledAndKeepsTheConnection() throws Exception {
 		var fake = measuring();

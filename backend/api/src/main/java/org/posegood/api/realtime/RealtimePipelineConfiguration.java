@@ -61,6 +61,7 @@ class RealtimePipelineConfiguration {
 					storedTopic, json,
 					events, kafka::hint, unmeasurableTimeout);
 				kafka.attach(results);
+				sessions.useResults(results); // ⑧ 세션 조회(S4)가 받아 둔 마지막 결과를 쓴다
 				results.start();
 				yield kafka;
 			}

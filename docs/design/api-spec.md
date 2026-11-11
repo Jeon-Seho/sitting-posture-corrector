@@ -906,6 +906,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 로그인 필요 · 계정 헤더
 
 - 메모리의 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
+- kafka 경로(`posegood.realtime.pipeline=kafka`, D-57 ⑧): 판정은 처리 서비스가 하므로, 실시간 연결이 받은 마지막 `progress`·`decision` 값(요약·사건·`last_sequence`)으로 응답한다. `ended`는 종료 사건과 저장 완료(`posture.stored.v1`)를 다 받았을 때만 `true`이고, 그때 `summary`가 최종 값이다. 받은 결과가 없으면 local과 같다(엔진 값).
 
 **요청 본문**: 없음
 
@@ -1483,7 +1484,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
-| `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
+| `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. kafka 경로: 측정 중 결과가 5초 없을 때(결과 지연), `end` 뒤 종료가 3초 오지 않을 때(저장 지연, D-57 ⑧). |
 | `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-v2/ws-session-rollover.json) |
 | `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔으면 `null`(ADR 0028). |
 

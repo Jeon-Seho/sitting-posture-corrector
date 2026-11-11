@@ -1,6 +1,7 @@
 package org.posegood.api.realtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -144,7 +145,8 @@ class KafkaResultsTest {
 
 	private static ObjectNode sessionEnded() throws Exception {
 		var ended = kafka("episodes-decision.json");
-		((ObjectNode)ended.get("body").get("event")).put("kind", "session_ended").put("reason", "ended");
+		((ObjectNode)ended.get("body").get("event")).put("kind", "session_ended").put("reason", "ended")
+			.put("event_id", 2);
 		((ObjectNode)ended.get("body").get("summary")).put("total_ms", 85000);
 		return ended;
 	}
@@ -199,6 +201,36 @@ class KafkaResultsTest {
 		assertNull(published.get(2).unmeasurableEndMs());
 		assertEquals(3500L, published.get(3).unmeasurableEndMs());
 		assertNull(published.get(4).unmeasurableEndMs()); // 한 번만
+	}
+
+	/** (⑧) 세션 조회용 마지막 결과: progress·decision으로 바뀌고, 종료 값은 저장 완료와 함께 들어가며, 그 뒤 덮이지 않는다. */
+	@Test
+	void latestKeepsTheLastProgressAndEventsAndEndsOnlyWithStored() throws Exception {
+		assertTrue(results.latest(SESSION).isEmpty());
+
+		episodes(kafka("episodes-progress.json"));
+		var first = results.latest(SESSION).orElseThrow();
+		assertEquals(1, first.lastSequence());
+		assertTrue(first.events().isEmpty());
+		assertFalse(first.ended());
+
+		episodes(kafka("episodes-decision.json"));
+		episodes(kafka("episodes-decision.json")); // 재전송 — 사건은 한 번
+		var decided = results.latest(SESSION).orElseThrow();
+		assertEquals(2, decided.lastSequence());
+		assertEquals(List.of("collapse_confirmed"), decided.events().stream().map(event -> event.kind()).toList());
+
+		episodes(sessionEnded());
+		assertFalse(results.latest(SESSION).orElseThrow().ended()); // 저장 완료 전
+		stored();
+		var ended = results.latest(SESSION).orElseThrow();
+		assertTrue(ended.ended());
+		assertEquals(85000L, ended.summary().totalMs());
+		assertEquals(List.of(1L, 2L), ended.events().stream().map(event -> event.eventId()).toList());
+
+		episodes(kafka("episodes-progress.json")); // 늦게 온 progress는 최종 값을 덮지 않는다
+		assertEquals(85000L, results.latest(SESSION).orElseThrow().summary().totalMs());
+		assertTrue(results.latest(UUID.randomUUID()).isEmpty());
 	}
 
 	@Test
