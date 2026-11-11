@@ -313,6 +313,20 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(ended).toHaveLength(1)
   })
 
+  it('keeps the decisions it saw when S4 answers with the summary only (kafka mode memory, BE 11/11)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    socket.push({ type: 'decision', event: collapse, summary: seen })
+    fetch.mockResolvedValueOnce(reply(200, view({ last_sequence: 3, summary: seen })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', late: true })
+    expect(live.state.events.map((e) => e.kind)).toEqual(['collapse_confirmed'])
+  })
+
   it('is not late when closed comes in time', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })

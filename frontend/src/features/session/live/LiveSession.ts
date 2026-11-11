@@ -507,12 +507,13 @@ export class LiveSession {
       // A view that measured less than the screen already showed must not replace it: kafka mode
       // answers S4 from an engine that never got the intervals (all zeros). Compared by `total_ms`,
       // not `last_sequence`, because a view rebuilt from the DB says -1 there. A view without
-      // `session_ended` leaves the record unconfirmed, so R1 checks it later.
+      // `session_ended` leaves the record unconfirmed, so R1 checks it later. Kafka mode answers
+      // from memory with the last `progress` only (BE 11/11), so fewer events keep the ones shown.
       if (view && view.summary.total_ms >= this.state.summary.total_ms) {
         this.finish({
           phase: 'ended',
           summary: view.summary,
-          events: view.events,
+          events: view.events.length >= this.state.events.length ? view.events : this.state.events,
           lastSequence: Math.max(view.last_sequence, this.state.lastSequence),
           late,
         })
