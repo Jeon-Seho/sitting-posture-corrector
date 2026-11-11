@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../../components/icons'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
@@ -10,6 +11,35 @@ import { collapseEvents } from './events'
 import type { LiveState } from './LiveSession'
 import type { SocketLike } from './LiveSession'
 import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
+
+/**
+ * 「측정 종료」 to the result (`closed`, or S4 after at most 10 s): a modal that covers the whole app
+ * so nothing else is pressed while the server saves (plan 0059 4⑤). Esc does not close it.
+ */
+export function EndingDialog({ open, stalled }: { open: boolean; stalled: boolean }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal?.()
+    if (!open && dialog.open) dialog.close?.()
+  }, [open])
+  return (
+    <dialog
+      ref={ref}
+      className="confirm-dialog ending-dialog"
+      aria-labelledby="ending-dialog-title"
+      aria-busy={open}
+      onCancel={(event) => event.preventDefault()}
+    >
+      <div className="ending-spinner" aria-hidden="true" />
+      <h2 id="ending-dialog-title">측정 결과를 저장하고 있어요</h2>
+      <p className="fine" role="status">
+        {stalled ? '저장이 늦어지고 있어요. 잠시만 기다려 주세요.' : '잠시만 기다려 주세요. 저장되면 바로 결과를 보여 드려요.'}
+      </p>
+    </dialog>
+  )
+}
 
 export type LiveSessionPageProps = {
   session: LiveSessionDescriptor
@@ -253,6 +283,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const waitingInput = phase === 'paused' && state?.sending === 'away'
   return (
     <>
+      <EndingDialog open={phase === 'ending'} stalled={!!state?.stalled} />
       <div className="page-head">
         <div>
           <h1 className="page-title">{label}</h1>
