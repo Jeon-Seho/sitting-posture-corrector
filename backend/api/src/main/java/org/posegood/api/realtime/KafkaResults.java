@@ -22,7 +22,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.databind.JsonNode;
 
 /**
- * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes.v1}·{@code posture.alerts.v1}·{@code posture.stored.v1}을 받아 앱 메시지로 바꿔
+ * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes.v1}·{@code posture.alerts.v1}·
+ * {@code posture.stored.v1}을 받아 앱 메시지로 바꿔
  * {@link PipelineResult} 이벤트로 낸다. 판정은 하지 않는다 — 처리 서비스가 낸 값을 옮길 뿐이다.
  *
  * <ul>
