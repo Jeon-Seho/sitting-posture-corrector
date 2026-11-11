@@ -285,13 +285,13 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.endedAt).toBeNull()
   })
 
-  it('reads the saved result with S4 when closed does not come within 10 s', async () => {
+  it('reads the saved result with S4 when closed does not come within 5 s', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     const saved = { ...EMPTY_SUMMARY, total_ms: 900, valid_ms: 900, normal_ms: 900, keep_rate: 1, events_per_hour: 0 }
     fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: 1, summary: saved })))
     live.end()
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     await flush()
     expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${SESSION}`)
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 1 })
@@ -306,7 +306,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     // kafka mode: the API's memory engine never got the intervals.
     fetch.mockResolvedValueOnce(reply(200, view()))
     live.end()
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     await flush()
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
     expect(live.state.summary.total_ms).toBe(1800)
@@ -325,7 +325,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     }
     fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: -1, summary: stored, events: [sessionEnded] })))
     live.end()
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     await flush()
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
     expect(live.state.summary.total_ms).toBe(2000)
@@ -375,7 +375,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.drop()
     await flush()
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 0 })
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -488,7 +488,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
       socket.push(rollover)
       fetch.mockResolvedValueOnce(reply(200, view({ session_id: NEXT, ended: true, last_sequence: 5 })))
       live.end()
-      await vi.advanceTimersByTimeAsync(10_000)
+      await vi.advanceTimersByTimeAsync(5_000)
       await flush()
       expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${NEXT}`)
       expect(live.state).toMatchObject({ sessionId: NEXT, phase: 'ended' })

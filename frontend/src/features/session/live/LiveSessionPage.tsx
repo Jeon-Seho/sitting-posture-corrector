@@ -13,7 +13,7 @@ import type { SocketLike } from './LiveSession'
 import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
 
 /**
- * 「측정 종료」 to the result (`closed`, or S4 after at most 10 s): a modal that covers the whole app
+ * 「측정 종료」 to the result (`closed`, or S4 after at most 5 s): a modal that covers the whole app
  * so nothing else is pressed while the server saves (plan 0059 4⑤). Esc does not close it.
  */
 export function EndingDialog({ open, stalled }: { open: boolean; stalled: boolean }) {

@@ -264,6 +264,21 @@ async function createWindow() {
     executable: loginExecutable, isolated: process.argv.includes('--posegood-smoke-hidden') })
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', hidePopup)
+  // 측정 중 X·Alt+F4: 화면의 beforeunload가 닫기를 막으면 Electron은 아무것도 묻지 않고 무시한다.
+  // 웹 브라우저의 「사이트에서 나가시겠습니까?」와 같은 역할로 여기서 묻는다. 닫아도 기록은 서버가 저장한다.
+  window.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: 'question',
+      buttons: ['닫기', '계속 측정'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      title: 'PoseGood',
+      message: '측정 중이에요. 정말 닫을까요?',
+      detail: '닫으면 측정이 끝나요. 그때까지의 기록은 서버에 저장돼요.',
+    })
+    if (choice === 0) event.preventDefault()
+  })
   window.on('closed', () => {
     mainWindow = null
     if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()

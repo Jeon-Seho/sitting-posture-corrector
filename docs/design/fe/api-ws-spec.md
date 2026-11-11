@@ -46,7 +46,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | `hello` → `ready` | 5초 | 연결을 닫고 「서버에 연결하지 못했어요」. 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터** |
 | `features` | **프레임마다 구간 1개**(10/27 팀장 결정, 5.1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
 | 카메라 영상 | 프레임이 1초 넘게 없으면 `away` | 카메라가 돌아와야 「측정 재개」 |
-| 측정 `end` → `closed(ended)` | 10초 | S4로 결과(실패하면 마지막 `progress`로 종료 화면). 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다(계획 0059 정한 것 4⑤) |
+| 측정 `end` → `closed(ended)` | 5초 (11/11, 10초에서 줄임: local은 1초 미만, kafka는 정상 1~3초 예상) | S4로 결과(실패하면 마지막 `progress`로 종료 화면). 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다(계획 0059 정한 것 4⑤). 데스크톱 앱에서는 앱 본체가 같은 역할의 「측정 중이에요. 정말 닫을까요?」를 묻는다 |
 | 자세 등록 촬영 | 끊기지 않은 3초, 판정 가능 프레임 20장 이상. 추적 속도가 낮으면 20장까지 이어 찍는다 | 15초가 지나면 실패 안내 |
 
 ## 2. 오류 코드별 앱 동작
@@ -114,7 +114,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 |---|---|---|---|---|---|---|---|
 | [S1](#api-s1) | PUT | 세션 생성 | `/v2/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
 | [S3](#api-s3) | POST | 세션 종료 | `/v2/sessions/{id}/end` | | 측정 종료 | 부르지 않는다. 측정은 WS `end`로 끝낸다(4장 S3·S4) | 안 씀 |
-| [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 10초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽는다(끝난 뒤 30분 보관, 서버 재시작 때 사라짐). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+| [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽는다(끝난 뒤 30분 보관, 서버 재시작 때 사라짐). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
 
 ### realtime | 실시간
 
@@ -148,7 +148,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 - **W1·W2·C1:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 1.0 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 10초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 1.0 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
@@ -271,8 +271,8 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 2 | 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
 | 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `ack` → `progress` |
-| 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (10초 안) |
-| 6 | 10초 안에 `closed`가 없으면 S4 | 저장된 결과 |
+| 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (5초 안) |
+| 6 | 5초 안에 `closed`가 없으면 S4 | 저장된 결과 |
 
 ```mermaid
 sequenceDiagram

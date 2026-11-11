@@ -88,7 +88,9 @@ type Options = {
 
 const OPEN = 1
 export const READY_TIMEOUT_MS = 5000
-export const END_TIMEOUT_MS = 10_000
+// 2026-11-11: 5 s (was 10). Local mode answers in under a second, kafka mode in about 1–3 s;
+// longer only when a server service is down, and then the last `progress` result is shown.
+export const END_TIMEOUT_MS = 5_000
 
 const MESSAGES: Record<ApiErrorKind, string> = {
   signed_out: '로그인이 필요해요. 다시 로그인한 뒤 측정해 주세요.',
@@ -283,7 +285,7 @@ export class LiveSession {
     this.socket = null
     if (this.over()) return
     if (this.state.phase === 'ending') {
-      // S4 now instead of after the 10 s wait.
+      // S4 now instead of after the 5 s wait.
       this.clearTimer()
       void this.fetchResult()
       return
@@ -463,7 +465,7 @@ export class LiveSession {
     this.switchTo('running')
   }
 
-  /** 「측정 종료」, the small window's X or an unplugged camera: `end`, then wait 10 s. */
+  /** 「측정 종료」, the small window's X or an unplugged camera: `end`, then wait 5 s. */
   end() {
     if (this.over() || this.state.phase === 'ending') return
     if (!this.batcher || !this.ready) {
