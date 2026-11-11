@@ -21,6 +21,12 @@ export type LiveSessionPageProps = {
   openSocket?: (url: string) => SocketLike
 }
 
+/** The 「연결 상태」 line. kafka mode sends `stalled` after `end` too, while the result is being saved. */
+export function connectionText(phase: string, stalled: boolean) {
+  if (phase === 'ending') return stalled ? '결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요.' : '측정 결과를 저장하고 있어요.'
+  return stalled ? '분석이 잠시 멈췄어요. 측정은 계속돼요.' : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'
+}
+
 export function headline(state: LiveState | null, phase: string) {
   if (!state || phase === 'creating' || phase === 'connecting') return '서버에 연결하고 있어요'
   if (phase === 'ending') return '측정을 마무리하고 있어요'
@@ -354,9 +360,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
               연결 상태
             </h3>
             <p className="fine" role="status">
-              {state?.stalled
-                ? '분석이 잠시 멈췄어요. 측정은 계속돼요.'
-                : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'}
+              {connectionText(phase, !!state?.stalled)}
             </p>
             <p className="fine" style={{ marginTop: 8 }}>
               {session.rules.holdSeconds}초 지속 시 확정 · {session.rules.recoverSeconds}초 정상 복귀 · 같은 사건{' '}

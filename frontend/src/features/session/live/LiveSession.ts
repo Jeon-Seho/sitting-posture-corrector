@@ -166,6 +166,8 @@ export class LiveSession {
   private waiting: FrameBatch[] = []
   /** Sequence of the observation on screen; the connection's axis, so it keeps going across midnight. */
   private shownSequence = -1
+  /** The newest `event_id` that closed an episode; an `alert` below it came late (kafka mode). */
+  private closedEventId = -1
   private timer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
   /** The user (or the app) sent `end`; a server `session_ended` alone does not set this. */
@@ -328,11 +330,16 @@ export class LiveSession {
             : event.kind === 'recovery_confirmed' || event.kind === 'interrupted' || event.kind === 'session_ended'
               ? false
               : this.state.alerting
+        if (event.kind === 'recovery_confirmed' || event.kind === 'interrupted' || event.kind === 'session_ended')
+          this.closedEventId = Math.max(this.closedEventId, event.event_id)
         this.set({ events: [...this.state.events, event], summary: message.summary, alerting })
         if (event.kind === 'session_ended' && this.state.phase !== 'ending') this.set({ phase: 'ending' })
         return
       }
       case 'alert':
+        // In kafka mode `alert` comes on its own topic through the store service, so it can arrive
+        // after the episode already closed (or after 「측정 종료」): no sound for a posture already fixed.
+        if (this.state.phase === 'ending' || message.event_id < this.closedEventId) return
         this.options.onAlert?.(message.kind)
         return
       case 'stalled':
@@ -383,6 +390,8 @@ export class LiveSession {
     }
     if (!this.disposed) this.options.onRolledOver?.(previous)
     const sending = this.state.sending === 'running' ? 'running' : 'paused'
+    // The new session numbers its events from the start again.
+    this.closedEventId = -1
     this.set({
       sessionId: message.session_id,
       phase: this.ending ? 'ending' : sending,
@@ -479,8 +488,17 @@ export class LiveSession {
       const view: SessionView | null = parseSessionView(
         await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
-      if (view) {
-        this.finish({ phase: 'ended', summary: view.summary, events: view.events, lastSequence: view.last_sequence })
+      // A view that measured less than the screen already showed must not replace it: kafka mode
+      // answers S4 from an engine that never got the intervals (all zeros). Compared by `total_ms`,
+      // not `last_sequence`, because a view rebuilt from the DB says -1 there. A view without
+      // `session_ended` leaves the record unconfirmed, so R1 checks it later.
+      if (view && view.summary.total_ms >= this.state.summary.total_ms) {
+        this.finish({
+          phase: 'ended',
+          summary: view.summary,
+          events: view.events,
+          lastSequence: Math.max(view.last_sequence, this.state.lastSequence),
+        })
         return
       }
     } catch (caughtError) {

@@ -298,6 +298,75 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.summary.total_ms).toBe(900)
   })
 
+  it('keeps the progress result when S4 knows less than the app already saw', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    // kafka mode: the API's memory engine never got the intervals.
+    fetch.mockResolvedValueOnce(reply(200, view()))
+    live.end()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
+    expect(live.state.summary.total_ms).toBe(1800)
+    expect(ended).toHaveLength(1)
+  })
+
+  it('takes an S4 view rebuilt from the DB even though it says last_sequence -1', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    const stored = { ...seen, total_ms: 2000, valid_ms: 2000, normal_ms: 2000 }
+    const sessionEnded = {
+      event_id: 1, kind: 'session_ended', timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000,
+      deviation_type: 'none', reason: 'ended',
+    }
+    fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: -1, summary: stored, events: [sessionEnded] })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
+    expect(live.state.summary.total_ms).toBe(2000)
+    expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
+  })
+
+  describe('kafka mode order (ack first, alert on its own topic)', () => {
+    const summary = { ...EMPTY_SUMMARY, total_ms: 500, valid_ms: 500, deviation_ms: 500, collapse_count: 1, alert_count: 1, interval_count: 1, keep_rate: 0, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    const alert = { type: 'alert', event_id: 1, kind: 'collapse_confirmed', deviation_type: 'forward_slouch' }
+
+    it('rings for an alert that comes before its decision', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'ack', last_sequence: 0 })
+      socket.push(alert)
+      socket.push({ type: 'decision', event: collapse, summary })
+      expect(alerts).toEqual(['collapse_confirmed'])
+      expect(live.state.alerting).toBe(true)
+    })
+
+    it('stays quiet for an alert that comes after the episode recovered', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'decision', event: collapse, summary })
+      socket.push({ type: 'decision', event: { ...collapse, event_id: 2, kind: 'recovery_confirmed' }, summary })
+      socket.push(alert)
+      expect(alerts).toEqual([])
+      expect(live.state.alerting).toBe(false)
+    })
+
+    it('stays quiet for an alert after 「측정 종료」', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'decision', event: collapse, summary })
+      live.end()
+      socket.push(alert)
+      expect(alerts).toEqual([])
+    })
+  })
+
   it('reads S4 once, right away, when the socket closes while ending', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })

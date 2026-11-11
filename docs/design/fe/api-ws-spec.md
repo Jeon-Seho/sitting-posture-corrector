@@ -217,8 +217,8 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `observation` | **4.0**(develop PR #96·#98, 계획 0084 27~29 — FE 요청 반영): `sequence`·`valid`·`posture`·`collapse_probability`·`hold_ms`·`recovery_ms`(계획 0084 29, `61365a4`)·`invalid_reason`. 구간마다 바로 온다(프레임 속도만큼). 판정 불가면 `posture`·`collapse_probability`는 `null`, `hold_ms`·`recovery_ms`는 0. 경고 중 good이면 회복 상자 「좋아요, 그대로 있어 주세요」와 게이지(`recovery_ms` ÷ 정책 회복 시간, 열린 사건에서만 값이 있음). 앱은 `sequence`가 화면에 있는 결과보다 작거나 같으면 버린다. `hold_ms`(서버가 3초 확정에 쓰는 이탈 연속 시간)는 주의 상자의 게이지(÷ 정책 hold 시간)로 그대로 그린다 — 앱은 시간을 세지 않는다. 운영 서버 재배포 전까지 3.0도 읽는다(`valid`·`collapse_probability`·`invalid_reason`만 필수, 3.0이면 주의·게이지 없음). 상태 알약과 점수. 점수 = `100 × (1 − collapse_probability)`(`valid`일 때만, 표시용 변환). `posture: 'bad'`(서버가 `threshold`를 적용한 순간 판정)이면 확정 전이라도 주의 「자세가 흐트러지고 있어요」 — 소리·팝업 없음, 3초 확정은 `decision`. `valid`·`invalid_reason`은 서버만 아는 판정 불가(고개 돌림, 코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만)를 위해서만 본다 — 앱이 정한 판정 불가(어깨 안 보임·관절 빠짐·사람 없음)는 서버를 기다리지 않고 바로 표시(10/27). `invalid_reason`은 서버가 보내는 코드이고 문구는 앱: `head_turn` 「고개를 돌린 동안은 판정하지 않아요」, 그 밖 「얼굴과 어깨가 보이지 않아요」(`settling`은 서버가 아직 안 보냄). 기록에 모델 버전을 저장하지 않는다(4.0에 없음, 예전 기록의 `modelVersion`은 그대로 읽음) |
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
-| `alert` | 토스트·소리·데스크톱 팝업. 앱은 거르지 않는다 |
-| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
+| `alert` | 토스트·소리·데스크톱 팝업. 다만 그 사건이 이미 닫힌 뒤(`event_id`가 마지막 `recovery_confirmed`·`interrupted`·`session_ended`의 `event_id`보다 작음)나 「측정 종료」 뒤에 온 것은 울리지 않는다. kafka 모드에서는 `alert`가 저장 서비스를 거쳐 다른 토픽으로 와서 늦게 도착할 수 있다 |
+| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 「측정 종료」 뒤(kafka 모드에서 저장이 5초 넘게 걸릴 때)에는 「결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요」. 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
@@ -389,7 +389,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 #### Response
 
-`200 OK` + `Set-Cookie: posegood_refresh=…; Path=/; Max-Age=1209600; HttpOnly; SameSite=Lax`
+`200 OK` + `Set-Cookie: posegood_refresh=…; Path=/; Max-Age=1209600; HttpOnly; SameSite=Lax; Secure`. `Secure`는 운영 서버(`POSEGOOD_COOKIE_SECURE=true`)에서 붙고, 로컬 http 개발 서버에서는 없다.
 
 ```json
 {
@@ -519,7 +519,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 #### Response
 
-`204 No Content` + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`
+`204 No Content` + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure`. `Secure`는 운영 서버(`POSEGOOD_COOKIE_SECURE=true`)에서 붙고, 로컬 http 개발 서버에서는 없다.
 
 <a id="api-a6"></a>
 
@@ -1067,6 +1067,9 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 1. 메모리에서 세션을 찾는다. DB는 읽지 않는다.
 2. 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
+3. kafka 모드(D-57)에서는 판정을 처리 서비스가 해서 메모리 엔진에 구간이 들어가지 않는다. 그래서 `last_sequence` -1, `summary` 0인 빈 값이 온다(D-57 보고서 안건 1, 서버 쪽 해결 전).
+
+앱은 응답의 `summary.total_ms`가 화면에 보이던 값보다 작으면 이 응답을 쓰지 않고, 화면에 보이던 결과로 측정을 끝낸다(`LiveSession.fetchResult`). `last_sequence`로 비교하지 않는 것은 DB에서 다시 만든 응답(R1과 같은 방식)이 `last_sequence`를 -1로 주기 때문이다. 응답에 `session_ended` 사건이 없으면 기록은 R1이 확인할 때까지 대기 기록으로 남는다.
 
 #### Response
 
@@ -1189,8 +1192,8 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. `hello`에서 토큰, 세션 주인, 진행 중 여부, 기준 자세를 확인하고 `ready`를 보낸다.
-2. 구간마다 특징을 계산해 추론하고(`POST /v2/infer`) 판정 엔진에 넣는다.
-3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `ack` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다.
+2. 구간마다 특징을 계산해 추론하고(`POST /v2/infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
+3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `ack` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. kafka 모드에서는 `ack`가 먼저 오고, `progress`는 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
 4. 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다.
 5. `end`면 저장한 뒤 `decision(session_ended)` → `closed(ended)`를 보낸다.
 6. 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝내 저장한다.

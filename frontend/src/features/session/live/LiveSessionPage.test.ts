@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveState } from './LiveSession'
 import type { LiveObservation } from './messages'
-import { awaitingFirstResult, headline, holdProgress, nudgeKind, nudgeText, recoveryProgress, ringColor, statusTone } from './LiveSessionPage'
+import { awaitingFirstResult, connectionText, headline, holdProgress, nudgeKind, nudgeText, recoveryProgress, ringColor, statusTone } from './LiveSessionPage'
 
 /** Synthetic states only: what the measuring screen shows for each server status (observation 4.0). */
 const state = (observation: LiveObservation | null, alerting = false) =>
@@ -12,6 +12,12 @@ const observation = (posture: LiveObservation['posture'], valid = true, hold_ms 
 })
 
 describe('measuring screen status (synthetic only)', () => {
+  it('says the result is being saved after 「측정 종료」, not that measuring goes on', () => {
+    expect(connectionText('running', true)).toBe('분석이 잠시 멈췄어요. 측정은 계속돼요.')
+    expect(connectionText('ending', false)).toBe('측정 결과를 저장하고 있어요.')
+    expect(connectionText('ending', true)).toBe('결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요.')
+  })
+
   it('goes good → caution (server posture bad, not yet confirmed) → confirmed collapse', () => {
     const good = state(observation('good'))
     const bad = state(observation('bad'))
