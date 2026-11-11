@@ -4,8 +4,8 @@
 - 상태: in_progress (2026-10-22 작성. 순서: 1 PiP → 2 로그인. **1은 2026-10-26 방향을 바꿔 끝남**: 웹 작은 창 삭제·숨은 탭 측정 수정, 데스크톱 작은 창은 [계획 0055](0055-desktop-camera-window.md), 결정은 [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md). 2는 남음)
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-22
-- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md) 7.2(다음 할 일)·8.3(작은 카메라 창), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
-  [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe/fe-server-proposal.md)(FE 제안서 9장)(`app.posegood.site`, Cloudflare 터널)
+- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md) 1장(남은 요구)·2.1(데스크톱 앱), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
+  [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe/fe-server-proposal.md)(FE 제안서 2.4)(`app.posegood.site`, Cloudflare 터널)
 
 ## 문제와 완료 기준
 
@@ -39,7 +39,7 @@
 
 - 범위(1): `features/camera/useCameraWindow.ts`, `CameraWindow.tsx`, 측정 프레임 반복(`features/camera/frameLoop.ts`)의 숨은 탭 동작, `frontend/electron`은 확인만.
 - 범위(2): `app/LocalServiceApp.tsx`, `app/ServiceApp.test.tsx`, `features/auth/password.ts`, `features/storage/`(`KEYS.account`·`LocalAccount`·`validAccount`), `features/profile/useProfileForm.ts`(탈퇴 때 지우는 키).
-- 제외: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 연결, `AUTH_CHANGED` 처리(FE 제안서 7.2 7번 — 따로 한다). 서버 쪽(CORS·쿠키 `Secure`·WS 허용 출처)은 BE·DevOps.
+- 제외: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 연결, `AUTH_CHANGED` 처리(FE 제안서 `b03fd15` 7.2 7번 — 따로 한다). 서버 쪽(CORS·쿠키 `Secure`·WS 허용 출처)은 BE·DevOps.
 - 지키는 것: 시험은 합성 자료만. 실제 계정·비밀번호를 저장소에 넣지 않는다.
 
 ## 작업 단계
@@ -59,7 +59,7 @@
 - [ ] `LocalServiceApp`에서 `accounts === null` 경로와 이 기기 계정 저장을 지운다. `accounts`는 시험에서 가짜를 넣을 수 있게 prop으로 두되 `null`은 받지 않는다.
 - [ ] `KEYS.account` 처리: 앱이 더 읽지 않으면 저장 검증·탈퇴 정리 목록에서도 뺀다(`features/storage/`, `useProfileForm.ts`).
 - [ ] `password.ts`의 로컬 규칙(`validPassword`) 삭제, 화면 문구는 서버 규칙 하나로.
-- [ ] 문서: frontend/README 「로그인과 회원가입」, FE 제안서 8.1·7.2, 계획 0023 F12 항목.
+- [ ] 문서: frontend/README 「로그인과 회원가입」, FE 제안서 `b03fd15` 8.1·7.2, 계획 0023 F12 항목.
 
 ### 공통
 

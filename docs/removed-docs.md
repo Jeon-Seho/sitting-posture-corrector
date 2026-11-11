@@ -152,7 +152,7 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 실시간 측정 다시 만들기 인계서(`docs/design/frontend-realtime-handoff-2026-11-03.md`, 12장에서 지움), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
+| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 실시간 측정 다시 만들기 인계서(`docs/design/frontend-realtime-handoff-2026-11-03.md`, 12장에서 지움), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
 
 ## 11. 2026-11-10 동의 제안서 (FE, 1개)
 
@@ -168,4 +168,4 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |
+| `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |

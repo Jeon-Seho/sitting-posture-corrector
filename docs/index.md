@@ -32,7 +32,7 @@
 
 ## FE 현재 결정과 작업 (2026-10-21, 10/26 최신화, `feature/frontend-features-and-integrationV3`)
 
-- **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe/fe-server-proposal.md) 7.2.
+- **10/21 V3 서버 전용:** 앱은 항상 서버로 측정하고 판정하지 않는다(로컬 판정·이어하기·v1 서버 코드 삭제, develop에는 남아 있음). 자세 등록은 앱이 관절 9개 3초 평균을 내서 B1로(10/20 전체 회의). 측정은 S1 → `/v2/realtime` 좌표 구간. 로그인·W1 연결은 BE. 다음 할 일은 [FE 제안서](design/fe/fe-server-proposal.md) 1장.
 
 - **결정(2026-10-27 정리, 14개):** 분야별로 묶었다. 합치거나 지운 ADR은 [지운 문서 기록](removed-docs.md) 7절.
   - FE·BE 경계: [ADR 0021 앱은 정보만 보내고 판정은 서버가 한다](decisions/0021-app-sends-information-server-judges.md)(측정·자세 등록 B1·판정 불가 신호 포함), [ADR 0024 서버 연결이 끊기면 세션을 끝낸다](decisions/0024-session-ends-on-lost-connection.md), [ADR 0028 절대 시각은 서버가 정한다](decisions/0028-server-time-for-baseline-registration.md), [ADR 0029 측정은 KST 자정에 서버가 끊고, 날짜·시각은 서버 시각](decisions/0029-midnight-cut-and-server-time.md), [ADR 0031 access·refresh 토큰 로그인](decisions/0031-jwt-access-refresh-login.md)
@@ -44,7 +44,7 @@
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/fe/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/v2/realtime`.
 - **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe/fe-server-proposal.md) — 1장 남은 질문(없음, 실시간 v2 확정 10/15)·BE 진행 중인 것, 2장 전제·결정, 3장 앱이 보내는 것, 4.1 화면 상태, 7장 FE 할 일, 8장 지금 앱(연결 설정·화면과 코드 위치).
-- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe/fe-server-proposal.md)(FE 제안서 9장, 10/30 공개 연결 끝남 — 10장, 남은 일은 1장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0.
+- **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe/fe-server-proposal.md)(FE 제안서 2.4, 10/29 공개 연결 끝남, 남은 일은 1장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). V3는 BE 브랜치 `fix/repo-backend-sync`와 함께 develop에 합치고, 운영(포크) 최신화는 서버가 준비된 뒤(10/26 정정. 10/22 이름 바꿈, 옛 `fe-domain-idea.md`). BE와 다른 곳은 [FE 제안서](design/fe/fe-server-proposal.md) 1장.
 - **동의:** [FE 기능 명세 회원가입](design/fe/fe-feature-spec.md#회원가입) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.
 - **10/12~14 결정 요약(통계 표시 10/22 보완):** 가입·프로필 입력은 서버와 같게 이름 1~30자(FE·BE·DB 모두), 나이 14~120, 비밀번호 72바이트는 앱이 검사하고 12자 검사는 서버를 붙일 때 켠다(10/14). 판정 불가는 측정이 안 되는 모든 경우를 넓게 하나로(앱이 `valid:false`, DB `UNMEASURABLE`). 세션 판정·사건·요약과 어제까지의 일별 통계는 서버가 계산한다. 방금 끝난 세션은 결과 화면에 따로 표시하고, 오늘 목록·합산·달력·그래프는 로컬에 수집한 서버 결과로 표시한다. 기간 화면은 서버의 과거 통계와 로컬 오늘 값을 함께 사용한다([연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 카메라는 640×480 고정(팀 결정). 5분 미만 세션도 저장하고 "붕괴까지 걸린 시간" 통계에서만 뺀다(DB V2.3, 10/14 정정). 기록·달력 화면은 lellon0403 담당(10/14 개편). 계정 서버 연결(F12)은 BE 담당(10/14).
 - **10/16 탈퇴:** 탈퇴는 되돌릴 수 없다(BE 10/15, 철회 A8 없어짐). 탈퇴한 계정으로 로그인하면(403 `ACCOUNT_CLOSED`) 앱은 연락처 안내를 보인다([연동 명세](design/fe/api-ws-spec.md) 0.7).

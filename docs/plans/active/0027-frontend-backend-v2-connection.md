@@ -47,7 +47,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 2. 로그인·가입을 서버 계정에 연결 (`features/auth/`, `app/LocalServiceApp.tsx`)
 
-- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
+- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 `b03fd15` 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
       로그인한 `user_id`를 `X-PoseGood-User-Id`에 붙인다. 401·403·`409 AUTH_CHANGED`·503 재시도를 처리한다.
       (`ce57f56:frontend/src/features/accounts/client.ts`의 `createAccountClient`를 옮긴다.)
 - [ ] `LocalServiceApp.login()`: 입력값을 확인하지 않는 로컬 로그인을 `POST /auth/login`으로 바꾼다. 앱 시작 때 `GET /auth/me`로 로그인 상태를 복원한다.

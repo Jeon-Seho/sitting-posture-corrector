@@ -1,6 +1,6 @@
 # 앱 판정 제거와 서버 결과 전용 화면
 
-- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결. 실제 서버 시험은 10/29 공개 연결 때 끝 — [FE 제안서](../../design/fe/fe-server-proposal.md) 10.1)
+- 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결. 실제 서버 시험은 10/29 공개 연결 때 끝 — FE 제안서 `b03fd15` 10.1)
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe/fe-server-proposal.md)(BE에 물을 것 1장, FE 할 일 7장), [연동 명세](../../design/fe/api-ws-spec.md),
@@ -72,7 +72,7 @@
 - [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
 - [x] 계정 서버 연결 A1~A5(F12, 10/22): ghdrb1246 `f27dd24`(D-66)를 V3로 옮김 — 스위치 없이 항상 서버 계정, 로그인 뒤 `setServerAuth`, CSRF 403 재시도. A6·A7·W1·W2·`AUTH_CHANGED`도 그 뒤 붙음(프로필 화면, `features/auth/accountClient.ts`, `features/profile/ServerAccountPage.tsx`). C1은 앱이 아직 부르지 않는다(11/9 코드 확인). 설정 화면의 판정 기준은 11/10부터 W1·W2로 서버에 둔다([FE 기능 명세](../../design/fe/fe-feature-spec.md)). 로그인은 10/27 토큰 방식으로 바뀌어 CSRF는 없어짐(PR #68·#69).
-- [x] (옛 기록, 11/4 위 줄로 끝) 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
+- [x] (옛 기록, 11/4 위 줄로 끝) 계정 서버 연결(F12)은 BE 담당(10/14, DevOps 10/21 재확인): 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사. 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)를 부르면 앱의 B1·B2·S1·S4가 계정 정보를 쓴다. W1도 같이(S1 `policy`가 계정 값과 같아야 함, FE 제안서 1장 BE-3). 10/22 ghdrb1246이 `feature/fe-v2-auth-login` `f27dd24`(V2 화면 기준)에 A1~A5를 연결했다. V3로 옮길 때 맞출 것은 FE 제안서 `b03fd15` 7.2 「F12 브랜치 검수」. 받으면 FE가 맞출 것은 FE 제안서 `b03fd15` 7.2의 7번(`AUTH_CHANGED`·CSRF 403·계정이 바뀐 뒤 도착한 응답).
 - [ ] 기록·달력 화면의 서버 연결은 화면 담당(lellon0403)이 `recordsSource.ts`에서 과거 기록 R1·R1b와 어제까지의 통계 T1로 붙인다. 오늘 목록·집계는 서버 결과를 로컬에 수집해 사용하며 해당 수집·집계 처리는 남긴다(10/22 확정, 연동 명세 4.5). V3는 측정 결과를 R1과 같은 형식(`server.view` = SessionView)으로 이 기기에 남긴다(`useSessionPersistence.ts`, 키 하나 — 계정별로 나누지 않음, 연동 명세 4.5 「팀 참고」) — R1로 바꿔도 오늘 표시용으로 유지.
 
 ### 4단계 — 검증과 정리
@@ -93,11 +93,11 @@
 - 2026-10-13: 어깨 2초 유예(`shoulderGrace.ts`, lellon0403, `c505f26`): 어깨가 사라지면 2초 동안 마지막 어깨로 머리를 판정. 2026-10-22 지움(아래).
 - 2026-10-13: 예전 계정 모드 삭제, 로컬 로그인·회원가입 3단계(동의 C1~C6 → 계정 정보 → 자세 등록 선택).
 - 2026-10-20 전체 회의: 자세 등록의 3초 평균은 FE가 내서 B1로 보낸다(WS 등록 쓰지 않음).
-- 2026-10-21: V2를 develop에 넣고(PR #60) V3에 BE 브랜치를 받았다. V3는 서버 전용(로컬 모드 스위치 없음). FE 제안서 7.0의 미정 3개는 FE 권장안대로(klaod-tech 결정, 형식 검사만, 카메라 빠짐·영상 크기 변경은 `end`). F2(`0449abb`), F1+F3과 로컬 판정·이어하기·v1 서버 코드 삭제(`f88ffe3`). 더미 데이터도 지우기로 했다(klaod-tech: develop에 다 있으니 지운다).
+- 2026-10-21: V2를 develop에 넣고(PR #60) V3에 BE 브랜치를 받았다. V3는 서버 전용(로컬 모드 스위치 없음). FE 제안서 `b03fd15` 7.0의 미정 3개는 FE 권장안대로(klaod-tech 결정, 형식 검사만, 카메라 빠짐·영상 크기 변경은 `end`). F2(`0449abb`), F1+F3과 로컬 판정·이어하기·v1 서버 코드 삭제(`f88ffe3`). 더미 데이터도 지우기로 했다(klaod-tech: develop에 다 있으니 지운다).
 - 2026-10-22: 남은 앱 판정 코드 삭제(klaod-tech 결정: 판정 값이 하나라도 없으면 그때부터 서버 판정부가 처리한다). 어깨 유예와 머리 판정(`shoulderGrace.ts` → `shoulderCheck.ts`, 어깨가 안 보이면 바로 `valid:false`), `model/prototype/pose.ts`의 고개 돌림·점수·분류(`headTurned`·`referenceScore`·`classify`·`payload`)와 `turn` 특징, 쓰지 않던 `calibration.ts`·`serverFeatures.ts`, 특징 필터(`createFeatureFilter`)와 `camera.current`·`calibrationSummary`. 이어서 특징값(머리 높이·좌우 치우침·어깨 기울기) 계산도 지우고 프레임 검사는 `measurable`(참/거짓)만 남김, `camera.baseline`은 서버 기준 자세 그대로(기준 특징 다리 삭제), 합성 카메라는 「판정 가능/불가」만 낸다.
 - 2026-10-22: 로그인은 스위치 없이 항상 서버 계정(klaod-tech: 로컬로 돌릴 이유가 없다). F12 브랜치(`f27dd24`)를 V3로 옮기고 `setServerAuth`·CSRF 403 재시도를 붙임. 예전 화면 시험(`ServiceApp.test.tsx`)만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다(시험 전용). PiP를 고친 뒤 지운다([계획 0054](0054-pip-fix-and-server-only-login.md)).
 - 2026-10-22: 고개 돌림 구간은 학습 데이터에서 뺀다(klaod-tech). 서버의 `head_turn` 제외를 그대로 두고, 짧은 판정 불가를 이어 보는 처리(`EVENT_BREAK_SEC`)도 요청하지 않는다(다른 값이 섞이지 않게). 관절을 `[0, 0, 0]`으로 채운 프레임은 `valid:false`(`jointsComplete`).
-- 2026-10-22: 서버 연동 전 API·WS 대조(BE `047a095`). 형식은 맞고, 관절 값 범위(x·y -1~2, visibility 0~1)를 앱이 자르지 않던 것을 고침(`frameJoints`). 결과 표는 FE 제안서 7.2.
+- 2026-10-22: 서버 연동 전 API·WS 대조(BE `047a095`). 형식은 맞고, 관절 값 범위(x·y -1~2, visibility 0~1)를 앱이 자르지 않던 것을 고침(`frameJoints`). 결과 표는 FE 제안서 `b03fd15` 7.2.
 - 2026-10-22: V3 코드 검토. S1·B1은 응답이 없어도 같은 본문으로 다시 보냄, B2가 실패하면 등록을 자동으로 시작하지 않음, S1 응답 전에 끝낸 측정은 연결하지 않음, `end` 뒤 WS가 먼저 닫히면 S4 한 번. BE 코드 확인 결과 측정 중 끊김은 서버가 닫으므로 앱은 S3를 부르지 않는다(연동 명세 4장).
 - 2026-10-22: 오늘 표시 기준을 정리했다. 서버 연동 뒤에도 오늘 세션 목록·요약·달력·그래프는 로컬에 수집한 서버 결과를 사용한다. 어제까지의 일별 통계는 T1으로 제공·표시한다. 앞선 기록의 오늘 제외 설명은 이 결정으로 대체하며, 세션 결과 화면은 방금 끝난 세션만 표시한다.
 - 2026-10-25: develop(PR #63, 팀장 `db220d8`)을 V3에 합침. 모델명·버전 화면 표시를 지움(팀장 10/22 결정). 오늘 표시용 로컬 기록은 키 하나로 두고 계정별로 나누지 않는다(klaod-tech: 한 PC 한 사람이 보통이고, 나누면 계정 ID를 넘기는 곳이 늘어 복잡해진다. 한계는 연동 명세 4.5 「팀 참고」).

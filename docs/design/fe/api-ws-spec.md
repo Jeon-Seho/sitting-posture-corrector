@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-13
 > **이 문서의 역할:** FE의 API 명세다. **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**를 적고, API별 표는 3장, 요청·처리·응답은 7장에 둔다. 필드 규칙이 어긋나면 [BE API 명세](../api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다.
 > 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
-> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. F1~F15(FE 할 일)·BE-1~BE-13(BE 요청)은 [FE 제안서](fe-server-proposal.md) 7장·1장(남은 일 1.0, BE와 다른 곳 1.1, 요청 1.2). 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. 남은 요구와 BE 요청(BE-n)은 [FE 제안서](fe-server-proposal.md) 1장, 지금 구조는 2장. 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../../contracts/realtime/examples-v2). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 0. BE 명세에 대해 FE가 정한 것과 요청
@@ -28,7 +28,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 9장). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md), 2026-10-27 develop PR #68). 쿠키 세션·CSRF·A1·30분 고정은 없어졌다(DB V2.6 `refresh_token`). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4(BE 코드로 확인함, FE 제안서 BE-12 ①). WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
@@ -148,7 +148,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 - **W1·W2·C1:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 1.0 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 요구 10 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
@@ -165,7 +165,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 최근 7일·30일 등 기간 화면 | 지금은 R1 기록을 집계한다. T1을 붙이면 어제까지는 T1, 오늘은 R1로 하고 같은 날짜를 겹쳐 더하지 않는다 |
 | 서버 확인 전 결과 | 기록에 섞지 않고 「서버 저장 확인을 기다리는 기록 N개」로 알린다 |
 
-**T1 데이터가 생기는 시각(11/2 추가):** T1의 `daily_stat`은 Spark J2가 **매일 00:10**(KST)에 어제부터 7일 전까지를 다시 계산해 바뀐 날만 쓴다(11/1부터, 7일 다시 계산은 11/8부터 — D-81, PR #100, 계획 0085). 00:00~00:10에는 앱의 「오늘」이 이미 바뀌었는데 T1은 어제를 0으로 준다. 어떻게 보일지(그 10분만 어제를 로컬 기록으로 보이기 — 위 「더하지 않는다」의 예외로 적어야 함 — 또는 「집계 중」 표시 뒤 다시 부르기)는 T1을 붙일 때 정한다. 「아직 집계 전」을 구별할 값이 필요한지도 그때 BE와 정한다(지금 T1 형식에는 없다). J2는 그 시각에 끝난 세션만 세므로, 서버 자정 넘김이 꺼져 있으면 자정을 넘긴 측정은 끝난 다음 날의 J2가 시작 날짜에 넣을 때까지 T1에 없다. 7일보다 늦게 닫힌 세션은 자동으로 들어가지 않는다(운영에서 켜는 일은 FE 제안서 1.0).
+**T1 데이터가 생기는 시각(11/2 추가):** T1의 `daily_stat`은 Spark J2가 **매일 00:10**(KST)에 어제부터 7일 전까지를 다시 계산해 바뀐 날만 쓴다(11/1부터, 7일 다시 계산은 11/8부터 — D-81, PR #100, 계획 0085). 00:00~00:10에는 앱의 「오늘」이 이미 바뀌었는데 T1은 어제를 0으로 준다. 어떻게 보일지(그 10분만 어제를 로컬 기록으로 보이기 — 위 「더하지 않는다」의 예외로 적어야 함 — 또는 「집계 중」 표시 뒤 다시 부르기)는 T1을 붙일 때 정한다. 「아직 집계 전」을 구별할 값이 필요한지도 그때 BE와 정한다(지금 T1 형식에는 없다). J2는 그 시각에 끝난 세션만 세므로, 서버 자정 넘김이 꺼져 있으면 자정을 넘긴 측정은 끝난 다음 날의 J2가 시작 날짜에 넣을 때까지 T1에 없다. 7일보다 늦게 닫힌 세션은 자동으로 들어가지 않는다(운영에서 켜는 일은 FE 제안서 요구 6).
 
 오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 측정은 자정에 서버가 끊으므로 세션의 시작 날짜 = 끝난 날짜이고, 기록은 시작 시각(`ready.started_at`)의 KST 날짜에 넣는다. 오늘이 며칠인지는 가장 최근에 받은 서버 시각으로 정한다(ADR 0029). 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다.
 
@@ -181,7 +181,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
 - **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절은 `[0, 0, 0]`으로 채운 뒤 그 프레임을 `valid:false`로 보낸다(10/22. 서버는 귀 좌표를 visibility 없이 쓰므로 채운 값이 실제 위치로 판정에 들어가지 않게).
 - **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 어깨가 화면 안에 있고 9개 관절 값이 모두 있으면 좌표를 보내고, 쓸지 말지(정확도·가장자리·거리·고개 돌림)는 서버가 정한다.
-- **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다. 서버는 3초 확정·회복·다시 알림을 구간 시간으로 센다(서버 현재 시각을 쓰지 않음 — 도착 시각이 아니라 찍은 시각이라 네트워크 지연이 섞이지 않는다). 「`t_ms` 대신 앱이 세서 확정」 안은 회의 안건이다([FE 제안서](fe-server-proposal.md) 7.2 22번).
+- **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다. 서버는 3초 확정·회복·다시 알림을 구간 시간으로 센다(서버 현재 시각을 쓰지 않음 — 도착 시각이 아니라 찍은 시각이라 네트워크 지연이 섞이지 않는다). 「`t_ms` 대신 앱이 세서 확정」 안은 회의 안건이다(FE 제안서 `b03fd15` 7.2 22번).
 - **`valid: false`:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임에만 붙인다. **10/27부터 좌표 없이 `{ t_ms, p: null, valid: false }` 신호만 보낸다**([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 구간에 그 프레임 하나뿐이므로 서버는 그 구간을 판정 불가로 본다(`UNMEASURABLE`).
 - **왜 프레임마다 보내나(10/27):** 여러 장을 묶으면 서버가 쓸 수 있는 장을 평균해 판정하는데(BE `FrameFeatures.interval`), 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 판정을 흐린다. 프레임마다 보내면 장마다 따로 판정되고, 판별 가능 시간(`valid_ms`)도 프레임 단위로 정확해진다. 서버 부담(추론·저장이 초당 약 10번)은 감수하기로 했다. BE에 알린 것은 [FE 제안서](fe-server-proposal.md) BE-8.
 
@@ -218,7 +218,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
 | `alert` | 토스트·소리·데스크톱 팝업. 다만 그 사건이 이미 닫힌 뒤(`event_id`가 마지막 `recovery_confirmed`·`interrupted`·`session_ended`의 `event_id`보다 작음)나 「측정 종료」 뒤에 온 것은 울리지 않는다. kafka 모드에서는 `alert`가 저장 서비스를 거쳐 다른 토픽으로 와서 늦게 도착할 수 있다 |
-| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 「측정 종료」 뒤에 오는 것(kafka 모드에서 저장이 5초 넘게 걸릴 때)은 보이지 않는다. 앱이 5초에 결과 화면으로 넘어가 거기서 알린다(아래 S4). 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
+| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 「측정 종료」 뒤에 오는 것(kafka 모드에서 저장이 5초 넘게 걸릴 때)은 보이지 않는다. 앱이 5초에 결과 화면으로 넘어가 거기서 알린다(아래 S4). 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다. kafka 모드에서는 구간을 Kafka에 못 쓸 때(그 구간 누락)와, 입력 접수(`ack`) 뒤 5초 넘게 판정 결과가 없을 때도 온다(결과가 다시 오기 전까지 한 번만, `RealtimeHandlerV2.checkStalled`) |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
@@ -1068,6 +1068,9 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 1. 메모리에서 세션을 찾는다. DB는 읽지 않는다.
 2. 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
 3. kafka 모드(D-57)에서는 판정을 처리 서비스가 해서 메모리 엔진에 구간이 들어가지 않는다. 그래서 `last_sequence` -1, `summary` 0인 빈 값이 온다(D-57 보고서 안건 1, 서버 쪽 해결 전).
+4. **바뀔 예정(BE 11/11 공지, 안 A, 구현 전):** DB에 끝난 세션이 있으면 DB 값(`ended: true`, `events` 끝에 `session_ended`, `summary.total_ms`는 저장된 값, `last_sequence` -1)으로 먼저 답한다. 없으면 메모리 값으로 답한다. kafka 모드의 메모리 값은 `ws`가 받은 마지막 `progress` 요약이다(D-57 병합 뒤). 둘 다 없으면 404 `SESSION_LOST`. kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 메모리 값이다.
+
+앱 처리: `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `events`가 화면보다 적으면(kafka 모드 메모리 값은 요약만 있음) 화면에서 받은 `decision`을 그대로 둔다(11/11).
 
 `closed` 없이 5초가 지나 넘어왔고 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽어 대기 기록을 확인한다.
 
