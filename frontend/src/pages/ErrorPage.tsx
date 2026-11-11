@@ -13,6 +13,8 @@ export const ERROR_PAGES = {
   server: { art: 503, title: '잠시 서버에 문제가 생겼어요', description: '사용자 잘못이 아니에요. 잠시 뒤 다시 시도해 주세요.', action: '다시 시도' },
   offline: { art: 502, title: '인터넷 연결을 확인해 주세요', description: '연결되면 자동으로 다시 불러올게요.', action: '다시 시도' },
   app: { art: 500, title: '화면을 불러오지 못했어요', description: '새로 고치면 대부분 해결돼요.', action: '새로 고침' },
+  // 측정하기: the server could not open the measurement (S1 5xx, or Kafka down in kafka mode).
+  measure: { art: 500, title: '지금은 측정을 시작할 수 없어요', description: '사용자 잘못이 아니에요. 서버의 측정 기능에 문제가 있어요. 잠시 뒤 다시 시작해 주세요.', action: '다시 준비하기' },
   not_found: { art: 404, title: '페이지를 찾을 수 없어요', description: '주소를 확인하거나 홈으로 돌아가 주세요.', action: null },
 } as const
 export type ErrorKind = keyof typeof ERROR_PAGES

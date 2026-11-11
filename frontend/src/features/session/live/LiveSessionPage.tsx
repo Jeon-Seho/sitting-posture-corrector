@@ -6,6 +6,7 @@ import { Ring } from '../../../components/Ring'
 import { Card, Ledger, Meter, Stat } from '../../../components/ui'
 import { postureScore } from '../../../lib/postureScore'
 import { formatClock, formatDuration, formatPercent, formatRate } from '../../../lib/stats'
+import { ErrorPage } from '../../../pages/ErrorPage'
 import { EventTable } from '../SessionEvents'
 import { collapseEvents } from './events'
 import type { LiveState } from './LiveSession'
@@ -221,6 +222,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
       </div>
     </details>
   )
+
+  if (phase === 'failed' && state?.serverDown) return <ErrorPage kind="measure" inline onRetry={onPrepare} />
 
   if (phase === 'failed')
     return (

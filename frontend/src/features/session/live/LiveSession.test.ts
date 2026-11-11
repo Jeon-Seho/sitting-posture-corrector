@@ -408,6 +408,20 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     const signedOut = await started()
     socket.push({ type: 'closed', reason: 'unauthorized' })
     expect(signedOut.state).toMatchObject({ phase: 'failed', message: '로그인이 만료됐어요. 다시 로그인해 주세요.' })
+    expect(signedOut.state.serverDown).toBe(false)
+  })
+
+  it('cannot start when the server cannot open the measurement (kafka mode: Kafka down)', async () => {
+    const kafkaDown = await started()
+    socket.push({ type: 'closed', reason: 'session_lost' })
+    expect(kafkaDown.state).toMatchObject({ phase: 'failed', serverDown: true, lost: false })
+
+    fetch.mockResolvedValue(reply(503, { code: 'UNAVAILABLE' }))
+    const s1Down = make()
+    const starting = s1Down.start()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await starting
+    expect(s1Down.state).toMatchObject({ phase: 'failed', serverDown: true })
   })
 
   it('knows its own 「판정 불가」 at once, without waiting for the server (10/27)', async () => {

@@ -52,6 +52,11 @@ export type LiveState = {
   message: string
   /** Ended because the connection was lost or the server shut down. */
   lost: boolean
+  /**
+   * Could not start because of the server (S1 5xx, or `closed(session_lost)` before `ready` — in
+   * kafka mode the server could not write the session start to Kafka). Shown as an error page.
+   */
+  serverDown: boolean
   /** `closed` did not come within `END_TIMEOUT_MS` after 「측정 종료」: the result is from S4 or the last `progress`. */
   late: boolean
   /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
@@ -160,6 +165,7 @@ export class LiveSession {
     stalled: false,
     message: '',
     lost: false,
+    serverDown: false,
     late: false,
     startedAt: null,
     endedAt: null,
@@ -232,7 +238,7 @@ export class LiveSession {
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
         error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' : error.message
-      this.finish({ phase: 'failed', message })
+      this.finish({ phase: 'failed', message, serverDown: (error.status ?? 0) >= 500 })
       return
     }
     // Ended (「측정 종료」, the small window's X) while S1 was still on its way.
@@ -352,6 +358,11 @@ export class LiveSession {
         return
       case 'closed': {
         const reason = message.reason in CLOSED ? message.reason : 'bad_message'
+        if (!this.ready && reason === 'session_lost') {
+          // Nothing was measured: the server could not open the measurement (kafka mode: Kafka is down).
+          this.finish({ phase: 'failed', message: MESSAGES.server, serverDown: true })
+          return
+        }
         const known = (this.ready && CLOSED_WHILE_MEASURING[reason]) || CLOSED[reason]
         this.finish({
           phase: known.failed ? 'failed' : 'ended',
