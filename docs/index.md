@@ -4,6 +4,8 @@
 
 ## 현재 상태와 작업
 
+- [개발자 전용 자세 수집 메뉴·오류 테마 일치](plans/completed/0087-collection-sidebar-and-fallback-theme.md): 왼쪽 자세 수집 → 실제 /dev 진입, CSV 도구 명칭 구분, 앱 로컬 연결 실패 테마 복원 검증.
+
 - [개발자 도구 탭·수집 진입·앱 관측 화면 크기 보정](plans/completed/0086-developer-tool-tabs-and-desktop-observation.md): 오류 다섯 상황 재현, /dev 연결, 앱 기본·최소 창 검수와 재패키징 기록.
 
 [/dev 관측 내보내기](../contracts/observation-export.v1.md) · [선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md) · [기준·이탈 판정 먼저](decisions/0045-base-deviation-first.md) · [동작 뒤 기준 측정·랜덤 측정 시간](decisions/0046-base-hold-and-random-hold-length.md) · [ML 연구 계획](ml/rebuild-plan.md) · [jisung 연구 기록](ml/jisung/README.md)

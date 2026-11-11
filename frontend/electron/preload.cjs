@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('posegoodDesktop', {
   version: 1,
   // 화면이 일체형 제목 표시줄 여백을 맞출 수 있게 OS 이름만 동기로 알려 준다.
   platform: process.platform,
+  setFallbackAppearance: (appearance) => ipcRenderer.invoke('desktop:fallback-appearance', { mode: appearance?.mode, accent: appearance?.accent }),
   cameraWindow: true,
   setThemeIcon: (icon) => ipcRenderer.invoke('desktop:theme-icon', { accent: icon?.accent, png: icon?.png }),
   setPopupTheme: (theme) => ipcRenderer.invoke('desktop:popup-theme', theme),
