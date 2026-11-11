@@ -52,6 +52,8 @@ export type LiveState = {
   message: string
   /** Ended because the connection was lost or the server shut down. */
   lost: boolean
+  /** `closed` did not come within `END_TIMEOUT_MS` after 「측정 종료」: the result is from S4 or the last `progress`. */
+  late: boolean
   /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
   startedAt: string | null
   endedAt: string | null
@@ -158,6 +160,7 @@ export class LiveSession {
     stalled: false,
     message: '',
     lost: false,
+    late: false,
     startedAt: null,
     endedAt: null,
   }
@@ -480,11 +483,11 @@ export class LiveSession {
     this.set({ phase: 'ending' })
     if (this.socket?.readyState === OPEN) this.socket.send(JSON.stringify({ type: 'end', end_ms: endMs }))
     this.clearTimer()
-    this.timer = setTimeout(() => void this.fetchResult(), this.options.endTimeoutMs ?? END_TIMEOUT_MS)
+    this.timer = setTimeout(() => void this.fetchResult(true), this.options.endTimeoutMs ?? END_TIMEOUT_MS)
   }
 
   /** No `closed(ended)` in time (or the socket closed while ending): S4 has the saved result. */
-  private async fetchResult() {
+  private async fetchResult(late = false) {
     if (this.over()) return
     try {
       const view: SessionView | null = parseSessionView(
@@ -500,6 +503,7 @@ export class LiveSession {
           summary: view.summary,
           events: view.events,
           lastSequence: Math.max(view.last_sequence, this.state.lastSequence),
+          late,
         })
         return
       }
@@ -507,7 +511,7 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
       /* Show what the last `progress` said. */
     }
-    this.finish({ phase: 'ended' })
+    this.finish({ phase: 'ended', late })
   }
 
   dispose() {

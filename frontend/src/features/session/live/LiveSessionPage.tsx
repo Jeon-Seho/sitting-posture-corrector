@@ -16,7 +16,7 @@ import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescr
  * 「측정 종료」 to the result (`closed`, or S4 after at most 5 s): a modal that covers the whole app
  * so nothing else is pressed while the server saves (plan 0059 4⑤). Esc does not close it.
  */
-export function EndingDialog({ open, stalled }: { open: boolean; stalled: boolean }) {
+export function EndingDialog({ open }: { open: boolean }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -35,7 +35,7 @@ export function EndingDialog({ open, stalled }: { open: boolean; stalled: boolea
       <div className="ending-spinner" aria-hidden="true" />
       <h2 id="ending-dialog-title">측정 결과를 저장하고 있어요</h2>
       <p className="fine" role="status">
-        {stalled ? '저장이 늦어지고 있어요. 잠시만 기다려 주세요.' : '잠시만 기다려 주세요. 저장되면 바로 결과를 보여 드려요.'}
+        잠시만 기다려 주세요. 저장되면 바로 결과를 보여 드려요.
       </p>
     </dialog>
   )
@@ -51,10 +51,21 @@ export type LiveSessionPageProps = {
   openSocket?: (url: string) => SocketLike
 }
 
-/** The 「연결 상태」 line. kafka mode sends `stalled` after `end` too, while the result is being saved. */
+/**
+ * The 「연결 상태」 line. After 「측정 종료」 a `stalled` (kafka mode, saving over 5 s) is not shown:
+ * the app moves on at 5 s and the result screen says why (`lateResult`).
+ */
 export function connectionText(phase: string, stalled: boolean) {
-  if (phase === 'ending') return stalled ? '결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요.' : '측정 결과를 저장하고 있어요.'
+  if (phase === 'ending') return '측정 결과를 저장하고 있어요.'
   return stalled ? '분석이 잠시 멈췄어요. 측정은 계속돼요.' : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'
+}
+
+/**
+ * 「측정 종료」 got no `closed` within 5 s and the server has not confirmed the end either: say so
+ * honestly. The record stays pending and R1 (every 15 s while not measuring) confirms it later.
+ */
+export function lateResult(state: Pick<LiveState, 'late' | 'events'> | null) {
+  return !!state?.late && !state.events.some((e) => e.kind === 'session_ended')
 }
 
 export function headline(state: LiveState | null, phase: string) {
@@ -234,6 +245,15 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   if (phase === 'ended')
     return (
       <>
+        {lateResult(state) && (
+          <div role="status" className="notice">
+            <div>
+              <strong>서버 응답이 늦어 결과를 먼저 보여 드려요</strong>
+              <br />
+              사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요.
+            </div>
+          </div>
+        )}
         <section className="result" aria-labelledby="live-result-title">
           <div className="result-head">
             <Ring value={keepRate} label="바른 자세 비율">
@@ -283,7 +303,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const waitingInput = phase === 'paused' && state?.sending === 'away'
   return (
     <>
-      <EndingDialog open={phase === 'ending'} stalled={!!state?.stalled} />
+      <EndingDialog open={phase === 'ending'} />
       <div className="page-head">
         <div>
           <h1 className="page-title">{label}</h1>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveState } from './LiveSession'
 import type { LiveObservation } from './messages'
-import { awaitingFirstResult, connectionText, headline, holdProgress, nudgeKind, nudgeText, recoveryProgress, ringColor, statusTone } from './LiveSessionPage'
+import { awaitingFirstResult, connectionText, headline, lateResult, holdProgress, nudgeKind, nudgeText, recoveryProgress, ringColor, statusTone } from './LiveSessionPage'
 
 /** Synthetic states only: what the measuring screen shows for each server status (observation 4.0). */
 const state = (observation: LiveObservation | null, alerting = false) =>
@@ -15,7 +15,17 @@ describe('measuring screen status (synthetic only)', () => {
   it('says the result is being saved after 「측정 종료」, not that measuring goes on', () => {
     expect(connectionText('running', true)).toBe('분석이 잠시 멈췄어요. 측정은 계속돼요.')
     expect(connectionText('ending', false)).toBe('측정 결과를 저장하고 있어요.')
-    expect(connectionText('ending', true)).toBe('결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요.')
+    // kafka mode's `stalled` after `end`: the app moves on at 5 s instead (lateResult).
+    expect(connectionText('ending', true)).toBe('측정 결과를 저장하고 있어요.')
+  })
+
+  it('says the server was late only when the end is not confirmed', () => {
+    const ended = { event_id: 1, kind: 'session_ended', timestamp_ms: 1000, onset_ms: 1000, onset_valid_ms: 1000, deviation_type: 'none', reason: 'ended' } as const
+    expect(lateResult({ late: true, events: [] })).toBe(true)
+    // S4 came back with the stored end: nothing to apologise for.
+    expect(lateResult({ late: true, events: [ended] })).toBe(false)
+    expect(lateResult({ late: false, events: [] })).toBe(false)
+    expect(lateResult(null)).toBe(false)
   })
 
   it('goes good → caution (server posture bad, not yet confirmed) → confirmed collapse', () => {

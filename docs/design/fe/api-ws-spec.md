@@ -218,7 +218,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
 | `alert` | 토스트·소리·데스크톱 팝업. 다만 그 사건이 이미 닫힌 뒤(`event_id`가 마지막 `recovery_confirmed`·`interrupted`·`session_ended`의 `event_id`보다 작음)나 「측정 종료」 뒤에 온 것은 울리지 않는다. kafka 모드에서는 `alert`가 저장 서비스를 거쳐 다른 토픽으로 와서 늦게 도착할 수 있다 |
-| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 「측정 종료」 뒤(kafka 모드에서 저장이 5초 넘게 걸릴 때)에는 「결과 저장이 늦어지고 있어요. 잠시만 기다려 주세요」. 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
+| `stalled` | 「분석이 잠시 멈췄어요. 측정은 계속돼요」. 「측정 종료」 뒤에 오는 것(kafka 모드에서 저장이 5초 넘게 걸릴 때)은 보이지 않는다. 앱이 5초에 결과 화면으로 넘어가 거기서 알린다(아래 S4). 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다 |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
@@ -1068,6 +1068,8 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 1. 메모리에서 세션을 찾는다. DB는 읽지 않는다.
 2. 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
 3. kafka 모드(D-57)에서는 판정을 처리 서비스가 해서 메모리 엔진에 구간이 들어가지 않는다. 그래서 `last_sequence` -1, `summary` 0인 빈 값이 온다(D-57 보고서 안건 1, 서버 쪽 해결 전).
+
+`closed` 없이 5초가 지나 넘어왔고 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽어 대기 기록을 확인한다.
 
 앱은 응답의 `summary.total_ms`가 화면에 보이던 값보다 작으면 이 응답을 쓰지 않고, 화면에 보이던 결과로 측정을 끝낸다(`LiveSession.fetchResult`). `last_sequence`로 비교하지 않는 것은 DB에서 다시 만든 응답(R1과 같은 방식)이 `last_sequence`를 -1로 주기 때문이다. 응답에 `session_ended` 사건이 없으면 기록은 R1이 확인할 때까지 대기 기록으로 남는다.
 

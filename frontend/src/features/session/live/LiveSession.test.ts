@@ -308,9 +308,17 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.end()
     await vi.advanceTimersByTimeAsync(5_000)
     await flush()
-    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3, late: true })
     expect(live.state.summary.total_ms).toBe(1800)
     expect(ended).toHaveLength(1)
+  })
+
+  it('is not late when closed comes in time', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    live.end()
+    socket.push({ type: 'closed', reason: 'ended' })
+    expect(live.state).toMatchObject({ phase: 'ended', late: false })
   })
 
   it('takes an S4 view rebuilt from the DB even though it says last_sequence -1', async () => {

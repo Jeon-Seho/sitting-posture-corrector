@@ -57,6 +57,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     stalled: false,
     message: '',
     lost: false,
+    late: false,
     startedAt: null,
     endedAt: null,
   })
