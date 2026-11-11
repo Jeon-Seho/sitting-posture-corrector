@@ -16,7 +16,9 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -39,7 +41,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
- * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). DB·추론은 가짜.
+ * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 세션 조회(S4)는 메모리에 끝난 결과가 없으면 DB로 다시 만든 결과로 답한다
+ * (BE-11). 입력은 실시간 v2 좌표 구간({@link SessionService#frames}). DB·추론은 가짜.
  */
 class SessionServiceTest {
 	private static final long OWNER = 7;
@@ -50,6 +53,9 @@ class SessionServiceTest {
 	private final SessionRepository repository = mock(SessionRepository.class);
 	private final InferenceClient inference = mock(InferenceClient.class);
 	private final List<SessionUpdates.Progressed> published = new ArrayList<>();
+	/** DB에 끝난 값이 있는 세션(가짜 {@link EndedSessionViews}, 주인은 {@link #OWNER}). */
+	private final Map<UUID, SessionView> stored = new HashMap<>();
+	private LiveSessions live;
 
 	private SessionService service(Duration unmeasurableTimeout) {
 		ApplicationEventPublisher events = event -> {
@@ -66,7 +72,7 @@ class SessionServiceTest {
 				valid, valid ? 0.1 : 0, Observation.DeviationType.none,
 				"synthetic-v1");
 		});
-		var live = new LiveSessions(events, 8, Duration.ofMinutes(30), Duration.ofHours(6));
+		live = new LiveSessions(events, 8, Duration.ofMinutes(30), Duration.ofHours(6));
 		var locks = mock(UserLocks.class);
 		when(locks.withLock(anyLong(), any())).thenAnswer(call -> ((Supplier<?>)call.getArgument(1)).get());
 		var row = new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
@@ -74,7 +80,8 @@ class SessionServiceTest {
 		live.add(new LiveSession(row, new SessionEngine(ID, POLICY)));
 		return new SessionService(live, repository, mock(BaselineRepository.class),
 			mock(ThresholdPolicyRepository.class), mock(AccountService.class), inference, locks,
-			tx, events, Duration.ofHours(24), unmeasurableTimeout);
+			tx, events, (owner, id) -> owner == OWNER ? stored.get(id) : null, Duration.ofHours(24),
+			unmeasurableTimeout);
 	}
 
 	/** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
@@ -188,6 +195,41 @@ class SessionServiceTest {
 		// 이미 끝난 세션은 다시 넘기지 않는다.
 		assertEquals("SESSION_ENDED", assertThrows(ApiError.class,
 			() -> service.rollover(OWNER, ID, midnight, 1000)).code());
+	}
+
+	@Test
+	void sessionViewFallsBackToTheEndedSessionInTheDatabase() {
+		var service = service(Duration.ZERO);
+		feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+		var fromDb = new SessionView("1.0", ID, POLICY, SessionView.TIMER_POLICY, true, -1,
+			new SessionView.Summary(4000, 4000, 4000, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0.0, null, null), List.of());
+
+		// 진행 중이고 DB에 끝난 값이 없으면 메모리 그대로.
+		assertEquals(0, service.get(OWNER, ID).lastSequence());
+		// 메모리는 끝나지 않았는데 DB에 끝난 값이 있으면(kafka 모드: io-api 메모리는 판정하지 않음) DB 값.
+		stored.put(ID, fromDb);
+		assertEquals(fromDb, service.get(OWNER, ID));
+		// 남의 세션은 DB 값이 있어도 404.
+		assertEquals("SESSION_NOT_FOUND", assertThrows(ApiError.class, () -> service.get(OWNER + 1, ID)).code());
+
+		// 메모리에서 빠져도(재시작·보관 시간 지남) DB 값.
+		live.remove(ID, "session_lost");
+		assertEquals(fromDb, service.get(OWNER, ID));
+		// DB에도 끝난 값이 없으면 404 SESSION_LOST.
+		stored.clear();
+		when(repository.find(ID)).thenReturn(row());
+		assertEquals("SESSION_LOST", assertThrows(ApiError.class, () -> service.get(OWNER, ID)).code());
+	}
+
+	@Test
+	void anEndedSessionInMemoryIsAnsweredFromMemory() {
+		var service = service(Duration.ZERO);
+		feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+		var view = service.end(OWNER, ID, 500);
+		stored.put(ID, new SessionView("1.0", ID, POLICY, SessionView.TIMER_POLICY, true, -1, view.summary(),
+			List.of()));
+		// 메모리의 끝난 결과가 더 정확하다(사건 종류·마지막 구간 번호가 그대로).
+		assertEquals(view, service.get(OWNER, ID));
 	}
 
 	private static SessionRepository.Stored row() {

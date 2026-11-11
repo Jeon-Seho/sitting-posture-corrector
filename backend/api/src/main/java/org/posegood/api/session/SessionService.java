@@ -44,6 +44,7 @@ public class SessionService {
 	private final UserLocks locks;
 	private final TransactionTemplate tx;
 	private final ApplicationEventPublisher events;
+	private final EndedSessionViews ended;
 	private final long maxSessionMs;
 	/** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
 	private final long unmeasurableTimeoutMs;
@@ -58,6 +59,7 @@ public class SessionService {
 		UserLocks locks,
 		TransactionTemplate tx,
 		ApplicationEventPublisher events,
+		EndedSessionViews ended,
 		@Value("${posegood.realtime.max-session-duration}")
 		Duration maxSession,
 		@Value("${posegood.realtime.unmeasurable-timeout}")
@@ -71,6 +73,7 @@ public class SessionService {
 		this.locks = locks;
 		this.tx = tx;
 		this.events = events;
+		this.ended = ended;
 		this.maxSessionMs = maxSession.toMillis();
 		this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
 	}
@@ -312,10 +315,32 @@ public class SessionService {
 			});
 	}
 
-	/** 현재 상태 조회. */
+	/**
+	 * 현재 상태 조회(S4). 메모리에 끝난 결과가 있으면 그것, 없으면 DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11),
+	 * 그것도 없으면 메모리의 진행 중 상태로 답한다.
+	 *
+	 * DB로 다시 만든 결과는 {@code last_sequence}가 -1이고 사건의 {@code deviation_type}이 {@code unspecified}다(R1과 같음).
+	 * 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는 판정하지 않아 비어 있음)의 끝난 세션이
+	 * DB 경로로 답한다. 둘 다 없으면 404 {@code SESSION_LOST}.
+	 */
 	public SessionView get(long owner, UUID id) {
-		var session = require(owner, id);
-		return session.locked(() -> session.engine().view());
+		var session = live.get(id);
+		if (session != null && session.owner() != owner) {
+			throw ApiError.notFound();
+		}
+		var memory = session == null ? null : session.locked(() -> session.engine().view());
+		if (memory != null && memory.ended()) {
+			return memory;
+		}
+		var stored = ended.find(owner, id);
+		if (stored != null) {
+			return stored;
+		}
+		if (memory != null) {
+			return memory;
+		}
+		owned(owner, id);
+		throw ApiError.lost();
 	}
 
 	/**

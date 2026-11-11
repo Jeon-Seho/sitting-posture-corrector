@@ -501,6 +501,13 @@ class MySqlIntegrationTest {
 		assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asString());
 		assertEquals(records, api.get("/v2/workspace").body().get("records"));
 
+		// 세션 조회(S4): 메모리에 끝난 결과가 있으면 그것, 메모리에서 빠지면 DB로 다시 만든 결과(BE-11, R1과 같은 값).
+		assertEquals(view, api.get(path).body());
+		live.remove(id, "session_lost");
+		var fromDb = api.get(path);
+		assertEquals(200, fromDb.status());
+		assertEquals(rebuiltView, fromDb.body());
+
 		// 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
 		assertEquals(204, api.delete("/v2/records/" + id, null).status());
 		assertEquals(404, api.get(path).status());

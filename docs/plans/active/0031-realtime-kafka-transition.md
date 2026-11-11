@@ -77,6 +77,7 @@
     S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`. 남기는 것(Kafka 계약 v1): `kafka-*.v1`, Kafka 예시·시험,
     처리 서비스 시험용 입구 `POST /api/v1/realtime/features`, `tools/platform/replay_realtime_v1.py`(통합 테스트 8·9·11단계, [Kafka 명세](../../design/kafka-spec.md) 4장).
   - 최대 측정 시간은 팀 회의 결과를 따른다. 그때까지 `posegood.realtime.max-session-duration` 기본값 5000초를 유지한다.
+- 2026-11-11 DB/BE: 11번 중 S4(`GET /v2/sessions/{id}`)를 먼저 develop 기준으로 고침(`feature/backend-session-view-from-db`, BE-11). kafka 모드에서는 io-api 메모리에 세션이 있지만 비어 있어(`last_sequence` -1, 빈 요약, `ended` false) S4가 빈 결과를 줬다. 순서: 메모리에 끝난 결과 → DB에 끝난 값(R1과 같은 재계산) → 메모리 진행 중 상태 → 404 `SESSION_LOST`. 진행 중 세션을 `ws`가 받은 마지막 `progress`로 채우는 일은 D-57 병합 뒤 PM과 맞춘다. FE 요청(`fe-measure-end-plan.md` 6장 1번: DB `total_ms`, `ended: true`, `session_ended`, `last_sequence` -1)과 같은 형식.
 - 남은 질문: ADR 0020 대체(DB/BE), 최대 측정 시간(지금 5000초, 팀 회의), `POST /v2/sessions/{id}/features` 처리(FE).
   FE 세션 HTTP 클라이언트(`frontend/src/features/session/server/client.ts`)가 아직 `/api/v1/sessions`를 부르는데 API REST는 `/v2`라서,
   WebSocket 없이 HTTP로 측정하는 경로는 지금 API와 맞지 않는다(FE에 알림, 2026-10-17). S2·R2는 FE가 측정을 v2 WebSocket으로 옮긴 뒤 지운다.

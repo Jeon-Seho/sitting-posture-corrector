@@ -8,8 +8,8 @@
 
 - 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
 - 큰 한계:
-  - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 `404 SESSION_LOST`.
-  - 실제 MySQL 통합 시험(`-Pmysql-integration`)은 2026-11-03 로컬 MySQL 8로 통과했다(2.7). CI·서버 MySQL에서는 아직이다.
+  - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 진행 중이던 세션은 `404 SESSION_LOST`(끝난 세션은 S4가 DB로 답함, BE-11).
+  - 실제 MySQL 통합 시험(`-Pmysql-integration`)은 2026-11-11 로컬 MySQL 8로 통과했다(2.7). CI·서버 MySQL에서는 아직이다.
 
 ## 2. 영역별 현황
 
@@ -37,7 +37,7 @@
 
 표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
 
-기록 재계산의 한계(2026-11-10 확인, `workspace/RecordHistory.java`):
+기록 재계산의 한계(2026-11-10 확인, `workspace/ClosedSessions.java` — 11/11 `RecordHistory`에서 옮겨 S4도 같이 씀):
 
 - 기록의 `server.modelVersion`은 측정 당시가 아니라 지금 설정된 모델 버전이다(기록에 모델 버전을 저장하지 않음). 모델을 바꾸면 옛 기록에도 새 버전이 보인다.
 - `GET /v2/workspace`·`GET /v2/records`·`PUT /v2/workspace` 응답은 그 사용자의 끝난 세션 전체와 사건을 매번 다시 계산한다. 기록이 많이 쌓이면 느려질 수 있다.
@@ -86,7 +86,7 @@
 | BE-6 (자정 끊기·서버 시각, FE ADR 0029): ① KST 자정에 측정 끊기, ② `ready.started_at`·`closed.ended_at`, ③ A4·R1·T1 `today`, ④ `Cache-Control`, ⑤ J2 실행 시점, ⑥ 계약 맞춤 | DB/BE | ② 끝(`b903751`), ④ FE 철회, ⑤ 끝(Spark, PR #93 — J2 매일 00:10), ① **B안 구현**(10/28 develop PR #77, 같은 연결에서 서버가 새 세션으로 넘김·`session_rollover`, 설정 `midnight-rollover` 기본 꺼짐 — 4장), ③ A4·R1 `today` 구현(R1은 `{today, records}` 객체로 — 호환성 깨짐), T1은 형식에 포함, ⑥ 병합 때(`unmeasurable_timeout` 추가 알림) | FE 제안서 1장·1.1(V3 `259c752`) |
 | BE-7: [API 명세](design/api-spec.md) 필드 표에 없던 시간 필드 — 프레임 `t_ms`, 사건 `timestamp_ms`·`onset_ms` | DB/BE | 끝 (2026-11-04 문서만) — 코드에서 뜻을 확인해 `api-spec.md` 9장 SessionView·11.2에 넣음. `t_ms`는 서버가 판정·시간 계산에 쓰지 않음 | FE 제안서 1장, `engine/EpisodeLedger.java`, `engine/Timeline.java` |
 | BE-10: 측정 중 WS 줄이기 — `observation`에 `alerting`·`keep_rate`, 결과 요약·사건은 끝난 뒤 S4로 | DB/BE | 구현 전 — 실시간 판정 다시 만들 때 | FE 제안서 1장, [계획 0059](plans/completed/0059-slim-realtime-results-over-api.md) |
-| BE-11: S1 `policy` 빼기(없으면 계정 정책), 재배포를 자정과 겹치지 않게, S4가 메모리에 세션이 없으면 DB 값으로 답하기 | DB/BE | 구현 전 | FE 제안서 1장 |
+| BE-11: S1 `policy` 빼기(없으면 계정 정책), 재배포를 자정과 겹치지 않게, S4가 메모리에 세션이 없으면 DB 값으로 답하기 | DB/BE | S4만 구현(`feature/backend-session-view-from-db`, 11/11): 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음). kafka 모드의 「메모리에 있지만 비어 있는」 세션도 DB가 먼저. 진행 중 세션의 kafka `progress`는 D-57 병합 뒤 PM과. 나머지 두 개는 구현 전 | FE 제안서 1장, FE `fe-measure-end-plan.md` 6장 1번(`fix/fe-realtime-kafka-mode`), `session/SessionService.get`, `workspace/ClosedSessions.java`, `api-spec.md` S4 |
 | BE-13: 쉬기 10분 자동 종료를 누가 하는지 (FE 의견: 서버가 `rest` 길이를 세어 `closed(rest_timeout)`) | DB/BE·FE | 미결 (4장) — 10/20 결정이지만 서버·앱 모두 구현 없음 | FE 제안서 1장 |
 | R1 `GET /v2/records` 응답을 `{today, records}` 객체로, A2·A3·A4에 `today` | DB/BE | 구현됨 (develop PR #65, MySQL 통합 시험 통과 2.7). 앱(`storage/serverRecords.ts`)·DevOps `io_api_smoke.py`가 `{today, records}`로 읽음 | `workspace/WorkspaceController.java`, `common/KstTime.today()`, `api-spec.md` R1·A4 |
 | 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현됨 (`POSEGOOD_CORS_ALLOWED_ORIGINS`, 비우면 CORS 없음). DevOps 요청: `compose.yaml` `api`·`bigdata.yaml` `io-api`에 변수 전달(`compose.yaml`은 목록에 없으면 컨테이너에 안 닿음), 서버 값 `https://app.posegood.site` | `design/fe-server-proposal.md` 9장(옛 `fe-deploy.md`, 그 전 `fe-domain-idea.md`) 9.3.1 S-1 |
@@ -95,8 +95,8 @@
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
-| `backend/gradlew -p backend :api:test` (단위) | 88개 중 77 통과, 실패 0, 건너뜀 11 (`MySqlIntegrationTest`) | 2026-11-04 | develop `fe5058b`(`recovery_ms` 포함) 기준. 로컬 JDK 17 |
-| `backend/gradlew -p backend :api:test -Pmysql-integration` | `MySqlIntegrationTest` 11개 통과 | 2026-11-03 | observation 4.0(PR #96) 기준. 로컬 MySQL 8 일회용 DB. `recovery_ms`(PR #98) 뒤에는 아직 실행 안 함 |
+| `backend/gradlew -p backend :api:test` (단위) | 93개 중 81 통과, 실패 0, 건너뜀 12 (`MySqlIntegrationTest`) | 2026-11-11 | `feature/backend-session-view-from-db`(develop `faff869` + S4 DB 조회) 기준, `python tools/dev.py check-backend`(Checkstyle·빌드 포함). 바꾼 파일에 Checkstyle 경고 없음 |
+| `backend/gradlew -p backend :api:test -Pmysql-integration` | 93개 모두 통과(`MySqlIntegrationTest` 12개 포함), 실패 0, 건너뜀 0 | 2026-11-11 | `feature/backend-session-view-from-db` 기준. 로컬 MySQL80(Windows) 일회용 DB. `measurementWritesTheV2TablesAndRecordsAreRebuilt`에 「메모리에서 뺀 끝난 세션 → S4 200, R1 `server.view`와 같음」 추가 |
 | `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 11개·8개 통과 | 2026-11-04 | develop `fe5058b`(observation 4.0·`recovery_ms`) 기준. 저장소 `.venv`에서 `python -m unittest` |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
 | `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0062(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
@@ -168,6 +168,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-09 | 문서 최신화: 기준을 develop `6cae21f`로(11/04 `fe5058b` 기준 작업에 PR #100 반영). J2 최근 7일 다시 계산(D-81)을 T1 줄·API 명세·DB 안내(규칙·구현 상태 — 계획 0085가 DB/BE에 요청)에 반영. nginx `/v1/realtime` 정리는 DevOps 요청으로 DB/BE 담당(3장). FE observation 4.0 대응(PR #99)이 들어와 「develop 앱이 4.0을 버린다」 위험 삭제(1·2.4장), 3장 FE 문서 불일치 해결. J2 00:10(PR #93)으로 BE-6 ⑤ 끝·4장 문구 고침. BE-3 끝(FE 확인), FE 새 요청 BE-7(명세 시간 필드 — `api-spec.md`에 넣어 끝)·BE-10·BE-11·BE-13 추가. 2.7에 단위 88개·계약 시험 19개 다시 실행 | 이 커밋 |
 | 2026-11-09 | nginx `/api/v1/realtime` 블록과 infra 안내(`infra/README.md`·`bigdata.yaml` 주석)의 v1 문구 삭제(DevOps 요청 D-72). 처리 서비스 시험용 입구 `/api/v1/realtime/features`는 다른 경로라 그대로 | 이 커밋 |
 | 2026-11-10 | 2.2 기록 줄에서 지운 기록 저장(R2) 빼기, 기록 재계산 한계 3건 기록. 4장 「닫히지 않는 세션」에 종료 저장 실패 경우 추가(`ca038e2`) | 커밋 전 |
+| 2026-11-11 | BE-11 중 S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과로 답함(kafka 모드에서 S4가 빈 결과를 주던 문제 대비, 계획 0031 11번). 기록 목록의 DB 읽기를 `ClosedSessions`로 옮겨 R1·S4가 같이 씀. 단위 시험 2개·MySQL 통합 확인 추가(MySQL 통합 포함 93개 통과, 2.7) | 이 커밋 |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 
