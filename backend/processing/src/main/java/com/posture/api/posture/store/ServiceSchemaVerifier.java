@@ -21,8 +21,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * (D-32, D-41, D-51, D-65) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.6, {@code posture_service})가 준비됐는지 확인한다.
- * 입출구 서버(팀 {@code backend/api})는 V2.6이 아니면 시작하지 않는다. 여기서는 몇 판인지 알려 주고, V2.6이 아니면 문제로 본다.
+ * (D-32, D-41, D-51, D-65, D-89) 판정 결과를 옮겨 쓸 확정 서비스 DB(DB 명세서 V2.7, {@code posture_service})가 준비됐는지
+ * 확인한다. 입출구 서버(팀 {@code backend/api})는 소셜 로그인·비밀번호 재설정을 켰는데 V2.7 표가 없으면 시작하지 않는다.
+ * 여기서는 몇 판인지 알려 주고, V2.7이 아니면 문제로 본다.
  *
  * <ul>
  *   <li>처리 서비스가 쓰거나 확인하는 테이블이 있는지, 지운 테이블(V1.1·V2.0)이 남아 있지 않은지.
@@ -30,13 +31,14 @@ import org.springframework.stereotype.Component;
  *   <li>판정 결과 저장(D-30)·시험 행이 쓸 컬럼이 있는지, V2.2에서 지운 컬럼이 남아 있지 않은지(남아 있으면 V2.1 DB).</li>
  *   <li>판 표시: V2.3 {@code daily_stat.min_until_collapse_sec}·{@code user_consent}(011·012),
  *       V2.4 {@code feature_archive.row_count}
- *       삭제(013·014), V2.5 {@code baseline_posture.client_registration_uuid}(015), V2.6 {@code refresh_token}(016).</li>
+ *       삭제(013·014), V2.5 {@code baseline_posture.client_registration_uuid}(015), V2.6 {@code refresh_token}(016),
+ *       V2.7 {@code social_identity}·{@code password_reset_token}(017).</li>
  *   <li>기본 판정 정책: V2.3은 이름이 없고 값 4개(threshold·hold·recover·realert, UK-03)로 찾는다. 입출구 서버가 가입 때 없으면 만들므로
  *       행이 없는 것은 문제가 아니라 경고로만 알린다.</li>
  *   <li>지금 계정에 SELECT·INSERT·UPDATE·DELETE 권한이 있는지.</li>
  * </ul>
  *
- * <p>검사만 하고 아무것도 만들거나 고치지 않는다(스키마는 DB 담당의 {@code schema_V2_6.sql}·migration으로 만든다).
+ * <p>검사만 하고 아무것도 만들거나 고치지 않는다(스키마는 DB 담당의 {@code schema_V2_7.sql}·migration으로 만든다).
  * 결과가 나빠도 api-server는 그대로 뜬다. 앱 기동 직후 한 번 로그로 남기고, {@code GET /store/service-db}로 다시 확인한다.
  * 테이블 이름은 대소문자를 구분하지 않는다(Windows MySQL은 {@code lower_case_table_names=1}).
  */
@@ -46,12 +48,12 @@ public class ServiceSchemaVerifier {
 	private static final Logger log = LoggerFactory.getLogger(ServiceSchemaVerifier.class);
 	private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9_]{1,64}");
 
-	static final String SPEC_VERSION = "V2.6";
+	static final String SPEC_VERSION = "V2.7";
 
 	static final List<String> EXPECTED_TABLES = List.of(
 		"threshold_policy", "user_account", "baseline_posture", "monitor_session", "excluded_interval",
 		"feature_archive", "collapse_event", "correction_alert", "daily_stat", "deletion_request",
-		"user_consent", "refresh_token");
+		"user_consent", "refresh_token", "social_identity", "password_reset_token");
 
 	/** V1.1·V2.0에 있었고 V2.1에서 지운 테이블. 하나라도 있으면 예전 버전 DB. */
 	static final List<String> REMOVED_TABLES = List.of(
@@ -79,6 +81,8 @@ public class ServiceSchemaVerifier {
 	static final String V25_COLUMN = "baseline_posture.client_registration_uuid";
 	/** V2.6 표시 테이블(migration 016). */
 	static final String V26_TABLE = "refresh_token";
+	/** V2.7 표시 테이블(migration 017, D-89). 둘 다 있어야 V2.7. */
+	static final List<String> V27_TABLES = List.of("social_identity", "password_reset_token");
 
 	/** V2.2에서 지운 컬럼(있으면 V2.1 이하로 만든 DB) + V2.1에서 지운 컬럼. */
 	static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
@@ -172,8 +176,12 @@ public class ServiceSchemaVerifier {
 			}
 			result.put("missingTables", missing);
 			result.put("removedTablesPresent", removed);
-			if (!tables.isEmpty() && !missing.isEmpty() && !missing.equals(List.of(V26_TABLE))) {
-				problems.add("V2.6 테이블 없음: " + missing);
+			// 판 표시 테이블(V2.6·V2.7)만 없으면 아래 판 안내(migration)로 알린다
+			List<String> missingCore = new ArrayList<>(missing);
+			missingCore.remove(V26_TABLE);
+			missingCore.removeAll(V27_TABLES);
+			if (!tables.isEmpty() && !missingCore.isEmpty()) {
+				problems.add("V2.6 테이블 없음: " + missingCore);
 			}
 			if (!removed.isEmpty()) {
 				problems.add("V2.1에서 지운 테이블이 남아 있음(예전 버전 DB): " + removed);
@@ -208,7 +216,8 @@ public class ServiceSchemaVerifier {
 				&& !lower(probe.columns(schema, "feature_archive")).contains("row_count");
 			boolean v25 = v24 && !missingCols.contains(V25_COLUMN);
 			boolean v26 = v25 && tables.contains(V26_TABLE);
-			String version = v26 ? SPEC_VERSION : v25 ? "V2.5" : v24 ? "V2.4" : v23 ? "V2.3"
+			boolean v27 = v26 && tables.containsAll(V27_TABLES);
+			String version = v27 ? SPEC_VERSION : v26 ? "V2.6" : v25 ? "V2.5" : v24 ? "V2.4" : v23 ? "V2.3"
 				: (removedCols.isEmpty() ? "V2.2 이하" : "V2.1 이하");
 			result.put("specVersion", version);
 			if (missingCols.remove(V23_COLUMN)) {
@@ -216,8 +225,8 @@ public class ServiceSchemaVerifier {
 					.add("V2.3 아님: " + V23_COLUMN + " 없음 (database/migrations/011_add_until_collapse_daily_stat.sql)");
 			}
 			missingCols.remove(V25_COLUMN);
-			if (v23 && !v26) {
-				String apply = v25 ? "016" : v24 ? "015·016" : "013·014·015·016";
+			if (v23 && !v27) {
+				String apply = v26 ? "017" : v25 ? "016·017" : v24 ? "015·016·017" : "013·014·015·016·017";
 				problems.add(SPEC_VERSION + " 아님(지금 " + version + "): migration " + apply
 					+ "을 번호순으로 적용 (database/README.md 1장)");
 			}
@@ -225,7 +234,7 @@ public class ServiceSchemaVerifier {
 				problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);
 			}
 			if (!removedCols.isEmpty()) {
-				problems.add("V2.2에서 지운 컬럼이 남아 있음(예전 버전 DB — schema_V2_6.sql로 다시 만듦): " + removedCols);
+				problems.add("V2.2에서 지운 컬럼이 남아 있음(예전 버전 DB — schema_V2_7.sql로 다시 만듦): " + removedCols);
 			}
 
 			if (tables.contains("threshold_policy")
