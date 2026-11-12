@@ -2,6 +2,8 @@
  * The camera chosen as "main" when several are connected. It is kept per device in local
  * storage (a device id is only meaningful on this computer) and never sent to the server.
  */
+import { aspectRefused } from './devices'
+
 const KEY = 'posegood.v2.mainCamera'
 
 export function readMainCamera(): string {
@@ -26,6 +28,8 @@ export function writeMainCamera(deviceId: string) {
 /** The saved camera is unplugged or cannot satisfy the request; the default camera is used instead. */
 export function missingDevice(cause: unknown) {
   const name = cause instanceof Error ? cause.name : ''
+  // A camera that cannot give 4:3 is there, just not usable (ADR 0048).
+  if (aspectRefused(cause)) return false
   return name === 'OverconstrainedError' || name === 'NotFoundError'
 }
 
