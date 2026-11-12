@@ -14,6 +14,8 @@ export const CAMERA_ERRORS = {
     '고른 카메라를 쓸 수 없어요. 다른 카메라를 고르거나 다시 연결해 주세요.',
   preparationFailed:
     '카메라나 자세 추적 모델을 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+  aspectUnsupported:
+    '이 카메라는 4:3 화면으로 쓸 수 없어요. 다른 카메라를 고르거나 Chrome·Edge 또는 PoseGood 앱에서 열어 주세요.',
 }
 
 export function cameraPreparationError(cause: unknown): string {
@@ -27,6 +29,8 @@ export function cameraPreparationError(cause: unknown): string {
       return CAMERA_ERRORS.deviceBusy
   }
   if (cause instanceof Error && Object.values(CAMERA_ERRORS).includes(cause.message)) return cause.message
+  if (name === 'OverconstrainedError' && (cause as { constraint?: string }).constraint === 'aspectRatio')
+    return CAMERA_ERRORS.aspectUnsupported
   if (name === 'OverconstrainedError') return CAMERA_ERRORS.deviceUnavailable
   return CAMERA_ERRORS.preparationFailed
 }
