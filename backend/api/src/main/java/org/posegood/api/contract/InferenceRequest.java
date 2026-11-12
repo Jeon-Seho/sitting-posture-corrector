@@ -10,7 +10,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
 /**
- * 앱이 보내는 특징 입력 한 구간(v2). FastAPI 추론에 그대로 넘긴다.
+ * 특징 입력 한 구간(v2): 서버가 앱의 좌표 구간({@link FrameInterval})에서 계산해 FastAPI 추론에 보낸다.
  *
  * 계약: contracts/inference-request.v2.schema.json(FastAPI와 공유).
  */

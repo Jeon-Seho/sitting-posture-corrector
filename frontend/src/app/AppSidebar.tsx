@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CaretUp, SignOut, UserCircle } from '../components/icons'
+import { CaretUp, SignOut, UserCircle, Database } from '../components/icons'
 import { BrandMark } from '../components/BrandMark'
 import { ThumbLayer, useSlidingThumb } from '../components/Segmented'
 import { formatDuration } from '../lib/stats'
@@ -41,6 +41,10 @@ export function AppSidebar({ developer = false, page, measuring, go, onLogout, o
             {tab === 'measure' && measuring && <span className="nav-live" aria-label="측정 중" />}
           </button>
         ))}
+        {developer && <button className="nav-item" disabled={measuring} onClick={() => window.location.assign('/dev')}
+          {...tip('자세 수집', [['기능', '/dev 동작 관측·JSON 수집 화면을 열어요']])}>
+          <Database size={28} weight="bold" className="icon" />자세 수집
+        </button>}
       </nav>
       <div className="sidebar-foot">
         <button

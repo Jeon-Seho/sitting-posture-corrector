@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 앱이 v2로 넘어갈 때까지 `/api/v1/realtime`도 함께 열어 두고, 넘어간 뒤 지운다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
 
 ## 전체 검증
 
@@ -64,7 +64,7 @@ MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 harness의 기본 검증 성공 후
 `api`·`inference`·`frontend` 앱 이미지 3개를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.6·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.7·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 루트 Compose의 SSH 자동 배포 대상과 다음 `production` 설정의 실제 등록 여부는 별도로 확인한다.
@@ -106,7 +106,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [아키텍처 v5.2 스택별 역할](../docs/design/architecture_v5.2_stack_roles.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 
@@ -155,7 +155,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 
 ### 입출구 서버 (io-api, 서버 PC)
 
-팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`, 전환 기간에는 `/v1/realtime`도)를 같은 compose의 프로필 `io`로 띄운다.
+팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
 DB는 외부 MySQL의 서비스 DB(V2.6, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
@@ -184,7 +184,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 
 ### 인터넷 공개 입구 (D-43, gateway·Cloudflare 터널)
 
-화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6).
+화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe/fe-server-proposal.md) 9.6).
 
 ```
 브라우저 ─ https://api.posegood.site/api/… · wss://…/api/v2/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
@@ -225,7 +225,7 @@ tools/platform/integration_test.sh --quick               # 14단계(터널 경�
 
 - `--config`와 토큰을 같이 쓰는 실행이 안 되면 `command`를 `["tunnel", "--no-autoupdate", "run", "--url", "http://gateway:80"]`로 바꾼다(경로가 하나뿐이라 같은 결과).
 - 멈출 때는 프로필을 모두 붙인다: `$C --profile io --profile edge down`(프로필 없는 `down`은 io·edge 서비스를 남긴다). 터널만 끌 때는 `$C --profile edge stop cloudflared`.
-- 문제가 생기면 볼 곳은 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
+- 문제가 생기면 볼 곳은 [FE 제안서](../docs/design/fe/fe-server-proposal.md) 9.6 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
 
 ### 판정 (api-server `judge`, D-22·D-53)
 

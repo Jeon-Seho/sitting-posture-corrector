@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PoseGood</title>
+    <!-- Desktop app only (electron/main.cjs): shown while the web screen loads and when it cannot. -->
+    <style>
+      :root { color-scheme: light; --bg: #f6f7f9; --text: #202b33; --muted: #5c6670; --accent: #18794e; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: grid; place-items: center; background: var(--bg); color: var(--text);
+        font-family: 'Pretendard Variable', Pretendard, 'Malgun Gothic', system-ui, sans-serif;
+      }
+      main { max-width: 420px; padding: 32px 24px; text-align: center; }
+      h1 { margin: 0 0 12px; font-size: 22px; }
+      .error-art { width: min(100%, 300px); height: 225px; object-fit: contain; margin-bottom: 20px; }
+      p { margin: 0 0 8px; color: var(--muted); line-height: 1.6; }
+      .spinner {
+        width: 28px; height: 28px; margin: 16px auto 0; border-radius: 50%;
+        border: 3px solid #d7dde3; border-top-color: var(--accent); animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      a.button {
+        display: inline-block; margin-top: 20px; padding: 10px 20px; border-radius: 8px;
+        background: var(--accent); color: var(--on-accent, #fff); font-weight: 600; text-decoration: none;
+      }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="loading">
+        <img class="error-art" data-error-code="504" src="illustrations/themes/green-error-504.webp" width="300" height="225" alt="" />
+        <h1>연결하는 중이에요</h1>
+        <p>잠시만 기다려 주세요.</p>
+        <div class="spinner" aria-hidden="true"></div>
+      </section>
+      <section id="offline" hidden>
+        <img class="error-art" data-error-code="502" src="illustrations/themes/green-error-502.webp" width="300" height="225" alt="" />
+        <h1>서버에 연결할 수 없어요</h1>
+        <p>사용자 잘못이 아니에요. 인터넷 연결을 확인하거나 잠시 뒤 다시 시도해 주세요.</p>
+        <p>연결되면 자동으로 다시 열어요.</p>
+        <a class="button" href="/retry">지금 다시 시도</a>
+      </section>
+    </main>
+    <script src="error-theme.js"></script>
+    <script>
+      const offline = new URLSearchParams(location.search).get('state') === 'offline'
+      document.getElementById('loading').hidden = offline
+      document.getElementById('offline').hidden = !offline
+    </script>
+  </body>
+</html>

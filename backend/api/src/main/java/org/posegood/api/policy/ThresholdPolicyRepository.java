@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 /**
  * 판정 정책(threshold_policy) 찾기·추가. 정책 행은 한 번 쓰면 고치지 않는다.
  *
- * V2.3의 값 네 개로 행을 찾고 없으면 추가한다. 과거 정책 행은 변경하지 않는다.
+ * 값 네 개로 행을 찾고 없으면 추가한다. 과거 정책 행은 변경하지 않는다.
  */
 @Repository
 public class ThresholdPolicyRepository {
@@ -33,7 +33,15 @@ public class ThresholdPolicyRepository {
 		@Value("${posegood.default-policy.realert-seconds:60}")
 		double realert) {
 		this.jdbc = jdbc;
-		this.defaults = Values.ofSeconds(hold, recover, realert, threshold);
+		try {
+			this.defaults = Values.ofSeconds(hold, recover, realert, threshold);
+		} catch (ApiError | IllegalArgumentException invalid) {
+			// 잘못된 기본값으로 시작하면 첫 가입 때에야 DB 오류가 나거나 판정이 망가진다. 시작부터 막는다.
+			throw new IllegalStateException(
+				"posegood.default-policy.* is invalid: threshold 0<x<=1, hold·recover 0.5s steps above 0,"
+					+ " realert whole seconds 1..86400",
+				invalid);
+		}
 	}
 
 	/** 가입 때 연결하는 기본값 조합. 시드가 없으면 같은 값으로 생성한다. */
@@ -56,10 +64,13 @@ public class ThresholdPolicyRepository {
 
 	/**
 	 * 같은 값의 정책 행을 찾고, 없으면 추가한다.
+	 *
+	 * 다른 요청이 같은 조합을 동시에 추가해 중복 오류(UK-03)가 나면 그 행을 잠금 읽기({@code FOR SHARE})로 다시 찾는다.
+	 * 트랜잭션 안의 일반 SELECT는 처음 읽은 시점의 스냅샷(MySQL 기본 REPEATABLE READ)을 보므로, 방금 커밋된 그 행이
+	 * 보이지 않는다.
 	 */
-	public long resolve(Values requested) {
-		var values = requested;
-		var found = find(values);
+	public long resolve(Values values) {
+		var found = find(values, false);
 		if (found != null) {
 			return found;
 		}
@@ -72,16 +83,22 @@ public class ThresholdPolicyRepository {
 				values.recoverSeconds(),
 				values.realertSeconds(),
 				KstTime.now());
+			found = find(values, false);
 		} catch (DuplicateKeyException concurrent) {
-			// 다른 요청이 같은 조합을 먼저 추가했다(UK-03).
+			found = find(values, true);
 		}
-		return find(values);
+		if (found == null) {
+			throw new IllegalStateException("threshold_policy row not found after insert");
+		}
+		return found;
 	}
 
-	private Long find(Values values) {
+	/** {@code latest}: 스냅샷 대신 최신 커밋을 읽는다(잠금 읽기). */
+	private Long find(Values values, boolean latest) {
 		List<Long> rows = jdbc.queryForList(
 			"SELECT threshold_policy_id FROM threshold_policy WHERE threshold=? AND"
-				+ " hold_seconds=? AND recover_seconds=? AND realert_seconds=?",
+				+ " hold_seconds=? AND recover_seconds=? AND realert_seconds=?"
+				+ (latest ? " FOR SHARE" : ""),
 			Long.class,
 			values.threshold(),
 			values.holdSeconds(),
@@ -93,7 +110,8 @@ public class ThresholdPolicyRepository {
 	/**
 	 * 정책 값 네 개: 임계값, 붕괴 확정, 회복, 재알림.
 	 *
-	 * DB에 그대로 담을 수 없는 값은 반올림하지 않고 거부한다.
+	 * DB에 그대로 담을 수 없는 값은 반올림하지 않고 거부한다. 범위(확정·회복·재알림 0 초과, 재알림 24시간 이하,
+	 * 임계값 0 초과 1 이하)를 벗어난 값도 거부한다 — DB CHECK는 임계값 0을 받아 주지만 그러면 모든 구간이 이탈 후보다.
 	 */
 	public record Values(
 		BigDecimal threshold,
@@ -101,7 +119,17 @@ public class ThresholdPolicyRepository {
 		BigDecimal recoverSeconds,
 		int realertSeconds) {
 
+		/** 재알림 상한: 계약의 시각 상한(24시간)과 같다. */
+		static final long MAX_REMINDER_MS = 86_400_000;
+
 		public static Values of(Policy policy) {
+			if (policy.holdMs() <= 0
+				|| policy.recoveryMs() <= 0
+				|| policy.reminderMs() <= 0
+				|| policy.reminderMs() > MAX_REMINDER_MS
+				|| !(policy.threshold() > 0 && policy.threshold() <= 1)) {
+				throw ApiError.badRequest("policy is out of range");
+			}
 			if (policy.holdMs() % 500 != 0
 				|| policy.recoveryMs() % 500 != 0
 				|| policy.reminderMs() % 1000 != 0

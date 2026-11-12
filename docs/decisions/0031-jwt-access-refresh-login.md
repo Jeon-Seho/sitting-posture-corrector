@@ -1,6 +1,6 @@
 # ADR 0031: 로그인은 access 토큰(JWT)과 refresh 토큰으로 한다
 
-- 상태: accepted (브랜치 `feature/repo-auth-refresh-token`에 구현, develop 미병합)
+- 상태: accepted (브랜치 `feature/repo-auth-refresh-token`에 구현, 2026-10-27 PR #68로 develop 병합)
 - 날짜: 2026-10-27 (번호: FE가 0028·0029를 써서 BE는 0030 이후. 0030은 BE ADR 0028의 새 번호로 남겨 둠)
 - 근거: 2026-10-27 사용자(DB·BE) 결정 — 로그인 방식 C안(JWT access + refresh), access 30분, refresh 14일, 쿠키 세션은 한 번에 교체, access 토큰은 철회하지 않음, `SPRING_SESSION` 테이블은 남김, `X-PoseGood-User-Id` 검사는 유지
 - 대체: API 명세 1장의 「DB(`SPRING_SESSION`)에 저장하는 로그인 쿠키, 로그인 성공 시점부터 30분 고정 만료」(2026-10-22 팀장 문서 정리, 10/26 `LoginLifetime` 구현), BE-5 ①

@@ -13,6 +13,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.WebSocket;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,13 +28,16 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import tools.jackson.databind.JsonNode;
@@ -62,6 +67,12 @@ class MySqlIntegrationTest {
 	@Autowired
 	@Qualifier("requestMappingHandlerMapping")
 	RequestMappingHandlerMapping mappings;
+	@Autowired
+	ThresholdPolicyRepository policies;
+	@Autowired
+	JdbcTemplate jdbc;
+	@Autowired
+	TransactionTemplate tx;
 
 	@DynamicPropertySource
 	static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -190,6 +201,45 @@ class MySqlIntegrationTest {
 			"PUT /v2/sessions/{id}", "POST /v2/sessions/{id}/end", "GET /v2/sessions/{id}", "GET /v2/records",
 			"DELETE /v2/records/{id}")) {
 			assertTrue(routes.contains(kept), kept);
+		}
+	}
+
+	@Test
+	void policyResolveFindsARowAnotherTransactionCommittedFirst() {
+		// 스냅샷 읽기 문제가 생기는 MySQL 기본 격리 수준에서 확인한다.
+		assertEquals("REPEATABLE-READ", jdbc.queryForObject("SELECT @@transaction_isolation", String.class));
+		var values = ThresholdPolicyRepository.Values.ofSeconds(7.5, 8.5, 97, 0.613);
+		var committed = new long[1];
+		long resolved = tx.execute(status -> {
+			// 일반 SELECT로 이 트랜잭션의 스냅샷을 만든다(아직 없는 조합).
+			assertEquals(0, jdbc.queryForObject(
+				"SELECT COUNT(*) FROM threshold_policy WHERE threshold=? AND hold_seconds=?", Integer.class,
+				values.threshold(), values.holdSeconds()));
+			// 다른 요청이 같은 조합을 먼저 넣고 커밋했다.
+			committed[0] = insertElsewhere(values);
+			return policies.resolve(values);
+		});
+		assertEquals(committed[0], resolved);
+	}
+
+	/** 별도 연결(자동 커밋)로 정책 행을 넣고 그 ID를 돌려준다. */
+	private static long insertElsewhere(ThresholdPolicyRepository.Values values) {
+		try (var connection = database.connect();
+			var insert = connection.prepareStatement(
+				"INSERT INTO threshold_policy(threshold,hold_seconds,recover_seconds,realert_seconds,created_at)"
+					+ " VALUES(?,?,?,?,'2026-01-01 00:00:00.000')",
+				Statement.RETURN_GENERATED_KEYS)) {
+			insert.setBigDecimal(1, values.threshold());
+			insert.setBigDecimal(2, values.holdSeconds());
+			insert.setBigDecimal(3, values.recoverSeconds());
+			insert.setInt(4, values.realertSeconds());
+			insert.executeUpdate();
+			try (var keys = insert.getGeneratedKeys()) {
+				assertTrue(keys.next());
+				return keys.getLong(1);
+			}
+		} catch (SQLException failure) {
+			throw new IllegalStateException(failure);
 		}
 	}
 

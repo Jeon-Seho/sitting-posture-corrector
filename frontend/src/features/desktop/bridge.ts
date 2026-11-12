@@ -22,6 +22,7 @@ export type AlertDelivery = 'popup' | 'in-app' | 'off' | null
 export type DesktopBridge = {
   version: 1
   platform: string
+  setFallbackAppearance?: (appearance: { mode: 'light' | 'gray' | 'dark' | 'system'; accent: string }) => Promise<boolean>
   getLaunchInfo: () => Promise<LaunchInfo | null>
   cameraWindow?: boolean
   setThemeIcon?: (icon: { accent: string; png: string }) => Promise<boolean>
