@@ -68,34 +68,6 @@ public class ConsentRepository {
 		return !values.isEmpty() && values.get(0);
 	}
 
-	/** Caller owns the account lock and transaction; repeated writes are idempotent. */
-	public void optional(long owner, boolean agreed, String version) {
-		if (!VERSION.equals(version)) {
-			throw required();
-		}
-		if (agreed == optional(owner)) {
-			return;
-		}
-		if (agreed) {
-			// A rapid withdraw/re-agree must still get a new millisecond primary key.
-			var last = jdbc.queryForObject(
-				"SELECT MAX(agreed_at) FROM user_consent WHERE user_account_id=? AND consent_type='OPTIONAL_PROFILE'",
-				(row, n) -> row.getObject(1, java.time.LocalDateTime.class), owner);
-			var now = KstTime.now();
-			if (last != null && !now.isAfter(last)) {
-				now = last.plusNanos(1_000_000);
-			}
-			jdbc.update(
-				"INSERT INTO user_consent(user_account_id,consent_type,agreed_at,document_version)"
-					+ " VALUES(?,'OPTIONAL_PROFILE',?,?)",
-				owner, now, VERSION);
-		} else {
-			jdbc.update("UPDATE user_consent SET withdrawn_at=GREATEST(agreed_at,?) WHERE user_account_id=?"
-				+ " AND consent_type='OPTIONAL_PROFILE' AND withdrawn_at IS NULL", KstTime.now(), owner);
-			jdbc.update("UPDATE user_account SET age=NULL,occupation=NULL WHERE user_account_id=?", owner);
-		}
-	}
-
 	private static ApiError required() {
 		return new ApiError(400, "CONSENT_REQUIRED", "explicit current consent is required");
 	}

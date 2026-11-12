@@ -3,17 +3,14 @@ package org.posegood.api.workspace;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import org.posegood.api.account.AccountContracts;
 import org.posegood.api.account.AccountRepository;
 import org.posegood.api.account.AccountService;
 import org.posegood.api.account.ConsentRepository;
 import org.posegood.api.account.UserLocks;
-import org.posegood.api.common.ApiError;
 import org.posegood.api.common.Json;
 import org.posegood.api.policy.ThresholdPolicyRepository;
-import org.posegood.api.session.SessionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -33,7 +30,6 @@ public class WorkspaceService {
 	private final AccountService accounts;
 	private final AccountRepository accountRows;
 	private final ThresholdPolicyRepository policies;
-	private final SessionService sessions;
 	private final RecordHistory history;
 	private final UserLocks locks;
 	private final ConsentRepository consents;
@@ -44,14 +40,12 @@ public class WorkspaceService {
 		AccountService accounts,
 		AccountRepository accountRows,
 		ThresholdPolicyRepository policies,
-		SessionService sessions,
 		RecordHistory history,
 		UserLocks locks, ConsentRepository consents, TransactionTemplate tx) {
 		this.json = json;
 		this.accounts = accounts;
 		this.accountRows = accountRows;
 		this.policies = policies;
-		this.sessions = sessions;
 		this.history = history;
 		this.locks = locks;
 		this.consents = consents;
@@ -102,35 +96,8 @@ public class WorkspaceService {
 		return get(owner);
 	}
 
-	public ObjectNode optionalConsent(long owner, boolean agreed, String version) {
-		locks.run(owner, () -> tx.executeWithoutResult(status -> {
-			accounts.requireActive(owner);
-			consents.optional(owner, agreed, version);
-		}));
-		return get(owner);
-	}
-
 	/** 기록 목록(세션 테이블에서 다시 만듦). */
 	public List<JsonNode> records(long owner) {
 		return history.list(owner);
-	}
-
-	/**
-	 * 기록 삭제 = 그 세션 삭제.
-	 */
-	public void deleteRecord(long owner, String id) {
-		UUID session;
-		try {
-			session = UUID.fromString(id);
-		} catch (IllegalArgumentException local) {
-			return; // 로컬 기록 ID는 세션 UUID가 아닐 수 있고, 서버에 저장된 것도 없다.
-		}
-		try {
-			sessions.delete(owner, session);
-		} catch (ApiError missing) {
-			if (missing.status() != 404) {
-				throw missing;
-			}
-		}
 	}
 }

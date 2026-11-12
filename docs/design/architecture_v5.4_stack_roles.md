@@ -40,7 +40,7 @@
 - **지금(local, `POSEGOOD_REALTIME_PIPELINE=local`)**: `RealtimeHandlerV2` → `FrameFeatures`(좌표 → 특징) → **io-inference**(FastAPI, 내부 토큰) → `SessionEngine`(메모리 판정, 측정불가 30분 자동 종료 포함) → 결과 테이블에 직접 씀(ADR 0020). 그래서 지금은 `collapse_event`·`correction_alert`·`excluded_interval`·세션 종료 값을 io-api도 씁니다. Kafka 경로로 전환한 뒤에는 판정 결과 저장만 씁니다(C-1).
 - 자세 등록: 앱이 3초 평균 좌표를 내 REST B1 `POST /baselines`(`registration_id`)로 보냅니다. WebSocket 등록(`purpose: calibration`)은 10/27 지웠습니다.
 - REST S2·R2·S5·S6는 10/28 지웠습니다(계획 0062). 측정 입력은 `/realtime`뿐입니다.
-- REST S2·R2·S5·S6는 10/28 지웠고, S3(연결 없이 종료)·R3(기록 삭제)도 11/11 제거로 정했습니다(DB/BE 삭제 대기, D-88). S4는 DB에 끝난 세션이 있으면 DB 값으로 답합니다(안 A, DB/BE, D-85).
+- REST S2·R2·S5·S6는 10/28 지웠고, S3(연결 없이 종료)·R3(기록 삭제)도 11/11 제거로 정했고 11/12 C1(선택 정보 동의·철회)과 함께 지웠습니다(D-88, 계획 0062 2단계). S4는 DB에 끝난 세션이 있으면 DB 값으로 답합니다(안 A, DB/BE, D-85).
 - 분담: API·계약은 DB/BE(명세 `docs/design/api-spec.md`가 확정본), 배포·공개 입구·점검은 DevOps/BE, `ws` Kafka 연결(D-57 1단계)은 11/10부터 DevOps/BE(10/30 회의의 PM 담당을 바꿈), 전환 시험·compose 변수도 DevOps/BE.
 - kafka 모드(`POSEGOOD_REALTIME_PIPELINE=kafka`, D-57 브랜치): `KafkaPipeline`이 구간마다 `features.v1`을 내고 브로커 확인 뒤 `ack`, `KafkaResults`(그룹 `io-ws-io-api`)가 결과를 받아 앱 메시지로 바꿉니다. 종료 사건은 `stored.v1`(저장 완료)이 온 뒤 보냅니다. 한 번 보냄 표시·쥐고 있는 종료 사건은 서버 메모리(한 대 운영, 6시간 뒤 정리)이고, 여러 대로 늘릴 때 Redis로 옮깁니다.
 

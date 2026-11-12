@@ -188,18 +188,18 @@ class MySqlIntegrationTest {
 
 	@Test
 	void unusedRoutesAreRemoved() {
-		// 계획 0062(2026-10-28): 앱 기능이 없는 S2·S5·S6·R2를 지웠다. 기록 삭제(R3)와 세션 종료(S3)는 남는다.
+		// 계획 0062: 앱 기능이 없는 S2·S5·S6·R2(2026-10-28)와 앱이 부르지 않는 S3·R3·C1(2026-11-12)을 지웠다.
 		var routes = new ArrayList<String>();
 		mappings.getHandlerMethods().keySet().forEach(info -> info.getPatternValues().forEach(
 			pattern -> info.getMethodsCondition().getMethods().forEach(method -> routes.add(method + " " + pattern))));
 		for (var removed : List.of(
 			"POST /sessions/{id}/features", "GET /sessions/{id}/metadata", "DELETE /sessions/{id}",
-			"POST /records")) {
+			"POST /records", "POST /sessions/{id}/end", "DELETE /records/{id}",
+			"PUT /consents/optional-profile")) {
 			assertFalse(routes.contains(removed), removed);
 		}
 		for (var kept : List.of(
-			"PUT /sessions/{id}", "POST /sessions/{id}/end", "GET /sessions/{id}", "GET /records",
-			"DELETE /records/{id}")) {
+			"PUT /sessions/{id}", "GET /sessions/{id}", "GET /records")) {
 			assertTrue(routes.contains(kept), kept);
 		}
 	}
@@ -407,9 +407,6 @@ class MySqlIntegrationTest {
 		assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asString());
 
 		String path = "/sessions/" + id;
-		// 재시도: 같은 종료는 아무것도 바꾸지 않고, 다른 종료는 409.
-		assertEquals(view, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000)).body());
-		assertEquals(409, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9500)).status());
 
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var session = statement.executeQuery(
@@ -507,19 +504,6 @@ class MySqlIntegrationTest {
 		var fromDb = api.get(path);
 		assertEquals(200, fromDb.status());
 		assertEquals(rebuiltView, fromDb.body());
-
-		// 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
-		assertEquals(204, api.delete("/records/" + id, null).status());
-		assertEquals(404, api.get(path).status());
-		try (var connection = database.connect(); var statement = connection.createStatement()) {
-			var rows = statement.executeQuery(
-				"SELECT (SELECT COUNT(*) FROM monitor_session WHERE client_session_uuid='" + id
-					+ "'),(SELECT COUNT(*) FROM daily_stat d JOIN user_account u ON"
-					+ " u.user_account_id=d.user_account_id WHERE u.login_email='" + email + "')");
-			assertTrue(rows.next());
-			assertEquals(0, rows.getInt(1));
-			assertEquals(1, rows.getInt(2));
-		}
 	}
 
 	/**
@@ -649,11 +633,14 @@ class MySqlIntegrationTest {
 		assertEquals(404, lost.status());
 		assertEquals("SESSION_LOST", lost.body().get("code").asString());
 
-		// 진행 중 세션은 S3로 끝낸다. 판정 상태를 잃은 세션 행은 닫는 경로가 없어 기록 목록에 나오지 않는다
-		// (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
-		assertTrue(api.post("/sessions/" + firstSessionId + "/end", MAPPER.createObjectNode().put("end_ms", 0))
-			.body()
-			.get("ended").asBoolean());
+		// 진행 중 세션은 앱처럼 WS end로 끝낸다(S3 세션 종료 REST는 2026-11-12 삭제). 판정 상태를 잃은 세션 행은
+		// 닫는 경로가 없어 기록 목록에 나오지 않는다(기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
+		var closing = Socket.open(port);
+		closing.send(helloV2(api, "measure", firstSessionId));
+		closing.next("ready");
+		closing.send(endV2(0));
+		closing.next("decision", "session_ended");
+		assertEquals("ended", closing.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var rows = statement.executeQuery(
 				"SELECT client_session_uuid,ended_at FROM monitor_session WHERE"
@@ -672,21 +659,15 @@ class MySqlIntegrationTest {
 	}
 
 	@Test
-	void consentWithdrawalErasesOnlyOptionalProfileAndReagreementAppends() throws Exception {
+	void registrationConsentsAndOptionalProfileAge() throws Exception {
+		// 선택 정보 동의·철회(C1)는 2026-11-12 삭제했다. 가입 때 준 선택 정보 동의로 나이를 저장하고 나이 범위를 검사한다.
 		var api = client();
 		api.register(email());
-		var off = MAPPER.createObjectNode().put("agreed", false).put("document_version", "service-v2");
-		var withdrawn = api.put("/consents/optional-profile", off);
-		assertEquals(200, withdrawn.status());
-		assertTrue(withdrawn.body().get("profile").get("age").isNull());
-		assertTrue(withdrawn.body().get("profile").get("occupation").isNull());
-		assertFalse(withdrawn.body().get("consents").get("optional_profile").asBoolean());
-		assertEquals(200, api.put("/consents/optional-profile", off).status());
-		var update = ((ObjectNode)withdrawn.body()).deepCopy();
+		var workspace = api.get("/workspace").body();
+		assertTrue(workspace.get("consents").get("optional_profile").asBoolean());
+		var update = ((ObjectNode)workspace).deepCopy();
 		update.remove(List.of("schema_version", "records", "consents"));
 		((ObjectNode)update.get("profile")).put("age", 30);
-		assertEquals(400, api.put("/workspace", update).status());
-		assertEquals(200, api.put("/consents/optional-profile", off.deepCopy().put("agreed", true)).status());
 		assertEquals(200, api.put("/workspace", update).status());
 		((ObjectNode)update.get("profile")).put("age", 13);
 		assertEquals(400, api.put("/workspace", update).status());
@@ -694,8 +675,8 @@ class MySqlIntegrationTest {
 			var rows = statement.executeQuery(
 				"SELECT COUNT(*),SUM(withdrawn_at IS NOT NULL) FROM user_consent WHERE user_account_id=" + api.userId);
 			assertTrue(rows.next());
-			assertEquals(7, rows.getInt(1));
-			assertEquals(1, rows.getInt(2));
+			assertEquals(6, rows.getInt(1));
+			assertEquals(0, rows.getInt(2));
 		}
 		var anonymous = client();
 		String rejected = email();
@@ -711,7 +692,7 @@ class MySqlIntegrationTest {
 	}
 
 	@Test
-	void baselineRetryIsImmutableAndEndIsIdempotent() throws Exception {
+	void baselineRetryIsImmutableAndAnEmptyMeasurementEnds() throws Exception {
 		var api = client();
 		api.register(email());
 		assertEquals(404, api.get("/baselines/current").status());
@@ -739,9 +720,13 @@ class MySqlIntegrationTest {
 		UUID id = UUID.randomUUID();
 		String path = "/sessions/" + id;
 		assertEquals(200, api.put(path, create(baseline)).status());
-		var end = MAPPER.createObjectNode().put("end_ms", 300000);
-		assertEquals(200, api.post(path + "/end", end).status());
-		assertEquals(200, api.post(path + "/end", end).status());
+		// 구간 없이 끝낸 측정도 WS end로 닫힌다(S3 세션 종료 REST는 2026-11-12 삭제). API는 daily_stat에 쓰지 않는다.
+		var socket = Socket.open(port);
+		socket.send(helloV2(api, "measure", id));
+		socket.next("ready");
+		socket.send(endV2(0));
+		socket.next("decision", "session_ended");
+		assertEquals("ended", socket.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var sessions = statement.executeQuery(
 				"SELECT COUNT(*),SUM(ended_at IS NOT NULL) FROM monitor_session WHERE user_account_id=" + api.userId);

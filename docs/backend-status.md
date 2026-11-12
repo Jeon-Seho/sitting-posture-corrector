@@ -24,7 +24,7 @@
 | Discord 로그인·가입·계정 연결(OAuth 코드 + PKCE, 같은 이메일 자동 연결 안 함, 비밀번호 없는 계정) | DB/BE | BE 구현됨·**기본 꺼짐** — DB 표 `social_identity`(V2.7, migration 017 작성 — DB 적용 전)·Discord 앱 설정 전. 단위 시험만, MySQL·실제 Discord 미확인. 데스크톱 앱은 후속 | `account/SocialLoginService.java`, `SocialController.java`, `SocialLoginServiceTest`, [인계](design/social-login-password-reset-handoff.md) |
 | 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`) | DB/BE | 구현됨 | `AuthController.java` `DELETE /auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록 |
 | 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 3절(좌표 전송 동의 필수), [DB 안내](../database/README.md)(`user_consent`) |
-| 선택 정보 동의 철회 (나이·직업 비움) | DB/BE | 구현됨 | `workspace/WorkspaceController.java` `PUT /consents/optional-profile` |
+| 선택 정보 동의 철회 C1 `PUT /consents/optional-profile` | DB/BE | 삭제함 (2026-11-12, 앱이 부르지 않음). 선택 정보 동의는 가입 때만 받는다 | [계획 0062](plans/active/0062-remove-unused-apis.md) 2단계 |
 | 매시간 탈퇴 삭제 스케줄러 제거 | DB/BE | 구현됨 | 계획 0026 10/15 기록 (`purgeWithdrawn` 삭제) |
 
 ### 2.2 설정·기록
@@ -32,7 +32,7 @@
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
 | 설정 조회·저장 `/workspace` | DB/BE | 구현됨 | `workspace/WorkspaceController.java` |
-| 기록 목록·삭제 `/records` (세션 테이블에서 다시 만듦). 기록 저장(R2)은 2026-10-28 삭제 — 서버가 측정 종료 때 저장(계획 0062) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
+| 기록 목록 `/records` (세션 테이블에서 다시 만듦). 기록 삭제(R3)는 2026-11-12 삭제(앱이 부르지 않음). 기록 저장(R2)은 2026-10-28 삭제 — 서버가 측정 종료 때 저장(계획 0062) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled`. 새 계정 기본값 켜짐(DB V2.6, 2026-10-27 — 미결이던 DB false / FE 켜짐을 켜짐으로 정함) | DB/BE | 구현됨 (develop PR #70) | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 1절 5번, [DB 안내](../database/README.md) 세션 줄, `backend/README.md`, migration 016 |
 | 일별 통계 조회 T1 `GET /stats/daily`, 기록 하나 조회 R1b `GET /records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2(매일 00:10, 2026-11-01 서버 cron 등록, PR #93)가 채운다. 11/08부터 어제~7일 전을 매일 다시 계산해 바뀐 날만 쓴다(D-81, PR #100) — 최근 7일 값과 `computed_at`은 바뀔 수 있다. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
@@ -57,7 +57,7 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| 세션 REST (`PUT`·`/end`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28 삭제(앱 기능 없음, 기록 삭제는 R3) | `session/SessionController.java`, [계획 0062](plans/active/0062-remove-unused-apis.md) |
+| 세션 REST (`PUT`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28, 종료 `/end`(S3)는 2026-11-12 삭제(앱은 WS `end`로 끝냄) | `session/SessionController.java`, [계획 0062](plans/active/0062-remove-unused-apis.md) |
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (develop PR #65) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내도 2026-11-09 삭제(D-72, 3장) | `api-spec.md` 10장, `7034f0e` |
 | `/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (develop PR #65). FE V3는 대응함(PR #69), Kafka `ws`는 전환 때 맞춤 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
@@ -132,9 +132,9 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | API 다중 인스턴스 (진행 상태 공유·세션 고정) | DB/BE·DevOps | `backend/README.md` 「다음 결정」 1, D-42 |
 | 자정 넘김을 켜는 시점 (`POSEGOOD_MIDNIGHT_ROLLOVER=true`) — 앱이 `session_rollover`(기록 나누기, 새 `session_id`로 S3·기록 저장)를 처리한 뒤. Spark J2는 00:10에 돈다(BE-6 ⑤ 끝, PR #93). `monitor_session.client_session_uuid` 주석(「클라이언트가 발급」)을 서버 발급까지로 고칠지(migration 필요) | DB/BE·FE·Spark | `api-spec.md` 11.3, FE ADR 0029 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
-| 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
+| 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류). 기록 삭제 API(R3)는 2026-11-12 지워 지금은 탈퇴 최종 삭제(J3)만 해당 |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
-| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한). 측정 종료 저장(`end`·연결 끊김)이 DB 오류로 실패한 세션도 같다 — 판정은 끝났지만 다시 저장하는 길은 S3뿐이고 앱은 S3를 부르지 않는다(`RealtimeHandlerV2.end`, 2026-11-10 확인) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
+| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (서버 시간 제한 등). 측정 종료 저장(`end`·연결 끊김)이 DB 오류로 실패한 세션도 같다 — 판정은 끝났지만 다시 저장하는 길이 없다(`RealtimeHandlerV2.end`, 2026-11-10 확인). 앱이 부르지 않던 S3는 2026-11-12 지워 이 두 경우를 닫을 길이 지금 없다 | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 쉬기 10분 자동 종료를 서버가 할지 (BE-13, 안: `closed(rest_timeout)`) | DB/BE·FE | 2.6, FE 제안서 1장 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
@@ -174,6 +174,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-10 | 2.2 기록 줄에서 지운 기록 저장(R2) 빼기, 기록 재계산 한계 3건 기록. 4장 「닫히지 않는 세션」에 종료 저장 실패 경우 추가(`ca038e2`) | 커밋 전 |
 | 2026-11-11 | BE-11 중 S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과로 답함(kafka 모드에서 S4가 빈 결과를 주던 문제 대비, 계획 0031 11번). 기록 목록의 DB 읽기를 `ClosedSessions`로 옮겨 R1·S4가 같이 씀. 단위 시험 2개·MySQL 통합 확인 추가(MySQL 통합 포함 93개 통과, 2.7) | 이 커밋 |
 | 2026-11-12 | DevOps(D-57 ⑧)와 S4 합칠 순서 합의를 BE-11 줄·`api-spec.md` S4·계획 0031에 기록. kafka 모드 재현 MySQL 통합 시험(`sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged`) 추가. S4 단위 시험이 S3 대신 실시간 종료(`finish`)를 쓰게 바꿈(S3 삭제 예정) | 이 커밋 |
+| 2026-11-12 | 앱이 부르지 않는 REST 3개 삭제: S3 세션 종료·R3 기록 삭제·C1 선택 정보 동의·철회(계획 0062 2단계). 2.1·2.2·세션 줄, 4장 「WS가 열리지 않은 세션」·「적재된 세션의 기록 삭제」 갱신 | `refactor/backend-remove-unused-s3-r3-c1` |
 | 2026-11-12 | 주소에서 버전 삭제(`/v2/…` → `/…`, 소셜 로그인·비밀번호 재설정 포함, WS `/realtime`, 추론 `/infer`), 추론 `/v1/infer` 삭제. 3장에 배포·Cloudflare·Discord 주소 후속 추가 | `refactor/repo-remove-api-version-paths` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
