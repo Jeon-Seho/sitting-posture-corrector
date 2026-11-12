@@ -5,7 +5,7 @@
 - 작성: klaod-tech(FE)
 - 근거: 팀 결정 「좌표 수집 조건(MediaPipe 모델·`CAPTURE_RESOLUTION` 640×480·관절 목록)은 고정하고, 바꾸면 전원 다시 촬영한다」(DB 스키마 V2.2~V2.6 머리 주석), 사용자(FE) 11/12 「학습 데이터도 4:3이고, 다른 비율로 바꾸려다 4:3으로 고정하기로 했으니 막는다」
 - 대체: [계획 0053](../plans/active/0053-multiple-cameras.md) 4번의 10/19 결정 「640×480을 못 주는 카메라도 시작은 막지 않는다」와 측정 화면 크기 표시(FE 제안서 F13, 11/12 취소)
-- 관련: [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 좌표만 보내고 서버가 판정), [연동 명세](../design/fe/api-ws-spec.md) 0장 「영상 크기」, [DB 안내](../../database/README.md) `CAPTURE_RESOLUTION`
+- 관련: [ADR 0021](0021-app-sends-information-server-judges.md)(앱은 좌표만 보내고 서버가 판정), [연동 명세](../design/fe/api-ws-spec.md) 1장 「영상 크기」, [DB 안내](../../database/README.md) `CAPTURE_RESOLUTION`
 
 ## 배경
 
