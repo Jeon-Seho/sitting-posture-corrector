@@ -94,7 +94,7 @@ export function ServiceScreens({
   }, [showDemo, serverDay])
   const shownRecords = example ?? records
   const today = summary(historyFor(records, 'all', 'today', serverDay))
-  // Never over a measurement: it has its own pause and connection-lost handling (fe-design-request 1장 6).
+  // Never over a measurement: it has its own pause and connection-lost handling (frontend README 「오류 안내 페이지」).
   const online = useOnline()
   const failed = usePageErrors()
   const source = (Object.keys(PAGE_ERROR_SCREENS) as PageErrorSource[]).find(s => failed[s] && PAGE_ERROR_SCREENS[s].includes(view))

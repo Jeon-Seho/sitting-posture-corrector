@@ -4,7 +4,7 @@ import { illustrationPalette, useAppearance } from '../features/appearance/theme
 import { KST } from '../lib/kst'
 
 /**
- * Five situations, not one page per HTTP code (fe-design-request 2장): expected answers such as a
+ * Five situations, not one page per HTTP code (frontend README 「오류 안내 페이지」): expected answers such as a
  * wrong password are shown next to the input. The pictures are lellon0403's set (PR #108),
  * reused by meaning; `connecting` lives in the desktop app's `public/offline.html`.
  */

@@ -169,3 +169,11 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |
+
+## 13. 2026-11-12 오류·연결 화면 디자인 요청 (FE, 1개)
+
+오류·연결 화면을 그려 달라는 요청서다. 그림(PR #108)을 받아 다섯 화면으로 연결했고(11/10) 데스크톱 연결 중 화면 테마도 맞춰(PR #112) 요청이 끝났다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe/fe-design-request.md` | 그릴 화면·문구·조건을 요청한 문서다. 그림을 받아 구현까지 끝났다. | 화면과 그림 대응, 띄우는 규칙, 원칙, 남은 것은 [frontend README](../frontend/README.md) 「오류 안내 페이지」, 코드는 `frontend/src/features/connection/pageError.ts`·`frontend/src/pages/ErrorPage.tsx`·`frontend/public/offline.html`. 원문은 `git show ccf0a9f:docs/design/fe/fe-design-request.md` | lellon0403(`b74c883`, 11/10 데스크톱 테마 보완 기록) |
