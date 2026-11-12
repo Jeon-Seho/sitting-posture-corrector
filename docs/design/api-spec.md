@@ -15,7 +15,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/realtime`)의 요
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> **주소에 버전이 없다(2026-11-09, 소셜 로그인·비밀번호 재설정은 2026-11-12).** `/v2/auth/login` → `/auth/login`, `/v2/auth/social/…` → `/auth/social/…`, `/v2/realtime` → `/realtime`, 추론 `/v2/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws.v2` 등은 형식 버전이라 유지). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
+> **주소에 버전이 없다(2026-11-09, 소셜 로그인·비밀번호 재설정은 2026-11-12).** `/auth/login` → `/auth/login`, `/auth/social/…` → `/auth/social/…`, `/realtime` → `/realtime`, 추론 `/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws.v2` 등은 형식 버전이라 유지). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
 > 실시간은 `/realtime`(좌표 프레임, [11장](#11-websocket-realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
@@ -906,7 +906,18 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 로그인 필요 · 계정 헤더
 
-- 메모리의 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
+- 답하는 순서(BE-11, 2026-11-11 · 11/12 DevOps와 합칠 순서 합의):
+  1. 메모리 엔진이 직접 판정해 **끝난** 결과가 있으면 그것(끝난 뒤 30분 보관). local 모드만 해당한다 — kafka 모드는 io-api
+     엔진이 판정하지 않으므로 D-57 병합 때 이 단계를 local일 때만 쓰도록 막는다.
+  2. 없으면 DB에 끝난 값(`monitor_session.ended_at`)이 있을 때 DB로 다시 만든 결과. [R1](#r1) `server.view`와 같은 값이다:
+     `ended: true`, `last_sequence: -1`, `events` 마지막에 `session_ended`, 사건의 `deviation_type`은 `unspecified`,
+     `summary.total_ms`는 저장된 측정 시간. 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는
+     판정하지 않아 비어 있음, 계획 0031 11번)의 끝난 세션이 이 경로로 답한다.
+  3. 그것도 없으면 메모리의 진행 중 상태. kafka 모드에서는 D-57 ⑧이 실시간 연결이 받은 마지막 `progress`·`decision`
+     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored.v1`)를 다 받았을 때만
+     `true`다. D-57 병합 전 develop에서는 빈 상태(`last_sequence: -1`)다.
+  4. 셋 다 없으면 404 `SESSION_LOST`.
+- 종료 저장이 실패한 세션(R1 `status: "error"`)은 2번에서 빠진다.
 
 **요청 본문**: 없음
 
@@ -963,7 +974,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | HTTP | code | 의미 |
 |---|---|---|
 | 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 |
-| 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
+| 404 | `SESSION_LOST` | DB 행은 있지만 끝난 기록으로 다시 만들 수 없고(종료 전이거나 종료 저장 실패), API 재시작 등으로 판정 상태도 사라짐 |
 
 <a id="s5"></a>
 
@@ -1545,6 +1556,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
 | 2026-11-12 | `refactor/repo-remove-api-version-paths` | **호환성 깨짐.** 주소에서 버전 삭제: REST `/v2/…` → `/…`(계정 A2~A8, 소셜 로그인 `/auth/social/…`, 비밀번호 재설정 `/auth/password-reset/…`, 동의 C1, 설정 W1·W2, 기준 자세 B1·B2, 측정 세션 S1·S4, 기록 R1·R3, 설계만 된 일별 통계 T1 `/stats/daily`), WebSocket `/v2/realtime` → `/realtime`(nginx `/api/realtime`), 추론 `/v2/infer` → `/infer`. 쓰지 않던 추론 `/v1/infer`(옛 두 특징 입력)와 그 요청 형식 삭제. 본문·메시지 형식은 그대로. 서버와 화면을 같은 때 배포해야 하고, Cloudflare `auth-rate-limit` 규칙 경로(`/api/auth/`)와 Discord 돌아오는 주소(`POSEGOOD_DISCORD_REDIRECT_URI`·Discord 개발자 사이트 등록 주소 `/api/auth/social/discord/callback`)를 바꿔야 한다. 처리 서비스(`/judge/v1/*`, 시험용 `/api/v1/realtime/features`)는 그대로 |
+| 2026-11-11 | `feature/backend-session-view-from-db` | S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음)로 답한다(BE-11). 메모리에서 빠진 끝난 세션은 404 `SESSION_LOST` 대신 200. kafka 모드 대비(계획 0031 11번). 형식은 그대로 |
 | 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |
 | 2026-11-09 | 문서만(코드 그대로) | 코드 기준을 develop `6cae21f`(PR #93·#98·#99·#100, API 코드는 `fe5058b`와 같음)로. J2 최근 7일 다시 계산(D-81, PR #100)을 1장 배치·S3·T1(`computed_at` 포함)에 반영. Observation 4.0의 「develop 앱이 4.0을 버린다」 삭제(FE 대응 PR #99 병합). J2 실행 시각 00:00 → 00:10(PR #93). FE 요청 BE-7(명세에 없던 시간 필드): 9장에 `events[].timestamp_ms`·`onset_ms` 설명을 넣고 `onset_valid_ms` 보충, 11.2에 `frames[].t_ms`. `hold_ms`·`recovery_ms`는 프레임 `t_ms`가 아니라 구간 길이로 센다고 바로잡음 |
 | 2026-11-03 | `61365a4` (PR #98) | 실시간 `observation` 4.0에 `recovery_ms` 추가(FE 요청): 열린 사건에서 `good`이 이어진 시간, 정책 `recovery_ms`와 비교해 회복을 확정하는 값. 사건이 없거나 판정 불가면 0. 필수 필드라 엄격한 앱 검증은 맞춰야 한다. 4.0이 아직 FE에 배포되지 않아 번호는 그대로 |
