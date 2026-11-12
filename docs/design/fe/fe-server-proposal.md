@@ -235,12 +235,12 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 
 #### 요구 10. API 경로에서 버전(`/v2`) 빼기
 
-- **한줄요약:** 모든 API 경로의 `/v2`(예: `/api/v2/auth/login`)를 빼 `/api/auth/login`으로 바꾼다.
+- **한줄요약:** 서버 API에서 버전 표시를 아예 없앤다. 모든 경로의 `/v2`(예: `/api/v2/auth/login`)를 빼 `/api/auth/login`으로 바꾸고, 앱에도 버전 개념을 남기지 않는다.
 - **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
 - **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다. 속도·서버 부담에는 차이가 없다.
 - **요구사항/변경사항:** 한쪽만 바꾸면 로그인·측정이 끊기므로 팀원 확인을 받고 순서대로 한 번에 한다.
   1. DevOps/BE: 서버가 옛 경로(`/api/v2/…`)와 새 경로(`/api/…`)를 **둘 다** 받게 한다(예: gateway에서 `/api/v2/`를 `/api/`로 넘김). BE 코드 약 20개 파일(`@RequestMapping("/v2…")`).
-  2. FE: 상수 하나만 바꿔 배포한다. 앱 코드의 버전은 `features/platform/serverConfig.ts` `API_VERSION`(= `'/v2'`) 한곳에 모아 두었고(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀), 이를 `''`로 바꾼다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)는 이미 두 경로를 다 받는다. 시험 코드 9개 파일의 실제 주소 확인(`/api/v2/…`)도 함께 고친다.
+  2. FE: 버전을 지우고 배포한다. 앱 코드의 `/v2`는 `features/platform/serverConfig.ts` 한곳에 모아 두었다(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀). `API_VERSION`을 지우고 `API_ROOT`를 `'/api'`(gateway가 떼는 공통 앞부분)로 둔다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)의 「`/v2`도 받기」 줄과 시험 코드 9개 파일의 `/api/v2/…` 확인도 지운다. 그 뒤 앱 어디에도 `/v2`가 남지 않는다.
   3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 5와 함께).
   4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
   5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(할 일 1, F14)이 퍼진 뒤에 지운다.
