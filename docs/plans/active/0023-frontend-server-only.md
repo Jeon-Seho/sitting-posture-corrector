@@ -3,7 +3,7 @@
 - 상태: in_progress (10/21 V3 `feature/frontend-features-and-integrationV3`에서 측정·자세 등록을 서버로 바꾸고 로컬 판정을 지움. 10/22 코드 검토로 재시도·B2 실패·측정 시작/종료 경계를 고침. 10/26 서버 시각·KST·B1 `registration_id`(BE 브랜치에 맞춤). 남은 것: 더미 데이터 삭제, 기록 화면의 서버 연결. 실제 서버 시험은 10/29 공개 연결 때 끝 — FE 제안서 `b03fd15` 10.1)
 - 담당: FE
 - 시작일: 2026-10-11
-- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md)(BE에 물을 것 1장, FE 할 일 7장), [연동 명세](../../design/fe/api-ws-spec.md),
+- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md)(FE 할 일 0장, 다른 파트에 요청 1장), [연동 명세](../../design/fe/api-ws-spec.md),
   [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(옛 0025·0026 포함)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
