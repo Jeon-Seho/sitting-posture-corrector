@@ -57,6 +57,8 @@ export type LiveState = {
    * kafka mode the server could not write the session start to Kafka). Shown as an error page.
    */
   serverDown: boolean
+  /** S4 answered 404 after 「측정 종료」: the server has this measurement neither in memory nor stored. */
+  resultMissing: boolean
   /** `closed` did not come within `END_TIMEOUT_MS` after 「측정 종료」: the result is from S4 or the last `progress`. */
   late: boolean
   /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
@@ -166,6 +168,7 @@ export class LiveSession {
     message: '',
     lost: false,
     serverDown: false,
+    resultMissing: false,
     late: false,
     startedAt: null,
     endedAt: null,
@@ -183,6 +186,8 @@ export class LiveSession {
   private disposed = false
   /** The user (or the app) sent `end`; a server `session_ended` alone does not set this. */
   private ending = false
+  /** S4 is on its way: the timer, a closed socket and `stalled` must not ask twice. */
+  private fetching = false
   private readonly now: () => number
 
   constructor(private readonly options: Options) {
@@ -354,6 +359,13 @@ export class LiveSession {
         this.options.onAlert?.(message.kind)
         return
       case 'stalled':
+        // After 「측정 종료」 this is the server saying the save is late (kafka mode, 3 s, D-57 ⑧):
+        // read the result now instead of waiting out the 5 s.
+        if (this.state.phase === 'ending') {
+          this.clearTimer()
+          void this.fetchResult(true)
+          return
+        }
         this.set({ stalled: true })
         return
       case 'closed': {
@@ -499,21 +511,22 @@ export class LiveSession {
 
   /** No `closed(ended)` in time (or the socket closed while ending): S4 has the saved result. */
   private async fetchResult(late = false) {
-    if (this.over()) return
+    if (this.over() || this.fetching) return
+    this.fetching = true
     try {
       const view: SessionView | null = parseSessionView(
         await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
-      // A view that measured less than the screen already showed must not replace it: kafka mode
-      // answers S4 from an engine that never got the intervals (all zeros). Compared by `total_ms`,
-      // not `last_sequence`, because a view rebuilt from the DB says -1 there. A view without
-      // `session_ended` leaves the record unconfirmed, so R1 checks it later. Kafka mode answers
-      // from memory with the last `progress` only (BE 11/11), so fewer events keep the ones shown.
+      // S4 answers (D-85): a finished result in memory, else the stored one rebuilt from the DB
+      // (`last_sequence` -1, so `total_ms` is compared), else the running state in memory (kafka
+      // mode: the last results this server passed on). A view that measured less than the screen
+      // showed must not replace it. An ended view is the server's final word and is taken whole;
+      // a running one may hold fewer events than arrived, so the screen keeps its own then.
       if (view && view.summary.total_ms >= this.state.summary.total_ms) {
         this.finish({
           phase: 'ended',
           summary: view.summary,
-          events: view.events.length >= this.state.events.length ? view.events : this.state.events,
+          events: view.ended || view.events.length >= this.state.events.length ? view.events : this.state.events,
           lastSequence: Math.max(view.last_sequence, this.state.lastSequence),
           late,
         })
@@ -521,7 +534,14 @@ export class LiveSession {
       }
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
-      /* Show what the last `progress` said. */
+      // 404: the server has this measurement neither in memory nor stored. Nothing to wait for.
+      if (caughtError instanceof ApiError && caughtError.kind === 'not_found') {
+        this.finish({ phase: 'failed', message: MESSAGES.not_found, resultMissing: true })
+        return
+      }
+      /* Otherwise show what the last `progress` said. */
+    } finally {
+      this.fetching = false
     }
     this.finish({ phase: 'ended', late })
   }

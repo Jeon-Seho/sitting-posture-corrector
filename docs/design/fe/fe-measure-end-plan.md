@@ -22,9 +22,9 @@ kafka 모드 (D-57):  앱 → io-api → Kafka → 추론 → 판정 → 저장(
 |---|---|---|
 | 1 | `end`를 보내고 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄운다. Esc로 닫히지 않는다 | `LiveSessionPage` `EndingDialog` |
 | 2 | `closed`가 오면 창을 닫고 결과 화면 | `LiveSession.handle` |
-| 3 | **5초** 안에 `closed`가 없으면 S4로 결과를 한 번 읽는다. `end` 뒤 연결이 먼저 끊기면 바로 읽는다 | `END_TIMEOUT_MS`, `fetchResult` |
-| 4 | S4가 화면에 보이던 것보다 적게 측정했다고 답하면(`summary.total_ms`가 작음, kafka 모드의 빈 메모리 엔진) 그 응답은 버리고 마지막 `progress` 결과로 끝낸다. `last_sequence`로 비교하지 않는 것은 DB로 다시 만든 응답이 -1을 주기 때문이다 | `fetchResult` |
-| 5 | 5초를 넘겨 넘어왔고 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 안내를 띄운다(아래) | `lateResult` |
+| 3 | **5초** 안에 `closed`가 없으면 S4로 결과를 한 번 읽는다. `end` 뒤 `stalled`(kafka 3초)가 오거나 연결이 먼저 끊기면 바로 읽는다 | `END_TIMEOUT_MS`, `fetchResult` |
+| 4 | S4가 화면에 보이던 것보다 적게 측정했다고 답하면(`summary.total_ms`가 작음) 그 응답은 버리고 마지막 `progress` 결과로 끝낸다. `ended: true` 응답은 사건까지 그대로 쓴다. `last_sequence`로 비교하지 않는 것은 DB로 다시 만든 응답이 -1을 주기 때문이다. **404면** 결과 없음 오류 화면을 보이고 그 측정의 대기 기록을 지운다 | `fetchResult`, `ErrorPage` `result`, `forgetResult` |
+| 5 | `closed` 없이 넘어왔고(5초 또는 `stalled`) 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 안내를 띄운다(아래) | `lateResult` |
 | 6 | 기록은 이 기기의 대기 기록으로 남고, 측정 중이 아닐 때 15초마다 R1로 확인한다 | `useSessionPersistence.syncRecords` |
 
 5번 안내:
@@ -40,7 +40,7 @@ kafka 모드 (D-57):  앱 → io-api → Kafka → 추론 → 판정 → 저장(
 |---|---|
 | S4가 「0분 측정」을 돌려줌(io-api가 판정을 안 함) | 2.1의 4번 |
 | `alert`가 저장 서비스를 거쳐 따로 와서 회복 뒤나 「측정 종료」 뒤에 도착 | 울리지 않는다. 그 사건이 이미 `recovery_confirmed`·`interrupted`·`session_ended`로 닫혔는지 `event_id`로 본다(서버에서 `event_id`는 세션마다 1씩 커지고 `alert`는 그 사건 번호를 쓴다) |
-| 종료 뒤 5~6초에 `stalled`가 옴 | 보이지 않는다. 앱이 5초에 이미 넘어가 2.1의 5번 안내로 알린다 |
+| 종료 뒤 3초에 `stalled`가 옴(D-57 ⑧) | 문구로 보이지 않고 바로 S4를 읽어 결과로 넘어간다. 2.1의 5번 안내로 알린다 |
 | `ack`가 판정 결과보다 먼저, `progress`가 약 1초마다 옴 | 앱은 순서에 기대지 않는다(`decision`·`progress`는 같은 토픽·같은 키라 서로 순서는 지켜진다) |
 
 ### 2.3 측정 중 강제 종료 (웹 탭 닫기, 데스크톱 X·Alt+F4)
@@ -113,7 +113,7 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 - **A(추천):** BE에 종료 뒤 `stalled` 기준을 3초로 요청 → 앱은 약 4초에 판단, 상한 5초 유지
 - **B:** 앱 상한 7초
 
-그때까지는 지금의 「5초 + 2.1의 안내」를 쓴다. 문구가 「서버 응답이 늦다」라 두 모드 모두에서 사실이다.
+**11/12 일부 반영:** 종료 뒤 `stalled`가 오면 바로 결과로 넘어간다(앱 상한 5초 유지). 문구는 아직 하나(「서버 응답이 늦어…」)이고, 서버 확인(`stalled`)과 소식 없음(5초)을 나눈 두 문구는 D-57 병합 뒤 정한다. 문구가 「서버 응답이 늦다」라 두 경우 모두 사실이다.
 
 ### 5.3 데스크톱 측정 중 닫기 창 디자인
 

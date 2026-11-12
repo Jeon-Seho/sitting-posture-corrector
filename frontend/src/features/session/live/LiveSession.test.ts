@@ -389,6 +389,50 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     })
   })
 
+  it('reads S4 at once when the server says the save is late (stalled after end, kafka 3 s)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    fetch.mockResolvedValueOnce(reply(200, view({ last_sequence: 3, summary: seen })))
+    live.end()
+    socket.push({ type: 'stalled', since_last_sequence: 3 })
+    await flush()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(live.state).toMatchObject({ phase: 'ended', late: true })
+    // The 5 s timer was cancelled: no second S4.
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes an ended S4 whole even with fewer events than the screen saw', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const summary = { ...EMPTY_SUMMARY, total_ms: 2000, valid_ms: 2000, normal_ms: 2000, keep_rate: 1, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    socket.push({ type: 'decision', event: collapse, summary })
+    socket.push({ type: 'decision', event: { ...collapse, event_id: 2, kind: 'reminder', timestamp_ms: 900 }, summary })
+    const ended = { event_id: 3, kind: 'session_ended', timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000, deviation_type: 'none', reason: 'ended' }
+    fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: -1, summary, events: [ended] })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
+  })
+
+  it('shows the result-missing error when S4 answers 404 (nothing stored), with no record', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    fetch.mockResolvedValueOnce(reply(404, { code: 'SESSION_LOST' }))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'failed', resultMissing: true })
+    expect(ended).toHaveLength(1)
+  })
+
   it('reads S4 once, right away, when the socket closes while ending', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })

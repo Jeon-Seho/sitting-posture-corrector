@@ -15,6 +15,8 @@ export const ERROR_PAGES = {
   app: { art: 500, title: '화면을 불러오지 못했어요', description: '새로 고치면 대부분 해결돼요.', action: '새로 고침' },
   // 측정하기: the server could not open the measurement (S1 5xx, or Kafka down in kafka mode).
   measure: { art: 500, title: '지금은 측정을 시작할 수 없어요', description: '사용자 잘못이 아니에요. 서버의 측정 기능에 문제가 있어요. 잠시 뒤 다시 시작해 주세요.', action: '다시 준비하기' },
+  // 측정 종료: S4 404 — the server has neither the running measurement nor a stored result.
+  result: { art: 500, title: '측정 결과를 서버에서 찾지 못했어요', description: '사용자 잘못이 아니에요. 서버가 이번 측정을 저장하지 못했어요. 다시 측정해 주세요.', action: '다시 준비하기' },
   not_found: { art: 404, title: '페이지를 찾을 수 없어요', description: '주소를 확인하거나 홈으로 돌아가 주세요.', action: null },
 } as const
 export type ErrorKind = keyof typeof ERROR_PAGES

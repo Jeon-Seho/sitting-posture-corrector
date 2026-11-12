@@ -224,6 +224,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   )
 
   if (phase === 'failed' && state?.serverDown) return <ErrorPage kind="measure" inline onRetry={onPrepare} />
+  if (phase === 'failed' && state?.resultMissing) return <ErrorPage kind="result" inline onRetry={onPrepare} />
 
   if (phase === 'failed')
     return (

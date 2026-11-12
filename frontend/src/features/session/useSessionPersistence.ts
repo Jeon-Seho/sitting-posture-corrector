@@ -11,7 +11,7 @@ import { serverRecordEvents } from '../storage/serverSnapshots'
 import type { SessionView } from './server/contracts'
 import { getServerAuth, subscribeServerAuth } from '../platform/serverAuth'
 import { clearPageError, reportPageError } from '../connection/pageError'
-import { fetchServerRecords, pendingRecords, reconcileResults, rememberResult } from '../storage/serverRecords'
+import { fetchServerRecords, forgetResult, pendingRecords, reconcileResults, rememberResult } from '../storage/serverRecords'
 
 /**
  * A record's start and end as the server set them (ADR 0029): `ready.started_at` and
@@ -272,6 +272,11 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     if (note) setError(note)
     const record = buildRecord(state)
     const userId = getServerAuth()?.userId
+    // S4 404: the server stored nothing, so the checkpoints kept while measuring would wait forever.
+    if (state.resultMissing && userId) {
+      try { setPendingCount(forgetResult(userId, state.sessionId).length) }
+      catch (caughtError) { console.error('[features/session/useSessionPersistence.ts:finish] Operation failed', caughtError) }
+    }
     if (!record || !userId) return
     pending.current = record
     try {
