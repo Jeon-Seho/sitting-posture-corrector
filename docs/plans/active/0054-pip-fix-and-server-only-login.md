@@ -4,7 +4,7 @@
 - 상태: in_progress (2026-10-22 작성. 순서: 1 PiP → 2 로그인. **1은 2026-10-26 방향을 바꿔 끝남**: 웹 작은 창 삭제·숨은 탭 측정 수정, 데스크톱 작은 창은 [계획 0055](0055-desktop-camera-window.md), 결정은 [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md). 2는 남음)
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-22
-- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md) 1장(남은 요구)·2.1(데스크톱 앱), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
+- 관련: [FE 제안서](../../design/fe/fe-server-proposal.md) 0장(남은 요구)·2.1(데스크톱 앱), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(항상 서버로 측정),
   [계획 0023](0023-frontend-server-only.md)(F12 옮김), [배포](../../design/fe/fe-server-proposal.md)(FE 제안서 2.4)(`app.posegood.site`, Cloudflare 터널)
 
 ## 문제와 완료 기준

@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-13
 > **이 문서의 역할:** FE의 API 명세다. **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**를 적고, API별 표는 3장, 요청·처리·응답은 7장에 둔다. 필드 규칙이 어긋나면 [BE API 명세](../api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다.
 > 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
-> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. 남은 요구와 BE 요청(BE-n)은 [FE 제안서](fe-server-proposal.md) 1장, 지금 구조는 2장. 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
+> **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. 남은 요구와 BE 요청(BE-n)은 [FE 제안서](fe-server-proposal.md) 0장, 지금 구조는 2장. 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
 > 계약: [WebSocket v2](../../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../../contracts/realtime/examples-v2). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 1. 공통 규칙
@@ -15,7 +15,7 @@
 | 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(앱은 시각이 필요 없어 A4 `server_time`은 요청하지 않는다). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. 서버 시각이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
-| 자정 | KST 00:00에 서버가 진행 중인 측정을 끝내 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다(설정 `midnight-rollover`, 운영은 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다 |
+| 자정 | KST 00:00에 서버가 **세션만** 나눈다: 자정 전 세션을 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다. 사용자의 측정은 끊기지 않는다(설정 `midnight-rollover`, 운영은 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 측정을 멈추지 않는다. `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. 카메라·연결·화면은 그대로다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다 |
 | 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/workspace` `rules`는 초 | 판정 기준은 서버 계정에만 둔다. 앱은 로그인 뒤와 측정하기·설정 화면을 열 때 W1 `rules`를 받고, 설정을 바꾸면 W2로 저장한다. 이 기기에는 남기지 않는다. S1 `policy`는 W1 `rules`의 초에 1000을 곱한 값이다. 서버는 계정 값과 다르면 409 `CONFLICT`로 거절하므로, 다른 기기에서 바꾼 직후라면 측정하기 화면을 다시 열어 W1을 받는다. S1에서 `policy`를 빼는 안은 앱이 W1의 계정 값을 보내 서버 값과 같아져 접었다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버다(구간 시간으로) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 | 세션 시작 시각 | 서버가 S1을 받은 시각 = 앱 `t_ms` 0. S1 응답(200 `SessionView`)에는 `started_at`이 없다 | 기록 시작은 `ready.started_at` |
@@ -36,7 +36,7 @@
 | `hello` → `ready` | 5초 | 연결을 닫고 「서버에 연결하지 못했어요」. 그 세션은 끝난 것으로 보고 다시 할 때는 **새 `session_id`로 S1부터** |
 | `features` | **프레임마다 구간 1개**(5.1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
 | 카메라 영상 | 프레임이 1초 넘게 없으면 `away` | 카메라가 돌아와야 「측정 재개」 |
-| 측정 `end` → `closed(ended)` | 5초 (local은 1초 미만, kafka는 정상 1~3초) | S4로 결과(실패하거나 404면 마지막 `progress`로 종료 화면). kafka 모드에서 `end` 뒤 `stalled`(3초)가 오면 5초를 기다리지 않고 바로 S4. 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다. 데스크톱 앱에서는 앱 본체가 같은 역할의 「측정 중이에요. 정말 닫을까요?」를 묻는다 |
+| 측정 `end` → `closed(ended)` | 5초 (local은 1초 미만, kafka는 정상 1~3초) | S4로 결과(실패하면 마지막 `progress`로 종료 화면, 404면 마지막 `progress`를 대기 기록으로 남기고 「서버에서 이번 측정을 찾지 못했어요」 화면). kafka 모드에서 `end` 뒤 `stalled`(3초)가 오면 5초를 기다리지 않고 바로 S4. 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다. 데스크톱 앱에서는 앱 본체가 같은 역할의 「측정 중이에요. 정말 닫을까요?」를 묻는다 |
 | 자세 등록 촬영 | 끊기지 않은 3초, 판정 가능 프레임 20장 이상. 추적 속도가 낮으면 20장까지 이어 찍는다 | 15초가 지나면 실패 안내 |
 
 ## 2. 오류 코드별 앱 동작
@@ -50,7 +50,7 @@
 | 401 | `INVALID_CREDENTIALS` | 「이메일이나 비밀번호가 맞지 않아요」 |
 | 403 | `ACCESS_DENIED` | 접근 거부. 일반 오류로 안내(토큰 로그인 뒤 CSRF는 없다) |
 | 403 | `ACCOUNT_CLOSED` | 탈퇴했고 최종 삭제 전인 계정(비밀번호가 맞을 때만 온다). 「탈퇴한 계정입니다. 되돌릴 수 없고 탈퇴 30일 뒤 삭제됩니다.」 |
-| 404 | `SESSION_NOT_FOUND`·`SESSION_LOST` | 측정을 끝내고 마지막 `progress`로 종료 화면 |
+| 404 | `SESSION_NOT_FOUND`·`SESSION_LOST` | 측정을 끝내고 마지막 `progress`를 대기 기록으로 남김. 「서버에서 이번 측정을 찾지 못했어요」 화면(404 그림) |
 | 404 | `BASELINE_NOT_FOUND` | 측정하기에서 자세 등록부터 |
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
@@ -87,8 +87,7 @@
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [C1](#api-c1) | PUT | 선택 정보 동의·철회 | `/consents/optional-profile` | | 선택 정보 동의 철회 | 부르는 화면 없음(동의 항목 C1과 다른 번호) | 안 씀 |
-| [W1](#api-w1) | GET | 설정·기록 조회 | `/workspace` | | 프로필 수정, 판정 기준 설정 | 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, W2 저장 직전 | 사용 |
+| [W1](#api-w1) | GET | 설정 조회 | `/workspace` | | 프로필 수정, 판정 기준 설정 | 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, W2 저장 직전 | 사용 |
 | [W2](#api-w2) | PUT | 설정 저장 | `/workspace` | | 프로필 수정, 판정 기준 설정 | 프로필 저장, 설정 화면에서 판정 기준을 바꿀 때 | 사용 |
 
 ### baselines | 기준 자세
@@ -127,7 +126,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-없는 API: A1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+없는 API: A1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 지우기로 했다(앱은 부르지 않음, [FE 제안서](fe-server-proposal.md) 요구 11). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -135,7 +134,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 3단계로 간다.
 - **A3·A4 로그인:** A3 200의 `access_token`을 메모리에 두고 홈으로 간다. B2와 R1을 받는다. 앱 시작 때는 A8 200 → A4로 로그인 화면을 건너뛴다. 측정 중 비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. `hello`에는 `access_token`이 필수다.
-- **W1·W2·C1:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
+- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 11).
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
 - **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). S3 대신 BE가 열린 채 남는 세션을 닫는 규칙을 만든다(아키텍처 v5.4, FE 제안서 요구 8). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
@@ -645,52 +644,11 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 |---|---|---|
 | 401 | `UNAUTHENTICATED` | 쿠키 없음, 모르는 토큰, 만료(14일), 철회, 유예 뒤 재사용, 탈퇴한 계정 |
 
-<a id="api-c1"></a>
-
-### C1 · /consents/optional-profile
-
-- **API 이름:** 선택 정보 동의·철회
-- **기능명:** 선택 정보 동의 철회
-- **메서드:** PUT
-- **완성도 체크:** 서버만(앱 연결 전)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-선택 정보(나이·직업) 동의를 켜고 끈다. 철회하면 나이와 직업을 비운다.
-
-#### Request
-
-**Body**
-
-```json
-{
-  "agreed": true,
-  "document_version": "service-v2"
-}
-```
-
-#### 시스템 처리
-
-1. 문서 버전을 검증한다.
-2. 철회면 기존 동의 행에 `withdrawn_at`을 기록하고 나이·직업을 NULL로 비운다.
-3. 다시 동의하면 새 행을 추가한다. 같은 상태를 다시 보내면 아무것도 바뀌지 않는다.
-
-#### Response
-
-`200 OK`. 본문은 [W1](#api-w1)과 같다.
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 400 | `INVALID_CONTRACT` | 형식·범위 위반 |
-| 400 | `CONSENT_REQUIRED` | 다른 문서 버전 |
-| 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중 |
-
 <a id="api-w1"></a>
 
 ### W1 · /workspace (GET)
 
-- **API 이름:** 설정·기록 조회
+- **API 이름:** 설정 조회
 - **기능명:** 프로필 수정, 판정 기준 설정
 - **메서드:** GET
 - **완성도 체크:** 구현됨
@@ -698,7 +656,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 #### 요구사항
 
-프로필, 판정 기준, 알림 설정, 선택 동의 상태, 기록 목록을 한 번에 받는다.
+프로필, 판정 기준, 알림 설정, 선택 동의 상태를 한 번에 받는다.
 
 #### Request
 
@@ -707,7 +665,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. 계정의 프로필, 판정 정책, 알림 설정, 동의 상태를 읽는다.
-2. 기록 목록을 [R1](#api-r1)과 같은 형식으로 만든다.
+2. 지금 서버는 기록 목록(`records`, [R1](#api-r1)과 같은 형식)도 함께 만들어 담는다. 앱은 읽지 않고, 서버에서 빼기로 했다(FE 제안서 요구 11).
 
 #### Response
 
@@ -724,8 +682,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
     "threshold": 0.7
   },
   "preferences": { "alerts_on": true },
-  "consents": { "optional_profile": false },
-  "records": []
+  "consents": { "optional_profile": false }
 }
 ```
 
@@ -1014,11 +971,11 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. 메모리에 끝난 결과가 있으면 그대로 돌려준다(local 모드, 끝난 뒤 30분 보관).
-2. 없으면 DB에 끝난 값(`ended_at`)이 있는지 본다. 있으면 R1 `server.view`와 같은 방식으로 다시 만든 값이다: `ended: true`, `events` 끝에 `session_ended`, `summary.total_ms`는 저장된 값, `last_sequence` -1(BE 구현, 아직 develop 전). 서버가 재시작했거나 30분이 지나도 끝난 세션을 받을 수 있다.
+2. 없으면 DB에 끝난 값(`ended_at`)이 있는지 본다. 있으면 R1 `server.view`와 같은 방식으로 다시 만든 값이다: `ended: true`, `events` 끝에 `session_ended`, `summary.total_ms`는 저장된 값, `last_sequence` -1, 사건의 `deviation_type`은 `unspecified`(develop 반영, PR #119 11/12). 서버가 재시작했거나 30분이 지나도 끝난 세션을 받을 수 있다. 앱은 사건 종류를 화면에 보이지 않아(기록에만 저장, R1도 같은 값) 영향이 없다. D-57이 합쳐지면 1번은 local 모드에서만 쓴다(BE·DevOps 11/12 합의).
 3. 그것도 없으면 메모리의 진행 중 상태다. kafka 모드에서는 이 서버가 판정하지 않으므로 `ws`가 받은 마지막 `progress`·`decision`으로 요약·사건·순번을 채우고, 종료 사건과 저장 완료를 다 받았을 때만 `ended: true`다(D-57, 아직 develop 전). kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 이 값이다.
 4. 셋 다 없으면 404 `SESSION_LOST`.
 
-앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 지금은 마지막 `progress` 결과로 끝내고 늦음 안내를 띄운다. 서버에 그 측정이 없는 경우라 어떻게 보이고 이 기기의 기록을 어떻게 할지는 정하는 중이다([FE 예외 처리 방안](fe-exception-handling-plan.md) 문제 2).
+앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 마지막 `progress` 결과를 이 기기의 대기 기록으로 남기고(지우지 않음) 「서버에서 이번 측정을 찾지 못했어요」 오류 화면(404 그림)을 보인다([FE 예외 처리 방안](fe-exception-handling-plan.md) 2.1).
 
 `closed` 없이 넘어왔고(5초 또는 `stalled`) 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽어 대기 기록을 확인한다.
 
