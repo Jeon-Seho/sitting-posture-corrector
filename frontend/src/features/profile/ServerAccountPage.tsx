@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiRequest, type ApiErrorKind } from '../platform/api'
-import { fromApiProfile, toApiProfile, type ApiProfile } from '../auth/accountClient'
+import { fromApiProfile, toApiProfile, type ApiProfile, type SocialClient } from '../auth/accountClient'
+import { SocialLinkSection } from './SocialLinkSection'
 import { validServerPassword } from '../auth/password'
 import { validProfileInput } from '../storage/validation'
 import { sameSnapshot } from '../storage/serverSnapshots'
@@ -13,7 +14,9 @@ const request = (path: string, method: 'GET' | 'PUT' | 'DELETE' = 'GET', body?: 
 const editable = (w: Workspace) => ({ profile: w.profile, rules: w.rules, preferences: w.preferences })
 
 /** Mutations always go to the JWT account; a local copy is never presented as a server change. */
-export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy }: {
+export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, social }: {
+  /** Discord linking; left out when Discord sign-in is off. */
+  social?: SocialClient
   blocked: boolean; onProfile: (profile: Profile) => void; onSignedOut: (message: string) => void; onBusy: (busy: boolean) => void
 }) {
   const [base, setBase] = useState<Workspace | null>(null)
@@ -69,6 +72,7 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy }: {
       </>}
       <button className="btn" disabled={disabled}>프로필 서버 저장</button>
     </form>
+    {social && <SocialLinkSection social={social} disabled={blocked || busy} />}
     <h2>비밀번호 변경 · 회원 탈퇴</h2>
     <label className="field">현재 비밀번호<input className="input" type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label>
     <label className="field">새 비밀번호<input className="input" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></label>

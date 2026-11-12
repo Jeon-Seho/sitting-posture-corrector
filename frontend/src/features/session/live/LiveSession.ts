@@ -111,8 +111,8 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   session_lost: { message: '서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요.', failed: false, lost: true },
   server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.', failed: false, lost: true },
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
-  // BE 10/27: no judgeable posture or away for 5 min; the server stored it and ended it.
-  unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 5분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
+  // BE 11.3: no judgeable posture or away for 30 min (server default); the server stored it and ended it.
+  unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 30분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
   // BE 11.3: at midnight the server stored the day but could not go on in a new session.
   day_changed: { message: '자정이 지나 측정을 마쳤어요. 자정 전까지 저장됐어요. 새 측정을 시작해 주세요.', failed: false },
 }

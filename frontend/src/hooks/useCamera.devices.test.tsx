@@ -207,11 +207,16 @@ describe('several cameras (synthetic devices only)', () => {
     expect(camera.error).toBe(CAMERA_ERRORS.deviceBusy)
   })
 
-  it('accepts a camera that opened at another size — plan 0053 (F13) refuses anything but 640x480', async () => {
-    size = { width: 1280, height: 720 }
+  it('accepts another 4:3 size and refuses 16:9 (ADR 0048, was plan 0053 F13)', async () => {
+    size = { width: 1280, height: 960 }
     mount()
     await connect()
     expect(camera.state).toBe('on')
+    act(() => renderer?.unmount())
+    size = { width: 1280, height: 720 }
+    mount()
+    await connect()
+    expect(camera.state).toBe('error')
   })
 
   it('keeps the one posture when switching cameras, without asking to register again (plan 0053)', async () => {

@@ -64,7 +64,7 @@ MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 harness의 기본 검증 성공 후
 `api`·`inference`·`frontend` 앱 이미지 3개를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.6·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.7·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 루트 Compose의 SSH 자동 배포 대상과 다음 `production` 설정의 실제 등록 여부는 별도로 확인한다.
@@ -106,7 +106,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [아키텍처 v5.2 스택별 역할](../docs/design/architecture_v5.2_stack_roles.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 
@@ -184,7 +184,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 
 ### 인터넷 공개 입구 (D-43, gateway·Cloudflare 터널)
 
-화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6).
+화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe/fe-server-proposal.md) 9.6).
 
 ```
 브라우저 ─ https://api.posegood.site/api/… · wss://…/api/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
@@ -225,7 +225,7 @@ tools/platform/integration_test.sh --quick               # 14단계(터널 경�
 
 - `--config`와 토큰을 같이 쓰는 실행이 안 되면 `command`를 `["tunnel", "--no-autoupdate", "run", "--url", "http://gateway:80"]`로 바꾼다(경로가 하나뿐이라 같은 결과).
 - 멈출 때는 프로필을 모두 붙인다: `$C --profile io --profile edge down`(프로필 없는 `down`은 io·edge 서비스를 남긴다). 터널만 끌 때는 `$C --profile edge stop cloudflared`.
-- 문제가 생기면 볼 곳은 [FE 제안서](../docs/design/fe-server-proposal.md) 9.6 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
+- 문제가 생기면 볼 곳은 [FE 제안서](../docs/design/fe/fe-server-proposal.md) 9.6 표와 같다(530·502·CORS·WS 출처·JWT·쿠키).
 
 ### 판정 (api-server `judge`, D-22·D-53)
 

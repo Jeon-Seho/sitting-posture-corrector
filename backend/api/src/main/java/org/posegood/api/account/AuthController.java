@@ -1,14 +1,10 @@
 package org.posegood.api.account;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 
 import org.posegood.api.common.ApiError;
 import org.posegood.api.common.KstTime;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,24 +36,19 @@ public class AuthController {
 	private final CurrentUser current;
 	private final AuthenticationManager authentication;
 	private final AuthTokens tokens;
-	private final boolean secureCookie;
-	private final String cookiePath;
+	private final RefreshCookies cookies;
 
 	public AuthController(
 		AccountService accounts,
 		CurrentUser current,
 		AuthenticationManager authentication,
 		AuthTokens tokens,
-		@Value("${posegood.auth.refresh-cookie-secure}")
-		boolean secureCookie,
-		@Value("${posegood.auth.refresh-cookie-path}")
-		String cookiePath) {
+		RefreshCookies cookies) {
 		this.accounts = accounts;
 		this.current = current;
 		this.authentication = authentication;
 		this.tokens = tokens;
-		this.secureCookie = secureCookie;
-		this.cookiePath = cookiePath;
+		this.cookies = cookies;
 	}
 
 	/** 로그인한 내 정보. */
@@ -161,20 +152,10 @@ public class AuthController {
 	}
 
 	private void setCookie(HttpServletResponse response, String value) {
-		response.addHeader(HttpHeaders.SET_COOKIE, cookie(value, tokens.refreshLifetime()).toString());
+		cookies.set(response, value);
 	}
 
 	private void clearCookie(HttpServletResponse response) {
-		response.addHeader(HttpHeaders.SET_COOKIE, cookie("", Duration.ZERO).toString());
-	}
-
-	private ResponseCookie cookie(String value, Duration maxAge) {
-		return ResponseCookie.from(AuthTokens.REFRESH_COOKIE, value)
-			.httpOnly(true)
-			.secure(secureCookie)
-			.sameSite("Lax")
-			.path(cookiePath)
-			.maxAge(maxAge)
-			.build();
+		cookies.clear(response);
 	}
 }

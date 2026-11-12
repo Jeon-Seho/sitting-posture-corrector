@@ -3,7 +3,7 @@
 - 상태: in_progress
 - 담당: Codex (사용자 요청, feature/repo-backend-db-v2)
 - 시작일: 2026-10-13
-- 관련 요구사항/ADR: [DB V2.3](../../../database/README.md), [API 판정 경계](../../decisions/0020-single-api-decision-engine.md), [FE 연동](../../design/fe-server-proposal.md)
+- 관련 요구사항/ADR: [DB V2.3](../../../database/README.md), [API 판정 경계](../../decisions/0020-single-api-decision-engine.md), [FE 연동](../../design/fe/fe-server-proposal.md)
 
 ## 문제와 완료 기준
 

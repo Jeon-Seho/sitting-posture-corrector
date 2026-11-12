@@ -47,8 +47,8 @@ import tools.jackson.databind.JsonNode;
  * 자세 등록은 B1({@code POST /baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
  * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
- * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해 HTTP S2와 같은
- * {@link SessionService} 판정 흐름에 넣고(A안), 결과는 세션 변경 이벤트로 받아 보낸다.
+ * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 측정은 좌표에서 특징 변화량을 계산해
+ * {@link SessionService} 판정 흐름(추론 → 판정 엔진)에 넣고, 결과는 세션 변경 이벤트로 받아 보낸다.
  *
  * <p>추론·DB 일시 장애에는 {@code stalled}만 보내고 연결을 유지한다. 그 구간은
  * 다시 받지 않으므로 다음 구간과의 빈 시간은 누락으로 처리된다. 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서
@@ -146,7 +146,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			TimeUnit.MILLISECONDS);
 	}
 
-	/** 연결이 끊김: 측정 중이었으면 마지막으로 받은 구간 끝에서 세션을 끝낸다(ADR 0024). 등록은 저장하지 않는다. */
+	/** 연결이 끊김: 측정 중이었으면 마지막으로 받은 구간 끝에서 세션을 끝낸다(ADR 0024). */
 	@Override
 	public void afterConnectionClosed(WebSocketSession socket, CloseStatus status) {
 		var channel = channels.remove(socket.getId());
@@ -383,7 +383,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			finishClosed(channel, refusal(refused));
 			return;
 		} catch (DataAccessException storage) {
-			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. 열린 세션 행은 기록 저장(S3·R2) 때 닫힌다.
+			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. DB 저장은 S3(POST /sessions/{id}/end)가 다시 시도하지만
+			// 앱은 S3를 부르지 않으므로, 세션 행은 ended_at NULL로 남는다(남은 한계).
 			log.warn("realtime v2 end persist failed: {}", storage.getClass().getSimpleName());
 		}
 		if (channel.state.get() != State.CLOSING) {

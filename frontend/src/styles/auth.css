@@ -1,4 +1,4 @@
-/* Sign-up consent step (docs/design/consent-proposal.md). */
+/* Sign-up consent step (docs/design/fe/fe-feature-spec.md 회원가입). */
 .consent-list {
   display: flex;
   flex-direction: column;
@@ -164,3 +164,103 @@
   align-self: flex-end;
   margin-top: 4px;
 }
+
+/* Discord sign-in (brand blurple with white text, 4.6:1). Same shape as .btn so it sits with the other actions. */
+:root {
+  --discord: #5865f2;
+  --discord-hover: #4752c4;
+}
+.btn-discord {
+  background: var(--discord);
+  border-color: var(--discord);
+  color: #fff;
+}
+.btn-discord:hover:not(:disabled) {
+  background: var(--discord-hover);
+  border-color: var(--discord-hover);
+}
+.btn-discord:focus-visible {
+  outline: 2px solid var(--discord);
+  outline-offset: 2px;
+}
+
+.social-links {
+  display: grid;
+  gap: 8px;
+}
+.social-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+}
+.social-link-row p {
+  margin: 2px 0 0;
+}
+
+/* "또는 다른 계정으로 로그인" divider and a row of round provider icons under the main sign-in action. */
+.social-login {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+.social-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 2px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.social-divider::before,
+.social-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+}
+.social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Brand colours: Discord blurple, Kakao yellow with dark mark, Google white with border, GitHub near-black. */
+.social-icon {
+  --brand-bg: var(--surface);
+  --brand-ink: var(--ink);
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--brand-bg);
+  color: var(--brand-ink);
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+}
+.social-icon:hover:not(:disabled) { filter: brightness(.94); transform: translateY(-1px); }
+.social-icon:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.social-icon:disabled { cursor: default; }
+/* Not ready yet: still visible and clickable (it explains why), but faded. */
+.social-icon[data-ready='false'] { opacity: .45; }
+.social-icon[data-ready='false']:hover:not(:disabled) { opacity: .6; transform: none; }
+/* Official logo files (public/branding/social); only the container colour comes from CSS. */
+.social-icon img { display: block; pointer-events: none; }
+.social-discord { --brand-bg: #5865f2; }
+.social-discord img { width: 26px; }
+.social-kakao { --brand-bg: #fee500; }
+.social-kakao img { width: 24px; }
+/* Google ships the whole round button (white, #747775 ring), so the container stays clear. */
+.social-google { --brand-bg: transparent; padding: 0; }
+.social-google img { width: 48px; height: 48px; }
+.social-github { --brand-bg: #000; }
+.social-github img { width: 26px; }
+:root[data-theme='dark'] .social-github { border-color: #3d444d; }

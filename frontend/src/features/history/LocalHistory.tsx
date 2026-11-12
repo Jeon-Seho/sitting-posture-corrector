@@ -7,7 +7,7 @@ import { useServerToday } from '../platform/serverClock'
 /**
  * 기록 tab: today only (2026-10-13 split). Other days, the heatmap and period charts live
  * in the 달력 tab (RecordCalendarPage). Today's numbers come from the same shape as
- * `GET /records?date=오늘` (docs/design/api-ws-spec.md).
+ * `GET /records?date=오늘` (docs/design/fe/api-ws-spec.md).
  */
 export function LocalHistory({
   records: allRecords,

@@ -3,7 +3,7 @@
 - 상태: in_progress (BE 코드·시험·문서 변경, `check-backend` 통과 2026-10-29. 남은 것: 다른 담당 알림)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060·0061과 번호가 겹쳐 0061 → 0062로 바꿈)
-- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe-server-proposal.md) 1장)
+- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe/fe-server-proposal.md) 1장)
 
 ## 문제와 완료 기준
 
@@ -39,7 +39,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 
 | 담당 | 고칠 곳 | 내용 |
 | --- | --- | --- |
-| FE | `docs/design/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
+| FE | `docs/design/fe/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
 | FE | `tools/browser/scenarios.mjs`·종합 `check-browser` | 도구 간소화로 삭제 유지. 구형 S2 시나리오를 다시 쓰는 과제는 폐기하고 현재 개별 점검은 품질 기준을 따름 |
 | DevOps | `tools/deploy/smoke.py`·종합 `check-compose` | 원격의 WS 전환 수정까지 검토한 뒤 삭제 유지. 해당 종합 검사의 복원·API 수정 과제는 없음 |
 | 부하 측정(benchmark-server) | `tools/benchmark/runner.py`, `tools/server_benchmark.py`, `tests/test_feature_response.py` | 삭제됨. WS 부하 측정 도구로 다시 만드는 과제는 두지 않음. 계약·예시는 남아 있음 |

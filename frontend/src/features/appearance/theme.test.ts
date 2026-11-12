@@ -1,6 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { contrast, DEFAULT_APPEARANCE, foreground, initializeAppearance, parseAppearance, readableAccent, saveAppearance, APPEARANCE_KEY, THEME_PRESETS, paletteFor, applyAppearance } from './theme'
 afterEach(() => vi.unstubAllGlobals())
+it('sends the selected appearance to the trusted desktop fallback bridge', () => {
+  const setFallbackAppearance = vi.fn(async () => true)
+  vi.stubGlobal('window', { posegoodDesktop: { version: 1, setFallbackAppearance } })
+  vi.stubGlobal('document', { documentElement: { dataset: {}, style: { setProperty: vi.fn() } } })
+  applyAppearance({ mode: 'dark', accent: '#5865f2' })
+  expect(setFallbackAppearance).toHaveBeenCalledWith({ mode: 'dark', accent: '#5865f2' })
+})
 it('rejects damaged and injected values without breaking startup', () => {
   for (const raw of [null, '{', '{"mode":"dark","accent":"url(x)"}', '{"mode":"other","accent":"#123456"}']) expect(parseAppearance(raw)).toEqual(DEFAULT_APPEARANCE)
   expect(parseAppearance('{"mode":"dark","accent":"#ABCDEF"}')).toEqual({ mode: 'dark', accent: '#abcdef' })

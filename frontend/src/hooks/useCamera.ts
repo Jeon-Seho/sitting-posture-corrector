@@ -3,7 +3,7 @@ import type { PoseDetector } from '../features/camera/cpuWorker'
 import type { PoseTrackerDiagnostics, PoseTrackerOptions } from '../features/mediapipe/types'
 import modelAsset from '../../model-asset.json'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
-import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
+import { isFourByThree, listVideoDevices, requestFourByThreeCamera, stopCameraTracks } from '../features/camera/devices'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
@@ -175,13 +175,13 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
       try {
         let incoming: MediaStream
         try {
-          incoming = await requestCamera(wanted || undefined)
+          incoming = await requestFourByThreeCamera(wanted || undefined)
           setMainMissing(false)
         } catch (cause) {
           console.error('[hooks/useCamera.ts:connect] Operation failed', cause)
           if (!wanted || !missingDevice(cause)) throw cause
           // The saved main camera is unplugged: keep the choice and use the default camera.
-          incoming = await requestCamera()
+          incoming = await requestFourByThreeCamera()
           setMainMissing(true)
         }
         if (!isCurrent()) {
@@ -220,6 +220,9 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         video.srcObject = incoming
         await video.play()
         if (!isCurrent()) return
+        // A browser that reported no size before playing (ADR 0048): never measure or register with it.
+        if (video.videoWidth && video.videoHeight && !isFourByThree(video.videoWidth, video.videoHeight))
+          throw new Error(CAMERA_ERRORS.aspectUnsupported)
 
         clearLoadingTimer()
         setState('on')

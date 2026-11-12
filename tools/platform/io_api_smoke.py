@@ -8,8 +8,9 @@ API 명세: 저장소 docs/design/api-spec.md. 앱은 /api 접두사를 붙이�
 로그인은 access·refresh 토큰(ADR 0031, D-69): 보호 요청은 Authorization: Bearer, 로그인 유지는 쿠키 posegood_refresh(A8).
 합성 시험 계정(test-it-<임의값>@example.invalid, DB 회신 DB-6의 시험 계정 형식)만 쓴다.
 측정(좌표 → 추론 → 판정)은 /realtime으로만 한다 — ws_realtime_smoke.py(12단계)가 본다. REST 구간 입력(S2)·메타데이터(S5)·
-세션 삭제(S6)는 2026-10-28 API에서 지웠다(계획 0062, D-75). 여기서는 세션을 S1로 만들고 S3로 닫는다.
-끝에서 기록을 지우고(R3) 계정을 탈퇴 접수한다(CLOSED). 계정 행의 최종 삭제는 Spark J3(30일 뒤)가 한다.
+세션 삭제(S6)는 2026-10-28 API에서 지웠다(계획 0062, D-75). 여기서는 세션을 S1로 만들고 S4로 본다(열린 채).
+S3(REST 세션 종료)·R3(기록 삭제)는 실제 서비스에서 쓰지 않아 보지 않는다(D-88, PM 11/11). 세션 종료는 WebSocket이 한다.
+끝에서 계정을 탈퇴 접수한다(CLOSED) — 시험 계정의 세션 행까지 Spark J3(30일 뒤)가 지운다.
 표준 라이브러리만 쓴다(서버 PC에 jsonschema·requests가 없어도 된다).
 """
 
@@ -185,31 +186,22 @@ def scenario(base):
     expect("B2 현재 기준 자세 조회", owner.call("/baselines/current"), 200,
            lambda b: None if b["baseline_id"] == baseline else "등록한 기준과 다름")
 
-    # --- 세션 (S1·S3·S4) — 측정 입력은 /realtime(ws_realtime_smoke.py) ---
+    # --- 세션 (S1·S4) — 측정 입력·종료는 /realtime(ws_realtime_smoke.py) ---
     sid = str(uuid.uuid4())
     path = "/sessions/" + sid
     expect("S1 세션 생성 (200 SessionView)", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}),
            200, lambda b: None if b["last_sequence"] == -1 and not b["ended"] else "새 세션 상태 아님")
     expect("S1 같은 요청 재시도는 멱등", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}), 200)
 
-    # 구간 없이 닫는다(WS가 열리지 않은 세션을 닫는 경로 — 계획 0062가 S3를 남긴 이유). 입력이 없으니 전부 누락
-    expect("S3 세션 종료 (200 SessionView)", owner.call(path + "/end", "POST", {"end_ms": 6000}), 200, lambda b: (
-        None if b["ended"] and b["summary"]["total_ms"] == 6000 and b["events"][-1]["kind"] == "session_ended"
-        else f"ended={b.get('ended')} total={b['summary'].get('total_ms')}"))
-    expect("S3 다른 end_ms 재요청은 409", owner.call(path + "/end", "POST", {"end_ms": 6500}), 409)
-    expect("S4 세션 조회", owner.call(path), 200, lambda b: None if b["ended"] else "종료 안 됨")
+    expect("S4 세션 조회 (열린 세션)", owner.call(path), 200,
+           lambda b: None if not b["ended"] and b["last_sequence"] == -1 else f"ended={b.get('ended')}")
 
-    # --- 기록 (R1·R3) — 기록 = 저장된 세션 ---
+    # --- 기록 (R1) — 기록 = 끝난(저장된) 세션. 끝난 세션의 목록은 ws_realtime_smoke.py가 본다 ---
     def listed(b):
         return [r.get("id") for r in b["records"]]
-    expect("R1 기록 목록 {today, records}에 방금 세션", owner.call("/records"), 200,
-           lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid in listed(b)
-           else f"today={b.get('today')} / 목록에 없음")
-    expect("R3 기록 삭제 (204)", owner.call("/records/" + sid, "DELETE"), 204)
-    expect("R3 삭제 뒤 S4는 404", owner.call(path), 404)
-    expect("R3 같은 기록 재삭제도 204 (멱등)", owner.call("/records/" + sid, "DELETE"), 204)
-    expect("R3 삭제 뒤 R1 목록에 없음", owner.call("/records"), 200,
-           lambda b: None if sid not in listed(b) else "목록에 남음")
+    expect("R1 기록 목록 {today, records} · 열린 세션은 없음", owner.call("/records"), 200,
+           lambda b: None if re.fullmatch(r"\d{4}-\d{2}-\d{2}", b["today"]) and sid not in listed(b)
+           else f"today={b.get('today')} / 열린 세션이 목록에 있음")
 
     # --- 로그아웃 (A5): 이 기기의 로그인 유지만 끊는다 ---
     if signed is not None:

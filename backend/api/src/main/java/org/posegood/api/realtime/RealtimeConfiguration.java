@@ -15,7 +15,7 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
  *
  * 허용 출처를 설정하지 않으면 같은 출처 페이지만 연결할 수 있다(프록시는 원래 Host와 포트를 넘겨야 한다).
  * 메시지는 64KB까지 받고, 넘으면 연결을 끊는 대신 {@code closed(bad_message)}를 보낼 수 있게 컨테이너 버퍼를
- * 그보다 크게(128KB) 둔다. 옛 경로 /v1/realtime·/v2/realtime은 2026-11-09 /realtime 하나로 정리했다.
+ * 그보다 크게(128KB) 둔다. 옛 v1·v2 실시간 경로는 2026-11-09 /realtime 하나로 정리했다.
  */
 @Configuration
 @EnableWebSocket

@@ -15,7 +15,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/realtime`)의 요
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> **2026-11-09부터 주소에 버전이 없다.** `/v2/auth/login` → `/auth/login`, `/v2/realtime` → `/realtime`, 추론 `/v2/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws.v2` 등은 형식 버전이라 유지). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
+> **주소에 버전이 없다(2026-11-09, 소셜 로그인·비밀번호 재설정은 2026-11-12).** `/v2/auth/login` → `/auth/login`, `/v2/auth/social/…` → `/auth/social/…`, `/v2/realtime` → `/realtime`, 추론 `/v2/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws.v2` 등은 형식 버전이라 유지). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
 > 실시간은 `/realtime`(좌표 프레임, [11장](#11-websocket-realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
@@ -48,7 +48,7 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/realtime`)의 요
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫히거나 지워진(R3) 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫히거나 지워진(R3) 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
@@ -1150,7 +1150,7 @@ API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던
 > 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다(J2는 2026-11-01 서버 cron에 등록됨, PR #93). J2가 아직 집계하지 않은 날은 0으로 채워진다. J2는 매일 어제부터 7일 전까지 다시 계산하므로(D-81, PR #100) **최근 7일 값은 늦게 닫힌 세션·지워진 기록(R3) 때문에 바뀔 수 있다** — 앱이 T1 결과를 오래 저장해 두면 최근 7일은 다시 받아야 한다.
 
 - 로그인한 사용자 본인의 `daily_stat`을 날짜순으로 돌려준다.
-- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
 - **행이 없는 날은 0으로 채운다.** `from`~`to`(자른 뒤)의 모든 날짜가 `days`에 한 번씩 들어간다.
   `valid_sec`·`good_sec`은 0.0, 횟수는 0, `min_until_collapse_sec`·`max_until_collapse_sec`·`computed_at`은 null(DB에서도 「표본 없음」은 NULL이다).
 - **객체로 감싼다.** 날짜 목록은 `days`에 넣고, 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
@@ -1361,7 +1361,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 <a id="websocket-v2-연결"></a>
 
-연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표 프레임을 0.5초 구간으로 묶어 보내고, API가 기준 대비 특징 변화량을 계산해 추론(`POST /infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
+연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표를 프레임마다 구간 하나로 보내고(2026-10-27부터, 그 전에는 0.5초 구간), API가 기준 대비 특징 변화량을 계산해 추론(`POST /infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
 
 계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
 
@@ -1377,7 +1377,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ```
 측정:  S1 PUT /sessions/{id} → WS 연결 → hello(measure) → ready
-       → features × N (0.5초마다 구간 1개) → observation · decision · alert · ack · progress
+       → features × N (프레임마다 구간 1개) → observation · decision · alert · ack · progress
        → end → decision(session_ended) → closed(ended)
 자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
        → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
@@ -1415,7 +1415,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 {"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f", "access_token": "<access_token>"}
 ```
 
-**실제** — 순번 5(2.5~3초). 0.5초에 프레임 4장(125ms 간격), 머리 쪽 관절 x를 기준보다 0.09 옮긴 좌표
+**실제** — 순번 5(2.5~3초). 이 시험은 0.5초 구간에 프레임 4장(125ms 간격)으로 보냈다. 지금 앱은 구간 하나에 프레임 1장을 보낸다. 머리 쪽 관절 x를 기준보다 0.09 옮긴 좌표
 
 ```json
 {
@@ -1544,7 +1544,8 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
-| 2026-11-09 | `refactor/repo-remove-api-version-paths` | **호환성 깨짐.** 주소에서 버전 삭제: REST `/v2/…` → `/…`(A2~A8·C1·W1·W2·B1·B2·S1·S3·S4·R1·R3, 설계 T1 `/stats/daily`), WebSocket `/v2/realtime` → `/realtime`(nginx `/api/realtime`), 추론 `/v2/infer` → `/infer`. 쓰지 않던 추론 `/v1/infer`(옛 두 특징 입력)와 그 요청 형식 삭제. 본문·메시지 형식은 그대로. 서버와 화면을 같은 때 배포해야 하고, Cloudflare `auth-rate-limit` 규칙 경로를 `/api/auth/`로 바꿔야 한다(DevOps). 처리 서비스(`/judge/v1/*`, 시험용 `/api/v1/realtime/features`)는 그대로 |
+| 2026-11-12 | `refactor/repo-remove-api-version-paths` | **호환성 깨짐.** 주소에서 버전 삭제: REST `/v2/…` → `/…`(계정 A2~A8, 소셜 로그인 `/auth/social/…`, 비밀번호 재설정 `/auth/password-reset/…`, 동의 C1, 설정 W1·W2, 기준 자세 B1·B2, 측정 세션 S1·S4, 기록 R1·R3, 설계만 된 일별 통계 T1 `/stats/daily`), WebSocket `/v2/realtime` → `/realtime`(nginx `/api/realtime`), 추론 `/v2/infer` → `/infer`. 쓰지 않던 추론 `/v1/infer`(옛 두 특징 입력)와 그 요청 형식 삭제. 본문·메시지 형식은 그대로. 서버와 화면을 같은 때 배포해야 하고, Cloudflare `auth-rate-limit` 규칙 경로(`/api/auth/`)와 Discord 돌아오는 주소(`POSEGOOD_DISCORD_REDIRECT_URI`·Discord 개발자 사이트 등록 주소 `/api/auth/social/discord/callback`)를 바꿔야 한다. 처리 서비스(`/judge/v1/*`, 시험용 `/api/v1/realtime/features`)는 그대로 |
+| 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |
 | 2026-11-09 | 문서만(코드 그대로) | 코드 기준을 develop `6cae21f`(PR #93·#98·#99·#100, API 코드는 `fe5058b`와 같음)로. J2 최근 7일 다시 계산(D-81, PR #100)을 1장 배치·S3·T1(`computed_at` 포함)에 반영. Observation 4.0의 「develop 앱이 4.0을 버린다」 삭제(FE 대응 PR #99 병합). J2 실행 시각 00:00 → 00:10(PR #93). FE 요청 BE-7(명세에 없던 시간 필드): 9장에 `events[].timestamp_ms`·`onset_ms` 설명을 넣고 `onset_valid_ms` 보충, 11.2에 `frames[].t_ms`. `hold_ms`·`recovery_ms`는 프레임 `t_ms`가 아니라 구간 길이로 센다고 바로잡음 |
 | 2026-11-03 | `61365a4` (PR #98) | 실시간 `observation` 4.0에 `recovery_ms` 추가(FE 요청): 열린 사건에서 `good`이 이어진 시간, 정책 `recovery_ms`와 비교해 회복을 확정하는 값. 사건이 없거나 판정 불가면 0. 필수 필드라 엄격한 앱 검증은 맞춰야 한다. 4.0이 아직 FE에 배포되지 않아 번호는 그대로 |
 | 2026-11-03 | 문서만(코드 그대로) | 코드 기준을 develop `e01ba49`(PR #96)로. 11.3 「특징 계산」을 실제 동작(구간 안 판정 가능 프레임 전체 평균, 하위 구간 계산은 보류)으로 바로잡음. 11.2·11.5에 남은 WebSocket 등록 문구(`end`·`start_ms`·`closed`) 삭제. Observation 4.0에 develop 앱이 아직 4.0을 버린다는 점 기록 |

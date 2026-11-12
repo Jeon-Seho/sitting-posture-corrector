@@ -1,0 +1,2 @@
+# Optional tree pilot and its synthetic CI test.
+lightgbm==4.6.0

@@ -61,6 +61,9 @@ export function applyAppearance(value: Appearance, systemDark = false) {
   root.dataset.theme = tone
   root.dataset.palette = palette?.id ?? 'custom'
   const bridge = desktopBridge()
+  void bridge?.setFallbackAppearance?.({ mode: value.mode, accent: value.accent }).catch(caughtError => {
+    console.error('[appearance] Could not save desktop fallback theme', caughtError)
+  })
   void (bridge?.setAppearanceTone ? bridge.setAppearanceTone(tone) : bridge?.setDarkMode?.(dark))?.catch((caughtError) => {
     console.error('[features/appearance/theme.ts:applyAppearance] Operation failed', caughtError)
   })

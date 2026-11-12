@@ -1,7 +1,7 @@
 # Kafka 명세 — 처리 서비스 층 토픽·메시지 (아키텍처 v5.2)
 
 - 담당: DevOps/BE (토픽·봉투·컨슈머 그룹·DLQ·보존). 본문 형식(입력·관측·사건)은 [계약](../../contracts/README.md)의 기존 버전을 그대로 쓴다.
-- 기준: [실시간 계약 v1 스키마](../../contracts/realtime/) `kafka-*.v1.schema.json`, [아키텍처 v5.2 스택별 역할](architecture_v5.2_stack_roles.md),
+- 기준: [실시간 계약 v1 스키마](../../contracts/realtime/) `kafka-*.v1.schema.json`, [아키텍처 v5.4 스택별 역할](architecture_v5.4_stack_roles.md),
   [실시간 판정 Kafka 전환 계획 0031](../plans/active/0031-realtime-kafka-transition.md).
 - 갱신: 2026-10-21
 

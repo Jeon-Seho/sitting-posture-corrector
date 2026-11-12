@@ -17,7 +17,7 @@
 > **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
 > 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
-> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe-server-proposal.md) 2장).
+> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe/fe-server-proposal.md) 2장).
 
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
@@ -97,13 +97,13 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
 앱의 가입·로그인은 2026-10-22부터 항상 BE `/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
-서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
+서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
 동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
-앱이 붙을 서버는 BE 입출구 서버(REST `/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`, WebSocket `/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/api-ws-spec.md)다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`, WebSocket `/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/fe/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
-연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.
+연구 export와 분석 시스템은 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)(DevOps)이 소유한다.
 실시간 채널(`/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
@@ -154,6 +154,10 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 구형 서버 benchmark도 같은 정리에서 제거했다. 기존 측정 기록은 당시 환경의 기록이며 현재 카메라 FPS·배포 성능 검증을 뜻하지 않는다.
 
 ## 로컬 관측과 연구 경계
+
+별도 [웹캠 모델·규칙 비교](../model/analysis/live_comparison/README.md)는 비공개 파일럿 가중치와
+로컬 Pose 관측으로 연구용 창 점수를 비교한다. 서버 서비스·알림 엔진과 분리된 loopback 도구이며,
+영상은 브라우저에서 처리하고 9개 2D 점은 로컬 비교 세션의 휘발성 메모리에서만 사용한다.
 
 2026-10-26의 [개발 경로 통일](decisions/0042-unified-dev-observation-route.md) 이후 `/dev`는
 `ObservationLab`만 조립한다. 아래 기존 예측 실험실·수집·모델 비교 관련 설명은 보존된 연구 모듈의

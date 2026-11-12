@@ -4,7 +4,7 @@
 로그인·회원가입 → 측정하기(자세 등록 포함) → 기록·달력 → 설정을 다룬다.
 
 - **판정은 서버가 한다**([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 앱은 관절 9개 좌표를 프레임마다(2026-10-27부터) BE 입출구 서버(`/realtime`)에 보내고 결과를 표시한다. 영상은 보내지 않는다.
-  계약은 [연동 명세](docs/design/api-ws-spec.md)와 [WebSocket v2](contracts/realtime/realtime-ws.v2.schema.json)다. 앱을 v2로 바꾸는 일은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)에서 한다.
+  계약은 [연동 명세](docs/design/fe/api-ws-spec.md)와 [WebSocket v2](contracts/realtime/realtime-ws.v2.schema.json)다. 앱을 v2로 바꾸는 일은 [계획 0023](docs/plans/active/0023-frontend-server-only.md)에서 한다.
 - **지금 앱(FE V3, 2026-10-21~)은 항상 서버로 측정한다.** 로그인·회원가입·기준 자세(B1)·측정은 서버와 하고, 앱의 로컬 판정과 개발용 서버(v1, 특징 변화량)는 지웠다([ADR 0021](docs/decisions/0021-app-sends-information-server-judges.md)). 오늘 기록은 이 기기에도 모은다([ADR 0027](docs/decisions/0027-today-records-from-collected-server-results.md)). 서버 판정은 규칙이며 학습된 LSTM은 미연결이다.
 
 ## 데스크톱 앱 받아서 실행하기 (Windows)
@@ -50,7 +50,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 [프론트 화면](http://127.0.0.1:8080/)을 연다. 현재 프론트의 가입·로그인은 로컬이며 계정 API v2 연결은 위 연결 계획에 남아 있다.
 [실행·배포·백업](infra/README.md), [계약](contracts/README.md)
-[아키텍처 v5.2 스택별 역할](docs/design/architecture_v5.2_stack_roles.md)을 참고한다.
+[아키텍처 v5.4 스택별 역할](docs/design/architecture_v5.4_stack_roles.md)을 참고한다.
 
 ## 로컬 프로토타입 실행
 
