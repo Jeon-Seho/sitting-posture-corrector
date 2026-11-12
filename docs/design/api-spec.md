@@ -2,7 +2,7 @@
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
+Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
 
 | 항목 | 내용 |
 |---|---|
@@ -10,12 +10,12 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 추론 | FastAPI `POST /v2/infer` |
 | DB | MySQL 8.4 · 스키마 V2.6 |
 | 코드 기준 | `develop` `6cae21f` (PR #100 병합, 2026-11-08. API 코드는 `fe5058b`와 같음) |
-| 개정 | 2026-11-09 (처음 2026-10-13) — [변경 이력](#변경-이력) |
+| 개정 | 2026-11-12 (처음 2026-10-13) — [변경 이력](#변경-이력) |
 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
-> **세션 생성(S1)·종료(S3) 응답은 이 문서가 기준이다(10/15 결정)** — 둘 다 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
+> **세션 생성(S1) 응답은 이 문서가 기준이다(10/15 결정)** — 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
+> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28, 앱이 부르지 않던 세션 종료(S3)·기록 삭제(R3)·선택 정보 동의·철회(C1)는 2026-11-12 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
@@ -45,9 +45,9 @@ Spring Boot API가 제공하는 REST 18개와 WebSocket 1개(`/v2/realtime`)의 
 | 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 요청·응답 값과 고정값 | **(실제)**가 붙은 JSON은 실제 서버가 주고받은 값이다(아래 「값을 받은 실행」). 토큰만 앞부분을 남기고 `…`로 줄였고, 배열이 긴 곳은 `"… N개 더"`로 줄였다. ID·시각·`user_id`는 호출마다 다르다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. 아직 코드가 없는 T1만 설계 예시다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
-| 멱등성 | 세션 생성(같은 정책·기준), 종료(같은 `end_ms`), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
+| 멱등성 | 세션 생성(같은 정책·기준), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫히거나 지워진(R3) 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫힌 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
@@ -85,7 +85,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 404 | `SESSION_NOT_FOUND` | 세션이 없거나 다른 사용자의 것 | 측정 종료 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 | 측정 종료(마지막으로 받은 요약을 앱에 남김) |
 | 404 | `BASELINE_NOT_FOUND` | 등록된 기준 자세 없음 | 기준 등록 화면으로 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) | 설정 다시 불러오기. R3에서는 "이 기록은 지울 수 없어요" |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 | 설정 다시 불러오기 |
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 | 계정 정보 다시 불러오기 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
@@ -107,16 +107,13 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | [A6](#a6) | PUT | `/v2/auth/password` | 필요 | 비밀번호 변경 | 204 |
 | [A7](#a7) | DELETE | `/v2/auth/account` | 필요 | 탈퇴 접수 | 204 |
 | [A8](#a8) | POST | `/v2/auth/refresh` | 쿠키 | 로그인 유지(새 access·refresh 토큰) | 200 |
-| [C1](#c1) | PUT | `/v2/consents/optional-profile` | 필요 | 선택 정보 동의·철회 | 200 |
 | [W1](#w1) | GET | `/v2/workspace` | 필요 | 설정 + 기록 조회 | 200 |
 | [W2](#w2) | PUT | `/v2/workspace` | 필요 | 설정 저장 | 200 |
 | [B1](#b1) | POST | `/v2/baselines` | 필요 | 기준 자세 등록 | 200 |
 | [B2](#b2) | GET | `/v2/baselines/current` | 필요 | 현재 기준 자세 | 200 |
 | [S1](#s1) | PUT | `/v2/sessions/{id}` | 필요 | 세션 생성 | 200 |
-| [S3](#s3) | POST | `/v2/sessions/{id}/end` | 필요 | 세션 종료 | 200 |
 | [S4](#s4) | GET | `/v2/sessions/{id}` | 필요 | 세션 상태 조회 | 200 |
 | [R1](#r1) | GET | `/v2/records` | 필요 | 기록 목록 | 200 |
-| [R3](#r3) | DELETE | `/v2/records/{id}` | 필요 | 기록 삭제 | 204 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
 | [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | hello 토큰 | 좌표 프레임 측정, 판정 push | 101 |
 
@@ -417,55 +414,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="c1"></a>
 
-### C1 · `PUT /v2/consents/optional-profile` — 선택 정보 동의·철회
+### C1 · ~~`PUT /v2/consents/optional-profile`~~ — 삭제 (2026-11-12)
 
-로그인 필요 · 계정 헤더
-
-- 철회하면 기존 동의 행에 withdrawn_at을 기록하고 나이·직업을 NULL로 비운다.
-- 다시 동의하면 새 행을 추가한다. 같은 상태를 반복해서 보내면 아무것도 바뀌지 않는다.
-
-**요청 본문 (실제)**
-
-```json
-{
-  "agreed": true,
-  "document_version": "service-v2"
-}
-```
-
-**응답 200 (실제)** W1과 같은 형식
-
-```json
-{
-  "schema_version": "2.0",
-  "profile": {
-    "name": "합성 사용자",
-    "age": null,
-    "occupation": null
-  },
-  "rules": {
-    "holdSeconds": 3,
-    "recoverSeconds": 3,
-    "realertSeconds": 60,
-    "threshold": 0.7
-  },
-  "preferences": {
-    "alerts_on": true
-  },
-  "consents": {
-    "optional_profile": true
-  },
-  "records": []
-}
-```
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 400 | `CONSENT_REQUIRED` | 필수 동의 누락·중복·다른 문서 버전, 선택 동의 없이 나이·직업 입력 |
-| 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
-| 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
+앱에 선택 정보 동의·철회 화면이 없어 부르지 않던 경로다([계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계). 선택 정보 동의(`OPTIONAL_PROFILE`)는 가입(A2) 때만 받고, W1 응답 `consents.optional_profile`로 읽는다. 동의하지 않은 계정은 W2에서 나이·직업을 저장할 수 없다(`CONSENT_REQUIRED`). 동의를 거두는 길은 지금 탈퇴(A7)뿐이다.
 
 <a id="w1"></a>
 
@@ -531,7 +482,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | `rules.threshold` | `number` | 필수 | 붕괴 확률 임계값. 0 초과 1 이하, 소수 셋째 자리까지 |
 | `preferences.alerts_on` | `boolean` | 필수 | 자세 알림 켜기(sound_alert_enabled) |
 
-**요청 본문 (실제)** — C1로 선택 정보에 동의한 뒤
+**요청 본문 (실제)** — 가입 때 선택 정보에 동의한 계정
 
 ```json
 {
@@ -660,7 +611,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | HTTP | code | 의미 |
 |---|---|---|
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
-| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 
 <a id="b2"></a>
@@ -779,7 +730,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
+| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
@@ -794,110 +745,10 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="s3"></a>
 
-### S3 · `POST /v2/sessions/{id}/end` — 세션 종료
+### S3 · ~~`POST /v2/sessions/{id}/end`~~ — 삭제 (2026-11-12)
 
-로그인 필요 · 계정 헤더
-
-- 마지막 구간 뒤 남은 시간은 MISSING으로 제외하고, 열린 사건을 interrupted(ended)로 끝낸 뒤 session_ended 사건을 만든다.
-- monitor_session 종료 시각·good_sec과 excluded_interval을 한 트랜잭션으로 한 번만 반영한다. daily_stat은 쓰지 않는다(Spark J2가 다음 날 00:10에 집계하고, 늦게 닫힌 세션은 7일 동안 매일 다시 계산해 반영한다 — D-81).
-- 응답은 200 SessionView(ended:true). 같은 end_ms 재시도는 같은 결과, 이미 끝난 세션에 다른 end_ms를 보내면 409 CONFLICT.
-
-**요청 본문 (실제)**
-
-```json
-{
-  "end_ms": 9000
-}
-```
-
-**응답 200 (실제)** — 실시간 연결의 `end`(9000)로 이미 끝난 세션에 같은 `end_ms`를 보냄
-
-```json
-{
-  "schema_version": "1.0",
-  "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
-  "policy": {
-    "hold_ms": 3000,
-    "recovery_ms": 3000,
-    "reminder_ms": 60000,
-    "threshold": 0.7
-  },
-  "timer_policy": "legacy-interrupt-v1",
-  "ended": true,
-  "last_sequence": 15,
-  "summary": {
-    "total_ms": 9000,
-    "valid_ms": 6000,
-    "normal_ms": 3000,
-    "deviation_ms": 3000,
-    "rest_ms": 1000,
-    "away_ms": 0,
-    "unknown_ms": 1000,
-    "missing_ms": 1000,
-    "collapse_count": 1,
-    "alert_count": 1,
-    "interval_count": 0,
-    "keep_rate": 0.5,
-    "events_per_hour": 600.0,
-    "mean_interval_ms": null,
-    "mean_recovery_ms": 3000.0
-  },
-  "events": [
-    {
-      "schema_version": "1.0",
-      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
-      "event_id": 1,
-      "kind": "collapse_confirmed",
-      "timestamp_ms": 3000,
-      "onset_ms": 0,
-      "onset_valid_ms": 0,
-      "deviation_type": "left_lean",
-      "reason": null
-    },
-    {
-      "schema_version": "1.0",
-      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
-      "event_id": 2,
-      "kind": "recovery_confirmed",
-      "timestamp_ms": 6000,
-      "onset_ms": 0,
-      "onset_valid_ms": 0,
-      "deviation_type": "left_lean",
-      "reason": null
-    },
-    {
-      "schema_version": "1.0",
-      "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
-      "event_id": 3,
-      "kind": "session_ended",
-      "timestamp_ms": 9000,
-      "onset_ms": 9000,
-      "onset_valid_ms": 6000,
-      "deviation_type": "none",
-      "reason": "ended"
-    }
-  ]
-}
-```
-
-**응답 409 (실제)** — 같은 세션에 다른 `end_ms`(9500)
-
-```json
-{
-  "code": "CONFLICT",
-  "message": "conflicting session end",
-  "error": "conflicting session end"
-}
-```
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
-| 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
-| 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중(10초 대기 초과) |
-| 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
+앱은 측정을 WebSocket `end`로 끝내고, 연결이 끊기면 서버가 마지막 구간 끝에서 끝낸다(11.3, ADR 0024). 끝난 결과는 S4로 읽는다. 그래서 앱이 부르지 않던 REST 종료를 지웠다([계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계).
+S1은 됐지만 WebSocket이 열리지 않은 세션과 종료 저장이 DB 오류로 실패한 세션을 닫을 길은 아직 없다([백엔드 상태](../backend-status.md) 4장).
 
 <a id="s4"></a>
 
@@ -985,7 +836,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S6 · ~~`DELETE /v2/sessions/{id}`~~ — 삭제 (2026-10-28)
 
-[R3](#r3) `DELETE /v2/records/{id}`와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
+R3 `DELETE /v2/records/{id}`(기록 삭제, 2026-11-12 삭제)와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 ## 8. 기록·시스템
 
@@ -1127,28 +978,14 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### R2 · ~~`POST /v2/records`~~ — 삭제 (2026-10-28)
 
-앱 기록을 서버 판정과 대조해 세션을 닫던 경로다. 측정은 서버가 종료(`end`·연결 끊김·S3) 때 직접 저장하므로 앱이 보내지 않는다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
+앱 기록을 서버 판정과 대조해 세션을 닫던 경로다. 측정은 서버가 종료(`end`·연결 끊김) 때 직접 저장하므로 앱이 보내지 않는다([계획 0062](../plans/active/0062-remove-unused-apis.md)).
 API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던 일도 이 경로가 했다. 지금은 그 행이 열린 채 남고 R1에 나오지 않는다(계획 0062 남은 일).
 
 <a id="r3"></a>
 
-### R3 · `DELETE /v2/records/{id}` — 기록 삭제
+### R3 · ~~`DELETE /v2/records/{id}`~~ — 삭제 (2026-11-12)
 
-로그인 필요 · 계정 헤더
-
-- 그 기록(= 세션, `monitor_session`)과 하위 행(사건·알림·제외 구간)을 지운다. 일별 통계는 그대로 둔다.
-- UUID가 아닌 ID나 이미 없는 세션은 204로 조용히 넘어간다.
-- 409 CONFLICT = 특징 적재 파일(feature_archive)이 연결돼 있어(J1이 HDFS에 적재한 세션) 지울 수 없음. 앱은 R3에서 받은 409를 이 뜻으로 본다. 탈퇴하면 J3가 모두 지운다.
-
-**요청 본문**: 없음
-
-**응답 204**: 본문 없음
-
-**오류**
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경, HDFS에 적재된 기록 삭제(R3) |
+앱에 기록 삭제 화면이 없어 부르지 않던 경로다([계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계). 세션 행은 탈퇴 최종 삭제(Spark J3) 때 함께 지워진다.
 
 <a id="t1"></a>
 
@@ -1157,7 +994,7 @@ API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던
 로그인 필요 · 계정 헤더
 
 > [!NOTE]
-> 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다(J2는 2026-11-01 서버 cron에 등록됨, PR #93). J2가 아직 집계하지 않은 날은 0으로 채워진다. J2는 매일 어제부터 7일 전까지 다시 계산하므로(D-81, PR #100) **최근 7일 값은 늦게 닫힌 세션·지워진 기록(R3) 때문에 바뀔 수 있다** — 앱이 T1 결과를 오래 저장해 두면 최근 7일은 다시 받아야 한다.
+> 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다(J2는 2026-11-01 서버 cron에 등록됨, PR #93). J2가 아직 집계하지 않은 날은 0으로 채워진다. J2는 매일 어제부터 7일 전까지 다시 계산하므로(D-81, PR #100) **최근 7일 값은 늦게 닫힌 세션 때문에 바뀔 수 있다** — 앱이 T1 결과를 오래 저장해 두면 최근 7일은 다시 받아야 한다.
 
 - 로그인한 사용자 본인의 `daily_stat`을 날짜순으로 돌려준다.
 - **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
@@ -1247,7 +1084,7 @@ API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던
 
 ### SessionView — 세션 조회 (schema 1.0)
 
-S1·S3·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summary`)를 쓴다. 실제 값은 [S1](#s1)(빈 세션), [S4](#s4)(측정 4.5초, 진행 중), [S3](#s3)(9초에 끝난 세션)에 있다.
+S1·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summary`)를 쓴다. 실제 값은 [S1](#s1)(빈 세션), [S4](#s4)(측정 4.5초, 진행 중)에 있다.
 
 실제 실행에서 확인한 것: 붕괴 사건은 `recovery_confirmed`에도 붕괴 때의 `onset_ms`·`deviation_type`이 그대로 붙는다. `session_ended`는 `onset_ms` = 종료 시각, `deviation_type: "none"`, `reason: "ended"`다. `keep_rate`·`events_per_hour`는 유효 시간이 생긴 첫 구간부터 숫자(0.0)다.
 
@@ -1500,7 +1337,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | `closed.reason` | 언제 |
 |---|---|
-| `ended` | 측정 종료(`end`·S3) |
+| `ended` | 측정 종료(`end`) |
 | `unauthorized` | 로그인 없음·탈퇴 계정, 비밀번호 변경·탈퇴로 로그인이 지워짐 |
 | `not_owner` | 다른 사용자의 세션 또는 없는 세션 |
 | `session_lost` | 서버에 판정 상태가 없음(재시작·정리됨·삭제), 이미 끝난 세션, `ready` 준비 시간 초과 |
@@ -1554,6 +1391,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-12 | `refactor/backend-remove-unused-s3-r3-c1` | **앱이 부르지 않는 REST 3개 삭제 — 호환성 깨짐**: S3 세션 종료 `POST /v2/sessions/{id}/end`(측정은 WS `end`·연결 끊김으로 끝남), R3 기록 삭제 `DELETE /v2/records/{id}`, C1 선택 정보 동의·철회 `PUT /v2/consents/optional-profile`. REST 18 → 15개. 409 `CONFLICT`의 「적재된 기록 삭제」 사유 없어짐. 선택 정보 동의는 가입 때만 받는다. 남은 일: WS가 열리지 않은 세션·종료 저장 실패 세션을 닫을 길(백엔드 상태 4장). [계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계 |
 | 2026-11-11 | `feature/backend-session-view-from-db` | S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음)로 답한다(BE-11). 메모리에서 빠진 끝난 세션은 404 `SESSION_LOST` 대신 200. kafka 모드 대비(계획 0031 11번). 형식은 그대로 |
 | 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |
 | 2026-11-09 | 문서만(코드 그대로) | 코드 기준을 develop `6cae21f`(PR #93·#98·#99·#100, API 코드는 `fe5058b`와 같음)로. J2 최근 7일 다시 계산(D-81, PR #100)을 1장 배치·S3·T1(`computed_at` 포함)에 반영. Observation 4.0의 「develop 앱이 4.0을 버린다」 삭제(FE 대응 PR #99 병합). J2 실행 시각 00:00 → 00:10(PR #93). FE 요청 BE-7(명세에 없던 시간 필드): 9장에 `events[].timestamp_ms`·`onset_ms` 설명을 넣고 `onset_valid_ms` 보충, 11.2에 `frames[].t_ms`. `hold_ms`·`recovery_ms`는 프레임 `t_ms`가 아니라 구간 길이로 센다고 바로잡음 |
