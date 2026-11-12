@@ -41,7 +41,7 @@
 
 1. **「측정 시작」은 항상 서버 측정이다.** 로컬 모드와 개발자 옵션의 「서버 판정 사용」 스위치, `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`를 없앴다.
    서버에 닿지 못하거나 로그인이 없으면 측정을 시작하지 않고 이유를 보여 준다.
-2. 흐름은 S1 `PUT /v2/sessions/{id}` → `/v2/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 10초 안에 `closed`가 안 오면 S4로 결과를 읽는다. 자세한 형식은 [연동 명세](../design/fe/api-ws-spec.md) 4·5장이다.
+2. 흐름은 S1 `PUT /v2/sessions/{id}` → `/v2/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 5초 안에 `closed`가 안 오거나 `end` 뒤 `stalled`가 오면 S4로 결과를 읽는다(11/12, 10초에서 줄임. 서버 확정본이 아니면 화면에 보이던 값을 지킨다 — [FE 예외 처리 방안](../design/fe/fe-exception-handling-plan.md) 2장). 자세한 형식은 [연동 명세](../design/fe/api-ws-spec.md) 4·5장이다.
 3. 앱이 보내는 구간: 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」),
    쓰던 카메라가 빠지거나 측정 중 영상 크기가 바뀌면 `end`로 종료·저장한다. 어깨가 하나라도 안 보이는 프레임은 바로 판정 불가다(6절).
 4. 이어하기(앱이 중간 저장을 두었다가 다시 여는 것)는 없다. 앱이 닫히거나 연결이 끊기면 서버가 마지막 구간까지 저장한다([ADR 0024](0024-session-ends-on-lost-connection.md)).
@@ -49,7 +49,7 @@
 6. 서버 저장을 확인하기 전까지 측정 결과를 이 기기에 남긴다. 표시는 서버 기록(R1)으로 한다([ADR 0027](0027-today-records-from-collected-server-results.md)).
 7. 학습 데이터 수집 화면(ML)은 그대로 둔다. 앱은 특징값을 계산하지 않고, 수집 화면은 기준 자세를 등록했는지와 프레임이 판정 가능한지(`measurable`)만 본다.
 8. **측정 화면 상태는 서버 값 그대로 나눈다(2026-11-01, 11/3 고침).** 서버가 구간마다 바로 `observation` 4.0을 보낸다([계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md) 27~29, develop PR #96·#98, 앱 PR #99). 11/1의 3초 묶음(#91)은 경고가 최대 3초 늦어져 11/2 되돌렸다(PR #95).
-   `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다.
+   `posture: 'bad'`이고 아직 확정 전이면 「자세가 흐트러지고 있어요」(주의, 소리 없음), `decision`·`alert`로 확정되면 「자세가 흐트러졌어요」(알림)다. 이미 회복·중단·종료로 닫힌 사건의 `alert`가 늦게 오면(kafka 모드는 `alert`가 따로 옴) 울리지 않는다(11/11).
    3초 지속 판단과 `bad` 기준(`threshold`, [ADR 0047](0047-posture-from-deviation-probability.md))은 서버 몫이고 앱은 다시 세지 않는다. 점수 변환(100 × (1 − `collapse_probability`))은 표시용으로 남긴다([ADR 0005](0005-score-visuals.md)).
    주의 상자의 게이지는 서버가 센 이탈 연속 시간(`hold_ms`) ÷ 정책 hold 시간, 경고 중 바로 앉으면 나오는 회복 상자의 게이지는 서버가 센 회복 연속 시간(`recovery_ms`) ÷ 정책 회복 시간이다. 앱이 시간을 세면 빈틈·끊김·회복에서 서버 판정과 어긋나므로 세지 않는다([ADR 0029](0029-midnight-cut-and-server-time.md)).
    판정 불가면 점수가 `null`이라 점수를 그리지 않는다. `sequence`가 화면에 있는 결과보다 작거나 같은 결과는 버린다(늦은 결과가 최신 점수를 덮지 않게).
