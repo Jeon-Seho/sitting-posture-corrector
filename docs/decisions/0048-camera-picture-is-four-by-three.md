@@ -15,9 +15,9 @@
 
 ## 결정
 
-1. **4:3을 필수로 요청한다.** 카메라 요청에 `aspectRatio: { exact: 4/3 }`와 `resizeMode: 'crop-and-scale'`을 넣는다(`features/camera/devices.ts` `requestCamera`). 크기는 지금처럼 640×480을 희망값으로 둔다.
-2. **잘라서라도 4:3으로 받는다.** 16:9 카메라는 브라우저가 양옆을 잘라 4:3으로 준다(Chrome·Edge·데스크톱 앱). 사람은 보통 화면 가운데 있어 어깨·머리 판정에는 영향이 거의 없다.
-3. **그래도 4:3이 아니면 쓰지 않는다.** 브라우저가 요청을 거절하거나(`OverconstrainedError`, `constraint: 'aspectRatio'`), 무시하고 다른 비율로 열면(트랙 설정·영상 크기로 확인) 카메라를 놓고 「이 카메라는 4:3 화면으로 쓸 수 없어요…」를 띄운다(`CAMERA_ERRORS.aspectUnsupported`, `hooks/useCamera.ts` `connect`). 기준 자세 등록과 측정 모두 카메라가 켜져야 하므로 둘 다 막힌다.
+1. **먼저 예전처럼 연다.** 640×480을 희망값으로 요청한다. 대부분의 웹캠은 4:3으로 열리고, 그러면 그대로 쓴다(`features/camera/devices.ts` `requestFourByThreeCamera`).
+2. **4:3이 아닐 때만 잘라서 다시 연다.** 닫고 **같은 카메라를** `aspectRatio: { exact: 4/3 }`와 `resizeMode: 'crop-and-scale'`로 다시 연다. 16:9 카메라는 브라우저가 양옆을 잘라 4:3으로 준다(Chrome·Edge·데스크톱 앱). 사용자에게 묻지 않는다. `resizeMode`는 브라우저에 「잘라도 된다」를 알리는 설정으로, 없으면 일부 브라우저는 자르지 않고 거절한다. 사람은 보통 화면 가운데 있어 어깨·머리 판정에는 영향이 거의 없다.
+3. **그래도 4:3이 아니면 쓰지 않는다.** 브라우저가 다시 연 요청을 거절하거나(`OverconstrainedError`, `constraint: 'aspectRatio'`), 무시하고 다른 비율로 열면(트랙 설정·영상 크기로 확인) 카메라를 놓고 「이 카메라는 4:3 화면으로 쓸 수 없어요…」를 띄운다(`CAMERA_ERRORS.aspectUnsupported`, `hooks/useCamera.ts` `connect`). 기준 자세 등록과 측정 모두 카메라가 켜져야 하므로 둘 다 막힌다.
 4. 4:3이면 크기는 묻지 않는다(640×480이 아닌 1280×960도 받는다). 좌표는 정규화돼 같은 비율이면 같은 값이다.
 5. 측정 화면에 카메라 크기를 보이지 않는다(F13 취소).
 6. 웹과 데스크톱 앱이 같게 동작한다. 서버·DB는 바뀌지 않는다.
@@ -33,5 +33,5 @@
 - 4:3을 못 주는 카메라·브라우저에서는 카메라가 켜지지 않는다. 개발자 도구 › 카메라 오류 화면에 「4:3 화면 불가」로 미리 볼 수 있다.
 - 저장한 주 카메라가 4:3을 못 주면 「카메라가 빠짐」으로 보지 않고(`mainCamera.ts` `missingDevice`) 위 안내를 그대로 보인다.
 - 자동 시험용 가짜 카메라는 640×480이라 영향이 없다.
-- 시험: `hooks/useCamera.test.tsx`(4:3 요청, 16:9 거절, 요청 거절 문구), `hooks/useCamera.devices.test.tsx`(1280×960 받음, 1280×720 거절).
+- 시험: `hooks/useCamera.test.tsx`(4:3 카메라는 한 번만 그대로 열림, 16:9는 같은 카메라를 4:3 필수로 다시 열어 씀, 다시 열어도 16:9면 거절, 다시 연 요청 거절 문구), `hooks/useCamera.devices.test.tsx`(1280×960 받음, 1280×720 거절).
 - 실제 16:9 카메라에서 잘라 받기가 되는지는 아직 확인하지 않았다(Chrome·Edge·데스크톱 앱에서 확인할 것).
