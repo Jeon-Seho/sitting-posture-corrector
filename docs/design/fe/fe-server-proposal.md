@@ -14,7 +14,7 @@ FE(klaod-tech)가 직접 하는 일이다. 항목마다 **한줄요약 · 발단
 | # | 할 일 | 언제 |
 |---|---|---|
 | 1 | 데스크톱 앱(F14) 배포 | 지금 |
-| 2 | 서버 탈퇴 때 이 기기 결과도 지우기 | 정할 것 |
+| 2 | 탈퇴 때 이 기기 결과 지우기와 문의 안내 | 문의처가 정해지면 |
 | 3 | 발표용 예시 기록·합성 시연 지우기 | 급하지 않음 |
 | 4 | 시험 전용 로컬 로그인 지우기 | 할 일 3과 함께 |
 | 5 | Cloudflare 요청 제한 좁히기 | 시연 전 |
@@ -27,12 +27,14 @@ FE(klaod-tech)가 직접 하는 일이다. 항목마다 **한줄요약 · 발단
 - **원인:** 지금 배포본은 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다.
 - **요구사항/변경사항:** 패키징 점검 스크립트(`smoke-desktop.mjs`·`smoke-packaged-ui.mjs`·`smoke-developer-page.mjs`)가 아직 `app://posegood/`를 찾으므로 고친 뒤, 앱을 빌드·배포한다. 실제 계정으로 로그인 → 앱 종료 → 다시 켜기를 확인한다.
 
-#### 할 일 2. 서버 탈퇴 때 이 기기 결과도 지우기
+#### 할 일 2. 탈퇴 때 이 기기 결과 지우기와 문의 안내
 
-- **한줄요약:** 탈퇴하면 이 기기에 남은 서버 확인 전 결과도 지운다.
-- **발단:** 서버 탈퇴(A7)는 지금 로그아웃만 한다([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)).
-- **원인:** 탈퇴한 계정의 측정 결과가 기기에 남는다.
-- **요구사항/변경사항:** 탈퇴 성공 뒤 그 계정의 대기 기록 저장소(`features/storage/serverRecords.ts`)를 지운다. 계정 화면 탈퇴 흐름에 넣는다.
+- **한줄요약:** 탈퇴하면 이 기기에 남은 서버 확인 전 결과를 지우고, 탈퇴한 계정으로 들어오려 하면 문의처를 안내한다.
+- **발단:** 서버 탈퇴(A7)는 지금 로그아웃만 한다([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)). 탈퇴 철회 API는 없다: 옛 계정 API(v1)에 있던 철회(`POST /auth/withdrawal/cancel`)는 BE가 아키텍처 v5.2로 바꾸며 지웠고, 지금은 탈퇴한 계정 로그인이 403 `ACCOUNT_CLOSED`, 같은 이메일 재가입이 30일 동안 409다. 서버의 30일은 최종 삭제(Spark J3)까지의 유예일 뿐 복구 기간이 아니다.
+- **원인:** 되살릴 방법이 없으니 이 기기에 그 계정의 결과를 남길 이유가 없다(남기면 개인정보만 남는다). 탈퇴를 되돌리고 싶은 사람은 앱 안에서 할 수 있는 것이 없어 사람에게 연락해야 한다.
+- **요구사항/변경사항:**
+  1. 탈퇴 성공 뒤 그 계정의 대기 기록 저장소(`features/storage/serverRecords.ts`, 키 `posegood.account.v3.{user_id}.pending-results`)를 지운다. 계정 화면 탈퇴 흐름에 넣는다.
+  2. 탈퇴 확인 창과 로그인 403 `ACCOUNT_CLOSED` 안내(`accountClient.ts`)에 문의처를 넣는다. 예: 「탈퇴한 계정이에요. 되돌릴 수 없고 탈퇴 30일 뒤 삭제돼요. 도움이 필요하면 ○○@○○로 연락해 주세요.」 **문의처(이메일)는 정하기 전**이다. 오류 화면의 「계속되면 알려 주세요」 문의처([frontend README](../../../frontend/README.md) 「오류 안내 페이지」)와 같은 주소로 한다.
 
 #### 할 일 3. 발표용 예시 기록·합성 시연 지우기
 
@@ -254,7 +256,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 - **한줄요약:** J2가 채운 `daily_stat`을 돌려주는 T1 API를 휴대폰 기록을 만들 때 만든다.
 - **발단:** J2가 매일 00:10에 `daily_stat`을 채우지만, 이를 읽어 주는 API(컨트롤러)가 없다. 형식만 확정됐다.
 - **원인:** 지금 앱은 기록·달력·기간 통계를 R1 기록으로 직접 계산한다(`recordsSource.ts`). 기록이 많아지면(휴대폰, [휴대폰 계획](fe-mobile-records-plan.md)) 매번 계산하기 어렵다.
-- **요구사항/변경사항:** BE가 T1 `GET /v2/stats/daily`를 만든다. 00:00~00:10에 어제가 아직 비어 있는 문제는 T1을 붙일 때 정한다([연동 명세](api-ws-spec.md) 「T1 데이터가 생기는 시각」).
+- **요구사항/변경사항:** BE가 T1 `GET /stats/daily`를 만든다. 00:00~00:10에 어제가 아직 비어 있는 문제는 T1을 붙일 때 정한다([연동 명세](api-ws-spec.md) 「T1 데이터가 생기는 시각」).
 
 ## 2. 지금 구조
 
@@ -336,7 +338,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 
 | 서버 | 코드 | 하는 일 |
 |---|---|---|
-| **io-api** (입출구 서버) | `backend/api` | 로그인(JWT access 30분·refresh 14일, [ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)), REST(A·C·W·B·S·R), 측정 WebSocket `/v2/realtime`. 앱이 통신하는 곳은 여기 하나다 |
+| **io-api** (입출구 서버) | `backend/api` | 로그인(JWT access 30분·refresh 14일, [ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)), REST(A·C·W·B·S·R), 측정 WebSocket `/realtime`. 앱이 통신하는 곳은 여기 하나다 |
 | 추론 | `backend/inference` | local: io-api가 `POST /v2/infer`로 부른다. kafka: `posture.features.v1`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
 | 처리 서비스 | `backend/processing` | kafka 경로에서 판정(`V1SessionJudge`)과 저장. local에는 쓰이지 않는다 |
 | gateway | `infra/nginx`, compose `gateway` | 터널로 들어온 요청 중 `/api/`·`/api/v2/realtime`·`/health`만 io-api로. `X-Forwarded-Proto https` 고정. 화면 파일은 내지 않는다 |
