@@ -3,7 +3,7 @@ import { apiRequest, type ApiErrorKind, type ApiOptions } from '../platform/api'
 import { validRules } from './validation'
 
 /**
- * The account's settings on the server: W1 `GET /v2/workspace` reads them, W2 `PUT /v2/workspace`
+ * The account's settings on the server: W1 `GET /workspace` reads them, W2 `PUT /workspace`
  * saves them (api-ws-spec 7장). The posture rules live only here, not on this device: S1 sends them
  * and the server refuses a session whose policy differs from the account's (409).
  */
@@ -33,12 +33,12 @@ function parsed(value: unknown): ServerWorkspace {
 }
 
 export async function fetchWorkspace(options: ApiOptions = {}) {
-  return parsed(await apiRequest('/v2/workspace', { method: 'GET' }, MESSAGES, options))
+  return parsed(await apiRequest('/workspace', { method: 'GET' }, MESSAGES, options))
 }
 
 /** W2 takes profile, rules and preferences together: the latest profile and preferences go back unchanged. */
 export async function saveWorkspaceRules(rules: Rules, options: ApiOptions = {}) {
   const latest = await fetchWorkspace(options)
   const body = { profile: latest.profile, rules, preferences: latest.preferences }
-  return parsed(await apiRequest('/v2/workspace', { method: 'PUT', body }, MESSAGES, options))
+  return parsed(await apiRequest('/workspace', { method: 'PUT', body }, MESSAGES, options))
 }

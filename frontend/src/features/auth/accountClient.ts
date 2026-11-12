@@ -1,4 +1,4 @@
-import { SERVER } from '../platform/serverConfig'
+import { API_ROOT, SERVER } from '../platform/serverConfig'
 import { getServerAuth, setServerAuth } from '../platform/serverAuth'
 import { noteServerDay } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
@@ -53,7 +53,7 @@ export type AccountClient = {
   logout: () => Promise<void>
   /** The `user_id` of the last successful me/register/login, null after logout. */
   userId: () => string | null
-  /** Discord sign-in and linking (BE /v2/auth/social/*). Missing when the client has no server. */
+  /** Discord sign-in and linking (BE /auth/social/*). Missing when the client has no server. */
   social?: SocialClient
   /**
    * A4 only for the server's time (when the app window comes back, ADR 0029). Changes nothing
@@ -142,7 +142,7 @@ export function createAccountClient(
   options: { fetch?: typeof fetch; base?: string; timeoutMs?: number; now?: () => number; channel?: boolean } = {},
 ): AccountClient {
   const fetchRequest = options.fetch ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init))
-  const base = `${options.base ?? SERVER.apiBase}/api/v2/auth`
+  const base = `${options.base ?? SERVER.apiBase}${API_ROOT}/auth`
   const timeoutMs = options.timeoutMs ?? 10000
   const now = options.now ?? Date.now
   let login: Login | null = null

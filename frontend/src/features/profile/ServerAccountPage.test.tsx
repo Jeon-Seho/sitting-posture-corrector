@@ -36,5 +36,5 @@ it('signs out only after password change is acknowledged and clears typed secret
   change(1, 'Synthetic-current-1234!'); change(2, 'Synthetic-new-1234!')
   await act(async () => button.props.onClick())
   expect(onSignedOut).toHaveBeenCalledOnce()
-  expect(apiRequest).toHaveBeenLastCalledWith('/v2/auth/password', expect.objectContaining({ method: 'PUT' }), expect.anything(), { retries: 0 })
+  expect(apiRequest).toHaveBeenLastCalledWith('/auth/password', expect.objectContaining({ method: 'PUT' }), expect.anything(), { retries: 0 })
 })

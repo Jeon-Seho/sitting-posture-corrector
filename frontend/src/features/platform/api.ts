@@ -1,4 +1,4 @@
-import { SERVER } from './serverConfig'
+import { API_ROOT, SERVER } from './serverConfig'
 import { getServerAuth } from './serverAuth'
 
 /**
@@ -85,7 +85,7 @@ export async function apiRequest(
     const timer = setTimeout(() => abort.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
     let response: Response
     try {
-      response = await fetchRequest(`${SERVER.apiBase}/api${path}`, {
+      response = await fetchRequest(`${SERVER.apiBase}${API_ROOT}${path}`, {
         method,
         headers,
         body,

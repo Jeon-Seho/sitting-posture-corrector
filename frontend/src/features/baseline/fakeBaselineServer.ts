@@ -1,8 +1,9 @@
 import { vi } from 'vitest'
 import { setServerAuth } from '../platform/serverAuth'
+import { API_ROOT } from '../platform/serverConfig'
 
 /**
- * Tests only: a signed-in account and an in-memory B1·B2 (`/api/v2/baselines`) behind a
+ * Tests only: a signed-in account and an in-memory B1·B2 (`API_ROOT/baselines`) behind a
  * stubbed `fetch`. Every saved posture gets a new id; `current` is the newest one.
  */
 export const FAKE_USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -31,13 +32,13 @@ export function installFakeBaselineServer(initial: Record<string, unknown> | nul
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/api/v2/baselines/current') && server.failCurrent.length) {
+      if (url.endsWith(`${API_ROOT}/baselines/current`) && server.failCurrent.length) {
         const status = server.failCurrent.shift()!
         if (!status) throw new TypeError('offline')
         return json(status, { code: 'FAKE' })
       }
-      if (url.endsWith('/api/v2/baselines/current')) return server.current ? json(200, server.current) : json(404, {})
-      if (url.endsWith('/api/v2/baselines') && init?.method === 'POST') {
+      if (url.endsWith(`${API_ROOT}/baselines/current`)) return server.current ? json(200, server.current) : json(404, {})
+      if (url.endsWith(`${API_ROOT}/baselines`) && init?.method === 'POST') {
         const status = server.failWith.shift()
         if (status) return json(status, { code: 'FAKE' })
         const body = JSON.parse(String(init.body)) as Record<string, unknown>

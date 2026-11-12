@@ -2,7 +2,7 @@ import type { Landmark } from '../../../../../model/prototype/pose'
 import { apiRequest, ApiError, type ApiErrorKind, type ApiOptions } from '../../platform/api'
 import { getServerAuth } from '../../platform/serverAuth'
 import { noteServerTime } from '../../platform/serverClock'
-import { SERVER } from '../../platform/serverConfig'
+import { API_ROOT, SERVER } from '../../platform/serverConfig'
 import { FrameBatcher, type FrameBatch, type FramePhase } from '../realtime/frames'
 import {
   EMPTY_SUMMARY,
@@ -18,7 +18,7 @@ import {
 
 /**
  * One measurement against the server (BE api-spec 7장·11장, FE proposal F1·F3, 2026-10-21):
- * S1 creates the session, `/v2/realtime` carries one 0.5 s coordinate interval per message,
+ * S1 creates the session, `/realtime` carries one 0.5 s coordinate interval per message,
  * and everything shown comes from the server. No reconnect, no resend (ADR 0024): a lost
  * connection ends the measurement and the server saves it up to the last interval.
  */
@@ -145,9 +145,9 @@ function serverTime(value: unknown): string | null {
 }
 
 export function realtimeUrl(): string {
-  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}/api/v2/realtime`
+  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}${API_ROOT}/realtime`
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${scheme}://${location.host}/api/v2/realtime`
+  return `${scheme}://${location.host}${API_ROOT}/realtime`
 }
 
 export class LiveSession {
@@ -227,7 +227,7 @@ export class LiveSession {
     try {
       const view = parseSessionView(
         await apiRequest(
-          `/v2/sessions/${encodeURIComponent(sessionId)}`,
+          `/sessions/${encodeURIComponent(sessionId)}`,
           { method: 'PUT', body: { policy, baseline_id: baselineId } },
           MESSAGES,
           // No answer: the same id and body again (api-ws-spec 4장 S1).
@@ -512,7 +512,7 @@ export class LiveSession {
     this.fetching = true
     try {
       const view: SessionView | null = parseSessionView(
-        await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
+        await apiRequest(`/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
       // S4 answers (D-85): a finished result in memory, else the stored one rebuilt from the DB
       // (`last_sequence` -1, so `total_ms` is compared), else the running state in memory (kafka
