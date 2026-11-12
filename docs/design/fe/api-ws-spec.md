@@ -10,13 +10,13 @@
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/v2/…`, WS는 `/api/v2/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 10) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
-| 로그인 유지(A8) | `POST /v2/auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
+| 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
 | 시각 | 응답은 UTC ISO-8601, 측정 안 시간은 세션 시작 기준 ms | 화면에 보일 때만 KST로. **화면의 날짜·시각은 서버 시각을 따르고 앱은 시간을 세지 않는다**([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)): 기록 시작·종료 = `ready.started_at`·`closed.ended_at`, 오늘 = 가장 최근에 받은 서버 날짜(A4 `today` — 앱 시작·창으로 돌아올 때·기록·달력을 열 때, R1·T1 `today`, 그리고 `ready`·`closed` 시각의 KST 날짜). 날짜는 서버가 KST `YYYY-MM-DD`로 정해 주고 앱은 계산하지 않는다(앱은 시각이 필요 없어 A4 `server_time`은 요청하지 않는다). 측정 안 시간축(`t_ms`)과 자세 등록 3초는 앱 시계. 서버 시각이 오기 전에는 PC 시계를 KST로 고정해 대신 쓴다 |
 | 자정 | KST 00:00에 서버가 진행 중인 측정을 끝내 저장하고, 같은 연결에서 **서버가 만든 새 세션**으로 잇는다(설정 `midnight-rollover`, 운영은 꺼짐 — BE api-spec 11.3) | `session_rollover`를 받으면 `ended`(이전 세션)를 기록으로 닫고 새 `session_id`·`started_at`(= 자정)으로 이어 간다. S1·`hello`는 다시 하지 않고 시간·순번은 연결 기준으로 계속 보낸다(서버가 바꿔 씀). 실패 사유 `closed(day_changed)`면 저장된 것으로 마친다. 하나의 측정은 하루 안에 있다 |
-| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/v2/workspace` `rules`는 초 | 판정 기준은 서버 계정에만 둔다. 앱은 로그인 뒤와 측정하기·설정 화면을 열 때 W1 `rules`를 받고, 설정을 바꾸면 W2로 저장한다. 이 기기에는 남기지 않는다. S1 `policy`는 W1 `rules`의 초에 1000을 곱한 값이다. 서버는 계정 값과 다르면 409 `CONFLICT`로 거절하므로, 다른 기기에서 바꾼 직후라면 측정하기 화면을 다시 열어 W1을 받는다. S1에서 `policy`를 빼는 안은 앱이 W1의 계정 값을 보내 서버 값과 같아져 접었다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버다(구간 시간으로) |
+| 판정 규칙 단위 | API·WS는 ms(`hold_ms`·`recovery_ms`·`reminder_ms`, 500의 배수, `reminder_ms` 1000 이상), `/workspace` `rules`는 초 | 판정 기준은 서버 계정에만 둔다. 앱은 로그인 뒤와 측정하기·설정 화면을 열 때 W1 `rules`를 받고, 설정을 바꾸면 W2로 저장한다. 이 기기에는 남기지 않는다. S1 `policy`는 W1 `rules`의 초에 1000을 곱한 값이다. 서버는 계정 값과 다르면 409 `CONFLICT`로 거절하므로, 다른 기기에서 바꾼 직후라면 측정하기 화면을 다시 열어 W1을 받는다. S1에서 `policy`를 빼는 안은 앱이 W1의 계정 값을 보내 서버 값과 같아져 접었다. 3초·60초 규칙을 세는 것은 그 뒤에도 서버다(구간 시간으로) |
 | 자세 방향 | `deviation_type`은 WS로만 온다. DB에 칸이 없다 | 측정 중 화면에서만 보인다 |
 | 세션 시작 시각 | 서버가 S1을 받은 시각 = 앱 `t_ms` 0. S1 응답(200 `SessionView`)에는 `started_at`이 없다 | 기록 시작은 `ready.started_at` |
 | 5분 미만 세션 | 저장하고 기록 목록·일별 통계에 넣는다. 「붕괴까지 걸린 시간」 최소·최대에서만 뺀다(DB V2.3) | 다른 기록과 같게 보인다 |
@@ -75,51 +75,51 @@
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [A2](#api-a2) | POST | 회원가입 | `/v2/auth/register` | | 회원가입 | 회원가입 2단계(계정 정보) 「다음」 | 사용 |
-| [A3](#api-a3) | POST | 로그인 | `/v2/auth/login` | | 로그인 | 로그인 | 사용 |
-| [A4](#api-a4) | GET | 내 정보 조회 | `/v2/auth/me` | | 로그인 유지 | 앱 시작(A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) | 사용 |
-| [A5](#api-a5) | POST | 로그아웃 | `/v2/auth/logout` | | 로그아웃 | 계정 메뉴 「로그아웃」 | 사용 |
-| [A6](#api-a6) | PUT | 비밀번호 변경 | `/v2/auth/password` | | 비밀번호 변경 | 프로필 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) | 사용 |
-| [A7](#api-a7) | DELETE | 탈퇴 접수 | `/v2/auth/account` | | 회원탈퇴 | 프로필 › 탈퇴 | 사용 |
-| [A8](#api-a8) | POST | 로그인 유지 | `/v2/auth/refresh` | | 로그인 유지 | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) | 사용 |
+| [A2](#api-a2) | POST | 회원가입 | `/auth/register` | | 회원가입 | 회원가입 2단계(계정 정보) 「다음」 | 사용 |
+| [A3](#api-a3) | POST | 로그인 | `/auth/login` | | 로그인 | 로그인 | 사용 |
+| [A4](#api-a4) | GET | 내 정보 조회 | `/auth/me` | | 로그인 유지 | 앱 시작(A8로 토큰을 받은 다음), `AUTH_CHANGED` 뒤. 서버 시각용으로도: 창·탭으로 돌아올 때, 기록·달력을 열 때(1분에 한 번까지, 로그인 상태는 바꾸지 않음, ADR 0029) | 사용 |
+| [A5](#api-a5) | POST | 로그아웃 | `/auth/logout` | | 로그아웃 | 계정 메뉴 「로그아웃」 | 사용 |
+| [A6](#api-a6) | PUT | 비밀번호 변경 | `/auth/password` | | 비밀번호 변경 | 프로필 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) | 사용 |
+| [A7](#api-a7) | DELETE | 탈퇴 접수 | `/auth/account` | | 회원탈퇴 | 프로필 › 탈퇴 | 사용 |
+| [A8](#api-a8) | POST | 로그인 유지 | `/auth/refresh` | | 로그인 유지 | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) | 사용 |
 
 ### workspace | 동의·설정
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [C1](#api-c1) | PUT | 선택 정보 동의·철회 | `/v2/consents/optional-profile` | | 선택 정보 동의 철회 | 부르는 화면 없음(동의 항목 C1과 다른 번호) | 안 씀 |
-| [W1](#api-w1) | GET | 설정·기록 조회 | `/v2/workspace` | | 프로필 수정, 판정 기준 설정 | 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, W2 저장 직전 | 사용 |
-| [W2](#api-w2) | PUT | 설정 저장 | `/v2/workspace` | | 프로필 수정, 판정 기준 설정 | 프로필 저장, 설정 화면에서 판정 기준을 바꿀 때 | 사용 |
+| [C1](#api-c1) | PUT | 선택 정보 동의·철회 | `/consents/optional-profile` | | 선택 정보 동의 철회 | 부르는 화면 없음(동의 항목 C1과 다른 번호) | 안 씀 |
+| [W1](#api-w1) | GET | 설정·기록 조회 | `/workspace` | | 프로필 수정, 판정 기준 설정 | 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, W2 저장 직전 | 사용 |
+| [W2](#api-w2) | PUT | 설정 저장 | `/workspace` | | 프로필 수정, 판정 기준 설정 | 프로필 저장, 설정 화면에서 판정 기준을 바꿀 때 | 사용 |
 
 ### baselines | 기준 자세
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [B1](#api-b1) | POST | 기준 자세 등록 | `/v2/baselines` | | 기준 자세 등록 | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 5.4) | 사용 |
-| [B2](#api-b2) | GET | 현재 기준 자세 조회 | `/v2/baselines/current` | | 기준 자세 등록 | 앱 시작·로그인 뒤 | 사용 |
+| [B1](#api-b1) | POST | 기준 자세 등록 | `/baselines` | | 기준 자세 등록 | 자세 등록 촬영이 끝났을 때(앱이 낸 관절 9개 평균, 5.4) | 사용 |
+| [B2](#api-b2) | GET | 현재 기준 자세 조회 | `/baselines/current` | | 기준 자세 등록 | 앱 시작·로그인 뒤 | 사용 |
 
 ### sessions | 측정 세션
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [S1](#api-s1) | PUT | 세션 생성 | `/v2/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
-| [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+| [S1](#api-s1) | PUT | 세션 생성 | `/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
+| [S4](#api-s4) | GET | 세션 상태 조회 | `/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
 
-S3(세션 종료 `POST /v2/sessions/{id}/end`)·R3(기록 삭제 `DELETE /v2/records/{id}`)은 쓰지 않아 지웠다(D-88). 세션은 WS로만 끝나고, 기록은 지우지 않는다.
+S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{id}`)은 쓰지 않아 지웠다(D-88). 세션은 WS로만 끝나고, 기록은 지우지 않는다.
 
 ### realtime | 실시간
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [WS](#api-ws) | WS | 실시간 측정 | `/v2/realtime` | | 실시간 판정 수신 | 측정 시작 뒤 연결(`purpose: "measure"`만) | 사용 |
+| [WS](#api-ws) | WS | 실시간 측정 | `/realtime` | | 실시간 판정 수신 | 측정 시작 뒤 연결(`purpose: "measure"`만) | 사용 |
 
 ### records | 기록·통계
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [R1](#api-r1) | GET | 기록 목록 조회 | `/v2/records` | | 측정 결과 보관, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
-| [R1b](#api-r1b) | GET | 기록 하나 조회 | `/v2/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
-| [T1](#api-t1) | GET | 일별 통계 조회 | `/v2/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
+| [R1](#api-r1) | GET | 기록 목록 조회 | `/records` | | 측정 결과 보관, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
+| [R1b](#api-r1b) | GET | 기록 하나 조회 | `/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
+| [T1](#api-t1) | GET | 일별 통계 조회 | `/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
 
 ### system | 시스템
 
@@ -159,7 +159,7 @@ S3(세션 종료 `POST /v2/sessions/{id}/end`)·R3(기록 삭제 `DELETE /v2/rec
 
 오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 측정은 자정에 서버가 끊으므로 세션의 시작 날짜 = 끝난 날짜이고, 기록은 시작 시각(`ready.started_at`)의 KST 날짜에 넣는다. 오늘이 며칠인지는 가장 최근에 받은 서버 시각으로 정한다(ADR 0029). 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다.
 
-## 5. WebSocket `/v2/realtime`
+## 5. WebSocket `/realtime`
 
 순서(BE 명세 11.1): `hello` → `ready` → `features` × N → `end` → `decision(session_ended)` → `closed(ended)`. 연결 하나가 측정 한 번이고 재연결은 없다(ADR 0024).
 
@@ -258,7 +258,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 단계 | 앱 | 서버 |
 |---|---|---|
 | 1 | (앱 시작 때) B2 | 200 기준 / 404 → 자세 등록 |
-| 2 | 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
+| 2 | 「측정 시작」 → S1 `PUT /sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
 | 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `ack` → `progress` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (5초 안) |
@@ -268,7 +268,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 sequenceDiagram
   participant A as 앱
   participant S as 입출구 서버(api·ws)
-  A->>S: S1 PUT /v2/sessions/{id} {policy, baseline_id}
+  A->>S: S1 PUT /sessions/{id} {policy, baseline_id}
   S-->>A: 200 SessionView (t_ms 0)
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready
@@ -327,7 +327,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a2"></a>
 
-### A2 · /v2/auth/register
+### A2 · /auth/register
 
 - **API 이름:** 회원가입
 - **기능명:** 회원가입
@@ -402,7 +402,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a3"></a>
 
-### A3 · /v2/auth/login
+### A3 · /auth/login
 
 - **API 이름:** 로그인
 - **기능명:** 로그인
@@ -444,7 +444,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a4"></a>
 
-### A4 · /v2/auth/me
+### A4 · /auth/me
 
 - **API 이름:** 내 정보 조회
 - **기능명:** 로그인 유지
@@ -485,7 +485,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a5"></a>
 
-### A5 · /v2/auth/logout
+### A5 · /auth/logout
 
 - **API 이름:** 로그아웃
 - **기능명:** 로그아웃
@@ -513,7 +513,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a6"></a>
 
-### A6 · /v2/auth/password
+### A6 · /auth/password
 
 - **API 이름:** 비밀번호 변경
 - **기능명:** 비밀번호 변경
@@ -561,7 +561,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a7"></a>
 
-### A7 · /v2/auth/account
+### A7 · /auth/account
 
 - **API 이름:** 탈퇴 접수
 - **기능명:** 회원탈퇴
@@ -603,7 +603,7 @@ refresh 쿠키가 실리도록 앱은 `credentials: 'include'`로 보낸다.
 
 <a id="api-a8"></a>
 
-### A8 · /v2/auth/refresh
+### A8 · /auth/refresh
 
 - **API 이름:** 로그인 유지
 - **기능명:** 로그인 유지
@@ -647,7 +647,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-c1"></a>
 
-### C1 · /v2/consents/optional-profile
+### C1 · /consents/optional-profile
 
 - **API 이름:** 선택 정보 동의·철회
 - **기능명:** 선택 정보 동의 철회
@@ -688,7 +688,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-w1"></a>
 
-### W1 · /v2/workspace (GET)
+### W1 · /workspace (GET)
 
 - **API 이름:** 설정·기록 조회
 - **기능명:** 프로필 수정, 판정 기준 설정
@@ -736,7 +736,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-w2"></a>
 
-### W2 · /v2/workspace (PUT)
+### W2 · /workspace (PUT)
 
 - **API 이름:** 설정 저장
 - **기능명:** 프로필 수정, 판정 기준 설정
@@ -793,7 +793,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-b1"></a>
 
-### B1 · /v2/baselines
+### B1 · /baselines
 
 - **API 이름:** 기준 자세 등록
 - **기능명:** 기준 자세 등록
@@ -873,7 +873,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-b2"></a>
 
-### B2 · /v2/baselines/current
+### B2 · /baselines/current
 
 - **API 이름:** 현재 기준 자세 조회
 - **기능명:** 기준 자세 등록
@@ -904,7 +904,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-s1"></a>
 
-### S1 · /v2/sessions/{id} (PUT)
+### S1 · /sessions/{id} (PUT)
 
 - **API 이름:** 세션 생성
 - **기능명:** 측정 시작
@@ -995,7 +995,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-s4"></a>
 
-### S4 · /v2/sessions/{id} (GET)
+### S4 · /sessions/{id} (GET)
 
 - **API 이름:** 세션 상태 조회
 - **기능명:** 측정 종료
@@ -1081,7 +1081,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-ws"></a>
 
-### WS · /v2/realtime
+### WS · /realtime
 
 - **API 이름:** 실시간 측정
 - **기능명:** 실시간 판정 수신, 측정 중 상태 표시, 자세 경고 알림
@@ -1145,7 +1145,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. `hello`에서 토큰, 세션 주인, 진행 중 여부, 기준 자세를 확인하고 `ready`를 보낸다.
-2. 구간마다 특징을 계산해 추론하고(`POST /v2/infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
+2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
 3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `ack` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. kafka 모드에서는 `ack`가 먼저 오고, `progress`는 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
 4. 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다.
 5. `end`면 저장한 뒤 `decision(session_ended)` → `closed(ended)`를 보낸다.
@@ -1238,7 +1238,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-r1"></a>
 
-### R1 · /v2/records
+### R1 · /records
 
 - **API 이름:** 기록 목록 조회
 - **기능명:** 측정 결과 보관, 기록 조회
@@ -1316,7 +1316,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-r1b"></a>
 
-### R1b · /v2/records/{id} (GET)
+### R1b · /records/{id} (GET)
 
 - **API 이름:** 기록 하나 조회
 - **기능명:** 기록 조회
@@ -1329,7 +1329,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-t1"></a>
 
-### T1 · /v2/stats/daily
+### T1 · /stats/daily
 
 - **API 이름:** 일별 통계 조회
 - **기능명:** 기간 통계
