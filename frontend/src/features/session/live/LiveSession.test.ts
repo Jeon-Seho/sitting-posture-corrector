@@ -420,7 +420,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
   })
 
-  it('shows the result-missing error when S4 answers 404 (nothing stored), with no record', async () => {
+  it('still shows the last progress result when S4 answers 404 (what to do is open: problem 2)', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
@@ -429,8 +429,8 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.end()
     await vi.advanceTimersByTimeAsync(5_000)
     await flush()
-    expect(live.state).toMatchObject({ phase: 'failed', resultMissing: true })
-    expect(ended).toHaveLength(1)
+    expect(live.state).toMatchObject({ phase: 'ended', late: true })
+    expect(live.state.summary.total_ms).toBe(1800)
   })
 
   it('reads S4 once, right away, when the socket closes while ending', async () => {

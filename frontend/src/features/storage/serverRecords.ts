@@ -26,14 +26,6 @@ export function rememberResult(userId: string, record: RecordItem) {
   localStorage.setItem(key(userId), JSON.stringify([...previous.filter(r => r.id !== record.id), record]))
 }
 
-/** The server answered that it has no such measurement at all (S4 404): its checkpoint can never be confirmed. */
-export function forgetResult(userId: string, id: string) {
-  const remaining = pendingRecords(userId).filter(r => r.id !== id)
-  if (remaining.length) localStorage.setItem(key(userId), JSON.stringify(remaining))
-  else localStorage.removeItem(key(userId))
-  return remaining
-}
-
 /**
  * The server keeps good time in 0.1 s rounded down (`good_sec`, BE `SessionRepository.tenths`).
  * Since frame-by-frame judging (PR #91) the live `normal_ms` has millisecond ends, so 38.35 s here

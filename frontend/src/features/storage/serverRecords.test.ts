@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_RULES } from '../../data/posture'
 import { BASELINE_ID, SESSION_ID, view } from '../session/server/testFixtures'
-import { forgetResult, pendingRecords, reconcileResults, rememberResult } from './serverRecords'
+import { pendingRecords, reconcileResults, rememberResult } from './serverRecords'
 import type { RecordItem } from './types'
 
 function record(total = 2, ended = false): RecordItem {
@@ -28,14 +28,6 @@ describe('durable result handoff', () => {
     expect(reconcileResults('a', [record()])).toHaveLength(1)
     expect(reconcileResults('a', [record(2, true)])).toEqual([])
     expect(data.size).toBe(0)
-  })
-  it('forgets only the measurement the server says it does not have (S4 404)', () => {
-    rememberResult('a', record())
-    rememberResult('b', record())
-    expect(forgetResult('a', SESSION_ID)).toEqual([])
-    expect(pendingRecords('a')).toEqual([])
-    expect(pendingRecords('b')).toHaveLength(1)
-    expect(forgetResult('b', 'some-other-id')).toHaveLength(1)
   })
   it('keeps newer checkpoints when the server or a late observation is older', () => {
     rememberResult('a', record(4))
