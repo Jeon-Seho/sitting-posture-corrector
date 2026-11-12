@@ -252,7 +252,7 @@ FE가 정한 것(앱 쪽 동작):
 | 연동 명세 4장 REST 요청·응답 본문 | BE 명세가 기준이라 빼고 앱이 지킬 것만 4장에 |
 | 연동 명세 5.3 자세 등록·6.2·6.4 | 5.4·6.3으로 번호 바뀜 |
 | `fe-domain-idea.md`(배포 구상) | 이름 `fe-deploy.md`(배포). 6장(데스크톱 앱 구조)은 이 문서 8.4로 |
-| `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. (10/25: `data-platform-boundary.md`는 팀장이 10/22 develop에서 현행 기준으로 고쳐 써 develop 합칠 때 되살림(유지 여부는 1장에서 팀장에게 물음)) 10/22 기준 서버 구조는 [아키텍처 v5.2 스택별 역할](../architecture_v5.2_stack_roles.md)·[변경 안내](../architecture_v5.2_change_notes.md) |
+| `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. (10/25: `data-platform-boundary.md`는 팀장이 10/22 develop에서 현행 기준으로 고쳐 써 develop 합칠 때 되살림(유지 여부는 1장에서 팀장에게 물음)) 10/22 기준 서버 구조는 [아키텍처 v5.4 스택별 역할](../architecture_v5.4_stack_roles.md)·[변경 안내](../architecture_v5.4_change_notes.md) |
 | 코드: 쉬는 중 카메라 영상이 멈추면 `rest` 유지 | DB V2.3 우선순위(`ABSENCE` 먼저)대로 `away`로 바꿈(`LiveSession.away`, 시험 1개 추가) |
 
 알릴 것: BE — **10/22부터 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`**(전에는 처음 2초는 `valid:true`), 관절을 `[0, 0, 0]`으로 채운 프레임도 `valid:false`. **고개 돌림 구간은 학습 데이터에서 뺀다**(10/22 klaod-tech: 지금 API 판정의 `head_turn` 제외를 유지, Kafka 경로(계획 0031 표 5번)에서도 `head_turn` 힌트를 같은 조건으로 넣어야 함). `FrameFeatures.java` 주석이 가리키는 `pose.ts` `headTurned`·`serverFeatures.ts`는 10/22 앱에서 지웠다(원본은 develop). 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.
