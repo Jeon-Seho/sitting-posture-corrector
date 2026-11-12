@@ -68,7 +68,7 @@
 
 ### 3단계 — 서버 연결 (BE `/v2/realtime` 뒤)
 
-- [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 남음.
+- [x] 좌표 구간 전송(F1), `rest`·`away`·`end`와 종료 대비책(F3), 판정 불가 프레임 `valid:false`(F11 앱 쪽) — 10/21 `features/session/live/`. 해상도 표시(F13)는 11/12 하지 않기로 함(계획 0053 4번).
 - [x] 화면 구동(F4, 측정 화면): `observation`·`progress`·`decision`·`alert`·`stalled`, `invalid_reason`(고개 돌림 안내)(10/21).
 - [x] 자세 등록 서버 연결(F2, 10/21 `0449abb`): **10/20 전체 회의로 WS calibration 대신 앱이 관절 9개 3초 평균을 내서 B1로**, 기준 조회는 B2.
 - [x] 계정 서버 연결 A1~A5(F12, 10/22): ghdrb1246 `f27dd24`(D-66)를 V3로 옮김 — 스위치 없이 항상 서버 계정, 로그인 뒤 `setServerAuth`, CSRF 403 재시도. A6·A7·W1·W2·`AUTH_CHANGED`도 그 뒤 붙음(프로필 화면, `features/auth/accountClient.ts`, `features/profile/ServerAccountPage.tsx`). C1은 앱이 아직 부르지 않는다(11/9 코드 확인). 설정 화면의 판정 기준은 11/10부터 W1·W2로 서버에 둔다([FE 기능 명세](../../design/fe/fe-feature-spec.md)). 로그인은 10/27 토큰 방식으로 바뀌어 CSRF는 없어짐(PR #68·#69).
