@@ -71,7 +71,7 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 | 모드 | 늦지만 결국 저장됨 | 끝내 저장 안 됨(R1에 끝난 기록으로 안 나옴) |
 |---|---|---|
 | kafka | 대부분. 앱에 `ack`를 보내기 전에 Kafka가 디스크에 보관하므로 서비스가 살아나면 이어서 처리 | 메시지가 처리 불가로 DLQ에 빠짐, Kafka 보관 기간보다 긴 장애 |
-| local | 서버 잠깐 지연 | **측정 중 서버 재시작**(메모리 세션이 사라지고 DB 행은 `ended_at` NULL로 남음, [연동 명세](api-ws-spec.md) 4장 S3·S4 「남는 틈」), 종료 순간 DB 장애 |
+| local | 서버 잠깐 지연 | **측정 중 서버 재시작**(메모리 세션이 사라지고 DB 행은 `ended_at` NULL로 남음, [연동 명세](api-ws-spec.md) 4장 S4 「남는 틈」), 종료 순간 DB 장애 |
 
 그때 지금 앱의 불편한 점:
 
@@ -123,9 +123,9 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 
 | # | 요청 | 이유 |
 |---|---|---|
-| 1 | S4를 DB에서 답하는 안(보고서 안건 1 A안)으로 갈 때: `summary.total_ms`는 DB에 저장된 실제 측정 시간, 저장이 끝난 세션이면 `ended: true`와 `events`에 `session_ended`. `last_sequence`는 -1이어도 된다 | 앱은 `total_ms`로 응답을 쓸지 정하고, `session_ended`가 있어야 기록을 「저장 확인됨」으로 둔다. 없으면 고장은 아니지만 매번 R1 확인까지 늦어진다. **11/11 BE 공지로 받아들여짐(안 A, 구현 전).** DB에 없으면 메모리(kafka는 마지막 `progress` 요약)로 답해, 앱은 사건이 적은 응답이면 화면 사건을 둔다([연동 명세](api-ws-spec.md) S4) |
+| 1 | S4를 DB에서 답하는 안(보고서 안건 1 A안)으로 갈 때: `summary.total_ms`는 DB에 저장된 실제 측정 시간, 저장이 끝난 세션이면 `ended: true`와 `events`에 `session_ended`. `last_sequence`는 -1이어도 된다 | 앱은 `total_ms`로 응답을 쓸지 정하고, `session_ended`가 있어야 기록을 「저장 확인됨」으로 둔다. 없으면 고장은 아니지만 매번 R1 확인까지 늦어진다. **받아들여짐(D-85).** BE `c98074d`(DB 값, 요청대로 `ended`·`session_ended`·저장된 `total_ms`), DevOps `f36d4fb`(kafka 메모리 값, D-57 ⑧). 둘 다 develop 병합 전. 앱은 사건이 적은 응답이면 화면 사건을 둔다([연동 명세](api-ws-spec.md) S4) |
 | 2 | 판정기가 `session_started` 없이 관측부터 받으면 서버 기본값(확정 3초·재알림 60초·기준 0.7) 대신 DB `monitor_session.threshold_policy_id`로 그 세션 설정을 읽기 | 지금은 로그만 남기고 기본값으로 판정한다(`V1JudgeRegistry.observation`). 사용자 설정이 서버(W1/W2)로 옮겨진 실제 데이터라 조용히 틀리면 안 된다 |
-| 3 | 종료 뒤 `stalled`를 계약에 「`end` 뒤 저장 지연」으로 명시하고, 기준을 5초 → 3초 | 5.2 |
+| 3 | 종료 뒤 `stalled`를 계약에 「`end` 뒤 저장 지연」으로 명시하고, 기준을 5초 → 3초 | 5.2. **반영(D-57 ⑧ `f36d4fb`, develop 병합 전):** `end` 뒤 3초, 측정 중 5초. 계약·BE 명세 설명도 고침 |
 | 4 | 서버가 시작할 때 `ended_at` NULL로 남은 세션을 마지막 구간 기준으로 닫기 | 3장 local 「측정 중 서버 재시작」이 R1에 나오게 된다. FE 제안서 요구 8 |
 | 5 | Kafka 경로 서버 상태 확인(BE-14~17: liveness에 자기 Kafka 스레드 포함, 다른 서버 상태 빼기, 건너뛴 메시지 알림, 구독 그룹 이름 고정) | [FE 제안서](fe-server-proposal.md) 요구 1 |
 | 6 | **kafka 모드 자정 넘김을 어떻게 할지 정하기.** kafka 브랜치는 자정 넘김을 local에서만 켠다(`RealtimeHandlerV2` 생성자 `midnightRollover && pipeline.local()`, 주석 「가이드 11장 #3」). 그래서 kafka 모드에서는 측정이 자정을 넘어 하나로 이어진다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 결과의 BE 줄은 「Kafka 모드(`ws`, 계획 0031)도 같은 규칙」이다 | ADR 0029와 코드가 다르다. 이대로면 kafka 모드를 운영에 켤 때 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER=true`)이 꺼진 것과 같다. 앱은 `session_rollover`가 안 와도 동작하지만, ADR 0029의 「측정 하나는 하루 안」이 깨지고 앱 날짜 나누기(ADR 0027)를 지울 수 없다. kafka에서도 넘길지(언제), ADR을 고칠지 D-57 회의에서 정한다. 안과 FE 의견(먼저 「자정에 끝내기」)은 [FE 제안서](fe-server-proposal.md) 요구 2(BE-18) |

@@ -17,7 +17,6 @@
 | 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 희망값으로 요청하고 서버에 해상도를 보내지 않는다. 4:3이 아니게 열리면 같은 카메라를 4:3 필수로 다시 열어 브라우저가 잘라 주게 하고, 그래도 4:3이 아니면 카메라를 쓰지 않는다([ADR 0048](../../decisions/0048-camera-picture-is-four-by-three.md), 11/12). 측정 중 크기가 바뀌면 `end`로 끝낸다(10/21) |
 | 오늘 기록 | 결과 화면에는 방금 끝난 세션만. 목록·합산·달력·그래프는 R1로 받은 기록을 앱이 집계한다. T1을 붙이면 어제까지의 통계에 쓴다(ADR 0027, 4.5) |
 | 모델명·버전 | `model_version`·`feature_version` 등은 개발·연동용 내부 정보라 서비스 화면에 보이지 않는다. API·WS 필드와 검증은 그대로(10/22 팀장 결정, [내부 관리 기준](../../../contracts/README.md#모델명특징-버전의-내부-관리)) |
-| 적재된 기록 삭제 | 지울 수 없다. R3가 409 `CONFLICT`면 「지금은 지울 수 없어요」(10/14) |
 | 이름·나이·비밀번호 | 이름 1~30자, 나이 14~120, 비밀번호 12자 이상·72바이트 이하는 앱이 보내기 전에 검사한다 |
 | 값이 없는 필드 | 빼지 않고 `null`로 보낸다(BE는 빠진 필드도 400) |
 | 응답의 모르는 것 | 모르는 필드·`type`·`event.kind`는 무시한다 |
@@ -65,7 +64,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
 | 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 자세를 먼저 등록해 주세요」 |
-| 409 | `CONFLICT` | R3(기록 삭제)면 「지금은 지울 수 없어요」. S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
+| 409 | `CONFLICT` | S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
 | 429 | `LIMIT_REACHED` | 측정을 끝내고 새로 시작 안내 |
 | 502·503 | `STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |
 
@@ -113,8 +112,9 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
 | [S1](#api-s1) | PUT | 세션 생성 | `/v2/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
-| [S3](#api-s3) | POST | 세션 종료 | `/v2/sessions/{id}/end` | | 측정 종료 | 부르지 않는다. 측정은 WS `end`로 끝낸다(4장 S3·S4) | 안 씀 |
-| [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽는다(끝난 뒤 30분 보관, 서버 재시작 때 사라짐). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+| [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+
+S3(세션 종료 `POST /v2/sessions/{id}/end`)·R3(기록 삭제 `DELETE /v2/records/{id}`)은 앱이 쓰지 않아 11/11 PM 결정으로 지움(D-88). 세션은 WS로만 끝나고, 기록은 지우지 않는다. 서버 API 삭제는 DB/BE, 점검 도구는 DevOps/BE.
 
 ### realtime | 실시간
 
@@ -128,7 +128,6 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 |---|---|---|---|---|---|---|---|
 | [R1](#api-r1) | GET | 기록 목록 조회 | `/v2/records` | | 측정 결과 보관, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
 | [R1b](#api-r1b) | GET | 기록 하나 조회 | `/v2/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
-| [R3](#api-r3) | DELETE | 기록 삭제 | `/v2/records/{id}` | | 기록 삭제 | 부르는 화면 없음 | 안 씀 |
 | [T1](#api-t1) | GET | 일별 통계 조회 | `/v2/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
 
 ### system | 시스템
@@ -148,12 +147,12 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 - **W1·W2·C1:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 요구 8 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 11/11 PM 결정으로 지움(D-88)). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). S3 대신 BE가 열린 채 남는 세션을 닫는 규칙을 만든다(아키텍처 v5.4, FE 제안서 요구 8). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
 
-**응답 형식(BE 10/27 `d27a97d`·`fdd1269`):** R1은 배열이 아니라 `{ "today": "YYYY-MM-DD", "records": [RecordItem…] }`(최신순)이고, 앱은 `records`를 읽고 `today`로 「오늘」을 갱신한다. T1(구현 전, 형식 확정)은 `{ today, from, to, days }`이고 `to`는 어제까지로 잘린다. `days`의 필드는 DB `daily_stat` 칸 이름 그대로(`stat_date`·`valid_sec`·`good_sec`·`session_count`·`event_count`·`alerted_event_count`·`min_`·`max_until_collapse_sec`·`computed_at`), 빈 날은 0으로 채우고 min·max·`computed_at`은 null. J2가 돌기 전에는 0만 온다. 앱은 R1을 부르고(`features/storage/serverRecords.ts`), T1은 서버에 없어 부르지 않는다. R1의 `RecordItem`은 앱 기록 형식(camelCase, `server.view` = `SessionView`) 그대로다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. R3가 409 `CONFLICT`(적재된 세션)면 「지금은 지울 수 없어요」. 기록·달력 화면 담당은 lellon0403(10/14). 11/9 기준 서버에 R1b·T1이 아직 없다(BE-2).
+**응답 형식(BE 10/27 `d27a97d`·`fdd1269`):** R1은 배열이 아니라 `{ "today": "YYYY-MM-DD", "records": [RecordItem…] }`(최신순)이고, 앱은 `records`를 읽고 `today`로 「오늘」을 갱신한다. T1(구현 전, 형식 확정)은 `{ today, from, to, days }`이고 `to`는 어제까지로 잘린다. `days`의 필드는 DB `daily_stat` 칸 이름 그대로(`stat_date`·`valid_sec`·`good_sec`·`session_count`·`event_count`·`alerted_event_count`·`min_`·`max_until_collapse_sec`·`computed_at`), 빈 날은 0으로 채우고 min·max·`computed_at`은 null. J2가 돌기 전에는 0만 온다. 앱은 R1을 부르고(`features/storage/serverRecords.ts`), T1은 서버에 없어 부르지 않는다. R1의 `RecordItem`은 앱 기록 형식(camelCase, `server.view` = `SessionView`) 그대로다. 5분 미만 세션도 들어 있다. T1의 최소·최대 간격 = `min_`·`max_until_collapse_sec`. 기록·달력 화면 담당은 lellon0403(10/14). 11/9 기준 서버에 R1b·T1이 아직 없다(BE-2).
 
 **오늘과 과거의 데이터 출처([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md), 11/9 고침):** 측정은 끝날 때 서버에 저장되고 R1이 오늘 세션까지 돌려주므로 기록은 R1 하나로 본다. R1 값은 메모리에만 두고 앱을 열 때마다 다시 받는다. localStorage에는 서버 확인 전 결과만 계정별 키(`posegood.account.v3.{user_id}.pending-results`)에 두고, R1에서 확인되면 지운다(`features/storage/serverRecords.ts`).
 
@@ -1003,48 +1002,6 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 | 429 | `LIMIT_REACHED` | 진행 중 세션 512개 초과 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중 |
 
-<a id="api-s3"></a>
-
-### S3 · /v2/sessions/{id}/end
-
-- **API 이름:** 세션 종료
-- **기능명:** 측정 종료
-- **메서드:** POST
-- **완성도 체크:** 서버만(앱은 쓰지 않음)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-세션을 끝내고 결과를 저장한다.
-
-#### Request
-
-**Body**
-
-```json
-{
-  "end_ms": 9000
-}
-```
-
-#### 시스템 처리
-
-1. 마지막 구간 뒤 남은 시간은 MISSING으로 제외한다.
-2. 열린 사건을 `interrupted(ended)`로 끝내고 `session_ended` 사건을 만든다.
-3. 종료 시각, `good_sec`, 제외 구간을 한 트랜잭션으로 한 번만 저장한다.
-4. 같은 `end_ms` 재시도는 같은 결과를 돌려주고, 다른 값이면 409로 답한다.
-
-#### Response
-
-`200 OK`. 본문은 [S4](#api-s4)와 같은 `SessionView`이고 `ended`가 `true`다.
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 404 | `SESSION_LOST` | 판정 상태가 사라짐 |
-| 409 | `CONFLICT` | 이미 끝난 세션에 다른 `end_ms` |
-| 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중 |
-| 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
-
 <a id="api-s4"></a>
 
 ### S4 · /v2/sessions/{id} (GET)
@@ -1065,16 +1022,16 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 #### 시스템 처리
 
-1. 메모리에서 세션을 찾는다. DB는 읽지 않는다.
-2. 최신 판정 상태를 돌려준다. 끝난 세션은 30분 동안 조회할 수 있다.
-3. kafka 모드(D-57)에서는 판정을 처리 서비스가 해서 메모리 엔진에 구간이 들어가지 않는다. 그래서 `last_sequence` -1, `summary` 0인 빈 값이 온다(D-57 보고서 안건 1, 서버 쪽 해결 전).
-4. **바뀔 예정(BE 11/11 공지, 안 A, 구현 전):** DB에 끝난 세션이 있으면 DB 값(`ended: true`, `events` 끝에 `session_ended`, `summary.total_ms`는 저장된 값, `last_sequence` -1)으로 먼저 답한다. 없으면 메모리 값으로 답한다. kafka 모드의 메모리 값은 `ws`가 받은 마지막 `progress` 요약이다(D-57 병합 뒤). 둘 다 없으면 404 `SESSION_LOST`. kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 메모리 값이다.
+1. 메모리에 끝난 결과가 있으면 그대로 돌려준다(local 모드, 끝난 뒤 30분 보관).
+2. 없으면 DB에 끝난 값(`ended_at`)이 있는지 본다. 있으면 R1 `server.view`와 같은 방식으로 다시 만든 값이다: `ended: true`, `events` 끝에 `session_ended`, `summary.total_ms`는 저장된 값, `last_sequence` -1(BE `c98074d`, develop 병합 전). 서버가 재시작했거나 30분이 지나도 끝난 세션을 받을 수 있다.
+3. 그것도 없으면 메모리의 진행 중 상태다. kafka 모드에서는 이 서버가 판정하지 않으므로 `ws`가 받은 마지막 `progress`·`decision`으로 요약·사건·순번을 채우고, 종료 사건과 저장 완료를 다 받았을 때만 `ended: true`다(D-57 ⑧ `f36d4fb`, 병합 전). kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 이 값이다.
+4. 셋 다 없으면 404 `SESSION_LOST`.
 
 앱 처리: `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `events`가 화면보다 적으면(kafka 모드 메모리 값은 요약만 있음) 화면에서 받은 `decision`을 그대로 둔다(11/11).
 
 `closed` 없이 5초가 지나 넘어왔고 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽어 대기 기록을 확인한다.
 
-앱은 응답의 `summary.total_ms`가 화면에 보이던 값보다 작으면 이 응답을 쓰지 않고, 화면에 보이던 결과로 측정을 끝낸다(`LiveSession.fetchResult`). `last_sequence`로 비교하지 않는 것은 DB에서 다시 만든 응답(R1과 같은 방식)이 `last_sequence`를 -1로 주기 때문이다. 응답에 `session_ended` 사건이 없으면 기록은 R1이 확인할 때까지 대기 기록으로 남는다.
+`last_sequence`로 비교하지 않는 것은 DB에서 다시 만든 응답(R1과 같은 방식)이 `last_sequence`를 -1로 주기 때문이다. 응답에 `session_ended` 사건이 없으면 기록은 R1이 확인할 때까지 대기 기록으로 남는다.
 
 #### Response
 
@@ -1378,38 +1335,6 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 요구사항
 
 기록 하나를 조회한다. 형식이 정해지면 Request와 Response를 적는다.
-
-<a id="api-r3"></a>
-
-### R3 · /v2/records/{id} (DELETE)
-
-- **API 이름:** 기록 삭제
-- **기능명:** 기록 삭제
-- **메서드:** DELETE
-- **완성도 체크:** 서버만(앱 연결 전)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-측정 기록을 지운다. HDFS에 적재된 기록은 지울 수 없다.
-
-#### Request
-
-본문 없음.
-
-#### 시스템 처리
-
-1. 세션과 하위 행(사건·알림·제외 구간)을 지운다. UUID가 아닌 ID나 이미 없는 세션은 조용히 넘어간다.
-2. `feature_archive`가 연결돼 있으면 409로 답한다.
-3. 일별 통계는 이 요청에서 고치지 않는다. 7일 안의 날짜면 다음 J2가 다시 계산한다.
-
-#### Response
-
-`204 No Content`
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `CONFLICT` | HDFS에 적재된 기록 |
 
 <a id="api-t1"></a>
 
