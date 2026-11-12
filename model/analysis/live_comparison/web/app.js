@@ -42,10 +42,16 @@ const state = { stream: null, detector: null, session: null, animation: 0, gener
   lastInference: 0, lastVideoTime: -1, lastStamp: -1, lastObservation: 0, watchdog: 0, busy: false,
   displayedScores: {}, alertCounts: { rule: 0, model: 0 }, colorMode: 'rule', explanation: null,
   latestMeasurement: null, baselineIndex: 0, scenarioRecords: {},
+  inputMode: 'window', minimumVisibility: .65,
   toastTimers: { rule: null, model: null },
   alertTrackers: { rule: createAlertTracker(), model: createAlertTracker() } }
 const links = [[7, 0], [0, 8], [2, 5], [9, 10], [7, 11], [8, 12], [11, 12]]
 const needed = new Set([0, 2, 5, 7, 8, 9, 10, 11, 12])
+
+function visibilityForPolicy(value) {
+  if (!Number.isFinite(value) || value < 0 || value > 1) return null
+  return state.inputMode === 'frame' ? Math.round(value * 100) / 100 : value
+}
 
 const features = [
   { key: 'head_gap', points: [0] },
@@ -211,7 +217,8 @@ function setColorMode(mode) {
 }
 
 function pointLevel(index, point, rows) {
-  if (!Number.isFinite(point.visibility) || point.visibility < .65 || point.visibility > 1 || !rows) return 'unknown'
+  const visibility = visibilityForPolicy(point.visibility)
+  if (visibility === null || visibility < state.minimumVisibility || !rows) return 'unknown'
   const levels = features.flatMap((feature, i) => feature.points.includes(index) && rows[i] ? [rows[i].level] : [])
   if (!levels.length || levels.includes('unknown')) return 'unknown'
   return ['red', 'yellow', 'green'].find((level) => levels.includes(level)) || 'unknown'
@@ -389,7 +396,9 @@ function displayResult(result, time, points) {
     case 'ready':
       clearScores('관측 준비 중')
       $('view-label').textContent = '기준 등록 완료'
-      $('guidance').textContent = '기준 등록이 완료되었습니다. 1초 관측이 모이면 비교 결과를 표시합니다.'
+      $('guidance').textContent = state.inputMode === 'frame'
+        ? '기준 등록이 완료되었습니다. 다음 유효 관측부터 비교 결과를 표시합니다.'
+        : '기준 등록이 완료되었습니다. 1초 관측이 모이면 비교 결과를 표시합니다.'
       break
     case 'warming':
       clearScores('관측 준비 중')
@@ -490,7 +499,7 @@ async function start() {
     if (generation !== state.generation) { stream.getTracks().forEach((track) => track.stop()); return }
     video.srcObject = stream
     await video.play()
-    if (video.videoWidth !== 640 || video.videoHeight !== 480) throw new Error('resolution')
+    if (!video.videoWidth || !video.videoHeight || Math.abs(video.videoWidth / video.videoHeight - 4 / 3) >= .01) throw new Error('resolution')
     const vision = await FilesetResolver.forVisionTasks('/mediapipe/wasm')
     const options = { baseOptions: { modelAssetPath: '/mediapipe/pose_landmarker_heavy.task', delegate: 'GPU' }, runningMode: 'VIDEO', numPoses: 1,
       minPoseDetectionConfidence: 0.6, minPosePresenceConfidence: 0.6, minTrackingConfidence: 0.6 }
@@ -523,7 +532,7 @@ async function start() {
     if (generation !== state.generation) return
     updateCamera(false, '카메라 꺼짐')
     $('guidance').textContent = error?.message === 'resolution'
-      ? '카메라가 640×480 영상을 제공하지 않습니다. 해당 해상도를 지원하는 카메라를 사용해 주세요.'
+      ? '카메라가 4:3 영상을 제공하지 않습니다. 4:3을 지원하는 카메라를 사용해 주세요.'
       : '카메라 권한과 로컬 MediaPipe 자산을 확인한 뒤 다시 시도해 주세요.'
     $('view-label').textContent = '준비 실패'
   }
@@ -543,13 +552,25 @@ async function register() {
     if (previous) await post('/api/end', { session: previous })
     const data = await post('/api/session', {})
     if (generation !== state.generation) { await post('/api/end', { session: data.session }); return }
+    if (!Number.isFinite(data.visibility_minimum) || data.visibility_minimum < 0 || data.visibility_minimum > 1) {
+      await post('/api/end', { session: data.session })
+      throw new Error('invalid-visibility-policy')
+    }
     resetAlertCounts()
     state.session = data.session
+    state.inputMode = data.input_mode === 'frame' ? 'frame' : 'window'
+    state.minimumVisibility = data.visibility_minimum
     state.baselineIndex += 1
     state.lastObservation = performance.now()
+    const frameMode = data.input_mode === 'frame'
+    $('observation-scope').textContent = frameMode ? '현재 프레임' : '최근 1초 관측'
+    $('pose-description').textContent = frameMode
+      ? '같은 현재 프레임의 순간 판정입니다. 점수는 부드럽게 표시하며 판정은 원점수와 각 방식의 기준을 따릅니다.'
+      : '같은 최근 1초 관측의 순간 판정입니다. 점수는 부드럽게 표시하며 판정은 원점수와 각 방식의 기준을 따릅니다.'
     const threshold = Number((100 * (1 - data.threshold)).toFixed(2))
-    $('model-threshold').textContent = `이탈 기준 ${threshold}점 이하`
-    $('model-threshold-mini').textContent = `${threshold}점 이하 이탈`
+    const placeholder = data.threshold_status === 'display_only_not_selected_or_validated'
+    $('model-threshold').textContent = placeholder ? `임시 비교 기준 ${threshold}점 이하 · 검증 전` : `이탈 기준 ${threshold}점 이하`
+    $('model-threshold-mini').textContent = placeholder ? `${threshold}점 이하 · 임시 기준` : `${threshold}점 이하 이탈`
     $('view-label').textContent = '기준 등록 시작'
     $('guidance').textContent = '편안한 기준 자세를 3초 이상 유지해 주세요.'
   } catch {
