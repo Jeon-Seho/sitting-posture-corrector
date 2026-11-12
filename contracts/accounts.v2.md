@@ -26,7 +26,6 @@ HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/c
 | `POST /auth/logout` | refresh 쿠키 철회·삭제 → 204. access 토큰은 만료까지 남음 |
 | `PUT /auth/password` | `{current_password,new_password}` → 204, 그 사용자의 refresh 토큰 모두 철회, 열린 실시간 연결 닫음 |
 | `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
-| `PUT /consents/optional-profile` | `{agreed:boolean,document_version:"service-v2"}` → workspace |
 
 사용자 응답의 `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다(2026-10-27, BE-6).
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
@@ -108,10 +107,10 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 `PUT /sessions/{UUID}`는 `{policy,baseline_id}`. 계정의 현재 정책·현재 기준과 같아야 하며 다르면 409다.
 정책은 ms 단위다. 기준이 없으면 `409 BASELINE_REQUIRED`. 세션은 계정 정책 FK·기준 FK·알림 설정을 고정한다.
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
-`POST .../end`는 `{end_ms}`(고정 재시도), `GET /sessions/{UUID}`는 조회 v1이다.
+`GET /sessions/{UUID}`는 조회 v1이다. 세션은 WebSocket `end`·연결 끊김으로 끝난다(REST 종료 `POST .../end`는 2026-11-12 삭제).
 WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
-`GET /records`는 [RecordItem](../frontend/src/features/storage/types.ts)을 돌려주고 `DELETE /records/{id}`는 그 기록(= 세션)을 지운다.
+`GET /records`는 [RecordItem](../frontend/src/features/storage/types.ts)을 돌려준다. 기록 삭제 `DELETE /records/{id}`와 선택 정보 동의·철회 `PUT /consents/optional-profile`은 2026-11-12 지웠다(앱이 부르지 않음, 계획 0062 2단계).
 `GET /records`는 2026-10-27부터 배열이 아니라 `{today, records: RecordItem[]}` 객체다(BE-6).
 GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으므로 `unspecified`, 순번은 -1,
 바른 자세 시간은 `good_sec`의 0.1초 정밀도다. `recovered_at`이 있으면 회복, 그 외 세션 종료와 같은 시각이면

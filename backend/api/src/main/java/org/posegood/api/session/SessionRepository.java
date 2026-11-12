@@ -9,13 +9,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import org.posegood.api.common.ApiError;
 import org.posegood.api.common.KstTime;
 import org.posegood.api.contract.Policy;
 import org.posegood.api.contract.SessionView.DecisionEvent;
 import org.posegood.api.engine.ExcludedSpan;
 import org.posegood.api.policy.ThresholdPolicyRepository;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -92,14 +90,6 @@ public class SessionRepository {
 		}
 
 		return true;
-	}
-
-	public void delete(Stored session) {
-		try {
-			jdbc.update("DELETE FROM monitor_session WHERE monitor_session_id=?", session.key());
-		} catch (DataIntegrityViolationException archived) {
-			throw ApiError.conflict("session has archived feature files");
-		}
 	}
 
 	private void alert(Stored session, int episode, LocalDateTime at) {

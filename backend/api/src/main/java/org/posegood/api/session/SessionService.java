@@ -297,25 +297,6 @@ public class SessionService {
 	}
 
 	/**
-	 * 세션 종료(같은 end_ms 재전송은 같은 결과).
-	 *
-	 * 끝난 뒤 다른 {@code end_ms}는 409.
-	 */
-	public SessionView end(long owner, UUID id, long endMs) {
-		var session = require(owner, id);
-		return session.locked(
-			() -> {
-				int before = session.engine().eventCount();
-				var view = session.engine().end(endMs);
-				if (session.engine().eventCount() > before) {
-					publish(session, null, before, null, null);
-				}
-				persist(session);
-				return view;
-			});
-	}
-
-	/**
 	 * 현재 상태 조회(S4). 메모리에 끝난 결과가 있으면 그것, 없으면 DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11),
 	 * 그것도 없으면 메모리의 진행 중 상태로 답한다.
 	 *
@@ -341,24 +322,6 @@ public class SessionService {
 		}
 		owned(owner, id);
 		throw ApiError.lost();
-	}
-
-	/**
-	 * 세션 삭제(DB 행과 메모리 상태). 기록 삭제(R3)가 쓴다.
-	 */
-	public void delete(long owner, UUID id) {
-		var stored = owned(owner, id);
-		var session = live.get(id);
-		if (session == null) {
-			tx.executeWithoutResult(status -> sessions.delete(stored));
-			return;
-		}
-		session.locked(
-			() -> {
-				tx.executeWithoutResult(status -> sessions.delete(stored));
-				live.remove(id, "session_lost");
-				return null;
-			});
 	}
 
 	/**

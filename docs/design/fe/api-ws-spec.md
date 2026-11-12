@@ -17,7 +17,6 @@
 | 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 희망값으로 요청하고 서버에 해상도를 보내지 않는다. 4:3이 아니게 열리면 같은 카메라를 4:3 필수로 다시 열어 브라우저가 잘라 주게 하고, 그래도 4:3이 아니면 카메라를 쓰지 않는다([ADR 0048](../../decisions/0048-camera-picture-is-four-by-three.md), 11/12). 측정 중 크기가 바뀌면 `end`로 끝낸다(10/21) |
 | 오늘 기록 | 결과 화면에는 방금 끝난 세션만. 목록·합산·달력·그래프는 R1로 받은 기록을 앱이 집계한다. T1을 붙이면 어제까지의 통계에 쓴다(ADR 0027, 4.5) |
 | 모델명·버전 | `model_version`·`feature_version` 등은 개발·연동용 내부 정보라 서비스 화면에 보이지 않는다. API·WS 필드와 검증은 그대로(10/22 팀장 결정, [내부 관리 기준](../../../contracts/README.md#모델명특징-버전의-내부-관리)) |
-| 적재된 기록 삭제 | 지울 수 없다. R3가 409 `CONFLICT`면 「지금은 지울 수 없어요」(10/14) |
 | 이름·나이·비밀번호 | 이름 1~30자, 나이 14~120, 비밀번호 12자 이상·72바이트 이하는 앱이 보내기 전에 검사한다 |
 | 값이 없는 필드 | 빼지 않고 `null`로 보낸다(BE는 빠진 필드도 400) |
 | 응답의 모르는 것 | 모르는 필드·`type`·`event.kind`는 무시한다 |
@@ -65,7 +64,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
 | 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 자세를 먼저 등록해 주세요」 |
-| 409 | `CONFLICT` | R3(기록 삭제)면 「지금은 지울 수 없어요」. S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
+| 409 | `CONFLICT` | S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
 | 429 | `LIMIT_REACHED` | 측정을 끝내고 새로 시작 안내 |
 | 502·503 | `STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |
 
@@ -97,7 +96,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [C1](#api-c1) | PUT | 선택 정보 동의·철회 | `/v2/consents/optional-profile` | | 선택 정보 동의 철회 | 부르는 화면 없음(동의 항목 C1과 다른 번호) | 안 씀 |
+| [C1](#api-c1) | PUT | 선택 정보 동의·철회 | `/v2/consents/optional-profile` | | 선택 정보 동의 철회 | 부르는 화면 없음(동의 항목 C1과 다른 번호) | 삭제(11/12) |
 | [W1](#api-w1) | GET | 설정·기록 조회 | `/v2/workspace` | | 프로필 수정, 판정 기준 설정 | 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, W2 저장 직전 | 사용 |
 | [W2](#api-w2) | PUT | 설정 저장 | `/v2/workspace` | | 프로필 수정, 판정 기준 설정 | 프로필 저장, 설정 화면에서 판정 기준을 바꿀 때 | 사용 |
 
@@ -113,7 +112,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
 | [S1](#api-s1) | PUT | 세션 생성 | `/v2/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
-| [S3](#api-s3) | POST | 세션 종료 | `/v2/sessions/{id}/end` | | 측정 종료 | 부르지 않는다. 측정은 WS `end`로 끝낸다(4장 S3·S4) | 안 씀 |
+| [S3](#api-s3) | POST | 세션 종료 | `/v2/sessions/{id}/end` | | 측정 종료 | 부르지 않는다. 측정은 WS `end`로 끝낸다(4장 S3·S4) | 삭제(11/12) |
 | [S4](#api-s4) | GET | 세션 상태 조회 | `/v2/sessions/{id}` | | 측정 종료 | `end` 뒤 10초 안에 `closed`가 없을 때. 서버 **메모리**의 세션만 읽는다(끝난 뒤 30분 보관, 서버 재시작 때 사라짐). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
 
 ### realtime | 실시간
@@ -128,7 +127,7 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 |---|---|---|---|---|---|---|---|
 | [R1](#api-r1) | GET | 기록 목록 조회 | `/v2/records` | | 측정 결과 보관, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
 | [R1b](#api-r1b) | GET | 기록 하나 조회 | `/v2/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
-| [R3](#api-r3) | DELETE | 기록 삭제 | `/v2/records/{id}` | | 기록 삭제 | 부르는 화면 없음 | 안 씀 |
+| [R3](#api-r3) | DELETE | 기록 삭제 | `/v2/records/{id}` | | 기록 삭제 | 부르는 화면 없음 | 삭제(11/12) |
 | [T1](#api-t1) | GET | 일별 통계 조회 | `/v2/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
 
 ### system | 시스템
@@ -145,10 +144,10 @@ BE에 요청(선택): R1에 `?date=YYYY-MM-DD` 필터. 없으면 앱이 R1 전�
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 3단계로 간다.
 - **A3·A4 로그인:** A3 200의 `access_token`을 메모리에 두고 홈으로 간다. B2와 R1을 받는다. 앱 시작 때는 A8 200 → A4로 로그인 화면을 건너뛴다. 측정 중 비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. `hello`에는 `access_token`이 필수다.
-- **W1·W2·C1:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
+- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. API C1로 선택 정보 동의(동의 항목 C3)를 끄면 서버가 나이·직업을 비우지만, 앱에는 아직 부르는 화면이 없다.
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않는다(10/22, BE `047a095` 코드 확인). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 이때만 S3로 닫을지 BE와 정한다(FE 제안서 1.0 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 10초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S3·S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 그래서 앱은 S3를 부르지 않았고(10/22, BE `047a095` 코드 확인), S3는 2026-11-12 서버에서 지웠다. 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다. 닫을 길은 BE와 정한다(FE 제안서 1.0 — 서버는 메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL로 남는다, `LiveSessions.evict`). S4는 `end` 뒤 10초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·R3·T1 (BE 다음 주 범위)
@@ -657,44 +656,9 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-c1"></a>
 
-### C1 · /v2/consents/optional-profile
+### C1 · ~~/v2/consents/optional-profile~~ — 삭제 (2026-11-12)
 
-- **API 이름:** 선택 정보 동의·철회
-- **기능명:** 선택 정보 동의 철회
-- **메서드:** PUT
-- **완성도 체크:** 서버만(앱 연결 전)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-선택 정보(나이·직업) 동의를 켜고 끈다. 철회하면 나이와 직업을 비운다.
-
-#### Request
-
-**Body**
-
-```json
-{
-  "agreed": true,
-  "document_version": "service-v2"
-}
-```
-
-#### 시스템 처리
-
-1. 문서 버전을 검증한다.
-2. 철회면 기존 동의 행에 `withdrawn_at`을 기록하고 나이·직업을 NULL로 비운다.
-3. 다시 동의하면 새 행을 추가한다. 같은 상태를 다시 보내면 아무것도 바뀌지 않는다.
-
-#### Response
-
-`200 OK`. 본문은 [W1](#api-w1)과 같다.
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 400 | `INVALID_CONTRACT` | 형식·범위 위반 |
-| 400 | `CONSENT_REQUIRED` | 다른 문서 버전 |
-| 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중 |
+부르는 화면이 없어 서버에서 지웠다([BE API 명세](../api-spec.md#c1)). 선택 정보 동의는 가입 때만 받고 W1 `consents.optional_profile`로 읽는다.
 
 <a id="api-w1"></a>
 
@@ -1005,45 +969,9 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-s3"></a>
 
-### S3 · /v2/sessions/{id}/end
+### S3 · ~~/v2/sessions/{id}/end~~ — 삭제 (2026-11-12)
 
-- **API 이름:** 세션 종료
-- **기능명:** 측정 종료
-- **메서드:** POST
-- **완성도 체크:** 서버만(앱은 쓰지 않음)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-세션을 끝내고 결과를 저장한다.
-
-#### Request
-
-**Body**
-
-```json
-{
-  "end_ms": 9000
-}
-```
-
-#### 시스템 처리
-
-1. 마지막 구간 뒤 남은 시간은 MISSING으로 제외한다.
-2. 열린 사건을 `interrupted(ended)`로 끝내고 `session_ended` 사건을 만든다.
-3. 종료 시각, `good_sec`, 제외 구간을 한 트랜잭션으로 한 번만 저장한다.
-4. 같은 `end_ms` 재시도는 같은 결과를 돌려주고, 다른 값이면 409로 답한다.
-
-#### Response
-
-`200 OK`. 본문은 [S4](#api-s4)와 같은 `SessionView`이고 `ended`가 `true`다.
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 404 | `SESSION_LOST` | 판정 상태가 사라짐 |
-| 409 | `CONFLICT` | 이미 끝난 세션에 다른 `end_ms` |
-| 503 | `SESSION_BUSY` | 같은 세션 요청이 진행 중 |
-| 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 |
+앱은 측정을 WS `end`로 끝내고 결과는 S4로 읽어 부르지 않던 경로다. 서버에서 지웠다([BE API 명세](../api-spec.md#s3)).
 
 <a id="api-s4"></a>
 
@@ -1373,35 +1301,9 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 
 <a id="api-r3"></a>
 
-### R3 · /v2/records/{id} (DELETE)
+### R3 · ~~/v2/records/{id} (DELETE)~~ — 삭제 (2026-11-12)
 
-- **API 이름:** 기록 삭제
-- **기능명:** 기록 삭제
-- **메서드:** DELETE
-- **완성도 체크:** 서버만(앱 연결 전)
-- **인증:** 로그인 필요, 계정 헤더
-
-#### 요구사항
-
-측정 기록을 지운다. HDFS에 적재된 기록은 지울 수 없다.
-
-#### Request
-
-본문 없음.
-
-#### 시스템 처리
-
-1. 세션과 하위 행(사건·알림·제외 구간)을 지운다. UUID가 아닌 ID나 이미 없는 세션은 조용히 넘어간다.
-2. `feature_archive`가 연결돼 있으면 409로 답한다.
-3. 일별 통계는 이 요청에서 고치지 않는다. 7일 안의 날짜면 다음 J2가 다시 계산한다.
-
-#### Response
-
-`204 No Content`
-
-| HTTP | code | 의미 |
-|---|---|---|
-| 409 | `CONFLICT` | HDFS에 적재된 기록 |
+부르는 화면이 없어 서버에서 지웠다([BE API 명세](../api-spec.md#r3)). 앱에서 기록을 지우는 기능은 없다.
 
 <a id="api-t1"></a>
 
