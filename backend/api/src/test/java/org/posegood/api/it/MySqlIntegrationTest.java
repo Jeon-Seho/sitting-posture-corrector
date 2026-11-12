@@ -522,6 +522,64 @@ class MySqlIntegrationTest {
 		}
 	}
 
+	/**
+	 * kafka 모드 재현(계획 0031 11번, BE-11): io-api 메모리에는 판정하지 않은 빈 세션만 있고, 판정 결과 저장(처리 서비스,
+	 * {@code JdbcEpisodeStore})이 같은 표에 종료 값을 쓴다. S4는 저장 전에는 빈 진행 중 상태, 저장 뒤에는 DB 값으로 답한다.
+	 */
+	@Test
+	void sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged() throws Exception {
+		var api = client();
+		api.register(email());
+		UUID id = UUID.randomUUID();
+		assertEquals(200, api.put("/v2/sessions/" + id, create(upright(api))).status());
+		String path = "/v2/sessions/" + id;
+
+		// 저장 전: 메모리의 빈 상태(D-57 ⑧ 전 kafka 응답 재현 — 이 시험은 local이라 받아 둔 결과가 없다).
+		var before = api.get(path).body();
+		assertFalse(before.get("ended").asBoolean());
+		assertEquals(-1, before.get("last_sequence").asLong());
+		assertEquals(0, before.get("summary").get("total_ms").asLong());
+
+		// 처리 서비스가 쓰는 것과 같은 SQL: 2초 쉬기, 3초 시작·6초 확정 붕괴(알림 1회), 8초 회복, 10초 종료(바른 자세 5초).
+		try (var connection = database.connect(); var statement = connection.createStatement()) {
+			var key = statement.executeQuery(
+				"SELECT monitor_session_id FROM monitor_session WHERE client_session_uuid='" + id + "'");
+			assertTrue(key.next());
+			long session = key.getLong(1);
+			String at = "DATE_ADD(started_at, INTERVAL %d SECOND)";
+			String from = " FROM monitor_session WHERE monitor_session_id=" + session;
+			statement.executeUpdate("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason)"
+				+ " SELECT monitor_session_id," + at.formatted(0) + "," + at.formatted(2) + ",'PAUSE'" + from);
+			statement.executeUpdate("INSERT INTO collapse_event(monitor_session_id,event_seq,started_at,confirmed_at,"
+				+ "ended_at,recovered_at) SELECT monitor_session_id,1," + at.formatted(3) + "," + at.formatted(6) + ","
+				+ at.formatted(8) + "," + at.formatted(8) + from);
+			statement.executeUpdate("INSERT INTO correction_alert(monitor_session_id,event_seq,attempted_at)"
+				+ " SELECT monitor_session_id,1," + at.formatted(6) + from);
+			assertEquals(1, statement.executeUpdate("UPDATE monitor_session SET ended_at=" + at.formatted(10)
+				+ ",good_sec=5.0 WHERE monitor_session_id=" + session + " AND ended_at IS NULL"));
+		}
+
+		// 저장 뒤: 메모리에 세션이 그대로 있어도 DB 값(FE fe-measure-end-plan 6장 1번 형식).
+		var response = api.get(path);
+		assertEquals(200, response.status());
+		var view = response.body();
+		assertTrue(view.get("ended").asBoolean());
+		assertEquals(-1, view.get("last_sequence").asLong());
+		var summary = view.get("summary");
+		assertEquals(10000, summary.get("total_ms").asLong());
+		assertEquals(8000, summary.get("valid_ms").asLong());
+		assertEquals(5000, summary.get("normal_ms").asLong());
+		assertEquals(3000, summary.get("deviation_ms").asLong());
+		assertEquals(2000, summary.get("rest_ms").asLong());
+		assertEquals(1, summary.get("collapse_count").asLong());
+		assertEquals(1, summary.get("alert_count").asLong());
+		var kinds = new ArrayList<String>();
+		view.get("events").forEach(event -> kinds.add(event.get("kind").asString()));
+		assertEquals(List.of("collapse_confirmed", "recovery_confirmed", "session_ended"), kinds);
+		// R1 기록과 같은 값이다.
+		assertEquals(view, api.get("/v2/records").body().get("records").get(0).get("server").get("view"));
+	}
+
 	@Test
 	void baselinesOwnershipLossAndInferenceFailure() throws Exception {
 		var api = client();

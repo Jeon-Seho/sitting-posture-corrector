@@ -905,14 +905,16 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 로그인 필요 · 계정 헤더
 
-- 답하는 순서(BE-11, 2026-11-11):
-  1. 메모리에 **끝난** 결과가 있으면 그것(끝난 뒤 30분 보관).
+- 답하는 순서(BE-11, 2026-11-11 · 11/12 DevOps와 합칠 순서 합의):
+  1. 메모리 엔진이 직접 판정해 **끝난** 결과가 있으면 그것(끝난 뒤 30분 보관). local 모드만 해당한다 — kafka 모드는 io-api
+     엔진이 판정하지 않으므로 D-57 병합 때 이 단계를 local일 때만 쓰도록 막는다.
   2. 없으면 DB에 끝난 값(`monitor_session.ended_at`)이 있을 때 DB로 다시 만든 결과. [R1](#r1) `server.view`와 같은 값이다:
      `ended: true`, `last_sequence: -1`, `events` 마지막에 `session_ended`, 사건의 `deviation_type`은 `unspecified`,
      `summary.total_ms`는 저장된 측정 시간. 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는
      판정하지 않아 비어 있음, 계획 0031 11번)의 끝난 세션이 이 경로로 답한다.
-  3. 그것도 없으면 메모리의 진행 중 상태. kafka 모드에서는 지금 빈 상태(`last_sequence: -1`)이고, `ws`가 받은 마지막
-     `progress`로 채우는 일은 D-57 병합 뒤 PM과 맞춘다.
+  3. 그것도 없으면 메모리의 진행 중 상태. kafka 모드에서는 D-57 ⑧이 실시간 연결이 받은 마지막 `progress`·`decision`
+     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored.v1`)를 다 받았을 때만
+     `true`다. D-57 병합 전 develop에서는 빈 상태(`last_sequence: -1`)다.
   4. 셋 다 없으면 404 `SESSION_LOST`.
 - 종료 저장이 실패한 세션(R1 `status: "error"`)은 2번에서 빠진다.
 

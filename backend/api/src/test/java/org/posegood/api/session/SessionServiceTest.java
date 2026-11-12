@@ -225,7 +225,10 @@ class SessionServiceTest {
 	void anEndedSessionInMemoryIsAnsweredFromMemory() {
 		var service = service(Duration.ZERO);
 		feed(service, ID, interval(0, FrameInterval.Phase.running, true));
-		var view = service.end(OWNER, ID, 500);
+		// 실시간 종료(WS end, local). S3(REST 종료)는 지울 예정이라 쓰지 않는다.
+		service.finish(OWNER, ID, 500L);
+		var view = service.get(OWNER, ID);
+		assertTrue(view.ended());
 		stored.put(ID, new SessionView("1.0", ID, POLICY, SessionView.TIMER_POLICY, true, -1, view.summary(),
 			List.of()));
 		// 메모리의 끝난 결과가 더 정확하다(사건 종류·마지막 구간 번호가 그대로).
