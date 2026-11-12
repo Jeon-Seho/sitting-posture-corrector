@@ -79,7 +79,7 @@
 | 무엇을 검증하는가? | [품질 기준](quality.md) |
 | 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md), [Kafka 명세](design/kafka-spec.md)(처리 서비스 층 토픽·메시지·DLQ), [처리 서비스 HTTP API](design/processing-api-spec.md)(운영·확인용) |
 | 어떻게 배포·복원하는가? | [infra](../infra/README.md), 빅데이터 플랫폼(서버 PC)은 같은 문서의 "빅데이터 플랫폼" 절과 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md) |
-| 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
+| 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md), [웹캠 모델·규칙 비교](../model/analysis/live_comparison/README.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 결정](decisions/0007-lite-pose-tracker.md) |
 | 시간·특징 정책은? | [ADR 0020](decisions/0020-single-api-decision-engine.md) 2절 시간 정책·3절 특징과 점수 |
 | 왜 이렇게 결정했는가? | [결정 이력](decisions/), [지운 문서 기록](removed-docs.md) |
