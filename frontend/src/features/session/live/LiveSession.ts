@@ -57,6 +57,11 @@ export type LiveState = {
    * kafka mode the server could not write the session start to Kafka). Shown as an error page.
    */
   serverDown: boolean
+  /**
+   * S4 answered 404 after 「측정 종료」: the server has this measurement neither in memory nor stored.
+   * Still `ended`, so the record stays pending on this device (FE 예외 처리 방안 2.1).
+   */
+  resultMissing: boolean
   /** `closed` did not come within `END_TIMEOUT_MS` after 「측정 종료」: the result is from S4 or the last `progress`. */
   late: boolean
   /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
@@ -166,6 +171,7 @@ export class LiveSession {
     message: '',
     lost: false,
     serverDown: false,
+    resultMissing: false,
     late: false,
     startedAt: null,
     endedAt: null,
@@ -531,9 +537,12 @@ export class LiveSession {
       }
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
-      // Includes 404 (the server has it neither in memory nor stored): what to show then is still
-      // open (FE exception handling plan, problem 2). For now the last `progress` result.
-      /* Show what the last `progress` said. */
+      // 404: the server has it neither in memory nor stored. The last `progress` result is kept as
+      // this device's pending record (never deleted: it is the only copy) and the page says so.
+      if (caughtError instanceof ApiError && caughtError.status === 404) {
+        this.finish({ phase: 'ended', late, resultMissing: true })
+        return
+      }
     } finally {
       this.fetching = false
     }
