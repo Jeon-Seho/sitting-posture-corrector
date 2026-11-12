@@ -103,7 +103,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/fe/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
-연구 export와 분석 시스템은 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)(DevOps)이 소유한다.
+연구 export와 분석 시스템은 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)(DevOps)이 소유한다.
 실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
@@ -154,6 +154,10 @@ Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타�
 구형 서버 benchmark도 같은 정리에서 제거했다. 기존 측정 기록은 당시 환경의 기록이며 현재 카메라 FPS·배포 성능 검증을 뜻하지 않는다.
 
 ## 로컬 관측과 연구 경계
+
+별도 [웹캠 모델·규칙 비교](../model/analysis/live_comparison/README.md)는 비공개 파일럿 가중치와
+로컬 Pose 관측으로 연구용 창 점수를 비교한다. 서버 서비스·알림 엔진과 분리된 loopback 도구이며,
+영상은 브라우저에서 처리하고 9개 2D 점은 로컬 비교 세션의 휘발성 메모리에서만 사용한다.
 
 2026-10-26의 [개발 경로 통일](decisions/0042-unified-dev-observation-route.md) 이후 `/dev`는
 `ObservationLab`만 조립한다. 아래 기존 예측 실험실·수집·모델 비교 관련 설명은 보존된 연구 모듈의

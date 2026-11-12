@@ -12,6 +12,7 @@
 
 
 - [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
+- [Discord 로그인·비밀번호 재설정 인계](design/social-login-password-reset-handoff.md)(2026-11-11, [계획 0088](plans/active/0088-discord-login-and-password-reset.md)): BE·FE 구현(기본 꺼짐), DB 표 제안 V2.7과 DevOps 환경변수. 쉬운 설명: [소셜 로그인 쉽게 이해하기](design/social-login-eli5.md).
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.
 앱은 관절 좌표를 보내고 판정은 서버가 한다(아키텍처 v5.2, [ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 앱(FE V3, 10/21)은 `/v2/realtime`으로 측정한다([연동 명세](design/fe/api-ws-spec.md), ADR 0021 4절). 서버의 `/v1/realtime`은 develop에 합쳐진 뒤 BE가 정리한다.
@@ -76,9 +77,9 @@
 | 어떻게 작업·실행하는가? | [AGENTS](../AGENTS.md), [개발 흐름](development.md), [프론트](../frontend/README.md), [백엔드](../backend/README.md) |
 | 브랜치·커밋 이름은? | [Git 명명 규칙](../CONTRIBUTING.md) |
 | 무엇을 검증하는가? | [품질 기준](quality.md) |
-| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md), [Kafka 명세](design/kafka-spec.md)(처리 서비스 층 토픽·메시지·DLQ), [처리 서비스 HTTP API](design/processing-api-spec.md)(운영·확인용) |
-| 어떻게 배포·복원하는가? | [infra](../infra/README.md), 빅데이터 플랫폼(서버 PC)은 같은 문서의 "빅데이터 플랫폼" 절과 [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md) |
-| 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md) |
+| 데이터와 API의 경계는? | [계약](../contracts/README.md), [DB](../database/README.md), [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md), [Kafka 명세](design/kafka-spec.md)(처리 서비스 층 토픽·메시지·DLQ), [처리 서비스 HTTP API](design/processing-api-spec.md)(운영·확인용) |
+| 어떻게 배포·복원하는가? | [infra](../infra/README.md), 빅데이터 플랫폼(서버 PC)은 같은 문서의 "빅데이터 플랫폼" 절과 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md) |
+| 연구 분할·학습은? | [프로토콜](research/protocol.md), [자료 준비](research/dataset-preparation.md), [개인 실험](research/personal-pilot-training.md), [웹캠 모델·규칙 비교](../model/analysis/live_comparison/README.md) |
 | 수집은? | [Lite 수집 v2](research/guided-collection-v2.md), [파일럿 CSV](research/pilot-csv.md), [수집 결정](decisions/0007-lite-pose-tracker.md) |
 | 시간·특징 정책은? | [ADR 0020](decisions/0020-single-api-decision-engine.md) 2절 시간 정책·3절 특징과 점수 |
 | 왜 이렇게 결정했는가? | [결정 이력](decisions/), [지운 문서 기록](removed-docs.md) |

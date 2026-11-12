@@ -87,7 +87,7 @@ V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/server-persistence-and-auth.md` | 이 저장소의 예전 v1 백엔드(10/01, MySQL 계정·CEP 재생·outbox) 구현 기록이다. 백엔드는 단일 API·DB V2.3으로 다시 썼고(ADR 0020·0022), 앱의 계정 모드도 10/13 지웠다. | [ADR 0020](decisions/0020-single-api-decision-engine.md), [BE API 명세](design/api-spec.md) | jisung(처음), klaod-tech |
-| `docs/design/data-platform-boundary.md` | **10/25 되살림:** 팀장(Jeon-Seho)이 10/22 develop `db220d8`에서 현행 경계로 고쳐 써, develop을 V3에 합칠 때 develop 판을 남겼다(유지 여부 확인 중). 아래는 10/22에 지운 이유. 10/06 기준 서비스 저장과 빅데이터 플랫폼의 경계다. 「원본 좌표 미전송」 등이 ADR 0021로 바뀌었고, 플랫폼(Kafka·HDFS·Spark)은 DevOps가 운영한다. | [아키텍처 v5.2 스택별 역할](design/architecture_v5.2_stack_roles.md)·[변경 안내](design/architecture_v5.2_change_notes.md)(DevOps), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) | jisung(처음), klaod-tech |
+| `docs/design/data-platform-boundary.md` | **10/25 되살림:** 팀장(Jeon-Seho)이 10/22 develop `db220d8`에서 현행 경계로 고쳐 써, develop을 V3에 합칠 때 develop 판을 남겼다(유지 여부 확인 중). 아래는 10/22에 지운 이유. 10/06 기준 서비스 저장과 빅데이터 플랫폼의 경계다. 「원본 좌표 미전송」 등이 ADR 0021로 바뀌었고, 플랫폼(Kafka·HDFS·Spark)은 DevOps가 운영한다. | [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)·[변경 안내](design/architecture_v5.4_change_notes.md)(DevOps), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) | jisung(처음), klaod-tech |
 
 지운 절(문서는 남김):
 
@@ -168,9 +168,20 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
+| `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |
+
+## 13. 2026-11-11 아키텍처 문서 판 교체 (DevOps/BE, 2개)
+
+10/16판(v5.2) 아키텍처 문서를 최신판(v5.4, 11/11 개정)으로 바꿨다. 옛 판에 남은 「J2 매일 00:00」·「`ws` Kafka 연결은 PM」 등이 다른 문서로 퍼지지 않게 하려는 것이다. 이 파일들을 가리키던 링크는 새 파일로 바꿨다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/architecture_v5.2_change_notes.md` | 10/16판. 그 뒤 v5.3·v5.4(Spark 배치 구축, J2 00:10·최근 7일, `ws` Kafka 연결 브랜치 구현 등)가 반영되지 않았다. | [아키텍처 v5.4 변경 안내](design/architecture_v5.4_change_notes.md) — v5.1·v5.2 변경 내용도 이력 절에 남김 | - |
+| `docs/design/architecture_v5.2_stack_roles.md` | 같은 이유(10/16판). | [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md) | - |
+
 | `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |
 
-## 13. 2026-11-12 오류·연결 화면 디자인 요청 (FE, 1개)
+## 14. 2026-11-12 오류·연결 화면 디자인 요청 (FE, 1개)
 
 오류·연결 화면을 그려 달라는 요청서다. 그림(PR #108)을 받아 다섯 화면으로 연결했고(11/10) 데스크톱 연결 중 화면 테마도 맞춰(PR #112) 요청이 끝났다.
 

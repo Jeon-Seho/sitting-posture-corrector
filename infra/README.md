@@ -64,7 +64,7 @@ MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 harness의 기본 검증 성공 후
 `api`·`inference`·`frontend` 앱 이미지 3개를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.6·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.7·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 루트 Compose의 SSH 자동 배포 대상과 다음 `production` 설정의 실제 등록 여부는 별도로 확인한다.
@@ -106,7 +106,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [아키텍처 v5.2 스택별 역할](../docs/design/architecture_v5.2_stack_roles.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 

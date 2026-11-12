@@ -1,6 +1,7 @@
 package org.posegood.api.account;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 
 import org.posegood.api.common.ApiError;
@@ -44,6 +45,17 @@ public class AccountService {
 		this.events = events;
 	}
 
+	/**
+	 * 비밀번호 없이 소셜 로그인으로만 가입한 계정의 {@code password_hash} 값. BCrypt 형식이 아니어서 어떤 비밀번호와도
+	 * 맞지 않는다. 비밀번호는 비밀번호 재설정 메일로 정할 수 있다.
+	 */
+	public static final String NO_PASSWORD = "!no-password";
+
+	/** 비밀번호로 로그인할 수 있는 계정인가(소셜 전용 계정이 아닌가). */
+	public static boolean hasPassword(AccountRepository.Account account) {
+		return account.hash() != null && account.hash().startsWith("$2");
+	}
+
 	/** 이메일 정규화(앞뒤 공백 제거, 소문자). */
 	public static String normalize(String email) {
 		return email.strip().toLowerCase(Locale.ROOT);
@@ -75,6 +87,34 @@ public class AccountService {
 				return owner;
 			});
 		return requireActive(id);
+	}
+
+	/**
+	 * 소셜 가입: 비밀번호 없이({@link #NO_PASSWORD}) 계정을 만들고 같은 트랜잭션에서 소셜 연결을 저장한다.
+	 * 이메일은 제공자가 확인한 주소다. 동의·프로필 규칙은 일반 가입과 같다.
+	 */
+	public AccountRepository.Account registerSocial(
+		String email, AccountContracts.Profile profile, List<AccountContracts.Consent> consentList,
+		String provider, String subject, SocialIdentityRepository identities) {
+		ConsentRepository.validate(consentList, profile);
+		long id = tx.execute(
+			status -> {
+				long owner = accounts.insert(normalize(email), NO_PASSWORD, profile, policies.defaultId());
+				consents.insert(owner, consentList);
+				identities.insert(owner, provider, subject);
+				return owner;
+			});
+		return requireActive(id);
+	}
+
+	/**
+	 * 비밀번호 재설정 반영: 새 해시를 저장하고 모든 로그인을 끊는다. 호출한 쪽의 트랜잭션 안에서 실행한다.
+	 * 실시간 연결 닫기({@link LoginsRemoved})는 트랜잭션이 끝난 뒤 호출한 쪽이 알린다.
+	 */
+	void applyResetPassword(long id, String newPassword) {
+		requireNewPassword(newPassword);
+		accounts.changePassword(id, passwords.encode(newPassword));
+		accounts.removeLogins(id);
 	}
 
 	/** 비밀번호 변경: 모든 로그인을 끊고 실시간 연결도 닫게 알린다. */
@@ -123,7 +163,7 @@ public class AccountService {
 	}
 
 	/** 새 비밀번호 규칙: 12자 이상, UTF-8 72바이트 이하. */
-	private static void requireNewPassword(String password) {
+	static void requireNewPassword(String password) {
 		if (password.length() < 12 || password.getBytes(StandardCharsets.UTF_8).length > 72) {
 			throw new ApiError(
 				400,

@@ -50,7 +50,7 @@ docker compose up -d --build --wait --wait-timeout 180
 
 [프론트 화면](http://127.0.0.1:8080/)을 연다. 현재 프론트의 가입·로그인은 로컬이며 계정 API v2 연결은 위 연결 계획에 남아 있다.
 [실행·배포·백업](infra/README.md), [계약](contracts/README.md)
-[아키텍처 v5.2 스택별 역할](docs/design/architecture_v5.2_stack_roles.md)을 참고한다.
+[아키텍처 v5.4 스택별 역할](docs/design/architecture_v5.4_stack_roles.md)을 참고한다.
 
 ## 로컬 프로토타입 실행
 

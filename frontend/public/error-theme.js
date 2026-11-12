@@ -5,7 +5,8 @@
   const valid = value => value && ['light', 'dark', 'gray', 'system'].includes(value.mode) && /^#[0-9a-f]{6}$/i.test(value.accent)
   const supplied = { mode: params.get('mode'), accent: params.get('accent') }
   let appearance = valid(supplied) ? supplied : null
-  if (!appearance) {
+  // 데스크톱 앱(app://)의 저장소는 웹사이트와 따로라 오래된 테마가 남을 수 있다. 앱이 넘긴 값만 쓴다.
+  if (!appearance && location.protocol !== 'app:') {
     try {
       const stored = JSON.parse(localStorage.getItem('posegood.appearance.v1') || 'null')
       if (valid(stored)) appearance = stored
