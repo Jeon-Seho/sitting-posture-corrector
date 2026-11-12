@@ -19,7 +19,7 @@
     DB        (--report가 있으면 처리 서비스 GET /report/sessions/{id}로) 종료 85000, good_sec 11.0, 붕괴 1(5000 → 8000 → 회복 78000),
               알림 8000·68000(표시), 제외 구간 PAUSE 79000~81500 · MISSING 83500~85000
 인증은 토큰 로그인(ADR 0031, D-69): REST는 Authorization: Bearer, WebSocket은 hello.access_token(연결 때 한 번).
-끝에서 기록을 지우고(R3 — 세션 삭제 S6는 2026-10-28 API에서 지움, D-75) 계정을 탈퇴 접수한다
+끝에서 계정을 탈퇴 접수한다(R3 기록 삭제는 서비스에서 쓰지 않아 부르지 않는다, D-88 — 세션 행은 J3가 30일 뒤 지운다)
 (io_api_smoke.py와 같은 합성 시험 계정 test-it-*@example.invalid).
 표준 라이브러리만 쓴다(WebSocket 클라이언트도 직접 — 서버 PC에 websockets 패키지가 없어도 된다). 좌표는 로그에 남기지 않는다.
 """
@@ -240,11 +240,10 @@ def scenario(base, report, pipeline):
         check_records(owner, path, report, sid)
         check_unauthenticated(base)
     finally:
-        # 기록 = 저장된 세션. R3가 세션 행·사건·알림·제외 구간을 함께 지운다(실패해도 시험 결과는 그대로, 행만 남음)
-        status, _ = owner.call("/v2/records/" + sid, "DELETE")
+        # (D-88) R3는 서비스에서 쓰지 않는다 — 탈퇴 접수만 한다. 시험 계정의 세션 행·사건·알림은 Spark J3(30일 뒤)가 지운다
+        status, _ = owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD})
         if status != 204:
-            print(f"  참고: 시험 기록 삭제(R3) HTTP {status} — 세션 행이 DB에 남음", flush=True)
-        owner.call("/v2/auth/account", "DELETE", {"password": PASSWORD})
+            print(f"  참고: 시험 계정 탈퇴 접수 HTTP {status} — 계정·세션 행이 DB에 남음", flush=True)
 
 
 def open_socket(base):
