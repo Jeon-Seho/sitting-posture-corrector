@@ -3,7 +3,7 @@ import type { PoseDetector } from '../features/camera/cpuWorker'
 import type { PoseTrackerDiagnostics, PoseTrackerOptions } from '../features/mediapipe/types'
 import modelAsset from '../../model-asset.json'
 import type { VisualMode, VisualOptions } from '../lib/poseVisual'
-import { listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
+import { isFourByThree, listVideoDevices, requestCamera, stopCameraTracks } from '../features/camera/devices'
 import { readTrackingFps, writeTrackingFps } from '../features/camera/trackingRate'
 import { CAMERA_ERRORS, cameraPreparationError } from '../features/camera/errors'
 import { missingDevice, readMainCamera, writeMainCamera } from '../features/camera/mainCamera'
@@ -190,7 +190,11 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         }
         stream.current = incoming
         const track = incoming.getVideoTracks()[0]
-        const connectedId = track.getSettings().deviceId ?? ''
+        const settings = track.getSettings()
+        // A browser that ignored the 4:3 request (ADR 0048): never measure or register with it.
+        if (settings.width && settings.height && !isFourByThree(settings.width, settings.height))
+          throw new Error(CAMERA_ERRORS.aspectUnsupported)
+        const connectedId = settings.deviceId ?? ''
         setDeviceId(connectedId)
         setDevices(await listVideoDevices())
         if (!isCurrent()) return
@@ -220,6 +224,8 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         video.srcObject = incoming
         await video.play()
         if (!isCurrent()) return
+        if (video.videoWidth && video.videoHeight && !isFourByThree(video.videoWidth, video.videoHeight))
+          throw new Error(CAMERA_ERRORS.aspectUnsupported)
 
         clearLoadingTimer()
         setState('on')

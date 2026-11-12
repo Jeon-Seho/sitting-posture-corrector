@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
+import { CAMERA_ERRORS } from '../features/camera/errors'
 import {
   installFakeBaselineServer,
   removeFakeBaselineServer,
@@ -107,6 +108,28 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     })
     await settle()
   }
+
+  it('asks the browser for 4:3, cropping a wider camera (ADR 0048)', async () => {
+    await connect()
+    const video = getUserMedia.mock.calls[0][0].video
+    expect(video.aspectRatio).toEqual({ exact: 4 / 3 })
+    expect(video.resizeMode).toBe('crop-and-scale')
+    expect(camera.state).toBe('on')
+  })
+
+  it('refuses a camera that still is not 4:3 and releases it', async () => {
+    track.getSettings = () => ({ deviceId: 'synthetic-device', width: 1280, height: 720 }) as { deviceId: string }
+    await connect()
+    expect(camera.state).toBe('error')
+    expect(camera.error).toBe(CAMERA_ERRORS.aspectUnsupported)
+    expect(track.stop).toHaveBeenCalled()
+  })
+
+  it('says 4:3 is impossible when the browser refuses the request', async () => {
+    getUserMedia.mockRejectedValueOnce(Object.assign(new Error('no 4:3'), { name: 'OverconstrainedError', constraint: 'aspectRatio' }))
+    await connect()
+    expect(camera.error).toBe(CAMERA_ERRORS.aspectUnsupported)
+  })
 
   it('keeps the local camera independent of the signed-in server baseline', async () => {
     const video = camera.videoRef.current
