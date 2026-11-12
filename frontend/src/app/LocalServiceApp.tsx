@@ -33,6 +33,7 @@ import {
   fromApiProfile,
   type AccountClient,
   type AccountView,
+  type SocialSignupDraft,
 } from '../features/auth/accountClient'
 import { DEFAULT_RULES } from '../data/posture'
 import type { Rules } from '../lib/engine'
@@ -43,6 +44,9 @@ import { MailAccessPage } from '../features/auth/MailAccessPage'
 import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWorkspace'
 import { getServerAuth } from '../features/platform/serverAuth'
 import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
+import { desktopBridge } from '../features/desktop/bridge'
+import { clearSocialRoute, discordLoginEnabled, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { SocialLoginButtons } from '../features/auth/SocialLoginButtons'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
 import { ServerAccountPage } from '../features/profile/ServerAccountPage'
@@ -83,6 +87,10 @@ export function LocalServiceApp({
   const [mailPurpose, setMailPurpose] = useState<MailPurpose>('reset')
   const [mailReturn, setMailReturn] = useState<AuthView>('login')
   const [mailEntry, setMailEntry] = useState(0)
+  // Back from Discord: a result to show once (after the usual A8 → A4 start) or a pending sign-up.
+  const [socialLanding] = useState(() => socialRoute(window.location?.hash ?? ''))
+  const socialNotice = useRef(socialLanding?.kind === 'result' ? socialResultMessage(socialLanding.status) : null)
+  const [socialSignup, setSocialSignup] = useState<SocialSignupDraft | null>(null)
   useEffect(() => {
     const receiveMailLink = () => {
       const route = mailRoute(window.location.hash)
@@ -167,12 +175,63 @@ export function LocalServiceApp({
         console.error('[app/LocalServiceApp.tsx:LocalServiceApp] Operation failed', caughtError)
         // Server unreachable: the sign-in screen stays and shows the error on submit.
       })
+      .finally(() => {
+        if (cancelled || !socialNotice.current) return
+        setError(socialNotice.current)
+        socialNotice.current = null
+      })
     return () => {
       cancelled = true
     }
     // Only once per mount: later sign-ins go through login()/register().
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts])
+
+  // Back from Discord: drop the result from the address bar; a new user continues with consent.
+  useEffect(() => {
+    if (!socialLanding) return
+    clearSocialRoute()
+    const social = accounts?.social
+    if (socialLanding.kind !== 'signup' || !social) return
+    let cancelled = false
+    social
+      .signupDraft()
+      .then((draft) => {
+        if (cancelled) return
+        if (!draft) {
+          setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
+          return
+        }
+        setSocialSignup(draft)
+        setEmail(draft.email)
+        form.resetFields({ name: draft.suggested_name })
+        setConsents({})
+        setAuthView('consent')
+      })
+      .catch((caughtError) => {
+        console.error('[app/LocalServiceApp.tsx:LocalServiceApp] Operation failed', caughtError)
+        if (!cancelled) setError(accountErrorMessage(caughtError, 'register'))
+      })
+    return () => {
+      cancelled = true
+    }
+    // Only once per mount, like the sign-in above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts])
+
+  async function startDiscord() {
+    const social = accounts?.social
+    if (!social || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      window.location.assign(await social.startLogin())
+    } catch (caughtError) {
+      console.error('[app/LocalServiceApp.tsx:startDiscord] Operation failed', caughtError)
+      setError(accountErrorMessage(caughtError, 'login'))
+      setBusy(false)
+    }
+  }
 
   // 「오늘」 comes from the server (ADR 0029). The app does not count time itself, so the day turns
   // over when it asks A4 again: on coming back to the app and on opening 기록·달력, at most once a
@@ -301,6 +360,17 @@ export function LocalServiceApp({
 
   function register() {
     if (!workspace.requireWriter()) return
+    if (socialSignup && accounts?.social) {
+      const next: Profile = consents.C3 === true
+        ? { name: form.name.trim(), age: form.age, occupation: form.occupation.trim() }
+        : { name: form.name.trim() }
+      if (!validProfileInput(next)) {
+        setError(consents.C3 === true ? '이름·나이·직업을 확인해 주세요. 나이는 14~120 사이의 정수로 입력해 주세요.' : '이름을 확인해 주세요.')
+        return
+      }
+      void registerSocialWithServer(accounts, next)
+      return
+    }
     if (!validEmail(email.trim())) {
       setError('이메일을 확인해 주세요.')
       return
@@ -353,6 +423,26 @@ export function LocalServiceApp({
     }
   }
 
+  /** Discord sign-up: the e-mail is the one Discord confirmed; the account has no password yet. */
+  async function registerSocialWithServer(client: AccountClient, next: Profile) {
+    if (busy || !client.social || !socialSignup) return
+    setBusy(true)
+    setError('')
+    try {
+      const view = await client.social.signup({ profile: next, consents: consentPayload(consents) })
+      setSocialSignup(null)
+      keepSignup(fromApiProfile(view.profile), {
+        email: view.email,
+        consents: { version: CONSENT_DOCUMENT_VERSION, agreed: consents, at: new Date().toISOString() },
+      })
+    } catch (error) {
+      console.error('[app/LocalServiceApp.tsx:registerSocialWithServer] Operation failed', error)
+      setError(accountErrorMessage(error, 'register'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function keepSignup(next: Profile, nextAccount: LocalAccount) {
     try {
       writeLocal(KEYS.profile, next)
@@ -383,6 +473,7 @@ export function LocalServiceApp({
 
   function openAuth(next: AuthView) {
     setError('')
+    if (next === 'login') setSocialSignup(null)
     setAuthView(next)
   }
 
@@ -520,7 +611,7 @@ export function LocalServiceApp({
   if (!authed && authView === 'consent') {
     return (
       <LoginPage
-        title="회원가입 · 1/3 약관 동의"
+        title={socialSignup ? 'Discord로 회원가입 · 1/3 약관 동의' : '회원가입 · 1/3 약관 동의'}
         lead="필수 항목에는 모두 동의하고, 선택 항목은 동의 여부를 골라 주세요."
         submitLabel="다음"
         submitDisabled={!consentsComplete(consents)}
@@ -557,9 +648,11 @@ export function LocalServiceApp({
       <LoginPage
         title="회원가입 · 2/3 계정 정보"
         lead={
-          accounts
-            ? '계정 서버에 가입해요. 비밀번호는 12자 이상이에요.'
-            : '계정 서버 연결 전이라 이 기기에만 저장해요. 비밀번호는 저장하지 않아요.'
+          socialSignup
+            ? 'Discord에서 확인된 이메일로 가입해요. 비밀번호 없이 Discord로 로그인하고, 비밀번호는 나중에 재설정 메일로 정할 수 있어요.'
+            : accounts
+              ? '계정 서버에 가입해요. 비밀번호는 12자 이상이에요.'
+              : '계정 서버 연결 전이라 이 기기에만 저장해요. 비밀번호는 저장하지 않아요.'
         }
         submitLabel={busy ? '가입하는 중…' : '다음'}
         submitDisabled={!canWrite || busy}
@@ -568,7 +661,7 @@ export function LocalServiceApp({
           <>
             {storageNotice}
             {errorLine}
-            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>
+            {!socialSignup && <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>}
             <button type="button" className="btn btn-quiet" onClick={() => openAuth('consent')}>
               이전
             </button>
@@ -585,9 +678,10 @@ export function LocalServiceApp({
             onChange={(event) => setEmail(event.target.value)}
             maxLength={254}
             required
+            readOnly={!!socialSignup}
           />
         </label>
-        <label className="field">
+        {!socialSignup && <label className="field">
           비밀번호
           <ValidatedInput name="password" validationLabel="비밀번호"
             className="input"
@@ -598,7 +692,7 @@ export function LocalServiceApp({
             maxLength={72}
             required
           />
-        </label>
+        </label>}
         <ProfileFields form={form} canWrite={canWrite} optionalInfo={consents.C3 === true} />
       </LoginPage>
     )
@@ -619,15 +713,27 @@ export function LocalServiceApp({
         onSubmit={login}
         footer={
           <>
+            {accounts?.social && (
+              // Every planned provider is shown; only Discord works for now. Others say they are coming.
+              <SocialLoginButtons disabled={busy} ready={id => id === 'discord'} onPick={(id, name) => {
+                if (id === 'discord' && discordLoginEnabled()) void startDiscord()
+                else if (id === 'discord') setError(desktopBridge()
+                  ? 'Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.'
+                  : 'Discord 로그인은 서버 설정을 마친 뒤 사용할 수 있어요.')
+                else setError(`${name} 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.`)
+              }} />
+            )}
             <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 재설정</button>
             <button type="button" className="btn btn-quiet" onClick={() => {
               setConsents({})
+              setSocialSignup(null)
               openAuth('consent')
             }}>
               회원가입
             </button>
             {storageNotice}
-            {errorLine}
+            {/* 안내가 떠도 로그인 칸이 밀리지 않게 폼 아래 빈 자리에 띄운다. */}
+            {errorLine && <div className="auth-alert-slot">{errorLine}</div>}
           </>
         }
       >
@@ -678,6 +784,7 @@ export function LocalServiceApp({
       storageNotice={storageNotice}
       profilePage={developer ? <p>개발자 계정은 서버·DB 계정이 아닙니다. 일반 계정으로 로그인하면 서버 측정을 사용할 수 있어요.</p> : accounts ?
         <ServerAccountPage blocked={measuring || !!persistence.pending.current} onProfile={workspace.setProfile}
+          social={discordLoginEnabled() ? accounts.social : undefined}
           onBusy={busy => { accountMutation.current = busy }}
           onSignedOut={message => { accounts.suspend?.(); clearWorkspace(); setError(message) }} /> :
         <ProfilePage

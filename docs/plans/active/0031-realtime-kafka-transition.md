@@ -4,8 +4,8 @@
 - 담당: DevOps/BE(처리 서비스·계약·compose·통합 테스트), PM(`ws` — `realtime/` Kafka 연결), DB/BE(`session/` 결과 쓰기 중단·REST 정리)
 - 시작일: 2026-10-16
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(대체 예정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
-  [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md), [연동 명세](../../design/fe/api-ws-spec.md), [아키텍처 v5.2 변경 안내](../../design/architecture_v5.2_change_notes.md),
-  [스택별 역할](../../design/architecture_v5.2_stack_roles.md), [계획 0029](0029-merge-backend-data-platform.md). 지운 계획 0022(Kafka 실시간 경로)를 이 계획이 대신한다.
+  [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md), [연동 명세](../../design/fe/api-ws-spec.md), [아키텍처 v5.4 변경 안내](../../design/architecture_v5.4_change_notes.md),
+  [스택별 역할](../../design/architecture_v5.4_stack_roles.md), [계획 0029](0029-merge-backend-data-platform.md). 지운 계획 0022(Kafka 실시간 경로)를 이 계획이 대신한다.
 
 ## 문제와 완료 기준
 

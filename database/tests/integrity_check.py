@@ -1,6 +1,6 @@
 """DB 무결성 검사 — 키·CHECK·FK 삭제 동작과 DB-04 삭제 시나리오를 실제로 실행해 확인한다.
 
-대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.6 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
+대상: 최신 스키마(schema_V2_x.sql)와 시드만 적용한 **빈 DB** (명세서 V2.7 기준). 테스트 계정(test-*@example.invalid)으로 행을 넣고 지우므로
 운영·개발 DB에서 실행하지 않는다. 사용자 행이 이미 있으면 시작하지 않는다.
 
 실행 (DB CI가 실행한다):
@@ -100,6 +100,45 @@ fails("FK-28 없는 사용자의 토큰", ins_rt, (999999, "f" * 64, T0, T14), "
 ok("교체 시각 기록", "UPDATE refresh_token SET rotated_at=%s WHERE token_hash=%s", ("2026-10-02 01:29:00", "a" * 64))
 fails("교체 시각이 발급보다 앞서면 거부", "UPDATE refresh_token SET rotated_at='2026-10-01 00:00:00' WHERE token_hash=%s", ("b" * 64,), "ck_refresh_token_rotated_at")
 fails("철회 시각이 발급보다 앞서면 거부", "UPDATE refresh_token SET revoked_at='2026-10-01 00:00:00' WHERE token_hash=%s", ("b" * 64,), "ck_refresh_token_revoked_at")
+
+# ===================================================================== 소셜 로그인 연결 (V2.7, 계획 0088)
+# 제공자 사용자 ID만 둔다. 같은 이메일이어도 자동으로 묶지 않으므로 DB는 이메일을 보지 않는다. 사용자 ID 값은 합성값이다
+ins_si = "INSERT INTO social_identity (user_account_id,provider,provider_subject,linked_at) VALUES (%s,%s,%s,%s)"
+ok("소셜 연결 — A ↔ Discord 사용자", ins_si, (A, "DISCORD", "100000000000000001", T0))
+fails("UK-18 같은 Discord 사용자를 다른 계정(B)에 연결 거부", ins_si, (B, "DISCORD", "100000000000000001", T0), "ux_social_identity_subject")
+fails("UK-19 한 계정(A)에 Discord 두 번 연결 거부", ins_si, (A, "DISCORD", "100000000000000002", T0), "ux_social_identity_account")
+ok("같은 계정이라도 다른 제공자는 허용 (A ↔ GitHub)", ins_si, (A, "GITHUB", "5000001", T0))
+ok("사용자 ID가 같아도 제공자가 다르면 다른 사람 (B ↔ Kakao)", ins_si, (B, "KAKAO", "5000001", T0))
+fails("없는 제공자 거부", ins_si, (B, "NAVER", "1", T0), "ck_social_identity_provider")
+fails("FK-29 없는 사용자의 연결", ins_si, (999999, "GOOGLE", "1", T0), "fk_social_identity_user_account")
+ok("연결 해제 (A ↔ GitHub)", "DELETE FROM social_identity WHERE user_account_id=%s AND provider='GITHUB'", (A,))
+check("연결 해제 뒤 A의 연결은 Discord 하나", one("SELECT COUNT(*) FROM social_identity WHERE user_account_id=%s", (A,)) == 1)
+# 소셜로 처음 가입한 계정: 비밀번호가 없어 고정값을 넣는다(password_hash NOT NULL 그대로)
+ok("소셜 가입 — 비밀번호 없는 계정('!no-password')",
+   "INSERT INTO user_account (login_email,password_hash,display_name,joined_at,threshold_policy_id) VALUES (%s,'!no-password','테스트',%s,%s)",
+   ("test-social@example.invalid", T0, pol)); S = cur.lastrowid
+ok("소셜 가입 — 연결 행", ins_si, (S, "DISCORD", "100000000000000003", T0))
+ok("세션 없는 소셜 계정 삭제", "DELETE FROM user_account WHERE user_account_id=%s", (S,))
+check("소셜 연결도 계정과 함께 삭제 (FK-29 CASCADE)", one("SELECT COUNT(*) FROM social_identity WHERE user_account_id=%s", (S,)) == 0)
+
+# ===================================================================== 비밀번호 재설정 토큰 (V2.7, 계획 0088)
+# 메일 링크 토큰의 SHA-256만 둔다(30분). 사용은 조건부 UPDATE이고 영향 행이 1일 때만 진행한다
+ins_pr = "INSERT INTO password_reset_token (user_account_id,token_hash,issued_at,expires_at) VALUES (%s,%s,%s,%s)"
+T30 = "2026-10-02 01:30:00.000"
+ok("재설정 토큰 발급 — A", ins_pr, (A, "1" * 64, T0, T30)); PR1 = cur.lastrowid
+fails("UK-20 같은 토큰 해시 거부", ins_pr, (B, "1" * 64, T0, T30), "ux_password_reset_token_hash")
+fails("토큰 해시 64자가 아니면 거부", ins_pr, (A, "2" * 63, T0, T30), "ck_password_reset_token_hash")
+fails("만료가 발급보다 늦지 않으면 거부", ins_pr, (A, "3" * 64, T0, T0), "ck_password_reset_token_expires")
+fails("FK-30 없는 사용자의 토큰", ins_pr, (999999, "4" * 64, T0, T30), "fk_password_reset_token_user_account")
+use_pr = "UPDATE password_reset_token SET consumed_at=%s WHERE password_reset_token_id=%s AND consumed_at IS NULL AND expires_at>%s"
+cur.execute(use_pr, ("2026-10-02 01:10:00", PR1, "2026-10-02 01:10:00"))
+check("재설정 토큰 사용 — 영향 행 1", cur.rowcount == 1)
+cur.execute(use_pr, ("2026-10-02 01:11:00", PR1, "2026-10-02 01:11:00"))
+check("같은 토큰 두 번째 사용 — 영향 행 0 (일회용)", cur.rowcount == 0)
+ok("재설정 토큰 발급 — A 두 번째", ins_pr, (A, "5" * 64, T0, T30)); PR2 = cur.lastrowid
+cur.execute(use_pr, ("2026-10-02 01:31:00", PR2, "2026-10-02 01:31:00"))
+check("만료된 토큰 사용 — 영향 행 0", cur.rowcount == 0)
+ok("재설정 토큰 발급 — B (탈퇴 접수 때 무효 처리 확인용)", ins_pr, (B, "6" * 64, T0, T30))
 
 # ===================================================================== 기준 자세·세션
 # 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
@@ -216,6 +255,8 @@ def intake(uid, at):
     # 로그인 무효화 (V2.6): 그 사용자의 refresh 토큰을 모두 철회한다. access 토큰(JWT)은 저장하지 않는다
     # (시험 데이터는 접수 시각이 토큰 발급보다 앞서므로 발급 시각 이후로 맞춘다 — ck_refresh_token_revoked_at)
     cur.execute("UPDATE refresh_token SET revoked_at=GREATEST(issued_at,%s) WHERE user_account_id=%s AND revoked_at IS NULL", (at, uid))
+    # 남은 비밀번호 재설정 링크도 무효로 한다 (V2.7)
+    cur.execute("UPDATE password_reset_token SET consumed_at=%s WHERE user_account_id=%s AND consumed_at IS NULL", (at, uid))
     con.commit()
 
 
@@ -232,6 +273,8 @@ fails("S1-1 유예 중 같은 이메일로 재가입 거부 (UK-01)", ins_user, 
 # 탈퇴는 철회하지 않는다 (아키텍처 v5.2, 2026-10-15) — A의 요청(09-05 접수)이 그대로 유예 종료 대상이 된다.
 # B는 유예 기간이 남은 상태로 둔다
 intake(B, "2026-10-01 09:00:00")
+check("S1-0 접수 — B의 남은 재설정 토큰 무효 (V2.7)",
+      one("SELECT COUNT(*) FROM password_reset_token WHERE user_account_id=%s AND consumed_at IS NULL", (B,)) == 0)
 cur.execute(due_sql, (REF, GRACE)); due = [r[0] for r in cur.fetchall()]
 check("S1-2 유예 종료 대상 — 폐쇄 시각 + 30일이 지난 요청만 (삭제 예정일 컬럼 없이 계산)", due == [A], f"due={due}")
 
@@ -258,6 +301,9 @@ cnt = {t: one(f"SELECT COUNT(*) FROM {t}") for t in ("excluded_interval", "colla
 check("S1 연쇄 삭제 — 제외 구간·이벤트·알림 0행", all(v == 0 for v in cnt.values()), str(cnt))
 check("S1 동의 기록도 계정과 함께 삭제 (FK-19 CASCADE)", one("SELECT COUNT(*) FROM user_consent WHERE user_account_id=%s", (A,)) == 0)
 check("S1 refresh 토큰도 계정과 함께 삭제 (FK-28 CASCADE)", one("SELECT COUNT(*) FROM refresh_token WHERE user_account_id=%s", (A,)) == 0)
+check("S1 소셜 연결·재설정 토큰도 계정과 함께 삭제 (FK-29·30 CASCADE, J3 변경 없음)",
+      one("SELECT COUNT(*) FROM social_identity WHERE user_account_id=%s", (A,)) == 0
+      and one("SELECT COUNT(*) FROM password_reset_token WHERE user_account_id=%s", (A,)) == 0)
 check("S1 계정 행과 삭제 요청 행이 남지 않음",
       one("SELECT COUNT(*) FROM user_account WHERE user_account_id=%s", (A,)) == 0 and one("SELECT COUNT(*) FROM deletion_request WHERE user_account_id=%s", (A,)) == 0)
 check("S1 공유 판정 정책은 남음", one("SELECT COUNT(*) FROM threshold_policy") == 1)
@@ -332,10 +378,12 @@ cur.execute("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHER
 cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
 check("V2.1·V2.2·V2.4 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered, row_count 등 21개)", not left_c, ", ".join(left_c))
-check("V2.2·V2.3·V2.5·V2.6 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자, refresh 토큰 해시)",
+check("V2.2·V2.3·V2.5·V2.6·V2.7 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자, refresh 토큰 해시, "
+      "소셜 사용자 ID, 재설정 토큰 사용 시각)",
       {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
        ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec"),
-       ("baseline_posture", "client_registration_uuid"), ("refresh_token", "token_hash")} <= cols)
+       ("baseline_posture", "client_registration_uuid"), ("refresh_token", "token_hash"),
+       ("social_identity", "provider_subject"), ("password_reset_token", "consumed_at")} <= cols)
 check("V2.5 UK-14(사용자, 등록 시각) 인덱스 없음 — 재전송은 UK-16이 막는다",
       one("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND INDEX_NAME='ux_baseline_posture_registered'") == 0)
 

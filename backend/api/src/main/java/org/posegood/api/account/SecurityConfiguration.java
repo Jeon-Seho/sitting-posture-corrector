@@ -39,6 +39,11 @@ public class SecurityConfiguration {
 		"/v2/auth/login",
 		"/v2/auth/refresh",
 		"/v2/auth/logout",
+		"/v2/auth/password-reset/requests",
+		"/v2/auth/password-reset/confirm",
+		"/v2/auth/social/*/login",
+		"/v2/auth/social/*/callback",
+		"/v2/auth/social/signup",
 		"/v2/realtime");
 
 	@Bean

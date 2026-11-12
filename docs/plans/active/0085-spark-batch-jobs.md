@@ -3,7 +3,7 @@
 - 상태: in_progress (J2·J3·J1 서버 확인 2026-11-01 — 남은 것: J1 실제 데이터는 D-57 뒤, DB README 구현 상태는 DB/BE)
 - 담당: DevOps/BE (ghdrb1246)
 - 시작일: 2026-11-01
-- 관련: [database/README.md](../../../database/README.md) 「일별 통계」·「붕괴까지 걸린 시간」·「탈퇴 최종 삭제」·「삭제 배치 공통」, `database/schema/schema_V2_6.sql`(`daily_stat`·`deletion_request`·`feature_archive`), [아키텍처 v5.3 스택별 역할](../../design/architecture_v5.2_stack_roles.md) 적재·분석 층, [bigdata/README.md](../../../bigdata/README.md)
+- 관련: [database/README.md](../../../database/README.md) 「일별 통계」·「붕괴까지 걸린 시간」·「탈퇴 최종 삭제」·「삭제 배치 공통」, `database/schema/schema_V2_6.sql`(`daily_stat`·`deletion_request`·`feature_archive`), [아키텍처 v5.4 스택별 역할](../../design/architecture_v5.4_stack_roles.md) 적재·분석 층, [bigdata/README.md](../../../bigdata/README.md)
 
 ## 문제와 완료 기준
 

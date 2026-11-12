@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>자세 비교 실험실</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/"><span class="brand-mark">P</span><span>POSE LAB <small>RESEARCH TOOL</small></span></a><span class="local-badge"><i></i> 로컬 실험 환경</span></header>
+  <div class="alert-toasts" aria-live="polite" aria-atomic="false">
+    <div class="alert-toast" id="rule-toast" hidden><strong>규칙 기반 자세 알림</strong><span>기준 자세에서 벗어난 상태가 이어지고 있습니다.</span></div>
+    <div class="alert-toast" id="model-toast" hidden><strong>2단계 모델 자세 알림</strong><span>기준 자세에서 벗어난 상태가 이어지고 있습니다.</span></div>
+  </div>
+  <main>
+    <div class="intro"><div><p class="eyebrow">POSTURE COMPARISON / 01</p><h1>자세 비교 실험실<span>.</span></h1><p class="subtitle">같은 자세를 두 가지 방식으로 살펴보세요.</p></div><div class="experiment-label"><span class="pulse"></span> LIVE COMPARISON</div></div>
+    <div class="workspace">
+      <section class="camera-card card" aria-labelledby="camera-title">
+        <div class="section-head"><div><p class="eyebrow">01 / CAMERA</p><h2 id="camera-title">실시간 관측</h2></div><span class="status-pill" id="camera-status">카메라 꺼짐</span></div>
+        <div class="viewport"><video id="video" autoplay playsinline muted></video><canvas id="overlay"></canvas><div class="camera-placeholder" id="placeholder"><div class="camera-symbol">◎</div><strong>카메라를 시작해 주세요</strong><span>얼굴과 양쪽 어깨가 보이도록 앉아 주세요.</span></div><div class="view-corner top-left"></div><div class="view-corner top-right"></div><div class="view-corner bottom-left"></div><div class="view-corner bottom-right"></div><span class="view-label" id="view-label">대기 중</span><div class="view-modes" role="group" aria-label="카메라 특징 표시 방식"><span>표시 기준</span><button type="button" id="mode-rule" aria-pressed="true">규칙 기준</button><button type="button" id="mode-model" aria-pressed="false">모델 기준</button></div></div>
+        <div class="camera-controls"><button class="button primary" id="start">카메라 시작 <span>↗</span></button><button class="button secondary" id="register" disabled>기준 자세 등록</button><button class="button quiet" id="stop" disabled>종료</button></div>
+        <div class="camera-tip"><span class="tip-icon">i</span><p id="guidance">카메라를 켠 뒤 편안한 기준 자세를 취하고 등록해 주세요. 같은 자세에 대한 두 판정을 비교합니다.</p></div>
+        <section class="feature-explanation" aria-labelledby="feature-title">
+          <div class="feature-heading"><div><p class="eyebrow">WHY THIS SCORE?</p><h3 id="feature-title">규칙의 점수 근거</h3></div><span>최근 1초 관측</span></div>
+          <p id="feature-description" class="feature-description">가장 큰 변화가 규칙 점수를 정합니다. 초록은 등록 중 관측된 범위입니다.</p>
+          <div class="feature-legend" aria-label="색상 의미"><span class="red"><i></i><span id="legend-red">빨강 · 이탈 기준 도달</span></span><span class="green"><i></i><span id="legend-green">초록 · 등록 범위 안</span></span><span class="yellow"><i></i><span id="legend-yellow">노랑 · 범위 밖</span></span><span class="unknown"><i></i>회색 · 표시 불가</span></div>
+          <ul class="feature-list" aria-label="특징별 설명">
+            <li id="feature-head_gap" class="feature-row unknown"><span><i></i>머리–어깨 높이</span><strong id="feature-head_gap-detail">설명 준비 중</strong></li>
+            <li id="feature-lateral_offset" class="feature-row unknown"><span><i></i>좌우 치우침</span><strong id="feature-lateral_offset-detail">설명 준비 중</strong></li>
+            <li id="feature-shoulder_tilt" class="feature-row unknown"><span><i></i>어깨 기울기</span><strong id="feature-shoulder_tilt-detail">설명 준비 중</strong></li>
+            <li id="feature-face_height" class="feature-row unknown" hidden><span><i></i>얼굴 높이</span><strong id="feature-face_height-detail">설명 준비 중</strong></li>
+            <li id="feature-shoulder_height" class="feature-row unknown" hidden><span><i></i>어깨 높이</span><strong id="feature-shoulder_height-detail">설명 준비 중</strong></li>
+            <li id="feature-shoulder_width" class="feature-row unknown" hidden><span><i></i>어깨 폭</span><strong id="feature-shoulder_width-detail">설명 준비 중</strong></li>
+          </ul>
+          <p class="feature-footnote">점은 관련 특징을 나타내며 관절별 원인 점수는 아닙니다. 어깨에 여러 특징이 겹치면 빨강, 노랑, 초록 순으로 표시합니다. 인식이 불확실한 특징은 회색입니다.</p>
+        </section>
+      </section>
+      <section class="results" aria-labelledby="results-title">
+        <div class="section-head result-heading"><div><p class="eyebrow">02 / COMPARISON</p><h2 id="results-title">비교 결과</h2></div><span class="sync-label"><span></span> 같은 관측 창</span></div>
+        <section class="scenario-card card" aria-labelledby="scenario-title">
+          <div class="scenario-heading"><div><p class="eyebrow">TEST SCENARIOS</p><h3 id="scenario-title">자세별 점수 기록</h3></div><span id="scenario-progress">0개 기록</span></div>
+          <p class="scenario-description">각 자세를 8~10초 유지하고 해당 버튼을 누르세요. 다음 동작 전에는 기준 자세로 8초 쉬어 주세요.</p>
+          <div class="scenario-live" aria-label="현재 표시 점수와 판정"><span>현재 점수</span><strong>규칙 <b id="scenario-live-rule">—</b> <small id="scenario-live-rule-state">대기</small></strong><strong>모델 <b id="scenario-live-model">—</b> <small id="scenario-live-model-state">대기</small></strong></div>
+          <div class="scenario-list" id="scenario-list" aria-label="자세 시나리오 목록"></div>
+          <button type="button" class="button scenario-save" id="save-scenarios">기록한 결과 JSON 저장</button>
+          <p class="scenario-save-status" id="scenario-save-status" role="status" aria-live="polite">점수를 직접 입력하거나 자세별 버튼으로 현재 점수를 기록하세요.</p>
+          <p class="scenario-footnote">다시 기록하면 해당 자세의 입력이 바뀝니다. 자동 기록은 원점수 판정·특징 설명과 세션의 누적 알림 횟수도 저장합니다. 직접 수정한 점수에는 자동 판정 정보가 포함되지 않습니다. 영상과 키포인트 좌표는 저장하지 않습니다.</p>
+        </section>
+        <section class="pose-comparison card" aria-labelledby="pose-comparison-title">
+          <div class="pose-heading"><div><p class="eyebrow">03 / DECISION COMPARISON</p><h3 id="pose-comparison-title">같은 자세의 판정 비교</h3></div><span class="pose-session-label">현재 측정</span></div>
+          <p class="pose-description">같은 최근 1초 관측의 순간 판정입니다. 점수는 부드럽게 표시하며 판정은 원점수와 각 방식의 기준을 따릅니다.</p>
+          <div class="decision-grid">
+            <div class="decision-card"><div class="decision-head"><h4>규칙 기반</h4><span id="rule-live-decision" class="live-decision">관측 대기</span></div><div class="decision-details"><strong id="rule-current-mini">— 점</strong><span id="rule-current-alerts">알림 0회</span></div><p class="decision-basis">30점 이하 이탈</p></div>
+            <div class="decision-card"><div class="decision-head"><h4>2단계 모델</h4><span id="model-live-decision" class="live-decision">관측 대기</span></div><div class="decision-details"><strong id="model-current-mini">— 점</strong><span id="model-current-alerts">알림 0회</span></div><p class="decision-basis" id="model-threshold-mini">이탈 기준 준비 중</p></div>
+          </div>
+          <p class="pose-status" id="pose-comparison-status" role="status" aria-live="polite">기준 자세를 등록하고 측정하면 비교가 시작됩니다.</p>
+        </section>
+        <article class="score-card card"><div class="score-head"><div class="score-icon rule-icon">⌁</div><div class="score-title"><p>기존 서버</p><h3>규칙 기반</h3></div><span class="score-state" id="rule-state">대기 중</span></div><div class="score-line"><strong id="rule-score">—</strong><span>점 / 100점</span></div><div class="track"><div id="rule-bar" class="bar rule-bar"></div></div><div class="score-footer"><span>이탈 기준 30점 이하</span><span>머리 · 어깨 변화</span></div></article>
+        <article class="score-card card model-card"><div class="score-head"><div class="score-icon model-icon">✳</div><div class="score-title"><p>오프라인 학습</p><h3>2단계 모델</h3></div><span class="score-state" id="model-state">대기 중</span></div><div class="score-line"><strong id="model-score">—</strong><span>점 / 100점</span></div><div class="track"><div id="model-bar" class="bar model-bar"></div></div><div class="score-footer"><span id="model-threshold">모델 기준 불러오는 중</span><span>합성 이동 보정 포함</span></div></article>
+        <p class="score-explanation">100점에 가까울수록 등록한 자세에 가깝습니다. 점수는 천천히 변하지만 상태와 알림은 원래 판정을 따릅니다.</p>
+        <div class="additional"><div><span>보정 전 모델 점수</span><strong id="raw-score">—</strong></div><div><span>합성 이동 보정값</span><strong id="correction">—</strong></div></div>
+        <section class="alert-comparison card" aria-labelledby="alerts-title">
+          <div class="alert-heading"><div><p class="eyebrow">04 / ALERTS</p><h3 id="alerts-title">알림 횟수 비교</h3></div><span class="alert-session-label">현재 비교 세션</span></div>
+          <p class="alert-description">각 방식에서 이탈이 3초 이어지면 화면에 알립니다. 이탈이 계속되면 60초마다 다시 알립니다.</p>
+          <div class="alert-counts">
+            <div class="alert-count" aria-live="polite"><span>규칙 기반</span><strong><span id="rule-alert-count">0</span><small>회</small></strong><span class="alert-last" id="rule-alert-last">아직 알림 없음</span></div>
+            <div class="alert-count" aria-live="polite"><span>2단계 모델</span><strong><span id="model-alert-count">0</span><small>회</small></strong><span class="alert-last" id="model-alert-last">아직 알림 없음</span></div>
+          </div>
+          <div class="notification-controls"><button type="button" class="button notification-button" id="enable-notifications">시스템 알림 켜기</button><span id="notification-status">화면 알림은 항상 표시됩니다.</span></div>
+          <p class="alert-footnote">화면에서 발생한 알림 횟수입니다. 운영 서비스의 알림 기록은 포함하지 않습니다. 기준을 다시 등록하면 횟수가 초기화됩니다.</p>
+        </section>
+        <div class="notice"><div class="notice-mark">✳</div><p><strong>연구용 비교 화면입니다.</strong><br>점수는 실제 자세 이탈 확률이 아닙니다. 이 전체 자료 모델은 독립 검증되지 않았습니다. 측정이 어려운 구간은 판정을 표시하지 않습니다.</p></div>
+      </section>
+    </div>
+    <footer><span>POSE LAB <b>·</b> RESEARCH ONLY</span><span>영상은 이 기기에서 처리됩니다.</span></footer>
+  </main>
+</body>
+</html>

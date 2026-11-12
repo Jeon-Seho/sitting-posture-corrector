@@ -73,7 +73,7 @@ FE가 정한 것(앱 쪽 동작):
 |---|---|
 | 민감도 | 화면 3단계(느긋하게 0.80 · 보통 0.70 · 꼼꼼하게 0.60)와 세밀 조정(0.5~0.95). 기본은 0.7이고 LSTM으로 바뀌어도 그대로 쓴다. DB에는 threshold 값 하나로 저장한다. 단계 칸은 필요 없다 |
 | 소리 | 저장하지 않는다. 측정마다 꺼진 채 시작하고 측정 화면에서 켠다(브라우저는 사용자 동작 없이 소리를 켤 수 없다). 「자세 알림」 켜기·끄기만 서버에 저장한다(V2.3 `sound_alert_enabled`) |
-| 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청한다. 고정이라 **서버에 해상도를 보내지 않는다**(10/15, 좌표 구간의 `width`·`height` 삭제). 다른 크기면 시작하지 않는 처리는 두지 않고(10/19), 측정 화면 위에 실제 카메라 크기를 작게 표시한다(예정, F13) |
+| 영상 크기 | 640×480 고정(팀 결정, DB V2.3 `CAPTURE_RESOLUTION`). 앱은 640×480을 요청한다. 고정이라 **서버에 해상도를 보내지 않는다**(10/15, 좌표 구간의 `width`·`height` 삭제). 11/12부터 4:3이 아니게 열리면 4:3 필수로 다시 열어 잘라 받고, 그래도 4:3이 아니면 카메라를 쓰지 않는다([ADR 0048](../../decisions/0048-camera-picture-is-four-by-three.md)). 크기 표시(F13)는 하지 않는다 |
 | 배포 (10/19) | 공개 배포는 **HTTPS**. 화면은 Vercel `app.<도메인>`, 서버는 Cloudflare 이름 있는 터널 `api.<도메인>`(DevOps). 데스크톱 앱도 PC 파일(`app://posegood`)이 아니라 `https://app.<도메인>`을 연다 — 화면 수정이 서버 배포 없이 반영된다. 자세한 구상은 9장 |
 | 자세 등록 (10/20 전체 회의, 10/26 갱신) | 앱이 관절 9개 3초 평균을 내서 B1로 보낸다. 이 PC에는 저장하지 않는다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)). 10/26부터 B1은 `registration_id`(촬영마다 UUID)를 보내고 등록 시각은 서버가 정한다(DB V2.5, BE 브랜치) |
 | 측정 (10/21) | 「측정 시작」은 항상 서버 측정이고 앱은 판정하지 않는다. 서버 결과는 형식만 확인한다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)) |
@@ -142,7 +142,7 @@ FE가 정한 것(앱 쪽 동작):
 | F9 | 서버 PC 왕복 시험(T-13) 일정 잡기 | 안 함 | DevOps 8088 환경 |
 | F11 | 판정 불가 표시: 측정이 안 되는 프레임에 `valid:false` | 앱 쪽 끝남(10/21). 10/22 어깨 유예를 지워 어깨가 안 보이면 바로 `valid:false` | 연동 명세 5.2 |
 | F12 | 계정 서버 연결: 로컬 로그인·가입을 A1~A7·W1로, 비밀번호 12자 검사, 탈퇴 확인창에 비밀번호 칸(A7 본문 `{password}`) | **A1~A5 끝남(10/22 V3):** ghdrb1246의 `f27dd24`(D-66)를 V3로 옮김. 스위치 없이 항상 서버 계정, 로그인·가입·`me` 뒤 `setServerAuth`(B1·B2·S1·S4가 같은 계정·CSRF 토큰), CSRF 403 재시도. 남은 것: 비밀번호 변경(A6)·탈퇴(A7)·선택 동의(C1)·W1·W2 | BE · 연동 명세 2장 |
-| F13 | 카메라 해상도 표시: 측정 화면 위에 실제 카메라 크기(예: 640×480)를 작게. 다른 크기여도 시작은 막지 않음(10/19) | 안 함 | 표시 위치를 화면에서 정하기 |
+| F13 | 카메라 해상도 표시 | **하지 않기로 함(11/12)** — 대신 4:3으로 받는다([ADR 0048](../../decisions/0048-camera-picture-is-four-by-three.md)) | — |
 | F14 | 데스크톱 앱이 `https://app.posegood.site`(Vercel)에서 화면을 열기: `sameAddress` 검사·알림 팝업 주소·`app://` 정리, 열 수 없으면 「서버에 연결할 수 없어요」 | 코드 끝(11/10), 배포 전 | Vercel 연결 · 9.4 5단계 |
 | F15 | v2 전환으로 필요 없어진 코드 정리 | 끝남(10/21, 7.1 표) | — |
 
@@ -252,7 +252,7 @@ FE가 정한 것(앱 쪽 동작):
 | 연동 명세 4장 REST 요청·응답 본문 | BE 명세가 기준이라 빼고 앱이 지킬 것만 4장에 |
 | 연동 명세 5.3 자세 등록·6.2·6.4 | 5.4·6.3으로 번호 바뀜 |
 | `fe-domain-idea.md`(배포 구상) | 이름 `fe-deploy.md`(배포). 6장(데스크톱 앱 구조)은 이 문서 8.4로 |
-| `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. (10/25: `data-platform-boundary.md`는 팀장이 10/22 develop에서 현행 기준으로 고쳐 써 develop 합칠 때 되살림(유지 여부는 1장에서 팀장에게 물음)) 10/22 기준 서버 구조는 [아키텍처 v5.2 스택별 역할](../architecture_v5.2_stack_roles.md)·[변경 안내](../architecture_v5.2_change_notes.md) |
+| `server-persistence-and-auth.md`, `data-platform-boundary.md`(10/01~06, 예전 v1 백엔드 기준) | 지움. (10/25: `data-platform-boundary.md`는 팀장이 10/22 develop에서 현행 기준으로 고쳐 써 develop 합칠 때 되살림(유지 여부는 1장에서 팀장에게 물음)) 10/22 기준 서버 구조는 [아키텍처 v5.4 스택별 역할](../architecture_v5.4_stack_roles.md)·[변경 안내](../architecture_v5.4_change_notes.md) |
 | 코드: 쉬는 중 카메라 영상이 멈추면 `rest` 유지 | DB V2.3 우선순위(`ABSENCE` 먼저)대로 `away`로 바꿈(`LiveSession.away`, 시험 1개 추가) |
 
 알릴 것: BE — **10/22부터 어깨가 하나라도 안 보이는 프레임은 바로 `valid:false`**(전에는 처음 2초는 `valid:true`), 관절을 `[0, 0, 0]`으로 채운 프레임도 `valid:false`. **고개 돌림 구간은 학습 데이터에서 뺀다**(10/22 klaod-tech: 지금 API 판정의 `head_turn` 제외를 유지, Kafka 경로(계획 0031 표 5번)에서도 `head_turn` 힌트를 같은 조건으로 넣어야 함). `FrameFeatures.java` 주석이 가리키는 `pose.ts` `headTurned`·`serverFeatures.ts`는 10/22 앱에서 지웠다(원본은 develop). 로그인 뒤 `setServerAuth({ userId, csrfToken })`(`features/platform/serverAuth.ts`)와 W1(BE-3). lellon0403 — 측정하기의 로컬 판정이 없어졌고 측정 화면은 `features/session/live/`, 기록 상세는 서버 결과 형식(`server.view`)을 그대로 쓴다.

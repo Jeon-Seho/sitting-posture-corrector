@@ -1,5 +1,5 @@
 // Main process: PC 창의 생성, 시작 프로그램 등록, 앱 종료를 담당한다.
-const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen, nativeImage, shell } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, screen, nativeImage, nativeTheme, shell } = require('electron')
 const { pathToFileURL } = require('node:url')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -124,11 +124,15 @@ ipcMain.handle('desktop:theme-icon', (event, payload) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents) return false
   return applyThemeIcon?.(payload) ?? false
 })
+// public/error-theme.js의 바탕색과 같게 둔다(블랙·블러플은 어두운 바탕이 다르다).
+const toneColors = (tone, accent) => tone === 'dark'
+  ? { color: accent === '#242424' ? '#101010' : accent === '#5865f2' ? '#1e1f22' : '#131920', symbolColor: '#f0f4f8' }
+  : tone === 'gray' ? { color: '#c7cbd1', symbolColor: '#202b33' } : { color: '#f6f7f9', symbolColor: '#202b33' }
 ipcMain.handle('desktop:appearance-tone', (event, tone) => {
   if (!trusted(event) || !mainWindow || event.sender !== mainWindow.webContents || !['light', 'gray', 'dark'].includes(tone)) return false
-  const color = tone === 'dark' ? '#131920' : tone === 'gray' ? '#c7cbd1' : '#f6f7f9'
+  const { color, symbolColor } = toneColors(tone, fallback().accent())
   mainWindow.setBackgroundColor(color)
-  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor: tone === 'dark' ? '#f0f4f8' : '#202b33' })
+  if (process.platform !== 'darwin') mainWindow.setTitleBarOverlay({ color, symbolColor })
   return true
 })
 ipcMain.handle('desktop:dark-mode', (event, dark) => {
@@ -241,6 +245,8 @@ ipcMain.on('popup:open-app', (event) => {
 })
 
 async function createWindow() {
+  // 마지막에 쓴 테마(없으면 Windows 밝게/어둡게 설정)로 창을 열어 시작 때 밝은 화면이 번쩍이지 않게 한다.
+  const start = toneColors(fallback().tone(nativeTheme.shouldUseDarkColors), fallback().accent())
   const window = new BrowserWindow({
     // 자동 점검은 화면을 띄우지 않는다. 일반 실행은 기존처럼 창을 표시한다.
     show: !process.argv.includes('--posegood-smoke-hidden'),
@@ -249,9 +255,9 @@ async function createWindow() {
     title: 'PoseGood',
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'branding',
       process.platform === 'win32' ? 'posegood-icon.ico' : 'posegood-icon.png'),
-    backgroundColor: '#f6f7f9',
+    backgroundColor: start.color,
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
-    ...(isMac ? {} : { titleBarOverlay: { color: '#f6f7f9', symbolColor: '#202b33', height: TITLEBAR_HEIGHT } }),
+    ...(isMac ? {} : { titleBarOverlay: { ...start, height: TITLEBAR_HEIGHT } }),
     webPreferences: {
       nodeIntegration: false, contextIsolation: true, sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
