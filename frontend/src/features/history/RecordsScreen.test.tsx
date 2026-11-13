@@ -6,7 +6,7 @@ import { LocalHistory } from './LocalHistory'
 import { shortDuration } from './RecordCalendar'
 import { RecordCalendarPage } from './RecordCalendarPage'
 
-const at = (day: number, hour: number, month = 9) => new Date(2026, month, day, hour).toISOString()
+const at = (day: number, hour: number, month = 9) => new Date(Date.UTC(2026, month, day, hour - 9)).toISOString()
 const rec = (id: string, day: number, hour: number, valid: number, good: number, month = 9): RecordItem => ({
   id,
   startedAt: at(day, hour, month),
@@ -22,7 +22,7 @@ describe('기록 (today) and 달력 tabs (synthetic records)', () => {
   let renderer: ReactTestRenderer | undefined
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 9, 13, 20)) // Tuesday
+    vi.setSystemTime(new Date(at(13, 20))) // Tuesday, 20:00 KST
   })
   afterEach(() => {
     act(() => renderer?.unmount())

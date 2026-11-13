@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { daySessionNumber, localDay, sessionLabel } from './sessionNumber'
 
-// Local times so the test does not depend on the machine's time zone.
-const at = (day: number, hour: number, minute = 0) => new Date(2026, 9, day, hour, minute).toISOString()
+// Construct KST instants explicitly so the host time zone cannot change the test day.
+const at = (day: number, hour: number, minute = 0) => new Date(Date.UTC(2026, 9, day, hour - 9, minute)).toISOString()
 
 describe('per-day session numbers', () => {
   const starts = [at(13, 9), at(13, 14), at(13, 18, 30), at(14, 8)]
