@@ -59,6 +59,7 @@
 | 카메라 준비 | `frontend/public/illustrations/ready-camera-light.webp` | 카메라 꺼짐 상태 |
 | 빈 기록 | `frontend/public/illustrations/empty-records-light.webp` | 아직 기록이 없는 화면 |
 | 기준 자세 | `frontend/public/illustrations/baseline-seat-light.webp` | 간결한 자세 안내 |
+| 오류 안내 | `frontend/public/illustrations/themes/*-error-*.webp` | 400번대 404 검색·500번대 503 휴식·인터넷 끊김 502 연결 끊김·앱 오류 500 수리·연결 중 504 대기(403·505는 안 씀, [frontend README 「오류 안내 페이지」](frontend/README.md#오류-안내-페이지)). 기존 4종 일러스트 팔레트 적용 |
 
 사실적인 인물·머리카락·옷 주름을 강조한 생성안은 사용하지 않는다. 기존 그림의 단순한 형태를 유지한다.
 최신 로그인/상태 그림4종은 이미지 모델로 밝은 팔레트에 맞춰 재생성했다. 투명 배경 WebP를 사용해 면의 색과 경계가 어긋나지 않도록 하며 CSS 혼합으로 인물 색을 강제로 바꾸지 않는다. 원본과 프롬프트는 `frontend/assets/branding/`의 `*-light-source.png`, `light-assets.prompts.json`에 보관한다. 로고 SVG·PNG·ICO는 같은 초록으로 맞춘다.

@@ -13,6 +13,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.WebSocket;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,13 +28,16 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import tools.jackson.databind.JsonNode;
@@ -62,6 +67,12 @@ class MySqlIntegrationTest {
 	@Autowired
 	@Qualifier("requestMappingHandlerMapping")
 	RequestMappingHandlerMapping mappings;
+	@Autowired
+	ThresholdPolicyRepository policies;
+	@Autowired
+	JdbcTemplate jdbc;
+	@Autowired
+	TransactionTemplate tx;
 
 	@DynamicPropertySource
 	static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -177,19 +188,58 @@ class MySqlIntegrationTest {
 
 	@Test
 	void unusedRoutesAreRemoved() {
-		// 계획 0062(2026-10-28): 앱 기능이 없는 S2·S5·S6·R2를 지웠다. 기록 삭제(R3)와 세션 종료(S3)는 남는다.
+		// 계획 0062: 앱 기능이 없는 S2·S5·S6·R2(2026-10-28)와 앱이 부르지 않는 S3·R3·C1(2026-11-12)을 지웠다.
 		var routes = new ArrayList<String>();
 		mappings.getHandlerMethods().keySet().forEach(info -> info.getPatternValues().forEach(
 			pattern -> info.getMethodsCondition().getMethods().forEach(method -> routes.add(method + " " + pattern))));
 		for (var removed : List.of(
 			"POST /v2/sessions/{id}/features", "GET /v2/sessions/{id}/metadata", "DELETE /v2/sessions/{id}",
-			"POST /v2/records")) {
+			"POST /v2/records", "POST /v2/sessions/{id}/end", "DELETE /v2/records/{id}",
+			"PUT /v2/consents/optional-profile")) {
 			assertFalse(routes.contains(removed), removed);
 		}
 		for (var kept : List.of(
-			"PUT /v2/sessions/{id}", "POST /v2/sessions/{id}/end", "GET /v2/sessions/{id}", "GET /v2/records",
-			"DELETE /v2/records/{id}")) {
+			"PUT /v2/sessions/{id}", "GET /v2/sessions/{id}", "GET /v2/records")) {
 			assertTrue(routes.contains(kept), kept);
+		}
+	}
+
+	@Test
+	void policyResolveFindsARowAnotherTransactionCommittedFirst() {
+		// 스냅샷 읽기 문제가 생기는 MySQL 기본 격리 수준에서 확인한다.
+		assertEquals("REPEATABLE-READ", jdbc.queryForObject("SELECT @@transaction_isolation", String.class));
+		var values = ThresholdPolicyRepository.Values.ofSeconds(7.5, 8.5, 97, 0.613);
+		var committed = new long[1];
+		long resolved = tx.execute(status -> {
+			// 일반 SELECT로 이 트랜잭션의 스냅샷을 만든다(아직 없는 조합).
+			assertEquals(0, jdbc.queryForObject(
+				"SELECT COUNT(*) FROM threshold_policy WHERE threshold=? AND hold_seconds=?", Integer.class,
+				values.threshold(), values.holdSeconds()));
+			// 다른 요청이 같은 조합을 먼저 넣고 커밋했다.
+			committed[0] = insertElsewhere(values);
+			return policies.resolve(values);
+		});
+		assertEquals(committed[0], resolved);
+	}
+
+	/** 별도 연결(자동 커밋)로 정책 행을 넣고 그 ID를 돌려준다. */
+	private static long insertElsewhere(ThresholdPolicyRepository.Values values) {
+		try (var connection = database.connect();
+			var insert = connection.prepareStatement(
+				"INSERT INTO threshold_policy(threshold,hold_seconds,recover_seconds,realert_seconds,created_at)"
+					+ " VALUES(?,?,?,?,'2026-01-01 00:00:00.000')",
+				Statement.RETURN_GENERATED_KEYS)) {
+			insert.setBigDecimal(1, values.threshold());
+			insert.setBigDecimal(2, values.holdSeconds());
+			insert.setBigDecimal(3, values.recoverSeconds());
+			insert.setInt(4, values.realertSeconds());
+			insert.executeUpdate();
+			try (var keys = insert.getGeneratedKeys()) {
+				assertTrue(keys.next());
+				return keys.getLong(1);
+			}
+		} catch (SQLException failure) {
+			throw new IllegalStateException(failure);
 		}
 	}
 
@@ -357,9 +407,6 @@ class MySqlIntegrationTest {
 		assertEquals("left_lean", view.get("events").get(0).get("deviation_type").asString());
 
 		String path = "/v2/sessions/" + id;
-		// 재시도: 같은 종료는 아무것도 바꾸지 않고, 다른 종료는 409.
-		assertEquals(view, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9000)).body());
-		assertEquals(409, api.post(path + "/end", MAPPER.createObjectNode().put("end_ms", 9500)).status());
 
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var session = statement.executeQuery(
@@ -451,18 +498,70 @@ class MySqlIntegrationTest {
 		assertEquals("referenceChange", rebuilt.get("events").get(0).get("type").asString());
 		assertEquals(records, api.get("/v2/workspace").body().get("records"));
 
-		// 기록을 지우면 세션이 지워지고 일별 통계는 남는다(시나리오 2).
-		assertEquals(204, api.delete("/v2/records/" + id, null).status());
-		assertEquals(404, api.get(path).status());
+		// 세션 조회(S4): 메모리에 끝난 결과가 있으면 그것, 메모리에서 빠지면 DB로 다시 만든 결과(BE-11, R1과 같은 값).
+		assertEquals(view, api.get(path).body());
+		live.remove(id, "session_lost");
+		var fromDb = api.get(path);
+		assertEquals(200, fromDb.status());
+		assertEquals(rebuiltView, fromDb.body());
+	}
+
+	/**
+	 * kafka 모드 재현(계획 0031 11번, BE-11): io-api 메모리에는 판정하지 않은 빈 세션만 있고, 판정 결과 저장(처리 서비스,
+	 * {@code JdbcEpisodeStore})이 같은 표에 종료 값을 쓴다. S4는 저장 전에는 빈 진행 중 상태, 저장 뒤에는 DB 값으로 답한다.
+	 */
+	@Test
+	void sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged() throws Exception {
+		var api = client();
+		api.register(email());
+		UUID id = UUID.randomUUID();
+		assertEquals(200, api.put("/v2/sessions/" + id, create(upright(api))).status());
+		String path = "/v2/sessions/" + id;
+
+		// 저장 전: 메모리의 빈 상태(D-57 ⑧ 전 kafka 응답 재현 — 이 시험은 local이라 받아 둔 결과가 없다).
+		var before = api.get(path).body();
+		assertFalse(before.get("ended").asBoolean());
+		assertEquals(-1, before.get("last_sequence").asLong());
+		assertEquals(0, before.get("summary").get("total_ms").asLong());
+
+		// 처리 서비스가 쓰는 것과 같은 SQL: 2초 쉬기, 3초 시작·6초 확정 붕괴(알림 1회), 8초 회복, 10초 종료(바른 자세 5초).
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
-			var rows = statement.executeQuery(
-				"SELECT (SELECT COUNT(*) FROM monitor_session WHERE client_session_uuid='" + id
-					+ "'),(SELECT COUNT(*) FROM daily_stat d JOIN user_account u ON"
-					+ " u.user_account_id=d.user_account_id WHERE u.login_email='" + email + "')");
-			assertTrue(rows.next());
-			assertEquals(0, rows.getInt(1));
-			assertEquals(1, rows.getInt(2));
+			var key = statement.executeQuery(
+				"SELECT monitor_session_id FROM monitor_session WHERE client_session_uuid='" + id + "'");
+			assertTrue(key.next());
+			long session = key.getLong(1);
+			String at = "DATE_ADD(started_at, INTERVAL %d SECOND)";
+			String from = " FROM monitor_session WHERE monitor_session_id=" + session;
+			statement.executeUpdate("INSERT INTO excluded_interval(monitor_session_id,started_at,ended_at,exclusion_reason)"
+				+ " SELECT monitor_session_id," + at.formatted(0) + "," + at.formatted(2) + ",'PAUSE'" + from);
+			statement.executeUpdate("INSERT INTO collapse_event(monitor_session_id,event_seq,started_at,confirmed_at,"
+				+ "ended_at,recovered_at) SELECT monitor_session_id,1," + at.formatted(3) + "," + at.formatted(6) + ","
+				+ at.formatted(8) + "," + at.formatted(8) + from);
+			statement.executeUpdate("INSERT INTO correction_alert(monitor_session_id,event_seq,attempted_at)"
+				+ " SELECT monitor_session_id,1," + at.formatted(6) + from);
+			assertEquals(1, statement.executeUpdate("UPDATE monitor_session SET ended_at=" + at.formatted(10)
+				+ ",good_sec=5.0 WHERE monitor_session_id=" + session + " AND ended_at IS NULL"));
 		}
+
+		// 저장 뒤: 메모리에 세션이 그대로 있어도 DB 값(FE fe-measure-end-plan 6장 1번 형식).
+		var response = api.get(path);
+		assertEquals(200, response.status());
+		var view = response.body();
+		assertTrue(view.get("ended").asBoolean());
+		assertEquals(-1, view.get("last_sequence").asLong());
+		var summary = view.get("summary");
+		assertEquals(10000, summary.get("total_ms").asLong());
+		assertEquals(8000, summary.get("valid_ms").asLong());
+		assertEquals(5000, summary.get("normal_ms").asLong());
+		assertEquals(3000, summary.get("deviation_ms").asLong());
+		assertEquals(2000, summary.get("rest_ms").asLong());
+		assertEquals(1, summary.get("collapse_count").asLong());
+		assertEquals(1, summary.get("alert_count").asLong());
+		var kinds = new ArrayList<String>();
+		view.get("events").forEach(event -> kinds.add(event.get("kind").asString()));
+		assertEquals(List.of("collapse_confirmed", "recovery_confirmed", "session_ended"), kinds);
+		// R1 기록과 같은 값이다.
+		assertEquals(view, api.get("/v2/records").body().get("records").get(0).get("server").get("view"));
 	}
 
 	@Test
@@ -534,11 +633,14 @@ class MySqlIntegrationTest {
 		assertEquals(404, lost.status());
 		assertEquals("SESSION_LOST", lost.body().get("code").asString());
 
-		// 진행 중 세션은 S3로 끝낸다. 판정 상태를 잃은 세션 행은 닫는 경로가 없어 기록 목록에 나오지 않는다
-		// (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
-		assertTrue(api.post("/v2/sessions/" + firstSessionId + "/end", MAPPER.createObjectNode().put("end_ms", 0))
-			.body()
-			.get("ended").asBoolean());
+		// 진행 중 세션은 앱처럼 WS end로 끝낸다(S3 세션 종료 REST는 2026-11-12 삭제). 판정 상태를 잃은 세션 행은
+		// 닫는 경로가 없어 기록 목록에 나오지 않는다(기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
+		var closing = Socket.open(port);
+		closing.send(helloV2(api, "measure", firstSessionId));
+		closing.next("ready");
+		closing.send(endV2(0));
+		closing.next("decision", "session_ended");
+		assertEquals("ended", closing.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var rows = statement.executeQuery(
 				"SELECT client_session_uuid,ended_at FROM monitor_session WHERE"
@@ -557,21 +659,15 @@ class MySqlIntegrationTest {
 	}
 
 	@Test
-	void consentWithdrawalErasesOnlyOptionalProfileAndReagreementAppends() throws Exception {
+	void registrationConsentsAndOptionalProfileAge() throws Exception {
+		// 선택 정보 동의·철회(C1)는 2026-11-12 삭제했다. 가입 때 준 선택 정보 동의로 나이를 저장하고 나이 범위를 검사한다.
 		var api = client();
 		api.register(email());
-		var off = MAPPER.createObjectNode().put("agreed", false).put("document_version", "service-v2");
-		var withdrawn = api.put("/v2/consents/optional-profile", off);
-		assertEquals(200, withdrawn.status());
-		assertTrue(withdrawn.body().get("profile").get("age").isNull());
-		assertTrue(withdrawn.body().get("profile").get("occupation").isNull());
-		assertFalse(withdrawn.body().get("consents").get("optional_profile").asBoolean());
-		assertEquals(200, api.put("/v2/consents/optional-profile", off).status());
-		var update = ((ObjectNode)withdrawn.body()).deepCopy();
+		var workspace = api.get("/v2/workspace").body();
+		assertTrue(workspace.get("consents").get("optional_profile").asBoolean());
+		var update = ((ObjectNode)workspace).deepCopy();
 		update.remove(List.of("schema_version", "records", "consents"));
 		((ObjectNode)update.get("profile")).put("age", 30);
-		assertEquals(400, api.put("/v2/workspace", update).status());
-		assertEquals(200, api.put("/v2/consents/optional-profile", off.deepCopy().put("agreed", true)).status());
 		assertEquals(200, api.put("/v2/workspace", update).status());
 		((ObjectNode)update.get("profile")).put("age", 13);
 		assertEquals(400, api.put("/v2/workspace", update).status());
@@ -579,8 +675,8 @@ class MySqlIntegrationTest {
 			var rows = statement.executeQuery(
 				"SELECT COUNT(*),SUM(withdrawn_at IS NOT NULL) FROM user_consent WHERE user_account_id=" + api.userId);
 			assertTrue(rows.next());
-			assertEquals(7, rows.getInt(1));
-			assertEquals(1, rows.getInt(2));
+			assertEquals(6, rows.getInt(1));
+			assertEquals(0, rows.getInt(2));
 		}
 		var anonymous = client();
 		String rejected = email();
@@ -596,7 +692,7 @@ class MySqlIntegrationTest {
 	}
 
 	@Test
-	void baselineRetryIsImmutableAndEndIsIdempotent() throws Exception {
+	void baselineRetryIsImmutableAndAnEmptyMeasurementEnds() throws Exception {
 		var api = client();
 		api.register(email());
 		assertEquals(404, api.get("/v2/baselines/current").status());
@@ -624,9 +720,13 @@ class MySqlIntegrationTest {
 		UUID id = UUID.randomUUID();
 		String path = "/v2/sessions/" + id;
 		assertEquals(200, api.put(path, create(baseline)).status());
-		var end = MAPPER.createObjectNode().put("end_ms", 300000);
-		assertEquals(200, api.post(path + "/end", end).status());
-		assertEquals(200, api.post(path + "/end", end).status());
+		// 구간 없이 끝낸 측정도 WS end로 닫힌다(S3 세션 종료 REST는 2026-11-12 삭제). API는 daily_stat에 쓰지 않는다.
+		var socket = Socket.open(port);
+		socket.send(helloV2(api, "measure", id));
+		socket.next("ready");
+		socket.send(endV2(0));
+		socket.next("decision", "session_ended");
+		assertEquals("ended", socket.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var sessions = statement.executeQuery(
 				"SELECT COUNT(*),SUM(ended_at IS NOT NULL) FROM monitor_session WHERE user_account_id=" + api.userId);

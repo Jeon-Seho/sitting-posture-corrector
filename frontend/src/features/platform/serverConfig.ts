@@ -3,12 +3,21 @@
  * (2026-10-21, no local mode).
  *
  * - VITE_API_BASE_URL=https://… API origin when the page is served elsewhere (Vercel
- *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe-server-proposal.md 9장).
- *                              Unset = same origin (`/api/...`, and `ws(s)://<page host>/api/v2/realtime`).
+ *                              `app.posegood.site` → `https://api.posegood.site`, docs/design/fe/fe-server-proposal.md 2.1).
+ *                              Unset = same origin (`API_ROOT/...`, and `ws(s)://<page host>API_ROOT/realtime`).
  *
  * Development API calls go through the Vite proxy (`/api` → POSEGOOD_API_URL, default
  * http://127.0.0.1:8090, WebSocket included); see vite.config.ts.
  */
+/**
+ * The version segment of every API path (`/api/v2/…`). It is only here: the team plans to drop it
+ * from the server paths, and then this becomes '' (FE proposal: API paths without the version).
+ */
+export const API_VERSION = '/v2'
+
+/** Where every REST and WebSocket path starts: `/api` (cut by the gateway) + the version. */
+export const API_ROOT = `/api${API_VERSION}`
+
 export const SERVER = {
   apiBase: ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/+$/, ''),
 } as const

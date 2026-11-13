@@ -4,8 +4,8 @@
 - 담당: DevOps/BE(처리 서비스·계약·compose·통합 테스트), PM(`ws` — `realtime/` Kafka 연결), DB/BE(`session/` 결과 쓰기 중단·REST 정리)
 - 시작일: 2026-10-16
 - 관련 요구사항/ADR: [ADR 0020](../../decisions/0020-single-api-decision-engine.md)(대체 예정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
-  [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md), [연동 명세](../../design/api-ws-spec.md), [아키텍처 v5.2 변경 안내](../../design/architecture_v5.2_change_notes.md),
-  [스택별 역할](../../design/architecture_v5.2_stack_roles.md), [계획 0029](0029-merge-backend-data-platform.md). 지운 계획 0022(Kafka 실시간 경로)를 이 계획이 대신한다.
+  [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md), [연동 명세](../../design/fe/api-ws-spec.md), [아키텍처 v5.4 변경 안내](../../design/architecture_v5.4_change_notes.md),
+  [스택별 역할](../../design/architecture_v5.4_stack_roles.md), [계획 0029](0029-merge-backend-data-platform.md). 지운 계획 0022(Kafka 실시간 경로)를 이 계획이 대신한다.
 
 ## 문제와 완료 기준
 
@@ -77,6 +77,8 @@
     S2 `POST /v2/sessions/{id}/features`, R2 `POST /v2/records`. 남기는 것(Kafka 계약 v1): `kafka-*.v1`, Kafka 예시·시험,
     처리 서비스 시험용 입구 `POST /api/v1/realtime/features`, `tools/platform/replay_realtime_v1.py`(통합 테스트 8·9·11단계, [Kafka 명세](../../design/kafka-spec.md) 4장).
   - 최대 측정 시간은 팀 회의 결과를 따른다. 그때까지 `posegood.realtime.max-session-duration` 기본값 5000초를 유지한다.
+- 2026-11-11 DB/BE: 11번 중 S4(`GET /v2/sessions/{id}`)를 먼저 develop 기준으로 고침(`feature/backend-session-view-from-db`, BE-11). kafka 모드에서는 io-api 메모리에 세션이 있지만 비어 있어(`last_sequence` -1, 빈 요약, `ended` false) S4가 빈 결과를 줬다. 순서: 메모리에 끝난 결과 → DB에 끝난 값(R1과 같은 재계산) → 메모리 진행 중 상태 → 404 `SESSION_LOST`. 진행 중 세션을 `ws`가 받은 마지막 `progress`로 채우는 일은 DevOps/BE가 D-57 ⑧(D-85)로 구현함. FE 요청(`fe-measure-end-plan.md` 6장 1번: DB `total_ms`, `ended: true`, `session_ended`, `last_sequence` -1)과 같은 형식.
+- 2026-11-12 DB/BE·DevOps/BE 합의(DevOps 회신 → DB/BE 재회신 진행안): ① S4 답하는 순서는 「엔진이 판정해 끝난 결과(local만) → DB 끝난 값 → 메모리(엔진 + ⑧) → 404」. local에서 `last_sequence`·`deviation_type`을 지키려고 1단계를 DB 앞에 두고, kafka 엔진은 판정하지 않으므로 1단계는 local일 때만 쓴다(D-57 병합 때 DevOps/BE가 조건을 넣음). ② `ended_at`만으로 「끝남」을 본다: 처리 서비스 `EpisodeStoreService.endSession`은 트랜잭션은 아니지만 열린 사건·제외 구간을 닫은 뒤 `ended_at`을 마지막에 쓴다(한 세션 메시지가 한 파티션에서 순서대로 처리된다는 전제는 DevOps 확인). ③ 순서: DB/BE 브랜치 develop PR → FE 확인(D-87, 저장 전 S4 `ended: false` + 마지막 `progress` 처리) → D-57이 develop을 받아 합침 → `:api:test`·`integration_test.sh --quick --kafka` 다시 실행. 남은 것: kafka 모드 `last_sequence` 뜻(결과로 받은 순번 vs io-api가 받은 순번).
 - 남은 질문: ADR 0020 대체(DB/BE), 최대 측정 시간(지금 5000초, 팀 회의), `POST /v2/sessions/{id}/features` 처리(FE).
   FE 세션 HTTP 클라이언트(`frontend/src/features/session/server/client.ts`)가 아직 `/api/v1/sessions`를 부르는데 API REST는 `/v2`라서,
   WebSocket 없이 HTTP로 측정하는 경로는 지금 API와 맞지 않는다(FE에 알림, 2026-10-17). S2·R2는 FE가 측정을 v2 WebSocket으로 옮긴 뒤 지운다.

@@ -2,7 +2,7 @@ import type { Rules } from '../../../lib/engine'
 
 /**
  * The server's `SessionView` as kept in a record (`RecordItem.server.view`, R1 format). The
- * measurement itself speaks `/v2/realtime` (`../live/`).
+ * measurement itself speaks `/realtime` (`../live/`).
  */
 
 export type ServerPolicy = {

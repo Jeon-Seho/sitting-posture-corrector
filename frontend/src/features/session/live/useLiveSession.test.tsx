@@ -6,6 +6,7 @@ import { setServerAuth } from '../../platform/serverAuth'
 import { endRunningMeasurement, WINDOW_END_REASON } from '../sessionControl'
 import type { LiveState, SocketLike } from './LiveSession'
 import { EMPTY_SUMMARY } from './messages'
+import { CAMERA_ERRORS } from '../../camera/errors'
 import { useLiveSession, type LiveSessionScreen } from './useLiveSession'
 
 vi.mock('../../desktop/alertPopup', () => ({ popupAlert: vi.fn() }))
@@ -21,13 +22,12 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
   let camera: CameraController
   let socket: SocketLike & { sent: Record<string, unknown>[] }
   let onEnded: ReturnType<typeof vi.fn<(state: LiveState, note: string) => void>>
-  let onRolledOver: ReturnType<typeof vi.fn<(previous: LiveState) => void>>
 
   function Probe() {
     screen = useLiveSession({
       session: { id: SESSION, startedAt: '2026-10-21T00:00:00Z', rules: DEFAULT_RULES, baselineId: 'b' },
       camera,
-      service: { active: true, onEnded, onRolledOver },
+      service: { active: true, onEnded },
       openSocket: () => {
         socket = {
           readyState: 1,
@@ -65,7 +65,6 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
     vi.setSystemTime(0)
     vi.spyOn(performance, 'now').mockImplementation(() => Date.now())
     onEnded = vi.fn<(state: LiveState, note: string) => void>()
-    onRolledOver = vi.fn<(previous: LiveState) => void>()
     camera = {
       state: 'on',
       quality: true,
@@ -130,6 +129,18 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
     expect(camera.stop).toHaveBeenCalled()
   })
 
+  it('says the pose tracking stopped, not that the camera was unplugged', async () => {
+    await mount()
+    keepFrames()
+    camera.state = 'error'
+    camera.error = CAMERA_ERRORS.trackingFailed
+    advance(250)
+    await act(async () => {
+      socket.onmessage?.({ data: JSON.stringify({ type: 'closed', reason: 'ended' }) })
+    })
+    expect(onEnded.mock.calls[0][1]).toBe('자세 추적이 멈춰 측정을 마쳤어요. 그때까지의 기록은 저장했어요.')
+  })
+
   it('ends when the frame size changes, and from the small window X', async () => {
     await mount()
     keepFrames()
@@ -154,7 +165,7 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
     expect(screen.note).toBe(WINDOW_END_REASON)
   })
 
-  it('goes on over KST midnight: hands the stored day over and says so, the camera stays on', async () => {
+  it('goes on over KST midnight and says so, the camera stays on', async () => {
     await mount()
     const summary = { total_ms: 0, valid_ms: 0, normal_ms: 0, deviation_ms: 0, rest_ms: 0, away_ms: 0, unknown_ms: 0,
       missing_ms: 0, collapse_count: 0, alert_count: 0, interval_count: 0, keep_rate: null, events_per_hour: null,
@@ -166,8 +177,6 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
         session_id: '5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e', started_at: '2026-10-26T15:00:00Z', at_ms: 0,
       }) })
     })
-    expect(onRolledOver).toHaveBeenCalledOnce()
-    expect(onRolledOver.mock.calls[0][0].sessionId).toBe(SESSION)
     expect(screen.rolledOver).toBe(true)
     expect(screen.phase).toBe('running')
     expect(onEnded).not.toHaveBeenCalled()

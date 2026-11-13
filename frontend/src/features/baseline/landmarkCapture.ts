@@ -3,7 +3,7 @@ import { FRAME_JOINTS } from '../session/realtime/frames'
 
 /**
  * Posture registration (2026-10-20 team meeting): the app averages the 9 joints over a steady
- * capture and sends the mean coordinates to B1 `POST /v2/baselines`. Only x and y are kept;
+ * capture and sends the mean coordinates to B1 `POST /baselines`. Only x and y are kept;
  * frames, video and the device are not sent.
  */
 export const BASELINE_JOINT_NAMES = [

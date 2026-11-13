@@ -50,7 +50,7 @@ export function MailAccessPage({ purpose: initialPurpose = 'reset', initialEmail
         else await accountMailApi.verify(token.trim(), controller.signal)
         if (controller.signal.aborted) return
         setToken(''); setPassword(''); setAgain(''); setDone(true)
-        setMessage(purpose === 'reset' ? '비밀번호를 재설정했어요. 새 비밀번호로 다시 로그인해 주세요.' : '이메일을 확인했어요. 가입을 진행하던 화면으로 돌아가 주세요.')
+        setMessage(purpose === 'reset' ? '비밀번호를 재설정했어요. 모든 기기에서 로그아웃됐으니 새 비밀번호로 다시 로그인해 주세요.' : '이메일을 확인했어요. 가입을 진행하던 화면으로 돌아가 주세요.')
       }
     } catch (e) {
       console.error('[features/auth/MailAccessPage.tsx:submit] Operation failed', e)
@@ -63,7 +63,7 @@ export function MailAccessPage({ purpose: initialPurpose = 'reset', initialEmail
     submitLabel={done ? '돌아가기' : busy ? '처리 중…' : confirming ? purpose === 'reset' ? '새 비밀번호 저장' : '이메일 확인' : cooldown ? `${cooldown}초 후 다시 요청` : '안내 메일 요청'}
     submitDisabled={busy || (!confirming && cooldown > 0)} onSubmit={done ? onBack : () => void submit()}
     footer={<>
-      {!accountMailApi.enabled && <p className="fine mail-pending" role="status">화면 준비 단계예요. 서버 연결 전에는 메일 발송이나 비밀번호 변경이 실행되지 않아요.</p>}
+      {!accountMailApi.enabledFor(purpose) && <p className="fine mail-pending" role="status">화면 준비 단계예요. 서버 연결 전에는 메일 발송이나 비밀번호 변경이 실행되지 않아요.</p>}
       {message && <p role="status">{message}</p>}
       {error && <p role="alert" className="form-error">{error}</p>}
       {!done && <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => { setConfirming(v => !v); setError(''); setMessage(''); setPassword(''); setAgain('') }}>

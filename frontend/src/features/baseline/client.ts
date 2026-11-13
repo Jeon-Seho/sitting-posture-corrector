@@ -45,10 +45,10 @@ function parsed(value: unknown): ServerBaseline {
   return baseline
 }
 
-/** B2 `GET /v2/baselines/current`; null when nothing is registered yet (404). */
+/** B2 `GET /baselines/current`; null when nothing is registered yet (404). */
 export async function fetchCurrentBaseline(options: ApiOptions = {}): Promise<ServerBaseline | null> {
   try {
-    return parsed(await apiRequest('/v2/baselines/current', {}, MESSAGES, options))
+    return parsed(await apiRequest('/baselines/current', {}, MESSAGES, options))
   } catch (cause) {
     console.error('[features/baseline/client.ts:fetchCurrentBaseline] Operation failed', cause,
       cause instanceof ApiError && cause.kind === 'not_found' && cause.status === 404 ? 'expected:baseline-missing' : 'unexpected')
@@ -72,7 +72,7 @@ export function baselineBody(captured: CapturedBaseline, registrationId: string)
 }
 
 /**
- * B1 `POST /v2/baselines`: saves the captured posture and returns what the server stored. A
+ * B1 `POST /baselines`: saves the captured posture and returns what the server stored. A
  * repeat with the same `registration_id` and coordinates returns the same row (different
  * coordinates: 409), so a request that got no answer is sent again. The response's
  * `registered_at` is the server's time and also moves 「오늘」 (ADR 0029).
@@ -83,7 +83,7 @@ export async function registerBaseline(
   options: ApiOptions = {},
 ): Promise<ServerBaseline> {
   const saved = parsed(
-    await apiRequest('/v2/baselines', { method: 'POST', body: baselineBody(captured, registrationId) }, MESSAGES, {
+    await apiRequest('/baselines', { method: 'POST', body: baselineBody(captured, registrationId) }, MESSAGES, {
       retryUnanswered: true,
       ...options,
     }),

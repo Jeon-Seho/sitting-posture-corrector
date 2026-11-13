@@ -3,7 +3,7 @@
 - 상태: superseded (2026-10-27) — klaod-tech가 요청해 lellon0403이 만든 작은 창(develop PR #64 `ad7cd42`, [계획 0057](0057-native-camera-window-and-design-review.md))으로 바꿨다. V3의 `features/desktop/DesktopCameraWindow`·`useDesktopCameraWindow`와 `main.cjs`의 같은 기능은 10/27 develop을 V3에 합치며 지웠다. 아래는 기록으로 남긴다
 - 담당: FE(klaod-tech)
 - 시작일: 2026-10-26
-- 관련 요구사항/ADR: [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 「작은 카메라 창」(웹에는 작은 창 없음, 데스크톱만), [FE 제안서](../../design/fe-server-proposal.md) 8.3·8.4, [계획 0054](0054-pip-fix-and-server-only-login.md) 1단계(시험 기록)
+- 관련 요구사항/ADR: [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 「작은 카메라 창」(웹에는 작은 창 없음, 데스크톱만), [FE 제안서](../../design/fe/fe-server-proposal.md) 2.1, [계획 0054](0054-pip-fix-and-server-only-login.md) 1단계(시험 기록)
 
 ## 문제와 완료 기준
 
@@ -35,7 +35,7 @@
 
 ## 작업 단계
 
-- [x] 문서: ADR 0028, 이 계획, 계획 0054 기록, FE 제안서 8.3·8.4·7.2, 문서 목록
+- [x] 문서: ADR 0028, 이 계획, 계획 0054 기록, FE 제안서 `b03fd15` 8.3·8.4·7.2, 문서 목록
 - [x] main·preload: 창 열기 허락(`allowCameraWindow`), 보이기/숨기기(`syncCameraWindow`), `focusApp`, 최소화 때 띠 높이로(`setCameraWindowCompact`), 메인 창 닫힘 정리
 - [x] 화면: `features/desktop/useDesktopCameraWindow.ts`·`DesktopCameraWindow.tsx`, `ServiceScreens` 연결, `bridge.ts` 타입
 - [x] 웹 안내 문구: 측정하기 준비 화면 「이렇게 앉으면 좋아요」 카드에 한 줄(데스크톱 앱이 아닐 때만)

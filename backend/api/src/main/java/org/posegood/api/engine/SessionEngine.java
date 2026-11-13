@@ -25,7 +25,7 @@ public final class SessionEngine {
 	 * 측정불가가 이어지면 끝낸다({@link #unmeasurableMs}, 2026-10-26 결정).
 	 */
 	public static final long DEFAULT_MAX_MS = 86_400_000;
-	/** 재전송 확인에 기억하는 최근 구간 수(0.5초 구간이면 1분). 메모리가 측정 시간에 따라 늘지 않게 한다. */
+	/** 재전송 확인에 기억하는 최근 구간 수(프레임마다 구간이면 약 12초). 메모리가 측정 시간에 따라 늘지 않게 한다. */
 	public static final int RETRY_WINDOW = 120;
 
 	private final UUID id;
@@ -238,7 +238,7 @@ public final class SessionEngine {
 	/**
 	 * 앱에 보낼 관측 4.0: 유효한 구간이면 세션 정책 임계값으로 나눈 그 순간의 good·bad와 점수, 아니면 판정 불가 사유.
 	 *
-	 * 이탈 후보 판단과 같은 비교({@link DecisionRules#candidate})를 쓴다. 알림 확정(3초)은 계속 사건이 한다.
+	 * 이탈 후보 판단과 같은 비교({@link DecisionRules#candidate})를 쓴다. 알림 확정(정책 {@code hold_ms}, 기본 3초)은 계속 사건이 한다.
 	 * 이어진 시간은 그 구간을 {@link #accept}한 뒤의 값으로, 확정 규칙이 세는 것과 같다(끊기면 0).
 	 * 회복 쪽은 열린 사건이 있을 때만 센다. 사건이 없으면, 이 구간에서 회복이 확정돼 사건이 닫혔어도 0이다.
 	 */

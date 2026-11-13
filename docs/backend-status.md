@@ -8,8 +8,8 @@
 
 - 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.
 - 큰 한계:
-  - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 `404 SESSION_LOST`.
-  - 실제 MySQL 통합 시험(`-Pmysql-integration`)은 2026-11-03 로컬 MySQL 8로 통과했다(2.7). CI·서버 MySQL에서는 아직이다.
+  - 진행 중 세션 상태가 API 메모리에만 있어 한 인스턴스로만 돌린다. 재시작하면 진행 중이던 세션은 `404 SESSION_LOST`(끝난 세션은 S4가 DB로 답함, BE-11).
+  - 실제 MySQL 통합 시험(`-Pmysql-integration`)은 2026-11-11 로컬 MySQL 8로 통과했다(2.7). CI·서버 MySQL에서는 아직이다.
 
 ## 2. 영역별 현황
 
@@ -20,9 +20,11 @@
 | 가입·로그인·로그아웃·`/v2/auth/me` | DB/BE | 구현됨 | `account/AuthController.java` |
 | **로그인 토큰**(ADR 0031): access 토큰(JWT HS256, 30분, Bearer, 저장 안 함) + refresh 토큰(HttpOnly 쿠키, 14일, 교체·30초 유예·재사용 감지), `POST /v2/auth/refresh`, WS `hello.access_token`. 쿠키 세션·CSRF·`LoginLifetime` 삭제 | DB/BE | 구현됨 (develop PR #68, MySQL 통합 시험 통과 2.7). FE 토큰 처리(PR #69·#75)·DevOps 도구·초기화 스크립트·`POSEGOOD_JWT_SECRET`(`a793405`) 대응 끝 | `account/AuthTokens.java`, `RefreshTokenRepository.java`, `SecurityConfiguration.java`, `AuthTokensTest`, `api-spec.md` 1·4장 A8, DB V2.6 |
 | 비밀번호 변경 (그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫기. access 토큰은 만료까지 남음) | DB/BE | 구현됨 | `AuthController.java` `PUT /v2/auth/password`, `AccountRepository.removeLogins` |
+| 비밀번호 재설정(일회용 메일 링크 30분, 해시만 저장, 완료 시 모든 로그인 철회. 비밀번호를 메일로 보내지 않음) | DB/BE | BE 구현됨·**기본 꺼짐** — DB 표 `password_reset_token`(V2.7, migration 017 작성 — DB 적용 전)·SMTP 설정 전. 단위 시험만, MySQL·실제 메일 미확인 | `account/PasswordResetService.java`, `PasswordResetServiceTest`, [인계](design/social-login-password-reset-handoff.md) |
+| Discord 로그인·가입·계정 연결(OAuth 코드 + PKCE, 같은 이메일 자동 연결 안 함, 비밀번호 없는 계정) | DB/BE | BE 구현됨·**기본 꺼짐** — DB 표 `social_identity`(V2.7, migration 017 작성 — DB 적용 전)·Discord 앱 설정 전. 단위 시험만, MySQL·실제 Discord 미확인. 데스크톱 앱은 후속 | `account/SocialLoginService.java`, `SocialController.java`, `SocialLoginServiceTest`, [인계](design/social-login-password-reset-handoff.md) |
 | 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`) | DB/BE | 구현됨 | `AuthController.java` `DELETE /v2/auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록 |
 | 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 3절(좌표 전송 동의 필수), [DB 안내](../database/README.md)(`user_consent`) |
-| 선택 정보 동의 철회 (나이·직업 비움) | DB/BE | 구현됨 | `workspace/WorkspaceController.java` `PUT /v2/consents/optional-profile` |
+| 선택 정보 동의 철회 C1 `PUT /v2/consents/optional-profile` | DB/BE | 삭제함 (2026-11-12, 앱이 부르지 않음). 선택 정보 동의는 가입 때만 받는다 | [계획 0062](plans/active/0062-remove-unused-apis.md) 2단계 |
 | 매시간 탈퇴 삭제 스케줄러 제거 | DB/BE | 구현됨 | 계획 0026 10/15 기록 (`purgeWithdrawn` 삭제) |
 
 ### 2.2 설정·기록
@@ -30,12 +32,18 @@
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
 | 설정 조회·저장 `/v2/workspace` | DB/BE | 구현됨 | `workspace/WorkspaceController.java` |
-| 기록 목록·저장·삭제 `/v2/records` (세션 테이블에서 다시 만듦) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
+| 기록 목록 `/v2/records` (세션 테이블에서 다시 만듦). 기록 삭제(R3)는 2026-11-12 삭제(앱이 부르지 않음). 기록 저장(R2)은 2026-10-28 삭제 — 서버가 측정 종료 때 저장(계획 0062) | DB/BE | 구현됨 | `workspace/RecordRebuild.java`, `RecordRebuildTest.java` |
 | `daily_stat` 쓰기 중단 (읽기만) | DB/BE | 구현됨 | `session/SessionRepository.java` 66줄 주석, 계획 0026 10/15 기록 |
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled`. 새 계정 기본값 켜짐(DB V2.6, 2026-10-27 — 미결이던 DB false / FE 켜짐을 켜짐으로 정함) | DB/BE | 구현됨 (develop PR #70) | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 1절 5번, [DB 안내](../database/README.md) 세션 줄, `backend/README.md`, migration 016 |
-| 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2(매일 00:10, 2026-11-01 서버 cron 등록, PR #93)가 채운다. 11/08부터 어제~7일 전을 매일 다시 계산해 바뀐 날만 쓴다(D-81, PR #100) — 최근 7일 값과 `computed_at`은 바뀔 수 있다. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
+| 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2(매일 00:10, 2026-11-01 서버 cron 등록, PR #93)가 채운다. 11/08부터 어제~7일 전을 매일 다시 계산해 바뀐 날만 쓴다(D-81, PR #100) — 최근 7일 값과 `computed_at`은 바뀔 수 있다. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
 
-표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
+표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
+
+기록 재계산의 한계(2026-11-10 확인, `workspace/ClosedSessions.java` — 11/11 `RecordHistory`에서 옮겨 S4도 같이 씀):
+
+- 기록의 `server.modelVersion`은 측정 당시가 아니라 지금 설정된 모델 버전이다(기록에 모델 버전을 저장하지 않음). 모델을 바꾸면 옛 기록에도 새 버전이 보인다.
+- `GET /v2/workspace`·`GET /v2/records`·`PUT /v2/workspace` 응답은 그 사용자의 끝난 세션 전체와 사건을 매번 다시 계산한다. 기록이 많이 쌓이면 느려질 수 있다.
+- `ended_at`이 비어 있는 세션은 목록에 나오지 않는다(4장 「S1은 됐는데 WebSocket이 열리지 않은 세션」과 같은 원인).
 
 ### 2.3 기준 자세
 
@@ -49,7 +57,7 @@
 
 | 일 | 담당 | 상태 | 근거 |
 |---|---|---|---|
-| 세션 REST (`PUT`·`/end`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28 삭제(앱 기능 없음, 기록 삭제는 R3) | `session/SessionController.java`, [계획 0062](plans/active/0062-remove-unused-apis.md) |
+| 세션 REST (`PUT`·`GET`) | DB/BE | 구현됨. `/metadata`(S5)·`DELETE`(S6)는 2026-10-28, 종료 `/end`(S3)는 2026-11-12 삭제(앱은 WS `end`로 끝냄) | `session/SessionController.java`, [계획 0062](plans/active/0062-remove-unused-apis.md) |
 | 판정 엔진 (붕괴·회복·재알림) | DB/BE | 구현됨 (Kafka 전환 뒤 삭제 예정) | `engine/`, `SessionEngineTest.java`, ADR 0020 |
 | `/v1/realtime` WebSocket | DB/BE | 삭제함 (develop PR #65) — 코드·계약 `realtime-ws.v1`·예시·시험. nginx 경로·infra 안내도 2026-11-09 삭제(D-72, 3장) | `api-spec.md` 10장, `7034f0e` |
 | `/v2/realtime` 서버 시각 전달: `ready.started_at`, `closed.ended_at`(끝나기 전에 닫히면 null) | DB/BE | 구현됨 (develop PR #65). FE V3는 대응함(PR #69), Kafka `ws`는 전환 때 맞춤 | [ADR 0028](decisions/0028-server-time-for-baseline-registration.md) 3번, `realtime/RealtimeHandlerV2.java`, `RealtimeHandlerV2Test` |
@@ -79,8 +87,8 @@
 | BE-4: 판정 시간 규칙 이름·단위 통일 (W1·W2 `holdSeconds` 초 / S1 `hold_ms` ms) | DB/BE | 구현 전 (4장 결정 뒤) | FE 제안서 1장 |
 | BE-6 (자정 끊기·서버 시각, FE ADR 0029): ① KST 자정에 측정 끊기, ② `ready.started_at`·`closed.ended_at`, ③ A4·R1·T1 `today`, ④ `Cache-Control`, ⑤ J2 실행 시점, ⑥ 계약 맞춤 | DB/BE | ② 끝(`b903751`), ④ FE 철회, ⑤ 끝(Spark, PR #93 — J2 매일 00:10), ① **B안 구현**(10/28 develop PR #77, 같은 연결에서 서버가 새 세션으로 넘김·`session_rollover`, 설정 `midnight-rollover` 기본 꺼짐 — 4장), ③ A4·R1 `today` 구현(R1은 `{today, records}` 객체로 — 호환성 깨짐), T1은 형식에 포함, ⑥ 병합 때(`unmeasurable_timeout` 추가 알림) | FE 제안서 1장·1.1(V3 `259c752`) |
 | BE-7: [API 명세](design/api-spec.md) 필드 표에 없던 시간 필드 — 프레임 `t_ms`, 사건 `timestamp_ms`·`onset_ms` | DB/BE | 끝 (2026-11-04 문서만) — 코드에서 뜻을 확인해 `api-spec.md` 9장 SessionView·11.2에 넣음. `t_ms`는 서버가 판정·시간 계산에 쓰지 않음 | FE 제안서 1장, `engine/EpisodeLedger.java`, `engine/Timeline.java` |
-| BE-10: 측정 중 WS 줄이기 — `observation`에 `alerting`·`keep_rate`, 결과 요약·사건은 끝난 뒤 S4로 | DB/BE | 구현 전 — 실시간 판정 다시 만들 때 | FE 제안서 1장, [계획 0059](plans/active/0059-slim-realtime-results-over-api.md) |
-| BE-11: S1 `policy` 빼기(없으면 계정 정책), 재배포를 자정과 겹치지 않게, S4가 메모리에 세션이 없으면 DB 값으로 답하기 | DB/BE | 구현 전 | FE 제안서 1장 |
+| BE-10: 측정 중 WS 줄이기 — `observation`에 `alerting`·`keep_rate`, 결과 요약·사건은 끝난 뒤 S4로 | DB/BE | 구현 전 — 실시간 판정 다시 만들 때 | FE 제안서 1장, [계획 0059](plans/completed/0059-slim-realtime-results-over-api.md) |
+| BE-11: S1 `policy` 빼기(없으면 계정 정책), 재배포를 자정과 겹치지 않게, S4가 메모리에 세션이 없으면 DB 값으로 답하기 | DB/BE | S4만 구현(`feature/backend-session-view-from-db`, 11/11): 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음). kafka 모드의 「메모리에 있지만 비어 있는」 세션도 DB가 먼저. 진행 중 세션의 kafka 값은 D-57 ⑧(받은 마지막 `progress`·`decision`)이 채움. 11/12 DevOps와 합칠 순서 합의: local 끝난 엔진 값 → DB → 메모리(엔진 + ⑧) → 404, 1단계는 local만(D-57 병합 때 DevOps가 넣음). ⑧ develop 반영은 FE 확인(D-87, 저장 전 `ended: false` 처리) 뒤. 나머지 두 개는 구현 전 | FE 제안서 1장, FE `fe-measure-end-plan.md` 6장 1번(`fix/fe-realtime-kafka-mode`), `session/SessionService.get`, `workspace/ClosedSessions.java`, `api-spec.md` S4 |
 | BE-13: 쉬기 10분 자동 종료를 누가 하는지 (FE 의견: 서버가 `rest` 길이를 세어 `closed(rest_timeout)`) | DB/BE·FE | 미결 (4장) — 10/20 결정이지만 서버·앱 모두 구현 없음 | FE 제안서 1장 |
 | R1 `GET /v2/records` 응답을 `{today, records}` 객체로, A2·A3·A4에 `today` | DB/BE | 구현됨 (develop PR #65, MySQL 통합 시험 통과 2.7). 앱(`storage/serverRecords.ts`)·DevOps `io_api_smoke.py`가 `{today, records}`로 읽음 | `workspace/WorkspaceController.java`, `common/KstTime.today()`, `api-spec.md` R1·A4 |
 | 화면·API 분리 배포용 CORS (`SecurityConfiguration`) | DB/BE | 구현됨 (`POSEGOOD_CORS_ALLOWED_ORIGINS`, 비우면 CORS 없음). DevOps 요청: `compose.yaml` `api`·`bigdata.yaml` `io-api`에 변수 전달(`compose.yaml`은 목록에 없으면 컨테이너에 안 닿음), 서버 값 `https://app.posegood.site` | `design/fe-server-proposal.md` 9장(옛 `fe-deploy.md`, 그 전 `fe-domain-idea.md`) 9.3.1 S-1 |
@@ -89,8 +97,9 @@
 
 | 검사 | 마지막 결과 | 날짜 | 비고 |
 |---|---|---|---|
-| `backend/gradlew -p backend :api:test` (단위) | 88개 중 77 통과, 실패 0, 건너뜀 11 (`MySqlIntegrationTest`) | 2026-11-04 | develop `fe5058b`(`recovery_ms` 포함) 기준. 로컬 JDK 17 |
-| `backend/gradlew -p backend :api:test -Pmysql-integration` | `MySqlIntegrationTest` 11개 통과 | 2026-11-03 | observation 4.0(PR #96) 기준. 로컬 MySQL 8 일회용 DB. `recovery_ms`(PR #98) 뒤에는 아직 실행 안 함 |
+| `backend/gradlew -p backend :api:test` (단위) | 93개 중 81 통과, 실패 0, 건너뜀 12 (`MySqlIntegrationTest`) | 2026-11-11 | `feature/backend-session-view-from-db`(develop `faff869` + S4 DB 조회) 기준, `python tools/dev.py check-backend`(Checkstyle·빌드 포함). 바꾼 파일에 Checkstyle 경고 없음. 11/12 develop `505242c`를 합친 뒤는 아래 줄 |
+| `backend/gradlew -p backend :api:build :processing:build -Pmysql-integration` | api 117개 모두 통과(`MySqlIntegrationTest` 12개 포함), processing 62개 통과, 실패 0, 건너뜀 0 | 2026-11-12 | `feature/backend-session-view-from-db`에 develop `505242c`(V2.7 스키마·Discord 로그인 포함)를 합친 기준. 11/11 S4 브랜치만으로는 api 93개 통과. 로컬 MySQL80(Windows) 일회용 DB. `measurementWritesTheV2TablesAndRecordsAreRebuilt`에 「메모리에서 뺀 끝난 세션 → S4 200, R1 `server.view`와 같음」 추가 |
+| `backend/gradlew -p backend :api:test -Pmysql-integration --tests MySqlIntegrationTest` | `MySqlIntegrationTest` 13개 모두 통과, 실패 0, 건너뜀 0 | 2026-11-12 | `2c4c2cb` 기준(kafka 모드 재현 `sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged` 추가). 같은 날 `python tools/dev.py check-backend`(Checkstyle·빌드 포함) 단위 118개 중 105 통과·실패 0·건너뜀 13(MySQL 통합). 로컬 MySQL80(Windows) 일회용 DB |
 | `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 11개·8개 통과 | 2026-11-04 | develop `fe5058b`(observation 4.0·`recovery_ms`) 기준. 저장소 `.venv`에서 `python -m unittest` |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
 | `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0062(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
@@ -113,7 +122,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | `tools/platform/io_api_smoke.py`, `tools/platform/ws_realtime_smoke.py` | ~~쿠키·CSRF 로그인과 쿠키 WS 인증~~ → Bearer 토큰·`hello.access_token`으로 바뀜(`a793405`) | — | 해결 (2026-11-03 확인) |
 | `tools/platform/io_api_smoke.py` 204·205줄 | ~~R1을 배열로 읽음~~ → `{today, records}` 객체로 읽음 | — | 해결 (2026-11-03 확인) |
 | `contracts/consent-documents.v2.md` `POSE_COORDINATES` | "측정 중에는 기준 대비 **특징 변화량**"을 보낸다고 적힘 — `/v2/realtime`은 좌표 프레임을 받는다 | 문구 수정 (BE-1, 공지 ⑦ 개인정보 고지와 함께) | 구현 전 |
-| `docs/design/api-ws-spec.md`, `fe-server-proposal.md`, `fe-3sec.md` | ~~`observation` 3.0 필드(`valid_ms`·`start_ms` 등)와 「서버가 3초 묶음」 기준~~ → FE가 4.0(구간마다)으로 고침, `fe-3sec.md`는 지움(`a90274d`, PR #99) | — | 해결 (2026-11-04 확인) |
+| `docs/design/fe/api-ws-spec.md`, `fe-server-proposal.md`, `fe-3sec.md` | ~~`observation` 3.0 필드(`valid_ms`·`start_ms` 등)와 「서버가 3초 묶음」 기준~~ → FE가 4.0(구간마다)으로 고침, `fe-3sec.md`는 지움(`a90274d`, PR #99) | — | 해결 (2026-11-04 확인) |
 
 ## 4. 미결 결정
 
@@ -122,9 +131,9 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | API 다중 인스턴스 (진행 상태 공유·세션 고정) | DB/BE·DevOps | `backend/README.md` 「다음 결정」 1, D-42 |
 | 자정 넘김을 켜는 시점 (`POSEGOOD_MIDNIGHT_ROLLOVER=true`) — 앱이 `session_rollover`(기록 나누기, 새 `session_id`로 S3·기록 저장)를 처리한 뒤. Spark J2는 00:10에 돈다(BE-6 ⑤ 끝, PR #93). `monitor_session.client_session_uuid` 주석(「클라이언트가 발급」)을 서버 발급까지로 고칠지(migration 필요) | DB/BE·FE·Spark | `api-spec.md` 11.3, FE ADR 0029 |
 | ADR 0020 대체 시점 | DB/BE·DevOps | 계획 0031 |
-| 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류) |
+| 적재된 세션의 기록 삭제 방식 (`RECORDS_ONLY` 유지 여부) | DB/BE·J3 | 「DB-V2.4-변경사항」 7장 (보류). 기록 삭제 API(R3)는 2026-11-12 지워 지금은 탈퇴 최종 삭제(J3)만 해당 |
 | 삭제 완료 기록(`DONE`·`data_deleted_at`)을 DB에 남길지 | DB/BE·PM | 「DB-V2.4-변경사항」 7장 (보류), 공지 ⑦ |
-| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (앱 S3 / 서버 시간 제한) | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
+| S1은 됐는데 WebSocket이 열리지 않은 세션을 누가 닫을지 (서버 시간 제한 등). 측정 종료 저장(`end`·연결 끊김)이 DB 오류로 실패한 세션도 같다 — 판정은 끝났지만 다시 저장하는 길이 없다(`RealtimeHandlerV2.end`, 2026-11-10 확인). 앱이 부르지 않던 S3는 2026-11-12 지워 이 두 경우를 닫을 길이 지금 없다 | DB/BE·FE | FE 제안서 1장 질문(10/22). 안 닫으면 `ended_at` NULL 행이 남아 J1·J2·기록 목록에 영향 |
 | 판정 시간 규칙 이름·단위 (BE-4) | DB/BE·FE | 2.6 |
 | 쉬기 10분 자동 종료를 서버가 할지 (BE-13, 안: `closed(rest_timeout)`) | DB/BE·FE | 2.6, FE 제안서 1장 |
 | 세션 안 시각(③) — 서버 시계로 경과 ms의 상한을 검사할지 (보류) | DB/BE | ADR 0028 4번 |
@@ -161,6 +170,10 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-03 | 실시간 `observation` 4.0에 `recovery_ms` 추가(FE 요청, 계획 0084 29번): 열린 사건의 바른 연속 시간, 사건이 없거나 판정 불가면 0. 판정 방식은 그대로 | `61365a4` (PR #98) |
 | 2026-11-09 | 문서 최신화: 기준을 develop `6cae21f`로(11/04 `fe5058b` 기준 작업에 PR #100 반영). J2 최근 7일 다시 계산(D-81)을 T1 줄·API 명세·DB 안내(규칙·구현 상태 — 계획 0085가 DB/BE에 요청)에 반영. nginx `/v1/realtime` 정리는 DevOps 요청으로 DB/BE 담당(3장). FE observation 4.0 대응(PR #99)이 들어와 「develop 앱이 4.0을 버린다」 위험 삭제(1·2.4장), 3장 FE 문서 불일치 해결. J2 00:10(PR #93)으로 BE-6 ⑤ 끝·4장 문구 고침. BE-3 끝(FE 확인), FE 새 요청 BE-7(명세 시간 필드 — `api-spec.md`에 넣어 끝)·BE-10·BE-11·BE-13 추가. 2.7에 단위 88개·계약 시험 19개 다시 실행 | 이 커밋 |
 | 2026-11-09 | nginx `/api/v1/realtime` 블록과 infra 안내(`infra/README.md`·`bigdata.yaml` 주석)의 v1 문구 삭제(DevOps 요청 D-72). 처리 서비스 시험용 입구 `/api/v1/realtime/features`는 다른 경로라 그대로 | 이 커밋 |
+| 2026-11-10 | 2.2 기록 줄에서 지운 기록 저장(R2) 빼기, 기록 재계산 한계 3건 기록. 4장 「닫히지 않는 세션」에 종료 저장 실패 경우 추가(`ca038e2`) | 커밋 전 |
+| 2026-11-11 | BE-11 중 S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과로 답함(kafka 모드에서 S4가 빈 결과를 주던 문제 대비, 계획 0031 11번). 기록 목록의 DB 읽기를 `ClosedSessions`로 옮겨 R1·S4가 같이 씀. 단위 시험 2개·MySQL 통합 확인 추가(MySQL 통합 포함 93개 통과, 2.7) | 이 커밋 |
+| 2026-11-12 | DevOps(D-57 ⑧)와 S4 합칠 순서 합의를 BE-11 줄·`api-spec.md` S4·계획 0031에 기록. kafka 모드 재현 MySQL 통합 시험(`sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged`) 추가. S4 단위 시험이 S3 대신 실시간 종료(`finish`)를 쓰게 바꿈(S3 삭제 예정) | 이 커밋 |
+| 2026-11-12 | 앱이 부르지 않는 REST 3개 삭제: S3 세션 종료·R3 기록 삭제·C1 선택 정보 동의·철회(계획 0062 2단계). 2.1·2.2·세션 줄, 4장 「WS가 열리지 않은 세션」·「적재된 세션의 기록 삭제」 갱신 | `refactor/backend-remove-unused-s3-r3-c1` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

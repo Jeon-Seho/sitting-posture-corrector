@@ -5,7 +5,7 @@
 - 시작일: 2026-10-14
 - 관련 요구사항/ADR: [계정·기준 자세·저장 API v2](../../../contracts/accounts.v2.md), [동의 문서 v2](../../../contracts/consent-documents.v2.md),
   [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [옛 ADR 0022](../../removed-docs.md),
-  [계획 0025](0025-backend-db-v23-integration.md), [FE 연동 명세](../../design/api-ws-spec.md)
+  [계획 0025](0025-backend-db-v23-integration.md), [FE 연동 명세](../../design/fe/api-ws-spec.md)
 
 ## 문제와 완료 기준
 
@@ -20,7 +20,7 @@
 완료 기준: 합성 계정으로 가입 → 로그인 → 자세 등록(DB 저장) → 서버 판정 측정 → 종료 → 기록 조회 → 새로고침·재로그인 후 기준 복원이
 실제 API·임시 MySQL에서 동작한다. `check-frontend`·`check-backend` 기본 검사와 명시적 MySQL·서버 연결 점검을 구분해 확인한다([품질 기준](../../quality.md)).
 구형 `check-browser`·`check-compose`는 도구 삭제로 완료 조건에서 제외하며 복원 과제를 두지 않는다.
-기록·달력은 서버의 어제까지 통계와 로컬에 수집한 오늘 결과를 함께 표시하며, 날짜·세션 중복 합산이 없는지 확인한다(2026-10-22 결정, [연동 명세 4.5](../../design/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+기록·달력은 서버의 어제까지 통계와 로컬에 수집한 오늘 결과를 함께 표시하며, 날짜·세션 중복 합산이 없는지 확인한다(2026-10-22 결정, [연동 명세 4.5](../../design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
 서비스의 측정·기록·통계·비교 화면에는 내부 관리용 모델명·모델 버전·특징 버전을 표시하지 않는다. API 식별자·검증은 유지한다([내부 관리 기준](../../../contracts/README.md#모델명특징-버전의-내부-관리)).
 
 ## 범위와 제외
@@ -47,7 +47,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 
 ### 2. 로그인·가입을 서버 계정에 연결 (`features/auth/`, `app/LocalServiceApp.tsx`)
 
-- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
+- [ ] API 클라이언트(**2026-10-27: CSRF 대신 토큰 로그인 — BE ADR 0031, FE 제안서 `b03fd15` 7.2 21번. `features/auth/accountClient.ts`·`features/platform/api.ts`에 반영**): `/api/v2/auth/csrf`로 CSRF 토큰을 받아 변경 요청에 `X-CSRF-TOKEN`을 붙이고,
       로그인한 `user_id`를 `X-PoseGood-User-Id`에 붙인다. 401·403·`409 AUTH_CHANGED`·503 재시도를 처리한다.
       (`ce57f56:frontend/src/features/accounts/client.ts`의 `createAccountClient`를 옮긴다.)
 - [ ] `LocalServiceApp.login()`: 입력값을 확인하지 않는 로컬 로그인을 `POST /auth/login`으로 바꾼다. 앱 시작 때 `GET /auth/me`로 로그인 상태를 복원한다.
@@ -143,7 +143,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 - [x] 프론트 코드를 develop 상태로 되돌리고 수정할 부분을 이 문서에 정리(2026-10-14)
 - [ ] 계정 모드 스위치·동의 버전·비밀번호 길이를 팀과 정함
 - [ ] 1 → 4 → 5 순서로 기준 자세·세션 연결, 그다음 2·3 인증·가입, 6 설정·기록
-- [ ] 7 검증 도구와 문서(`frontend/README.md`, `docs/design/api-ws-spec.md`) 동기화
+- [ ] 7 검증 도구와 문서(`frontend/README.md`, `docs/design/fe/api-ws-spec.md`) 동기화
 - [ ] `check-frontend`·`check-backend` 기본 검사와 명시적 MySQL·필요한 개별 서버/브라우저 점검의 결과를 구분해 기록
 
 ## 결정과 진행 기록

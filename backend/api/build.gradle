@@ -26,6 +26,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    // Password reset links by mail (SMTP from spring.mail.*; off until posegood.auth.password-reset.enabled).
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
     // Login: short JWT access tokens (HS256, Bearer) + rotating refresh tokens in the DB (refresh_token, V2.6).
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
     implementation 'org.springframework.security:spring-security-oauth2-jose'

@@ -1,14 +1,16 @@
 # 앱 기능이 없는 REST 4개 삭제
 
-- 상태: in_progress (BE 코드·시험·문서 변경, `check-backend` 통과 2026-10-29. 남은 것: 다른 담당 알림)
+- 상태: in_progress (1단계 S2·R2·S5·S6 삭제 2026-10-29 통과, 2단계 S3·R3·C1 삭제 2026-11-12 통과. 남은 것: 다른 담당 알림)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060·0061과 번호가 겹쳐 0061 → 0062로 바꿈)
-- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe-server-proposal.md) 1장)
+- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe/fe-server-proposal.md) 0장)
 
 ## 문제와 완료 기준
 
 API를 한 번에 만들면서 앱 기능이 없는 경로까지 생겼다. 앱(FE V3)이 부르는 것은 A2~A5·A8, B1·B2, S1·S4, `/v2/realtime`이고,
 W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개는 쓰는 화면도 계획도 없다.
+
+**2026-11-12 다시 확인:** W1·W2·A6·A7·R1은 앱에 연결됐다. S3·R3은 지웠다(D-88). C1은 부르는 화면도 계획도 없어 지우기로 했다. W1 응답의 `records`는 R1이 기록을 맡아 빼기로 했다(아래 「남긴 것」). H1 `GET /health`는 앱이 부르지 않지만 배포 확인과 평소 상태 확인(컨테이너 healthcheck·gateway)에 쓰여 남긴다. 할 일은 [FE 제안서](../../design/fe/fe-server-proposal.md) 요구 11(BE-21).
 
 | API | 지운 이유 |
 | --- | --- |
@@ -30,7 +32,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
   `ServerRecordVerifier` 파일 삭제, `RecordValidator`의 기록 검사 삭제(설정 검사는 W2가 써서 남김), `SessionRepository.closeLost` 삭제,
   `SessionRequests.FeatureResponse` 삭제. 시험 `SessionServiceTest`·`RecordValidatorTest`·`MySqlIntegrationTest`. 당시 수정한 `tools/service_smoke.py`는 후속 정리에서 제거했고 `tools/realtime_client.py`는 유지한다.
   문서 [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, 계약 `accounts.v2.md`·`contracts/README.md`, `docs/code-structure.md` 한 줄.
-- 남긴 것(판단 필요): S3 `POST /v2/sessions/{id}/end` — 앱은 부르지 않지만, S1 뒤 WS가 열리지 않은 세션을 닫을 수단이 이것뿐이다. W1 응답의 `records` — R1과 겹치지만 응답 형식을 바꾸는 일이라 FE가 W1을 붙이기 전에 함께 정한다.
+- 남긴 것(판단 필요): S3 `POST /v2/sessions/{id}/end` — 앱은 부르지 않지만, S1 뒤 WS가 열리지 않은 세션을 닫을 수단이 이것뿐이다. W1 응답의 `records` — R1과 겹치지만 응답 형식을 바꾸는 일이라 FE가 W1을 붙이기 전에 함께 정한다. **11/12 결정: 뺀다.** 앱은 읽지 않는데 W1을 부를 때마다 서버가 R1과 같은 전체 기록을 다시 만든다.
 - 남긴 계약: `feature-response.v1.schema.json`과 예시는 저장소에 남아 있다. 이를 검사하던 `tests/test_feature_response.py`와 HTTP 부하 측정 도구는 후속 정리에서 제거했으므로 현재 사용을 이유로 유지한다고 설명하지 않는다. 계약 파일의 추가 정리는 이 문서 갱신 범위에 포함하지 않는다. 추론 입력 `inference-request.v2`는 API → FastAPI 계약이라 그대로다.
   `SessionService.accept`의 재전송 지문 비교(같은 순번·같은 본문이면 다시 쓰기)는 S2 재시도용이었다. `/v2/realtime`은 중복 순번을 먼저 409로 거절하므로 지금은 닿지 않는다 — 재전송 기억(120개)과 함께 정리할지 따로 정한다.
 - 제외: DB(V2.6 그대로), 앱 코드, 다른 담당의 도구(아래 표).
@@ -39,7 +41,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 
 | 담당 | 고칠 곳 | 내용 |
 | --- | --- | --- |
-| FE | `docs/design/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
+| FE | `docs/design/fe/api-ws-spec.md` 3장(「R2·S2는 서버 코드에 아직 있다」), `fe-server-proposal.md` 1.0·BE-1 | S2·R2·S5·S6 삭제됨. BE-1의 S2·R2 부분 끝 |
 | FE | `tools/browser/scenarios.mjs`·종합 `check-browser` | 도구 간소화로 삭제 유지. 구형 S2 시나리오를 다시 쓰는 과제는 폐기하고 현재 개별 점검은 품질 기준을 따름 |
 | DevOps | `tools/deploy/smoke.py`·종합 `check-compose` | 원격의 WS 전환 수정까지 검토한 뒤 삭제 유지. 해당 종합 검사의 복원·API 수정 과제는 없음 |
 | 부하 측정(benchmark-server) | `tools/benchmark/runner.py`, `tools/server_benchmark.py`, `tests/test_feature_response.py` | 삭제됨. WS 부하 측정 도구로 다시 만드는 과제는 두지 않음. 계약·예시는 남아 있음 |
@@ -74,3 +76,26 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 
 2026-10-29 `python tools/dev.py check-backend`(로컬 MySQL80, 커밋 `1b58f80`) — **통과.** 시험 147개 중 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 — `unusedRoutesAreRemoved`, 실시간 측정 9초 요약, `stalled` 뒤 다음 구간, 열린 채 남는 유실 세션 포함).
 `service_smoke.py`의 실제 추론 + `/v2/realtime` 측정 6단계도 PASS.
+
+## 2단계: 앱이 부르지 않는 S3·R3·C1 삭제 (2026-11-12)
+
+사용자 요청으로 앱(develop `0c4de46`)이 부르지 않는 REST 3개를 지웠다. 브랜치 `refactor/backend-remove-unused-s3-r3-c1`(develop에서 만듦, 주소는 `/v2` 그대로).
+
+| API | 지운 이유 |
+| --- | --- |
+| S3 세션 종료 `POST /v2/sessions/{id}/end` | 앱은 측정을 WS `end`로 끝내고, 연결이 끊기면 서버가 마지막 구간 끝에서 끝낸다(ADR 0024). 결과는 S4로 읽는다. 데이터 플랫폼 점검 도구도 11/11 S3 사용을 뺐다(D-88) |
+| R3 기록 삭제 `DELETE /v2/records/{id}` | 기록을 지우는 화면이 없다. 11/11 제거로 정함(D-88). 세션 행은 탈퇴 최종 삭제(J3) 때 지워진다 |
+| C1 선택 정보 동의·철회 `PUT /v2/consents/optional-profile` | 부르는 화면이 없다. 선택 정보 동의는 가입(A2) 때 받고 W1 `consents.optional_profile`로 읽는다 |
+
+- 코드: `SessionController.end`·`SessionService.end`·`SessionRequests.End`, `WorkspaceController`의 기록 삭제·동의 경로와 `OptionalConsent`, `WorkspaceService.deleteRecord`·`optionalConsent`(그리고 R3만 쓰던 `SessionService` 의존), `SessionService.delete`·`SessionRepository.delete`, `ConsentRepository.optional(owner, agreed, version)`, `IdentityGuard`의 `/v2/consents`.
+- 시험(`MySqlIntegrationTest`): 경로 삭제 확인에 3개 추가. S3로 세션을 닫던 두 곳은 앱처럼 WS `end`로 닫는다(`baselinesOwnershipLossAndInferenceFailure`, `baselineRetryIsImmutableAndAnEmptyMeasurementEnds` — 이름 바꿈). R3·S3 재시도 확인 삭제. C1 시험은 가입 동의와 나이 검사만 남김(`registrationConsentsAndOptionalProfileAge`).
+- 문서: BE API 명세(REST 18 → 15, S3·R3·C1 절은 삭제 표시만 남김, 409 `CONFLICT`의 「적재된 기록 삭제」 사유 삭제), FE 연동 명세 3장 표·S3·R3·C1 절, 백엔드 상태, `backend/README.md`, `contracts/accounts.v2.md`.
+- 앱 코드·점검 도구·DB는 바꾸지 않았다(셋 다 부르지 않음, 표 그대로).
+
+남은 한계:
+
+- S1은 됐지만 WS가 열리지 않았거나 `hello` 전에 끊긴 세션, 종료 저장이 DB 오류로 실패한 세션을 닫을 길이 이제 없다(전에는 S3가 유일한 길이었지만 앱은 부르지 않았다). `ended_at` NULL 행이 남아 R1·J1·J2에서 빠진다. 서버 시간 제한 등으로 닫을지 정해야 한다([백엔드 상태](../../backend-status.md) 4장).
+- 사용자가 선택 정보 동의를 거둘 화면·API가 없다. 지금 거두는 길은 탈퇴(A7)뿐이다. 동의 철회 기능이 필요하면 다시 만든다.
+- 사용자가 기록 하나를 지울 길이 없다.
+
+검증(2026-11-12, Windows, 로컬 MySQL80): `backend/gradlew -p backend build -Pmysql-integration` **통과** — 시험 118개 중 실패 0, 건너뜀 0(`MySqlIntegrationTest` 13개 포함). 실서버·브라우저 점검은 하지 않았다.

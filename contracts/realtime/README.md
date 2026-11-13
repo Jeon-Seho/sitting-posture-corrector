@@ -2,7 +2,7 @@
 
 > **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws.v2](realtime-ws.v2.schema.json),
 > 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
-> 근거는 [FE 연동 명세](../../docs/design/api-ws-spec.md)다.
+> 근거는 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md)다.
 > v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, `progress.paused_reason`, 재연결 없음(ADR 0024). WebSocket 자세 등록(`calibration`, `calibration_result`)은 2026-10-27 지웠다 — 등록은 B1뿐.
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`)은 2026-10-26 지웠다.
@@ -17,7 +17,7 @@
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
 > 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
-> (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
+> (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
 > 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/v2/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
@@ -94,7 +94,7 @@ WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 �
 
 ## 아직 정하지 않은 것
 
-아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/api-ws-spec.md) 1.1·5장).
+아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
 - `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.

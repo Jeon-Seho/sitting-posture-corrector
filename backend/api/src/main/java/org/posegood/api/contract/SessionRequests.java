@@ -6,9 +6,7 @@ import java.util.UUID;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 
 /**
  * 세션 API 요청 본문 모음: 생성, 종료, 기준 자세.
@@ -25,10 +23,6 @@ public final class SessionRequests {
 	 * {@code PUT /v2/sessions/{id}}. {@code baseline_id}는 필수다.
 	 */
 	public record Create(@NotNull @Valid Policy policy, @NotNull UUID baselineId) {
-	}
-
-	/** 세션 종료 요청: 종료 시점(세션 시작부터 ms). */
-	public record End(@PositiveOrZero @Max(86400000) long endMs) {
 	}
 
 	/**

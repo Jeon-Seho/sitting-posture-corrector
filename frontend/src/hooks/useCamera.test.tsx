@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import type { Landmark } from '../../../model/prototype/pose'
 import { useCamera } from './useCamera'
+import { CAMERA_ERRORS } from '../features/camera/errors'
 import {
   installFakeBaselineServer,
   removeFakeBaselineServer,
@@ -12,6 +13,11 @@ const vision = vi.hoisted(() => ({ resolve: vi.fn(), create: vi.fn(), draw: vi.f
 vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
+}))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('../features/camera/modelFiles', async (original) => ({
+  ...(await original<typeof import('../features/camera/modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
 }))
 vi.mock('../lib/poseVisual', () => ({ drawPose: vision.draw }))
 
@@ -107,6 +113,48 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     })
     await settle()
   }
+
+  /** A stream whose camera reports this size (synthetic). */
+  const sized = (width: number, height: number) => {
+    const t = { stop: vi.fn(), getSettings: () => ({ deviceId: 'synthetic-device', width, height }) }
+    return { track: t, stream: { getTracks: () => [t], getVideoTracks: () => [t] } as unknown as MediaStream }
+  }
+
+  it('opens a 4:3 camera once with the plain request, as before (ADR 0048)', async () => {
+    getUserMedia.mockReset().mockResolvedValue(sized(640, 480).stream)
+    await connect()
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+    expect(getUserMedia.mock.calls[0][0].video.aspectRatio).toBeUndefined()
+    expect(camera.state).toBe('on')
+  })
+
+  it('reopens a 16:9 camera, the same device, with 4:3 required and uses the cropped picture', async () => {
+    const wide = sized(1280, 720)
+    getUserMedia.mockReset().mockResolvedValueOnce(wide.stream).mockResolvedValueOnce(sized(640, 480).stream)
+    await connect()
+    expect(wide.track.stop).toHaveBeenCalled()
+    const video = getUserMedia.mock.calls[1][0].video
+    expect(video.aspectRatio).toEqual({ exact: 4 / 3 })
+    expect(video.resizeMode).toBe('crop-and-scale')
+    expect(video.deviceId).toEqual({ exact: 'synthetic-device' })
+    expect(camera.state).toBe('on')
+  })
+
+  it('refuses a camera that still is not 4:3 and releases it', async () => {
+    const wide = sized(1280, 720), still = sized(1280, 720)
+    getUserMedia.mockReset().mockResolvedValueOnce(wide.stream).mockResolvedValueOnce(still.stream)
+    await connect()
+    expect(camera.state).toBe('error')
+    expect(camera.error).toBe(CAMERA_ERRORS.aspectUnsupported)
+    expect(still.track.stop).toHaveBeenCalled()
+  })
+
+  it('says 4:3 is impossible when the browser refuses the 4:3 request', async () => {
+    getUserMedia.mockReset().mockResolvedValueOnce(sized(1280, 720).stream)
+      .mockRejectedValueOnce(Object.assign(new Error('no 4:3'), { name: 'OverconstrainedError', constraint: 'aspectRatio' }))
+    await connect()
+    expect(camera.error).toBe(CAMERA_ERRORS.aspectUnsupported)
+  })
 
   it('keeps the local camera independent of the signed-in server baseline', async () => {
     const video = camera.videoRef.current
@@ -244,14 +292,36 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(track.stop).toHaveBeenCalledOnce()
     expect(vision.create).not.toHaveBeenCalled()
   })
+  it('waits while the permission window is unanswered, then gives an allowed camera 30 s', async () => {
+    const permission = { state: 'prompt' }
+    Object.assign(navigator, { permissions: { query: async () => permission } })
+    getUserMedia.mockReturnValueOnce(new Promise(() => {}))
+    await act(async () => { void camera.connect() })
+    await act(async () => { vi.advanceTimersByTime(90_000) })
+    expect(camera.state).toBe('loading')
+    permission.state = 'granted'
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    await act(async () => { vi.advanceTimersByTime(29_000) })
+    expect(camera.state).toBe('loading')
+    await act(async () => { vi.advanceTimersByTime(1_001) })
+    expect(camera.state).toBe('error')
+    expect(camera.error).toBe(CAMERA_ERRORS.preparationTimeout)
+  })
+  it('keeps waiting where the browser cannot tell the permission (Firefox)', async () => {
+    getUserMedia.mockReturnValueOnce(new Promise(() => {}))
+    await act(async () => { void camera.connect() })
+    await act(async () => { vi.advanceTimersByTime(120_000) })
+    expect(camera.state).toBe('loading')
+  })
   it('ends an excessive preparation wait and releases late tracks without reconnecting automatically', async () => {
+    Object.assign(navigator, { permissions: { query: async () => ({ state: 'granted' }) } })
     const request = defer<MediaStream>()
     getUserMedia.mockReturnValueOnce(request.promise)
     let pending!: Promise<void>
     await act(async () => {
       pending = camera.connect()
     })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(30001)
     })
     expect(camera.state).toBe('error')

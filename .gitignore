@@ -323,6 +323,8 @@ forecast-experiment-*.json
 posture-pilot-*.csv
 
 # Local participant files and private analysis
+/model/dataset/
+/model/test/senario/
 /database/temp/
 
 # Desktop app build output (PoseGood.exe)

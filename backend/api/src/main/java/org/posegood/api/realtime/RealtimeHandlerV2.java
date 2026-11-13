@@ -160,7 +160,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			TimeUnit.MILLISECONDS);
 	}
 
-	/** 연결이 끊김: 측정 중이었으면 마지막으로 받은 구간 끝에서 세션을 끝낸다(ADR 0024). 등록은 저장하지 않는다. */
+	/** 연결이 끊김: 측정 중이었으면 마지막으로 받은 구간 끝에서 세션을 끝낸다(ADR 0024). */
 	@Override
 	public void afterConnectionClosed(WebSocketSession socket, CloseStatus status) {
 		var channel = channels.remove(socket.getId());
@@ -401,7 +401,8 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			finishClosed(channel, refusal(refused));
 			return;
 		} catch (DataAccessException storage) {
-			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. 열린 세션 행은 기록 저장(S3·R2) 때 닫힌다.
+			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. DB 저장은 S3(POST /v2/sessions/{id}/end)가 다시 시도하지만
+			// 앱은 S3를 부르지 않으므로, 세션 행은 ended_at NULL로 남는다(남은 한계).
 			log.warn("realtime v2 end persist failed: {}", storage.getClass().getSimpleName());
 		}
 		if (!pipeline.local()) {

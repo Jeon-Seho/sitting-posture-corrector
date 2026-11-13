@@ -189,7 +189,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.resume()
     const [first, rest] = socket.features()
     expect(first).toMatchObject({ phase: 'running', end_ms: 300 })
-    expect((first.frames as Record<string, unknown>[])[0].valid).toBe(false)
+    expect((first.frames as Record<string, unknown>[])[0]).toEqual({ t_ms: 100, p: null })
     expect(rest).toMatchObject({ phase: 'rest', start_ms: 300, end_ms: 800, frames: [] })
     expect(live.state.phase).toBe('running')
   })
@@ -285,17 +285,153 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.endedAt).toBeNull()
   })
 
-  it('reads the saved result with S4 when closed does not come within 10 s', async () => {
+  it('reads the saved result with S4 when closed does not come within 5 s', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     const saved = { ...EMPTY_SUMMARY, total_ms: 900, valid_ms: 900, normal_ms: 900, keep_rate: 1, events_per_hour: 0 }
     fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: 1, summary: saved })))
     live.end()
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     await flush()
     expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${SESSION}`)
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 1 })
     expect(live.state.summary.total_ms).toBe(900)
+  })
+
+  it('keeps the progress result when S4 knows less than the app already saw', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    // kafka mode: the API's memory engine never got the intervals.
+    fetch.mockResolvedValueOnce(reply(200, view()))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3, late: true })
+    expect(live.state.summary.total_ms).toBe(1800)
+    expect(ended).toHaveLength(1)
+  })
+
+  it('keeps the decisions it saw when S4 answers with the summary only (kafka mode memory, BE 11/11)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    socket.push({ type: 'decision', event: collapse, summary: seen })
+    fetch.mockResolvedValueOnce(reply(200, view({ last_sequence: 3, summary: seen })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', late: true })
+    expect(live.state.events.map((e) => e.kind)).toEqual(['collapse_confirmed'])
+  })
+
+  it('is not late when closed comes in time', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    live.end()
+    socket.push({ type: 'closed', reason: 'ended' })
+    expect(live.state).toMatchObject({ phase: 'ended', late: false })
+  })
+
+  it('takes an S4 view rebuilt from the DB even though it says last_sequence -1', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    const stored = { ...seen, total_ms: 2000, valid_ms: 2000, normal_ms: 2000 }
+    const sessionEnded = {
+      event_id: 1, kind: 'session_ended', timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000,
+      deviation_type: 'none', reason: 'ended',
+    }
+    fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: -1, summary: stored, events: [sessionEnded] })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 3 })
+    expect(live.state.summary.total_ms).toBe(2000)
+    expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
+  })
+
+  describe('kafka mode order (ack first, alert on its own topic)', () => {
+    const summary = { ...EMPTY_SUMMARY, total_ms: 500, valid_ms: 500, deviation_ms: 500, collapse_count: 1, alert_count: 1, interval_count: 1, keep_rate: 0, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    const alert = { type: 'alert', event_id: 1, kind: 'collapse_confirmed', deviation_type: 'forward_slouch' }
+
+    it('rings for an alert that comes before its decision', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'ack', last_sequence: 0 })
+      socket.push(alert)
+      socket.push({ type: 'decision', event: collapse, summary })
+      expect(alerts).toEqual(['collapse_confirmed'])
+      expect(live.state.alerting).toBe(true)
+    })
+
+    it('stays quiet for an alert that comes after the episode recovered', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'decision', event: collapse, summary })
+      socket.push({ type: 'decision', event: { ...collapse, event_id: 2, kind: 'recovery_confirmed' }, summary })
+      socket.push(alert)
+      expect(alerts).toEqual([])
+      expect(live.state.alerting).toBe(false)
+    })
+
+    it('stays quiet for an alert after 「측정 종료」', async () => {
+      const live = await started()
+      socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+      socket.push({ type: 'decision', event: collapse, summary })
+      live.end()
+      socket.push(alert)
+      expect(alerts).toEqual([])
+    })
+  })
+
+  it('reads S4 at once when the server says the save is late (stalled after end, kafka 3 s)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    fetch.mockResolvedValueOnce(reply(200, view({ last_sequence: 3, summary: seen })))
+    live.end()
+    socket.push({ type: 'stalled', since_last_sequence: 3 })
+    await flush()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(live.state).toMatchObject({ phase: 'ended', late: true })
+    // The 5 s timer was cancelled: no second S4.
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes an ended S4 whole even with fewer events than the screen saw', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const summary = { ...EMPTY_SUMMARY, total_ms: 2000, valid_ms: 2000, normal_ms: 2000, keep_rate: 1, events_per_hour: 0 }
+    const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
+    socket.push({ type: 'decision', event: collapse, summary })
+    socket.push({ type: 'decision', event: { ...collapse, event_id: 2, kind: 'reminder', timestamp_ms: 900 }, summary })
+    const ended = { event_id: 3, kind: 'session_ended', timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000, deviation_type: 'none', reason: 'ended' }
+    fetch.mockResolvedValueOnce(reply(200, view({ ended: true, last_sequence: -1, summary, events: [ended] })))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
+  })
+
+  it('ends marked missing when S4 answers 404 (error page, nothing kept here)', async () => {
+    const live = await started()
+    socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
+    const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }
+    socket.push({ type: 'progress', last_sequence: 3, summary: seen })
+    fetch.mockResolvedValueOnce(reply(404, { code: 'SESSION_LOST' }))
+    live.end()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flush()
+    // Still `ended` (not `failed`) so the record is kept as this device's pending record.
+    expect(live.state).toMatchObject({ phase: 'ended', late: true, resultMissing: true })
+    expect(live.state.summary.total_ms).toBe(1800)
   })
 
   it('reads S4 once, right away, when the socket closes while ending', async () => {
@@ -306,7 +442,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     socket.drop()
     await flush()
     expect(live.state).toMatchObject({ phase: 'ended', lastSequence: 0 })
-    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.advanceTimersByTimeAsync(5_000)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -321,16 +457,48 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
   it('fails without ready in 5 s, on S1 errors and on closed reasons that stop the measurement', async () => {
     const late = await started()
     await vi.advanceTimersByTimeAsync(5000)
-    expect(late.state.phase).toBe('failed')
+    // No connection to measure with: the same 「cannot start」 page as a server error.
+    expect(late.state).toMatchObject({ phase: 'failed', serverDown: true })
+
+    const dropped = await started()
+    socket.drop()
+    expect(dropped.state).toMatchObject({ phase: 'failed', serverDown: true })
 
     fetch.mockResolvedValueOnce(reply(409, { code: 'BASELINE_REQUIRED' }))
     const noBaseline = make()
     await noBaseline.start()
-    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' })
+    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', busy: false })
+
+    // The server is full: the failed screen offers 「다시 시도」, not 「다시 준비하기」.
+    fetch.mockResolvedValueOnce(reply(429, { code: 'LIMIT_REACHED' }))
+    const full = make()
+    await full.start()
+    expect(full.state).toMatchObject({ phase: 'failed', serverDown: false, busy: true })
 
     const signedOut = await started()
     socket.push({ type: 'closed', reason: 'unauthorized' })
     expect(signedOut.state).toMatchObject({ phase: 'failed', message: '로그인이 만료됐어요. 다시 로그인해 주세요.' })
+    expect(signedOut.state.serverDown).toBe(false)
+  })
+
+  it('cannot start when the server cannot open the measurement (kafka mode: Kafka down)', async () => {
+    const kafkaDown = await started()
+    socket.push({ type: 'closed', reason: 'session_lost' })
+    expect(kafkaDown.state).toMatchObject({ phase: 'failed', serverDown: true, lost: false })
+
+    fetch.mockResolvedValue(reply(503, { code: 'UNAVAILABLE' }))
+    const s1Down = make()
+    const starting = s1Down.start()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await starting
+    expect(s1Down.state).toMatchObject({ phase: 'failed', serverDown: true })
+
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+    const s1Unreachable = make()
+    const reaching = s1Unreachable.start()
+    await vi.advanceTimersByTimeAsync(20_000)
+    await reaching
+    expect(s1Unreachable.state).toMatchObject({ phase: 'failed', serverDown: true })
   })
 
   it('knows its own 「판정 불가」 at once, without waiting for the server (10/27)', async () => {
@@ -347,7 +515,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
 
   it('keeps the record when the server closes a running measurement it already stored (BE 10/27)', async () => {
     const reasons: [string, boolean, string][] = [
-      ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 5분 이어져'],
+      ['unmeasurable_timeout', false, '자세를 확인할 수 없는 상태가 30분 이어져'],
       ['day_changed', false, '자정이 지나 측정을 마쳤어요'],
       ['unauthorized', true, '비밀번호 변경이나 탈퇴로 로그인이 끝나'],
       ['bad_message', true, '측정을 이어갈 수 없어 마쳤어요'],
@@ -419,7 +587,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
       socket.push(rollover)
       fetch.mockResolvedValueOnce(reply(200, view({ session_id: NEXT, ended: true, last_sequence: 5 })))
       live.end()
-      await vi.advanceTimersByTimeAsync(10_000)
+      await vi.advanceTimersByTimeAsync(5_000)
       await flush()
       expect(fetch.mock.calls[1][0]).toBe(`/api/v2/sessions/${NEXT}`)
       expect(live.state).toMatchObject({ sessionId: NEXT, phase: 'ended' })

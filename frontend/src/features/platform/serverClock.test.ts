@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { addDayKey, kstDay, kstDayStart } from '../../lib/kst'
-import { recordTimes } from '../session/useSessionPersistence'
-import { EMPTY_SUMMARY } from '../session/live/messages'
 import { noteServerDay, noteServerTime, resetServerClock, serverToday } from './serverClock'
 
 describe('KST days and the server clock (ADR 0029)', () => {
@@ -39,21 +37,5 @@ describe('KST days and the server clock (ADR 0029)', () => {
     expect(serverToday()).toBe('2026-10-26')
     noteServerDay('2026-10-27')
     expect(serverToday()).toBe('2026-10-27')
-  })
-
-  it('stores a record with the server start and end', () => {
-    const summary = { ...EMPTY_SUMMARY, total_ms: 90_000 }
-    const local = '2026-10-26T01:00:03.000Z'
-    expect(recordTimes({ startedAt: '2026-10-26T01:00:00.000Z', endedAt: '2026-10-26T01:01:30.000Z', summary }, local)).toEqual({
-      startedAt: '2026-10-26T01:00:00.000Z',
-      endedAt: '2026-10-26T01:01:30.000Z',
-    })
-    // No `closed` (lost connection, S4): server start + the server's measured total, as the server stores it.
-    expect(recordTimes({ startedAt: '2026-10-26T01:00:00.000Z', endedAt: null, summary }, local)).toEqual({
-      startedAt: '2026-10-26T01:00:00.000Z',
-      endedAt: '2026-10-26T01:01:30.000Z',
-    })
-    // Before the server sends the fields (BE-6) the computer's start stands in.
-    expect(recordTimes({ startedAt: null, endedAt: null, summary }, local).startedAt).toBe(local)
   })
 })
