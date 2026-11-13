@@ -120,22 +120,24 @@ export function LocalServiceApp({
   const workspace = useLocalWorkspace(measuring, setError, reloadProfileFields, !accounts && !developer)
   const { profile, canWrite } = workspace
   const collection = useCollection(camera)
+  const { active: collectionActive, count: collectionCount, downloaded: collectionDownloaded, clear: clearCollection } = collection
+  const { stop: stopCamera } = camera
   useEffect(() => {
     const navigate = () => {
-      if (collection.active || (collection.count > 0 && !collection.downloaded)) {
+      if (collectionActive || (collectionCount > 0 && !collectionDownloaded)) {
         if (collectionEntry) window.history?.replaceState(null, '', '#collection')
         return
       }
       const next = window.location?.hash === '#collection'
       if (collectionEntry && !next) {
-        camera.stop()
-        collection.clear()
+        stopCamera()
+        clearCollection()
       }
       setCollectionEntry(next)
     }
     window.addEventListener('hashchange', navigate)
     return () => window.removeEventListener('hashchange', navigate)
-  }, [collection.active, collection.count, collection.downloaded, collectionEntry, collection.clear, camera.stop])
+  }, [collectionActive, collectionCount, collectionDownloaded, collectionEntry, clearCollection, stopCamera])
   const persistence = useSessionPersistence({
     session,
     setSession,

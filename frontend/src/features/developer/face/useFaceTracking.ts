@@ -13,6 +13,7 @@ export interface FaceTrackingController {
 }
 
 export function useFaceTracking(camera: CameraController, active: boolean): FaceTrackingController {
+  const { subscribe, videoRef } = camera
   const [enabled, setEnabled] = useState(true)
   const [mode, setMode] = useState<FaceDisplayMode>('face')
   const [status, setStatus] = useState<FaceStatus | 'off'>('off')
@@ -26,7 +27,7 @@ export function useFaceTracking(camera: CameraController, active: boolean): Face
   const trialId = useRef(0)
   const running = active && enabled && camera.state === 'on'
   useEffect(() => {
-    if (!running || !camera.videoRef.current) { setSample(null); setStatus('off'); return }
+    if (!running || !videoRef.current) { setSample(null); setStatus('off'); return }
     if (typeof Worker === 'undefined' || typeof createImageBitmap !== 'function') {
       setStatus('error'); setMessage('이 환경에서는 얼굴 Worker를 지원하지 않습니다.'); return
     }
@@ -37,7 +38,7 @@ export function useFaceTracking(camera: CameraController, active: boolean): Face
       const result = trial.current.finish(performance.now())
       trial.current = null; setTrialProgress(null); setTrials(previous => [...previous, result].slice(-6))
     }
-    const client = startFaceClient({ video: camera.videoRef.current, origin: location.origin,
+    const client = startFaceClient({ video: videoRef.current, origin: location.origin,
       worker: () => new Worker('/mediapipe/face-worker.js'),
       bitmap: video => createImageBitmap(video),
       onStatus: (next, detail = '', device) => { if (current) { setStatus(next); setMessage(detail); if (device) setDelegate(device) } },
@@ -51,7 +52,7 @@ export function useFaceTracking(camera: CameraController, active: boolean): Face
         }
       },
     })
-    const unsubscribe = camera.subscribe(observation => client.offer(observation))
+    const unsubscribe = subscribe(observation => client.offer(observation))
     const timer = setInterval(() => {
       if (!trial.current) return
       const progress = Math.min(1, (performance.now() - trial.current.startedAt) / 10000)
@@ -59,7 +60,7 @@ export function useFaceTracking(camera: CameraController, active: boolean): Face
       if (progress === 1) finishTrial()
     }, 100)
     return () => { current = false; unsubscribe(); client.stop(); clearInterval(timer); finishTrial() }
-  }, [running, camera.subscribe, camera.videoRef])
+  }, [running, subscribe, videoRef])
   return { enabled, setEnabled, mode, setMode, active: running, status: running ? status : 'off', message, delegate,
     sample: running ? sample : null, glasses, setGlasses, trialProgress, trials,
     startTrial: () => { if (!running || status !== 'ready' || trial.current) return; trial.current = new FaceTrialAccumulator(++trialId.current, glasses, performance.now()); setTrialProgress(0) },

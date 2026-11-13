@@ -16,9 +16,10 @@ export function CameraStage({
   /** A higher-priority notice that replaces the camera status, whatever state the camera is in. */
   message?: { title: string; body: string }
 }) {
+  const { setOverlayEnabled } = camera
   useEffect(() => {
-    camera.setOverlayEnabled(showSkeleton)
-  }, [showSkeleton, camera.setOverlayEnabled])
+    setOverlayEnabled(showSkeleton)
+  }, [showSkeleton, setOverlayEnabled])
   const preview = useRef<HTMLVideoElement>(null)
   useEffect(() => {
     const video = preview.current

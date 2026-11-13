@@ -13,6 +13,7 @@ export function useNormalCollection(camera: CameraController, options: {
   onClearProfile: () => void
   disabled?: boolean
 }) {
+  const { subscribe } = camera
   const [snapshot, setSnapshot] = useState(emptyNormalCollection)
   const [profile, setProfile] = useState<NormalPostureProfile | null>(null)
   const [error, setError] = useState('')
@@ -29,8 +30,10 @@ export function useNormalCollection(camera: CameraController, options: {
     capture.current?.interrupt(reason, performance.now()); publish()
   }, [publish])
   useEffect(() => {
+    // The current counter may advance after subscription and must be invalidated on cleanup.
+    const generationCounter = generation
     mounted.current = true
-    const unsubscribe = camera.subscribe(frame => {
+    const unsubscribe = subscribe(frame => {
       if (!capture.current?.active) return
       if (document.visibilityState === 'hidden') capture.current?.tick(performance.now(), true)
       else capture.current?.observe(frame)
@@ -42,8 +45,8 @@ export function useNormalCollection(camera: CameraController, options: {
     }, 100)
     const hide = () => { if (document.visibilityState === 'hidden') interrupt('탭을 벗어나 수집을 중단했습니다.') }
     document.addEventListener('visibilitychange', hide)
-    return () => { mounted.current = false; generation.current++; unsubscribe(); clearInterval(timer); document.removeEventListener('visibilitychange', hide); capture.current = null }
-  }, [camera.subscribe, interrupt, publish])
+    return () => { mounted.current = false; generationCounter.current++; unsubscribe(); clearInterval(timer); document.removeEventListener('visibilitychange', hide); capture.current = null }
+  }, [subscribe, interrupt, publish])
   useEffect(() => {
     if ((camera.state === 'off' || camera.state === 'error') && capture.current?.active) interrupt('카메라 연결이 끊겨 수집을 중단했습니다.')
   }, [camera.state, interrupt])

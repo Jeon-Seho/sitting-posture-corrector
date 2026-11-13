@@ -15,6 +15,7 @@ const locked = (guide: GuideSnapshot) => ['running', 'waiting', 'note', 'paused'
 const measuring = (guide: GuideSnapshot) => guide.status === 'running' && guide.step?.phase === 'hold' && guide.remainingMs > 0
 
 export function useObservationComparison(camera: CameraController, mode: 'camera' | 'synthetic' = 'camera') {
+  const { subscribe } = camera
   const engine = useRef(new ObservationComparison(mode === 'camera' ? OBSERVATION_REFERENCE_MS : COMPARISON_POLICY.referenceMs))
   const cameraRef = useRef(camera); cameraRef.current = camera
   const activeRef = useRef<'camera' | 'synthetic' | null>(null)
@@ -193,12 +194,12 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
       })
     }
   }, [interrupt, publish, resetExport, mode, updateSetup])
-  useEffect(() => camera.subscribe(frame => {
+  useEffect(() => subscribe(frame => {
     if (activeRef.current !== 'camera') return
     const observed = { ...frame, features: frame.measurable === true
       ? rawPoseFeatures(frame.landmarks, frame.width, frame.height) : null }
     receive(observed)
-  }), [camera.subscribe, receive])
+  }), [subscribe, receive])
   useEffect(() => {
     if (!active) return
     const timer = setInterval(() => {
@@ -211,9 +212,11 @@ export function useObservationComparison(camera: CameraController, mode: 'camera
     return () => clearInterval(timer)
   }, [active, receive, interrupt, advanceGuide, advanceSetup])
   useEffect(() => {
+    // Keep the token ref so cleanup invalidates the latest pending connection.
+    const connectionToken = token
     const visibility = () => { if (document.visibilityState === 'hidden' && activeRef.current) { if (['connecting', 'preparing', 'registering'].includes(setupRef.current.status)) updateSetup('interrupted'); engine.current.registering = false; interrupt('hidden'); if (protocol.current.snapshot(performance.now()).status !== 'paused') setNotice('탭이 숨겨져 관측을 끊었어요. 진행 중이던 기준 등록은 다시 시작하세요.') } }
     document.addEventListener('visibilitychange', visibility)
-    return () => { document.removeEventListener('visibilitychange', visibility); token.current++; cameraRef.current.stop() }
+    return () => { document.removeEventListener('visibilitychange', visibility); connectionToken.current++; cameraRef.current.stop() }
   }, [interrupt, updateSetup])
   useEffect(() => {
     if ((activeRef.current === 'camera' || (active && source === 'camera')) && (camera.state === 'error' || camera.state === 'off')) {
