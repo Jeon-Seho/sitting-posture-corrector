@@ -187,6 +187,23 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(pendingRecords('synthetic-screen')[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
+  it('「다시 시도」 after a failed start begins a new measurement at once', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const first = renderer!.root.findByType(LiveSessionPage).props.session.id
+    // The server could not be reached: nothing measured, the 「cannot start」 page.
+    act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded({ ...endedState(), phase: 'failed', serverDown: true, summary: EMPTY_SUMMARY }, ''))
+    act(() => renderer!.root.findByType(LiveSessionPage).props.onRetry())
+    const second = renderer!.root.findByType(LiveSessionPage).props.session.id
+    expect(second).not.toBe(first)
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
+  })
+
   it('keeps nothing on this device when S4 answers 404 (server fault), even the checkpoints', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true

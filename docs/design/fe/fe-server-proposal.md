@@ -403,7 +403,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 
 | 파일 | 역할 |
 |---|---|
-| `main.cjs` | 창 생성, 단일 실행, 외부 주소 차단(`sameAddress`), 시작 프로그램 등록, 설정 파일. 설치용은 웹 주소를 열고 10초 안에 못 열면 앱에 든 연결 실패 화면(`public/offline.html`), 10초마다 다시 시도. 측정 중 닫기는 「측정 중이에요. 정말 닫을까요?」(`will-prevent-unload`) |
+| `main.cjs` | 창 생성, 단일 실행, 외부 주소 차단(`sameAddress`), 시작 프로그램 등록, 설정 파일. 설치용은 웹 주소를 열고 10초 안에 못 열면 앱에 든 연결 실패 화면(`public/offline.html`), 「다시 시도」를 누르거나 인터넷이 다시 연결되면 한 번 다시 연다(주기적으로 다시 열지 않음). 측정 중 닫기는 「측정 중이에요. 정말 닫을까요?」(`will-prevent-unload`) |
 | `preload.cjs` | 페이지에 `window.posegoodDesktop`(시작 정보, 시작 프로그램, 자동 카메라, 알림 팝업, 작은 카메라 창)만 노출 |
 | `camera-window.cjs` | 작은 카메라 창: 앱 창이 가려지거나 최소화되면 오른쪽 아래에 저절로 보이고, 앞으로 오면 숨는다. 버튼은 접기·앱으로 돌아가기·X(측정 중이면 종료·저장) |
 | `popup-preload.cjs` | 앱 밖 알림 팝업(`app://posegood/alert-popup.html`, 서버 없이도 뜸)에 문구·닫기·앱 열기만 노출. 앱 창이 가려졌을 때만 뜨고 8초 뒤 숨는다 |

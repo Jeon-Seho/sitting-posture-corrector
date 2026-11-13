@@ -49,6 +49,8 @@ export type LiveSessionPageProps = {
   alertsOn?: boolean
   onDashboard: () => void
   onPrepare: () => void
+  /** 「지금은 측정을 시작할 수 없어요」 → 「다시 시도」: start a new measurement right away. */
+  onRetry?: () => void
   openSocket?: (url: string) => SocketLike
 }
 
@@ -168,7 +170,7 @@ export function statusTone(measured: LiveState | null) {
  * confirmed collapse, the statistics are its summary.
  */
 export function LiveSessionPage(props: LiveSessionPageProps) {
-  const { camera, service, session, onDashboard, onPrepare, alertsOn = true } = props
+  const { camera, service, session, onDashboard, onPrepare, onRetry = onPrepare, alertsOn = true } = props
   const screen = useLiveSession(props)
   const { state, phase } = screen
   const summary = state?.summary
@@ -223,7 +225,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
     </details>
   )
 
-  if (phase === 'failed' && state?.serverDown) return <ErrorPage kind="measure" inline onRetry={onPrepare} />
+  if (phase === 'failed' && state?.serverDown) return <ErrorPage kind="measure" inline onRetry={onRetry} />
   if (phase === 'ended' && state?.resultMissing) return <ErrorPage kind="result" inline onRetry={onPrepare} />
 
   if (phase === 'failed')

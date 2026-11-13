@@ -150,34 +150,35 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     return () => window.removeEventListener('beforeunload', warn)
   }, [measuring])
 
-  function start() {
+  /** Starts a measurement; false when something has to be fixed first (the reason is shown). */
+  function start(): boolean {
     if (!getServerAuth()) {
       setError('개발자 계정은 화면 확인용이에요. 서버 측정은 일반 계정으로 로그인해 주세요.')
-      return
+      return false
     }
     try { pendingRecords(getServerAuth()!.userId) }
     catch (caughtError) {
       console.error('[features/session/useSessionPersistence.ts:start] Operation failed', caughtError)
-      setError('미확인 기록을 읽지 못했어요. 원본을 보존하고 새 측정을 중단합니다.'); return
+      setError('미확인 기록을 읽지 못했어요. 원본을 보존하고 새 측정을 중단합니다.'); return false
     }
     if (pending.current) {
       setError('이전 결과를 서버에서 확인하고 있어요. 확인 후 새 측정을 시작해 주세요.')
       void syncRecords()
-      return
+      return false
     }
     if (session && !ended.current) {
       go('session')
-      return
+      return true
     }
     // Results are still copied to this device for the 기록 screens (see above).
-    if (!workspace.requireWriter()) return
+    if (!workspace.requireWriter()) return false
     if (camera.state !== 'on' || !camera.quality || camera.progress !== null || camera.registering) {
       setError('카메라 연결과 기준 등록을 완료한 뒤 시작해 주세요.')
-      return
+      return false
     }
     if (!camera.calibrationId) {
       setError('기준 자세가 없어요. 설정에서 자세를 등록해 주세요.')
-      return
+      return false
     }
     ended.current = false
     setSession({
@@ -188,6 +189,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       baselineId: camera.calibrationId,
     })
     go('session')
+    return true
   }
 
   /** The measurement is over; `note` tells why when the user did not end it. */

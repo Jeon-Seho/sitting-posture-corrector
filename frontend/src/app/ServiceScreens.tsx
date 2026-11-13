@@ -221,6 +221,8 @@ export function ServiceScreens({
               alertsOn={alertsOn}
               onDashboard={() => go('dashboard')}
               onPrepare={() => go('setup')}
+              // A new measurement at once; back to 측정하기 when the camera or posture needs attention.
+              onRetry={() => { if (!persistence.start()) go('setup') }}
               service={{
                 active: view === 'session',
                 onEnded: persistence.finish,
