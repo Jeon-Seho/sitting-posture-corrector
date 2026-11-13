@@ -4,6 +4,7 @@ import type { Rules } from '../../../lib/engine'
 import { enableSound, playCorrection } from '../../../lib/sound'
 import { popupAlert } from '../../desktop/alertPopup'
 import { reportConnectionLost } from '../../connection/connectionLost'
+import { CAMERA_ERRORS } from '../../camera/errors'
 import { publishMeasurementStatus, registerMeasurementEnd, type MeasurementStatus } from '../sessionControl'
 import { LiveSession, type LiveState, type Policy, type SocketLike } from './LiveSession'
 
@@ -40,6 +41,7 @@ type Options = {
 export const INPUT_GAP_MS = 1000
 export const INPUT_PAUSED_NOTICE = '인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.'
 const CAMERA_UNPLUGGED = '쓰던 카메라가 빠져 측정을 마쳤어요. 그때까지의 기록은 저장했어요.'
+const TRACKING_STOPPED = '자세 추적이 멈춰 측정을 마쳤어요. 그때까지의 기록은 저장했어요.'
 const FRAME_CHANGED = '카메라 영상 크기가 바뀌어 측정을 마쳤어요. 그때까지의 기록은 저장했어요.'
 export const ROLLED_OVER = '자정이 지나 새 측정으로 이어졌어요.'
 
@@ -121,7 +123,7 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
       const cam = latest.current.camera
       // Decisions of 2026-10-16/21: an unplugged camera or a new frame size ends and saves.
       if (cam.state === 'error') {
-        endWith(CAMERA_UNPLUGGED)
+        endWith(cam.error === CAMERA_ERRORS.trackingFailed ? TRACKING_STOPPED : CAMERA_UNPLUGGED)
         return
       }
       const current = cam.videoRef.current

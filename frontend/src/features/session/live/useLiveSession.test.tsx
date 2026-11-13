@@ -6,6 +6,7 @@ import { setServerAuth } from '../../platform/serverAuth'
 import { endRunningMeasurement, WINDOW_END_REASON } from '../sessionControl'
 import type { LiveState, SocketLike } from './LiveSession'
 import { EMPTY_SUMMARY } from './messages'
+import { CAMERA_ERRORS } from '../../camera/errors'
 import { useLiveSession, type LiveSessionScreen } from './useLiveSession'
 
 vi.mock('../../desktop/alertPopup', () => ({ popupAlert: vi.fn() }))
@@ -128,6 +129,18 @@ describe('measurement screen rules around the camera (synthetic only)', () => {
     expect(onEnded).toHaveBeenCalledOnce()
     expect(onEnded.mock.calls[0][1]).toBe('쓰던 카메라가 빠져 측정을 마쳤어요. 그때까지의 기록은 저장했어요.')
     expect(camera.stop).toHaveBeenCalled()
+  })
+
+  it('says the pose tracking stopped, not that the camera was unplugged', async () => {
+    await mount()
+    keepFrames()
+    camera.state = 'error'
+    camera.error = CAMERA_ERRORS.trackingFailed
+    advance(250)
+    await act(async () => {
+      socket.onmessage?.({ data: JSON.stringify({ type: 'closed', reason: 'ended' }) })
+    })
+    expect(onEnded.mock.calls[0][1]).toBe('자세 추적이 멈춰 측정을 마쳤어요. 그때까지의 기록은 저장했어요.')
   })
 
   it('ends when the frame size changes, and from the small window X', async () => {
