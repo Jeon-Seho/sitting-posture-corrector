@@ -54,7 +54,7 @@
 | 404 | `BASELINE_NOT_FOUND` | 측정하기에서 자세 등록부터 |
 | 409 | `AUTH_CHANGED` | A4로 계정을 다시 받고 화면을 새로 그린다 |
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
-| 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 자세를 먼저 등록해 주세요」 |
+| 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 설정에서 자세를 등록해 주세요」 |
 | 409 | `CONFLICT` | S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
 | 429 | `LIMIT_REACHED` | 측정을 끝내고 새로 시작 안내 |
 | 502·503 | `STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |

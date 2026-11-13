@@ -176,7 +176,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       return
     }
     if (!camera.calibrationId) {
-      setError('기준 자세가 없어요. 자세를 먼저 등록해 주세요.')
+      setError('기준 자세가 없어요. 설정에서 자세를 등록해 주세요.')
       return
     }
     ended.current = false

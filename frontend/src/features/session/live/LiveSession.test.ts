@@ -467,7 +467,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     fetch.mockResolvedValueOnce(reply(409, { code: 'BASELINE_REQUIRED' }))
     const noBaseline = make()
     await noBaseline.start()
-    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' })
+    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' })
 
     const signedOut = await started()
     socket.push({ type: 'closed', reason: 'unauthorized' })

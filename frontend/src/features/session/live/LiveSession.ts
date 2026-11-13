@@ -123,7 +123,7 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   unauthorized: { message: '로그인이 만료됐어요. 다시 로그인해 주세요.', failed: true },
   not_owner: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
   bad_message: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
-  no_baseline: { message: '기준 자세가 없어요. 자세를 먼저 등록해 주세요.', failed: true },
+  no_baseline: { message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', failed: true },
   session_lost: { message: '서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요.', failed: false, lost: true },
   server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.', failed: false, lost: true },
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
@@ -247,7 +247,7 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', cause)
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
-        error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' : error.message
+        error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' : error.message
       // 5xx or no answer at all: the server could not be reached or could not open it.
       this.finish({ phase: 'failed', message, serverDown: (error.status ?? 0) >= 500 || error.kind === 'network' })
       return
