@@ -7,7 +7,6 @@ import org.posegood.api.contract.SessionRequests;
 import org.posegood.api.contract.SessionView;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,17 +42,6 @@ public class SessionController {
 		@RequestBody
 		SessionRequests.Create request) {
 		return sessions.create(current.id(), id, request);
-	}
-
-	/** 세션 종료. */
-	@PostMapping("/{id}/end")
-	public SessionView end(
-		@PathVariable
-		UUID id,
-		@Valid
-		@RequestBody
-		SessionRequests.End request) {
-		return sessions.end(current.id(), id, request.endMs());
 	}
 
 	/** 현재 상태 조회. */
