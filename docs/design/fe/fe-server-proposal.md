@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-22는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-23은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -25,7 +25,8 @@
 |  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | 팀원 확인 뒤 한 번에 |
 |  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | 급하지 않음 |
 |  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 정할 것 |
-| 3 | 휴대폰 기록 | 13 | T1 일별 통계 API (BE-2) | BE | 휴대폰 기록을 만들 때 |
+|  |  | 13 | 이 계정이 지금 측정 중인지 알리기 (BE-23) | BE·FE | 정할 것 |
+| 3 | 휴대폰 기록 | 14 | T1 일별 통계 API (BE-2) | BE | 휴대폰 기록을 만들 때 |
 
 ### 1순위: Kafka 모드(D-57)와 관련된 것
 
@@ -220,11 +221,24 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   2. BE: 앱이 그 세션이 걸러졌다는 것을 알 수 있게 한다. 앱은 R1에서 같은 세션을 찾아야 대기 기록을 지우므로, 걸러진 세션은 영영 확인되지 않아 끝없이 기다린다([FE 예외 처리 방안](fe-exception-handling-plan.md) 0장). 안: `closed`·S4에 걸러졌다는 표시를 주거나, 앱도 같은 기준을 쓴다.
   3. FE: BE가 정한 기준을 앱에도 똑같이 쓴다. 측정 시간이 기준 미만이면 대기 기록을 남기지 않고(`useSessionPersistence` `buildRecord`, 지금은 `total_ms`가 0일 때만 거름) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」를 띄운다.
 
+#### 요구 13. 이 계정이 지금 측정 중인지 알리기 (BE-23)
+
+- **한줄요약:** W1 응답에 이 계정이 지금 측정 중인지(`measuring`)를 넣어, 다른 기기의 설정·자세 등록 화면에서 「다른 기기에서 측정 중」을 알린다. 한 계정이 동시에 두 기기에서 측정하는 것을 막을지도 정한다.
+- **발단:** 11/13 [FE 예외 처리 모음](fe-exception-log.md)을 사용자 입장의 한계로 나누다가, 측정 중에 다른 기기에서 설정이나 기준 자세를 바꾸는 경우를 검토했다.
+- **원인:** 서버는 진행 중인 측정을 계정별로 메모리에 들고 있지만(`LiveSessions`, 최대 512개) API로 내보내지 않는다. 그래서:
+  - 진행 중인 측정은 영향을 받지 않는다. 서버가 S1 때 기준을 고정해 두기 때문이다([ADR 0020](../../decisions/0020-single-api-decision-engine.md) 「설정을 바꾸면 다음 세션부터」).
+  - 그러나 다른 기기 사용자는 측정 중인 줄 모르고 바꾸고, 측정하던 기기는 다음 「측정 시작」 때 S1 409(설정·기준 자세가 바뀜)를 받는다. 이 409는 FE가 W1·B2를 다시 받아 S1을 한 번 더 보내는 것으로 사용자 눈에 안 보이게 처리한다(FE만으로 됨, 409면 서버가 세션 행을 만들기 전이라 다시 보내도 된다).
+  - 한 계정이 두 기기에서 동시에 측정하는 것도 막지 않는다. 그러면 겹치는 시간에 기록이 두 개 생긴다.
+- **요구사항/변경사항:**
+  1. BE: W1(`GET /workspace`) 응답에 `measuring: boolean`을 넣는다. 이 계정에 끝나지 않은 측정이 있으면 `true`. 지금은 메모리(`LiveSessions`)로 보면 되고, io-api가 여러 대가 되면(MSA) DB나 공유 저장소로 봐야 한다.
+  2. FE: `measuring`이 `true`이고 이 기기는 측정 중이 아니면, 설정·자세 등록 화면에 「다른 기기에서 측정 중이에요. 바꾼 설정은 다음 측정부터 적용돼요」를 보인다.
+  3. 정할 것(정책): 한 계정의 동시 측정을 막을지. 막는다면 S1이 409(안: `ALREADY_MEASURING`)로 거절하고, FE는 「다른 기기에서 측정 중이에요」를 보인다. 회사·집 PC를 둘 다 켜 두는 경우가 있어 PM·BE와 정한다.
+
 ### 3순위: 휴대폰 기록
 
 [휴대폰 계획](fe-mobile-records-plan.md)을 진행할 때 함께 할 것.
 
-#### 요구 13. T1 일별 통계 API (BE-2)
+#### 요구 14. T1 일별 통계 API (BE-2)
 
 - **한줄요약:** J2가 채운 `daily_stat`을 돌려주는 T1 API를 휴대폰 기록을 만들 때 만든다.
 - **발단:** J2가 매일 00:10에 `daily_stat`을 채우지만, 이를 읽어 주는 API(컨트롤러)가 없다. 형식만 확정됐다.
@@ -426,7 +440,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `baseline_posture` | 기준 자세(관절 좌표 평균, 등록마다 새 행) | 자세 등록(B1·B2) |
 | `monitor_session` | 측정 세션(시작·종료 시각, 정책·기준 자세) | 기록(R1) |
 | `collapse_event`, `correction_alert`, `excluded_interval` | 사건, 알림, 집계 제외 구간 | 기록 상세 |
-| `daily_stat` | 일별 통계(Spark J2가 씀) | 아직 안 씀(T1 없음, 요구 13) |
+| `daily_stat` | 일별 통계(Spark J2가 씀) | 아직 안 씀(T1 없음, 요구 14) |
 | `social_identity`, `password_reset_token` | 소셜 로그인 연결, 비밀번호 재설정 토큰(V2.7, PR #113·#114) | 계정 찾기(작업 중) |
 
 **Spark 배치** ([bigdata/README.md](../../../bigdata/README.md), 서버 PC cron)

@@ -23,7 +23,7 @@
 - 팀 서비스 요구사항: 기능·역할·수용 기준·협의 항목은 저장소 밖 팀 구글 시트(디스코드 공유)에서 관리한다. [문서 이동 안내](removed-docs.md#3-feklaod-tech-이-pr-작성자가-만든-문서-9개)는 이동 기록이며 요구사항 원문은 아니다. 실제 시트 주소는 저장소에 미기재다.
 - [실시간 판정 Kafka 전환](plans/active/0031-realtime-kafka-transition.md)(0031, 아키텍처 v5.2): API 안 판정을 Kafka 경로로 옮기는 단계·담당·차이 목록. 지운 계획 0022를 대신한다.
 - [Spark 배치 J2 → J3 → J1](plans/active/0085-spark-batch-jobs.md)(0085, DevOps/BE, 11/01): 일별 통계 `daily_stat`(J2, 매일 00:10)·탈퇴 최종 삭제(J3, 04:00)·HDFS 적재(J1, 매시간). 실행·cron은 [bigdata/README.md](../bigdata/README.md).
-- [FE 예외 처리 모음](design/fe/fe-exception-log.md)(FE, 11/13): 오류·예외 때 띄우는 화면과 문구를 같은 화면끼리 묶어 상황별 문구로 정리(전체 화면·본문 오류·측정 시작 실패·결과 없음·측정 안내·카메라·등록·입력칸·위쪽 한 줄·창 닫기).
+- [FE 예외 처리 모음](design/fe/fe-exception-log.md)(FE, 11/13): 오류·예외 때 띄우는 화면과 문구를 사용자 입장으로 나눔(A 사용자가 해결, B 기다리거나 다시, C 알 수도 고칠 수도 없음, D 규칙 안내), 그 안을 그림 있는 오류 화면과 그림 없는 안내로.
 - [FE 예외 처리 방안](design/fe/fe-exception-handling-plan.md)(FE, 11/11~): 서버가 늦거나 결과를 잃었을 때의 앱 동작. 해결할 문제: 끝내 저장되지 않는 기록(S4 404는 오류 화면 + 대기 기록으로 처리함). 지금 동작(종료 뒤 5초·`stalled`·저장 중 창·늦은 결과 안내·강제 종료), D-57 회의에 낸 BE 요청·시험 항목.
 - [휴대폰에서 측정 기록 보기](design/fe/fe-mobile-records-plan.md)(FE 계획, 11/10): 웹 앱을 휴대폰 화면에 맞춰 R1 기록·통계를 보기. 앱 형태·휴대폰 측정·T1 대기를 정할 것.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
