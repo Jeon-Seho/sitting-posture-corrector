@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-22는 남은 BE 요청(0장), F14는 데스크톱 앱 웹 주소(할 일 1). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-22는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -173,9 +173,9 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 - **요구사항/변경사항:** 한쪽만 바꾸면 로그인·측정이 끊기므로 팀원 확인을 받고 순서대로 한 번에 한다.
   1. DevOps/BE: 서버가 옛 경로(`/api/v2/…`)와 새 경로(`/api/…`)를 **둘 다** 받게 한다(예: gateway에서 `/api/v2/`를 `/api/`로 넘김). BE 코드 약 20개 파일(`@RequestMapping("/v2…")`).
   2. FE: 버전을 지우고 배포한다. 앱 코드의 `/v2`는 `features/platform/serverConfig.ts` 한곳에 모아 두었다(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀). `API_VERSION`을 지우고 `API_ROOT`를 `'/api'`(gateway가 떼는 공통 앞부분)로 둔다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)의 「`/v2`도 받기」 줄과 시험 코드 9개 파일의 `/api/v2/…` 확인도 지운다. 그 뒤 앱 어디에도 `/v2`가 남지 않는다.
-  3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 5와 함께).
+  3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 4와 함께).
   4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
-  5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(할 일 1, F14)이 퍼진 뒤에 지운다.
+  5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
 
 #### 요구 11. 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21)
 
@@ -221,51 +221,43 @@ FE(klaod-tech)가 직접 하는 일이다.
 
 | # | 할 일 | 언제 |
 |---|---|---|
-| 1 | 데스크톱 앱(F14) 배포 | 지금 |
-| 2 | 탈퇴 때 이 기기 결과 지우기와 문의 안내 | 문의처가 정해지면 |
-| 3 | 발표용 예시 기록·합성 시연 지우기 | 급하지 않음 |
-| 4 | 시험 전용 로컬 로그인 지우기 | 할 일 3과 함께 |
-| 5 | Cloudflare 요청 제한 좁히기 | 시연 전 |
-| 6 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
+| 1 | 탈퇴 때 이 기기 결과 지우기와 문의 안내 | 문의처가 정해지면 |
+| 2 | 발표용 예시 기록·합성 시연 지우기 | 급하지 않음 |
+| 3 | 시험 전용 로컬 로그인 지우기 | 할 일 2와 함께 |
+| 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
+| 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
 
-#### 할 일 1. 데스크톱 앱(F14) 배포
-
-- **한줄요약:** 웹 주소를 여는 설치용 앱을 새로 빌드해 배포한다.
-- **발단:** 설치용 앱이 `https://app.posegood.site`를 열어 자동 로그인되게 하는 코드가 develop에 들어갔다(PR #106·#107). 운영 웹(포크 `faff869`)도 최신이다.
-- **원인:** 지금 배포본은 `app://posegood`에서 열려 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다.
-- **요구사항/변경사항:** 패키징 점검 스크립트(`smoke-desktop.mjs`·`smoke-packaged-ui.mjs`·`smoke-developer-page.mjs`)가 아직 `app://posegood/`를 찾으므로 고친 뒤, 앱을 빌드·배포한다. 실제 계정으로 로그인 → 앱 종료 → 다시 켜기를 확인한다.
-
-#### 할 일 2. 탈퇴 때 이 기기 결과 지우기와 문의 안내
+#### 할 일 1. 탈퇴 때 이 기기 결과 지우기와 문의 안내
 
 - **한줄요약:** 탈퇴하면 이 기기에 남은 서버 확인 전 결과를 지우고, 탈퇴한 계정으로 들어오려 하면 문의처를 안내한다.
 - **발단:** 서버 탈퇴(A7)는 지금 로그아웃만 한다([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)). 탈퇴 철회 API는 없다: 옛 계정 API(v1)에 있던 철회(`POST /auth/withdrawal/cancel`)는 BE가 아키텍처 v5.2로 바꾸며 지웠고, 지금은 탈퇴한 계정 로그인이 403 `ACCOUNT_CLOSED`, 같은 이메일 재가입이 30일 동안 409다. 서버의 30일은 최종 삭제(Spark J3)까지의 유예일 뿐 복구 기간이 아니다.
 - **원인:** 되살릴 방법이 없으니 이 기기에 그 계정의 결과를 남길 이유가 없다(남기면 개인정보만 남는다). 탈퇴를 되돌리고 싶은 사람은 앱 안에서 할 수 있는 것이 없어 사람에게 연락해야 한다.
 - **요구사항/변경사항:**
   1. 탈퇴 성공 뒤 그 계정의 대기 기록 저장소(`features/storage/serverRecords.ts`, 키 `posegood.account.v3.{user_id}.pending-results`)를 지운다. 계정 화면 탈퇴 흐름에 넣는다.
-  2. 탈퇴 확인 창과 로그인 403 `ACCOUNT_CLOSED` 안내(`accountClient.ts`)에 문의처를 넣는다. 예: 「탈퇴한 계정이에요. 되돌릴 수 없고 탈퇴 30일 뒤 삭제돼요. 도움이 필요하면 ○○@○○로 연락해 주세요.」 **문의처(이메일)는 정하기 전**이다. 오류 화면의 「계속되면 알려 주세요」 문의처([frontend README](../../../frontend/README.md) 「오류 안내 페이지」)와 같은 주소로 한다.
+  2. 탈퇴 확인 창과 로그인 403 `ACCOUNT_CLOSED` 안내(`accountClient.ts`)에 문의처를 넣는다. 예: 「탈퇴한 계정이에요. 되돌릴 수 없고 탈퇴 30일 뒤 삭제돼요. 도움이 필요하면 example@gmail.com으로 연락해 주세요.」 **문의처(이메일)는 정하기 전**이라 지금은 예시 `example@gmail.com`을 쓴다. 오류 화면의 「계속되면 알려 주세요」 문의처([frontend README](../../../frontend/README.md) 「오류 안내 페이지」)와 같은 주소로 한다.
 
-#### 할 일 3. 발표용 예시 기록·합성 시연 지우기
+#### 할 일 2. 발표용 예시 기록·합성 시연 지우기
 
 - **한줄요약:** 서버 측정만 남았으니 발표용 예시 기록과 그 설정을 지운다.
 - **발단:** 서버 연결 전 발표용으로 넣은 예시 기록이 아직 있다(11/11 develop 확인).
 - **원인:** 기록은 이제 R1에서만 온다. 예시 기록 토글이 남아 있으면 실제 기록과 섞여 보일 수 있고, 쓰지 않는 코드가 기록 화면 로직을 복잡하게 만든다.
 - **요구사항/변경사항:** `data/exampleRecords.ts`, 설정의 예시 기록 토글(`LocalServiceApp.tsx` `saveDemoPreference`, `KEYS.demo`), 합성 시연 `mode: 'demo'`, `features/testing/legacySyntheticRecord.ts`를 지운다. 자동 시험용 가짜 카메라는 남긴다. [frontend README](../../../frontend/README.md) 7번 줄도 고친다.
 
-#### 할 일 4. 시험 전용 로컬 로그인 지우기
+#### 할 일 3. 시험 전용 로컬 로그인 지우기
 
 - **한줄요약:** 옛 화면 시험만 쓰는 「이 기기 로그인」 경로를 지운다.
 - **발단:** 로그인은 항상 서버 계정인데, `ServiceApp.test.tsx`만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다([계획 0054](../../plans/active/0054-pip-fix-and-server-only-login.md) 2단계).
 - **원인:** 시험 때문에 실제 앱에는 없는 로그인 경로(`LocalServiceApp`의 계정 없음 분기, `KEYS.account`)가 코드에 남아 있다.
 - **요구사항/변경사항:** `ServiceApp.test.tsx`를 가짜 계정 서버(`frontend/scripts/fake-server.mjs` 방식)로 바꾸고, `LocalServiceApp.tsx`의 이 기기 계정 읽기·쓰기와 `KEYS.account`를 지운다(`useProfileForm.ts`의 지우기 목록 포함).
 
-#### 할 일 5. Cloudflare 요청 제한 좁히기
+#### 할 일 4. Cloudflare 요청 제한 좁히기
 
 - **한줄요약:** 로그인·가입에만 요청 제한을 걸고, 평소 값과 시연 날 값을 정한다.
 - **발단:** DevOps 질문(9.6.3 Q3).
 - **원인:** `/api/v2/auth/*` 제한(같은 IP 10초 20번)에 로그인 유지(A8 refresh)도 걸린다. 학교 공인 IP 하나 뒤에서 여러 명이 쓰면 막힐 수 있다.
 - **요구사항/변경사항:** klaod-tech의 Cloudflare 규칙 `auth-rate-limit`만 바꾼다. ① 대상을 `/api/v2/auth/login`·`/api/v2/auth/register`로 좁힘 ② 평소 값을 넉넉하게 ③ 시연 날 값을 따로. 서버·gateway는 할 일 없음.
 
-#### 할 일 6. 정식 공개 때 검색 노출 막기 지우기
+#### 할 일 5. 정식 공개 때 검색 노출 막기 지우기
 
 - **한줄요약:** 정식 공개 때 검색 차단 두 줄을 지운다.
 - **발단:** 실제 연동 전까지 검색 결과에 안 나오게 넣었다(10/20, `72ab5ec`).
@@ -320,7 +312,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 앱 | 화면 출처 | 비고 |
 |---|---|---|
 | 웹 | `https://app.posegood.site`(Vercel, 포크 develop) | 다른 탭에 가도 측정이 이어진다(프레임 타이머 Worker, `features/camera/frameTimer.ts`). 작은 카메라 창은 없다([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md)) |
-| 데스크톱(Electron, `frontend/electron/`) | 설치용은 웹 주소를 연다(F14, PR #106·#107 — 새 설치 파일 배포 전, 할 일 1). 개발 실행은 로컬 개발 서버 | 작은 카메라 창, 앱 밖 알림 팝업, 시작 프로그램, 측정 중 닫기 확인 |
+| 데스크톱(Electron, `frontend/electron/`) | 설치용은 웹 주소를 연다(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). 개발 실행은 로컬 개발 서버 | 작은 카메라 창, 앱 밖 알림 팝업, 시작 프로그램, 측정 중 닫기 확인 |
 
 **앱이 하는 일과 안 하는 일**
 
@@ -436,8 +428,8 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 도메인·DNS | `posegood.site`(klaod-tech 개인 계정, 가비아), DNS는 Cloudflare 무료. `app.`은 DNS only(Vercel), `api.`는 프록시(터널) |
 | 화면 | Vercel 프로젝트는 klaod-tech 포크(`klaod-tech/sitting-posture-corrector`) develop을 배포한다. 원래 저장소 develop에 합쳐도 포크를 올려야 운영에 나간다: `git fetch origin && git push fork origin/develop:develop`. 빌드는 `frontend`·`model`이 바뀌었을 때만(`frontend/vercel.json`) |
 | 서버 | Cloudflare 이름 있는 터널 `posegood-api` → compose `cloudflared` → `http://gateway:80`. 연결 토큰은 klaod-tech가 서버 비밀값 파일에 직접 넣는다(저장소·채팅에 올리지 않음) |
-| Cloudflare 보안 | 요청 제한 `auth-rate-limit`(`/api/v2/auth/*`, 같은 IP 10초 20번 → 10초 차단, 할 일 5에서 좁힘). Bot Fight Mode 끔(API 요청에 사람 확인이 끼면 깨짐) |
-| 검색 노출 | 막아 둠(`robots.txt`, `X-Robots-Tag`) — 정식 공개 때 지움(할 일 6) |
+| Cloudflare 보안 | 요청 제한 `auth-rate-limit`(`/api/v2/auth/*`, 같은 IP 10초 20번 → 10초 차단, 할 일 4에서 좁힘). Bot Fight Mode 끔(API 요청에 사람 확인이 끼면 깨짐) |
+| 검색 노출 | 막아 둠(`robots.txt`, `X-Robots-Tag`) — 정식 공개 때 지움(할 일 5) |
 | 주의 | Vercel 기본 주소(`*.vercel.app`)나 `app://`에서는 `api.`와 다른 사이트라 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다. 실제 서버는 `app.posegood.site`에서만 쓴다 |
 | 확인할 것 | Vercel 무료 요금제는 비상업용만. 도메인 갱신 가격은 첫해(3,300원)와 다르다(10/19 구입, 1년) |
 
