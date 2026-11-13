@@ -25,6 +25,7 @@
 
 `make check`와 `check-local`은 위 세 게이트를 같은 순서로 실행한다. 기본 검사에는 MySQL·Chrome·Docker·Compose가 필요하지 않다.
 Python 3.9+, Node.js 24+, 컴파일·시험용 JDK 17과 Checkstyle용 JDK 21이 필요하다. 준비 방법은 [개발 흐름](development.md)을 따른다.
+GitHub 재사용 검사(`harness.yml`)는 Python 3.9와 3.12를 모두 사용할 수 있도록 Ubuntu 24.04로 고정한다.
 구형 저장소 검사·종합 브라우저/Compose 검사·서버 benchmark는 2026-10-29 제거했다. 삭제한 단계를 성공 stub으로 남기지 않는다.
 
 수동/reusable harness는 `make check`를 실행하며 배포 전 검증도 이 범위를 따른다. 기본 검사 성공은 실제 DB·브라우저·배포 연결 성공을 뜻하지 않는다.
