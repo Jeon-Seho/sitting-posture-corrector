@@ -15,7 +15,8 @@ const labels: Record<ForecastState, string> = {
 const percentage = (v: number | null | undefined) => v == null ? '—' : `${(v * 100).toFixed(1)}%`
 export function ForecastPage({ camera }: { camera: CameraController }) {
   const experiment = useForecastExperiment(camera)
-  useEffect(() => { camera.stop(); return () => camera.stop() }, [camera.stop])
+  const { stop } = camera
+  useEffect(() => { stop(); return () => stop() }, [stop])
   const r = experiment.reading
   return <main className="collection-entry forecast-entry">
     <video ref={camera.videoRef} className="capture-source" muted playsInline aria-hidden="true" />

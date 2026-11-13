@@ -50,6 +50,8 @@ export default function ObservationLab({ camera, demo = false }: { camera: Camer
   useEffect(() => { if (session.guide.status === 'note') setStretchNote('') }, [session.guide.status, session.guide.step?.trial])
   const measurement = useRef<HTMLElement>(null), focusedGuideRun = useRef('')
   const videoOn = session.active && session.source === 'camera' && camera.state === 'on'
+  const { guideMode, canGuide, nextGuide, canStartReference, startReference } = session
+  const guideStatus = session.guide.status, setupStatus = session.setup.status
   useEffect(() => {
     const video = preview.current
     if (!video) return
@@ -65,15 +67,15 @@ export default function ObservationLab({ camera, demo = false }: { camera: Camer
     measurement.current?.focus({ preventScroll: true })
   }, [session.guide.status, session.guide.runId])
   useEffect(() => {
-    const referenceReady = session.setup.status === 'preparing' && session.canStartReference
-    if (!referenceReady && (session.guide.status !== 'waiting' || session.guideMode !== 'manual' || !session.canGuide)) return
+    const referenceReady = setupStatus === 'preparing' && canStartReference
+    if (!referenceReady && (guideStatus !== 'waiting' || guideMode !== 'manual' || !canGuide)) return
     const nextFromBody = (event: KeyboardEvent) => {
       if (event.target !== document.body || event.key !== 'Enter' || event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing || document.querySelector?.('[role="dialog"][aria-modal="true"]')) return
-      event.preventDefault(); if (referenceReady) session.startReference(); else session.nextGuide()
+      event.preventDefault(); if (referenceReady) startReference(); else nextGuide()
     }
     document.addEventListener('keydown', nextFromBody)
     return () => document.removeEventListener('keydown', nextFromBody)
-  }, [session.guide.status, session.guideMode, session.canGuide, session.nextGuide, session.setup.status, session.canStartReference, session.startReference])
+  }, [guideStatus, guideMode, canGuide, nextGuide, setupStatus, canStartReference, startReference])
   const values = session.reference && session.current ? comparisonValues(session.current, session.reference) : null
   const action = COMPARISON_ACTIONS.find(a => a.id === session.action)!
   const quality = !session.active ? '측정 대기' : session.registering ? `기준 등록 중 · ${Math.round(session.progress * 100)}%` : !session.current?.image ? '2D 측정 불가 · 얼굴과 양어깨를 확인하세요' : !session.reference ? '기준 등록이 필요해요' : values?.relativeZ == null ? '2D 관측 중 · z 비교 불가' : '2D · 상대 z 관측 중'

@@ -21,6 +21,7 @@ import type { CameraController } from './useCamera'
 
 type Stage = 'idle' | 'countdown' | 'recording' | 'review'
 export function useCollection(camera: CameraController) {
+  const { subscribe } = camera
   const capture = useRef<Capture | null>(null)
   const stageRef = useRef<Stage>('idle')
   const phaseRef = useRef<SessionPhase | 'inactive'>('inactive')
@@ -41,6 +42,7 @@ export function useCollection(camera: CameraController) {
     updateStage(next)
   }, [])
   const active = stage === 'countdown' || stage === 'recording'
+  const hasRows = count > 0
   const canStart =
     camera.state === 'on' &&
     !!camera.baseline &&
@@ -104,14 +106,14 @@ export function useCollection(camera: CameraController) {
 
   useEffect(
     () =>
-      camera.subscribe((o) => {
+      subscribe((o) => {
         const c = capture.current
         if (!c || phaseRef.current !== 'running' || document.hidden) return
         tick(o.timeMs)
         if (stageRef.current === 'recording')
           appendObservation(c, o, taskFor(c.options.taskId)!.posture)
       }),
-    [camera.subscribe, tick],
+    [subscribe, tick],
   )
   useEffect(() => {
     if (!active) return
@@ -131,14 +133,14 @@ export function useCollection(camera: CameraController) {
     return () => document.removeEventListener('visibilitychange', hidden)
   }, [stop])
   useEffect(() => {
-    if ((!count && !active) || downloaded) return
+    if ((!hasRows && !active) || downloaded) return
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       event.returnValue = ''
     }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [count > 0, active, downloaded])
+  }, [hasRows, active, downloaded])
 
   const setOptions = (patch: Partial<CaptureOptions>) => {
     if (stageRef.current !== 'idle') return

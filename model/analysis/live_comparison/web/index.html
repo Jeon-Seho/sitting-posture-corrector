@@ -22,7 +22,7 @@
         <div class="camera-controls"><button class="button primary" id="start">카메라 시작 <span>↗</span></button><button class="button secondary" id="register" disabled>기준 자세 등록</button><button class="button quiet" id="stop" disabled>종료</button></div>
         <div class="camera-tip"><span class="tip-icon">i</span><p id="guidance">카메라를 켠 뒤 편안한 기준 자세를 취하고 등록해 주세요. 같은 자세에 대한 두 판정을 비교합니다.</p></div>
         <section class="feature-explanation" aria-labelledby="feature-title">
-          <div class="feature-heading"><div><p class="eyebrow">WHY THIS SCORE?</p><h3 id="feature-title">규칙의 점수 근거</h3></div><span>최근 1초 관측</span></div>
+          <div class="feature-heading"><div><p class="eyebrow">WHY THIS SCORE?</p><h3 id="feature-title">규칙의 점수 근거</h3></div><span id="observation-scope">관측 준비 중</span></div>
           <p id="feature-description" class="feature-description">가장 큰 변화가 규칙 점수를 정합니다. 초록은 등록 중 관측된 범위입니다.</p>
           <div class="feature-legend" aria-label="색상 의미"><span class="red"><i></i><span id="legend-red">빨강 · 이탈 기준 도달</span></span><span class="green"><i></i><span id="legend-green">초록 · 등록 범위 안</span></span><span class="yellow"><i></i><span id="legend-yellow">노랑 · 범위 밖</span></span><span class="unknown"><i></i>회색 · 표시 불가</span></div>
           <ul class="feature-list" aria-label="특징별 설명">
@@ -37,7 +37,7 @@
         </section>
       </section>
       <section class="results" aria-labelledby="results-title">
-        <div class="section-head result-heading"><div><p class="eyebrow">02 / COMPARISON</p><h2 id="results-title">비교 결과</h2></div><span class="sync-label"><span></span> 같은 관측 창</span></div>
+        <div class="section-head result-heading"><div><p class="eyebrow">02 / COMPARISON</p><h2 id="results-title">비교 결과</h2></div><span class="sync-label"><span></span> 같은 관측</span></div>
         <section class="scenario-card card" aria-labelledby="scenario-title">
           <div class="scenario-heading"><div><p class="eyebrow">TEST SCENARIOS</p><h3 id="scenario-title">자세별 점수 기록</h3></div><span id="scenario-progress">0개 기록</span></div>
           <p class="scenario-description">각 자세를 8~10초 유지하고 해당 버튼을 누르세요. 다음 동작 전에는 기준 자세로 8초 쉬어 주세요.</p>
@@ -49,7 +49,7 @@
         </section>
         <section class="pose-comparison card" aria-labelledby="pose-comparison-title">
           <div class="pose-heading"><div><p class="eyebrow">03 / DECISION COMPARISON</p><h3 id="pose-comparison-title">같은 자세의 판정 비교</h3></div><span class="pose-session-label">현재 측정</span></div>
-          <p class="pose-description">같은 최근 1초 관측의 순간 판정입니다. 점수는 부드럽게 표시하며 판정은 원점수와 각 방식의 기준을 따릅니다.</p>
+          <p class="pose-description" id="pose-description">같은 관측의 순간 판정입니다. 점수는 부드럽게 표시하며 판정은 원점수와 각 방식의 기준을 따릅니다.</p>
           <div class="decision-grid">
             <div class="decision-card"><div class="decision-head"><h4>규칙 기반</h4><span id="rule-live-decision" class="live-decision">관측 대기</span></div><div class="decision-details"><strong id="rule-current-mini">— 점</strong><span id="rule-current-alerts">알림 0회</span></div><p class="decision-basis">30점 이하 이탈</p></div>
             <div class="decision-card"><div class="decision-head"><h4>2단계 모델</h4><span id="model-live-decision" class="live-decision">관측 대기</span></div><div class="decision-details"><strong id="model-current-mini">— 점</strong><span id="model-current-alerts">알림 0회</span></div><p class="decision-basis" id="model-threshold-mini">이탈 기준 준비 중</p></div>
