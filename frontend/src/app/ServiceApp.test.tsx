@@ -187,6 +187,22 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(pendingRecords('synthetic-screen')[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
+  it('keeps nothing on this device when S4 answers 404 (server fault), even the checkpoints', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
+    // A checkpoint while measuring, then the end where S4 found nothing on the server.
+    act(() => service().onObserved({ ...endedState(), phase: 'running' }))
+    expect(pendingRecords('synthetic-screen')).toHaveLength(1)
+    act(() => service().onEnded({ ...endedState(), resultMissing: true, late: true }, ''))
+    expect(pendingRecords('synthetic-screen')).toEqual([])
+  })
+
   it('keeps a measurement over KST midnight per day from the server running totals (PR #64 day split)', () => {
     controls.camera.state = 'on'
     controls.camera.quality = true

@@ -420,7 +420,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
   })
 
-  it('ends with the last progress result marked missing when S4 answers 404 (kept on this device)', async () => {
+  it('ends marked missing when S4 answers 404 (error page, nothing kept here)', async () => {
     const live = await started()
     socket.push({ type: 'ready', purpose: 'measure', session_id: SESSION })
     const seen = { ...EMPTY_SUMMARY, total_ms: 1800, valid_ms: 1800, normal_ms: 1800, keep_rate: 1, events_per_hour: 0 }

@@ -540,8 +540,9 @@ export class LiveSession {
       }
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
-      // 404: the server has it neither in memory nor stored. The last `progress` result is kept as
-      // this device's pending record (never deleted: it is the only copy) and the page says so.
+      // 404: the server has it neither in memory nor stored — a server fault that should be rare.
+      // An error page, and this device keeps nothing: what the server received stays on the server
+      // (an open session row) and shows up in R1 once the server closes it (FE proposal 요구 8).
       if (caughtError instanceof ApiError && caughtError.status === 404) {
         this.finish({ phase: 'ended', late, resultMissing: true })
         return
