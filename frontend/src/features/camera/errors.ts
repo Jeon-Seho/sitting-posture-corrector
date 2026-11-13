@@ -12,8 +12,12 @@ export const CAMERA_ERRORS = {
   deviceBusy: '다른 앱이 카메라를 쓰고 있을 수 있어요. 그 앱을 닫고 다시 시도해 주세요.',
   deviceUnavailable:
     '고른 카메라를 쓸 수 없어요. 다른 카메라를 고르거나 다시 연결해 주세요.',
-  preparationFailed:
-    '카메라나 자세 추적 모델을 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+  preparationFailed: '카메라를 준비하지 못했어요. 카메라 연결을 확인하고 다시 시도해 주세요.',
+  // The pose model comes from our own web server (/mediapipe/); `modelLoadError` picks one of these.
+  modelOffline: '인터넷 연결이 끊겨 자세 추적 모델을 받지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+  modelServer: '서버에서 자세 추적 모델을 받지 못했어요. 사용자 잘못이 아니에요. 잠시 뒤 다시 시도해 주세요.',
+  modelUnsupported:
+    '이 브라우저에서 자세 추적을 시작하지 못했어요. Chrome이나 Edge를 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
   aspectUnsupported:
     '이 카메라는 4:3 화면으로 쓸 수 없어요. 다른 카메라를 고르거나 Chrome·Edge 또는 PoseGood 앱에서 열어 주세요.',
 }

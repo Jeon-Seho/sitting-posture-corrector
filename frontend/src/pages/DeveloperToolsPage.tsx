@@ -21,7 +21,7 @@ import { useAppearance } from '../features/appearance/theme'
 const SECTIONS = [ ['errors', '오류 페이지'], ['camera', '카메라·인식'], ['alerts', '알림·연결'], ['appearance', '화면·모션'], ['records', '기록·수집'], ['diagnostics', '상태·버전'] ] as const
 type SectionId = typeof SECTIONS[number][0]
 const WEB_ERRORS = [['request', '400번대'], ['server', '500번대'], ['offline', '인터넷 끊김'], ['app', '앱 오류'], ['connecting', '연결 중 (앱)']] as const
-const ERROR_LABELS: Record<keyof typeof CAMERA_ERRORS, string> = { unsupported: '지원하지 않는 환경', preparationTimeout: '준비 시간 초과', videoUnavailable: '영상 준비 실패', disconnected: '연결 끊김', trackingFailed: '추적 실패', permissionDenied: '권한 거부', deviceMissing: '카메라 없음', deviceBusy: '다른 앱에서 사용 중', deviceUnavailable: '선택 카메라 사용 불가', preparationFailed: '모델·카메라 로드 실패', aspectUnsupported: '4:3 화면 불가' }
+const ERROR_LABELS: Record<keyof typeof CAMERA_ERRORS, string> = { unsupported: '지원하지 않는 환경', preparationTimeout: '준비 시간 초과', videoUnavailable: '영상 준비 실패', disconnected: '연결 끊김', trackingFailed: '추적 실패', permissionDenied: '권한 거부', deviceMissing: '카메라 없음', deviceBusy: '다른 앱에서 사용 중', deviceUnavailable: '선택 카메라 사용 불가', preparationFailed: '카메라 준비 실패', modelOffline: '모델 받기 실패(오프라인)', modelServer: '모델 받기 실패(서버)', modelUnsupported: '모델 실행 실패(브라우저)', aspectUnsupported: '4:3 화면 불가' }
 function Tool({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return <article className="dev-tool-card"><h3>{title}</h3>{description && <p className="setting-desc">{description}</p>}{children}</article>
 }

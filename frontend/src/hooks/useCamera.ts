@@ -10,6 +10,7 @@ import { missingDevice, readMainCamera, writeMainCamera } from '../features/came
 import { useServerBaseline } from '../features/baseline/useServerBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
+import { modelLoadError } from '../features/camera/modelFailure'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
 
 export type { Observation } from '../features/camera/types'
@@ -205,7 +206,10 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         }
 
         const modelStarted = performance.now()
-        let loaded = await loadPoseDetector(isCurrent)
+        let loaded = await loadPoseDetector(isCurrent).catch(async (cause: unknown) => {
+          console.error('[hooks/useCamera.ts:connect] Pose model failed to load', cause)
+          throw new Error(await modelLoadError(), { cause })
+        })
         if (!loaded) return
         if (!isCurrent()) {
           loaded.detector.close()
