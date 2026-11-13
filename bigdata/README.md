@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | J2 일별 통계 | `jobs/j2_daily_stat.py` | 매일 00:10 | 어제부터 7일 전까지(KST) 끝난 세션 → 사용자별 `daily_stat`, 바뀐 날만 다시 씀 | 서버 확인(D-05, 11/01) |
 | J3 탈퇴 삭제 | `jobs/j3_withdrawal_delete.py` | 매일 04:00 | 유예 30일 지난 탈퇴 → HDFS 사용자 폴더 → DB 행 | 서버 확인(D-49, 11/01) |
-| J1 적재 | `jobs/j1_hdfs_archive.py` | 매시간 20분 | Kafka v1 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더 + `feature_archive` | 서버 확인(D-33, 11/01) — 실제 세션은 D-57 뒤 |
+| J1 적재 | `jobs/j1_hdfs_archive.py` | 매시간 20분 | Kafka v1 토픽(+ 좌표 구간 `posture.keypoints.v1`, D-92) → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더 + `feature_archive` | 서버 확인(D-33, 11/01) — 실제 세션은 D-57 뒤 |
 
 ## 실행 방식
 
@@ -34,7 +34,7 @@ tools/platform/batch.sh j2 --date 2026-10-31 --days 3 --dry-run   # 10/29~10/31,
 - **다시 계산(`--days N`, D-81)**: 끝 날짜(`--date`, 기본 어제)부터 N일 전까지 날짜마다 계산해 바뀐 날만 다시 쓴다. J2가 지나간 뒤에 닫힌 세션(저장 지연·나중에 닫힘)이나 지워진 세션(R3)이 그 날짜 통계에 반영된다. cron은 `--days 7` — 7일보다 늦게 닫힌 세션은 `--date`로 직접 돌린다. 한 날짜가 실패해도 나머지 날짜는 계속하고 끝 코드는 1. 처음 cron 전 날짜(10/29·10/30)는 11/04에 `--date`로 채웠다.
 - 시각을 00:00이 아니라 **00:10**으로 둔다: 자정 직전에 끝난 세션의 저장이 끝나고, 자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 둔다(FE 요청 BE-11).
 
-## J1 판정 과정 적재
+## J1 판정 과정·좌표 적재
 
 ```bash
 tools/platform/batch.sh j1                                   # Kafka 받기 + 끝난 지 10분 지난 세션 정리
@@ -43,7 +43,8 @@ tools/platform/batch.sh j1 --session <uuid> --settle-sec 0   # 시험용 — 그
 ```
 
 1. **받기**: `posture.features.v1`·`posture.inference.v1`·`posture.episodes.v1`을 Structured Streaming `availableNow`로 지난번 위치부터 지금까지 읽어 `/data/staging/realtime-v1/topic=…/date=…`(Parquet — 봉투 몇 칸 + 원문 JSON)에 붙인다. 읽은 위치는 `/data/checkpoints/j1-realtime-v1`. 처음 실행은 토픽에 남은 가장 앞부터 읽는다(지워진 위치는 건너뜀). Kafka 소스 패키지(`spark-sql-kafka-0-10_2.13`, spark 이미지와 같은 판 — `batch.sh`가 이미지 태그에서 읽음)도 처음 한 번 받는다.
-2. **정리**: DB에서 끝난 지 10분(`--settle-sec`) 지났고 `feature_archive`가 없는 세션(계정 ACTIVE, 7일 안)을 골라 임시 폴더의 메시지를 모은다. 중복은 하나만(구간·관측 `sequence`, 사건 `event_id`, 그 밖은 `message_id` — 가장 앞 offset). 세션 폴더 `/data/users/{user_account_id}/{시작일 KST}/{client_session_uuid}/`에 **파일 3개**(`features.jsonl`·`inference.jsonl`·`episodes.jsonl`, 토픽 원문 한 줄에 하나)를 쓰고 `feature_archive` 1행(`file_uri`, 첫·마지막 구간 시각 = 세션 시작 + `start_ms`/`end_ms`, 적재 시각)을 넣는다. 파일을 먼저 쓰고(덮어쓰기) 행을 넣어, 중간에 멈추면 다음 실행이 다시 쓴다.
+   (D-92) 좌표 구간 토픽 `posture.keypoints.v1`은 **별도 쿼리·체크포인트**(`/data/checkpoints/j1-keypoints-v1`)로 같은 임시 폴더 구조에 받는다 — 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어 읽기를 보장하지 않아서다. 이 토픽은 kafka 경로에서 io-api 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS=true`일 때만 쌓인다(기본 꺼짐 — 좌표 활용 동의 범위 확인 전).
+2. **정리**: DB에서 끝난 지 10분(`--settle-sec`) 지났고 `feature_archive`가 없는 세션(계정 ACTIVE, 7일 안)을 골라 임시 폴더의 메시지를 모은다. 중복은 하나만(구간·관측 `sequence`, 사건 `event_id`, 그 밖은 `message_id` — 가장 앞 offset). 세션 폴더 `/data/users/{user_account_id}/{시작일 KST}/{client_session_uuid}/`에 **파일 3개**(`features.jsonl`·`inference.jsonl`·`episodes.jsonl`, 토픽 원문 한 줄에 하나)와 좌표 구간이 있으면 `keypoints.jsonl`(D-92, 중복은 `sequence`로)을 쓰고 `feature_archive` 1행(`file_uri`, 첫·마지막 구간 시각 = 세션 시작 + `start_ms`/`end_ms`, 적재 시각)을 넣는다. 파일을 먼저 쓰고(덮어쓰기) 행을 넣어, 중간에 멈추면 다음 실행이 다시 쓴다.
 3. **임시 폴더 정리**: 7일(`--keep-days`)보다 오래된 `date=` 폴더를 지운다.
 
 - 임시 폴더에 메시지가 없는 세션은 건너뛴다(`missing`). **지금 앱 측정은 Kafka를 거치지 않는다**(API 안 판정, D-57 전) — 실제 사용자 세션은 D-57 전환 뒤부터 적재된다. 그 전에는 Kafka 시험 입구로 재생한 시험 세션만 적재된다.
@@ -85,5 +86,5 @@ J1은 매시간 20분 — 00:10 J2·04:00 J3와 겹치지 않게(잡마다 잠�
 
 - 계산: `python -m pytest tests/test_batch_j2_daily_stat.py` — 합성 세션, 로컬 Spark(pyspark가 없으면 건너뜀). 다시 계산(날짜 목록·비교·바뀐 날만 쓰기·실패한 날 뒤 계속)은 Spark 없이.
 - J3 흐름: `python -m pytest tests/test_batch_j3_withdrawal_delete.py` — 가짜 DB·HDFS(순서·실패 되돌림·재시도·다른 사용자 폴더 거부).
-- J1: `python -m pytest tests/test_batch_j1_hdfs_archive.py` — 로컬 Spark·로컬 파일(임시 폴더 열·중복 빼기·파일 3개·행·dry-run·오래된 임시 폴더). Kafka 받기는 통합 테스트로.
-- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 변경 없음 → `--days 2` dry-run → 삭제 뒤 CASCADE), 16단계(시험 계정 C 탈퇴 31일·D 29일 → `tests/batch_testkit.py`로 준비 → J3 → C 행·HDFS 폴더 전부 삭제·D 그대로 → 재실행 0 → D 정리), 17단계(시험 세션 E를 Kafka v1로 재생 → J1 → 세션 폴더 파일 3개·`feature_archive` → 재실행 새 메시지 0 → J3로 정리).
+- J1: `python -m pytest tests/test_batch_j1_hdfs_archive.py` — 로컬 Spark·로컬 파일(임시 폴더 열·중복 빼기·파일 3개·좌표 파일·행·dry-run·오래된 임시 폴더). Kafka 받기는 통합 테스트로.
+- 서버: `tools/platform/integration_test.sh` 15단계(시험 계정 세션 2개 → J2 → 저장 행 확인 → 재실행 변경 없음 → `--days 2` dry-run → 삭제 뒤 CASCADE), 16단계(시험 계정 C 탈퇴 31일·D 29일 → `tests/batch_testkit.py`로 준비 → J3 → C 행·HDFS 폴더 전부 삭제·D 그대로 → 재실행 0 → D 정리), 17단계(시험 세션 E를 Kafka v1로 재생 + 합성 좌표 구간 170개 → J1 → 세션 폴더 파일 4개·`feature_archive` → 재실행 새 메시지 0 → J3로 정리).

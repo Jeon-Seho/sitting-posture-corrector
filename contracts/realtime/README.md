@@ -41,6 +41,7 @@
 | `posture.inference.v1` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference.v1](kafka-inference.v1.schema.json) |
 | `posture.episodes.v1` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 v1 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
 | `posture.alerts.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts.v1](kafka-alerts.v1.schema.json) |
+| `posture.keypoints.v1` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로(frames 계약). kafka 경로·적재 스위치를 켰을 때만, 처리 서비스는 읽지 않음 | [kafka-keypoints.v1](kafka-keypoints.v1.schema.json) |
 | `posture.stored.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored.v1](kafka-stored.v1.schema.json) |
 
 공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.

@@ -5,12 +5,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -27,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * kafka 경로(계획 0031 1단계, D-57): 받은 구간을 {@code posture.features.v1}로 보내고, 판정은 처리 서비스가 한다.
  *
@@ -38,6 +42,10 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>세션마다 시작·종료는 한 번만 보낸다. 입출구 서버는 한 대이고 재시작하면 연결이 모두 끊기므로(재연결 없음,
  * ADR 0024) 이 상태는 메모리에 둔다. 판정 결과(관측·사건·진행·알림)는 결과 토픽에서 따로 받는다.
  * 좌표·특징 값은 로그에 남기지 않는다.
+ *
+ * <p>(D-92) 적재 스위치를 켜면 받은 좌표 구간을 그대로 {@code posture.keypoints.v1}에도 보낸다(J1이 HDFS 세션 폴더에
+ * {@code keypoints.jsonl}로 저장 — 학습용 좌표 보관). 판정 경로가 아니라서 브로커 확인을 기다리지 않고, 실패해도
+ * 측정은 계속한다(그 구간 좌표만 빠짐, 실패 수를 센다). 계약: contracts/realtime/kafka-keypoints.v1.schema.json.
  */
 final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(KafkaPipeline.class);
@@ -47,6 +55,9 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	private final SessionService sessions;
 	private final Producer<String, String> producer;
 	private final String topic;
+	/** (D-92) 좌표 구간 적재 토픽. null이면 보내지 않는다(기본 꺼짐). */
+	private final String keypointsTopic;
+	private final AtomicLong keypointsFailed = new AtomicLong();
 	private final Json json;
 	private final Duration sendTimeout;
 	private final long maxSessionMs;
@@ -62,9 +73,22 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 		Duration sendTimeout,
 		Duration maxSession,
 		Clock clock) {
+		this(sessions, producer, topic, null, json, sendTimeout, maxSession, clock);
+	}
+
+	KafkaPipeline(
+		SessionService sessions,
+		Producer<String, String> producer,
+		String topic,
+		String keypointsTopic,
+		Json json,
+		Duration sendTimeout,
+		Duration maxSession,
+		Clock clock) {
 		this.sessions = sessions;
 		this.producer = producer;
 		this.topic = topic;
+		this.keypointsTopic = keypointsTopic;
 		this.json = json;
 		this.sendTimeout = sendTimeout;
 		this.maxSessionMs = maxSession.toMillis();
@@ -128,6 +152,7 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 						: InferenceRequest.MeasurementQuality.good,
 					computed.deltas());
 				send(sessionId, owner, "features", body);
+				archive(sessionId, owner, interval);
 				if (computed.invalidReason() != null) {
 					state.hints.put(interval.sequence(), computed.invalidReason());
 				}
@@ -193,18 +218,52 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 		producer.close(Duration.ofSeconds(5));
 	}
 
-	/** 봉투에 싸서 키 {@code session_id}로 보내고 브로커 확인을 기다린다. 실패·시간 초과는 503(앱에는 {@code stalled}). */
-	private void send(UUID sessionId, long owner, String kind, Object body) {
-		var envelope = new Envelope(
+	/** (D-92) 적재 실패 수(시작한 뒤부터). 시험·점검용. */
+	long keypointsFailed() {
+		return keypointsFailed.get();
+	}
+
+	/**
+	 * (D-92) 좌표 구간을 적재 토픽으로 — 기다리지 않는다. 실패는 세고 원인 종류만 로그로(좌표 없음).
+	 */
+	private void archive(UUID sessionId, long owner, FrameInterval interval) {
+		if (keypointsTopic == null) {
+			return;
+		}
+		try {
+			var value = envelope(sessionId, owner, "keypoints", Keypoints.of(interval));
+			producer.send(new ProducerRecord<>(keypointsTopic, sessionId.toString(), value), (metadata, failure) -> {
+				if (failure != null) {
+					keypointsLost(failure);
+				}
+			});
+		} catch (RuntimeException failure) {
+			keypointsLost(failure);
+		}
+	}
+
+	private void keypointsLost(Exception failure) {
+		long lost = keypointsFailed.incrementAndGet();
+		if (lost == 1 || lost % 100 == 0) {
+			log.warn("realtime keypoints archive failed: total={} cause={}", lost, failure.getClass().getSimpleName());
+		}
+	}
+
+	private String envelope(UUID sessionId, long owner, String kind, Object body) {
+		return json.write(new Envelope(
 			"1.0",
 			UUID.randomUUID(),
 			sessionId,
 			Long.toString(owner),
 			clock.instant().truncatedTo(ChronoUnit.MILLIS).toString(),
 			kind,
-			body);
+			body));
+	}
+
+	/** 봉투에 싸서 키 {@code session_id}로 보내고 브로커 확인을 기다린다. 실패·시간 초과는 503(앱에는 {@code stalled}). */
+	private void send(UUID sessionId, long owner, String kind, Object body) {
 		try {
-			producer.send(new ProducerRecord<>(topic, sessionId.toString(), json.write(envelope)))
+			producer.send(new ProducerRecord<>(topic, sessionId.toString(), envelope(sessionId, owner, kind, body)))
 				.get(sendTimeout.toMillis(), TimeUnit.MILLISECONDS);
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
@@ -255,5 +314,29 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	}
 
 	record SessionEnded(long endMs) {
+	}
+
+	/**
+	 * (D-92) {@code keypoints} 본문: 앱이 보낸 좌표 구간 그대로(contracts/realtime/frames/posture-frames.v1.schema.json).
+	 */
+	record Keypoints(
+		String schemaVersion,
+		String featureVersion,
+		long sequence,
+		long startMs,
+		long endMs,
+		String phase,
+		List<KeypointFrame> frames) {
+
+		static Keypoints of(FrameInterval interval) {
+			return new Keypoints(interval.schemaVersion(), interval.featureVersion(), interval.sequence(),
+				interval.startMs(), interval.endMs(), interval.phase().name(),
+				interval.frames().stream().map(frame -> new KeypointFrame(frame.tMs(), frame.p(), frame.valid()))
+					.toList());
+		}
+	}
+
+	/** 프레임 하나. {@code p}는 사람이 없으면 null로 남기고, {@code valid}는 false일 때만 쓴다(계약과 같음). */
+	record KeypointFrame(long tMs, List<List<Double>> p, @JsonInclude(JsonInclude.Include.NON_NULL) Boolean valid) {
 	}
 }

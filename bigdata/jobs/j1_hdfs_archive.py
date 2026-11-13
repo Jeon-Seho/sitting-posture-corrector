@@ -1,19 +1,23 @@
-"""Spark 배치 J1 — 판정 과정 적재: Kafka v1 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더로 + feature_archive (D-33).
+"""Spark 배치 J1 — 판정 과정·좌표 적재: Kafka v1 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더로 + feature_archive (D-33·D-92).
 
 두 단계로 돈다(매시간 cron, tools/platform/batch.sh j1):
 1. 받기: posture.features.v1·posture.inference.v1·posture.episodes.v1을 Structured Streaming trigger(availableNow)로
    지난번 위치부터 지금까지 읽어 임시 폴더 /data/staging/realtime-v1/topic=…/date=…(Parquet, 원문 JSON 그대로)에 붙인다.
    읽은 위치는 /data/checkpoints/j1-realtime-v1에 남아 다음 실행이 이어 읽는다(처음에는 토픽에 남은 가장 앞부터).
+   (D-92) 좌표 구간 토픽 posture.keypoints.v1은 따로 읽는다(쿼리·체크포인트 /data/checkpoints/j1-keypoints-v1 별도) —
+   기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어 읽기를 보장하지 않아서다. 임시 폴더 구조는 같다.
 2. 정리: 서비스 DB에서 끝난 지 settle(기본 10분) 지났고 아직 feature_archive가 없는 세션(계정 ACTIVE)을 골라,
    임시 폴더에서 그 세션 메시지를 모아 중복을 빼고 세션 폴더
    /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/에 파일 3개(토픽마다 JSON Lines)로 쓴 뒤
-   feature_archive 1행(file_uri·첫/마지막 구간 시각·적재 시각)을 넣는다. 세션 하나 = 폴더 하나 = 1행(DB V2.6).
-   - 중복: features·observation은 body.sequence, decision은 event.event_id, 그 밖은 message_id로 하나만(가장 앞 offset).
+   feature_archive 1행(file_uri·첫/마지막 구간 시각·적재 시각)을 넣는다. 세션 하나 = 폴더 하나 = 1행(DB V2.7).
+   (D-92) 좌표 구간이 있는 세션(kafka 모드 + ws 스위치 켬)은 keypoints.jsonl도 쓴다(없으면 파일을 만들지 않음).
+   - 중복: features·observation·keypoints는 body.sequence, decision은 event.event_id, 그 밖은 message_id로 하나만(가장 앞 offset).
    - 임시 폴더에 메시지가 없는 세션(지금 앱 측정은 Kafka를 거치지 않음 — D-57 전)은 건너뛴다.
    - 파일을 먼저 쓰고(덮어쓰기) 행을 넣는다 — 중간에 멈추면 다음 실행이 다시 쓴다.
 3. 임시 폴더 정리: date 폴더가 보존 일수(기본 7일)보다 오래되면 지운다.
 
-메시지 원문에는 좌표·이메일이 없다(features.v1 본문은 특징 변화량 — 계약 kafka-spec 3.1). 로그에는 개수만 남긴다.
+features.v1 본문은 특징 변화량이고(계약 kafka-spec 3.1) 좌표는 keypoints.v1에만 있다(관절 9개 [x, y, visibility],
+계약 contracts/realtime/kafka-keypoints.v1.schema.json). 이메일은 어디에도 없다. 로그·출력에는 개수만 남긴다(좌표 금지).
 실행: tools/platform/batch.sh j1 [--session UUID] [--settle-sec N] [--dry-run] [--skip-ingest]
 """
 
@@ -31,8 +35,12 @@ import batch_common as bc  # noqa: E402
 JOB = "J1"
 TOPICS = {"posture.features.v1": "features.jsonl", "posture.inference.v1": "inference.jsonl",
           "posture.episodes.v1": "episodes.jsonl"}
+# (D-92) 좌표 구간 — 세션 폴더에 있을 때만 쓰는 파일. 받기는 별도 쿼리(체크포인트 따로)
+KEYPOINTS = {"posture.keypoints.v1": "keypoints.jsonl"}
+ALL_TOPICS = {**TOPICS, **KEYPOINTS}
 STAGING = "/data/staging/realtime-v1"
 CHECKPOINT = "/data/checkpoints/j1-realtime-v1"
+KEYPOINTS_CHECKPOINT = "/data/checkpoints/j1-keypoints-v1"
 SETTLE_SEC = 600
 KEEP_DAYS = 7
 UUID = re.compile(r"^[0-9a-fA-F-]{36}$")
@@ -59,19 +67,26 @@ def staging_columns(df):
         F.date_format(F.col("timestamp"), "yyyy-MM-dd").alias("date"))
 
 
-def ingest(spark, hdfs_uri):
+def ingest_topics(spark, hdfs_uri, topics, checkpoint):
+    """토픽 묶음 하나를 지난번 위치부터 지금까지 임시 폴더로. 받은 건수."""
     raw = (spark.readStream.format("kafka")
            .option("kafka.bootstrap.servers", kafka_bootstrap())
-           .option("subscribe", ",".join(TOPICS))
+           .option("subscribe", ",".join(topics))
            .option("startingOffsets", "earliest")
            .option("failOnDataLoss", "false")   # 보존 기간이 지나 지워진 위치는 건너뛴다
            .load())
     query = (staging_columns(raw).writeStream.format("parquet")
-             .option("path", hdfs_uri + STAGING).option("checkpointLocation", hdfs_uri + CHECKPOINT)
+             .option("path", hdfs_uri + STAGING).option("checkpointLocation", hdfs_uri + checkpoint)
              .partitionBy("topic", "date").trigger(availableNow=True).start())
     query.awaitTermination()
-    rows = sum(int(p.get("numInputRows", 0)) for p in query.recentProgress)
-    return rows
+    return sum(int(p.get("numInputRows", 0)) for p in query.recentProgress)
+
+
+def ingest(spark, hdfs_uri):
+    """판정 과정 3개 토픽 + (D-92) 좌표 토픽. (전체, 좌표) 받은 건수."""
+    rows = ingest_topics(spark, hdfs_uri, TOPICS, CHECKPOINT)
+    keypoints = ingest_topics(spark, hdfs_uri, KEYPOINTS, KEYPOINTS_CHECKPOINT)
+    return rows + keypoints, keypoints
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +106,7 @@ def candidates_sql(settle_cutoff, since, sessions):
 def staging_paths(hdfs, today, keep_days):
     """보존 기간 안의 date 폴더만(오래된 것은 3단계가 지움). 없는 폴더는 뺀다."""
     out = []
-    for topic in TOPICS:
+    for topic in ALL_TOPICS:
         for back in range(keep_days + 1):
             day = (today - dt.timedelta(days=back)).isoformat()
             path = f"{STAGING}/topic={topic}/date={day}"
@@ -112,7 +127,8 @@ def dedupe(df):
     from pyspark.sql import functions as F
     seq = F.get_json_object("value", "$.body.sequence")
     event_id = F.get_json_object("value", "$.body.event.event_id")
-    key = (F.when(F.col("kind").isin("features", "observation") & seq.isNotNull(), F.concat(F.lit("s:"), seq))
+    key = (F.when(F.col("kind").isin("features", "observation", "keypoints") & seq.isNotNull(),
+                  F.concat(F.lit("s:"), seq))
            .when((F.col("kind") == "decision") & event_id.isNotNull(), F.concat(F.lit("e:"), event_id))
            .when(F.col("kind").isin("session_started", "session_ended"), F.col("kind"))
            .otherwise(F.concat(F.lit("m:"), F.col("message_id"))))
@@ -125,7 +141,7 @@ def collect_session(df, session_id):
     """토픽별 원문 줄 목록(offset 순)과 구간 범위(ms). 범위는 features 구간 → 없으면 observation."""
     rows = (df.where(df.session_id == session_id).select("topic", "partition", "offset", "kind", "value")
             .orderBy("topic", "partition", "offset").collect())
-    lines = {t: [] for t in TOPICS}
+    lines = {t: [] for t in ALL_TOPICS}
     starts, ends, obs_starts, obs_ends = [], [], [], []
     for r in rows:
         lines[r["topic"]].append(r["value"])
@@ -153,13 +169,20 @@ INSERT_ARCHIVE = ("INSERT INTO feature_archive (monitor_session_id, file_uri, ra
                   " VALUES (?, ?, ?, ?, ?)")
 
 
+def file_lines(lines):
+    """세션 폴더에 쓸 파일 → 줄 목록. 판정 과정 3개는 늘 쓰고, 좌표(D-92)는 있을 때만."""
+    out = {name: lines[topic] for topic, name in TOPICS.items()}
+    out.update({name: lines[topic] for topic, name in KEYPOINTS.items() if lines[topic]})
+    return out
+
+
 def archive_session(jdbc, hdfs, cand, lines, rng, now_text):
-    """파일 3개 쓰고 행 1개. 쓴 줄 수."""
+    """파일 3개(좌표가 있으면 4개) 쓰고 행 1개. 쓴 줄 수."""
     folder = session_folder(cand["user_account_id"], cand["started_at"], cand["client_session_uuid"])
     counts = {}
-    for topic, name in TOPICS.items():
-        hdfs.write_text(folder + name, "".join(line + "\n" for line in lines[topic]))
-        counts[name] = len(lines[topic])
+    for name, rows in file_lines(lines).items():
+        hdfs.write_text(folder + name, "".join(line + "\n" for line in rows))
+        counts[name] = len(rows)
     start, end = rng
     jdbc.execute(INSERT_ARCHIVE, (int(cand["monitor_session_id"]), folder, kst_plus_ms(cand["started_at"], start),
                                   kst_plus_ms(cand["started_at"], end), now_text))
@@ -192,7 +215,7 @@ def organize(spark, jdbc, hdfs, args, now):
             continue
         if args.dry_run:
             done.append({"session": uuid, "user_account_id": int(cand["user_account_id"]),
-                         "lines": {TOPICS[t]: len(v) for t, v in lines.items()}})
+                         "lines": {name: len(v) for name, v in file_lines(lines).items()}})
             continue
         folder, counts = archive_session(jdbc, hdfs, cand, lines, rng, bc.now_kst_text())
         bc.log(JOB, f"세션 적재 user {cand['user_account_id']} — {counts}")
@@ -217,7 +240,7 @@ def old_staging_dirs(listing, today, keep_days):
 
 def clean_staging(hdfs, today, keep_days):
     listing = []
-    for topic in TOPICS:
+    for topic in ALL_TOPICS:
         listing += hdfs.list_dirs(f"{STAGING}/topic={topic}")
     old = old_staging_dirs(listing, today, keep_days)
     for path in old:
@@ -244,17 +267,17 @@ def main(argv=None):
     spark = bc.spark_session("posegood-j1-hdfs-archive")
     try:
         hdfs = bc.Hdfs(spark)
-        ingested = None
+        ingested, ingested_keypoints = None, None
         if not args.skip_ingest:
-            ingested = ingest(spark, hdfs.uri)
-            bc.log(JOB, f"받기 — Kafka 메시지 {ingested}건 → {STAGING}")
+            ingested, ingested_keypoints = ingest(spark, hdfs.uri)
+            bc.log(JOB, f"받기 — Kafka 메시지 {ingested}건(그중 좌표 구간 {ingested_keypoints}건) → {STAGING}")
         now = dt.datetime.now(bc.KST).replace(tzinfo=None)
         with bc.Jdbc(spark, db) as jdbc:
             done, missing, total = organize(spark, jdbc, hdfs, args, now)
         removed = [] if args.dry_run else clean_staging(hdfs, now.date(), args.keep_days)
         bc.log(JOB, f"{'DRY-RUN ' if args.dry_run else 'OK '}대상 세션 {total}개 · 적재 {len(done)}개 · "
                     f"임시 폴더에 없음 {len(missing)}개 · 오래된 임시 폴더 {len(removed)}개 지움")
-        print(json.dumps({"ingested": ingested, "archived": done, "missing": missing, "removed_staging": removed},
+        print(json.dumps({"ingested": ingested, "ingested_keypoints": ingested_keypoints, "archived": done, "missing": missing, "removed_staging": removed},
                          ensure_ascii=False), flush=True)
     finally:
         spark.stop()

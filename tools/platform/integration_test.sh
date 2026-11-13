@@ -9,7 +9,8 @@
 #   tools/platform/integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
 #   tools/platform/integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
 #   tools/platform/integration_test.sh --kafka    # (D-57) 12~14단계를 kafka 경로로: io-api를 POSEGOOD_REALTIME_PIPELINE=kafka로
-#                                                 # 다시 띄워 직접·화면(web)·터널(gateway) WebSocket 왕복 → 컨슈머 lag 0·DLQ 그대로 →
+#                                                 # 다시 띄워(좌표 적재 POSEGOOD_ARCHIVE_KEYPOINTS도 켬, D-92) 직접·화면(web)·터널(gateway)
+#                                                 # WebSocket 왕복 → 좌표 토픽 167개 → 컨슈머 lag 0·DLQ 그대로 →
 #                                                 # 끝나면(중간에 멈춰도) .env 값(local)으로 되돌림. 그동안 실제 앱 측정도 kafka 경로를 탐
 #   EXPECT_PROJECT=platform tools/platform/integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
@@ -42,7 +43,7 @@
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
 #  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 변경 없음·--days·삭제 뒤 CASCADE (D-05·D-81)
 #  16. Spark J3    : 시험 계정을 탈퇴 상태로(tests/batch_testkit.py) → 30일 지난 계정만 DB 행·HDFS 폴더 전부 삭제 (D-49)
-#  17. Spark J1    : 시험 세션을 Kafka v1로 재생 → Kafka 받기 → HDFS 세션 폴더 파일 3개·feature_archive → J3로 정리 (D-33)
+#  17. Spark J1    : 시험 세션을 Kafka v1로 재생(+ 합성 좌표 구간, D-92) → Kafka 받기 → HDFS 세션 폴더 파일 4개·feature_archive → J3로 정리 (D-33)
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -88,6 +89,7 @@ TS_EPOCH="$(date +%s)"
 OUT="$TOOLS/it-results/$TS"
 mkdir -p "$OUT"
 KT="docker exec kafka /opt/kafka/bin"
+DKT="docker exec -i kafka /opt/kafka/bin"   # 표준 입력을 넘길 때(D-92 시험 좌표 넣기)
 BS="--bootstrap-server localhost:9092"
 
 PASS=0; FAIL=0; SKIP=0
@@ -597,8 +599,9 @@ step "12. 실시간 WebSocket 왕복 (D-57 3단계)"
 # (D-57) --kafka: io-api만 kafka 경로로 다시 띄운다. 끝나면(중간에 멈춰도) .env 값으로 되돌린다.
 KAFKA_SWITCHED=0
 io_api_pipeline() { docker exec io-api printenv POSEGOOD_REALTIME_PIPELINE 2>/dev/null || true; }
-io_api_up() { # $1 = kafka 이면 그 값으로, 비우면 .env 값으로 io-api를 다시 만든다
-  if [ -n "${1:-}" ]; then POSEGOOD_REALTIME_PIPELINE="$1" $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api
+io_api_up() { # $1 = kafka 이면 그 값으로(D-92 좌표 적재도 켬), 비우면 .env 값으로 io-api를 다시 만든다
+  if [ -n "${1:-}" ]; then POSEGOOD_REALTIME_PIPELINE="$1" POSEGOOD_ARCHIVE_KEYPOINTS=true \
+    $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api
   else $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api; fi >>"$OUT/run.log" 2>&1
   for _ in $(seq 1 45); do
     [ "$(docker inspect io-api --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' 2>/dev/null)" = healthy ] && return 0
@@ -610,9 +613,12 @@ restore_io_api() {
   if [ "$KAFKA_SWITCHED" = 1 ]; then KAFKA_SWITCHED=0; io_api_up || true; fi
 }
 dlq_end() { $KT/kafka-get-offsets.sh $BS --topic posture.dlq 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
+# (D-92) 좌표 적재 토픽의 끝 위치 합 — 본문(좌표)은 읽지 않고 개수만 센다
+kp_end() { $KT/kafka-get-offsets.sh $BS --topic posture.keypoints.v1 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
 if [ "$KAFKA_MODE" = 1 ] && [ "$E2E" = 1 ] && docker inspect io-api >/dev/null 2>&1; then
   trap restore_io_api EXIT
   DLQ_BEFORE="$(dlq_end)"
+  KP_BEFORE="$(kp_end)"
   KAFKA_SWITCHED=1
   if io_api_up kafka && [ "$(io_api_pipeline)" = kafka ]; then pass "io-api를 kafka 경로로 다시 띄움 (POSEGOOD_REALTIME_PIPELINE=kafka, healthy)"
   else fail "io-api kafka 전환" "healthy가 안 됨 또는 값이 kafka가 아님 — docker logs io-api"; fi
@@ -627,6 +633,15 @@ else
     pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
+  fi
+  # (D-92) kafka 경로 + 좌표 적재 켬: 받은 구간 167개가 그대로 posture.keypoints.v1에(보내기는 기다리지 않으므로 잠깐 기다림)
+  if [ "$PIPE" = kafka ] && [ "$KAFKA_SWITCHED" = 1 ]; then
+    KP_N=0
+    for _ in $(seq 1 10); do
+      KP_N=$(( $(kp_end) - KP_BEFORE )); [ "$KP_N" -ge 167 ] && break; sleep 1
+    done
+    if [ "$KP_N" = 167 ]; then pass "좌표 적재 토픽 posture.keypoints.v1 — 받은 구간 167개 = 메시지 167개 (D-92, 개수만)"
+    else fail "좌표 적재 토픽 posture.keypoints.v1" "메시지 ${KP_N}개(기대 167) — docker logs io-api | grep keypoints"; fi
   fi
 fi
 
@@ -911,6 +926,10 @@ else
   if [ -z "$UE" ]; then fail "J1 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
   else
     python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J1E-$TS" --session-id "$J_E" >"$OUT/j1-replay-e.log" 2>&1
+    # (D-92) 같은 세션의 좌표 구간 170개(합성)를 좌표 적재 토픽에 — 앱 경로가 아닌 시험이라 Kafka에 직접 넣는다
+    python3 $TOOLS/replay_keypoints_v1.py --session-id "$J_E" --user-id "IT-J1E-$TS" \
+      | $DKT/kafka-console-producer.sh $BS --topic posture.keypoints.v1 --property parse.key=true --property "key.separator=|" \
+      >>"$OUT/j1-replay-e.log" 2>&1
     for _ in $(seq 1 30); do
       curl -s -m 5 "$API/report/sessions/$J_E" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
       sleep 2
@@ -929,10 +948,11 @@ ok=(a['rows']==1 and a['file_uri']==f"/data/users/{uid}/{a['started_at'][:10]}/{
     and f.get('features.jsonl')=={'session_started':1,'features':170,'session_ended':1}
     and f.get('inference.jsonl')=={'session_started':1,'observation':170,'session_ended':1}
     and (f.get('episodes.jsonl') or {}).get('decision')==4 and (f.get('episodes.jsonl') or {}).get('progress',0)>0
+    and f.get('keypoints.jsonl')=={'keypoints':170}
     and a['started_at']<=a['range_start_at']<a['range_end_at'])
 sys.exit(0 if ok else 1)
 PYA
-    then pass "세션 폴더 파일 3개 — features 172·inference 172·episodes decision 4 + progress, feature_archive 1행(경로·구간 시각)"
+    then pass "세션 폴더 파일 4개 — features 172·inference 172·episodes decision 4 + progress·keypoints 170(D-92), feature_archive 1행(경로·구간 시각)"
     else fail "J1 적재 결과" "${AI:-확인 실패} — $OUT/j1-run1.log"; fi
     R2="$($TOOLS/batch.sh j1 --session "$J_E" --settle-sec 0 2>>"$OUT/run.log" | grep -m1 '^{')"
     if python3 -c "import json,sys;r=json.loads(sys.argv[1]);sys.exit(0 if r['archived']==[] and r['ingested']==0 else 1)" "$R2" 2>/dev/null; then

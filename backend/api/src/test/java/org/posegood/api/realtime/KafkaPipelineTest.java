@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -171,6 +174,71 @@ class KafkaPipelineTest {
 		assertEquals(429, assertThrows(ApiError.class,
 			() -> limited.frames(OWNER, SESSION, interval(0, 900, 1100), BASELINE)).status());
 		assertEquals(3, sent.size()); // 시작 2(파이프라인마다) + 구간 1
+	}
+
+	/** (D-92) 적재 켬: features 뒤 같은 구간을 좌표 토픽으로 — 같은 키, 본문은 앱이 보낸 구간 그대로(valid는 있을 때만). */
+	@Test
+	void archiveSendsTheCoordinateIntervalAsItIsAfterFeatures() throws Exception {
+		when(producer.send(any(), any())).thenAnswer(call -> {
+			sent.add(call.getArgument(0));
+			return CompletableFuture.completedFuture((RecordMetadata)null);
+		});
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+			Duration.ofSeconds(3), Duration.ofHours(24), Clock.fixed(Instant.parse("2026-11-10T01:00:01Z"),
+			ZoneOffset.UTC));
+		archiving.open(OWNER, SESSION);
+		var interval = interval(3, 1500, 2000);
+		assertEquals(3, archiving.frames(OWNER, SESSION, interval, BASELINE).lastSequence());
+
+		assertEquals(3, sent.size()); // 시작, features, keypoints
+		assertEquals("posture.features.v1", sent.get(1).topic());
+		assertEquals("posture.keypoints.v1", sent.get(2).topic());
+		assertEquals(SESSION.toString(), sent.get(2).key());
+		var keypoints = message(2);
+		sameShape("keypoints-keypoints.json", keypoints);
+		assertEquals("keypoints", keypoints.get("kind").asString());
+		var body = keypoints.get("body");
+		var item = MAPPER.readTree(Files.readString(APP.resolve("ws-features.json"))).get("items").get(0);
+		assertEquals(3, body.get("sequence").asLong());
+		assertEquals(1500, body.get("start_ms").asLong());
+		assertEquals(2000, body.get("end_ms").asLong());
+		assertEquals(item.get("phase").asString(), body.get("phase").asString());
+		assertEquals(item.get("feature_version").asString(), body.get("feature_version").asString());
+		assertEquals(item.get("frames").size(), body.get("frames").size());
+		for (int index = 0; index < item.get("frames").size(); index++) {
+			var expected = item.get("frames").get(index);
+			var actual = body.get("frames").get(index);
+			assertEquals(expected.get("t_ms").asLong(), actual.get("t_ms").asLong());
+			assertEquals(expected.get("p").isNull(), actual.get("p").isNull());
+			assertEquals(expected.has("valid"), actual.has("valid"));
+			if (!expected.get("p").isNull()) {
+				assertEquals(expected.get("p").get(0).get(0).asDouble(), actual.get("p").get(0).get(0).asDouble());
+				assertEquals(expected.get("p").get(8).get(2).asDouble(), actual.get("p").get(8).get(2).asDouble());
+			}
+		}
+		assertEquals(0, archiving.keypointsFailed());
+	}
+
+	/** (D-92) 적재는 기다리지 않는다 — 실패해도 구간은 받고(ack) 실패 수만 센다. 기본(스위치 꺼짐)은 보내지 않는다. */
+	@Test
+	void archiveFailureDoesNotBlockTheIntervalAndOffSendsNothing() throws Exception {
+		var callbacks = new ArrayList<Callback>();
+		when(producer.send(any(), any())).thenAnswer(call -> {
+			callbacks.add(call.getArgument(1));
+			return CompletableFuture.completedFuture((RecordMetadata)null);
+		});
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+			Duration.ofSeconds(3), Duration.ofHours(24), Clock.systemUTC());
+		archiving.open(OWNER, SESSION);
+		assertEquals(0, archiving.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE).lastSequence());
+		callbacks.get(0).onCompletion(null, new IllegalStateException("down"));
+		when(producer.send(any(), any())).thenThrow(new IllegalStateException("buffer full"));
+		assertEquals(1, archiving.frames(OWNER, SESSION, interval(1, 100, 200), BASELINE).lastSequence());
+		assertEquals(2, archiving.keypointsFailed());
+
+		pipeline.open(OWNER, SESSION); // 기본 생성자 = 꺼짐
+		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
+		verify(producer, times(2)).send(any(), any()); // 켠 파이프라인의 구간 2개뿐
 	}
 
 	@Test

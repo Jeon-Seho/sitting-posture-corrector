@@ -156,6 +156,33 @@ class J1OrganizeTest(unittest.TestCase):
                                            jdbc.inserts[0][4]])
         self.assertEqual(jdbc.commits, 1)
 
+    def test_keypoints_are_a_fourth_file_deduped_by_sequence(self):
+        """(D-92) 좌표 구간 토픽이 있는 세션은 keypoints.jsonl도 — 순번으로 중복을 빼고, 구간 범위는 features로 정한다."""
+        ts = dt.datetime(2026, 11, 1, 10, 0, 0)
+        k = "posture.keypoints.v1"
+        frames = [{"t_ms": 1000, "p": [[0.5, 0.4, 0.9]] * 9}]
+        rows = [(k, 0, 200 + n, msg(S1, "keypoints", {"sequence": seq, "start_ms": 500 * seq + 1000,
+                                                      "end_ms": 500 * seq + 1500, "frames": frames}, 50 + n).encode(), ts)
+                for n, seq in enumerate([0, 1, 1, 2])]  # 순번 1 재전송
+        raw = self.spark.createDataFrame(rows, "topic string, partition int, offset long, value binary, timestamp timestamp")
+        job.staging_columns(raw).write.mode("append").partitionBy("topic", "date").parquet(self.hdfs.uri + job.STAGING)
+        cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
+                "started_at": "2026-11-01 10:00:00.000000"}
+        jdbc = FakeJdbc([cand])
+        done, _, _ = job.organize(self.spark, jdbc, self.hdfs, Args(), dt.datetime(2026, 11, 1, 11, 0))
+        self.assertEqual(done[0]["lines"], {"features.jsonl": 5, "inference.jsonl": 3, "episodes.jsonl": 3,
+                                            "keypoints.jsonl": 3})
+        folder = self.hdfs.root / f"data/users/7/2026-11-01/{S1}"
+        keypoints = (folder / "keypoints.jsonl").read_text().splitlines()
+        self.assertEqual([json.loads(x)["body"]["sequence"] for x in keypoints], [0, 1, 2])
+        self.assertEqual(jdbc.inserts[0][2:4], ["2026-11-01 10:00:01.000", "2026-11-01 10:00:02.500"])
+
+    def test_session_without_keypoints_has_no_keypoints_file(self):
+        cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
+                "started_at": "2026-11-01 10:00:00.000000"}
+        job.organize(self.spark, FakeJdbc([cand]), self.hdfs, Args(), dt.datetime(2026, 11, 1, 11, 0))
+        self.assertFalse(self.hdfs.exists(f"/data/users/7/2026-11-01/{S1}/keypoints.jsonl"))
+
     def test_dry_run_writes_nothing(self):
         cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
                 "started_at": "2026-11-01 10:00:00.000000"}
@@ -169,8 +196,10 @@ class J1OrganizeTest(unittest.TestCase):
 
     def test_clean_staging_removes_only_old_dates(self):
         self.hdfs.write_text(job.STAGING + "/topic=posture.features.v1/date=2026-10-20/x.parquet", "")
+        self.hdfs.write_text(job.STAGING + "/topic=posture.keypoints.v1/date=2026-10-20/x.parquet", "")
         removed = job.clean_staging(self.hdfs, dt.date(2026, 11, 1), 7)
-        self.assertEqual(removed, [job.STAGING + "/topic=posture.features.v1/date=2026-10-20"])
+        self.assertEqual(removed, [job.STAGING + "/topic=posture.features.v1/date=2026-10-20",
+                                   job.STAGING + "/topic=posture.keypoints.v1/date=2026-10-20"])
         self.assertTrue(self.hdfs.exists(job.STAGING + "/topic=posture.features.v1/date=2026-11-01"))
 
 
@@ -185,6 +214,12 @@ class J1PureTest(unittest.TestCase):
     def test_kst_plus_ms_and_folder(self):
         self.assertEqual(job.kst_plus_ms("2026-11-01 23:59:59.500000", 1500), "2026-11-02 00:00:01.000")
         self.assertEqual(job.session_folder(7, "2026-11-01 23:59:59.500", S1), f"/data/users/7/2026-11-01/{S1}/")
+
+    def test_keypoints_topic_is_read_with_its_own_checkpoint(self):
+        """(D-92) 기존 체크포인트의 구독 목록은 그대로 — 좌표 토픽은 따로."""
+        self.assertNotIn("posture.keypoints.v1", job.TOPICS)
+        self.assertEqual(set(job.ALL_TOPICS), set(job.TOPICS) | {"posture.keypoints.v1"})
+        self.assertNotEqual(job.KEYPOINTS_CHECKPOINT, job.CHECKPOINT)
 
     def test_bootstrap_default_and_override(self):
         self.assertEqual(job.kafka_bootstrap({}), "kafka:19092")

@@ -19,6 +19,7 @@ SCHEMAS = {
     "episodes-": "kafka-episodes.v1.schema.json",
     "alerts-": "kafka-alerts.v1.schema.json",
     "stored-": "kafka-stored.v1.schema.json",
+    "keypoints-": "kafka-keypoints.v1.schema.json",
 }
 
 
@@ -52,7 +53,7 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 9)
+        self.assertEqual(len(names), 10)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):
@@ -69,6 +70,20 @@ class RealtimeContractTests(unittest.TestCase):
         for payload in cases:
             with self.subTest(payload=list(payload)), self.assertRaises(ValidationError):
                 validator("kafka-features.v1.schema.json").validate(payload)
+
+    def test_keypoints_topic_carries_the_app_interval_and_only_it(self):
+        """(D-92) 좌표 적재 토픽: 본문은 앱이 보낸 좌표 구간 그대로(frames 계약). 다른 kind·모르는 칸은 거절."""
+        keypoints = self.example("keypoints-keypoints.json")
+        check = validator("kafka-keypoints.v1.schema.json")
+        check.validate(keypoints)
+        cases = [
+            dict(keypoints, kind="features"),
+            dict(keypoints, body=dict(keypoints["body"], features={})),
+            dict(keypoints, body={k: v for k, v in keypoints["body"].items() if k != "frames"}),
+        ]
+        for payload in cases:
+            with self.subTest(payload=list(payload)), self.assertRaises(ValidationError):
+                check.validate(payload)
 
     def test_body_must_match_its_kind(self):
         features = self.example("features-features.json")

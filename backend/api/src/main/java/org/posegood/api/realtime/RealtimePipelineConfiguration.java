@@ -40,6 +40,10 @@ class RealtimePipelineConfiguration {
 		String alertsTopic,
 		@Value("${posegood.realtime.kafka.stored-topic:posture.stored.v1}")
 		String storedTopic,
+		@Value("${posegood.realtime.kafka.keypoints-topic:posture.keypoints.v1}")
+		String keypointsTopic,
+		@Value("${posegood.realtime.kafka.archive-keypoints:false}")
+		boolean archiveKeypoints,
 		@Value("${posegood.realtime.kafka.group-id:io-ws-local}")
 		String groupId,
 		@Value("${posegood.realtime.kafka.send-timeout:3s}")
@@ -54,9 +58,10 @@ class RealtimePipelineConfiguration {
 		return switch (pipeline) {
 			case "local" -> new LocalPipeline(sessions);
 			case "kafka" -> {
+				// (D-92) 좌표 구간 적재는 스위치를 켰을 때만(동의 범위 확인 전 기본 꺼짐)
 				var kafka = new KafkaPipeline(
-					sessions, producer(bootstrapServers, sendTimeout), featuresTopic, json, sendTimeout, maxSession,
-					Clock.systemUTC());
+					sessions, producer(bootstrapServers, sendTimeout), featuresTopic,
+					archiveKeypoints ? keypointsTopic : null, json, sendTimeout, maxSession, Clock.systemUTC());
 				var results = new KafkaResults(consumer(bootstrapServers, groupId), episodesTopic, alertsTopic,
 					storedTopic, json,
 					events, kafka::hint, unmeasurableTimeout);

@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 /**
- * (D-21) 실시간 계약 v1 토픽 3개 + (D-54) 알림 토픽 + (D-36) DLQ. 없으면 시작 시 만든다(이미 있으면 그대로 둔다).
+ * (D-21) 실시간 계약 v1 토픽 3개 + (D-54) 알림 토픽 + (D-67) 저장 완료 + (D-92) 좌표 적재 + (D-36) DLQ. 없으면 시작 시 만든다(이미 있으면 그대로 둔다).
  * 파티션 수는 판정 컨슈머 스레드 수(기본 3)와 맞춘다. 키는 {@code session_id}.
  */
 @Configuration
@@ -60,6 +60,20 @@ public class RealtimeTopicsConfig {
 	@Bean
 	public NewTopic postureStoredV1Topic(
 		@Value("${app.kafka.topic.posture-stored-v1:posture.stored.v1}")
+		String name,
+		@Value("${app.kafka.realtime-partitions:3}")
+		int partitions) {
+		return TopicBuilder.name(name).partitions(partitions).replicas(1)
+			.config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000)).build();
+	}
+
+	/**
+	 * (D-92) 좌표 구간 적재 — 입출구 서버 {@code ws} → Spark J1(HDFS 세션 폴더 {@code keypoints.jsonl}). 처리 서비스는 읽지 않는다.
+	 * 키 session_id, 보존 3일(탈퇴 30일 삭제보다 짧게 — 사용자 폴더는 J3가 지운다).
+	 */
+	@Bean
+	public NewTopic postureKeypointsV1Topic(
+		@Value("${app.kafka.topic.posture-keypoints-v1:posture.keypoints.v1}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
