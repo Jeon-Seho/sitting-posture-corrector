@@ -53,8 +53,10 @@ export type LiveState = {
   /** Ended because the connection was lost or the server shut down. */
   lost: boolean
   /**
-   * Could not start because of the server (S1 5xx, or `closed(session_lost)` before `ready` — in
-   * kafka mode the server could not write the session start to Kafka). Shown as an error page.
+   * Could not start: the server could not open the measurement (S1 5xx, or `closed(session_lost)`
+   * before `ready` — in kafka mode Kafka is down), or the connection to it could not be made (the
+   * socket did not open, closed before `ready`, or `ready` took over 5 s). Nothing was measured, so
+   * it is one error page for all of them.
    */
   serverDown: boolean
   /**
@@ -264,7 +266,8 @@ export class LiveSession {
       accessToken = await auth.accessToken()
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
-      this.finish({ phase: 'failed', message: getServerAuth() ? MESSAGES.network : MESSAGES.signed_out })
+      const signedIn = !!getServerAuth()
+      this.finish({ phase: 'failed', message: signedIn ? MESSAGES.network : MESSAGES.signed_out, serverDown: signedIn })
       return
     }
     if (this.disposed || this.over()) return
@@ -273,7 +276,7 @@ export class LiveSession {
       socket = (this.options.openSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike))(realtimeUrl())
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
-      this.finish({ phase: 'failed', message: MESSAGES.network })
+      this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
       return
     }
     this.socket = socket
@@ -294,7 +297,7 @@ export class LiveSession {
     socket.onclose = () => this.closedBySocket()
     socket.onerror = () => {}
     this.timer = setTimeout(() => {
-      if (!this.ready) this.finish({ phase: 'failed', message: MESSAGES.network })
+      if (!this.ready) this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
     }, this.options.readyTimeoutMs ?? READY_TIMEOUT_MS)
   }
 
@@ -308,7 +311,7 @@ export class LiveSession {
       return
     }
     if (!this.ready) {
-      this.finish({ phase: 'failed', message: MESSAGES.network })
+      this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
       return
     }
     this.finish({ phase: 'ended', lost: true, message: LOST })

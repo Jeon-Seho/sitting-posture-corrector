@@ -457,7 +457,12 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
   it('fails without ready in 5 s, on S1 errors and on closed reasons that stop the measurement', async () => {
     const late = await started()
     await vi.advanceTimersByTimeAsync(5000)
-    expect(late.state.phase).toBe('failed')
+    // No connection to measure with: the same 「cannot start」 page as a server error.
+    expect(late.state).toMatchObject({ phase: 'failed', serverDown: true })
+
+    const dropped = await started()
+    socket.drop()
+    expect(dropped.state).toMatchObject({ phase: 'failed', serverDown: true })
 
     fetch.mockResolvedValueOnce(reply(409, { code: 'BASELINE_REQUIRED' }))
     const noBaseline = make()
