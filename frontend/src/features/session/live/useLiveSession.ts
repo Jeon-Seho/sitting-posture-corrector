@@ -21,10 +21,6 @@ export type LiveSessionService = {
   active: boolean
   /** The measurement is over; `note` says why when it was not the user's 「측정 종료」. */
   onEnded: (state: LiveState, note: string) => void
-  /** Every state change while measuring (the record's KST day split reads the running totals). */
-  onObserved?: (state: LiveState) => void
-  /** KST midnight: the previous session ended and was stored; the measurement goes on as a new one. */
-  onRolledOver?: (previous: LiveState) => void
   /** "2026-10-13 · 세션 2", shown when the connection is lost. */
   sessionLabel?: string
 }
@@ -88,10 +84,7 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
       policy: policyFor(session.rules),
       baselineId: session.baselineId,
       openSocket,
-      onChange: (changed) => {
-        setState(changed)
-        latest.current.service.onObserved?.(changed)
-      },
+      onChange: setState,
       onAlert: (kind) => {
         if (!latest.current.alertsOn) return
         if (latest.current.soundOn && !playCorrection())
@@ -101,10 +94,8 @@ export function useLiveSession({ session, camera, service, alertsOn = true, open
         if (toastTimer.current !== null) clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3000)
       },
-      onRolledOver: (previous) => {
-        latest.current.service.onRolledOver?.(previous)
-        setRolledOver(true)
-      },
+      // KST midnight: the server stored the previous session (R1 shows it); the measurement goes on.
+      onRolledOver: () => setRolledOver(true),
       onEnded: (ended) => {
         latest.current.camera.stop()
         if (ended.lost) reportConnectionLost({ reason: 'realtime', session: latest.current.service.sessionLabel })

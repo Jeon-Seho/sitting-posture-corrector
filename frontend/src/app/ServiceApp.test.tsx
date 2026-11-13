@@ -15,7 +15,6 @@ import { DEFAULT_RULES } from '../data/posture'
 import { KEYS, loadLocalState, type RecordItem } from '../lib/serviceStore'
 import type { CameraController } from '../hooks/useCamera'
 import { setServerAuth } from '../features/platform/serverAuth'
-import { pendingRecords } from '../features/storage/serverRecords'
 vi.mock('../features/storage/serverRecords', async original => ({
   ...(await original<typeof import('../features/storage/serverRecords')>()),
   fetchServerRecords: vi.fn(async () => []),
@@ -58,6 +57,7 @@ describe('service recovery and saving with synthetic storage only', () => {
     message: '',
     lost: false,
     serverDown: false,
+    busy: false,
     resultMissing: false,
     late: false,
     startedAt: null,
@@ -184,7 +184,6 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => renderer!.root.findByType(SettingsPage).props.onRules(nextRules))
     expect(renderer!.root.findByType(LiveSessionPage).props.session.rules).toEqual(DEFAULT_RULES)
     act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded(endedState(), ''))
-    expect(pendingRecords('synthetic-screen')[0].rules).toEqual(DEFAULT_RULES)
     expect(loadLocalState().settings).toEqual(nextRules)
   })
   it('「다시 시도」 after a failed start begins a new measurement at once', () => {
@@ -204,78 +203,24 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
   })
 
-  it('keeps nothing on this device when S4 answers 404 (server fault), even the checkpoints', () => {
+  it('keeps no measurement on this device and removes what an older app left (ADR 0027, 11/13)', () => {
+    const old = 'posegood.account.v3.synthetic-screen.pending-results'
+    localStorage.setItem(old, '[]')
     controls.camera.state = 'on'
     controls.camera.quality = true
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
     mount()
     login()
+    expect(localStorage.getItem(old)).toBeNull()
     act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
-    // A checkpoint while measuring, then the end where S4 found nothing on the server.
-    act(() => service().onObserved({ ...endedState(), phase: 'running' }))
-    expect(pendingRecords('synthetic-screen')).toHaveLength(1)
-    act(() => service().onEnded({ ...endedState(), resultMissing: true, late: true }, ''))
-    expect(pendingRecords('synthetic-screen')).toEqual([])
+    act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded({ ...endedState(), lost: true }, ''))
+    expect(localStorage.getItem(old)).toBeNull()
+    // Nothing waits on this device, so a new measurement starts at once.
+    act(() => renderer!.root.findByType(LiveSessionPage).props.onRetry())
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(1)
   })
 
-  it('keeps a measurement over KST midnight per day from the server running totals (PR #64 day split)', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { ...BASELINE }
-    controls.camera.calibrationId = BASELINE_ID
-    mount()
-    login()
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
-    // The server started at 23:59:58 KST; days count from `ready.started_at`, not this computer.
-    const at = (total: number, normal: number, unknown: number): LiveState => ({
-      ...endedState(),
-      phase: 'running',
-      startedAt: '2026-10-26T14:59:58.000Z',
-      summary: { ...EMPTY_SUMMARY, total_ms: total, valid_ms: total - unknown, normal_ms: normal, unknown_ms: unknown },
-    })
-    act(() => service().onObserved(at(2000, 2000, 0)))
-    act(() => service().onEnded({ ...at(6000, 4000, 2000), phase: 'ended' }, ''))
-    const [record] = pendingRecords('synthetic-screen')
-    expect(record.startedAt).toBe('2026-10-26T14:59:58.000Z')
-    expect(record.days).toMatchObject([
-      { date: '2026-10-26', total: 2, valid: 2, good: 2 },
-      { date: '2026-10-27', total: 4, valid: 2, good: 2 },
-    ])
-  })
-  it('keeps both days as separate records when the server rolls over at midnight (BE 11.3)', () => {
-    controls.camera.state = 'on'
-    controls.camera.quality = true
-    controls.camera.baseline = { ...BASELINE }
-    controls.camera.calibrationId = BASELINE_ID
-    mount()
-    login()
-    act(() => renderer!.root.findByType(SetupPage).props.onStart())
-    const service = () => renderer!.root.findByType(LiveSessionPage).props.service
-    const first = endedState().sessionId
-    const next = '5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e'
-    const ended = {
-      event_id: 1, kind: 'session_ended' as const, timestamp_ms: 2000, onset_ms: 2000, onset_valid_ms: 2000,
-      deviation_type: 'none' as const, reason: 'ended' as const,
-    }
-    act(() => service().onRolledOver({
-      ...endedState(), startedAt: '2026-10-26T14:59:58.000Z', endedAt: '2026-10-26T14:59:59.900Z', events: [ended],
-      summary: { ...EMPTY_SUMMARY, total_ms: 2000, valid_ms: 2000, normal_ms: 2000, keep_rate: 1, events_per_hour: 0 },
-    }))
-    act(() => service().onEnded({
-      ...endedState(), sessionId: next, startedAt: '2026-10-26T15:00:00Z', endedAt: '2026-10-26T15:00:04.000Z',
-      summary: { ...EMPTY_SUMMARY, total_ms: 4000, valid_ms: 3000, normal_ms: 3000, unknown_ms: 1000, keep_rate: 1, events_per_hour: 0 },
-    }, ''))
-    const records = pendingRecords('synthetic-screen')
-    expect(records.map((r) => [r.id, r.startedAt, r.total])).toEqual([
-      [first, '2026-10-26T14:59:58.000Z', 2],
-      [next, '2026-10-26T15:00:00Z', 4],
-    ])
-    expect(records[0].server?.confirmed).toBe(true)
-    expect(records.every((r) => !r.days || r.days.length === 1)).toBe(true)
-  })
   it('preserves develop combined records and scopes the calendar to the selected input kind', () => {
     const item: RecordItem = {
       id: 'synthetic-camera',

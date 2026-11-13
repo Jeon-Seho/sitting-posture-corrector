@@ -231,8 +231,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
           </p>
         </div>
         <div className="result-actions">
-          <button className="btn btn-primary" onClick={onPrepare}>
-            다시 준비하기
+          {/* Busy (S1 429) only needs another go, like the `serverDown` page; the rest need preparing again. */}
+          <button className="btn btn-primary" onClick={state?.busy ? onRetry : onPrepare}>
+            {state?.busy ? '다시 시도' : '다시 준비하기'}
           </button>
         </div>
       </section>

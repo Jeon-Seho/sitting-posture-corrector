@@ -1,71 +1,56 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_RULES } from '../../data/posture'
-import { BASELINE_ID, SESSION_ID, view } from '../session/server/testFixtures'
-import { forgetResult, pendingRecords, reconcileResults, rememberResult } from './serverRecords'
+import { BASELINE_ID, view } from '../session/server/testFixtures'
+import { setServerAuth } from '../platform/serverAuth'
+import { dropOldPendingResults, settleUnconfirmed } from './serverRecords'
 import type { RecordItem } from './types'
 
-function record(total = 2, ended = false): RecordItem {
-  const serverView = view({
-    ended,
-    last_sequence: 1,
-    summary: { ...view().summary, total_ms: total * 1000, unknown_ms: total * 1000 },
-    events: ended ? [{ schema_version: '1.0', session_id: SESSION_ID, event_id: 1, kind: 'session_ended', timestamp_ms: total * 1000, onset_ms: total * 1000, onset_valid_ms: 0, deviation_type: 'none', reason: 'ended' }] : [],
-  })
-  return { id: SESSION_ID, startedAt: '2026-10-29T00:00:00Z', endedAt: `2026-10-29T00:00:0${total}Z`, mode: 'camera', total, valid: 0, good: 0, events: [], rules: DEFAULT_RULES,
-    server: { baselineId: BASELINE_ID, modelVersion: 'synthetic', confirmed: ended, view: serverView } }
+/** Synthetic server only: a stubbed fetch for S4 and an in-memory localStorage. */
+const reply = (status: number, body: unknown = {}) =>
+  ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
+
+const STORED = '11111111-1111-4111-8111-111111111111'
+const LOST = '22222222-2222-4222-8222-222222222222'
+const SAVING = '33333333-3333-4333-8333-333333333333'
+const OFFLINE = '44444444-4444-4444-8444-444444444444'
+const IN_R1 = '55555555-5555-4555-8555-555555555555'
+
+function record(id: string): RecordItem {
+  return { id, startedAt: '2026-10-29T00:00:00Z', endedAt: '2026-10-29T00:00:02Z', mode: 'camera', total: 2, valid: 0, good: 0, events: [], rules: DEFAULT_RULES,
+    server: { baselineId: BASELINE_ID, modelVersion: 'synthetic', confirmed: true, view: view({ session_id: id, ended: true }) } }
 }
-describe('durable result handoff', () => {
+
+describe('measurements the server did not confirm (nothing kept on this device)', () => {
   let data: Map<string, string>
+  let fetch: ReturnType<typeof vi.fn<typeof globalThis.fetch>>
   beforeEach(() => {
     data = new Map()
     vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) })
+    vi.stubGlobal('location', { protocol: 'https:', host: 'app.example.test' })
+    fetch = vi.fn<typeof globalThis.fetch>()
+    vi.stubGlobal('fetch', fetch)
+    setServerAuth({ userId: 'a', accessToken: async () => 'access' })
   })
-  afterEach(() => vi.unstubAllGlobals())
-  it('survives a new read, isolates accounts, and removes only after matching server completion', () => {
-    rememberResult('a', record())
-    expect(pendingRecords('a')).toHaveLength(1)
-    expect(pendingRecords('b')).toEqual([])
-    expect(reconcileResults('a', [record()])).toHaveLength(1)
-    expect(reconcileResults('a', [record(2, true)])).toEqual([])
-    expect(data.size).toBe(0)
-  })
-  it('forgets only the measurement the server does not have (S4 404)', () => {
-    rememberResult('a', record())
-    rememberResult('b', record())
-    expect(forgetResult('a', SESSION_ID)).toEqual([])
-    expect(pendingRecords('b')).toHaveLength(1)
-    expect(forgetResult('b', 'some-other-id')).toHaveLength(1)
+  afterEach(() => { setServerAuth(null); vi.unstubAllGlobals() })
+
+  it('removes the results an older app kept on this device, only for that account', () => {
+    data.set('posegood.account.v3.a.pending-results', '{broken')
+    data.set('posegood.account.v3.b.pending-results', '[]')
+    dropOldPendingResults('a')
+    expect([...data.keys()]).toEqual(['posegood.account.v3.b.pending-results'])
   })
 
-  it('keeps newer checkpoints when the server or a late observation is older', () => {
-    rememberResult('a', record(4))
-    rememberResult('a', record(2))
-    expect(pendingRecords('a')[0].total).toBe(4)
-    expect(reconcileResults('a', [record(2, true)])).toHaveLength(1)
-    expect(reconcileResults('a', [{ ...record(4, true), startedAt: '2026-10-28T00:00:00Z' }])).toHaveLength(1)
-  })
-  it('matches good time the server stored in 0.1 s rounded down (frame-by-frame ms, PR #91)', () => {
-    const timed = (goodMs: number, ended = false) => {
-      const r = record(2, ended)
-      const summary = { ...r.server!.view!.summary, valid_ms: 1500, unknown_ms: 500, normal_ms: goodMs, deviation_ms: 1500 - goodMs,
-        keep_rate: goodMs / 1500, events_per_hour: 0 }
-      return { ...r, valid: 1.5, good: goodMs / 1000, server: { ...r.server!, view: { ...r.server!.view!, summary } } }
-    }
-    rememberResult('a', timed(1350))
-    expect(reconcileResults('a', [timed(1200, true)])).toHaveLength(1)
-    expect(reconcileResults('a', [timed(1300, true)])).toEqual([])
-    rememberResult('a', timed(1300))
-    expect(reconcileResults('a', [timed(1300, true)])).toEqual([])
-  })
-  it('acknowledges persisted connection-loss endings without claiming user confirmation', () => {
-    rememberResult('a', record())
-    const remote = record(3, true)
-    remote.server!.confirmed = false
-    expect(reconcileResults('a', [remote])).toEqual([])
-  })
-  it('preserves damaged data and does not overwrite it', () => {
-    data.set('posegood.account.v3.a.pending-results', '{broken')
-    expect(() => rememberResult('a', record())).toThrow()
-    expect(data.get('posegood.account.v3.a.pending-results')).toBe('{broken')
+  it('settles those in R1 or ended by S4, counts the lost (404), and keeps saving or unknown ones', async () => {
+    fetch.mockImplementation(async (url) => {
+      const path = String(url)
+      if (path.endsWith(`/sessions/${STORED}`)) return reply(200, { ended: true })
+      if (path.endsWith(`/sessions/${LOST}`)) return reply(404, { code: 'SESSION_LOST' })
+      if (path.endsWith(`/sessions/${OFFLINE}`)) throw new TypeError('Failed to fetch')
+      return reply(200, { ended: false })
+    })
+    const result = await settleUnconfirmed('a', [IN_R1, STORED, LOST, SAVING, OFFLINE], [record(IN_R1)])
+    expect(result).toEqual({ remaining: [SAVING, OFFLINE], lost: 1 })
+    // R1 already lists it as ended: S4 is not asked.
+    expect(fetch.mock.calls.some(([url]) => String(url).endsWith(`/sessions/${IN_R1}`))).toBe(false)
   })
 })

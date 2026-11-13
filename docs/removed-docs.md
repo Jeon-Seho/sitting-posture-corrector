@@ -188,3 +188,11 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/fe/fe-design-request.md` | 그릴 화면·문구·조건을 요청한 문서다. 그림을 받아 구현까지 끝났다. | 화면과 그림 대응, 띄우는 규칙, 원칙, 남은 것은 [frontend README](../frontend/README.md) 「오류 안내 페이지」, 코드는 `frontend/src/features/connection/pageError.ts`·`frontend/src/pages/ErrorPage.tsx`·`frontend/public/offline.html`. 원문은 `git show ccf0a9f:docs/design/fe/fe-design-request.md` | lellon0403(`b74c883`, 11/10 데스크톱 테마 보완 기록) |
+
+## 15. 2026-11-13 휴대폰 기록 보기 계획 (FE, 1개)
+
+휴대폰에서 기록을 보는 앱(Android, 11/10 시작)을 만들지 않기로 했다(11/13, FE). 작업 브랜치(`feature/frontend-mobile-android`, `feature/fe-mobile-records-v1`)는 FE가 직접 지운다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe/fe-mobile-records-plan.md` | 휴대폰 기록 보기를 하지 않기로 해 계획이 필요 없다. | 거기서 기다리던 T1 일별 통계(요구 14)는 [FE 제안서](design/fe/fe-server-proposal.md) 3순위 「기록 통계」로 남겼다. 원문은 `git show 996709f:docs/design/fe/fe-mobile-records-plan.md` | 없음 |

@@ -1,58 +1,40 @@
-import { apiRequest, type ApiErrorKind } from '../platform/api'
+import { ApiError, apiRequest, type ApiErrorKind } from '../platform/api'
 import { getServerAuth } from '../platform/serverAuth'
 import { noteServerDay } from '../platform/serverClock'
 import { validRecord } from './validation'
 import type { RecordItem } from './types'
-import { sameSnapshot } from './serverSnapshots'
 
-const messages = Object.fromEntries(['signed_out', 'invalid', 'conflict', 'not_found', 'busy', 'limit', 'server', 'network'].map(k => [k, '서버 기록을 확인하지 못했어요. 임시 자료는 유지돼요.'])) as Record<ApiErrorKind, string>
-const key = (userId: string) => `posegood.account.v3.${userId}.pending-results`
+const messages = Object.fromEntries(['signed_out', 'invalid', 'conflict', 'not_found', 'busy', 'limit', 'server', 'network'].map(k => [k, '서버 기록을 확인하지 못했어요.'])) as Record<ApiErrorKind, string>
+/** The old key for results kept on this device until R1 confirmed them (ADR 0027 before 11/13). */
+const oldPendingKey = (userId: string) => `posegood.account.v3.${userId}.pending-results`
 
-export function pendingRecords(userId: string): RecordItem[] {
-  const raw = localStorage.getItem(key(userId))
-  if (raw === null) return []
-  const parsed: unknown = JSON.parse(raw)
-  if (!Array.isArray(parsed) || !parsed.every(validRecord)) throw new Error('미확인 기록이 손상됐어요. 원본을 유지합니다.')
-  return parsed
-}
-
-/** Checkpoints and closed results are durable, per account, and never mix into confirmed history. */
-export function rememberResult(userId: string, record: RecordItem) {
-  if (!validRecord(record)) throw new Error('결과 형식을 확인하지 못했어요.')
-  const previous = pendingRecords(userId)
-  const old = previous.find(r => r.id === record.id)
-  // A late observation must not replace a more complete or confirmed checkpoint.
-  if (old && (old.total > record.total || (old.server?.confirmed && !record.server?.confirmed))) return
-  localStorage.setItem(key(userId), JSON.stringify([...previous.filter(r => r.id !== record.id), record]))
-}
-
-/** S4 404: the server has no such measurement; its checkpoints here would wait forever. */
-export function forgetResult(userId: string, id: string) {
-  const remaining = pendingRecords(userId).filter(r => r.id !== id)
-  if (remaining.length) localStorage.setItem(key(userId), JSON.stringify(remaining))
-  else localStorage.removeItem(key(userId))
-  return remaining
+/** Nothing about a measurement is kept on this device any more: remove what an older app left. */
+export function dropOldPendingResults(userId: string) {
+  try { if (localStorage.getItem(oldPendingKey(userId)) !== null) localStorage.removeItem(oldPendingKey(userId)) }
+  catch (caughtError) { console.error('[features/storage/serverRecords.ts:dropOldPendingResults] Operation failed', caughtError) }
 }
 
 /**
- * The server keeps good time in 0.1 s rounded down (`good_sec`, BE `SessionRepository.tenths`).
- * Since frame-by-frame judging (PR #91) the live `normal_ms` has millisecond ends, so 38.35 s here
- * is 38.3 s in R1 and must still count as the same result (fe-3sec 12.7).
+ * Measurements that ended without the server's confirmation (session ids, kept in memory):
+ * settled when R1 lists them as ended, or when S4 says the server ended them (stored) or does not
+ * have them (404, it lost them, e.g. restarted while measuring). Those S4 cannot answer stay for
+ * the next check. Relies on S4 answering ended sessions from the DB (BE-11, develop PR #119), so a
+ * stored session is never taken for a lost one.
  */
-const storedTenths = (seconds: number) => Math.floor(seconds * 10 + 1e-6) / 10
-
-export function reconcileResults(userId: string, records: RecordItem[]) {
-  const remaining = pendingRecords(userId).filter(local => !records.some(remote =>
-    remote.id === local.id && remote.server?.view?.ended === true &&
-    remote.server.baselineId === local.server?.baselineId && remote.total >= local.total &&
-    sameSnapshot(remote.rules, local.rules) &&
-    // Measurement timestamps are not revision numbers. Require the same server start and
-    // monotonic acknowledged counters; an older server snapshot cannot erase newer evidence.
-    Date.parse(remote.startedAt) === Date.parse(local.startedAt) &&
-    remote.valid >= local.valid && remote.good + 1e-9 >= storedTenths(local.good)))
-  if (remaining.length) localStorage.setItem(key(userId), JSON.stringify(remaining))
-  else localStorage.removeItem(key(userId))
-  return remaining
+export async function settleUnconfirmed(userId: string, ids: string[], records: RecordItem[]) {
+  const remaining: string[] = []
+  let lost = 0
+  for (const id of ids) {
+    if (records.some((r) => r.id === id && r.server?.view?.ended === true)) continue
+    try {
+      const view = await apiRequest(`/sessions/${encodeURIComponent(id)}`, { method: 'GET' }, messages) as { ended?: unknown } | null
+      if (view?.ended !== true) remaining.push(id)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404 && getServerAuth()?.userId === userId) lost += 1
+      else remaining.push(id)
+    }
+  }
+  return { remaining, lost }
 }
 
 export async function fetchServerRecords(userId: string) {

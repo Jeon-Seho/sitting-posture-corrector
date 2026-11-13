@@ -189,7 +189,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.resume()
     const [first, rest] = socket.features()
     expect(first).toMatchObject({ phase: 'running', end_ms: 300 })
-    expect((first.frames as Record<string, unknown>[])[0].valid).toBe(false)
+    expect((first.frames as Record<string, unknown>[])[0]).toEqual({ t_ms: 100, p: null })
     expect(rest).toMatchObject({ phase: 'rest', start_ms: 300, end_ms: 800, frames: [] })
     expect(live.state.phase).toBe('running')
   })
@@ -467,7 +467,13 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     fetch.mockResolvedValueOnce(reply(409, { code: 'BASELINE_REQUIRED' }))
     const noBaseline = make()
     await noBaseline.start()
-    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' })
+    expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', busy: false })
+
+    // The server is full: the failed screen offers 「다시 시도」, not 「다시 준비하기」.
+    fetch.mockResolvedValueOnce(reply(429, { code: 'LIMIT_REACHED' }))
+    const full = make()
+    await full.start()
+    expect(full.state).toMatchObject({ phase: 'failed', serverDown: false, busy: true })
 
     const signedOut = await started()
     socket.push({ type: 'closed', reason: 'unauthorized' })

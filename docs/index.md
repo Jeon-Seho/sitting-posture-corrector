@@ -25,7 +25,6 @@
 - [Spark 배치 J2 → J3 → J1](plans/active/0085-spark-batch-jobs.md)(0085, DevOps/BE, 11/01): 일별 통계 `daily_stat`(J2, 매일 00:10)·탈퇴 최종 삭제(J3, 04:00)·HDFS 적재(J1, 매시간). 실행·cron은 [bigdata/README.md](../bigdata/README.md).
 - [FE 예외 처리 모음](design/fe/fe-exception-log.md)(FE, 11/13): 오류·예외 때 띄우는 화면과 문구를 사용자 입장으로 나눔(A 사용자가 해결, B 기다리거나 다시, C 알 수도 고칠 수도 없음, D 규칙 안내), 그 안을 그림 있는 오류 화면과 그림 없는 안내로.
 - [FE 예외 처리 방안](design/fe/fe-exception-handling-plan.md)(FE, 11/11~): 서버가 늦거나 결과를 잃었을 때의 앱 동작. 해결할 문제: 끝내 저장되지 않는 기록(S4 404는 오류 화면, 이 기기에는 남기지 않음). 지금 동작(종료 뒤 5초·`stalled`·저장 중 표시·늦은 결과 안내·강제 종료), D-57 회의에 낸 BE 요청·시험 항목.
-- [휴대폰에서 측정 기록 보기](design/fe/fe-mobile-records-plan.md)(FE 계획, 11/10): 웹 앱을 휴대폰 화면에 맞춰 R1 기록·통계를 보기. 앱 형태·휴대폰 측정·T1 대기를 정할 것.
 - [백엔드 재작성](plans/active/0026-backend-v2-rebuild.md): DB V2.2·프론트 계약 기준 단일 API. [서비스 DB 전환(V1.1)](removed-docs.md)은 이 계획으로 대체됐다.
 - [프론트–API v2 연결](plans/active/0027-frontend-backend-v2-connection.md): 되돌린 프론트를 계정·기준 자세·세션 v2와 DB V2.3에 다시 잇는 수정 목록. FE 설계(실시간 v2·WS 자세 등록)와 다른 곳은 [계획 0029](plans/active/0029-merge-backend-data-platform.md) D1~D9.
 - [백엔드 Java 17·Spring Boot 4·Gradle 전환](plans/active/0028-backend-java17-boot4-gradle.md)([ADR 0020](decisions/0020-single-api-decision-engine.md) 1절): 백엔드·개발 도구 변경과 Docker·CI 팀원 작업 요청.

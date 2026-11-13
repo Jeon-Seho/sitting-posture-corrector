@@ -60,6 +60,11 @@ export type LiveState = {
    */
   serverDown: boolean
   /**
+   * Could not start because the server is full (S1 429). Nothing is wrong on the user's side, so the
+   * failed screen's button is 「다시 시도」 (a new measurement at once), like the `serverDown` page.
+   */
+  busy: boolean
+  /**
    * S4 answered 404 after 「측정 종료」: the server has this measurement neither in memory nor stored.
    * Still `ended`, so the record stays pending on this device (FE 예외 처리 방안 2.1).
    */
@@ -124,8 +129,8 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   not_owner: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
   bad_message: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
   no_baseline: { message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', failed: true },
-  session_lost: { message: '서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요.', failed: false, lost: true },
-  server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.', failed: false, lost: true },
+  session_lost: { message: '서버에서 측정이 끝났어요. 저장이 확인되면 기록에 나와요.', failed: false, lost: true },
+  server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.', failed: false, lost: true },
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
   // BE 11.3: no judgeable posture or away for 30 min (server default); the server stored it and ended it.
   unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 30분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
@@ -142,7 +147,7 @@ const CLOSED_WHILE_MEASURING: Record<string, { message: string; failed: boolean;
   unauthorized: { message: '비밀번호 변경이나 탈퇴로 로그인이 끝나 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
   bad_message: { message: '측정을 이어갈 수 없어 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
 }
-const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.'
+const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.'
 
 /** A server time from a message: kept as given and moves 「오늘」 (ADR 0029); null when absent or not a time. */
 function serverTime(value: unknown): string | null {
@@ -173,6 +178,7 @@ export class LiveSession {
     message: '',
     lost: false,
     serverDown: false,
+    busy: false,
     resultMissing: false,
     late: false,
     startedAt: null,
@@ -249,7 +255,12 @@ export class LiveSession {
       const message =
         error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' : error.message
       // 5xx or no answer at all: the server could not be reached or could not open it.
-      this.finish({ phase: 'failed', message, serverDown: (error.status ?? 0) >= 500 || error.kind === 'network' })
+      this.finish({
+        phase: 'failed',
+        message,
+        serverDown: (error.status ?? 0) >= 500 || error.kind === 'network',
+        busy: error.kind === 'limit',
+      })
       return
     }
     // Ended (「측정 종료」, the small window's X) while S1 was still on its way.
