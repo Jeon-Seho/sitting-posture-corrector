@@ -206,6 +206,24 @@ class J1OrganizeTest(unittest.TestCase):
         self.assertEqual((main_rows, kp_rows), (8, 2))
         self.assertEqual(self.spark.read.parquet(uri + job.KEYPOINTS_STAGING).count(), 2)
 
+    def test_deleted_checkpoint_with_leftover_sink_metadata_is_reset(self):
+        """(D-93 회귀) 체크포인트만 지우면 남은 _spark_metadata 때문에 새 쿼리가 0건이 된다 — 받기 전에 메타데이터를 지운다."""
+        schema = "topic string, partition int, offset long, value binary, timestamp timestamp"
+        src = Path(self.tmp) / "src-reset"
+        uri, root, ck = self.hdfs.uri, "/data/staging/reset-test", "/data/checkpoints/reset-test"
+        for _ in range(3):  # 배치 번호를 앞서게(메타데이터 0·1·2)
+            self.spark.createDataFrame(kafka_rows()[:2], schema).write.mode("append").parquet(str(src))
+            job.stage_stream(self.spark.readStream.schema(schema).parquet(str(src)), uri, root, ck)
+        self.hdfs.delete(ck)  # 운영자가 처음부터 다시 받으려고 체크포인트만 지움
+
+        def again():
+            return job.stage_stream(self.spark.readStream.schema(schema).parquet(str(src)), uri, root, ck)
+        self.assertEqual(again(), 0)  # 예전 동작: 남은 메타데이터 때문에 배치 0이 건너뛰어짐
+        self.hdfs.delete(ck)
+        self.assertTrue(job.reset_orphan_sink_log(self.hdfs, root, ck))
+        self.assertEqual(again(), 6)  # 지금: 메타데이터를 지운 뒤 처음부터 다 받음
+        self.assertFalse(job.reset_orphan_sink_log(self.hdfs, root, ck))  # 체크포인트가 있으면 건드리지 않음
+
     def test_dry_run_writes_nothing(self):
         cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
                 "started_at": "2026-11-01 10:00:00.000000"}

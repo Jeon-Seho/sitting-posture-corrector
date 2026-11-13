@@ -8,6 +8,9 @@
    임시 폴더(/data/staging/keypoints-v1/topic=…/date=…)를 모두 따로 둔다. 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어
    읽기를 보장하지 않고, 두 쿼리가 같은 임시 폴더(같은 _spark_metadata)에 쓰면 뒤 쿼리의 배치가 「이미 쓴 배치」로 건너뛰어져
    아무것도 쓰지 않은 채 읽은 위치만 넘어가기 때문이다(11/13 서버에서 확인).
+   (D-93) 같은 이유로 체크포인트만 지우면(다시 처음부터 읽게 하려고) 남은 _spark_metadata의 배치 번호 때문에 새 쿼리의
+   앞 배치들이 건너뛰어진다. 그래서 받기 전에 체크포인트가 없는데 그 임시 폴더에 _spark_metadata가 있으면 메타데이터를 지운다
+   (정리 단계는 하위 폴더를 직접 읽어 메타데이터를 쓰지 않는다 — 이미 받아 둔 Parquet 파일은 그대로).
 2. 정리: 서비스 DB에서 끝난 지 settle(기본 10분) 지났고 아직 feature_archive가 없는 세션(계정 ACTIVE)을 골라,
    임시 폴더에서 그 세션 메시지를 모아 중복을 빼고 세션 폴더
    /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/에 파일 3개(토픽마다 JSON Lines)로 쓴 뒤
@@ -75,8 +78,24 @@ def staging_root(topic):
     return KEYPOINTS_STAGING if topic in KEYPOINTS else STAGING
 
 
-def ingest_topics(spark, hdfs_uri, topics, staging, checkpoint):
+def reset_orphan_sink_log(hdfs, staging, checkpoint):
+    """(D-93) 체크포인트가 없는데 임시 폴더에 파일 싱크 메타데이터가 남아 있으면 지운다. 지웠으면 True.
+
+    체크포인트를 지우면 새 쿼리는 배치 0부터 세는데, 남은 _spark_metadata에 더 큰 배치 번호가 있으면 Spark 파일 싱크가
+    그 번호까지를 「이미 쓴 배치」로 건너뛰어 아무것도 쓰지 않은 채 읽은 위치만 넘어간다(11/13 서버, 오류 없이 유실).
+    """
+    metadata = staging + "/_spark_metadata"
+    if hdfs.exists(checkpoint) or not hdfs.exists(metadata):
+        return False
+    hdfs.delete(metadata)
+    bc.log(JOB, f"체크포인트 {checkpoint} 없음 — 남은 {metadata} 지움(처음부터 다시 받기)")
+    return True
+
+
+def ingest_topics(spark, hdfs, topics, staging, checkpoint):
     """토픽 묶음 하나를 지난번 위치부터 지금까지 그 묶음의 임시 폴더로. 받은 건수."""
+    reset_orphan_sink_log(hdfs, staging, checkpoint)
+    hdfs_uri = hdfs.uri
     raw = (spark.readStream.format("kafka")
            .option("kafka.bootstrap.servers", kafka_bootstrap())
            .option("subscribe", ",".join(topics))
@@ -95,10 +114,10 @@ def stage_stream(raw, hdfs_uri, staging, checkpoint):
     return sum(int(p.get("numInputRows", 0)) for p in query.recentProgress)
 
 
-def ingest(spark, hdfs_uri):
+def ingest(spark, hdfs):
     """판정 과정 3개 토픽 + (D-92) 좌표 토픽. (전체, 좌표) 받은 건수."""
-    rows = ingest_topics(spark, hdfs_uri, TOPICS, STAGING, CHECKPOINT)
-    keypoints = ingest_topics(spark, hdfs_uri, KEYPOINTS, KEYPOINTS_STAGING, KEYPOINTS_CHECKPOINT)
+    rows = ingest_topics(spark, hdfs, TOPICS, STAGING, CHECKPOINT)
+    keypoints = ingest_topics(spark, hdfs, KEYPOINTS, KEYPOINTS_STAGING, KEYPOINTS_CHECKPOINT)
     return rows + keypoints, keypoints
 
 
@@ -290,7 +309,7 @@ def main(argv=None):
         hdfs = bc.Hdfs(spark)
         ingested, ingested_keypoints = None, None
         if not args.skip_ingest:
-            ingested, ingested_keypoints = ingest(spark, hdfs.uri)
+            ingested, ingested_keypoints = ingest(spark, hdfs)
             bc.log(JOB, f"받기 — Kafka 메시지 {ingested}건(그중 좌표 구간 {ingested_keypoints}건) → {STAGING}·{KEYPOINTS_STAGING}")
         now = dt.datetime.now(bc.KST).replace(tzinfo=None)
         with bc.Jdbc(spark, db) as jdbc:
