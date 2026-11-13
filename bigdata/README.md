@@ -43,7 +43,7 @@ tools/platform/batch.sh j1 --session <uuid> --settle-sec 0   # 시험용 — 그
 ```
 
 1. **받기**: `posture.features.v1`·`posture.inference.v1`·`posture.episodes.v1`을 Structured Streaming `availableNow`로 지난번 위치부터 지금까지 읽어 `/data/staging/realtime-v1/topic=…/date=…`(Parquet — 봉투 몇 칸 + 원문 JSON)에 붙인다. 읽은 위치는 `/data/checkpoints/j1-realtime-v1`. 처음 실행은 토픽에 남은 가장 앞부터 읽는다(지워진 위치는 건너뜀). Kafka 소스 패키지(`spark-sql-kafka-0-10_2.13`, spark 이미지와 같은 판 — `batch.sh`가 이미지 태그에서 읽음)도 처음 한 번 받는다.
-   (D-92) 좌표 구간 토픽 `posture.keypoints.v1`은 **별도 쿼리·체크포인트**(`/data/checkpoints/j1-keypoints-v1`)로 같은 임시 폴더 구조에 받는다 — 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어 읽기를 보장하지 않아서다. 이 토픽은 kafka 경로에서 io-api 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS=true`일 때만 쌓인다(기본 꺼짐 — 좌표 활용 동의 범위 확인 전).
+   (D-92) 좌표 구간 토픽 `posture.keypoints.v1`은 **별도 쿼리·체크포인트·임시 폴더**(`/data/checkpoints/j1-keypoints-v1`, `/data/staging/keypoints-v1/topic=…/date=…`)로 받는다 — 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어 읽기를 보장하지 않고, 두 쿼리가 같은 임시 폴더(같은 `_spark_metadata`)에 쓰면 뒤 쿼리의 배치가 「이미 쓴 배치」로 건너뛰어져 아무것도 쓰지 않은 채 읽은 위치만 넘어간다(11/13 서버에서 확인, 시험 `test_two_staging_streams_both_write`). 이 토픽은 kafka 경로에서 io-api 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS=true`일 때만 쌓인다(기본 꺼짐 — 좌표 활용 동의 범위 확인 전).
 2. **정리**: DB에서 끝난 지 10분(`--settle-sec`) 지났고 `feature_archive`가 없는 세션(계정 ACTIVE, 7일 안)을 골라 임시 폴더의 메시지를 모은다. 중복은 하나만(구간·관측 `sequence`, 사건 `event_id`, 그 밖은 `message_id` — 가장 앞 offset). 세션 폴더 `/data/users/{user_account_id}/{시작일 KST}/{client_session_uuid}/`에 **파일 3개**(`features.jsonl`·`inference.jsonl`·`episodes.jsonl`, 토픽 원문 한 줄에 하나)와 좌표 구간이 있으면 `keypoints.jsonl`(D-92, 중복은 `sequence`로)을 쓰고 `feature_archive` 1행(`file_uri`, 첫·마지막 구간 시각 = 세션 시작 + `start_ms`/`end_ms`, 적재 시각)을 넣는다. 파일을 먼저 쓰고(덮어쓰기) 행을 넣어, 중간에 멈추면 다음 실행이 다시 쓴다.
 3. **임시 폴더 정리**: 7일(`--keep-days`)보다 오래된 `date=` 폴더를 지운다.
 

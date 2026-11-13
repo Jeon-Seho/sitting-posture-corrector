@@ -165,7 +165,7 @@ class J1OrganizeTest(unittest.TestCase):
                                                       "end_ms": 500 * seq + 1500, "frames": frames}, 50 + n).encode(), ts)
                 for n, seq in enumerate([0, 1, 1, 2])]  # 순번 1 재전송
         raw = self.spark.createDataFrame(rows, "topic string, partition int, offset long, value binary, timestamp timestamp")
-        job.staging_columns(raw).write.mode("append").partitionBy("topic", "date").parquet(self.hdfs.uri + job.STAGING)
+        job.staging_columns(raw).write.partitionBy("topic", "date").parquet(self.hdfs.uri + job.KEYPOINTS_STAGING)
         cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
                 "started_at": "2026-11-01 10:00:00.000000"}
         jdbc = FakeJdbc([cand])
@@ -183,6 +183,29 @@ class J1OrganizeTest(unittest.TestCase):
         job.organize(self.spark, FakeJdbc([cand]), self.hdfs, Args(), dt.datetime(2026, 11, 1, 11, 0))
         self.assertFalse(self.hdfs.exists(f"/data/users/7/2026-11-01/{S1}/keypoints.jsonl"))
 
+    def test_two_staging_streams_both_write(self):
+        """(D-92 회귀) 판정 과정·좌표 쿼리가 각자 임시 폴더에 쓴다 — 같은 폴더였을 때는 뒤 쿼리가 아무것도 못 썼다(11/13)."""
+        schema = "topic string, partition int, offset long, value binary, timestamp timestamp"
+        src = Path(self.tmp) / "src"
+        rows = kafka_rows()
+        uri, main_root = self.hdfs.uri, "/data/staging/main-test"
+        main_rows = 0
+        for _ in range(2):  # 판정 과정 쿼리를 두 번(같은 체크포인트) 돌려 그 폴더의 배치 번호를 앞서게 한다
+            self.spark.createDataFrame(rows[:4], schema).write.mode("append").parquet(str(src / "main"))
+            stream = self.spark.readStream.schema(schema).parquet(str(src / "main"))
+            main_rows += job.stage_stream(stream, uri, main_root, "/data/checkpoints/main-test")
+        kp = [("posture.keypoints.v1",) + r[1:] for r in rows[:2]]
+        self.spark.createDataFrame(kp, schema).write.parquet(str(src / "kp"))
+
+        def kp_stream():
+            return self.spark.readStream.schema(schema).parquet(str(src / "kp"))
+        # 예전 방식(같은 임시 폴더, 새 체크포인트) — 배치 0이 「이미 쓴 배치」로 건너뛰어져 읽은 수 0
+        self.assertEqual(job.stage_stream(kp_stream(), uri, main_root, "/data/checkpoints/kp-shared"), 0)
+        # 지금 방식(따로 둔 임시 폴더) — 다 쓴다
+        kp_rows = job.stage_stream(kp_stream(), uri, job.KEYPOINTS_STAGING, "/data/checkpoints/kp-test")
+        self.assertEqual((main_rows, kp_rows), (8, 2))
+        self.assertEqual(self.spark.read.parquet(uri + job.KEYPOINTS_STAGING).count(), 2)
+
     def test_dry_run_writes_nothing(self):
         cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
                 "started_at": "2026-11-01 10:00:00.000000"}
@@ -196,10 +219,10 @@ class J1OrganizeTest(unittest.TestCase):
 
     def test_clean_staging_removes_only_old_dates(self):
         self.hdfs.write_text(job.STAGING + "/topic=posture.features.v1/date=2026-10-20/x.parquet", "")
-        self.hdfs.write_text(job.STAGING + "/topic=posture.keypoints.v1/date=2026-10-20/x.parquet", "")
+        self.hdfs.write_text(job.KEYPOINTS_STAGING + "/topic=posture.keypoints.v1/date=2026-10-20/x.parquet", "")
         removed = job.clean_staging(self.hdfs, dt.date(2026, 11, 1), 7)
         self.assertEqual(removed, [job.STAGING + "/topic=posture.features.v1/date=2026-10-20",
-                                   job.STAGING + "/topic=posture.keypoints.v1/date=2026-10-20"])
+                                   job.KEYPOINTS_STAGING + "/topic=posture.keypoints.v1/date=2026-10-20"])
         self.assertTrue(self.hdfs.exists(job.STAGING + "/topic=posture.features.v1/date=2026-11-01"))
 
 
@@ -220,6 +243,11 @@ class J1PureTest(unittest.TestCase):
         self.assertNotIn("posture.keypoints.v1", job.TOPICS)
         self.assertEqual(set(job.ALL_TOPICS), set(job.TOPICS) | {"posture.keypoints.v1"})
         self.assertNotEqual(job.KEYPOINTS_CHECKPOINT, job.CHECKPOINT)
+        # 임시 폴더도 따로 — 같은 폴더(같은 _spark_metadata)면 뒤 쿼리의 배치가 건너뛰어져 아무것도 쓰지 않는다(11/13 서버)
+        for a, b in ((job.STAGING, job.KEYPOINTS_STAGING), (job.KEYPOINTS_STAGING, job.STAGING)):
+            self.assertFalse((b + "/").startswith(a + "/"))
+        self.assertEqual(job.staging_root("posture.keypoints.v1"), job.KEYPOINTS_STAGING)
+        self.assertEqual(job.staging_root("posture.features.v1"), job.STAGING)
 
     def test_bootstrap_default_and_override(self):
         self.assertEqual(job.kafka_bootstrap({}), "kafka:19092")

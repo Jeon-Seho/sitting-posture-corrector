@@ -4,8 +4,10 @@
 1. 받기: posture.features.v1·posture.inference.v1·posture.episodes.v1을 Structured Streaming trigger(availableNow)로
    지난번 위치부터 지금까지 읽어 임시 폴더 /data/staging/realtime-v1/topic=…/date=…(Parquet, 원문 JSON 그대로)에 붙인다.
    읽은 위치는 /data/checkpoints/j1-realtime-v1에 남아 다음 실행이 이어 읽는다(처음에는 토픽에 남은 가장 앞부터).
-   (D-92) 좌표 구간 토픽 posture.keypoints.v1은 따로 읽는다(쿼리·체크포인트 /data/checkpoints/j1-keypoints-v1 별도) —
-   기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어 읽기를 보장하지 않아서다. 임시 폴더 구조는 같다.
+   (D-92) 좌표 구간 토픽 posture.keypoints.v1은 따로 읽는다 — 쿼리·체크포인트(/data/checkpoints/j1-keypoints-v1)와
+   임시 폴더(/data/staging/keypoints-v1/topic=…/date=…)를 모두 따로 둔다. 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어
+   읽기를 보장하지 않고, 두 쿼리가 같은 임시 폴더(같은 _spark_metadata)에 쓰면 뒤 쿼리의 배치가 「이미 쓴 배치」로 건너뛰어져
+   아무것도 쓰지 않은 채 읽은 위치만 넘어가기 때문이다(11/13 서버에서 확인).
 2. 정리: 서비스 DB에서 끝난 지 settle(기본 10분) 지났고 아직 feature_archive가 없는 세션(계정 ACTIVE)을 골라,
    임시 폴더에서 그 세션 메시지를 모아 중복을 빼고 세션 폴더
    /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/에 파일 3개(토픽마다 JSON Lines)로 쓴 뒤
@@ -39,6 +41,7 @@ TOPICS = {"posture.features.v1": "features.jsonl", "posture.inference.v1": "infe
 KEYPOINTS = {"posture.keypoints.v1": "keypoints.jsonl"}
 ALL_TOPICS = {**TOPICS, **KEYPOINTS}
 STAGING = "/data/staging/realtime-v1"
+KEYPOINTS_STAGING = "/data/staging/keypoints-v1"   # (D-92) 쿼리마다 임시 폴더를 따로(같은 폴더면 파일 싱크가 배치를 건너뜀)
 CHECKPOINT = "/data/checkpoints/j1-realtime-v1"
 KEYPOINTS_CHECKPOINT = "/data/checkpoints/j1-keypoints-v1"
 SETTLE_SEC = 600
@@ -67,16 +70,26 @@ def staging_columns(df):
         F.date_format(F.col("timestamp"), "yyyy-MM-dd").alias("date"))
 
 
-def ingest_topics(spark, hdfs_uri, topics, checkpoint):
-    """토픽 묶음 하나를 지난번 위치부터 지금까지 임시 폴더로. 받은 건수."""
+def staging_root(topic):
+    """토픽의 임시 폴더 맨 위(쿼리마다 따로)."""
+    return KEYPOINTS_STAGING if topic in KEYPOINTS else STAGING
+
+
+def ingest_topics(spark, hdfs_uri, topics, staging, checkpoint):
+    """토픽 묶음 하나를 지난번 위치부터 지금까지 그 묶음의 임시 폴더로. 받은 건수."""
     raw = (spark.readStream.format("kafka")
            .option("kafka.bootstrap.servers", kafka_bootstrap())
            .option("subscribe", ",".join(topics))
            .option("startingOffsets", "earliest")
            .option("failOnDataLoss", "false")   # 보존 기간이 지나 지워진 위치는 건너뛴다
            .load())
+    return stage_stream(raw, hdfs_uri, staging, checkpoint)
+
+
+def stage_stream(raw, hdfs_uri, staging, checkpoint):
+    """스트림(Kafka 행 형식)을 지금 있는 것까지 임시 폴더에 붙인다. 받은 건수."""
     query = (staging_columns(raw).writeStream.format("parquet")
-             .option("path", hdfs_uri + STAGING).option("checkpointLocation", hdfs_uri + checkpoint)
+             .option("path", hdfs_uri + staging).option("checkpointLocation", hdfs_uri + checkpoint)
              .partitionBy("topic", "date").trigger(availableNow=True).start())
     query.awaitTermination()
     return sum(int(p.get("numInputRows", 0)) for p in query.recentProgress)
@@ -84,8 +97,8 @@ def ingest_topics(spark, hdfs_uri, topics, checkpoint):
 
 def ingest(spark, hdfs_uri):
     """판정 과정 3개 토픽 + (D-92) 좌표 토픽. (전체, 좌표) 받은 건수."""
-    rows = ingest_topics(spark, hdfs_uri, TOPICS, CHECKPOINT)
-    keypoints = ingest_topics(spark, hdfs_uri, KEYPOINTS, KEYPOINTS_CHECKPOINT)
+    rows = ingest_topics(spark, hdfs_uri, TOPICS, STAGING, CHECKPOINT)
+    keypoints = ingest_topics(spark, hdfs_uri, KEYPOINTS, KEYPOINTS_STAGING, KEYPOINTS_CHECKPOINT)
     return rows + keypoints, keypoints
 
 
@@ -109,16 +122,24 @@ def staging_paths(hdfs, today, keep_days):
     for topic in ALL_TOPICS:
         for back in range(keep_days + 1):
             day = (today - dt.timedelta(days=back)).isoformat()
-            path = f"{STAGING}/topic={topic}/date={day}"
+            path = f"{staging_root(topic)}/topic={topic}/date={day}"
             if hdfs.exists(path):
                 out.append(path)
     return out
 
 
 def read_staging(spark, hdfs, paths):
-    # 하위 폴더를 직접 읽는다 — 임시 폴더 맨 위의 _spark_metadata(지운 파일 목록)를 거치지 않게. topic·date는 basePath로
-    return (spark.read.option("basePath", hdfs.uri + STAGING)
-            .parquet(*[hdfs.uri + p for p in paths]))
+    # 하위 폴더를 직접 읽는다 — 임시 폴더 맨 위의 _spark_metadata(지운 파일 목록)를 거치지 않게. topic·date는 basePath로.
+    # 임시 폴더가 쿼리마다 따로라(D-92) 맨 위 폴더별로 읽어 합친다
+    frames = []
+    for root in (STAGING, KEYPOINTS_STAGING):
+        group = [hdfs.uri + p for p in paths if p.startswith(root + "/")]
+        if group:
+            frames.append(spark.read.option("basePath", hdfs.uri + root).parquet(*group))
+    out = frames[0]
+    for frame in frames[1:]:
+        out = out.unionByName(frame)
+    return out
 
 
 def dedupe(df):
@@ -241,7 +262,7 @@ def old_staging_dirs(listing, today, keep_days):
 def clean_staging(hdfs, today, keep_days):
     listing = []
     for topic in ALL_TOPICS:
-        listing += hdfs.list_dirs(f"{STAGING}/topic={topic}")
+        listing += hdfs.list_dirs(f"{staging_root(topic)}/topic={topic}")
     old = old_staging_dirs(listing, today, keep_days)
     for path in old:
         hdfs.delete(path)
@@ -270,7 +291,7 @@ def main(argv=None):
         ingested, ingested_keypoints = None, None
         if not args.skip_ingest:
             ingested, ingested_keypoints = ingest(spark, hdfs.uri)
-            bc.log(JOB, f"받기 — Kafka 메시지 {ingested}건(그중 좌표 구간 {ingested_keypoints}건) → {STAGING}")
+            bc.log(JOB, f"받기 — Kafka 메시지 {ingested}건(그중 좌표 구간 {ingested_keypoints}건) → {STAGING}·{KEYPOINTS_STAGING}")
         now = dt.datetime.now(bc.KST).replace(tzinfo=None)
         with bc.Jdbc(spark, db) as jdbc:
             done, missing, total = organize(spark, jdbc, hdfs, args, now)
