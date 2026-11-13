@@ -30,7 +30,7 @@ kafka 모드 (D-57):  앱 → io-api → Kafka → 추론 → 판정 → 저장(
 
 | 순서 | 앱 동작 | 코드 |
 |---|---|---|
-| 1 | `end`를 보내고 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄운다. Esc로 닫히지 않는다 | `LiveSessionPage` `EndingDialog` |
+| 1 | `end`를 보내고 카메라 칸 안에 돌아가는 표시와 「측정 결과를 저장하고 있어요」를 띄운다. 카메라 칸 안 버튼은 눌리지 않고, 나머지 화면은 그대로 둔다 | `LiveSessionPage` `EndingNotice` |
 | 2 | `closed`가 오면 창을 닫고 결과 화면 | `LiveSession.handle` |
 | 3 | **5초** 안에 `closed`가 없으면 S4로 결과를 한 번 읽는다. `end` 뒤 `stalled`(kafka 3초)가 오거나 연결이 먼저 끊기면 바로 읽는다 | `END_TIMEOUT_MS`, `fetchResult` |
 | 4 | S4가 화면에 보이던 것보다 적게 측정했다고 답하면(`summary.total_ms`가 작음) 그 응답은 버리고 마지막 `progress` 결과로 끝낸다. `ended: true` 응답은 사건까지 그대로 쓴다. `last_sequence`로 비교하지 않는 것은 DB로 다시 만든 응답이 -1을 주기 때문이다. 404면 「서버에서 이번 측정을 찾지 못했어요 — 사용자 잘못이 아니에요. 서버 문제로 이번 측정 결과를 확인하지 못했어요. 다시 측정해 주세요」 오류 화면(500 그림)를 보이고 이 기기에는 남기지 않는다(대기 기록도 지움) | `fetchResult`, `ErrorPage` `result`, `forgetResult` |

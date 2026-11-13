@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react'
-import { ThemeIllustration } from '../../appearance/ThemeIllustration'
 import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../../components/icons'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
@@ -15,31 +13,17 @@ import type { SocketLike } from './LiveSession'
 import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
 
 /**
- * 「측정 종료」 to the result (`closed`, or S4 after at most 5 s): a modal that covers the whole app
- * so nothing else is pressed while the server saves (plan 0059 4⑤). Esc does not close it.
+ * 「측정 종료」 to the result (`closed`, or S4 after at most 5 s): a spinner over the camera area
+ * only, so the rest of the app stays as it was. The stage buttons are locked meanwhile (plan 0059 4⑤).
  */
-export function EndingDialog({ open }: { open: boolean }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog) return
-    if (open && !dialog.open) dialog.showModal?.()
-    if (!open && dialog.open) dialog.close?.()
-  }, [open])
+export function EndingNotice({ open }: { open: boolean }) {
+  if (!open) return null
   return (
-    <dialog
-      ref={ref}
-      className="confirm-dialog ending-dialog"
-      aria-labelledby="ending-dialog-title"
-      aria-busy={open}
-      onCancel={(event) => event.preventDefault()}
-    >
-      <ThemeIllustration kind="error-504" className="ending-art" width="240" height="180" />
-      <h2 id="ending-dialog-title">측정 결과를 저장하고 있어요</h2>
-      <p className="fine" role="status">
-        잠시만 기다려 주세요. 저장되면 바로 결과를 보여 드려요.
-      </p>
-    </dialog>
+    <div className="stage-saving" role="status" aria-busy="true">
+      <span className="saving-spinner" aria-hidden="true" />
+      <strong>측정 결과를 저장하고 있어요</strong>
+      <span>저장되면 바로 결과를 보여 드려요.</span>
+    </div>
   )
 }
 
@@ -315,7 +299,6 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const waitingInput = phase === 'paused' && state?.sending === 'away'
   return (
     <>
-      <EndingDialog open={phase === 'ending'} />
       <div className="page-head">
         <div>
           <h1 className="page-title">{label}</h1>
@@ -333,11 +316,11 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
           </button>
         </div>
       </div>
-      {stalledNow && <p role="status" className="notice">{STALLED_NOTICE}</p>}
 
       <div className="measure">
         <div className={`stage ${state?.alerting && running && alertsOn ? 'is-alert' : ''}`}>
           {service.active && <CameraStage camera={camera} showSkeleton={screen.showSkeleton} />}
+          <EndingNotice open={phase === 'ending'} />
           <div className="stage-overlay">
             <div className="stage-top">
               <span className={`pill ${tone}`} role="status">
@@ -349,6 +332,11 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
                 측정 · <span className="num">{formatClock(totalSeconds)}</span>
               </span>
             </div>
+            {stalledNow && (
+              <p role="status" className="stage-notice">
+                {STALLED_NOTICE}
+              </p>
+            )}
             <div className="stage-bottom">
               {nudge && nudgeBox && (
                 <div className={`nudge ${nudgeTone(nudge, alertsOn)}`}>
