@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { ThemeIllustration } from '../../appearance/ThemeIllustration'
 import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../../components/icons'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
@@ -33,7 +34,7 @@ export function EndingDialog({ open }: { open: boolean }) {
       aria-busy={open}
       onCancel={(event) => event.preventDefault()}
     >
-      <div className="ending-spinner" aria-hidden="true" />
+      <ThemeIllustration kind="error-504" className="ending-art" width="240" height="180" />
       <h2 id="ending-dialog-title">측정 결과를 저장하고 있어요</h2>
       <p className="fine" role="status">
         잠시만 기다려 주세요. 저장되면 바로 결과를 보여 드려요.
@@ -58,9 +59,11 @@ export type LiveSessionPageProps = {
  * The 「연결 상태」 line. After 「측정 종료」 a `stalled` (kafka mode, saving over 5 s) is not shown:
  * the app moves on at 5 s and the result screen says why (`lateResult`).
  */
+export const STALLED_NOTICE = '서버에 문제가 생겨 잠시 분석을 멈췄어요. 측정은 계속돼요.'
+
 export function connectionText(phase: string, stalled: boolean) {
   if (phase === 'ending') return '측정 결과를 저장하고 있어요.'
-  return stalled ? '분석이 잠시 멈췄어요. 측정은 계속돼요.' : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'
+  return stalled ? STALLED_NOTICE : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'
 }
 
 /**
@@ -184,6 +187,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const hold = holdProgress(state, session.rules.holdSeconds)
   const recovery = recoveryProgress(state, session.rules.recoverSeconds)
   const nudgeBox = nudge ? nudgeText(nudge, state, session.rules) : null
+  // The server stopped judging for a while (`stalled`): the posture shown is the last one, so its
+  // gauges would stand still. Say so and hide them until results come again; no grey screen.
+  const stalledNow = running && !!state?.stalled
   const keepRate = summary?.keep_rate ?? null
   const totalSeconds = (summary?.total_ms ?? 0) / 1000
   const validSeconds = (summary?.valid_ms ?? 0) / 1000
@@ -327,6 +333,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
           </button>
         </div>
       </div>
+      {stalledNow && <p role="status" className="notice">{STALLED_NOTICE}</p>}
 
       <div className="measure">
         <div className={`stage ${state?.alerting && running && alertsOn ? 'is-alert' : ''}`}>
@@ -351,8 +358,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
                   <div className="nudge-body">
                     <div className="nudge-title">{nudgeBox.title}</div>
                     <div className="nudge-desc">{nudgeBox.desc}</div>
-                    {nudge === 'caution' && hold !== null && <Meter value={hold} />}
-                    {nudge === 'recovering' && recovery !== null && <Meter value={recovery} />}
+                    {!stalledNow && nudge === 'caution' && hold !== null && <Meter value={hold} />}
+                    {!stalledNow && nudge === 'recovering' && recovery !== null && <Meter value={recovery} />}
                   </div>
                 </div>
               )}

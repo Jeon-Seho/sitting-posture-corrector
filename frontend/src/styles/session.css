@@ -630,10 +630,4 @@
 /* 「측정 종료」 → result: covers the app while the server saves (LiveSessionPage EndingDialog). */
 .ending-dialog[open] { align-items: center; text-align: center; gap: 4px; }
 .ending-dialog h2 { margin: 12px 0 4px; }
-.ending-spinner {
-  width: 32px; height: 32px; border-radius: 50%;
-  border: 3px solid var(--line); border-top-color: var(--primary);
-  animation: ending-spin 0.9s linear infinite;
-}
-@keyframes ending-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .ending-spinner { animation: none; } }
+.ending-art { width: min(100%, 240px); height: auto; object-fit: contain; }
