@@ -156,7 +156,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 ### 입출구 서버 (io-api, 서버 PC)
 
 팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
-DB는 외부 MySQL의 서비스 DB(V2.6, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
+DB는 외부 MySQL의 서비스 DB(V2.7, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
 처음 한 번 두 비밀값 파일을 만든다(Git 제외, 값은 화면·문서·채팅에 남기지 않는다).
@@ -167,6 +167,9 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))" > infra/compose/se
 # 로그인 토큰 서명 키(32바이트 이상, 줄바꿈 없이). 바꾸면 모든 사용자가 다시 로그인한다
 python3 -c "import secrets,sys; sys.stdout.write(secrets.token_urlsafe(48))" > infra/compose/secrets/posegood.auth.jwt-secret
 chmod 644 infra/compose/secrets/posegood.internal-token infra/compose/secrets/posegood.auth.jwt-secret   # 컨테이너 사용자(uid 10001)가 읽는다
+# (D-87) Discord 로그인 Client Secret·SMTP 비밀번호 — 기능을 안 써도 빈 파일은 만든다(없으면 docker가 폴더를 만든다)
+touch infra/compose/secrets/posegood.auth.discord.client-secret infra/compose/secrets/spring.mail.password
+chmod 644 infra/compose/secrets/posegood.auth.discord.client-secret infra/compose/secrets/spring.mail.password
 docker compose -f infra/compose/bigdata.yaml --profile io up -d --build io-api
 curl -s http://127.0.0.1:8090/health                      # {"status":"ok","storage":"mysql"}
 python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 테스트 10단계와 같음)
@@ -198,6 +201,8 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 | `infra/compose/cloudflared/config.yml` | 경로: `api.posegood.site` → `http://gateway:80`, 나머지 404 | 커밋 |
 | `infra/compose/secrets/cloudflared.env` | `TUNNEL_TOKEN=…` 한 줄(FE가 서버에서 직접 넣음, `chmod 600`) | **제외** |
 | `infra/compose/secrets/posegood.auth.jwt-secret` | 로그인 토큰 서명 키(위 입출구 서버 절) | **제외** |
+| `infra/compose/secrets/posegood.auth.discord.client-secret` | Discord 로그인 Client Secret(D-87, FE가 Portal에서 받음, 줄바꿈 없이) | **제외** |
+| `infra/compose/secrets/spring.mail.password` | 비밀번호 재설정 SMTP 비밀번호(D-87, 도메인 메일 서비스) | **제외** |
 
 - 처리 서비스(api-server 8080)·추론(8000)은 인증이 없어 `127.0.0.1`에만 연다(`.env`의 `API_SERVER_BIND`·`INFERENCE_BIND`). 터널은 이 포트를 가리키지 않는다.
 - 같은 터널을 두 곳에서 돌리지 않는다(요청이 나뉜다). 서버의 cloudflared 하나만 쓴다. Cloudflare 계정 권한 파일(`cert.pem`)은 서버에 두지 않는다.

@@ -24,7 +24,6 @@ public class IdentityGuard extends OncePerRequestFilter {
 		String path = request.getRequestURI();
 		boolean guarded = path.startsWith("/v2/workspace")
 			|| path.startsWith("/v2/baselines")
-			|| path.startsWith("/v2/consents")
 			|| path.startsWith("/v2/records")
 			|| path.startsWith("/v2/sessions")
 			|| path.equals("/v2/auth/password")
