@@ -11,6 +11,8 @@ import { useServerBaseline } from '../features/baseline/useServerBaseline'
 import { startPoseFrameLoop } from '../features/camera/frameLoop'
 import { loadPoseDetector } from '../features/camera/modelLoader'
 import { modelLoadError } from '../features/camera/modelFailure'
+import { ModelDownloadStalled, type DownloadProgress } from '../features/camera/modelFiles'
+import { cameraPermission } from '../features/camera/devices'
 import type { CameraMetrics, CameraState, Observation, ShoulderState } from '../features/camera/types'
 
 export type { Observation } from '../features/camera/types'
@@ -45,6 +47,8 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
   const [trackerDiagnostics, setTrackerDiagnostics] = useState<PoseTrackerDiagnostics | null>(null)
   const [state, setState] = useState<CameraState>('off')
   const [error, setError] = useState('')
+  /** How far the pose model download got, while it is being downloaded (shown in the camera box). */
+  const [modelDownload, setModelDownload] = useState<DownloadProgress | null>(null)
   const [quality, setQuality] = useState(false)
   /**
    * Framing before registration (FE task F7): `low` when a shoulder sits in the bottom 12% of
@@ -163,15 +167,40 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
       setQuality(false)
       setError('')
       resetProgress()
+      setModelDownload(null)
 
-      loadingTimer.current = setTimeout(() => {
+      const timeOut = (message: string) => {
         if (!isCurrent()) return
         release()
         setState('error')
         setQuality(false)
         resetProgress()
-        setError(CAMERA_ERRORS.preparationTimeout)
-      }, PREPARATION_TIMEOUT_MS)
+        setModelDownload(null)
+        setError(message)
+      }
+      // Opening the camera. A permission window the user has not answered yet is not an error, so it
+      // is waited for; once answered, the camera has 30 s to open. Where the browser cannot tell
+      // (Firefox), it is waited for as well, and 「카메라 준비 취소」 stops it.
+      let cameraOpened = false
+      const watchCamera = () => {
+        loadingTimer.current = setTimeout(() => {
+          void cameraPermission().then((permission) => {
+            if (!isCurrent() || cameraOpened) return
+            if (permission === 'prompt') waitForAnswer()
+            else if (permission !== null) timeOut(CAMERA_ERRORS.preparationTimeout)
+          })
+        }, PREPARATION_TIMEOUT_MS)
+      }
+      const waitForAnswer = () => {
+        loadingTimer.current = setTimeout(() => {
+          void cameraPermission().then((permission) => {
+            if (!isCurrent() || cameraOpened) return
+            if (permission === 'prompt') waitForAnswer()
+            else watchCamera()
+          })
+        }, 1000)
+      }
+      watchCamera()
 
       try {
         let incoming: MediaStream
@@ -189,6 +218,8 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
           stopCameraTracks(incoming)
           return
         }
+        cameraOpened = true
+        clearLoadingTimer()
         stream.current = incoming
         const track = incoming.getVideoTracks()[0]
         const connectedId = track.getSettings().deviceId ?? ''
@@ -206,10 +237,13 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         }
 
         const modelStarted = performance.now()
-        let loaded = await loadPoseDetector(isCurrent).catch(async (cause: unknown) => {
-          console.error('[hooks/useCamera.ts:connect] Pose model failed to load', cause)
-          throw new Error(await modelLoadError(), { cause })
-        })
+        // No time limit while the model downloads: it goes on as long as bytes arrive (modelFiles.ts).
+        let loaded = await loadPoseDetector(isCurrent, 'GPU', (progress) => { if (isCurrent()) setModelDownload(progress) })
+          .catch(async (cause: unknown) => {
+            console.error('[hooks/useCamera.ts:connect] Pose model failed to load', cause)
+            throw new Error(cause instanceof ModelDownloadStalled ? CAMERA_ERRORS.modelStalled : await modelLoadError(), { cause })
+          })
+        setModelDownload(null)
         if (!loaded) return
         if (!isCurrent()) {
           loaded.detector.close()
@@ -222,6 +256,7 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         const video = videoRef.current
         if (!video) throw new Error(CAMERA_ERRORS.videoUnavailable)
         video.srcObject = incoming
+        loadingTimer.current = setTimeout(() => timeOut(CAMERA_ERRORS.preparationTimeout), PREPARATION_TIMEOUT_MS)
         await video.play()
         if (!isCurrent()) return
         // A browser that reported no size before playing (ADR 0048): never measure or register with it.
@@ -268,7 +303,7 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
                   release()
                   setState('error')
                   resetProgress()
-                  setError(CAMERA_ERRORS.preparationTimeout)
+                  setError(CAMERA_ERRORS.trackingRestartTimeout)
                 }, PREPARATION_TIMEOUT_MS)
                 void loadPoseDetector(isCurrent, 'CPU').then((cpu) => {
                   if (!cpu || !isCurrent()) return
@@ -303,6 +338,7 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
         release()
         setState('error')
         setQuality(false)
+        setModelDownload(null)
         setError(cameraPreparationError(cause))
       }
     },
@@ -339,6 +375,7 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}) {
     setOverlayEnabled,
     metrics,
     trackerDiagnostics,
+    modelDownload,
     subscribe,
     videoRef,
     canvasRef,

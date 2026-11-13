@@ -1,6 +1,8 @@
 export const CAMERA_ERRORS = {
   unsupported: '이 브라우저에서는 카메라를 쓸 수 없어요. localhost 또는 HTTPS 주소를 Chrome으로 열어 주세요.',
-  preparationTimeout: '카메라 준비가 오래 걸려요. 권한 창과 연결을 확인한 뒤 「다시 연결」을 눌러 주세요.',
+  // Allowed, but the camera did not open in 30 s. An unanswered permission window is waited for.
+  preparationTimeout: '카메라를 켜는 데 오래 걸려요. 카메라가 제대로 연결됐는지 확인한 뒤 「다시 연결」을 눌러 주세요.',
+  trackingRestartTimeout: '자세 추적을 다시 준비하는 데 오래 걸려요. 「다시 연결」을 눌러 주세요.',
   videoUnavailable: '카메라 화면을 준비하지 못했어요. 「다시 연결」을 눌러 주세요.',
   disconnected: '카메라 연결이 끊겼어요. 카메라를 확인하고 「다시 연결」을 눌러 주세요.',
   trackingFailed: '자세 추적이 멈췄어요. 「다시 연결」을 눌러 주세요. 계속되면 다른 프로그램을 닫거나 브라우저를 다시 시작해 주세요.',
@@ -10,6 +12,7 @@ export const CAMERA_ERRORS = {
   deviceUnavailable: '고른 카메라를 쓸 수 없어요. 다른 카메라를 고르거나 「다시 연결」을 눌러 주세요.',
   preparationFailed: '카메라를 준비하지 못했어요. 카메라 연결을 확인하고 「다시 연결」을 눌러 주세요.',
   // The pose model comes from our own web server (/mediapipe/); `modelLoadError` picks one of these.
+  modelStalled: '자세 추적 모델을 받다가 멈췄어요. 잠시 뒤 「다시 연결」을 눌러 주세요.',
   modelOffline: '인터넷 연결이 끊겨 자세 추적 모델을 받지 못했어요. 연결을 확인하고 「다시 연결」을 눌러 주세요.',
   modelServer: '서버에서 자세 추적 모델을 받지 못했어요. 사용자 잘못이 아니에요. 잠시 뒤 「다시 연결」을 눌러 주세요.',
   modelUnsupported: '이 브라우저에서 자세 추적을 시작하지 못했어요. Chrome이나 Edge를 최신 버전으로 업데이트한 뒤 「다시 연결」을 눌러 주세요.',

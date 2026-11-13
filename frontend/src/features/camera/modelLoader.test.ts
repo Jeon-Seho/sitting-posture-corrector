@@ -6,6 +6,11 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
 }))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('./modelFiles', async (original) => ({
+  ...(await original<typeof import('./modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
+}))
 
 describe('detector delegate fallback', () => {
   beforeEach(() => { vision.resolve.mockReset().mockResolvedValue({}); vision.create.mockReset() })

@@ -67,3 +67,13 @@ export async function listVideoDevices(): Promise<MediaDeviceInfo[]> {
 export function stopCameraTracks(stream: MediaStream | null): void {
   stream?.getTracks().forEach((track) => track.stop())
 }
+
+/** The camera permission as the browser reports it; null where it cannot tell (Firefox, tests). */
+export async function cameraPermission(): Promise<PermissionState | null> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return null
+    return (await navigator.permissions.query({ name: 'camera' as PermissionName })).state
+  } catch {
+    return null
+  }
+}

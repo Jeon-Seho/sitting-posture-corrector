@@ -8,7 +8,7 @@ export type PoseDetector = {
 }
 
 /** One outstanding frame; close/timeout reject pending work and terminate the worker. */
-export async function createCpuWorker(options: PoseLandmarkerOptions): Promise<PoseDetector> {
+export async function createCpuWorker(options: PoseLandmarkerOptions, wasmBinaryPath?: string): Promise<PoseDetector> {
   const worker = new Worker('/pose-cpu-worker.js')
   let closed = false
   let sequence = 0
@@ -41,7 +41,7 @@ export async function createCpuWorker(options: PoseLandmarkerOptions): Promise<P
     catch (error) { console.error('[camera] CPU worker transfer failed', error); close() }
   })
   try {
-    await send({ kind: 'init', options })
+    await send({ kind: 'init', options, wasmBinaryPath })
     return {
       close,
       async detectForVideo(video, time) {
