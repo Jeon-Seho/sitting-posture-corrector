@@ -486,6 +486,13 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     await starting
     expect(s1Down.state).toMatchObject({ phase: 'failed', serverDown: true })
+
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+    const s1Unreachable = make()
+    const reaching = s1Unreachable.start()
+    await vi.advanceTimersByTimeAsync(20_000)
+    await reaching
+    expect(s1Unreachable.state).toMatchObject({ phase: 'failed', serverDown: true })
   })
 
   it('knows its own 「판정 불가」 at once, without waiting for the server (10/27)', async () => {

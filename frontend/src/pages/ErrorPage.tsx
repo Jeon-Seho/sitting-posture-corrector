@@ -16,7 +16,7 @@ export const ERROR_PAGES = {
   // 측정하기: the measurement could not start — the server could not open it (S1 5xx, Kafka down) or
   // the connection to it failed (socket not opened, closed or no `ready` in 5 s). Nothing was measured.
   measure: { art: 500, title: '지금은 측정을 시작할 수 없어요', description: '서버와 연결하지 못해 측정을 시작하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시작해 주세요.', action: '다시 준비하기' },
-  // 측정 종료: S4 404 — the server has neither the running measurement nor a stored result. The record stays on this device.
+  // 측정 종료: S4 404 — the server has neither the running measurement nor a stored result. Nothing is kept on this device.
   result: { art: 500, title: '서버에서 이번 측정을 찾지 못했어요', description: '사용자 잘못이 아니에요. 서버 문제로 이번 측정 결과를 확인하지 못했어요. 다시 측정해 주세요.', action: '다시 준비하기' },
   not_found: { art: 404, title: '페이지를 찾을 수 없어요', description: '주소를 확인하거나 홈으로 돌아가 주세요.', action: null },
 } as const

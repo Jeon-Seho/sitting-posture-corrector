@@ -248,7 +248,8 @@ export class LiveSession {
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
         error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' : error.message
-      this.finish({ phase: 'failed', message, serverDown: (error.status ?? 0) >= 500 })
+      // 5xx or no answer at all: the server could not be reached or could not open it.
+      this.finish({ phase: 'failed', message, serverDown: (error.status ?? 0) >= 500 || error.kind === 'network' })
       return
     }
     // Ended (「측정 종료」, the small window's X) while S1 was still on its way.
