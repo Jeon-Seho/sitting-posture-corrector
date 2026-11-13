@@ -55,7 +55,7 @@ import { clearPageError, reportPageError } from '../features/connection/pageErro
 type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
 
 /**
- * The app always signs in on the account server `/v2/auth` (D-66; no switch since 2026-10-22,
+ * The app always signs in on the account server `/auth` (D-66; no switch since 2026-10-22,
  * klaod-tech: the app always measures on the server, ADR 0021, so a local sign-in has no use).
  */
 const DEFAULT_ACCOUNTS: AccountClient | null = createAccountClient()
@@ -149,16 +149,12 @@ export function LocalServiceApp({
     workspace,
     measuring,
     setError,
-    hasPendingResult: () => !!persistence.pending.current,
     onWithdrawn: clearWorkspace,
     optionalInfo,
   })
   const storageNotice = developer
     ? <p role="status">개발자 계정 · 서버 연결 없음 · 예시 기록과 화면 확인용</p>
-    : <><StorageNotice workspace={workspace} />{persistence.pendingCount > 0 && <div role="status">
-        서버 저장 확인을 기다리는 기록 {persistence.pendingCount}개 · 이 기기에 임시 보관 중
-        <button type="button" onClick={() => void persistence.syncRecords()}>저장 확인 다시 시도</button>
-      </div>}</>
+    : <StorageNotice workspace={workspace} />
   const profileFields = <ProfileFields form={form} canWrite={canWrite} optionalInfo={optionalInfo} />
 
   // (D-66) A login cookie from an earlier visit signs in again without typing (A4).
@@ -484,10 +480,6 @@ export function LocalServiceApp({
       setError('측정을 종료하고 결과 저장을 확인한 뒤 로그아웃해 주세요.')
       return
     }
-    if (persistence.pending.current) {
-      setError('결과 저장을 완료한 뒤 나가 주세요.')
-      return
-    }
     // (D-66) End the server login too. A failure (server down, another tab switched accounts)
     // still signs out here; the login cookie then expires on the server.
     if (accounts && !developer) {
@@ -783,7 +775,7 @@ export function LocalServiceApp({
       saveDemoPreference={saveDemoPreference}
       storageNotice={storageNotice}
       profilePage={developer ? <p>개발자 계정은 서버·DB 계정이 아닙니다. 일반 계정으로 로그인하면 서버 측정을 사용할 수 있어요.</p> : accounts ?
-        <ServerAccountPage blocked={measuring || !!persistence.pending.current} onProfile={workspace.setProfile}
+        <ServerAccountPage blocked={measuring} onProfile={workspace.setProfile}
           social={discordLoginEnabled() ? accounts.social : undefined}
           onBusy={busy => { accountMutation.current = busy }}
           onSignedOut={message => { accounts.suspend?.(); clearWorkspace(); setError(message) }} /> :
@@ -792,7 +784,6 @@ export function LocalServiceApp({
           profileFields={profileFields}
           canWrite={canWrite}
           measuring={measuring}
-          hasPendingResult={!!persistence.pending.current}
           onSettings={() => go('settings')}
         />
       }

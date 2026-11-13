@@ -41,8 +41,8 @@
         <img class="error-art" data-error-code="502" src="illustrations/themes/green-error-502.webp" width="300" height="225" alt="" />
         <h1>서버에 연결할 수 없어요</h1>
         <p>사용자 잘못이 아니에요. 인터넷 연결을 확인하거나 잠시 뒤 다시 시도해 주세요.</p>
-        <p>연결되면 자동으로 다시 열어요.</p>
-        <a class="button" href="/retry">지금 다시 시도</a>
+        <p>인터넷이 다시 연결되면 자동으로 다시 열어요.</p>
+        <a class="button" href="/retry">다시 시도</a>
       </section>
     </main>
     <script src="error-theme.js"></script>
@@ -50,6 +50,8 @@
       const offline = new URLSearchParams(location.search).get('state') === 'offline'
       document.getElementById('loading').hidden = offline
       document.getElementById('offline').hidden = !offline
+      // The network came back (e.g. Wi-Fi joins a few seconds after starting with the computer): try once.
+      if (offline) window.addEventListener('online', () => { location.href = '/retry' }, { once: true })
     </script>
   </body>
 </html>

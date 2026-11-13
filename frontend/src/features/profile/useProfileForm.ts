@@ -7,7 +7,6 @@ import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 type Options = {
   workspace: LocalWorkspace
   measuring: boolean
-  hasPendingResult: () => boolean
   setError: (message: string) => void
   onWithdrawn: () => void
   /** Age and occupation are kept only with sign-up consent C3. */
@@ -17,7 +16,6 @@ type Options = {
 export function useProfileForm({
   workspace,
   measuring,
-  hasPendingResult,
   setError,
   onWithdrawn,
   optionalInfo = true,
@@ -72,7 +70,7 @@ export function useProfileForm({
   }
 
   function withdraw() {
-    if (!requireWriter() || measuring || hasPendingResult()) return
+    if (!requireWriter() || measuring) return
     try {
       // Keep the profile until the other keys are removed, so partial failure stays visible.
       for (const key of [KEYS.records, KEYS.draft, KEYS.settings, KEYS.demo, KEYS.account, KEYS.profile]) {

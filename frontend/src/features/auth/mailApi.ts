@@ -1,7 +1,7 @@
-import { SERVER } from '../platform/serverConfig'
+import { API_ROOT, SERVER } from '../platform/serverConfig'
 
 /**
- * Account mail routes (BE /v2/auth/password-reset/*). Password reset is a one-time link: the
+ * Account mail routes (BE /auth/password-reset/*). Password reset is a one-time link: the
  * server never mails a password. Each purpose is off until its server side is deployed:
  * `VITE_PASSWORD_RESET_ENABLED=true` for reset; email verification has no server route yet
  * (`VITE_ACCOUNT_MAIL_API_ENABLED=true` turns both on, as before).
@@ -34,7 +34,7 @@ export function createMailApi({ enabled = false, resetEnabled = enabled, verifyE
     const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
     try {
       // No CSRF since the token login (BE ADR 0031, 2026-10-27): these routes need no sign-in.
-      const response = await fetcher(`${base}/api/v2/auth/${path}`, {
+      const response = await fetcher(`${base}${API_ROOT}/auth/${path}`, {
         method: 'POST', credentials: 'same-origin', signal: requestSignal, cache: 'no-store',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })

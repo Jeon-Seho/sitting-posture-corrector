@@ -9,7 +9,6 @@ type Props = {
   profileFields: ReactNode
   canWrite: boolean
   measuring: boolean
-  hasPendingResult: boolean
   onSettings: () => void
 }
 
@@ -18,7 +17,6 @@ export function ProfilePage({
   profileFields,
   canWrite,
   measuring,
-  hasPendingResult,
   onSettings,
 }: Props) {
   const {
@@ -82,7 +80,7 @@ export function ProfilePage({
           <div className="form-actions">
             <button
               className="btn btn-danger"
-              disabled={!canWrite || measuring || hasPendingResult}
+              disabled={!canWrite || measuring}
               onClick={() => setDeleting(true)}
             >
               탈퇴하기
@@ -105,7 +103,7 @@ export function ProfilePage({
               </button>
               <button
                 className="btn btn-danger"
-                disabled={!canWrite || measuring || hasPendingResult}
+                disabled={!canWrite || measuring}
                 onClick={() => setConfirmDelete(true)}
               >
                 삭제하기
@@ -114,7 +112,7 @@ export function ProfilePage({
           </div>
         )}
         {confirmDelete && (
-          <WithdrawalDialog form={form} disabled={!canWrite || measuring || hasPendingResult} />
+          <WithdrawalDialog form={form} disabled={!canWrite || measuring} />
         )}
       </Card>
     </div>

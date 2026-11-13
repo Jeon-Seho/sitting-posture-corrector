@@ -66,7 +66,7 @@ describe('synthetic browser camera', () => {
     expect(deviation.p[0][1]).toBeGreaterThan(frame.p[0][1])
     expect(deviation.p[0][0] - (deviation.p[3][0] + deviation.p[4][0]) / 2).toBeCloseTo(frame.p[0][0] - (frame.p[3][0] + frame.p[4][0]) / 2)
 
-    expect(wire('poor').items[0].frames).toEqual([{ t_ms: 0, p: null, valid: false }])
+    expect(wire('poor').items[0].frames).toEqual([{ t_ms: 0, p: null }])
     expect(wire('absent').items[0].frames).toEqual([{ t_ms: 0, p: null }])
   })
 

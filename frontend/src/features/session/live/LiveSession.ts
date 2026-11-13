@@ -2,7 +2,7 @@ import type { Landmark } from '../../../../../model/prototype/pose'
 import { apiRequest, ApiError, type ApiErrorKind, type ApiOptions } from '../../platform/api'
 import { getServerAuth } from '../../platform/serverAuth'
 import { noteServerTime } from '../../platform/serverClock'
-import { SERVER } from '../../platform/serverConfig'
+import { API_ROOT, SERVER } from '../../platform/serverConfig'
 import { FrameBatcher, type FrameBatch, type FramePhase } from '../realtime/frames'
 import {
   EMPTY_SUMMARY,
@@ -18,7 +18,7 @@ import {
 
 /**
  * One measurement against the server (BE api-spec 7장·11장, FE proposal F1·F3, 2026-10-21):
- * S1 creates the session, `/v2/realtime` carries one 0.5 s coordinate interval per message,
+ * S1 creates the session, `/realtime` carries one 0.5 s coordinate interval per message,
  * and everything shown comes from the server. No reconnect, no resend (ADR 0024): a lost
  * connection ends the measurement and the server saves it up to the last interval.
  */
@@ -52,6 +52,25 @@ export type LiveState = {
   message: string
   /** Ended because the connection was lost or the server shut down. */
   lost: boolean
+  /**
+   * Could not start: the server could not open the measurement (S1 5xx, or `closed(session_lost)`
+   * before `ready` — in kafka mode Kafka is down), or the connection to it could not be made (the
+   * socket did not open, closed before `ready`, or `ready` took over 5 s). Nothing was measured, so
+   * it is one error page for all of them.
+   */
+  serverDown: boolean
+  /**
+   * Could not start because the server is full (S1 429). Nothing is wrong on the user's side, so the
+   * failed screen's button is 「다시 시도」 (a new measurement at once), like the `serverDown` page.
+   */
+  busy: boolean
+  /**
+   * S4 answered 404 after 「측정 종료」: the server has this measurement neither in memory nor stored.
+   * Still `ended`, so the record stays pending on this device (FE 예외 처리 방안 2.1).
+   */
+  resultMissing: boolean
+  /** `closed` did not come within `END_TIMEOUT_MS` after 「측정 종료」: the result is from S4 or the last `progress`. */
+  late: boolean
   /** When the server started and ended the session (`ready.started_at`, `closed.ended_at`, ADR 0029); null until sent. */
   startedAt: string | null
   endedAt: string | null
@@ -88,7 +107,9 @@ type Options = {
 
 const OPEN = 1
 export const READY_TIMEOUT_MS = 5000
-export const END_TIMEOUT_MS = 10_000
+// 2026-11-11: 5 s (was 10). Local mode answers in under a second, kafka mode in about 1–3 s;
+// longer only when a server service is down, and then the last `progress` result is shown.
+export const END_TIMEOUT_MS = 5_000
 
 const MESSAGES: Record<ApiErrorKind, string> = {
   signed_out: '로그인이 필요해요. 다시 로그인한 뒤 측정해 주세요.',
@@ -96,7 +117,7 @@ const MESSAGES: Record<ApiErrorKind, string> = {
   conflict: '설정이나 기준 자세가 바뀌었어요. 다시 확인한 뒤 측정해 주세요.',
   not_found: '서버에서 이 측정을 찾지 못했어요.',
   busy: '서버가 다른 작업을 처리하고 있어요. 잠시 뒤 다시 시작해 주세요.',
-  limit: '지금은 측정을 시작할 수 없어요. 잠시 뒤 다시 시작해 주세요.',
+  limit: '사람이 몰려 지금은 측정을 시작할 수 없어요. 잠시 뒤 다시 시작해 주세요.',
   server: '서버에 문제가 있어 측정을 시작하지 못했어요. 잠시 뒤 다시 시작해 주세요.',
   network: '서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 시작해 주세요.',
 }
@@ -107,9 +128,9 @@ const CLOSED: Record<string, { message: string; failed: boolean; lost?: boolean 
   unauthorized: { message: '로그인이 만료됐어요. 다시 로그인해 주세요.', failed: true },
   not_owner: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
   bad_message: { message: '측정을 이어갈 수 없어요. 다시 시작해 주세요.', failed: true },
-  no_baseline: { message: '기준 자세가 없어요. 자세를 먼저 등록해 주세요.', failed: true },
-  session_lost: { message: '서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요.', failed: false, lost: true },
-  server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.', failed: false, lost: true },
+  no_baseline: { message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', failed: true },
+  session_lost: { message: '서버에서 측정이 끝났어요. 저장이 확인되면 기록에 나와요.', failed: false, lost: true },
+  server_shutdown: { message: '서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.', failed: false, lost: true },
   limit_reached: { message: '한 번에 측정할 수 있는 시간을 넘어 측정을 마쳤어요.', failed: false },
   // BE 11.3: no judgeable posture or away for 30 min (server default); the server stored it and ended it.
   unmeasurable_timeout: { message: '자세를 확인할 수 없는 상태가 30분 이어져 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false },
@@ -126,7 +147,7 @@ const CLOSED_WHILE_MEASURING: Record<string, { message: string; failed: boolean;
   unauthorized: { message: '비밀번호 변경이나 탈퇴로 로그인이 끝나 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
   bad_message: { message: '측정을 이어갈 수 없어 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
 }
-const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 끊기기 전까지 저장됐어요.'
+const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.'
 
 /** A server time from a message: kept as given and moves 「오늘」 (ADR 0029); null when absent or not a time. */
 function serverTime(value: unknown): string | null {
@@ -136,9 +157,9 @@ function serverTime(value: unknown): string | null {
 }
 
 export function realtimeUrl(): string {
-  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}/api/v2/realtime`
+  if (SERVER.apiBase) return `${SERVER.apiBase.replace(/^http/, 'ws')}${API_ROOT}/realtime`
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${scheme}://${location.host}/api/v2/realtime`
+  return `${scheme}://${location.host}${API_ROOT}/realtime`
 }
 
 export class LiveSession {
@@ -156,6 +177,10 @@ export class LiveSession {
     stalled: false,
     message: '',
     lost: false,
+    serverDown: false,
+    busy: false,
+    resultMissing: false,
+    late: false,
     startedAt: null,
     endedAt: null,
   }
@@ -166,10 +191,14 @@ export class LiveSession {
   private waiting: FrameBatch[] = []
   /** Sequence of the observation on screen; the connection's axis, so it keeps going across midnight. */
   private shownSequence = -1
+  /** The newest `event_id` that closed an episode; an `alert` below it came late (kafka mode). */
+  private closedEventId = -1
   private timer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
   /** The user (or the app) sent `end`; a server `session_ended` alone does not set this. */
   private ending = false
+  /** S4 is on its way: the timer, a closed socket and `stalled` must not ask twice. */
+  private fetching = false
   private readonly now: () => number
 
   constructor(private readonly options: Options) {
@@ -212,7 +241,7 @@ export class LiveSession {
     try {
       const view = parseSessionView(
         await apiRequest(
-          `/v2/sessions/${encodeURIComponent(sessionId)}`,
+          `/sessions/${encodeURIComponent(sessionId)}`,
           { method: 'PUT', body: { policy, baseline_id: baselineId } },
           MESSAGES,
           // No answer: the same id and body again (api-ws-spec 4장 S1).
@@ -224,8 +253,14 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', cause)
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
-        error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 자세를 먼저 등록해 주세요.' : error.message
-      this.finish({ phase: 'failed', message })
+        error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' : error.message
+      // 5xx or no answer at all: the server could not be reached or could not open it.
+      this.finish({
+        phase: 'failed',
+        message,
+        serverDown: (error.status ?? 0) >= 500 || error.kind === 'network',
+        busy: error.kind === 'limit',
+      })
       return
     }
     // Ended (「측정 종료」, the small window's X) while S1 was still on its way.
@@ -243,7 +278,8 @@ export class LiveSession {
       accessToken = await auth.accessToken()
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
-      this.finish({ phase: 'failed', message: getServerAuth() ? MESSAGES.network : MESSAGES.signed_out })
+      const signedIn = !!getServerAuth()
+      this.finish({ phase: 'failed', message: signedIn ? MESSAGES.network : MESSAGES.signed_out, serverDown: signedIn })
       return
     }
     if (this.disposed || this.over()) return
@@ -252,7 +288,7 @@ export class LiveSession {
       socket = (this.options.openSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike))(realtimeUrl())
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', caughtError)
-      this.finish({ phase: 'failed', message: MESSAGES.network })
+      this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
       return
     }
     this.socket = socket
@@ -273,7 +309,7 @@ export class LiveSession {
     socket.onclose = () => this.closedBySocket()
     socket.onerror = () => {}
     this.timer = setTimeout(() => {
-      if (!this.ready) this.finish({ phase: 'failed', message: MESSAGES.network })
+      if (!this.ready) this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
     }, this.options.readyTimeoutMs ?? READY_TIMEOUT_MS)
   }
 
@@ -281,13 +317,13 @@ export class LiveSession {
     this.socket = null
     if (this.over()) return
     if (this.state.phase === 'ending') {
-      // S4 now instead of after the 10 s wait.
+      // S4 now instead of after the 5 s wait.
       this.clearTimer()
       void this.fetchResult()
       return
     }
     if (!this.ready) {
-      this.finish({ phase: 'failed', message: MESSAGES.network })
+      this.finish({ phase: 'failed', message: MESSAGES.network, serverDown: true })
       return
     }
     this.finish({ phase: 'ended', lost: true, message: LOST })
@@ -328,18 +364,35 @@ export class LiveSession {
             : event.kind === 'recovery_confirmed' || event.kind === 'interrupted' || event.kind === 'session_ended'
               ? false
               : this.state.alerting
+        if (event.kind === 'recovery_confirmed' || event.kind === 'interrupted' || event.kind === 'session_ended')
+          this.closedEventId = Math.max(this.closedEventId, event.event_id)
         this.set({ events: [...this.state.events, event], summary: message.summary, alerting })
         if (event.kind === 'session_ended' && this.state.phase !== 'ending') this.set({ phase: 'ending' })
         return
       }
       case 'alert':
+        // In kafka mode `alert` comes on its own topic through the store service, so it can arrive
+        // after the episode already closed (or after 「측정 종료」): no sound for a posture already fixed.
+        if (this.state.phase === 'ending' || message.event_id < this.closedEventId) return
         this.options.onAlert?.(message.kind)
         return
       case 'stalled':
+        // After 「측정 종료」 this is the server saying the save is late (kafka mode, 3 s, D-57 ⑧):
+        // read the result now instead of waiting out the 5 s.
+        if (this.state.phase === 'ending') {
+          this.clearTimer()
+          void this.fetchResult(true)
+          return
+        }
         this.set({ stalled: true })
         return
       case 'closed': {
         const reason = message.reason in CLOSED ? message.reason : 'bad_message'
+        if (!this.ready && reason === 'session_lost') {
+          // Nothing was measured: the server could not open the measurement (kafka mode: Kafka is down).
+          this.finish({ phase: 'failed', message: MESSAGES.server, serverDown: true })
+          return
+        }
         const known = (this.ready && CLOSED_WHILE_MEASURING[reason]) || CLOSED[reason]
         this.finish({
           phase: known.failed ? 'failed' : 'ended',
@@ -383,6 +436,8 @@ export class LiveSession {
     }
     if (!this.disposed) this.options.onRolledOver?.(previous)
     const sending = this.state.sending === 'running' ? 'running' : 'paused'
+    // The new session numbers its events from the start again.
+    this.closedEventId = -1
     this.set({
       sessionId: message.session_id,
       phase: this.ending ? 'ending' : sending,
@@ -454,7 +509,7 @@ export class LiveSession {
     this.switchTo('running')
   }
 
-  /** 「측정 종료」, the small window's X or an unplugged camera: `end`, then wait 10 s. */
+  /** 「측정 종료」, the small window's X or an unplugged camera: `end`, then wait 5 s. */
   end() {
     if (this.over() || this.state.phase === 'ending') return
     if (!this.batcher || !this.ready) {
@@ -469,25 +524,45 @@ export class LiveSession {
     this.set({ phase: 'ending' })
     if (this.socket?.readyState === OPEN) this.socket.send(JSON.stringify({ type: 'end', end_ms: endMs }))
     this.clearTimer()
-    this.timer = setTimeout(() => void this.fetchResult(), this.options.endTimeoutMs ?? END_TIMEOUT_MS)
+    this.timer = setTimeout(() => void this.fetchResult(true), this.options.endTimeoutMs ?? END_TIMEOUT_MS)
   }
 
   /** No `closed(ended)` in time (or the socket closed while ending): S4 has the saved result. */
-  private async fetchResult() {
-    if (this.over()) return
+  private async fetchResult(late = false) {
+    if (this.over() || this.fetching) return
+    this.fetching = true
     try {
       const view: SessionView | null = parseSessionView(
-        await apiRequest(`/v2/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
+        await apiRequest(`/sessions/${encodeURIComponent(this.state.sessionId)}`, {}, MESSAGES, this.options.api),
       )
-      if (view) {
-        this.finish({ phase: 'ended', summary: view.summary, events: view.events, lastSequence: view.last_sequence })
+      // S4 answers (D-85): a finished result in memory, else the stored one rebuilt from the DB
+      // (`last_sequence` -1, so `total_ms` is compared), else the running state in memory (kafka
+      // mode: the last results this server passed on). A view that measured less than the screen
+      // showed must not replace it. An ended view is the server's final word and is taken whole;
+      // a running one may hold fewer events than arrived, so the screen keeps its own then.
+      if (view && view.summary.total_ms >= this.state.summary.total_ms) {
+        this.finish({
+          phase: 'ended',
+          summary: view.summary,
+          events: view.ended || view.events.length >= this.state.events.length ? view.events : this.state.events,
+          lastSequence: Math.max(view.last_sequence, this.state.lastSequence),
+          late,
+        })
         return
       }
     } catch (caughtError) {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
-      /* Show what the last `progress` said. */
+      // 404: the server has it neither in memory nor stored — a server fault that should be rare.
+      // An error page, and this device keeps nothing: what the server received stays on the server
+      // (an open session row) and shows up in R1 once the server closes it (FE proposal 요구 8).
+      if (caughtError instanceof ApiError && caughtError.status === 404) {
+        this.finish({ phase: 'ended', late, resultMissing: true })
+        return
+      }
+    } finally {
+      this.fetching = false
     }
-    this.finish({ phase: 'ended' })
+    this.finish({ phase: 'ended', late })
   }
 
   dispose() {

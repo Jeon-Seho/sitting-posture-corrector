@@ -46,7 +46,7 @@ export function CollectionPage({
             </button>
           ) : (
             <button className="btn btn-primary" onClick={() => void camera.connect()}>
-              카메라 켜기
+              {camera.state === 'error' ? '다시 연결' : '카메라 켜기'}
             </button>
           )}
           <button

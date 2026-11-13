@@ -1,7 +1,7 @@
 import { desktopBridge } from '../desktop/bridge'
 
 /**
- * Discord sign-in (BE /v2/auth/social/*). The server sends the browser back to the app with only a
+ * Discord sign-in (BE /auth/social/*). The server sends the browser back to the app with only a
  * result in the URL fragment — never a token: `#social-result?status=<status>` or `#social-signup`
  * (the pending sign-up is an HttpOnly cookie). A sign-in sets the refresh cookie, which the app's
  * usual start (A8 → A4) picks up.

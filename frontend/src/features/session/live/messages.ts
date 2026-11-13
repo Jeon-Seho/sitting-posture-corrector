@@ -1,5 +1,5 @@
 /**
- * `/v2/realtime` messages (BE api-spec 11장, contracts/realtime/realtime-ws.v2.schema.json).
+ * `/realtime` messages (BE api-spec 11장, contracts/realtime/realtime-ws.v2.schema.json).
  * The app only checks the shape it uses (10/21 decision: format checks only, nothing re-judged);
  * unknown fields, types and event kinds are ignored (api-ws-spec 1장, B11).
  */

@@ -93,7 +93,7 @@ V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했
 
 | 문서·절 | 지운 이유 | 내용이 간 곳 |
 |---|---|---|
-| 연동 명세 0.1~0.6(10/13~15 BE 명세 「정할 것」 답, BE 요청 Q1~Q6, DevOps 검토 답, DB·BE 회신 답, BE 명세 고칠 곳 X1~X16, BE 코드 필드 대조) | BE 명세가 저장소에 들어와(`docs/design/api-spec.md`) 반영이 끝났다. 남은 결정은 짧은 표로 | 연동 명세 0장 표. 원문 `git show dc2c5d4:docs/design/fe/api-ws-spec.md` |
+| 연동 명세 0.1~0.6(10/13~15 BE 명세 「정할 것」 답, BE 요청 Q1~Q6, DevOps 검토 답, DB·BE 회신 답, BE 명세 고칠 곳 X1~X16, BE 코드 필드 대조) | BE 명세가 저장소에 들어와(`docs/design/api-spec.md`) 반영이 끝났다. 남은 결정은 짧은 표로 | 연동 명세 1장 「공통 규칙」 표(11/12 0장을 합침). 원문 `git show dc2c5d4:docs/design/fe/api-ws-spec.md` |
 | 연동 명세 4장 REST 요청·응답 본문 | BE 명세와 이중이었다 | BE API 명세 4~8장. 앱이 지킬 것만 연동 명세 4장 |
 | FE 제안서 1장의 10/16~19 BE 확인 기록, 7.0의 미정 3개 설명 | 정해졌다(10/21) | ADR 0025, FE 제안서 7.0 한 단락 |
 | FE 제안서 4.1의 로컬 화면 상태 7개(`suspect`·`recovering`·최근 30분 흐름) | 로컬 측정 화면이 10/21 지워졌다 | 연동 명세 5.3 화면 상태 표(V3) |
@@ -152,7 +152,7 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 실시간 측정 다시 만들기 인계서(`docs/design/frontend-realtime-handoff-2026-11-03.md`, 12장에서 지움), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe/fe-server-proposal.md) 1.0, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
+| `docs/design/fe-3sec.md` | #91 합병 계획·3초 묶음 시뮬레이션·실제 웹캠 결과를 적은 작업 문서다. 묶음이 되돌려져 계획이 끝났다. | 경위·잰 값·3초 세는 법·4.0 형식·FE 구현은 실시간 측정 다시 만들기 인계서(`docs/design/frontend-realtime-handoff-2026-11-03.md`, 12장에서 지움), 남은 할 일(자정 넘김 켜기, T1 00:00~00:10, 좌표 보관, 서버 탈퇴 때 이 기기 기록)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 측정 화면 규칙은 [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번 | - |
 
 ## 11. 2026-11-10 동의 제안서 (FE, 1개)
 
@@ -178,3 +178,21 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 |---|---|---|---|
 | `docs/design/architecture_v5.2_change_notes.md` | 10/16판. 그 뒤 v5.3·v5.4(Spark 배치 구축, J2 00:10·최근 7일, `ws` Kafka 연결 브랜치 구현 등)가 반영되지 않았다. | [아키텍처 v5.4 변경 안내](design/architecture_v5.4_change_notes.md) — v5.1·v5.2 변경 내용도 이력 절에 남김 | - |
 | `docs/design/architecture_v5.2_stack_roles.md` | 같은 이유(10/16판). | [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md) | - |
+
+| `docs/design/frontend-realtime-handoff-2026-11-03.md` | 할 일 6개 중 3개가 끝났고 경위·4.0 형식·FE 구현·화면 상태는 다른 문서에 있다. | 남은 일(운영 배포, 짧은 끊김 안 4개, Kafka 전환 때 판정 순서)은 [FE 제안서](design/fe/fe-server-proposal.md) 1장, 4.0 형식과 화면 상태는 [연동 명세](design/fe/api-ws-spec.md) 5.3·[ADR 0021](decisions/0021-app-sends-information-server-judges.md) 4절 8번·[FE 기능 명세](design/fe/fe-feature-spec.md). 원문은 `git show fb017a0:docs/design/frontend-realtime-handoff-2026-11-03.md` | 없음 |
+
+## 14. 2026-11-12 오류·연결 화면 디자인 요청 (FE, 1개)
+
+오류·연결 화면을 그려 달라는 요청서다. 그림(PR #108)을 받아 다섯 화면으로 연결했고(11/10) 데스크톱 연결 중 화면 테마도 맞춰(PR #112) 요청이 끝났다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe/fe-design-request.md` | 그릴 화면·문구·조건을 요청한 문서다. 그림을 받아 구현까지 끝났다. | 화면과 그림 대응, 띄우는 규칙, 원칙, 남은 것은 [frontend README](../frontend/README.md) 「오류 안내 페이지」, 코드는 `frontend/src/features/connection/pageError.ts`·`frontend/src/pages/ErrorPage.tsx`·`frontend/public/offline.html`. 원문은 `git show ccf0a9f:docs/design/fe/fe-design-request.md` | lellon0403(`b74c883`, 11/10 데스크톱 테마 보완 기록) |
+
+## 15. 2026-11-13 휴대폰 기록 보기 계획 (FE, 1개)
+
+휴대폰에서 기록을 보는 앱(Android, 11/10 시작)을 만들지 않기로 했다(11/13, FE). 작업 브랜치(`feature/frontend-mobile-android`, `feature/fe-mobile-records-v1`)는 FE가 직접 지운다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/fe/fe-mobile-records-plan.md` | 휴대폰 기록 보기를 하지 않기로 해 계획이 필요 없다. | 거기서 기다리던 T1 일별 통계(요구 14)는 [FE 제안서](design/fe/fe-server-proposal.md) 3순위 「기록 통계」로 남겼다. 원문은 `git show 996709f:docs/design/fe/fe-mobile-records-plan.md` | 없음 |

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { accountErrorMessage, AccountError, type SocialClient, type SocialStatus } from '../auth/accountClient'
 
 /**
- * Profile settings → Discord link (BE /v2/auth/social). Linking leaves the app for Discord and comes
+ * Profile settings → Discord link (BE /auth/social). Linking leaves the app for Discord and comes
  * back with `#social-result?status=linked`; the app shows the result after signing in again.
  * An account without a password cannot unlink its only sign-in method (409 LAST_LOGIN_METHOD).
  */

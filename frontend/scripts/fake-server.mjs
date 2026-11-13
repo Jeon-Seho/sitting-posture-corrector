@@ -4,7 +4,7 @@
 //   npm run dev                             # 다른 터미널에서. 아무 이메일·비밀번호로 로그인된다
 //
 // 흉내 내는 것: 토큰 로그인(A2·A3·A4·A5·A8, BE ADR 0031 — access 토큰 + refresh 쿠키), B1·B2 기준 자세, S1·S4 세션, R1 기록(빈 목록),
-// WS /v2/realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
+// WS /realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
 // observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
 // S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
@@ -74,37 +74,38 @@ async function readBody(req) {
 }
 
 const server = createServer(async (req, res) => {
-  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
+  // Old (/api/v2/…) and new (/api/…) paths both work, as the server should during the switch.
+  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '').replace(/^\/v2(?=\/)/, '')
   const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null
   console.log(`${req.method} ${path}`)
-  if (path === '/v2/auth/login' || path === '/v2/auth/register') {
+  if (path === '/auth/login' || path === '/auth/register') {
     signedIn = true
     if (body?.email) user.email = body.email
     if (body?.profile?.name) user.profile = { name: body.profile.name, age: body.profile.age ?? null, occupation: body.profile.occupation ?? null }
     return send(res, 200, { ...user, ...issue(), today: today() }, { 'Set-Cookie': REFRESH_COOKIE })
   }
-  if (path === '/v2/auth/refresh') {
+  if (path === '/auth/refresh') {
     if (!signedIn || !(req.headers.cookie ?? '').includes('posegood_refresh=fake'))
       return send(res, 401, { code: 'UNAUTHENTICATED' }, { 'Set-Cookie': CLEAR_COOKIE })
     return send(res, 200, { ...issue(), today: today() }, { 'Set-Cookie': REFRESH_COOKIE })
   }
-  if (path === '/v2/auth/logout') { signedIn = false; return send(res, 204, undefined, { 'Set-Cookie': CLEAR_COOKIE }) }
+  if (path === '/auth/logout') { signedIn = false; return send(res, 204, undefined, { 'Set-Cookie': CLEAR_COOKIE }) }
   // 보호 경로: 살아 있는 access 토큰만(서버는 access 토큰을 철회하지 않음)
   if (!tokenValid(bearer(req))) return send(res, 401, { code: 'UNAUTHENTICATED' })
-  if (path === '/v2/auth/me') return send(res, 200, { ...user, today: today() })
-  if (path === '/v2/baselines/current') return baseline ? send(res, 200, baseline) : send(res, 404, { code: 'BASELINE_NOT_FOUND' })
-  if (path === '/v2/baselines' && req.method === 'POST') {
+  if (path === '/auth/me') return send(res, 200, { ...user, today: today() })
+  if (path === '/baselines/current') return baseline ? send(res, 200, baseline) : send(res, 404, { code: 'BASELINE_NOT_FOUND' })
+  if (path === '/baselines' && req.method === 'POST') {
     baseline = { schema_version: '2.0', baseline_id: randomUUID(), registered_at: new Date().toISOString(), landmarks: body?.landmarks }
     return send(res, 201, baseline)
   }
-  const session = path.match(/^\/v2\/sessions\/([0-9a-f-]{36})$/i)
+  const session = path.match(/^\/sessions\/([0-9a-f-]{36})$/i)
   if (session && req.method === 'PUT') {
     const id = session[1]
     if (!sessions.has(id)) sessions.set(id, newSession(id, body?.policy ?? { hold_ms: 3000, recovery_ms: 3000, reminder_ms: 60000, threshold: 0.7 }))
     return send(res, 200, view(sessions.get(id)))
   }
   if (session) return sessions.has(session[1]) ? send(res, 200, view(sessions.get(session[1]))) : send(res, 404, { code: 'SESSION_NOT_FOUND' })
-  if (path === '/v2/records') return send(res, 200, { today: today(), records: [] })
+  if (path === '/records') return send(res, 200, { today: today(), records: [] })
   send(res, 404, { code: 'NOT_FOUND' })
 })
 
@@ -194,8 +195,8 @@ function judge(s, interval, out) {
 
 // ---------- WebSocket (RFC 6455 텍스트 프레임만) ----------
 server.on('upgrade', (req, socket) => {
-  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
-  if (path !== '/v2/realtime') return socket.destroy()
+  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '').replace(/^\/v2(?=\/)/, '')
+  if (path !== '/realtime') return socket.destroy()
   const accept = createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64')
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`)
   console.log('WS open')

@@ -60,10 +60,22 @@ export function CameraStage({
           <div className="webcam-message">
             {camera.state === 'off' && <ThemeIllustration kind="camera" className="state-art" />}
             <strong>{camera.state === 'loading' ? '카메라를 준비하고 있어요…' : '카메라가 꺼져 있어요'}</strong>
-            <span>{camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}</span>
+            <span>
+              {camera.state === 'loading' && camera.modelDownload
+                ? modelDownloadText(camera.modelDownload)
+                : camera.error || '영상은 이 기기 안에서만 처리하고 저장하지 않아요.'}
+            </span>
           </div>
         )
       )}
     </>
   )
+}
+
+const MB = 1024 * 1024
+
+/** 「자세 추적 모델을 받고 있어요 (12 / 42MB)」: a slow download is shown as moving, not stuck. */
+export function modelDownloadText({ loaded, total }: { loaded: number; total: number | null }) {
+  const got = Math.floor(loaded / MB)
+  return total ? `자세 추적 모델을 받고 있어요 (${got} / ${Math.ceil(total / MB)}MB)` : `자세 추적 모델을 받고 있어요 (${got}MB)`
 }
