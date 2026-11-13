@@ -95,6 +95,6 @@ WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 �
 아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
-- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.
+- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
 - 기준 자세 전달 토픽은 보류한다.
