@@ -8,9 +8,9 @@ import {
   missingConsents,
 } from './consents'
 
-describe('sign-up consents (DB V2.3 user_consent)', () => {
+describe('sign-up consents (DB user_consent)', () => {
   it('matches the six consent types the database accepts', () => {
-    const schema = readFileSync(new URL('../../../../database/schema/schema_V2_3.sql', import.meta.url), 'utf8')
+    const schema = readFileSync(new URL('../../../../database/schema/schema_V2_7.sql', import.meta.url), 'utf8')
     const allowed = schema.match(/ck_user_consent_consent_type CHECK \(consent_type IN \(([^)]*)\)/)![1]
     const types = [...allowed.matchAll(/'([A-Z_0-9]+)'/g)].map((m) => m[1]).sort()
     expect(CONSENTS.map((c) => c.type).sort()).toEqual(types)

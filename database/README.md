@@ -31,39 +31,9 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 mysql -u <계정> -p posture_service < database/migrations/017_create_social_identity_password_reset_token.sql
 ```
 
-**V2.5로 만든 DB** — 지우지 않고 migration 016을 적용하면 V2.6과 같아지고, 이어서 017을 적용한다. 로그인 유지 토큰 테이블 `refresh_token`이 생기고 기존 행은 그대로다. 로그인 방식이 바뀌어(ADR 0031) 적용 뒤 모든 사용자는 다시 로그인한다. 되돌리기는 파일 머리말에 있다.
+**적용 후 확인 (V2.6 → V2.7)** — 테이블 16개, `social_identity` 컬럼 5개, `password_reset_token` 컬럼 6개면 정상이다.
 
-```bash
-mysql -u <계정> -p posture_service < database/migrations/016_create_refresh_token.sql
-# 이어서 017
-```
-
-**V2.4로 만든 DB** — 지우지 않고 migration 015를 적용하면 V2.5와 같아지고, 이어서 016·017을 적용한다. 기준 자세에 등록 식별자 `client_registration_uuid`가 생기고, 기존 행은 `UUID()`로 채운다. UK-14(사용자, 등록 시각)는 UK-16(사용자, 등록 식별자)으로 바뀐다(ADR 0028). **새 API는 015를 적용하지 않은 DB에서 시작하지 않는다.**
-
-```bash
-mysql -u <계정> -p posture_service < database/migrations/015_alter_baseline_posture_registration.sql
-# 이어서 016~017
-```
-
-**V2.3으로 만든 DB** — migration 013·014를 번호순으로 적용하면 V2.4가 되고, 이어서 015~017을 적용한다. 013에서 `feature_archive.row_count` 값만 사라지고(쓰는 코드·요구사항이 없다) 014는 설명만 바꾼다. 되돌리는 방법은 각 파일 머리말에 있다.
-
-```bash
-mysql -u <계정> -p posture_service < database/migrations/013_alter_feature_archive.sql
-mysql -u <계정> -p posture_service < database/migrations/014_update_comment_v24.sql
-# 이어서 015~017
-```
-
-**V2.2로 만든 DB** — migration 011~017을 번호순으로 적용한다. 011·012를 먼저 적용하고 이어서 위 013~017을 적용한다. 새 컬럼 `daily_stat.min_until_collapse_sec`·`max_until_collapse_sec`는 NULL로 시작한다(Spark J2가 일별 집계 때 채운다 — J2는 구현 전, 11장).
-
-```bash
-mysql -u <계정> -p posture_service < database/migrations/011_add_until_collapse_daily_stat.sql
-mysql -u <계정> -p posture_service < database/migrations/012_create_user_consent.sql
-# 이어서 013~017
-```
-
-**적용 후 확인 (V2.2~V2.6 → V2.7)** — 테이블 16개(`user_consent`·`refresh_token`·`social_identity`·`password_reset_token` 포함, `refresh_token` 컬럼 7개, `social_identity` 컬럼 5개, `password_reset_token` 컬럼 6개), `daily_stat` 컬럼 10개, `feature_archive` 컬럼 7개(`row_count` 없음), `baseline_posture` 컬럼 22개(`client_registration_uuid` 포함)이고 인덱스 `ux_baseline_posture_registered`(UK-14)가 없으면 정상이다.
-
-**V2.1·V2.0·V1.x로 만든 DB** — migration으로 올리지 않는다. V2.0·V2.1은 테이블을 지운 변경이고(작업규칙 1.4), V2.2는 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 기존 세션을 새 구조로 옮길 수 없다. 필요한 데이터를 먼저 백업하고, `posture_service` 데이터베이스를 지운 뒤 1번부터 다시 만든다.
+**V2.5 이하로 만든 DB** — migration으로 올리지 않는다. 운영 DB가 V2.6이어서 2026-11-14에 V2.2~V2.5 스키마와 migration 011~016을 지웠다(2장). 지금 API도 V2.6 미만 DB에서는 시작하지 않는다(11장). 필요한 데이터를 먼저 백업하고, `posture_service` 데이터베이스를 지운 뒤 1번부터 다시 만든다. 데이터를 꼭 옮겨야 하면 지운 migration을 git 이력에서 꺼내 번호순으로 적용한 뒤 017을 적용한다(`git log --diff-filter=D -- database/migrations`로 지운 커밋을 찾고 `git show <커밋>^:database/migrations/<파일>`). V2.1·V2.0·V1.x는 V2.2에서 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 그 방법으로도 옮길 수 없다.
 
 ```bash
 mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
@@ -80,7 +50,7 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 | 항목 | 내용 |
 |---|---|
-| 스키마 파일 | `schema/schema_V2_7.sql` (현재, 새 DB용). `schema/schema_V2_3.sql`~`schema_V2_6.sql`은 이전 버전으로 남겨 둔다(V2.3은 FE 시험 `consents.test.ts`가 읽는다). `schema/schema_V2_2.sql`은 `migrations/`(011~)의 출발점으로 둔다 |
+| 스키마 파일 | `schema/schema_V2_7.sql` (현재, 새 DB용). `schema/schema_V2_6.sql`은 운영 DB 버전이자 `migrations/`(017~)의 출발점(DB CI 기준 스키마)으로 둔다 |
 | 대응 명세서 | DB 명세서 V2.7 (2026-11-11, 명세서 반영 전) — V2.6 + 소셜 로그인 연결 T-52 `social_identity`, 비밀번호 재설정 토큰 T-53 `password_reset_token` ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md)). V2.6은 V2.5 + 로그인 유지 토큰 T-51 `refresh_token` ([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md)). V2.5는 V2.4 + 기준 자세 등록 시각을 서버 시각으로, 재전송은 등록 식별자로 구분 ([ADR 0028](../docs/decisions/0028-server-time-for-baseline-registration.md), 「DB-V2.5-변경사항」). V2.4는 V2.3 + 아키텍처 v5.2 결정 반영: `feature_archive.row_count` 삭제, 설명 갱신 (「DB-V2.4-변경사항」). V2.3은 V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
 | 데이터베이스 이름 | `posture_service` (가칭, DB-03 D-33) |
 | DBMS | MySQL 8.0.16 이상 (CHECK 제약 강제) |
@@ -89,7 +59,9 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 **스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다. V2.4는 쓰는 곳이 없는 컬럼 1개(`row_count`)를 지우고 설명을 바꾼 변경이다. 지우는 값은 사라져도 되므로(「DB-V2.4-변경사항」 결정 4) DB를 새로 만들지 않고 migration 013·014로 올린다. V2.5는 컬럼·UK·CHECK를 더하고 UK-14를 바꾼 변경이라 기존 행을 그대로 두고 migration 015로 올린다. V2.6·V2.7은 테이블을 더하기만 한 변경이라 migration 016·017로 올린다.
 
-**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. `schema_V2_4.sql`은 「DB-V2.4-변경사항」으로 V2.3에서, `schema_V2_5.sql`은 ADR 0028로 V2.4에서, `schema_V2_6.sql`은 ADR 0031로 V2.5에서, `schema_V2_7.sql`은 계획 0088 인계 문서로 V2.6에서 만들었다. 명세서 V2.4~V2.7을 고친 뒤 명세서에서 다시 생성해 맞춘다.
+**지운 이전 버전 (2026-11-14)** — 운영 DB가 V2.6이고([아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)), API는 V2.6 미만 DB에서 시작하지 않으며, Compose·통합 시험은 최신 스키마로 새 DB를 만든다. 그래서 더 쓸 곳이 없는 `schema_V2_2.sql`~`schema_V2_5.sql`과 migration 011~016을 지웠다(git 이력에 남음). `schema_V2_3.sql`을 읽던 FE 시험 `consents.test.ts`는 `schema_V2_7.sql`을 읽는다(동의 종류 6개는 같다). 운영 DB에 017을 적용하고 다음 migration(018)이 생기면, 같은 기준으로 기준 스키마를 V2.7로 바꾸고 `schema_V2_6.sql`과 017을 지울 수 있다.
+
+**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. V2.4는 「DB-V2.4-변경사항」으로 V2.3에서, V2.5는 ADR 0028로 V2.4에서, `schema_V2_6.sql`은 ADR 0031로 V2.5에서, `schema_V2_7.sql`은 계획 0088 인계 문서로 V2.6에서 만들었다. 명세서 V2.4~V2.7을 고친 뒤 명세서에서 다시 생성해 맞춘다.
 
 ### 외부 문서 참조
 
@@ -110,28 +82,18 @@ database/
 ├── README.md                          ← 이 문서
 ├── .gitignore                         ← 커밋 금지 대상 (4장)
 ├── schema/
-│   ├── schema_V2_2.sql                ← migrations의 출발점 (DB CI 기준 스키마)
-│   ├── schema_V2_3.sql                ← 이전 버전 (FE 시험이 읽는다)
-│   ├── schema_V2_4.sql                ← 이전 버전
-│   ├── schema_V2_5.sql                ← 이전 버전
-│   ├── schema_V2_6.sql                ← 이전 버전
+│   ├── schema_V2_6.sql                ← 이전 버전(운영 DB). migrations의 출발점 (DB CI 기준 스키마)
 │   └── schema_V2_7.sql                ← 현재. 새 DB는 이 파일로 만든다
 ├── seed/
 │   └── seed_04_threshold_policy.sql   ← 기본 판정 정책 (6장)
-├── migrations/                        ← V2.2 → V2.3 → V2.4 → V2.5 → V2.6 → V2.7. 다음 번호 018 (7장)
-│   ├── 011_add_until_collapse_daily_stat.sql
-│   ├── 012_create_user_consent.sql
-│   ├── 013_alter_feature_archive.sql
-│   ├── 014_update_comment_v24.sql
-│   ├── 015_alter_baseline_posture_registration.sql
-│   ├── 016_create_refresh_token.sql
+├── migrations/                        ← V2.6 → V2.7. 다음 번호 018 (7장)
 │   └── 017_create_social_identity_password_reset_token.sql
 ├── tests/
 │   └── integrity_check.py             ← 무결성 검사 (8장)
-└── erd/                               ← 아직 V2.3 (V2.4~V2.7 반영 전 — `feature_archive.row_count` 삭제, `baseline_posture.client_registration_uuid`·`refresh_token`·`social_identity`·`password_reset_token` 추가 필요)
-    ├── posture_erd_V2_3.drawio        ← 원본 (개념·논리 2페이지)
-    ├── posture_erd_V2_3-개념 ERD.png   ← draw.io에서 내보낸 그림
-    └── posture_erd_V2_3-논리 ERD.png
+└── erd/                               ← V2.7
+    ├── posture_erd_V2_7.drawio        ← 원본 (개념·논리 2페이지)
+    ├── posture_erd_V2_7-개념 ERD.png   ← draw.io에서 내보낸 그림
+    └── posture_erd_V2_7-논리 ERD.png
 ```
 
 ---
@@ -298,16 +260,11 @@ database/
 - 새 DB는 최신 스키마 파일로 만들고, `migrations/`는 이미 만든 DB를 올릴 때만 적용한다.
 - 테이블을 지우거나 기존 데이터를 옮길 수 없는 변경은 migration을 만들지 않고 DB를 새로 만든다(작업규칙 1.4). V2.0 → V2.1, V2.1 → V2.2가 이 경우다. V2.4의 컬럼 삭제(`row_count`)는 값이 사라져도 되는 컬럼이라 migration으로 한다(2장).
 - 파일마다 머리말에 되돌리는 방법(롤백 SQL)을 적는다.
-- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했다. 번호는 다시 쓰지 않으므로 **다음 파일은 018**부터 매긴다.
+- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했고, V2.2 → V2.6용 011~016은 운영 DB가 V2.6이라 지웠다(2장). 번호는 다시 쓰지 않으므로 **다음 파일은 018**부터 매긴다.
+- 운영 DB가 올라가 더 쓸 곳이 없는 migration과 이전 스키마는 지운다. 기준 스키마(DB CI `BASE_SCHEMA`)는 남은 migration의 출발 버전으로 바꾼다.
 
 | 파일 | 버전 | 내용 | 기존 데이터 |
 |---|---|---|---|
-| `011_add_until_collapse_daily_stat.sql` | V2.2 → V2.3 | `daily_stat`에 `min_until_collapse_sec`·`max_until_collapse_sec`와 CHECK 3개 추가 | 그대로. 새 컬럼은 NULL |
-| `012_create_user_consent.sql` | V2.2 → V2.3 | `user_consent` 테이블 생성 (FK-19, CHECK 2개) | 영향 없음. 이미 가입한 사용자의 동의 행은 비어 있다(언제 받을지는 백엔드가 정한다) |
-| `013_alter_feature_archive.sql` | V2.3 → V2.4 | `feature_archive.row_count`와 CHECK 삭제, 세션 폴더 기준 설명 | 행은 그대로. `row_count` 값은 사라지고 되돌려도 0이 된다 |
-| `014_update_comment_v24.sql` | V2.3 → V2.4 | `user_account`·`monitor_session`·`daily_stat`·`deletion_request` 설명만 | 영향 없음 |
-| `015_alter_baseline_posture_registration.sql` | V2.4 → V2.5 | `baseline_posture.client_registration_uuid`·UK-16·CHECK 추가, UK-14 삭제, `registered_at` 설명 | 행은 그대로. 기존 행의 등록 식별자는 `UUID()`로 채운다. 되돌릴 때 같은 사용자·같은 등록 시각 행이 있으면 UK-14를 다시 만들지 못한다 |
-| `016_create_refresh_token.sql` | V2.5 → V2.6 | T-51 `refresh_token`·UK-17·FK-28·CHECK 4개 추가, `sound_alert_enabled` 기본값 참 | 행은 그대로. 남아 있는 `SPRING_SESSION` 로그인은 의미가 없어져 모든 사용자가 다시 로그인한다. 되돌리기는 `DROP TABLE refresh_token` |
 | `017_create_social_identity_password_reset_token.sql` | V2.6 → V2.7 | T-52 `social_identity`·UK-18·UK-19·FK-29·CHECK 1개, T-53 `password_reset_token`·UK-20·FK-30·CHECK 2개 추가 | 영향 없음. 다시 로그인하지 않아도 된다. 되돌리기는 API의 두 기능을 끈 뒤 `DROP TABLE password_reset_token; DROP TABLE social_identity;` — 소셜로 가입한 계정은 남고 비밀번호 재설정 없이는 로그인할 수 없다 |
 
 ---
@@ -321,11 +278,11 @@ database/
 | 3 | 애플리케이션 기동 → 연결·기본 조회 성공 | **백엔드 연결 후 확인** — 대신 아래 무결성 검사로 기본 쓰기·조회를 확인 |
 | 4 | 롤백(데이터베이스 삭제 후 재적용) 1회 성공 | 통과 |
 
-**V2.4~V2.7은 아직 재현 검증 전이다.** 위 표와 아래 개수는 V2.3 결과다. V2.4~V2.7 스키마, migration 013~017, 고친 무결성 검사는 실행하지 않았다(2026-10-21, 2026-10-26, 2026-10-27, 2026-11-11). DB CI 또는 로컬 MySQL로 확인한 뒤 이 장을 갱신한다.
+**V2.7 로컬 확인 (2026-11-14, Windows MySQL 8.0.31, 임시 DB 이름으로 만든 뒤 지움)** — DB CI와 같은 순서로 실행했다. `schema_V2_7.sql` + 시드 → 테이블 16개·`threshold_policy` 1행, `schema_V2_6.sql` + 시드 + migration 017과 구조·설명·마스터 데이터 421줄이 모두 같음, 무결성 검사 165개 모두 통과. 위 표의 3·4단계와 지운 migration 011~016(V2.2 → V2.6 경로)은 이번에 다시 실행하지 않았다. 원격 DB CI 결과는 PR에서 확인한다.
 
-**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(지금 `schema_V2_7.sql`, 파일 이름순으로 가장 뒤의 파일) + 시드로 만든 DB와, 기준 스키마(`schema_V2_2.sql`) + 시드 + `migrations/` 전부(011~017)로 만든 DB의 구조·마스터 데이터를 비교한다. 설명(COMMENT)도 비교 대상이다. 두 결과가 같아야 한다(V2.3: 2026-10-13 로컬 재현 350줄 일치). 테이블 수(13)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
+**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(지금 `schema_V2_7.sql`, 파일 이름순으로 가장 뒤의 파일) + 시드로 만든 DB와, 기준 스키마(`schema_V2_6.sql`, 2026-11-14 전에는 `schema_V2_2.sql`) + 시드 + `migrations/` 전부(지금 017)로 만든 DB의 구조·마스터 데이터를 비교한다. 설명(COMMENT)도 비교 대상이다. 두 결과가 같아야 한다(V2.7: 2026-11-14 로컬 재현 421줄 일치, V2.3: 2026-10-13 350줄 일치). 테이블 수(16)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 2026-10-13에는 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
 
-**무결성 검사 (`tests/integrity_check.py`) — V2.3 기준 130개 항목 모두 통과(2026-10-13).** V2.4에 맞춰 철회 검사(S1-1-1)를 지우고 `row_count`를 뺐으며 적재 경로를 세션 폴더 형식으로 바꿨다. V2.5에 맞춰 기준 자세 재전송 검사를 UK-16(등록 식별자)으로 바꾸고, 같은 등록 시각 허용·식별자 길이·UK-14 없음 검사를 더했다. V2.7에 맞춰 소셜 연결(UK-18·19, 제공자 허용값, FK-29, 비밀번호 없는 계정)과 재설정 토큰(UK-20, 해시 길이, 만료, 한 번만 사용, FK-30) 검사와 탈퇴 최종 삭제 때 CASCADE 확인을 더했다 — 실행 전이라 새 개수는 아직 모른다. 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
+**무결성 검사 (`tests/integrity_check.py`) — V2.7 기준 165개 항목 모두 통과(2026-11-14 로컬, V2.3 기준 130개는 2026-10-13).** V2.4에 맞춰 철회 검사(S1-1-1)를 지우고 `row_count`를 뺐으며 적재 경로를 세션 폴더 형식으로 바꿨다. V2.5에 맞춰 기준 자세 재전송 검사를 UK-16(등록 식별자)으로 바꾸고, 같은 등록 시각 허용·식별자 길이·UK-14 없음 검사를 더했다. V2.7에 맞춰 소셜 연결(UK-18·19, 제공자 허용값, FK-29, 비밀번호 없는 계정)과 재설정 토큰(UK-20, 해시 길이, 만료, 한 번만 사용, FK-30) 검사와 탈퇴 최종 삭제 때 CASCADE 확인을 더했다. 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
 
 | 분류 | 확인한 것 |
 |---|---|
@@ -401,7 +358,7 @@ DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표�
 
 | 구성 | 위치 | 시작할 때 DB 확인 | 맞지 않으면 |
 |---|---|---|---|
-| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 12개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 13개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 **켠 기능만** 확인한다 — Discord 로그인을 켜면 `social_identity.provider_subject`, 비밀번호 재설정을 켜면 `password_reset_token.consumed_at` | **시작하지 않는다** — V2.5 DB는 016을, V2.4 DB는 015~016을, V2.3 DB는 013~016을 적용해야 시작한다. 두 기능 중 하나라도 켜려면 017도 적용한다 |
+| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 12개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 13개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 **켠 기능만** 확인한다 — Discord 로그인을 켜면 `social_identity.provider_subject`, 비밀번호 재설정을 켜면 `password_reset_token.consumed_at` | **시작하지 않는다** — V2.5 이하 DB는 1장대로 다시 만든다. 두 기능 중 하나라도 켜려면 017을 적용한다 |
 | 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 13개, 지운 테이블, 저장에 쓸 컬럼, V2.3 표시(migration 011·012), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. V2.4 표기·`row_count` 확인은 DevOps 반영 전 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다 |
 
 **설정**
@@ -410,7 +367,7 @@ DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표�
 |---|---|
 | 접속 시간대 | `connectionTimeZone=Asia/Seoul` — `backend/api` `application.properties`, `compose.yaml` |
 | 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
-| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_7.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.1 이하로 만든 볼륨은 지운 뒤 다시 만들고, V2.6으로 만든 볼륨은 migration 017을, V2.5는 016~017을, V2.4는 015~017을, V2.3은 013~017을, V2.2는 011~017을 적용한다(1장). |
+| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_7.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.6으로 만든 볼륨은 migration 017을 적용하고, V2.5 이하로 만든 볼륨은 지운 뒤 다시 만든다(1장). |
 
 **아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, [bigdata/README.md](../bigdata/README.md), 계획 0085)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
 

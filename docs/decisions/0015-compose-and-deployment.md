@@ -138,7 +138,7 @@ GHCR 인증은 워크플로의 `GITHUB_TOKEN`을 사용한다. 도메인·TLS·�
 
 | 파일 | 책임 |
 | --- | --- |
-| [infra/mysql/initdb/10-posegood-schema.sh](../../infra/mysql/initdb/10-posegood-schema.sh) | 루트 MySQL의 빈 볼륨에서만 `schema_V2_6.sql`과 `seed_0*.sql`을 적용한다. `POSEGOOD_DB_INIT_SCHEMA=false`는 복원용 빈 스키마를 남긴다. 기존 볼륨에는 다시 실행되지 않는다 |
+| [infra/mysql/initdb/10-posegood-schema.sh](../../infra/mysql/initdb/10-posegood-schema.sh) | 루트 MySQL의 빈 볼륨에서만 `schema_V2_7.sql`과 `seed_0*.sql`을 적용한다. `POSEGOOD_DB_INIT_SCHEMA=false`는 복원용 빈 스키마를 남긴다. 기존 볼륨에는 다시 실행되지 않는다 |
 | [database/schema/](../../database/schema/), [database/seed/](../../database/seed/), [database/migrations/](../../database/migrations/), [database/README.md](../../database/README.md) | 스키마·시드·기존 DB 변경 절차의 정본이다. API는 시작할 때 필요한 구조를 확인하고 테이블을 생성·변경하지 않는다. SSH 배포 묶음에는 초기화용 스키마·시드가 포함되지만 마이그레이션 자동 실행 단계는 없다 |
 | [tools/deploy_backup.py](../../tools/deploy_backup.py), [tools/deploy/backup.py](../../tools/deploy/backup.py) | 루트 Compose의 `db`를 `mysqldump --single-transaction`으로 백업해 새 private gzip 파일에 저장한다. 기존 파일을 덮어쓰지 않으며 실패한 불완전 파일은 제거한다 |
 | [tools/deploy_restore.py](../../tools/deploy_restore.py), [tools/deploy/restore.py](../../tools/deploy/restore.py) | 명시한 Compose 프로젝트의 빈 DB로 복원한다. API·프론트 실행 중이거나 테이블이 있으면 거부한다. 운영 DB 자동 덮어쓰기나 볼륨 삭제를 수행하지 않는다 |
