@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * 시작할 때 DB V2.6의 저장 계약을 확인한다.
  *
  * API는 테이블을 만들거나 고치지 않는다. 스키마와 시드는 DB 담당 절차로 적용한다
- * (V2.2 → V2.3은 마이그레이션 011·012, V2.3 → V2.4는 013·014, V2.4 → V2.5는 015, V2.5 → V2.6은 016).
+ * (V2.6 → V2.7은 마이그레이션 017. V2.5 이전 DB는 마이그레이션 없이 `schema_V2_7.sql`로 다시 만든다).
  * `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES`는 V2.6부터 쓰지 않아 확인하지 않는다(DB에는 남겨 둠).
  */
 @Component
@@ -46,7 +46,7 @@ public class SchemaVerifier implements ApplicationRunner {
 		"safety_range",
 		"baseline_feature",
 		"client_record");
-	/** V2.4에서 지운 컬럼. 남아 있으면 V2.3 DB에 마이그레이션 013·014를 적용하지 않은 것이다. */
+	/** V2.4에서 지운 컬럼. 남아 있으면 V2.3 이하 DB다(마이그레이션 없이 다시 만든다). */
 	static final List<String> RETIRED_COLUMNS = List.of("feature_archive.row_count");
 
 	private final JdbcTemplate jdbc;
@@ -77,7 +77,7 @@ public class SchemaVerifier implements ApplicationRunner {
 		var missing = TABLES.stream().filter(table -> !present.contains(table.toLowerCase(Locale.ROOT))).toList();
 		if (!missing.isEmpty()) {
 			throw new IllegalStateException("database schema V2.6 is not applied; missing " + missing
-				+ " (V2.5 DB: apply migration 016, database/README.md)");
+				+ " (V2.5 or older DB: rebuild it with schema_V2_7.sql, database/README.md)");
 		}
 		var retired = RETIRED.stream().filter(table -> present.contains(table.toLowerCase(Locale.ROOT))).toList();
 		if (!retired.isEmpty()) {
@@ -94,7 +94,7 @@ public class SchemaVerifier implements ApplicationRunner {
 			var parts = required.split("\\.");
 			if (!hasColumn(parts[0], parts[1])) {
 				throw new IllegalStateException("database schema V2.6 is not applied; missing " + required
-					+ " (V2.4 DB: apply migrations 015 and 016, database/README.md)");
+					+ " (V2.5 or older DB: rebuild it with schema_V2_7.sql, database/README.md)");
 			}
 		}
 		// 켠 기능의 표만 확인한다(제안 V2.7, DB 담당 적용 전에는 기능을 끈 채로 둔다).
@@ -117,7 +117,7 @@ public class SchemaVerifier implements ApplicationRunner {
 			if (hasColumn(parts[0], parts[1])) {
 				throw new IllegalStateException(
 					"database schema V2.6 is not applied; " + removed
-						+ " was removed in V2.4; apply migrations 013 and 014 (database/README.md)");
+						+ " was removed in V2.4; rebuild it with schema_V2_7.sql (database/README.md)");
 			}
 		}
 	}
