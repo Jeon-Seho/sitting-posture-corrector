@@ -160,12 +160,12 @@ if [ -f "$ENV_FILE" ]; then
       fail ".env에 $k 없음" "비밀값은 infra/compose/secrets/ 파일로 — .env 줄을 지운다(infra/README.md 입출구 서버)"
     fi
   done
-  # (D-87) Discord 로그인을 켰으면(Client ID 있음) Redirect 주소는 https://…/v2/auth/social/discord/callback
+  # (D-87) Discord 로그인을 켰으면(Client ID 있음) Redirect 주소는 https://…/api/auth/social/discord/callback(주소에 버전 없음, 2026-11-09)
   if [ -n "$(envval POSEGOOD_DISCORD_CLIENT_ID)" ]; then
     RU="$(envval POSEGOOD_DISCORD_REDIRECT_URI)"
-    if echo "$RU" | grep -qE '^https://[^[:space:]]+/v2/auth/social/discord/callback$' && [ -n "$(envval POSEGOOD_APP_URL)" ]
+    if echo "$RU" | grep -qE '^https://[^[:space:]]+/api/auth/social/discord/callback$' && [ -n "$(envval POSEGOOD_APP_URL)" ]
     then pass ".env Discord 로그인 설정 (Client ID·Redirect https·APP_URL, 값은 출력 안 함)"
-    else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/v2/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
+    else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/api/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
   fi
   if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED)" = "true" ]; then
     MISS=""
