@@ -1,4 +1,4 @@
-import { SERVER } from './serverConfig'
+import { API_ROOT, SERVER } from './serverConfig'
 import { getServerAuth } from './serverAuth'
 
 /**
@@ -85,13 +85,13 @@ export async function apiRequest(
     const timer = setTimeout(() => abort.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
     let response: Response
     try {
-      response = await fetchRequest(`${SERVER.apiBase}/api${path}`, {
+      response = await fetchRequest(`${SERVER.apiBase}${API_ROOT}${path}`, {
         method,
         headers,
         body,
         signal: abort.signal,
         cache: 'no-store',
-        // Kept for the refresh cookie on a separate API origin (docs/design/fe/fe-server-proposal.md 9.3.2 A-2).
+        // Kept for the refresh cookie on a separate API origin (docs/design/fe/fe-server-proposal.md 2.4).
         credentials: 'include',
       })
     } catch (caughtError) {

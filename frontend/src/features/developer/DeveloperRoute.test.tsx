@@ -15,6 +15,11 @@ const text = (node: ReactTestInstance | string): string => typeof node === 'stri
 const syntheticPoints = () => Array.from({ length: 33 }, (_, index) => ({
   x: index === 11 ? .3 : index === 12 ? .7 : .5, y: index < 11 ? .3 : .6, z: 0, visibility: .99,
 }))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('../camera/modelFiles', async (original) => ({
+  ...(await original<typeof import('../camera/modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
+}))
 
 describe('unified /dev observation route with real camera hook and synthetic media', () => {
   let renderer: ReactTestRenderer | undefined, camera: CameraController
@@ -68,7 +73,7 @@ describe('unified /dev observation route with real camera hook and synthetic med
   it('connects Heavy, waits for reference confirmation and releases the camera on stop', async () => {
     await start()
     expect(camera.state).toBe('on'); expect(getUserMedia).toHaveBeenCalledOnce()
-    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetPath: expect.stringMatching(/\/mediapipe\/pose_landmarker_heavy\.task$/) })
+    expect(vision.create.mock.calls[0][1].baseOptions).toMatchObject({ delegate: 'GPU', modelAssetBuffer: expect.any(Uint8Array) })
     for (let elapsed = 0; elapsed < 14000; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
     expect(renderer!.root.findByProps({'aria-label':'동작 안내'}).props['data-state']).toBe('idle')
     const beginReference = renderer!.root.findByProps({ 'aria-label': '기준 자세 등록 시작' })
@@ -91,13 +96,14 @@ describe('unified /dev observation route with real camera hook and synthetic med
     expect(recording.frames[0].rawFeatures).toMatchObject({ quality: .99 })
     expect(fetch).not.toHaveBeenCalled()
   })
-  it('shows the camera timeout when permission never resolves', async () => {
+  it('shows the camera timeout when the camera is allowed but never opens', async () => {
     getUserMedia.mockReturnValue(new Promise(() => {}))
+    Object.assign(navigator, { permissions: { query: async () => ({ state: 'granted' }) } })
     await start(); expect(camera.state).toBe('loading')
     expect(renderer!.root.findAllByProps({ className: 'oc-camera-empty' })).toHaveLength(0)
     expect(renderer!.root.findAllByProps({ role: 'timer' })).toHaveLength(0)
     expect(renderer!.root.findByProps({ className: 'oc-status' }).props.children).toBe('카메라를 연결하고 있어요.')
-    act(() => { vi.advanceTimersByTime(30_001) })
+    await act(async () => { vi.advanceTimersByTime(30_001) })
     expect(renderer!.root.findByProps({role:'alert'}).props.children).toContain(CAMERA_ERRORS.preparationTimeout)
     expect(vision.create).not.toHaveBeenCalled()
   })
@@ -117,6 +123,6 @@ describe('unified /dev observation route with real camera hook and synthetic med
     for (let elapsed = 0; elapsed < 8200; elapsed += 100) act(() => { vi.advanceTimersByTime(100) })
     expect(renderer!.root.findByProps({ 'aria-label': '동작 안내' }).props['data-state']).toBe('waiting')
     expect(renderer!.root.findByProps({ 'aria-label': '측정 시작' }).props.disabled).toBe(false)
-    expect(vision.create.mock.calls[0][1].baseOptions.modelAssetPath).toMatch(/\/mediapipe\/pose_landmarker_heavy\.task$/)
+    expect(vision.create.mock.calls[0][1].baseOptions.modelAssetBuffer).toBeInstanceOf(Uint8Array)
   })
 })

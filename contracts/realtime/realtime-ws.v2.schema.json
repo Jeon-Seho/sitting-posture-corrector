@@ -94,7 +94,7 @@
       }
     },
     "features": {
-      "description": "app -> server. Coordinate intervals in sequence order. The server allows 1-30; the app sends one interval holding one frame per message, ending when the next frame arrives, or after 0.5 s without one (FE decision 2026-10-27, FE spec 5.1).",
+      "description": "app -> server. Exactly one coordinate interval per message (the server refuses any other count with closed(bad_message)); the app sends one interval holding one frame per message, ending when the next frame arrives, or after 0.5 s without one (FE decision 2026-10-27, FE spec 5.1).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -108,7 +108,7 @@
         "items": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 30,
+          "maxItems": 1,
           "items": {
             "$ref": "frames/posture-frames.v1.schema.json"
           }

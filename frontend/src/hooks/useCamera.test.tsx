@@ -14,6 +14,11 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
 }))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('../features/camera/modelFiles', async (original) => ({
+  ...(await original<typeof import('../features/camera/modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
+}))
 vi.mock('../lib/poseVisual', () => ({ drawPose: vision.draw }))
 
 describe('camera lifecycle with fake tracks and synthetic landmarks only', () => {
@@ -287,14 +292,36 @@ describe('camera lifecycle with fake tracks and synthetic landmarks only', () =>
     expect(track.stop).toHaveBeenCalledOnce()
     expect(vision.create).not.toHaveBeenCalled()
   })
+  it('waits while the permission window is unanswered, then gives an allowed camera 30 s', async () => {
+    const permission = { state: 'prompt' }
+    Object.assign(navigator, { permissions: { query: async () => permission } })
+    getUserMedia.mockReturnValueOnce(new Promise(() => {}))
+    await act(async () => { void camera.connect() })
+    await act(async () => { vi.advanceTimersByTime(90_000) })
+    expect(camera.state).toBe('loading')
+    permission.state = 'granted'
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    await act(async () => { vi.advanceTimersByTime(29_000) })
+    expect(camera.state).toBe('loading')
+    await act(async () => { vi.advanceTimersByTime(1_001) })
+    expect(camera.state).toBe('error')
+    expect(camera.error).toBe(CAMERA_ERRORS.preparationTimeout)
+  })
+  it('keeps waiting where the browser cannot tell the permission (Firefox)', async () => {
+    getUserMedia.mockReturnValueOnce(new Promise(() => {}))
+    await act(async () => { void camera.connect() })
+    await act(async () => { vi.advanceTimersByTime(120_000) })
+    expect(camera.state).toBe('loading')
+  })
   it('ends an excessive preparation wait and releases late tracks without reconnecting automatically', async () => {
+    Object.assign(navigator, { permissions: { query: async () => ({ state: 'granted' }) } })
     const request = defer<MediaStream>()
     getUserMedia.mockReturnValueOnce(request.promise)
     let pending!: Promise<void>
     await act(async () => {
       pending = camera.connect()
     })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(30001)
     })
     expect(camera.state).toBe('error')

@@ -5,6 +5,8 @@ self.onmessage = async ({ data }) => {
   try {
     if (data.kind === 'init') {
       const files = await Vision.FilesetResolver.forVisionTasks(self.location.origin + '/mediapipe/wasm')
+      // The engine the page already downloaded (a blob: address), so it is not fetched twice.
+      if (data.wasmBinaryPath) files.wasmBinaryPath = data.wasmBinaryPath
       detector = await Vision.PoseLandmarker.createFromOptions(files, data.options)
       self.postMessage({ id: data.id, ready: true })
     } else {

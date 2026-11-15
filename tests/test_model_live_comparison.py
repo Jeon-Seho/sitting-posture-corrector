@@ -87,18 +87,19 @@ class LiveComparisonTest(unittest.TestCase):
         self.assertEqual(rule_explanation([.1] * 3, [.1] * 3, [False] * 6)[0]["level"], "unknown")
 
     def test_registration_range_only_uses_visible_calibration_samples(self):
-        for i in range(31):
+        for i in range(36):
             sample = points(.001 if i % 2 else -.001)
-            sample[7]["visibility"] = .2
-            sample[8]["visibility"] = .2
+            if i < 5:
+                sample[7]["visibility"] = .2
+                sample[8]["visibility"] = .2
             result = self.send(i * 100, sample)
         self.assertEqual(result["status"], "ready")
         self.assertGreater(self.session.reference_ranges[0], 0.)
-        self.assertIsNone(self.session.reference_ranges[1])
+        self.assertIsNotNone(self.session.reference_ranges[1])
         for i in range(11):
-            result = self.send(3100 + i * 100, points())
+            result = self.send(3600 + i * 100, points())
         self.assertEqual(result["explanation"]["rule"][0]["level"], "green")
-        self.assertEqual(result["explanation"]["rule"][1]["level"], "yellow")
+        self.assertEqual(result["explanation"]["rule"][1]["level"], "green")
 
     def test_model_explanation_recomputes_corrector_for_each_baseline_replacement(self):
         corrector, classifier = SyntheticCorrector(), SyntheticClassifier()
@@ -113,7 +114,7 @@ class LiveComparisonTest(unittest.TestCase):
         self.assertEqual(rows[2]["level"], "yellow")
         self.assertEqual(model_explanation(values, span, original, corrector, classifier, [False] * 6)[0]["level"], "unknown")
 
-    def test_low_visibility_removes_explanation_even_for_a_cached_score(self):
+    def test_low_visibility_discards_cached_score_and_breaks_the_window(self):
         self.register()
         for i in range(10):
             result = self.send(3100 + i * 100)
@@ -121,9 +122,34 @@ class LiveComparisonTest(unittest.TestCase):
         hidden = points()
         hidden[9]["visibility"] = .2
         result = self.send(4100, hidden)
-        self.assertEqual(result["status"], "measured")
-        self.assertEqual(result["explanation"]["model"][3]["level"], "unknown")
-        self.assertNotEqual(result["explanation"]["rule"][0]["level"], "unknown")
+        self.assertEqual(result["status"], "unmeasurable")
+        self.assertNotIn("model", result)
+        self.assertEqual(self.send(4200)["status"], "warming")
+
+    def test_frame_mode_scores_every_valid_frame_and_rejects_occlusion(self):
+        model, corrector = models()
+        self.session = LiveComparison(model, corrector, model, .5, input_mode="frame")
+        self.register()
+        self.assertEqual(self.send(3100)["status"], "measured")
+        self.assertEqual(self.send(3200, points(.04))["status"], "measured")
+        hidden = points()
+        hidden[9]["visibility"] = .2
+        self.assertEqual(self.send(3300, hidden)["status"], "unmeasurable")
+        self.assertEqual(self.send(3400)["status"], "measured")
+        near_cutoff = points()
+        near_cutoff[9]["visibility"] = .649
+        self.assertEqual(self.send(3500, near_cutoff)["status"], "measured")
+        near_cutoff[9]["visibility"] = .644
+        self.assertEqual(self.send(3600, near_cutoff)["status"], "unmeasurable")
+
+    def test_4_by_3_larger_input_is_accepted_but_size_changes_are_not(self):
+        model, corrector = models()
+        self.session = LiveComparison(model, corrector, model, .5, input_mode="frame")
+        for i in range(31):
+            result = self.send(i * 100, width=1280, height=960)
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(self.send(3100, width=1280, height=960)["status"], "measured")
+        self.assertEqual(self.send(3200, width=640, height=480)["status"], "unmeasurable")
 
     def test_explanation_failure_keeps_original_score_but_never_invents_colors(self):
         class BatchFails(SyntheticCorrector):
@@ -185,6 +211,7 @@ class LocalServerTest(unittest.TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         response = self.client.post("/api/session", headers=self.origin)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["visibility_minimum"], .65)
         token = response.json()["session"]
         frame = {"session": token, "time_ms": 0, "width": 640, "height": 480, "landmarks": points()}
         self.assertEqual(self.client.post("/api/frame", json=frame, headers=self.origin).json()["status"], "registering")
@@ -216,6 +243,42 @@ class LocalServerTest(unittest.TestCase):
                 stream.write(b"changed")
             with self.assertRaisesRegex(ValueError, "does not match"):
                 load_artifacts(root)
+
+    def test_frame_artifacts_drive_the_local_camera_endpoint_per_frame(self):
+        from model.analysis.frame_pilot.artifacts import REPORT_SCHEMA
+        from model.analysis.frame_pilot.train import save
+        from model.analysis.live_comparison.server import create_app, load_comparison_artifacts
+        model, corrector = models()
+        with tempfile.TemporaryDirectory(prefix="posegood-frame-live-synthetic-") as folder:
+            output = Path(folder) / "frame-candidate"
+            report = {"schema_version": REPORT_SCHEMA, "settings": {"input": "one_frame", "visibility_minimum": .73},
+                      "all_data_candidate": {"threshold": .5, "threshold_status": "display_only_not_selected_or_validated"}}
+            save(output, report, corrector, model)
+            uncorrected, loaded_corrector, classifier, threshold, mode, visibility, threshold_status = load_comparison_artifacts(output)
+            self.assertEqual(mode, "frame")
+            client = TestClient(create_app(uncorrected, loaded_corrector, classifier, threshold,
+                                           input_mode=mode, min_visibility=visibility, threshold_status=threshold_status),
+                                base_url="http://127.0.0.1:8765")
+            session = client.post("/api/session", headers=self.origin).json()
+            self.assertEqual(session["input_mode"], "frame")
+            self.assertEqual(session["threshold_status"], "display_only_not_selected_or_validated")
+            self.assertEqual(session["visibility_minimum"], .73)
+            body = {"session": session["session"], "width": 1280, "height": 960, "landmarks": points()}
+            for i in range(31):
+                body["time_ms"] = i * 100
+                response = client.post("/api/frame", json=body, headers=self.origin)
+            self.assertEqual(response.json()["status"], "ready")
+            for timestamp in (3100, 3200):
+                body["time_ms"] = timestamp
+                response = client.post("/api/frame", json=body, headers=self.origin)
+                self.assertEqual(response.json()["status"], "measured")
+            body["time_ms"] = 3300
+            body["landmarks"][9]["visibility"] = .2
+            self.assertEqual(client.post("/api/frame", json=body, headers=self.origin).json(),
+                             {"status": "unmeasurable"})
+            body["time_ms"] = 3400
+            body["landmarks"] = points()
+            self.assertEqual(client.post("/api/frame", json=body, headers=self.origin).json()["status"], "measured")
 
     def test_manual_scenario_save_is_private_unique_and_keeps_both_scores(self):
         body = {"records": [{"id": "chair_left", "source": "manual", "rule_score": 0, "model_score": 75.5}]}

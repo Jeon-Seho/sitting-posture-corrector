@@ -5,11 +5,27 @@ import { Ring } from '../../../components/Ring'
 import { Card, Ledger, Meter, Stat } from '../../../components/ui'
 import { postureScore } from '../../../lib/postureScore'
 import { formatClock, formatDuration, formatPercent, formatRate } from '../../../lib/stats'
+import { ErrorPage } from '../../../pages/ErrorPage'
 import { EventTable } from '../SessionEvents'
 import { collapseEvents } from './events'
 import type { LiveState } from './LiveSession'
 import type { SocketLike } from './LiveSession'
 import { INPUT_PAUSED_NOTICE, ROLLED_OVER, useLiveSession, type LiveSessionDescriptor, type LiveSessionService } from './useLiveSession'
+
+/**
+ * 「측정 종료」 to the result (`closed`, or S4 after at most 5 s): a spinner over the camera area
+ * only, so the rest of the app stays as it was. The stage buttons are locked meanwhile (plan 0059 4⑤).
+ */
+export function EndingNotice({ open }: { open: boolean }) {
+  if (!open) return null
+  return (
+    <div className="stage-saving" role="status" aria-busy="true">
+      <span className="saving-spinner" aria-hidden="true" />
+      <strong>측정 결과를 저장하고 있어요</strong>
+      <span>저장되면 바로 결과를 보여 드려요.</span>
+    </div>
+  )
+}
 
 export type LiveSessionPageProps = {
   session: LiveSessionDescriptor
@@ -18,7 +34,28 @@ export type LiveSessionPageProps = {
   alertsOn?: boolean
   onDashboard: () => void
   onPrepare: () => void
+  /** 「지금은 측정을 시작할 수 없어요」 → 「다시 시도」: start a new measurement right away. */
+  onRetry?: () => void
   openSocket?: (url: string) => SocketLike
+}
+
+/**
+ * The 「연결 상태」 line. After 「측정 종료」 a `stalled` (kafka mode, saving over 5 s) is not shown:
+ * the app moves on at 5 s and the result screen says why (`lateResult`).
+ */
+export const STALLED_NOTICE = '서버에 문제가 생겨 잠시 분석을 멈췄어요. 측정은 계속돼요.'
+
+export function connectionText(phase: string, stalled: boolean) {
+  if (phase === 'ending') return '측정 결과를 저장하고 있어요.'
+  return stalled ? STALLED_NOTICE : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'
+}
+
+/**
+ * 「측정 종료」 got no `closed` within 5 s and the server has not confirmed the end either: say so
+ * honestly. The record stays pending and R1 (every 15 s while not measuring) confirms it later.
+ */
+export function lateResult(state: Pick<LiveState, 'late' | 'events'> | null) {
+  return !!state?.late && !state.events.some((e) => e.kind === 'session_ended')
 }
 
 export function headline(state: LiveState | null, phase: string) {
@@ -120,7 +157,7 @@ export function statusTone(measured: LiveState | null) {
  * confirmed collapse, the statistics are its summary.
  */
 export function LiveSessionPage(props: LiveSessionPageProps) {
-  const { camera, service, session, onDashboard, onPrepare, alertsOn = true } = props
+  const { camera, service, session, onDashboard, onPrepare, onRetry = onPrepare, alertsOn = true } = props
   const screen = useLiveSession(props)
   const { state, phase } = screen
   const summary = state?.summary
@@ -134,6 +171,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const hold = holdProgress(state, session.rules.holdSeconds)
   const recovery = recoveryProgress(state, session.rules.recoverSeconds)
   const nudgeBox = nudge ? nudgeText(nudge, state, session.rules) : null
+  // The server stopped judging for a while (`stalled`): the posture shown is the last one, so its
+  // gauges would stand still. Say so and hide them until results come again; no grey screen.
+  const stalledNow = running && !!state?.stalled
   const keepRate = summary?.keep_rate ?? null
   const totalSeconds = (summary?.total_ms ?? 0) / 1000
   const validSeconds = (summary?.valid_ms ?? 0) / 1000
@@ -175,6 +215,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
     </details>
   )
 
+  if (phase === 'failed' && state?.serverDown) return <ErrorPage kind="measure" inline onRetry={onRetry} />
+  if (phase === 'ended' && state?.resultMissing) return <ErrorPage kind="result" inline onRetry={onPrepare} />
+
   if (phase === 'failed')
     return (
       <section className="result" aria-labelledby="live-failed-title">
@@ -188,8 +231,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
           </p>
         </div>
         <div className="result-actions">
-          <button className="btn btn-primary" onClick={onPrepare}>
-            다시 준비하기
+          {/* Busy (S1 429) only needs another go, like the `serverDown` page; the rest need preparing again. */}
+          <button className="btn btn-primary" onClick={state?.busy ? onRetry : onPrepare}>
+            {state?.busy ? '다시 시도' : '다시 준비하기'}
           </button>
         </div>
       </section>
@@ -198,6 +242,15 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   if (phase === 'ended')
     return (
       <>
+        {lateResult(state) && (
+          <div role="status" className="notice">
+            <div>
+              <strong>서버 응답이 늦어 결과를 먼저 보여 드려요</strong>
+              <br />
+              사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요.
+            </div>
+          </div>
+        )}
         <section className="result" aria-labelledby="live-result-title">
           <div className="result-head">
             <Ring value={keepRate} label="바른 자세 비율">
@@ -268,6 +321,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
       <div className="measure">
         <div className={`stage ${state?.alerting && running && alertsOn ? 'is-alert' : ''}`}>
           {service.active && <CameraStage camera={camera} showSkeleton={screen.showSkeleton} />}
+          <EndingNotice open={phase === 'ending'} />
           <div className="stage-overlay">
             <div className="stage-top">
               <span className={`pill ${tone}`} role="status">
@@ -279,6 +333,11 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
                 측정 · <span className="num">{formatClock(totalSeconds)}</span>
               </span>
             </div>
+            {stalledNow && (
+              <p role="status" className="stage-notice">
+                {STALLED_NOTICE}
+              </p>
+            )}
             <div className="stage-bottom">
               {nudge && nudgeBox && (
                 <div className={`nudge ${nudgeTone(nudge, alertsOn)}`}>
@@ -288,8 +347,8 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
                   <div className="nudge-body">
                     <div className="nudge-title">{nudgeBox.title}</div>
                     <div className="nudge-desc">{nudgeBox.desc}</div>
-                    {nudge === 'caution' && hold !== null && <Meter value={hold} />}
-                    {nudge === 'recovering' && recovery !== null && <Meter value={recovery} />}
+                    {!stalledNow && nudge === 'caution' && hold !== null && <Meter value={hold} />}
+                    {!stalledNow && nudge === 'recovering' && recovery !== null && <Meter value={recovery} />}
                   </div>
                 </div>
               )}
@@ -354,9 +413,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
               연결 상태
             </h3>
             <p className="fine" role="status">
-              {state?.stalled
-                ? '분석이 잠시 멈췄어요. 측정은 계속돼요.'
-                : '0.5초마다 관절 좌표를 서버로 보내요. 영상은 보내지 않아요.'}
+              {connectionText(phase, !!state?.stalled)}
             </p>
             <p className="fine" style={{ marginTop: 8 }}>
               {session.rules.holdSeconds}초 지속 시 확정 · {session.rules.recoverSeconds}초 정상 복귀 · 같은 사건{' '}

@@ -133,7 +133,7 @@ class FrameFeaturesTest {
 
 	@Test
 	void contractExampleIntervalUsesOnlyTheTrackedValidFrame() throws Exception {
-		// ws-features.json: 첫 프레임은 기준과 같은 좌표, 둘째는 사람 없음(p null), 셋째는 valid:false.
+		// ws-features.json: 첫 프레임은 기준과 같은 좌표, 둘째는 사람 없음(p null), 셋째는 위치를 못 잡은 프레임(p null).
 		var result = FrameFeatures.interval(example("ws-features.json"), baseline());
 		var deltas = result.deltas();
 		assertEquals(0, deltas.headGapDelta(), EPSILON);

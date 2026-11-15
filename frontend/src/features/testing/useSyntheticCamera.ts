@@ -201,6 +201,7 @@ export function useCamera(options: { baselineMode?: 'server' | 'local' } = {}): 
       delegate: 'CPU'
     },
     trackerDiagnostics: null,
+    modelDownload: null,
     subscribe,
     videoRef,
     canvasRef,

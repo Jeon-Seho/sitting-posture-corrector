@@ -19,6 +19,11 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
 }))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('../features/camera/modelFiles', async (original) => ({
+  ...(await original<typeof import('../features/camera/modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
+}))
 vi.mock('../lib/poseVisual', () => ({ drawPose: vision.draw }))
 
 const BUILT_IN = 'built-in-id'

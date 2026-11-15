@@ -12,9 +12,10 @@ import type { Landmark } from '../../../../../model/prototype/pose'
  *   Coordinates are MediaPipe's own (not mirrored, y grows down).
  * - `rest` (user pause) and `away` (camera lost) intervals carry no frames.
  * - A frame where the user's position cannot be determined (a shoulder out of view, or a joint the
- *   tracker did not give) is sent as the signal only: `{ t_ms, p: null, valid: false }`, no
- *   coordinates (ADR 0021 section 6, 2026-10-27; before, the 10/12 exception sent them along). The
- *   server counts it as unmeasurable time.
+ *   tracker did not give) is sent like nobody tracked: `{ t_ms, p: null }`, no coordinates (ADR 0021
+ *   section 6, 2026-10-27; before, the 10/12 exception sent them along). The server counts it as
+ *   unmeasurable time. The `valid: false` mark is no longer sent (11/13, FE proposal 요구 5): the
+ *   server judges by `p` being null only (`FrameInterval.Frame.tracked`).
  */
 export const FRAME_SCHEMA_VERSION = '3.0'
 export const FRAME_FEATURE_VERSION = 'keypoints-9-v1'
@@ -24,7 +25,7 @@ export const FRAME_INTERVAL_MS = 500
 export const FRAME_JOINTS = [0, 2, 5, 7, 8, 9, 10, 11, 12] as const
 
 export type FramePhase = 'running' | 'calibration' | 'rest' | 'away'
-export type PoseFrame = { t_ms: number; p: [number, number, number][] | null; valid?: false }
+export type PoseFrame = { t_ms: number; p: [number, number, number][] | null }
 export type FrameBatch = {
   schema_version: typeof FRAME_SCHEMA_VERSION
   feature_version: typeof FRAME_FEATURE_VERSION
@@ -103,7 +104,7 @@ export class FrameBatcher {
     // coordinates — a frame with a missing keypoint is no use for judging or for training (ADR 0021).
     const frame: PoseFrame =
       joints && (!input.judgeable || !jointsComplete(input.landmarks))
-        ? { t_ms: this.at(input.timeMs), p: null, valid: false }
+        ? { t_ms: this.at(input.timeMs), p: null }
         : { t_ms: this.at(input.timeMs), p: joints }
     if (this.frames.length && frame.t_ms > this.start) out.push(this.close(frame.t_ms))
     this.frames.push(frame)

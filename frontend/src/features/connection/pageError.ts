@@ -3,7 +3,7 @@ import type { Page } from '../../app/navigation'
 import { ApiError } from '../platform/api'
 
 /**
- * Error pages are only for a screen that could not load its own data (fe-design-request 1장).
+ * Error pages are only for a screen that could not load its own data (frontend README 「오류 안내 페이지」).
  * Mistakes the user can fix — wrong password, taken email, missing posture — keep their own
  * messages next to the input, and saving or deleting keeps its notice. `records` (R1) feeds
  * 오늘·기록 and `rules` (W1) feeds 측정하기·설정, so a background record check never covers the

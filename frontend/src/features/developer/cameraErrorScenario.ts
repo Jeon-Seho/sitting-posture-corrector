@@ -29,12 +29,12 @@ export async function runCameraErrorScenario(
     phase('connected')
     await delay(700)
     if (!isCurrent()) return
-    if (key === 'preparationFailed' || key === 'preparationTimeout') {
+    if (key === 'modelOffline' || key === 'modelServer' || key === 'modelUnsupported' || key === 'preparationTimeout') {
       phase('gpu')
       try {
         const loaded = await detectorFallback(async () => {
           await delay(key === 'preparationTimeout' ? 2400 : 500)
-          if (key === 'preparationFailed') throw new Error('Synthetic model asset failure')
+          if (key !== 'preparationTimeout') throw new Error('Synthetic model asset failure')
           return { close: () => stopCameraTracks(stream) }
         }, isCurrent, 'GPU', key === 'preparationTimeout' ? 1500 : 5000)
         loaded?.detector.close()

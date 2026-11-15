@@ -14,6 +14,11 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   FilesetResolver: { forVisionTasks: vision.resolve },
   PoseLandmarker: { createFromOptions: vision.create },
 }))
+// Synthetic model files: nothing is downloaded in tests.
+vi.mock('./modelFiles', async (original) => ({
+  ...(await original<typeof import('./modelFiles')>()),
+  downloadModelFiles: async (urls: string[]) => urls.map(() => new Uint8Array(1)),
+}))
 vi.mock('../../lib/poseVisual', () => ({ drawPose: vision.draw }))
 
 /** The real camera hook and frame loop with a fake detector (synthetic landmarks only). */

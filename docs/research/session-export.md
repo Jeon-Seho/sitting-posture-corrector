@@ -6,7 +6,7 @@ ML 담당이 측정 결과 파일을 해석하기 위한 기준 문서다. 의�
 
 **앱은 판정 라벨을 붙이지 않는다**(2026-10-11, [ADR 0021](../decisions/0021-app-sends-information-server-judges.md)).
 csv에는 시간과 관절 좌표만 있다. 상태·유형·점수 같은 라벨은 서버·ML이 만든다.
-예전 csv의 `features_ok`·`state`·`type`·`score` 열과 그 계산 규칙은 서버로 넘겼다([FE 제안서](../design/fe/fe-server-proposal.md) 6장, 원문은 git 이력).
+예전 csv의 `features_ok`·`state`·`type`·`score` 열과 그 계산 규칙은 서버로 넘겼다([FE 제안서](../design/fe/fe-server-proposal.md) 4장, 원문은 git 이력).
 
 ## 1. 파일
 

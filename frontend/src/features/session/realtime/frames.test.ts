@@ -39,8 +39,8 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     batcher.push(input(100, { landmarks: broken }))
     const [first] = batcher.push(input(200))
     const [second] = batcher.finish(500)
-    expect(first.frames[0]).toEqual({ t_ms: 100, p: null, valid: false })
-    expect(second.frames[0].valid).toBeUndefined()
+    expect(first.frames[0]).toEqual({ t_ms: 100, p: null })
+    expect(second.frames[0]).not.toHaveProperty('valid')
     expect(second.frames[0].p).toHaveLength(9)
   })
 
@@ -61,12 +61,12 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(sent[0]).not.toHaveProperty('height')
   })
 
-  it('sends frames the app could not place without coordinates (ADR 0021), and nobody as p null', () => {
+  it('sends frames the app could not place like nobody: p null, no coordinates, no valid mark (요구 5)', () => {
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))
     const [first] = b.push(input(20, { landmarks: [] }))
     const [second] = b.finish(100)
-    expect(first.frames).toEqual([{ t_ms: 10, p: null, valid: false }])
+    expect(first.frames).toEqual([{ t_ms: 10, p: null }])
     expect(second.frames).toEqual([{ t_ms: 20, p: null }])
   })
 
@@ -104,6 +104,6 @@ describe('posture.frames.v1 draft schema', () => {
     expect(Object.keys(batch).sort()).toEqual([...schema.required].sort())
     expect(schema.properties.schema_version.const).toBe(batch.schema_version)
     expect(schema.properties.feature_version.const).toBe(batch.feature_version)
-    expect(Object.keys(batch.frames[0]).sort()).toEqual(['p', 't_ms', 'valid'])
+    expect(Object.keys(batch.frames[0]).sort()).toEqual(['p', 't_ms'])
   })
 })

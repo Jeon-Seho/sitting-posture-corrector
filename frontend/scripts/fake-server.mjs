@@ -74,6 +74,7 @@ async function readBody(req) {
 }
 
 const server = createServer(async (req, res) => {
+  // Paths have no version, like the server (/api/v2/… was removed 2026-11-09).
   const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
   const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null
   console.log(`${req.method} ${path}`)
@@ -97,7 +98,7 @@ const server = createServer(async (req, res) => {
     baseline = { schema_version: '2.0', baseline_id: randomUUID(), registered_at: new Date().toISOString(), landmarks: body?.landmarks }
     return send(res, 201, baseline)
   }
-  const session = path.match(/^\/v2\/sessions\/([0-9a-f-]{36})$/i)
+  const session = path.match(/^\/sessions\/([0-9a-f-]{36})$/i)
   if (session && req.method === 'PUT') {
     const id = session[1]
     if (!sessions.has(id)) sessions.set(id, newSession(id, body?.policy ?? { hold_ms: 3000, recovery_ms: 3000, reminder_ms: 60000, threshold: 0.7 }))

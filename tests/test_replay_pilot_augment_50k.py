@@ -12,6 +12,7 @@ import numpy as np
 
 from model.analysis.replay_pilot.augment import JITTER_STD, augment_training
 from model.analysis.replay_pilot.augment_50k import TOTAL_VIEWS, TREE_CONFIGS, augment_25_views, experiment, save_outputs
+from model.analysis.frame_pilot.augment import augment_25_views as augment_frame_25_views
 from model.analysis.replay_pilot.evaluate import training_weights
 from model.analysis.replay_pilot.replay import prepare_capture
 from model.analysis.replay_pilot.trees import predict_tree
@@ -41,6 +42,8 @@ class Augmentation50kTest(unittest.TestCase):
         np.testing.assert_array_equal(x, x2)
         np.testing.assert_array_equal(y, y2)
         np.testing.assert_array_equal(weights, weights2)
+        for actual, expected in zip(augment_frame_25_views(self.windows, {"P999"}), (x, y, weights)):
+            np.testing.assert_array_equal(actual, expected)
         for index in range(20):
             reference = base[:n] if index % 2 == 0 else base[n:2*n]
             derived = x[(5 + index)*n:(6 + index)*n]

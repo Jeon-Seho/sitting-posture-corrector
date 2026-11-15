@@ -29,7 +29,6 @@ const OFFLINE_URL = `${LOADING_URL}?state=offline`
 const RETRY_URL = new URL('retry', LOCAL).toString()
 // 화면이 이 시간 안에 안 열리면 연결 실패 화면으로 바꾸고, 실패 화면에서는 이 간격으로 다시 시도한다.
 const LOAD_TIMEOUT_MS = 10000
-const RETRY_MS = 10000
 const DIST = path.join(__dirname, '..', 'dist')
 if (app.isPackaged) {
   protocol.registerSchemesAsPrivileged([
@@ -270,6 +269,21 @@ async function createWindow() {
     executable: loginExecutable, isolated: process.argv.includes('--posegood-smoke-hidden') })
   // 앱을 다시 보면 팝업은 필요 없다. 앱을 닫으면 숨은 팝업 창도 함께 정리해 앱이 종료되게 한다.
   window.on('focus', hidePopup)
+  // 측정 중 X·Alt+F4: 화면의 beforeunload가 닫기를 막으면 Electron은 아무것도 묻지 않고 무시한다.
+  // 웹 브라우저의 「사이트에서 나가시겠습니까?」와 같은 역할로 여기서 묻는다. 닫아도 기록은 서버가 저장한다.
+  window.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: 'question',
+      buttons: ['닫기', '계속 측정'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      title: 'PoseGood',
+      message: '측정 중이에요. 정말 닫을까요?',
+      detail: '닫으면 측정이 끝나요. 그때까지의 기록은 서버에 저장돼요.',
+    })
+    if (choice === 0) event.preventDefault()
+  })
   window.on('closed', () => {
     mainWindow = null
     if (popupWindow && !popupWindow.isDestroyed()) popupWindow.destroy()
@@ -292,7 +306,7 @@ async function createWindow() {
   }
   installCameraWindow({ mainWindow: window, screen, ipcMain, trusted })
   window.webContents.on('will-navigate', (event, url) => {
-    // 연결 실패 화면의 「지금 다시 시도」.
+    // 연결 실패 화면의 「다시 시도」, 그리고 인터넷이 다시 연결됐을 때 한 번.
     if (app.isPackaged && url === RETRY_URL) {
       event.preventDefault()
       void openApp(window)
@@ -318,14 +332,15 @@ async function createWindow() {
   await openApp(window)
 }
 
-let retryTimer = null
 // openApp이 웹 화면을 여는 중이면 실패는 openApp이 처리한다(did-fail-load와 겹치지 않게).
 let opening = false
 
-/** 웹 화면을 연다. LOAD_TIMEOUT_MS 안에 못 열면 연결 실패 화면으로 바꾸고 RETRY_MS마다 다시 시도한다. */
+/**
+ * 웹 화면을 연다. LOAD_TIMEOUT_MS 안에 못 열면 연결 실패 화면으로 바꾼다. 다시 여는 것은 사용자가
+ * 「다시 시도」를 누를 때와 인터넷이 다시 연결됐을 때 한 번(offline.html)뿐이다. 주기적으로 다시 열면
+ * 화면이 계속 바뀌어 사용자가 상황을 알기 어렵다.
+ */
 async function openApp(window) {
-  if (retryTimer) clearTimeout(retryTimer)
-  retryTimer = null
   if (opening || window.isDestroyed()) return
   opening = true
   const timeout = setTimeout(() => { if (!window.isDestroyed()) window.webContents.stop() }, LOAD_TIMEOUT_MS)
@@ -345,8 +360,6 @@ async function openApp(window) {
 function showOffline(window) {
   if (window.isDestroyed()) return
   window.loadURL(fallback().url(OFFLINE_URL)).catch(() => {})
-  if (retryTimer) clearTimeout(retryTimer)
-  retryTimer = setTimeout(() => void openApp(window), RETRY_MS)
 }
 
 // 시작 프로그램과 사용자가 동시에 실행해도 창은 하나만 둔다.

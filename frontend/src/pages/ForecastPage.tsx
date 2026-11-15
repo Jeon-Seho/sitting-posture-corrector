@@ -15,7 +15,8 @@ const labels: Record<ForecastState, string> = {
 const percentage = (v: number | null | undefined) => v == null ? '—' : `${(v * 100).toFixed(1)}%`
 export function ForecastPage({ camera }: { camera: CameraController }) {
   const experiment = useForecastExperiment(camera)
-  useEffect(() => { camera.stop(); return () => camera.stop() }, [camera.stop])
+  const { stop } = camera
+  useEffect(() => { stop(); return () => stop() }, [stop])
   const r = experiment.reading
   return <main className="collection-entry forecast-entry">
     <video ref={camera.videoRef} className="capture-source" muted playsInline aria-hidden="true" />
@@ -29,7 +30,7 @@ export function ForecastPage({ camera }: { camera: CameraController }) {
     <div className="row forecast-controls">
       {camera.state === 'loading' ? <button className="btn" onClick={camera.stop}>카메라 준비 취소</button> :
         camera.state === 'on' ? <button className="btn" onClick={camera.stop}>카메라 끄기</button> :
-        <button className="btn btn-primary" onClick={() => void camera.connect()}>카메라 켜기</button>}
+        <button className="btn btn-primary" onClick={() => void camera.connect()}>{camera.state === 'error' ? '다시 연결' : '카메라 켜기'}</button>}
       <button className="btn" disabled={camera.state !== 'on' || !experiment.model || r?.state === 'registering'} onClick={experiment.register}>실험 기준 등록 (8초)</button>
       <label>예측 방식 <select aria-label="예측 방식" value={experiment.predictor} onChange={e => experiment.setPredictor(e.target.value as typeof experiment.predictor)}>
         <option value="lstm">학습한 LSTM</option><option value="hold_last">마지막 위치 유지</option><option value="constant_velocity">등속 움직임</option>

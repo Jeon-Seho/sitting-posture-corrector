@@ -54,6 +54,22 @@ def load_artifacts(directory):
     return *(joblib.load(directory / name) for name in ARTIFACTS), threshold
 
 
+def load_comparison_artifacts(directory):
+    """Keep window and frame candidates separate and restore their input policy."""
+    from model.analysis.frame_pilot.artifacts import REPORT_SCHEMA, load_models
+    directory = private_destination(directory)
+    report = json.loads((directory / "report.json").read_text(encoding="utf-8"))
+    if report.get("schema_version") == REPORT_SCHEMA:
+        corrector, classifier, report = load_models(directory)
+        threshold = report["all_data_candidate"]["threshold"]
+        visibility = report["settings"]["visibility_minimum"]
+        # The frame pilot has one classifier. Its raw-input comparison is not a
+        # separately trained uncorrected classifier.
+        threshold_status = report["all_data_candidate"].get("threshold_status", "exploratory")
+        return classifier, corrector, classifier, threshold, "frame", visibility, threshold_status
+    return *load_artifacts(directory), "window", 0.65, "exploratory"
+
+
 class Frame(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     session: str = Field(max_length=100)
@@ -163,7 +179,8 @@ def save_scenarios(directory, request):
     return {"filename": name, "directory": str(directory), "records": len(records)}
 
 
-def create_app(uncorrected, corrector, corrected, threshold, *, scenario_dir=None):
+def create_app(uncorrected, corrector, corrected, threshold, *, scenario_dir=None,
+               input_mode="window", min_visibility=0.65, threshold_status="exploratory"):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     scenario_dir = Path(scenario_dir if scenario_dir is not None else ROOT / "model/test/senario").resolve()
     sessions = {}
@@ -244,8 +261,10 @@ def create_app(uncorrected, corrector, corrected, threshold, *, scenario_dir=Non
             if len(sessions) >= 16:
                 raise HTTPException(429, "too many sessions")
             key = secrets.token_urlsafe(24)
-            sessions[key] = (LiveComparison(uncorrected, corrector, corrected, threshold), now)
-        return {"session": key, "threshold": threshold}
+            sessions[key] = (LiveComparison(uncorrected, corrector, corrected, threshold,
+                                            input_mode=input_mode, min_visibility=min_visibility), now)
+        return {"session": key, "threshold": threshold, "input_mode": input_mode,
+                "threshold_status": threshold_status, "visibility_minimum": min_visibility}
 
     @app.post("/api/frame")
     def frame(data: Frame):
@@ -289,8 +308,9 @@ def main():
     if not 1024 <= args.port <= 65535:
         parser.error("port must be in 1024..65535")
     try:
-        artifacts = load_artifacts(args.artifacts_dir)
-        app = create_app(*artifacts, scenario_dir=args.scenario_dir)
+        uncorrected, corrector, corrected, threshold, input_mode, visibility, threshold_status = load_comparison_artifacts(args.artifacts_dir)
+        app = create_app(uncorrected, corrector, corrected, threshold, scenario_dir=args.scenario_dir,
+                         input_mode=input_mode, min_visibility=visibility, threshold_status=threshold_status)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.exit(2, f"Cannot load trusted model artifacts: {type(exc).__name__}\n")
     import uvicorn
