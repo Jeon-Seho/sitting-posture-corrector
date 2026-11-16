@@ -328,7 +328,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
   2. **BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 develop을 push하지 않는다.**
   3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다(옛 경로는 남김). 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개로 한 번에 끝난다.
   4. **배포 날:** DevOps가 서버(`.env` Discord Redirect, io-api·inference·gateway·web)를 올린 **바로 뒤** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인: 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한.
-  5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다.
+  5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다. 새 판은 `frontend`에서 `npm run desktop:portable`로 만든 `release/PoseGood.exe` 한 파일이다(설치 없이 실행, 서명 없어 처음에 SmartScreen 경고). 웹 주소를 열어 화면은 Vercel 배포를 따라가므로, `frontend/electron/`을 바꿀 때만 다시 만든다. 설치 마법사(NSIS)가 필요하면 그때 정한다.
   6. **문제가 생기면:** 서버와 웹을 **둘 다** 이전 판으로 되돌린다(하나만 되돌리면 주소가 다시 어긋난다). 웹은 Vercel에서 이전 Production 배포를 다시 올린다.
 
 ### 지금 하지 않는 것
