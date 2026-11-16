@@ -7,7 +7,7 @@
 
 ## 0. 남은 질문과 요청
 
-기준: develop `7560928`(PR #121까지), `feat/ws-kafka-pipeline` `f9aa575`, BE 브랜치 `refactor/repo-remove-api-version-paths`, 2026-11-13 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
+기준: develop `d9f9460`, `feat/ws-kafka-pipeline` `1067dab`, BE 브랜치 `refactor/repo-remove-api-version-paths` `ab1fc36`, 2026-11-16 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
 다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 순위는 1 Kafka 모드 관련, 2 BE·DevOps가 정할 것, 3 기록 통계이고, 같은 순위 안에서는 먼저 할 것부터 적는다.
 
@@ -32,7 +32,7 @@
 
 D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고칠 것.
 
-11/13 `feat/ws-kafka-pipeline` `f9aa575` 확인: 요구 1·2·4·5는 아직 반영되지 않았다(구독 그룹 이름 `io-ws-${HOSTNAME}`, 자정 넘김은 local에서만, `ack` 전송, 계약 `items` 최대 30 그대로). 그 사이 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영)와 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 들어갔다.
+11/16 `feat/ws-kafka-pipeline` `1067dab` 확인: 요구 1·2·4는 아직 반영되지 않았다(구독 그룹 이름 `io-ws-${HOSTNAME}`, 자정 넘김은 local에서만, `ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 11/16 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
 #### 요구 1. Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17)
 
@@ -337,7 +337,7 @@ FE(klaod-tech)가 직접 하는 일이다.
 
 ## 2. 지금 구조
 
-기준: develop `7560928`(2026-11-13). kafka 경로는 `feat/ws-kafka-pipeline`에만 있고 운영은 local 경로다. 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
+기준: develop `d9f9460`(2026-11-16). kafka 경로는 `feat/ws-kafka-pipeline`에만 있고 운영은 local 경로다. 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
 
 ```
 브라우저 / 데스크톱 앱(Electron, 웹 주소를 엶)
@@ -456,7 +456,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `monitor_session` | 측정 세션(시작·종료 시각, 정책·기준 자세) | 기록(R1) |
 | `collapse_event`, `correction_alert`, `excluded_interval` | 사건, 알림, 집계 제외 구간 | 기록 상세 |
 | `daily_stat` | 일별 통계(Spark J2가 씀) | 아직 안 씀(T1 없음, 요구 14) |
-| `social_identity`, `password_reset_token` | 소셜 로그인 연결, 비밀번호 재설정 토큰(V2.7, PR #113·#114) | 계정 찾기(작업 중) |
+| `social_identity`, `password_reset_token` | 소셜 로그인 연결, 비밀번호 재설정 토큰(V2.7) | Discord 로그인·연결(A11~A17), 비밀번호 찾기(A9·A10) |
 
 **Spark 배치** ([bigdata/README.md](../../../bigdata/README.md), 서버 PC cron)
 
