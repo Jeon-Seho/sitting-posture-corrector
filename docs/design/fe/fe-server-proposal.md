@@ -22,7 +22,7 @@
 |  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 이 FE 배포 뒤 |
 |  |  | 8 | 열린 채 남는 세션 닫기 | BE | 정할 것. 가장 급함(11/13 BE 정리). 먼저 정상 종료 저장 시험(5번) |
 |  |  | 9 | 쉬기 자동 종료 (BE-13) | BE | 정할 것 |
-|  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치 있음(미병합, 11/16 develop 합침·앱 코드는 아래 FE 안대로). 배포 순서·옛 데스크톱 설치판 정할 것 |
+|  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치 있음(미병합, 11/16 develop 합침·앱 코드는 아래 FE 안대로). 옛 데스크톱 설치판은 받아 주지 않음(11/16). 배포 날짜 정할 것 |
 |  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝남(develop #121), `records` 남음 |
 |  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 정할 것 |
 |  |  | 13 | 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23) | BE·FE | 정함, 구현 전 |
@@ -198,7 +198,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
   5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
 - **진행(11/13 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`6543695`, 11/09, develop 미병합)로 서버·추론(`/v2/infer` → `/infer`)·nginx·앱·문서의 `/v2`를 한 번에 지웠다. 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING). 서버와 화면(Vercel)을 같은 때 배포하고 Cloudflare 규칙도 같이 바꿔야 하며, 위 1번(서버가 한동안 두 주소를 다 받기)과 다르다. 정할 것:
-  - **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다.
+  - **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다. **11/16 결정(김유진):** 둘 다 하지 않는다. gateway는 옛 주소를 넘겨 주지 않고(404), 옛 설치판 사용자는 새 설치판을 다시 설치한다(자동 업데이트 없음, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 남은 일). 새 판은 웹 주소를 열어 Vercel 배포를 따라간다. 로그인 유지 쿠키 경로는 `/`라 웹 사용자는 다시 로그인하지 않는다. develop 병합은 운영 배포가 아니므로(자동 배포는 `main`·`release`, Vercel은 포크 develop), 서버와 Vercel은 배포 날 같은 때 올린다.
   - **FE 코드 충돌:** 이 브랜치는 앱 코드도 고쳐 FE 브랜치 `fix/fe-realtime-kafka-mode`와 충돌한다(앱 코드 6곳, FE 문서 4곳). FE 브랜치는 `/v2`를 `serverConfig.ts` 한곳(`API_ROOT`)에 모아 두었으므로, 합칠 때 앱 코드는 FE 브랜치 쪽을 두고 `API_VERSION`을 지워 `API_ROOT`를 `'/api'`로 맞춘다. 두 브랜치 중 무엇을 먼저 develop에 넣을지 BE와 정한다.
   - **11/16:** FE 브랜치가 develop에 들어간 뒤 BE 브랜치에 develop을 합치며 위 안대로 맞췄다. 앱 코드는 FE 쪽을 두고 `API_VERSION`을 지워 `API_ROOT`를 `'/api'`로, 가짜 서버의 「`/v2`도 받기」 줄을 지웠다. 남은 앱 변경은 시험의 주소 확인과 주석뿐이다.
 
