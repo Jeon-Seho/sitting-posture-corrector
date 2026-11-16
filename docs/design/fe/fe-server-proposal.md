@@ -182,7 +182,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 - **진행(11/16 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`ab1fc36`, develop 미병합)에서 서버·추론(`/v2/infer` → `/infer`)·nginx·점검 도구·계약·문서의 `/v2`를 한 번에 지웠다. 11/16 이 브랜치에 develop(FE #123 포함)을 받으며 **앱 코드도 위 2번 안대로 고쳤다**(`API_VERSION` 삭제, `API_ROOT` = `'/api'`, 가짜 서버의 「`/v2`도 받기」 줄 삭제, 시험 주소). 그래서 **FE가 따로 고칠 앱 코드는 없다.**
   - **운영 서버는 아직 `/v2`만 받는다.** 11/16 공개 주소로 확인: `/api/v2/auth/social/signup`은 응답(410), `/api/auth/social/signup`은 경로가 없음(401). 앱만 먼저 바꾸면 로그인부터 모든 요청이 실패한다.
   - 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING, 위 1번 「한동안 둘 다 받기」와 다름). 그래서 아래를 **같은 때** 한다. D-57 통신 시험(11/16)과 섞이지 않게 그 뒤에 순서를 정한다.
-    1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론을 다시 빌드한다.
+    1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론(io-inference)을 다시 빌드한다. 공개 입구 gateway·화면 컨테이너 web의 nginx 설정도 WebSocket 경로가 `/api/v2/realtime` → `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
     2. FE: 포크를 올려 Vercel을 다시 배포한다(앱 코드는 브랜치에 이미 있음).
     3. FE: Cloudflare 요청 제한 `auth-rate-limit`의 `/api/v2/auth/*`를 `/api/auth/*`로(할 일 4와 함께).
     4. DevOps: Discord Developer Portal의 Redirect 주소와 서버 `POSEGOOD_DISCORD_REDIRECT_URI`에서 `/v2`를 뺀다. 안 바꾸면 Discord 로그인이 깨진다(11/16 서버가 Discord에 넘기는 주소는 `/api/v2/auth/social/discord/callback`).

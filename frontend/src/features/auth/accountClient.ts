@@ -82,7 +82,6 @@ export type SocialClient = {
   unlink: () => Promise<void>
 }
 
-/** Only a Discord consent page may be opened from the server's answer. */
 /** Runs one Discord request and logs its start and result (status and code only, see `logDiscord`). */
 async function traced<T>(step: string, run: () => Promise<T>): Promise<T> {
   logDiscord(step)
@@ -101,6 +100,7 @@ async function traced<T>(step: string, run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Only a Discord consent page may be opened from the server's answer. */
 export function discordAuthorizeUrl(payload: unknown): string {
   const url = payload && typeof payload === 'object' ? (payload as { authorize_url?: unknown }).authorize_url : null
   if (typeof url !== 'string') throw new AccountError('계정 응답 형식이 달라요.', null, null)
@@ -400,7 +400,8 @@ export function createAccountClient(
           return draft
         } catch (error) {
           console.error('[features/auth/accountClient.ts:signupDraft] Operation failed', error)
-          // 404 = the sign-up cookie did not arrive or the server has Discord off; 410 = it expired.
+          // 410 = no sign-up waiting: the cookie did not arrive, 15 min passed, Discord is off, or io-api
+          // restarted (it keeps the sign-up in memory). 404 only if the route itself is missing.
           if (error instanceof AccountError && (error.status === 410 || error.status === 404)) return null
           throw error
         }

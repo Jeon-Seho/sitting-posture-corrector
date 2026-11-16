@@ -94,7 +94,7 @@ BE 명세에 번호가 없어 FE가 A9~A17을 붙였다. 요청과 응답은 [�
 | A11 | POST | Discord 로그인 시작 | `/auth/social/{provider}/login` | | Discord 로그인 | 로그인 화면 Discord 버튼. 받은 `authorize_url`로 이동한다 | 사용(빌드 변수) |
 | A12 | POST | Discord 연결 시작 | `/auth/social/{provider}/link` | | Discord 연결·해제 | 프로필 설정 「Discord 연결」 | 사용(빌드 변수) |
 | A13 | GET | Discord에서 돌아오기 | `/auth/social/{provider}/callback` | `code`, `state`, `error` | Discord 로그인 | 부르지 않는다. Discord가 브라우저를 보내고, 서버가 `#social-result?status=` 또는 `#social-signup`으로 앱에 돌려보낸다. 로그인됐으면 A8 → A4로 이어진다 | 안 씀(브라우저 이동) |
-| A14 | GET | Discord 가입 정보 | `/auth/social/signup` | | Discord 로그인 | `#social-signup`으로 돌아왔을 때 이메일·추천 이름을 받는다. 410이면 「가입 확인 시간이 지났어요」 | 사용(빌드 변수) |
+| A14 | GET | Discord 가입 정보 | `/auth/social/signup` | | Discord 로그인 | `#social-signup`으로 돌아왔을 때 이메일·추천 이름을 받는다. 가입 대기를 못 찾으면 410이다(가입 쿠키가 안 실림, 15분 지남, 서버 Discord 꺼짐, 대기는 서버 메모리라 그 사이 io-api가 다시 켜짐). 앱은 「가입 확인 시간이 지났어요」 | 사용(빌드 변수) |
 | A15 | POST | Discord 가입 | `/auth/social/signup` | | Discord 로그인 | Discord 가입의 약관 동의·프로필 입력을 마쳤을 때(비밀번호 없음) | 사용(빌드 변수) |
 | A16 | GET | 로그인 방법 조회 | `/auth/social` | | Discord 연결·해제 | 프로필 설정을 열 때, 연결 해제 뒤 | 사용(빌드 변수) |
 | A17 | DELETE | Discord 연결 해제 | `/auth/social/{provider}` | | Discord 연결·해제 | 프로필 설정 「연결 해제」. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD` | 사용(빌드 변수) |

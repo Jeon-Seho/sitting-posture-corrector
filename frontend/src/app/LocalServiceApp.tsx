@@ -202,7 +202,7 @@ export function LocalServiceApp({
       .then((draft) => {
         if (cancelled) return
         if (!draft) {
-          logDiscord('signup draft missing (cookie not sent, expired, or Discord off on the server)')
+          logDiscord('signup draft missing (410: cookie not sent, expired, Discord off, or io-api restarted)')
           setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
           return
         }
