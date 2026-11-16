@@ -25,10 +25,12 @@
 |---|---|---|---|---|---|---|---|
 | auth | 회원가입 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 약관 동의, 계정 정보 입력으로 계정을 만들고 바로 로그인한다. 자세 등록은 선택이다 | A2 | 구현됨 |
 | auth | 로그인 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 이메일과 비밀번호로 로그인한다 | A3 | 구현됨 |
+| auth | Discord 로그인 | 중 | `UNAUTHENTICATED` | `AUTHENTICATED` | Discord로 로그인한다. 처음이면 약관 동의·프로필 입력으로 비밀번호 없는 계정을 만든다. 웹만(데스크톱 앱은 숨김) | A11, A13~A15, A8, A4 | 일부(운영 웹 빌드 변수 켜기 남음) |
 | auth | 로그인 유지 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | access 토큰을 만료 전에 자동으로 갱신하고, 앱을 다시 열어도 로그인을 유지한다 | A8, A4 | 구현됨(설치용 데스크톱 앱은 F14 배포 뒤) |
 | auth | 로그아웃 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 로그인을 끝내고 카메라를 끈다 | A5 | 구현됨 |
-| auth | 비밀번호 찾기 | 하 | `UNAUTHENTICATED` | `UNAUTHENTICATED` | 메일로 비밀번호를 재설정한다. 화면만 있고 서버 API와 메일 발송이 없다 | 미정 | 구현 전 |
+| auth | 비밀번호 찾기 | 하 | `UNAUTHENTICATED` | `UNAUTHENTICATED` | 메일로 받은 일회용 링크로 새 비밀번호를 정한다. 앱·서버는 있고, 운영 서버 메일이 꺼져 있다 | A9, A10 | 일부(운영 메일 꺼짐) |
 | user | 프로필 수정 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이름과, 동의한 경우 나이·직업을 고친다 | W1, W2 | 구현됨 |
+| user | Discord 연결·해제 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이메일로 가입한 계정에 Discord를 연결하거나 해제한다. 웹만 | A12, A13, A16, A17 | 일부(운영 웹 빌드 변수 켜기 남음) |
 | user | 비밀번호 변경 | 중 | `AUTHENTICATED` | `UNAUTHENTICATED` | 비밀번호를 바꾼다. 모든 로그인이 끊겨 로그인 화면으로 간다 | A6 | 구현됨 |
 | user | 회원탈퇴 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 탈퇴를 접수한다. 되돌릴 수 없고, 서버 자료는 30일 뒤 Spark J3가 지운다 | A7 | 일부 |
 | setting | 판정 기준 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 붕괴 기준 점수, 확정·회복 시간, 재알림 주기를 바꾼다. 바꾸면 W2로 서버에 저장하고, 로그인 뒤·측정하기와 설정 화면을 열 때 W1으로 받는다. 판정 값은 기기에 남기지 않는다(11/10). 측정 시작 때 이 값을 S1 `policy`로 보낸다 | W1, W2, S1 | 구현됨 |
@@ -141,6 +143,43 @@
 - ID 칸에 `admin`을 넣으면 서버에 보내지 않고 개발자 계정으로 들어간다(비밀번호 `1234`). 서버 측정과 저장은 쓸 수 없는 화면 확인용이다.
 - 코드: [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `login`, [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts) `accountErrorMessage`.
 
+### Discord 로그인
+
+**선행조건**
+
+- 로그인하지 않은 상태이고, 웹에서 연 앱이다(데스크톱 앱은 `app://` 화면이라 Discord에서 돌아오는 주소를 받지 못해 숨긴다).
+- 운영 웹 빌드 변수 `VITE_DISCORD_LOGIN_ENABLED=true`, 서버 Discord 설정이 켜져 있다.
+
+**트리거**
+
+- 로그인 화면의 Discord 버튼을 누른다.
+
+**동작**
+
+1. A11로 Discord 주소를 받아 그 주소로 이동한다. 사용자는 Discord에서 허락한다.
+2. 서버가 결과만 주소 뒤(`#social-result?status=`·`#social-signup`)에 실어 앱으로 돌려보낸다. 토큰은 주소에 싣지 않고, 앱은 결과를 읽자마자 주소창에서 지운다.
+3. **이미 가입한 Discord(`signed-in`):** 서버가 refresh 쿠키를 주었으므로 평소 앱 시작(A8 → A4)으로 로그인된다.
+4. **처음 쓰는 Discord(`#social-signup`):** A14로 Discord가 확인한 이메일과 추천 이름을 받아 「Discord로 회원가입 · 1/3 약관 동의」부터 시작한다. 이메일은 바꿀 수 없고 비밀번호는 받지 않는다. 동의·프로필 규칙은 회원가입과 같고, 마치면 A15로 가입하고 바로 로그인한다. 비밀번호는 나중에 비밀번호 찾기로 정할 수 있다.
+
+**예외 / 제한사항**
+
+| 돌아온 결과 | 앱 안내 |
+|---|---|
+| `link-required`(같은 이메일로 가입한 계정이 있음, 자동 연결하지 않음) | 「이 Discord의 이메일로 가입한 계정이 이미 있어요. 이메일과 비밀번호로 로그인한 뒤 프로필 설정에서 Discord를 연결해 주세요.」 |
+| `email-required` | 「Discord 계정에 확인된 이메일이 없어 가입할 수 없어요…」 |
+| `in-use` | 「이 Discord 계정은 이미 다른 바른자세 계정에 연결돼 있어요.」 |
+| `closed`(탈퇴한 계정) | 「탈퇴한 계정입니다. 되돌릴 수 없고 탈퇴 30일 뒤 삭제됩니다.」 |
+| `cancelled` / `expired` | 「Discord 로그인을 취소했어요.」 / 「Discord 로그인 시간이 지났어요. 다시 시도해 주세요.」 |
+| 가입 대기 15분이 지남(A14 410) | 「Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.」 |
+| 빌드 변수가 꺼짐 / 데스크톱 앱 | 「Discord 로그인은 서버 설정을 마친 뒤 사용할 수 있어요.」 / 「Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.」 |
+| 그 밖의 실패 | 「Discord 로그인을 완료하지 못했어요. 잠시 뒤 다시 시도해 주세요.」 |
+
+**비고**
+
+- 카카오·Google·GitHub 버튼도 화면에 있지만 흐리게 두고 누르면 「○○ 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.」
+- 운영 서버는 11/12에 Discord를 켰다. 운영 웹 빌드 변수 켜기는 [FE 제안서](fe-server-proposal.md) 할 일 6.
+- 코드: [socialLogin.ts](../../../frontend/src/features/auth/socialLogin.ts), [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts) `social`, [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `startDiscord`. 서버 쪽은 [인계](../social-login-password-reset-handoff.md).
+
 ### 로그인 유지
 
 **선행조건**
@@ -173,7 +212,6 @@
 **선행조건**
 
 - 로그인한 상태이고 측정 중이 아니다.
-- 서버 확인을 기다리는 측정 결과가 없다.
 
 **트리거**
 
@@ -199,25 +237,35 @@
 **트리거**
 
 - 로그인 화면에서 「비밀번호 재설정」을 누른다.
+- 메일의 재설정 링크(`#password-reset?token=`)로 앱을 연다.
 
 **동작**
 
-1. 메일 화면으로 간다. 메일로 받은 코드와 새 비밀번호를 입력하는 화면이다.
-2. 새 비밀번호는 12자 이상, UTF-8 72바이트 이하이고 두 번 같게 입력해야 한다.
+1. 이메일을 넣고 「안내 메일 요청」을 누르면 A9를 보낸다. 가입 여부와 관계없이 「가입된 주소라면 재설정 안내를 보내드려요. 메일함을 확인해 주세요.」를 보이고 60초 동안 다시 요청하지 못한다.
+2. 메일 링크로 들어오면 토큰을 주소창에서 바로 지우고 새 비밀번호 입력 화면을 연다. 「이미 받은 인증 코드 입력」으로 코드를 직접 넣을 수도 있다.
+3. 새 비밀번호(12자 이상, UTF-8 72바이트 이하, 두 번 같게)를 넣고 「새 비밀번호 저장」을 누르면 A10을 보낸다.
+4. 성공하면 「비밀번호를 재설정했어요. 모든 기기에서 로그아웃됐으니 새 비밀번호로 다시 로그인해 주세요.」 자동으로 로그인하지 않는다.
 
 **예외 / 제한사항**
 
-- 서버 API와 메일 발송이 없어 요청이 나가지 않는다. 「메일 인증 서버 연결을 준비 중이에요.」를 보인다. 설정 `VITE_ACCOUNT_MAIL_API_ENABLED`가 켜지면 `/auth/…`로 보낸다.
+| 상황 | 앱 안내 |
+|---|---|
+| 앱 빌드 변수 `VITE_PASSWORD_RESET_ENABLED`가 꺼짐(요청을 보내지 않음), 서버가 꺼짐(404) | 「메일 인증 서버 연결을 준비 중이에요.」 빌드 변수가 꺼져 있으면 화면 아래에 「화면 준비 단계예요…」도 늘 보인다 |
+| 너무 자주 요청(429) | 「요청이 많아요. 잠시 기다린 뒤 다시 시도해 주세요.」 |
+| 링크가 만료·사용됨·무효(410), 비밀번호 규칙 위반(400) | 「링크가 만료됐거나 이미 사용됐어요. 새 메일을 요청해 주세요.」 |
+| 응답 없음(15초), 그 밖의 오류 | 「요청을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.」 |
 
 **비고**
 
-- 구현 전. 설계안은 [이메일 계정 인계](../email-account-handoff.md). 코드: [MailAccessPage.tsx](../../../frontend/src/features/auth/MailAccessPage.tsx), [mailApi.ts](../../../frontend/src/features/auth/mailApi.ts).
+- 운영 서버는 재설정 메일을 꺼 두었다(도메인 메일 서비스가 정해진 뒤 켬). 켜지면 운영 웹 빌드 변수도 켠다.
+- 메일 링크의 30분 유효, 새 메일을 받으면 이전 링크 무효는 서버 규칙이다([계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)).
+- 코드: [MailAccessPage.tsx](../../../frontend/src/features/auth/MailAccessPage.tsx), [mailApi.ts](../../../frontend/src/features/auth/mailApi.ts). 같은 화면의 이메일 인증은 서버 경로가 없어 꺼져 있다.
 
 ### 프로필 수정
 
 **선행조건**
 
-- 로그인한 상태이고 측정 중이 아니다. 서버 확인을 기다리는 결과가 없다.
+- 로그인한 상태이고 측정 중이 아니다.
 
 **트리거**
 
@@ -239,6 +287,34 @@
 **비고**
 
 - 코드: [ServerAccountPage.tsx](../../../frontend/src/features/profile/ServerAccountPage.tsx).
+
+### Discord 연결·해제
+
+**선행조건**
+
+- 로그인한 상태이고 측정 중이 아니다. 웹에서 연 앱이고 Discord 로그인 선행조건(빌드 변수·서버 설정)을 갖췄다.
+
+**트리거**
+
+- 프로필 설정 화면의 「로그인 수단」에서 「Discord 연결」 또는 「연결 해제」를 누른다.
+
+**동작**
+
+1. 프로필 설정을 열면 A16으로 연결 상태를 받아 「연결됨 · Discord로 로그인할 수 있어요」 또는 「연결 안 됨」을 보인다. 서버나 빌드 변수가 Discord를 꺼 두었으면 「로그인 수단」을 보이지 않는다.
+2. 「Discord 연결」: A12로 받은 Discord 주소로 이동하고, 돌아오면(`linked`) 「Discord 계정을 연결했어요. 다음부터 Discord로 로그인할 수 있어요.」
+3. 「연결 해제」: A17 뒤 A16으로 상태를 다시 받고 「Discord 연결을 해제했어요.」
+
+**예외 / 제한사항**
+
+| 상황 | 앱 안내 |
+|---|---|
+| 이미 연결됨(A12 409) | 「이미 Discord가 연결돼 있어요.」 |
+| 비밀번호도 다른 연결도 없는 계정의 해제(A17 409 `LAST_LOGIN_METHOD`) | 「비밀번호가 없어 Discord가 유일한 로그인 수단이에요. 로그인 화면의 비밀번호 재설정으로 비밀번호를 먼저 정해 주세요.」 |
+| 다른 바른자세 계정에 연결된 Discord(`in-use`) | Discord 로그인의 같은 문구 |
+
+**비고**
+
+- 코드: [SocialLinkSection.tsx](../../../frontend/src/features/profile/SocialLinkSection.tsx).
 
 ### 비밀번호 변경
 
@@ -407,7 +483,6 @@
 **선행조건**
 
 - 카메라가 켜져 있고 추적 품질이 충분하다. 기준 자세가 등록돼 있다.
-- 서버 확인을 기다리는 이전 결과가 없다.
 
 **트리거**
 

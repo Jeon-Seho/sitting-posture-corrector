@@ -69,7 +69,7 @@
 
 ## 3. API 목록
 
-경로는 서버 기준이다. 앱은 앞에 `/api`를 붙여 부른다(1장). 기능명은 [FE 기능 명세](fe-feature-spec.md)와 같고, 요청과 응답은 [7장](#7-api-상세)에 있다. **앱 사용**은 2026-11-09 코드 기준이다. `사용`, `안 씀`(서버에는 있음), `서버 없음`(구현 전)으로 적는다.
+경로는 서버 기준이다. 앱은 앞에 `/api`를 붙여 부른다(1장). 기능명은 [FE 기능 명세](fe-feature-spec.md)와 같고, 요청과 응답은 [7장](#7-api-상세)에 있다. **앱 사용**은 2026-11-16 develop 코드 기준이다. `사용`, `안 씀`(서버에는 있음), `서버 없음`(구현 전)으로 적는다.
 
 ### auth | 인증
 
@@ -82,6 +82,24 @@
 | [A6](#api-a6) | PUT | 비밀번호 변경 | `/auth/password` | | 비밀번호 변경 | 프로필 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) | 사용 |
 | [A7](#api-a7) | DELETE | 탈퇴 접수 | `/auth/account` | | 회원탈퇴 | 프로필 › 탈퇴 | 사용 |
 | [A8](#api-a8) | POST | 로그인 유지 | `/auth/refresh` | | 로그인 유지 | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) | 사용 |
+
+### auth | Discord 로그인·비밀번호 재설정
+
+BE 명세에 번호가 없어 FE가 A9~A17을 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 둘 다 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED`)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영 서버는 Discord만 켜져 있다.
+
+| ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
+|---|---|---|---|---|---|---|---|
+| A9 | POST | 재설정 메일 요청 | `/auth/password-reset/requests` | | 비밀번호 찾기 | 로그인 › 「비밀번호 재설정」에서 이메일을 넣고 보낼 때 | 사용(빌드 변수) |
+| A10 | POST | 비밀번호 재설정 | `/auth/password-reset/confirm` | | 비밀번호 찾기 | 메일 링크(`#password-reset?token=`)로 들어와 새 비밀번호를 정할 때 | 사용(빌드 변수) |
+| A11 | POST | Discord 로그인 시작 | `/auth/social/{provider}/login` | | Discord 로그인 | 로그인 화면 Discord 버튼. 받은 `authorize_url`로 이동한다 | 사용(빌드 변수) |
+| A12 | POST | Discord 연결 시작 | `/auth/social/{provider}/link` | | Discord 연결·해제 | 프로필 설정 「Discord 연결」 | 사용(빌드 변수) |
+| A13 | GET | Discord에서 돌아오기 | `/auth/social/{provider}/callback` | `code`, `state`, `error` | Discord 로그인 | 부르지 않는다. Discord가 브라우저를 보내고, 서버가 `#social-result?status=` 또는 `#social-signup`으로 앱에 돌려보낸다. 로그인됐으면 A8 → A4로 이어진다 | 안 씀(브라우저 이동) |
+| A14 | GET | Discord 가입 정보 | `/auth/social/signup` | | Discord 로그인 | `#social-signup`으로 돌아왔을 때 이메일·추천 이름을 받는다. 410이면 「가입 확인 시간이 지났어요」 | 사용(빌드 변수) |
+| A15 | POST | Discord 가입 | `/auth/social/signup` | | Discord 로그인 | Discord 가입의 약관 동의·프로필 입력을 마쳤을 때(비밀번호 없음) | 사용(빌드 변수) |
+| A16 | GET | 로그인 방법 조회 | `/auth/social` | | Discord 연결·해제 | 프로필 설정을 열 때, 연결 해제 뒤 | 사용(빌드 변수) |
+| A17 | DELETE | Discord 연결 해제 | `/auth/social/{provider}` | | Discord 연결·해제 | 프로필 설정 「연결 해제」. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD` | 사용(빌드 변수) |
+
+`{provider}`는 앱에서 `discord`만 쓴다. 카카오·Google·GitHub 버튼은 흐리게 두고 누르면 「준비 중이에요」를 띄운다.
 
 ### workspace | 동의·설정
 
@@ -102,7 +120,7 @@
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
 | [S1](#api-s1) | PUT | 세션 생성 | `/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
-| [S4](#api-s4) | GET | 세션 상태 조회 | `/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+| [S4](#api-s4) | GET | 세션 상태 조회 | `/sessions/{id}` | | 측정 종료, 측정 결과 확인 | `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때, `end` 뒤 WS가 먼저 닫혔을 때. 서버 확인 없이 끝난 측정이 R1에 안 나오면 측정 중이 아닐 때 15초마다(4.5). 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85) | 사용 |
 
 S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{id}`)은 쓰지 않아 지웠다(D-88). 세션은 WS로만 끝나고, 기록은 지우지 않는다.
 
@@ -116,7 +134,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [R1](#api-r1) | GET | 기록 목록 조회 | `/records` | | 측정 결과 확인, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
+| [R1](#api-r1) | GET | 기록 목록 조회 | `/records` | | 측정 결과 확인, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 측정 중이 아닐 때 15초마다, 기록 화면 오류의 「다시 시도」 | 사용 |
 | [R1b](#api-r1b) | GET | 기록 하나 조회 | `/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
 | [T1](#api-t1) | GET | 일별 통계 조회 | `/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
 
@@ -126,7 +144,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-없는 API: A1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 지우기로 했다(앱은 부르지 않음, [FE 제안서](fe-server-proposal.md) 요구 11). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 11). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -231,7 +249,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 흐트러지기 시작 | 자세가 흐트러지고 있어요(주의 색, 소리 없음). 주의 상자에 게이지(`hold_ms` ÷ 정책 hold 시간) | `observation.posture: 'bad'`, 열린 사건 없음(확정 전, 4.0 서버만) |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
 | 회복 중 | 자세가 흐트러졌어요(확정 전까지 유지). 회복 상자에 게이지(`recovery_ms` ÷ 정책 회복 시간) | 위 상태 + `observation.posture: 'good'` |
-| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `valid: false`·`p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
+| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
 | 영상 기다림 | 카메라 영상을 기다리고 있어요 | 앱의 `away` |
 | 분석 멈춤 | 연결 상태 칸에 안내 | `stalled` |
