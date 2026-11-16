@@ -9,12 +9,11 @@
 
 기준: develop `d9f9460`, `feat/ws-kafka-pipeline` `1067dab`, BE 브랜치 `refactor/repo-remove-api-version-paths` `ab1fc36`, 2026-11-16 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
-다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 순위는 1 Kafka 모드 관련, 2 BE·DevOps가 정할 것, 3 기록 통계이고, 같은 순위 안에서는 먼저 할 것부터 적는다.
+다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 순위는 1 Kafka 모드 관련, 2 BE·DevOps가 정할 것, 3 기록 통계이고, 같은 순위 안에서는 먼저 할 것부터 적는다. 요구 1(Kafka 경로 서버 health)은 서버가 스스로 정하고 챙길 일이라 뺐다(11/16). 다른 문서가 번호로 가리키므로 번호는 다시 매기지 않는다.
 
 | 순위 | 묶음 | # | 요구 | 누가 | 언제 |
 |---|---|---|---|---|---|
-| 1 | Kafka 모드(D-57)와 관련된 것 | 1 | Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17) | BE·DevOps·PM | kafka 모드를 운영에 켜기 전 / 쿠버네티스로 옮길 때 |
-|  |  | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | PM·DevOps·BE | kafka 모드를 운영에 켜기 전 |
+| 1 | Kafka 모드(D-57)와 관련된 것 | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | PM·DevOps·BE | kafka 모드를 운영에 켜기 전 |
 |  |  | 3 | Kafka 전환 때 판정 순서 확인 | BE·DevOps·PM | Kafka 전환 시험 |
 |  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 급하지 않음. kafka 모드 병합(D-57) 때 함께 |
 |  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `maxItems 1`·프레임 `valid` 빼기) FE 끝(11/13). 나머지는 요구 4와 같은 계약 판에 |
@@ -32,26 +31,7 @@
 
 D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고칠 것.
 
-11/16 `feat/ws-kafka-pipeline` `1067dab` 확인: 요구 1·2·4는 아직 반영되지 않았다(구독 그룹 이름 `io-ws-${HOSTNAME}`, 자정 넘김은 local에서만, `ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 11/16 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
-
-#### 요구 1. Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17)
-
-- **한줄요약:** 「살아 있다면서 Kafka 일은 안 하는」 서버를 쿠버네티스가 재시작할 수 있게 각 서버 health를 고친다.
-- **발단:** D-57 통신 시험 보고서를 검수하며 Kafka 경로 장애 때 앱 대응을 kafka 브랜치 코드와 맞춰 봤다. 장애 대부분은 정해져 있다: 서비스·Kafka가 죽으면 쿠버네티스가 다시 띄우고(BE 답), 기록은 Kafka가 들고 있다가 처리되며 Hadoop에도 남는다. 그보다 큰 장애는 FE가 대비하지 않는다(11/11 결정). 시작 때 Kafka가 죽어 있으면 앱이 오류 화면(500 그림)으로 막는다([FE 예외 처리 방안](fe-exception-handling-plan.md) 2.4). 그런데 **프로세스는 살아 있어 health 200인데 Kafka 일은 안 하는 상태**가 있었다.
-- **원인:** health가 자기 Kafka 스레드를 보지 않거나, 반대로 남의 상태까지 본다. 앱은 이걸 「추론 재시작 중」과 구별할 수 없어(둘 다 `observation`만 안 옴) 서버에서만 확인할 수 있다.
-  - **A** io-api 결과 구독 스레드가 예외로 끝나도 다시 시작하지 않음(`KafkaResults.run`) → 모든 측정에 결과·`closed`가 안 가는데 health 200
-  - **B** 추론 Kafka 입력 스레드가 죽어도 상태에 `running: true`(`realtime.py` `status()`)
-  - **C** 판정 결과 형식이 안 맞으면 io-api가 메시지를 전부 건너뜀(로그 경고만, lag 0)
-  - **D** 처리 서비스 `@KafkaListener`가 멈춰도 Spring 기본 health에 안 나옴(**BE 확인 필요**)
-  - **E** io-api `stalled` 타이머가 예외로 조용히 멈춤(가능성 낮음)
-  - **F** 추론 `/health`가 Kafka·Redis까지 봐서, liveness로 쓰면 Kafka가 잠깐 죽을 때 추론도 계속 재시작됨
-  - **G** io-api 결과 구독 그룹 이름이 `io-ws-${HOSTNAME}`이라 쿠버네티스 파드마다 그룹이 새로 생김
-- **요구사항/변경사항:**
-  - **BE-14** 각 서버 liveness에 **자기** Kafka 스레드·리스너가 도는지 넣는다(A·B·D·E). 쿠버네티스는 liveness가 실패해야 재시작한다. 「쿠버네티스가 다시 띄우니 FE는 대비하지 않는다」의 전제 조건이다. kafka 모드를 운영에 켜기 전.
-  - **BE-15** 다른 서버(Kafka·Redis·DB) 상태는 liveness에서 뺀다(F). 넣으면 멀쩡한 서버가 무한 재시작되고, io-api면 측정 중인 모든 WS가 끊긴다. 저장소의 같은 원칙: `infra/compose/bigdata.yaml` 처리 서비스(D-11) 「liveness만 본다 — 외부 DB 일시 장애가 번지지 않게」. 쿠버네티스로 옮길 때.
-  - **BE-16** 건너뛴 메시지 수와 DLQ(`posture.dlq`) 증가를 내놓고 알림을 받는다(C). 재시작으로 안 고쳐지는 배포 문제라 사람이 봐야 한다. kafka 모드를 운영에 켜기 전.
-  - **BE-17** 결과 구독 그룹 이름을 고정값(`posegood.realtime.kafka.group-id`)으로 준다(G). 쿠버네티스로 옮길 때.
-  - 위치: io-api `KafkaResults.java`·`RealtimeHandlerV2.java`(`timer`·`checkStalled`)·`HealthController.java`·`RealtimePipelineConfiguration.java`, 추론 `realtime.py`·`main.py` `/health`, 처리 서비스 `RealtimeInferenceConsumer.java`·`EpisodesStoreConsumer.java`, `infra/compose/bigdata.yaml`, 쿠버네티스 매니페스트. FE는 할 일 없음.
+11/16 `feat/ws-kafka-pipeline` `1067dab` 확인: 요구 2·4는 아직 반영되지 않았다(자정 넘김은 local에서만, `ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 11/16 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
 #### 요구 2. kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18)
 
@@ -212,7 +192,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   1. BE: C1 경로와 처리(`WorkspaceController` `/consents/optional-profile`, 서비스·시험)를 지운다. 가입 때 선택 정보 동의(`OPTIONAL_PROFILE`)와 W1의 `consents.optional_profile`은 그대로 둔다.
   2. BE: `WorkspaceService.get`에서 `result.set("records", …)`를 지우고, BE API 명세 W1 응답·서버 시험을 고친다. API 이름은 「설정 조회」.
   3. FE: 할 일 없음. 앱은 C1을 부르지 않고 W1의 `records`를 읽지 않으며, 칸이 없어도 형식 검사가 통과한다. 서버를 먼저 바꿔도 운영 화면에 영향이 없다. 연동 명세·FE 기능 명세는 11/12에 미리 고쳤다.
-  4. H1(`GET /health`)은 남긴다. 앱은 부르지 않지만 컨테이너 healthcheck, gateway, 배포 확인과 평소 상태 확인에 쓴다(요구 1의 liveness도 이 주소).
+  4. H1(`GET /health`)은 남긴다. 앱은 부르지 않지만 컨테이너 healthcheck, gateway, 배포 확인과 평소 상태 확인에 쓴다.
   - 결과: 가입 뒤 선택 정보 동의를 앱에서 철회하는 기능은 없다. 나이·직업은 프로필 수정(W2)에서 비울 수 있다.
 - **진행(11/13 확인):** 1번은 11/12 develop #121로 끝났다(김유진, S3·R3도 함께 지움, [계획 0062](../../plans/active/0062-remove-unused-apis.md) 2단계). 2번(W1 `records` 빼기)은 남았다(`WorkspaceService` 67줄).
 
@@ -430,7 +410,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 4. `end` → `decision(session_ended)` → `closed(ended)`. 연결이 끊기면 마지막으로 받은 구간 끝에서 서버가 끝내 저장한다. 재연결은 없다([ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)).
 5. 판정 불가·자리 비움이 30분 이어지면 서버가 끝낸다(`unmeasurable_timeout`). 자정 넘김(`session_rollover`)은 구현돼 있지만 운영 설정은 꺼져 있다(요구 7).
 
-**kafka 경로 (D-57, 브랜치)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 1~5.
+**kafka 경로 (D-57, 브랜치)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 2~5.
 
 **서버 설정값** (운영, DevOps)
 
