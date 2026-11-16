@@ -45,6 +45,11 @@ public class ApiError extends RuntimeException {
 		return new ApiError(409, "SESSION_ENDED", "session ended");
 	}
 
+	/** 같은 계정이 다른 기기(세션)에서 측정 중이다(409). 로그인은 막지 않는다. */
+	public static ApiError measuring() {
+		return new ApiError(409, "MEASUREMENT_IN_PROGRESS", "another device is measuring");
+	}
+
 	public static ApiError limit(String message) {
 		return new ApiError(429, "LIMIT_REACHED", message);
 	}

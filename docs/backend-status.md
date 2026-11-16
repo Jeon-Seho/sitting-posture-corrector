@@ -4,6 +4,11 @@
 > 갱신 규칙: backend/AGENTS.md. 할 일은 계획, 결정 이유는 ADR을 본다.
 > 코드 경로: `backend/api/src/main/java/org/posegood/api/` 기준(시험은 `src/test/...`).
 
+## 2026-11-16 한 기기 측정
+
+[계획 0096](plans/completed/0096-single-device-measurement.md): 여러 기기 로그인은 그대로 두고, 같은 계정이 다른 기기에서 측정 중이면
+S1·hello를 `409 MEASUREMENT_IN_PROGRESS`로 거절한다(연결 중 또는 S1 뒤 30초). 단일 API 메모리 기준이다.
+
 ## 2026-11-16 계정 기능 갱신
 
 [계획 0089](plans/completed/0089-email-recovery-social-link.md): 일반 가입 6자리 이메일 인증(기본 꺼짐, 단일 API 메모리 대기),

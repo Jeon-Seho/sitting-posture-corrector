@@ -125,7 +125,10 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 ## 측정과 기록
 
 `PUT /sessions/{UUID}`는 `{policy,baseline_id}`. 계정의 현재 정책·현재 기준과 같아야 하며 다르면 409다.
-정책은 ms 단위다. 기준이 없으면 `409 BASELINE_REQUIRED`. 세션은 계정 정책 FK·기준 FK·알림 설정을 고정한다.
+정책은 ms 단위다. 기준이 없으면 `409 BASELINE_REQUIRED`.
+로그인은 여러 기기에서 동시에 유지되지만 측정은 계정당 한 기기만 한다. 같은 계정의 다른 세션이 측정 중이면
+`409 MEASUREMENT_IN_PROGRESS`다(실시간 연결이 열려 있거나 S1 뒤 연결 전 30초 안). 그 세션이 `end`·연결 끊김으로 끝나면 바로 시작할 수 있다.
+S1과 hello 사이에 다른 기기가 먼저 연결했으면 hello는 `closed(session_lost)`다. 세션은 계정 정책 FK·기준 FK·알림 설정을 고정한다.
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
 `GET /sessions/{UUID}`는 조회 v1이다. 세션은 WebSocket `end`·연결 끊김으로 끝난다(REST 종료 `POST .../end`는 2026-11-12 삭제).
 WebSocket은 `/v2/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
