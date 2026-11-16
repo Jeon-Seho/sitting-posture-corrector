@@ -9,7 +9,7 @@ import { desktopBridge } from '../desktop/bridge'
  * Off unless `VITE_DISCORD_LOGIN_ENABLED=true` at build time, and off in the desktop app: its
  * `app://` page cannot receive the browser redirect yet (follow-up: system browser + deep link).
  */
-export type SocialRoute = { kind: 'result'; status: string } | { kind: 'signup' }
+export type SocialRoute = { kind: 'result'; status: string } | { kind: 'signup' } | { kind: 'link' }
 
 export function discordLoginEnabled(flag: unknown = import.meta.env.VITE_DISCORD_LOGIN_ENABLED) {
   return flag === 'true' && !desktopBridge()
@@ -17,6 +17,7 @@ export function discordLoginEnabled(flag: unknown = import.meta.env.VITE_DISCORD
 
 export function socialRoute(hash: string): SocialRoute | null {
   const [path, query = ''] = hash.replace(/^#/, '').split('?')
+  if (path === 'social-link') return { kind: 'link' }
   if (path === 'social-signup') return { kind: 'signup' }
   if (path !== 'social-result') return null
   const status = new URLSearchParams(query).get('status') ?? ''

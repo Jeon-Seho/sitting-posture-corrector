@@ -37,18 +37,20 @@ public class AuthController {
 	private final AuthenticationManager authentication;
 	private final AuthTokens tokens;
 	private final RefreshCookies cookies;
+	private final EmailVerificationService verification;
 
 	public AuthController(
 		AccountService accounts,
 		CurrentUser current,
 		AuthenticationManager authentication,
 		AuthTokens tokens,
-		RefreshCookies cookies) {
+		RefreshCookies cookies, EmailVerificationService verification) {
 		this.accounts = accounts;
 		this.current = current;
 		this.authentication = authentication;
 		this.tokens = tokens;
 		this.cookies = cookies;
+		this.verification = verification;
 	}
 
 	/** 로그인한 내 정보. */
@@ -62,8 +64,11 @@ public class AuthController {
 	public AccountContracts.SignedIn register(
 		@Valid
 		@RequestBody
-		AccountContracts.Register body, HttpServletResponse response) {
-		var account = accounts.register(body);
+		AccountContracts.Register body,
+		@CookieValue(name = EmailVerificationController.COOKIE, required = false) String verificationId,
+		HttpServletResponse response) {
+		var account = verification.register(verificationId, body.email(), () -> accounts.register(body));
+		cookies.add(response, EmailVerificationController.COOKIE, "", java.time.Duration.ZERO);
 		return signIn(account, response);
 	}
 

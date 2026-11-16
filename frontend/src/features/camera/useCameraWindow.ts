@@ -83,6 +83,7 @@ export function useCameraWindow(camera: CameraController, demo = false) {
   }, [supported, bridge, ready, demo, stream])
   useEffect(() => {
     if (!supported) return
+    const operationGeneration = generation
     const remove = !demo ? bridge?.onCameraWindowRequested?.(() => { void open() }) : undefined
     void bridge?.setCameraWindowEnabled?.(ready).catch((caughtError) => {
       console.error('[features/camera/useCameraWindow.ts:useCameraWindow] Operation failed', caughtError)
@@ -90,7 +91,7 @@ export function useCameraWindow(camera: CameraController, demo = false) {
     })
     if (!ready) { close(); setMessage('') }
     return () => {
-      generation.current++
+      operationGeneration.current++
       remove?.()
       close()
       void bridge?.setCameraWindowEnabled?.(false).catch((caughtError) => {

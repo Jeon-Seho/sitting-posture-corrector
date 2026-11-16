@@ -43,19 +43,39 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 ## Discord 로그인·비밀번호 재설정 (2026-11-11, 기본 꺼짐)
 
 둘 다 서버 설정 전에는 `404 SOCIAL_DISABLED`·`404 PASSWORD_RESET_DISABLED`다. 설정·표는 [인계](../docs/design/social-login-password-reset-handoff.md)를 따른다.
-비밀번호를 메일로 보내거나 임시 비밀번호를 만들지 않는다. 주소에는 토큰을 싣지 않는다.
+비밀번호를 메일로 보내거나 임시 비밀번호를 만들지 않는다. 소셜 콜백 주소에는 로그인 토큰을 싣지 않는다. 재설정 링크의 토큰은 fragment에만 싣는다.
 
 | 경로 | 요청과 결과 |
 | --- | --- |
 | `POST /auth/password-reset/requests` | `{email}` → 202(가입 여부와 관계없이 같음). 형식 오류 400, 출처 한도 429. 가입된 정상 계정이면 30분짜리 일회용 링크 `<app>#password-reset?token=` 메일(60초 재발송 간격, 새 발급 시 이전 링크 무효) |
-| `POST /auth/password-reset/confirm` | `{token,new_password}` → 204. 그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫음, 자동 로그인 없음. 비밀번호 규칙 400 `INVALID_PASSWORD`, 무효·만료·사용됨 410 `RESET_TOKEN_INVALID` |
+| `POST /auth/password-reset/confirm` | `{token,new_password}` → 204. 그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫음, 자동 로그인 없음. 비밀번호 규칙 400 `INVALID_PASSWORD`, 기존 비밀번호 재사용 400 `PASSWORD_REUSED`, 무효·만료·사용됨 410 `RESET_TOKEN_INVALID` |
 | `POST /auth/social/{provider}/login` | `{provider}`는 `discord`·`kakao`·`google`·`github`(지금 켜지는 것은 discord, 나머지는 404 `SOCIAL_DISABLED`). 로그인 없음 → `{authorize_url}` + 대기 쿠키 `posegood_social`(10분). 앱은 그 Discord 주소로 이동 |
 | `POST /auth/social/{provider}/link` | Bearer → 가입과 같음(연결용). 이미 연결 409 `SOCIAL_ALREADY_LINKED` |
-| `GET /auth/social/{provider}/callback` | 제공자가 돌려보냄(시작한 제공자와 경로가 다르면 `expired`) → 302 `<app>#social-result?status=` 또는 `<app>#social-signup`. `signed-in`이면 refresh 쿠키를 준다. 그 밖의 상태: `linked`·`link-required`(같은 이메일 계정 있음, 자동 연결 안 함)·`email-required`·`in-use`·`closed`·`cancelled`·`expired`·`failed` |
+| `GET /auth/social/{provider}/callback` | 제공자가 돌려보냄(시작한 제공자와 경로가 다르면 `expired`) → 302 `<app>#social-result?status=` 또는 `<app>#social-signup`, 기존 이메일 충돌이면 `<app>#social-link` + `posegood_social_link` HttpOnly 쿠키(10분). `signed-in`이면 refresh 쿠키를 준다. 그 밖의 상태: `linked`·`link-required`(같은 이메일 계정 있음, 자동 연결 안 함)·`email-required`·`in-use`·`closed`·`cancelled`·`expired`·`failed` |
 | `GET /auth/social/signup` | 가입 대기 쿠키 `posegood_social_signup`(15분) → `{provider,email,suggested_name}`. 만료 410 `SOCIAL_SIGNUP_EXPIRED` |
 | `POST /auth/social/signup` | `{profile,consents}`(이메일·비밀번호 없음, 동의 규칙은 가입과 같음) → 가입과 같은 응답 + refresh 쿠키. 비밀번호 없는 계정이 된다 |
 | `GET /auth/social` | Bearer → `{password_set,providers:[{provider,available,linked,linked_at}]}` — 네 제공자를 화면 순서(discord·kakao·google·github)로 항상 돌려준다. 준비 중은 `available=false` |
 | `DELETE /auth/social/{provider}` | Bearer → 204. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD`, 연결 없음 404 `SOCIAL_NOT_LINKED` |
+
+### 가입 이메일 인증·충돌 계정 연결 (2026-11-16, 선택 활성화)
+
+서버 `POSEGOOD_EMAIL_VERIFICATION_ENABLED=true`일 때 일반 가입은 해당 브라우저의 이메일 인증 증명이 필요하다.
+기본 꺼짐 상태의 기존 가입·로그인 계약은 유지한다. 프론트와 서버의 활성화·전환 순서는 [이메일 인계](../docs/design/email-account-handoff.md)를 따른다.
+
+| 경로 | 요청과 결과 |
+| --- | --- |
+| `POST /auth/email-verification/requests` | `{email}` → 202 + HttpOnly `posegood_email_verification`. 서버가 6자리 코드를 생성해 SMTP로 발송. 15분, 주소당 60초 재발송, 출처당 15분 5회. 발송 요청 실패 503, 제한 429 |
+| `POST /auth/email-verification/confirm` | 같은 쿠키 + `{token}` → 204. 최대 5회 확인. 잘못된 코드/만료/대기 없음은 410 `EMAIL_VERIFICATION_REQUIRED` |
+| `POST /auth/register` | 기능이 켜졌으면 같은 이메일의 인증 쿠키를 검사하고 가입 성공 때 한 번 소비. 미인증·이메일 변경·소비됨은 410 `EMAIL_VERIFICATION_REQUIRED` |
+| `POST /auth/password-reset/validate` | `{token}` → 204. 링크와 활성 계정 확인만 하며 최종 저장 전에는 소비하지 않음 |
+| `GET /auth/social/pending-link` | 충돌 대기 쿠키 → `{provider,email,verified}`. 확인된 OAuth 대기가 없거나 만료되면 410 |
+| `POST /auth/social/pending-link/verify` | 같은 쿠키 + `{password}` → 204. 기존 계정 비밀번호를 서버에서 확인. 실패 400, 대기당 5회 초과 429. 이 단계에서는 연결·로그인하지 않음 |
+| `POST /auth/social/pending-link/confirm` | 같은 쿠키 → 가입·로그인과 같은 응답 및 refresh 쿠키. 기존 인증과 최종 승인이 있어야 연결. 미인증 403, 중복 연결 409, 만료/취소/사용됨 410 |
+| `DELETE /auth/social/pending-link` | 연결 대기와 쿠키 삭제 → 204. 계정을 연결하지 않음 |
+
+가입 코드와 소셜 충돌 대기는 단일 API 메모리에 둔다. 서버 재시작 시 다시 시작한다. 소셜 연결 승인은
+확인한 계정의 비밀번호가 이후 변경되면 거절한다. 계정 행·이메일은 유지하고 제공자 ID를 `social_identity`에 연결한다.
+메일·연결 응답은 캐시하지 않는다. 프론트는 메일 토큰을 메모리에만 보관하고 링크 진입 시 URL에서 제거한다.
 
 비밀번호 없는 계정은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이고, 재설정 메일로 비밀번호를 정할 수 있다.
 

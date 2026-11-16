@@ -4,6 +4,14 @@
 > 갱신 규칙: backend/AGENTS.md. 할 일은 계획, 결정 이유는 ADR을 본다.
 > 코드 경로: `backend/api/src/main/java/org/posegood/api/` 기준(시험은 `src/test/...`).
 
+## 2026-11-16 계정 기능 갱신
+
+[계획 0089](plans/completed/0089-email-recovery-social-link.md): 일반 가입 6자리 이메일 인증(기본 꺼짐, 단일 API 메모리 대기),
+비밀번호 찾기 링크 유효성 확인·기존 비밀번호 재사용 거절, Discord 이메일 충돌 시 비밀번호 확인→최종 연결 승인→로그인을 구현했다.
+DB V2.7 표를 재사용하고 새 DDL은 없다. 인증 켠 서버는 직접 미인증 가입도 거절한다.
+임시 MySQL에서 HTTP·쿠키·저장·재설정 롤백과 refresh 철회 통합 시험을 통과했다. 실제 SMTP·Discord·운영 배포는 미검증이다.
+활성화·API는 [이메일 인계](design/email-account-handoff.md)와 [계약](../contracts/accounts.v2.md)을 따른다.
+
 ## 1. 요약
 
 - 서버에 구현된 판정 경로: API 안 판정([ADR 0020](decisions/0020-single-api-decision-engine.md)) — `/v2/realtime` → `FrameFeatures` → FastAPI `/v2/infer` → `engine/SessionEngine` → MySQL. Kafka 경로 전환은 [계획 0031](plans/active/0031-realtime-kafka-transition.md)을 따른다.

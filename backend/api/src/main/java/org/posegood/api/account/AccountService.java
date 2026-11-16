@@ -113,6 +113,10 @@ public class AccountService {
 	 */
 	void applyResetPassword(long id, String newPassword) {
 		requireNewPassword(newPassword);
+		var account = requireActive(id);
+		if (hasPassword(account) && passwords.matches(newPassword, account.hash())) {
+			throw new ApiError(400, "PASSWORD_REUSED", "choose a different password");
+		}
 		accounts.changePassword(id, passwords.encode(newPassword));
 		accounts.removeLogins(id);
 	}

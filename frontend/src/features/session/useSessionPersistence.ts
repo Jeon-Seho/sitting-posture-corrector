@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
 import type { LocalWorkspace } from '../storage/useLocalWorkspace'
 import type { ServiceSession } from './types'
@@ -35,7 +35,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
   const latest = useRef({ measuring, setRecords, setError })
   latest.current = { measuring, setRecords, setError }
   const syncing = useRef(false)
-  async function syncRecords() {
+  const syncRecords = useCallback(async function syncRecords() {
     const userId = getServerAuth()?.userId
     if (!userId || syncing.current || latest.current.measuring) return
     syncing.current = true
@@ -56,7 +56,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       latest.current.setError(error instanceof Error ? error.message : '기록을 확인하지 못했어요.')
       reportPageError('records', error, () => void syncRecords())
     } finally { syncing.current = false }
-  }
+  }, [])
   useEffect(() => {
     const changed = () => {
       const userId = getServerAuth()?.userId ?? null
@@ -74,7 +74,7 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
     const unsubscribe = subscribeServerAuth(changed)
     const timer = setInterval(() => { if (!latest.current.measuring) void syncRecords() }, 15000)
     return () => { unsubscribe(); clearInterval(timer) }
-  }, [])
+  }, [syncRecords])
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {

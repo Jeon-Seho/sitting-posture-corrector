@@ -11,7 +11,7 @@
 [/dev 관측 내보내기](../contracts/observation-export.v1.md) · [선택형 스트레칭 사이클](decisions/0044-optional-stretch-cycles.md) · [기준·이탈 판정 먼저](decisions/0045-base-deviation-first.md) · [동작 뒤 기준 측정·랜덤 측정 시간](decisions/0046-base-hold-and-random-hold-length.md) · [ML 연구 계획](ml/rebuild-plan.md) · [jisung 연구 기록](ml/jisung/README.md)
 
 
-- [이메일 인증·비밀번호 재설정 연결 인계](design/email-account-handoff.md): 프론트 페이지/제안 API는 준비 단계이며 SMTP·서버·DB 연결은 후속이다.
+- [이메일 인증·비밀번호 찾기 쉽게 읽는 인수인계](design/email-account-handoff.md)(2026-11-16, [계획 0089](plans/completed/0089-email-recovery-social-link.md)): 가입 코드 인증·찾기/재설정·Discord 충돌 연결 승인 FE/BE 구현, 기본 꺼짐. SMTP·Discord 운영 설정과 실제 발송 검증은 후속이다.
 - [Discord 로그인·비밀번호 재설정 인계](design/social-login-password-reset-handoff.md)(2026-11-11, [계획 0088](plans/active/0088-discord-login-and-password-reset.md)): BE·FE 구현(기본 꺼짐), DB 표 제안 V2.7과 DevOps 환경변수. 쉬운 설명: [소셜 로그인 쉽게 이해하기](design/social-login-eli5.md).
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.

@@ -1,5 +1,9 @@
 # PoseGood API 명세서
 
+> 2026-11-16 계정 추가: 가입 이메일 코드 인증, 비밀번호 찾기 링크 확인·재사용 거절, Discord 충돌 연결 승인은
+> [계정 계약](../../contracts/accounts.v2.md#가입-이메일-인증충돌-계정-연결-2026-11-16-선택-활성화)과 [이메일 인계](email-account-handoff.md)를 따른다.
+
+
 > 자세교정 서비스 · 백엔드 API
 
 Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.

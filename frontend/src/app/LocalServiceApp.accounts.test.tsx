@@ -10,6 +10,7 @@ import { AccountError, type AccountClient, type AccountView } from '../features/
 import { setServerAuth } from '../features/platform/serverAuth'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DEFAULT_RULES } from '../data/posture'
+import { accountMailApi } from '../features/auth/mailApi'
 import { AppErrorBoundary } from '../pages/ErrorPage'
 
 vi.mock('../hooks/useWriterLock', () => ({ useWriterLock: () => ({ state: 'ready', retry: vi.fn() }) }))
@@ -90,6 +91,16 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     renderer = undefined
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+  })
+
+  it('keeps a reset link open even when an earlier login cookie could restore an account', async () => {
+    vi.stubGlobal('window', { location: { hash: '#password-reset?token=synthetic-link', pathname: '/', search: '' }, history: { replaceState: vi.fn() }, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    accounts.me.mockResolvedValue(VIEW)
+    vi.spyOn(accountMailApi, 'validate').mockResolvedValue(undefined)
+    await mount()
+    expect(accounts.me).not.toHaveBeenCalled()
+    expect(renderer!.root.findByType(LoginPage).props.title).toBe('비밀번호 재설정')
+    expect(input('new-password')).toBeTruthy()
   })
 
   it('checks the typed credentials on the server and keeps a profile copy on this device', async () => {

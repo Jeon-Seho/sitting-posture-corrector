@@ -172,42 +172,42 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
 }) {
   const [demo, setDemo] = useState(false)
   const queuedOpen = useRef<'demo' | 'camera' | null>(null)
-  const preview = useCameraWindow(camera, demo)
+  const { open, close, supported, pipWindow, message } = useCameraWindow(camera, demo)
   useEffect(() => {
     if (queuedOpen.current === (demo ? 'demo' : 'camera')) {
       queuedOpen.current = null
-      void preview.open()
+      void open()
     }
-  }, [demo, preview.open])
+  }, [demo, open])
   const posture = useMeasurementStatus()
   const [dismissed, setDismissed] = useState(false)
   const [minimized, setMinimized] = useState(false)
   useEffect(() => {
-    if (!preview.supported) return
-    const report = () => publishCameraTest({ opened: !!preview.pipWindow, collapsed: minimized, message: preview.message })
+    if (!supported) return
+    const report = () => publishCameraTest({ opened: !!pipWindow, collapsed: minimized, message })
     const receive = (event: Event) => {
       const action = (event as CustomEvent<CameraTestAction>).detail
       if (action === 'status') { report(); return }
       if (action === 'demo') {
-        if (demo) void preview.open()
+        if (demo) void open()
         else { queuedOpen.current = 'demo'; setDemo(true) }
         return
       }
-      if (action === 'close') { preview.close(); setDemo(false); return }
+      if (action === 'close') { close(); setDemo(false); return }
       if (!demo && camera.state !== 'on') return
       if (action === 'open') {
         if (demo) { queuedOpen.current = 'camera'; setDemo(false) }
-        else void preview.open()
+        else void open()
         return
       }
       if (action === 'return') {
         void desktopBridge()?.returnFromCameraWindow?.()
-        preview.close()
+        close()
         setDemo(false)
         if (!demo) onExpand?.()
         return
       }
-      if ((action === 'collapse' || action === 'restore') && preview.pipWindow) {
+      if ((action === 'collapse' || action === 'restore') && pipWindow) {
         const collapsed = action === 'collapse'
         void desktopBridge()?.collapseCameraWindow?.(collapsed).then(ok => {
           if (ok) setMinimized(collapsed)
@@ -217,53 +217,53 @@ function DesktopCameraWindow({ camera, floating, onExpand, measuring }: {
     window.addEventListener(CAMERA_TEST_EVENT, receive)
     report()
     return () => window.removeEventListener(CAMERA_TEST_EVENT, receive)
-  }, [demo, camera.state, preview.supported, preview.pipWindow, preview.message, preview.open, preview.close, minimized, onExpand])
+  }, [demo, camera.state, supported, pipWindow, message, open, close, minimized, onExpand])
   useEffect(() => {
-    if (preview.pipWindow) {
+    if (pipWindow) {
       setMinimized(false)
     }
-  }, [preview.pipWindow])
+  }, [pipWindow])
   // Closing lasts until the camera is shown large again (e.g. back on 측정하기).
   useEffect(() => {
     if (!floating) {
       setDismissed(false)
-      if (!preview.pipWindow) setMinimized(false)
+      if (!pipWindow) setMinimized(false)
     }
-  }, [floating, preview.pipWindow])
+  }, [floating, pipWindow])
   if (camera.state !== 'on' && !demo) return null
   const controls = {
     status: demo ? 'demo' as const : (measuring && posture) || ('camera' as const),
     minimized,
     measuring: measuring && !demo,
     onMinimize: () => {
-      if (preview.pipWindow) void desktopBridge()?.collapseCameraWindow?.(!minimized)
+      if (pipWindow) void desktopBridge()?.collapseCameraWindow?.(!minimized)
       setMinimized((old) => !old)
     },
     onExpand: onExpand && (() => {
       // Restore the main native window before navigating to the measurement.
-      if (preview.pipWindow) {
+      if (pipWindow) {
         void desktopBridge()?.returnFromCameraWindow?.()
-        preview.close()
+        close()
       }
       setDemo(false)
       if (!demo) onExpand()
     }),
     onClose: () => {
-      if (demo) { preview.close(); setDemo(false); return }
+      if (demo) { close(); setDemo(false); return }
       if (measuring && endRunningMeasurement(WINDOW_END_REASON)) {
-        preview.close()
+        close()
         return
       }
-      if (preview.pipWindow) preview.close()
+      if (pipWindow) close()
       else setDismissed(true)
     },
   }
   return (
     <>
-      {floating && !demo && !dismissed && !preview.pipWindow && <FloatingPreview camera={camera} controls={controls} />}
-      {preview.pipWindow && createPortal(
+      {floating && !demo && !dismissed && !pipWindow && <FloatingPreview camera={camera} controls={controls} />}
+      {pipWindow && createPortal(
         <WindowPreview camera={camera} controls={controls} demo={demo} />,
-        preview.pipWindow.document.body,
+        pipWindow.document.body,
       )}
     </>
   )

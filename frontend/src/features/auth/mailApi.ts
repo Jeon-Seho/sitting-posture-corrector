@@ -3,7 +3,7 @@ import { API_ROOT, SERVER } from '../platform/serverConfig'
 /**
  * Account mail routes (BE /auth/password-reset/*). Password reset is a one-time link: the
  * server never mails a password. Each purpose is off until its server side is deployed:
- * `VITE_PASSWORD_RESET_ENABLED=true` for reset; email verification has no server route yet
+ * `VITE_PASSWORD_RESET_ENABLED=true` for reset; `VITE_EMAIL_VERIFICATION_ENABLED=true` for signup
  * (`VITE_ACCOUNT_MAIL_API_ENABLED=true` turns both on, as before).
  */
 export type MailPurpose = 'reset' | 'verify'
@@ -22,7 +22,7 @@ export function mailRoute(hash: string): { purpose: MailPurpose; token: string }
   return { purpose: path === 'password-reset' ? 'reset' : 'verify', token: token.length <= 512 ? token : '' }
 }
 
-const NOT_CONNECTED = '메일 인증 서버 연결을 준비 중이에요. 현재 기기 안의 계정에는 적용되지 않아요.'
+const NOT_CONNECTED = '메일 서비스 연결을 준비 중이에요. 잠시 후 다시 시도해 주세요.'
 
 export function createMailApi({ enabled = false, resetEnabled = enabled, verifyEnabled = enabled, base = '', fetcher = fetch }: {
   enabled?: boolean; resetEnabled?: boolean; verifyEnabled?: boolean; base?: string; fetcher?: typeof fetch
@@ -35,18 +35,25 @@ export function createMailApi({ enabled = false, resetEnabled = enabled, verifyE
     try {
       // No CSRF since the token login (BE ADR 0031, 2026-10-27): these routes need no sign-in.
       const response = await fetcher(`${base}${API_ROOT}/auth/${path}`, {
-        method: 'POST', credentials: 'same-origin', signal: requestSignal, cache: 'no-store',
+        method: 'POST', credentials: 'include', signal: requestSignal, cache: 'no-store',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
       if (response.ok) return
       // The server has the route turned off (not configured yet).
       if (response.status === 404) throw new MailApiError('NOT_CONNECTED', NOT_CONNECTED)
       if (response.status === 429) throw new MailApiError('RATE_LIMITED', '요청이 많아요. 잠시 기다린 뒤 다시 시도해 주세요.')
-      if (response.status === 400 || response.status === 410) throw new MailApiError('INVALID_TOKEN', '링크가 만료됐거나 이미 사용됐어요. 새 메일을 요청해 주세요.')
+      if (response.status === 400) {
+        const detail = await response.json().catch(() => null)
+        if (detail?.error?.code === 'PASSWORD_REUSED' || detail?.code === 'PASSWORD_REUSED')
+          throw new MailApiError('PASSWORD_REUSED', '기존 비밀번호와 다른 새 비밀번호를 입력해 주세요.')
+      }
+      if (response.status === 400 || response.status === 410) throw new MailApiError('INVALID_TOKEN', purpose === 'verify'
+        ? '인증 코드가 올바르지 않거나 만료됐어요. 코드를 확인하거나 새 메일을 요청해 주세요.'
+        : '링크가 만료됐거나 이미 사용됐어요. 새 메일을 요청해 주세요.')
       throw new MailApiError('UNAVAILABLE', '요청을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.')
     } catch (error) {
-      console.error('[features/auth/mailApi.ts:post] Operation failed', error)
       if (signal?.aborted || error instanceof MailApiError) throw error
+      console.error('[features/auth/mailApi.ts:post] Operation failed', error)
       throw new MailApiError('UNAVAILABLE', '네트워크 연결을 확인한 뒤 다시 시도해 주세요.')
     }
   }
@@ -54,6 +61,7 @@ export function createMailApi({ enabled = false, resetEnabled = enabled, verifyE
     enabledFor,
     request: (purpose: MailPurpose, email: string, signal?: AbortSignal) =>
       post(purpose, purpose === 'reset' ? 'password-reset/requests' : 'email-verification/requests', { email: email.trim().toLowerCase() }, signal),
+    validate: (token: string, signal?: AbortSignal) => post('reset', 'password-reset/validate', { token }, signal),
     reset: (token: string, password: string, signal?: AbortSignal) => post('reset', 'password-reset/confirm', { token, new_password: password }, signal),
     verify: (token: string, signal?: AbortSignal) => post('verify', 'email-verification/confirm', { token }, signal),
   }
@@ -62,6 +70,6 @@ export function createMailApi({ enabled = false, resetEnabled = enabled, verifyE
 const allMail = import.meta.env.VITE_ACCOUNT_MAIL_API_ENABLED === 'true'
 export const accountMailApi = createMailApi({
   resetEnabled: allMail || import.meta.env.VITE_PASSWORD_RESET_ENABLED === 'true',
-  verifyEnabled: allMail,
+  verifyEnabled: allMail || import.meta.env.VITE_EMAIL_VERIFICATION_ENABLED === 'true',
   base: SERVER.apiBase,
 })
