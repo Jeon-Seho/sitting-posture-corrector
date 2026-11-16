@@ -10,7 +10,7 @@
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 10) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 3) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
@@ -33,7 +33,7 @@
 |---|---|---|
 | 502·503 재시도 | 1·2·4초 간격, 최대 3번(같은 본문) | 오류 안내 |
 | 요청 응답 | 5초 | 「서버에 연결하지 못했어요」. S1·B1만 같은 본문으로 502·503과 같은 간격으로 다시 보낸다(둘 다 같은 요청이면 같은 결과) |
-| `hello` → `ready` | 5초 | 연결을 닫고 「지금은 측정을 시작할 수 없어요」 화면([FE 예외 처리 모음](fe-exception-log.md) 4번). 그 세션은 끝난 것으로 보고 **다시 쓰지 않는다.** 다시 할 때는 **새 `session_id`로 S1부터**. 서버는 이 약속으로 버려진 세션을 닫는다([FE 제안서](fe-server-proposal.md) 요구 8) |
+| `hello` → `ready` | 5초 | 연결을 닫고 「지금은 측정을 시작할 수 없어요」 화면([FE 예외 처리 모음](fe-exception-log.md) 4번). 그 세션은 끝난 것으로 보고 **다시 쓰지 않는다.** 다시 할 때는 **새 `session_id`로 S1부터**. 버려진 빈 세션 행은 서버에 열린 채 남지만 기록(R1)·통계에는 나오지 않는다(서버가 닫게 하는 요청은 하지 않기로 함, [FE 제안서](fe-server-proposal.md) 0장, 11/16) |
 | `features` | **프레임마다 구간 1개**(5.1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
 | 카메라 영상 | 프레임이 1초 넘게 없으면 `away` | 카메라가 돌아와야 「측정 재개」 |
 | 측정 `end` → `closed(ended)` | 5초 (local은 1초 미만, kafka는 정상 1~3초) | S4로 결과(실패하면 마지막 `progress`로 종료 화면, 404면 「서버에서 이번 측정을 찾지 못했어요」 화면, 이 기기에는 남기지 않음). kafka 모드에서 `end` 뒤 `stalled`(3초)가 오면 5초를 기다리지 않고 바로 S4. 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다. 데스크톱 앱에서는 앱 본체가 같은 역할의 「측정 중이에요. 정말 닫을까요?」를 묻는다 |
@@ -144,7 +144,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 11). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 12). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -152,10 +152,10 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 3단계로 간다.
 - **A3·A4 로그인:** A3 200의 `access_token`을 메모리에 두고 홈으로 간다. B2와 R1을 받는다. 앱 시작 때는 A8 200 → A4로 로그인 화면을 건너뛴다. 측정 중 비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. `hello`에는 `access_token`이 필수다.
-- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 11).
+- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 12).
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). S3 대신 BE가 열린 채 남는 세션을 닫는 규칙을 만든다(아키텍처 v5.4, FE 제안서 요구 8). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). 닫는 규칙은 아키텍처 v5.4에 BE 일로 남아 있지만, FE는 드문 경우라 요청하지 않기로 했다(11/16, 앱은 시작 실패를 오류 화면으로 처리). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·T1
@@ -683,7 +683,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. 계정의 프로필, 판정 정책, 알림 설정, 동의 상태를 읽는다.
-2. 지금 서버는 기록 목록(`records`, [R1](#api-r1)과 같은 형식)도 함께 만들어 담는다. 앱은 읽지 않고, 서버에서 빼기로 했다(FE 제안서 요구 11).
+2. 지금 서버는 기록 목록(`records`, [R1](#api-r1)과 같은 형식)도 함께 만들어 담는다. 앱은 읽지 않고, 서버에서 빼기로 했다(FE 제안서 요구 12).
 
 #### Response
 
@@ -993,7 +993,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 3. 그것도 없으면 메모리의 진행 중 상태다. kafka 모드에서는 이 서버가 판정하지 않으므로 `ws`가 받은 마지막 `progress`·`decision`으로 요약·사건·순번을 채우고, 종료 사건과 저장 완료를 다 받았을 때만 `ended: true`다(D-57, 아직 develop 전). kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 이 값이다.
 4. 셋 다 없으면 404 `SESSION_LOST`.
 
-앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 「서버에서 이번 측정을 찾지 못했어요 — 사용자 잘못이 아니에요. 서버 문제로 이번 측정은 기록에 남지 않았어요」 오류 화면(500 그림)를 보이고, 이 기기에는 아무것도 남기지 않는다. 서버에 없는 것은 서버 고장이라 드물어야 하고, 서버가 받은 만큼은 열린 세션 행으로 서버에 남아 BE가 닫으면 R1에 나온다([FE 제안서](fe-server-proposal.md) 요구 8).
+앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 「서버에서 이번 측정을 찾지 못했어요 — 사용자 잘못이 아니에요. 서버 문제로 이번 측정은 기록에 남지 않았어요」 오류 화면(500 그림)를 보이고, 이 기기에는 아무것도 남기지 않는다. 서버에 없는 것은 서버 고장이라 드물어야 하고, 서버가 받은 만큼은 열린 세션 행으로 남고, 서버가 닫지 않으므로 R1에는 나오지 않는다(드문 경우라 요청하지 않기로 함, [FE 제안서](fe-server-proposal.md) 0장, 11/16).
 
 `closed` 없이 넘어왔고(5초 또는 `stalled`) 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽고, 거기 없으면 S4로 그 측정을 확인한다.
 

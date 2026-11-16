@@ -554,7 +554,8 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
       // 404: the server has it neither in memory nor stored — a server fault that should be rare.
       // An error page, and this device keeps nothing: what the server received stays on the server
-      // (an open session row) and shows up in R1 once the server closes it (FE proposal 요구 8).
+      // (an open session row); the server does not close it, so it stays out of R1 (rare, not requested
+      // from the server, 2026-11-16).
       if (caughtError instanceof ApiError && caughtError.status === 404) {
         this.finish({ phase: 'ended', late, resultMissing: true })
         return
