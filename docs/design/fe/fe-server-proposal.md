@@ -11,21 +11,21 @@
 
 다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 순위는 1 Kafka 모드 관련, 2 BE·DevOps가 정할 것, 3 기록 통계이고, 같은 순위 안에서는 먼저 할 것부터 적는다. 요구 1(Kafka 경로 서버 health)은 서버가 스스로 정하고 챙길 일이라 뺐다(11/16). 다른 문서가 번호로 가리키므로 번호는 다시 매기지 않는다.
 
-| 순위 | 묶음 | # | 요구 | 누가 | 언제 |
-|---|---|---|---|---|---|
-| 1 | Kafka 모드(D-57)와 관련된 것 | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | PM·DevOps·BE | kafka 모드를 운영에 켜기 전 |
-|  |  | 3 | Kafka 전환 때 판정 순서 확인 | BE·DevOps·PM | Kafka 전환 시험 |
-|  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 급하지 않음. kafka 모드 병합(D-57) 때 함께 |
-|  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `maxItems 1`·프레임 `valid` 빼기) FE 끝(11/13). 나머지는 요구 4와 같은 계약 판에 |
-| 2 | BE·DevOps가 정할 것 | 6 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정할 것 |
-|  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 이 FE 배포 뒤 |
-|  |  | 8 | 열린 채 남는 세션 닫기 | BE | 정할 것. 가장 급함(11/13 BE 정리). 먼저 정상 종료 저장 시험(5번) |
-|  |  | 9 | 쉬기 자동 종료 (BE-13) | BE | 정할 것 |
-|  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치 있음(미병합). 합치는 방식·순서 정할 것 |
-|  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝남(develop #121), `records` 남음 |
-|  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 정할 것 |
-|  |  | 13 | 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23) | BE·FE | 정함, 구현 전 |
-| 3 | 기록 통계 | 14 | T1 일별 통계 API (BE-2) | BE | 기록이 많아져 R1 계산이 느려질 때 |
+| 순위 | 묶음 | # | 요구 | 누가 | 지금 상태(11/16) | 언제 |
+|---|---|---|---|---|---|---|
+| 1 | Kafka 모드(D-57)와 관련된 것 | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | DevOps·BE | kafka 브랜치 코드에는 아직 없다(kafka 모드에서 자정 넘김이 꺼짐). DevOps는 될 것이라고 함 — 확인 필요 | kafka 모드를 운영에 켜기 전 |
+|  |  | 3 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 FE 포함 통신 시험 F3에서 확인 | 11/16 시험 |
+|  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | 급하지 않음. D-57 병합 때 함께 |
+|  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
+| 2 | BE·DevOps가 정할 것 | 6 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
+|  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
+|  |  | 8 | 열린 채 남는 세션 닫기 | BE | 아직 없다. S3가 지워져 닫을 수단이 더 없다 | 가장 급함 |
+|  |  | 9 | 쉬기 자동 종료 (BE-13) | BE | 아직 없다 | 정할 것 |
+|  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치에 서버·앱 수정이 다 있다(develop 미병합). 운영 서버는 아직 `/v2`만 받는다 | D-57 시험 뒤, 한꺼번에(아래 진행) |
+|  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
+|  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
+|  |  | 13 | 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23) | BE·FE | 정함, 구현 전 | 정할 것 |
+| 3 | 기록 통계 | 14 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
 
 ### 1순위: Kafka 모드(D-57)와 관련된 것
 
@@ -53,6 +53,8 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   6. 끝나면 ADR 0029의 BE 줄 「Kafka 모드도 같은 규칙」을 확인했다고 고친다.
   - **사용자:** 자정을 몰라도 된다. 화면은 측정을 그대로 이어 가고 「자정이 지나 새 측정으로 이어졌어요」만 짧게 띄운다(`LiveSession.rollOver`, local에서 이미 이렇게 동작). **앱 일은 없다.**
   - **쓰지 않는 안:** 자정에 끝내기(`closed(day_changed)`)는 사용자가 자정에 측정을 다시 시작해야 해 쓰지 않는다. 새 세션을 못 만들 때의 대비로만 남는다(local도 같음). 끊지 않기는 위 「원인」대로 오늘 기록이 사라진다.
+
+- **진행(11/16 확인):** `feat/ws-kafka-pipeline` `1067dab`의 `RealtimeHandlerV2`는 여전히 `midnightRollover && pipeline.local()`이고(주석 「kafka 경로에서는 쓰지 않는다」), 처리 서비스에도 자정 처리가 없다. DevOps는 될 것이라고 해서, kafka 모드에 `POSEGOOD_MIDNIGHT_ROLLOVER=true`로 00:00을 넘겨 「자정이 지나 새 측정으로 이어졌어요」가 뜨는지 확인하기로 했다.
 
 #### 요구 3. Kafka 전환 때 판정 순서 확인
 
@@ -177,9 +179,14 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 4와 함께).
   4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
   5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
-- **진행(11/13 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`6543695`, 11/09, develop 미병합)로 서버·추론(`/v2/infer` → `/infer`)·nginx·앱·문서의 `/v2`를 한 번에 지웠다. 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING). 서버와 화면(Vercel)을 같은 때 배포하고 Cloudflare 규칙도 같이 바꿔야 하며, 위 1번(서버가 한동안 두 주소를 다 받기)과 다르다. 정할 것:
-  - **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다.
-  - **FE 코드 충돌:** 이 브랜치는 앱 코드도 고쳐 FE 브랜치 `fix/fe-realtime-kafka-mode`와 충돌한다(앱 코드 6곳, FE 문서 4곳). FE 브랜치는 `/v2`를 `serverConfig.ts` 한곳(`API_ROOT`)에 모아 두었으므로, 합칠 때 앱 코드는 FE 브랜치 쪽을 두고 `API_VERSION`을 지워 `API_ROOT`를 `'/api'`로 맞춘다. 두 브랜치 중 무엇을 먼저 develop에 넣을지 BE와 정한다.
+- **진행(11/16 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`ab1fc36`, develop 미병합)에서 서버·추론(`/v2/infer` → `/infer`)·nginx·점검 도구·계약·문서의 `/v2`를 한 번에 지웠다. 11/16 이 브랜치에 develop(FE #123 포함)을 받으며 **앱 코드도 위 2번 안대로 고쳤다**(`API_VERSION` 삭제, `API_ROOT` = `'/api'`, 가짜 서버의 「`/v2`도 받기」 줄 삭제, 시험 주소). 그래서 **FE가 따로 고칠 앱 코드는 없다.**
+  - **운영 서버는 아직 `/v2`만 받는다.** 11/16 공개 주소로 확인: `/api/v2/auth/social/signup`은 응답(410), `/api/auth/social/signup`은 경로가 없음(401). 앱만 먼저 바꾸면 로그인부터 모든 요청이 실패한다.
+  - 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING, 위 1번 「한동안 둘 다 받기」와 다름). 그래서 아래를 **같은 때** 한다. D-57 통신 시험(11/16)과 섞이지 않게 그 뒤에 순서를 정한다.
+    1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론을 다시 빌드한다.
+    2. FE: 포크를 올려 Vercel을 다시 배포한다(앱 코드는 브랜치에 이미 있음).
+    3. FE: Cloudflare 요청 제한 `auth-rate-limit`의 `/api/v2/auth/*`를 `/api/auth/*`로(할 일 4와 함께).
+    4. DevOps: Discord Developer Portal의 Redirect 주소와 서버 `POSEGOOD_DISCORD_REDIRECT_URI`에서 `/v2`를 뺀다. 안 바꾸면 Discord 로그인이 깨진다(11/16 서버가 Discord에 넘기는 주소는 `/api/v2/auth/social/discord/callback`).
+    5. 정할 것 — **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다.
 
 #### 요구 11. 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21)
 
