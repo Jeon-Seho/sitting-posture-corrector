@@ -16,7 +16,7 @@
 | 1 | Kafka 모드(D-57)와 관련된 것 | 1 | Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17) | BE·DevOps·PM | kafka 모드를 운영에 켜기 전 / 쿠버네티스로 옮길 때 |
 |  |  | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | PM·DevOps·BE | kafka 모드를 운영에 켜기 전 |
 |  |  | 3 | Kafka 전환 때 판정 순서 확인 | BE·DevOps·PM | Kafka 전환 시험 |
-|  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | BE·PM·DevOps·FE | 급하지 않음. kafka 모드 병합(D-57) 때 함께 |
+|  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 급하지 않음. kafka 모드 병합(D-57) 때 함께 |
 |  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `maxItems 1`·프레임 `valid` 빼기) FE 끝(11/13). 나머지는 요구 4와 같은 계약 판에 |
 | 2 | BE·DevOps가 정할 것 | 6 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정할 것 |
 |  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 이 FE 배포 뒤 |
@@ -88,7 +88,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 - **원인:** `ack`는 원래 재전송 창이었다(10/6 `client.ts`: `ack` 안 된 구간을 재연결 때 다시 보냄). ADR 0024로 재전송을 없앤 뒤(10/21 `client.ts` 삭제) 앱은 받기만 하고 버린다(`case 'ack': return`). 그런데 서버는 지금도 구간마다(초당 약 10개) 보낸다. local은 구간마다 `observation`·`ack`·`progress` 3개라, 보내는 메시지의 약 3분의 1이 버려지는 `ack`다. 지금 `ack`를 쓰는 곳은 DevOps 통합 시험(`ws_realtime_smoke.py`)뿐이고, 서버의 `stalled` 판단은 메시지가 아니라 서버 안의 시각(`ackedAt`)을 쓴다.
 - **요구사항/변경사항:** 순서대로 한다. kafka 모드 병합(D-57) 때 함께, 급하지 않음.
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
-  2. BE·PM: `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
+  2. 팀장(Jeon-Seho): `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
   3. FE: 계약 `realtime-ws.v2.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
