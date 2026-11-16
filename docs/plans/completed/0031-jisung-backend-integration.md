@@ -3,7 +3,7 @@
 - 상태: completed (로컬 병합, 전체 서비스 검증은 환경 준비 후 필요)
 - 담당: jisung / Codex
 - 시작일: 2026-10-15
-- 관련 요구사항/ADR: [품질 기준](../../quality.md), [로컬 개발 경계](../../decisions/0024-local-development-server-boundary.md), [백엔드 통합 계획](../active/0029-merge-backend-data-platform.md)
+- 관련 요구사항/ADR: [품질 기준](../../quality.md), [로컬 개발 경계](../../decisions/0024-local-development-server-boundary.md), [백엔드 통합 계획](0029-merge-backend-data-platform.md)
 
 ## 문제와 완료 기준
 
