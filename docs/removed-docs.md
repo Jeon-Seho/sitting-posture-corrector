@@ -193,4 +193,4 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/fe/fe-mobile-records-plan.md` | 휴대폰 기록 보기를 하지 않기로 해 계획이 필요 없다. | 거기서 기다리던 T1 일별 통계(요구 14)는 [FE 제안서](design/fe/fe-server-proposal.md) 3순위 「기록 통계」로 남겼다. 원문은 `git show 996709f:docs/design/fe/fe-mobile-records-plan.md` | 없음 |
+| `docs/design/fe/fe-mobile-records-plan.md` | 휴대폰 기록 보기를 하지 않기로 해 계획이 필요 없다. | 거기서 기다리던 T1 일별 통계(요구 14)는 [FE 제안서](design/fe/fe-server-proposal.md) 요구 14로 남겼다. 원문은 `git show 996709f:docs/design/fe/fe-mobile-records-plan.md` | 없음 |
