@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-24는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-25는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -26,6 +26,7 @@
 |  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
 |  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
 |  |  | 13 | 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23) | BE·FE | 정함, 구현 전 | 정할 것 |
+|  |  | 16 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 비밀번호 필수. Discord 가입 계정은 탈퇴할 수 없다 | 급함. 서버 먼저, 앱은 그 뒤 |
 | 3 | 기록 통계 | 14 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
 
 ### 1순위: Kafka 모드(D-57)와 관련된 것
@@ -245,6 +246,24 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   2. FE: `measuring`이 `true`이고 이 기기는 측정 중이 아니면, 설정·자세 등록 화면에 「다른 기기에서 측정 중이에요. 바꾼 설정은 다음 측정부터 적용돼요」를 보인다.
   3. **한 계정의 동시 측정은 막는다(정함).** 이 계정에 측정 중인 것이 있으면 BE가 S1을 409(안: `ALREADY_MEASURING`)로 거절한다. FE는 「다른 기기에서 측정 중이에요. 그 측정을 마친 뒤 시작해 주세요」를 보인다(사용자가 해결할 수 있는 안내, [FE 예외 처리 모음](fe-exception-log.md) A).
   4. **「측정 중」의 기준은 측정 연결(WS)이 살아 있는 측정이다.** 세션 행이 열려 있는 것(`ended_at` 없음)으로 보면 안 된다. 요구 8의 버려진 빈 세션(S1만 하고 `hello`가 없음)이나 서버 재시작으로 남은 행까지 「측정 중」이 되어, 그 계정이 엉뚱하게 측정을 못 하게 된다. 연결이 끊기면 서버가 그 측정을 끝내므로(ADR 0024) 「측정 중」도 함께 풀린다. 1·3번이 같은 기준을 쓴다.
+
+#### 요구 16. 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25)
+
+- **한줄요약:** 탈퇴(A7)를 비밀번호 확인 없이 로그인 상태만으로 받는다. 실수는 앱의 확인 창(「정말 삭제하시겠습니까?」)으로 막는다.
+- **발단:** 11/16 운영 확인. 탈퇴 버튼이 동의 체크만으로는 켜지지 않았고(현재 비밀번호 필요), 보다 보니 Discord로 가입한 계정은 탈퇴할 수 없다는 것이 드러났다.
+- **원인:**
+  - A7 `DELETE /auth/account`는 본문 `{password}`가 필수이고(`AccountContracts.Withdrawal(@NotNull String password)`), 비밀번호가 틀리면 400 `INVALID_PASSWORD`다(`AccountService.withdraw` → `requireCurrent`).
+  - Discord 가입 계정은 비밀번호가 없다(`!no-password`). 그래서 탈퇴가 **항상 실패**한다. 비밀번호를 만들 재설정 메일도 운영에서 꺼져 있다. 앱 안에서 탈퇴할 길이 없는데, 개인정보 동의를 받는 서비스라 탈퇴 길은 늘 있어야 한다.
+- **요구사항/변경사항:**
+  1. **BE:** A7이 비밀번호 없이 탈퇴를 받는다.
+     - `AuthController.withdraw`: 본문을 `@RequestBody(required = false)`로 둬서 없어도 받는다.
+     - `AccountService.withdraw`: `requireCurrent` 확인을 뺀다. 계정 닫기·로그인 철회·실시간 연결 닫기(`requireActive` → `accounts.close` → `removeLogins` → `LoginsRemoved`·`AccountClosed`)는 그대로 둔다.
+     - **옛 앱 호환:** 한동안 본문에 `password`가 와도 무시하고 받는다. 그래야 서버를 먼저 바꿔도 지금 운영 앱의 탈퇴가 깨지지 않는다.
+     - 시험(`MySqlIntegrationTest` 탈퇴), BE 명세 A7, 계약 `accounts.v2.md` A7 줄을 고친다.
+  2. **FE:** 프로필 설정의 탈퇴 칸에서 동의 체크박스와 비밀번호 조건을 뺀다. 「서버 계정 탈퇴」 버튼을 누르면 확인 창(`features/dialog/ConfirmDialog.tsx`)을 띄운다. 「정말 삭제하시겠습니까? 탈퇴는 되돌릴 수 없고 30일 뒤 계정과 기록이 삭제돼요.」 → 「탈퇴」 / 「취소」. 확인하면 본문 없이 A7을 보낸다. 비밀번호 변경 칸은 그대로 둔다. 기능 명세 「회원탈퇴」와 연동 명세 A7도 고친다.
+  3. **순서:** 서버(1)를 먼저 배포하고 앱(2)을 배포한다. 서버가 두 방식을 다 받으니 그 사이에도 탈퇴가 깨지지 않는다.
+- **알고 정한 것:** 비밀번호 확인이 빠지면, 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다. 확인 창은 실수만 막는다. 서비스 규모와 Discord 계정의 탈퇴 길을 생각해 받아들인다(11/16 FE 결정).
+- **함께 풀리는 것:** Discord 가입 계정의 탈퇴. 비밀번호 변경은 여전히 비밀번호가 있는 계정만 된다. Discord 계정이 비밀번호를 만드는 길은 재설정 메일이 켜진 뒤의 일이다.
 
 ### 3순위: 기록 통계
 

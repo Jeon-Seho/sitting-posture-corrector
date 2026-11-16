@@ -32,7 +32,7 @@
 | user | 프로필 수정 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이름과, 동의한 경우 나이·직업을 고친다 | W1, W2 | 구현됨 |
 | user | Discord 연결·해제 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이메일로 가입한 계정에 Discord를 연결하거나 해제한다. 웹만 | A12, A13, A16, A17 | 구현됨(웹, 11/16 운영 확인) |
 | user | 비밀번호 변경 | 중 | `AUTHENTICATED` | `UNAUTHENTICATED` | 비밀번호를 바꾼다. 모든 로그인이 끊겨 로그인 화면으로 간다 | A6 | 구현됨 |
-| user | 회원탈퇴 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 탈퇴를 접수한다. 되돌릴 수 없고, 서버 자료는 30일 뒤 Spark J3가 지운다 | A7 | 일부 |
+| user | 회원탈퇴 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 탈퇴를 접수한다. 되돌릴 수 없고, 서버 자료는 30일 뒤 Spark J3가 지운다. 지금은 현재 비밀번호가 필요해 비밀번호 없는 Discord 가입 계정은 탈퇴할 수 없다(FE 제안서 요구 16) | A7 | 일부 |
 | setting | 판정 기준 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 붕괴 기준 점수, 확정·회복 시간, 재알림 주기를 바꾼다. 바꾸면 W2로 서버에 저장하고, 로그인 뒤·측정하기와 설정 화면을 열 때 W1으로 받는다. 판정 값은 기기에 남기지 않는다(11/10). 측정 시작 때 이 값을 S1 `policy`로 보낸다 | W1, W2, S1 | 구현됨 |
 | setting | 알림 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 소리는 측정 화면에서 끄고, 데스크톱 알림창은 설정에서 끈다. 설정의 「교정 알림 사용」 스위치는 안내 문구만 띄운다 | 없음 | 일부 |
 | baseline | 카메라 준비 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | 권한을 확인하고 카메라를 고른다. 권한 거부와 장치 없음을 안내한다 | 없음 | 구현됨 |
