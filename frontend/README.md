@@ -165,8 +165,8 @@ API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거�
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
 MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
-프로필·설정은 아직 브라우저 localStorage에 두고,
-자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
+프로필·판정 기준·기록은 서버(W1·W2·R1)에 있고 측정 결과는 이 기기에 남기지 않는다([ADR 0027](../docs/decisions/0027-today-records-from-collected-server-results.md)).
+개발자 계정의 자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
 
 ## 로그인과 회원가입
 
