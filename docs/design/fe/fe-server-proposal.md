@@ -201,9 +201,10 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   - 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING, 위 1번 「한동안 둘 다 받기」와 다름). 그래서 아래를 **같은 때** 한다. D-57 통신 시험(11/16)과 섞이지 않게 그 뒤에 순서를 정한다.
     1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론(io-inference)을 다시 빌드한다. 공개 입구 gateway·화면 컨테이너 web의 nginx 설정도 WebSocket 경로가 `/api/v2/realtime` → `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
     2. FE: 포크를 올려 Vercel을 다시 배포한다(앱 코드는 브랜치에 이미 있음).
-    3. FE: Cloudflare 요청 제한 `auth-rate-limit`의 `/api/v2/auth/*`를 `/api/auth/*`로(할 일 4와 함께).
-    4. DevOps: Discord Developer Portal의 Redirect 주소와 서버 `POSEGOOD_DISCORD_REDIRECT_URI`에서 `/v2`를 뺀다. 안 바꾸면 Discord 로그인이 깨진다(11/16 서버가 Discord에 넘기는 주소는 `/api/v2/auth/social/discord/callback`).
-    5. 정할 것 — **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다.
+    3. FE: Cloudflare 요청 제한 `auth-rate-limit`에 새 경로 `/api/auth/…`를 **미리 더하고**(옛 경로는 남김), 확인 뒤 옛 경로를 뺀다(할 일 7).
+    4. DevOps: Discord Developer Portal의 Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(여러 개 가능, 옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 새 주소로 바꾼다. 확인 뒤 옛 Redirect를 지운다.
+    5. **옛 데스크톱 설치판은 받아 주지 않기로 했다(11/16 BE 결정).** 배포 뒤 옛 판은 로그인·측정이 안 되므로, FE가 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(할 일 7).
+  - **11/16 BE 공지 두 건:** 「develop 병합 안내」(브랜치를 develop에 합침. 합치기만 해서는 운영이 바뀌지 않는다)와 「배포 때 함께 바꿀 설정」(배포 전·때·뒤 할 일, 되돌리는 법). FE 몫은 할 일 7에 모았다.
 
 #### 요구 11. 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21)
 
@@ -286,6 +287,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
+| 7 | API 주소 `/v2` 삭제 배포 대응 | 11/16 D-57 통신 시험 직후부터 |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -315,6 +317,19 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **발단:** 실제 연동 전까지 검색 결과에 안 나오게 넣었다(10/20, `72ab5ec`).
 - **원인:** 접속이 아니라 검색 노출만 막는 설정이라, 공개하면 지워야 검색에 나온다.
 - **요구사항/변경사항:** [robots.txt](../../../frontend/public/robots.txt)의 `Disallow: /`와 [vercel.json](../../../frontend/vercel.json)의 `X-Robots-Tag`를 지우고 포크를 최신화해 배포한다.
+
+#### 할 일 7. API 주소 `/v2` 삭제 배포 대응
+
+- **한줄요약:** BE의 `/v2` 삭제(요구 10)를 운영에 낼 때 FE 몫(우리 브랜치 먼저 넣기, 포크 push 멈춤, Cloudflare, 배포 날 Vercel, 데스크톱 안내)을 순서대로 한다.
+- **발단:** 11/16 BE 공지 두 건(develop 병합 안내, 배포 때 바꿀 설정). 서버는 옛 주소를 받지 않아 서버와 웹을 같은 때 배포해야 한다.
+- **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. BE 브랜치가 develop에 들어간 뒤 다른 일로 포크를 올리면, 서버가 바뀌기 전에 `/v2` 없는 앱이 나가 로그인부터 끊긴다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다.
+- **요구사항/변경사항:**
+  1. **D-57 통신 시험 직후:** FE 작업 브랜치(`docs/fe-docs-sync`, 문서 정리·가입 3단계 「이전」 삭제·Discord 로그·로그아웃 문구)를 **BE 브랜치보다 먼저** develop에 넣고 포크를 올려 배포·확인한다. BE 브랜치가 우리 수정을 받아 충돌(architecture·index 몇 줄)을 그쪽에서 정리한다.
+  2. **BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 develop을 push하지 않는다.**
+  3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다(옛 경로는 남김). 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개로 한 번에 끝난다.
+  4. **배포 날:** DevOps가 서버(`.env` Discord Redirect, io-api·inference·gateway·web)를 올린 **바로 뒤** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인: 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한.
+  5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다.
+  6. **문제가 생기면:** 서버와 웹을 **둘 다** 이전 판으로 되돌린다(하나만 되돌리면 주소가 다시 어긋난다). 웹은 Vercel에서 이전 Production 배포를 다시 올린다.
 
 ### 지금 하지 않는 것
 
