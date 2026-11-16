@@ -1,7 +1,7 @@
 """Spark 배치 J2 — 일별 통계(daily_stat) 집계 (D-05, 아키텍처 v5.3 ⑰).
 
 매일 00:10(KST, cron)에 전날 세션을 사용자별로 모아 daily_stat에 쓴다. 입출구 서버는 읽기만 한다(T1).
-규칙은 database/README.md 「일별 통계」·「붕괴까지 걸린 시간」과 schema_V2_6.sql daily_stat 설명을 따른다.
+규칙은 database/README.md 「일별 통계」·「붕괴까지 걸린 시간」과 schema_V2_7.sql daily_stat 설명을 따른다.
 
 - 대상: started_at의 KST 날짜가 집계 날짜인 세션 중 **끝난 세션**(ended_at 있음). 끝나지 않은 세션(측정 중이거나
   판정 상태를 잃고 닫히지 않은 행 — R2 삭제 뒤 생김)은 넣지 않는다. 날짜를 넘긴 세션은 시작 날짜에 넣는다.

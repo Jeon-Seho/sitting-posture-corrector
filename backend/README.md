@@ -127,7 +127,7 @@ MySQL 통합 시험은 기본 검사에 포함하지 않는다. Gradle 직접 �
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_6.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_7.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Gradle 직접 실행에서는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. `.cache/test-mysql-password`를 자동으로 읽거나 Docker MySQL을 자동 시작하지 않는다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh
