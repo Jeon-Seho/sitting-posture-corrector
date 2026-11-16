@@ -25,12 +25,12 @@
 |---|---|---|---|---|---|---|---|
 | auth | 회원가입 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 약관 동의, 계정 정보 입력으로 계정을 만들고 바로 로그인한다. 자세 등록은 선택이다 | A2 | 구현됨 |
 | auth | 로그인 | 상 | `UNAUTHENTICATED` | `AUTHENTICATED` | 이메일과 비밀번호로 로그인한다 | A3 | 구현됨 |
-| auth | Discord 로그인 | 중 | `UNAUTHENTICATED` | `AUTHENTICATED` | Discord로 로그인한다. 처음이면 약관 동의·프로필 입력으로 비밀번호 없는 계정을 만든다. 웹만(데스크톱 앱은 숨김) | A11, A13~A15, A8, A4 | 일부(운영 웹 빌드 변수 켜기 남음) |
+| auth | Discord 로그인 | 중 | `UNAUTHENTICATED` | `AUTHENTICATED` | Discord로 로그인한다. 처음이면 약관 동의·프로필 입력으로 비밀번호 없는 계정을 만든다. 웹만(데스크톱 앱은 숨김) | A11, A13~A15, A8, A4 | 구현됨(웹, 11/16 운영 확인) |
 | auth | 로그인 유지 | 상 | `AUTHENTICATED` | `AUTHENTICATED` | access 토큰을 만료 전에 자동으로 갱신하고, 앱을 다시 열어도 로그인을 유지한다 | A8, A4 | 구현됨(설치용 데스크톱 앱은 F14 배포 뒤) |
 | auth | 로그아웃 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 로그인을 끝내고 카메라를 끈다 | A5 | 구현됨 |
 | auth | 비밀번호 찾기 | 하 | `UNAUTHENTICATED` | `UNAUTHENTICATED` | 메일로 받은 일회용 링크로 새 비밀번호를 정한다. 앱·서버는 있고, 운영 서버 메일이 꺼져 있다 | A9, A10 | 일부(운영 메일 꺼짐) |
 | user | 프로필 수정 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이름과, 동의한 경우 나이·직업을 고친다 | W1, W2 | 구현됨 |
-| user | Discord 연결·해제 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이메일로 가입한 계정에 Discord를 연결하거나 해제한다. 웹만 | A12, A13, A16, A17 | 일부(운영 웹 빌드 변수 켜기 남음) |
+| user | Discord 연결·해제 | 하 | `AUTHENTICATED` | `AUTHENTICATED` | 이메일로 가입한 계정에 Discord를 연결하거나 해제한다. 웹만 | A12, A13, A16, A17 | 구현됨(웹, 11/16 운영 확인) |
 | user | 비밀번호 변경 | 중 | `AUTHENTICATED` | `UNAUTHENTICATED` | 비밀번호를 바꾼다. 모든 로그인이 끊겨 로그인 화면으로 간다 | A6 | 구현됨 |
 | user | 회원탈퇴 | 하 | `AUTHENTICATED` | `UNAUTHENTICATED` | 탈퇴를 접수한다. 되돌릴 수 없고, 서버 자료는 30일 뒤 Spark J3가 지운다 | A7 | 일부 |
 | setting | 판정 기준 설정 | 중 | `AUTHENTICATED` | `AUTHENTICATED` | 붕괴 기준 점수, 확정·회복 시간, 재알림 주기를 바꾼다. 바꾸면 W2로 서버에 저장하고, 로그인 뒤·측정하기와 설정 화면을 열 때 W1으로 받는다. 판정 값은 기기에 남기지 않는다(11/10). 측정 시작 때 이 값을 S1 `policy`로 보낸다 | W1, W2, S1 | 구현됨 |
@@ -177,7 +177,7 @@
 **비고**
 
 - 카카오·Google·GitHub 버튼도 화면에 있지만 흐리게 두고 누르면 「○○ 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.」
-- 운영 서버는 11/12에 Discord를 켰다. 운영 웹 빌드 변수 켜기는 [FE 제안서](fe-server-proposal.md) 할 일 6.
+- 운영: 서버는 11/12, 웹 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`)는 11/16에 켰다. 11/16 운영 웹에서 Discord 이동·`link-required` 안내를 확인했다.
 - 코드: [socialLogin.ts](../../../frontend/src/features/auth/socialLogin.ts), [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts) `social`, [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `startDiscord`. 서버 쪽은 [인계](../social-login-password-reset-handoff.md).
 
 ### 로그인 유지

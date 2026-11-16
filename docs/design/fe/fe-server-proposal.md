@@ -259,7 +259,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 
 ## 1. 해야 할 일
 
-FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐다(11/16). 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
+FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났다. 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
 
 | # | 할 일 | 언제 |
 |---|---|---|
@@ -267,7 +267,6 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
-| 6 | Discord 로그인 버튼 켜기 | 지금(서버는 11/12 켜짐) |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -297,13 +296,6 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **발단:** 실제 연동 전까지 검색 결과에 안 나오게 넣었다(10/20, `72ab5ec`).
 - **원인:** 접속이 아니라 검색 노출만 막는 설정이라, 공개하면 지워야 검색에 나온다.
 - **요구사항/변경사항:** [robots.txt](../../../frontend/public/robots.txt)의 `Disallow: /`와 [vercel.json](../../../frontend/vercel.json)의 `X-Robots-Tag`를 지우고 포크를 최신화해 배포한다.
-
-#### 할 일 6. Discord 로그인 버튼 켜기
-
-- **한줄요약:** 운영 웹(Vercel)에 `VITE_DISCORD_LOGIN_ENABLED=true`를 넣고 다시 배포해, 로그인 화면·프로필 설정에 Discord 버튼을 보인다.
-- **발단:** DevOps가 운영 서버에서 Discord 로그인을 켰다(develop #120, D-87, 11/12). 비밀번호 재설정 메일은 꺼 두었다(도메인 메일 서비스가 정해진 뒤, FE 의견).
-- **원인:** 앱의 Discord 버튼은 빌드할 때 이 변수가 있어야 나온다(`features/auth/socialLogin.ts`, 데스크톱 앱에서는 숨김). 서버만 켜져 있고 화면에는 아직 버튼이 없다.
-- **요구사항/변경사항:** Vercel 프로젝트 환경 변수에 넣고 재배포한 뒤, 운영 웹에서 Discord 로그인 → 앱으로 돌아와 로그인되는지 확인한다. 비밀번호 재설정(`VITE_PASSWORD_RESET_ENABLED`)은 서버 메일이 켜진 뒤에 켠다.
 
 ### 지금 하지 않는 것
 
@@ -392,7 +384,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `VITE_API_BASE_URL` | API 주소. 운영 `https://api.posegood.site`(Vercel Production에 설정). 비우면 같은 출처 `/api`. WS 주소도 여기서 만든다(`https:`면 `wss:`) |
 | `POSEGOOD_API_URL` | 개발 서버의 `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 | `POSEGOOD_APP_URL` | 데스크톱 앱이 열 웹 주소. 기본 `https://app.posegood.site/` |
-| `VITE_DISCORD_LOGIN_ENABLED` | `true`면 웹에 Discord 로그인·연결(A11~A17)을 켠다. 데스크톱 앱은 늘 숨김. 운영 웹은 할 일 6 |
+| `VITE_DISCORD_LOGIN_ENABLED` | `true`면 웹에 Discord 로그인·연결(A11~A17)을 켠다. 데스크톱 앱은 늘 숨김. 운영 웹 켜짐(11/16) |
 | `VITE_PASSWORD_RESET_ENABLED` | `true`면 비밀번호 찾기(A9·A10)를 서버로 보낸다. 운영 서버 메일이 켜진 뒤 켠다 |
 
 **데스크톱 앱** (`frontend/electron/`, 시각 규칙 [DESIGN.md](../../../DESIGN.md))
