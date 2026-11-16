@@ -25,7 +25,8 @@
 - [x] 계약·인계·상태 문서
 - [x] DB 표 V2.7 파일 작성(유진): `database/migrations/017_create_social_identity_password_reset_token.sql`, `schema_V2_7.sql`, 무결성 검사. DB CI·실제 DB 적용은 아직
 - [ ] 환경변수·Discord Portal Redirect·SMTP(홍규)
-- [ ] MySQL 통합 시험에 두 표 경로 추가, 실제 Discord·메일 확인
+- [x] MySQL 통합 시험에 비밀번호 재설정 경로 추가(`PasswordResetMySqlIntegrationTest`, 11/16)
+- [ ] MySQL 통합 시험에 Discord(`social_identity`) 경로 추가, 실제 Discord·메일 확인
 
 ## 결정과 진행 기록
 
@@ -37,4 +38,15 @@
 
 ## 검증 결과와 남은 한계
 
-결과는 PR 본문과 이 절에 기록한다. MySQL·실제 Discord·SMTP는 아직 확인하지 않았다.
+결과는 PR 본문과 이 절에 기록한다.
+
+- 2026-11-16 비밀번호 재설정 MySQL 통합 시험(`backend/api/.../it/PasswordResetMySqlIntegrationTest.java`): 기능을 켠 API + 로컬 MySQL 8(V2.7 `schema_V2_7.sql`로 만든 임시 DB). SMTP 대신 보낸 메일을 담는 시험용 발송기를 쓴다.
+  `backend/gradlew -p backend :api:build -Pmysql-integration` → BUILD SUCCESSFUL, api 시험 120개 통과(건너뜀·실패 0, 그중 통합 15개 = 기존 13 + 새 2), 새 파일 Checkstyle 경고 0.
+  확인한 것: 메일 링크의 토큰과 DB SHA-256 일치·원문 미저장, 수명 30분·발급 시각 KST, 메일에 비밀번호 없음, 없는 주소·60초 안 재요청은 같은 202에 메일·토큰 없음, 출처 한도 6번째 429,
+  비밀번호 규칙 위반 400(토큰 남음), 완료 204·토큰 소비·refresh 토큰 모두 철회·기존 refresh 401, 같은 링크 재사용 410, 옛 비밀번호 401·새 비밀번호 200,
+  비밀번호 직접 변경 뒤 남은 링크 410, DB에 넣은 KST 만료 시각(1분 전 410, 5분 남음 204)과 발급하지 않은 토큰 410.
+- 2026-11-16 실제 SMTP 로컬 확인: `tools/dev.py dev-server`(임시 V2.7 DB)에 Gmail SMTP(`smtp.gmail.com:587` STARTTLS, 프로젝트 전용 Gmail 계정 + 앱 비밀번호)를 환경변수로 넣어 실행.
+  재설정 요청 → 메일이 그 Gmail 받은편지함에 도착(제목·본문·30분 안내 정상) → 링크로 새 비밀번호 저장. DB에서 확인: 새 발급 때 이전 토큰 무효, 쓴 토큰 소비, refresh 토큰 모두 철회, 옛 비밀번호 로그인 401.
+  보낸 주소와 받은 주소가 같은 계정이어서 다른 메일함의 스팸 분류는 보지 못했다.
+  로컬 주의: `dev-server`는 프론트 포트를 임의로 고르므로 `POSEGOOD_APP_URL`의 포트(5173)와 다르면 메일 링크가 열리지 않는다(포트를 바꿔 열거나 5173에 Vite를 하나 더 띄움). 실행은 `.venv` Python으로 한다(시스템 Python에는 `pymysql`이 없을 수 있음).
+- 아직 확인하지 않은 것: 운영 DB의 017 적용, 운영 SMTP 설정·다른 메일함 도착과 스팸 분류, Cloudflare → gateway 뒤의 출처 제한, Discord 경로의 MySQL 시험, 실제 Discord 앱.
