@@ -164,7 +164,7 @@ API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거�
 날짜별 계산의 세부 경계는 기존 `src/features/storage/dailyMeasurement.test.ts`가 담당하며 FE 기본 검사에 포함된다.
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
-MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
+MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(서버는 규칙 점수 `reference-feature-rule-v1`로 판정한다. 학습 모델(기준·이탈 2클래스, [ADR 0047](../docs/decisions/0047-posture-from-deviation-probability.md))은 아직 연결 전).
 프로필·판정 기준·기록은 서버(W1·W2·R1)에 있고 측정 결과는 이 기기에 남기지 않는다([ADR 0027](../docs/decisions/0027-today-records-from-collected-server-results.md)).
 개발자 계정의 자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
 
@@ -282,7 +282,7 @@ JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미�
 - 서버 측정: `src/features/session/live/`(S1·`/v2/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
 - 자세 등록: `src/features/baseline/`(관절 평균·B1·B2). 서버 요청 공통: `src/features/platform/api.ts`.
 - 앱 조립·화면 전환: `src/app/ServiceApp.tsx`. 프로필·세션 저장/복구·기록 조회·저장 검증은 `src/features/`에서 기능별로 관리한다.
-- 로컬 저장: `src/features/storage/`(프로필·설정·기록 복사). 중간 저장(draft)은 2026-10-21 지웠다.
+- 저장: `src/features/storage/`(서버 기록 R1 `serverRecords.ts`, 설정 W1·W2 `serverWorkspace.ts`, 이 기기의 프로필 사본·예시 기록 표시 여부). 측정 결과는 이 기기에 두지 않는다(11/13). 중간 저장(draft)은 2026-10-21 지웠다.
 - 카메라 생명주기: `src/hooks/useCamera.ts`. 같은 스트림을 모든 화면과 데스크톱 앱 작은 창에서 공유하고 명시적 사용 종료·측정 종료·로그아웃·인증 변경 시 해제한다. 일반 화면 이동은 진행 중 자세 등록만 취소한다. 등록한 자세는 서버에 있다.
 - 영상·음성은 저장하지 않고 외부 API 업로드도 없다. 자세 데이터 수집에서 촬영을 직접 시작하면 추정 랜드마크·촬영 조건·자기 보고 확인을 메모리에 모아 CSV로 다운로드한다.
 - 서비스 측정은 앱 안의 기록·설정 화면으로 이동해도 계속된다(2026-10-06 사용자 결정, 카메라는 떠 있는 창으로 유지). 외부 탭 전환만으로도 정지하지 않는다. 카메라 영상이 1초 넘게 멈추면 `away`로 보내고 직접 재개해야 한다. 실제 다른 탭·최소화·절전 지원은 별도 장치 검증이 필요하다. 연구 수집은 탭 숨김 시 중단한다.
