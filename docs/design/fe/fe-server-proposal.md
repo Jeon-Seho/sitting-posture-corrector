@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-23은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-24는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -17,6 +17,7 @@
 |  |  | 3 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 FE 포함 통신 시험 F3에서 확인 | 11/16 시험 |
 |  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | 급하지 않음. D-57 병합 때 함께 |
 |  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
+|  |  | 15 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | kafka 브랜치 코드는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
 | 2 | BE·DevOps가 정할 것 | 6 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
 |  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
 |  |  | 8 | 열린 채 남는 세션 닫기 | BE | 아직 없다. S3가 지워져 닫을 수단이 더 없다 | 가장 급함 |
@@ -105,6 +106,21 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   5. BE: 옛 형식 받기를 지운다.
 
   kafka `posture.features.v1`과 추론 `POST /v2/infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
+
+#### 요구 15. 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24)
+
+- **한줄요약:** kafka 모드 판정기가 그 세션의 정책(`session_started`)을 받지 못한 채 관측을 받으면, 서버 기본값이 아니라 그 사용자가 정한 판정 기준으로 판정한다.
+- **발단:** D-57 통신 시험 준비(11/16)로 kafka 판정기 코드를 확인했다. 시험 F2(설정에서 확정 5초·재알림 30초로 바꾸고 측정)가 바로 이 경우에 걸린다. [FE 예외 처리 방안](fe-exception-handling-plan.md) 6장 2번으로 적어 두었던 것을 요구로 올린다.
+- **원인:** `feat/ws-kafka-pipeline` `1067dab` 처리 서비스의 `V1JudgeRegistry`:
+  - 관측(`observation`)이 `session_started`보다 먼저 오면 「session_started 없이 관측을 받음 — 기본 정책으로 판정」(info 로그만)으로 **서버 기본 정책**(확정 3초·재알림 60초·기준 0.7)의 판정기를 만든다.
+  - 그 뒤에 `session_started`가 와도 「이미 관측을 받은 세션」이라 **무시**한다. 그 세션은 끝까지 기본 정책으로 판정된다.
+  - Redis에서 판정 상태를 복원하지 못하면(「복원할 수 없어 버림」) 다음 관측부터 같은 일이 생긴다.
+  - 사용자는 설정(W1·W2)에서 정한 확정·재알림 시간과 다르게 알림을 받는다. 앱은 서버가 판정한 대로 보여 주므로(ADR 0021) 앱에서는 알 수도 고칠 수도 없다. local 모드는 S1의 `policy`로 판정해 이 문제가 없다.
+- **요구사항/변경사항:** kafka 모드를 운영에 켜기 전에 DevOps·BE가 정한다. FE 안:
+  1. 판정기를 정책 없이 만들어야 할 때(시작 메시지 없음, 상태 복원 실패) 기본값 대신 DB에서 그 세션의 정책을 읽는다(`monitor_session.threshold_policy_id` → `threshold_policy`, S1 때 서버가 저장한 값).
+  2. 그래도 못 읽으면 기본 정책으로 판정하되 warn 로그와 횟수를 남겨, 운영에서 얼마나 생기는지 보이게 한다.
+  3. 통신 시험 F2에서 확정·재알림이 설정값대로 나오는지 확인한다(정상 경로). 시작 메시지를 놓친 경우는 서버 시험으로 확인한다.
+  - **앱 일은 없다.**
 
 ### 2순위: BE·DevOps가 정할 것
 

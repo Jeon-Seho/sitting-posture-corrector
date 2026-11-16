@@ -122,7 +122,7 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 | # | 요청 | 이유 |
 |---|---|---|
 | 1 | S4를 DB에서 답하는 안(보고서 안건 1 A안)으로 갈 때: `summary.total_ms`는 DB에 저장된 실제 측정 시간, 저장이 끝난 세션이면 `ended: true`와 `events`에 `session_ended`. `last_sequence`는 -1이어도 된다 | 앱은 `total_ms`로 응답을 쓸지 정하고, `session_ended`가 있어야 기록을 「저장 확인됨」으로 둔다. 없으면 고장은 아니지만 매번 R1 확인까지 늦어진다. **받아들여짐(D-85).** BE `c98074d`(DB 값, 요청대로 `ended`·`session_ended`·저장된 `total_ms`), DevOps `f36d4fb`(kafka 메모리 값, D-57 ⑧). BE 쪽은 develop 병합(PR #119, 11/12), D-57 ⑧은 아직 병합 전. 앱은 사건이 적은 응답이면 화면 사건을 둔다([연동 명세](api-ws-spec.md) S4) **반영(BE-11, develop PR #119):** S4가 DB의 끝난 값으로 답한다(11/16 확인). |
-| 2 | 판정기가 `session_started` 없이 관측부터 받으면 서버 기본값(확정 3초·재알림 60초·기준 0.7) 대신 DB `monitor_session.threshold_policy_id`로 그 세션 설정을 읽기 | 지금은 로그만 남기고 기본값으로 판정한다(`V1JudgeRegistry.observation`). 사용자 설정이 서버(W1/W2)로 옮겨진 실제 데이터라 조용히 틀리면 안 된다 **11/16 아직:** develop·kafka 브랜치 모두 `V1JudgeRegistry`가 기본 정책으로 판정한다. |
+| 2 | 판정기가 `session_started` 없이 관측부터 받으면 서버 기본값(확정 3초·재알림 60초·기준 0.7) 대신 DB `monitor_session.threshold_policy_id`로 그 세션 설정을 읽기 | 지금은 로그만 남기고 기본값으로 판정한다(`V1JudgeRegistry.observation`). 사용자 설정이 서버(W1/W2)로 옮겨진 실제 데이터라 조용히 틀리면 안 된다 **11/16 아직:** develop·kafka 브랜치 모두 `V1JudgeRegistry`가 기본 정책으로 판정한다. → [FE 제안서](fe-server-proposal.md) 요구 15. |
 | 3 | 종료 뒤 `stalled`를 계약에 「`end` 뒤 저장 지연」으로 명시하고, 기준을 5초 → 3초 | 5.2. **반영(D-57 ⑧ `f36d4fb`, develop 병합 전):** `end` 뒤 3초, 측정 중 5초. 계약·BE 명세 설명도 고침 |
 | 4 | 서버가 시작할 때 `ended_at` NULL로 남은 세션을 마지막 구간 기준으로 닫기 | 3장 local 「측정 중 서버 재시작」이 R1에 나오게 된다. FE 제안서 요구 8 **11/16 아직** — FE 제안서 요구 8. |
 | 5 | (뺌, 11/16) Kafka 경로 서버 상태 확인 | 서버가 살아 있는지는 서버가 스스로 정하고 챙길 일이라 FE 요청에서 뺐다 |
