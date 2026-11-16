@@ -489,7 +489,7 @@ export function LocalServiceApp({
     if (accountMutation.current) { setError('계정 변경을 확인한 뒤 로그아웃해 주세요.'); return }
     if (measuring) {
       go('session')
-      setError('측정을 종료하고 결과 저장을 확인한 뒤 로그아웃해 주세요.')
+      setError('측정을 끝낸 뒤 로그아웃해 주세요.')
       return
     }
     // (D-66) End the server login too. A failure (server down, another tab switched accounts)

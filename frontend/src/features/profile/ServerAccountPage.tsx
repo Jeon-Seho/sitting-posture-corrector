@@ -62,7 +62,7 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
   }
   return <div className="profile-page">
     <h1 className="page-title">프로필 설정</h1>
-    {blocked && <p role="status">측정을 종료하고 결과 저장을 확인한 뒤 계정을 변경해 주세요.</p>}
+    {blocked && <p role="status">측정을 끝낸 뒤 계정을 변경해 주세요.</p>}
     {message && <p role="status">{message}</p>}
     <form className="profile-form" onSubmit={e => { e.preventDefault(); void run(save) }}>
       <label className="field">이름<input className="input" name="serverName" value={name} onChange={e => setName(e.target.value)} required maxLength={30} /></label>
