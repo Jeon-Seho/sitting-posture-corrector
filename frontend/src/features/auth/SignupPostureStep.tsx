@@ -7,14 +7,14 @@ import { SetupPage } from '../../pages/SetupPage'
  * Sign-up step 3 (optional). Reuses the registration of 「측정하기」 as is (its 「다시 등록」 mode,
  * which never starts a measurement by itself); the main screens stay with their owner.
  * The width is chosen so the 4:3 camera ends level with the side panel (「이렇게 앉으면 좋아요」 card).
+ * There is no way back: the account was created at step 2 (A2, or A15 for Discord), so going back
+ * would only offer to sign up again.
  */
 export function SignupPostureStep({
   camera,
-  onBack,
   onFinish,
 }: {
   camera: CameraController
-  onBack: () => void
   onFinish: (registered: boolean) => void
 }) {
   const main = useRef<HTMLElement>(null)
@@ -54,9 +54,6 @@ export function SignupPostureStep({
         <SetupPage camera={camera} registerAgain startLabel="앱 시작" onStart={() => onFinish(true)} onCollect={() => {}} />
       </main>
       <footer className="signup-actions signup-posture-foot">
-        <button type="button" className="btn btn-quiet" onClick={onBack}>
-          이전
-        </button>
         {/* Without a connected camera, skipping is the main way forward. */}
         <button
           type="button"

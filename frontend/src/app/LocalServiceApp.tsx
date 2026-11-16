@@ -45,7 +45,7 @@ import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWo
 import { getServerAuth } from '../features/platform/serverAuth'
 import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { desktopBridge } from '../features/desktop/bridge'
-import { clearSocialRoute, discordLoginEnabled, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { clearSocialRoute, discordLoginEnabled, logDiscord, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
 import { SocialLoginButtons } from '../features/auth/SocialLoginButtons'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
@@ -190,6 +190,11 @@ export function LocalServiceApp({
     if (!socialLanding) return
     clearSocialRoute()
     const social = accounts?.social
+    logDiscord('back from Discord', {
+      route: socialLanding.kind,
+      status: socialLanding.kind === 'result' ? socialLanding.status : undefined,
+      accountClient: !!social,
+    })
     if (socialLanding.kind !== 'signup' || !social) return
     let cancelled = false
     social
@@ -197,9 +202,11 @@ export function LocalServiceApp({
       .then((draft) => {
         if (cancelled) return
         if (!draft) {
+          logDiscord('signup draft missing (cookie not sent, expired, or Discord off on the server)')
           setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
           return
         }
+        logDiscord('signup continues at consent')
         setSocialSignup(draft)
         setEmail(draft.email)
         form.resetFields({ name: draft.suggested_name })
@@ -423,7 +430,10 @@ export function LocalServiceApp({
 
   /** Discord sign-up: the e-mail is the one Discord confirmed; the account has no password yet. */
   async function registerSocialWithServer(client: AccountClient, next: Profile) {
-    if (busy || !client.social || !socialSignup) return
+    if (busy || !client.social || !socialSignup) {
+      logDiscord('signup not sent', { busy, accountClient: !!client.social, draft: !!socialSignup })
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -626,14 +636,7 @@ export function LocalServiceApp({
 
   if (!authed && authView === 'posture') {
     return (
-      <SignupPostureStep
-        camera={camera}
-        onBack={() => {
-          camera.stop()
-          openAuth('account')
-        }}
-        onFinish={finishSignup}
-      />
+      <SignupPostureStep camera={camera} onFinish={finishSignup} />
     )
   }
 
@@ -710,6 +713,7 @@ export function LocalServiceApp({
             {accounts?.social && (
               // Every planned provider is shown; only Discord works for now. Others say they are coming.
               <SocialLoginButtons disabled={busy} ready={id => id === 'discord'} onPick={(id, name) => {
+                if (id === 'discord') logDiscord('button', { enabled: discordLoginEnabled(), desktop: !!desktopBridge() })
                 if (id === 'discord' && discordLoginEnabled()) void startDiscord()
                 else if (id === 'discord') setError(desktopBridge()
                   ? 'Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.'
