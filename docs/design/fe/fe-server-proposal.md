@@ -397,6 +397,8 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `VITE_API_BASE_URL` | API 주소. 운영 `https://api.posegood.site`(Vercel Production에 설정). 비우면 같은 출처 `/api`. WS 주소도 여기서 만든다(`https:`면 `wss:`) |
 | `POSEGOOD_API_URL` | 개발 서버의 `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 | `POSEGOOD_APP_URL` | 데스크톱 앱이 열 웹 주소. 기본 `https://app.posegood.site/` |
+| `VITE_DISCORD_LOGIN_ENABLED` | `true`면 웹에 Discord 로그인·연결(A11~A17)을 켠다. 데스크톱 앱은 늘 숨김. 운영 웹은 할 일 6 |
+| `VITE_PASSWORD_RESET_ENABLED` | `true`면 비밀번호 찾기(A9·A10)를 서버로 보낸다. 운영 서버 메일이 켜진 뒤 켠다 |
 
 **데스크톱 앱** (`frontend/electron/`, 시각 규칙 [DESIGN.md](../../../DESIGN.md))
 
