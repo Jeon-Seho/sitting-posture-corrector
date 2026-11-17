@@ -44,9 +44,6 @@ public final class AccountContracts {
 		@NotNull String currentPassword, @NotNull @Size(min = 12, max = 72) String newPassword) {
 	}
 
-	public record Withdrawal(@NotNull String password) {
-	}
-
 	/**
 	 * {@code userId}는 `user_account_id`를 10진수 문자열로 쓴 값이다. {@code today}는 응답을 만든 때의 서버 기준
 	 * 오늘 날짜(KST {@code YYYY-MM-DD})로, 앱의 「오늘」을 정한다(BE-6, FE ADR 0029).

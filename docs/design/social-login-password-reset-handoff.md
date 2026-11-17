@@ -27,7 +27,10 @@
 
 ## 2. DB 담당(유진) — 제안 V2.7
 
-> **2026-11-11 확정:** [migration 017](../../database/migrations/017_create_social_identity_password_reset_token.sql)과 `database/schema/schema_V2_7.sql`로 반영했다([DB 안내](../../database/README.md) 5장 「V2.7에서 더한 것」). 아래 제안과 다른 점은 보조 인덱스 `ix_password_reset_token_user_issued`를 넣지 않은 것 하나다(FK-30 자동 인덱스 사용). 운영 DB에 017을 적용한 뒤에 두 기능을 켠다.
+> **2026-11-11 확정:** migration 017과 `database/schema/schema_V2_7.sql`로 반영했다([DB 안내](../../database/README.md) 5장 「V2.7에서 더한 것」). 아래 제안과 다른 점은 보조 인덱스 `ix_password_reset_token_user_issued`를 넣지 않은 것 하나다(FK-30 자동 인덱스 사용). 운영 DB에 017을 적용한 뒤에 두 기능을 켠다.
+>
+> **2026-11-17:** 운영 DB는 V2.7(017 적용)이다. 그래서 017 파일은 지웠다(git 이력에 남음, `git show <지운 커밋>^:database/migrations/017_create_social_identity_password_reset_token.sql`).
+> V2.8([계획 0096](../plans/active/0096-account-email-link-and-verification.md), migration 018)에서 `password_hash`는 `local_credential` 표로 옮겼고 `'!no-password'` 고정값은 없어진다 — 아래 「`user_account`는 바꾸지 않는다」는 V2.7까지의 내용이다.
 
 `user_account`는 바꾸지 않는다(`password_hash` NOT NULL 그대로, 소셜 전용 계정은 위의 고정값을 쓴다).
 아래 SQL은 **제안**이고, 마이그레이션 번호·주석 형식·ERD·`schema_V2_7.sql`·README·롤백 문서는 DB 절차에 맞춰 확정한다.

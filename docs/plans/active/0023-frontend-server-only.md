@@ -62,7 +62,7 @@
 - [x] 예전 계정 모드 제거, 로컬 로그인·회원가입 3단계(10/13).
 - [x] 로컬 판정 제거(F5 측정 쪽, 10/21 `f88ffe3`): 판정 엔진(`machine`·`scenario`·`snapshot`), `lib/returnSettle.ts`, `lib/cameraSample.ts`, 로컬 측정 화면, 이어하기. `lib/engine.ts`는 기록 타입만 남김. `postureScore`는 서버 공식(100×(1−collapse_probability)) 표시로 남김.
 - [x] 측정 화면의 점수·상태를 서버 결과 표시로 바꾼다. 서버 없이는 측정을 시작하지 않는다(10/21, 개발자 옵션 「서버 판정 사용」 삭제).
-- [ ] 더미 데이터 삭제(10/21 결정): 발표용 예시 기록(`data/exampleRecords.ts`), 합성 시연 `demo` 기록, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라(`?synthetic=1`)는 남긴다.
+- [ ] ~~더미 데이터 삭제(10/21 결정)~~ 하지 않기로 함(11/16, 만든 사람의 기능이라 필요 없어지면 그쪽에서 정함): 발표용 예시 기록(`data/exampleRecords.ts`), 합성 시연 `demo` 기록, `testing/legacySyntheticRecord.ts`. 자동 시험용 가짜 카메라(`?synthetic=1`)는 남긴다.
 - [x] 앱의 특징값 계산 삭제(10/22): 어깨 유예·머리 판정, 고개 돌림·점수·분류, 특징값(`features` → `measurable`), 기준 특징 다리(`baselineFeatures`).
 - [ ] 남은 앱 계산: 기록 화면의 앱 통계(`lib/stats`·`lib/comparison`) — 서버 기록·통계(R1·T1)로 바꿀 때.
 

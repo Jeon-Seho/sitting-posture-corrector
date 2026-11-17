@@ -202,6 +202,39 @@ describe('service recovery and saving with synthetic storage only', () => {
     expect(second).not.toBe(first)
     expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
   })
+  it('「다시 측정」 on the result starts the next measurement without a second 「측정 시작」 (11/17)', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    const first = renderer!.root.findByType(LiveSessionPage).props.session.id
+    act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded(endedState(), ''))
+    act(() => renderer!.root.findByType(LiveSessionPage).props.onMeasureAgain())
+    const second = renderer!.root.findByType(LiveSessionPage).props.session.id
+    expect(second).not.toBe(first)
+    expect(renderer!.root.findAllByType(SetupPage)).toHaveLength(0)
+  })
+  it('「다시 측정」 turns the camera back on when the ended measurement stopped it', () => {
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    act(() => renderer!.root.findByType(SetupPage).props.onStart())
+    act(() => renderer!.root.findByType(LiveSessionPage).props.service.onEnded(endedState(), ''))
+    controls.camera.state = 'off'
+    act(() => renderer!.root.findByType(LiveSessionPage).props.onMeasureAgain())
+    expect(renderer!.root.findByType(SetupPage).props.startWhenReady).toBe(true)
+    expect(controls.camera.connect).toHaveBeenCalledOnce()
+    // Leaving 측정하기 forgets the request.
+    click('설정')
+    click('측정하기')
+    expect(renderer!.root.findByType(SetupPage).props.startWhenReady).toBe(false)
+  })
 
   it('keeps no measurement on this device and removes what an older app left (ADR 0027, 11/13)', () => {
     const old = 'posegood.account.v3.synthetic-screen.pending-results'

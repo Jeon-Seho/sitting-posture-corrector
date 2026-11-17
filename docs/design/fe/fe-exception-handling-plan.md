@@ -13,11 +13,11 @@
 - **막지 않는다:** 확인 중에도 새 측정·로그아웃·계정 화면을 막지 않는다.
 - **앱을 닫으면** 확인하던 목록도 사라진다. 서버가 잃은 측정은 알림 없이 기록에 없다. 측정 중 서버 재시작은 점검 시간에만 있어야 하고 드물어서 받아들인다.
 - **예전 앱이 남긴 대기 기록**(키 `posegood.account.v3.{user_id}.pending-results`)은 로그인할 때 지운다(`dropOldPendingResults`).
-- **조건:** S4가 끝난 세션을 DB 값으로 답해야 한다(BE-11, develop PR #119). 그 전의 S4는 끝난 세션이 메모리에서 빠지면(종료 뒤 30분) 404를 내서, 저장된 측정을 잃은 것으로 알릴 수 있다. 이 브랜치는 develop을 합친 뒤 내보낸다.
+- **기대는 서버 동작:** S4는 끝난 세션을 DB 값으로 답한다(BE-11). 그래서 S4 404는 메모리에도 DB에도 없다는 뜻이고, 끝난 세션이 메모리에서 빠져도(종료 뒤 30분) 저장된 측정을 잃은 것으로 잘못 알리지 않는다.
 
 ## 1. 전제
 
-- **kafka 모드는 아직 개발 중이다.** 코드는 `feat/ws-kafka-pipeline`(D-57) 브랜치에만 있고 develop에는 없다. 보고서 기준 「회의 → 수정 → FE 포함 통신 시험 통과 → develop 병합」 순서이고, 병합 뒤에도 서버 기본값은 local이다.
+- **kafka 모드는 아직 개발 중이다.** 코드는 `feat/ws-kafka-pipeline`(D-57) 브랜치에만 있고 develop에는 없다. 보고서 기준 「회의 → 수정 → FE 포함 통신 시험 통과 → develop 병합」 순서이고(11/16 시험은 서버가 local 모드여서 kafka 모드로 다시 한다), 병합 뒤에도 서버 기본값은 local이다.
 - **운영 서버는 local 모드다.** io-api 한 곳에서 판정·저장하고, `end` 뒤 `closed`는 1초 안에 온다.
 - **웹과 데스크톱 앱은 같게 동작한다.** 한쪽에서만 되는 처리(예: 데스크톱에서 닫기를 붙잡고 저장을 기다린 뒤 닫기)는 만들지 않는다.
 
@@ -72,7 +72,7 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 
 | 받은 것 | 앱 동작 |
 |---|---|
-| S1 5xx, `ready` 전 `closed(session_lost)`, S1 뒤 연결 실패(WS가 안 열림·`ready` 전 끊김·`ready` 5초 넘김·토큰 받기 네트워크 실패) | 측정 화면 자리에 오류 화면(500 그림) 「지금은 측정을 시작할 수 없어요 — 서버와 연결하지 못해 측정을 시작하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시작해 주세요」, 버튼 「다시 시도」(바로 새 측정). 측정한 것이 없어 기록은 남기지 않는다(`LiveState.serverDown`, `ERROR_PAGES.measure`). 서버에 열린 채 남는 빈 세션은 BE가 닫는다([FE 제안서](fe-server-proposal.md) 요구 8) |
+| S1 5xx, `ready` 전 `closed(session_lost)`, S1 뒤 연결 실패(WS가 안 열림·`ready` 전 끊김·`ready` 5초 넘김·토큰 받기 네트워크 실패) | 측정 화면 자리에 오류 화면(500 그림) 「지금은 측정을 시작할 수 없어요 — 서버와 연결하지 못해 측정을 시작하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시작해 주세요」, 버튼 「다시 시도」(바로 새 측정). 측정한 것이 없어 기록은 남기지 않는다(`LiveState.serverDown`, `ERROR_PAGES.measure`). 서버에 열린 채 남는 빈 세션은 기록에 나오지 않는다(닫게 하는 요청은 하지 않기로 함, [FE 제안서](fe-server-proposal.md) 0장, 11/16) |
 
 전에는 이 경우 「서버에서 측정이 끝났어요. 확인된 시간까지 저장됐어요」가 떴다. 측정한 것이 없는데 저장됐다고 말하던 것을 고쳤다(2026-11-11).
 
@@ -121,12 +121,12 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 
 | # | 요청 | 이유 |
 |---|---|---|
-| 1 | S4를 DB에서 답하는 안(보고서 안건 1 A안)으로 갈 때: `summary.total_ms`는 DB에 저장된 실제 측정 시간, 저장이 끝난 세션이면 `ended: true`와 `events`에 `session_ended`. `last_sequence`는 -1이어도 된다 | 앱은 `total_ms`로 응답을 쓸지 정하고, `session_ended`가 있어야 기록을 「저장 확인됨」으로 둔다. 없으면 고장은 아니지만 매번 R1 확인까지 늦어진다. **받아들여짐(D-85).** BE `c98074d`(DB 값, 요청대로 `ended`·`session_ended`·저장된 `total_ms`), DevOps `f36d4fb`(kafka 메모리 값, D-57 ⑧). BE 쪽은 develop 병합(PR #119, 11/12), D-57 ⑧은 아직 병합 전. 앱은 사건이 적은 응답이면 화면 사건을 둔다([연동 명세](api-ws-spec.md) S4) |
-| 2 | 판정기가 `session_started` 없이 관측부터 받으면 서버 기본값(확정 3초·재알림 60초·기준 0.7) 대신 DB `monitor_session.threshold_policy_id`로 그 세션 설정을 읽기 | 지금은 로그만 남기고 기본값으로 판정한다(`V1JudgeRegistry.observation`). 사용자 설정이 서버(W1/W2)로 옮겨진 실제 데이터라 조용히 틀리면 안 된다 |
+| 1 | S4를 DB에서 답하는 안(보고서 안건 1 A안)으로 갈 때: `summary.total_ms`는 DB에 저장된 실제 측정 시간, 저장이 끝난 세션이면 `ended: true`와 `events`에 `session_ended`. `last_sequence`는 -1이어도 된다 | 앱은 `total_ms`로 응답을 쓸지 정하고, `session_ended`가 있어야 기록을 「저장 확인됨」으로 둔다. 없으면 고장은 아니지만 매번 R1 확인까지 늦어진다. **받아들여짐(D-85).** BE `c98074d`(DB 값, 요청대로 `ended`·`session_ended`·저장된 `total_ms`), DevOps `f36d4fb`(kafka 메모리 값, D-57 ⑧). BE 쪽은 develop 병합(PR #119, 11/12), D-57 ⑧은 아직 병합 전. 앱은 사건이 적은 응답이면 화면 사건을 둔다([연동 명세](api-ws-spec.md) S4) **반영(BE-11, develop PR #119):** S4가 DB의 끝난 값으로 답한다(11/16 확인). |
+| 2 | 판정기가 `session_started` 없이 관측부터 받으면 서버 기본값(확정 3초·재알림 60초·기준 0.7) 대신 DB `monitor_session.threshold_policy_id`로 그 세션 설정을 읽기 | 지금은 로그만 남기고 기본값으로 판정한다(`V1JudgeRegistry.observation`). 사용자 설정이 서버(W1/W2)로 옮겨진 실제 데이터라 조용히 틀리면 안 된다 **11/16 아직:** develop·kafka 브랜치 모두 `V1JudgeRegistry`가 기본 정책으로 판정한다. → [FE 제안서](fe-server-proposal.md) 요구 6. |
 | 3 | 종료 뒤 `stalled`를 계약에 「`end` 뒤 저장 지연」으로 명시하고, 기준을 5초 → 3초 | 5.2. **반영(D-57 ⑧ `f36d4fb`, develop 병합 전):** `end` 뒤 3초, 측정 중 5초. 계약·BE 명세 설명도 고침 |
-| 4 | 서버가 시작할 때 `ended_at` NULL로 남은 세션을 마지막 구간 기준으로 닫기 | 3장 local 「측정 중 서버 재시작」이 R1에 나오게 된다. FE 제안서 요구 8 |
-| 5 | Kafka 경로 서버 상태 확인(BE-14~17: liveness에 자기 Kafka 스레드 포함, 다른 서버 상태 빼기, 건너뛴 메시지 알림, 구독 그룹 이름 고정) | [FE 제안서](fe-server-proposal.md) 요구 1 |
-| 6 | **kafka 모드 자정 넘김을 어떻게 할지 정하기.** kafka 브랜치는 자정 넘김을 local에서만 켠다(`RealtimeHandlerV2` 생성자 `midnightRollover && pipeline.local()`, 주석 「가이드 11장 #3」). 그래서 kafka 모드에서는 측정이 자정을 넘어 하나로 이어진다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 결과의 BE 줄은 「Kafka 모드(`ws`, 계획 0031)도 같은 규칙」이다 | ADR 0029와 코드가 다르다. 이대로면 kafka 모드를 운영에 켤 때 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER=true`)이 꺼진 것과 같다. 앱은 `session_rollover`가 안 와도 동작하지만, ADR 0029의 「측정 하나는 하루 안」이 깨지고 앱 날짜 나누기(ADR 0027)를 지울 수 없다. kafka에서도 넘길지(언제), ADR을 고칠지 D-57 회의에서 정한다. 안과 FE 요구(local처럼 `session_rollover`로 끊김 없이 넘기기, 11/12)는 [FE 제안서](fe-server-proposal.md) 요구 2(BE-18) |
+| 4 | 서버가 시작할 때 `ended_at` NULL로 남은 세션을 마지막 구간 기준으로 닫기 | 3장 local 「측정 중 서버 재시작」이 R1에 나오게 된다. **11/16 요청하지 않기로 함:** 드물고, 앱은 시작 실패를 오류 화면으로, 측정 중 서버 재시작은 S4 404 알림으로 처리한다. |
+| 5 | (뺌, 11/16) Kafka 경로 서버 상태 확인 | 서버가 살아 있는지는 서버가 스스로 정하고 챙길 일이라 FE 요청에서 뺐다 |
+| 6 | **kafka 모드 자정 넘김을 어떻게 할지 정하기.** kafka 브랜치는 자정 넘김을 local에서만 켠다(`RealtimeHandlerV2` 생성자 `midnightRollover && pipeline.local()`, 주석 「가이드 11장 #3」). 그래서 kafka 모드에서는 측정이 자정을 넘어 하나로 이어진다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 결과의 BE 줄은 「Kafka 모드(`ws`, 계획 0031)도 같은 규칙」이다 | ADR 0029와 코드가 다르다. 이대로면 kafka 모드를 운영에 켤 때 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER=true`)이 꺼진 것과 같다. 앱은 `session_rollover`가 안 와도 동작하지만, ADR 0029의 「측정 하나는 하루 안」이 깨지고 앱 날짜 나누기(ADR 0027)를 지울 수 없다. kafka에서도 넘길지(언제), ADR을 고칠지 D-57 회의에서 정한다. 안과 FE 요구(local처럼 `session_rollover`로 끊김 없이 넘기기, 11/12)는 [FE 제안서](fe-server-proposal.md) 옛 요구 2(BE-18) **11/16 DevOps가 kafka 모드에서도 된다고 해 FE 제안서 옛 요구 2를 닫았다.** |
 
 ## 7. FE 포함 통신 시험에 넣을 것 (보고서 안건 4)
 

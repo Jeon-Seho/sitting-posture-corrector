@@ -25,7 +25,7 @@ HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/c
 | `GET /auth/me` | 사용자 |
 | `POST /auth/logout` | refresh 쿠키 철회·삭제 → 204. access 토큰은 만료까지 남음 |
 | `PUT /auth/password` | `{current_password,new_password}` → 204, 그 사용자의 refresh 토큰 모두 철회, 열린 실시간 연결 닫음 |
-| `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
+| `DELETE /auth/account` | 본문 없음 → 204, 탈퇴 접수. 비밀번호를 확인하지 않는다(2026-11-17, BE-25 — 로그인 상태만으로 받고 실수는 앱 확인 창이 막음). 옛 앱의 `{password}` 본문은 무시한다 |
 
 사용자 응답의 `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다(2026-10-27, BE-6).
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
@@ -141,7 +141,7 @@ GET은 DB 테이블에서 재구성한다. 사건 방향은 저장하지 않으�
 DB에 종료 원인이 없으므로 v2 기록의 `confirmed:true`는 서버에 종료·요약이 저장됐음을 뜻한다.
 원래 브라우저가 종료 응답을 받았는지는 DB에서 복원하지 않는다.
 
-서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). T1 형식은 [API 명세 T1](../docs/design/api-spec.md#t1)(구현 전). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다.
+서버 연동 뒤의 화면은 어제까지의 일별 통계를 T1으로 제공·표시하고, 오늘 목록·집계는 앱이 로컬에 수집한 서버 세션 결과를 사용한다(2026-10-22 결정). T1 형식은 [API 명세 T1](../docs/design/api-spec.md#t1)(구현 전). 서버의 기록 조회·저장과 별개인 표시용 보관이며, 같은 날짜·세션을 중복 합산하지 않는다. 구체적인 출처는 [FE 연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)를 따른다.
 
 판정 상태는 API 메모리이며 재시작 후 `404 SESSION_LOST`다. 그 세션 행을 닫던 기록 저장(R2)은 2026-10-28 지웠고,
 지금은 닫는 경로가 없어 열린 채 남는다(계획 0062 남은 일). 예전에 R2로 닫힌 행(전체가 MISSING)은

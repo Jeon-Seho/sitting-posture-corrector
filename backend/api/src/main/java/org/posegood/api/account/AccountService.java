@@ -142,13 +142,13 @@ public class AccountService {
 	 * 탈퇴 접수: 계정을 CLOSED로 바꾸고 모든 로그인을 끊는다. 되돌릴 수 없다(철회 없음).
 	 *
 	 * 유예 기간(30일)에는 식별 정보와 기록을 그대로 둔다. 유예가 끝나면 Spark J3가 지운다.
+	 * 비밀번호는 확인하지 않는다(BE-25): 비밀번호 없는 소셜 가입 계정도 탈퇴할 수 있어야 한다.
 	 */
-	public void withdraw(long id, AccountContracts.Withdrawal body) {
+	public void withdraw(long id) {
 		locks.run(
 			id,
 			() -> {
-				var account = requireActive(id);
-				requireCurrent(body.password(), account.hash());
+				requireActive(id);
 				tx.executeWithoutResult(
 					status -> {
 						accounts.close(id, KstTime.now());

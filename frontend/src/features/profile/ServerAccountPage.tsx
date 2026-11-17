@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiRequest, type ApiErrorKind } from '../platform/api'
 import { fromApiProfile, toApiProfile, type ApiProfile, type SocialClient } from '../auth/accountClient'
 import { SocialLinkSection } from './SocialLinkSection'
+import { ConfirmDialog } from '../dialog/ConfirmDialog'
 import { validServerPassword } from '../auth/password'
 import { validProfileInput } from '../storage/validation'
 import { sameSnapshot } from '../storage/serverSnapshots'
@@ -25,7 +26,7 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
   const [occupation, setOccupation] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   useEffect(() => {
@@ -62,7 +63,7 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
   }
   return <div className="profile-page">
     <h1 className="page-title">프로필 설정</h1>
-    {blocked && <p role="status">측정을 종료하고 결과 저장을 확인한 뒤 계정을 변경해 주세요.</p>}
+    {blocked && <p role="status">측정을 끝낸 뒤 계정을 변경해 주세요.</p>}
     {message && <p role="status">{message}</p>}
     <form className="profile-form" onSubmit={e => { e.preventDefault(); void run(save) }}>
       <label className="field">이름<input className="input" name="serverName" value={name} onChange={e => setName(e.target.value)} required maxLength={30} /></label>
@@ -81,10 +82,23 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
       onSignedOut('비밀번호를 변경했어요. 새 비밀번호로 로그인해 주세요.')
     })}>비밀번호 변경</button>
     <p>탈퇴는 되돌릴 수 없으며 서버 정책에 따라 30일 뒤 계정과 기록이 삭제됩니다.</p>
-    <label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />탈퇴와 기록 삭제에 동의합니다</label>
-    <button className="btn btn-danger" disabled={disabled || !currentPassword || !confirmed} onClick={() => void run(async () => {
-      await request('/auth/account', 'DELETE', { password: currentPassword })
-      onSignedOut('서버에 탈퇴를 접수했어요.')
-    })}>서버 계정 탈퇴</button>
+    {/* No password: Discord accounts have none, and the dialog is what stops a slip (FE proposal 요구 1, 11/16). */}
+    <button className="btn btn-danger" disabled={disabled} onClick={() => setConfirming(true)}>서버 계정 탈퇴</button>
+    {confirming && <ConfirmDialog
+      title="정말 삭제하시겠습니까?"
+      confirmLabel="탈퇴"
+      disabled={blocked}
+      onCancel={() => setConfirming(false)}
+      onConfirm={async () => {
+        onBusy(true)
+        try {
+          await request('/auth/account', 'DELETE')
+        } finally { onBusy(false) }
+        onSignedOut('서버에 탈퇴를 접수했어요.')
+      }}
+      formatError={(error) => error instanceof Error ? error.message : '탈퇴하지 못했어요.'}
+    >
+      <p>탈퇴는 되돌릴 수 없고 30일 뒤 계정과 기록이 삭제돼요.</p>
+    </ConfirmDialog>}
   </div>
 }

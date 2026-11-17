@@ -11,6 +11,14 @@ import { desktopBridge } from '../desktop/bridge'
  */
 export type SocialRoute = { kind: 'result'; status: string } | { kind: 'signup' } | { kind: 'link' }
 
+/**
+ * One console line per step of the Discord flow, so a failed sign-in or sign-up can be traced in
+ * the browser console (filter: `discord`). Never pass an e-mail, a token or a full URL in `detail`.
+ */
+export function logDiscord(step: string, detail: Record<string, unknown> = {}) {
+  console.info('[PoseGood] discord', step, detail)
+}
+
 export function discordLoginEnabled(flag: unknown = import.meta.env.VITE_DISCORD_LOGIN_ENABLED) {
   return flag === 'true' && !desktopBridge()
 }
