@@ -1,18 +1,23 @@
 -- =====================================================================
--- 자세교정 서비스 스키마 — schema_V2_6.sql
--- 명세서: DB 명세서 V2.6 (2026-10-27) — V2.5 + 로그인 유지 토큰 T-51 refresh_token (ADR 0031, JWT access + refresh 로그인)
+-- 자세교정 서비스 스키마 — schema_V2_8.sql
+-- 명세서: DB 명세서 V2.8 (2026-11-17) — V2.7 + 비밀번호 로그인 수단 T-54 local_credential(user_account.password_hash를 옮김),
+--   이메일 인증 토큰 T-55 email_verification_token (계획 0096)
 --   CR-04 승인자·회의록 기재 전. 문서(REQ-01, DB-01~04)의 V2.1·V2.2 반영은 아직이다.
--- 이전 버전이다. 새 DB는 schema_V2_7.sql로 만든다. 이 파일은 migrations/(017~)의 출발점(DB CI 기준 스키마)으로만 남긴다.
---   운영 DB가 V2.6이라 이보다 오래된 스키마와 migration 011~016은 지웠다(git 이력에 남음, database/README.md 2장).
+-- 새 DB는 이 파일과 시드로 만든다. V2.7로 만든 DB(운영)는 migrations/018·019를 적용하면 이 파일과 같아진다 (다음 번호 020).
+--   V2.5 이전 DB는 migration으로 올리지 않는다(011~016은 지웠다) — 지우고 다시 만든다(database/README.md 1장).
 -- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제)
--- 생성: 2026-10-27 (ADR 0031로 V2.5에서 만듦 — 명세서 V2.6을 고친 뒤 명세서에서 다시 생성해 맞춘다)
+-- 생성: 2026-11-17 (계획 0096으로 V2.7에서 만듦 — 명세서 V2.8을 고친 뒤 명세서에서 다시 생성해 맞춘다)
 --
--- 범위: 14개 테이블. 보류 T-36 collapse_type과 collapse_event.collapse_type_code, FK-15는 명세에서도 뺐다.
+-- 범위: 18개 테이블. 보류 T-36 collapse_type과 collapse_event.collapse_type_code, FK-15는 명세에서도 뺐다.
 --   T-41 user_consent는 FE 동의 제안서(2026-10-13)로 다시 설계해 넣었다 (학습 동의 없음, UK-08 없음).
 -- 삭제 (V2.2, migration 없음 — DB 새로 만듦): threshold_policy.policy_name·created_by·notify_max_per_hour, UK-12
 --   baseline_posture.calibration_uuid·calibration_sec·sample_count, UK-04
 --   monitor_session.calibration_uuid·end_reason, collapse_event.end_reason
 --   correction_alert.correction_alert_id·attempt_seq·delivered·suppress_reason, UK-07
+-- 추가·삭제 (V2.8): T-54 local_credential, FK-31 (migration 018) — user_account.password_hash를 옮기고 지웠다
+--   ('!no-password' 고정값은 옮기지 않음 — 행 없음 = 비밀번호 없음) / T-55 email_verification_token, UK-21, CHECK 2개 (migration 019)
+-- 추가 (V2.7): T-52 social_identity, UK-18·UK-19, FK-29, CHECK 1개 / T-53 password_reset_token, UK-20, FK-30, CHECK 2개
+--   (migration 017). 기존 테이블은 바꾸지 않았다
 -- 추가 (V2.6): T-51 refresh_token, UK-17, FK-28, CHECK 4개 (migration 016). user_account.sound_alert_enabled 기본값 거짓 → 참,
 --   baseline_posture.client_registration_uuid 설명(WebSocket 등록 삭제) SPRING_SESSION·SPRING_SESSION_ATTRIBUTES는
 --   API가 더 쓰지 않지만 테이블은 남긴다(정리는 나중에)
@@ -46,6 +51,16 @@
 -- 로그인 (V2.6, ADR 0031): 짧은 access 토큰(JWT, 30분)은 저장하지 않는다. 로그인 유지 토큰(refresh, 14일)은 원문 대신
 --   SHA-256만 refresh_token에 두고, 쓸 때마다 새 행으로 바꾼다. 로그아웃·비밀번호 변경·탈퇴 때 그 사용자의 행을 철회한다.
 --   계정 최종 삭제 때 함께 지운다(FK-28 CASCADE). 만료된 행은 API가 하루에 한 번 지운다.
+-- 로그인 수단 (V2.8, 계획 0096): 계정(user_account) 하나에 비밀번호(local_credential, 0~1행)와 소셜 연결(social_identity,
+--   제공자마다 0~1행)을 붙인다. 비밀번호 있음 = local_credential 행 있음. 같은 이메일 계정을 묶는 규칙은 API가 정한다(계획 0096).
+--   둘 다 계정 최종 삭제 때 함께 지운다(FK-31·FK-29 CASCADE).
+-- 소셜 로그인 (V2.7, 계획 0088): 계정과 제공자 사용자 ID만 social_identity에 둔다(이메일·이름·제공자 토큰은 저장하지 않음).
+--   소셜로 가입한 계정은 비밀번호가 없어 local_credential 행이 없다(V2.7까지는 password_hash에 고정값 '!no-password').
+-- 비밀번호 재설정 (V2.7, 계획 0088): 30분짜리 일회용 메일 링크 토큰의 SHA-256만 password_reset_token에 둔다.
+--   한 번 쓰면 consumed_at을 채운다. 계정 최종 삭제 때 함께 지운다(FK-30 CASCADE). 만료된 행은 API가 하루에 한 번 지운다.
+-- 이메일 인증 (V2.8, 계획 0096): 가입 전 메일함 소유 확인용 일회용 링크 토큰의 SHA-256을 email_verification_token에 둔다.
+--   가입 전이라 계정 대신 정규화한 이메일로 주인을 둔다(FK 없음 — 계정 삭제 때 CASCADE로 지워지지 않음).
+--   한 번 쓰면 consumed_at을 채운다. 만료된 지 하루가 지난 행은 API가 하루에 한 번 지운다.
 -- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의. V2.6부터 쓰지 않는다(남겨 둠).
 --   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
 --   서버 DB는 이 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
@@ -91,7 +106,6 @@ CREATE TABLE threshold_policy (
 CREATE TABLE user_account (
   user_account_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 식별자 (로그인 계정이 바뀔 수 있으므로 대리키)',
   login_email VARCHAR(254) NOT NULL COMMENT '로그인 계정',
-  password_hash VARCHAR(100) NOT NULL COMMENT '비밀번호 단방향 해시. 평문 저장·응답 노출 금지',
   display_name VARCHAR(30) NOT NULL COMMENT '표시 이름',
   account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED. 철회 없음 — CLOSED는 ACTIVE로 되돌아오지 않고, 유예 기간(30일) 뒤 Spark J3가 계정 행을 지운다',
   joined_at DATETIME(3) NOT NULL COMMENT '가입 시각',
@@ -323,6 +337,65 @@ CREATE TABLE refresh_token (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-51 로그인 유지 토큰 — refresh 토큰 해시와 교체·철회 상태';
 
 -- ---------------------------------------------------------------------
+-- T-52 social_identity — 소셜 로그인 연결 (근거 계획 0088 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE social_identity (
+  social_identity_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '소셜 연결 식별자',
+  user_account_id BIGINT NOT NULL COMMENT '연결된 계정. 계정 최종 삭제 때 함께 지운다',
+  provider VARCHAR(20) NOT NULL COMMENT '제공자 (DISCORD·KAKAO·GOOGLE·GITHUB). 지금 동작은 DISCORD만',
+  provider_subject VARCHAR(64) NOT NULL COMMENT '제공자의 바뀌지 않는 사용자 ID (Discord id·Kakao id·Google sub·GitHub id). 이메일·이름·제공자 토큰은 저장하지 않는다',
+  linked_at DATETIME(3) NOT NULL COMMENT '연결 시각',
+  CONSTRAINT pk_social_identity PRIMARY KEY (social_identity_id),
+  CONSTRAINT ux_social_identity_subject UNIQUE (provider, provider_subject),  -- UK-18: 제공자 사용자 하나는 계정 하나에만
+  CONSTRAINT ux_social_identity_account UNIQUE (user_account_id, provider),  -- UK-19: 계정 하나는 제공자마다 연결 하나
+  CONSTRAINT fk_social_identity_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-29
+  CONSTRAINT ck_social_identity_provider CHECK (provider IN ('DISCORD', 'KAKAO', 'GOOGLE', 'GITHUB'))  -- 허용값: DISCORD / KAKAO / GOOGLE / GITHUB
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-52 소셜 로그인 연결 — 계정과 소셜 제공자 사용자 ID';
+
+-- ---------------------------------------------------------------------
+-- T-53 password_reset_token — 비밀번호 재설정 토큰 (근거 계획 0088 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE password_reset_token (
+  password_reset_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재설정 토큰 식별자',
+  user_account_id BIGINT NOT NULL COMMENT '토큰 주인. 계정 최종 삭제 때 함께 지운다',
+  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 메일의 링크에만 있다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 30분, posegood.auth.password-reset.lifetime)',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (재설정 완료, 새 발급, 비밀번호 변경·탈퇴). NULL: 아직 쓸 수 있음',
+  CONSTRAINT pk_password_reset_token PRIMARY KEY (password_reset_token_id),
+  CONSTRAINT ux_password_reset_token_hash UNIQUE (token_hash),  -- UK-20
+  CONSTRAINT fk_password_reset_token_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-30
+  CONSTRAINT ck_password_reset_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_password_reset_token_expires CHECK (expires_at > issued_at)  -- 허용값: 발급 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-53 비밀번호 재설정 토큰 — 일회용 메일 링크 토큰 해시와 사용 상태';
+
+-- ---------------------------------------------------------------------
+-- T-54 local_credential — 비밀번호 로그인 수단 (근거 계획 0096 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE local_credential (
+  user_account_id BIGINT NOT NULL COMMENT '계정. 계정 하나에 하나. 행이 없으면 비밀번호 없는 계정(소셜 전용). 계정 최종 삭제 때 함께 지운다',
+  password_hash VARCHAR(100) NOT NULL COMMENT '비밀번호 단방향 해시(BCrypt). 평문 저장·응답 노출 금지',
+  CONSTRAINT pk_local_credential PRIMARY KEY (user_account_id),
+  CONSTRAINT fk_local_credential_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-31
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-54 비밀번호 로그인 수단 — 계정의 비밀번호 해시';
+
+-- ---------------------------------------------------------------------
+-- T-55 email_verification_token — 이메일 인증 토큰 (근거 계획 0096 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE email_verification_token (
+  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 토큰 식별자',
+  login_email VARCHAR(254) NOT NULL COMMENT '인증할 이메일(정규화: 앞뒤 공백 제거·소문자). 가입 전이라 계정 FK가 없다',
+  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 메일의 링크에만 있다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 설정값)',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 새 발급). NULL: 아직 쓸 수 있음',
+  CONSTRAINT pk_email_verification_token PRIMARY KEY (email_verification_token_id),
+  CONSTRAINT ux_email_verification_token_hash UNIQUE (token_hash),  -- UK-21
+  CONSTRAINT ck_email_verification_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_email_verification_token_expires CHECK (expires_at > issued_at)  -- 허용값: 발급 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-55 이메일 인증 토큰 — 가입 전 메일함 소유 확인용 일회용 링크 토큰 해시와 사용 상태';
+
+-- ---------------------------------------------------------------------
 -- T-48 SPRING_SESSION — 로그인 세션, V2.6부터 쓰지 않음 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
 -- ---------------------------------------------------------------------
 CREATE TABLE SPRING_SESSION (
@@ -348,4 +421,4 @@ CREATE TABLE SPRING_SESSION_ATTRIBUTES (
   CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
 ) ENGINE=InnoDB;
 
--- 끝: 테이블 14개, 컬럼 106개, UK 8개, FK 14개, CHECK 55개
+-- 끝: 테이블 18개, 컬럼 124개, UK 12개, FK 17개, CHECK 60개
