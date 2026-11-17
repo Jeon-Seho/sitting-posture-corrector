@@ -347,14 +347,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - deletion_request(REQUESTED)를 추가하고 계정을 CLOSED로 바꾼다. refresh 토큰을 모두 철회하고 진행 중 세션을 메모리에서 뺀다. CLOSED 계정은 남은 access 토큰으로도 401이다.
 - 되돌릴 수 없다(철회 없음). 유예 30일 동안 계정·기록은 그대로 두고, 유예가 끝나면 Spark J3(cron 매일 04:00)가 HDFS 사용자 폴더와 DB 행을 지운다. API는 삭제하지 않는다.
 - 최종 삭제 전까지 같은 이메일로 다시 가입할 수 없다(ACCOUNT_EXISTS).
+- **비밀번호를 묻지 않는다**(2026-11-17, BE-25·FE 제안서 요구 1). 로그인 상태만으로 받고, 실수는 앱의 확인 창이 막는다. 비밀번호 없는 Discord 가입 계정도 탈퇴할 수 있다. 알고 받아들인 위험: 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다.
 
-**요청 본문 (실제)**
-
-```json
-{
-  "password": "synthetic-password-2"
-}
-```
+**요청 본문**: 없음. 본문은 읽지 않는다. 옛 앱이 보내는 `{"password": ...}`는 틀린 값이어도 무시하고 받는다(앱 배포 전까지의 호환).
 
 **응답 204 (실제)**: 본문 없음 + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax` (이 기기의 쿠키도 지운다)
 
@@ -372,7 +367,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 400 | `INVALID_PASSWORD` | 비밀번호 규칙(12자 이상, UTF-8 72바이트 이하) 위반 또는 현재 비밀번호 불일치 |
 | 401 | `UNAUTHENTICATED` | 로그인 없음 또는 만료 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 |
@@ -1391,6 +1385,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-17 | `fix/backend-withdrawal-no-password` | A7 탈퇴: 비밀번호 확인을 뺌(BE-25, FE 제안서 요구 1). 본문 없이 204. 옛 앱의 `{password}` 본문은 무시하고 받으므로(틀린 값도 204) 서버를 먼저 배포해도 운영 앱이 깨지지 않는다. 400 `INVALID_PASSWORD`는 A7에서 없어짐. Discord 가입 계정(비밀번호 없음)도 탈퇴 가능 |
 | 2026-11-12 | `refactor/backend-remove-unused-s3-r3-c1` | **앱이 부르지 않는 REST 3개 삭제 — 호환성 깨짐**: S3 세션 종료 `POST /v2/sessions/{id}/end`(측정은 WS `end`·연결 끊김으로 끝남), R3 기록 삭제 `DELETE /v2/records/{id}`, C1 선택 정보 동의·철회 `PUT /v2/consents/optional-profile`. REST 18 → 15개. 409 `CONFLICT`의 「적재된 기록 삭제」 사유 없어짐. 선택 정보 동의는 가입 때만 받는다. 남은 일: WS가 열리지 않은 세션·종료 저장 실패 세션을 닫을 길(백엔드 상태 4장). [계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계 |
 | 2026-11-11 | `feature/backend-session-view-from-db` | S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음)로 답한다(BE-11). 메모리에서 빠진 끝난 세션은 404 `SESSION_LOST` 대신 200. kafka 모드 대비(계획 0031 11번). 형식은 그대로 |
 | 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |
