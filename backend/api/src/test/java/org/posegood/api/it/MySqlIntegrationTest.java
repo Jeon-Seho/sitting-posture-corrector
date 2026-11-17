@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -28,6 +29,10 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.posegood.api.account.AccountContracts;
+import org.posegood.api.account.AccountRepository;
+import org.posegood.api.account.AccountService;
+import org.posegood.api.account.SocialIdentityRepository;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +40,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -73,6 +79,14 @@ class MySqlIntegrationTest {
 	JdbcTemplate jdbc;
 	@Autowired
 	TransactionTemplate tx;
+	@Autowired
+	AccountService accountService;
+	@Autowired
+	AccountRepository accounts;
+	@Autowired
+	SocialIdentityRepository identities;
+	@Autowired
+	PasswordEncoder passwords;
 
 	@DynamicPropertySource
 	static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -329,6 +343,65 @@ class MySqlIntegrationTest {
 		assertEquals("unauthorized", socket.next("closed").get("reason").asString());
 		assertEquals(401, client().login(email, "synthetic-password-1").status());
 		assertEquals(200, client().login(email, "synthetic-password-2").status());
+		// V2.8: 비밀번호는 local_credential 한 행에만 있다(바꿔도 행은 하나).
+		assertEquals(1, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM local_credential WHERE user_account_id=?", Integer.class, api.userId));
+	}
+
+	/**
+	 * V2.8(계획 0096): 비밀번호 없는 계정(Discord 가입)은 local_credential 행이 없고, 비밀번호 변경·재설정으로 새로 만들지
+	 * 않는다. 저장소의 비밀번호 바꾸기도 행이 없으면 예외로 끝나 같은 트랜잭션이 되돌아간다.
+	 * 비밀번호 행·소셜 연결은 계정 행을 지우면 함께 지워진다(FK-31·FK-29 CASCADE).
+	 */
+	@Test
+	void passwordlessAccountNeverGainsAPasswordAndCredentialsGoWithTheAccount() throws Exception {
+		String email = email();
+		var consents = List.of("TERMS", "ACCOUNT_INFO", "POSE_COORDINATES", "MEASUREMENT_RECORD", "AGE_14_OVER",
+			"OPTIONAL_PROFILE").stream().map(type -> new AccountContracts.Consent(type, "service-v2")).toList();
+		var account = accountService.registerSocial(email, new AccountContracts.Profile("합성 소셜", 30, "합성 시험"),
+			consents, SocialIdentityRepository.DISCORD, "synthetic-" + UUID.randomUUID(), identities);
+		long id = account.id();
+		assertFalse(account.hasPassword());
+		assertEquals(0, credentials(id));
+		assertEquals(401, client().login(email, "synthetic-password-1").status());
+
+		// 재설정 완료(applyResetPassword)와 같은 저장 경로: 행이 없으면 실패하고, 같은 트랜잭션의 다른 변경도 되돌아간다.
+		assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(status -> {
+			jdbc.update("UPDATE user_account SET display_name='되돌려져야 함' WHERE user_account_id=?", id);
+			accounts.changePassword(id, passwords.encode("synthetic-password-1"));
+		}));
+		assertFalse(accounts.find(id).hasPassword());
+		assertEquals("합성 소셜", accounts.find(id).profile().name());
+		assertEquals(0, credentials(id));
+
+		// 탈퇴 접수 뒤 최종 삭제(Spark J3의 마지막 두 단계)는 social_identity를 따로 지우지 않아도 된다.
+		tx.executeWithoutResult(status -> accounts.close(id, LocalDateTime.now()));
+		deleteClosed(id);
+		assertEquals(0, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM social_identity WHERE user_account_id=?", Integer.class, id));
+
+		// 비밀번호 계정은 행 하나로 시작하고, 탈퇴 뒤 최종 삭제로 local_credential도 함께 지워진다.
+		String other = email();
+		var api = client();
+		assertEquals(200, api.register(other).status());
+		long owner = jdbc.queryForObject(
+			"SELECT user_account_id FROM user_account WHERE login_email=?", Long.class, other);
+		assertEquals(1, credentials(owner));
+		assertEquals(204,
+			api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
+		deleteClosed(owner);
+		assertEquals(0, credentials(owner));
+	}
+
+	private int credentials(long id) {
+		return jdbc.queryForObject("SELECT COUNT(*) FROM local_credential WHERE user_account_id=?", Integer.class, id);
+	}
+
+	/** Spark J3의 마지막 두 단계(삭제 요청 행, 계정 행)만 흉내 낸다. 측정 기록이 없는 계정에만 쓴다. */
+	private void deleteClosed(long id) {
+		jdbc.update("DELETE FROM deletion_request WHERE user_account_id=?", id);
+		assertEquals(1, jdbc.update(
+			"DELETE FROM user_account WHERE user_account_id=? AND account_status='CLOSED'", id));
 	}
 
 	private HttpRequest preflight(String path, String origin, String headers) {

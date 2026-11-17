@@ -7,7 +7,7 @@
 ## 1. 현재 확인한 저장 방식
 
 - `backend/api/.../account/SecurityConfiguration.java`: `BCryptPasswordEncoder(12)`.
-- `AccountService.register/changePassword`: `passwords.encode(...)` 후 `password_hash` 컬럼에 저장.
+- `AccountService.register/changePassword`: `passwords.encode(...)` 후 `password_hash` 컬럼에 저장. 2026-11-17 V2.8용 API(계획 0096 BE 1단계)부터는 `user_account`가 아니라 `local_credential.password_hash`에 저장한다(가입 때 넣고, 변경·재설정은 있는 행만 바꿈. 소셜 전용 계정은 행이 없고 비밀번호를 만들 수 없음).
 - `AccountAuthenticationProvider`: `passwords.matches(...)`로 대조. 원문 조회/복원 경로는 없다.
 - 가입/변경 서버 규칙은 최소12자·최대UTF-8 72바이트. 복호화 가능한 암호문으로 바꾸지 않는다.
 - 현재 프론트 가입·로그인은 로컬 미리보기다. 비밀번호를 저장하지 않고 서버 인증도 하지 않는다. 해당 계정에 서버 비밀번호 재설정을 적용했다고 표시하면 안 된다.

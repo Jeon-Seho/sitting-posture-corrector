@@ -57,7 +57,7 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 | `GET /auth/social` | Bearer → `{password_set,providers:[{provider,available,linked,linked_at}]}` — 네 제공자를 화면 순서(discord·kakao·google·github)로 항상 돌려준다. 준비 중은 `available=false` |
 | `DELETE /auth/social/{provider}` | Bearer → 204. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD`, 연결 없음 404 `SOCIAL_NOT_LINKED` |
 
-비밀번호 없는 계정은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이고, 재설정 메일로 비밀번호를 정할 수 있다.
+비밀번호 없는 계정(소셜 전용)은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이다. 비밀번호 변경·재설정을 제공하지 않는다: `PUT /auth/password`는 `400 INVALID_PASSWORD`, 재설정 요청은 같은 202지만 메일을 보내지 않고, 남아 있던 링크의 완료는 `410 RESET_TOKEN_INVALID`다(2026-11-17, 계획 0096). 비밀번호를 붙이는 길은 같은 이메일로 이메일 가입하는 것뿐이다(계획 0096 BE 2단계, 구현 전).
 
 ## 설정
 

@@ -643,7 +643,7 @@ export function LocalServiceApp({
         title="회원가입 · 2/3 계정 정보"
         lead={
           socialSignup
-            ? 'Discord에서 확인된 이메일로 가입해요. 비밀번호 없이 Discord로 로그인하고, 비밀번호는 나중에 재설정 메일로 정할 수 있어요.'
+            ? 'Discord에서 확인된 이메일로 가입해요. 비밀번호 없이 Discord로만 로그인해요.'
             : accounts
               ? '계정 서버에 가입해요. 비밀번호는 12자 이상이에요.'
               : '계정 서버 연결 전이라 이 기기에만 저장해요. 비밀번호는 저장하지 않아요.'

@@ -36,7 +36,7 @@ public class AccountAuthenticationProvider implements AuthenticationProvider {
 	public Authentication authenticate(Authentication request) {
 		var account = accounts.findEmail(AccountService.normalize(request.getName()));
 		// 소셜 전용 계정(비밀번호 없음)도 같은 시간이 걸리게 가짜 해시와 비교하고 실패시킨다.
-		boolean usable = account != null && AccountService.hasPassword(account);
+		boolean usable = account != null && account.hasPassword();
 		boolean matches = passwords.matches(
 			String.valueOf(request.getCredentials()),
 			usable ? account.hash() : dummyHash);
