@@ -134,14 +134,16 @@ public class AuthController {
 		clearCookie(response);
 	}
 
-	/** 탈퇴 접수: 그 사용자의 refresh 토큰을 모두 철회한다. */
+	/**
+	 * 탈퇴 접수: 그 사용자의 refresh 토큰을 모두 철회한다.
+	 *
+	 * 비밀번호를 묻지 않는다(로그인 상태만으로 받음, FE 제안서 요구 1·BE-25). 실수는 앱의 확인 창이 막는다.
+	 * 본문은 읽지 않는다: 옛 앱이 보내는 {@code {"password":...}}도 무시하고 받는다.
+	 */
 	@DeleteMapping("/account")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void withdraw(
-		@Valid
-		@RequestBody
-		AccountContracts.Withdrawal body, HttpServletResponse response) {
-		accounts.withdraw(current.id(), body);
+	public void withdraw(HttpServletResponse response) {
+		accounts.withdraw(current.id());
 		clearCookie(response);
 	}
 

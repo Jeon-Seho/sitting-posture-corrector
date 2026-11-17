@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.posegood.api.account.AccountService;
 import org.posegood.api.policy.ThresholdPolicyRepository;
 import org.posegood.api.session.LiveSessions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -745,10 +746,8 @@ class MySqlIntegrationTest {
 		String email = email();
 		api.register(email);
 		measure(api, UUID.randomUUID(), upright(api));
-		assertEquals(400,
-			api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "wrong-password-1")).status());
-		assertEquals(204,
-			api.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "synthetic-password-1")).status());
+		// 비밀번호 없이 본문 없이 받는다(BE-25). 실수는 앱의 확인 창이 막는다.
+		assertEquals(204, api.delete("/v2/auth/account", null).status());
 
 		// 탈퇴는 되돌릴 수 없다: 로그인은 403, 같은 이메일 재가입은 최종 삭제 전까지 409, 철회 경로는 없다.
 		var closed = client().login(email, "synthetic-password-1");
@@ -777,6 +776,31 @@ class MySqlIntegrationTest {
 			assertEquals(0, rows.getInt(6));
 			assertFalse(rows.next());
 		}
+	}
+
+	/**
+	 * BE-25: 탈퇴는 비밀번호를 확인하지 않는다. 옛 앱이 보내는 {@code password} 본문은 틀린 값이어도 무시하고 받고,
+	 * 비밀번호 없는 계정(Discord 가입과 같은 고정값)도 로그인 상태만으로 탈퇴한다.
+	 */
+	@Test
+	void withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody() throws Exception {
+		var oldApp = client();
+		String email = email();
+		oldApp.register(email);
+		assertEquals(204,
+			oldApp.delete("/v2/auth/account", MAPPER.createObjectNode().put("password", "wrong-password-1")).status());
+		assertEquals(403, client().login(email, "synthetic-password-1").status());
+
+		var social = client();
+		String other = email();
+		social.register(other);
+		jdbc.update("UPDATE user_account SET password_hash=? WHERE login_email=?", AccountService.NO_PASSWORD, other);
+		assertEquals(204, social.delete("/v2/auth/account", null).status());
+		assertEquals("CLOSED", jdbc.queryForObject(
+			"SELECT account_status FROM user_account WHERE login_email=?", String.class, other));
+		assertEquals(1, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM deletion_request d JOIN user_account u ON u.user_account_id=d.user_account_id"
+				+ " WHERE u.login_email=?", Integer.class, other));
 	}
 
 	/** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨), 어깨 폭 약 192px. */
