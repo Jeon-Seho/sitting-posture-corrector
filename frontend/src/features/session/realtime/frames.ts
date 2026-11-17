@@ -14,7 +14,7 @@ import type { Landmark } from '../../../../../model/prototype/pose'
  * - A frame where the user's position cannot be determined (a shoulder out of view, or a joint the
  *   tracker did not give) is sent like nobody tracked: `{ t_ms, p: null }`, no coordinates (ADR 0021
  *   section 6, 2026-10-27; before, the 10/12 exception sent them along). The server counts it as
- *   unmeasurable time. The `valid: false` mark is no longer sent (11/13, FE proposal 요구 5): the
+ *   unmeasurable time. The `valid: false` mark is no longer sent (11/13, FE proposal 요구 4): the
  *   server judges by `p` being null only (`FrameInterval.Frame.tracked`).
  */
 export const FRAME_SCHEMA_VERSION = '3.0'

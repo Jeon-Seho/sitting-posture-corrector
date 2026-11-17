@@ -10,7 +10,7 @@
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 3) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 2) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
@@ -154,7 +154,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 12). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 10). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -162,7 +162,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 - **A2 가입:** 회원가입은 3단계다(① 약관 동의 ② 계정 정보, 여기서 A2 ③ 자세 등록 선택). 필수 동의 5종(`AGE_14_OVER`·`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`, `document_version` `service-v2`)은 항상 보낸다. 선택 정보(`OPTIONAL_PROFILE`)에 동의했으면 목록에 더하고 `age`·`occupation`을 채우고, 비동의면 둘 다 `null`. 목록은 `features/auth/consents.ts`의 `consentPayload()`. 200이면 로그인된 상태라 3단계로 간다.
 - **A3·A4 로그인:** A3 200의 `access_token`을 메모리에 두고 홈으로 간다. B2와 R1을 받는다. 앱 시작 때는 A8 200 → A4로 로그인 화면을 건너뛴다. 측정 중 비밀번호 변경·탈퇴를 하면 서버가 WS를 `closed(unauthorized)`로 닫는다. `hello`에는 `access_token`이 필수다.
-- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 12).
+- **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 10).
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
 - **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). 닫는 규칙은 아키텍처 v5.4에 BE 일로 남아 있지만, FE는 드문 경우라 요청하지 않기로 했다(11/16, 앱은 시작 실패를 오류 화면으로 처리). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
@@ -182,7 +182,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 | 최근 7일·30일 등 기간 화면 | 지금은 R1 기록을 집계한다. T1을 붙이면 어제까지는 T1, 오늘은 R1로 하고 같은 날짜를 겹쳐 더하지 않는다 |
 | 서버 확인 없이 끝난 측정 | R1에 나오거나 S4가 `ended: true`면 끝. S4 404면 「사용자 잘못이 아니에요. 서버 문제로 지난 측정이 기록에 남지 않았어요.」 |
 
-**T1 데이터가 생기는 시각:** T1의 `daily_stat`은 Spark J2가 **매일 00:10**(KST)에 어제부터 7일 전까지를 다시 계산해 바뀐 날만 쓴다(D-81, 계획 0085). 00:00~00:10에는 앱의 「오늘」이 이미 바뀌었는데 T1은 어제를 0으로 준다. 어떻게 보일지(그 10분만 어제를 로컬 기록으로 보이기 — 위 「더하지 않는다」의 예외로 적어야 함 — 또는 「집계 중」 표시 뒤 다시 부르기)는 T1을 붙일 때 정한다. 「아직 집계 전」을 구별할 값이 필요한지도 그때 BE와 정한다(지금 T1 형식에는 없다). J2는 그 시각에 끝난 세션만 세므로, 서버 자정 넘김이 꺼져 있으면 자정을 넘긴 측정은 끝난 다음 날의 J2가 시작 날짜에 넣을 때까지 T1에 없다. 7일보다 늦게 닫힌 세션은 자동으로 들어가지 않는다(운영에서 켜는 일은 FE 제안서 요구 7).
+**T1 데이터가 생기는 시각:** T1의 `daily_stat`은 Spark J2가 **매일 00:10**(KST)에 어제부터 7일 전까지를 다시 계산해 바뀐 날만 쓴다(D-81, 계획 0085). 00:00~00:10에는 앱의 「오늘」이 이미 바뀌었는데 T1은 어제를 0으로 준다. 어떻게 보일지(그 10분만 어제를 로컬 기록으로 보이기 — 위 「더하지 않는다」의 예외로 적어야 함 — 또는 「집계 중」 표시 뒤 다시 부르기)는 T1을 붙일 때 정한다. 「아직 집계 전」을 구별할 값이 필요한지도 그때 BE와 정한다(지금 T1 형식에는 없다). J2는 그 시각에 끝난 세션만 세므로, 서버 자정 넘김이 꺼져 있으면 자정을 넘긴 측정은 끝난 다음 날의 J2가 시작 날짜에 넣을 때까지 T1에 없다. 7일보다 늦게 닫힌 세션은 자동으로 들어가지 않는다(운영에서 켜는 일은 FE 제안서 요구 6).
 
 오늘·어제는 서버 통계와 같은 KST 날짜로 나눈다. 측정은 자정에 서버가 끊으므로 세션의 시작 날짜 = 끝난 날짜이고, 기록은 시작 시각(`ready.started_at`)의 KST 날짜에 넣는다. 오늘이 며칠인지는 가장 최근에 받은 서버 시각으로 정한다(ADR 0029). 같은 세션 UUID는 덮어써 중복으로 쌓지 않는다. 서버가 보낸 결과를 모아 보이는 것이며 앱이 자세를 다시 판정하지 않는다.
 
@@ -199,7 +199,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 - **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절은 `[0, 0, 0]`으로 채운 뒤 그 프레임을 `valid:false`로 보낸다(서버는 귀 좌표를 visibility 없이 쓰므로 채운 값이 실제 위치로 판정에 들어가지 않게).
 - **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 어깨가 화면 안에 있고 9개 관절 값이 모두 있으면 좌표를 보내고, 쓸지 말지(정확도·가장자리·거리·고개 돌림)는 서버가 정한다.
 - **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다. 서버는 3초 확정·회복·다시 알림을 구간 시간으로 센다(서버 현재 시각을 쓰지 않음 — 도착 시각이 아니라 찍은 시각이라 네트워크 지연이 섞이지 않는다).
-- **판정 불가 프레임:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임은 좌표 없이 `{ t_ms, p: null }`만 보낸다(10/27부터 좌표 없음, [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 사람이 없는 프레임과 같은 모양이다. 11/13부터 `valid: false` 표시는 보내지 않는다: 서버는 `p`가 null인지만 보고 판정 불가(`UNMEASURABLE`)로 센다(`FrameInterval.Frame.tracked`, [FE 제안서](fe-server-proposal.md) 요구 5). 서버는 아직 이 칸을 선택 칸으로 받는다.
+- **판정 불가 프레임:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임은 좌표 없이 `{ t_ms, p: null }`만 보낸다(10/27부터 좌표 없음, [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 사람이 없는 프레임과 같은 모양이다. 11/13부터 `valid: false` 표시는 보내지 않는다: 서버는 `p`가 null인지만 보고 판정 불가(`UNMEASURABLE`)로 센다(`FrameInterval.Frame.tracked`, [FE 제안서](fe-server-proposal.md) 요구 4). 서버는 아직 이 칸을 선택 칸으로 받는다.
 - **왜 프레임마다 보내나:** 여러 장을 묶으면 서버가 쓸 수 있는 장을 평균해 판정하는데(BE `FrameFeatures.interval`), 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 판정을 흐린다. 프레임마다 보내면 장마다 따로 판정되고, 판별 가능 시간(`valid_ms`)도 프레임 단위로 정확해진다. 서버 부담(추론·저장이 초당 약 10번)은 감수하기로 했다.
 
 ### 5.2 쉬기·자리 비움·판정 불가·종료
@@ -213,7 +213,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 | | 카메라 영상이 1초 넘게 안 들어옴(연결은 그대로, 예: 다른 USB를 꽂음). 안내 「인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.」 | `phase: "away"`, `frames: []` | `ABSENCE` |
 | ③ 측정 종료, 그때까지 저장 | 사용자 「측정 종료」, 작은 카메라 창 X(데스크톱 앱), 쓰던 카메라가 빠짐, 측정 중 영상 크기가 바뀜 | `end {end_ms}` | — |
 | | 앱을 닫거나 새로 고침, 네트워크 끊김 | (연결이 끊김) 서버가 마지막 구간 끝에서 끝내고 저장. 앱은 다시 연결하지 않는다 | — |
-| | 쉬기가 오래 이어짐 | **아직 아무도 하지 않음** — 판정 불가 30분과 같은 방식으로 서버가 쉬기 30분에 끝내는 안을 BE와 정한다(FE 제안서 요구 9, BE-13). 앱에는 타이머가 없다 | — |
+| | 쉬기가 오래 이어짐 | **아직 아무도 하지 않음** — 판정 불가 30분과 같은 방식으로 서버가 쉬기 30분에 끝내는 안을 BE와 정한다(FE 제안서 요구 8, BE-13). 앱에는 타이머가 없다 | — |
 | | KST 00:00(팀 회의, ADR 0029) | 서버가 자기 시계로 이전 세션을 저장하고 같은 연결을 서버가 만든 새 세션으로 잇는다(`decision(session_ended)` → `session_rollover`, BE-6 ① B안). 새 세션을 못 만들면 `closed(day_changed)` | — |
 | | 서버가 닫음: `limit_reached`, `unauthorized`, `session_lost`, `server_shutdown` | 5.3 | — |
 
@@ -693,7 +693,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. 계정의 프로필, 판정 정책, 알림 설정, 동의 상태를 읽는다.
-2. 지금 서버는 기록 목록(`records`, [R1](#api-r1)과 같은 형식)도 함께 만들어 담는다. 앱은 읽지 않고, 서버에서 빼기로 했다(FE 제안서 요구 12).
+2. 지금 서버는 기록 목록(`records`, [R1](#api-r1)과 같은 형식)도 함께 만들어 담는다. 앱은 읽지 않고, 서버에서 빼기로 했다(FE 제안서 요구 10).
 
 #### Response
 
