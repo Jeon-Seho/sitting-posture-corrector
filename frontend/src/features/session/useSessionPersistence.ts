@@ -1,6 +1,7 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { CameraController } from '../../hooks/useCamera'
 import type { LocalWorkspace } from '../storage/useLocalWorkspace'
+import type { Rules } from '../../lib/engine'
 import type { ServiceSession } from './types'
 import type { LiveState } from './live/LiveSession'
 import { getServerAuth, subscribeServerAuth } from '../platform/serverAuth'
@@ -18,6 +19,12 @@ type Options = {
   camera: CameraController
   go: (page: 'home' | 'session') => void
   setError: (message: string) => void
+  /**
+   * Server accounts: the account's rules (W1), read once when 「측정 시작」 is pressed so S1 carries
+   * what another device may have saved (409 otherwise). Null when they could not be read (the
+   * reason is shown). Not read on opening 측정하기 (11/16 test: one W1 per visit).
+   */
+  loadRules?: () => Promise<Rules | null>
 }
 
 /**
@@ -27,8 +34,9 @@ type Options = {
  * confirmation (lost connection, late result) is remembered in memory while the app is open: R1
  * or S4 settles it, and when the server lost it (S4 404) the user is told once.
  */
-export function useSessionPersistence({ session, setSession, ended, workspace, camera, go, setError }: Options) {
+export function useSessionPersistence({ session, setSession, ended, workspace, camera, go, setError, loadRules }: Options) {
   const { rules, setRecords } = workspace
+  const starting = useRef(false)
   const unconfirmed = useRef<string[]>([])
   const measuring = !!session && !ended.current
   const owner = useRef<string | null>(getServerAuth()?.userId ?? null)
@@ -105,15 +113,27 @@ export function useSessionPersistence({ session, setSession, ended, workspace, c
       setError('기준 자세가 없어요. 설정에서 자세를 등록해 주세요.')
       return false
     }
-    ended.current = false
-    setSession({
-      id: crypto.randomUUID(),
-      // Stand-in until `ready.started_at` arrives; records come from the server (R1).
-      startedAt: new Date().toISOString(),
-      rules: { ...rules },
-      baselineId: camera.calibrationId,
-    })
-    go('session')
+    const baselineId = camera.calibrationId
+    const open = (measured: Rules) => {
+      ended.current = false
+      setSession({
+        id: crypto.randomUUID(),
+        // Stand-in until `ready.started_at` arrives; records come from the server (R1).
+        startedAt: new Date().toISOString(),
+        rules: { ...measured },
+        baselineId,
+      })
+      go('session')
+    }
+    if (!loadRules) {
+      open(rules)
+      return true
+    }
+    if (starting.current) return true
+    starting.current = true
+    void loadRules()
+      .then((fresh) => { if (fresh) open(fresh) })
+      .finally(() => { starting.current = false })
     return true
   }
 

@@ -10,7 +10,7 @@
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 10) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 3) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
@@ -33,7 +33,7 @@
 |---|---|---|
 | 502·503 재시도 | 1·2·4초 간격, 최대 3번(같은 본문) | 오류 안내 |
 | 요청 응답 | 5초 | 「서버에 연결하지 못했어요」. S1·B1만 같은 본문으로 502·503과 같은 간격으로 다시 보낸다(둘 다 같은 요청이면 같은 결과) |
-| `hello` → `ready` | 5초 | 연결을 닫고 「지금은 측정을 시작할 수 없어요」 화면([FE 예외 처리 모음](fe-exception-log.md) 4번). 그 세션은 끝난 것으로 보고 **다시 쓰지 않는다.** 다시 할 때는 **새 `session_id`로 S1부터**. 서버는 이 약속으로 버려진 세션을 닫는다([FE 제안서](fe-server-proposal.md) 요구 8) |
+| `hello` → `ready` | 5초 | 연결을 닫고 「지금은 측정을 시작할 수 없어요」 화면([FE 예외 처리 모음](fe-exception-log.md) 4번). 그 세션은 끝난 것으로 보고 **다시 쓰지 않는다.** 다시 할 때는 **새 `session_id`로 S1부터**. 버려진 빈 세션 행은 서버에 열린 채 남지만 기록(R1)·통계에는 나오지 않는다(서버가 닫게 하는 요청은 하지 않기로 함, [FE 제안서](fe-server-proposal.md) 0장, 11/16) |
 | `features` | **프레임마다 구간 1개**(5.1). `t_ms` 0(S1 응답)부터 구간을 만들고, `ready` 전에 만든 구간은 `ready` 뒤 순번대로 1개씩 연달아 보낸다. 쉬는 중·카메라 영상 멈춤 중에도 빈 구간을 계속 보낸다 | — |
 | 카메라 영상 | 프레임이 1초 넘게 없으면 `away` | 카메라가 돌아와야 「측정 재개」 |
 | 측정 `end` → `closed(ended)` | 5초 (local은 1초 미만, kafka는 정상 1~3초) | S4로 결과(실패하면 마지막 `progress`로 종료 화면, 404면 「서버에서 이번 측정을 찾지 못했어요」 화면, 이 기기에는 남기지 않음). kafka 모드에서 `end` 뒤 `stalled`(3초)가 오면 5초를 기다리지 않고 바로 S4. 이 동안 화면 전체를 덮는 「측정 결과를 저장하고 있어요」 창을 띄워 다른 조작을 막고(`EndingDialog`, Esc로 닫히지 않음), 결과가 오면 바로 닫는다. 창 닫기는 측정 중부터 `beforeunload`로 막는다. 데스크톱 앱에서는 앱 본체가 같은 역할의 「측정 중이에요. 정말 닫을까요?」를 묻는다 |
@@ -46,6 +46,7 @@
 | 400 | `INVALID_CONTRACT` | 「요청을 보내지 못했어요」. 앱 버그로 기록 |
 | 400 | `INVALID_PASSWORD` | 비밀번호 칸 아래 안내 |
 | 400 | `CONSENT_REQUIRED` | 가입 1단계(약관 동의)로 |
+| 400 | `PASSWORD_REUSED` | 비밀번호 찾기(A10)에서 기존 비밀번호와 같음. 「기존 비밀번호와 다른 새 비밀번호를 입력해 주세요.」 |
 | 401 | `UNAUTHENTICATED` | 로그인 화면 |
 | 401 | `INVALID_CREDENTIALS` | 「이메일이나 비밀번호가 맞지 않아요」 |
 | 403 | `ACCESS_DENIED` | 접근 거부. 일반 오류로 안내(토큰 로그인 뒤 CSRF는 없다) |
@@ -56,6 +57,8 @@
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
 | 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 설정에서 자세를 등록해 주세요」 |
 | 409 | `CONFLICT` | S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | S1(또는 `hello`)에서 같은 계정이 다른 기기에서 측정 중(그 기기의 측정 연결이 열려 있거나 그 기기 S1 뒤 30초 안). 「다른 기기에서 측정 중이에요. 그 기기에서 측정을 끝낸 뒤 다시 시작해 주세요.」 로그인은 여러 기기에서 그대로 된다 |
+| 410 | `EMAIL_VERIFICATION_REQUIRED` | 가입 이메일 인증을 켰을 때: 인증 안 함·만료·이메일 바꿈(A2), 코드 틀림·만료·5번 초과(A19). 메일 화면으로 보내 다시 인증 |
 | 429 | `LIMIT_REACHED` | S1이면 서버가 받을 수 있는 측정 수(진행 중 512개)를 넘은 것. 측정 실패 화면 「사람이 몰려 지금은 측정을 시작할 수 없어요…」와 「다시 시도」(바로 새 측정). 측정 중 시간 상한은 `closed(limit_reached)`로 온다 |
 | 502·503 | `STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |
 
@@ -69,7 +72,7 @@
 
 ## 3. API 목록
 
-경로는 서버 기준이다. 앱은 앞에 `/api`를 붙여 부른다(1장). 기능명은 [FE 기능 명세](fe-feature-spec.md)와 같고, 요청과 응답은 [7장](#7-api-상세)에 있다. **앱 사용**은 2026-11-09 코드 기준이다. `사용`, `안 씀`(서버에는 있음), `서버 없음`(구현 전)으로 적는다.
+경로는 서버 기준이다. 앱은 앞에 `/api`를 붙여 부른다(1장). 기능명은 [FE 기능 명세](fe-feature-spec.md)와 같고, 요청과 응답은 [7장](#7-api-상세)에 있다. **앱 사용**은 2026-11-16 develop 코드 기준이다. `사용`, `안 씀`(서버에는 있음), `서버 없음`(구현 전)으로 적는다.
 
 ### auth | 인증
 
@@ -82,6 +85,31 @@
 | [A6](#api-a6) | PUT | 비밀번호 변경 | `/auth/password` | | 비밀번호 변경 | 프로필 › 비밀번호 변경(뒤에는 모든 로그인이 끊기므로 로그인 화면으로) | 사용 |
 | [A7](#api-a7) | DELETE | 탈퇴 접수 | `/auth/account` | | 회원탈퇴 | 프로필 › 탈퇴 | 사용 |
 | [A8](#api-a8) | POST | 로그인 유지 | `/auth/refresh` | | 로그인 유지 | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) | 사용 |
+
+### auth | 메일(비밀번호 찾기·가입 이메일 인증)·Discord
+
+BE 명세에 번호가 없어 FE가 A9~A24를 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 세 기능(Discord, 비밀번호 재설정, 가입 이메일 인증)을 각각 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED` 등)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`·`VITE_EMAIL_VERIFICATION_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영은 Discord만 켜져 있다. 가입 코드·Discord 가입·연결 대기는 모두 서버(io-api) 메모리에 있어 서버가 다시 켜지면 처음부터 다시 한다.
+
+| ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
+|---|---|---|---|---|---|---|---|
+| A9 | POST | 재설정 메일 요청 | `/auth/password-reset/requests` | | 비밀번호 찾기 | 로그인 › 「비밀번호 찾기」에서 이메일을 넣고 「비밀번호 찾기 메일 받기」 | 사용(빌드 변수) |
+| A20 | POST | 재설정 링크 확인 | `/auth/password-reset/validate` | | 비밀번호 찾기 | 메일 링크(`#password-reset?token=`)로 들어왔을 때, 「링크·코드 확인」. 링크를 쓰지 않고 유효한지만 본다 | 사용(빌드 변수) |
+| A10 | POST | 비밀번호 재설정 | `/auth/password-reset/confirm` | | 비밀번호 찾기 | 새 비밀번호 두 번 입력 뒤 「새 비밀번호 저장」. 기존 비밀번호와 같으면 400 `PASSWORD_REUSED` | 사용(빌드 변수) |
+| A18 | POST | 가입 인증 코드 요청 | `/auth/email-verification/requests` | | 회원가입 | 가입 2단계에서 인증하지 않은 이메일로 「다음」, 또는 「이메일 인증하기」. 6자리 코드 메일(15분), 인증 쿠키 | 사용(빌드 변수, 기본 꺼짐) |
+| A19 | POST | 가입 인증 코드 확인 | `/auth/email-verification/confirm` | | 회원가입 | 「인증 코드 확인」. 성공하면 가입 2단계로 돌아가 A2 | 사용(빌드 변수, 기본 꺼짐) |
+| A11 | POST | Discord 로그인 시작 | `/auth/social/{provider}/login` | | Discord 로그인 | 로그인 화면 Discord 버튼. 받은 `authorize_url`로 이동한다 | 사용(빌드 변수) |
+| A12 | POST | Discord 연결 시작 | `/auth/social/{provider}/link` | | Discord 연결·해제 | 프로필 설정 「Discord 연결」 | 사용(빌드 변수) |
+| A13 | GET | Discord에서 돌아오기 | `/auth/social/{provider}/callback` | `code`, `state`, `error` | Discord 로그인 | 부르지 않는다. Discord가 브라우저를 보내고, 서버가 `#social-result?status=`, `#social-signup`, 같은 이메일 계정이 있으면 `#social-link`(연결 대기 쿠키 10분)로 앱에 돌려보낸다. 로그인됐으면 A8 → A4로 이어진다 | 안 씀(브라우저 이동) |
+| A14 | GET | Discord 가입 정보 | `/auth/social/signup` | | Discord 로그인 | `#social-signup`으로 돌아왔을 때 이메일·추천 이름을 받는다. 가입 대기를 못 찾으면 410이다(가입 쿠키가 안 실림, 15분 지남, 서버 Discord 꺼짐, 대기는 서버 메모리라 그 사이 io-api가 다시 켜짐). 앱은 「가입 확인 시간이 지났어요」 | 사용(빌드 변수) |
+| A15 | POST | Discord 가입 | `/auth/social/signup` | | Discord 로그인 | Discord 가입의 약관 동의·프로필 입력을 마쳤을 때(비밀번호 없음) | 사용(빌드 변수) |
+| A16 | GET | 로그인 방법 조회 | `/auth/social` | | Discord 연결·해제 | 프로필 설정을 열 때, 연결 해제 뒤 | 사용(빌드 변수) |
+| A17 | DELETE | Discord 연결 해제 | `/auth/social/{provider}` | | Discord 연결·해제 | 프로필 설정 「연결 해제」. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD` | 사용(빌드 변수) |
+| A21 | GET | 연결 대기 조회 | `/auth/social/pending-link` | | Discord 로그인 | `#social-link`로 돌아왔을 때 「Discord 계정을 연결할까요?」 화면을 열며 Discord 이메일을 받는다. 대기가 없거나 만료면 410 | 사용(빌드 변수) |
+| A22 | POST | 기존 계정 확인 | `/auth/social/pending-link/verify` | | Discord 로그인 | 기존 계정 비밀번호를 넣고 「기존 계정 인증하기」. 아직 연결하지 않는다. 틀리면 400, 대기당 5번 초과 429 | 사용(빌드 변수) |
+| A23 | POST | 연결 승인 | `/auth/social/pending-link/confirm` | | Discord 로그인 | 「연결 승인하고 로그인」. 연결하고 로그인 응답·refresh 쿠키를 받는다. 확인 전 403, 이미 연결 409, 만료·사용됨 410(확인 뒤 비밀번호가 바뀌어도 거절) | 사용(빌드 변수) |
+| A24 | DELETE | 연결 대기 취소 | `/auth/social/pending-link` | | Discord 로그인 | 「로그인으로 돌아가기」. 아무것도 연결하지 않는다 | 사용(빌드 변수) |
+
+`{provider}`는 앱에서 `discord`만 쓴다. 카카오·Google·GitHub 버튼은 흐리게 두고 누르면 「준비 중이에요」를 띄운다.
 
 ### workspace | 동의·설정
 
@@ -102,7 +130,7 @@
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
 | [S1](#api-s1) | PUT | 세션 생성 | `/sessions/{id}` | | 측정 시작 | 「측정 시작」 | 사용 |
-| [S4](#api-s4) | GET | 세션 상태 조회 | `/sessions/{id}` | | 측정 종료 | `end` 뒤 5초 안에 `closed`가 없을 때. 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85). 못 받아도 앱이 R1(DB)로 저장을 확인한다 | 사용 |
+| [S4](#api-s4) | GET | 세션 상태 조회 | `/sessions/{id}` | | 측정 종료, 측정 결과 확인 | `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때, `end` 뒤 WS가 먼저 닫혔을 때. 서버 확인 없이 끝난 측정이 R1에 안 나오면 측정 중이 아닐 때 15초마다(4.5). 메모리의 끝난 결과 → DB의 끝난 값 → 메모리의 진행 중 상태 순으로 답한다(D-85) | 사용 |
 
 S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{id}`)은 쓰지 않아 지웠다(D-88). 세션은 WS로만 끝나고, 기록은 지우지 않는다.
 
@@ -116,7 +144,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| [R1](#api-r1) | GET | 기록 목록 조회 | `/records` | | 측정 결과 확인, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 저장 확인 다시 시도 | 사용 |
+| [R1](#api-r1) | GET | 기록 목록 조회 | `/records` | | 측정 결과 확인, 기록 조회 | 로그인·계정이 바뀔 때, 측정이 끝난 뒤, 측정 중이 아닐 때 15초마다, 기록 화면 오류의 「다시 시도」 | 사용 |
 | [R1b](#api-r1b) | GET | 기록 하나 조회 | `/records/{id}` | | 기록 조회 | 서버에 없음(BE-2) | 서버 없음 |
 | [T1](#api-t1) | GET | 일별 통계 조회 | `/stats/daily` | `from`, `to` | 기간 통계 | 서버에 없음, 형식만 확정(BE-2) | 서버 없음 |
 
@@ -126,7 +154,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 |---|---|---|---|---|---|---|---|
 | [H1](#api-h1) | GET | 상태 확인 | `/health` | | 없음(배포 점검) | 부르지 않는다 | 안 씀 |
 
-없는 API: A1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 지우기로 했다(앱은 부르지 않음, [FE 제안서](fe-server-proposal.md) 요구 11). R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
+없는 API: A1·C1·S2·S3·S5·S6·R2·R3([계획 0062](../../plans/active/0062-remove-unused-apis.md), D-88). C1(선택 정보 동의·철회)은 앱이 부르지 않아 지웠다([FE 제안서](fe-server-proposal.md) 요구 11). 선택 정보 동의는 가입(A2·A15) 때만 받는다. R1b·T1은 BE 명세에 ID가 없어 FE가 붙인 이름이다.
 
 ## 4. REST에서 앱이 지키는 것
 
@@ -137,7 +165,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 - **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 11).
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). S3 대신 BE가 열린 채 남는 세션을 닫는 규칙을 만든다(아키텍처 v5.4, FE 제안서 요구 8). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). 닫는 규칙은 아키텍처 v5.4에 BE 일로 남아 있지만, FE는 드문 경우라 요청하지 않기로 했다(11/16, 앱은 시작 실패를 오류 화면으로 처리). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·T1
@@ -231,7 +259,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 흐트러지기 시작 | 자세가 흐트러지고 있어요(주의 색, 소리 없음). 주의 상자에 게이지(`hold_ms` ÷ 정책 hold 시간) | `observation.posture: 'bad'`, 열린 사건 없음(확정 전, 4.0 서버만) |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
 | 회복 중 | 자세가 흐트러졌어요(확정 전까지 유지). 회복 상자에 게이지(`recovery_ms` ÷ 정책 회복 시간) | 위 상태 + `observation.posture: 'good'` |
-| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `valid: false`·`p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
+| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
 | 영상 기다림 | 카메라 영상을 기다리고 있어요 | 앱의 `away` |
 | 분석 멈춤 | 연결 상태 칸에 안내 | `stalled` |
@@ -947,6 +975,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 | 404 | `SESSION_LOST` | DB 행은 있지만 서버 재시작으로 판정 상태가 사라짐 |
 | 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(그 기기의 측정 연결이 열려 있거나 그 기기 S1 뒤 30초 안). `hello`도 같은 이유로 거절되고, 다른 기기가 먼저 연결했으면 `closed(session_lost)` |
 | 429 | `LIMIT_REACHED` | 진행 중 세션 512개 초과 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중 |
 
@@ -975,7 +1004,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 3. 그것도 없으면 메모리의 진행 중 상태다. kafka 모드에서는 이 서버가 판정하지 않으므로 `ws`가 받은 마지막 `progress`·`decision`으로 요약·사건·순번을 채우고, 종료 사건과 저장 완료를 다 받았을 때만 `ended: true`다(D-57, 아직 develop 전). kafka 모드의 `closed`는 DB 저장 뒤에 오므로(D-67), 5초 뒤 부르는 S4는 대개 이 값이다.
 4. 셋 다 없으면 404 `SESSION_LOST`.
 
-앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 「서버에서 이번 측정을 찾지 못했어요 — 사용자 잘못이 아니에요. 서버 문제로 이번 측정은 기록에 남지 않았어요」 오류 화면(500 그림)를 보이고, 이 기기에는 아무것도 남기지 않는다. 서버에 없는 것은 서버 고장이라 드물어야 하고, 서버가 받은 만큼은 열린 세션 행으로 서버에 남아 BE가 닫으면 R1에 나온다([FE 제안서](fe-server-proposal.md) 요구 8).
+앱 처리: S4는 `end` 뒤 5초 안에 `closed`가 없을 때, `end` 뒤 `stalled`가 왔을 때(kafka 3초), `end` 뒤 WS가 먼저 닫혔을 때 한 번만 읽는다. `summary.total_ms`가 화면보다 작으면 응답을 버리고 마지막 `progress`로 끝낸다. `ended: true` 응답(서버 확정본)은 사건까지 그대로 쓰고, `ended: false`(진행 중 메모리 값)이면서 `events`가 화면보다 적으면 화면에서 받은 `decision`을 그대로 둔다. 404면 「서버에서 이번 측정을 찾지 못했어요 — 사용자 잘못이 아니에요. 서버 문제로 이번 측정은 기록에 남지 않았어요」 오류 화면(500 그림)를 보이고, 이 기기에는 아무것도 남기지 않는다. 서버에 없는 것은 서버 고장이라 드물어야 하고, 서버가 받은 만큼은 열린 세션 행으로 남고, 서버가 닫지 않으므로 R1에는 나오지 않는다(드문 경우라 요청하지 않기로 함, [FE 제안서](fe-server-proposal.md) 0장, 11/16).
 
 `closed` 없이 넘어왔고(5초 또는 `stalled`) 서버가 종료를 확인해 주지 않았으면(`session_ended` 없음) 결과 화면 맨 위에 「서버 응답이 늦어 결과를 먼저 보여 드려요 — 사용자 잘못이 아니에요. 측정 기록은 서버에 저장되고 있고, 저장이 확인되면 기록에 자동으로 반영돼요」를 띄운다(`LiveSessionPage` `lateResult`). 앱은 측정 중이 아닐 때 15초마다 R1을 다시 읽고, 거기 없으면 S4로 그 측정을 확인한다.
 

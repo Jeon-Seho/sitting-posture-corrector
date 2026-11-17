@@ -1,11 +1,11 @@
 # BE·DB·DevOps 통합 브랜치와 FE 브랜치 합치기
 
-- 상태: in_progress (10/15 PR #48, 10/21 PR #60으로 FE → develop(#60에는 10/15 BE 코드도 함께). 10/21 BE 브랜치가 develop을 받았고(`d87d497`), FE는 V3 `feature/frontend-features-and-integrationV3`에 BE 브랜치를 받아(`ed7f953`) 작업. 남은 것: BE 브랜치가 develop에 들어오기(겹치는 파일 `docs/index.md` 하나))
+- 상태: completed (2026-10-27 BE 브랜치 `fix/repo-backend-sync`가 PR #65로, FE V3가 PR #69로 develop에 들어가 끝남. 아래 「상태」 옛 설명은 10/21 기준이었다)
 - 담당: FE(klaod-tech)가 계획·문서 충돌 정리, 실시간·REST 맞추기는 BE와 함께
 - 시작일: 2026-10-14
 - 대상: `feature/frontend-features-and-integration`(우리) ← `feat/backend-data-platform-architecture`(BE·DB·DevOps)
 - 관련: [연동 명세](../../design/fe/api-ws-spec.md), [FE 제안서](../../design/fe/fe-server-proposal.md), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md),
-  [ADR 0024 연결이 끊기면 세션 종료](../../decisions/0024-session-ends-on-lost-connection.md), [계획 0023](0023-frontend-server-only.md), [계획 0030](0030-make-check-failures.md)
+  [ADR 0024 연결이 끊기면 세션 종료](../../decisions/0024-session-ends-on-lost-connection.md), [계획 0023](../active/0023-frontend-server-only.md), [계획 0030](../active/0030-make-check-failures.md)
 
 ## 문제와 완료 기준
 
@@ -53,7 +53,7 @@ FE 브랜치에는 연동 명세·WebSocket v2 계약·가입 화면 변경이 �
 | 2 | REST 빠진 것 | R1b `GET /v2/records/{id}`, T1 `GET /v2/stats/daily`, `closed(limit_reached)` (`RECORD_ARCHIVED`는 10/15 BE의 409 `CONFLICT`에 맞춤) | 없음 |
 | 3 | REST 남은 것 | `POST /v2/records`는 없애기로 함 | 아직 있음 |
 | 4 | ADR 번호 | ~~`0022-session-ends-on-lost-connection`~~ → **10/15 해결: FE가 0024로 옮겼다**(`0024-session-ends-on-lost-connection`) | `0022-db-v23-feature-v2-integration` 그대로 |
-| 5 | 계획 번호·내용 | ~~`0028-backend-build-gradle`~~ → **10/15 해결:** 전환 부분을 빼고 [0030](0030-make-check-failures.md)(`make check` 실패 원인·G1~G5)으로 옮겼다 | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
+| 5 | 계획 번호·내용 | ~~`0028-backend-build-gradle`~~ → **10/15 해결:** 전환 부분을 빼고 [0030](../active/0030-make-check-failures.md)(`make check` 실패 원인·G1~G5)으로 옮겼다 | `0028-backend-java17-boot4-gradle`(이미 전환, ADR 0023) |
 
 ### BE 브랜치 문서와 FE 설계의 차이 (10/15 확인)
 
@@ -70,7 +70,7 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 | D4 | 가입 규칙 표(계획 0027 3절) | 「지금 프론트」를 문서 버전 `terms-2026-10`, 이름 50자, 나이 1~120 등으로 적음 | 10/13~14에 이미 `service-v2`, `[{type,document_version}]`, 이름 30자, 나이 14~120, 72바이트로 맞춤. 남은 것은 12자 검사(서버 연결 때) | 표를 「끝남」으로 |
 | D5 | 담당 | 계획 0027 「담당 미정」에 계정(2·3절)과 세션·등록 전송(1·4·5절)이 함께 있음 | 계정 연결(F12)은 BE, 서버로 보내는 처리·등록 전송(F1~F3)은 FE | 0027을 둘로 나눠 적도록 알린다 |
 | D6 | 개발 프록시(0027 7절) | Vite `/api` 프록시 `ws: true`로 `/v1/realtime` | `/api/v2/realtime`(연동 명세 1장) | 경로만 v2로 |
-| D7 | 구형 `check-browser`(0027 8절) | 당시 `run_browser()`의 임시 MySQL·v1 세션 불일치 | [계획 0030](0030-make-check-failures.md)의 복구 과제는 도구 삭제로 폐기됨 | 구형 게이트 복원·원인 추가 과제 없음. 현재 기본 검사와 명시적 연결 점검은 [품질 기준](../../quality.md)을 따름 |
+| D7 | 구형 `check-browser`(0027 8절) | 당시 `run_browser()`의 임시 MySQL·v1 세션 불일치 | [계획 0030](../active/0030-make-check-failures.md)의 복구 과제는 도구 삭제로 폐기됨 | 구형 게이트 복원·원인 추가 과제 없음. 현재 기본 검사와 명시적 연결 점검은 [품질 기준](../../quality.md)을 따름 |
 | D8 | 링크 | 계획 0027·`architecture.md`가 우리가 지운 `fe-server-integration-map.md`를 가리킴 | — | 합친 뒤 `check-repo`가 잡는다. [연동 명세](../../design/fe/api-ws-spec.md)로 바꾼다 |
 | D9 | DB 판 | `architecture.md` 「저장은 DB 스키마 V2.0」 | V2.3 | V2.3으로 |
 
@@ -91,8 +91,8 @@ BE가 쓴 문서(`contracts/accounts.v2.md`, BE ADR 0020·0022, BE 계획 0027, 
 - [x] 3. FE 브랜치 → develop PR #48(10/15 merge).
 - [x] 4. BE 브랜치가 develop을 받아 충돌을 풀었다(`b0140ca`, 10/15). 팀장과 함께 쓸모없는 문서를 지웠다.
 - [x] 5. 합친 뒤 `check-repo` 통과(10/16 FE가 끊긴 링크 5개를 고침: `docs/index.md` 4개, BE 계획 0027 1개(D8)). 10/19 V2 브랜치에서 `check-repo`·`check-frontend`(시험 347개, 타입 검사, 빌드) 통과.
-- [ ] 6. BE 작업이 끝나 BE 브랜치가 develop에 들어오면 우리 브랜치도 develop을 받는다(JDK 17·Gradle, 연동 명세·계약은 그때 서버 코드와 한 번 더 대조).
-- [ ] 7. 끝나면 이 계획을 지우고 [지운 문서 기록](../../removed-docs.md)에 남긴다.
+- [x] 6. BE 작업이 끝나 BE 브랜치가 develop에 들어오면 우리 브랜치도 develop을 받는다(10/27 PR #65 뒤 V3가 develop을 받아 PR #69로 합침)(JDK 17·Gradle, 연동 명세·계약은 그때 서버 코드와 한 번 더 대조).
+- [x] 7. 끝나면 이 계획을 지우고 [지운 문서 기록](../../removed-docs.md)에 남긴다. → 지우지 않고 저장소 규칙(완료 계획은 `completed/`)대로 옮겼다(11/16).
 
 ## 결정과 진행 기록
 
