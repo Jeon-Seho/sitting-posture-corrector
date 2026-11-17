@@ -46,6 +46,7 @@
 | 400 | `INVALID_CONTRACT` | 「요청을 보내지 못했어요」. 앱 버그로 기록 |
 | 400 | `INVALID_PASSWORD` | 비밀번호 칸 아래 안내 |
 | 400 | `CONSENT_REQUIRED` | 가입 1단계(약관 동의)로 |
+| 400 | `PASSWORD_REUSED` | 비밀번호 찾기(A10)에서 기존 비밀번호와 같음. 「기존 비밀번호와 다른 새 비밀번호를 입력해 주세요.」 |
 | 401 | `UNAUTHENTICATED` | 로그인 화면 |
 | 401 | `INVALID_CREDENTIALS` | 「이메일이나 비밀번호가 맞지 않아요」 |
 | 403 | `ACCESS_DENIED` | 접근 거부. 일반 오류로 안내(토큰 로그인 뒤 CSRF는 없다) |
@@ -56,6 +57,8 @@
 | 409 | `ACCOUNT_EXISTS` | 가입 2단계 이메일 칸 아래 안내 |
 | 409 | `BASELINE_REQUIRED` | 「기준 자세가 없어요. 설정에서 자세를 등록해 주세요」 |
 | 409 | `CONFLICT` | S1이면 설정·기준이 바뀐 것이라 W1·B2를 다시 받고 사용자가 다시 시작 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | S1(또는 `hello`)에서 같은 계정이 다른 기기에서 측정 중(그 기기의 측정 연결이 열려 있거나 그 기기 S1 뒤 30초 안). 「다른 기기에서 측정 중이에요. 그 기기에서 측정을 끝낸 뒤 다시 시작해 주세요.」 로그인은 여러 기기에서 그대로 된다 |
+| 410 | `EMAIL_VERIFICATION_REQUIRED` | 가입 이메일 인증을 켰을 때: 인증 안 함·만료·이메일 바꿈(A2), 코드 틀림·만료·5번 초과(A19). 메일 화면으로 보내 다시 인증 |
 | 429 | `LIMIT_REACHED` | S1이면 서버가 받을 수 있는 측정 수(진행 중 512개)를 넘은 것. 측정 실패 화면 「사람이 몰려 지금은 측정을 시작할 수 없어요…」와 「다시 시도」(바로 새 측정). 측정 중 시간 상한은 `closed(limit_reached)`로 온다 |
 | 502·503 | `STORAGE_UNAVAILABLE`·`ACCOUNT_BUSY`·`SESSION_BUSY` | 1.1 재시도 |
 
@@ -83,21 +86,28 @@
 | [A7](#api-a7) | DELETE | 탈퇴 접수 | `/auth/account` | | 회원탈퇴 | 프로필 › 탈퇴 | 사용 |
 | [A8](#api-a8) | POST | 로그인 유지 | `/auth/refresh` | | 로그인 유지 | 만료 1분 30초 전, 401 뒤 한 번, 앱 시작 때(1장 「로그인 유지」) | 사용 |
 
-### auth | Discord 로그인·비밀번호 재설정
+### auth | 메일(비밀번호 찾기·가입 이메일 인증)·Discord
 
-BE 명세에 번호가 없어 FE가 A9~A17을 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 둘 다 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED`)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영 서버는 Discord만 켜져 있다.
+BE 명세에 번호가 없어 FE가 A9~A24를 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 세 기능(Discord, 비밀번호 재설정, 가입 이메일 인증)을 각각 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED` 등)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`·`VITE_EMAIL_VERIFICATION_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영은 Discord만 켜져 있다. 가입 코드·Discord 가입·연결 대기는 모두 서버(io-api) 메모리에 있어 서버가 다시 켜지면 처음부터 다시 한다.
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
-| A9 | POST | 재설정 메일 요청 | `/auth/password-reset/requests` | | 비밀번호 찾기 | 로그인 › 「비밀번호 재설정」에서 이메일을 넣고 보낼 때 | 사용(빌드 변수) |
-| A10 | POST | 비밀번호 재설정 | `/auth/password-reset/confirm` | | 비밀번호 찾기 | 메일 링크(`#password-reset?token=`)로 들어와 새 비밀번호를 정할 때 | 사용(빌드 변수) |
+| A9 | POST | 재설정 메일 요청 | `/auth/password-reset/requests` | | 비밀번호 찾기 | 로그인 › 「비밀번호 찾기」에서 이메일을 넣고 「비밀번호 찾기 메일 받기」 | 사용(빌드 변수) |
+| A20 | POST | 재설정 링크 확인 | `/auth/password-reset/validate` | | 비밀번호 찾기 | 메일 링크(`#password-reset?token=`)로 들어왔을 때, 「링크·코드 확인」. 링크를 쓰지 않고 유효한지만 본다 | 사용(빌드 변수) |
+| A10 | POST | 비밀번호 재설정 | `/auth/password-reset/confirm` | | 비밀번호 찾기 | 새 비밀번호 두 번 입력 뒤 「새 비밀번호 저장」. 기존 비밀번호와 같으면 400 `PASSWORD_REUSED` | 사용(빌드 변수) |
+| A18 | POST | 가입 인증 코드 요청 | `/auth/email-verification/requests` | | 회원가입 | 가입 2단계에서 인증하지 않은 이메일로 「다음」, 또는 「이메일 인증하기」. 6자리 코드 메일(15분), 인증 쿠키 | 사용(빌드 변수, 기본 꺼짐) |
+| A19 | POST | 가입 인증 코드 확인 | `/auth/email-verification/confirm` | | 회원가입 | 「인증 코드 확인」. 성공하면 가입 2단계로 돌아가 A2 | 사용(빌드 변수, 기본 꺼짐) |
 | A11 | POST | Discord 로그인 시작 | `/auth/social/{provider}/login` | | Discord 로그인 | 로그인 화면 Discord 버튼. 받은 `authorize_url`로 이동한다 | 사용(빌드 변수) |
 | A12 | POST | Discord 연결 시작 | `/auth/social/{provider}/link` | | Discord 연결·해제 | 프로필 설정 「Discord 연결」 | 사용(빌드 변수) |
-| A13 | GET | Discord에서 돌아오기 | `/auth/social/{provider}/callback` | `code`, `state`, `error` | Discord 로그인 | 부르지 않는다. Discord가 브라우저를 보내고, 서버가 `#social-result?status=` 또는 `#social-signup`으로 앱에 돌려보낸다. 로그인됐으면 A8 → A4로 이어진다 | 안 씀(브라우저 이동) |
+| A13 | GET | Discord에서 돌아오기 | `/auth/social/{provider}/callback` | `code`, `state`, `error` | Discord 로그인 | 부르지 않는다. Discord가 브라우저를 보내고, 서버가 `#social-result?status=`, `#social-signup`, 같은 이메일 계정이 있으면 `#social-link`(연결 대기 쿠키 10분)로 앱에 돌려보낸다. 로그인됐으면 A8 → A4로 이어진다 | 안 씀(브라우저 이동) |
 | A14 | GET | Discord 가입 정보 | `/auth/social/signup` | | Discord 로그인 | `#social-signup`으로 돌아왔을 때 이메일·추천 이름을 받는다. 가입 대기를 못 찾으면 410이다(가입 쿠키가 안 실림, 15분 지남, 서버 Discord 꺼짐, 대기는 서버 메모리라 그 사이 io-api가 다시 켜짐). 앱은 「가입 확인 시간이 지났어요」 | 사용(빌드 변수) |
 | A15 | POST | Discord 가입 | `/auth/social/signup` | | Discord 로그인 | Discord 가입의 약관 동의·프로필 입력을 마쳤을 때(비밀번호 없음) | 사용(빌드 변수) |
 | A16 | GET | 로그인 방법 조회 | `/auth/social` | | Discord 연결·해제 | 프로필 설정을 열 때, 연결 해제 뒤 | 사용(빌드 변수) |
 | A17 | DELETE | Discord 연결 해제 | `/auth/social/{provider}` | | Discord 연결·해제 | 프로필 설정 「연결 해제」. 비밀번호도 다른 연결도 없으면 409 `LAST_LOGIN_METHOD` | 사용(빌드 변수) |
+| A21 | GET | 연결 대기 조회 | `/auth/social/pending-link` | | Discord 로그인 | `#social-link`로 돌아왔을 때 「Discord 계정을 연결할까요?」 화면을 열며 Discord 이메일을 받는다. 대기가 없거나 만료면 410 | 사용(빌드 변수) |
+| A22 | POST | 기존 계정 확인 | `/auth/social/pending-link/verify` | | Discord 로그인 | 기존 계정 비밀번호를 넣고 「기존 계정 인증하기」. 아직 연결하지 않는다. 틀리면 400, 대기당 5번 초과 429 | 사용(빌드 변수) |
+| A23 | POST | 연결 승인 | `/auth/social/pending-link/confirm` | | Discord 로그인 | 「연결 승인하고 로그인」. 연결하고 로그인 응답·refresh 쿠키를 받는다. 확인 전 403, 이미 연결 409, 만료·사용됨 410(확인 뒤 비밀번호가 바뀌어도 거절) | 사용(빌드 변수) |
+| A24 | DELETE | 연결 대기 취소 | `/auth/social/pending-link` | | Discord 로그인 | 「로그인으로 돌아가기」. 아무것도 연결하지 않는다 | 사용(빌드 변수) |
 
 `{provider}`는 앱에서 `discord`만 쓴다. 카카오·Google·GitHub 버튼은 흐리게 두고 누르면 「준비 중이에요」를 띄운다.
 
@@ -965,6 +975,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 | 404 | `SESSION_LOST` | DB 행은 있지만 서버 재시작으로 판정 상태가 사라짐 |
 | 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(그 기기의 측정 연결이 열려 있거나 그 기기 S1 뒤 30초 안). `hello`도 같은 이유로 거절되고, 다른 기기가 먼저 연결했으면 `closed(session_lost)` |
 | 429 | `LIMIT_REACHED` | 진행 중 세션 512개 초과 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중 |
 
