@@ -146,6 +146,7 @@ export function LocalServiceApp({
     camera,
     go,
     setError,
+    loadRules: accounts && !developer ? loadServerRules : undefined,
   })
   const form = useProfileForm({
     workspace,
@@ -294,8 +295,9 @@ export function LocalServiceApp({
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     // 기록·달력 show 「오늘」: ask the server's day first (e.g. the app left open past midnight).
     if (next === 'dashboard' || next === 'calendar') refreshToday()
-    // Another device may have changed the rules: S1 must send the account's (409 otherwise).
-    if ((next === 'setup' || next === 'settings') && !measuring) void loadServerRules()
+    // Another device may have changed the rules. 측정하기 reads them when 「측정 시작」 is pressed
+    // (useSessionPersistence `loadRules`), not on every visit; the settings page shows them.
+    if (next === 'settings' && !measuring) void loadServerRules()
     setPage(next)
   }
 
@@ -533,17 +535,20 @@ export function LocalServiceApp({
    * The newest request wins, so a slider drag that sends several saves ends on its last value.
    */
   const rulesRequest = useRef(0)
-  async function loadServerRules() {
-    if (!accounts || !getServerAuth()) return
+  /** Reads the account's rules (W1); also what 「측정 시작」 measures with. Null when not read. */
+  async function loadServerRules(): Promise<Rules | null> {
+    if (!accounts || !getServerAuth()) return null
     const ticket = ++rulesRequest.current
     try {
       const saved = await fetchWorkspace()
       if (ticket === rulesRequest.current) { workspace.setRules(saved.rules); clearPageError('rules') }
+      return saved.rules
     } catch (caughtError) {
       console.error('[app/LocalServiceApp.tsx:loadServerRules] Operation failed', caughtError)
-      if (ticket !== rulesRequest.current) return
-      setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+      if (ticket !== rulesRequest.current) return null
+      setError('서버 설정을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.')
       reportPageError('rules', caughtError, () => void loadServerRules())
+      return null
     }
   }
 
