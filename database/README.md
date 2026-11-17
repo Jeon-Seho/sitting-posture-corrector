@@ -10,12 +10,12 @@ MySQL 서비스 스키마의 실행 파일(스키마·시드·마이그레이션
 
 | 순서 | 파일 | 하는 일 | 앞 단계가 필요한 이유 |
 |---|---|---|---|
-| 1 | `schema/schema_V2_7.sql` | 데이터베이스 `posture_service`와 테이블 16개 생성 | — |
+| 1 | `schema/schema_V2_8.sql` | 데이터베이스 `posture_service`와 테이블 18개 생성 | — |
 | 2 | `seed/seed_04_threshold_policy.sql` | 기본 판정 정책 1건 | 테이블이 있어야 한다 |
 
 ```bash
 # 1) 스키마 (데이터베이스 생성 포함)
-mysql -u <계정> -p < database/schema/schema_V2_7.sql
+mysql -u <계정> -p < database/schema/schema_V2_8.sql
 
 # 2) 시드 — 번호순
 for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
@@ -23,17 +23,22 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 새 DB에는 `migrations/`를 적용하지 않는다 (7장).
 
-**적용 후 확인** — 테이블 16개, `threshold_policy` 1행이면 정상이다.
+**적용 후 확인** — 테이블 18개, `threshold_policy` 1행이면 정상이다.
 
-**V2.6으로 만든 DB** — 지우지 않고 migration 017을 적용하면 V2.7과 같아진다. 소셜 로그인 연결 `social_identity`와 비밀번호 재설정 토큰 `password_reset_token`이 생기고, 기존 테이블·행은 그대로다. 사용자는 다시 로그인하지 않아도 된다. API의 Discord 로그인·비밀번호 재설정은 017을 적용한 **뒤에** 켠다(켠 기능의 표가 없으면 API가 시작하지 않는다). 되돌리기는 파일 머리말에 있다.
+**API가 V2.8에 맞춰지기 전 (2026-11-17, [계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md))** — 지금 API는 비밀번호를 `user_account.password_hash`에서 읽고 쓴다. V2.8 DB에서는 시작은 하지만(시작 검사가 이 칼럼을 보지 않음) 로그인·가입·비밀번호 변경이 SQL 오류로 실패한다. 새 API가 나오기 전까지 API를 돌릴 새 DB는 `schema_V2_7.sql`로 만든다. Compose·통합 시험도 그때까지 이 파일을 읽는다(11장).
+
+**V2.7로 만든 DB (운영 DB)** — 지우지 않고 migration 018 → 019를 적용하면 V2.8과 같아진다. 018은 `user_account.password_hash`를 새 표 `local_credential`로 옮기고 칼럼을 지운다. BCrypt 형식(`$2`로 시작)만 옮기고, Discord로 가입한 계정의 고정값 `'!no-password'`는 행을 만들지 않는다(행이 없으면 비밀번호 없는 계정). 019는 이메일 인증 토큰 `email_verification_token`을 더한다. 다른 테이블·행은 그대로이고, 비밀번호 값도 그대로 옮겨져 사용자는 다시 로그인하지 않아도 된다.
+
+**018을 적용하면 지금 API(V2.7용)는 로그인·가입·비밀번호 변경이 깨진다**(위 「API가 V2.8에 맞춰지기 전」). 그래서 018 → 019 → V2.8용 새 API 배포를 같은 점검 시간에 한다([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md) 「영향」). 이메일 인증은 019를 적용한 뒤에 켠다. 적용 전·후 확인 SQL과 되돌리기는 파일 머리말에 있다. 운영 Workbench는 안전 업데이트 모드라 머리말의 UPDATE에는 PK 조건을 넣어 두었다.
 
 ```bash
-mysql -u <계정> -p posture_service < database/migrations/017_create_social_identity_password_reset_token.sql
+mysql -u <계정> -p posture_service < database/migrations/018_move_password_hash_to_local_credential.sql
+mysql -u <계정> -p posture_service < database/migrations/019_create_email_verification_token.sql
 ```
 
-**적용 후 확인 (V2.6 → V2.7)** — 테이블 16개, `social_identity` 컬럼 5개, `password_reset_token` 컬럼 6개면 정상이다.
+**적용 후 확인 (V2.7 → V2.8)** — 테이블 18개, `user_account`에 `password_hash` 칼럼 없음, `local_credential` 행 수가 적용 전 `SELECT COUNT(*) FROM user_account WHERE password_hash LIKE '$2%'`와 같음, `email_verification_token` 컬럼 6개면 정상이다.
 
-**V2.5 이하로 만든 DB** — migration으로 올리지 않는다. 운영 DB가 V2.6이어서 2026-11-14에 V2.2~V2.5 스키마와 migration 011~016을 지웠다(2장). 지금 API도 V2.6 미만 DB에서는 시작하지 않는다(11장). 필요한 데이터를 먼저 백업하고, `posture_service` 데이터베이스를 지운 뒤 1번부터 다시 만든다. 데이터를 꼭 옮겨야 하면 지운 migration을 git 이력에서 꺼내 번호순으로 적용한 뒤 017을 적용한다(`git log --diff-filter=D -- database/migrations`로 지운 커밋을 찾고 `git show <커밋>^:database/migrations/<파일>`). V2.1·V2.0·V1.x는 V2.2에서 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 그 방법으로도 옮길 수 없다.
+**V2.6 이하로 만든 DB** — migration으로 올리지 않는다. 운영 DB가 V2.6이어서 2026-11-14에 V2.2~V2.5 스키마와 migration 011~016을, V2.7이 되어 2026-11-17에 `schema_V2_6.sql`과 017을 지웠다(2장). 지금 API도 V2.6 미만 DB에서는 시작하지 않는다(11장). 필요한 데이터를 먼저 백업하고, `posture_service` 데이터베이스를 지운 뒤 1번부터 다시 만든다. 데이터를 꼭 옮겨야 하면 지운 migration을 git 이력에서 꺼내 번호순으로 적용한 뒤 018·019를 적용한다(`git log --diff-filter=D -- database/migrations`로 지운 커밋을 찾고 `git show <커밋>^:database/migrations/<파일>`). V2.1·V2.0·V1.x는 V2.2에서 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 그 방법으로도 옮길 수 없다.
 
 ```bash
 mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
@@ -50,18 +55,18 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 | 항목 | 내용 |
 |---|---|
-| 스키마 파일 | `schema/schema_V2_7.sql` (현재, 새 DB용). `schema/schema_V2_6.sql`은 운영 DB 버전이자 `migrations/`(017~)의 출발점(DB CI 기준 스키마)으로 둔다 |
-| 대응 명세서 | DB 명세서 V2.7 (2026-11-11, 명세서 반영 전) — V2.6 + 소셜 로그인 연결 T-52 `social_identity`, 비밀번호 재설정 토큰 T-53 `password_reset_token` ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md)). V2.6은 V2.5 + 로그인 유지 토큰 T-51 `refresh_token` ([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md)). V2.5는 V2.4 + 기준 자세 등록 시각을 서버 시각으로, 재전송은 등록 식별자로 구분 ([ADR 0028](../docs/decisions/0028-server-time-for-baseline-registration.md), 「DB-V2.5-변경사항」). V2.4는 V2.3 + 아키텍처 v5.2 결정 반영: `feature_archive.row_count` 삭제, 설명 갱신 (「DB-V2.4-변경사항」). V2.3은 V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
+| 스키마 파일 | `schema/schema_V2_8.sql` (현재, 새 DB용). `schema/schema_V2_7.sql`은 운영 DB 버전이자 `migrations/`(018~)의 출발점(DB CI 기준 스키마)으로 둔다. API가 V2.8에 맞춰질 때까지 API를 돌릴 DB·Compose·통합 시험·FE 동의 시험은 V2.7을 쓴다(1장) |
+| 대응 명세서 | DB 명세서 V2.8 (2026-11-17, 명세서 반영 전) — V2.7 + 비밀번호 로그인 수단 T-54 `local_credential`(`user_account.password_hash`를 옮김), 이메일 인증 토큰 T-55 `email_verification_token` ([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md)). V2.7(2026-11-11)은 V2.6 + 소셜 로그인 연결 T-52 `social_identity`, 비밀번호 재설정 토큰 T-53 `password_reset_token` ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md)). V2.6은 V2.5 + 로그인 유지 토큰 T-51 `refresh_token` ([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md)). V2.5는 V2.4 + 기준 자세 등록 시각을 서버 시각으로, 재전송은 등록 식별자로 구분 ([ADR 0028](../docs/decisions/0028-server-time-for-baseline-registration.md), 「DB-V2.5-변경사항」). V2.4는 V2.3 + 아키텍처 v5.2 결정 반영: `feature_archive.row_count` 삭제, 설명 갱신 (「DB-V2.4-변경사항」). V2.3은 V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
 | 데이터베이스 이름 | `posture_service` (가칭, DB-03 D-33) |
 | DBMS | MySQL 8.0.16 이상 (CHECK 제약 강제) |
 | 문자셋 | `utf8mb4` / `utf8mb4_0900_ai_ci`. 세션 폴더 경로(`feature_archive.file_uri`)만 `utf8mb4_bin`(대소문자 구분) |
 | 시간대 | `SPRING_SESSION`(V2.6부터 안 씀)을 뺀 모든 `DATETIME(3)`은 **KST(한국 표준시, +09:00)**로 저장한다. 일별 통계의 날짜 기준(`STAT_TIMEZONE`)도 `Asia/Seoul` (CR-04) |
 
-**스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다. V2.4는 쓰는 곳이 없는 컬럼 1개(`row_count`)를 지우고 설명을 바꾼 변경이다. 지우는 값은 사라져도 되므로(「DB-V2.4-변경사항」 결정 4) DB를 새로 만들지 않고 migration 013·014로 올린다. V2.5는 컬럼·UK·CHECK를 더하고 UK-14를 바꾼 변경이라 기존 행을 그대로 두고 migration 015로 올린다. V2.6·V2.7은 테이블을 더하기만 한 변경이라 migration 016·017로 올린다.
+**스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다. V2.4는 쓰는 곳이 없는 컬럼 1개(`row_count`)를 지우고 설명을 바꾼 변경이다. 지우는 값은 사라져도 되므로(「DB-V2.4-변경사항」 결정 4) DB를 새로 만들지 않고 migration 013·014로 올린다. V2.5는 컬럼·UK·CHECK를 더하고 UK-14를 바꾼 변경이라 기존 행을 그대로 두고 migration 015로 올린다. V2.6·V2.7은 테이블을 더하기만 한 변경이라 migration 016·017로 올린다. V2.8은 칼럼 하나(`password_hash`)를 새 표로 옮기고 표를 더한 변경이다. 값을 그대로 옮길 수 있으므로 DB를 새로 만들지 않고 migration 018·019로 올린다.
 
-**지운 이전 버전 (2026-11-14)** — 운영 DB가 V2.6이고([아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)), API는 V2.6 미만 DB에서 시작하지 않으며, Compose·통합 시험은 최신 스키마로 새 DB를 만든다. 그래서 더 쓸 곳이 없는 `schema_V2_2.sql`~`schema_V2_5.sql`과 migration 011~016을 지웠다(git 이력에 남음). `schema_V2_3.sql`을 읽던 FE 시험 `consents.test.ts`는 `schema_V2_7.sql`을 읽는다(동의 종류 6개는 같다). 운영 DB에 017을 적용하고 다음 migration(018)이 생기면, 같은 기준으로 기준 스키마를 V2.7로 바꾸고 `schema_V2_6.sql`과 017을 지울 수 있다.
+**지운 이전 버전 (2026-11-14, 2026-11-17)** — 2026-11-14에는 운영 DB가 V2.6이고([아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)), API는 V2.6 미만 DB에서 시작하지 않으며, Compose·통합 시험은 최신 스키마로 새 DB를 만들었다. 그래서 더 쓸 곳이 없는 `schema_V2_2.sql`~`schema_V2_5.sql`과 migration 011~016을 지웠다(git 이력에 남음). `schema_V2_3.sql`을 읽던 FE 시험 `consents.test.ts`는 `schema_V2_7.sql`을 읽는다(동의 종류 6개는 같다). 2026-11-17에는 운영 DB가 V2.7(017 적용)이 되었고 다음 migration(018)이 생겨, 같은 기준으로 기준 스키마를 V2.7로 바꾸고 `schema_V2_6.sql`과 017을 지웠다. 운영 DB에 018·019를 적용하고 API·Compose·시험이 V2.8로 옮겨 가면, 다음 migration(020)이 생길 때 기준 스키마를 V2.8로 바꾸고 `schema_V2_7.sql`과 018·019를 지울 수 있다.
 
-**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. V2.4는 「DB-V2.4-변경사항」으로 V2.3에서, V2.5는 ADR 0028로 V2.4에서, `schema_V2_6.sql`은 ADR 0031로 V2.5에서, `schema_V2_7.sql`은 계획 0088 인계 문서로 V2.6에서 만들었다. 명세서 V2.4~V2.7을 고친 뒤 명세서에서 다시 생성해 맞춘다.
+**스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. V2.4는 「DB-V2.4-변경사항」으로 V2.3에서, V2.5는 ADR 0028로 V2.4에서, `schema_V2_6.sql`은 ADR 0031로 V2.5에서, `schema_V2_7.sql`은 계획 0088 인계 문서로 V2.6에서, `schema_V2_8.sql`은 계획 0096으로 V2.7에서 만들었다. 명세서 V2.4~V2.8을 고친 뒤 명세서에서 다시 생성해 맞춘다.
 
 ### 외부 문서 참조
 
@@ -82,18 +87,19 @@ database/
 ├── README.md                          ← 이 문서
 ├── .gitignore                         ← 커밋 금지 대상 (4장)
 ├── schema/
-│   ├── schema_V2_6.sql                ← 이전 버전(운영 DB). migrations의 출발점 (DB CI 기준 스키마)
-│   └── schema_V2_7.sql                ← 현재. 새 DB는 이 파일로 만든다
+│   ├── schema_V2_7.sql                ← 이전 버전(운영 DB). migrations의 출발점 (DB CI 기준 스키마)
+│   └── schema_V2_8.sql                ← 현재. 새 DB는 이 파일로 만든다 (API가 맞춰지기 전에는 1장)
 ├── seed/
 │   └── seed_04_threshold_policy.sql   ← 기본 판정 정책 (6장)
-├── migrations/                        ← V2.6 → V2.7. 다음 번호 018 (7장)
-│   └── 017_create_social_identity_password_reset_token.sql
+├── migrations/                        ← V2.7 → V2.8. 다음 번호 020 (7장)
+│   ├── 018_move_password_hash_to_local_credential.sql
+│   └── 019_create_email_verification_token.sql
 ├── tests/
 │   └── integrity_check.py             ← 무결성 검사 (8장)
-└── erd/                               ← V2.7
-    ├── posture_erd_V2_7.drawio        ← 원본 (개념·논리 2페이지)
-    ├── posture_erd_V2_7-개념 ERD.png   ← draw.io에서 내보낸 그림
-    └── posture_erd_V2_7-논리 ERD.png
+└── erd/                               ← V2.8
+    ├── posture_erd_V2_8.drawio        ← 원본 (개념·논리 2페이지)
+    ├── posture_erd_V2_8-개념 ERD.png   ← draw.io에서 내보낸 그림
+    └── posture_erd_V2_8-논리 ERD.png
 ```
 
 ---
@@ -119,22 +125,32 @@ database/
 
 ## 5. 스키마 범위
 
-**16개 테이블, 117개 컬럼.** V2.0(16개)에서 V2.1 추가 수정으로 4개를 지웠고, V2.2에서 컬럼 13개를 지우고 2개를 더했다(12개 테이블, 92개 컬럼). V2.3에서 `daily_stat` 컬럼 2개를 더하고 `user_consent`(5개 컬럼)를 새로 설계해 넣었다(99개 컬럼). V2.4에서 `feature_archive.row_count`를 지웠고(98개), V2.5에서 `baseline_posture.client_registration_uuid`를 더했다(99개). V2.6에서 `refresh_token`(7개 컬럼)을 더했다(106개). V2.7에서 `social_identity`(5개)·`password_reset_token`(6개)을 더했다(117개). 키와 제약은 아래와 같다.
+**18개 테이블, 124개 컬럼.** V2.0(16개)에서 V2.1 추가 수정으로 4개를 지웠고, V2.2에서 컬럼 13개를 지우고 2개를 더했다(12개 테이블, 92개 컬럼). V2.3에서 `daily_stat` 컬럼 2개를 더하고 `user_consent`(5개 컬럼)를 새로 설계해 넣었다(99개 컬럼). V2.4에서 `feature_archive.row_count`를 지웠고(98개), V2.5에서 `baseline_posture.client_registration_uuid`를 더했다(99개). V2.6에서 `refresh_token`(7개 컬럼)을 더했다(106개). V2.7에서 `social_identity`(5개)·`password_reset_token`(6개)을 더했다(117개). V2.8에서 `user_account.password_hash`를 `local_credential`(2개)로 옮기고 `email_verification_token`(6개)을 더했다(124개). 키와 제약은 아래와 같다.
 
 | 구분 | 수 | 비고 |
 |---|---|---|
-| PK | 16 | `baseline_posture`는 `baseline_posture_id`(대리키), `correction_alert`는 (`monitor_session_id`, `event_seq`, `attempted_at`) |
-| UK | 11 | UK-01·03·05·06·13·15·16·17·18·19·20. UK-13은 `SPRING_SESSION.SESSION_ID`. UK-16(사용자, 등록 식별자)이 V2.5에서 UK-14(사용자, 등록 시각)를 대신한다. UK-17은 `refresh_token.token_hash`(V2.6). UK-18은 `social_identity`(제공자, 제공자 사용자 ID), UK-19는 (계정, 제공자), UK-20은 `password_reset_token.token_hash`(V2.7) |
-| FK | 16 | 삭제 동작은 DB-04 1-1절. FK-27은 세션 → 기준 자세 (사용자 일치 복합 FK), FK-19는 동의 → 계정 (CASCADE), FK-28은 로그인 유지 토큰 → 계정 (CASCADE, V2.6), FK-29는 소셜 연결 → 계정, FK-30은 재설정 토큰 → 계정 (둘 다 CASCADE, V2.7) |
-| CHECK | 58 | 허용값, 범위(관절 좌표 18개 포함), 행 간 규칙 (세션 종료, 이벤트 회복, 삭제 요청 등) |
+| PK | 18 | `baseline_posture`는 `baseline_posture_id`(대리키), `correction_alert`는 (`monitor_session_id`, `event_seq`, `attempted_at`) |
+| UK | 12 | UK-01·03·05·06·13·15·16·17·18·19·20·21. UK-13은 `SPRING_SESSION.SESSION_ID`. UK-16(사용자, 등록 식별자)이 V2.5에서 UK-14(사용자, 등록 시각)를 대신한다. UK-17은 `refresh_token.token_hash`(V2.6). UK-18은 `social_identity`(제공자, 제공자 사용자 ID), UK-19는 (계정, 제공자), UK-20은 `password_reset_token.token_hash`(V2.7). UK-21은 `email_verification_token.token_hash`(V2.8) |
+| FK | 17 | 삭제 동작은 DB-04 1-1절. FK-27은 세션 → 기준 자세 (사용자 일치 복합 FK), FK-19는 동의 → 계정 (CASCADE), FK-28은 로그인 유지 토큰 → 계정 (CASCADE, V2.6), FK-29는 소셜 연결 → 계정, FK-30은 재설정 토큰 → 계정 (둘 다 CASCADE, V2.7), FK-31은 비밀번호 → 계정 (CASCADE, V2.8). `email_verification_token`은 가입 전 토큰이라 FK가 없다 |
+| CHECK | 60 | 허용값, 범위(관절 좌표 18개 포함), 행 간 규칙 (세션 종료, 이벤트 회복, 삭제 요청 등) |
 
-**V2.7에서 더한 것** ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md), [인계 문서](../docs/design/social-login-password-reset-handoff.md), migration 017)
+**V2.8에서 바꾼 것** ([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md), migration 018·019)
+
+| 대상 | 내용 |
+|---|---|
+| T-54 `local_credential`, FK-31(→ `user_account`, CASCADE) | 추가 (018). 계정의 비밀번호 해시(BCrypt). PK가 FK라 계정 하나에 하나다. 행이 있으면 비밀번호가 있는 계정이고, 없으면 소셜 전용 계정이다 — V2.7의 고정값 `'!no-password'`를 대신한다 |
+| `user_account.password_hash` | 삭제 (018). BCrypt 형식(`$2`로 시작) 값만 `local_credential`로 옮긴 뒤 지웠다. `'!no-password'` 행은 옮기지 않는다 |
+| T-55 `email_verification_token`, UK-21, CHECK 2개 | 추가 (019). 이메일 가입 전 메일함 소유 확인 링크 토큰의 SHA-256과 사용 시각(`consumed_at`). 원문은 메일에만 있다. 계정이 아직 없어 주인은 `login_email`이고 FK가 없다 — 계정 삭제에 연쇄되지 않고 API가 매일 지운다 |
+| 그대로 둔 것 | `user_account`의 나머지 칼럼(`login_email` NOT NULL 포함)과 이름, `social_identity`·`password_reset_token`. 이메일 인증 도입 전에 가입한 계정은 따로 표시하지 않는다(`email_verified_at` 없음, 계획 0096 결정 4) |
+| 인덱스 | `email_verification_token`의 (`login_email`, `issued_at`) 보조 인덱스는 넣지 않았다(7장 — 인덱스는 다른 파일). 행이 매일 정리되어 적다. DB-05에서 정한다 |
+
+**V2.7에서 더한 것** ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md), [인계 문서](../docs/design/social-login-password-reset-handoff.md), migration 017 — 2026-11-17 지움, git 이력에 남음)
 
 | 대상 | 내용 |
 |---|---|
 | T-52 `social_identity`, UK-18·UK-19, FK-29(→ `user_account`, CASCADE), CHECK 1개 | 추가. 계정과 소셜 제공자 사용자 ID(Discord id 등)의 연결. 이메일·이름·제공자 토큰은 저장하지 않는다. 제공자 사용자 하나는 계정 하나에만(UK-18), 계정 하나는 제공자마다 하나만(UK-19) 연결된다. 제공자 허용값은 `DISCORD`·`KAKAO`·`GOOGLE`·`GITHUB`이고 지금 동작은 Discord만 |
 | T-53 `password_reset_token`, UK-20, FK-30(→ `user_account`, CASCADE), CHECK 2개 | 추가. 비밀번호 재설정 메일 링크(30분, 일회용) 토큰의 SHA-256과 사용 시각(`consumed_at`). 원문은 메일에만 있다 |
-| 기존 테이블 | 바꾸지 않았다. 소셜로 가입한 계정은 `password_hash`에 고정값 `'!no-password'`를 넣는다(9장) |
+| 기존 테이블 | 바꾸지 않았다. 소셜로 가입한 계정은 `password_hash`에 고정값 `'!no-password'`를 넣는다(V2.8에서 `local_credential` 행 없음으로 바뀜) |
 | 인계 문서 제안과 다른 점 | 제안 SQL의 보조 인덱스 `ix_password_reset_token_user_issued`(사용자, 발급 시각)는 넣지 않았다. 인덱스는 다른 파일에 두는 규칙(7장)에 따라, 사용자별 조회는 FK-30 자동 인덱스로 한다. 사용자별 행은 60초에 하나까지만 생기고 만료 행은 매일 지워져 적다. 필요하면 DB-05에서 따로 더한다 |
 
 **V2.6에서 바꾼 것** ([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md), migration 016)
@@ -203,7 +219,7 @@ database/
 | T-32 `model_version`, `monitor_session.model_version_code` | 서비스 DB에는 모델 버전 관리 테이블·세션별 버전 칼럼을 두지 않는다 (팀 회의). 개발·연동·연구의 내부 관리는 별도이며 서비스 화면에는 표시하지 않는다([내부 관리 기준](../contracts/README.md#모델명특징-버전의-내부-관리)) |
 | T-42 `deployment`, T-43 `error_log` | 배포는 이미지 태그·CI 기록으로, 오류는 애플리케이션 로그로 남긴다 |
 | T-44 `input_result`, T-45 `cep_outbox`, T-46 `confirmed_snapshot`, T-47 `cep_cleanup` | CEP를 쓰지 않는다. 붕괴 확정·회복·재알림 판정은 백엔드가 맡는다 |
-| `ck_user_account_identity` | 식별 컬럼 3개(`login_email`, `password_hash`, `display_name`)를 다시 NOT NULL로 했다. 탈퇴 때 비우지 않고 행째 지운다 (9장) |
+| `ck_user_account_identity` | 식별 컬럼 3개(`login_email`, `password_hash`, `display_name`)를 다시 NOT NULL로 했다. 탈퇴 때 비우지 않고 행째 지운다 (9장). V2.8에서 `password_hash`는 `local_credential`로 옮겼다 |
 
 **외부 라이브러리 테이블** — `SPRING_SESSION`, `SPRING_SESSION_ATTRIBUTES`는 Spring Session JDBC 표준 정의를 그대로 쓴다. **V2.6부터 API가 쓰지 않는다**(로그인은 `refresh_token`, ADR 0031). 대문자 이름과 `BIGINT`(밀리초) 시각은 이름 규칙 예외다(건의안 0001 #5).
 
@@ -215,7 +231,7 @@ database/
 
 **인덱스** — 보조 인덱스는 넣지 않았다. 인덱스는 DB-05에서 쿼리 목록을 먼저 만든 뒤 설계하고, 테이블 생성과 다른 파일로 둔다(작업규칙 4.7). 판정 정책 검색(설정 저장·기본 정책 조회)은 UK-03이, 사용자의 현재 기준 자세 조회는 UK-16(V2.4까지는 UK-14)이 인덱스를 겸하므로 따로 만들지 않는다.
 
-다만 InnoDB는 FK 컬럼에 쓸 인덱스가 없으면 **자동으로 만든다.** 지금 자동 생성되는 인덱스는 7개다(V2.6 `refresh_token`, V2.7 `password_reset_token` 포함. `social_identity`의 FK-29는 UK-19를 쓰므로 따로 생기지 않는다). DB-05 인덱스 시트에서 이 5개를 포함해 정리하고, `SPRING_SESSION`의 보조 인덱스 2개(`EXPIRY_TIME`, `PRINCIPAL_NAME`)도 이때 둔다.
+다만 InnoDB는 FK 컬럼에 쓸 인덱스가 없으면 **자동으로 만든다.** 지금 자동 생성되는 인덱스는 7개다(V2.6 `refresh_token`, V2.7 `password_reset_token` 포함. `social_identity`의 FK-29는 UK-19를, V2.8 `local_credential`의 FK-31은 PK를 쓰므로 따로 생기지 않고, `email_verification_token`은 FK가 없다). DB-05 인덱스 시트에서 이 7개와 `email_verification_token`의 이메일 조회 인덱스를 포함해 정리하고, `SPRING_SESSION`의 보조 인덱스 2개(`EXPIRY_TIME`, `PRINCIPAL_NAME`)도 이때 둔다.
 
 | 테이블 | 자동 생성 인덱스 (FK 이름과 같음) | 컬럼 |
 |---|---|---|
@@ -258,14 +274,15 @@ database/
 - 인덱스는 테이블 생성과 다른 파일에 둔다. 초기 적재 때 인덱스 없이 넣기 위해서다.
 - migration과 시드 파일은 `SET NAMES utf8mb4;`로 시작한다. 빠지면 접속 문자셋에 따라 한글이 깨진 채 저장된다.
 - 새 DB는 최신 스키마 파일로 만들고, `migrations/`는 이미 만든 DB를 올릴 때만 적용한다.
-- 테이블을 지우거나 기존 데이터를 옮길 수 없는 변경은 migration을 만들지 않고 DB를 새로 만든다(작업규칙 1.4). V2.0 → V2.1, V2.1 → V2.2가 이 경우다. V2.4의 컬럼 삭제(`row_count`)는 값이 사라져도 되는 컬럼이라 migration으로 한다(2장).
+- 테이블을 지우거나 기존 데이터를 옮길 수 없는 변경은 migration을 만들지 않고 DB를 새로 만든다(작업규칙 1.4). V2.0 → V2.1, V2.1 → V2.2가 이 경우다. V2.4의 컬럼 삭제(`row_count`)는 값이 사라져도 되는 컬럼이라, V2.8의 `password_hash` 삭제는 값을 새 표로 옮긴 뒤 지우므로 migration으로 한다(2장).
 - 파일마다 머리말에 되돌리는 방법(롤백 SQL)을 적는다.
-- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했고, V2.2 → V2.6용 011~016은 운영 DB가 V2.6이라 지웠다(2장). 번호는 다시 쓰지 않으므로 **다음 파일은 018**부터 매긴다.
+- V1.0 → V1.1용 001~010은 V2.0 스키마에 흡수했고, V2.2 → V2.7용 011~017은 운영 DB가 V2.7이라 지웠다(2장). 번호는 다시 쓰지 않으므로 **다음 파일은 020**부터 매긴다.
 - 운영 DB가 올라가 더 쓸 곳이 없는 migration과 이전 스키마는 지운다. 기준 스키마(DB CI `BASE_SCHEMA`)는 남은 migration의 출발 버전으로 바꾼다.
 
 | 파일 | 버전 | 내용 | 기존 데이터 |
 |---|---|---|---|
-| `017_create_social_identity_password_reset_token.sql` | V2.6 → V2.7 | T-52 `social_identity`·UK-18·UK-19·FK-29·CHECK 1개, T-53 `password_reset_token`·UK-20·FK-30·CHECK 2개 추가 | 영향 없음. 다시 로그인하지 않아도 된다. 되돌리기는 API의 두 기능을 끈 뒤 `DROP TABLE password_reset_token; DROP TABLE social_identity;` — 소셜로 가입한 계정은 남고 비밀번호 재설정 없이는 로그인할 수 없다 |
+| `018_move_password_hash_to_local_credential.sql` | V2.7 → V2.8 (1/2) | T-54 `local_credential`·FK-31 추가, BCrypt 해시 복사, `user_account.password_hash` 삭제 | 비밀번호 값을 그대로 옮겨 다시 로그인하지 않아도 된다. **V2.7용 API는 로그인·가입·비밀번호 변경이 깨진다** — 새 API와 같은 점검 시간에 적용한다(1장). 되돌리기(먼저 API를 V2.7용으로)는 머리말: 칼럼을 다시 더해 `local_credential`에서 복사하고, 행이 없는 계정은 `'!no-password'`로 채운 뒤 NOT NULL로 바꾸고 `DROP TABLE local_credential;` |
+| `019_create_email_verification_token.sql` | V2.7 → V2.8 (2/2) | T-55 `email_verification_token`·UK-21·CHECK 2개 추가 | 영향 없음. 되돌리기는 API의 이메일 인증을 끈 뒤 `DROP TABLE email_verification_token;` — 아직 쓰지 않은 인증 링크는 무효가 된다 |
 
 ---
 
@@ -278,16 +295,18 @@ database/
 | 3 | 애플리케이션 기동 → 연결·기본 조회 성공 | **백엔드 연결 후 확인** — 대신 아래 무결성 검사로 기본 쓰기·조회를 확인 |
 | 4 | 롤백(데이터베이스 삭제 후 재적용) 1회 성공 | 통과 |
 
+**V2.8 로컬 확인 (2026-11-17, Windows MySQL 8.0.31, 임시 DB 이름으로 만든 뒤 지움)** — DB CI와 같은 순서로 실행했다. `schema_V2_8.sql` + 시드 → 테이블 18개·`threshold_policy` 1행, `schema_V2_7.sql` + 시드 + migration 018·019와 구조·설명·마스터 데이터 446줄이 모두 같음(git 이력의 `schema_V2_6.sql` + 017·018·019도 같음). 표·컬럼·UK·FK·CHECK 수(18·124·12·17·60)를 DB에서 세어 스키마 끝줄과 맞췄다. 018은 데이터가 든 V2.7 DB에서 BCrypt 행만 옮기고 `'!no-password'` 행은 옮기지 않음, 계정 삭제 때 함께 삭제(FK-31), 없는 계정 거부를 확인했고, 머리말의 되돌리기를 안전 업데이트 모드(`--safe-updates`)로 실행해 V2.7 정의와 같아짐을 확인했다. 019는 같은 해시·64자가 아닌 해시·발급보다 이른 만료 거부와 한 번만 사용(조건부 UPDATE 0행)을 확인했다. 원격 DB CI 결과는 PR에서 확인한다.
+
 **V2.7 로컬 확인 (2026-11-14, Windows MySQL 8.0.31, 임시 DB 이름으로 만든 뒤 지움)** — DB CI와 같은 순서로 실행했다. `schema_V2_7.sql` + 시드 → 테이블 16개·`threshold_policy` 1행, `schema_V2_6.sql` + 시드 + migration 017과 구조·설명·마스터 데이터 421줄이 모두 같음, 무결성 검사 165개 모두 통과. 위 표의 3·4단계와 지운 migration 011~016(V2.2 → V2.6 경로)은 이번에 다시 실행하지 않았다. 원격 DB CI 결과는 PR에서 확인한다.
 
-**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(지금 `schema_V2_7.sql`, 파일 이름순으로 가장 뒤의 파일) + 시드로 만든 DB와, 기준 스키마(`schema_V2_6.sql`, 2026-11-14 전에는 `schema_V2_2.sql`) + 시드 + `migrations/` 전부(지금 017)로 만든 DB의 구조·마스터 데이터를 비교한다. 설명(COMMENT)도 비교 대상이다. 두 결과가 같아야 한다(V2.7: 2026-11-14 로컬 재현 421줄 일치, V2.3: 2026-10-13 350줄 일치). 테이블 수(16)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 2026-10-13에는 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
+**DB CI** (`.github/workflows/db-ci.yml`) — 최신 스키마(지금 `schema_V2_8.sql`, 파일 이름순으로 가장 뒤의 파일) + 시드로 만든 DB와, 기준 스키마(`schema_V2_7.sql`, 2026-11-17 전에는 `schema_V2_6.sql`, 2026-11-14 전에는 `schema_V2_2.sql`) + 시드 + `migrations/` 전부(지금 018·019)로 만든 DB의 구조·마스터 데이터를 비교한다. 설명(COMMENT)도 비교 대상이다. 두 결과가 같아야 한다(V2.8: 2026-11-17 로컬 재현 446줄 일치, V2.7: 2026-11-14 421줄 일치, V2.3: 2026-10-13 350줄 일치). 테이블 수(18)와 `threshold_policy` 행 수(1)는 1장 「적용 후 확인」 값과 같다. 2026-10-13에는 데이터가 든 V2.2 DB에 011·012를 적용해도 기존 행이 그대로임을 함께 확인했다.
 
-**무결성 검사 (`tests/integrity_check.py`) — V2.7 기준 165개 항목 모두 통과(2026-11-14 로컬, V2.3 기준 130개는 2026-10-13).** V2.4에 맞춰 철회 검사(S1-1-1)를 지우고 `row_count`를 뺐으며 적재 경로를 세션 폴더 형식으로 바꿨다. V2.5에 맞춰 기준 자세 재전송 검사를 UK-16(등록 식별자)으로 바꾸고, 같은 등록 시각 허용·식별자 길이·UK-14 없음 검사를 더했다. V2.7에 맞춰 소셜 연결(UK-18·19, 제공자 허용값, FK-29, 비밀번호 없는 계정)과 재설정 토큰(UK-20, 해시 길이, 만료, 한 번만 사용, FK-30) 검사와 탈퇴 최종 삭제 때 CASCADE 확인을 더했다. 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
+**무결성 검사 (`tests/integrity_check.py`) — V2.8 기준 195개 항목 모두 통과(2026-11-17 로컬, `schema_V2_8.sql`로 만든 DB와 `schema_V2_7.sql` + 018·019로 만든 DB 둘 다. 같은 DB에서 다시 실행해도 통과. V2.7 기준 165개는 2026-11-14, V2.3 기준 130개는 2026-10-13).** V2.4에 맞춰 철회 검사(S1-1-1)를 지우고 `row_count`를 뺐으며 적재 경로를 세션 폴더 형식으로 바꿨다. V2.5에 맞춰 기준 자세 재전송 검사를 UK-16(등록 식별자)으로 바꾸고, 같은 등록 시각 허용·식별자 길이·UK-14 없음 검사를 더했다. V2.7에 맞춰 소셜 연결(UK-18·19, 제공자 허용값, FK-29, 비밀번호 없는 계정)과 재설정 토큰(UK-20, 해시 길이, 만료, 한 번만 사용, FK-30) 검사와 탈퇴 최종 삭제 때 CASCADE 확인을 더했다. V2.8에 맞춰 계정 행에서 `password_hash`를 빼고 `local_credential`에 넣도록 바꾸고, 비밀번호 표·같은 이메일 연결·이메일 인증 토큰 검사(아래 표)를 더했다. 테스트 계정(`test-*@example.invalid`)과 합성 좌표값으로 확인하고 행을 모두 지운다. DB CI가 새 DB에서 실행한다.
 
 | 분류 | 확인한 것 |
 |---|---|
 | 키 | 같은 이메일 재가입 거부(대소문자 무시), 같은 등록 재전송 거부(UK-16, 같은 등록 식별자), 같은 클라이언트 세션 식별자·로그인 세션 식별자 재전송 거부, 같은 알림 재전송 거부(PK), 같은 값 조합 정책 중복 거부(UK-03), 없는 사용자의 기준 자세·없는 이벤트의 알림 거부(FK-04·16) |
-| 식별 컬럼 (CR-04) | `login_email`·`password_hash`·`display_name` NULL 거부 |
+| 식별 컬럼 (CR-04) | `login_email`·`display_name` NULL 거부, 비밀번호 해시(`local_credential.password_hash`, V2.8) NULL 거부 |
 | 기본 정책 | 가입 때 값 4개로 기본 정책을 찾아 연결 |
 | 기준 자세 | 좌표 0~1 범위 밖 거부 |
 | 기준 자세 다시 촬영 | 새 행이 생기고 예전 행이 남음. 현재 기준은 가장 큰 ID — 시계가 늦은 기기에서 촬영해도 나중에 저장한 행이 현재 기준. 예전 세션은 예전 기준을, 새 세션은 새 기준을 가리킴. 세션이 쓴 기준 자세는 삭제·ID 변경 거부(FK-27). 다른 사용자의 기준 자세로 세션 시작 거부(FK-27) |
@@ -299,9 +318,10 @@ database/
 | 시나리오 2 (기록 삭제) | 세션을 지워도 일별 통계는 그대로. 세션을 지운 뒤 현재 기준만 남기고 예전 기준 자세 삭제(D-39) |
 | 세션 없는 계정 삭제 | 기준 자세·일별 통계 연쇄 삭제 (FK-04·17) |
 | 로그인 세션 | 로그인 세션 삭제 시 속성 연쇄 삭제 |
-| 소셜 연결·재설정 토큰 (V2.7) | 같은 제공자 사용자를 두 계정에 연결·한 계정에 같은 제공자 두 번 연결·없는 제공자·없는 사용자 거부, 다른 제공자는 허용. 비밀번호 없는 계정(`'!no-password'`) 저장. 같은 토큰 해시·64자가 아닌 해시·발급보다 이른 만료·없는 사용자 거부. 한 번 쓴 토큰은 다시 쓸 수 없고(조건부 UPDATE 0행), 만료된 토큰도 쓸 수 없음. 탈퇴 최종 삭제 때 함께 삭제 (FK-29·30) |
+| 소셜 연결·재설정 토큰 (V2.7) | 같은 제공자 사용자를 두 계정에 연결·한 계정에 같은 제공자 두 번 연결·없는 제공자·없는 사용자 거부, 다른 제공자는 허용. 비밀번호 없는 계정 저장(V2.8: `local_credential` 행 없음). 같은 토큰 해시·64자가 아닌 해시·발급보다 이른 만료·없는 사용자 거부. 한 번 쓴 토큰은 다시 쓸 수 없고(조건부 UPDATE 0행), 만료된 토큰도 쓸 수 없음. 탈퇴 최종 삭제 때 함께 삭제 (FK-29·30) |
+| 비밀번호·같은 이메일 연결·이메일 인증 (V2.8) | 비밀번호는 계정 하나에 하나(PK)·없는 사용자 거부(FK-31)·변경은 행 UPDATE·계정 조회 LEFT JOIN으로 있음/없음 판단. 대소문자가 다른 Discord 확인 이메일로 기존 계정을 찾아 연결. 같은 이메일로 새 계정 만들기는 거부(UK-01)되고 기존 Discord 계정에 비밀번호만 추가. 계정 삭제·탈퇴 최종 삭제 때 비밀번호 함께 삭제(FK-31). 인증 토큰은 계정 없는 이메일에도 발급(FK 없음)·같은 이메일 재발급 허용·새 발급 때 이전 토큰 무효·같은 토큰 해시(UK-21)·64자가 아닌 해시·발급보다 이른 만료·이메일 NULL 거부. 무효·만료·한 번 쓴 토큰은 조건부 UPDATE 0행. 토큰 소비·계정·비밀번호·필수 동의를 한 트랜잭션으로 가입. 계정을 지워도 토큰은 남고 매일 정리(만료 하루 뒤)로 지워짐 |
 | 사용자 동의 | 가입 동의 6행 저장, 같은 동의 재전송·없는 종류(학습용)·없는 사용자·동의 전 철회 시각 거부. 선택 정보 철회 때 나이·직업 비움. 약관 개정 재동의는 새 행, 현재 상태는 가장 최근 행. 탈퇴 최종 삭제 때 함께 삭제, 기록만 삭제할 때는 남음 |
-| 폐기 확인 | 폐기·보류 테이블 5개와 V2.1·V2.2·V2.4 폐기 컬럼 21개(V2.4 `row_count` 포함)가 DB에 없고, V2.2·V2.3·V2.5 추가 컬럼 5개(V2.5 `client_registration_uuid` 포함)가 있고 UK-14 인덱스가 없음 |
+| 폐기 확인 | 폐기·보류 테이블 5개와 V2.1·V2.2·V2.4·V2.8 폐기 컬럼 22개(V2.4 `row_count`, V2.8 `user_account.password_hash` 포함)가 DB에 없고, V2.2·V2.3·V2.5~V2.8 추가 컬럼 10개(V2.5 `client_registration_uuid`, V2.8 `local_credential.password_hash`·`email_verification_token.consumed_at` 포함)가 있고 UK-14 인덱스가 없음 |
 
 ---
 
@@ -311,7 +331,7 @@ database/
 |---|---|---|
 | 모든 시각 | KST로 저장한다. 연결할 때 세션 시간대를 `Asia/Seoul`로 둔다 (`connectionTimeZone=Asia/Seoul`) | CR-04 |
 | 가입 | 기본 정책을 설정에 둔 값 4개(threshold·hold·recover·realert)로 찾는다. 없으면 같은 값으로 새로 넣고(중복 오류 1062가 나면 잠금 읽기로 다시 찾음 — 「설정 변경」 행 참고) 사용자가 그 행을 가리키게 한다. 값은 6장 시드와 같아야 한다 | UK-03 |
-| 비밀번호 | 백엔드에서 단방향 해시로 만들어 `password_hash`에 넣는다. 평문은 저장하지도 응답하지도 않는다 | SER-004 |
+| 비밀번호 | 백엔드에서 단방향 해시(BCrypt)로 만들어 `local_credential.password_hash`에 넣는다(V2.8 — V2.7까지는 `user_account.password_hash`). 비밀번호 없는 계정(소셜 전용)은 행이 없다. 처음 정할 때(재설정 메일, 기존 Discord 계정에 이메일 가입)는 INSERT, 바꿀 때는 UPDATE한다. 평문은 저장하지도 응답하지도 않는다 | SER-004, FK-31 |
 | 로그인 | `account_status`가 ACTIVE인 계정만 통과시킨다. 탈퇴를 접수한 계정(CLOSED)은 유예 중에도 이메일·비밀번호 해시가 남아 있지만, 비밀번호가 맞아도 막는다(403 `ACCOUNT_CLOSED` — 되돌릴 수 없고 30일 뒤 삭제된다고 안내) | D-34, 탈퇴 철회 없음 (2026-10-15) |
 | 로그인 끊기의 전제 | 로그인은 access 토큰(JWT, 30분, 저장하지 않음)과 refresh 토큰(14일, `refresh_token`)으로 한다. 로그인 끊기는 그 사용자의 `refresh_token` 행을 철회(`revoked_at`)해서 한다. access 토큰은 철회하지 않아 만료(최대 30분)까지 남는다 — 탈퇴한 계정은 요청마다 계정 상태를 확인하므로 바로 401이다. `SPRING_SESSION`은 쓰지 않는다. 이메일 변경 기능을 넣으면 변경 때 그 사용자의 refresh 토큰도 철회한다 | ADR 0031, V2.6 (V2.1 `auth_epoch` 삭제) |
 | 기준 자세 등록·다시 촬영 | 촬영할 때마다 **새 행을 INSERT**한다(UPDATE하지 않는다). 촬영이 완료됐을 때만 넣고, 취소·실패하면 넣지 않는다. `registered_at`은 **서버가 등록을 받은 시각**이다(앱은 시각을 보내지 않는다, ADR 0028). **REST `POST /v2/baselines`(B1)**: 앱이 낸 평균과 `registration_id`(촬영마다 앱이 한 번 만드는 UUID)를 받는다. 표본 20 이상·촬영 3초 이상을 넣기 전에 검사한다. 재전송 때도 같은 `registration_id`가 온다 — 같은 (사용자, 등록 식별자) 행이 있으면 좌표가 같을 때 그 행을, 다를 때 409를 돌려준다(UK-16). WebSocket 등록(`purpose: calibration`)은 2026-10-27 삭제했다(등록은 B1뿐) | BR-63, UK-16, ADR 0028 |
@@ -328,14 +348,15 @@ database/
 | 붕괴까지 걸린 시간 (최소·최대) | J2가 함께 계산한다. 실행 시간(`started_at` → `ended_at`)이 5분(`STAT_MIN_SESSION_SEC`) 이상인 세션만 쓴다 — 더 짧은 세션은 시험·잘못 시작한 기록으로 보고 뺀다. 세션마다 구간을 나눈다: 세션 시작 또는 직전 붕괴 이벤트의 `ended_at` → 다음 붕괴의 `started_at`, 마지막 구간은 → 세션 `ended_at`(붕괴 없이 끝난 구간도 표본에 넣는다). 각 구간 길이에서 겹친 제외 구간 시간을 뺀다. 그날 모든 표본의 최솟값·최댓값을 넣고, 표본이 없으면 둘 다 NULL. 주·월 값은 일별 최솟값의 최솟값, 최댓값의 최댓값 | BR-20, BR-53, ck_daily_stat_until_collapse |
 | 탈퇴 접수 | 삭제 요청(`REQUESTED`, `account_closed_at`)과 계정 CLOSED를 한 트랜잭션으로 처리하고, 그 사용자의 `refresh_token` 행을 모두 철회한다(`revoked_at`, V2.6). 식별 정보와 기록은 지우지 않는다. **되돌릴 수 없다**(철회 없음) | D-34, DB-04 6-1 |
 | 탈퇴 철회 | **하지 않는다** (2026-10-15 결정). 접수한 탈퇴는 되돌릴 수 없다. 30일 유예는 남긴다 — Kafka(3일)·DLQ(7일)·Redis 보존 기간이 모두 30일보다 짧아, 유예 뒤에 지우면 서버 어디에도 데이터가 남지 않는다. `deletion_request` 상태를 바꾸는 쪽은 J3뿐이라 철회·삭제가 겹칠 일이 없다 | 「아키텍처 v5.2 전환 영향」 공지 ① |
-| 탈퇴 최종 삭제 | **Spark J3**가 매일 04:00에 처리한다(입출구 서버는 접수만). 유예가 끝났고 상태가 `REQUESTED`(재시도면 `FAILED`)인 요청만 `PROCESSING`으로 바꾼 뒤 시작한다. 대상은 `account_closed_at + WITHDRAWAL_GRACE_DAY(30일) ≤ 현재`로 계산한다(삭제 예정일 컬럼 없음). 사용자 폴더를 먼저 지우고 `deleted_at`을 채운 뒤, 적재 기록 → 세션 → 일별 통계 → 기준 자세 → 삭제 요청 → 계정을 한 트랜잭션으로 지운다(세션이 기준 자세를 막으므로 세션이 먼저). 동의 기록·로그인 유지 토큰·소셜 연결·재설정 토큰은 계정 삭제에 연쇄된다(FK-19·28·29·30) — J3를 고치지 않아도 된다. 완료 안내는 **J3가 직접**, 커밋 뒤에 미리 읽어 둔 연락처로 보낸다. 롤백(`FAILED`)이면 보내지 않고, 발송이 실패해도 삭제는 되돌리지 않으며 로그에는 사용자 ID만 남긴다 | D-34, DB-04 6-1, 아키텍처 v5.2 ⑳ |
+| 탈퇴 최종 삭제 | **Spark J3**가 매일 04:00에 처리한다(입출구 서버는 접수만). 유예가 끝났고 상태가 `REQUESTED`(재시도면 `FAILED`)인 요청만 `PROCESSING`으로 바꾼 뒤 시작한다. 대상은 `account_closed_at + WITHDRAWAL_GRACE_DAY(30일) ≤ 현재`로 계산한다(삭제 예정일 컬럼 없음). 사용자 폴더를 먼저 지우고 `deleted_at`을 채운 뒤, 적재 기록 → 세션 → 일별 통계 → 기준 자세 → 삭제 요청 → 계정을 한 트랜잭션으로 지운다(세션이 기준 자세를 막으므로 세션이 먼저). 동의 기록·로그인 유지 토큰·소셜 연결·재설정 토큰·비밀번호(V2.8)는 계정 삭제에 연쇄된다(FK-19·28·29·30·31) — J3를 고치지 않아도 된다. 이메일 인증 토큰은 계정과 연결되지 않아 매일 정리로 지워진다. 완료 안내는 **J3가 직접**, 커밋 뒤에 미리 읽어 둔 연락처로 보낸다. 롤백(`FAILED`)이면 보내지 않고, 발송이 실패해도 삭제는 되돌리지 않으며 로그에는 사용자 ID만 남긴다 | D-34, DB-04 6-1, 아키텍처 v5.2 ⑳ |
 | 삭제 배치 공통 | (J3) 파일 먼저, 행은 하위부터, 사용자 한 명 단위 트랜잭션. 실패하면 되돌리고 요청을 FAILED로 둔다. 기록만 삭제할 때는 세션을 지운 뒤 현재 기준을 뺀 예전 기준 자세 행도 지운다 | DB-04 6장, D-39 |
 | 비밀번호 변경 | 그 사용자의 `refresh_token` 행을 모두 철회한다(`revoked_at`, V2.6). 열린 실시간 연결도 닫히고, 앱은 다시 로그인한다. 이미 발급된 access 토큰은 만료(최대 30분)까지 남는다 | ADR 0031, `contracts/accounts.v2.md` |
 | 가입 동의 | 계정 행과 필수 동의 5행(`TERMS`·`ACCOUNT_INFO`·`POSE_COORDINATES`·`MEASUREMENT_RECORD`·`AGE_14_OVER`)을 한 트랜잭션으로 넣는다. 하나라도 빠지면 가입을 거부한다. 선택 정보(`OPTIONAL_PROFILE`)는 동의했을 때만 넣고, 동의가 없으면 나이·직업을 받지 않는다. 거부는 저장하지 않는다. 만 14세 미만은 가입을 막는다(나이를 입력했는데 14 미만이면 거부 — DB는 검사하지 않는다) | FE 동의 제안서, FK-19 |
 | 동의 변경 | 선택 정보 동의를 철회하면 그 행에 `withdrawn_at`을 채우고 `user_account.age`·`occupation`을 같은 트랜잭션에서 비운다. 다시 동의하면 새 행. 약관이 바뀌면 새 `document_version`으로 다시 동의받아 새 행을 넣는다(종류별 가장 최근 행이 현재 상태). 필수 동의 철회는 탈퇴 요청으로 처리하고, 탈퇴 접수 때는 `withdrawn_at`을 채우지 않는다 — 동의 행은 유예가 끝나 계정을 지울 때 함께 지워진다(FK-19) | 동의 제안서 1·4장 |
 | 로그인 유지 토큰 | `refresh_token`에는 토큰 원문이 아니라 SHA-256만 넣는다. 쓸 때마다 새 행으로 바꾸고(`rotated_at`), 만료된 지 하루 지난 행은 API가 매일 04:30(KST)에 지운다 | ADR 0031 |
-| 소셜 로그인 | `social_identity`에는 제공자의 바뀌지 않는 사용자 ID만 넣는다(이메일·이름·제공자 토큰은 저장하지 않는다). 소셜 이메일이 기존 계정과 같아도 **자동으로 묶지 않는다** — 사용자가 비밀번호로 로그인한 뒤 직접 연결한다. 소셜로 처음 가입한 계정은 비밀번호가 없어 `password_hash`에 고정값 `'!no-password'`를 넣는다(BCrypt 형식이 아니라 어떤 비밀번호와도 맞지 않는다. `password_hash`는 NOT NULL 그대로). 비밀번호는 재설정 메일로 정한다. 제공자 값은 대문자로 넣는다 — 테이블 정렬 규칙(`utf8mb4_0900_ai_ci`)이 대소문자를 구분하지 않아 CHECK가 `discord`도 통과시킨다(UK-18·19도 대소문자를 같은 값으로 본다) | 계획 0088, UK-18·19 |
+| 소셜 로그인 | `social_identity`에는 제공자의 바뀌지 않는 사용자 ID만 넣는다(이메일·이름·제공자 토큰은 저장하지 않는다). 소셜로 처음 가입한 계정은 비밀번호가 없어 `local_credential` 행을 만들지 않는다(V2.8 — V2.7까지는 `password_hash`에 BCrypt 형식이 아닌 고정값 `'!no-password'`). 비밀번호는 재설정 메일로 정한다. 같은 이메일 계정은 V2.8용 API부터 묶는다 — 이메일 인증을 켰을 때만 Discord가 확인한 이메일과 같은 ACTIVE 계정에 자동 연결하고, 꺼져 있으면 V2.7까지처럼 묶지 않는다(사용자가 비밀번호로 로그인한 뒤 직접 연결, 계획 0096). 제공자 값은 대문자로 넣는다 — 테이블 정렬 규칙(`utf8mb4_0900_ai_ci`)이 대소문자를 구분하지 않아 CHECK가 `discord`도 통과시킨다(UK-18·19도 대소문자를 같은 값으로 본다) | 계획 0088·0096, UK-18·19 |
 | 비밀번호 재설정 | `password_reset_token`에는 링크 토큰의 SHA-256만 넣는다(30분). 사용은 `UPDATE … SET consumed_at=? WHERE password_reset_token_id=? AND consumed_at IS NULL AND expires_at>?`로 하고 영향 행이 1일 때만 진행한다(두 번 쓰기 방지). 새 발급·비밀번호 변경·탈퇴 때 그 사용자의 남은 토큰에 `consumed_at`을 채운다. 재설정을 마치면 그 사용자의 `refresh_token`을 모두 철회한다. 만료된 지 하루 지난 행은 API가 매일 04:40(KST)에 지운다 | 계획 0088, UK-20 |
+| 이메일 인증 (V2.8) | 가입 전에 메일함 주인인지 확인한다. `email_verification_token`에는 정규화한 이메일(앞뒤 공백 제거·소문자)과 링크 토큰의 SHA-256만 넣는다. 사용은 `UPDATE … SET consumed_at=? WHERE email_verification_token_id=? AND consumed_at IS NULL AND expires_at>?`로 하고, 영향 행이 1일 때만 같은 트랜잭션에서 가입(계정·`local_credential`·동의) 또는 기존 Discord 계정에 `local_credential` INSERT를 한다. 새 발급 때 그 이메일의 남은 토큰에 `consumed_at`을 채운다. 계정 FK가 없어 탈퇴 삭제에 연쇄되지 않으므로 만료된 지 하루 지난 행을 API가 매일 지운다. 토큰 수명·재발송 간격·정리 시각은 BE에서 정한다(계획 0096 남은 질문) | 계획 0096, UK-21 |
 
 ---
 
@@ -354,11 +375,11 @@ database/
 
 ## 11. 백엔드 코드와의 관계
 
-DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표는 켠 기능만), 처리 서비스는 아직 **V2.3** 표기로 확인한다. 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
+DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표는 켠 기능만), 처리 서비스는 아직 **V2.3** 표기로 확인한다. 지금 입출구 서버는 V2.7용이라 V2.8 DB에서 시작은 하지만 비밀번호를 쓰는 기능이 실패한다(1장). V2.8에 맞추는 일은 계획 0096 BE 단계다(`local_credential` 확인 추가). 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
 
 | 구성 | 위치 | 시작할 때 DB 확인 | 맞지 않으면 |
 |---|---|---|---|
-| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 12개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 13개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 **켠 기능만** 확인한다 — Discord 로그인을 켜면 `social_identity.provider_subject`, 비밀번호 재설정을 켜면 `password_reset_token.consumed_at` | **시작하지 않는다** — V2.5 이하 DB는 1장대로 다시 만든다. 두 기능 중 하나라도 켜려면 017을 적용한다 |
+| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 12개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 13개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 **켠 기능만** 확인한다 — Discord 로그인을 켜면 `social_identity.provider_subject`, 비밀번호 재설정을 켜면 `password_reset_token.consumed_at` | **시작하지 않는다** — V2.5 이하 DB는 1장대로 다시 만든다. 두 기능 중 하나라도 켜려면 V2.7 이상이어야 한다(V2.6 DB는 1장) |
 | 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 13개, 지운 테이블, 저장에 쓸 컬럼, V2.3 표시(migration 011·012), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. V2.4 표기·`row_count` 확인은 DevOps 반영 전 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다 |
 
 **설정**
@@ -367,7 +388,7 @@ DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표�
 |---|---|
 | 접속 시간대 | `connectionTimeZone=Asia/Seoul` — `backend/api` `application.properties`, `compose.yaml` |
 | 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
-| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_7.sql` → 시드를 실행한다. `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.6으로 만든 볼륨은 migration 017을 적용하고, V2.5 이하로 만든 볼륨은 지운 뒤 다시 만든다(1장). |
+| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_7.sql` → 시드를 실행한다(API가 V2.8에 맞춰지면 `schema_V2_8.sql`로 바꾼다, 계획 0096). `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.7로 만든 볼륨은 V2.8용 API로 바꿀 때 migration 018·019를 적용하고, V2.6 이하로 만든 볼륨은 지운 뒤 다시 만든다(1장). |
 
 **아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, [bigdata/README.md](../bigdata/README.md), 계획 0085)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
 
