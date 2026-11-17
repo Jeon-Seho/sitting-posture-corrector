@@ -178,7 +178,7 @@ MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서�
 앱을 다시 열면 A8로 토큰을 받고 `GET /v2/auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
-비밀번호 변경(A6)·탈퇴(A7)·설정(W1·W2)도 서버로 한다. 선택 정보 동의 철회는 없다(C1은 11/12에 지웠다, FE 제안서 요구 10).
+비밀번호 변경(A6)·탈퇴(A7)·설정(W1·W2)도 서버로 한다. 선택 정보 동의 철회는 없다(C1은 11/12에 지웠다, FE 제안서 요구 11).
 예전 화면 시험(`src/app/ServiceApp.test.tsx`)만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다. 이 시험 전용 경로는 [계획 0054](../docs/plans/active/0054-pip-fix-and-server-only-login.md) 2단계에서 지운다.
 
 ## 로컬 프로토타입 실행
