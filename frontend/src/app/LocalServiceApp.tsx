@@ -202,11 +202,9 @@ export function LocalServiceApp({
       .then((draft) => {
         if (cancelled) return
         if (!draft) {
-          logDiscord('signup draft missing (410: cookie not sent, expired, Discord off, or io-api restarted)')
           setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
           return
         }
-        logDiscord('signup continues at consent')
         setSocialSignup(draft)
         setEmail(draft.email)
         form.resetFields({ name: draft.suggested_name })
@@ -437,10 +435,7 @@ export function LocalServiceApp({
 
   /** Discord sign-up: the e-mail is the one Discord confirmed; the account has no password yet. */
   async function registerSocialWithServer(client: AccountClient, next: Profile) {
-    if (busy || !client.social || !socialSignup) {
-      logDiscord('signup not sent', { busy, accountClient: !!client.social, draft: !!socialSignup })
-      return
-    }
+    if (busy || !client.social || !socialSignup) return
     setBusy(true)
     setError('')
     try {
@@ -729,7 +724,6 @@ export function LocalServiceApp({
             {accounts?.social && (
               // Every planned provider is shown; only Discord works for now. Others say they are coming.
               <SocialLoginButtons disabled={busy} ready={id => id === 'discord'} onPick={(id, name) => {
-                if (id === 'discord') logDiscord('button', { enabled: discordLoginEnabled(), desktop: !!desktopBridge() })
                 if (id === 'discord' && discordLoginEnabled()) void startDiscord()
                 else if (id === 'discord') setError(desktopBridge()
                   ? 'Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.'

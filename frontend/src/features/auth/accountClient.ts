@@ -3,7 +3,6 @@ import { getServerAuth, setServerAuth } from '../platform/serverAuth'
 import { noteServerDay } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
 import type { ConsentType } from './consents'
-import { logDiscord } from './socialLogin'
 
 /**
  * Account server client (D-66, FE proposal F12, plan 0027 2절; BE ADR 0031 token login).
@@ -87,24 +86,6 @@ export type SocialClient = {
   unlink: () => Promise<void>
 }
 
-/** Runs one Discord request and logs its start and result (status and code only, see `logDiscord`). */
-async function traced<T>(step: string, run: () => Promise<T>): Promise<T> {
-  logDiscord(step)
-  try {
-    const value = await run()
-    logDiscord(`${step} ok`)
-    return value
-  } catch (error) {
-    logDiscord(
-      `${step} failed`,
-      error instanceof AccountError
-        ? { status: error.status, code: error.code, message: error.message }
-        : { error: error instanceof Error ? error.name : String(error) },
-    )
-    throw error
-  }
-}
-
 /** Only a Discord consent page may be opened from the server's answer. */
 export function discordAuthorizeUrl(payload: unknown): string {
   const url = payload && typeof payload === 'object' ? (payload as { authorize_url?: unknown }).authorize_url : null
@@ -117,7 +98,6 @@ export function discordAuthorizeUrl(payload: unknown): string {
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
   if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') {
-    logDiscord('authorize url refused', { protocol: parsed.protocol, host: parsed.hostname })
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
   return parsed.toString()
@@ -398,20 +378,16 @@ export function createAccountClient(
       async confirmLink() { return signedIn(await send('/social/pending-link/confirm', 'POST')) },
       async cancelLink() { await send('/social/pending-link', 'DELETE') },
       async startLogin() {
-        return traced('A11 login start', async () => discordAuthorizeUrl(await send('/social/discord/login', 'POST')))
+        return discordAuthorizeUrl(await send('/social/discord/login', 'POST'))
       },
       async startLink() {
-        return traced('A12 link start', async () => discordAuthorizeUrl(await authed('/social/discord/link', 'POST')))
+        return discordAuthorizeUrl(await authed('/social/discord/link', 'POST'))
       },
       async signupDraft() {
         try {
-          const draft = await traced('A14 signup draft', async () => {
-            const value = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
-            if (!value || typeof value.email !== 'string' || typeof value.suggested_name !== 'string')
-              throw new AccountError('계정 응답 형식이 달라요.', null, null)
-            return value
-          })
-          logDiscord('A14 signup draft received', { provider: draft.provider })
+          const draft = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
+          if (!draft || typeof draft.email !== 'string' || typeof draft.suggested_name !== 'string')
+            throw new AccountError('계정 응답 형식이 달라요.', null, null)
           return draft
         } catch (error) {
           console.error('[features/auth/accountClient.ts:signupDraft] Operation failed', error)
@@ -422,22 +398,18 @@ export function createAccountClient(
         }
       },
       async signup(input) {
-        return traced('A15 signup', async () =>
-          signedIn(
-            await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
-          ),
+        return signedIn(
+          await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
         )
       },
       async status() {
-        return traced('A16 status', async () => {
-          const value = (await authed('/social', 'GET')) as SocialStatus | null
-          if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
-            throw new AccountError('계정 응답 형식이 달라요.', null, null)
-          return value
-        })
+        const value = (await authed('/social', 'GET')) as SocialStatus | null
+        if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
+          throw new AccountError('계정 응답 형식이 달라요.', null, null)
+        return value
       },
       async unlink() {
-        await traced('A17 unlink', () => authed('/social/discord', 'DELETE'))
+        await authed('/social/discord', 'DELETE')
       },
     },
     async refreshServerTime() {
