@@ -63,7 +63,7 @@ export function SocialLinkSection({ social, disabled }: { social: SocialClient; 
         : <button type="button" className="btn btn-social btn-discord" disabled={off} onClick={() => void link()}>Discord 연결</button>}
     </div>
     {status && !status.password_set && <p className="fine">
-      이 계정은 비밀번호 없이 Discord로 가입했어요. 비밀번호 변경·탈퇴에는 비밀번호가 필요하니, 로그인 화면의 비밀번호 재설정 메일로 먼저 정해 주세요.
+      이 계정은 비밀번호 없이 Discord로 가입했어요. 비밀번호를 바꾸려면 로그인 화면의 비밀번호 재설정 메일로 먼저 정해 주세요.
     </p>}
   </section>
 }

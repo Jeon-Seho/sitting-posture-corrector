@@ -15,10 +15,11 @@ export function CollectionPage({
   camera: CameraController
   collection: CollectionController
 }) {
+  const { setPhase } = collection
   useEffect(() => {
-    collection.setPhase('running')
-    return () => collection.setPhase('inactive')
-  }, [collection.setPhase])
+    setPhase('running')
+    return () => setPhase('inactive')
+  }, [setPhase])
   // 촬영에는 카메라와 등록한 자세가 필요하다. 직접 링크로 열 때도 쓰므로 이 화면에서 바로 켜고 등록할 수 있다.
   // 여기서 등록한 자세는 「자세 등록」 탭과 같은 기준이다.
   const calibrating = camera.progress !== null

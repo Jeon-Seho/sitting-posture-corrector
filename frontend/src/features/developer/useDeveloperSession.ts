@@ -449,6 +449,8 @@ export function useDeveloperSession(camera: CameraController, normalProfile: Nor
   }, [cancelSound, unavailable])
 
   useEffect(() => {
+    // Keep the refs, not their current values, to invalidate pending work on cleanup.
+    const runGeneration = generation, modelGeneration = loadGeneration, soundGeneration = audioGeneration
     mounted.current = true
     // Fast Refresh keeps React state after cleanup has released the active run
     // and camera. Never present that abandoned reading as a live measurement.
@@ -473,7 +475,7 @@ export function useDeveloperSession(camera: CameraController, normalProfile: Nor
         setModelError(cause instanceof TypeError ? '' : cause instanceof Error ? cause.message : '모델을 읽지 못했습니다.')
       })
     return () => {
-      mounted.current = false; generation.current++; loadGeneration.current++
+      mounted.current = false; runGeneration.current++; modelGeneration.current++
       controller.abort()
       const run = active.current; active.current = null
       if (run?.timer) clearInterval(run.timer)
@@ -482,9 +484,9 @@ export function useDeveloperSession(camera: CameraController, normalProfile: Nor
       forecastExpiry.current = null
       latestCollection.current?.endRun()
       latestCamera.current.stop()
-      audioGeneration.current++; audio.current?.dispose(); audio.current = null
+      soundGeneration.current++; audio.current?.dispose(); audio.current = null
     }
-  }, [])
+  }, [clearDisplayedRun])
 
   const loadModel = useCallback(async (file: File) => {
     if (!idle(phaseRef.current)) return

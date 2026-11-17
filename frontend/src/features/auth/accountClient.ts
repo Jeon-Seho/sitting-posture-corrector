@@ -3,11 +3,13 @@ import { getServerAuth, setServerAuth } from '../platform/serverAuth'
 import { noteServerDay } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
 import type { ConsentType } from './consents'
+import { logDiscord } from './socialLogin'
 
 /**
  * Account server client (D-66, FE proposal F12, plan 0027 2절; BE ADR 0031 token login).
- * Sign-up, sign-in, sign-out, "who am I" and keeping the login (A2–A5, A8). Password change,
- * withdrawal and the optional-profile consent stay on later steps.
+ * Sign-up, sign-in, sign-out, "who am I" and keeping the login (A2–A5, A8), and Discord
+ * sign-in and linking (A11–A17). Password change and withdrawal (A6·A7) are called by the profile
+ * screens.
  *
  * - The access token (30 min) lives in memory only and goes out as `Authorization: Bearer`. The
  *   refresh token (14 days) is an HttpOnly cookie the app never reads; requests keep
@@ -80,6 +82,24 @@ export type SocialClient = {
   unlink: () => Promise<void>
 }
 
+/** Runs one Discord request and logs its start and result (status and code only, see `logDiscord`). */
+async function traced<T>(step: string, run: () => Promise<T>): Promise<T> {
+  logDiscord(step)
+  try {
+    const value = await run()
+    logDiscord(`${step} ok`)
+    return value
+  } catch (error) {
+    logDiscord(
+      `${step} failed`,
+      error instanceof AccountError
+        ? { status: error.status, code: error.code, message: error.message }
+        : { error: error instanceof Error ? error.name : String(error) },
+    )
+    throw error
+  }
+}
+
 /** Only a Discord consent page may be opened from the server's answer. */
 export function discordAuthorizeUrl(payload: unknown): string {
   const url = payload && typeof payload === 'object' ? (payload as { authorize_url?: unknown }).authorize_url : null
@@ -91,7 +111,10 @@ export function discordAuthorizeUrl(payload: unknown): string {
     console.error('[features/auth/accountClient.ts:discordAuthorizeUrl] Operation failed', caughtError)
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
-  if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') throw new AccountError('계정 응답 형식이 달라요.', null, null)
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') {
+    logDiscord('authorize url refused', { protocol: parsed.protocol, host: parsed.hostname })
+    throw new AccountError('계정 응답 형식이 달라요.', null, null)
+  }
   return parsed.toString()
 }
 
@@ -360,36 +383,46 @@ export function createAccountClient(
     userId: () => user,
     social: {
       async startLogin() {
-        return discordAuthorizeUrl(await send('/social/discord/login', 'POST'))
+        return traced('A11 login start', async () => discordAuthorizeUrl(await send('/social/discord/login', 'POST')))
       },
       async startLink() {
-        return discordAuthorizeUrl(await authed('/social/discord/link', 'POST'))
+        return traced('A12 link start', async () => discordAuthorizeUrl(await authed('/social/discord/link', 'POST')))
       },
       async signupDraft() {
         try {
-          const draft = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
-          if (!draft || typeof draft.email !== 'string' || typeof draft.suggested_name !== 'string')
-            throw new AccountError('계정 응답 형식이 달라요.', null, null)
+          const draft = await traced('A14 signup draft', async () => {
+            const value = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
+            if (!value || typeof value.email !== 'string' || typeof value.suggested_name !== 'string')
+              throw new AccountError('계정 응답 형식이 달라요.', null, null)
+            return value
+          })
+          logDiscord('A14 signup draft received', { provider: draft.provider })
           return draft
         } catch (error) {
           console.error('[features/auth/accountClient.ts:signupDraft] Operation failed', error)
+          // 410 = no sign-up waiting: the cookie did not arrive, 15 min passed, Discord is off, or io-api
+          // restarted (it keeps the sign-up in memory). 404 only if the route itself is missing.
           if (error instanceof AccountError && (error.status === 410 || error.status === 404)) return null
           throw error
         }
       },
       async signup(input) {
-        return signedIn(
-          await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
+        return traced('A15 signup', async () =>
+          signedIn(
+            await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
+          ),
         )
       },
       async status() {
-        const value = (await authed('/social', 'GET')) as SocialStatus | null
-        if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
-          throw new AccountError('계정 응답 형식이 달라요.', null, null)
-        return value
+        return traced('A16 status', async () => {
+          const value = (await authed('/social', 'GET')) as SocialStatus | null
+          if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
+            throw new AccountError('계정 응답 형식이 달라요.', null, null)
+          return value
+        })
       },
       async unlink() {
-        await authed('/social/discord', 'DELETE')
+        await traced('A17 unlink', () => authed('/social/discord', 'DELETE'))
       },
     },
     async refreshServerTime() {

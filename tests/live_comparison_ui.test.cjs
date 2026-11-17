@@ -5,7 +5,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 
-function setup({ pendingCamera = false, notification, cameraPoints = syntheticPose(.5) } = {}) {
+function setup({ pendingCamera = false, notification, cameraPoints = syntheticPose(.5), inputMode = 'window', thresholdStatus = 'exploratory', visibilityMinimum = .65 } = {}) {
   const elements = new Map()
   const callbacks = new Map()
   let now = 0, animation, watchdog, resolveCamera, stopped = false
@@ -58,7 +58,7 @@ function setup({ pendingCamera = false, notification, cameraPoints = syntheticPo
         if (failSave) return { ok: false, status: 500 }
         return response({ records: body.records.length, directory: '/synthetic/scenarios', filename: 'scenario-test.json' })
       }
-      return response(url === '/api/session' ? { session: 'synthetic', threshold: .65 }
+      return response(url === '/api/session' ? { session: 'synthetic', threshold: .65, input_mode: inputMode, threshold_status: thresholdStatus, visibility_minimum: visibilityMinimum }
         : url === '/api/frame' ? frameResult : {})
     },
     requestAnimationFrame: (callback) => { animation = callback; return 1 }, cancelAnimationFrame() {},
@@ -88,6 +88,39 @@ test('a pending camera request can be cancelled and a late stream is stopped', a
   ui.resolveCamera()
   await tick()
   assert.equal(ui.stopped(), true)
+})
+
+test('4:3 camera sizes are accepted and frame input is clearly labelled', async () => {
+  const ui = setup({ inputMode: 'frame' })
+  ui.elements.get('video').videoWidth = 1280
+  ui.elements.get('video').videoHeight = 960
+  ui.callbacks.get('start:click')()
+  await tick()
+  assert.equal(ui.elements.get('camera-status').textContent, '카메라 연결됨')
+  ui.callbacks.get('register:click')()
+  await tick()
+  assert.equal(ui.elements.get('observation-scope').textContent, '현재 프레임')
+  assert.match(ui.elements.get('pose-description').textContent, /현재 프레임/)
+})
+
+test('a non-4:3 camera is rejected', async () => {
+  const ui = setup()
+  ui.elements.get('video').videoWidth = 1280
+  ui.elements.get('video').videoHeight = 720
+  ui.callbacks.get('start:click')()
+  await tick()
+  assert.match(ui.elements.get('guidance').textContent, /4:3/)
+  assert.equal(ui.stopped(), true)
+})
+
+test('an unselected threshold is labelled as an unvalidated placeholder', async () => {
+  const ui = setup({ inputMode: 'frame', thresholdStatus: 'display_only_not_selected_or_validated' })
+  ui.callbacks.get('start:click')()
+  await tick()
+  ui.callbacks.get('register:click')()
+  await tick()
+  assert.match(ui.elements.get('model-threshold').textContent, /임시 비교 기준.*검증 전/)
+  assert.match(ui.elements.get('model-threshold-mini').textContent, /임시 기준/)
 })
 
 test('stale observations clear both model and rule scores', async () => {
@@ -358,6 +391,18 @@ async function startScenarioSession(ui) {
   ui.callbacks.get('register:click')()
   await tick()
 }
+
+test('landmark colors use the loaded visibility policy and frame precision', async () => {
+  const pose = syntheticPose(.4), ui = setup({ inputMode: 'frame', visibilityMinimum: .8 })
+  await startScenarioSession(ui)
+  pose[0].visibility = .794
+  ui.display(explainedResult(), 100, pose)
+  ui.draw(pose)
+  assert.equal(ui.canvasFills.get('overlay')[0], '#b7c1ba')
+  pose[0].visibility = .799
+  ui.draw(pose)
+  assert.equal(ui.canvasFills.get('overlay')[0], '#ff7178')
+})
 
 function measuredForScenario(rule = .8, model = .2) {
   const result = measuredScores(rule, model)

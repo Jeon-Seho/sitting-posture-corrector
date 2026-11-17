@@ -22,7 +22,7 @@
 | 비밀번호 변경 (그 사용자의 refresh 토큰 모두 철회, 실시간 연결 닫기. access 토큰은 만료까지 남음) | DB/BE | 구현됨 | `AuthController.java` `PUT /v2/auth/password`, `AccountRepository.removeLogins` |
 | 비밀번호 재설정(일회용 메일 링크 30분, 해시만 저장, 완료 시 모든 로그인 철회. 비밀번호를 메일로 보내지 않음) | DB/BE | BE 구현됨·**기본 꺼짐** — DB 표 `password_reset_token`(V2.7, migration 017 작성 — DB 적용 전)·SMTP 설정 전. 단위 시험만, MySQL·실제 메일 미확인 | `account/PasswordResetService.java`, `PasswordResetServiceTest`, [인계](design/social-login-password-reset-handoff.md) |
 | Discord 로그인·가입·계정 연결(OAuth 코드 + PKCE, 같은 이메일 자동 연결 안 함, 비밀번호 없는 계정) | DB/BE | BE 구현됨·**기본 꺼짐** — DB 표 `social_identity`(V2.7, migration 017 작성 — DB 적용 전)·Discord 앱 설정 전. 단위 시험만, MySQL·실제 Discord 미확인. 데스크톱 앱은 후속 | `account/SocialLoginService.java`, `SocialController.java`, `SocialLoginServiceTest`, [인계](design/social-login-password-reset-handoff.md) |
-| 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`) | DB/BE | 구현됨 | `AuthController.java` `DELETE /v2/auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록 |
+| 탈퇴 접수 (철회 없음, CLOSED 로그인은 `403 ACCOUNT_CLOSED`). 2026-11-17부터 비밀번호 확인 없음(BE-25, 옛 앱의 `{password}` 본문은 무시) | DB/BE | 구현됨. 비밀번호 빼기는 브랜치 `fix/backend-withdrawal-no-password`(develop 반영 전) — 서버 먼저, 앱(`fix/fe-withdrawal-no-password`)은 그 뒤 배포 | `AuthController.java` `DELETE /v2/auth/account`, [계획 0026](plans/active/0026-backend-v2-rebuild.md) 10/15 기록, `MySqlIntegrationTest.withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody` |
 | 가입 동의 저장 (필수 5종 + 선택) | DB/BE | 구현됨 | `account/ConsentRepository.java`, [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 3절(좌표 전송 동의 필수), [DB 안내](../database/README.md)(`user_consent`) |
 | 선택 정보 동의 철회 C1 `PUT /v2/consents/optional-profile` | DB/BE | 삭제함 (2026-11-12, 앱이 부르지 않음). 선택 정보 동의는 가입 때만 받는다 | [계획 0062](plans/active/0062-remove-unused-apis.md) 2단계 |
 | 매시간 탈퇴 삭제 스케줄러 제거 | DB/BE | 구현됨 | 계획 0026 10/15 기록 (`purgeWithdrawn` 삭제) |
@@ -37,7 +37,7 @@
 | 알림 설정 `alerts_on` → `sound_alert_enabled` → 세션 `alert_enabled`. 새 계정 기본값 켜짐(DB V2.6, 2026-10-27 — 미결이던 DB false / FE 켜짐을 켜짐으로 정함) | DB/BE | 구현됨 (develop PR #70) | [ADR 0021](decisions/0021-app-sends-information-server-judges.md) 1절 5번, [DB 안내](../database/README.md) 세션 줄, `backend/README.md`, migration 016 |
 | 일별 통계 조회 T1 `GET /v2/stats/daily`, 기록 하나 조회 R1b `GET /v2/records/{id}` | DB/BE | 구현 전 — T1 형식은 확정(2026-10-26: 어제까지로 자름, 빈 날은 0으로 채움, `{today, from, to, days}` 객체, 필드는 `daily_stat` 컬럼 이름 그대로). `daily_stat`은 Spark J2(매일 00:10, 2026-11-01 서버 cron 등록, PR #93)가 채운다. 11/08부터 어제~7일 전을 매일 다시 계산해 바뀐 날만 쓴다(D-81, PR #100) — 최근 7일 값과 `computed_at`은 바뀔 수 있다. R1b는 형식 미정 | FE 요청 BE-2·BE-5 ③ ([FE 제안서](design/fe/fe-server-proposal.md) 1장, V3 브랜치), [API 명세 T1](design/api-spec.md#t1) |
 
-표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
+표시 정책(2026-10-22 확정): 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과로 집계한다([FE 연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)). 서버 통계(T1)는 어제까지 제공·표시한다 — T1이 `to`를 어제로 자른다.
 
 기록 재계산의 한계(2026-11-10 확인, `workspace/ClosedSessions.java` — 11/11 `RecordHistory`에서 옮겨 S4도 같이 씀):
 
@@ -100,6 +100,7 @@
 | `backend/gradlew -p backend :api:test` (단위) | 93개 중 81 통과, 실패 0, 건너뜀 12 (`MySqlIntegrationTest`) | 2026-11-11 | `feature/backend-session-view-from-db`(develop `faff869` + S4 DB 조회) 기준, `python tools/dev.py check-backend`(Checkstyle·빌드 포함). 바꾼 파일에 Checkstyle 경고 없음. 11/12 develop `505242c`를 합친 뒤는 아래 줄 |
 | `backend/gradlew -p backend :api:build :processing:build -Pmysql-integration` | api 117개 모두 통과(`MySqlIntegrationTest` 12개 포함), processing 62개 통과, 실패 0, 건너뜀 0 | 2026-11-12 | `feature/backend-session-view-from-db`에 develop `505242c`(V2.7 스키마·Discord 로그인 포함)를 합친 기준. 11/11 S4 브랜치만으로는 api 93개 통과. 로컬 MySQL80(Windows) 일회용 DB. `measurementWritesTheV2TablesAndRecordsAreRebuilt`에 「메모리에서 뺀 끝난 세션 → S4 200, R1 `server.view`와 같음」 추가 |
 | `backend/gradlew -p backend :api:test -Pmysql-integration --tests MySqlIntegrationTest` | `MySqlIntegrationTest` 13개 모두 통과, 실패 0, 건너뜀 0 | 2026-11-12 | `2c4c2cb` 기준(kafka 모드 재현 `sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged` 추가). 같은 날 `python tools/dev.py check-backend`(Checkstyle·빌드 포함) 단위 118개 중 105 통과·실패 0·건너뜀 13(MySQL 통합). 로컬 MySQL80(Windows) 일회용 DB |
+| `backend/gradlew -p backend :api:test -Pmysql-integration --rerun-tasks` | api 119개 모두 통과(`MySqlIntegrationTest` 14개 포함), 실패 0, 건너뜀 0 | 2026-11-17 | `fix/backend-withdrawal-no-password`(develop `db4c1f7` + A7 비밀번호 빼기, BE-25). 탈퇴 시험은 본문 없이 204, 새 시험 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody`(옛 앱의 틀린 `password` 본문도 204, 비밀번호 없는 계정 `!no-password`도 204·CLOSED·삭제 요청 1행). 같은 날 `python tools/dev.py check-backend` 성공, 바꾼 줄 Checkstyle 경고 없음. 로컬 MySQL80(Windows) 일회용 DB |
 | `tests/test_realtime_ws_v2.py`, `tests/test_realtime_contracts.py` | 11개·8개 통과 | 2026-11-04 | develop `fe5058b`(observation 4.0·`recovery_ms`) 기준. 저장소 `.venv`에서 `python -m unittest` |
 | `python tools/check_repository.py` | 통과 | 2026-10-26 | 구조·Markdown 링크 |
 | `python tools/dev.py check-backend` (단위 + `-Pmysql-integration` + `service_smoke.py`) | 통과 — 시험 147개, 실패 0, 건너뜀 0(`MySqlIntegrationTest` 11개 포함), smoke 6단계 PASS | 2026-10-29 | 계획 0062(REST 4개 삭제) 커밋 `1b58f80` 기준. 로컬 MySQL80(Windows)에 일회용 DB |
@@ -174,6 +175,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-11 | BE-11 중 S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과로 답함(kafka 모드에서 S4가 빈 결과를 주던 문제 대비, 계획 0031 11번). 기록 목록의 DB 읽기를 `ClosedSessions`로 옮겨 R1·S4가 같이 씀. 단위 시험 2개·MySQL 통합 확인 추가(MySQL 통합 포함 93개 통과, 2.7) | 이 커밋 |
 | 2026-11-12 | DevOps(D-57 ⑧)와 S4 합칠 순서 합의를 BE-11 줄·`api-spec.md` S4·계획 0031에 기록. kafka 모드 재현 MySQL 통합 시험(`sessionViewAnswersFromTheDatabaseWhenMemoryNeverJudged`) 추가. S4 단위 시험이 S3 대신 실시간 종료(`finish`)를 쓰게 바꿈(S3 삭제 예정) | 이 커밋 |
 | 2026-11-12 | 앱이 부르지 않는 REST 3개 삭제: S3 세션 종료·R3 기록 삭제·C1 선택 정보 동의·철회(계획 0062 2단계). 2.1·2.2·세션 줄, 4장 「WS가 열리지 않은 세션」·「적재된 세션의 기록 삭제」 갱신 | `refactor/backend-remove-unused-s3-r3-c1` |
+| 2026-11-17 | A7 탈퇴에서 비밀번호 확인 빼기(BE-25, FE 제안서 요구 1): 본문을 읽지 않음(옛 앱 `{password}` 무시), Discord 가입 계정도 탈퇴 가능. 2.1·2.7, `api-spec.md` A7·변경 이력, 계약 `accounts.v2.md` | `fix/backend-withdrawal-no-password` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

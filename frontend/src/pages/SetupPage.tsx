@@ -29,6 +29,7 @@ export function SetupPage({
   onBack,
   onOpenSession,
   startLabel = '측정 시작',
+  startWhenReady = false,
 }: {
   camera: CameraController
   onStart: () => void
@@ -40,6 +41,11 @@ export function SetupPage({
   onOpenSession?: () => void
   /** Text of the start buttons; sign-up step 3 says 「앱 시작」. */
   startLabel?: string
+  /**
+   * Came from the result's 「다시 측정」: turn the camera on and start as soon as it is ready,
+   * without a second 「측정 시작」 (11/17 test).
+   */
+  startWhenReady?: boolean
 }) {
   const on = camera.state === 'on'
   const registered = !!camera.baseline
@@ -66,6 +72,22 @@ export function SetupPage({
   useEffect(() => {
     if (flow.phase === 'done' && !measuring && !registerAgain) latest.current.onStart()
   }, [flow.phase, measuring, registerAgain])
+  // 「다시 측정」: the camera once, then the measurement once it is ready (a missing posture
+  // registers first and starts by itself above).
+  const again = useRef({ connected: false, started: false })
+  useEffect(() => {
+    if (!startWhenReady || measuring || registerAgain) return
+    if (camera.state === 'off' && !again.current.connected) {
+      again.current.connected = true
+      void camera.connect()
+      return
+    }
+    if (ready && !again.current.started) {
+      again.current.started = true
+      latest.current.onStart()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startWhenReady, measuring, registerAgain, camera.state, ready])
   const finished = registerAgain && flow.phase === 'done'
   // With a registered posture, 「카메라 켜기」 starts measuring once the person stays in view.
   const auto = useAutoStart({

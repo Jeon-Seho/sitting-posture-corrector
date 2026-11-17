@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CameraController, CameraRuntimeOptions } from '../../hooks/useCamera'
 import { readTrackingDiagnostics, resetTrackingDiagnostics } from '../mediapipe/trackingDiagnostics'
 import { readPipelinePerformance, resetPipelinePerformance } from './pipelinePerformance'
@@ -41,23 +41,25 @@ export default function DeveloperPerformance({ camera, active, options, onOption
   const latest = useRef({ camera, active, onBusyChange })
   latest.current = { camera, active, onBusyChange }
 
-  const snapshotProfile = (completed: boolean) => {
+  const snapshotProfile = useCallback((completed: boolean) => {
     const start = profileStart.current
     if (!start) return
     setProfile({ kind: 'live-pipeline-profile-v1', startedAt: start.date,
       elapsedMs: performance.now() - start.now, completed, options: start.options,
       tracker: latest.current.camera.trackerDiagnostics,
       tracking: readTrackingDiagnostics(), pipeline: readPipelinePerformance() })
-  }
-  const stopProfile = (completed: boolean) => {
+  }, [])
+  const stopProfile = useCallback((completed: boolean) => {
     if (!profileRunning.current) return
     profileRunning.current = false
     snapshotProfile(completed)
     setProfiling(false)
-  }
+  }, [snapshotProfile])
   useEffect(() => {
+    // Keep the ref itself: cleanup must invalidate whichever benchmark is latest.
+    const benchmarkToken = token
     mounted.current = true
-    return () => { mounted.current = false; profileRunning.current = false; token.current++; latest.current.onBusyChange?.(false) }
+    return () => { mounted.current = false; profileRunning.current = false; benchmarkToken.current++; latest.current.onBusyChange?.(false) }
   }, [])
   useEffect(() => {
     if (!profiling) return
@@ -87,7 +89,7 @@ export default function DeveloperPerformance({ camera, active, options, onOption
       clearInterval(interval)
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibilityChanged)
     }
-  }, [profiling])
+  }, [profiling, stopProfile, snapshotProfile])
   useEffect(() => {
     if (active && benchmarking) { token.current++; setStatus('현재 비교를 정리하고 있습니다.') }
   }, [active, benchmarking])

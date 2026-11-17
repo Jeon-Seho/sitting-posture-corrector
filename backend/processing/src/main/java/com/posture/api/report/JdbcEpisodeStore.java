@@ -204,7 +204,7 @@ public class JdbcEpisodeStore implements EpisodeStore {
 			"SELECT e.event_seq, " + String.format(off, "e.started_at") + " AS started_ms, "
 				+ String.format(off, "e.confirmed_at") + " AS confirmed_ms, "
 				+ String.format(off, "e.ended_at") + " AS ended_ms,"
-				// V2.3은 종료 사유 컬럼이 없어 시각으로 판정한다(schema_V2_3.sql collapse_event.ended_at 설명)
+				// V2.2부터 종료 사유 컬럼이 없어 시각으로 판정한다(schema_V2_7.sql collapse_event.ended_at 설명)
 				+ " CASE WHEN e.recovered_at IS NOT NULL THEN 'RECOVERED' WHEN e.ended_at IS NULL THEN NULL"
 				+ " WHEN e.ended_at = s.ended_at THEN 'SESSION_END' ELSE 'EXCLUDED' END AS end_kind, "
 				+ String.format(off, "e.recovered_at") + " AS recovered_ms"

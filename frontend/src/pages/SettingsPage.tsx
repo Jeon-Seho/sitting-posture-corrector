@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AppearanceSettings } from '../features/appearance/AppearanceSettings'
 import { Segmented } from '../components/Segmented'
 import { ArrowCounterClockwise, SignOut, UserCircle, Bell, Timer, VideoCamera, SlidersHorizontal, ClockCounterClockwise, Power } from '../components/icons'
@@ -97,6 +97,15 @@ function Slider({
   unit: string
   onChange: (v: number) => void
 }) {
+  // While dragging only the shown value moves; the rule is saved once when the drag ends (W2 per
+  // step sent many requests, 11/16 test). Keyboard arrows save on key release.
+  const [draft, setDraft] = useState<number | null>(null)
+  const shown = draft ?? value
+  const commit = () => {
+    if (draft === null) return
+    setDraft(null)
+    if (draft !== value) onChange(draft)
+  }
   return (
     <div className="setting-row">
       <div>
@@ -109,12 +118,15 @@ function Slider({
           min={min}
           max={max}
           step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          value={shown}
+          onChange={(e) => setDraft(Number(e.target.value))}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
           aria-label={name}
         />
         <span className="slider-value">
-          {value}
+          {shown}
           {unit}
         </span>
       </div>
@@ -265,7 +277,8 @@ export function SettingsPage({
                 options={HOLD}
                 value={rules.holdSeconds}
                 unit="초"
-                onChange={(v) => set({ holdSeconds: v })}
+                // The simple setting moves both waits; 세밀하게 조정 sets them apart (11/16 test).
+                onChange={(v) => set({ holdSeconds: v, recoverSeconds: v })}
               />
             </Row>
             <Row name="다시 알리는 간격" desc="">

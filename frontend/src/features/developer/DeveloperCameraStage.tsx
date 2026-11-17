@@ -173,6 +173,7 @@ export default function DeveloperCameraStage({ camera, session, compact = false,
   const guidance = session.guidance
   const videoOn = active && !synthetic && camera.state === 'on'
   const observed = active && session.reading?.state !== 'unmeasurable' ? guidance.live : null
+  const observedWidth = observed?.width, observedHeight = observed?.height
   const displayed = useGuideDisplay(observed)
   const frame = validSize(observed) ? observed : videoOn && validSize(videoSize) ? videoSize : validSize(guidance.reference) ? guidance.reference : FALLBACK_FRAME
   // A resized viewport is safe; a different camera aspect can mean a different crop.
@@ -219,8 +220,10 @@ export default function DeveloperCameraStage({ camera, session, compact = false,
   }, [videoOn, camera.streamRef])
 
   useEffect(() => {
-    if (videoOn && observed) setVideoSize({ width: observed.width, height: observed.height })
-  }, [videoOn, observed?.width, observed?.height])
+    if (videoOn && observedWidth !== undefined && observedHeight !== undefined) {
+      setVideoSize({ width: observedWidth, height: observedHeight })
+    }
+  }, [videoOn, observedWidth, observedHeight])
 
   return <section className="dev-camera-workspace" aria-label="카메라 측정 작업공간" data-tone={tone} data-phase={session.phase} data-compact={compact}>
     <div className="dc-viewport" ref={workspace}>

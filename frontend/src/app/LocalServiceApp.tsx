@@ -45,7 +45,7 @@ import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWo
 import { getServerAuth } from '../features/platform/serverAuth'
 import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { desktopBridge } from '../features/desktop/bridge'
-import { clearSocialRoute, discordLoginEnabled, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { clearSocialRoute, discordLoginEnabled, logDiscord, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
 import { SocialLoginButtons } from '../features/auth/SocialLoginButtons'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
@@ -120,22 +120,24 @@ export function LocalServiceApp({
   const workspace = useLocalWorkspace(measuring, setError, reloadProfileFields, !accounts && !developer)
   const { profile, canWrite } = workspace
   const collection = useCollection(camera)
+  const { active: collectionActive, count: collectionCount, downloaded: collectionDownloaded, clear: clearCollection } = collection
+  const { stop: stopCamera } = camera
   useEffect(() => {
     const navigate = () => {
-      if (collection.active || (collection.count > 0 && !collection.downloaded)) {
+      if (collectionActive || (collectionCount > 0 && !collectionDownloaded)) {
         if (collectionEntry) window.history?.replaceState(null, '', '#collection')
         return
       }
       const next = window.location?.hash === '#collection'
       if (collectionEntry && !next) {
-        camera.stop()
-        collection.clear()
+        stopCamera()
+        clearCollection()
       }
       setCollectionEntry(next)
     }
     window.addEventListener('hashchange', navigate)
     return () => window.removeEventListener('hashchange', navigate)
-  }, [collection.active, collection.count, collection.downloaded, collectionEntry, collection.clear, camera.stop])
+  }, [collectionActive, collectionCount, collectionDownloaded, collectionEntry, clearCollection, stopCamera])
   const persistence = useSessionPersistence({
     session,
     setSession,
@@ -144,6 +146,7 @@ export function LocalServiceApp({
     camera,
     go,
     setError,
+    loadRules: accounts && !developer ? loadServerRules : undefined,
   })
   const form = useProfileForm({
     workspace,
@@ -188,6 +191,11 @@ export function LocalServiceApp({
     if (!socialLanding) return
     clearSocialRoute()
     const social = accounts?.social
+    logDiscord('back from Discord', {
+      route: socialLanding.kind,
+      status: socialLanding.kind === 'result' ? socialLanding.status : undefined,
+      accountClient: !!social,
+    })
     if (socialLanding.kind !== 'signup' || !social) return
     let cancelled = false
     social
@@ -195,9 +203,11 @@ export function LocalServiceApp({
       .then((draft) => {
         if (cancelled) return
         if (!draft) {
+          logDiscord('signup draft missing (410: cookie not sent, expired, Discord off, or io-api restarted)')
           setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
           return
         }
+        logDiscord('signup continues at consent')
         setSocialSignup(draft)
         setEmail(draft.email)
         form.resetFields({ name: draft.suggested_name })
@@ -285,8 +295,9 @@ export function LocalServiceApp({
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     // 기록·달력 show 「오늘」: ask the server's day first (e.g. the app left open past midnight).
     if (next === 'dashboard' || next === 'calendar') refreshToday()
-    // Another device may have changed the rules: S1 must send the account's (409 otherwise).
-    if ((next === 'setup' || next === 'settings') && !measuring) void loadServerRules()
+    // Another device may have changed the rules. 측정하기 reads them when 「측정 시작」 is pressed
+    // (useSessionPersistence `loadRules`), not on every visit; the settings page shows them.
+    if (next === 'settings' && !measuring) void loadServerRules()
     setPage(next)
   }
 
@@ -421,7 +432,10 @@ export function LocalServiceApp({
 
   /** Discord sign-up: the e-mail is the one Discord confirmed; the account has no password yet. */
   async function registerSocialWithServer(client: AccountClient, next: Profile) {
-    if (busy || !client.social || !socialSignup) return
+    if (busy || !client.social || !socialSignup) {
+      logDiscord('signup not sent', { busy, accountClient: !!client.social, draft: !!socialSignup })
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -477,7 +491,7 @@ export function LocalServiceApp({
     if (accountMutation.current) { setError('계정 변경을 확인한 뒤 로그아웃해 주세요.'); return }
     if (measuring) {
       go('session')
-      setError('측정을 종료하고 결과 저장을 확인한 뒤 로그아웃해 주세요.')
+      setError('측정을 끝낸 뒤 로그아웃해 주세요.')
       return
     }
     // (D-66) End the server login too. A failure (server down, another tab switched accounts)
@@ -521,17 +535,20 @@ export function LocalServiceApp({
    * The newest request wins, so a slider drag that sends several saves ends on its last value.
    */
   const rulesRequest = useRef(0)
-  async function loadServerRules() {
-    if (!accounts || !getServerAuth()) return
+  /** Reads the account's rules (W1); also what 「측정 시작」 measures with. Null when not read. */
+  async function loadServerRules(): Promise<Rules | null> {
+    if (!accounts || !getServerAuth()) return null
     const ticket = ++rulesRequest.current
     try {
       const saved = await fetchWorkspace()
       if (ticket === rulesRequest.current) { workspace.setRules(saved.rules); clearPageError('rules') }
+      return saved.rules
     } catch (caughtError) {
       console.error('[app/LocalServiceApp.tsx:loadServerRules] Operation failed', caughtError)
-      if (ticket !== rulesRequest.current) return
-      setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+      if (ticket !== rulesRequest.current) return null
+      setError('서버 설정을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.')
       reportPageError('rules', caughtError, () => void loadServerRules())
+      return null
     }
   }
 
@@ -624,14 +641,7 @@ export function LocalServiceApp({
 
   if (!authed && authView === 'posture') {
     return (
-      <SignupPostureStep
-        camera={camera}
-        onBack={() => {
-          camera.stop()
-          openAuth('account')
-        }}
-        onFinish={finishSignup}
-      />
+      <SignupPostureStep camera={camera} onFinish={finishSignup} />
     )
   }
 
@@ -708,6 +718,7 @@ export function LocalServiceApp({
             {accounts?.social && (
               // Every planned provider is shown; only Discord works for now. Others say they are coming.
               <SocialLoginButtons disabled={busy} ready={id => id === 'discord'} onPick={(id, name) => {
+                if (id === 'discord') logDiscord('button', { enabled: discordLoginEnabled(), desktop: !!desktopBridge() })
                 if (id === 'discord' && discordLoginEnabled()) void startDiscord()
                 else if (id === 'discord') setError(desktopBridge()
                   ? 'Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.'

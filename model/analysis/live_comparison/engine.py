@@ -5,6 +5,8 @@ import math
 import statistics
 
 from model.analysis.replay_pilot.replay import baseline, feature_deltas, finite, geometry, image_points
+from model.analysis.frame_pilot.frames import Reference, frame_features, model_points_usable, service_precision
+from model.analysis.frame_pilot.replay import four_by_three
 from model.inference.schemas import FeatureDeltas
 from model.inference.service import (
     HEAD_GAP_SCALE, LATERAL_OFFSET_SCALE, MINIMUM_FEATURE_QUALITY,
@@ -75,13 +77,19 @@ def model_explanation(values, span, score, corrector, corrected, visible):
 class LiveComparison:
     """One volatile camera session; no video or landmarks are persisted."""
 
-    def __init__(self, uncorrected, corrector, corrected, threshold):
+    def __init__(self, uncorrected, corrector, corrected, threshold, *, input_mode="window",
+                 min_visibility=MINIMUM_FEATURE_QUALITY):
         if not finite(threshold) or not 0 <= threshold <= 1:
             raise ValueError("invalid model threshold")
         if list(uncorrected.classes_) != [0, 1] or list(corrected.classes_) != [0, 1]:
             raise ValueError("classifiers must use reference and deviation classes")
+        if input_mode not in ("window", "frame"):
+            raise ValueError("invalid input mode")
+        if not finite(min_visibility) or not 0 <= min_visibility <= 1:
+            raise ValueError("invalid visibility cutoff")
         self.uncorrected, self.corrector, self.corrected = uncorrected, corrector, corrected
         self.threshold = float(threshold)
+        self.input_mode, self.min_visibility = input_mode, float(min_visibility)
         self.reset()
 
     def reset(self):
@@ -92,18 +100,26 @@ class LiveComparison:
         self.last_time = None
         self.last_emit = None
         self.last_result = None
+        self.frame_size = None
 
     def observe(self, time_ms, landmarks, width, height):
         if not finite(time_ms) or time_ms < 0 or (self.last_time is not None and time_ms <= self.last_time):
             raise ValueError("timestamps must be strictly increasing")
         gap = None if self.last_time is None else time_ms - self.last_time
         self.last_time = time_ms
-        valid_image = isinstance(landmarks, list) and len(landmarks) == 33 and width == 640 and height == 480
+        valid_image = isinstance(landmarks, list) and len(landmarks) == 33 and four_by_three(width, height)
+        if valid_image:
+            if self.frame_size is None:
+                self.frame_size = (width, height)
+            elif self.frame_size != (width, height):
+                valid_image = False
         frame = {"image": landmarks if valid_image else [], "measurable": valid_image,
                  "observationTimeMs": time_ms, "elapsedMs": time_ms, "phase": "registering"}
         pts = image_points(frame)
+        if self.input_mode == "frame" and self.reference is not None and model_points_usable(pts, 0):
+            pts = service_precision(pts)
         current = geometry(pts) if pts is not None else None
-        if current is None or current[5] is None:
+        if current is None or current[5] is None or not model_points_usable(pts, self.min_visibility):
             self.history.clear()
             self.last_emit = self.last_result = None
             if self.reference is None:
@@ -126,7 +142,7 @@ class LiveComparison:
                     sample_points = image_points(sample)
                     deltas = feature_deltas(sample_points, self.reference)
                     if deltas is not None:
-                        quality = [all(finite(sample_points[j][2]) and MINIMUM_FEATURE_QUALITY <= sample_points[j][2] <= 1
+                        quality = [all(finite(sample_points[j][2]) and self.min_visibility <= sample_points[j][2] <= 1
                                        for j in group) for group in FEATURE_POINTS[:3]]
                         registration_values.append((deltas, quality))
                 self.reference_ranges = []
@@ -137,7 +153,8 @@ class LiveComparison:
                 return {"status": "ready"}
             return {"status": "registering", "progress": min(1., elapsed / 3000)}
 
-        values = feature_deltas(pts, self.reference)
+        values = (frame_features(pts, Reference(self.reference), min_visibility=self.min_visibility)[0]
+                  if self.input_mode == "frame" else feature_deltas(pts, self.reference))
         if values is None:
             self.history.clear()
             self.last_emit = self.last_result = None
@@ -145,25 +162,26 @@ class LiveComparison:
         if gap is not None and gap > 500:
             self.history.clear()
             self.last_emit = self.last_result = None
-        visible = [all(finite(pts[j][2]) and MINIMUM_FEATURE_QUALITY <= pts[j][2] <= 1
+        visible = [all(finite(pts[j][2]) and self.min_visibility <= pts[j][2] <= 1
                        for j in group) for group in FEATURE_POINTS]
-        self.history.append((time_ms, values, visible))
-        while self.history and time_ms - self.history[0][0] > 1000:
-            self.history.popleft()
-        if len(self.history) < 5 or time_ms - self.history[0][0] < 800:
-            return {"status": "warming"}
-        if self.last_emit is not None and time_ms - self.last_emit < 500:
+        if self.input_mode == "window":
+            self.history.append((time_ms, values, visible))
+            while self.history and time_ms - self.history[0][0] > 1000:
+                self.history.popleft()
+            if len(self.history) < 5 or time_ms - self.history[0][0] < 800:
+                return {"status": "warming"}
+            if self.last_emit is not None and time_ms - self.last_emit < 500:
+                visible = [all(row[2][i] for row in self.history) for i in range(6)]
+                explanation = self.last_result["explanation"]
+                filtered = {"schema_version": explanation["schema_version"]}
+                for name in ("rule", "model"):
+                    rows = explanation[name]
+                    filtered[name] = ([{**row, "level": row["level"] if visible[i] else "unknown"}
+                                       for i, row in enumerate(rows)] if rows is not None else None)
+                return {**self.last_result, "explanation": filtered}
+            values = [statistics.median(row[1][i] for row in self.history) for i in range(6)]
             visible = [all(row[2][i] for row in self.history) for i in range(6)]
-            # A cached score must not leave a newly occluded feature colored.
-            explanation = self.last_result["explanation"]
-            filtered = {"schema_version": explanation["schema_version"]}
-            for name in ("rule", "model"):
-                rows = explanation[name]
-                filtered[name] = ([{**row, "level": row["level"] if visible[i] else "unknown"}
-                                   for i, row in enumerate(rows)] if rows is not None else None)
-            return {**self.last_result, "explanation": filtered}
-
-        values = [statistics.median(row[1][i] for row in self.history) for i in range(6)]
+        values = list(values)
         span = self.reference[7]
         raw = float(self.uncorrected.predict_proba([values])[0][1])
         shift = float(self.corrector.predict([values + [span]])[0])
@@ -174,7 +192,6 @@ class LiveComparison:
             raise ValueError("model returned invalid scores")
         rule, _ = score_feature_deltas(FeatureDeltas(head_gap_delta=values[0], lateral_offset_delta=values[1],
                                                     shoulder_tilt_delta=values[2], current_quality=1., baseline_quality=1.))
-        visible = [all(row[2][i] for row in self.history) for i in range(6)]
         explanation = {"schema_version": "1.0",
                        "rule": rule_explanation(values, self.reference_ranges, visible),
                        "model": model_explanation(values, span, learned, self.corrector, self.corrected, visible)}

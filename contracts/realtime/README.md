@@ -68,8 +68,8 @@
 
 ## 통로 나누기
 
-- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 DB V2.0에 저장하고
-  `posture.features.v1`에 `session_started`·`session_ended`를 넣는다.
+- **세션 시작은 HTTP**(S1 세션 생성 `PUT /sessions/{id}`, 경로 앞부분은 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 1장)로 하고, **끝은 WebSocket `end`나 연결 끊김**이다(REST 종료 S3는 2026-11-12 지움). 입구 API가 서비스 DB에 저장하고,
+  kafka 모드(D-57 브랜치 `KafkaPipeline`)에서는 `posture.features.v1`에 `session_started`·`session_ended`를 넣는다. (처음 결정 10/06에는 시작·종료 모두 v1 HTTP였다.)
 - **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
 - 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.

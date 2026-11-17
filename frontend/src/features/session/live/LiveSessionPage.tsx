@@ -36,6 +36,8 @@ export type LiveSessionPageProps = {
   onPrepare: () => void
   /** 「지금은 측정을 시작할 수 없어요」 → 「다시 시도」: start a new measurement right away. */
   onRetry?: () => void
+  /** The result's 「다시 측정」: 측정하기 that starts by itself once the camera is ready (11/17). */
+  onMeasureAgain?: () => void
   openSocket?: (url: string) => SocketLike
 }
 
@@ -157,7 +159,7 @@ export function statusTone(measured: LiveState | null) {
  * confirmed collapse, the statistics are its summary.
  */
 export function LiveSessionPage(props: LiveSessionPageProps) {
-  const { camera, service, session, onDashboard, onPrepare, onRetry = onPrepare, alertsOn = true } = props
+  const { camera, service, session, onDashboard, onPrepare, onRetry = onPrepare, onMeasureAgain = onPrepare, alertsOn = true } = props
   const screen = useLiveSession(props)
   const { state, phase } = screen
   const summary = state?.summary
@@ -288,7 +290,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
               <ChartBar size={18} weight="bold" className="icon" />
               오늘 기록 보기
             </button>
-            <button className="btn btn-primary" onClick={onPrepare}>
+            <button className="btn btn-primary" onClick={onMeasureAgain}>
               다시 측정
             </button>
           </div>

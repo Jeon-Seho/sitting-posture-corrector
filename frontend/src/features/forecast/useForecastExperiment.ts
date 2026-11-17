@@ -4,6 +4,7 @@ import { LiveForecastExperiment, liveForecastPoints, readForecastWeights,
 import type { CameraController } from '../../hooks/useCamera'
 
 export function useForecastExperiment(camera: CameraController) {
+  const { subscribe } = camera
   const [model, setModel] = useState<ForecastWeights | null>(null)
   const [error, setError] = useState('')
   const [predictor, setPredictor] = useState<'lstm' | 'hold_last' | 'constant_velocity'>('lstm')
@@ -30,7 +31,7 @@ export function useForecastExperiment(camera: CameraController) {
   useEffect(() => {
     if (camera.state !== 'on') return
     const publish = (r: ForecastReading) => { setReading(r); log.current.push(r); log.current = log.current.slice(-3000) }
-    const unsubscribe = camera.subscribe(frame => {
+    const unsubscribe = subscribe(frame => {
       const engine = core.current
       if (!engine) return
       latest.current = performance.now()
@@ -45,7 +46,7 @@ export function useForecastExperiment(camera: CameraController) {
       }
     }, 250)
     return () => { unsubscribe(); clearInterval(timer) }
-  }, [camera.state, camera.subscribe, predictor])
+  }, [camera.state, subscribe, predictor])
   const register = () => {
     core.current?.register(); log.current = []; setReading(null); setError('')
   }

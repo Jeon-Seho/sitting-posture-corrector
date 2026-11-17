@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { RecordItem } from '../../lib/serviceStore'
 import { activityLevel, addDays, dailyStats, sessionsOn } from './recordsSource'
 
-const at = (day: number, hour: number) => new Date(2026, 9, day, hour).toISOString()
+const at = (day: number, hour: number) => new Date(Date.UTC(2026, 9, day, hour - 9)).toISOString()
 const rec = (id: string, day: number, hour: number, valid: number, good: number, total = valid): RecordItem => ({
   id,
   startedAt: at(day, hour),
