@@ -25,7 +25,7 @@ HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/c
 | `GET /auth/me` | 사용자 |
 | `POST /auth/logout` | refresh 쿠키 철회·삭제 → 204. access 토큰은 만료까지 남음 |
 | `PUT /auth/password` | `{current_password,new_password}` → 204, 그 사용자의 refresh 토큰 모두 철회, 열린 실시간 연결 닫음 |
-| `DELETE /auth/account` | `{password}` → 204, 탈퇴 접수 |
+| `DELETE /auth/account` | 본문 없음 → 204, 탈퇴 접수. 비밀번호를 확인하지 않는다(2026-11-17, BE-25 — 로그인 상태만으로 받고 실수는 앱 확인 창이 막음). 옛 앱의 `{password}` 본문은 무시한다 |
 
 사용자 응답의 `today`는 서버 기준 오늘 날짜(KST `YYYY-MM-DD`)다(2026-10-27, BE-6).
 `profile`은 `{name,age,occupation}`. 이름 1..30자 필수, 나이 `null` 또는 정수 14..120,
