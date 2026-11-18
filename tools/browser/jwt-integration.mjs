@@ -49,7 +49,7 @@ try {
   fixture = email
   await fill('email', email); await fill('password', 'Synthetic-test-1234!'); await button('로그인')
   await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 찾기'), 'real JWT login')
-  await until(async () => browser.requests.some(r => /\/api\/v2\/records$/.test(r.url) && r.headers.Authorization?.startsWith('Bearer ')), 'authenticated records')
+  await until(async () => browser.requests.some(r => /\/api\/records$/.test(r.url) && r.headers.Authorization?.startsWith('Bearer ')), 'authenticated records')
   assert.equal((await body()).includes('개발자 계정 · 서버 연결 없음'), false)
   await cdp.call('Page.reload')
   await delay(700)
