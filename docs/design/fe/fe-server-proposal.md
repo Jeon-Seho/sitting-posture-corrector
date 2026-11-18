@@ -7,7 +7,7 @@
 
 ## 0. 남은 질문과 요청
 
-기준: develop `d9f9460`, `feat/ws-kafka-pipeline` `1067dab`, BE 브랜치 `refactor/repo-remove-api-version-paths` `ab1fc36`, 2026-11-16 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
+기준: develop `d9f9460`, `feat/ws-kafka-pipeline` `1067dab`, BE 브랜치 `refactor/repo-remove-api-version-paths` `ab1fc36`, 2026-11-16 코드로 확인(요구 3은 11/18 `eae3317`로 다시 확인). FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
 다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17).
 
@@ -15,7 +15,7 @@
 |---|---|---|---|---|
 | 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
 | 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
-| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치에 서버·앱 수정이 다 있다(develop 병합 공지됨). 운영 서버는 아직 `/v2`만 받는다 | #125 병합 뒤, 서버·웹 같은 날(FE 할 일 7) |
+| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | 서버·앱·계약·문서 수정 끝(BE 브랜치 `refactor/repo-remove-api-version-paths` `eae3317`, 11/18. #125는 닫고 브랜치로 진행). develop 병합·운영 배포 남음 | 브랜치 develop 병합 뒤, 서버·웹 같은 날(FE 할 일 7) |
 | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | D-57 병합 때 함께 |
 | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
 | 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | kafka 브랜치 코드는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
@@ -75,6 +75,7 @@
     4. DevOps: Discord Developer Portal의 Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(여러 개 가능, 옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 새 주소로 바꾼다. 확인 뒤 옛 Redirect를 지운다.
     5. **옛 데스크톱 설치판은 받아 주지 않기로 했다(11/16 BE 결정).** 배포 뒤 옛 판은 로그인·측정이 안 되므로, FE가 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(할 일 7).
   - **11/16 BE 공지 두 건:** 「develop 병합 안내」(브랜치를 develop에 합침. 합치기만 해서는 운영이 바뀌지 않는다)와 「배포 때 함께 바꿀 설정」(배포 전·때·뒤 할 일, 되돌리는 법). FE 몫은 할 일 7에 모았다.
+- **진행(11/18):** 경로 삭제는 해결됐다. PR #125는 병합 없이 닫혔고(11/17), 김유진이 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받고 마무리했다(`eae3317`). [ADR 0049](../../decisions/0049-no-version-in-names.md)(주소·메시지·계약 파일 이름에 버전을 붙이지 않음)와 [계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 범위를 넓혀 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)·`RealtimeHandler`의 버전도 뺐다. 메시지 안 `schema_version` 필드와 브라우저 저장 키(`posegood.v2.*`)는 남는다. **남은 것은 develop 병합과 운영 배포(할 일 7)뿐**이다.
 
 ### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
 
@@ -208,7 +209,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
-| 7 | API 주소 `/v2` 삭제 배포 대응 | #125 병합 뒤 |
+| 7 | API 주소 `/v2` 삭제 배포 대응 | BE 브랜치 develop 병합 뒤(배포 날) |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -230,7 +231,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **한줄요약:** 로그인·가입에만 요청 제한을 걸고, 평소 값과 시연 날 값을 정한다.
 - **발단:** DevOps 질문(9.6.3 Q3).
 - **원인:** `/api/v2/auth/*` 제한(같은 IP 10초 20번)에 로그인 유지(A8 refresh)도 걸린다. 학교 공인 IP 하나 뒤에서 여러 명이 쓰면 막힐 수 있다.
-- **요구사항/변경사항:** klaod-tech의 Cloudflare 규칙 `auth-rate-limit`만 바꾼다. ① 대상을 `/api/v2/auth/login`·`/api/v2/auth/register`로 좁힘 ② 평소 값을 넉넉하게 ③ 시연 날 값을 따로. 서버·gateway는 할 일 없음.
+- **요구사항/변경사항:** klaod-tech의 Cloudflare 규칙 `auth-rate-limit`만 바꾼다. ① 대상을 `/api/auth/login`·`/api/auth/register`로 좁힘(`/v2` 삭제 배포 전까지는 옛 `/api/v2/auth/…`도 함께, 할 일 7) ② 평소 값을 넉넉하게 ③ 시연 날 값을 따로. 서버·gateway는 할 일 없음.
 
 #### 할 일 5. 정식 공개 때 검색 노출 막기 지우기
 
@@ -245,7 +246,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **발단:** 11/16 BE 공지 두 건(develop 병합 안내, 배포 때 바꿀 설정). 서버는 옛 주소를 받지 않아 서버와 웹을 같은 때 배포해야 한다.
 - **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. BE 브랜치가 develop에 들어간 뒤 다른 일로 포크를 올리면, 서버가 바뀌기 전에 `/v2` 없는 앱이 나가 로그인부터 끊긴다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다.
 - **요구사항/변경사항:**
-  1. **D-57 통신 시험 직후:** FE 작업 브랜치(`docs/fe-docs-sync`, 문서 정리·가입 3단계 「이전」 삭제·Discord 로그·로그아웃 문구)를 **BE 브랜치보다 먼저** develop에 넣고 포크를 올려 배포·확인한다. BE 브랜치가 우리 수정을 받아 충돌(architecture·index 몇 줄)을 그쪽에서 정리한다.
+  1. ~~**D-57 통신 시험 직후:** FE 작업 브랜치(`docs/fe-docs-sync`)를 **BE 브랜치보다 먼저** develop에 넣고 포크를 올려 배포·확인한다.~~ **11/17 함**(#130). BE 브랜치가 11/18 develop `ed72615`을 받아 충돌을 정리했다.
   2. **BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 develop을 push하지 않는다.**
   3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다(옛 경로는 남김). 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개로 한 번에 끝난다.
   4. **배포 날:** DevOps가 서버(`.env` Discord Redirect, io-api·inference·gateway·web)를 올린 **바로 뒤** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인: 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한.
@@ -259,7 +260,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 요구 | FE가 할 일 | 언제 |
 |---|---|---|
 | 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
-| 3 `/v2` 빼기 | 할 일 7 | #125 병합 뒤 |
+| 3 `/v2` 빼기 | 할 일 7(앱 코드는 BE 브랜치에 이미 있음) | BE 브랜치 develop 병합 뒤(배포 날) |
 | 4 `ack` 빼기 | 계약 `realtime-ws.schema.json`의 `ack`·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
 | 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
@@ -295,17 +296,17 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 ## 2. 지금 구조
 
-기준: develop `d9f9460`(2026-11-16). kafka 경로는 `feat/ws-kafka-pipeline`에만 있고 운영은 local 경로다. 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
+기준: BE 브랜치 `refactor/repo-remove-api-version-paths` `eae3317`(develop `ed72615` + `/v2` 삭제, 2026-11-18). 주소는 `/v2`를 뺀 판으로 적는다 — **운영 서버는 배포 날(할 일 7)까지 옛 `/api/v2/…`다.** kafka 경로는 develop에 들어왔지만(#134) 운영은 local 경로다(`POSEGOOD_REALTIME_PIPELINE=local`). 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
 
 ```
 브라우저 / 데스크톱 앱(Electron, 웹 주소를 엶)
   ├─ https://app.posegood.site                 Vercel: 화면 파일만 (포크 develop)
-  └─ https://api.posegood.site/api/v2/…        Cloudflare 터널 → gateway(nginx) → io-api
-     wss://api.posegood.site/api/v2/realtime   같은 경로 (측정 WebSocket)
+  └─ https://api.posegood.site/api/…           Cloudflare 터널 → gateway(nginx) → io-api
+     wss://api.posegood.site/api/realtime      같은 경로 (측정 WebSocket)
 
 io-api(backend/api) ─ MySQL(계정·설정·기준 자세·세션·사건·기록)
-   │  local(운영): 좌표 → 특징 계산 → 추론(POST /v2/infer) → 판정 → MySQL → 앱
-   │  kafka(브랜치): 좌표 → 특징 → Kafka → 추론 → 판정·저장(처리 서비스) → Kafka → io-api → 앱
+   │  local(운영): 좌표 → 특징 계산 → 추론(POST /infer) → 판정 → MySQL → 앱
+   │  kafka(설정으로 켬): 좌표 → 특징 → Kafka → 추론 → 판정·저장(처리 서비스) → Kafka → io-api → 앱
 Spark J1·J2·J3(cron) ─ MySQL·HDFS
 ```
 
@@ -376,9 +377,9 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 서버 | 코드 | 하는 일 |
 |---|---|---|
 | **io-api** (입출구 서버) | `backend/api` | 로그인(JWT access 30분·refresh 14일, [ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)), REST(A·C·W·B·S·R), 측정 WebSocket `/realtime`. 앱이 통신하는 곳은 여기 하나다 |
-| 추론 | `backend/inference` | local: io-api가 `POST /v2/infer`로 부른다. kafka: `posture.features`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
+| 추론 | `backend/inference` | local: io-api가 `POST /infer`로 부른다. kafka: `posture.features`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
 | 처리 서비스 | `backend/processing` | kafka 경로에서 판정(`SessionJudge`)과 저장. local에는 쓰이지 않는다 |
-| gateway | `infra/nginx`, compose `gateway` | 터널로 들어온 요청 중 `/api/`·`/api/v2/realtime`·`/health`만 io-api로. `X-Forwarded-Proto https` 고정. 화면 파일은 내지 않는다 |
+| gateway | `infra/nginx`, compose `gateway` | 터널로 들어온 요청 중 `/api/`·`/api/realtime`·`/health`만 io-api로. `X-Forwarded-Proto https` 고정. 화면 파일은 내지 않는다 |
 | web(8088) | compose `web` | 서버 PC 안 시험용 화면+API(SSH 포워딩) |
 
 **측정 한 번 (local, 운영)**

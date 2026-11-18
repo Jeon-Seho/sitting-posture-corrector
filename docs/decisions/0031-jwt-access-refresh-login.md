@@ -16,7 +16,7 @@
 
 1. **access 토큰:** JWT(HS256), 수명 30분, `sub` = 사용자 ID. 가입·로그인·갱신 응답 본문으로 주고, 앱은 `Authorization: Bearer`로 보낸다. 서버에 저장하지 않는다.
 2. **refresh 토큰:** 무작위 32바이트, 수명 14일. HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`)로만 준다. DB `refresh_token`(V2.6, migration 016)에는 SHA-256만 둔다.
-3. **갱신:** `POST /v2/auth/refresh`. 쓸 때마다 새 refresh 토큰으로 바꾼다. 바꾼 뒤 30초 안의 재사용(여러 탭이 동시에 갱신)은 허용하고, 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다.
+3. **갱신:** `POST /auth/refresh`. 쓸 때마다 새 refresh 토큰으로 바꾼다. 바꾼 뒤 30초 안의 재사용(여러 탭이 동시에 갱신)은 허용하고, 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다.
 4. **철회:** 로그아웃은 그 기기의 refresh 토큰, 비밀번호 변경·탈퇴는 그 사용자의 refresh 토큰 전부. **access 토큰은 철회하지 않는다** — 남은 시간(최대 30분)은 통한다. 탈퇴한 계정은 요청마다 계정 상태를 확인하므로(`CurrentUser`) 바로 401이다.
 5. **실시간 연결:** `hello`의 `access_token`으로 연결 때 한 번만 확인한다. 측정 중에는 다시 확인하지 않는다. 비밀번호 변경·탈퇴 때는 지금처럼 그 사용자의 연결을 바로 닫는다.
 6. **정리:** 쿠키 세션·CSRF·`LoginLifetime`·`GET /v2/auth/csrf`를 없앤다(이행 기간 없음). `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES` 테이블은 쓰지 않지만 남긴다. `X-PoseGood-User-Id` 검사(다른 탭의 계정 바뀜)는 유지한다.
