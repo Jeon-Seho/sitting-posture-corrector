@@ -434,7 +434,7 @@
       }
     },
     "stalled": {
-      "description": "server -> app. No judgement progress for 5 s.",
+      "description": "server -> app. No judgement progress for 5 s while measuring; on the kafka pipeline also when the end (stored) has not arrived 3 s after end (storage delay).",
       "type": "object",
       "additionalProperties": false,
       "required": [

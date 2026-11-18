@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -110,6 +111,11 @@ class RealtimeHandlerV2Test {
 	}
 
 	private RealtimeHandlerV2 handler(Duration hello, boolean midnightRollover, Clock clock) {
+		return handler(hello, midnightRollover, clock, new LocalPipeline(sessions));
+	}
+
+	private RealtimeHandlerV2 handler(Duration hello, boolean midnightRollover, Clock clock,
+		MeasurementPipeline pipeline) {
 		var current = mock(CurrentUser.class);
 		when(current.id(any(Authentication.class))).thenReturn(OWNER);
 		// 예시 hello의 access_token만 유효하다(ADR 0031). 그 밖의 토큰은 401.
@@ -117,7 +123,7 @@ class RealtimeHandlerV2Test {
 		when(tokens.authenticate(any())).thenThrow(new ApiError(401, "UNAUTHENTICATED", "authentication required"));
 		doReturn(UsernamePasswordAuthenticationToken.authenticated("synthetic", null, java.util.List.of()))
 			.when(tokens).authenticate("synthetic-access-token");
-		return new RealtimeHandlerV2(sessions, current, tokens, new Json(MAPPER),
+		return new RealtimeHandlerV2(sessions, pipeline, current, tokens, new Json(MAPPER),
 			Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5),
 			midnightRollover, clock);
 	}
@@ -309,6 +315,13 @@ class RealtimeHandlerV2Test {
 		verify(sessions, never()).finish(anyLong(), any(), any());
 	}
 
+	/** (D-57 ⑧) kafka 경로의 stalled: 측정 중 결과 지연은 5초, end 뒤 저장 지연은 3초(FE 요청). */
+	@Test
+	void kafkaStallThresholdsAreFiveSecondsMeasuringAndThreeAfterEnd() {
+		assertEquals(5, Duration.ofNanos(RealtimeHandlerV2.STALL_NANOS).toSeconds());
+		assertEquals(3, Duration.ofNanos(RealtimeHandlerV2.END_STALL_NANOS).toSeconds());
+	}
+
 	@Test
 	void inferenceFailureSendsStalledAndKeepsTheConnection() throws Exception {
 		var fake = measuring();
@@ -470,6 +483,80 @@ class RealtimeHandlerV2Test {
 			? Double.compare(a.asDouble(), b.asDouble())
 			: a.equals(b) ? 0 : 1;
 		assertTrue(expected.equals(numbers, actual), "expected " + expected + " but was " + actual);
+	}
+
+	/**
+	 * (D-57) kafka 경로: ack만 바로 보내고(progress 없음), 결과는 {@link PipelineResult}로 받아 보낸다. end 뒤에는
+	 * 종료 사건이 올 때까지 닫지 않고, 오면 decision → closed(ended)(종료 시각 = 시작 + 전체 시간).
+	 */
+	@Test
+	void kafkaPipelineRelaysResultsAndClosesOnlyAfterTheEndDecision() throws Exception {
+		handler.shutdown();
+		var pipeline = mock(MeasurementPipeline.class);
+		when(pipeline.local()).thenReturn(false);
+		when(pipeline.open(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
+		when(pipeline.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
+			.thenReturn(new MeasurementPipeline.Accepted(42, null));
+		handler = handler(Duration.ofSeconds(10), true, Clock.systemUTC(), pipeline);
+		var fake = connect(handler);
+		send(fake, example("ws-hello-measure.json"));
+		send(fake, example("ws-features.json"));
+		assertEquals(List.of("ready", "ack"), fake.types());
+		assertEquals(42, fake.only("ack").get("last_sequence").asLong());
+
+		var observation = new RealtimeMessages.V2.ObservationPush(
+			Observation.V4.judged(42, "bad", 0.82, 1500, 0));
+		handler.pipelineResult(new PipelineResult(SESSION, List.of(observation), 42L, null, null));
+		same(example("ws-observation.json"), fake.only("observation"));
+
+		send(fake, example("ws-end.json"));
+		verify(pipeline).finish(OWNER, SESSION, 600000L);
+		assertFalse(fake.closed.get()); // 종료 사건 전에는 닫지 않음
+
+		var event = new SessionView.DecisionEvent("1.0", SESSION, 4, "session_ended", 600000, 600000, 590000, "none",
+			"ended");
+		handler.pipelineResult(new PipelineResult(SESSION,
+			List.of(new RealtimeMessages.V2.Decision(event, SUMMARY)), null, SUMMARY.totalMs(), null));
+		assertEquals(List.of("ready", "ack", "observation", "decision", "closed"), fake.types());
+		same(example("ws-closed.json"), fake.only("closed"));
+		assertTrue(fake.closed.get());
+		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), isNull()); // 끝난 세션은 끊김 종료를 다시 안 보냄
+		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // kafka는 자정 넘김 안 함
+	}
+
+	/**
+	 * (D-57) kafka 경로의 종료 경로: 연결 끊김·로그인 삭제·서버 종료 모두 {@code session_ended}를 한 번 보내고(끊긴 자리 =
+	 * 마지막 구간 끝), 앱에는 각 사유의 closed. 같은 세션에 두 번 불려도 파이프라인이 한 번만 보낸다(KafkaPipelineTest).
+	 */
+	@Test
+	void kafkaPipelineEndsTheSessionOnDisconnectLogoutAndShutdown() throws Exception {
+		handler.shutdown();
+		var pipeline = mock(MeasurementPipeline.class);
+		when(pipeline.local()).thenReturn(false);
+		when(pipeline.open(eq(OWNER), any())).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
+		handler = handler(Duration.ofSeconds(10), false, Clock.systemUTC(), pipeline);
+
+		var dropped = connect(handler);
+		send(dropped, example("ws-hello-measure.json"));
+		handler.afterConnectionClosed(dropped.socket, CloseStatus.GOING_AWAY);
+		verify(pipeline).finish(OWNER, SESSION, null);
+
+		var other = UUID.fromString("7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d");
+		var loggedOut = connect(handler);
+		var hello = example("ws-hello-measure.json");
+		hello.put("session_id", other.toString());
+		send(loggedOut, hello);
+		handler.loginsRemoved(new AccountService.LoginsRemoved(OWNER));
+		assertEquals("unauthorized", loggedOut.only("closed").get("reason").asString());
+		verify(pipeline).finish(OWNER, other, null);
+
+		var third = UUID.fromString("8c2d3e4f-5061-4b7c-9d8e-0f1a2b3c4d5e");
+		var running = connect(handler);
+		hello.put("session_id", third.toString());
+		send(running, hello);
+		handler.shutdown();
+		assertEquals("server_shutdown", running.only("closed").get("reason").asString());
+		verify(pipeline, atLeastOnce()).finish(OWNER, third, null);
 	}
 
 	private static SessionUpdates.Progressed ended() {

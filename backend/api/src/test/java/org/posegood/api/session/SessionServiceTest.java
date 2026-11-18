@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -241,11 +242,44 @@ class SessionServiceTest {
 		assertEquals(view, service.get(OWNER, ID));
 	}
 
+	/** (D-57, 11/12 DB/BE 합의) kafka 경로는 이 서버 엔진이 판정하지 않으므로 ①(엔진의 끝난 결과)을 건너뛰고 DB 값으로 답한다. */
+	@Test
+	void kafkaModeSkipsTheEngineEndedViewAndAnswersFromTheDatabase() {
+		var service = service(Duration.ZERO);
+		feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+		service.finish(OWNER, ID, 500L);
+		var fromDb = new SessionView("1.0", ID, POLICY, SessionView.TIMER_POLICY, true, -1,
+			service.get(OWNER, ID).summary(), List.of());
+		stored.put(ID, fromDb);
+		service.useResults(id -> Optional.empty());
+		assertEquals(fromDb, service.get(OWNER, ID));
+	}
+
 	private static SessionRepository.Stored row() {
 		return new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
 			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
 	}
 
+	/** (D-57 ⑧) kafka 경로: 세션 조회는 받아 둔 마지막 결과로 요약·사건·순번·종료를 채운다(정책은 그대로). 없으면 엔진 값. */
+	@Test
+	void getOverlaysTheLatestKafkaResult() {
+		var service = service(Duration.ZERO);
+		var engine = service.get(OWNER, ID);
+		assertEquals(-1, engine.lastSequence());
+
+		var summary = new SessionView.Summary(85000, 80000, 70000, 10000, 0, 5000, 0, 0, 1, 1, 170, 0.875, 42.0,
+			null, null);
+		var event = new SessionView.DecisionEvent("1.0", ID, 1, "collapse_confirmed", 3000, 0, 0, "forward_head",
+			null);
+		service.useResults(id -> id.equals(ID)
+			? Optional.of(new SessionResults.Snapshot(169, summary, List.of(event), true))
+			: Optional.empty());
+		var view = service.get(OWNER, ID);
+		assertEquals(169, view.lastSequence());
+		assertEquals(summary, view.summary());
+		assertEquals(List.of(event), view.events());
+		assertTrue(view.ended());
+		assertEquals(engine.policy(), view.policy());
 	private static final UUID OTHER = UUID.fromString("5d1e2f3a-4b5c-4d6e-8f70-8192a3b4c5d6");
 
 	/** 로그인은 기기마다 되지만 측정은 계정당 하나다: 다른 기기의 새 세션(S1)은 409 MEASUREMENT_IN_PROGRESS. */

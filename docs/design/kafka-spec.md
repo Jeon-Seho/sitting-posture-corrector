@@ -30,12 +30,14 @@
 | --- | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service-v1`) | `session_started` / `features` / `session_ended` | [kafka-features.v1](../../contracts/realtime/kafka-features.v1.schema.json) |
 | `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`judge-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
+| `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
 | `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts.v1](../../contracts/realtime/kafka-alerts.v1.schema.json) |
+| `posture.stored.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(D-67) | `session_stored` | [kafka-stored.v1](../../contracts/realtime/kafka-stored.v1.schema.json) |
+| `posture.keypoints.v1` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`, D-92). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints.v1](../../contracts/realtime/kafka-keypoints.v1.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
+- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`·`posture.stored.v1`·`posture.keypoints.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.
 
@@ -64,9 +66,12 @@
 | features.v1 | `session_ended` | `end_ms` |
 | inference.v1 | `session_started`·`session_ended` | features.v1에서 받은 것을 **바꾸지 않고** 넘긴다(판정이 한 토픽만 읽도록) |
 | inference.v1 | `observation` | [관측 v2](../../contracts/posture-observation.v2.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |
+| episodes.v1 | `observation` | (D-57) 반영한 구간마다: `sequence`·`start_ms`·`end_ms`·`phase`·`valid`, 정책 threshold로 나눈 `posture`(good·bad), 점수, 이탈 후보가 이어진 `hold_ms`, 열린 사건에서 바른 구간이 이어진 `recovery_ms` — 판정 불가면 null·0. `ws`가 앱 관측 4.0으로 보낸다. 판정 결과 저장은 건너뛴다 |
 | episodes.v1 | `decision` | [사건 v1](../../contracts/posture-event.v1.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes.v1 | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
 | alerts.v1 | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
+| keypoints.v1 | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
+| stored.v1 | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.
 `interrupted`·제외 구간의 `reason`: `rest`·`away`·`unmeasurable`·`missing`(·`missing_sequence`), 세션 종료로 끊기면 `ended`.
@@ -80,7 +85,7 @@ decision의 `produced_at`이 저장 시각보다 10초(`REPORT_ALERTS_MAX_AGE_MS
 
 - 키가 `session_id`라 한 세션의 메시지는 한 파티션에서 순서대로 처리된다. 시작 → 구간 → 종료를 **같은 토픽·같은 키**로 보낸다.
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `last_sequence`는 줄어들지 않는다.
-- `event_id`는 세션마다 1부터 1씩 증가한다. 사건(`decision`)은 그 사건이 반영된 `progress`보다 먼저 나간다.
+- `event_id`는 세션마다 1부터 1씩 증가한다. 한 구간의 결과는 `observation` → 그 구간에서 생긴 사건(`decision`) → `progress` 순서로 나간다.
 - 시간은 도착 시각이 아니라 메시지의 `start_ms`·`end_ms`(세션 시작 기준 ms)로 계산한다.
 - 판정 상태는 Redis(`posture:v1:judge:{session_id}`, TTL 1시간)에 저장해 처리 서비스가 다시 시작해도 이어 간다.
 

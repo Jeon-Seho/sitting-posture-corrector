@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/kafka-keypoints.v1.schema.json",
+  "title": "Topic posture.keypoints.v1: gateway (ws) -> J1 HDFS archive, the coordinate interval the app sent",
+  "description": "(D-92) Archive-only topic. On the kafka pipeline, with the switch posegood.realtime.kafka.archive-keypoints on (default off until the consent scope is confirmed), the gateway publishes each accepted coordinate interval as it came from the app, right after its features message (same key, same sequence). Only the Spark job J1 reads it and writes keypoints.jsonl into the session folder on HDFS; inference, judge and storage never read it. Sending does not wait for the broker, so a broker failure can drop intervals from the archive without affecting the measurement. Retention 3 days (deleted with the user folder by J3 after withdrawal). Coordinates are never logged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "message_id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "user_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "produced_at": {"type": "string", "format": "date-time"},
+    "kind": {"const": "keypoints"},
+    "body": {"$ref": "https://posegood.local/contracts/realtime/frames/posture-frames.v1.schema.json"}
+  }
+}

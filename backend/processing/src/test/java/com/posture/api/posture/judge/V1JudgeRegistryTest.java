@@ -20,9 +20,17 @@ class V1JudgeRegistryTest {
 
 	static final class MemorySink implements EpisodesSink {
 		final List<Sent> sent = new ArrayList<>();
+		/** (D-57) 구간마다 나오는 관측은 따로 모은다. {@code order}는 관측까지 포함한 발행 순서. */
+		final List<Sent> observations = new ArrayList<>();
+		final List<String> order = new ArrayList<>();
 
 		@Override
 		public void publish(String sessionId, String userId, String kind, Map<String, Object> body) {
+			order.add(kind);
+			if (kind.equals("observation")) {
+				observations.add(new Sent(sessionId, userId, kind, body));
+				return;
+			}
 			sent.add(new Sent(sessionId, userId, kind, body));
 		}
 
@@ -63,6 +71,21 @@ class V1JudgeRegistryTest {
 		Sent decision = sink.sent.get(0);
 		assertThat(decision.userId()).isEqualTo("u1");
 		assertThat(((Map<?, ?>)decision.body().get("event")).get("deviation_type")).isEqualTo("left_lean");
+	}
+
+	@Test
+	void observationOfEachIntervalIsPublishedBeforeItsDecisionAndProgress() {
+		registry.sessionStarted(SID, "u1", Map.of("policy",
+			Map.of("hold_ms", 1000, "recovery_ms", 1000, "reminder_ms", 60000, "threshold", 0.7)));
+		registry.observation(SID, "u1", obs(0, 0, 500, 0.9));
+		registry.observation(SID, "u1", obs(1, 500, 1000, 0.9)); // 확정 + progress
+		assertThat(sink.order).containsExactly("observation", "observation", "decision", "progress");
+		assertThat(sink.observations).hasSize(2);
+		Map<String, Object> second = sink.observations.get(1).body();
+		assertThat(second.get("sequence")).isEqualTo(1L);
+		assertThat(second.get("posture")).isEqualTo("bad");
+		assertThat(second.get("hold_ms")).isEqualTo(1000L);
+		assertThat(registry.status().get("publishedObservations")).isEqualTo(2L);
 	}
 
 	@Test

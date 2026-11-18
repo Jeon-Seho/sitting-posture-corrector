@@ -50,7 +50,7 @@ public record EpisodeDecision(String sessionId, long eventId, String kind, long 
 			throw new IllegalArgumentException("봉투 형식 오류(schema_version 1.0·session_id UUID 필요)");
 		}
 		Object kind = msg.get("kind");
-		if ("progress".equals(kind)) {
+		if ("progress".equals(kind) || "observation".equals(kind)) { // (D-57) 관측은 앱 화면용, 저장할 것 없음
 			return null;
 		}
 		if (!"decision".equals(kind)) {

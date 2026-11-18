@@ -48,6 +48,8 @@ public class SessionService {
 	private final long maxSessionMs;
 	/** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
 	private final long unmeasurableTimeoutMs;
+	/** (D-57 ⑧) kafka 경로에서 받아 둔 마지막 결과. local은 없음. */
+	private volatile SessionResults results = SessionResults.NONE;
 	/** S1 뒤 실시간 연결 전까지 그 세션을 측정 중으로 보는 시간. 한 계정은 한 기기에서만 측정한다. */
 	private final long measurementGraceNanos;
 
@@ -315,8 +317,8 @@ public class SessionService {
 	}
 
 	/**
-	 * 현재 상태 조회(S4). 메모리에 끝난 결과가 있으면 그것, 없으면 DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11),
-	 * 그것도 없으면 메모리의 진행 중 상태로 답한다.
+	 * 현재 상태 조회(S4). ① (local만) 메모리 엔진이 끝낸 결과 ② DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11)
+	 * ③ 메모리의 진행 중 상태(kafka는 D-57 ⑧ 마지막 결과로 채움) 순서로 답한다(11/12 DB/BE·DevOps 합의).
 	 *
 	 * DB로 다시 만든 결과는 {@code last_sequence}가 -1이고 사건의 {@code deviation_type}이 {@code unspecified}다(R1과 같음).
 	 * 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는 판정하지 않아 비어 있음)의 끝난 세션이
@@ -328,18 +330,35 @@ public class SessionService {
 			throw ApiError.notFound();
 		}
 		var memory = session == null ? null : session.locked(() -> session.engine().view());
-		if (memory != null && memory.ended()) {
+		// ① local만: 엔진이 직접 판정해 끝난 결과(kafka는 이 서버 엔진이 판정하지 않아 빈 값 — 11/12 DB/BE와 합의)
+		if (results == SessionResults.NONE && memory != null && memory.ended()) {
 			return memory;
 		}
+		// ② DB에 끝난 값(R1과 같은 값)
 		var stored = ended.find(owner, id);
 		if (stored != null) {
 			return stored;
 		}
+		// ③ 메모리 진행 중 상태 — kafka는 받아 둔 마지막 결과로 채움(D-57 ⑧)
 		if (memory != null) {
-			return memory;
+			return results.latest(id).map(latest -> overlay(memory, latest)).orElse(memory);
 		}
 		owned(owner, id);
 		throw ApiError.lost();
+	}
+
+	/**
+	 * (D-57 ⑧) kafka 경로: 판정을 처리 서비스가 하므로 이 서버의 엔진에는 결과가 없다. 실시간 연결이 받은 마지막
+	 * {@code progress}·{@code decision}으로 요약·사건·순번을 채운다. {@code ended}는 종료 사건과 저장 완료를 다 받았을 때만
+	 * true다(그때 요약이 최종 값).
+	 */
+	public void useResults(SessionResults results) {
+		this.results = results;
+	}
+
+	private static SessionView overlay(SessionView view, SessionResults.Snapshot latest) {
+		return new SessionView(view.schemaVersion(), view.sessionId(), view.policy(), view.timerPolicy(),
+			latest.ended(), latest.lastSequence(), latest.summary(), latest.events());
 	}
 
 	/**
