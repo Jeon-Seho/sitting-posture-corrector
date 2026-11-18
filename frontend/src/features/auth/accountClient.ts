@@ -3,7 +3,6 @@ import { getServerAuth, setServerAuth } from '../platform/serverAuth'
 import { noteServerDay } from '../platform/serverClock'
 import type { Profile } from '../storage/types'
 import type { ConsentType } from './consents'
-import { logDiscord } from './socialLogin'
 
 /**
  * Account server client (D-66, FE proposal F12, plan 0027 2절; BE ADR 0031 token login).
@@ -69,7 +68,12 @@ export type SocialStatus = {
   password_set: boolean
   providers: { provider: 'discord' | 'kakao' | 'google' | 'github'; available: boolean; linked: boolean; linked_at: string | null }[]
 }
+export type SocialLinkDraft = { provider: string; email: string; verified: boolean }
 export type SocialClient = {
+  linkDraft?: () => Promise<SocialLinkDraft>
+  verifyLink?: (password: string) => Promise<void>
+  confirmLink?: () => Promise<AccountView>
+  cancelLink?: () => Promise<void>
   /** Starts Discord sign-in (or sign-up) and returns the Discord consent page to open. */
   startLogin: () => Promise<string>
   /** Starts linking Discord to the signed-in account. */
@@ -80,24 +84,6 @@ export type SocialClient = {
   signup: (input: Omit<RegisterInput, 'email' | 'password'>) => Promise<AccountView>
   status: () => Promise<SocialStatus>
   unlink: () => Promise<void>
-}
-
-/** Runs one Discord request and logs its start and result (status and code only, see `logDiscord`). */
-async function traced<T>(step: string, run: () => Promise<T>): Promise<T> {
-  logDiscord(step)
-  try {
-    const value = await run()
-    logDiscord(`${step} ok`)
-    return value
-  } catch (error) {
-    logDiscord(
-      `${step} failed`,
-      error instanceof AccountError
-        ? { status: error.status, code: error.code, message: error.message }
-        : { error: error instanceof Error ? error.name : String(error) },
-    )
-    throw error
-  }
 }
 
 /** Only a Discord consent page may be opened from the server's answer. */
@@ -112,7 +98,6 @@ export function discordAuthorizeUrl(payload: unknown): string {
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
   if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') {
-    logDiscord('authorize url refused', { protocol: parsed.protocol, host: parsed.hostname })
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
   return parsed.toString()
@@ -140,6 +125,7 @@ export function accountErrorMessage(error: unknown, action: 'login' | 'register'
   if (error.code === 'INVALID_CREDENTIALS') return '이메일 또는 비밀번호가 맞지 않아요.'
   if (error.code === 'ACCOUNT_CLOSED') return '탈퇴한 계정입니다. 되돌릴 수 없고 탈퇴 30일 뒤 삭제됩니다.'
   if (error.code === 'ACCOUNT_EXISTS') return '가입할 수 없는 이메일이에요. 이미 가입했거나 탈퇴 후 30일이 지나지 않았어요.'
+  if (error.code === 'EMAIL_VERIFICATION_REQUIRED') return '이메일 인증이 필요해요. 인증 코드를 다시 받아 주세요.'
   if (error.code === 'CONSENT_REQUIRED') return '필수 약관 동의를 다시 확인해 주세요.'
   if (error.code === 'SOCIAL_SIGNUP_EXPIRED') return 'Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.'
   if (error.code === 'SOCIAL_DISABLED') return 'Discord 로그인이 아직 서버에 설정되지 않았어요.'
@@ -382,21 +368,26 @@ export function createAccountClient(
     },
     userId: () => user,
     social: {
+      async linkDraft() {
+        const value = await send('/social/pending-link', 'GET') as SocialLinkDraft
+        if (!value || typeof value.email !== 'string' || typeof value.verified !== 'boolean' || value.provider !== 'discord')
+          throw new AccountError('계정 연결 확인 시간이 지났어요. 다시 시작해 주세요.', null, null)
+        return value
+      },
+      async verifyLink(password) { await send('/social/pending-link/verify', 'POST', { password }) },
+      async confirmLink() { return signedIn(await send('/social/pending-link/confirm', 'POST')) },
+      async cancelLink() { await send('/social/pending-link', 'DELETE') },
       async startLogin() {
-        return traced('A11 login start', async () => discordAuthorizeUrl(await send('/social/discord/login', 'POST')))
+        return discordAuthorizeUrl(await send('/social/discord/login', 'POST'))
       },
       async startLink() {
-        return traced('A12 link start', async () => discordAuthorizeUrl(await authed('/social/discord/link', 'POST')))
+        return discordAuthorizeUrl(await authed('/social/discord/link', 'POST'))
       },
       async signupDraft() {
         try {
-          const draft = await traced('A14 signup draft', async () => {
-            const value = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
-            if (!value || typeof value.email !== 'string' || typeof value.suggested_name !== 'string')
-              throw new AccountError('계정 응답 형식이 달라요.', null, null)
-            return value
-          })
-          logDiscord('A14 signup draft received', { provider: draft.provider })
+          const draft = (await send('/social/signup', 'GET')) as SocialSignupDraft | null
+          if (!draft || typeof draft.email !== 'string' || typeof draft.suggested_name !== 'string')
+            throw new AccountError('계정 응답 형식이 달라요.', null, null)
           return draft
         } catch (error) {
           console.error('[features/auth/accountClient.ts:signupDraft] Operation failed', error)
@@ -407,22 +398,18 @@ export function createAccountClient(
         }
       },
       async signup(input) {
-        return traced('A15 signup', async () =>
-          signedIn(
-            await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
-          ),
+        return signedIn(
+          await send('/social/signup', 'POST', { profile: toApiProfile(input.profile), consents: input.consents }),
         )
       },
       async status() {
-        return traced('A16 status', async () => {
-          const value = (await authed('/social', 'GET')) as SocialStatus | null
-          if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
-            throw new AccountError('계정 응답 형식이 달라요.', null, null)
-          return value
-        })
+        const value = (await authed('/social', 'GET')) as SocialStatus | null
+        if (!value || typeof value.password_set !== 'boolean' || !Array.isArray(value.providers))
+          throw new AccountError('계정 응답 형식이 달라요.', null, null)
+        return value
       },
       async unlink() {
-        await traced('A17 unlink', () => authed('/social/discord', 'DELETE'))
+        await authed('/social/discord', 'DELETE')
       },
     },
     async refreshServerTime() {

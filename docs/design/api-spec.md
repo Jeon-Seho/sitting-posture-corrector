@@ -1,5 +1,9 @@
 # PoseGood API 명세서
 
+> 2026-11-16 계정 추가: 가입 이메일 코드 인증, 비밀번호 찾기 링크 확인·재사용 거절, Discord 충돌 연결 승인은
+> [계정 계약](../../contracts/accounts.v2.md#가입-이메일-인증충돌-계정-연결-2026-11-16-선택-활성화)과 [이메일 인계](email-account-handoff.md)를 따른다.
+
+
 > 자세교정 서비스 · 백엔드 API
 
 Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
@@ -89,6 +93,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 | 계정 정보 다시 불러오기 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(로그인은 막지 않음) | 「다른 기기에서 측정 중」 안내, 그 기기에서 끝낸 뒤 다시 시작 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -726,6 +731,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(로그인은 막지 않음) |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |

@@ -25,7 +25,7 @@ const body = () => cdp.evaluate('document.body.innerText')
 let fixture = null
 try {
   await cdp.call('Page.navigate', { url: base })
-  await until(async () => (await body()).includes('비밀번호 재설정'), 'login screen')
+  await until(async () => (await body()).includes('비밀번호 찾기'), 'login screen')
   await delay(400)
   const before = browser.requests.length
   await fill('email', 'admin'); await fill('password', '1234'); await button('로그인')
@@ -35,7 +35,7 @@ try {
   await browser.screenshot('developer')
   await cdp.evaluate('document.querySelector(".me-profile").click()')
   await button('로그아웃')
-  await until(async () => (await body()).includes('비밀번호 재설정'), 'developer logout')
+  await until(async () => (await body()).includes('비밀번호 찾기'), 'developer logout')
   console.log('PASS developer login/logout: no API calls and native form validation bypass')
   const email = await cdp.evaluate(`(async () => {
     const { createAccountClient } = await import('/src/features/auth/accountClient.ts');
@@ -48,12 +48,12 @@ try {
   })()`)
   fixture = email
   await fill('email', email); await fill('password', 'Synthetic-test-1234!'); await button('로그인')
-  await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 재설정'), 'real JWT login')
+  await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 찾기'), 'real JWT login')
   await until(async () => browser.requests.some(r => /\/api\/v2\/records$/.test(r.url) && r.headers.Authorization?.startsWith('Bearer ')), 'authenticated records')
   assert.equal((await body()).includes('개발자 계정 · 서버 연결 없음'), false)
   await cdp.call('Page.reload')
   await delay(700)
-  await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 재설정'), 'JWT refresh restoration')
+  await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 찾기'), 'JWT refresh restoration')
   await browser.screenshot('jwt-restored')
   assert.equal(browser.errors.length, 0, browser.errors.join('\n'))
   console.log('PASS real JWT UI login, authenticated records, cookie refresh after reload')

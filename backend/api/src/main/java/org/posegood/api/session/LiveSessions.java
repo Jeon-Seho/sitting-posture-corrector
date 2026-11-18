@@ -78,6 +78,15 @@ public class LiveSessions {
 		}
 	}
 
+	/** 같은 사용자가 {@code except}가 아닌 다른 세션으로 측정 중이면 그 세션(없으면 null). */
+	LiveSession measuringOther(long owner, UUID except, long graceNanos) {
+		return sessions.values().stream()
+			.filter(session -> session.owner() == owner && !session.id().equals(except))
+			.filter(session -> session.measuring(graceNanos))
+			.findFirst()
+			.orElse(null);
+	}
+
 	/** 탈퇴한 계정의 세션을 메모리에서 뺀다. */
 	@EventListener
 	public void accountClosed(AccountService.AccountClosed closed) {

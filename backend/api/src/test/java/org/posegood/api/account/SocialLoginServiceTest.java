@@ -48,7 +48,8 @@ class SocialLoginServiceTest {
 		pending = new SocialPending();
 		accounts = mock(AccountRepository.class);
 		accountService = mock(AccountService.class);
-		social = new SocialLoginService(new SocialProviders(List.of(discord)), pending, identities, accounts, accountService, new UserLocks());
+		social = new SocialLoginService(new SocialProviders(List.of(discord)), pending,
+			identities, accounts, accountService, new UserLocks());
 	}
 
 	private static AccountRepository.Account account(long id, boolean active, String hash) {
@@ -56,7 +57,8 @@ class SocialLoginServiceTest {
 	}
 
 	/** 시작 후 Discord가 돌려보낸 것처럼 콜백을 부른다. */
-	private SocialLoginService.Outcome roundTrip(SocialLoginService.Started started, SocialProviderClient.SocialUser user) {
+	private SocialLoginService.Outcome roundTrip(
+		SocialLoginService.Started started, SocialProviderClient.SocialUser user) {
 		var stored = pending.takeAuthorization(started.pendingId());
 		String id = pending.putAuthorization(stored);
 		when(discord.exchange(eq("code-1"), eq(stored.codeVerifier()))).thenReturn(user);
@@ -64,25 +66,27 @@ class SocialLoginServiceTest {
 	}
 
 	@Test
-	void aLinkedDiscordUserSignsIn() {
+	void linkedDiscordUserSignsIn() {
 		when(identities.owner(SocialIdentityRepository.DISCORD, DISCORD_ID)).thenReturn(7L);
 		when(accounts.find(7L)).thenReturn(account(7, true, "$2a$hash"));
-		var outcome = roundTrip(social.startLogin("discord"), new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
 		assertEquals("signed-in", outcome.status());
 		assertEquals(7L, outcome.signedIn());
 	}
 
 	@Test
-	void aClosedAccountDoesNotSignIn() {
+	void closedAccountDoesNotSignIn() {
 		when(identities.owner(SocialIdentityRepository.DISCORD, DISCORD_ID)).thenReturn(7L);
 		when(accounts.find(7L)).thenReturn(account(7, false, "$2a$hash"));
-		var outcome = roundTrip(social.startLogin("discord"), new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
 		assertEquals("closed", outcome.status());
 		assertNull(outcome.signedIn());
 	}
 
 	@Test
-	void aMatchingEmailIsNeverLinkedAutomatically() {
+	void matchingEmailIsNeverLinkedAutomatically() {
 		when(accounts.findEmail("same@example.test")).thenReturn(account(3, true, "$2a$hash"));
 		var outcome = roundTrip(social.startLogin("discord"),
 			new SocialProviderClient.SocialUser(DISCORD_ID, "same@example.test", "디코"));
@@ -92,13 +96,65 @@ class SocialLoginServiceTest {
 	}
 
 	@Test
+	void collisionRequiresPasswordThenExplicitApprovalAndCanOnlyBeUsedOnce() {
+		when(accounts.findEmail("same@example.test")).thenReturn(account(5, true, "$2a$hash"));
+		when(accounts.find(5L)).thenReturn(account(5, true, "$2a$hash"));
+		when(accountService.requireActive(5L)).thenReturn(account(5, true, "$2a$hash"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, "same@example.test", "디코"));
+		String id = outcome.signupId();
+		assertEquals("same@example.test", social.linkDraft(id).email());
+		assertThrows(ApiError.class, () -> social.confirmLink(id));
+		assertThrows(ApiError.class, () -> social.verifyLink("other-browser", "password"));
+		social.verifyLink(id, "existing-password-123");
+		verify(accountService).requireCurrent("existing-password-123", "$2a$hash");
+		assertTrue(social.linkDraft(id).verified());
+		verify(identities, never()).insert(anyLong(), anyString(), anyString());
+		assertEquals(5L, social.confirmLink(id));
+		verify(identities).insert(5L, "DISCORD", DISCORD_ID);
+		assertThrows(ApiError.class, () -> social.confirmLink(id));
+	}
+
+	@Test
+	void wrongPasswordsAreLimitedAndPasswordChangesInvalidateApproval() {
+		when(accounts.findEmail("same@example.test")).thenReturn(account(5, true, "$2a$hash"));
+		when(accountService.requireActive(5L)).thenReturn(account(5, true, "$2a$hash"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, "same@example.test", "디코"));
+		String id = outcome.signupId();
+		org.mockito.Mockito.doThrow(new ApiError(400, "INVALID_PASSWORD", "incorrect password"))
+			.when(accountService).requireCurrent("wrong", "$2a$hash");
+		for (int i = 0; i < 5; i++) {
+			assertEquals(400, assertThrows(ApiError.class, () -> social.verifyLink(id, "wrong")).status());
+		}
+		assertEquals(429, assertThrows(ApiError.class, () -> social.verifyLink(id, "wrong")).status());
+		assertEquals(403, assertThrows(ApiError.class, () -> social.confirmLink(id)).status());
+		var retry = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, "same@example.test", "디코"));
+		social.verifyLink(retry.signupId(), "correct-password");
+		when(accountService.requireActive(5L)).thenReturn(account(5, true, "$2a$changed"));
+		assertThrows(ApiError.class, () -> social.confirmLink(retry.signupId()));
+		verify(identities, never()).insert(anyLong(), anyString(), anyString());
+	}
+
+	@Test
+	void cancelledCollisionCannotBeApproved() {
+		when(accounts.findEmail("same@example.test")).thenReturn(account(5, true, "$2a$hash"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, "same@example.test", "디코"));
+		social.cancelLink(outcome.signupId());
+		assertThrows(ApiError.class, () -> social.confirmLink(outcome.signupId()));
+	}
+
+	@Test
 	void withoutAVerifiedEmailThereIsNoSignup() {
-		var outcome = roundTrip(social.startLogin("discord"), new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
+		var outcome = roundTrip(social.startLogin("discord"),
+			new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
 		assertEquals("email-required", outcome.status());
 	}
 
 	@Test
-	void aNewDiscordUserGetsASignupThatCanBeUsedOnce() {
+	void newDiscordUserGetsASignupThatCanBeUsedOnce() {
 		var outcome = roundTrip(social.startLogin("discord"),
 			new SocialProviderClient.SocialUser(DISCORD_ID, "new@example.test", "디코"));
 		assertEquals("signup", outcome.status());
@@ -119,7 +175,7 @@ class SocialLoginServiceTest {
 	}
 
 	@Test
-	void aWrongStateOrReusedPendingIdExpires() {
+	void wrongStateOrReusedPendingIdExpires() {
 		var started = social.startLogin("discord");
 		assertEquals("expired", social.callback("discord", started.pendingId(), "wrong", "code-1", null).status());
 		// 한 번 꺼낸 대기는 다시 쓸 수 없다.
@@ -139,18 +195,20 @@ class SocialLoginServiceTest {
 	void linkingAttachesToTheSignedInUserOnly() {
 		when(accountService.requireActive(5L)).thenReturn(account(5, true, "$2a$hash"));
 		when(accounts.find(5L)).thenReturn(account(5, true, "$2a$hash"));
-		var outcome = roundTrip(social.startLink("discord", 5L), new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
+		var outcome = roundTrip(social.startLink("discord", 5L),
+			new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
 		assertEquals("linked", outcome.status());
 		assertNull(outcome.signedIn());
 		verify(identities).insert(5L, SocialIdentityRepository.DISCORD, DISCORD_ID);
 	}
 
 	@Test
-	void aDiscordUserLinkedElsewhereIsInUse() {
+	void discordUserLinkedElsewhereIsInUse() {
 		when(accountService.requireActive(5L)).thenReturn(account(5, true, "$2a$hash"));
 		when(accounts.find(5L)).thenReturn(account(5, true, "$2a$hash"));
 		when(identities.owner(SocialIdentityRepository.DISCORD, DISCORD_ID)).thenReturn(6L);
-		var outcome = roundTrip(social.startLink("discord", 5L), new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
+		var outcome = roundTrip(social.startLink("discord", 5L),
+			new SocialProviderClient.SocialUser(DISCORD_ID, null, "디코"));
 		assertEquals("in-use", outcome.status());
 		verify(identities, never()).insert(anyLong(), anyString(), anyString());
 	}
@@ -190,10 +248,11 @@ class SocialLoginServiceTest {
 	}
 
 	@Test
-	void aCallbackOnAnotherProviderPathIsExpired() {
+	void callbackOnAnotherProviderPathIsExpired() {
 		var started = social.startLogin("discord");
 		var stored = pending.takeAuthorization(started.pendingId());
-		String id = pending.putAuthorization(new SocialPending.Authorization("kakao", stored.state(), stored.codeVerifier(), null));
+		String id = pending.putAuthorization(
+			new SocialPending.Authorization("kakao", stored.state(), stored.codeVerifier(), null));
 		assertEquals("expired", social.callback("discord", id, stored.state(), "code-1", null).status());
 	}
 
@@ -201,7 +260,8 @@ class SocialLoginServiceTest {
 	void anotherLinkedProviderAllowsUnlinkWithoutPassword() {
 		when(accountService.requireActive(5L)).thenReturn(account(5, true, AccountService.NO_PASSWORD));
 		when(identities.links(5L)).thenReturn(List.of(
-			new SocialIdentityRepository.Link(5, "DISCORD", null), new SocialIdentityRepository.Link(5, "GOOGLE", null)));
+			new SocialIdentityRepository.Link(5, "DISCORD", null),
+			new SocialIdentityRepository.Link(5, "GOOGLE", null)));
 		when(identities.delete(5L, "DISCORD")).thenReturn(1);
 		social.unlink("discord", 5L);
 		verify(identities).delete(5L, "DISCORD");

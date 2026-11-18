@@ -50,6 +50,8 @@ public class SessionService {
 	private final long unmeasurableTimeoutMs;
 	/** (D-57 ⑧) kafka 경로에서 받아 둔 마지막 결과. local은 없음. */
 	private volatile SessionResults results = SessionResults.NONE;
+	/** S1 뒤 실시간 연결 전까지 그 세션을 측정 중으로 보는 시간. 한 계정은 한 기기에서만 측정한다. */
+	private final long measurementGraceNanos;
 
 	public SessionService(
 		LiveSessions live,
@@ -65,7 +67,9 @@ public class SessionService {
 		@Value("${posegood.realtime.max-session-duration}")
 		Duration maxSession,
 		@Value("${posegood.realtime.unmeasurable-timeout}")
-		Duration unmeasurableTimeout) {
+		Duration unmeasurableTimeout,
+		@Value("${posegood.realtime.measurement-claim-grace}")
+		Duration measurementGrace) {
 		this.live = live;
 		this.sessions = sessions;
 		this.baselines = baselines;
@@ -78,12 +82,14 @@ public class SessionService {
 		this.ended = ended;
 		this.maxSessionMs = maxSession.toMillis();
 		this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
+		this.measurementGraceNanos = measurementGrace.toNanos();
 	}
 
 	/**
 	 * 세션 생성: 현재 계정 정책·기준 확인 → 세션 행 추가 → 메모리에 판정 엔진 준비.
 	 *
-	 * 재시도는 같은 정책·기준 ID여야 한다.
+	 * 재시도는 같은 정책·기준 ID여야 한다. 로그인은 여러 기기에서 할 수 있지만 측정은 계정당 하나다. 다른 세션으로
+	 * 측정 중이면 409 {@code MEASUREMENT_IN_PROGRESS}다.
 	 */
 	public SessionView create(long owner, UUID id, SessionRequests.Create request) {
 		ThresholdPolicyRepository.Values.of(request.policy());
@@ -108,6 +114,7 @@ public class SessionService {
 					}
 					throw ApiError.lost();
 				}
+				requireNoOtherMeasurement(owner, id);
 				var account = accounts.requireActive(owner);
 				if (!policies.read(account.policyId()).policy().equals(request.policy())) {
 					throw ApiError.conflict("settings changed; reload workspace before measuring");
@@ -143,6 +150,8 @@ public class SessionService {
 	 * 실시간 v2 측정 연결 준비: 내 세션인지, 아직 진행 중인지, 판정에 쓸 기준 자세가 있는지 확인한다.
 	 *
 	 * 끝난 세션은 409 SESSION_ENDED, 기준이 없거나 판정에 쓸 수 없으면 409 BASELINE_REQUIRED.
+	 * 그사이 다른 기기가 측정을 시작했으면 409 MEASUREMENT_IN_PROGRESS. 통과하면 이 세션을 측정 중으로 표시한다
+	 * (연결이 끊기면 {@link #finish}가 세션을 끝내 표시도 풀린다).
 	 */
 	public Realtime openRealtime(long owner, UUID id) {
 		var session = require(owner, id);
@@ -154,6 +163,13 @@ public class SessionService {
 		if (features == null) {
 			throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
 		}
+		locks.withLock(
+			owner,
+			() -> {
+				requireNoOtherMeasurement(owner, id);
+				session.connected(true);
+				return null;
+			});
 		return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
 	}
 
@@ -248,7 +264,9 @@ public class SessionService {
 						return sessions.find(nextId);
 					});
 				var policy = previous.engine().policy();
-				live.add(new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs))));
+				var following = new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs)));
+				following.connected(true); // 같은 실시간 연결로 잇는다
+				live.add(following);
 				return new Rollover(
 					ended,
 					previous.row().startedAt().plusMillis(ended.totalMs()),
@@ -428,6 +446,13 @@ public class SessionService {
 			});
 		session.persisted(
 			session.persistedEvents() + pending.size(), episodes, session.closePersisted() || close);
+	}
+
+	/** 같은 사용자가 다른 세션으로 측정 중이면 409 {@code MEASUREMENT_IN_PROGRESS}(사용자 잠금 안에서 부른다). */
+	private void requireNoOtherMeasurement(long owner, UUID id) {
+		if (live.measuringOther(owner, id, measurementGraceNanos) != null) {
+			throw ApiError.measuring();
+		}
 	}
 
 	/** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */

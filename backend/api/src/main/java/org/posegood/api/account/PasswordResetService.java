@@ -164,6 +164,19 @@ public class PasswordResetService {
 		}
 	}
 
+	/** 링크 유효성만 확인한다. 비밀번호 화면을 열며 소비는 최종 저장 때 한다. */
+	public void validate(String token) {
+		requireEnabled();
+		var stored = resets.find(hash(token));
+		if (stored == null || stored.consumedAt() != null || !clock.instant().isBefore(stored.expiresAt())) {
+			throw invalid();
+		}
+		var account = accounts.find(stored.owner());
+		if (account == null || !account.active()) {
+			throw invalid();
+		}
+	}
+
 	/**
 	 * 재설정 완료. 토큰이 없거나 만료·사용됐거나 계정이 정상 상태가 아니면 410 {@code RESET_TOKEN_INVALID}(이유는 구분하지 않음).
 	 */

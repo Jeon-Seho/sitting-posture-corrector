@@ -264,3 +264,12 @@
 .social-github { --brand-bg: #000; }
 .social-github img { width: 26px; }
 :root[data-theme='dark'] .social-github { border-color: #3d444d; }
+
+/* Verified account summary, sharing the input/card hierarchy. */
+.mail-account {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}

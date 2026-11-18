@@ -63,6 +63,8 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 경로 | 역할 |
 | --- | --- |
 | `POST /v2/auth/register`, `POST /v2/auth/login`, `POST /v2/auth/refresh`, `GET /v2/auth/me`, `POST /v2/auth/logout` | 계정·로그인·로그인 유지 |
+| `POST /v2/auth/email-verification/requests`·`/confirm`, `POST /v2/auth/password-reset/requests`·`/validate`·`/confirm` | 가입 코드 인증·비밀번호 찾기(기본 꺼짐, [연결·SMTP 설정](../docs/design/email-account-handoff.md)) |
+| `GET /v2/auth/social/pending-link`, `POST .../verify`·`.../confirm`, `DELETE /v2/auth/social/pending-link` | Discord 이메일 충돌의 기존 비밀번호 확인·연결 승인·취소 |
 | `PUT /v2/auth/password`, `DELETE /v2/auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
 | `GET`·`PUT /v2/workspace`, `GET /v2/records` | 설정·기록 조회. 기록 삭제 `DELETE /v2/records/{id}`(R3)는 2026-11-12 삭제 |
 | `PUT /v2/sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |

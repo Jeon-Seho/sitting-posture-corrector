@@ -37,6 +37,7 @@ export function CameraFaultPreview({ scenario, onClose, errorKey, performance }:
   useEffect(() => () => modal.current?.restoreFocus(), [])
 
   useEffect(() => {
+    const runGeneration = generation
     const token = ++generation.current
     active.current = true
     const isCurrent = () => active.current && generation.current === token
@@ -97,7 +98,7 @@ export function CameraFaultPreview({ scenario, onClose, errorKey, performance }:
     })()
     return () => {
       active.current = false
-      generation.current++
+      runGeneration.current++
       for (const dispose of disposers) dispose()
       for (const entry of waits) { clearTimeout(entry.timer); entry.resolve() }
       waits.clear()

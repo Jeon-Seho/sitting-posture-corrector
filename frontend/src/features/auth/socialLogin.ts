@@ -9,15 +9,7 @@ import { desktopBridge } from '../desktop/bridge'
  * Off unless `VITE_DISCORD_LOGIN_ENABLED=true` at build time, and off in the desktop app: its
  * `app://` page cannot receive the browser redirect yet (follow-up: system browser + deep link).
  */
-export type SocialRoute = { kind: 'result'; status: string } | { kind: 'signup' }
-
-/**
- * One console line per step of the Discord flow, so a failed sign-in or sign-up can be traced in
- * the browser console (filter: `discord`). Never pass an e-mail, a token or a full URL in `detail`.
- */
-export function logDiscord(step: string, detail: Record<string, unknown> = {}) {
-  console.info('[PoseGood] discord', step, detail)
-}
+export type SocialRoute = { kind: 'result'; status: string } | { kind: 'signup' } | { kind: 'link' }
 
 export function discordLoginEnabled(flag: unknown = import.meta.env.VITE_DISCORD_LOGIN_ENABLED) {
   return flag === 'true' && !desktopBridge()
@@ -25,6 +17,7 @@ export function discordLoginEnabled(flag: unknown = import.meta.env.VITE_DISCORD
 
 export function socialRoute(hash: string): SocialRoute | null {
   const [path, query = ''] = hash.replace(/^#/, '').split('?')
+  if (path === 'social-link') return { kind: 'link' }
   if (path === 'social-signup') return { kind: 'signup' }
   if (path !== 'social-result') return null
   const status = new URLSearchParams(query).get('status') ?? ''

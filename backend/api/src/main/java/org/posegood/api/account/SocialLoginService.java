@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
  * <li>로그인: 연결된 계정이 있으면 그 계정으로 로그인한다.</li>
  * <li>연결이 없고 Discord가 확인한 이메일이 기존 계정과 같으면 자동으로 묶지 않는다({@code link-required}).
  * 이메일만으로 묶으면 제공자 쪽 이메일을 가로챈 사람이 기존 계정에 들어올 수 있다. 사용자가 비밀번호로 로그인한 뒤
- * 설정에서 직접 연결한다.</li>
+ * 본인을 확인한 뒤 연결을 직접 승인한다.</li>
  * <li>연결도 기존 계정도 없으면 가입 대기를 만들고 앱의 약관·프로필 화면으로 보낸다. Discord에 확인된 이메일이 없으면
  * 가입하지 않는다({@code email-required}).</li>
  * <li>연결: 로그인한 사용자가 시작하고, 콜백에서 그 사용자에게 Discord 사용자를 붙인다.</li>
@@ -58,7 +58,7 @@ public class SocialLoginService {
 
 	/**
 	 * 콜백 결과. {@code status}는 앱 주소 조각({@code #social-result?status=})에 그대로 쓰는 값이다.
-	 * {@code signedIn}은 로그인한 계정 ID(로그인 성공일 때만), {@code signupId}는 가입 대기 ID(가입이 필요할 때만).
+	 * {@code signedIn}은 로그인한 계정 ID(로그인 성공일 때만), {@code signupId}는 가입 대기 또는 이메일 충돌 연결 대기 ID(status로 구분).
 	 */
 	public record Outcome(String status, Long signedIn, String signupId) {
 		static Outcome of(String status) {
@@ -139,9 +139,15 @@ public class SocialLoginService {
 		}
 		var existing = accounts.findEmail(user.email());
 		if (existing != null) {
-			return Outcome.of(existing.active() ? "link-required" : "closed");
+			if (!existing.active()) {
+				return Outcome.of("closed");
+			}
+			String linkId = pending.putLink(
+				new SocialPending.Signup(client.id(), user.subject(), user.email(), user.name()), existing.id());
+			return new Outcome("link-required", null, linkId);
 		}
-		String signup = pending.putSignup(new SocialPending.Signup(client.id(), user.subject(), user.email(), user.name()));
+		String signup = pending.putSignup(
+			new SocialPending.Signup(client.id(), user.subject(), user.email(), user.name()));
 		return new Outcome("signup", null, signup);
 	}
 
@@ -162,6 +168,67 @@ public class SocialLoginService {
 			}
 			return Outcome.of("linked");
 		});
+	}
+
+	/** 충돌한 계정은 이 브라우저의 OAuth 대기를 가진 경우에만 보여준다. */
+	public AccountContracts.SocialLinkDraft linkDraft(String id) {
+		var draft = requireLink(id);
+		synchronized (draft) {
+			return new AccountContracts.SocialLinkDraft(
+				draft.identity.provider(), draft.identity.email(), draft.verified);
+		}
+	}
+
+	public void verifyLink(String id, String password) {
+		var draft = requireLink(id);
+		synchronized (draft) {
+			if (draft.attempts >= 5) {
+				throw new ApiError(429, "RATE_LIMITED", "restart social sign-in");
+			}
+			draft.attempts++;
+			var account = accountService.requireActive(draft.owner);
+			accountService.requireCurrent(password, account.hash());
+			draft.verified = true;
+			draft.verifiedHash = account.hash();
+		}
+	}
+
+	/** 최종 승인 전에는 계정을 연결하거나 로그인하지 않는다. */
+	public long confirmLink(String id) {
+		var draft = requireLink(id);
+		synchronized (draft) {
+			if (!draft.verified) {
+				throw new ApiError(403, "SOCIAL_VERIFICATION_REQUIRED", "verify the existing account first");
+			}
+			return locks.withLock(draft.owner, () -> {
+				var account = accountService.requireActive(draft.owner);
+				if (!java.util.Objects.equals(account.hash(), draft.verifiedHash) || pending.takeLink(id) != draft) {
+					throw signupExpired();
+				}
+				var result = link(providers.require(draft.identity.provider()), draft.owner,
+					new SocialProviderClient.SocialUser(draft.identity.subject(), draft.identity.email(), ""));
+				if (!"linked".equals(result.status())) {
+					throw new ApiError(409, "SOCIAL_IN_USE", "social identity is unavailable");
+				}
+				return draft.owner;
+			});
+		}
+	}
+
+	public AccountRepository.Account account(long id) {
+		return accountService.requireActive(id);
+	}
+
+	public void cancelLink(String id) {
+		pending.takeLink(id);
+	}
+
+	private SocialPending.Link requireLink(String id) {
+		var draft = pending.peekLink(id);
+		if (draft == null || !providers.enabled(draft.identity.provider())) {
+			throw signupExpired();
+		}
+		return draft;
 	}
 
 	/** 가입 대기의 제안값(이메일·이름). 없거나 만료면 404. */
@@ -195,7 +262,8 @@ public class SocialLoginService {
 		var linkedAt = new HashMap<String, String>();
 		if (providers.anyEnabled()) {
 			for (var link : identities.links(user)) {
-				linkedAt.put(SocialProviders.idOf(link.provider()), link.linkedAt() == null ? "" : link.linkedAt().toString());
+				linkedAt.put(SocialProviders.idOf(link.provider()),
+					link.linkedAt() == null ? "" : link.linkedAt().toString());
 			}
 		}
 		var list = SocialProviders.KNOWN.stream()
@@ -210,7 +278,8 @@ public class SocialLoginService {
 		var client = providers.require(provider);
 		locks.run(user, () -> {
 			var account = accountService.requireActive(user);
-			boolean otherLink = identities.links(user).stream().anyMatch(link -> !client.code().equals(link.provider()));
+			boolean otherLink = identities.links(user).stream()
+				.anyMatch(link -> !client.code().equals(link.provider()));
 			if (!AccountService.hasPassword(account) && !otherLink) {
 				throw new ApiError(409, "LAST_LOGIN_METHOD",
 					"set a password with a password reset email before unlinking the only sign-in method");

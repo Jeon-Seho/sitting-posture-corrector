@@ -43,16 +43,17 @@ import { SignupPostureStep } from '../features/auth/SignupPostureStep'
 import { MailAccessPage } from '../features/auth/MailAccessPage'
 import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWorkspace'
 import { getServerAuth } from '../features/platform/serverAuth'
-import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
+import { accountMailApi, mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { desktopBridge } from '../features/desktop/bridge'
-import { clearSocialRoute, discordLoginEnabled, logDiscord, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { clearSocialRoute, discordLoginEnabled, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { SocialAccountLinkPage } from '../features/auth/SocialAccountLinkPage'
 import { SocialLoginButtons } from '../features/auth/SocialLoginButtons'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
 import { ServerAccountPage } from '../features/profile/ServerAccountPage'
 import { clearPageError, reportPageError } from '../features/connection/pageError'
 
-type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
+type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail' | 'social-link'
 
 /**
  * The app always signs in on the account server `/auth` (D-66; no switch since 2026-10-22,
@@ -83,13 +84,15 @@ export function LocalServiceApp({
   const [developer, setDeveloper] = useState(false)
   const authAttempt = useRef(0)
   const accountMutation = useRef(false)
-  const [authView, setAuthView] = useState<AuthView>(() => mailRoute(window.location?.hash ?? '') ? 'mail' : 'login')
+  const [authLanding] = useState(() => mailRoute(window.location?.hash ?? ''))
+  const [authView, setAuthView] = useState<AuthView>(() => authLanding ? 'mail' : 'login')
   const [mailPurpose, setMailPurpose] = useState<MailPurpose>('reset')
   const [mailReturn, setMailReturn] = useState<AuthView>('login')
   const [mailEntry, setMailEntry] = useState(0)
   // Back from Discord: a result to show once (after the usual A8 → A4 start) or a pending sign-up.
   const [socialLanding] = useState(() => socialRoute(window.location?.hash ?? ''))
   const socialNotice = useRef(socialLanding?.kind === 'result' ? socialResultMessage(socialLanding.status) : null)
+  const [verifiedEmail, setVerifiedEmail] = useState('')
   const [socialSignup, setSocialSignup] = useState<SocialSignupDraft | null>(null)
   useEffect(() => {
     const receiveMailLink = () => {
@@ -162,7 +165,7 @@ export function LocalServiceApp({
 
   // (D-66) A login cookie from an earlier visit signs in again without typing (A4).
   useEffect(() => {
-    if (!accounts) return
+    if (!accounts || authLanding || socialLanding?.kind === 'link') return
     let cancelled = false
     const attempt = authAttempt.current
     accounts
@@ -191,11 +194,7 @@ export function LocalServiceApp({
     if (!socialLanding) return
     clearSocialRoute()
     const social = accounts?.social
-    logDiscord('back from Discord', {
-      route: socialLanding.kind,
-      status: socialLanding.kind === 'result' ? socialLanding.status : undefined,
-      accountClient: !!social,
-    })
+    if (socialLanding.kind === 'link' && social) { setAuthView('social-link'); return }
     if (socialLanding.kind !== 'signup' || !social) return
     let cancelled = false
     social
@@ -203,11 +202,9 @@ export function LocalServiceApp({
       .then((draft) => {
         if (cancelled) return
         if (!draft) {
-          logDiscord('signup draft missing (410: cookie not sent, expired, Discord off, or io-api restarted)')
           setError('Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.')
           return
         }
-        logDiscord('signup continues at consent')
         setSocialSignup(draft)
         setEmail(draft.email)
         form.resetFields({ name: draft.suggested_name })
@@ -403,6 +400,9 @@ export function LocalServiceApp({
       consents: { version: CONSENT_DOCUMENT_VERSION, agreed: consents, at: new Date().toISOString() },
     }
     if (accounts) {
+      if (accountMailApi.enabledFor('verify') && verifiedEmail !== email.trim().toLowerCase()) {
+        setMailPurpose('verify'); setMailReturn('account'); openAuth('mail'); return
+      }
       void registerWithServer(accounts, next, nextAccount)
       return
     }
@@ -425,6 +425,9 @@ export function LocalServiceApp({
     } catch (error) {
       console.error('[app/LocalServiceApp.tsx:registerWithServer] Operation failed', error)
       setError(accountErrorMessage(error, 'register'))
+      if (error instanceof Error && 'code' in error && error.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        setVerifiedEmail(''); setMailPurpose('verify'); setMailReturn('account'); openAuth('mail')
+      }
     } finally {
       setBusy(false)
     }
@@ -432,10 +435,7 @@ export function LocalServiceApp({
 
   /** Discord sign-up: the e-mail is the one Discord confirmed; the account has no password yet. */
   async function registerSocialWithServer(client: AccountClient, next: Profile) {
-    if (busy || !client.social || !socialSignup) {
-      logDiscord('signup not sent', { busy, accountClient: !!client.social, draft: !!socialSignup })
-      return
-    }
+    if (busy || !client.social || !socialSignup) return
     setBusy(true)
     setError('')
     try {
@@ -614,7 +614,13 @@ export function LocalServiceApp({
   )
 
   if (!authed && authView === 'mail') {
-    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)} />
+    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)}
+      onVerified={mailPurpose === 'verify' && mailReturn === 'account' ? () => { setVerifiedEmail(email.trim().toLowerCase()); openAuth('account') } : undefined} />
+  }
+
+  if (!authed && authView === 'social-link' && accounts?.social) {
+    return <SocialAccountLinkPage social={accounts.social} onComplete={view => enterWithAccount(view)}
+      onCancel={() => openAuth('login')} onFindPassword={() => { setMailPurpose('reset'); setMailReturn('social-link'); openAuth('mail') }} />
   }
 
   if (!authed && authView === 'consent') {
@@ -663,7 +669,7 @@ export function LocalServiceApp({
           <>
             {storageNotice}
             {errorLine}
-            {!socialSignup && <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>}
+            {!socialSignup && <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>{verifiedEmail === email.trim().toLowerCase() ? '이메일 인증 완료 · 다시 인증' : '이메일 인증하기'}</button>}
             <button type="button" className="btn btn-quiet" onClick={() => openAuth('consent')}>
               이전
             </button>
@@ -718,7 +724,6 @@ export function LocalServiceApp({
             {accounts?.social && (
               // Every planned provider is shown; only Discord works for now. Others say they are coming.
               <SocialLoginButtons disabled={busy} ready={id => id === 'discord'} onPick={(id, name) => {
-                if (id === 'discord') logDiscord('button', { enabled: discordLoginEnabled(), desktop: !!desktopBridge() })
                 if (id === 'discord' && discordLoginEnabled()) void startDiscord()
                 else if (id === 'discord') setError(desktopBridge()
                   ? 'Discord 로그인은 데스크톱 앱에서 준비 중이에요. 지금은 웹 브라우저에서 사용할 수 있어요.'
@@ -726,10 +731,11 @@ export function LocalServiceApp({
                 else setError(`${name} 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.`)
               }} />
             )}
-            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 재설정</button>
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 찾기</button>
             <button type="button" className="btn btn-quiet" onClick={() => {
               setConsents({})
               setSocialSignup(null)
+              setVerifiedEmail('')
               openAuth('consent')
             }}>
               회원가입
