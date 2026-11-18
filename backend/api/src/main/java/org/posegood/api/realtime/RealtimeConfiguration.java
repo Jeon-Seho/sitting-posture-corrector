@@ -20,23 +20,23 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 @Configuration
 @EnableWebSocket
 public class RealtimeConfiguration implements WebSocketConfigurer {
-	private final RealtimeHandler handlerV2;
+	private final RealtimeHandler handler;
 	private final String[] origins;
 
 	public RealtimeConfiguration(
-		RealtimeHandler handlerV2,
+		RealtimeHandler handler,
 		@Value("${posegood.realtime.allowed-origins:}")
 		String origins) {
-		this.handlerV2 = handlerV2;
+		this.handler = handler;
 		this.origins = Arrays.stream(origins.split(",")).map(String::strip).filter(o -> !o.isEmpty())
 			.toArray(String[]::new);
 	}
 
 	@Override
 	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		var v2 = registry.addHandler(handlerV2, "/realtime");
+		var realtime = registry.addHandler(handler, "/realtime");
 		if (origins.length > 0) {
-			v2.setAllowedOrigins(origins);
+			realtime.setAllowedOrigins(origins);
 		}
 	}
 

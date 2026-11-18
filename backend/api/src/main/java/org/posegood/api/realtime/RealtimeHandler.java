@@ -179,7 +179,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 			try {
 				pipeline.finish(channel.owner, id, null);
 			} catch (ApiError | DataAccessException gone) {
-				log.debug("realtime v2 disconnect end skipped: {}", gone.getClass().getSimpleName());
+				log.debug("realtime disconnect end skipped: {}", gone.getClass().getSimpleName());
 			}
 		}
 	}
@@ -341,7 +341,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		try {
 			next = sessions.rollover(channel.owner, previous, channel.midnight, SessionEngine.DEFAULT_MAX_MS - at);
 		} catch (ApiError | DataAccessException failed) {
-			log.warn("realtime v2 midnight rollover failed: {}", failed.getClass().getSimpleName());
+			log.warn("realtime midnight rollover failed: {}", failed.getClass().getSimpleName());
 			if (channel.dayEnded) {
 				channel.ended = true;
 				finishClosed(channel, DAY_CHANGED);
@@ -403,7 +403,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		} catch (DataAccessException storage) {
 			// 판정은 끝났고 이벤트로 closed를 이미 보냈다. DB 저장은 S3(POST /sessions/{id}/end)가 다시 시도하지만
 			// 앱은 S3를 부르지 않으므로, 세션 행은 ended_at NULL로 남는다(남은 한계).
-			log.warn("realtime v2 end persist failed: {}", storage.getClass().getSimpleName());
+			log.warn("realtime end persist failed: {}", storage.getClass().getSimpleName());
 		}
 		if (!pipeline.local()) {
 			// kafka: 종료 사건(결과 토픽)을 받은 뒤 closed를 보낸다(pipelineResult). 그동안은 stalled로 알린다.
@@ -547,7 +547,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 			try {
 				pipeline.finish(channel.owner, id, null);
 			} catch (ApiError | DataAccessException failed) {
-				log.warn("realtime v2 shutdown end failed: {}", failed.getClass().getSimpleName());
+				log.warn("realtime shutdown end failed: {}", failed.getClass().getSimpleName());
 			}
 		}
 	}
@@ -617,7 +617,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 				channel.socket.sendMessage(new TextMessage(json.write(message)));
 			}
 		} catch (IOException | RuntimeException failed) {
-			log.debug("realtime v2 send failed: {}", failed.getClass().getSimpleName());
+			log.debug("realtime send failed: {}", failed.getClass().getSimpleName());
 			close(channel, CloseStatus.SESSION_NOT_RELIABLE);
 		}
 	}
