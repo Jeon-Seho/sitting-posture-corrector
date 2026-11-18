@@ -192,6 +192,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-12 | 주소에서 버전 삭제(`/v2/…` → `/…`, 소셜 로그인·비밀번호 재설정 포함, WS `/realtime`, 추론 `/infer`), 추론 `/v1/infer` 삭제. 3장에 배포·Cloudflare·Discord 주소 후속 추가 | `refactor/repo-remove-api-version-paths` |
 | 2026-11-17 | A7 탈퇴에서 비밀번호 확인 빼기(BE-25, FE 제안서 요구 1): 본문을 읽지 않음(옛 앱 `{password}` 무시), Discord 가입 계정도 탈퇴 가능. 2.1·2.7, `api-spec.md` A7·변경 이력, 계약 `accounts.v2.md` | `fix/backend-withdrawal-no-password` |
 | 2026-11-18 | develop(`ed72615`)을 다시 합치며 #127의 새 주소(이메일 인증·비밀번호 재설정 링크 확인·소셜 연결 승인)와 그 시험, 통신 시험 도구 `comm_test_guided.py` 기본 경로(`/api`, io-api 직접은 앞부분 없음)에서 `/v2`를 뺌 | `refactor/repo-remove-api-version-paths` |
+| 2026-11-18 | Kafka·처리 서비스 이름에서 버전 빼기(계획 0097, **호환성 깨짐**, 서버 전환 필요): 토픽 `posture.*.v1` → `posture.*`, 그룹 `judge`·`report-store`·`inference-service`, 처리 서비스 `POST /api/realtime/features`·`GET /judge/*`, Redis `posture:judge:*`, HDFS `realtime`·`keypoints` 경로, `V1*` 클래스, Kafka·공유 계약 파일 이름. io-api kafka 모드 토픽 설정도 함께 | `refactor/repo-remove-api-version-paths` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

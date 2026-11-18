@@ -39,5 +39,6 @@
 - 이 결정으로 바꾼 것은 문서뿐이다: [AGENTS.md](../../AGENTS.md) 불변 기준, [계약 안내](../../contracts/README.md), [실시간 전달 계약](../../contracts/realtime/README.md).
 - 코드와 계약은 아직 `schema_version` 필드(값 검사: `RealtimeHandlerV2`, `InferenceClient`, 앱 `validation.ts`, 추론 `schemas.py`, 처리 서비스)와 `.v1`·`.v2` 파일 이름을 쓴다. 지우는 일은 계획을 따로 만들어 진행한다.
 - Kafka 토픽 이름(`posture.features.v1` 등)은 처리 서비스와 서버 설정을 함께 바꾸고 다시 배포해야 하므로 DevOps와 따로 정한다.
+- 2026-11-18: Kafka·처리 서비스에도 적용했다([계획 0097](../plans/active/0097-kafka-processing-remove-versions.md)). 토픽(`posture.features` 등)·컨슈머 그룹(`judge` 등)·처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`)·Redis 키·HDFS 경로·`V1*` 클래스·Kafka 계약 파일(`kafka-*.schema.json`)과 그것이 가리키는 공유 계약(`inference-request`·`posture-observation`·`posture-event`·`session-view`)의 버전을 뺐다. 메시지 안 버전 필드와 WebSocket 계약 이름(`realtime-ws.v2`, `posture.frames.v1`)은 남아 있다.
 - 브라우저 저장 키(`posegood.v2.*`)는 이름을 바꾸면 사용자 브라우저에 저장된 기록·설정을 못 찾는다. 옮겨 담는 코드 없이 바꾸지 않는다.
 - 버전으로 옛 형식과 새 형식을 같이 돌리는 방법이 없어졌으므로, 보내는 쪽과 받는 쪽을 따로 배포하는 일이 생기면 이 결정을 다시 본다.

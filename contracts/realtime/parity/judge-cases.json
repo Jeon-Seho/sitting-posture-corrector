@@ -1,5 +1,5 @@
 {
-  "description": "T-15 판정 동등성 시험 데이터(합성). 같은 관측열을 팀 API 판정(backend/api engine/SessionEngine)과 처리 서비스 판정(backend/processing V1SessionJudge)에 넣으면 사건·요약·제외 구간이 이 기대값과 같아야 한다. 기대값은 SessionEngine으로 만들었다(2026-10-16). 사건의 event_id는 비교하지 않는다(처리 서비스는 제외 구간 사건 excluded_started·excluded_ended도 같은 번호 순서로 낸다). 제외 구간 사유는 DB 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING).",
+  "description": "T-15 판정 동등성 시험 데이터(합성). 같은 관측열을 팀 API 판정(backend/api engine/SessionEngine)과 처리 서비스 판정(backend/processing SessionJudge)에 넣으면 사건·요약·제외 구간이 이 기대값과 같아야 한다. 기대값은 SessionEngine으로 만들었다(2026-10-16). 사건의 event_id는 비교하지 않는다(처리 서비스는 제외 구간 사건 excluded_started·excluded_ended도 같은 번호 순서로 낸다). 제외 구간 사유는 DB 값(PAUSE·ABSENCE·UNMEASURABLE·MISSING).",
   "observation_columns": ["sequence", "start_ms", "end_ms", "phase", "valid", "collapse_probability", "deviation_type"],
   "cases": [
     {"name": "t10-collapse-reminder-recovery", "policy": {"hold_ms": 3000, "recovery_ms": 3000, "reminder_ms": 60000, "threshold": 0.7}, "end_ms": 85000,

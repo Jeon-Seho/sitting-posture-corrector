@@ -234,12 +234,13 @@ tools/platform/integration_test.sh --quick               # 14단계(터널 경�
 
 ### 판정 (api-server `judge`, D-22·D-53)
 
-api-server가 `posture.inference.v1`을 그룹 `judge-v1`로 구독해 상태머신으로 판정하고 `posture.episodes.v1`로 발행한다(CEP 엔진은 쓰지 않는다).
-확인은 `GET /judge/v1/status`·`GET /judge/v1/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
+api-server가 `posture.inference`을 그룹 `judge`로 구독해 상태머신으로 판정하고 `posture.episodes`로 발행한다(CEP 엔진은 쓰지 않는다).
+확인은 `GET /judge/status`·`GET /judge/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
 옛 `posture.summary` 경로(`/cep/*`·`CEP_*`·그룹 `api-server-cep`)는 D-38에서 지웠다 — 아래 "옛 경로 정리".
 
-D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다. 새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로,
-api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고, 다시 만든 뒤 옛 그룹을 지운다(한 번만).
+D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다(2026-11-18부터는 `judge`, 아래 「Kafka 이름에서 버전 빼기」).
+새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로, api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고,
+다시 만든 뒤 옛 그룹을 지운다(한 번만, 이미 끝난 작업의 기록).
 
 ```bash
 K="docker exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092"
@@ -253,7 +254,7 @@ $K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만
 
 옛 `posture.summary` 경로 — `/api/v1/posture/summary` → `posture.summary` → 추론 옛 컨슈머(그룹 `inference-service`) → `posture.inference`
 → 처리 서비스 `cep` 패키지(그룹 `api-server-cep`, Redis `posture:state:*`, 테스트용 DB `posture_app`) → posture-sink(HDFS `/posture/features/stream`) —
-를 코드에서 지웠다. 추론 서비스는 v1 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
+를 코드에서 지웠다. 추론 서비스는 실시간 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
 새 이미지로 바꾼 뒤 서버에 남은 것을 한 번 지운다(쓰는 서비스가 없어 지워도 영향 없음).
 
 ```bash
@@ -272,12 +273,47 @@ docker exec hdfs-namenode hdfs dfs -rm -r -skipTrash /posture/features/stream /p
 `.env`의 `DB_NAME`·`CEP_*`는 더 이상 읽지 않는다(남아 있어도 무시). MySQL의 `posture_app` 스키마(옛 시험 행)는 DB 담당과 정한 뒤 지운다.
 통합 테스트 7단계(옛 경로 T-10·posture-sink 적재)는 없어졌고, 2단계가 옛 토픽·그룹이 남아 있으면 안내한다.
 
+### Kafka 이름에서 버전 빼기 (2026-11-18, ADR 0049)
+
+토픽·컨슈머 그룹·Redis 키·HDFS 경로·처리 서비스 주소에서 `v1`을 뺐다([Kafka 명세](../docs/design/kafka-spec.md) 머리말).
+
+| 옛 이름 | 새 이름 |
+|---|---|
+| 토픽 `posture.{features,inference,episodes,alerts,stored,keypoints}.v1` | `posture.{features,inference,episodes,alerts,stored,keypoints}` (`posture.dlq`는 그대로) |
+| 그룹 `judge-v1`·`report-store-v1`·`inference-service-v1` | `judge`·`report-store`·`inference-service` (`io-ws-*`는 그대로) |
+| Redis `posture:v1:judge:{session_id}` | `posture:judge:{session_id}` |
+| HDFS `/data/staging/realtime-v1`·`keypoints-v1`, `/data/checkpoints/j1-realtime-v1`·`j1-keypoints-v1` | `realtime`·`keypoints`, `j1-realtime`·`j1-keypoints` |
+| 처리 서비스 `POST /api/v1/realtime/features`, `GET /judge/v1/*` | `POST /api/realtime/features`, `GET /judge/*` |
+| 환경변수 `POSTURE_*_V1_TOPIC`, `KAFKA_TOPIC_POSTURE_*_V1`, `KAFKA_V1_CONSUMER_GROUP_ID`, `REALTIME_V1_ENABLED` | `POSTURE_*_TOPIC`, `KAFKA_TOPIC_POSTURE_*`, `KAFKA_CONSUMER_GROUP_ID`, `REALTIME_ENABLED` |
+
+운영에서 kafka 모드를 켜기 **전**(`POSEGOOD_REALTIME_PIPELINE=local`이라 Kafka에는 시험 메시지만 흐를 때)에, 측정이 적은 시간에 한 번 한다.
+
+```bash
+C="docker compose -f infra/compose/bigdata.yaml"
+K="docker exec kafka /opt/kafka/bin"; B="--bootstrap-server localhost:9092"
+docker exec redis redis-cli --scan --pattern 'posture:v1:judge:*' | wc -l    # 1. 진행 중 판정 세션 0개 확인
+tools/platform/batch.sh j1                                                   # 2. 옛 임시 폴더의 끝난 세션을 옮김
+$K/kafka-consumer-groups.sh $B --describe --group judge-v1 --group report-store-v1 --group inference-service-v1   # 3. LAG 0
+$K/kafka-topics.sh $B --list | grep -x posture.inference                     # 4. 옛 D-38 토픽이 남았으면 지움(새 이름과 같음)
+$K/kafka-topics.sh $B --delete --topic posture.inference
+$K/kafka-consumer-groups.sh $B --delete --group inference-service
+grep -nE 'V1_TOPIC|_V1\b|V1_CONSUMER|judge-v1|report-store-v1' infra/compose/.env   # 5. 옛 이름을 직접 넣은 줄은 지움
+$C up -d --build api-server inference-service io-api                          # 6. 세 서비스를 함께(새 토픽은 api-server가 만듦)
+tools/platform/integration_test.sh                                           # 7. 2·8·9·11·12·17단계가 새 이름으로 통과
+```
+
+- 세 서비스 중 하나만 옛 이름이면 메시지가 아무도 읽지 않는 토픽에 쌓인다(오류 없이 판정이 멈춤). 6번은 반드시 함께 올린다.
+- 되돌리기: 아래 정리 전까지 옛 토픽·그룹이 남아 있으므로 옛 이미지로 세 서비스를 다시 올리면 된다.
+- 며칠 지켜본 뒤 정리: 옛 토픽 6개(`kafka-topics.sh --delete --topic posture.<이름>.v1`), 옛 그룹 3개(`kafka-consumer-groups.sh --delete --group <이름>-v1`),
+  HDFS `hdfs dfs -rm -r -skipTrash /data/staging/realtime-v1 /data/staging/keypoints-v1 /data/checkpoints/j1-realtime-v1 /data/checkpoints/j1-keypoints-v1`.
+  Redis `posture:v1:judge:*`는 1시간 뒤 저절로 사라진다.
+
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 
-api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
+api-server가 `posture.episodes`을 따로 구독해(그룹 `report-store`) `posture_service`(V2.3)의
 `collapse_event`·`correction_alert`·`excluded_interval`(D-39 제외 구간)과 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
 행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /store/service-db`(V2.3, 통합 테스트 6단계).
-(D-54) 알림 행을 새로 쓰고 세션 알림이 켜져 있고 10초 안의 사건이면 `posture.alerts.v1`(보존 3일)로도 낸다 — 입출구 서버 `ws`가 앱에 `alert`로 보낸다.
+(D-54) 알림 행을 새로 쓰고 세션 알림이 켜져 있고 10초 안의 사건이면 `posture.alerts`(보존 3일)로도 낸다 — 입출구 서버 `ws`가 앱에 `alert`로 보낸다.
 
 - 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
   (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).

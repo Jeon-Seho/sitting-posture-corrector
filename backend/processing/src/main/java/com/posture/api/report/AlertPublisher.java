@@ -1,7 +1,7 @@
 package com.posture.api.report;
 
 /**
- * (D-54) 표시할 알림을 {@code posture.alerts.v1}로 내보낸다. 판정 결과 저장이 알림 행을 새로 기록하고, 세션 알림이 켜져 있고,
+ * (D-54) 표시할 알림을 {@code posture.alerts}로 내보낸다. 판정 결과 저장이 알림 행을 새로 기록하고, 세션 알림이 켜져 있고,
  * 사건이 오래되지 않았을 때만 부른다({@link EpisodeStoreService}).
  */
 public interface AlertPublisher {

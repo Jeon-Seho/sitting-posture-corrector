@@ -14,7 +14,7 @@ from model.inference.service import predict_feature_observation
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = ROOT / "contracts/realtime/parity/inference-cases.v1.json"
+CASES = ROOT / "contracts/realtime/parity/inference-cases.json"
 
 
 class InferenceParityTests(unittest.TestCase):

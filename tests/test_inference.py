@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from model.inference.app import app
 
 
-EXAMPLES = Path(__file__).resolve().parents[1] / "contracts/examples/v2"
+EXAMPLES = Path(__file__).resolve().parents[1] / "contracts/examples/inference"
 
 
 class InferenceV2Tests(unittest.TestCase):

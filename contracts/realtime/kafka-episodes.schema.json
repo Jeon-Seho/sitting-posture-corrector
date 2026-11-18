@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/realtime/kafka-episodes.v1.schema.json",
-  "title": "Topic posture.episodes.v1 (draft): decision (state machine) -> gateway (per-interval observation, events and periodic progress)",
+  "$id": "https://posegood.local/contracts/realtime/kafka-episodes.schema.json",
+  "title": "Topic posture.episodes (draft): decision (state machine) -> gateway (per-interval observation, events and periodic progress)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -125,10 +125,10 @@
           "minimum": -1
         },
         "event": {
-          "$ref": "../posture-event.v1.schema.json"
+          "$ref": "../posture-event.schema.json"
         },
         "summary": {
-          "$ref": "../session-view.v1.schema.json#/properties/summary"
+          "$ref": "../session-view.schema.json#/properties/summary"
         }
       }
     },
@@ -146,7 +146,7 @@
           "minimum": -1
         },
         "summary": {
-          "$ref": "../session-view.v1.schema.json#/properties/summary"
+          "$ref": "../session-view.schema.json#/properties/summary"
         }
       }
     }

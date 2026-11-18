@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-(D-21) 실시간 계약 v1 재생 도구 — 합성 세션 1개를 posture.features.v1 메시지로 만들어
-api-server의 시험용 입구(POST /api/v1/realtime/features)로 보낸다.
+(D-21) 실시간 Kafka 계약 재생 도구 — 합성 세션 1개를 posture.features 메시지로 만들어
+api-server의 시험용 입구(POST /api/realtime/features)로 보낸다.
 
-    python3 tools/platform/replay_realtime_v1.py                      # T-10과 같은 시나리오(정상 5s → 나쁜 자세 70s → 회복 10s)
-    python3 tools/platform/replay_realtime_v1.py --pace realtime      # 실제 시간처럼 0.5초마다
-    python3 tools/platform/replay_realtime_v1.py --user-id IT-V1-001 --bad-sec 10
+    python3 tools/platform/replay_realtime.py                      # T-10과 같은 시나리오(정상 5s → 나쁜 자세 70s → 회복 10s)
+    python3 tools/platform/replay_realtime.py --pace realtime      # 실제 시간처럼 0.5초마다
+    python3 tools/platform/replay_realtime.py --user-id IT-V1-001 --bad-sec 10
     # (D-37) 재시작 시험: 같은 세션을 두 번에 나눠 보낸다(메시지 번호 0부터, 끝 번호는 포함 안 함)
-    python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 0:60    # 시작 + 구간 sequence 0~58
+    python3 tools/platform/replay_realtime.py --session-id <uuid> --range 0:60    # 시작 + 구간 sequence 0~58
     docker compose -f infra/compose/bigdata.yaml restart api-server                                # 판정 상태는 Redis에서 복원
-    python3 tools/platform/replay_realtime_v1.py --session-id <uuid> --range 60:     # 나머지 + 종료
+    python3 tools/platform/replay_realtime.py --session-id <uuid> --range 60:     # 나머지 + 종료
     # (D-39) 제외 구간 시험: 정상 2s → 휴식(rest) 2.5s → 정상 2s, 마지막 구간 뒤 1.5s 공백(누락)으로 종료
-    python3 tools/platform/replay_realtime_v1.py --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500
+    python3 tools/platform/replay_realtime.py --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500
 
 메시지: session_started(정책 3000/3000/60000/0.7) → features(0.5초 구간 1개씩, sequence 0부터) → session_ended.
 특징 값은 T-10 CSV와 같다(나쁜 자세: 머리 0.18·좌우 0.15·어깨 -0.12, 정상: 0.02·0.01·-0.01, 품질 0.9).
 합성 데이터이며 실제 사람의 측정값이 아니다. 원본 영상·좌표는 넣지 않는다.
 
-판정 기대값(v1 판정기 D-22, 정책 3000/3000/60000/0.7, 유효 시간 누적):
+판정 기대값(판정기 D-22, 정책 3000/3000/60000/0.7, 유효 시간 누적):
 collapse_confirmed 8000ms(시작 5000) → reminder 68000ms → recovery_confirmed 78000ms(실제 지속 73.0초) → session_ended 85000ms,
-요약 collapse_count 1·alert_count 2·valid_ms 85000·mean_recovery_ms 70000. 결과: GET /judge/v1/sessions/<session_id>
+요약 collapse_count 1·alert_count 2·valid_ms 85000·mean_recovery_ms 70000. 결과: GET /judge/sessions/<session_id>
 """
 import argparse
 import json
@@ -86,7 +86,7 @@ def build_session(args, start: datetime):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--api", default="http://localhost:8080/api/v1/realtime/features")
+    ap.add_argument("--api", default="http://localhost:8080/api/realtime/features")
     ap.add_argument("--user-id", default="V1-REPLAY")
     ap.add_argument("--session-id", default=None, help="지정하지 않으면 새 UUID")
     ap.add_argument("--normal-sec", type=float, default=5.0)
@@ -144,8 +144,8 @@ def main() -> int:
             if args.pace == "realtime" and chunk[0]["kind"] == "features":
                 time.sleep(args.segment_ms / 1000)
 
-    print(f"[재생 v1] session_id = {session_id}")
-    print(f"[재생 v1] user_id = {args.user_id}, 구간 {args.segment_ms}ms, 메시지 {total}개(시작 1 + 구간 {total - 2} + 종료 1)"
+    print(f"[재생] session_id = {session_id}")
+    print(f"[재생] user_id = {args.user_id}, 구간 {args.segment_ms}ms, 메시지 {total}개(시작 1 + 구간 {total - 2} + 종료 1)"
           + (f", 이번에 보낸 범위 {args.range} = {len(msgs)}개" if args.range else ""))
     print(f"[결과] {time.time() - t0:.2f}초 동안 전송 성공(202) {sent} / 실패 {failed}")
     return 0 if failed == 0 else 1

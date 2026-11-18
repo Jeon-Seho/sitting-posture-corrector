@@ -23,7 +23,7 @@ class EpisodeStoreServiceTest {
 		return new EpisodeDecision(SID, eventId, kind, ts, onset, reason, normal);
 	}
 
-	/** T-10 v1 시나리오(DN-39): 시작 5.0s → 확정 8.0s → 재알림 68.0s → 복귀 78.0s → 종료 85.0s, normal 15000. */
+	/** T-10 시나리오(DN-39): 시작 5.0s → 확정 8.0s → 재알림 68.0s → 복귀 78.0s → 종료 85.0s, normal 15000. */
 	static List<EpisodeDecision> t10() {
 		List<EpisodeDecision> decisions = new ArrayList<>();
 		decisions.add(decision(1, "collapse_confirmed", 8000, 5000, null, 3000));

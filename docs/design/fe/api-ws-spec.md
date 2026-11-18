@@ -1125,7 +1125,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. `hello`에서 토큰, 세션 주인, 진행 중 여부, 기준 자세를 확인하고 `ready`를 보낸다.
-2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
+2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features`로 보내고 처리 서비스가 판정한다.
 3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `ack` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. kafka 모드에서는 `ack`가 먼저 오고, `progress`는 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
 4. 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다.
 5. `end`면 저장한 뒤 `decision(session_ended)` → `closed(ended)`를 보낸다.

@@ -91,7 +91,7 @@ class KafkaPipelineTest {
 			sent.add(call.getArgument(0));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		pipeline = new KafkaPipeline(sessions, producer, "posture.features.v1", JSON, Duration.ofSeconds(3),
+		pipeline = new KafkaPipeline(sessions, producer, "posture.features", JSON, Duration.ofSeconds(3),
 			Duration.ofHours(24), Clock.fixed(Instant.parse("2026-11-10T01:00:01Z"), ZoneOffset.UTC));
 	}
 
@@ -134,7 +134,7 @@ class KafkaPipelineTest {
 
 		assertEquals(4, sent.size());
 		sent.forEach(record -> {
-			assertEquals("posture.features.v1", record.topic());
+			assertEquals("posture.features", record.topic());
 			assertEquals(SESSION.toString(), record.key());
 		});
 		sameShape("features-session-started.json", message(0));
@@ -168,7 +168,7 @@ class KafkaPipelineTest {
 			() -> pipeline.frames(OWNER, SESSION, interval(5, 600, 700), BASELINE)).status());
 		assertEquals(409, assertThrows(ApiError.class,
 			() -> pipeline.frames(OWNER, SESSION, interval(6, 550, 700), BASELINE)).status());
-		var limited = new KafkaPipeline(sessions, producer, "posture.features.v1", JSON, Duration.ofSeconds(3),
+		var limited = new KafkaPipeline(sessions, producer, "posture.features", JSON, Duration.ofSeconds(3),
 			Duration.ofMillis(1000), Clock.systemUTC());
 		limited.open(OWNER, SESSION);
 		assertEquals(429, assertThrows(ApiError.class,
@@ -183,7 +183,7 @@ class KafkaPipelineTest {
 			sent.add(call.getArgument(0));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features", "posture.keypoints", JSON,
 			Duration.ofSeconds(3), Duration.ofHours(24), Clock.fixed(Instant.parse("2026-11-10T01:00:01Z"),
 			ZoneOffset.UTC));
 		archiving.open(OWNER, SESSION);
@@ -191,8 +191,8 @@ class KafkaPipelineTest {
 		assertEquals(3, archiving.frames(OWNER, SESSION, interval, BASELINE).lastSequence());
 
 		assertEquals(3, sent.size()); // 시작, features, keypoints
-		assertEquals("posture.features.v1", sent.get(1).topic());
-		assertEquals("posture.keypoints.v1", sent.get(2).topic());
+		assertEquals("posture.features", sent.get(1).topic());
+		assertEquals("posture.keypoints", sent.get(2).topic());
 		assertEquals(SESSION.toString(), sent.get(2).key());
 		var keypoints = message(2);
 		sameShape("keypoints-keypoints.json", keypoints);
@@ -227,7 +227,7 @@ class KafkaPipelineTest {
 			callbacks.add(call.getArgument(1));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features", "posture.keypoints", JSON,
 			Duration.ofSeconds(3), Duration.ofHours(24), Clock.systemUTC());
 		archiving.open(OWNER, SESSION);
 		assertEquals(0, archiving.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE).lastSequence());

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from app.realtime import observation_from_features
 
-CASES = Path(__file__).resolve().parents[3] / "contracts" / "realtime" / "parity" / "inference-cases.v1.json"
+CASES = Path(__file__).resolve().parents[3] / "contracts" / "realtime" / "parity" / "inference-cases.json"
 
 
 def test_processing_inference_matches_the_shared_cases():

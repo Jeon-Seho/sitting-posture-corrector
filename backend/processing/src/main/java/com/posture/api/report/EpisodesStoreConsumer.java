@@ -18,9 +18,9 @@ import com.posture.api.posture.realtime.DeadLetterPublisher;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * (D-30, D-51) 판정 결과 저장 — {@code posture.episodes.v1}을 따로 구독해({@code report-store-v1}) V2.3 결과 테이블에 기록한다.
+ * (D-30, D-51) 판정 결과 저장 — {@code posture.episodes}을 따로 구독해({@code report-store}) V2.3 결과 테이블에 기록한다.
  *
- * <p>판정(judge-v1)과 그룹이 달라 DB가 느리거나 멈춰도 판정·발행은 영향이 없다(v4 장애 격리). 판정 패키지의 클래스는
+ * <p>판정(judge)과 그룹이 달라 DB가 느리거나 멈춰도 판정·발행은 영향이 없다(v4 장애 격리). 판정 패키지의 클래스는
  * 쓰지 않고 Kafka 메시지만 읽는다 — 나중에 report 서비스로 떼어 낼 때 그대로 옮긴다(v4 D8). 키가 session_id라 한 세션의
  * 메시지는 한 파티션에서 순서대로 온다.
  * <ul>
@@ -33,7 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class EpisodesStoreConsumer {
 
 	private static final Logger log = LoggerFactory.getLogger(EpisodesStoreConsumer.class);
-	static final String CONSUMER_NAME = "report-store-v1";
+	static final String CONSUMER_NAME = "report-store";
 
 	private final EpisodeStoreService service;
 	private final DeadLetterPublisher dlq;
@@ -52,8 +52,8 @@ public class EpisodesStoreConsumer {
 
 	@KafkaListener(
 		id = CONSUMER_NAME,
-		topics = "${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}",
-		groupId = "${report.store.group:report-store-v1}",
+		topics = "${app.kafka.topic.posture-episodes:posture.episodes}",
+		groupId = "${report.store.group:report-store}",
 		concurrency = "${report.store.concurrency:1}",
 		autoStartup = "${report.store.enabled:true}",
 		containerFactory = ReportStoreConfig.FACTORY,

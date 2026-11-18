@@ -3,16 +3,16 @@ package com.posture.api.posture.judge;
 import java.util.Map;
 
 /**
- * (D-22) 세션 판정 정책 — 계약 v1 {@code session_started.body.policy}.
+ * (D-22) 세션 판정 정책 — Kafka 계약 {@code session_started.body.policy}.
  * 시작 메시지가 없으면 환경변수 기본값(judge.hold/recovery/reminder-seconds, judge.threshold)을 쓴다.
  */
-public record V1Policy(long holdMs, long recoveryMs, long reminderMs, double threshold) {
+public record JudgePolicy(long holdMs, long recoveryMs, long reminderMs, double threshold) {
 
-	public static V1Policy fromBody(Map<String, Object> policy, V1Policy fallback) {
+	public static JudgePolicy fromBody(Map<String, Object> policy, JudgePolicy fallback) {
 		if (policy == null) {
 			return fallback;
 		}
-		return new V1Policy(
+		return new JudgePolicy(
 			longOr(policy.get("hold_ms"), fallback.holdMs),
 			longOr(policy.get("recovery_ms"), fallback.recoveryMs),
 			longOr(policy.get("reminder_ms"), fallback.reminderMs),

@@ -765,7 +765,7 @@ S1은 됐지만 WebSocket이 열리지 않은 세션과 종료 저장이 DB 오�
      `summary.total_ms`는 저장된 측정 시간. 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는
      판정하지 않아 비어 있음, 계획 0031 11번)의 끝난 세션이 이 경로로 답한다.
   3. 그것도 없으면 메모리의 진행 중 상태. kafka 모드에서는 D-57 ⑧이 실시간 연결이 받은 마지막 `progress`·`decision`
-     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored.v1`)를 다 받았을 때만
+     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored`)를 다 받았을 때만
      `true`다. D-57 병합 전 develop에서는 빈 상태(`last_sequence: -1`)다.
   4. 셋 다 없으면 404 `SESSION_LOST`.
 - 종료 저장이 실패한 세션(R1 `status: "error"`)은 2번에서 빠진다.
@@ -1107,7 +1107,7 @@ S1·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summ
 
 ### Observation — 추론 결과 (schema 2.0)
 
-API가 FastAPI `POST /infer`에서 받는 응답이다(앱에는 보내지 않는다). 아래는 계약 예시 요청 [`synthetic-feature-request.json`](../../contracts/examples/v2/synthetic-feature-request.json)(`lateral_offset_delta` 0.2)을 실제 추론 코드에 보낸 응답이다. 점수 = min(1, 0.2 ÷ 0.20) × 0.7 = 0.7.
+API가 FastAPI `POST /infer`에서 받는 응답이다(앱에는 보내지 않는다). 아래는 계약 예시 요청 [`synthetic-feature-request.json`](../../contracts/examples/inference/synthetic-feature-request.json)(`lateral_offset_delta` 0.2)을 실제 추론 코드에 보낸 응답이다. 점수 = min(1, 0.2 ÷ 0.20) × 0.7 = 0.7.
 
 **응답 200 (실제)**
 

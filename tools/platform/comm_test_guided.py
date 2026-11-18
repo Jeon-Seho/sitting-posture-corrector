@@ -37,13 +37,13 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 TOPICS = {
-    "posture.features.v1": "FEAT", "posture.inference.v1": "INFR", "posture.episodes.v1": "EPIS",
-    "posture.alerts.v1": "ALRT", "posture.stored.v1": "STOR", "posture.dlq": "DLQ",
-    "posture.keypoints.v1": "KEYP",
+    "posture.features": "FEAT", "posture.inference": "INFR", "posture.episodes": "EPIS",
+    "posture.alerts": "ALRT", "posture.stored": "STOR", "posture.dlq": "DLQ",
+    "posture.keypoints": "KEYP",
 }
-WATCHED_TOPICS = ["posture.features.v1", "posture.episodes.v1", "posture.alerts.v1",
-                  "posture.stored.v1", "posture.dlq"]
-GROUPS = ["inference-service-v1", "judge-v1", "report-store-v1", "io-ws-io-api"]
+WATCHED_TOPICS = ["posture.features", "posture.episodes", "posture.alerts",
+                  "posture.stored", "posture.dlq"]
+GROUPS = ["inference-service", "judge", "report-store", "io-ws-io-api"]
 PER_INTERVAL = {"features", "observation", "keypoints", "progress"}
 
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
@@ -923,8 +923,8 @@ def step_s12(c: Ctx) -> None:
         c.note("오프셋 " + " ".join(f"{TOPICS[t]}+{d}" for t, d in diff.items()))
         if diff.get("posture.dlq", 0) != 0:
             raise Fail(f"DLQ +{diff['posture.dlq']}")
-        if diff.get("posture.keypoints.v1", 0) != 0:
-            raise Fail(f"keypoints +{diff['posture.keypoints.v1']} — 좌표 적재 스위치가 켜져 있음")
+        if diff.get("posture.keypoints", 0) != 0:
+            raise Fail(f"keypoints +{diff['posture.keypoints']} — 좌표 적재 스위치가 켜져 있음")
         for _ in range(4):  # 마지막 메시지를 처리하는 중이면 잠깐 lag가 남는다 — 최대 15초 다시 봄
             lags = {g: ops.lag(g) for g in GROUPS}
             if not any(v for v in lags.values()):

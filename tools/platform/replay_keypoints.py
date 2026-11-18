@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-(D-92) 좌표 적재 토픽 posture.keypoints.v1 시험 메시지 — 합성 좌표 구간을 "키|봉투 JSON" 줄로 표준 출력에 낸다.
+(D-92) 좌표 적재 토픽 posture.keypoints 시험 메시지 — 합성 좌표 구간을 "키|봉투 JSON" 줄로 표준 출력에 낸다.
 kafka-console-producer가 그대로 받는다(통합 테스트 17단계):
 
-    python3 tools/platform/replay_keypoints_v1.py --session-id <uuid> \\
+    python3 tools/platform/replay_keypoints.py --session-id <uuid> \\
       | docker exec -i kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \\
-          --topic posture.keypoints.v1 --property parse.key=true --property key.separator='|'
+          --topic posture.keypoints --property parse.key=true --property key.separator='|'
 
-구간은 replay_realtime_v1.py 기본 시나리오와 같은 170개(0.5초, sequence 0부터, 85초)이고 구간마다 프레임 4장(125ms).
+구간은 replay_realtime.py 기본 시나리오와 같은 170개(0.5초, sequence 0부터, 85초)이고 구간마다 프레임 4장(125ms).
 본문은 앱이 보내는 좌표 구간 계약(contracts/realtime/frames/posture-frames.v1.schema.json) 그대로다.
 좌표는 합성 값(기준 자세 근처 고정점 + 나쁜 자세 구간은 머리 점을 아래로)이며 실제 사람의 측정값이 아니다.
 """

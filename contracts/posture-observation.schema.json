@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/posture-observation.v2.schema.json",
+  "$id": "https://posegood.local/contracts/posture-observation.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [

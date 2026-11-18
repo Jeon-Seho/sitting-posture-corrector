@@ -60,7 +60,7 @@
       ]
     },
     "summary": {
-      "$ref": "../session-view.v1.schema.json#/properties/summary"
+      "$ref": "../session-view.schema.json#/properties/summary"
     },
     "hello": {
       "description": "app -> server, first message, after PUT /sessions/{id} succeeded (200). access_token: the login access token (JWT) from login/refresh (ADR 0031); checked once, so it may expire during the connection.",

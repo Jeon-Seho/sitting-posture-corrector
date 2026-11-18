@@ -51,7 +51,7 @@
 
 - **한줄요약:** kafka 모드에서 추론이 한 세션의 결과 순서를 바꾸지 않는지 전환 시험에서 확인한다.
 - **발단:** local은 API 한 곳이 차례대로 처리해 순서가 지켜지지만, kafka는 판정이 처리 서비스로 옮겨 간다.
-- **원인:** kafka 판정기는 이미 반영한 `sequence`는 버리고, 번호가 건너뛰면 `missing_sequence`로 끊는다([kafka-spec.md](../kafka-spec.md) 3.3, `V1SessionJudge`). 늦게 온 결과를 기다려 주던 버퍼(#91 `PendingIntervals`)는 #91과 함께 빠졌다. 순서가 바뀌면 판정이 끊긴다.
+- **원인:** kafka 판정기는 이미 반영한 `sequence`는 버리고, 번호가 건너뛰면 `missing_sequence`로 끊는다([kafka-spec.md](../kafka-spec.md) 3.3, `SessionJudge`). 늦게 온 결과를 기다려 주던 버퍼(#91 `PendingIntervals`)는 #91과 함께 빠졌다. 순서가 바뀌면 판정이 끊긴다.
 - **요구사항/변경사항:** 전환 시험(계획 0031)에서 순서를 확인하고, 바뀌면 버퍼를 다시 넣는다. 판정은 결과가 오는 즉시, 시간은 촬영 시각으로 센다(3초 묶음으로 되돌리지 않음).
 - **진행(11/17):** 11/16 FE 포함 통신 시험은 서버가 local 모드로 진행돼 kafka 경로를 확인하지 못했다. kafka 모드로 다시 시험한다(시작 전 `POSEGOOD_REALTIME_PIPELINE=kafka`, 끝난 뒤 `features`·`inference`·`episodes`·`stored` 토픽 오프셋이 늘었는지 확인).
 
@@ -117,13 +117,13 @@
   4. FE: 앱(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`)을 새 형식으로 배포.
   5. BE: 옛 형식 받기를 지운다.
 
-  kafka `posture.features.v1`과 추론 `POST /infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
+  kafka `posture.features`과 추론 `POST /infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
 
 ### 요구 6. 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) (옛 15)
 
 - **한줄요약:** kafka 모드 판정기가 그 세션의 정책(`session_started`)을 받지 못한 채 관측을 받으면, 서버 기본값이 아니라 그 사용자가 정한 판정 기준으로 판정한다.
 - **발단:** D-57 통신 시험 준비(11/16)로 kafka 판정기 코드를 확인했다. 시험 F2(설정에서 확정 5초·재알림 30초로 바꾸고 측정)가 바로 이 경우에 걸린다. [FE 예외 처리 방안](fe-exception-handling-plan.md) 6장 2번으로 적어 두었던 것을 요구로 올린다.
-- **원인:** `feat/ws-kafka-pipeline` `1067dab` 처리 서비스의 `V1JudgeRegistry`:
+- **원인:** `feat/ws-kafka-pipeline` `1067dab` 처리 서비스의 `JudgeRegistry`:
   - 관측(`observation`)이 `session_started`보다 먼저 오면 「session_started 없이 관측을 받음 — 기본 정책으로 판정」(info 로그만)으로 **서버 기본 정책**(확정 3초·재알림 60초·기준 0.7)의 판정기를 만든다.
   - 그 뒤에 `session_started`가 와도 「이미 관측을 받은 세션」이라 **무시**한다. 그 세션은 끝까지 기본 정책으로 판정된다.
   - Redis에서 판정 상태를 복원하지 못하면(「복원할 수 없어 버림」) 다음 관측부터 같은 일이 생긴다.
@@ -376,8 +376,8 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 서버 | 코드 | 하는 일 |
 |---|---|---|
 | **io-api** (입출구 서버) | `backend/api` | 로그인(JWT access 30분·refresh 14일, [ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)), REST(A·C·W·B·S·R), 측정 WebSocket `/realtime`. 앱이 통신하는 곳은 여기 하나다 |
-| 추론 | `backend/inference` | local: io-api가 `POST /v2/infer`로 부른다. kafka: `posture.features.v1`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
-| 처리 서비스 | `backend/processing` | kafka 경로에서 판정(`V1SessionJudge`)과 저장. local에는 쓰이지 않는다 |
+| 추론 | `backend/inference` | local: io-api가 `POST /v2/infer`로 부른다. kafka: `posture.features`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
+| 처리 서비스 | `backend/processing` | kafka 경로에서 판정(`SessionJudge`)과 저장. local에는 쓰이지 않는다 |
 | gateway | `infra/nginx`, compose `gateway` | 터널로 들어온 요청 중 `/api/`·`/api/v2/realtime`·`/health`만 io-api로. `X-Forwarded-Proto https` 고정. 화면 파일은 내지 않는다 |
 | web(8088) | compose `web` | 서버 PC 안 시험용 화면+API(SSH 포워딩) |
 

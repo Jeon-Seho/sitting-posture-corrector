@@ -13,14 +13,14 @@ import com.posture.api.posture.realtime.DeadLetterPublisher;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 실시간 계약 v1 {@code posture.inference.v1}을 구독한다.
+ * 실시간 Kafka 계약 {@code posture.inference}을 구독한다.
  *
- * <p>(D-21) 처음에는 기존 판정 엔진에 넘겼다. (D-22) 이제 세션별 v1 판정기({@link V1JudgeRegistry})로 판정하고
- * 결과를 {@code posture.episodes.v1}로 발행한다. (D-38) 옛 {@code posture.inference} 경로({@code cep} 패키지)는 지웠다.
+ * <p>(D-21) 처음에는 기존 판정 엔진에 넘겼다. (D-22) 이제 세션별 판정기({@link JudgeRegistry})로 판정하고
+ * 결과를 {@code posture.episodes}로 발행한다. (D-38) 옛 {@code posture.inference} 경로({@code cep} 패키지)는 지웠다.
  *
  * <p>(D-53) 판정은 상태머신이고 CEP 엔진을 쓰지 않아 패키지·그룹 이름을 {@code judge}로 바꿨다(옛 그룹 {@code api-server-cep-v1}).
  *
- * <p>컨슈머 그룹은 {@code judge-v1}. (D-36) 처리할 수 없는 메시지(JSON 오류·봉투 오류·모르는 kind·
+ * <p>컨슈머 그룹은 {@code judge}. (D-36) 처리할 수 없는 메시지(JSON 오류·봉투 오류·모르는 kind·
  * 관측 형식 오류·처리 중 예외)는 {@code posture.dlq}로 넘기고 다음 메시지로 간다. 이미 반영한 sequence의 재전송은
  * 정상 동작이므로 DLQ로 보내지 않는다(판정기가 건너뛰고 수만 센다).
  */
@@ -28,21 +28,21 @@ import tools.jackson.databind.json.JsonMapper;
 public class RealtimeInferenceConsumer {
 
 	private static final Logger log = LoggerFactory.getLogger(RealtimeInferenceConsumer.class);
-	static final String CONSUMER_NAME = "judge-v1";
+	static final String CONSUMER_NAME = "judge";
 
-	private final V1JudgeRegistry registry;
+	private final JudgeRegistry registry;
 	private final DeadLetterPublisher dlq;
 	private final JsonMapper jsonMapper;
 
-	public RealtimeInferenceConsumer(V1JudgeRegistry registry, DeadLetterPublisher dlq, JsonMapper jsonMapper) {
+	public RealtimeInferenceConsumer(JudgeRegistry registry, DeadLetterPublisher dlq, JsonMapper jsonMapper) {
 		this.registry = registry;
 		this.dlq = dlq;
 		this.jsonMapper = jsonMapper;
 	}
 
 	@KafkaListener(
-		topics = "${app.kafka.topic.posture-inference-v1:posture.inference.v1}",
-		groupId = "${judge.consumer-group:judge-v1}",
+		topics = "${app.kafka.topic.posture-inference:posture.inference}",
+		groupId = "${judge.consumer-group:judge}",
 		concurrency = "${app.kafka.posture-inference-concurrency:3}")
 	public void onMessage(ConsumerRecord<String, String> record) {
 		String error = handle(record.value());
@@ -92,7 +92,7 @@ public class RealtimeInferenceConsumer {
 		} catch (IllegalArgumentException exc) {
 			return "관측 형식 오류: " + exc.getMessage();
 		} catch (RuntimeException exc) {
-			log.error("v1 판정 처리 중 예외 (sessionId={})", sessionId, exc);
+			log.error("판정 처리 중 예외 (sessionId={})", sessionId, exc);
 			return "처리 중 예외: " + exc;
 		}
 		return null;

@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
 /** (D-22) 세션별 판정기 모음 — 발행 순서, 정책, 종료·만료 정리. */
-class V1JudgeRegistryTest {
+class JudgeRegistryTest {
 
 	static final String SID = "00000000-0000-4000-8000-0000000000a1";
 
@@ -45,7 +45,7 @@ class V1JudgeRegistryTest {
 
 	final AtomicLong now = new AtomicLong(1_000_000);
 	final MemorySink sink = new MemorySink();
-	final V1JudgeRegistry registry = new V1JudgeRegistry(sink, new V1Policy(3000, 3000, 60000, 0.7), now::get);
+	final JudgeRegistry registry = new JudgeRegistry(sink, new JudgePolicy(3000, 3000, 60000, 0.7), now::get);
 
 	static Map<String, Object> obs(long seq, long start, long end, double collapseProbability) {
 		Map<String, Object> body = new HashMap<>();

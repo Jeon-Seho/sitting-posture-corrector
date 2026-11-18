@@ -22,17 +22,17 @@ import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.databind.JsonNode;
 
 /**
- * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes.v1}·{@code posture.alerts.v1}·
- * {@code posture.stored.v1}을 받아 앱 메시지로 바꿔
+ * kafka 경로 결과 구독(계획 0031 1단계, D-57): {@code posture.episodes}·{@code posture.alerts}·
+ * {@code posture.stored}을 받아 앱 메시지로 바꿔
  * {@link PipelineResult} 이벤트로 낸다. 판정은 하지 않는다 — 처리 서비스가 낸 값을 옮길 뿐이다.
  *
  * <ul>
  *   <li>{@code observation} → {@code observation}(관측 4.0). 판정 불가 사유는 좌표에서 찾은 힌트({@code head_turn})를
  *       local과 같은 규칙으로 붙인다({@code SessionEngine.invalidReason}).</li>
- *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored.v1} {@code session_stored},
+ *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored} {@code session_stored},
  *       D-67)를 받을 때까지 쥐고 있다가 함께 낸다(어느 쪽이 먼저 와도) — 앱이 {@code closed} 뒤 조회하면 DB에 종료 값이 있다.</li>
  *   <li>{@code progress} → {@code progress}. 멈춘 이유는 그 세션의 마지막 관측으로(local {@code pausedReason}과 같음).</li>
- *   <li>{@code alerts.v1} {@code alert} → {@code alert} 그대로(알림 켜짐·재전송은 판정 결과 저장이 이미 거름).</li>
+ *   <li>{@code alerts} {@code alert} → {@code alert} 그대로(알림 켜짐·재전송은 판정 결과 저장이 이미 거름).</li>
  *   <li>측정불가(판정 불가·자리 비움)가 이어진 시간을 관측으로 세어 한도에 닿으면 끝내라고 알린다(local과 같은 규칙).</li>
  * </ul>
  *

@@ -56,11 +56,11 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 
 ## 특징 입력 v2와 응답 v1
 
-[특징 입력 v2](inference-request.v2.schema.json)는 FastAPI `POST /infer`의 입력이다. API가 `/realtime` 좌표 구간에서 계산해 보낸다.
+[특징 입력](inference-request.schema.json)는 FastAPI `POST /infer`의 입력이다. API가 `/realtime` 좌표 구간에서 계산해 보낸다.
 API의 HTTP 특징 입력 `POST /sessions/{UUID}/features`(S2)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)). 옛 FastAPI `/v1/infer`(두 임시 특징)는 2026-11-09 지웠다. 추론 주소는 `POST /infer` 하나다.
-[합성 요청](examples/v2/synthetic-feature-request.json)과
-[TS·Python 공유 합성 사례](examples/v2/reference-feature-cases.json)를 함께 검증한다.
-[합성 응답](examples/v2/synthetic-feature-response.json)은 이 요청의 1초 이탈 후보와 아직 확정 사건이 없는 요약을 보여준다(S2 응답 형식, 아래).
+[합성 요청](examples/inference/synthetic-feature-request.json)과
+[TS·Python 공유 합성 사례](examples/inference/reference-feature-cases.json)를 함께 검증한다.
+[합성 응답](examples/inference/synthetic-feature-response.json)은 이 요청의 1초 이탈 후보와 아직 확정 사건이 없는 요약을 보여준다(S2 응답 형식, 아래).
 
 | 필드 | 의미 |
 | --- | --- |
@@ -97,10 +97,10 @@ API는 진행 중 세션마다 최근 120개 구간의 요청 hash·추론 출�
 
 ## 관측과 사건 계약
 
-새 독립 서버 흐름은 [관측 v2](posture-observation.v2.schema.json)를 사용한다.
+새 독립 서버 흐름은 [관측](posture-observation.schema.json)를 사용한다.
 추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 API 판정 엔진이 한다. v1은 기존 흐름 호환성으로 보존한다.
-[사건 v1](posture-event.v1.schema.json), [조회 snapshot v1](session-view.v1.schema.json),
-[수작업 합성 관측](examples/v2/synthetic-observation.json)을 함께 검증한다.
+[사건](posture-event.schema.json), [조회 snapshot](session-view.schema.json),
+[수작업 합성 관측](examples/inference/synthetic-observation.json)을 함께 검증한다.
 기본 `make check-backend`는 Java 기본 시험·Checkstyle·빌드를 실행한다. 실제 FastAPI와 API의 HTTP 왕복 검증은 기본 검사에 포함되지 않는다.
 구간·순서·재시도·중단·통계 의미는 [서비스 계약 설명](../backend/README.md)을 따른다.
 

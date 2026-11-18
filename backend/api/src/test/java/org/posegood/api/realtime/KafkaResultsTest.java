@@ -51,8 +51,8 @@ class KafkaResultsTest {
 	@BeforeEach
 	@SuppressWarnings("unchecked")
 	void setup() {
-		results = new KafkaResults(mock(Consumer.class), "posture.episodes.v1", "posture.alerts.v1",
-			"posture.stored.v1", JSON,
+		results = new KafkaResults(mock(Consumer.class), "posture.episodes", "posture.alerts",
+			"posture.stored", JSON,
 			event -> published.add((PipelineResult)event),
 			(session, sequence) -> sequence == 7 ? "head_turn" : null, Duration.ofSeconds(2));
 	}
@@ -62,7 +62,7 @@ class KafkaResultsTest {
 	}
 
 	private void episodes(ObjectNode message) {
-		results.handle("posture.episodes.v1", MAPPER.writeValueAsString(message));
+		results.handle("posture.episodes", MAPPER.writeValueAsString(message));
 	}
 
 	/** 판정기 관측 하나(예시를 바꿈). */
@@ -152,7 +152,7 @@ class KafkaResultsTest {
 	}
 
 	private void stored() throws Exception {
-		results.handle("posture.stored.v1", MAPPER.writeValueAsString(kafka("stored-session-stored.json")));
+		results.handle("posture.stored", MAPPER.writeValueAsString(kafka("stored-session-stored.json")));
 	}
 
 	@Test
@@ -184,7 +184,7 @@ class KafkaResultsTest {
 
 	@Test
 	void alertIsSentAsItIs() throws Exception {
-		results.handle("posture.alerts.v1", MAPPER.writeValueAsString(kafka("alerts-alert.json")));
+		results.handle("posture.alerts", MAPPER.writeValueAsString(kafka("alerts-alert.json")));
 		var message = app(0);
 		sameFields("ws-alert.json", message);
 		assertEquals(1, message.get("event_id").asLong());
@@ -235,8 +235,8 @@ class KafkaResultsTest {
 
 	@Test
 	void brokenMessagesAreSkipped() {
-		results.handle("posture.episodes.v1", "{not json");
-		results.handle("posture.episodes.v1", "{\"session_id\":\"x\",\"kind\":\"observation\",\"body\":{}}");
+		results.handle("posture.episodes", "{not json");
+		results.handle("posture.episodes", "{\"session_id\":\"x\",\"kind\":\"observation\",\"body\":{}}");
 		assertTrue(published.isEmpty());
 	}
 }

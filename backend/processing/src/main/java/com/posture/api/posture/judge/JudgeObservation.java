@@ -3,11 +3,11 @@ package com.posture.api.posture.judge;
 import java.util.Map;
 
 /** (D-22) 관측 v2 중 판정에 쓰는 값. */
-public record V1Observation(long sequence, long startMs, long endMs, String phase, boolean valid,
+public record JudgeObservation(long sequence, long startMs, long endMs, String phase, boolean valid,
 	double collapseProbability, String deviationType) {
 
 	/** 형식이 맞지 않으면 IllegalArgumentException(호출 쪽에서 DLQ로). */
-	public static V1Observation fromBody(Map<String, Object> body) {
+	public static JudgeObservation fromBody(Map<String, Object> body) {
 		long seq = num(body, "sequence");
 		long start = num(body, "start_ms");
 		long end = num(body, "end_ms");
@@ -24,7 +24,7 @@ public record V1Observation(long sequence, long startMs, long endMs, String phas
 			throw new IllegalArgumentException("collapse_probability 범위 오류");
 		}
 		Object type = body.get("deviation_type");
-		return new V1Observation(seq, start, end, (String)phase, valid, collapseProbability,
+		return new JudgeObservation(seq, start, end, (String)phase, valid, collapseProbability,
 			type instanceof String s ? s : "none");
 	}
 

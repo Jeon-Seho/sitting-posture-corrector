@@ -33,7 +33,7 @@
 # 2026-10-02 변경 (D-13/D-14, 아키텍처 v4 전환 결정):
 #   - posture-cep(Python) 서비스 제거. 상태머신·세션 만료 로직은
 #     api-server(com.posture.api.posture.cep 패키지)로 이식했다.
-#     (2026-10-21 D-38: 그 옛 posture.summary 경로 전체를 지웠다 — 판정은 v1 judge 패키지)
+#     (2026-10-21 D-38: 그 옛 posture.summary 경로 전체를 지웠다 — 판정은 judge 패키지)
 #   - Kafka에 EXTERNAL(9094) 리스너 추가 — 외부 GPU PC(inference-service)
 #     접속용. GPU PC IP(192.168.0.108)만 DOCKER-USER iptables 규칙으로
 #     허용했다(ufw는 22/8080만 개방 유지).
@@ -273,8 +273,8 @@ services:
   # ---------------- api-server (Spring Boot) ----------------
   # 처리 서비스(backend/processing). (D-38, 10/21) 옛 posture.summary 경로(cep 패키지·/api/v1/posture/summary·
   # posture.inference·posture_app 테이블)는 지웠다. 연결 풀의 기본 DB는 SERVICE_DB_SCHEMA다.
-  # (D-22·D-53) Kafka 계약 v1 판정(posture.inference.v1 → posture.episodes.v1)은 judge 패키지·그룹 judge-v1,
-  # 판정 결과 저장(D-30)은 report 패키지·그룹 report-store-v1. 판정은 상태머신이며 CEP 엔진은 쓰지 않는다.
+  # (D-22·D-53) Kafka 계약 판정(posture.inference → posture.episodes)은 judge 패키지·그룹 judge,
+  # 판정 결과 저장(D-30)은 report 패키지·그룹 report-store. 판정은 상태머신이며 CEP 엔진은 쓰지 않는다.
   api-server:
     # (D-52) Gradle 모듈 backend/processing — 팀 공용 java.Dockerfile의 processing target
     build:
@@ -293,9 +293,9 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
-      # (D-22, D-53) v1 판정기(judge) — 컨슈머 그룹, 정책 기본값(3s/3s/60s/0.7), 세션 만료,
-      # (D-37) 상태 Redis 저장(posture:v1:judge:{session_id}, TTL 1시간)
-      JUDGE_CONSUMER_GROUP: ${JUDGE_CONSUMER_GROUP:-judge-v1}
+      # (D-22, D-53) 판정기(judge) — 컨슈머 그룹, 정책 기본값(3s/3s/60s/0.7), 세션 만료,
+      # (D-37) 상태 Redis 저장(posture:judge:{session_id}, TTL 1시간)
+      JUDGE_CONSUMER_GROUP: ${JUDGE_CONSUMER_GROUP:-judge}
       JUDGE_HOLD_SECONDS: ${JUDGE_HOLD_SECONDS:-3}
       JUDGE_RECOVERY_SECONDS: ${JUDGE_RECOVERY_SECONDS:-3}
       JUDGE_REMINDER_SECONDS: ${JUDGE_REMINDER_SECONDS:-60}
@@ -312,7 +312,7 @@ services:
       # (D-30) 판정 결과 저장 — 시험용 API는 시험 서버에서만 true
       REPORT_STORE_ENABLED: ${REPORT_STORE_ENABLED:-true}
       REPORT_TEST_FIXTURES_ENABLED: ${REPORT_TEST_FIXTURES_ENABLED:-false}
-      # v1 판정 컨슈머(posture.inference.v1) 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
+      # 판정 컨슈머(posture.inference) 스레드 수(= 토픽 파티션 수)와 DB 풀 크기
       POSTURE_INFERENCE_CONCURRENCY: ${POSTURE_INFERENCE_CONCURRENCY:-3}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
     ports:
@@ -358,7 +358,7 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
-      # (D-38·D-63) v1 컨슈머 하나 — posture.features.v1 → 규칙 점수 → posture.inference.v1(토픽 이름은 기본값)
+      # (D-38·D-63) 실시간 컨슈머 하나 — posture.features → 규칙 점수 → posture.inference(토픽 이름은 기본값)
     ports:
       # (D-43) 서버 PC 안에서만. GPU PC는 Kafka 9094로 붙는다(이 포트를 쓰지 않음)
       - "${INFERENCE_BIND:-127.0.0.1}:${INFERENCE_HOST_PORT:-8000}:8000"
@@ -423,7 +423,7 @@ services:
       POSEGOOD_CORS_ALLOWED_ORIGINS: ${POSEGOOD_CORS_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_ALLOWED_ORIGINS: ${POSEGOOD_REALTIME_ALLOWED_ORIGINS:-}
       POSEGOOD_REALTIME_PIPELINE: ${POSEGOOD_REALTIME_PIPELINE:-local}
-      # (D-92) kafka 경로에서 좌표 구간을 posture.keypoints.v1로도(J1 → HDFS keypoints.jsonl). 동의 범위 확인 전 기본 꺼짐
+      # (D-92) kafka 경로에서 좌표 구간을 posture.keypoints로도(J1 → HDFS keypoints.jsonl). 동의 범위 확인 전 기본 꺼짐
       POSEGOOD_ARCHIVE_KEYPOINTS: ${POSEGOOD_ARCHIVE_KEYPOINTS:-false}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       REDIS_HOST: ${REDIS_HOST:-redis}

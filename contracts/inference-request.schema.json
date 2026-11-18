@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/inference-request.v2.schema.json",
+  "$id": "https://posegood.local/contracts/inference-request.schema.json",
   "title": "Shoulder-relative feature inference request v2",
   "description": "No video or landmarks. Consumers also enforce 0 < end_ms - start_ms <= 1500; JSON numbers must be finite.",
   "type": "object",

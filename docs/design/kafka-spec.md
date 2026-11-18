@@ -1,20 +1,21 @@
 # Kafka 명세 — 처리 서비스 층 토픽·메시지 (아키텍처 v5.2)
 
 - 담당: DevOps/BE (토픽·봉투·컨슈머 그룹·DLQ·보존). 본문 형식(입력·관측·사건)은 [계약](../../contracts/README.md)의 기존 버전을 그대로 쓴다.
-- 기준: [실시간 계약 v1 스키마](../../contracts/realtime/) `kafka-*.v1.schema.json`, [아키텍처 v5.4 스택별 역할](architecture_v5.4_stack_roles.md),
+- 기준: [실시간 Kafka 계약 스키마](../../contracts/realtime/) `kafka-*.schema.json`, [아키텍처 v5.4 스택별 역할](architecture_v5.4_stack_roles.md),
   [실시간 판정 Kafka 전환 계획 0031](../plans/active/0031-realtime-kafka-transition.md).
-- 갱신: 2026-10-21
+- 갱신: 2026-11-18 (이름에서 버전 빼기)
 
-> **이름 주의 — 「v1」이 둘이다.** 이 문서의 v1은 **Kafka 계약 v1**(`posture.*.v1` 토픽, `kafka-*.v1.schema.json`)이다.
-> 앱 ↔ 입출구 서버 **WebSocket v1**(`/v1/realtime`, `realtime-ws.v1.schema.json`)과는 다른 것이고, WebSocket이 v2로 바뀌어도
-> Kafka 계약 v1과 처리 서비스 시험용 입구 `POST /api/v1/realtime/features`, 재생 도구 `tools/platform/replay_realtime_v1.py`는 그대로 쓴다.
+> **이름에 버전이 없다(2026-11-18, [ADR 0049](../decisions/0049-no-version-in-names.md)).** 토픽(`posture.features` 등), 컨슈머 그룹(`judge`·`report-store`·`inference-service`),
+> 계약 파일(`kafka-*.schema.json`), 처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`), Redis 키(`posture:judge:*`)에서 `v1`을 뺐다.
+> 옛 이름은 `posture.*.v1`, `judge-v1`·`report-store-v1`·`inference-service-v1`, `/api/v1/realtime/features`·`/judge/v1/*`, `posture:v1:judge:*`다.
+> 서버 전환·정리는 [infra](../../infra/README.md) 「Kafka 이름에서 버전 빼기」를 따른다. 앱 ↔ 입출구 서버 WebSocket(`/realtime`)과는 다른 것이다.
 
 ## 1. 흐름
 
 ```
-앱 ─WebSocket /realtime─▶ 입출구 서버 ws ─▶ posture.features.v1 ─▶ 추론(backend/inference) ─▶ posture.inference.v1
+앱 ─WebSocket /realtime─▶ 입출구 서버 ws ─▶ posture.features ─▶ 추론(backend/inference) ─▶ posture.inference
                                                                                                       │
-앱 ◀─WebSocket─ 입출구 서버 ws ◀── posture.episodes.v1 ◀── 판정(backend/processing) ◀────────────────┘
+앱 ◀─WebSocket─ 입출구 서버 ws ◀── posture.episodes ◀── 판정(backend/processing) ◀────────────────┘
                                           │
                                           └──▶ 판정 결과 저장(backend/processing report) ──▶ MySQL posture_service(V2.3)
 ```
@@ -28,18 +29,19 @@
 
 | 토픽 | 파티션 | 키 | 생산 → 소비(컨슈머 그룹) | `kind` | 스키마 |
 | --- | --- | --- | --- | --- | --- |
-| `posture.features.v1` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service-v1`) | `session_started` / `features` / `session_ended` | [kafka-features.v1](../../contracts/realtime/kafka-features.v1.schema.json) |
-| `posture.inference.v1` | 3 | `session_id` | 추론 → 판정(`judge-v1`) | `session_started` / `observation` / `session_ended` | [kafka-inference.v1](../../contracts/realtime/kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store-v1`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes.v1](../../contracts/realtime/kafka-episodes.v1.schema.json) |
+| `posture.features` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service`) | `session_started` / `features` / `session_ended` | [kafka-features](../../contracts/realtime/kafka-features.schema.json) |
+| `posture.inference` | 3 | `session_id` | 추론 → 판정(`judge`) | `session_started` / `observation` / `session_ended` | [kafka-inference](../../contracts/realtime/kafka-inference.schema.json) |
+| `posture.episodes` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes](../../contracts/realtime/kafka-episodes.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
-| `posture.alerts.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts.v1](../../contracts/realtime/kafka-alerts.v1.schema.json) |
-| `posture.stored.v1` | 3 | `session_id` | 판정 결과 저장(`report-store-v1` 안에서 발행) → 입출구 `ws`(D-67) | `session_stored` | [kafka-stored.v1](../../contracts/realtime/kafka-stored.v1.schema.json) |
-| `posture.keypoints.v1` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`, D-92). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints.v1](../../contracts/realtime/kafka-keypoints.v1.schema.json) |
+| `posture.alerts` | 3 | `session_id` | 판정 결과 저장(`report-store` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts](../../contracts/realtime/kafka-alerts.schema.json) |
+| `posture.stored` | 3 | `session_id` | 판정 결과 저장(`report-store` 안에서 발행) → 입출구 `ws`(D-67) | `session_stored` | [kafka-stored](../../contracts/realtime/kafka-stored.schema.json) |
+| `posture.keypoints` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`, D-92). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints](../../contracts/realtime/kafka-keypoints.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- 보존: 지금은 브로커 기본값(7일), `posture.alerts.v1`·`posture.stored.v1`·`posture.keypoints.v1`만 만들 때 3일. 목표는 v1 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
+- 보존: 지금은 브로커 기본값(7일), `posture.alerts`·`posture.stored`·`posture.keypoints`만 만들 때 3일. 목표는 실시간 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.
+  **이 옛 `posture.inference` 토픽·`inference-service` 그룹은 2026-11-18부터 쓰는 새 이름과 같다.** 서버에 남아 있으면 새 이름으로 배포하기 **전에** 지운다(남은 옛 메시지·읽은 위치가 섞이지 않게).
 
 ## 3. 메시지
 
@@ -61,17 +63,17 @@
 
 | 토픽 | `kind` | 본문 |
 | --- | --- | --- |
-| features.v1 | `session_started` | `policy`(hold·recovery·reminder ms, threshold), `baseline_id`, 화면 크기 |
-| features.v1 | `features` | 0.5초 구간 1개 — 지금은 [입력 v2](../../contracts/inference-request.v2.schema.json)(특징 변화량). 좌표 구간(본문 v3)은 D-34 |
-| features.v1 | `session_ended` | `end_ms` |
-| inference.v1 | `session_started`·`session_ended` | features.v1에서 받은 것을 **바꾸지 않고** 넘긴다(판정이 한 토픽만 읽도록) |
-| inference.v1 | `observation` | [관측 v2](../../contracts/posture-observation.v2.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |
-| episodes.v1 | `observation` | (D-57) 반영한 구간마다: `sequence`·`start_ms`·`end_ms`·`phase`·`valid`, 정책 threshold로 나눈 `posture`(good·bad), 점수, 이탈 후보가 이어진 `hold_ms`, 열린 사건에서 바른 구간이 이어진 `recovery_ms` — 판정 불가면 null·0. `ws`가 앱 관측 4.0으로 보낸다. 판정 결과 저장은 건너뛴다 |
-| episodes.v1 | `decision` | [사건 v1](../../contracts/posture-event.v1.schema.json) + 그 시점 요약 + `last_sequence` |
-| episodes.v1 | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
-| alerts.v1 | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
-| keypoints.v1 | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
-| stored.v1 | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
+| features | `session_started` | `policy`(hold·recovery·reminder ms, threshold), `baseline_id`, 화면 크기 |
+| features | `features` | 0.5초 구간 1개 — 지금은 [특징 입력](../../contracts/inference-request.schema.json)(특징 변화량). 좌표 구간(본문 v3)은 D-34 |
+| features | `session_ended` | `end_ms` |
+| inference | `session_started`·`session_ended` | features에서 받은 것을 **바꾸지 않고** 넘긴다(판정이 한 토픽만 읽도록) |
+| inference | `observation` | [관측](../../contracts/posture-observation.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |
+| episodes | `observation` | (D-57) 반영한 구간마다: `sequence`·`start_ms`·`end_ms`·`phase`·`valid`, 정책 threshold로 나눈 `posture`(good·bad), 점수, 이탈 후보가 이어진 `hold_ms`, 열린 사건에서 바른 구간이 이어진 `recovery_ms` — 판정 불가면 null·0. `ws`가 앱 관측 4.0으로 보낸다. 판정 결과 저장은 건너뛴다 |
+| episodes | `decision` | [사건](../../contracts/posture-event.schema.json) + 그 시점 요약 + `last_sequence` |
+| episodes | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
+| alerts | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
+| keypoints | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
+| stored | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.
 `interrupted`·제외 구간의 `reason`: `rest`·`away`·`unmeasurable`·`missing`(·`missing_sequence`), 세션 종료로 끊기면 `ended`.
@@ -87,15 +89,15 @@ decision의 `produced_at`이 저장 시각보다 10초(`REPORT_ALERTS_MAX_AGE_MS
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `last_sequence`는 줄어들지 않는다.
 - `event_id`는 세션마다 1부터 1씩 증가한다. 한 구간의 결과는 `observation` → 그 구간에서 생긴 사건(`decision`) → `progress` 순서로 나간다.
 - 시간은 도착 시각이 아니라 메시지의 `start_ms`·`end_ms`(세션 시작 기준 ms)로 계산한다.
-- 판정 상태는 Redis(`posture:v1:judge:{session_id}`, TTL 1시간)에 저장해 처리 서비스가 다시 시작해도 이어 간다.
+- 판정 상태는 Redis(`posture:judge:{session_id}`, TTL 1시간)에 저장해 처리 서비스가 다시 시작해도 이어 간다.
 
 ## 4. 시험용 입구 (처리 서비스)
 
 입출구 서버가 Kafka에 이어지기 전까지 Kafka 경로를 시험하는 입구다. 운영 앱은 쓰지 않는다.
 
-- `POST http://<서버>:<API_SERVER_HOST_PORT>/api/v1/realtime/features` — 본문은 features.v1 메시지 1개 또는 배열(최대 200개).
+- `POST http://<서버>:<API_SERVER_HOST_PORT>/api/realtime/features` — 본문은 features 메시지 1개 또는 배열(최대 200개).
   배열은 모두 검사를 통과해야 순서대로 발행한다. 성공 202, 형식 오류 400(이유 목록). 환경변수 `REALTIME_TEST_ENTRY_ENABLED=false`면 404.
-- 재생 도구: `python3 tools/platform/replay_realtime_v1.py --api http://localhost:8080/api/v1/realtime/features`
+- 재생 도구: `python3 tools/platform/replay_realtime.py --api http://localhost:8080/api/realtime/features`
   (T-10과 같은 합성 시나리오 172개 메시지, `--dump`·`--range`·`--session-id`).
 - 다른 운영 API는 [처리 서비스 HTTP API](processing-api-spec.md).
 
@@ -108,7 +110,7 @@ DB 연결 장애는 DLQ가 아니라 같은 메시지를 재시도한다(판정 
 | --- | --- |
 | `schema_version` | `"1.0"` |
 | `failed_at` | 넘긴 시각 |
-| `consumer` | 컨슈머 그룹(예: `inference-service-v1`) |
+| `consumer` | 컨슈머 그룹(예: `inference-service`) |
 | `source_topic`·`source_partition`·`source_offset`·`key` | 원래 위치 |
 | `reason` | 이유(예: `JSON 파싱 실패: …`) |
 | `payload` | 원문 문자열(256KB 넘으면 자르고 `payload_truncated: true`) |
@@ -127,7 +129,10 @@ DB 연결 장애는 DLQ가 아니라 같은 메시지를 재시도한다(판정 
 
 ## 7. 바꾸는 법
 
-- 본문 필드를 바꾸거나 `kind`를 더하면 스키마(`contracts/realtime/kafka-*.v1.schema.json`)·합성 예시(`contracts/realtime/examples/`)·
+- 본문 필드를 바꾸거나 `kind`를 더하면 스키마(`contracts/realtime/kafka-*.schema.json`)·합성 예시(`contracts/realtime/examples/`)·
   `tests/test_realtime_contracts.py`·동등성 시험 데이터(`contracts/realtime/parity/`)·이 문서를 함께 고친다.
-- 기존 소비자가 읽지 못하는 변경(필드 의미 변경·필수 필드 추가)은 새 토픽 버전(`*.v2`)으로 내고 두 버전을 함께 운영한 뒤 옛 토픽을 정리한다.
+- 기존 소비자가 읽지 못하는 변경(필드 의미 변경·필수 필드 추가)도 **토픽 이름은 그대로 둔다**(ADR 0049, 새 토픽 버전 `*.v2`를 만들지 않는다).
+  보내는 쪽·받는 쪽 코드, 스키마, 예시, 시험을 한 PR에서 바꾸고 같은 때 배포한다. 배포 전에 입력을 멈추고 해당 컨슈머 그룹의 LAG가 0인지 확인한다.
+- 토픽·그룹 이름을 바꿀 때는 새 이름 토픽을 처리 서비스가 만들고, 옛 토픽·그룹은 며칠 뒤 지운다(2026-11-18 버전 빼기 때 방식, [infra](../../infra/README.md)).
+- 메시지 안의 `schema_version`·`feature_version`·`model_version` 필드는 아직 남아 있다(빼는 일은 보류).
 - 예정된 변경: 좌표 구간 본문 v3(D-34), 세션 종료 사유(D-55).

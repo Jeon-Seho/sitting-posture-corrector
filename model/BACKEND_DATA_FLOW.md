@@ -84,7 +84,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 }
 ```
 
-세 변화량은 각각 머리-어깨 높이, 좌우 치우침, 어깨 기울기의 **현재 − 기준**이다. 기존 API는 3개 변화량과 품질을 받으며 2단계 실험 모델의 6개 입력을 아직 받지 않는다. 요청·응답의 구간과 `sequence`는 일치해야 한다([입력 계약](../contracts/inference-request.v2.schema.json)).
+세 변화량은 각각 머리-어깨 높이, 좌우 치우침, 어깨 기울기의 **현재 − 기준**이다. 기존 API는 3개 변화량과 품질을 받으며 2단계 실험 모델의 6개 입력을 아직 받지 않는다. 요청·응답의 구간과 `sequence`는 일치해야 한다([입력 계약](../contracts/inference-request.schema.json)).
 
 ### 1-3. 추론 서버 → 판정 엔진: 관측 결과
 
@@ -104,7 +104,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 }
 ```
 
-`collapse_probability`는 0~1의 이탈 점수다. 현재 구현은 학습 모델이 아닌 규칙 점수이며 이름과 달리 보정된 확률이 아니다. `deviation_type: unspecified`는 이탈 방향을 특정하지 못한다는 뜻이다. 실제 모델/특징 버전을 속여서 같은 이름을 쓰지 않는다([관측 계약](../contracts/posture-observation.v2.schema.json)).
+`collapse_probability`는 0~1의 이탈 점수다. 현재 구현은 학습 모델이 아닌 규칙 점수이며 이름과 달리 보정된 확률이 아니다. `deviation_type: unspecified`는 이탈 방향을 특정하지 못한다는 뜻이다. 실제 모델/특징 버전을 속여서 같은 이름을 쓰지 않는다([관측 계약](../contracts/posture-observation.schema.json)).
 
 ### 1-4. 판정 엔진 → 프런트: 관측과 알림
 

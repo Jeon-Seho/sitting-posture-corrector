@@ -28,16 +28,16 @@ def kf(topic, kind, body=None, sid=SID):
 
 
 def decision(kind, event_id, t, sid=SID):
-    return kf("posture.episodes.v1", "decision", {"event": {"kind": kind, "event_id": event_id, "timestamp_ms": t}},
+    return kf("posture.episodes", "decision", {"event": {"kind": kind, "event_id": event_id, "timestamp_ms": t}},
               sid)
 
 
 def alert(event_id, sid=SID):
-    return kf("posture.alerts.v1", "alert", {"kind": "collapse_confirmed", "event_id": event_id}, sid)
+    return kf("posture.alerts", "alert", {"kind": "collapse_confirmed", "event_id": event_id}, sid)
 
 
 def started(hold=5000, reminder=30000, sid=SID):
-    return kf("posture.features.v1", "session_started", {"policy": {"hold_ms": hold, "reminder_ms": reminder}}, sid)
+    return kf("posture.features", "session_started", {"policy": {"hold_ms": hold, "reminder_ms": reminder}}, sid)
 
 
 WS = gw("GET", "/api/realtime", 101)
@@ -107,20 +107,20 @@ class ParsingTest(unittest.TestCase):
         self.assertIsNone(ct.parse_gateway("2026/11/17 10:00:00 [notice] 1#1: signal process started"))
 
     def test_kafka_keeps_kind_and_ids_only(self):
-        ev = kf("posture.features.v1", "features", {"sequence": 7, "features": [0.1, 0.2], "points": [[1, 2]]})
+        ev = kf("posture.features", "features", {"sequence": 7, "features": [0.1, 0.2], "points": [[1, 2]]})
         self.assertEqual(ev.extra, "seq=7")
         self.assertNotIn("0.1", ev.line())
         d = decision("collapse_confirmed", 3, 5065)
         self.assertEqual((d.event, d.event_id, d.ts_ms), ("collapse_confirmed", 3, 5065))
         self.assertEqual(started().ts_ms, (5000, 30000))
         self.assertEqual(ct.parse_kafka("posture.dlq", "not json").kind, "dead-letter")
-        self.assertIsNone(ct.parse_kafka("posture.alerts.v1", "not json"))
+        self.assertIsNone(ct.parse_kafka("posture.alerts", "not json"))
 
     def test_offsets_and_lag(self):
-        self.assertEqual(ct.parse_offsets("posture.alerts.v1:0:100\nposture.alerts.v1:1:166\n"), 266)
+        self.assertEqual(ct.parse_offsets("posture.alerts:0:100\nposture.alerts:1:166\n"), 266)
         out = ("\nGROUP TOPIC PARTITION CURRENT-OFFSET LOG-END-OFFSET LAG CONSUMER-ID HOST CLIENT-ID\n"
-               "judge-v1 posture.inference.v1 0 10 12 2 c1 /1 x\n"
-               "judge-v1 posture.inference.v1 1 5 5 0 c1 /1 x\n")
+               "judge posture.inference 0 10 12 2 c1 /1 x\n"
+               "judge posture.inference 1 5 5 0 c1 /1 x\n")
         self.assertEqual(ct.parse_lag(out), 2)
         self.assertIsNone(ct.parse_lag("Consumer group 'x' does not exist."))
 
@@ -240,11 +240,11 @@ class StepTest(unittest.TestCase):
         def stored_after_start():
             while "stop" not in ops.calls:   # 「지금 종료」 안내 뒤 종료
                 orig_sleep(0.02)
-            c.bus.add(kf("posture.features.v1", "session_ended", {"end_ms": 9000}))
+            c.bus.add(kf("posture.features", "session_ended", {"end_ms": 9000}))
             c.bus.add(gw("GET", f"/api/sessions/{SID}", 200))
             while "start" not in ops.calls:
                 orig_sleep(0.02)
-            c.bus.add(kf("posture.stored.v1", "session_stored", {"end_ms": 9000}))
+            c.bus.add(kf("posture.stored", "session_stored", {"end_ms": 9000}))
             orig_sleep(0.05)
             c.bus.add(gw("GET", f"/api/sessions/{SID}", 200))
         try:
@@ -269,7 +269,7 @@ class StepTest(unittest.TestCase):
         ops.stop_api_server = slow_stop
         try:
             feed(c.bus, [gw("PUT", f"/api/sessions/{SID}", 200), started(),
-                         kf("posture.features.v1", "session_ended", {"end_ms": 9000})], delay=0.05)
+                         kf("posture.features", "session_ended", {"end_ms": 9000})], delay=0.05)
             with self.assertRaises(ct.Fail) as err:
                 ct.step_s9(c)
         finally:
@@ -296,7 +296,7 @@ class WatcherTest(unittest.TestCase):
         orig = ct.subprocess.Popen
         ct.subprocess.Popen = lambda args, **kw: calls.append((args, kw)) or FakeProc()
         try:
-            ct.Watchers(ct.Bus(), ["posture.alerts.v1"], False).start()
+            ct.Watchers(ct.Bus(), ["posture.alerts"], False).start()
         finally:
             ct.subprocess.Popen = orig
         self.assertEqual(len(calls), 2)

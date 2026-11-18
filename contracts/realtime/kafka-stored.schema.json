@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/realtime/kafka-stored.v1.schema.json",
-  "title": "Topic posture.stored.v1: decision storage -> gateway (ws), the session's end values are in the DB",
+  "$id": "https://posegood.local/contracts/realtime/kafka-stored.schema.json",
+  "title": "Topic posture.stored: decision storage -> gateway (ws), the session's end values are in the DB",
   "description": "Published by the decision storage service (backend/processing report) after it writes a session_ended decision (open events, excluded intervals and the session row are closed). A re-delivered session_ended is published again; the gateway ignores sessions it has already closed. The gateway holds the session_ended decision until this arrives (in either order) and then sends it and closed to the app, so a session query after closed already sees the end values (D-67).",
   "type": "object",
   "additionalProperties": false,

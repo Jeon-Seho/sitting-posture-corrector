@@ -8,23 +8,23 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-/** (D-22) v1 판정기 — 유효 시간 축 누적, 사건 5종, event_id, 요약, 중복·누락·제외 구간. */
-class V1SessionJudgeTest {
+/** (D-22) 판정기 — 유효 시간 축 누적, 사건 5종, event_id, 요약, 중복·누락·제외 구간. */
+class SessionJudgeTest {
 
 	static final String SID = "00000000-0000-4000-8000-0000000000a1";
-	static final V1Policy POLICY = new V1Policy(3000, 3000, 60000, 0.7);
+	static final JudgePolicy POLICY = new JudgePolicy(3000, 3000, 60000, 0.7);
 
-	static V1Observation obs(long seq, long start, long end, String phase, boolean valid, double collapseProbability) {
-		return new V1Observation(seq, start, end, phase, valid, collapseProbability,
+	static JudgeObservation obs(long seq, long start, long end, String phase, boolean valid, double collapseProbability) {
+		return new JudgeObservation(seq, start, end, phase, valid, collapseProbability,
 			valid && collapseProbability > 0 ? "unspecified" : "none");
 	}
 
 	/** seconds초 동안 0.5초 구간을 넣고, 나온 사건 종류를 모은다. */
-	static long feed(V1SessionJudge judge, long seq, long[] timeMs, double seconds, String phase, boolean valid,
+	static long feed(SessionJudge judge, long seq, long[] timeMs, double seconds, String phase, boolean valid,
 		double collapseProbability,
 		List<Map<String, Object>> events, List<Map<String, Object>> progress) {
 		for (int i = 0; i < seconds * 2; i++) {
-			V1SessionJudge.Result result = judge.accept(
+			SessionJudge.Result result = judge.accept(
 				obs(seq++, timeMs[0], timeMs[0] + 500, phase, valid, collapseProbability));
 			assertThat(result.skipped()).isNull();
 			for (Map<String, Object> d : result.decisions()) {
@@ -59,14 +59,14 @@ class V1SessionJudgeTest {
 	/** T-10과 같은 시나리오: 정상 5s → 나쁜 자세 70s → 회복 10s → 종료. 서버 통합 테스트의 기대값 근거. */
 	@Test
 	void t10Scenario() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		List<Map<String, Object>> events = new ArrayList<>();
 		List<Map<String, Object>> progress = new ArrayList<>();
 		long[] timeMs = {0};
 		long seq = feed(judge, 0, timeMs, 5, "running", true, 0.23, events, progress);
 		seq = feed(judge, seq, timeMs, 70, "running", true, 1.0, events, progress);
 		feed(judge, seq, timeMs, 10, "running", true, 0.23, events, progress);
-		V1SessionJudge.Result end = judge.end(85000);
+		SessionJudge.Result end = judge.end(85000);
 		for (Map<String, Object> d : end.decisions()) {
 			events.add(event(d));
 		}
@@ -103,8 +103,8 @@ class V1SessionJudgeTest {
 
 	@Test
 	void decisionCarriesSummaryAfterTheEventAndLastSequence() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
-		V1SessionJudge.Result result = null;
+		SessionJudge judge = new SessionJudge(SID, POLICY);
+		SessionJudge.Result result = null;
 		for (int i = 0; i < 6; i++) {
 			result = judge.accept(obs(i, i * 500L, i * 500L + 500, "running", true, 0.9));
 		}
@@ -117,7 +117,7 @@ class V1SessionJudgeTest {
 
 	@Test
 	void duplicateAndOldSequencesAreIgnored() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		assertThat(judge.accept(obs(0, 0, 500, "running", true, 0.9)).skipped()).isNull();
 		assertThat(judge.accept(obs(0, 0, 500, "running", true, 0.9)).skipped()).isNotNull(); // 재전송
 		assertThat(judge.accept(obs(1, 500, 1000, "running", true, 0.9)).skipped()).isNull();
@@ -130,7 +130,7 @@ class V1SessionJudgeTest {
 	@Test
 	void oppositeSegmentResetsAccumulation() {
 		// FE 회신 ③: 확정 전 정상 1구간이면 붕괴 누적 0
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		long seq = 0;
 		long timeMs = 0;
 		for (int i = 0; i < 5; i++, timeMs += 500) {
@@ -138,7 +138,7 @@ class V1SessionJudgeTest {
 		}
 		judge.accept(obs(seq++, timeMs, timeMs + 500, "running", true, 0.1)); // 정상 1구간
 		timeMs += 500;
-		V1SessionJudge.Result result = null;
+		SessionJudge.Result result = null;
 		for (int i = 0; i < 5; i++, timeMs += 500) {
 			result = judge.accept(obs(seq++, timeMs, timeMs + 500, "running", true, 0.9)); // 다시 2.5s
 		}
@@ -150,13 +150,13 @@ class V1SessionJudgeTest {
 
 	@Test
 	void excludedSegmentInterruptsActiveEpisode() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		long timeMs = 0;
 		long seq = 0;
 		for (int i = 0; i < 6; i++, timeMs += 500) {
 			judge.accept(obs(seq++, timeMs, timeMs + 500, "running", true, 0.9));
 		}
-		V1SessionJudge.Result result = judge.accept(obs(seq++, timeMs, timeMs + 500, "running", false, 0.0)); // 판정 불가
+		SessionJudge.Result result = judge.accept(obs(seq++, timeMs, timeMs + 500, "running", false, 0.0)); // 판정 불가
 		Map<String, Object> event = event(result.decisions().get(0));
 		assertThat(event.get("kind")).isEqualTo("interrupted");
 		assertThat(event.get("reason")).isEqualTo("unmeasurable");
@@ -173,13 +173,13 @@ class V1SessionJudgeTest {
 
 	@Test
 	void gapsAreMissingAndInterrupt() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		long timeMs = 0;
 		for (int i = 0; i < 6; i++, timeMs += 500) {
 			judge.accept(obs(i, timeMs, timeMs + 500, "running", true, 0.9));
 		}
 		// 시간 공백 1000ms
-		V1SessionJudge.Result result = judge.accept(obs(6, 4000, 4500, "running", true, 0.9));
+		SessionJudge.Result result = judge.accept(obs(6, 4000, 4500, "running", true, 0.9));
 		assertThat(event(result.decisions().get(0)).get("reason")).isEqualTo("missing");
 		assertThat(summary(judge.view()).get("missing_ms")).isEqualTo(1000L);
 		// 순번 건너뜀(시간은 이어짐)
@@ -197,7 +197,7 @@ class V1SessionJudgeTest {
 
 	@Test
 	void secondEpisodeCountsInterval() {
-		V1SessionJudge judge = new V1SessionJudge(SID, new V1Policy(1000, 1000, 60000, 0.7));
+		SessionJudge judge = new SessionJudge(SID, new JudgePolicy(1000, 1000, 60000, 0.7));
 		long timeMs = 0;
 		long seq = 0;
 		double[] pattern = {0.9, 0.9, 0.1, 0.1, 0.1, 0.1, 0.9, 0.9, 0.1, 0.1}; // 0.5s 구간
@@ -214,12 +214,12 @@ class V1SessionJudgeTest {
 
 	@Test
 	void endWhileActiveInterruptsThenEndsAndRejectsLaterInput() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		long timeMs = 0;
 		for (int i = 0; i < 8; i++, timeMs += 500) {
 			judge.accept(obs(i, timeMs, timeMs + 500, "running", true, 0.9));
 		}
-		V1SessionJudge.Result result = judge.end(5000);
+		SessionJudge.Result result = judge.end(5000);
 		// 공백(4.0~5.0s)에서 먼저 끊김(missing) — 그 뒤 ended 끊김은 닫을 사건이 없어 나오지 않음.
 		// (D-39) 공백은 누락 제외 구간으로 열렸다가 세션 종료 때 닫힌다.
 		assertThat(kinds(events(result)))
@@ -230,7 +230,7 @@ class V1SessionJudgeTest {
 		assertThat(judge.accept(obs(8, 5000, 5500, "running", true, 0.9)).skipped()).isNotNull();
 	}
 
-	static List<Map<String, Object>> events(V1SessionJudge.Result result) {
+	static List<Map<String, Object>> events(SessionJudge.Result result) {
 		List<Map<String, Object>> events = new ArrayList<>();
 		for (Map<String, Object> d : result.decisions()) {
 			events.add(event(d));
@@ -241,7 +241,7 @@ class V1SessionJudgeTest {
 	/** (D-39) 제외 구간 경계: 같은 사유가 이어지면 한 구간, 사유가 바뀌거나 측정 구간이 오면 끝, 누락은 그 공백. */
 	@Test
 	void excludedIntervalsAreEmittedAtBoundaries() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		List<Map<String, Object>> ev = new ArrayList<>();
 		ev.addAll(events(judge.accept(obs(0, 0, 500, "running", true, 0.1))));
 		ev.addAll(events(judge.accept(obs(1, 500, 1000, "rest", false, 0.0))));
@@ -272,9 +272,9 @@ class V1SessionJudgeTest {
 	/** (D-39) 열린 제외 구간은 Redis 스냅샷으로 이어지고, D-39 전 스냅샷(키 없음)도 복원된다. */
 	@Test
 	void openExcludedIntervalSurvivesRestore() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		judge.accept(obs(0, 0, 500, "rest", false, 0.0));
-		V1SessionJudge restored = V1SessionJudge.restore(judge.snapshot());
+		SessionJudge restored = SessionJudge.restore(judge.snapshot());
 		List<Map<String, Object>> ev = events(restored.accept(obs(1, 500, 1000, "rest", false, 0.0)));
 		assertThat(ev).isEmpty(); // 같은 구간을 늘리기만
 		ev = events(restored.accept(obs(2, 1000, 1500, "running", true, 0.1)));
@@ -284,19 +284,19 @@ class V1SessionJudgeTest {
 
 		Map<String, Object> old = judge.snapshot();
 		old.remove("excluded");
-		V1SessionJudge legacy = V1SessionJudge.restore(old);
+		SessionJudge legacy = SessionJudge.restore(old);
 		assertThat(kinds(events(legacy.accept(obs(1, 500, 1000, "running", true, 0.1))))).isEmpty();
 	}
 
 	@Test
 	void policyFromSessionStartedIsUsed() {
-		V1Policy policy = V1Policy.fromBody(Map.of("hold_ms", 1000, "recovery_ms", 2000, "reminder_ms", 30000,
+		JudgePolicy policy = JudgePolicy.fromBody(Map.of("hold_ms", 1000, "recovery_ms", 2000, "reminder_ms", 30000,
 			"threshold", 0.5), POLICY);
-		assertThat(policy).isEqualTo(new V1Policy(1000, 2000, 30000, 0.5));
-		assertThat(V1Policy.fromBody(null, POLICY)).isEqualTo(POLICY);
-		V1SessionJudge judge = new V1SessionJudge(SID, policy);
+		assertThat(policy).isEqualTo(new JudgePolicy(1000, 2000, 30000, 0.5));
+		assertThat(JudgePolicy.fromBody(null, POLICY)).isEqualTo(POLICY);
+		SessionJudge judge = new SessionJudge(SID, policy);
 		judge.accept(obs(0, 0, 500, "running", true, 0.55));
-		V1SessionJudge.Result result = judge.accept(obs(1, 500, 1000, "running", true, 0.55));
+		SessionJudge.Result result = judge.accept(obs(1, 500, 1000, "running", true, 0.55));
 		assertThat(event(result.decisions().get(0)).get("kind")).isEqualTo("collapse_confirmed");
 	}
 
@@ -306,7 +306,7 @@ class V1SessionJudgeTest {
 	 */
 	@Test
 	void observationCarriesPostureAndContinuousTimesLikeTheApiEngine() {
-		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		SessionJudge judge = new SessionJudge(SID, POLICY);
 		Map<String, Object> first = judge.accept(obs(0, 0, 500, "running", true, 0.1)).observation();
 		assertThat(first).containsEntry("sequence", 0L).containsEntry("start_ms", 0L).containsEntry("end_ms", 500L)
 			.containsEntry("phase", "running").containsEntry("valid", true).containsEntry("posture", "good")
@@ -315,7 +315,7 @@ class V1SessionJudgeTest {
 		long time = 500;
 		Map<String, Object> last = null;
 		for (int i = 0; i < 6; i++) { // 나쁜 자세 3초 → 마지막 구간에서 확정
-			V1SessionJudge.Result result = judge.accept(obs(seq++, time, time + 500, "running", true, 0.9));
+			SessionJudge.Result result = judge.accept(obs(seq++, time, time + 500, "running", true, 0.9));
 			last = result.observation();
 			time += 500;
 			if (i == 5) {

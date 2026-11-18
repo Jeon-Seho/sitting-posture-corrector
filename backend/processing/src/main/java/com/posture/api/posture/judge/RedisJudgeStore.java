@@ -14,10 +14,10 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * (D-37) v1 판정기 상태를 Redis String {@code posture:v1:judge:{session_id}}에 JSON으로 저장한다.
+ * (D-37) 판정기 상태를 Redis String {@code posture:judge:{session_id}}에 JSON으로 저장한다.
  *
  * <ul>
- *   <li>값: {@code {"user_id": ..., "judge": V1SessionJudge.snapshot()}}. TTL은 기존 상태 저장소와 같은
+ *   <li>값: {@code {"user_id": ..., "judge": SessionJudge.snapshot()}}. TTL은 기존 상태 저장소와 같은
  *       {@code judge.state-store.ttl-seconds}(기본 1시간) — 정리되지 않은 키도 결국 사라진다.</li>
  *   <li>Redis 오류 시: 예외를 삼키고 {@value #BACKOFF_MILLIS}ms 동안 Redis 호출을 건너뛴다(D-04와 같은 방식).
  *       Redis가 죽어 있는 동안 메시지마다 명령 타임아웃만큼 컨슈머가 멈추지 않게 하기 위함이다. 판정은 메모리로 계속된다.</li>
@@ -25,11 +25,11 @@ import tools.jackson.databind.json.JsonMapper;
  * </ul>
  */
 @Component
-public class RedisV1JudgeStore implements V1JudgeStore {
+public class RedisJudgeStore implements JudgeStore {
 
-	private static final Logger log = LoggerFactory.getLogger(RedisV1JudgeStore.class);
+	private static final Logger log = LoggerFactory.getLogger(RedisJudgeStore.class);
 
-	static final String KEY_PREFIX = "posture:v1:judge:";
+	static final String KEY_PREFIX = "posture:judge:";
 	static final long BACKOFF_MILLIS = 10_000;
 
 	private final StringRedisTemplate redis;
@@ -38,7 +38,7 @@ public class RedisV1JudgeStore implements V1JudgeStore {
 	private final Duration ttl;
 	private volatile long suspendedUntilMillis;
 
-	public RedisV1JudgeStore(
+	public RedisJudgeStore(
 		StringRedisTemplate redis,
 		JsonMapper jsonMapper,
 		@Value("${judge.state-store.enabled:true}")
@@ -49,7 +49,7 @@ public class RedisV1JudgeStore implements V1JudgeStore {
 		this.jsonMapper = jsonMapper;
 		this.enabled = enabled;
 		this.ttl = Duration.ofSeconds(ttlSeconds);
-		log.info("v1 판정 상태 저장소: Redis {} (키 {}{{session_id}}, TTL {}s)",
+		log.info("판정 상태 저장소: Redis {} (키 {}{{session_id}}, TTL {}s)",
 			enabled ? "사용" : "미사용", KEY_PREFIX, ttlSeconds);
 	}
 
@@ -78,7 +78,7 @@ public class RedisV1JudgeStore implements V1JudgeStore {
 			return Optional.of(new Stored(snapshot.get("user_id") instanceof String u ? u : null,
 				(Map<String, Object>)j));
 		} catch (Exception exc) {
-			log.warn("v1 판정 상태가 깨져 버림 (sessionId={}): {}", sessionId, exc.getMessage());
+			log.warn("판정 상태가 깨져 버림 (sessionId={}): {}", sessionId, exc.getMessage());
 			delete(sessionId);
 			return Optional.empty();
 		}
@@ -117,7 +117,7 @@ public class RedisV1JudgeStore implements V1JudgeStore {
 
 	private void suspend(String op, String sessionId, Exception exc) {
 		suspendedUntilMillis = System.currentTimeMillis() + BACKOFF_MILLIS;
-		log.warn("Redis v1 판정 상태 {} 실패 (sessionId={}) — {}초 동안 Redis 없이 메모리 상태로 판정 계속: {}",
+		log.warn("Redis 판정 상태 {} 실패 (sessionId={}) — {}초 동안 Redis 없이 메모리 상태로 판정 계속: {}",
 			op, sessionId, BACKOFF_MILLIS / 1000, exc.getMessage());
 	}
 }

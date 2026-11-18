@@ -32,9 +32,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * kafka 경로(계획 0031 1단계, D-57): 받은 구간을 {@code posture.features.v1}로 보내고, 판정은 처리 서비스가 한다.
+ * kafka 경로(계획 0031 1단계, D-57): 받은 구간을 {@code posture.features}로 보내고, 판정은 처리 서비스가 한다.
  *
- * <p>계약: contracts/realtime/kafka-features.v1.schema.json. 봉투의 키는 {@code session_id}라 한 세션의
+ * <p>계약: contracts/realtime/kafka-features.schema.json. 봉투의 키는 {@code session_id}라 한 세션의
  * {@code session_started} → {@code features} → {@code session_ended}가 같은 파티션에 순서대로 들어간다.
  * 구간은 앱이 보낸 그대로(프레임마다) 보낸다 — local 경로와 같은 단위(2026-11-10 결정 ①). 본문은 local이 추론에 보내는
  * {@link InferenceRequest}와 같다. 브로커가 받았다고 확인한 뒤에만 반환해 {@code ack}가 「입력 접수」가 되게 한다.
@@ -43,9 +43,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * ADR 0024) 이 상태는 메모리에 둔다. 판정 결과(관측·사건·진행·알림)는 결과 토픽에서 따로 받는다.
  * 좌표·특징 값은 로그에 남기지 않는다.
  *
- * <p>(D-92) 적재 스위치를 켜면 받은 좌표 구간을 그대로 {@code posture.keypoints.v1}에도 보낸다(J1이 HDFS 세션 폴더에
+ * <p>(D-92) 적재 스위치를 켜면 받은 좌표 구간을 그대로 {@code posture.keypoints}에도 보낸다(J1이 HDFS 세션 폴더에
  * {@code keypoints.jsonl}로 저장 — 학습용 좌표 보관). 판정 경로가 아니라서 브로커 확인을 기다리지 않고, 실패해도
- * 측정은 계속한다(그 구간 좌표만 빠짐, 실패 수를 센다). 계약: contracts/realtime/kafka-keypoints.v1.schema.json.
+ * 측정은 계속한다(그 구간 좌표만 빠짐, 실패 수를 센다). 계약: contracts/realtime/kafka-keypoints.schema.json.
  */
 final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(KafkaPipeline.class);

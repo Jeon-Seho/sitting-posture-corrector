@@ -12,16 +12,16 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
 
-/** (D-37) v1 판정 상태 저장·복원 — 재시작해도 같은 사건·요약이 나와야 한다. */
-class V1JudgeRestoreTest {
+/** (D-37) 판정 상태 저장·복원 — 재시작해도 같은 사건·요약이 나와야 한다. */
+class JudgeRestoreTest {
 
 	static final String SID = "00000000-0000-4000-8000-0000000000d7";
-	static final V1Policy POLICY = new V1Policy(3000, 3000, 60000, 0.7);
+	static final JudgePolicy POLICY = new JudgePolicy(3000, 3000, 60000, 0.7);
 
 	/** T-10과 같은 시나리오: 정상 5s → 나쁜 자세 70s → 정상 10s, 0.5초 구간 170개. */
 	static Map<String, Object> t10(int index) {
 		double collapseProbability = index < 10 || index >= 150 ? 0.1 : 0.9;
-		return V1JudgeRegistryTest.obs(index, index * 500L, index * 500L + 500, collapseProbability);
+		return JudgeRegistryTest.obs(index, index * 500L, index * 500L + 500, collapseProbability);
 	}
 
 	/** Redis에 JSON으로 썼다가 읽은 것처럼 숫자 타입을 바꾼다(작은 정수는 Integer, 실수는 Double). */
@@ -43,7 +43,7 @@ class V1JudgeRestoreTest {
 		return value;
 	}
 
-	static final class MemoryStore implements V1JudgeStore {
+	static final class MemoryStore implements JudgeStore {
 		final Map<String, Stored> data = new HashMap<>();
 		int saves;
 
@@ -68,17 +68,17 @@ class V1JudgeRestoreTest {
 
 	@Test
 	void restoredJudgeContinuesExactlyLikeTheOriginal() {
-		V1SessionJudge original = new V1SessionJudge(SID, POLICY);
+		SessionJudge original = new SessionJudge(SID, POLICY);
 		for (int i = 0; i < 60; i++) {
-			original.accept(V1Observation.fromBody(t10(i)));
+			original.accept(JudgeObservation.fromBody(t10(i)));
 		}
-		@SuppressWarnings("unchecked") V1SessionJudge restored = V1SessionJudge
+		@SuppressWarnings("unchecked") SessionJudge restored = SessionJudge
 			.restore((Map<String, Object>)viaJson(original.snapshot()));
 		assertThat(restored.view()).isEqualTo(original.view());
 
 		for (int i = 60; i < 170; i++) {
-			V1SessionJudge.Result originalResult = original.accept(V1Observation.fromBody(t10(i)));
-			V1SessionJudge.Result restoredResult = restored.accept(V1Observation.fromBody(t10(i)));
+			SessionJudge.Result originalResult = original.accept(JudgeObservation.fromBody(t10(i)));
+			SessionJudge.Result restoredResult = restored.accept(JudgeObservation.fromBody(t10(i)));
 			assertThat(restoredResult.decisions()).isEqualTo(originalResult.decisions());
 			assertThat(restoredResult.progress()).isEqualTo(originalResult.progress());
 		}
@@ -109,21 +109,21 @@ class V1JudgeRestoreTest {
 	@Test
 	@SuppressWarnings("unchecked")
 	void restoreWorksWhenNullsWereOmitted() {
-		V1SessionJudge original = new V1SessionJudge(SID, POLICY);
+		SessionJudge original = new SessionJudge(SID, POLICY);
 		for (int i = 0; i < 160; i++) { // 확정·재알림·복귀까지 (사건 reason은 모두 null)
-			original.accept(V1Observation.fromBody(t10(i)));
+			original.accept(JudgeObservation.fromBody(t10(i)));
 		}
-		V1SessionJudge restored = V1SessionJudge.restore((Map<String, Object>)viaJson(dropNulls(original.snapshot())));
+		SessionJudge restored = SessionJudge.restore((Map<String, Object>)viaJson(dropNulls(original.snapshot())));
 		assertThat(restored.view()).isEqualTo(original.view());
 	}
 
 	@Test
 	void snapshotWithOtherVersionIsRejected() {
-		Map<String, Object> snap = new V1SessionJudge(SID, POLICY).snapshot();
+		Map<String, Object> snap = new SessionJudge(SID, POLICY).snapshot();
 		snap.put("v", 99);
 		boolean thrown = false;
 		try {
-			V1SessionJudge.restore(snap);
+			SessionJudge.restore(snap);
 		} catch (IllegalArgumentException expected) {
 			thrown = true;
 		}
@@ -134,8 +134,8 @@ class V1JudgeRestoreTest {
 	void restartMidEpisodeKeepsEventsAndSkipsRedeliveredMessages() {
 		MemoryStore store = new MemoryStore();
 		AtomicLong now = new AtomicLong(1_000_000);
-		V1JudgeRegistryTest.MemorySink sink1 = new V1JudgeRegistryTest.MemorySink();
-		V1JudgeRegistry before = new V1JudgeRegistry(sink1, store, POLICY, now::get);
+		JudgeRegistryTest.MemorySink sink1 = new JudgeRegistryTest.MemorySink();
+		JudgeRegistry before = new JudgeRegistry(sink1, store, POLICY, now::get);
 		before.sessionStarted(SID, "u1", Map.of("policy",
 			Map.of("hold_ms", 3000, "recovery_ms", 3000, "reminder_ms", 60000, "threshold", 0.7)));
 		for (int i = 0; i < 60; i++) {
@@ -144,8 +144,8 @@ class V1JudgeRestoreTest {
 		assertThat(store.data).containsKey(SID);
 
 		// 재시작: 새 등록부, 같은 저장소. Kafka가 커밋 전 메시지(55~59)를 다시 준다.
-		V1JudgeRegistryTest.MemorySink sink2 = new V1JudgeRegistryTest.MemorySink();
-		V1JudgeRegistry after = new V1JudgeRegistry(sink2, store, POLICY, now::get);
+		JudgeRegistryTest.MemorySink sink2 = new JudgeRegistryTest.MemorySink();
+		JudgeRegistry after = new JudgeRegistry(sink2, store, POLICY, now::get);
 		for (int i = 55; i < 60; i++) {
 			assertThat(after.observation(SID, null, t10(i))).contains("이미 반영한 sequence");
 		}
@@ -175,8 +175,8 @@ class V1JudgeRestoreTest {
 
 	@Test
 	void withoutStoredStateARestartedSessionStartsOverAsBefore() {
-		V1JudgeRegistryTest.MemorySink sink = new V1JudgeRegistryTest.MemorySink();
-		V1JudgeRegistry after = new V1JudgeRegistry(sink, new MemoryStore(), POLICY, () -> 0L);
+		JudgeRegistryTest.MemorySink sink = new JudgeRegistryTest.MemorySink();
+		JudgeRegistry after = new JudgeRegistry(sink, new MemoryStore(), POLICY, () -> 0L);
 		after.observation(SID, "u1", t10(60));
 		@SuppressWarnings("unchecked") Map<String, Object> summary = (Map<String, Object>)after.view(SID).orElseThrow()
 			.get("summary");
@@ -188,7 +188,7 @@ class V1JudgeRestoreTest {
 	void expiryDeletesStoredState() {
 		MemoryStore store = new MemoryStore();
 		AtomicLong now = new AtomicLong(0);
-		V1JudgeRegistry registry = new V1JudgeRegistry(new V1JudgeRegistryTest.MemorySink(), store, POLICY, now::get);
+		JudgeRegistry registry = new JudgeRegistry(new JudgeRegistryTest.MemorySink(), store, POLICY, now::get);
 		registry.sessionStarted(SID, "u1", Map.of());
 		registry.observation(SID, "u1", t10(0));
 		now.set(301_000);

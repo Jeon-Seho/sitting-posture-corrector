@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://posegood.local/contracts/realtime/kafka-features.v1.schema.json",
-  "title": "Topic posture.features.v1 (draft): entry API -> inference",
+  "$id": "https://posegood.local/contracts/realtime/kafka-features.schema.json",
+  "title": "Topic posture.features (draft): entry API -> inference",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "message_id", "session_id", "user_id", "produced_at", "kind", "body"],
@@ -21,7 +21,7 @@
     },
     {
       "if": { "properties": { "kind": { "const": "features" } } },
-      "then": { "properties": { "body": { "$ref": "../inference-request.v2.schema.json" } } }
+      "then": { "properties": { "body": { "$ref": "../inference-request.schema.json" } } }
     },
     {
       "if": { "properties": { "kind": { "const": "session_ended" } } },
@@ -34,7 +34,7 @@
       "additionalProperties": false,
       "required": ["policy", "baseline_id", "frame"],
       "properties": {
-        "policy": { "$ref": "../session-view.v1.schema.json#/properties/policy" },
+        "policy": { "$ref": "../session-view.schema.json#/properties/policy" },
         "baseline_id": { "type": "string", "format": "uuid" },
         "frame": {
           "type": "object",

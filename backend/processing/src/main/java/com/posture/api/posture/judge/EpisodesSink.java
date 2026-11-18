@@ -2,7 +2,7 @@ package com.posture.api.posture.judge;
 
 import java.util.Map;
 
-/** (D-22) {@code posture.episodes.v1} 발행 대상. 운영은 Kafka, 테스트는 메모리. */
+/** (D-22) {@code posture.episodes} 발행 대상. 운영은 Kafka, 테스트는 메모리. */
 public interface EpisodesSink {
 
 	/** kind = observation | decision | progress, body = 계약 본문. 봉투는 구현이 붙인다. */

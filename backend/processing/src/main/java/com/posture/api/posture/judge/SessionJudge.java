@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * (D-22) 세션 1개의 실시간 계약 v1 판정 — 관측 v2를 받아 사건 v1과 세션 요약을 만든다.
+ * (D-22) 세션 1개의 실시간 Kafka 계약 판정 — 관측을 받아 사건과 세션 요약을 만든다.
  *
  * <p>시간은 모두 <b>세션 기준 ms(관측의 start_ms/end_ms)</b>로 계산한다(서버 수신 시각을 쓰지 않음).
  * 지속·복귀 시간은 판정 가능한 구간 길이의 누적이다.
@@ -43,7 +43,7 @@ import java.util.Set;
  * 구간 시작, {@code timestamp_ms}는 시작(started)·끝(ended), {@code reason}은 사유, {@code deviation_type}은 none.
  * 사건 번호({@code event_id})는 다른 사건과 같은 순서를 쓴다.
  */
-public final class V1SessionJudge {
+public final class SessionJudge {
 
 	static final Set<String> DEVIATION_TYPES = Set.of("none", "forward_slouch", "left_lean", "right_lean",
 		"unspecified");
@@ -63,7 +63,7 @@ public final class V1SessionJudge {
 	}
 
 	private final String sessionId;
-	private final V1Policy policy;
+	private final JudgePolicy policy;
 
 	// 시간 누적 (세션 기준 ms)
 	private long endMs;
@@ -103,7 +103,7 @@ public final class V1SessionJudge {
 	private long excludedStartMs;
 	private long excludedEndMs;
 
-	public V1SessionJudge(String sessionId, V1Policy policy) {
+	public SessionJudge(String sessionId, JudgePolicy policy) {
 		this.sessionId = sessionId;
 		this.policy = policy;
 	}
@@ -187,7 +187,7 @@ public final class V1SessionJudge {
 	 * @throws IllegalArgumentException 버전이 다르거나 필수 값이 없을 때
 	 */
 	@SuppressWarnings("unchecked")
-	public static V1SessionJudge restore(Map<String, Object> snapshot) {
+	public static SessionJudge restore(Map<String, Object> snapshot) {
 		if (snapshot == null || num(snapshot.get("v"), -1) != SNAPSHOT_VERSION) {
 			throw new IllegalArgumentException("스냅샷 버전이 다름: " + (snapshot == null ? null : snapshot.get("v")));
 		}
@@ -195,10 +195,10 @@ public final class V1SessionJudge {
 			throw new IllegalArgumentException("스냅샷에 session_id·policy 없음");
 		}
 		Map<String, Object> policyValues = (Map<String, Object>)pm;
-		V1Policy policy = new V1Policy(req(policyValues, "hold_ms"), req(policyValues, "recovery_ms"),
+		JudgePolicy policy = new JudgePolicy(req(policyValues, "hold_ms"), req(policyValues, "recovery_ms"),
 			req(policyValues, "reminder_ms"),
 			policyValues.get("threshold") instanceof Number n ? n.doubleValue() : 0.7);
-		V1SessionJudge judge = new V1SessionJudge(sid, policy);
+		SessionJudge judge = new SessionJudge(sid, policy);
 		judge.endMs = req(snapshot, "end_ms");
 		judge.validMs = req(snapshot, "valid_ms");
 		judge.normalMs = req(snapshot, "normal_ms");
@@ -270,7 +270,7 @@ public final class V1SessionJudge {
 		return value instanceof Number n ? n.longValue() : fallback;
 	}
 
-	public synchronized Result accept(V1Observation observation) {
+	public synchronized Result accept(JudgeObservation observation) {
 		if (ended) {
 			rejected++;
 			return Result.skip("세션 종료 후 관측");
@@ -518,7 +518,7 @@ public final class V1SessionJudge {
 	 * (D-57) 방금 반영한 구간의 관측. 유효하면 good·bad·점수와 이어진 시간(반영한 뒤의 값 — 확정 규칙이 세는 것과 같음),
 	 * 아니면 null·0. 회복 쪽은 열린 사건이 있을 때만 센다(사건이 없으면, 이 구간에서 회복이 확정돼 닫혔어도 0).
 	 */
-	private Map<String, Object> observationBody(V1Observation observation) {
+	private Map<String, Object> observationBody(JudgeObservation observation) {
 		boolean judged = observation.valid();
 		boolean bad = observation.collapseProbability() >= policy.threshold();
 		Map<String, Object> body = new LinkedHashMap<>();
