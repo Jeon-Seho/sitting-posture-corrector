@@ -88,7 +88,7 @@ def health():
         "components": {
             "redis": redis_result,
             "kafka": kafka_result,
-            "realtimeV1": realtime_consumer.status(),
+            "realtime": realtime_consumer.status(),
         },
     }
     return JSONResponse(

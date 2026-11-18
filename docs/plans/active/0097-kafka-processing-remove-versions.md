@@ -99,6 +99,18 @@
 - Python 241 중 실패 1(전부터 실패하던 브라우저 카메라 시험), 계약 시험 `test_realtime_ws`·`test_realtime_contracts`·`test_frame_contract` 통과. Kafka 추론 17 통과.
 - 바꾸거나 지운 파일을 가리키는 Markdown 링크: 깨진 것 0(지운 계약을 가리키던 링크는 `docs/removed-docs.md`로).
 
+실제 Kafka로 확인(2026-11-18, 이 PC Docker Desktop):
+
+- 저장소 compose에서 `kafka`(apache/kafka 4.3.1)·`redis`·`api-server`(처리 서비스)·`inference-service`만 이 브랜치 코드로 빌드해 띄웠다
+  (Windows라 `/etc/localtime` 연결·LAN 리스너는 뺀 임시 compose, 서비스 DB·판정 결과 저장은 끔).
+- 처리 서비스가 시작하며 새 이름 토픽 7개(`posture.features`·`inference`·`episodes`·`alerts`·`stored`·`keypoints`·`dlq`)를 만들었고 `.v1`은 없다. `alerts`·`stored` 보존 3일.
+- `replay_realtime.py`로 `POST /api/realtime/features`에 172건 → 모두 202. 옛 주소 `/api/v1/realtime/features`·`/judge/v1/status`는 404.
+- 그룹 `inference-service`(`posture.features`)·`judge`(`posture.inference`)가 붙고 LAG 0, DLQ 0건.
+- `GET /judge/sessions/{id}`가 통합 시험 8단계 기대값과 같다: 확정 8.0s → 재알림 68.0s → 복귀 78.0s(지속 73.0s) → 종료, 붕괴 1·알림 2·유효 85000·누락 0·`last_sequence` 169.
+- Redis: 진행 중 세션은 `posture:judge:{id}`로 저장되고 종료 뒤 지워진다.
+- 이때 Kafka 추론 `/health`의 상태 이름 `realtimeV1`이 남은 것을 찾아 `realtime`으로 바꿨다(읽는 곳 없음). 다시 빌드해 같은 결과·`processed 172` 확인.
+- 확인하지 못한 것: `report-store` 그룹과 DB 저장·`posture.alerts`/`stored` 발행(서비스 DB 필요), io-api kafka 모드(WebSocket), J1·HDFS.
+
 아직 하지 않은 검증:
 
 - 서버 `integration_test.sh`(Kafka·Redis·HDFS·Spark가 있는 서버에서만). 전환 때 2·8·9·11·12·17단계를 새 이름으로 확인한다.
