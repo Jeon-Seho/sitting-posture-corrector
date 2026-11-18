@@ -38,6 +38,7 @@ GitHub 재사용 검사(`harness.yml`)는 Python 3.9와 3.12를 모두 사용할
 - MySQL 통합: 시험 loopback 서버와 `POSEGOOD_TEST_MYSQL_URL`·`_USER`·`_PASSWORD`를 준비하고 `backend/gradlew -p backend build -Pmysql-integration`을 실행한다. Windows는 `backend\gradlew.bat`이다. 시험 DB 생성·삭제 권한과 방법은 [백엔드](../backend/README.md#준비와-검증)를 따른다.
 - 테마: `node tools/browser/appearance.mjs <프론트 URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`. Vite·Chrome에서 대표 라이트/다크·이미지·사용자 색상·복원·좁은 화면을 확인한다.
 - JWT: `node tools/browser/jwt-integration.mjs <프론트 URL> "<Chrome 실행 파일>"`. 인증 연결 변경 시 테스트 API·DB·Vite·Chrome과 합성 계정을 사용한다.
+- 계정 메일 UI(합성 응답): `VITE_EMAIL_VERIFICATION_ENABLED=true`·`VITE_PASSWORD_RESET_ENABLED=true`로 시작한 시험 Vite와 Chrome에서 `node tools/browser/account-mail.mjs <Vite URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`. 가입 코드 확인 전 가입 요청 차단·재설정 링크/비밀번호 오류·Discord 최종 승인과 라이트/다크·390/690/1360px 배치를 확인한다. 실제 SMTP·OAuth 검증은 아니며 HTTP/쿠키/DB 경계는 명시적 MySQL의 `AccountMailIntegrationTest`로 별도 확인한다.
 - 자정 브라우저: 시험 API·DB와 연결한 `browser-smoke` 모드 Vite, 합성 시험 계정, Chrome을 준비하고 `node tools/browser/midnight.mjs <Vite URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`를 실행한다([준비](../frontend/README.md#시각-스타일과-자정-측정2026-10-26)). 계정은 `POSEGOOD_MIDNIGHT_EMAIL`·`POSEGOOD_MIDNIGHT_PASSWORD`로 지정한다. 서버 시작 시각이 KST 자정 전 10초 이내인 환경에서 실제 REST/WS·R1 기록 조회와 합성 카메라를 사용해 등록·측정·자정 전후 카메라 유지·날짜별 로컬 보관·오늘/달력 표시를 확인한다. 서버의 자정 세션 전환은 별도 검증이며 날짜별 계산 단위 테스트는 기존 FE 검사에 포함된다.
 - 변경한 개발 실행은 시험용 MySQL·빌드된 API JAR로 `python tools/dev.py dev-server`의 준비·프록시 접근·종료를 확인한다.
 

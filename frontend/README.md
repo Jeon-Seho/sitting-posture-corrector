@@ -111,12 +111,15 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 
 ## 시각 스타일과 자정 측정(2026-10-26)
 
-메일 화면: 로그인에서 **비밀번호 재설정**, 가입 정보에서 **이메일 인증 안내**로 진입한다.
-`#password-reset?token=...`·`#verify-email?token=...` 링크를 받을 수 있다. 현재 API는 기본 비활성이며
-성공을 가장하지 않고 연결 준비중을 표시한다. 비밀번호 재설정은 서버 경로가 생겼으므로(기본 꺼짐) 서버를 켠 배포에서
-`VITE_PASSWORD_RESET_ENABLED=true`로 빌드한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 서버 경로가 아직 없는 이메일 인증까지 켜므로 쓰지 않는다.
-Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`일 때 로그인 화면·프로필 설정에 나타난다(데스크톱 앱에서는 숨김). [인계](../docs/design/social-login-password-reset-handoff.md). SMTP/비밀/DB는 프론트가 처리하지 않는다.
-데스크톱 앱도 웹 주소의 화면을 열므로 웹과 같은 빌드 플래그를 따른다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
+메일 화면: 로그인에서 **비밀번호 찾기**, 가입 정보에서 **이메일 인증하기**로 진입한다.
+가입 인증을 켠 빌드에서는 계정 생성 전에 이메일 코드 확인을 거친다. 서버도 인증 쿠키와 가입 이메일을 대조해 우회를 막는다.
+`#password-reset?token=...`는 서버 유효성 확인 뒤 새 비밀번호/확인 화면을 연다. 기존 비밀번호 재사용은 서버에서 거절한다.
+`VITE_PASSWORD_RESET_ENABLED=true`, `VITE_EMAIL_VERIFICATION_ENABLED=true`를 대응 서버 기능·SMTP 설정과 함께 배포한다.
+`VITE_ACCOUNT_MAIL_API_ENABLED=true`는 두 기능을 함께 켠다. 모두 기본 꺼짐이며 성공을 가장하지 않는다.
+Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`로 켠다. 이메일 중복 시 기존 계정 인증→연결 승인→로그인 화면을 제공한다.
+데스크톱 Discord 외부 브라우저 복귀는 후속이다. API·쿠키·메일·비밀 설정은 [이메일 인계](../docs/design/email-account-handoff.md)를 따른다.
+개발자 도구 → 화면·모션 → 계정 인증 흐름의 접힌 항목에서 실제 컴포넌트를 합성 응답으로 점검한다.
+자동 브라우저 점검은 `node tools/browser/account-mail.mjs <Vite URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`이며 [품질 기준](../docs/quality.md)의 시험 빌드 플래그를 사용한다.
 
 최신 밝은 테마는 사이드바/소개 `#416b56`, 흰 작업 면이다. 이미지 모델로 생성한 투명 WebP
 `login-light`·`ready-camera-light`·`empty-records-light`·`baseline-seat-light`를 사용한다.
@@ -171,7 +174,7 @@ MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서�
 ## 로그인과 회원가입
 
 첫 화면은 로그인이고 아래 「회원가입」으로 가입한다.
-회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([FE 기능 명세 회원가입](../docs/design/fe/fe-feature-spec.md#회원가입))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
+회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([FE 기능 명세 회원가입](../docs/design/fe/fe-feature-spec.md#회원가입))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름과 이메일 코드 인증(활성화 배포), 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
 
 가입·로그인·로그아웃은 항상 입출구 서버 `/v2/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
 토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /v2/auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).

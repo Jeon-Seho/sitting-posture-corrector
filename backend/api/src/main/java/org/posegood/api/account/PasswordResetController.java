@@ -43,6 +43,12 @@ public class PasswordResetController {
 		return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore()).build();
 	}
 
+	@PostMapping("/validate")
+	public ResponseEntity<Void> validate(@Valid @RequestBody AccountContracts.MailToken body) {
+		resets.validate(body.token());
+		return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+	}
+
 	@PostMapping("/confirm")
 	public ResponseEntity<Void> confirm(
 		@Valid

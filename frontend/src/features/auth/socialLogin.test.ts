@@ -10,6 +10,7 @@ describe('Discord sign-in routes', () => {
   it('reads only a result status or the sign-up step from the fragment', () => {
     expect(socialRoute('#social-result?status=linked')).toEqual({ kind: 'result', status: 'linked' })
     expect(socialRoute('#social-signup')).toEqual({ kind: 'signup' })
+    expect(socialRoute('#social-link')).toEqual({ kind: 'link' })
     expect(socialRoute('#social-result?status=<script>')).toEqual({ kind: 'result', status: 'failed' })
     expect(socialRoute('#password-reset?token=x')).toBeNull()
   })
@@ -70,7 +71,7 @@ describe('account client social calls', () => {
 })
 
 describe('password reset switch', () => {
-  it('turns reset on without turning on the email verification that has no server route', async () => {
+  it('turns reset on without turning on the independently deployed email verification', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
     const api = createMailApi({ resetEnabled: true, fetcher, base: 'https://api.example.test' })
     expect(api.enabledFor('reset')).toBe(true)

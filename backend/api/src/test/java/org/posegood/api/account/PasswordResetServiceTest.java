@@ -98,7 +98,7 @@ class PasswordResetServiceTest {
 	}
 
 	@Test
-	void aKnownEmailGetsAOneTimeLinkAndNoPassword() {
+	void knownEmailGetsAOneTimeLinkAndNoPassword() {
 		when(accounts.findEmail("user@example.test")).thenReturn(account(4, true));
 		service.request("  User@Example.test ", "203.0.113.1");
 		var hash = ArgumentCaptor.forClass(String.class);
@@ -135,7 +135,7 @@ class PasswordResetServiceTest {
 	}
 
 	@Test
-	void aMailFailureDoesNotChangeTheAnswer() {
+	void mailFailureDoesNotChangeTheAnswer() {
 		when(accounts.findEmail("user@example.test")).thenReturn(account(4, true));
 		org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("down"))
 			.when(mailer).sendReset(anyString(), anyString(), anyLong());
@@ -155,7 +155,7 @@ class PasswordResetServiceTest {
 	}
 
 	@Test
-	void aRaceLoserOrUsedOrExpiredTokenIsInvalid() {
+	void raceLoserOrUsedOrExpiredTokenIsInvalid() {
 		when(accounts.find(4L)).thenReturn(account(4, true));
 		when(resets.find(PasswordResetService.hash("race")))
 			.thenReturn(new PasswordResetRepository.Stored(11, 4, NOW.plusSeconds(60), null));
@@ -172,7 +172,19 @@ class PasswordResetServiceTest {
 	}
 
 	@Test
-	void aShortPasswordIsRejectedBeforeTheToken() {
+	void linkValidationDoesNotConsumeAndRejectsExpiredOrClosedAccounts() {
+		when(resets.find(PasswordResetService.hash("valid")))
+			.thenReturn(new PasswordResetRepository.Stored(11, 4, NOW.plusSeconds(60), null));
+		when(accounts.find(4L)).thenReturn(account(4, true));
+		service.validate("valid");
+		verify(resets, never()).consume(anyLong(), any());
+		when(accounts.find(4L)).thenReturn(account(4, false));
+		assertThrows(ApiError.class, () -> service.validate("valid"));
+		assertThrows(ApiError.class, () -> service.validate("unknown"));
+	}
+
+	@Test
+	void shortPasswordIsRejectedBeforeTheToken() {
 		var error = assertThrows(ApiError.class, () -> service.confirm("tok", "short"));
 		assertEquals("INVALID_PASSWORD", error.code());
 		verify(resets, never()).find(anyString());

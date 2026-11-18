@@ -37,6 +37,17 @@ public class PasswordResetMailer {
 		}
 	}
 
+	/** 가입 인증 코드. 발송 업체의 SMTP API를 서버에서만 호출한다. */
+	public void sendVerification(String to, String code, long lifetimeMinutes) {
+		var message = new SimpleMailMessage();
+		message.setFrom(from);
+		message.setTo(to);
+		message.setSubject("[바른자세] 회원가입 이메일 인증");
+		message.setText("회원가입 인증 코드: " + code + "\n" + lifetimeMinutes
+			+ "분 안에 요청한 화면에 입력해 주세요. 요청하지 않았다면 무시해 주세요.");
+		senders.getObject().send(message);
+	}
+
 	/** 재설정 링크 메일. 실패하면 Spring 메일 예외가 그대로 나간다(호출한 쪽이 기록만 한다). */
 	public void sendReset(String to, String link, long lifetimeMinutes) {
 		var message = new SimpleMailMessage();
@@ -48,6 +59,8 @@ public class PasswordResetMailer {
 			"",
 			"아래 링크를 열어 새 비밀번호를 정해 주세요. 링크는 " + lifetimeMinutes + "분 동안 한 번만 쓸 수 있어요.",
 			link,
+			"링크를 열 수 없다면 비밀번호 찾기 화면에 아래 인증 코드를 입력해 주세요.",
+			link.substring(link.lastIndexOf("token=") + 6),
 			"",
 			"요청하지 않으셨다면 이 메일을 무시해 주세요. 비밀번호는 바뀌지 않아요.",
 			"바른자세는 메일로 비밀번호를 보내거나 묻지 않아요."));

@@ -32,7 +32,7 @@ const mode = expected => until(async () => await evalJS('document.documentElemen
 try {
   await c.call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] })
   await c.call('Page.navigate', { url: base })
-  await until(async () => (await body()).includes('비밀번호 재설정'), 'login')
+  await until(async () => (await body()).includes('비밀번호 찾기'), 'login')
   await fill('email', 'admin'); await fill('password', '1234'); await click('로그인')
   await until(async () => (await body()).includes('개발자 계정'), 'developer entry')
   await click('설정')
@@ -50,7 +50,7 @@ try {
   assert.notEqual(await evalJS('getComputedStyle(document.body).backgroundColor'), lightBackground)
   await browser.screenshot('appearance-dark')
   await c.call('Page.reload')
-  await until(async () => (await body()).includes('비밀번호 재설정'), 'reload')
+  await until(async () => (await body()).includes('비밀번호 찾기'), 'reload')
   await mode('dark')
   assert.equal(await evalJS('document.documentElement.dataset.palette'), 'custom')
   assert.equal(await evalJS('getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()'), '#6750a4')

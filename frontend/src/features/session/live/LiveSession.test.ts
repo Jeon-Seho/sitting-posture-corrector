@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Landmark } from '../../../../../model/prototype/pose'
 import { setServerAuth } from '../../platform/serverAuth'
-import { LiveSession, type LiveState, type SocketLike } from './LiveSession'
+import { LiveSession, MEASURING_ELSEWHERE, type LiveState, type SocketLike } from './LiveSession'
 import { EMPTY_SUMMARY } from './messages'
 
 /** Synthetic server only: a stubbed fetch for S1·S4 and an in-memory socket. */
@@ -468,6 +468,12 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     const noBaseline = make()
     await noBaseline.start()
     expect(noBaseline.state).toMatchObject({ phase: 'failed', message: '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.', busy: false })
+
+    // Signed in on two devices: only one measures at a time (S1 409 MEASUREMENT_IN_PROGRESS).
+    fetch.mockResolvedValueOnce(reply(409, { code: 'MEASUREMENT_IN_PROGRESS' }))
+    const elsewhere = make()
+    await elsewhere.start()
+    expect(elsewhere.state).toMatchObject({ phase: 'failed', message: MEASURING_ELSEWHERE, serverDown: false, busy: false })
 
     // The server is full: the failed screen offers 「다시 시도」, not 「다시 준비하기」.
     fetch.mockResolvedValueOnce(reply(429, { code: 'LIMIT_REACHED' }))
