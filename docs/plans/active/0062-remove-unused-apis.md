@@ -3,7 +3,7 @@
 - 상태: in_progress (1단계 S2·R2·S5·S6 삭제 2026-10-29 통과, 2단계 S3·R3·C1 삭제 2026-11-12 통과. 남은 것: 다른 담당 알림)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060·0061과 번호가 겹쳐 0061 → 0062로 바꿈)
-- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.v2.md), FE 요청 BE-1([FE 제안서](../../design/fe/fe-server-proposal.md) 0장)
+- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(앱은 좌표만, `/v2/realtime`), [BE API 명세](../../design/api-spec.md), [계약 accounts.v2](../../../contracts/accounts.md), FE 요청 BE-1([FE 제안서](../../design/fe/fe-server-proposal.md) 0장)
 
 ## 문제와 완료 기준
 
@@ -31,7 +31,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 - 범위(BE): `backend/api`의 `SessionController`·`SessionService`(`features`·`metadata`·`closeForRecord` 삭제), `WorkspaceController`·`WorkspaceService`(`save` 삭제),
   `ServerRecordVerifier` 파일 삭제, `RecordValidator`의 기록 검사 삭제(설정 검사는 W2가 써서 남김), `SessionRepository.closeLost` 삭제,
   `SessionRequests.FeatureResponse` 삭제. 시험 `SessionServiceTest`·`RecordValidatorTest`·`MySqlIntegrationTest`. 당시 수정한 `tools/service_smoke.py`는 후속 정리에서 제거했고 `tools/realtime_client.py`는 유지한다.
-  문서 [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, 계약 `accounts.v2.md`·`contracts/README.md`, `docs/code-structure.md` 한 줄.
+  문서 [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, 계약 `accounts.md`·`contracts/README.md`, `docs/code-structure.md` 한 줄.
 - 남긴 것(판단 필요): S3 `POST /v2/sessions/{id}/end` — 앱은 부르지 않지만, S1 뒤 WS가 열리지 않은 세션을 닫을 수단이 이것뿐이다. W1 응답의 `records` — R1과 겹치지만 응답 형식을 바꾸는 일이라 FE가 W1을 붙이기 전에 함께 정한다. **11/12 결정: 뺀다.** 앱은 읽지 않는데 W1을 부를 때마다 서버가 R1과 같은 전체 기록을 다시 만든다.
 - 남긴 계약: `feature-response.v1.schema.json`과 예시는 저장소에 남아 있다. 이를 검사하던 `tests/test_feature_response.py`와 HTTP 부하 측정 도구는 후속 정리에서 제거했으므로 현재 사용을 이유로 유지한다고 설명하지 않는다. 계약 파일의 추가 정리는 이 문서 갱신 범위에 포함하지 않는다. 추론 입력 `inference-request.v2`는 API → FastAPI 계약이라 그대로다.
   `SessionService.accept`의 재전송 지문 비교(같은 순번·같은 본문이면 다시 쓰기)는 S2 재시도용이었다. `/v2/realtime`은 중복 순번을 먼저 409로 거절하므로 지금은 닿지 않는다 — 재전송 기억(120개)과 함께 정리할지 따로 정한다.
@@ -89,7 +89,7 @@ W1·W2·A6·A7·C1·R1·R3은 화면이 있어 연결만 남았다. 아래 4개�
 
 - 코드: `SessionController.end`·`SessionService.end`·`SessionRequests.End`, `WorkspaceController`의 기록 삭제·동의 경로와 `OptionalConsent`, `WorkspaceService.deleteRecord`·`optionalConsent`(그리고 R3만 쓰던 `SessionService` 의존), `SessionService.delete`·`SessionRepository.delete`, `ConsentRepository.optional(owner, agreed, version)`, `IdentityGuard`의 `/v2/consents`.
 - 시험(`MySqlIntegrationTest`): 경로 삭제 확인에 3개 추가. S3로 세션을 닫던 두 곳은 앱처럼 WS `end`로 닫는다(`baselinesOwnershipLossAndInferenceFailure`, `baselineRetryIsImmutableAndAnEmptyMeasurementEnds` — 이름 바꿈). R3·S3 재시도 확인 삭제. C1 시험은 가입 동의와 나이 검사만 남김(`registrationConsentsAndOptionalProfileAge`).
-- 문서: BE API 명세(REST 18 → 15, S3·R3·C1 절은 삭제 표시만 남김, 409 `CONFLICT`의 「적재된 기록 삭제」 사유 삭제), FE 연동 명세 3장 표·S3·R3·C1 절, 백엔드 상태, `backend/README.md`, `contracts/accounts.v2.md`.
+- 문서: BE API 명세(REST 18 → 15, S3·R3·C1 절은 삭제 표시만 남김, 409 `CONFLICT`의 「적재된 기록 삭제」 사유 삭제), FE 연동 명세 3장 표·S3·R3·C1 절, 백엔드 상태, `backend/README.md`, `contracts/accounts.md`.
 - 앱 코드·점검 도구·DB는 바꾸지 않았다(셋 다 부르지 않음, 표 그대로).
 
 남은 한계:

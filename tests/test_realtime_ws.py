@@ -11,7 +11,7 @@ from referencing import Registry, Resource
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 REALTIME = CONTRACTS / "realtime"
-EXAMPLES = REALTIME / "examples-v2"
+EXAMPLES = REALTIME / "examples-ws"
 
 
 def load(path):
@@ -27,7 +27,7 @@ REGISTRY = Registry().with_resources(
 
 class RealtimeWsV2Tests(unittest.TestCase):
     def setUp(self):
-        schema = load(REALTIME / "realtime-ws.v2.schema.json")
+        schema = load(REALTIME / "realtime-ws.schema.json")
         Draft202012Validator.check_schema(schema)
         self.validator = Draft202012Validator(
             schema, registry=REGISTRY, format_checker=Draft202012Validator.FORMAT_CHECKER

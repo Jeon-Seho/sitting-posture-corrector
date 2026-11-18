@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/realtime`([WebSocket](../contracts/realtime/realtime-ws.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
 
 ## 전체 검증
 

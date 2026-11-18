@@ -11,7 +11,7 @@ const input = (timeMs: number, extra: Partial<{ judgeable: boolean; landmarks: L
   ...extra,
 })
 
-describe('posture.frames.v1 batching (synthetic landmarks)', () => {
+describe('posture.frames batching (synthetic landmarks)', () => {
   it('keeps the 9 agreed joints in order, rounded, and null for nobody', () => {
     const p = frameJoints(body())!
     expect(p).toHaveLength(9)
@@ -92,11 +92,11 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
   })
 })
 
-describe('posture.frames.v1 draft schema', () => {
+describe('posture.frames draft schema', () => {
   it('produces exactly the fields the contract draft requires', async () => {
     const { readFileSync } = await import('node:fs')
     const schema = JSON.parse(
-      readFileSync(new URL('../../../../../contracts/realtime/frames/posture-frames.v1.schema.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../../../../../contracts/realtime/frames/posture-frames.schema.json', import.meta.url), 'utf8'),
     )
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))

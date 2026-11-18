@@ -14,10 +14,10 @@
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
 그때는 옛 ADR 0013에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송했다(지금은 아래 결정 변경).
 
-> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
+> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
 > 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
-> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe/fe-server-proposal.md) 2장).
+> 판정은 DevOps Kafka 경로(추론 → 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe/fe-server-proposal.md) 2장).
 
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
@@ -88,7 +88,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## MySQL 영구 모드
 
-[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
+[계정 API](removed-docs.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
 인증은 access·refresh 토큰([ADR 0031](decisions/0031-jwt-access-refresh-login.md), 2026-10-27)이고 소유자는 서버 인증 주체에서 얻는다.([ADR 0020](decisions/0020-single-api-decision-engine.md)).
 진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간은 종료 때 짧은 트랜잭션으로 저장한다.
 일별 통계(`daily_stat`)는 API가 읽기만 하고 Spark J2가 매일 00:00에 전날(KST)을 집계하도록 설계했다.
@@ -104,7 +104,7 @@ API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`�
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)(DevOps)이 소유한다.
-실시간 채널(`/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
+실시간 채널(`/realtime`, [WebSocket](../contracts/realtime/realtime-ws.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 ## 프론트 진입과 로컬 저장

@@ -1,4 +1,4 @@
-"""Draft Kafka topic contracts (plan 0022 step 1) and shared WebSocket v2 rules, synthetic examples only."""
+"""Draft Kafka topic contracts (plan 0022 step 1) and shared WebSocket rules, synthetic examples only."""
 
 import copy
 import json
@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 REALTIME = CONTRACTS / "realtime"
 EXAMPLES = REALTIME / "examples"
-EXAMPLES_V2 = REALTIME / "examples-v2"
+EXAMPLES_V2 = REALTIME / "examples-ws"
 SCHEMAS = {
     "features-": "kafka-features.schema.json",
     "inference-": "kafka-inference.schema.json",
@@ -121,7 +121,7 @@ class RealtimeContractTests(unittest.TestCase):
     def test_only_notifying_events_become_alerts(self):
         alert = load(EXAMPLES_V2 / "ws-alert.json")
         with self.assertRaises(ValidationError):
-            validator("realtime-ws.v2.schema.json").validate(dict(alert, kind="recovery_confirmed"))
+            validator("realtime-ws.schema.json").validate(dict(alert, kind="recovery_confirmed"))
 
     def test_alerts_topic_carries_only_notifying_events(self):
         """(D-54) posture.alerts — only collapse_confirmed and reminder, no unknown fields."""
@@ -139,7 +139,7 @@ class RealtimeContractTests(unittest.TestCase):
         frame = load(EXAMPLES_V2 / "ws-features.json")
         for items in ([], frame["items"] * 31):
             with self.subTest(size=len(items)), self.assertRaises(ValidationError):
-                validator("realtime-ws.v2.schema.json").validate(dict(frame, items=items))
+                validator("realtime-ws.schema.json").validate(dict(frame, items=items))
 
     def test_nested_event_must_belong_to_the_message_session(self):
         for name in ("episodes-decision.json",):

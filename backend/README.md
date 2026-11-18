@@ -11,7 +11,7 @@ DB는 MySQL [스키마 V2.6](../database/README.md)만 쓴다. 현재 점수는 
 backend/api/src/main/java/org/posegood/api/
 ├── ApiApplication.java
 ├── common/     # 오류 응답 {error,code,message}, KST 시각 변환, JSON·SHA-256
-├── contract/   # 경계 계약 record (특징 입력 v2, 관측 v2, 사건·조회 v1, 세션 요청)
+├── contract/   # 경계 계약 record (특징 입력, 관측, 사건·조회, 세션 요청)
 ├── engine/     # 판정 엔진: SessionEngine(순서·누락·중복), Timeline(시간 누적),
 │               # EpisodeLedger(사건·통계), DecisionRules(정책 임계 비교 — 이곳에만 있다)
 ├── policy/     # threshold_policy 찾기·추가 (행은 고치지 않는다)
@@ -22,7 +22,7 @@ backend/api/src/main/java/org/posegood/api/
 └── system/     # /health, 시작 시 스키마 V2.6 확인
 ```
 
-흐름: `SessionController`·`RealtimeHandlerV2`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
+흐름: `SessionController`·`RealtimeHandler`(좌표 → `FrameFeatures`) → `SessionService` → `InferenceClient`(FastAPI) → `SessionEngine` → `SessionRepository`(MySQL).
 세션 하나의 요청은 세션 잠금 안에서 차례로 처리한다(추론 호출 포함). 판정 결과는 처리 직후 DB에 쓰고 실시간 채널로 보낸다.
 
 ## 진행 중 상태와 DB
@@ -45,7 +45,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 - 알림 시도는 `(monitor_session_id,event_seq,attempted_at)`으로 저장한다. 전달 여부·억제 사유 컬럼은 없다.
 - 현재 앱 `alerts_on`은 `user_account.sound_alert_enabled`(기본 true, DB V2.6)에 대응한다. 기준 등록·재조회는 평균 좌표를 정본으로 사용한다.
 - 앱 기록은 따로 저장하지 않는다(V2.1에서 `client_record` 삭제). `GET /records`는 닫힌 세션을 위 테이블에서 다시 만든다.
-  사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.v2.md)).
+  사건 방향은 저장 칸이 없어 `unspecified`다([계약](../contracts/accounts.md)).
 - 로그인([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md), `account/AuthTokens`): access 토큰(JWT HS256, 30분, `Authorization: Bearer`, 저장 안 함)과
   refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, DB `refresh_token`에는 SHA-256만). `POST /auth/refresh`가 refresh 토큰을 바꿔 준다.
   바꾼 토큰의 30초 안 재사용은 허용, 그 뒤 재사용은 그 사용자의 refresh 토큰을 모두 철회한다. 서명 키는 `POSEGOOD_JWT_SECRET`(32바이트 이상, 배포 필수).
@@ -58,7 +58,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ## API
 
-모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·토큰·소유권·오류 형식은 [계정·저장 API v2](../contracts/accounts.v2.md)을 따른다.
+모든 경로는 Nginx·Vite에서 `/api` 접두사를 떼고 전달된다. 계정·토큰·소유권·오류 형식은 [계정·저장 API](../contracts/accounts.md)을 따른다.
 
 | 경로 | 역할 |
 | --- | --- |
@@ -68,7 +68,7 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | `PUT /auth/password`, `DELETE /auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
 | `GET`·`PUT /workspace`, `GET /records` | 설정·기록 조회. 기록 삭제 `DELETE /records/{id}`(R3)는 2026-11-12 삭제 |
 | `PUT /sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
-| `GET /sessions/{UUID}` | 조회 v1. 종료는 WebSocket `end`·연결 끊김으로만 한다(REST 종료 S3는 2026-11-12 삭제) |
+| `GET /sessions/{UUID}` | 조회 형식(session-view). 종료는 WebSocket `end`·연결 끊김으로만 한다(REST 종료 S3는 2026-11-12 삭제) |
 | `POST /baselines`, `GET /baselines/current` | 독립 기준 등록·현재 기준 조회 |
 | `GET /realtime` (WebSocket) | 실시간 채널(아래). v1(`/v1/realtime`)은 2026-10-26 삭제 |
 | `GET /health` | DB 연결 확인 |
@@ -85,9 +85,9 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 
 ### 실시간 채널
 
-`/realtime`은 [WebSocket v2 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
+`/realtime`은 [WebSocket 계약](../contracts/realtime/realtime-ws.schema.json)을 따른다. `hello`의 `access_token`으로 연결 때 한 번만 인증하고(측정 중 만료돼도 연결 유지) 같은 출처 페이지만 허용한다
 (`posegood.realtime.allowed-origins`로 추가, 프록시는 원래 Host(포트 포함)를 넘긴다). REST API를 다른 출처 화면(Vercel)에서 부를 때는 `posegood.cors.allowed-origins`(`POSEGOOD_CORS_ALLOWED_ORIGINS`)에 그 출처를 넣는다([BE API 명세](../docs/design/api-spec.md) 1장). 세션 생성·조회는 HTTP로 한다. 연결 하나가 측정 한 번이고
-재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames.v1](../contracts/realtime/frames/posture-frames.v1.schema.json))을
+재연결은 없다([ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)). 앱은 좌표 구간([posture.frames](../contracts/realtime/frames/posture-frames.schema.json))을
 보내고, API가 `FrameFeatures`로 기준 대비 특징 변화량을 계산해 기존 `POST /infer`·판정에 넣는다(A안, 규칙은 [BE API 명세](../docs/design/api-spec.md) 11.3과 합성 기준값 `contracts/examples/frames/reference-rule-cases.json`).
 
 - `hello`(`schema_version: "2.0"`)는 연결 뒤 10초 안에 첫 메시지여야 한다(`posegood.realtime.hello-timeout`). 아니면 `closed: bad_message`.

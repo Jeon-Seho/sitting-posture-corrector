@@ -8,7 +8,7 @@ kafka-console-producer가 그대로 받는다(통합 테스트 17단계):
           --topic posture.keypoints --property parse.key=true --property key.separator='|'
 
 구간은 replay_realtime.py 기본 시나리오와 같은 170개(0.5초, sequence 0부터, 85초)이고 구간마다 프레임 4장(125ms).
-본문은 앱이 보내는 좌표 구간 계약(contracts/realtime/frames/posture-frames.v1.schema.json) 그대로다.
+본문은 앱이 보내는 좌표 구간 계약(contracts/realtime/frames/posture-frames.schema.json) 그대로다.
 좌표는 합성 값(기준 자세 근처 고정점 + 나쁜 자세 구간은 머리 점을 아래로)이며 실제 사람의 측정값이 아니다.
 """
 import argparse

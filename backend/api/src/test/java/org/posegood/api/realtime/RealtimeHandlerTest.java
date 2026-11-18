@@ -64,11 +64,11 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * {@code /realtime} 순서·제한 시험: hello 순서와 제한 시간, ready, features, end, 끊김 종료, bad_message.
  *
- * 앱 메시지는 contracts/realtime/examples-v2의 예시를 그대로 보내고, 서버 메시지는 같은 종류의 예시와 필드가
+ * 앱 메시지는 contracts/realtime/examples-ws의 예시를 그대로 보내고, 서버 메시지는 같은 종류의 예시와 필드가
  * 같은지 확인한다. 판정·저장은 {@link SessionService} 대역으로 대신한다(실제 흐름은 MySQL 통합 시험).
  */
-class RealtimeHandlerV2Test {
-	private static final Path EXAMPLES = Path.of("..", "..", "contracts", "realtime", "examples-v2");
+class RealtimeHandlerTest {
+	private static final Path EXAMPLES = Path.of("..", "..", "contracts", "realtime", "examples-ws");
 	/** application.properties의 spring.jackson 설정과 같은 읽기 규칙. */
 	private static final JsonMapper MAPPER = JsonMapper.builder()
 		.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -92,7 +92,7 @@ class RealtimeHandlerV2Test {
 	private static final long AT = 50_399_880;
 
 	private SessionService sessions;
-	private RealtimeHandlerV2 handler;
+	private RealtimeHandler handler;
 	private final List<Fake> sockets = new ArrayList<>();
 
 	@BeforeEach
@@ -106,15 +106,15 @@ class RealtimeHandlerV2Test {
 		handler.shutdown();
 	}
 
-	private RealtimeHandlerV2 handler(Duration hello) {
+	private RealtimeHandler handler(Duration hello) {
 		return handler(hello, false, Clock.systemUTC());
 	}
 
-	private RealtimeHandlerV2 handler(Duration hello, boolean midnightRollover, Clock clock) {
+	private RealtimeHandler handler(Duration hello, boolean midnightRollover, Clock clock) {
 		return handler(hello, midnightRollover, clock, new LocalPipeline(sessions));
 	}
 
-	private RealtimeHandlerV2 handler(Duration hello, boolean midnightRollover, Clock clock,
+	private RealtimeHandler handler(Duration hello, boolean midnightRollover, Clock clock,
 		MeasurementPipeline pipeline) {
 		var current = mock(CurrentUser.class);
 		when(current.id(any(Authentication.class))).thenReturn(OWNER);
@@ -123,7 +123,7 @@ class RealtimeHandlerV2Test {
 		when(tokens.authenticate(any())).thenThrow(new ApiError(401, "UNAUTHENTICATED", "authentication required"));
 		doReturn(UsernamePasswordAuthenticationToken.authenticated("synthetic", null, java.util.List.of()))
 			.when(tokens).authenticate("synthetic-access-token");
-		return new RealtimeHandlerV2(sessions, pipeline, current, tokens, new Json(MAPPER),
+		return new RealtimeHandler(sessions, pipeline, current, tokens, new Json(MAPPER),
 			Validation.buildDefaultValidatorFactory().getValidator(), hello, Duration.ofSeconds(5),
 			midnightRollover, clock);
 	}
@@ -132,7 +132,7 @@ class RealtimeHandlerV2Test {
 		return (ObjectNode)MAPPER.readTree(Files.readString(EXAMPLES.resolve(name)));
 	}
 
-	private Fake connect(RealtimeHandlerV2 target) throws Exception {
+	private Fake connect(RealtimeHandler target) throws Exception {
 		var fake = new Fake("s" + sockets.size(), target);
 		sockets.add(fake);
 		target.afterConnectionEstablished(fake.socket);
@@ -279,7 +279,7 @@ class RealtimeHandlerV2Test {
 		assertEquals("bad_message", wrongPhase.only("closed").get("reason").asString());
 
 		var large = measuring();
-		var padded = example("ws-end.json").put("pad", "x".repeat(RealtimeHandlerV2.MAX_BYTES));
+		var padded = example("ws-end.json").put("pad", "x".repeat(RealtimeHandler.MAX_BYTES));
 		send(large, padded);
 		assertEquals("bad_message", large.only("closed").get("reason").asString());
 
@@ -318,8 +318,8 @@ class RealtimeHandlerV2Test {
 	/** (D-57 ⑧) kafka 경로의 stalled: 측정 중 결과 지연은 5초, end 뒤 저장 지연은 3초(FE 요청). */
 	@Test
 	void kafkaStallThresholdsAreFiveSecondsMeasuringAndThreeAfterEnd() {
-		assertEquals(5, Duration.ofNanos(RealtimeHandlerV2.STALL_NANOS).toSeconds());
-		assertEquals(3, Duration.ofNanos(RealtimeHandlerV2.END_STALL_NANOS).toSeconds());
+		assertEquals(5, Duration.ofNanos(RealtimeHandler.STALL_NANOS).toSeconds());
+		assertEquals(3, Duration.ofNanos(RealtimeHandler.END_STALL_NANOS).toSeconds());
 	}
 
 	@Test
@@ -577,7 +577,7 @@ class RealtimeHandlerV2Test {
 		private final AtomicBoolean closed = new AtomicBoolean();
 
 		/** 닫으면 실제 컨테이너처럼 {@code afterConnectionClosed}가 불린다. */
-		Fake(String id, RealtimeHandlerV2 owner) throws Exception {
+		Fake(String id, RealtimeHandler owner) throws Exception {
 			when(socket.getId()).thenReturn(id);
 			when(socket.isOpen()).thenAnswer(call -> !closed.get());
 			doAnswer(call -> {

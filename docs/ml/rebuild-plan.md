@@ -33,7 +33,7 @@
 | 입력 경로 | 현재 받을 수 있는 정보 | 새 ML에서의 역할 |
 | --- | --- | --- |
 | 실제 BE→추론 [`inference-request`](../../contracts/inference-request.schema.json) | 머리 간격·좌우 치우침·어깨 기울기 변화량 3개와 품질 2개 | `legacy3` 입력의 무상태 규칙·분류기 호환성 평가 |
-| 목표 [`posture.frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json) | 9개 점의 영상 x·y·visibility와 프레임 시각 | `image9` 연구 입력 후보. 현재 BE가 전달하는 입력으로 간주하지 않음 |
+| 목표 [`posture.frames`](../../contracts/realtime/frames/posture-frames.schema.json) | 9개 점의 영상 x·y·visibility와 프레임 시각 | `image9` 연구 입력 후보. 현재 BE가 전달하는 입력으로 간주하지 않음 |
 | 새 연구 수집 | 추출기 ID가 있는 원본 관측·기준·시각·독립 라벨 | 자료를 한 번 모아 입력 후보를 같은 촬영에서 비교 |
 
 현재 추론 요청에는 명시적 측정 세션 ID가 없고, 기준 ID와 순번만 있다.

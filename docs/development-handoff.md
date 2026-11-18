@@ -16,7 +16,7 @@
 [개발 흐름](development.md)의 런타임을 준비하고 최초 `make setup` 후 [품질 기준](quality.md)에 따라 검증한다.
 전체 `make check`는 Python·프론트·Java·실제 HTTP·독립 Chrome·일회용 MySQL/Compose·복원을 포함한다.
 부분 게이트 결과를 전체 성공으로 보고하지 않는다. 서버·시험 자원은 자신이 시작한 것만 종료한다.
-[백엔드 실행](../backend/README.md), [Compose·비밀값·배포·백업](../infra/README.md), [계정 계약](../contracts/accounts.v1.md)을 따른다.
+[백엔드 실행](../backend/README.md), [Compose·비밀값·배포·백업](../infra/README.md), [계정 계약](removed-docs.md)을 따른다.
 브랜치와 SHA는 실행 시 확인하며 이 문서에 특정 작업 브랜치를 상시 고정하지 않는다.
 
 ## 과거 검증과 한계

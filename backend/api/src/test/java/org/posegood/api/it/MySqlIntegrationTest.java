@@ -167,7 +167,7 @@ class MySqlIntegrationTest {
 	private JsonNode measure(ApiClient api, UUID id, UUID baseline) throws Exception {
 		assertEquals(200, api.put("/sessions/" + id, create(baseline)).status());
 		var socket = Socket.open(port);
-		socket.send(helloV2(api, "measure", id));
+		socket.send(helloMessage(api, "measure", id));
 		socket.next("ready");
 		long sequence = 0;
 		for (; sequence < 6; sequence++) {
@@ -179,7 +179,7 @@ class MySqlIntegrationTest {
 		for (; sequence < 14; sequence++) {
 			socket.send(frames(sequence, "rest", null));
 		}
-		socket.send(endV2(9000));
+		socket.send(endMessage(9000));
 		socket.next("decision", "session_ended");
 		assertEquals("ended", socket.next("closed").get("reason").asString());
 		var view = api.get("/sessions/" + id);
@@ -290,7 +290,7 @@ class MySqlIntegrationTest {
 		var stale = client();
 		assertEquals(200, stale.login(email, "synthetic-password-1").status());
 		var socket = Socket.open(port);
-		socket.send(helloV2(stale, "measure", quiet));
+		socket.send(helloMessage(stale, "measure", quiet));
 		socket.next("ready");
 		for (long sequence = 0; sequence < 7; sequence++) {
 			socket.send(frames(sequence, "running", 0.09));
@@ -610,12 +610,12 @@ class MySqlIntegrationTest {
 		other.register(email());
 		assertEquals(404, other.get("/sessions/" + secondSessionId).status());
 		var stranger = Socket.open(port);
-		stranger.send(helloV2(other, "measure", secondSessionId));
+		stranger.send(helloMessage(other, "measure", secondSessionId));
 		assertEquals("not_owner", stranger.next("closed").get("reason").asString());
 
 		// 추론이 거절되면 그 구간은 반영하지 않고 stalled만 보낸다. 연결은 남아 다음 구간은 처리된다(11.3).
 		var socket = Socket.open(port);
-		socket.send(helloV2(api, "measure", secondSessionId));
+		socket.send(helloMessage(api, "measure", secondSessionId));
 		socket.next("ready");
 		inference.fail.set(true);
 		try {
@@ -637,9 +637,9 @@ class MySqlIntegrationTest {
 		// 진행 중 세션은 앱처럼 WS end로 끝낸다(S3 세션 종료 REST는 2026-11-12 삭제). 판정 상태를 잃은 세션 행은
 		// 닫는 경로가 없어 기록 목록에 나오지 않는다(기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
 		var closing = Socket.open(port);
-		closing.send(helloV2(api, "measure", firstSessionId));
+		closing.send(helloMessage(api, "measure", firstSessionId));
 		closing.next("ready");
-		closing.send(endV2(0));
+		closing.send(endMessage(0));
 		closing.next("decision", "session_ended");
 		assertEquals("ended", closing.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
@@ -723,9 +723,9 @@ class MySqlIntegrationTest {
 		assertEquals(200, api.put(path, create(baseline)).status());
 		// 구간 없이 끝낸 측정도 WS end로 닫힌다(S3 세션 종료 REST는 2026-11-12 삭제). API는 daily_stat에 쓰지 않는다.
 		var socket = Socket.open(port);
-		socket.send(helloV2(api, "measure", id));
+		socket.send(helloMessage(api, "measure", id));
 		socket.next("ready");
-		socket.send(endV2(0));
+		socket.send(endMessage(0));
 		socket.next("decision", "session_ended");
 		assertEquals("ended", socket.next("closed").get("reason").asString());
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
@@ -846,7 +846,7 @@ class MySqlIntegrationTest {
 		return message;
 	}
 
-	private static ObjectNode helloV2(ApiClient api, String purpose, UUID id) {
+	private static ObjectNode helloMessage(ApiClient api, String purpose, UUID id) {
 		return MAPPER.createObjectNode()
 			.put("type", "hello")
 			.put("schema_version", "2.0")
@@ -855,7 +855,7 @@ class MySqlIntegrationTest {
 			.put("access_token", api.accessToken());
 	}
 
-	private static ObjectNode endV2(long endMs) {
+	private static ObjectNode endMessage(long endMs) {
 		return MAPPER.createObjectNode().put("type", "end").put("end_ms", endMs);
 	}
 
@@ -872,14 +872,14 @@ class MySqlIntegrationTest {
 
 		// WebSocket 등록을 요청하면 계약 위반으로 닫는다.
 		var calibration = Socket.open(port);
-		calibration.send(helloV2(api, "measure", UUID.randomUUID()).put("purpose", "calibration"));
+		calibration.send(helloMessage(api, "measure", UUID.randomUUID()).put("purpose", "calibration"));
 		assertEquals("bad_message", calibration.next("closed").get("reason").asString());
 
 		// 측정: 3.5초 치우침(3초에 붕괴 확정) -> 0.5초 사람 없음 -> end 5초.
 		UUID id = UUID.randomUUID();
 		assertEquals(200, api.put("/sessions/" + id, create(baseline)).status());
 		var socket = Socket.open(port);
-		socket.send(helloV2(api, "measure", id));
+		socket.send(helloMessage(api, "measure", id));
 		assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
 		for (long sequence = 0; sequence < 7; sequence++) {
 			socket.send(frames(sequence, "running", 0.09));
@@ -921,7 +921,7 @@ class MySqlIntegrationTest {
 		} while (progress.get("last_sequence").asLong() != 7);
 		assertEquals("unmeasurable", progress.get("paused_reason").asString());
 
-		socket.send(endV2(5000));
+		socket.send(endMessage(5000));
 		var ended = socket.next("decision", "session_ended");
 		assertEquals(5000, ended.get("summary").get("total_ms").asLong());
 		assertEquals(3500, ended.get("summary").get("valid_ms").asLong());
@@ -929,7 +929,7 @@ class MySqlIntegrationTest {
 
 		// 끝난 세션으로 다시 hello하면 session_lost.
 		var again = Socket.open(port);
-		again.send(helloV2(api, "measure", id));
+		again.send(helloMessage(api, "measure", id));
 		assertEquals("session_lost", again.next("closed").get("reason").asString());
 
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
@@ -978,7 +978,7 @@ class MySqlIntegrationTest {
 		UUID baseline = baseline(api);
 		assertEquals(200, api.put("/sessions/" + id, create(baseline)).status());
 		var socket = Socket.open(port);
-		socket.send(helloV2(api, "measure", id));
+		socket.send(helloMessage(api, "measure", id));
 		socket.next("ready");
 		for (long sequence = 0; sequence < 4; sequence++) {
 			socket.send(frames(sequence, "running", 0.0));

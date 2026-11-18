@@ -2,7 +2,7 @@
 
 2026-11-16 기준입니다. **화면과 서버 코드는 준비됐고, 실제 메일 발송 서비스와 운영 서버 설정을 연결하는 일이 남아 있습니다.**
 처음 읽는 분은 1~6번을 순서대로 읽어 주세요. 실제 연결 작업에 필요한 설정 이름과 API 주소는 7~8번에 모았습니다.
-구현·시험 기록은 [계획 0089](../plans/completed/0089-email-recovery-social-link.md), 정확한 요청 규칙은 [계정 API 계약](../../contracts/accounts.v2.md)을 참고해 주세요.
+구현·시험 기록은 [계획 0089](../plans/completed/0089-email-recovery-social-link.md), 정확한 요청 규칙은 [계정 API 계약](../../contracts/accounts.md)을 참고해 주세요.
 
 ## 1. 이번에 무엇을 만들었나요?
 

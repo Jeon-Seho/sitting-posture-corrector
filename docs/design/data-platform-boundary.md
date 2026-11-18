@@ -8,7 +8,7 @@ Kafka·Spark·HDFS·Redis를 과거 계획서에 이름이 있다는 이유로 �
 
 아래 "원본 좌표를 보내지 않는다"는 바뀌었다.
 
-- [ADR 0021](../decisions/0021-app-sends-information-server-judges.md): 앱은 관절 좌표(`posture.frames.v1`)를 보내고 판정은 서버가 한다.
+- [ADR 0021](../decisions/0021-app-sends-information-server-judges.md): 앱은 관절 좌표(`posture.frames`)를 보내고 판정은 서버가 한다.
   좌표 수집 동의는 가입의 필수 조건이다(로컬 모드가 없어 동의 없이는 측정할 수 없다). 영상은 여전히 보내지 않는다.
 - DB 「정할 것」 #5(2026-10-10): 측정 자료를 **HDFS에 적재한다**. DevOps가 Kafka·Redis·HDFS를 운영한다(`DevOps` 브랜치 `platform/`).
   HDFS에는 특징값이 아니라 좌표 프레임이 쌓이며 특징값은 다시 계산할 수 있다(아키텍처 v5.1 J1).
@@ -16,7 +16,7 @@ Kafka·Spark·HDFS·Redis를 과거 계획서에 이름이 있다는 이유로 �
 
 ## 이 저장소의 책임
 
-서버 연동 뒤 앱은 영상을 보내지 않고 관절 9개 좌표를 0.5초 구간으로 보낸다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [WebSocket v2](../../contracts/realtime/realtime-ws.v2.schema.json)).
+서버 연동 뒤 앱은 영상을 보내지 않고 관절 9개 좌표를 0.5초 구간으로 보낸다([ADR 0021](../decisions/0021-app-sends-information-server-judges.md), [WebSocket](../../contracts/realtime/realtime-ws.schema.json)).
 판정과 시간 규칙은 서버(추론·판정)가 수행한다. MySQL은 계정·설정·기준 자세·세션·확정 사건·종료 요약·제외 구간을 저장한다.
 진행 중 판정 상태의 보관 위치와 재시작 시 복구 한계는 [백엔드 개발 상태](../backend-status.md)를 따른다.
 비밀번호 원문·영상을 DB에 넣지 않는다. 측정 좌표는 HDFS에 적재하도록 설계하고, 기준 자세는 평균 좌표만 MySQL(`baseline_posture`)에 둔다. DB 호환 조건과 적재·배치의 구현 상태는 [DB 안내](../../database/README.md)를 확인한다.

@@ -52,7 +52,7 @@ import tools.jackson.databind.node.ObjectNode;
  * 브로커는 {@link Producer} 대역으로 대신한다(실제 왕복은 서버 통합 테스트).
  */
 class KafkaPipelineTest {
-	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-v2");
+	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-ws");
 	private static final Path KAFKA = Path.of("..", "..", "contracts", "realtime", "examples");
 	private static final JsonMapper MAPPER = JsonMapper.builder()
 		.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)

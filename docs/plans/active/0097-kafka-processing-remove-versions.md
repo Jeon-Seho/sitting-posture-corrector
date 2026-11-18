@@ -33,15 +33,17 @@
 | Kafka 추론 상수 | `FEATURES_V1_TOPIC`·`INFERENCE_V1_TOPIC`·`V1_CONSUMER_GROUP_ID`, 스레드 `realtime-v1-consumer` | `_V1` 뺌, `realtime-consumer` |
 | 도구 | `replay_realtime_v1.py`·`replay_keypoints_v1.py` | `replay_realtime.py`·`replay_keypoints.py` |
 | 계약 파일 | `kafka-*.v1.schema.json`, `parity/*-cases.v1.json`, `inference-request.v2`·`posture-observation.v2`·`posture-event.v1`·`session-view.v1`(`.schema.json`), `contracts/examples/v2/`, `tests/test_inference_v2.py` | 버전 뺌, 예시 폴더는 `contracts/examples/inference/`, 시험은 `tests/test_inference.py` |
+| WebSocket·REST 계약 이름 (11/18 추가, 보류 계획 범위 2-1) | `realtime-ws.v2.schema.json`, `realtime/examples-v2/`, `frames/posture-frames.v1.schema.json`(이름 `posture.frames.v1`), `accounts.v2.md`, `consent-documents.v2.md`, `RealtimeHandlerV2`(시험 `helloV2`·`endV2`), `tests/test_realtime_ws_v2.py` | `realtime-ws.schema.json`, `realtime/examples-ws/`, `posture-frames.schema.json`(`posture.frames`), `accounts.md`, `consent-documents.md`, `RealtimeHandler`(`helloMessage`·`endMessage`), `tests/test_realtime_ws.py` |
+| 지운 옛 계약 (11/18 추가) | `accounts.v1.md`, `feature-response.v1.schema.json`과 그 예시 `synthetic-feature-response.json` | 지움([지운 문서 기록](../../removed-docs.md) 16절) |
 
 제외(바꾸지 않음):
 
 | 대상 | 이유 |
 |---|---|
 | 메시지 안 `schema_version`·`feature_version`·`model_version` | 형식 변경이라 따로 한다(보류, 결정 2) |
-| WebSocket 계약 이름 `realtime-ws.v2`, 앱이 보내는 `posture.frames.v1`, `examples-v2` | Kafka와 무관하고 앱 코드·메시지 값과 얽힘(결정 4) |
-| 모델·특징 이름 값(`reference-feature-rule-v1` 등), DB 스키마 버전, 배포 목록 `posegood-images-v1`, 연구 수집 형식(`posture-collection-v1` 등) | ADR 0049 예외 |
-| `feature-response.v1`·`posture-status.v1` 계약 | Kafka가 가리키지 않는 옛 계약(계획 0062에서 남김) |
+| 메시지 형식 버전에 묶인 코드 이름 `RealtimeMessages.V2`, `Observation.V4` | `schema_version` `"2.0"`·`"4.0"` 값과 짝이라 메시지 버전 필드를 뺄 때 함께 한다 |
+| 모델·특징 이름 값(`reference-feature-rule-v1` 등), DB 스키마 버전, 배포 목록 `posegood-images-v1`, 연구 수집 형식(`posture-collection-v1` 등), 저장된 파일 형식 계약(`normal-posture-collection.v1.md` 등 7개) | ADR 0049 예외 |
+| `posture-status.v1` 계약 | 옛 상태 출력 계약. 쓰는 곳을 확인하고 지울지 따로 정한다 |
 | 완료 계획·결정·감사 기록, `architecture_v5.4_change_notes.md`, 명세의 날짜 변경 이력 줄 | 기록이라 옛 이름 그대로. 파일 링크만 새 경로로 고침 |
 
 ## 작업 단계
@@ -69,6 +71,9 @@
   5. 시험용 입구는 `/api/realtime/features`(버전만 뺌). 처리 서비스는 서버 안(`api-server:8080`)에만 열려 io-api의 `/api/realtime`과 겹치지 않는다.
 - 공유 계약 예시 폴더 `contracts/examples/v2/`는 `/infer` 요청·응답과 관측 예시라 `contracts/examples/inference/`로 옮겼다.
 - 옛 D-53 그룹 변경 절차(`api-server-cep-v1` → `judge-v1`)는 끝난 작업의 기록이라 옛 이름으로 남겼다.
+- 2026-11-18(같은 날 뒤): 결정 4를 바꿔, 메시지 버전 필드 보류 계획에 묶여 있던 **범위 2-1(WebSocket·REST 계약 파일 이름)**도 이 PR에 넣었다(김유진).
+  이름만 바꾸고 주고받는 형식(`schema_version` 값 포함)은 그대로다. `posture.frames.v1`·`realtime-ws.v2`는 메시지 값이 아니라 계약 이름이라 앱 동작은 바뀌지 않는다.
+  더 쓰지 않는 `accounts.v1.md`·`feature-response.v1`(과 예시)은 이름을 바꾸지 않고 지웠다.
 
 ## 검증 결과와 남은 한계
 
@@ -85,6 +90,14 @@
   `test_inference_internal_auth`·`test_realtime_ws_v2`) 67 통과, J1 Spark 시험 8개는 pyspark가 없어 건너뜀.
 - 이름 바꾼 파일을 가리키는 Markdown 링크: 깨진 것 0.
 - 옛 이름 검색: 기록 문서·날짜 변경 이력·옛 이름 대조표와 점검 도구의 「옛 이름 남음」 안내 말고 0.
+
+범위 2-1(WebSocket·REST 계약 이름)을 더한 뒤 다시 검증(2026-11-18):
+
+- `check-backend` 통과, MySQL 포함 api 156 중 155·processing 67 통과(실패 1은 위와 같은 develop 문제). 이름 바꾼 `RealtimeHandlerTest` 포함.
+- 앱 `check-frontend`: 1039 중 1036. `/dev` 시험 2개(`DeveloperRoute`·`useObservationComparison`)는 서버 검사와 동시에 돌아 5초 시간 초과였고 따로 돌리면 48개 모두 통과.
+  남은 1개는 이 PC Node ICU의 `recordTimezone`(`오전` 대신 `AM`). `npm run build` 통과. 앱 소스는 주석·시험 설명만 바뀜.
+- Python 241 중 실패 1(전부터 실패하던 브라우저 카메라 시험), 계약 시험 `test_realtime_ws`·`test_realtime_contracts`·`test_frame_contract` 통과. Kafka 추론 17 통과.
+- 바꾸거나 지운 파일을 가리키는 Markdown 링크: 깨진 것 0(지운 계약을 가리키던 링크는 `docs/removed-docs.md`로).
 
 아직 하지 않은 검증:
 

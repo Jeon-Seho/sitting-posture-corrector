@@ -1,7 +1,7 @@
 # 실시간 전달 Kafka 계약 (초안)
 
-> **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws.v2](realtime-ws.v2.schema.json),
-> 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
+> **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws](realtime-ws.schema.json),
+> 합성 예시는 [examples-ws](examples-ws/), 좌표 구간은 [posture.frames](frames/posture-frames.schema.json)이다.
 > 근거는 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md)다.
 > v2에서 달라지는 것: 경로 `/realtime`, `hello`의 `purpose`(`measure`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, `progress.paused_reason`, 재연결 없음(ADR 0024). WebSocket 자세 등록(`calibration`, `calibration_result`)은 2026-10-27 지웠다 — 등록은 B1뿐.
@@ -16,7 +16,7 @@
 원본 영상·랜드마크·좌표·이메일은 어떤 메시지에도 넣지 않는다. 모르는 필드는 거부한다.
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
-> 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
+> 이 계약의 `features` 본문(특징 입력, 특징 변화량)은 좌표 프레임 계약 `posture.frames`로 바뀐다
 > (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
 > 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
@@ -37,7 +37,7 @@
 
 | 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
 | --- | --- | --- | --- | --- |
-| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 입력 v2 / `end_ms` | [kafka-features](kafka-features.schema.json) |
+| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 특징 입력 / `end_ms` | [kafka-features](kafka-features.schema.json) |
 | `posture.inference` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference](kafka-inference.schema.json) |
 | `posture.episodes` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes](kafka-episodes.schema.json) |
 | `posture.alerts` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts](kafka-alerts.schema.json) |
@@ -58,7 +58,7 @@
   한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
   `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다(v2 `event` 설명과 같음).
 - 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
-  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(입력 v2 → 관측 v2).
+  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 입력 → 관측).
 - 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
@@ -76,7 +76,7 @@
 
 ## WebSocket 메시지
 
-v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws.v2](realtime-ws.v2.schema.json)와
+v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws](realtime-ws.schema.json)와
 [BE API 명세](../../docs/design/api-spec.md) 11장을 본다. 아래 원칙은 v2에도 그대로다.
 
 `decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
@@ -88,15 +88,15 @@ v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 �
 
 ## 합성 예제와 검증
 
-[examples](examples/)의 7개 파일(Kafka)과 [examples-v2](examples-v2/)(WebSocket v2)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
+[examples](examples/)의 7개 파일(Kafka)과 [examples-ws](examples-ws/)(WebSocket)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
 `tests/test_realtime_contracts.py`가 Kafka 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치 거부, 봉투와 사건의 `session_id` 일치,
-WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. v2 메시지 전체는 `tests/test_realtime_ws_v2.py`가 본다.
+WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. WebSocket 메시지 전체는 `tests/test_realtime_ws.py`가 본다.
 
 ## 아직 정하지 않은 것
 
-아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
+아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
-- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
+- `features` 본문은 특징 입력이다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
 - 기준 자세 전달 토픽은 보류한다.

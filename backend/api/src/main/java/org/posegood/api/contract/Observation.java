@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
 /**
- * 추론 결과 한 구간(관측 v2): 측정 가능 여부, 붕괴 확률, 자세 방향.
+ * 추론 결과 한 구간(관측): 측정 가능 여부, 붕괴 확률, 자세 방향.
  *
  * 구간은 [startMs, endMs)이다(끝은 포함하지 않음).
  */
@@ -47,7 +47,7 @@ public record Observation(
 	/**
 	 * {@code /realtime} observation 메시지의 관측 4.0(계획 0084, 2026-11-03): 판정한 구간마다 하나.
 	 *
-	 * 계약: contracts/realtime/realtime-ws.v2.schema.json. 추론 응답은 계속 2.0이고 API가 4.0으로 바꿔 보낸다.
+	 * 계약: contracts/realtime/realtime-ws.schema.json. 추론 응답은 계속 2.0이고 API가 4.0으로 바꿔 보낸다.
 	 * 측정 화면이 쓰는 것만 남겼다. 멈춘 이유는 progress의 {@code paused_reason}, 누적 시간은 요약, 이탈 종류는
 	 * decision에 있다. {@code sequence}는 이 결과의 구간 순번(앱이 보낸 번호는 실시간 채널이 맞춘다),
 	 * {@code posture}는 세션 정책 임계값으로 나눈 그 구간의 good·bad이고(알림 확정은 decision),

@@ -46,7 +46,7 @@ import tools.jackson.databind.JsonNode;
  * 실시간 v2 채널({@code /realtime}): 연결 하나가 측정 한 번이다(자정 넘김이면 세션은 둘). 재연결은 없다(ADR 0024).
  * 자세 등록은 B1({@code POST /baselines})로만 한다 — WebSocket 등록({@code purpose: calibration})은 2026-10-27 삭제.
  *
- * 계약: contracts/realtime/realtime-ws.v2.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
+ * 계약: contracts/realtime/realtime-ws.schema.json. 순서는 {@code hello} → {@code ready} → {@code features}
  * (메시지마다 좌표 구간 1개) → {@code end} → {@code closed}. 구간을 받은 뒤의 일(판정하는 곳)은
  * {@link MeasurementPipeline}이 정한다 — {@code local}(기본)은 좌표에서 특징 변화량을 계산해 {@link SessionService}
  * 판정 흐름에 넣고(A안) 결과를 세션 변경 이벤트로 받아 보낸다(계획 0031, D-57).
@@ -65,8 +65,8 @@ import tools.jackson.databind.JsonNode;
  * 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않는다.
  */
 @Component
-public class RealtimeHandlerV2 extends TextWebSocketHandler {
-	private static final Logger log = LoggerFactory.getLogger(RealtimeHandlerV2.class);
+public class RealtimeHandler extends TextWebSocketHandler {
+	private static final Logger log = LoggerFactory.getLogger(RealtimeHandler.class);
 	static final int MAX_BYTES = 64 * 1024;
 	private static final Set<String> HELLO_MEASURE = Set.of("type", "schema_version", "purpose", "session_id",
 		"access_token");
@@ -101,7 +101,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 	private final ConcurrentHashMap<UUID, Channel> bySession = new ConcurrentHashMap<>();
 
 	@Autowired
-	public RealtimeHandlerV2(
+	public RealtimeHandler(
 		SessionService sessions,
 		MeasurementPipeline pipeline,
 		CurrentUser current,
@@ -118,7 +118,7 @@ public class RealtimeHandlerV2 extends TextWebSocketHandler {
 			Clock.systemUTC());
 	}
 
-	RealtimeHandlerV2(
+	RealtimeHandler(
 		SessionService sessions,
 		MeasurementPipeline pipeline,
 		CurrentUser current,

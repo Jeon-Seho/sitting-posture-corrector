@@ -7,7 +7,7 @@
 - 상태: completed
 - 담당: 프론트
 - 시작일: 2026-10-27
-- 관련: [문서 대조](../../audits/2026-10-27-documentation-consistency.md), [계정 계약](../../../contracts/accounts.v2.md), [WebSocket v2](../../../contracts/realtime/realtime-ws.v2.schema.json)
+- 관련: [문서 대조](../../audits/2026-10-27-documentation-consistency.md), [계정 계약](../../../contracts/accounts.md), [WebSocket v2](../../../contracts/realtime/realtime-ws.schema.json)
 
 ## 문제와 완료 기준
 

@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
  * 측정 입력은 {@code /realtime}으로만 받는다. 특징 입력(S2)·메타데이터(S5)·세션 삭제(S6)는 2026-10-28 삭제했다
  * (기록 삭제는 R3, 계획 0062).
  *
- * 계약: contracts/accounts.v2.md, contracts/README.md.
+ * 계약: contracts/accounts.md, contracts/README.md.
  */
 @RestController
 @RequestMapping("/sessions")

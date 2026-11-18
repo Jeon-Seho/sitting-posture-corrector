@@ -47,7 +47,7 @@
   },
   "$defs": {
     "observation": {
-      "description": "(D-57) Every judged interval, in input order before its decisions: what the app shows live (realtime-ws.v2 observation 4.0). Same rules as the API engine (SessionEngine.live): invalid intervals have posture and score null and both times 0; recovery_ms counts only while an episode is open.",
+      "description": "(D-57) Every judged interval, in input order before its decisions: what the app shows live (realtime-ws observation 4.0). Same rules as the API engine (SessionEngine.live): invalid intervals have posture and score null and both times 0; recovery_ms counts only while an episode is open.",
       "type": "object",
       "additionalProperties": false,
       "required": [

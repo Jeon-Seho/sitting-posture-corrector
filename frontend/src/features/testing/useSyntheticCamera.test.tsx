@@ -50,7 +50,7 @@ describe('synthetic browser camera', () => {
     vi.clearAllMocks()
   })
 
-  it('sends each kind in the current posture.frames.v1 format', () => {
+  it('sends each kind in the current posture.frames format', () => {
     const normal = wire('normal')
     expect(normal).toMatchObject({
       type: 'features',

@@ -40,7 +40,7 @@
      - `AuthController.withdraw`: 본문을 `RequestBody(required = false)`로 둬서 없어도 받는다.
      - `AccountService.withdraw`: `requireCurrent` 확인을 뺀다. 계정 닫기·로그인 철회·실시간 연결 닫기(`requireActive` → `accounts.close` → `removeLogins` → `LoginsRemoved`·`AccountClosed`)는 그대로 둔다.
      - **옛 앱 호환:** 한동안 본문에 `password`가 와도 무시하고 받는다. 그래야 서버를 먼저 바꿔도 지금 운영 앱의 탈퇴가 깨지지 않는다.
-     - 시험(`MySqlIntegrationTest` 탈퇴), BE 명세 A7, 계약 `accounts.v2.md` A7 줄을 고친다.
+     - 시험(`MySqlIntegrationTest` 탈퇴), BE 명세 A7, 계약 `accounts.md` A7 줄을 고친다.
   2. **FE:** 프로필 설정의 탈퇴 칸에서 동의 체크박스와 비밀번호 조건을 뺀다. 「서버 계정 탈퇴」 버튼을 누르면 확인 창(`features/dialog/ConfirmDialog.tsx`)을 띄운다. 「정말 삭제하시겠습니까? 탈퇴는 되돌릴 수 없고 30일 뒤 계정과 기록이 삭제돼요.」 → 「탈퇴」 / 「취소」. 확인하면 본문 없이 A7을 보낸다. 비밀번호 변경 칸은 그대로 둔다. 기능 명세 「회원탈퇴」와 연동 명세 A7도 고친다.
   3. **순서:** 서버(1)를 먼저 배포하고 앱(2)을 배포한다. 서버가 두 방식을 다 받으니 그 사이에도 탈퇴가 깨지지 않는다.
 - **알고 정한 것:** 비밀번호 확인이 빠지면, 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다. 확인 창은 실수만 막는다. 서비스 규모와 Discord 계정의 탈퇴 길을 생각해 받아들인다(11/16 FE 결정).
@@ -83,8 +83,8 @@
 - **원인:** `ack`는 원래 재전송 창이었다(10/6 `client.ts`: `ack` 안 된 구간을 재연결 때 다시 보냄). ADR 0024로 재전송을 없앤 뒤(10/21 `client.ts` 삭제) 앱은 받기만 하고 버린다(`case 'ack': return`). 그런데 서버는 지금도 구간마다(초당 약 10개) 보낸다. local은 구간마다 `observation`·`ack`·`progress` 3개라, 보내는 메시지의 약 3분의 1이 버려지는 `ack`다. 지금 `ack`를 쓰는 곳은 DevOps 통합 시험(`ws_realtime_smoke.py`)뿐이고, 서버의 `stalled` 판단은 메시지가 아니라 서버 안의 시각(`ackedAt`)을 쓴다.
 - **요구사항/변경사항:** 순서대로 한다. kafka 모드 병합(D-57) 때 함께, 급하지 않음.
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
-  2. 팀장(Jeon-Seho): `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
-  3. FE: 계약 `realtime-ws.v2.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
+  2. 팀장(Jeon-Seho): `RealtimeHandler.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
+  3. FE: 계약 `realtime-ws.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
 
@@ -101,7 +101,7 @@
         └ 프레임 {t_ms, p, valid?} → p[9] → [x, y, visibility]
   ```
 - **원인:** 재전송 삭제(ADR 0024)와 「프레임마다 구간 1개」(10/27)로 묶을 일이 없어졌는데 구조만 남았다.
-  - ① 계약은 1~30개인데 서버는 정확히 1개가 아니면 `closed(bad_message)`(`RealtimeHandlerV2.interval()`). **계약과 서버가 다르다.**
+  - ① 계약은 1~30개인데 서버는 정확히 1개가 아니면 `closed(bad_message)`(`RealtimeHandler.interval()`). **계약과 서버가 다르다.**
   - ② 서버는 1장을 상대로 반복문과 평균을 그대로 돈다(`FrameFeatures.interval`·`average`, `FrameInterval` `Size(max = 30)`).
 - **요구사항/변경사항:** 형식은 BE와 정한다. FE 안:
 
@@ -111,7 +111,7 @@
   ```
 
   프레임 없는 구간(쉬기·자리 비움·빈 구간)은 `t_ms`·`p`를 빼고, 앱이 사람 위치를 판별하지 못한 프레임은 `"p": null`만 보낸다. 지금 함께 붙이는 `valid: false`는 **뺀다**: 서버는 이 칸을 형식만 검사하고 판정에는 `p`가 null인지만 쓴다(`FrameInterval.Frame`, `FrameFeatures.interval`). 사람이 없는 프레임과 위치를 못 잡은 프레임을 서버가 구분하지 않으므로 `p: null` 하나로 같은 뜻이다. 판정 결과의 `valid`는 서버가 돌려주는 `observation.valid`로, 이 칸과 다르다. 판 번호는 `hello`에서 한 번 정한다. 요구 4와 같은 계약 판에, kafka 병합 뒤에 순서대로 한다.
-  1. FE(**11/13 함**): 계약 `features.items`를 `maxItems 1`로 서버와 맞추고(`contracts/realtime/realtime-ws.v2.schema.json`), 옛 규칙이던 계약 예시의 「좌표 + `valid: false`」 프레임을 `{ t_ms, p: null }`로 고쳤다(`examples-v2/ws-features.json`, `frames/example-running.json`). 앱도 프레임 `valid: false`를 보내지 않는다(`frames.ts` `push`). **BE·ML 참고:** kafka 브랜치 `KafkaPipeline`이 프레임 `valid`를 Kafka 좌표 메시지에 그대로 싣는데, 이제 늘 비어 있다. 좌표 보관·학습에서 「위치를 못 잡음」과 「사람 없음」을 구분해 쓰고 있었다면 알려 달라. 서버는 아직 `valid`를 선택 칸으로 받으므로, 지우는 것은 2·5단계 때 한다.
+  1. FE(**11/13 함**): 계약 `features.items`를 `maxItems 1`로 서버와 맞추고(`contracts/realtime/realtime-ws.schema.json`), 옛 규칙이던 계약 예시의 「좌표 + `valid: false`」 프레임을 `{ t_ms, p: null }`로 고쳤다(`examples-ws/ws-features.json`, `frames/example-running.json`). 앱도 프레임 `valid: false`를 보내지 않는다(`frames.ts` `push`). **BE·ML 참고:** kafka 브랜치 `KafkaPipeline`이 프레임 `valid`를 Kafka 좌표 메시지에 그대로 싣는데, 이제 늘 비어 있다. 좌표 보관·학습에서 「위치를 못 잡음」과 「사람 없음」을 구분해 쓰고 있었다면 알려 달라. 서버는 아직 `valid`를 선택 칸으로 받으므로, 지우는 것은 2·5단계 때 한다.
   2. BE: 서버가 옛·새 형식을 다 받게 하고(`hello` 판 번호로), 특징 계산을 프레임 1장 기준으로 바꾼다.
   3. DevOps: 통합 시험을 새 형식으로.
   4. FE: 앱(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`)을 새 형식으로 배포.
@@ -260,7 +260,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 |---|---|---|
 | 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
 | 3 `/v2` 빼기 | 할 일 7 | #125 병합 뒤 |
-| 4 `ack` 빼기 | 계약 `realtime-ws.v2.schema.json`의 `ack`·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
+| 4 `ack` 빼기 | 계약 `realtime-ws.schema.json`의 `ack`·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
 | 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |

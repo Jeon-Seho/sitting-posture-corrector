@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotNull;
 /**
  * 세션 API 요청 본문 모음: 생성, 종료, 기준 자세.
  *
- * 계약: contracts/accounts.v2.md의 세션 부분.
+ * 계약: contracts/accounts.md의 세션 부분.
  */
 public final class SessionRequests {
 	private SessionRequests() {

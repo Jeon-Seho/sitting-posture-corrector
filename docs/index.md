@@ -45,7 +45,7 @@
   - ML: [ADR 0007 추적 모델과 수집](decisions/0007-lite-pose-tracker.md), [ADR 0047 이탈 확률을 서버가 좋음/나쁨으로](decisions/0047-posture-from-deviation-probability.md)(채택 10/30 BE, 10/31 ADR 0045 2클래스에 맞춤) / 공통: [ADR 0001 하네스](decisions/0001-repository-harness.md), [ADR 0009 검증 진입점](decisions/0009-cross-platform-dev-entry.md)
 - **기능 명세:** [FE 기능 명세](design/fe/fe-feature-spec.md) — 앱 기능, 시작·종료 상태, 구현 상태.
 - **연동 명세:** [앱 ↔ 입출구 서버 연동 명세](design/fe/api-ws-spec.md) — 필드·본문은 [BE API 명세](design/api-spec.md), 이 문서는 앱이 언제 부르고 어떻게 움직이는지(10/22 정리). 로그인·설정·기록·자세 등록(B1)은 REST, 실시간 판정은 WebSocket `/realtime`.
-- **계약:** [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json)·[합성 예시](../contracts/realtime/examples-v2/), [좌표 구간](../contracts/realtime/frames/posture-frames.v1.schema.json).
+- **계약:** [WebSocket](../contracts/realtime/realtime-ws.schema.json)·[합성 예시](../contracts/realtime/examples-ws/), [좌표 구간](../contracts/realtime/frames/posture-frames.schema.json).
 - **FE 제안서:** [서버 판정 이전과 연동](design/fe/fe-server-proposal.md) — 0장 다른 파트에 요청(요구 1~12, 급한 순), 1장 FE 할 일, 2장 지금 FE·서버·DB·배포 구조, 3장 FE가 정한 앱 동작, 4장 판정 규칙과 시험 데이터.
 - **배포:** [도메인 + Vercel + Cloudflare 터널](design/fe/fe-server-proposal.md)(FE 제안서 2.4, 10/29 공개 연결 끝남, 남은 일은 0·1장) — 화면은 Vercel(`app.`), 서버는 DevOps의 이름 있는 터널(`api.`). 운영 화면은 포크 develop을 Vercel이 배포한다(FE 제안서 2.4). BE와 다른 곳은 [FE 제안서](design/fe/fe-server-proposal.md) 0장.
 - **동의:** [FE 기능 명세 회원가입](design/fe/fe-feature-spec.md#회원가입) — 회원가입 3단계(약관 동의 C1~C6 → 계정 정보 → 자세 등록 선택), 보유 기간 탈퇴 후 30일.

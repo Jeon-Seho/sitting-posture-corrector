@@ -317,7 +317,7 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	}
 
 	/**
-	 * (D-92) {@code keypoints} 본문: 앱이 보낸 좌표 구간 그대로(contracts/realtime/frames/posture-frames.v1.schema.json).
+	 * (D-92) {@code keypoints} 본문: 앱이 보낸 좌표 구간 그대로(contracts/realtime/frames/posture-frames.schema.json).
 	 */
 	record Keypoints(
 		String schemaVersion,

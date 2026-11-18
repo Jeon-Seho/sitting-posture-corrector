@@ -36,8 +36,8 @@
 | Nginx v1 전달 설정 | `infra/nginx/default.conf`의 `/api/v1/realtime` 블록·주석이 남아 있다. API에서 수용하지 않으므로 설정·관련 회귀 검사를 함께 정리할 것 |
 | CI Java 정렬·검사 공백 | `harness.yml`은 Java 21 설치, 빌드 toolchain은 17. `tests/test_service_contracts.py`는 사라진 `pom.xml`만 검색한다. 계획 0028의 미완료 작업 유지 |
 | R1 smoke 응답 | `tools/platform/io_api_smoke.py`는 R1을 배열로 읽는다. 현재 응답은 `{today, records}` 객체이므로 수정 후 실제 서버로 검증해야 함 |
-| 동의 문구 버전 | `contracts/consent-documents.v2.md`의 `POSE_COORDINATES`는 측정 중 특징 변화량이라고 설명하지만 WebSocket v2는 좌표 구간을 받는다. 이 문서는 내용 변경 시 버전 갱신·새 동의를 요구한다. 기존 `service-v2` 본문을 덮어쓰지 않고 새 문구·버전·앱/BE 동의 처리의 동시 갱신 대상으로 남김 |
-| FE 연동 명세의 최신 응답 | `docs/design/api-ws-spec.md` 앞에 현재 서버와의 차이 표를 추가했다. 본문의 과거 예시를 그대로 연결하지 말고 V3 설계와 함께 B1 `registration_id`·최소 20표본(로컬은 15), 서버 시각, R1 객체·`today`를 맞출 것. BE 구현 형식은 `api-spec.md`·`accounts.v2.md`를 우선 확인 |
+| 동의 문구 버전 | `contracts/consent-documents.md`의 `POSE_COORDINATES`는 측정 중 특징 변화량이라고 설명하지만 WebSocket v2는 좌표 구간을 받는다. 이 문서는 내용 변경 시 버전 갱신·새 동의를 요구한다. 기존 `service-v2` 본문을 덮어쓰지 않고 새 문구·버전·앱/BE 동의 처리의 동시 갱신 대상으로 남김 |
+| FE 연동 명세의 최신 응답 | `docs/design/api-ws-spec.md` 앞에 현재 서버와의 차이 표를 추가했다. 본문의 과거 예시를 그대로 연결하지 말고 V3 설계와 함께 B1 `registration_id`·최소 20표본(로컬은 15), 서버 시각, R1 객체·`today`를 맞출 것. BE 구현 형식은 `api-spec.md`·`accounts.md`를 우선 확인 |
 | Kafka 전환·DB 운영 적용 | 계획 0031의 앱 입구 연결·결과 쓰기 이관·정책 동등성 확인이 남는다. 과거 V2.3 서버 기록만으로 현재 V2.5 적용·배포를 완료 처리하지 않음 |
 
 ## 검증과 한계

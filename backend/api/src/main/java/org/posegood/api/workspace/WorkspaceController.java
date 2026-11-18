@@ -14,7 +14,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * /workspace·/records HTTP 경로: 설정과 기록.
  *
- * 계약: contracts/accounts.v2.md.
+ * 계약: contracts/accounts.md.
  */
 @RestController
 public class WorkspaceController {

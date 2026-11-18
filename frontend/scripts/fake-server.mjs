@@ -7,7 +7,7 @@
 // WS /realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
 // observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
-// S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
+// S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.schema.json.
 import { createHash, randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 

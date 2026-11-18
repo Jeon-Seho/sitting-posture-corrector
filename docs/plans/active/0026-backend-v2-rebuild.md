@@ -7,7 +7,7 @@
 - 시작일: 2026-10-09
 - 관련 요구사항/ADR: [DB 안내](../../../database/README.md) (V2.2, CR-04), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
   [옛 ADR 0011](../../removed-docs.md)(대체됨), [ADR 0020](../../decisions/0020-single-api-decision-engine.md),
-  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [계정 계약](../../../contracts/accounts.v1.md),
+  [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [계정 계약](../../removed-docs.md),
   [실시간 계약](../../../contracts/realtime/README.md)
 
 ## 문제와 완료 기준

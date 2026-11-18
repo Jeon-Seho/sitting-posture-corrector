@@ -72,7 +72,7 @@
 | episodes | `decision` | [사건](../../contracts/posture-event.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
 | alerts | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
-| keypoints | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.v1.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
+| keypoints | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
 | stored | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.

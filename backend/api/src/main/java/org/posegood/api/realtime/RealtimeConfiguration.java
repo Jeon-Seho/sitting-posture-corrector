@@ -20,11 +20,11 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 @Configuration
 @EnableWebSocket
 public class RealtimeConfiguration implements WebSocketConfigurer {
-	private final RealtimeHandlerV2 handlerV2;
+	private final RealtimeHandler handlerV2;
 	private final String[] origins;
 
 	public RealtimeConfiguration(
-		RealtimeHandlerV2 handlerV2,
+		RealtimeHandler handlerV2,
 		@Value("${posegood.realtime.allowed-origins:}")
 		String origins) {
 		this.handlerV2 = handlerV2;
@@ -43,7 +43,7 @@ public class RealtimeConfiguration implements WebSocketConfigurer {
 	@Bean
 	ServletServerContainerFactoryBean webSocketContainer() {
 		var container = new ServletServerContainerFactoryBean();
-		container.setMaxTextMessageBufferSize(2 * RealtimeHandlerV2.MAX_BYTES);
+		container.setMaxTextMessageBufferSize(2 * RealtimeHandler.MAX_BYTES);
 		container.setMaxSessionIdleTimeout(120_000L);
 		return container;
 	}

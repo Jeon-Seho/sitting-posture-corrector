@@ -9,7 +9,7 @@
 
 ## 배경
 
-- 계약 스키마는 모르는 필드가 하나만 와도 거절한다. 그래서 필드 하나를 더해도 호환이 깨졌고, 그동안은 새 버전 이름(`/v2/…`, `realtime-ws.v2.schema.json`, `schema_version: "2.0"`)으로 옛 형식과 새 형식을 같이 돌렸다.
+- 계약 스키마는 모르는 필드가 하나만 와도 거절한다. 그래서 필드 하나를 더해도 호환이 깨졌고, 그동안은 새 버전 이름(`/v2/…`, `realtime-ws.schema.json`, `schema_version: "2.0"`)으로 옛 형식과 새 형식을 같이 돌렸다.
 - 지금은 앱·서버·추론이 한 저장소에서 같이 바뀌고 같이 배포된다. 옛 형식을 계속 받아 줄 다른 사용자가 없어, 옛 버전은 곧 지워지고 이름의 숫자만 남았다(`/v1/realtime` 10/26, `/v1/infer` 11/09 삭제).
 - 주소의 버전은 11/09에 지웠다. 메시지의 `schema_version` 값과 계약 파일 이름의 `.v1`·`.v2`는 아직 남아 있다.
 
@@ -39,6 +39,6 @@
 - 이 결정으로 바꾼 것은 문서뿐이다: [AGENTS.md](../../AGENTS.md) 불변 기준, [계약 안내](../../contracts/README.md), [실시간 전달 계약](../../contracts/realtime/README.md).
 - 코드와 계약은 아직 `schema_version` 필드(값 검사: `RealtimeHandlerV2`, `InferenceClient`, 앱 `validation.ts`, 추론 `schemas.py`, 처리 서비스)와 `.v1`·`.v2` 파일 이름을 쓴다. 지우는 일은 계획을 따로 만들어 진행한다.
 - Kafka 토픽 이름(`posture.features.v1` 등)은 처리 서비스와 서버 설정을 함께 바꾸고 다시 배포해야 하므로 DevOps와 따로 정한다.
-- 2026-11-18: Kafka·처리 서비스에도 적용했다([계획 0097](../plans/active/0097-kafka-processing-remove-versions.md)). 토픽(`posture.features` 등)·컨슈머 그룹(`judge` 등)·처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`)·Redis 키·HDFS 경로·`V1*` 클래스·Kafka 계약 파일(`kafka-*.schema.json`)과 그것이 가리키는 공유 계약(`inference-request`·`posture-observation`·`posture-event`·`session-view`)의 버전을 뺐다. 메시지 안 버전 필드와 WebSocket 계약 이름(`realtime-ws.v2`, `posture.frames.v1`)은 남아 있다.
+- 2026-11-18: Kafka·처리 서비스에도 적용했다([계획 0097](../plans/active/0097-kafka-processing-remove-versions.md)). 토픽(`posture.features` 등)·컨슈머 그룹(`judge` 등)·처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`)·Redis 키·HDFS 경로·`V1*` 클래스·Kafka 계약 파일(`kafka-*.schema.json`)과 그것이 가리키는 공유 계약(`inference-request`·`posture-observation`·`posture-event`·`session-view`)의 버전을 뺐다. 같은 날 WebSocket·REST 계약 파일 이름(`realtime-ws`, `posture-frames`, `accounts`, `consent-documents`, 예시 `realtime/examples-ws/`)과 `RealtimeHandler`의 버전도 뺐고, 안 쓰는 `accounts.v1.md`·`feature-response.v1`은 지웠다. 메시지 안 버전 필드(`schema_version` 등)와 그 값에 묶인 `RealtimeMessages.V2`·`Observation.V4`, 저장된 파일 형식 계약, 옛 `posture-status.v1`은 남아 있다.
 - 브라우저 저장 키(`posegood.v2.*`)는 이름을 바꾸면 사용자 브라우저에 저장된 기록·설정을 못 찾는다. 옮겨 담는 코드 없이 바꾸지 않는다.
 - 버전으로 옛 형식과 새 형식을 같이 돌리는 방법이 없어졌으므로, 보내는 쪽과 받는 쪽을 따로 배포하는 일이 생기면 이 결정을 다시 본다.

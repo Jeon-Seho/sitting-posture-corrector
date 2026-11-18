@@ -3,12 +3,12 @@
 
 - 메시지 키는 session_id (같은 세션의 시작·특징·종료 순서 보장).
 - session_started / session_ended 는 바꾸지 않고 그대로 넘긴다(계약 규칙).
-- features 는 입력 v2 구간 1개 → 관측 v2 1개.
+- features 는 특징 입력 구간 1개 → 관측 1개.
   점수는 팀 기준 규칙(reference-feature-rule-v1, 팀 model/inference/service.py와 같은 식):
       점수 = min(1, max(|head_gap|/0.22, |lateral_offset|/0.20, |shoulder_tilt|/0.03) * 0.7)
   측정 중(running)·품질 good·특징 있음·현재/기준 품질 ≥ 0.65 일 때만 유효하고, 그 외에는
   valid=false·점수 0·유형 none. 점수는 보정된 확률이 아니라 규칙 점수다.
-- LSTM(입력 v2 기준)은 모델이 정해지면 바꾼다(회의 안건 8 보류, D-34). (D-38·D-63) 옛 posture.summary 경로와 시험 LSTM은 지웠다.
+- LSTM(특징 입력 기준)은 모델이 정해지면 바꾼다(회의 안건 8 보류, D-34). (D-38·D-63) 옛 posture.summary 경로와 시험 LSTM은 지웠다.
 - (D-36) 처리할 수 없는 메시지는 posture.dlq로 넘기고 다음 메시지로 간다(파티션이 막히지 않게).
   DLQ 메시지 형식은 api-server DeadLetterPublisher와 같다.
 """
@@ -61,7 +61,7 @@ def score_feature_deltas(features: dict) -> Tuple[float, str]:
 
 
 def observation_from_features(body: dict) -> dict:
-    """입력 v2 구간 1개 → 관측 v2."""
+    """특징 입력 구간 1개 → 관측."""
     features = body.get("features")
     valid = (
         body.get("phase") == "running"

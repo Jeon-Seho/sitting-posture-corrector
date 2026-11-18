@@ -2,7 +2,7 @@ package com.posture.api.posture.judge;
 
 import java.util.Map;
 
-/** (D-22) 관측 v2 중 판정에 쓰는 값. */
+/** (D-22) 관측 중 판정에 쓰는 값. */
 public record JudgeObservation(long sequence, long startMs, long endMs, String phase, boolean valid,
 	double collapseProbability, String deviationType) {
 

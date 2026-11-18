@@ -3,7 +3,7 @@
 - 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE·FE·ADR 구현 전)
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
-- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.v2.md), [DB 안내](../../../database/README.md), ADR 0049(작성 예정)
+- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR 0049(작성 예정)
 
 ## 문제와 완료 기준
 
@@ -107,7 +107,7 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - [ ] BE 1단계(동작 유지): `AccountRepository`(조회 LEFT JOIN, 가입, 비밀번호 변경 → 없으면 INSERT), `AccountService.NO_PASSWORD`·`hasPassword` 제거, `SocialLoginService.unlink`, `PasswordResetService`(Discord 전용 계정은 재설정으로 행 INSERT), `SchemaVerifier`(`local_credential` 항상 확인), `JdbcReportTestFixtures`
 - [ ] BE 2단계: 이메일 인증 경로·저장소·메일 문구·매일 정리, `register` 토큰 소비, Discord 자동 연결, 기능 플래그(`posegood.auth.email-verification.enabled`, 기본 꺼짐)
 - [ ] FE: 가입 순서, `#verify-email` 화면, 기존 계정 추가 화면, 자동 연결 안내
-- [ ] 계약 `accounts.v2.md`: `register` 요청 변경, 이메일 인증 경로, Discord 콜백 상태
+- [ ] 계약 `accounts.md`: `register` 요청 변경, 이메일 인증 경로, Discord 콜백 상태
 - [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착
 
 ## 결정과 진행 기록

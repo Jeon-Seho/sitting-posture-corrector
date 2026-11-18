@@ -9,7 +9,7 @@ import org.posegood.api.session.SessionService;
 /**
  * 실시간 v2 측정의 뒤쪽: 받은 좌표 구간을 어디서 판정하는지(계획 0031, D-57).
  *
- * <p>{@link RealtimeHandlerV2}의 앞쪽(앱과의 약속 — hello·토큰·순서·closed 사유)은 그대로 두고 이 인터페이스만 부른다.
+ * <p>{@link RealtimeHandler}의 앞쪽(앱과의 약속 — hello·토큰·순서·closed 사유)은 그대로 두고 이 인터페이스만 부른다.
  * {@code local}(기본)은 지금처럼 API 안에서 추론·판정·저장하고({@link LocalPipeline}), {@code kafka}는 Kafka로 보내고
  * 처리 서비스의 결과 토픽을 받아 앱에 보낸다. 판정 규칙은 어느 쪽에서도 이 인터페이스 밖에 있다.
  */

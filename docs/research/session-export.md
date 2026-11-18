@@ -1,6 +1,6 @@
 # 측정 결과 내보내기 규격 (txt·csv)
 
-> **2026-10-21 앱에서 이 내보내기(개발자 옵션의 txt·csv)를 지웠다**([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 이 문서는 그 전에 받은 파일을 읽을 때만 쓴다. 좌표가 필요하면 앱이 서버로 보내는 형식(`posture.frames.v1`)으로 ML과 정한다.
+> **2026-10-21 앱에서 이 내보내기(개발자 옵션의 txt·csv)를 지웠다**([ADR 0021](../decisions/0021-app-sends-information-server-judges.md)). 이 문서는 그 전에 받은 파일을 읽을 때만 쓴다. 좌표가 필요하면 앱이 서버로 보내는 형식(`posture.frames`)으로 ML과 정한다.
 
 ML 담당이 측정 결과 파일을 해석하기 위한 기준 문서다. 의료적 진단 자료가 아니다.
 
@@ -17,7 +17,7 @@ csv에는 시간과 관절 좌표만 있다. 상태·유형·점수 같은 라�
 | `posegood-kafka-features-<세션>.txt` | 서버(Kafka)로 보냈을 구간 특징값. JSON Lines, [posture.features](../../contracts/realtime/README.md). 첫 줄 `session_started`에 판정 설정(`policy`)·기준 ID·화면 크기가 있다. 서버 입력이 좌표로 바뀌면([계획 0023](../plans/active/0023-frontend-server-only.md) 3단계) 이 파일도 바뀐다 |
 | `posegood-pose-debug-<세션>.csv` | 프레임별 관절 좌표. 좌표 분석에 사용한다. 지도학습에 사용하려면 별도로 검토된 정답 라벨을 연결해야 한다. |
 
-txt는 지금 서버 입력 v1(특징 변화량) 형식이다. 앱이 WebSocket v2(좌표 구간, [계약](../../contracts/realtime/realtime-ws.v2.schema.json))로 바뀌면 txt도 좌표 구간으로 바꾼다(2026-10-13).
+txt는 지금 서버 입력 v1(특징 변화량) 형식이다. 앱이 WebSocket v2(좌표 구간, [계약](../../contracts/realtime/realtime-ws.schema.json))로 바뀌면 txt도 좌표 구간으로 바꾼다(2026-10-13).
 
 두 파일의 시간(ms)은 같은 시작점에서 잰다. csv의 `time_ms`와 txt의 `start_ms`/`end_ms`로 맞춰 볼 수 있다.
 

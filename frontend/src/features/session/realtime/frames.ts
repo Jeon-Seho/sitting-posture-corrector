@@ -1,7 +1,7 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 
 /**
- * `posture.frames.v1` (FE proposal 3.1, F1): what the app sends to `/realtime` (LiveSession,
+ * `posture.frames` (FE proposal 3.1, F1): what the app sends to `/realtime` (LiveSession,
  * 2026-10-21).
  *
  * - One message per frame (2026-10-27, team lead): the interval `[start_ms, end_ms)` holds one
@@ -72,7 +72,7 @@ export function frameJoints(landmarks: Landmark[]): [number, number, number][] |
   })
 }
 
-/** Turns observations into one-frame `posture.frames.v1` messages with increasing sequence. */
+/** Turns observations into one-frame `posture.frames` messages with increasing sequence. */
 export class FrameBatcher {
   private sequence = 0
   private start = 0

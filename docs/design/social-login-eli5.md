@@ -1,6 +1,6 @@
 # 소셜 로그인 쉽게 이해하기 (BE·DB 담당용)
 
-> 2026-11-16 갱신. 기존 계정에 Discord를 연결하는 과정을 쉽게 설명합니다. 이메일 인증·비밀번호 찾기까지 한 번에 보려면 [쉽게 읽는 인수인계](email-account-handoff.md)를 먼저 읽어 주세요. 표·설정은 [기술 인계](social-login-password-reset-handoff.md), 정확한 API는 [계약](../../contracts/accounts.v2.md)에 있습니다.
+> 2026-11-16 갱신. 기존 계정에 Discord를 연결하는 과정을 쉽게 설명합니다. 이메일 인증·비밀번호 찾기까지 한 번에 보려면 [쉽게 읽는 인수인계](email-account-handoff.md)를 먼저 읽어 주세요. 표·설정은 [기술 인계](social-login-password-reset-handoff.md), 정확한 API는 [계약](../../contracts/accounts.md)에 있습니다.
 
 ## 1. 한 줄 요약
 

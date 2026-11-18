@@ -13,6 +13,6 @@
     "user_id": {"type": "string", "minLength": 1, "maxLength": 64},
     "produced_at": {"type": "string", "format": "date-time"},
     "kind": {"const": "keypoints"},
-    "body": {"$ref": "https://posegood.local/contracts/realtime/frames/posture-frames.v1.schema.json"}
+    "body": {"$ref": "https://posegood.local/contracts/realtime/frames/posture-frames.schema.json"}
   }
 }

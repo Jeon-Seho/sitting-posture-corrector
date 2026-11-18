@@ -3,7 +3,7 @@
 - 기준: DB 스키마 V2.2(`database/`, 2026-10-10)와 현재 프론트(`frontend/`)
 - 브랜치: `feature/repo-backend-db-v2` — **아직 커밋하지 않음** (작업 트리 변경 약 170개 파일)
 - 관련 문서: [계획 0026](../plans/active/0026-backend-v2-rebuild.md), [ADR 0020](../decisions/0020-single-api-decision-engine.md),
-  [계정·저장 API 계약](../../contracts/accounts.v1.md), [백엔드 안내](../../backend/README.md)
+  [계정·저장 API 계약](../removed-docs.md), [백엔드 안내](../../backend/README.md)
 
 ## 1. 한눈에 보기
 

@@ -20,7 +20,7 @@
 
 완료 기준(모두 서버 PC에서 확인):
 
-1. 앱이 `/v2/realtime`으로 보낸 구간이 Kafka 경로를 거쳐 같은 WebSocket v2 메시지(`ack`·`progress`·`observation`·`decision`·`alert`·`stalled`·`closed`)로 돌아온다. 앱 코드와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json)은 바꾸지 않는다.
+1. 앱이 `/v2/realtime`으로 보낸 구간이 Kafka 경로를 거쳐 같은 WebSocket v2 메시지(`ack`·`progress`·`observation`·`decision`·`alert`·`stalled`·`closed`)로 돌아온다. 앱 코드와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.schema.json)은 바꾸지 않는다.
 2. 결과 테이블(`collapse_event`·`correction_alert`·`monitor_session` 종료 값·`excluded_interval`)은 판정 결과 저장만 쓴다. API는 세션 행 만들기(종료 값 제외)만 한다.
 3. 같은 입력으로 API 안 판정과 Kafka 경로가 같은 사건·요약을 낸다(아래 T-15).
 4. 통합 테스트 WebSocket 시나리오 PASS, 컨슈머 그룹 lag 0, DLQ 0.

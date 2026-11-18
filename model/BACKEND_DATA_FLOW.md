@@ -58,7 +58,7 @@
 - 각 점은 `[x, y, visibility]`다. 좌표는 화면 크기 대비 값이며 y는 아래로 증가한다. 좌표 자체는 미러링하지 않는다.
 - 점 순서는 MediaPipe 인덱스 **0, 2, 5, 7, 8, 9, 10, 11, 12**: 코, 양 눈, 양 귀, 양 입꼬리, 양 어깨다. 입꼬리는 입 개폐량이 아니라 얼굴 높이 특징에 쓰인다.
 - 영상 자체는 보내지 않는다. 추적할 수 없는 프레임은 `p: null`, `valid: false`로 보내며 정상 프레임으로 대체하지 않는다.
-- 기준 자세는 앞서 `POST /baselines`로 별도 등록한다. 상세 형식과 허용 범위는 [프레임 계약](../contracts/realtime/frames/posture-frames.v1.schema.json), [WebSocket 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다.
+- 기준 자세는 앞서 `POST /baselines`로 별도 등록한다. 상세 형식과 허용 범위는 [프레임 계약](../contracts/realtime/frames/posture-frames.schema.json), [WebSocket 계약](../contracts/realtime/realtime-ws.schema.json)을 따른다.
 
 ### 1-2. API 서버 → 추론 서버: 기존 특징 3개
 

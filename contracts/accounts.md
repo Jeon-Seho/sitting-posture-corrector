@@ -2,7 +2,7 @@
 
 현재 MySQL [DB V2.6](../database/README.md) 계정 앱의 계약이다. 프론트 `/api/…`는 API `/…`로 전달된다(주소에 버전 없음, 2026-11-09).
 v1의 가입·workspace·세션 생성 형식과 호환되지 않아 별도 경로를 쓴다. 기존 v1 계정 경로는 제공하지 않는다.
-측정은 WebSocket v2([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /sessions/{id}/features`)·기록 저장(R2 `POST /records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
+측정은 WebSocket([계약](realtime/README.md), [ADR 0021](../docs/decisions/0021-app-sends-information-server-judges.md))로 한다. WebSocket v1은 서버에서 지웠다. HTTP 특징 요청(S2 `POST /sessions/{id}/features`)·기록 저장(R2 `POST /records`)·세션 메타데이터(S5)·세션 삭제(S6)는 앱이 쓰지 않아 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)).
 
 ## 인증
 
@@ -32,7 +32,7 @@ HTTPS에서는 `POSEGOOD_COOKIE_SECURE=true`. CSRF 토큰은 없다(`GET /auth/c
 직업 `null` 또는 공백이 아닌 1..80자다. 나이·직업은 선택 동의가 있어야 입력할 수 있다.
 새 비밀번호는 최소 12자·최대 UTF-8 72바이트. 이메일은 검증 후 공백 제거·소문자로 정규화한다.
 
-`consents`는 `{type,document_version}` 배열. 문서 버전은 [service-v2](consent-documents.v2.md).
+`consents`는 `{type,document_version}` 배열. 문서 버전은 [service-v2](consent-documents.md).
 필수 `TERMS`, `ACCOUNT_INFO`, `POSE_COORDINATES`, `MEASUREMENT_RECORD`, `AGE_14_OVER`를 모두 명시한다.
 `OPTIONAL_PROFILE`은 선택이며 미동의 항목은 보내지 않는다. 누락·중복·알 수 없는 종류·다른 버전은 400.
 계정과 동의 행은 하나의 트랜잭션이다. 동의 시각은 서버 KST다.
@@ -130,8 +130,8 @@ DB 키에서 안정적으로 만들고, 모든 접근은 별도로 소유권을 
 `409 MEASUREMENT_IN_PROGRESS`다(실시간 연결이 열려 있거나 S1 뒤 연결 전 30초 안). 그 세션이 `end`·연결 끊김으로 끝나면 바로 시작할 수 있다.
 S1과 hello 사이에 다른 기기가 먼저 연결했으면 hello는 `closed(session_lost)`다. 세션은 계정 정책 FK·기준 FK·알림 설정을 고정한다.
 같은 UUID·같은 정책·기준으로 재시도하면 같은 세션이다. 다른 본문은 409다.
-`GET /sessions/{UUID}`는 조회 v1이다. 세션은 WebSocket `end`·연결 끊김으로 끝난다(REST 종료 `POST .../end`는 2026-11-12 삭제).
-WebSocket은 `/realtime`([WebSocket v2](realtime/realtime-ws.v2.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
+`GET /sessions/{UUID}`는 조회 형식(session-view)이다. 세션은 WebSocket `end`·연결 끊김으로 끝난다(REST 종료 `POST .../end`는 2026-11-12 삭제).
+WebSocket은 `/realtime`([WebSocket](realtime/realtime-ws.schema.json))이다. `/v1/realtime`은 2026-10-26 지웠다.
 
 `GET /records`는 [RecordItem](../frontend/src/features/storage/types.ts)을 돌려준다. 기록 삭제 `DELETE /records/{id}`와 선택 정보 동의·철회 `PUT /consents/optional-profile`은 2026-11-12 지웠다(앱이 부르지 않음, 계획 0062 2단계).
 `GET /records`는 2026-10-27부터 배열이 아니라 `{today, records: RecordItem[]}` 객체다(BE-6).

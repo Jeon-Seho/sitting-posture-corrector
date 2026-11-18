@@ -68,7 +68,7 @@ kafka 모드 (D-57):  앱 → io-api → Kafka → 추론 → 판정 → 저장(
 
 ### 2.4 측정을 시작할 때 서버 이상
 
-kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰고, 못 쓰면 `ready` 전에 `closed(session_lost)`를 보낸다(`KafkaPipeline.open` → 503 → `RealtimeHandlerV2.refusal`). WS로 Kafka 상태가 따로 오지는 않지만 이 첫 응답이 시작 시점의 확인 역할을 한다.
+kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰고, 못 쓰면 `ready` 전에 `closed(session_lost)`를 보낸다(`KafkaPipeline.open` → 503 → `RealtimeHandler.refusal`). WS로 Kafka 상태가 따로 오지는 않지만 이 첫 응답이 시작 시점의 확인 역할을 한다.
 
 | 받은 것 | 앱 동작 |
 |---|---|
@@ -126,7 +126,7 @@ kafka 경로의 io-api는 `hello`를 받으면 `session_started`를 Kafka에 쓰
 | 3 | 종료 뒤 `stalled`를 계약에 「`end` 뒤 저장 지연」으로 명시하고, 기준을 5초 → 3초 | 5.2. **반영(D-57 ⑧ `f36d4fb`, develop 병합 전):** `end` 뒤 3초, 측정 중 5초. 계약·BE 명세 설명도 고침 |
 | 4 | 서버가 시작할 때 `ended_at` NULL로 남은 세션을 마지막 구간 기준으로 닫기 | 3장 local 「측정 중 서버 재시작」이 R1에 나오게 된다. **11/16 요청하지 않기로 함:** 드물고, 앱은 시작 실패를 오류 화면으로, 측정 중 서버 재시작은 S4 404 알림으로 처리한다. |
 | 5 | (뺌, 11/16) Kafka 경로 서버 상태 확인 | 서버가 살아 있는지는 서버가 스스로 정하고 챙길 일이라 FE 요청에서 뺐다 |
-| 6 | **kafka 모드 자정 넘김을 어떻게 할지 정하기.** kafka 브랜치는 자정 넘김을 local에서만 켠다(`RealtimeHandlerV2` 생성자 `midnightRollover && pipeline.local()`, 주석 「가이드 11장 #3」). 그래서 kafka 모드에서는 측정이 자정을 넘어 하나로 이어진다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 결과의 BE 줄은 「Kafka 모드(`ws`, 계획 0031)도 같은 규칙」이다 | ADR 0029와 코드가 다르다. 이대로면 kafka 모드를 운영에 켤 때 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER=true`)이 꺼진 것과 같다. 앱은 `session_rollover`가 안 와도 동작하지만, ADR 0029의 「측정 하나는 하루 안」이 깨지고 앱 날짜 나누기(ADR 0027)를 지울 수 없다. kafka에서도 넘길지(언제), ADR을 고칠지 D-57 회의에서 정한다. 안과 FE 요구(local처럼 `session_rollover`로 끊김 없이 넘기기, 11/12)는 [FE 제안서](fe-server-proposal.md) 옛 요구 2(BE-18) **11/16 DevOps가 kafka 모드에서도 된다고 해 FE 제안서 옛 요구 2를 닫았다.** |
+| 6 | **kafka 모드 자정 넘김을 어떻게 할지 정하기.** kafka 브랜치는 자정 넘김을 local에서만 켠다(`RealtimeHandler` 생성자 `midnightRollover && pipeline.local()`, 주석 「가이드 11장 #3」). 그래서 kafka 모드에서는 측정이 자정을 넘어 하나로 이어진다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 결과의 BE 줄은 「Kafka 모드(`ws`, 계획 0031)도 같은 규칙」이다 | ADR 0029와 코드가 다르다. 이대로면 kafka 모드를 운영에 켤 때 자정 넘김(`POSEGOOD_MIDNIGHT_ROLLOVER=true`)이 꺼진 것과 같다. 앱은 `session_rollover`가 안 와도 동작하지만, ADR 0029의 「측정 하나는 하루 안」이 깨지고 앱 날짜 나누기(ADR 0027)를 지울 수 없다. kafka에서도 넘길지(언제), ADR을 고칠지 D-57 회의에서 정한다. 안과 FE 요구(local처럼 `session_rollover`로 끊김 없이 넘기기, 11/12)는 [FE 제안서](fe-server-proposal.md) 옛 요구 2(BE-18) **11/16 DevOps가 kafka 모드에서도 된다고 해 FE 제안서 옛 요구 2를 닫았다.** |
 
 ## 7. FE 포함 통신 시험에 넣을 것 (보고서 안건 4)
 

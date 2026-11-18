@@ -28,12 +28,12 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * kafka 경로 결과 → 앱 메시지 시험(D-57): 결과 토픽 예시(contracts/realtime/examples)를 넣으면 앱 메시지가 WebSocket v2
- * 예시(contracts/realtime/examples-v2)와 같은 필드로 나오고, 멈춘 이유·판정 불가 사유·측정불가 한도·종료가 local과 같은 규칙인지.
+ * kafka 경로 결과 → 앱 메시지 시험(D-57): 결과 토픽 예시(contracts/realtime/examples)를 넣으면 앱 메시지가 WebSocket
+ * 예시(contracts/realtime/examples-ws)와 같은 필드로 나오고, 멈춘 이유·판정 불가 사유·측정불가 한도·종료가 local과 같은 규칙인지.
  */
 class KafkaResultsTest {
 	private static final Path KAFKA = Path.of("..", "..", "contracts", "realtime", "examples");
-	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-v2");
+	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-ws");
 	private static final JsonMapper MAPPER = JsonMapper.builder()
 		.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
 		.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)

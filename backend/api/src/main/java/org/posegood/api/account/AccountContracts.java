@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
 /**
  * 계정 API의 요청·응답 본문 모음(가입, 로그인, 비밀번호 변경, 탈퇴, 내 정보).
  *
- * 계약 문서: contracts/accounts.v2.md.
+ * 계약 문서: contracts/accounts.md.
  */
 public final class AccountContracts {
 	private AccountContracts() {
