@@ -242,7 +242,8 @@ def kill_consumers() -> int:
 
 
 class Watchers:
-    def __init__(self, bus: Bus, topics: List[str], dry_run: bool) -> None:
+    def __init__(self, bus: Bus, topics: List[str], dry_run: bool, gateway: str = "gateway") -> None:
+        self.gateway = gateway
         self.bus = bus
         self.topics = topics
         self.procs: List[subprocess.Popen] = []
@@ -262,7 +263,7 @@ class Watchers:
         self.started = True
         since = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         # stdin은 넘기지 않는다 — 넘기면 y/n 입력을 하위 프로세스가 먼저 읽어 질문에서 멈춘다
-        gw = subprocess.Popen(["docker", "logs", "-f", "--since", since, "gateway"], stdin=subprocess.DEVNULL,
+        gw = subprocess.Popen(["docker", "logs", "-f", "--since", since, self.gateway], stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         self.procs.append(gw)
         threading.Thread(target=self._pump, args=(gw, parse_gateway), daemon=True).start()
@@ -323,12 +324,17 @@ def parse_offsets(text: str) -> int:
 
 
 def parse_lag(text: str) -> Optional[int]:
-    """kafka-consumer-groups --describe 출력 → LAG 합계(LAG 열이 없으면 None)."""
-    lag_col, total, found = None, 0, False
+    """kafka-consumer-groups --describe 출력 → 지금 토픽(TOPICS)의 LAG 합계(LAG 열이 없으면 None).
+
+    옛 이름 토픽(posture.*.v1)은 뺀다 — 그룹 이름이 그대로인 io-ws-io-api는 이름을 바꾼 뒤에도 옛 토픽의 읽은
+    위치가 남아, 아무도 읽지 않는 옛 토픽 lag가 계속 보인다(D-94, 11/18)."""
+    lag_col, topic_col, total, found = None, None, 0, False
     for line in text.splitlines():
         cols = line.split()
         if "LAG" in cols and "TOPIC" in cols:
-            lag_col = cols.index("LAG")
+            lag_col, topic_col = cols.index("LAG"), cols.index("TOPIC")
+            continue
+        if topic_col is not None and len(cols) > topic_col and cols[topic_col] not in TOPICS:
             continue
         if lag_col is not None and len(cols) > lag_col and cols[lag_col].isdigit():
             total += int(cols[lag_col])
@@ -662,12 +668,18 @@ def step_s0(c: Ctx) -> None:
 
 def step_s1a(c: Ctx) -> None:
     cur = c.cursor()
-    c.say("앱(app.posegood.site)에서 이메일 계정으로 로그인하세요. 이미 로그인돼 있으면 먼저 로그아웃하세요")
+    c.say("앱에서 이메일 계정으로 로그인하세요. 이미 로그인돼 있으면 먼저 로그아웃하세요")
     deadline = time.monotonic() + c.args.wait_user
     failed = 0
+    want = c.gw_any_status("POST", "/auth/login")
+    versioned = re.compile("^" + re.escape(c.api) + r"/v[0-9]+/")
     while True:
         left = max(deadline - time.monotonic(), 0.1)
-        login = cur.expect(c.gw_any_status("POST", "/auth/login"), left, "로그인 요청(POST /auth/login)")
+        login = cur.expect(lambda e: want(e) or (e.source == "GW" and bool(versioned.match(e.path))), left,
+                           "로그인 요청(POST /auth/login)")
+        if not want(login):
+            raise Fail(f"앱이 버전 붙은 주소({mask(login.path)})를 부름 — 서버는 {c.api}/… 만 받음. 앱이 이 서버 판과 "
+                       "다른 판(예: Vercel 운영 = develop)이다. 같은 판의 화면으로 시험(--gateway-container web)")
         if status_ok(login.status):
             break
         failed += 1
@@ -1067,6 +1079,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--out", default=None,
                     help="결과 파일 폴더(기본: 저장소 tests/comm-test-results — 저장소에 올리지 않음)")
     ap.add_argument("--api-prefix", default="/api", help="gateway 기준 API 경로(버전 없음)")
+    ap.add_argument("--gateway-container", default="gateway",
+                    help="접근 로그를 볼 nginx 컨테이너 — 앱이 공개 주소면 gateway, 서버의 화면(127.0.0.1:8088, "
+                         "SSH 터널)으로 시험하면 web")
     ap.add_argument("--io-prefix", default="", help="io-api 직접 호출 경로 앞부분(127.0.0.1:8090, 버전 없음이라 기본은 빈 값)")
     ap.add_argument("--hold-ms", type=int, default=5000)
     ap.add_argument("--reminder-ms", type=int, default=30000)
@@ -1092,7 +1107,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     bus = Bus()
     ops = Ops(repo, args.dry_run)
     ctx = Ctx(args, bus, ops, Db(env))
-    watchers = Watchers(bus, WATCHED_TOPICS if args.mode == "kafka" else [], args.dry_run)
+    watchers = Watchers(bus, WATCHED_TOPICS if args.mode == "kafka" else [], args.dry_run, args.gateway_container)
     ctx.watchers = watchers
     results: List[Result] = []
     final = "멈춤 (-): 정리 중 오류"

@@ -120,8 +120,9 @@ class ParsingTest(unittest.TestCase):
         self.assertEqual(ct.parse_offsets("posture.alerts:0:100\nposture.alerts:1:166\n"), 266)
         out = ("\nGROUP TOPIC PARTITION CURRENT-OFFSET LOG-END-OFFSET LAG CONSUMER-ID HOST CLIENT-ID\n"
                "judge posture.inference 0 10 12 2 c1 /1 x\n"
-               "judge posture.inference 1 5 5 0 c1 /1 x\n")
-        self.assertEqual(ct.parse_lag(out), 2)
+               "judge posture.inference 1 5 5 0 c1 /1 x\n"
+               "io-ws-io-api posture.episodes.v1 1 0 285 285 - - -\n")
+        self.assertEqual(ct.parse_lag(out), 2)   # 옛 이름 토픽(.v1)의 남은 lag는 빼고
         self.assertIsNone(ct.parse_lag("Consumer group 'x' does not exist."))
 
     def test_counter_delta_and_reason(self):
@@ -154,6 +155,13 @@ class StepTest(unittest.TestCase):
                      gw("GET", "/api/workspace", 200)])
         ct.step_s1a(c)
         self.assertIn("POST /auth/login 200 (앞선 실패 1번)", c.result.evidence)
+
+    def test_s1a_stops_when_the_app_still_calls_versioned_paths(self):
+        c = make_ctx()
+        feed(c.bus, [gw("GET", "/api/v2/auth/me", 200), gw("POST", "/api/v2/auth/login", 200)])
+        with self.assertRaises(ct.Fail) as err:
+            ct.step_s1a(c)
+        self.assertIn("버전 붙은 주소(/api/v2/auth/me)", str(err.exception))
 
     def test_s1b_stops_when_an_email_login_comes_instead_of_discord(self):
         c = make_ctx()
