@@ -10,6 +10,7 @@ import { AccountError, type AccountClient, type AccountView } from '../features/
 import { setServerAuth } from '../features/platform/serverAuth'
 import { SettingsPage } from '../pages/SettingsPage'
 import { DEFAULT_RULES } from '../data/posture'
+import { accountMailApi } from '../features/auth/mailApi'
 import { AppErrorBoundary } from '../pages/ErrorPage'
 
 vi.mock('../hooks/useWriterLock', () => ({ useWriterLock: () => ({ state: 'ready', retry: vi.fn() }) }))
@@ -90,6 +91,16 @@ describe('sign-in with the account server (D-66, /auth)', () => {
     renderer = undefined
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+  })
+
+  it('keeps a reset link open even when an earlier login cookie could restore an account', async () => {
+    vi.stubGlobal('window', { location: { hash: '#password-reset?token=synthetic-link', pathname: '/', search: '' }, history: { replaceState: vi.fn() }, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    accounts.me.mockResolvedValue(VIEW)
+    vi.spyOn(accountMailApi, 'validate').mockResolvedValue(undefined)
+    await mount()
+    expect(accounts.me).not.toHaveBeenCalled()
+    expect(renderer!.root.findByType(LoginPage).props.title).toBe('비밀번호 재설정')
+    expect(input('new-password')).toBeTruthy()
   })
 
   it('checks the typed credentials on the server and keeps a profile copy on this device', async () => {
@@ -333,6 +344,52 @@ describe('sign-in with the account server (D-66, /auth)', () => {
       expect(stored).toEqual(next)
       expect(renderer!.root.findByType(SettingsPage).props.rules).toEqual(next)
       expect(data.has(KEYS.settings)).toBe(false)
+    } finally {
+      setServerAuth(null)
+    }
+  })
+
+  it('reads W1 on 「측정 시작」, not on each visit to 측정하기, and saves a slider drag once (11/16 test)', async () => {
+    const workspace = { schema_version: '2.0', profile: VIEW.profile, rules: DEFAULT_RULES, preferences: { alerts_on: true }, consents: { optional_profile: true }, records: [] }
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') return new Response(JSON.stringify({ ...workspace, rules: JSON.parse(String(init.body)).rules }), { status: 200 })
+      return new Response(JSON.stringify(url.includes('/records') ? { today: '2026-11-10', records: [] } : workspace), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetch)
+    accounts.login.mockImplementation(async () => {
+      setServerAuth({ userId: '42', accessToken: async () => 'synthetic-token' })
+      return VIEW
+    })
+    const workspaceCalls = (method: string) =>
+      fetch.mock.calls.filter(([url, init]) => String(url).includes('/workspace') && (init?.method ?? 'GET') === method).length
+    try {
+      await mount()
+      type('email', VIEW.email)
+      type('password', 'synthetic-password-12')
+      await submit()
+      await act(async () => {})
+      const afterSignIn = workspaceCalls('GET')
+      for (const page of ['기록', '측정하기', '기록', '측정하기']) {
+        click(page)
+        await act(async () => {})
+      }
+      expect(workspaceCalls('GET')).toBe(afterSignIn)
+
+      click('설정')
+      await act(async () => {})
+      const slider = () => renderer!.root.find((node) => node.type === 'input' && node.props['aria-label'] === '재알림 간격')
+      for (const value of [55, 45, 35, 25, 20]) act(() => slider().props.onChange({ target: { value: String(value) } }))
+      expect(workspaceCalls('PUT')).toBe(0)
+      expect(slider().props.value).toBe(20)
+      await act(async () => slider().props.onPointerUp())
+      await act(async () => {})
+      expect(workspaceCalls('PUT')).toBe(1)
+      expect(renderer!.root.findByType(SettingsPage).props.rules.realertSeconds).toBe(20)
+
+      // The simple 「알리기까지 기다리는 시간」 moves the recovery time with it.
+      await act(async () => renderer!.root.findAllByType('button').find((b) => text(b) === '5초')!.props.onClick())
+      await act(async () => {})
+      expect(renderer!.root.findByType(SettingsPage).props.rules).toMatchObject({ holdSeconds: 5, recoverSeconds: 5 })
     } finally {
       setServerAuth(null)
     }

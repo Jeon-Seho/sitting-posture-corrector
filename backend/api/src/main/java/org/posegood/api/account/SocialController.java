@@ -39,6 +39,7 @@ import jakarta.validation.Valid;
 public class SocialController {
 	static final String PENDING_COOKIE = "posegood_social";
 	static final String SIGNUP_COOKIE = "posegood_social_signup";
+	static final String LINK_COOKIE = "posegood_social_link";
 
 	private final SocialLoginService social;
 	private final AuthTokens tokens;
@@ -101,7 +102,10 @@ public class SocialController {
 			cookies.set(response, tokens.signIn(outcome.signedIn()).refreshToken());
 		}
 		String fragment = "social-result?status=" + outcome.status();
-		if (outcome.signupId() != null) {
+		if ("link-required".equals(outcome.status()) && outcome.signupId() != null) {
+			cookies.add(response, LINK_COOKIE, outcome.signupId(), SocialPending.AUTHORIZATION_LIFETIME);
+			fragment = "social-link";
+		} else if (outcome.signupId() != null) {
 			cookies.add(response, SIGNUP_COOKIE, outcome.signupId(), SocialPending.SIGNUP_LIFETIME);
 			fragment = "social-signup";
 		}
@@ -111,6 +115,37 @@ public class SocialController {
 			.header(HttpHeaders.CACHE_CONTROL, "no-store")
 			.header("Referrer-Policy", "no-referrer")
 			.build();
+	}
+
+	@GetMapping("/pending-link")
+	public AccountContracts.SocialLinkDraft pendingLink(
+		@CookieValue(name = LINK_COOKIE, required = false) String id) {
+		return social.linkDraft(id);
+	}
+
+	@PostMapping("/pending-link/verify")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void verifyLink(@CookieValue(name = LINK_COOKIE, required = false) String id,
+		@Valid @RequestBody AccountContracts.SocialLinkPassword body) {
+		social.verifyLink(id, body.password());
+	}
+
+	@PostMapping("/pending-link/confirm")
+	public AccountContracts.SignedIn confirmLink(
+		@CookieValue(name = LINK_COOKIE, required = false) String id, HttpServletResponse response) {
+		long owner = social.confirmLink(id);
+		cookies.add(response, LINK_COOKIE, "", Duration.ZERO);
+		var issued = tokens.signIn(owner);
+		cookies.set(response, issued.refreshToken());
+		return AccountContracts.SignedIn.of(social.account(owner).view(), issued);
+	}
+
+	@DeleteMapping("/pending-link")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void cancelLink(@CookieValue(name = LINK_COOKIE, required = false) String id,
+		HttpServletResponse response) {
+		social.cancelLink(id);
+		cookies.add(response, LINK_COOKIE, "", Duration.ZERO);
 	}
 
 	/** 가입 대기의 제안값(확인된 이메일·이름). */

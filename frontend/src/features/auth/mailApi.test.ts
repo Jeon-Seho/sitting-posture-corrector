@@ -12,7 +12,7 @@ describe('future mail API connection', () => {
     await createMailApi({ enabled: true, fetcher }).request('reset', ' A@Example.com ')
     expect(fetcher).toHaveBeenCalledTimes(1)
     expect(fetcher.mock.calls[0]).toEqual(['/api/auth/password-reset/requests', expect.objectContaining({
-      body: JSON.stringify({ email: 'a@example.com' }), credentials: 'same-origin',
+      body: JSON.stringify({ email: 'a@example.com' }), credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     })])
   })
@@ -30,6 +30,15 @@ describe('future mail API connection', () => {
     await createMailApi({ enabled: true, fetcher }).reset('synthetic-secret', 'new-password')
     expect(fetcher.mock.calls[0][0]).not.toContain('synthetic-secret')
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ token: 'synthetic-secret', new_password: 'new-password' })
+  })
+  it('explains password reuse separately and validates links before a reset', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'PASSWORD_REUSED' }), { status: 400 }))
+    const api = createMailApi({ enabled: true, fetcher })
+    await api.validate('synthetic-token')
+    expect(fetcher.mock.calls[0][0]).toBe('/api/auth/password-reset/validate')
+    await expect(api.reset('synthetic-token', 'synthetic-old-password')).rejects.toMatchObject({ code: 'PASSWORD_REUSED' })
   })
   it('separates email confirmation from password reset links and ignores unrelated routes', () => {
     expect(mailRoute('#password-reset?token=example-token')).toEqual({ purpose: 'reset', token: 'example-token' })

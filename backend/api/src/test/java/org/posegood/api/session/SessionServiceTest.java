@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -55,9 +57,14 @@ class SessionServiceTest {
 	private final List<SessionUpdates.Progressed> published = new ArrayList<>();
 	/** DB에 끝난 값이 있는 세션(가짜 {@link EndedSessionViews}, 주인은 {@link #OWNER}). */
 	private final Map<UUID, SessionView> stored = new HashMap<>();
+	private final BaselineRepository baselines = mock(BaselineRepository.class);
 	private LiveSessions live;
 
 	private SessionService service(Duration unmeasurableTimeout) {
+		return service(unmeasurableTimeout, Duration.ofSeconds(30));
+	}
+
+	private SessionService service(Duration unmeasurableTimeout, Duration measurementGrace) {
 		ApplicationEventPublisher events = event -> {
 			if (event instanceof SessionUpdates.Progressed progressed) {
 				published.add(progressed);
@@ -78,10 +85,10 @@ class SessionServiceTest {
 		var row = new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
 			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
 		live.add(new LiveSession(row, new SessionEngine(ID, POLICY)));
-		return new SessionService(live, repository, mock(BaselineRepository.class),
+		return new SessionService(live, repository, baselines,
 			mock(ThresholdPolicyRepository.class), mock(AccountService.class), inference, locks,
 			tx, events, (owner, id) -> owner == OWNER ? stored.get(id) : null, Duration.ofHours(24),
-			unmeasurableTimeout);
+			unmeasurableTimeout, measurementGrace);
 	}
 
 	/** 합성 기준 좌표(코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨). */
@@ -235,8 +242,82 @@ class SessionServiceTest {
 		assertEquals(view, service.get(OWNER, ID));
 	}
 
+	/** (D-57, 11/12 DB/BE 합의) kafka 경로는 이 서버 엔진이 판정하지 않으므로 ①(엔진의 끝난 결과)을 건너뛰고 DB 값으로 답한다. */
+	@Test
+	void kafkaModeSkipsTheEngineEndedViewAndAnswersFromTheDatabase() {
+		var service = service(Duration.ZERO);
+		feed(service, ID, interval(0, FrameInterval.Phase.running, true));
+		service.finish(OWNER, ID, 500L);
+		var fromDb = new SessionView("1.0", ID, POLICY, SessionView.TIMER_POLICY, true, -1,
+			service.get(OWNER, ID).summary(), List.of());
+		stored.put(ID, fromDb);
+		service.useResults(id -> Optional.empty());
+		assertEquals(fromDb, service.get(OWNER, ID));
+	}
+
 	private static SessionRepository.Stored row() {
 		return new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
 			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
+	}
+
+	/** (D-57 ⑧) kafka 경로: 세션 조회는 받아 둔 마지막 결과로 요약·사건·순번·종료를 채운다(정책은 그대로). 없으면 엔진 값. */
+	@Test
+	void getOverlaysTheLatestKafkaResult() {
+		var service = service(Duration.ZERO);
+		var engine = service.get(OWNER, ID);
+		assertEquals(-1, engine.lastSequence());
+
+		var summary = new SessionView.Summary(85000, 80000, 70000, 10000, 0, 5000, 0, 0, 1, 1, 170, 0.875, 42.0,
+			null, null);
+		var event = new SessionView.DecisionEvent("1.0", ID, 1, "collapse_confirmed", 3000, 0, 0, "forward_head",
+			null);
+		service.useResults(id -> id.equals(ID)
+			? Optional.of(new SessionResults.Snapshot(169, summary, List.of(event), true))
+			: Optional.empty());
+		var view = service.get(OWNER, ID);
+		assertEquals(169, view.lastSequence());
+		assertEquals(summary, view.summary());
+		assertEquals(List.of(event), view.events());
+		assertTrue(view.ended());
+		assertEquals(engine.policy(), view.policy());
+	}
+
+	private static final UUID OTHER = UUID.fromString("5d1e2f3a-4b5c-4d6e-8f70-8192a3b4c5d6");
+
+	/** 로그인은 기기마다 되지만 측정은 계정당 하나다: 다른 기기의 새 세션(S1)은 409 MEASUREMENT_IN_PROGRESS. */
+	@Test
+	void anotherDeviceCannotStartWhileOneIsMeasuring() {
+		var service = service(Duration.ZERO);
+		var refused = assertThrows(ApiError.class,
+			() -> service.create(OWNER, OTHER, new SessionRequests.Create(POLICY, BASELINE)));
+		assertEquals(409, refused.status());
+		assertEquals("MEASUREMENT_IN_PROGRESS", refused.code());
+		verify(repository, never()).insert(anyLong(), any(), anyLong(), anyLong(), anyBoolean(), any());
+		// 다른 계정은 막지 않는다.
+		assertNull(live.measuringOther(OWNER + 1, OTHER, Duration.ofSeconds(30).toNanos()));
+		// 측정 중인 기기가 끝내면 다른 기기가 시작할 수 있다.
+		service.finish(OWNER, ID, 0L);
+		assertNull(live.measuringOther(OWNER, OTHER, Duration.ofSeconds(30).toNanos()));
+	}
+
+	/** S1만 하고 연결하지 않은 세션은 유예가 지나면 막지 않는다. 연결된 세션은 끝날 때까지 다른 연결을 막는다. */
+	@Test
+	void onlyAConnectedOrJustCreatedSessionBlocksOtherDevices() {
+		var service = service(Duration.ZERO, Duration.ZERO);
+		assertNull(live.measuringOther(OWNER, OTHER, 0));
+		when(baselines.find(OWNER, BASELINE)).thenReturn(new BaselineRepository.Stored(1, OWNER,
+			Instant.parse("2026-10-26T00:00:00Z"), landmarks()));
+		service.openRealtime(OWNER, ID);
+		assertEquals(ID, live.measuringOther(OWNER, OTHER, 0).id());
+
+		var otherRow = new SessionRepository.Stored(2, OTHER, OWNER, POLICY, BASELINE, true,
+			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
+		live.add(new LiveSession(otherRow, new SessionEngine(OTHER, POLICY)));
+		assertEquals("MEASUREMENT_IN_PROGRESS",
+			assertThrows(ApiError.class, () -> service.openRealtime(OWNER, OTHER)).code());
+
+		service.finish(OWNER, ID, null); // 연결이 끊김
+		service.openRealtime(OWNER, OTHER);
+		assertEquals(OTHER, live.measuringOther(OWNER, ID, 0).id());
 	}
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, CheckCircle, WarningCircle, X } from '../components/icons'
 import type { CameraController } from '../hooks/useCamera'
 import type { CollectionController } from '../hooks/useCollection'
@@ -102,6 +102,11 @@ export function ServiceScreens({
   const errorKind = !showPageErrors || measuring || view === 'session' ? null
     : !online ? 'offline' : pageError && pageError.kind !== 'offline' ? pageError.kind : null
   const shown = errorKind ? null : view
+  // The result's 「다시 측정」: 측정하기 starts by itself once ready; any other way out forgets it.
+  const [measureAgain, setMeasureAgain] = useState(false)
+  useEffect(() => {
+    if (view !== 'setup') setMeasureAgain(false)
+  }, [view])
   useOfflineArt(showPageErrors)
   const wasOnline = useRef(online)
   useEffect(() => {
@@ -208,6 +213,7 @@ export function ServiceScreens({
             onCollect={openCollection}
             measuring={measuring}
             registerAgain={view === 'posture'}
+            startWhenReady={measureAgain && view === 'setup'}
             onBack={view === 'posture' ? () => go('settings') : undefined}
             onOpenSession={() => go('session')}
           />
@@ -221,6 +227,7 @@ export function ServiceScreens({
               alertsOn={alertsOn}
               onDashboard={() => go('dashboard')}
               onPrepare={() => go('setup')}
+              onMeasureAgain={() => { setMeasureAgain(true); go('setup') }}
               // A new measurement at once; back to 측정하기 when the camera or posture needs attention.
               onRetry={() => { if (!persistence.start()) go('setup') }}
               service={{

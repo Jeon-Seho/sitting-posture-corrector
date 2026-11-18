@@ -147,6 +147,8 @@ const CLOSED_WHILE_MEASURING: Record<string, { message: string; failed: boolean;
   unauthorized: { message: '비밀번호 변경이나 탈퇴로 로그인이 끝나 측정을 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
   bad_message: { message: '측정을 이어갈 수 없어 마쳤어요. 그때까지 저장됐어요.', failed: false, lost: true },
 }
+/** S1 409 MEASUREMENT_IN_PROGRESS: 로그인은 여러 기기에서 되지만 측정은 계정당 한 기기만 한다. */
+export const MEASURING_ELSEWHERE = '다른 기기에서 측정 중이에요. 그 기기에서 측정을 끝낸 뒤 다시 시작해 주세요.'
 const LOST = '서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.'
 
 /** A server time from a message: kept as given and moves 「오늘」 (ADR 0029); null when absent or not a time. */
@@ -253,7 +255,11 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:start] Operation failed', cause)
       const error = cause instanceof ApiError ? cause : new ApiError('server', MESSAGES.server)
       const message =
-        error.code === 'BASELINE_REQUIRED' ? '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.' : error.message
+        error.code === 'BASELINE_REQUIRED'
+          ? '기준 자세가 없어요. 설정에서 자세를 등록해 주세요.'
+          : error.code === 'MEASUREMENT_IN_PROGRESS'
+            ? MEASURING_ELSEWHERE
+            : error.message
       // 5xx or no answer at all: the server could not be reached or could not open it.
       this.finish({
         phase: 'failed',
@@ -554,7 +560,8 @@ export class LiveSession {
       console.error('[features/session/live/LiveSession.ts:fetchResult] Operation failed', caughtError)
       // 404: the server has it neither in memory nor stored — a server fault that should be rare.
       // An error page, and this device keeps nothing: what the server received stays on the server
-      // (an open session row) and shows up in R1 once the server closes it (FE proposal 요구 8).
+      // (an open session row); the server does not close it, so it stays out of R1 (rare, not requested
+      // from the server, 2026-11-16).
       if (caughtError instanceof ApiError && caughtError.status === 404) {
         this.finish({ phase: 'ended', late, resultMissing: true })
         return

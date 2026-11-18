@@ -39,8 +39,10 @@
 | --- | --- | --- | --- | --- |
 | `posture.features.v1` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 입력 v2 / `end_ms` | [kafka-features.v1](kafka-features.v1.schema.json) |
 | `posture.inference.v1` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference.v1](kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 판정 → 게이트웨이 | `decision` / `progress` | 사건 v1 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
+| `posture.episodes.v1` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 v1 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
 | `posture.alerts.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts.v1](kafka-alerts.v1.schema.json) |
+| `posture.keypoints.v1` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로(frames 계약). kafka 경로·적재 스위치를 켰을 때만, 처리 서비스는 읽지 않음 | [kafka-keypoints.v1](kafka-keypoints.v1.schema.json) |
+| `posture.stored.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored.v1](kafka-stored.v1.schema.json) |
 
 공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.
 
@@ -66,8 +68,8 @@
 
 ## 통로 나누기
 
-- **세션 시작·종료는 기존 HTTP API**(`PUT /v1/sessions/{id}`, `POST /v1/sessions/{id}/end`)로 한다. 입구 API가 DB V2.0에 저장하고
-  `posture.features.v1`에 `session_started`·`session_ended`를 넣는다.
+- **세션 시작은 HTTP**(S1 세션 생성 `PUT /sessions/{id}`, 경로 앞부분은 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 1장)로 하고, **끝은 WebSocket `end`나 연결 끊김**이다(REST 종료 S3는 2026-11-12 지움). 입구 API가 서비스 DB에 저장하고,
+  kafka 모드(D-57 브랜치 `KafkaPipeline`)에서는 `posture.features.v1`에 `session_started`·`session_ended`를 넣는다. (처음 결정 10/06에는 시작·종료 모두 v1 HTTP였다.)
 - **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
 - 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.

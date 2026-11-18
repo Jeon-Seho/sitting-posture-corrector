@@ -3,97 +3,92 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-23은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-25는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
-기준: develop `7560928`(PR #121까지), `feat/ws-kafka-pipeline` `f9aa575`, BE 브랜치 `refactor/repo-remove-api-version-paths`, 2026-11-13 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
+기준: develop `d9f9460`, `feat/ws-kafka-pipeline` `1067dab`, BE 브랜치 `refactor/repo-remove-api-version-paths` `ab1fc36`, 2026-11-16 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
-다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 순위는 1 Kafka 모드 관련, 2 BE·DevOps가 정할 것, 3 기록 통계이고, 같은 순위 안에서는 먼저 할 것부터 적는다.
+다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17).
 
-| 순위 | 묶음 | # | 요구 | 누가 | 언제 |
-|---|---|---|---|---|---|
-| 1 | Kafka 모드(D-57)와 관련된 것 | 1 | Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17) | BE·DevOps·PM | kafka 모드를 운영에 켜기 전 / 쿠버네티스로 옮길 때 |
-|  |  | 2 | kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18) | PM·DevOps·BE | kafka 모드를 운영에 켜기 전 |
-|  |  | 3 | Kafka 전환 때 판정 순서 확인 | BE·DevOps·PM | Kafka 전환 시험 |
-|  |  | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | BE·PM·DevOps·FE | 급하지 않음. kafka 모드 병합(D-57) 때 함께 |
-|  |  | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `maxItems 1`·프레임 `valid` 빼기) FE 끝(11/13). 나머지는 요구 4와 같은 계약 판에 |
-| 2 | BE·DevOps가 정할 것 | 6 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정할 것 |
-|  |  | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 이 FE 배포 뒤 |
-|  |  | 8 | 열린 채 남는 세션 닫기 | BE | 정할 것. 가장 급함(11/13 BE 정리). 먼저 정상 종료 저장 시험(5번) |
-|  |  | 9 | 쉬기 자동 종료 (BE-13) | BE | 정할 것 |
-|  |  | 10 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치 있음(미병합, 11/16 develop 합침·앱 코드는 아래 FE 안대로). 옛 데스크톱 설치판은 받아 주지 않음(11/16). 배포 날짜 정할 것 |
-|  |  | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝남(develop #121), `records` 남음 |
-|  |  | 12 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 정할 것 |
-|  |  | 13 | 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23) | BE·FE | 정함, 구현 전 |
-| 3 | 기록 통계 | 14 | T1 일별 통계 API (BE-2) | BE | 기록이 많아져 R1 계산이 느려질 때 |
+| # | 요구 | 누가 | 지금 상태(11/16) | 언제 |
+|---|---|---|---|---|
+| 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
+| 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
+| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치에 서버·앱 수정이 다 있다(develop 병합 공지됨). 운영 서버는 아직 `/v2`만 받는다 | #125 병합 뒤, 서버·웹 같은 날(FE 할 일 7) |
+| 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | D-57 병합 때 함께 |
+| 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
+| 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | kafka 브랜치 코드는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
+| 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
+| 8 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
+| 9 | 쉬기 자동 종료 (BE-13) | BE | 아직 없다 | 정할 것 |
+| 10 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
+| 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
+| 12 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
 
-### 1순위: Kafka 모드(D-57)와 관련된 것
+**kafka 브랜치 확인(11/16 `feat/ws-kafka-pipeline` `1067dab`):** 요구 4는 아직 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
-D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고칠 것.
+### 요구 1. 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) (옛 16)
 
-11/13 `feat/ws-kafka-pipeline` `f9aa575` 확인: 요구 1·2·4·5는 아직 반영되지 않았다(구독 그룹 이름 `io-ws-${HOSTNAME}`, 자정 넘김은 local에서만, `ack` 전송, 계약 `items` 최대 30 그대로). 그 사이 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영)와 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 들어갔다.
-
-#### 요구 1. Kafka 경로 서버 상태를 쿠버네티스가 알게 하기 (BE-14~17)
-
-- **한줄요약:** 「살아 있다면서 Kafka 일은 안 하는」 서버를 쿠버네티스가 재시작할 수 있게 각 서버 health를 고친다.
-- **발단:** D-57 통신 시험 보고서를 검수하며 Kafka 경로 장애 때 앱 대응을 kafka 브랜치 코드와 맞춰 봤다. 장애 대부분은 정해져 있다: 서비스·Kafka가 죽으면 쿠버네티스가 다시 띄우고(BE 답), 기록은 Kafka가 들고 있다가 처리되며 Hadoop에도 남는다. 그보다 큰 장애는 FE가 대비하지 않는다(11/11 결정). 시작 때 Kafka가 죽어 있으면 앱이 오류 화면(500 그림)으로 막는다([FE 예외 처리 방안](fe-exception-handling-plan.md) 2.4). 그런데 **프로세스는 살아 있어 health 200인데 Kafka 일은 안 하는 상태**가 있었다.
-- **원인:** health가 자기 Kafka 스레드를 보지 않거나, 반대로 남의 상태까지 본다. 앱은 이걸 「추론 재시작 중」과 구별할 수 없어(둘 다 `observation`만 안 옴) 서버에서만 확인할 수 있다.
-  - **A** io-api 결과 구독 스레드가 예외로 끝나도 다시 시작하지 않음(`KafkaResults.run`) → 모든 측정에 결과·`closed`가 안 가는데 health 200
-  - **B** 추론 Kafka 입력 스레드가 죽어도 상태에 `running: true`(`realtime.py` `status()`)
-  - **C** 판정 결과 형식이 안 맞으면 io-api가 메시지를 전부 건너뜀(로그 경고만, lag 0)
-  - **D** 처리 서비스 `@KafkaListener`가 멈춰도 Spring 기본 health에 안 나옴(**BE 확인 필요**)
-  - **E** io-api `stalled` 타이머가 예외로 조용히 멈춤(가능성 낮음)
-  - **F** 추론 `/health`가 Kafka·Redis까지 봐서, liveness로 쓰면 Kafka가 잠깐 죽을 때 추론도 계속 재시작됨
-  - **G** io-api 결과 구독 그룹 이름이 `io-ws-${HOSTNAME}`이라 쿠버네티스 파드마다 그룹이 새로 생김
-- **요구사항/변경사항:**
-  - **BE-14** 각 서버 liveness에 **자기** Kafka 스레드·리스너가 도는지 넣는다(A·B·D·E). 쿠버네티스는 liveness가 실패해야 재시작한다. 「쿠버네티스가 다시 띄우니 FE는 대비하지 않는다」의 전제 조건이다. kafka 모드를 운영에 켜기 전.
-  - **BE-15** 다른 서버(Kafka·Redis·DB) 상태는 liveness에서 뺀다(F). 넣으면 멀쩡한 서버가 무한 재시작되고, io-api면 측정 중인 모든 WS가 끊긴다. 저장소의 같은 원칙: `infra/compose/bigdata.yaml` 처리 서비스(D-11) 「liveness만 본다 — 외부 DB 일시 장애가 번지지 않게」. 쿠버네티스로 옮길 때.
-  - **BE-16** 건너뛴 메시지 수와 DLQ(`posture.dlq`) 증가를 내놓고 알림을 받는다(C). 재시작으로 안 고쳐지는 배포 문제라 사람이 봐야 한다. kafka 모드를 운영에 켜기 전.
-  - **BE-17** 결과 구독 그룹 이름을 고정값(`posegood.realtime.kafka.group-id`)으로 준다(G). 쿠버네티스로 옮길 때.
-  - 위치: io-api `KafkaResults.java`·`RealtimeHandlerV2.java`(`timer`·`checkStalled`)·`HealthController.java`·`RealtimePipelineConfiguration.java`, 추론 `realtime.py`·`main.py` `/health`, 처리 서비스 `RealtimeInferenceConsumer.java`·`EpisodesStoreConsumer.java`, `infra/compose/bigdata.yaml`, 쿠버네티스 매니페스트. FE는 할 일 없음.
-
-#### 요구 2. kafka 모드도 KST 00:00에 끊김 없이 세션 넘기기 (BE-18)
-
-- **한줄요약:** kafka 모드도 local처럼 00:00에 `session_rollover`로 세션만 바꾸고 사용자의 측정은 끊지 않는다. 지금 코드는 local 전용이라 막아 둔 조건만 풀면 안 되고, 종료·시작을 Kafka 경로로 보내게 고쳐야 한다.
-- **발단:** BE 11/11 S4 공지를 받고 kafka 브랜치 WS 코드를 ADR과 대조했다. [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)에는 「Kafka 모드도 같은 규칙」이라고 되어 있는데, `RealtimeHandlerV2` 생성자가 `midnightRollover && pipeline.local()`이라 **설정을 켜도 kafka 모드에서는 자정 넘김이 꺼진다**(주석 「가이드 11장 #3」). 11/12 `feat/ws-kafka-pipeline` `eb825bb`로 다시 확인.
+- **한줄요약:** 탈퇴(A7)를 비밀번호 확인 없이 로그인 상태만으로 받는다. 실수는 앱의 확인 창(「정말 삭제하시겠습니까?」)으로 막는다.
+- **발단:** 11/16 운영 확인. 탈퇴 버튼이 동의 체크만으로는 켜지지 않았고(현재 비밀번호 필요), 보다 보니 Discord로 가입한 계정은 탈퇴할 수 없다는 것이 드러났다.
 - **원인:**
-  - **끊지 않으면** 자정을 넘긴 측정 하나가 통째로 시작한 날에 들어간다(서버 기록에는 날짜 나누기가 없다). 예: 23:00~01:00 측정이면 00:10 J2는 진행 중이라 어제 통계에서 빼고, 측정이 끝나면 R1에 120분이 모두 어제로 나온다. 앱 오늘 화면에는 00:00~01:00의 60분이 끝내 나오지 않고(앱은 기록을 R1로만 보이고 날짜를 나누지 않는다, ADR 0027 11/13), 다음 날 J2의 7일 다시 계산이 어제에 120분을 넣는다.
-  - **조건만 풀면 안 되는 이유:** 자정 넘김(`SessionService.rollover`)은 io-api 안의 판정 엔진으로 이전 세션을 끝내고 저장한다. kafka 모드에서 이 엔진은 판정하지 않아 비어 있으므로(계획 0031 11번):
-    1. 이전 세션이 0초로 저장된다(`engine.end(engine.summary().totalMs())`). kafka 모드에서 종료 값(`ended_at`·`good_sec`)은 처리 서비스만 쓴다(`EpisodeStoreService` C-1).
-    2. Kafka에 이전 세션의 `session_ended`가 가지 않는다. 처리 서비스가 열린 사건·제외 구간을 닫지 않고 `ended_at`도 쓰지 않는다.
-    3. 새 세션의 `session_started`가 Kafka에 가지 않는다. 처리 서비스 판정기가 사용자 정책 대신 서버 기본값으로 판정한다([FE 예외 처리 방안](fe-exception-handling-plan.md) 6장 2번).
-    4. `session_rollover`의 이전 세션 요약(`ended.summary`)이 빈 값이다.
-- **요구사항/변경사항:** kafka 모드를 운영에 켜기 전에 BE·DevOps가 고친다(D-57). 이미 있는 부품을 잇는 일이다.
-  1. 자정 감지는 그대로 쓴다: 자정을 넘는 구간이 오거나 00:00:30(`cutMs`, `midnight()`).
-  2. 이전 세션: io-api 엔진으로 끝내지 않고 `pipeline.finish(이전 세션, end_ms = 자정 위치)`로 `session_ended`를 보낸다. 저장은 평소 종료처럼 처리 서비스가 한다.
-  3. 새 세션: local과 같이 행을 만들고(`insertFollowing`, 정책·기준 자세는 이전 것) `pipeline.open`으로 `session_started`를 보낸다.
-  4. `session_rollover`는 저장 완료를 기다리지 않고 바로 보낸다. `ended.ended_at`은 이전 세션 시작 + 자정 위치로 알 수 있고, `ended.summary`는 그 연결이 받은 마지막 `progress`(D-57 ⑧ `SessionResults`)를 쓴다. 마지막 몇 구간이 빠진 값일 수 있지만, 앱은 기록을 R1에서 받으므로 맞게 고쳐진다.
-  5. 새 세션의 구간은 새 세션 ID로 Kafka에 들어가 이전 세션과 섞이지 않는다(파티션 키 = 세션 ID).
-  6. 끝나면 ADR 0029의 BE 줄 「Kafka 모드도 같은 규칙」을 확인했다고 고친다.
-  - **사용자:** 자정을 몰라도 된다. 화면은 측정을 그대로 이어 가고 「자정이 지나 새 측정으로 이어졌어요」만 짧게 띄운다(`LiveSession.rollOver`, local에서 이미 이렇게 동작). **앱 일은 없다.**
-  - **쓰지 않는 안:** 자정에 끝내기(`closed(day_changed)`)는 사용자가 자정에 측정을 다시 시작해야 해 쓰지 않는다. 새 세션을 못 만들 때의 대비로만 남는다(local도 같음). 끊지 않기는 위 「원인」대로 오늘 기록이 사라진다.
+  - A7 `DELETE /auth/account`는 본문 `{password}`가 필수이고(`AccountContracts.Withdrawal(NotNull String password)`), 비밀번호가 틀리면 400 `INVALID_PASSWORD`다(`AccountService.withdraw` → `requireCurrent`).
+  - Discord 가입 계정은 비밀번호가 없다(`!no-password`). 그래서 탈퇴가 **항상 실패**한다. 비밀번호를 만들 재설정 메일도 운영에서 꺼져 있다. 앱 안에서 탈퇴할 길이 없는데, 개인정보 동의를 받는 서비스라 탈퇴 길은 늘 있어야 한다.
+- **요구사항/변경사항:**
+  1. **BE:** A7이 비밀번호 없이 탈퇴를 받는다.
+     - `AuthController.withdraw`: 본문을 `RequestBody(required = false)`로 둬서 없어도 받는다.
+     - `AccountService.withdraw`: `requireCurrent` 확인을 뺀다. 계정 닫기·로그인 철회·실시간 연결 닫기(`requireActive` → `accounts.close` → `removeLogins` → `LoginsRemoved`·`AccountClosed`)는 그대로 둔다.
+     - **옛 앱 호환:** 한동안 본문에 `password`가 와도 무시하고 받는다. 그래야 서버를 먼저 바꿔도 지금 운영 앱의 탈퇴가 깨지지 않는다.
+     - 시험(`MySqlIntegrationTest` 탈퇴), BE 명세 A7, 계약 `accounts.v2.md` A7 줄을 고친다.
+  2. **FE:** 프로필 설정의 탈퇴 칸에서 동의 체크박스와 비밀번호 조건을 뺀다. 「서버 계정 탈퇴」 버튼을 누르면 확인 창(`features/dialog/ConfirmDialog.tsx`)을 띄운다. 「정말 삭제하시겠습니까? 탈퇴는 되돌릴 수 없고 30일 뒤 계정과 기록이 삭제돼요.」 → 「탈퇴」 / 「취소」. 확인하면 본문 없이 A7을 보낸다. 비밀번호 변경 칸은 그대로 둔다. 기능 명세 「회원탈퇴」와 연동 명세 A7도 고친다.
+  3. **순서:** 서버(1)를 먼저 배포하고 앱(2)을 배포한다. 서버가 두 방식을 다 받으니 그 사이에도 탈퇴가 깨지지 않는다.
+- **알고 정한 것:** 비밀번호 확인이 빠지면, 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다. 확인 창은 실수만 막는다. 서비스 규모와 Discord 계정의 탈퇴 길을 생각해 받아들인다(11/16 FE 결정).
+- **진행(11/17):** FE 2번을 `docs/fe-docs-sync`에서 했다(`ServerAccountPage.tsx`, 시험 `ServerAccountPage.test.tsx`, 기능 명세·연동 명세). Discord 계정 안내 문구에서 「탈퇴에는 비밀번호가 필요」도 뺐다. 앱 수정은 `fix/fe-withdrawal-no-password`로 옮겨 서버보다 늦게 넣었다. 서버 1번은 김유진이 BE #131(`6002aa1`, 11/17 develop 병합)로 했다: A7이 본문을 읽지 않고 비밀번호를 확인하지 않으며, 옛 앱의 `{password}`는 무시하고 204. **남은 것은 운영 배포 순서뿐**이다: 운영 서버를 먼저 올리고 앱(Vercel)을 올린다.
+- **함께 풀리는 것:** Discord 가입 계정의 탈퇴. 비밀번호 변경은 여전히 비밀번호가 있는 계정만 된다. Discord 계정이 비밀번호를 만드는 길은 재설정 메일이 켜진 뒤의 일이다.
 
-#### 요구 3. Kafka 전환 때 판정 순서 확인
+### 요구 2. Kafka 전환 때 판정 순서 확인 (옛 3)
 
 - **한줄요약:** kafka 모드에서 추론이 한 세션의 결과 순서를 바꾸지 않는지 전환 시험에서 확인한다.
 - **발단:** local은 API 한 곳이 차례대로 처리해 순서가 지켜지지만, kafka는 판정이 처리 서비스로 옮겨 간다.
 - **원인:** kafka 판정기는 이미 반영한 `sequence`는 버리고, 번호가 건너뛰면 `missing_sequence`로 끊는다([kafka-spec.md](../kafka-spec.md) 3.3, `V1SessionJudge`). 늦게 온 결과를 기다려 주던 버퍼(#91 `PendingIntervals`)는 #91과 함께 빠졌다. 순서가 바뀌면 판정이 끊긴다.
 - **요구사항/변경사항:** 전환 시험(계획 0031)에서 순서를 확인하고, 바뀌면 버퍼를 다시 넣는다. 판정은 결과가 오는 즉시, 시간은 촬영 시각으로 센다(3초 묶음으로 되돌리지 않음).
+- **진행(11/17):** 11/16 FE 포함 통신 시험은 서버가 local 모드로 진행돼 kafka 경로를 확인하지 못했다. kafka 모드로 다시 시험한다(시작 전 `POSEGOOD_REALTIME_PIPELINE=kafka`, 끝난 뒤 `features`·`inference`·`episodes`·`stored` 토픽 오프셋이 늘었는지 확인).
 
-#### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
+### 요구 3. API 경로에서 버전(`/v2`) 빼기 (옛 10)
+
+- **한줄요약:** 서버 API에서 버전 표시를 아예 없앤다. 모든 경로의 `/v2`(예: `/api/v2/auth/login`)를 빼 `/api/auth/login`으로 바꾸고, 앱에도 버전 개념을 남기지 않는다.
+- **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
+- **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다. 속도·서버 부담에는 차이가 없다.
+- **요구사항/변경사항:** 한쪽만 바꾸면 로그인·측정이 끊기므로 팀원 확인을 받고 순서대로 한 번에 한다.
+  1. DevOps/BE: 서버가 옛 경로(`/api/v2/…`)와 새 경로(`/api/…`)를 **둘 다** 받게 한다(예: gateway에서 `/api/v2/`를 `/api/`로 넘김). BE 코드 약 20개 파일(`RequestMapping("/v2…")`).
+  2. FE: 버전을 지우고 배포한다. 앱 코드의 `/v2`는 `features/platform/serverConfig.ts` 한곳에 모아 두었다(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀). `API_VERSION`을 지우고 `API_ROOT`를 `'/api'`(gateway가 떼는 공통 앞부분)로 둔다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)의 「`/v2`도 받기」 줄과 시험 코드 9개 파일의 `/api/v2/…` 확인도 지운다. 그 뒤 앱 어디에도 `/v2`가 남지 않는다.
+  3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 4와 함께).
+  4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
+  5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
+- **진행(11/16 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`ab1fc36`, develop 미병합)에서 서버·추론(`/v2/infer` → `/infer`)·nginx·점검 도구·계약·문서의 `/v2`를 한 번에 지웠다. 11/16 이 브랜치에 develop(FE #123 포함)을 받으며 **앱 코드도 위 2번 안대로 고쳤다**(`API_VERSION` 삭제, `API_ROOT` = `'/api'`, 가짜 서버의 「`/v2`도 받기」 줄 삭제, 시험 주소). 그래서 **FE가 따로 고칠 앱 코드는 없다.**
+  - **운영 서버는 아직 `/v2`만 받는다.** 11/16 공개 주소로 확인: `/api/v2/auth/social/signup`은 응답(410), `/api/auth/social/signup`은 경로가 없음(401). 앱만 먼저 바꾸면 로그인부터 모든 요청이 실패한다.
+  - 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING, 위 1번 「한동안 둘 다 받기」와 다름). 그래서 아래를 **같은 때** 한다. D-57 통신 시험(11/16)과 섞이지 않게 그 뒤에 순서를 정한다.
+    1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론(io-inference)을 다시 빌드한다. 공개 입구 gateway·화면 컨테이너 web의 nginx 설정도 WebSocket 경로가 `/api/v2/realtime` → `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
+    2. FE: 포크를 올려 Vercel을 다시 배포한다(앱 코드는 브랜치에 이미 있음).
+    3. FE: Cloudflare 요청 제한 `auth-rate-limit`에 새 경로 `/api/auth/…`를 **미리 더하고**(옛 경로는 남김), 확인 뒤 옛 경로를 뺀다(할 일 7).
+    4. DevOps: Discord Developer Portal의 Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(여러 개 가능, 옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 새 주소로 바꾼다. 확인 뒤 옛 Redirect를 지운다.
+    5. **옛 데스크톱 설치판은 받아 주지 않기로 했다(11/16 BE 결정).** 배포 뒤 옛 판은 로그인·측정이 안 되므로, FE가 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(할 일 7).
+  - **11/16 BE 공지 두 건:** 「develop 병합 안내」(브랜치를 develop에 합침. 합치기만 해서는 운영이 바뀌지 않는다)와 「배포 때 함께 바꿀 설정」(배포 전·때·뒤 할 일, 되돌리는 법). FE 몫은 할 일 7에 모았다.
+
+### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
 
 - **한줄요약:** 앱도 서버 운영도 쓰지 않는 `ack`를 빼고, 통합 시험은 `observation` 개수로 확인한다.
 - **발단:** 11/11 「`ack`가 정확히 무슨 역할이냐」는 질문을 받고 경위를 확인했다.
 - **원인:** `ack`는 원래 재전송 창이었다(10/6 `client.ts`: `ack` 안 된 구간을 재연결 때 다시 보냄). ADR 0024로 재전송을 없앤 뒤(10/21 `client.ts` 삭제) 앱은 받기만 하고 버린다(`case 'ack': return`). 그런데 서버는 지금도 구간마다(초당 약 10개) 보낸다. local은 구간마다 `observation`·`ack`·`progress` 3개라, 보내는 메시지의 약 3분의 1이 버려지는 `ack`다. 지금 `ack`를 쓰는 곳은 DevOps 통합 시험(`ws_realtime_smoke.py`)뿐이고, 서버의 `stalled` 판단은 메시지가 아니라 서버 안의 시각(`ackedAt`)을 쓴다.
 - **요구사항/변경사항:** 순서대로 한다. kafka 모드 병합(D-57) 때 함께, 급하지 않음.
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
-  2. BE·PM: `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
+  2. 팀장(Jeon-Seho): `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
   3. FE: 계약 `realtime-ws.v2.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
 
-#### 요구 5. `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20)
+### 요구 5. `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20)
 
 - **한줄요약:** 항상 1개만 담기는 두 배열 단계를 빼고 메시지를 한 단계로 편다.
 - **발단:** 11/11 WS 프레임 처리를 보다가 메시지가 6단계로 깊은데 그중 두 단계가 옛 묶음의 껍데기인 것을 확인했다.
@@ -107,7 +102,7 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   ```
 - **원인:** 재전송 삭제(ADR 0024)와 「프레임마다 구간 1개」(10/27)로 묶을 일이 없어졌는데 구조만 남았다.
   - ① 계약은 1~30개인데 서버는 정확히 1개가 아니면 `closed(bad_message)`(`RealtimeHandlerV2.interval()`). **계약과 서버가 다르다.**
-  - ② 서버는 1장을 상대로 반복문과 평균을 그대로 돈다(`FrameFeatures.interval`·`average`, `FrameInterval` `@Size(max = 30)`).
+  - ② 서버는 1장을 상대로 반복문과 평균을 그대로 돈다(`FrameFeatures.interval`·`average`, `FrameInterval` `Size(max = 30)`).
 - **요구사항/변경사항:** 형식은 BE와 정한다. FE 안:
 
   ```json
@@ -124,11 +119,29 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
 
   kafka `posture.features.v1`과 추론 `POST /infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
 
-### 2순위: BE·DevOps가 정할 것
+### 요구 6. 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) (옛 15)
 
-서버 규칙·설정이라 BE·DevOps가 정하고 FE는 의견을 낸 것.
+- **한줄요약:** kafka 모드 판정기가 그 세션의 정책(`session_started`)을 받지 못한 채 관측을 받으면, 서버 기본값이 아니라 그 사용자가 정한 판정 기준으로 판정한다.
+- **발단:** D-57 통신 시험 준비(11/16)로 kafka 판정기 코드를 확인했다. 시험 F2(설정에서 확정 5초·재알림 30초로 바꾸고 측정)가 바로 이 경우에 걸린다. [FE 예외 처리 방안](fe-exception-handling-plan.md) 6장 2번으로 적어 두었던 것을 요구로 올린다.
+- **원인:** `feat/ws-kafka-pipeline` `1067dab` 처리 서비스의 `V1JudgeRegistry`:
+  - 관측(`observation`)이 `session_started`보다 먼저 오면 「session_started 없이 관측을 받음 — 기본 정책으로 판정」(info 로그만)으로 **서버 기본 정책**(확정 3초·재알림 60초·기준 0.7)의 판정기를 만든다.
+  - 그 뒤에 `session_started`가 와도 「이미 관측을 받은 세션」이라 **무시**한다. 그 세션은 끝까지 기본 정책으로 판정된다.
+  - Redis에서 판정 상태를 복원하지 못하면(「복원할 수 없어 버림」) 다음 관측부터 같은 일이 생긴다.
+  - 사용자는 설정(W1·W2)에서 정한 확정·재알림 시간과 다르게 알림을 받는다. 앱은 서버가 판정한 대로 보여 주므로(ADR 0021) 앱에서는 알 수도 고칠 수도 없다. local 모드는 S1의 `policy`로 판정해 이 문제가 없다.
+- **요구사항/변경사항:** kafka 모드를 운영에 켜기 전에 DevOps·BE가 정한다. FE 안:
+  1. 판정기를 정책 없이 만들어야 할 때(시작 메시지 없음, 상태 복원 실패) 기본값 대신 DB에서 그 세션의 정책을 읽는다(`monitor_session.threshold_policy_id` → `threshold_policy`, S1 때 서버가 저장한 값).
+  2. 그래도 못 읽으면 기본 정책으로 판정하되 warn 로그와 횟수를 남겨, 운영에서 얼마나 생기는지 보이게 한다.
+  3. kafka 모드 통신 시험 F2에서 확정·재알림이 설정값대로 나오는지 확인한다(정상 경로). 시작 메시지를 놓친 경우는 서버 시험으로 확인한다.
+  - **앱 일은 없다.**
 
-#### 요구 6. 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기
+### 요구 7. 운영 서버 자정 넘김 켜기
+
+- **한줄요약:** 운영 서버에서 `POSEGOOD_MIDNIGHT_ROLLOVER=true`로 켠다.
+- **발단:** BE가 자정 넘김(`session_rollover`, ADR 0029 B안)을 구현했다(PR #77). 앱 처리도 운영 화면에 있다(PR #88). 설정 기본값만 꺼져 있다.
+- **원인:** J2는 00:10에 그때 끝난 어제 세션만 센다. 꺼져 있으면 자정을 넘긴 측정이 어제 통계에도, 앱의 오늘 화면에도 제대로 안 보인다([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 11/02 FE 확인).
+- **요구사항/변경사항:** 운영 설정만 바꾼다([application.properties](../../../backend/api/src/main/resources/application.properties)). 켜기 전에 BE가 실제 MySQL에서 자정 넘김(`INSERT … SELECT`)을 시험한다.
+
+### 요구 8. 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 (옛 6)
 
 - **한줄요약:** good 한 프레임에 3초 세기가 처음부터 다시 시작되는 규칙을 고칠지 서버 규칙으로 정한다.
 - **발단:** 결과가 프레임마다 오면서, 점수 30 근처에서 주의 표시가 깜빡이고 확정이 늦어지는 것이 보였다.
@@ -142,82 +155,14 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   | 3초 중 비율 | 최근 3초 중 bad가 80% 이상이면 확정 | 직관적. 최근 3초 프레임을 들고 있어야 함 |
   | 판정 불가는 멈춤 | 판정 불가는 `hold_ms`를 멈춤, 길게(예: 1초) 이어지면 끊음 | ADR 0021 판정 불가 규칙과 같이 정해야 함 |
 
-#### 요구 7. 운영 서버 자정 넘김 켜기
-
-- **한줄요약:** 운영 서버에서 `POSEGOOD_MIDNIGHT_ROLLOVER=true`로 켠다.
-- **발단:** BE가 자정 넘김(`session_rollover`, ADR 0029 B안)을 구현했다(PR #77). 앱 처리도 운영 화면에 있다(PR #88). 설정 기본값만 꺼져 있다.
-- **원인:** J2는 00:10에 그때 끝난 어제 세션만 센다. 꺼져 있으면 자정을 넘긴 측정이 어제 통계에도, 앱의 오늘 화면에도 제대로 안 보인다([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md) 11/02 FE 확인).
-- **요구사항/변경사항:** 운영 설정만 바꾼다([application.properties](../../../backend/api/src/main/resources/application.properties)). 켜기 전에 BE가 실제 MySQL에서 자정 넘김(`INSERT … SELECT`)을 시험한다.
-
-#### 요구 8. 열린 채 남는 세션 닫기
-
-- **한줄요약:** `ended_at`이 빈 채로 남는 세션 행을 서버가 닫는 규칙을 BE가 만든다. 앱이 닫을 길은 없다(S3 지움, D-88). 서버는 「사용자가 포기했는지」를 직접 알 수 없지만, 앱의 약속 덕분에 **시간으로** 판단할 수 있다.
-- **발단:** 10/22 질문(S1 뒤 WS가 안 열린 세션)을 서버 코드로 다시 보니 이 세션이 닫히지 않는다. 11/12 S4 404 처리를 정하면서 측정 중 서버가 재시작된 세션도 같은 문제인 것을 확인했다.
-- **원인:** 서버는 메모리에서만 6시간 뒤 뺀다([LiveSessions.java](../../../backend/api/src/main/java/org/posegood/api/session/LiveSessions.java) `evict`). DB 행은 `ended_at` NULL로 남아 J1·J2·기록 목록에 영향을 준다. 두 경우가 있다.
-
-  | 경우 | 측정 데이터 | 앱 화면(FE, 끝남) | 서버가 닫는 법(안) |
-  |---|---|---|---|
-  | ① S1 뒤 측정이 시작되지 않음(WS가 안 열림·`hello` 전 끊김·앱이 `ready`를 5초 기다리다 포기) | 없음(좌표를 한 장도 못 보냄) | 「지금은 측정을 시작할 수 없어요」([FE 예외 처리 모음](fe-exception-log.md) 4번) | 0초로 닫거나 지운다. 요구 12(1분 미만 거르기)가 있으면 기록·통계에는 어차피 안 나온다 |
-  | ② 측정 중 서버 재시작(local) | 있음(사건·제외 구간 일부) | 연결이 끊겨 「서버 연결이 끊겨 측정을 마쳤어요. 저장이 확인되면 기록에 나와요.」. 앱이 켜진 동안 R1·S4로 확인하고 S4 404면 「서버 문제로 지난 측정이 기록에 남지 않았어요」. 이 기기에는 남기지 않는다(11/13, [FE 예외 처리 방안](fe-exception-handling-plan.md) 0장) | 마지막으로 저장된 구간 끝에서 닫는다. 그러면 R1에 기록으로 나온다 |
-
-- **서버가 판단할 수 있는 근거:**
-  - 서버가 아는 것: 세션을 만든 시각(S1), 그 세션으로 `hello`나 측정 구간이 한 번이라도 왔는지, 지금 메모리에 그 세션이 있는지. 모르는 것: 실패한 이유(사용자 네트워크인지 등). 이유는 몰라도 된다.
-  - 앱의 약속([연동 명세](api-ws-spec.md) 1.1 「앱의 시간 규칙」): 앱은 `ready`를 **5초**까지만 기다리고, 실패한 세션은 **다시 쓰지 않는다**. 다시 할 때는 새 `session_id`로 S1부터 한다. WS는 연결 뒤 10초 안에 `hello`를 보낸다([연동 명세](api-ws-spec.md) WS 상세).
-  - 그래서 S1 뒤 충분히 긴 시간(안: 1분)이 지나도록 `hello`가 한 번도 오지 않은 세션은 앱이 이미 버린 것이고, 앱이 그 세션으로 돌아올 일이 없다. 닫아도 안전하다.
-
-  | 서버가 보는 상태 | 판단 |
-  |---|---|
-  | S1 뒤 얼마 안 됐고 WS가 아직 안 옴 | 아직 연결 중일 수 있다. 기다린다 |
-  | S1 뒤 1분이 지나도록 `hello`가 없음 | ① 앱이 포기한 세션. 0초로 닫는다 |
-  | `ended_at`이 비었는데 메모리에 없음(서버 재시작 뒤) | ② 측정 중 끊긴 세션. 마지막으로 저장된 구간 끝에서 닫는다 |
-
-- **요구사항/변경사항:** BE가 「열린 채 남는 세션을 닫는 규칙」을 만들기로 했다(아키텍처 v5.4). FE 안:
-  1. 주기적으로(예: 1분마다) S1 뒤 1분이 지나도록 `hello`가 없는 세션을 0초로 닫는다(①).
-  2. 서버 시작 때와 주기적으로, `ended_at`이 비었는데 메모리에 없는 세션을 마지막으로 저장된 구간 끝에서 닫는다(②).
-  3. 닫은 세션 수를 경우별로 로그·지표로 남긴다. 측정이 시작되지 않은 세션이 얼마나 생기는지 운영에서 볼 수 있게 한다. 앱은 연결이 안 된 상태라 실패를 서버에 알릴 수 없다.
-  4. 규칙이 나오면 FE가 확인한다([연동 명세](api-ws-spec.md) 4장 S4 「남는 틈」, [FE 예외 처리 방안](fe-exception-handling-plan.md) 3장).
-  5. **(11/13 추가) 정상 종료 때 저장되는지 시험한다.** develop `RealtimeHandlerV2`는 서버가 꺼질 때(`@PreDestroy shutdown()`) `closed(server_shutdown)`을 보내고 연결을 닫아, `afterConnectionClosed` → `SessionService.finish` → `persist`로 저장하게 짜여 있다. 그런데 이 콜백이 DB 연결이 닫히기 전에 오는지 확인한 시험이 없다(`RealtimeHandlerV2Test`는 `shutdown()`을 정리용으로만 부름). kafka 브랜치는 같은 걱정으로 콜백을 기다리지 않고 먼저 끝낸다(`finishBeforeShutdown`). MySQL 통합 시험에 「측정 중 정상 종료 → `ended_at`이 채워지고 R1에 나옴」을 넣고, 안 되면 local도 `shutdown()`에서 먼저 `finish`한다. 그러면 ②는 비정상 종료(kill·OOM·종료 제한 시간 초과)에만 남는다.
-- **진행(11/13 확인):** 아직 없다. BE 「실시간 측정·세션: 지금 생기는 문제 정리」(11/13)가 ②를 가장 급한 문제로 올렸고, FE 검증에서 5번(정상 종료 시험)을 더했다. S3가 지워져(develop #121) BE도 「S1 뒤 WS가 안 열린 세션·종료 저장이 실패한 세션을 닫을 길이 이제 없다」를 [계획 0062](../../plans/active/0062-remove-unused-apis.md) 남은 한계로 적었다.
-
-#### 요구 9. 쉬기 자동 종료 (BE-13)
+### 요구 9. 쉬기 자동 종료 (BE-13)
 
 - **한줄요약:** 쉬기가 30분 이어지면 서버가 측정을 끝내고 저장한다.
 - **발단:** 10/20 계획은 「일시정지가 10분 이어지면 끝내고 저장」인데 서버·앱 모두 구현이 없다.
 - **원인:** 쉬기를 누르고 자리를 떠나면 측정이 끝없이 열려 있다. 앱은 시간을 세지 않는다([ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)). 서버에는 판정 불가·자리 비움 30분(`unmeasurable_timeout`)만 있다.
 - **요구사항/변경사항:** **FE 의견:** `unmeasurable_timeout`과 같은 방식으로 서버가 쉬기(`rest`) 시간을 세어 30분이면 끝내고 새 사유(안: `closed(rest_timeout)`)를 보낸다. local 엔진과 kafka 결과 구독(`KafkaResults`의 측정불가 세기) 모두. 앱은 새 사유 문구만 더한다(`LiveSession.ts` `CLOSED`).
 
-#### 요구 10. API 경로에서 버전(`/v2`) 빼기
-
-- **한줄요약:** 서버 API에서 버전 표시를 아예 없앤다. 모든 경로의 `/v2`(예: `/api/v2/auth/login`)를 빼 `/api/auth/login`으로 바꾸고, 앱에도 버전 개념을 남기지 않는다.
-- **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
-- **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다. 속도·서버 부담에는 차이가 없다.
-- **요구사항/변경사항:** 한쪽만 바꾸면 로그인·측정이 끊기므로 팀원 확인을 받고 순서대로 한 번에 한다.
-  1. DevOps/BE: 서버가 옛 경로(`/api/v2/…`)와 새 경로(`/api/…`)를 **둘 다** 받게 한다(예: gateway에서 `/api/v2/`를 `/api/`로 넘김). BE 코드 약 20개 파일(`@RequestMapping("/v2…")`).
-  2. FE: 버전을 지우고 배포한다. 앱 코드의 `/v2`는 `features/platform/serverConfig.ts` 한곳에 모아 두었다(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀). `API_VERSION`을 지우고 `API_ROOT`를 `'/api'`(gateway가 떼는 공통 앞부분)로 둔다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)의 「`/v2`도 받기」 줄과 시험 코드 9개 파일의 `/api/v2/…` 확인도 지운다. 그 뒤 앱 어디에도 `/v2`가 남지 않는다.
-  3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 4와 함께).
-  4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
-  5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
-- **진행(11/13 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`6543695`, 11/09, develop 미병합)로 서버·추론(`/v2/infer` → `/infer`)·nginx·앱·문서의 `/v2`를 한 번에 지웠다. 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING). 서버와 화면(Vercel)을 같은 때 배포하고 Cloudflare 규칙도 같이 바꿔야 하며, 위 1번(서버가 한동안 두 주소를 다 받기)과 다르다. 정할 것:
-  - **옛 데스크톱 설치판:** 화면을 앱 안에 가진 옛 판은 옛 주소로 부르므로 서버가 바뀌는 순간 끊긴다. 새 설치판(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤 합치거나, 그동안 gateway가 `/api/v2/`를 받아 `/api/`로 넘겨 주게 한다. **11/16 결정(김유진):** 둘 다 하지 않는다. gateway는 옛 주소를 넘겨 주지 않고(404), 옛 설치판 사용자는 새 설치판을 다시 설치한다(자동 업데이트 없음, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 남은 일). 새 판은 웹 주소를 열어 Vercel 배포를 따라간다. 로그인 유지 쿠키 경로는 `/`라 웹 사용자는 다시 로그인하지 않는다. develop 병합은 운영 배포가 아니므로(자동 배포는 `main`·`release`, Vercel은 포크 develop), 서버와 Vercel은 배포 날 같은 때 올린다.
-  - **FE 코드 충돌:** 이 브랜치는 앱 코드도 고쳐 FE 브랜치 `fix/fe-realtime-kafka-mode`와 충돌한다(앱 코드 6곳, FE 문서 4곳). FE 브랜치는 `/v2`를 `serverConfig.ts` 한곳(`API_ROOT`)에 모아 두었으므로, 합칠 때 앱 코드는 FE 브랜치 쪽을 두고 `API_VERSION`을 지워 `API_ROOT`를 `'/api'`로 맞춘다. 두 브랜치 중 무엇을 먼저 develop에 넣을지 BE와 정한다.
-  - **11/16:** FE 브랜치가 develop에 들어간 뒤 BE 브랜치에 develop을 합치며 위 안대로 맞췄다. 앱 코드는 FE 쪽을 두고 `API_VERSION`을 지워 `API_ROOT`를 `'/api'`로, 가짜 서버의 「`/v2`도 받기」 줄을 지웠다. 남은 앱 변경은 시험의 주소 확인과 주석뿐이다.
-
-#### 요구 11. 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21)
-
-- **한줄요약:** 앱이 부르지 않는 C1(선택 정보 동의·철회)을 지우고, W1이 앱이 버리는 기록 목록을 매번 만들지 않게 `records` 칸을 뺀다.
-- **발단:** 11/12 계획 0062(안 쓰는 API 정리)의 남은 항목을 오늘 코드로 다시 확인했다. 0062가 「화면이 있어 연결만 남음」으로 둔 것 가운데 C1만 아직 앱이 부르지 않고, W1의 `records`는 「FE가 W1을 붙이기 전에 함께 정한다」로 미뤄 둔 채 W1이 연결됐다.
-- **원인:**
-  - **C1:** 서버 주소(`PUT /consents/optional-profile`)는 있는데 부르는 화면이 없고 만들 계획도 없다. 쓰지 않는 경로가 남아 있으면 시험·문서·보안 점검 대상만 늘어난다.
-  - **W1 `records`:** 처음에는 설정 화면 하나에 필요한 것을 한 번에 주려고 기록까지 넣었다. 그 뒤 기록 전용 R1(`GET /records`)이 생겨 기록은 R1이 맡는다. 그런데 W1은 지금도 부를 때마다 R1과 같은 함수(`RecordHistory.list`)로 그 사용자의 끝난 세션 전체와 알림·사건·집계 제외 구간 전체를 읽어 요약을 다시 계산한다. 앱은 이 칸을 읽지 않고 버린다. 앱은 W1을 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, 판정 기준을 바꿀 때마다 부르므로 기록이 쌓일수록 쓸모없는 일이 커진다.
-- **요구사항/변경사항:**
-  1. BE: C1 경로와 처리(`WorkspaceController` `/consents/optional-profile`, 서비스·시험)를 지운다. 가입 때 선택 정보 동의(`OPTIONAL_PROFILE`)와 W1의 `consents.optional_profile`은 그대로 둔다.
-  2. BE: `WorkspaceService.get`에서 `result.set("records", …)`를 지우고, BE API 명세 W1 응답·서버 시험을 고친다. API 이름은 「설정 조회」.
-  3. FE: 할 일 없음. 앱은 C1을 부르지 않고 W1의 `records`를 읽지 않으며, 칸이 없어도 형식 검사가 통과한다. 서버를 먼저 바꿔도 운영 화면에 영향이 없다. 연동 명세·FE 기능 명세는 11/12에 미리 고쳤다.
-  4. H1(`GET /health`)은 남긴다. 앱은 부르지 않지만 컨테이너 healthcheck, gateway, 배포 확인과 평소 상태 확인에 쓴다(요구 1의 liveness도 이 주소).
-  - 결과: 가입 뒤 선택 정보 동의를 앱에서 철회하는 기능은 없다. 나이·직업은 프로필 수정(W2)에서 비울 수 있다.
-- **진행(11/13 확인):** 1번은 11/12 develop #121로 끝났다(김유진, S3·R3도 함께 지움, [계획 0062](../../plans/active/0062-remove-unused-apis.md) 2단계). 2번(W1 `records` 빼기)은 남았다(`WorkspaceService` 67줄).
-
-#### 요구 12. 측정 시간 1분 미만인 세션 거르기 (BE-22)
+### 요구 10. 측정 시간 1분 미만인 세션 거르기 (BE-22) (옛 12)
 
 - **한줄요약:** 실제 측정 시간(`valid_ms`)이 1분이 안 되는 세션은 서버가 기록·통계에서 거른다. 기준과 거르는 방법은 BE가 정한다.
 - **발단:** 11/12 「판정 불가가 30분 이어지면 서버가 끝낸다」(`unmeasurable_timeout`)를 코드로 확인하다 나왔다. 카메라를 잘못 둔 채 측정을 켜 두면 판정을 한 번도 못 한 세션이 그대로 저장된다.
@@ -230,43 +175,40 @@ D-57을 병합하거나 kafka 모드를 운영에 켜기 전에 정하거나 고
   2. BE: 앱이 그 세션이 걸러졌다는 것을 알 수 있게 한다. 앱은 서버 확인 없이 끝난 측정을 R1에서 찾고 없으면 S4로 묻는데, S4가 걸러진 세션에 404를 주면 앱은 「서버 문제로 지난 측정이 기록에 남지 않았어요」라고 잘못 알린다([FE 예외 처리 방안](fe-exception-handling-plan.md) 0장). 안: `closed`·S4에 걸러졌다는 표시를 주거나, 앱도 같은 기준을 쓴다.
   3. FE: BE가 정한 기준을 앱에도 똑같이 쓴다. 측정 시간이 기준 미만이면 저장 확인을 하지 않고(`useSessionPersistence` `finish`, 지금은 `total_ms`가 0일 때만 거름) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」를 띄운다.
 
-#### 요구 13. 한 계정은 한 번에 하나만 측정, 측정 중인지 알리기 (BE-23)
+### 요구 11. 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21)
 
-- **한줄요약:** 한 계정은 한 번에 하나만 측정한다(정함, 11/13). 이미 측정 중이면 서버가 새 측정 시작(S1)을 거절하고, W1 응답에 이 계정이 지금 측정 중인지(`measuring`)를 넣어 다른 기기에서 알린다.
-- **발단:** 11/13 [FE 예외 처리 모음](fe-exception-log.md)을 사용자 입장의 한계로 나누다가, 측정 중에 다른 기기에서 설정이나 기준 자세를 바꾸는 경우를 검토했다.
-- **원인:** 서버는 진행 중인 측정을 계정별로 메모리에 들고 있지만(`LiveSessions`, 최대 512개) API로 내보내지 않는다. 그래서:
-  - 진행 중인 측정은 영향을 받지 않는다. 서버가 S1 때 기준을 고정해 두기 때문이다([ADR 0020](../../decisions/0020-single-api-decision-engine.md) 「설정을 바꾸면 다음 세션부터」).
-  - 그러나 다른 기기 사용자는 측정 중인 줄 모르고 바꾸고, 측정하던 기기는 다음 「측정 시작」 때 S1 409(설정·기준 자세가 바뀜)를 받는다. 이 409는 FE가 W1·B2를 다시 받아 S1을 한 번 더 보내는 것으로 사용자 눈에 안 보이게 처리한다(FE만으로 됨, 409면 서버가 세션 행을 만들기 전이라 다시 보내도 된다).
-  - 한 계정이 두 기기에서 동시에 측정하는 것도 막지 않는다. 그러면 겹치는 시간에 기록이 두 개 생긴다.
+- **한줄요약:** 앱이 부르지 않는 C1(선택 정보 동의·철회)을 지우고, W1이 앱이 버리는 기록 목록을 매번 만들지 않게 `records` 칸을 뺀다.
+- **발단:** 11/12 계획 0062(안 쓰는 API 정리)의 남은 항목을 오늘 코드로 다시 확인했다. 0062가 「화면이 있어 연결만 남음」으로 둔 것 가운데 C1만 아직 앱이 부르지 않고, W1의 `records`는 「FE가 W1을 붙이기 전에 함께 정한다」로 미뤄 둔 채 W1이 연결됐다.
+- **원인:**
+  - **C1:** 서버 주소(`PUT /consents/optional-profile`)는 있는데 부르는 화면이 없고 만들 계획도 없다. 쓰지 않는 경로가 남아 있으면 시험·문서·보안 점검 대상만 늘어난다.
+  - **W1 `records`:** 처음에는 설정 화면 하나에 필요한 것을 한 번에 주려고 기록까지 넣었다. 그 뒤 기록 전용 R1(`GET /records`)이 생겨 기록은 R1이 맡는다. 그런데 W1은 지금도 부를 때마다 R1과 같은 함수(`RecordHistory.list`)로 그 사용자의 끝난 세션 전체와 알림·사건·집계 제외 구간 전체를 읽어 요약을 다시 계산한다. 앱은 이 칸을 읽지 않고 버린다. 앱은 W1을 로그인 뒤, 측정하기·설정·프로필 화면을 열 때, 판정 기준을 바꿀 때마다 부르므로 기록이 쌓일수록 쓸모없는 일이 커진다.
 - **요구사항/변경사항:**
-  1. BE: W1(`GET /workspace`) 응답에 `measuring: boolean`을 넣는다. 이 계정에 끝나지 않은 측정이 있으면 `true`. 지금은 메모리(`LiveSessions`)로 보면 되고, io-api가 여러 대가 되면(MSA) DB나 공유 저장소로 봐야 한다.
-  2. FE: `measuring`이 `true`이고 이 기기는 측정 중이 아니면, 설정·자세 등록 화면에 「다른 기기에서 측정 중이에요. 바꾼 설정은 다음 측정부터 적용돼요」를 보인다.
-  3. **한 계정의 동시 측정은 막는다(정함).** 이 계정에 측정 중인 것이 있으면 BE가 S1을 409(안: `ALREADY_MEASURING`)로 거절한다. FE는 「다른 기기에서 측정 중이에요. 그 측정을 마친 뒤 시작해 주세요」를 보인다(사용자가 해결할 수 있는 안내, [FE 예외 처리 모음](fe-exception-log.md) A).
-  4. **「측정 중」의 기준은 측정 연결(WS)이 살아 있는 측정이다.** 세션 행이 열려 있는 것(`ended_at` 없음)으로 보면 안 된다. 요구 8의 버려진 빈 세션(S1만 하고 `hello`가 없음)이나 서버 재시작으로 남은 행까지 「측정 중」이 되어, 그 계정이 엉뚱하게 측정을 못 하게 된다. 연결이 끊기면 서버가 그 측정을 끝내므로(ADR 0024) 「측정 중」도 함께 풀린다. 1·3번이 같은 기준을 쓴다.
+  1. BE: C1 경로와 처리(`WorkspaceController` `/consents/optional-profile`, 서비스·시험)를 지운다. 가입 때 선택 정보 동의(`OPTIONAL_PROFILE`)와 W1의 `consents.optional_profile`은 그대로 둔다.
+  2. BE: `WorkspaceService.get`에서 `result.set("records", …)`를 지우고, BE API 명세 W1 응답·서버 시험을 고친다. API 이름은 「설정 조회」.
+  3. FE: 할 일 없음. 앱은 C1을 부르지 않고 W1의 `records`를 읽지 않으며, 칸이 없어도 형식 검사가 통과한다. 서버를 먼저 바꿔도 운영 화면에 영향이 없다. 연동 명세·FE 기능 명세는 11/12에 미리 고쳤다.
+  4. H1(`GET /health`)은 남긴다. 앱은 부르지 않지만 컨테이너 healthcheck, gateway, 배포 확인과 평소 상태 확인에 쓴다.
+  - 결과: 가입 뒤 선택 정보 동의를 앱에서 철회하는 기능은 없다. 나이·직업은 프로필 수정(W2)에서 비울 수 있다.
+- **진행(11/13 확인):** 1번은 11/12 develop #121로 끝났다(김유진, S3·R3도 함께 지움, [계획 0062](../../plans/active/0062-remove-unused-apis.md) 2단계). 2번(W1 `records` 빼기)은 남았다(`WorkspaceService` 67줄).
 
-### 3순위: 기록 통계
-
-휴대폰 기록 보기는 하지 않기로 했다(11/13, [지운 문서 기록](../../removed-docs.md) 15장). T1은 웹·데스크톱 기록이 많아질 때 쓴다.
-
-#### 요구 14. T1 일별 통계 API (BE-2)
+### 요구 12. T1 일별 통계 API (BE-2) (옛 14)
 
 - **한줄요약:** J2가 채운 `daily_stat`을 돌려주는 T1 API를 기록이 많아져 R1로 계산하기 어려워질 때 만든다.
 - **발단:** J2가 매일 00:10에 `daily_stat`을 채우지만, 이를 읽어 주는 API(컨트롤러)가 없다. 형식만 확정됐다.
 - **원인:** 지금 앱은 기록·달력·기간 통계를 R1 기록으로 직접 계산한다(`recordsSource.ts`). 기록이 많아지면 매번 계산하기 어렵다.
 - **요구사항/변경사항:** BE가 T1 `GET /stats/daily`를 만든다. 00:00~00:10에 어제가 아직 비어 있는 문제는 T1을 붙일 때 정한다([연동 명세](api-ws-spec.md) 「T1 데이터가 생기는 시각」).
+- **참고:** 휴대폰 기록 보기는 하지 않기로 했다(11/13, [지운 문서 기록](../../removed-docs.md) 15장). T1은 웹·데스크톱 기록이 많아질 때 쓴다.
 
 ## 1. 해야 할 일
 
-FE(klaod-tech)가 직접 하는 일이다.
+FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났다. 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
 
 | # | 할 일 | 언제 |
 |---|---|---|
 | 1 | 탈퇴한 계정 문의 안내 | 문의처가 정해지면 |
-| 2 | 발표용 예시 기록·합성 시연 지우기 | 급하지 않음 |
-| 3 | 시험 전용 로컬 로그인 지우기 | 할 일 2와 함께 |
+| 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
-| 6 | Discord 로그인 버튼 켜기 | 지금(서버는 11/12 켜짐) |
+| 7 | API 주소 `/v2` 삭제 배포 대응 | #125 병합 뒤 |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -274,14 +216,7 @@ FE(klaod-tech)가 직접 하는 일이다.
 - **발단:** 서버 탈퇴(A7)는 지금 로그아웃만 한다([ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)). 탈퇴 철회 API는 없다: 옛 계정 API(v1)에 있던 철회(`POST /auth/withdrawal/cancel`)는 BE가 아키텍처 v5.2로 바꾸며 지웠고, 지금은 탈퇴한 계정 로그인이 403 `ACCOUNT_CLOSED`, 같은 이메일 재가입이 30일 동안 409다. 서버의 30일은 최종 삭제(Spark J3)까지의 유예일 뿐 복구 기간이 아니다.
 - **원인:** 탈퇴를 되돌리고 싶은 사람은 앱 안에서 할 수 있는 것이 없어 사람에게 연락해야 한다.
 - **요구사항/변경사항:**
-  1. 탈퇴 확인 창과 로그인 403 `ACCOUNT_CLOSED` 안내(`accountClient.ts`)에 문의처를 넣는다. 예: 「탈퇴한 계정이에요. 되돌릴 수 없고 탈퇴 30일 뒤 삭제돼요. 도움이 필요하면 example@gmail.com으로 연락해 주세요.」 **문의처(이메일)는 정하기 전**이라 지금은 예시 `example@gmail.com`을 쓴다. 오류 화면의 「계속되면 알려 주세요」 문의처([frontend README](../../../frontend/README.md) 「오류 안내 페이지」)와 같은 주소로 한다.
-
-#### 할 일 2. 발표용 예시 기록·합성 시연 지우기
-
-- **한줄요약:** 서버 측정만 남았으니 발표용 예시 기록과 그 설정을 지운다.
-- **발단:** 서버 연결 전 발표용으로 넣은 예시 기록이 아직 있다(11/11 develop 확인).
-- **원인:** 기록은 이제 R1에서만 온다. 예시 기록 토글이 남아 있으면 실제 기록과 섞여 보일 수 있고, 쓰지 않는 코드가 기록 화면 로직을 복잡하게 만든다.
-- **요구사항/변경사항:** `data/exampleRecords.ts`, 설정의 예시 기록 토글(`LocalServiceApp.tsx` `saveDemoPreference`, `KEYS.demo`), 합성 시연 `mode: 'demo'`, `features/testing/legacySyntheticRecord.ts`를 지운다. 자동 시험용 가짜 카메라는 남긴다. [frontend README](../../../frontend/README.md) 7번 줄도 고친다.
+  1. 탈퇴 확인 창과 로그인 403 `ACCOUNT_CLOSED` 안내(`accountClient.ts`)에 문의처를 넣는다. 예: 「탈퇴한 계정이에요. 되돌릴 수 없고 탈퇴 30일 뒤 삭제돼요. 도움이 필요하면 examplegmail.com으로 연락해 주세요.」 **문의처(이메일)는 정하기 전**이라 지금은 예시 `examplegmail.com`을 쓴다. 오류 화면의 「계속되면 알려 주세요」 문의처([frontend README](../../../frontend/README.md) 「오류 안내 페이지」)와 같은 주소로 한다.
 
 #### 할 일 3. 시험 전용 로컬 로그인 지우기
 
@@ -304,12 +239,35 @@ FE(klaod-tech)가 직접 하는 일이다.
 - **원인:** 접속이 아니라 검색 노출만 막는 설정이라, 공개하면 지워야 검색에 나온다.
 - **요구사항/변경사항:** [robots.txt](../../../frontend/public/robots.txt)의 `Disallow: /`와 [vercel.json](../../../frontend/vercel.json)의 `X-Robots-Tag`를 지우고 포크를 최신화해 배포한다.
 
-#### 할 일 6. Discord 로그인 버튼 켜기
+#### 할 일 7. API 주소 `/v2` 삭제 배포 대응
 
-- **한줄요약:** 운영 웹(Vercel)에 `VITE_DISCORD_LOGIN_ENABLED=true`를 넣고 다시 배포해, 로그인 화면·프로필 설정에 Discord 버튼을 보인다.
-- **발단:** DevOps가 운영 서버에서 Discord 로그인을 켰다(develop #120, D-87, 11/12). 비밀번호 재설정 메일은 꺼 두었다(도메인 메일 서비스가 정해진 뒤, FE 의견).
-- **원인:** 앱의 Discord 버튼은 빌드할 때 이 변수가 있어야 나온다(`features/auth/socialLogin.ts`, 데스크톱 앱에서는 숨김). 서버만 켜져 있고 화면에는 아직 버튼이 없다.
-- **요구사항/변경사항:** Vercel 프로젝트 환경 변수에 넣고 재배포한 뒤, 운영 웹에서 Discord 로그인 → 앱으로 돌아와 로그인되는지 확인한다. 비밀번호 재설정(`VITE_PASSWORD_RESET_ENABLED`)은 서버 메일이 켜진 뒤에 켠다.
+- **한줄요약:** BE의 `/v2` 삭제(요구 3)를 운영에 낼 때 FE 몫(우리 브랜치 먼저 넣기, 포크 push 멈춤, Cloudflare, 배포 날 Vercel, 데스크톱 안내)을 순서대로 한다.
+- **발단:** 11/16 BE 공지 두 건(develop 병합 안내, 배포 때 바꿀 설정). 서버는 옛 주소를 받지 않아 서버와 웹을 같은 때 배포해야 한다.
+- **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. BE 브랜치가 develop에 들어간 뒤 다른 일로 포크를 올리면, 서버가 바뀌기 전에 `/v2` 없는 앱이 나가 로그인부터 끊긴다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다.
+- **요구사항/변경사항:**
+  1. **D-57 통신 시험 직후:** FE 작업 브랜치(`docs/fe-docs-sync`, 문서 정리·가입 3단계 「이전」 삭제·Discord 로그·로그아웃 문구)를 **BE 브랜치보다 먼저** develop에 넣고 포크를 올려 배포·확인한다. BE 브랜치가 우리 수정을 받아 충돌(architecture·index 몇 줄)을 그쪽에서 정리한다.
+  2. **BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 develop을 push하지 않는다.**
+  3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다(옛 경로는 남김). 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개로 한 번에 끝난다.
+  4. **배포 날:** DevOps가 서버(`.env` Discord Redirect, io-api·inference·gateway·web)를 올린 **바로 뒤** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인: 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한.
+  5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다. 새 판은 `frontend`에서 `npm run desktop:portable`로 만든 `release/PoseGood.exe` 한 파일이다(설치 없이 실행, 서명 없어 처음에 SmartScreen 경고). 웹 주소를 열어 화면은 Vercel 배포를 따라가므로, `frontend/electron/`을 바꿀 때만 다시 만든다. 설치 마법사(NSIS)가 필요하면 그때 정한다.
+  6. **문제가 생기면:** 서버와 웹을 **둘 다** 이전 판으로 되돌린다(하나만 되돌리면 주소가 다시 어긋난다). 웹은 Vercel에서 이전 Production 배포를 다시 올린다.
+
+### 요구가 끝나면 FE가 할 일
+
+0장 요구는 서버 쪽이 먼저 바뀌어야 하지만, 상당수는 그 뒤에 앱도 고쳐야 끝난다. 요구 본문의 「FE:」 몫을 여기 모은다. 서버가 바뀌었다는 소식이 오면 이 표에서 찾는다.
+
+| 요구 | FE가 할 일 | 언제 |
+|---|---|---|
+| 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
+| 3 `/v2` 빼기 | 할 일 7 | #125 병합 뒤 |
+| 4 `ack` 빼기 | 계약 `realtime-ws.v2.schema.json`의 `ack`·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
+| 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
+| 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
+| 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
+| 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |
+| 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
+
+앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
 ### 지금 하지 않는 것
 
@@ -328,17 +286,16 @@ FE(klaod-tech)가 직접 하는 일이다.
 
 #### 앱 날짜 나누기 정리
 
-- **지금 안 하는 이유:** 서버가 00:00에 끊어야(local은 요구 7, kafka는 요구 2) 지울 수 있다. 그 전에 지우면 자정을 넘긴 측정의 오늘 화면이 틀어진다.
+- **지금 안 하는 이유:** 서버가 00:00에 끊어야(local은 요구 7, kafka 모드는 DevOps가 된다고 함) 지울 수 있다. 그 전에 지우면 자정을 넘긴 측정의 오늘 화면이 틀어진다.
 - **한줄요약:** 서버가 자정에 끊게 되면 앱의 날짜 나누기를 지운다.
 - **발단:** 서버가 자정에 세션을 끊지 않아, 자정을 넘긴 측정(예: 22:50~02:00)을 앱이 날짜별로 나눠 보관한다(10/26 lellon0403 `ad7cd42`, [dailyMeasurement.ts](../../../frontend/src/features/storage/dailyMeasurement.ts), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)). 02:00은 끊는 시각이 아니라 팀 회의 예시다.
 - **원인:** 서버가 자정에 끊으면 측정 하나가 하루 안에 있어 나눌 필요가 없다.
-- **요구사항/변경사항:** 요구 7 뒤(kafka 모드는 요구 2 뒤)에 따로 계획을 세워 지운다(인계서 5번). 기록·달력 화면이 함께 바뀌어 화면 담당과 같이 한다.
+- **요구사항/변경사항:** 요구 7 뒤에 따로 계획을 세워 지운다(인계서 5번). 기록·달력 화면이 함께 바뀌어 화면 담당과 같이 한다.
 
-**요청이 정해지면 FE가 할 몫:** 요구 4의 3단계(계약·앱에서 `ack` 정리), 요구 5의 4단계(앱 새 형식, 1단계는 11/13 함), 요구 9의 앱 문구(`closed(rest_timeout)`), 요구 12의 3번(앱도 같은 기준으로 짧은 측정 거르기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
 ## 2. 지금 구조
 
-기준: develop `7560928`(2026-11-13). kafka 경로는 `feat/ws-kafka-pipeline`에만 있고 운영은 local 경로다. 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
+기준: develop `d9f9460`(2026-11-16). kafka 경로는 `feat/ws-kafka-pipeline`에만 있고 운영은 local 경로다. 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
 
 ```
 브라우저 / 데스크톱 앱(Electron, 웹 주소를 엶)
@@ -398,6 +355,9 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `VITE_API_BASE_URL` | API 주소. 운영 `https://api.posegood.site`(Vercel Production에 설정). 비우면 같은 출처 `/api`. WS 주소도 여기서 만든다(`https:`면 `wss:`) |
 | `POSEGOOD_API_URL` | 개발 서버의 `/api` 중계 대상. 기본 `http://127.0.0.1:8090` |
 | `POSEGOOD_APP_URL` | 데스크톱 앱이 열 웹 주소. 기본 `https://app.posegood.site/` |
+| `VITE_DISCORD_LOGIN_ENABLED` | `true`면 웹에 Discord 로그인·연결(A11~A17)을 켠다. 데스크톱 앱은 늘 숨김. 운영 웹 켜짐(11/16) |
+| `VITE_PASSWORD_RESET_ENABLED` | `true`면 비밀번호 찾기(A9·A20·A10)를 서버로 보낸다. 운영 서버 메일이 켜진 뒤 켠다 |
+| `VITE_EMAIL_VERIFICATION_ENABLED` | `true`면 가입 때 이메일 6자리 코드 인증(A18·A19)을 한다. 서버 `POSEGOOD_EMAIL_VERIFICATION_ENABLED`와 함께 켜고, 운영 서버 메일이 켜진 뒤 켠다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 재설정과 인증을 함께 켠다 |
 
 **데스크톱 앱** (`frontend/electron/`, 시각 규칙 [DESIGN.md](../../../DESIGN.md))
 
@@ -429,7 +389,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 4. `end` → `decision(session_ended)` → `closed(ended)`. 연결이 끊기면 마지막으로 받은 구간 끝에서 서버가 끝내 저장한다. 재연결은 없다([ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)).
 5. 판정 불가·자리 비움이 30분 이어지면 서버가 끝낸다(`unmeasurable_timeout`). 자정 넘김(`session_rollover`)은 구현돼 있지만 운영 설정은 꺼져 있다(요구 7).
 
-**kafka 경로 (D-57, 브랜치)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 1~5.
+**kafka 경로 (D-57, 브랜치)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 4·4·5.
 
 **서버 설정값** (운영, DevOps)
 
@@ -456,8 +416,8 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | `baseline_posture` | 기준 자세(관절 좌표 평균, 등록마다 새 행) | 자세 등록(B1·B2) |
 | `monitor_session` | 측정 세션(시작·종료 시각, 정책·기준 자세) | 기록(R1) |
 | `collapse_event`, `correction_alert`, `excluded_interval` | 사건, 알림, 집계 제외 구간 | 기록 상세 |
-| `daily_stat` | 일별 통계(Spark J2가 씀) | 아직 안 씀(T1 없음, 요구 14) |
-| `social_identity`, `password_reset_token` | 소셜 로그인 연결, 비밀번호 재설정 토큰(V2.7, PR #113·#114) | 계정 찾기(작업 중) |
+| `daily_stat` | 일별 통계(Spark J2가 씀) | 아직 안 씀(T1 없음, 요구 12) |
+| `social_identity`, `password_reset_token` | 소셜 로그인 연결, 비밀번호 재설정 토큰(V2.7) | Discord 로그인·연결(A11~A17), 비밀번호 찾기(A9·A10) |
 
 **Spark 배치** ([bigdata/README.md](../../../bigdata/README.md), 서버 PC cron)
 

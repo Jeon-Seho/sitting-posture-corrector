@@ -26,6 +26,9 @@ public final class LiveSession {
 	private boolean closePersisted;
 	private String endReason = "USER_STOP";
 	private volatile long touchedAt = System.nanoTime();
+	private final long createdAt = System.nanoTime();
+	/** 실시간 채널이 이 세션에 붙어 있는지. 측정 중 기기 판단에 쓴다. */
+	private volatile boolean connected;
 
 	LiveSession(SessionRepository.Stored row, SessionEngine engine) {
 		this.row = row;
@@ -70,6 +73,20 @@ public final class LiveSession {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	/** 실시간 채널이 붙거나 떨어질 때 부른다. */
+	public void connected(boolean value) {
+		connected = value;
+	}
+
+	/**
+	 * 이 세션으로 지금 측정하고 있는지: 끝나지 않았고, 실시간 채널이 붙어 있거나 S1 뒤 {@code graceNanos}가 지나지 않았다.
+	 *
+	 * S1만 하고 연결하지 않은 세션은 유예 시간이 지나면 측정 중으로 보지 않는다.
+	 */
+	boolean measuring(long graceNanos) {
+		return !engine.ended() && (connected || System.nanoTime() - createdAt < graceNanos);
 	}
 
 	long idleNanos() {

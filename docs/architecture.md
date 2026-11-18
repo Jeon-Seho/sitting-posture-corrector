@@ -97,8 +97,8 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
 앱의 가입·로그인은 2026-10-22부터 항상 BE `/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
-서버 연동 뒤 과거 기록·일별 통계는 서버 조회를 사용하며 전체를 localStorage에 복제하지 않는다. 오늘 표시용 세션 요약·사건·종료 결과는 계정별로 로컬에 수집·보관한다. 오늘 목록·요약·달력·그래프는 이 자료로 집계하고, 어제까지는 서버 통계(T1)를 표시한다(2026-10-22 결정, [연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). 원 요청 재시도용 임시 자료는 사용자 UUID별 sessionStorage에 두어
-동일 탭에서 같은 계정으로만 복구한다. 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
+기록은 오늘 것까지 서버 R1 하나로 보고, 앱은 R1 값을 메모리에만 두며 측정 결과를 이 기기에 남기지 않는다. 서버 확인 없이 끝난 측정은 앱이 켜진 동안 R1·S4로 확인한다([ADR 0027](decisions/0027-today-records-from-collected-server-results.md), [연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)). 서버 통계(T1)는 아직 없다.
+로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
 앱이 붙을 서버는 BE 입출구 서버(REST `/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`, WebSocket `/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/fe/api-ws-spec.md)다.
 
@@ -109,9 +109,7 @@ FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 �
 
 ## 프론트 진입과 로컬 저장
 
-2026-10-26부터 새 측정은 KST 00시 전후의 관측 누적값을 `days`에 분리해 중간/종료 기록에 보관한다.
-세션 ID·카메라·판정/알림 누적은 자정에 초기화하지 않는다. 기록·달력·오늘 요약은 같은 날짜별 투영을 사용하고
-서버 원 snapshot은 유지한다. 과거 합계만 있는 기록은 임의로 분할하지 않는다. [날짜별 보관 결정](decisions/0027-today-records-from-collected-server-results.md).
+앱은 시간을 세거나 날짜를 나누지 않는다. 오늘이 며칠인지는 서버 시각으로 정하고, 자정에 측정을 나누는 것은 서버다([ADR 0029](decisions/0029-midnight-cut-and-server-time.md)). 기록·달력은 R1 기록을 시작 시각의 KST 날짜로 묶는다.
 
 프론트 앱 조립은 `frontend/src/app/ServiceApp.tsx` 하나다. 별도 연구 앱(`?research=1`)은 [ADR 0008](decisions/0008-single-app-entry.md)에 따라 통합했다.
 로컬 `/#collection`은 개발자 계정 로그인 후에만 열리는 CSV 수집 진입점이며 계정 API 인증을 우회하지 않는다.
@@ -123,9 +121,7 @@ CPU 추론은 지원 환경에서 별도 classic Worker로 옮겨 메인 스레�
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
-계정 서버 연결(BE) 전까지 프로필·설정·예시 표시 여부는 `serviceStore.ts`를 통해 브라우저 localStorage(`posegood.v2.*`)에 둔다.
-측정과 기준 자세는 서버에 있고(2026-10-21), 기록 화면이 R1을 읽기 전까지 측정 결과를 R1과 같은 형식으로 이 기기에도 남긴다. 중간 저장(이어하기)은 없다.
-이는 서버 저장 API를 대체하는 임시 경계이며, 백엔드 연결 시 같은 지점에서 교체한다.
+프로필·판정 기준·기준 자세·측정·기록은 서버가 기준이다(W1·W2·B1·B2·S1·R1). 브라우저 localStorage에는 테마·카메라·추적 속도 같은 화면 설정, 예시 기록 표시 여부, 프로필 사본만 둔다. 시험 전용 로컬 로그인이 쓰는 계정·설정 키(`features/storage/types.ts`의 `posegood.v2.*`)는 [FE 제안서](design/fe/fe-server-proposal.md) 할 일 3에서 지운다.
 [수집 v3 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 
 `serviceStore`는 읽기/쓰기 전에 요약·사건·전체 Machine의 수치와 구조를 검사한다.

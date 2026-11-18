@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_RULES } from '../../data/posture'
 import { useWriterLock } from '../../hooks/useWriterLock'
 import { KEYS, type Profile } from './types'
@@ -28,7 +28,7 @@ export function useLocalWorkspace(
     return false
   }
 
-  function reloadStorage() {
+  const reloadStorage = useCallback(() => {
     const next = loadLocalState()
     setStorageIssues(next.issues)
     if (localRecords) setRecords(next.records)
@@ -39,7 +39,7 @@ export function useLocalWorkspace(
       setShowDemo(next.demo)
       onProfileReload(next.profile)
     }
-  }
+  }, [localRecords, measuring, onProfileReload])
 
   useEffect(() => {
     function changed(event: StorageEvent) {
@@ -49,7 +49,7 @@ export function useLocalWorkspace(
     }
     window.addEventListener('storage', changed)
     return () => window.removeEventListener('storage', changed)
-  }, [measuring, localRecords])
+  }, [reloadStorage])
 
   return {
     writer,

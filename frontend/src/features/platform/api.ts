@@ -105,6 +105,8 @@ export async function apiRequest(
     }
     clearTimeout(timer)
     if (getServerAuth() !== owner) throw new ApiError('signed_out', messages.signed_out)
+    // 204 (logout, A6, A7) has no body to read.
+    if (response.status === 204) return null
     if (response.ok) return response.json().catch((caughtError) => {
       console.error('[features/platform/api.ts:apiRequest] Operation failed', caughtError)
       return null

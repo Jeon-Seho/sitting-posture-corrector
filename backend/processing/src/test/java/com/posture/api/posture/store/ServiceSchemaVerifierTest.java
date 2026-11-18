@@ -119,7 +119,7 @@ class ServiceSchemaVerifierTest {
 		assertThat(list(result, "missingTables")).containsExactly("user_consent");
 		assertThat(list(result, "removedColumnsPresent")).contains("collapse_event.end_reason",
 			"correction_alert.attempt_seq", "threshold_policy.policy_name");
-		assertThat(String.valueOf(result.get("problems"))).contains("V2.3 아님").contains("011_add_until_collapse");
+		assertThat(String.valueOf(result.get("problems"))).contains("V2.3 아님").contains("schema_V2_7.sql");
 		// 옛 정책 테이블이면 값으로 찾지 않는다(경고도 없음)
 		assertThat(result).doesNotContainKey("defaultPolicyId");
 	}
@@ -143,20 +143,20 @@ class ServiceSchemaVerifierTest {
 		Map<String, Object> v25 = verifier(true, "posture_service").check();
 		assertThat(v25.get("ok")).isEqualTo(false);
 		assertThat(v25.get("specVersion")).isEqualTo("V2.5");
-		assertThat(String.valueOf(v25.get("problems"))).contains("V2.7 아님").contains("migration 016·017을")
+		assertThat(String.valueOf(v25.get("problems"))).contains("V2.7 아님").contains("schema_V2_7.sql로 다시 만듦")
 			.doesNotContain("V2.6 테이블 없음");
 
 		probe.columns.put("baseline_posture", List.of("baseline_posture_id", "user_account_id", "registered_at"));
 		Map<String, Object> v24 = verifier(true, "posture_service").check();
 		assertThat(v24.get("specVersion")).isEqualTo("V2.4");
-		assertThat(String.valueOf(v24.get("problems"))).contains("migration 015·016·017을");
+		assertThat(String.valueOf(v24.get("problems"))).contains("schema_V2_7.sql로 다시 만듦");
 		assertThat(list(v24, "missingColumns")).containsExactly("baseline_posture.client_registration_uuid");
 
 		probe.columns.put("feature_archive",
 			List.of("feature_archive_id", "monitor_session_id", "file_uri", "row_count"));
 		Map<String, Object> v23 = verifier(true, "posture_service").check();
 		assertThat(v23.get("specVersion")).isEqualTo("V2.3");
-		assertThat(String.valueOf(v23.get("problems"))).contains("migration 013·014·015·016·017을");
+		assertThat(String.valueOf(v23.get("problems"))).contains("schema_V2_7.sql로 다시 만듦");
 	}
 
 	@Test

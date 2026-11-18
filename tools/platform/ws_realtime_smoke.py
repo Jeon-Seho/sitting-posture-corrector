@@ -237,7 +237,7 @@ def scenario(base, report, pipeline):
 
     try:
         run_socket(base, owner, sid, pipeline)
-        check_records(owner, path, report, sid)
+        check_records(owner, path, report, sid, pipeline)
         check_unauthenticated(base)
     finally:
         # (D-88) R3는 서비스에서 쓰지 않는다 — 탈퇴 접수만 한다. 시험 계정의 세션 행·사건·알림은 Spark J3(30일 뒤)가 지운다
@@ -346,9 +346,13 @@ def run_socket(base, owner, sid, pipeline):
         print(f"  참고: stalled {stalled}개", flush=True)
 
 
-def check_records(owner, path, report, sid):
+def check_records(owner, path, report, sid, pipeline="local"):
     status, view = owner.call(path)
-    check("REST 세션 조회: 종료됨", status == 200 and isinstance(view, dict) and view.get("ended"), f"HTTP {status}")
+    ended = status == 200 and isinstance(view, dict) and view.get("ended")
+    # (D-57 ⑧) kafka 경로의 S4는 연결이 받아 둔 마지막 결과 — 종료·저장 완료를 받았으면 최종 요약(local과 같은 값)
+    total = (view.get("summary") or {}).get("total_ms") if ended else None
+    check(f"REST 세션 조회: 종료됨 · 전체 85.0s ({pipeline})", ended and total == 85000,
+          f"HTTP {status} ended={bool(ended)} total_ms={total}")
     if not report:
         return
     stored = None

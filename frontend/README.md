@@ -32,7 +32,7 @@ CPU도 실패하면 카메라·모델·타이머를 해제하고 오류 상태�
 ## 데스크톱 앱 (2026-10-02~)
 
 화면은 데스크톱 앱 기준으로 다시 설계했다. 탭은 **측정하기 · 기록 · 달력 · 설정** 4개다(달력은 2026-10-13 추가). 받아서 실행하는 순서는 [루트 README](../README.md#데스크톱-앱-받아서-실행하기-windows)에 있다. 2026-10-12에 따로 만든 「자세 등록」 탭(계획 0024, 끝나서 지움)은 2026-10-13 측정하기로 다시 합쳤다: 등록한 자세가 없으면 등록 후 바로 측정하고, 있으면 바로 측정한다.
-[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면 설계](../docs/design/fe/fe-server-proposal.md)(8.3)·[데스크톱 창](../docs/design/fe/fe-server-proposal.md)(8.4), [DESIGN.md](../DESIGN.md).
+[ADR 0017](../docs/decisions/0017-desktop-app-shell-and-redesign.md), [화면과 코드 위치·데스크톱 앱](../docs/design/fe/fe-server-proposal.md#21-fe-구조)(FE 제안서 2.1), [DESIGN.md](../DESIGN.md).
 
 ```sh
 npm run desktop      # 개발 서버와 Electron 창을 함께 실행
@@ -111,12 +111,15 @@ MediaPipe 모델 초기화, WASM·모델 HTTP 200, packaged IPC, 보안 컨텍�
 
 ## 시각 스타일과 자정 측정(2026-10-26)
 
-메일 화면: 로그인에서 **비밀번호 재설정**, 가입 정보에서 **이메일 인증 안내**로 진입한다.
-`#password-reset?token=...`·`#verify-email?token=...` 링크를 받을 수 있다. 현재 API는 기본 비활성이며
-성공을 가장하지 않고 연결 준비중을 표시한다. 비밀번호 재설정은 서버 경로가 생겼으므로(기본 꺼짐) 서버를 켠 배포에서
-`VITE_PASSWORD_RESET_ENABLED=true`로 빌드한다. `VITE_ACCOUNT_MAIL_API_ENABLED=true`는 서버 경로가 아직 없는 이메일 인증까지 켜므로 쓰지 않는다.
-Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`일 때 로그인 화면·프로필 설정에 나타난다(데스크톱 앱에서는 숨김). [인계](../docs/design/social-login-password-reset-handoff.md). SMTP/비밀/DB는 프론트가 처리하지 않는다.
-데스크톱 앱도 웹 주소의 화면을 열므로 웹과 같은 빌드 플래그를 따른다. [BE/DB 인계](../docs/design/email-account-handoff.md)를 따른다.
+메일 화면: 로그인에서 **비밀번호 찾기**, 가입 정보에서 **이메일 인증하기**로 진입한다.
+가입 인증을 켠 빌드에서는 계정 생성 전에 이메일 코드 확인을 거친다. 서버도 인증 쿠키와 가입 이메일을 대조해 우회를 막는다.
+`#password-reset?token=...`는 서버 유효성 확인 뒤 새 비밀번호/확인 화면을 연다. 기존 비밀번호 재사용은 서버에서 거절한다.
+`VITE_PASSWORD_RESET_ENABLED=true`, `VITE_EMAIL_VERIFICATION_ENABLED=true`를 대응 서버 기능·SMTP 설정과 함께 배포한다.
+`VITE_ACCOUNT_MAIL_API_ENABLED=true`는 두 기능을 함께 켠다. 모두 기본 꺼짐이며 성공을 가장하지 않는다.
+Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`로 켠다. 이메일 중복 시 기존 계정 인증→연결 승인→로그인 화면을 제공한다.
+데스크톱 Discord 외부 브라우저 복귀는 후속이다. API·쿠키·메일·비밀 설정은 [이메일 인계](../docs/design/email-account-handoff.md)를 따른다.
+개발자 도구 → 화면·모션 → 계정 인증 흐름의 접힌 항목에서 실제 컴포넌트를 합성 응답으로 점검한다.
+자동 브라우저 점검은 `node tools/browser/account-mail.mjs <Vite URL> "<Chrome 실행 파일>" "<캡처 디렉터리>"`이며 [품질 기준](../docs/quality.md)의 시험 빌드 플래그를 사용한다.
 
 최신 밝은 테마는 사이드바/소개 `#416b56`, 흰 작업 면이다. 이미지 모델로 생성한 투명 WebP
 `login-light`·`ready-camera-light`·`empty-records-light`·`baseline-seat-light`를 사용한다.
@@ -164,21 +167,21 @@ API·DB·Vite는 실행 전에 준비하며 도구가 자동으로 시작하거�
 날짜별 계산의 세부 경계는 기존 `src/features/storage/dailyMeasurement.test.ts`가 담당하며 FE 기본 검사에 포함된다.
 
 `feature/retro-redesign`의 React 18 화면·폰트·레트로 디자인에 실제 웹캠을 통합한 단일 앱이다(`src/app/ServiceApp.tsx`).
-MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(10/22 기준 서버 규칙 `reference-feature-rule-v1`, 학습된 LSTM은 아직 연결 전).
-프로필·설정은 아직 브라우저 localStorage에 두고,
-자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
+MediaPipe Pose Landmarker Heavy로 상체를 추적하고, 관절 좌표를 서버로 보내 서버가 판정한 상태를 표시한다(서버는 규칙 점수 `reference-feature-rule-v1`로 판정한다. 학습 모델(기준·이탈 2클래스, [ADR 0047](../docs/decisions/0047-posture-from-deviation-probability.md))은 아직 연결 전).
+프로필·판정 기준·기록은 서버(W1·W2·R1)에 있고 측정 결과는 이 기기에 남기지 않는다([ADR 0027](../docs/decisions/0027-today-records-from-collected-server-results.md)).
+개발자 계정의 자세 데이터 수집 화면에서 좌표 CSV(수집 v3, 앱 판정 열 없음)를 명시적으로 촬영·다운로드할 수 있다.
 
 ## 로그인과 회원가입
 
 첫 화면은 로그인이고 아래 「회원가입」으로 가입한다.
-회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([FE 기능 명세 회원가입](../docs/design/fe/fe-feature-spec.md#회원가입))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름, 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
+회원가입은 세 단계다: ① 약관·개인정보 동의 항목 C1~C6([FE 기능 명세 회원가입](../docs/design/fe/fe-feature-spec.md#회원가입))(필수/선택마다 동의·비동의를 고름) ② 이메일·비밀번호·이름과 이메일 코드 인증(활성화 배포), 선택 정보(C3)에 동의했을 때만 나이·직업 ③ 자세 등록(선택, 「자세 등록」 화면 재사용).
 
 가입·로그인·로그아웃은 항상 입출구 서버 `/auth`([계약](../contracts/accounts.v2.md)) A1~A5로 한다(ghdrb1246 D-66 `f27dd24`를 2026-10-22 V3로 옮김, 스위치 없음).
 토큰 로그인(BE ADR 0031, 10/27): access 토큰은 메모리에만 두고 `Authorization: Bearer`로 보내며, 만료 1분 30초 전에 A8 `POST /auth/refresh`로 갱신한다(401이면 한 번 갱신 뒤 다시 보냄, 갱신은 동시에 하나만, 탭끼리 `BroadcastChannel`로 나눔). refresh 토큰은 HttpOnly 쿠키라 `credentials: 'include'`를 유지한다. CSRF는 없다. 로그아웃에 `X-PoseGood-User-Id`, 비밀번호 12자 이상, 동의는 `consentPayload()`(`service-v2`).
 앱을 다시 열면 A8로 토큰을 받고 `GET /auth/me`로 로그인 상태를 되살린다. 로그인되면 `setServerAuth`로 기준 자세(B1·B2)와 측정(S1, WS `hello.access_token`)이 같은 계정·토큰을 쓴다.
 프로필은 화면이 읽도록 이 기기에도 사본을 둔다(비밀번호는 저장하지 않음).
 코드는 `src/features/auth/accountClient.ts`(요청·오류 문구)와 `src/app/LocalServiceApp.tsx`(화면 흐름)다.
-비밀번호 변경(A6)·탈퇴(A7)·설정(W1·W2)도 서버로 한다. 선택 정보 동의 철회는 없다(C1은 지우기로 함, FE 제안서 요구 11).
+비밀번호 변경(A6)·탈퇴(A7)·설정(W1·W2)도 서버로 한다. 선택 정보 동의 철회는 없다(C1은 11/12에 지웠다, FE 제안서 요구 11).
 예전 화면 시험(`src/app/ServiceApp.test.tsx`)만 계정 클라이언트를 「없음」으로 바꿔 이 기기 로그인으로 돈다. 이 시험 전용 경로는 [계획 0054](../docs/plans/active/0054-pip-fix-and-server-only-login.md) 2단계에서 지운다.
 
 ## 로컬 프로토타입 실행
@@ -228,7 +231,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 5. `잠시 쉬기`로 휴식한다. 휴식·판정 불가 시간은 서버가 유효 시간에서 제외한다.
 6. `측정 종료`에서 서버가 보낸 이번 세션 통계를 확인한다. 기록 화면이 서버 기록(R1)을 읽기 전까지 결과를 이 브라우저에도 남긴다.
    측정하기·자세 등록·자세 데이터 수집 사이에는 스트림을 공유한다. 로그아웃 시 해제한다.
-7. 카메라 없이 홈·기존 기록을 볼 수 있다. 발표용 예시 기록·합성 시연 기록은 지울 예정이다([FE 제안서](../docs/design/fe/fe-server-proposal.md) 할 일 2).
+7. 카메라 없이 홈·기존 기록을 볼 수 있다. 발표용 예시 기록·합성 시연 기록은 개발자 옵션에 그대로 둔다.
 8. 사이드바 하단 계정 메뉴의 `프로필 설정`에서 이름·나이·직업 수정과 로컬 자료 삭제(탈퇴 체험)를 할 수 있다.
 
 ## 알림과 기록
@@ -260,7 +263,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 설정의 **`발표용 예시 기록 표시`**(새 저장소 기본 꺼짐; 기존 선택 유지)를 켜면 같은 `기록`·`달력` 화면에 고정 시드로 만든 약 4개월치 예시 기록(`src/data/exampleRecords.ts`, 저장하지 않음)을 보여주고 화면에 발표용 예시임을 표시한다(2026-10-14, 예전 예시 대시보드 대체).
 로컬 기록은 기본 합산하며 `실제 웹캠 기록`/`합성 시연 기록`으로 따로 조회할 수 있다. 처음/최근 비교 칸은 2026-10-14에 없앴다. 측정은 KST 자정에 서버가 끊으므로(팀 회의, [ADR 0029](../docs/decisions/0029-midnight-cut-and-server-time.md)) 하나의 측정은 하루 안에 있다. 화면의 날짜·시각은 서버 시각을 따른다(2026-10-26): 기록의 시작·종료는 WS `ready.started_at`·`closed.ended_at`, 「오늘」은 가장 최근에 받은 서버 날짜(A4 `today`, WS 시각의 KST 날짜)(`src/features/platform/serverClock.ts`). 날짜 계산과 시각 표시는 KST 고정(`src/lib/kst.ts`), 기록은 시작한 날에 속한다. 서버가 이 필드를 보내기 전(BE-6)에는 PC 시계를 KST로 읽어 대신한다.
 
-**서버 연동 뒤의 표시 기준(2026-10-22):** 서버 통계(T1)는 어제까지 제공·표시하고, 오늘 목록·요약·달력 링·잔디·기간 그래프의 오늘 값은 로컬에 수집한 서버 세션 요약·사건·종료 결과로 만든다. 오늘 집계 처리는 서버 연동 뒤에도 남긴다. 기간 화면에서는 서버의 과거 통계와 로컬 오늘 값을 함께 사용하되 같은 날짜·세션을 중복 합산하지 않는다. 표시별 출처와 날짜 기준은 [연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)를 따른다. 현재 기록·달력은 전체 기간을 로컬에서 집계하며 서버 통계 조회는 아직 연결되지 않았다.
+**서버 연동 뒤의 표시 기준(2026-10-22):** 서버 통계(T1)는 어제까지 제공·표시하고, 오늘 목록·요약·달력 링·잔디·기간 그래프의 오늘 값은 로컬에 수집한 서버 세션 요약·사건·종료 결과로 만든다. 오늘 집계 처리는 서버 연동 뒤에도 남긴다. 기간 화면에서는 서버의 과거 통계와 로컬 오늘 값을 함께 사용하되 같은 날짜·세션을 중복 합산하지 않는다. 표시별 출처와 날짜 기준은 [연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)를 따른다. 현재 기록·달력은 전체 기간을 로컬에서 집계하며 서버 통계 조회는 아직 연결되지 않았다.
 
 ## 구현과 한계
 
@@ -282,7 +285,7 @@ JWT는 시험 API·DB와 합성 계정이 필요하고 테마는 개발자 미�
 - 서버 측정: `src/features/session/live/`(S1·`/realtime`·화면). 기록 속 서버 결과 형식·검증은 `src/features/session/server/`. 로컬 시간 정책(`engine/`)은 2026-10-21 지웠고 `src/lib/engine.ts`에는 타입만 남았다.
 - 자세 등록: `src/features/baseline/`(관절 평균·B1·B2). 서버 요청 공통: `src/features/platform/api.ts`.
 - 앱 조립·화면 전환: `src/app/ServiceApp.tsx`. 프로필·세션 저장/복구·기록 조회·저장 검증은 `src/features/`에서 기능별로 관리한다.
-- 로컬 저장: `src/features/storage/`(프로필·설정·기록 복사). 중간 저장(draft)은 2026-10-21 지웠다.
+- 저장: `src/features/storage/`(서버 기록 R1 `serverRecords.ts`, 설정 W1·W2 `serverWorkspace.ts`, 이 기기의 프로필 사본·예시 기록 표시 여부). 측정 결과는 이 기기에 두지 않는다(11/13). 중간 저장(draft)은 2026-10-21 지웠다.
 - 카메라 생명주기: `src/hooks/useCamera.ts`. 같은 스트림을 모든 화면과 데스크톱 앱 작은 창에서 공유하고 명시적 사용 종료·측정 종료·로그아웃·인증 변경 시 해제한다. 일반 화면 이동은 진행 중 자세 등록만 취소한다. 등록한 자세는 서버에 있다.
 - 영상·음성은 저장하지 않고 외부 API 업로드도 없다. 자세 데이터 수집에서 촬영을 직접 시작하면 추정 랜드마크·촬영 조건·자기 보고 확인을 메모리에 모아 CSV로 다운로드한다.
 - 서비스 측정은 앱 안의 기록·설정 화면으로 이동해도 계속된다(2026-10-06 사용자 결정, 카메라는 떠 있는 창으로 유지). 외부 탭 전환만으로도 정지하지 않는다. 카메라 영상이 1초 넘게 멈추면 `away`로 보내고 직접 재개해야 한다. 실제 다른 탭·최소화·절전 지원은 별도 장치 검증이 필요하다. 연구 수집은 탭 숨김 시 중단한다.

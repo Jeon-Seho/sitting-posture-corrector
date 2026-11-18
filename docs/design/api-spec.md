@@ -1,5 +1,9 @@
 # PoseGood API 명세서
 
+> 2026-11-16 계정 추가: 가입 이메일 코드 인증, 비밀번호 찾기 링크 확인·재사용 거절, Discord 충돌 연결 승인은
+> [계정 계약](../../contracts/accounts.v2.md#가입-이메일-인증충돌-계정-연결-2026-11-16-선택-활성화)과 [이메일 인계](email-account-handoff.md)를 따른다.
+
+
 > 자세교정 서비스 · 백엔드 API
 
 Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
@@ -48,7 +52,7 @@ Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/realtime`)의 요
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
 | 재시도 | 502·503은 같은 요청을 그대로 다시 보낸다. 판정 상태는 이미 반영돼 있어 남은 DB 쓰기만 이어서 한다. |
-| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫힌 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)). |
+| 배치 (API 밖) | API는 탈퇴를 **접수만** 하고 `daily_stat`에는 **쓰지 않는다**. 탈퇴 최종 삭제는 Spark **J3**(cron 매일 04:00, 30일 유예 뒤), 일별 통계는 Spark **J2**(cron 매일 00:10, 어제부터 7일 전까지 KST 날짜마다 다시 계산해 바뀐 날만 씀 — D-81)가 한다(아키텍처 v5.2, [bigdata/README.md](../../bigdata/README.md)). 00:00이 아니라 00:10인 것은 자정 직전·자정 넘김(`session_rollover`)으로 끝난 세션이 저장될 시간을 두려는 것이다. 오늘 세션은 다음 날 일별 집계에 들어가고, J2가 지나간 뒤 닫힌 세션도 7일 안이면 다음 J2에 반영된다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고, 오늘 목록·요약·달력·그래프는 앱이 로컬에 수집한 서버 결과를 사용한다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1bt1)). |
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
@@ -90,6 +94,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 | 계정 정보 다시 불러오기 |
 | 409 | `ACCOUNT_EXISTS` | 이미 쓰는 이메일(탈퇴 접수 뒤 최종 삭제 전 계정 포함) | 입력 안내 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 | 기준 등록 화면으로 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(로그인은 막지 않음) | 「다른 기기에서 측정 중」 안내, 그 기기에서 끝낸 뒤 다시 시작 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 | 새 세션으로 |
 | 503 | `STORAGE_UNAVAILABLE` | DB 일시 장애 | 같은 요청 재시도 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) | 같은 요청 재시도 |
@@ -348,14 +353,9 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 - deletion_request(REQUESTED)를 추가하고 계정을 CLOSED로 바꾼다. refresh 토큰을 모두 철회하고 진행 중 세션을 메모리에서 뺀다. CLOSED 계정은 남은 access 토큰으로도 401이다.
 - 되돌릴 수 없다(철회 없음). 유예 30일 동안 계정·기록은 그대로 두고, 유예가 끝나면 Spark J3(cron 매일 04:00)가 HDFS 사용자 폴더와 DB 행을 지운다. API는 삭제하지 않는다.
 - 최종 삭제 전까지 같은 이메일로 다시 가입할 수 없다(ACCOUNT_EXISTS).
+- **비밀번호를 묻지 않는다**(2026-11-17, BE-25·FE 제안서 요구 1). 로그인 상태만으로 받고, 실수는 앱의 확인 창이 막는다. 비밀번호 없는 Discord 가입 계정도 탈퇴할 수 있다. 알고 받아들인 위험: 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다.
 
-**요청 본문 (실제)**
-
-```json
-{
-  "password": "synthetic-password-2"
-}
-```
+**요청 본문**: 없음. 본문은 읽지 않는다. 옛 앱이 보내는 `{"password": ...}`는 틀린 값이어도 무시하고 받는다(앱 배포 전까지의 호환).
 
 **응답 204 (실제)**: 본문 없음 + `Set-Cookie: posegood_refresh=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax` (이 기기의 쿠키도 지운다)
 
@@ -373,7 +373,6 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | HTTP | code | 의미 |
 |---|---|---|
-| 400 | `INVALID_PASSWORD` | 비밀번호 규칙(12자 이상, UTF-8 72바이트 이하) 위반 또는 현재 비밀번호 불일치 |
 | 401 | `UNAUTHENTICATED` | 로그인 없음 또는 만료 |
 | 503 | `ACCOUNT_BUSY` | 같은 계정 작업이 진행 중(2초 대기 초과) |
 | 409 | `AUTH_CHANGED` | X-PoseGood-User-Id가 로그인 계정과 다름 |
@@ -733,6 +732,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 |---|---|---|
 | 409 | `CONFLICT` | 재시도 본문 불일치, 설정·기준 변경 |
 | 409 | `BASELINE_REQUIRED` | 기준 자세 없이 세션 생성 |
+| 409 | `MEASUREMENT_IN_PROGRESS` | 같은 계정이 다른 기기에서 측정 중(로그인은 막지 않음) |
 | 404 | `SESSION_LOST` | DB 행은 있지만 API 재시작으로 판정 상태가 사라짐 |
 | 429 | `LIMIT_REACHED` | 세션 최대 측정 시간(기본 24시간 = 계약의 시각 상한) 초과, 진행 중 세션 512개 초과 |
 | 400 | `INVALID_CONTRACT` | 형식·범위 위반, 정책 값을 DB에 담을 수 없음 |
@@ -998,7 +998,7 @@ API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던
 > 2026-10-26 형식 확정, 아직 코드 없음(FE 요청 BE-2·BE-5 ③, 이름 T1은 FE가 붙임). 데이터 `daily_stat`은 Spark J2가 쓰고 API는 읽기만 한다(J2는 2026-11-01 서버 cron에 등록됨, PR #93). J2가 아직 집계하지 않은 날은 0으로 채워진다. J2는 매일 어제부터 7일 전까지 다시 계산하므로(D-81, PR #100) **최근 7일 값은 늦게 닫힌 세션 때문에 바뀔 수 있다** — 앱이 T1 결과를 오래 저장해 두면 최근 7일은 다시 받아야 한다.
 
 - 로그인한 사용자 본인의 `daily_stat`을 날짜순으로 돌려준다.
-- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+- **어제까지만** 준다. `to`가 서버 기준 오늘(KST) 이후면 어제로 자른다. 오늘 화면은 앱이 로컬에 모은 서버 결과를 쓴다(10/22 결정, [FE 연동 명세 4.5](fe/api-ws-spec.md#45-기록통계-r1r1bt1)).
 - **행이 없는 날은 0으로 채운다.** `from`~`to`(자른 뒤)의 모든 날짜가 `days`에 한 번씩 들어간다.
   `valid_sec`·`good_sec`은 0.0, 횟수는 0, `min_until_collapse_sec`·`max_until_collapse_sec`·`computed_at`은 null(DB에서도 「표본 없음」은 NULL이다).
 - **객체로 감싼다.** 날짜 목록은 `days`에 넣고, 서버 기준 오늘 날짜 `today`(KST `YYYY-MM-DD`)를 함께 준다.
@@ -1332,7 +1332,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
-| `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. |
+| `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. kafka 경로: 측정 중 결과가 5초 없을 때(결과 지연), `end` 뒤 종료가 3초 오지 않을 때(저장 지연, D-57 ⑧). |
 | `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-v2/ws-session-rollover.json) |
 | `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔으면 `null`(ADR 0028). |
 
@@ -1392,6 +1392,8 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-18 | `refactor/repo-remove-api-version-paths` | develop(`ed72615`, #127·#128·#131·#134 포함)을 다시 합치며 그 사이 생긴 주소에서도 버전을 뺌: 가입 이메일 인증 `/auth/email-verification/requests`·`/confirm`, 비밀번호 재설정 링크 확인 `/auth/password-reset/validate`, 소셜 계정 연결 승인 `/auth/social/pending-link`·`/verify`·`/confirm`(컨트롤러·로그인 없이 부르는 주소 목록), A7 탈퇴 `/auth/account`의 새 MySQL 시험. 응답 형식은 그대로. develop의 `SessionServiceTest`는 #134 병합에서 닫는 괄호가 빠져 컴파일되지 않아 한 줄을 넣었다. 검증(11/18): Java api 156(건너뜀 18)·processing 67 통과, MySQL 통합 18 중 17 통과 — `baselinesOwnershipLossAndInferenceFailure`의 두 번째 세션 409는 develop 원본에서도 같다(#127 측정 한 기기 제한과 기존 시험이 어긋남, 이 브랜치 범위 밖). FE 1038/1039·tsc·빌드·스크립트 통과(실패 1은 이 PC Node ICU가 `오전` 대신 `AM`을 내는 `recordTimezone`), Python 241 중 J3·통신 시험 도구 오류는 UTF-8 출력·단독 실행에서 통과, 남은 1개는 전부터 실패하던 브라우저 카메라 시험. |
+| 2026-11-17 | `fix/backend-withdrawal-no-password` | A7 탈퇴: 비밀번호 확인을 뺌(BE-25, FE 제안서 요구 1). 본문 없이 204. 옛 앱의 `{password}` 본문은 무시하고 받으므로(틀린 값도 204) 서버를 먼저 배포해도 운영 앱이 깨지지 않는다. 400 `INVALID_PASSWORD`는 A7에서 없어짐. Discord 가입 계정(비밀번호 없음)도 탈퇴 가능 |
 | 2026-11-16 | `refactor/repo-remove-api-version-paths` | develop(`0ed4a6c`)을 합치며 FE의 주소 상수를 버전 없이 맞춤(`serverConfig.ts` `API_ROOT = '/api'`, `API_VERSION` 삭제, 개발용 가짜 서버의 옛 `/api/v2` 받기 삭제). 디스코드 Redirect 예시(`infra/compose/env.example`)와 통합 점검의 Redirect 검사(`tools/platform/integration_test.sh`)를 `…/api/auth/social/discord/callback`으로. 주소는 REST·WS 27개로 겹치는 것과 버전이 붙은 것이 없다. 검증: BE 기본 시험 180개(건너뜀 13) 실패 0·빌드 성공, MySQL 통합 13개 통과, FE 1025개 중 1024개 통과(`recordTimezone` 1개는 PC 언어 설정의 오전/AM 차이로 develop에서도 같음)·`tsc`·빌드 통과, Python은 numpy·joblib·tzdata가 없어 27개가 불러오기 오류(이 PC 환경 문제, 그 밖의 실패 없음). 배포 때 Discord Portal Redirects·서버 `POSEGOOD_DISCORD_REDIRECT_URI`·Cloudflare `auth-rate-limit` 경로를 새 주소로 바꾸고, 옛 데스크톱 설치판 처리는 [FE 제안서](fe/fe-server-proposal.md) 요구 10에서 정한다 |
 | 2026-11-12 | `refactor/repo-remove-api-version-paths` | **호환성 깨짐.** 주소에서 버전 삭제: REST `/v2/…` → `/…`(계정 A2~A8, 소셜 로그인 `/auth/social/…`, 비밀번호 재설정 `/auth/password-reset/…`, 설정 W1·W2, 기준 자세 B1·B2, 측정 세션 S1·S4, 기록 R1, 설계만 된 일별 통계 T1 `/stats/daily`), WebSocket `/v2/realtime` → `/realtime`(nginx `/api/realtime`), 추론 `/v2/infer` → `/infer`. 쓰지 않던 추론 `/v1/infer`(옛 두 특징 입력)와 그 요청 형식 삭제. 본문·메시지 형식은 그대로. 서버와 화면을 같은 때 배포해야 하고, Cloudflare `auth-rate-limit` 규칙 경로(`/api/auth/`)와 Discord 돌아오는 주소(`POSEGOOD_DISCORD_REDIRECT_URI`·Discord 개발자 사이트 등록 주소 `/api/auth/social/discord/callback`)를 바꿔야 한다. 처리 서비스(`/judge/v1/*`, 시험용 `/api/v1/realtime/features`)는 그대로 |
 | 2026-11-12 | `refactor/backend-remove-unused-s3-r3-c1` | **앱이 부르지 않는 REST 3개 삭제 — 호환성 깨짐**: S3 세션 종료 `POST /v2/sessions/{id}/end`(측정은 WS `end`·연결 끊김으로 끝남), R3 기록 삭제 `DELETE /v2/records/{id}`, C1 선택 정보 동의·철회 `PUT /v2/consents/optional-profile`. REST 18 → 15개. 409 `CONFLICT`의 「적재된 기록 삭제」 사유 없어짐. 선택 정보 동의는 가입 때만 받는다. 남은 일: WS가 열리지 않은 세션·종료 저장 실패 세션을 닫을 길(백엔드 상태 4장). [계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계 |

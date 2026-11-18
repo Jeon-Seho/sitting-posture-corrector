@@ -1,9 +1,13 @@
 # Discord 로그인·비밀번호 재설정 인계 (DB·DevOps)
 
+> 처음 읽는 분께: [쉽게 읽는 인수인계](email-account-handoff.md)에서 사용자 흐름·파트별 역할·실제로 켜는 순서를 먼저 확인해 주세요.
+> 이 문서는 DB 표와 서버 설정을 연결할 때 보는 기술 참고 자료입니다.
+
+
 2026-11-11. BE·FE 코드는 브랜치 `feature/repo-discord-login-password-reset`에 들어 있다. **두 기능 모두 기본 꺼짐**이다.
 아래 표(제안 V2.7)를 DB 담당이 적용하고, DevOps가 환경변수를 넣은 뒤에 켠다. 표가 없는 상태에서 기능을 켜면 API가 시작하지 않는다
 (`SchemaVerifier`가 켠 기능의 표만 확인함). 이 문서는 [이메일 인계](email-account-handoff.md)의 비밀번호 재설정 부분을 대신한다.
-이메일 인증(가입 전 소유 확인)은 이번 범위가 아니다.
+2026-11-16 갱신: 가입 이메일 코드 인증·비밀번호 찾기 UI·충돌 계정 연결 승인은 [이메일 인계](email-account-handoff.md)와 [계획 0089](../plans/completed/0089-email-recovery-social-link.md)를 따른다.
 
 ## 1. 정한 것
 
@@ -13,7 +17,7 @@
   출처(IP)별로 15분에 5번, 계정별로 60초에 한 번까지만 받는다.
 - Discord 로그인은 OAuth 인가 코드 + PKCE(S256)이고, 범위는 `identify email`만 쓴다. Discord 쪽 토큰·이름·이메일은 저장하지 않는다.
   저장하는 값은 Discord 사용자 ID 하나다.
-- **Discord 이메일이 기존 계정과 같아도 자동으로 묶지 않는다.** 사용자가 비밀번호로 로그인한 뒤 설정에서 직접 연결한다.
+- **Discord 이메일이 기존 계정과 같아도 자동으로 묶지 않는다.** 같은 브라우저에서 기존 계정 비밀번호를 확인한 뒤 연결을 직접 승인하고 로그인한다. 이메일이 다른 경우에는 기존 계정으로 로그인한 뒤 설정에서 연결한다.
   이메일만으로 묶으면, 제공자 쪽 이메일을 가로챈 사람이 기존 계정에 들어올 수 있기 때문이다.
 - Discord로 처음 오는 사용자는 약관·프로필 화면을 거쳐 가입한다. 이메일은 Discord가 확인(verified)한 주소만 쓴다.
   확인된 이메일이 없으면 가입하지 않는다. 이렇게 가입한 계정은 비밀번호가 없다(`password_hash = '!no-password'`, BCrypt 형식이 아니어서 어떤 비밀번호와도 맞지 않음).
@@ -23,7 +27,10 @@
 
 ## 2. DB 담당(유진) — 제안 V2.7
 
-> **2026-11-11 확정:** [migration 017](../../database/migrations/017_create_social_identity_password_reset_token.sql)과 `database/schema/schema_V2_7.sql`로 반영했다([DB 안내](../../database/README.md) 5장 「V2.7에서 더한 것」). 아래 제안과 다른 점은 보조 인덱스 `ix_password_reset_token_user_issued`를 넣지 않은 것 하나다(FK-30 자동 인덱스 사용). 운영 DB에 017을 적용한 뒤에 두 기능을 켠다.
+> **2026-11-11 확정:** migration 017과 `database/schema/schema_V2_7.sql`로 반영했다([DB 안내](../../database/README.md) 5장 「V2.7에서 더한 것」). 아래 제안과 다른 점은 보조 인덱스 `ix_password_reset_token_user_issued`를 넣지 않은 것 하나다(FK-30 자동 인덱스 사용). 운영 DB에 017을 적용한 뒤에 두 기능을 켠다.
+>
+> **2026-11-17:** 운영 DB는 V2.7(017 적용)이다. 그래서 017 파일은 지웠다(git 이력에 남음, `git show <지운 커밋>^:database/migrations/017_create_social_identity_password_reset_token.sql`).
+> V2.8([계획 0096](../plans/active/0096-account-email-link-and-verification.md), migration 018)에서 `password_hash`는 `local_credential` 표로 옮겼고 `'!no-password'` 고정값은 없어진다 — 아래 「`user_account`는 바꾸지 않는다」는 V2.7까지의 내용이다.
 
 `user_account`는 바꾸지 않는다(`password_hash` NOT NULL 그대로, 소셜 전용 계정은 위의 고정값을 쓴다).
 아래 SQL은 **제안**이고, 마이그레이션 번호·주석 형식·ERD·`schema_V2_7.sql`·README·롤백 문서는 DB 절차에 맞춰 확정한다.

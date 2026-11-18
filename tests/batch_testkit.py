@@ -81,7 +81,7 @@ def archive_info(spark, jdbc, session):
         out.update({k: (r[k][:23] if k.endswith("_at") else r[k]) for k in r})
         hdfs = bc.Hdfs(spark)
         files = {}
-        for name in ("features.jsonl", "inference.jsonl", "episodes.jsonl"):
+        for name in ("features.jsonl", "inference.jsonl", "episodes.jsonl", "keypoints.jsonl"):  # keypoints: D-92
             path = r["file_uri"] + name
             if not hdfs.exists(path):
                 files[name] = None

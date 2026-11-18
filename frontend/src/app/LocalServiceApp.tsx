@@ -43,16 +43,17 @@ import { SignupPostureStep } from '../features/auth/SignupPostureStep'
 import { MailAccessPage } from '../features/auth/MailAccessPage'
 import { fetchWorkspace, saveWorkspaceRules } from '../features/storage/serverWorkspace'
 import { getServerAuth } from '../features/platform/serverAuth'
-import { mailRoute, type MailPurpose } from '../features/auth/mailApi'
+import { accountMailApi, mailRoute, type MailPurpose } from '../features/auth/mailApi'
 import { desktopBridge } from '../features/desktop/bridge'
 import { clearSocialRoute, discordLoginEnabled, socialResultMessage, socialRoute } from '../features/auth/socialLogin'
+import { SocialAccountLinkPage } from '../features/auth/SocialAccountLinkPage'
 import { SocialLoginButtons } from '../features/auth/SocialLoginButtons'
 import { isDeveloperAccount } from '../features/auth/developerAccount'
 import { setServerAuth } from '../features/platform/serverAuth'
 import { ServerAccountPage } from '../features/profile/ServerAccountPage'
 import { clearPageError, reportPageError } from '../features/connection/pageError'
 
-type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail'
+type AuthView = 'login' | 'consent' | 'account' | 'posture' | 'mail' | 'social-link'
 
 /**
  * The app always signs in on the account server `/auth` (D-66; no switch since 2026-10-22,
@@ -83,13 +84,15 @@ export function LocalServiceApp({
   const [developer, setDeveloper] = useState(false)
   const authAttempt = useRef(0)
   const accountMutation = useRef(false)
-  const [authView, setAuthView] = useState<AuthView>(() => mailRoute(window.location?.hash ?? '') ? 'mail' : 'login')
+  const [authLanding] = useState(() => mailRoute(window.location?.hash ?? ''))
+  const [authView, setAuthView] = useState<AuthView>(() => authLanding ? 'mail' : 'login')
   const [mailPurpose, setMailPurpose] = useState<MailPurpose>('reset')
   const [mailReturn, setMailReturn] = useState<AuthView>('login')
   const [mailEntry, setMailEntry] = useState(0)
   // Back from Discord: a result to show once (after the usual A8 → A4 start) or a pending sign-up.
   const [socialLanding] = useState(() => socialRoute(window.location?.hash ?? ''))
   const socialNotice = useRef(socialLanding?.kind === 'result' ? socialResultMessage(socialLanding.status) : null)
+  const [verifiedEmail, setVerifiedEmail] = useState('')
   const [socialSignup, setSocialSignup] = useState<SocialSignupDraft | null>(null)
   useEffect(() => {
     const receiveMailLink = () => {
@@ -146,6 +149,7 @@ export function LocalServiceApp({
     camera,
     go,
     setError,
+    loadRules: accounts && !developer ? loadServerRules : undefined,
   })
   const form = useProfileForm({
     workspace,
@@ -161,7 +165,7 @@ export function LocalServiceApp({
 
   // (D-66) A login cookie from an earlier visit signs in again without typing (A4).
   useEffect(() => {
-    if (!accounts) return
+    if (!accounts || authLanding || socialLanding?.kind === 'link') return
     let cancelled = false
     const attempt = authAttempt.current
     accounts
@@ -190,6 +194,7 @@ export function LocalServiceApp({
     if (!socialLanding) return
     clearSocialRoute()
     const social = accounts?.social
+    if (socialLanding.kind === 'link' && social) { setAuthView('social-link'); return }
     if (socialLanding.kind !== 'signup' || !social) return
     let cancelled = false
     social
@@ -287,8 +292,9 @@ export function LocalServiceApp({
     if (!CAMERA_PAGES.includes(next) && !measuring) camera.cancelCalibration()
     // 기록·달력 show 「오늘」: ask the server's day first (e.g. the app left open past midnight).
     if (next === 'dashboard' || next === 'calendar') refreshToday()
-    // Another device may have changed the rules: S1 must send the account's (409 otherwise).
-    if ((next === 'setup' || next === 'settings') && !measuring) void loadServerRules()
+    // Another device may have changed the rules. 측정하기 reads them when 「측정 시작」 is pressed
+    // (useSessionPersistence `loadRules`), not on every visit; the settings page shows them.
+    if (next === 'settings' && !measuring) void loadServerRules()
     setPage(next)
   }
 
@@ -394,6 +400,9 @@ export function LocalServiceApp({
       consents: { version: CONSENT_DOCUMENT_VERSION, agreed: consents, at: new Date().toISOString() },
     }
     if (accounts) {
+      if (accountMailApi.enabledFor('verify') && verifiedEmail !== email.trim().toLowerCase()) {
+        setMailPurpose('verify'); setMailReturn('account'); openAuth('mail'); return
+      }
       void registerWithServer(accounts, next, nextAccount)
       return
     }
@@ -416,6 +425,9 @@ export function LocalServiceApp({
     } catch (error) {
       console.error('[app/LocalServiceApp.tsx:registerWithServer] Operation failed', error)
       setError(accountErrorMessage(error, 'register'))
+      if (error instanceof Error && 'code' in error && error.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        setVerifiedEmail(''); setMailPurpose('verify'); setMailReturn('account'); openAuth('mail')
+      }
     } finally {
       setBusy(false)
     }
@@ -479,7 +491,7 @@ export function LocalServiceApp({
     if (accountMutation.current) { setError('계정 변경을 확인한 뒤 로그아웃해 주세요.'); return }
     if (measuring) {
       go('session')
-      setError('측정을 종료하고 결과 저장을 확인한 뒤 로그아웃해 주세요.')
+      setError('측정을 끝낸 뒤 로그아웃해 주세요.')
       return
     }
     // (D-66) End the server login too. A failure (server down, another tab switched accounts)
@@ -523,17 +535,20 @@ export function LocalServiceApp({
    * The newest request wins, so a slider drag that sends several saves ends on its last value.
    */
   const rulesRequest = useRef(0)
-  async function loadServerRules() {
-    if (!accounts || !getServerAuth()) return
+  /** Reads the account's rules (W1); also what 「측정 시작」 measures with. Null when not read. */
+  async function loadServerRules(): Promise<Rules | null> {
+    if (!accounts || !getServerAuth()) return null
     const ticket = ++rulesRequest.current
     try {
       const saved = await fetchWorkspace()
       if (ticket === rulesRequest.current) { workspace.setRules(saved.rules); clearPageError('rules') }
+      return saved.rules
     } catch (caughtError) {
       console.error('[app/LocalServiceApp.tsx:loadServerRules] Operation failed', caughtError)
-      if (ticket !== rulesRequest.current) return
-      setError('서버 설정을 불러오지 못했어요. 측정 전에 설정 화면을 다시 열어 주세요.')
+      if (ticket !== rulesRequest.current) return null
+      setError('서버 설정을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.')
       reportPageError('rules', caughtError, () => void loadServerRules())
+      return null
     }
   }
 
@@ -599,7 +614,13 @@ export function LocalServiceApp({
   )
 
   if (!authed && authView === 'mail') {
-    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)} />
+    return <MailAccessPage key={mailEntry} purpose={mailPurpose} initialEmail={email} onBack={() => openAuth(mailReturn)}
+      onVerified={mailPurpose === 'verify' && mailReturn === 'account' ? () => { setVerifiedEmail(email.trim().toLowerCase()); openAuth('account') } : undefined} />
+  }
+
+  if (!authed && authView === 'social-link' && accounts?.social) {
+    return <SocialAccountLinkPage social={accounts.social} onComplete={view => enterWithAccount(view)}
+      onCancel={() => openAuth('login')} onFindPassword={() => { setMailPurpose('reset'); setMailReturn('social-link'); openAuth('mail') }} />
   }
 
   if (!authed && authView === 'consent') {
@@ -626,14 +647,7 @@ export function LocalServiceApp({
 
   if (!authed && authView === 'posture') {
     return (
-      <SignupPostureStep
-        camera={camera}
-        onBack={() => {
-          camera.stop()
-          openAuth('account')
-        }}
-        onFinish={finishSignup}
-      />
+      <SignupPostureStep camera={camera} onFinish={finishSignup} />
     )
   }
 
@@ -655,7 +669,7 @@ export function LocalServiceApp({
           <>
             {storageNotice}
             {errorLine}
-            {!socialSignup && <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>이메일 인증 안내</button>}
+            {!socialSignup && <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('verify'); setMailReturn('account'); openAuth('mail') }}>{verifiedEmail === email.trim().toLowerCase() ? '이메일 인증 완료 · 다시 인증' : '이메일 인증하기'}</button>}
             <button type="button" className="btn btn-quiet" onClick={() => openAuth('consent')}>
               이전
             </button>
@@ -717,10 +731,11 @@ export function LocalServiceApp({
                 else setError(`${name} 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.`)
               }} />
             )}
-            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 재설정</button>
+            <button type="button" className="btn btn-quiet" onClick={() => { setMailPurpose('reset'); setMailReturn('login'); openAuth('mail') }}>비밀번호 찾기</button>
             <button type="button" className="btn btn-quiet" onClick={() => {
               setConsents({})
               setSocialSignup(null)
+              setVerifiedEmail('')
               openAuth('consent')
             }}>
               회원가입

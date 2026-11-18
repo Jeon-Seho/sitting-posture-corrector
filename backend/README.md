@@ -63,6 +63,8 @@ DB 스키마에는 관측·스냅샷 테이블이 없다(CR-04). 그래서 진�
 | 경로 | 역할 |
 | --- | --- |
 | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/logout` | 계정·로그인·로그인 유지 |
+| `POST /auth/email-verification/requests`·`/confirm`, `POST /auth/password-reset/requests`·`/validate`·`/confirm` | 가입 코드 인증·비밀번호 찾기(기본 꺼짐, [연결·SMTP 설정](../docs/design/email-account-handoff.md)) |
+| `GET /auth/social/pending-link`, `POST .../verify`·`.../confirm`, `DELETE /auth/social/pending-link` | Discord 이메일 충돌의 기존 비밀번호 확인·연결 승인·취소 |
 | `PUT /auth/password`, `DELETE /auth/account` | 비밀번호 변경(모든 로그인 철회), 탈퇴 접수 |
 | `GET`·`PUT /workspace`, `GET /records` | 설정·기록 조회. 기록 삭제 `DELETE /records/{id}`(R3)는 2026-11-12 삭제 |
 | `PUT /sessions/{UUID}` | `{policy, baseline_id}`로 세션 생성. 현재 계정 정책·기준과 일치해야 함. 같은 값의 재시도는 멱등, 다른 값은 409 |
@@ -127,7 +129,7 @@ MySQL 통합 시험은 기본 검사에 포함하지 않는다. Gradle 직접 �
    `POSEGOOD_TEST_MYSQL_URL`(기본 `jdbc:mysql://127.0.0.1:3306/`)·`POSEGOOD_TEST_MYSQL_USER`로 바꿀 수 있다. 계정은 데이터베이스를 만들고 지울 수 있어야 한다.
 2. 없으면 Docker로 Compose와 같은 MySQL 이미지 컨테이너를 잠시 띄운다.
 
-시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_6.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
+시험은 `posture_service_it_<임의값>` 데이터베이스를 `schema_V2_7.sql`과 시드로 만들고 끝나면 지운다. 합성 계정·입력만 쓴다.
 Gradle 직접 실행에서는 `-Pmysql-integration`이 실제 MySQL 시험을 켠다. `.cache/test-mysql-password`를 자동으로 읽거나 Docker MySQL을 자동 시작하지 않는다. Windows는 `backend\gradlew.bat`을 쓴다.
 
 ```sh
@@ -152,5 +154,5 @@ JAR는 `backend/api/build/libs/session-api-0.1.0-SNAPSHOT.jar`다(Maven 때는 `
 3. 알림의 실제 표시 여부 전달(현재 DB에는 시도만 기록).
 4. Spark 배치 전환 시점(공지 ⑤): 이 API는 이미 `daily_stat` 누적과 탈퇴 최종 삭제를 하지 않는다. J2가 켜지기 전까지 서버의 일별 통계는 비고,
    J3가 켜지기 전까지 유예가 끝난 탈퇴 계정이 남는다. J2 첫 실행 때 이 변경 이후 날짜를 다시 계산하고, J3는 밀린 요청부터 지운다.
-   오늘 화면은 서버의 일별 통계와 별개로 로컬 수집 결과를 사용한다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1br3t1-be-다음-주-범위)).
+   오늘 화면은 서버의 일별 통계와 별개로 로컬 수집 결과를 사용한다. 서버 연동 뒤에도 T1은 어제까지 제공·표시하고 오늘 목록·요약·달력·그래프는 앱이 받은 서버 결과로 집계한다(2026-10-22 확정, [FE 연동 명세 4.5](../docs/design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)).
    T1(`GET /stats/daily`)은 이 API가 `daily_stat`을 읽어 돌려줄 경로로, 형식만 정했고 구현 전이다([API 명세 T1](../docs/design/api-spec.md#t1)). R1b(`GET /records/{id}`)도 구현 전이다.

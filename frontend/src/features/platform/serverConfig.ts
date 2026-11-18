@@ -11,7 +11,7 @@
  */
 /**
  * Where every REST and WebSocket path starts: `/api`, cut by the gateway. Paths have no version
- * (`/api/v2/…` → `/api/…`, 2026-11-09, FE proposal 요구 10).
+ * (`/api/v2/…` → `/api/…`, 2026-11-09, FE proposal 요구 3).
  */
 export const API_ROOT = '/api'
 

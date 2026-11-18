@@ -29,6 +29,34 @@ public class SocialPending {
 	private final ConcurrentHashMap<String, Entry<Authorization>> authorizations = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<String, Entry<Signup>> signups = new ConcurrentHashMap<>();
 	private final Clock clock;
+	private final ConcurrentHashMap<String, Entry<Link>> links = new ConcurrentHashMap<>();
+
+	/** 이메일 충돌 연결 대기. 비밀번호 검증은 최종 연결·로그인과 분리한다. */
+	public static final class Link {
+		final Signup identity;
+		final long owner;
+		int attempts;
+		boolean verified;
+		String verifiedHash;
+
+		Link(Signup identity, long owner) {
+			this.identity = identity;
+			this.owner = owner;
+		}
+	}
+
+	public String putLink(Signup identity, long owner) {
+		return put(links, new Link(identity, owner), AUTHORIZATION_LIFETIME);
+	}
+
+	public Link peekLink(String id) {
+		var entry = id == null ? null : links.get(id);
+		return entry == null || !clock.instant().isBefore(entry.expiresAt()) ? null : entry.value();
+	}
+
+	public Link takeLink(String id) {
+		return take(links, id);
+	}
 
 	public SocialPending() {
 		this(Clock.systemUTC());
@@ -89,6 +117,7 @@ public class SocialPending {
 		Instant now = clock.instant();
 		authorizations.values().removeIf(entry -> !now.isBefore(entry.expiresAt()));
 		signups.values().removeIf(entry -> !now.isBefore(entry.expiresAt()));
+		links.values().removeIf(entry -> !now.isBefore(entry.expiresAt()));
 	}
 
 	private <T> String put(ConcurrentHashMap<String, Entry<T>> map, T value, Duration lifetime) {

@@ -44,9 +44,6 @@ public final class AccountContracts {
 		@NotNull String currentPassword, @NotNull @Size(min = 12, max = 72) String newPassword) {
 	}
 
-	public record Withdrawal(@NotNull String password) {
-	}
-
 	/**
 	 * {@code userId}는 `user_account_id`를 10진수 문자열로 쓴 값이다. {@code today}는 응답을 만든 때의 서버 기준
 	 * 오늘 날짜(KST {@code YYYY-MM-DD})로, 앱의 「오늘」을 정한다(BE-6, FE ADR 0029).
@@ -76,6 +73,13 @@ public final class AccountContracts {
 	public record SocialSignupDraft(String provider, String email, String suggestedName) {
 	}
 
+	/** 기존 계정 연결 대기. */
+	public record SocialLinkDraft(String provider, String email, boolean verified) {
+	}
+
+	public record SocialLinkPassword(@NotNull @Size(min = 1, max = 72) String password) {
+	}
+
 	/** 소셜 가입 완료 요청. 이메일은 받지 않는다(가입 대기의 확인된 주소를 쓴다). */
 	public record SocialSignup(@NotNull @Valid Profile profile, @NotNull @Valid List<Consent> consents) {
 	}
@@ -90,6 +94,10 @@ public final class AccountContracts {
 
 	/** 비밀번호 재설정 메일 요청. */
 	public record PasswordResetRequest(@NotBlank @Size(max = 254) String email) {
+	}
+
+	/** 이메일 코드 또는 재설정 링크의 토큰 확인. */
+	public record MailToken(@NotBlank @Size(max = 128) String token) {
 	}
 
 	/** 비밀번호 재설정 완료. {@code token}은 메일 링크의 일회용 값이다. */

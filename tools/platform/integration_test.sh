@@ -8,6 +8,10 @@
 #   tools/platform/integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
 #   tools/platform/integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
 #   tools/platform/integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
+#   tools/platform/integration_test.sh --kafka    # (D-57) 12~14단계를 kafka 경로로: io-api를 POSEGOOD_REALTIME_PIPELINE=kafka로
+#                                                 # 다시 띄워(좌표 적재 POSEGOOD_ARCHIVE_KEYPOINTS도 켬, D-92) 직접·화면(web)·터널(gateway)
+#                                                 # WebSocket 왕복 → 좌표 토픽 167개 → 컨슈머 lag 0·DLQ 그대로 →
+#                                                 # 끝나면(중간에 멈춰도) .env 값(local)으로 되돌림. 그동안 실제 앱 측정도 kafka 경로를 탐
 #   EXPECT_PROJECT=platform tools/platform/integration_test.sh   # compose 프로젝트 이름까지 확인할 때
 #
 # 점검 순서
@@ -31,13 +35,15 @@
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
 #  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.7)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
-#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계)
+#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계).
+#                    io-api의 POSEGOOD_REALTIME_PIPELINE(local·kafka)로 돌고, 13·14단계도 같은 값. --kafka면 12단계 앞에서 kafka로
+#                    바꾸고 14단계 뒤에 Kafka 그룹 lag 0·posture.dlq 증가 0을 본 뒤 되돌린다
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
 #  14. 공개 입구   : (D-43) 처리 서비스·추론 포트가 127.0.0.1에만, gateway(API 전용 nginx, 호스트 포트 없음)가 /api만 중계하고 /는 404,
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
 #  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 변경 없음·--days·삭제 뒤 CASCADE (D-05·D-81)
 #  16. Spark J3    : 시험 계정을 탈퇴 상태로(tests/batch_testkit.py) → 30일 지난 계정만 DB 행·HDFS 폴더 전부 삭제 (D-49)
-#  17. Spark J1    : 시험 세션을 Kafka v1로 재생 → Kafka 받기 → HDFS 세션 폴더 파일 3개·feature_archive → J3로 정리 (D-33)
+#  17. Spark J1    : 시험 세션을 Kafka v1로 재생(+ 합성 좌표 구간, D-92) → Kafka 받기 → HDFS 세션 폴더 파일 4개·feature_archive → J3로 정리 (D-33)
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -56,10 +62,11 @@ ENV_FILE="infra/compose/.env"
 export IT_ENV_FILE="$ENV_FILE"
 TOOLS="tools/platform"
 
-QUICK=0; E2E=1; RESTART=0
+QUICK=0; E2E=1; RESTART=0; KAFKA_MODE=0
 for a in "$@"; do
   case "$a" in
     --quick) QUICK=1 ;;
+    --kafka) KAFKA_MODE=1 ;;
     --no-e2e) E2E=0 ;;
     --restart) RESTART=1 ;;
     -h|--help) sed -n "2,$(grep -n '^# =====' "$0" | sed -n 2p | cut -d: -f1)p" "$0"; exit 0 ;;
@@ -82,6 +89,7 @@ TS_EPOCH="$(date +%s)"
 OUT="$TOOLS/it-results/$TS"
 mkdir -p "$OUT"
 KT="docker exec kafka /opt/kafka/bin"
+DKT="docker exec -i kafka /opt/kafka/bin"   # 표준 입력을 넘길 때(D-92 시험 좌표 넣기)
 BS="--bootstrap-server localhost:9092"
 
 PASS=0; FAIL=0; SKIP=0
@@ -626,6 +634,33 @@ fi
 step "12. 실시간 WebSocket 왕복 (D-57 3단계)"
 # 앱처럼 io-api /realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
 # 판정 경로(io-api POSEGOOD_REALTIME_PIPELINE)가 local이든 kafka든 같은 결과여야 한다 — 두 값으로 한 번씩 돌려 비교(계획 0031).
+# (D-57) --kafka: io-api만 kafka 경로로 다시 띄운다. 끝나면(중간에 멈춰도) .env 값으로 되돌린다.
+KAFKA_SWITCHED=0
+io_api_pipeline() { docker exec io-api printenv POSEGOOD_REALTIME_PIPELINE 2>/dev/null || true; }
+io_api_up() { # $1 = kafka 이면 그 값으로(D-92 좌표 적재도 켬), 비우면 .env 값으로 io-api를 다시 만든다
+  if [ -n "${1:-}" ]; then POSEGOOD_REALTIME_PIPELINE="$1" POSEGOOD_ARCHIVE_KEYPOINTS=true \
+    $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api
+  else $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api; fi >>"$OUT/run.log" 2>&1
+  for _ in $(seq 1 45); do
+    [ "$(docker inspect io-api --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' 2>/dev/null)" = healthy ] && return 0
+    sleep 2
+  done
+  return 1
+}
+restore_io_api() {
+  if [ "$KAFKA_SWITCHED" = 1 ]; then KAFKA_SWITCHED=0; io_api_up || true; fi
+}
+dlq_end() { $KT/kafka-get-offsets.sh $BS --topic posture.dlq 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
+# (D-92) 좌표 적재 토픽의 끝 위치 합 — 본문(좌표)은 읽지 않고 개수만 센다
+kp_end() { $KT/kafka-get-offsets.sh $BS --topic posture.keypoints.v1 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
+if [ "$KAFKA_MODE" = 1 ] && [ "$E2E" = 1 ] && docker inspect io-api >/dev/null 2>&1; then
+  trap restore_io_api EXIT
+  DLQ_BEFORE="$(dlq_end)"
+  KP_BEFORE="$(kp_end)"
+  KAFKA_SWITCHED=1
+  if io_api_up kafka && [ "$(io_api_pipeline)" = kafka ]; then pass "io-api를 kafka 경로로 다시 띄움 (POSEGOOD_REALTIME_PIPELINE=kafka, healthy)"
+  else fail "io-api kafka 전환" "healthy가 안 됨 또는 값이 kafka가 아님 — docker logs io-api"; fi
+fi
 if [ "$E2E" = 0 ]; then skip "실시간 WebSocket 왕복" "--no-e2e"
 elif ! docker inspect io-api >/dev/null 2>&1; then skip "실시간 WebSocket 왕복" "io-api 컨테이너 없음"
 elif [ ! -f "$TOOLS/ws_realtime_smoke.py" ]; then skip "실시간 WebSocket 왕복" "$TOOLS/ws_realtime_smoke.py 없음"
@@ -636,6 +671,15 @@ else
     pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
+  fi
+  # (D-92) kafka 경로 + 좌표 적재 켬: 받은 구간 167개가 그대로 posture.keypoints.v1에(보내기는 기다리지 않으므로 잠깐 기다림)
+  if [ "$PIPE" = kafka ] && [ "$KAFKA_SWITCHED" = 1 ]; then
+    KP_N=0
+    for _ in $(seq 1 10); do
+      KP_N=$(( $(kp_end) - KP_BEFORE )); [ "$KP_N" -ge 167 ] && break; sleep 1
+    done
+    if [ "$KP_N" = 167 ]; then pass "좌표 적재 토픽 posture.keypoints.v1 — 받은 구간 167개 = 메시지 167개 (D-92, 개수만)"
+    else fail "좌표 적재 토픽 posture.keypoints.v1" "메시지 ${KP_N}개(기대 167) — docker logs io-api | grep keypoints"; fi
   fi
 fi
 
@@ -659,7 +703,8 @@ else
     fail "화면 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/web-rest.log" | tr '\n' ' ')(상세 $OUT/web-rest.log)"
   fi
   if [ "$E2E" = 1 ]; then
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" >"$OUT/web-ws.log" 2>&1; then
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" \
+      >"$OUT/web-ws.log" 2>&1; then
       pass "화면 경유 WebSocket 왕복 /api/realtime ($(tail -1 "$OUT/web-ws.log"))"
     else
       fail "화면 경유 WebSocket 왕복" "$(grep -m3 '^FAIL' "$OUT/web-ws.log" | tr '\n' ' ')(상세 $OUT/web-ws.log)"
@@ -727,13 +772,34 @@ else
   else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log — 403이면 Cloudflare 봇 차단·요청 제한 규칙)"; fi
   if [ "$E2E" = 1 ]; then
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} >"$OUT/public-ws.log" 2>&1; then
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} \
+      --pipeline "${PIPE:-local}" >"$OUT/public-ws.log" 2>&1; then
       pass "터널 경유 wss 왕복 /api/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
     else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
   fi
 fi
 
 # ---------------------------------------------------------------------
+# (D-57) --kafka 마무리: 처리 서비스와 입출구 결과 구독이 다 읽었는지(lag 0), 처리 못 한 메시지가 없는지 보고 local로 되돌린다.
+if [ "$KAFKA_SWITCHED" = 1 ]; then
+  LAG=""
+  for _ in $(seq 1 10); do
+    LAG="$($KT/kafka-consumer-groups.sh $BS --describe --group inference-service-v1 --group judge-v1 --group report-store-v1 \
+      --group io-ws-io-api 2>/dev/null | awk '$6 ~ /^[0-9]+$/ && $6 != "0" {print $1"/"$2"/"$3"="$6}' | tr '\n' ' ')"
+    [ -z "$LAG" ] && break
+    sleep 2
+  done
+  if [ -z "$LAG" ]; then pass "kafka 경로 컨슈머 lag 0 (추론·판정·저장·입출구 결과 구독 io-ws-io-api)"
+  else fail "kafka 경로 컨슈머 lag" "$LAG"; fi
+  DLQ_AFTER="$(dlq_end)"
+  if [ "$DLQ_AFTER" = "$DLQ_BEFORE" ]; then pass "posture.dlq 증가 0 (kafka 경로 왕복 동안)"
+  else fail "posture.dlq" "$DLQ_BEFORE → $DLQ_AFTER — docker exec kafka … --topic posture.dlq"; fi
+  restore_io_api
+  if [ "$(io_api_pipeline)" = "$(envor POSEGOOD_REALTIME_PIPELINE local)" ]; then
+    pass "io-api를 .env 값($(io_api_pipeline))으로 되돌림"
+  else fail "io-api 되돌리기" "지금 $(io_api_pipeline) — $DC --profile io --profile edge up -d --no-deps --no-build --force-recreate io-api"; fi
+fi
+
 step "15. Spark 배치 J2 — 일별 통계 daily_stat (D-05)"
 # 오늘(KST) 시험 세션 2개를 만들어(11단계와 같은 재생) J2를 오늘 날짜·그 시험 계정만으로 돌리고, 저장된 행을 확인한다
 # (운영 cron은 어제 날짜, 실제 사용자 행은 건드리지 않음).
@@ -898,6 +964,10 @@ else
   if [ -z "$UE" ]; then fail "J1 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
   else
     python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J1E-$TS" --session-id "$J_E" >"$OUT/j1-replay-e.log" 2>&1
+    # (D-92) 같은 세션의 좌표 구간 170개(합성)를 좌표 적재 토픽에 — 앱 경로가 아닌 시험이라 Kafka에 직접 넣는다
+    python3 $TOOLS/replay_keypoints_v1.py --session-id "$J_E" --user-id "IT-J1E-$TS" \
+      | $DKT/kafka-console-producer.sh $BS --topic posture.keypoints.v1 --property parse.key=true --property "key.separator=|" \
+      >>"$OUT/j1-replay-e.log" 2>&1
     for _ in $(seq 1 30); do
       curl -s -m 5 "$API/report/sessions/$J_E" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
       sleep 2
@@ -916,10 +986,11 @@ ok=(a['rows']==1 and a['file_uri']==f"/data/users/{uid}/{a['started_at'][:10]}/{
     and f.get('features.jsonl')=={'session_started':1,'features':170,'session_ended':1}
     and f.get('inference.jsonl')=={'session_started':1,'observation':170,'session_ended':1}
     and (f.get('episodes.jsonl') or {}).get('decision')==4 and (f.get('episodes.jsonl') or {}).get('progress',0)>0
+    and f.get('keypoints.jsonl')=={'keypoints':170}
     and a['started_at']<=a['range_start_at']<a['range_end_at'])
 sys.exit(0 if ok else 1)
 PYA
-    then pass "세션 폴더 파일 3개 — features 172·inference 172·episodes decision 4 + progress, feature_archive 1행(경로·구간 시각)"
+    then pass "세션 폴더 파일 4개 — features 172·inference 172·episodes decision 4 + progress·keypoints 170(D-92), feature_archive 1행(경로·구간 시각)"
     else fail "J1 적재 결과" "${AI:-확인 실패} — $OUT/j1-run1.log"; fi
     R2="$($TOOLS/batch.sh j1 --session "$J_E" --settle-sec 0 2>>"$OUT/run.log" | grep -m1 '^{')"
     if python3 -c "import json,sys;r=json.loads(sys.argv[1]);sys.exit(0 if r['archived']==[] and r['ingested']==0 else 1)" "$R2" 2>/dev/null; then

@@ -48,6 +48,10 @@ public class SessionService {
 	private final long maxSessionMs;
 	/** 측정불가(판정 불가·자리 비움)가 이만큼 이어지면 세션을 끝낸다. 0이면 끈다. */
 	private final long unmeasurableTimeoutMs;
+	/** (D-57 ⑧) kafka 경로에서 받아 둔 마지막 결과. local은 없음. */
+	private volatile SessionResults results = SessionResults.NONE;
+	/** S1 뒤 실시간 연결 전까지 그 세션을 측정 중으로 보는 시간. 한 계정은 한 기기에서만 측정한다. */
+	private final long measurementGraceNanos;
 
 	public SessionService(
 		LiveSessions live,
@@ -63,7 +67,9 @@ public class SessionService {
 		@Value("${posegood.realtime.max-session-duration}")
 		Duration maxSession,
 		@Value("${posegood.realtime.unmeasurable-timeout}")
-		Duration unmeasurableTimeout) {
+		Duration unmeasurableTimeout,
+		@Value("${posegood.realtime.measurement-claim-grace}")
+		Duration measurementGrace) {
 		this.live = live;
 		this.sessions = sessions;
 		this.baselines = baselines;
@@ -76,12 +82,14 @@ public class SessionService {
 		this.ended = ended;
 		this.maxSessionMs = maxSession.toMillis();
 		this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
+		this.measurementGraceNanos = measurementGrace.toNanos();
 	}
 
 	/**
 	 * 세션 생성: 현재 계정 정책·기준 확인 → 세션 행 추가 → 메모리에 판정 엔진 준비.
 	 *
-	 * 재시도는 같은 정책·기준 ID여야 한다.
+	 * 재시도는 같은 정책·기준 ID여야 한다. 로그인은 여러 기기에서 할 수 있지만 측정은 계정당 하나다. 다른 세션으로
+	 * 측정 중이면 409 {@code MEASUREMENT_IN_PROGRESS}다.
 	 */
 	public SessionView create(long owner, UUID id, SessionRequests.Create request) {
 		ThresholdPolicyRepository.Values.of(request.policy());
@@ -106,6 +114,7 @@ public class SessionService {
 					}
 					throw ApiError.lost();
 				}
+				requireNoOtherMeasurement(owner, id);
 				var account = accounts.requireActive(owner);
 				if (!policies.read(account.policyId()).policy().equals(request.policy())) {
 					throw ApiError.conflict("settings changed; reload workspace before measuring");
@@ -141,6 +150,8 @@ public class SessionService {
 	 * 실시간 v2 측정 연결 준비: 내 세션인지, 아직 진행 중인지, 판정에 쓸 기준 자세가 있는지 확인한다.
 	 *
 	 * 끝난 세션은 409 SESSION_ENDED, 기준이 없거나 판정에 쓸 수 없으면 409 BASELINE_REQUIRED.
+	 * 그사이 다른 기기가 측정을 시작했으면 409 MEASUREMENT_IN_PROGRESS. 통과하면 이 세션을 측정 중으로 표시한다
+	 * (연결이 끊기면 {@link #finish}가 세션을 끝내 표시도 풀린다).
 	 */
 	public Realtime openRealtime(long owner, UUID id) {
 		var session = require(owner, id);
@@ -152,6 +163,13 @@ public class SessionService {
 		if (features == null) {
 			throw new ApiError(409, "BASELINE_REQUIRED", "register a baseline first");
 		}
+		locks.withLock(
+			owner,
+			() -> {
+				requireNoOtherMeasurement(owner, id);
+				session.connected(true);
+				return null;
+			});
 		return new Realtime(features, session.row().alertEnabled(), session.row().startedAt());
 	}
 
@@ -246,7 +264,9 @@ public class SessionService {
 						return sessions.find(nextId);
 					});
 				var policy = previous.engine().policy();
-				live.add(new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs))));
+				var following = new LiveSession(row, new SessionEngine(nextId, policy, Math.min(maxSessionMs, limitMs)));
+				following.connected(true); // 같은 실시간 연결로 잇는다
+				live.add(following);
 				return new Rollover(
 					ended,
 					previous.row().startedAt().plusMillis(ended.totalMs()),
@@ -297,8 +317,8 @@ public class SessionService {
 	}
 
 	/**
-	 * 현재 상태 조회(S4). 메모리에 끝난 결과가 있으면 그것, 없으면 DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11),
-	 * 그것도 없으면 메모리의 진행 중 상태로 답한다.
+	 * 현재 상태 조회(S4). ① (local만) 메모리 엔진이 끝낸 결과 ② DB에 끝난 값이 있을 때 DB로 다시 만든 결과(BE-11)
+	 * ③ 메모리의 진행 중 상태(kafka는 D-57 ⑧ 마지막 결과로 채움) 순서로 답한다(11/12 DB/BE·DevOps 합의).
 	 *
 	 * DB로 다시 만든 결과는 {@code last_sequence}가 -1이고 사건의 {@code deviation_type}이 {@code unspecified}다(R1과 같음).
 	 * 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는 판정하지 않아 비어 있음)의 끝난 세션이
@@ -310,18 +330,35 @@ public class SessionService {
 			throw ApiError.notFound();
 		}
 		var memory = session == null ? null : session.locked(() -> session.engine().view());
-		if (memory != null && memory.ended()) {
+		// ① local만: 엔진이 직접 판정해 끝난 결과(kafka는 이 서버 엔진이 판정하지 않아 빈 값 — 11/12 DB/BE와 합의)
+		if (results == SessionResults.NONE && memory != null && memory.ended()) {
 			return memory;
 		}
+		// ② DB에 끝난 값(R1과 같은 값)
 		var stored = ended.find(owner, id);
 		if (stored != null) {
 			return stored;
 		}
+		// ③ 메모리 진행 중 상태 — kafka는 받아 둔 마지막 결과로 채움(D-57 ⑧)
 		if (memory != null) {
-			return memory;
+			return results.latest(id).map(latest -> overlay(memory, latest)).orElse(memory);
 		}
 		owned(owner, id);
 		throw ApiError.lost();
+	}
+
+	/**
+	 * (D-57 ⑧) kafka 경로: 판정을 처리 서비스가 하므로 이 서버의 엔진에는 결과가 없다. 실시간 연결이 받은 마지막
+	 * {@code progress}·{@code decision}으로 요약·사건·순번을 채운다. {@code ended}는 종료 사건과 저장 완료를 다 받았을 때만
+	 * true다(그때 요약이 최종 값).
+	 */
+	public void useResults(SessionResults results) {
+		this.results = results;
+	}
+
+	private static SessionView overlay(SessionView view, SessionResults.Snapshot latest) {
+		return new SessionView(view.schemaVersion(), view.sessionId(), view.policy(), view.timerPolicy(),
+			latest.ended(), latest.lastSequence(), latest.summary(), latest.events());
 	}
 
 	/**
@@ -409,6 +446,13 @@ public class SessionService {
 			});
 		session.persisted(
 			session.persistedEvents() + pending.size(), episodes, session.closePersisted() || close);
+	}
+
+	/** 같은 사용자가 다른 세션으로 측정 중이면 409 {@code MEASUREMENT_IN_PROGRESS}(사용자 잠금 안에서 부른다). */
+	private void requireNoOtherMeasurement(long owner, UUID id) {
+		if (live.measuringOther(owner, id, measurementGraceNanos) != null) {
+			throw ApiError.measuring();
+		}
 	}
 
 	/** 같은 세션을 다시 만들 때 처음과 같은 정책·기준 자세인지 확인한다. */

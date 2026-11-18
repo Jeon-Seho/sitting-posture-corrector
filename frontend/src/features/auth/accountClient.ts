@@ -6,8 +6,9 @@ import type { ConsentType } from './consents'
 
 /**
  * Account server client (D-66, FE proposal F12, plan 0027 2절; BE ADR 0031 token login).
- * Sign-up, sign-in, sign-out, "who am I" and keeping the login (A2–A5, A8). Password change,
- * withdrawal and the optional-profile consent stay on later steps.
+ * Sign-up, sign-in, sign-out, "who am I" and keeping the login (A2–A5, A8), and Discord
+ * sign-in and linking (A11–A17). Password change and withdrawal (A6·A7) are called by the profile
+ * screens.
  *
  * - The access token (30 min) lives in memory only and goes out as `Authorization: Bearer`. The
  *   refresh token (14 days) is an HttpOnly cookie the app never reads; requests keep
@@ -67,7 +68,12 @@ export type SocialStatus = {
   password_set: boolean
   providers: { provider: 'discord' | 'kakao' | 'google' | 'github'; available: boolean; linked: boolean; linked_at: string | null }[]
 }
+export type SocialLinkDraft = { provider: string; email: string; verified: boolean }
 export type SocialClient = {
+  linkDraft?: () => Promise<SocialLinkDraft>
+  verifyLink?: (password: string) => Promise<void>
+  confirmLink?: () => Promise<AccountView>
+  cancelLink?: () => Promise<void>
   /** Starts Discord sign-in (or sign-up) and returns the Discord consent page to open. */
   startLogin: () => Promise<string>
   /** Starts linking Discord to the signed-in account. */
@@ -91,7 +97,9 @@ export function discordAuthorizeUrl(payload: unknown): string {
     console.error('[features/auth/accountClient.ts:discordAuthorizeUrl] Operation failed', caughtError)
     throw new AccountError('계정 응답 형식이 달라요.', null, null)
   }
-  if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') throw new AccountError('계정 응답 형식이 달라요.', null, null)
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'discord.com') {
+    throw new AccountError('계정 응답 형식이 달라요.', null, null)
+  }
   return parsed.toString()
 }
 
@@ -117,6 +125,7 @@ export function accountErrorMessage(error: unknown, action: 'login' | 'register'
   if (error.code === 'INVALID_CREDENTIALS') return '이메일 또는 비밀번호가 맞지 않아요.'
   if (error.code === 'ACCOUNT_CLOSED') return '탈퇴한 계정입니다. 되돌릴 수 없고 탈퇴 30일 뒤 삭제됩니다.'
   if (error.code === 'ACCOUNT_EXISTS') return '가입할 수 없는 이메일이에요. 이미 가입했거나 탈퇴 후 30일이 지나지 않았어요.'
+  if (error.code === 'EMAIL_VERIFICATION_REQUIRED') return '이메일 인증이 필요해요. 인증 코드를 다시 받아 주세요.'
   if (error.code === 'CONSENT_REQUIRED') return '필수 약관 동의를 다시 확인해 주세요.'
   if (error.code === 'SOCIAL_SIGNUP_EXPIRED') return 'Discord 가입 확인 시간이 지났어요. Discord로 다시 시작해 주세요.'
   if (error.code === 'SOCIAL_DISABLED') return 'Discord 로그인이 아직 서버에 설정되지 않았어요.'
@@ -359,6 +368,15 @@ export function createAccountClient(
     },
     userId: () => user,
     social: {
+      async linkDraft() {
+        const value = await send('/social/pending-link', 'GET') as SocialLinkDraft
+        if (!value || typeof value.email !== 'string' || typeof value.verified !== 'boolean' || value.provider !== 'discord')
+          throw new AccountError('계정 연결 확인 시간이 지났어요. 다시 시작해 주세요.', null, null)
+        return value
+      },
+      async verifyLink(password) { await send('/social/pending-link/verify', 'POST', { password }) },
+      async confirmLink() { return signedIn(await send('/social/pending-link/confirm', 'POST')) },
+      async cancelLink() { await send('/social/pending-link', 'DELETE') },
       async startLogin() {
         return discordAuthorizeUrl(await send('/social/discord/login', 'POST'))
       },
@@ -373,6 +391,8 @@ export function createAccountClient(
           return draft
         } catch (error) {
           console.error('[features/auth/accountClient.ts:signupDraft] Operation failed', error)
+          // 410 = no sign-up waiting: the cookie did not arrive, 15 min passed, Discord is off, or io-api
+          // restarted (it keeps the sign-up in memory). 404 only if the route itself is missing.
           if (error instanceof AccountError && (error.status === 410 || error.status === 404)) return null
           throw error
         }

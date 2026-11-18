@@ -13,11 +13,12 @@ const GUIDE_INTERVAL_MS = 100
  */
 export function PoseGuide({ camera }: { camera: CameraController }) {
   const [shape, setShape] = useState<GuideShape>(() => defaultGuide())
+  const { subscribe } = camera
   const points = useRef<Landmark[] | null>(null)
   const last = useRef(0)
   useEffect(
     () =>
-      camera.subscribe((observation) => {
+      subscribe((observation) => {
         const now = observation.timeMs
         const smoothed = smoothPoints(points.current, observation.landmarks)
         points.current = smoothed
@@ -28,7 +29,7 @@ export function PoseGuide({ camera }: { camera: CameraController }) {
             defaultGuide(observation.width, observation.height),
         )
       }),
-    [camera.subscribe],
+    [subscribe],
   )
   return (
     <svg

@@ -299,4 +299,39 @@ class V1SessionJudgeTest {
 		V1SessionJudge.Result result = judge.accept(obs(1, 500, 1000, "running", true, 0.55));
 		assertThat(event(result.decisions().get(0)).get("kind")).isEqualTo("collapse_confirmed");
 	}
+
+	/**
+	 * (D-57) 구간마다의 관측 — 팀 API 판정({@code SessionEngine.live})과 같은 규칙: 이탈 후보가 이어진 시간은 반영한 뒤 값,
+	 * 회복 쪽은 열린 사건이 있을 때만, 판정 불가 구간은 posture·점수 null·이어진 시간 0.
+	 */
+	@Test
+	void observationCarriesPostureAndContinuousTimesLikeTheApiEngine() {
+		V1SessionJudge judge = new V1SessionJudge(SID, POLICY);
+		Map<String, Object> first = judge.accept(obs(0, 0, 500, "running", true, 0.1)).observation();
+		assertThat(first).containsEntry("sequence", 0L).containsEntry("start_ms", 0L).containsEntry("end_ms", 500L)
+			.containsEntry("phase", "running").containsEntry("valid", true).containsEntry("posture", "good")
+			.containsEntry("collapse_probability", 0.1).containsEntry("hold_ms", 0L).containsEntry("recovery_ms", 0L);
+		long seq = 1;
+		long time = 500;
+		Map<String, Object> last = null;
+		for (int i = 0; i < 6; i++) { // 나쁜 자세 3초 → 마지막 구간에서 확정
+			V1SessionJudge.Result result = judge.accept(obs(seq++, time, time + 500, "running", true, 0.9));
+			last = result.observation();
+			time += 500;
+			if (i == 5) {
+				assertThat(event(result.decisions().get(0)).get("kind")).isEqualTo("collapse_confirmed");
+			}
+		}
+		assertThat(last).containsEntry("posture", "bad").containsEntry("hold_ms", 3000L)
+			.containsEntry("recovery_ms", 0L);
+		Map<String, Object> good = judge.accept(obs(seq++, time, time + 500, "running", true, 0.1)).observation();
+		assertThat(good).containsEntry("posture", "good").containsEntry("hold_ms", 0L)
+			.containsEntry("recovery_ms", 500L);
+		time += 500;
+		Map<String, Object> invalid = judge.accept(obs(seq++, time, time + 500, "running", false, 0)).observation();
+		assertThat(invalid).containsEntry("valid", false).containsEntry("posture", null)
+			.containsEntry("collapse_probability", null).containsEntry("hold_ms", 0L).containsEntry("recovery_ms", 0L);
+		assertThat(judge.accept(obs(seq - 1, time, time + 500, "running", true, 0.1)).observation()).isNull();
+		assertThat(judge.end(time + 500).observation()).isNull();
+	}
 }

@@ -222,13 +222,14 @@ public class ServiceSchemaVerifier {
 			result.put("specVersion", version);
 			if (missingCols.remove(V23_COLUMN)) {
 				problems
-					.add("V2.3 아님: " + V23_COLUMN + " 없음 (database/migrations/011_add_until_collapse_daily_stat.sql)");
+					.add("V2.3 아님: " + V23_COLUMN + " 없음 (V2.5 이전 DB — schema_V2_7.sql로 다시 만듦, database/README.md 1장)");
 			}
 			missingCols.remove(V25_COLUMN);
 			if (v23 && !v27) {
-				String apply = v26 ? "017" : v25 ? "016·017" : v24 ? "015·016·017" : "013·014·015·016·017";
-				problems.add(SPEC_VERSION + " 아님(지금 " + version + "): migration " + apply
-					+ "을 번호순으로 적용 (database/README.md 1장)");
+				// migration은 운영 DB 버전(V2.6)부터만 남겼다(011~016 삭제)
+				String how = v26 ? "migration 017을 적용"
+					: "migration으로 올릴 수 없음 — 필요한 데이터를 백업하고 schema_V2_7.sql로 다시 만듦";
+				problems.add(SPEC_VERSION + " 아님(지금 " + version + "): " + how + " (database/README.md 1장)");
 			}
 			if (!missingCols.isEmpty()) {
 				problems.add("판정 결과 저장에 쓸 컬럼 없음: " + missingCols);

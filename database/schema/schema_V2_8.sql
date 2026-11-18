@@ -1,18 +1,30 @@
 -- =====================================================================
--- 자세교정 서비스 스키마 — schema_V2_2.sql
--- 명세서: DB 명세서 V2.2 (확정 2026-10-13) — V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」)
+-- 자세교정 서비스 스키마 — schema_V2_8.sql
+-- 명세서: DB 명세서 V2.8 (2026-11-17) — V2.7 + 비밀번호 로그인 수단 T-54 local_credential(user_account.password_hash를 옮김),
+--   이메일 인증 토큰 T-55 email_verification_token (계획 0096)
 --   CR-04 승인자·회의록 기재 전. 문서(REQ-01, DB-01~04)의 V2.1·V2.2 반영은 아직이다.
--- 기준 자세 PK와 세션의 기준 자세 참조가 바뀌어 V2.1 데이터를 옮길 수 없으므로 migration으로 올리지 않는다.
---   기존 DB는 지우고 이 파일과 시드로 다시 만든다. migrations/는 비어 있고, 다음 번호는 011이다.
+-- 새 DB는 이 파일과 시드로 만든다. V2.7로 만든 DB(운영)는 migrations/018·019를 적용하면 이 파일과 같아진다 (다음 번호 020).
+--   V2.5 이전 DB는 migration으로 올리지 않는다(011~016은 지웠다) — 지우고 다시 만든다(database/README.md 1장).
 -- DBMS: MySQL 8.0.16 이상 (CHECK 제약 강제)
--- 생성: 2026-10-13 (명세서 원천에서 생성 — 손으로 고치지 말고 명세서를 고친 뒤 다시 생성)
+-- 생성: 2026-11-17 (계획 0096으로 V2.7에서 만듦 — 명세서 V2.8을 고친 뒤 명세서에서 다시 생성해 맞춘다)
 --
--- 범위: 12개 테이블. 보류 2개(T-36 collapse_type, T-41 user_consent)와 collapse_event.collapse_type_code,
---   UK-08, FK-15, FK-19는 명세에서도 뺐다.
--- 삭제 (V2.2): threshold_policy.policy_name·created_by·notify_max_per_hour, UK-12
+-- 범위: 18개 테이블. 보류 T-36 collapse_type과 collapse_event.collapse_type_code, FK-15는 명세에서도 뺐다.
+--   T-41 user_consent는 FE 동의 제안서(2026-10-13)로 다시 설계해 넣었다 (학습 동의 없음, UK-08 없음).
+-- 삭제 (V2.2, migration 없음 — DB 새로 만듦): threshold_policy.policy_name·created_by·notify_max_per_hour, UK-12
 --   baseline_posture.calibration_uuid·calibration_sec·sample_count, UK-04
 --   monitor_session.calibration_uuid·end_reason, collapse_event.end_reason
 --   correction_alert.correction_alert_id·attempt_seq·delivered·suppress_reason, UK-07
+-- 추가·삭제 (V2.8): T-54 local_credential, FK-31 (migration 018) — user_account.password_hash를 옮기고 지웠다
+--   ('!no-password' 고정값은 옮기지 않음 — 행 없음 = 비밀번호 없음) / T-55 email_verification_token, UK-21, CHECK 2개 (migration 019)
+-- 추가 (V2.7): T-52 social_identity, UK-18·UK-19, FK-29, CHECK 1개 / T-53 password_reset_token, UK-20, FK-30, CHECK 2개
+--   (migration 017). 기존 테이블은 바꾸지 않았다
+-- 추가 (V2.6): T-51 refresh_token, UK-17, FK-28, CHECK 4개 (migration 016). user_account.sound_alert_enabled 기본값 거짓 → 참,
+--   baseline_posture.client_registration_uuid 설명(WebSocket 등록 삭제) SPRING_SESSION·SPRING_SESSION_ATTRIBUTES는
+--   API가 더 쓰지 않지만 테이블은 남긴다(정리는 나중에)
+-- 추가·삭제 (V2.5): baseline_posture.client_registration_uuid, UK-16, ck_baseline_posture_client_registration_uuid 추가,
+--   UK-14(사용자, 등록 시각) 삭제. registered_at은 서버가 등록을 받은 시각 (migration 015)
+-- 삭제 (V2.4): feature_archive.row_count, ck_feature_archive_row_count (migration 013). 나머지 V2.4 변경은 설명만 (migration 013·014)
+-- 추가 (V2.3): daily_stat.min_until_collapse_sec·max_until_collapse_sec (migration 011), T-41 user_consent·FK-19 (migration 012)
 -- 추가 (V2.2): baseline_posture.baseline_posture_id(PK), monitor_session.baseline_posture_id, UK-14, UK-15, FK-27
 -- 폐기 (V2.1): T-27 feature_def, T-28 safety_range, T-31 baseline_feature, T-50 client_record, user_account.auth_epoch 등
 -- 폐기 (V2.0, CR-04): T-26 capture_device, T-32 model_version, T-42 deployment, T-43 error_log,
@@ -20,16 +32,36 @@
 -- 시드: seed_04_threshold_policy.sql (기본 판정 정책 값 4개).
 -- 기본 정책: 백엔드 설정의 값 4개로 threshold_policy를 찾고(UK-03), 없으면 새로 넣는다.
 -- 기준 자세: 다시 촬영할 때마다 새 행. 사용자별로 baseline_posture_id가 가장 큰 행이 현재 기준이다.
---   registered_at은 FE가 보정을 끝낸 시각 — 재전송 중복은 (사용자, 등록 시각) 유일 제약(UK-14)이 막는다.
+--   registered_at은 서버가 등록을 받은 시각이다. 재전송 중복은 앱이 등록마다 발급한 식별자
+--   client_registration_uuid와 (사용자, 등록 식별자) 유일 제약(UK-16)이 막는다 (ADR 0028).
 --   측정 시작 때 현재 기준의 baseline_posture_id를 세션에 넣는다. 세션이 쓴 기준 자세는 지울 수 없다 (FK-27).
 --   좌표 수집 조건(MediaPipe 모델·CAPTURE_RESOLUTION 640×480·관절 목록)은 고정하고, 바꾸면 전원 다시 촬영한다.
 -- 세션: 측정 시작 때 user_account.threshold_policy_id와 sound_alert_enabled(→ alert_enabled)를 복사한다.
---   종료 방식은 구분하지 않는다. ended_at·good_sec은 저장 서비스 한 곳에서 함께 쓴다.
+--   종료 방식은 구분하지 않는다. 결과 값(세션 ended_at·good_sec, excluded_interval, collapse_event, correction_alert)은
+--   한 곳에서 쓴다 — 지금은 입출구 서버, 계획 0031 2단계 뒤에는 처리 서비스(판정 결과 저장).
 -- 제외 구간: 한 시점에 사유 하나. 우선순위 자리 비움 → 일시정지 → 입력 누락 → 판정 불가 (BR-52). 사유가 바뀌면 새 행.
+-- 일별 통계: 붕괴까지 걸린 시간의 최소·최대는 실행 5분 이상 세션만, 제외 구간을 뺀 값 (붕괴 없이 끝난 구간도 포함).
+--   Spark J2(매일 00:00, 전날 KST)만 쓰고 입출구 서버는 읽기만 한다. 둘 다 쓰면 두 번 더해진다.
+-- 적재 기록: 세션 폴더 1행. 경로 /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/ (파일 3개).
+--   Spark J1이 기록하고, 삭제 때는 J3가 폴더를 먼저 지운다.
 -- 이벤트 종료 사유: 시각으로 판정 — recovered_at 있음: 회복 / 세션 ended_at과 같음: 세션 종료 / 그 밖: 제외 구간 중단.
 -- 교정 알림: 알림이 꺼져도 이벤트 확정 때와 realert_seconds마다 기록. attempted_at은 판정기가 정한 시각 (재전송 중복 방지).
--- 로그인 끊기: 비밀번호 변경·탈퇴 때 그 사용자의 SPRING_SESSION 행을 지운다 (PRINCIPAL_NAME으로 찾음).
--- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의를 그대로 쓴다.
+-- 사용자 동의: 가입 때 계정과 필수 동의 5행을 한 트랜잭션으로 넣는다. 만 14세 미만 확인은 백엔드가 한다.
+--   동의 기록은 계정 최종 삭제 때 함께 지운다(FK-19 CASCADE). 선택 정보 동의를 철회하면 나이·직업을 비운다.
+-- 로그인 (V2.6, ADR 0031): 짧은 access 토큰(JWT, 30분)은 저장하지 않는다. 로그인 유지 토큰(refresh, 14일)은 원문 대신
+--   SHA-256만 refresh_token에 두고, 쓸 때마다 새 행으로 바꾼다. 로그아웃·비밀번호 변경·탈퇴 때 그 사용자의 행을 철회한다.
+--   계정 최종 삭제 때 함께 지운다(FK-28 CASCADE). 만료된 행은 API가 하루에 한 번 지운다.
+-- 로그인 수단 (V2.8, 계획 0096): 계정(user_account) 하나에 비밀번호(local_credential, 0~1행)와 소셜 연결(social_identity,
+--   제공자마다 0~1행)을 붙인다. 비밀번호 있음 = local_credential 행 있음. 같은 이메일 계정을 묶는 규칙은 API가 정한다(계획 0096).
+--   둘 다 계정 최종 삭제 때 함께 지운다(FK-31·FK-29 CASCADE).
+-- 소셜 로그인 (V2.7, 계획 0088): 계정과 제공자 사용자 ID만 social_identity에 둔다(이메일·이름·제공자 토큰은 저장하지 않음).
+--   소셜로 가입한 계정은 비밀번호가 없어 local_credential 행이 없다(V2.7까지는 password_hash에 고정값 '!no-password').
+-- 비밀번호 재설정 (V2.7, 계획 0088): 30분짜리 일회용 메일 링크 토큰의 SHA-256만 password_reset_token에 둔다.
+--   한 번 쓰면 consumed_at을 채운다. 계정 최종 삭제 때 함께 지운다(FK-30 CASCADE). 만료된 행은 API가 하루에 한 번 지운다.
+-- 이메일 인증 (V2.8, 계획 0096): 가입 전 메일함 소유 확인용 일회용 링크 토큰의 SHA-256을 email_verification_token에 둔다.
+--   가입 전이라 계정 대신 정규화한 이메일로 주인을 둔다(FK 없음 — 계정 삭제 때 CASCADE로 지워지지 않음).
+--   한 번 쓰면 consumed_at을 채운다. 만료된 지 하루가 지난 행은 API가 하루에 한 번 지운다.
+-- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의. V2.6부터 쓰지 않는다(남겨 둠).
 --   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
 --   서버 DB는 이 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
 -- 인덱스: 보조 인덱스 없음. DB-05(쿼리 목록 → 인덱스) 후 migrations/에 별도 파일로 둔다.
@@ -37,8 +69,11 @@
 --   SPRING_SESSION 보조 인덱스(EXPIRY_TIME, PRINCIPAL_NAME)도 이때 둔다.
 -- 시각: SPRING_SESSION을 뺀 모든 DATETIME(3)은 KST(한국 표준시, +09:00)로 저장한다 (CR-04).
 --   DATETIME은 시간대 정보를 저장하지 않는다. 접속하는 애플리케이션도 세션 시간대를 Asia/Seoul로 맞춘다.
--- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제 배치」는 RESTRICT로 두고 배치가 순서대로 지운다.
---   탈퇴는 30일 유예 뒤 한 트랜잭션으로 지운다 (DB-04 V0.2 6-1). 세션을 먼저 지운 뒤 기준 자세를 지운다.
+-- 시간 값: DECIMAL(9,1) 시간은 밀리초의 0.1초 아래를 버린다(15,250ms → 15.2, D-58).
+--   버림은 세션(최소·최대는 표본)마다 하고, 합계는 다시 버리지 않는다.
+-- 삭제 동작: DB-04 1-1절. 「RESTRICT + 삭제 배치」는 RESTRICT로 두고 Spark J3(매일 04:00)가 순서대로 지운다.
+--   탈퇴는 되돌릴 수 없다(철회 없음). 입출구 서버는 접수만 하고, J3가 30일 유예 뒤 한 트랜잭션으로 지운다
+--   (DB-04 V0.2 6-1). 세션을 먼저 지운 뒤 기준 자세를 지운다.
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -71,12 +106,11 @@ CREATE TABLE threshold_policy (
 CREATE TABLE user_account (
   user_account_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 식별자 (로그인 계정이 바뀔 수 있으므로 대리키)',
   login_email VARCHAR(254) NOT NULL COMMENT '로그인 계정',
-  password_hash VARCHAR(100) NOT NULL COMMENT '비밀번호 단방향 해시. 평문 저장·응답 노출 금지',
   display_name VARCHAR(30) NOT NULL COMMENT '표시 이름',
-  account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED, 유예 기간 안에 철회하면 ACTIVE',
+  account_status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태. 탈퇴 요청 접수 시 CLOSED. 철회 없음 — CLOSED는 ACTIVE로 되돌아오지 않고, 유예 기간(30일) 뒤 Spark J3가 계정 행을 지운다',
   joined_at DATETIME(3) NOT NULL COMMENT '가입 시각',
   threshold_policy_id BIGINT NOT NULL COMMENT '다음 측정부터 적용할 판정 정책 (사용자 설정 병합)',
-  sound_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '소리 알림 사용 (사용자 설정 병합). 저장 여부 미결',
+  sound_alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '알림 켜기·끄기 (API preferences.alerts_on). 측정 시작 때 monitor_session.alert_enabled로 복사한다. 기본값 참(켜짐) — FE 화면 기본값에 맞춤(2026-10-27). 컬럼 이름 변경 여부는 미정',
   age INT NULL COMMENT '가입 시 입력한 나이. 선택. NULL: 입력 안 함',
   occupation VARCHAR(80) NULL COMMENT '가입 시 입력한 직업(자유 입력). 선택. NULL: 입력 안 함',
   CONSTRAINT pk_user_account PRIMARY KEY (user_account_id),
@@ -92,7 +126,8 @@ CREATE TABLE user_account (
 CREATE TABLE baseline_posture (
   baseline_posture_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '기준 자세 식별자. 다시 촬영할 때마다 새 행. 사용자별로 가장 큰 값이 현재 기준',
   user_account_id BIGINT NOT NULL COMMENT '기준 자세 소유 사용자. 사용자별로 baseline_posture_id가 가장 큰 행이 현재 기준',
-  registered_at DATETIME(3) NOT NULL COMMENT '보정을 끝낸 시각. FE가 정한 값을 그대로 저장 — 재전송해도 같은 값이라 (사용자, 등록 시각) 유일 제약이 중복 저장을 막는다. 현재 기준 판단에는 쓰지 않는다 (기기 시계 차이)',
+  client_registration_uuid VARCHAR(36) NOT NULL COMMENT '등록 식별자(UUID). 앱이 등록마다 한 번 발급하고 재전송에도 같은 값을 보낸다 — (사용자, 등록 식별자) 유일 제약(UK-16)이 중복 저장을 막는다. 등록은 B1뿐(WebSocket 등록은 V2.6에서 삭제)',
+  registered_at DATETIME(3) NOT NULL COMMENT '등록 시각. 서버가 등록을 받은 시각(KST)이다. 현재 기준 판단에는 쓰지 않는다 — 현재 기준은 baseline_posture_id가 가장 큰 행',
   nose_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
   nose_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 코 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
   left_eye_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 왼쪽 눈 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
@@ -112,9 +147,10 @@ CREATE TABLE baseline_posture (
   right_shoulder_x DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 어깨 x 좌표 평균. MediaPipe 정규화 좌표 — 화면 가로 길이에 대한 비율',
   right_shoulder_y DECIMAL(6,5) NOT NULL COMMENT '기준 자세 촬영(CALIBRATION_SEC) 동안의 오른쪽 어깨 y 좌표 평균. MediaPipe 정규화 좌표 — 화면 세로 길이에 대한 비율',
   CONSTRAINT pk_baseline_posture PRIMARY KEY (baseline_posture_id),
-  CONSTRAINT ux_baseline_posture_registered UNIQUE (user_account_id, registered_at),  -- UK-14 (재전송 중복 방지, FK-04 인덱스 겸용)
+  CONSTRAINT ux_baseline_posture_registration UNIQUE (user_account_id, client_registration_uuid),  -- UK-16 (재전송 중복 방지, FK-04 인덱스 겸용)
   CONSTRAINT ux_baseline_posture_owner UNIQUE (baseline_posture_id, user_account_id),  -- UK-15 (FK-27의 참조 대상)
   CONSTRAINT fk_baseline_posture_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-04
+  CONSTRAINT ck_baseline_posture_client_registration_uuid CHECK (CHAR_LENGTH(client_registration_uuid) = 36),  -- 허용값: UUID
   CONSTRAINT ck_baseline_posture_nose_x CHECK (nose_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_nose_y CHECK (nose_y BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
   CONSTRAINT ck_baseline_posture_left_eye_x CHECK (left_eye_x BETWEEN 0 AND 1),  -- 허용값: 0 ~ 1
@@ -147,7 +183,7 @@ CREATE TABLE monitor_session (
   alert_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '교정 알림 제공 여부. 측정 시작 때 user_account.sound_alert_enabled를 복사하고 측정 중에는 바꾸지 않는다. 거짓이어도 이벤트와 알림 시점은 기록 — 알림 행이 실제로 표시됐는지는 이 값으로 판단',
   started_at DATETIME(3) NOT NULL COMMENT '측정 시작 시각',
   ended_at DATETIME(3) NULL COMMENT '측정 종료 시각. NULL: 측정 중. 종료 방식(사용자 종료·연결 끊김·오류)은 구분하지 않는다',
-  good_sec DECIMAL(9,1) NULL COMMENT '바른 자세로 판정된 시간 (원자료, D-22). NULL: 측정 중',
+  good_sec DECIMAL(9,1) NULL COMMENT '바른 자세로 판정된 시간 (원자료, D-22). 밀리초 값의 0.1초 아래는 버린다(15,250ms → 15.2). NULL: 측정 중',
   CONSTRAINT pk_monitor_session PRIMARY KEY (monitor_session_id),
   CONSTRAINT ux_monitor_session_client_uuid UNIQUE (client_session_uuid),  -- UK-05
   CONSTRAINT fk_monitor_session_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-07
@@ -179,18 +215,16 @@ CREATE TABLE excluded_interval (
 CREATE TABLE feature_archive (
   feature_archive_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '적재 기록 식별자',
   monitor_session_id BIGINT NOT NULL COMMENT '소속 세션',
-  file_uri VARCHAR(500) COLLATE utf8mb4_bin NOT NULL COMMENT 'HDFS 파일 위치. 파일 하나는 한 세션의 특징값만 담음. 특징값 계산 방식은 파일 경로·메타 정보에 남긴다',
-  range_start_at DATETIME(3) NOT NULL COMMENT '파일에 담긴 첫 특징값 시각',
-  range_end_at DATETIME(3) NOT NULL COMMENT '파일에 담긴 마지막 특징값 시각',
-  row_count INT NOT NULL COMMENT '파일 행 수',
+  file_uri VARCHAR(500) COLLATE utf8mb4_bin NOT NULL COMMENT 'HDFS 세션 폴더 경로 /data/users/{user_account_id}/{세션 시작일(KST)}/{client_session_uuid}/. 세션 하나 = 폴더 하나(파일 3개) = 1행. Spark J1이 기록한다',
+  range_start_at DATETIME(3) NOT NULL COMMENT '세션 폴더에 담긴 첫 좌표 프레임 시각',
+  range_end_at DATETIME(3) NOT NULL COMMENT '세션 폴더에 담긴 마지막 좌표 프레임 시각',
   archived_at DATETIME(3) NOT NULL COMMENT '적재 시각',
-  deleted_at DATETIME(3) NULL COMMENT '삭제 처리로 파일을 지운 시각. NULL: 파일 보존 중. 값이 찬 행은 삭제 배치가 세션과 함께 지움 (재시도 지점)',
+  deleted_at DATETIME(3) NULL COMMENT '세션 폴더를 지운 시각. NULL: 폴더 보존 중. 값이 찬 행은 Spark J3가 세션과 함께 지운다 (재시도 지점)',
   CONSTRAINT pk_feature_archive PRIMARY KEY (feature_archive_id),
-  CONSTRAINT ux_feature_archive_file_uri UNIQUE (file_uri),  -- UK-06
-  CONSTRAINT fk_feature_archive_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-13 — RESTRICT + 삭제 배치
-  CONSTRAINT ck_feature_archive_range_end_at CHECK (range_end_at >= range_start_at),  -- 허용값: range_start_at 이후
-  CONSTRAINT ck_feature_archive_row_count CHECK (row_count >= 0)  -- 허용값: 0 이상
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-35 특징값 적재 기록 — HDFS 특징값 파일 위치·시각 범위';
+  CONSTRAINT ux_feature_archive_file_uri UNIQUE (file_uri),  -- UK-06 (세션 폴더 하나에 적재 기록 하나 — J3가 폴더 단위로 추적)
+  CONSTRAINT fk_feature_archive_monitor_session FOREIGN KEY (monitor_session_id) REFERENCES monitor_session (monitor_session_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-13 — RESTRICT + 삭제 배치 (J3가 세션 폴더를 먼저 지운 뒤 행을 지움)
+  CONSTRAINT ck_feature_archive_range_end_at CHECK (range_end_at >= range_start_at)  -- 허용값: range_start_at 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-35 특징값 적재 기록 — HDFS 세션 폴더 위치·시각 범위 (세션 폴더 1행, Spark J1이 기록)';
 
 -- ---------------------------------------------------------------------
 -- T-37 collapse_event — 붕괴 이벤트 (근거 E-14)
@@ -227,12 +261,14 @@ CREATE TABLE correction_alert (
 CREATE TABLE daily_stat (
   user_account_id BIGINT NOT NULL COMMENT '대상 사용자',
   stat_date DATE NOT NULL COMMENT '집계 날짜 (STAT_TIMEZONE = Asia/Seoul, 세션 시작 날짜 귀속)',
-  valid_sec DECIMAL(9,1) NOT NULL COMMENT '유효 측정 시간 합 (분모)',
-  good_sec DECIMAL(9,1) NOT NULL COMMENT '바른 자세 시간 합 (분자)',
+  valid_sec DECIMAL(9,1) NOT NULL COMMENT '유효 측정 시간 합 (분모). 세션마다 0.1초 아래를 버린 값을 더한다. 합계는 다시 버리지 않는다',
+  good_sec DECIMAL(9,1) NOT NULL COMMENT '바른 자세 시간 합 (분자). 세션 good_sec(이미 버린 값)을 더한다. 합계는 다시 버리지 않는다',
   session_count INT NOT NULL COMMENT '세션 수',
   event_count INT NOT NULL COMMENT '붕괴 이벤트 수',
   alerted_event_count INT NOT NULL COMMENT '알림이 표시된 이벤트 수 — alert_enabled가 참인 세션에서 알림 행이 있는 이벤트',
-  computed_at DATETIME(3) NOT NULL COMMENT '집계 시각 (재계산 추적)',
+  min_until_collapse_sec DECIMAL(9,1) NULL COMMENT '바른 자세에서 붕괴까지 걸린 시간의 최솟값(초). 구간 = 세션 시작 또는 직전 붕괴 이벤트 종료 → 다음 붕괴 시작(붕괴 없이 끝나면 세션 종료). 구간과 겹친 제외 구간 시간은 뺀다. 실행 시간(started_at → ended_at)이 5분(STAT_MIN_SESSION_SEC) 이상인 세션만 쓴다. NULL: 그날 표본 없음. 표본마다 0.1초 아래를 버린다',
+  max_until_collapse_sec DECIMAL(9,1) NULL COMMENT '바른 자세에서 붕괴까지 걸린 시간의 최댓값(초). 구간 = 세션 시작 또는 직전 붕괴 이벤트 종료 → 다음 붕괴 시작(붕괴 없이 끝나면 세션 종료). 구간과 겹친 제외 구간 시간은 뺀다. 실행 시간(started_at → ended_at)이 5분(STAT_MIN_SESSION_SEC) 이상인 세션만 쓴다. NULL: 그날 표본 없음. 표본마다 0.1초 아래를 버린다',
+  computed_at DATETIME(3) NOT NULL COMMENT '집계 시각 (재계산 추적). Spark J2가 쓴다',
   CONSTRAINT pk_daily_stat PRIMARY KEY (user_account_id, stat_date),
   CONSTRAINT fk_daily_stat_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-17
   CONSTRAINT ck_daily_stat_valid_sec CHECK (valid_sec >= 0),  -- 허용값: 0 이상
@@ -240,8 +276,11 @@ CREATE TABLE daily_stat (
   CONSTRAINT ck_daily_stat_session_count CHECK (session_count >= 0),  -- 허용값: 0 이상
   CONSTRAINT ck_daily_stat_event_count CHECK (event_count >= 0),  -- 허용값: 0 이상
   CONSTRAINT ck_daily_stat_alerted_event_count CHECK (alerted_event_count >= 0),  -- 허용값: 0 이상
+  CONSTRAINT ck_daily_stat_min_until_collapse_sec CHECK (min_until_collapse_sec >= 0),  -- 허용값: 0 이상
+  CONSTRAINT ck_daily_stat_max_until_collapse_sec CHECK (max_until_collapse_sec >= 0),  -- 허용값: 0 이상
+  CONSTRAINT ck_daily_stat_until_collapse CHECK ((min_until_collapse_sec IS NULL AND max_until_collapse_sec IS NULL) OR (min_until_collapse_sec IS NOT NULL AND max_until_collapse_sec IS NOT NULL AND min_until_collapse_sec <= max_until_collapse_sec)),  -- 최솟값·최댓값은 함께 채워지고 최솟값 ≤ 최댓값
   CONSTRAINT ck_daily_stat_subset CHECK (good_sec <= valid_sec AND alerted_event_count <= event_count)  -- BR-17·BR-22 분자는 분모를 넘지 않는다
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-39 일별 통계 — 사용자·일자별 분자·분모 집계 (마트)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-39 일별 통계 — 사용자·일자별 분자·분모 집계 (마트). Spark J2(매일 00:00, 전날 KST)만 쓰고 입출구 서버는 읽기만 한다';
 
 -- ---------------------------------------------------------------------
 -- T-40 deletion_request — 삭제 요청 (근거 E-31)
@@ -250,12 +289,12 @@ CREATE TABLE deletion_request (
   user_account_id BIGINT NOT NULL COMMENT '요청 사용자',
   requested_at DATETIME(3) NOT NULL COMMENT '요청 시각',
   request_scope VARCHAR(16) NOT NULL COMMENT '삭제 범위',
-  request_status VARCHAR(12) NOT NULL DEFAULT 'REQUESTED' COMMENT '처리 상태. DONE은 실제 삭제 완료 후에만',
+  request_status VARCHAR(12) NOT NULL DEFAULT 'REQUESTED' COMMENT '처리 상태. DONE은 실제 삭제 완료 후에만. 입출구 서버는 REQUESTED만 넣고 상태는 Spark J3만 바꾼다',
   account_closed_at DATETIME(3) NULL COMMENT '계정 폐쇄 시각. 탈퇴 유예 기간(WITHDRAWAL_GRACE_DAY)은 이 시각부터 센다. NULL: 기록만 삭제하는 범위이거나 폐쇄 전',
   data_deleted_at DATETIME(3) NULL COMMENT '자료 삭제 완료 시각 (HDFS 포함). NULL: 미완료',
   failure_reason VARCHAR(200) NULL COMMENT '실패 사유. NULL: 실패하지 않음',
   CONSTRAINT pk_deletion_request PRIMARY KEY (user_account_id, requested_at),
-  CONSTRAINT fk_deletion_request_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-18 — RESTRICT + 삭제 배치
+  CONSTRAINT fk_deletion_request_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE RESTRICT ON UPDATE RESTRICT,  -- FK-18 — RESTRICT + 삭제 배치 (탈퇴 최종 삭제 때 J3가 계정보다 먼저 지움)
   CONSTRAINT ck_deletion_request_request_scope CHECK (request_scope IN ('ACCOUNT_ALL', 'RECORDS_ONLY')),  -- 허용값: ACCOUNT_ALL / RECORDS_ONLY
   CONSTRAINT ck_deletion_request_request_status CHECK (request_status IN ('REQUESTED', 'PROCESSING', 'FAILED', 'DONE')),  -- 허용값: REQUESTED / PROCESSING / FAILED / DONE
   CONSTRAINT ck_deletion_request_done CHECK (request_status <> 'DONE' OR data_deleted_at IS NOT NULL),  -- BR-66 완료(DONE)는 자료 삭제 완료 시각이 있을 때만
@@ -263,7 +302,101 @@ CREATE TABLE deletion_request (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-40 삭제 요청 — 탈퇴·기록 삭제 요청과 처리 상태';
 
 -- ---------------------------------------------------------------------
--- T-48 SPRING_SESSION — 로그인 세션 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
+-- T-41 user_consent — 사용자 동의 (근거 E-38)
+-- ---------------------------------------------------------------------
+CREATE TABLE user_consent (
+  user_account_id BIGINT NOT NULL COMMENT '동의한 사용자. 계정 최종 삭제(탈퇴 30일 뒤) 때 함께 지운다',
+  consent_type VARCHAR(20) NOT NULL COMMENT '동의 종류. 이용약관(C1)·회원가입 정보(C2)·선택 정보 나이·직업(C3, 선택)·카메라 관절 좌표(C4)·측정 기록 저장(C5)·만 14세 이상 확인(C6). OPTIONAL_PROFILE 외에는 필수',
+  agreed_at DATETIME(3) NOT NULL COMMENT '동의 시각. 동의할 때마다 새 행 — 종류별로 가장 최근 행이 현재 상태',
+  document_version VARCHAR(20) NOT NULL COMMENT '동의한 문구 버전 (예: terms-2026-10). 문구 본문은 저장소에서 버전별로 관리. 약관이 바뀌면 새 버전으로 다시 동의받는다',
+  withdrawn_at DATETIME(3) NULL COMMENT '철회 시각. NULL: 유효. 선택 정보(OPTIONAL_PROFILE)를 철회하면 user_account의 나이·직업을 비운다. 탈퇴 접수 때는 채우지 않는다',
+  CONSTRAINT pk_user_consent PRIMARY KEY (user_account_id, consent_type, agreed_at),
+  CONSTRAINT fk_user_consent_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-19
+  CONSTRAINT ck_user_consent_consent_type CHECK (consent_type IN ('TERMS', 'ACCOUNT_INFO', 'OPTIONAL_PROFILE', 'POSE_COORDINATES', 'MEASUREMENT_RECORD', 'AGE_14_OVER')),  -- 허용값: TERMS / ACCOUNT_INFO / OPTIONAL_PROFILE / POSE_COORDINATES / MEASUREMENT_RECORD / AGE_14_OVER
+  CONSTRAINT ck_user_consent_withdrawn_at CHECK (withdrawn_at >= agreed_at)  -- 허용값: agreed_at 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-41 사용자 동의 — 가입·설정에서 받은 동의를 항목별로 기록';
+
+-- ---------------------------------------------------------------------
+-- T-51 refresh_token — 로그인 유지 토큰 (근거 ADR 0031 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE refresh_token (
+  refresh_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '로그인 유지 토큰 식별자',
+  user_account_id BIGINT NOT NULL COMMENT '토큰 주인. 계정 최종 삭제 때 함께 지운다',
+  token_hash CHAR(64) NOT NULL COMMENT '토큰 원문의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 앱의 HttpOnly 쿠키에만 있다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 14일, posegood.auth.refresh-lifetime)',
+  rotated_at DATETIME(3) NULL COMMENT '새 토큰으로 바꾼 시각. NULL: 아직 쓰지 않음. 바꾼 뒤 유예(30초) 안의 재사용은 허용하고, 그 뒤 재사용은 탈취로 보고 그 사용자의 토큰을 모두 철회한다',
+  revoked_at DATETIME(3) NULL COMMENT '철회 시각 (로그아웃·비밀번호 변경·탈퇴·재사용 감지). NULL: 철회 안 됨',
+  CONSTRAINT pk_refresh_token PRIMARY KEY (refresh_token_id),
+  CONSTRAINT ux_refresh_token_token_hash UNIQUE (token_hash),  -- UK-17
+  CONSTRAINT fk_refresh_token_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-28
+  CONSTRAINT ck_refresh_token_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_refresh_token_expires_at CHECK (expires_at > issued_at),  -- 허용값: 발급 이후
+  CONSTRAINT ck_refresh_token_rotated_at CHECK (rotated_at >= issued_at),  -- 허용값: 발급 이후
+  CONSTRAINT ck_refresh_token_revoked_at CHECK (revoked_at >= issued_at)  -- 허용값: 발급 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-51 로그인 유지 토큰 — refresh 토큰 해시와 교체·철회 상태';
+
+-- ---------------------------------------------------------------------
+-- T-52 social_identity — 소셜 로그인 연결 (근거 계획 0088 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE social_identity (
+  social_identity_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '소셜 연결 식별자',
+  user_account_id BIGINT NOT NULL COMMENT '연결된 계정. 계정 최종 삭제 때 함께 지운다',
+  provider VARCHAR(20) NOT NULL COMMENT '제공자 (DISCORD·KAKAO·GOOGLE·GITHUB). 지금 동작은 DISCORD만',
+  provider_subject VARCHAR(64) NOT NULL COMMENT '제공자의 바뀌지 않는 사용자 ID (Discord id·Kakao id·Google sub·GitHub id). 이메일·이름·제공자 토큰은 저장하지 않는다',
+  linked_at DATETIME(3) NOT NULL COMMENT '연결 시각',
+  CONSTRAINT pk_social_identity PRIMARY KEY (social_identity_id),
+  CONSTRAINT ux_social_identity_subject UNIQUE (provider, provider_subject),  -- UK-18: 제공자 사용자 하나는 계정 하나에만
+  CONSTRAINT ux_social_identity_account UNIQUE (user_account_id, provider),  -- UK-19: 계정 하나는 제공자마다 연결 하나
+  CONSTRAINT fk_social_identity_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-29
+  CONSTRAINT ck_social_identity_provider CHECK (provider IN ('DISCORD', 'KAKAO', 'GOOGLE', 'GITHUB'))  -- 허용값: DISCORD / KAKAO / GOOGLE / GITHUB
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-52 소셜 로그인 연결 — 계정과 소셜 제공자 사용자 ID';
+
+-- ---------------------------------------------------------------------
+-- T-53 password_reset_token — 비밀번호 재설정 토큰 (근거 계획 0088 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE password_reset_token (
+  password_reset_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재설정 토큰 식별자',
+  user_account_id BIGINT NOT NULL COMMENT '토큰 주인. 계정 최종 삭제 때 함께 지운다',
+  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 메일의 링크에만 있다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 30분, posegood.auth.password-reset.lifetime)',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (재설정 완료, 새 발급, 비밀번호 변경·탈퇴). NULL: 아직 쓸 수 있음',
+  CONSTRAINT pk_password_reset_token PRIMARY KEY (password_reset_token_id),
+  CONSTRAINT ux_password_reset_token_hash UNIQUE (token_hash),  -- UK-20
+  CONSTRAINT fk_password_reset_token_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT,  -- FK-30
+  CONSTRAINT ck_password_reset_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_password_reset_token_expires CHECK (expires_at > issued_at)  -- 허용값: 발급 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-53 비밀번호 재설정 토큰 — 일회용 메일 링크 토큰 해시와 사용 상태';
+
+-- ---------------------------------------------------------------------
+-- T-54 local_credential — 비밀번호 로그인 수단 (근거 계획 0096 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE local_credential (
+  user_account_id BIGINT NOT NULL COMMENT '계정. 계정 하나에 하나. 행이 없으면 비밀번호 없는 계정(소셜 전용). 계정 최종 삭제 때 함께 지운다',
+  password_hash VARCHAR(100) NOT NULL COMMENT '비밀번호 단방향 해시(BCrypt). 평문 저장·응답 노출 금지',
+  CONSTRAINT pk_local_credential PRIMARY KEY (user_account_id),
+  CONSTRAINT fk_local_credential_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-31
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-54 비밀번호 로그인 수단 — 계정의 비밀번호 해시';
+
+-- ---------------------------------------------------------------------
+-- T-55 email_verification_token — 이메일 인증 토큰 (근거 계획 0096 — E-ID는 DB-02 반영 때 부여)
+-- ---------------------------------------------------------------------
+CREATE TABLE email_verification_token (
+  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 토큰 식별자',
+  login_email VARCHAR(254) NOT NULL COMMENT '인증할 이메일(정규화: 앞뒤 공백 제거·소문자). 가입 전이라 계정 FK가 없다',
+  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 메일의 링크에만 있다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 설정값)',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 새 발급). NULL: 아직 쓸 수 있음',
+  CONSTRAINT pk_email_verification_token PRIMARY KEY (email_verification_token_id),
+  CONSTRAINT ux_email_verification_token_hash UNIQUE (token_hash),  -- UK-21
+  CONSTRAINT ck_email_verification_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_email_verification_token_expires CHECK (expires_at > issued_at)  -- 허용값: 발급 이후
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-55 이메일 인증 토큰 — 가입 전 메일함 소유 확인용 일회용 링크 토큰 해시와 사용 상태';
+
+-- ---------------------------------------------------------------------
+-- T-48 SPRING_SESSION — 로그인 세션, V2.6부터 쓰지 않음 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
 -- ---------------------------------------------------------------------
 CREATE TABLE SPRING_SESSION (
   PRIMARY_ID CHAR(36) NOT NULL,
@@ -288,4 +421,4 @@ CREATE TABLE SPRING_SESSION_ATTRIBUTES (
   CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
 ) ENGINE=InnoDB;
 
--- 끝: 테이블 12개, 컬럼 92개, UK 7개, FK 12개, CHECK 46개
+-- 끝: 테이블 18개, 컬럼 124개, UK 12개, FK 17개, CHECK 60개

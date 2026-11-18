@@ -31,6 +31,11 @@ import java.util.Set;
  * <p>(D-37) {@link #snapshot()}·{@link #restore(Map)}로 판정 상태 전체(누적 시간·진행 중 사건·사건 목록·마지막 sequence)를
  * 외부 저장소(Redis)에 담았다가 api-server 재시작 뒤 그대로 이어간다.
  *
+ * <p>(D-57) 관측: 반영한 구간마다 {@code observation}(앱 관측 4.0의 재료)을 낸다 — 그 구간의 good·bad(정책 threshold),
+ * 점수, 이 구간까지 이탈 후보가 이어진 시간({@code hold_ms}), 열린 사건에서 바른 구간이 이어진 시간({@code recovery_ms}).
+ * 팀 API 판정({@code SessionEngine.live})과 같은 규칙이다: 유효하지 않은 구간은 posture·점수 null·이어진 시간 0, 사건이 없으면
+ * recovery_ms 0. 입출구 서버({@code ws})는 이것을 받아 앱에 보내기만 한다(판정 규칙을 두 곳에 두지 않음).
+ *
  * <p>(D-39) 제외 구간: 판정에서 뺀 시간(휴식 {@code rest}·자리 비움 {@code away}·판정 불가 {@code unmeasurable}·
  * 입력 누락 {@code missing})의 경계를 {@code excluded_started}·{@code excluded_ended} 사건으로 낸다. 판정 결과 저장이 이것으로
  * {@code excluded_interval}을 기록한다. 구간은 팀 API 판정({@code backend/api} {@code engine/Timeline})과 같다 — 붙어 있는
@@ -47,9 +52,13 @@ public final class V1SessionJudge {
 	static final Set<String> EXCLUSION_REASONS = Set.of("rest", "away", "unmeasurable", "missing");
 
 	/** 관측 1개를 처리한 결과. {@code skipped}가 있으면 반영하지 않은 것. */
-	public record Result(List<Map<String, Object>> decisions, Map<String, Object> progress, String skipped) {
+	public record Result(
+		List<Map<String, Object>> decisions,
+		Map<String, Object> progress,
+		Map<String, Object> observation,
+		String skipped) {
 		static Result skip(String why) {
-			return new Result(List.of(), null, why);
+			return new Result(List.of(), null, null, why);
 		}
 	}
 
@@ -324,6 +333,7 @@ public final class V1SessionJudge {
 			}
 		}
 		lastSequence = observation.sequence();
+		Map<String, Object> live = observationBody(observation);
 
 		Map<String, Object> summary = summary();
 		List<Map<String, Object>> decisions = new ArrayList<>();
@@ -335,7 +345,7 @@ public final class V1SessionJudge {
 			progress = progressBody(summary);
 			lastProgressMs = endMs;
 		}
-		return new Result(decisions, progress, null);
+		return new Result(decisions, progress, live, null);
 	}
 
 	/** {@code session_ended}(end_ms) 처리. 이미 끝났으면 건너뜀. */
@@ -362,7 +372,7 @@ public final class V1SessionJudge {
 			decisions.add(decisionBody(event, summary));
 		}
 		lastProgressMs = endMs;
-		return new Result(decisions, progressBody(summary), null);
+		return new Result(decisions, progressBody(summary), null, null);
 	}
 
 	/**
@@ -384,7 +394,7 @@ public final class V1SessionJudge {
 			decisions.add(decisionBody(event, summary));
 		}
 		lastProgressMs = endMs;
-		return new Result(decisions, progressBody(summary), null);
+		return new Result(decisions, progressBody(summary), null, null);
 	}
 
 	public synchronized boolean ended() {
@@ -501,6 +511,26 @@ public final class V1SessionJudge {
 		body.put("last_sequence", lastSequence);
 		body.put("event", event);
 		body.put("summary", summary);
+		return body;
+	}
+
+	/**
+	 * (D-57) 방금 반영한 구간의 관측. 유효하면 good·bad·점수와 이어진 시간(반영한 뒤의 값 — 확정 규칙이 세는 것과 같음),
+	 * 아니면 null·0. 회복 쪽은 열린 사건이 있을 때만 센다(사건이 없으면, 이 구간에서 회복이 확정돼 닫혔어도 0).
+	 */
+	private Map<String, Object> observationBody(V1Observation observation) {
+		boolean judged = observation.valid();
+		boolean bad = observation.collapseProbability() >= policy.threshold();
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("sequence", observation.sequence());
+		body.put("start_ms", observation.startMs());
+		body.put("end_ms", observation.endMs());
+		body.put("phase", observation.phase());
+		body.put("valid", judged);
+		body.put("posture", judged ? (bad ? "bad" : "good") : null);
+		body.put("collapse_probability", judged ? observation.collapseProbability() : null);
+		body.put("hold_ms", judged ? holdMs : 0L);
+		body.put("recovery_ms", judged && active != null ? recoveryMs : 0L);
 		return body;
 	}
 

@@ -16,6 +16,7 @@ import type { CameraController } from '../hooks/useCamera'
 import { ErrorPage, ERROR_PAGES } from './ErrorPage'
 import { ThemeIllustration } from '../features/appearance/ThemeIllustration'
 import { desktopBridge } from '../features/desktop/bridge'
+import { AccountFlowPreview, AccountMailStatus } from '../features/auth/AccountFlowPreview'
 import { useAppearance } from '../features/appearance/theme'
 
 const SECTIONS = [ ['errors', '오류 페이지'], ['camera', '카메라·인식'], ['alerts', '알림·연결'], ['appearance', '화면·모션'], ['records', '기록·수집'], ['diagnostics', '상태·버전'] ] as const
@@ -41,6 +42,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
   const [selectedError, setSelectedError] = useState<keyof typeof CAMERA_ERRORS>('permissionDenied')
   const [selectedNotice, setSelectedNotice] = useState<PerformanceNotice>('cpu')
   const [errorPreview, setErrorPreview] = useState<keyof typeof CAMERA_ERRORS | null>(null)
+  const [accountPreview, setAccountPreview] = useState(false)
   const [interaction, setInteraction] = useState(false)
   const [webError, setWebError] = useState<typeof WEB_ERRORS[number][0]>('server')
   const [webErrorPreview, setWebErrorPreview] = useState(false)
@@ -106,6 +108,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
     </>)}
     {section('appearance', '테마는 실제 앱에 적용하고, 준비 단계·차트·설명 표시는 별도 화면에서 확인해요.', <>
       <Tool title="앱 테마·아이콘" description="설정의 실제 화면 꾸미기로 이동해 테마·밝기·아이콘 적용을 확인해요."><button className="btn btn-sm" onClick={onSettings}>화면 꾸미기 열기</button><AppearanceDiagnostics /></Tool>
+      <Tool title="계정 인증 흐름"><details><summary>비밀번호 찾기·이메일 인증·Discord 연결 점검</summary><AccountMailStatus /><button className="chip" onClick={() => setAccountPreview(true)}>합성 계정 흐름 열기</button></details></Tool>
       <Tool title="준비 단계·차트·설명 표시"><button className="chip" onClick={() => setInteraction(true)}>화면·모션 미리보기 열기</button></Tool>
     </>)}
     {section('records', '예시 데이터를 실제 오늘·기록 화면에서 보고, 자세 데이터 수집 화면으로 이동해요.', <>
@@ -120,6 +123,7 @@ export function DeveloperToolsPage({ camera, hasHistory, onHasHistory, onCollect
     {simulation && <CameraFaultPreview scenario="fallback" performance={simulation === 'limited' || simulation === 'unknown' ? simulation : undefined} onClose={() => setSimulation(null)} />}
     {notice && <PerformanceDialog notice={notice} preview onDismiss={() => setNotice(null)} />}
     {errorPreview && <CameraFaultPreview scenario="failed" errorKey={errorPreview} onClose={() => setErrorPreview(null)} />}
+    {accountPreview && <DeveloperPreviewDialog title="계정 인증 흐름 · 합성 점검" onClose={() => setAccountPreview(false)}><AccountFlowPreview onClose={() => setAccountPreview(false)} /></DeveloperPreviewDialog>}
     {interaction && <DeveloperPreviewDialog title="준비 단계·차트·설명 표시" onClose={() => setInteraction(false)}><InteractionPreview /></DeveloperPreviewDialog>}
     {webErrorPreview && <DeveloperPreviewDialog title="웹 오류 페이지" onClose={() => setWebErrorPreview(false)}>{webError === 'connecting' ? <iframe className="dev-connecting-preview" title="앱 연결 중 화면" src={connectingUrl} /> : <ErrorPage kind={webError} status={webError === 'request' ? 400 : webError === 'server' ? 503 : null} at={Date.now()} recordsSafe onClose={() => setWebErrorPreview(false)} />}</DeveloperPreviewDialog>}
   </div>
