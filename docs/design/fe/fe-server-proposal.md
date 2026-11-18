@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-26은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-27은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -11,11 +11,11 @@
 
 다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17).
 
-| # | 요구 | 누가 | 지금 상태(11/16) | 언제 |
+| # | 요구 | 누가 | 지금 상태(11/18) | 언제 |
 |---|---|---|---|---|
 | 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
 | 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
-| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | 서버·앱·계약·문서 수정 끝(BE 브랜치 `refactor/repo-remove-api-version-paths` `eae3317`, 11/18. #125는 닫고 브랜치로 진행). develop 병합·운영 배포 남음 | 브랜치 develop 병합 뒤, 서버·웹 같은 날(FE 할 일 7) |
+| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | 운영 서버는 11/18 버전 없는 판으로 바뀜(gateway에 옛 `/api/v2` 임시 별칭, 운영 앱 그대로 동작). 남은 것: 브랜치 develop 병합 → Vercel 배포 → 별칭·Discord 옛 주소 삭제 | 11/19 통신 시험 뒤 병합 순서 합의(FE 할 일 7) |
 | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | D-57 병합 때 함께 |
 | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
 | 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | kafka 브랜치 코드는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
@@ -26,6 +26,7 @@
 | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
 | 12 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
 | 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 주소·파일 이름·저장 키의 버전은 빠졌고(요구 3, 할 일 8) 메시지 필드만 남음 | `/v2` 배포 뒤, 요구 4·5와 같은 계약 판에 |
+| 14 | 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27) | DB·BE | DevOps가 11/18 발견. 앱은 늘 「켜짐」으로 보이는데 꺼진 계정은 소리·팝업·토스트가 안 온다 | 통신 시험(11/19) 전 |
 
 **kafka 브랜치 확인(11/16 `feat/ws-kafka-pipeline` `1067dab`):** 요구 4는 아직 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
@@ -58,14 +59,18 @@
 
 ### 요구 3. API 경로에서 버전(`/v2`) 빼기 (옛 10)
 
-- **한줄요약:** 모든 주소의 `/v2`를 뺀다(`/api/v2/auth/login` → `/api/auth/login`, 측정 WebSocket `/api/realtime`, 추론 `POST /infer`). **코드는 끝났고 운영 배포만 남았다.**
+- **한줄요약:** 모든 주소의 `/v2`를 뺀다(`/api/v2/auth/login` → `/api/auth/login`, 측정 WebSocket `/api/realtime`, 추론 `POST /infer`). **운영 서버는 11/18 바뀌었고(옛 주소는 임시 별칭), develop 병합과 웹 배포가 남았다.**
 - **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
 - **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다.
 - **진행(11/18):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`eae3317`)에서 서버·추론·nginx·점검 도구·계약·문서와 **앱 코드**(`API_ROOT` = `'/api'`, `API_VERSION` 삭제, 가짜 서버·시험 주소)를 한 번에 고쳤다. PR #125는 병합 없이 닫혔고(11/17), 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받았다. [ADR 0049](../../decisions/0049-no-version-in-names.md)·[계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)의 버전도 뺐다. FE는 같은 브랜치 위에서 이 문서·ADR의 주소와 브라우저 저장 키 이름(할 일 8)을 정리했다. 메시지 안 버전 필드는 요구 13으로 따로 한다.
-- **요구사항/변경사항 — 배포는 한 번에:** 서버는 옛 주소를 받지 않는다(BREAKING. 옛·새 주소를 한동안 같이 받는 안은 쓰지 않음). 운영 서버는 배포 날까지 `/api/v2/…`만 받으므로, 앱만 먼저 나가면 로그인부터 모두 실패한다. 그래서 아래를 **같은 때** 한다.
-  1. DevOps·BE: 브랜치를 develop에 병합하고 io-api·추론(io-inference)을 다시 빌드한다. gateway·web의 nginx도 WebSocket 경로가 `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
-  2. DevOps: Discord Developer Portal Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 바꾼다. 확인 뒤 옛 주소를 지운다.
-  3. FE: 할 일 7(Cloudflare 요청 제한, 포크·Vercel 배포, 옛 데스크톱 설치판 안내).
+- **서버 반영(11/18 DevOps 공유, D-94):** 운영 서버(io-api·추론·web·gateway·Kafka 토픽)를 버전 없는 판으로 바꿨다. 통합 테스트 `--quick --kafka` PASS 104 / FAIL 0, 운영 모드는 local 그대로. 운영 앱(Vercel = develop)은 아직 `/api/v2/…`를 부르므로(1시간에 484건) **gateway에 임시 별칭**을 두었다: `/api/v2/realtime` → `/realtime`, `/api/v2/…` → `/…`(`infra/nginx/gateway.conf`, DevOps 브랜치 `fix/infra-api-v2-transition` `84ce7e7`). 옛 Discord 콜백 `/api/v2/auth/social/discord/callback`도 별칭으로 302가 나 Discord 로그인이 유지된다. 그래서 **서버와 웹을 같은 때 바꿀 필요가 없어졌다.**
+  - FE 확인: 로그인 유지 쿠키는 경로가 `/`(`posegood.auth.refresh-cookie-path`)라 주소가 `/api/v2/auth/…` → `/api/auth/…`로 바뀌어도 그대로 실려, 배포 때 다시 로그인할 일이 없다.
+- **요구사항/변경사항 — 남은 순서**(DevOps 공유 4장):
+  1. DevOps·BE: 11/19 통신 시험(① 서버 화면 `localhost:8088` 측정까지 ② 운영 앱 별칭 경유, Discord 포함).
+  2. DevOps → DB/BE: `fix/infra-api-v2-transition`을 `refactor/repo-remove-api-version-paths`로 PR. FE도 `docs/fe-remove-v2-sync`(이 문서·ADR·저장 키, 할 일 8)를 같은 브랜치로 보낸다. 두 브랜치는 겹치는 파일이 없다(11/18 확인).
+  3. DB/BE: 브랜치를 develop에 병합 → FE: 포크를 올려 Vercel 배포(할 일 7).
+  4. FE 배포 확인 뒤 DevOps: gateway 별칭 삭제, 서버 `.env` `POSEGOOD_DISCORD_REDIRECT_URI`와 Discord Portal Redirect를 `…/api/auth/social/discord/callback`으로 **함께** 바꾼다. 그 전까지 둘 다 옛 주소 그대로.
+  5. DevOps: 며칠 뒤 옛 토픽·그룹·HDFS 임시 폴더 정리(D-82).
 - **알고 정한 것:** 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 주소로 요청하므로 배포 뒤 로그인·측정이 안 된다. 받아 주지 않고 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(11/16 BE 결정).
 
 ### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
@@ -211,6 +216,19 @@
   - io-api 안쪽(추론 `InferenceRequest`·Kafka 메시지)의 `schema_version`은 BE·DevOps가 같은 순서로 정한다. 동의 문서 버전(`service-v2`), DB 버전, 모델·특징 버전, 저장된 파일 형식(개발자 실험 JSON 등)은 ADR 0049의 예외라 그대로 둔다.
   - 요구 4(`ack` 빼기)·5(`features` 묶음 단계)도 실시간 계약을 바꾸므로 한 계약 판에 같이 하면 시험이 한 번으로 끝난다.
 
+### 요구 14. 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27)
+
+- **한줄요약:** 운영 DB에서 `user_account.sound_alert_enabled`가 0인 계정을 1로 켜고, 기본값이 참(1)인지 확인한다. 앱에는 알림 끄기 화면이 없다.
+- **발단:** 11/18 DevOps 공유(D-94 문서 5장, D-96): 「서버 DB 기본값이 0이면 새 계정은 알림 꺼짐으로 시작한다(앱은 늘 켜짐 표시)」. 11/19 통신 시험 전 시험 계정 값을 본다고 했다.
+- **원인(11/18 FE 코드 확인):**
+  - 앱은 서버의 `preferences.alerts_on`(W1)을 **읽기만 하고 화면에 쓰지 않는다.** 설정 「자세 알림」은 서버 계정에서 늘 「켜짐」 표시(`SettingsPage.tsx`), 측정 화면 `alertsOn`도 늘 참이다(기능 명세 「앱은 이 값을 바꾸지 않는다」).
+  - 서버는 S1 때 계정 값을 세션 `alert_enabled`로 복사하고, 거짓이면 WS `alert`를 보내지 않는다(`RealtimeHandler`). 앱의 소리·앱 밖 알림창·토스트는 `alert`로만 울린다(`useLiveSession` `onAlert`). 빨간 테두리·「자세를 살짝 고쳐볼까요?」는 `decision`으로 나와 그대로 보인다.
+  - 그래서 값이 0인 계정은 **「켜짐」으로 보이는데 소리·팝업이 안 오는** 상태가 된다.
+  - 스키마는 V2.6부터 기본값 참(`schema_V2_8.sql`, 2026-10-27 FE 화면 기본값에 맞춤)이다. 기본값을 바꾸기 전에 만든 계정, 또는 운영 DB 기본값이 실제로 거짓인지가 확인할 점이다.
+- **요구사항/변경사항:**
+  1. DB·BE: 운영 DB의 칼럼 기본값을 확인하고(참이어야 함), 값이 0인 활성 계정을 1로 바꾼다. 몇 개였는지 알려 달라.
+  2. 앱에 알림 끄기를 다시 넣을 계획은 없다. 넣게 되면 그때 W2 `preferences.alerts_on`으로 저장하고 W1 값을 화면에 보인다(FE).
+
 ## 1. 해야 할 일
 
 FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났다. 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
@@ -221,8 +239,8 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
-| 7 | API 주소 `/v2` 삭제 배포 대응 | BE 브랜치 develop 병합 뒤(배포 날) |
-| 8 | 브라우저 저장 키에서 버전 빼기 | 코드 끝, 할 일 7과 같이 배포 |
+| 7 | API 주소 `/v2` 삭제 배포 대응 | BE 브랜치 develop 병합 뒤 |
+| 8 | 브라우저 저장 키에서 버전 빼기 | 코드 끝, 할 일 7과 같이 배포(서버와 무관) |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -255,16 +273,19 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 #### 할 일 7. API 주소 `/v2` 삭제 배포 대응
 
-- **한줄요약:** BE의 `/v2` 삭제(요구 3)를 운영에 낼 때 FE 몫(우리 브랜치 먼저 넣기, 포크 push 멈춤, Cloudflare, 배포 날 Vercel, 데스크톱 안내)을 순서대로 한다.
-- **발단:** 11/16 BE 공지 두 건(develop 병합 안내, 배포 때 바꿀 설정). 서버는 옛 주소를 받지 않아 서버와 웹을 같은 때 배포해야 한다.
-- **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. BE 브랜치가 develop에 들어간 뒤 다른 일로 포크를 올리면, 서버가 바뀌기 전에 `/v2` 없는 앱이 나가 로그인부터 끊긴다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다.
+- **한줄요약:** BE 브랜치가 develop에 들어가면 포크를 올려 Vercel을 배포하고, 새 주소로 부르는지 확인한 뒤 DevOps에 별칭 삭제를 알린다.
+- **발단:** 11/16 BE 공지(develop 병합 안내, 배포 때 바꿀 설정)와 11/18 DevOps 공유(서버 반영·전환 기간 별칭, D-94).
+- **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. 운영 서버는 11/18부터 새 주소와 옛 주소(gateway 별칭)를 둘 다 받으므로, 옛 앱·새 앱 어느 쪽이 나가도 끊기지 않는다. 별칭을 지우는 것은 FE 배포를 확인한 뒤다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다(저장 키는 할 일 8).
 - **요구사항/변경사항:**
-  1. ~~**D-57 통신 시험 직후:** FE 작업 브랜치(`docs/fe-docs-sync`)를 **BE 브랜치보다 먼저** develop에 넣고 포크를 올려 배포·확인한다.~~ **11/17 함**(#130). BE 브랜치가 11/18 develop `ed72615`을 받아 충돌을 정리했다.
-  2. **BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 develop을 push하지 않는다.**
-  3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다(옛 경로는 남김). 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개로 한 번에 끝난다.
-  4. **배포 날:** DevOps가 서버(`.env` Discord Redirect, io-api·inference·gateway·web)를 올린 **바로 뒤** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인: 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한.
-  5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다. 새 판은 `frontend`에서 `npm run desktop:portable`로 만든 `release/PoseGood.exe` 한 파일이다(설치 없이 실행, 서명 없어 처음에 SmartScreen 경고). 웹 주소를 열어 화면은 Vercel 배포를 따라가므로, `frontend/electron/`을 바꿀 때만 다시 만든다. 설치 마법사(NSIS)가 필요하면 그때 정한다.
-  6. **문제가 생기면:** 서버와 웹을 **둘 다** 이전 판으로 되돌린다(하나만 되돌리면 주소가 다시 어긋난다). 웹은 Vercel에서 이전 Production 배포를 다시 올린다.
+  1. ~~FE 작업 브랜치(`docs/fe-docs-sync`)를 BE 브랜치보다 먼저 develop에 넣기~~ — **11/17 함**(#130).
+  2. ~~BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 push 멈추기~~ — **필요 없어짐**(11/18 별칭으로 서버가 두 주소를 다 받음).
+  3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다. 별칭이 남은 동안은 옛 경로도 실제로 쓰이므로 둘 다 둔다. 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개다.
+  4. **BE 브랜치가 develop에 들어가면:** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인(DevOps 요청):
+     - 브라우저 개발자 도구 네트워크 탭에서 REST가 `/api/…`(버전 없음), WebSocket이 `/api/realtime`인지
+     - 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한
+     - 데스크톱 앱(F14)도 같은 확인. 새 설치판 exe는 웹 주소를 열어 Vercel 배포를 따라가므로 `frontend/electron/`을 바꿀 때만 같은 판으로 다시 만든다(`npm run desktop:portable` → `release/PoseGood.exe`).
+  5. **확인 뒤:** DevOps에 알려 별칭 삭제·Discord Redirect 변경(요구 3의 4번)을 하게 한다. 그 뒤 Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판(화면을 앱 안에 가진 판) 사용자에게 새 설치판을 다시 깔라고 안내한다 — 별칭이 지워지면 옛 판은 로그인·측정이 안 된다.
+  6. **문제가 생기면:** 별칭이 남아 있는 동안은 **웹만** Vercel에서 이전 Production 배포로 되돌리면 된다. 별칭을 지운 뒤라면 서버·웹을 둘 다 되돌린다.
 
 #### 할 일 8. 브라우저 저장 키에서 버전 빼기
 
@@ -286,7 +307,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 요구 | FE가 할 일 | 언제 |
 |---|---|---|
 | 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
-| 3 `/v2` 빼기 | 할 일 7(앱 코드는 BE 브랜치에 이미 있음) | BE 브랜치 develop 병합 뒤(배포 날) |
+| 3 `/v2` 빼기 | 할 일 7(앱 코드는 BE 브랜치에 이미 있음) | BE 브랜치 develop 병합 뒤 |
 | 4 `ack` 빼기 | 계약 `realtime-ws.schema.json`의 `ack`·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
 | 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
@@ -295,7 +316,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
 | 13 `schema_version` 빼기 | ① 받기: `baseline/client.ts`·`session/server/validation.ts`가 필드 없이도 받게 ② 보내기: `LiveSession.ts` `hello`·`frames.ts` `FRAME_SCHEMA_VERSION` 삭제 ③ 연동 명세 예시 | ①은 언제든(지금 판과 호환), ②는 서버 ① 배포 뒤 |
 
-앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
+앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기), 14(알림 값 켜기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
 ### 지금 하지 않는 것
 
@@ -323,7 +344,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 ## 2. 지금 구조
 
-기준: BE 브랜치 `refactor/repo-remove-api-version-paths` `eae3317`(develop `ed72615` + `/v2` 삭제, 2026-11-18). 주소는 `/v2`를 뺀 판으로 적는다 — **운영 서버는 배포 날(할 일 7)까지 옛 `/api/v2/…`다.** kafka 경로는 develop에 들어왔지만(#134) 운영은 local 경로다(`POSEGOOD_REALTIME_PIPELINE=local`). 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
+기준: BE 브랜치 `refactor/repo-remove-api-version-paths` `eae3317`(develop `ed72615` + `/v2` 삭제, 2026-11-18). 주소는 `/v2`를 뺀 판으로 적는다. 운영 서버는 11/18 이 판으로 바뀌었고, 운영 앱(develop)이 Vercel에 새로 나갈 때까지 gateway가 옛 `/api/v2/…`도 별칭으로 받는다(요구 3). kafka 경로는 develop에 들어왔지만(#134) 운영은 local 경로다(`POSEGOOD_REALTIME_PIPELINE=local`). 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
 
 ```
 브라우저 / 데스크톱 앱(Electron, 웹 주소를 엶)
