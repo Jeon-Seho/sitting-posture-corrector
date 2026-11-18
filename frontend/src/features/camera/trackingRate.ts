@@ -4,7 +4,7 @@ import type { Landmark } from '../../../../model/prototype/pose'
  * Tracking rate cap (settings › 개발자 옵션 › 추적 속도, 2026-10-13). `null` = device default
  * (30/s on GPU, 20/s on CPU). Kept per computer.
  */
-const KEY = 'posegood.v2.trackingFps'
+const KEY = 'posegood.trackingFps'
 
 export function readTrackingFps(): number | null {
   try {

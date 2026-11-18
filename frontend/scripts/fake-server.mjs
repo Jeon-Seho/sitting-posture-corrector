@@ -74,7 +74,7 @@ async function readBody(req) {
 }
 
 const server = createServer(async (req, res) => {
-  // Paths have no version, like the server (/api/v2/… was removed 2026-11-09).
+  // Paths have no version, like the server (ADR 0049).
   const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
   const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null
   console.log(`${req.method} ${path}`)

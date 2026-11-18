@@ -42,11 +42,11 @@ export type RecordItem = {
   }
 }
 export const KEYS = {
-  profile: 'posegood.v2.profile',
-  records: 'posegood.v2.records',
+  profile: 'posegood.profile',
+  records: 'posegood.records',
   /** Unfinished measurement of the app's own judgement (removed 2026-10-21); only deleted now. */
-  draft: 'posegood.v2.draft',
-  settings: 'posegood.v2.settings',
-  demo: 'posegood.v2.demo',
-  account: 'posegood.v2.account',
+  draft: 'posegood.draft',
+  settings: 'posegood.settings',
+  demo: 'posegood.demo',
+  account: 'posegood.account',
 }

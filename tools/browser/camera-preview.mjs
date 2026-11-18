@@ -30,7 +30,7 @@ export async function verifyCollectionPreview(browser, base) {
   })()`)
   await click('로그인')
   await until(() => cdp.evaluate(`!!document.querySelector('#capture-task')`), 'developer collection entry', 30_000)
-  const originalProfile = await cdp.evaluate(`localStorage.getItem('posegood.v2.profile')`)
+  const originalProfile = await cdp.evaluate(`localStorage.getItem('posegood.profile')`)
   await cdp.evaluate(`(async () => {
     const archive = await import('/src/features/camera/baselineArchive.ts');
     const feature = { headGap: 0.5, offset: 0, tilt: 0, quality: 0.95 };
@@ -84,7 +84,7 @@ export async function verifyCollectionPreview(browser, base) {
   })()`)
   await until(() => cdp.evaluate(`document.querySelector('.collection-cue').textContent.includes('본인 기준 왼쪽')`), 'selected posture cue')
   check('direct capture does not write a profile or request a camera automatically',
-    await cdp.evaluate(`localStorage.getItem('posegood.v2.profile') === ${JSON.stringify(originalProfile)} && window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0`))
+    await cdp.evaluate(`localStorage.getItem('posegood.profile') === ${JSON.stringify(originalProfile)} && window.__POSEGOOD_SYNTHETIC_BROWSER_ONLY__.snapshot().permissionCalls === 0`))
   await click('카메라 켜기')
   await until(() => cdp.evaluate(`document.querySelector('.webcam-preview')?.readyState >= 2`), 'canvas-only web preview readiness')
   await browser.screenshot('collection-preview-synthetic')

@@ -4,7 +4,7 @@
  */
 import { aspectRefused } from './devices'
 
-const KEY = 'posegood.v2.mainCamera'
+const KEY = 'posegood.mainCamera'
 
 export function readMainCamera(): string {
   try {

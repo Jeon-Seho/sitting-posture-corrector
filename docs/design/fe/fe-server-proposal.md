@@ -3,7 +3,7 @@
 > 작성자: klaod-tech(FE) · 작성: 2026-10-11
 > **대상:** 팀 전원 — 팀장(Jeon-Seho), DB·BE(김유진, GitHub `sunshine-yj`), DevOps(홍규, `ghdrb1246`), ML(지성, `jisung`), 화면(`lellon0403`). FE는 `klaod-tech`다.
 > **이 문서의 역할:** 다른 파트에 요청·질문(0장), FE가 해야 할 일(1장), 지금 FE·서버·DB·배포 구조(2장), FE가 정한 앱 동작(3장). 앱이 언제 무엇을 보내고 받는지와 API 상세는 [연동 명세](api-ws-spec.md), 기능별 동작은 [FE 기능 명세](fe-feature-spec.md), 필드 규칙은 [BE API 명세](../api-spec.md), 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)·[0027](../../decisions/0027-today-records-from-collected-server-results.md)·[0029](../../decisions/0029-midnight-cut-and-server-time.md))이다.
-> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-25는 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
+> **코드 읽는 법:** A·W·B·S·R·T·C + 숫자(예: S1, B2)는 서버 API([연동 명세](api-ws-spec.md) 3장). 요구 N은 다른 파트에 요청(0장), 할 일 N은 FE가 할 일(1장). BE-2·BE-13~BE-26은 남은 BE 요청(0장), F14는 데스크톱 앱이 웹 주소를 여는 것([ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8). D-nn·T-nn은 BE·DevOps 작업 번호, J1·J2·J3은 서버의 Spark 배치다.
 
 ## 0. 남은 질문과 요청
 
@@ -25,6 +25,7 @@
 | 10 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
 | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
 | 12 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
+| 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 주소·파일 이름·저장 키의 버전은 빠졌고(요구 3, 할 일 8) 메시지 필드만 남음 | `/v2` 배포 뒤, 요구 4·5와 같은 계약 판에 |
 
 **kafka 브랜치 확인(11/16 `feat/ws-kafka-pipeline` `1067dab`):** 요구 4는 아직 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 브랜치가 develop을 받으며 들어갔다. 브랜치에는 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. ⑧을 develop에 넣기 전 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
@@ -57,25 +58,15 @@
 
 ### 요구 3. API 경로에서 버전(`/v2`) 빼기 (옛 10)
 
-- **한줄요약:** 서버 API에서 버전 표시를 아예 없앤다. 모든 경로의 `/v2`(예: `/api/v2/auth/login`)를 빼 `/api/auth/login`으로 바꾸고, 앱에도 버전 개념을 남기지 않는다.
+- **한줄요약:** 모든 주소의 `/v2`를 뺀다(`/api/v2/auth/login` → `/api/auth/login`, 측정 WebSocket `/api/realtime`, 추론 `POST /infer`). **코드는 끝났고 운영 배포만 남았다.**
 - **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
-- **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다. 속도·서버 부담에는 차이가 없다.
-- **요구사항/변경사항:** 한쪽만 바꾸면 로그인·측정이 끊기므로 팀원 확인을 받고 순서대로 한 번에 한다.
-  1. DevOps/BE: 서버가 옛 경로(`/api/v2/…`)와 새 경로(`/api/…`)를 **둘 다** 받게 한다(예: gateway에서 `/api/v2/`를 `/api/`로 넘김). BE 코드 약 20개 파일(`RequestMapping("/v2…")`).
-  2. FE: 버전을 지우고 배포한다. 앱 코드의 `/v2`는 `features/platform/serverConfig.ts` 한곳에 모아 두었다(REST·계정·메일·WS 주소가 모두 `API_ROOT`를 씀). `API_VERSION`을 지우고 `API_ROOT`를 `'/api'`(gateway가 떼는 공통 앞부분)로 둔다. 개발용 가짜 서버(`frontend/scripts/fake-server.mjs`)의 「`/v2`도 받기」 줄과 시험 코드 9개 파일의 `/api/v2/…` 확인도 지운다. 그 뒤 앱 어디에도 `/v2`가 남지 않는다.
-  3. FE: Cloudflare 요청 제한 규칙 `/api/v2/auth/*`를 새 경로로 바꾼다(할 일 4와 함께).
-  4. DevOps/BE: 점검 도구(`tools/platform`), 계약(`contracts`), 인프라 설정, 문서의 경로를 바꾼다.
-  5. DevOps/BE: 옛 경로를 지운다. 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 경로로 요청하므로, 새 데스크톱 앱(F14, [ADR 0017](../../decisions/0017-desktop-app-shell-and-redesign.md) 결정 8)이 퍼진 뒤에 지운다.
-- **진행(11/16 확인):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`ab1fc36`, develop 미병합)에서 서버·추론(`/v2/infer` → `/infer`)·nginx·점검 도구·계약·문서의 `/v2`를 한 번에 지웠다. 11/16 이 브랜치에 develop(FE #123 포함)을 받으며 **앱 코드도 위 2번 안대로 고쳤다**(`API_VERSION` 삭제, `API_ROOT` = `'/api'`, 가짜 서버의 「`/v2`도 받기」 줄 삭제, 시험 주소). 그래서 **FE가 따로 고칠 앱 코드는 없다.**
-  - **운영 서버는 아직 `/v2`만 받는다.** 11/16 공개 주소로 확인: `/api/v2/auth/social/signup`은 응답(410), `/api/auth/social/signup`은 경로가 없음(401). 앱만 먼저 바꾸면 로그인부터 모든 요청이 실패한다.
-  - 이 브랜치는 옛 주소를 **바로 받지 않는다**(BREAKING, 위 1번 「한동안 둘 다 받기」와 다름). 그래서 아래를 **같은 때** 한다. D-57 통신 시험(11/16)과 섞이지 않게 그 뒤에 순서를 정한다.
-    1. DevOps·BE: BE 브랜치를 develop에 병합하고 서버 io-api·추론(io-inference)을 다시 빌드한다. 공개 입구 gateway·화면 컨테이너 web의 nginx 설정도 WebSocket 경로가 `/api/v2/realtime` → `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
-    2. FE: 포크를 올려 Vercel을 다시 배포한다(앱 코드는 브랜치에 이미 있음).
-    3. FE: Cloudflare 요청 제한 `auth-rate-limit`에 새 경로 `/api/auth/…`를 **미리 더하고**(옛 경로는 남김), 확인 뒤 옛 경로를 뺀다(할 일 7).
-    4. DevOps: Discord Developer Portal의 Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(여러 개 가능, 옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 새 주소로 바꾼다. 확인 뒤 옛 Redirect를 지운다.
-    5. **옛 데스크톱 설치판은 받아 주지 않기로 했다(11/16 BE 결정).** 배포 뒤 옛 판은 로그인·측정이 안 되므로, FE가 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(할 일 7).
-  - **11/16 BE 공지 두 건:** 「develop 병합 안내」(브랜치를 develop에 합침. 합치기만 해서는 운영이 바뀌지 않는다)와 「배포 때 함께 바꿀 설정」(배포 전·때·뒤 할 일, 되돌리는 법). FE 몫은 할 일 7에 모았다.
-- **진행(11/18):** 경로 삭제는 해결됐다. PR #125는 병합 없이 닫혔고(11/17), 김유진이 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받고 마무리했다(`eae3317`). [ADR 0049](../../decisions/0049-no-version-in-names.md)(주소·메시지·계약 파일 이름에 버전을 붙이지 않음)와 [계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 범위를 넓혀 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)·`RealtimeHandler`의 버전도 뺐다. 메시지 안 `schema_version` 필드와 브라우저 저장 키(`posegood.v2.*`)는 남는다. **남은 것은 develop 병합과 운영 배포(할 일 7)뿐**이다.
+- **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다.
+- **진행(11/18):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`eae3317`)에서 서버·추론·nginx·점검 도구·계약·문서와 **앱 코드**(`API_ROOT` = `'/api'`, `API_VERSION` 삭제, 가짜 서버·시험 주소)를 한 번에 고쳤다. PR #125는 병합 없이 닫혔고(11/17), 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받았다. [ADR 0049](../../decisions/0049-no-version-in-names.md)·[계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)의 버전도 뺐다. FE는 같은 브랜치 위에서 이 문서·ADR의 주소와 브라우저 저장 키 이름(할 일 8)을 정리했다. 메시지 안 버전 필드는 요구 13으로 따로 한다.
+- **요구사항/변경사항 — 배포는 한 번에:** 서버는 옛 주소를 받지 않는다(BREAKING. 옛·새 주소를 한동안 같이 받는 안은 쓰지 않음). 운영 서버는 배포 날까지 `/api/v2/…`만 받으므로, 앱만 먼저 나가면 로그인부터 모두 실패한다. 그래서 아래를 **같은 때** 한다.
+  1. DevOps·BE: 브랜치를 develop에 병합하고 io-api·추론(io-inference)을 다시 빌드한다. gateway·web의 nginx도 WebSocket 경로가 `/api/realtime`으로 바뀌므로 다시 띄운다(`infra/nginx/gateway.conf`·`default.conf`). 점검 도구(`integration_test.sh` 등)도 같은 판으로.
+  2. DevOps: Discord Developer Portal Redirects에 새 주소 `…/api/auth/social/discord/callback`을 **미리 더하고**(옛 주소는 남김), 배포 때 서버 `POSEGOOD_DISCORD_REDIRECT_URI`를 바꾼다. 확인 뒤 옛 주소를 지운다.
+  3. FE: 할 일 7(Cloudflare 요청 제한, 포크·Vercel 배포, 옛 데스크톱 설치판 안내).
+- **알고 정한 것:** 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 주소로 요청하므로 배포 뒤 로그인·측정이 안 된다. 받아 주지 않고 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(11/16 BE 결정).
 
 ### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
 
@@ -199,6 +190,27 @@
 - **요구사항/변경사항:** BE가 T1 `GET /stats/daily`를 만든다. 00:00~00:10에 어제가 아직 비어 있는 문제는 T1을 붙일 때 정한다([연동 명세](api-ws-spec.md) 「T1 데이터가 생기는 시각」).
 - **참고:** 휴대폰 기록 보기는 하지 않기로 했다(11/13, [지운 문서 기록](../../removed-docs.md) 15장). T1은 웹·데스크톱 기록이 많아질 때 쓴다.
 
+### 요구 13. 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26)
+
+- **한줄요약:** 앱과 io-api가 주고받는 메시지에서 `schema_version`을 뺀다. [ADR 0049](../../decisions/0049-no-version-in-names.md) 결정 4의 남은 단계다.
+- **발단:** 11/18 `/v2` 경로 삭제(요구 3)를 정리하면서 FE가 앱에 남은 버전 이름을 찾아 저장 키는 바꿨다(할 일 8). 주소·계약 파일 이름·Kafka 토픽은 버전이 빠졌지만, 메시지 안 필드는 남아 있다(ADR 0049 「결과」).
+- **원인:** 지금 형식을 하나만 쓰므로 이 값이 구분하는 것은 없다. 그런데 양쪽이 값을 **검사**해서, 한쪽만 빼면 다른 쪽이 메시지를 거절한다.
+
+  | 메시지 | 방향 | 값 | 지금 검사 |
+  |---|---|---|---|
+  | WS `hello` | 앱 → io-api | `"2.0"` | 서버 `RealtimeHandler.hello`: 2.0이 아니거나 칸이 다르면 거절(`HELLO_MEASURE`) |
+  | WS `features` 구간 | 앱 → io-api | `"3.0"` | 서버 `FrameInterval` `@Pattern("3\.0")` |
+  | WS `observation` | io-api → 앱 | `"4.0"` | 앱 `messages.ts` 선택 칸, 검사 안 함 |
+  | B1·B2 기준 자세 | io-api → 앱 | `"2.0"` | 앱 `baseline/client.ts`: 2.0이 아니면 버림 |
+  | S4·R1 `SessionView`·사건 | io-api → 앱 | `"1.0"` | 앱 `session/server/validation.ts`: 칸 목록이 정확히 같아야(`exact`) 하고 1.0이어야 함 |
+
+- **요구사항/변경사항:** ADR 0049 결정 4의 순서(받는 쪽 → 보내는 쪽 → 계약)대로 한다.
+  1. **받는 쪽 먼저:** FE는 `baseline/client.ts`·`validation.ts`가 `schema_version`이 있어도 없어도 받게 한다(값 검사 삭제, `exact` 목록에서 선택 칸으로). BE는 `hello`·`features`에서 같은 일을 한다. 둘 다 지금 판과 호환되므로 따로 배포해도 된다.
+  2. **보내는 쪽:** 1이 운영에 나간 뒤 FE는 `hello`·구간에서, BE는 `observation`·B1·B2·S4·R1·W1 응답에서 필드를 뺀다.
+  3. **계약:** `realtime-ws.schema.json`·`accounts.md`·예시·시험에서 필드를 지우고, 연동 명세 예시를 고친다.
+  - io-api 안쪽(추론 `InferenceRequest`·Kafka 메시지)의 `schema_version`은 BE·DevOps가 같은 순서로 정한다. 동의 문서 버전(`service-v2`), DB 버전, 모델·특징 버전, 저장된 파일 형식(개발자 실험 JSON 등)은 ADR 0049의 예외라 그대로 둔다.
+  - 요구 4(`ack` 빼기)·5(`features` 묶음 단계)도 실시간 계약을 바꾸므로 한 계약 판에 같이 하면 시험이 한 번으로 끝난다.
+
 ## 1. 해야 할 일
 
 FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났다. 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
@@ -210,6 +222,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
 | 7 | API 주소 `/v2` 삭제 배포 대응 | BE 브랜치 develop 병합 뒤(배포 날) |
+| 8 | 브라우저 저장 키에서 버전 빼기 | 코드 끝, 할 일 7과 같이 배포 |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -253,6 +266,19 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
   5. **확인 뒤:** Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판 사용자에게 새 설치판을 다시 깔라고 안내한다. 새 판은 `frontend`에서 `npm run desktop:portable`로 만든 `release/PoseGood.exe` 한 파일이다(설치 없이 실행, 서명 없어 처음에 SmartScreen 경고). 웹 주소를 열어 화면은 Vercel 배포를 따라가므로, `frontend/electron/`을 바꿀 때만 다시 만든다. 설치 마법사(NSIS)가 필요하면 그때 정한다.
   6. **문제가 생기면:** 서버와 웹을 **둘 다** 이전 판으로 되돌린다(하나만 되돌리면 주소가 다시 어긋난다). 웹은 Vercel에서 이전 Production 배포를 다시 올린다.
 
+#### 할 일 8. 브라우저 저장 키에서 버전 빼기
+
+- **한줄요약:** 브라우저 저장 키 `posegood.v2.*`를 `posegood.*`로 바꾸고, 옛 키에 있던 값은 앱을 켤 때 한 번 옮긴다. **코드는 11/18 함**(`docs/fe-remove-v2-sync`, BE `/v2` 삭제 브랜치 위).
+- **발단:** 요구 3을 정리하며 앱에 남은 `v2`를 모두 찾았다. 주소의 `/v2`는 BE 브랜치가 지웠고, 저장 키는 [ADR 0049](../../decisions/0049-no-version-in-names.md) 「결과」가 「옮겨 담는 코드 없이 바꾸지 않는다」고 남겨 둔 일이다.
+- **원인:** 이름만 바꾸면 사용자가 이 기기에 둔 값(메인 카메라, 추적 속도, 옛 로컬 자료)을 못 찾는다.
+- **바꾼 것:**
+  - 키: `profile`·`records`·`draft`·`settings`·`demo`·`account`(`storage/types.ts` `KEYS`), `mainCamera`(`camera/mainCamera.ts`), `trackingFps`(`camera/trackingRate.ts`). 탭 하나만 쓰게 하는 Web Lock 이름도 `posegood.writer`로(`lib/writerLock.ts`, 저장 값이 없어 옮길 것 없음).
+  - 옮기기: `storage/renamedKeys.ts` `moveRenamedKeys`를 `main.tsx`에서 화면을 그리기 전에 부른다. 새 키에 값이 없으면 옛 값을 복사하고(새 값이 있으면 새 값이 이긴다) 옛 키를 지운다. 복사가 실패하면(저장소 가득 참·막힘) 옛 키를 남겨 다음 실행에 다시 한다.
+  - 점검 도구 `smoke-packaged-ui.mjs`·`tools/browser/camera-preview.mjs`, 시험 2개, 주소 버전 주석(`serverConfig.ts`·`fake-server.mjs`).
+  - 확인: `renamedKeys.test.ts` 5개 추가. vitest 132개 파일 중 131개 통과(1,043/1,044 — 실패 1개 `recordTimezone`은 develop에서도 실패), `tsc -b`·`npm run lint` 통과.
+- **남긴 것(바꾸지 않음):** `posegood.appearance.v1`(테마. 데스크톱 시작·연결 실패 화면과 정적 404가 같은 키를 읽어 `electron/`과 함께 바꿔야 함 — 새 데스크톱 설치판을 낼 때 같이 정한다), `posegood.account.v3.{user}.pending-results`(옛 앱이 남긴 키를 **지우는** 코드라 옛 이름 그대로여야 함), 동의 문서 버전 `service-v2`와 개발자 실험 파일 형식(ADR 0049 예외).
+- **알고 정한 것:** 배포 직후 옛 판 탭이 열려 있으면 그 탭은 옛 키에 계속 쓴다. 그 뒤 새 판이 켜지면 새 키에 이미 값이 있어, 옛 탭이 쓴 값은 옮기지 않고 지운다. 서버 계정은 판정 기준·기록을 서버(W1·R1)에 두므로 잃는 것은 이 기기 화면 설정 정도다.
+
 ### 요구가 끝나면 FE가 할 일
 
 0장 요구는 서버 쪽이 먼저 바뀌어야 하지만, 상당수는 그 뒤에 앱도 고쳐야 끝난다. 요구 본문의 「FE:」 몫을 여기 모은다. 서버가 바뀌었다는 소식이 오면 이 표에서 찾는다.
@@ -267,6 +293,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
 | 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |
 | 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
+| 13 `schema_version` 빼기 | ① 받기: `baseline/client.ts`·`session/server/validation.ts`가 필드 없이도 받게 ② 보내기: `LiveSession.ts` `hello`·`frames.ts` `FRAME_SCHEMA_VERSION` 삭제 ③ 연동 명세 예시 | ①은 언제든(지금 판과 호환), ②는 서버 ① 배포 뒤 |
 
 앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
