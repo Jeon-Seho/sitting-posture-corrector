@@ -354,7 +354,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(live.state.events.map((e) => e.kind)).toEqual(['session_ended'])
   })
 
-  describe('kafka mode order (ack first, alert on its own topic)', () => {
+  describe('kafka mode order (an old server ack is ignored, alert on its own topic)', () => {
     const summary = { ...EMPTY_SUMMARY, total_ms: 500, valid_ms: 500, deviation_ms: 500, collapse_count: 1, alert_count: 1, interval_count: 1, keep_rate: 0, events_per_hour: 0 }
     const collapse = { event_id: 1, kind: 'collapse_confirmed', timestamp_ms: 500, onset_ms: 0, onset_valid_ms: 0, deviation_type: 'forward_slouch', reason: null }
     const alert = { type: 'alert', event_id: 1, kind: 'collapse_confirmed', deviation_type: 'forward_slouch' }
