@@ -7,7 +7,7 @@
 
 ## 0. 남은 질문과 요청
 
-기준: develop `ed72615`(kafka #134·계정 #127 병합 뒤), BE 브랜치 `refactor/repo-remove-api-version-paths` `08d4204`(DevOps #135 병합 뒤), 2026-11-19 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
+기준: develop `ed72615`(kafka #134·계정 #127 병합 뒤), BE 브랜치 `refactor/repo-remove-api-version-paths` `a962c86`(DevOps #135·BE #136 병합 뒤), 2026-11-19 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
 다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17).
 
@@ -16,8 +16,8 @@
 | 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
 | 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
 | 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | 운영 서버는 11/18 버전 없는 판으로 바뀜(gateway에 옛 `/api/v2` 임시 별칭, 운영 앱 그대로 동작). 남은 것: 브랜치 develop 병합 → Vercel 배포 → 별칭·Discord 옛 주소 삭제 | 11/19 통신 시험 뒤 병합 순서 합의(FE 할 일 7) |
-| 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전. D-57 병합(#134)에는 들어가지 않았다 | 급하지 않음 |
-| 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
+| 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 팀장 계약 변경 작업에 들어감(11/18 검토 요청). 앱은 `ack`를 읽지 않게 함(11/19) | 팀장 서버 작업 |
+| 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 팀장 계약안(11/18)으로 진행. 앱은 평탄화 형식 구현(`feat/fe-realtime-flat-features`), 서버 신구형 받기 대기 | 서버가 신형을 받은 뒤 앱 배포 |
 | 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | develop의 kafka 코드(#134)는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
 | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
 | 8 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
@@ -25,7 +25,7 @@
 | 10 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
 | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
 | 12 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
-| 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 하는 일이 없어 없애기로 함(11/19). 앱은 검사를 멈춤(`docs/fe-remove-v2-sync`), 서버 검사 멈추기 남음 | 검사 멈추기는 `/v2` 배포와 함께, 칸 빼기는 그다음 배포 |
+| 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 없애기로 함(11/19 BE 동의). 앱은 응답 검사를 멈춤(이 브랜치), 앱 → 서버는 팀장 작업, 응답·추론·Kafka는 BE 다음 PR | 응답은 `/v2` 판 배포 하루 뒤 다음 배포, 추론·Kafka는 BE·DevOps가 정함 |
 | 14 | 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27) | DB·BE | 운영 DB 기본값은 11/17 DevOps가 1로 고침. 남은 것: 값이 0인 옛 계정 켜기. 앱은 늘 「켜짐」으로 보이는데 꺼진 계정은 소리·팝업·토스트가 안 온다 | 통신 시험(11/19) 전 |
 
 **kafka 코드 확인(D-57 `feat/ws-kafka-pipeline`, 11/18 develop 병합 #134):** 요구 4는 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 들어가 있다. 병합으로 develop에 들어온 것은 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. 처리 서비스는 구간마다 관측 → 사건 → 진행 순서로 보낸다(`JudgeRegistry`, 요구 2와 관련). ⑧의 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
@@ -80,6 +80,7 @@
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
   2. 팀장(Jeon-Seho): `RealtimeHandler.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
   3. FE: 계약 `realtime-ws.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
+- **진행(11/19):** 팀장이 「실시간 WebSocket 계약 변경 검토 요청」(11/18)에 `ack` 삭제를 넣었다. FE는 앱의 `ack` 타입·파서·분기를 지웠다(구형 서버가 보내도 버림, 이 브랜치 `76276f7`). 계약·서버는 팀장 작업에서 바꾼다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
 
@@ -111,6 +112,7 @@
   3. DevOps: 통합 시험을 새 형식으로.
   4. FE: 앱(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`)을 새 형식으로 배포.
   5. BE: 옛 형식 받기를 지운다.
+- **진행(11/19):** 팀장 계약안(11/18)으로 진행한다: 구간 필드와 프레임 한 장을 최상위에, phase `running`·`unmeasurable`·`rest`·`away`, 측정 불가 기준은 양 어깨, 고개 돌림은 ML이 판별, `hello`에도 버전 없음(FE 회신 의견). 4번(앱)은 `feat/fe-realtime-flat-features`에 구현했고(ADR 0052는 그 브랜치에 있음), 2번(서버 신구형 받기)이 끝난 뒤 배포한다.
 
   kafka `posture.features`과 추론 `POST /infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
 
@@ -202,11 +204,14 @@
   - 서버(io-api `RealtimeHandler`·`FrameInterval`·`InferenceClient`, 처리 서비스·추론의 Kafka 봉투)와 앱(`baseline/client.ts`, `session/server/validation.ts`) 모두 「이 값 하나가 아니면 거절」이고, **값에 따라 다르게 처리하는 코드는 없다.**
   - 옛 형식을 알아보는 일은 칸 목록 검사(모르는 칸·빠진 칸 거절)와 DevOps 로그로 충분하다. 옛 데스크톱 설치판은 받지 않기로 했다(요구 3).
   - 그런데 양쪽이 값을 검사하므로 한쪽만 먼저 빼면 다른 쪽이 정상 메시지를 거절한다. 앱이 먼저 빼면 서버가 `hello`를 거절해 측정이 안 되고, 서버가 먼저 빼면 열려 있던 옛 앱 탭이 기록·기준 자세 응답을 버린다.
-- **요구사항/변경사항:**
-  1. **검사 멈추기(지금 판과 호환, 순서 상관없음):** FE는 11/19 함(`docs/fe-remove-v2-sync`: 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음). BE는 `hello`·구간·추론 응답에서 같은 일을 한다. `/v2` 삭제 배포(요구 3)에 함께 실으면 배포가 한 번으로 끝난다.
-  2. **칸 빼기:** 1이 운영에 나간 뒤 FE는 `hello`·구간에서, BE는 `observation`·B1·B2·S4·R1·W1 응답에서 뺀다. 그 뒤 계약(`realtime-ws.schema.json`·`accounts.md`·예시·시험)과 연동 명세 예시를 고친다.
-  3. **서버 안쪽(Kafka 봉투·추론 요청):** io-api·추론·처리 서비스는 함께 배포되므로 1·2를 나누지 않아도 된다. 언제 할지는 BE·DevOps가 정한다.
-  - 지우지 않는 것: 개발자 실험실 파일 형식 이름(`normal-posture-collection-v1`, 리플레이 V3~V8 등 — 저장된 옛 파일을 판마다 다르게 읽는 데 실제로 쓰임), 동의 문서 버전 `service-v2`, DB·모델·특징 버전(ADR 0049 예외).
+- **요구사항/변경사항:** 메시지마다 맡는 곳과 순서가 다르다(11/19 BE 회신으로 정함).
+  1. **앱 → 서버(`hello`·`features`):** 팀장 「실시간 WebSocket 계약 변경 검토 요청」(11/18)으로 빠진다. 앱은 `feat/fe-realtime-flat-features`에서 버전 없는 `hello`·평탄화 `features`로 구현했고(ADR 0052), 서버가 구형·신형을 함께 받게 된 뒤 배포한다(요구 5).
+  2. **서버 → 앱 응답(`observation`·B1·B2·S4·R1·W1):** FE 검사 멈춤(`30f2677`, 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음)이 이 브랜치로 BE `/v2` 브랜치에 들어가 운영(Vercel 포함)에 나간다 → **하루쯤 두고 다음 배포에서** BE가 응답에서 칸을 뺀다. 그 전에 열려 있던 옛 앱 탭 때문이다.
+  3. **io-api ↔ 추론, Kafka 봉투·본문:** 같은 요청·관측 형식이 HTTP와 Kafka 본문에 함께 쓰이므로 BE가 **한 PR**에서 한다. io-api·추론은 같은 배포 묶음이지만 **처리 서비스는 따로 배포된다**(`infra/compose/bigdata.yaml`). 그래서 Kafka 쪽은 「받는 쪽이 있어도 없어도 받기 → 보내는 쪽 빼기 → 받는 쪽 정리」로 하거나, 운영이 local 모드인 동안 한 번에 바꾸고 옛 시험 메시지는 버린다(BE·DevOps가 정함).
+  4. **「검사하지 않는다」는 칸이 있어도 없어도 받는다는 뜻이다.** io-api는 모르는 칸·빠진 칸을 모두 거절하므로(`fail-on-unknown-properties`) 값 검사만 지워서는 안 된다. 앱도 그렇게 했다(`validation.ts` `exactVersionless`).
+  5. BE는 ADR 0049 결정 4와 `contracts/README.md`의 「지금 값을 그대로 보내고 검사한다」를 같이 고친다. 이름에 판 번호가 남은 클래스(`Observation.V4`, `RealtimeMessages.V2`, 추론 `InferenceRequestV2`)도 같은 PR에서 정리하면 좋다(BE 참고).
+  - 지우지 않는 것: 개발자 실험실 파일 형식 이름(`normal-posture-collection-v1`, 리플레이 V3~V8 등 — 저장된 옛 파일을 판마다 다르게 읽는 데 실제로 쓰임), 동의 문서 버전 `service-v2`, DB·모델·특징 버전(ADR 0049 예외), **처리 서비스 Redis 판정 상태의 `v`**(`SessionJudge.SNAPSHOT_VERSION`: 배포를 넘어 Redis에 최대 1시간 남는 저장 상태를 구분하는 표시라 메시지 버전과 다르다, BE 회신).
+- **진행(11/19 BE 회신, 김유진):** 값에 따라 다르게 처리하는 로직은 **없다**(개발·연구용 저장 파일 형식만 판을 고름). **없애는 데 동의.** 서버 쪽 삭제는 `/v2` PR에 넣지 않고 다음 PR로 한다. FE 검사 멈춤은 FE가 BE 브랜치로 PR을 올린다. 사용처가 더 있었다: kafka 모드 사건은 처리 서비스 값이 io-api를 거쳐 앱까지 가고 io-api가 엄격하게 읽는다(`KafkaResults.java`), 추론 요청이 Kafka `features` 본문으로도 쓰인다.
 
 ### 요구 14. 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27)
 
@@ -294,13 +299,13 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 |---|---|---|
 | 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
 | 3 `/v2` 빼기 | 할 일 7(앱 코드는 BE 브랜치에 이미 있음) | BE 브랜치 develop 병합 뒤 |
-| 4 `ack` 빼기 | 계약 `realtime-ws.schema.json`의 `ack`·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
-| 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
+| 4 `ack` 빼기 | 앱·연동 명세는 11/19 함. 계약은 팀장 작업 | — |
+| 5 `features` 묶음 단계 | 앱 새 형식 배포(구현은 11/19, `feat/fe-realtime-flat-features`) | 서버가 신형을 받은 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
 | 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |
 | 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
-| 13 `schema_version` 빼기 | ① 검사 멈추기(11/19 함) ② `LiveSession.ts` `hello`·`frames.ts` `FRAME_SCHEMA_VERSION` 삭제, 연동 명세 예시 | ②는 서버 검사 멈추기가 운영에 나간 뒤 |
+| 13 `schema_version` 빼기 | ① 응답 검사 멈춤(11/19 함, 이 브랜치) ② `hello`·구간에서 칸 빼기(11/19 함, `feat/fe-realtime-flat-features`) | ②는 팀장 서버가 신형을 받은 뒤 배포 |
 
 앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기), 14(알림 값 켜기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
@@ -330,7 +335,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 ## 2. 지금 구조
 
-기준: BE 브랜치 `refactor/repo-remove-api-version-paths` `08d4204`(develop `ed72615` + `/v2` 삭제, 2026-11-18, 11/19 DevOps #135 병합 `08d4204`). 주소는 `/v2`를 뺀 판으로 적는다. 운영 서버는 11/18 이 판으로 바뀌었고, 운영 앱(develop)이 Vercel에 새로 나갈 때까지 gateway가 옛 `/api/v2/…`도 별칭으로 받는다(요구 3). kafka 경로는 develop에 들어왔지만(#134) 운영은 local 경로다(`POSEGOOD_REALTIME_PIPELINE=local`). 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
+기준: BE 브랜치 `refactor/repo-remove-api-version-paths` `08d4204`(develop `ed72615` + `/v2` 삭제, 2026-11-18, 11/19 DevOps #135·BE #136 병합 `a962c86`). 주소는 `/v2`를 뺀 판으로 적는다. 운영 서버는 11/18 이 판으로 바뀌었고, 운영 앱(develop)이 Vercel에 새로 나갈 때까지 gateway가 옛 `/api/v2/…`도 별칭으로 받는다(요구 3). kafka 경로는 develop에 들어왔지만(#134) 운영은 local 경로다(`POSEGOOD_REALTIME_PIPELINE=local`). 경위·지난 진행 기록은 git 기록에 있다(이 문서 2026-11-10 판 `b03fd15`).
 
 ```
 브라우저 / 데스크톱 앱(Electron, 웹 주소를 엶)
