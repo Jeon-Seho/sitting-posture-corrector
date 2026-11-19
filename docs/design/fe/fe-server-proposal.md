@@ -63,14 +63,12 @@
 - **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
 - **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다.
 - **진행(11/18):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`eae3317`)에서 서버·추론·nginx·점검 도구·계약·문서와 **앱 코드**(`API_ROOT` = `'/api'`, `API_VERSION` 삭제, 가짜 서버·시험 주소)를 한 번에 고쳤다. PR #125는 병합 없이 닫혔고(11/17), 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받았다. [ADR 0049](../../decisions/0049-no-version-in-names.md)·[계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)의 버전도 뺐다. FE는 같은 브랜치 위에서 이 문서·ADR의 주소와 브라우저 저장 키 이름(할 일 8)을 정리했다. 메시지 안 버전 필드는 요구 13으로 따로 한다.
-- **서버 반영(11/18 DevOps 공유, D-94):** 운영 서버(io-api·추론·web·gateway·Kafka 토픽)를 버전 없는 판으로 바꿨다. 통합 테스트 `--quick --kafka` PASS 104 / FAIL 0, 운영 모드는 local 그대로. 운영 앱(Vercel = develop)은 아직 `/api/v2/…`를 부르므로(1시간에 484건) **gateway에 임시 별칭**을 두었다: `/api/v2/realtime` → `/realtime`, `/api/v2/…` → `/…`(`infra/nginx/gateway.conf`, DevOps 브랜치 `fix/infra-api-v2-transition` `84ce7e7`). 옛 Discord 콜백 `/api/v2/auth/social/discord/callback`도 별칭으로 302가 나 Discord 로그인이 유지된다. 그래서 **서버와 웹을 같은 때 바꿀 필요가 없어졌다.**
+- **서버 반영(11/18, D-94):** DevOps가 운영 서버를 버전 없는 판으로 바꿨다(운영 모드는 local 그대로). 운영 앱은 아직 `/api/v2/…`를 부르므로 **gateway에 임시 별칭**을 두었다(`/api/v2/realtime` → `/realtime`, `/api/v2/…` → `/…`, `infra/nginx/gateway.conf`, #135). 옛 Discord 콜백도 별칭으로 이어져 Discord 로그인이 유지된다. 그래서 **서버와 웹을 같은 때 바꿀 필요가 없어졌다.**
   - FE 확인: 로그인 유지 쿠키는 경로가 `/`(`posegood.auth.refresh-cookie-path`)라 주소가 `/api/v2/auth/…` → `/api/auth/…`로 바뀌어도 그대로 실려, 배포 때 다시 로그인할 일이 없다.
-- **요구사항/변경사항 — 남은 순서**(DevOps 공유 4장):
-  1. DevOps·BE: 11/19 통신 시험(① 서버 화면 `localhost:8088` 측정까지 ② 운영 앱 별칭 경유, Discord 포함).
-  2. DevOps → DB/BE: `fix/infra-api-v2-transition`을 `refactor/repo-remove-api-version-paths`로 PR. FE도 `docs/fe-remove-v2-sync`(이 문서·ADR·저장 키, 할 일 8)를 같은 브랜치로 보낸다. 두 브랜치는 겹치는 파일이 없다(11/18 확인).
-  3. DB/BE: 브랜치를 develop에 병합 → FE: 포크를 올려 Vercel 배포(할 일 7).
-  4. FE 배포 확인 뒤 DevOps: gateway 별칭 삭제, 서버 `.env` `POSEGOOD_DISCORD_REDIRECT_URI`와 Discord Portal Redirect를 `…/api/auth/social/discord/callback`으로 **함께** 바꾼다. 그 전까지 둘 다 옛 주소 그대로.
-  5. DevOps: 며칠 뒤 옛 토픽·그룹·HDFS 임시 폴더 정리(D-82).
+- **요구사항/변경사항 — 남은 순서:**
+  1. FE: `docs/fe-remove-v2-sync`(이 문서·ADR·저장 키, 할 일 8)를 BE 브랜치로 보낸다. DevOps 별칭(#135)은 11/19 같은 브랜치에 들어갔다.
+  2. DB/BE: 브랜치를 develop에 병합 → FE: 포크를 올려 Vercel 배포(할 일 7).
+  3. FE 배포 확인 뒤 DevOps: gateway 별칭 삭제, 서버 `.env` `POSEGOOD_DISCORD_REDIRECT_URI`와 Discord Portal Redirect를 `…/api/auth/social/discord/callback`으로 **함께** 바꾼다. 그 전까지 둘 다 옛 주소 그대로.
 - **알고 정한 것:** 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 주소로 요청하므로 배포 뒤 로그인·측정이 안 된다. 받아 주지 않고 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(11/16 BE 결정).
 
 ### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
@@ -277,26 +275,20 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **발단:** 11/16 BE 공지(develop 병합 안내, 배포 때 바꿀 설정)와 11/18 DevOps 공유(서버 반영·전환 기간 별칭, D-94).
 - **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. 운영 서버는 11/18부터 새 주소와 옛 주소(gateway 별칭)를 둘 다 받으므로, 옛 앱·새 앱 어느 쪽이 나가도 끊기지 않는다. 별칭을 지우는 것은 FE 배포를 확인한 뒤다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다(저장 키는 할 일 8).
 - **요구사항/변경사항:**
-  1. ~~FE 작업 브랜치(`docs/fe-docs-sync`)를 BE 브랜치보다 먼저 develop에 넣기~~ — **11/17 함**(#130).
-  2. ~~BE 브랜치가 develop에 들어간 뒤 배포 날까지 포크 push 멈추기~~ — **필요 없어짐**(11/18 별칭으로 서버가 두 주소를 다 받음).
-  3. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다. 별칭이 남은 동안은 옛 경로도 실제로 쓰이므로 둘 다 둔다. 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개다.
-  4. **BE 브랜치가 develop에 들어가면:** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인(DevOps 요청):
+  1. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다. 별칭이 남은 동안은 옛 경로도 실제로 쓰이므로 둘 다 둔다. 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개다.
+  2. **BE 브랜치가 develop에 들어가면:** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인(DevOps 요청):
      - 브라우저 개발자 도구 네트워크 탭에서 REST가 `/api/…`(버전 없음), WebSocket이 `/api/realtime`인지
      - 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한
      - 데스크톱 앱(F14)도 같은 확인. 새 설치판 exe는 웹 주소를 열어 Vercel 배포를 따라가므로 `frontend/electron/`을 바꿀 때만 같은 판으로 다시 만든다(`npm run desktop:portable` → `release/PoseGood.exe`).
-  5. **확인 뒤:** DevOps에 알려 별칭 삭제·Discord Redirect 변경(요구 3의 4번)을 하게 한다. 그 뒤 Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판(화면을 앱 안에 가진 판) 사용자에게 새 설치판을 다시 깔라고 안내한다 — 별칭이 지워지면 옛 판은 로그인·측정이 안 된다.
-  6. **문제가 생기면:** 별칭이 남아 있는 동안은 **웹만** Vercel에서 이전 Production 배포로 되돌리면 된다. 별칭을 지운 뒤라면 서버·웹을 둘 다 되돌린다.
+  3. **확인 뒤:** DevOps에 알려 별칭 삭제·Discord Redirect 변경(요구 3의 3번)을 하게 한다. 그 뒤 Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판(화면을 앱 안에 가진 판) 사용자에게 새 설치판을 다시 깔라고 안내한다 — 별칭이 지워지면 옛 판은 로그인·측정이 안 된다.
+  4. **문제가 생기면:** 별칭이 남아 있는 동안은 **웹만** Vercel에서 이전 Production 배포로 되돌리면 된다. 별칭을 지운 뒤라면 서버·웹을 둘 다 되돌린다.
 
 #### 할 일 8. 브라우저 저장 키에서 버전 빼기
 
 - **한줄요약:** 브라우저 저장 키 `posegood.v2.*`를 `posegood.*`로 바꾸고, 옛 키에 있던 값은 앱을 켤 때 한 번 옮긴다. **코드는 11/18 함**(`docs/fe-remove-v2-sync`, BE `/v2` 삭제 브랜치 위).
 - **발단:** 요구 3을 정리하며 앱에 남은 `v2`를 모두 찾았다. 주소의 `/v2`는 BE 브랜치가 지웠고, 저장 키는 [ADR 0049](../../decisions/0049-no-version-in-names.md) 「결과」가 「옮겨 담는 코드 없이 바꾸지 않는다」고 남겨 둔 일이다.
 - **원인:** 이름만 바꾸면 사용자가 이 기기에 둔 값(메인 카메라, 추적 속도, 옛 로컬 자료)을 못 찾는다.
-- **바꾼 것:**
-  - 키: `profile`·`records`·`draft`·`settings`·`demo`·`account`(`storage/types.ts` `KEYS`), `mainCamera`(`camera/mainCamera.ts`), `trackingFps`(`camera/trackingRate.ts`). 탭 하나만 쓰게 하는 Web Lock 이름도 `posegood.writer`로(`lib/writerLock.ts`, 저장 값이 없어 옮길 것 없음).
-  - 옮기기: `storage/renamedKeys.ts` `moveRenamedKeys`를 `main.tsx`에서 화면을 그리기 전에 부른다. 새 키에 값이 없으면 옛 값을 복사하고(새 값이 있으면 새 값이 이긴다) 옛 키를 지운다. 복사가 실패하면(저장소 가득 참·막힘) 옛 키를 남겨 다음 실행에 다시 한다.
-  - 점검 도구 `smoke-packaged-ui.mjs`·`tools/browser/camera-preview.mjs`, 시험 2개, 주소 버전 주석(`serverConfig.ts`·`fake-server.mjs`).
-  - 확인: `renamedKeys.test.ts` 5개 추가. vitest 132개 파일·1,044개 통과(11/19), `tsc -b`·`npm run lint` 통과.
+- **바꾼 것:** 기록은 [ADR 0049](../../decisions/0049-no-version-in-names.md) 결과(11/18 FE)와 git에 있다. 옛 키 값은 `storage/renamedKeys.ts` `moveRenamedKeys`가 앱을 켤 때 한 번 옮긴다. **남은 것은 할 일 7과 같이 배포하는 것뿐이다.**
 - **남긴 것(바꾸지 않음):** `posegood.appearance.v1`(테마. 데스크톱 시작·연결 실패 화면과 정적 404가 같은 키를 읽어 `electron/`과 함께 바꿔야 함 — 새 데스크톱 설치판을 낼 때 같이 정한다), `posegood.account.v3.{user}.pending-results`(옛 앱이 남긴 키를 **지우는** 코드라 옛 이름 그대로여야 함), 동의 문서 버전 `service-v2`와 개발자 실험 파일 형식(ADR 0049 예외).
 - **알고 정한 것:** 배포 직후 옛 판 탭이 열려 있으면 그 탭은 옛 키에 계속 쓴다. 그 뒤 새 판이 켜지면 새 키에 이미 값이 있어, 옛 탭이 쓴 값은 옮기지 않고 지운다. 서버 계정은 판정 기준·기록을 서버(W1·R1)에 두므로 잃는 것은 이 기기 화면 설정 정도다.
 
