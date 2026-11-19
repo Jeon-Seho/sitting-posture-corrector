@@ -121,6 +121,15 @@ describe('server SessionView in records (R1 format) and its read-only projection
     }
   })
 
+  it('accepts a SessionView and its events with or without schema_version, whatever its value', () => {
+    const withVersion = episodeView()
+    expect(validSessionView({ ...withVersion, schema_version: '9.9' }, SESSION_ID)).toBe(true)
+    const { schema_version: _dropped, ...withoutVersion } = withVersion
+    const events = withoutVersion.events.map(({ schema_version: _v, ...event }) => event)
+    expect(validSessionView({ ...withoutVersion, events }, SESSION_ID)).toBe(true)
+    expect(validSessionView({ ...withoutVersion, events, unknown_field: 1 }, SESSION_ID)).toBe(false)
+  })
+
   it('follows canonical UUID syntax', () => {
     expect(validUuid('00000000-0000-0000-0000-000000000000')).toBe(true)
     expect(validUuid('invalid')).toBe(false)

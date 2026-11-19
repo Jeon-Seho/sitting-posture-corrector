@@ -25,6 +25,17 @@ describe('baseline API (B1·B2) with a stubbed fetch only', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('reads the current posture with or without schema_version', async () => {
+    setServerAuth({ userId: USER, accessToken: async () => 'token' })
+    const { schema_version: _dropped, ...versionless } = stored
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(reply(200, versionless))
+      .mockResolvedValueOnce(reply(200, { ...stored, schema_version: '9.9' }))
+    const expected = { baselineId: ID, registeredAt: stored.registered_at, landmarks }
+    expect(await fetchCurrentBaseline({ fetch })).toEqual(expected)
+    expect(await fetchCurrentBaseline({ fetch })).toEqual(expected)
+  })
+
   it('reads the current posture and treats 404 as none registered', async () => {
     setServerAuth({ userId: USER, accessToken: async () => 'token' })
     const fetch = vi.fn().mockResolvedValueOnce(reply(200, stored)).mockResolvedValueOnce(reply(404))
