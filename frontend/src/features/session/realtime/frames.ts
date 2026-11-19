@@ -24,7 +24,7 @@ export const FRAME_INTERVAL_MS = 500
 /** Nose, left/right eye, left/right ear, mouth left/right, left/right shoulder. */
 export const FRAME_JOINTS = [0, 2, 5, 7, 8, 9, 10, 11, 12] as const
 
-export type FramePhase = 'running' | 'calibration' | 'rest' | 'away'
+export type FramePhase = 'running' | 'rest' | 'away'
 export type PoseFrame = { t_ms: number; p: [number, number, number][] | null }
 export type FrameBatch = {
   schema_version: typeof FRAME_SCHEMA_VERSION
@@ -93,7 +93,7 @@ export class FrameBatcher {
   }
 
   /**
-   * Adds one observation; frames are kept only while running or registering. The open interval,
+   * Adds one observation; frames are kept only while running. The open interval,
    * holding the previous frame, ends at this frame's time and is sent now.
    */
   push(input: FrameInput): FrameBatch[] {

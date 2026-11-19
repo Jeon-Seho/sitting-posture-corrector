@@ -82,7 +82,7 @@ describe('measuring screen status (synthetic only)', () => {
   it('shows the recovery box and fills it with the server good time while the alert is open', () => {
     expect(nudgeKind(state(observation('good'), true), true)).toBe('recovering')
     expect(nudgeKind(state(observation('bad'), true), true)).toBe('alert')
-    expect(nudgeText('recovering', null, { holdSeconds: 3, recoverSeconds: 3 })).toEqual({
+    expect(nudgeText('recovering', { holdSeconds: 3, recoverSeconds: 3 })).toEqual({
       title: '좋아요, 그대로 있어 주세요', desc: '바르게 앉으면 3초 뒤에 알림이 사라져요.',
     })
     expect(recoveryProgress(state(observation('good', true, 0, 1500), true), 3)).toBe(0.5)
