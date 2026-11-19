@@ -791,7 +791,7 @@ if [ "$KAFKA_SWITCHED" = 1 ]; then
   LAG=""
   for _ in $(seq 1 10); do
     LAG="$($KT/kafka-consumer-groups.sh $BS --describe --group inference-service --group judge --group report-store \
-      --group io-ws-io-api 2>/dev/null | awk '$6 ~ /^[0-9]+$/ && $6 != "0" {print $1"/"$2"/"$3"="$6}' | tr '\n' ' ')"
+      --group io-ws-io-api 2>/dev/null | awk '$2 !~ /\.v[0-9]+$/ && $6 ~ /^[0-9]+$/ && $6 != "0" {print $1"/"$2"/"$3"="$6}' | tr '\n' ' ')"   # 옛 이름 토픽(.v1)의 남은 읽은 위치는 빼고(io-ws-io-api는 그룹 이름이 그대로라 남음, D-94)
     [ -z "$LAG" ] && break
     sleep 2
   done

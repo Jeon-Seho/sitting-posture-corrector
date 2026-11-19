@@ -304,6 +304,7 @@ tools/platform/integration_test.sh                                           # 7
 
 - 세 서비스 중 하나만 옛 이름이면 메시지가 아무도 읽지 않는 토픽에 쌓인다(오류 없이 판정이 멈춤). 6번은 반드시 함께 올린다.
 - 되돌리기: 아래 정리 전까지 옛 토픽·그룹이 남아 있으므로 옛 이미지로 세 서비스를 다시 올리면 된다.
+- 입출구 결과 구독 그룹 `io-ws-io-api`는 이름이 그대로라 옛 토픽(`posture.episodes.v1`·`alerts.v1`·`stored.v1`)의 읽은 위치가 남는다. 통합 테스트·통신 시험 도구는 옛 토픽 lag를 세지 않는다. 옛 토픽을 지우면 함께 사라지고, 먼저 지우려면 `$K/kafka-consumer-groups.sh $B --delete-offsets --group io-ws-io-api --topic posture.episodes.v1`(alerts.v1·stored.v1도 같이).
 - 며칠 지켜본 뒤 정리: 옛 토픽 6개(`kafka-topics.sh --delete --topic posture.<이름>.v1`), 옛 그룹 3개(`kafka-consumer-groups.sh --delete --group <이름>-v1`),
   HDFS `hdfs dfs -rm -r -skipTrash /data/staging/realtime-v1 /data/staging/keypoints-v1 /data/checkpoints/j1-realtime-v1 /data/checkpoints/j1-keypoints-v1`.
   Redis `posture:v1:judge:*`는 1시간 뒤 저절로 사라진다.
