@@ -16,8 +16,8 @@
 | 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
 | 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
 | 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | BE 브랜치에 서버·앱 수정이 다 있다(develop 병합 공지됨). 운영 서버는 아직 `/v2`만 받는다 | #125 병합 뒤, 서버·웹 같은 날(FE 할 일 7) |
-| 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 정함, 구현 전 | D-57 병합 때 함께 |
-| 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 1단계(계약 `items` 최대 1·프레임 `valid` 빼기) 끝(11/13) | 나머지는 요구 4와 같은 계약 판에 |
+| 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 팀장 계약 변경 작업에 들어감(11/18 검토 요청). 앱은 `ack`를 읽지 않게 함(11/19) | 팀장 서버 작업 |
+| 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 팀장 계약안(11/18)으로 진행. 앱은 평탄화 형식 구현(`feat/fe-realtime-flat-features`, ADR 0052), 서버 신구형 받기 대기 | 서버가 신형을 받은 뒤 앱 배포 |
 | 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | kafka 브랜치 코드는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
 | 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
 | 8 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
@@ -85,6 +85,7 @@
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
   2. 팀장(Jeon-Seho): `RealtimeHandlerV2.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
   3. FE: 계약 `realtime-ws.v2.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
+- **진행(11/19):** 팀장이 「실시간 WebSocket 계약 변경 검토 요청」(11/18)에 `ack` 삭제를 넣었다. FE는 앱의 `ack` 타입·파서·분기를 지웠다(구형 서버가 보내도 버림). 계약·서버는 팀장 작업에서 바꾼다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
 
@@ -116,6 +117,7 @@
   3. DevOps: 통합 시험을 새 형식으로.
   4. FE: 앱(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`)을 새 형식으로 배포.
   5. BE: 옛 형식 받기를 지운다.
+- **진행(11/19):** 팀장 계약안(11/18)으로 진행한다. 형식은 [ADR 0052](../../decisions/0052-flat-realtime-features.md): 구간 필드와 프레임 한 장을 최상위에, phase `running`·`unmeasurable`·`rest`·`away`, 측정 불가 기준은 양 어깨, 고개 돌림은 ML이 판별, `hello`에도 버전 없음(FE 회신 의견). 4번(앱)은 `feat/fe-realtime-flat-features`에 구현했고, 2번(서버 신구형 받기)이 끝난 뒤 배포한다.
 
   kafka `posture.features.v1`과 추론 `POST /v2/infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
 
@@ -260,8 +262,8 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 |---|---|---|
 | 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
 | 3 `/v2` 빼기 | 할 일 7 | #125 병합 뒤 |
-| 4 `ack` 빼기 | 계약 `realtime-ws.v2.schema.json`의 `ack`·`examples-v2/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세 정리 | 서버가 뺀 뒤(앱은 지금도 무시해 급하지 않음) |
-| 5 `features` 묶음 단계 | 앱 새 형식(`frames.ts` `FrameBatch`, `LiveSession.ts` `send`) 배포(1단계는 11/13 함) | 계약 판이 정해진 뒤 |
+| 4 `ack` 빼기 | 앱·연동 명세는 11/19 함. 계약은 팀장 작업 | — |
+| 5 `features` 묶음 단계 | 앱 새 형식 배포(구현은 11/19, `feat/fe-realtime-flat-features`) | 서버가 신형을 받은 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
 | 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |

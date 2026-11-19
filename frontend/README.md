@@ -145,8 +145,8 @@ Discord 로그인은 `VITE_DISCORD_LOGIN_ENABLED=true`로 켠다. 이메일 중�
 앱은 2026-10-30부터 서버의 자정 넘김(`session_rollover`, 서버가 만든 새 세션 ID)을 처리한다. 서버에서 켜면(`POSEGOOD_MIDNIGHT_ROLLOVER=true`) 이 점검의 「같은 세션 유지」 전제가 바뀌므로, 날짜 나누기 정리와 함께 시나리오를 다시 정한다(팀 공유 계획).
 합성 카메라의 `frame(ms, 'normal')`은 고정한 바른 자세 관절 9개 좌표(`src/features/testing/syntheticPose.ts`, 서버 프레임 조건 통과 값)를 보낸다.
 자세 등록은 실제 카메라와 같은 `useServerBaseline`으로 3초 평균 → B1 저장을 거치며, 서버가 돌려준 기준 ID를 쓴다(고정 합성 기준 없음, 2026-10-30).
-다른 종류도 실제 카메라와 같은 길(`readShoulders` → `FrameBatcher`)로 현재 WS 형식(`posture.frames.v1` 3.0)을 보낸다(2026-10-30):
-`'deviation'`은 고개를 어깨 쪽으로 숙인 좌표(판정은 서버), `'poor'`는 어깨가 화면 밖, `'absent'`는 사람 없음으로 둘 다 `{ p: null }`이다(11/13부터 `valid: false` 표시를 보내지 않음).
+다른 종류도 실제 카메라와 같은 길(`readShoulders` → `FrameBatcher`)로 현재 WS 형식(평탄화한 `features`, [ADR 0052](../docs/decisions/0052-flat-realtime-features.md))을 보낸다:
+`'deviation'`은 고개를 어깨 쪽으로 숙인 좌표(판정은 서버), `'poor'`는 어깨가 화면 밖, `'absent'`는 사람 없음으로 둘 다 `phase: "unmeasurable"`, `p: null`이다.
 
 프론트 의존성·Chrome·합성 시험 계정(`@example.invalid`)을 준비하고, 프론트 디렉터리에서 시험 API를 바라보는 전용 Vite를 실행한다.
 
@@ -217,7 +217,7 @@ Ctrl+C로 프론트·API·추론을 함께 종료하고 임시 DB를 지운다.
 측정(`src/features/session/live/`, BE 명세 7·11장): 「측정 시작」 → S1 `PUT /v2/sessions/{id}` `{policy, baseline_id}` → WebSocket `/v2/realtime` `hello` → `ready`(5초) →
 프레임마다 관절 9개 좌표 구간 1개(`posture.frames.v1`, 10/27부터 — 서버가 받아 묶음. 앱이 판정 불가로 본 프레임은 좌표 없이 `p: null`, ADR 0021) → 「측정 종료」 `end` → `closed(ended)`(10초 안에 안 오면 S4로 결과).
 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」), 쓰던 카메라가 빠지거나 영상 크기가 바뀌거나 데스크톱 앱 작은 창의 X를 누르면 `end`.
-어깨가 하나라도 안 보이는 프레임은 바로 좌표 없이 `p: null`로 보낸다(2026-10-22, 유예 없음. 11/13부터 `valid:false` 표시는 보내지 않음). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
+어깨가 하나라도 안 보이는 프레임은 바로 좌표 없이 `phase: "unmeasurable"`, `p: null`로 보낸다(2026-10-22, 유예 없음. [ADR 0052](../docs/decisions/0052-flat-realtime-features.md)). 지속·복귀·재알림 판정과 점수·통계는 모두 서버가 한다.
 연결이 끊기면 그 측정은 끝나고 서버가 마지막 구간까지 저장한다(재연결·재전송 없음, [ADR 0024](../docs/decisions/0024-session-ends-on-lost-connection.md)).
 진행 중 판정 상태는 API 메모리에 있어 API를 재시작하면 진행 중 세션은 `session_lost`로 끝난다.
 

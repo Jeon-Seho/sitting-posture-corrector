@@ -190,16 +190,17 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 순서(BE 명세 11.1): `hello` → `ready` → `features` × N → `end` → `decision(session_ended)` → `closed(ended)`. 연결 하나가 측정 한 번이고 재연결은 없다(ADR 0024).
 
-### 5.1 좌표 구간 (`posture.frames.v1`)
+### 5.1 좌표 구간 (`features`)
 
-**프레임마다 구간 1개**. 구간 `[start_ms, end_ms)`에는 프레임 1장이 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). `items`에는 항상 구간 1개. 서버는 구간을 받으면 바로 추론·판정해 `observation` → (`decision` → `alert`) → `ack` → `progress` 순서로 보낸다(구간마다, 프레임마다). 판정 시간은 구간 `start_ms`·`end_ms`로 센다(`t_ms`는 서버가 형식만 검사한다, BE 명세 11.2). 필드와 예시는 BE 명세 11.2와 계약.
+**프레임마다 구간 1개**. 구간 `[start_ms, end_ms)`에는 프레임이 많아야 1장 들어 있고 다음 프레임이 찍힐 때 끝난다(보통 약 0.1초, 초당 약 10개, 하나에 약 0.5KB). 0.5초 동안 새 프레임이 없으면 그때 구간을 닫아 시간이 끊기지 않게 한다(빈 구간 포함). **구간 필드와 프레임 한 장을 메시지 최상위에 둔다**(`sequence`·`start_ms`·`end_ms`·`phase`·`t_ms`·`p`, `items[]`·`frames[]`·`schema_version`·`feature_version`·`valid` 없음 — 팀장 계약안 11/18, [ADR 0052](../../decisions/0052-flat-realtime-features.md)). **운영 서버는 아직 구형(`items[]`)만 받는다.** 서버가 신형을 받게 된 뒤에 이 판의 앱을 배포한다. 서버는 구간을 받으면 바로 추론·판정해 `observation` → (`decision` → `alert`) → `progress` 순서로 보낸다(구간마다, 프레임마다). 판정 시간은 구간 `start_ms`·`end_ms`로 센다(`t_ms`는 서버가 형식만 검사한다, BE 명세 11.2). 필드와 예시는 BE 명세 11.2와 계약.
 
-- **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `p: null`(이때 `valid`는 넣지 않는다).
+- **관절:** 9개 `[x, y, visibility]` — 코·왼눈·오른눈·왼귀·오른귀·입 왼쪽·입 오른쪽·왼어깨·오른어깨(MediaPipe 0·2·5·7·8·9·10·11·12). 사람이 없으면 `phase: "unmeasurable"`, `p: null`이다.
 - **좌표:** MediaPipe 원본. x, y는 영상 크기에 대한 비율(소수 5자리), visibility는 소수 2자리. y는 아래로 커진다. 영상은 반전하지 않아 사용자 왼어깨가 화면 오른쪽(큰 x)에 있다.
-- **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절은 `[0, 0, 0]`으로 채운 뒤 그 프레임을 `valid:false`로 보낸다(서버는 귀 좌표를 visibility 없이 쓰므로 채운 값이 실제 위치로 판정에 들어가지 않게).
-- **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 어깨가 화면 안에 있고 9개 관절 값이 모두 있으면 좌표를 보내고, 쓸지 말지(정확도·가장자리·거리·고개 돌림)는 서버가 정한다.
+- **범위:** 서버는 x·y가 -1~2, visibility가 0~1을 벗어난 관절이 하나라도 있으면 그 구간을 거절하고 `closed(bad_message)`로 측정을 끝낸다(BE `FrameInterval`). 그래서 앱이 범위 안으로 자르고, 추적기가 주지 않았거나 숫자가 아닌 관절이 있는 프레임은 좌표 없이 `unmeasurable`로 보낸다(채운 값이 실제 위치로 판정·학습에 들어가지 않게). 부분 좌표를 채워 `running`으로 보내는 경우는 없다.
+- **가려진 관절도 좌표는 온다.** MediaPipe가 위치를 추정해 준다. 어깨가 화면 안에 있고 9개 관절 값이 모두 있으면 좌표를 보내고, **고개 돌림은 거르지 않는다**: 서버가 채점하고 ML이 판별한다(11/19 팀장 확인). 얼굴 점의 visibility가 낮아도 어깨가 보이면 `running`이다.
 - **프레임 간격은 일정하지 않다.** 보통 초당 약 10~16장, 느린 PC는 6~10장이라 구간 길이도 그만큼 달라진다. 시간은 개수가 아니라 `t_ms`로 센다. 시각은 앱 시계(`t_ms`·`start_ms`·`end_ms`) 기준이다. 서버는 3초 확정·회복·다시 알림을 구간 시간으로 센다(서버 현재 시각을 쓰지 않음 — 도착 시각이 아니라 찍은 시각이라 네트워크 지연이 섞이지 않는다).
-- **판정 불가 프레임:** 앱이 사용자 위치를 판별하지 못한 프레임(어깨가 하나라도 안 보임, 2026-10-22부터 유예 없이 바로)과 추적기가 관절을 주지 않은 프레임은 좌표 없이 `{ t_ms, p: null }`만 보낸다(10/27부터 좌표 없음, [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) — 관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음). 사람이 없는 프레임과 같은 모양이다. 11/13부터 `valid: false` 표시는 보내지 않는다: 서버는 `p`가 null인지만 보고 판정 불가(`UNMEASURABLE`)로 센다(`FrameInterval.Frame.tracked`, [FE 제안서](fe-server-proposal.md) 요구 5). 서버는 아직 이 칸을 선택 칸으로 받는다.
+- **측정 불가(`unmeasurable`):** 앱이 사용자 위치를 판별하지 못한 프레임(양 어깨 중 하나라도 안 보임 — visibility 0.65 미만 또는 화면 가장자리 2% 안, 2026-10-22부터 유예 없이 바로), 사람이 없는 프레임, 추적기가 관절을 주지 않은 프레임은 `phase: "unmeasurable"`, `t_ms`, `p: null`로 보낸다(관절이 빠진 프레임은 판정에도 학습에도 쓸 수 없고 채운 좌표는 가짜 데이터로 남음, [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)). 새 프레임이 없이 0.5초가 지난 구간은 `t_ms` 없이 `phase: "unmeasurable"`, `p: null`이다.
+- **한 구간에 한 장:** 같은 시각에 프레임이 두 장 오면 나중 것을 보낸다. 추적이 늦어 이미 닫힌 구간보다 앞선 시각의 프레임이 오면 버린다(그 시간은 이미 보냄).
 - **왜 프레임마다 보내나:** 여러 장을 묶으면 서버가 쓸 수 있는 장을 평균해 판정하는데(BE `FrameFeatures.interval`), 고개를 돌린 장·손에 가려진 장이 섞이면 평균이 판정을 흐린다. 프레임마다 보내면 장마다 따로 판정되고, 판별 가능 시간(`valid_ms`)도 프레임 단위로 정확해진다. 서버 부담(추론·저장이 초당 약 10번)은 감수하기로 했다.
 
 ### 5.2 쉬기·자리 비움·판정 불가·종료
@@ -208,9 +209,9 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 
 | 처리 | 원인 | 앱이 보내는 것 | DB 제외 사유 |
 |---|---|---|---|
-| ① 계속 측정, 그 프레임만 판정 불가 | 어깨가 안 보임, 얼굴·양쪽 어깨를 못 찾음, 사람이 없음 | `phase: "running"` 그대로, 프레임 `p: null` | `UNMEASURABLE` |
-| ② 일시정지, 「측정 재개」로 이어 감 | 사용자 「잠시 쉬기」 | `phase: "rest"`, `frames: []` | `PAUSE` |
-| | 카메라 영상이 1초 넘게 안 들어옴(연결은 그대로, 예: 다른 USB를 꽂음). 안내 「인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.」 | `phase: "away"`, `frames: []` | `ABSENCE` |
+| ① 계속 측정, 그 프레임만 판정 불가 | 어깨가 안 보임, 관절을 못 찾음, 사람이 없음, 새 프레임 없이 0.5초 | `phase: "unmeasurable"`, `p: null`(프레임이 있으면 `t_ms`) | `UNMEASURABLE` |
+| ② 일시정지, 「측정 재개」로 이어 감 | 사용자 「잠시 쉬기」 | `phase: "rest"`(`t_ms`·`p` 없음) | `PAUSE` |
+| | 카메라 영상이 1초 넘게 안 들어옴(연결은 그대로, 예: 다른 USB를 꽂음). 안내 「인식 중입니다. 3초 후에 측정 재개 버튼을 눌러주세요.」 | `phase: "away"`(`t_ms`·`p` 없음) | `ABSENCE` |
 | ③ 측정 종료, 그때까지 저장 | 사용자 「측정 종료」, 작은 카메라 창 X(데스크톱 앱), 쓰던 카메라가 빠짐, 측정 중 영상 크기가 바뀜 | `end {end_ms}` | — |
 | | 앱을 닫거나 새로 고침, 네트워크 끊김 | (연결이 끊김) 서버가 마지막 구간 끝에서 끝내고 저장. 앱은 다시 연결하지 않는다 | — |
 | | 쉬기가 오래 이어짐 | **아직 아무도 하지 않음** — 판정 불가 30분과 같은 방식으로 서버가 쉬기 30분에 끝내는 안을 BE와 정한다(FE 제안서 요구 9, BE-13). 앱에는 타이머가 없다 | — |
@@ -259,7 +260,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 흐트러지기 시작 | 자세가 흐트러지고 있어요(주의 색, 소리 없음). 주의 상자에 게이지(`hold_ms` ÷ 정책 hold 시간) | `observation.posture: 'bad'`, 열린 사건 없음(확정 전, 4.0 서버만) |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
 | 회복 중 | 자세가 흐트러졌어요(확정 전까지 유지). 회복 상자에 게이지(`recovery_ms` ÷ 정책 회복 시간) | 위 상태 + `observation.posture: 'good'` |
-| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — 프레임 `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
+| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — `phase: "unmeasurable"`, `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
 | 영상 기다림 | 카메라 영상을 기다리고 있어요 | 앱의 `away` |
 | 분석 멈춤 | 연결 상태 칸에 안내 | `stalled` |
@@ -287,7 +288,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 1 | (앱 시작 때) B2 | 200 기준 / 404 → 자세 등록 |
 | 2 | 「측정 시작」 → S1 `PUT /sessions/{id}` `{policy, baseline_id}` | 200 `SessionView` (= `t_ms` 0) |
 | 3 | WS 연결 → `hello {purpose:"measure", session_id}` | `ready` (5초 안) |
-| 4 | 프레임마다 `features {items:[구간 1개]}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `ack` → `progress` |
+| 4 | 프레임마다 `features {sequence, start_ms, end_ms, phase, t_ms, p}`(밀린 구간부터) | 구간마다 `observation` → (사건이 있으면 `decision` → `alert`) → `progress` |
 | 5 | 「측정 종료」 → `end {end_ms}` | `decision(session_ended)` → `closed(ended)` (5초 안) |
 | 6 | 5초 안에 `closed`가 없으면 S4 | 저장된 결과 |
 
@@ -300,10 +301,10 @@ sequenceDiagram
   A->>S: WS 연결, hello {purpose:"measure", session_id}
   S-->>A: ready
   loop 프레임마다
-    A->>S: features {items:[구간 1개]}
+    A->>S: features {sequence, start_ms, end_ms, phase, t_ms, p}
     S-->>A: observation
     S-->>A: decision · alert (사건이 있을 때)
-    S-->>A: ack · progress
+    S-->>A: progress
   end
   A->>S: end {end_ms}
   S-->>A: decision(session_ended) → closed(ended)
@@ -1082,38 +1083,32 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 ```json
 {
   "type": "hello",
-  "schema_version": "2.0",
   "purpose": "measure",
   "session_id": "41878c98-8d18-4c9c-a0c6-651d43064c8f",
   "access_token": "<access_token>"
 }
 ```
 
-**`features`** — `ready` 뒤에 프레임마다 구간 1개를 보낸다. `p`는 관절 9개의 `[x, y, visibility]`이다. `rest`·`away` 구간은 `frames: []`다.
+**`features`** — `ready` 뒤에 프레임마다 구간 1개를 보낸다. `p`는 관절 9개의 `[x, y, visibility]`이다. 구간 필드와 프레임을 최상위에 둔다(5.1).
 
 ```json
 {
   "type": "features",
-  "items": [
-    {
-      "schema_version": "3.0",
-      "feature_version": "keypoints-9-v1",
-      "sequence": 5,
-      "start_ms": 2500,
-      "end_ms": 2625,
-      "phase": "running",
-      "frames": [
-        { "t_ms": 2500, "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]] }
-      ]
-    }
-  ]
+  "sequence": 5,
+  "start_ms": 2500,
+  "end_ms": 2625,
+  "phase": "running",
+  "t_ms": 2500,
+  "p": [[0.59, 0.4, 0.95], [0.61, 0.37, 0.95], [0.57, 0.37, 0.95], [0.65, 0.38, 0.95], [0.53, 0.38, 0.95], [0.605, 0.45, 0.95], [0.575, 0.45, 0.95], [0.65, 0.62, 0.95], [0.35, 0.62, 0.95]]
 }
 ```
 
-판정 불가 프레임은 좌표 없이 보낸다.
+측정 불가 프레임은 좌표 없이, 새 프레임이 없던 구간은 `t_ms`도 없이 보낸다. 쉬기·자리 비움은 `t_ms`·`p`가 없다.
 
 ```json
-{ "t_ms": 7000, "p": null }
+{ "type": "features", "sequence": 6, "start_ms": 2625, "end_ms": 2700, "phase": "unmeasurable", "t_ms": 2625, "p": null }
+{ "type": "features", "sequence": 7, "start_ms": 2700, "end_ms": 3200, "phase": "unmeasurable", "p": null }
+{ "type": "features", "sequence": 8, "start_ms": 3200, "end_ms": 3700, "phase": "rest" }
 ```
 
 **`end`**
@@ -1125,8 +1120,8 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. `hello`에서 토큰, 세션 주인, 진행 중 여부, 기준 자세를 확인하고 `ready`를 보낸다.
-2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, 아직 develop 전)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
-3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `ack` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. kafka 모드에서는 `ack`가 먼저 오고, `progress`는 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
+2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, `POSEGOOD_REALTIME_PIPELINE=kafka`로 켬, develop #134)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
+3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. `ack`는 보내지 않는다(FE 제안서 요구 4, 팀장 계약안). kafka 모드에서는 `progress`가 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
 4. 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다.
 5. `end`면 저장한 뒤 `decision(session_ended)` → `closed(ended)`를 보낸다.
 6. 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝내 저장한다.
@@ -1164,14 +1159,10 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 }
 ```
 
-**`alert`**, **`ack`**
+**`alert`**
 
 ```json
 { "type": "alert", "event_id": 1, "kind": "collapse_confirmed", "deviation_type": "left_lean" }
-```
-
-```json
-{ "type": "ack", "last_sequence": 5 }
 ```
 
 **`decision`** — `summary`는 S1·S4의 `summary`와 같은 형식이다. `progress`는 `event` 대신 `last_sequence`, `paused_reason`을 담는다.
