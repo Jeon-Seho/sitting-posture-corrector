@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -254,5 +255,27 @@ class KafkaPipelineTest {
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
 		assertEquals(0, pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE).lastSequence());
+	}
+
+	/**
+	 * (D-98) 종료를 보내면 세션을 끝난 것으로 표시한다 — 이 경로는 서버 엔진이 끝나지 않아, 표시하지 않으면 같은 계정의
+	 * 새 측정이 409 MEASUREMENT_IN_PROGRESS로 막힌다. 종료 발행이 실패하면(503) 아직 측정 중이므로 표시하지 않는다.
+	 */
+	@Test
+	void finishReleasesTheMeasurementOnlyAfterEndedIsPublished() throws Exception {
+		pipeline.open(OWNER, SESSION);
+		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
+		when(producer.send(any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("down")));
+		assertEquals(503, assertThrows(ApiError.class, () -> pipeline.finish(OWNER, SESSION, null)).status());
+		verify(sessions, never()).release(OWNER, SESSION);
+
+		when(producer.send(any())).thenAnswer(call -> {
+			sent.add(call.getArgument(0));
+			return CompletableFuture.completedFuture((RecordMetadata)null);
+		});
+		pipeline.finish(OWNER, SESSION, null); // 다음 종료 요청(앱 end·끊김)에 다시 보낸다
+		verify(sessions).release(OWNER, SESSION);
+		pipeline.finish(OWNER, SESSION, null); // 이미 끝났으면 다시 보내지도 표시하지도 않는다
+		verify(sessions, times(1)).release(OWNER, SESSION);
 	}
 }

@@ -320,4 +320,66 @@ class SessionServiceTest {
 		service.openRealtime(OWNER, OTHER);
 		assertEquals(OTHER, live.measuringOther(OWNER, ID, 0).id());
 	}
+
+	/**
+	 * (D-98) kafka 경로는 서버 엔진이 끝나지 않는다. 종료를 처리 서비스로 넘기면({@link SessionService#release}) S1 뒤
+	 * 유예 안이어도 측정 중으로 보지 않고, 끝난 세션에 다시 연결하면 측정 중 표시 없이 409 SESSION_ENDED다.
+	 */
+	@Test
+	void aReleasedKafkaSessionNoLongerBlocksAndCannotBeReopened() {
+		var service = service(Duration.ZERO); // 유예 30초 — 방금 만든 세션이라 연결이 없어도 유예 안
+		when(baselines.find(OWNER, BASELINE)).thenReturn(new BaselineRepository.Stored(1, OWNER,
+			Instant.parse("2026-10-26T00:00:00Z"), landmarks()));
+		long grace = Duration.ofSeconds(30).toNanos();
+		service.openRealtime(OWNER, ID);
+		assertEquals(ID, live.measuringOther(OWNER, OTHER, grace).id());
+
+		service.release(OWNER + 1, ID); // 남의 세션은 건드리지 않는다
+		assertEquals(ID, live.measuringOther(OWNER, OTHER, grace).id());
+
+		service.release(OWNER, ID);
+		assertFalse(live.get(ID).engine().ended()); // 엔진은 그대로(판정은 처리 서비스)
+		assertNull(live.measuringOther(OWNER, OTHER, grace));
+		assertEquals("SESSION_ENDED", assertThrows(ApiError.class, () -> service.openRealtime(OWNER, ID)).code());
+		assertNull(live.measuringOther(OWNER, OTHER, grace));
+	}
+
+	/** (D-98) 연결이 떨어지면 측정 중 표시를 내린다 — 종료가 넘어가지 않았어도 S1 뒤 유예가 지나면 막지 않는다. */
+	@Test
+	void aDisconnectedSessionStopsBlockingAfterTheGrace() {
+		var service = service(Duration.ZERO, Duration.ZERO);
+		when(baselines.find(OWNER, BASELINE)).thenReturn(new BaselineRepository.Stored(1, OWNER,
+			Instant.parse("2026-10-26T00:00:00Z"), landmarks()));
+		service.openRealtime(OWNER, ID);
+		assertEquals(ID, live.measuringOther(OWNER, OTHER, 0).id());
+		service.disconnected(OWNER + 1, ID); // 남의 세션은 건드리지 않는다
+		assertEquals(ID, live.measuringOther(OWNER, OTHER, 0).id());
+		service.disconnected(OWNER, ID);
+		assertNull(live.measuringOther(OWNER, OTHER, 0));
+	}
+
+	/**
+	 * (D-98) 메모리 정리도 종료를 넘긴 세션을 끝난 세션으로 본다: 자리가 모자라면 먼저 빠지고, 끝난 세션 보관 시간을
+	 * 따른다(전에는 엔진이 끝나지 않아 방치 6시간까지 남고, 한도가 차면 모든 새 측정이 429였다).
+	 */
+	@Test
+	void aReleasedSessionMakesRoomAndFollowsTheEndedRetention() {
+		ApplicationEventPublisher events = event -> { };
+		var row = new SessionRepository.Stored(1, ID, OWNER, POLICY, BASELINE, true,
+			Instant.parse("2026-10-26T01:00:00Z"), null, null, 0, 0);
+		var sessions = new LiveSessions(events, 1, Duration.ZERO, Duration.ofHours(6));
+		var session = new LiveSession(row, new SessionEngine(ID, POLICY));
+		sessions.add(session);
+		assertEquals(429, assertThrows(ApiError.class, sessions::ensureRoom).status());
+		sessions.evict();
+		assertEquals(session, sessions.get(ID)); // 진행 중이면 6시간 기준
+
+		session.release();
+		sessions.evict();
+		assertNull(sessions.get(ID)); // 끝난 세션 기준(여기서는 0)
+
+		sessions.add(session);
+		sessions.ensureRoom();
+		assertNull(sessions.get(ID));
+	}
 }

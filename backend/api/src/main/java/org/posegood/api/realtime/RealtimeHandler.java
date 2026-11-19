@@ -173,7 +173,13 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		}
 		synchronized (channel) { // 자정 넘김 중이면 넘긴 뒤의 세션을 끝낸다
 			UUID id = channel.session;
-			if (id == null || !bySession.remove(id, channel) || channel.ended) {
+			if (id == null || !bySession.remove(id, channel)) {
+				return;
+			}
+			// 끝난 채널이어도 측정 중 표시는 내린다(D-98). kafka 경로는 엔진이 끝나지 않아, 종료 발행이 실패한 채
+			// 끊기면 이 표시가 남아 같은 계정의 새 측정을 막는다
+			sessions.disconnected(channel.owner, id);
+			if (channel.ended) {
 				return;
 			}
 			try {
