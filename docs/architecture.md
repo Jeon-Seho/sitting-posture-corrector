@@ -121,11 +121,11 @@ CPU 추론은 지원 환경에서 별도 classic Worker로 옮겨 메인 스레�
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
-프로필·판정 기준·기준 자세·측정·기록은 서버가 기준이다(W1·W2·B1·B2·S1·R1). 브라우저 localStorage에는 테마·카메라·추적 속도 같은 화면 설정, 예시 기록 표시 여부, 프로필 사본만 둔다. 시험 전용 로컬 로그인이 쓰는 계정·설정 키(`features/storage/types.ts`의 `posegood.v2.*`)는 [FE 제안서](design/fe/fe-server-proposal.md) 할 일 3에서 지운다.
+프로필·판정 기준·기준 자세·측정·기록은 서버가 기준이다(W1·W2·B1·B2·S1·R1). 브라우저 localStorage에는 테마·카메라·추적 속도 같은 화면 설정, 예시 기록 표시 여부, 프로필 사본만 둔다. 시험 전용 로컬 로그인이 쓰는 계정·설정 키(`features/storage/types.ts`의 `posegood.*`, 11/18 전 `posegood.v2.*`)는 [FE 제안서](design/fe/fe-server-proposal.md) 할 일 3에서 지운다.
 [수집 v3 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 
 `serviceStore`는 읽기/쓰기 전에 요약·사건·전체 Machine의 수치와 구조를 검사한다.
-읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.v2.writer`를 가진 탭만
+읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.writer`를 가진 탭만
 프로필·설정·측정 요약을 변경하며 다른 탭은 조회한다. 잠금 미지원 환경은 변경을 허용하지 않는다.
 중간 저장의 선택 필드 `savedAt`은 복구 가능한 마지막 벽시계 시각이고, 종료 기록의 선택 필드 `rules`는
 실제 적용 규칙이다. 기존 완전한 기록과 중간 저장은 호환된다. 서버 중간 기록에는 고정 기준·장치/영상 크기,

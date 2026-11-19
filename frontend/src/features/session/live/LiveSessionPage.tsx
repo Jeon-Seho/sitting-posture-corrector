@@ -103,12 +103,11 @@ export function nudgeKind(state: LiveState | null, measurable: boolean) {
 export type NudgeKind = NonNullable<ReturnType<typeof nudgeKind>>
 
 /** Title and line of each box; the hold and recovery times are the session's own rules. */
-export function nudgeText(kind: NudgeKind, state: LiveState | null, rules: { holdSeconds: number; recoverSeconds: number }) {
+export function nudgeText(kind: NudgeKind, rules: { holdSeconds: number; recoverSeconds: number }) {
   if (kind === 'unknown') {
-    const turned = state?.placeable && state?.observation?.invalid_reason === 'head_turn'
     return {
       title: '자세를 확인할 수 없어요',
-      desc: turned ? '고개를 돌린 동안은 판정하지 않아요. 이 시간은 집계에서 빠져요.' : '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.',
+      desc: '얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.',
     }
   }
   if (kind === 'caution') return { title: '자세가 흐트러지고 있어요', desc: `${rules.holdSeconds}초 넘게 이어지면 알려드려요.` }
@@ -172,7 +171,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const nudge = running ? nudgeKind(state, measurable) : null
   const hold = holdProgress(state, session.rules.holdSeconds)
   const recovery = recoveryProgress(state, session.rules.recoverSeconds)
-  const nudgeBox = nudge ? nudgeText(nudge, state, session.rules) : null
+  const nudgeBox = nudge ? nudgeText(nudge, session.rules) : null
   // The server stopped judging for a while (`stalled`): the posture shown is the last one, so its
   // gauges would stand still. Say so and hide them until results come again; no grey screen.
   const stalledNow = running && !!state?.stalled

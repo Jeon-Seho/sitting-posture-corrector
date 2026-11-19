@@ -12,7 +12,7 @@ export function claimWriter(
     return Object.assign(() => {}, { finished: Promise.resolve() })
   }
   const finished = locks
-    .request('posegood.v2.writer', { mode: 'exclusive', ifAvailable: true }, async (lock) => {
+    .request('posegood.writer', { mode: 'exclusive', ifAvailable: true }, async (lock) => {
       if (disposed) return
       if (!lock) {
         update('busy')

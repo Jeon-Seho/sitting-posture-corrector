@@ -18,7 +18,7 @@
    - 일별 통계(`daily_stat`)는 Spark J2가 매일 00:00에 전날(KST)을 집계해 쓰고, API는 읽기만 한다(아키텍처 v5.2).
    - API를 재시작하면 진행 중 세션의 상태는 복구하지 않는다. 그래서 API는 한 인스턴스로 실행한다. 종료된 세션 상태는 30분 보관한다.
 6. **시각은 KST로 저장한다**(CR-04, JDBC 세션 시간대 `Asia/Seoul`). API 응답의 시각은 UTC ISO-8601이다. 절대 시각을 누가 정하는지는 [ADR 0028](0028-server-time-for-baseline-registration.md).
-7. **실시간 채널은 API의 `/v2/realtime` WebSocket이다**([실시간 계약](../../contracts/realtime/README.md)). 연결 하나가 측정 한 번 또는 등록 한 번이다.
+7. **실시간 채널은 API의 `/realtime` WebSocket(11/18 `/v2` 삭제, [ADR 0049](0049-no-version-in-names.md))이다**([실시간 계약](../../contracts/realtime/README.md)). 연결 하나가 측정 한 번 또는 등록 한 번이다.
 8. 추론 서비스 연결(`InferenceClient`)은 시험용 임시 연결이라 이 ADR의 판단 근거가 아니다.
 
 ## 2. 시간 정책 (옛 0012, 2026-10-01 확정, 2026-10-06 개정)

@@ -38,7 +38,7 @@ try {
   await until(() => cdp.evaluate(`document.querySelector('input[name=mail-token]')?.value==='synthetic-ui-token'`), 'packaged token landing')
   assert.equal(await cdp.evaluate(`location.hash.includes('token')`), false)
   // Isolated local preview account; forbid actual capture even if the demo regresses.
-  await cdp.evaluate(`localStorage.setItem('posegood.v2.profile', JSON.stringify({name:'합성 패키지 검사'}))`)
+  await cdp.evaluate(`localStorage.setItem('posegood.profile', JSON.stringify({name:'합성 패키지 검사'}))`)
   await cdp.call('Page.navigate', { url: 'app://posegood/index.html' })
   await until(() => cdp.evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='로그인')`), 'packaged login')
   await cdp.evaluate(`window.__cameraCalls=0; navigator.mediaDevices.getUserMedia=async()=>{window.__cameraCalls++;throw Error('Actual camera forbidden in package smoke')}; [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='로그인').click()`)

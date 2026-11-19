@@ -34,7 +34,7 @@ describe('service records', () => {
     expect(summary([item, { ...item, id: 'two', valid: 900, good: 0 }]).rate).toBe(0.09)
   })
   it('local data deletion also clears the example-records switch', () => {
-    expect(Object.values(KEYS)).toContain('posegood.v2.demo')
+    expect(Object.values(KEYS)).toContain('posegood.demo')
   })
   it('trims profile input and rejects missing fields or out-of-range age', () => {
     expect(validateProfile({ name: ' 합성 ', age: 30, occupation: ' 테스트 ' })).toEqual({

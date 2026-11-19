@@ -9,10 +9,7 @@
  * Development API calls go through the Vite proxy (`/api` → POSEGOOD_API_URL, default
  * http://127.0.0.1:8090, WebSocket included); see vite.config.ts.
  */
-/**
- * Where every REST and WebSocket path starts: `/api`, cut by the gateway. Paths have no version
- * (`/api/v2/…` → `/api/…`, 2026-11-09, FE proposal 요구 3).
- */
+/** Where every REST and WebSocket path starts: `/api`, cut by the gateway (ADR 0049: no version). */
 export const API_ROOT = '/api'
 
 export const SERVER = {
