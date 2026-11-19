@@ -726,6 +726,10 @@ def step_s2(c: Ctx) -> None:
 def _start_session(c: Ctx, cur: Cursor) -> None:
     """측정 시작 요청을 잡고, kafka 모드면 그 뒤 첫 session_started의 session_id를 이 세션으로 삼는다."""
     start = cur.expect(c.gw_any_status("PUT", "/sessions/{id}"), c.args.wait_user, "측정 시작(PUT /sessions/{id})")
+    if start.status == 409 and c.sessions:
+        raise Fail("측정 시작 409(MEASUREMENT_IN_PROGRESS로 보임) — 같은 계정의 앞 측정이 io-api 메모리에서 아직 "
+                   "「측정 중」. kafka 모드는 끝난 세션을 풀지 않는 문제가 있음(D-98) — 시험이 끝나 io-api를 다시 "
+                   "띄우면 풀린다")
     if not status_ok(start.status):
         raise Fail(f"측정 시작 응답 {start.status}")
     m = UUID_RE.search(start.path)
@@ -793,6 +797,22 @@ def step_s4(c: Ctx) -> None:
     c.yes("앱에 자세 알림이 떴나요?")
 
 
+def _previous_alerting(c: Ctx, rem: Event) -> Optional[Tuple[str, int]]:
+    """rem 바로 앞의 확정·재알림(같은 세션)의 (이름, 시각). 재알림은 자세가 계속 나쁘면 30초마다 되풀이되므로 첫 확정이
+    아니라 바로 앞 것과 비교한다 — 질문에 답하는 사이 지나간 재알림도 Bus에 남아 있어 그것과 비교한다(11/19 S5)."""
+    with c.bus.cond:
+        events = list(c.bus.events)
+    best: Optional[Tuple[str, int]] = None
+    for ev in events:
+        if (ev.source == "EPIS" and ev.kind == "decision" and ev.event in ("collapse_confirmed", "reminder")
+                and ev.sid == rem.sid and isinstance(ev.ts_ms, int) and isinstance(rem.ts_ms, int)
+                and ev.ts_ms < rem.ts_ms and (best is None or ev.ts_ms > best[1])):
+            best = ("확정" if ev.event == "collapse_confirmed" else f"직전 재알림 id={ev.event_id}", ev.ts_ms)
+    if best is None and c.last_confirm_ms is not None:
+        best = ("확정", c.last_confirm_ms)
+    return best
+
+
 def step_s5(c: Ctx) -> None:
     cur = c.cursor()
     c.say(f"그 자세를 그대로 {c.args.reminder_ms // 1000 + 8}초 더 유지하세요(재알림을 기다림)")
@@ -804,8 +824,10 @@ def step_s5(c: Ctx) -> None:
         if alert is None:
             raise Fail(f"재알림 id={rem.event_id} 뒤 5초 안 알림 없음 — "
                        f"{_no_alert_reason(counter_delta(before, c.ops.counters()))}")
-        gap = (rem.ts_ms - c.last_confirm_ms) if isinstance(rem.ts_ms, int) and c.last_confirm_ms else None
-        c.note(f"재알림 id={rem.event_id} → 알림 · 확정과 간격 {gap / 1000 if gap else '?'}초")
+        prev = _previous_alerting(c, rem)
+        gap = (rem.ts_ms - prev[1]) if isinstance(rem.ts_ms, int) and prev else None
+        c.note(f"재알림 id={rem.event_id} → 알림 · {prev[0] if prev else '앞 사건'}과 간격 "
+               f"{gap / 1000 if gap is not None else '?'}초")
         if gap is not None and abs(gap - c.args.reminder_ms) > 3000:
             raise Fail(f"재알림 간격 {gap / 1000:.1f}초 — 기대 {c.args.reminder_ms / 1000:.0f}초 ±3초")
     c.yes("재알림이 한 번 더 떴나요?")

@@ -228,6 +228,22 @@ class StepTest(unittest.TestCase):
         with self.assertRaises(ct.Abort):
             ct.step_s4(c)
 
+    def test_s5_compares_with_the_reminder_just_before(self):
+        """자세가 계속 나쁘면 재알림은 30초마다 되풀이된다 — 답하는 사이 지나간 재알림과 비교(11/19 217초 FAIL)."""
+        c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
+        c.args.reminder_ms = 30000
+        c.session, c.last_confirm_ms = SID, 25000
+        c.bus.add(decision("collapse_confirmed", 5, 25000))
+        c.bus.add(decision("reminder", 66, 181880))      # S5 시작 전에 지나간 재알림
+        feed(c.bus, [decision("reminder", 67, 211883), alert(67)])
+        orig = ct.Cursor.expect
+        ct.Cursor.expect = lambda self, pred, timeout, missing, heartbeat=15: orig(self, pred, 2, missing, heartbeat)
+        try:
+            ct.step_s5(c)
+        finally:
+            ct.Cursor.expect = orig
+        self.assertTrue(any("직전 재알림 id=66과 간격 30.003초" in e for e in c.result.evidence), c.result.evidence)
+
     def test_s5_checks_reminder_interval(self):
         c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
         c.args.reminder_ms = 1000          # 제한 시간(reminder+20초)을 줄이려고 작게
