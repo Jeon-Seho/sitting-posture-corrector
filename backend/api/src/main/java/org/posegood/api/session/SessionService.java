@@ -151,11 +151,11 @@ public class SessionService {
 	 *
 	 * 끝난 세션은 409 SESSION_ENDED, 기준이 없거나 판정에 쓸 수 없으면 409 BASELINE_REQUIRED.
 	 * 그사이 다른 기기가 측정을 시작했으면 409 MEASUREMENT_IN_PROGRESS. 통과하면 이 세션을 측정 중으로 표시한다
-	 * (연결이 끊기면 {@link #finish}가 세션을 끝내 표시도 풀린다).
+	 * (연결이 끊기면 {@link #finish}가 세션을 끝내 표시도 풀린다. kafka 경로는 {@link #release}가 푼다).
 	 */
 	public Realtime openRealtime(long owner, UUID id) {
 		var session = require(owner, id);
-		if (session.locked(() -> session.engine().ended())) {
+		if (session.locked(session::over)) {
 			throw ApiError.ended();
 		}
 		var stored = baselines.find(owner, session.row().baselineId());
@@ -359,6 +359,31 @@ public class SessionService {
 	private static SessionView overlay(SessionView view, SessionResults.Snapshot latest) {
 		return new SessionView(view.schemaVersion(), view.sessionId(), view.policy(), view.timerPolicy(),
 			latest.ended(), latest.lastSequence(), latest.summary(), latest.events());
+	}
+
+	/**
+	 * kafka 경로: 종료({@code session_ended})를 처리 서비스로 넘긴 세션을 끝난 것으로 표시한다(D-98).
+	 *
+	 * 그 경로는 이 서버 엔진이 판정하지 않아 {@code engine.ended()}가 되지 않는다. 표시하지 않으면 같은 계정의 새 측정이
+	 * 409 MEASUREMENT_IN_PROGRESS로 막히고, 메모리 정리도 끝난 세션(30분)이 아니라 방치 세션(6시간) 기준을 따른다.
+	 * 메모리에 없거나 남의 세션이면 아무것도 하지 않는다.
+	 */
+	public void release(long owner, UUID id) {
+		var session = live.get(id);
+		if (session != null && session.owner() == owner) {
+			session.release();
+		}
+	}
+
+	/**
+	 * 실시간 채널이 이 세션에서 떨어졌다(D-98). 측정 중 표시를 내린다 — S1 뒤 유예가 지나면 측정 중으로 보지 않는다.
+	 * 메모리에 없거나 남의 세션이면 아무것도 하지 않는다.
+	 */
+	public void disconnected(long owner, UUID id) {
+		var session = live.get(id);
+		if (session != null && session.owner() == owner) {
+			session.connected(false);
+		}
 	}
 
 	/**

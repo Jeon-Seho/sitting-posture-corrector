@@ -37,3 +37,6 @@ API 메모리 세션(`LiveSessions`)·S1·실시간 hello, FE 측정 시작 오�
 - 프론트: `vitest run --maxWorkers=2` 130개 파일·1,032개 통과, `tsc -b`·`npm run lint` 오류 0.
 - 실제 두 PC·브라우저 수동 확인, MySQL 통합, 전체 `make check`는 실행하지 않았다.
 - 판단은 단일 API 인스턴스 메모리 기준이다. 인스턴스를 늘리면 공유 저장소 잠금이 필요하다. API 재시작 시 진행 중 측정 표시는 사라진다(세션도 SESSION_LOST).
+- (2026-11-19 추가, D-98) 위 「연결 끊김이 세션을 끝내므로 별도 해제가 필요 없다」는 local 모드에서만 맞았다. kafka 모드(#134)는
+  서버 엔진이 끝나지 않아 끝낸 측정이 「측정 중」으로 남았다. `session_ended`를 보낸 뒤 따로 끝났다고 표시하도록 고쳤다
+  ([계획 0098](../active/0098-kafka-measurement-release.md)).

@@ -521,6 +521,7 @@ class RealtimeHandlerTest {
 		same(example("ws-closed.json"), fake.only("closed"));
 		assertTrue(fake.closed.get());
 		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), isNull()); // 끝난 세션은 끊김 종료를 다시 안 보냄
+		verify(sessions).disconnected(OWNER, SESSION); // 끝난 채널이어도 측정 중 표시는 내린다(D-98)
 		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // kafka는 자정 넘김 안 함
 	}
 
@@ -540,6 +541,7 @@ class RealtimeHandlerTest {
 		send(dropped, example("ws-hello-measure.json"));
 		handler.afterConnectionClosed(dropped.socket, CloseStatus.GOING_AWAY);
 		verify(pipeline).finish(OWNER, SESSION, null);
+		verify(sessions).disconnected(OWNER, SESSION); // (D-98)
 
 		var other = UUID.fromString("7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d");
 		var loggedOut = connect(handler);

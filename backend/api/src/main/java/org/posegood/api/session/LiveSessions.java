@@ -54,7 +54,7 @@ public class LiveSessions {
 	void ensureRoom() {
 		while (sessions.size() >= capacity) {
 			var oldest = sessions.values().stream()
-				.filter(candidate -> candidate.engine().ended())
+				.filter(LiveSession::over)
 				.max(Comparator.comparingLong(LiveSession::idleNanos));
 			if (oldest.isEmpty()) {
 				throw ApiError.limit("live session capacity reached");
@@ -103,7 +103,7 @@ public class LiveSessions {
 	@Scheduled(fixedDelay = 60_000)
 	public void evict() {
 		for (var session : sessions.values()) {
-			long limit = session.engine().ended() ? endedRetentionNanos : idleRetentionNanos;
+			long limit = session.over() ? endedRetentionNanos : idleRetentionNanos;
 			if (session.idleNanos() > limit) {
 				remove(session.id(), "session_lost");
 			}

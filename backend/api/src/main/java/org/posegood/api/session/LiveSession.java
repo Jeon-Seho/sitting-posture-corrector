@@ -29,6 +29,11 @@ public final class LiveSession {
 	private final long createdAt = System.nanoTime();
 	/** 실시간 채널이 이 세션에 붙어 있는지. 측정 중 기기 판단에 쓴다. */
 	private volatile boolean connected;
+	/**
+	 * kafka 경로에서 종료({@code session_ended})를 처리 서비스로 넘겼는지(D-98). 그 경로는 판정을 이 서버 엔진이 하지
+	 * 않아 {@link SessionEngine#ended()}가 되지 않으므로, 끝났다는 표시를 따로 둔다.
+	 */
+	private volatile boolean released;
 
 	LiveSession(SessionRepository.Stored row, SessionEngine engine) {
 		this.row = row;
@@ -86,7 +91,18 @@ public final class LiveSession {
 	 * S1만 하고 연결하지 않은 세션은 유예 시간이 지나면 측정 중으로 보지 않는다.
 	 */
 	boolean measuring(long graceNanos) {
-		return !engine.ended() && (connected || System.nanoTime() - createdAt < graceNanos);
+		return !over() && (connected || System.nanoTime() - createdAt < graceNanos);
+	}
+
+	/** kafka 경로: 종료를 처리 서비스로 넘겼다. 이 뒤로는 측정 중으로 보지 않는다(D-98). */
+	void release() {
+		released = true;
+		connected = false;
+	}
+
+	/** 끝났는지: 이 서버 엔진이 끝냈거나(local), 종료를 처리 서비스로 넘겼다(kafka). */
+	boolean over() {
+		return released || engine.ended();
 	}
 
 	long idleNanos() {
