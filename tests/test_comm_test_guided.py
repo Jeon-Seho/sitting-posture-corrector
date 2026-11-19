@@ -120,8 +120,9 @@ class ParsingTest(unittest.TestCase):
         self.assertEqual(ct.parse_offsets("posture.alerts:0:100\nposture.alerts:1:166\n"), 266)
         out = ("\nGROUP TOPIC PARTITION CURRENT-OFFSET LOG-END-OFFSET LAG CONSUMER-ID HOST CLIENT-ID\n"
                "judge posture.inference 0 10 12 2 c1 /1 x\n"
-               "judge posture.inference 1 5 5 0 c1 /1 x\n")
-        self.assertEqual(ct.parse_lag(out), 2)
+               "judge posture.inference 1 5 5 0 c1 /1 x\n"
+               "io-ws-io-api posture.episodes.v1 1 0 285 285 - - -\n")
+        self.assertEqual(ct.parse_lag(out), 2)   # 옛 이름 토픽(.v1)의 남은 lag는 빼고
         self.assertIsNone(ct.parse_lag("Consumer group 'x' does not exist."))
 
     def test_counter_delta_and_reason(self):
@@ -154,6 +155,13 @@ class StepTest(unittest.TestCase):
                      gw("GET", "/api/workspace", 200)])
         ct.step_s1a(c)
         self.assertIn("POST /auth/login 200 (앞선 실패 1번)", c.result.evidence)
+
+    def test_s1a_stops_when_the_app_still_calls_versioned_paths(self):
+        c = make_ctx()
+        feed(c.bus, [gw("GET", "/api/v2/auth/me", 200), gw("POST", "/api/v2/auth/login", 200)])
+        with self.assertRaises(ct.Fail) as err:
+            ct.step_s1a(c)
+        self.assertIn("버전 붙은 주소(/api/v2/auth/me)", str(err.exception))
 
     def test_s1b_stops_when_an_email_login_comes_instead_of_discord(self):
         c = make_ctx()
@@ -219,6 +227,22 @@ class StepTest(unittest.TestCase):
         c = make_ctx(mode="local", answers=["q"])
         with self.assertRaises(ct.Abort):
             ct.step_s4(c)
+
+    def test_s5_compares_with_the_reminder_just_before(self):
+        """자세가 계속 나쁘면 재알림은 30초마다 되풀이된다 — 답하는 사이 지나간 재알림과 비교(11/19 217초 FAIL)."""
+        c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
+        c.args.reminder_ms = 30000
+        c.session, c.last_confirm_ms = SID, 25000
+        c.bus.add(decision("collapse_confirmed", 5, 25000))
+        c.bus.add(decision("reminder", 66, 181880))      # S5 시작 전에 지나간 재알림
+        feed(c.bus, [decision("reminder", 67, 211883), alert(67)])
+        orig = ct.Cursor.expect
+        ct.Cursor.expect = lambda self, pred, timeout, missing, heartbeat=15: orig(self, pred, 2, missing, heartbeat)
+        try:
+            ct.step_s5(c)
+        finally:
+            ct.Cursor.expect = orig
+        self.assertTrue(any("직전 재알림 id=66과 간격 30.003초" in e for e in c.result.evidence), c.result.evidence)
 
     def test_s5_checks_reminder_interval(self):
         c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
