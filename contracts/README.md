@@ -54,11 +54,10 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 스키마가 필드 추가도 거부하므로 필드를 더하거나 바꾸면 호환이 깨진다. 이때 새 계약 파일이나 버전을 만들지 않고, 생산자·소비자 코드와 계약·예제·시험을 한 PR에서 함께 바꿔 같은 때 배포한다([ADR 0049](../docs/decisions/0049-no-version-in-names.md)).
 원본 좌표·영상·참여자 ID는 이 계약에 넣지 않는다.
 
-## 특징 입력
+## Kafka 특징 변화량 입력
 
-[특징 입력](inference-request.schema.json)은 FastAPI `POST /infer`의 입력이다. API가 `/realtime` 좌표 구간에서 계산해 보낸다.
-API의 HTTP 특징 입력 `POST /sessions/{UUID}/features`(S2)는 2026-10-28 지웠다([계획 0062](../docs/plans/active/0062-remove-unused-apis.md)). 옛 FastAPI `/v1/infer`(두 임시 특징)는 2026-11-09 지웠다. 추론 주소는 `POST /infer` 하나다.
-[합성 요청](examples/inference/synthetic-feature-request.json)과
+[특징 변화량](feature-deltas.schema.json)은 [Kafka features 메시지](realtime/kafka-features.schema.json)의 본문이다. Kafka 소비자는 이 본문으로 규칙 점수를 계산한다.
+[합성 특징 변화량](examples/inference/synthetic-feature-request.json)과
 [TS·Python 공유 합성 사례](examples/inference/reference-feature-cases.json)를 함께 검증한다.
 
 | 필드 | 의미 |
@@ -87,13 +86,40 @@ API의 HTTP 특징 입력 `POST /sessions/{UUID}/features`(S2)는 2026-10-28 지
 머리 높이·어깨 기울기 우세나 동점은 `unspecified`이며 전방 굽힘을 단정하지 않는다.
 출력은 [관측](posture-observation.schema.json), 모델명은 `reference-feature-rule-v1`이다.
 
-지운 S2의 응답 형식(`{schema_version:"1.0", observation, session}`, 옛 `feature-response.v1.schema.json`)은 API가 더 이상 내보내지 않아 2026-11-18에 계약과 합성 응답 예시를 지웠다([지운 문서 기록](../docs/removed-docs.md)).
+2026-10-28에 지운 HTTP 특징 입력 S2(`POST /sessions/{UUID}/features`, [계획 0062](../docs/plans/active/0062-remove-unused-apis.md))의 응답 형식(`{schema_version:"1.0", observation, session}`, 옛 `feature-response.v1.schema.json`)은 API가 더 이상 내보내지 않아 2026-11-18에 계약과 합성 응답 예시를 지웠다([지운 문서 기록](../docs/removed-docs.md)).
+
+## 키포인트 입력과 관측 응답
+
+FastAPI의 점수 요청 주소는 `POST /infer` 하나이며 [키포인트 요청](inference-request.schema.json)을 받는다. local API는 BE 전환 후 아래 형식으로 프레임과 기준 자세를 보낸다. 현재 develop의 Java API가 보내는 특징 변화량은 이 요청 계약에 맞지 않아 422를 받으므로 BE 전환과 함께 적용한다. [계획 0098](../docs/plans/active/0098-frame-rf-service-inference.md), [ADR 0050](../docs/decisions/0050-frame-rf-service-inference.md)
+
+| 필드 | 의미 |
+| --- | --- |
+| `schema_version`, `feature_version` | `3.0`, `keypoints-9-v1` |
+| `baseline_id` | 기준 등록 UUID 문자열. 응답에는 포함하지 않는다. |
+| `sequence`, `start_ms`, `end_ms`, `phase` | 세션별 순번과 세션 상대 구간이다. `0 < end_ms − start_ms ≤ 1500`이며 phase는 `running`·`rest`·`away`다. |
+| `frames` | 0~30개. 각 프레임은 9개의 `[x, y, visibility]` 또는 `null`이다. x·y는 −1~2, visibility는 0~1이다. `null`은 사람 없음 또는 앱에서 판정 불가로 표시한 프레임이다. |
+| `baseline` | DB에 저장된 평균 좌표 `[x, y]` 9개다. x·y는 0~1이며 visibility는 없다. |
+
+프레임과 기준 모두 코·왼눈·오른눈·왼귀·오른귀·왼쪽 입꼬리·오른쪽 입꼬리·왼어깨·오른어깨 순서다. 추론 서버는 유한수와 구간 길이를 확인하고, 기준 자세의 기하가 유효하지 않으면 422를 반환한다.
+
+`/infer` 응답은 [관측](posture-observation.schema.json)의 필드(`schema_version: "2.0"` 포함)에 필수 필드 `invalid_reason`을 더한 것이다.
+
+| 조건 | `invalid_reason` |
+| --- | --- |
+| `valid: true` | `null` |
+| `valid: false`, `phase: running` | `"unmeasurable"` 또는 `"head_turn"` |
+| `valid: false`, `phase: rest` 또는 `away` | `null` |
+
+`valid: false`이면 `collapse_probability: 0`, `deviation_type: "none"`이다. RF의 `collapse_probability`는 유효 프레임에서 구한 이탈 클래스 점수의 평균을 기존 정책 임계값에 맞게 변환한 값이다. 기본 `model_version`은 `frame-rf-100x-v1`이며, `POSEGOOD_INFERENCE_MODEL=rule`로 규칙을 선택하면 `reference-feature-rule-v1`이다.
+
+[유효 프레임 요청](examples/inference/synthetic-inference-request.json), [일부 프레임이 null인 요청](examples/inference/synthetic-inference-request-with-null-frames.json), [응답](examples/inference/synthetic-inference-response.json)은 모두 합성 예시다.
+
+## 관측과 사건 계약
+
 입력의 sequence·구간·phase와 관측의 대응, 조회의 수용 범위도 소비자가 검사한다.
 API는 진행 중 세션마다 최근 120개 구간의 요청 hash·추론 출력을 메모리에 두고 같은 순번의 중복을 알아본다(`/realtime`은 중복을 409로 거절).
 고정 기준·고정 모델명·종료·재시작 뒤 404 유실(`SESSION_LOST`)은
 [서비스 안내](../backend/README.md)와 [ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)를 따른다.
-
-## 관측과 사건 계약
 
 새 독립 서버 흐름은 [관측](posture-observation.schema.json)을 사용한다.
 추론 출력은 현재 점수/유효성만 제공하고 시간 판정은 API 판정 엔진이 한다. v1은 기존 흐름 호환성으로 보존한다.

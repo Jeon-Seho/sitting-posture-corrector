@@ -21,10 +21,13 @@ class InferenceInternalAuthTests(unittest.TestCase):
         path.write_text(self.token, encoding="ascii")
         with patch.dict(os.environ, {"POSEGOOD_INTERNAL_TOKEN_FILE": str(path), "POSEGOOD_REQUIRE_INTERNAL_TOKEN": "true"}):
             self.client = TestClient(create_app())
-        example = Path(__file__).resolve().parents[1] / "contracts/examples/inference/synthetic-feature-request.json"
+            # Run startup so the configured model is loaded, as the server does.
+            self.client.__enter__()
+            self.addCleanup(self.client.__exit__, None, None, None)
+        example = Path(__file__).resolve().parents[1] / "contracts/examples/inference/synthetic-inference-request.json"
         self.body = json.loads(example.read_text(encoding="utf-8"))
 
-    def test_valid_token_allows_v2_inference(self):
+    def test_valid_token_allows_inference(self):
         response = self.client.post("/infer", json=self.body, headers={"X-PoseGood-Internal-Token": self.token})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["valid"])

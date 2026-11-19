@@ -40,6 +40,9 @@ services:
     environment:
       POSEGOOD_REQUIRE_INTERNAL_TOKEN: "true"
       POSEGOOD_INTERNAL_TOKEN_FILE: /run/secrets/posegood.internal-token
+      POSEGOOD_INFERENCE_MODEL: ${POSEGOOD_INFERENCE_MODEL:-frame-rf-100x}
+      # Uvicorn worker processes (each loads the model once).
+      WEB_CONCURRENCY: ${POSEGOOD_INFERENCE_WORKERS:-2}
     secrets: [posegood.internal-token]
     networks: [private]
     healthcheck:

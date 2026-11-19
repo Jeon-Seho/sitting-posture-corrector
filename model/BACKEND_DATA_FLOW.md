@@ -1,23 +1,22 @@
 # 자세 측정 데이터 흐름과 백엔드 연동 예시
 
-이 문서는 프런트의 키포인트가 추론·판정을 거쳐 화면으로 돌아오는 흐름을 정리한다. 아래 숫자와 UUID는 **합성 예시**다. 기준: `feature/model-replay-two-stage-pilot`, 2026-11-09.
+이 문서는 프런트의 키포인트가 추론·판정을 거쳐 화면으로 돌아오는 흐름을 정리한다. 아래 숫자와 UUID는 **합성 예시**다.
 
-현재 서비스의 추론은 규칙 기반이고, 웹캠 비교 화면에서 사용하는 2단계 학습 모델은 별도의 로컬 연구 도구다. 두 경로가 이미 연결된 것은 아니다.
-2026-11-12부터 [프레임별 2단계 RF 파일럿](analysis/frame_pilot/README.md)을 별도 경로로 준비한다. 유효한 프레임마다 점수를 내고, 3초 지속 판정은 서비스 판정 서버의 책임이다.
+추론 서버는 `POST /infer`에서 [100배 증강 프레임 RF](pretrained/frame-rf-100x/README.md)를 기본으로 제공한다. 현재 develop의 Java API는 같은 주소에 특징 변화량을 보내므로 이 추론 서버와 연결하면 422를 받는다. BE가 프레임과 기준 자세를 보내도록 전환할 때 함께 병합·배포한다. [계획 0098](../docs/plans/active/0098-frame-rf-service-inference.md)
 
-## 1. 현재 서비스 경로
+## 1. BE 연결 후 local 서비스 경로
 
 ```text
 프런트
   → WebSocket /realtime: 키포인트 9개
-  → API 서버: 기준 자세와 비교해 특징 3개 계산
-  → 추론 서버 POST /infer: 규칙 기반 이탈 점수
+  → API 서버: 프레임 9점 좌표와 기준 자세 9점 전달
+  → 추론 서버 POST /infer: 6개 특징 계산, 프레임 RF, 구간 점수 변환
   → API 서버 내부 판정 엔진: 이탈 지속·복귀·알림 판단
   → WebSocket /realtime: observation / decision / alert / progress
   → 프런트
 ```
 
-현재 판정 엔진은 API 서버 안에 있다. Kafka를 통한 별도 처리 서비스 연결은 [전환 계획](../docs/plans/active/0031-realtime-kafka-transition.md)에서 다루며, 이 문서의 HTTP 경로가 이미 그 전환을 마쳤다는 뜻은 아니다.
+시간 판정은 API 판정 엔진이 담당한다. Kafka 경로는 기본으로 꺼져 있다. Kafka 소비자는 features 본문의 특징 변화량으로 자체 규칙 점수를 계산한다. [특징 변화량 계약](../contracts/feature-deltas.schema.json), [Kafka 전환 계획](../docs/plans/active/0031-realtime-kafka-transition.md)
 
 ### 1-1. 프런트 → API 서버: 키포인트
 
@@ -57,38 +56,20 @@
 
 - 각 점은 `[x, y, visibility]`다. 좌표는 화면 크기 대비 값이며 y는 아래로 증가한다. 좌표 자체는 미러링하지 않는다.
 - 점 순서는 MediaPipe 인덱스 **0, 2, 5, 7, 8, 9, 10, 11, 12**: 코, 양 눈, 양 귀, 양 입꼬리, 양 어깨다. 입꼬리는 입 개폐량이 아니라 얼굴 높이 특징에 쓰인다.
-- 영상 자체는 보내지 않는다. 추적할 수 없는 프레임은 `p: null`, `valid: false`로 보내며 정상 프레임으로 대체하지 않는다.
+- 영상 자체는 보내지 않는다. 추적할 수 없는 프레임은 `p: null`로 보낸다.
 - 기준 자세는 앞서 `POST /baselines`로 별도 등록한다. 상세 형식과 허용 범위는 [프레임 계약](../contracts/realtime/frames/posture-frames.schema.json), [WebSocket 계약](../contracts/realtime/realtime-ws.schema.json)을 따른다.
 
-### 1-2. API 서버 → 추론 서버: 기존 특징 3개
+### 1-2. API 서버 → 추론 서버: 프레임과 기준 9점
 
-API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 계산한 다음 `POST /infer`를 호출한다. 다음은 기준 자세와의 차이를 가정한 합성 예시다.
+API는 `POST /infer`에 구간의 순번·시작/끝 시각·phase와 함께 기준 UUID, 프레임 목록, DB에 저장한 평균 기준 좌표 9점을 보낸다. 프레임 항목은 `[x, y, visibility]` 9점 배열 또는 추적 불가를 나타내는 `null`이다. 기준은 `[x, y]` 9점이며 visibility를 저장하지 않는다. 요청에는 프레임별 `t_ms`가 없고, 응답은 요청의 `sequence`·구간·`phase`를 돌려준다. [입력 스키마](../contracts/inference-request.schema.json), [합성 요청](../contracts/examples/inference/synthetic-inference-request.json), [일부 프레임이 null인 요청](../contracts/examples/inference/synthetic-inference-request-with-null-frames.json)
 
-```json
-{
-  "schema_version": "2.0",
-  "feature_version": "shoulder-relative-deltas-v1",
-  "baseline_id": "00000000-0000-4000-8000-000000000001",
-  "sequence": 42,
-  "start_ms": 4200,
-  "end_ms": 4300,
-  "phase": "running",
-  "measurement_quality": "good",
-  "features": {
-    "head_gap_delta": -0.225,
-    "lateral_offset_delta": 0.0,
-    "shoulder_tilt_delta": 0.0,
-    "current_quality": 0.99,
-    "baseline_quality": 1.0
-  }
-}
-```
+RF는 9점 모두 유한하고 좌표가 0~1, visibility가 0.65 이상인 프레임을 사용한다. 기하가 유효하지 않거나 얼굴 길이가 없거나 고개 돌림 변화가 0.15를 초과하는 프레임도 제외한다. 사용 가능한 프레임마다 학습 때와 같은 6개 특징을 구하고, 세로 이동 보정기의 출력을 반영한 특징으로 분류기의 이탈 클래스 점수를 계산한다. 기준 자세의 기하가 유효하지 않으면 422를 반환한다.
 
-세 변화량은 각각 머리-어깨 높이, 좌우 치우침, 어깨 기울기의 **현재 − 기준**이다. 기존 API는 3개 변화량과 품질을 받으며 2단계 실험 모델의 6개 입력을 아직 받지 않는다. 요청·응답의 구간과 `sequence`는 일치해야 한다([입력 계약](../contracts/inference-request.schema.json)).
+추론 서버는 시작 시 보정기와 분류기의 트리를 `CompiledForest`의 NumPy 배열로 변환해 모든 트리를 한꺼번에 계산한다. Compose의 `POSEGOOD_INFERENCE_WORKERS`로 Uvicorn 프로세스 수를 지정하며 기본은 2개다. 각 프로세스가 시작할 때 모델을 한 번씩 메모리에 올린다.
 
 ### 1-3. 추론 서버 → 판정 엔진: 관측 결과
 
-위 요청에 대한 현재 규칙 추론의 응답 예시다. API 서버는 이를 자신의 판정 엔진에 전달한다.
+추론 서버는 유효 프레임의 이탈 클래스 점수 평균 `p`를 `p ≤ 0.5`이면 `1.4·p`, 그보다 크면 `0.4 + 0.6·p`로 변환해 `collapse_probability`로 보낸다. RF의 0.5는 기존 기본 임계값 0.7에 대응한다. 아래 값은 평균 점수 0.6을 가정한 합성 예시다. [합성 응답](../contracts/examples/inference/synthetic-inference-response.json)
 
 ```json
 {
@@ -98,13 +79,16 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
   "end_ms": 4300,
   "phase": "running",
   "valid": true,
-  "collapse_probability": 0.7159090909090908,
+  "collapse_probability": 0.76,
   "deviation_type": "unspecified",
-  "model_version": "reference-feature-rule-v1"
+  "model_version": "frame-rf-100x-v1",
+  "invalid_reason": null
 }
 ```
 
-`collapse_probability`는 0~1의 이탈 점수다. 현재 구현은 학습 모델이 아닌 규칙 점수이며 이름과 달리 보정된 확률이 아니다. `deviation_type: unspecified`는 이탈 방향을 특정하지 못한다는 뜻이다. 실제 모델/특징 버전을 속여서 같은 이름을 쓰지 않는다([관측 계약](../contracts/posture-observation.schema.json)).
+`collapse_probability`는 0~1의 이탈 점수이며 점수 변환에 확률 보정의 근거는 없다. `deviation_type`은 처음 세 특징의 평균 변화량을 기존 규칙으로 비교한 표시용 값이다. RF는 방향을 분류하지 않는다.
+
+`running`에서 쓸 수 있는 프레임이 하나도 없으면 `valid: false`, 점수 0, `deviation_type: "none"`, `invalid_reason: "unmeasurable"` 또는 `"head_turn"`을 반환한다. `rest`·`away`는 `valid: false`이고 사유는 `null`이다. 유효 관측의 사유도 `null`이다. RF를 선택한 상태에서 가중치를 불러오지 못하면 `/health`와 `/infer`는 503을 반환한다. 규칙 점수는 `POSEGOOD_INFERENCE_MODEL=rule`로 명시적으로 선택할 수 있다. [키포인트 요청·관측 응답 계약](../contracts/README.md#키포인트-입력과-관측-응답)
 
 ### 1-4. 판정 엔진 → 프런트: 관측과 알림
 
@@ -118,7 +102,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
     "sequence": 42,
     "valid": true,
     "posture": "bad",
-    "collapse_probability": 0.7159090909090908,
+    "collapse_probability": 0.76,
     "hold_ms": 100,
     "recovery_ms": 0,
     "invalid_reason": null
@@ -137,7 +121,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 }
 ```
 
-판정 엔진의 누적 알림 시도 횟수는 `progress.summary.alert_count`에서 확인한다. 이는 실제 화면·OS 표시 성공 횟수와 같다고 보장할 수 없다. 세션 알림이 꺼져 있어도 판정 엔진에는 시도 이력이 남지만 프런트로 `alert`를 보내지는 않는다. 판정 불가일 때 프런트용 `observation`은 `valid: false`, `posture: null`, `collapse_probability: null`, 지속 시간 0과 사유를 보낸다. 기존 **추론 v2 내부 응답**은 스키마상 `valid: false`일 때 점수 0과 `deviation_type: none`을 넣지만, 0을 정상 관측으로 취급하면 안 된다.
+판정 엔진의 누적 알림 시도 횟수는 `progress.summary.alert_count`에서 확인한다. 이는 실제 화면·OS 표시 성공 횟수와 같다고 보장할 수 없다. 세션 알림이 꺼져 있어도 판정 엔진에는 시도 이력이 남지만 프런트로 `alert`를 보내지는 않는다. 판정 불가일 때 프런트용 `observation`은 `valid: false`, `posture: null`, `collapse_probability: null`, 지속 시간 0과 사유를 보낸다. 추론 응답이 `valid: false`이면 API는 그 구간을 정상 시간에서 제외하고 열린 사건을 중단한다.
 
 ## 2. 현재 2단계 모델 실험 경로
 
@@ -184,12 +168,6 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 
 기준 등록은 최소 3초·20개 유효 표본이다. 기존 창 모델은 이후 최근 1초의 특징별 중앙값을 약 0.5초마다 평가한다. 프레임별 후보는 등록 뒤 유효한 관측마다 점수를 계산하며 창을 기다리지 않는다. 두 방식 모두 모델에 필요한 9점의 visibility가 부족하면 이전 점수를 지우고 `unmeasurable`을 반환한다. 시작값 0.65는 검증 전 입력 품질 설정이다. 등록 중에는 `registering`과 `progress`, 등록 직후 `ready`, 창 모델이 관측을 모을 때 `warming`을 반환한다.
 
-## 3. 2단계 모델의 서비스 연결 시 협의할 점
+## 3. 서비스 연결의 남은 한계
 
-1. **입력 계약:** 기존 `/infer`는 3개 특징만 받는다. 6개 특징, 기준 어깨 너비와 등록 시 9점의 품질을 어디에서 계산·검증할지 결정하고, 필요한 계약을 버전 관리해야 한다. 기존 v2 요청에 임의 필드를 추가하면 거부된다.
-2. **출력 계약:** `model.score`를 기존 `collapse_probability`에 연결하는 방안을 검토할 수 있다. 다만 현재 실험 응답에는 서비스 관측에 필요한 `sequence`, 구간, `model_version`이 없고, 2클래스 모델은 좌·우 등 `deviation_type`을 예측하지 않는다. 기존 관측 계약과 버전 처리를 정해야 한다.
-3. **시간 구간:** 기존 창 모델의 최근 1초 창은 0.5초마다 서로 겹친다. 새 프레임 모델은 입력 창을 기다리지 않는다. 어느 쪽이든 서버에서 순번·촬영 시각·누락·판정 구간을 정하고, 끊긴 구간을 정상이나 이탈로 채우지 않는다.
-4. **임계값과 알림:** 실험의 0.65와 기존 규칙의 기본 0.7은 다른 값이다. 모델별 비교 기준을 학습·검증 자료에 근거해 정하고 세션 정책에 반영해야 한다. 화면의 `100 × (1 − 점수)`와 표시용 평활화는 모델 입력이나 판정에 사용하지 않는다.
-5. **품질과 검증:** `unmeasurable`은 정상 또는 0점이 아니다. 실험 모델은 독립적인 실제 사용자 성능을 입증한 결과가 아니며, 시험 참여자 데이터로 임계값을 튜닝하지 않는다.
-
-자세한 실험 실행과 해석은 [웹캠 비교 안내](analysis/live_comparison/README.md), 서비스 데이터 경계는 [계약 안내](../contracts/README.md)를 참고한다.
+서비스의 기준 자세는 visibility를 저장하지 않아 기준 9점이 학습 때와 같은 품질 조건을 충족하는지 확인할 수 없다. RF 후보의 독립 시험과 0.5 운영 기준 검증도 남아 있다. 9점 검사에서 제외되는 구간이 늘면 열린 사건의 중단이 더 잦아질 수 있다. 이탈이 계속되면 3초 뒤 새 사건으로 확정돼 새 최초 알림이 나갈 수 있다. [ADR 0050](../docs/decisions/0050-frame-rf-service-inference.md)

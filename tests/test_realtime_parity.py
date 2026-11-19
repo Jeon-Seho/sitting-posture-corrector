@@ -9,7 +9,7 @@ import math
 import unittest
 from pathlib import Path
 
-from model.inference.schemas import InferenceRequestV2
+from model.inference.schemas import FeatureDeltaRequest
 from model.inference.service import predict_feature_observation
 
 
@@ -23,7 +23,7 @@ class InferenceParityTests(unittest.TestCase):
         self.assertGreaterEqual(len(cases), 100)
         for case in cases:
             with self.subTest(sequence=case["request"]["sequence"]):
-                actual = dict(predict_feature_observation(InferenceRequestV2.model_validate(case["request"])))
+                actual = dict(predict_feature_observation(FeatureDeltaRequest.model_validate(case["request"])))
                 expected = dict(case["expected"])
                 self.assertTrue(math.isclose(actual.pop("collapse_probability"),
                                              expected.pop("collapse_probability"), rel_tol=0, abs_tol=1e-12))
