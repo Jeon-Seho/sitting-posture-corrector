@@ -42,7 +42,7 @@ export function SocialLinkSection({ social, disabled }: { social: SocialClient; 
     } catch (caughtError) {
       console.error('[features/profile/SocialLinkSection.tsx:unlink] Operation failed', caughtError)
       setMessage(caughtError instanceof AccountError && caughtError.code === 'LAST_LOGIN_METHOD'
-        ? '비밀번호가 없어 Discord가 유일한 로그인 수단이에요. 로그인 화면의 비밀번호 재설정으로 비밀번호를 먼저 정해 주세요.'
+        ? '비밀번호가 없어 Discord가 유일한 로그인 수단이라 연결을 해제할 수 없어요.'
         : accountErrorMessage(caughtError, 'login'))
     } finally {
       setBusy(false)
@@ -63,7 +63,7 @@ export function SocialLinkSection({ social, disabled }: { social: SocialClient; 
         : <button type="button" className="btn btn-social btn-discord" disabled={off} onClick={() => void link()}>Discord 연결</button>}
     </div>
     {status && !status.password_set && <p className="fine">
-      이 계정은 비밀번호 없이 Discord로 가입했어요. 비밀번호를 바꾸려면 로그인 화면의 비밀번호 재설정 메일로 먼저 정해 주세요.
+      이 계정은 비밀번호 없이 Discord로 가입해 Discord로만 로그인해요. 비밀번호 변경·재설정은 제공하지 않아요.
     </p>}
   </section>
 }

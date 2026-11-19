@@ -1,11 +1,13 @@
 # 같은 이메일 계정 연결과 가입 이메일 인증
 
-- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE·FE·ADR 구현 전)
+- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계·FE·ADR 구현 전)
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
 - 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR 0049(작성 예정)
 
 ## 문제와 완료 기준
+
+> **2026-11-18 결정으로 방향이 바뀌었다(아래 「결정과 진행 기록」).** 같은 이메일은 자동 연결 대신 기존 계정 확인·승인 뒤 연결하고(#127 방식), Discord 전용 계정에는 비밀번호를 붙이지 않으며(탈퇴는 비밀번호 없이, BE-25), 인증 대기는 DB 표 `email_verification_token`에 둔다. 아래 1·2번과 「흐름」의 자동 연결·비밀번호 붙이기는 그 결정 전 설계이고, BE 2단계를 시작할 때 고쳐 쓴다.
 
 지금은 같은 이메일이어도 이메일 계정과 Discord 계정을 자동으로 묶지 않는다(0088, 11/11 결정). 이를 다음처럼 바꾼다.
 
@@ -17,7 +19,7 @@
 - 이메일 가입은 인증 링크 없이 계정을 만들 수 없다.
 - Discord 확인 이메일이 같은 기존 계정에 자동 연결되고 로그인된다.
 - Discord 전용 계정의 이메일로 가입하면 기존 계정에 비밀번호만 붙는다(새 계정·새 동의 행 없음, 프로필 유지).
-- 비밀번호 있음/없음 판단, 연결 해제의 마지막 로그인 수단 검사, 비밀번호 변경·재설정·탈퇴가 `local_credential` 기준으로 그대로 동작한다.
+- 비밀번호 있음/없음 판단, 연결 해제의 마지막 로그인 수단 검사, 비밀번호 변경·재설정·탈퇴가 `local_credential` 기준으로 동작한다. 소셜 전용 계정은 비밀번호 변경·재설정으로 비밀번호를 새로 만들 수 없다.
 - 탈퇴 최종 삭제(J3)가 새 표가 있어도 계정 행을 지운다.
 
 ## 범위와 제외
@@ -103,9 +105,9 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - [ ] ADR 0049 작성(같은 이메일 자동 연결, 11/11 결정 대체, 결정 4의 감수 근거)과 0088 인계 1절 정정
 - [x] DB(2026-11-17, 브랜치 `feature/db-account-credential-email-verification`): migration 018·019, `schema_V2_8.sql`(명세서 V2.8), ERD V2.8(원본·PNG), `database/README.md`(운영 V2.7 반영, 기준 스키마 V2.6 → V2.7, `schema_V2_6.sql`·017 삭제, 개수·되돌리기), DB CI(`BASE_SCHEMA`·`EXPECT_TABLES`), `integrity_check.py`(V2.8 기준 195개), 0088 인계의 017 안내
 - [ ] DB 운영 적용: 018 → 019를 새 API 배포와 같은 점검 시간에(DevOps와 시간 정하기). 명세서 V2.8 원문 반영
-- [ ] API가 V2.8에 맞춰진 뒤 `schema_V2_7.sql`을 읽는 곳을 V2.8로: `DisposableDatabase`·`infra/mysql/initdb/10-posegood-schema.sh`·`tools/test_mysql.py`·`consents.test.ts`·`SchemaVerifier`/`ServiceSchemaVerifier` 메시지
-- [ ] BE 1단계(동작 유지): `AccountRepository`(조회 LEFT JOIN, 가입, 비밀번호 변경 → 없으면 INSERT), `AccountService.NO_PASSWORD`·`hasPassword` 제거, `SocialLoginService.unlink`, `PasswordResetService`(Discord 전용 계정은 재설정으로 행 INSERT), `SchemaVerifier`(`local_credential` 항상 확인), `JdbcReportTestFixtures`
-- [ ] BE 2단계: 이메일 인증 경로·저장소·메일 문구·매일 정리, `register` 토큰 소비, Discord 자동 연결, 기능 플래그(`posegood.auth.email-verification.enabled`, 기본 꺼짐)
+- [x] API가 V2.8에 맞춰진 뒤 `schema_V2_7.sql`을 읽는 곳을 V2.8로: `DisposableDatabase`·`infra/mysql/initdb/10-posegood-schema.sh`·`tools/test_mysql.py`·`consents.test.ts`·`SchemaVerifier`/`ServiceSchemaVerifier` 메시지 (2026-11-17, BE 1단계와 같은 브랜치)
+- [x] BE 1단계(동작 유지, 2026-11-17 브랜치 `feature/backend-local-credential`): `AccountRepository`(조회 LEFT JOIN, 가입 때 INSERT, 비밀번호 변경은 있는 행만 UPDATE), `AccountService.NO_PASSWORD`·`hasPassword` 제거, `SocialLoginService.unlink`, `PasswordResetService`(소셜 전용 계정은 재설정 대상 아님), `SchemaVerifier`(`local_credential` 항상 확인), `JdbcReportTestFixtures`
+- [ ] BE 2단계(11/18 결정 반영): #127의 메모리 인증 대기를 `email_verification_token`으로 옮기기(6자리 코드 유지면 시도 횟수·확인 시각 칸이 없어 020 필요, 메일 링크면 019 그대로 — 먼저 정함), 매일 정리(API `@Scheduled`, 만료 뒤 하루), `register` 토큰 소비. 같은 이메일 연결은 #127의 승인 연결 유지, Discord 전용 계정에 비밀번호 붙이기는 하지 않음
 - [ ] FE: 가입 순서, `#verify-email` 화면, 기존 계정 추가 화면, 자동 연결 안내
 - [ ] 계약 `accounts.md`: `register` 요청 변경, 이메일 인증 경로, Discord 콜백 상태
 - [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착
@@ -122,8 +124,33 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - 2026-11-17: 가입 전 인증으로 한다. 가입 후 인증은 `account_status`에 인증 전 상태값이 필요하고 로그인·J3·처리 서비스가 그 상태를 모두 다뤄야 한다.
 - 2026-11-17(사용자 결정): 이메일 인증 토큰은 `password_reset_token`과 합치지 않고 따로 둔다. 재설정 토큰은 계정 FK가 NOT NULL인데 인증은 계정이 생기기 전이라 주인이 이메일이다. 합치면 운영 중인 V2.7 표를 바꿔야 하고(계정 NULL 허용·이메일·용도 칼럼), 모든 쿼리에 용도 조건이 빠지면 인증 링크가 재설정 링크로 쓰일 수 있으며, 무효화·삭제 기준(계정 vs 이메일, CASCADE vs 매일 정리)도 다르다.
 - 2026-11-17: DB 단계를 저장소에 반영했다. 마이그레이션은 한 파일 한 목적 규칙으로 018(비밀번호 표 분리)·019(인증 토큰)로 나눴다. `email_verification_token`의 보조 인덱스는 019에 넣지 않았다(인덱스는 다른 파일 — DB 안내 7장).
+- 2026-11-17: BE 1단계를 브랜치 `feature/backend-local-credential`에 구현했다. 동작은 그대로이고 저장 위치만 바뀐다.
+  - 계정 조회는 `local_credential`을 LEFT JOIN한다. 행이 없으면 `Account.hash()`가 `null`이고 `Account.hasPassword()`가 거짓이다(`AccountService.NO_PASSWORD`·정적 `hasPassword` 삭제). 로그인 검증·연결 해제의 마지막 로그인 수단 검사·Discord 상태 응답이 이것을 쓴다.
+  - 가입은 `user_account` 다음에 같은 트랜잭션에서 `local_credential`을 넣고, Discord 가입은 넣지 않는다.
+  - 비밀번호 변경(`AccountRepository.changePassword`)은 있는 행만 UPDATE하고, 바꾼 행이 1이 아니면 예외를 던져 호출한 쪽 트랜잭션을 되돌린다. Discord 전용 계정은 행이 없어서, 표 이름만 바꾼 UPDATE였다면 재설정이 0행으로 끝나는데도 토큰은 사용 처리되고 로그인은 끊겨 성공(204)처럼 보였을 것이다. (처음 구현은 `INSERT … ON DUPLICATE KEY UPDATE`로 행을 넣었으나 아래 사용자 결정으로 바꿨다.)
+  - 현재 비밀번호 확인(`requireCurrent`)은 해시가 `null`이면 BCrypt 비교 없이 틀림으로 처리한다(이전에도 `'!no-password'`라 틀림).
+  - `SchemaVerifier`는 V2.8 기준이다: `local_credential.password_hash`와 V2.7 표 두 개를 기능을 켰는지와 관계없이 확인하고, V2.7 DB면 018·019를, V2.6 이하면 `schema_V2_8.sql`로 다시 만들라고 알린다. `email_verification_token`은 2단계에서 더한다.
+  - 처리 서비스 `ServiceSchemaVerifier`는 V2.8(`local_credential`·`email_verification_token`)까지 판을 알아보고 V2.7이면 「migration 018·019를 적용」으로 알린다. `JdbcReportTestFixtures`의 시험 계정은 `password_hash` 없이 넣는다(그래서 처리 서비스 시험용 API도 V2.8 DB가 필요하다).
+  - J3·`SocialLoginService`의 흐름은 바꾸지 않았다(J3는 CASCADE로 충분).
+- 2026-11-17(사용자 결정): **소셜 로그인 계정에는 비밀번호 변경·재설정을 제공하지 않는다.** 우리 서비스 계정(이메일 가입)을 만들지 않는 한 소셜 계정에 비밀번호가 필요할 이유가 없다. 소셜 전용 계정에 비밀번호를 붙이는 길은 같은 이메일로 이메일 가입하는 것(위 2번, BE 2단계)뿐이다.
+  - `PUT /auth/password`: 현재 비밀번호 확인이 해시 `null`에서 틀림이라 그대로 400 `INVALID_PASSWORD`.
+  - 재설정 요청: 소셜 전용 계정이면 토큰·메일 없이 끝난다(응답은 그대로 202라 가입 여부·계정 종류가 드러나지 않음). 재설정 완료: 소셜 전용 계정이면 410 `RESET_TOKEN_INVALID`(V2.7 API가 보낸 링크가 남아 있을 수 있음). 토큰은 소비하지 않는다.
+  - 0088 때의 「비밀번호는 나중에 재설정 메일로 정할 수 있다」 안내(FE 가입·설정 화면, 계약, 인계 문서)를 고쳤다.
+  - **탈퇴가 막힌다:** 탈퇴(`DELETE /auth/account`)는 현재 비밀번호를 요구하므로 소셜 전용 계정은 지금 탈퇴할 수 없다. 전에는 재설정 메일로 비밀번호를 먼저 정하는 길이 있었다. 소셜 전용 계정의 탈퇴 본인 확인 방식(예: Discord 재인증)을 정해야 한다(남은 질문). → 2026-11-17 BE-25(#131·#132)로 탈퇴가 비밀번호를 확인하지 않게 되어 해결됐다.
+- 2026-11-18(사용자 결정, PR #127과 이 계획의 세 차이):
+  1. 인증 대기는 **DB 표**(`email_verification_token`)에 둔다(이 계획 결정 3 유지). #127은 서버 메모리라 BE 2단계에서 옮긴다. 만료된 행은 API가 매일 지운다(Spark J3에 넣지 않음 — 토큰 표 셋을 API가 같은 방식으로 지움).
+  2. 같은 이메일의 Discord·이메일 계정은 **기존 계정 비밀번호 확인과 승인 뒤 연결**한다(#127 방식). 위 결정 1의 자동·양방향 연결을 대체한다.
+  3. **Discord 전용 계정에 비밀번호를 붙이지 않는다**(위 흐름 「기존 계정에 이메일 로그인 추가」 빠짐). 비밀번호가 필요했던 이유인 탈퇴를 바꾼다 — 소셜 로그인의 장점은 비밀번호 없이 쓰는 것이다. 탈퇴는 이미 BE-25로 비밀번호 없이 받는다.
+- 2026-11-19: BE 1단계를 `refactor/repo-remove-api-version-paths`(develop `ed72615` + 주소 버전 삭제, #127 포함) 기준 새 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮겼다. #127 코드와 맞춘 것:
+  - #127의 `PasswordResetService.validate`(링크 확인)도 비밀번호 없는 계정이면 410 — 완료와 같게(결정 3).
+  - #127의 재설정 비밀번호 재사용 거절(`applyResetPassword`)·연결 해제 검사를 `account.hasPassword()`로. 연결 해제 오류 문구에서 「재설정 메일로 비밀번호를 정하라」를 뺌.
+  - 탈퇴 MySQL 시험(BE-25)의 비밀번호 없는 계정 만들기를 `password_hash` 고정값 대신 `local_credential` 행 삭제로. 새 시험의 탈퇴 주소에서 `/v2`·본문 뺌.
+  - 이메일 인계·계약의 「소셜 계정은 재설정 메일로 비밀번호를 정할 수 있다」를 고침.
 
 **남은 질문**
+- ~~소셜 전용 계정의 탈퇴 본인 확인 방식~~ → 해결(BE-25, 탈퇴는 로그인 상태만 확인).
+- 인증 대기를 표로 옮길 때 6자리 코드(#127)를 유지할지, 메일 링크로 바꿀지. 코드면 020에서 시도 횟수·확인 시각 칸을 더한다.
+- 소셜 전용 계정이 재설정을 요청하면 「이 계정은 Discord로 로그인합니다」 안내 메일을 보낼지(지금은 아무 메일도 없음. 응답은 같으므로 보내도 가입 여부가 드러나지 않음).
 - `email_verification_token`의 `(login_email, issued_at)` 보조 인덱스를 따로 migration(020~)으로 더할지, DB-05 인덱스 시트에서 정할지(DB 담당). 지금은 넣지 않았다. 재발송 간격 확인과 이전 토큰 무효화가 이메일로 찾는데 FK가 없어 자동 인덱스가 없다. 행은 매일 정리되어 적다.
 - 인증 토큰 수명(재설정과 같은 30분?)과 재발송 간격(60초?).
 - `register` 요청 변경을 계약 버전 변경으로 볼지(지금 FE만 쓰는 경로).
@@ -137,6 +164,25 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - 018: 데이터가 든 V2.7 DB에서 BCrypt 행만 옮기고 `'!no-password'` 행은 옮기지 않음. 되돌리기를 `--safe-updates`로 실행해 V2.7 정의와 같아짐.
 - `integrity_check.py` V2.8 기준 195개 모두 통과(V2.8로 만든 DB, V2.7 + 018·019로 만든 DB 둘 다, 같은 DB 재실행도 통과).
 
+**BE 1단계 (2026-11-17, 브랜치 `feature/backend-local-credential`, 로컬 Windows MySQL 8.0.31 일회용 DB)**
+- 소셜 계정 비밀번호 막기 반영 후 다시 실행한 결과다.
+- `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 120개 중 106 통과·실패 0·건너뜀 14(MySQL 통합), processing 62개 통과. 바꾼 줄에 줄바꿈 외 Checkstyle 경고 없음.
+- `backend/gradlew -p backend :api:test :processing:test -Pmysql-integration --rerun-tasks`: api 120개(`MySqlIntegrationTest` 14개 포함)·processing 62개 모두 통과, 실패 0, 건너뜀 0. 통합 시험은 `schema_V2_8.sql`로 DB를 만든다.
+  - 새 시험 `passwordlessAccountNeverGainsAPasswordAndCredentialsGoWithTheAccount`(소셜 계정 비밀번호 막기 반영): Discord 가입 경로(`registerSocial`)로 만든 계정은 `local_credential` 0행·로그인 401 → 저장소의 비밀번호 바꾸기는 예외로 끝나고 같은 트랜잭션의 다른 변경도 되돌아가며 행은 여전히 0 → 탈퇴 접수·J3의 마지막 두 단계(삭제 요청·계정 삭제)로 `social_identity`가 함께 지워짐. 이메일 가입 계정은 행 1개로 시작하고 탈퇴·최종 삭제로 `local_credential`이 함께 지워짐.
+  - 단위 시험 `PasswordResetServiceTest.socialOnlyAccountGetsNoLinkAndAnOldLinkIsInvalid`: 소셜 전용 계정의 재설정 요청은 토큰·메일 없음, 남은 링크 완료는 410이고 토큰을 소비하지 않음.
+  - 기존 `accountSettingsAndLoginRemoval`에 비밀번호 변경 뒤 `local_credential` 1행 확인을 더했다.
+- FE `consents.test.ts`(V2.8 스키마 읽기): 2개 통과.
+
+**BE 1단계 옮김 (2026-11-19, 브랜치 `feature/backend-local-credential-on-remove-paths`, 로컬 Windows MySQL 8.0.31 일회용 DB)**
+- `backend/gradlew -p backend :api:test :processing:test -Pmysql-integration --rerun-tasks`: api 158개 중 157 통과·실패 1, processing 67개 통과, 건너뜀 0. `MySqlIntegrationTest` 15개 중 14 통과(`passwordlessAccountNeverGainsAPasswordAndCredentialsGoWithTheAccount`, V2.8로 고친 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody` 포함).
+  - 실패 `baselinesOwnershipLossAndInferenceFailure`(두 번째 세션 409)는 기준 브랜치에서도 같다(#127 측정 한 기기 제한과 기존 시험이 어긋남, 계획 0097·`api-spec.md` 11/18 기록). 이 변경 밖.
+- 단위 시험 `PasswordResetServiceTest.socialOnlyAccountGetsNoLinkAndAnOldLinkIsInvalid`에 링크 확인(`validate`) 410을 더함.
+- `python tools/dev.py check-backend`: 성공. 바꾼 줄에 줄바꿈 외 Checkstyle 경고 없음. FE `consents.test.ts`·프로필 시험 8개 통과.
+
 **남은 한계**
 - 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.
-- BE·FE·계약·ADR은 구현 전이다. 그 전까지 API·Compose·통합 시험은 V2.7 DB를 쓴다(V2.8 DB에서는 지금 API의 비밀번호 기능이 실패한다).
+- BE 1단계 브랜치는 develop 반영 전이다. 이 API는 V2.7 DB에서 시작하지 않으므로, 운영 반영은 018 → 019 → 이 API 배포를 같은 점검 시간에 한다. develop 반영 뒤 운영 적용 전까지는 Compose 새 볼륨·통합 시험이 V2.8로 만들어진다(기존 V2.7 볼륨은 018·019 적용).
+- V2.7 DB에서 이 API가 시작하지 않는 것은 코드로만 확인했다(실제 V2.7 DB로 띄워 보지 않음).
+- 소셜 전용 계정의 재설정 거절은 단위 시험으로, 저장소의 0행 예외는 MySQL로 확인했다. 재설정 메일·토큰을 거친 전체 흐름은 MySQL로 돌리지 않았다(재설정 기능 기본 꺼짐).
+- ~~소셜 전용 계정은 지금 탈퇴할 수 없다~~ → BE-25로 비밀번호 없이 탈퇴한다(11/19 브랜치의 MySQL 시험 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody`가 `local_credential` 행 없는 계정으로 확인).
+- BE 2단계(이메일 인증·자동 연결)·FE·계약·ADR은 구현 전이다.

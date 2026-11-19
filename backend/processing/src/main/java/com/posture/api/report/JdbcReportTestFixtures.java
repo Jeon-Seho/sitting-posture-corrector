@@ -76,10 +76,11 @@ public class JdbcReportTestFixtures {
 		long policyId = policyId();
 		String email = "test-" + UUID.randomUUID() + EMAIL_SUFFIX;
 		Timestamp now = Timestamp.from(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+		// V2.8부터 비밀번호는 local_credential에 있다. 시험 계정은 로그인하지 않으므로 그 행을 만들지 않는다(계획 0096)
 		jdbc.update("INSERT INTO " + qualifiedTableName("user_account")
-			+ " (login_email, password_hash, display_name, joined_at, threshold_policy_id, sound_alert_enabled)"
-			+ " VALUES (?, ?, ?, ?, ?, ?)",
-			email, "test-fixture-not-a-real-hash", "시험 계정", now, policyId, alertEnabled);
+			+ " (login_email, display_name, joined_at, threshold_policy_id, sound_alert_enabled)"
+			+ " VALUES (?, ?, ?, ?, ?)",
+			email, "시험 계정", now, policyId, alertEnabled);
 		long accountId = jdbc
 			.queryForList("SELECT user_account_id FROM " + qualifiedTableName("user_account")
 				+ " WHERE login_email = ?",

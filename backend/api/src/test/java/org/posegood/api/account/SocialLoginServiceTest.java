@@ -161,7 +161,7 @@ class SocialLoginServiceTest {
 		assertEquals("new@example.test", social.signupDraft(outcome.signupId()).email());
 		var consents = List.of(new AccountContracts.Consent("C1", "v1"));
 		when(accountService.registerSocial(eq("new@example.test"), eq(PROFILE), any(), eq("DISCORD"),
-			eq(DISCORD_ID), eq(identities))).thenReturn(account(9, true, AccountService.NO_PASSWORD));
+			eq(DISCORD_ID), eq(identities))).thenReturn(account(9, true, null));
 		// ConsentRepository.validate는 실제 규칙이라 필수 동의가 모자라면 대기를 쓰지 않고 거절한다.
 		assertThrows(ApiError.class, () -> social.signup(outcome.signupId(), PROFILE, consents));
 		assertEquals("new@example.test", social.signupDraft(outcome.signupId()).email());
@@ -215,7 +215,7 @@ class SocialLoginServiceTest {
 
 	@Test
 	void theOnlySignInMethodCannotBeUnlinked() {
-		when(accountService.requireActive(5L)).thenReturn(account(5, true, AccountService.NO_PASSWORD));
+		when(accountService.requireActive(5L)).thenReturn(account(5, true, null));
 		var error = assertThrows(ApiError.class, () -> social.unlink("discord", 5L));
 		assertEquals("LAST_LOGIN_METHOD", error.code());
 		verify(identities, never()).delete(anyLong(), anyString());
@@ -258,7 +258,7 @@ class SocialLoginServiceTest {
 
 	@Test
 	void anotherLinkedProviderAllowsUnlinkWithoutPassword() {
-		when(accountService.requireActive(5L)).thenReturn(account(5, true, AccountService.NO_PASSWORD));
+		when(accountService.requireActive(5L)).thenReturn(account(5, true, null));
 		when(identities.links(5L)).thenReturn(List.of(
 			new SocialIdentityRepository.Link(5, "DISCORD", null),
 			new SocialIdentityRepository.Link(5, "GOOGLE", null)));

@@ -12,10 +12,10 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-/** (D-32, D-41, D-51, D-65, D-89) 확정 서비스 DB(V2.7) 준비 확인. */
+/** (D-32, D-41, D-51, D-65, D-89) 확정 서비스 DB(V2.8) 준비 확인. */
 class ServiceSchemaVerifierTest {
 
-	/** V2.7 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
+	/** V2.8 스키마 + 시드 + 권한이 갖춰진 상태를 흉내 낸다. 필드를 바꿔 문제 상황을 만든다. */
 	static final class FakeProbe implements ServiceDbProbe {
 		final List<String> tables = new ArrayList<>(ServiceSchemaVerifier.EXPECTED_TABLES);
 		final Map<String, List<String>> columns = new HashMap<>();
@@ -70,11 +70,11 @@ class ServiceSchemaVerifierTest {
 	}
 
 	@Test
-	void readyV27SchemaIsOk() {
+	void readyV28SchemaIsOk() {
 		Map<String, Object> result = verifier(true, "posture_service").check();
 		assertThat(result.get("ok")).isEqualTo(true);
-		assertThat(result.get("specVersion")).isEqualTo("V2.7");
-		assertThat(result.get("tableCount")).isEqualTo(14);
+		assertThat(result.get("specVersion")).isEqualTo("V2.8");
+		assertThat(result.get("tableCount")).isEqualTo(16);
 		assertThat(result.get("defaultPolicyId")).isEqualTo(1L);
 		assertThat(list(result, "problems")).isEmpty();
 		assertThat(list(result, "warnings")).isEmpty();
@@ -119,7 +119,7 @@ class ServiceSchemaVerifierTest {
 		assertThat(list(result, "missingTables")).containsExactly("user_consent");
 		assertThat(list(result, "removedColumnsPresent")).contains("collapse_event.end_reason",
 			"correction_alert.attempt_seq", "threshold_policy.policy_name");
-		assertThat(String.valueOf(result.get("problems"))).contains("V2.3 아님").contains("schema_V2_7.sql");
+		assertThat(String.valueOf(result.get("problems"))).contains("V2.3 아님").contains("schema_V2_8.sql");
 		// 옛 정책 테이블이면 값으로 찾지 않는다(경고도 없음)
 		assertThat(result).doesNotContainKey("defaultPolicyId");
 	}
@@ -127,36 +127,47 @@ class ServiceSchemaVerifierTest {
 	/** 10/28 서버에서 본 것: 처리 서비스가 V2.3 기준이면 V2.6 DB의 기준 자세(등록 식별자 NOT NULL)를 못 넣는다 → 판을 알려 준다. */
 	@Test
 	void olderMinorVersionsNameTheMigrationsToApply() {
-		// (D-89) 11/11 서버: V2.7 코드(PR #114)는 develop에 있고 DB는 아직 V2.6 — 017을 알려 준다(표 하나만 있어도 V2.6)
-		probe.tables.remove("password_reset_token");
+		// 11/17: 운영 DB는 V2.7 — 018·019를 알려 준다(018만 적용해 표 하나만 있어도 V2.7)
+		probe.tables.remove("email_verification_token");
 		Map<String, Object> half = verifier(true, "posture_service").check();
-		assertThat(half.get("specVersion")).isEqualTo("V2.6");
+		assertThat(half.get("specVersion")).isEqualTo("V2.7");
+		probe.tables.remove("local_credential");
+		Map<String, Object> v27 = verifier(true, "posture_service").check();
+		assertThat(v27.get("ok")).isEqualTo(false);
+		assertThat(v27.get("specVersion")).isEqualTo("V2.7");
+		assertThat(String.valueOf(v27.get("problems"))).contains("V2.8 아님").contains("migration 018·019를")
+			.doesNotContain("V2.6 테이블 없음");
+		assertThat(list(v27, "missingTables")).containsExactly("local_credential", "email_verification_token");
+
+		// V2.6 이하는 migration(017)을 지워 다시 만든다(표 하나만 있어도 V2.6)
+		probe.tables.remove("password_reset_token");
+		Map<String, Object> v26half = verifier(true, "posture_service").check();
+		assertThat(v26half.get("specVersion")).isEqualTo("V2.6");
 		probe.tables.remove("social_identity");
 		Map<String, Object> v26 = verifier(true, "posture_service").check();
 		assertThat(v26.get("ok")).isEqualTo(false);
 		assertThat(v26.get("specVersion")).isEqualTo("V2.6");
-		assertThat(String.valueOf(v26.get("problems"))).contains("V2.7 아님").contains("migration 017을")
+		assertThat(String.valueOf(v26.get("problems"))).contains("V2.8 아님").contains("schema_V2_8.sql로 다시 만듦")
 			.doesNotContain("V2.6 테이블 없음");
-		assertThat(list(v26, "missingTables")).containsExactly("social_identity", "password_reset_token");
 
 		probe.tables.remove("refresh_token");
 		Map<String, Object> v25 = verifier(true, "posture_service").check();
 		assertThat(v25.get("ok")).isEqualTo(false);
 		assertThat(v25.get("specVersion")).isEqualTo("V2.5");
-		assertThat(String.valueOf(v25.get("problems"))).contains("V2.7 아님").contains("schema_V2_7.sql로 다시 만듦")
+		assertThat(String.valueOf(v25.get("problems"))).contains("V2.8 아님").contains("schema_V2_8.sql로 다시 만듦")
 			.doesNotContain("V2.6 테이블 없음");
 
 		probe.columns.put("baseline_posture", List.of("baseline_posture_id", "user_account_id", "registered_at"));
 		Map<String, Object> v24 = verifier(true, "posture_service").check();
 		assertThat(v24.get("specVersion")).isEqualTo("V2.4");
-		assertThat(String.valueOf(v24.get("problems"))).contains("schema_V2_7.sql로 다시 만듦");
+		assertThat(String.valueOf(v24.get("problems"))).contains("schema_V2_8.sql로 다시 만듦");
 		assertThat(list(v24, "missingColumns")).containsExactly("baseline_posture.client_registration_uuid");
 
 		probe.columns.put("feature_archive",
 			List.of("feature_archive_id", "monitor_session_id", "file_uri", "row_count"));
 		Map<String, Object> v23 = verifier(true, "posture_service").check();
 		assertThat(v23.get("specVersion")).isEqualTo("V2.3");
-		assertThat(String.valueOf(v23.get("problems"))).contains("schema_V2_7.sql로 다시 만듦");
+		assertThat(String.valueOf(v23.get("problems"))).contains("schema_V2_8.sql로 다시 만듦");
 	}
 
 	@Test
@@ -176,7 +187,7 @@ class ServiceSchemaVerifierTest {
 		probe.tables.add("User_Consent");
 		Map<String, Object> result = verifier(true, "posture_service").check();
 		assertThat(result.get("ok")).isEqualTo(true);
-		assertThat(result.get("specVersion")).isEqualTo("V2.7");
+		assertThat(result.get("specVersion")).isEqualTo("V2.8");
 	}
 
 	/** V2.6부터 로그인은 토큰이라 SPRING_SESSION 테이블은 없어도 된다(DB에는 남겨 둠). */

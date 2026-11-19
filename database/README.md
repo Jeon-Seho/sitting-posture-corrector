@@ -25,11 +25,11 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 **적용 후 확인** — 테이블 18개, `threshold_policy` 1행이면 정상이다.
 
-**API가 V2.8에 맞춰지기 전 (2026-11-17, [계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md))** — 지금 API는 비밀번호를 `user_account.password_hash`에서 읽고 쓴다. V2.8 DB에서는 시작은 하지만(시작 검사가 이 칼럼을 보지 않음) 로그인·가입·비밀번호 변경이 SQL 오류로 실패한다. 새 API가 나오기 전까지 API를 돌릴 새 DB는 `schema_V2_7.sql`로 만든다. Compose·통합 시험도 그때까지 이 파일을 읽는다(11장).
+**API와 DB 버전 (2026-11-17, [계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md))** — develop의 API(V2.7용)는 비밀번호를 `user_account.password_hash`에서 읽고 쓴다. V2.8 DB에서는 시작은 하지만(시작 검사가 이 칼럼을 보지 않음) 로그인·가입·비밀번호 변경이 SQL 오류로 실패한다. V2.8용 API(브랜치 `feature/backend-local-credential`, develop 반영 전)는 `local_credential`을 쓰고 V2.7 DB에서는 **시작하지 않는다**. 그 브랜치부터 Compose·통합 시험·FE 동의 시험은 `schema_V2_8.sql`을 읽는다(11장). develop에 들어가기 전까지 develop API를 돌릴 새 DB는 `schema_V2_7.sql`로 만든다.
 
 **V2.7로 만든 DB (운영 DB)** — 지우지 않고 migration 018 → 019를 적용하면 V2.8과 같아진다. 018은 `user_account.password_hash`를 새 표 `local_credential`로 옮기고 칼럼을 지운다. BCrypt 형식(`$2`로 시작)만 옮기고, Discord로 가입한 계정의 고정값 `'!no-password'`는 행을 만들지 않는다(행이 없으면 비밀번호 없는 계정). 019는 이메일 인증 토큰 `email_verification_token`을 더한다. 다른 테이블·행은 그대로이고, 비밀번호 값도 그대로 옮겨져 사용자는 다시 로그인하지 않아도 된다.
 
-**018을 적용하면 지금 API(V2.7용)는 로그인·가입·비밀번호 변경이 깨진다**(위 「API가 V2.8에 맞춰지기 전」). 그래서 018 → 019 → V2.8용 새 API 배포를 같은 점검 시간에 한다([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md) 「영향」). 이메일 인증은 019를 적용한 뒤에 켠다. 적용 전·후 확인 SQL과 되돌리기는 파일 머리말에 있다. 운영 Workbench는 안전 업데이트 모드라 머리말의 UPDATE에는 PK 조건을 넣어 두었다.
+**018을 적용하면 지금 API(V2.7용)는 로그인·가입·비밀번호 변경이 깨진다**(위 「API와 DB 버전」). 그래서 018 → 019 → V2.8용 새 API 배포를 같은 점검 시간에 한다([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md) 「영향」). 이메일 인증은 019를 적용한 뒤에 켠다. 적용 전·후 확인 SQL과 되돌리기는 파일 머리말에 있다. 운영 Workbench는 안전 업데이트 모드라 머리말의 UPDATE에는 PK 조건을 넣어 두었다.
 
 ```bash
 mysql -u <계정> -p posture_service < database/migrations/018_move_password_hash_to_local_credential.sql
@@ -55,7 +55,7 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 | 항목 | 내용 |
 |---|---|
-| 스키마 파일 | `schema/schema_V2_8.sql` (현재, 새 DB용). `schema/schema_V2_7.sql`은 운영 DB 버전이자 `migrations/`(018~)의 출발점(DB CI 기준 스키마)으로 둔다. API가 V2.8에 맞춰질 때까지 API를 돌릴 DB·Compose·통합 시험·FE 동의 시험은 V2.7을 쓴다(1장) |
+| 스키마 파일 | `schema/schema_V2_8.sql` (현재, 새 DB용). `schema/schema_V2_7.sql`은 운영 DB 버전이자 `migrations/`(018~)의 출발점(DB CI 기준 스키마)으로 둔다. V2.8용 API 브랜치(계획 0096 BE 1단계)부터 Compose·통합 시험·FE 동의 시험은 V2.8을 쓴다. 그 브랜치가 develop에 들어가기 전까지 develop API를 돌릴 DB는 V2.7을 쓴다(1장) |
 | 대응 명세서 | DB 명세서 V2.8 (2026-11-17, 명세서 반영 전) — V2.7 + 비밀번호 로그인 수단 T-54 `local_credential`(`user_account.password_hash`를 옮김), 이메일 인증 토큰 T-55 `email_verification_token` ([계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md)). V2.7(2026-11-11)은 V2.6 + 소셜 로그인 연결 T-52 `social_identity`, 비밀번호 재설정 토큰 T-53 `password_reset_token` ([계획 0088](../docs/plans/active/0088-discord-login-and-password-reset.md)). V2.6은 V2.5 + 로그인 유지 토큰 T-51 `refresh_token` ([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md)). V2.5는 V2.4 + 기준 자세 등록 시각을 서버 시각으로, 재전송은 등록 식별자로 구분 ([ADR 0028](../docs/decisions/0028-server-time-for-baseline-registration.md), 「DB-V2.5-변경사항」). V2.4는 V2.3 + 아키텍처 v5.2 결정 반영: `feature_archive.row_count` 삭제, 설명 갱신 (「DB-V2.4-변경사항」). V2.3은 V2.2 + 붕괴까지 걸린 시간 최소·최대, 사용자 동의 (「DB-V2.3-변경사항」). V2.2는 V2.1 + 컬럼 정리·기준 자세 이력 보존 (「DB-V2.2-변경사항」). V2.1은 V2.0 초안 + 추가 수정 (「V2.0 추가 수정사항 정리」 V1.1). CR-04 승인자·회의록 기재 전, 문서(REQ-01, DB-01~04) 반영 전 |
 | 데이터베이스 이름 | `posture_service` (가칭, DB-03 D-33) |
 | DBMS | MySQL 8.0.16 이상 (CHECK 제약 강제) |
@@ -64,7 +64,7 @@ mysql -u <계정> -p -e "DROP DATABASE IF EXISTS posture_service"
 
 **스키마 파일 번호** — 명세서 버전과 같아야 한다(작업규칙 1.7). V2.0·V2.1은 테이블을 지운 변경이라, V2.2는 기존 데이터를 옮길 수 없는 변경이라 migration 없이 DB를 새로 만든다(작업규칙 1.4). 이전 스키마 파일(V1.x, V2.0, V2.1)과 migration 001~010은 V2.2 스키마에 흡수하고 지웠다(git 이력에 남음). V2.3은 컬럼·테이블을 더하기만 한 변경이라 운영 중인 DB용 `migrations/` 011·012와 새 DB용 `schema_V2_3.sql`에 함께 반영했고, 두 방법의 결과가 같은지 확인한다(8장). 이후 변경도 같은 방식으로 한다. V2.4는 쓰는 곳이 없는 컬럼 1개(`row_count`)를 지우고 설명을 바꾼 변경이다. 지우는 값은 사라져도 되므로(「DB-V2.4-변경사항」 결정 4) DB를 새로 만들지 않고 migration 013·014로 올린다. V2.5는 컬럼·UK·CHECK를 더하고 UK-14를 바꾼 변경이라 기존 행을 그대로 두고 migration 015로 올린다. V2.6·V2.7은 테이블을 더하기만 한 변경이라 migration 016·017로 올린다. V2.8은 칼럼 하나(`password_hash`)를 새 표로 옮기고 표를 더한 변경이다. 값을 그대로 옮길 수 있으므로 DB를 새로 만들지 않고 migration 018·019로 올린다.
 
-**지운 이전 버전 (2026-11-14, 2026-11-17)** — 2026-11-14에는 운영 DB가 V2.6이고([아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)), API는 V2.6 미만 DB에서 시작하지 않으며, Compose·통합 시험은 최신 스키마로 새 DB를 만들었다. 그래서 더 쓸 곳이 없는 `schema_V2_2.sql`~`schema_V2_5.sql`과 migration 011~016을 지웠다(git 이력에 남음). `schema_V2_3.sql`을 읽던 FE 시험 `consents.test.ts`는 `schema_V2_7.sql`을 읽는다(동의 종류 6개는 같다). 2026-11-17에는 운영 DB가 V2.7(017 적용)이 되었고 다음 migration(018)이 생겨, 같은 기준으로 기준 스키마를 V2.7로 바꾸고 `schema_V2_6.sql`과 017을 지웠다. 운영 DB에 018·019를 적용하고 API·Compose·시험이 V2.8로 옮겨 가면, 다음 migration(020)이 생길 때 기준 스키마를 V2.8로 바꾸고 `schema_V2_7.sql`과 018·019를 지울 수 있다.
+**지운 이전 버전 (2026-11-14, 2026-11-17)** — 2026-11-14에는 운영 DB가 V2.6이고([아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)), API는 V2.6 미만 DB에서 시작하지 않으며, Compose·통합 시험은 최신 스키마로 새 DB를 만들었다. 그래서 더 쓸 곳이 없는 `schema_V2_2.sql`~`schema_V2_5.sql`과 migration 011~016을 지웠다(git 이력에 남음). `schema_V2_3.sql`을 읽던 FE 시험 `consents.test.ts`는 `schema_V2_7.sql`을, 계획 0096 BE 1단계 브랜치부터는 `schema_V2_8.sql`을 읽는다(동의 종류 6개는 같다). 2026-11-17에는 운영 DB가 V2.7(017 적용)이 되었고 다음 migration(018)이 생겨, 같은 기준으로 기준 스키마를 V2.7로 바꾸고 `schema_V2_6.sql`과 017을 지웠다. 운영 DB에 018·019를 적용하고 API·Compose·시험이 V2.8로 옮겨 가면, 다음 migration(020)이 생길 때 기준 스키마를 V2.8로 바꾸고 `schema_V2_7.sql`과 018·019를 지울 수 있다.
 
 **스키마 파일은 명세서에서 생성했다.** SQL을 직접 고치지 말고, 명세서를 고친 뒤 다시 만든다. 직접 고치면 명세서와 스키마가 어긋난다. V2.4는 「DB-V2.4-변경사항」으로 V2.3에서, V2.5는 ADR 0028로 V2.4에서, `schema_V2_6.sql`은 ADR 0031로 V2.5에서, `schema_V2_7.sql`은 계획 0088 인계 문서로 V2.6에서, `schema_V2_8.sql`은 계획 0096으로 V2.7에서 만들었다. 명세서 V2.4~V2.8을 고친 뒤 명세서에서 다시 생성해 맞춘다.
 
@@ -375,12 +375,12 @@ database/
 
 ## 11. 백엔드 코드와의 관계
 
-DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표는 켠 기능만), 처리 서비스는 아직 **V2.3** 표기로 확인한다. 지금 입출구 서버는 V2.7용이라 V2.8 DB에서 시작은 하지만 비밀번호를 쓰는 기능이 실패한다(1장). V2.8에 맞추는 일은 계획 0096 BE 단계다(`local_credential` 확인 추가). 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
+DB를 쓰는 백엔드는 두 곳이다. 브랜치 `feature/backend-local-credential`(계획 0096 BE 1단계, 2026-11-17, develop 반영 전)부터 둘 다 **V2.8**로 확인한다. 입출구 서버는 비밀번호를 `local_credential`에서 읽고 쓰므로 V2.7 DB에서는 시작하지 않는다 — 운영 DB에 018·019를 적용하는 점검 시간에 함께 배포한다(1장). 그 전의 develop 입출구 서버는 V2.7용이라 V2.8 DB에서 시작은 하지만 비밀번호를 쓰는 기능이 실패한다. 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
 
 | 구성 | 위치 | 시작할 때 DB 확인 | 맞지 않으면 |
 |---|---|---|---|
-| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 12개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 13개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각 등), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 **켠 기능만** 확인한다 — Discord 로그인을 켜면 `social_identity.provider_subject`, 비밀번호 재설정을 켜면 `password_reset_token.consumed_at` | **시작하지 않는다** — V2.5 이하 DB는 1장대로 다시 만든다. 두 기능 중 하나라도 켜려면 V2.7 이상이어야 한다(V2.6 DB는 1장) |
-| 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 13개, 지운 테이블, 저장에 쓸 컬럼, V2.3 표시(migration 011·012), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. V2.4 표기·`row_count` 확인은 DevOps 반영 전 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다 |
+| 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 15개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token`·`social_identity`·`password_reset_token`·`local_credential` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 16개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각, `social_identity.provider_subject`, `password_reset_token.consumed_at`, `local_credential.password_hash`), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7 표는 V2.8에 늘 있으므로 기능을 켰는지와 관계없이 확인한다. `email_verification_token`은 이메일 인증(계획 0096 BE 2단계)을 넣을 때 더한다 | **시작하지 않는다** — V2.7 DB는 018·019를 적용하고, V2.6 이하 DB는 1장대로 다시 만든다 |
+| 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 16개, 지운 테이블, 저장에 쓸 컬럼, 판 표시(V2.3 컬럼 ~ V2.8 `local_credential`·`email_verification_token`), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. 시험용 API의 시험 계정은 `local_credential` 없이 넣는다 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다(V2.7이면 「migration 018·019를 적용」) |
 
 **설정**
 
@@ -388,7 +388,7 @@ DB를 쓰는 백엔드는 두 곳이다. 입출구 서버는 **V2.6**(V2.7 표�
 |---|---|
 | 접속 시간대 | `connectionTimeZone=Asia/Seoul` — `backend/api` `application.properties`, `compose.yaml` |
 | 기본 판정 정책 | `posegood.default-policy.threshold`·`hold-seconds`·`recover-seconds`·`realert-seconds` (기본 0.7·3·3·60). 6장 시드와 같아야 한다. 가입 때 이 값으로 UK-03에서 찾고, 없으면 넣는다 |
-| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_7.sql` → 시드를 실행한다(API가 V2.8에 맞춰지면 `schema_V2_8.sql`로 바꾼다, 계획 0096). `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.7로 만든 볼륨은 V2.8용 API로 바꿀 때 migration 018·019를 적용하고, V2.6 이하로 만든 볼륨은 지운 뒤 다시 만든다(1장). |
+| Compose `db` | **빈 볼륨에서만** `infra/mysql/initdb/10-posegood-schema.sh`가 `schema_V2_8.sql` → 시드를 실행한다(계획 0096 BE 1단계 브랜치부터. 그 전 develop은 `schema_V2_7.sql`). `POSEGOOD_DB_INIT_SCHEMA=false`면 건너뛴다. V2.7로 만든 볼륨은 V2.8용 API로 바꿀 때 migration 018·019를 적용하고, V2.6 이하로 만든 볼륨은 지운 뒤 다시 만든다(1장). |
 
 **아키텍처 v5.2 역할 분담과 구현 상태** — 배치 일은 입출구 서버에서 빠졌고, Spark 배치(`bigdata/jobs/`, [bigdata/README.md](../bigdata/README.md), 계획 0085)가 맡는다. 실시간 판정 결과 저장은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)로 처리 서비스에 옮긴다.
 

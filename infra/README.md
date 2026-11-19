@@ -64,7 +64,7 @@ MySQL 통합과 JWT 수동 점검은 [품질 기준](../docs/quality.md)의 직�
 [deploy](../.github/workflows/deploy.yml)는 `main` 또는 `release` push에 harness의 기본 검증 성공 후
 `api`·`inference`·`frontend` 앱 이미지 3개를 GHCR에 게시하고 SHA와 각 이미지 digest를 묶은 manifest를 만든다.
 배포는 `production` 환경에서 직렬 실행하며 SSH 호스트 키를 고정한다. secrets는 SSH stdin으로 전달한다.
-DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.7·시드를 적용하고,
+DB 볼륨을 유지하고 변경 전 백업 후 서비스 건강 검사를 실행한다. 새 볼륨은 `infra/mysql/initdb`가 스키마 V2.8·시드를 적용하고,
 기존 볼륨의 스키마 변경은 `database/migrations/` 절차로 먼저 적용한다(API가 시작할 때 확인). 실패한 배포를 성공으로 기록하지 않는다.
 
 루트 Compose의 SSH 자동 배포 대상과 다음 `production` 설정의 실제 등록 여부는 별도로 확인한다.
@@ -156,7 +156,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 ### 입출구 서버 (io-api, 서버 PC)
 
 팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
-DB는 외부 MySQL의 서비스 DB(V2.7, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
+DB는 외부 MySQL의 서비스 DB(V2.8 — 운영은 V2.7이라 이 API를 배포할 때 migration 018·019를 함께 적용한다, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
 처음 한 번 두 비밀값 파일을 만든다(Git 제외, 값은 화면·문서·채팅에 남기지 않는다).

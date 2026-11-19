@@ -270,7 +270,7 @@ public class SocialLoginService {
 			.map(id -> new AccountContracts.SocialProvider(id, providers.enabled(id), linkedAt.containsKey(id),
 				linkedAt.getOrDefault(id, "").isEmpty() ? null : linkedAt.get(id)))
 			.toList();
-		return new AccountContracts.SocialStatus(AccountService.hasPassword(account), list);
+		return new AccountContracts.SocialStatus(account.hasPassword(), list);
 	}
 
 	/** 제공자 연결 해제. 비밀번호도 다른 연결도 없으면 마지막 로그인 수단이라 막는다. */
@@ -280,9 +280,9 @@ public class SocialLoginService {
 			var account = accountService.requireActive(user);
 			boolean otherLink = identities.links(user).stream()
 				.anyMatch(link -> !client.code().equals(link.provider()));
-			if (!AccountService.hasPassword(account) && !otherLink) {
+			if (!account.hasPassword() && !otherLink) {
 				throw new ApiError(409, "LAST_LOGIN_METHOD",
-					"set a password with a password reset email before unlinking the only sign-in method");
+					"the only sign-in method of an account without a password cannot be unlinked");
 			}
 			if (identities.delete(user, client.code()) == 0) {
 				throw new ApiError(404, "SOCIAL_NOT_LINKED", "this provider is not linked");

@@ -13,7 +13,7 @@
 
 - [이메일 인증·비밀번호 찾기 쉽게 읽는 인수인계](design/email-account-handoff.md)(2026-11-16, [계획 0089](plans/completed/0089-email-recovery-social-link.md)): 가입 코드 인증·찾기/재설정·Discord 충돌 연결 승인 FE/BE 구현, 기본 꺼짐. SMTP·Discord 운영 설정과 실제 발송 검증은 후속이다.
 - [Discord 로그인·비밀번호 재설정 인계](design/social-login-password-reset-handoff.md)(2026-11-11, [계획 0088](plans/active/0088-discord-login-and-password-reset.md)): BE·FE 구현(기본 꺼짐), DB 표 제안 V2.7과 DevOps 환경변수. 쉬운 설명: [소셜 로그인 쉽게 이해하기](design/social-login-eli5.md).
-- [같은 이메일 계정 연결과 가입 이메일 인증](plans/active/0096-account-email-link-and-verification.md)(계획 0096, 11/17, DB 반영·운영 적용 전, BE·FE 구현 전): 같은 이메일이면 Discord·이메일 계정을 하나로 묶고, 가입에 이메일 인증을 넣는다. 운영 V2.7에서 migration 018·019(V2.8)로 `password_hash`를 `local_credential`로 옮기고 `email_verification_token`을 더한다.
+- [같은 이메일 계정 연결과 가입 이메일 인증](plans/active/0096-account-email-link-and-verification.md)(계획 0096, 11/17, DB 반영·운영 적용 전, BE 1단계 구현(비밀번호를 `local_credential`로, develop 반영 전), BE 2단계·FE 구현 전): 같은 이메일의 Discord·이메일 계정은 기존 계정 확인과 승인 뒤 연결하고(#127), 가입 이메일 인증을 DB 표로 옮긴다. 운영 V2.7에서 migration 018·019(V2.8)로 `password_hash`를 `local_credential`로 옮기고 `email_verification_token`을 더한다.
 - [Kafka·처리 서비스 이름에서 버전 빼기](plans/active/0097-kafka-processing-remove-versions.md)(계획 0097, 11/18, 코드·문서 끝, 서버 전환 전): 토픽 `posture.*.v1` → `posture.*`, 그룹 `judge-v1` → `judge` 등, 처리 서비스 `/api/realtime/features`·`/judge/*`, Kafka 계약 파일 이름. 운영 kafka 모드를 켜기 전에 서버를 함께 바꾼다([infra](../infra/README.md)).
 
 웹캠 단일 앱, MySQL 이메일·비밀번호 계정, DB V2.6 저장과 API 안의 판정 엔진([ADR 0020](decisions/0020-single-api-decision-engine.md)), Compose·배포 자동화 설정의 코드가 있다.

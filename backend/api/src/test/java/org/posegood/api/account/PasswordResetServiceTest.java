@@ -126,6 +126,25 @@ class PasswordResetServiceTest {
 	}
 
 	@Test
+	void socialOnlyAccountGetsNoLinkAndAnOldLinkIsInvalid() {
+		var social = new AccountRepository.Account(7, "social@example.test", null, PROFILE, true, 1, true);
+		when(accounts.findEmail("social@example.test")).thenReturn(social);
+		service.request("social@example.test", "203.0.113.5");
+		verify(resets, never()).insert(anyLong(), anyString(), any(), any());
+		verify(mailer, never()).sendReset(anyString(), anyString(), anyLong());
+
+		// V2.7 API가 보낸 링크가 남아 있어도 비밀번호를 새로 만들지 않는다.
+		when(accounts.find(7L)).thenReturn(social);
+		when(resets.find(PasswordResetService.hash("v27")))
+			.thenReturn(new PasswordResetRepository.Stored(21, 7, NOW.plusSeconds(60), null));
+		assertEquals("RESET_TOKEN_INVALID", assertThrows(ApiError.class, () -> service.validate("v27")).code());
+		var error = assertThrows(ApiError.class, () -> service.confirm("v27", "a-new-password-123"));
+		assertEquals("RESET_TOKEN_INVALID", error.code());
+		verify(resets, never()).consume(anyLong(), any());
+		verify(accountService, never()).applyResetPassword(anyLong(), anyString());
+	}
+
+	@Test
 	void oneClientIsLimited() {
 		for (int i = 0; i < RequestLimiter.LIMIT; i++) {
 			service.request("nobody@example.test", "203.0.113.9");
