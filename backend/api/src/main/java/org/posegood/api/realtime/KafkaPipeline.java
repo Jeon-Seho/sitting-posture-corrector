@@ -182,6 +182,9 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 			state.ended = true;
 			state.touched = clock.instant();
 		}
+		// 엔진이 끝나지 않는 경로라 따로 끝났다고 표시한다 — 안 하면 같은 계정의 새 측정이 409로 막힌다(D-98).
+		// 발행이 실패하면(503) 위에서 던져 여기 오지 않는다. 종료가 넘어가지 않았으니 측정 중으로 둔다
+		sessions.release(owner, sessionId);
 	}
 
 	@Override

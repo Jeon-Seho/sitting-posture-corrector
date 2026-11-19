@@ -9,6 +9,12 @@
 [계획 0096](plans/completed/0096-single-device-measurement.md): 여러 기기 로그인은 그대로 두고, 같은 계정이 다른 기기에서 측정 중이면
 S1·hello를 `409 MEASUREMENT_IN_PROGRESS`로 거절한다(연결 중 또는 S1 뒤 30초). 단일 API 메모리 기준이다.
 
+(2026-11-19, D-98, [계획 0098](plans/active/0098-kafka-measurement-release.md)) kafka 모드 보완: 그 경로는 판정을 처리 서비스가 해서 서버 엔진이 끝나지 않는다. 그래서 끝낸 세션이 「측정 중」으로
+남아 같은 계정의 새 측정이 409로 막혔고(방치 6시간까지), 메모리 정리도 끝난 세션(30분)이 아니라 방치 세션 기준을 따랐다.
+#127(한 기기 측정)과 #134(kafka 경로)가 11/18 `3e706cd7`에서 처음 합쳐지며 생겼다(local 모드는 영향 없음).
+`session_ended`를 보낸 뒤 `SessionService.release`가 세션을 끝난 것으로 표시하고(`LiveSession.over()` = 표시 또는 엔진 종료),
+연결이 닫히면 끝난 채널이어도 `disconnected`로 연결됨 표시를 내린다. 끝난 세션에 다시 연결하면 409 `SESSION_ENDED`다.
+
 ## 2026-11-16 계정 기능 갱신
 
 [계획 0089](plans/completed/0089-email-recovery-social-link.md): 일반 가입 6자리 이메일 인증(기본 꺼짐, 단일 API 메모리 대기),
@@ -194,6 +200,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-18 | develop(`ed72615`)을 다시 합치며 #127의 새 주소(이메일 인증·비밀번호 재설정 링크 확인·소셜 연결 승인)와 그 시험, 통신 시험 도구 `comm_test_guided.py` 기본 경로(`/api`, io-api 직접은 앞부분 없음)에서 `/v2`를 뺌 | `refactor/repo-remove-api-version-paths` |
 | 2026-11-18 | Kafka·처리 서비스 이름에서 버전 빼기(계획 0097, **호환성 깨짐**, 서버 전환 필요): 토픽 `posture.*.v1` → `posture.*`, 그룹 `judge`·`report-store`·`inference-service`, 처리 서비스 `POST /api/realtime/features`·`GET /judge/*`, Redis `posture:judge:*`, HDFS `realtime`·`keypoints` 경로, `V1*` 클래스, Kafka·공유 계약 파일 이름. io-api kafka 모드 토픽 설정도 함께 | `refactor/repo-remove-api-version-paths` |
 | 2026-11-18 | WebSocket·REST 계약 파일 이름에서 버전 삭제(`realtime-ws`·`posture-frames`·`accounts`·`consent-documents`, 예시 `examples-ws/`), `RealtimeHandlerV2` → `RealtimeHandler`, 안 쓰는 `accounts.v1.md`·`feature-response.v1` 삭제(계획 0097, 형식은 그대로) | `refactor/repo-remove-api-version-paths` |
+| 2026-11-19 | D-98: kafka 모드에서 끝낸 측정이 「측정 중」으로 남아 같은 계정의 새 S1이 409이던 문제 수정(맨 위 「한 기기 측정」). 메모리 정리·자리 비우기도 같은 기준. 단위 시험 4개 추가·2개 보강, API 시험 160개(건너뜀 18) 통과 | `fix/backend-kafka-measurement-release` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 
