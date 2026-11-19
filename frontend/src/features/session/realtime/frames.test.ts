@@ -11,7 +11,7 @@ const input = (timeMs: number, extra: Partial<{ judgeable: boolean; landmarks: L
   ...extra,
 })
 
-describe('posture.frames.v1 batching (synthetic landmarks)', () => {
+describe('features messages (flattened contract draft, synthetic landmarks)', () => {
   it('keeps the 9 agreed joints in order, rounded, and null for nobody', () => {
     const p = frameJoints(body())!
     expect(p).toHaveLength(9)
@@ -32,78 +32,87 @@ describe('posture.frames.v1 batching (synthetic landmarks)', () => {
     expect(p[8]).toEqual([0.6, 0.5, 0])
   })
 
-  it('sends a frame with a missing joint as the 「판정 불가」 signal only, and a complete one with coordinates', () => {
+  it('sends a frame with a missing joint as unmeasurable without coordinates, and a complete one as running', () => {
     const batcher = new FrameBatcher(0)
     const broken = body()
     delete (broken as Partial<Landmark>[])[7]
     batcher.push(input(100, { landmarks: broken }))
     const [first] = batcher.push(input(200))
     const [second] = batcher.finish(500)
-    expect(first.frames[0]).toEqual({ t_ms: 100, p: null })
-    expect(second.frames[0]).not.toHaveProperty('valid')
-    expect(second.frames[0].p).toHaveLength(9)
+    expect(first).toEqual({ sequence: 0, start_ms: 0, end_ms: 200, phase: 'unmeasurable', t_ms: 100, p: null })
+    expect(second).toMatchObject({ phase: 'running', t_ms: 200 })
+    expect(second.p).toHaveLength(9)
   })
 
-  it('sends each frame on its own, ending its interval when the next frame arrives (10/27)', () => {
+  it('sends each frame on its own, flat, ending its interval when the next frame arrives', () => {
     const b = new FrameBatcher(1000)
     const sent = [1000, 1060, 1130, 1490, 1520, 1990, 2010].flatMap((t) => b.push(input(t)))
-    expect(sent.map((m) => [m.sequence, m.start_ms, m.end_ms, m.frames.map((f) => f.t_ms)])).toEqual([
-      [0, 0, 60, [0]],
-      [1, 60, 130, [60]],
-      [2, 130, 490, [130]],
-      [3, 490, 520, [490]],
-      [4, 520, 990, [520]],
-      [5, 990, 1010, [990]],
+    expect(sent.map((m) => [m.sequence, m.start_ms, m.end_ms, m.phase, m.t_ms])).toEqual([
+      [0, 0, 60, 'running', 0],
+      [1, 60, 130, 'running', 60],
+      [2, 130, 490, 'running', 130],
+      [3, 490, 520, 'running', 490],
+      [4, 520, 990, 'running', 520],
+      [5, 990, 1010, 'running', 990],
     ])
-    expect(sent[0]).toMatchObject({ schema_version: '3.0', feature_version: 'keypoints-9-v1', phase: 'running' })
-    // 640x480 is fixed (DB V2.3 CAPTURE_RESOLUTION), so the camera size is not sent.
-    expect(sent[0]).not.toHaveProperty('width')
-    expect(sent[0]).not.toHaveProperty('height')
+    // The flattened contract: no items/frames, no contract or feature version, no valid mark.
+    expect(Object.keys(sent[0]).sort()).toEqual(['end_ms', 'p', 'phase', 'sequence', 'start_ms', 't_ms'])
   })
 
-  it('sends frames the app could not place like nobody: p null, no coordinates, no valid mark (요구 5)', () => {
+  it('sends frames the app could not place as unmeasurable with their time and p null', () => {
     const b = new FrameBatcher(0)
     b.push(input(10, { judgeable: false }))
     const [first] = b.push(input(20, { landmarks: [] }))
     const [second] = b.finish(100)
-    expect(first.frames).toEqual([{ t_ms: 10, p: null }])
-    expect(second.frames).toEqual([{ t_ms: 20, p: null }])
+    expect(first).toMatchObject({ phase: 'unmeasurable', t_ms: 10, p: null })
+    expect(second).toMatchObject({ phase: 'unmeasurable', t_ms: 20, p: null })
   })
 
-  it('still closes an interval after 0.5 s without a new frame, so time stays continuous', () => {
+  it('closes an interval after 0.5 s without a new frame as unmeasurable without t_ms', () => {
     const b = new FrameBatcher(0)
     b.push(input(100))
-    expect(b.tick(700).map((m) => [m.start_ms, m.end_ms, m.frames.length])).toEqual([[0, 500, 1]])
-    expect(b.tick(1100).map((m) => [m.start_ms, m.end_ms, m.frames.length])).toEqual([[500, 1000, 0]])
+    expect(b.tick(700)).toMatchObject([{ start_ms: 0, end_ms: 500, phase: 'running', t_ms: 100 }])
+    const [empty] = b.tick(1100)
+    expect(empty).toEqual({ sequence: 1, start_ms: 500, end_ms: 1000, phase: 'unmeasurable', p: null })
     b.push(input(1200))
-    expect(b.push(input(1300)).map((m) => [m.start_ms, m.end_ms, m.frames.map((f) => f.t_ms)])).toEqual([[1000, 1300, [1200]]])
+    expect(b.push(input(1300))).toMatchObject([{ start_ms: 1000, end_ms: 1300, phase: 'running', t_ms: 1200 }])
   })
 
-  it('ends the interval at a pause and sends rest intervals without frames', () => {
+  it('keeps one frame per interval: a second frame at the same time replaces the first', () => {
+    const b = new FrameBatcher(0)
+    b.push(input(100))
+    const [first] = b.push(input(200))
+    expect(first.t_ms).toBe(100)
+    b.push(input(200, { landmarks: body(0.05) }))
+    const [second] = b.finish(300)
+    expect(second).toMatchObject({ start_ms: 200, end_ms: 300, t_ms: 200 })
+    expect(second.p![0][0]).toBe(0.15)
+  })
+
+  it('drops a frame older than the open interval (closed on time while tracking lagged)', () => {
+    const b = new FrameBatcher(0)
+    b.push(input(100))
+    b.tick(700) // [0, 500) sent; the open interval starts at 500
+    expect(b.push(input(450))).toEqual([])
+    const [closed] = b.finish(800)
+    expect(closed).toEqual({ sequence: 1, start_ms: 500, end_ms: 800, phase: 'unmeasurable', p: null })
+  })
+
+  it('ends the interval at a pause and sends rest intervals without t_ms or p', () => {
     const b = new FrameBatcher(0)
     b.push(input(100))
     const paused = b.setPhase('rest', 300)
-    expect(paused.map((m) => [m.start_ms, m.end_ms, m.phase, m.frames.length])).toEqual([[0, 300, 'running', 1]])
+    expect(paused).toMatchObject([{ start_ms: 0, end_ms: 300, phase: 'running', t_ms: 100 }])
     const during = [...b.push(input(400)), ...b.tick(900)]
-    expect(during.map((m) => [m.start_ms, m.end_ms, m.phase, m.frames.length])).toEqual([[300, 800, 'rest', 0]])
+    expect(during).toEqual([{ sequence: 1, start_ms: 300, end_ms: 800, phase: 'rest' }])
     const resumed = b.setPhase('running', 1000)
-    expect(resumed.map((m) => [m.start_ms, m.end_ms, m.phase])).toEqual([[800, 1000, 'rest']])
-    expect(b.finish(1200).map((m) => [m.sequence, m.phase])).toEqual([[3, 'running']])
+    expect(resumed).toEqual([{ sequence: 2, start_ms: 800, end_ms: 1000, phase: 'rest' }])
+    expect(b.finish(1200).map((m) => [m.sequence, m.phase])).toEqual([[3, 'unmeasurable']])
   })
-})
 
-describe('posture.frames.v1 draft schema', () => {
-  it('produces exactly the fields the contract draft requires', async () => {
-    const { readFileSync } = await import('node:fs')
-    const schema = JSON.parse(
-      readFileSync(new URL('../../../../../contracts/realtime/frames/posture-frames.v1.schema.json', import.meta.url), 'utf8'),
-    )
+  it('sends away intervals without t_ms or p', () => {
     const b = new FrameBatcher(0)
-    b.push(input(10, { judgeable: false }))
-    const [batch] = b.finish(100)
-    expect(Object.keys(batch).sort()).toEqual([...schema.required].sort())
-    expect(schema.properties.schema_version.const).toBe(batch.schema_version)
-    expect(schema.properties.feature_version.const).toBe(batch.feature_version)
-    expect(Object.keys(batch.frames[0]).sort()).toEqual(['p', 't_ms'])
+    b.setPhase('away', 0)
+    expect(b.tick(600)).toEqual([{ sequence: 0, start_ms: 0, end_ms: 500, phase: 'away' }])
   })
 })

@@ -301,8 +301,8 @@ export class LiveSession {
     socket.onopen = () => {
       socket.send(
         JSON.stringify({
+          // No contract version (FE reply to the flattened contract, 11/19).
           type: 'hello',
-          schema_version: '2.0',
           purpose: 'measure',
           session_id: sessionId,
           access_token: accessToken,
@@ -460,7 +460,7 @@ export class LiveSession {
       return
     }
     if (this.socket?.readyState !== OPEN) return
-    this.socket.send(JSON.stringify({ type: 'features', items: [batch] }))
+    this.socket.send(JSON.stringify({ type: 'features', ...batch }))
   }
 
   private sendAll(batches: FrameBatch[]) {

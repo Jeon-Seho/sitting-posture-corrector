@@ -49,7 +49,7 @@ class FakeSocket implements SocketLike {
     this.onclose?.({})
   }
   features() {
-    return this.sent.filter((m) => m.type === 'features').map((m) => (m.items as Record<string, unknown>[])[0])
+    return this.sent.filter((m) => m.type === 'features').map(({ type: _type, ...interval }) => interval as Record<string, unknown>)
   }
 }
 
@@ -113,7 +113,7 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     expect(init.headers).toMatchObject({ Authorization: 'Bearer access', 'X-PoseGood-User-Id': '7' })
     expect(socket.url).toBe('wss://app.example.test/api/v2/realtime')
     expect(socket.sent).toEqual([
-      { type: 'hello', schema_version: '2.0', purpose: 'measure', session_id: SESSION, access_token: 'access' },
+      { type: 'hello', purpose: 'measure', session_id: SESSION, access_token: 'access' },
     ])
   })
 
@@ -166,15 +166,10 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     const sent = socket.features()
     // 12 frames: each interval ends when the next frame arrives, the last one is still open.
     expect(sent.map((b) => b.sequence)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(sent[0]).toMatchObject({
-      schema_version: '3.0',
-      feature_version: 'keypoints-9-v1',
-      start_ms: 0,
-      end_ms: 100,
-      phase: 'running',
-    })
-    expect(sent.every((b) => (b.frames as unknown[]).length === 1)).toBe(true)
-    expect(socket.sent.filter((m) => m.type === 'features').every((m) => (m.items as unknown[]).length === 1)).toBe(true)
+    expect(sent[0]).toMatchObject({ start_ms: 0, end_ms: 100, phase: 'running', t_ms: 0 })
+    // Flattened: one frame at the top level, no items/frames and no contract version.
+    expect(socket.sent.filter((m) => m.type === 'features').every((m) => !('items' in m) && !('schema_version' in m))).toBe(true)
+    expect(sent.every((b) => (b.p as unknown[]).length === 9)).toBe(true)
   })
 
   it('marks frames the app cannot place and sends rest without frames while paused', async () => {
@@ -188,9 +183,8 @@ describe('server measurement over /v2/realtime (synthetic server only)', () => {
     live.tick()
     live.resume()
     const [first, rest] = socket.features()
-    expect(first).toMatchObject({ phase: 'running', end_ms: 300 })
-    expect((first.frames as Record<string, unknown>[])[0]).toEqual({ t_ms: 100, p: null })
-    expect(rest).toMatchObject({ phase: 'rest', start_ms: 300, end_ms: 800, frames: [] })
+    expect(first).toMatchObject({ phase: 'unmeasurable', end_ms: 300, t_ms: 100, p: null })
+    expect(rest).toEqual({ sequence: 1, phase: 'rest', start_ms: 300, end_ms: 800 })
     expect(live.state.phase).toBe('running')
   })
 

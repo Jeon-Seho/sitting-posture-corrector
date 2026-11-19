@@ -4,7 +4,7 @@
 //   npm run dev                             # 다른 터미널에서. 아무 이메일·비밀번호로 로그인된다
 //
 // 흉내 내는 것: 토큰 로그인(A2·A3·A4·A5·A8, BE ADR 0031 — access 토큰 + refresh 쿠키), B1·B2 기준 자세, S1·S4 세션, R1 기록(빈 목록),
-// WS /realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
+// WS /realtime(hello → ready, features → 구간마다 observation·판정 사건·alert, 약 1초마다 progress, end → closed).
 // observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
 // S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
@@ -227,12 +227,17 @@ server.on('upgrade', (req, socket) => {
     }
     if (!session) return close('bad_message')
     if (m.type === 'features') {
-      for (const interval of m.items ?? []) {
-        // 서버와 같은 순서: observation → (decision → alert) → ack → progress.
+      // 구형(`items[]`·`frames[]`)과 신형(평탄화, 팀장 계약안 11/18)을 모양으로 구분해 둘 다 받는다.
+      // 판정은 구형 모양으로 맞춰 한다. 신형 `unmeasurable`은 running 구간의 판정 불가로 센다.
+      const intervals = m.items ?? [{
+        ...m, phase: m.phase === 'unmeasurable' ? 'running' : m.phase,
+        frames: m.t_ms === undefined ? [] : [{ t_ms: m.t_ms, p: m.p ?? null }],
+      }]
+      for (const interval of intervals) {
+        // 서버와 같은 순서: observation → (decision → alert) → progress. ack는 보내지 않는다(요구 4).
         const out = []
         judge(session, interval, out)
         out.forEach(write)
-        write({ type: 'ack', last_sequence: session.lastSequence })
         if (session.t.total_ms - session.lastProgress >= 1000 || out.some((o) => o.type === 'decision')) {
           session.lastProgress = session.t.total_ms
           write({ type: 'progress', last_sequence: session.lastSequence, summary: summary(session), paused_reason: interval.phase === 'running' ? null : interval.phase })
