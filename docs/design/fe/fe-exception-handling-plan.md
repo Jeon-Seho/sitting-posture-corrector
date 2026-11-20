@@ -53,7 +53,7 @@ kafka 모드 (D-57):  앱 → io-api → Kafka → 추론 → 판정 → 저장(
 | S4가 진행 중 메모리 값(io-api가 받은 마지막 결과, `ended: false`)으로 답함(D-57 ⑧) | 2.1의 4번. 측정 시간이 짧으면 버리고, 사건이 적으면 화면 사건을 둔다 |
 | `alert`가 저장 서비스를 거쳐 따로 와서 회복 뒤나 「측정 종료」 뒤에 도착 | 울리지 않는다. 그 사건이 이미 `recovery_confirmed`·`interrupted`·`session_ended`로 닫혔는지 `event_id`로 본다(서버에서 `event_id`는 세션마다 1씩 커지고 `alert`는 그 사건 번호를 쓴다) |
 | 종료 뒤 3초에 `stalled`가 옴(D-57 ⑧) | 문구로 보이지 않고 바로 S4를 읽어 결과로 넘어간다. 2.1의 5번 안내로 알린다 |
-| `ack`가 판정 결과보다 먼저, `progress`가 약 1초마다 옴 | 앱은 `ack`를 쓰지 않는다. 받으면 버린다(`LiveSession.ts` `case 'ack': return`, 재전송을 없앤 [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md) 뒤부터). 그래서 `ack`가 먼저 와도 동작이 같다. `decision`·`progress`는 같은 토픽·같은 키라 서로 순서가 지켜지고, 따로 오는 `alert`는 위 줄처럼 막는다 |
+| `ack`가 판정 결과보다 먼저, `progress`가 약 1초마다 옴 | 앱은 `ack`를 쓰지 않는다. 받으면 버린다(`messages.ts` 파서가 모르는 메시지로 버림, 11/19 `ack` 타입 삭제. 재전송을 없앤 [ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md) 뒤부터). 그래서 `ack`가 먼저 와도 동작이 같다. `decision`·`progress`는 같은 토픽·같은 키라 서로 순서가 지켜지고, 따로 오는 `alert`는 위 줄처럼 막는다 |
 
 ### 2.3 측정 중 강제 종료 (웹 탭 닫기, 데스크톱 X·Alt+F4)
 
