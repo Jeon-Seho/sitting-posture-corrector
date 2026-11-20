@@ -19,8 +19,8 @@
   Kafka 소비자와 같은 계산 코드를 쓰므로 동등성 시험의 기준으로 남겨 둔다.
   local 모드 코드(`posegood.realtime.pipeline=local`, `InferenceClient`, `compose.yaml`의 `inference`)를 지울지는 별도로 정한다.
 - 설정 기본값은 아직 `posegood.realtime.pipeline=local`(`POSEGOOD_REALTIME_PIPELINE`, `infra/compose/env.example`도 `local`)이다.
-  운영은 `POSEGOOD_REALTIME_PIPELINE=kafka`로 띄워야 하고, 기본값을 `kafka`로 바꿀지는 BE·DevOps가 정한다.
-  RF 브랜치만 병합된 상태에서 local로 띄우면 옛 Java 요청이 `/infer`에서 422를 받는다.
+  실제 서버는 이미 `POSEGOOD_REALTIME_PIPELINE=kafka`로 돌고 있다(2026-11-20 확인). 기본값을 `kafka`로 바꿀지는 BE·DevOps가 정한다.
+  운영이 kafka라서 새 `inference-service`를 Java 전환보다 먼저 배포하면 측정 구간이 전부 DLQ로 가 판정이 멈춘다. 반드시 같은 때 배포한다.
 
 ## 브랜치 기준과 병합 순서
 
