@@ -1,22 +1,31 @@
 # 0098 프레임 RF를 서비스 추론에 연결
 
 - 상태: in_progress (2026-11-19 시작, 브랜치 `feature/repo-frame-rf-inference`)
-- 담당: ML(jisung)은 추론 서버(HTTP `/infer`, Kafka 소비자 `backend/inference`)와 계약을 담당한다. Java API의 키포인트 요청 전환(local `/infer`, Kafka `posture.features`)은 BE가 담당한다.
+- 담당: ML(jisung)은 추론 서버(HTTP `/infer`, Kafka 소비자 `backend/inference`)와 계약을 담당한다. Java API의 키포인트 요청 전환(Kafka `posture.features`)은 BE가 담당한다.
 - 관련: [ADR 0050](../../decisions/0050-frame-rf-service-inference.md), [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [ADR 0047](../../decisions/0047-posture-from-deviation-probability.md),
   [RF 후보](../../../model/pretrained/frame-rf-100x/README.md), [분석 요약](../../../model/docs/2026-11-19-ml-review/README.md)
 
 ## 목표
 
-local 실시간 경로(기본)에서 규칙 점수 대신 `model/pretrained/frame-rf-100x`의 2단계 프레임 RF 점수로 판정한다.
-시간 판정(3초 확정·3초 복귀·60초 재알림·측정 불가 처리)은 API 판정 엔진 그대로다. 이번 범위에서 바꾸지 않는다.
+실시간 판정에서 규칙 점수 대신 `model/pretrained/frame-rf-100x`의 2단계 프레임 RF 점수를 쓴다.
+시간 판정(3초 확정·3초 복귀·60초 재알림·측정 불가 처리) 규칙은 이번 범위에서 바꾸지 않는다.
 
-(2026-11-20 팀 결정) 실시간 판정은 Kafka 경로 **BE → `posture.features` → 추론 → `posture.inference` → 판정(처리 서비스) → BE**로 한다.
+(2026-11-20 팀 결정) 실시간 판정은 Kafka 경로 **BE → `posture.features` → 추론 → `posture.inference` → 판정(처리 서비스) → BE**로만 한다.
 특징 계산은 추론에서 한다. 그래서 Kafka 추론 소비자도 같은 키포인트 입력과 RF를 쓴다(아래 「Kafka 경로」).
+
+(2026-11-20 팀 결정) **local 모드(API 안 판정 + HTTP `/infer`)는 쓰지 않는다.**
+- 처음 목표였던 local 경로 연결(Java `SessionService`·`InferenceClient`의 키포인트 전환)은 하지 않는다.
+- 이 PR의 HTTP `/infer` 변경(키포인트 요청·`invalid_reason`)은 코드에 남지만 운영 흐름에서는 쓰이지 않는다.
+  Kafka 소비자와 같은 계산 코드를 쓰므로 동등성 시험의 기준으로 남겨 둔다.
+  local 모드 코드(`posegood.realtime.pipeline=local`, `InferenceClient`, `compose.yaml`의 `inference`)를 지울지는 별도로 정한다.
+- 설정 기본값은 아직 `posegood.realtime.pipeline=local`(`POSEGOOD_REALTIME_PIPELINE`, `infra/compose/env.example`도 `local`)이다.
+  운영은 `POSEGOOD_REALTIME_PIPELINE=kafka`로 띄워야 하고, 기본값을 `kafka`로 바꿀지는 BE·DevOps가 정한다.
+  RF 브랜치만 병합된 상태에서 local로 띄우면 옛 Java 요청이 `/infer`에서 422를 받는다.
 
 ## 브랜치 기준과 병합 순서
 
 1. 유진님의 `refactor/repo-remove-api-version-paths`를 먼저 병합한다(2026-11-20 #138로 병합됨). RF 브랜치 `feature/repo-frame-rf-inference`는 이 브랜치 위에 작업했으며 [이름 규칙 ADR 0049](../../decisions/0049-no-version-in-names.md)를 따른다.
-2. RF 브랜치(PR #140)와 BE의 키포인트 요청 전환(local `/infer`와 Kafka `posture.features` 둘 다)을 함께 병합하고 배포한다. Kafka 경로에서는 옛 Java가 보낸 특징 변화량 본문이 DLQ로 간다. 현재 develop의 Java API는 `POST /infer`에 특징 변화량을 보낸다. RF 쪽 `/infer`는 프레임 9점과 기준 9점을 요구하므로, 이전 Java 요청은 422를 받는다. `POSEGOOD_INFERENCE_MODEL=rule`을 선택해도 키포인트 요청을 사용한다.
+2. RF 브랜치(PR #140)와 BE의 Kafka 키포인트 전환(`KafkaPipeline` → `posture.features`)을 함께 병합하고 배포한다. 옛 Java가 보낸 특징 변화량 본문은 DLQ로 간다. `POSEGOOD_INFERENCE_MODEL=rule`을 선택해도 키포인트 입력을 사용한다.
 
 ## 결정 (2026-11-19 사용자)
 
@@ -71,7 +80,17 @@ BE가 자체 판정 가능 검사를 지워도 판정 불가 사유를 추론 �
 - Kafka 소비자도 같은 입력·같은 코드로 계산한다(아래 「Kafka 경로」).
 - 좌표·특징 값을 로그와 오류 응답에 남기지 않는다.
 
-### BE 연결 시 할 일 (전세호)
+### BE 연결 시 할 일
+
+**Kafka 경로 (해야 함)**
+
+- `KafkaPipeline.frames`가 `FrameFeatures.interval` 대신 키포인트 요청을 `posture.features`의 `features` 본문으로 보낸다(형식은 아래 local 항목의 `frames`·`baseline` 설명과 같다).
+  [Kafka features 예시](../../../contracts/realtime/examples/features-features.json)가 바뀌어 `KafkaPipelineTest`의 `sameShape`는 Java 변경 전까지 실패한다.
+  처리 서비스의 시험 입구(`RealtimeTestEntryController`·`RealtimeEnvelopeValidator`)도 옛 특징 변화량 본문만 받으므로 함께 바꾼다.
+- 고개 돌림 힌트: Kafka 관측에는 `invalid_reason`이 없다(관측 계약 그대로). `KafkaResults`가 붙이는 `head_turn`은 Java가 좌표로 계속 검사하거나,
+  관측 계약에 `invalid_reason`을 더하는 별도 변경이 필요하다(결정 전).
+
+**local 경로 (2026-11-20 local 모드를 쓰지 않기로 해서 하지 않음 — 키포인트 형식 설명으로만 남김)**
 
 - `SessionService.frames`에서 `FrameFeatures.interval`을 이용한 local 평균과 자체 품질·고개 돌림 검사를 제거하고 키포인트 요청을 만든다.
   - `frames`는 각 프레임의 `tracked()`가 참이면 `p`, 거짓이면 `null`을 넣는다.
@@ -81,11 +100,6 @@ BE가 자체 판정 가능 검사를 지워도 판정 불가 사유를 추론 �
 - [BE API 명세](../../design/api-spec.md)에서 `/infer` 키포인트 요청과 `invalid_reason` 응답을 설명한다. 기존 특징 변화량 링크를 [키포인트 요청 예시](../../../contracts/examples/inference/synthetic-inference-request.json)와 [응답 예시](../../../contracts/examples/inference/synthetic-inference-response.json)로 갱신하고 변경 이력에 호환성 변경을 기록한다.
 - IT용 가짜 추론 서버 `SyntheticInference`가 키포인트 요청을 읽고 `invalid_reason`을 포함한 관측 응답을 반환하도록 바꾼다.
 - `posegood.model-version=${POSEGOOD_MODEL_VERSION:frame-rf-100x-v1}`.
-- Kafka 경로: `KafkaPipeline.frames`도 `FrameFeatures.interval` 대신 위와 같은 키포인트 요청을 `posture.features`의 `features` 본문으로 보낸다.
-  [Kafka features 예시](../../../contracts/realtime/examples/features-features.json)가 바뀌어 `KafkaPipelineTest`의 `sameShape`는 Java 변경 전까지 실패한다.
-  처리 서비스의 시험 입구(`RealtimeTestEntryController`·`RealtimeEnvelopeValidator`)도 옛 특징 변화량 본문만 받으므로 함께 바꾼다.
-- 고개 돌림 힌트: Kafka 관측에는 `invalid_reason`이 없다(관측 계약 그대로). `KafkaResults`가 붙이는 `head_turn`은 Java가 좌표로 계속 검사하거나,
-  관측 계약에 `invalid_reason`을 더하는 별도 변경이 필요하다(결정 전).
 
 ## Kafka 경로 (2026-11-20)
 
@@ -152,7 +166,7 @@ Compose의 `POSEGOOD_INFERENCE_WORKERS` 기본값은 2다. 추론 서버에 할�
 - [x] `python -m unittest tests.test_inference tests.test_inference_internal_auth tests.test_realtime_parity tests.test_realtime_contracts tests.test_deploy_configuration` (Windows 가상 환경)에서 28개를 모두 통과했다.
 - [x] `python -m unittest discover -s tests` (Windows 가상 환경)에서 228개 중 208개 통과, 실패 1개, 오류 12개, 건너뜀 7개를 확인했다. 기존과 같이 배치 J1·J2·J3에서 `tzdata` 누락으로 12건, `test_model_live_comparison` 브라우저 시험에서 1건이 발생했다.
 - [x] HTTP 개선 전후 비교에서 RF·규칙·모델 구성 오류 모드별 합성 요청 12종의 HTTP 상태, 헤더, 본문이 일치했다. OpenAPI, `/health`, 잘못된 본문을 보낸 미인증 요청의 401도 확인했다.
-- [ ] (BE 연결 후) 실제 API → `/infer` 흐름 확인 — BE 작업
+- [ ] ~~(BE 연결 후) 실제 API → `/infer` 흐름 확인~~ — local 모드를 쓰지 않아 하지 않음(2026-11-20)
 - [x] Kafka 소비자: `backend/inference`에서 `pytest`(Python 3.11, `requirements.txt`·`requirements-dev.txt`) 31개 통과 — 좌표 구간 → RF 관측, 옛 특징 변화량·형식 오류·기준 기하 오류 → DLQ, 모델 없음 → 소비 안 함·`/health` 503, 합성 좌표 3종 × RF·규칙에서 Kafka 관측 = `/infer` 관측(`invalid_reason` 제외)
 - [x] `python -m unittest tests.test_realtime_contracts tests.test_inference tests.test_inference_internal_auth tests.test_realtime_parity tests.test_deploy_configuration` 28개 통과(바뀐 Kafka features 예시 포함)
 - [ ] (BE 연결 후) 실제 BE → Kafka → 추론 → 판정 → BE 흐름, `inference-service` 이미지 빌드
