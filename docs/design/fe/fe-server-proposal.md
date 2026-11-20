@@ -25,7 +25,7 @@
 | 10 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
 | 11 | 안 쓰는 API 정리: C1 삭제, W1 응답에서 `records` 빼기 (BE-21) | BE | C1 끝(develop #121), W1 `records` 남음 | 급하지 않음 |
 | 12 | T1 일별 통계 API (BE-2) | BE | 구현 전(형식만 확정) | 기록이 많아져 R1 계산이 느려질 때 |
-| 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 없애기로 함(11/19 BE 동의). 앱은 응답 검사를 멈춤(이 브랜치), 앱 → 서버는 팀장 작업, 응답·추론·Kafka는 BE 다음 PR | 응답은 `/v2` 판 배포 하루 뒤 다음 배포, 추론·Kafka는 BE·DevOps가 정함 |
+| 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 없애기로 함(11/19 BE 동의). 앱은 응답 검사를 멈춤(#137, `/v2` 삭제 브랜치), 앱 → 서버는 팀장 작업, 응답·추론·Kafka는 BE 다음 PR | 응답은 `/v2` 판 배포 뒤 BE가 뺌, 추론·Kafka는 BE·DevOps가 정함 |
 | 14 | 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27) | DB·BE | 운영 DB 기본값은 11/17 DevOps가 1로 고침. 남은 것: 값이 0인 옛 계정 켜기. 앱은 늘 「켜짐」으로 보이는데 꺼진 계정은 소리·팝업·토스트가 안 온다 | 통신 시험(11/19) 전 |
 
 **kafka 코드 확인(D-57 `feat/ws-kafka-pipeline`, 11/18 develop 병합 #134):** 요구 4는 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 들어가 있다. 병합으로 develop에 들어온 것은 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. 처리 서비스는 구간마다 관측 → 사건 → 진행 순서로 보낸다(`JudgeRegistry`, 요구 2와 관련). ⑧의 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
@@ -80,7 +80,7 @@
   1. DevOps: 통합 시험의 「구간 ack」 확인을 「보낸 구간 수 = 받은 `observation` 수」로 바꾼다(kafka는 lag 0·DLQ +0 확인 유지).
   2. 팀장(Jeon-Seho): `RealtimeHandler.measure`의 `send(…V2.Ack…)` 두 곳과 `RealtimeMessages.V2.Ack`, 서버 시험을 지운다. **`Channel.ackedAt`은 남긴다**(구간을 넘긴 시각, `checkStalled`가 씀. 이름은 `acceptedAt` 등으로).
   3. FE: 계약 `realtime-ws.schema.json`의 `ack`(설명 「The app only shows it」도 틀림)·`examples-ws/ws-ack.json`, 앱 `messages.ts`·`LiveSession.ts`, 연동 명세를 정리한다.
-- **진행(11/19):** 팀장이 「실시간 WebSocket 계약 변경 검토 요청」(11/18)에 `ack` 삭제를 넣었다. FE는 앱의 `ack` 타입·파서·분기를 지웠다(구형 서버가 보내도 버림, 이 브랜치 `76276f7`). 계약·서버는 팀장 작업에서 바꾼다.
+- **진행(11/19):** 팀장이 「실시간 WebSocket 계약 변경 검토 요청」(11/18)에 `ack` 삭제를 넣었다. FE는 앱의 `ack` 타입·파서·분기를 지웠다(구형 서버가 보내도 버림, `76276f7`, #137). 계약·서버는 팀장 작업에서 바꾼다.
 
   앱은 `ack`를 무시하므로 서버가 먼저 바뀌어도 운영 화면에 영향이 없다. 시험 연결에만 `ack`를 켜는 안(`hello` 선택 칸)은 `hello` 형식을 바꿔야 해서 고르지 않았다.
 
@@ -206,7 +206,7 @@
   - 그런데 양쪽이 값을 검사하므로 한쪽만 먼저 빼면 다른 쪽이 정상 메시지를 거절한다. 앱이 먼저 빼면 서버가 `hello`를 거절해 측정이 안 되고, 서버가 먼저 빼면 열려 있던 옛 앱 탭이 기록·기준 자세 응답을 버린다.
 - **요구사항/변경사항:** 메시지마다 맡는 곳과 순서가 다르다(11/19 BE 회신으로 정함).
   1. **앱 → 서버(`hello`·`features`):** 팀장 「실시간 WebSocket 계약 변경 검토 요청」(11/18)으로 빠진다. 앱은 `feat/fe-realtime-flat-features`에서 버전 없는 `hello`·평탄화 `features`로 구현했고(ADR 0052), 서버가 구형·신형을 함께 받게 된 뒤 배포한다(요구 5).
-  2. **서버 → 앱 응답(`observation`·B1·B2·S4·R1·W1):** FE 검사 멈춤(`30f2677`, 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음)이 이 브랜치로 BE `/v2` 브랜치에 들어가 운영(Vercel 포함)에 나간다 → **하루쯤 두고 다음 배포에서** BE가 응답에서 칸을 뺀다. 그 전에 열려 있던 옛 앱 탭 때문이다.
+  2. **서버 → 앱 응답(`observation`·B1·B2·S4·R1·W1):** FE 검사 멈춤(`30f2677`, 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음)이 #137로 BE `/v2` 브랜치에 들어갔다. 이 판이 배포된 뒤 BE가 응답에서 칸을 뺀다(BE 계획에 있음).
   3. **io-api ↔ 추론, Kafka 봉투·본문:** 같은 요청·관측 형식이 HTTP와 Kafka 본문에 함께 쓰이므로 BE가 **한 PR**에서 한다. io-api·추론은 같은 배포 묶음이지만 **처리 서비스는 따로 배포된다**(`infra/compose/bigdata.yaml`). 그래서 Kafka 쪽은 「받는 쪽이 있어도 없어도 받기 → 보내는 쪽 빼기 → 받는 쪽 정리」로 하거나, 운영이 local 모드인 동안 한 번에 바꾸고 옛 시험 메시지는 버린다(BE·DevOps가 정함).
   4. **「검사하지 않는다」는 칸이 있어도 없어도 받는다는 뜻이다.** io-api는 모르는 칸·빠진 칸을 모두 거절하므로(`fail-on-unknown-properties`) 값 검사만 지워서는 안 된다. 앱도 그렇게 했다(`validation.ts` `exactVersionless`).
   5. BE는 ADR 0049 결정 4와 `contracts/README.md`의 「지금 값을 그대로 보내고 검사한다」를 같이 고친다. 이름에 판 번호가 남은 클래스(`Observation.V4`, `RealtimeMessages.V2`, 추론 `InferenceRequestV2`)도 같은 PR에서 정리하면 좋다(BE 참고).
@@ -305,7 +305,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
 | 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |
 | 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
-| 13 `schema_version` 빼기 | ① 응답 검사 멈춤(11/19 함, 이 브랜치) ② `hello`·구간에서 칸 빼기(11/19 함, `feat/fe-realtime-flat-features`) | ②는 팀장 서버가 신형을 받은 뒤 배포 |
+| 13 `schema_version` 빼기 | ① 응답 검사 멈춤(11/19 함, #137) ② `hello`·구간에서 칸 빼기(11/19 함, `feat/fe-realtime-flat-features`) | ②는 팀장 서버가 신형을 받은 뒤 배포 |
 
 앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기), 14(알림 값 켜기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
