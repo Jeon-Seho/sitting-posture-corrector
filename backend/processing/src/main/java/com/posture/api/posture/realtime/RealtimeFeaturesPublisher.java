@@ -11,7 +11,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * (D-21) 검사를 통과한 {@code posture.features.v1} 메시지를 그대로(바꾸지 않고) 발행한다.
+ * (D-21) 검사를 통과한 {@code posture.features} 메시지를 그대로(바꾸지 않고) 발행한다.
  * 메시지 키는 계약대로 {@code session_id} — 같은 세션의 시작·특징·종료가 같은 파티션에 순서대로 들어간다.
  */
 @Service
@@ -24,7 +24,7 @@ public class RealtimeFeaturesPublisher {
 
 	public RealtimeFeaturesPublisher(
 		KafkaTemplate<String, String> kafkaTemplate,
-		@Value("${app.kafka.topic.posture-features-v1:posture.features.v1}")
+		@Value("${app.kafka.topic.posture-features:posture.features}")
 		String topic) {
 		this.kafkaTemplate = kafkaTemplate;
 		this.topic = topic;
@@ -46,6 +46,6 @@ public class RealtimeFeaturesPublisher {
 			throw new KafkaPublishException(
 				"Kafka publish 중 인터럽트 (topic=%s, sessionId=%s)".formatted(topic, sessionId), e);
 		}
-		log.debug("posture.features.v1 발행 (sessionId={})", sessionId);
+		log.debug("posture.features 발행 (sessionId={})", sessionId);
 	}
 }

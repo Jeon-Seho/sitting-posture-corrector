@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * 세션 조회 응답: 정책, 요약 통계, 판정 사건 목록.
  *
- * 계약: contracts/session-view.v1.schema.json.
+ * 계약: contracts/session-view.schema.json.
  */
 public record SessionView(
 	String schemaVersion,
@@ -23,7 +23,7 @@ public record SessionView(
 	/**
 	 * 판정 사건 하나: 붕괴 확정, 재알림, 회복, 중단, 세션 종료.
 	 *
-	 * 계약: contracts/posture-event.v1.schema.json.
+	 * 계약: contracts/posture-event.schema.json.
 	 */
 	public record DecisionEvent(
 		String schemaVersion,

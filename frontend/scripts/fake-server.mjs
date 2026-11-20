@@ -7,7 +7,7 @@
 // WS /realtime(hello → ready, features → 구간마다 observation·판정 사건·alert·ack, 약 1초마다 progress, end → closed).
 // observation은 4.0(BE feature/repo-realtime-observation4 — sequence·valid·posture·collapse_probability·hold_ms·recovery_ms·invalid_reason).
 // 판정은 진짜가 아니다: 코-어깨 높이가 기준보다 낮아질수록 점수가 떨어지는 단순 규칙과
-// S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.v2.schema.json.
+// S1 policy의 시간 규칙(hold·recovery·reminder)만 쓴다. 계약: contracts/realtime/realtime-ws.schema.json.
 import { createHash, randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 
@@ -74,8 +74,8 @@ async function readBody(req) {
 }
 
 const server = createServer(async (req, res) => {
-  // Old (/api/v2/…) and new (/api/…) paths both work, as the server should during the switch.
-  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '').replace(/^\/v2(?=\/)/, '')
+  // Paths have no version, like the server (ADR 0049).
+  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
   const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null
   console.log(`${req.method} ${path}`)
   if (path === '/auth/login' || path === '/auth/register') {
@@ -195,7 +195,7 @@ function judge(s, interval, out) {
 
 // ---------- WebSocket (RFC 6455 텍스트 프레임만) ----------
 server.on('upgrade', (req, socket) => {
-  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '').replace(/^\/v2(?=\/)/, '')
+  const path = new URL(req.url, 'http://x').pathname.replace(/^\/api(?=\/)/, '')
   if (path !== '/realtime') return socket.destroy()
   const accept = createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64')
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`)

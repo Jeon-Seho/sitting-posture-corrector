@@ -1,7 +1,7 @@
 import type { Landmark } from '../../../../../model/prototype/pose'
 
 /**
- * `posture.frames.v1` (FE proposal 3.1, F1): what the app sends to `/realtime` (LiveSession,
+ * `posture.frames` (FE proposal 3.1, F1): what the app sends to `/realtime` (LiveSession,
  * 2026-10-21).
  *
  * - One message per frame (2026-10-27, team lead): the interval `[start_ms, end_ms)` holds one
@@ -24,7 +24,7 @@ export const FRAME_INTERVAL_MS = 500
 /** Nose, left/right eye, left/right ear, mouth left/right, left/right shoulder. */
 export const FRAME_JOINTS = [0, 2, 5, 7, 8, 9, 10, 11, 12] as const
 
-export type FramePhase = 'running' | 'calibration' | 'rest' | 'away'
+export type FramePhase = 'running' | 'rest' | 'away'
 export type PoseFrame = { t_ms: number; p: [number, number, number][] | null }
 export type FrameBatch = {
   schema_version: typeof FRAME_SCHEMA_VERSION
@@ -72,7 +72,7 @@ export function frameJoints(landmarks: Landmark[]): [number, number, number][] |
   })
 }
 
-/** Turns observations into one-frame `posture.frames.v1` messages with increasing sequence. */
+/** Turns observations into one-frame `posture.frames` messages with increasing sequence. */
 export class FrameBatcher {
   private sequence = 0
   private start = 0
@@ -93,7 +93,7 @@ export class FrameBatcher {
   }
 
   /**
-   * Adds one observation; frames are kept only while running or registering. The open interval,
+   * Adds one observation; frames are kept only while running. The open interval,
    * holding the previous frame, ends at this frame's time and is sent now.
    */
   push(input: FrameInput): FrameBatch[] {

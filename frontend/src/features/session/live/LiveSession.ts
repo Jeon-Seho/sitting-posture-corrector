@@ -411,8 +411,6 @@ export class LiveSession {
       case 'session_rollover':
         if (this.ready) this.rollOver(message)
         return
-      case 'ack':
-        return
     }
   }
 

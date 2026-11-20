@@ -77,7 +77,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     })
     expect(view.user_id).toBe('42')
     expect(accounts.userId()).toBe('42')
-    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST https://api.example.invalid/api/v2/auth/register'])
+    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST https://api.example.invalid/api/auth/register'])
     expect(s.calls[0].headers).not.toHaveProperty('X-CSRF-TOKEN')
     const body = s.calls[0].body as { profile: unknown; consents: { type: string; document_version: string }[] }
     expect(body.profile).toEqual({ name: '합성 가입', age: null, occupation: null })
@@ -96,7 +96,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     expect(auth.userId).toBe('42')
     expect(await auth.accessToken()).toBe('a1')
     await accounts.logout()
-    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST /api/v2/auth/login', 'POST /api/v2/auth/logout'])
+    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST /api/auth/login', 'POST /api/auth/logout'])
     expect(s.calls[1].headers).toMatchObject({ Authorization: 'Bearer a1', 'X-PoseGood-User-Id': '42' })
     // The server does not revoke the access token: the app forgets it.
     expect(accounts.userId()).toBeNull()
@@ -127,7 +127,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     ])
     const accounts = client(s)
     expect((await accounts.me())?.user_id).toBe('42')
-    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST /api/v2/auth/refresh', 'GET /api/v2/auth/me'])
+    expect(s.calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST /api/auth/refresh', 'GET /api/auth/me'])
     expect(s.calls[0].body).toBeUndefined()
     expect(s.calls[1].headers.Authorization).toBe('Bearer a1')
     expect(serverToday()).toBe('2026-10-25')
@@ -135,7 +135,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     expect(serverToday()).toBe('2026-10-26')
     // A4 401 renews once; a renewal without a proper answer (503) changes neither the day nor the sign-in.
     await accounts.refreshServerTime?.()
-    expect(s.calls.slice(3).map((c) => c.url)).toEqual(['/api/v2/auth/me', '/api/v2/auth/refresh'])
+    expect(s.calls.slice(3).map((c) => c.url)).toEqual(['/api/auth/me', '/api/auth/refresh'])
     expect(serverToday()).toBe('2026-10-26')
     expect(accounts.userId()).toBe('42')
     resetServerClock()
@@ -145,7 +145,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     const s = server([[401, { code: 'UNAUTHENTICATED' }], [401, { code: 'UNAUTHENTICATED' }]])
     const accounts = client(s)
     expect(await accounts.me()).toBeNull()
-    expect(s.calls.map((c) => c.url)).toEqual(['/api/v2/auth/refresh'])
+    expect(s.calls.map((c) => c.url)).toEqual(['/api/auth/refresh'])
     await expect(accounts.logout()).resolves.toBeUndefined()
   })
 
@@ -157,7 +157,7 @@ describe('account server client (D-66, BE ADR 0031 token login, A2–A5·A8)', (
     await vi.advanceTimersByTimeAsync(1800_000 - RENEW_BEFORE_MS - 1)
     expect(s.calls).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(1)
-    expect(s.calls.map((c) => c.url)).toEqual(['/api/v2/auth/login', '/api/v2/auth/refresh'])
+    expect(s.calls.map((c) => c.url)).toEqual(['/api/auth/login', '/api/auth/refresh'])
     // 503: still signed in, tried again later.
     expect(accounts.userId()).toBe('42')
     await vi.advanceTimersByTimeAsync(30_000)

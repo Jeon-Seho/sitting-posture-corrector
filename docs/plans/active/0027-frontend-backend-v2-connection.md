@@ -3,7 +3,7 @@
 - 상태: planned
 - 담당: 미정 (feature/repo-backend-db-v2에서 정리)
 - 시작일: 2026-10-14
-- 관련 요구사항/ADR: [계정·기준 자세·저장 API v2](../../../contracts/accounts.v2.md), [동의 문서 v2](../../../contracts/consent-documents.v2.md),
+- 관련 요구사항/ADR: [계정·기준 자세·저장 API v2](../../../contracts/accounts.md), [동의 문서 v2](../../../contracts/consent-documents.md),
   [ADR 0020](../../decisions/0020-single-api-decision-engine.md), [옛 ADR 0022](../../removed-docs.md),
   [계획 0025](0025-backend-db-v23-integration.md), [FE 연동 명세](../../design/fe/api-ws-spec.md)
 
@@ -69,7 +69,7 @@ API `POST /v2/baselines`와 DB `baseline_posture`는 관절 9개(`nose`, `left_e
 | 직업 | 없음 또는 1..80자 | `null` 또는 공백 아닌 1..80자, 선택 동의 있을 때만 |
 | 비밀번호 | 1자 이상, 72바이트 이하 | 12자 이상, UTF-8 72바이트 이하 |
 
-- [ ] 문서 버전을 하나로 정한다. 화면 문구가 `service-v2`와 다르면 [동의 문서 계약](../../../contracts/consent-documents.v2.md)과 함께 맞춘다.
+- [ ] 문서 버전을 하나로 정한다. 화면 문구가 `service-v2`와 다르면 [동의 문서 계약](../../../contracts/consent-documents.md)과 함께 맞춘다.
 - [ ] `Profile` 타입의 선택 값 표현(`undefined`)과 API(`null`) 변환을 어댑터 한곳에서 처리한다.
 - [ ] 선택 동의 철회·재동의는 `PUT /consents/optional-profile`(철회 시 나이·직업 삭제)로 보낸다.
 - [ ] 비밀번호 최소 길이는 사용자(팀)와 정한다. API를 바꾸지 않으면 프론트 안내·검증을 12자로 맞춘다.

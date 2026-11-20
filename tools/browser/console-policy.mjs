@@ -7,8 +7,8 @@ export function createConsolePolicy() {
   let meLogs = 0
   return {
     response(response) {
-      if (response.status === 401 && new URL(response.url).pathname.endsWith('/v2/auth/refresh')) refresh401++
-      if (response.status === 404 && new URL(response.url).pathname.endsWith('/v2/baselines/current')) missingBaselines++
+      if (response.status === 401 && new URL(response.url).pathname.endsWith('/auth/refresh')) refresh401++
+      if (response.status === 404 && new URL(response.url).pathname.endsWith('/baselines/current')) missingBaselines++
     },
     expected(args) {
       if (args[0]?.value === '[features/auth/accountClient.ts:renew] Operation failed' && args[2]?.value === 'expected:auth-renew-401') { renewLogs++; return true }

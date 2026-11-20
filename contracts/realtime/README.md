@@ -1,55 +1,55 @@
-# 실시간 전달 계약 v1 (초안)
+# 실시간 전달 Kafka 계약 (초안)
 
-> **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws.v2](realtime-ws.v2.schema.json),
-> 합성 예시는 [examples-v2](examples-v2/), 좌표 구간은 [posture.frames.v1](frames/posture-frames.v1.schema.json)이다.
+> **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws](realtime-ws.schema.json),
+> 합성 예시는 [examples-ws](examples-ws/), 좌표 구간은 [posture.frames](frames/posture-frames.schema.json)이다.
 > 근거는 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md)다.
-> v2에서 달라지는 것: 경로 `/v2/realtime`, `hello`의 `purpose`(`measure`), 서버의 `ready`, 좌표 구간 `features`,
+> v2에서 달라지는 것: 경로 `/realtime`, `hello`의 `purpose`(`measure`), 서버의 `ready`, 좌표 구간 `features`,
 > 앱의 `end`, `progress.paused_reason`, 재연결 없음(ADR 0024). WebSocket 자세 등록(`calibration`, `calibration_result`)은 2026-10-27 지웠다 — 등록은 B1뿐.
 > 메시지는 연결 단위라 `hello`·`ready`에만 세션을 적는다. v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`)은 2026-10-26 지웠다.
 > **2026-10-21:** 앱(FE V3)은 v2로 바뀌었고 `purpose:"measure"`만 쓴다. 자세 등록은 WS `calibration`이 아니라 앱이 낸 평균을 REST B1로 보낸다([ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md) 5절). 앱은 v1 WebSocket을 더 쓰지 않는다(같은 ADR 4절).
-> Kafka 토픽 계약(v1)은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다.
+> Kafka 토픽 계약은 BE·DevOps가 좌표 입력(D-34)과 함께 바꾼다. 이 문서의 Kafka 부분은 그때까지 그대로 둔다. 토픽·스키마 이름의 버전(`.v1`)은 2026-11-18에 뺐다(ADR 0049).
 
 - 상태: **초안(draft)**. 홍규 검토 완료(2026-10-06, DevOps `platform/docs/FE연동안_BE검토의견.md`): DevOps가 이 계약의 토픽·봉투·키를 따르기로 했다(D-21~D-23). 메시지 단위와 판정 엔진은 회의 결정 대기([계획 0022](../../docs/removed-docs.md) 2026-10-07 기록).
-- 근거: 계획 0022 1단계(끝나서 지움, [지운 문서 기록](../../docs/removed-docs.md)), 기존 [입력 v2](../inference-request.v2.schema.json)·[관측 v2](../posture-observation.v2.schema.json)·[사건 v1](../posture-event.v1.schema.json)·[조회 v1](../session-view.v1.schema.json)
+- 근거: 계획 0022 1단계(끝나서 지움, [지운 문서 기록](../../docs/removed-docs.md)), 기존 [입력](../inference-request.schema.json)·[관측](../posture-observation.schema.json)·[사건](../posture-event.schema.json)·[조회](../session-view.schema.json)
 
 기존 계약을 새로 만들지 않고 감싸기만 한다. 본문은 위 계약을 `$ref`로 그대로 쓴다.
 원본 영상·랜드마크·좌표·이메일은 어떤 메시지에도 넣지 않는다. 모르는 필드는 거부한다.
 
 > **결정 변경(2026-10-11, [ADR 0021](../../docs/decisions/0021-app-sends-information-server-judges.md))**: 앱은 판정하지 않고 관절 좌표를 보낸다.
-> 이 계약의 `features` 본문(입력 v2, 특징 변화량)은 좌표 프레임 계약 `posture.frames.v1`로 바뀐다
+> 이 계약의 `features` 본문(특징 입력, 특징 변화량)은 좌표 프레임 계약 `posture.frames`로 바뀐다
 > (형식과 서버가 돌려줄 것: [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 5장). "좌표를 넣지 않는다"는
 > "좌표를 보낸다. 좌표 수집 동의는 가입의 필수 조건이다(ADR 0021)"로 바뀐다. 영상과 이메일은 여전히 넣지 않는다.
-> 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/v2/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
+> 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
 ## 흐름
 
 ```
-앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features.v1 ─▶ 추론 ─▶ posture.inference.v1 ─▶ 판정(상태머신)
-앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes.v1 ◀──────────────────────┘
-앱 ◀─WebSocket─ 게이트웨이 ◀── posture.inference.v1 (관측만, 화면 실시간 상태용)
+앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features ─▶ 추론 ─▶ posture.inference ─▶ 판정(상태머신)
+앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes ◀──────────────────────┘
+앱 ◀─WebSocket─ 게이트웨이 ◀── posture.inference (관측만, 화면 실시간 상태용)
 ```
 
 ## Kafka 토픽
 
 > 파티션·컨슈머 그룹·DLQ·보존·시험용 입구와 지금 상태는 [Kafka 명세](../../docs/design/kafka-spec.md)(DevOps/BE)에 있다.
-> 이 Kafka 계약 v1은 WebSocket v1(`realtime-ws.v1`, 2026-10-26 삭제)과 별개다 — `kafka-*.v1` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`는 남겼다.
+> 이 Kafka 계약은 WebSocket v1(`realtime-ws.v1`, 2026-10-26 삭제)과 별개다 — `kafka-*` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`는 남겼다.
 
 | 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
 | --- | --- | --- | --- | --- |
-| `posture.features.v1` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 입력 v2 / `end_ms` | [kafka-features.v1](kafka-features.v1.schema.json) |
-| `posture.inference.v1` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference.v1](kafka-inference.v1.schema.json) |
-| `posture.episodes.v1` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 v1 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes.v1](kafka-episodes.v1.schema.json) |
-| `posture.alerts.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts.v1](kafka-alerts.v1.schema.json) |
-| `posture.keypoints.v1` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로(frames 계약). kafka 경로·적재 스위치를 켰을 때만, 처리 서비스는 읽지 않음 | [kafka-keypoints.v1](kafka-keypoints.v1.schema.json) |
-| `posture.stored.v1` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored.v1](kafka-stored.v1.schema.json) |
+| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 특징 입력 / `end_ms` | [kafka-features](kafka-features.schema.json) |
+| `posture.inference` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference](kafka-inference.schema.json) |
+| `posture.episodes` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes](kafka-episodes.schema.json) |
+| `posture.alerts` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts](kafka-alerts.schema.json) |
+| `posture.keypoints` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로(frames 계약). kafka 경로·적재 스위치를 켰을 때만, 처리 서비스는 읽지 않음 | [kafka-keypoints](kafka-keypoints.schema.json) |
+| `posture.stored` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored](kafka-stored.schema.json) |
 
 공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.
 
 규칙:
 
 - **메시지 키는 `session_id`다.** Kafka는 같은 키 안에서만 순서를 지킨다. 세션 시작·특징·종료를 같은 토픽·같은 키로 보내야 판정이 항상 시작 → 특징 → 종료 순서로 받는다.
-- 추론은 `session_started`·`session_ended`를 **바꾸지 않고** `posture.inference.v1`로 넘긴다. 판정은 한 토픽만 읽는다.
+- 추론은 `session_started`·`session_ended`를 **바꾸지 않고** `posture.inference`로 넘긴다. 판정은 한 토픽만 읽는다.
 - 판정은 세션 시작 메시지의 `policy`로 판정한다. 환경변수 값은 시작 메시지가 없을 때의 기본값일 뿐이다.
 - 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `phase`(`rest`·`away`)와 품질 `poor`는 제외 구간이다.
 - `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
@@ -58,7 +58,7 @@
   한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
   `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다(v2 `event` 설명과 같음).
 - 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
-  `judge-cases.v1.json`(관측열 → 사건·요약·제외 구간), `inference-cases.v1.json`(입력 v2 → 관측 v2).
+  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 입력 → 관측).
 - 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
@@ -69,14 +69,14 @@
 ## 통로 나누기
 
 - **세션 시작은 HTTP**(S1 세션 생성 `PUT /sessions/{id}`, 경로 앞부분은 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 1장)로 하고, **끝은 WebSocket `end`나 연결 끊김**이다(REST 종료 S3는 2026-11-12 지움). 입구 API가 서비스 DB에 저장하고,
-  kafka 모드(D-57 브랜치 `KafkaPipeline`)에서는 `posture.features.v1`에 `session_started`·`session_ended`를 넣는다. (처음 결정 10/06에는 시작·종료 모두 v1 HTTP였다.)
+  kafka 모드(D-57 브랜치 `KafkaPipeline`)에서는 `posture.features`에 `session_started`·`session_ended`를 넣는다. (처음 결정 10/06에는 시작·종료 모두 v1 HTTP였다.)
 - **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
 - 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.
 
 ## WebSocket 메시지
 
-v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws.v2](realtime-ws.v2.schema.json)와
+v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws](realtime-ws.schema.json)와
 [BE API 명세](../../docs/design/api-spec.md) 11장을 본다. 아래 원칙은 v2에도 그대로다.
 
 `decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
@@ -88,15 +88,15 @@ v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 �
 
 ## 합성 예제와 검증
 
-[examples](examples/)의 7개 파일(Kafka)과 [examples-v2](examples-v2/)(WebSocket v2)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
+[examples](examples/)의 7개 파일(Kafka)과 [examples-ws](examples-ws/)(WebSocket)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
 `tests/test_realtime_contracts.py`가 Kafka 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치 거부, 봉투와 사건의 `session_id` 일치,
-WebSocket v2의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. v2 메시지 전체는 `tests/test_realtime_ws_v2.py`가 본다.
+WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. WebSocket 메시지 전체는 `tests/test_realtime_ws.py`가 본다.
 
 ## 아직 정하지 않은 것
 
-아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames.v1`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
+아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
-- `features` 본문은 입력 v2다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전으로 올린다.
+- `features` 본문은 특징 입력이다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
 - 기준 자세 전달 토픽은 보류한다.

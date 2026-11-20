@@ -7,17 +7,17 @@
 상태: 논리적 경계를 정의했고, [현재 계획서](references/current-proposal-review.md)의 배치 방향을 추가로 참고한다.
 구체적인 전송 방식과 실행 환경은 프로토타입 후 ADR로 결정한다.
 
-지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/v2/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
+지금 앱(FE V3, 2026-10-21~)은 DB V2.6·HTTP 계정 v2(토큰 로그인)에 연결하고, 기준 자세는 앱이 낸 관절 평균을 B1로 등록하며, 측정 중에는 `/realtime`으로 관절 좌표만 보낸다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 특징값·점수·판정은 서버가 한다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 현재 체험용 구현의 초기 선택은 옛 ADR 0002(지금 [ADR 0007](decisions/0007-lite-pose-tracker.md) 1절)에 따라 `frontend/`와 `model/prototype/`를
 같은 브라우저에서 실행한다. 영상은 서버에 보내지 않는다. 서비스에는 9점 좌표를 전송한다.
 [API 판정 엔진·FastAPI 경계](decisions/0020-single-api-decision-engine.md)에 계정 앱의 서버 판정 모드를 연결했다.
 그때는 옛 ADR 0013에 따라 세 특징의 현재−시작 기준 변화량과 품질만 전송했다(지금은 아래 결정 변경).
 
-> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames.v1`)만 보내고
+> **결정 변경(2026-10-11)**: [ADR 0021](decisions/0021-app-sends-information-server-judges.md)에 따라 앱은 관절 좌표(`posture.frames`)만 보내고
 > 판정 가능 검사·특징값·점수·시간 판정은 모두 서버가 한다. 로컬 모드와 브라우저 특징 변화량 전송은 [계획 0023](plans/active/0023-frontend-server-only.md)에서 없앤다.
 > 이 문서의 "원본 좌표를 보내지 않는다", "로컬 모드", "`serverFeatures.ts`가 변화량을 만든다"는 그 전까지의 현재 동작이다.
-> 판정은 DevOps Kafka 경로(추론 → v1 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe/fe-server-proposal.md) 2장).
+> 판정은 DevOps Kafka 경로(추론 → 판정기)가 한다. 앱은 BE가 만드는 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5) 하나와 통신한다([FE 제안서](design/fe/fe-server-proposal.md) 2장).
 
 ```text
 카메라 → 랜드마크 → 측정 품질 → 정규화 → 개인 기준 변화량 → 시계열 추론
@@ -40,7 +40,7 @@
 `model/`은 코드의 책임 경계이며 반드시 서버에서 실행한다는 뜻은 아니다.
 현재 계획은 React/TypeScript 클라이언트에서 MediaPipe 키포인트를 추출하고 필요한 특징을 추론 서비스에 전송하며,
 Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다. Python/LSTM 추론 서비스와 사용자 관리 서비스는 분리한다.
-앱(FE V3, 2026-10-21)은 관절 9개 좌표를 `/v2/realtime`에 보내고(10/21 0.5초 구간, 2026-10-27부터 프레임마다), 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)).
+앱(FE V3, 2026-10-21)은 관절 9개 좌표를 `/realtime`에 보내고(10/21 0.5초 구간, 2026-10-27부터 프레임마다), 특징값·점수·판정은 서버가 한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)).
 기준 자세는 앱이 관절 9개 3초 평균을 내서 B1로 저장한다([ADR 0021](decisions/0021-app-sends-information-server-judges.md)). 예전(v1) 개발 흐름의 브라우저 특징 변화량(`model/prototype/serverFeatures.ts`)과 앱의 머리·고개 돌림 판정은 2026-10-22 지웠다.
 학습 모델·배포 런타임과 품질/정확도 검증은 후속 결정이다.
 원본 영상은 가능한 한 기기 안에서 처리한다. 추론 위치를 정할 때 기기 성능·지연·데이터 이동을 함께 검토한다.
@@ -88,7 +88,7 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 
 ## MySQL 영구 모드
 
-[계정 API](../contracts/accounts.v1.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
+[계정 API](removed-docs.md)와 [MySQL 결정](decisions/0020-single-api-decision-engine.md)을 따른다.
 인증은 access·refresh 토큰([ADR 0031](decisions/0031-jwt-access-refresh-login.md), 2026-10-27)이고 소유자는 서버 인증 주체에서 얻는다.([ADR 0020](decisions/0020-single-api-decision-engine.md)).
 진행 중 판정 상태는 API 메모리에 있고, 확정된 사건은 처리 직후, 종료 요약·제외 구간은 종료 때 짧은 트랜잭션으로 저장한다.
 일별 통계(`daily_stat`)는 API가 읽기만 하고 Spark J2가 매일 00:00에 전날(KST)을 집계하도록 설계했다.
@@ -96,15 +96,15 @@ Spring Boot는 사용자·세션·기록 서비스를 담당하는 방향이다.
 배치의 구현 상태는 [DB 안내](../database/README.md)의 11장을 참고한다.
 API를 재시작하면 진행 중 세션은 복구하지 않고 `SESSION_LOST`로 알린다. 그래서 API는 한 인스턴스로 실행한다.
 
-앱의 가입·로그인은 2026-10-22부터 항상 BE `/v2/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
+앱의 가입·로그인은 2026-10-22부터 항상 BE `/auth`다(스위치 없음, [프론트 안내](../frontend/README.md)). 아래는 계정 API의 서버 쪽 경계다.
 기록은 오늘 것까지 서버 R1 하나로 보고, 앱은 R1 값을 메모리에만 두며 측정 결과를 이 기기에 남기지 않는다. 서버 확인 없이 끝난 측정은 앱이 켜진 동안 R1·S4로 확인한다([ADR 0027](decisions/0027-today-records-from-collected-server-results.md), [연동 명세 4.5](design/fe/api-ws-spec.md#45-기록통계-r1r1bt1)). 서버 통계(T1)는 아직 없다.
 로그아웃/인증 변경은 카메라와 처리/UI를 중단하고 다른 계정으로 요청을 전송하지 않는다.
 탭을 닫은 뒤 기기 간 활성 측정 찾기와 실제 카메라 기준 복원은 후속 제품 설계 대상이다.
-앱이 붙을 서버는 BE 입출구 서버(REST `/v2`, WebSocket `/v2/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/fe/api-ws-spec.md)다.
+앱이 붙을 서버는 BE 입출구 서버(REST `/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`, WebSocket `/realtime`, DB V2.6)이고 앱 쪽 규칙은 [연동 명세](design/fe/api-ws-spec.md)다.
 
 마이그레이션은 [database](../database/README.md), 실행/내부 토큰/배포는 [infra](../infra/README.md),
 연구 export와 분석 시스템은 [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)(DevOps)이 소유한다.
-실시간 채널(`/v2/realtime`, [WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
+실시간 채널(`/realtime`, [WebSocket](../contracts/realtime/realtime-ws.schema.json))은 서비스 전달용이며 Kafka 분석용 export가 아니다.
 FE V3는 2026-10-21 v2로 넘어갔고, 서버의 `/v1/realtime`은 2026-10-26 지웠다. Kafka 경로는 [계획 0031](plans/active/0031-realtime-kafka-transition.md)이다.
 
 ## 프론트 진입과 로컬 저장
@@ -121,11 +121,11 @@ CPU 추론은 지원 환경에서 별도 classic Worker로 옮겨 메인 스레�
 API는 account/session/engine/workspace/realtime 경계로 구현한다.
 Python 추론은 app/schemas/service/routes, 개발 도구는 CLI/작업/런타임/시험 프로세스 책임으로 구분한다.
 구조와 수정 경로는 [코드 지도](code-structure.md)를 따른다. 이 분리는 기존 UI·계약·시간 정책을 바꾸지 않는다.
-프로필·판정 기준·기준 자세·측정·기록은 서버가 기준이다(W1·W2·B1·B2·S1·R1). 브라우저 localStorage에는 테마·카메라·추적 속도 같은 화면 설정, 예시 기록 표시 여부, 프로필 사본만 둔다. 시험 전용 로컬 로그인이 쓰는 계정·설정 키(`features/storage/types.ts`의 `posegood.v2.*`)는 [FE 제안서](design/fe/fe-server-proposal.md) 할 일 3에서 지운다.
+프로필·판정 기준·기준 자세·측정·기록은 서버가 기준이다(W1·W2·B1·B2·S1·R1). 브라우저 localStorage에는 테마·카메라·추적 속도 같은 화면 설정, 예시 기록 표시 여부, 프로필 사본만 둔다. 시험 전용 로컬 로그인이 쓰는 계정·설정 키(`features/storage/types.ts`의 `posegood.*`, 11/18 전 `posegood.v2.*`)는 [FE 제안서](design/fe/fe-server-proposal.md) 할 일 3에서 지운다.
 [수집 v3 규격](research/guided-collection-v2.md)을 따른다. 스켈레톤 평활화는 UI 전용이다.
 
 `serviceStore`는 읽기/쓰기 전에 요약·사건·전체 Machine의 수치와 구조를 검사한다.
-읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.v2.writer`를 가진 탭만
+읽기 실패 시 원본을 유지하고 UI는 변경을 차단한다. Web Locks의 `posegood.writer`를 가진 탭만
 프로필·설정·측정 요약을 변경하며 다른 탭은 조회한다. 잠금 미지원 환경은 변경을 허용하지 않는다.
 중간 저장의 선택 필드 `savedAt`은 복구 가능한 마지막 벽시계 시각이고, 종료 기록의 선택 필드 `rules`는
 실제 적용 규칙이다. 기존 완전한 기록과 중간 저장은 호환된다. 서버 중간 기록에는 고정 기준·장치/영상 크기,

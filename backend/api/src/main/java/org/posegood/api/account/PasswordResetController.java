@@ -13,7 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 /**
- * /v2/auth/password-reset/* 비밀번호 재설정(로그인 없이 부름). 규칙은 {@link PasswordResetService}.
+ * /auth/password-reset/* 비밀번호 재설정(로그인 없이 부름). 규칙은 {@link PasswordResetService}.
  *
  * <ul>
  * <li>{@code POST /requests} {@code {email}} → 202(가입 여부와 관계없이 같음), 429 출처 한도.</li>
@@ -21,7 +21,7 @@ import jakarta.validation.Valid;
  * </ul>
  */
 @RestController
-@RequestMapping("/v2/auth/password-reset")
+@RequestMapping("/auth/password-reset")
 public class PasswordResetController {
 	private final PasswordResetService resets;
 	private final boolean trustForwardedFor;

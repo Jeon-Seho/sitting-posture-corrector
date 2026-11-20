@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** (D-67) posture.stored.v1 메시지가 계약 예시(contracts/realtime/examples/stored-session-stored.json)와 같은 필드·값인지. */
+/** (D-67) posture.stored 메시지가 계약 예시(contracts/realtime/examples/stored-session-stored.json)와 같은 필드·값인지. */
 class KafkaSessionStoredPublisherTest {
 
 	private static final Path EXAMPLE = Path.of("..", "..", "contracts", "realtime", "examples",

@@ -3,7 +3,7 @@
 - 상태: in_progress (BE·FE 구현 완료·기본 꺼짐, DB 표 적용 대기)
 - 담당: FE 우진(구현 BE·FE), DB 유진(표 V2.7), DevOps/BE 홍규(환경변수·배포)
 - 시작일: 2026-11-11
-- 관련: [인계](../../design/social-login-password-reset-handoff.md), [쉬운 설명](../../design/social-login-eli5.md), [계약](../../../contracts/accounts.v2.md), ADR 0031(로그인 토큰), [이메일 인계](../../design/email-account-handoff.md)
+- 관련: [인계](../../design/social-login-password-reset-handoff.md), [쉬운 설명](../../design/social-login-eli5.md), [계약](../../../contracts/accounts.md), ADR 0031(로그인 토큰), [이메일 인계](../../design/email-account-handoff.md)
 
 ## 문제와 완료 기준
 

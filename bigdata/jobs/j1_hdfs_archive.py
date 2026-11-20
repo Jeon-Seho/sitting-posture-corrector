@@ -1,11 +1,11 @@
-"""Spark 배치 J1 — 판정 과정·좌표 적재: Kafka v1 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더로 + feature_archive (D-33·D-92).
+"""Spark 배치 J1 — 판정 과정·좌표 적재: Kafka 토픽 → HDFS 임시 폴더 → 끝난 세션을 사용자별 폴더로 + feature_archive (D-33·D-92).
 
 두 단계로 돈다(매시간 cron, tools/platform/batch.sh j1):
-1. 받기: posture.features.v1·posture.inference.v1·posture.episodes.v1을 Structured Streaming trigger(availableNow)로
-   지난번 위치부터 지금까지 읽어 임시 폴더 /data/staging/realtime-v1/topic=…/date=…(Parquet, 원문 JSON 그대로)에 붙인다.
-   읽은 위치는 /data/checkpoints/j1-realtime-v1에 남아 다음 실행이 이어 읽는다(처음에는 토픽에 남은 가장 앞부터).
-   (D-92) 좌표 구간 토픽 posture.keypoints.v1은 따로 읽는다 — 쿼리·체크포인트(/data/checkpoints/j1-keypoints-v1)와
-   임시 폴더(/data/staging/keypoints-v1/topic=…/date=…)를 모두 따로 둔다. 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어
+1. 받기: posture.features·posture.inference·posture.episodes을 Structured Streaming trigger(availableNow)로
+   지난번 위치부터 지금까지 읽어 임시 폴더 /data/staging/realtime/topic=…/date=…(Parquet, 원문 JSON 그대로)에 붙인다.
+   읽은 위치는 /data/checkpoints/j1-realtime에 남아 다음 실행이 이어 읽는다(처음에는 토픽에 남은 가장 앞부터).
+   (D-92) 좌표 구간 토픽 posture.keypoints은 따로 읽는다 — 쿼리·체크포인트(/data/checkpoints/j1-keypoints)와
+   임시 폴더(/data/staging/keypoints/topic=…/date=…)를 모두 따로 둔다. 기존 체크포인트의 구독 목록을 바꾸면 Spark가 이어
    읽기를 보장하지 않고, 두 쿼리가 같은 임시 폴더(같은 _spark_metadata)에 쓰면 뒤 쿼리의 배치가 「이미 쓴 배치」로 건너뛰어져
    아무것도 쓰지 않은 채 읽은 위치만 넘어가기 때문이다(11/13 서버에서 확인).
    (D-93) 같은 이유로 체크포인트만 지우면(다시 처음부터 읽게 하려고) 남은 _spark_metadata의 배치 번호 때문에 새 쿼리의
@@ -21,8 +21,8 @@
    - 파일을 먼저 쓰고(덮어쓰기) 행을 넣는다 — 중간에 멈추면 다음 실행이 다시 쓴다.
 3. 임시 폴더 정리: date 폴더가 보존 일수(기본 7일)보다 오래되면 지운다.
 
-features.v1 본문은 특징 변화량이고(계약 kafka-spec 3.1) 좌표는 keypoints.v1에만 있다(관절 9개 [x, y, visibility],
-계약 contracts/realtime/kafka-keypoints.v1.schema.json). 이메일은 어디에도 없다. 로그·출력에는 개수만 남긴다(좌표 금지).
+features 본문은 특징 변화량이고(계약 kafka-spec 3.1) 좌표는 keypoints에만 있다(관절 9개 [x, y, visibility],
+계약 contracts/realtime/kafka-keypoints.schema.json). 이메일은 어디에도 없다. 로그·출력에는 개수만 남긴다(좌표 금지).
 실행: tools/platform/batch.sh j1 [--session UUID] [--settle-sec N] [--dry-run] [--skip-ingest]
 """
 
@@ -38,15 +38,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import batch_common as bc  # noqa: E402
 
 JOB = "J1"
-TOPICS = {"posture.features.v1": "features.jsonl", "posture.inference.v1": "inference.jsonl",
-          "posture.episodes.v1": "episodes.jsonl"}
+TOPICS = {"posture.features": "features.jsonl", "posture.inference": "inference.jsonl",
+          "posture.episodes": "episodes.jsonl"}
 # (D-92) 좌표 구간 — 세션 폴더에 있을 때만 쓰는 파일. 받기는 별도 쿼리(체크포인트 따로)
-KEYPOINTS = {"posture.keypoints.v1": "keypoints.jsonl"}
+KEYPOINTS = {"posture.keypoints": "keypoints.jsonl"}
 ALL_TOPICS = {**TOPICS, **KEYPOINTS}
-STAGING = "/data/staging/realtime-v1"
-KEYPOINTS_STAGING = "/data/staging/keypoints-v1"   # (D-92) 쿼리마다 임시 폴더를 따로(같은 폴더면 파일 싱크가 배치를 건너뜀)
-CHECKPOINT = "/data/checkpoints/j1-realtime-v1"
-KEYPOINTS_CHECKPOINT = "/data/checkpoints/j1-keypoints-v1"
+STAGING = "/data/staging/realtime"
+KEYPOINTS_STAGING = "/data/staging/keypoints"   # (D-92) 쿼리마다 임시 폴더를 따로(같은 폴더면 파일 싱크가 배치를 건너뜀)
+CHECKPOINT = "/data/checkpoints/j1-realtime"
+KEYPOINTS_CHECKPOINT = "/data/checkpoints/j1-keypoints"
 SETTLE_SEC = 600
 KEEP_DAYS = 7
 UUID = re.compile(r"^[0-9a-fA-F-]{36}$")

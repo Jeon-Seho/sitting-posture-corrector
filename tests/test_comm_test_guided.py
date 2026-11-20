@@ -28,19 +28,19 @@ def kf(topic, kind, body=None, sid=SID):
 
 
 def decision(kind, event_id, t, sid=SID):
-    return kf("posture.episodes.v1", "decision", {"event": {"kind": kind, "event_id": event_id, "timestamp_ms": t}},
+    return kf("posture.episodes", "decision", {"event": {"kind": kind, "event_id": event_id, "timestamp_ms": t}},
               sid)
 
 
 def alert(event_id, sid=SID):
-    return kf("posture.alerts.v1", "alert", {"kind": "collapse_confirmed", "event_id": event_id}, sid)
+    return kf("posture.alerts", "alert", {"kind": "collapse_confirmed", "event_id": event_id}, sid)
 
 
 def started(hold=5000, reminder=30000, sid=SID):
-    return kf("posture.features.v1", "session_started", {"policy": {"hold_ms": hold, "reminder_ms": reminder}}, sid)
+    return kf("posture.features", "session_started", {"policy": {"hold_ms": hold, "reminder_ms": reminder}}, sid)
 
 
-WS = gw("GET", "/api/v2/realtime", 101)
+WS = gw("GET", "/api/realtime", 101)
 
 
 class FakeOps:
@@ -71,7 +71,7 @@ class FakeDb:
 
 
 def make_ctx(mode="kafka", ops=None, db=None, answers=None, wait=1.5):
-    args = Namespace(mode=mode, login="both", api_prefix="/api/v2", io_prefix="/v2", hold_ms=5000,
+    args = Namespace(mode=mode, login="both", api_prefix="/api", io_prefix="", hold_ms=5000,
                      reminder_ms=30000, wait_user=wait)
     lines = []
     replies = list(answers or [])
@@ -94,11 +94,11 @@ def feed(bus, events, delay=0.05):
 
 class ParsingTest(unittest.TestCase):
     def test_gateway_drops_query_and_masks_uuid(self):
-        ev = gw("GET", "/api/v2/auth/social/discord/callback?code=SECRET&state=XYZ", 302)
-        self.assertEqual(ev.path, "/api/v2/auth/social/discord/callback")
+        ev = gw("GET", "/api/auth/social/discord/callback?code=SECRET&state=XYZ", 302)
+        self.assertEqual(ev.path, "/api/auth/social/discord/callback")
         self.assertEqual(ev.status, 302)
         self.assertNotIn("SECRET", ev.line())
-        put = gw("PUT", f"/api/v2/sessions/{SID}", 200)
+        put = gw("PUT", f"/api/sessions/{SID}", 200)
         self.assertIn("3aad2fd2…", put.line())
         self.assertNotIn(SID, put.line())
 
@@ -107,21 +107,22 @@ class ParsingTest(unittest.TestCase):
         self.assertIsNone(ct.parse_gateway("2026/11/17 10:00:00 [notice] 1#1: signal process started"))
 
     def test_kafka_keeps_kind_and_ids_only(self):
-        ev = kf("posture.features.v1", "features", {"sequence": 7, "features": [0.1, 0.2], "points": [[1, 2]]})
+        ev = kf("posture.features", "features", {"sequence": 7, "features": [0.1, 0.2], "points": [[1, 2]]})
         self.assertEqual(ev.extra, "seq=7")
         self.assertNotIn("0.1", ev.line())
         d = decision("collapse_confirmed", 3, 5065)
         self.assertEqual((d.event, d.event_id, d.ts_ms), ("collapse_confirmed", 3, 5065))
         self.assertEqual(started().ts_ms, (5000, 30000))
         self.assertEqual(ct.parse_kafka("posture.dlq", "not json").kind, "dead-letter")
-        self.assertIsNone(ct.parse_kafka("posture.alerts.v1", "not json"))
+        self.assertIsNone(ct.parse_kafka("posture.alerts", "not json"))
 
     def test_offsets_and_lag(self):
-        self.assertEqual(ct.parse_offsets("posture.alerts.v1:0:100\nposture.alerts.v1:1:166\n"), 266)
+        self.assertEqual(ct.parse_offsets("posture.alerts:0:100\nposture.alerts:1:166\n"), 266)
         out = ("\nGROUP TOPIC PARTITION CURRENT-OFFSET LOG-END-OFFSET LAG CONSUMER-ID HOST CLIENT-ID\n"
-               "judge-v1 posture.inference.v1 0 10 12 2 c1 /1 x\n"
-               "judge-v1 posture.inference.v1 1 5 5 0 c1 /1 x\n")
-        self.assertEqual(ct.parse_lag(out), 2)
+               "judge posture.inference 0 10 12 2 c1 /1 x\n"
+               "judge posture.inference 1 5 5 0 c1 /1 x\n"
+               "io-ws-io-api posture.episodes.v1 1 0 285 285 - - -\n")
+        self.assertEqual(ct.parse_lag(out), 2)   # 옛 이름 토픽(.v1)의 남은 lag는 빼고
         self.assertIsNone(ct.parse_lag("Consumer group 'x' does not exist."))
 
     def test_counter_delta_and_reason(self):
@@ -150,14 +151,21 @@ class PlanTest(unittest.TestCase):
 class StepTest(unittest.TestCase):
     def test_s1a_waits_past_a_failed_login(self):
         c = make_ctx()
-        feed(c.bus, [gw("POST", "/api/v2/auth/login", 401), gw("POST", "/api/v2/auth/login", 200),
-                     gw("GET", "/api/v2/workspace", 200)])
+        feed(c.bus, [gw("POST", "/api/auth/login", 401), gw("POST", "/api/auth/login", 200),
+                     gw("GET", "/api/workspace", 200)])
         ct.step_s1a(c)
         self.assertIn("POST /auth/login 200 (앞선 실패 1번)", c.result.evidence)
 
+    def test_s1a_stops_when_the_app_still_calls_versioned_paths(self):
+        c = make_ctx()
+        feed(c.bus, [gw("GET", "/api/v2/auth/me", 200), gw("POST", "/api/v2/auth/login", 200)])
+        with self.assertRaises(ct.Fail) as err:
+            ct.step_s1a(c)
+        self.assertIn("버전 붙은 주소(/api/v2/auth/me)", str(err.exception))
+
     def test_s1b_stops_when_an_email_login_comes_instead_of_discord(self):
         c = make_ctx()
-        feed(c.bus, [gw("POST", "/api/v2/auth/logout", 204), gw("POST", "/api/v2/auth/login", 200)])
+        feed(c.bus, [gw("POST", "/api/auth/logout", 204), gw("POST", "/api/auth/login", 200)])
         with self.assertRaises(ct.Fail) as err:
             ct.step_s1b(c)
         self.assertIn("Discord 대신 이메일 로그인", str(err.exception))
@@ -170,25 +178,25 @@ class StepTest(unittest.TestCase):
 
     def test_s2_fails_when_settings_never_reach_the_server(self):
         c = make_ctx(wait=0.5)
-        feed(c.bus, [gw("GET", "/api/v2/workspace", 200)])
+        feed(c.bus, [gw("GET", "/api/workspace", 200)])
         with self.assertRaises(ct.Fail) as err:
             ct.step_s2(c)
         self.assertIn("D-96", str(err.exception))
 
     def test_s3_takes_the_kafka_session_and_checks_policy_and_alert_flag(self):
         c = make_ctx(db=FakeDb({"alert_enabled": 1, "ended": 0, "events": 0, "alerts": 0}))
-        feed(c.bus, [gw("PUT", f"/api/v2/sessions/{SID}", 200), started(sid=SID), WS])
+        feed(c.bus, [gw("PUT", f"/api/sessions/{SID}", 200), started(sid=SID), WS])
         ct.step_s3(c)
         self.assertEqual(c.session, SID)
 
         off = make_ctx(db=FakeDb({"alert_enabled": 0, "ended": 0, "events": 0, "alerts": 0}))
-        feed(off.bus, [gw("PUT", f"/api/v2/sessions/{SID}", 200), started(sid=SID), WS])
+        feed(off.bus, [gw("PUT", f"/api/sessions/{SID}", 200), started(sid=SID), WS])
         with self.assertRaises(ct.Fail) as err:
             ct.step_s3(off)
         self.assertIn("alert_enabled = 0", str(err.exception))
 
         wrong = make_ctx()
-        feed(wrong.bus, [gw("PUT", f"/api/v2/sessions/{SID}", 200), started(reminder=60000), WS])
+        feed(wrong.bus, [gw("PUT", f"/api/sessions/{SID}", 200), started(reminder=60000), WS])
         with self.assertRaises(ct.Fail) as err:
             ct.step_s3(wrong)
         self.assertIn("reminder 60000", str(err.exception))
@@ -220,6 +228,22 @@ class StepTest(unittest.TestCase):
         with self.assertRaises(ct.Abort):
             ct.step_s4(c)
 
+    def test_s5_compares_with_the_reminder_just_before(self):
+        """자세가 계속 나쁘면 재알림은 30초마다 되풀이된다 — 답하는 사이 지나간 재알림과 비교(11/19 217초 FAIL)."""
+        c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
+        c.args.reminder_ms = 30000
+        c.session, c.last_confirm_ms = SID, 25000
+        c.bus.add(decision("collapse_confirmed", 5, 25000))
+        c.bus.add(decision("reminder", 66, 181880))      # S5 시작 전에 지나간 재알림
+        feed(c.bus, [decision("reminder", 67, 211883), alert(67)])
+        orig = ct.Cursor.expect
+        ct.Cursor.expect = lambda self, pred, timeout, missing, heartbeat=15: orig(self, pred, 2, missing, heartbeat)
+        try:
+            ct.step_s5(c)
+        finally:
+            ct.Cursor.expect = orig
+        self.assertTrue(any("직전 재알림 id=66과 간격 30.003초" in e for e in c.result.evidence), c.result.evidence)
+
     def test_s5_checks_reminder_interval(self):
         c = make_ctx(ops=FakeOps([{}, {}]), wait=0.5)
         c.args.reminder_ms = 1000          # 제한 시간(reminder+20초)을 줄이려고 작게
@@ -232,7 +256,7 @@ class StepTest(unittest.TestCase):
     def test_s9_stops_and_restarts_api_server_and_needs_an_s4_query(self):
         ops = FakeOps()
         c = make_ctx(ops=ops, wait=3)
-        events = [gw("PUT", f"/api/v2/sessions/{SID}", 200), started()]
+        events = [gw("PUT", f"/api/sessions/{SID}", 200), started()]
         orig_sleep, orig_drain = ct.time.sleep, ct.Cursor.drain
         ct.time.sleep = lambda s: orig_sleep(min(s, 0.05))
         ct.Cursor.drain = lambda self, s: orig_drain(self, min(s, 0.1))
@@ -240,13 +264,13 @@ class StepTest(unittest.TestCase):
         def stored_after_start():
             while "stop" not in ops.calls:   # 「지금 종료」 안내 뒤 종료
                 orig_sleep(0.02)
-            c.bus.add(kf("posture.features.v1", "session_ended", {"end_ms": 9000}))
-            c.bus.add(gw("GET", f"/api/v2/sessions/{SID}", 200))
+            c.bus.add(kf("posture.features", "session_ended", {"end_ms": 9000}))
+            c.bus.add(gw("GET", f"/api/sessions/{SID}", 200))
             while "start" not in ops.calls:
                 orig_sleep(0.02)
-            c.bus.add(kf("posture.stored.v1", "session_stored", {"end_ms": 9000}))
+            c.bus.add(kf("posture.stored", "session_stored", {"end_ms": 9000}))
             orig_sleep(0.05)
-            c.bus.add(gw("GET", f"/api/v2/sessions/{SID}", 200))
+            c.bus.add(gw("GET", f"/api/sessions/{SID}", 200))
         try:
             feed(c.bus, events)
             threading.Thread(target=stored_after_start, daemon=True).start()
@@ -268,8 +292,8 @@ class StepTest(unittest.TestCase):
             orig_stop()
         ops.stop_api_server = slow_stop
         try:
-            feed(c.bus, [gw("PUT", f"/api/v2/sessions/{SID}", 200), started(),
-                         kf("posture.features.v1", "session_ended", {"end_ms": 9000})], delay=0.05)
+            feed(c.bus, [gw("PUT", f"/api/sessions/{SID}", 200), started(),
+                         kf("posture.features", "session_ended", {"end_ms": 9000})], delay=0.05)
             with self.assertRaises(ct.Fail) as err:
                 ct.step_s9(c)
         finally:
@@ -296,7 +320,7 @@ class WatcherTest(unittest.TestCase):
         orig = ct.subprocess.Popen
         ct.subprocess.Popen = lambda args, **kw: calls.append((args, kw)) or FakeProc()
         try:
-            ct.Watchers(ct.Bus(), ["posture.alerts.v1"], False).start()
+            ct.Watchers(ct.Bus(), ["posture.alerts"], False).start()
         finally:
             ct.subprocess.Popen = orig
         self.assertEqual(len(calls), 2)

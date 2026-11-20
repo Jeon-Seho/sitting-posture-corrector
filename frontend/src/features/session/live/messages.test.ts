@@ -10,6 +10,12 @@ const NOT_JUDGED = {
 }
 const read = (observation: unknown) => parseServerMessage(JSON.stringify({ type: 'observation', observation }))
 
+describe('messages the app no longer reads', () => {
+  it('ignores ack (FE proposal request 4): an old server may still send it', () => {
+    expect(parseServerMessage(JSON.stringify({ type: 'ack', last_sequence: 3 }))).toBeNull()
+  })
+})
+
 describe('observation 4.0 (plan 0084)', () => {
   it('reads the 4.0 contract examples, a not-judgeable one without a score', () => {
     expect(read(JUDGED)).toEqual({ type: 'observation', observation: JUDGED })

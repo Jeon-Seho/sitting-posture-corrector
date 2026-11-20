@@ -9,7 +9,7 @@ import org.posegood.api.common.KstTime;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Current consent documents are versioned in contracts/consent-documents.v2.md. */
+/** Current consent documents are versioned in contracts/consent-documents.md. */
 @Repository
 public class ConsentRepository {
 	public static final String VERSION = "service-v2";

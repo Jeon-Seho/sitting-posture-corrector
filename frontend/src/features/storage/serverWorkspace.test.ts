@@ -20,7 +20,7 @@ describe('server workspace (W1·W2)', () => {
     const fetch = vi.fn(async () => json(WORKSPACE))
     const saved = await fetchWorkspace({ fetch })
     expect(saved.rules).toEqual(WORKSPACE.rules)
-    expect(fetch).toHaveBeenCalledWith('/api/v2/workspace', expect.objectContaining({ method: 'GET' }))
+    expect(fetch).toHaveBeenCalledWith('/api/workspace', expect.objectContaining({ method: 'GET' }))
   })
 
   it('saves new rules with the latest profile and preferences unchanged', async () => {

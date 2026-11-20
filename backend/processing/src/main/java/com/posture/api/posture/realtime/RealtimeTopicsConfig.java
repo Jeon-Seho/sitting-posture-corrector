@@ -7,15 +7,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 /**
- * (D-21) 실시간 계약 v1 토픽 3개 + (D-54) 알림 토픽 + (D-67) 저장 완료 + (D-92) 좌표 적재 + (D-36) DLQ. 없으면 시작 시 만든다(이미 있으면 그대로 둔다).
+ * (D-21) 실시간 Kafka 계약 토픽 3개 + (D-54) 알림 토픽 + (D-67) 저장 완료 + (D-92) 좌표 적재 + (D-36) DLQ. 없으면 시작 시 만든다(이미 있으면 그대로 둔다).
  * 파티션 수는 판정 컨슈머 스레드 수(기본 3)와 맞춘다. 키는 {@code session_id}.
  */
 @Configuration
 public class RealtimeTopicsConfig {
 
 	@Bean
-	public NewTopic postureFeaturesV1Topic(
-		@Value("${app.kafka.topic.posture-features-v1:posture.features.v1}")
+	public NewTopic postureFeaturesTopic(
+		@Value("${app.kafka.topic.posture-features:posture.features}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
@@ -23,8 +23,8 @@ public class RealtimeTopicsConfig {
 	}
 
 	@Bean
-	public NewTopic postureInferenceV1Topic(
-		@Value("${app.kafka.topic.posture-inference-v1:posture.inference.v1}")
+	public NewTopic postureInferenceTopic(
+		@Value("${app.kafka.topic.posture-inference:posture.inference}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
@@ -32,8 +32,8 @@ public class RealtimeTopicsConfig {
 	}
 
 	@Bean
-	public NewTopic postureEpisodesV1Topic(
-		@Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}")
+	public NewTopic postureEpisodesTopic(
+		@Value("${app.kafka.topic.posture-episodes:posture.episodes}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
@@ -45,8 +45,8 @@ public class RealtimeTopicsConfig {
 	 * 보존 설정은 토픽을 새로 만들 때만 들어간다.
 	 */
 	@Bean
-	public NewTopic postureAlertsV1Topic(
-		@Value("${app.kafka.topic.posture-alerts-v1:posture.alerts.v1}")
+	public NewTopic postureAlertsTopic(
+		@Value("${app.kafka.topic.posture-alerts:posture.alerts}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
@@ -58,8 +58,8 @@ public class RealtimeTopicsConfig {
 	 * (D-67) 저장 완료 — 판정 결과 저장 → 입출구 서버 {@code ws}(정상 종료를 저장 뒤에 알림). 키 session_id, 보존 3일(알림과 같음).
 	 */
 	@Bean
-	public NewTopic postureStoredV1Topic(
-		@Value("${app.kafka.topic.posture-stored-v1:posture.stored.v1}")
+	public NewTopic postureStoredTopic(
+		@Value("${app.kafka.topic.posture-stored:posture.stored}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {
@@ -72,8 +72,8 @@ public class RealtimeTopicsConfig {
 	 * 키 session_id, 보존 3일(탈퇴 30일 삭제보다 짧게 — 사용자 폴더는 J3가 지운다).
 	 */
 	@Bean
-	public NewTopic postureKeypointsV1Topic(
-		@Value("${app.kafka.topic.posture-keypoints-v1:posture.keypoints.v1}")
+	public NewTopic postureKeypointsTopic(
+		@Value("${app.kafka.topic.posture-keypoints:posture.keypoints}")
 		String name,
 		@Value("${app.kafka.realtime-partitions:3}")
 		int partitions) {

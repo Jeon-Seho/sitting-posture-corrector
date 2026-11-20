@@ -4,7 +4,7 @@
 - 담당: FE
 - 시작일: 2026-10-11
 - 관련: [FE 제안서](../../design/fe/fe-server-proposal.md)(다른 파트에 요청 0장, FE 할 일 1장), [연동 명세](../../design/fe/api-ws-spec.md),
-  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(옛 0025·0026 포함)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)
+  [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(옛 0025·0026 포함)·[0024](../../decisions/0024-session-ends-on-lost-connection.md)
 
 ## 배경
 
@@ -47,7 +47,7 @@
 
 - [x] 앱이 붙는 서버: BE 입출구 서버(`auth`·`api`·`ws`, 아키텍처 v5.1, v5.2에서도 같음). 게이트웨이는 FE가 만들지 않는다.
 - [x] 앱이 보내는 정보: 좌표 구간 `posture.frames.v1`, 판정 불가 프레임은 `valid:false`(BE 명세 10/13).
-- [x] 앱과의 계약: [연동 명세](../../design/fe/api-ws-spec.md)와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json)(10/13).
+- [x] 앱과의 계약: [연동 명세](../../design/fe/api-ws-spec.md)와 [WebSocket v2 계약](../../../contracts/realtime/realtime-ws.schema.json)(10/13).
 - [x] `observation.invalid_reason`(BE 동의). 10/22 기준 `unmeasurable` 하나만 쓴다.
 
 ### 1단계 — 서버와 무관한 준비 (끝남)
@@ -109,7 +109,7 @@
 
 ## 검증 결과와 남은 한계
 
-2026-10-26, Windows 11 데스크톱(V3): 프론트 단위 시험 238개, `tsc`, 빌드, `check-repo`, WS 계약 시험(`tests/test_realtime_ws_v2.py`·`test_realtime_contracts.py` 16개) 통과. 데스크톱 작은 창은 개발 실행으로 짧게 확인. 실제 서버 시험은 아직(BE 브랜치 병합·터널 필요).
+2026-10-26, Windows 11 데스크톱(V3): 프론트 단위 시험 238개, `tsc`, 빌드, `check-repo`, WS 계약 시험(`tests/test_realtime_ws.py`·`test_realtime_contracts.py` 16개) 통과. 데스크톱 작은 창은 개발 실행으로 짧게 확인. 실제 서버 시험은 아직(BE 브랜치 병합·터널 필요).
 
 2026-10-25, Windows 11 데스크톱(V3, develop `3285cce` 합침): 프론트 단위 시험 231개, `tsc`, 빌드, `check-repo` 통과. 모델 버전 표시 삭제로 기록 상세 시험 2곳을 「보이지 않음」 확인으로 바꿈. 실제 서버 시험·`check-browser`·`check-backend`·`check-compose`는 돌리지 않음.
 

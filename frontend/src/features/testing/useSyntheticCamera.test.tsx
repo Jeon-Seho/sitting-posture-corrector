@@ -25,7 +25,7 @@ function Probe() {
 
 const normalFrame = (timeMs: number) => syntheticObservation('normal', timeMs)
 
-/** The `/v2/realtime` message LiveSession sends for one synthetic frame (same path as `useLiveSession`). */
+/** The `/realtime` message LiveSession sends for one synthetic frame (same path as `useLiveSession`). */
 function wire(kind: 'normal' | 'deviation' | 'poor' | 'absent') {
   const frame = syntheticObservation(kind, 1000)
   const batcher = new FrameBatcher(1000)
@@ -50,7 +50,7 @@ describe('synthetic browser camera', () => {
     vi.clearAllMocks()
   })
 
-  it('sends each kind in the current posture.frames.v1 format', () => {
+  it('sends each kind in the current posture.frames format', () => {
     const normal = wire('normal')
     expect(normal).toMatchObject({
       type: 'features',

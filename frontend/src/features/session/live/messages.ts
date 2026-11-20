@@ -1,5 +1,5 @@
 /**
- * `/realtime` messages (BE api-spec 11장, contracts/realtime/realtime-ws.v2.schema.json).
+ * `/realtime` messages (BE api-spec 11장, contracts/realtime/realtime-ws.schema.json).
  * The app only checks the shape it uses (10/21 decision: format checks only, nothing re-judged);
  * unknown fields, types and event kinds are ignored (api-ws-spec 1장, B11).
  */
@@ -46,7 +46,7 @@ export type Decision = {
  */
 export type LiveObservation = {
   schema_version?: string
-  /** The app's interval sequence this result is for (connection axis, like `ack`). */
+  /** The app's interval sequence this result is for (connection axis). */
   sequence?: number
   valid: boolean
   posture?: 'good' | 'bad' | null
@@ -54,7 +54,7 @@ export type LiveObservation = {
   hold_ms?: number
   /** Good time in the open collapse event (plan 0084 29); 0 while no event is open. */
   recovery_ms?: number
-  invalid_reason: null | 'unmeasurable' | 'head_turn' | 'settling'
+  invalid_reason: null | 'unmeasurable' | 'settling'
 }
 
 export type PausedReason = null | 'rest' | 'away' | 'unmeasurable'
@@ -74,7 +74,6 @@ export type ClosedReason =
 export type ServerMessage =
   /** `started_at`: when the server started the session (ISO 8601, FE proposal BE-6, ADR 0029). */
   | { type: 'ready'; session_id: string; started_at?: string }
-  | { type: 'ack'; last_sequence: number }
   | { type: 'observation'; observation: LiveObservation }
   | { type: 'progress'; last_sequence: number; summary: Summary; paused_reason: PausedReason }
   | { type: 'decision'; event: Decision; summary: Summary }
@@ -171,8 +170,6 @@ export function parseServerMessage(text: string): ServerMessage | null {
   switch (v.type) {
     case 'ready':
       return typeof v.session_id === 'string' ? (v as ServerMessage) : null
-    case 'ack':
-      return num(v.last_sequence) ? (v as ServerMessage) : null
     case 'observation':
       return validObservation(v.observation) ? (v as ServerMessage) : null
     case 'progress':

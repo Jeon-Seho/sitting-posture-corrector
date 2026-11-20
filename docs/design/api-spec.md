@@ -1,17 +1,17 @@
 # PoseGood API 명세서
 
 > 2026-11-16 계정 추가: 가입 이메일 코드 인증, 비밀번호 찾기 링크 확인·재사용 거절, Discord 충돌 연결 승인은
-> [계정 계약](../../contracts/accounts.v2.md#가입-이메일-인증충돌-계정-연결-2026-11-16-선택-활성화)과 [이메일 인계](email-account-handoff.md)를 따른다.
+> [계정 계약](../../contracts/accounts.md#가입-이메일-인증충돌-계정-연결-2026-11-16-선택-활성화)과 [이메일 인계](email-account-handoff.md)를 따른다.
 
 
 > 자세교정 서비스 · 백엔드 API
 
-Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
+Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/realtime`)의 요청·응답·오류를 정리했다. 코드 기준은 `develop` `6cae21f`(PR #100 병합, 2026-11-08, DB 스키마 V2.6)다. API 코드는 `fe5058b`(PR #93·#98·#99)와 같다.
 
 | 항목 | 내용 |
 |---|---|
 | 서버 | Java 17 · Spring Boot 4.0.8 · Gradle · Jackson 3 |
-| 추론 | FastAPI `POST /v2/infer` |
+| 추론 | FastAPI `POST /infer` |
 | DB | MySQL 8.4 · 스키마 V2.6 |
 | 코드 기준 | `develop` `6cae21f` (PR #100 병합, 2026-11-08. API 코드는 `fe5058b`와 같음) |
 | 개정 | 2026-11-12 (처음 2026-10-13) — [변경 이력](#변경-이력) |
@@ -19,8 +19,9 @@ Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 
 > [!NOTE]
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1) 응답은 이 문서가 기준이다(10/15 결정)** — 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
-> 실시간은 `/v2/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28, 앱이 부르지 않던 세션 종료(S3)·기록 삭제(R3)·선택 정보 동의·철회(C1)는 2026-11-12 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
-> 일별 통계 조회 [T1](#t1)(`GET /v2/stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /v2/records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
+> **주소에 버전이 없다(2026-11-09, 소셜 로그인·비밀번호 재설정은 2026-11-12).** `/v2/auth/login` → `/auth/login`, `/v2/auth/social/…` → `/auth/social/…`, `/v2/realtime` → `/realtime`, 추론 `/v2/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws`·`schema_version` 등은 아직 남아 있고 [ADR 0049](../decisions/0049-no-version-in-names.md)에 따라 다음 단계에서 뺀다). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
+> 실시간은 `/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28, 앱이 부르지 않던 세션 종료(S3)·기록 삭제(R3)·선택 정보 동의·철회(C1)는 2026-11-12 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
+> 일별 통계 조회 [T1](#t1)(`GET /stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
 
@@ -34,19 +35,19 @@ Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 
 8. [기록·시스템](#8-기록시스템)
 9. [공통 응답 객체](#9-공통-응답-객체)
 10. [WebSocket `/v1/realtime`](#10-websocket-v1realtime) (삭제)
-11. [WebSocket `/v2/realtime`](#11-websocket-v2realtime)
+11. [WebSocket `/realtime`](#11-websocket-realtime)
 - [변경 이력](#변경-이력)
 
 ## 1. 공통 규칙
 
-앱은 모든 경로 앞에 `/api`를 붙여 호출한다(예: `/api/v2/auth/login`). Nginx와 Vite 개발 서버가 접두사를 떼고 API로 넘긴다.
+앱은 모든 경로 앞에 `/api`를 붙여 호출한다(예: `/api/auth/login`). Nginx와 Vite 개발 서버가 접두사를 떼고 API로 넘긴다.
 
 | 항목 | 규칙 |
 |---|---|
 | 인증 | **access 토큰(JWT HS256, 30분)**을 `Authorization: Bearer <token>`으로 보낸다. 가입·로그인 응답 본문으로 받는다. 서버는 로그인 상태를 저장하지 않는다(세션·CSRF 없음, ADR 0031). 만료 뒤 인증이 필요한 요청은 `401 UNAUTHENTICATED`. |
-| 로그인 유지 | **refresh 토큰(14일)**은 HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`, HTTPS 배포에서 `POSEGOOD_COOKIE_SECURE=true`로 Secure)로만 준다. 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 [A8](#a8) `POST /v2/auth/refresh`로 새 토큰을 받는다. refresh 토큰은 쓸 때마다 바뀐다. |
+| 로그인 유지 | **refresh 토큰(14일)**은 HttpOnly 쿠키 `posegood_refresh`(SameSite=Lax, Path `/`, HTTPS 배포에서 `POSEGOOD_COOKIE_SECURE=true`로 Secure)로만 준다. 앱은 access 토큰 만료 전(`expires_in` 기준 1~2분 전)에 [A8](#a8) `POST /auth/refresh`로 새 토큰을 받는다. refresh 토큰은 쓸 때마다 바뀐다. |
 | 계정 확인 헤더 | 로그인이 필요한 경로 대부분(아래 "계정 헤더" 표시)에 `X-PoseGood-User-Id: <user_id>`를 붙인다. 로그인 계정과 다르면 `409 AUTH_CHANGED`. 다른 탭에서 계정이 바뀐 화면의 쓰기를 막는 용도이며 인증 수단이 아니다. |
-| 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/v2/workspace`의 `rules`와 `/v2/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
+| 본문 형식 | JSON, 필드는 snake_case. 알 수 없는 필드, 중복 키, 문자열→숫자 같은 타입 강제 변환, 문자열 자리의 객체·배열은 모두 `400 INVALID_CONTRACT`. 단 `/workspace`의 `rules`와 `/records` 본문은 앱 형식(camelCase)을 그대로 쓴다. |
 | 요청·응답 값과 고정값 | **(실제)**가 붙은 JSON은 실제 서버가 주고받은 값이다(아래 「값을 받은 실행」). 토큰만 앞부분을 남기고 `…`로 줄였고, 배열이 긴 곳은 `"… N개 더"`로 줄였다. ID·시각·`user_id`는 호출마다 다르다. 값의 규칙은 "요청 필드" 표에 있고, 표에 **고정**이 붙은 값(`schema_version`, `feature_version`, `document_version`)은 적힌 그대로 보낸다. 아직 코드가 없는 T1만 설계 예시다. |
 | 시각 | 응답은 UTC ISO-8601(`2026-10-13T08:00:00.123Z`). DB는 KST `DATETIME(3)`. 세션 안의 시각(`*_ms`)은 세션 시작부터의 경과 밀리초. |
 | 멱등성 | 세션 생성(같은 정책·기준), 기준 등록(같은 `registration_id`·좌표)은 다시 보내도 같은 결과를 돌려준다. 본문이 다르면 409. 실시간 구간은 다시 보내지 않는다(같은 순번은 `closed(bad_message)`, 11.2). |
@@ -55,7 +56,7 @@ Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/v2/realtime`)의 
 | 오류 본문 | `{"error": "...", "code": "...", "message": "..."}`. 입력값·SQL·토큰은 응답에 넣지 않는다. |
 | 다른 출처 화면 (CORS) | 화면과 API가 다른 주소(Vercel `https://app.<도메인>` → `https://api.<도메인>`)일 때는 `POSEGOOD_CORS_ALLOWED_ORIGINS`(쉼표 구분, 실제 주소만, `*` 불가)에 적힌 출처만 허용한다. 확인 요청(OPTIONS)은 로그인 없이 답한다. 허용: 메서드 GET·POST·PUT·DELETE, 헤더 `Authorization`·`Content-Type`·`X-PoseGood-User-Id`, 쿠키(refresh) 포함. 다른 출처는 403. 비우면 CORS 없음(같은 출처 화면만 — Nginx·Vite). 실시간 연결의 출처는 별도 설정(11장) |
 
-**값을 받은 실행 (2026-10-29)**: 브랜치 `fix/repo-backend-followup`에서 API·추론 서버(FastAPI)·빈 MySQL(V2.6)을 띄우고, 합성 계정(`@example.invalid`)과 합성 좌표로 한 번에 호출했다(B1 예시만 10/29 되돌린 평균 형식으로 바꿈 — 좌표는 같은 값). 순서는 H1 → A2 → A4 → A3 → A8 → W1 → C1 → W2 → B1 → B2 → S1 → `/v2/realtime` 측정 → S4 → S3 → R1 → R3 → A6 → A3 → A5 → A7이다. 측정은 0.5초 구간 16개(관절 4프레임씩)로 이렇게 보냈다.
+**값을 받은 실행 (2026-10-29)**: 브랜치 `fix/repo-backend-followup`에서 API·추론 서버(FastAPI)·빈 MySQL(V2.6)을 띄우고, 합성 계정(`@example.invalid`)과 합성 좌표로 한 번에 호출했다(B1 예시만 10/29 되돌린 평균 형식으로 바꿈 — 좌표는 같은 값). 순서는 H1 → A2 → A4 → A3 → A8 → W1 → C1 → W2 → B1 → B2 → S1 → `/realtime` 측정 → S4 → S3 → R1 → R3 → A6 → A3 → A5 → A7이다. 측정은 0.5초 구간 16개(관절 4프레임씩)로 이렇게 보냈다.
 
 | 시간 | 보낸 것 | 서버 판정 |
 |---|---|---|
@@ -105,22 +106,22 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 | No | Method | 경로 | 로그인 | 설명 | 성공 |
 |---|---|---|---|---|---|
-| [A2](#a2) | POST | `/v2/auth/register` | - | 회원가입 | 200 |
-| [A3](#a3) | POST | `/v2/auth/login` | - | 로그인 | 200 |
-| [A4](#a4) | GET | `/v2/auth/me` | 필요 | 내 정보 | 200 |
-| [A5](#a5) | POST | `/v2/auth/logout` | 쿠키 | 로그아웃 | 204 |
-| [A6](#a6) | PUT | `/v2/auth/password` | 필요 | 비밀번호 변경 | 204 |
-| [A7](#a7) | DELETE | `/v2/auth/account` | 필요 | 탈퇴 접수 | 204 |
-| [A8](#a8) | POST | `/v2/auth/refresh` | 쿠키 | 로그인 유지(새 access·refresh 토큰) | 200 |
-| [W1](#w1) | GET | `/v2/workspace` | 필요 | 설정 + 기록 조회 | 200 |
-| [W2](#w2) | PUT | `/v2/workspace` | 필요 | 설정 저장 | 200 |
-| [B1](#b1) | POST | `/v2/baselines` | 필요 | 기준 자세 등록 | 200 |
-| [B2](#b2) | GET | `/v2/baselines/current` | 필요 | 현재 기준 자세 | 200 |
-| [S1](#s1) | PUT | `/v2/sessions/{id}` | 필요 | 세션 생성 | 200 |
-| [S4](#s4) | GET | `/v2/sessions/{id}` | 필요 | 세션 상태 조회 | 200 |
-| [R1](#r1) | GET | `/v2/records` | 필요 | 기록 목록 | 200 |
+| [A2](#a2) | POST | `/auth/register` | - | 회원가입 | 200 |
+| [A3](#a3) | POST | `/auth/login` | - | 로그인 | 200 |
+| [A4](#a4) | GET | `/auth/me` | 필요 | 내 정보 | 200 |
+| [A5](#a5) | POST | `/auth/logout` | 쿠키 | 로그아웃 | 204 |
+| [A6](#a6) | PUT | `/auth/password` | 필요 | 비밀번호 변경 | 204 |
+| [A7](#a7) | DELETE | `/auth/account` | 필요 | 탈퇴 접수 | 204 |
+| [A8](#a8) | POST | `/auth/refresh` | 쿠키 | 로그인 유지(새 access·refresh 토큰) | 200 |
+| [W1](#w1) | GET | `/workspace` | 필요 | 설정 + 기록 조회 | 200 |
+| [W2](#w2) | PUT | `/workspace` | 필요 | 설정 저장 | 200 |
+| [B1](#b1) | POST | `/baselines` | 필요 | 기준 자세 등록 | 200 |
+| [B2](#b2) | GET | `/baselines/current` | 필요 | 현재 기준 자세 | 200 |
+| [S1](#s1) | PUT | `/sessions/{id}` | 필요 | 세션 생성 | 200 |
+| [S4](#s4) | GET | `/sessions/{id}` | 필요 | 세션 상태 조회 | 200 |
+| [R1](#r1) | GET | `/records` | 필요 | 기록 목록 | 200 |
 | [H1](#h1) | GET | `/health` | - | 상태 확인 | 200 |
-| [WS2](#websocket-v2-연결) | WS | `/v2/realtime` | hello 토큰 | 좌표 프레임 측정, 판정 push | 101 |
+| [WS2](#websocket-v2-연결) | WS | `/realtime` | hello 토큰 | 좌표 프레임 측정, 판정 push | 101 |
 
 ## 4. 계정
 
@@ -134,7 +135,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a2"></a>
 
-### A2 · `POST /v2/auth/register` — 회원가입
+### A2 · `POST /auth/register` — 회원가입
 
 공개
 
@@ -219,7 +220,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a3"></a>
 
-### A3 · `POST /v2/auth/login` — 로그인
+### A3 · `POST /auth/login` — 로그인
 
 공개
 
@@ -264,7 +265,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a4"></a>
 
-### A4 · `GET /v2/auth/me` — 내 정보
+### A4 · `GET /auth/me` — 내 정보
 
 로그인 필요
 
@@ -296,7 +297,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a5"></a>
 
-### A5 · `POST /v2/auth/logout` — 로그아웃
+### A5 · `POST /auth/logout` — 로그아웃
 
 공개 · refresh 쿠키
 
@@ -309,7 +310,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a6"></a>
 
-### A6 · `PUT /v2/auth/password` — 비밀번호 변경
+### A6 · `PUT /auth/password` — 비밀번호 변경
 
 로그인 필요 · 계정 헤더
 
@@ -345,7 +346,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a7"></a>
 
-### A7 · `DELETE /v2/auth/account` — 탈퇴 접수
+### A7 · `DELETE /auth/account` — 탈퇴 접수
 
 로그인 필요 · 계정 헤더
 
@@ -378,7 +379,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="a8"></a>
 
-### A8 · `POST /v2/auth/refresh` — 로그인 유지
+### A8 · `POST /auth/refresh` — 로그인 유지
 
 공개 · refresh 쿠키 (2026-10-27, ADR 0031)
 
@@ -419,7 +420,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="w1"></a>
 
-### W1 · `GET /v2/workspace` — 설정 + 기록 조회
+### W1 · `GET /workspace` — 설정 + 기록 조회
 
 로그인 필요 · 계정 헤더
 
@@ -463,7 +464,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="w2"></a>
 
-### W2 · `PUT /v2/workspace` — 설정 저장
+### W2 · `PUT /workspace` — 설정 저장
 
 로그인 필요 · 계정 헤더
 
@@ -540,11 +541,11 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 ## 6. 기준 자세
 
 카메라 보정 동안 모은 9개 관절의 평균 좌표를 저장한다. 영상, 개별 프레임, 장치 ID는 저장하지 않는다.
-자세 등록은 B1 하나뿐이다. 앱이 3초 동안 판정 가능 프레임의 평균을 내서 보낸다. `/v2/realtime` 자세 등록(`purpose: calibration`)은 2026-10-27 삭제했다([11.4](#114-자세-등록)).
+자세 등록은 B1 하나뿐이다. 앱이 3초 동안 판정 가능 프레임의 평균을 내서 보낸다. `/realtime` 자세 등록(`purpose: calibration`)은 2026-10-27 삭제했다([11.4](#114-자세-등록)).
 
 <a id="b1"></a>
 
-### B1 · `POST /v2/baselines` — 기준 자세 등록
+### B1 · `POST /baselines` — 기준 자세 등록
 
 로그인 필요 · 계정 헤더
 
@@ -615,7 +616,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="b2"></a>
 
-### B2 · `GET /v2/baselines/current` — 현재 기준 자세
+### B2 · `GET /baselines/current` — 현재 기준 자세
 
 로그인 필요 · 계정 헤더
 
@@ -656,7 +657,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 <a id="s1"></a>
 
-### S1 · `PUT /v2/sessions/{id}` — 세션 생성
+### S1 · `PUT /sessions/{id}` — 세션 생성
 
 로그인 필요 · 계정 헤더
 
@@ -741,7 +742,7 @@ HTTP 상태만으로 구분이 안 되는 경우가 많아서 앱은 `code` 값�
 
 ### S2 · ~~`POST /v2/sessions/{id}/features`~~ — 삭제 (2026-10-28)
 
-앱은 `/v2/realtime`으로만 측정한다(ADR 0021). HTTP 특징 입력과 응답 계약 [특징 응답 v1](../../contracts/feature-response.v1.schema.json)의 API 쪽은 [계획 0062](../plans/active/0062-remove-unused-apis.md)로 지웠다. 판정 규칙(구간 순서, 빈 시간은 MISSING, 새 사건은 응답 전에 DB 기록)은 [11.3](#113-측정--서버가-하는-일)에 있다.
+앱은 `/realtime`으로만 측정한다(ADR 0021). HTTP 특징 입력과 응답 계약 [특징 응답 v1](../removed-docs.md)의 API 쪽은 [계획 0062](../plans/active/0062-remove-unused-apis.md)로 지웠다. 판정 규칙(구간 순서, 빈 시간은 MISSING, 새 사건은 응답 전에 DB 기록)은 [11.3](#113-측정--서버가-하는-일)에 있다.
 
 <a id="s3"></a>
 
@@ -752,7 +753,7 @@ S1은 됐지만 WebSocket이 열리지 않은 세션과 종료 저장이 DB 오�
 
 <a id="s4"></a>
 
-### S4 · `GET /v2/sessions/{id}` — 세션 상태 조회
+### S4 · `GET /sessions/{id}` — 세션 상태 조회
 
 로그인 필요 · 계정 헤더
 
@@ -764,7 +765,7 @@ S1은 됐지만 WebSocket이 열리지 않은 세션과 종료 저장이 DB 오�
      `summary.total_ms`는 저장된 측정 시간. 메모리에서 빠진 세션(재시작·보관 시간 지남)과 kafka 모드(io-api 메모리는
      판정하지 않아 비어 있음, 계획 0031 11번)의 끝난 세션이 이 경로로 답한다.
   3. 그것도 없으면 메모리의 진행 중 상태. kafka 모드에서는 D-57 ⑧이 실시간 연결이 받은 마지막 `progress`·`decision`
-     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored.v1`)를 다 받았을 때만
+     값(요약·사건·`last_sequence`)으로 채우고, `ended`는 종료 사건과 저장 완료(`posture.stored`)를 다 받았을 때만
      `true`다. D-57 병합 전 develop에서는 빈 상태(`last_sequence: -1`)다.
   4. 셋 다 없으면 404 `SESSION_LOST`.
 - 종료 저장이 실패한 세션(R1 `status: "error"`)은 2번에서 빠진다.
@@ -836,7 +837,7 @@ S1은 됐지만 WebSocket이 열리지 않은 세션과 종료 저장이 DB 오�
 
 ### S6 · ~~`DELETE /v2/sessions/{id}`~~ — 삭제 (2026-10-28)
 
-R3 `DELETE /v2/records/{id}`(기록 삭제, 2026-11-12 삭제)와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
+R3 `DELETE /records/{id}`(기록 삭제, 2026-11-12 삭제)와 같은 일을 해서 지웠다(기록 = 세션, [계획 0062](../plans/active/0062-remove-unused-apis.md)).
 
 ## 8. 기록·시스템
 
@@ -844,7 +845,7 @@ R3 `DELETE /v2/records/{id}`(기록 삭제, 2026-11-12 삭제)와 같은 일을 
 
 <a id="r1"></a>
 
-### R1 · `GET /v2/records` — 기록 목록
+### R1 · `GET /records` — 기록 목록
 
 로그인 필요 · 계정 헤더
 
@@ -989,7 +990,7 @@ API 재시작으로 판정 상태를 잃은 세션 행(`SESSION_LOST`)을 닫던
 
 <a id="t1"></a>
 
-### T1 · `GET /v2/stats/daily` — 일별 통계 (설계 확정, 구현 전)
+### T1 · `GET /stats/daily` — 일별 통계 (설계 확정, 구현 전)
 
 로그인 필요 · 계정 헤더
 
@@ -1106,7 +1107,7 @@ S1·S4 응답과 WebSocket `decision`·`progress`가 이 구조(또는 그 `summ
 
 ### Observation — 추론 결과 (schema 2.0)
 
-API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 않는다). 아래는 계약 예시 요청 [`synthetic-feature-request.json`](../../contracts/examples/v2/synthetic-feature-request.json)(`lateral_offset_delta` 0.2)을 실제 추론 코드에 보낸 응답이다. 점수 = min(1, 0.2 ÷ 0.20) × 0.7 = 0.7.
+API가 FastAPI `POST /infer`에서 받는 응답이다(앱에는 보내지 않는다). 아래는 계약 예시 요청 [`synthetic-feature-request.json`](../../contracts/examples/inference/synthetic-feature-request.json)(`lateral_offset_delta` 0.2)을 실제 추론 코드에 보낸 응답이다. 점수 = min(1, 0.2 ÷ 0.20) × 0.7 = 0.7.
 
 **응답 200 (실제)**
 
@@ -1134,7 +1135,7 @@ API가 FastAPI `POST /v2/infer`에서 받는 응답이다(앱에는 보내지 �
 
 ### Observation 4.0 — 실시간 v2 관측
 
-`/v2/realtime`의 `observation` 메시지에 담긴다. 구간을 판정하자마자 하나씩 보낸다. 추론 응답(2.0)을 API가 바꿔 보낸다.
+`/realtime`의 `observation` 메시지에 담긴다. 구간을 판정하자마자 하나씩 보낸다. 추론 응답(2.0)을 API가 바꿔 보낸다.
 4.0(2026-11-03, [계획 0084](../plans/active/0084-server-3s-frame-batch-inference.md))은 측정 화면이 쓰는 것만 남겼다 — 3.0의 `start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺐고, `posture`·`hold_ms`·`recovery_ms`를 더했으며, 판정 불가 점수를 0에서 null로 바꿨다(**호환성 깨짐**). 서버(PR #96·#98)와 FE 4.0 대응(PR #99 — `validObservation`이 판정 불가 점수 null·`recovery_ms`를 받음, `frontend/src/features/session/live/messages.ts`)이 모두 develop에 들어갔다. 멈춘 이유는 `progress.paused_reason`, 누적 시간은 `summary`, 이탈 종류는 `decision`에 있다.
 
 **예시** — 이탈 쪽 구간(순번 5 = 2.5~3초, 정책 `threshold` 0.7, 점수 1.0). 0초부터 이탈이 이어져 `hold_ms`가 정책 `hold_ms`(3000)에 닿았고, 같은 구간에서 `decision(collapse_confirmed)`이 온다.
@@ -1201,16 +1202,16 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 <a id="websocket-연결"></a>
 
 > [!NOTE]
-> **2026-10-26 삭제.** 앱이 [`/v2/realtime`](#11-websocket-v2realtime)으로 넘어가 서버 경로·계약(`realtime-ws.v1`)·예시를 지웠다. 이 경로로 연결하면 실패한다.
+> **2026-10-26 삭제.** 앱이 [`/realtime`](#11-websocket-realtime)으로 넘어가 서버 경로·계약(`realtime-ws.v1`)·예시를 지웠다. 이 경로로 연결하면 실패한다.
 > 장 번호는 다른 문서의 참조(11.3 등)를 지키려고 남긴다. 예전 내용은 git 기록에 있다.
 
-## 11. WebSocket `/v2/realtime`
+## 11. WebSocket `/realtime`
 
 <a id="websocket-v2-연결"></a>
 
-연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표를 프레임마다 구간 하나로 보내고(2026-10-27부터, 그 전에는 0.5초 구간), API가 기준 대비 특징 변화량을 계산해 추론(`POST /v2/infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
+연결 하나가 **측정 한 번**(`purpose: "measure"`)이다. 자세 등록은 B1으로 한다(WebSocket 등록은 2026-10-27 삭제). 앱은 관절 9개 좌표를 프레임마다 구간 하나로 보내고(2026-10-27부터, 그 전에는 0.5초 구간), API가 기준 대비 특징 변화량을 계산해 추론(`POST /infer`)·판정에 넣는다. 결과는 같은 연결로 push한다.
 
-계약: [`realtime-ws.v2.schema.json`](../../contracts/realtime/realtime-ws.v2.schema.json), 구간 형식 [`posture-frames.v1`](../../contracts/realtime/frames/posture-frames.v1.schema.json), 예시 [`examples-v2/`](../../contracts/realtime/examples-v2/).
+계약: [`realtime-ws.schema.json`](../../contracts/realtime/realtime-ws.schema.json), 구간 형식 [`posture-frames`](../../contracts/realtime/frames/posture-frames.schema.json), 예시 [`examples-ws/`](../../contracts/realtime/examples-ws/).
 
 | 항목 | 규칙 |
 |---|---|
@@ -1223,7 +1224,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 ### 11.1 순서
 
 ```
-측정:  S1 PUT /v2/sessions/{id} → WS 연결 → hello(measure) → ready
+측정:  S1 PUT /sessions/{id} → WS 연결 → hello(measure) → ready
        → features × N (프레임마다 구간 1개) → observation · decision · alert · ack · progress
        → end → decision(session_ended) → closed(ended)
 자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
@@ -1306,7 +1307,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
 | 특징 계산 | 구간 안에서 판정 가능하고 고개를 돌리지 않은 프레임의 특징을 **모두 평균**해 기준을 뺀다(`FrameFeatures.interval`). 유효 프레임이 하나라도 있으면 구간 전체 길이를 유효 시간으로 센다. 판정 불가 프레임 앞뒤를 나눠 유효 하위 구간별로 계산하는 방식은 보류다(BE-5 ②, [개발 상태](../backend-status.md) 2.4). 앱이 프레임마다 구간 하나를 보내면 두 방식의 결과가 같다. 카메라는 640×480 고정이다. |
 | 판정 불가 | 쓸 프레임이 없으면 `measurement_quality: poor`로 추론에 넘기고, `observation.invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
-| 추론·판정 | 추론(`POST /v2/infer`) → 판정 엔진 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `ack` 전에 DB에 쓴다. |
+| 추론·판정 | 추론(`POST /infer`) → 판정 엔진 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `ack` 전에 DB에 쓴다. |
 | 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
 | 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
@@ -1319,7 +1320,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ### 11.4 자세 등록 (삭제)
 
-2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /v2/baselines`로만 한다 — 앱이 3초 동안 판정 가능 프레임(11.3과 같은 조건)의 관절 평균을 내서 보낸다. `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
+2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /baselines`로만 한다 — 앱이 3초 동안 판정 가능 프레임(11.3과 같은 조건)의 관절 평균을 내서 보낸다. `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
 
 ### 11.5 서버 → 앱
 
@@ -1332,7 +1333,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
 | `alert` | event_id, kind, deviation_type | collapse_confirmed·reminder이고 세션의 알림이 켜져 있을 때만. 앱은 거르지 않는다. |
 | `stalled` | since_last_sequence | 추론·DB 일시 장애. 연결은 유지된다. kafka 경로: 측정 중 결과가 5초 없을 때(결과 지연), `end` 뒤 종료가 3초 오지 않을 때(저장 지연, D-57 ⑧). |
-| `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-v2/ws-session-rollover.json) |
+| `session_rollover` | ended{session_id, ended_at, summary}, session_id, started_at, at_ms | 자정 넘김(11.3). `ended` = 끝난 이전 세션(종료 시각은 DB `ended_at`과 같음, 최종 요약). `session_id`·`started_at`(= KST 자정, UTC) = 이 연결이 이어지는 새 세션. `at_ms` = 새 세션이 시작하는 자리를 앱이 보내는 시간축(연결 기준)으로 적은 값. 앱은 여기서 기록을 나누고 이후 S3·기록 저장에는 새 `session_id`를 쓴다. 예시 [`ws-session-rollover.json`](../../contracts/realtime/examples-ws/ws-session-rollover.json) |
 | `closed` | reason, ended_at | 서버가 연결을 닫기 직전(아래 표). `ended_at` = 이 연결에서 측정 세션이 끝났으면 서버의 세션 종료 시각(DB `ended_at`과 같음, UTC), 끝나기 전에 닫혔으면 `null`(ADR 0028). |
 
 | `closed.reason` | 언제 |
@@ -1391,7 +1392,11 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-18 | `refactor/repo-remove-api-version-paths` | 계약 파일 이름에서 버전 삭제(형식은 그대로): 계정 `contracts/accounts.v2.md` → `accounts.md`, 동의 `consent-documents.v2.md` → `consent-documents.md`, WebSocket `realtime-ws.v2.schema.json` → `realtime-ws.schema.json`(예시 `examples-v2/` → `examples-ws/`), 좌표 구간 `posture-frames.v1` → `posture-frames`, 조회·사건·관측·특징 입력(`session-view`·`posture-event`·`posture-observation`·`inference-request`). 안 쓰는 `accounts.v1.md`·`feature-response.v1`은 지움. 입출구 서버 `RealtimeHandlerV2` → `RealtimeHandler`. |
+| 2026-11-18 | `refactor/repo-remove-api-version-paths` | develop(`ed72615`, #127·#128·#131·#134 포함)을 다시 합치며 그 사이 생긴 주소에서도 버전을 뺌: 가입 이메일 인증 `/auth/email-verification/requests`·`/confirm`, 비밀번호 재설정 링크 확인 `/auth/password-reset/validate`, 소셜 계정 연결 승인 `/auth/social/pending-link`·`/verify`·`/confirm`(컨트롤러·로그인 없이 부르는 주소 목록), A7 탈퇴 `/auth/account`의 새 MySQL 시험. 응답 형식은 그대로. develop의 `SessionServiceTest`는 #134 병합에서 닫는 괄호가 빠져 컴파일되지 않아 한 줄을 넣었다. 검증(11/18): Java api 156(건너뜀 18)·processing 67 통과, MySQL 통합 18 중 17 통과 — `baselinesOwnershipLossAndInferenceFailure`의 두 번째 세션 409는 develop 원본에서도 같다(#127 측정 한 기기 제한과 기존 시험이 어긋남, 이 브랜치 범위 밖). FE 1038/1039·tsc·빌드·스크립트 통과(실패 1은 이 PC Node ICU가 `오전` 대신 `AM`을 내는 `recordTimezone`), Python 241 중 J3·통신 시험 도구 오류는 UTF-8 출력·단독 실행에서 통과, 남은 1개는 전부터 실패하던 브라우저 카메라 시험. |
 | 2026-11-17 | `fix/backend-withdrawal-no-password` | A7 탈퇴: 비밀번호 확인을 뺌(BE-25, FE 제안서 요구 1). 본문 없이 204. 옛 앱의 `{password}` 본문은 무시하고 받으므로(틀린 값도 204) 서버를 먼저 배포해도 운영 앱이 깨지지 않는다. 400 `INVALID_PASSWORD`는 A7에서 없어짐. Discord 가입 계정(비밀번호 없음)도 탈퇴 가능 |
+| 2026-11-16 | `refactor/repo-remove-api-version-paths` | develop(`0ed4a6c`)을 합치며 FE의 주소 상수를 버전 없이 맞춤(`serverConfig.ts` `API_ROOT = '/api'`, `API_VERSION` 삭제, 개발용 가짜 서버의 옛 `/api/v2` 받기 삭제). 디스코드 Redirect 예시(`infra/compose/env.example`)와 통합 점검의 Redirect 검사(`tools/platform/integration_test.sh`)를 `…/api/auth/social/discord/callback`으로. 주소는 REST·WS 27개로 겹치는 것과 버전이 붙은 것이 없다. 검증: BE 기본 시험 180개(건너뜀 13) 실패 0·빌드 성공, MySQL 통합 13개 통과, FE 1025개 중 1024개 통과(`recordTimezone` 1개는 PC 언어 설정의 오전/AM 차이로 develop에서도 같음)·`tsc`·빌드 통과, Python은 numpy·joblib·tzdata가 없어 27개가 불러오기 오류(이 PC 환경 문제, 그 밖의 실패 없음). 배포 때 Discord Portal Redirects·서버 `POSEGOOD_DISCORD_REDIRECT_URI`·Cloudflare `auth-rate-limit` 경로를 새 주소로 바꾸고, 옛 데스크톱 설치판 처리는 [FE 제안서](fe/fe-server-proposal.md) 요구 10에서 정한다 |
+| 2026-11-12 | `refactor/repo-remove-api-version-paths` | **호환성 깨짐.** 주소에서 버전 삭제: REST `/v2/…` → `/…`(계정 A2~A8, 소셜 로그인 `/auth/social/…`, 비밀번호 재설정 `/auth/password-reset/…`, 설정 W1·W2, 기준 자세 B1·B2, 측정 세션 S1·S4, 기록 R1, 설계만 된 일별 통계 T1 `/stats/daily`), WebSocket `/v2/realtime` → `/realtime`(nginx `/api/realtime`), 추론 `/v2/infer` → `/infer`. 쓰지 않던 추론 `/v1/infer`(옛 두 특징 입력)와 그 요청 형식 삭제. 본문·메시지 형식은 그대로. 서버와 화면을 같은 때 배포해야 하고, Cloudflare `auth-rate-limit` 규칙 경로(`/api/auth/`)와 Discord 돌아오는 주소(`POSEGOOD_DISCORD_REDIRECT_URI`·Discord 개발자 사이트 등록 주소 `/api/auth/social/discord/callback`)를 바꿔야 한다. 처리 서비스(`/judge/v1/*`, 시험용 `/api/v1/realtime/features`)는 그대로 |
 | 2026-11-12 | `refactor/backend-remove-unused-s3-r3-c1` | **앱이 부르지 않는 REST 3개 삭제 — 호환성 깨짐**: S3 세션 종료 `POST /v2/sessions/{id}/end`(측정은 WS `end`·연결 끊김으로 끝남), R3 기록 삭제 `DELETE /v2/records/{id}`, C1 선택 정보 동의·철회 `PUT /v2/consents/optional-profile`. REST 18 → 15개. 409 `CONFLICT`의 「적재된 기록 삭제」 사유 없어짐. 선택 정보 동의는 가입 때만 받는다. 남은 일: WS가 열리지 않은 세션·종료 저장 실패 세션을 닫을 길(백엔드 상태 4장). [계획 0062](../plans/active/0062-remove-unused-apis.md) 2단계 |
 | 2026-11-11 | `feature/backend-session-view-from-db` | S4: 메모리에 끝난 결과가 없으면 DB에 끝난 값으로 다시 만든 결과(R1 `server.view`와 같음)로 답한다(BE-11). 메모리에서 빠진 끝난 세션은 404 `SESSION_LOST` 대신 200. kafka 모드 대비(계획 0031 11번). 형식은 그대로 |
 | 2026-11-09 | 문서만(코드 그대로) | 11장: 앱은 프레임마다 구간 하나를 보낸다(0.5초 묶음 문구 바로잡음, FE 대조). 값을 받은 실행의 0.5초 구간 예시는 그대로 두고 표시. |

@@ -32,15 +32,15 @@ class RealtimePipelineConfiguration {
 		String pipeline,
 		@Value("${posegood.realtime.kafka.bootstrap-servers:localhost:9092}")
 		String bootstrapServers,
-		@Value("${posegood.realtime.kafka.features-topic:posture.features.v1}")
+		@Value("${posegood.realtime.kafka.features-topic:posture.features}")
 		String featuresTopic,
-		@Value("${posegood.realtime.kafka.episodes-topic:posture.episodes.v1}")
+		@Value("${posegood.realtime.kafka.episodes-topic:posture.episodes}")
 		String episodesTopic,
-		@Value("${posegood.realtime.kafka.alerts-topic:posture.alerts.v1}")
+		@Value("${posegood.realtime.kafka.alerts-topic:posture.alerts}")
 		String alertsTopic,
-		@Value("${posegood.realtime.kafka.stored-topic:posture.stored.v1}")
+		@Value("${posegood.realtime.kafka.stored-topic:posture.stored}")
 		String storedTopic,
-		@Value("${posegood.realtime.kafka.keypoints-topic:posture.keypoints.v1}")
+		@Value("${posegood.realtime.kafka.keypoints-topic:posture.keypoints}")
 		String keypointsTopic,
 		@Value("${posegood.realtime.kafka.archive-keypoints:false}")
 		boolean archiveKeypoints,

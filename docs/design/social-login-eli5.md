@@ -1,6 +1,6 @@
 # 소셜 로그인 쉽게 이해하기 (BE·DB 담당용)
 
-> 2026-11-16 갱신. 기존 계정에 Discord를 연결하는 과정을 쉽게 설명합니다. 이메일 인증·비밀번호 찾기까지 한 번에 보려면 [쉽게 읽는 인수인계](email-account-handoff.md)를 먼저 읽어 주세요. 표·설정은 [기술 인계](social-login-password-reset-handoff.md), 정확한 API는 [계약](../../contracts/accounts.v2.md)에 있습니다.
+> 2026-11-16 갱신. 기존 계정에 Discord를 연결하는 과정을 쉽게 설명합니다. 이메일 인증·비밀번호 찾기까지 한 번에 보려면 [쉽게 읽는 인수인계](email-account-handoff.md)를 먼저 읽어 주세요. 표·설정은 [기술 인계](social-login-password-reset-handoff.md), 정확한 API는 [계약](../../contracts/accounts.md)에 있습니다.
 
 ## 1. 한 줄 요약
 
@@ -59,7 +59,7 @@
 
 | 부분 | 파일 | 하는 일 |
 | --- | --- | --- |
-| 공통 길(주소) | `SocialController` | `/v2/auth/social/{provider}/login · link · callback`, `DELETE /{provider}` |
+| 공통 길(주소) | `SocialController` | `/auth/social/{provider}/login · link · callback`, `DELETE /{provider}` |
 | 공통 규칙 | `SocialLoginService` | 확인표 검사, 자동 연결 금지, 가입·연결·해제, 마지막 로그인 수단 보호 |
 | 제공자 목록 | `SocialProviders` | 화면 순서 `discord, kakao, google, github`. 어댑터가 있고 설정이 켜진 것만 사용 |
 | 어댑터 | `SocialProviderClient` (인터페이스), `DiscordClient` (구현) | 제공자마다 다른 딱 두 가지: ① 동의 화면 주소 만들기 ② 코드를 "회원 번호 + 확인된 이메일"로 바꾸기 |

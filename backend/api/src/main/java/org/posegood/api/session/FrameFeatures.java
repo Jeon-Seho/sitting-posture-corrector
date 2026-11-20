@@ -8,7 +8,7 @@ import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.SessionRequests;
 
 /**
- * 좌표 프레임 → 기준 대비 특징 변화량(A안: API가 계산하고 추론 {@code POST /v2/infer} 입력은 그대로).
+ * 좌표 프레임 → 기준 대비 특징 변화량(A안: API가 계산하고 추론 {@code POST /infer} 입력은 그대로).
  *
  * 규칙은 BE API 명세 11.3과 FE가 넘긴 판정 규칙(2026-10-11, 합성 기준값 contracts/examples/frames/reference-rule-cases.json)이다.
  * 처음 계산식은 앱 프로토타입(develop의 model/prototype/pose.ts·serverFeatures.ts — FE V3에서 앱 판정과 함께 지움, git 이력에 남음)에서

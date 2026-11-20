@@ -34,9 +34,9 @@ import org.springframework.stereotype.Component;
  *   <li>알림: V2.3은 알림이 꺼져 있어도 첫 알림·재알림 시점을 기록하고, 표시 여부는 세션 {@code alert_enabled}로 판단한다
  *       (시간당 상한·억제 사유 없음).</li>
  *   <li>(D-54) 알림 발행: 알림 행을 <b>새로</b> 넣었고, 세션 알림이 켜져 있고({@code alert_enabled}), decision이 판정에서 나온 지
- *       {@code report.alerts.max-age-ms}(기본 10초) 안이면 {@code posture.alerts.v1}로 낸다. 재전송(행이 이미 있음)·알림 꺼짐·
+ *       {@code report.alerts.max-age-ms}(기본 10초) 안이면 {@code posture.alerts}로 낸다. 재전송(행이 이미 있음)·알림 꺼짐·
  *       오래된 사건(재처리·밀림)은 내지 않는다 — 앱에 늦은 알림이 뜨지 않게. DB 기록이 먼저이고, 발행 실패는 기록을 되돌리지 않는다.</li>
- *   <li>(D-67) 저장 완료: {@code session_ended}의 종료 값을 쓴 뒤 {@code posture.stored.v1}을 낸다(재전송이어도 다시 —
+ *   <li>(D-67) 저장 완료: {@code session_ended}의 종료 값을 쓴 뒤 {@code posture.stored}을 낸다(재전송이어도 다시 —
  *       입출구 서버가 이미 닫은 세션이면 버림). 입출구 서버는 이것을 받은 뒤 앱에 정상 종료를 알린다.</li>
  * </ul>
  *

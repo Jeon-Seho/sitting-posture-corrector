@@ -1,0 +1,544 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posegood.local/contracts/realtime/realtime-ws.schema.json",
+  "title": "WebSocket /realtime — app <-> 입출구 서버 (BE API spec 2026-10-13, FE 연동 명세)",
+  "description": "One connection per measurement (purpose measure). Posture registration is B1 POST /baselines only; WebSocket registration (purpose calibration) was removed on 2026-10-27. The first app message is hello. No reconnection (ADR 0024). Messages are connection-scoped, so only hello and ready name the session, plus session_rollover, which moves the connection to a new server-made session at KST midnight (BE-6 1, plan B).",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/hello"
+    },
+    {
+      "$ref": "#/$defs/features"
+    },
+    {
+      "$ref": "#/$defs/end"
+    },
+    {
+      "$ref": "#/$defs/ready"
+    },
+    {
+      "$ref": "#/$defs/ack"
+    },
+    {
+      "$ref": "#/$defs/observation"
+    },
+    {
+      "$ref": "#/$defs/progress"
+    },
+    {
+      "$ref": "#/$defs/decision"
+    },
+    {
+      "$ref": "#/$defs/alert"
+    },
+    {
+      "$ref": "#/$defs/stalled"
+    },
+    {
+      "$ref": "#/$defs/closed"
+    },
+    {
+      "$ref": "#/$defs/session_rollover"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "deviation_type": {
+      "enum": [
+        "none",
+        "forward_slouch",
+        "left_lean",
+        "right_lean",
+        "unspecified"
+      ]
+    },
+    "summary": {
+      "$ref": "../session-view.schema.json#/properties/summary"
+    },
+    "hello": {
+      "description": "app -> server, first message, after PUT /sessions/{id} succeeded (200). access_token: the login access token (JWT) from login/refresh (ADR 0031); checked once, so it may expire during the connection.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "schema_version",
+        "purpose",
+        "session_id",
+        "access_token"
+      ],
+      "properties": {
+        "type": {
+          "const": "hello"
+        },
+        "schema_version": {
+          "const": "2.0"
+        },
+        "purpose": {
+          "const": "measure"
+        },
+        "session_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "features": {
+      "description": "app -> server. Exactly one coordinate interval per message (the server refuses any other count with closed(bad_message)); the app sends one interval holding one frame per message, ending when the next frame arrives, or after 0.5 s without one (FE decision 2026-10-27, FE spec 5.1).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "items"
+      ],
+      "properties": {
+        "type": {
+          "const": "features"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "frames/posture-frames.schema.json"
+          }
+        }
+      }
+    },
+    "end": {
+      "description": "app -> server. The user ended the measurement.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "end_ms"
+      ],
+      "properties": {
+        "type": {
+          "const": "end"
+        },
+        "end_ms": {
+          "$ref": "#/$defs/ms"
+        }
+      }
+    },
+    "ready": {
+      "description": "server -> app after hello is accepted. The app waits 5 s for it (FE spec Q2).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "purpose",
+        "session_id",
+        "started_at"
+      ],
+      "properties": {
+        "type": {
+          "const": "ready"
+        },
+        "purpose": {
+          "const": "measure"
+        },
+        "session_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "started_at": {
+          "description": "Server session start (when the server received S1), UTC. The app dates and times today's record with it (ADR 0028).",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ack": {
+      "description": "server -> app. Intervals up to last_sequence were written to Kafka. The app only shows it (no resending).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "last_sequence"
+      ],
+      "properties": {
+        "type": {
+          "const": "ack"
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        }
+      }
+    },
+    "observation": {
+      "description": "server -> app, one per interval as soon as the interval is judged: live status of that interval. Score on screen = 100 x (1 - collapse_probability). 4.0 (2026-11-03, plan 0084) keeps only what the measuring screen uses; the pause is in progress.paused_reason, times in summary, the deviation type in decision.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observation"
+      ],
+      "properties": {
+        "type": {
+          "const": "observation"
+        },
+        "observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "sequence",
+            "valid",
+            "posture",
+            "collapse_probability",
+            "hold_ms",
+            "recovery_ms",
+            "invalid_reason"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "4.0"
+            },
+            "sequence": {
+              "description": "Sequence of the interval this result is for, as the app sent it (connection axis, like ack). Lets the app drop a result older than one it already shows and measure the score delay.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "valid": {
+              "description": "true when the interval could be judged.",
+              "type": "boolean"
+            },
+            "posture": {
+              "description": "good or bad for this interval: the session policy threshold applied by the server (collapse_probability >= threshold is bad). Momentary; alerts are still confirmed by decision/alert. null when not valid.",
+              "enum": [
+                null,
+                "good",
+                "bad"
+              ]
+            },
+            "collapse_probability": {
+              "description": "Probability of bad posture for the same interval, null when not valid (not a score; 0 is a valid score meaning no change from the baseline). Rule score until a trained model (ADR 0043); not calibrated.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "hold_ms": {
+              "description": "How long bad posture has lasted up to the end of this interval, by frame time t_ms: the value the server compares with the session policy hold_ms to confirm a collapse. 0 after a good interval or when continuity is broken (not valid, rest, away, missing). Keeps growing after the confirmation while posture stays bad.",
+              "$ref": "#/$defs/ms"
+            },
+            "recovery_ms": {
+              "description": "How long good posture has lasted in the open collapse event up to the end of this interval, by frame time t_ms: the value the server compares with the session policy recovery_ms to confirm a recovery. 0 while no event is open (before the first collapse_confirmed, after recovery_confirmed or interrupted), after a bad interval, and in the interval whose recovery_confirmed closes the event. Not valid, rest, away and missing interrupt the event, so 0 too.",
+              "$ref": "#/$defs/ms"
+            },
+            "invalid_reason": {
+              "enum": [
+                null,
+                "unmeasurable",
+                "head_turn",
+                "settling"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "valid": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "invalid_reason": {
+                "const": null
+              },
+              "posture": {
+                "enum": [
+                  "good",
+                  "bad"
+                ]
+              },
+              "collapse_probability": {
+                "type": "number"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "invalid_reason": {
+                "enum": [
+                  "unmeasurable",
+                  "head_turn",
+                  "settling"
+                ]
+              },
+              "posture": {
+                "const": null
+              },
+              "collapse_probability": {
+                "const": null
+              },
+              "hold_ms": {
+                "const": 0
+              },
+              "recovery_ms": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "progress": {
+      "description": "server -> app about every second. paused_reason: measuring is paused. Sessions under 5 min are stored too (DB V2.3, 10/14).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "last_sequence",
+        "summary",
+        "paused_reason"
+      ],
+      "properties": {
+        "type": {
+          "const": "progress"
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "paused_reason": {
+          "enum": [
+            null,
+            "unmeasurable",
+            "rest",
+            "away"
+          ]
+        }
+      }
+    },
+    "event": {
+      "description": "A confirmed judgement event. event_id starts at 1 per session. excluded_started/ended are for storage; the app only receives them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "kind",
+        "timestamp_ms",
+        "onset_ms",
+        "onset_valid_ms",
+        "deviation_type",
+        "reason"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "collapse_confirmed",
+            "reminder",
+            "recovery_confirmed",
+            "interrupted",
+            "session_ended",
+            "excluded_started",
+            "excluded_ended"
+          ]
+        },
+        "timestamp_ms": {
+          "$ref": "#/$defs/ms"
+        },
+        "onset_ms": {
+          "$ref": "#/$defs/ms"
+        },
+        "onset_valid_ms": {
+          "$ref": "#/$defs/ms"
+        },
+        "deviation_type": {
+          "$ref": "#/$defs/deviation_type"
+        },
+        "reason": {
+          "enum": [
+            null,
+            "missing",
+            "missing_sequence",
+            "unmeasurable",
+            "rest",
+            "away",
+            "ended"
+          ]
+        }
+      }
+    },
+    "decision": {
+      "description": "server -> app. Sent before the progress that includes it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "event",
+        "summary"
+      ],
+      "properties": {
+        "type": {
+          "const": "decision"
+        },
+        "event": {
+          "$ref": "#/$defs/event"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        }
+      }
+    },
+    "alert": {
+      "description": "server -> app only when an alert should be shown (the storage service already applied alerts off, hourly cap and stale events). The app does not filter.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "event_id",
+        "kind",
+        "deviation_type"
+      ],
+      "properties": {
+        "type": {
+          "const": "alert"
+        },
+        "event_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "collapse_confirmed",
+            "reminder"
+          ]
+        },
+        "deviation_type": {
+          "$ref": "#/$defs/deviation_type"
+        }
+      }
+    },
+    "stalled": {
+      "description": "server -> app. No judgement progress for 5 s while measuring; on the kafka pipeline also when the end (stored) has not arrived 3 s after end (storage delay).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "since_last_sequence"
+      ],
+      "properties": {
+        "type": {
+          "const": "stalled"
+        },
+        "since_last_sequence": {
+          "type": "integer",
+          "minimum": -1
+        }
+      }
+    },
+    "closed": {
+      "description": "server -> app right before the server closes the connection.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "reason",
+        "ended_at"
+      ],
+      "properties": {
+        "type": {
+          "const": "closed"
+        },
+        "ended_at": {
+          "description": "Server session end (same value as the stored ended_at), UTC, when the measurement session ended on this connection. Null if the connection closed before the session ended, or for registration (ADR 0028).",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "reason": {
+          "enum": [
+            "ended",
+            "unauthorized",
+            "not_owner",
+            "session_lost",
+            "no_baseline",
+            "bad_message",
+            "server_shutdown",
+            "limit_reached",
+            "unmeasurable_timeout",
+            "day_changed"
+          ],
+          "description": "day_changed: at KST midnight the previous session ended and was stored, but the server could not continue in a new session (session_rollover); the app starts a new measurement with S1."
+        }
+      }
+    },
+    "session_rollover": {
+      "description": "server -> app at KST midnight when the server switch posegood.realtime.midnight-rollover is on (BE-6 1, plan B). The previous session ended at its last interval before midnight and was stored; this connection continues in a new session the server created with the same baseline, policy and alert setting (no S1). The app keeps sending sequence, start_ms and end_ms on the connection's axis; the server subtracts at_ms and its own sequence base. ack, progress and stalled keep the app's sequence numbers; summaries and decision event times after this message belong to the new session (midnight = 0). An interval that spans midnight, or a pre-midnight interval that arrives after this message, is only acked and belongs to no session.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "ended",
+        "session_id",
+        "started_at",
+        "at_ms"
+      ],
+      "properties": {
+        "type": {
+          "const": "session_rollover"
+        },
+        "ended": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_id",
+            "ended_at",
+            "summary"
+          ],
+          "properties": {
+            "session_id": {
+              "$ref": "#/$defs/uuid"
+            },
+            "ended_at": {
+              "description": "Server end of the previous session (same value as the stored ended_at, before midnight), UTC.",
+              "type": "string",
+              "format": "date-time"
+            },
+            "summary": {
+              "$ref": "#/$defs/summary"
+            }
+          }
+        },
+        "session_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "started_at": {
+          "description": "Server start of the new session: KST midnight, UTC.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "at_ms": {
+          "description": "Where the new session starts on the app's connection time axis (ms from the first session's start).",
+          "$ref": "#/$defs/ms"
+        }
+      }
+    }
+  }
+}

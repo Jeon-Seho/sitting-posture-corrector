@@ -41,7 +41,7 @@
 
 1. **「측정 시작」은 항상 서버 측정이다.** 로컬 모드와 개발자 옵션의 「서버 판정 사용」 스위치, `VITE_REALTIME_URL`·`VITE_REALTIME_FRAMES`를 없앴다.
    서버에 닿지 못하거나 로그인이 없으면 측정을 시작하지 않고 이유를 보여 준다.
-2. 흐름은 S1 `PUT /v2/sessions/{id}` → `/v2/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 5초 안에 `closed`가 안 오거나 `end` 뒤 `stalled`가 오면 S4로 결과를 읽는다(11/12, 10초에서 줄임. 서버 확정본이 아니면 화면에 보이던 값을 지킨다 — [FE 예외 처리 방안](../design/fe/fe-exception-handling-plan.md) 2장). 자세한 형식은 [연동 명세](../design/fe/api-ws-spec.md) 4·5장이다.
+2. 흐름은 S1 `PUT /sessions/{id}` → `/realtime` `hello`(`purpose:"measure"`) → `ready` → 좌표 → `end` → `closed(ended)`이고, 5초 안에 `closed`가 안 오거나 `end` 뒤 `stalled`가 오면 S4로 결과를 읽는다(11/12, 10초에서 줄임. 서버 확정본이 아니면 화면에 보이던 값을 지킨다 — [FE 예외 처리 방안](../design/fe/fe-exception-handling-plan.md) 2장). 자세한 형식은 [연동 명세](../design/fe/api-ws-spec.md) 4·5장이다.
 3. 앱이 보내는 구간: 잠시 쉬기는 `rest`, 카메라 영상이 1초 넘게 멈추면 `away`(카메라가 돌아와야 「측정 재개」),
    쓰던 카메라가 빠지거나 측정 중 영상 크기가 바뀌면 `end`로 종료·저장한다. 어깨가 하나라도 안 보이는 프레임은 바로 판정 불가다(6절).
 4. 이어하기(앱이 중간 저장을 두었다가 다시 여는 것)는 없다. 앱이 닫히거나 연결이 끊기면 서버가 마지막 구간까지 저장한다([ADR 0024](0024-session-ends-on-lost-connection.md)).
@@ -64,10 +64,10 @@
    — BE 명세 11.3과 같은 조건). 쓸 수 없는 프레임이나 1초 넘는 빈틈이 있으면 처음부터 다시 센다.
 3. 3초가 지나고 **20장 이상**(B1 `sample_count` 최소)이면 끝난다. 추적 속도가 낮으면 20장이 찰 때까지 이어 찍고, 15초가 지나면 실패로 안내한다.
    평균이 화면 밖(0~1 밖)이면 보내지 않고 「화면 안으로」 안내한다.
-4. 결과를 **B1 `POST /v2/baselines`** `{registration_id, calibration_ms, sample_count, landmarks}`로 보낸다.
+4. 결과를 **B1 `POST /baselines`** `{registration_id, calibration_ms, sample_count, landmarks}`로 보낸다.
    `registration_id`는 촬영 한 번마다 앱이 만드는 UUID이고, 502·503·응답 없음은 같은 본문으로 1·2·4초 뒤 최대 3번 다시 보낸다(B1은 같은 `registration_id`·좌표에 같은 행을 돌려준다).
    등록 시각은 서버가 정한다([ADR 0028](0028-server-time-for-baseline-registration.md), DB V2.5).
-5. 응답의 `baseline_id`가 현재 기준이고 S1에 쓴다. 앱을 켜거나 로그인하면 **B2 `GET /v2/baselines/current`**로 받는다.
+5. 응답의 `baseline_id`가 현재 기준이고 S1에 쓴다. 앱을 켜거나 로그인하면 **B2 `GET /baselines/current`**로 받는다.
    B2를 받기 전에는 등록을 시작하지 않는다(서버에 이미 기준이 있을 수 있음). 404면 등록부터.
 6. 이 PC에는 기준 자세를 저장하지 않는다. WS 등록(`purpose:"calibration"`)은 쓰지 않는다(BE 구현을 남길지는 BE가 정한다).
 7. 이유: 평균 계산을 FE 몫으로 정했고(10/20 회의), 단순 평균은 서버 WS 등록(BE 명세 11.4)이 하던 계산과 같아 어느 쪽으로 등록해도 기준의 뜻이 같다.

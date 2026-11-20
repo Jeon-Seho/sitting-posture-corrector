@@ -23,19 +23,19 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 /**
- * /v2/auth/social/* 소셜 로그인 공통 경로. {@code {provider}}는 discord·kakao·google·github 중 켜진 것(지금은 discord).
+ * /auth/social/* 소셜 로그인 공통 경로. {@code {provider}}는 discord·kakao·google·github 중 켜진 것(지금은 discord).
  *
  * <ol>
  * <li>앱이 {@code POST .../{provider}/login}(또는 로그인한 상태로 {@code .../{provider}/link})을 부르면 서버가 대기 ID를
  * HttpOnly 쿠키로 주고 제공자 동의 화면 주소를 돌려준다. 앱은 그 주소로 이동한다.</li>
  * <li>제공자가 {@code GET .../{provider}/callback}으로 돌려보내면 서버가 state를 확인하고 결과에 따라 refresh 쿠키를 주거나
  * 가입 대기 쿠키를 준 뒤 앱 주소({@code posegood.auth.app-url})의 {@code #social-result?status=}로 보낸다.
- * 주소에는 토큰을 싣지 않는다 — 앱은 기존처럼 {@code POST /v2/auth/refresh}로 access 토큰을 받는다.</li>
+ * 주소에는 토큰을 싣지 않는다 — 앱은 기존처럼 {@code POST /auth/refresh}로 access 토큰을 받는다.</li>
  * <li>가입이 필요하면 앱이 {@code GET .../signup}으로 제안값을 읽고 약관·프로필을 받아 {@code POST .../signup}을 부른다.</li>
  * </ol>
  */
 @RestController
-@RequestMapping("/v2/auth/social")
+@RequestMapping("/auth/social")
 public class SocialController {
 	static final String PENDING_COOKIE = "posegood_social";
 	static final String SIGNUP_COOKIE = "posegood_social_signup";

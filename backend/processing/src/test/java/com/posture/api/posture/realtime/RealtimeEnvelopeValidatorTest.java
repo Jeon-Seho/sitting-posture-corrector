@@ -9,7 +9,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-/** (D-21) 계약 v1 features 메시지 검사 — 팀 계약 예제와 같은 형태로 확인. */
+/** (D-21) Kafka 계약 features 메시지 검사 — 팀 계약 예제와 같은 형태로 확인. */
 class RealtimeEnvelopeValidatorTest {
 
 	static Map<String, Object> envelope(String kind, Map<String, Object> body) {

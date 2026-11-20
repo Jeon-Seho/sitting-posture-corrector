@@ -1,7 +1,7 @@
 """
 자세 분석 시스템 추론 서비스 진입점 — Kafka 컨슈머 하나.
 
-(D-21) 실시간 계약 v1: posture.features.v1 → 팀 기준 규칙 점수(app/realtime.py) → posture.inference.v1,
+(D-21) 실시간 Kafka 계약: posture.features → 팀 기준 규칙 점수(app/realtime.py) → posture.inference,
 처리 못 한 메시지는 posture.dlq(D-36). MySQL에는 접근하지 않는다.
 
 (D-38·D-63, 2026-10-21) 옛 posture.summary → posture.inference 컨슈머와 시험 LSTM(app/model.py·train_test_model.py)은 지웠다.
@@ -29,7 +29,7 @@ logger = logging.getLogger("inference-service")
 # INFO 레벨에서 커넥션/브로커 버전 프로빙마다 여러 줄씩 로그를 남긴다.
 # /health가 Docker healthcheck(기본 15초 간격)로 계속 호출되면서 매번
 # 새 KafkaAdminClient를 만들다 보니 이 로그가 끊임없이 쌓여서, 정작
-# 중요한 v1 처리·DLQ 같은 우리 애플리케이션
+# 중요한 실시간 처리·DLQ 같은 우리 애플리케이션
 # 로그가 `docker compose logs --tail=N`의 짧은 창 밖으로 금방 밀려나는
 # 문제가 있었다. kafka-python 쪽 로거만 WARNING 이상으로 올려서
 # 연결 실패 같은 진짜 문제는 여전히 보이돼 정상 커넥션 로그는 숨긴다.
@@ -42,7 +42,7 @@ KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # (D-21) 실시간 계약 v1: posture.features.v1 → posture.inference.v1
+    # (D-21) 실시간 Kafka 계약: posture.features → posture.inference
     realtime_consumer.start()
     yield
     # 종료 시 정리
@@ -88,7 +88,7 @@ def health():
         "components": {
             "redis": redis_result,
             "kafka": kafka_result,
-            "realtimeV1": realtime_consumer.status(),
+            "realtime": realtime_consumer.status(),
         },
     }
     return JSONResponse(

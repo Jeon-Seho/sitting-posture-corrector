@@ -1,4 +1,6 @@
 .gradle/
 build/
+# IDE(VS Code Java) compile output
+*/bin/
 # The root *.jar rule would drop the wrapper; gradlew cannot start without it.
 !gradle/wrapper/gradle-wrapper.jar

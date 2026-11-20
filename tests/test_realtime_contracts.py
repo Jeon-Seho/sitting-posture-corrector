@@ -1,4 +1,4 @@
-"""Draft Kafka topic contracts (plan 0022 step 1) and shared WebSocket v2 rules, synthetic examples only."""
+"""Draft Kafka topic contracts (plan 0022 step 1) and shared WebSocket rules, synthetic examples only."""
 
 import copy
 import json
@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 REALTIME = CONTRACTS / "realtime"
 EXAMPLES = REALTIME / "examples"
-EXAMPLES_V2 = REALTIME / "examples-v2"
+EXAMPLES_V2 = REALTIME / "examples-ws"
 SCHEMAS = {
-    "features-": "kafka-features.v1.schema.json",
-    "inference-": "kafka-inference.v1.schema.json",
-    "episodes-": "kafka-episodes.v1.schema.json",
-    "alerts-": "kafka-alerts.v1.schema.json",
-    "stored-": "kafka-stored.v1.schema.json",
-    "keypoints-": "kafka-keypoints.v1.schema.json",
+    "features-": "kafka-features.schema.json",
+    "inference-": "kafka-inference.schema.json",
+    "episodes-": "kafka-episodes.schema.json",
+    "alerts-": "kafka-alerts.schema.json",
+    "stored-": "kafka-stored.schema.json",
+    "keypoints-": "kafka-keypoints.schema.json",
 }
 
 
@@ -69,12 +69,12 @@ class RealtimeContractTests(unittest.TestCase):
         ]
         for payload in cases:
             with self.subTest(payload=list(payload)), self.assertRaises(ValidationError):
-                validator("kafka-features.v1.schema.json").validate(payload)
+                validator("kafka-features.schema.json").validate(payload)
 
     def test_keypoints_topic_carries_the_app_interval_and_only_it(self):
         """(D-92) 좌표 적재 토픽: 본문은 앱이 보낸 좌표 구간 그대로(frames 계약). 다른 kind·모르는 칸은 거절."""
         keypoints = self.example("keypoints-keypoints.json")
-        check = validator("kafka-keypoints.v1.schema.json")
+        check = validator("kafka-keypoints.schema.json")
         check.validate(keypoints)
         cases = [
             dict(keypoints, kind="features"),
@@ -89,22 +89,22 @@ class RealtimeContractTests(unittest.TestCase):
         features = self.example("features-features.json")
         ended = self.example("features-session-ended.json")
         with self.assertRaises(ValidationError):
-            validator("kafka-features.v1.schema.json").validate(dict(features, body=ended["body"]))
+            validator("kafka-features.schema.json").validate(dict(features, body=ended["body"]))
         observation = self.example("inference-observation.json")
         with self.assertRaises(ValidationError):
-            validator("kafka-inference.v1.schema.json").validate(dict(observation, kind="session_ended"))
+            validator("kafka-inference.schema.json").validate(dict(observation, kind="session_ended"))
         decision = self.example("episodes-decision.json")
         progress = self.example("episodes-progress.json")
         live = self.example("episodes-observation.json")
         for payload in (dict(decision, kind="progress"), dict(progress, kind="decision"),
                         dict(live, kind="progress"), dict(progress, kind="observation")):
             with self.subTest(kind=payload["kind"]), self.assertRaises(ValidationError):
-                validator("kafka-episodes.v1.schema.json").validate(payload)
+                validator("kafka-episodes.schema.json").validate(payload)
 
     def test_excluded_interval_events_carry_an_exclusion_reason(self):
         # D-39: excluded_started/excluded_ended mark spans left out of the judgement (excluded_interval).
         decision = self.example("episodes-decision.json")
-        schema = validator("kafka-episodes.v1.schema.json")
+        schema = validator("kafka-episodes.schema.json")
         for kind in ("excluded_started", "excluded_ended"):
             for reason in ("rest", "away", "unmeasurable", "missing"):
                 payload = copy.deepcopy(decision)
@@ -121,12 +121,12 @@ class RealtimeContractTests(unittest.TestCase):
     def test_only_notifying_events_become_alerts(self):
         alert = load(EXAMPLES_V2 / "ws-alert.json")
         with self.assertRaises(ValidationError):
-            validator("realtime-ws.v2.schema.json").validate(dict(alert, kind="recovery_confirmed"))
+            validator("realtime-ws.schema.json").validate(dict(alert, kind="recovery_confirmed"))
 
     def test_alerts_topic_carries_only_notifying_events(self):
-        """(D-54) posture.alerts.v1 — only collapse_confirmed and reminder, no unknown fields."""
+        """(D-54) posture.alerts — only collapse_confirmed and reminder, no unknown fields."""
         alert = self.example("alerts-alert.json")
-        schema = validator("kafka-alerts.v1.schema.json")
+        schema = validator("kafka-alerts.schema.json")
         schema.validate(dict(alert, body=dict(alert["body"], kind="reminder")))
         for body in (dict(alert["body"], kind="recovery_confirmed"), dict(alert["body"], extra=1),
                      {k: v for k, v in alert["body"].items() if k != "deviation_type"}):
@@ -139,7 +139,7 @@ class RealtimeContractTests(unittest.TestCase):
         frame = load(EXAMPLES_V2 / "ws-features.json")
         for items in ([], frame["items"] * 31):
             with self.subTest(size=len(items)), self.assertRaises(ValidationError):
-                validator("realtime-ws.v2.schema.json").validate(dict(frame, items=items))
+                validator("realtime-ws.schema.json").validate(dict(frame, items=items))
 
     def test_nested_event_must_belong_to_the_message_session(self):
         for name in ("episodes-decision.json",):

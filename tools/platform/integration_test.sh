@@ -7,7 +7,7 @@
 #   tools/platform/integration_test.sh            # 전체 (약 2~3분)
 #   tools/platform/integration_test.sh --quick    # Spark 작업(왕복·적재 확인) 생략 (약 1분)
 #   tools/platform/integration_test.sh --no-e2e   # 구성요소 점검만 (데이터 재생 없음)
-#   tools/platform/integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 v1 판정 상태 복원 확인 (약 1분 추가)
+#   tools/platform/integration_test.sh --restart  # 9단계(D-37)까지: 재생 도중 api-server를 재시작해 판정 상태 복원 확인 (약 1분 추가)
 #   tools/platform/integration_test.sh --kafka    # (D-57) 12~14단계를 kafka 경로로: io-api를 POSEGOOD_REALTIME_PIPELINE=kafka로
 #                                                 # 다시 띄워(좌표 적재 POSEGOOD_ARCHIVE_KEYPOINTS도 켬, D-92) 직접·화면(web)·터널(gateway)
 #                                                 # WebSocket 왕복 → 좌표 토픽 167개 → 컨슈머 lag 0·DLQ 그대로 →
@@ -24,18 +24,18 @@
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
 #   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.7 준비(D-32·D-51·D-65·D-89)
 #   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
-#                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(v1)·11단계(저장)·12단계(WebSocket)
-#   8. 계약 v1      : 시험용 입구 → posture.features.v1 → 추론 → posture.inference.v1 → v1 판정(D-22)
-#                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes.v1 발행, v1 lag 0, DLQ(D-36)
-#   9. v1 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
-#                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:v1:judge:<id> 저장·삭제 확인(D-37)
+#                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(Kafka 판정)·11단계(저장)·12단계(WebSocket)
+#   8. Kafka 계약  : 시험용 입구 → posture.features → 추론 → posture.inference → 판정(D-22)
+#                    → 확정·재알림·복귀(73.0s)·종료, posture.episodes 발행, lag 0, DLQ(D-36)
+#   9. 판정 상태 복원 : (--restart일 때만) 같은 세션을 앞 60건 → api-server 재시작 → 나머지로 나눠 보내고
+#                    8단계와 같은 사건·요약(누락 0)인지, Redis posture:judge:<id> 저장·삭제 확인(D-37)
 #  10. 입출구 서버 : (io-api 컨테이너가 있을 때만 — compose --profile io) io-api·inference healthy·KST,
 #                    REST 점검 tools/platform/io_api_smoke.py(가입·로그인·토큰 갱신 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제
 #                    → 로그아웃 → 탈퇴, D-48·D-69 — 토큰 로그인 ADR 0031)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
-#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → v1 재생 → posture_service(V2.7)에
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → 실시간 재생 → posture_service(V2.7)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
-#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /v2/realtime 왕복(D-57 3단계).
+#  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계).
 #                    io-api의 POSEGOOD_REALTIME_PIPELINE(local·kafka)로 돌고, 13·14단계도 같은 값. --kafka면 12단계 앞에서 kafka로
 #                    바꾸고 14단계 뒤에 Kafka 그룹 lag 0·posture.dlq 증가 0을 본 뒤 되돌린다
 #  13. FE ↔ BE    : (web이 있을 때) FE 화면 컨테이너(nginx)가 화면을 내고, 그 /api로 REST 점검·WebSocket 왕복(T-13)
@@ -43,7 +43,7 @@
 #                    cloudflared(--profile edge)가 터널에 붙었는지, PUBLIC_API_URL이 있으면 밖(https)에서 /health·404·CORS·REST·wss 왕복
 #  15. Spark J2    : (시험 고정값이 켜져 있을 때) 시험 세션 2개 → 일별 통계 daily_stat 값·재실행 변경 없음·--days·삭제 뒤 CASCADE (D-05·D-81)
 #  16. Spark J3    : 시험 계정을 탈퇴 상태로(tests/batch_testkit.py) → 30일 지난 계정만 DB 행·HDFS 폴더 전부 삭제 (D-49)
-#  17. Spark J1    : 시험 세션을 Kafka v1로 재생(+ 합성 좌표 구간, D-92) → Kafka 받기 → HDFS 세션 폴더 파일 4개·feature_archive → J3로 정리 (D-33)
+#  17. Spark J1    : 시험 세션을 Kafka로 재생(+ 합성 좌표 구간, D-92) → Kafka 받기 → HDFS 세션 폴더 파일 4개·feature_archive → J3로 정리 (D-33)
 #
 # 결과: tools/platform/it-results/<시각>/ 에 단계별 로그와 summary.txt. FAIL이 하나라도 있으면 종료 코드 1.
 # 이 스크립트는 운영 데이터를 지우지 않는다. 만드는 것은 임시 토픽·HDFS 임시 파일·Redis 임시 키뿐이고
@@ -168,12 +168,12 @@ if [ -f "$ENV_FILE" ]; then
       fail ".env에 $k 없음" "비밀값은 infra/compose/secrets/ 파일로 — .env 줄을 지운다(infra/README.md 입출구 서버)"
     fi
   done
-  # (D-87) Discord 로그인을 켰으면(Client ID 있음) Redirect 주소는 https://…/v2/auth/social/discord/callback
+  # (D-87) Discord 로그인을 켰으면(Client ID 있음) Redirect 주소는 https://…/api/auth/social/discord/callback(주소에 버전 없음, 2026-11-09)
   if [ -n "$(envval POSEGOOD_DISCORD_CLIENT_ID)" ]; then
     RU="$(envval POSEGOOD_DISCORD_REDIRECT_URI)"
-    if echo "$RU" | grep -qE '^https://[^[:space:]]+/v2/auth/social/discord/callback$' && [ -n "$(envval POSEGOOD_APP_URL)" ]
+    if echo "$RU" | grep -qE '^https://[^[:space:]]+/api/auth/social/discord/callback$' && [ -n "$(envval POSEGOOD_APP_URL)" ]
     then pass ".env Discord 로그인 설정 (Client ID·Redirect https·APP_URL, 값은 출력 안 함)"
-    else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/v2/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
+    else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/api/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
   fi
   if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED)" = "true" ]; then
     MISS=""
@@ -252,22 +252,28 @@ step "2. Kafka"
 check "브로커 응답" $KT/kafka-broker-api-versions.sh $BS
 TOPICS="$($KT/kafka-topics.sh $BS --list 2>/dev/null)"
 echo "$TOPICS" >>"$OUT/run.log"
-# (D-38) 옛 경로 토픽·컨슈머 그룹이 서버에 남아 있으면 안내만 한다 — 지우는 법은 infra/README.md "옛 경로 정리"
-OLD_T="$(echo "$TOPICS" | grep -xE 'posture\.summary|posture\.inference' | tr '\n' ' ')"
+# (D-38) 옛 경로 토픽·컨슈머 그룹이 서버에 남아 있으면 안내만 한다 — 지우는 법은 infra/README.md "옛 경로 정리".
+# 옛 D-38 이름 posture.inference·inference-service는 2026-11-18부터 지금 이름이라 여기서는 보지 않는다.
+OLD_T="$(echo "$TOPICS" | grep -xE 'posture\.summary' | tr '\n' ' ')"
 [ -n "$OLD_T" ] && log "  (안내) 옛 경로 토픽이 남아 있음: $OLD_T— 쓰는 서비스 없음(D-38), infra/README.md 절차로 지운다"
-OLD_G="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -xE 'api-server-cep|inference-service' | tr '\n' ' ')"
+OLD_G="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -xE 'api-server-cep' | tr '\n' ' ')"
 [ -n "$OLD_G" ] && log "  (안내) 옛 경로 컨슈머 그룹이 남아 있음: $OLD_G— infra/README.md 절차로 지운다"
-# (D-21) 계약 v1 토픽 — api-server가 시작할 때 만든다(파티션 3)
-# (D-54) 알림 토픽 posture.alerts.v1도 같은 방식(파티션 3, 보존 3일)
-for t in posture.features.v1 posture.inference.v1 posture.episodes.v1 posture.alerts.v1 posture.dlq; do
+# (2026-11-18) 버전 붙은 옛 이름(posture.*.v1, *-v1 그룹)이 남아 있으면 안내만 한다 — infra/README.md "Kafka 이름에서 버전 빼기"
+OLD_V1T="$(echo "$TOPICS" | grep -xE 'posture\.[a-z]+\.v1' | tr '\n' ' ')"
+[ -n "$OLD_V1T" ] && log "  (안내) 버전 붙은 옛 토픽이 남아 있음: $OLD_V1T— 안 읽은 메시지(LAG) 0 확인 뒤 infra/README.md 절차로 지운다"
+OLD_V1G="$($KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -xE 'judge-v1|report-store-v1|inference-service-v1' | tr '\n' ' ')"
+[ -n "$OLD_V1G" ] && log "  (안내) 버전 붙은 옛 컨슈머 그룹이 남아 있음: $OLD_V1G— infra/README.md 절차로 지운다"
+# (D-21) Kafka 계약 토픽 — api-server가 시작할 때 만든다(파티션 3)
+# (D-54) 알림 토픽 posture.alerts도 같은 방식(파티션 3, 보존 3일)
+for t in posture.features posture.inference posture.episodes posture.alerts posture.dlq; do
   PC="$($KT/kafka-topics.sh $BS --describe --topic "$t" 2>/dev/null | grep -oE 'PartitionCount: *[0-9]+' | grep -oE '[0-9]+')"
   if [ -z "$PC" ]; then fail "토픽 $t" "없음 — D-21 적용 후 api-server 재빌드·재생성 필요"
   elif [ "$PC" -ge 3 ] || { [ "$t" = posture.dlq ] && [ "$PC" -ge 1 ]; }; then pass "토픽 $t (파티션 $PC개)"
   else fail "토픽 $t 파티션" "$PC개 (3개 필요)"; fi
 done
-RET="$($KT/kafka-configs.sh $BS --describe --entity-type topics --entity-name posture.alerts.v1 2>/dev/null | grep -oE 'retention.ms=[0-9]+' | head -1)"
-if [ "$RET" = "retention.ms=259200000" ]; then pass "토픽 posture.alerts.v1 보존 3일 (D-54)"
-else fail "토픽 posture.alerts.v1 보존" "${RET:-설정 없음} (기대 259200000 = 3일 — 토픽을 새로 만들 때만 들어감)"; fi
+RET="$($KT/kafka-configs.sh $BS --describe --entity-type topics --entity-name posture.alerts 2>/dev/null | grep -oE 'retention.ms=[0-9]+' | head -1)"
+if [ "$RET" = "retention.ms=259200000" ]; then pass "토픽 posture.alerts 보존 3일 (D-54)"
+else fail "토픽 posture.alerts 보존" "${RET:-설정 없음} (기대 259200000 = 3일 — 토픽을 새로 만들 때만 들어감)"; fi
 IT_TOPIC="it.smoke.$TS"
 MSG="it-$TS-$RANDOM"
 if $KT/kafka-topics.sh $BS --create --topic "$IT_TOPIC" --partitions 1 --replication-factor 1 >>"$OUT/run.log" 2>&1 \
@@ -348,10 +354,10 @@ else
 fi
 IH="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$INFER/health")"
 if [ "$IH" = "200" ]; then pass "inference-service /health"; else fail "inference-service /health" "HTTP $IH"; fi
-GRP="$($KT/kafka-consumer-groups.sh $BS --describe --group judge-v1 2>/dev/null)"
+GRP="$($KT/kafka-consumer-groups.sh $BS --describe --group judge 2>/dev/null)"
 echo "$GRP" >>"$OUT/run.log"
-NC="$(echo "$GRP" | awk '$2=="posture.inference.v1" && $7 ~ /consumer/ {print $7}' | sort -u | wc -l)"
-if [ "$NC" -ge 1 ]; then pass "v1 판정 컨슈머 그룹 judge-v1 참여 (${NC}개 스레드)"; else skip "v1 판정 컨슈머 그룹" "아직 할당 없음(처음 기동 직후일 수 있음)"; fi
+NC="$(echo "$GRP" | awk '$2=="posture.inference" && $7 ~ /consumer/ {print $7}' | sort -u | wc -l)"
+if [ "$NC" -ge 1 ]; then pass "판정 컨슈머 그룹 judge 참여 (${NC}개 스레드)"; else skip "판정 컨슈머 그룹" "아직 할당 없음(처음 기동 직후일 수 있음)"; fi
 
 # ---------------------------------------------------------------------
 # (D-38) 7단계(옛 posture.summary 경로 T-10·posture-sink HDFS 적재)는 옛 경로와 함께 지웠다.
@@ -360,9 +366,9 @@ if ! echo "$RD" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin)
 fi
 
 # ---------------------------------------------------------------------
-step "8. 실시간 계약 v1 (D-21·D-22·D-36)"
-# v1 판정기 결과(GET /judge/v1/sessions/<id>)가 T-10 기대값인지 — 8단계·9단계 공통 (누락 구간 0까지 확인)
-v1_expected() {
+step "8. 실시간 Kafka 계약 (D-21·D-22·D-36)"
+# 판정기 결과(GET /judge/sessions/<id>)가 T-10 기대값인지 — 8단계·9단계 공통 (누락 구간 0까지 확인)
+judge_expected() {
   python3 -c "
 import json,sys
 v=json.load(sys.stdin); ev=v['events']; s=v['summary']
@@ -373,95 +379,95 @@ ok=(k==['collapse_confirmed','reminder','recovery_confirmed','session_ended'] an
     and s['missing_ms']==0 and v['last_sequence']==169)
 sys.exit(0 if ok else 1)"
 }
-if [ "$E2E" = 0 ]; then skip "v1 종단 시험" "--no-e2e"
-elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "v1 종단 시험" "$TOOLS/replay_realtime_v1.py 없음"
+if [ "$E2E" = 0 ]; then skip "종단 시험" "--no-e2e"
+elif [ ! -f $TOOLS/replay_realtime.py ]; then skip "종단 시험" "$TOOLS/replay_realtime.py 없음"
 else
-  V1_USER="IT-V1-$TS"
-  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "$V1_USER" --dump "$OUT/v1-messages.jsonl" >"$OUT/v1-replay.log" 2>&1
-  V1_SID="$(grep -oE 'session_id = [0-9a-f-]+' "$OUT/v1-replay.log" | awk '{print $3}')"
-  if grep -qE '성공\(202\) 172 / 실패 0' "$OUT/v1-replay.log"; then pass "v1 재생 172건 전송 (시작 1 + 0.5초 구간 170 + 종료 1, HTTP 202)"
-  else fail "v1 재생 전송" "$OUT/v1-replay.log 확인 (404면 REALTIME_TEST_ENTRY_ENABLED·재빌드 확인)"; fi
+  RT_USER="IT-RT-$TS"
+  python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "$RT_USER" --dump "$OUT/realtime-messages.jsonl" >"$OUT/realtime-replay.log" 2>&1
+  RT_SID="$(grep -oE 'session_id = [0-9a-f-]+' "$OUT/realtime-replay.log" | awk '{print $3}')"
+  if grep -qE '성공\(202\) 172 / 실패 0' "$OUT/realtime-replay.log"; then pass "실시간 재생 172건 전송 (시작 1 + 0.5초 구간 170 + 종료 1, HTTP 202)"
+  else fail "실시간 재생 전송" "$OUT/realtime-replay.log 확인 (404면 REALTIME_TEST_ENTRY_ENABLED·재빌드 확인)"; fi
 
-  # (D-22) v1 판정기 결과 — 세션이 끝나면(session_ended) 최근 종료 목록에서 조회된다
-  V1VIEW=""
-  if [ -n "$V1_SID" ]; then
+  # (D-22) 판정기 결과 — 세션이 끝나면(session_ended) 최근 종료 목록에서 조회된다
+  RT_VIEW=""
+  if [ -n "$RT_SID" ]; then
     for _ in $(seq 1 30); do
-      V1VIEW="$(curl -s -m 5 "$API/judge/v1/sessions/$V1_SID")"
-      echo "$V1VIEW" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
-      V1VIEW=""; sleep 2
+      RT_VIEW="$(curl -s -m 5 "$API/judge/sessions/$RT_SID")"
+      echo "$RT_VIEW" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
+      RT_VIEW=""; sleep 2
     done
   fi
-  echo "v1 판정: ${V1VIEW:-없음}" >>"$OUT/run.log"
-  if [ -z "$V1VIEW" ]; then fail "v1 판정 결과" "60초 안에 session_id=${V1_SID:-?} 종료 안 됨 (curl $API/judge/v1/sessions/<id>, docker logs inference-service / api-server)"
-  elif echo "$V1VIEW" | v1_expected; then pass "v1 판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
-  else fail "v1 판정 결과" "$(echo "$V1VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
+  echo "판정: ${RT_VIEW:-없음}" >>"$OUT/run.log"
+  if [ -z "$RT_VIEW" ]; then fail "판정 결과" "60초 안에 session_id=${RT_SID:-?} 종료 안 됨 (curl $API/judge/sessions/<id>, docker logs inference-service / api-server)"
+  elif echo "$RT_VIEW" | judge_expected; then pass "판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
+  else fail "판정 결과" "$(echo "$RT_VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
 
-  # (D-37) 세션이 끝나면 Redis의 v1 판정 상태 키를 지운다
-  if [ -n "$V1_SID" ]; then
-    RK1="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$V1_SID" 2>/dev/null)"
-    if [ "$RK1" = "0" ]; then pass "v1 판정 상태 키 정리 (종료 후 삭제, D-37)"
-    else fail "v1 판정 상태 키 정리" "posture:v1:judge:$V1_SID EXISTS=${RK1:-?}"; fi
+  # (D-37) 세션이 끝나면 Redis의 판정 상태 키를 지운다
+  if [ -n "$RT_SID" ]; then
+    RK1="$(docker exec redis redis-cli EXISTS "posture:judge:$RT_SID" 2>/dev/null)"
+    if [ "$RK1" = "0" ]; then pass "판정 상태 키 정리 (종료 후 삭제, D-37)"
+    else fail "판정 상태 키 정리" "posture:judge:$RT_SID EXISTS=${RK1:-?}"; fi
   fi
 
-  # (D-22) posture.episodes.v1 발행 — 이 세션의 decision 4건, progress 1건 이상
-  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes.v1 --from-beginning --timeout-ms 15000 \
-    2>/dev/null | grep -F "$V1_SID" >"$OUT/v1-episodes.jsonl" || true
-  ND="$(grep -c '"kind":"decision"' "$OUT/v1-episodes.jsonl" 2>/dev/null || true)"
-  NP="$(grep -c '"kind":"progress"' "$OUT/v1-episodes.jsonl" 2>/dev/null || true)"
-  if [ "${ND:-0}" = "4" ] && [ "${NP:-0}" -ge 1 ]; then pass "posture.episodes.v1 발행: decision ${ND}건, progress ${NP}건"
-  else fail "posture.episodes.v1 발행" "decision ${ND:-0}건(기대 4), progress ${NP:-0}건 — $OUT/v1-episodes.jsonl"; fi
+  # (D-22) posture.episodes 발행 — 이 세션의 decision 4건, progress 1건 이상
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes --from-beginning --timeout-ms 15000 \
+    2>/dev/null | grep -F "$RT_SID" >"$OUT/realtime-episodes.jsonl" || true
+  ND="$(grep -c '"kind":"decision"' "$OUT/realtime-episodes.jsonl" 2>/dev/null || true)"
+  NP="$(grep -c '"kind":"progress"' "$OUT/realtime-episodes.jsonl" 2>/dev/null || true)"
+  if [ "${ND:-0}" = "4" ] && [ "${NP:-0}" -ge 1 ]; then pass "posture.episodes 발행: decision ${ND}건, progress ${NP}건"
+  else fail "posture.episodes 발행" "decision ${ND:-0}건(기대 4), progress ${NP:-0}건 — $OUT/realtime-episodes.jsonl"; fi
 
   sleep 3
-  for g in inference-service-v1 judge-v1; do
+  for g in inference-service judge; do
     L="$($KT/kafka-consumer-groups.sh $BS --describe --group "$g" 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
-    if [ "$L" = "0" ]; then pass "v1 컨슈머 $g lag 0"
-    elif [ -z "$L" ]; then fail "v1 컨슈머 $g" "그룹 없음 — 서비스 재빌드·재생성 확인"
-    else fail "v1 컨슈머 $g lag" "$L"; fi
+    if [ "$L" = "0" ]; then pass "실시간 컨슈머 $g lag 0"
+    elif [ -z "$L" ]; then fail "실시간 컨슈머 $g" "그룹 없음 — 서비스 재빌드·재생성 확인"
+    else fail "실시간 컨슈머 $g lag" "$L"; fi
   done
   # (D-53) 옛 판정 그룹 이름(api-server-cep-v1)이 남아 있으면 안내만 한다 — 지우는 법은 infra/README.md
   if $KT/kafka-consumer-groups.sh $BS --list 2>/dev/null | grep -qx api-server-cep-v1; then
-    log "  (안내) 옛 컨슈머 그룹 api-server-cep-v1이 남아 있음 — 판정 그룹은 judge-v1(D-53), infra/README.md 절차로 지운다"
+    log "  (안내) 옛 컨슈머 그룹 api-server-cep-v1이 남아 있음 — 판정 그룹은 judge(D-53), infra/README.md 절차로 지운다"
   fi
 
-  # (D-36) DLQ — 깨진 메시지를 features.v1에 직접 넣으면 추론이 posture.dlq로 넘기고 계속 처리해야 한다
+  # (D-36) DLQ — 깨진 메시지를 features에 직접 넣으면 추론이 posture.dlq로 넘기고 계속 처리해야 한다
   DLQ_MARK="it-dlq-$TS-$RANDOM"
-  echo "$DLQ_MARK" | docker exec -i kafka /opt/kafka/bin/kafka-console-producer.sh $BS --topic posture.features.v1 >>"$OUT/run.log" 2>&1
+  echo "$DLQ_MARK" | docker exec -i kafka /opt/kafka/bin/kafka-console-producer.sh $BS --topic posture.features >>"$OUT/run.log" 2>&1
   GOTDLQ=""
   for _ in $(seq 1 10); do
     GOTDLQ="$(timeout 30 $KT/kafka-console-consumer.sh $BS --topic posture.dlq --from-beginning --timeout-ms 5000 2>/dev/null | grep -F "$DLQ_MARK" | head -1)"
     [ -n "$GOTDLQ" ] && break; sleep 2
   done
   echo "DLQ: ${GOTDLQ:-없음}" >>"$OUT/run.log"
-  if echo "$GOTDLQ" | grep -q '"source_topic": *"posture.features.v1"'; then pass "DLQ: 깨진 메시지 → posture.dlq (D-36)"
+  if echo "$GOTDLQ" | grep -q '"source_topic": *"posture.features"'; then pass "DLQ: 깨진 메시지 → posture.dlq (D-36)"
   else fail "DLQ" "posture.dlq에 $DLQ_MARK 없음 — docker logs inference-service 확인"; fi
 fi
 
 # ---------------------------------------------------------------------
-step "9. v1 판정 상태 복원 (D-37)"
-if [ "$RESTART" = 0 ]; then skip "v1 재시작 복원" "--restart 옵션으로 실행(api-server를 재시작함)"
-elif [ "$E2E" = 0 ]; then skip "v1 재시작 복원" "--no-e2e"
-elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "v1 재시작 복원" "$TOOLS/replay_realtime_v1.py 없음"
+step "9. 판정 상태 복원 (D-37)"
+if [ "$RESTART" = 0 ]; then skip "재시작 복원" "--restart 옵션으로 실행(api-server를 재시작함)"
+elif [ "$E2E" = 0 ]; then skip "재시작 복원" "--no-e2e"
+elif [ ! -f $TOOLS/replay_realtime.py ]; then skip "재시작 복원" "$TOOLS/replay_realtime.py 없음"
 else
   R_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
   R_USER="IT-V1R-$TS"
-  RP="python3 $TOOLS/replay_realtime_v1.py --api $API/api/v1/realtime/features --user-id $R_USER --session-id $R_SID"
-  $RP --range 0:60 >"$OUT/v1-restart-1.log" 2>&1
-  if grep -qE '성공\(202\) 60 / 실패 0' "$OUT/v1-restart-1.log"; then pass "재시작 전 전송 60건 (시작 1 + 구간 sequence 0~58)"
-  else fail "재시작 전 전송" "$OUT/v1-restart-1.log"; fi
+  RP="python3 $TOOLS/replay_realtime.py --api $API/api/realtime/features --user-id $R_USER --session-id $R_SID"
+  $RP --range 0:60 >"$OUT/realtime-restart-1.log" 2>&1
+  if grep -qE '성공\(202\) 60 / 실패 0' "$OUT/realtime-restart-1.log"; then pass "재시작 전 전송 60건 (시작 1 + 구간 sequence 0~58)"
+  else fail "재시작 전 전송" "$OUT/realtime-restart-1.log"; fi
 
   # 판정기가 sequence 58까지 반영하고 사건(확정 8.0s)이 진행 중이어야 한다
   R1=""
   for _ in $(seq 1 30); do
-    R1="$(curl -s -m 5 "$API/judge/v1/sessions/$R_SID")"
+    R1="$(curl -s -m 5 "$API/judge/sessions/$R_SID")"
     echo "$R1" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d.get('last_sequence')==58 and d.get('active') else 1)" 2>/dev/null && break
     R1=""; sleep 2
   done
-  echo "재시작 전 v1 판정: ${R1:-없음}" >>"$OUT/run.log"
+  echo "재시작 전 판정: ${R1:-없음}" >>"$OUT/run.log"
   if [ -n "$R1" ]; then pass "재시작 전: 사건 진행 중(확정 8.0s), last_sequence 58"
-  else fail "재시작 전 판정" "60초 안에 last_sequence 58·active 안 됨 (curl $API/judge/v1/sessions/$R_SID)"; fi
-  RK2="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
-  if [ "$RK2" = "1" ]; then pass "Redis에 v1 판정 상태 저장 (posture:v1:judge:<session_id>)"
-  else fail "Redis v1 판정 상태 저장" "EXISTS=${RK2:-?}"; fi
+  else fail "재시작 전 판정" "60초 안에 last_sequence 58·active 안 됨 (curl $API/judge/sessions/$R_SID)"; fi
+  RK2="$(docker exec redis redis-cli EXISTS "posture:judge:$R_SID" 2>/dev/null)"
+  if [ "$RK2" = "1" ]; then pass "Redis에 판정 상태 저장 (posture:judge:<session_id>)"
+  else fail "Redis 판정 상태 저장" "EXISTS=${RK2:-?}"; fi
 
   RESTART_AT="$(date +%s)"
   $DC restart api-server >>"$OUT/run.log" 2>&1
@@ -472,25 +478,25 @@ else
   done
   if [ "$UP" = 1 ]; then pass "api-server 재시작 → readiness UP"; else fail "api-server 재시작" "120초 안에 readiness UP 안 됨"; fi
 
-  $RP --range 60: >"$OUT/v1-restart-2.log" 2>&1
-  if grep -qE '성공\(202\) 112 / 실패 0' "$OUT/v1-restart-2.log"; then pass "재시작 후 전송 112건 (구간 sequence 59~169 + 종료)"
-  else fail "재시작 후 전송" "$OUT/v1-restart-2.log"; fi
+  $RP --range 60: >"$OUT/realtime-restart-2.log" 2>&1
+  if grep -qE '성공\(202\) 112 / 실패 0' "$OUT/realtime-restart-2.log"; then pass "재시작 후 전송 112건 (구간 sequence 59~169 + 종료)"
+  else fail "재시작 후 전송" "$OUT/realtime-restart-2.log"; fi
 
   R2=""
   for _ in $(seq 1 45); do
-    R2="$(curl -s -m 5 "$API/judge/v1/sessions/$R_SID")"
+    R2="$(curl -s -m 5 "$API/judge/sessions/$R_SID")"
     echo "$R2" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended') else 1)" 2>/dev/null && break
     R2=""; sleep 2
   done
-  echo "재시작 후 v1 판정: ${R2:-없음}" >>"$OUT/run.log"
-  if [ -z "$R2" ]; then fail "재시작 후 v1 판정" "90초 안에 종료 안 됨 (docker logs api-server)"
-  elif echo "$R2" | v1_expected; then pass "재시작을 넘어 같은 결과: 확정 8.0s → 재알림 68.0s → 복귀 78.0s → 종료, event_id 1~4, 누락 0"
-  else fail "재시작 후 v1 판정" "$(echo "$R2" | head -c 600) (복원 안 됐으면 event_id가 1부터 다시·missing_ms 30000)"; fi
+  echo "재시작 후 판정: ${R2:-없음}" >>"$OUT/run.log"
+  if [ -z "$R2" ]; then fail "재시작 후 판정" "90초 안에 종료 안 됨 (docker logs api-server)"
+  elif echo "$R2" | judge_expected; then pass "재시작을 넘어 같은 결과: 확정 8.0s → 재알림 68.0s → 복귀 78.0s → 종료, event_id 1~4, 누락 0"
+  else fail "재시작 후 판정" "$(echo "$R2" | head -c 600) (복원 안 됐으면 event_id가 1부터 다시·missing_ms 30000)"; fi
 
-  if docker logs --since "$RESTART_AT" api-server 2>&1 | grep -q "v1 판정 상태 복원 (sessionId=$R_SID"; then pass "api-server 로그: v1 판정 상태 복원"
-  else fail "v1 판정 상태 복원 로그" "docker logs api-server | grep 'v1 판정 상태 복원'"; fi
-  RK3="$(docker exec redis redis-cli EXISTS "posture:v1:judge:$R_SID" 2>/dev/null)"
-  if [ "$RK3" = "0" ]; then pass "종료 후 v1 판정 상태 키 삭제"; else fail "종료 후 v1 판정 상태 키" "EXISTS=${RK3:-?}"; fi
+  if docker logs --since "$RESTART_AT" api-server 2>&1 | grep -q "판정 상태 복원 (sessionId=$R_SID"; then pass "api-server 로그: 판정 상태 복원"
+  else fail "판정 상태 복원 로그" "docker logs api-server | grep '판정 상태 복원'"; fi
+  RK3="$(docker exec redis redis-cli EXISTS "posture:judge:$R_SID" 2>/dev/null)"
+  if [ "$RK3" = "0" ]; then pass "종료 후 판정 상태 키 삭제"; else fail "종료 후 판정 상태 키" "EXISTS=${RK3:-?}"; fi
 fi
 
 # ---------------------------------------------------------------------
@@ -518,7 +524,7 @@ fi
 
 # ---------------------------------------------------------------------
 step "11. 판정 결과 저장 (D-30·D-51·D-39·D-54)"
-# 저장 결과(GET /report/sessions/<id>)가 T-10 v1 기대값인지 — 세션 시작 기준 ms. V2.3은 종료 사유 컬럼이 없어
+# 저장 결과(GET /report/sessions/<id>)가 T-10 기대값인지 — 세션 시작 기준 ms. V2.3은 종료 사유 컬럼이 없어
 # 이벤트 종료 방식은 시각으로 판정한 end_kind(RECOVERED·SESSION_END·EXCLUDED), 알림은 시각만(표시 여부 = 세션 alert_enabled).
 d30_expected() {
   python3 -c "
@@ -538,7 +544,7 @@ elif ! echo "$STORE" | python3 -c "import json,sys;json.load(sys.stdin)" 2>/dev/
   fail "판정 결과 저장 (D-30)" "GET /report/store 응답 없음 — api-server 재빌드 확인"
 elif ! echo "$STORE" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('testFixturesEnabled') else 1)"; then
   skip "판정 결과 저장 (D-30)" "REPORT_TEST_FIXTURES_ENABLED=false — 시험 서버 .env에 true로 켜면 시험 계정·세션 행을 만들어 확인"
-elif [ ! -f $TOOLS/replay_realtime_v1.py ]; then skip "판정 결과 저장 (D-30)" "$TOOLS/replay_realtime_v1.py 없음"
+elif [ ! -f $TOOLS/replay_realtime.py ]; then skip "판정 결과 저장 (D-30)" "$TOOLS/replay_realtime.py 없음"
 else
   D_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
   CR="$(curl -s -m 10 -X POST "$API/report/test/sessions/$D_SID")"
@@ -546,7 +552,7 @@ else
   if echo "$CR" | grep -q '"baseline_posture_id"'; then pass "시험 계정·기준 자세·세션 행 생성 (DB-6, $D_SID)"
   else fail "시험 계정·세션 행 생성" "$(echo "$CR" | head -c 300)"; fi
 
-  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-D30-$TS" --session-id "$D_SID" \
+  python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-D30-$TS" --session-id "$D_SID" \
     >"$OUT/d30-replay.log" 2>&1
   DV=""
   for _ in $(seq 1 30); do
@@ -560,7 +566,7 @@ else
   else fail "판정 결과 저장" "$(echo "$DV" | head -c 700) (기대: 이벤트 1·알림 2·종료 85.0s)"; fi
 
   # 재전송 시험(C-3) — 같은 decision을 다시 넣어도 행·순번이 그대로여야 한다
-  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes.v1 --from-beginning --timeout-ms 15000 \
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.episodes --from-beginning --timeout-ms 15000 \
     2>/dev/null | grep -F "$D_SID" | grep -F '"kind":"decision"' >"$OUT/d30-decisions.jsonl" || true
   NDD="$(wc -l <"$OUT/d30-decisions.jsonl" | tr -d ' ')"
   AP="$(curl -s -m 20 -X POST -H 'Content-Type: text/plain' --data-binary @"$OUT/d30-decisions.jsonl" "$API/report/test/apply")"
@@ -577,7 +583,7 @@ PYD
   else fail "재전송 멱등" "decision ${NDD}건(기대 4), 결과 $SAME — $OUT/run.log"; fi
 
   # (D-54) 알림 토픽 — 알림 켜진 시험 세션: 확정·재알림 2건만, 위의 다시 넣기(재전송)는 다시 내지 않는다
-  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.alerts.v1 --from-beginning --timeout-ms 10000 \
+  timeout 40 $KT/kafka-console-consumer.sh $BS --topic posture.alerts --from-beginning --timeout-ms 10000 \
     2>/dev/null | grep -F "$D_SID" >"$OUT/d54-alerts.jsonl" || true
   ALERTS="$(python3 - "$OUT/d54-alerts.jsonl" "$D_SID" <<'PYA'
 import json,sys
@@ -588,21 +594,21 @@ print(('ok ' if ok else 'bad ')+' '.join(f"{r['body']['kind']}@{r['body']['times
 PYA
 )"
   echo "알림 토픽: $ALERTS" >>"$OUT/run.log"
-  if [ "$ALERTS" = "ok collapse_confirmed@8000 reminder@68000" ]; then pass "알림 토픽 posture.alerts.v1: 확정 8.0s·재알림 68.0s 2건, 재전송은 다시 안 냄 (D-54)"
-  else fail "알림 토픽 posture.alerts.v1" "${ALERTS:-없음} (기대: collapse_confirmed@8000 reminder@68000 — $OUT/d54-alerts.jsonl, GET /report/store alertsPublished)"; fi
+  if [ "$ALERTS" = "ok collapse_confirmed@8000 reminder@68000" ]; then pass "알림 토픽 posture.alerts: 확정 8.0s·재알림 68.0s 2건, 재전송은 다시 안 냄 (D-54)"
+  else fail "알림 토픽 posture.alerts" "${ALERTS:-없음} (기대: collapse_confirmed@8000 reminder@68000 — $OUT/d54-alerts.jsonl, GET /report/store alertsPublished)"; fi
 
   sleep 2
-  L="$($KT/kafka-consumer-groups.sh $BS --describe --group report-store-v1 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
-  if [ "$L" = "0" ]; then pass "저장 컨슈머 report-store-v1 lag 0"
-  elif [ -z "$L" ]; then fail "저장 컨슈머 report-store-v1" "그룹 없음 — REPORT_STORE_ENABLED·재빌드 확인"
-  else fail "저장 컨슈머 report-store-v1 lag" "$L"; fi
+  L="$($KT/kafka-consumer-groups.sh $BS --describe --group report-store 2>/dev/null | awk '$6 ~ /^[0-9]+$/ {s+=$6; n++} END{if(n) print s+0}')"
+  if [ "$L" = "0" ]; then pass "저장 컨슈머 report-store lag 0"
+  elif [ -z "$L" ]; then fail "저장 컨슈머 report-store" "그룹 없음 — REPORT_STORE_ENABLED·재빌드 확인"
+  else fail "저장 컨슈머 report-store lag" "$L"; fi
 
   # (D-39) 제외 구간: 정상 2s → 휴식 2.5s → 정상 2s, 마지막 구간 뒤 1.5s 공백으로 종료
   #   기대 excluded_interval = PAUSE [2000, 4500) · MISSING [6500, 8000), 세션 종료 8000, good_sec 4.0
   X_SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
   XC="$(curl -s -m 10 -X POST "$API/report/test/sessions/$X_SID")"
   echo "제외 구간 시험 세션: $XC" >>"$OUT/run.log"
-  python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-D39-$TS" --session-id "$X_SID" \
+  python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-D39-$TS" --session-id "$X_SID" \
     --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/d39-replay.log" 2>&1
   XV=""
   for _ in $(seq 1 30); do
@@ -632,7 +638,7 @@ fi
 
 # ---------------------------------------------------------------------
 step "12. 실시간 WebSocket 왕복 (D-57 3단계)"
-# 앱처럼 io-api /v2/realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
+# 앱처럼 io-api /realtime에 좌표 167구간을 보내고 decision·alert·closed와 DB 기록(처리 서비스 /report/sessions)을 확인한다.
 # 판정 경로(io-api POSEGOOD_REALTIME_PIPELINE)가 local이든 kafka든 같은 결과여야 한다 — 두 값으로 한 번씩 돌려 비교(계획 0031).
 # (D-57) --kafka: io-api만 kafka 경로로 다시 띄운다. 끝나면(중간에 멈춰도) .env 값으로 되돌린다.
 KAFKA_SWITCHED=0
@@ -652,7 +658,7 @@ restore_io_api() {
 }
 dlq_end() { $KT/kafka-get-offsets.sh $BS --topic posture.dlq 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
 # (D-92) 좌표 적재 토픽의 끝 위치 합 — 본문(좌표)은 읽지 않고 개수만 센다
-kp_end() { $KT/kafka-get-offsets.sh $BS --topic posture.keypoints.v1 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
+kp_end() { $KT/kafka-get-offsets.sh $BS --topic posture.keypoints 2>/dev/null | awk -F: '{s+=$3} END {print s+0}'; }
 if [ "$KAFKA_MODE" = 1 ] && [ "$E2E" = 1 ] && docker inspect io-api >/dev/null 2>&1; then
   trap restore_io_api EXIT
   DLQ_BEFORE="$(dlq_end)"
@@ -672,21 +678,21 @@ else
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
   fi
-  # (D-92) kafka 경로 + 좌표 적재 켬: 받은 구간 167개가 그대로 posture.keypoints.v1에(보내기는 기다리지 않으므로 잠깐 기다림)
+  # (D-92) kafka 경로 + 좌표 적재 켬: 받은 구간 167개가 그대로 posture.keypoints에(보내기는 기다리지 않으므로 잠깐 기다림)
   if [ "$PIPE" = kafka ] && [ "$KAFKA_SWITCHED" = 1 ]; then
     KP_N=0
     for _ in $(seq 1 10); do
       KP_N=$(( $(kp_end) - KP_BEFORE )); [ "$KP_N" -ge 167 ] && break; sleep 1
     done
-    if [ "$KP_N" = 167 ]; then pass "좌표 적재 토픽 posture.keypoints.v1 — 받은 구간 167개 = 메시지 167개 (D-92, 개수만)"
-    else fail "좌표 적재 토픽 posture.keypoints.v1" "메시지 ${KP_N}개(기대 167) — docker logs io-api | grep keypoints"; fi
+    if [ "$KP_N" = 167 ]; then pass "좌표 적재 토픽 posture.keypoints — 받은 구간 167개 = 메시지 167개 (D-92, 개수만)"
+    else fail "좌표 적재 토픽 posture.keypoints" "메시지 ${KP_N}개(기대 167) — docker logs io-api | grep keypoints"; fi
   fi
 fi
 
 # ---------------------------------------------------------------------
 step "13. FE ↔ BE 연동 — 화면 nginx(web) 경유 (T-13)"
 # (T-13 1단계) 서버 PC 안에서 FE 화면 컨테이너(팀 frontend.Dockerfile = 화면 + infra/nginx/default.conf)와 io-api를 함께 띄우고,
-#   브라우저가 쓰는 같은 경로(/api/…, /api/v2/realtime)로 REST 점검·WebSocket 왕복이 io-api 직접(10·12단계)과 같은지 본다.
+#   브라우저가 쓰는 같은 경로(/api/…, /api/realtime)로 REST 점검·WebSocket 왕복이 io-api 직접(10·12단계)과 같은지 본다.
 WEB="http://127.0.0.1:$(envor WEB_HOST_PORT 8088)"
 if ! docker inspect web >/dev/null 2>&1; then
   skip "FE ↔ BE 연동" "web 컨테이너 없음 — $DC --profile io up -d --build web"
@@ -705,7 +711,7 @@ else
   if [ "$E2E" = 1 ]; then
     if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" \
       >"$OUT/web-ws.log" 2>&1; then
-      pass "화면 경유 WebSocket 왕복 /api/v2/realtime ($(tail -1 "$OUT/web-ws.log"))"
+      pass "화면 경유 WebSocket 왕복 /api/realtime ($(tail -1 "$OUT/web-ws.log"))"
     else
       fail "화면 경유 WebSocket 왕복" "$(grep -m3 '^FAIL' "$OUT/web-ws.log" | tr '\n' ' ')(상세 $OUT/web-ws.log)"
     fi
@@ -761,10 +767,10 @@ else
   ORIG="$(envval POSEGOOD_CORS_ALLOWED_ORIGINS | cut -d, -f1)"
   if [ -z "$ORIG" ]; then skip "CORS 사전 확인" "POSEGOOD_CORS_ALLOWED_ORIGINS 비어 있음"
   else
-    HDR="$(curl -s -m 15 -o /dev/null -D - -X OPTIONS "$PUB/api/v2/auth/login" -H "Origin: $ORIG" \
+    HDR="$(curl -s -m 15 -o /dev/null -D - -X OPTIONS "$PUB/api/auth/login" -H "Origin: $ORIG" \
       -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tr -d '\r')"
     if echo "$HDR" | grep -qi "^access-control-allow-origin: $ORIG\$" && echo "$HDR" | grep -qi '^access-control-allow-credentials: true'; then
-      pass "CORS 사전 확인 OPTIONS /api/v2/auth/login (Origin $ORIG, credentials)"
+      pass "CORS 사전 확인 OPTIONS /api/auth/login (Origin $ORIG, credentials)"
     else fail "CORS 사전 확인" "허용 헤더 없음 — 끝 /·오타, docker exec io-api printenv POSEGOOD_CORS_ALLOWED_ORIGINS"; fi
   fi
   if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
@@ -774,7 +780,7 @@ else
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
     if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} \
       --pipeline "${PIPE:-local}" >"$OUT/public-ws.log" 2>&1; then
-      pass "터널 경유 wss 왕복 /api/v2/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
+      pass "터널 경유 wss 왕복 /api/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
     else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
   fi
 fi
@@ -784,8 +790,8 @@ fi
 if [ "$KAFKA_SWITCHED" = 1 ]; then
   LAG=""
   for _ in $(seq 1 10); do
-    LAG="$($KT/kafka-consumer-groups.sh $BS --describe --group inference-service-v1 --group judge-v1 --group report-store-v1 \
-      --group io-ws-io-api 2>/dev/null | awk '$6 ~ /^[0-9]+$/ && $6 != "0" {print $1"/"$2"/"$3"="$6}' | tr '\n' ' ')"
+    LAG="$($KT/kafka-consumer-groups.sh $BS --describe --group inference-service --group judge --group report-store \
+      --group io-ws-io-api 2>/dev/null | awk '$2 !~ /\.v[0-9]+$/ && $6 ~ /^[0-9]+$/ && $6 != "0" {print $1"/"$2"/"$3"="$6}' | tr '\n' ' ')"   # 옛 이름 토픽(.v1)의 남은 읽은 위치는 빼고(io-ws-io-api는 그룹 이름이 그대로라 남음, D-94)
     [ -z "$LAG" ] && break
     sleep 2
   done
@@ -818,8 +824,8 @@ else
   UB="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_B" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
   if [ -z "$UA" ] || [ -z "$UB" ]; then fail "J2 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
   else
-    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J2A-$TS" --session-id "$J_A" >"$OUT/j2-replay-a.log" 2>&1
-    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J2B-$TS" --session-id "$J_B" \
+    python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-J2A-$TS" --session-id "$J_A" >"$OUT/j2-replay-a.log" 2>&1
+    python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-J2B-$TS" --session-id "$J_B" \
       --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/j2-replay-b.log" 2>&1
     VA=""; VB=""
     for _ in $(seq 1 30); do
@@ -898,7 +904,7 @@ else
   UD="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_D" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
   if [ -z "$UC" ] || [ -z "$UD" ]; then fail "J3 시험 계정 생성" "user_account_id 없음 — $OUT/run.log"
   else
-    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J3C-$TS" --session-id "$J_C" \
+    python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-J3C-$TS" --session-id "$J_C" \
       --normal-sec 2 --rest-sec 2.5 --bad-sec 0 --recover-sec 2 --end-gap-ms 1500 >"$OUT/j3-replay-c.log" 2>&1
     for _ in $(seq 1 30); do
       curl -s -m 5 "$API/report/sessions/$J_C" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break
@@ -947,8 +953,8 @@ PYK
   fi
 fi
 
-step "17. Spark 배치 J1 — Kafka v1 → HDFS 세션 폴더 + feature_archive (D-33)"
-# 시험 계정 세션 E를 Kafka v1 경로로 재생(8단계와 같은 172건)해 DB에 저장시킨 뒤, J1을 그 세션만으로(--settle-sec 0) 돌려
+step "17. Spark 배치 J1 — Kafka → HDFS 세션 폴더 + feature_archive (D-33)"
+# 시험 계정 세션 E를 Kafka 경로로 재생(8단계와 같은 172건)해 DB에 저장시킨 뒤, J1을 그 세션만으로(--settle-sec 0) 돌려
 # /data/users/{E}/{날짜}/{세션}/ 파일 3개와 feature_archive 1행을 확인한다. 정리는 J3(탈퇴 상태로 만든 뒤 --grace-days 0)로 —
 # J1이 쓴 폴더·행을 J3가 지우는 것까지 확인. 처음 실행은 Kafka 소스 패키지를 받고, 토픽에 남은 메시지를 처음부터 임시 폴더에 담는다.
 if [ "$E2E" = 0 ]; then skip "J1 HDFS 적재" "--no-e2e"
@@ -963,10 +969,10 @@ else
   UE="$(curl -s -m 10 -X POST "$API/report/test/sessions/$J_E" | python3 -c "import json,sys;print(json.load(sys.stdin).get('user_account_id',''))" 2>/dev/null)"
   if [ -z "$UE" ]; then fail "J1 시험 세션 생성" "user_account_id 없음 — $OUT/run.log"
   else
-    python3 $TOOLS/replay_realtime_v1.py --api "$API/api/v1/realtime/features" --user-id "IT-J1E-$TS" --session-id "$J_E" >"$OUT/j1-replay-e.log" 2>&1
+    python3 $TOOLS/replay_realtime.py --api "$API/api/realtime/features" --user-id "IT-J1E-$TS" --session-id "$J_E" >"$OUT/j1-replay-e.log" 2>&1
     # (D-92) 같은 세션의 좌표 구간 170개(합성)를 좌표 적재 토픽에 — 앱 경로가 아닌 시험이라 Kafka에 직접 넣는다
-    python3 $TOOLS/replay_keypoints_v1.py --session-id "$J_E" --user-id "IT-J1E-$TS" \
-      | $DKT/kafka-console-producer.sh $BS --topic posture.keypoints.v1 --property parse.key=true --property "key.separator=|" \
+    python3 $TOOLS/replay_keypoints.py --session-id "$J_E" --user-id "IT-J1E-$TS" \
+      | $DKT/kafka-console-producer.sh $BS --topic posture.keypoints --property parse.key=true --property "key.separator=|" \
       >>"$OUT/j1-replay-e.log" 2>&1
     for _ in $(seq 1 30); do
       curl -s -m 5 "$API/report/sessions/$J_E" | python3 -c "import json,sys;sys.exit(0 if json.load(sys.stdin).get('ended_ms') is not None else 1)" 2>/dev/null && break

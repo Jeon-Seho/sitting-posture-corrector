@@ -16,17 +16,17 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * (D-21) <b>시험용 입구</b> — 계약 v1 {@code posture.features.v1} 메시지를 HTTP로 받아 Kafka에 넣는다.
+ * (D-21) <b>시험용 입구</b> — Kafka 계약 {@code posture.features} 메시지를 HTTP로 받아 Kafka에 넣는다.
  *
  * <p>최종 입구는 팀 입구 API·게이트웨이(WebSocket)다. 이 엔드포인트는 그 전에 서버 쪽 경로
- * (features.v1 → 추론 → inference.v1 → 판정)를 재생 도구·통합 테스트로 시험하기 위한 것이다.
+ * (features → 추론 → inference → 판정)를 재생 도구·통합 테스트로 시험하기 위한 것이다.
  * {@code REALTIME_TEST_ENTRY_ENABLED=false}(환경변수)로 끌 수 있다.
  *
  * <p>본문은 메시지 1개(객체) 또는 여러 개(배열, 최대 200개). 배열은 <b>전부 검사를 통과해야</b>
  * 순서대로 발행한다(일부만 들어가 순번이 비는 일을 막음).
  */
 @RestController
-@RequestMapping("/api/v1/realtime")
+@RequestMapping("/api/realtime")
 public class RealtimeTestEntryController {
 
 	static final int MAX_BATCH = 200;

@@ -1,14 +1,14 @@
 """
-(D-21) 실시간 계약 v1: posture.features.v1 → posture.inference.v1.
+(D-21) 실시간 Kafka 계약: posture.features → posture.inference.
 
 - 메시지 키는 session_id (같은 세션의 시작·특징·종료 순서 보장).
 - session_started / session_ended 는 바꾸지 않고 그대로 넘긴다(계약 규칙).
-- features 는 입력 v2 구간 1개 → 관측 v2 1개.
+- features 는 특징 입력 구간 1개 → 관측 1개.
   점수는 팀 기준 규칙(reference-feature-rule-v1, 팀 model/inference/service.py와 같은 식):
       점수 = min(1, max(|head_gap|/0.22, |lateral_offset|/0.20, |shoulder_tilt|/0.03) * 0.7)
   측정 중(running)·품질 good·특징 있음·현재/기준 품질 ≥ 0.65 일 때만 유효하고, 그 외에는
   valid=false·점수 0·유형 none. 점수는 보정된 확률이 아니라 규칙 점수다.
-- LSTM(입력 v2 기준)은 모델이 정해지면 바꾼다(회의 안건 8 보류, D-34). (D-38·D-63) 옛 posture.summary 경로와 시험 LSTM은 지웠다.
+- LSTM(특징 입력 기준)은 모델이 정해지면 바꾼다(회의 안건 8 보류, D-34). (D-38·D-63) 옛 posture.summary 경로와 시험 LSTM은 지웠다.
 - (D-36) 처리할 수 없는 메시지는 posture.dlq로 넘기고 다음 메시지로 간다(파티션이 막히지 않게).
   DLQ 메시지 형식은 api-server DeadLetterPublisher와 같다.
 """
@@ -27,12 +27,12 @@ from kafka.errors import KafkaError
 logger = logging.getLogger("inference-service.realtime")
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
-FEATURES_V1_TOPIC = os.getenv("KAFKA_TOPIC_POSTURE_FEATURES_V1", "posture.features.v1")
-INFERENCE_V1_TOPIC = os.getenv("KAFKA_TOPIC_POSTURE_INFERENCE_V1", "posture.inference.v1")
-V1_CONSUMER_GROUP_ID = os.getenv("KAFKA_V1_CONSUMER_GROUP_ID", "inference-service-v1")
+FEATURES_TOPIC = os.getenv("KAFKA_TOPIC_POSTURE_FEATURES", "posture.features")
+INFERENCE_TOPIC = os.getenv("KAFKA_TOPIC_POSTURE_INFERENCE", "posture.inference")
+CONSUMER_GROUP_ID = os.getenv("KAFKA_CONSUMER_GROUP_ID", "inference-service")
 DLQ_TOPIC = os.getenv("KAFKA_TOPIC_POSTURE_DLQ", "posture.dlq")
 DLQ_MAX_PAYLOAD_CHARS = 256 * 1024
-REALTIME_ENABLED = os.getenv("REALTIME_V1_ENABLED", "true").lower() != "false"
+REALTIME_ENABLED = os.getenv("REALTIME_ENABLED", "true").lower() != "false"
 
 MODEL_VERSION = "reference-feature-rule-v1"
 MINIMUM_FEATURE_QUALITY = 0.65
@@ -61,7 +61,7 @@ def score_feature_deltas(features: dict) -> Tuple[float, str]:
 
 
 def observation_from_features(body: dict) -> dict:
-    """입력 v2 구간 1개 → 관측 v2."""
+    """특징 입력 구간 1개 → 관측."""
     features = body.get("features")
     valid = (
         body.get("phase") == "running"
@@ -93,7 +93,7 @@ def _now_utc() -> str:
 
 def process_features_message(msg: dict, now: Optional[str] = None) -> Tuple[Optional[dict], Optional[str]]:
     """
-    posture.features.v1 메시지 1개를 posture.inference.v1 메시지 1개로 바꾼다.
+    posture.features 메시지 1개를 posture.inference 메시지 1개로 바꾼다.
     반환: (보낼 메시지, 건너뛴 이유). 보낼 메시지가 None이면 이유가 있다.
     """
     if not isinstance(msg, dict):
@@ -132,7 +132,7 @@ def dead_letter(source_topic: str, partition: int, offset: int, key: Optional[st
     return {
         "schema_version": "1.0",
         "failed_at": now or _now_utc(),
-        "consumer": V1_CONSUMER_GROUP_ID,
+        "consumer": CONSUMER_GROUP_ID,
         "source_topic": source_topic,
         "source_partition": partition,
         "source_offset": offset,
@@ -144,7 +144,7 @@ def dead_letter(source_topic: str, partition: int, offset: int, key: Optional[st
 
 
 class RealtimeFeaturesConsumer:
-    """posture.features.v1 → posture.inference.v1 (별도 스레드, 별도 컨슈머 그룹)."""
+    """posture.features → posture.inference (별도 스레드, 별도 컨슈머 그룹)."""
 
     def __init__(self) -> None:
         self._thread: Optional[threading.Thread] = None
@@ -157,12 +157,12 @@ class RealtimeFeaturesConsumer:
     def start(self) -> None:
         if not REALTIME_ENABLED or self._thread is not None:
             if not REALTIME_ENABLED:
-                logger.info("REALTIME_V1_ENABLED=false — features.v1 소비 비활성화")
+                logger.info("REALTIME_ENABLED=false — features 소비 비활성화")
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, name="realtime-v1-consumer", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="realtime-consumer", daemon=True)
         self._thread.start()
-        logger.info("v1 컨슈머 시작 (%s → %s, group=%s)", FEATURES_V1_TOPIC, INFERENCE_V1_TOPIC, V1_CONSUMER_GROUP_ID)
+        logger.info("실시간 컨슈머 시작 (%s → %s, group=%s)", FEATURES_TOPIC, INFERENCE_TOPIC, CONSUMER_GROUP_ID)
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -181,9 +181,9 @@ class RealtimeFeaturesConsumer:
     def _run(self) -> None:
         try:
             consumer = KafkaConsumer(
-                FEATURES_V1_TOPIC,
+                FEATURES_TOPIC,
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                group_id=V1_CONSUMER_GROUP_ID,
+                group_id=CONSUMER_GROUP_ID,
                 auto_offset_reset="earliest",
                 enable_auto_commit=True,
                 key_deserializer=lambda k: k.decode("utf-8") if k is not None else None,
@@ -199,7 +199,7 @@ class RealtimeFeaturesConsumer:
                 linger_ms=5,
             )
         except KafkaError as exc:
-            logger.error("v1 컨슈머/프로듀서 생성 실패: %s", exc)
+            logger.error("실시간 컨슈머/프로듀서 생성 실패: %s", exc)
             return
         try:
             while not self._stop_event.is_set():
@@ -208,7 +208,7 @@ class RealtimeFeaturesConsumer:
                         break
                     self._handle(message)
         except Exception:  # noqa: BLE001 - 스레드가 조용히 죽지 않게
-            logger.exception("v1 컨슈머 루프 예외, 스레드 종료")
+            logger.exception("실시간 컨슈머 루프 예외, 스레드 종료")
         finally:
             consumer.close()
 
@@ -224,15 +224,15 @@ class RealtimeFeaturesConsumer:
             self._dead_letter(message, reason)
             return
         try:
-            self._producer.send(INFERENCE_V1_TOPIC, key=out["session_id"], value=out)
+            self._producer.send(INFERENCE_TOPIC, key=out["session_id"], value=out)
             self.processed += 1
         except KafkaError as exc:
             self.skipped += 1
-            logger.warning("inference.v1 발행 실패 (session_id=%s): %s", out.get("session_id"), exc)
+            logger.warning("inference 발행 실패 (session_id=%s): %s", out.get("session_id"), exc)
 
     def _dead_letter(self, message, reason: str) -> None:
         self.skipped += 1
-        logger.warning("features.v1 메시지를 DLQ로 (%s-%s@%s, key=%s): %s",
+        logger.warning("features 메시지를 DLQ로 (%s-%s@%s, key=%s): %s",
                        message.topic, message.partition, message.offset, message.key, reason)
         try:
             self._producer.send(DLQ_TOPIC, key=message.key,

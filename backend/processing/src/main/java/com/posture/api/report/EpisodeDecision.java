@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * (D-30) {@code posture.episodes.v1}의 decision 메시지 하나 — 저장에 필요한 값만 꺼낸 것.
+ * (D-30) {@code posture.episodes}의 decision 메시지 하나 — 저장에 필요한 값만 꺼낸 것.
  *
- * <p>시각은 모두 세션 시작 기준 ms다(계약 v1). 절대 시각은 저장할 때 DB의 {@code monitor_session.started_at}에 더해 만든다.
+ * <p>시각은 모두 세션 시작 기준 ms다(Kafka 계약). 절대 시각은 저장할 때 DB의 {@code monitor_session.started_at}에 더해 만든다.
  *
  * @param sessionId 봉투 {@code session_id} = {@code monitor_session.client_session_uuid}
  * @param eventId   계약 {@code event_id}(모든 사건 종류를 통틀어 1부터) — 로그·DLQ 추적용, DB 순번과는 다름

@@ -43,11 +43,11 @@ describe('account client social calls', () => {
       .mockResolvedValueOnce(json({ authorize_url: 'https://discord.com/oauth2/authorize?state=b' }))
     const client = createAccountClient({ fetch, channel: false })
     await client.social!.startLogin()
-    expect(fetch.mock.calls[0][0]).toBe('/api/v2/auth/social/discord/login')
+    expect(fetch.mock.calls[0][0]).toBe('/api/auth/social/discord/login')
     expect(fetch.mock.calls[0][1].headers.Authorization).toBeUndefined()
     await client.me()
     await client.social!.startLink()
-    expect(fetch.mock.calls[3][0]).toBe('/api/v2/auth/social/discord/link')
+    expect(fetch.mock.calls[3][0]).toBe('/api/auth/social/discord/link')
     expect(fetch.mock.calls[3][1].headers.Authorization).toBe('Bearer access-1')
   })
 
@@ -77,7 +77,7 @@ describe('password reset switch', () => {
     expect(api.enabledFor('reset')).toBe(true)
     expect(api.enabledFor('verify')).toBe(false)
     await api.request('reset', 'a@example.test')
-    expect(fetcher.mock.calls[0][0]).toBe('https://api.example.test/api/v2/auth/password-reset/requests')
+    expect(fetcher.mock.calls[0][0]).toBe('https://api.example.test/api/auth/password-reset/requests')
     await expect(api.request('verify', 'a@example.test')).rejects.toMatchObject({ code: 'NOT_CONNECTED' })
   })
 
