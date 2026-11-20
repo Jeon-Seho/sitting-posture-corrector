@@ -1,11 +1,11 @@
 """
 자세 분석 시스템 추론 서비스 진입점 — Kafka 컨슈머 하나.
 
-(D-21) 실시간 Kafka 계약: posture.features → 팀 기준 규칙 점수(app/realtime.py) → posture.inference,
+(D-21) 실시간 Kafka 계약: posture.features(좌표 구간) → 프레임 RF 점수(app/realtime.py, 계획 0098) → posture.inference,
 처리 못 한 메시지는 posture.dlq(D-36). MySQL에는 접근하지 않는다.
 
 (D-38·D-63, 2026-10-21) 옛 posture.summary → posture.inference 컨슈머와 시험 LSTM(app/model.py·train_test_model.py)은 지웠다.
-실제 모델은 ML이 정한 뒤 realtime.py의 점수 계산을 바꾼다(D-34·D-31).
+점수 계산은 HTTP /infer와 같은 model/inference 코드를 쓴다(계획 0098, ADR 0050).
 """
 import logging
 import os
@@ -81,14 +81,17 @@ def check_kafka() -> dict:
 def health():
     redis_result = check_redis()
     kafka_result = check_kafka()
-    overall_up = redis_result["status"] == "UP" and kafka_result["status"] == "UP"
+    realtime_result = realtime_consumer.status()
+    # (계획 0098) 실시간 소비가 켜져 있는데 모델을 못 불러왔으면 DOWN(규칙으로 대체하지 않음)
+    model_ready = not realtime_result["enabled"] or realtime_result["modelVersion"] is not None
+    overall_up = redis_result["status"] == "UP" and kafka_result["status"] == "UP" and model_ready
 
     body = {
         "status": "UP" if overall_up else "DOWN",
         "components": {
             "redis": redis_result,
             "kafka": kafka_result,
-            "realtime": realtime_consumer.status(),
+            "realtime": realtime_result,
         },
     }
     return JSONResponse(

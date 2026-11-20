@@ -1,24 +1,37 @@
-"""T-15 추론 동등성: 처리 서비스 추론(app.realtime)을 공용 합성 시험 데이터와 비교한다.
+"""T-15 추론 동등성: Kafka 추론(app.realtime)과 HTTP /infer(model/inference)가 같은 좌표에 같은 관측을 낸다.
 
-기대값은 팀 추론(model/inference, FastAPI /infer)으로 만들었다 — 저장소 루트 tests/test_realtime_parity.py가
-같은 파일로 팀 추론을 확인한다. 두 추론이 같은 입력에 같은 관측을 낸다는 근거(계획 0031, D-57).
+(계획 0098) 두 경로 모두 model/inference의 특징 계산·프레임 RF를 쓴다. Kafka 관측에는 계약대로 invalid_reason만 없다.
+입력은 저장소의 합성 좌표 예시다(실제 참여자 좌표 아님).
 """
 
 import json
-import math
 from pathlib import Path
 
-from app.realtime import observation_from_features
+import pytest
 
-CASES = Path(__file__).resolve().parents[3] / "contracts" / "realtime" / "parity" / "inference-cases.json"
+from app.realtime import load_inference, observation_from_keypoints
+from model.inference.schemas import InferenceRequest
+
+CONTRACTS = Path(__file__).resolve().parents[3] / "contracts"
+REQUESTS = [
+    CONTRACTS / "examples" / "inference" / "synthetic-inference-request.json",
+    CONTRACTS / "examples" / "inference" / "synthetic-inference-request-with-null-frames.json",
+    CONTRACTS / "realtime" / "examples" / "features-features.json",
+]
 
 
-def test_processing_inference_matches_the_shared_cases():
-    cases = json.loads(CASES.read_text(encoding="utf-8"))["cases"]
-    assert len(cases) >= 100
-    for case in cases:
-        actual = observation_from_features(case["request"])
-        expected = dict(case["expected"])
-        assert math.isclose(actual.pop("collapse_probability"), expected.pop("collapse_probability"),
-                            rel_tol=0, abs_tol=1e-12), case["request"]["sequence"]
-        assert actual == expected, case["request"]["sequence"]
+def request_body(path):
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data["body"] if "body" in data else data
+
+
+@pytest.mark.parametrize("mode", ["frame-rf-100x", "rule"])
+@pytest.mark.parametrize("path", REQUESTS, ids=lambda p: p.name)
+def test_kafka_observation_matches_http_infer(monkeypatch, mode, path):
+    monkeypatch.setenv("POSEGOOD_INFERENCE_MODEL", mode)
+    inference = load_inference()
+    assert inference is not None
+    body = request_body(path)
+    expected = dict(inference.predict(InferenceRequest.model_validate(body)))
+    expected.pop("invalid_reason")
+    assert observation_from_keypoints(body, inference) == expected
