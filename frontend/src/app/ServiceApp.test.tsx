@@ -457,6 +457,25 @@ describe('service recovery and saving with synthetic storage only', () => {
     act(() => starts[0].props.onClick())
     expect(renderer!.root.findByType(LiveSessionPage).props.session.baselineId).toBe(BASELINE_ID)
   })
+  it('「다시 등록」 works with the camera off: turns it on and registers instead of auto-starting (11/20)', () => {
+    controls.camera.state = 'off'
+    controls.camera.baseline = { ...BASELINE }
+    controls.camera.calibrationId = BASELINE_ID
+    mount()
+    login()
+    click('측정하기')
+    const again = renderer!.root.findAllByType('button').find((b) => text(b) === '다시 등록')!
+    expect(again.props.disabled).toBeFalsy()
+    act(() => again.props.onClick())
+    expect(controls.camera.connect).toHaveBeenCalledOnce()
+    controls.camera.state = 'on'
+    controls.camera.quality = true
+    rerender()
+    advance(5000)
+    // Registration, not the measurement the auto start would have begun.
+    expect(controls.camera.calibrate).toHaveBeenCalledOnce()
+    expect(renderer!.root.findAllByType(LiveSessionPage)).toHaveLength(0)
+  })
   it('starts measuring by itself 2.5 s after 카메라 켜기 when a posture is registered', () => {
     controls.camera.baseline = { ...BASELINE }
     controls.camera.calibrationId = BASELINE_ID
