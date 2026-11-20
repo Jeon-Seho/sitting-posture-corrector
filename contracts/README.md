@@ -54,9 +54,11 @@ Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시
 스키마가 필드 추가도 거부하므로 필드를 더하거나 바꾸면 호환이 깨진다. 이때 새 계약 파일이나 버전을 만들지 않고, 생산자·소비자 코드와 계약·예제·시험을 한 PR에서 함께 바꿔 같은 때 배포한다([ADR 0049](../docs/decisions/0049-no-version-in-names.md)).
 원본 좌표·영상·참여자 ID는 이 계약에 넣지 않는다.
 
-## Kafka 특징 변화량 입력
+## 규칙 특징 변화량
 
-[특징 변화량](feature-deltas.schema.json)은 [Kafka features 메시지](realtime/kafka-features.schema.json)의 본문이다. Kafka 소비자는 이 본문으로 규칙 점수를 계산한다.
+[Kafka features 메시지](realtime/kafka-features.schema.json)의 본문은 2026-11-20부터 `/infer`와 같은 [키포인트 요청](inference-request.schema.json)이다(계획 0098).
+Kafka 추론 소비자(`backend/inference`)도 프레임 9점과 기준 9점으로 특징 6개를 계산하고 프레임 RF로 점수를 낸다. 관측에는 `invalid_reason`을 넣지 않는다([관측](posture-observation.schema.json)).
+[특징 변화량](feature-deltas.schema.json)은 이제 어느 통로의 본문도 아니고, 규칙 점수의 동등성 시험 입력으로만 남는다.
 [합성 특징 변화량](examples/inference/synthetic-feature-request.json)과
 [TS·Python 공유 합성 사례](examples/inference/reference-feature-cases.json)를 함께 검증한다.
 

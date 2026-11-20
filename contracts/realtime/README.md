@@ -37,7 +37,7 @@
 
 | 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
 | --- | --- | --- | --- | --- |
-| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 특징 입력 / `end_ms` | [kafka-features](kafka-features.schema.json) |
+| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 좌표 구간(프레임 9점 + 기준 9점, [키포인트 요청](../inference-request.schema.json), 2026-11-20) / `end_ms` | [kafka-features](kafka-features.schema.json) |
 | `posture.inference` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference](kafka-inference.schema.json) |
 | `posture.episodes` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes](kafka-episodes.schema.json) |
 | `posture.alerts` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts](kafka-alerts.schema.json) |
@@ -58,7 +58,7 @@
   한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
   `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다(v2 `event` 설명과 같음).
 - 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
-  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 입력 → 관측).
+  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 변화량 → 규칙 관측). Kafka 추론과 `/infer`는 같은 코드라 `backend/inference/tests/test_parity.py`가 합성 좌표로 두 관측이 같은지 본다.
 - 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
   이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
 - **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
@@ -97,6 +97,6 @@ WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검�
 아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
 - 메시지 단위: DevOps는 FE가 약 0.5초 분량을 `features` 구간 1개(`end_ms - start_ms ≈ 500`)로 합쳐 보내기를 요청했다(처리량). 합치는 방법은 미정.
-- `features` 본문은 특징 입력이다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
+- `features` 본문은 좌표 구간이다(2026-11-20, 계획 0098). 추론이 특징 6개를 계산해 프레임 RF로 점수를 낸다. 입력 형식이 또 바뀌면 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
 - 기준 자세 전달 토픽은 보류한다.

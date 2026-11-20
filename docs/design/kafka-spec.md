@@ -64,7 +64,7 @@
 | 토픽 | `kind` | 본문 |
 | --- | --- | --- |
 | features | `session_started` | `policy`(hold·recovery·reminder ms, threshold), `baseline_id`, 화면 크기 |
-| features | `features` | 0.5초 구간 1개 — 지금은 [특징 변화량](../../contracts/feature-deltas.schema.json)(특징 변화량). 좌표 구간(본문 v3)은 D-34 |
+| features | `features` | 0.5초 구간 1개 — 프레임 9점과 기준 9점([키포인트 요청](../../contracts/inference-request.schema.json), `/infer`와 같은 본문). 추론이 특징을 계산해 프레임 RF로 점수를 낸다(계획 0098, 2026-11-20) |
 | features | `session_ended` | `end_ms` |
 | inference | `session_started`·`session_ended` | features에서 받은 것을 **바꾸지 않고** 넘긴다(판정이 한 토픽만 읽도록) |
 | inference | `observation` | [관측](../../contracts/posture-observation.schema.json)(`sequence`, `start_ms`·`end_ms`, 점수, `valid`, `phase`) |

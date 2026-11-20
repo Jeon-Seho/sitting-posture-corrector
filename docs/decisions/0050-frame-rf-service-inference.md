@@ -29,7 +29,7 @@ local 실시간 경로의 API는 현재 develop에서 기준 자세와 프레임
 
 ## 결과와 한계
 
-- [추론 계약](../../contracts/README.md#키포인트-입력과-관측-응답)은 관측(`schema_version: "2.0"`)에 `invalid_reason`을 추가해 BE가 측정 불가 사유를 받을 수 있게 한다. Kafka 소비자는 [features 본문](../../contracts/feature-deltas.schema.json)으로 자체 규칙 점수를 계산한다.
+- [추론 계약](../../contracts/README.md#키포인트-입력과-관측-응답)은 관측(`schema_version: "2.0"`)에 `invalid_reason`을 추가해 BE가 측정 불가 사유를 받을 수 있게 한다. (2026-11-20) 팀이 실시간 판정을 Kafka 경로(BE → Kafka → 추론 → Kafka → 판정 → BE)로 하기로 해서, Kafka features 본문도 같은 [키포인트 요청](../../contracts/inference-request.schema.json)으로 바꾸고 Kafka 추론 소비자(`backend/inference`)가 같은 특징 계산·RF 코드를 쓴다. 관측 계약에 `invalid_reason`이 없어 Kafka 관측에는 넣지 않는다.
 - DB의 기준 자세는 평균 좌표 9점만 저장한다. 앱은 등록 시 코와 양어깨의 품질을 검사하므로 학습 때 전제한 기준 9점 visibility 조건을 서비스에서 확인할 수 없다.
 - 전체 자료로 학습한 이 후보의 독립 시험과 0.5 운영 기준 검증은 남아 있다. 점수 변환은 임계값 연결에 쓰이며 확률 보정의 근거는 없다.
 - 9점 검사로 측정 불가 구간이 늘 수 있다. 현재 판정 엔진은 측정 불가 구간에서 열린 사건을 중단하고 연속 시간을 초기화한다. 같은 이탈이 이어져도 이후 3초간 다시 확인되면 새 최초 알림이 발생할 수 있어, 같은 사건에 적용되는 60초 재알림 간격이 반복 알림을 막지 못한다. 중단 정책 보완은 후속 과제다.

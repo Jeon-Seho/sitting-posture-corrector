@@ -21,7 +21,7 @@
     },
     {
       "if": { "properties": { "kind": { "const": "features" } } },
-      "then": { "properties": { "body": { "$ref": "../feature-deltas.schema.json" } } }
+      "then": { "properties": { "body": { "$ref": "../inference-request.schema.json" } } }
     },
     {
       "if": { "properties": { "kind": { "const": "session_ended" } } },

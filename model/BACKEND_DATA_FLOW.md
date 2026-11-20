@@ -16,7 +16,7 @@
   → 프런트
 ```
 
-시간 판정은 API 판정 엔진이 담당한다. Kafka 경로는 기본으로 꺼져 있다. Kafka 소비자는 features 본문의 특징 변화량으로 자체 규칙 점수를 계산한다. [특징 변화량 계약](../contracts/feature-deltas.schema.json), [Kafka 전환 계획](../docs/plans/active/0031-realtime-kafka-transition.md)
+시간 판정은 API 판정 엔진이 담당한다. Kafka 경로(BE → `posture.features` → 추론 → `posture.inference` → 판정 → BE)는 설정으로 켠다. Kafka features 본문은 `/infer`와 같은 키포인트 요청이고, Kafka 추론 소비자(`backend/inference`)가 같은 특징 계산·프레임 RF로 점수를 낸다(계획 0098). [Kafka features 계약](../contracts/realtime/kafka-features.schema.json), [Kafka 전환 계획](../docs/plans/active/0031-realtime-kafka-transition.md)
 
 ### 1-1. 프런트 → API 서버: 키포인트
 
