@@ -577,6 +577,19 @@ class MySqlIntegrationTest {
 		var otherPolicy = create(first);
 		((ObjectNode)otherPolicy.get("policy")).put("hold_ms", 4000);
 		assertEquals(409, api.put("/sessions/" + firstSessionId, otherPolicy).status());
+		// S1 직후 연결 전 유예에도 다른 세션은 막는다. 첫 세션을 정상 종료하면 새 측정을 시작할 수 있다.
+		var reserved = api.put("/sessions/" + secondSessionId, create(first));
+		assertEquals(409, reserved.status());
+		assertEquals("MEASUREMENT_IN_PROGRESS", reserved.body().get("code").asString());
+		var closing = Socket.open(port);
+		closing.send(helloMessage(api, "measure", firstSessionId));
+		closing.next("ready");
+		var measuring = api.put("/sessions/" + secondSessionId, create(first));
+		assertEquals(409, measuring.status());
+		assertEquals("MEASUREMENT_IN_PROGRESS", measuring.body().get("code").asString());
+		closing.send(endMessage(0));
+		closing.next("decision", "session_ended");
+		assertEquals("ended", closing.next("closed").get("reason").asString());
 		UUID second = baseline(api);
 		assertEquals(200, api.put("/sessions/" + secondSessionId, create(second)).status());
 		assertEquals(409, api.put("/sessions/" + UUID.randomUUID(), create(first)).status());
@@ -634,14 +647,8 @@ class MySqlIntegrationTest {
 		assertEquals(404, lost.status());
 		assertEquals("SESSION_LOST", lost.body().get("code").asString());
 
-		// 진행 중 세션은 앱처럼 WS end로 끝낸다(S3 세션 종료 REST는 2026-11-12 삭제). 판정 상태를 잃은 세션 행은
-		// 닫는 경로가 없어 기록 목록에 나오지 않는다(기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
-		var closing = Socket.open(port);
-		closing.send(helloMessage(api, "measure", firstSessionId));
-		closing.next("ready");
-		closing.send(endMessage(0));
-		closing.next("decision", "session_ended");
-		assertEquals("ended", closing.next("closed").get("reason").asString());
+		// 첫 세션은 정상 종료됐고, 판정 상태를 잃은 두 번째 세션 행은 닫는 경로가 없어 기록 목록에 나오지 않는다
+		// (기록 저장 R2가 닫던 것, 2026-10-28 삭제 — 계획 0062 남은 일).
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var rows = statement.executeQuery(
 				"SELECT client_session_uuid,ended_at FROM monitor_session WHERE"
