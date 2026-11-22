@@ -146,7 +146,7 @@ class RealtimeHandlerTest {
 	private Fake measuring() throws Exception {
 		when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
 		var fake = connect(handler);
-		send(fake, example("ws-hello-measure.json"));
+		send(fake, example("legacy/ws-hello-measure.json"));
 		same(example("ws-ready-measure.json"), fake.only("ready"));
 		return fake;
 	}
@@ -160,7 +160,7 @@ class RealtimeHandlerTest {
 
 	/** 예시 features의 순번·시간만 바꾼 구간(앱이 보내는 연결 기준 값). */
 	private static ObjectNode features(long sequence, long startMs, long endMs) throws Exception {
-		var message = example("ws-features.json");
+		var message = example("legacy/ws-features.json");
 		((ObjectNode)message.get("items").get(0)).put("sequence", sequence).put("start_ms", startMs).put("end_ms",
 			endMs);
 		return message;
@@ -181,8 +181,7 @@ class RealtimeHandlerTest {
 		var fake = measuring();
 		when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
 			.thenReturn(new SessionService.Status(42, SUMMARY, null));
-		send(fake, example("ws-features.json"));
-		assertEquals(42, fake.only("ack").get("last_sequence").asLong());
+		send(fake, example("legacy/ws-features.json"));
 		same(example("ws-progress.json"), fake.only("progress"));
 
 		// end → 세션 이벤트로 decision(session_ended) → closed(ended).
@@ -194,13 +193,34 @@ class RealtimeHandlerTest {
 			.finish(OWNER, SESSION, 600000L);
 		send(fake, example("ws-end.json"));
 		var kinds = fake.types();
-		assertEquals(List.of("ready", "ack", "progress", "decision", "closed"), kinds);
+		assertEquals(List.of("ready", "progress", "decision", "closed"), kinds);
 		assertEquals("session_ended", fake.only("decision").get("event").get("kind").asString());
 		same(example("ws-closed.json"), fake.only("closed"));
 		assertTrue(fake.closed.get());
 		// 끝난 세션이라 연결이 닫혀도 끊김 종료를 다시 부르지 않는다.
 		verify(sessions).finish(OWNER, SESSION, 600000L);
 		verify(sessions, never()).finish(eq(OWNER), eq(SESSION), isNull());
+	}
+
+	@Test
+	void versionlessHelloAndFlatFeaturesMatchLegacySingleFrame() throws Exception {
+		when(sessions.openRealtime(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
+		var fake = connect(handler);
+		send(fake, example("ws-hello-measure.json"));
+		var received = new ArrayList<FrameInterval>();
+		when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE))).thenAnswer(call -> {
+			received.add(call.getArgument(2));
+			return new SessionService.Status(42, SUMMARY, null);
+		});
+		var flat = MAPPER.readTree(Files.readString(EXAMPLES.resolve("ws-features.json")));
+		send(fake, flat);
+		var old = example("legacy/ws-features.json");
+		var item = (ObjectNode)old.get("items").get(0);
+		var first = item.get("frames").get(0).deepCopy();
+		item.putArray("frames").add(first);
+		send(fake, old);
+		assertEquals(received.get(0), received.get(1));
+		assertEquals(List.of("ready", "progress", "progress"), fake.types());
 	}
 
 	@Test
@@ -253,7 +273,7 @@ class RealtimeHandlerTest {
 		}
 
 		var early = connect(handler);
-		send(early, example("ws-features.json"));
+		send(early, example("legacy/ws-features.json"));
 		assertEquals("bad_message", early.only("closed").get("reason").asString());
 
 		var wrongVersion = connect(handler);
@@ -264,7 +284,7 @@ class RealtimeHandlerTest {
 	@Test
 	void malformedOrOversizedFeaturesCloseWithBadMessage() throws Exception {
 		var two = measuring();
-		var message = example("ws-features.json");
+		var message = example("legacy/ws-features.json");
 		message.withArray("items").add(message.withArray("items").get(0).deepCopy());
 		send(two, message);
 		assertEquals("bad_message", two.only("closed").get("reason").asString());
@@ -273,7 +293,7 @@ class RealtimeHandlerTest {
 		verify(sessions).finish(OWNER, SESSION, null); // 측정 중 끊김 → 마지막 구간 끝에서 종료
 
 		var wrongPhase = measuring();
-		var calibrationPhase = example("ws-features.json");
+		var calibrationPhase = example("legacy/ws-features.json");
 		((ObjectNode)calibrationPhase.get("items").get(0)).put("phase", "calibration"); // 등록 구간은 더 받지 않음
 		send(wrongPhase, calibrationPhase);
 		assertEquals("bad_message", wrongPhase.only("closed").get("reason").asString());
@@ -327,7 +347,7 @@ class RealtimeHandlerTest {
 		var fake = measuring();
 		when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
 			.thenThrow(ApiError.upstream("inference unavailable"));
-		send(fake, example("ws-features.json"));
+		send(fake, example("legacy/ws-features.json"));
 		assertEquals(-1, fake.only("stalled").get("since_last_sequence").asLong());
 		assertFalse(fake.closed.get());
 	}
@@ -343,7 +363,7 @@ class RealtimeHandlerTest {
 		})
 			.when(sessions)
 			.finish(eq(OWNER), eq(SESSION), isNull());
-		send(fake, example("ws-features.json"));
+		send(fake, example("legacy/ws-features.json"));
 		assertEquals(List.of("ready", "decision", "closed"), fake.types());
 		assertEquals("limit_reached", fake.only("closed").get("reason").asString());
 	}
@@ -357,7 +377,7 @@ class RealtimeHandlerTest {
 				handler.progressed(ended("unmeasurable_timeout"));
 				return new SessionService.Status(42, SUMMARY, "unmeasurable");
 			});
-		send(fake, example("ws-features.json"));
+		send(fake, example("legacy/ws-features.json"));
 		assertEquals(List.of("ready", "decision", "closed"), fake.types());
 		var closed = fake.only("closed");
 		assertEquals("unmeasurable_timeout", closed.get("reason").asString());
@@ -374,10 +394,9 @@ class RealtimeHandlerTest {
 		// 자정에 걸친 구간: 이전 세션을 끝내 저장하고 새 세션으로 넘긴 뒤, 그 구간은 버리고 받았다고만 알린다.
 		rollsOver();
 		send(fake, features(43, AT - 300, AT + 200));
-		assertEquals(List.of("ready", "ack", "progress", "decision", "session_rollover", "ack"), fake.types());
+		assertEquals(List.of("ready", "progress", "decision", "session_rollover"), fake.types());
 		assertEquals("session_ended", fake.only("decision").get("event").get("kind").asString());
 		same(example("ws-session-rollover.json"), fake.only("session_rollover"));
-		assertEquals(43, fake.all("ack").get(1).get("last_sequence").asLong());
 		assertFalse(fake.closed.get());
 
 		// 넘긴 뒤: 앱은 연결 기준 시간·순번을 그대로 보내고 서버가 새 세션 값(자정 = 0, 순번 43 = 0)으로 바꾼다.
@@ -394,7 +413,6 @@ class RealtimeHandlerTest {
 		var local = received.get(0);
 		assertEquals(List.of(1L, 200L, 700L), List.of(local.sequence(), local.startMs(), local.endMs()));
 		assertEquals(44, fake.only("observation").get("observation").get("sequence").asLong());
-		assertEquals(44, fake.all("ack").get(2).get("last_sequence").asLong());
 		assertEquals(44, fake.all("progress").get(1).get("last_sequence").asLong());
 
 		// end_ms도 새 세션 기준으로 바꿔 새 세션을 끝낸다. 이전 세션은 다시 끝내지 않는다.
@@ -411,7 +429,7 @@ class RealtimeHandlerTest {
 		assertEquals(List.of("ready", "decision", "session_rollover"), fake.types());
 		// 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않는다.
 		send(fake, features(0, AT - 500, AT));
-		assertEquals(List.of("ready", "decision", "session_rollover", "ack"), fake.types());
+		assertEquals(List.of("ready", "decision", "session_rollover"), fake.types());
 		verify(sessions, never()).frames(anyLong(), any(), any(), any());
 		assertFalse(fake.closed.get());
 	}
@@ -423,7 +441,7 @@ class RealtimeHandlerTest {
 		when(sessions.frames(eq(OWNER), eq(SESSION), any(FrameInterval.class), eq(BASELINE)))
 			.thenReturn(new SessionService.Status(43, SUMMARY, null));
 		send(off, features(43, AT - 300, AT + 200)); // 끄면 세션은 자정을 넘어 이어진다
-		assertEquals(List.of("ready", "ack", "progress"), off.types());
+		assertEquals(List.of("ready", "progress"), off.types());
 
 		var early = rolling(Clock.fixed(MIDNIGHT.minusSeconds(1), ZoneOffset.UTC));
 		handler.midnight();
@@ -500,9 +518,8 @@ class RealtimeHandlerTest {
 		handler = handler(Duration.ofSeconds(10), true, Clock.systemUTC(), pipeline);
 		var fake = connect(handler);
 		send(fake, example("ws-hello-measure.json"));
-		send(fake, example("ws-features.json"));
-		assertEquals(List.of("ready", "ack"), fake.types());
-		assertEquals(42, fake.only("ack").get("last_sequence").asLong());
+		send(fake, example("legacy/ws-features.json"));
+		assertEquals(List.of("ready"), fake.types());
 
 		var observation = new RealtimeMessages.V2.ObservationPush(
 			Observation.V4.judged(42, "bad", 0.82, 1500, 0));
@@ -517,7 +534,7 @@ class RealtimeHandlerTest {
 			"ended");
 		handler.pipelineResult(new PipelineResult(SESSION,
 			List.of(new RealtimeMessages.V2.Decision(event, SUMMARY)), null, SUMMARY.totalMs(), null));
-		assertEquals(List.of("ready", "ack", "observation", "decision", "closed"), fake.types());
+		assertEquals(List.of("ready", "observation", "decision", "closed"), fake.types());
 		same(example("ws-closed.json"), fake.only("closed"));
 		assertTrue(fake.closed.get());
 		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), isNull()); // 끝난 세션은 끊김 종료를 다시 안 보냄

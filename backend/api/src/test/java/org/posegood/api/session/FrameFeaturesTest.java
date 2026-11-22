@@ -20,12 +20,12 @@ import tools.jackson.databind.ObjectMapper;
  *
  * 기대값은 같은 합성 좌표를 그때의 앱 프로토타입(develop의 model/prototype/pose.ts, FE V3에서 지움 — git 이력에 남음)에
  * Node로 넣어 얻은 값이다(2026-10-16, 640×480). 입력 구간과 기준은
- * contracts/realtime/examples-ws의 예시를 그대로 읽는다. 모든 좌표는 합성이다.
+ * contracts/realtime/examples-ws/legacy의 예시를 그대로 읽는다. 모든 좌표는 합성이다.
  */
 class FrameFeaturesTest {
 	private static final double EPSILON = 1e-12;
 	private static final ObjectMapper MAPPER = new ObjectMapper();
-	private static final Path EXAMPLES = Path.of("..", "..", "contracts", "realtime", "examples-ws");
+	private static final Path EXAMPLES = Path.of("..", "..", "contracts", "realtime", "examples-ws", "legacy");
 
 	/** ws-calibration-result-ok.json의 기준 좌표(코·왼눈·…·오른어깨). */
 	private static final double[][] BASELINE = {

@@ -1,0 +1,7 @@
+{
+  "type": "features",
+  "sequence": 42,
+  "start_ms": 21000,
+  "end_ms": 21500,
+  "phase": "rest"
+}

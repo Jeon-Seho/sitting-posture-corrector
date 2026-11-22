@@ -97,7 +97,7 @@ class KafkaPipelineTest {
 	}
 
 	private static FrameInterval interval(long sequence, long startMs, long endMs) throws Exception {
-		var item = (ObjectNode)MAPPER.readTree(Files.readString(APP.resolve("ws-features.json")))
+		var item = (ObjectNode)MAPPER.readTree(Files.readString(APP.resolve("legacy/ws-features.json")))
 			.get("items").get(0);
 		item.put("sequence", sequence).put("start_ms", startMs).put("end_ms", endMs);
 		var first = item.get("frames").get(0).deepCopy();
@@ -203,7 +203,7 @@ class KafkaPipelineTest {
 		sameShape("keypoints-keypoints.json", keypoints);
 		assertEquals("keypoints", keypoints.get("kind").asString());
 		var body = keypoints.get("body");
-		var item = MAPPER.readTree(Files.readString(APP.resolve("ws-features.json"))).get("items").get(0);
+		var item = MAPPER.readTree(Files.readString(APP.resolve("legacy/ws-features.json"))).get("items").get(0);
 		var expectedFrame = item.get("frames").get(0).deepCopy();
 		((ObjectNode)expectedFrame).put("t_ms", 1500);
 		((ObjectNode)item).putArray("frames").add(expectedFrame);

@@ -296,10 +296,10 @@ class MySqlIntegrationTest {
 			socket.send(frames(sequence, "running", 0.09));
 		}
 		socket.next("decision", "collapse_confirmed");
-		JsonNode ack;
+		JsonNode progress;
 		do {
-			ack = socket.next("ack");
-		} while (ack.get("last_sequence").asLong() != 6);
+			progress = socket.next("progress");
+		} while (progress.get("last_sequence").asLong() != 6);
 		try (var connection = database.connect(); var statement = connection.createStatement()) {
 			var alert = statement.executeQuery(
 				"SELECT m.alert_enabled,a.attempted_at FROM monitor_session m JOIN"
@@ -626,7 +626,7 @@ class MySqlIntegrationTest {
 		}
 		assertEquals(-1, api.get("/sessions/" + secondSessionId).body().get("last_sequence").asLong());
 		socket.send(frames(1, "running", 0.09));
-		assertEquals(1, socket.next("ack").get("last_sequence").asLong());
+		assertEquals(1, socket.next("observation").get("observation").get("sequence").asLong());
 
 		// 재시작하면 판정 상태가 사라진다: 행은 남고 API는 404 SESSION_LOST로 답한다.
 		live.remove(secondSessionId, "session_lost");
@@ -855,12 +855,41 @@ class MySqlIntegrationTest {
 			.put("access_token", api.accessToken());
 	}
 
+	/** 신형은 동일한 합성 좌표 한 장을 평탄화하고 낮은 visibility도 서버에서 채점하도록 확인한다. */
+	private static ObjectNode frames(long sequence, Double shift, boolean flat) {
+		var legacy = frames(sequence, "running", shift);
+		if (!flat) {
+			return legacy;
+		}
+		var item = legacy.get("items").get(0);
+		var frame = item.get("frames").get(0);
+		var message = MAPPER.createObjectNode().put("type", "features").put("sequence", sequence)
+			.put("start_ms", sequence * 500).put("end_ms", sequence * 500 + 500)
+			.put("phase", shift == null ? "unmeasurable" : "running").put("t_ms", sequence * 500);
+		message.set("p", frame.get("p"));
+		if (shift != null) {
+			for (var joint : message.get("p")) {
+				((tools.jackson.databind.node.ArrayNode)joint).set(2, 0.1);
+			}
+		}
+		return message;
+	}
+
 	private static ObjectNode endMessage(long endMs) {
 		return MAPPER.createObjectNode().put("type", "end").put("end_ms", endMs);
 	}
 
 	@Test
 	void realtimeV2MeasuresUntilEnd() throws Exception {
+		measureUntilEnd(false);
+	}
+
+	@Test
+	void flatRealtimeMeasuresUntilEnd() throws Exception {
+		measureUntilEnd(true);
+	}
+
+	private void measureUntilEnd(boolean flat) throws Exception {
 		var api = client();
 		api.register(email());
 
@@ -879,10 +908,14 @@ class MySqlIntegrationTest {
 		UUID id = UUID.randomUUID();
 		assertEquals(200, api.put("/sessions/" + id, create(baseline)).status());
 		var socket = Socket.open(port);
-		socket.send(helloMessage(api, "measure", id));
+		var hello = helloMessage(api, "measure", id);
+		if (flat) {
+			hello.remove("schema_version");
+		}
+		socket.send(hello);
 		assertEquals(id.toString(), socket.next("ready").get("session_id").asString());
 		for (long sequence = 0; sequence < 7; sequence++) {
-			socket.send(frames(sequence, "running", 0.09));
+			socket.send(frames(sequence, 0.09, flat));
 		}
 		var observation = socket.next("observation").get("observation");
 		assertEquals("4.0", observation.get("schema_version").asString());
@@ -900,11 +933,11 @@ class MySqlIntegrationTest {
 		var decision = socket.next("decision", "collapse_confirmed");
 		assertEquals(3000, decision.get("event").get("timestamp_ms").asLong());
 		assertFalse(decision.has("session_id"));
-		JsonNode ack;
+		JsonNode progress;
 		do {
-			ack = socket.next("ack");
-		} while (ack.get("last_sequence").asLong() != 6);
-		socket.send(frames(7, "running", null));
+			progress = socket.next("progress");
+		} while (progress.get("last_sequence").asLong() != 6);
+		socket.send(frames(7, null, flat));
 		JsonNode unmeasurable;
 		do {
 			unmeasurable = socket.next("observation").get("observation");
@@ -915,7 +948,6 @@ class MySqlIntegrationTest {
 		assertEquals(0, unmeasurable.get("hold_ms").asLong());
 		assertEquals(0, unmeasurable.get("recovery_ms").asLong());
 		assertEquals("unmeasurable", unmeasurable.get("invalid_reason").asString());
-		JsonNode progress;
 		do {
 			progress = socket.next("progress");
 		} while (progress.get("last_sequence").asLong() != 7);
@@ -983,10 +1015,10 @@ class MySqlIntegrationTest {
 		for (long sequence = 0; sequence < 4; sequence++) {
 			socket.send(frames(sequence, "running", 0.0));
 		}
-		JsonNode ack;
+		JsonNode progress;
 		do {
-			ack = socket.next("ack");
-		} while (ack.get("last_sequence").asLong() != 3);
+			progress = socket.next("progress");
+		} while (progress.get("last_sequence").asLong() != 3);
 		socket.abort();
 
 		long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
@@ -1030,6 +1062,7 @@ class MySqlIntegrationTest {
 				if (message == null) {
 					continue;
 				}
+				assertNotEquals("ack", message.get("type").asString());
 				if (!type.equals(message.get("type").asString())) {
 					continue;
 				}
