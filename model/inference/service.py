@@ -14,8 +14,10 @@ from .schemas import (
 MODEL_VERSION = "baseline-feature-rule-v1"
 REFERENCE_MODEL_VERSION = "reference-feature-rule-v1"
 
-# Preserve the local referenceScore rule. These scales/quality limits are unvalidated.
+# Research comparison code imports this default; service inference does not apply it.
 MINIMUM_FEATURE_QUALITY = 0.65
+
+# Preserve the local referenceScore rule. These score scales are unvalidated.
 HEAD_GAP_SCALE = 0.22
 LATERAL_OFFSET_SCALE = 0.20
 SHOULDER_TILT_SCALE = 0.03  # ADR 0020 (was 0.13)
@@ -45,8 +47,6 @@ def predict_feature_observation(request: InferenceRequestV2) -> Observation:
         request.phase == "running"
         and request.measurement_quality == "good"
         and features is not None
-        and features.current_quality >= MINIMUM_FEATURE_QUALITY
-        and features.baseline_quality >= MINIMUM_FEATURE_QUALITY
     )
     score, deviation_type = 0.0, "none"
     if valid and features is not None:

@@ -220,19 +220,16 @@ public final class SessionEngine {
 	}
 
 	/**
-	 * 관측 4.0의 {@code invalid_reason}: 유효하면 null. 아니면 API가 좌표에서 찾은 사유
-	 * ({@code head_turn}), 그 밖에는 {@code unmeasurable}.
+	 * 관측 4.0의 {@code invalid_reason}: 유효하면 null, 그 밖에는 {@code unmeasurable}.
 	 *
 	 * 계약상 유효하지 않은 구간은 사유가 꼭 있어야 하므로 휴식·자리 비움도 {@code unmeasurable}이고, 멈춘 이유는
 	 * {@link #pausedReason}이 알려 준다. {@code settling}은 언제 나오는지 정해지지 않아 아직 쓰지 않는다.
 	 */
-	public static String invalidReason(Observation observation, String hint) {
+	public static String invalidReason(Observation observation) {
 		if (observation.valid()) {
 			return null;
 		}
-		return observation.phase() == Observation.Phase.running && "head_turn".equals(hint)
-			? "head_turn"
-			: "unmeasurable";
+		return "unmeasurable";
 	}
 
 	/**
@@ -242,9 +239,9 @@ public final class SessionEngine {
 	 * 이어진 시간은 그 구간을 {@link #accept}한 뒤의 값으로, 확정 규칙이 세는 것과 같다(끊기면 0).
 	 * 회복 쪽은 열린 사건이 있을 때만 센다. 사건이 없으면, 이 구간에서 회복이 확정돼 사건이 닫혔어도 0이다.
 	 */
-	public synchronized Observation.V4 live(Observation observation, String hint) {
+	public synchronized Observation.V4 live(Observation observation) {
 		if (!observation.valid()) {
-			return Observation.V4.unjudged(observation.sequence(), invalidReason(observation, hint));
+			return Observation.V4.unjudged(observation.sequence(), invalidReason(observation));
 		}
 		double score = observation.collapseProbability();
 		return Observation.V4.judged(

@@ -69,7 +69,7 @@ class KafkaPipelineTest {
 	private static final UUID BASELINE_ID = UUID.fromString("00000000-0000-4000-8000-000000000001");
 	private static final Instant STARTED = Instant.parse("2026-11-10T01:00:00Z");
 	private static final Policy POLICY = new Policy(3000, 3000, 60000, 0.7);
-	private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1, 0);
+	private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1);
 
 	private SessionService sessions;
 	private Producer<String, String> producer;
@@ -97,8 +97,12 @@ class KafkaPipelineTest {
 	}
 
 	private static FrameInterval interval(long sequence, long startMs, long endMs) throws Exception {
-		var item = (ObjectNode)MAPPER.readTree(Files.readString(APP.resolve("ws-features.json"))).get("items").get(0);
+		var item = (ObjectNode)MAPPER.readTree(Files.readString(APP.resolve("ws-features.json")))
+			.get("items").get(0);
 		item.put("sequence", sequence).put("start_ms", startMs).put("end_ms", endMs);
+		var first = item.get("frames").get(0).deepCopy();
+		((ObjectNode)first).put("t_ms", startMs);
+		item.putArray("frames").add(first);
 		return JSON.convert(item, FrameInterval.class);
 	}
 
@@ -200,6 +204,9 @@ class KafkaPipelineTest {
 		assertEquals("keypoints", keypoints.get("kind").asString());
 		var body = keypoints.get("body");
 		var item = MAPPER.readTree(Files.readString(APP.resolve("ws-features.json"))).get("items").get(0);
+		var expectedFrame = item.get("frames").get(0).deepCopy();
+		((ObjectNode)expectedFrame).put("t_ms", 1500);
+		((ObjectNode)item).putArray("frames").add(expectedFrame);
 		assertEquals(3, body.get("sequence").asLong());
 		assertEquals(1500, body.get("start_ms").asLong());
 		assertEquals(2000, body.get("end_ms").asLong());

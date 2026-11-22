@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,7 +21,6 @@ import org.posegood.api.contract.FrameInterval;
 import org.posegood.api.contract.InferenceRequest;
 import org.posegood.api.contract.Observation;
 import org.posegood.api.contract.Policy;
-import org.posegood.api.engine.SessionEngine;
 import org.posegood.api.session.FrameFeatures;
 import org.posegood.api.session.SessionService;
 import org.slf4j.Logger;
@@ -37,7 +35,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * <p>계약: contracts/realtime/kafka-features.schema.json. 봉투의 키는 {@code session_id}라 한 세션의
  * {@code session_started} → {@code features} → {@code session_ended}가 같은 파티션에 순서대로 들어간다.
  * 구간은 앱이 보낸 그대로(프레임마다) 보낸다 — local 경로와 같은 단위(2026-11-10 결정 ①). 본문은 local이 추론에 보내는
- * {@link InferenceRequest}와 같다. 브로커가 받았다고 확인한 뒤에만 반환해 {@code ack}가 「입력 접수」가 되게 한다.
+ * {@link InferenceRequest}와 같다. 브로커가 받았다고 확인한 뒤에만 입력 접수를 완료한다.
  *
  * <p>세션마다 시작·종료는 한 번만 보낸다. 입출구 서버는 한 대이고 재시작하면 연결이 모두 끊기므로(재연결 없음,
  * ADR 0024) 이 상태는 메모리에 둔다. 판정 결과(관측·사건·진행·알림)는 결과 토픽에서 따로 받는다.
@@ -147,15 +145,12 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 					interval.startMs(),
 					interval.endMs(),
 					Observation.Phase.valueOf(interval.phase().name()),
-					computed.deltas() == null
+					computed == null
 						? InferenceRequest.MeasurementQuality.poor
 						: InferenceRequest.MeasurementQuality.good,
-					computed.deltas());
+					computed);
 				send(sessionId, owner, "features", body);
 				archive(sessionId, owner, interval);
-				if (computed.invalidReason() != null) {
-					state.hints.put(interval.sequence(), computed.invalidReason());
-				}
 				state.lastSequence = interval.sequence();
 				state.lastEndMs = interval.endMs();
 				state.touched = clock.instant();
@@ -190,15 +185,6 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	@Override
 	public boolean local() {
 		return false;
-	}
-
-	/**
-	 * 좌표에서 찾은 판정 불가 사유(예: {@code head_turn}) — 결과 관측의 {@code invalid_reason}에 붙인다. 없으면 null.
-	 * 최근 {@link SessionEngine#RETRY_WINDOW}개 구간만 기억한다(결과는 보통 1초 안에 온다).
-	 */
-	String hint(UUID sessionId, long sequence) {
-		var state = live.get(sessionId);
-		return state == null ? null : state.hints.get(sequence);
 	}
 
 	/** 결과 구독({@link KafkaResults})을 이 파이프라인과 함께 닫는다. */
@@ -288,9 +274,6 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 		private volatile long lastEndMs;
 		private volatile boolean ended;
 		private volatile Instant touched = clock.instant();
-		/** 순번 → 판정 불가 힌트. 세션 잠금 안에서 쓰고 구독 스레드가 읽는다. */
-		private final Map<Long, String> hints =
-			Collections.synchronizedMap(SessionEngine.recent(SessionEngine.RETRY_WINDOW));
 
 		private Live(UUID baselineId) {
 			this.baselineId = baselineId;

@@ -51,9 +51,7 @@ public final class SyntheticInference implements AutoCloseable {
 		var features = request.get("features");
 		boolean valid = "running".equals(request.get("phase").asString())
 			&& "good".equals(request.get("measurement_quality").asString())
-			&& !features.isNull()
-			&& features.get("current_quality").asDouble() >= 0.65
-			&& features.get("baseline_quality").asDouble() >= 0.65;
+			&& !features.isNull();
 		double score = 0;
 		String type = "none";
 		if (valid) {

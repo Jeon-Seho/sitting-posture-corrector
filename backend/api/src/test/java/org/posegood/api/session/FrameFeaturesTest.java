@@ -99,9 +99,7 @@ class FrameFeaturesTest {
 
 	@Test
 	void forwardSlouchMatchesThePrototype() {
-		var result = FrameFeatures.interval(running(frame(0, SLOUCH, null)), baseline());
-		assertNull(result.invalidReason());
-		var deltas = result.deltas();
+		var deltas = FrameFeatures.interval(running(frame(0, SLOUCH, null)), baseline());
 		assertEquals(-0.1875419584789344, deltas.headGapDelta(), EPSILON);
 		assertEquals(0.07792675994548028, deltas.lateralOffsetDelta(), EPSILON);
 		assertEquals(0.03513454422554122, deltas.shoulderTiltDelta(), EPSILON);
@@ -111,7 +109,7 @@ class FrameFeaturesTest {
 
 	@Test
 	void sidewaysLeanMatchesThePrototype() {
-		var deltas = FrameFeatures.interval(running(frame(0, LEAN, null)), baseline()).deltas();
+		var deltas = FrameFeatures.interval(running(frame(0, LEAN, null)), baseline());
 		assertEquals(-0.019743158105270053, deltas.headGapDelta(), EPSILON);
 		assertEquals(0.23318332833316696, deltas.lateralOffsetDelta(), EPSILON);
 		assertEquals(0, deltas.shoulderTiltDelta(), EPSILON);
@@ -119,69 +117,59 @@ class FrameFeaturesTest {
 	}
 
 	@Test
-	void intervalAveragesUsableFramesAndSkipsTheRest() {
-		var result = FrameFeatures.interval(
-			running(frame(0, SLOUCH, null), frame(60, null, null), frame(120, LEAN, null),
-				frame(180, LEAN, false)),
-			baseline());
-		var deltas = result.deltas();
-		assertEquals(-0.10364255829210223, deltas.headGapDelta(), EPSILON);
-		assertEquals(0.1555550441393236, deltas.lateralOffsetDelta(), EPSILON);
-		assertEquals(0.01756727211277061, deltas.shoulderTiltDelta(), EPSILON);
-		assertEquals((0.88 + 0.8) / 2, deltas.currentQuality(), EPSILON);
+	void legacyMultipleFramesUseTheLastFrameWithoutAveraging() {
+		var deltas = FrameFeatures.interval(running(frame(0, SLOUCH, null), frame(120, LEAN, null)), baseline());
+		assertEquals(-0.019743158105270053, deltas.headGapDelta(), EPSILON);
+		assertEquals(0.23318332833316696, deltas.lateralOffsetDelta(), EPSILON);
+		assertEquals(0.8, deltas.currentQuality(), EPSILON);
+		assertNull(FrameFeatures.interval(running(frame(0, SLOUCH, null), frame(120, LEAN, false)), baseline()));
 	}
 
 	@Test
-	void contractExampleIntervalUsesOnlyTheTrackedValidFrame() throws Exception {
-		// ws-features.json: 첫 프레임은 기준과 같은 좌표, 둘째는 사람 없음(p null), 셋째는 위치를 못 잡은 프레임(p null).
-		var result = FrameFeatures.interval(example("ws-features.json"), baseline());
-		var deltas = result.deltas();
-		assertEquals(0, deltas.headGapDelta(), EPSILON);
-		assertEquals(0, deltas.lateralOffsetDelta(), EPSILON);
-		assertEquals(0, deltas.shoulderTiltDelta(), EPSILON);
-		assertEquals(0.95, deltas.currentQuality(), EPSILON);
+	void lastMissingFrameDoesNotReuseAnOlderValidFrame() throws Exception {
+		assertNull(FrameFeatures.interval(example("ws-features.json"), baseline()));
 	}
 
 	@Test
-	void headTurnAndUnmeasurableReasons() {
+	void headTurnAndLowVisibilityAreScoredButMissingFramesAreNot() {
 		var turned = new double[9][];
 		for (int i = 0; i < 9; i++) {
 			turned[i] = SLOUCH[i].clone();
 		}
 		turned[0][0] += 0.1; // 코만 옆으로: 어깨 폭의 약 0.33 → 고개 돌림
 		var result = FrameFeatures.interval(running(frame(0, turned, null)), baseline());
-		assertNull(result.deltas());
-		assertEquals("head_turn", result.invalidReason());
+		assertNotNull(result);
 
 		var dim = new double[9][];
 		for (int i = 0; i < 9; i++) {
 			dim[i] = SLOUCH[i].clone();
 		}
 		dim[7][2] = 0.5; // 왼어깨 visibility 0.65 미만
+		assertNotNull(FrameFeatures.interval(running(frame(0, dim, null)), baseline()));
 		result = FrameFeatures.interval(running(frame(0, dim, null), frame(60, null, null)), baseline());
-		assertNull(result.deltas());
-		assertEquals("unmeasurable", result.invalidReason());
+		assertNull(result);
 
 		var rest = new FrameInterval("3.0", "keypoints-9-v1", 1, 500, 1000, FrameInterval.Phase.rest, List.of());
 		result = FrameFeatures.interval(rest, baseline());
-		assertNull(result.deltas());
-		assertNull(result.invalidReason());
+		assertNull(result);
 	}
 
 	@Test
-	void framesAtTheEdgeOrTooNarrowAreUnusable() {
+	void edgeAndNarrowFramesAreScoredUnlessShoulderWidthIsZero() {
 		var edge = new double[9][];
 		for (int i = 0; i < 9; i++) {
 			edge[i] = SLOUCH[i].clone();
 		}
 		edge[8][0] = 0.01;
-		assertNull(FrameFeatures.features(frame(0, edge, null)));
+		assertNotNull(FrameFeatures.features(frame(0, edge, null)));
 		var narrow = new double[9][];
 		for (int i = 0; i < 9; i++) {
 			narrow[i] = SLOUCH[i].clone();
 		}
 		narrow[7][0] = 0.55;
 		narrow[8][0] = 0.5;
+		assertNotNull(FrameFeatures.features(frame(0, narrow, null)));
+		narrow[7] = narrow[8].clone();
 		assertNull(FrameFeatures.features(frame(0, narrow, null)));
 		assertNotNull(FrameFeatures.features(frame(0, SLOUCH, null)));
 	}

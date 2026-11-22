@@ -20,7 +20,7 @@ import tools.jackson.databind.JsonNode;
  * 새 프레임이 0.5초 동안 없으면 0.5초에서 닫는다. 관절 9개 원본 프레임이다. {@code /realtime} features의 item이다.
  *
  * 계약: contracts/realtime/frames/posture-frames.schema.json. 구간은 [startMs, endMs)이다.
- * 좌표는 로그·DB에 남기지 않는다. 서버는 특징 변화량(측정) 또는 관절 평균(자세 등록)만 계산한다.
+ * 좌표는 로그·DB에 남기지 않는다. Kafka 적재 스위치를 켠 경우에만 별도 좌표 토픽으로 보낸다.
  */
 public record FrameInterval(
 	@NotNull @Pattern(regexp = "3\\.0") String schemaVersion,
@@ -44,6 +44,11 @@ public record FrameInterval(
 		if (endMs <= startMs || endMs - startMs > 1500) {
 			throw new IllegalArgumentException("interval must be 1..1500ms");
 		}
+	}
+
+	/** 구형 배열도 평균 없이 마지막 관측 한 장으로 처리한다. */
+	public Frame lastFrame() {
+		return frames.isEmpty() ? null : frames.get(frames.size() - 1);
 	}
 
 	/**

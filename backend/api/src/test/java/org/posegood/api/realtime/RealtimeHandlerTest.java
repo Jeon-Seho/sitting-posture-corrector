@@ -84,7 +84,7 @@ class RealtimeHandlerTest {
 	private static final Instant STARTED = Instant.parse("2026-10-26T01:00:00.120Z");
 	private static final SessionView.Summary SUMMARY = new SessionView.Summary(21500, 20500, 17000, 3500, 0, 0, 1000, 0,
 		1, 1, 0, 0.8293, 175.6, null, null);
-	private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1, 0);
+	private static final FrameFeatures.Features BASELINE = new FrameFeatures.Features(0.9, 0, 0, 1);
 	/** 자정 넘김으로 서버가 만든 새 세션. */
 	private static final UUID NEXT = UUID.fromString("5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e");
 	/** STARTED(KST 10:00:00.120) 다음의 KST 자정과 그 위치(앱이 보내는 시간축, 연결 기준 ms). */
@@ -220,7 +220,7 @@ class RealtimeHandlerTest {
 		var invalid = new Observation("2.0", 43, 21500, 22000, Observation.Phase.running, false, 0,
 			Observation.DeviationType.none, "reference-feature-rule-v1");
 		handler.progressed(new SessionUpdates.Progressed(SESSION, invalid, List.of(), 43, SUMMARY, false,
-			Observation.V4.unjudged(43, SessionEngine.invalidReason(invalid, null)), "unmeasurable", null));
+			Observation.V4.unjudged(43, SessionEngine.invalidReason(invalid)), "unmeasurable", null));
 		same(example("ws-observation-unmeasurable.json"), fake.all("observation").get(1));
 		assertFalse(fake.closed.get());
 	}
