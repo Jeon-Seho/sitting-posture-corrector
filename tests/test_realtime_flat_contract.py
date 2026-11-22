@@ -1,6 +1,7 @@
-"""Flat WS contracts, synthetic inputs only."""
+"""Flat WS and archive contracts, synthetic inputs only."""
 
 import copy
+import importlib.util
 import json
 import unittest
 from pathlib import Path
@@ -57,6 +58,23 @@ class FlatContractTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 self.ws.validate({**blank, **patch})
 
+    def test_new_archive_example_and_replay_share_the_contract(self):
+        check = self.validators["kafka-keypoints.schema.json"]
+        check.validate(load(REALTIME / "examples/keypoints-keypoints.json"))
+        spec = importlib.util.spec_from_file_location("keypoints_v2", ROOT / "tools/platform/replay_keypoints.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        from datetime import datetime, timezone
+        lines = module.build("00000000-0000-4000-8000-000000000001", "synthetic", datetime.now(timezone.utc),
+                             1, 1, 1, 500)
+        for line in lines:
+            check.validate(json.loads(line.split("|", 1)[1]))
+        with self.assertRaises(ValidationError):
+            legacy = load(REALTIME / "examples/keypoints-keypoints.json")
+            frame = legacy["body"]
+            legacy["body"] = {"sequence": frame["sequence"], "start_ms": frame["start_ms"],
+                              "end_ms": frame["end_ms"], "phase": "running", "frames": []}
+            check.validate(legacy)
 
 
 if __name__ == "__main__":

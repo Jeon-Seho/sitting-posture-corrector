@@ -4,7 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,8 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 /**
  * kafka 경로(계획 0031 1단계, D-57): 받은 구간을 {@code posture.features}로 보내고, 판정은 처리 서비스가 한다.
  *
@@ -41,7 +39,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * ADR 0024) 이 상태는 메모리에 둔다. 판정 결과(관측·사건·진행·알림)는 결과 토픽에서 따로 받는다.
  * 좌표·특징 값은 로그에 남기지 않는다.
  *
- * <p>(D-92) 적재 스위치를 켜면 받은 좌표 구간을 그대로 {@code posture.keypoints}에도 보낸다(J1이 HDFS 세션 폴더에
+ * <p>(D-92) 적재 스위치를 켜면 마지막 관측으로 정규화한 좌표 구간을 {@code posture.keypoints}에도 보낸다(J1이 HDFS 세션 폴더에
  * {@code keypoints.jsonl}로 저장 — 학습용 좌표 보관). 판정 경로가 아니라서 브로커 확인을 기다리지 않고, 실패해도
  * 측정은 계속한다(그 구간 좌표만 빠짐, 실패 수를 센다). 계약: contracts/realtime/kafka-keypoints.schema.json.
  */
@@ -220,7 +218,7 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 			return;
 		}
 		try {
-			var value = envelope(sessionId, owner, "keypoints", Keypoints.of(interval));
+			var value = envelope(sessionId, owner, "keypoints", keypoints(interval));
 			producer.send(new ProducerRecord<>(keypointsTopic, sessionId.toString(), value), (metadata, failure) -> {
 				if (failure != null) {
 					keypointsLost(failure);
@@ -302,27 +300,23 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	record SessionEnded(long endMs) {
 	}
 
-	/**
-	 * (D-92) {@code keypoints} 본문: 앱이 보낸 좌표 구간 그대로(contracts/realtime/frames/posture-frames.schema.json).
-	 */
-	record Keypoints(
-		String schemaVersion,
-		String featureVersion,
-		long sequence,
-		long startMs,
-		long endMs,
-		String phase,
-		List<KeypointFrame> frames) {
-
-		static Keypoints of(FrameInterval interval) {
-			return new Keypoints(interval.schemaVersion(), interval.featureVersion(), interval.sequence(),
-				interval.startMs(), interval.endMs(), interval.phase().name(),
-				interval.frames().stream().map(frame -> new KeypointFrame(frame.tMs(), frame.p(), frame.valid()))
-					.toList());
+	/** 새 적재 본문은 구형 WS에서도 마지막 관측 한 장으로 정규화한다. */
+	private static Map<String, Object> keypoints(FrameInterval interval) {
+		var body = new LinkedHashMap<String, Object>();
+		body.put("sequence", interval.sequence());
+		body.put("start_ms", interval.startMs());
+		body.put("end_ms", interval.endMs());
+		String phase = interval.phase().name();
+		if (interval.phase() == FrameInterval.Phase.running) {
+			var frame = interval.lastFrame();
+			boolean tracked = frame != null && frame.tracked();
+			phase = tracked ? "running" : "unmeasurable";
+			if (frame != null) {
+				body.put("t_ms", frame.tMs());
+			}
+			body.put("p", tracked ? frame.p() : null);
 		}
-	}
-
-	/** 프레임 하나. {@code p}는 사람이 없으면 null로 남기고, {@code valid}는 false일 때만 쓴다(계약과 같음). */
-	record KeypointFrame(long tMs, List<List<Double>> p, @JsonInclude(JsonInclude.Include.NON_NULL) Boolean valid) {
+		body.put("phase", phase);
+		return body;
 	}
 }

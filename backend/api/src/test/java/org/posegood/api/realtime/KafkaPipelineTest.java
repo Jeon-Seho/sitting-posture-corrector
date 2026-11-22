@@ -1,8 +1,10 @@
 package org.posegood.api.realtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -204,30 +206,19 @@ class KafkaPipelineTest {
 		assertEquals("keypoints", keypoints.get("kind").asString());
 		var body = keypoints.get("body");
 		var item = MAPPER.readTree(Files.readString(APP.resolve("legacy/ws-features.json"))).get("items").get(0);
-		var expectedFrame = item.get("frames").get(0).deepCopy();
-		((ObjectNode)expectedFrame).put("t_ms", 1500);
-		((ObjectNode)item).putArray("frames").add(expectedFrame);
 		assertEquals(3, body.get("sequence").asLong());
 		assertEquals(1500, body.get("start_ms").asLong());
 		assertEquals(2000, body.get("end_ms").asLong());
-		assertEquals(item.get("phase").asString(), body.get("phase").asString());
-		assertEquals(item.get("feature_version").asString(), body.get("feature_version").asString());
-		assertEquals(item.get("frames").size(), body.get("frames").size());
-		for (int index = 0; index < item.get("frames").size(); index++) {
-			var expected = item.get("frames").get(index);
-			var actual = body.get("frames").get(index);
-			assertEquals(expected.get("t_ms").asLong(), actual.get("t_ms").asLong());
-			assertEquals(expected.get("p").isNull(), actual.get("p").isNull());
-			assertEquals(expected.has("valid"), actual.has("valid"));
-			if (!expected.get("p").isNull()) {
-				assertEquals(expected.get("p").get(0).get(0).asDouble(), actual.get("p").get(0).get(0).asDouble());
-				assertEquals(expected.get("p").get(8).get(2).asDouble(), actual.get("p").get(8).get(2).asDouble());
-			}
-		}
+		assertEquals("1.0", keypoints.get("schema_version").asString());
+		assertEquals("running", body.get("phase").asString());
+		assertEquals(1500, body.get("t_ms").asLong());
+		assertEquals(item.get("frames").get(0).get("p"), body.get("p"));
+		assertFalse(body.has("frames"));
+
 		assertEquals(0, archiving.keypointsFailed());
 	}
 
-	/** (D-92) 적재는 기다리지 않는다 — 실패해도 구간은 받고(ack) 실패 수만 센다. 기본(스위치 꺼짐)은 보내지 않는다. */
+	/** (D-92) 적재는 기다리지 않는다 — 실패해도 구간은 받고 실패 수만 센다. 기본(스위치 꺼짐)은 보내지 않는다. */
 	@Test
 	void archiveFailureDoesNotBlockTheIntervalAndOffSendsNothing() throws Exception {
 		var callbacks = new ArrayList<Callback>();
@@ -247,6 +238,36 @@ class KafkaPipelineTest {
 		pipeline.open(OWNER, SESSION); // 기본 생성자 = 꺼짐
 		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
 		verify(producer, times(2)).send(any(), any()); // 켠 파이프라인의 구간 2개뿐
+	}
+
+	@Test
+	void flatArchivePreservesNullAndDistinguishesNoObservationFromRest() throws Exception {
+		when(producer.send(any(), any())).thenAnswer(call -> {
+			sent.add(call.getArgument(0));
+			return CompletableFuture.completedFuture((RecordMetadata)null);
+		});
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features", "posture.keypoints", JSON,
+			Duration.ofSeconds(3), Duration.ofHours(24), Clock.systemUTC());
+		archiving.open(OWNER, SESSION);
+		var names = List.of("ws-unmeasurable.json", "ws-no-observation.json", "ws-rest.json", "ws-away.json");
+		for (int i = 0; i < names.size(); i++) {
+			var input = (ObjectNode)MAPPER.readTree(Files.readString(APP.resolve(names.get(i))));
+			input.put("sequence", i).put("start_ms", i * 500).put("end_ms", (i + 1) * 500);
+			if (input.has("t_ms")) {
+				input.put("t_ms", i * 500 + 100);
+			}
+			archiving.frames(OWNER, SESSION, FrameInterval.readFlat(input), BASELINE);
+			var internal = message(sent.size() - 2).get("body");
+			var archived = message(sent.size() - 1).get("body");
+			assertEquals(input.get("phase"), archived.get("phase"));
+			assertEquals(input.has("t_ms"), archived.has("t_ms"));
+			assertEquals(input.has("p"), archived.has("p"));
+			assertTrue(internal.get("features").isNull());
+			assertEquals("poor", internal.get("measurement_quality").asString());
+			if (input.has("p")) {
+				assertTrue(archived.get("p").isNull());
+			}
+		}
 	}
 
 	@Test

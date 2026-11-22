@@ -71,14 +71,14 @@ class RealtimeContractTests(unittest.TestCase):
                 validator("kafka-features.schema.json").validate(payload)
 
     def test_keypoints_topic_carries_the_app_interval_and_only_it(self):
-        """(D-92) 좌표 적재 토픽: 본문은 앱이 보낸 좌표 구간 그대로(frames 계약). 다른 kind·모르는 칸은 거절."""
+        """(D-92) 좌표 적재 토픽: 본문은 정규화한 단일 프레임 구간(평탄화 계약). 다른 kind·모르는 칸은 거절."""
         keypoints = self.example("keypoints-keypoints.json")
         check = validator("kafka-keypoints.schema.json")
         check.validate(keypoints)
         cases = [
             dict(keypoints, kind="features"),
             dict(keypoints, body=dict(keypoints["body"], features={})),
-            dict(keypoints, body={k: v for k, v in keypoints["body"].items() if k != "frames"}),
+            dict(keypoints, body={k: v for k, v in keypoints["body"].items() if k != "p"}),
         ]
         for payload in cases:
             with self.subTest(payload=list(payload)), self.assertRaises(ValidationError):

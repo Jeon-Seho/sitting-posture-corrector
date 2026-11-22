@@ -7,8 +7,8 @@ kafka-console-producer가 그대로 받는다(통합 테스트 17단계):
       | docker exec -i kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \\
           --topic posture.keypoints --property parse.key=true --property key.separator='|'
 
-구간은 replay_realtime.py 기본 시나리오와 같은 170개(0.5초, sequence 0부터, 85초)이고 구간마다 프레임 4장(125ms).
-본문은 앱이 보내는 좌표 구간 계약(contracts/realtime/frames/posture-frames.schema.json) 그대로다.
+구간은 replay_realtime.py 기본 시나리오와 같은 170개(0.5초, sequence 0부터, 85초)이고 구간마다 프레임 한 장.
+본문은 앱이 보내는 좌표 구간 계약(contracts/realtime/frames/posture-frame.schema.json) 그대로다.
 좌표는 합성 값(기준 자세 근처 고정점 + 나쁜 자세 구간은 머리 점을 아래로)이며 실제 사람의 측정값이 아니다.
 """
 import argparse
@@ -31,9 +31,9 @@ def build(session_id, user_id, start, normal_sec, bad_sec, recover_sec, segment_
     lines, seq, t = [], 0, 0
     for seconds, drop in ((normal_sec, 0.0), (bad_sec, 0.1), (recover_sec, 0.0)):
         for _ in range(int(round(seconds * 1000 / segment_ms))):
-            body = {"schema_version": "3.0", "feature_version": "keypoints-9-v1", "sequence": seq,
+            body = {"sequence": seq,
                     "start_ms": t, "end_ms": t + segment_ms, "phase": "running",
-                    "frames": [frame(t + k * segment_ms // 4, drop) for k in range(4)]}
+                    **frame(t, drop)}
             produced = (start + timedelta(milliseconds=t + segment_ms)).isoformat(timespec="milliseconds")
             envelope = {"schema_version": "1.0", "message_id": str(uuid.uuid4()), "session_id": session_id,
                         "user_id": user_id, "produced_at": produced.replace("+00:00", "Z"), "kind": "keypoints",
