@@ -3,31 +3,32 @@
 - 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). FE·ADR 구현 전)
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
-- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR 0049(작성 예정)
+- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR(같은 이메일 승인 연결, 작성 예정 — 새 번호)
 
 ## 문제와 완료 기준
 
-> **2026-11-18 결정으로 방향이 바뀌었다(아래 「결정과 진행 기록」).** 같은 이메일은 자동 연결 대신 기존 계정 확인·승인 뒤 연결하고(#127 방식), Discord 전용 계정에는 비밀번호를 붙이지 않으며(탈퇴는 비밀번호 없이, BE-25), 인증 대기는 DB 표 `email_verification_token`에 둔다. 아래 1·2번과 「흐름」의 자동 연결·비밀번호 붙이기는 그 결정 전 설계이고, BE 2단계를 시작할 때 고쳐 쓴다.
+> **2026-11-17 처음 설계(자동 연결, Discord 전용 계정에 비밀번호 붙이기, 인증 링크)는 2026-11-18·11-23 결정으로 바뀌었다(아래 「결정과 진행 기록」).** 이 절과 「흐름」은 바뀐 결정대로 고쳐 썼다(2026-11-23).
 
-지금은 같은 이메일이어도 이메일 계정과 Discord 계정을 자동으로 묶지 않는다(0088, 11/11 결정). 이를 다음처럼 바꾼다.
+0088까지는 이메일 가입에 메일함 주인 확인이 없어 남의 이메일로 가입할 수 있었고, 같은 이메일의 이메일 계정과 Discord 계정을 묶는 길이 없었다(11/11 결정). 이를 다음처럼 바꾼다.
 
-1. **이메일 계정이 있는 사람이 Discord로 들어오면** Discord가 확인한 이메일이 같은 계정에 Discord를 자동으로 연결하고 로그인시킨다.
-2. **Discord로만 가입한 사람이 같은 이메일로 이메일 가입을 하면** 새 계정을 만들지 않고 그 계정에 비밀번호를 붙인다.
-3. 2를 안전하게 하려고 **이메일 가입에 메일함 소유 확인(이메일 인증)을 넣는다.** 지금 이메일 가입은 주인 확인을 하지 않아, 남의 이메일로 가입하거나 남의 Discord 계정에 비밀번호를 붙일 수 있다.
+1. **이메일 계정이 있는 사람이 같은 이메일의 Discord로 들어오면** 자동으로 묶지 않고, 기존 계정의 비밀번호를 확인하고 연결을 승인한 뒤에 Discord를 연결하고 로그인시킨다(#127, 11/18 결정 2).
+2. **Discord로만 가입한 계정에는 비밀번호를 붙이지 않는다.** 같은 이메일로 이메일 가입을 하면 409 `ACCOUNT_EXISTS`다. 소셜 로그인은 비밀번호 없이 쓰는 것이 장점이므로, 비밀번호가 필요했던 탈퇴를 비밀번호 없이 받는다(BE-25, 11/18 결정 3).
+3. **이메일 가입 전에 메일함 소유를 6자리 코드로 확인한다.** 인증 대기는 서버 메모리가 아니라 DB `email_verification_token`에 두어 서버 재시작·배포에도 이어진다(11/18 결정 1, 11/23 결정).
+4. 비밀번호를 `user_account.password_hash`에서 `local_credential`로 옮긴다(비밀번호 없는 계정 = 행 없음).
 
 완료 기준: V2.8 DB(V2.7 + migration 018·019)에서 `-Pmysql-integration`으로 아래를 확인한다.
-- 이메일 가입은 인증 링크 없이 계정을 만들 수 없다.
-- Discord 확인 이메일이 같은 기존 계정에 자동 연결되고 로그인된다.
-- Discord 전용 계정의 이메일로 가입하면 기존 계정에 비밀번호만 붙는다(새 계정·새 동의 행 없음, 프로필 유지).
-- 비밀번호 있음/없음 판단, 연결 해제의 마지막 로그인 수단 검사, 비밀번호 변경·재설정·탈퇴가 `local_credential` 기준으로 동작한다. 소셜 전용 계정은 비밀번호 변경·재설정으로 비밀번호를 새로 만들 수 없다.
-- 탈퇴 최종 삭제(J3)가 새 표가 있어도 계정 행을 지운다.
+- 이메일 인증을 켜면 같은 브라우저에서 코드를 확인한 이메일로만 가입할 수 있다. 인증 대기는 서버를 다시 시작해도 남고, 가입이 실패하면 인증 소비도 되돌아간다.
+- 코드 확인은 요청마다 5회까지이고, 같은 이메일로 새 코드를 받으면 이전 코드와 확인 증명은 쓸 수 없다.
+- 같은 이메일의 Discord 로그인은 기존 계정 비밀번호 확인과 승인 전에는 연결·로그인하지 않는다.
+- 비밀번호 있음/없음 판단, 연결 해제의 마지막 로그인 수단 검사, 비밀번호 변경·재설정·탈퇴가 `local_credential` 기준으로 동작한다. 소셜 전용 계정은 비밀번호 변경·재설정으로 비밀번호를 새로 만들 수 없고, 비밀번호 없이 탈퇴한다.
+- 탈퇴 최종 삭제(J3)가 새 표가 있어도 계정 행을 지운다. 인증 대기 행은 계정과 묶이지 않아 매일 정리로 지운다.
 
 ## 범위와 제외
 
 - **DB:** 운영 DB는 이미 V2.7(017 적용)이다. 017은 고치지 않고 migration 018(비밀번호 표 분리)·019(이메일 인증 토큰)와 `schema_V2_8.sql`(명세서 V2.8)로 올린다. 아래 「표 변경」.
-- **BE:** 비밀번호 읽기·쓰기를 `local_credential`로 옮기기, 이메일 인증 경로, 가입 흐름 변경, Discord 자동 연결.
-- **FE:** 가입 순서 변경(약관 → 이메일 → 메일 확인 → 계정 정보), 기존 Discord 계정에 비밀번호만 붙이는 화면, 자동 연결 안내.
-- **문서:** ADR 0049, 0088 인계 1절, 계정 계약, DB 안내, 이메일 인계, 문서 지도.
+- **BE:** 비밀번호 읽기·쓰기를 `local_credential`로 옮기기(1단계), 이메일 인증 대기를 DB로 옮기기(2단계). 경로·가입 흐름·Discord 승인 연결은 #127 그대로.
+- **FE:** 바꿀 것 없음 — 가입 코드 화면과 Discord 연결 승인 화면은 #127 그대로 쓴다. 문구만 확인(재시작해도 코드가 남음).
+- **문서:** ADR(같은 이메일 승인 연결 — 번호 0049는 「이름에 버전 없음」에 쓰였으므로 새 번호), 0088 인계 1절, 계정 계약, DB 안내, 이메일 인계, 문서 지도.
 - **제외:** 이메일 주소 변경 기능, 카카오·Google·GitHub 어댑터, 데스크톱 앱 Discord, 이메일 인증 도입 전 계정의 소급 인증(아래 결정 4).
 
 ## 표 변경 (V2.7 → V2.8, migration 018·019)
@@ -47,17 +48,22 @@ CREATE TABLE local_credential (
   CONSTRAINT fk_local_credential_user_account FOREIGN KEY (user_account_id) REFERENCES user_account (user_account_id) ON DELETE CASCADE ON UPDATE RESTRICT  -- FK-31
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-54 비밀번호 로그인 수단';
 
--- T-55 email_verification_token — 가입 전 메일함 소유 확인용 일회용 링크 토큰. 계정이 아직 없어 이메일로 주인을 둔다(FK 없음).
+-- T-55 email_verification_token — 가입 전 메일함 소유 확인용 6자리 코드의 대기 상태(2026-11-23 링크 → 코드 방식으로 고침).
+-- 계정이 아직 없어 이메일로 주인을 둔다(FK 없음).
 CREATE TABLE email_verification_token (
-  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 토큰 식별자',
+  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 요청 식별자',
   login_email VARCHAR(254) NOT NULL COMMENT '인증할 이메일(정규화: 앞뒤 공백 제거·소문자)',
-  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 메일 링크에만 있다',
-  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
+  token_hash CHAR(64) NOT NULL COMMENT '요청 번호의 SHA-256. 원문은 브라우저의 HttpOnly 쿠키에만 있다',
+  code_hash CHAR(64) NOT NULL COMMENT '「요청 번호:6자리 코드」의 SHA-256. 코드 원문은 메일에만 있다',
+  attempt_count TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '코드 확인 시도 횟수(API 한도 5회)',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각 (같은 이메일 재발송 간격의 기준)',
   expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 설정값)',
-  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 새 발급). NULL: 아직 쓸 수 있음',
+  verified_at DATETIME(3) NULL COMMENT '코드 확인 시각. NULL: 아직 확인 전',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 같은 이메일 새 요청). NULL: 아직 쓸 수 있음',
   CONSTRAINT pk_email_verification_token PRIMARY KEY (email_verification_token_id),
   CONSTRAINT ux_email_verification_token_hash UNIQUE (token_hash),  -- UK-21
   CONSTRAINT ck_email_verification_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),
+  CONSTRAINT ck_email_verification_token_code_hash CHECK (CHAR_LENGTH(code_hash) = 64),
   CONSTRAINT ck_email_verification_token_expires CHECK (expires_at > issued_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-55 이메일 인증 토큰';
 ```
@@ -81,28 +87,41 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 
 ## 흐름
 
-**이메일 가입(인증 먼저):**
-1. 약관 동의 뒤 이메일을 입력한다 → `POST /auth/email-verification/requests {email}` → 항상 202(가입 여부를 드러내지 않음, 처리는 응답 뒤. 비밀번호 재설정과 같은 방식).
-2. 서버는 그 이메일의 계정 상태에 따라 메일을 보낸다.
-   - 계정 없음 → 인증 링크(`<app>#verify-email?token=`).
-   - Discord 전용 계정(`local_credential` 없음) → 인증 링크. 링크를 열면 「기존 계정에 이메일 로그인 추가」 화면.
-   - 비밀번호가 이미 있는 계정 → 링크 없이 「이미 가입된 이메일입니다. 로그인하거나 비밀번호를 재설정하세요」 안내 메일.
-   - 탈퇴 유예 중(CLOSED) → 메일을 보내지 않는다(지금 재설정과 같음).
-3. 링크를 열면 FE가 토큰으로 상태를 묻는다(새 가입인지 기존 계정 추가인지, 이메일). 사용자가 계정 정보를 입력한다.
-4. `POST /auth/register`에 토큰을 함께 보낸다. 서버는 한 트랜잭션에서 토큰을 한 번만 소비하고(`UPDATE ... WHERE consumed_at IS NULL AND expires_at > ?`, 영향 행 1일 때만):
-   - 계정 없음 → `user_account` + `local_credential` + `user_consent`를 만든다.
-   - Discord 전용 계정 → `local_credential`만 넣는다. 프로필·동의는 기존 값을 유지한다.
-   - 그 사이 비밀번호가 생긴 계정 → 409.
+경로와 화면은 #127 그대로이고, 2단계에서 바뀌는 것은 인증 대기를 저장하는 곳뿐이다(2026-11-23).
 
-**Discord 로그인(자동 연결):** `social_identity`로 찾은 계정이 없고 Discord 확인 이메일과 같은 계정이 있으면:
-- ACTIVE이고 Discord가 아직 연결되지 않음 → `social_identity`를 넣고 로그인한다(새 상태 또는 `signed-in` + 안내).
-- ACTIVE인데 다른 Discord가 이미 연결됨(UK-19) → `in-use`.
-- CLOSED → `closed`(지금과 같음).
-- 자동 연결은 **이메일 인증 기능이 켜져 있을 때만** 한다. 꺼져 있으면 지금처럼 `link-required`.
+**이메일 가입(코드 인증 먼저, `posegood.auth.email-verification.enabled=true`일 때):**
+1. 약관 동의 뒤 이메일을 입력한다 → `POST /auth/email-verification/requests {email}`.
+   - 출처(IP)별 15분 5회, 같은 이메일은 60초에 한 번. 넘으면 429 `RATE_LIMITED`.
+   - 서버는 6자리 코드를 만들어 메일로 보낸다(15분). 발송이 실패하면 503 `MAIL_UNAVAILABLE`이고 아무것도 저장하지 않는다.
+   - 발송이 되면 한 트랜잭션에서 그 이메일의 남은 요청에 `consumed_at`을 채우고(이전 코드·확인 증명 무효), 새 행에 요청 번호·「요청 번호:코드」의 SHA-256을 넣는다.
+   - 응답은 202이고, 요청 번호는 HttpOnly 쿠키 `posegood_email_verification`(15분)로만 준다.
+   - 계정 상태(없음·있음·Discord 전용·탈퇴 유예)와 관계없이 같은 메일을 보낸다. 이미 가입한 이메일인지는 메일함 주인이 코드를 확인하고 가입할 때(4번 409)에만 알 수 있다.
+2. 사용자가 메일의 코드를 가입하던 브라우저에 입력한다 → `POST /auth/email-verification/confirm {token: 코드}` + 같은 쿠키.
+   - 먼저 시도를 하나 센다: `UPDATE … SET attempt_count=attempt_count+1 WHERE … AND attempt_count<5 AND verified_at IS NULL AND consumed_at IS NULL AND expires_at>?`. 영향 행이 0이면(없음·만료·이미 확인·무효·5회 초과) 410.
+   - 코드 해시를 상수 시간으로 비교하고, 맞으면 `verified_at`을 채운다(204). 틀리면 410 `EMAIL_VERIFICATION_REQUIRED`.
+3. 계정 정보(비밀번호·프로필·동의)를 입력한다.
+4. `POST /auth/register` + 같은 쿠키. 서버는 쿠키의 요청이 확인한 이메일과 가입 이메일이 같은지 보고, 한 트랜잭션에서:
+   - `UPDATE … SET consumed_at=? WHERE … AND verified_at IS NOT NULL AND consumed_at IS NULL AND expires_at>?`의 영향 행이 1일 때만 `user_account` + `local_credential` + `user_consent`를 만든다. 0이면 410.
+   - 같은 이메일의 계정이 이미 있으면(비밀번호 계정·Discord 전용 계정·탈퇴 유예 모두, UK-01) 409 `ACCOUNT_EXISTS`이고 소비도 되돌린다. Discord 전용 계정에 비밀번호를 붙이지 않는다.
+   - 성공하면 로그인 응답을 주고 쿠키를 지운다.
+5. 만료된 지 하루가 지난 행은 매일 04:45(KST)에 지운다.
+
+기능이 꺼져 있으면(기본) 인증 경로는 404이고 가입은 인증 없이 된다(표를 읽지 않음).
+
+**Discord 로그인(같은 이메일 승인 연결, #127):** `social_identity`로 찾은 계정이 없고 Discord가 확인한 이메일과 같은 계정이 있으면:
+- 탈퇴 유예(CLOSED) → `closed`.
+- ACTIVE → 연결 대기를 만들고 `link-required`(대기는 서버 메모리, 쿠키로 브라우저에 묶음). 자동으로 연결하지 않는다.
+  1. `GET /auth/social/pending-link` → 제공자·이메일·확인 여부.
+  2. `POST /auth/social/pending-link/verify {password}` → 기존 계정 비밀번호 확인(대기당 5회).
+  3. `POST /auth/social/pending-link/confirm` → 확인 뒤 비밀번호가 바뀌지 않았으면 `social_identity`를 넣고 로그인. 다른 계정에 이미 연결된 Discord면 409 `SOCIAL_IN_USE`.
+  4. `DELETE /auth/social/pending-link` → 연결하지 않고 대기 삭제.
+- 같은 이메일 계정이 없으면 Discord 가입(`signup`).
+
+**Discord 전용 계정:** 비밀번호 로그인은 401 `INVALID_CREDENTIALS`, 비밀번호 변경은 400, 재설정 요청은 202지만 메일을 보내지 않는다. 탈퇴는 비밀번호 없이 받는다(BE-25).
 
 ## 작업 단계
 
-- [ ] ADR 0049 작성(같은 이메일 자동 연결, 11/11 결정 대체, 결정 4의 감수 근거)과 0088 인계 1절 정정
+- [ ] ADR 작성(같은 이메일 승인 연결과 Discord 전용 계정에 비밀번호를 붙이지 않는 이유, 11/11 결정 갱신 — 0049는 다른 결정에 쓰였으므로 새 번호)과 0088 인계 1절 정정
 - [x] DB(2026-11-17, 브랜치 `feature/db-account-credential-email-verification`): migration 018·019, `schema_V2_8.sql`(명세서 V2.8), ERD V2.8(원본·PNG), `database/README.md`(운영 V2.7 반영, 기준 스키마 V2.6 → V2.7, `schema_V2_6.sql`·017 삭제, 개수·되돌리기), DB CI(`BASE_SCHEMA`·`EXPECT_TABLES`), `integrity_check.py`(V2.8 기준 195개), 0088 인계의 017 안내
 - [ ] DB 운영 적용: 018 → 019를 새 API 배포와 같은 점검 시간에(DevOps와 시간 정하기). 명세서 V2.8 원문 반영
 - [x] API가 V2.8에 맞춰진 뒤 `schema_V2_7.sql`을 읽는 곳을 V2.8로: `DisposableDatabase`·`infra/mysql/initdb/10-posegood-schema.sh`·`tools/test_mysql.py`·`consents.test.ts`·`SchemaVerifier`/`ServiceSchemaVerifier` 메시지 (2026-11-17, BE 1단계와 같은 브랜치)
@@ -111,9 +130,9 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   - [x] 2026-11-23 6자리 코드 유지로 정하고 019를 운영 적용 전에 고침(020 대신, `code_hash`·`attempt_count`·`verified_at`). `schema_V2_8.sql`·ERD 원본·`integrity_check.py`·DB 안내
   - [x] 2026-11-23 `EmailVerificationRepository`·`EmailVerificationService`(조건부 UPDATE, 서비스 잠금 삭제, 가입 소비와 계정 생성 한 트랜잭션, 매일 04:45 정리), `SchemaVerifier`, 단위·MySQL 통합 시험, 계약·인계·개발 상태
   - [ ] ERD PNG 2장 다시 내보내기, 리뷰·develop 반영(BE 1단계 브랜치 위에 쌓음)
-  - [ ] 「흐름」·위 1·2번의 11/18 전 설계(자동 연결, 비밀번호 붙이기, 인증 링크)를 결정대로 고쳐 쓰기
-- [ ] FE: 가입 순서, `#verify-email` 화면, 기존 계정 추가 화면, 자동 연결 안내
-- [ ] 계약 `accounts.md`: `register` 요청 변경, 이메일 인증 경로, Discord 콜백 상태
+  - [x] 2026-11-23 「문제와 완료 기준」·「범위」·「표 변경」의 019·「흐름」을 11/18·11/23 결정대로 고쳐 씀
+- [x] FE: 바꿀 것 없음(#127 가입 코드 화면·연결 승인 화면 그대로, 11/23 확인)
+- [x] 계약 `accounts.md`: 경로는 #127 그대로, 인증 대기 저장 위치·가입 실패 때 소비 되돌림 문구(2026-11-23)
 - [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착
 
 ## 결정과 진행 기록
@@ -122,7 +141,7 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   1. 같은 이메일이면 Discord 계정과 이메일 계정을 하나로 묶는다(양방향). 11/11 「자동으로 묶지 않음」을 바꾼다.
   2. 표는 기존 이름을 따르고 칼럼은 그대로 둔다. 새로 더하는 표만 더한다. 새 표는 계정에 `ON DELETE CASCADE`로 묶는다.
   3. 이메일 인증을 넣고, 인증 토큰은 서버 메모리가 아니라 DB 표에 둔다(재시작·여러 인스턴스에도 링크 유지).
-  4. **이메일 인증 도입 전에 가입한 계정은 따로 처리하지 않는다**(`email_verified_at` 칼럼 없음). 감수하는 위험: 그 계정 중 남의 이메일로 미리 만든 계정이 있으면, 진짜 주인이 Discord로 들어올 때 그 계정에 자동 연결된다.
+  4. **이메일 인증 도입 전에 가입한 계정은 따로 처리하지 않는다**(`email_verified_at` 칼럼 없음). 감수하는 위험: 그 계정 중 남의 이메일로 미리 만든 계정이 있으면, 진짜 주인이 Discord로 들어올 때 그 계정에 자동 연결된다. → 11/18 결정 2(비밀번호 확인 뒤 승인 연결)로 자동 연결이 없어져 이 위험도 없어졌다.
 - 2026-11-17(사용자 확인): 운영 DB는 이미 V2.7(017 적용)이다. 017을 고치지 않고 018·V2.8로 올린다. 저장소 문서(DB 안내, 0088 인계)의 「운영 V2.6」·「017 적용 대기」 표기는 낡았으므로 이 작업에서 고친다.
 - 2026-11-17: `login_email`은 NOT NULL을 유지한다. Discord 가입은 Discord가 확인한 이메일만 받으므로(`DiscordClient`) 이메일 없는 계정이 생기지 않는다.
 - 2026-11-17: 가입 전 인증으로 한다. 가입 후 인증은 `account_status`에 인증 전 상태값이 필요하고 로그인·J3·처리 서비스가 그 상태를 모두 다뤄야 한다.
@@ -136,7 +155,7 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   - `SchemaVerifier`는 V2.8 기준이다: `local_credential.password_hash`와 V2.7 표 두 개를 기능을 켰는지와 관계없이 확인하고, V2.7 DB면 018·019를, V2.6 이하면 `schema_V2_8.sql`로 다시 만들라고 알린다. `email_verification_token`은 2단계에서 더한다.
   - 처리 서비스 `ServiceSchemaVerifier`는 V2.8(`local_credential`·`email_verification_token`)까지 판을 알아보고 V2.7이면 「migration 018·019를 적용」으로 알린다. `JdbcReportTestFixtures`의 시험 계정은 `password_hash` 없이 넣는다(그래서 처리 서비스 시험용 API도 V2.8 DB가 필요하다).
   - J3·`SocialLoginService`의 흐름은 바꾸지 않았다(J3는 CASCADE로 충분).
-- 2026-11-17(사용자 결정): **소셜 로그인 계정에는 비밀번호 변경·재설정을 제공하지 않는다.** 우리 서비스 계정(이메일 가입)을 만들지 않는 한 소셜 계정에 비밀번호가 필요할 이유가 없다. 소셜 전용 계정에 비밀번호를 붙이는 길은 같은 이메일로 이메일 가입하는 것(위 2번, BE 2단계)뿐이다.
+- 2026-11-17(사용자 결정): **소셜 로그인 계정에는 비밀번호 변경·재설정을 제공하지 않는다.** 우리 서비스 계정(이메일 가입)을 만들지 않는 한 소셜 계정에 비밀번호가 필요할 이유가 없다. 소셜 전용 계정에 비밀번호를 붙이는 길은 같은 이메일로 이메일 가입하는 것(위 2번, BE 2단계)뿐이다. → 11/18 결정 3으로 이 길도 두지 않는다(같은 이메일 가입은 409).
   - `PUT /auth/password`: 현재 비밀번호 확인이 해시 `null`에서 틀림이라 그대로 400 `INVALID_PASSWORD`.
   - 재설정 요청: 소셜 전용 계정이면 토큰·메일 없이 끝난다(응답은 그대로 202라 가입 여부·계정 종류가 드러나지 않음). 재설정 완료: 소셜 전용 계정이면 410 `RESET_TOKEN_INVALID`(V2.7 API가 보낸 링크가 남아 있을 수 있음). 토큰은 소비하지 않는다.
   - 0088 때의 「비밀번호는 나중에 재설정 메일로 정할 수 있다」 안내(FE 가입·설정 화면, 계약, 인계 문서)를 고쳤다.
@@ -194,7 +213,8 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - `backend/gradlew -p backend :api:checkstyleMain :api:checkstyleTest :api:test --tests 'org.posegood.api.account.*'`: 계정 시험 50개 통과(`EmailVerificationServiceTest` 12개 — 해시만 저장, 재시작 뒤에도 이어짐, 시도 5회, 확인한 코드 재확인 거부, 가입 실패 때 되돌림, 매일 정리, 기능 꺼짐). 바꾼 파일에 줄바꿈 외 Checkstyle 경고 없음.
 - `backend/gradlew -p backend :api:test -Pmysql-integration --rerun-tasks`: api 168개 중 167 통과·실패 1·건너뜀 0. `AccountMailIntegrationTest` 3개 통과 — 새 시험 `codeStateLivesInTheTableAndFailedRegistrationKeepsTheProof`(틀린 코드 뒤 `attempt_count` 1·코드 원문 아님, 같은 이메일 가입 409 `ACCOUNT_EXISTS` 때 실제 MySQL 트랜잭션에서 `consumed_at`이 되돌아감).
   - 실패 `baselinesOwnershipLossAndInferenceFailure`(두 번째 세션 409)는 이 변경을 치운 기준 커밋에서도 같다(위 11/19 기록). 이 변경 밖.
-- `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 168개 중 148 통과·실패 0·건너뜀 20(MySQL 통합), processing 67개 통과. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
+- `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 168개 중 148 통과·실패 0·건너뜀 20(MySQL 통합), processing 67개 통과.
+- 「흐름」 고쳐 쓴 뒤 다시 실행(같은 날): DB CI 순서 같은 결과(205개, 451줄), `:api:test :processing:test -Pmysql-integration --rerun-tasks` → api 168개 중 167 통과(같은 기존 실패 1), processing 67개 통과. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
 
 **남은 한계**
 - 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.
@@ -202,4 +222,4 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - V2.7 DB에서 이 API가 시작하지 않는 것은 코드로만 확인했다(실제 V2.7 DB로 띄워 보지 않음).
 - 소셜 전용 계정의 재설정 거절은 단위 시험으로, 저장소의 0행 예외는 MySQL로 확인했다. 재설정 메일·토큰을 거친 전체 흐름은 MySQL로 돌리지 않았다(재설정 기능 기본 꺼짐).
 - ~~소셜 전용 계정은 지금 탈퇴할 수 없다~~ → BE-25로 비밀번호 없이 탈퇴한다(11/19 브랜치의 MySQL 시험 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody`가 `local_credential` 행 없는 계정으로 확인).
-- BE 2단계(이메일 인증·자동 연결)·FE·계약·ADR은 구현 전이다.
+- BE 2단계는 인증 대기 DB 전환까지 했다(2026-11-23, 위 검증 기록). 같은 이메일 연결은 #127의 승인 연결 그대로라 따로 구현할 것이 없다. ADR은 작성 전이다.
