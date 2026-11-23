@@ -44,7 +44,7 @@
 | 메시지 형식 버전에 묶인 코드 이름 `RealtimeMessages.V2`, `Observation.V4` | `schema_version` `"2.0"`·`"4.0"` 값과 짝이라 메시지 버전 필드를 뺄 때 함께 한다 |
 | 모델·특징 이름 값(`reference-feature-rule-v1` 등), DB 스키마 버전, 배포 목록 `posegood-images-v1`, 연구 수집 형식(`posture-collection-v1` 등), 저장된 파일 형식 계약(`normal-posture-collection.v1.md` 등 7개) | ADR 0049 예외 |
 | `posture-status.v1` 계약 | 옛 상태 출력 계약. 쓰는 곳을 확인하고 지울지 따로 정한다 |
-| 완료 계획·결정·감사 기록, `architecture_v5.4_change_notes.md`, 명세의 날짜 변경 이력 줄 | 기록이라 옛 이름 그대로. 파일 링크만 새 경로로 고침 |
+| 완료 계획·결정·감사 기록, `architecture_v5.5_change_notes.md`의 지난 판 절, 명세의 날짜 변경 이력 줄 | 기록이라 옛 이름 그대로. 파일 링크만 새 경로로 고침 |
 
 ## 작업 단계
 
