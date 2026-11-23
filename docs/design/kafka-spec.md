@@ -1,7 +1,7 @@
 # Kafka 명세 — 처리 서비스 층 토픽·메시지 (아키텍처 v5.2)
 
 - 담당: DevOps/BE (토픽·봉투·컨슈머 그룹·DLQ·보존). 본문 형식(입력·관측·사건)은 [계약](../../contracts/README.md)의 기존 버전을 그대로 쓴다.
-- 기준: [실시간 Kafka 계약 스키마](../../contracts/realtime/) `kafka-*.schema.json`, [아키텍처 v5.4 스택별 역할](architecture_v5.4_stack_roles.md),
+- 기준: [실시간 Kafka 계약 스키마](../../contracts/realtime/) `kafka-*.schema.json`, [아키텍처 v5.5 스택별 역할](architecture_v5.5_stack_roles.md),
   [실시간 판정 Kafka 전환 계획 0031](../plans/active/0031-realtime-kafka-transition.md).
 - 갱신: 2026-11-18 (이름에서 버전 빼기)
 
@@ -38,7 +38,7 @@
 | `posture.keypoints` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`, D-92). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints](../../contracts/realtime/kafka-keypoints.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
-- 보존: 지금은 브로커 기본값(7일), `posture.alerts`·`posture.stored`·`posture.keypoints`만 만들 때 3일. 목표는 실시간 토픽 3일·DLQ 7일(D-49, 탈퇴 30일 삭제보다 짧게).
+- 보존(D-82): 실시간 토픽 6개 3일, `posture.dlq` 7일, 세그먼트(`segment.ms`)는 모두 1일 — 탈퇴 30일 삭제보다 짧게. Kafka는 닫힌 세그먼트 단위로만 지우므로 세그먼트를 줄이지 않으면(브로커 기본 7일) 보존 3일이어도 최대 약 10일 남는다. 처리 서비스가 토픽을 만들 때 넣고, 이미 있는 토픽은 [infra](../../infra/README.md) 「Kafka 토픽 보존 설정」으로 맞춘다. 통합 테스트 2단계가 7개 토픽을 확인한다.
 - 컨슈머는 처리한 뒤 커밋한다. 처리 서비스가 다시 시작하면 마지막 커밋 다음부터 읽는다.
 - 옛 경로 토픽 `posture.summary`·`posture.inference`(그룹 `inference-service`·`api-server-cep`)는 쓰는 코드를 지웠다(D-38, 10/21). 서버에 남은 것은 [infra](../../infra/README.md) "옛 경로 정리"로 지운다.
   **이 옛 `posture.inference` 토픽·`inference-service` 그룹은 2026-11-18부터 쓰는 새 이름과 같다.** 서버에 남아 있으면 새 이름으로 배포하기 **전에** 지운다(남은 옛 메시지·읽은 위치가 섞이지 않게).
