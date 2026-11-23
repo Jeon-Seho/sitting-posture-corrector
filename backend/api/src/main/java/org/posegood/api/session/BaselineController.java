@@ -21,7 +21,7 @@ import jakarta.validation.constraints.NotNull;
 
 /** Measurement-independent registration and current baseline lookup. */
 @RestController
-@RequestMapping("/v2/baselines")
+@RequestMapping("/baselines")
 public class BaselineController {
 	private final BaselineRepository baselines;
 	private final CurrentUser current;

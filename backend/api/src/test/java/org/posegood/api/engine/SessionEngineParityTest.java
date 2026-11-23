@@ -16,12 +16,12 @@ import org.posegood.api.contract.Policy;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * T-15 판정 동등성: 공용 시험 데이터({@code contracts/realtime/parity/judge-cases.v1.json})를 이 판정 엔진에 넣으면
- * 사건·요약·제외 구간이 기대값과 같다. 처리 서비스 판정({@code backend/processing} {@code V1SessionJudgeParityTest})도 같은
+ * T-15 판정 동등성: 공용 시험 데이터({@code contracts/realtime/parity/judge-cases.json})를 이 판정 엔진에 넣으면
+ * 사건·요약·제외 구간이 기대값과 같다. 처리 서비스 판정({@code backend/processing} {@code SessionJudgeParityTest})도 같은
  * 데이터로 같은 기대값을 확인한다 — 두 판정이 같은 결과를 낸다는 근거(계획 0031, D-57). 모든 관측은 합성이다.
  */
 class SessionEngineParityTest {
-	static final Path CASES = Path.of("..", "..", "contracts", "realtime", "parity", "judge-cases.v1.json");
+	static final Path CASES = Path.of("..", "..", "contracts", "realtime", "parity", "judge-cases.json");
 
 	@Test
 	@SuppressWarnings("unchecked")

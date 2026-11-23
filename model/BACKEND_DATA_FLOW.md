@@ -9,11 +9,11 @@
 
 ```text
 프런트
-  → WebSocket /v2/realtime: 키포인트 9개
+  → WebSocket /realtime: 키포인트 9개
   → API 서버: 기준 자세와 비교해 특징 3개 계산
-  → 추론 서버 POST /v2/infer: 규칙 기반 이탈 점수
+  → 추론 서버 POST /infer: 규칙 기반 이탈 점수
   → API 서버 내부 판정 엔진: 이탈 지속·복귀·알림 판단
-  → WebSocket /v2/realtime: observation / decision / alert / progress
+  → WebSocket /realtime: observation / decision / alert / progress
   → 프런트
 ```
 
@@ -21,7 +21,7 @@
 
 ### 1-1. 프런트 → API 서버: 키포인트
 
-세션 생성과 WebSocket `hello`·`ready` 이후, 앱은 `/v2/realtime`에 아래처럼 보낸다. 구간과 프레임의 시간은 세션 시작 기준 밀리초다. 앱의 현재 전송은 메시지마다 보통 프레임 하나다.
+세션 생성과 WebSocket `hello`·`ready` 이후, 앱은 `/realtime`에 아래처럼 보낸다. 구간과 프레임의 시간은 세션 시작 기준 밀리초다. 앱의 현재 전송은 메시지마다 보통 프레임 하나다.
 
 ```json
 {
@@ -58,11 +58,11 @@
 - 각 점은 `[x, y, visibility]`다. 좌표는 화면 크기 대비 값이며 y는 아래로 증가한다. 좌표 자체는 미러링하지 않는다.
 - 점 순서는 MediaPipe 인덱스 **0, 2, 5, 7, 8, 9, 10, 11, 12**: 코, 양 눈, 양 귀, 양 입꼬리, 양 어깨다. 입꼬리는 입 개폐량이 아니라 얼굴 높이 특징에 쓰인다.
 - 영상 자체는 보내지 않는다. 추적할 수 없는 프레임은 `p: null`, `valid: false`로 보내며 정상 프레임으로 대체하지 않는다.
-- 기준 자세는 앞서 `POST /v2/baselines`로 별도 등록한다. 상세 형식과 허용 범위는 [프레임 계약](../contracts/realtime/frames/posture-frames.v1.schema.json), [WebSocket 계약](../contracts/realtime/realtime-ws.v2.schema.json)을 따른다.
+- 기준 자세는 앞서 `POST /baselines`로 별도 등록한다. 상세 형식과 허용 범위는 [프레임 계약](../contracts/realtime/frames/posture-frames.schema.json), [WebSocket 계약](../contracts/realtime/realtime-ws.schema.json)을 따른다.
 
 ### 1-2. API 서버 → 추론 서버: 기존 특징 3개
 
-API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 계산한 다음 `POST /v2/infer`를 호출한다. 다음은 기준 자세와의 차이를 가정한 합성 예시다.
+API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 계산한 다음 `POST /infer`를 호출한다. 다음은 기준 자세와의 차이를 가정한 합성 예시다.
 
 ```json
 {
@@ -84,7 +84,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 }
 ```
 
-세 변화량은 각각 머리-어깨 높이, 좌우 치우침, 어깨 기울기의 **현재 − 기준**이다. 기존 API는 3개 변화량과 품질을 받으며 2단계 실험 모델의 6개 입력을 아직 받지 않는다. 요청·응답의 구간과 `sequence`는 일치해야 한다([입력 계약](../contracts/inference-request.v2.schema.json)).
+세 변화량은 각각 머리-어깨 높이, 좌우 치우침, 어깨 기울기의 **현재 − 기준**이다. 기존 API는 3개 변화량과 품질을 받으며 2단계 실험 모델의 6개 입력을 아직 받지 않는다. 요청·응답의 구간과 `sequence`는 일치해야 한다([입력 계약](../contracts/inference-request.schema.json)).
 
 ### 1-3. 추론 서버 → 판정 엔진: 관측 결과
 
@@ -104,7 +104,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 }
 ```
 
-`collapse_probability`는 0~1의 이탈 점수다. 현재 구현은 학습 모델이 아닌 규칙 점수이며 이름과 달리 보정된 확률이 아니다. `deviation_type: unspecified`는 이탈 방향을 특정하지 못한다는 뜻이다. 실제 모델/특징 버전을 속여서 같은 이름을 쓰지 않는다([관측 계약](../contracts/posture-observation.v2.schema.json)).
+`collapse_probability`는 0~1의 이탈 점수다. 현재 구현은 학습 모델이 아닌 규칙 점수이며 이름과 달리 보정된 확률이 아니다. `deviation_type: unspecified`는 이탈 방향을 특정하지 못한다는 뜻이다. 실제 모델/특징 버전을 속여서 같은 이름을 쓰지 않는다([관측 계약](../contracts/posture-observation.schema.json)).
 
 ### 1-4. 판정 엔진 → 프런트: 관측과 알림
 
@@ -186,7 +186,7 @@ API 서버가 등록된 기준 자세와 좌표 구간을 사용해 특징을 �
 
 ## 3. 2단계 모델의 서비스 연결 시 협의할 점
 
-1. **입력 계약:** 기존 `/v2/infer`는 3개 특징만 받는다. 6개 특징, 기준 어깨 너비와 등록 시 9점의 품질을 어디에서 계산·검증할지 결정하고, 필요한 계약을 버전 관리해야 한다. 기존 v2 요청에 임의 필드를 추가하면 거부된다.
+1. **입력 계약:** 기존 `/infer`는 3개 특징만 받는다. 6개 특징, 기준 어깨 너비와 등록 시 9점의 품질을 어디에서 계산·검증할지 결정하고, 필요한 계약을 버전 관리해야 한다. 기존 v2 요청에 임의 필드를 추가하면 거부된다.
 2. **출력 계약:** `model.score`를 기존 `collapse_probability`에 연결하는 방안을 검토할 수 있다. 다만 현재 실험 응답에는 서비스 관측에 필요한 `sequence`, 구간, `model_version`이 없고, 2클래스 모델은 좌·우 등 `deviation_type`을 예측하지 않는다. 기존 관측 계약과 버전 처리를 정해야 한다.
 3. **시간 구간:** 기존 창 모델의 최근 1초 창은 0.5초마다 서로 겹친다. 새 프레임 모델은 입력 창을 기다리지 않는다. 어느 쪽이든 서버에서 순번·촬영 시각·누락·판정 구간을 정하고, 끊긴 구간을 정상이나 이탈로 채우지 않는다.
 4. **임계값과 알림:** 실험의 0.65와 기존 규칙의 기본 0.7은 다른 값이다. 모델별 비교 기준을 학습·검증 자료에 근거해 정하고 세션 정책에 반영해야 한다. 화면의 `100 × (1 − 점수)`와 표시용 평활화는 모델 입력이나 판정에 사용하지 않는다.

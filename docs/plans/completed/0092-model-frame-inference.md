@@ -3,7 +3,7 @@
 - 상태: completed
 - 담당: model
 - 시작일: 2026-11-12
-- 관련: [모델 데이터 흐름](../../../model/BACKEND_DATA_FLOW.md), [연구 프로토콜](../../research/protocol.md), [프레임 계약](../../../contracts/realtime/frames/posture-frames.v1.schema.json)
+- 관련: [모델 데이터 흐름](../../../model/BACKEND_DATA_FLOW.md), [연구 프로토콜](../../research/protocol.md), [프레임 계약](../../../contracts/realtime/frames/posture-frames.schema.json)
 
 ## 문제와 완료 기준
 

@@ -666,4 +666,7 @@
   animation: saving-spin 0.9s linear infinite;
 }
 @keyframes saving-spin { to { transform: rotate(360deg); } }
+/* Connecting until the server's first judgement: the same overlay with the hourglass art. */
+.stage-connecting { background: rgba(0, 0, 0, 0.55); }
+.connecting-art { display: block; width: min(60%, 240px); height: auto; margin-bottom: 8px; object-fit: contain; }
 @media (prefers-reduced-motion: reduce) { .saving-spinner { animation-duration: 2.4s; } }

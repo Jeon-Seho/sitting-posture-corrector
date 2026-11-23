@@ -1,4 +1,4 @@
-"""posture.frames.v1 draft (FE proposal 2.1), synthetic examples only."""
+"""posture.frames draft (FE proposal 2.1), synthetic examples only."""
 
 import copy
 import json
@@ -17,7 +17,7 @@ def load(name):
 
 class FrameContractTests(unittest.TestCase):
     def setUp(self):
-        schema = load("posture-frames.v1.schema.json")
+        schema = load("posture-frames.schema.json")
         Draft202012Validator.check_schema(schema)
         self.validator = Draft202012Validator(schema)
 

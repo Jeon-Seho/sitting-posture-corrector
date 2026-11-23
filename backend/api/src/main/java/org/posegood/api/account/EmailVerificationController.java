@@ -15,7 +15,7 @@ import jakarta.validation.Valid;
 
 /** 가입 코드 발송·확인. 브라우저에는 코드 대신 무작위 대기 ID를 HttpOnly 쿠키로 준다. */
 @RestController
-@RequestMapping("/v2/auth/email-verification")
+@RequestMapping("/auth/email-verification")
 public class EmailVerificationController {
 	static final String COOKIE = "posegood_email_verification";
 	private final EmailVerificationService verification;

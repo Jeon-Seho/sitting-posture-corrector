@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
 /**
  * 계정 API의 요청·응답 본문 모음(가입, 로그인, 비밀번호 변경, 탈퇴, 내 정보).
  *
- * 계약 문서: contracts/accounts.v2.md.
+ * 계약 문서: contracts/accounts.md.
  */
 public final class AccountContracts {
 	private AccountContracts() {
@@ -105,7 +105,7 @@ public final class AccountContracts {
 		@NotBlank @Size(max = 128) String token, @NotNull @Size(min = 12, max = 72) String newPassword) {
 	}
 
-	/** {@code POST /v2/auth/refresh} 응답: 새 access 토큰. 새 refresh 토큰은 쿠키로 바뀐다. */
+	/** {@code POST /auth/refresh} 응답: 새 access 토큰. 새 refresh 토큰은 쿠키로 바뀐다. */
 	public record Refreshed(String userId, String accessToken, String tokenType, long expiresIn, String today) {
 	}
 }

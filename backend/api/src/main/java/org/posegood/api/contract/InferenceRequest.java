@@ -12,7 +12,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 /**
  * 특징 입력 한 구간(v2): 서버가 앱의 좌표 구간({@link FrameInterval})에서 계산해 FastAPI 추론에 보낸다.
  *
- * 계약: contracts/inference-request.v2.schema.json(FastAPI와 공유).
+ * 계약: contracts/inference-request.schema.json(FastAPI와 공유).
  */
 public record InferenceRequest(
 	@NotNull @Pattern(regexp = "2\\.0") String schemaVersion,

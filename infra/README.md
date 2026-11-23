@@ -41,7 +41,7 @@ python tools/compose_init.py --secrets-dir "$HOME/.config/posegood/secrets"
 기본 프론트는 `127.0.0.1:8080`만 공개한다. MySQL·API·추론은 내부 네트워크에 있고 host port를 열지 않는다.
 외부 사용은 TLS reverse proxy와 도메인을 준비하고 `POSEGOOD_COOKIE_SECURE=true`를 설정한다.
 브라우저 카메라는 HTTPS 또는 localhost 같은 보안 컨텍스트가 필요하다.
-`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/v2/realtime`([WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
+`/api/health`는 실제 DB 연결까지 확인한다. 추론은 공유 내부 토큰이 없는 요청을 거부한다. 실시간 채널 `/api/realtime`([WebSocket](../contracts/realtime/realtime-ws.schema.json))은 Nginx가 WebSocket으로 전달한다. 옛 `/api/v1/realtime`은 API에서 2026-10-26, Nginx에서 2026-11-09 지웠다.
 
 ## 전체 검증
 
@@ -106,7 +106,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.5 스택별 역할](../docs/design/architecture_v5.5_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 
@@ -128,7 +128,7 @@ tools/platform/integration_test.sh --quick
 ### FE ↔ BE 서버 안 연동 시험 (T-13)
 
 FE 화면 컨테이너 `web`(팀 `infra/docker/frontend.Dockerfile` — 화면 빌드 + `infra/nginx/default.conf`)을 프로필 `io`로 io-api와 함께 띄운다.
-화면(`/`)과 API(`/api/` → io-api, `/api/v2/realtime`)가 같은 nginx에서 나와 같은 출처이므로 CORS가 필요 없다. 포트는 `127.0.0.1:${WEB_HOST_PORT:-8088}`.
+화면(`/`)과 API(`/api/` → io-api, `/api/realtime`)가 같은 nginx에서 나와 같은 출처이므로 CORS가 필요 없다. 포트는 `127.0.0.1:${WEB_HOST_PORT:-8088}`.
 
 ```sh
 C="docker compose -f infra/compose/bigdata.yaml"
@@ -155,7 +155,7 @@ docker exec hdfs-namenode hdfs dfsadmin -report | grep 'Under replicated'   # 0
 
 ### 입출구 서버 (io-api, 서버 PC)
 
-팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/v2/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
+팀 `backend/api`([API 명세](../docs/design/api-spec.md)의 REST와 WebSocket `/realtime`)를 같은 compose의 프로필 `io`로 띄운다.
 DB는 외부 MySQL의 서비스 DB(V2.7, `.env`의 `SERVICE_DB_SCHEMA` — API가 시작할 때 버전을 확인한다)이고 접속 정보는 위 `.env`의 `DB_*`를 쓴다(다르면 `IO_DB_USER`·`IO_DB_PASSWORD`·`IO_DB_NAME`).
 점수는 같은 프로필의 `inference`(팀 `model/inference`, 포트 없음)를 내부 토큰으로 부른다.
 로그인은 access·refresh 토큰([ADR 0031](../docs/decisions/0031-jwt-access-refresh-login.md))이고 서명 키가 필요하다(D-71).
@@ -176,7 +176,7 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 ```
 
 - 포트는 기본 `127.0.0.1:8090`(서버 PC 안, `.env`의 `IO_API_BIND`·`IO_API_HOST_PORT`)이다. 화면과 함께 시험할 때는 위 "FE ↔ BE 서버 안 연동 시험"의 web(nginx)으로 들어온다(T-13).
-- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/v2/auth/me`). 보호 요청은 로그인 응답의 `access_token`을 `Authorization: Bearer`로 보낸다(CSRF 없음). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/v2/realtime`, 인증은 `hello.access_token`(통합 테스트 12단계 `ws_realtime_smoke.py`).
+- 앱은 경로 앞에 `/api`를 붙이고 프록시가 뗀다. io-api에 직접 보낼 때는 접두사 없이(`/auth/me`). 보호 요청은 로그인 응답의 `access_token`을 `Authorization: Bearer`로 보낸다(CSRF 없음). 실시간도 같다 — 직접 붙을 때 `ws://127.0.0.1:8090/realtime`, 인증은 `hello.access_token`(통합 테스트 12단계 `ws_realtime_smoke.py`).
 - 다른 출처 화면(Vercel `https://app.posegood.site`)이 부를 때는 `.env`의 `POSEGOOD_CORS_ALLOWED_ORIGINS`(REST)·`POSEGOOD_REALTIME_ALLOWED_ORIGINS`(WebSocket)에 출처를 **끝 `/` 없이** 넣고, HTTPS 공개 때 `POSEGOOD_COOKIE_SECURE=true`. 비우면 같은 출처(web 8088)만 된다.
 - `docker compose ... down`은 프로필이 켜진 서비스만 멈춘다. io까지 멈출 때는 `--profile io`를 붙인다.
 - 지금은 판정을 io-api 안에서 한다(코드 그대로). WebSocket → Kafka 전환은 [계획 0031](../docs/plans/active/0031-realtime-kafka-transition.md)(`ws`, PM).
@@ -190,14 +190,14 @@ python3 tools/platform/io_api_smoke.py                     # REST 점검(통합 
 화면은 Vercel(`https://app.posegood.site`)이 내고, 서버는 API만 공개한다(FE 배포 구조는 [FE 제안서](../docs/design/fe/fe-server-proposal.md#24-배포운영) 2.4).
 
 ```
-브라우저 ─ https://api.posegood.site/api/… · wss://…/api/v2/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
+브라우저 ─ https://api.posegood.site/api/… · wss://…/api/realtime ─ Cloudflare(HTTPS·요청 제한, FE 계정)
   └ 터널 posegood-api ─ cloudflared(프로필 edge, 포트 없음) ─ http://gateway:80 ─ gateway(nginx, API만, 포트 없음) ─ api:8090(io-api)
 서버 안 시험: web(127.0.0.1:8088, 화면 + 같은 API 중계) — SSH -L 8088
 ```
 
 | 파일 | 내용 | Git |
 | --- | --- | --- |
-| `infra/nginx/gateway.conf` | `/api/` → io-api, `/api/v2/realtime`, `/health`, 그 밖 404. `X-Forwarded-Proto https`, 실제 사용자 IP(`CF-Connecting-IP`), 내부 토큰 헤더 지움 | 커밋 |
+| `infra/nginx/gateway.conf` | `/api/` → io-api, `/api/realtime`, `/health`, 그 밖 404. `X-Forwarded-Proto https`, 실제 사용자 IP(`CF-Connecting-IP`), 내부 토큰 헤더 지움 | 커밋 |
 | `infra/compose/cloudflared/config.yml` | 경로: `api.posegood.site` → `http://gateway:80`, 나머지 404 | 커밋 |
 | `infra/compose/secrets/cloudflared.env` | `TUNNEL_TOKEN=…` 한 줄(FE가 서버에서 직접 넣음, `chmod 600`) | **제외** |
 | `infra/compose/secrets/posegood.auth.jwt-secret` | 로그인 토큰 서명 키(위 입출구 서버 절) | **제외** |
@@ -234,12 +234,13 @@ tools/platform/integration_test.sh --quick               # 14단계(터널 경�
 
 ### 판정 (api-server `judge`, D-22·D-53)
 
-api-server가 `posture.inference.v1`을 그룹 `judge-v1`로 구독해 상태머신으로 판정하고 `posture.episodes.v1`로 발행한다(CEP 엔진은 쓰지 않는다).
-확인은 `GET /judge/v1/status`·`GET /judge/v1/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
+api-server가 `posture.inference`을 그룹 `judge`로 구독해 상태머신으로 판정하고 `posture.episodes`로 발행한다(CEP 엔진은 쓰지 않는다).
+확인은 `GET /judge/status`·`GET /judge/sessions/{session_id}`, 설정은 `.env`의 `JUDGE_*`(정책 기본값·세션 만료·상태 저장).
 옛 `posture.summary` 경로(`/cep/*`·`CEP_*`·그룹 `api-server-cep`)는 D-38에서 지웠다 — 아래 "옛 경로 정리".
 
-D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다. 새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로,
-api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고, 다시 만든 뒤 옛 그룹을 지운다(한 번만).
+D-53으로 그룹 이름이 `api-server-cep-v1` → `judge-v1`로 바뀌었다(2026-11-18부터는 `judge`, 아래 「Kafka 이름에서 버전 빼기」).
+새 그룹은 커밋 위치가 없어 처음부터(`earliest`) 읽으므로, api-server를 새 이미지로 다시 만들기 **전에** 새 그룹의 위치를 끝(latest)으로 만들고,
+다시 만든 뒤 옛 그룹을 지운다(한 번만, 이미 끝난 작업의 기록).
 
 ```bash
 K="docker exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092"
@@ -253,7 +254,7 @@ $K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만
 
 옛 `posture.summary` 경로 — `/api/v1/posture/summary` → `posture.summary` → 추론 옛 컨슈머(그룹 `inference-service`) → `posture.inference`
 → 처리 서비스 `cep` 패키지(그룹 `api-server-cep`, Redis `posture:state:*`, 테스트용 DB `posture_app`) → posture-sink(HDFS `/posture/features/stream`) —
-를 코드에서 지웠다. 추론 서비스는 v1 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
+를 코드에서 지웠다. 추론 서비스는 실시간 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
 새 이미지로 바꾼 뒤 서버에 남은 것을 한 번 지운다(쓰는 서비스가 없어 지워도 영향 없음).
 
 ```bash
@@ -272,12 +273,64 @@ docker exec hdfs-namenode hdfs dfs -rm -r -skipTrash /posture/features/stream /p
 `.env`의 `DB_NAME`·`CEP_*`는 더 이상 읽지 않는다(남아 있어도 무시). MySQL의 `posture_app` 스키마(옛 시험 행)는 DB 담당과 정한 뒤 지운다.
 통합 테스트 7단계(옛 경로 T-10·posture-sink 적재)는 없어졌고, 2단계가 옛 토픽·그룹이 남아 있으면 안내한다.
 
+### Kafka 이름에서 버전 빼기 (2026-11-18, ADR 0049)
+
+토픽·컨슈머 그룹·Redis 키·HDFS 경로·처리 서비스 주소에서 `v1`을 뺐다([Kafka 명세](../docs/design/kafka-spec.md) 머리말).
+
+| 옛 이름 | 새 이름 |
+|---|---|
+| 토픽 `posture.{features,inference,episodes,alerts,stored,keypoints}.v1` | `posture.{features,inference,episodes,alerts,stored,keypoints}` (`posture.dlq`는 그대로) |
+| 그룹 `judge-v1`·`report-store-v1`·`inference-service-v1` | `judge`·`report-store`·`inference-service` (`io-ws-*`는 그대로) |
+| Redis `posture:v1:judge:{session_id}` | `posture:judge:{session_id}` |
+| HDFS `/data/staging/realtime-v1`·`keypoints-v1`, `/data/checkpoints/j1-realtime-v1`·`j1-keypoints-v1` | `realtime`·`keypoints`, `j1-realtime`·`j1-keypoints` |
+| 처리 서비스 `POST /api/v1/realtime/features`, `GET /judge/v1/*` | `POST /api/realtime/features`, `GET /judge/*` |
+| 환경변수 `POSTURE_*_V1_TOPIC`, `KAFKA_TOPIC_POSTURE_*_V1`, `KAFKA_V1_CONSUMER_GROUP_ID`, `REALTIME_V1_ENABLED` | `POSTURE_*_TOPIC`, `KAFKA_TOPIC_POSTURE_*`, `KAFKA_CONSUMER_GROUP_ID`, `REALTIME_ENABLED` |
+
+운영에서 kafka 모드를 켜기 **전**(`POSEGOOD_REALTIME_PIPELINE=local`이라 Kafka에는 시험 메시지만 흐를 때)에, 측정이 적은 시간에 한 번 한다.
+
+```bash
+C="docker compose -f infra/compose/bigdata.yaml"
+K="docker exec kafka /opt/kafka/bin"; B="--bootstrap-server localhost:9092"
+docker exec redis redis-cli --scan --pattern 'posture:v1:judge:*' | wc -l    # 1. 진행 중 판정 세션 0개 확인
+tools/platform/batch.sh j1                                                   # 2. 옛 임시 폴더의 끝난 세션을 옮김
+$K/kafka-consumer-groups.sh $B --describe --group judge-v1 --group report-store-v1 --group inference-service-v1   # 3. LAG 0
+$K/kafka-topics.sh $B --list | grep -x posture.inference                     # 4. 옛 D-38 토픽이 남았으면 지움(새 이름과 같음)
+$K/kafka-topics.sh $B --delete --topic posture.inference
+$K/kafka-consumer-groups.sh $B --delete --group inference-service
+grep -nE 'V1_TOPIC|_V1\b|V1_CONSUMER|judge-v1|report-store-v1' infra/compose/.env   # 5. 옛 이름을 직접 넣은 줄은 지움
+$C up -d --build api-server inference-service io-api                          # 6. 세 서비스를 함께(새 토픽은 api-server가 만듦)
+tools/platform/integration_test.sh                                           # 7. 2·8·9·11·12·17단계가 새 이름으로 통과
+```
+
+- 세 서비스 중 하나만 옛 이름이면 메시지가 아무도 읽지 않는 토픽에 쌓인다(오류 없이 판정이 멈춤). 6번은 반드시 함께 올린다.
+- 되돌리기: 아래 정리 전까지 옛 토픽·그룹이 남아 있으므로 옛 이미지로 세 서비스를 다시 올리면 된다.
+- 입출구 결과 구독 그룹 `io-ws-io-api`는 이름이 그대로라 옛 토픽(`posture.episodes.v1`·`alerts.v1`·`stored.v1`)의 읽은 위치가 남는다. 통합 테스트·통신 시험 도구는 옛 토픽 lag를 세지 않는다. 옛 토픽을 지우면 함께 사라지고, 먼저 지우려면 `$K/kafka-consumer-groups.sh $B --delete-offsets --group io-ws-io-api --topic posture.episodes.v1`(alerts.v1·stored.v1도 같이).
+- 며칠 지켜본 뒤 정리(2026-11-23 서버 정리, D-82): 옛 토픽 6개(`kafka-topics.sh --delete --topic posture.<이름>.v1`), 옛 그룹 3개(`kafka-consumer-groups.sh --delete --group <이름>-v1`),
+  HDFS `hdfs dfs -rm -r -skipTrash /data/staging/realtime-v1 /data/staging/keypoints-v1 /data/checkpoints/j1-realtime-v1 /data/checkpoints/j1-keypoints-v1`.
+  Redis `posture:v1:judge:*`는 1시간 뒤 저절로 사라진다.
+
+### Kafka 토픽 보존 설정 (D-82)
+
+실시간 토픽 6개(`posture.features`·`inference`·`episodes`·`alerts`·`stored`·`keypoints`)는 보존 3일, `posture.dlq`는 7일, 세그먼트는 모두 1일이다([Kafka 명세](../docs/design/kafka-spec.md) 2장). 처리 서비스(`RealtimeTopicsConfig`)는 토픽을 **새로 만들 때만** 이 값을 넣으므로, 이미 있는 토픽은 한 번 맞춘다. 세그먼트를 줄이지 않으면 브로커 기본값(7일)이라 보존 3일이어도 최대 약 10일 남는다.
+
+```bash
+KC="docker exec kafka /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092"
+for t in posture.features posture.inference posture.episodes posture.alerts posture.stored posture.keypoints; do
+  $KC --alter --entity-type topics --entity-name $t --add-config retention.ms=259200000,segment.ms=86400000
+done
+$KC --alter --entity-type topics --entity-name posture.dlq --add-config retention.ms=604800000,segment.ms=86400000
+$KC --describe --entity-type topics --entity-name posture.features     # retention.ms=259200000, segment.ms=86400000
+```
+
+- 바꾼 값은 바로 적용된다(재시작 필요 없음). 이미 열려 있는 세그먼트는 새 `segment.ms`가 지나면 닫힌다.
+- 통합 테스트 2단계가 7개 토픽의 값을 확인한다. HDFS 임시 폴더(7일)는 J1이, Redis 판정 상태(TTL 1시간, `JUDGE_STATE_TTL_SECONDS`)는 처리 서비스가 지운다.
+
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 
-api-server가 `posture.episodes.v1`을 따로 구독해(그룹 `report-store-v1`) `posture_service`(V2.3)의
+api-server가 `posture.episodes`을 따로 구독해(그룹 `report-store`) `posture_service`(V2.3)의
 `collapse_event`·`correction_alert`·`excluded_interval`(D-39 제외 구간)과 `monitor_session` 종료 값(`ended_at`·`good_sec`)을 쓴다. 세션 행은 입출구 서버가 만든다 —
 행이 없는 세션은 건너뛰고 `GET /report/store`의 `sessionNotFound`로 센다. 서비스 DB 준비 상태는 `GET /store/service-db`(V2.3, 통합 테스트 6단계).
-(D-54) 알림 행을 새로 쓰고 세션 알림이 켜져 있고 10초 안의 사건이면 `posture.alerts.v1`(보존 3일)로도 낸다 — 입출구 서버 `ws`가 앱에 `alert`로 보낸다.
+(D-54) 알림 행을 새로 쓰고 세션 알림이 켜져 있고 10초 안의 사건이면 `posture.alerts`(보존 3일)로도 낸다 — 입출구 서버 `ws`가 앱에 `alert`로 보낸다.
 
 - 기본 판정 정책은 이름이 없고 값 4개로 찾는다: `.env`의 `SERVICE_DB_DEFAULT_THRESHOLD`·`_HOLD_SECONDS`·`_RECOVER_SECONDS`·`_REALERT_SECONDS`
   (기본 0.7·3·3·60 — 입출구 서버 `posegood.default-policy.*`와 같아야 한다).

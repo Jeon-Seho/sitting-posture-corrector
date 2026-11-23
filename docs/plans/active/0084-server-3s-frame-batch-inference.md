@@ -55,7 +55,7 @@
 | 5 | 판별 가능한 프레임 시간만 `valid_ms`에 더한다 | BE-5 ② 보류를 닫음 |
 | 6 | `observation`은 묶음마다 1개(A안, 10/30) | 앱은 마지막 `observation` 하나로 화면을 그리므로 프레임마다 보내도 같은 화면 |
 | 7 | `observation`에서 `model_version`을 뺀다(10/30) | DB에 저장하지 않고(T-32 V2.0 폐기), 앱은 기록 비교 경고에만 쓰는데 지난 기록은 서버가 지금 설정값으로 채워 경고가 의미 없다. 추론 응답 검증(`InferenceClient`)에는 계속 쓴다 |
-| 8 | `observation` 형식 번호만 3.0 → 4.0으로 올린다. 계약 파일은 `realtime-ws.v2.schema.json` 그대로 고치고 `realtime-ws.v3`를 새로 만들지 않는다(10/30, A안) | 필드를 빼거나 더하면 호환성이 깨진다(스키마가 모르는 필드를 거부, 앱 `validObservation`). FE·BE가 함께 바꾸고 옛 앱을 따로 지원하지 않으므로 [계약 안내](../../../contracts/README.md) 48행의 「새 계약 파일」 대신 번호만 올린다. 접속 주소 `/v2/realtime`과 좌표 구간 `posture.frames.v1`은 그대로 |
+| 8 | `observation` 형식 번호만 3.0 → 4.0으로 올린다. 계약 파일은 `realtime-ws.schema.json` 그대로 고치고 `realtime-ws.v3`를 새로 만들지 않는다(10/30, A안) | 필드를 빼거나 더하면 호환성이 깨진다(스키마가 모르는 필드를 거부, 앱 `validObservation`). FE·BE가 함께 바꾸고 옛 앱을 따로 지원하지 않으므로 [계약 안내](../../../contracts/README.md) 48행의 「새 계약 파일」 대신 번호만 올린다. 접속 주소 `/v2/realtime`과 좌표 구간 `posture.frames.v1`은 그대로 |
 | 9 | `observation` 4.0은 필드 4개: `valid`·`posture`·`collapse_probability`·`invalid_reason`(10/30, 아래 예시). `sequence`·`start_ms`·`end_ms`·`phase`·`valid_ms`·`deviation_type`·`model_version`은 뺀다. `bad_ms`는 넣지 않는다 | 앱이 측정 중 화면에 쓰는 값만 남긴다. 처리 위치는 `ack`·`progress`의 `last_sequence`, 상태는 `progress.paused_reason`, 누적 시간은 `summary`에 있다. 모델은 이탈 확률 하나를 내고 서버가 좋음/나쁨으로 나누므로(ADR 0045 기준·이탈 2클래스, ADR 0047) 이탈 종류는 모델 출력에 없다 |
 | 10 | `posture`·`collapse_probability`는 묶음의 **마지막 판정 가능 프레임** 값(10/30) | 화면은 「지금 자세」를 보인다. 평균은 판정을 흐린다(3번). 판정 가능 프레임이 없으면 `valid:false` |
 | 11 | `ack`는 받은 즉시(10/31부터 추론에 넘긴 뒤 바로), `observation`·`decision`·`alert`·`progress`는 묶음 처리 뒤(10/30) | 앱은 `ack`를 표시에만 쓴다. 판정 결과는 묶음 단위로만 생긴다 |
@@ -191,7 +191,7 @@
 
 - `python tools/dev.py check-backend`: 통과. Gradle 빌드(API·처리 서비스) → `-Pmysql-integration`(API 99개 중 `MySqlIntegrationTest` 11개 포함 실패 0·건너뜀 0, 처리 서비스 62개) → `tools/service_smoke.py` 8단계 PASS(실제 FastAPI `/v3/infer`, 기본 3초 묶음, 3초 확정·6초 회복).
 - 새·바뀐 시험: `FrameBatchTest` 5개, `SessionServiceTest` 새 5개, `SessionEngineTest` 새 2개, `InferenceClientTest` 새 3개, `RealtimeHandlerV2Test`(ack 즉시·묶음 뒤 progress·`stalled` 이벤트·자정 뒤 `t_ms` 이동), MySQL 통합 시험(3초 전에 판정하지 않음, 4.0 필드).
-- Python `unittest discover -s tests`: 163개 중 159 통과, 건너뜀 1, 오류 3 — 오류는 `test_deploy_configuration` 3개로 이 PC에 Docker CLI가 없어서다(이 변경과 무관). 새 `tests/test_inference_v3.py` 7개(합성 기준값 17사례 포함)와 `test_realtime_ws_v2.py`의 4.0 시험 통과.
+- Python `unittest discover -s tests`: 163개 중 159 통과, 건너뜀 1, 오류 3 — 오류는 `test_deploy_configuration` 3개로 이 PC에 Docker CLI가 없어서다(이 변경과 무관). 새 `tests/test_inference_v3.py` 7개(합성 기준값 17사례 포함)와 `test_realtime_ws.py`의 4.0 시험 통과.
 - `python tools/dev.py check-repo`: 통과.
 - 하지 않은 것: 앱(FE)과 함께 돌려 보기(FE 수정 전이라 앱은 4.0 `observation`을 버린다), `make check-frontend`·`check-browser`(FE를 바꾸지 않음), Compose·서버 PC, Kafka 경로, 실제 사람·카메라 자료.
 - 남은 한계: 알림·점수 표시가 최대 3초 늦다. 묶음 하나의 추론이 실패하면 최대 3초가 누락이다. API 명세 11.5의 「실제」 메시지 블록은 계획 0084 전 실행 값이다(새 순서는 그 앞 안내에 적음).

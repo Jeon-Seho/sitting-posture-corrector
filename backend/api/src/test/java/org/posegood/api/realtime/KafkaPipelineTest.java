@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,7 +53,7 @@ import tools.jackson.databind.node.ObjectNode;
  * 브로커는 {@link Producer} 대역으로 대신한다(실제 왕복은 서버 통합 테스트).
  */
 class KafkaPipelineTest {
-	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-v2");
+	private static final Path APP = Path.of("..", "..", "contracts", "realtime", "examples-ws");
 	private static final Path KAFKA = Path.of("..", "..", "contracts", "realtime", "examples");
 	private static final JsonMapper MAPPER = JsonMapper.builder()
 		.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -91,7 +92,7 @@ class KafkaPipelineTest {
 			sent.add(call.getArgument(0));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		pipeline = new KafkaPipeline(sessions, producer, "posture.features.v1", JSON, Duration.ofSeconds(3),
+		pipeline = new KafkaPipeline(sessions, producer, "posture.features", JSON, Duration.ofSeconds(3),
 			Duration.ofHours(24), Clock.fixed(Instant.parse("2026-11-10T01:00:01Z"), ZoneOffset.UTC));
 	}
 
@@ -134,7 +135,7 @@ class KafkaPipelineTest {
 
 		assertEquals(4, sent.size());
 		sent.forEach(record -> {
-			assertEquals("posture.features.v1", record.topic());
+			assertEquals("posture.features", record.topic());
 			assertEquals(SESSION.toString(), record.key());
 		});
 		sameShape("features-session-started.json", message(0));
@@ -168,7 +169,7 @@ class KafkaPipelineTest {
 			() -> pipeline.frames(OWNER, SESSION, interval(5, 600, 700), BASELINE)).status());
 		assertEquals(409, assertThrows(ApiError.class,
 			() -> pipeline.frames(OWNER, SESSION, interval(6, 550, 700), BASELINE)).status());
-		var limited = new KafkaPipeline(sessions, producer, "posture.features.v1", JSON, Duration.ofSeconds(3),
+		var limited = new KafkaPipeline(sessions, producer, "posture.features", JSON, Duration.ofSeconds(3),
 			Duration.ofMillis(1000), Clock.systemUTC());
 		limited.open(OWNER, SESSION);
 		assertEquals(429, assertThrows(ApiError.class,
@@ -183,7 +184,7 @@ class KafkaPipelineTest {
 			sent.add(call.getArgument(0));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features", "posture.keypoints", JSON,
 			Duration.ofSeconds(3), Duration.ofHours(24), Clock.fixed(Instant.parse("2026-11-10T01:00:01Z"),
 			ZoneOffset.UTC));
 		archiving.open(OWNER, SESSION);
@@ -191,8 +192,8 @@ class KafkaPipelineTest {
 		assertEquals(3, archiving.frames(OWNER, SESSION, interval, BASELINE).lastSequence());
 
 		assertEquals(3, sent.size()); // 시작, features, keypoints
-		assertEquals("posture.features.v1", sent.get(1).topic());
-		assertEquals("posture.keypoints.v1", sent.get(2).topic());
+		assertEquals("posture.features", sent.get(1).topic());
+		assertEquals("posture.keypoints", sent.get(2).topic());
 		assertEquals(SESSION.toString(), sent.get(2).key());
 		var keypoints = message(2);
 		sameShape("keypoints-keypoints.json", keypoints);
@@ -227,7 +228,7 @@ class KafkaPipelineTest {
 			callbacks.add(call.getArgument(1));
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
-		var archiving = new KafkaPipeline(sessions, producer, "posture.features.v1", "posture.keypoints.v1", JSON,
+		var archiving = new KafkaPipeline(sessions, producer, "posture.features", "posture.keypoints", JSON,
 			Duration.ofSeconds(3), Duration.ofHours(24), Clock.systemUTC());
 		archiving.open(OWNER, SESSION);
 		assertEquals(0, archiving.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE).lastSequence());
@@ -254,5 +255,27 @@ class KafkaPipelineTest {
 			return CompletableFuture.completedFuture((RecordMetadata)null);
 		});
 		assertEquals(0, pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE).lastSequence());
+	}
+
+	/**
+	 * (D-98) 종료를 보내면 세션을 끝난 것으로 표시한다 — 이 경로는 서버 엔진이 끝나지 않아, 표시하지 않으면 같은 계정의
+	 * 새 측정이 409 MEASUREMENT_IN_PROGRESS로 막힌다. 종료 발행이 실패하면(503) 아직 측정 중이므로 표시하지 않는다.
+	 */
+	@Test
+	void finishReleasesTheMeasurementOnlyAfterEndedIsPublished() throws Exception {
+		pipeline.open(OWNER, SESSION);
+		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
+		when(producer.send(any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("down")));
+		assertEquals(503, assertThrows(ApiError.class, () -> pipeline.finish(OWNER, SESSION, null)).status());
+		verify(sessions, never()).release(OWNER, SESSION);
+
+		when(producer.send(any())).thenAnswer(call -> {
+			sent.add(call.getArgument(0));
+			return CompletableFuture.completedFuture((RecordMetadata)null);
+		});
+		pipeline.finish(OWNER, SESSION, null); // 다음 종료 요청(앱 end·끊김)에 다시 보낸다
+		verify(sessions).release(OWNER, SESSION);
+		pipeline.finish(OWNER, SESSION, null); // 이미 끝났으면 다시 보내지도 표시하지도 않는다
+		verify(sessions, times(1)).release(OWNER, SESSION);
 	}
 }

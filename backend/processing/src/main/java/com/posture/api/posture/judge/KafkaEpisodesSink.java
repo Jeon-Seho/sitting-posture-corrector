@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * (D-22) 판정 결과를 {@code posture.episodes.v1}에 발행한다(키 = session_id).
+ * (D-22) 판정 결과를 {@code posture.episodes}에 발행한다(키 = session_id).
  *
  * <p>판정 스레드를 막지 않도록 전송 완료를 기다리지 않는다. 같은 키는 같은 파티션으로 가고 프로듀서가 순서를 지키므로
  * "사건을 그 사건이 반영된 progress보다 먼저"가 유지된다(acks=all, 재시도 시에도 멱등 프로듀서 기본값).
@@ -32,7 +32,7 @@ public class KafkaEpisodesSink implements EpisodesSink {
 	public KafkaEpisodesSink(
 		KafkaTemplate<String, String> kafkaTemplate,
 		JsonMapper jsonMapper,
-		@Value("${app.kafka.topic.posture-episodes-v1:posture.episodes.v1}")
+		@Value("${app.kafka.topic.posture-episodes:posture.episodes}")
 		String topic) {
 		this.kafkaTemplate = kafkaTemplate;
 		this.jsonMapper = jsonMapper;
@@ -52,7 +52,7 @@ public class KafkaEpisodesSink implements EpisodesSink {
 		String json = jsonMapper.writeValueAsString(envelope);
 		kafkaTemplate.send(topic, sessionId, json).whenComplete((result, error) -> {
 			if (error != null) {
-				log.error("posture.episodes.v1 발행 실패 (sessionId={}, kind={}): {}", sessionId, kind, error.getMessage());
+				log.error("posture.episodes 발행 실패 (sessionId={}, kind={}): {}", sessionId, kind, error.getMessage());
 			}
 		});
 	}

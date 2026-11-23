@@ -110,11 +110,11 @@ class PasswordResetMySqlIntegrationTest {
 	}
 
 	private ApiClient.Response requestReset(String email) throws Exception {
-		return client().post("/v2/auth/password-reset/requests", MAPPER.createObjectNode().put("email", email));
+		return client().post("/auth/password-reset/requests", MAPPER.createObjectNode().put("email", email));
 	}
 
 	private ApiClient.Response confirm(String token, String password) throws Exception {
-		return client().post("/v2/auth/password-reset/confirm",
+		return client().post("/auth/password-reset/confirm",
 			MAPPER.createObjectNode().put("token", token).put("new_password", password));
 	}
 
@@ -227,7 +227,7 @@ class PasswordResetMySqlIntegrationTest {
 		var change = MAPPER.createObjectNode()
 			.put("current_password", "synthetic-password-1")
 			.put("new_password", "synthetic-password-2");
-		assertEquals(204, other.put("/v2/auth/password", change).status());
+		assertEquals(204, other.put("/auth/password", change).status());
 		assertEquals(0, tokens(secondId)[1]);
 		assertEquals(410, confirm(secondToken, "synthetic-password-3").status());
 		assertEquals(200, client().login(second, "synthetic-password-2").status());

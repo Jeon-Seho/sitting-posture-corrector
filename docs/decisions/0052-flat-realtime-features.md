@@ -1,6 +1,6 @@
 # ADR 0052: 실시간 입력은 프레임 한 장을 평탄화해 보내고, 측정 불가는 양 어깨로 정한다
 
-- 상태: accepted(FE). 서버가 신형을 받는 작업(팀장 브랜치 `feature/repo-realtime-message-simplification`)이 끝나야 배포한다
+- 상태: accepted(FE). 서버가 신형을 받는 작업(팀장 PR #143, 브랜치 `feature/repo-realtime-message-simplification`)이 운영에 올라가야 배포한다. 서버 쪽 결정은 ADR 0053(#143) 「실시간 단일 프레임 입력과 서버 목업 필터 제거」이고, 11/23 FE가 그 계약과 이 ADR이 같음을 확인했다
 - 날짜: 2026-11-19
 - 작성: klaod-tech(FE)
 - 근거: 팀장(전세호) 「실시간 WebSocket 계약 변경 검토 요청」(2026-11-18), FE 회신(2026-11-19), 팀장 확인(11/19: 고개 돌림은 서버가 거르지 않고 ML이 판별)

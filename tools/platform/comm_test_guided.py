@@ -37,13 +37,13 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 TOPICS = {
-    "posture.features.v1": "FEAT", "posture.inference.v1": "INFR", "posture.episodes.v1": "EPIS",
-    "posture.alerts.v1": "ALRT", "posture.stored.v1": "STOR", "posture.dlq": "DLQ",
-    "posture.keypoints.v1": "KEYP",
+    "posture.features": "FEAT", "posture.inference": "INFR", "posture.episodes": "EPIS",
+    "posture.alerts": "ALRT", "posture.stored": "STOR", "posture.dlq": "DLQ",
+    "posture.keypoints": "KEYP",
 }
-WATCHED_TOPICS = ["posture.features.v1", "posture.episodes.v1", "posture.alerts.v1",
-                  "posture.stored.v1", "posture.dlq"]
-GROUPS = ["inference-service-v1", "judge-v1", "report-store-v1", "io-ws-io-api"]
+WATCHED_TOPICS = ["posture.features", "posture.episodes", "posture.alerts",
+                  "posture.stored", "posture.dlq"]
+GROUPS = ["inference-service", "judge", "report-store", "io-ws-io-api"]
 PER_INTERVAL = {"features", "observation", "keypoints", "progress"}
 
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
@@ -242,7 +242,8 @@ def kill_consumers() -> int:
 
 
 class Watchers:
-    def __init__(self, bus: Bus, topics: List[str], dry_run: bool) -> None:
+    def __init__(self, bus: Bus, topics: List[str], dry_run: bool, gateway: str = "gateway") -> None:
+        self.gateway = gateway
         self.bus = bus
         self.topics = topics
         self.procs: List[subprocess.Popen] = []
@@ -262,7 +263,7 @@ class Watchers:
         self.started = True
         since = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         # stdin은 넘기지 않는다 — 넘기면 y/n 입력을 하위 프로세스가 먼저 읽어 질문에서 멈춘다
-        gw = subprocess.Popen(["docker", "logs", "-f", "--since", since, "gateway"], stdin=subprocess.DEVNULL,
+        gw = subprocess.Popen(["docker", "logs", "-f", "--since", since, self.gateway], stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         self.procs.append(gw)
         threading.Thread(target=self._pump, args=(gw, parse_gateway), daemon=True).start()
@@ -323,12 +324,17 @@ def parse_offsets(text: str) -> int:
 
 
 def parse_lag(text: str) -> Optional[int]:
-    """kafka-consumer-groups --describe 출력 → LAG 합계(LAG 열이 없으면 None)."""
-    lag_col, total, found = None, 0, False
+    """kafka-consumer-groups --describe 출력 → 지금 토픽(TOPICS)의 LAG 합계(LAG 열이 없으면 None).
+
+    옛 이름 토픽(posture.*.v1)은 뺀다 — 그룹 이름이 그대로인 io-ws-io-api는 이름을 바꾼 뒤에도 옛 토픽의 읽은
+    위치가 남아, 아무도 읽지 않는 옛 토픽 lag가 계속 보인다(D-94, 11/18)."""
+    lag_col, topic_col, total, found = None, None, 0, False
     for line in text.splitlines():
         cols = line.split()
         if "LAG" in cols and "TOPIC" in cols:
-            lag_col = cols.index("LAG")
+            lag_col, topic_col = cols.index("LAG"), cols.index("TOPIC")
+            continue
+        if topic_col is not None and len(cols) > topic_col and cols[topic_col] not in TOPICS:
             continue
         if lag_col is not None and len(cols) > lag_col and cols[lag_col].isdigit():
             total += int(cols[lag_col])
@@ -662,12 +668,18 @@ def step_s0(c: Ctx) -> None:
 
 def step_s1a(c: Ctx) -> None:
     cur = c.cursor()
-    c.say("앱(app.posegood.site)에서 이메일 계정으로 로그인하세요. 이미 로그인돼 있으면 먼저 로그아웃하세요")
+    c.say("앱에서 이메일 계정으로 로그인하세요. 이미 로그인돼 있으면 먼저 로그아웃하세요")
     deadline = time.monotonic() + c.args.wait_user
     failed = 0
+    want = c.gw_any_status("POST", "/auth/login")
+    versioned = re.compile("^" + re.escape(c.api) + r"/v[0-9]+/")
     while True:
         left = max(deadline - time.monotonic(), 0.1)
-        login = cur.expect(c.gw_any_status("POST", "/auth/login"), left, "로그인 요청(POST /auth/login)")
+        login = cur.expect(lambda e: want(e) or (e.source == "GW" and bool(versioned.match(e.path))), left,
+                           "로그인 요청(POST /auth/login)")
+        if not want(login):
+            raise Fail(f"앱이 버전 붙은 주소({mask(login.path)})를 부름 — 서버는 {c.api}/… 만 받음. 앱이 이 서버 판과 "
+                       "다른 판(예: Vercel 운영 = develop)이다. 같은 판의 화면으로 시험(--gateway-container web)")
         if status_ok(login.status):
             break
         failed += 1
@@ -714,6 +726,10 @@ def step_s2(c: Ctx) -> None:
 def _start_session(c: Ctx, cur: Cursor) -> None:
     """측정 시작 요청을 잡고, kafka 모드면 그 뒤 첫 session_started의 session_id를 이 세션으로 삼는다."""
     start = cur.expect(c.gw_any_status("PUT", "/sessions/{id}"), c.args.wait_user, "측정 시작(PUT /sessions/{id})")
+    if start.status == 409 and c.sessions:
+        raise Fail("측정 시작 409(MEASUREMENT_IN_PROGRESS로 보임) — 같은 계정의 앞 측정이 io-api 메모리에서 아직 "
+                   "「측정 중」. kafka 모드는 끝난 세션을 풀지 않는 문제가 있음(D-98) — 시험이 끝나 io-api를 다시 "
+                   "띄우면 풀린다")
     if not status_ok(start.status):
         raise Fail(f"측정 시작 응답 {start.status}")
     m = UUID_RE.search(start.path)
@@ -781,6 +797,22 @@ def step_s4(c: Ctx) -> None:
     c.yes("앱에 자세 알림이 떴나요?")
 
 
+def _previous_alerting(c: Ctx, rem: Event) -> Optional[Tuple[str, int]]:
+    """rem 바로 앞의 확정·재알림(같은 세션)의 (이름, 시각). 재알림은 자세가 계속 나쁘면 30초마다 되풀이되므로 첫 확정이
+    아니라 바로 앞 것과 비교한다 — 질문에 답하는 사이 지나간 재알림도 Bus에 남아 있어 그것과 비교한다(11/19 S5)."""
+    with c.bus.cond:
+        events = list(c.bus.events)
+    best: Optional[Tuple[str, int]] = None
+    for ev in events:
+        if (ev.source == "EPIS" and ev.kind == "decision" and ev.event in ("collapse_confirmed", "reminder")
+                and ev.sid == rem.sid and isinstance(ev.ts_ms, int) and isinstance(rem.ts_ms, int)
+                and ev.ts_ms < rem.ts_ms and (best is None or ev.ts_ms > best[1])):
+            best = ("확정" if ev.event == "collapse_confirmed" else f"직전 재알림 id={ev.event_id}", ev.ts_ms)
+    if best is None and c.last_confirm_ms is not None:
+        best = ("확정", c.last_confirm_ms)
+    return best
+
+
 def step_s5(c: Ctx) -> None:
     cur = c.cursor()
     c.say(f"그 자세를 그대로 {c.args.reminder_ms // 1000 + 8}초 더 유지하세요(재알림을 기다림)")
@@ -792,8 +824,10 @@ def step_s5(c: Ctx) -> None:
         if alert is None:
             raise Fail(f"재알림 id={rem.event_id} 뒤 5초 안 알림 없음 — "
                        f"{_no_alert_reason(counter_delta(before, c.ops.counters()))}")
-        gap = (rem.ts_ms - c.last_confirm_ms) if isinstance(rem.ts_ms, int) and c.last_confirm_ms else None
-        c.note(f"재알림 id={rem.event_id} → 알림 · 확정과 간격 {gap / 1000 if gap else '?'}초")
+        prev = _previous_alerting(c, rem)
+        gap = (rem.ts_ms - prev[1]) if isinstance(rem.ts_ms, int) and prev else None
+        c.note(f"재알림 id={rem.event_id} → 알림 · {prev[0] if prev else '앞 사건'}과 간격 "
+               f"{gap / 1000 if gap is not None else '?'}초")
         if gap is not None and abs(gap - c.args.reminder_ms) > 3000:
             raise Fail(f"재알림 간격 {gap / 1000:.1f}초 — 기대 {c.args.reminder_ms / 1000:.0f}초 ±3초")
     c.yes("재알림이 한 번 더 떴나요?")
@@ -923,8 +957,8 @@ def step_s12(c: Ctx) -> None:
         c.note("오프셋 " + " ".join(f"{TOPICS[t]}+{d}" for t, d in diff.items()))
         if diff.get("posture.dlq", 0) != 0:
             raise Fail(f"DLQ +{diff['posture.dlq']}")
-        if diff.get("posture.keypoints.v1", 0) != 0:
-            raise Fail(f"keypoints +{diff['posture.keypoints.v1']} — 좌표 적재 스위치가 켜져 있음")
+        if diff.get("posture.keypoints", 0) != 0:
+            raise Fail(f"keypoints +{diff['posture.keypoints']} — 좌표 적재 스위치가 켜져 있음")
         for _ in range(4):  # 마지막 메시지를 처리하는 중이면 잠깐 lag가 남는다 — 최대 15초 다시 봄
             lags = {g: ops.lag(g) for g in GROUPS}
             if not any(v for v in lags.values()):
@@ -1066,8 +1100,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--env-file", default="infra/compose/.env")
     ap.add_argument("--out", default=None,
                     help="결과 파일 폴더(기본: 저장소 tests/comm-test-results — 저장소에 올리지 않음)")
-    ap.add_argument("--api-prefix", default="/api/v2", help="gateway 기준 API 경로(D-94 뒤 바꿈)")
-    ap.add_argument("--io-prefix", default="/v2", help="io-api 직접 호출 경로(127.0.0.1:8090)")
+    ap.add_argument("--api-prefix", default="/api", help="gateway 기준 API 경로(버전 없음)")
+    ap.add_argument("--gateway-container", default="gateway",
+                    help="접근 로그를 볼 nginx 컨테이너 — 앱이 공개 주소면 gateway, 서버의 화면(127.0.0.1:8088, "
+                         "SSH 터널)으로 시험하면 web")
+    ap.add_argument("--io-prefix", default="", help="io-api 직접 호출 경로 앞부분(127.0.0.1:8090, 버전 없음이라 기본은 빈 값)")
     ap.add_argument("--hold-ms", type=int, default=5000)
     ap.add_argument("--reminder-ms", type=int, default=30000)
     ap.add_argument("--wait-user", type=float, default=120, help="사용자 동작을 기다리는 시간(초)")
@@ -1092,7 +1129,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     bus = Bus()
     ops = Ops(repo, args.dry_run)
     ctx = Ctx(args, bus, ops, Db(env))
-    watchers = Watchers(bus, WATCHED_TOPICS if args.mode == "kafka" else [], args.dry_run)
+    watchers = Watchers(bus, WATCHED_TOPICS if args.mode == "kafka" else [], args.dry_run, args.gateway_container)
     ctx.watchers = watchers
     results: List[Result] = []
     final = "멈춤 (-): 정리 중 오류"

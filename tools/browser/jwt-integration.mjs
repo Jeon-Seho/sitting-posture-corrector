@@ -49,7 +49,7 @@ try {
   fixture = email
   await fill('email', email); await fill('password', 'Synthetic-test-1234!'); await button('로그인')
   await until(async () => (await body()).includes('합성 UI 검증') && !(await body()).includes('비밀번호 찾기'), 'real JWT login')
-  await until(async () => browser.requests.some(r => /\/api\/v2\/records$/.test(r.url) && r.headers.Authorization?.startsWith('Bearer ')), 'authenticated records')
+  await until(async () => browser.requests.some(r => /\/api\/records$/.test(r.url) && r.headers.Authorization?.startsWith('Bearer ')), 'authenticated records')
   assert.equal((await body()).includes('개발자 계정 · 서버 연결 없음'), false)
   await cdp.call('Page.reload')
   await delay(700)
@@ -66,9 +66,9 @@ try {
   console.log('PASS profile editing through current JWT server')
 } finally {
   try { if (fixture) {
-    const login = await fetch(new URL('/api/v2/auth/login', base), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fixture, password: 'Synthetic-test-1234!' }) })
+    const login = await fetch(new URL('/api/auth/login', base), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: fixture, password: 'Synthetic-test-1234!' }) })
     const auth = await login.json()
-    const response = await fetch(new URL('/api/v2/auth/account', base), { method: 'DELETE', headers: { Authorization: `Bearer ${auth.access_token}`, 'X-PoseGood-User-Id': auth.user_id, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'Synthetic-test-1234!' }) })
+    const response = await fetch(new URL('/api/auth/account', base), { method: 'DELETE', headers: { Authorization: `Bearer ${auth.access_token}`, 'X-PoseGood-User-Id': auth.user_id, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'Synthetic-test-1234!' }) })
     assert.equal(response.status, 204, 'synthetic account cleanup')
     console.log('PASS synthetic account closed (server retention policy applies)')
   } } finally {

@@ -8,7 +8,9 @@ import { TitleBar } from './features/desktop/TitleBar'
 import { TipLayer } from './components/TipLayer'
 import './styles.css'
 import { initializeAppearance } from './features/appearance/theme'
+import { moveRenamedKeys } from './features/storage/renamedKeys'
 
+moveRenamedKeys()
 initializeAppearance()
 
 async function start() {

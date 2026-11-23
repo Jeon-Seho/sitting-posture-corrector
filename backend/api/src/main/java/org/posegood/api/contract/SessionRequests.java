@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotNull;
 /**
  * 세션 API 요청 본문 모음: 생성, 종료, 기준 자세.
  *
- * 계약: contracts/accounts.v2.md의 세션 부분.
+ * 계약: contracts/accounts.md의 세션 부분.
  */
 public final class SessionRequests {
 	private SessionRequests() {
@@ -20,7 +20,7 @@ public final class SessionRequests {
 	/**
 	 * 세션 생성 요청: 계정의 현재 판정 정책 + 서버가 등록한 기준 ID.
 	 *
-	 * {@code PUT /v2/sessions/{id}}. {@code baseline_id}는 필수다.
+	 * {@code PUT /sessions/{id}}. {@code baseline_id}는 필수다.
 	 */
 	public record Create(@NotNull @Valid Policy policy, @NotNull UUID baselineId) {
 	}

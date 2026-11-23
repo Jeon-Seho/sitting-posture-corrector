@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * (D-21) 실시간 계약 v1 {@code posture.features.v1} 메시지(공통 봉투 + 본문) 검사.
+ * (D-21) 실시간 Kafka 계약 {@code posture.features} 메시지(공통 봉투 + 본문) 검사.
  *
  * <p>계약 원칙("모르는 필드는 거부")에 따라 봉투·본문의 모르는 필드를 거부한다. JSON 스키마 전체를
  * 다시 구현하지는 않고, Kafka 뒤의 소비자가 멈추지 않는 데 필요한 필드·형식·범위만 본다

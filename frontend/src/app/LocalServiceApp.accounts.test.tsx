@@ -51,7 +51,7 @@ function camera(): CameraController {
   } as unknown as CameraController
 }
 
-describe('sign-in with the account server (D-66, /v2/auth)', () => {
+describe('sign-in with the account server (D-66, /auth)', () => {
   let data: Map<string, string>
   let renderer: ReactTestRenderer | undefined
   let accounts: { [K in keyof AccountClient]: ReturnType<typeof vi.fn> }
@@ -271,7 +271,7 @@ describe('sign-in with the account server (D-66, /v2/auth)', () => {
     const fetch = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'PUT') return new Response(JSON.stringify({ code: 'INTERNAL' }), { status: 500 })
       if (down) return new Response(JSON.stringify({ code: 'INTERNAL' }), { status: 500 })
-      return new Response(JSON.stringify(url.includes('/v2/records') ? { today: '2026-11-10', records: [] } : workspace), { status: 200 })
+      return new Response(JSON.stringify(url.includes('/records') ? { today: '2026-11-10', records: [] } : workspace), { status: 200 })
     })
     vi.stubGlobal('fetch', fetch)
     accounts.login.mockRejectedValueOnce(new AccountError('x', 401, 'INVALID_CREDENTIALS'))

@@ -16,7 +16,7 @@
 | `PAUSED` | 측정 중 쉬기 또는 자리 비움 |
 
 - **구현 상태:** `구현됨`, `일부`(앱이나 서버 한쪽 또는 일부만 있음), `구현 전`
-- **API:** 번호는 [연동 명세](api-ws-spec.md) 3장 표와 같고, 상세는 7장이다. `WS`는 `/realtime`이다. 경로는 버전 없이 적는다(지금 서버는 `/api/v2/…`, [연동 명세](api-ws-spec.md) 1장 「주소」).
+- **API:** 번호는 [연동 명세](api-ws-spec.md) 3장 표와 같고, 상세는 7장이다. `WS`는 `/realtime`이다.
 - **우선순위:** 작성자 제안 값이며, 팀 확인 전이다.
 
 ## 2. 기능 표
@@ -111,6 +111,7 @@
 | C5 | 측정 기록 저장 | `MEASUREMENT_RECORD` | 필수 |
 | C6 | 만 14세 이상 | `AGE_14_OVER` | 필수 |
 
+- 이메일 코드 인증은 서버가 메일을 보내고, 서버·앱 빌드 변수를 둘 다 켜야 동작한다. 결정은 [ADR 0050](../../decisions/0050-account-email-and-discord-link.md).
 - 자세 등록을 건너뛰어도 가입은 끝난 상태다. 측정하기에서 등록한 자세가 없으면 그때 등록한다.
 - 코드: [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `register`, [SignupPostureStep.tsx](../../../frontend/src/features/auth/SignupPostureStep.tsx), [consents.ts](../../../frontend/src/features/auth/consents.ts). 서버 규칙은 [API 명세 A2](../api-spec.md#a2).
 
@@ -190,7 +191,7 @@
 
 - 카카오·Google·GitHub 버튼도 화면에 있지만 흐리게 두고 누르면 「○○ 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.」
 - 운영: 서버는 11/12, 웹 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`)는 11/16에 켰다. 11/16 운영 웹에서 Discord 이동과, 그때의 같은 이메일 안내(`link-required`, 문구만 띄우던 옛 동작)를 확인했다. 연결 승인 흐름(5번)은 그 뒤에 들어왔다.
-- 자동 연결을 하지 않는 이유: 앱의 이메일 가입은 이메일 인증을 켜기 전까지 주인 확인을 하지 않는다. 남이 그 이메일로 먼저 가입해 두면, 자동 연결은 주인의 Discord를 남의 계정에 붙이게 된다. 그래서 기존 계정 비밀번호로 확인한다.
+- 자동 연결을 하지 않는 이유: 앱의 이메일 가입은 이메일 인증을 켜기 전까지 주인 확인을 하지 않는다. 남이 그 이메일로 먼저 가입해 두면, 자동 연결은 주인의 Discord를 남의 계정에 붙이게 된다. 그래서 기존 계정 비밀번호로 확인한다. 결정은 [ADR 0050](../../decisions/0050-account-email-and-discord-link.md).
 - 코드: [socialLogin.ts](../../../frontend/src/features/auth/socialLogin.ts), [accountClient.ts](../../../frontend/src/features/auth/accountClient.ts) `social`, [SocialAccountLinkPage.tsx](../../../frontend/src/features/auth/SocialAccountLinkPage.tsx)(연결 승인), [LocalServiceApp.tsx](../../../frontend/src/app/LocalServiceApp.tsx) `startDiscord`. 서버 쪽은 [인계](../social-login-password-reset-handoff.md).
 
 ### 로그인 유지
@@ -273,8 +274,8 @@
 **비고**
 
 - 운영 서버는 재설정 메일을 꺼 두었다(도메인 메일 서비스가 정해진 뒤 켬). 켜지면 운영 웹 빌드 변수도 켠다.
-- 메일 링크의 30분 유효, 새 메일을 받으면 이전 링크 무효는 서버 규칙이다([계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)).
-- 링크 토큰은 주소 `#` 뒤에만 실리고, 앱은 메모리에만 둔다.
+- 메일 링크의 30분 유효, 새 메일을 받으면 이전 링크 무효는 서버 규칙이다([계정 계약](../../../contracts/accounts.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)).
+- 링크 토큰은 주소 `#` 뒤에만 실리고, 앱은 메모리에만 둔다. 결정은 [ADR 0050](../../decisions/0050-account-email-and-discord-link.md).
 - 코드: [MailAccessPage.tsx](../../../frontend/src/features/auth/MailAccessPage.tsx), [mailApi.ts](../../../frontend/src/features/auth/mailApi.ts). 같은 화면이 가입 이메일 인증(「회원가입 · 이메일 인증」)에도 쓰인다(회원가입 절).
 
 ### 프로필 수정
@@ -475,11 +476,11 @@
 
 **선행조건**
 
-- 카메라가 켜져 있고 얼굴과 양 어깨가 보인다.
+- 카메라가 켜져 있고 얼굴과 양 어깨가 보인다. 측정하기의 「다시 등록」·「새로 등록」은 카메라가 꺼져 있으면 카메라부터 켠다(11/20).
 
 **트리거**
 
-- 등록한 자세가 없을 때 측정하기를 연다. 설정의 「다시 등록」, 회원가입 3단계를 누른다.
+- 등록한 자세가 없을 때 측정하기를 연다. 측정하기·설정의 「다시 등록」, 회원가입 3단계를 누른다.
 
 **동작**
 
@@ -494,6 +495,7 @@
 - 15초 안에 끝나지 않으면 실패를 안내한다.
 - 평균 좌표가 화면 밖이면 보내지 않고 화면 안으로 오라고 안내한다.
 - B2가 연결·서버 오류로 실패하면 자동으로 등록하지 않고 「다시 불러오기」, 「새로 등록」을 고르게 한다.
+- 측정하기의 「다시 등록」은 카메라가 꺼져 있어도 누를 수 있다. 등록한 자세가 있으면 카메라를 켜는 순간 2.5초 뒤 측정이 자동으로 시작돼, 카메라가 켜질 때만 누를 수 있던 버튼은 사실상 쓸 수 없었다(11/20 시험). 등록하는 동안은 자동 시작이 꺼진다.
 
 **비고**
 
@@ -530,6 +532,7 @@
 
 **비고**
 
+- 측정은 계정당 한 기기만 한다(로그인은 여러 기기). 결정은 [ADR 0051](../../decisions/0051-one-device-measures-per-account.md).
 - 응답이 없으면 S1을 같은 UUID·같은 본문으로 다시 보낸다. 코드: [useSessionPersistence.ts](../../../frontend/src/features/session/useSessionPersistence.ts) `start`, [LiveSession.ts](../../../frontend/src/features/session/live/LiveSession.ts) `start`.
 
 ### 쉬기·재개
@@ -616,6 +619,7 @@
 
 | 화면 상태 | 문구 | 조건 |
 |---|---|---|
+| 연결 중 | 카메라 영역 가운데 모래시계 그림 + 연결하는 중이에요 / 잠시만 기다려 주세요. 10초가 넘으면 평소보다 오래 걸리고 있어요 | S1부터 서버의 첫 `observation`까지. 최소 1초 보이고, 그동안 아래 상자(판정 불가 등)는 숨긴다(11/20 시험) |
 | 첫 판정 전 | 자세를 똑바로 해주세요 | 사람이 잡혔고 아직 결과가 없음 |
 | 바른 자세 | 바른 자세예요 | `posture: good`, 열린 사건 없음 |
 | 주의 | 자세가 흐트러지고 있어요 + 붕괴 게이지 | `posture: bad`, 확정 전. 게이지 = `hold_ms` ÷ 정책 hold 시간 |
@@ -664,7 +668,7 @@
 **동작**
 
 1. 앱이 판정할 수 없는 프레임은 좌표 없이 `phase: "unmeasurable"`, `t_ms`, `p: null`로 보내고(사람이 없을 때와 같음, 새 프레임이 없던 구간은 `t_ms`도 없음), 서버를 기다리지 않고 「자세를 확인할 수 없어요」를 보인다. 앱의 기준은 양 어깨뿐이고, 고개를 돌린 프레임은 어깨가 보이면 그대로 보낸다(ML이 판별, ADR 0052).
-2. 서버만 아는 판정 불가(코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만 — 서버 계약 작업 뒤 바뀔 수 있음)는 `observation.valid: false`로 온다. 이유와 상관없이 「얼굴과 어깨가 보이지 않아요」다. 고개 돌림은 서버가 빼지 않기로 했다(11/19, 판별은 ML).
+2. 서버만 아는 판정 불가는 `observation.valid: false`로 온다. 이유와 상관없이 「얼굴과 어깨가 보이지 않아요」다. 서버 PR #143(ADR 0053) 뒤에는 서버가 정확도·화면 가장자리·어깨 폭 비율·고개 돌림으로 거르지 않고, 좌표로 특징을 계산할 수 없을 때(예: 어깨 폭 0)만 `valid: false`다. 품질 판단은 앱의 양 어깨 기준이 맡는다. #143이 운영에 올라가기 전 서버는 코·어깨 정확도 0.65 미만, 화면 가장자리, 어깨 폭 10% 미만도 `valid: false`로 보낸다.
 3. 판정 불가 시간은 유효 측정 시간에서 빠진다.
 
 **예외 / 제한사항**

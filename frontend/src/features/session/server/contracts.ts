@@ -14,7 +14,8 @@ export type ServerPolicy = {
 
 export type DeviationType = 'none' | 'forward_slouch' | 'left_lean' | 'right_lean' | 'unspecified'
 export type DecisionEvent = {
-  schema_version: '1.0'
+  /** Sent by the server for now; not checked (FE proposal request 13). */
+  schema_version?: string
   session_id: string
   event_id: number
   kind: 'collapse_confirmed' | 'recovery_confirmed' | 'reminder' | 'interrupted' | 'session_ended'
@@ -44,7 +45,8 @@ export type ServerSummary = {
 }
 
 export type SessionView = {
-  schema_version: '1.0'
+  /** Sent by the server for now; not checked (FE proposal request 13). */
+  schema_version?: string
   session_id: string
   policy: ServerPolicy
   timer_policy: 'legacy-interrupt-v1'

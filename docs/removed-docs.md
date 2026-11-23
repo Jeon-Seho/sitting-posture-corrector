@@ -67,7 +67,7 @@ FE 문서를 연동 명세(BE API 명세 10/13 기준)·WebSocket v2 계약에 �
 | `docs/design/fe-server-integration-map.md` | 연동 명세 3장(엔드포인트 상태)과 겹치고 v1 경로·계정 모드 기준이라 낡았다(10/13 정리). develop(10/14, lellon0403)에서 고친 기록·달력 두 줄은 연동 명세 7장으로 옮겼다. | [연동 명세](design/fe/api-ws-spec.md) 3장, [FE 제안서](design/fe/fe-server-proposal.md) 7장·8.2(10/19 옮김) | lellon0403(처음 작성) |
 | `docs/design/frontend-platform-seams.md` | 아키텍처 v4(10/02) 기준 연결 지점 정리였다. v5.1·BE 명세로 바뀌어 연동 명세와 겹친다(10/13 정리). | [FE 제안서](design/fe/fe-server-proposal.md) 4.1(화면 상태와 서버 메시지, 10/19 옮김) | lellon0403 |
 | `docs/design/setup-framing-and-pause-display.md` | 요청이 끝났다: 등록 전 구도 확인은 팀원이 구현했고(`1706b74`), 판정 불가 멈춤 표시는 서버 `progress.paused_reason`으로 정해졌다. 계정 브라우저용 로컬 MySQL 안내는 계정 모드 삭제로 필요 없다(10/13 정리). | [연동 명세](design/fe/api-ws-spec.md) 5.1, [FE 제안서](design/fe/fe-server-proposal.md) 4.1 | - |
-| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.v2.schema.json), [연동 명세](design/fe/api-ws-spec.md) | lellon0403 |
+| `docs/plans/active/0022-kafka-realtime-pipeline.md` | 끝난 계획이다. 게이트웨이는 아키텍처 v5에서 BE 입출구 서버가 맡고, 앱과의 계약은 WebSocket v2로 정했다(10/13 정리). | [실시간 계약](../contracts/realtime/README.md)·[WebSocket v2](../contracts/realtime/realtime-ws.schema.json), [연동 명세](design/fe/api-ws-spec.md) | lellon0403 |
 | `docs/plans/active/0024-posture-registration-tab.md` | 끝난 계획이다. 「자세 등록」 탭은 팀원이 측정하기로 합쳤고(`2be4af8`), 회원가입 3단계에서도 등록한다(10/13 정리). | 측정하기(`SetupPage`), 동의 제안서(`docs/design/consent-proposal.md`, 11장에서 지움) 3장(회원가입 3단계) | lellon0403 |
 
 ## 5. 2026-10-19 design 문서 합치기 (FE, 2개)
@@ -87,7 +87,7 @@ V3(서버 전용, ADR 0025·0026)에 맞춰 design 문서의 겹침을 정리했
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/server-persistence-and-auth.md` | 이 저장소의 예전 v1 백엔드(10/01, MySQL 계정·CEP 재생·outbox) 구현 기록이다. 백엔드는 단일 API·DB V2.3으로 다시 썼고(ADR 0020·0022), 앱의 계정 모드도 10/13 지웠다. | [ADR 0020](decisions/0020-single-api-decision-engine.md), [BE API 명세](design/api-spec.md) | jisung(처음), klaod-tech |
-| `docs/design/data-platform-boundary.md` | **10/25 되살림:** 팀장(Jeon-Seho)이 10/22 develop `db220d8`에서 현행 경계로 고쳐 써, develop을 V3에 합칠 때 develop 판을 남겼다(유지 여부 확인 중). 아래는 10/22에 지운 이유. 10/06 기준 서비스 저장과 빅데이터 플랫폼의 경계다. 「원본 좌표 미전송」 등이 ADR 0021로 바뀌었고, 플랫폼(Kafka·HDFS·Spark)은 DevOps가 운영한다. | [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md)·[변경 안내](design/architecture_v5.4_change_notes.md)(DevOps), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) | jisung(처음), klaod-tech |
+| `docs/design/data-platform-boundary.md` | **10/25 되살림:** 팀장(Jeon-Seho)이 10/22 develop `db220d8`에서 현행 경계로 고쳐 써, develop을 V3에 합칠 때 develop 판을 남겼다(유지 여부 확인 중). 아래는 10/22에 지운 이유. 10/06 기준 서비스 저장과 빅데이터 플랫폼의 경계다. 「원본 좌표 미전송」 등이 ADR 0021로 바뀌었고, 플랫폼(Kafka·HDFS·Spark)은 DevOps가 운영한다. | [아키텍처 v5.5 스택별 역할](design/architecture_v5.5_stack_roles.md)·[변경 안내](design/architecture_v5.5_change_notes.md)(DevOps), [ADR 0021](decisions/0021-app-sends-information-server-judges.md) | jisung(처음), klaod-tech |
 
 지운 절(문서는 남김):
 
@@ -176,8 +176,8 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
-| `docs/design/architecture_v5.2_change_notes.md` | 10/16판. 그 뒤 v5.3·v5.4(Spark 배치 구축, J2 00:10·최근 7일, `ws` Kafka 연결 브랜치 구현 등)가 반영되지 않았다. | [아키텍처 v5.4 변경 안내](design/architecture_v5.4_change_notes.md) — v5.1·v5.2 변경 내용도 이력 절에 남김 | - |
-| `docs/design/architecture_v5.2_stack_roles.md` | 같은 이유(10/16판). | [아키텍처 v5.4 스택별 역할](design/architecture_v5.4_stack_roles.md) | - |
+| `docs/design/architecture_v5.2_change_notes.md` | 10/16판. 그 뒤 v5.3·v5.4(Spark 배치 구축, J2 00:10·최근 7일, `ws` Kafka 연결 브랜치 구현 등)가 반영되지 않았다. | [아키텍처 v5.5 변경 안내](design/architecture_v5.5_change_notes.md) — v5.1·v5.2 변경 내용도 이력 절에 남김 | - |
+| `docs/design/architecture_v5.2_stack_roles.md` | 같은 이유(10/16판). | [아키텍처 v5.5 스택별 역할](design/architecture_v5.5_stack_roles.md) | - |
 
 ## 14. 2026-11-12 오류·연결 화면 디자인 요청 (FE, 1개)
 
@@ -194,3 +194,22 @@ BE PR #91(서버 3초 묶음 판정·`observation` 4.0)에 FE를 맞추려던 �
 | 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
 |---|---|---|---|
 | `docs/design/fe/fe-mobile-records-plan.md` | 휴대폰 기록 보기를 하지 않기로 해 계획이 필요 없다. | 거기서 기다리던 T1 일별 통계(요구 12)는 [FE 제안서](design/fe/fe-server-proposal.md) 요구 12로 남겼다. 원문은 `git show 996709f:docs/design/fe/fe-mobile-records-plan.md` | 없음 |
+
+## 16. 2026-11-18 안 쓰는 옛 계약 (BE, 3개)
+
+계약 파일 이름에서 버전을 빼면서([ADR 0049](decisions/0049-no-version-in-names.md), [계획 0097](plans/active/0097-kafka-processing-remove-versions.md)) 더 쓰지 않는 옛 계약은 이름을 바꾸지 않고 지웠다(김유진).
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `contracts/accounts.v1.md` | 계정·저장 API v1(`/api/v1/`, DB V2.2) 기록이다. 서버는 2026-10 V2 계정 API로 바뀌었고 v1 주소는 없다. | [계정·저장 API](../contracts/accounts.md)(옛 `accounts.v2.md`) | jisung, ghdrb1246, klaod-tech, lellon0403, sunshine-yj |
+| `contracts/feature-response.v1.schema.json` | 2026-10-28 지운 S2(HTTP 특징 입력)의 응답 형식이다. API가 더 이상 내보내지 않는다(계획 0062에서 계약만 남겨 둠). | [계약 안내](../contracts/README.md) 「특징 입력」 | jisung |
+| `contracts/examples/v2/synthetic-feature-response.json` | 위 S2 응답의 합성 예시다. 검사하는 시험이 없었다. | 같음 | - |
+
+## 17. 2026-11-22 아키텍처 문서 판 교체 (DevOps/BE, 2개)
+
+v5.4(11/11판) 아키텍처 문서를 v5.5로 바꿨다. `ws` Kafka 연결 develop 병합(#134)과 주소·토픽·그룹·경로의 버전 삭제(#138)를 반영했다. 옛 판의 「`ws` Kafka 연결은 브랜치, 병합 전」·`/v2`·`.v1` 이름이 다른 문서로 퍼지지 않게 하려는 것이다. 이 파일들을 가리키던 링크는 새 파일로 바꿨다. v5.4까지의 변경은 새 변경 안내의 「지난 판의 변경」 절에 그대로 있다.
+
+| 경로 | 지운 이유 | 내용이 간 곳 | 다른 수정자 |
+|---|---|---|---|
+| `docs/design/architecture_v5.4_change_notes.md` | 11/11판. 그 뒤 D-57 병합·이름 버전 삭제·계정당 한 측정·Discord 로그인·DB V2.7 운영이 반영되지 않았다. | [아키텍처 v5.5 변경 안내](design/architecture_v5.5_change_notes.md) | - |
+| `docs/design/architecture_v5.4_stack_roles.md` | 같은 이유(11/11판). | [아키텍처 v5.5 스택별 역할](design/architecture_v5.5_stack_roles.md) | - |

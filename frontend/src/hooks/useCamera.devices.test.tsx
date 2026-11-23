@@ -147,7 +147,7 @@ describe('several cameras (synthetic devices only)', () => {
   })
 
   it('opens the saved main camera exactly', async () => {
-    store.set('posegood.v2.mainCamera', USB)
+    store.set('posegood.mainCamera', USB)
     mount()
     await connect()
     expect(requested()).toEqual([USB])
@@ -156,14 +156,14 @@ describe('several cameras (synthetic devices only)', () => {
   })
 
   it('falls back to the default camera when the saved one is unplugged, keeping the choice', async () => {
-    store.set('posegood.v2.mainCamera', 'unplugged-id')
+    store.set('posegood.mainCamera', 'unplugged-id')
     mount()
     await connect()
     expect(requested()).toEqual(['unplugged-id', 'default'])
     expect(camera.state).toBe('on')
     expect(camera.deviceId).toBe(BUILT_IN)
     expect(camera.mainMissing).toBe(true)
-    expect(store.get('posegood.v2.mainCamera')).toBe('unplugged-id')
+    expect(store.get('posegood.mainCamera')).toBe('unplugged-id')
   })
 
   it('switches to and saves a camera chosen while another one is on', async () => {
@@ -177,7 +177,7 @@ describe('several cameras (synthetic devices only)', () => {
     })
     expect(requested()).toEqual(['default', USB])
     expect(camera.deviceId).toBe(USB)
-    expect(store.get('posegood.v2.mainCamera')).toBe(USB)
+    expect(store.get('posegood.mainCamera')).toBe(USB)
     expect(tracks[0].stop).toHaveBeenCalled()
   })
 

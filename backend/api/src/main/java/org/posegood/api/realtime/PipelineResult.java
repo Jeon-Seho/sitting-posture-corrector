@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * kafka 경로 결과 하나(D-57): 결과 토픽에서 받아 앱 메시지로 바꾼 것. {@link KafkaResults}가 내고 {@link RealtimeHandlerV2}가
+ * kafka 경로 결과 하나(D-57): 결과 토픽에서 받아 앱 메시지로 바꾼 것. {@link KafkaResults}가 내고 {@link RealtimeHandler}가
  * 그 세션의 연결로 보낸다(연결이 이 서버에 없으면 버린다).
  *
  * @param messages 보낼 앱 메시지({@code RealtimeMessages.V2}), 순서대로

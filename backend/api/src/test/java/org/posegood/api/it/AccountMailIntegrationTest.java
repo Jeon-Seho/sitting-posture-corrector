@@ -59,12 +59,12 @@ class AccountMailIntegrationTest {
 		var api = client();
 		String email = "mail-it-" + UUID.randomUUID() + "@example.invalid";
 		assertEquals(410, api.register(email).status());
-		assertEquals(202, api.post("/v2/auth/email-verification/requests", Map.of("email", email)).status());
+		assertEquals(202, api.post("/auth/email-verification/requests", Map.of("email", email)).status());
 		var code = ArgumentCaptor.forClass(String.class);
 		verify(mailer).sendVerification(eq(email), code.capture(), eq(15L));
-		assertEquals(410, client().post("/v2/auth/email-verification/confirm",
+		assertEquals(410, client().post("/auth/email-verification/confirm",
 			Map.of("token", code.getValue())).status());
-		assertEquals(204, api.post("/v2/auth/email-verification/confirm",
+		assertEquals(204, api.post("/auth/email-verification/confirm",
 			Map.of("token", code.getValue())).status());
 		assertEquals(410, api.register("another-" + email).status());
 		assertEquals(200, api.register(email).status());
@@ -77,24 +77,24 @@ class AccountMailIntegrationTest {
 	void reusedPasswordRollsBackTokenConsumptionAndSuccessfulResetRevokesRefresh() throws Exception {
 		var api = client();
 		String email = "reset-it-" + UUID.randomUUID() + "@example.invalid";
-		api.post("/v2/auth/email-verification/requests", Map.of("email", email));
+		api.post("/auth/email-verification/requests", Map.of("email", email));
 		var code = ArgumentCaptor.forClass(String.class);
 		verify(mailer).sendVerification(eq(email), code.capture(), eq(15L));
-		api.post("/v2/auth/email-verification/confirm", Map.of("token", code.getValue()));
+		api.post("/auth/email-verification/confirm", Map.of("token", code.getValue()));
 		assertEquals(200, api.register(email).status());
-		assertEquals(202, api.post("/v2/auth/password-reset/requests", Map.of("email", email)).status());
+		assertEquals(202, api.post("/auth/password-reset/requests", Map.of("email", email)).status());
 		var link = ArgumentCaptor.forClass(String.class);
 		verify(mailer, timeout(5000)).sendReset(eq(email), link.capture(), eq(30L));
 		String token = link.getValue().substring(link.getValue().indexOf("token=") + 6);
-		assertEquals(204, api.post("/v2/auth/password-reset/validate", Map.of("token", token)).status());
-		var reused = api.post("/v2/auth/password-reset/confirm",
+		assertEquals(204, api.post("/auth/password-reset/validate", Map.of("token", token)).status());
+		var reused = api.post("/auth/password-reset/confirm",
 			Map.of("token", token, "new_password", "synthetic-password-1"));
 		assertEquals(400, reused.status());
 		assertEquals("PASSWORD_REUSED", reused.body().get("code").asString());
-		assertEquals(204, api.post("/v2/auth/password-reset/validate", Map.of("token", token)).status());
-		assertEquals(204, api.post("/v2/auth/password-reset/confirm",
+		assertEquals(204, api.post("/auth/password-reset/validate", Map.of("token", token)).status());
+		assertEquals(204, api.post("/auth/password-reset/confirm",
 			Map.of("token", token, "new_password", "synthetic-password-2")).status());
-		assertEquals(410, api.post("/v2/auth/password-reset/confirm",
+		assertEquals(410, api.post("/auth/password-reset/confirm",
 			Map.of("token", token, "new_password", "synthetic-password-3")).status());
 		assertEquals(401, api.refresh().status());
 		assertEquals(401, client().login(email, "synthetic-password-1").status());

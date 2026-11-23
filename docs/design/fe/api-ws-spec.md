@@ -4,13 +4,13 @@
 > **이 문서의 역할:** FE의 API 명세다. **앱이 언제 무엇을 부르고, 응답·메시지마다 어떻게 움직이는지**를 적고, API별 표는 3장, 요청·처리·응답은 7장에 둔다. 필드 규칙이 어긋나면 [BE API 명세](../api-spec.md)(이 저장소 `docs/design/api-spec.md`)가 기준이다.
 > 결정의 근거는 ADR([0021](../../decisions/0021-app-sends-information-server-judges.md) 앱은 판정하지 않음·항상 서버로 측정·자세 등록 B1·판정 불가 신호, [0024](../../decisions/0024-session-ends-on-lost-connection.md) 끊기면 세션 종료, [0027](../../decisions/0027-today-records-from-collected-server-results.md) 오늘 기록은 모은 서버 결과), 할 일과 지금 상태는 [FE 제안서](fe-server-proposal.md)다.
 > **코드 읽는 법:** A1·S1처럼 글자+숫자는 BE 명세의 API 번호이고 3장 표에 경로와 부르는 때가 있다. 남은 요구와 BE 요청(BE-n)은 [FE 제안서](fe-server-proposal.md) 0장, 지금 구조는 2장. 회원가입 동의 항목 C1~C6([FE 기능 명세 회원가입](fe-feature-spec.md#회원가입))은 API C1과 다른 번호다.
-> 계약: [WebSocket v2](../../../contracts/realtime/realtime-ws.v2.schema.json), [좌표 구간 posture.frames.v1](../../../contracts/realtime/frames/posture-frames.v1.schema.json), [합성 예시](../../../contracts/realtime/examples-v2). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
+> 계약: [WebSocket](../../../contracts/realtime/realtime-ws.schema.json), 좌표 구간 — 평탄화 형식은 팀장 PR #143의 `contracts/realtime/frames/posture-frame.schema.json`(병합 전), 지금 develop은 옛 묶음 형식 [posture-frames](../../../contracts/realtime/frames/posture-frames.schema.json), [합성 예시](../../../contracts/realtime/examples-ws). 앱 코드: `frontend/src/features/session/live/`(측정), `features/baseline/`(등록), `features/platform/api.ts`(요청 공통).
 
 ## 1. 공통 규칙
 
 | 항목 | 규칙 (BE 명세 1장) | 앱이 하는 일 |
 |---|---|---|
-| 주소 | 앱은 `/api/…`, WS는 `/api/realtime`. 중계(nginx·Vite)가 `/api`를 뗀다. **지금 서버는 `/api` 뒤에 버전 ``를 붙인다**(`/api/auth/login`). 이 문서는 버전을 빼고 적는다. 버전 표시는 없애기로 했다([FE 제안서](fe-server-proposal.md) 요구 3) | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
+| 주소 | 앱은 `/api/…`(예: `/api/auth/login`), WS는 `/api/realtime`. 주소에 버전이 없다(2026-11-09, [FE 제안서](fe-server-proposal.md) 요구 3). 중계(nginx·Vite)가 `/api`를 뗀다 | 화면을 다른 곳(Vercel)에서 내면 `VITE_API_BASE_URL` 앞에 붙인다([FE 제안서](fe-server-proposal.md) 2.4). WS 주소는 그 주소나 페이지 주소로 만든다(`https:`면 `wss:`) |
 | 로그인 | access 토큰(JWT, 30분) + refresh 토큰(14일, HttpOnly 쿠키 `posegood_refresh`, SameSite=Lax, Path `/`)([BE ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)). 측정은 연결 때 인증했으므로 만료돼도 끝까지 간다 | access 토큰을 **메모리에만** 두고 보호 요청에 `Authorization: Bearer`, `credentials: 'include'`는 refresh 쿠키 때문에 유지(`features/auth/accountClient.ts`, `features/platform/api.ts`). 로그아웃·비밀번호 변경 뒤에는 들고 있던 access 토큰을 버린다(서버는 access 토큰을 철회하지 않아 최대 30분 통함) |
 | 로그인 유지(A8) | `POST /auth/refresh`(본문 없음, refresh 쿠키가 실림) → `{user_id, access_token, token_type, expires_in, today}` + 새 refresh 쿠키. refresh 토큰은 쓸 때마다 바뀌고, 바뀐 뒤 30초 안의 재사용(여러 탭 동시 갱신)은 한 번 더 새 토큰을 준다. 그 뒤 재사용은 탈취로 보고 그 사용자의 refresh 토큰을 모두 철회한다. 실패하면 401 + 쿠키 삭제. A2·A3 응답에도 `access_token`·`token_type`·`expires_in`이 붙는다. 로그아웃은 이 기기, 비밀번호 변경·탈퇴는 모든 기기의 refresh 토큰을 철회하고 열린 WS를 `closed(unauthorized)`로 닫는다. WS는 `hello`에서만 인증하므로 측정 중에는 갱신이 필요 없다 | **미리 갱신:** `expires_in` 기준 만료 1~2분 전에 A8. **예비:** 보호 요청이 401이면 A8을 한 번 하고 원래 요청을 다시 보낸다(숨은 탭·절전으로 타이머가 늦을 때). 갱신은 동시에 하나만(다른 요청은 그 결과를 기다림), 탭 사이에는 새 토큰을 나눈다(`BroadcastChannel`). A8이 401이면 로그인 화면, 네트워크 오류·5xx면 로그아웃하지 않고 다시 시도. **앱 시작:** 메모리에 토큰이 없으므로 A8로 토큰을 받고(실패하면 로그인 화면) A4. WS 연결 직전에 만료가 가까우면 먼저 갱신 |
 | 계정 헤더 | 보호 요청에 `X-PoseGood-User-Id` | 로그인·A4 응답의 `user_id`. 409 `AUTH_CHANGED`면 A4로 다시 받는다. 앱에서는 로그인 코드가 `setServerAuth({ userId, accessToken })`로 넘긴다(`features/platform/serverAuth.ts`) |
@@ -88,7 +88,7 @@
 
 ### auth | 메일(비밀번호 찾기·가입 이메일 인증)·Discord
 
-BE 명세에 번호가 없어 FE가 A9~A24를 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.v2.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 세 기능(Discord, 비밀번호 재설정, 가입 이메일 인증)을 각각 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED` 등)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`·`VITE_EMAIL_VERIFICATION_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영은 Discord만 켜져 있다. 가입 코드·Discord 가입·연결 대기는 모두 서버(io-api) 메모리에 있어 서버가 다시 켜지면 처음부터 다시 한다.
+BE 명세에 번호가 없어 FE가 A9~A24를 붙였다. 요청과 응답은 [계정 계약](../../../contracts/accounts.md#discord-로그인비밀번호-재설정-2026-11-11-기본-꺼짐)이 기준이다. 서버는 세 기능(Discord, 비밀번호 재설정, 가입 이메일 인증)을 각각 설정으로 켜고 끄며, 꺼져 있으면 404(`SOCIAL_DISABLED`·`PASSWORD_RESET_DISABLED` 등)다. 앱은 빌드 변수(`VITE_DISCORD_LOGIN_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`·`VITE_EMAIL_VERIFICATION_ENABLED`)가 `true`일 때만 부르고, Discord는 데스크톱 앱에서 숨긴다(`app://` 화면은 Discord에서 돌아오는 주소를 받지 못함). 운영은 Discord만 켜져 있다. 가입 코드·Discord 가입·연결 대기는 모두 서버(io-api) 메모리에 있어 서버가 다시 켜지면 처음부터 다시 한다.
 
 | ID | 메서드 | API 이름 | URI | Query Params | 기능명 | 앱이 부르는 때 | 앱 사용 |
 |---|---|---|---|---|---|---|---|
@@ -165,7 +165,7 @@ S3(세션 종료 `POST /sessions/{id}/end`)·R3(기록 삭제 `DELETE /records/{
 - **W1·W2:** 프로필 화면은 저장 직전에 W1을 다시 받아 다른 화면에서 바뀌지 않았는지 확인하고, `profile`만 바꿔 W2로 보낸다. 설정 화면은 판정 기준을 바꿀 때마다 W1으로 최신 `profile`·`preferences`를 받아 그대로 두고 `rules`만 바꿔 W2로 보낸다(`features/storage/serverWorkspace.ts`). 연달아 바꾸면 마지막 요청의 결과만 쓴다. 저장에 실패하면 W1을 다시 받아 화면 값을 서버 값으로 되돌린다. 자세 알림(`alerts_on`)은 설정 화면에서 바꾸지 않는다. W2는 `{profile, rules, preferences}` 세 개를 모두 보내고 다음 측정부터 적용된다. W1 응답의 `records`는 읽지 않는다(기록은 R1). 서버가 이 칸을 빼기로 했다(FE 제안서 요구 11).
 - **B1·B2:** 5.4.
 - **S1:** `{policy, baseline_id}`. `policy`는 W1에서 받은 판정 기준을 ms로(1장), `baseline_id`는 B2(또는 방금 B1) 값. 응답을 받은 순간이 `t_ms` 0이다. 알림 여부는 서버가 계정 값을 세션에 고정해 `alert` 전송으로 정한다. 응답을 못 받으면 같은 UUID·같은 본문으로 다시 보낸다.
-- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandlerV2.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). 닫는 규칙은 아키텍처 v5.4에 BE 일로 남아 있지만, FE는 드문 경우라 요청하지 않기로 했다(11/16, 앱은 시작 실패를 오류 화면으로 처리). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
+- **S4:** 측정 중 WS가 끊기면 서버가 마지막으로 받은 구간 끝에서 세션을 끝내고(BE `RealtimeHandler.afterConnectionClosed`), `ready` 5초를 넘기면 서버가 끝낸다. 세션은 WS로만 끝난다(REST 종료 S3는 지웠다, D-88). 남는 틈: S1은 됐는데 WS가 열리지 않았거나 `hello` 전에 끊기면 서버가 그 세션을 모른 채 열어 둔다(메모리에서만 6시간 뒤 빼고 DB 행은 `ended_at` NULL, `LiveSessions.evict`). 닫는 규칙은 아키텍처 v5.4에 BE 일로 남아 있지만, FE는 드문 경우라 요청하지 않기로 했다(11/16, 앱은 시작 실패를 오류 화면으로 처리). S4는 `end` 뒤 5초 안에 `closed`가 없을 때, 또는 `end` 뒤 WS가 먼저 닫혔을 때 바로 한 번.
 - **R1·R1b·T1:** 아래 4.5.
 
 ### 4.5 기록·통계 R1·R1b·T1
@@ -236,7 +236,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | `progress` | 측정 시간·유지율·알림 수(`summary`). `paused_reason` |
 | `decision` | 사건 표와 숫자. `collapse_confirmed`·`reminder`면 「자세가 흐트러졌어요」, `recovery_confirmed`·`interrupted`·`session_ended`면 해제 |
 | `alert` | 토스트·소리·데스크톱 팝업. 다만 그 사건이 이미 닫힌 뒤(`event_id`가 마지막 `recovery_confirmed`·`interrupted`·`session_ended`의 `event_id`보다 작음)나 「측정 종료」 뒤에 온 것은 울리지 않는다. kafka 모드에서는 `alert`가 저장 서비스를 거쳐 다른 토픽으로 와서 늦게 도착할 수 있다 |
-| `stalled` | 측정 화면의 카메라 칸 가운데에 겹친 띠(화면 배치는 그대로)와 「연결 상태」 칸에 「서버에 문제가 생겨 잠시 분석을 멈췄어요. 측정은 계속돼요」. 점수와 마지막 자세 표시는 그대로 두고 확정·회복 게이지만 숨긴다(멈춰 보이지 않게, 회색 화면은 쓰지 않음). 「측정 종료」 뒤에 오는 것(kafka 모드에서 저장이 3초 넘게 걸릴 때)은 문구로 보이지 않고, 앱이 바로 S4를 읽어 결과 화면으로 넘어가는 신호로 쓴다(아래 S4). 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다. kafka 모드에서는 구간을 Kafka에 못 쓸 때(그 구간 누락)와, 입력 접수(`ack`) 뒤 5초 넘게 판정 결과가 없을 때도 온다(결과가 다시 오기 전까지 한 번만, `RealtimeHandlerV2.checkStalled`) |
+| `stalled` | 측정 화면의 카메라 칸 가운데에 겹친 띠(화면 배치는 그대로)와 「연결 상태」 칸에 「서버에 문제가 생겨 잠시 분석을 멈췄어요. 측정은 계속돼요」. 점수와 마지막 자세 표시는 그대로 두고 확정·회복 게이지만 숨긴다(멈춰 보이지 않게, 회색 화면은 쓰지 않음). 「측정 종료」 뒤에 오는 것(kafka 모드에서 저장이 3초 넘게 걸릴 때)은 문구로 보이지 않고, 앱이 바로 S4를 읽어 결과 화면으로 넘어가는 신호로 쓴다(아래 S4). 연결은 유지되고 다음 `observation`·`progress`가 오면 지운다. 추론 호출이 실패하면(502·503) 그 구간은 누락으로 하고 온다. kafka 모드에서는 구간을 Kafka에 못 쓸 때(그 구간 누락)와, 입력 접수(`ack`) 뒤 5초 넘게 판정 결과가 없을 때도 온다(결과가 다시 오기 전까지 한 번만, `RealtimeHandler.checkStalled`) |
 | `closed` | 아래 표 |
 
 | `closed.reason` | 앱 |
@@ -260,7 +260,7 @@ DB 규칙(V2.3)에 맞춰 앱이 지킬 것:
 | 흐트러지기 시작 | 자세가 흐트러지고 있어요(주의 색, 소리 없음). 주의 상자에 게이지(`hold_ms` ÷ 정책 hold 시간) | `observation.posture: 'bad'`, 열린 사건 없음(확정 전, 4.0 서버만) |
 | 자세가 흐트러짐 | 자세가 흐트러졌어요(카메라 테두리 강조) | `decision(collapse_confirmed·reminder)` 뒤 해제 전 |
 | 회복 중 | 자세가 흐트러졌어요(확정 전까지 유지). 회복 상자에 게이지(`recovery_ms` ÷ 정책 회복 시간) | 위 상태 + `observation.posture: 'good'` |
-| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — `phase: "unmeasurable"`, `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가(고개 돌림·정확도·가장자리·거리)는 `observation.valid: false`, 고개 돌림이면 `invalid_reason: head_turn` 문구 |
+| 판정 불가 | 자세를 확인할 수 없어요 | 앱이 정한 판정 불가(어깨가 안 보임·사람 없음 — `phase: "unmeasurable"`, `p: null`)는 서버를 기다리지 않고 바로(`LiveState.placeable`). 서버만 아는 판정 불가는 `observation.valid: false`. 서버 PR #143(ADR 0053) 뒤에는 특징을 계산할 수 없을 때(예: 어깨 폭 0)뿐이고, 그 전 서버는 고개 돌림·정확도·가장자리·거리로도 보낸다. 사유(`invalid_reason`, #143 전 서버는 `head_turn`도 보냄)와 상관없이 같은 문구 |
 | 쉬는 중 | 쉬는 중 | 앱의 `rest` |
 | 영상 기다림 | 카메라 영상을 기다리고 있어요 | 앱의 `away` |
 | 분석 멈춤 | 연결 상태 칸에 안내 | `stalled` |
@@ -1120,8 +1120,8 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 #### 시스템 처리
 
 1. `hello`에서 토큰, 세션 주인, 진행 중 여부, 기준 자세를 확인하고 `ready`를 보낸다.
-2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, `POSEGOOD_REALTIME_PIPELINE=kafka`로 켬, develop #134)에서는 특징을 `posture.features.v1`로 보내고 처리 서비스가 판정한다.
-3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. `ack`는 보내지 않는다(FE 제안서 요구 4, 팀장 계약안). kafka 모드에서는 `progress`가 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
+2. 구간마다 특징을 계산해 추론하고(`POST /infer`) 판정 엔진에 넣는다. 지금 서버 기본값(local)의 경로다. kafka 모드(D-57, `POSEGOOD_REALTIME_PIPELINE=kafka`로 켬, develop #134, 운영은 아직 local)에서는 특징을 `posture.features`로 보내고 처리 서비스가 판정한다.
+3. 새 사건을 DB에 쓴 뒤 `observation` → `decision` → `alert` → `progress` 순서로 보낸다. 사건이 없으면 `decision`과 `alert`는 없다. `ack`는 서버 PR #143부터 보내지 않는다(FE 제안서 요구 4). 그 전 서버는 `alert` 뒤에 `ack`를 보내고, 앱은 읽지 않고 버린다. kafka 모드에서는 `progress`가 약 1초마다, `alert`는 `decision` 앞뒤 어디든 올 수 있다. 앱은 이 순서에 기대지 않는다.
 4. 추론·DB 일시 장애는 `stalled`만 보내고 연결을 유지한다.
 5. `end`면 저장한 뒤 `decision(session_ended)` → `closed(ended)`를 보낸다.
 6. 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝내 저장한다.
@@ -1205,7 +1205,7 @@ refresh 쿠키로 새 access 토큰과 새 refresh 토큰을 받아 로그인을
 { "type": "closed", "reason": "ended", "ended_at": "2026-10-28T16:05:14.551Z" }
 ```
 
-`stalled`와 `session_rollover`는 [계약 예시](../../../contracts/realtime/examples-v2)를 본다.
+`stalled`와 `session_rollover`는 [계약 예시](../../../contracts/realtime/examples-ws)를 본다.
 
 <a id="api-r1"></a>
 

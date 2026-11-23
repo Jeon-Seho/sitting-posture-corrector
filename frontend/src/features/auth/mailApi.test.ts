@@ -11,7 +11,7 @@ describe('future mail API connection', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(null, { status: 202 }))
     await createMailApi({ enabled: true, fetcher }).request('reset', ' A@Example.com ')
     expect(fetcher).toHaveBeenCalledTimes(1)
-    expect(fetcher.mock.calls[0]).toEqual(['/api/v2/auth/password-reset/requests', expect.objectContaining({
+    expect(fetcher.mock.calls[0]).toEqual(['/api/auth/password-reset/requests', expect.objectContaining({
       body: JSON.stringify({ email: 'a@example.com' }), credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     })])
@@ -37,7 +37,7 @@ describe('future mail API connection', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'PASSWORD_REUSED' }), { status: 400 }))
     const api = createMailApi({ enabled: true, fetcher })
     await api.validate('synthetic-token')
-    expect(fetcher.mock.calls[0][0]).toBe('/api/v2/auth/password-reset/validate')
+    expect(fetcher.mock.calls[0][0]).toBe('/api/auth/password-reset/validate')
     await expect(api.reset('synthetic-token', 'synthetic-old-password')).rejects.toMatchObject({ code: 'PASSWORD_REUSED' })
   })
   it('separates email confirmation from password reset links and ignores unrelated routes', () => {

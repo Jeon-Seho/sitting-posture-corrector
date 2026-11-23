@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * (D-54) 알림을 {@code posture.alerts.v1}(키 = session_id)로 발행한다.
- * 계약: {@code contracts/realtime/kafka-alerts.v1.schema.json}.
+ * (D-54) 알림을 {@code posture.alerts}(키 = session_id)로 발행한다.
+ * 계약: {@code contracts/realtime/kafka-alerts.schema.json}.
  * 입출구 서버 {@code ws}가 구독해 앱에 WebSocket {@code alert}로 그대로 보낸다(걸러내지 않음).
  *
  * <p>저장 스레드를 막지 않도록 전송 완료를 기다리지 않는다. 실패는 로그·횟수로만 남긴다 — 알림은 그 순간에만 의미가 있어
@@ -35,14 +35,14 @@ public class KafkaAlertPublisher implements AlertPublisher {
 	public KafkaAlertPublisher(
 		KafkaTemplate<String, String> kafkaTemplate,
 		JsonMapper jsonMapper,
-		@Value("${app.kafka.topic.posture-alerts-v1:posture.alerts.v1}")
+		@Value("${app.kafka.topic.posture-alerts:posture.alerts}")
 		String topic) {
 		this.kafkaTemplate = kafkaTemplate;
 		this.jsonMapper = jsonMapper;
 		this.topic = topic;
 	}
 
-	/** 봉투째 만든다(계약 alerts.v1). */
+	/** 봉투째 만든다(계약 alerts). */
 	static Map<String, Object> message(EpisodeDecision decision, Instant now) {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("event_id", decision.eventId());
@@ -67,7 +67,7 @@ public class KafkaAlertPublisher implements AlertPublisher {
 		kafkaTemplate.send(topic, decision.sessionId(), json).whenComplete((result, error) -> {
 			if (error != null) {
 				failures.incrementAndGet();
-				log.error("posture.alerts.v1 발행 실패 (sessionId={}, event_id={}): {}", decision.sessionId(),
+				log.error("posture.alerts 발행 실패 (sessionId={}, event_id={}): {}", decision.sessionId(),
 					decision.eventId(),
 					error.getMessage());
 			}

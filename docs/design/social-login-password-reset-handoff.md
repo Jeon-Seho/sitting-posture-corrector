@@ -76,7 +76,7 @@ API가 쓰는 SQL은 `SocialIdentityRepository`·`PasswordResetRepository`에 �
 | --- | --- |
 | `POSEGOOD_APP_URL` | 앱 주소. 예: `https://app.<도메인>/`(로컬 `http://127.0.0.1:5173/`). 콜백 뒤 돌아갈 곳이자 재설정 링크의 기준 |
 | `POSEGOOD_DISCORD_CLIENT_ID` / `POSEGOOD_DISCORD_CLIENT_SECRET` | Discord Developer Portal → OAuth2. 비밀값은 secret으로 둔다. ID가 비어 있으면 꺼짐 |
-| `POSEGOOD_DISCORD_REDIRECT_URI` | 브라우저 기준 콜백 주소. 예: `https://<API 출처>/api/v2/auth/social/discord/callback`(nginx가 `/api`를 뗀다). Portal의 Redirects에 똑같이 등록 |
+| `POSEGOOD_DISCORD_REDIRECT_URI` | 브라우저 기준 콜백 주소. 예: `https://<API 출처>/api/auth/social/discord/callback`(nginx가 `/api`를 뗀다). Portal의 Redirects에 똑같이 등록 |
 | `POSEGOOD_PASSWORD_RESET_ENABLED` | `true`로 켠다(표 적용 후) |
 | `POSEGOOD_MAIL_HOST`·`_PORT`(587)·`_USERNAME`·`_PASSWORD`·`POSEGOOD_MAIL_FROM` | SMTP(STARTTLS 필수). 발신 도메인 SPF/DKIM/DMARC 준비 |
 | `POSEGOOD_TRUST_FORWARDED_FOR` | nginx 뒤에서 `true`(nginx가 `X-Forwarded-For`를 한 값으로 덮어씀). 아니면 모든 요청이 nginx 주소 하나로 세어진다 |

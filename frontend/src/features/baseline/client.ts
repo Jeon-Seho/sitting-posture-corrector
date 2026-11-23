@@ -26,7 +26,8 @@ const unit = (v: unknown): v is number => typeof v === 'number' && Number.isFini
 export function parseServerBaseline(value: unknown): ServerBaseline | null {
   if (!value || typeof value !== 'object') return null
   const v = value as Record<string, unknown>
-  if (v.schema_version !== '2.0' || typeof v.baseline_id !== 'string' || !UUID.test(v.baseline_id)) return null
+  // `schema_version` is not checked: there is only one format (ADR 0049; FE proposal request 13).
+  if (typeof v.baseline_id !== 'string' || !UUID.test(v.baseline_id)) return null
   if (typeof v.registered_at !== 'string' || Number.isNaN(Date.parse(v.registered_at))) return null
   const marks = v.landmarks
   if (!marks || typeof marks !== 'object') return null

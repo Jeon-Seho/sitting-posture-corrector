@@ -10,7 +10,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-/** (D-54) 판정 결과 저장 → posture.alerts.v1: 알림 켜짐·새 알림 행·10초 안 사건만, 재전송은 다시 내지 않음. */
+/** (D-54) 판정 결과 저장 → posture.alerts: 알림 켜짐·새 알림 행·10초 안 사건만, 재전송은 다시 내지 않음. */
 class AlertPublishTest {
 
 	static final String SID = EpisodeStoreServiceTest.SID;
@@ -98,7 +98,7 @@ class AlertPublishTest {
 		assertThat(EpisodeStoreServiceTest.rejects(envelope)).isTrue();
 	}
 
-	/** 발행 메시지 모양(계약 kafka-alerts.v1). */
+	/** 발행 메시지 모양(계약 kafka-alerts). */
 	@Test
 	@SuppressWarnings("unchecked")
 	void messageMatchesContractShape() {

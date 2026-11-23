@@ -3,7 +3,7 @@
 - 상태: **철회** (2026-10-29). 10/28 `748af6a`로 구현했다가 되돌렸다. B1은 다시 앱이 낸 평균을 받는다([ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절 그대로)
 - 담당: Kimyoujin(BE)
 - 시작일: 2026-10-28 (2026-10-29 develop의 계획 0060과 번호가 겹쳐 0060 → 0063으로 바꿈)
-- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절(FE 문서, 「앱이 평균」 — FE가 이 계획에 맞춰 갱신), [ADR 0028](../../decisions/0028-server-time-for-baseline-registration.md), [BE API 명세](../../design/api-spec.md) B1, [계약 accounts.v2](../../../contracts/accounts.v2.md)
+- 관련 요구사항/ADR: [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md) 5절(FE 문서, 「앱이 평균」 — FE가 이 계획에 맞춰 갱신), [ADR 0028](../../decisions/0028-server-time-for-baseline-registration.md), [BE API 명세](../../design/api-spec.md) B1, [계약 accounts.v2](../../../contracts/accounts.md)
 
 ## 철회 (2026-10-29)
 
@@ -31,7 +31,7 @@
 
 ## 범위와 제외
 
-- 범위(BE·DB): `backend/api` B1·오류 응답, `tools/service_smoke.py`(check-backend), 계약 `accounts.v2.md`, [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, ADR 0028.
+- 범위(BE·DB): `backend/api` B1·오류 응답, `tools/service_smoke.py`(check-backend), 계약 `accounts.md`, [BE API 명세](../../design/api-spec.md), [백엔드 상태](../../backend-status.md), `backend/README.md`, ADR 0028.
 - DB: 바꾸지 않는다(V2.6 그대로, 프레임 원본 저장 안 함).
 - 제외: WebSocket 등록을 되살리지 않는다. 판정 가능 조건(BE 명세 11.3) 자체는 바꾸지 않는다. 앱·FE 문서·다른 팀 도구는 아래 「다른 담당에게 알릴 것」으로 넘긴다.
 

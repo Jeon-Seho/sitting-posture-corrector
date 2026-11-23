@@ -18,6 +18,12 @@ const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 const exact = (v: Record<string, unknown>, keys: string[]) =>
   Object.keys(v).length === keys.length && keys.every((key) => Object.hasOwn(v, key))
+/**
+ * Same as `exact`, but `schema_version` may be there or not and its value is not checked:
+ * there is only one format (ADR 0049; FE proposal request 13). The server stops sending it later.
+ */
+const exactVersionless = (v: Record<string, unknown>, keys: string[]) =>
+  exact(v, Object.hasOwn(v, 'schema_version') ? ['schema_version', ...keys] : keys)
 const number = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const integer = (v: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): v is number =>
   number(v) && Number.isSafeInteger(v) && v >= min && v <= max
@@ -42,8 +48,7 @@ function validPolicy(v: unknown): v is ServerPolicy {
 function validEvent(v: unknown, id: string, total: number, valid: number): v is DecisionEvent {
   return (
     object(v) &&
-    exact(v, [
-      'schema_version',
+    exactVersionless(v, [
       'session_id',
       'event_id',
       'kind',
@@ -53,7 +58,6 @@ function validEvent(v: unknown, id: string, total: number, valid: number): v is 
       'deviation_type',
       'reason',
     ]) &&
-    v.schema_version === '1.0' &&
     v.session_id === id &&
     integer(v.event_id, 1) &&
     typeof v.kind === 'string' &&
@@ -80,8 +84,7 @@ export function validSessionView(
 ): v is SessionView {
   if (
     !object(v) ||
-    !exact(v, [
-      'schema_version',
+    !exactVersionless(v, [
       'session_id',
       'policy',
       'timer_policy',
@@ -90,7 +93,6 @@ export function validSessionView(
       'summary',
       'events',
     ]) ||
-    v.schema_version !== '1.0' ||
     !validUuid(v.session_id) ||
     (expectedId !== undefined && v.session_id !== expectedId) ||
     !validPolicy(v.policy) ||

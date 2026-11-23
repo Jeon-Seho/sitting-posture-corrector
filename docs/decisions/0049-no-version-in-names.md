@@ -1,0 +1,45 @@
+# ADR 0049: 주소·메시지·계약 파일 이름에 버전 번호를 붙이지 않는다
+
+- 상태: accepted
+- 날짜: 2026-11-13
+- 작성: Kimyoujin
+- 근거: 사용자 11/13 「데이터 형식 이름(`schema_version`, `realtime-ws.v2` 등)에서도 버전 관리를 없애고 싶다」. 주소의 버전은 11/09·11/12에 먼저 지웠다([API 명세](../design/api-spec.md) 머리말)
+- 대체: [AGENTS.md](../../AGENTS.md) 옛 규칙 「호환성을 깨는 변경은 버전을 올린다」, [계약 안내](../../contracts/README.md)의 「새 계약 파일과 버전으로 배포한다」
+- 관련: [계약 안내](../../contracts/README.md), [모델명·특징 버전의 내부 관리](../../contracts/README.md#모델명특징-버전의-내부-관리)(10/22), [Git 작업 규칙](../../CONTRIBUTING.md)(`!`·`BREAKING CHANGE:`)
+
+## 배경
+
+- 계약 스키마는 모르는 필드가 하나만 와도 거절한다. 그래서 필드 하나를 더해도 호환이 깨졌고, 그동안은 새 버전 이름(`/v2/…`, `realtime-ws.schema.json`, `schema_version: "2.0"`)으로 옛 형식과 새 형식을 같이 돌렸다.
+- 지금은 앱·서버·추론이 한 저장소에서 같이 바뀌고 같이 배포된다. 옛 형식을 계속 받아 줄 다른 사용자가 없어, 옛 버전은 곧 지워지고 이름의 숫자만 남았다(`/v1/realtime` 10/26, `/v1/infer` 11/09 삭제).
+- 주소의 버전은 11/09에 지웠다. 메시지의 `schema_version` 값과 계약 파일 이름의 `.v1`·`.v2`는 아직 남아 있다.
+
+## 결정
+
+1. 주소, 주고받는 메시지, 계약 파일 이름에 버전 번호를 붙이지 않는다. 새로 만드는 형식에는 처음부터 붙이지 않는다.
+2. 호환성을 깨는 변경은 보내는 쪽·받는 쪽 코드, 계약, 예시, 시험을 한 PR에서 함께 바꾸고 같은 때 배포한다. 바뀐 내용은 관련 명세의 변경 이력(예: [API 명세](../design/api-spec.md#변경-이력))과 git 이력에 남긴다. 커밋에는 계속 `!`와 `BREAKING CHANGE:`를 쓴다.
+3. 아래 4가지는 버전이 실제로 구분하는 일을 하므로 유지한다.
+
+   | 예외 | 이유 |
+   | --- | --- |
+   | 동의 문서 버전(`document_version`, 예: `service-v2`) | 사용자가 어떤 동의 문구에 동의했는지 DB `user_consent`에 남기는 증거다. 문구가 바뀌면 새 버전으로 다시 받는다 |
+   | DB 스키마 버전(V2.x)과 이전 변경 파일 | DB가 바뀐 순서의 기록이라 서버를 다시 만들 때 필요하다 |
+   | 모델·특징 버전(`model_version`, `feature_version`) | 어떤 모델·계산으로 낸 결과인지 구분한다(10/22 결정) |
+   | 이미 저장된 파일 형식(연구 수집 CSV, 관측 내보내기, `forecast-weights-v1` 등) | 디스크에 남은 옛 파일을 읽을 때 버전으로 구분한다 |
+
+4. 이미 있는 버전 표시는 다음 단계에서 지운다. 지울 때는 받는 쪽이 `schema_version`을 검사하지 않게 먼저 바꾸고, 그다음 보내는 쪽이 필드를 빼고, 마지막으로 계약 파일 이름과 링크를 바꾼다. 한쪽만 먼저 빼면 다른 쪽이 메시지를 거절한다.
+
+## 이유
+
+- 옛 형식을 동시에 받아 줄 필요가 없는데 버전을 올리면, 같은 일을 하는 코드·계약·시험이 이름만 바꿔 늘어나고 옛것을 지우는 일이 따로 생긴다.
+- 함께 바꾸고 함께 배포하면 버전 숫자 없이도 한 시점에 하나의 형식만 존재한다. 무엇이 언제 바뀌었는지는 변경 이력과 git 이력이 보여 준다.
+- 예외 4가지는 이미 저장된 자료나 기록을 구분하는 표시라, 코드를 같이 배포해도 옛 자료가 사라지지 않는다.
+
+## 결과
+
+- 이 결정으로 바꾼 것은 문서뿐이다: [AGENTS.md](../../AGENTS.md) 불변 기준, [계약 안내](../../contracts/README.md), [실시간 전달 계약](../../contracts/realtime/README.md).
+- 코드와 계약은 아직 `schema_version` 필드(값 검사: `RealtimeHandlerV2`, `InferenceClient`, 앱 `validation.ts`, 추론 `schemas.py`, 처리 서비스)와 `.v1`·`.v2` 파일 이름을 쓴다. 지우는 일은 계획을 따로 만들어 진행한다.
+- Kafka 토픽 이름(`posture.features.v1` 등)은 처리 서비스와 서버 설정을 함께 바꾸고 다시 배포해야 하므로 DevOps와 따로 정한다.
+- 2026-11-18: Kafka·처리 서비스에도 적용했다([계획 0097](../plans/active/0097-kafka-processing-remove-versions.md)). 토픽(`posture.features` 등)·컨슈머 그룹(`judge` 등)·처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`)·Redis 키·HDFS 경로·`V1*` 클래스·Kafka 계약 파일(`kafka-*.schema.json`)과 그것이 가리키는 공유 계약(`inference-request`·`posture-observation`·`posture-event`·`session-view`)의 버전을 뺐다. 같은 날 WebSocket·REST 계약 파일 이름(`realtime-ws`, `posture-frames`, `accounts`, `consent-documents`, 예시 `realtime/examples-ws/`)과 `RealtimeHandler`의 버전도 뺐고, 안 쓰는 `accounts.v1.md`·`feature-response.v1`은 지웠다. 메시지 안 버전 필드(`schema_version` 등)와 그 값에 묶인 `RealtimeMessages.V2`·`Observation.V4`, 저장된 파일 형식 계약, 옛 `posture-status.v1`은 남아 있다.
+- 브라우저 저장 키(`posegood.v2.*`)는 이름을 바꾸면 사용자 브라우저에 저장된 기록·설정을 못 찾는다. 옮겨 담는 코드 없이 바꾸지 않는다.
+- 2026-11-18(FE): 브라우저 저장 키를 옮겨 담는 코드와 함께 `posegood.*`로 바꿨다(`frontend/src/features/storage/renamedKeys.ts`, 앱을 켤 때 한 번 옮김, Web Lock `posegood.writer`). 테마 키 `posegood.appearance.v1`은 데스크톱 시작 화면과 함께 바꿔야 해서 남겼다. 앱 ↔ io-api 메시지의 `schema_version`은 [FE 제안서](../design/fe/fe-server-proposal.md) 요구 13(BE-26)으로 없애기로 했다(11/19 BE 동의). 앱은 응답의 값 검사를 멈췄고(`validation.ts`·`baseline/client.ts`, 칸이 있어도 없어도 받음), 앱이 보내는 `hello`·`features`의 칸은 팀장 실시간 계약 변경과 함께 뺀다.
+- 버전으로 옛 형식과 새 형식을 같이 돌리는 방법이 없어졌으므로, 보내는 쪽과 받는 쪽을 따로 배포하는 일이 생기면 이 결정을 다시 본다.

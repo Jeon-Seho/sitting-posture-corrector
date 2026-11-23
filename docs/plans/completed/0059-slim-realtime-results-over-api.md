@@ -3,7 +3,7 @@
 - 상태: closed — 접음(2026-11-10). 판정 정보를 없애는 게 아니라 측정 중 메시지를 `observation` 하나로 모으는 최적화라, 지금 규모(동시 50명)에서는 BE·FE를 둘 다 고칠 만큼 필요하지 않다고 보고 접었다(FE 제안서 BE-10). 부하가 문제 되면 다시 연다. 처음 상태: draft (2026-10-27, klaod-tech 제안. 팀장 방향 「WS는 좌표 같은 기본값 말고는 최대한 받지 않는다」와 같음 — BE 합의 전. 같은 날 FE가 정한 것: 측정 시계·`keep_rate`·판정 불가 형식·S1 `policy`·종료 중 로딩 — 아래 「정한 것과 남은 것」. 시간 판정을 `t_ms`로 할지는 회의 — 제안서 7.2 22번. 11/4: `observation` 4.0(PR #96)이 뺄 필드 일부를 먼저 뺐고, 리프레시 토큰·자정 넘김은 끝 — 「뺄 것」·정한 것 3·4①)
 - 담당: FE(klaod-tech), 계약·서버는 BE(김유진), Kafka 모드는 PM, 화면 표시는 lellon0403과 확인
 - 시작일: 2026-10-27
-- 관련: [연동 명세](../../design/fe/api-ws-spec.md) 4·5장, [WS v2 계약](../../../contracts/realtime/realtime-ws.v2.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(오늘 기록은 앱이 모은 서버 결과), [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)(자정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정 불가 신호), [FE 제안서](../../design/fe/fe-server-proposal.md) BE-8(프레임마다 전송)
+- 관련: [연동 명세](../../design/fe/api-ws-spec.md) 4·5장, [WS v2 계약](../../../contracts/realtime/realtime-ws.schema.json), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정은 서버), [ADR 0027](../../decisions/0027-today-records-from-collected-server-results.md)(오늘 기록은 앱이 모은 서버 결과), [ADR 0029](../../decisions/0029-midnight-cut-and-server-time.md)(자정), [ADR 0021](../../decisions/0021-app-sends-information-server-judges.md)(판정 불가 신호), [FE 제안서](../../design/fe/fe-server-proposal.md) BE-8(프레임마다 전송)
 
 ## 문제
 
@@ -51,7 +51,7 @@
 
 **2단계 — 빼기 (FE 1단계 배포, 서버 자정 끊기, 리프레시 토큰이 모두 된 뒤 BE — 정한 것 3·4)**
 - BE: `progress`·`decision`·`ack`를 보내지 않고 `observation`을 위 필드로 줄인다. WS 계약 `schema_version`을 올린다(`hello`의 `2.0` → `2.1`, 서버는 한동안 둘 다 받음 — BE와 정하기).
-- FE: 계약 사본·예시·계약 시험(`tests/test_realtime_ws_v2.py`) 갱신, 1단계의 「없으면 `decision`」 대체 경로 삭제.
+- FE: 계약 사본·예시·계약 시험(`tests/test_realtime_ws.py`) 갱신, 1단계의 「없으면 `decision`」 대체 경로 삭제.
 - Kafka 모드(`ws`, 계획 0031): 같은 메시지 구성으로(PM).
 
 ## 정한 것과 남은 것 (10/27 klaod-tech)

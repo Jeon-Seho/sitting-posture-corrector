@@ -16,7 +16,7 @@ PC 시계가 틀리면 등록 시각도 틀리고, 재전송 구분이 그 시�
 
 1. **원칙:** 절대 시각은 서버가 정한다. 세션 안의 간격은 앱이 잰 경과 시간을 쓰고, 그 기준점(`started_at`)은 서버 시각이다.
 2. **② 기준 자세 등록 시각 (구현):**
-   - B1 `POST /v2/baselines`는 `registered_at`을 받지 않고 `registration_id`(UUID)를 받는다. 앱이 촬영 한 번마다 한 번 만들고 재시도에 그대로 보낸다.
+   - B1 `POST /baselines`는 `registered_at`을 받지 않고 `registration_id`(UUID)를 받는다. 앱이 촬영 한 번마다 한 번 만들고 재시도에 그대로 보낸다.
    - `baseline_posture.registered_at`은 서버가 등록을 받은 시각이다.
    - 재전송은 `baseline_posture.client_registration_uuid`와 UK-16(사용자, 등록 식별자)으로 막는다. 같은 식별자·같은 좌표는 그 행, 다른 좌표는 409다.
    - UK-14(사용자, 등록 시각)는 지운다. FK-04(사용자) 인덱스 역할은 UK-16이 이어받는다.
@@ -36,5 +36,5 @@ PC 시계가 틀리면 등록 시각도 틀리고, 재전송 구분이 그 시�
   WebSocket v2 스키마도 모르는 필드를 허용하지 않으므로, 예전 검증을 쓰는 앱은 `ready.started_at`·`closed.ended_at`을 받으면 거부할 수 있다.
   `develop`의 앱은 B1을 부르지 않는다. B1을 쓰는 FE V3는 병합 전에 `registration_id`로 바꿔야 한다.
 - 배포 순서: migration 015 → 새 API → 앱. 새 API는 `client_registration_uuid`가 없는 DB(V2.4 이하)에서 시작하지 않는다.
-- 계약 [accounts.v2](../../contracts/accounts.v2.md)·[BE API 명세](../design/api-spec.md) B1, [DB 안내](../../database/README.md)를 함께 바꿨다.
+- 계약 [accounts.v2](../../contracts/accounts.md)·[BE API 명세](../design/api-spec.md) B1, [DB 안내](../../database/README.md)를 함께 바꿨다.
 - 남은 일: FE V3 반영(②의 `registration_id`, ④의 새 필드), Kafka 경로 `ws`의 같은 필드, DB 명세서(xlsx) V2.5, ERD, 실제 MySQL 검증. 상태는 [개발 상태](../backend-status.md)에 둔다.

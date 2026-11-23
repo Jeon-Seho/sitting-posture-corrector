@@ -1,5 +1,5 @@
 """
-(D-21) posture.features.v1 → posture.inference.v1 변환 단위 테스트.
+(D-21) posture.features → posture.inference 변환 단위 테스트.
 
 팀 계약 예제(contracts/realtime/examples)와 같은 형태의 메시지를 쓴다. Kafka에는 접속하지 않는다.
 """
@@ -130,10 +130,10 @@ def test_non_finite_feature_is_invalid_not_error():
 
 
 def test_dead_letter_message_fields():
-    m = dead_letter("posture.features.v1", 1, 42, SESSION, "모르는 kind: x", '{"kind":"x"}', now="2026-10-09T05:00:00.000Z")
+    m = dead_letter("posture.features", 1, 42, SESSION, "모르는 kind: x", '{"kind":"x"}', now="2026-10-09T05:00:00.000Z")
     assert m == {
-        "schema_version": "1.0", "failed_at": "2026-10-09T05:00:00.000Z", "consumer": "inference-service-v1",
-        "source_topic": "posture.features.v1", "source_partition": 1, "source_offset": 42, "key": SESSION,
+        "schema_version": "1.0", "failed_at": "2026-10-09T05:00:00.000Z", "consumer": "inference-service",
+        "source_topic": "posture.features", "source_partition": 1, "source_offset": 42, "key": SESSION,
         "reason": "모르는 kind: x", "payload": '{"kind":"x"}', "payload_truncated": False,
     }
 
@@ -145,7 +145,7 @@ def test_dead_letter_truncates_huge_payload():
 
 
 class _Msg:
-    def __init__(self, value, topic="posture.features.v1", partition=0, offset=7, key=SESSION):
+    def __init__(self, value, topic="posture.features", partition=0, offset=7, key=SESSION):
         self.value, self.topic, self.partition, self.offset, self.key = value, topic, partition, offset, key
 
 
@@ -159,13 +159,13 @@ class _Producer:
 
 def test_consumer_routes_bad_messages_to_dlq_and_good_to_inference():
     import json
-    from app.realtime import DLQ_TOPIC, INFERENCE_V1_TOPIC, RealtimeFeaturesConsumer
+    from app.realtime import DLQ_TOPIC, INFERENCE_TOPIC, RealtimeFeaturesConsumer
     c = RealtimeFeaturesConsumer()
     c._producer = _Producer()
     c._handle(_Msg("not json"))
     c._handle(_Msg(json.dumps({**FEATURES_MSG, "kind": "observation"})))
     c._handle(_Msg(json.dumps(FEATURES_MSG)))
     topics = [s[0] for s in c._producer.sent]
-    assert topics == [DLQ_TOPIC, DLQ_TOPIC, INFERENCE_V1_TOPIC]
+    assert topics == [DLQ_TOPIC, DLQ_TOPIC, INFERENCE_TOPIC]
     assert c.dead_lettered == 2 and c.processed == 1
     assert c._producer.sent[0][2]["source_offset"] == 7 and c._producer.sent[0][1] == SESSION
