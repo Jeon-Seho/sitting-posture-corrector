@@ -25,7 +25,7 @@ for f in database/seed/seed_0*.sql; do mysql -u <계정> -p < "$f"; done
 
 **적용 후 확인** — 테이블 18개, `threshold_policy` 1행이면 정상이다.
 
-**API와 DB 버전 (2026-11-17, [계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md))** — develop의 API(V2.7용)는 비밀번호를 `user_account.password_hash`에서 읽고 쓴다. V2.8 DB에서는 시작은 하지만(시작 검사가 이 칼럼을 보지 않음) 로그인·가입·비밀번호 변경이 SQL 오류로 실패한다. V2.8용 API(브랜치 `feature/backend-local-credential`, develop 반영 전)는 `local_credential`을 쓰고 V2.7 DB에서는 **시작하지 않는다**. 그 브랜치부터 Compose·통합 시험·FE 동의 시험은 `schema_V2_8.sql`을 읽는다(11장). develop에 들어가기 전까지 develop API를 돌릴 새 DB는 `schema_V2_7.sql`로 만든다.
+**API와 DB 버전 (2026-11-17, [계획 0096](../docs/plans/active/0096-account-email-link-and-verification.md))** — PR #144(계획 0096 BE 1·2단계)부터 API는 V2.8용이다. 비밀번호를 `local_credential`에서 읽고 쓰고, 가입 이메일 인증 대기를 `email_verification_token`에 두므로 V2.7 DB에서는 **시작하지 않는다**. Compose·통합 시험·FE 동의 시험도 `schema_V2_8.sql`을 읽는다(11장). 그 전의 API(V2.7용)는 `user_account.password_hash`를 쓰므로 V2.8 DB에서 시작은 하지만(시작 검사가 이 칼럼을 보지 않음) 로그인·가입·비밀번호 변경이 SQL 오류로 실패한다. 그래서 운영은 DB와 API를 함께 바꾼다(아래).
 
 **V2.7로 만든 DB (운영 DB)** — 지우지 않고 migration 018 → 019를 적용하면 V2.8과 같아진다. 018은 `user_account.password_hash`를 새 표 `local_credential`로 옮기고 칼럼을 지운다. BCrypt 형식(`$2`로 시작)만 옮기고, Discord로 가입한 계정의 고정값 `'!no-password'`는 행을 만들지 않는다(행이 없으면 비밀번호 없는 계정). 019는 가입 이메일 인증(6자리 코드)의 대기 상태를 두는 `email_verification_token`을 더한다. 다른 테이블·행은 그대로이고, 비밀번호 값도 그대로 옮겨져 사용자는 다시 로그인하지 않아도 된다.
 
@@ -360,7 +360,7 @@ database/
 | 로그인 유지 토큰 | `refresh_token`에는 토큰 원문이 아니라 SHA-256만 넣는다. 쓸 때마다 새 행으로 바꾸고(`rotated_at`), 만료된 지 하루 지난 행은 API가 매일 04:30(KST)에 지운다 | ADR 0031 |
 | 소셜 로그인 | `social_identity`에는 제공자의 바뀌지 않는 사용자 ID만 넣는다(이메일·이름·제공자 토큰은 저장하지 않는다). 소셜로 처음 가입한 계정은 비밀번호가 없어 `local_credential` 행을 만들지 않는다(V2.8 — V2.7까지는 `password_hash`에 BCrypt 형식이 아닌 고정값 `'!no-password'`). 비밀번호는 재설정 메일로 정한다. 같은 이메일 계정은 V2.8용 API부터 묶는다 — 이메일 인증을 켰을 때만 Discord가 확인한 이메일과 같은 ACTIVE 계정에 자동 연결하고, 꺼져 있으면 V2.7까지처럼 묶지 않는다(사용자가 비밀번호로 로그인한 뒤 직접 연결, 계획 0096). 제공자 값은 대문자로 넣는다 — 테이블 정렬 규칙(`utf8mb4_0900_ai_ci`)이 대소문자를 구분하지 않아 CHECK가 `discord`도 통과시킨다(UK-18·19도 대소문자를 같은 값으로 본다) | 계획 0088·0096, UK-18·19 |
 | 비밀번호 재설정 | `password_reset_token`에는 링크 토큰의 SHA-256만 넣는다(30분). 사용은 `UPDATE … SET consumed_at=? WHERE password_reset_token_id=? AND consumed_at IS NULL AND expires_at>?`로 하고 영향 행이 1일 때만 진행한다(두 번 쓰기 방지). 새 발급·비밀번호 변경·탈퇴 때 그 사용자의 남은 토큰에 `consumed_at`을 채운다. 재설정을 마치면 그 사용자의 `refresh_token`을 모두 철회한다. 만료된 지 하루 지난 행은 API가 매일 04:40(KST)에 지운다 | 계획 0088, UK-20 |
-| 이메일 인증 (V2.8) | 가입 전에 메일함 주인인지 6자리 코드로 확인한다(15분, 같은 이메일 재요청은 60초 뒤). `email_verification_token`에는 정규화한 이메일(앞뒤 공백 제거·소문자)과 요청 번호·「요청 번호:코드」의 SHA-256만 넣는다. 코드 확인은 `UPDATE … SET attempt_count=attempt_count+1 WHERE … AND attempt_count<5 AND verified_at IS NULL AND consumed_at IS NULL AND expires_at>?`로 먼저 센 뒤(영향 행 0이면 거부) 코드가 맞으면 `verified_at`을 채운다. 가입은 `UPDATE … SET consumed_at=? WHERE … AND verified_at IS NOT NULL AND consumed_at IS NULL AND expires_at>?`의 영향 행이 1일 때만 같은 트랜잭션에서 계정·`local_credential`·동의를 넣는다 — 가입이 실패하면 소비도 되돌린다. 새 요청 때 그 이메일의 남은 요청에 `consumed_at`을 채운다. 계정 FK가 없어 탈퇴 삭제에 연쇄되지 않으므로 만료된 지 하루 지난 행을 API가 매일 04:45(KST)에 지운다 | 계획 0096, UK-21 |
+| 이메일 인증 (V2.8) | 가입 전에 메일함 주인인지 6자리 코드로 확인한다(15분, 같은 이메일 재요청은 60초 뒤). `email_verification_token`에는 정규화한 이메일(앞뒤 공백 제거·소문자)과 요청 번호·「요청 번호:코드」의 SHA-256만 넣는다. 새 요청은 **메일을 보내기 전에** 저장한다: 같은 이메일을 DB 이름 잠금(`GET_LOCK`, 이메일 해시 이름)으로 줄 세우고, READ COMMITTED 트랜잭션에서 「재발송 간격 확인 → 그 이메일의 남은 요청에 `consumed_at` → 새 행」을 한 뒤 커밋하고 잠금을 푼다. 메일 발송이 실패하면 그 행에 `consumed_at`을 채운다. REPEATABLE READ에서는 이메일 칼럼에 인덱스가 없어 표 전체에 간격 잠금이 걸려, 빈 표에 동시에 들어온 첫 요청이 교착(1213)했다(PR #144 리뷰, 로컬 재현) — 매일 정리도 READ COMMITTED로 한다. 코드 확인은 `UPDATE … SET attempt_count=attempt_count+1 WHERE … AND attempt_count<5 AND verified_at IS NULL AND consumed_at IS NULL AND expires_at>?`로 먼저 센 뒤(영향 행 0이면 거부) 코드가 맞으면 `verified_at`을 채운다. 가입은 `UPDATE … SET consumed_at=? WHERE … AND verified_at IS NOT NULL AND consumed_at IS NULL AND expires_at>?`의 영향 행이 1일 때만 같은 트랜잭션에서 계정·`local_credential`·동의를 넣는다 — 가입이 실패하면 소비도 되돌린다. 계정 FK가 없어 탈퇴 삭제에 연쇄되지 않으므로 만료된 지 하루 지난 행을 API가 매일 04:45(KST)에 지운다 | 계획 0096, UK-21 |
 
 ---
 
@@ -379,12 +379,12 @@ database/
 
 ## 11. 백엔드 코드와의 관계
 
-DB를 쓰는 백엔드는 두 곳이다. 브랜치 `feature/backend-local-credential`(계획 0096 BE 1단계, 2026-11-17, develop 반영 전)부터 둘 다 **V2.8**로 확인한다. 입출구 서버는 비밀번호를 `local_credential`에서 읽고 쓰므로 V2.7 DB에서는 시작하지 않는다 — 운영 DB에 018·019를 적용하는 점검 시간에 함께 배포한다(1장). 그 전의 develop 입출구 서버는 V2.7용이라 V2.8 DB에서 시작은 하지만 비밀번호를 쓰는 기능이 실패한다. 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
+DB를 쓰는 백엔드는 두 곳이다. PR #144(계획 0096 BE 1·2단계)부터 둘 다 **V2.8**로 확인한다. 입출구 서버는 비밀번호를 `local_credential`에서 읽고 쓰므로 V2.7 DB에서는 시작하지 않는다 — 운영 DB에 018·019를 적용하는 점검 시간에 함께 배포한다(1장). 그 전의 입출구 서버는 V2.7용이라 V2.8 DB에서 시작은 하지만 비밀번호를 쓰는 기능이 실패한다. 둘 다 테이블을 만들거나 고치지 않는다. 스키마와 시드는 1장 절차로만 적용한다.
 
 | 구성 | 위치 | 시작할 때 DB 확인 | 맞지 않으면 |
 |---|---|---|---|
 | 입출구 서버 (계정·설정·기준 자세·세션·기록) | `backend/api` — `SchemaVerifier` | 테이블 16개(`SPRING_SESSION` 2개는 확인하지 않음, `refresh_token`·`social_identity`·`password_reset_token`·`local_credential`·`email_verification_token` 포함), V2.0·V2.1에서 지운 테이블 12개가 남아 있지 않은지, 필수 컬럼 19개(기준 자세 ID·좌표·등록 식별자, 세션의 `baseline_posture_id`, `sound_alert_enabled`, 붕괴까지 걸린 시간 최소·최대, `user_consent.document_version`, `correction_alert.attempted_at`, `refresh_token`의 토큰 해시·교체·철회 시각, `social_identity.provider_subject`, `password_reset_token.consumed_at`, `local_credential.password_hash`, `email_verification_token`의 `code_hash`·`attempt_count`·`verified_at`), V2.4에서 지운 컬럼(`feature_archive.row_count`)이 남아 있지 않은지. V2.7·V2.8 표는 V2.8에 늘 있으므로 기능을 켰는지와 관계없이 확인한다(2026-11-23부터 `email_verification_token` 포함 — 링크 방식 019를 적용한 개발 DB는 1장대로 다시 적용) | **시작하지 않는다** — V2.7 DB는 018·019를 적용하고, V2.6 이하 DB는 1장대로 다시 만든다 |
-| 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 16개, 지운 테이블, 저장에 쓸 컬럼, 판 표시(V2.3 컬럼 ~ V2.8 `local_credential`·`email_verification_token`), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. 시험용 API의 시험 계정은 `local_credential` 없이 넣는다 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다(V2.7이면 「migration 018·019를 적용」) |
+| 처리 서비스 (판정 결과 저장) | `backend/processing` — `ServiceSchemaVerifier` | 테이블 16개, 지운 테이블, 저장에 쓸 컬럼, 판 표시(V2.3 컬럼 ~ V2.8 `local_credential`·`email_verification_token`과 그 `code_hash` — 없으면 「옛 링크 방식 019」로 알림), 접속 계정의 SELECT·INSERT·UPDATE·DELETE 권한. 시험용 API의 시험 계정은 `local_credential` 없이 넣는다 | 시작은 한다. 시작 로그와 `GET /store/service-db`로 알린다(V2.7이면 「migration 018·019를 적용」) |
 
 **설정**
 

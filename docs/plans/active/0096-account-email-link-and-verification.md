@@ -1,6 +1,6 @@
 # 같은 이메일 계정 연결과 가입 이메일 인증
 
-- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). FE·ADR 구현 전)
+- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). FE·ADR 구현 전. PR #144(BE 1·2단계 한 PR) 리뷰 반영 2026-11-23)
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
 - 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR(같은 이메일 승인 연결, 작성 예정 — 새 번호)
@@ -92,8 +92,8 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 **이메일 가입(코드 인증 먼저, `posegood.auth.email-verification.enabled=true`일 때):**
 1. 약관 동의 뒤 이메일을 입력한다 → `POST /auth/email-verification/requests {email}`.
    - 출처(IP)별 15분 5회, 같은 이메일은 60초에 한 번. 넘으면 429 `RATE_LIMITED`.
-   - 서버는 6자리 코드를 만들어 메일로 보낸다(15분). 발송이 실패하면 503 `MAIL_UNAVAILABLE`이고 아무것도 저장하지 않는다.
-   - 발송이 되면 한 트랜잭션에서 그 이메일의 남은 요청에 `consumed_at`을 채우고(이전 코드·확인 증명 무효), 새 행에 요청 번호·「요청 번호:코드」의 SHA-256을 넣는다.
+   - 서버는 6자리 코드를 만들고, **메일을 보내기 전에** 요청을 저장한다: 같은 이메일을 DB 이름 잠금(`GET_LOCK`)으로 줄 세우고 READ COMMITTED 트랜잭션에서 「60초 간격 확인 → 그 이메일의 남은 요청에 `consumed_at`(이전 코드·확인 증명 무효) → 새 행(요청 번호·「요청 번호:코드」의 SHA-256)」을 한 뒤 커밋하고 잠금을 푼다. 그래서 메일이 느려도 같은 이메일의 동시 요청은 429다.
+   - 그다음 메일로 보낸다(15분). 발송이 실패하면 방금 저장한 요청에 `consumed_at`을 채우고 503 `MAIL_UNAVAILABLE`이다(실패한 시도도 60초 간격에 들어감).
    - 응답은 202이고, 요청 번호는 HttpOnly 쿠키 `posegood_email_verification`(15분)로만 준다.
    - 계정 상태(없음·있음·Discord 전용·탈퇴 유예)와 관계없이 같은 메일을 보낸다. 이미 가입한 이메일인지는 메일함 주인이 코드를 확인하고 가입할 때(4번 409)에만 알 수 있다.
 2. 사용자가 메일의 코드를 가입하던 브라우저에 입력한다 → `POST /auth/email-verification/confirm {token: 코드}` + 같은 쿠키.
@@ -168,8 +168,13 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   - 코드를 고른 이유: 가입 화면에서 이어서 입력해 흐름이 끊기지 않음(링크는 다른 탭·기기에서 열림), 데스크톱 앱에 맞음, #127 FE·BE가 이미 코드 흐름이라 FE 변경 없음, 링크를 미리 여는 메일 보안 검사기에 토큰이 소비되지 않음.
   - 019는 운영에 적용하기 전이라 020을 따로 두지 않고 019를 고쳤다(칼럼 6 → 9개, CHECK 2 → 3개). `token_hash`는 링크 토큰 대신 요청 번호(HttpOnly 쿠키)의 해시, `code_hash`는 「요청 번호:코드」의 해시(코드는 경우의 수가 100만이라 요청 번호와 묶음 — 요청 번호 원문은 DB에 없다), 시도 5회는 `attempt_count`, 확인은 `verified_at`. 링크 방식 019를 적용한 개발 DB는 표를 지우고 다시 적용한다.
   - 수명 15분·같은 이메일 60초·출처별 15분 5회·시도 5회는 #127 값 그대로. 출처별 제한(`RequestLimiter`)은 잃어도 되는 값이라 메모리에 둔다.
-  - 메모리 방식의 서비스 전체 `synchronized`(그 안에서 SMTP 발송 — 메일이 늦으면 다른 사람의 확인·가입도 멈춤)를 없앴다. 시도 세기·확인·가입 소비가 모두 조건부 UPDATE다. 메일 발송이 성공한 뒤에만 저장하므로 발송 실패는 재발송 간격에 들어가지 않는다(출처별 제한은 그대로).
+  - 메모리 방식의 서비스 전체 `synchronized`(그 안에서 SMTP 발송 — 메일이 늦으면 다른 사람의 확인·가입도 멈춤)를 없앴다. 시도 세기·확인·가입 소비가 모두 조건부 UPDATE다. (처음에는 메일 발송이 성공한 뒤에 저장했으나 PR #144 리뷰로 바꿨다 — 아래 2026-11-23 리뷰 반영.)
   - 메모리 상한 1만 건과 503 `EMAIL_BUSY`는 없앴다(표는 매일 정리, 요청은 출처·이메일별로 제한).
+- 2026-11-23(PR #144 HJisung 리뷰 반영 — 둘 다 로컬에서 먼저 재현하고 고침):
+  1. **같은 이메일 60초 제한이 동시 요청에 듣지 않음:** 「최근 발급 확인 → 메일 발송 → 저장」이라 발송하는 1~수 초 동안 들어온 같은 이메일 요청이 모두 확인을 통과했다(메일 1초 지연, 동시 2건 → 202 둘·메일 2통). 메모리 방식은 잠금 안에서 발송 전에 기록해 이런 일이 없었다 — 잠금을 없애며 생긴 회귀다. → 새 요청을 **발송 전에 저장**(`EmailVerificationRepository.reserve`). 같은 이메일은 MySQL `GET_LOCK('posegood_ev_' + 이메일 해시 48자)`으로 줄 세우고, 잠금·커밋·해제를 같은 연결에서 하려고 그 메서드가 자기 연결로 트랜잭션을 연다(바깥 트랜잭션 안에서 부르면 예외). 잠금은 커밋 뒤에 풀어 다음 요청이 새 행을 보고 429를 받는다. DB 잠금이라 API가 여러 대여도 맞다. 발송 실패는 그 행을 `revoke`(재발송 간격에는 남음 — 메모리 방식과 같음). 메일 발송 전에 이전 코드가 무효가 되므로, 발송이 실패하면 이전 코드도 쓸 수 없다(60초 뒤 다시 요청).
+  2. **빈 표의 동시 첫 요청 교착:** REPEATABLE READ(MySQL 기본)에서 이메일 칼럼에 인덱스가 없는 `UPDATE … WHERE login_email=?`가 표 전체에 next-key 잠금을 잡아, 빈 표에서는 두 트랜잭션의 supremum 간격 잠금과 INSERT 의도 잠금이 서로 기다렸다(임시 DB에서 같은 이메일·다른 이메일 모두 5/5 교착, 행이 있으면 차례로 처리, READ COMMITTED는 0). 인덱스로는 풀리지 않는다(다른 새 이메일이 같은 간격). → 새 요청 저장과 매일 정리를 READ COMMITTED로. 시도·확인·가입 소비는 PK로 한 행만 바꿔 그대로 둔다.
+  3. 사소한 것: `ServiceSchemaVerifier`가 `code_hash` 없는 옛 링크 방식 019를 「V2.8(옛 링크 방식 019)」로 알리고 다시 적용하라고 안내. 문서의 옛 브랜치 표기(`feature/backend-local-credential`, 「develop 반영 전」)를 PR #144로. ERD PNG는 남은 일.
+  - 보조 인덱스 `(login_email, issued_at)`: 리뷰 의견(행이 적어 지금은 없어도 됨, DB-05에서 정해도 됨)대로 넣지 않는다.
 - 2026-11-19: BE 1단계를 `refactor/repo-remove-api-version-paths`(develop `ed72615` + 주소 버전 삭제, #127 포함) 기준 새 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮겼다. #127 코드와 맞춘 것:
   - #127의 `PasswordResetService.validate`(링크 확인)도 비밀번호 없는 계정이면 410 — 완료와 같게(결정 3).
   - #127의 재설정 비밀번호 재사용 거절(`applyResetPassword`)·연결 해제 검사를 `account.hasPassword()`로. 연결 해제 오류 문구에서 「재설정 메일로 비밀번호를 정하라」를 뺌.
@@ -216,10 +221,11 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 168개 중 148 통과·실패 0·건너뜀 20(MySQL 통합), processing 67개 통과.
 - 「흐름」 고쳐 쓴 뒤 다시 실행(같은 날): DB CI 순서 같은 결과(205개, 451줄), `:api:test :processing:test -Pmysql-integration --rerun-tasks` → api 168개 중 167 통과(같은 기존 실패 1), processing 67개 통과.
 - develop `d4a10ffb`(#141·#142·#143)를 합친 뒤(같은 날): `build :api:test :processing:test -Pmysql-integration --rerun-tasks` → api 175개·processing 69개 **모두 통과**(#143의 시험 정리로 `baselinesOwnershipLossAndInferenceFailure`도 통과). Python 248 통과, FE 1,050 통과·1 실패(`recordTimezone`의 「오전」/「AM」 — 로컬 Node 날짜 형식, 이 변경 밖), FE 빌드 통과, DB CI 순서 같은 결과. 병합 충돌은 `database/README.md` 한 줄(아키텍처 링크 v5.5)과 `docs/backend-status.md`(#143 문서 재구성) — develop 구조에 이 브랜치의 줄을 옮겨 넣음. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
+- PR #144 리뷰 반영 뒤(같은 날): `build :api:test :processing:test -Pmysql-integration --rerun-tasks` → api 178개·processing 70개 모두 통과. 새 시험: 단위 `concurrentRequestsForTheSameEmailSendOneMail`·`smtpFailureIsReportedAsUnavailableAndTheRequestIsRevoked`, MySQL `concurrentRequestsForTheSameEmailSendOneMail`(같은 이메일 3건 동시·메일 1초 → 202 1·429 2·메일 1통·`IS_USED_LOCK` 비어 있음), `concurrentFirstRequestsOnAnEmptyTableNeverDeadlock`(빈 표에 서로 다른 이메일 8건 동시 → 모두 202), 처리 서비스 `linkStyleMigration019IsNotV28`. 재현용 임시 스크립트(저장소 밖)로 RR 5/5 교착·RC 0 확인.
 
 **남은 한계**
 - 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.
-- BE 1단계 브랜치는 develop 반영 전이다. 이 API는 V2.7 DB에서 시작하지 않으므로, 운영 반영은 018 → 019 → 이 API 배포를 같은 점검 시간에 한다. develop 반영 뒤 운영 적용 전까지는 Compose 새 볼륨·통합 시험이 V2.8로 만들어진다(기존 V2.7 볼륨은 018·019 적용).
+- BE 1·2단계(PR #144)는 develop 반영 전이다. 이 API는 V2.7 DB에서 시작하지 않으므로, 운영 반영은 018 → 019 → 이 API 배포를 같은 점검 시간에 한다. develop 반영 뒤 운영 적용 전까지는 Compose 새 볼륨·통합 시험이 V2.8로 만들어진다(기존 V2.7 볼륨은 018·019 적용).
 - V2.7 DB에서 이 API가 시작하지 않는 것은 코드로만 확인했다(실제 V2.7 DB로 띄워 보지 않음).
 - 소셜 전용 계정의 재설정 거절은 단위 시험으로, 저장소의 0행 예외는 MySQL로 확인했다. 재설정 메일·토큰을 거친 전체 흐름은 MySQL로 돌리지 않았다(재설정 기능 기본 꺼짐).
 - ~~소셜 전용 계정은 지금 탈퇴할 수 없다~~ → BE-25로 비밀번호 없이 탈퇴한다(11/19 브랜치의 MySQL 시험 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody`가 `local_credential` 행 없는 계정으로 확인).

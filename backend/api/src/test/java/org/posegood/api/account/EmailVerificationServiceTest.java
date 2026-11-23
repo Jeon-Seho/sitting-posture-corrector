@@ -68,8 +68,15 @@ class EmailVerificationServiceTest {
 			super(null);
 		}
 
+		/** DB 잠금 대신 synchronized로 같은 줄 세우기를 흉내 낸다. */
 		@Override
-		public void insert(String email, String tokenHash, String codeHash, Instant issuedAt, Instant expiresAt) {
+		public synchronized Reserve reserve(String email, String tokenHash, String codeHash, Instant issuedAt,
+			Instant expiresAt, Instant notAfter) {
+			if (rows.stream().anyMatch(row -> row.email.equals(email) && row.issued.isAfter(notAfter))) {
+				return Reserve.TOO_SOON;
+			}
+			rows.stream().filter(row -> row.email.equals(email) && row.consumed == null)
+				.forEach(row -> row.consumed = issuedAt);
 			var row = new Row();
 			row.id = rows.size() + 1;
 			row.email = email;
@@ -78,12 +85,13 @@ class EmailVerificationServiceTest {
 			row.issued = issuedAt;
 			row.expires = expiresAt;
 			rows.add(row);
+			return Reserve.RESERVED;
 		}
 
 		@Override
-		public Instant lastIssued(String email) {
-			return rows.stream().filter(row -> row.email.equals(email)).map(row -> row.issued)
-				.max(Instant::compareTo).orElse(null);
+		public void revoke(String tokenHash, Instant at) {
+			rows.stream().filter(row -> row.tokenHash.equals(tokenHash) && row.consumed == null)
+				.forEach(row -> row.consumed = at);
 		}
 
 		@Override
@@ -125,12 +133,6 @@ class EmailVerificationServiceTest {
 			}
 			row.consumed = at;
 			return 1;
-		}
-
-		@Override
-		public void consumeAll(String email, Instant at) {
-			rows.stream().filter(row -> row.email.equals(email) && row.consumed == null)
-				.forEach(row -> row.consumed = at);
 		}
 
 		@Override
@@ -259,12 +261,50 @@ class EmailVerificationServiceTest {
 	}
 
 	@Test
-	void smtpFailureIsReportedAsUnavailableAndStoresNothing() {
+	void smtpFailureIsReportedAsUnavailableAndTheRequestIsRevoked() {
 		doThrow(new IllegalStateException("synthetic SMTP failure"))
 			.when(mailer).sendVerification(anyString(), anyString(), anyLong());
 		assertEquals(503, assertThrows(ApiError.class,
 			() -> service.request("new@example.test", "client")).status());
-		assertTrue(rows.rows.isEmpty());
+		assertEquals(1, rows.rows.size());
+		assertTrue(rows.rows.get(0).consumed != null);
+		// 실패한 시도도 같은 이메일 재발송 간격에 들어간다(메모리 방식 때와 같음).
+		assertEquals(429, assertThrows(ApiError.class,
+			() -> service.request("new@example.test", "other-client")).status());
+	}
+
+	@Test
+	void concurrentRequestsForTheSameEmailSendOneMail() throws Exception {
+		org.mockito.Mockito.doAnswer(call -> {
+			Thread.sleep(500);
+			return null;
+		}).when(mailer).sendVerification(anyString(), anyString(), anyLong());
+		var results = java.util.Collections.synchronizedList(new ArrayList<Integer>());
+		var start = new java.util.concurrent.CountDownLatch(1);
+		var threads = new ArrayList<Thread>();
+		for (int i = 0; i < 2; i++) {
+			String client = "client-" + i;
+			var thread = new Thread(() -> {
+				try {
+					start.await();
+					service.request("new@example.test", client);
+					results.add(202);
+				} catch (ApiError error) {
+					results.add(error.status());
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+			});
+			threads.add(thread);
+			thread.start();
+		}
+		start.countDown();
+		for (var thread : threads) {
+			thread.join();
+		}
+		assertEquals(List.of(202, 429), results.stream().sorted().toList());
+		verify(mailer, org.mockito.Mockito.times(1)).sendVerification(anyString(), anyString(), anyLong());
+		assertEquals(1, rows.rows.size());
 	}
 
 	@Test

@@ -9,14 +9,21 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.mockito.ArgumentCaptor;
+import org.posegood.api.account.EmailVerificationRepository;
+import org.posegood.api.account.EmailVerificationService;
 import org.posegood.api.account.PasswordResetMailer;
+import org.posegood.api.common.ApiError;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -41,6 +48,8 @@ class AccountMailIntegrationTest {
 	PasswordResetMailer mailer;
 	@Autowired
 	JdbcTemplate jdbc;
+	@Autowired
+	EmailVerificationService verification;
 
 	@DynamicPropertySource
 	static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -118,6 +127,66 @@ class AccountMailIntegrationTest {
 		assertEquals(1, jdbc.queryForObject(
 			"SELECT COUNT(*) FROM email_verification_token WHERE login_email=? AND consumed_at IS NOT NULL",
 			Integer.class, email));
+	}
+
+	/** 출처별 제한(15분 5회)을 피하려고 HTTP 대신 서비스를 직접 부르고 출처 이름을 나눈다. 시작 신호에 맞춰 함께 부른다. */
+	private List<String> concurrently(List<String> emails) throws Exception {
+		var results = Collections.synchronizedList(new ArrayList<String>());
+		var start = new CountDownLatch(1);
+		var threads = new ArrayList<Thread>();
+		for (int i = 0; i < emails.size(); i++) {
+			String email = emails.get(i);
+			String client = "it-concurrent-" + UUID.randomUUID();
+			var thread = new Thread(() -> {
+				try {
+					start.await();
+					verification.request(email, client);
+					results.add("202");
+				} catch (ApiError error) {
+					results.add(String.valueOf(error.status()));
+				} catch (Exception other) {
+					results.add(other.getClass().getSimpleName() + ": " + other.getMessage());
+				}
+			});
+			threads.add(thread);
+			thread.start();
+		}
+		start.countDown();
+		for (var thread : threads) {
+			thread.join(30_000);
+		}
+		return results;
+	}
+
+	/** PR #144 리뷰 2번: REPEATABLE READ에서는 빈 표에 동시에 들어온 첫 요청이 교착(1213)했다. */
+	@Test
+	void concurrentFirstRequestsOnAnEmptyTableNeverDeadlock() throws Exception {
+		jdbc.update("DELETE FROM email_verification_token");
+		var emails = new ArrayList<String>();
+		for (int i = 0; i < 8; i++) {
+			emails.add("empty-it-" + i + "-" + UUID.randomUUID() + "@example.invalid");
+		}
+		assertEquals(Collections.nCopies(8, "202"), concurrently(emails));
+		assertEquals(8, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM email_verification_token WHERE consumed_at IS NULL", Integer.class));
+	}
+
+	/** PR #144 리뷰 1번: 메일이 느린 동안 같은 이메일로 온 요청은 저장된 행을 보고 429, 메일은 한 통. 잠금은 남지 않는다. */
+	@Test
+	void concurrentRequestsForTheSameEmailSendOneMail() throws Exception {
+		String email = "same-it-" + UUID.randomUUID() + "@example.invalid";
+		org.mockito.Mockito.doAnswer(call -> {
+			Thread.sleep(1000);
+			return null;
+		}).when(mailer).sendVerification(eq(email), org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.anyLong());
+		var results = concurrently(List.of(email, email, email));
+		assertEquals(List.of("202", "429", "429"), results.stream().sorted().toList());
+		verify(mailer, times(1)).sendVerification(eq(email), org.mockito.ArgumentMatchers.anyString(), eq(15L));
+		assertEquals(1, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM email_verification_token WHERE login_email=?", Integer.class, email));
+		assertNull(jdbc.queryForObject("SELECT IS_USED_LOCK(?)", Long.class,
+			EmailVerificationRepository.lockName(email)));
 	}
 
 	@Test

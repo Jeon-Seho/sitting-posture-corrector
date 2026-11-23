@@ -88,6 +88,8 @@ public class ServiceSchemaVerifier {
 	static final List<String> V27_TABLES = List.of("social_identity", "password_reset_token");
 	/** V2.8 표시 테이블(migration 018·019, 계획 0096). 둘 다 있어야 V2.8. */
 	static final List<String> V28_TABLES = List.of("local_credential", "email_verification_token");
+	/** V2.8 019의 코드 방식 칼럼(2026-11-23). 없으면 그 전의 링크 방식 019를 적용한 개발 DB다. */
+	static final String V28_COLUMN = "code_hash";
 
 	/** V2.2에서 지운 컬럼(있으면 V2.1 이하로 만든 DB) + V2.1에서 지운 컬럼. */
 	static final Map<String, List<String>> REMOVED_COLUMNS = Map.of(
@@ -223,9 +225,13 @@ public class ServiceSchemaVerifier {
 			boolean v25 = v24 && !missingCols.contains(V25_COLUMN);
 			boolean v26 = v25 && tables.contains(V26_TABLE);
 			boolean v27 = v26 && tables.containsAll(V27_TABLES);
-			boolean v28 = v27 && tables.containsAll(V28_TABLES);
-			String version = v28 ? SPEC_VERSION : v27 ? "V2.7" : v26 ? "V2.6" : v25 ? "V2.5" : v24 ? "V2.4"
-				: v23 ? "V2.3" : (removedCols.isEmpty() ? "V2.2 이하" : "V2.1 이하");
+			boolean v28tables = v27 && tables.containsAll(V28_TABLES);
+			boolean linkStyle019 = v28tables
+				&& !lower(probe.columns(schema, "email_verification_token")).contains(V28_COLUMN);
+			boolean v28 = v28tables && !linkStyle019;
+			String version = v28 ? SPEC_VERSION : linkStyle019 ? "V2.8(옛 링크 방식 019)" : v27 ? "V2.7"
+				: v26 ? "V2.6" : v25 ? "V2.5" : v24 ? "V2.4" : v23 ? "V2.3"
+				: (removedCols.isEmpty() ? "V2.2 이하" : "V2.1 이하");
 			result.put("specVersion", version);
 			if (missingCols.remove(V23_COLUMN)) {
 				problems
@@ -234,7 +240,9 @@ public class ServiceSchemaVerifier {
 			missingCols.remove(V25_COLUMN);
 			if (v23 && !v28) {
 				// migration은 운영 DB 버전(V2.7)부터만 남겼다(011~017 삭제)
-				String how = v27 ? "migration 018·019를 적용"
+				String how = linkStyle019
+					? "email_verification_token을 지우고(DROP TABLE) 새 migration 019를 다시 적용"
+					: v27 ? "migration 018·019를 적용"
 					: "migration으로 올릴 수 없음 — 필요한 데이터를 백업하고 schema_V2_8.sql로 다시 만듦";
 				problems.add(SPEC_VERSION + " 아님(지금 " + version + "): " + how + " (database/README.md 1장)");
 			}

@@ -64,7 +64,7 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 
 | 경로 | 요청과 결과 |
 | --- | --- |
-| `POST /auth/email-verification/requests` | `{email}` → 202 + HttpOnly `posegood_email_verification`. 서버가 6자리 코드를 생성해 SMTP로 발송. 15분, 주소당 60초 재발송, 출처당 15분 5회. 발송 요청 실패 503, 제한 429 |
+| `POST /auth/email-verification/requests` | `{email}` → 202 + HttpOnly `posegood_email_verification`. 서버가 6자리 코드를 생성해 SMTP로 발송. 15분, 주소당 60초 재발송(같은 주소 동시 요청도 하나만 발송), 출처당 15분 5회. 발송 요청 실패 503(그 코드는 무효, 재발송 간격에는 들어감), 제한 429 |
 | `POST /auth/email-verification/confirm` | 같은 쿠키 + `{token}` → 204. 최대 5회 확인. 잘못된 코드/만료/대기 없음/이미 확인함은 410 `EMAIL_VERIFICATION_REQUIRED` |
 | `POST /auth/register` | 기능이 켜졌으면 같은 이메일의 인증 쿠키를 검사하고 가입 성공 때 한 번 소비(가입이 실패하면 소비하지 않아 같은 쿠키로 다시 시도). 미인증·이메일 변경·소비됨·만료는 410 `EMAIL_VERIFICATION_REQUIRED` |
 | `POST /auth/password-reset/validate` | `{token}` → 204. 링크와 활성 계정 확인만 하며 최종 저장 전에는 소비하지 않음 |

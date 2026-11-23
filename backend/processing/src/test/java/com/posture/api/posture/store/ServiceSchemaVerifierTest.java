@@ -29,6 +29,8 @@ class ServiceSchemaVerifierTest {
 			columns.put("daily_stat", List.of("user_account_id", "stat_date", "min_until_collapse_sec",
 				"max_until_collapse_sec"));
 			columns.put("feature_archive", List.of("feature_archive_id", "monitor_session_id", "file_uri"));
+			columns.put("email_verification_token", List.of("email_verification_token_id", "token_hash", "code_hash",
+				"attempt_count", "verified_at", "consumed_at"));
 		}
 
 		@Override
@@ -122,6 +124,18 @@ class ServiceSchemaVerifierTest {
 		assertThat(String.valueOf(result.get("problems"))).contains("V2.3 아님").contains("schema_V2_8.sql");
 		// 옛 정책 테이블이면 값으로 찾지 않는다(경고도 없음)
 		assertThat(result).doesNotContainKey("defaultPolicyId");
+	}
+
+	/** 2026-11-23 전의 링크 방식 019(code_hash 없음)를 적용한 개발 DB는 V2.8로 보지 않고 다시 적용하라고 알린다. */
+	@Test
+	void linkStyleMigration019IsNotV28() {
+		probe.columns.put("email_verification_token", List.of("email_verification_token_id", "token_hash",
+			"consumed_at"));
+		Map<String, Object> result = verifier(true, "posture_service").check();
+		assertThat(result.get("ok")).isEqualTo(false);
+		assertThat(result.get("specVersion")).isEqualTo("V2.8(옛 링크 방식 019)");
+		assertThat(String.valueOf(result.get("problems"))).contains("V2.8 아님")
+			.contains("email_verification_token을 지우고");
 	}
 
 	/** 10/28 서버에서 본 것: 처리 서비스가 V2.3 기준이면 V2.6 DB의 기준 자세(등록 식별자 NOT NULL)를 못 넣는다 → 판을 알려 준다. */
