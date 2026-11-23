@@ -1,22 +1,74 @@
-# 아키텍처 v5.4 변경 안내
+# 아키텍처 v5.5 변경 안내
 
-> 최종 갱신: 2026-11-11 · DevOps/BE (v5.4 개정 — J2 최근 7일 다시 계산, `ws` Kafka 연결·저장 완료 이벤트 브랜치 구현, S3·R3 제거 결정, DB V2.7 / 11/02 v5.4 — Spark 배치 J1·J2·J3 구축)
-> 구성도·연결표: [자세 분석 플랫폼 아키텍처 v5.4 외부 원본](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)(11/02판 게시, 11/11 개정은 노션 첨부)
-> 저장소 문서: [스택별 역할](architecture_v5.4_stack_roles.md) · [아키텍처](../architecture.md) · [결정 이력](../decisions/) · [API 명세](api-spec.md) · [FE 연동 명세](fe/api-ws-spec.md) · [Kafka 명세](kafka-spec.md) · [Spark 배치](../../bigdata/README.md)
-> 이 문서가 인용한 저장소 밖 원문(`결정기록.md`·`파이프라인_구축현황.md`·`ws_구축가이드_PM.md` 등)은 아래 [외부 원본 참조](#외부-원본-참조)에서 구분한다. 이 파일은 `docs/design/architecture_v5.2_*`(10/16판)를 대신한다(11/11, D-90).
+> 최종 갱신: 2026-11-22 · DevOps/BE (v5.5 — D-57 develop 병합(#134), 주소·토픽·그룹·경로의 버전 삭제(#138), 계정당 한 측정·D-98, DB V2.7)
+> 구성도·연결표: [자세 분석 플랫폼 아키텍처 외부 원본](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)(11/22 v5.5로 다시 게시)
+> 저장소 문서: [스택별 역할](architecture_v5.5_stack_roles.md) · [아키텍처](../architecture.md) · [결정 이력](../decisions/) · [API 명세](api-spec.md) · [FE 연동 명세](fe/api-ws-spec.md) · [Kafka 명세](kafka-spec.md) · [실시간 계약](../../contracts/realtime/README.md) · [Spark 배치](../../bigdata/README.md)
+> 이 문서가 인용한 저장소 밖 원문(`결정기록.md`·`파이프라인_구축현황.md` 등)은 아래 [외부 원본 참조](#외부-원본-참조)에서 확인한다.
 
-**자세 분석 플랫폼 아키텍처 v5.4입니다.** 목표 구조는 v5.2와 같습니다. 앱은 입출구 서버 하나와만 통신하고, 서버 안은 Kafka로만 주고받습니다. 적재·분석은 cron → Spark → HDFS 사용자별 폴더로 합니다.
-**v5.4(11/02)는 빅데이터 적재·분석 층의 Spark 배치 3개를 실제로 구축한 것을 반영한 판이고, 11/11 개정에서 그 뒤 바뀐 것(아래 「v5.4 개정」 절)을 더했습니다.** 지금 상태는 「v5.4 개정」 절과 맨 아래 「구성 한눈에」를 보세요. 구성(층·연결 번호)은 그대로라 판 번호는 v5.4로 두고, `ws` Kafka 연결이 develop에 병합되면 v5.5로 올립니다. v5.3은 **실제로 만든 것과 지운 것**을 구성에 반영한 판이었고, 처음 판(10/26)에 이어 **10/31 개정**에서 10/27~10/31의 변경을 더했습니다(아래 목록은 v5.3 내용).
-- **인터넷에 공개했습니다(10/29).** 화면은 Vercel(`https://app.posegood.site`), API는 `https://api.posegood.site` → Cloudflare 터널 → 서버의 API 전용 `gateway`(nginx) → 입출구 서버입니다. 서버에서 인터넷에 열린 것은 이 입구 하나이고, 처리 서비스·추론 포트는 서버 PC 안(127.0.0.1)으로 닫았습니다.
-- **로그인이 토큰 방식이 됐습니다(10/27, ADR 0031).** access 토큰(30분) + refresh 쿠키(14일), CSRF 없음, WebSocket은 `hello.access_token`. 서비스 DB는 **V2.6**입니다.
-- **WebSocket 자세 등록을 지웠습니다(10/27).** 등록은 앱이 계산해 REST로만 보냅니다. 캘리브레이션 파이프라인(D-35)은 폐기했습니다.
-- **앱이 쓰지 않는 REST 4개(S2·R2·S5·S6)를 지웠습니다(10/28).** 측정 입력은 `/v2/realtime` 하나입니다.
-- **앱 경로 판정은 아직 전환 중입니다.** 운영은 입출구 서버 안에서 판정합니다(local). `ws`를 Kafka에 연결하는 1단계는 10/30 회의에서 PM 몫이었으나 **11/10 DevOps/BE가 맡아 브랜치에서 구현·서버 확인을 마쳤고**, 병합 전입니다(D-57, 아래 「v5.4 개정」).
-- 처음 판(10/26)의 변경: 옛 경로 삭제, 화면 컨테이너 `web`, 알림 토픽 ㉙ 구현.
+**자세 분석 플랫폼 아키텍처 v5.5입니다.** 목표 구조는 v5.2와 같습니다. 앱은 입출구 서버 하나와만 통신하고, 서버 안은 Kafka로만 주고받습니다. 적재·분석은 cron → Spark → HDFS 사용자별 폴더로 합니다.
+**v5.5(11/22)는 앱 경로의 Kafka 연결(D-57)이 develop에 들어가고(11/17, #134), 주소·토픽·컨슈머 그룹·Redis 키·HDFS 경로에서 버전 꼬리를 뺀 것(11/20, #138)을 반영한 판입니다.** 층·스택·연결 29개 번호는 그대로입니다. 운영의 판정 경로 기본값은 아직 **local**(입출구 서버 안 판정)이고, kafka로 바꿀지는 별도 결정입니다.
 
-실시간 판정은 상태머신이며 CEP 엔진은 쓰지 않습니다. 코드에 남아 있던 `cep` 이름도 `judge`로 정리했습니다(DN-55).
+실시간 판정은 상태머신이며 CEP 엔진은 쓰지 않습니다.
 
-## v5.4 개정 무엇이 바뀌었나 (11/03 ~ 11/11)
+## v5.4 → v5.5 무엇이 바뀌었나 (11/13 ~ 11/22)
+
+| 항목 | v5.4(11/02 · 11/13 개정) | v5.5(11/22) | 근거 |
+|---|---|---|---|
+| `ws` Kafka 연결 ④⑤⑥ | DevOps/BE 브랜치(서버 확인, 병합 전) | **develop 병합(11/17, #134)** — `POSEGOOD_REALTIME_PIPELINE=kafka`면 `ws`가 프레임마다 `posture.features`를 내고 결과를 구독(그룹 `io-ws-io-api`)해 앱에 `observation`·`decision`·`progress`·`alert`를 보냄. 정상 종료(`closed(ended)`)는 저장 완료 `posture.stored`를 받은 뒤. **운영 기본값은 local 그대로** | DN-81(D-57) · 통신 시험 11/16·11/17 |
+| 이름의 버전 | REST `/v2/**`, WebSocket `/v2/realtime`, 추론 `/v2/infer`, 토픽 `*.v1`, 그룹 `*-v1`, Redis `posture:v1:judge:*`, HDFS `*-v1` | **모두 버전 없음(11/20, #138, ADR 0049)** — REST `/auth/…`·`/workspace`·`/sessions/{id}`·`/records`…, WebSocket `/realtime`(공개 주소 `https://api.posegood.site/api/…`·`/api/realtime`), 추론 `/infer`, 토픽 `posture.features`·`inference`·`episodes`·`alerts`·`stored`·`keypoints`·`posture.dlq`, 그룹 `inference-service`·`judge`·`report-store`(`io-ws-io-api`는 그대로), Redis `posture:judge:{session_id}`, HDFS `/data/staging/realtime`·`/data/staging/keypoints`, 체크포인트 `j1-realtime`·`j1-keypoints`, 계약 파일 `contracts/realtime/kafka-*.schema.json`·`realtime-ws.schema.json`. 옛 `.v1` 토픽·옛 그룹·옛 임시 폴더는 되돌리기에 대비해 남겨 두고 나중에 정리 | D-94 · 저장소 계획 0097 |
+| 공개 입구 전환 | — | 서버를 새 판으로 바꾼 뒤 Vercel 앱이 새 주소로 배포될 때까지 `gateway`에 **임시 별칭**(`/api/v2/…` → 새 주소)을 둠(11/18, #135). FE 배포·확인 뒤 서버에서 별칭 삭제(11/22), 저장소 `gateway.conf`의 별칭 블록·옛 Discord Redirect 정리는 남음 | D-94 |
+| 저장 완료 토픽 | `posture.stored.v1`(브랜치) | `posture.stored`(kind `session_stored`, 키 `session_id`, 보존 3일) — 판정 결과 저장이 종료 값을 DB에 쓴 뒤 발행, `ws`가 받은 뒤 `closed(ended)`. 연결 번호는 ⑤에 포함 | D-57 ⑦ |
+| 좌표 적재 토픽 | `posture.keypoints.v1`(브랜치) | `posture.keypoints` — `ws`가 features 뒤 같은 구간을 비동기 발행, 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS` **기본 꺼짐**(좌표 활용 동의 범위 PM 확인 전). J1이 별도 쿼리·체크포인트·임시 폴더로 받아 세션 폴더 `keypoints.jsonl`. 연결 번호는 ④(발행)·⑭(J1 읽기)에 포함 | DN-83(D-92) |
+| S4 세션 조회 | 안 A 공지(DB 먼저) | 구현 — ① 엔진이 끝낸 결과(local만) → ② DB에 끝난 값 → ③ 메모리(kafka는 받은 마지막 결과를 덧씌움) → ④ 404. kafka 모드는 `end` 뒤 저장 완료가 3초 없으면 `stalled` 한 번(측정 중은 5초) | DN-82(D-85) · DB/BE #119 |
+| REST S3·R3 | 제거 결정 | **삭제(#121)**. 점검 도구도 뺌(REST 점검 20개) | DN-79(D-88) |
+| 계정당 한 측정 | — | 같은 계정이 이미 측정 중이면 새 측정 시작이 409 `MEASUREMENT_IN_PROGRESS`(#127, DB/BE). kafka 모드에서 끝낸 세션이 「측정 중」으로 남던 문제는 종료 발행 뒤 「끝남」 표시로 고침(D-98, #136) | DN-86(D-98) |
+| 로그인 | 토큰(ADR 0031) | 그대로 + **Discord 로그인**(#113 — 서버 `.env` Client ID·Redirect·`APP_URL`, Secret은 secrets 파일). 비밀번호 재설정 메일은 기본 꺼짐. 탈퇴는 비밀번호 없이 확인만(#131) | DN-78(D-87) |
+| 서비스 DB | 운영 V2.6 · develop V2.7 | **운영 V2.7**(테이블 16 — `social_identity`·`password_reset_token`, migration 017). develop에는 V2.8 파일(018·019, 비밀번호 표 분리·이메일 인증)만 있고 V2.8용 API는 아직 없음 — 처리 서비스 확인 코드도 V2.7. 서버 DB에 016의 알림 기본값 변경이 빠져 새 계정 알림이 꺼짐으로 생기는 문제는 DB/BE 조치 대기(D-96) | DN-80(D-89) · D-96 |
+| 앱이 받는 메시지 | `ack`가 먼저 오고 결과가 뒤따름(kafka) | 서버는 `ack`를 그대로 보내지만 **앱은 무시**(FE 요구 4, #137). 응답의 `schema_version`은 앱이 검사하지 않음, `calibration` 단계·고개 돌림 전용 안내 삭제 | FE #137 · ADR 0051 |
+| 시험 | 통합 테스트 0~17단계 + `--kafka` | 그대로 + **단계 안내형 통신 시험 도구** `tools/platform/comm_test_guided.py` — 앱으로 할 일을 안내하고 gateway·Kafka·카운터·DB로 단계마다 판정(kafka·local). 11/20 `--quick --kafka` **PASS 104 / FAIL 0 / SKIP 2**, `--quick` **99 / 0 / 2**, 운영 앱 kafka 통신 시험 S0~S12 PASS(Discord 포함) | DN-85(D-97) |
+| 연결 | 29개 | **29개 그대로.** ④⑤⑥이 「진행 중」 → 「완료」(운영 기본값은 local) | |
+
+**연결 상태가 바뀐 곳 (11/22)**
+
+| # | v5.4(11/13) | v5.5(11/22) | 메모 |
+|---|---|---|---|
+| ② 앱 ⇄ `/realtime` | 진행 중 | **완료** | local·kafka 두 모드 모두 공개 주소 wss 통과. 운영 기본값 local |
+| ④ `ws` → `posture.features`(+ `posture.keypoints`) | 진행 중 | **완료** | develop 병합(#134). 좌표 적재는 스위치 꺼짐 |
+| ⑤ 결과(`observation`·`posture.stored`) → `ws` | 진행 중 | **완료** | 그룹 `io-ws-io-api` |
+| ⑥ `posture.episodes`·`posture.alerts` → `ws` | 진행 중 | **완료** | 알림 0.0~0.1초, 재알림 30초 간격(통신 시험) |
+
+**담당별 영향 (11/22)**
+
+| 담당 | 달라지는 것 | 할 일 |
+|---|---|---|
+| DB/BE | 주소·계약 이름에 버전 없음, S3·R3 없음, 계정당 한 측정 | V2.8 API(계획 0096)와 migration 018·019를 같은 점검 시간에, 알림 기본값(D-96), D-86 #4(local 열린 세션 닫기) |
+| FE | 새 주소로 배포 완료, `ack` 무시 | 데스크톱 exe도 새 판으로, D-86 요청 회의 |
+| PM | — | 운영 kafka 전환 결정, 좌표 적재 범위(D-92 스위치) |
+| DevOps/BE | `ws` Kafka 연결·이름 변경·전환 별칭 끝 | 저장소 별칭 블록·옛 Redirect 정리(D-94), 옛 토픽·그룹·HDFS 경로 정리와 보존 주기(D-82), 운영 kafka 전환 뒤 J1 실제 세션(D-77)·4단계(API 안 판정·io-inference 삭제) |
+| ML | 추론 주소 `/infer`(local 경로의 io-inference) | 모델이 나오면 교체 절차(㉒), GPU PC 이전(D-31) |
+
+## v5.5 구성 한눈에 (11/22)
+
+| 층 | 구성요소 | 하는 일 | 상태 (11/22) | 담당 |
+|---|---|---|---|---|
+| 바깥 | 화면(Vercel `app.posegood.site`) · Cloudflare(`api.posegood.site`, HTTPS·요청 제한·터널) | 사용자 화면 · 인터넷 입구 | 동작 · 새 주소로 배포(11/20) | FE |
+| 입출구 층 (앱과 직접) | `cloudflared`(프로필 `edge`) · API 전용 `gateway`(nginx) | 터널 연결 · `/api/`·`/api/realtime`만 io-api로(`/api` 떼고), 그 밖 404 | 동작 · 호스트 포트 없음. 전환 별칭은 서버에서 삭제(저장소 정리 남음, D-94) | DevOps/BE |
+| ″ | 입출구 서버 io-api(팀 `backend/api`) `auth`·`api`·`ws` | 계정·Discord 로그인·설정·기준·세션 행·S4·기록(`/auth`·`/workspace`·`/baselines`·`/sessions`·`/records`), 좌표 받기·결과 보내기(`/realtime`), 계정당 한 측정 | 동작 · 판정 경로 `local`(기본) / `kafka`(병합·시험 끝, 운영 전환은 별도 결정) | REST DB/BE · `ws` Kafka 연결·배포 DevOps/BE |
+| ″ (서버 안 시험) | 화면 컨테이너 `web`(nginx) | 화면 + 같은 API(127.0.0.1:8088, SSH `-L`) | 동작 · REST도 포트 포함 Host 전달(D-94) | 배포 DevOps/BE · 화면 FE |
+| ″ (전환 중) | io-inference(FastAPI `/infer`) | local 경로의 점수 계산 | 운영 kafka 전환 뒤 4단계에서 삭제 | DB/BE |
+| 처리 서비스 층 (Kafka) | 추론 서비스(지금 서버 PC, 목표 GPU PC) | 0.5초 구간 → 나쁜 자세 확률(규칙 점수), 그룹 `inference-service` | 동작 · GPU 이전 D-31 | ML(모델) · DevOps/BE(배포) |
+| ″ | 판정 서비스(`backend/processing` `judge`, 상태머신) | 붕괴 확정·재알림·복귀·제외 구간 사건·구간마다 관측, 그룹 `judge` | 동작 | DevOps/BE |
+| ″ | 판정 결과 저장(`backend/processing` `report`) | 사건·알림·제외 구간·세션 종료를 DB에, 표시할 알림 `posture.alerts`, 저장 완료 `posture.stored`, 그룹 `report-store` | 동작 | DevOps/BE |
+| 빅데이터 · 실시간 | Kafka · Redis | 서비스 간 통로(토픽 7개) · 판정 상태 `posture:judge:{session_id}` | 동작 · 옛 `.v1` 토픽 정리·보존 주기 D-82 | DevOps/BE |
+| 빅데이터 · 적재·분석 | cron · `batch.sh` · Spark J1·J2·J3 · HDFS | 적재 매시간 20분(+ 좌표, 스위치 꺼짐) · 일별 통계 매일 00:10(최근 7일) · 탈퇴 삭제 매일 04:00(유예 30일) · 사용자별 폴더 | 동작 · J1 실제 세션은 운영 kafka 전환 뒤(D-77) | DevOps/BE |
+| 외부 | MySQL(.107, `posture_service` 운영 V2.7 · develop V2.8 파일만) · 학습 환경(GPU PC) | 계정·결과·통계 · CSV 수동 학습 | 동작 · 알림 기본값 D-96 | DB · ML |
+| 운영 | Docker Compose · 운영 API · 통합 테스트 · 통신 시험 도구 | 배포·확인(SSH 터널) | 동작 · 11/20 `--kafka` 104 / 0, local 99 / 0 | DevOps/BE |
+
+## 지난 판의 변경 (이력)
+
+아래 절은 그때의 이름(`/v2`·`.v1`·`-v1` 등)과 그때의 상태로 적혀 있습니다. 지금 이름과 상태는 위 「v5.4 → v5.5」 표와 「v5.5 구성 한눈에」를 보세요.
+
+## v5.4 개정 무엇이 바뀌었나 (11/03 ~ 11/13)
 
 구성(층·스택·연결 29개 번호)은 그대로입니다. **실시간 판정 Kafka 전환(D-57) 1단계가 브랜치에서 끝났고, 병합 조건과 남은 정리가 정해졌습니다.** 운영 기본값은 아직 local입니다.
 
@@ -27,6 +79,7 @@
 | `ws` Kafka 연결(D-57 1단계) ④⑤⑥ | PM 대기 | **DevOps/BE가 브랜치에서 구현(11/10 사용자 결정)** — 측정 경로 분리(`local`/`kafka`), 프레임마다 `features.v1` 발행(묶지 않음), 브로커 확인 뒤 `ack`, 결과 구독(그룹 `io-ws-io-api`)으로 `observation`·`decision`·`progress`·`alert`, 결과 5초 없으면 `stalled`, 측정불가 30분 종료, 끊김·로그아웃·서버 종료 때도 `session_ended`. 서버 통합 테스트 `--kafka` **PASS 99 / FAIL 0 / SKIP 2**(직접·화면·터널 WebSocket 17/0, lag 0, DLQ 증가 0) | D-57 ①~⑥ |
 | 관측 4.0 재료 | 추론 `inference.v1` → `ws` | **판정기가 구간마다 `episodes.v1` kind `observation`**(자세·`hold_ms`·`recovery_ms`)으로 내고 `ws`는 전달만. 판정 결과 저장은 이 kind를 건너뜀 | D-57 ③ |
 | 저장 완료 이벤트(D-67) | 설계 전 | **새 토픽 `posture.stored.v1`**(kind `session_stored`, 키 `session_id`, 보존 3일) — 판정 결과 저장이 종료 값을 DB에 쓴 뒤 발행, `ws`는 이것을 받은 뒤 `decision(session_ended)` → `closed(ended)` | D-57 ⑦ |
+| HDFS 좌표 적재 ⑭⑮ (11/13 추가) | J1이 v1 토픽 3개 원문만(특징 변화량·확률·판정 — **좌표 없음**) | **적재 전용 토픽 `posture.keypoints.v1`**(앱 좌표 구간 그대로, 보존 3일) — `ws`가 features 뒤 같은 구간을 비동기 발행(실패해도 측정 계속), 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS` 기본 꺼짐(좌표 활용 동의 범위 확인 전). J1은 별도 쿼리·체크포인트·임시 폴더(`/data/staging/keypoints-v1`)로 받아 세션 폴더 `keypoints.jsonl`. 설계 의도(학습용 좌표 보관, 이번엔 저장만)에 맞춤 | D-92 · D-57 ⑩·⑩b |
 | 병합 조건 | — | **FE 포함 전체 서비스 API·WS·Kafka 통신 시험 통과 뒤 develop 병합**(11/11 사용자). 그 전에 S4·FE 요청을 회의로 정리 | D-85·D-86 |
 | S4 세션 조회 | 메모리만 | **DB에 끝난 세션이 있으면 DB 값, 없으면 메모리(kafka 모드는 `ws`가 받은 마지막 `progress`), 둘 다 없으면 404**(안 A, DB/BE 공지 11/11). 앱은 `end` 뒤 **5초**에 S4(10초 → 5초) | D-85 |
 | REST S3·R3 | 있음(앱은 S3를 쓰지 않음) | **제거 결정(11/11 PM 의견)** — S3(연결 없이 종료)는 실제 서비스에서 쓰지 않고, 기록 삭제(R3)는 고려 대상이 아님. API 삭제는 DB/BE, 점검 도구는 DevOps/BE | D-88 |
@@ -211,23 +264,6 @@
 | 학습 | HDFS → Spark J2 → GPU PC | CSV 수동, HDFS 연결 없음 | 구축·포트 줄임, 참여자 데이터 보호 |
 | 운영 | — | 바깥 포트는 입출구 서버 하나, 운영 API는 SSH 터널 | 보안 |
 
-## v5.4 구성 한눈에 (11/11)
-
-| 층 | 구성요소 | 하는 일 | 상태 (11/11) | 담당 |
-|---|---|---|---|---|
-| 바깥 | 화면(Vercel `app.posegood.site`) · Cloudflare(`api.posegood.site`, HTTPS·요청 제한·터널) | 사용자 화면 · 인터넷 입구 | 동작(10/29) | FE |
-| 입출구 층 (앱과 직접) | `cloudflared`(프로필 `edge`) · API 전용 `gateway`(nginx) | 터널 연결 · `/api/`·`/api/v2/realtime`만 io-api로, 그 밖 404 | 동작 · 호스트 포트 없음(DN-66) | DevOps/BE |
-| ″ | 입출구 서버 io-api(팀 `backend/api`) `auth`·`api`·`ws` | 계정·설정·기준·세션 행·기록(`/v2`, 토큰 로그인), 좌표 받기·결과 보내기(`/v2/realtime`) | REST·WebSocket 동작. 운영 판정은 API 안(local) · `ws` Kafka 연결은 D-57 브랜치(서버 확인, 병합 전) | REST DB/BE · `ws` Kafka 연결·배포 DevOps/BE |
-| ″ (서버 안 시험) | 화면 컨테이너 `web`(nginx) | 화면 + 같은 API(127.0.0.1:8088, SSH `-L`) | 동작 | 배포 DevOps/BE · 화면 FE |
-| ″ (전환 중) | io-inference(FastAPI) | local 경로의 점수 계산 | D-57 4단계에서 삭제 | DB/BE |
-| 처리 서비스 층 (Kafka) | 추론 서비스(지금 서버 PC, 목표 GPU PC) | 0.5초 구간 → 나쁜 자세 확률(규칙 점수) | 동작 · GPU 이전 D-31(통신은 Kafka) | ML(모델) · DevOps/BE(배포) |
-| ″ | 판정 서비스(`backend/processing` `judge`, 상태머신) | 붕괴 확정·재알림·복귀·제외 구간 사건(3초·3초·60초) | 동작 | DevOps/BE |
-| ″ | 판정 결과 저장(`backend/processing` `report`) | 사건·알림·제외 구간·세션 종료를 DB에, 표시할 알림을 `alerts.v1`로, 저장 완료를 `stored.v1`로 | 동작 · `stored.v1`은 D-57 브랜치 ⑦ | DevOps/BE |
-| 빅데이터 · 실시간 | Kafka · Redis | 서비스 간 통로 · 판정 상태 | 동작 | DevOps/BE |
-| 빅데이터 · 적재·분석 | cron · `batch.sh` · Spark J1·J2·J3 · HDFS | 적재 매시간 20분 · 일별 통계 매일 00:10(최근 7일 다시 계산) · 탈퇴 삭제 매일 04:00(유예 30일) · 사용자별 폴더 | **동작(11/01 구축·cron 등록)** · J1 실제 세션은 운영 kafka 전환 뒤 | DevOps/BE |
-| 외부 | MySQL(.107, 운영 V2.6 · develop V2.7) · 학습 환경(GPU PC) | 계정·결과·통계 · CSV 수동 학습 | 동작 | DB · ML |
-| 운영 | Docker Compose · 운영 API · 통합 테스트 | 배포·확인(SSH 터널) | 동작(통합 테스트 0~17단계 + `--kafka`, 11/10 PASS 95 / 0) | DevOps/BE |
-
 ## 변경 이력
 
 | 버전 | 날짜 | 주요 변경 |
@@ -245,7 +281,10 @@
 | v5.3 | 10/26 | 옛 경로 삭제(DN-61), 화면 컨테이너 `web`(nginx) 추가·실제 화면 시험 통과(DN-58·62), 앱 경로 판정은 전환 중(local, D-57)으로 표시, 알림 토픽 ㉙ 구현(DN-57), 제외 구간 저장(DN-50), 판정 이름 `judge`(DN-55), 추론 규칙 점수만(DN-59), HDFS 복제 1(DN-54), DB V2.4 대응(D-65), 연결 29개 그대로 |
 | v5.3 개정 | 10/31 | 인터넷 공개 입구(Vercel + Cloudflare 터널 → `gateway`, DN-66), 처리 서비스 포트 127.0.0.1, 토큰 로그인(ADR 0031)·DB V2.6, WebSocket 자세 등록 삭제(D-35 폐기), REST S2·R2·S5·S6 삭제, 프레임마다 전송, `closed` 10개·자정 넘김, 10/30 회의(1단계 PM·외부 추론 Kafka·D-55 폐기), 통합 테스트 0~14단계 |
 | v5.4 | 11/02 | Spark 배치 구축(11/01): J2 일별 통계 매일 00:10(DN-70), J3 탈퇴 최종 삭제 04:00(DN-71), J1 HDFS 적재 매시간 20분(D-33, 세션 파일 JSON Lines 3개·임시 폴더 7일), cron·`batch.sh`, 연결 ⑭⑮⑯⑰⑳㉘ 완료, 통합 테스트 0~17단계 |
-| **v5.4 개정** | **11/11** | J2 최근 7일 다시 계산(DN-74), `ws` Kafka 연결 1단계를 DevOps/BE가 브랜치 구현(D-57 ①~⑦: 프레임마다 발행·결과 구독·판정기 `observation`·저장 완료 `posture.stored.v1`, `--kafka` 99/0), 병합 조건 = FE 포함 통신 시험, S4 DB 먼저(안 A), S3·R3 제거 결정, DB V2.7(develop), 연결 ④⑤⑥ 진행 중 |
+| v5.4 개정 | 11/11 | J2 최근 7일 다시 계산(DN-74), `ws` Kafka 연결 1단계를 DevOps/BE가 브랜치 구현(D-57 ①~⑦: 프레임마다 발행·결과 구독·판정기 `observation`·저장 완료 `posture.stored.v1`, `--kafka` 99/0), 병합 조건 = FE 포함 통신 시험, S4 DB 먼저(안 A), S3·R3 제거 결정, DB V2.7(develop), 연결 ④⑤⑥ 진행 중 |
+
+| v5.4 개정 보완 | 11/13 | HDFS 좌표 적재(D-92, D-57 ⑩·⑩b): 적재 전용 토픽 `posture.keypoints.v1` → J1 `keypoints.jsonl`(사용자 폴더), 스위치 기본 꺼짐. 임시 폴더 실제 보존 약 8일, 토픽 `segment.ms` 기본 7일 확인(D-82) |
+| **v5.5** | **11/22** | `ws` Kafka 연결 develop 병합(D-57, #134 — 연결 ②④⑤⑥ 완료, 운영 기본값 local 유지), 주소·토픽·그룹·Redis 키·HDFS 경로·계약 파일의 버전 삭제(#138, ADR 0049 — `/api/…`·`/api/realtime`·`posture.features` 등), 전환 기간 gateway 별칭(서버에서는 삭제), 저장 완료 `posture.stored`·좌표 적재 `posture.keypoints`, S4 DB 먼저·S3·R3 삭제, 계정당 한 측정·D-98, Discord 로그인, 운영 DB V2.7(develop V2.8 파일만), 통신 시험 도구, 연결 29개 그대로 |
 
 남은 안건은 `결정기록.md` 맨 아래 "남은 안건"에 있습니다.
 
@@ -255,9 +294,9 @@
 
 | 인용 원문 | 확인 가능한 판본 | 접근 안내·문의 담당 |
 |---|---|---|
-| `자세 분석 플랫폼 아키텍처 v5.4.html` | v5.4(11/02 게시), 11/11 개정 | [기존에 공유된 원본 페이지](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX). 최신 개정은 노션 첨부. DevOps/BE에 문의 |
-| `사용자데이터_입출력시나리오_v5.4.md` | 파일명 기준 v5.4(11/11 개정) | 노션 첨부. DevOps/BE에 문의 |
-| `결정기록.md` | 2026-11-11 갱신 | 공유 주소 미기재. DevOps/BE에 원문과 "남은 안건" 절 확인 |
-| `파이프라인_구축현황.md` | 2026-11-11 갱신 | 공유 주소 미기재. DevOps/BE에 문의 |
-| `ws_구축가이드_PM.md` | 10/30판(11/11 머리말에 달라진 점) | 설계 참고용. `ws` Kafka 연결(D-57)은 DevOps/BE 브랜치 |
+| `자세 분석 플랫폼 아키텍처 v5.5.html` | v5.5(11/22) | [기존에 공유된 원본 페이지](https://claude.ai/artifact/ToNH9pTwBDWbjTsg3iZpVX)(같은 주소를 v5.5로 다시 게시), 노션 첨부. DevOps/BE |
+| `사용자데이터_입출력시나리오_v5.5.md` | 파일명 기준 v5.5(11/22) | 노션 첨부. DevOps/BE에 문의 |
+| `결정기록.md` | 2026-11-22 갱신 | 공유 주소 미기재. DevOps/BE에 원문과 "남은 안건" 절 확인 |
+| `파이프라인_구축현황.md` | 2026-11-22 갱신 | 공유 주소 미기재. DevOps/BE에 문의 |
+| `ws_구축가이드_PM.md` | 10/30판(설계 참고용) | `ws` Kafka 연결은 D-57로 develop 병합(#134) — 지금 동작은 저장소 코드·[Kafka 명세](kafka-spec.md) |
 | `FE_BE_API명세_2026-10-14.md` | 파일명 기준 2026-10-14판(옛 판) | 현재 API는 [API 명세](api-spec.md)(DB/BE 확정본) |

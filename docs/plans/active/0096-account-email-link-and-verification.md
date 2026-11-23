@@ -214,7 +214,8 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - `backend/gradlew -p backend :api:test -Pmysql-integration --rerun-tasks`: api 168개 중 167 통과·실패 1·건너뜀 0. `AccountMailIntegrationTest` 3개 통과 — 새 시험 `codeStateLivesInTheTableAndFailedRegistrationKeepsTheProof`(틀린 코드 뒤 `attempt_count` 1·코드 원문 아님, 같은 이메일 가입 409 `ACCOUNT_EXISTS` 때 실제 MySQL 트랜잭션에서 `consumed_at`이 되돌아감).
   - 실패 `baselinesOwnershipLossAndInferenceFailure`(두 번째 세션 409)는 이 변경을 치운 기준 커밋에서도 같다(위 11/19 기록). 이 변경 밖.
 - `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 168개 중 148 통과·실패 0·건너뜀 20(MySQL 통합), processing 67개 통과.
-- 「흐름」 고쳐 쓴 뒤 다시 실행(같은 날): DB CI 순서 같은 결과(205개, 451줄), `:api:test :processing:test -Pmysql-integration --rerun-tasks` → api 168개 중 167 통과(같은 기존 실패 1), processing 67개 통과. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
+- 「흐름」 고쳐 쓴 뒤 다시 실행(같은 날): DB CI 순서 같은 결과(205개, 451줄), `:api:test :processing:test -Pmysql-integration --rerun-tasks` → api 168개 중 167 통과(같은 기존 실패 1), processing 67개 통과.
+- develop `d4a10ffb`(#141·#142·#143)를 합친 뒤(같은 날): `build :api:test :processing:test -Pmysql-integration --rerun-tasks` → api 175개·processing 69개 **모두 통과**(#143의 시험 정리로 `baselinesOwnershipLossAndInferenceFailure`도 통과). Python 248 통과, FE 1,050 통과·1 실패(`recordTimezone`의 「오전」/「AM」 — 로컬 Node 날짜 형식, 이 변경 밖), FE 빌드 통과, DB CI 순서 같은 결과. 병합 충돌은 `database/README.md` 한 줄(아키텍처 링크 v5.5)과 `docs/backend-status.md`(#143 문서 재구성) — develop 구조에 이 브랜치의 줄을 옮겨 넣음. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
 
 **남은 한계**
 - 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.

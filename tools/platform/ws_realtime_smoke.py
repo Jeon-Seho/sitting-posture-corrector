@@ -183,7 +183,7 @@ def plan():
     items, t, seq = [], 0, 0
     for length, phase, drop in parts:
         for _ in range(length // SEGMENT_MS):
-            frames = [] if drop is None else [frame(t + k * 100, drop) for k in range(5)]
+            frames = [] if drop is None else [frame(t, drop)]
             items.append({"schema_version": "3.0", "feature_version": "keypoints-9-v1", "sequence": seq,
                           "start_ms": t, "end_ms": t + SEGMENT_MS, "phase": phase, "frames": frames})
             seq += 1
@@ -201,7 +201,7 @@ def get_json(url):
         return getattr(error, "code", 0), None
 
 
-def scenario(base, report, pipeline):
+def scenario(base, report, pipeline, legacy=False):
     owner = Client(base)
     email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
     status, user = owner.call("/auth/register", "POST", {
@@ -236,7 +236,7 @@ def scenario(base, report, pipeline):
         return
 
     try:
-        run_socket(base, owner, sid, pipeline)
+        run_socket(base, owner, sid, pipeline, legacy)
         check_records(owner, path, report, sid, pipeline)
         check_unauthenticated(base)
     finally:
@@ -277,7 +277,7 @@ def check_unauthenticated(base):
           closed is not None and closed.get("reason") == "unauthorized", f"받음={closed}")
 
 
-def run_socket(base, owner, sid, pipeline):
+def run_socket(base, owner, sid, pipeline, legacy=False):
     ws = open_socket(base)
     received = []
 
@@ -293,24 +293,32 @@ def run_socket(base, owner, sid, pipeline):
         return None
 
     try:
-        ws.send({"type": "hello", "schema_version": "2.0", "purpose": "measure", "session_id": sid,
-                 "access_token": owner.access_token})
+        hello = {"type": "hello", "purpose": "measure", "session_id": sid, "access_token": owner.access_token}
+        if legacy:
+            hello["schema_version"] = "2.0"
+        ws.send(hello)
         ready = until(lambda m: m.get("type") in ("ready", "closed"), 6)
         if not check("hello → ready", ready is not None and ready.get("type") == "ready", f"받음={ready}"):
             return
         items, end_ms = plan()
         t0 = time.monotonic()
-        acked = 0
+        observed = 0
         for item in items:
-            ws.send({"type": "features", "items": [item]})
+            if legacy:
+                message = {"type": "features", "items": [item]}
+            else:
+                message = {"type": "features", **{k: item[k] for k in ("sequence", "start_ms", "end_ms", "phase")}}
+                if item["frames"]:
+                    message.update(item["frames"][0])
+            ws.send(message)
             seq = item["sequence"]
-            got = until(lambda m: (m.get("type") == "ack" and m.get("last_sequence", -1) >= seq)
+            got = until(lambda m: (m.get("type") == "observation" and m.get("observation", {}).get("sequence") == seq)
                         or m.get("type") == "closed", 10)
-            if got is None or got.get("type") != "ack":
-                bad("구간 ack", f"sequence {seq}에서 {got}")
+            if got is None or got.get("type") != "observation":
+                bad("구간 observation", f"sequence {seq}에서 {got}")
                 return
-            acked += 1
-        check(f"구간 {len(items)}개 보내고 ack {acked}개 ({time.monotonic() - t0:.1f}초)", acked == len(items))
+            observed += 1
+        check(f"구간 {len(items)}개 보내고 observation {observed}개 ({time.monotonic() - t0:.1f}초)", observed == len(items))
         ws.send({"type": "end", "end_ms": end_ms})
         closed = until(lambda m: m.get("type") == "closed", 30)
     except (ConnectionError, OSError) as error:
@@ -386,11 +394,12 @@ def main():
                         help="io-api의 POSEGOOD_REALTIME_PIPELINE (kafka면 제외 구간 사건도 기대)")
     parser.add_argument("--origin", default=None,
                         help="WebSocket Origin 헤더 (기본: --base와 같은 출처). 터널 공개 주소 시험은 https://app.posegood.site")
+    parser.add_argument("--legacy", action="store_true", help="구형 hello와 배열 입력으로 호환성 확인")
     args = parser.parse_args()
     global ORIGIN
     ORIGIN = args.origin
     try:
-        scenario(args.base, args.report, args.pipeline)
+        scenario(args.base, args.report, args.pipeline, args.legacy)
     except (RuntimeError, URLError, OSError) as error:
         bad("입출구 서버 접속", repr(error))
     print(f"ws realtime ({args.pipeline}): PASS {PASSED} / FAIL {FAILED}", flush=True)

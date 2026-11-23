@@ -49,18 +49,11 @@ class InferenceClientTest {
 	}
 
 	@Test
-	void lowQualityMustNeverBecomeValidTime() {
-		var error = assertThrows(
-			ApiError.class,
-			() -> client.require(
-				request(0.6, InferenceRequest.MeasurementQuality.good),
-				output(true, 0.95, Observation.DeviationType.unspecified, MODEL)));
-		assertEquals(502, error.status());
-		assertThrows(
-			ApiError.class,
-			() -> client.require(
-				request(0.9, InferenceRequest.MeasurementQuality.poor),
-				output(true, 0.95, Observation.DeviationType.unspecified, MODEL)));
+	void frontendAcceptedLowVisibilityCanBeScoredButPoorCannot() {
+		assertDoesNotThrow(() -> client.require(request(0.1, InferenceRequest.MeasurementQuality.good),
+			output(true, 0.7, Observation.DeviationType.unspecified, MODEL)));
+		assertThrows(ApiError.class, () -> client.require(request(0.9, InferenceRequest.MeasurementQuality.poor),
+			output(true, 0.7, Observation.DeviationType.unspecified, MODEL)));
 	}
 
 	@Test

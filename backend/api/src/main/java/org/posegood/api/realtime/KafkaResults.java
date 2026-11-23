@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.errors.WakeupException;
@@ -27,9 +26,8 @@ import tools.jackson.databind.JsonNode;
  * {@link PipelineResult} 이벤트로 낸다. 판정은 하지 않는다 — 처리 서비스가 낸 값을 옮길 뿐이다.
  *
  * <ul>
- *   <li>{@code observation} → {@code observation}(관측 4.0). 판정 불가 사유는 좌표에서 찾은 힌트({@code head_turn})를
- *       local과 같은 규칙으로 붙인다({@code SessionEngine.invalidReason}).</li>
- *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored} {@code session_stored},
+ *   <li>{@code observation} → {@code observation}(관측 4.0). 판정 불가 사유는 {@code unmeasurable}이다.</li>
+ *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored.v1} {@code session_stored},
  *       D-67)를 받을 때까지 쥐고 있다가 함께 낸다(어느 쪽이 먼저 와도) — 앱이 {@code closed} 뒤 조회하면 DB에 종료 값이 있다.</li>
  *   <li>{@code progress} → {@code progress}. 멈춘 이유는 그 세션의 마지막 관측으로(local {@code pausedReason}과 같음).</li>
  *   <li>{@code alerts} {@code alert} → {@code alert} 그대로(알림 켜짐·재전송은 판정 결과 저장이 이미 거름).</li>
@@ -53,7 +51,6 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 	private final String storedTopic;
 	private final Json json;
 	private final ApplicationEventPublisher events;
-	private final BiFunction<UUID, Long, String> hints;
 	private final long unmeasurableTimeoutMs;
 	private final ConcurrentHashMap<UUID, Live> live = new ConcurrentHashMap<>();
 	/** (D-67) 종료 사건·저장 완료 중 먼저 온 쪽. 둘이 다 오면 지운다. 구독 스레드 하나만 쓴다. */
@@ -70,7 +67,6 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 		String storedTopic,
 		Json json,
 		ApplicationEventPublisher events,
-		BiFunction<UUID, Long, String> hints,
 		Duration unmeasurableTimeout) {
 		this.consumer = consumer;
 		this.episodesTopic = episodesTopic;
@@ -78,7 +74,6 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 		this.storedTopic = storedTopic;
 		this.json = json;
 		this.events = events;
-		this.hints = hints;
 		this.unmeasurableTimeoutMs = unmeasurableTimeout.toMillis();
 	}
 
@@ -172,7 +167,7 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 			? Observation.V4.judged(sequence, Json.text(body.path("posture")),
 				body.path("collapse_probability").asDouble(), body.path("hold_ms").asLong(),
 				body.path("recovery_ms").asLong())
-			: Observation.V4.unjudged(sequence, invalidReason(phase, hints.apply(sessionId, sequence)));
+			: Observation.V4.unjudged(sequence, "unmeasurable");
 		// 측정불가가 이어진 시간: 판정 불가(running인데 무효)·자리 비움은 더하고, 유효한 측정·쉬기는 0(local과 같음)
 		boolean unmeasurable = "away".equals(phase) || ("running".equals(phase) && !valid);
 		state.unmeasurableMs = unmeasurable ? state.unmeasurableMs + endMs - startMs : 0;
@@ -271,11 +266,6 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 			return state.phase;
 		}
 		return state.valid ? null : "unmeasurable";
-	}
-
-	/** local {@code SessionEngine.invalidReason}과 같음: 측정 중 고개 돌림 힌트면 head_turn, 그 밖은 unmeasurable. */
-	private static String invalidReason(String phase, String hint) {
-		return "running".equals(phase) && "head_turn".equals(hint) ? "head_turn" : "unmeasurable";
 	}
 
 	private void publish(UUID sessionId, Object message, Long observed, Long endedTotalMs, Long unmeasurableEndMs) {

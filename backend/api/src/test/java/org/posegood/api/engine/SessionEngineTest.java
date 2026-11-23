@@ -329,49 +329,48 @@ class SessionEngineTest {
 		var valid = observation(0, 0, 500, 0.2, true, Observation.Phase.running);
 		var invalid = observation(0, 0, 500, 0, false, Observation.Phase.running);
 		var rest = observation(0, 0, 500, 0, false, Observation.Phase.rest);
-		assertNull(SessionEngine.invalidReason(valid, "head_turn"));
-		assertEquals("head_turn", SessionEngine.invalidReason(invalid, "head_turn"));
-		assertEquals("unmeasurable", SessionEngine.invalidReason(invalid, null));
-		assertEquals("unmeasurable", SessionEngine.invalidReason(rest, "head_turn"));
+		assertNull(SessionEngine.invalidReason(valid));
+		assertEquals("unmeasurable", SessionEngine.invalidReason(invalid));
+		assertEquals("unmeasurable", SessionEngine.invalidReason(rest));
 	}
 
 	@Test
 	void livePostureSplitsAtTheFrozenThresholdAndUnjudgedHasNoScore() {
 		// 이탈 후보와 같은 비교: 임계값과 같으면 bad, 바로 아래면 good. 판정 불가는 posture·점수 null.
 		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.8));
-		var at = acceptLive(observation(0, 0, 500, 0.8, true, Observation.Phase.running), null);
+		var at = acceptLive(observation(0, 0, 500, 0.8, true, Observation.Phase.running));
 		assertEquals(Observation.V4.judged(0, "bad", 0.8, 500, 0), at);
 		assertEquals("4.0", at.schemaVersion());
 		assertEquals(Observation.V4.judged(1, "good", 0.79, 0, 0),
-			acceptLive(observation(1, 500, 1000, 0.79, true, Observation.Phase.running), null));
-		var unjudged = acceptLive(observation(2, 1000, 1500, 0.9, false, Observation.Phase.running), "head_turn");
-		assertEquals(Observation.V4.unjudged(2, "head_turn"), unjudged);
+			acceptLive(observation(1, 500, 1000, 0.79, true, Observation.Phase.running)));
+		var unjudged = acceptLive(observation(2, 1000, 1500, 0.9, false, Observation.Phase.running));
+		assertEquals(Observation.V4.unjudged(2, "unmeasurable"), unjudged);
 		assertNull(unjudged.posture());
 		assertNull(unjudged.collapseProbability());
 		assertEquals(0, unjudged.holdMs());
 		assertEquals(0, unjudged.recoveryMs());
 		assertEquals(Observation.V4.unjudged(3, "unmeasurable"),
-			acceptLive(observation(3, 1500, 2000, 0, false, Observation.Phase.rest), null));
+			acceptLive(observation(3, 1500, 2000, 0, false, Observation.Phase.rest)));
 	}
 
 	@Test
 	void liveHoldIsTheContinuousBadTimeTheConfirmationCounts() {
 		// hold_ms = 확정 규칙이 세는 이탈 연속 시간: good·판정 불가에서 0, 확정(3000) 뒤에도 bad면 계속 는다.
 		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.7));
-		assertEquals(500, acceptLive(observation(0, 0, 500, 0.9, true, Observation.Phase.running), null).holdMs());
-		assertEquals(1000, acceptLive(observation(1, 500, 1000, 0.9, true, Observation.Phase.running), null).holdMs());
-		assertEquals(0, acceptLive(observation(2, 1000, 1500, 0.1, true, Observation.Phase.running), null).holdMs());
-		assertEquals(500, acceptLive(observation(3, 1500, 2000, 0.9, true, Observation.Phase.running), null).holdMs());
-		assertEquals(0, acceptLive(observation(4, 2000, 2500, 0, false, Observation.Phase.running), null).holdMs());
+		assertEquals(500, acceptLive(observation(0, 0, 500, 0.9, true, Observation.Phase.running)).holdMs());
+		assertEquals(1000, acceptLive(observation(1, 500, 1000, 0.9, true, Observation.Phase.running)).holdMs());
+		assertEquals(0, acceptLive(observation(2, 1000, 1500, 0.1, true, Observation.Phase.running)).holdMs());
+		assertEquals(500, acceptLive(observation(3, 1500, 2000, 0.9, true, Observation.Phase.running)).holdMs());
+		assertEquals(0, acceptLive(observation(4, 2000, 2500, 0, false, Observation.Phase.running)).holdMs());
 		long hold = 0;
 		for (int index = 0; index < 6; index++) {
 			long from = 2500 + index * 500L;
-			hold = acceptLive(observation(5 + index, from, from + 500, 0.9, true, Observation.Phase.running), null)
+			hold = acceptLive(observation(5 + index, from, from + 500, 0.9, true, Observation.Phase.running))
 				.holdMs();
 		}
 		assertEquals(3000, hold);
 		assertEquals(1, count("collapse_confirmed"));
-		assertEquals(3500, acceptLive(observation(11, 5500, 6000, 0.9, true, Observation.Phase.running), null)
+		assertEquals(3500, acceptLive(observation(11, 5500, 6000, 0.9, true, Observation.Phase.running))
 			.holdMs());
 	}
 
@@ -380,7 +379,7 @@ class SessionEngineTest {
 		// recovery_ms = 열린 사건에서 회복 규칙이 세는 바른 연속 시간: 사건이 없으면 0, bad에서 0부터 다시,
 		// 정책 recovery_ms(2000)에 닿은 구간은 회복이 확정돼 사건이 닫히므로 0, 판정 불가는 사건 중단이라 0.
 		engine = new SessionEngine(UUID.randomUUID(), new Policy(3000, 2000, 60000, 0.7));
-		assertEquals(0, acceptLive(observation(0, 0, 500, 0.1, true, Observation.Phase.running), null).recoveryMs());
+		assertEquals(0, acceptLive(observation(0, 0, 500, 0.1, true, Observation.Phase.running)).recoveryMs());
 		long from = 500;
 		long next = 1;
 		for (int index = 0; index < 6; index++, from += 500) {
@@ -410,7 +409,7 @@ class SessionEngineTest {
 		assertEquals(2, count("collapse_confirmed"));
 		assertEquals(500, liveAt(next++, from, 0.1).recoveryMs());
 		from += 500;
-		assertEquals(0, acceptLive(observation(next++, from, from + 500, 0, false, Observation.Phase.running), null)
+		assertEquals(0, acceptLive(observation(next++, from, from + 500, 0, false, Observation.Phase.running))
 			.recoveryMs());
 		from += 500;
 		assertEquals(1, count("interrupted"));
@@ -425,12 +424,12 @@ class SessionEngineTest {
 	}
 
 	private Observation.V4 liveAt(long sequence, long from, double score) {
-		return acceptLive(observation(sequence, from, from + 500, score, true, Observation.Phase.running), null);
+		return acceptLive(observation(sequence, from, from + 500, score, true, Observation.Phase.running));
 	}
 
-	private Observation.V4 acceptLive(Observation observation, String hint) {
+	private Observation.V4 acceptLive(Observation observation) {
 		engine.accept(observation);
-		return engine.live(observation, hint);
+		return engine.live(observation);
 	}
 
 	// 단일 API에서 새로 생긴 것: 실시간용 사건별 요약, DB용 제외 구간.

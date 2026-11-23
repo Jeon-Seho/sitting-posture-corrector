@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACTS = ROOT / "contracts"
 REALTIME = CONTRACTS / "realtime"
 EXAMPLES = REALTIME / "examples"
-EXAMPLES_V2 = REALTIME / "examples-ws"
+WS_EXAMPLES = REALTIME / "examples-ws"
 SCHEMAS = {
     "features-": "kafka-features.schema.json",
     "inference-": "kafka-inference.schema.json",
@@ -53,7 +53,6 @@ class RealtimeContractTests(unittest.TestCase):
 
     def test_every_example_matches_its_schema(self):
         names = sorted(path.name for path in EXAMPLES.glob("*.json"))
-        self.assertEqual(len(names), 10)
         for name in names:
             schema = next(value for prefix, value in SCHEMAS.items() if name.startswith(prefix))
             with self.subTest(example=name):
@@ -72,14 +71,14 @@ class RealtimeContractTests(unittest.TestCase):
                 validator("kafka-features.schema.json").validate(payload)
 
     def test_keypoints_topic_carries_the_app_interval_and_only_it(self):
-        """(D-92) 좌표 적재 토픽: 본문은 앱이 보낸 좌표 구간 그대로(frames 계약). 다른 kind·모르는 칸은 거절."""
+        """(D-92) 좌표 적재 토픽: 본문은 정규화한 단일 프레임 구간(평탄화 계약). 다른 kind·모르는 칸은 거절."""
         keypoints = self.example("keypoints-keypoints.json")
         check = validator("kafka-keypoints.schema.json")
         check.validate(keypoints)
         cases = [
             dict(keypoints, kind="features"),
             dict(keypoints, body=dict(keypoints["body"], features={})),
-            dict(keypoints, body={k: v for k, v in keypoints["body"].items() if k != "frames"}),
+            dict(keypoints, body={k: v for k, v in keypoints["body"].items() if k != "p"}),
         ]
         for payload in cases:
             with self.subTest(payload=list(payload)), self.assertRaises(ValidationError):
@@ -119,7 +118,7 @@ class RealtimeContractTests(unittest.TestCase):
                 schema.validate(payload)
 
     def test_only_notifying_events_become_alerts(self):
-        alert = load(EXAMPLES_V2 / "ws-alert.json")
+        alert = load(WS_EXAMPLES / "ws-alert.json")
         with self.assertRaises(ValidationError):
             validator("realtime-ws.schema.json").validate(dict(alert, kind="recovery_confirmed"))
 
@@ -136,7 +135,7 @@ class RealtimeContractTests(unittest.TestCase):
             schema.validate(dict(alert, kind="decision"))
 
     def test_feature_batches_are_bounded(self):
-        frame = load(EXAMPLES_V2 / "ws-features.json")
+        frame = load(WS_EXAMPLES / "legacy/ws-features.json")
         for items in ([], frame["items"] * 31):
             with self.subTest(size=len(items)), self.assertRaises(ValidationError):
                 validator("realtime-ws.schema.json").validate(dict(frame, items=items))

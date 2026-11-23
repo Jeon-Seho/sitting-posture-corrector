@@ -1,5 +1,97 @@
 # 실시간 전달 Kafka 계약 (초안)
 
+앱 ↔ 입출구 서버의 WebSocket과 서버 내부 Kafka 전달 계약을 구분한다.
+현재 규격은 아래 본문과 연결된 스키마를 따르며, 과거 결정은 마지막 절에 보존한다.
+
+## 흐름
+
+```
+앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features ─▶ 추론 ─▶ posture.inference ─▶ 판정(상태머신)
+앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes ◀──────────────────────┘
+```
+
+## Kafka 토픽
+
+> 파티션·컨슈머 그룹·DLQ·보존·시험용 입구와 지금 상태는 [Kafka 명세](../../docs/design/kafka-spec.md)(DevOps/BE)에 있다.
+> Kafka 봉투·본문은 앱과 주고받는 WebSocket 메시지와 별개다. `kafka-*` 스키마와 `examples/`는 서버 내부 전달을 정의한다.
+
+| 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
+| --- | --- | --- | --- | --- |
+| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 특징 입력 / `end_ms` | [kafka-features](kafka-features.schema.json) |
+| `posture.inference` | 추론 → 판정 | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference](kafka-inference.schema.json) |
+| `posture.episodes` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes](kafka-episodes.schema.json) |
+| `posture.alerts` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts](kafka-alerts.schema.json) |
+| `posture.keypoints` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | 마지막 관측 한 장의 평탄화 본문. 단일 `keypoints.jsonl`에 원문 적재, 처리 서비스는 읽지 않음 | [kafka-keypoints](kafka-keypoints.schema.json) |
+| `posture.stored` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored](kafka-stored.schema.json) |
+
+좌표 생산자는 [posture.keypoints](kafka-keypoints.schema.json)에 평탄화 본문을 발행한다.
+J1은 기존 구독·체크포인트와 keypoints.jsonl을 그대로 사용한다. 별도 메시지 구분이나 파일 분리는 없다.
+내부 features/inference/episodes/stored 토픽 구조는 기존 규격이다. 세부 결정은
+[ADR 0053](../../docs/decisions/0053-realtime-flat-input-and-server-filter-removal.md)을 따른다.
+
+공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.
+
+규칙:
+
+- **메시지 키는 `session_id`다.** Kafka는 같은 키 안에서만 순서를 지킨다. 세션 시작·특징·종료를 같은 토픽·같은 키로 보내야 판정이 항상 시작 → 특징 → 종료 순서로 받는다.
+- 추론은 `session_started`·`session_ended`를 **바꾸지 않고** `posture.inference`로 넘긴다. 판정은 한 토픽만 읽는다.
+- 판정은 세션 시작 메시지의 `policy`로 판정한다. 환경변수 값은 시작 메시지가 없을 때의 기본값일 뿐이다.
+- 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `phase`(`rest`·`away`)와 품질 `poor`는 제외 구간이다.
+- `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
+- 판정은 제외 구간(휴식 `rest`·자리 비움 `away`·판정 불가 `unmeasurable`·입력 누락 `missing`)의 경계를 `excluded_started`·`excluded_ended`
+  사건으로 낸다(D-39, 2026-10-16). `onset_ms`는 구간 시작, `timestamp_ms`는 시작·끝, `deviation_type`은 `none`이다. 붙어 있는 같은 사유는
+  한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
+  `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다.
+- 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
+  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 입력 → 관측).
+- 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
+  이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
+- **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
+  앱은 끊기면 세션을 끝내고 다시 연결하지 않는다([ADR 0024](../../docs/decisions/0024-session-ends-on-lost-connection.md)).
+- `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
+
+## 통로 나누기
+
+- **세션 시작은 HTTP**(S1 세션 생성 `PUT /sessions/{id}`, 경로 앞부분은 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 1장)로 하고, **끝은 WebSocket `end`나 연결 끊김**이다(REST 종료 S3는 2026-11-12 지움). 입구 API가 서비스 DB에 저장하고,
+  kafka 모드(`KafkaPipeline`)에서는 `posture.features`에 `session_started`·`session_ended`를 넣는다.
+- **WebSocket은 측정 중 좌표 보내기와 결과 받기**를 맡는다.
+
+## WebSocket 메시지
+
+현재 수신 계약은 [WebSocket 계약](realtime-ws.schema.json)이며, 파일 이름에는 버전을 붙이지 않는다.
+새 hello에는 schema_version이 없고 features는 최상위 sequence·시간·phase·t_ms·p로 보낸다.
+호환 기간에는 기존 hello 2.0과 items 배열도 받는다. items 유무로 형식을 구분하고 혼합 형식은 거절한다.
+현재 [단일 프레임 본문](frames/posture-frame.schema.json)과 [WebSocket 합성 예시](examples-ws/)를 참고한다.
+구형 hello·features와 삭제된 ack의 거절 확인용 예시는 [legacy](examples-ws/legacy/)로 분리한다.
+호환 지원을 종료할 때 legacy 예시와 관련 시험을 함께 제거한다.
+서버는 ack를 보내지 않으며 응답의 버전 필드는 유지한다. 기존 배열 입력과 신형 입력은 같은 계약에 정의한다.
+상세 필드와 처리 순서는 [BE API 명세](../../docs/design/api-spec.md) 11장을 본다.
+
+`decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
+`observation`도 그 순간의 상태라 다시 보내지 않는다.
+`progress`는 현재 상태라 지난 것을 쌓아 보내지 않고 최신 것만 보낸다.
+
+실시간 상태를 서버 관측으로 받는 이유(2026-10-06 동욱 결정): 브라우저 자체 점수로 표시하면 서버 모델이 LSTM 등으로 바뀔 때
+화면 상태와 서버 판정이 어긋난다. 화면과 판정이 같은 모델을 따르도록 게이트웨이가 관측을 넘긴다.
+
+## 합성 예제와 검증
+
+[examples](examples/)(Kafka)와 [examples-ws](examples-ws/)(현재 WebSocket 입력·응답),
+[legacy](examples-ws/legacy/)(구형 입력 호환·ack 거절 확인)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
+`tests/test_realtime_contracts.py`가 Kafka 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치 거부, 봉투와 사건의 `session_id` 일치,
+WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. WebSocket 메시지 전체는 `tests/test_realtime_ws.py`가 본다.
+
+## 아직 정하지 않은 것
+
+- 연구 모델 연결 시 특징 입력과 전처리를 확정한다. 입력 형식이 바뀌면 생산자·소비자·계약·예시·시험을 함께 변경한다.
+- 기준 자세 전달 토픽은 보류한다.
+
+## 과거 결정과 변경 이력
+
+아래는 당시의 결정·초안이다. 현재 규격이나 미결 항목으로 읽지 않는다.
+
+### 2026-10 초기 전달 계약과 WebSocket 전환
+
 > **앱 ↔ 입출구 서버 WebSocket은 v2로 바뀐다(2026-10-13).** 스키마는 [realtime-ws](realtime-ws.schema.json),
 > 합성 예시는 [examples-ws](examples-ws/), 좌표 구간은 [posture.frames](frames/posture-frames.schema.json)이다.
 > 근거는 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md)다.
@@ -22,77 +114,12 @@
 > 새 버전은 위 v2다(10/13). `backend/api`는 10/16에 `/realtime`을 더했고, 서버를 먼저 돌려 보려고 두었던 `/v1/realtime`(특징 변화량)은 2026-10-26 지웠다.
 > 게이트웨이는 FE가 맡는다(Q1 C안, 확인 요청 중). → 아키텍처 v5(10/11)에서 BE 입출구 서버(`ws`)가 맡는 것으로 바뀌었다.
 
-## 흐름
-
-```
-앱 ─WebSocket─▶ 게이트웨이/입구 API ─▶ posture.features ─▶ 추론 ─▶ posture.inference ─▶ 판정(상태머신)
-앱 ◀─WebSocket─ 게이트웨이 ◀──────────────────────────── posture.episodes ◀──────────────────────┘
-앱 ◀─WebSocket─ 게이트웨이 ◀── posture.inference (관측만, 화면 실시간 상태용)
-```
-
-## Kafka 토픽
-
-> 파티션·컨슈머 그룹·DLQ·보존·시험용 입구와 지금 상태는 [Kafka 명세](../../docs/design/kafka-spec.md)(DevOps/BE)에 있다.
-> 이 Kafka 계약은 WebSocket v1(`realtime-ws.v1`, 2026-10-26 삭제)과 별개다 — `kafka-*` 스키마·`examples/`의 Kafka 예시·`tests/test_realtime_contracts.py`는 남겼다.
-
-| 토픽 | 생산 → 소비 | `kind` | 본문 | 스키마 |
-| --- | --- | --- | --- | --- |
-| `posture.features` | 입구 → 추론 | `session_started` / `features` / `session_ended` | 정책·기준 ID·화면 크기 / 특징 입력 / `end_ms` | [kafka-features](kafka-features.schema.json) |
-| `posture.inference` | 추론 → 판정, 게이트웨이(관측만) | `session_started` / `observation` / `session_ended` | 시작·종료는 그대로 전달 / 관측 v2 | [kafka-inference](kafka-inference.schema.json) |
-| `posture.episodes` | 판정 → 게이트웨이 | `observation` / `decision` / `progress` | 구간마다 앱 관측 4.0 재료(good·bad·점수·`hold_ms`·`recovery_ms`, D-57) / 사건 + 그 시점 요약 + `last_sequence` / 약 1초마다 `last_sequence`와 요약 | [kafka-episodes](kafka-episodes.schema.json) |
-| `posture.alerts` | 판정 결과 저장 → 게이트웨이(`ws`) | `alert` | 표시할 알림만(세션 알림 켜짐·10초 안의 사건·재전송 제외, D-54) — `event_id`·`kind`·`deviation_type`·`timestamp_ms`·`onset_ms` | [kafka-alerts](kafka-alerts.schema.json) |
-| `posture.keypoints` | 게이트웨이(`ws`) → Spark J1(HDFS) | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로(frames 계약). kafka 경로·적재 스위치를 켰을 때만, 처리 서비스는 읽지 않음 | [kafka-keypoints](kafka-keypoints.schema.json) |
-| `posture.stored` | 판정 결과 저장 → 게이트웨이(`ws`) | `session_stored` | (D-67) `session_ended`의 종료 값을 DB에 쓴 뒤 — `end_ms`·`good_ms`. `ws`는 종료 사건을 이것이 올 때까지 쥐고 있다가 앱에 보낸다(재전송이면 다시 냄) | [kafka-stored](kafka-stored.schema.json) |
-
-공통 봉투: `schema_version`, `message_id`(UUID), `session_id`(UUID), `user_id`, `produced_at`(UTC), `kind`, `body`.
-
-규칙:
-
-- **메시지 키는 `session_id`다.** Kafka는 같은 키 안에서만 순서를 지킨다. 세션 시작·특징·종료를 같은 토픽·같은 키로 보내야 판정이 항상 시작 → 특징 → 종료 순서로 받는다.
-- 추론은 `session_started`·`session_ended`를 **바꾸지 않고** `posture.inference`로 넘긴다. 판정은 한 토픽만 읽는다.
-- 판정은 세션 시작 메시지의 `policy`로 판정한다. 환경변수 값은 시작 메시지가 없을 때의 기본값일 뿐이다.
-- 같은 세션의 같은 `sequence`는 한 번만 반영한다(재전송 무시). `phase`(`rest`·`away`)와 품질 `poor`는 제외 구간이다.
-- `event_id`는 세션마다 1부터 1씩 증가한다. 게이트웨이와 앱은 이미 받은 번호를 버린다.
-- 판정은 제외 구간(휴식 `rest`·자리 비움 `away`·판정 불가 `unmeasurable`·입력 누락 `missing`)의 경계를 `excluded_started`·`excluded_ended`
-  사건으로 낸다(D-39, 2026-10-16). `onset_ms`는 구간 시작, `timestamp_ms`는 시작·끝, `deviation_type`은 `none`이다. 붙어 있는 같은 사유는
-  한 구간이고, 세션이 끝나면 열린 구간을 닫는다. 판정 결과 저장이 이것으로 `excluded_interval`을 쓴다(`rest`→PAUSE, `away`→ABSENCE,
-  `unmeasurable`→UNMEASURABLE, `missing`→MISSING). 앱은 받기만 하고 표시하지 않는다(v2 `event` 설명과 같음).
-- 팀 API 판정(`backend/api` `engine/`)과 이 계약의 판정이 같은 결과를 내는지는 [동등성 시험 데이터](parity/)로 확인한다(T-15):
-  `judge-cases.json`(관측열 → 사건·요약·제외 구간), `inference-cases.json`(특징 입력 → 관측).
-- 판정은 사건이 없어도 **약 1초마다 `progress`**(`last_sequence`까지 반영한 요약)를 낸다. 사건은 변화만 알리므로,
-  이것이 없으면 사건 사이에 화면의 측정 시간·유지율이 멈춘다. `last_sequence`는 줄어들지 않는다.
-- **사건은 그 사건이 반영된 `progress`보다 먼저 낸다.** 앱은 요약의 횟수(이탈·알림)와 사건 목록이 맞는지 검사한다.
-  재연결 때 게이트웨이도 놓친 `decision`을 먼저 보내고 최신 `progress`를 마지막에 보낸다.
-  (2026-10-13 [ADR 0024](../../docs/decisions/0024-session-ends-on-lost-connection.md): 앱은 끊기면 세션을 끝내고 다시 연결하지 않는다.)
-- `user_id`는 로그인 계정 ID를 문자열로 쓴다. 숫자 ID로 바뀌어도(안건 Q16) 문자열로 담는다.
-
-## 통로 나누기
-
-- **세션 시작은 HTTP**(S1 세션 생성 `PUT /sessions/{id}`, 경로 앞부분은 [FE 연동 명세](../../docs/design/fe/api-ws-spec.md) 1장)로 하고, **끝은 WebSocket `end`나 연결 끊김**이다(REST 종료 S3는 2026-11-12 지움). 입구 API가 서비스 DB에 저장하고,
-  kafka 모드(D-57 브랜치 `KafkaPipeline`)에서는 `posture.features`에 `session_started`·`session_ended`를 넣는다. (처음 결정 10/06에는 시작·종료 모두 v1 HTTP였다.)
-- **WebSocket은 측정 중 특징 보내기와 결과 받기만** 맡는다.
 - 결정(2026-10-06 동욱): 바뀌는 범위가 가장 작고 API 저장 경로를 그대로 쓴다. 결과만 push하는 SSE(HTTP POST + Server-Sent Events)도
   검토했으나, 팀·DevOps에 이미 WebSocket으로 공유했으므로 WebSocket을 유지한다.
 
-## WebSocket 메시지
+처음 결정(2026-10-06)에는 세션 시작·종료를 모두 HTTP로 처리했다. 현재 종료는 WebSocket을 사용한다.
 
-v1 WebSocket(`/v1/realtime`, `realtime-ws.v1`, `examples/ws-*`)은 2026-10-26 지웠다. 지금 메시지는 [realtime-ws](realtime-ws.schema.json)와
-[BE API 명세](../../docs/design/api-spec.md) 11장을 본다. 아래 원칙은 v2에도 그대로다.
-
-`decision`은 기록이라 빠지면 안 되고, `alert`는 그 순간의 알림이라 몰아서 울리면 안 된다. 그래서 둘을 나눴다.
-`observation`도 그 순간의 상태라 다시 보내지 않는다.
-`progress`는 현재 상태라 지난 것을 쌓아 보내지 않고 최신 것만 보낸다.
-
-실시간 상태를 서버 관측으로 받는 이유(2026-10-06 동욱 결정): 브라우저 자체 점수로 표시하면 서버 모델이 LSTM 등으로 바뀔 때
-화면 상태와 서버 판정이 어긋난다. 화면과 판정이 같은 모델을 따르도록 게이트웨이가 관측을 넘긴다.
-
-## 합성 예제와 검증
-
-[examples](examples/)의 7개 파일(Kafka)과 [examples-ws](examples-ws/)(WebSocket)는 손으로 만든 합성 세션이다. 실제 사람의 측정값이 아니다.
-`tests/test_realtime_contracts.py`가 Kafka 예제 통과, 모르는 필드·원본 좌표·`kind`와 본문 불일치 거부, 봉투와 사건의 `session_id` 일치,
-WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검사한다. WebSocket 메시지 전체는 `tests/test_realtime_ws.py`가 본다.
-
-## 아직 정하지 않은 것
+### 초기 미결 항목 기록
 
 아래는 v1 기준이다. v2에서 메시지 단위(처음 0.5초 구간 1개씩, 2026-10-27부터 프레임마다), 입구(BE 입출구 서버 `ws`), `features` 본문(좌표 프레임 `posture.frames`)은 정해졌다([연동 명세](../../docs/design/fe/api-ws-spec.md) 1.1·5장).
 
@@ -100,3 +127,10 @@ WebSocket의 알림 대상이 아닌 사건·묶음 크기 초과 거부를 검�
 - `features` 본문은 특징 입력이다. LSTM 입력이 정해지면(안건 Q5·Q7) 새 버전을 만들지 않고 입력 형식과 생산자·소비자를 함께 바꾼다([ADR 0049](../../docs/decisions/0049-no-version-in-names.md)).
 - 입구를 팀 API로 할지(안건 Q1)와 게이트웨이 구현 언어·담당.
 - 기준 자세 전달 토픽은 보류한다.
+
+### 2026-11-19~22 단일 프레임 전환
+
+버전 없는 hello·평탄화 features와 구형 입력의 한시적 호환을 추가하고 WS ack를 제거했다.
+현재 입력·응답 예시는 examples-ws, 구형 입력·ack 거절 확인용 예시는 그 아래 legacy로 구분했다.
+develop 통합 시 좌표 적재는 posture.keypoints 하나·평탄화 본문·기존 keypoints.jsonl로 확정했다.
+별도 버전 토픽·형식 식별·파일·체크포인트를 두던 초안은 적용하지 않는다([ADR 0053](../../docs/decisions/0053-realtime-flat-input-and-server-filter-removal.md)).

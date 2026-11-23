@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { ChartBar, Pause, Play, SpeakerHigh, SpeakerSlash, Stop, WarningCircle } from '../../../components/icons'
+import { ThemeIllustration } from '../../appearance/ThemeIllustration'
 import type { CameraController } from '../../../hooks/useCamera'
 import { CameraStage } from '../../../components/CameraStage'
 import { Ring } from '../../../components/Ring'
@@ -23,6 +25,57 @@ export function EndingNotice({ open }: { open: boolean }) {
       <span className="saving-spinner" aria-hidden="true" />
       <strong>측정 결과를 저장하고 있어요</strong>
       <span>저장되면 바로 결과를 보여 드려요.</span>
+    </div>
+  )
+}
+
+/** Past this, the connecting notice says it is taking longer than usual (it still waits). */
+export const CONNECTING_SLOW_MS = 10_000
+/** The connecting notice stays at least this long so a fast server does not make it flash. */
+export const CONNECTING_MIN_MS = 1_000
+
+/**
+ * From 「측정 시작」 until the server's first judgement: S1, the WebSocket and the first interval's
+ * round trip. Until then nothing on the stage is the server's yet, so the 「판정 불가」 box would be
+ * misleading (11/20 test). A pause or the end shows its own screen instead.
+ */
+export function connecting(state: LiveState | null, phase: string) {
+  if (!state || phase === 'creating' || phase === 'connecting') return true
+  return phase === 'running' && !state.observation
+}
+
+/**
+ * The connecting overlay: shown while `active`, for at least `CONNECTING_MIN_MS`, and `slow` once
+ * it has been up for `CONNECTING_SLOW_MS`. Waits for the real result; no fixed delay.
+ */
+export function useConnectingNotice(active: boolean) {
+  const [since, setSince] = useState<number | null>(() => (active ? Date.now() : null))
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (active) {
+      if (since === null) setSince(Date.now())
+      return
+    }
+    if (since === null) return
+    const hide = setTimeout(() => { setSince(null); setSlow(false) }, Math.max(0, since + CONNECTING_MIN_MS - Date.now()))
+    return () => clearTimeout(hide)
+  }, [active, since])
+  useEffect(() => {
+    if (since === null || !active) return
+    const timer = setTimeout(() => setSlow(true), Math.max(0, since + CONNECTING_SLOW_MS - Date.now()))
+    return () => clearTimeout(timer)
+  }, [since, active])
+  return { open: since !== null, slow }
+}
+
+/** The 「연결하는 중이에요」 art (hourglass, as in the desktop app's connecting page) over the camera area. */
+export function ConnectingNotice({ open, slow }: { open: boolean; slow: boolean }) {
+  if (!open) return null
+  return (
+    <div className="stage-saving stage-connecting" role="status" aria-busy="true">
+      <ThemeIllustration kind="error-504" className="connecting-art" width={240} height={180} />
+      <strong>{slow ? '평소보다 오래 걸리고 있어요' : '연결하는 중이에요'}</strong>
+      <span>{slow ? '서버의 첫 판정을 기다리고 있어요. 잠시만 더 기다려 주세요.' : '잠시만 기다려 주세요.'}</span>
     </div>
   )
 }
@@ -168,7 +221,9 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
   const score = postureScore(measurable ? state!.observation!.collapse_probability : null)
   const label = headline(state, phase)
   const tone = statusTone(measurable ? state : null)
-  const nudge = running ? nudgeKind(state, measurable) : null
+  const loading = useConnectingNotice(connecting(state, phase))
+  // Nothing to warn about before the server's first judgement: the connecting notice covers it.
+  const nudge = running && !loading.open ? nudgeKind(state, measurable) : null
   const hold = holdProgress(state, session.rules.holdSeconds)
   const recovery = recoveryProgress(state, session.rules.recoverSeconds)
   const nudgeBox = nudge ? nudgeText(nudge, session.rules) : null
@@ -323,6 +378,7 @@ export function LiveSessionPage(props: LiveSessionPageProps) {
         <div className={`stage ${state?.alerting && running && alertsOn ? 'is-alert' : ''}`}>
           {service.active && <CameraStage camera={camera} showSkeleton={screen.showSkeleton} />}
           <EndingNotice open={phase === 'ending'} />
+          <ConnectingNotice open={loading.open && phase !== 'ending'} slow={loading.slow} />
           <div className="stage-overlay">
             <div className="stage-top">
               <span className={`pill ${tone}`} role="status">

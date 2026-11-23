@@ -106,7 +106,7 @@ python tools/deploy_restore.py --project posegood-recovery --input .cache/backup
 배포 manifest는 `shared/current.json`, 직전 manifest는 `shared/previous.json`, 백업은 `shared/backups/`에 기록한다.
 백업에서 복구하면 백업 이후 쓰기/삭제는 되돌아갈 수 있으므로 복구 시점과 삭제 반영 절차를 운영자가 검토한다.
 
-빅데이터 전달·분석은 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)을 따른다.
+빅데이터 전달·분석은 [아키텍처 v5.5 스택별 역할](../docs/design/architecture_v5.5_stack_roles.md)을 따른다.
 
 ## 빅데이터 플랫폼 (서버 PC)
 
@@ -305,9 +305,25 @@ tools/platform/integration_test.sh                                           # 7
 - 세 서비스 중 하나만 옛 이름이면 메시지가 아무도 읽지 않는 토픽에 쌓인다(오류 없이 판정이 멈춤). 6번은 반드시 함께 올린다.
 - 되돌리기: 아래 정리 전까지 옛 토픽·그룹이 남아 있으므로 옛 이미지로 세 서비스를 다시 올리면 된다.
 - 입출구 결과 구독 그룹 `io-ws-io-api`는 이름이 그대로라 옛 토픽(`posture.episodes.v1`·`alerts.v1`·`stored.v1`)의 읽은 위치가 남는다. 통합 테스트·통신 시험 도구는 옛 토픽 lag를 세지 않는다. 옛 토픽을 지우면 함께 사라지고, 먼저 지우려면 `$K/kafka-consumer-groups.sh $B --delete-offsets --group io-ws-io-api --topic posture.episodes.v1`(alerts.v1·stored.v1도 같이).
-- 며칠 지켜본 뒤 정리: 옛 토픽 6개(`kafka-topics.sh --delete --topic posture.<이름>.v1`), 옛 그룹 3개(`kafka-consumer-groups.sh --delete --group <이름>-v1`),
+- 며칠 지켜본 뒤 정리(2026-11-23 서버 정리, D-82): 옛 토픽 6개(`kafka-topics.sh --delete --topic posture.<이름>.v1`), 옛 그룹 3개(`kafka-consumer-groups.sh --delete --group <이름>-v1`),
   HDFS `hdfs dfs -rm -r -skipTrash /data/staging/realtime-v1 /data/staging/keypoints-v1 /data/checkpoints/j1-realtime-v1 /data/checkpoints/j1-keypoints-v1`.
   Redis `posture:v1:judge:*`는 1시간 뒤 저절로 사라진다.
+
+### Kafka 토픽 보존 설정 (D-82)
+
+실시간 토픽 6개(`posture.features`·`inference`·`episodes`·`alerts`·`stored`·`keypoints`)는 보존 3일, `posture.dlq`는 7일, 세그먼트는 모두 1일이다([Kafka 명세](../docs/design/kafka-spec.md) 2장). 처리 서비스(`RealtimeTopicsConfig`)는 토픽을 **새로 만들 때만** 이 값을 넣으므로, 이미 있는 토픽은 한 번 맞춘다. 세그먼트를 줄이지 않으면 브로커 기본값(7일)이라 보존 3일이어도 최대 약 10일 남는다.
+
+```bash
+KC="docker exec kafka /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092"
+for t in posture.features posture.inference posture.episodes posture.alerts posture.stored posture.keypoints; do
+  $KC --alter --entity-type topics --entity-name $t --add-config retention.ms=259200000,segment.ms=86400000
+done
+$KC --alter --entity-type topics --entity-name posture.dlq --add-config retention.ms=604800000,segment.ms=86400000
+$KC --describe --entity-type topics --entity-name posture.features     # retention.ms=259200000, segment.ms=86400000
+```
+
+- 바꾼 값은 바로 적용된다(재시작 필요 없음). 이미 열려 있는 세그먼트는 새 `segment.ms`가 지나면 닫힌다.
+- 통합 테스트 2단계가 7개 토픽의 값을 확인한다. HDFS 임시 폴더(7일)는 J1이, Redis 판정 상태(TTL 1시간, `JUDGE_STATE_TTL_SECONDS`)는 처리 서비스가 지운다.
 
 ### 판정 결과 저장 (api-server `report`, D-30·D-51)
 

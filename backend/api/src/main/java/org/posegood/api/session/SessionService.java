@@ -194,11 +194,11 @@ public class SessionService {
 					interval.startMs(),
 					interval.endMs(),
 					Observation.Phase.valueOf(interval.phase().name()),
-					computed.deltas() == null
+					computed == null
 						? InferenceRequest.MeasurementQuality.poor
 						: InferenceRequest.MeasurementQuality.good,
-					computed.deltas());
-				accept(session, request, computed.invalidReason());
+					computed);
+				accept(session, request);
 				return status(session.engine());
 			});
 	}
@@ -223,7 +223,7 @@ public class SessionService {
 				}
 				int before = engine.eventCount();
 				engine.end(endMs == null ? last : Math.max(endMs, last));
-				publish(session, null, before, null, null);
+				publish(session, null, before, null);
 				persist(session);
 				return null;
 			});
@@ -252,7 +252,7 @@ public class SessionService {
 						previous.endReason("DAY_CHANGED");
 						int before = engine.eventCount();
 						var view = engine.end(engine.summary().totalMs());
-						publish(previous, null, before, null, "day_changed");
+						publish(previous, null, before, "day_changed");
 						persist(previous);
 						return view.summary();
 					});
@@ -276,8 +276,8 @@ public class SessionService {
 			});
 	}
 
-	/** 입력 하나를 세션 잠금 안에서 처리한다. {@code invalidReason}은 좌표에서 찾은 판정 불가 사유다. */
-	private void accept(LiveSession session, InferenceRequest request, String invalidReason) {
+	/** 입력 하나를 세션 잠금 안에서 처리한다. */
+	private void accept(LiveSession session, InferenceRequest request) {
 		String digest = fingerprint(request);
 		var cached = session.input(request.sequence());
 		if (cached != null) {
@@ -312,7 +312,7 @@ public class SessionService {
 			result = engine.end(result.summary().totalMs());
 			closedReason = "unmeasurable_timeout";
 		}
-		publish(session, observation, before, invalidReason, closedReason);
+		publish(session, observation, before, closedReason);
 		persist(session);
 	}
 
@@ -416,7 +416,7 @@ public class SessionService {
 
 	/** 새 결과를 실시간 채널로 알린다. {@code closedReason}은 서버가 스스로 끝냈을 때만 있다. */
 	private void publish(
-		LiveSession session, Observation observation, int before, String invalidReason, String closedReason) {
+		LiveSession session, Observation observation, int before, String closedReason) {
 		var engine = session.engine();
 		events.publishEvent(
 			new SessionUpdates.Progressed(
@@ -428,7 +428,7 @@ public class SessionService {
 				engine.ended(),
 				observation == null
 					? null
-					: engine.live(observation, invalidReason),
+					: engine.live(observation),
 				engine.pausedReason(),
 				closedReason));
 	}

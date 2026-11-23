@@ -89,6 +89,13 @@ export function SetupPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startWhenReady, measuring, registerAgain, camera.state, ready])
   const finished = registerAgain && flow.phase === 'done'
+  // 「다시 등록」·「새로 등록」 also work with the camera off: with a registered posture the camera
+  // only turns on to measure (auto start), so a button that waited for it was never usable (11/20).
+  // The armed flow waits for the camera and the person, and keeps the auto start off meanwhile.
+  function registerNow() {
+    if (camera.state === 'off' || camera.state === 'error') void camera.connect()
+    flow.start()
+  }
   // With a registered posture, 「카메라 켜기」 starts measuring once the person stays in view.
   const auto = useAutoStart({
     cameraOn: on,
@@ -150,13 +157,13 @@ export function SetupPage({
                 <ArrowCounterClockwise size={14} weight="bold" className="icon" />
                 다시 불러오기
               </button>
-              <button className="chip" disabled={!on} onClick={flow.start}>
+              <button className="chip" onClick={registerNow}>
                 새로 등록
               </button>
             </>
           )}
           {registered && !registering && !measuring && (
-            <button className="chip" disabled={!on} onClick={flow.start}>
+            <button className="chip" onClick={registerNow}>
               <ArrowCounterClockwise size={14} weight="bold" className="icon" />
               다시 등록
             </button>

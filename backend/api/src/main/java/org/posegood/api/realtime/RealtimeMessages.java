@@ -32,12 +32,6 @@ final class RealtimeMessages {
 			}
 		}
 
-		record Ack(String type, long lastSequence) {
-			Ack(long lastSequence) {
-				this("ack", lastSequence);
-			}
-		}
-
 		record ObservationPush(String type, Observation.V4 observation) {
 			ObservationPush(Observation.V4 observation) {
 				this("observation", observation);

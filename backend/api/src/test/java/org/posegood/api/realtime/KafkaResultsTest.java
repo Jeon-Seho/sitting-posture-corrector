@@ -54,7 +54,7 @@ class KafkaResultsTest {
 		results = new KafkaResults(mock(Consumer.class), "posture.episodes", "posture.alerts",
 			"posture.stored", JSON,
 			event -> published.add((PipelineResult)event),
-			(session, sequence) -> sequence == 7 ? "head_turn" : null, Duration.ofSeconds(2));
+			Duration.ofSeconds(2));
 	}
 
 	private static ObjectNode kafka(String name) throws Exception {
@@ -119,7 +119,7 @@ class KafkaResultsTest {
 		observation(8, 4000, 4500, "running", false);
 		observation(9, 4500, 5000, "rest", false);
 		sameFields("ws-observation-unmeasurable.json", app(0));
-		assertEquals("head_turn", app(0).get("observation").get("invalid_reason").asString());
+		assertEquals("unmeasurable", app(0).get("observation").get("invalid_reason").asString());
 		assertEquals("unmeasurable", app(1).get("observation").get("invalid_reason").asString());
 		assertEquals("unmeasurable", app(2).get("observation").get("invalid_reason").asString());
 		assertTrue(app(2).get("observation").get("posture").isNull());

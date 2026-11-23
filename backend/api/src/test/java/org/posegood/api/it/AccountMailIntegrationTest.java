@@ -99,8 +99,8 @@ class AccountMailIntegrationTest {
 		String code = codes.getValue();
 		String wrong = code.equals("000000") ? "000001" : "000000";
 		assertEquals(410, second.post("/auth/email-verification/confirm", Map.of("token", wrong)).status());
-		var row = jdbc.queryForMap("SELECT code_hash,attempt_count,verified_at,consumed_at FROM email_verification_token"
-			+ " WHERE login_email=? AND consumed_at IS NULL", email);
+		var row = jdbc.queryForMap("SELECT code_hash,attempt_count,verified_at,consumed_at"
+			+ " FROM email_verification_token WHERE login_email=? AND consumed_at IS NULL", email);
 		assertEquals(64, row.get("code_hash").toString().length());
 		assertNotEquals(code, row.get("code_hash"));
 		assertEquals(1, ((Number)row.get("attempt_count")).intValue());

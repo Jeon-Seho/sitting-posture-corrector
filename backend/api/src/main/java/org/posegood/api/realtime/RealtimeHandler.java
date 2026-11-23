@@ -61,7 +61,7 @@ import tools.jackson.databind.JsonNode;
  * <p>자정 넘김(BE-6 ① B안, {@code posegood.realtime.midnight-rollover}): KST 자정을 넘는 구간이 오거나 00:00:30까지
  * 구간이 없으면, 이전 세션을 마지막 구간 끝에서 끝내 저장하고 같은 연결을 서버가 만든 새 세션으로 잇는다
  * ({@code session_rollover}). 앱은 시간·순번을 연결 기준으로 계속 보내고, 서버가 자정 위치({@code at_ms})와 순번
- * 기준을 빼서 새 세션 값으로 바꾼다. {@code ack}·{@code observation}·{@code progress}·{@code stalled}의 순번은 앱이 보낸 번호 그대로다.
+ * 기준을 빼서 새 세션 값으로 바꾼다. {@code observation}·{@code progress}·{@code stalled}의 순번은 앱이 보낸 번호 그대로다.
  * 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않는다.
  */
 @Component
@@ -70,6 +70,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 	static final int MAX_BYTES = 64 * 1024;
 	private static final Set<String> HELLO_MEASURE = Set.of("type", "schema_version", "purpose", "session_id",
 		"access_token");
+	private static final Set<String> HELLO_FLAT = Set.of("type", "purpose", "session_id", "access_token");
 	private static final Set<String> FEATURES = Set.of("type", "items");
 	private static final Set<String> END = Set.of("type", "end_ms");
 	private static final String DAY_CHANGED = "day_changed";
@@ -232,9 +233,10 @@ public class RealtimeHandler extends TextWebSocketHandler {
 	/** hello: 측정({@code purpose: measure})만 받는다. 확인 뒤 {@code ready}를 보낸다. */
 	private void hello(Channel channel, WebSocketSession socket, JsonNode frame) {
 		long started = System.nanoTime();
-		if (!"2.0".equals(Json.text(frame.path("schema_version"), null))
-			|| !"measure".equals(Json.text(frame.path("purpose"), null))
-			|| !exactly(frame, HELLO_MEASURE)) {
+		boolean legacy = exactly(frame, HELLO_MEASURE)
+			&& "2.0".equals(Json.text(frame.path("schema_version"), null));
+		if (!"measure".equals(Json.text(frame.path("purpose"), null))
+			|| (!legacy && !exactly(frame, HELLO_FLAT))) {
 			reject(channel);
 			return;
 		}
@@ -268,7 +270,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		send(channel, new RealtimeMessages.V2.ReadyMeasure(id, channel.realtime.startedAt()));
 	}
 
-	/** 측정 구간 하나: 뒤쪽({@link MeasurementPipeline})에 넘긴다. observation·decision·alert는 이벤트로, 넘기면 ack(·progress). */
+	/** 측정 구간 하나: 뒤쪽({@link MeasurementPipeline})에 넘긴다. observation·decision·alert는 이벤트로, progress는 처리 경로에 따라 전달. */
 	private void measure(Channel channel, JsonNode frame) {
 		var interval = interval(frame);
 		if (interval == null) {
@@ -283,9 +285,8 @@ public class RealtimeHandler extends TextWebSocketHandler {
 				return;
 			}
 			if (interval.startMs() < channel.offsetMs || interval.sequence() < channel.sequenceOffset) {
-				// 자정에 걸쳤거나 넘긴 뒤 늦게 온 자정 전 구간: 어느 세션에도 넣지 않고 받았다고만 알린다.
+				// 자정에 걸쳤거나 넘긴 뒤 늦게 온 자정 전 구간: 어느 세션에도 넣지 않는다.
 				channel.lastSequence = Math.max(channel.lastSequence, interval.sequence());
-				send(channel, new RealtimeMessages.V2.Ack(channel.lastSequence));
 				return;
 			}
 			UUID id = channel.session;
@@ -294,8 +295,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 				var accepted = pipeline.frames(channel.owner, id, local, channel.realtime.baseline());
 				long last = accepted.lastSequence() + channel.sequenceOffset;
 				channel.lastSequence = last;
-				channel.ackedAt = System.nanoTime();
-				send(channel, new RealtimeMessages.V2.Ack(last));
+				channel.acceptedAt = System.nanoTime();
 				var status = accepted.progress();
 				if (status != null) { // kafka 경로의 progress는 결과 토픽에서 온다
 					send(channel, new RealtimeMessages.V2.Progress(last, status.summary(), status.pausedReason()));
@@ -465,7 +465,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 			}
 			boolean waitingEnd = channel.ending != 0 && now - channel.ending > END_STALL_NANOS;
 			boolean waitingResult = channel.ending == 0 && channel.lastSequence > channel.observedSequence
-				&& now - channel.ackedAt > STALL_NANOS;
+				&& now - channel.acceptedAt > STALL_NANOS;
 			if (waitingEnd || waitingResult) {
 				channel.stalledSent = true;
 				stalled(channel);
@@ -573,14 +573,19 @@ public class RealtimeHandler extends TextWebSocketHandler {
 
 	/** features의 구간 1개. 형식이 틀리거나 1개가 아니면 null. */
 	private FrameInterval interval(JsonNode frame) {
-		var items = frame.path("items");
-		if (!exactly(frame, FEATURES) || !items.isArray() || items.size() != 1) {
-			return null;
-		}
 		try {
-			var interval = json.convert(items.get(0), FrameInterval.class);
+			FrameInterval interval;
+			if (frame.has("items")) {
+				var items = frame.path("items");
+				if (!exactly(frame, FEATURES) || !items.isArray() || items.size() != 1) {
+					return null;
+				}
+				interval = json.convert(items.get(0), FrameInterval.class);
+			} else {
+				interval = FrameInterval.readFlat(frame);
+			}
 			return validator.validate(interval).isEmpty() ? interval : null;
-		} catch (ApiError invalid) {
+		} catch (ApiError | IllegalArgumentException invalid) {
 			return null;
 		}
 	}
@@ -694,8 +699,8 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		private volatile Instant endedAt;
 		/** 세션이 끝났을 때 보낼 closed 사유(시간 한도면 limit_reached). */
 		private volatile String endReason = "ended";
-		/** kafka 경로: 마지막 ack 시각(nanoTime), 결과로 받은 마지막 관측 순번, 종료를 보낸 시각(0이면 아직), stalled 보냄. */
-		private volatile long ackedAt;
+		/** kafka 경로: 마지막 입력 접수 시각(nanoTime), 결과로 받은 마지막 관측 순번, 종료를 보낸 시각(0이면 아직), stalled 보냄. */
+		private volatile long acceptedAt;
 		private volatile long observedSequence = -1;
 		private volatile long ending;
 		private volatile boolean stalledSent;

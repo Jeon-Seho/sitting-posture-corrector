@@ -6,7 +6,7 @@
 - features 는 특징 입력 구간 1개 → 관측 1개.
   점수는 팀 기준 규칙(reference-feature-rule-v1, 팀 model/inference/service.py와 같은 식):
       점수 = min(1, max(|head_gap|/0.22, |lateral_offset|/0.20, |shoulder_tilt|/0.03) * 0.7)
-  측정 중(running)·품질 good·특징 있음·현재/기준 품질 ≥ 0.65 일 때만 유효하고, 그 외에는
+  측정 중(running)·품질 good·특징 있음일 때만 유효하고, 그 외에는
   valid=false·점수 0·유형 none. 점수는 보정된 확률이 아니라 규칙 점수다.
 - LSTM(특징 입력 기준)은 모델이 정해지면 바꾼다(회의 안건 8 보류, D-34). (D-38·D-63) 옛 posture.summary 경로와 시험 LSTM은 지웠다.
 - (D-36) 처리할 수 없는 메시지는 posture.dlq로 넘기고 다음 메시지로 간다(파티션이 막히지 않게).
@@ -35,7 +35,6 @@ DLQ_MAX_PAYLOAD_CHARS = 256 * 1024
 REALTIME_ENABLED = os.getenv("REALTIME_ENABLED", "true").lower() != "false"
 
 MODEL_VERSION = "reference-feature-rule-v1"
-MINIMUM_FEATURE_QUALITY = 0.65
 HEAD_GAP_SCALE = 0.22
 LATERAL_OFFSET_SCALE = 0.20
 SHOULDER_TILT_SCALE = 0.03
@@ -70,8 +69,6 @@ def observation_from_features(body: dict) -> dict:
         and all(_finite(features.get(k)) for k in (
             "head_gap_delta", "lateral_offset_delta", "shoulder_tilt_delta",
             "current_quality", "baseline_quality"))
-        and features["current_quality"] >= MINIMUM_FEATURE_QUALITY
-        and features["baseline_quality"] >= MINIMUM_FEATURE_QUALITY
     )
     score, deviation_type = (score_feature_deltas(features) if valid else (0.0, "none"))
     return {

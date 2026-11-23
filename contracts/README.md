@@ -9,10 +9,12 @@
 MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API](accounts.md)를 따른다.
 계정·설정·기준·세션 REST 주소에는 버전이 없다(`/auth/…`·`/sessions/…` 등, 2026-11-09에 `/v2/…`에서 바꿈, 지금 DB V2.7). 계약 문서는 [계정 API](accounts.md)·[동의 문서](consent-documents.md)(BE, 10/15 합침)이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/fe/api-ws-spec.md)에 있다.
 
-AI 출력과 측정 조회의 기존 버전은 유지한다. 빅데이터 쪽 경계는 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)(DevOps)이 정한다.
+AI 출력과 측정 조회의 기존 버전은 유지한다. 빅데이터 쪽 경계는 [아키텍처 v5.5 스택별 역할](../docs/design/architecture_v5.5_stack_roles.md)(DevOps)이 정한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 초안](realtime/README.md)에 있다(팀 확인 전).
 Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시험용 입구)는 [Kafka 명세](../docs/design/kafka-spec.md)다. Kafka 계약(서버 안 서비스끼리)과 WebSocket 계약(앱 ↔ 입출구 서버)은 다른 것이다.
-앱 ↔ 입출구 서버 WebSocket은 [realtime-ws](realtime/realtime-ws.schema.json)와 [합성 예시](realtime/examples-ws/)다.
+앱 ↔ 입출구 서버의 현재 WebSocket 계약은 [realtime-ws](realtime/realtime-ws.schema.json)와 [합성 예시](realtime/examples-ws/)다.
+버전 없는 평탄화 입력과 호환 기간의 구형 입력을 받는다. [legacy 예시](realtime/examples-ws/legacy/)는
+구형 입력의 호환성과 삭제된 ack의 거절을 확인하며, 호환 지원을 종료할 때 관련 시험과 함께 제거한다.
 
 ## 모델명·특징 버전의 내부 관리
 
@@ -77,13 +79,13 @@ API의 HTTP 특징 입력 `POST /sessions/{UUID}/features`(S2)는 2026-10-28 지
 
 추론 점수는 `min(1, max(|head|/0.22, |lateral|/0.20, |shoulder|/0.03)*0.7)`이다.
 어깨 기울기 스케일은 [ADR 0020](../docs/decisions/0020-single-api-decision-engine.md)로 0.13에서 0.03으로 낮췄다.
-`running/good`, 특징 존재, 현재·기준 품질 각각 0.65 이상일 때만 유효하다.
+`running/good`이고 유한한 특징이 있으면 유효하다. 2026-11-19 서버 규칙 추론의 0.65 하한을 제거했다.
 그 외에는 관측의 `valid=false`, 점수 0, 유형 `none`이며 정상 시간으로 대체하지 않는다.
-품질·스케일·점수 임계값은 검증 전 규칙이다. 점수는 보정된 확률이 아니다.
+스케일·점수 임계값은 검증 전 규칙이다. 점수는 보정된 확률이 아니다.
 
 유효 점수 0은 `none`이다. 좌우 변화가 다른 두 변화보다 엄격히 우세하면
 원본 양수는 사용자 본인 기준 `left_lean`, 음수는 `right_lean`이다(카메라 원본 영상이 반전되지 않아 큰 x가 사용자 왼쪽, 2026-10-08 확인).
-좌우 치우침은 2026-10-08부터 양 귀 가운데(머리 중심) 기준이다. 고개를 돌린 프레임(귀 가운데 대비 코 위치 변화 0.15 초과)과 되돌린 뒤 1초를 `poor`로 보내던 것은 특징 변화량을 보내던 앱(~10/20)의 동작이다. 앱은 2026-10-21부터 좌표(`posture.frames`)만 보내고, 2026-10-22 고개 돌림 판정 코드를 지웠다. 고개 돌림은 서버가 판단한다(`invalid_reason: head_turn`).
+좌우 치우침은 2026-10-08부터 양 귀 가운데(머리 중심) 기준이다. 고개를 돌린 프레임(귀 가운데 대비 코 위치 변화 0.15 초과)과 되돌린 뒤 1초를 `poor`로 보내던 것은 특징 변화량을 보내던 앱(~10/20)의 동작이다. 앱은 2026-10-21부터 좌표(`posture.frames`)만 보내고, 2026-10-22 고개 돌림 판정 코드를 지웠다. 서버의 고개 돌림 제외도 2026-11-19 제거했으며 일반 자세로 채점한다([ADR 0053](../docs/decisions/0053-realtime-flat-input-and-server-filter-removal.md)).
 머리 높이·어깨 기울기 우세나 동점은 `unspecified`이며 전방 굽힘을 단정하지 않는다.
 출력은 [관측](posture-observation.schema.json), 모델명은 `reference-feature-rule-v1`이다.
 
