@@ -42,5 +42,5 @@
 - 시험: `frames.test.ts`(평탄화 필드, 빈 구간, 같은 시각, 늦은 프레임, `rest`·`away`), `LiveSession.test.ts`, `useSyntheticCamera.test.tsx`.
 - **운영 서버는 아직 구형만 받는다.** 이 앱을 서버보다 먼저 배포하면 측정이 시작되지 않는다(서버가 `hello`·`features`를 거절). 서버가 구형·신형을 함께 받게 된 뒤에 배포한다. 되돌리기는 Vercel 이전 배포로 한다.
 - 고개 돌린 프레임이 채점되므로, 서버의 지금 규칙 점수로는 고개를 돌린 동안 흐트러짐으로 나올 수 있다. ML 판별이 붙기 전까지의 한계다.
-- 계약 파일(`contracts/realtime/*`)과 BE 명세는 팀장 서버 작업에서 바꾼다. FE 명세는 이 판에 맞췄다.
+- 계약 파일(`contracts/realtime/*`, 새 `frames/posture-frame.schema.json`)과 BE 명세는 팀장 PR #143(ADR 0053)에서 바꿨다. FE 명세는 이 판에 맞췄다.
 - 응답(`observation`·B1·B2·S4·R1·W1)의 `schema_version`과 서버 안쪽 버전은 FE 제안서 요구 13에서 따로 정한다.

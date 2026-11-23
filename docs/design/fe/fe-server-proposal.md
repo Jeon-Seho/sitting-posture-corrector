@@ -9,17 +9,15 @@
 
 기준: develop `0c22338`(`/v2` 삭제 #138·DevOps #142 병합 뒤)과 팀장 PR #143 `feature/repo-realtime-message-simplification` `75df939`(실시간 메시지 평탄화, 열림), 2026-11-23 코드로 확인. FE가 다른 파트에 요청·확인해야 하는 것(0장)과 FE가 할 일(1장)만 남긴다. 끝난 것은 지우고(경위는 git 기록, 옛 판 `b03fd15`), 다른 파트 안의 일(아키텍처 문서, 좌표 보관 결정, 운영 배포 규칙, BE 내부 시험)은 적지 않는다. 항목마다 **한줄요약 · 발단**(어떻게 나온 이야기인가) **· 원인**(왜 문제인가) **· 요구사항/변경사항**(무엇을 어떻게, 어디를) 순서로 적는다.
 
-다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17).
+다른 파트(BE·DevOps·ML·PM)에 요청하거나 함께 정할 것이다. FE 몫이 있으면 요구 안에 적었다. 표와 아래 절은 **「언제」가 급한 것부터** 적고, 번호도 그 순서다(11/17 다시 매김, 절 제목 괄호가 처음 번호). 닫은 요구: 서버 health(옛 1)는 서버가 스스로 챙길 일이라 뺐고, kafka 모드 자정 넘김(옛 2)은 DevOps가 된다고 했고, 열린 채 남는 세션 닫기(옛 8)는 앱이 시작 실패를 오류 화면(500)으로 처리하고 측정 중에는 서버가 계속 저장해 남는 경우가 드물어 요청하지 않기로 했다(11/16). 한 계정 한 측정(옛 13)은 PR #127로 적용돼 닫았다(11/17). 탈퇴를 비밀번호 없이(요구 1, BE-25)는 서버 #131·앱 #132가 운영에 올라갔고, API 경로 `/v2` 빼기(요구 3)는 develop #138·Vercel 배포·gateway 별칭과 Discord 옛 Redirect 삭제(DevOps D-94, 11/23)로 끝나 닫았다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
 
 | # | 요구 | 누가 | 지금 상태(11/23) | 언제 |
 |---|---|---|---|---|
-| 1 | 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) | BE·FE | 서버 develop 병합(BE #131, 11/17), 앱 PR(11/17). 운영 배포 남음 | 운영 서버 먼저, 앱은 그 뒤 |
-| 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/16 시험은 서버가 local 모드여서 확인 못 함 | kafka 모드로 다시 하는 통신 시험 |
-| 3 | API 경로에서 버전(`/v2`) 빼기 | DevOps·BE·FE | **끝(11/23).** develop 병합(#138, 11/20) → Vercel 배포 → gateway 별칭 삭제(서버 11/22, 저장소 11/23)·Discord 옛 Redirect 삭제(DevOps D-94) | — |
+| 2 | Kafka 전환 때 판정 순서 확인 | DevOps·BE | 11/20 DevOps가 운영 앱으로 kafka 모드 통신 시험 S0~S12 통과(lag 0·DLQ 0). 운영 모드는 아직 local | 운영을 kafka로 바꿀 때 한 번 더(DevOps D-99) |
 | 4 | 실시간 `ack` 메시지 빼기 (BE-19) | 팀장·DevOps·FE | 서버 삭제는 팀장 PR #143(11/23 열림, 병합·배포 전). 앱은 `ack`를 읽지 않음(develop #137) | #143 배포 |
 | 5 | `features` 메시지에서 묶음 단계(`items[]`·`frames[]`) 빼기 (BE-20) | FE·BE·DevOps | 서버 신구형 받기는 팀장 PR #143(11/23 열림, 계약 `frames/posture-frame.schema.json`·ADR 0053). FE 구현(`feat/fe-realtime-flat-features`, ADR 0052)은 #143 계약과 대조해 차이 없음(11/23) | #143이 운영에 올라간 뒤 앱 배포 |
-| 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | develop의 kafka 코드(#134)는 서버 기본 정책으로 판정한다(로그만 남김) | kafka 모드를 운영에 켜기 전 |
-| 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐. 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
+| 6 | 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) | DevOps·BE | develop(11/23)에도 없음. 서버 기본 정책으로 판정한다(로그만 남김). DevOps D-86 #2로 담당 결정 대기 | kafka 모드를 운영에 켜기 전 |
+| 7 | 운영 서버 자정 넘김 켜기 | DevOps | 운영 설정 꺼짐(`POSEGOOD_MIDNIGHT_ROLLOVER=false`). kafka 모드는 코드에도 아직 없음(DevOps D-86 #6). 앱 처리는 운영에 있다 | 켜도 됨(BE 실제 MySQL 시험 뒤) |
 | 8 | 짧은 끊김 봐주기(`hold_ms`) 규칙 정하기 | BE·ML·FE | 정하지 않음 | 정할 것 |
 | 9 | 쉬기 자동 종료 (BE-13) | BE | 아직 없다 | 정할 것 |
 | 10 | 측정 시간 1분 미만인 세션 거르기 (BE-22) | BE·FE | 구현 전 | 정할 것 |
@@ -28,26 +26,7 @@
 | 13 | 메시지 안 버전 필드(`schema_version`) 빼기 (BE-26) | BE·FE | 없애기로 함(11/19 BE 동의). 앱은 응답 검사를 멈춤(develop #137). 앱 → 서버(`hello`·구간)는 팀장 PR #143에 들어감. 응답·추론·Kafka의 버전 칸은 #143에서도 남김(후속) | 응답은 BE 다음 PR, 추론·Kafka는 BE·DevOps가 정함 |
 | 14 | 기존 계정의 자세 알림이 꺼져 있는지 확인·켜기 (D-96, BE-27) | DB·BE | 운영 DB 기본값은 11/17 DevOps가 1로 고침. 남은 것: 값이 0인 옛 계정 켜기(DevOps D-96, 11/22 「지금 DB는 1로 저장」 — 옛 계정 확인 대기). 앱은 늘 「켜짐」으로 보이는데 꺼진 계정은 소리·팝업·토스트가 안 온다 | 확인되면 닫음 |
 
-**kafka 코드 확인(D-57 `feat/ws-kafka-pipeline`, 11/18 develop 병합 #134):** 요구 4는 반영되지 않았다(`ack` 전송). 요구 5 1단계(계약 `items` 최대 1)는 들어가 있다. 병합으로 develop에 들어온 것은 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. 처리 서비스는 구간마다 관측 → 사건 → 진행 순서로 보낸다(`JudgeRegistry`, 요구 2와 관련). ⑧의 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
-
-### 요구 1. 탈퇴를 비밀번호 없이 확인만으로 받기 (BE-25) (옛 16)
-
-- **한줄요약:** 탈퇴(A7)를 비밀번호 확인 없이 로그인 상태만으로 받는다. 실수는 앱의 확인 창(「정말 삭제하시겠습니까?」)으로 막는다.
-- **발단:** 11/16 운영 확인. 탈퇴 버튼이 동의 체크만으로는 켜지지 않았고(현재 비밀번호 필요), 보다 보니 Discord로 가입한 계정은 탈퇴할 수 없다는 것이 드러났다.
-- **원인:**
-  - A7 `DELETE /auth/account`는 본문 `{password}`가 필수이고(`AccountContracts.Withdrawal(NotNull String password)`), 비밀번호가 틀리면 400 `INVALID_PASSWORD`다(`AccountService.withdraw` → `requireCurrent`).
-  - Discord 가입 계정은 비밀번호가 없다(`!no-password`). 그래서 탈퇴가 **항상 실패**한다. 비밀번호를 만들 재설정 메일도 운영에서 꺼져 있다. 앱 안에서 탈퇴할 길이 없는데, 개인정보 동의를 받는 서비스라 탈퇴 길은 늘 있어야 한다.
-- **요구사항/변경사항:**
-  1. **BE:** A7이 비밀번호 없이 탈퇴를 받는다.
-     - `AuthController.withdraw`: 본문을 `RequestBody(required = false)`로 둬서 없어도 받는다.
-     - `AccountService.withdraw`: `requireCurrent` 확인을 뺀다. 계정 닫기·로그인 철회·실시간 연결 닫기(`requireActive` → `accounts.close` → `removeLogins` → `LoginsRemoved`·`AccountClosed`)는 그대로 둔다.
-     - **옛 앱 호환:** 한동안 본문에 `password`가 와도 무시하고 받는다. 그래야 서버를 먼저 바꿔도 지금 운영 앱의 탈퇴가 깨지지 않는다.
-     - 시험(`MySqlIntegrationTest` 탈퇴), BE 명세 A7, 계약 `accounts.md` A7 줄을 고친다.
-  2. **FE:** 프로필 설정의 탈퇴 칸에서 동의 체크박스와 비밀번호 조건을 뺀다. 「서버 계정 탈퇴」 버튼을 누르면 확인 창(`features/dialog/ConfirmDialog.tsx`)을 띄운다. 「정말 삭제하시겠습니까? 탈퇴는 되돌릴 수 없고 30일 뒤 계정과 기록이 삭제돼요.」 → 「탈퇴」 / 「취소」. 확인하면 본문 없이 A7을 보낸다. 비밀번호 변경 칸은 그대로 둔다. 기능 명세 「회원탈퇴」와 연동 명세 A7도 고친다.
-  3. **순서:** 서버(1)를 먼저 배포하고 앱(2)을 배포한다. 서버가 두 방식을 다 받으니 그 사이에도 탈퇴가 깨지지 않는다.
-- **알고 정한 것:** 비밀번호 확인이 빠지면, 로그인된 채 자리를 비운 기기에서 다른 사람이 확인 창만 눌러 탈퇴시킬 수 있다. 확인 창은 실수만 막는다. 서비스 규모와 Discord 계정의 탈퇴 길을 생각해 받아들인다(11/16 FE 결정).
-- **진행(11/17):** FE 2번을 `docs/fe-docs-sync`에서 했다(`ServerAccountPage.tsx`, 시험 `ServerAccountPage.test.tsx`, 기능 명세·연동 명세). Discord 계정 안내 문구에서 「탈퇴에는 비밀번호가 필요」도 뺐다. 앱 수정은 `fix/fe-withdrawal-no-password`로 옮겨 서버보다 늦게 넣었다. 서버 1번은 김유진이 BE #131(`6002aa1`, 11/17 develop 병합)로 했다: A7이 본문을 읽지 않고 비밀번호를 확인하지 않으며, 옛 앱의 `{password}`는 무시하고 204. **남은 것은 운영 배포 순서뿐**이다: 운영 서버를 먼저 올리고 앱(Vercel)을 올린다.
-- **함께 풀리는 것:** Discord 가입 계정의 탈퇴. 비밀번호 변경은 여전히 비밀번호가 있는 계정만 된다. Discord 계정이 비밀번호를 만드는 길은 재설정 메일이 켜진 뒤의 일이다.
+**kafka 코드 확인(D-57 `feat/ws-kafka-pipeline`, 11/18 develop 병합 #134):** 요구 4는 반영되지 않았다(`ack` 전송 — 서버 삭제는 #143). 요구 5 1단계(계약 `items` 최대 1)는 들어가 있다. 병합으로 develop에 들어온 것은 S4가 받은 마지막 결과로 답하기·종료 뒤 `stalled` 3초(D-57 ⑧, FE 요청 반영), 좌표 구간을 적재 전용 토픽으로 보내 J1이 HDFS에 저장하기(D-92)가 있고, develop을 받아 S4 답하는 순서(local 끝난 결과 → DB → 메모리)도 합쳐졌다. 처리 서비스는 구간마다 관측 → 사건 → 진행 순서로 보낸다(`JudgeRegistry`, 요구 2와 관련). ⑧의 FE 확인(D-87)은 앱 쪽이 이미 처리한다([예외 처리 방안](fe-exception-handling-plan.md) 2.1의 4·5번).
 
 ### 요구 2. Kafka 전환 때 판정 순서 확인 (옛 3)
 
@@ -55,21 +34,8 @@
 - **발단:** local은 API 한 곳이 차례대로 처리해 순서가 지켜지지만, kafka는 판정이 처리 서비스로 옮겨 간다.
 - **원인:** kafka 판정기는 이미 반영한 `sequence`는 버리고, 번호가 건너뛰면 `missing_sequence`로 끊는다([kafka-spec.md](../kafka-spec.md) 3.3, `SessionJudge`). 늦게 온 결과를 기다려 주던 버퍼(#91 `PendingIntervals`)는 #91과 함께 빠졌다. 순서가 바뀌면 판정이 끊긴다.
 - **요구사항/변경사항:** 전환 시험(계획 0031)에서 순서를 확인하고, 바뀌면 버퍼를 다시 넣는다. 판정은 결과가 오는 즉시, 시간은 촬영 시각으로 센다(3초 묶음으로 되돌리지 않음).
+- **진행(11/20, DevOps):** 운영 앱(app.posegood.site)으로 kafka 모드 통신 시험 S0~S12를 통과했다(재알림·저장 지연·S4·lag 0·DLQ 0). 운영 기본값은 아직 local이라, 운영을 kafka로 바꿀 때(DevOps D-99) 다시 본다.
 - **진행(11/17):** 11/16 FE 포함 통신 시험은 서버가 local 모드로 진행돼 kafka 경로를 확인하지 못했다. kafka 모드로 다시 시험한다(시작 전 `POSEGOOD_REALTIME_PIPELINE=kafka`, 끝난 뒤 `features`·`inference`·`episodes`·`stored` 토픽 오프셋이 늘었는지 확인).
-
-### 요구 3. API 경로에서 버전(`/v2`) 빼기 (옛 10)
-
-- **한줄요약:** 모든 주소의 `/v2`를 뺀다(`/api/v2/auth/login` → `/api/auth/login`, 측정 WebSocket `/api/realtime`, 추론 `POST /infer`). **운영 서버는 11/18 바뀌었고(옛 주소는 임시 별칭), develop 병합과 웹 배포가 남았다.**
-- **발단:** DevOps 요청. Notion 문서를 고치면서 경로마다 붙은 `/v2` 때문에 API를 찾기 힘들다는 의견이 나왔다.
-- **원인:** `/v2`는 옛 v1 API와 함께 운영하려고 붙인 구분이다. v1이 모두 없어져 지금은 구분하는 것이 없고 경로만 길어진다.
-- **진행(11/18):** 김유진이 BE 브랜치 `refactor/repo-remove-api-version-paths`(`eae3317`)에서 서버·추론·nginx·점검 도구·계약·문서와 **앱 코드**(`API_ROOT` = `'/api'`, `API_VERSION` 삭제, 가짜 서버·시험 주소)를 한 번에 고쳤다. PR #125는 병합 없이 닫혔고(11/17), 같은 브랜치에서 이어 develop `ed72615`(#134 kafka 포함)을 받았다. [ADR 0049](../../decisions/0049-no-version-in-names.md)·[계획 0097](../../plans/active/0097-kafka-processing-remove-versions.md)로 Kafka 토픽(`posture.features` 등)·처리 서비스·계약 파일 이름(`realtime-ws.schema.json`, `accounts.md`, 예시 `examples-ws/`)의 버전도 뺐다. FE는 같은 브랜치 위에서 이 문서·ADR의 주소와 브라우저 저장 키 이름(할 일 8)을 정리했다. 메시지 안 버전 필드는 요구 13으로 따로 한다.
-- **서버 반영(11/18, D-94):** DevOps가 운영 서버를 버전 없는 판으로 바꿨다(운영 모드는 local 그대로). 운영 앱은 아직 `/api/v2/…`를 부르므로 **gateway에 임시 별칭**을 두었다(`/api/v2/realtime` → `/realtime`, `/api/v2/…` → `/…`, `infra/nginx/gateway.conf`, #135). 옛 Discord 콜백도 별칭으로 이어져 Discord 로그인이 유지된다. 그래서 **서버와 웹을 같은 때 바꿀 필요가 없어졌다.**
-  - FE 확인: 로그인 유지 쿠키는 경로가 `/`(`posegood.auth.refresh-cookie-path`)라 주소가 `/api/v2/auth/…` → `/api/auth/…`로 바뀌어도 그대로 실려, 배포 때 다시 로그인할 일이 없다.
-- **요구사항/변경사항 — 남은 순서:**
-  1. FE: `docs/fe-remove-v2-sync`(이 문서·ADR·저장 키, 할 일 8)를 BE 브랜치로 보낸다. DevOps 별칭(#135)은 11/19 같은 브랜치에 들어갔다.
-  2. DB/BE: 브랜치를 develop에 병합 → FE: 포크를 올려 Vercel 배포(할 일 7).
-  3. FE 배포 확인 뒤 DevOps: gateway 별칭 삭제, 서버 `.env` `POSEGOOD_DISCORD_REDIRECT_URI`와 Discord Portal Redirect를 `…/api/auth/social/discord/callback`으로 **함께** 바꾼다. 그 전까지 둘 다 옛 주소 그대로.
-- **알고 정한 것:** 화면을 앱 안에 가진 옛 데스크톱 설치판은 옛 주소로 요청하므로 배포 뒤 로그인·측정이 안 된다. 받아 주지 않고 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다(11/16 BE 결정).
 
 ### 요구 4. 실시간 `ack` 메시지 빼기 (BE-19)
 
@@ -116,7 +82,7 @@
 - **진행(11/19):** 팀장 계약안(11/18)으로 진행한다. 형식은 [ADR 0052](../../decisions/0052-flat-realtime-features.md): 구간 필드와 프레임 한 장을 최상위에, phase `running`·`unmeasurable`·`rest`·`away`, 측정 불가 기준은 양 어깨, 고개 돌림은 ML이 판별, `hello`에도 버전 없음(FE 회신 의견). 4번(앱)은 `feat/fe-realtime-flat-features`에 구현했고, 2번(서버 신구형 받기)이 끝난 뒤 배포한다.
 - **진행(11/23):** 팀장 PR #143(`feature/repo-realtime-message-simplification`)이 서버 신구형 받기(2번)와 계약 `contracts/realtime/frames/posture-frame.schema.json`·ADR 0053을 올렸다. FE가 인계 문서(11/22)의 계약과 앱 구현을 대조해 차이가 없음을 확인했고, `feat/fe-realtime-flat-features`에 develop을 받았다. 4번 배포는 #143이 운영에 올라간 뒤, 그 전에 공동 회귀 시험(인계 문서 4장)을 한다. 서버는 품질·위치·고개 돌림 거르기와 visibility 0.65 하한도 지웠다 — 품질 판단은 앱의 양 어깨 기준뿐이다.
 
-  kafka `posture.features`과 추론 `POST /infer`는 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄).
+  kafka `posture.features`와 추론 `POST /infer`는 이번에 바뀌지 않는다(서버가 계산한 특징 변화량을 보냄). ML 프레임 RF를 붙일 때 관절 좌표로 바뀐다(DevOps D-100, 아래 「지금 하지 않는 것」).
 
 ### 요구 6. 판정기가 세션 정책을 놓치면 사용자 설정으로 판정하기 (BE-24) (옛 15)
 
@@ -204,11 +170,11 @@
 - **원인(11/19 코드 확인):**
   - 값이 생긴 이유는 둘이다. 옛 v1과 함께 쓰던 때의 구분(`hello` `"2.0"`, 추론 요청 `"2.0"`)과 형식을 바꿀 때마다 올린 번호(구간 `"3.0"`, `observation` `"4.0"`)다. 옛 형식은 바로 지워 지금은 판마다 하나뿐이다.
   - 서버(io-api `RealtimeHandler`·`FrameInterval`·`InferenceClient`, 처리 서비스·추론의 Kafka 봉투)와 앱(`baseline/client.ts`, `session/server/validation.ts`) 모두 「이 값 하나가 아니면 거절」이고, **값에 따라 다르게 처리하는 코드는 없다.**
-  - 옛 형식을 알아보는 일은 칸 목록 검사(모르는 칸·빠진 칸 거절)와 DevOps 로그로 충분하다. 옛 데스크톱 설치판은 받지 않기로 했다(요구 3).
+  - 옛 형식을 알아보는 일은 칸 목록 검사(모르는 칸·빠진 칸 거절)와 DevOps 로그로 충분하다. 옛 데스크톱 설치판은 받지 않기로 했다(11/16 BE 결정).
   - 그런데 양쪽이 값을 검사하므로 한쪽만 먼저 빼면 다른 쪽이 정상 메시지를 거절한다. 앱이 먼저 빼면 서버가 `hello`를 거절해 측정이 안 되고, 서버가 먼저 빼면 열려 있던 옛 앱 탭이 기록·기준 자세 응답을 버린다.
 - **요구사항/변경사항:** 메시지마다 맡는 곳과 순서가 다르다(11/19 BE 회신으로 정함).
-  1. **앱 → 서버(`hello`·`features`):** 팀장 「실시간 WebSocket 계약 변경 검토 요청」(11/18)으로 빠진다. 앱은 `feat/fe-realtime-flat-features`에서 버전 없는 `hello`·평탄화 `features`로 구현했고(ADR 0052), 서버가 구형·신형을 함께 받게 된 뒤 배포한다(요구 5).
-  2. **서버 → 앱 응답(`observation`·B1·B2·S4·R1·W1):** FE 검사 멈춤(`30f2677`, 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음)이 #137로 BE `/v2` 브랜치에 들어갔다. 이 판이 배포된 뒤 BE가 응답에서 칸을 뺀다(BE 계획에 있음).
+  1. **앱 → 서버(`hello`·`features`):** 팀장 PR #143(11/23 열림)으로 빠진다. 앱은 `feat/fe-realtime-flat-features`에서 버전 없는 `hello`·평탄화 `features`로 구현했고(ADR 0052), 서버가 구형·신형을 함께 받게 된 뒤 배포한다(요구 5).
+  2. **서버 → 앱 응답(`observation`·B1·B2·S4·R1·W1):** FE 검사 멈춤(`30f2677`, 기준 자세·세션·사건 응답에서 칸이 있어도 없어도 받고 값은 보지 않음)이 #137·#138로 develop에 들어가 운영 앱에 배포됐다(11/20). 이제 BE가 응답에서 칸을 빼도 된다(BE 다음 PR, #143에는 없음).
   3. **io-api ↔ 추론, Kafka 봉투·본문:** 같은 요청·관측 형식이 HTTP와 Kafka 본문에 함께 쓰이므로 BE가 **한 PR**에서 한다. io-api·추론은 같은 배포 묶음이지만 **처리 서비스는 따로 배포된다**(`infra/compose/bigdata.yaml`). 그래서 Kafka 쪽은 「받는 쪽이 있어도 없어도 받기 → 보내는 쪽 빼기 → 받는 쪽 정리」로 하거나, 운영이 local 모드인 동안 한 번에 바꾸고 옛 시험 메시지는 버린다(BE·DevOps가 정함).
   4. **「검사하지 않는다」는 칸이 있어도 없어도 받는다는 뜻이다.** io-api는 모르는 칸·빠진 칸을 모두 거절하므로(`fail-on-unknown-properties`) 값 검사만 지워서는 안 된다. 앱도 그렇게 했다(`validation.ts` `exactVersionless`).
   5. BE는 ADR 0049 결정 4와 `contracts/README.md`의 「지금 값을 그대로 보내고 검사한다」를 같이 고친다. 이름에 판 번호가 남은 클래스(`Observation.V4`, `RealtimeMessages.V2`, 추론 `InferenceRequestV2`)도 같은 PR에서 정리하면 좋다(BE 참고).
@@ -230,7 +196,7 @@
 
 ## 1. 해야 할 일
 
-FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났다. 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
+FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·합성 시연 지우기)는 하지 않기로 해 뺐고, 할 일 6(Discord 로그인 버튼 켜기)은 11/16 Vercel 빌드 변수를 켜 끝났고, 할 일 8(브라우저 저장 키에서 버전 빼기)은 #137·#138로 운영에 배포됐다(옛 키는 `storage/renamedKeys.ts`가 옮김, 기록은 ADR 0049 결과). 만든 사람의 기능이라 필요 없어지면 그쪽에서 정한다. 번호는 다른 문서가 가리키므로 다시 매기지 않는다.
 
 | # | 할 일 | 언제 |
 |---|---|---|
@@ -238,8 +204,7 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 | 3 | 시험 전용 로컬 로그인 지우기 | 급하지 않음 |
 | 4 | Cloudflare 요청 제한 좁히기 | 시연 전 |
 | 5 | 정식 공개 때 검색 노출 막기 지우기 | 정식 공개 |
-| 7 | API 주소 `/v2` 삭제 배포 대응 | BE 브랜치 develop 병합 뒤 |
-| 8 | 브라우저 저장 키에서 버전 빼기 | 코드 끝, 할 일 7과 같이 배포(서버와 무관) |
+| 7 | `/v2` 삭제 뒤 남은 정리: Cloudflare 옛 경로, 옛 데스크톱 설치판 안내 | 지금(했으면 지움) |
 
 #### 할 일 1. 탈퇴한 계정 문의 안내
 
@@ -260,8 +225,8 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 - **한줄요약:** 로그인·가입에만 요청 제한을 걸고, 평소 값과 시연 날 값을 정한다.
 - **발단:** DevOps 질문(9.6.3 Q3).
-- **원인:** `/api/v2/auth/*` 제한(같은 IP 10초 20번)에 로그인 유지(A8 refresh)도 걸린다. 학교 공인 IP 하나 뒤에서 여러 명이 쓰면 막힐 수 있다.
-- **요구사항/변경사항:** klaod-tech의 Cloudflare 규칙 `auth-rate-limit`만 바꾼다. ① 대상을 `/api/auth/login`·`/api/auth/register`로 좁힘(`/v2` 삭제 배포 전까지는 옛 `/api/v2/auth/…`도 함께, 할 일 7) ② 평소 값을 넉넉하게 ③ 시연 날 값을 따로. 서버·gateway는 할 일 없음.
+- **원인:** 지금 규칙은 `/api/v2/auth/*`에 걸려 있다(같은 IP 10초 20번). 주소에서 `/v2`가 빠져 이 규칙은 더 걸리지 않고, 다시 걸 때 로그인 유지(A8 refresh)까지 걸리면 학교 공인 IP 하나 뒤의 여러 명이 막힐 수 있다.
+- **요구사항/변경사항:** klaod-tech의 Cloudflare 규칙 `auth-rate-limit`만 바꾼다. ① 대상을 `/api/auth/login`·`/api/auth/register`로 좁힘(옛 `/api/v2/auth/…`는 할 일 7에서 뺌) ② 평소 값을 넉넉하게 ③ 시연 날 값을 따로. 서버·gateway는 할 일 없음.
 
 #### 할 일 5. 정식 공개 때 검색 노출 막기 지우기
 
@@ -270,28 +235,12 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 - **원인:** 접속이 아니라 검색 노출만 막는 설정이라, 공개하면 지워야 검색에 나온다.
 - **요구사항/변경사항:** [robots.txt](../../../frontend/public/robots.txt)의 `Disallow: /`와 [vercel.json](../../../frontend/vercel.json)의 `X-Robots-Tag`를 지우고 포크를 최신화해 배포한다.
 
-#### 할 일 7. API 주소 `/v2` 삭제 배포 대응
+#### 할 일 7. `/v2` 삭제 뒤 남은 정리
 
-- **한줄요약:** BE 브랜치가 develop에 들어가면 포크를 올려 Vercel을 배포하고, 새 주소로 부르는지 확인한 뒤 DevOps에 별칭 삭제를 알린다.
-- **발단:** 11/16 BE 공지(develop 병합 안내, 배포 때 바꿀 설정)와 11/18 DevOps 공유(서버 반영·전환 기간 별칭, D-94).
-- **원인:** Vercel은 **포크 develop에 push될 때** 배포한다. 운영 서버는 11/18부터 새 주소와 옛 주소(gateway 별칭)를 둘 다 받으므로, 옛 앱·새 앱 어느 쪽이 나가도 끊기지 않는다. 별칭을 지우는 것은 FE 배포를 확인한 뒤다. 앱 코드 수정은 BE 브랜치에 이미 있어 FE가 고칠 코드는 없다(저장 키는 할 일 8).
+- **한줄요약:** `/v2` 삭제는 끝났다(develop #138, Vercel 배포, gateway 별칭·Discord 옛 Redirect 삭제 — DevOps D-94, 11/23). FE 몫으로 두 가지만 남았는지 확인하고, 했으면 이 절을 지운다.
 - **요구사항/변경사항:**
-  1. **배포 전(미리):** Cloudflare `auth-rate-limit`에 새 경로를 더한다. 별칭이 남은 동안은 옛 경로도 실제로 쓰이므로 둘 다 둔다. 할 일 4와 같이 하면 대상은 `/api/auth/login`·`/api/auth/register`·`/api/v2/auth/login`·`/api/v2/auth/register` 네 개다.
-  2. **BE 브랜치가 develop에 들어가면:** 포크 develop을 push해 Vercel을 배포한다. Vercel 환경 변수는 바꾸지 않는다. 확인(DevOps 요청):
-     - 브라우저 개발자 도구 네트워크 탭에서 REST가 `/api/…`(버전 없음), WebSocket이 `/api/realtime`인지
-     - 웹 로그인 → 측정 시작·종료 → 기록, Discord 로그인, 로그인을 빠르게 여러 번 눌러 요청 제한
-     - 데스크톱 앱(F14)도 같은 확인. 새 설치판 exe는 웹 주소를 열어 Vercel 배포를 따라가므로 `frontend/electron/`을 바꿀 때만 같은 판으로 다시 만든다(`npm run desktop:portable` → `release/PoseGood.exe`).
-  3. **확인 뒤:** DevOps에 알려 별칭 삭제·Discord Redirect 변경(요구 3의 3번)을 하게 한다. 그 뒤 Cloudflare 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고, 옛 데스크톱 설치판(화면을 앱 안에 가진 판) 사용자에게 새 설치판을 다시 깔라고 안내한다 — 별칭이 지워지면 옛 판은 로그인·측정이 안 된다.
-  4. **문제가 생기면:** 별칭이 남아 있는 동안은 **웹만** Vercel에서 이전 Production 배포로 되돌리면 된다. 별칭을 지운 뒤라면 서버·웹을 둘 다 되돌린다.
-
-#### 할 일 8. 브라우저 저장 키에서 버전 빼기
-
-- **한줄요약:** 브라우저 저장 키 `posegood.v2.*`를 `posegood.*`로 바꾸고, 옛 키에 있던 값은 앱을 켤 때 한 번 옮긴다. **코드는 11/18 함**(`docs/fe-remove-v2-sync`, BE `/v2` 삭제 브랜치 위).
-- **발단:** 요구 3을 정리하며 앱에 남은 `v2`를 모두 찾았다. 주소의 `/v2`는 BE 브랜치가 지웠고, 저장 키는 [ADR 0049](../../decisions/0049-no-version-in-names.md) 「결과」가 「옮겨 담는 코드 없이 바꾸지 않는다」고 남겨 둔 일이다.
-- **원인:** 이름만 바꾸면 사용자가 이 기기에 둔 값(메인 카메라, 추적 속도, 옛 로컬 자료)을 못 찾는다.
-- **바꾼 것:** 기록은 [ADR 0049](../../decisions/0049-no-version-in-names.md) 결과(11/18 FE)와 git에 있다. 옛 키 값은 `storage/renamedKeys.ts` `moveRenamedKeys`가 앱을 켤 때 한 번 옮긴다. **남은 것은 할 일 7과 같이 배포하는 것뿐이다.**
-- **남긴 것(바꾸지 않음):** `posegood.appearance.v1`(테마. 데스크톱 시작·연결 실패 화면과 정적 404가 같은 키를 읽어 `electron/`과 함께 바꿔야 함 — 새 데스크톱 설치판을 낼 때 같이 정한다), `posegood.account.v3.{user}.pending-results`(옛 앱이 남긴 키를 **지우는** 코드라 옛 이름 그대로여야 함), 동의 문서 버전 `service-v2`와 개발자 실험 파일 형식(ADR 0049 예외).
-- **알고 정한 것:** 배포 직후 옛 판 탭이 열려 있으면 그 탭은 옛 키에 계속 쓴다. 그 뒤 새 판이 켜지면 새 키에 이미 값이 있어, 옛 탭이 쓴 값은 옮기지 않고 지운다. 서버 계정은 판정 기준·기록을 서버(W1·R1)에 두므로 잃는 것은 이 기기 화면 설정 정도다.
+  1. Cloudflare `auth-rate-limit` 규칙에서 옛 경로 `/api/v2/auth/…`를 빼고 새 경로로 건다(할 일 4와 같이).
+  2. 옛 데스크톱 설치판(화면을 앱 안에 가진 판) 사용자에게 새 설치판(웹 주소를 여는 판, F14)을 다시 깔라고 안내한다. 별칭이 지워져 옛 판은 로그인·측정이 안 된다.
 
 ### 요구가 끝나면 FE가 할 일
 
@@ -299,15 +248,13 @@ FE(klaod-tech)가 직접 하는 일이다. 할 일 2(발표용 예시 기록·�
 
 | 요구 | FE가 할 일 | 언제 |
 |---|---|---|
-| 1 탈퇴 | 프로필 설정 탈퇴 칸에서 동의 체크박스·비밀번호 조건을 빼고 확인 창(「정말 삭제하시겠습니까?」, `ConfirmDialog`)을 띄운 뒤 본문 없이 A7. 기능 명세 「회원탈퇴」·연동 명세 A7. **코드는 11/17 함, 배포만 남음** | 서버 배포 뒤 바로 |
-| 3 `/v2` 빼기 | 할 일 7(앱 코드는 BE 브랜치에 이미 있음) | BE 브랜치 develop 병합 뒤 |
-| 4 `ack` 빼기 | 앱·연동 명세는 11/19 함. 계약은 팀장 작업 | — |
-| 5 `features` 묶음 단계 | 앱 새 형식 배포(구현은 11/19, `feat/fe-realtime-flat-features`) | 서버가 신형을 받은 뒤 |
+| 4 `ack` 빼기 | 앱·연동 명세는 11/19 함. 계약·서버는 #143 | — |
+| 5 `features` 묶음 단계 | 공동 회귀 시험(#143 인계 문서 4장) 뒤 앱 새 형식 배포(구현 11/19, develop 받음 11/23, `feat/fe-realtime-flat-features`) | #143이 운영에 올라간 뒤 |
 | 7 운영 자정 넘김 | 아래 「지금 하지 않는 것」 두 가지: 자정 점검 시나리오(`midnight.mjs`·README), 앱 날짜 나누기(`dailyMeasurement.ts` `recordsByDay`, 지금은 예시 기록에만 쓰임) 정리 | 운영에서 켠 뒤 |
 | 9 쉬기 자동 종료 | 새 종료 사유(안: `closed(rest_timeout)`) 처리와 문구 | 서버 사유가 정해진 뒤 |
 | 10 1분 미만 세션 | 같은 기준으로 저장 확인을 하지 않고(`useSessionPersistence` `finish`) 결과 화면에 「1분 미만 측정은 기록에 남지 않아요」 | 기준이 정해진 뒤 |
 | 12 T1 일별 통계 | 기간 화면을 어제까지 T1, 오늘은 R1로(같은 날짜를 겹쳐 더하지 않음, [연동 명세](api-ws-spec.md) 4.5) | T1이 생긴 뒤 |
-| 13 `schema_version` 빼기 | ① 응답 검사 멈춤(11/19 함, #137) ② `hello`·구간에서 칸 빼기(11/19 함, `feat/fe-realtime-flat-features`) | ②는 팀장 서버가 신형을 받은 뒤 배포 |
+| 13 `schema_version` 빼기 | ① 응답 검사 멈춤(11/19 함, #137) ② `hello`·구간에서 칸 빼기(11/19 함, `feat/fe-realtime-flat-features`) | ②는 #143이 운영에 올라간 뒤 배포 |
 
 앱 일이 없는 요구: 2(판정 순서 확인), 6(판정기 정책), 8(끊김 봐주기 — 앱은 서버 `hold_ms`를 그대로 그림), 11(W1 `records` 빼기), 14(알림 값 켜기). [FE 예외 처리 방안](fe-exception-handling-plan.md) 4·5장의 FE 제안도 정해지면 여기에 옮긴다.
 
@@ -427,7 +374,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 서버 | 코드 | 하는 일 |
 |---|---|---|
 | **io-api** (입출구 서버) | `backend/api` | 로그인(JWT access 30분·refresh 14일, [ADR 0031](../../decisions/0031-jwt-access-refresh-login.md)), REST(A·C·W·B·S·R), 측정 WebSocket `/realtime`. 앱이 통신하는 곳은 여기 하나다 |
-| 추론 | `backend/inference` | local: io-api가 `POST /infer`로 부른다. kafka: `posture.features`을 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`) |
+| 추론 | `backend/inference` | local: io-api가 `POST /infer`로 부른다. kafka: `posture.features`를 읽어 결과를 낸다. 점수는 지금 규칙 점수(`reference-feature-rule-v1`). ML 프레임 RF로 바꾸는 것은 예정(PR #140, DevOps D-100) |
 | 처리 서비스 | `backend/processing` | kafka 경로에서 판정(`SessionJudge`)과 저장. local에는 쓰이지 않는다 |
 | gateway | `infra/nginx`, compose `gateway` | 터널로 들어온 요청 중 `/api/`·`/api/realtime`·`/health`만 io-api로. `X-Forwarded-Proto https` 고정. 화면 파일은 내지 않는다 |
 | web(8088) | compose `web` | 서버 PC 안 시험용 화면+API(SSH 포워딩) |
@@ -436,11 +383,11 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 
 1. 앱이 S1으로 세션을 만들고 WS `hello`(access 토큰) → `ready`.
 2. 앱이 프레임마다 `features`를 보낸다. io-api가 좌표에서 기준 자세 대비 특징 변화량을 계산 → 추론 → 판정 엔진(3초 확정·회복·60초 재알림, 시간은 앱이 찍은 구간 시각으로) → MySQL.
-3. 구간마다 `observation`·(`decision`·`alert`)·`ack`·`progress`를 같은 연결로 보낸다.
+3. 구간마다 `observation`·(`decision`·`alert`)·`ack`·`progress`를 같은 연결로 보낸다(`ack`는 #143부터 없음, 앱은 읽지 않음).
 4. `end` → `decision(session_ended)` → `closed(ended)`. 연결이 끊기면 마지막으로 받은 구간 끝에서 서버가 끝내 저장한다. 재연결은 없다([ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)).
 5. 판정 불가·자리 비움이 30분 이어지면 서버가 끝낸다(`unmeasurable_timeout`). 자정 넘김(`session_rollover`)은 구현돼 있지만 운영 설정은 꺼져 있다(요구 7).
 
-**kafka 경로 (D-57, 브랜치)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 4·4·5.
+**kafka 경로 (D-57, develop #134, 운영은 아직 local)**: 앱 쪽 계약은 같다. 판정·저장이 처리 서비스로 옮겨 가고, `closed`는 DB 저장이 끝난 뒤 온다(D-67). `end` 뒤 3초 안에 저장이 안 끝나면 `stalled`, 저장 전 S4는 마지막 결과로 200(`ended: false`). 운영 전환은 DevOps D-99(D-86 #4·#6 담당 결정 뒤). 다른 점과 남은 일은 [FE 예외 처리 방안](fe-exception-handling-plan.md)과 요구 2·6.
 
 **서버 설정값** (운영, DevOps)
 
@@ -474,7 +421,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 
 | 잡 | 시각 | 하는 일 |
 |---|---|---|
-| J1 | 매시 20분 | 측정 원문을 HDFS에 쌓는다. 좌표는 없고 특징 변화량만 있다 |
+| J1 | 매시 20분 | kafka 경로의 측정 원문을 HDFS 사용자 폴더에 쌓는다. 좌표 적재(`posture.keypoints`, D-92)는 있지만 스위치가 꺼져 있고, 운영이 local이라 실제 사용자 세션은 아직 쌓이지 않는다(DevOps D-77) |
 | J2 | 매일 00:10 | 어제~7일 전 끝난 세션 → 사용자별 `daily_stat`. 자정에 끊긴 세션이 저장될 시간을 두려고 00:00에서 미뤘다 |
 | J3 | 매일 04:00 | 탈퇴 30일 지난 계정 최종 삭제 |
 
@@ -485,7 +432,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 도메인·DNS | `posegood.site`(klaod-tech 개인 계정, 가비아), DNS는 Cloudflare 무료. `app.`은 DNS only(Vercel), `api.`는 프록시(터널) |
 | 화면 | Vercel 프로젝트는 klaod-tech 포크(`klaod-tech/sitting-posture-corrector`) develop을 배포한다. 원래 저장소 develop에 합쳐도 포크를 올려야 운영에 나간다: `git fetch origin && git push fork origin/develop:develop`. 빌드는 `frontend`·`model`이 바뀌었을 때만(`frontend/vercel.json`) |
 | 서버 | Cloudflare 이름 있는 터널 `posegood-api` → compose `cloudflared` → `http://gateway:80`. 연결 토큰은 klaod-tech가 서버 비밀값 파일에 직접 넣는다(저장소·채팅에 올리지 않음) |
-| Cloudflare 보안 | 요청 제한 `auth-rate-limit`(`/api/v2/auth/*`, 같은 IP 10초 20번 → 10초 차단, 할 일 4에서 좁힘). Bot Fight Mode 끔(API 요청에 사람 확인이 끼면 깨짐) |
+| Cloudflare 보안 | 요청 제한 `auth-rate-limit`(`/api/v2/auth/*`, 같은 IP 10초 20번 → 10초 차단). 주소에서 `/v2`가 빠져 지금은 걸리지 않는다 — 새 경로로 다시 거는 것은 할 일 4·7. Bot Fight Mode 끔(API 요청에 사람 확인이 끼면 깨짐) |
 | 검색 노출 | 막아 둠(`robots.txt`, `X-Robots-Tag`) — 정식 공개 때 지움(할 일 5) |
 | 주의 | Vercel 기본 주소(`*.vercel.app`)나 `app://`에서는 `api.`와 다른 사이트라 refresh 쿠키가 실리지 않아 로그인 유지가 안 된다. 실제 서버는 `app.posegood.site`에서만 쓴다 |
 | 확인할 것 | Vercel 무료 요금제는 비상업용만. 도메인 갱신 가격은 첫해(3,300원)와 다르다(10/19 구입, 1년) |
@@ -503,7 +450,7 @@ Spark J1·J2·J3(cron) ─ MySQL·HDFS
 | 카메라 | 측정하기에서 메인 카메라를 고른다. 기준 자세는 카메라와 상관없이 하나. 쓰던 카메라가 빠지면 종료·저장 |
 | 자세 등록 | 앱이 관절 9개 3초 평균을 B1로 보낸다. 이 기기에 저장하지 않는다 |
 | 끊김 | 재연결·재전송 없음. 끊기면 측정을 끝내고 서버가 끊긴 곳까지 저장([ADR 0024](../../decisions/0024-session-ends-on-lost-connection.md)) |
-| 측정 종료 | 결과가 올 때까지 「저장하고 있어요」 창으로 막고, 5초 안에 없으면 결과 화면에서 알린다([FE 예외 처리 방안](fe-exception-handling-plan.md)) |
+| 측정 종료 | 결과가 올 때까지 카메라 칸 안에 「측정 결과를 저장하고 있어요」를 띄우고(`EndingNotice`), 5초 안에(kafka `stalled`면 바로) 없으면 S4로 결과를 보이고 결과 화면에서 알린다([FE 예외 처리 방안](fe-exception-handling-plan.md)) |
 | 모델명·버전 | 화면에 보이지 않는다(API 필드는 그대로) |
 | 5분 미만 세션 | 저장하고 기록·통계에 넣는다. 「붕괴까지 걸린 시간」 최소·최대에서만 뺀다(DB V2.3) |
 | 탈퇴 | 되돌릴 수 없다. 30일 뒤 최종 삭제(J3). 문구는 [연동 명세](api-ws-spec.md) 2장 |

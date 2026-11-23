@@ -593,7 +593,7 @@
 **동작**
 
 1. 프레임마다 구간 하나를 보낸다(`features`). 구간 필드와 프레임 한 장(`t_ms`, 관절 9개 `p`)을 메시지 최상위에 둔다([ADR 0052](../../decisions/0052-flat-realtime-features.md)). 운영 서버가 이 형식을 받게 된 뒤에 배포한다.
-2. 서버는 구간마다 `observation`을 보내고, 사건이 있으면 `decision`과 `alert`, 이어서 `progress`를 보낸다. `ack`는 오지 않는다(와도 앱은 버린다).
+2. 서버는 구간마다 `observation`을 보내고, 사건이 있으면 `decision`과 `alert`, 이어서 `progress`를 보낸다. `ack`는 서버 PR #143부터 오지 않는다(그 전 서버가 보내도 앱은 버린다).
 3. 앱은 `sequence`가 화면에 있는 결과보다 작거나 같으면 늦은 결과로 보고 버린다.
 
 **예외 / 제한사항**
