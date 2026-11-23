@@ -8,6 +8,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.kafka.clients.consumer.CloseOptions;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.errors.WakeupException;
 import org.posegood.api.common.Json;
@@ -27,7 +28,7 @@ import tools.jackson.databind.JsonNode;
  *
  * <ul>
  *   <li>{@code observation} → {@code observation}(관측 4.0). 판정 불가 사유는 {@code unmeasurable}이다.</li>
- *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code stored.v1} {@code session_stored},
+ *   <li>{@code decision} → {@code decision}. {@code session_ended}는 저장 완료({@code posture.stored} {@code session_stored},
  *       D-67)를 받을 때까지 쥐고 있다가 함께 낸다(어느 쪽이 먼저 와도) — 앱이 {@code closed} 뒤 조회하면 DB에 종료 값이 있다.</li>
  *   <li>{@code progress} → {@code progress}. 멈춘 이유는 그 세션의 마지막 관측으로(local {@code pausedReason}과 같음).</li>
  *   <li>{@code alerts} {@code alert} → {@code alert} 그대로(알림 켜짐·재전송은 판정 결과 저장이 이미 거름).</li>
@@ -98,7 +99,7 @@ final class KafkaResults implements AutoCloseable, SessionResults {
 		} catch (RuntimeException failed) {
 			log.error("realtime kafka results stopped: {}", failed.getClass().getSimpleName());
 		} finally {
-			consumer.close(Duration.ofSeconds(5));
+			consumer.close(CloseOptions.timeout(Duration.ofSeconds(5)));
 		}
 	}
 

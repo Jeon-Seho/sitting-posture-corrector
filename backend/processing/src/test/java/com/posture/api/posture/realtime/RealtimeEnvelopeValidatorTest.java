@@ -24,6 +24,11 @@ class RealtimeEnvelopeValidatorTest {
 		return envelope;
 	}
 
+	@SuppressWarnings("unchecked") // featuresBody()가 넣은 Map<String, Object>
+	static Map<String, Object> features(Map<String, Object> body) {
+		return (Map<String, Object>)body.get("features");
+	}
+
 	static Map<String, Object> featuresBody() {
 		Map<String, Object> features = new HashMap<>();
 		features.put("head_gap_delta", 0.0);
@@ -85,7 +90,7 @@ class RealtimeEnvelopeValidatorTest {
 		assertThat(RealtimeEnvelopeValidator.validateFeaturesMessage(envelope)).anyMatch(e -> e.contains("landmarks"));
 
 		Map<String, Object> body = featuresBody();
-		((Map<String, Object>)body.get("features")).put("nose_x", 0.5);
+		features(body).put("nose_x", 0.5);
 		assertThat(RealtimeEnvelopeValidator.validateFeaturesMessage(envelope("features", body)))
 			.anyMatch(e -> e.contains("nose_x"));
 	}
@@ -109,7 +114,7 @@ class RealtimeEnvelopeValidatorTest {
 	@Test
 	void nonFiniteFeatureIsRejected() {
 		Map<String, Object> body = featuresBody();
-		((Map<String, Object>)body.get("features")).put("head_gap_delta", Double.NaN);
+		features(body).put("head_gap_delta", Double.NaN);
 		assertThat(RealtimeEnvelopeValidator.validateFeaturesMessage(envelope("features", body)))
 			.anyMatch(e -> e.contains("head_gap_delta"));
 	}

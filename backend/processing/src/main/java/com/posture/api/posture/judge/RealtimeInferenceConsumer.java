@@ -54,14 +54,17 @@ public class RealtimeInferenceConsumer {
 
 	/** @return DLQ로 보낼 이유, 정상 처리면 null */
 	String handle(String rawValue) {
-		Map<String, Object> msg;
+		Object parsed;
 		try {
-			msg = jsonMapper.readValue(rawValue, Map.class);
+			parsed = jsonMapper.readValue(rawValue, Object.class);
 		} catch (Exception exc) {
 			return "JSON 파싱 실패: " + exc.getMessage();
 		}
-		if (msg == null) {
+		if (parsed == null) {
 			return "빈 메시지";
+		}
+		if (!(parsed instanceof Map<?, ?> msg)) {
+			return "JSON 파싱 실패: 객체가 아님";
 		}
 		Object sid = msg.get("session_id");
 		Object kind = msg.get("kind");
