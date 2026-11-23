@@ -1,6 +1,6 @@
 # 같은 이메일 계정 연결과 가입 이메일 인증
 
-- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계·FE·ADR 구현 전)
+- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). FE·ADR 구현 전)
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
 - 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR 0049(작성 예정)
@@ -107,7 +107,11 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - [ ] DB 운영 적용: 018 → 019를 새 API 배포와 같은 점검 시간에(DevOps와 시간 정하기). 명세서 V2.8 원문 반영
 - [x] API가 V2.8에 맞춰진 뒤 `schema_V2_7.sql`을 읽는 곳을 V2.8로: `DisposableDatabase`·`infra/mysql/initdb/10-posegood-schema.sh`·`tools/test_mysql.py`·`consents.test.ts`·`SchemaVerifier`/`ServiceSchemaVerifier` 메시지 (2026-11-17, BE 1단계와 같은 브랜치)
 - [x] BE 1단계(동작 유지, 2026-11-17 브랜치 `feature/backend-local-credential`): `AccountRepository`(조회 LEFT JOIN, 가입 때 INSERT, 비밀번호 변경은 있는 행만 UPDATE), `AccountService.NO_PASSWORD`·`hasPassword` 제거, `SocialLoginService.unlink`, `PasswordResetService`(소셜 전용 계정은 재설정 대상 아님), `SchemaVerifier`(`local_credential` 항상 확인), `JdbcReportTestFixtures`
-- [ ] BE 2단계(11/18 결정 반영): #127의 메모리 인증 대기를 `email_verification_token`으로 옮기기(6자리 코드 유지면 시도 횟수·확인 시각 칸이 없어 020 필요, 메일 링크면 019 그대로 — 먼저 정함), 매일 정리(API `@Scheduled`, 만료 뒤 하루), `register` 토큰 소비. 같은 이메일 연결은 #127의 승인 연결 유지, Discord 전용 계정에 비밀번호 붙이기는 하지 않음
+- [ ] BE 2단계(11/18 결정 반영): #127의 메모리 인증 대기를 `email_verification_token`으로 옮기기, 매일 정리(API `@Scheduled`, 만료 뒤 하루), `register` 토큰 소비. 같은 이메일 연결은 #127의 승인 연결 유지, Discord 전용 계정에 비밀번호 붙이기는 하지 않음
+  - [x] 2026-11-23 6자리 코드 유지로 정하고 019를 운영 적용 전에 고침(020 대신, `code_hash`·`attempt_count`·`verified_at`). `schema_V2_8.sql`·ERD 원본·`integrity_check.py`·DB 안내
+  - [x] 2026-11-23 `EmailVerificationRepository`·`EmailVerificationService`(조건부 UPDATE, 서비스 잠금 삭제, 가입 소비와 계정 생성 한 트랜잭션, 매일 04:45 정리), `SchemaVerifier`, 단위·MySQL 통합 시험, 계약·인계·개발 상태
+  - [ ] ERD PNG 2장 다시 내보내기, 리뷰·develop 반영(BE 1단계 브랜치 위에 쌓음)
+  - [ ] 「흐름」·위 1·2번의 11/18 전 설계(자동 연결, 비밀번호 붙이기, 인증 링크)를 결정대로 고쳐 쓰기
 - [ ] FE: 가입 순서, `#verify-email` 화면, 기존 계정 추가 화면, 자동 연결 안내
 - [ ] 계약 `accounts.md`: `register` 요청 변경, 이메일 인증 경로, Discord 콜백 상태
 - [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착
@@ -141,6 +145,12 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   1. 인증 대기는 **DB 표**(`email_verification_token`)에 둔다(이 계획 결정 3 유지). #127은 서버 메모리라 BE 2단계에서 옮긴다. 만료된 행은 API가 매일 지운다(Spark J3에 넣지 않음 — 토큰 표 셋을 API가 같은 방식으로 지움).
   2. 같은 이메일의 Discord·이메일 계정은 **기존 계정 비밀번호 확인과 승인 뒤 연결**한다(#127 방식). 위 결정 1의 자동·양방향 연결을 대체한다.
   3. **Discord 전용 계정에 비밀번호를 붙이지 않는다**(위 흐름 「기존 계정에 이메일 로그인 추가」 빠짐). 비밀번호가 필요했던 이유인 탈퇴를 바꾼다 — 소셜 로그인의 장점은 비밀번호 없이 쓰는 것이다. 탈퇴는 이미 BE-25로 비밀번호 없이 받는다.
+- 2026-11-23(사용자 결정, 팀 공지 「이메일 인증 토큰: DB로 통일하고 가입 인증은 6자리 코드로」): **가입 인증은 6자리 코드를 유지하고 DB에 둔다. 비밀번호 재설정은 링크·DB 그대로.** 두 인증 토큰의 저장 방식을 DB로 통일하되 표는 용도별로 따로 둔다(11/17 결정).
+  - 코드를 고른 이유: 가입 화면에서 이어서 입력해 흐름이 끊기지 않음(링크는 다른 탭·기기에서 열림), 데스크톱 앱에 맞음, #127 FE·BE가 이미 코드 흐름이라 FE 변경 없음, 링크를 미리 여는 메일 보안 검사기에 토큰이 소비되지 않음.
+  - 019는 운영에 적용하기 전이라 020을 따로 두지 않고 019를 고쳤다(칼럼 6 → 9개, CHECK 2 → 3개). `token_hash`는 링크 토큰 대신 요청 번호(HttpOnly 쿠키)의 해시, `code_hash`는 「요청 번호:코드」의 해시(코드는 경우의 수가 100만이라 요청 번호와 묶음 — 요청 번호 원문은 DB에 없다), 시도 5회는 `attempt_count`, 확인은 `verified_at`. 링크 방식 019를 적용한 개발 DB는 표를 지우고 다시 적용한다.
+  - 수명 15분·같은 이메일 60초·출처별 15분 5회·시도 5회는 #127 값 그대로. 출처별 제한(`RequestLimiter`)은 잃어도 되는 값이라 메모리에 둔다.
+  - 메모리 방식의 서비스 전체 `synchronized`(그 안에서 SMTP 발송 — 메일이 늦으면 다른 사람의 확인·가입도 멈춤)를 없앴다. 시도 세기·확인·가입 소비가 모두 조건부 UPDATE다. 메일 발송이 성공한 뒤에만 저장하므로 발송 실패는 재발송 간격에 들어가지 않는다(출처별 제한은 그대로).
+  - 메모리 상한 1만 건과 503 `EMAIL_BUSY`는 없앴다(표는 매일 정리, 요청은 출처·이메일별로 제한).
 - 2026-11-19: BE 1단계를 `refactor/repo-remove-api-version-paths`(develop `ed72615` + 주소 버전 삭제, #127 포함) 기준 새 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮겼다. #127 코드와 맞춘 것:
   - #127의 `PasswordResetService.validate`(링크 확인)도 비밀번호 없는 계정이면 410 — 완료와 같게(결정 3).
   - #127의 재설정 비밀번호 재사용 거절(`applyResetPassword`)·연결 해제 검사를 `account.hasPassword()`로. 연결 해제 오류 문구에서 「재설정 메일로 비밀번호를 정하라」를 뺌.
@@ -149,13 +159,13 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 
 **남은 질문**
 - ~~소셜 전용 계정의 탈퇴 본인 확인 방식~~ → 해결(BE-25, 탈퇴는 로그인 상태만 확인).
-- 인증 대기를 표로 옮길 때 6자리 코드(#127)를 유지할지, 메일 링크로 바꿀지. 코드면 020에서 시도 횟수·확인 시각 칸을 더한다.
+- ~~인증 대기를 표로 옮길 때 6자리 코드(#127)를 유지할지, 메일 링크로 바꿀지~~ → 2026-11-23 코드 유지, 019를 고침.
 - 소셜 전용 계정이 재설정을 요청하면 「이 계정은 Discord로 로그인합니다」 안내 메일을 보낼지(지금은 아무 메일도 없음. 응답은 같으므로 보내도 가입 여부가 드러나지 않음).
 - `email_verification_token`의 `(login_email, issued_at)` 보조 인덱스를 따로 migration(020~)으로 더할지, DB-05 인덱스 시트에서 정할지(DB 담당). 지금은 넣지 않았다. 재발송 간격 확인과 이전 토큰 무효화가 이메일로 찾는데 FK가 없어 자동 인덱스가 없다. 행은 매일 정리되어 적다.
-- 인증 토큰 수명(재설정과 같은 30분?)과 재발송 간격(60초?).
+- ~~인증 토큰 수명과 재발송 간격~~ → 2026-11-23 #127 값(15분·60초) 유지.
 - `register` 요청 변경을 계약 버전 변경으로 볼지(지금 FE만 쓰는 경로).
-- 자동 연결이 일어났을 때 그 이메일로 알림 메일을 보낼지(권장: 보냄).
-- 기존 Discord 계정에 비밀번호만 붙일 때 가입 화면에서 입력한 프로필은 버리고 기존 값을 유지한다는 안내 문구.
+- ~~자동 연결이 일어났을 때 알림 메일~~ → 11/18 결정 2(승인 연결)로 해당 없음.
+- ~~기존 Discord 계정에 비밀번호만 붙일 때의 안내 문구~~ → 11/18 결정 3(붙이지 않음)으로 해당 없음.
 
 ## 검증 결과와 남은 한계
 
@@ -178,6 +188,13 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   - 실패 `baselinesOwnershipLossAndInferenceFailure`(두 번째 세션 409)는 기준 브랜치에서도 같다(#127 측정 한 기기 제한과 기존 시험이 어긋남, 계획 0097·`api-spec.md` 11/18 기록). 이 변경 밖.
 - 단위 시험 `PasswordResetServiceTest.socialOnlyAccountGetsNoLinkAndAnOldLinkIsInvalid`에 링크 확인(`validate`) 410을 더함.
 - `python tools/dev.py check-backend`: 성공. 바꾼 줄에 줄바꿈 외 Checkstyle 경고 없음. FE `consents.test.ts`·프로필 시험 8개 통과.
+
+**BE 2단계 — 인증 대기 DB (2026-11-23, 브랜치 `feature/repo-email-verification-code-db`, 로컬 Windows MySQL 8.0.31 임시·일회용 DB)**
+- DB CI 순서(임시 DB 이름): `schema_V2_8.sql` + 시드 → 표·컬럼·UK·FK·CHECK 18·127·12·17·61, `integrity_check.py` 205개 모두 통과, `schema_V2_7.sql` + 시드 + 018·019와 451줄 일치.
+- `backend/gradlew -p backend :api:checkstyleMain :api:checkstyleTest :api:test --tests 'org.posegood.api.account.*'`: 계정 시험 50개 통과(`EmailVerificationServiceTest` 12개 — 해시만 저장, 재시작 뒤에도 이어짐, 시도 5회, 확인한 코드 재확인 거부, 가입 실패 때 되돌림, 매일 정리, 기능 꺼짐). 바꾼 파일에 줄바꿈 외 Checkstyle 경고 없음.
+- `backend/gradlew -p backend :api:test -Pmysql-integration --rerun-tasks`: api 168개 중 167 통과·실패 1·건너뜀 0. `AccountMailIntegrationTest` 3개 통과 — 새 시험 `codeStateLivesInTheTableAndFailedRegistrationKeepsTheProof`(틀린 코드 뒤 `attempt_count` 1·코드 원문 아님, 같은 이메일 가입 409 `ACCOUNT_EXISTS` 때 실제 MySQL 트랜잭션에서 `consumed_at`이 되돌아감).
+  - 실패 `baselinesOwnershipLossAndInferenceFailure`(두 번째 세션 409)는 이 변경을 치운 기준 커밋에서도 같다(위 11/19 기록). 이 변경 밖.
+- `python tools/dev.py check-backend`(기본 시험·Checkstyle·빌드): 성공. api 168개 중 148 통과·실패 0·건너뜀 20(MySQL 통합), processing 67개 통과. `python tools/dev.py check`(FE 포함 전체)는 실행하지 않았다(FE 변경 없음).
 
 **남은 한계**
 - 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.

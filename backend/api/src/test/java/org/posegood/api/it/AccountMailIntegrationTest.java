@@ -1,8 +1,12 @@
 package org.posegood.api.it;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.Map;
@@ -21,7 +25,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-/** 실제 HTTP·쿠키·MySQL 트랜잭션. 발송 업체만 mock하며 합성 이메일만 쓴다. */
+/**
+ * 실제 HTTP·쿠키·MySQL 트랜잭션. 발송 업체만 mock하며 합성 이메일만 쓴다.
+ * 가입 인증은 출처(IP)별 15분 5회 제한이 있어 이 클래스 전체에서 인증 요청을 5번 넘게 보내지 않는다.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"server.address=127.0.0.1", "posegood.auth.email-verification.enabled=true",
 	"posegood.auth.password-reset.enabled=true", "posegood.auth.app-url=https://app.example.test/"})
@@ -71,6 +78,46 @@ class AccountMailIntegrationTest {
 		assertEquals(410, api.register(email).status());
 		assertEquals(1, jdbc.queryForObject(
 			"SELECT COUNT(*) FROM user_account WHERE login_email=?", Integer.class, email));
+	}
+
+	@Test
+	void codeStateLivesInTheTableAndFailedRegistrationKeepsTheProof() throws Exception {
+		String email = "dup-it-" + UUID.randomUUID() + "@example.invalid";
+		var first = client();
+		first.post("/auth/email-verification/requests", Map.of("email", email));
+		var codes = ArgumentCaptor.forClass(String.class);
+		verify(mailer).sendVerification(eq(email), codes.capture(), eq(15L));
+		assertEquals(204, first.post("/auth/email-verification/confirm", Map.of("token", codes.getValue())).status());
+		assertEquals(200, first.register(email).status());
+		// 같은 이메일 재발송 간격(60초)을 지난 것으로 만든다.
+		jdbc.update("UPDATE email_verification_token SET issued_at=issued_at - INTERVAL 2 MINUTE WHERE login_email=?",
+			email);
+
+		var second = client();
+		assertEquals(202, second.post("/auth/email-verification/requests", Map.of("email", email)).status());
+		verify(mailer, times(2)).sendVerification(eq(email), codes.capture(), eq(15L));
+		String code = codes.getValue();
+		String wrong = code.equals("000000") ? "000001" : "000000";
+		assertEquals(410, second.post("/auth/email-verification/confirm", Map.of("token", wrong)).status());
+		var row = jdbc.queryForMap("SELECT code_hash,attempt_count,verified_at,consumed_at FROM email_verification_token"
+			+ " WHERE login_email=? AND consumed_at IS NULL", email);
+		assertEquals(64, row.get("code_hash").toString().length());
+		assertNotEquals(code, row.get("code_hash"));
+		assertEquals(1, ((Number)row.get("attempt_count")).intValue());
+		assertNull(row.get("verified_at"));
+		assertEquals(204, second.post("/auth/email-verification/confirm", Map.of("token", code)).status());
+
+		var exists = second.register(email);
+		assertEquals(409, exists.status());
+		assertEquals("ACCOUNT_EXISTS", exists.body().get("code").asString());
+		row = jdbc.queryForMap("SELECT attempt_count,verified_at,consumed_at FROM email_verification_token"
+			+ " WHERE login_email=? ORDER BY issued_at DESC LIMIT 1", email);
+		assertEquals(2, ((Number)row.get("attempt_count")).intValue());
+		assertNotNull(row.get("verified_at"));
+		assertNull(row.get("consumed_at"), "failed registration must roll back the proof consumption");
+		assertEquals(1, jdbc.queryForObject(
+			"SELECT COUNT(*) FROM email_verification_token WHERE login_email=? AND consumed_at IS NOT NULL",
+			Integer.class, email));
 	}
 
 	@Test

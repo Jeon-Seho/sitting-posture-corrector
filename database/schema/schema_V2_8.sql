@@ -15,7 +15,7 @@
 --   monitor_session.calibration_uuid·end_reason, collapse_event.end_reason
 --   correction_alert.correction_alert_id·attempt_seq·delivered·suppress_reason, UK-07
 -- 추가·삭제 (V2.8): T-54 local_credential, FK-31 (migration 018) — user_account.password_hash를 옮기고 지웠다
---   ('!no-password' 고정값은 옮기지 않음 — 행 없음 = 비밀번호 없음) / T-55 email_verification_token, UK-21, CHECK 2개 (migration 019)
+--   ('!no-password' 고정값은 옮기지 않음 — 행 없음 = 비밀번호 없음) / T-55 email_verification_token, UK-21, CHECK 3개 (migration 019)
 -- 추가 (V2.7): T-52 social_identity, UK-18·UK-19, FK-29, CHECK 1개 / T-53 password_reset_token, UK-20, FK-30, CHECK 2개
 --   (migration 017). 기존 테이블은 바꾸지 않았다
 -- 추가 (V2.6): T-51 refresh_token, UK-17, FK-28, CHECK 4개 (migration 016). user_account.sound_alert_enabled 기본값 거짓 → 참,
@@ -58,9 +58,9 @@
 --   소셜로 가입한 계정은 비밀번호가 없어 local_credential 행이 없다(V2.7까지는 password_hash에 고정값 '!no-password').
 -- 비밀번호 재설정 (V2.7, 계획 0088): 30분짜리 일회용 메일 링크 토큰의 SHA-256만 password_reset_token에 둔다.
 --   한 번 쓰면 consumed_at을 채운다. 계정 최종 삭제 때 함께 지운다(FK-30 CASCADE). 만료된 행은 API가 하루에 한 번 지운다.
--- 이메일 인증 (V2.8, 계획 0096): 가입 전 메일함 소유 확인용 일회용 링크 토큰의 SHA-256을 email_verification_token에 둔다.
+-- 이메일 인증 (V2.8, 계획 0096): 가입 전 메일함 소유 확인용 6자리 코드의 요청 번호·코드 SHA-256을 email_verification_token에 둔다.
 --   가입 전이라 계정 대신 정규화한 이메일로 주인을 둔다(FK 없음 — 계정 삭제 때 CASCADE로 지워지지 않음).
---   한 번 쓰면 consumed_at을 채운다. 만료된 지 하루가 지난 행은 API가 하루에 한 번 지운다.
+--   틀린 시도는 attempt_count로 세고, 코드를 맞히면 verified_at, 가입에 한 번 쓰면 consumed_at을 채운다. 만료된 지 하루가 지난 행은 API가 하루에 한 번 지운다.
 -- 외부 라이브러리 테이블: SPRING_SESSION, SPRING_SESSION_ATTRIBUTES — Spring Session JDBC 표준 정의. V2.6부터 쓰지 않는다(남겨 둠).
 --   대문자 이름과 BIGINT(밀리초) 시각은 이름 규칙 예외 (건의안 0001 #5).
 --   서버 DB는 이 파일로 만든다. Windows 로컬 DB의 덤프로 만들면 테이블 이름이 소문자로 바뀐다.
@@ -383,17 +383,21 @@ CREATE TABLE local_credential (
 -- T-55 email_verification_token — 이메일 인증 토큰 (근거 계획 0096 — E-ID는 DB-02 반영 때 부여)
 -- ---------------------------------------------------------------------
 CREATE TABLE email_verification_token (
-  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 토큰 식별자',
+  email_verification_token_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '인증 요청 식별자',
   login_email VARCHAR(254) NOT NULL COMMENT '인증할 이메일(정규화: 앞뒤 공백 제거·소문자). 가입 전이라 계정 FK가 없다',
-  token_hash CHAR(64) NOT NULL COMMENT '링크 토큰의 SHA-256(16진수 소문자 64자). 원문은 저장하지 않는다 — 메일의 링크에만 있다',
-  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각',
-  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 설정값)',
-  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 새 발급). NULL: 아직 쓸 수 있음',
+  token_hash CHAR(64) NOT NULL COMMENT '요청 번호의 SHA-256(16진수 소문자 64자). 원문은 브라우저의 HttpOnly 쿠키에만 있다',
+  code_hash CHAR(64) NOT NULL COMMENT '「요청 번호:6자리 코드」의 SHA-256(16진수 소문자 64자). 코드 원문은 메일에만 있다',
+  attempt_count TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '코드 확인 시도 횟수. API가 정한 한도(5회)에 닿으면 그 요청은 더 확인하지 않는다',
+  issued_at DATETIME(3) NOT NULL COMMENT '발급 시각 (같은 이메일 재발송 간격의 기준)',
+  expires_at DATETIME(3) NOT NULL COMMENT '만료 시각 (발급 + 설정값). 코드 확인 뒤에도 이 시각까지 가입해야 한다',
+  verified_at DATETIME(3) NULL COMMENT '코드 확인 시각. NULL: 아직 확인 전',
+  consumed_at DATETIME(3) NULL COMMENT '사용·무효 시각 (가입 완료, 같은 이메일 새 요청). NULL: 아직 쓸 수 있음',
   CONSTRAINT pk_email_verification_token PRIMARY KEY (email_verification_token_id),
   CONSTRAINT ux_email_verification_token_hash UNIQUE (token_hash),  -- UK-21
   CONSTRAINT ck_email_verification_token_hash CHECK (CHAR_LENGTH(token_hash) = 64),  -- 허용값: SHA-256 16진수 64자
+  CONSTRAINT ck_email_verification_token_code_hash CHECK (CHAR_LENGTH(code_hash) = 64),  -- 허용값: SHA-256 16진수 64자
   CONSTRAINT ck_email_verification_token_expires CHECK (expires_at > issued_at)  -- 허용값: 발급 이후
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-55 이메일 인증 토큰 — 가입 전 메일함 소유 확인용 일회용 링크 토큰 해시와 사용 상태';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='T-55 이메일 인증 토큰 — 가입 전 메일함 소유 확인용 6자리 코드의 요청 번호·코드 해시와 확인·사용 상태';
 
 -- ---------------------------------------------------------------------
 -- T-48 SPRING_SESSION — 로그인 세션, V2.6부터 쓰지 않음 (근거 건의안 0001 #5 — E-ID는 DB-02 반영 때 부여)
@@ -421,4 +425,4 @@ CREATE TABLE SPRING_SESSION_ATTRIBUTES (
   CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION (PRIMARY_ID) ON DELETE CASCADE  -- FK-25
 ) ENGINE=InnoDB;
 
--- 끝: 테이블 18개, 컬럼 124개, UK 12개, FK 17개, CHECK 60개
+-- 끝: 테이블 18개, 컬럼 127개, UK 12개, FK 17개, CHECK 61개

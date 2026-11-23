@@ -17,7 +17,7 @@ S1·hello를 `409 MEASUREMENT_IN_PROGRESS`로 거절한다(연결 중 또는 S1 
 
 ## 2026-11-16 계정 기능 갱신
 
-[계획 0089](plans/completed/0089-email-recovery-social-link.md): 일반 가입 6자리 이메일 인증(기본 꺼짐, 단일 API 메모리 대기),
+[계획 0089](plans/completed/0089-email-recovery-social-link.md): 일반 가입 6자리 이메일 인증(기본 꺼짐, 대기는 처음엔 단일 API 메모리 → 2026-11-23 DB 표, 아래 변경 기록),
 비밀번호 찾기 링크 유효성 확인·기존 비밀번호 재사용 거절, Discord 이메일 충돌 시 비밀번호 확인→최종 연결 승인→로그인을 구현했다.
 DB V2.7 표를 재사용하고 새 DDL은 없다. 인증 켠 서버는 직접 미인증 가입도 거절한다.
 임시 MySQL에서 HTTP·쿠키·저장·재설정 롤백과 refresh 철회 통합 시험을 통과했다. 실제 SMTP·Discord·운영 배포는 미검증이다.
@@ -204,6 +204,7 @@ MySQL 통합은 `-Pmysql-integration`으로 별도 실행한다. `service_smoke.
 | 2026-11-18 | WebSocket·REST 계약 파일 이름에서 버전 삭제(`realtime-ws`·`posture-frames`·`accounts`·`consent-documents`, 예시 `examples-ws/`), `RealtimeHandlerV2` → `RealtimeHandler`, 안 쓰는 `accounts.v1.md`·`feature-response.v1` 삭제(계획 0097, 형식은 그대로) | `refactor/repo-remove-api-version-paths` |
 | 2026-11-19 | D-98: kafka 모드에서 끝낸 측정이 「측정 중」으로 남아 같은 계정의 새 S1이 409이던 문제 수정(맨 위 「한 기기 측정」). 메모리 정리·자리 비우기도 같은 기준. 단위 시험 4개 추가·2개 보강, API 시험 160개(건너뜀 18) 통과 | `fix/backend-kafka-measurement-release` |
 | 2026-11-19 | 계획 0096 BE 1단계(비밀번호 DB V2.8 `local_credential`, 소셜 전용 계정 비밀번호 변경·재설정 없음)를 주소 버전 삭제 브랜치 기준으로 옮김. #127의 재설정 링크 확인(`/auth/password-reset/validate`)도 비밀번호 없는 계정이면 410, 재설정 재사용 거절·연결 해제 검사를 `account.hasPassword()`로, 연결 해제 오류 문구에서 재설정 메일 안내 삭제. BE-25 탈퇴 MySQL 시험을 V2.8로(2.1·2.7) | `feature/backend-local-credential-on-remove-paths` |
+| 2026-11-23 | 계획 0096 BE 2단계 시작: 가입 이메일 인증(6자리 코드) 대기를 서버 메모리에서 DB `email_verification_token`으로 옮김(`EmailVerificationRepository` 새로). 019를 운영 적용 전에 코드 방식으로 고침(`code_hash`·`attempt_count`·`verified_at`). 시도 세기·확인·가입 소비를 조건부 UPDATE로 해 서비스 전체 잠금(`synchronized`, 그 안에서 SMTP 발송)을 없앰. 가입 소비는 계정 생성과 한 트랜잭션(가입 실패 때 되돌림). 메모리 상한 503 `EMAIL_BUSY` 삭제. 매일 04:45 만료 하루 지난 행 삭제. `SchemaVerifier`가 이 표와 새 칼럼 3개를 확인(링크 방식 019 DB는 시작하지 않음). 단위 시험 12개(가짜 저장소), MySQL 통합 시험 1개 추가 | `feature/repo-email-verification-code-db` |
 
 ## 이메일 인증·비밀번호 재설정 후속 인계 (2026-10-26)
 

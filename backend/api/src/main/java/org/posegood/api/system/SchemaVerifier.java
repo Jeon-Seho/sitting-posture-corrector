@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
  * API는 테이블을 만들거나 고치지 않는다. 스키마와 시드는 DB 담당 절차로 적용한다
  * (V2.7 → V2.8은 마이그레이션 018·019. V2.6 이하 DB는 마이그레이션 없이 `schema_V2_8.sql`로 다시 만든다).
  * 비밀번호는 V2.8부터 `local_credential`에서 읽고 쓰므로 V2.7 DB에서는 시작하지 않는다(계획 0096).
- * `email_verification_token`(019)은 이메일 인증 기능(계획 0096 BE 2단계)이 쓰기 시작할 때 확인에 더한다.
+ * `email_verification_token`(019)은 코드 방식 칼럼(`code_hash`·`attempt_count`·`verified_at`)까지 확인한다. 2026-11-23 전의
+ * 링크 방식 019를 적용한 개발 DB는 그 표를 지우고 새 019를 다시 적용한다(운영에는 적용 전이었다).
  * `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES`는 V2.6부터 쓰지 않아 확인하지 않는다(DB에는 남겨 둠).
  */
 @Component
@@ -35,7 +36,8 @@ public class SchemaVerifier implements ApplicationRunner {
 		"refresh_token",
 		"social_identity",
 		"password_reset_token",
-		"local_credential");
+		"local_credential",
+		"email_verification_token");
 	/** V2.0(CR-04)·V2.1에서 지운 테이블. 하나라도 있으면 DB를 다시 만들지 않은 것이다. */
 	static final List<String> RETIRED = List.of(
 		"capture_device",
@@ -89,7 +91,8 @@ public class SchemaVerifier implements ApplicationRunner {
 			"user_consent.document_version", "correction_alert.attempted_at",
 			"refresh_token.token_hash", "refresh_token.rotated_at", "refresh_token.revoked_at",
 			"social_identity.provider_subject", "password_reset_token.consumed_at",
-			"local_credential.password_hash")) {
+			"local_credential.password_hash", "email_verification_token.code_hash",
+			"email_verification_token.attempt_count", "email_verification_token.verified_at")) {
 			var parts = required.split("\\.");
 			if (!hasColumn(parts[0], parts[1])) {
 				throw new IllegalStateException("database schema V2.8 is not applied; missing " + required + HOW);
