@@ -160,10 +160,17 @@ class J1OrganizeTest(unittest.TestCase):
         """(D-92) 좌표 구간 토픽이 있는 세션은 keypoints.jsonl도 — 순번으로 중복을 빼고, 구간 범위는 features로 정한다."""
         ts = dt.datetime(2026, 11, 1, 10, 0, 0)
         k = "posture.keypoints"
-        frames = [{"t_ms": 1000, "p": [[0.5, 0.4, 0.9]] * 9}]
-        rows = [(k, 0, 200 + n, msg(S1, "keypoints", {"sequence": seq, "start_ms": 500 * seq + 1000,
-                                                      "end_ms": 500 * seq + 1500, "frames": frames}, 50 + n).encode(), ts)
-                for n, seq in enumerate([0, 1, 1, 2])]  # 순번 1 재전송
+        bodies = [
+            {"sequence": 0, "start_ms": 1000, "end_ms": 1500, "phase": "running",
+             "t_ms": 1000, "p": [[0.5, 0.4, 0.9]] * 9},
+            {"sequence": 1, "start_ms": 1500, "end_ms": 2000, "phase": "unmeasurable",
+             "t_ms": 1500, "p": None},
+            {"sequence": 2, "start_ms": 2000, "end_ms": 2500, "phase": "unmeasurable", "p": None},
+            {"sequence": 3, "start_ms": 2500, "end_ms": 2750, "phase": "rest"},
+            {"sequence": 4, "start_ms": 2750, "end_ms": 3000, "phase": "away"},
+        ]
+        rows = [(k, 0, 200 + n, msg(S1, "keypoints", bodies[seq], 50 + n).encode(), ts)
+                for n, seq in enumerate([0, 1, 1, 2, 3, 4])]  # 순번 1 재전송
         raw = self.spark.createDataFrame(rows, "topic string, partition int, offset long, value binary, timestamp timestamp")
         job.staging_columns(raw).write.partitionBy("topic", "date").parquet(self.hdfs.uri + job.KEYPOINTS_STAGING)
         cand = {"monitor_session_id": "5", "client_session_uuid": S1, "user_account_id": "7",
@@ -171,10 +178,14 @@ class J1OrganizeTest(unittest.TestCase):
         jdbc = FakeJdbc([cand])
         done, _, _ = job.organize(self.spark, jdbc, self.hdfs, Args(), dt.datetime(2026, 11, 1, 11, 0))
         self.assertEqual(done[0]["lines"], {"features.jsonl": 5, "inference.jsonl": 3, "episodes.jsonl": 3,
-                                            "keypoints.jsonl": 3})
+                                            "keypoints.jsonl": 5})
         folder = self.hdfs.root / f"data/users/7/2026-11-01/{S1}"
         keypoints = (folder / "keypoints.jsonl").read_text().splitlines()
-        self.assertEqual([json.loads(x)["body"]["sequence"] for x in keypoints], [0, 1, 2])
+        archived = [json.loads(x)["body"] for x in keypoints]
+        self.assertEqual(archived, bodies)  # null·관측 시각 생략·휴식/자리 비움과 좌표를 그대로 보존
+        self.assertNotIn("000000000052", "".join(keypoints))  # 같은 순번의 재전송은 제외
+        self.assertFalse((folder / "keypoints-flat.jsonl").exists())
+        self.assertFalse(any("frames" in body for body in archived))
         self.assertEqual(jdbc.inserts[0][2:4], ["2026-11-01 10:00:01.000", "2026-11-01 10:00:02.500"])
 
     def test_session_without_keypoints_has_no_keypoints_file(self):
@@ -266,6 +277,17 @@ class J1PureTest(unittest.TestCase):
             self.assertFalse((b + "/").startswith(a + "/"))
         self.assertEqual(job.staging_root("posture.keypoints"), job.KEYPOINTS_STAGING)
         self.assertEqual(job.staging_root("posture.features"), job.STAGING)
+
+    def test_flat_archive_preserves_original_lines_in_one_file(self):
+        body = {"sequence": 3, "start_ms": 1000, "end_ms": 1500, "phase": "unmeasurable", "p": None}
+        raw = msg(S1, "keypoints", body, 1)
+        lines = {topic: [] for topic in job.ALL_TOPICS}
+        lines["posture.keypoints"] = [raw]
+        files = job.file_lines(lines)
+        self.assertEqual(files["keypoints.jsonl"], [raw])
+        self.assertEqual(json.loads(files["keypoints.jsonl"][0])["body"], body)
+        self.assertNotIn("t_ms", json.loads(files["keypoints.jsonl"][0])["body"])
+        self.assertNotIn("keypoints-flat.jsonl", files)
 
     def test_bootstrap_default_and_override(self):
         self.assertEqual(job.kafka_bootstrap({}), "kafka:19092")

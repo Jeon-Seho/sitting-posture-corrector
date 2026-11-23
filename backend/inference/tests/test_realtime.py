@@ -89,10 +89,11 @@ def test_invalid_segments_score_zero(change):
     assert obs["phase"] == body["phase"]
 
 
-def test_low_quality_is_invalid():
+def test_visibility_does_not_reject_a_frame_accepted_by_the_frontend():
     body = copy.deepcopy(FEATURES_MSG["body"])
     body["features"]["current_quality"] = 0.64
-    assert observation_from_features(body)["valid"] is False
+    body["features"]["baseline_quality"] = 0.1
+    assert observation_from_features(body)["valid"] is True
 
 
 def test_score_rule_matches_team_reference():

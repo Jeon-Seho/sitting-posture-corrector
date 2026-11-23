@@ -3,7 +3,7 @@
 - 담당: DevOps/BE (토픽·봉투·컨슈머 그룹·DLQ·보존). 본문 형식(입력·관측·사건)은 [계약](../../contracts/README.md)의 기존 버전을 그대로 쓴다.
 - 기준: [실시간 Kafka 계약 스키마](../../contracts/realtime/) `kafka-*.schema.json`, [아키텍처 v5.5 스택별 역할](architecture_v5.5_stack_roles.md),
   [실시간 판정 Kafka 전환 계획 0031](../plans/active/0031-realtime-kafka-transition.md).
-- 갱신: 2026-11-18 (이름에서 버전 빼기)
+- 갱신: 2026-11-22 (평탄화 좌표 본문·단일 적재 경로 반영)
 
 > **이름에 버전이 없다(2026-11-18, [ADR 0049](../decisions/0049-no-version-in-names.md)).** 토픽(`posture.features` 등), 컨슈머 그룹(`judge`·`report-store`·`inference-service`),
 > 계약 파일(`kafka-*.schema.json`), 처리 서비스 주소(`POST /api/realtime/features`, `/judge/*`), Redis 키(`posture:judge:*`)에서 `v1`을 뺐다.
@@ -21,21 +21,22 @@
 ```
 
 - 서비스끼리, 입출구 서버와 처리 서비스 사이는 Kafka로만 주고받는다(직접 HTTP 호출 없음).
-- **지금 상태(2026-10-17)**: 앱이 쓰는 실시간 판정은 아직 입출구 서버 안(ADR 0020)이다. 입출구 서버 `ws`를 Kafka에 잇는 일은
-  계획 0031 1단계(PM)다. 그 전까지 Kafka 경로는 처리 서비스의 **시험용 입구**(4장)로 넣어 확인한다(통합 테스트 8·9·11단계).
+- **현재 구현**: 입출구 서버는 `posegood.realtime.pipeline=local`(기본값) 또는 `kafka`를 선택한다.
+  Kafka 경로의 발행·결과 구독·저장 완료 대기와 종료 후 측정 잠금 해제까지 구현됐으며, 운영 활성화는 별도로 확인한다.
+  처리 서비스의 **시험용 입구**(4장)는 계속 사용할 수 있다.
 - 추론의 최종 위치는 GPU PC(`SERVER_LAN_IP:KAFKA_EXTERNAL_PORT`, 기본 9094)다. 지금은 서버 PC 안의 같은 서비스가 대신 돈다.
 
 ## 2. 토픽
 
 | 토픽 | 파티션 | 키 | 생산 → 소비(컨슈머 그룹) | `kind` | 스키마 |
 | --- | --- | --- | --- | --- | --- |
-| `posture.features` | 3 | `session_id` | 입출구 `ws`(지금은 시험용 입구) → 추론(`inference-service`) | `session_started` / `features` / `session_ended` | [kafka-features](../../contracts/realtime/kafka-features.schema.json) |
+| `posture.features` | 3 | `session_id` | 입출구 `ws`(Kafka 경로)·시험용 입구 → 추론(`inference-service`) | `session_started` / `features` / `session_ended` | [kafka-features](../../contracts/realtime/kafka-features.schema.json) |
 | `posture.inference` | 3 | `session_id` | 추론 → 판정(`judge`) | `session_started` / `observation` / `session_ended` | [kafka-inference](../../contracts/realtime/kafka-inference.schema.json) |
-| `posture.episodes` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store`), 입출구 `ws`(계획 0031 1단계) | `observation` / `decision` / `progress` | [kafka-episodes](../../contracts/realtime/kafka-episodes.schema.json) |
+| `posture.episodes` | 3 | `session_id` | 판정 → 판정 결과 저장(`report-store`), 입출구 `ws`(Kafka 경로) | `observation` / `decision` / `progress` | [kafka-episodes](../../contracts/realtime/kafka-episodes.schema.json) |
 | `posture.dlq` | 1 | 원래 키 | 추론·판정·저장 컨슈머 → 사람이 확인 | — | 5장 |
-| `posture.alerts` | 3 | `session_id` | 판정 결과 저장(`report-store` 안에서 발행) → 입출구 `ws`(계획 0031 1단계 뒤) | `alert` | [kafka-alerts](../../contracts/realtime/kafka-alerts.schema.json) |
+| `posture.alerts` | 3 | `session_id` | 판정 결과 저장(`report-store` 안에서 발행) → 입출구 `ws`(Kafka 경로) | `alert` | [kafka-alerts](../../contracts/realtime/kafka-alerts.schema.json) |
 | `posture.stored` | 3 | `session_id` | 판정 결과 저장(`report-store` 안에서 발행) → 입출구 `ws`(D-67) | `session_stored` | [kafka-stored](../../contracts/realtime/kafka-stored.schema.json) |
-| `posture.keypoints` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`, D-92). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints](../../contracts/realtime/kafka-keypoints.schema.json) |
+| `posture.keypoints` | 3 | `session_id` | 입출구 `ws`(kafka 경로·적재 스위치 켬) → Spark J1(HDFS `keypoints.jsonl`). 처리 서비스는 읽지 않음 | `keypoints` | [kafka-keypoints](../../contracts/realtime/kafka-keypoints.schema.json) |
 
 - 토픽은 처리 서비스가 시작할 때 없으면 만든다(복제 1, 단일 브로커). 브로커 기본 파티션도 3이다.
 - 보존(D-82): 실시간 토픽 6개 3일, `posture.dlq` 7일, 세그먼트(`segment.ms`)는 모두 1일 — 탈퇴 30일 삭제보다 짧게. Kafka는 닫힌 세그먼트 단위로만 지우므로 세그먼트를 줄이지 않으면(브로커 기본 7일) 보존 3일이어도 최대 약 10일 남는다. 처리 서비스가 토픽을 만들 때 넣고, 이미 있는 토픽은 [infra](../../infra/README.md) 「Kafka 토픽 보존 설정」으로 맞춘다. 통합 테스트 2단계가 7개 토픽을 확인한다.
@@ -72,8 +73,14 @@
 | episodes | `decision` | [사건](../../contracts/posture-event.schema.json) + 그 시점 요약 + `last_sequence` |
 | episodes | `progress` | 약 1초(메시지 시각 기준)마다 요약 + `last_sequence` |
 | alerts | `alert` | 알림을 낸 사건의 `event_id`·`kind`(`collapse_confirmed`·`reminder`)·`deviation_type`·`timestamp_ms`·`onset_ms`. `ws`는 받은 그대로 앱에 WebSocket `alert`로 보낸다(걸러내지 않음) |
-| keypoints | `keypoints` | (D-92) 앱이 보낸 좌표 구간 그대로([좌표 구간 계약](../../contracts/realtime/frames/posture-frames.schema.json) — 관절 9개 `[x, y, visibility]` 프레임). `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
+| keypoints | `keypoints` | 마지막 관측 한 장의 [평탄화 본문](../../contracts/realtime/frames/posture-frame.schema.json)(sequence·start_ms·end_ms·phase·t_ms·p). WS 전용 type은 넣지 않는다. `ws`가 `features`를 보낸 뒤 같은 키·순번으로 보내되 브로커 확인을 기다리지 않는다(실패하면 그 구간 좌표만 적재에서 빠짐). 스위치 `POSEGOOD_ARCHIVE_KEYPOINTS`(기본 꺼짐 — 좌표 활용 동의 범위 확인 전). 로그·콘솔에 본문을 남기지 않는다 |
 | stored | `session_stored` | (D-67) 종료 사건을 DB에 쓴 뒤 `end_ms`·`good_ms`. 재전송된 `session_ended`면 다시 낸다. `ws`는 `session_ended` 사건과 이것이 다 와야(순서 무관) 앱에 종료 사건·`closed`를 보낸다 — 앱이 닫힌 뒤 조회하면 종료 값이 있다. 세션 행이 없으면(SESSION_NOT_FOUND) 내지 않아 앱은 `stalled`를 받는다 |
+
+좌표 본문은 running·unmeasurable·rest·away를 보존한다. running은 관절 9개 `[x,y,visibility]`와 t_ms,
+unmeasurable은 p: null과 관측이 있을 때만 t_ms, rest·away는 p/t_ms 생략이다.
+구형 WS 입력도 마지막 한 장의 같은 평탄화 본문으로 발행한다. posture.keypoints 하나와 기존 J1 구독·체크포인트·
+임시 폴더·keypoints.jsonl을 유지하며, 별도 메시지 식별·형식별 분기·파일·체크포인트를 추가하지 않는다.
+이미 저장된 파일은 변환하거나 덮어쓰지 않는다([ADR 0053](../decisions/0053-realtime-flat-input-and-server-filter-removal.md)).
 
 사건 종류(`decision.event.kind`): `collapse_confirmed`·`reminder`·`recovery_confirmed`·`interrupted`·`session_ended`·`excluded_started`·`excluded_ended`.
 `interrupted`·제외 구간의 `reason`: `rest`·`away`·`unmeasurable`·`missing`(·`missing_sequence`), 세션 종료로 끊기면 `ended`.
@@ -135,4 +142,4 @@ DB 연결 장애는 DLQ가 아니라 같은 메시지를 재시도한다(판정 
   보내는 쪽·받는 쪽 코드, 스키마, 예시, 시험을 한 PR에서 바꾸고 같은 때 배포한다. 배포 전에 입력을 멈추고 해당 컨슈머 그룹의 LAG가 0인지 확인한다.
 - 토픽·그룹 이름을 바꿀 때는 새 이름 토픽을 처리 서비스가 만들고, 옛 토픽·그룹은 며칠 뒤 지운다(2026-11-18 버전 빼기 때 방식, [infra](../../infra/README.md)).
 - 메시지 안의 `schema_version`·`feature_version`·`model_version` 필드는 아직 남아 있다(빼는 일은 보류).
-- 예정된 변경: 좌표 구간 본문 v3(D-34), 세션 종료 사유(D-55).
+- 예정된 변경: 세션 종료 사유(D-55). 연구 모델 연결 등 후속 본문 변경은 별도로 검토한다. 이번 좌표 평탄화는 현재 계약에 반영했다.

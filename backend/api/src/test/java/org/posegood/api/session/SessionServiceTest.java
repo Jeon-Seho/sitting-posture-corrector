@@ -41,6 +41,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import tools.jackson.databind.json.JsonMapper;
+
 /**
  * 측정불가가 이어지면 서버가 그 지점에서 세션을 끝내고 저장한다(2026-10-26 결정). 자정 넘김은 이전 세션을 끝내고
  * 같은 설정으로 새 세션을 만든다(BE-6 ① B안). 세션 조회(S4)는 메모리에 끝난 결과가 없으면 DB로 다시 만든 결과로 답한다
@@ -128,6 +130,78 @@ class SessionServiceTest {
 	private static SessionView feed(SessionService service, UUID id, FrameInterval interval) {
 		service.frames(OWNER, id, interval, STANDARD);
 		return service.get(OWNER, id);
+	}
+
+	@Test
+	void flatAndLegacyInputsProduceTheSameObservationsEventsAndFinalSummary() {
+		var legacy = compatibilitySequence(false);
+		var legacyUpdates = List.copyOf(published);
+		published.clear();
+		var flat = compatibilitySequence(true);
+		assertEquals(legacy, flat);
+		assertEquals(legacyUpdates, published);
+		assertEquals(10500, flat.summary().totalMs());
+		assertEquals(8000, flat.summary().validMs());
+		assertEquals(4000, flat.summary().normalMs());
+		assertEquals(4000, flat.summary().deviationMs());
+		assertEquals(1000, flat.summary().unknownMs());
+		assertEquals(500, flat.summary().restMs());
+		assertEquals(500, flat.summary().awayMs());
+		assertEquals(500, flat.summary().missingMs());
+		assertEquals(1, flat.summary().collapseCount());
+		assertEquals(1, flat.summary().alertCount());
+		assertEquals(List.of("collapse_confirmed", "interrupted", "session_ended"),
+			flat.events().stream().map(SessionView.DecisionEvent::kind).toList());
+	}
+
+	/** DB·외부 추론은 대역으로 두고 좌표 계산부터 판정·알림·종료 집계까지 같은 합성 시퀀스를 통과시킨다. */
+	private SessionView compatibilitySequence(boolean flat) {
+		var service = service(Duration.ZERO);
+		when(inference.infer(any(InferenceRequest.class))).thenAnswer(call -> {
+			InferenceRequest request = call.getArgument(0);
+			boolean valid = request.features() != null;
+			double score = valid && request.features().headGapDelta() < -0.2 ? 0.8 : 0;
+			return new Observation("2.0", request.sequence(), request.startMs(), request.endMs(), request.phase(),
+				valid, score, score > 0 ? Observation.DeviationType.forward_slouch : Observation.DeviationType.none,
+				"synthetic-v1");
+		});
+		var mapper = JsonMapper.builder().build();
+		for (int sequence = 0; sequence < 20; sequence++) {
+			var phase = sequence == 12 ? FrameInterval.Phase.rest
+				: sequence == 13 ? FrameInterval.Phase.away : FrameInterval.Phase.running;
+			var input = interval(sequence, phase, sequence != 10 && sequence != 11);
+			if (sequence >= 2 && sequence <= 9) {
+				var points = new ArrayList<List<Double>>();
+				for (int joint = 0; joint < 9; joint++) {
+					points.add(List.of(UPRIGHT[joint][0], UPRIGHT[joint][1] + (joint < 7 ? 0.1 : 0), 0.95));
+				}
+				input = new FrameInterval("3.0", "keypoints-9-v1", sequence, input.startMs(), input.endMs(), phase,
+					List.of(new FrameInterval.Frame(input.startMs(), points, null)));
+			}
+			if (sequence == 11) {
+				input = new FrameInterval("3.0", "keypoints-9-v1", sequence, input.startMs(), input.endMs(), phase,
+					List.of());
+			}
+			if (flat) {
+				var message = mapper.createObjectNode().put("type", "features").put("sequence", sequence)
+					.put("start_ms", input.startMs()).put("end_ms", input.endMs()).put("phase", phase.name());
+				if (phase == FrameInterval.Phase.running) {
+					var frame = input.lastFrame();
+					if (frame != null) {
+						message.put("t_ms", frame.tMs());
+					}
+					if (frame == null || frame.p() == null) {
+						message.put("phase", "unmeasurable").putNull("p");
+					} else {
+						message.set("p", mapper.valueToTree(frame.p()));
+					}
+				}
+				input = FrameInterval.readFlat(message);
+			}
+			feed(service, ID, input);
+		}
+		service.finish(OWNER, ID, 10500L);
+		return service.get(OWNER, ID);
 	}
 
 	@Test

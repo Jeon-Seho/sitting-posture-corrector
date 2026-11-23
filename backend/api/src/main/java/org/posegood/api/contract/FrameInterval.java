@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.posegood.api.common.Json;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import jakarta.validation.Valid;
@@ -14,13 +16,14 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 /**
  * 앱이 보내는 좌표 구간 하나: 보통 프레임 1장이고 다음 프레임이 찍힐 때 끝난다(2026-10-27부터 프레임마다, 약 0.1초).
  * 새 프레임이 0.5초 동안 없으면 0.5초에서 닫는다. 관절 9개 원본 프레임이다. {@code /realtime} features의 item이다.
  *
  * 계약: contracts/realtime/frames/posture-frames.schema.json. 구간은 [startMs, endMs)이다.
- * 좌표는 로그·DB에 남기지 않는다. 서버는 특징 변화량(측정) 또는 관절 평균(자세 등록)만 계산한다.
+ * 좌표는 로그·DB에 남기지 않는다. Kafka 적재 스위치를 켠 경우에만 별도 좌표 토픽으로 보낸다.
  */
 public record FrameInterval(
 	@NotNull @Pattern(regexp = "3\\.0") String schemaVersion,
@@ -44,6 +47,58 @@ public record FrameInterval(
 		if (endMs <= startMs || endMs - startMs > 1500) {
 			throw new IllegalArgumentException("interval must be 1..1500ms");
 		}
+	}
+
+	/** 구형 배열도 평균 없이 마지막 관측 한 장으로 처리한다. */
+	public Frame lastFrame() {
+		return frames.isEmpty() ? null : frames.get(frames.size() - 1);
+	}
+
+	/** 평탄화 WS 입력. 내부 추론 계약의 phase와 품질 표현은 유지한다. */
+	public static FrameInterval readFlat(JsonNode node) {
+		var allowed = Set.of("type", "sequence", "start_ms", "end_ms", "phase", "t_ms", "p");
+		for (String name : node.propertyNames()) {
+			if (!allowed.contains(name)) {
+				throw new IllegalArgumentException("unknown interval field");
+			}
+		}
+		if (!"features".equals(Json.text(node.path("type")))) {
+			throw new IllegalArgumentException("features required");
+		}
+		long sequence = integer(node.path("sequence"));
+		long start = integer(node.path("start_ms"));
+		long end = integer(node.path("end_ms"));
+		String phase = Json.text(node.path("phase"));
+		var frames = List.<Frame>of();
+		if ("running".equals(phase) || "unmeasurable".equals(phase)) {
+			var points = node.get("p");
+			boolean running = "running".equals(phase);
+			if (points == null || (running ? !points.isArray() : !points.isNull())
+				|| (running && !node.has("t_ms"))) {
+				throw new IllegalArgumentException("invalid frame fields");
+			}
+			if (node.has("t_ms")) {
+				long time = integer(node.get("t_ms"));
+				if (time < start || time >= end) {
+					throw new IllegalArgumentException("frame outside interval");
+				}
+				var frame = JsonNodeFactory.instance.objectNode();
+				frame.put("t_ms", time);
+				frame.set("p", points);
+				frames = List.of(Frame.read(frame));
+			}
+			phase = "running";
+		} else if ((!"rest".equals(phase) && !"away".equals(phase)) || node.has("t_ms") || node.has("p")) {
+			throw new IllegalArgumentException("invalid phase fields");
+		}
+		return new FrameInterval("3.0", "keypoints-9-v1", sequence, start, end, Phase.valueOf(phase), frames);
+	}
+
+	private static long integer(JsonNode node) {
+		if (!node.isIntegralNumber() || !node.canConvertToLong() || node.asLong() < 0) {
+			throw new IllegalArgumentException("nonnegative integer required");
+		}
+		return node.asLong();
 	}
 
 	/**

@@ -36,6 +36,9 @@ tools/platform/batch.sh j2 --date 2026-10-31 --days 3 --dry-run   # 10/29~10/31,
 
 ## J1 판정 과정·좌표 적재
 
+좌표 생산자는 평탄화 본문을 사용한다. J1은 `posture.keypoints` 하나를 구독하고 기존 `keypoints.jsonl`에 원문을 적재한다.
+별도 형식 식별·토픽·파일·체크포인트를 추가하지 않는다. 기존 파일을 변환하거나 덮어쓰지 않는다.
+
 ```bash
 tools/platform/batch.sh j1                                   # Kafka 받기 + 끝난 지 10분 지난 세션 정리
 tools/platform/batch.sh j1 --dry-run                         # 받기는 하고, 정리할 세션만 보기
@@ -48,9 +51,9 @@ tools/platform/batch.sh j1 --session <uuid> --settle-sec 0   # 시험용 — 그
 2. **정리**: DB에서 끝난 지 10분(`--settle-sec`) 지났고 `feature_archive`가 없는 세션(계정 ACTIVE, 7일 안)을 골라 임시 폴더의 메시지를 모은다. 중복은 하나만(구간·관측 `sequence`, 사건 `event_id`, 그 밖은 `message_id` — 가장 앞 offset). 세션 폴더 `/data/users/{user_account_id}/{시작일 KST}/{client_session_uuid}/`에 **파일 3개**(`features.jsonl`·`inference.jsonl`·`episodes.jsonl`, 토픽 원문 한 줄에 하나)와 좌표 구간이 있으면 `keypoints.jsonl`(D-92, 중복은 `sequence`로)을 쓰고 `feature_archive` 1행(`file_uri`, 첫·마지막 구간 시각 = 세션 시작 + `start_ms`/`end_ms`, 적재 시각)을 넣는다. 파일을 먼저 쓰고(덮어쓰기) 행을 넣어, 중간에 멈추면 다음 실행이 다시 쓴다.
 3. **임시 폴더 정리**: 7일(`--keep-days`)보다 오래된 `date=` 폴더를 지운다.
 
-- 임시 폴더에 메시지가 없는 세션은 건너뛴다(`missing`). **지금 앱 측정은 Kafka를 거치지 않는다**(API 안 판정, D-57 전) — 실제 사용자 세션은 D-57 전환 뒤부터 적재된다. 그 전에는 Kafka 시험 입구로 재생한 시험 세션만 적재된다.
+- 임시 폴더에 메시지가 없는 세션은 건너뛴다(`missing`). 실제 앱 세션은 입출구 서버가 Kafka 경로를 사용할 때 적재된다(local 기본값에서는 발행하지 않음). 좌표는 추가로 적재 스위치를 켜야 한다. 운영 활성화 상태는 별도로 확인한다.
 - 탈퇴(CLOSED) 계정의 세션은 적재하지 않는다. 적재된 폴더·행은 J3가 사용자 폴더째 지운다. 임시 폴더의 그 사용자 메시지는 7일 뒤 정리로 사라진다(유예 30일보다 짧음).
-- HDFS ↔ 학습 환경은 연결하지 않는다(D-33). 원문에는 좌표·이메일이 없다(features 본문은 특징 변화량).
+- HDFS ↔ 학습 환경은 연결하지 않는다(D-33). features 본문은 특징 변화량이고, 좌표는 keypoints.jsonl에만 적재한다. 원본 영상·이메일은 적재하지 않는다.
 
 ## J3 탈퇴 최종 삭제
 

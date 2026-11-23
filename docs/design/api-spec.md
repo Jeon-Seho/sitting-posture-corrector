@@ -20,7 +20,7 @@ Spring Boot API가 제공하는 REST 15개와 WebSocket 1개(`/realtime`)의 요
 > 이 문서는 **지금 코드**를 그대로 적은 것이고, 코드와 다른 계약이 생기면 이 문서와 코드를 함께 고친다.
 > **세션 생성(S1) 응답은 이 문서가 기준이다(10/15 결정)** — 200 `SessionView`이고, 「FE ↔ BE API 명세 (입출구 서버)」의 201 새 응답 형식은 쓰지 않는다.
 > **주소에 버전이 없다(2026-11-09, 소셜 로그인·비밀번호 재설정은 2026-11-12).** `/v2/auth/login` → `/auth/login`, `/v2/auth/social/…` → `/auth/social/…`, `/v2/realtime` → `/realtime`, 추론 `/v2/infer` → `/infer`처럼 `/v2`만 뺐고 본문·메시지 형식은 그대로다(메시지 계약 이름 `realtime-ws`·`schema_version` 등은 아직 남아 있고 [ADR 0049](../decisions/0049-no-version-in-names.md)에 따라 다음 단계에서 뺀다). 옛 주소는 받지 않는다. 이 날 전에 쓴 계획·결정·점검 문서의 `/v2/…`는 버전을 뺀 같은 주소로 읽는다.
-> 실시간은 `/realtime`(좌표 프레임, [11장](#11-websocket-v2realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28, 앱이 부르지 않던 세션 종료(S3)·기록 삭제(R3)·선택 정보 동의·철회(C1)는 2026-11-12 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
+> 실시간은 `/realtime`(좌표 프레임, [11장](#11-websocket-realtime))만 쓴다. `/v1/realtime`은 2026-10-26 삭제했다([10장](#10-websocket-v1realtime)). 앱 기능이 없던 구간 입력(S2)·세션 메타데이터(S5)·세션 삭제(S6)·기록 저장(R2)은 2026-10-28, 앱이 부르지 않던 세션 종료(S3)·기록 삭제(R3)·선택 정보 동의·철회(C1)는 2026-11-12 삭제했다([계획 0062](../plans/active/0062-remove-unused-apis.md)). 번호는 다른 문서의 참조를 지키려고 비워 둔다.
 > 일별 통계 조회 [T1](#t1)(`GET /stats/daily`)은 형식만 확정했고 기록 하나 조회 R1b(`GET /records/{id}`)와 함께 아직 구현 전이다(FE 요청 BE-2·BE-5 ③).
 
 ## 목차
@@ -1128,7 +1128,7 @@ API가 FastAPI `POST /infer`에서 받는 응답이다(앱에는 보내지 않�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `sequence` · `start_ms` · `end_ms` · `phase` | - | 요청과 반드시 같다. 다르면 API가 추론 실패로 본다(실시간 연결에는 `stalled`). |
-| `valid` | boolean | 판정에 쓸 수 있는 구간인지. `phase`가 running이 아니거나, `measurement_quality`가 poor이거나, 품질 값이 0.65 미만이면 반드시 false. |
+| `valid` | boolean | 판정에 쓸 수 있는 구간인지. `phase`가 running이 아니거나, `measurement_quality`가 poor이거나, 특징이 없으면 반드시 false. |
 | `collapse_probability` | 0 ~ 1 | 붕괴 확률. 정책의 `threshold` 이상이면 이탈 후보. `valid=false`이면 0. |
 | `deviation_type` | enum | `none` · `forward_slouch` · `left_lean` · `right_lean` · `unspecified` |
 | `model_version` | string | API 설정값(`reference-feature-rule-v1`)과 같아야 한다. |
@@ -1170,13 +1170,13 @@ API가 FastAPI `POST /infer`에서 받는 응답이다(앱에는 보내지 않�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `sequence` | long | 이 결과가 어느 구간의 것인지. 앱이 보낸 순번 그대로(연결 기준, 자정 넘김 뒤에도 `ack`처럼 앱 번호). 앱은 이미 보인 것보다 작은 순번을 버리고, 보낸 시각과 비교해 점수 지연을 잴 수 있다. |
+| `sequence` | long | 이 결과가 어느 구간의 것인지. 앱이 보낸 순번 그대로(연결 기준, 자정 넘김 뒤에도 앱 번호). 앱은 이미 보인 것보다 작은 순번을 버리고, 보낸 시각과 비교해 점수 지연을 잴 수 있다. |
 | `valid` | boolean | 이 구간을 판정할 수 있었는지. |
 | `posture` | `good` \| `bad` \| null | 이 구간 점수에 세션 정책 `threshold`를 적용한 그 순간의 판정(점수 ≥ `threshold`면 `bad`, 이탈 후보와 같은 비교). 3초 확정·알림은 계속 `decision`·`alert`다. `valid`가 아니면 null. |
 | `collapse_probability` | number 0~1 \| null | 이탈 점수. 앱 점수 = 100 × (1 − 값). `valid`가 아니면 **null**(점수가 아님). `valid`인 0은 기준과 차이가 없다는 실제 점수다. 학습 모델 전까지 규칙 점수이고 보정된 확률이 아니다. |
 | `hold_ms` | long | 이 구간 끝까지 이탈 후보(`bad`)가 이어진 시간(이어진 구간들의 `end_ms − start_ms` 합. 구간 = 프레임 1장이라 프레임 간격의 합과 같다). 판정 엔진이 정책 `hold_ms`와 비교해 붕괴를 확정하는 바로 그 값이다. `good` 구간·판정 불가·쉬기·자리 비움·누락으로 끊기면 0. 확정 뒤에도 `bad`가 이어지면 계속 는다. |
 | `recovery_ms` | long | 열린 사건(`collapse_confirmed` 뒤)에서 이 구간 끝까지 `good`이 이어진 시간(`hold_ms`처럼 구간 길이의 합). 판정 엔진이 정책 `recovery_ms`와 비교해 회복을 확정하는 바로 그 값이다. 열린 사건이 없으면(첫 확정 전, `recovery_confirmed`·`interrupted` 뒤) 0이고, `bad` 구간이 오면 0부터 다시 센다. 정책 값에 닿은 구간은 같은 구간의 `decision(recovery_confirmed)`로 사건이 닫혀 0이다. 판정 불가·쉬기·자리 비움·누락은 사건을 `interrupted`로 끝내므로 역시 0. 앱은 `recovery_ms / 정책 recovery_ms`로 복귀 확인 진행을 보일 수 있다. |
-| `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(고개를 돌린 프레임만 있었음) · `settling`(아직 보내지 않음). |
+| `invalid_reason` | enum \| null | `valid`면 null. 아니면 `unmeasurable`(판정 가능 프레임 없음, 휴식·자리 비움 포함) · `head_turn`(구형 서버 응답 호환용, 현재 서버는 보내지 않음) · `settling`(아직 보내지 않음). |
 
 ### RecordItem — 앱 기록 (camelCase)
 
@@ -1225,7 +1225,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ```
 측정:  S1 PUT /sessions/{id} → WS 연결 → hello(measure) → ready
-       → features × N (프레임마다 구간 1개) → observation · decision · alert · ack · progress
+       → features × N (프레임마다 구간 1개) → observation · decision · alert · progress
        → end → decision(session_ended) → closed(ended)
 자정:  (자정을 넘는 구간 또는 00:00:30) → decision(session_ended) → session_rollover
        → features × N (앱 값 그대로, 서버가 새 세션 값으로 바꿈) → … → end → closed(ended)
@@ -1236,6 +1236,30 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 3. `features`는 `ready` 뒤에만 보낸다.
 
 ### 11.2 앱 → 서버
+
+현재 계약은 `contracts/realtime/realtime-ws.schema.json`이다. 기존 v2 입력도 전환 기간에 받는다.
+신형 hello는 `{type: "hello", purpose: "measure", session_id, access_token}`이며 버전 필드가 없다.
+features는 items가 있으면 아래 구형 배열, 없으면 평탄화 형식으로 파싱한다. 두 모양을 섞거나 알 수 없는 필드가 있으면 거절한다.
+
+**신형 features**
+
+| 필드 | 규칙 |
+|---|---|
+| type | features |
+| sequence | 0 이상의 순번, 기존 순서 규칙 적용 |
+| start_ms·end_ms | 연결 기준 `[start_ms,end_ms)`, 길이 1~1500ms, 기존 시각 상한 적용 |
+| phase | running·unmeasurable·rest·away |
+| t_ms | running에 필수, 촬영된 unmeasurable에 포함, 관측 없는 구간·rest·away에는 생략 |
+| p | running은 기존 순서의 관절 9개, unmeasurable은 null, rest·away에는 생략 |
+
+촬영 시각은 `start_ms <= t_ms < end_ms`여야 한다. 신형에는 items·frames·valid·schema_version·feature_version을 넣지 않는다.
+FE가 어깨 가시성을 확인하며 얼굴 점의 낮은 visibility는 허용한다. 9점 중 좌표 자체가 빠지면 측정 불가다.
+같은 시각의 관측은 마지막 한 장을 쓰고, 이미 닫힌 구간의 늦은 관측은 FE가 버린다.
+서버는 품질 하한·위치·고개 돌림을 다시 판정하지 않고 입력 형식·범위·계산 가능 여부를 확인한다.
+관측 없는 짧은 공백도 unmeasurable이다. 기존 away는 입력이 1초 넘게 끊겨 일시정지한 뒤 사용자가 재개하는 상태다.
+구형 입력은 t_ms의 기존 허용 범위를 유지한다. 출력 observation과 REST 응답의 버전 필드는 이번에 삭제하지 않는다.
+
+**호환 기간의 구형 입력**
 
 | type | 필드 | 설명 |
 |---|---|---|
@@ -1305,14 +1329,14 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | 단계 | 내용 |
 |---|---|
 | `hello` 확인 | 로그인 사용자가 세션 주인인지, 세션이 아직 진행 중인지, 세션의 기준 자세로 특징을 계산할 수 있는지 확인한다. 같은 세션에 이미 연결이 있으면 `closed(bad_message)`. |
-| 특징 계산 | 구간 안에서 판정 가능하고 고개를 돌리지 않은 프레임의 특징을 **모두 평균**해 기준을 뺀다(`FrameFeatures.interval`). 유효 프레임이 하나라도 있으면 구간 전체 길이를 유효 시간으로 센다. 판정 불가 프레임 앞뒤를 나눠 유효 하위 구간별로 계산하는 방식은 보류다(BE-5 ②, [개발 상태](../backend-status.md) 2.4). 앱이 프레임마다 구간 하나를 보내면 두 방식의 결과가 같다. 카메라는 640×480 고정이다. |
-| 판정 불가 | 쓸 프레임이 없으면 `measurement_quality: poor`로 추론에 넘기고, `observation.invalid_reason`은 고개 돌림만 있었으면 `head_turn`, 아니면 `unmeasurable`. |
-| 추론·판정 | 추론(`POST /infer`) → 판정 엔진 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. 새 사건(붕괴 확정·재알림·회복·중단)은 `ack` 전에 DB에 쓴다. |
-| 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `ack` → `progress`. |
+| 특징 계산 | 한 프레임의 특징에서 기준을 뺀다. 구형 배열에 여러 장이 있으면 마지막 한 장을 사용한다. 마지막이 측정 불가면 앞의 좌표를 재사용하지 않는다. 특징 평균과 목업 품질·위치·고개 돌림 제외를 제거했다. |
+| 판정 불가 | FE 측정 불가·빈 관측·계산 불가면 내부 추론에 poor·features null로 전달한다. 출력 invalid_reason은 unmeasurable이다. 내부 추론 계약의 phase는 기존 running·rest·away를 사용한다. |
+| 추론·판정 | 추론(`POST /infer`) → 판정 엔진 → DB 기록. 세션 잠금 안에서 순서대로 처리하고, 구간 사이 빈 시간은 MISSING으로 제외한다. local의 사건 발행과 저장 순서는 기존 경로를 따른다. Kafka는 저장 완료를 받은 뒤 종료를 전달한다. |
+| 응답 | 구간마다 `observation` → 새 사건마다 `decision`(알림 대상이면 `alert`) → `progress`. |
 | 일시 장애 | 추론·DB 일시 장애(502·503)는 `stalled`만 보내고 **연결을 유지**한다. 그 구간은 다시 받지 않으므로 다음 구간과의 빈 시간은 누락(MISSING)이 된다. |
 | 시간 한도 | 제품 한도는 없다(2026-10-26 결정). 계약의 시각 상한(`*_ms` ≤ 86,400,000 = 24시간)을 넘는 구간이 오면 마지막으로 받은 구간 끝에서 세션을 끝내고 `decision(session_ended)` → `closed(limit_reached)`. 서버는 최근 120개 구간만 기억해 측정 시간이 길어도 메모리가 늘지 않는다. |
 | 측정불가 시간 초과 | 판정 불가(`running`인데 유효하지 않음)와 자리 비움(`away`) 구간이 이어진 시간이 `unmeasurable-timeout`(기본 30분)에 닿으면, 그 구간 끝에서 세션을 끝내고 저장한 뒤 `decision(session_ended)` → `closed(unmeasurable_timeout)`. 유효한 측정 구간이나 사용자가 누른 쉬기(`rest`)가 오면 0부터 다시 센다. 구간 사이 빈 시간(누락)은 더하지 않는다. 앱은 이 사유를 저장된 정상 종료로 처리한다(10/27). |
-| 자정 넘김 | `midnight-rollover`를 켜면(기본 꺼짐 — 앱이 `session_rollover`를 처리한 뒤 켠다) KST 자정에 같은 연결에서 세션을 바꾼다(BE-6 ① B안, 2026-10-28). 자정을 넘는 구간(`started_at + end_ms` ≥ 자정)이 오거나, 00:00:30까지 구간이 없으면(쉬기 중 등): ① 이전 세션을 **마지막으로 받은 구간 끝에서** 끝내 저장한다 — 종료 시각은 자정 전이라 시작 날짜 = 종료 날짜. 진행 중이던 사건은 `interrupted`로 끝난다. ② 서버가 새 세션을 만든다 — ID는 서버가 만들고, `started_at` = 자정, 기준 자세·임계값 설정·알림 설정은 이전 세션 것(S1의 계정 확인은 다시 하지 않는다). ③ `decision(session_ended)` → `session_rollover`를 보낸다. **앱은 시간·순번을 연결 기준으로 계속 보낸다.** 서버가 자정 위치(`at_ms`)와 순번 기준(넘길 때의 마지막 순번 + 1)을 빼서 새 세션 값으로 바꾼다. `ack`·`progress`·`stalled`의 순번은 앱이 보낸 번호 그대로이고, 그 뒤 `summary`·사건 시각은 새 세션 기준(자정 = 0)이다. 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않고 `ack`만 보낸다. 새 세션을 만들지 못하면(자리 없음·DB 장애) `closed(day_changed)`로 닫는다 — 이전 세션은 저장됐고 앱은 새 S1부터 다시 시작한다. 연결의 시간축 상한은 그대로 24시간(`*_ms` ≤ 86,400,000)이라 한 연결에서 넘김은 한 번까지다. |
+| 자정 넘김 | `midnight-rollover`를 켜면(기본 꺼짐 — 앱이 `session_rollover`를 처리한 뒤 켠다) KST 자정에 같은 연결에서 세션을 바꾼다(BE-6 ① B안, 2026-10-28). 자정을 넘는 구간(`started_at + end_ms` ≥ 자정)이 오거나, 00:00:30까지 구간이 없으면(쉬기 중 등): ① 이전 세션을 **마지막으로 받은 구간 끝에서** 끝내 저장한다 — 종료 시각은 자정 전이라 시작 날짜 = 종료 날짜. 진행 중이던 사건은 `interrupted`로 끝난다. ② 서버가 새 세션을 만든다 — ID는 서버가 만들고, `started_at` = 자정, 기준 자세·임계값 설정·알림 설정은 이전 세션 것(S1의 계정 확인은 다시 하지 않는다). ③ `decision(session_ended)` → `session_rollover`를 보낸다. **앱은 시간·순번을 연결 기준으로 계속 보낸다.** 서버가 자정 위치(`at_ms`)와 순번 기준(넘길 때의 마지막 순번 + 1)을 빼서 새 세션 값으로 바꾼다. `progress`·`stalled`의 순번은 앱이 보낸 번호 그대로이고, 그 뒤 `summary`·사건 시각은 새 세션 기준(자정 = 0)이다. 자정에 걸친 구간과 넘긴 뒤 늦게 온 자정 전 구간은 어느 세션에도 넣지 않고 버린다. 새 세션을 만들지 못하면(자리 없음·DB 장애) `closed(day_changed)`로 닫는다 — 이전 세션은 저장됐고 앱은 새 S1부터 다시 시작한다. 연결의 시간축 상한은 그대로 24시간(`*_ms` ≤ 86,400,000)이라 한 연결에서 넘김은 한 번까지다. |
 | `end` | `decision(session_ended)` → `closed(ended)`. `end_ms`가 마지막 구간 끝보다 앞서면 마지막 구간 끝에서 끝낸다. 자정 넘김을 켰는데 넘기기 전에 `end_ms`가 자정을 지났으면 자정 1ms 전에서 끝낸다. S3로 끝내도 같은 메시지를 보낸다. |
 | 끊김 | 측정 중 연결이 끊기면 마지막으로 받은 구간 끝에서 세션을 끝낸다. 끝난 세션으로 다시 `hello`하면 `closed(session_lost)`. |
 
@@ -1320,14 +1344,13 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 ### 11.4 자세 등록 (삭제)
 
-2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /baselines`로만 한다 — 앱이 3초 동안 판정 가능 프레임(11.3과 같은 조건)의 관절 평균을 내서 보낸다. `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
+2026-10-27 삭제했다. 자세 등록은 [B1](#b1) `POST /baselines`로만 한다 — 앱이 3초 동안 등록 조건을 통과한 프레임의 관절 평균을 내서 보낸다. `hello`의 `purpose: "calibration"`, `ready`의 등록 형식, `calibration_result`는 없다. 장 번호는 다른 문서의 참조를 지키려고 남긴다.
 
 ### 11.5 서버 → 앱
 
 | type | 필드 | 설명 |
 |---|---|---|
 | `ready` | purpose, session_id, started_at | `hello`를 받아들였다. `features`를 보내기 시작한다. 측정이면 `started_at` = 서버의 세션 시작 시각(S1을 받은 시각, UTC). 앱은 오늘 기록의 시각·날짜를 이 값으로 정한다(ADR 0028). |
-| `ack` | last_sequence | 여기까지 처리 완료. 표시만 하고 다시 보내지 않는다. |
 | `observation` | observation | 구간마다 [Observation 4.0](#observation-40--실시간-v2-관측). 점수 = 100 × (1 − collapse_probability). |
 | `progress` | last_sequence, summary, paused_reason | 누적 요약. `paused_reason`: 마지막 구간이 휴식이면 `rest`, 카메라 끊김이면 `away`, 판정 불가면 `unmeasurable`, 측정 중이면 null. |
 | `decision` | event, summary | 새 판정 사건과 그 시점 요약. 그 사건을 포함한 `progress`보다 먼저 온다. `event`에는 `schema_version`·`session_id`가 없다. |
@@ -1349,7 +1372,10 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 | `unmeasurable_timeout` | 측정불가(판정 불가·자리 비움)가 정해진 시간(기본 30분) 이어져 서버가 끝내고 저장함(11.3). `ended_at`이 있다 |
 | `day_changed` | 자정 넘김에서 이전 세션은 끝내 저장했지만 새 세션을 만들지 못함(11.3). `ended_at`(자정 전)이 있다. 앱은 새 S1부터 다시 시작한다 |
 
-**서버 → 앱 (실제)** — 이 장의 메시지는 위 「값을 받은 실행」([1장](#1-공통-규칙))에서 받은 그대로다.
+2026-11-19부터 `ack`는 보내지 않는다. Kafka 내부 접수 시각과 브로커 저장 확인은 유지한다.
+
+**서버 → 앱 (과거 실행 기록)** — 아래는 「값을 받은 실행」([1장](#1-공통-규칙))에서 받은 값이다.
+당시 수신한 `ack`도 이 기록에는 보존하며 현재 메시지 목록은 위 표를 따른다.
 
 연결 확인
 
@@ -1392,6 +1418,7 @@ R1 응답(`records[]`)과 W1 응답(`records`)에 쓰는 앱 형식이다. 실�
 
 | 날짜 | 코드 기준 | 내용 |
 |---|---|---|
+| 2026-11-22 | 계획 0099·ADR 0053 (사용자 승인·develop 통합 완료) | 버전 없는 hello·평탄화 features와 구형 hello·items 입력을 함께 지원한다. WS ack·특징 평균·서버 목업 품질·위치·고개 돌림 필터와 규칙 추론의 0.65 하한을 제거한다. 측정 불가는 내부 poor·features null로 정규화하며 응답 버전 필드는 유지한다. 좌표 적재는 posture.keypoints 단일 토픽·평탄화 본문·기존 keypoints.jsonl을 사용한다. 실제 배포·신형 FE 공동 확인은 별도다. |
 | 2026-11-18 | `refactor/repo-remove-api-version-paths` | 계약 파일 이름에서 버전 삭제(형식은 그대로): 계정 `contracts/accounts.v2.md` → `accounts.md`, 동의 `consent-documents.v2.md` → `consent-documents.md`, WebSocket `realtime-ws.v2.schema.json` → `realtime-ws.schema.json`(예시 `examples-v2/` → `examples-ws/`), 좌표 구간 `posture-frames.v1` → `posture-frames`, 조회·사건·관측·특징 입력(`session-view`·`posture-event`·`posture-observation`·`inference-request`). 안 쓰는 `accounts.v1.md`·`feature-response.v1`은 지움. 입출구 서버 `RealtimeHandlerV2` → `RealtimeHandler`. |
 | 2026-11-18 | `refactor/repo-remove-api-version-paths` | develop(`ed72615`, #127·#128·#131·#134 포함)을 다시 합치며 그 사이 생긴 주소에서도 버전을 뺌: 가입 이메일 인증 `/auth/email-verification/requests`·`/confirm`, 비밀번호 재설정 링크 확인 `/auth/password-reset/validate`, 소셜 계정 연결 승인 `/auth/social/pending-link`·`/verify`·`/confirm`(컨트롤러·로그인 없이 부르는 주소 목록), A7 탈퇴 `/auth/account`의 새 MySQL 시험. 응답 형식은 그대로. develop의 `SessionServiceTest`는 #134 병합에서 닫는 괄호가 빠져 컴파일되지 않아 한 줄을 넣었다. 검증(11/18): Java api 156(건너뜀 18)·processing 67 통과, MySQL 통합 18 중 17 통과 — `baselinesOwnershipLossAndInferenceFailure`의 두 번째 세션 409는 develop 원본에서도 같다(#127 측정 한 기기 제한과 기존 시험이 어긋남, 이 브랜치 범위 밖). FE 1038/1039·tsc·빌드·스크립트 통과(실패 1은 이 PC Node ICU가 `오전` 대신 `AM`을 내는 `recordTimezone`), Python 241 중 J3·통신 시험 도구 오류는 UTF-8 출력·단독 실행에서 통과, 남은 1개는 전부터 실패하던 브라우저 카메라 시험. |
 | 2026-11-17 | `fix/backend-withdrawal-no-password` | A7 탈퇴: 비밀번호 확인을 뺌(BE-25, FE 제안서 요구 1). 본문 없이 204. 옛 앱의 `{password}` 본문은 무시하고 받으므로(틀린 값도 204) 서버를 먼저 배포해도 운영 앱이 깨지지 않는다. 400 `INVALID_PASSWORD`는 A7에서 없어짐. Discord 가입 계정(비밀번호 없음)도 탈퇴 가능 |

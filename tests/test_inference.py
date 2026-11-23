@@ -44,6 +44,14 @@ class InferenceV2Tests(unittest.TestCase):
                 self.assertEqual(result["collapse_probability"], 0.0)
                 self.assertEqual(result["deviation_type"], "none")
 
+    def test_low_visibility_does_not_change_the_score(self):
+        expected = self.infer(self.body)
+        for quality in (0.0, 0.64, 0.65, 1.0):
+            body = copy.deepcopy(self.body)
+            body['features']['current_quality'] = quality
+            body['features']['baseline_quality'] = quality
+            self.assertEqual(expected, self.infer(body))
+
     def test_representative_invalid_request_is_rejected(self):
         response = self.client.post("/infer", json=dict(self.body, sequence=-1))
         self.assertEqual(response.status_code, 422)

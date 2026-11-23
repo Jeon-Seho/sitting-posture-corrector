@@ -23,7 +23,7 @@ final class ApiClient {
 
 	ApiClient(String base) {
 		this.base = base;
-		http = HttpClient.newBuilder().cookieHandler(cookies).build();
+		http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).cookieHandler(cookies).build();
 	}
 
 	record Response(int status, JsonNode body) {

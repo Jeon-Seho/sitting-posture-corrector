@@ -58,7 +58,7 @@
   },
   "$defs": {
     "features": {
-      "description": "Signed current minus baseline, normalized by shoulder width. The three deltas have no [-1,1] clamp. Score scales and the 0.65 quality cutoff remain unvalidated rules.",
+      "description": "Signed current minus baseline, normalized by shoulder width. The three deltas have no [-1,1] clamp. Score scales remain unvalidated rules. Visibility is retained as metadata; the frontend supplies unmeasurable intervals and no numeric visibility cutoff is applied here.",
       "type": "object",
       "additionalProperties": false,
       "required": [

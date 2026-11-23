@@ -21,7 +21,7 @@ class RealtimeTopicsConfigTest {
 			config.postureStoredTopic("posture.stored", 3),
 			config.postureKeypointsTopic("posture.keypoints", 3)
 		);
-		
+
 		for (NewTopic topic : topics) {
 			assertThat(topic.numPartitions()).isEqualTo(3);
 			assertThat(topic.configs())

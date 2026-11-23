@@ -66,7 +66,7 @@ function setup({ pendingCamera = false, notification, cameraPoints = syntheticPo
     setTimeout: () => 1, clearTimeout() {},
   }
   const file = path.join(__dirname, '../model/analysis/live_comparison/web/app.js')
-  const source = fs.readFileSync(file, 'utf8').replace(/^import .*\n/, '')
+  const source = fs.readFileSync(file, 'utf8').replace(/^import .*\r?\n/, '')
   const scope = vm.createContext(context)
   vm.runInContext(source, scope, { filename: 'app.js' })
   return { elements, callbacks, stream, resolveCamera: () => resolveCamera(stream), stopped: () => stopped,

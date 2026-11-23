@@ -63,13 +63,11 @@ public class InferenceClient {
 		return result;
 	}
 
-	/** 결과가 이 요청에 대한 것이고, 품질이 낮은 구간을 유효로 표시하지 않았는지 확인한다(ADR 0020). */
+	/** 결과가 이 요청에 대한 것이고, 측정 불가로 전달한 구간을 유효로 표시하지 않았는지 확인한다. */
 	void require(InferenceRequest request, Observation observation) {
 		boolean measurable = request.phase() == Observation.Phase.running
 			&& request.measurementQuality() == InferenceRequest.MeasurementQuality.good
-			&& request.features() != null
-			&& request.features().currentQuality() >= 0.65
-			&& request.features().baselineQuality() >= 0.65;
+			&& request.features() != null;
 		if (!"2.0".equals(observation.schemaVersion())
 			|| observation.sequence() != request.sequence()
 			|| observation.startMs() != request.startMs()
