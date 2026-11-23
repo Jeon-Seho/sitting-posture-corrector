@@ -9,7 +9,7 @@
 MySQL 계정 모드의 로그인·CSRF·동의·기준 자세·설정/기록/삭제 경로는 [계정·저장 API](accounts.md)를 따른다.
 계정·설정·기준·세션 REST 주소에는 버전이 없다(`/auth/…`·`/sessions/…` 등, 2026-11-09에 `/v2/…`에서 바꿈, 지금 DB V2.7). 계약 문서는 [계정 API](accounts.md)·[동의 문서](consent-documents.md)(BE, 10/15 합침)이다. 앱이 부르는 때와 응답별 동작은 [FE 연동 명세](../docs/design/fe/api-ws-spec.md)에 있다.
 
-AI 출력과 측정 조회의 기존 버전은 유지한다. 빅데이터 쪽 경계는 [아키텍처 v5.4 스택별 역할](../docs/design/architecture_v5.4_stack_roles.md)(DevOps)이 정한다.
+AI 출력과 측정 조회의 기존 버전은 유지한다. 빅데이터 쪽 경계는 [아키텍처 v5.5 스택별 역할](../docs/design/architecture_v5.5_stack_roles.md)(DevOps)이 정한다.
 Kafka 토픽과 실시간 WebSocket 메시지는 [실시간 전달 계약 초안](realtime/README.md)에 있다(팀 확인 전).
 Kafka 토픽의 운영 명세(파티션·키·컨슈머 그룹·DLQ·보존·시험용 입구)는 [Kafka 명세](../docs/design/kafka-spec.md)다. Kafka 계약(서버 안 서비스끼리)과 WebSocket 계약(앱 ↔ 입출구 서버)은 다른 것이다.
 앱 ↔ 입출구 서버의 현재 WebSocket 계약은 [realtime-ws](realtime/realtime-ws.schema.json)와 [합성 예시](realtime/examples-ws/)다.

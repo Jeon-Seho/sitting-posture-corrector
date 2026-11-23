@@ -271,9 +271,15 @@ for t in posture.features posture.inference posture.episodes posture.alerts post
   elif [ "$PC" -ge 3 ] || { [ "$t" = posture.dlq ] && [ "$PC" -ge 1 ]; }; then pass "토픽 $t (파티션 $PC개)"
   else fail "토픽 $t 파티션" "$PC개 (3개 필요)"; fi
 done
-RET="$($KT/kafka-configs.sh $BS --describe --entity-type topics --entity-name posture.alerts 2>/dev/null | grep -oE 'retention.ms=[0-9]+' | head -1)"
-if [ "$RET" = "retention.ms=259200000" ]; then pass "토픽 posture.alerts 보존 3일 (D-54)"
-else fail "토픽 posture.alerts 보존" "${RET:-설정 없음} (기대 259200000 = 3일 — 토픽을 새로 만들 때만 들어감)"; fi
+# (D-82) 보존 주기 — 실시간 토픽 3일·DLQ 7일, 세그먼트 1일(토픽에 직접 설정된 값만 본다)
+for t in posture.features posture.inference posture.episodes posture.alerts posture.stored posture.keypoints posture.dlq; do
+  WANT=259200000; [ "$t" = posture.dlq ] && WANT=604800000
+  CFG="$($KT/kafka-configs.sh $BS --describe --entity-type topics --entity-name "$t" 2>/dev/null)"
+  RET="$(echo "$CFG" | grep -oE 'retention.ms=[0-9]+' | head -1 | cut -d= -f2)"
+  SEG="$(echo "$CFG" | grep -oE 'segment.ms=[0-9]+' | head -1 | cut -d= -f2)"
+  if [ "$RET" = "$WANT" ] && [ "$SEG" = 86400000 ]; then pass "토픽 $t 보존 $((WANT / 86400000))일·세그먼트 1일 (D-82)"
+  else fail "토픽 $t 보존·세그먼트" "retention.ms=${RET:-기본값} segment.ms=${SEG:-기본값} (기대 $WANT·86400000 — infra/README 「Kafka 토픽 보존 설정」의 --alter)"; fi
+done
 IT_TOPIC="it.smoke.$TS"
 MSG="it-$TS-$RANDOM"
 if $KT/kafka-topics.sh $BS --create --topic "$IT_TOPIC" --partitions 1 --replication-factor 1 >>"$OUT/run.log" 2>&1 \
