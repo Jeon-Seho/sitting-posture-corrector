@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { ServerAccountPage } from './ServerAccountPage'
 import { apiRequest } from '../platform/api'
 import { DEFAULT_RULES } from '../../data/posture'
+import type { SocialClient } from '../auth/accountClient'
 vi.mock('../platform/api', () => ({ apiRequest: vi.fn() }))
 const workspace = { profile: { name: '합성', age: null, occupation: null }, rules: DEFAULT_RULES, preferences: { alerts_on: true }, consents: { optional_profile: false } }
 let renderer: ReactTestRenderer
@@ -66,4 +67,17 @@ it('keeps the withdrawal dialog open with the reason when A7 fails', async () =>
 it('keeps the withdrawal button off while measuring', async () => {
   await mount(true)
   expect(button('서버 계정 탈퇴').props.disabled).toBe(true)
+})
+it('hides password change for a Discord-only account the server reports with password_set=false, keeping withdrawal', async () => {
+  const social = { status: vi.fn().mockResolvedValue({ password_set: false, providers: [{ provider: 'discord', available: true, linked: true }] }), startLink: vi.fn(), unlink: vi.fn() } as unknown as SocialClient
+  await act(async () => { renderer = create(<ServerAccountPage blocked={false} onProfile={onProfile} onSignedOut={onSignedOut} onBusy={onBusy} social={social} />) })
+  expect(renderer.root.findAllByType('input').some(i => i.props.type === 'password')).toBe(false)
+  expect(renderer.root.findAllByType('button').some(b => b.children.join('') === '비밀번호 변경')).toBe(false)
+  expect(renderer.root.findAllByType('h2').map(h => h.children.join(''))).toContain('회원 탈퇴')
+  expect(button('서버 계정 탈퇴').props.disabled).toBe(false)
+})
+it('keeps password change when the account has a password', async () => {
+  const social = { status: vi.fn().mockResolvedValue({ password_set: true, providers: [{ provider: 'discord', available: true, linked: false }] }), startLink: vi.fn(), unlink: vi.fn() } as unknown as SocialClient
+  await act(async () => { renderer = create(<ServerAccountPage blocked={false} onProfile={onProfile} onSignedOut={onSignedOut} onBusy={onBusy} social={social} />) })
+  expect(renderer.root.findAllByType('input').filter(i => i.props.type === 'password')).toHaveLength(2)
 })

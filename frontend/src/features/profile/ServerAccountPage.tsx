@@ -26,6 +26,8 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
   const [occupation, setOccupation] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  // false only when the server says so (GET /auth/social): a Discord-only account has no password to change.
+  const [passwordSet, setPasswordSet] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -73,14 +75,16 @@ export function ServerAccountPage({ blocked, onProfile, onSignedOut, onBusy, soc
       </>}
       <button className="btn" disabled={disabled}>프로필 서버 저장</button>
     </form>
-    {social && <SocialLinkSection social={social} disabled={blocked || busy} />}
-    <h2>비밀번호 변경 · 회원 탈퇴</h2>
-    <label className="field">현재 비밀번호<input className="input" type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label>
-    <label className="field">새 비밀번호<input className="input" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></label>
-    <button className="btn" disabled={disabled || !currentPassword || !validServerPassword(newPassword)} onClick={() => void run(async () => {
-      await request('/auth/password', 'PUT', { current_password: currentPassword, new_password: newPassword })
-      onSignedOut('비밀번호를 변경했어요. 새 비밀번호로 로그인해 주세요.')
-    })}>비밀번호 변경</button>
+    {social && <SocialLinkSection social={social} disabled={blocked || busy} onPasswordSet={setPasswordSet} />}
+    <h2>{passwordSet ? '비밀번호 변경 · 회원 탈퇴' : '회원 탈퇴'}</h2>
+    {passwordSet && <>
+      <label className="field">현재 비밀번호<input className="input" type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label>
+      <label className="field">새 비밀번호<input className="input" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></label>
+      <button className="btn" disabled={disabled || !currentPassword || !validServerPassword(newPassword)} onClick={() => void run(async () => {
+        await request('/auth/password', 'PUT', { current_password: currentPassword, new_password: newPassword })
+        onSignedOut('비밀번호를 변경했어요. 새 비밀번호로 로그인해 주세요.')
+      })}>비밀번호 변경</button>
+    </>}
     <p>탈퇴는 되돌릴 수 없으며 서버 정책에 따라 30일 뒤 계정과 기록이 삭제됩니다.</p>
     {/* No password: Discord accounts have none, and the dialog is what stops a slip (FE proposal 요구 1, 11/16). */}
     <button className="btn btn-danger" disabled={disabled} onClick={() => setConfirming(true)}>서버 계정 탈퇴</button>
