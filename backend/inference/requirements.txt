@@ -2,4 +2,7 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 redis==5.0.8
 kafka-python==2.0.2
-# (D-63) 시험 LSTM과 torch는 지웠다 — 모델이 정해지면(ML, D-34) 그때 의존성을 더한다.
+# (계획 0098) 프레임 RF — model/inference/requirements.txt와 같은 판(가중치를 만든 scikit-learn 1.6.1)
+numpy==1.26.4
+scikit-learn==1.6.1
+joblib==1.4.2

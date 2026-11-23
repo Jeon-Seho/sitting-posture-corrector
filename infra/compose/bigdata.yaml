@@ -16,7 +16,7 @@
 #   - HDFS: bde2020/hadoop-namenode, hadoop-datanode (커뮤니티 유지보수)
 #   - Redis: redis (Docker 공식 이미지)
 #   - api-server: infra/docker/java.Dockerfile target processing 로 로컬 빌드 (Spring Boot, Gradle — D-52)
-#   - inference-service: backend/inference/Dockerfile 로 로컬 빌드 (Python)
+#   - inference-service: backend/inference/Dockerfile 로 로컬 빌드 (Python, 저장소 루트 context — 계획 0098)
 #   ※ 원래 Kafka·Spark는 bitnami/* 이미지를 썼으나, Bitnami가 2025년
 #     8월부터 무료 카탈로그 정책을 바꿔 버전 태그(예: bitnami/kafka:3.7)를
 #     전부 없애고 "latest"만 남겼다(구버전은 docker.io/bitnamilegacy로
@@ -347,8 +347,10 @@ services:
   # 남겨둔다 — v4 10장이 정의한 장애 대응("GPU PC 중단 시 서버 PC에서
   # CPU 모드로 즉시 대체 실행")을 위한 폴백이다.
   inference-service:
+    # (계획 0098) 저장소 루트에서 빌드 — model/inference 코드와 프레임 RF 가중치를 함께 넣는다
     build:
-      context: ../../backend/inference
+      context: ../..
+      dockerfile: backend/inference/Dockerfile
     container_name: inference-service
     restart: unless-stopped
     logging: *default-logging

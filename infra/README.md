@@ -254,7 +254,7 @@ $K --delete --group api-server-cep-v1          # 옛 그룹(멤버 없을 때만
 
 옛 `posture.summary` 경로 — `/api/v1/posture/summary` → `posture.summary` → 추론 옛 컨슈머(그룹 `inference-service`) → `posture.inference`
 → 처리 서비스 `cep` 패키지(그룹 `api-server-cep`, Redis `posture:state:*`, 테스트용 DB `posture_app`) → posture-sink(HDFS `/posture/features/stream`) —
-를 코드에서 지웠다. 추론 서비스는 실시간 컨슈머 하나(규칙 점수, D-63)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
+를 코드에서 지웠다. 추론 서비스는 실시간 컨슈머 하나(규칙 점수, D-63 — 2026-11-20부터 좌표 구간을 받아 프레임 RF 점수, 계획 0098)이고 처리 서비스 연결 풀의 기본 DB는 `SERVICE_DB_SCHEMA`다.
 새 이미지로 바꾼 뒤 서버에 남은 것을 한 번 지운다(쓰는 서비스가 없어 지워도 영향 없음).
 
 ```bash

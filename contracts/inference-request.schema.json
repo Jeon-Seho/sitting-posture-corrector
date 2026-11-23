@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posegood.local/contracts/inference-request.schema.json",
-  "title": "Shoulder-relative feature inference request v2",
-  "description": "No video or landmarks. Consumers also enforce 0 < end_ms - start_ms <= 1500; JSON numbers must be finite.",
+  "title": "Nine-keypoint frame inference request v3",
+  "description": "Consumers also enforce 0 < end_ms - start_ms <= 1500, finite numbers and valid baseline geometry.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,15 +13,15 @@
     "start_ms",
     "end_ms",
     "phase",
-    "measurement_quality",
-    "features"
+    "frames",
+    "baseline"
   ],
   "properties": {
     "schema_version": {
-      "const": "2.0"
+      "const": "3.0"
     },
     "feature_version": {
-      "const": "shoulder-relative-deltas-v1"
+      "const": "keypoints-9-v1"
     },
     "baseline_id": {
       "description": "Random UUID for the camera calibration, never a participant identifier.",
@@ -46,35 +46,49 @@
     "phase": {
       "enum": ["running", "rest", "away"]
     },
-    "measurement_quality": {
-      "enum": ["good", "poor"]
+    "frames": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "anyOf": [
+          { "type": "null" },
+          { "$ref": "#/$defs/frame" }
+        ]
+      }
     },
-    "features": {
-      "anyOf": [
-        { "type": "null" },
-        { "$ref": "#/$defs/features" }
-      ]
+    "baseline": {
+      "description": "Nine averaged baseline [x, y] points in the same joint order as the frames, without visibility.",
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": { "$ref": "#/$defs/baseline_point" }
     }
   },
   "$defs": {
-    "features": {
-      "description": "Signed current minus baseline, normalized by shoulder width. The three deltas have no [-1,1] clamp. Score scales and the 0.65 quality cutoff remain unvalidated rules.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "head_gap_delta",
-        "lateral_offset_delta",
-        "shoulder_tilt_delta",
-        "current_quality",
-        "baseline_quality"
+    "frame": {
+      "description": "MediaPipe joints 0, 2, 5, 7, 8, 9, 10, 11, 12 in that order: nose, left eye, right eye, left ear, right ear, left mouth corner, right mouth corner, left shoulder, right shoulder.",
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": { "$ref": "#/$defs/joint" }
+    },
+    "joint": {
+      "description": "[x, y, visibility]",
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": -1, "maximum": 2 },
+        { "type": "number", "minimum": -1, "maximum": 2 },
+        { "type": "number", "minimum": 0, "maximum": 1 }
       ],
-      "properties": {
-        "head_gap_delta": { "type": "number" },
-        "lateral_offset_delta": { "type": "number" },
-        "shoulder_tilt_delta": { "type": "number" },
-        "current_quality": { "type": "number", "minimum": 0, "maximum": 1 },
-        "baseline_quality": { "type": "number", "minimum": 0, "maximum": 1 }
-      }
+      "items": false,
+      "minItems": 3
+    },
+    "baseline_point": {
+      "description": "[x, y]",
+      "type": "array",
+      "items": { "type": "number", "minimum": 0, "maximum": 1 },
+      "minItems": 2,
+      "maxItems": 2
     }
   }
 }
