@@ -39,7 +39,8 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from io_api_smoke import CONSENTS, LANDMARKS, PASSWORD, POLICY, USER_AGENT, Client  # noqa: E402
+from io_api_smoke import (LANDMARKS, PASSWORD, POLICY, USER_AGENT, Client, create_session,  # noqa: E402
+                           load_account, register_body, use_test_policy)
 
 PASSED = 0
 FAILED = 0
@@ -201,15 +202,16 @@ def get_json(url):
         return getattr(error, "code", 0), None
 
 
-def scenario(base, report, pipeline, legacy=False):
+def scenario(base, report, pipeline, legacy=False, account=None):
     owner = Client(base)
-    email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
-    status, user = owner.call("/auth/register", "POST", {
-        "email": email, "password": PASSWORD,
-        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
-        "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
-    })
-    if not check("가입 (합성 시험 계정, access 토큰)",
+    if account:  # (D-108) 가입 이메일 인증이 켜진 서버 — 고정 시험 계정으로 로그인, 끝에 탈퇴하지 않음
+        status, user = owner.call("/auth/login", "POST", {"email": account["email"], "password": account["password"]})
+        name = "로그인 (고정 시험 계정, access 토큰)"
+    else:
+        email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
+        status, user = owner.call("/auth/register", "POST", register_body(email, PASSWORD))
+        name = "가입 (합성 시험 계정, access 토큰)"
+    if not check(name,
                  status == 200 and isinstance(user, dict) and user.get("user_id") and user.get("access_token"),
                  f"HTTP {status}"):
         return
@@ -220,18 +222,13 @@ def scenario(base, report, pipeline, legacy=False):
     if not check("기준 자세 등록", status == 200 and saved.get("baseline_id"), f"HTTP {status}"):
         return
     # 새 계정 알림 기본값은 DB 판에 따라 다르다(V2.6 016 새 판은 켜짐) → 세션이 alert_enabled를 복사하기 전에 켠다
-    status, settings = owner.call("/workspace", "PUT", {
-        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
-        "rules": {"holdSeconds": POLICY["hold_ms"] / 1000, "recoverSeconds": POLICY["recovery_ms"] / 1000,
-                  "realertSeconds": POLICY["reminder_ms"] // 1000, "threshold": POLICY["threshold"]},
-        "preferences": {"alerts_on": True},
-    })
+    status, settings = use_test_policy(owner)
     alerts_on = isinstance(settings, dict) and (settings.get("preferences") or {}).get("alerts_on")
     if not check("알림 켜기 (W2 alerts_on true)", status == 200 and alerts_on is True, f"HTTP {status}"):
         return
     sid = str(uuid.uuid4())
     path = "/sessions/" + sid
-    status, _ = owner.call(path, "PUT", {"policy": POLICY, "baseline_id": saved["baseline_id"]})
+    status, _ = create_session(owner, path, {"policy": POLICY, "baseline_id": saved["baseline_id"]})
     if not check("세션 생성", status == 200, f"HTTP {status}"):
         return
 
@@ -241,6 +238,9 @@ def scenario(base, report, pipeline, legacy=False):
         check_unauthenticated(base)
     finally:
         # (D-88) R3는 서비스에서 쓰지 않는다 — 탈퇴 접수만 한다. 시험 계정의 세션 행·사건·알림은 Spark J3(30일 뒤)가 지운다
+        # (D-108) 고정 시험 계정은 탈퇴하지 않는다(다음 점검에도 쓴다)
+        if account:
+            return
         status, _ = owner.call("/auth/account", "DELETE", {"password": PASSWORD})
         if status != 204:
             print(f"  참고: 시험 계정 탈퇴 접수 HTTP {status} — 계정·세션 행이 DB에 남음", flush=True)
@@ -395,11 +395,14 @@ def main():
     parser.add_argument("--origin", default=None,
                         help="WebSocket Origin 헤더 (기본: --base와 같은 출처). 터널 공개 주소 시험은 https://app.posegood.site")
     parser.add_argument("--legacy", action="store_true", help="구형 hello와 배열 입력으로 호환성 확인")
+    parser.add_argument("--account-file", default=None,
+                        help="(D-108) 고정 시험 계정 JSON {email, password} — 가입 이메일 인증이 켜진 서버용")
     args = parser.parse_args()
+    account = load_account(args.account_file)
     global ORIGIN
     ORIGIN = args.origin
     try:
-        scenario(args.base, args.report, args.pipeline, args.legacy)
+        scenario(args.base, args.report, args.pipeline, args.legacy, account)
     except (RuntimeError, URLError, OSError) as error:
         bad("입출구 서버 접속", repr(error))
     print(f"ws realtime ({args.pipeline}): PASS {PASSED} / FAIL {FAILED}", flush=True)

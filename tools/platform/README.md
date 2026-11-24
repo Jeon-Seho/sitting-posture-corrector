@@ -12,6 +12,21 @@
 | `test_db_connection.py` | 외부 MySQL 접속 확인 — 확정 서비스 DB(`SERVICE_DB_SCHEMA`, `--env-file infra/compose/.env`) |
 | `requirements.txt` | 위 도구의 Python 의존성 |
 
+
+**가입 이메일 인증이 켜진 서버 — 고정 시험 계정 (D-108)**: `POSEGOOD_EMAIL_VERIFICATION_ENABLED=true`면 가입에 메일로 받은 6자리 코드가
+필요해 `io_api_smoke.py`·`ws_realtime_smoke.py`가 매회 합성 계정으로 가입할 수 없다. 그래서 통합 테스트는 고정 시험 계정으로 로그인하고
+(`--account-file`), 가입(A2)·탈퇴(A7)와 탈퇴 뒤 검사는 SKIP으로 남긴다(탈퇴한 이메일은 J3가 지우는 30일 뒤까지 다시 가입할 수 없어 탈퇴하지 않는다).
+계정은 팀이 메일을 받을 수 있는 주소로 앱에서 한 번 가입해 두고, 그 계정은 시험 전용으로 쓴다(앱에서 측정하면 409 `MEASUREMENT_IN_PROGRESS`가 날 수 있다).
+
+```bash
+# 권한 600 — secrets/는 Git 제외, 컨테이너에는 마운트하지 않는다. 비밀번호는 화면에 보이지 않게 입력
+( umask 077; read -rp "email: " E; read -rsp "password: " P; echo
+  printf '%s\n%s\n' "$E" "$P" | python3 -c 'import json,sys;e,p=sys.stdin.read().split("\n")[:2];print(json.dumps({"email":e,"password":p}))' \
+    > infra/compose/secrets/it-test-account.json )
+```
+
+통합 테스트 0단계가 인증이 켜졌는데 파일이 없거나 형식이 다르면 FAIL. 인증이 꺼져 있으면 파일이 있어도 지금처럼 매회 합성 계정으로 가입·탈퇴한다.
+
 (D-38, 10/21) 옛 `posture.summary` 경로 도구(T-10 CSV 생성·재생 `generate_collapse_test_csv.py`·`replay_posture_pilot_csv.py`,
 부하 측정 `generate_load_test_csv.py`·`rebase_csv_to_now.py`·`run_capacity_stage.sh`)는 옛 경로와 함께 지웠다. 부하 재측정(T-14)은 Kafka 경로 도구로 새로 만든다.
 Spark↔HDFS Parquet 왕복 점검 코드는 `tests/hdfs_parquet_roundtrip.py`(통합 테스트 5단계, D-64)다.

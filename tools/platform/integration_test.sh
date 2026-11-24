@@ -80,6 +80,11 @@ envval() {
   grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 envor() { local v; v="$(envval "$1")"; echo "${v:-$2}"; }
+# (D-108) 가입 이메일 인증(6자리 코드)이 켜진 서버는 점검 도구가 매회 가입할 수 없다 → 고정 시험 계정으로 로그인하고 탈퇴하지 않는다.
+# 계정 파일은 JSON {"email": …, "password": …}(권한 600, Git 제외 secrets/ — 컨테이너에는 마운트하지 않음). 꺼져 있으면 지금처럼 매회 합성 가입.
+IT_ACCOUNT_FILE="infra/compose/secrets/it-test-account.json"
+ACCOPT=""
+[ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED)" = "true" ] && ACCOPT="--account-file $IT_ACCOUNT_FILE"
 API="${API_URL:-http://localhost:$(envor API_SERVER_HOST_PORT 8080)}"
 INFER="${INFERENCE_URL:-http://localhost:$(envor INFERENCE_HOST_PORT 8000)}"
 # 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
@@ -186,8 +191,14 @@ if [ -f "$ENV_FILE" ]; then
     if [ -z "$MISS" ]; then pass ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})"
     else fail ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})" "비어 있음:$MISS"; fi
   fi
+  # (D-108) 가입 인증이 켜지면 10·12·13·14단계 점검 도구는 고정 시험 계정으로 로그인한다(가입·탈퇴 검사는 SKIP)
   if [ "$VERIFY_ON" = "true" ]; then
-    log "  주의: 가입 이메일 인증이 켜져 있어 10·12·13·14단계 점검 도구의 시험 계정 가입이 막힐 수 있다(코드 메일 필요, D-103)"
+    if python3 -c "import json,sys;d=json.load(open(sys.argv[1]));sys.exit(0 if isinstance(d,dict) and d.get('email') and d.get('password') else 1)" \
+        "$IT_ACCOUNT_FILE" 2>/dev/null; then
+      pass "고정 시험 계정 파일 (가입 인증 켜짐 — 점검 도구는 로그인, 값은 출력 안 함)"
+    else
+      fail "고정 시험 계정 파일" "$IT_ACCOUNT_FILE 없음·형식 다름 — {\"email\": …, \"password\": …} JSON, chmod 600 (D-108)"
+    fi
   fi
   if $DC config --quiet >>"$OUT/run.log" 2>&1; then pass "compose 설정 해석 (.env 값 치환)"
   else fail "compose 설정 해석" "$DC config 실패 — $OUT/run.log"; fi
@@ -530,7 +541,7 @@ else
     z="$(docker exec "$name" date +%z 2>/dev/null || echo '?')"
     if [ "$z" = "+0900" ]; then pass "$name 시간대 KST"; else fail "$name 시간대" "$z"; fi
   done
-  if python3 "$TOOLS/io_api_smoke.py" --base "$IO_API" >"$OUT/io-api.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$IO_API" $ACCOPT >"$OUT/io-api.log" 2>&1; then
     pass "io-api REST 점검 ($(tail -1 "$OUT/io-api.log"))"
   else
     fail "io-api REST 점검" "$(grep -m3 '^FAIL' "$OUT/io-api.log" | tr '\n' ' ')(상세 $OUT/io-api.log)"
@@ -691,7 +702,7 @@ elif [ ! -f "$TOOLS/ws_realtime_smoke.py" ]; then skip "실시간 WebSocket 왕�
 else
   PIPE="$(docker exec io-api printenv POSEGOOD_REALTIME_PIPELINE 2>/dev/null || true)"
   PIPE="${PIPE:-local}"
-  if python3 "$TOOLS/ws_realtime_smoke.py" --base "$IO_API" --report "$API" --pipeline "$PIPE" >"$OUT/ws-realtime.log" 2>&1; then
+  if python3 "$TOOLS/ws_realtime_smoke.py" --base "$IO_API" --report "$API" --pipeline "$PIPE" $ACCOPT >"$OUT/ws-realtime.log" 2>&1; then
     pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
@@ -721,13 +732,13 @@ else
   if [ -z "$b" ]; then pass "web 포트는 서버 PC 안(127.0.0.1)에만"; else fail "web 포트" "$b — .env WEB_BIND=127.0.0.1"; fi
   if curl -s -m 10 "$WEB/" | grep -qi '<div id="root"'; then pass "화면 $WEB/ (index.html)"
   else fail "화면 $WEB/" "index.html이 아님 (docker logs web)"; fi
-  if python3 "$TOOLS/io_api_smoke.py" --base "$WEB/api" >"$OUT/web-rest.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$WEB/api" $ACCOPT >"$OUT/web-rest.log" 2>&1; then
     pass "화면 경유 REST 점검 $WEB/api ($(tail -1 "$OUT/web-rest.log"))"
   else
     fail "화면 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/web-rest.log" | tr '\n' ' ')(상세 $OUT/web-rest.log)"
   fi
   if [ "$E2E" = 1 ]; then
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" \
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" $ACCOPT \
       >"$OUT/web-ws.log" 2>&1; then
       pass "화면 경유 WebSocket 왕복 /api/realtime ($(tail -1 "$OUT/web-ws.log"))"
     else
@@ -791,12 +802,12 @@ else
       pass "CORS 사전 확인 OPTIONS /api/auth/login (Origin $ORIG, credentials)"
     else fail "CORS 사전 확인" "허용 헤더 없음 — 끝 /·오타, docker exec io-api printenv POSEGOOD_CORS_ALLOWED_ORIGINS"; fi
   fi
-  if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" $ACCOPT >"$OUT/public-rest.log" 2>&1; then
     pass "터널 경유 REST 점검 $PUB/api ($(tail -1 "$OUT/public-rest.log"))"
   else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log — 403이면 Cloudflare 봇 차단·요청 제한 규칙)"; fi
   if [ "$E2E" = 1 ]; then
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} \
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} $ACCOPT \
       --pipeline "${PIPE:-local}" >"$OUT/public-ws.log" 2>&1; then
       pass "터널 경유 wss 왕복 /api/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
     else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
