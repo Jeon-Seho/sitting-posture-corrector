@@ -3,7 +3,8 @@
 - 상태: accepted
 - 날짜: 2026-11-18
 - 작성: klaod-tech(FE)
-- 근거: 우진(lellon0403) PR #127(11/18 develop 병합), [계획 0089](../plans/completed/0089-email-recovery-social-link.md), [계획 0088](../plans/active/0088-discord-login-and-password-reset.md)
+- 고침: 2026-11-24 유진(DB/BE) — 결정 4(Discord 전용 계정에 비밀번호를 붙이지 않음)를 더하고, 가입 인증 대기 저장 위치를 메모리에서 DB로 고침([계획 0096](../plans/active/0096-account-email-link-and-verification.md) 11/18·11/23 결정, PR #144). 새 번호 ADR을 쓰지 않고 이 문서를 고쳤다(같은 결정을 다루므로).
+- 근거: 우진(lellon0403) PR #127(11/18 develop 병합), [계획 0089](../plans/completed/0089-email-recovery-social-link.md), [계획 0088](../plans/active/0088-discord-login-and-password-reset.md), [계획 0096](../plans/active/0096-account-email-link-and-verification.md)·PR #144(11/24 develop 병합)
 - 관련: [ADR 0031](0031-jwt-access-refresh-login.md)(access·refresh 토큰 로그인), [계정 계약](../../contracts/accounts.md), [이메일 인계](../design/email-account-handoff.md), [FE 기능 명세](../design/fe/fe-feature-spec.md) 회원가입·Discord 로그인·비밀번호 찾기, [연동 명세](../design/fe/api-ws-spec.md) A9~A24
 
 ## 배경
@@ -20,18 +21,26 @@
    3. 「연결 승인하고 로그인」을 눌러야 연결하고 로그인한다(A23). 「로그인으로 돌아가기」는 아무것도 연결하지 않는다(A24).
 2. **메일은 서버가 보낸다.** 앱은 발송·확인을 요청만 하고 코드·링크 토큰을 저장하지 않는다. 링크로 들어오면 주소창에서 토큰을 바로 지운다.
    - 가입 인증: 6자리 코드, 15분, 5번까지(A18·A19). 서버도 가입(A2) 때 인증 쿠키와 이메일을 다시 맞춰 봐서 앱을 거치지 않는 가입을 막는다.
+     인증 대기는 DB `email_verification_token`(V2.8, migration 019)에 두고, 요청 번호와 코드는 SHA-256만 저장한다(2026-11-23 결정, 계획 0096). 비밀번호 재설정 토큰(`password_reset_token`)과 표는 따로 둔다.
    - 비밀번호 찾기: 링크가 유효한지 먼저 확인하고(A20, 소비하지 않음) 새 비밀번호를 두 번 받는다. 기존 비밀번호와 같으면 400 `PASSWORD_REUSED`.
 3. **서버와 앱 둘 다 켜야 동작한다(기본 꺼짐).** 서버 `POSEGOOD_EMAIL_VERIFICATION_ENABLED`·`POSEGOOD_PASSWORD_RESET_ENABLED`와 앱 `VITE_EMAIL_VERIFICATION_ENABLED`·`VITE_PASSWORD_RESET_ENABLED`·`VITE_DISCORD_LOGIN_ENABLED`. 꺼진 기능은 성공한 척하지 않고 아직 쓸 수 없다고 안내한다.
+4. **Discord로만 가입한 계정에는 비밀번호를 붙이지 않는다**(2026-11-18 결정, 계획 0096). 비밀번호가 없는 계정은 `local_credential` 행이 없다(V2.8).
+   - 같은 이메일로 이메일 가입을 하면 409 `ACCOUNT_EXISTS`다. 비밀번호 로그인은 401 `INVALID_CREDENTIALS`, 비밀번호 변경은 400이다.
+   - 비밀번호 찾기 요청은 다른 계정과 같은 202지만 메일을 보내지 않는다. 남은 재설정 링크는 확인(A20)·완료 모두 410이다.
+   - 탈퇴는 비밀번호 없이 로그인 상태만 확인한다(BE-25, #131·#132).
 
 ## 이유
 
 - 자동 연결은 편하지만, 이메일만 같으면 남의 계정에 로그인하는 길이 된다. 비밀번호 확인과 최종 승인을 나누면 사용자가 무엇을 연결하는지 보고 정할 수 있다.
 - 토큰을 앱에 두지 않으면 주소창·브라우저 기록·저장소로 새지 않는다.
 - 운영 메일 설정이 늦어져도 앱 배포를 막지 않으려면 기능마다 따로 켤 수 있어야 한다.
+- 가입 인증 대기를 DB에 두면 메일을 기다리는 동안 서버가 다시 켜지거나 배포돼도 받은 코드를 그대로 쓸 수 있다. 같은 이메일 재발송 제한도 DB 잠금으로 거니 API가 여러 대여도 맞다.
+- 소셜 로그인의 장점은 비밀번호 없이 쓰는 것이다. 비밀번호가 필요했던 유일한 이유인 탈퇴를 비밀번호 없이 받게 바꿨으므로, 비밀번호를 붙이는 길(같은 이메일 가입, 재설정 메일로 정하기)을 두지 않는다.
 
 ## 결과
 
-- 가입 인증 대기·Discord 연결 대기는 서버 메모리(API 한 대)에 있다. 서버가 다시 켜지면 410이 오고 처음부터 다시 한다. API를 여러 대로 늘리면 공유 저장소로 옮겨야 한다.
+- 가입 인증 대기는 DB에 있어 서버를 다시 켜도 이어진다. 만료된 지 하루가 지난 행은 API가 매일 04:45(KST)에 지운다. 이 API는 V2.7 DB에서 시작하지 않으므로 운영은 migration 018·019를 먼저 적용했다(2026-11-24).
+- Discord 연결 대기(state·PKCE·가입 대기·같은 이메일 연결 대기)는 여전히 서버 메모리(API 한 대)에 있다. 서버가 다시 켜지면 410이 오고 처음부터 다시 한다. API를 여러 대로 늘리면 공유 저장소로 옮겨야 한다.
 - 데스크톱 앱에서는 Discord 버튼을 숨긴다. 외부 브라우저에서 돌아오는 길은 아직 없다.
-- 실제 SMTP 수신과 운영 Discord OAuth로 끝까지 확인한 적은 없다(계획 0089). 운영에서 켜는 것은 DevOps 설정 몫이다.
+- 실제 SMTP 수신과 운영 Discord OAuth로 끝까지 확인한 적은 없다(계획 0089). 운영 DB를 V2.8로 올린 뒤(2026-11-24) 실제 메일 도착을 확인하는 중이다(계획 0096). 운영에서 켜는 것은 DevOps 설정 몫이다.
 - 오류 문구와 화면은 [FE 기능 명세](../design/fe/fe-feature-spec.md)와 [FE 예외 기록](../design/fe/fe-exception-log.md)에 있다.
