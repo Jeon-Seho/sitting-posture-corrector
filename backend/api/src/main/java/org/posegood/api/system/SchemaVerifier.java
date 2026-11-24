@@ -4,17 +4,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * 시작할 때 DB V2.6의 저장 계약을 확인한다.
+ * 시작할 때 DB V2.8의 저장 계약을 확인한다.
  *
  * API는 테이블을 만들거나 고치지 않는다. 스키마와 시드는 DB 담당 절차로 적용한다
- * (V2.6 → V2.7은 마이그레이션 017. V2.5 이전 DB는 마이그레이션 없이 `schema_V2_7.sql`로 다시 만든다).
+ * (V2.7 → V2.8은 마이그레이션 018·019. V2.6 이하 DB는 마이그레이션 없이 `schema_V2_8.sql`로 다시 만든다).
+ * 비밀번호는 V2.8부터 `local_credential`에서 읽고 쓰므로 V2.7 DB에서는 시작하지 않는다(계획 0096).
+ * `email_verification_token`(019)은 코드 방식 칼럼(`code_hash`·`attempt_count`·`verified_at`)까지 확인한다. 2026-11-23 전의
+ * 링크 방식 019를 적용한 개발 DB는 그 표를 지우고 새 019를 다시 적용한다(운영에는 적용 전이었다).
  * `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES`는 V2.6부터 쓰지 않아 확인하지 않는다(DB에는 남겨 둠).
  */
 @Component
@@ -31,7 +33,11 @@ public class SchemaVerifier implements ApplicationRunner {
 		"daily_stat",
 		"deletion_request",
 		"user_consent",
-		"refresh_token");
+		"refresh_token",
+		"social_identity",
+		"password_reset_token",
+		"local_credential",
+		"email_verification_token");
 	/** V2.0(CR-04)·V2.1에서 지운 테이블. 하나라도 있으면 DB를 다시 만들지 않은 것이다. */
 	static final List<String> RETIRED = List.of(
 		"capture_device",
@@ -48,20 +54,14 @@ public class SchemaVerifier implements ApplicationRunner {
 		"client_record");
 	/** V2.4에서 지운 컬럼. 남아 있으면 V2.3 이하 DB다(마이그레이션 없이 다시 만든다). */
 	static final List<String> RETIRED_COLUMNS = List.of("feature_archive.row_count");
+	/** 안내 문구: 운영 DB(V2.7)는 migration으로 올리고, 그보다 오래된 DB는 다시 만든다. */
+	private static final String HOW = " (V2.7 DB: apply migrations 018 and 019; V2.6 or older DB: rebuild it with"
+		+ " schema_V2_8.sql, database/README.md)";
 
 	private final JdbcTemplate jdbc;
-	private final boolean discord;
-	private final boolean passwordReset;
 
-	public SchemaVerifier(
-		JdbcTemplate jdbc,
-		@Value("${posegood.auth.discord.client-id:}")
-		String discordClientId,
-		@Value("${posegood.auth.password-reset.enabled:false}")
-		boolean passwordReset) {
+	public SchemaVerifier(JdbcTemplate jdbc) {
 		this.jdbc = jdbc;
-		this.discord = !discordClientId.isBlank();
-		this.passwordReset = passwordReset;
 	}
 
 	/** 테이블과 필요한 컬럼을 확인한다. 기본 정책은 가입 때 값 조합으로 찾는다. */
@@ -76,8 +76,7 @@ public class SchemaVerifier implements ApplicationRunner {
 		}
 		var missing = TABLES.stream().filter(table -> !present.contains(table.toLowerCase(Locale.ROOT))).toList();
 		if (!missing.isEmpty()) {
-			throw new IllegalStateException("database schema V2.6 is not applied; missing " + missing
-				+ " (V2.5 or older DB: rebuild it with schema_V2_7.sql, database/README.md)");
+			throw new IllegalStateException("database schema V2.8 is not applied; missing " + missing + HOW);
 		}
 		var retired = RETIRED.stream().filter(table -> present.contains(table.toLowerCase(Locale.ROOT))).toList();
 		if (!retired.isEmpty()) {
@@ -90,34 +89,21 @@ public class SchemaVerifier implements ApplicationRunner {
 			"monitor_session.baseline_posture_id", "user_account.sound_alert_enabled",
 			"daily_stat.min_until_collapse_sec", "daily_stat.max_until_collapse_sec",
 			"user_consent.document_version", "correction_alert.attempted_at",
-			"refresh_token.token_hash", "refresh_token.rotated_at", "refresh_token.revoked_at")) {
+			"refresh_token.token_hash", "refresh_token.rotated_at", "refresh_token.revoked_at",
+			"social_identity.provider_subject", "password_reset_token.consumed_at",
+			"local_credential.password_hash", "email_verification_token.code_hash",
+			"email_verification_token.attempt_count", "email_verification_token.verified_at")) {
 			var parts = required.split("\\.");
 			if (!hasColumn(parts[0], parts[1])) {
-				throw new IllegalStateException("database schema V2.6 is not applied; missing " + required
-					+ " (V2.5 or older DB: rebuild it with schema_V2_7.sql, database/README.md)");
-			}
-		}
-		// 켠 기능의 표만 확인한다(제안 V2.7, DB 담당 적용 전에는 기능을 끈 채로 둔다).
-		var optional = new java.util.ArrayList<String>();
-		if (discord) {
-			optional.add("social_identity.provider_subject");
-		}
-		if (passwordReset) {
-			optional.add("password_reset_token.consumed_at");
-		}
-		for (var required : optional) {
-			var parts = required.split("\\.");
-			if (!hasColumn(parts[0], parts[1])) {
-				throw new IllegalStateException("the enabled login feature needs " + required
-					+ " (proposed V2.7, docs/design/social-login-password-reset-handoff.md)");
+				throw new IllegalStateException("database schema V2.8 is not applied; missing " + required + HOW);
 			}
 		}
 		for (var removed : RETIRED_COLUMNS) {
 			var parts = removed.split("\\.");
 			if (hasColumn(parts[0], parts[1])) {
 				throw new IllegalStateException(
-					"database schema V2.6 is not applied; " + removed
-						+ " was removed in V2.4; rebuild it with schema_V2_7.sql (database/README.md)");
+					"database schema V2.8 is not applied; " + removed
+						+ " was removed in V2.4; rebuild it with schema_V2_8.sql (database/README.md)");
 			}
 		}
 	}

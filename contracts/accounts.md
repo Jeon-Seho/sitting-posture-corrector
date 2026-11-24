@@ -64,20 +64,21 @@ V2.2 기존 계정의 과거 동의 시각은 만들어 넣지 않는다. 개정
 
 | 경로 | 요청과 결과 |
 | --- | --- |
-| `POST /auth/email-verification/requests` | `{email}` → 202 + HttpOnly `posegood_email_verification`. 서버가 6자리 코드를 생성해 SMTP로 발송. 15분, 주소당 60초 재발송, 출처당 15분 5회. 발송 요청 실패 503, 제한 429 |
-| `POST /auth/email-verification/confirm` | 같은 쿠키 + `{token}` → 204. 최대 5회 확인. 잘못된 코드/만료/대기 없음은 410 `EMAIL_VERIFICATION_REQUIRED` |
-| `POST /auth/register` | 기능이 켜졌으면 같은 이메일의 인증 쿠키를 검사하고 가입 성공 때 한 번 소비. 미인증·이메일 변경·소비됨은 410 `EMAIL_VERIFICATION_REQUIRED` |
+| `POST /auth/email-verification/requests` | `{email}` → 202 + HttpOnly `posegood_email_verification`. 서버가 6자리 코드를 생성해 SMTP로 발송. 15분, 주소당 60초 재발송(같은 주소 동시 요청도 하나만 발송), 출처당 15분 5회. 발송 요청 실패 503(그 코드는 무효, 재발송 간격에는 들어감), 제한 429 |
+| `POST /auth/email-verification/confirm` | 같은 쿠키 + `{token}` → 204. 최대 5회 확인. 잘못된 코드/만료/대기 없음/이미 확인함은 410 `EMAIL_VERIFICATION_REQUIRED` |
+| `POST /auth/register` | 기능이 켜졌으면 같은 이메일의 인증 쿠키를 검사하고 가입 성공 때 한 번 소비(가입이 실패하면 소비하지 않아 같은 쿠키로 다시 시도). 미인증·이메일 변경·소비됨·만료는 410 `EMAIL_VERIFICATION_REQUIRED` |
 | `POST /auth/password-reset/validate` | `{token}` → 204. 링크와 활성 계정 확인만 하며 최종 저장 전에는 소비하지 않음 |
 | `GET /auth/social/pending-link` | 충돌 대기 쿠키 → `{provider,email,verified}`. 확인된 OAuth 대기가 없거나 만료되면 410 |
 | `POST /auth/social/pending-link/verify` | 같은 쿠키 + `{password}` → 204. 기존 계정 비밀번호를 서버에서 확인. 실패 400, 대기당 5회 초과 429. 이 단계에서는 연결·로그인하지 않음 |
 | `POST /auth/social/pending-link/confirm` | 같은 쿠키 → 가입·로그인과 같은 응답 및 refresh 쿠키. 기존 인증과 최종 승인이 있어야 연결. 미인증 403, 중복 연결 409, 만료/취소/사용됨 410 |
 | `DELETE /auth/social/pending-link` | 연결 대기와 쿠키 삭제 → 204. 계정을 연결하지 않음 |
 
-가입 코드와 소셜 충돌 대기는 단일 API 메모리에 둔다. 서버 재시작 시 다시 시작한다. 소셜 연결 승인은
+가입 코드 대기는 DB `email_verification_token`(V2.8, 요청 번호·코드는 SHA-256만)에 두어 서버 재시작·배포에도 이어진다(2026-11-23,
+계획 0096). 소셜 충돌 대기는 단일 API 메모리에 둔다. 서버 재시작 시 다시 시작한다. 소셜 연결 승인은
 확인한 계정의 비밀번호가 이후 변경되면 거절한다. 계정 행·이메일은 유지하고 제공자 ID를 `social_identity`에 연결한다.
 메일·연결 응답은 캐시하지 않는다. 프론트는 메일 토큰을 메모리에만 보관하고 링크 진입 시 URL에서 제거한다.
 
-비밀번호 없는 계정은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이고, 재설정 메일로 비밀번호를 정할 수 있다.
+비밀번호 없는 계정(소셜 전용)은 이메일·비밀번호 로그인에 `401 INVALID_CREDENTIALS`(다른 실패와 구분하지 않음)이다. 비밀번호 변경·재설정을 제공하지 않는다: `PUT /auth/password`는 `400 INVALID_PASSWORD`, 재설정 요청은 같은 202지만 메일을 보내지 않고, 남아 있던 링크의 확인(`/auth/password-reset/validate`)·완료는 `410 RESET_TOKEN_INVALID`다(2026-11-17, 계획 0096). 소셜 전용 계정은 비밀번호 없이 로그인·탈퇴한다(BE-25).
 
 ## 설정
 

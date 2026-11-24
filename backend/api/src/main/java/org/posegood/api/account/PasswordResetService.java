@@ -35,6 +35,8 @@ import jakarta.annotation.PreDestroy;
  * <li>완료: 토큰을 원자적으로 한 번만 소비하고 새 비밀번호(BCrypt)를 저장한 뒤 그 사용자의 모든 로그인을 끊는다
  * (refresh 토큰 철회 + 실시간 연결 닫기). 자동으로 로그인시키지 않는다.</li>
  * <li>비밀번호 변경·탈퇴·재설정으로 로그인이 끊기면({@link AccountService.LoginsRemoved}) 남은 재설정 토큰도 무효다.</li>
+ * <li>비밀번호 없는 계정(소셜 전용)은 재설정 대상이 아니다. 요청은 같은 202지만 토큰·메일이 없고, 완료는 410이다.
+ * 소셜 전용 계정에 비밀번호를 붙이는 길은 이메일 가입(계획 0096 BE 2단계)뿐이다.</li>
  * </ul>
  * {@code posegood.auth.password-reset.enabled=false}(기본)이면 경로는 404이고 표({@code password_reset_token})를 읽지 않는다.
  */
@@ -137,11 +139,14 @@ public class PasswordResetService {
 		}
 	}
 
-	/** 응답 뒤에 실행: 계정 확인 → 재발송 간격 → 토큰 발급 → 메일. 실패는 기록만 한다(주소·링크는 남기지 않는다). */
+	/**
+	 * 응답 뒤에 실행: 계정 확인 → 재발송 간격 → 토큰 발급 → 메일. 실패는 기록만 한다(주소·링크는 남기지 않는다).
+	 * 없는 계정·정상 상태가 아닌 계정·비밀번호 없는 계정(소셜 전용)에는 아무것도 보내지 않는다.
+	 */
 	void issue(String email) {
 		try {
 			var account = accounts.findEmail(email);
-			if (account == null || !account.active()) {
+			if (account == null || !account.active() || !account.hasPassword()) {
 				return;
 			}
 			Instant now = clock.instant();
@@ -164,7 +169,7 @@ public class PasswordResetService {
 		}
 	}
 
-	/** 링크 유효성만 확인한다. 비밀번호 화면을 열며 소비는 최종 저장 때 한다. */
+	/** 링크 유효성만 확인한다. 비밀번호 화면을 열며 소비는 최종 저장 때 한다. 완료({@link #confirm})와 같이 비밀번호 없는 계정은 거절한다. */
 	public void validate(String token) {
 		requireEnabled();
 		var stored = resets.find(hash(token));
@@ -172,13 +177,14 @@ public class PasswordResetService {
 			throw invalid();
 		}
 		var account = accounts.find(stored.owner());
-		if (account == null || !account.active()) {
+		if (account == null || !account.active() || !account.hasPassword()) {
 			throw invalid();
 		}
 	}
 
 	/**
-	 * 재설정 완료. 토큰이 없거나 만료·사용됐거나 계정이 정상 상태가 아니면 410 {@code RESET_TOKEN_INVALID}(이유는 구분하지 않음).
+	 * 재설정 완료. 토큰이 없거나 만료·사용됐거나, 계정이 정상 상태가 아니거나 비밀번호 없는 계정이면
+	 * 410 {@code RESET_TOKEN_INVALID}(이유는 구분하지 않음). 소셜 전용 계정의 링크는 V2.7 API가 보낸 것만 남아 있을 수 있다.
 	 */
 	public void confirm(String token, String newPassword) {
 		requireEnabled();
@@ -189,7 +195,7 @@ public class PasswordResetService {
 		}
 		locks.run(stored.owner(), () -> {
 			var account = accounts.find(stored.owner());
-			if (account == null || !account.active()) {
+			if (account == null || !account.active() || !account.hasPassword()) {
 				throw invalid();
 			}
 			tx.executeWithoutResult(status -> {

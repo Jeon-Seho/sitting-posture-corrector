@@ -45,17 +45,6 @@ public class AccountService {
 		this.events = events;
 	}
 
-	/**
-	 * 비밀번호 없이 소셜 로그인으로만 가입한 계정의 {@code password_hash} 값. BCrypt 형식이 아니어서 어떤 비밀번호와도
-	 * 맞지 않는다. 비밀번호는 비밀번호 재설정 메일로 정할 수 있다.
-	 */
-	public static final String NO_PASSWORD = "!no-password";
-
-	/** 비밀번호로 로그인할 수 있는 계정인가(소셜 전용 계정이 아닌가). */
-	public static boolean hasPassword(AccountRepository.Account account) {
-		return account.hash() != null && account.hash().startsWith("$2");
-	}
-
 	/** 이메일 정규화(앞뒤 공백 제거, 소문자). */
 	public static String normalize(String email) {
 		return email.strip().toLowerCase(Locale.ROOT);
@@ -90,8 +79,9 @@ public class AccountService {
 	}
 
 	/**
-	 * 소셜 가입: 비밀번호 없이({@link #NO_PASSWORD}) 계정을 만들고 같은 트랜잭션에서 소셜 연결을 저장한다.
+	 * 소셜 가입: 비밀번호 없이(local_credential 행 없음) 계정을 만들고 같은 트랜잭션에서 소셜 연결을 저장한다.
 	 * 이메일은 제공자가 확인한 주소다. 동의·프로필 규칙은 일반 가입과 같다.
+	 * 이 계정에는 비밀번호 변경·재설정을 제공하지 않는다(비밀번호를 붙이는 길은 이메일 가입, 계획 0096 BE 2단계).
 	 */
 	public AccountRepository.Account registerSocial(
 		String email, AccountContracts.Profile profile, List<AccountContracts.Consent> consentList,
@@ -99,7 +89,7 @@ public class AccountService {
 		ConsentRepository.validate(consentList, profile);
 		long id = tx.execute(
 			status -> {
-				long owner = accounts.insert(normalize(email), NO_PASSWORD, profile, policies.defaultId());
+				long owner = accounts.insert(normalize(email), null, profile, policies.defaultId());
 				consents.insert(owner, consentList);
 				identities.insert(owner, provider, subject);
 				return owner;
@@ -114,7 +104,7 @@ public class AccountService {
 	void applyResetPassword(long id, String newPassword) {
 		requireNewPassword(newPassword);
 		var account = requireActive(id);
-		if (hasPassword(account) && passwords.matches(newPassword, account.hash())) {
+		if (account.hasPassword() && passwords.matches(newPassword, account.hash())) {
 			throw new ApiError(400, "PASSWORD_REUSED", "choose a different password");
 		}
 		accounts.changePassword(id, passwords.encode(newPassword));
@@ -159,9 +149,10 @@ public class AccountService {
 		events.publishEvent(new AccountClosed(id));
 	}
 
-	/** 현재 비밀번호 확인(틀리면 400). */
+	/** 현재 비밀번호 확인(틀리면 400). 비밀번호 없는 계정({@code hash == null})은 어떤 값이든 틀림. */
 	public void requireCurrent(String password, String hash) {
-		if (password.getBytes(StandardCharsets.UTF_8).length > 72 || !passwords.matches(password, hash)) {
+		if (hash == null || password.getBytes(StandardCharsets.UTF_8).length > 72
+			|| !passwords.matches(password, hash)) {
 			throw new ApiError(400, "INVALID_PASSWORD", "current password is incorrect");
 		}
 	}

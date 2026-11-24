@@ -171,43 +171,69 @@ check("만료된 토큰 사용 — 영향 행 0", cur.rowcount == 0)
 ok("재설정 토큰 발급 — B (탈퇴 접수 때 무효 처리 확인용)", ins_pr, (B, "6" * 64, T0, T30))
 
 # ===================================================================== 이메일 인증 토큰 (V2.8, 계획 0096)
-# 가입 전 메일함 소유 확인. 계정이 없으므로 주인은 이메일이고 FK가 없다. 사용은 조건부 UPDATE이고 영향 행이 1일 때만 가입한다
-ins_ev = "INSERT INTO email_verification_token (login_email,token_hash,issued_at,expires_at) VALUES (%s,%s,%s,%s)"
-use_ev = "UPDATE email_verification_token SET consumed_at=%s WHERE email_verification_token_id=%s AND consumed_at IS NULL AND expires_at>%s"
+# 가입 전 메일함 소유 확인(6자리 코드). 계정이 없으므로 주인은 이메일이고 FK가 없다.
+# 틀린 시도는 조건부 UPDATE로 세고(5회 한도), 코드를 맞히면 verified_at, 가입 때 verified_at이 있는 행만 한 번 소비한다
+ins_ev = "INSERT INTO email_verification_token (login_email,token_hash,code_hash,issued_at,expires_at) VALUES (%s,%s,%s,%s,%s)"
+try_ev = ("UPDATE email_verification_token SET attempt_count=attempt_count+1 WHERE email_verification_token_id=%s"
+          " AND attempt_count<5 AND verified_at IS NULL AND consumed_at IS NULL AND expires_at>%s")
+ver_ev = ("UPDATE email_verification_token SET verified_at=%s WHERE email_verification_token_id=%s"
+          " AND verified_at IS NULL AND consumed_at IS NULL AND expires_at>%s")
+use_ev = ("UPDATE email_verification_token SET consumed_at=%s WHERE email_verification_token_id=%s"
+          " AND verified_at IS NOT NULL AND consumed_at IS NULL AND expires_at>%s")
 NEW = "test-new@example.invalid"
-ok("인증 토큰 발급 — 계정 없는 이메일 (FK 없음)", ins_ev, (NEW, "7" * 64, T0, T30)); EV1 = cur.lastrowid
-ok("인증 토큰 다시 발급 — 같은 이메일 두 번째 행 허용", ins_ev, (NEW, "8" * 64, "2026-10-02 01:05:00", "2026-10-02 01:35:00")); EV2 = cur.lastrowid
-ok("새 발급 때 같은 이메일의 이전 토큰 무효",
+CODE = "d" * 64
+ok("인증 요청 — 계정 없는 이메일 (FK 없음)", ins_ev, (NEW, "7" * 64, CODE, T0, T30)); EV1 = cur.lastrowid
+check("새 인증 요청의 시도 횟수 0·확인 전", one("SELECT attempt_count FROM email_verification_token WHERE email_verification_token_id=%s", (EV1,)) == 0
+      and one("SELECT verified_at FROM email_verification_token WHERE email_verification_token_id=%s", (EV1,)) is None)
+ok("인증 요청 다시 — 같은 이메일 두 번째 행 허용", ins_ev, (NEW, "8" * 64, CODE, "2026-10-02 01:05:00", "2026-10-02 01:35:00")); EV2 = cur.lastrowid
+ok("새 요청 때 같은 이메일의 이전 요청 무효",
    "UPDATE email_verification_token SET consumed_at=%s WHERE login_email=%s AND consumed_at IS NULL AND email_verification_token_id<>%s",
    ("2026-10-02 01:05:00", NEW, EV2))
-fails("UK-21 같은 토큰 해시 거부", ins_ev, ("test-other@example.invalid", "8" * 64, T0, T30), "ux_email_verification_token_hash")
-fails("토큰 해시 64자가 아니면 거부", ins_ev, (NEW, "9" * 63, T0, T30), "ck_email_verification_token_hash")
-fails("만료가 발급보다 늦지 않으면 거부", ins_ev, (NEW, "a" * 64, T0, T0), "ck_email_verification_token_expires")
-fails("이메일 NULL 거부", ins_ev, (None, "b" * 64, T0, T30), "cannot be null")
-cur.execute(use_ev, ("2026-10-02 01:10:00", EV1, "2026-10-02 01:10:00"))
-check("무효로 만든 이전 토큰 사용 — 영향 행 0", cur.rowcount == 0)
-cur.execute(use_ev, ("2026-10-02 01:40:00", EV2, "2026-10-02 01:40:00"))
-check("만료된 인증 토큰 사용 — 영향 행 0", cur.rowcount == 0)
-ok("인증 토큰 다시 발급 — 가입용", ins_ev, (NEW, "c" * 64, "2026-10-02 02:00:00", "2026-10-02 02:30:00")); EV3 = cur.lastrowid
+fails("UK-21 같은 요청 번호 해시 거부", ins_ev, ("test-other@example.invalid", "8" * 64, CODE, T0, T30), "ux_email_verification_token_hash")
+fails("요청 번호 해시 64자가 아니면 거부", ins_ev, (NEW, "9" * 63, CODE, T0, T30), "ck_email_verification_token_hash")
+fails("코드 해시 64자가 아니면 거부", ins_ev, (NEW, "9" * 64, "d" * 63, T0, T30), "ck_email_verification_token_code_hash")
+fails("코드 해시 NULL 거부", ins_ev, (NEW, "9" * 64, None, T0, T30), "cannot be null")
+fails("만료가 발급보다 늦지 않으면 거부", ins_ev, (NEW, "a" * 64, CODE, T0, T0), "ck_email_verification_token_expires")
+fails("이메일 NULL 거부", ins_ev, (None, "b" * 64, CODE, T0, T30), "cannot be null")
+cur.execute(try_ev, (EV1, "2026-10-02 01:10:00"))
+check("무효로 만든 이전 요청에 코드 확인 — 영향 행 0", cur.rowcount == 0)
+for i in range(5):
+    cur.execute(try_ev, (EV2, "2026-10-02 01:10:00"))
+check("틀린 시도 5회까지 셈 — attempt_count 5",
+      one("SELECT attempt_count FROM email_verification_token WHERE email_verification_token_id=%s", (EV2,)) == 5)
+cur.execute(try_ev, (EV2, "2026-10-02 01:11:00"))
+check("여섯 번째 시도 — 영향 행 0 (5회 한도)", cur.rowcount == 0)
+ok("인증 요청 다시 — 만료 확인용", ins_ev, (NEW, "e" * 64, CODE, "2026-10-02 01:20:00", "2026-10-02 01:35:00")); EV4 = cur.lastrowid
+cur.execute(try_ev, (EV4, "2026-10-02 01:40:00"))
+check("만료된 요청에 코드 확인 — 영향 행 0", cur.rowcount == 0)
+ok("인증 요청 다시 — 가입용", ins_ev, (NEW, "c" * 64, CODE, "2026-10-02 02:00:00", "2026-10-02 02:30:00")); EV3 = cur.lastrowid
+cur.execute(use_ev, ("2026-10-02 02:05:00", EV3, "2026-10-02 02:05:00"))
+check("코드 확인 전 가입 — 영향 행 0", cur.rowcount == 0)
+cur.execute(try_ev, (EV3, "2026-10-02 02:06:00"))
+check("코드 확인 시도 — 영향 행 1", cur.rowcount == 1)
+cur.execute(ver_ev, ("2026-10-02 02:06:00", EV3, "2026-10-02 02:06:00"))
+check("코드가 맞으면 확인 시각 기록 — 영향 행 1", cur.rowcount == 1)
+cur.execute(try_ev, (EV3, "2026-10-02 02:07:00"))
+check("확인한 요청에 다시 코드 확인 — 영향 행 0", cur.rowcount == 0)
 N = None
 try:
     con.begin()
     cur.execute(use_ev, ("2026-10-02 02:10:00", EV3, "2026-10-02 02:10:00"))
-    assert cur.rowcount == 1, "토큰 소비 실패"
+    assert cur.rowcount == 1, "인증 소비 실패"
     cur.execute(ins_user, (NEW, "2026-10-02 02:10:00", pol)); N = cur.lastrowid
     cur.execute(ins_lc, (N, PW1))
     for typ in REQUIRED:
         cur.execute(ins_con, (N, typ, "2026-10-02 02:10:00", "terms-2026-10"))
-    con.commit(); check("가입 — 토큰 소비·계정·비밀번호·필수 동의를 한 트랜잭션으로", True)
+    con.commit(); check("가입 — 인증 소비·계정·비밀번호·필수 동의를 한 트랜잭션으로", True)
 except Exception as e:
-    con.rollback(); check("가입 — 토큰 소비·계정·비밀번호·필수 동의를 한 트랜잭션으로", False, str(e))
+    con.rollback(); check("가입 — 인증 소비·계정·비밀번호·필수 동의를 한 트랜잭션으로", False, str(e))
 cur.execute(use_ev, ("2026-10-02 02:11:00", EV3, "2026-10-02 02:11:00"))
-check("같은 인증 토큰 두 번째 사용 — 영향 행 0 (일회용)", cur.rowcount == 0)
+check("같은 인증 두 번째 사용 — 영향 행 0 (일회용)", cur.rowcount == 0)
 ok("인증으로 만든 계정 삭제", "DELETE FROM user_account WHERE user_account_id=%s", (N,))
-check("계정을 지워도 인증 토큰은 남음 (FK 없음 — 매일 정리로 지운다)",
-      one("SELECT COUNT(*) FROM email_verification_token WHERE login_email=%s", (NEW,)) == 3)
+check("계정을 지워도 인증 행은 남음 (FK 없음 — 매일 정리로 지운다)",
+      one("SELECT COUNT(*) FROM email_verification_token WHERE login_email=%s", (NEW,)) == 4)
 ok("매일 정리 — 만료된 지 하루 지난 행 삭제", "DELETE FROM email_verification_token WHERE expires_at < %s - INTERVAL 1 DAY", ("2026-10-04 00:00:00",))
-check("매일 정리 뒤 그 이메일의 인증 토큰 0행", one("SELECT COUNT(*) FROM email_verification_token WHERE login_email=%s", (NEW,)) == 0)
+check("매일 정리 뒤 그 이메일의 인증 행 0행", one("SELECT COUNT(*) FROM email_verification_token WHERE login_email=%s", (NEW,)) == 0)
 
 # ===================================================================== 기준 자세·세션
 # 관절 좌표 18개 (MediaPipe 정규화 좌표 0~1). 값은 합성값이다
@@ -451,12 +477,14 @@ cols = set(cur.fetchall())
 left_c = [f"{t}.{c}" for t, c in GONE if (t, c) in cols]
 check("V2.1·V2.2·V2.4·V2.8 폐기 컬럼 없음 (auth_epoch, policy_name, end_reason, delivered, row_count, user_account.password_hash 등 22개)", not left_c, ", ".join(left_c))
 check("V2.2·V2.3·V2.5~V2.8 추가 컬럼 있음 (기준 자세 ID 2개, 붕괴까지 걸린 시간 최소·최대, 등록 식별자, refresh 토큰 해시, "
-      "소셜 사용자 ID, 재설정 토큰 사용 시각, 비밀번호 해시, 인증 토큰 사용 시각)",
+      "소셜 사용자 ID, 재설정 토큰 사용 시각, 비밀번호 해시, 인증 코드 해시·시도 횟수·확인 시각·사용 시각)",
       {("baseline_posture", "baseline_posture_id"), ("monitor_session", "baseline_posture_id"),
        ("daily_stat", "min_until_collapse_sec"), ("daily_stat", "max_until_collapse_sec"),
        ("baseline_posture", "client_registration_uuid"), ("refresh_token", "token_hash"),
        ("social_identity", "provider_subject"), ("password_reset_token", "consumed_at"),
-       ("local_credential", "password_hash"), ("email_verification_token", "consumed_at")} <= cols)
+       ("local_credential", "password_hash"), ("email_verification_token", "code_hash"),
+       ("email_verification_token", "attempt_count"), ("email_verification_token", "verified_at"),
+       ("email_verification_token", "consumed_at")} <= cols)
 check("V2.5 UK-14(사용자, 등록 시각) 인덱스 없음 — 재전송은 UK-16이 막는다",
       one("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND INDEX_NAME='ux_baseline_posture_registered'") == 0)
 
