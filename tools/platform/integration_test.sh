@@ -128,6 +128,12 @@ fi
 if [ -f "$ENV_FILE" ]; then
   BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' "$ENV_FILE" | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
   if [ -n "$BAD" ]; then fail ".env 숫자 값 형식" "숫자가 아닌 값: $BAD"; else pass ".env 숫자 값 형식"; fi
+  # (D-109) 같은 키가 두 번 있으면 마지막 줄이 쓰인다 — 앞 줄을 고쳐도 반영되지 않고, 정리하다 다른 값을 남기기 쉽다(11/24 서버 4개)
+  DUP="$(grep -oE '^[A-Z_][A-Z0-9_]*=' "$ENV_FILE" | tr -d = | sort | uniq -d | tr '\n' ' ')"
+  if [ -z "$DUP" ]; then pass ".env 키 중복 없음"; else fail ".env 키 중복" "${DUP}— 마지막 줄이 쓰인다. 쓰는 값만 한 줄 남기기"; fi
+  # (D-109) 지운 기능의 옛 키 — cep 판정기(D-38·D-53 → JUDGE_*), posture_app 접속(D-38 → SERVICE_DB_SCHEMA)
+  OLD="$(grep -oE '^(CEP_[A-Z0-9_]+|DB_NAME)=' "$ENV_FILE" | tr -d = | tr '\n' ' ')"
+  if [ -z "$OLD" ]; then pass ".env 옛 키 없음 (CEP_*·DB_NAME)"; else fail ".env 옛 키" "${OLD}— 더 읽지 않는 값. 지우기(JUDGE_*·SERVICE_DB_SCHEMA를 쓴다)"; fi
   if [ -n "$(tail -c1 "$ENV_FILE")" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
   # (D-24) 필수 값 — 실행 환경마다 다른 값(env.example 1·2장). 하나라도 없으면 compose도 시작하지 않는다(SERVER_LAN_IP·SERVICE_DB_SCHEMA)
   MISSING=""
