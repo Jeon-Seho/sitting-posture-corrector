@@ -875,8 +875,11 @@ def step_s8(c: Ctx) -> None:
         c.note(f"session_ended → session_stored {stored.t - end.t:.1f}초")
         if stored.t - end.t > 3:
             raise Fail(f"저장까지 {stored.t - end.t:.1f}초 — 3초 안 기대")
-    # nginx는 요청이 끝날 때 접근 로그를 쓴다 — WebSocket은 측정이 끝나 연결이 닫힐 때 한 줄(101)
-    ws = cur.find(lambda e: e.source == "GW" and e.path.startswith(c.api + "/realtime"), 10)
+    # nginx는 요청이 끝날 때 접근 로그를 쓴다 — WebSocket은 측정이 끝나 연결이 닫힐 때 한 줄(101).
+    # 그 줄은 저장 완료보다 먼저 올 수 있어(11/20 S8) 이 단계에서 이미 지나간 신호부터 본다.
+    is_ws = lambda e: e.source == "GW" and e.path.startswith(c.api + "/realtime")  # noqa: E731
+    passed = [e for e in cur.seen if is_ws(e)]
+    ws = passed[-1] if passed else cur.find(is_ws, 10)
     c.note("WebSocket 연결 종료 " + (f"{ws.status}" if ws else "접근 로그에 없음"))
     c.say("기록 목록(R1)을 여세요")
     rec = cur.find(c.gw("GET", "/records"), c.args.wait_user)

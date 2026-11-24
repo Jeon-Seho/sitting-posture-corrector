@@ -253,6 +253,21 @@ class StepTest(unittest.TestCase):
             ct.step_s5(c)
         self.assertIn("재알림 간격 6.0초", str(err.exception))
 
+    def test_s8_finds_the_ws_close_line_before_session_stored(self):
+        """WS 종료 줄(101)이 저장 완료보다 먼저 와도 찾는다(11/20 S8 「접근 로그에 없음」)."""
+        c = make_ctx(db=FakeDb({"alert_enabled": 1, "ended": 1, "events": 4, "alerts": 2}))
+        c.session = SID
+        feed(c.bus, [kf("posture.features", "session_ended"), WS, kf("posture.stored", "session_stored"),
+                     gw("GET", "/api/records", 200)])
+        ct.step_s8(c)
+        self.assertIn("WebSocket 연결 종료 101", c.result.evidence)
+
+        late = make_ctx(mode="local", db=FakeDb({"alert_enabled": 1, "ended": 1, "events": 4, "alerts": 2}))
+        late.session = SID
+        feed(late.bus, [WS, gw("GET", "/api/records", 200)])
+        ct.step_s8(late)
+        self.assertIn("WebSocket 연결 종료 101", late.result.evidence)
+
     def test_s9_stops_and_restarts_api_server_and_needs_an_s4_query(self):
         ops = FakeOps()
         c = make_ctx(ops=ops, wait=3)
