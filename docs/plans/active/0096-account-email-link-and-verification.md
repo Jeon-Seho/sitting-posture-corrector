@@ -1,9 +1,9 @@
 # 같은 이메일 계정 연결과 가입 이메일 인증
 
-- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). FE·ADR 구현 전. PR #144(BE 1·2단계 한 PR) 리뷰 반영 2026-11-23)
+- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). PR #144(BE 1·2단계 한 PR) 리뷰 반영 2026-11-23, **develop 병합 2026-11-24**(`1f643937`). 운영 DB 018·019 적용 2026-11-24. ADR 0050 고침 2026-11-24. 남은 것: ERD PNG 2장(유진 직접), 실제 메일 도착 확인(진행 중))
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
-- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), ADR(같은 이메일 승인 연결, 작성 예정 — 새 번호)
+- 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), [ADR 0050](../../decisions/0050-account-email-and-discord-link.md)(같은 이메일 승인 연결·Discord 전용 계정에 비밀번호 붙이지 않음·인증 대기 DB, 2026-11-24 고침)
 
 ## 문제와 완료 기준
 
@@ -121,19 +121,21 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 
 ## 작업 단계
 
-- [ ] ADR 작성(같은 이메일 승인 연결과 Discord 전용 계정에 비밀번호를 붙이지 않는 이유, 11/11 결정 갱신 — 0049는 다른 결정에 쓰였으므로 새 번호)과 0088 인계 1절 정정
+- [x] ADR(같은 이메일 승인 연결과 Discord 전용 계정에 비밀번호를 붙이지 않는 이유, 11/11 결정 갱신)과 0088 인계 1절 정정 — 2026-11-24 새 번호 대신 [ADR 0050](../../decisions/0050-account-email-and-discord-link.md)을 고침(아래 결정 기록)
 - [x] DB(2026-11-17, 브랜치 `feature/db-account-credential-email-verification`): migration 018·019, `schema_V2_8.sql`(명세서 V2.8), ERD V2.8(원본·PNG), `database/README.md`(운영 V2.7 반영, 기준 스키마 V2.6 → V2.7, `schema_V2_6.sql`·017 삭제, 개수·되돌리기), DB CI(`BASE_SCHEMA`·`EXPECT_TABLES`), `integrity_check.py`(V2.8 기준 195개), 0088 인계의 017 안내
-- [ ] DB 운영 적용: 018 → 019를 새 API 배포와 같은 점검 시간에(DevOps와 시간 정하기). 명세서 V2.8 원문 반영
+- [x] DB 운영 적용: 018 → 019(2026-11-24, 사용자 확인)
+- [ ] 명세서 V2.8 원문 반영
 - [x] API가 V2.8에 맞춰진 뒤 `schema_V2_7.sql`을 읽는 곳을 V2.8로: `DisposableDatabase`·`infra/mysql/initdb/10-posegood-schema.sh`·`tools/test_mysql.py`·`consents.test.ts`·`SchemaVerifier`/`ServiceSchemaVerifier` 메시지 (2026-11-17, BE 1단계와 같은 브랜치)
 - [x] BE 1단계(동작 유지, 2026-11-17 브랜치 `feature/backend-local-credential`): `AccountRepository`(조회 LEFT JOIN, 가입 때 INSERT, 비밀번호 변경은 있는 행만 UPDATE), `AccountService.NO_PASSWORD`·`hasPassword` 제거, `SocialLoginService.unlink`, `PasswordResetService`(소셜 전용 계정은 재설정 대상 아님), `SchemaVerifier`(`local_credential` 항상 확인), `JdbcReportTestFixtures`
 - [ ] BE 2단계(11/18 결정 반영): #127의 메모리 인증 대기를 `email_verification_token`으로 옮기기, 매일 정리(API `@Scheduled`, 만료 뒤 하루), `register` 토큰 소비. 같은 이메일 연결은 #127의 승인 연결 유지, Discord 전용 계정에 비밀번호 붙이기는 하지 않음
   - [x] 2026-11-23 6자리 코드 유지로 정하고 019를 운영 적용 전에 고침(020 대신, `code_hash`·`attempt_count`·`verified_at`). `schema_V2_8.sql`·ERD 원본·`integrity_check.py`·DB 안내
   - [x] 2026-11-23 `EmailVerificationRepository`·`EmailVerificationService`(조건부 UPDATE, 서비스 잠금 삭제, 가입 소비와 계정 생성 한 트랜잭션, 매일 04:45 정리), `SchemaVerifier`, 단위·MySQL 통합 시험, 계약·인계·개발 상태
-  - [ ] ERD PNG 2장 다시 내보내기, 리뷰·develop 반영(BE 1단계 브랜치 위에 쌓음)
+  - [x] 리뷰·develop 반영: PR #144(BE 1단계 위에 쌓음) 2026-11-24 develop 병합(`1f643937`)
+  - [ ] ERD PNG 2장 다시 내보내기(11/23에 원본 `.drawio`만 고침 — 유진이 직접)
   - [x] 2026-11-23 「문제와 완료 기준」·「범위」·「표 변경」의 019·「흐름」을 11/18·11/23 결정대로 고쳐 씀
 - [x] FE: 바꿀 것 없음(#127 가입 코드 화면·연결 승인 화면 그대로, 11/23 확인)
 - [x] 계약 `accounts.md`: 경로는 #127 그대로, 인증 대기 저장 위치·가입 실패 때 소비 되돌림 문구(2026-11-23)
-- [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착
+- [ ] 검증: BE 단위 시험, `-Pmysql-integration`(가입·연결·탈퇴·J3 삭제), `python tools/dev.py check`, 실제 메일 도착 — 앞의 셋은 아래 검증 결과(11/23), 실제 메일 도착은 운영 적용 뒤 확인 중(2026-11-24)
 
 ## 결정과 진행 기록
 
@@ -175,6 +177,10 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   2. **빈 표의 동시 첫 요청 교착:** REPEATABLE READ(MySQL 기본)에서 이메일 칼럼에 인덱스가 없는 `UPDATE … WHERE login_email=?`가 표 전체에 next-key 잠금을 잡아, 빈 표에서는 두 트랜잭션의 supremum 간격 잠금과 INSERT 의도 잠금이 서로 기다렸다(임시 DB에서 같은 이메일·다른 이메일 모두 5/5 교착, 행이 있으면 차례로 처리, READ COMMITTED는 0). 인덱스로는 풀리지 않는다(다른 새 이메일이 같은 간격). → 새 요청 저장과 매일 정리를 READ COMMITTED로. 시도·확인·가입 소비는 PK로 한 행만 바꿔 그대로 둔다.
   3. 사소한 것: `ServiceSchemaVerifier`가 `code_hash` 없는 옛 링크 방식 019를 「V2.8(옛 링크 방식 019)」로 알리고 다시 적용하라고 안내. 문서의 옛 브랜치 표기(`feature/backend-local-credential`, 「develop 반영 전」)를 PR #144로. ERD PNG는 남은 일.
   - 보조 인덱스 `(login_email, issued_at)`: 리뷰 의견(행이 적어 지금은 없어도 됨, DB-05에서 정해도 됨)대로 넣지 않는다.
+- 2026-11-24: PR #144가 develop에 병합됐고(`1f643937`), 운영 DB에 018 → 019를 적용했다(사용자 확인).
+  ADR은 새 번호로 쓰지 않고 [ADR 0050](../../decisions/0050-account-email-and-discord-link.md)(klaod-tech, 11/18)을 고쳤다. 0050이 이미 같은 이메일 승인 연결(#127)을 결정으로 담고 있어, 새 ADR을 쓰면 같은 결정이 두 곳에 나뉜다.
+  고친 것: 결정 4(Discord 전용 계정에 비밀번호를 붙이지 않음 — 11/18 결정 3)와 그 이유, 가입 인증 대기를 서버 메모리에서 DB `email_verification_token`으로(11/23 결정), 결과의 「인증 대기는 서버 메모리」 줄(Discord 연결 대기만 메모리에 남음).
+  0088 인계 1절의 「비밀번호를 붙이는 길은 같은 이메일로 이메일 가입하는 것뿐」을 11/18 결정 3으로 정정했다.
 - 2026-11-19: BE 1단계를 `refactor/repo-remove-api-version-paths`(develop `ed72615` + 주소 버전 삭제, #127 포함) 기준 새 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮겼다. #127 코드와 맞춘 것:
   - #127의 `PasswordResetService.validate`(링크 확인)도 비밀번호 없는 계정이면 410 — 완료와 같게(결정 3).
   - #127의 재설정 비밀번호 재사용 거절(`applyResetPassword`)·연결 해제 검사를 `account.hasPassword()`로. 연결 해제 오류 문구에서 「재설정 메일로 비밀번호를 정하라」를 뺌.
@@ -224,9 +230,10 @@ ALTER TABLE user_account DROP COLUMN password_hash;
 - PR #144 리뷰 반영 뒤(같은 날): `build :api:test :processing:test -Pmysql-integration --rerun-tasks` → api 178개·processing 70개 모두 통과. 새 시험: 단위 `concurrentRequestsForTheSameEmailSendOneMail`·`smtpFailureIsReportedAsUnavailableAndTheRequestIsRevoked`, MySQL `concurrentRequestsForTheSameEmailSendOneMail`(같은 이메일 3건 동시·메일 1초 → 202 1·429 2·메일 1통·`IS_USED_LOCK` 비어 있음), `concurrentFirstRequestsOnAnEmptyTableNeverDeadlock`(빈 표에 서로 다른 이메일 8건 동시 → 모두 202), 처리 서비스 `linkStyleMigration019IsNotV28`. 재현용 임시 스크립트(저장소 밖)로 RR 5/5 교착·RC 0 확인.
 
 **남은 한계**
-- 원격 DB CI는 PR에서 확인한다. 운영 DB에는 아직 적용하지 않았다.
-- BE 1·2단계(PR #144)는 develop 반영 전이다. 이 API는 V2.7 DB에서 시작하지 않으므로, 운영 반영은 018 → 019 → 이 API 배포를 같은 점검 시간에 한다. develop 반영 뒤 운영 적용 전까지는 Compose 새 볼륨·통합 시험이 V2.8로 만들어진다(기존 V2.7 볼륨은 018·019 적용).
+- 원격 DB CI는 PR에서 확인한다. ~~운영 DB에는 아직 적용하지 않았다.~~ → 2026-11-24 운영 DB에 018·019를 적용했다(사용자 확인).
+- ~~BE 1·2단계(PR #144)는 develop 반영 전이다.~~ → 2026-11-24 develop 병합. 이 API는 V2.7 DB에서 시작하지 않으므로 V2.7로 남은 개발용 Compose 볼륨은 018·019를 적용해야 한다(새 볼륨은 V2.8로 만들어짐).
+- 실제 SMTP로 가입 코드 메일이 도착하는지는 운영 적용 뒤 확인 중이다(2026-11-24).
 - V2.7 DB에서 이 API가 시작하지 않는 것은 코드로만 확인했다(실제 V2.7 DB로 띄워 보지 않음).
 - 소셜 전용 계정의 재설정 거절은 단위 시험으로, 저장소의 0행 예외는 MySQL로 확인했다. 재설정 메일·토큰을 거친 전체 흐름은 MySQL로 돌리지 않았다(재설정 기능 기본 꺼짐).
 - ~~소셜 전용 계정은 지금 탈퇴할 수 없다~~ → BE-25로 비밀번호 없이 탈퇴한다(11/19 브랜치의 MySQL 시험 `withdrawalNeedsNoPasswordAndIgnoresAnOldAppBody`가 `local_credential` 행 없는 계정으로 확인).
-- BE 2단계는 인증 대기 DB 전환까지 했다(2026-11-23, 위 검증 기록). 같은 이메일 연결은 #127의 승인 연결 그대로라 따로 구현할 것이 없다. ADR은 작성 전이다.
+- BE 2단계는 인증 대기 DB 전환까지 했다(2026-11-23, 위 검증 기록). 같은 이메일 연결은 #127의 승인 연결 그대로라 따로 구현할 것이 없다. ~~ADR은 작성 전이다.~~ → 2026-11-24 ADR 0050을 고침.
