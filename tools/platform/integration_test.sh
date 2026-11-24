@@ -22,7 +22,7 @@
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.7 준비(D-32·D-51·D-65·D-89)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.8 준비(D-32·D-51·D-65·D-89·D-103)
 #   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
 #                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(Kafka 판정)·11단계(저장)·12단계(WebSocket)
 #   8. Kafka 계약  : 시험용 입구 → posture.features → 추론 → posture.inference → 판정(D-22)
@@ -33,7 +33,7 @@
 #                    REST 점검 tools/platform/io_api_smoke.py(가입·로그인·토큰 갱신 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제
 #                    → 로그아웃 → 탈퇴, D-48·D-69 — 토큰 로그인 ADR 0031)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
-#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → 실시간 재생 → posture_service(V2.7)에
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → 실시간 재생 → posture_service(V2.8)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계).
 #                    io-api의 POSEGOOD_REALTIME_PIPELINE(local·kafka)로 돌고, 13·14단계도 같은 값. --kafka면 12단계 앞에서 kafka로
@@ -175,12 +175,19 @@ if [ -f "$ENV_FILE" ]; then
     then pass ".env Discord 로그인 설정 (Client ID·Redirect https·APP_URL, 값은 출력 안 함)"
     else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/api/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
   fi
-  if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED)" = "true" ]; then
+  # (D-103) 메일은 비밀번호 재설정(링크라 APP_URL도)과 가입 이메일 인증(#144, 6자리 코드) 둘 다 쓴다
+  RESET_ON="$(envval POSEGOOD_PASSWORD_RESET_ENABLED)"; VERIFY_ON="$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED)"
+  if [ "$RESET_ON" = "true" ] || [ "$VERIFY_ON" = "true" ]; then
     MISS=""
-    for k in POSEGOOD_APP_URL POSEGOOD_MAIL_HOST POSEGOOD_MAIL_USERNAME POSEGOOD_MAIL_FROM; do
+    for k in POSEGOOD_MAIL_HOST POSEGOOD_MAIL_USERNAME POSEGOOD_MAIL_FROM; do
       [ -z "$(envval "$k")" ] && MISS="$MISS $k"
     done
-    if [ -z "$MISS" ]; then pass ".env 비밀번호 재설정 메일 설정"; else fail ".env 비밀번호 재설정 메일 설정" "비어 있음:$MISS"; fi
+    [ "$RESET_ON" = "true" ] && [ -z "$(envval POSEGOOD_APP_URL)" ] && MISS="$MISS POSEGOOD_APP_URL"
+    if [ -z "$MISS" ]; then pass ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})"
+    else fail ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})" "비어 있음:$MISS"; fi
+  fi
+  if [ "$VERIFY_ON" = "true" ]; then
+    log "  주의: 가입 이메일 인증이 켜져 있어 10·12·13·14단계 점검 도구의 시험 계정 가입이 막힐 수 있다(코드 메일 필요, D-103)"
   fi
   if $DC config --quiet >>"$OUT/run.log" 2>&1; then pass "compose 설정 해석 (.env 값 치환)"
   else fail "compose 설정 해석" "$DC config 실패 — $OUT/run.log"; fi
@@ -202,15 +209,20 @@ else
   skip "JWT 서명 키 파일" "io-api 없음(compose --profile io를 쓰지 않음)"
 fi
 # (D-87) Discord Client Secret·SMTP 비밀번호 파일 — 기능을 꺼도 파일은 있어야 한다(빈 파일 가능, 없이 띄우면 폴더가 생김).
-# 켠 기능의 파일은 비어 있으면 안 된다(Client ID 있음 → client-secret, 재설정 true → spring.mail.password).
+# 켠 기능의 파일은 비어 있으면 안 된다(Client ID 있음 → client-secret, 재설정·가입 인증 true → spring.mail.password).
+# (D-103) 메일 비밀번호는 재설정이나 가입 이메일 인증 중 하나라도 켜면 필요하다.
 for pair in "posegood.auth.discord.client-secret:POSEGOOD_DISCORD_CLIENT_ID" "spring.mail.password:POSEGOOD_PASSWORD_RESET_ENABLED"; do
   name="${pair%%:*}"; key="${pair##*:}"; SF="infra/compose/secrets/$name"
-  on="$(envval "$key" 2>/dev/null || true)"; [ "$key" = POSEGOOD_PASSWORD_RESET_ENABLED ] && [ "$on" != "true" ] && on=""
+  on="$(envval "$key" 2>/dev/null || true)"; what="$key"
+  if [ "$key" = POSEGOOD_PASSWORD_RESET_ENABLED ]; then
+    what="POSEGOOD_PASSWORD_RESET_ENABLED 또는 POSEGOOD_EMAIL_VERIFICATION_ENABLED"
+    if [ "$on" = "true" ] || [ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED 2>/dev/null || true)" = "true" ]; then on="true"; else on=""; fi
+  fi
   if [ -d "$SF" ]; then
     fail "비밀값 파일 $name" "$SF 이 폴더임(파일 없이 io-api를 띄움) — rmdir 뒤 파일로 만들고 io-api 다시 만들기(infra/README.md 입출구 서버)"
   elif [ -f "$SF" ]; then
     n="$(wc -c <"$SF" | tr -d ' ')"
-    if [ -n "$on" ] && [ "$n" -eq 0 ]; then fail "비밀값 파일 $name" "기능을 켰는데($key) 파일이 비어 있음"
+    if [ -n "$on" ] && [ "$n" -eq 0 ]; then fail "비밀값 파일 $name" "기능을 켰는데($what) 파일이 비어 있음"
     elif [ -n "$on" ]; then pass "비밀값 파일 $name (기능 켬, ${n}바이트, 값은 출력 안 함)"
     else pass "비밀값 파일 $name (기능 꺼짐 — 파일만 확인)"; fi
   elif docker inspect io-api >/dev/null 2>&1; then
@@ -345,7 +357,7 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.7, D-89) — 판(V2.3~V2.6이면 적용할 migration, V2.6이면 017)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
+# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.8, D-103 — #144) — 판(V2.7이면 적용할 migration 018·019)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
 # 기본 정책(값 4개)·계정 권한
 SDB="$(curl -s -m 15 "$API/store/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
