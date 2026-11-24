@@ -1,6 +1,6 @@
 # 같은 이메일 계정 연결과 가입 이메일 인증
 
-- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). PR #144(BE 1·2단계 한 PR) 리뷰 반영 2026-11-23, **develop 병합 2026-11-24**(`1f643937`). 운영 DB 018·019 적용 2026-11-24. ADR 0050 고침 2026-11-24. 남은 것: ERD PNG 2장(유진 직접), 실제 메일 도착 확인(진행 중))
+- 상태: in_progress (DB 단계 저장소 반영 2026-11-17 — migration 018·019, `schema_V2_8.sql`. 운영 적용 전. BE 1단계 구현 2026-11-17(브랜치 `feature/backend-local-credential`), 2026-11-19 `refactor/repo-remove-api-version-paths` 기준 브랜치 `feature/backend-local-credential-on-remove-paths`로 옮김(develop 반영 전). BE 2단계 시작 2026-11-23(브랜치 `feature/repo-email-verification-code-db` — 019 코드 방식, 인증 대기 DB). PR #144(BE 1·2단계 한 PR) 리뷰 반영 2026-11-23, **develop 병합 2026-11-24**(`1f643937`). 운영 DB 018·019 적용 2026-11-24. ADR 0050 고침 2026-11-24. ERD PNG 2장 다시 내보냄 2026-11-24. 남은 것: 실제 메일 도착 확인(진행 중))
 - 담당: DB 유진(V2.8 — migration 018·019), BE·FE 미정, DevOps 홍규(환경변수·적용 순서)
 - 시작일: 2026-11-17
 - 관련: [계획 0088](0088-discord-login-and-password-reset.md), [Discord·재설정 인계](../../design/social-login-password-reset-handoff.md), [이메일 인계](../../design/email-account-handoff.md), [계정 계약](../../../contracts/accounts.md), [DB 안내](../../../database/README.md), [ADR 0050](../../decisions/0050-account-email-and-discord-link.md)(같은 이메일 승인 연결·Discord 전용 계정에 비밀번호 붙이지 않음·인증 대기 DB, 2026-11-24 고침)
@@ -131,7 +131,7 @@ ALTER TABLE user_account DROP COLUMN password_hash;
   - [x] 2026-11-23 6자리 코드 유지로 정하고 019를 운영 적용 전에 고침(020 대신, `code_hash`·`attempt_count`·`verified_at`). `schema_V2_8.sql`·ERD 원본·`integrity_check.py`·DB 안내
   - [x] 2026-11-23 `EmailVerificationRepository`·`EmailVerificationService`(조건부 UPDATE, 서비스 잠금 삭제, 가입 소비와 계정 생성 한 트랜잭션, 매일 04:45 정리), `SchemaVerifier`, 단위·MySQL 통합 시험, 계약·인계·개발 상태
   - [x] 리뷰·develop 반영: PR #144(BE 1단계 위에 쌓음) 2026-11-24 develop 병합(`1f643937`)
-  - [ ] ERD PNG 2장 다시 내보내기(11/23에 원본 `.drawio`만 고침 — 유진이 직접)
+  - [x] ERD PNG 2장 다시 내보내기(11/23에 원본 `.drawio`만 고쳤던 것을 2026-11-24 유진이 개념·논리 ERD PNG로 다시 내보냄 — `email_verification_token` 9칼럼)
   - [x] 2026-11-23 「문제와 완료 기준」·「범위」·「표 변경」의 019·「흐름」을 11/18·11/23 결정대로 고쳐 씀
 - [x] FE: 바꿀 것 없음(#127 가입 코드 화면·연결 승인 화면 그대로, 11/23 확인)
 - [x] 계약 `accounts.md`: 경로는 #127 그대로, 인증 대기 저장 위치·가입 실패 때 소비 되돌림 문구(2026-11-23)
