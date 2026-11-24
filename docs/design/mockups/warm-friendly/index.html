@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>PoseGood · 따뜻한 첫 시작</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <style>
+    :root {
+      --cream:#fbf6ee; --paper:#fffcf7; --white:#fff; --ink:#302c28; --muted:#695f56;
+      --line:#e9ded1; --input-line:#b7a99b; --coral:#a84434; --coral-hover:#883426; --peach:#f8ded0;
+      --sage:#386047; --sage-soft:#e2ebdc; --sage-graph:#83a58b; --plum:#873e55; --rose:#f7e5eb;
+      --neutral:#514f52; --gray:#edeaed; --blue:#365765; --blue-soft:#e4edf0; --focus:#8b4529;
+      --dark:#242b29; --shell:1200px; --radius:22px; --large:34px; --control:12px;
+      --shadow:0 16px 36px #70452c0b;
+    }
+    *, *::before, *::after { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; background:var(--cream); color:var(--ink); font:400 16px/1.5 Pretendard,"Malgun Gothic",sans-serif; word-break:keep-all; }
+    h1,h2,h3,p,figure { margin:0; }
+    h1,h2,h3 { line-height:1.17; letter-spacing:-.035em; text-wrap:balance; }
+    h1 { font-size:clamp(30px,4vw,46px); font-weight:750; }
+    h2 { font-size:25px; font-weight:730; }
+    h3 { font-size:18px; font-weight:700; }
+    button,input { font:inherit; }
+    button { color:inherit; cursor:pointer; }
+    button:disabled { cursor:default; color:var(--muted); background:#f0ebe5; border-color:var(--line); }
+    :focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+    h1:focus,h2:focus,h3:focus { outline:none; }
+    img { display:block; max-width:100%; }
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+    .muted { color:var(--muted); }
+    .fine { font-size:14px; color:var(--muted); }
+    .fine,.notice,.text-button,.field-error { overflow-wrap:anywhere; }
+    .icon { width:21px; height:21px; flex:none; object-fit:contain; }
+    .btn { min-height:46px; display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:9px 18px; border:1px solid var(--input-line); border-radius:var(--control); background:var(--white); font-weight:650; line-height:1.25; transition:background .16s,border-color .16s; }
+    .btn:hover:not(:disabled) { background:#f5eee6; border-color:#9b8877; }
+    .primary { background:var(--coral); border-color:var(--coral); color:var(--white); }
+    .primary:hover:not(:disabled) { color:var(--white); background:var(--coral-hover); border-color:var(--coral-hover); }
+    .text-button { min-height:40px; padding:3px 0; border:0; background:transparent; color:var(--coral-hover); font-size:15px; font-weight:680; text-underline-offset:4px; }
+    .text-button:hover:not(:disabled) { text-decoration:underline; }
+    .text-button:disabled { background:transparent; }
+    .full { width:100%; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .between { justify-content:space-between; }
+    .stack { display:grid; gap:16px; min-width:0; }
+    .card { min-width:0; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .proposal { display:inline-flex; align-items:center; width:max-content; border:1px solid #d1a693; border-radius:999px; padding:2px 8px; color:#743e2e; background:#fff4eb; font-size:12px; font-weight:700; white-space:nowrap; }
+    .tag { display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:5px 11px; background:#f1e8dc; color:#5b4b3e; font-size:13px; font-weight:650; }
+    .tag::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .tag.good { background:var(--sage-soft); color:var(--sage); }
+    .site-header { border-bottom:1px solid var(--line); background:var(--paper); }
+    .header-inner,.page-wrap { width:min(var(--shell),calc(100% - 64px)); margin-inline:auto; }
+    .header-inner { min-height:72px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
+    .brand { display:flex; align-items:center; gap:10px; white-space:nowrap; }
+    .brand img { width:39px; height:39px; }
+    .brand strong { display:block; font-size:21px; line-height:1.1; letter-spacing:-.035em; }
+    .brand small { color:var(--muted); font-size:12px; }
+    .preview-nav { display:flex; align-items:center; gap:12px; }
+    .preview-label { color:var(--muted); font-size:12px; font-weight:650; white-space:nowrap; }
+    .tabs { display:flex; gap:3px; padding:4px; background:#f3eae0; border-radius:14px; }
+    .tab { min-height:36px; padding:5px 12px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--muted); font-size:14px; font-weight:650; white-space:nowrap; }
+    .tab:hover { background:#faf4ed; color:var(--ink); }
+    .tab[aria-selected="true"] { background:var(--white); border-color:var(--line); color:var(--coral-hover); box-shadow:0 1px 3px #5a3b2312; }
+    .page-wrap { padding-block:26px 32px; }
+    .hero { position:relative; isolation:isolate; display:grid; grid-template-columns:1fr 1.06fr; align-items:center; min-height:478px; overflow:hidden; background:#fbe8da; border:1px solid #eed7c5; border-radius:var(--large); }
+    .hero-copy { position:relative; z-index:1; padding:50px 0 50px 54px; }
+    .hero h1 { margin-top:16px; font-size:clamp(43px,5.2vw,74px); font-weight:790; line-height:1.05; letter-spacing:-.066em; }
+    .hero h1 span { color:var(--coral-hover); }
+    .hero p { margin-block:23px 28px; max-width:31ch; color:#594940; font-size:19px; line-height:1.55; }
+    .primary .arrow { font-size:21px; line-height:1; }
+    .hero-art { position:relative; align-self:stretch; display:grid; place-items:center; min-width:0; }
+    .hero-art::before,.auth-art::before { content:""; position:absolute; width:77%; aspect-ratio:1; border-radius:50%; background:#f4c5ac; }
+    .hero-art::before { max-width:415px; }
+    .hero-art::after { content:""; position:absolute; width:83%; max-width:445px; aspect-ratio:1; border:1px solid #a844343b; border-radius:50%; }
+    .hero-art img,.auth-art img { position:relative; z-index:1; width:96%; object-fit:contain; }
+    .hero-art img { max-height:432px; }
+    .art-caption { position:absolute; z-index:2; right:22px; bottom:20px; display:flex; align-items:center; gap:8px; padding:9px 13px; border-radius:999px; background:#fffaf2; color:var(--sage); font-size:14px; font-weight:700; box-shadow:0 5px 16px #70452c18; }
+    .art-caption .icon { width:17px; height:17px; }
+    .welcome-steps { margin-top:23px; }
+    .welcome-steps > h2 { margin-bottom:13px; }
+    .step-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .mini-card { padding:16px; display:grid; grid-template-columns:auto 1fr; align-items:start; gap:12px; }
+    .mini-card p { margin-top:4px; }
+    .tile-icon { display:grid; place-items:center; width:43px; height:43px; border-radius:14px; background:var(--peach); }
+    .tile-icon.sage { background:var(--sage-soft); }
+    .tile-icon.cream { background:#f1e7d7; }
+    .auth-layout { display:grid; grid-template-columns:minmax(0,.79fr) minmax(0,1.21fr); border:1px solid var(--line); border-radius:var(--large); overflow:hidden; background:var(--paper); box-shadow:var(--shadow); }
+    .auth-side { position:relative; min-width:0; padding:38px 34px 25px; background:#fae3d6; display:flex; flex-direction:column; justify-content:center; gap:15px; }
+    .auth-side h2 { font-size:clamp(26px,3.2vw,43px); color:#642f25; line-height:1.14; }
+    .auth-side .side-note { color:#5f4a3e; max-width:30ch; }
+    .auth-art { position:relative; isolation:isolate; display:grid; place-items:center; min-height:228px; }
+    .auth-art::before { max-width:230px; background:#f3c6af; }
+    .auth-art img { max-height:282px; }
+    .side-foot { margin-top:6px; display:flex; align-items:center; gap:9px; color:#624d42; font-size:14px; }
+    .auth-main { display:grid; align-content:center; min-width:0; min-height:606px; padding:28px clamp(24px,5vw,84px); }
+    .auth-main > section { width:100%; max-width:520px; margin-inline:auto; }
+    .auth-title { margin-bottom:16px; }
+    .auth-title p { margin-top:7px; }
+    .auth-title h1 { font-size:clamp(29px,3.5vw,42px); }
+    .stepper { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:0; margin:0 0 20px; list-style:none; }
+    .stepper li { min-width:0; display:flex; align-items:center; gap:7px; padding:0 0 9px; border-bottom:3px solid #eadfd4; color:var(--muted); font-size:13px; font-weight:650; }
+    .stepper li[aria-current="step"] { color:var(--coral-hover); border-color:var(--coral); }
+    .stepper li[data-done] { color:var(--sage); border-color:#a6bca5; }
+    .step-dot { flex:none; display:grid; place-items:center; width:24px; height:24px; border-radius:50%; background:#f3ebe0; }
+    [aria-current="step"] > .step-dot { background:var(--peach); }
+    [data-done] > .step-dot { background:var(--sage-soft); }
+    .form { display:grid; gap:13px; }
+    .field { min-width:0; display:grid; gap:6px; }
+    .field > label,.field-label { font-size:15px; font-weight:700; }
+    .input { display:block; min-width:0; width:100%; min-height:46px; border:1px solid var(--input-line); border-radius:var(--control); background:var(--white); color:var(--ink); padding:9px 13px; }
+    .input::placeholder { color:#766c63; }
+    .input[aria-invalid="true"] { border-color:var(--plum); box-shadow:0 0 0 1px var(--plum); }
+    .input:disabled,.input[readonly] { background:#f5eee6; }
+    .field-error { color:var(--plum); font-size:14px; font-weight:650; }
+    .field-error:empty { display:none; }
+    .input-action { position:relative; }
+    .input-action .input { padding-right:71px; }
+    .input-action button { position:absolute; right:7px; top:4px; min-height:38px; padding-inline:9px; border-radius:8px; }
+    .form-grid { display:grid; grid-template-columns:1fr 2fr; gap:11px; }
+    .notice { padding:10px 13px; border:1px solid var(--line); border-radius:12px; background:#f5eee5; font-size:14px; }
+    .notice.is-error { color:var(--plum); border-color:#deb4c0; background:var(--rose); }
+    .notice.is-good { color:var(--sage); border-color:#c4d6c0; background:var(--sage-soft); }
+    .divider { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; }
+    .divider::before,.divider::after { content:""; flex:1; border-top:1px solid var(--line); }
+    .discord-mark { display:grid; place-items:center; width:27px; height:27px; border-radius:8px; background:#4c56cd; }
+    .discord-mark .icon { width:17px; height:17px; }
+    .form-foot { margin-top:12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap; color:var(--muted); font-size:14px; }
+    .consents { border:1px solid var(--line); border-radius:16px; background:var(--white); overflow:hidden; }
+    .consent-row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:0 12px; min-height:43px; }
+    .consent-row + .consent-row { border-top:1px solid var(--line); }
+    .consent-row label { display:flex; align-items:center; gap:7px; font-size:14px; font-weight:640; min-height:42px; cursor:pointer; }
+    .consent-row input { accent-color:var(--coral); width:17px; height:17px; margin:0; flex:none; cursor:pointer; }
+    .consent-row button { flex:none; padding:0 3px; font-size:13px; }
+    .consent-row.all { background:#f8efe5; }
+    .optional { padding-block:6px; flex-wrap:wrap; }
+    .optional p { font-size:14px; font-weight:650; }
+    .optional .row { gap:12px; }
+    .optional .row label { min-height:35px; }
+    .loading { display:inline-block; width:15px; height:15px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .75s linear infinite; }
+    .success-mark { display:grid; place-items:center; width:54px; height:54px; margin-bottom:12px; border-radius:50%; background:var(--sage-soft); color:var(--sage); font-size:28px; font-weight:750; }
+    .arrive .success-mark { animation:pop .38s cubic-bezier(.2,.85,.4,1.3) both; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes pop { from { transform:scale(.68); opacity:.3; } to { transform:scale(1); opacity:1; } }
+    dialog { width:min(510px,calc(100% - 32px)); max-height:calc(100% - 32px); padding:24px; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 24px 70px #3a201f35; }
+    dialog::backdrop { background:#37302d78; }
+    .dialog-head { display:flex; align-items:start; justify-content:space-between; gap:13px; margin-bottom:13px; }
+    .close { min-width:42px; min-height:42px; padding:4px; font-size:21px; }
+    .dialog-content { display:grid; gap:10px; }
+    .dialog-content dl { margin:0; display:grid; gap:8px; }
+    .dialog-content dt { font-size:14px; font-weight:700; }
+    .dialog-content dd { margin:0 0 5px; color:var(--muted); }
+    .app-grid { display:grid; grid-template-columns:178px minmax(0,1fr); gap:20px; align-items:stretch; }
+    .side-nav { display:flex; flex-direction:column; background:#f2e7d9; border:1px solid var(--line); border-radius:var(--radius); padding:12px; min-width:0; }
+    .side-nav nav { display:grid; gap:4px; }
+    .side-link { display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:8px 10px; text-align:left; border:1px solid transparent; background:transparent; border-radius:11px; font-weight:650; }
+    .side-link[aria-current="page"] { background:var(--paper); border-color:var(--line); color:var(--coral-hover); }
+    .side-link:hover:not(:disabled) { background:var(--paper); }
+    .side-link:disabled { background:transparent; border-color:transparent; }
+    .account { position:relative; min-width:0; margin-top:auto; padding-top:14px; }
+    .profile-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .account-mobile { display:none; }
+    .account details { border-top:1px solid #dbcdbd; }
+    .account summary { list-style:none; cursor:pointer; }
+    .account summary::-webkit-details-marker { display:none; }
+    .account-panel { position:absolute; z-index:4; bottom:50px; left:0; right:0; padding:5px; }
+    .workspace { min-width:0; }
+    .work-head { display:flex; align-items:end; justify-content:space-between; margin-bottom:16px; gap:12px; }
+    .work-head p { margin-top:5px; }
+    .work-head h1 { font-size:clamp(30px,4vw,42px); }
+    .stage-layout { display:grid; grid-template-columns:minmax(0,1.36fr) minmax(252px,1fr); align-items:start; gap:14px; }
+    .camera { position:relative; isolation:isolate; display:grid; place-items:center; width:100%; aspect-ratio:4/3; overflow:hidden; border-radius:var(--radius); color:#eff5ee; background:radial-gradient(ellipse at 48% 55%,#394640 0%,var(--dark) 64%); }
+    .camera::before { content:""; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent 0 31px,#ffffff09 32px 33px),repeating-linear-gradient(90deg,transparent 0 31px,#ffffff09 32px 33px); }
+    .camera-label { position:absolute; top:14px; left:14px; z-index:1; border-radius:999px; padding:4px 10px; background:#171e1b; color:#f0f4ee; font-size:13px; }
+    .camera-guide { position:relative; width:64%; height:67%; display:grid; place-items:center; border:2px dashed #a8b9ae; border-radius:18px; }
+    .camera-guide::before,.camera-guide::after { position:absolute; left:50%; transform:translateX(-50%); content:""; background:#6d7c73; opacity:.58; }
+    .camera-guide::before { top:15%; width:26%; aspect-ratio:4/5; border-radius:50%; }
+    .camera-guide::after { bottom:10%; width:66%; height:34%; border-radius:48% 48% 18% 18%; }
+    .joints { position:absolute; z-index:1; inset:0; color:#c6d9ca; }
+    .joints i { position:absolute; left:var(--x); top:var(--y); width:9px; height:9px; border-radius:50%; background:currentColor; transform:translate(-50%,-50%); box-shadow:0 0 0 3px #18241d72; }
+    .camera[data-guide="off"] .camera-guide { visibility:hidden; }
+    .camera[data-guide="shift"] .camera-guide { transform:translateX(7%); }
+    .camera-caption { position:absolute; bottom:12px; left:12px; right:12px; text-align:center; color:#e1ebe3; font-size:13px; }
+    .camera-overlay { position:absolute; z-index:2; inset:0; display:grid; place-content:center; justify-items:center; gap:8px; background:#17221bd1; text-align:center; padding:12px; }
+    .camera-overlay strong { display:grid; place-items:center; width:84px; height:84px; border-radius:50%; border:3px solid #caddc5; color:#eff8eb; font-size:53px; line-height:1; animation:pop .32s both; font-variant-numeric:tabular-nums; }
+    .camera-overlay .success-mark { margin:0; }
+    .setup-card,.status-panel { padding:19px; }
+    .setup-card .stepper { margin-bottom:15px; }
+    .setup-card .stepper li { font-size:12px; }
+    .setup-card h2 { margin-bottom:7px; }
+    .setup-actions { margin-top:16px; }
+    .setup-tip { display:flex; gap:10px; padding:12px 14px; margin-top:13px; align-items:start; }
+    .setup-tip img { margin-top:2px; }
+    .camera-column { width:100%; }
+    .camera-column .camera { width:100%; }
+    .measure-state { padding:17px 20px; margin-bottom:13px; border-radius:var(--radius); display:grid; grid-template-columns:auto 1fr; gap:13px; background:var(--sage-soft); color:var(--sage); }
+    .measure-state[data-tone="alert"] { background:var(--rose); color:var(--plum); }
+    .measure-state[data-tone="unknown"] { background:var(--gray); color:var(--neutral); }
+    .measure-state[data-tone="connect"] { background:var(--blue-soft); color:var(--blue); }
+    .measure-state[data-tone="offline"] { background:#f0e8df; color:#5a4434; }
+    .state-mark { width:51px; height:51px; border:2px solid currentColor; border-radius:50%; display:grid; place-items:center; font-size:26px; font-weight:750; line-height:1; }
+    .measure-state h2 { font-size:clamp(25px,3.25vw,43px); }
+    .measure-state p { font-size:16px; margin-top:4px; }
+    .metric-main { font-size:59px; letter-spacing:-.06em; font-weight:790; line-height:1; font-variant-numeric:tabular-nums; }
+    .metric-main small { font-size:19px; letter-spacing:0; margin-left:5px; font-weight:630; }
+    .metric-sub { display:flex; justify-content:space-between; gap:8px; padding-top:10px; border-top:1px solid var(--line); }
+    .meter { height:8px; border-radius:999px; background:#e9e4db; overflow:hidden; }
+    .meter span { display:block; height:100%; border-radius:inherit; background:var(--sage); }
+    .meter[data-tone="alert"] span { background:var(--plum); }
+    .demo-controls { margin-top:11px; }
+    .demo-controls legend { padding:0; margin-bottom:6px; }
+    .demo-controls { padding:0; border:0; min-width:0; }
+    .demo-controls .row { gap:5px; }
+    .demo-controls .btn { min-height:36px; font-size:13px; padding:6px 9px; }
+    .demo-controls [aria-pressed="true"] { background:#f3e4d7; border-color:#a37960; }
+    .summary-grid { display:grid; grid-template-columns:1.24fr 1fr 1fr; gap:12px; margin-bottom:12px; }
+    .stat { padding:13px 16px; display:flex; align-items:center; gap:13px; min-height:98px; }
+    .stat strong { display:block; margin-block:1px; font-size:clamp(26px,4vw,39px); line-height:1.05; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+    .stat strong small { font-size:17px; }
+    .ring { display:grid; flex:none; place-items:center; width:60px; aspect-ratio:1; background:conic-gradient(var(--sage) 0 83.33%,#e9e4db 83.33%); border-radius:50%; }
+    .ring::after { content:""; width:75%; aspect-ratio:1; background:var(--paper); border-radius:50%; }
+    .record-card { padding:14px 16px; margin-bottom:12px; }
+    .record-card h2 { font-size:21px; }
+    .key { display:inline-flex; gap:5px; align-items:center; }
+    .key::before { content:""; width:10px; height:10px; border-radius:3px; background:var(--sage-graph); }
+    .key.alert::before { background:#b57587; }
+    .record-graph { display:grid; grid-template-columns:29px 1fr; gap:8px; margin-top:8px; }
+    .axis { display:flex; flex-direction:column; justify-content:space-between; padding-bottom:21px; text-align:right; font-size:12px; color:var(--muted); }
+    .graph-plot { position:relative; display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); align-items:end; gap:4px; }
+    .graph-plot::before { content:""; position:absolute; inset:8px 0 23px; border-block:1px solid var(--line); background:linear-gradient(transparent calc(50% - .5px),var(--line) calc(50% - .5px) calc(50% + .5px),transparent calc(50% + .5px)); pointer-events:none; }
+    .bar-slot { position:relative; display:grid; grid-template-rows:99px 22px; justify-items:center; width:100%; color:var(--muted); font-size:12px; }
+    .bar-button { display:flex; flex-direction:column; justify-content:end; width:min(56px,90%); padding:0; height:100%; border:0; background:transparent; border-radius:8px; }
+    .bar-button:hover { filter:saturate(1.3); background:#f6efe6; }
+    .bar-good,.bar-alert { display:block; width:100%; height:var(--h); background:var(--sage-graph); }
+    .bar-alert { background:#b57587; border-radius:7px 7px 0 0; }
+    .bar-good { border-radius:0 0 4px 4px; }
+    .session-list { margin-top:7px; }
+    .session-list button { display:grid; grid-template-columns:1.65fr .8fr .7fr auto; align-items:center; text-align:left; gap:10px; width:100%; min-height:47px; padding:6px 2px; border:0; border-top:1px solid var(--line); background:transparent; font-size:14px; }
+    .session-list button:hover { background:#f6efe6; }
+    .session-list b { font-variant-numeric:tabular-nums; }
+    @media (max-width:1050px) {
+      .header-inner,.page-wrap { width:calc(100% - 38px); }
+      .hero-copy { padding-left:36px; }
+      .auth-side { padding-inline:25px; }
+      .auth-main { padding-inline:35px; }
+      .app-grid { grid-template-columns:148px minmax(0,1fr); gap:12px; }
+    }
+    @media (max-width:760px) {
+      .header-inner { padding-block:9px; flex-wrap:wrap; gap:6px; }
+      .preview-nav { width:100%; gap:6px; flex-direction:column; align-items:start; }
+      .tabs { width:100%; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px; }
+      .tab { padding:5px 2px; font-size:13px; }
+      .hero { grid-template-columns:1fr; min-height:0; }
+      .hero-copy { padding:25px 20px 10px; }
+      .hero p { margin-block:15px 18px; font-size:17px; }
+      .hero-art { min-height:220px; }
+      .hero-art::before { max-width:212px; }
+      .hero-art::after { max-width:230px; }
+      .hero-art img { max-height:242px; }
+      .art-caption { right:12px; bottom:11px; }
+      .step-cards { grid-template-columns:1fr; gap:8px; }
+      .auth-layout { grid-template-columns:1fr; border-radius:var(--radius); }
+      .auth-side { display:none; }
+      .auth-main { min-height:0; padding:23px 19px; }
+      .app-grid { grid-template-columns:1fr; }
+      .side-nav { padding:6px; flex-direction:row; justify-content:space-between; gap:2px; }
+      .side-nav nav { display:flex; gap:1px; }
+      .side-link { gap:4px; padding:5px 6px; min-height:38px; font-size:13px; }
+      .side-link .icon { width:15px; height:15px; }
+      .account { margin:0; padding:0; }
+      .account .profile-name { display:none; }
+      .account-mobile { display:inline; }
+      .account details { border:0; }
+      .account-panel { bottom:auto; top:42px; left:auto; min-width:130px; }
+      .stage-layout { grid-template-columns:1fr; gap:10px; }
+      .camera-column { width:100%; }
+      .setup-card { grid-row:1; }
+      .summary-grid { gap:7px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .stat { min-height:74px; padding:10px 12px; }
+      .stat:first-child { grid-column:1/-1; }
+      .ring { width:49px; }
+    }
+    @media (max-width:430px) {
+      .header-inner,.page-wrap { width:calc(100% - 24px); }
+      .page-wrap { padding-block:12px 22px; }
+      .work-head { align-items:start; flex-direction:column; gap:5px; }
+      .setup-card,.status-panel { padding:13px; }
+      .measure-state { grid-template-columns:35px 1fr; gap:8px; padding:13px; }
+      .state-mark { width:35px; height:35px; font-size:20px; }
+      .session-list button { gap:5px; font-size:13px; grid-template-columns:1.5fr .65fr .65fr auto; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after { animation-duration:0s !important; transition-duration:0s !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <img src="../../../../frontend/public/branding/posegood-icon.svg" alt="" width="39" height="39">
+        <div><strong>PoseGood</strong><small>바른자세 도우미</small></div>
+      </div>
+      <div class="preview-nav">
+        <span class="preview-label">시안 화면 전환</span>
+        <div class="tabs" role="tablist" aria-label="시안 화면 전환">
+          <button class="tab" id="tab-welcome" role="tab" aria-selected="true" aria-controls="welcome">시작</button>
+          <button class="tab" id="tab-signup" role="tab" aria-selected="false" aria-controls="signup" tabindex="-1">회원가입</button>
+          <button class="tab" id="tab-login" role="tab" aria-selected="false" aria-controls="login" tabindex="-1">로그인</button>
+          <button class="tab" id="tab-setup" role="tab" aria-selected="false" aria-controls="setup" tabindex="-1">첫 설정</button>
+          <button class="tab" id="tab-measure" role="tab" aria-selected="false" aria-controls="measure" tabindex="-1">측정</button>
+          <button class="tab" id="tab-history" role="tab" aria-selected="false" aria-controls="history" tabindex="-1">오늘 기록</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="page-wrap">
+    <section id="welcome" role="tabpanel" aria-labelledby="tab-welcome">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="proposal">제안 · 첫 방문 화면</span>
+          <h1 tabindex="-1">편하게 앉아요.<br><span>자세는 함께 살펴요.</span></h1>
+          <p>내가 편하게 앉은 자세를 기억하고, 자세 변화가 이어질 때 가볍게 알려드려요.</p>
+          <div class="row">
+            <button class="btn primary" data-go="signup">시작하기 <span class="arrow" aria-hidden="true">→</span></button>
+            <button class="btn" data-go="login">로그인</button>
+          </div>
+        </div>
+        <figure class="hero-art">
+          <img src="../../../../frontend/public/illustrations/themes/peach-login.webp" alt="">
+          <figcaption class="art-caption"><img class="icon" src="../../../../frontend/public/icons/check-circle.png" alt=""> 편하게 앉은 내 자세가 기준이에요</figcaption>
+        </figure>
+      </div>
+      <section class="welcome-steps" aria-labelledby="welcome-steps-title">
+        <h2 id="welcome-steps-title">어떻게 쓰나요?</h2>
+        <div class="step-cards">
+          <article class="card mini-card"><span class="tile-icon"><img class="icon" src="../../../../frontend/public/icons/user-circle.png" alt=""></span><div><h3>계정 만들기</h3><p class="fine">이메일을 확인하고 가입해요.</p></div></article>
+          <article class="card mini-card"><span class="tile-icon sage"><img class="icon" src="../../../../frontend/public/icons/video-camera.png" alt=""></span><div><h3>기준 자세 등록</h3><p class="fine">편하게 앉은 자세를 3초간 기억해요.</p></div></article>
+          <article class="card mini-card"><span class="tile-icon cream"><img class="icon" src="../../../../frontend/public/icons/bell.png" alt=""></span><div><h3>알림과 기록 보기</h3><p class="fine">자세 변화가 이어지면 알려 드리고 기록에 남겨요.</p></div></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="signup" role="tabpanel" aria-labelledby="tab-signup" hidden>
+      <div class="auth-layout">
+        <aside class="auth-side">
+          <h2>한 걸음씩,<br>편하게 시작해요.</h2>
+          <p class="side-note">동의와 이메일 확인을 마치면 내 기준 자세를 등록할 수 있어요.</p>
+          <figure class="auth-art"><img src="../../../../frontend/public/illustrations/themes/peach-login.webp" alt=""></figure>
+          <p class="side-foot"><img class="icon" src="../../../../frontend/public/icons/lock-simple.png" alt=""> 카메라 영상은 기기 밖으로 보내지 않아요.</p>
+        </aside>
+        <div class="auth-main">
+          <section>
+            <ol class="stepper" id="signup-steps" aria-label="회원가입 진행 단계">
+              <li aria-current="step"><span class="step-dot" aria-hidden="true">1</span>이용 동의</li>
+              <li><span class="step-dot" aria-hidden="true">2</span>이메일 확인</li>
+              <li><span class="step-dot" aria-hidden="true">3</span>계정 만들기</li>
+            </ol>
+            <section data-signup-step="0">
+              <div class="auth-title"><h1 tabindex="-1">이용에 동의해 주세요</h1><p class="muted">필수 항목을 확인하고, 선택 항목은 원하는 대로 골라 주세요.</p></div>
+              <form id="consent-form" class="form" novalidate>
+                <div class="consents" id="consent-list">
+                  <div class="consent-row all"><label><input id="consent-all" type="checkbox">전체 동의 (선택 포함)</label></div>
+                </div>
+                <p class="fine" id="consent-progress" aria-live="polite"></p>
+                <button class="btn primary full" type="submit" aria-describedby="consent-progress" disabled>이메일 확인으로 <span class="arrow" aria-hidden="true">→</span></button>
+              </form>
+              <p class="form-foot">이미 계정이 있나요? <button class="text-button" data-go="login">로그인</button></p>
+            </section>
+            <section data-signup-step="1" hidden>
+              <div class="auth-title"><div class="row"><h1 tabindex="-1">이메일을 확인해요</h1><span class="proposal">제안 · 독립 단계</span></div><p class="muted">로그인에 사용할 이메일로 6자리 코드를 확인해요.</p></div>
+              <form class="form" id="send-code" novalidate>
+                <div class="field"><label for="signup-email">이메일</label><input class="input" id="signup-email" type="email" autocomplete="email" maxlength="254" required placeholder="name@example.com" aria-describedby="signup-email-error"><p class="field-error" id="signup-email-error" aria-live="polite"></p></div>
+                <p class="notice fine">시연용 이메일을 입력하면 예시 코드가 표시돼요.</p>
+                <button class="btn primary full" type="submit">인증 코드 받기</button>
+              </form>
+              <form class="form" id="verify-code" novalidate hidden>
+                <p id="code-address" class="notice" role="status"></p>
+                <div class="field"><label for="signup-code">6자리 인증 코드</label><input class="input" id="signup-code" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" aria-describedby="code-help signup-code-error"><p class="fine" id="code-help">시연 코드 123456 · 15분 동안 유효해요.</p><p class="field-error" id="signup-code-error" aria-live="polite"></p></div>
+                <button class="btn primary full" type="submit">코드 확인</button>
+                <button class="text-button" id="resend-code" type="button">코드 다시 받기</button>
+              </form>
+              <div class="stack" id="verified-email" hidden>
+                <div class="notice is-good" id="verified-message" role="status"></div>
+                <button class="btn primary full" id="to-account">계정 만들기로 <span class="arrow" aria-hidden="true">→</span></button>
+              </div>
+              <div class="row between form-foot"><button class="text-button" data-signup-back="0">← 이전 단계</button><button class="text-button" id="edit-email" hidden>이메일 바꾸기</button></div>
+            </section>
+            <section data-signup-step="2" hidden>
+              <div class="auth-title"><h1 tabindex="-1">계정을 만들어요</h1><p class="muted">부를 이름과 로그인할 때 쓸 비밀번호를 정해 주세요.</p></div>
+              <form class="form" id="account-form" novalidate>
+                <p class="notice is-good" id="account-email"></p>
+                <div class="field"><label for="signup-name">이름</label><input class="input" id="signup-name" autocomplete="name" maxlength="30" required aria-describedby="signup-name-error"><p class="field-error" id="signup-name-error" aria-live="polite"></p></div>
+                <div class="field">
+                  <label for="signup-password">비밀번호</label>
+                  <input class="input" id="signup-password" type="password" autocomplete="new-password" required aria-describedby="password-help signup-password-error">
+                  <p class="fine" id="password-help">12자 이상, UTF-8 기준 72바이트 이하</p><p class="field-error" id="signup-password-error" aria-live="polite"></p>
+                </div>
+                <div class="form-grid" id="optional-fields" hidden>
+                  <div class="field"><label for="signup-age">나이</label><input class="input" id="signup-age" type="number" min="14" max="120" step="1" inputmode="numeric" required aria-describedby="signup-age-error"><p class="field-error" id="signup-age-error" aria-live="polite"></p></div>
+                  <div class="field"><label for="signup-work">직업</label><input class="input" id="signup-work" maxlength="80" autocomplete="organization-title" required aria-describedby="signup-work-error"><p class="field-error" id="signup-work-error" aria-live="polite"></p></div>
+                </div>
+                <button class="btn primary full" type="submit">회원가입</button>
+              </form>
+              <div class="form-foot"><button class="text-button" data-signup-back="1">← 이전 단계</button></div>
+            </section>
+            <section data-signup-step="3" hidden>
+              <div class="auth-title"><div class="success-mark" aria-hidden="true">✓</div><div class="row"><h1 tabindex="-1" id="signup-success">가입을 마쳤어요!</h1><span class="proposal">제안 · 완료 확인</span></div><p class="muted">이제 편하게 앉은 자세를 기억해 볼까요? 기준 자세는 나중에 등록해도 괜찮아요.</p></div>
+              <div class="stack">
+                <button class="btn primary full" data-setup-enter="signup">기준 자세 등록하기 <span class="arrow" aria-hidden="true">→</span></button>
+                <button class="btn full" data-setup-enter="regular">나중에 등록하기</button>
+              </div>
+            </section>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="login" role="tabpanel" aria-labelledby="tab-login" hidden>
+      <div class="auth-layout">
+        <aside class="auth-side">
+          <h2>다시 만나<br>반가워요.</h2>
+          <p class="side-note">카메라를 켤 준비가 되면 측정을 시작해요. 기록은 카메라를 켜지 않아도 볼 수 있어요.</p>
+          <figure class="auth-art"><img src="../../../../frontend/public/illustrations/themes/peach-login.webp" alt=""></figure>
+        </aside>
+        <div class="auth-main">
+          <section id="login-main">
+            <div class="auth-title"><h1 tabindex="-1">로그인</h1><p class="muted">가입한 이메일과 비밀번호를 입력해 주세요.</p></div>
+            <form id="login-form" class="form" novalidate>
+              <div class="field"><label for="login-email">이메일</label><input class="input" id="login-email" type="email" autocomplete="username" maxlength="254" required placeholder="name@example.com" aria-describedby="login-email-error"><p class="field-error" id="login-email-error" aria-live="polite"></p></div>
+              <div class="field">
+                <div class="row between"><label class="field-label" for="login-password">비밀번호</label><span class="proposal">제안 · 표시 전환</span></div>
+                <div class="input-action"><input class="input" id="login-password" type="password" autocomplete="current-password" required aria-describedby="login-password-error"><button class="text-button" type="button" id="toggle-password" aria-label="비밀번호 보기" aria-controls="login-password" aria-pressed="false">보기</button></div>
+                <p class="field-error" id="login-password-error" aria-live="polite"></p>
+              </div>
+              <p class="notice is-error" id="login-error" role="alert" hidden></p>
+              <button class="btn primary full" type="submit">로그인 <span class="arrow" aria-hidden="true">→</span></button>
+            </form>
+            <div class="row between form-foot"><button class="text-button" id="open-recovery">비밀번호 찾기</button><span>처음인가요? <button class="text-button" data-go="signup">회원가입</button></span></div>
+            <div class="stack" style="gap:9px">
+              <div class="divider">또는</div>
+              <button class="btn full" id="discord"><span class="discord-mark"><img class="icon" src="../../../../frontend/public/branding/social/discord.svg" alt=""></span>Discord로 로그인</button>
+              <details class="fine">
+                <summary>시연 계정과 오류 확인</summary>
+                <p>성공 예시 <b>demo@example.com</b> / <b>posegood1234</b><br>다른 이메일이나 비밀번호는 로그인 오류를 보여줘요.</p>
+                <button class="text-button" id="fill-login">시연 계정 채우기</button>
+              </details>
+            </div>
+          </section>
+          <section id="recovery" hidden>
+            <div class="auth-title"><h1 tabindex="-1" id="recovery-title">비밀번호 찾기</h1><p class="muted" id="recovery-lead">가입한 이메일로 재설정 안내를 요청해요.</p></div>
+            <form class="form" id="recovery-send" novalidate>
+              <div class="field"><label for="recovery-email">이메일</label><input class="input" id="recovery-email" type="email" autocomplete="email" required maxlength="254" aria-describedby="recovery-email-error"><p class="field-error" id="recovery-email-error" aria-live="polite"></p></div>
+              <button class="btn primary full" type="submit">비밀번호 찾기 메일 받기</button>
+              <button class="text-button" type="button" id="recovery-existing">이미 받은 링크·인증 코드 입력</button>
+            </form>
+            <form class="form" id="recovery-code" novalidate hidden>
+              <p class="notice" id="reset-sent" role="status" hidden>가입된 이메일이면 재설정 안내를 보내 드려요. 시연에서는 받은 링크를 아래 단추로 열 수 있어요.</p>
+              <button class="btn full" id="demo-reset-link" type="button" hidden>시연용 메일 링크 열기</button>
+              <div class="field"><label for="reset-token">메일 링크의 인증 코드</label><input class="input" id="reset-token" required autocomplete="one-time-code" maxlength="128" aria-describedby="reset-token-help reset-token-error"><p class="fine" id="reset-token-help">시연 코드 posegood-reset</p><p class="field-error" id="reset-token-error" aria-live="polite"></p></div>
+              <button class="btn primary full" type="submit">링크·코드 확인</button>
+              <button class="text-button" type="button" id="recovery-resend">메일 다시 요청하기</button>
+            </form>
+            <form class="form" id="recovery-password" novalidate hidden>
+              <div class="field"><label for="reset-password">새 비밀번호</label><input class="input" id="reset-password" type="password" autocomplete="new-password" required aria-describedby="reset-help reset-password-error"><p class="fine" id="reset-help">12자 이상, UTF-8 기준 72바이트 이하</p><p class="field-error" id="reset-password-error" aria-live="polite"></p></div>
+              <div class="field"><label for="reset-again">새 비밀번호 확인</label><input class="input" id="reset-again" type="password" autocomplete="new-password" required aria-describedby="reset-again-error"><p class="field-error" id="reset-again-error" aria-live="polite"></p></div>
+              <button class="btn primary full" type="submit">새 비밀번호 저장</button>
+            </form>
+            <p class="notice is-good" id="reset-done" role="status" hidden>새 비밀번호를 저장한 상태예요. 로그인 화면으로 돌아가 주세요.</p>
+            <div class="form-foot"><button class="text-button" id="close-recovery">← 로그인으로 돌아가기</button></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup" role="tabpanel" aria-labelledby="tab-setup" hidden>
+      <div class="app-grid">
+        <div data-sidebar="measure"></div>
+        <div class="workspace">
+          <header class="work-head"><div><h1 tabindex="-1">첫 측정 준비</h1><p class="muted">카메라를 맞추고 내 기준 자세를 기억해요.</p></div><span class="tag" id="baseline-tag">기준 자세 미등록</span></header>
+          <div class="stage-layout">
+            <div class="camera-column">
+              <div class="camera" id="setup-camera" data-guide="off">
+                <span class="camera-label">카메라 미리보기 · 시연</span><div class="camera-guide" aria-hidden="true"></div>
+                <p class="camera-caption" id="setup-camera-caption">카메라가 꺼져 있어요</p>
+                <div class="camera-overlay" id="camera-overlay" hidden><strong id="count-number" aria-hidden="true">3</strong><div class="success-mark" id="setup-check" aria-hidden="true" hidden>✓</div><span id="count-caption"></span></div>
+              </div>
+            </div>
+            <div class="stack" style="gap:0">
+              <section class="card setup-card">
+                <ol class="stepper" id="setup-steps" aria-label="첫 설정 진행 단계"><li><span class="step-dot" aria-hidden="true">1</span>카메라</li><li><span class="step-dot" aria-hidden="true">2</span>위치 맞추기</li><li><span class="step-dot" aria-hidden="true">3</span>자세 등록</li></ol>
+                <div class="row" style="margin-bottom:7px"><span class="proposal">제안 · 단계별 안내</span></div>
+                <h2 tabindex="-1" id="setup-title"></h2><p class="muted" id="setup-note"></p>
+                <div class="stack setup-actions" id="setup-actions"></div>
+              </section>
+              <p class="card fine setup-tip"><img class="icon" src="../../../../frontend/public/icons/lock-simple.png" alt="">영상은 기기 안에서 처리해요. 기준 자세 등록과 판정에는 카메라에서 얻은 자세 정보가 쓰여요.</p>
+              <details class="fine demo-controls" id="setup-demo"><summary>시연 상태 바꾸기</summary><div class="row"><button class="btn" data-setup-state="denied">권한 거부</button><button class="btn" data-setup-state="disconnected">카메라 연결 끊김</button><button class="btn" data-setup-state="permission">처음부터</button></div></details>
+            </div>
+          </div>
+          <p id="setup-progress" class="sr-only" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="measure" role="tabpanel" aria-labelledby="tab-measure" hidden>
+      <div class="app-grid">
+        <div data-sidebar="measure"></div>
+        <div class="workspace">
+          <header class="work-head"><div><h1 tabindex="-1">자세 측정</h1><p class="muted">등록한 내 자세와 비교해요.</p></div><span class="tag" id="measure-tag">측정 중</span></header>
+          <div class="measure-state" id="measure-state" role="status"><span class="state-mark" id="state-mark" aria-hidden="true">✓</span><div><h2 id="state-title">바른 자세예요</h2><p id="state-note">등록한 기준 자세와 가까워요.</p></div></div>
+          <div class="stage-layout">
+            <div class="camera-column"><div class="camera" id="measure-camera" data-guide="on"><span class="camera-label">카메라 미리보기 · 시연</span><div class="camera-guide" aria-hidden="true"></div><p class="camera-caption" id="measure-camera-note">얼굴과 양쪽 어깨가 보여요</p></div></div>
+            <div>
+              <section class="card status-panel stack" aria-label="측정 지표">
+                <div><h3>자세 점수</h3><p class="metric-main"><span id="score">92</span><small id="score-unit">점</small></p><p class="fine">등록한 내 자세에 가까울수록 높아요.</p></div>
+                <div class="meter" id="score-meter" aria-hidden="true"><span></span></div>
+                <div class="metric-sub"><span>바른 자세 유지 시간</span><b id="hold-time">2분 18초</b></div>
+                <div class="metric-sub"><span>알림</span><b id="alert-count">1회</b></div>
+                <div class="row"><button class="btn" id="pause">잠시 멈춤</button><button class="btn" id="end">측정 종료</button></div>
+                <div class="row" id="measure-retry-row" hidden><button class="btn" id="measure-retry">측정 준비로</button><span class="proposal">제안 · 복구 동선</span></div>
+              </section>
+              <fieldset class="demo-controls"><legend class="fine">시연 상태 바꾸기</legend><div class="row">
+                <button class="btn" data-measure="good" aria-pressed="true">정상</button><button class="btn" data-measure="alert" aria-pressed="false">흐트러짐 알림</button>
+                <button class="btn" data-measure="unknown" aria-pressed="false">측정 불가</button><button class="btn" data-measure="connecting" aria-pressed="false">연결 중</button>
+                <button class="btn" data-measure="lost" aria-pressed="false">서버 연결 끊김</button>
+              </div></fieldset>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="history" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <div class="app-grid">
+        <div data-sidebar="history"></div>
+        <div class="workspace">
+          <header class="work-head"><div><h1 tabindex="-1">오늘 기록</h1><p class="muted">11월 24일 화요일 · 한국 시간</p></div><span class="tag">발표용 예시</span></header>
+          <div class="summary-grid">
+            <article class="card stat"><span class="ring" aria-hidden="true"></span><div><p class="fine">바른 자세 비율</p><strong id="day-rate">83<small>%</small></strong><p class="fine">측정한 시간 기준</p></div></article>
+            <article class="card stat"><span class="tile-icon cream"><img class="icon" src="../../../../frontend/public/icons/clock.png" alt=""></span><div><p class="fine">측정 시간</p><strong id="day-minutes">42<small>분</small></strong></div></article>
+            <article class="card stat"><span class="tile-icon"><img class="icon" src="../../../../frontend/public/icons/bell.png" alt=""></span><div><p class="fine">알림</p><strong id="day-alerts">3<small>회</small></strong></div></article>
+          </div>
+          <section class="card record-card" aria-labelledby="record-graph-title">
+            <div class="row between"><div class="row" style="gap:7px"><h2 id="record-graph-title">시간대별 측정</h2><span class="proposal">제안 · 시간대 막대</span></div><div class="row fine"><span class="key">바른 자세</span><span class="key alert">흐트러짐</span></div></div>
+            <div class="record-graph"><div class="axis" aria-hidden="true"><span>20분</span><span>10분</span><span>0분</span></div><div class="graph-plot" id="graph-plot" aria-label="3시간 간격 측정 시간"></div></div>
+          </section>
+          <section class="card record-card" aria-labelledby="recent-title">
+            <div class="row between"><h2 id="recent-title">최근 측정</h2><span class="fine" id="day-sessions">3회</span></div>
+            <div class="session-list" id="session-list"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="info-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-content">
+    <div class="dialog-head"><h2 id="dialog-title"></h2><form method="dialog"><button class="btn close" aria-label="닫기" autofocus>×</button></form></div>
+    <div id="dialog-content" class="dialog-content"></div>
+  </dialog>
+  <div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
+  <script>
+    'use strict';
+
+    const byId = id => document.getElementById(id);
+    const all = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+    const previewTabs = all('.tab');
+    const asset = '../../../../frontend/public/';
+    const emailCode = '123456';
+    const resetToken = 'posegood-reset';
+    const demoEmail = 'demo@example.com';
+    const discordEmail = 'discord-demo@example.com';
+    const demoAccounts = new Map([
+      [demoEmail, {name:'시연 사용자', password:'posegood1234'}],
+      [discordEmail, {name:'Discord 시연 사용자'}]
+    ]);
+    let activePage = 'welcome';
+    let profileName = '시연 사용자';
+    let activeDemoEmail = demoEmail;
+    let signupStep = 0;
+    let signupMailStage = 'request';
+    let setupState = 'permission';
+    let setupMode = 'regular';
+    let setupTimer;
+    let measureTimer;
+    let measureState = 'good';
+    let previousMeasureState = 'good';
+    let hasBaseline = false;
+    let dialogTrigger;
+    let pendingAuth = false;
+    let lockedControls = [];
+
+    function setStage(elements, active) {
+      elements.forEach(element => { element.hidden = element !== active; });
+    }
+
+    function setStepper(id, index) {
+      all('li', byId(id)).forEach((item, i) => {
+        if (i === index) item.setAttribute('aria-current', 'step');
+        else item.removeAttribute('aria-current');
+        item.toggleAttribute('data-done', i < index);
+        item.querySelector('.step-dot').textContent = i < index ? '✓' : String(i + 1);
+      });
+    }
+
+    function showPage(page, focus = true) {
+      if (activePage === 'setup' && page !== 'setup' &&
+          ['count', 'capture', 'saving', 'done'].includes(setupState)) renderSetup('permission');
+      if (activePage === 'measure' && page !== 'measure' && measureTimer) {
+        clearTimeout(measureTimer);
+        measureTimer = undefined;
+        if (measureState === 'connecting') renderMeasure('good');
+      }
+      all('.account details[open]').forEach(menu => { menu.open = false; });
+      activePage = page;
+      previewTabs.forEach(tab => {
+        const panel = byId(tab.getAttribute('aria-controls'));
+        panel.hidden = panel.id !== page;
+        tab.setAttribute('aria-selected', String(!panel.hidden));
+        tab.tabIndex = panel.hidden ? -1 : 0;
+      });
+      window.scrollTo(0, 0);
+      if (focus) revealHeading(byId(page));
+    }
+
+    function revealHeading(root) {
+      const heading = all('h1[tabindex="-1"], h2[tabindex="-1"]', root)
+        .find(element => !element.closest('[hidden]'));
+      heading?.focus({preventScroll:true});
+    }
+
+    byId('tab-welcome').parentElement.addEventListener('keydown', event => {
+      const index = previewTabs.indexOf(event.target);
+      if (index < 0) return;
+      const keys = {
+        ArrowRight:(index + 1) % previewTabs.length,
+        ArrowLeft:(index + previewTabs.length - 1) % previewTabs.length,
+        Home:0,
+        End:previewTabs.length - 1
+      };
+      if (!Object.hasOwn(keys, event.key)) return;
+      event.preventDefault();
+      previewTabs[keys[event.key]].focus();
+      showPage(previewTabs[keys[event.key]].getAttribute('aria-controls'), false);
+    });
+    previewTabs.forEach(tab => tab.addEventListener('click', () => showPage(tab.getAttribute('aria-controls'), false)));
+
+    function openDialog(title, content, trigger = document.activeElement) {
+      dialogTrigger = trigger;
+      byId('dialog-title').textContent = title;
+      byId('dialog-content').replaceChildren(content);
+      byId('info-dialog').showModal();
+    }
+
+    function openDetails(title, items, trigger) {
+      const list = document.createElement('dl');
+      for (const [term, description] of items) {
+        const name = document.createElement('dt');
+        const detail = document.createElement('dd');
+        name.textContent = term;
+        detail.textContent = description;
+        list.append(name, detail);
+      }
+      openDialog(title, list, trigger);
+    }
+
+    byId('info-dialog').addEventListener('close', () => dialogTrigger?.focus());
+
+    function setError(input, message) {
+      input.setAttribute('aria-invalid', String(Boolean(message)));
+      byId(input.id + '-error').textContent = message;
+      return !message;
+    }
+
+    const emailError = input => !input.value.trim() ? '이메일을 입력해 주세요.'
+      : !input.validity.valid ? 'name@example.com처럼 이메일 주소를 입력해 주세요.' : '';
+    const newPasswordError = input => input.value.length < 12 ? '비밀번호를 12자 이상 입력해 주세요.'
+      : new TextEncoder().encode(input.value).length > 72 ? '72바이트를 넘었어요. 글자 수를 조금 줄여 주세요.' : '';
+    const present = message => input => input.value.trim() ? '' : message;
+    const errors = {
+      'signup-email':emailError, 'login-email':emailError, 'recovery-email':emailError,
+      'signup-name':present('이름을 입력해 주세요.'), 'signup-password':newPasswordError,
+      'signup-age':input => input.validity.valid ? '' : '14~120 사이의 정수를 입력해 주세요.',
+      'signup-work':present('직업을 입력해 주세요.'),
+      'signup-code':input => /^[0-9]{6}$/.test(input.value) ? '' : '숫자 6자리를 입력해 주세요.',
+      'login-password':input => input.value ? '' : '비밀번호를 입력해 주세요.',
+      'reset-token':present('메일 링크의 인증 코드를 입력해 주세요.'),
+      'reset-password':newPasswordError,
+      'reset-again':input => !input.value ? '새 비밀번호를 한 번 더 입력해 주세요.'
+        : input.value !== byId('reset-password').value ? '위에 입력한 새 비밀번호와 같게 입력해 주세요.' : ''
+    };
+
+    Object.entries(errors).forEach(([id, validate]) => {
+      const field = byId(id);
+      field.addEventListener('blur', () => {
+        if (!field.value || field.disabled) return;
+        const message = validate(field);
+        if (message) setError(field, message);
+      });
+      field.addEventListener('input', () => {
+        if (field.getAttribute('aria-invalid') === 'true') setError(field, validate(field));
+        if (field.form === byId('login-form')) byId('login-error').hidden = true;
+      });
+    });
+    byId('signup-code').addEventListener('input', event => {
+      const input = event.target;
+      input.value = input.value.replace(/[^0-9]/g, '');
+    });
+
+    function check(form) {
+      const invalid = all('.input', form).filter(input =>
+        !input.disabled && !input.closest('[hidden]') && !setError(input, errors[input.id](input)));
+      invalid[0]?.focus();
+      return !invalid.length;
+    }
+
+    function onSubmit(id, action) {
+      byId(id).addEventListener('submit', event => {
+        event.preventDefault();
+        if (!pendingAuth && check(event.currentTarget)) action(event.currentTarget);
+      });
+    }
+
+    function runBusy(form, button, text, action) {
+      if (pendingAuth) return;
+      pendingAuth = true;
+      const submitLabel = button.innerHTML;
+      const context = form.closest('[role="tabpanel"]');
+      const busyRegion = form.closest('.auth-main');
+      lockedControls = all('button, input:not([readonly])', busyRegion).filter(control =>
+        !control.disabled && !control.closest('[hidden]'));
+      lockedControls.forEach(control => { control.disabled = true; });
+      button.innerHTML = '<span class="loading" aria-hidden="true"></span>' + text;
+      form.setAttribute('aria-busy', 'true');
+      byId('announcer').textContent = text;
+      window.setTimeout(() => {
+        pendingAuth = false;
+        form.removeAttribute('aria-busy');
+        button.innerHTML = submitLabel;
+        lockedControls.forEach(control => { control.disabled = false; });
+        lockedControls = [];
+        byId('announcer').textContent = '';
+        action(!context.hidden);
+      }, 520);
+    }
+
+    const consentItems = [
+      ['C6','만 14세 이상이에요','나이 확인','만 14세 이상인지 직접 확인해요. 생년월일은 수집하지 않아요.'],
+      ['C1','서비스 이용약관','서비스 범위','PoseGood은 앉은 자세의 변화를 알리는 비의료 서비스예요.'],
+      ['C2','회원가입 정보 수집·이용','수집과 이용','이메일, 이름과 복원할 수 없는 형태의 비밀번호를 로그인과 계정 관리에 사용해요.'],
+      ['C4','카메라 관절 좌표 수집·이용','수집과 이용','기준 자세를 등록한 좌표와 측정 중 자세 정보를 서버 판정에 사용해요. 영상·사진은 기기 밖으로 보내지 않아요.'],
+      ['C5','측정 기록 저장','수집과 이용','기준 자세, 세션 요약, 자세 이탈 및 알림 기록, 일별 통계를 기록 화면에 사용해요.'],
+      ['C3','선택 정보(나이·직업) 수집·이용','수집과 이용','동의한 사람의 나이와 직업을 사용자 환경별 통계에 사용해요. 동의하지 않아도 가입할 수 있어요.']
+    ];
+    const requiredConsents = [];
+    const consentForm = byId('consent-form');
+    consentItems.forEach(([id, title, label, detail]) => {
+      const row = document.createElement('div');
+      const optional = id === 'C3';
+      row.className = optional ? 'consent-row optional' : 'consent-row';
+      row.innerHTML = optional
+        ? '<p id="optional-consent-label">[선택] ' + title + '</p>'
+          + '<div class="row" role="group" aria-labelledby="optional-consent-label"><label><input type="radio" name="optional-consent" id="optional-yes" value="yes">동의</label><label><input type="radio" name="optional-consent" id="optional-no" value="no">동의 안 함</label></div>'
+        : '<label><input type="checkbox" required id="consent-' + id + '">[필수] ' + title + '</label>';
+      const details = document.createElement('button');
+      details.type = 'button';
+      details.className = 'text-button';
+      details.textContent = '자세히';
+      details.setAttribute('aria-label', title + ' 자세히');
+      details.addEventListener('click', () => {
+        const lines = [[label, detail]];
+        if (['C2','C3','C4','C5'].includes(id)) lines.push(['보관 기간','계정 탈퇴 후 30일']);
+        if (!optional) lines.push(['동의하지 않으면','필수 항목으로, 가입을 진행할 수 없어요.']);
+        openDetails(title, lines, details);
+      });
+      row.append(details);
+      byId('consent-list').append(row);
+      if (!optional) requiredConsents.push(byId('consent-' + id));
+    });
+
+    function updateConsents() {
+      const count = requiredConsents.filter(input => input.checked).length;
+      const acceptedOptional = byId('optional-yes').checked;
+      const declinedOptional = byId('optional-no').checked;
+      const allConsent = byId('consent-all');
+      allConsent.checked = count === requiredConsents.length && acceptedOptional;
+      allConsent.indeterminate = !allConsent.checked && (count > 0 || acceptedOptional);
+      consentForm.querySelector('[type="submit"]').disabled =
+        count !== requiredConsents.length || (!acceptedOptional && !declinedOptional);
+      byId('consent-progress').textContent =
+        '필수 ' + count + '/' + requiredConsents.length + '개 확인 · 선택 항목 ' +
+        (acceptedOptional ? '동의' : declinedOptional ? '동의 안 함' : '선택 필요');
+      byId('optional-fields').hidden = !acceptedOptional;
+      if (!acceptedOptional) {
+        for (const id of ['signup-age','signup-work']) {
+          byId(id).value = '';
+          setError(byId(id), '');
+        }
+      }
+    }
+
+    consentForm.addEventListener('change', event => {
+      if (event.target === byId('consent-all')) {
+        const accepted = event.target.checked;
+        requiredConsents.forEach(input => { input.checked = accepted; });
+        byId('optional-yes').checked = accepted;
+        byId('optional-no').checked = false;
+      }
+      updateConsents();
+    });
+    consentForm.addEventListener('submit', event => {
+      event.preventDefault();
+      if (!consentForm.querySelector('[type="submit"]').disabled) renderSignup(1);
+    });
+
+    function renderSignup(step) {
+      signupStep = step;
+      const stages = all('[data-signup-step]');
+      setStage(stages, stages[step]);
+      byId('signup-steps').hidden = step === 3;
+      setStepper('signup-steps', step);
+      stages[step].classList.toggle('arrive', step === 3);
+      if (activePage === 'signup') revealHeading(stages[step]);
+    }
+
+    const normalizedEmail = input => input.value.trim().toLowerCase();
+    const sentAt = new Map();
+    let verifiedEmail = '';
+    let requestedEmail = '';
+    let codeExpiresAt = 0;
+    let codeAttempts = 0;
+    let resetCooldownUntil = 0;
+    let resetAddress = '';
+
+    function renderMail(stage, moveFocus = true) {
+      signupMailStage = stage;
+      const nodes = {
+        request:byId('send-code'), code:byId('verify-code'), verified:byId('verified-email')
+      };
+      setStage(Object.values(nodes), nodes[stage]);
+      byId('edit-email').hidden = stage === 'request';
+      if (moveFocus && activePage === 'signup' && signupStep === 1) {
+        const target = nodes[stage].querySelector(stage === 'verified' ? 'button' : 'input');
+        target.focus();
+      }
+    }
+
+    function deliverCode(button) {
+      const email = normalizedEmail(byId('signup-email'));
+      if (Date.now() - (sentAt.get(email) ?? 0) < 60000) {
+        updateCooldown();
+        return;
+      }
+      runBusy(byId('send-code'), button, '코드를 준비하는 중…', visible => {
+        requestedEmail = email;
+        sentAt.set(email, Date.now());
+        codeExpiresAt = Date.now() + 15 * 60 * 1000;
+        codeAttempts = 0;
+        byId('signup-code').value = '';
+        setError(byId('signup-code'), '');
+        byId('code-address').textContent = email + ' 인증을 위한 예시 코드를 아래에 입력해 주세요.';
+        renderMail('code', visible);
+        updateCooldown();
+      });
+    }
+
+    function updateCooldown() {
+      const email = signupMailStage === 'request' ? normalizedEmail(byId('signup-email')) : requestedEmail;
+      const seconds = Math.max(0, Math.ceil(((sentAt.get(email) ?? 0) + 60000 - Date.now()) / 1000));
+      const send = byId('send-code').querySelector('[type="submit"]');
+      const resend = byId('resend-code');
+      const resetSend = byId('recovery-send').querySelector('[type="submit"]');
+      const resetSeconds = Math.max(0, Math.ceil((resetCooldownUntil - Date.now()) / 1000));
+      for (const [button, time, label] of [[send, seconds, '인증 코드 받기'], [resend, seconds, '코드 다시 받기'],
+        [resetSend, resetSeconds, '비밀번호 찾기 메일 받기']]) {
+        if (!lockedControls.includes(button)) {
+          button.disabled = time > 0;
+          button.textContent = time > 0 ? time + '초 후 다시 요청' : label;
+        }
+      }
+    }
+
+    onSubmit('send-code', form => deliverCode(form.querySelector('[type="submit"]')));
+    byId('resend-code').addEventListener('click', event => deliverCode(event.currentTarget));
+    byId('signup-email').addEventListener('input', updateCooldown);
+    byId('edit-email').addEventListener('click', () => {
+      verifiedEmail = '';
+      renderMail('request');
+      updateCooldown();
+    });
+    window.setInterval(updateCooldown, 1000);
+
+    onSubmit('verify-code', form => {
+      runBusy(form, form.querySelector('[type="submit"]'), '코드를 확인하는 중…', visible => {
+        const input = byId('signup-code');
+        let error = '';
+        if (Date.now() >= codeExpiresAt) error = '코드가 만료됐어요. 코드를 다시 받아 주세요.';
+        else if (codeAttempts >= 5) error = '확인 횟수를 모두 사용했어요. 코드를 다시 받아 주세요.';
+        else if (input.value !== emailCode) {
+          codeAttempts += 1;
+          error = codeAttempts >= 5 ? '확인 횟수를 모두 사용했어요. 코드를 다시 받아 주세요.'
+            : '코드가 일치하지 않아요. 숫자 6자리를 다시 확인해 주세요.';
+        }
+        if (error) {
+          setError(input, error);
+          if (visible) input.focus();
+          return;
+        }
+        verifiedEmail = requestedEmail;
+        byId('verified-message').textContent = '✓ ' + verifiedEmail + ' 확인을 마쳤어요.';
+        byId('account-email').textContent = '✓ ' + verifiedEmail + ' · 인증 완료';
+        renderMail('verified', visible);
+      });
+    });
+    byId('to-account').addEventListener('click', () => renderSignup(2));
+
+    onSubmit('account-form', form => {
+      runBusy(form, form.querySelector('[type="submit"]'), '계정을 만드는 중…', visible => {
+        if (Date.now() >= codeExpiresAt) {
+          verifiedEmail = '';
+          renderSignup(1);
+          renderMail('code', visible);
+          setError(byId('signup-code'), '이메일 확인이 만료됐어요. 코드를 다시 받아 주세요.');
+          return;
+        }
+        if (demoAccounts.has(verifiedEmail)) {
+          verifiedEmail = '';
+          renderSignup(1);
+          renderMail('request', visible);
+          setError(byId('signup-email'), '이미 가입한 이메일이에요. 로그인하거나 다른 이메일을 입력해 주세요.');
+          return;
+        }
+        const email = verifiedEmail;
+        activeDemoEmail = email;
+        profileName = byId('signup-name').value.trim();
+        demoAccounts.set(email, {name:profileName, password:byId('signup-password').value});
+        byId('signup-password').value = '';
+        byId('login-email').value = email;
+        updateAccountName();
+        hasBaseline = false;
+        renderSignup(3);
+      });
+    });
+
+    function clearSignup() {
+      consentForm.reset();
+      byId('account-form').reset();
+      byId('send-code').reset();
+      byId('verify-code').reset();
+      all('#signup .input').forEach(input => setError(input, ''));
+      verifiedEmail = '';
+      updateConsents();
+      renderSignup(0);
+      renderMail('request', false);
+      updateCooldown();
+    }
+
+    function updateAccountName() {
+      all('.profile-name').forEach(text => { text.textContent = profileName; });
+    }
+
+    function enterLogin(email, account, visible) {
+      activeDemoEmail = email;
+      profileName = account.name;
+      updateAccountName();
+      byId('login-password').value = '';
+      byId('login-password').type = 'password';
+      byId('toggle-password').setAttribute('aria-pressed', 'false');
+      byId('toggle-password').textContent = '보기';
+      hasBaseline = Boolean(account.baseline);
+      if (visible) enterSetup('regular');
+    }
+
+    onSubmit('login-form', form => {
+      byId('login-error').hidden = true;
+      runBusy(form, form.querySelector('[type="submit"]'), '로그인하는 중…', visible => {
+        const email = normalizedEmail(byId('login-email'));
+        const account = demoAccounts.get(email);
+        if (account?.password === byId('login-password').value) {
+          enterLogin(email, account, visible);
+          return;
+        }
+        const message = byId('login-error');
+        message.textContent = '이메일이나 비밀번호가 맞지 않아요. 다시 확인하거나 비밀번호 찾기를 이용해 주세요.';
+        message.hidden = false;
+        if (visible) byId('login-password').focus();
+      });
+    });
+
+    byId('toggle-password').addEventListener('click', event => {
+      const button = event.currentTarget;
+      const show = button.getAttribute('aria-pressed') !== 'true';
+      byId('login-password').type = show ? 'text' : 'password';
+      button.textContent = show ? '숨기기' : '보기';
+      button.setAttribute('aria-pressed', String(show));
+    });
+    byId('fill-login').addEventListener('click', () => {
+      byId('login-email').value = demoEmail;
+      byId('login-password').value = demoAccounts.get(demoEmail).password;
+      setError(byId('login-email'), '');
+      setError(byId('login-password'), '');
+      byId('login-error').hidden = true;
+      byId('login-form').querySelector('[type="submit"]').focus();
+    });
+
+    byId('discord').addEventListener('click', event => {
+      const body = document.createElement('div');
+      body.className = 'stack';
+      body.innerHTML = '<p>실제 서비스에서 Discord로 이동해 계정을 확인해요. 같은 이메일의 기존 계정은 본인 확인과 승인 후 연결해요.</p><p class="fine">이 시연은 Discord 페이지를 열거나 계정에 연결하지 않아요.</p>';
+      const demo = document.createElement('button');
+      demo.className = 'btn primary';
+      demo.textContent = 'Discord 로그인 시연';
+      demo.addEventListener('click', () => {
+        byId('info-dialog').close();
+        enterLogin(discordEmail, demoAccounts.get(discordEmail), true);
+      });
+      body.append(demo);
+      openDialog('Discord로 로그인', body, event.currentTarget);
+    });
+
+    const recoveryStages = {
+      request:'recovery-send', code:'recovery-code', password:'recovery-password', done:'reset-done'
+    };
+    const recoveryHead = {
+      request:['비밀번호 찾기', '가입한 이메일로 재설정 안내를 요청해요.'],
+      code:['메일을 확인해 주세요', '메일의 링크를 열거나 링크에 있는 인증 코드를 입력해 주세요.'],
+      password:['새 비밀번호를 정해요', '기존과 다른 비밀번호를 두 번 입력해 주세요.'],
+      done:['비밀번호를 바꿨어요', '새 비밀번호로 다시 로그인해 주세요.']
+    };
+
+    function renderRecovery(stage, focus = true) {
+      byId('recovery-title').textContent = recoveryHead[stage][0];
+      byId('recovery-lead').textContent = recoveryHead[stage][1];
+      setStage(Object.values(recoveryStages).map(byId), byId(recoveryStages[stage]));
+      if (focus && activePage === 'login') revealHeading(byId('recovery'));
+    }
+
+    byId('open-recovery').addEventListener('click', () => {
+      byId('login-main').hidden = true;
+      byId('recovery').hidden = false;
+      byId('recovery-email').value = normalizedEmail(byId('login-email'));
+      for (const id of ['reset-token','reset-password','reset-again']) {
+        byId(id).value = '';
+        setError(byId(id), '');
+      }
+      setError(byId('recovery-email'), '');
+      resetAddress = '';
+      byId('reset-sent').hidden = true;
+      byId('demo-reset-link').hidden = true;
+      renderRecovery('request');
+    });
+    byId('close-recovery').addEventListener('click', () => {
+      byId('recovery').hidden = true;
+      byId('login-main').hidden = false;
+      revealHeading(byId('login-main'));
+    });
+    onSubmit('recovery-send', form => {
+      runBusy(form, form.querySelector('[type="submit"]'), '메일 요청 중…', visible => {
+        resetAddress = normalizedEmail(byId('recovery-email'));
+        resetCooldownUntil = Date.now() + 60000;
+        byId('reset-sent').hidden = false;
+        byId('demo-reset-link').hidden = false;
+        renderRecovery('code', visible);
+        updateCooldown();
+      });
+    });
+    byId('recovery-existing').addEventListener('click', () => renderRecovery('code'));
+    byId('recovery-resend').addEventListener('click', () => renderRecovery('request'));
+    byId('demo-reset-link').addEventListener('click', () => renderRecovery('password'));
+    onSubmit('recovery-code', form => {
+      runBusy(form, form.querySelector('[type="submit"]'), '링크를 확인하는 중…', visible => {
+        if (byId('reset-token').value.trim() === resetToken) renderRecovery('password', visible);
+        else {
+          setError(byId('reset-token'), '링크가 만료됐거나 코드가 맞지 않아요. 새 메일을 요청해 주세요.');
+          if (visible) byId('reset-token').focus();
+        }
+      });
+    });
+    onSubmit('recovery-password', form => {
+      const password = byId('reset-password');
+      const email = resetAddress || demoEmail;
+      const account = demoAccounts.get(email);
+      if (account?.password === password.value) {
+        setError(password, '지금 사용하는 비밀번호와 다른 비밀번호로 정해 주세요.');
+        password.focus();
+        return;
+      }
+      runBusy(form, form.querySelector('[type="submit"]'), '새 비밀번호를 저장하는 중…', visible => {
+        if (account?.password) {
+          account.password = password.value;
+          byId('login-email').value = email;
+        }
+        password.value = '';
+        byId('reset-again').value = '';
+        renderRecovery('done', visible);
+      });
+    });
+
+    function placeSidebars() {
+      all('[data-sidebar]').forEach(node => {
+        const selected = node.dataset.sidebar;
+        const link = (page, icon, title, omitted = false) =>
+          '<button class="side-link"' +
+          (omitted ? ' disabled title="이 시안의 화면 범위 밖이에요"' : ' data-go="' + page + '"') +
+          (selected === page ? ' aria-current="page"' : '') +
+          '><img class="icon" src="' + asset + 'icons/' + icon + '.png" alt=""><span>' +
+          title + '</span></button>';
+        node.className = 'side-nav';
+        node.innerHTML = '<nav aria-label="앱 탐색">' +
+          link('measure','pulse','측정하기') + link('history','chart-bar','오늘') +
+          link('calendar','calendar-dots','기록',true) + link('settings','gear-six','설정',true) +
+          '</nav><div class="account"><details><summary class="side-link" aria-label="계정 메뉴">' +
+          '<img class="icon" src="' + asset + 'icons/user-circle.png" alt="">' +
+          '<span class="profile-name">' + profileName + '</span><span class="account-mobile">계정</span></summary>' +
+          '<div class="card account-panel"><button class="side-link" disabled title="이 시안의 화면 범위 밖이에요">프로필 설정</button>' +
+          '<button class="side-link" data-sign-out>로그아웃</button></div></details></div>';
+      });
+    }
+
+    function addGuides() {
+      const dots = [[50,36],[46,31],[54,31],[41,37],[59,37],[47,44],[53,44],[29,66],[71,66]];
+      all('.camera-guide').forEach(guide => {
+        const joints = document.createElement('span');
+        joints.className = 'joints';
+        dots.forEach(([x,y]) => {
+          const dot = document.createElement('i');
+          dot.style.setProperty('--x', x + '%');
+          dot.style.setProperty('--y', y + '%');
+          joints.append(dot);
+        });
+        guide.append(joints);
+      });
+    }
+
+    const setupCopy = {
+      permission:[0, '카메라를 켜 주세요', '카메라가 있어야 얼굴과 양쪽 어깨가 잘 보이는지 확인할 수 있어요.', '카메라가 꺼져 있어요', 'off'],
+      denied:[0, '카메라 권한이 꺼져 있어요', '이 앱의 카메라 권한을 허용한 뒤 다시 연결해 주세요.', '카메라 권한 거부', 'off'],
+      disconnected:[0, '카메라 연결이 끊겼어요', '카메라가 잘 연결돼 있는지 확인한 뒤 다시 연결해 주세요.', '카메라 연결 끊김', 'off'],
+      frame:[1, '얼굴과 어깨를 보여 주세요', '화면 안에 얼굴과 양쪽 어깨가 들어오도록 편하게 앉아 주세요.', '얼굴과 양쪽 어깨를 찾고 있어요', 'shift'],
+      count:[2, '등록을 시작할게요', '편하게 앉은 자세를 잠시 유지해 주세요.', '얼굴과 양쪽 어깨가 보여요', 'on'],
+      capture:[2, '그대로 있어 주세요', '3초 동안 내 기준 자세를 기억하고 있어요.', '얼굴과 양쪽 어깨가 보여요', 'on'],
+      saving:[2, '기준 자세를 저장하고 있어요', '잠시만 기다려 주세요.', '얼굴과 양쪽 어깨가 보여요', 'on'],
+      done:[3, '기준 자세를 등록했어요!', '이 자세를 기준으로 변화가 이어질 때 알려드려요.', '기준 자세 등록 완료', 'on'],
+      ready:[3, '측정할 준비가 됐어요', '이미 등록한 자세와 비교할 수 있어요.', '얼굴과 양쪽 어깨가 보여요', 'on']
+    };
+
+    function setupButton(label, state, primary = true) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn' + (primary ? ' primary' : '');
+      button.dataset.setupState = state;
+      button.textContent = label;
+      return button;
+    }
+
+    function renderSetup(state, focus = false) {
+      clearTimeout(setupTimer);
+      setupState = state;
+      const [step, title, note, caption, guide] = setupCopy[state];
+      const actions = byId('setup-actions');
+      setStepper('setup-steps', step);
+      byId('setup-title').textContent = title;
+      byId('setup-note').textContent = note;
+      byId('setup-camera-caption').textContent = caption;
+      byId('setup-camera').dataset.guide = guide;
+      byId('baseline-tag').textContent = hasBaseline ? '기준 자세 등록됨' : '기준 자세 미등록';
+      byId('baseline-tag').classList.toggle('good', hasBaseline);
+      byId('camera-overlay').hidden = !['count','capture','saving','done'].includes(state);
+      byId('camera-overlay').classList.toggle('arrive', state === 'done');
+      byId('count-number').hidden = !['count','capture'].includes(state);
+      byId('setup-check').hidden = state !== 'done';
+      byId('count-caption').textContent = {count:'등록 시작까지', capture:'기준 자세를 기억하는 중', saving:'기준 자세 저장 중', done:'등록 완료'}[state] ?? '';
+      actions.replaceChildren();
+      if (state === 'permission') {
+        actions.append(setupButton('카메라 켜기', hasBaseline ? 'ready' : 'frame'));
+        if (setupMode === 'signup') actions.append(setupButton('카메라 없이 넘어가기', 'skip', false));
+      }
+      if (state === 'denied' || state === 'disconnected') actions.append(setupButton('다시 연결', hasBaseline ? 'ready' : 'frame'));
+      if (state === 'frame') {
+        actions.append(setupButton('얼굴·어깨가 보여요 · 시연', 'count'));
+        actions.append(setupButton('카메라 끄기', 'permission', false));
+      }
+      if (state === 'count' || state === 'capture') actions.append(setupButton('다시 위치 맞추기', 'frame', false));
+      if (setupMode === 'signup' && ['frame','count','capture','denied','disconnected'].includes(state))
+        actions.append(setupButton('건너뛰기', 'skip', false));
+      if (state === 'done' && setupMode === 'signup') actions.append(setupButton('앱 시작', 'continue'));
+      if (state === 'ready') actions.append(setupButton('측정 시작', 'start'));
+      if (focus && activePage === 'setup') byId('setup-title').focus();
+    }
+
+    function enterSetup(mode) {
+      setupMode = mode;
+      renderSetup('permission');
+      showPage('setup');
+    }
+
+    function countDown(phase, complete) {
+      renderSetup(phase, true);
+      let remaining = 3;
+      const tick = () => {
+        const number = byId('count-number');
+        number.textContent = remaining;
+        if (typeof number.getAnimations === 'function') {
+          number.getAnimations().forEach(animation => { animation.currentTime = 0; animation.play(); });
+        }
+        byId('setup-progress').textContent = (phase === 'count' ? '등록 시작까지 ' : '기준 자세 등록 남은 시간 ') + remaining + '초';
+        setupTimer = window.setTimeout(() => {
+          remaining -= 1;
+          if (remaining > 0) tick();
+          else complete();
+        }, 1000);
+      };
+      tick();
+    }
+
+    function startRegistration() {
+      countDown('count', () => countDown('capture', () => {
+        renderSetup('saving');
+        byId('setup-progress').textContent = '기준 자세를 저장하고 있어요.';
+        setupTimer = window.setTimeout(() => {
+          hasBaseline = true;
+          const account = demoAccounts.get(activeDemoEmail);
+          if (account) account.baseline = true;
+          renderSetup('done', true);
+          byId('setup-progress').textContent = '기준 자세 등록을 마쳤어요.';
+          if (setupMode === 'regular') setupTimer = window.setTimeout(startMeasure, 1400);
+        }, 390);
+      }));
+    }
+
+    const measures = {
+      good:{tone:'good', icon:'✓', title:'바른 자세예요', note:'등록한 기준 자세와 가까워요.', tag:'측정 중', score:92, hold:'2분 18초', alerts:'1회', guide:'on', camera:'얼굴과 양쪽 어깨가 보여요'},
+      alert:{tone:'alert', icon:'!', title:'자세가 흐트러졌어요', note:'잠깐, 처음 앉았던 자세를 떠올려 보세요.', tag:'알림 중', score:56, hold:'2분 18초', alerts:'2회', guide:'shift', camera:'얼굴과 양쪽 어깨가 보여요'},
+      unknown:{tone:'unknown', icon:'?', title:'지금은 측정할 수 없어요', note:'얼굴과 양쪽 어깨가 화면 안에 들어오도록 앉아 주세요.', tag:'측정 불가', hold:'2분 18초', alerts:'1회', guide:'off', camera:'자세를 알아보기 어려워요'},
+      connecting:{tone:'connect', icon:'…', title:'서버에 연결하고 있어요', note:'연결이 되면 자세 측정이 시작돼요.', tag:'연결 중', guide:'on', camera:'카메라는 준비됐어요'},
+      lost:{tone:'offline', icon:'×', title:'서버 연결이 끊겼어요', note:'측정을 마쳤어요. 인터넷 연결을 확인한 뒤 다시 준비해 주세요.', tag:'연결 끊김', guide:'off', camera:'측정이 종료됐어요'},
+      paused:{tone:'unknown', icon:'Ⅱ', title:'잠시 쉬고 있어요', note:'다시 준비되면 측정을 이어갈 수 있어요.', tag:'일시정지', hold:'2분 18초', alerts:'1회', guide:'off', camera:'측정이 일시정지됐어요'}
+    };
+
+    function renderMeasure(state) {
+      measureState = state;
+      const data = measures[state];
+      byId('measure-state').dataset.tone = data.tone;
+      byId('state-mark').textContent = data.icon;
+      byId('state-title').textContent = data.title;
+      byId('state-note').textContent = data.note;
+      byId('measure-tag').textContent = data.tag;
+      byId('measure-tag').classList.toggle('good', state === 'good');
+      byId('score').textContent = data.score ?? '—';
+      byId('score-unit').hidden = data.score === undefined;
+      byId('score-meter').hidden = data.score === undefined;
+      byId('score-meter').dataset.tone = data.tone;
+      byId('score-meter').firstElementChild.style.width = (data.score ?? 0) + '%';
+      byId('hold-time').textContent = data.hold ?? '—';
+      byId('alert-count').textContent = data.alerts ?? '—';
+      byId('measure-camera').dataset.guide = data.guide;
+      byId('measure-camera-note').textContent = data.camera;
+      byId('pause').disabled = state === 'connecting' || state === 'lost';
+      byId('end').disabled = state === 'connecting' || state === 'lost';
+      byId('pause').textContent = state === 'paused' ? '다시 시작' : '잠시 멈춤';
+      byId('measure-retry-row').hidden = state !== 'lost';
+      all('[data-measure]').forEach(button =>
+        button.setAttribute('aria-pressed', String(button.dataset.measure === state)));
+    }
+
+    function startMeasure() {
+      renderMeasure('connecting');
+      showPage('measure');
+      measureTimer = window.setTimeout(() => {
+        measureTimer = undefined;
+        renderMeasure('good');
+      }, 900);
+    }
+
+    byId('pause').addEventListener('click', () => {
+      if (measureState === 'paused') renderMeasure(previousMeasureState);
+      else {
+        previousMeasureState = measureState;
+        renderMeasure('paused');
+      }
+    });
+    byId('end').addEventListener('click', () => showPage('history'));
+    byId('measure-retry').addEventListener('click', () => enterSetup('regular'));
+
+    const records = [
+      {start:'09:10', end:'09:20', time:10, good:8, alerts:1},
+      {start:'13:05', end:'13:19', time:14, good:10, alerts:2},
+      {start:'16:24', end:'16:42', time:18, good:17, alerts:0}
+    ];
+    const sum = (list, key) => list.reduce((total, record) => total + record[key], 0);
+
+    function fillRecords() {
+      const minutes = sum(records,'time');
+      const rate = 100 * sum(records,'good') / minutes;
+      byId('day-rate').firstChild.textContent = Math.round(rate);
+      byId('day-minutes').firstChild.textContent = minutes;
+      byId('day-alerts').firstChild.textContent = sum(records,'alerts');
+      byId('day-sessions').textContent = records.length + '회';
+      byId('history').querySelector('.ring').style.background =
+        'conic-gradient(var(--sage) 0 ' + rate + '%, #e9e4db ' + rate + '%)';
+      for (let hour = 0; hour < 24; hour += 3) {
+        const bucket = records.filter(record => Number(record.start.slice(0,2)) >= hour &&
+          Number(record.start.slice(0,2)) < hour + 3);
+        const total = sum(bucket,'time');
+        const good = sum(bucket,'good');
+        const group = document.createElement('div');
+        group.className = 'bar-slot';
+        if (total) {
+          const button = document.createElement('button');
+          button.className = 'bar-button';
+          const range = hour + '시~' + (hour + 3) + '시';
+          button.setAttribute('aria-label', range + ' 측정 ' + total + '분 상세');
+          button.innerHTML = '<span class="bar-alert" aria-hidden="true" style="--h:' + (total - good) * 4.5 +
+            'px"></span><span class="bar-good" aria-hidden="true" style="--h:' + good * 4.5 + 'px"></span>';
+          button.addEventListener('click', () => openDetails(range + ' 측정', [
+            ['측정 시간', total + '분'], ['바른 자세', good + '분'], ['흐트러짐', total - good + '분'],
+            ['알림', sum(bucket,'alerts') + '회']
+          ], button));
+          group.append(button);
+        } else {
+          const empty = document.createElement('span');
+          empty.className = 'sr-only';
+          empty.textContent = hour + '시~' + (hour + 3) + '시 측정 기록 없음';
+          group.append(empty);
+        }
+        const tick = document.createElement('span');
+        tick.textContent = hour + '시';
+        tick.style.gridRow = '2';
+        tick.setAttribute('aria-hidden', 'true');
+        group.append(tick);
+        byId('graph-plot').append(group);
+      }
+      records.slice().reverse().forEach(record => {
+        const percent = Math.round(100 * record.good / record.time);
+        const button = document.createElement('button');
+        button.innerHTML = '<b>' + record.start + '–' + record.end + '</b><span>' + record.time +
+          '분</span><span>' + percent + '%</span><span aria-hidden="true">›</span>';
+        button.setAttribute('aria-label', record.start + ' 측정 ' + record.time + '분, 바른 자세 ' + percent + '% 상세');
+        button.addEventListener('click', () => openDetails(record.start + ' 측정 기록', [
+          ['측정 시간', record.time + '분'], ['바른 자세 비율', percent + '%'], ['알림', record.alerts + '회']
+        ], button));
+        byId('session-list').append(button);
+      });
+    }
+
+    document.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      const {go, signupBack, setupEnter, setupState:nextSetup, measure} = button.dataset;
+      if (go === 'signup') {
+        if (signupStep === 3) clearSignup();
+        showPage(go);
+      } else if (go === 'measure') {
+        if (activePage === 'history') enterSetup('regular');
+      } else if (go) showPage(go);
+      if (signupBack) renderSignup(Number(signupBack));
+      if (setupEnter) enterSetup(setupEnter);
+      if (nextSetup === 'count') startRegistration();
+      else if (nextSetup === 'start') startMeasure();
+      else if (nextSetup === 'skip' || nextSetup === 'continue') enterSetup('regular');
+      else if (nextSetup) renderSetup(nextSetup, !button.closest('#setup-demo'));
+      if (measure) {
+        clearTimeout(measureTimer);
+        measureTimer = undefined;
+        renderMeasure(measure);
+      }
+      if (button.hasAttribute('data-sign-out')) {
+        byId('recovery').hidden = true;
+        byId('login-main').hidden = false;
+        byId('login-error').hidden = true;
+        byId('login-password').value = '';
+        showPage('login');
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const menu = event.target.closest('.account details[open]');
+      if (menu) {
+        menu.open = false;
+        menu.querySelector('summary').focus();
+      }
+    });
+
+    placeSidebars();
+    addGuides();
+    updateConsents();
+    renderSetup('permission');
+    renderMeasure('good');
+    fillRecords();
+  </script>
+</body>
+</html>

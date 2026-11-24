@@ -1,0 +1,1434 @@
+<!doctype html>
+<html lang="ko" data-palette="sage">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoseGood 시안 · coach-soft (자세 코치 바로 · 눈 편한 배색)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<style>
+/* ───────────── 토큰 ─────────────
+   배색 3종(sage 기본 · warm · honey). <html data-palette>로 바꾼다.
+   바탕·회색은 모두 노랑·베이지 쪽 따뜻한 중립(Lab 색상각 70~105°), 보라·푸른 기운 없음.
+   상태색: good 정상 / caution 흐트러지는 중 / alert 흐트러짐 알림 / unknown 측정 불가(중립 회색)
+           link 연결 중 / stall 연결 끊김 / todo 기준 미등록. 카메라 거부는 unknown 점선. */
+:root{
+  --r-card:20px; --r-lg:28px; --r-btn:12px; --r-input:12px; --r-pill:999px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px;
+  --ease:cubic-bezier(.34,1.56,.64,1);
+  --flame:#d97a3c; --flame-core:#f2c65e;
+}
+:root,:root[data-palette=sage]{
+  --page:#e2dfd3; --bg:#f4f2ea; --card:#fbfaf5; --fill:#ece9df; --line:#dfdbce; --line-strong:#cbc6b6; --ink:#2a2924; --muted:#5c5a50; --faint:#69665b;
+  --placeholder:#979385; --chrome:#2b2c26; --chrome-ink:#f2f0e6; --chrome-muted:#c3c0b0; --brand:#416b56; --brand-hover:#375d4a; --brand-press:#2b4b3b;
+  --brand-ink:#fbfaf5; --brand-soft:#e2eadf; --brand-soft-ink:#2e4c3c; --brand-text:#3b6350; --sun:#e3b862; --sun-hover:#eac57b; --sun-press:#c09640;
+  --on-sun:#36290c; --sun-soft:#f5ebd1; --sun-ink:#66480f; --tert:#c48a6a; --tert-soft:#f3e4da; --tert-ink:#7a4329; --side:#416b56; --side-ink:#f7f6ef;
+  --side-sub:#dde7de; --hero:#6b9580; --bot:#558a6c; --bot-dark:#3b6650; --bot-ant:#e3b862; --bot2:#ecc06b; --bot2-dark:#c69a44; --bot2-ant:#fbfaf5;
+  --bot-gray:#a39d90; --bot-gray-dark:#827c70; --bot-gray-ant:#cdc8bc; --bot-face:#fbfaf5; --bot-eye:#2a2924; --bot-cheek:#eea294; --bot-sweat:#8fb0bd;
+  --good:#367c38; --good-soft:#d6ebcc; --good-ink:#22561f; --good-light:#9fd39a; --caution:#b97a12; --caution-soft:#f6e8cc; --caution-ink:#66420a;
+  --caution-light:#f0cb7c; --alert:#c2333b; --alert-soft:#f7dfdc; --alert-ink:#8a1e25; --alert-on:#fbfaf5; --alert-light:#ef959a; --unknown:#807c70;
+  --unknown-soft:#e9e6dd; --unknown-ink:#45433b; --unknown-line:#a7a295; --unknown-bar:#cbc7bb; --link:#567888; --link-soft:#d5e4e9; --link-ink:#2d4a57;
+  --stall:#393a33; --stall-ink:#f1efe6; --todo:#c48a6a; --todo-soft:#f2d9c7; --todo-ink:#7a4329; --cam1:#36332c; --cam2:#1c1a16; --cam-text:#e0dccf;
+  --ring:rgba(65,107,86,.4); --alert-ring:rgba(194,51,59,.3);
+  --shadow:0 1px 2px rgba(44,46,36,.06),0 8px 24px -12px rgba(44,46,36,.16); --shadow-sm:0 1px 3px rgba(44,46,36,.14);
+  --shadow-pop:0 12px 32px -14px rgba(44,46,36,.32); --shadow-stage:0 30px 80px -30px rgba(44,46,36,.42);
+  --overlay:rgba(28,26,22,.45); --cam-veil:rgba(28,26,22,.74); --cam-ink:#f2f0e6; --bot-shadow:rgba(44,46,36,.16); --glow:rgba(227,184,98,.16);
+  --live-dot:#9fd39a; --live-dot-glow:rgba(159,211,154,.6); --discord-hover:color-mix(in srgb,#2b2c26 85%,#fff);
+}
+:root[data-palette=warm]{
+  --page:#e8dfd1; --bg:#f7f1e7; --card:#fffaf2; --fill:#efe7da; --line:#e3d9c9; --line-strong:#d2c5b2; --ink:#2e2620; --muted:#5f544a; --faint:#71655a;
+  --placeholder:#9a8e80; --chrome:#2f2823; --chrome-ink:#f6efe4; --chrome-muted:#c9bcac; --brand:#a9553a; --brand-hover:#994b31; --brand-press:#7f3d27;
+  --brand-ink:#fffaf2; --brand-soft:#f5e2d6; --brand-soft-ink:#803c25; --brand-text:#9a4b31; --sun:#e9bd63; --sun-hover:#efc979; --sun-press:#c69a3e;
+  --on-sun:#3a2a0d; --sun-soft:#f7ebcf; --sun-ink:#6a4a0f; --tert:#7f9a83; --tert-soft:#e4ebe1; --tert-ink:#3f5a46; --side:#7a4530; --side-ink:#fff5ea;
+  --side-sub:#ecd5c4; --hero:#c27458; --bot:#c87252; --bot-dark:#9f553a; --bot-ant:#e9bd63; --bot2:#eec06a; --bot2-dark:#c99a43; --bot2-ant:#fffaf2;
+  --bot-gray:#a59a8e; --bot-gray-dark:#857a6f; --bot-gray-ant:#cfc6bb; --bot-face:#fffaf2; --bot-eye:#2e2620; --bot-cheek:#ef9f8f; --bot-sweat:#8fb0bd;
+  --good:#347b4f; --good-soft:#d6ebd7; --good-ink:#1f5235; --good-light:#8fd0a6; --caution:#b8820f; --caution-soft:#f6eacb; --caution-ink:#674600;
+  --caution-light:#f0cf7a; --alert:#c42f3d; --alert-soft:#f8e0de; --alert-ink:#8c1c26; --alert-on:#fffaf2; --alert-light:#f0939a; --unknown:#847a70;
+  --unknown-soft:#ebe6de; --unknown-ink:#463f38; --unknown-line:#a89d91; --unknown-bar:#cdc4b8; --link:#557a89; --link-soft:#d6e5ea; --link-ink:#2c4a56;
+  --stall:#3f3732; --stall-ink:#f3ece2; --todo:#a9553a; --todo-soft:#f3d5c2; --todo-ink:#803c25; --cam1:#3b332c; --cam2:#1f1a16; --cam-text:#e2d8cb;
+  --ring:rgba(169,85,58,.4); --alert-ring:rgba(196,47,61,.3);
+  --shadow:0 1px 2px rgba(60,42,28,.06),0 8px 24px -12px rgba(60,42,28,.16); --shadow-sm:0 1px 3px rgba(60,42,28,.14);
+  --shadow-pop:0 12px 32px -14px rgba(60,42,28,.32); --shadow-stage:0 30px 80px -30px rgba(60,42,28,.42);
+  --overlay:rgba(31,26,22,.45); --cam-veil:rgba(31,26,22,.74); --cam-ink:#f6efe4; --bot-shadow:rgba(60,42,28,.16); --glow:rgba(233,189,99,.16);
+  --live-dot:#8fd0a6; --live-dot-glow:rgba(143,208,166,.6); --discord-hover:color-mix(in srgb,#2f2823 85%,#fff);
+}
+:root[data-palette=honey]{
+  --page:#d9d3c7; --bg:#efebe2; --card:#f9f6ef; --fill:#e7e2d7; --line:#dbd4c6; --line-strong:#c7bfaf; --ink:#2b2825; --muted:#5a554d; --faint:#6a645b;
+  --placeholder:#958e82; --chrome:#2b2825; --chrome-ink:#f3efe6; --chrome-muted:#c6bfb2; --brand:#d6a13a; --brand-hover:#cc962c; --brand-press:#a87a1e;
+  --brand-ink:#2b2825; --brand-soft:#f3e6c6; --brand-soft-ink:#6a4a0c; --brand-text:#85600f; --sun:#ecd38f; --sun-hover:#f0dca6; --sun-press:#c9ad62;
+  --on-sun:#2b2825; --sun-soft:#f5edd6; --sun-ink:#64501a; --tert:#8c9a6e; --tert-soft:#e7eadc; --tert-ink:#4a5532; --side:#34302b; --side-ink:#f5f1e8;
+  --side-sub:#cfc7b8; --hero:#7d6e5c; --bot:#cf9532; --bot-dark:#9e6d1c; --bot-ant:#f6e3a6; --bot2:#efd283; --bot2-dark:#c9a54f; --bot2-ant:#f9f6ef;
+  --bot-gray:#a39c90; --bot-gray-dark:#827b70; --bot-gray-ant:#ccc6ba; --bot-face:#faf7f0; --bot-eye:#2b2825; --bot-cheek:#ec9c8a; --bot-sweat:#8fb0bd;
+  --good:#337a4d; --good-soft:#d4e9d2; --good-ink:#1e5134; --good-light:#92d0a5; --caution:#c4661c; --caution-soft:#f8dcc8; --caution-ink:#7a3608;
+  --caution-light:#f2a875; --alert:#bf2d44; --alert-soft:#f6dedf; --alert-ink:#891b2d; --alert-on:#f9f6ef; --alert-light:#ee909c; --unknown:#7f786e;
+  --unknown-soft:#e6e1d8; --unknown-ink:#45403a; --unknown-line:#a49c90; --unknown-bar:#c9c2b6; --link:#557887; --link-soft:#d3e3e8; --link-ink:#2b4955;
+  --stall:#34302b; --stall-ink:#f3efe6; --todo:#d6a13a; --todo-soft:#f3e6c6; --todo-ink:#6a4a0c; --cam1:#38332d; --cam2:#1d1a17; --cam-text:#e2dbcf;
+  --ring:rgba(214,161,58,.4); --alert-ring:rgba(191,45,68,.3);
+  --shadow:0 1px 2px rgba(48,42,34,.06),0 8px 24px -12px rgba(48,42,34,.16); --shadow-sm:0 1px 3px rgba(48,42,34,.14);
+  --shadow-pop:0 12px 32px -14px rgba(48,42,34,.32); --shadow-stage:0 30px 80px -30px rgba(48,42,34,.42);
+  --overlay:rgba(29,26,23,.45); --cam-veil:rgba(29,26,23,.74); --cam-ink:#f3efe6; --bot-shadow:rgba(48,42,34,.16); --glow:rgba(236,211,143,.16);
+  --live-dot:#92d0a5; --live-dot-glow:rgba(146,208,165,.6); --discord-hover:color-mix(in srgb,#2b2825 85%,#fff);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Pretendard,'Pretendard Variable',system-ui,-apple-system,'Malgun Gothic',sans-serif;font-size:15px;line-height:1.55;color:var(--ink);background:var(--page);letter-spacing:0;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{letter-spacing:-.02em;line-height:1.25}
+button,input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ───────────── 시안 전환 바 ───────────── */
+.mock-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--chrome);color:var(--chrome-ink);flex-wrap:wrap}
+.mock-bar .tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--r-pill);background:var(--sun);color:var(--on-sun)}
+.mock-bar .ttl{font-weight:600;font-size:14px;opacity:.9;margin-right:auto}
+.mock-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.mock-tabs button{border:0;background:transparent;color:var(--chrome-muted);padding:7px 12px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.mock-tabs button:hover{background:rgba(255,255,255,.08);color:var(--chrome-ink)}
+.mock-tabs button[aria-selected=true]{background:var(--chrome-ink);color:var(--chrome)}
+.mock-tabs button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.mock-hint{font-size:12px;color:var(--chrome-muted)}
+.mock-pal{display:flex;align-items:center;gap:4px;padding:3px;border-radius:12px;background:rgba(255,255,255,.07)}
+.mock-pal .lbl{font-size:12px;font-weight:700;color:var(--chrome-muted);padding:0 6px 0 8px}
+.mock-pal button{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--chrome-muted);padding:6px 10px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer}
+.mock-pal button:hover{background:rgba(255,255,255,.08);color:var(--chrome-ink)}
+.mock-pal button[aria-pressed=true]{background:var(--chrome-ink);color:var(--chrome)}
+.mock-pal button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.mock-pal i{width:14px;height:14px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--sw-a) 50%,var(--sw-b) 50%);box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+
+/* ───────────── 앱 캔버스 ───────────── */
+.stage{width:min(1360px,100%);height:860px;min-height:760px;margin:20px auto 40px;background:var(--bg);border-radius:24px;box-shadow:var(--shadow-stage);overflow:hidden;position:relative}
+.screen{display:none;height:100%;min-height:0}
+.screen.on{display:flex;animation:screenIn .35s var(--ease)}
+@keyframes screenIn{from{opacity:0;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
+
+/* ───────────── shadcn 패턴 컴포넌트 ───────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:var(--r-btn);border:1px solid transparent;font-weight:600;font-size:15px;cursor:pointer;white-space:nowrap;transition:background .15s,transform .15s var(--ease),box-shadow .15s,border-color .15s;user-select:none}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled,.btn[aria-disabled=true]{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--brand);color:var(--brand-ink);box-shadow:0 4px 0 var(--brand-press)}
+.btn-primary:hover:not(:disabled){background:var(--brand-hover);transform:translateY(-1px)}
+.btn-primary:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--brand-press)}
+.btn-sun{background:var(--sun);color:var(--on-sun);box-shadow:0 4px 0 var(--sun-press)}
+.btn-sun:hover:not(:disabled){background:var(--sun-hover);transform:translateY(-1px)}
+.btn-sun:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--sun-press)}
+.btn-outline{background:var(--card);border-color:var(--line);color:var(--ink)}
+.btn-outline:hover:not(:disabled){background:var(--fill);border-color:var(--line-strong)}
+.btn-ghost{background:transparent;color:var(--muted)}
+.btn-ghost:hover:not(:disabled){background:var(--fill);color:var(--ink)}
+.btn-danger-soft{background:var(--alert-soft);color:var(--alert-ink)}
+.btn-danger-soft:hover:not(:disabled){background:color-mix(in srgb,var(--alert-soft) 80%,var(--alert-light))}
+.btn-lg{height:52px;padding:0 24px;font-size:16px;border-radius:14px}
+.btn-sm{height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn-block{width:100%}
+.btn .spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.icon{width:18px;height:18px;flex:none}
+
+.field{display:flex;flex-direction:column;gap:8px}
+.label{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.label .opt{font-weight:500;color:var(--faint);font-size:12px}
+.input-wrap{position:relative;display:flex;align-items:center}
+.input{width:100%;height:46px;padding:0 14px;border-radius:var(--r-input);border:1.5px solid var(--line);background:var(--card);font-size:16px;line-height:24px;font-weight:400;transition:border-color .15s,box-shadow .15s}
+.input::placeholder{color:var(--placeholder)}
+.input:hover{border-color:var(--line-strong)}
+.input:focus-visible{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
+.input[aria-invalid=true]{border-color:var(--alert);background:var(--card)}
+.input[aria-invalid=true]:focus-visible{box-shadow:0 0 0 3px var(--alert-ring)}
+.input.ok{border-color:var(--good)}
+.input:disabled,.input[readonly]{background:var(--fill);color:var(--muted)}
+.input-wrap .input{padding-right:48px}
+.input-wrap .suffix{position:absolute;right:6px}
+.help{font-size:13px;color:var(--muted);line-height:20px}
+.err{font-size:13px;color:var(--alert-ink);display:flex;gap:6px;align-items:flex-start;line-height:20px}
+.err::before{content:"!";flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;background:var(--alert);color:var(--alert-on);font-size:11px;font-weight:700;display:grid;place-items:center}
+.okmsg{font-size:13px;color:var(--good-ink);display:flex;gap:6px;align-items:center}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.icon-btn:hover{background:var(--fill);color:var(--ink)}
+.icon-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+
+.card{background:var(--card);border-radius:var(--r-card);border:1px solid var(--line);box-shadow:var(--shadow);padding:24px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.card-title{font-size:16px;font-weight:700;line-height:24px}
+.card-note{font-size:13px;color:var(--muted)}
+
+.badge-prop{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.02em;padding:2px 8px;border-radius:var(--r-pill);background:var(--sun-soft);color:var(--sun-ink);border:1px dashed var(--sun-press);vertical-align:middle;white-space:nowrap}
+.badge-prop::before{content:"★"}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:5px 12px;border-radius:var(--r-pill);background:var(--fill);color:var(--muted)}
+
+/* Tabs (shadcn) */
+.tabs-list{display:inline-flex;padding:4px;border-radius:14px;background:var(--fill);gap:2px}
+.tabs-list button{border:0;background:transparent;padding:7px 14px;border-radius:10px;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer;transition:background .15s,color .15s}
+.tabs-list button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+.tabs-list button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+
+/* Dialog (shadcn) */
+.overlay{position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(2px);display:none;place-items:center;z-index:100;padding:16px}
+.overlay.on{display:grid;animation:fade .15s ease}
+@keyframes fade{from{opacity:0}}
+.dialog{width:min(440px,100%);background:var(--card);border-radius:20px;padding:24px;box-shadow:var(--shadow-stage);position:relative;animation:pop .25s var(--ease)}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}}
+.dialog h3{font-size:18px;margin-bottom:6px}
+.dialog .desc{color:var(--muted);font-size:14px;line-height:22px}
+.dialog .close{position:absolute;top:12px;right:12px}
+.dialog-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.dl{display:grid;grid-template-columns:88px 1fr;gap:8px 12px;margin-top:16px;font-size:14px}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0}
+
+/* Toast */
+.toast-zone{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{pointer-events:auto;background:var(--chrome);color:var(--chrome-ink);padding:12px 18px;border-radius:14px;font-size:14px;font-weight:500;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);animation:pop .25s var(--ease);max-width:min(480px,90vw)}
+
+/* ───────────── 코치 캐릭터 ───────────── */
+.coach{display:inline-block;flex:none}
+.coach svg{display:block;width:100%;height:100%;overflow:visible}
+.coach .bob{animation:bob 2.6s ease-in-out infinite;transform-origin:60px 106px}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.coach .tilt{transition:transform .5s var(--ease);transform-origin:60px 106px}
+.coach[data-mood=caution] .tilt{transform:rotate(-6deg)}
+.coach[data-mood=alert] .tilt{transform:rotate(-11deg)}
+.coach[data-mood=alert] .bob{animation:wobble .9s ease-in-out infinite}
+@keyframes wobble{25%{transform:rotate(2deg)}75%{transform:rotate(-2deg)}}
+.coach .antenna{transition:transform .5s var(--ease);transform-origin:60px 28px}
+.coach[data-mood=caution] .antenna{transform:rotate(-18deg)}
+.coach[data-mood=alert] .antenna{transform:rotate(-38deg)}
+.coach[data-mood=cheer] .bob{animation:jump .7s var(--ease) infinite}
+@keyframes jump{0%,100%{transform:none}40%{transform:translateY(-10px) scale(1.03,.97)}}
+.coach .arm-r{transform-origin:94px 70px}
+.coach[data-mood=wave] .arm-r{animation:wave 1.1s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-28deg)}}
+.coach .blink{animation:blink 4.2s infinite;transform-origin:center 60px}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.bubble{position:relative;background:var(--card);border:2px solid var(--ink);border-radius:18px;padding:12px 16px;font-weight:600;font-size:15px;line-height:22px;box-shadow:4px 4px 0 var(--ink);max-width:320px}
+.bubble::after{content:"";position:absolute;left:-10px;bottom:16px;width:16px;height:16px;background:var(--card);border-left:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg) skew(8deg,8deg)}
+.bubble.pop{animation:bubblePop .35s var(--ease)}
+@keyframes bubblePop{from{transform:scale(.85);opacity:0}}
+.bubble small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:2px}
+.coach-row{display:flex;align-items:flex-end;gap:14px}
+
+/* ───────────── 1. 웰컴 ───────────── */
+#s1{flex-direction:column;background:radial-gradient(600px 400px at 85% 10%,var(--glow),transparent 60%),var(--bg)}
+.top-brand{display:flex;align-items:center;gap:10px;padding:24px 40px}
+.top-brand img{width:36px;height:36px;border-radius:10px}
+.brand-name{font-weight:800;font-size:18px;letter-spacing:-.01em}
+.brand-sub{font-size:12px;color:var(--muted)}
+.top-brand .spacer{flex:1}
+.welcome{flex:1;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;padding:8px 56px 40px;align-items:center}
+.welcome h1{font-size:52px;line-height:1.15;letter-spacing:-.035em;font-weight:800}
+.welcome h1 .hl{background:linear-gradient(transparent 62%,var(--sun) 62%);padding:0 4px}
+.welcome .lead{font-size:19px;color:var(--muted);margin-top:16px;line-height:1.6}
+.welcome .ctas{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;align-items:center}
+.trust{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+.trust .chip{background:var(--card);border:1px solid var(--line)}
+.trust .chip i{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block}
+.hero-art{position:relative;display:flex;flex-direction:column;align-items:center;gap:20px}
+.hero-blob{position:relative;width:420px;height:340px;border-radius:44% 56% 52% 48%/52% 46% 54% 48%;background:var(--hero);display:grid;place-items:center;box-shadow:var(--shadow-pop)}
+.hero-blob .coach{width:230px;height:230px}
+.hero-blob .bubble{position:absolute;top:-6px;right:-50px;max-width:250px}
+.hero-blob .spark{position:absolute;width:14px;height:14px;background:var(--sun);border-radius:3px;transform:rotate(45deg);animation:twinkle 2.4s ease-in-out infinite}
+@keyframes twinkle{50%{transform:rotate(45deg) scale(.5);opacity:.5}}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:0 56px 48px}
+.step3{background:var(--card);border-radius:var(--r-card);padding:20px;border:1px solid var(--line);display:flex;gap:14px;align-items:flex-start;transition:transform .2s var(--ease),box-shadow .2s}
+.step3:hover{transform:translateY(-4px) rotate(-.4deg);box-shadow:var(--shadow-pop)}
+.step3 .n{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:20px}
+.step3:nth-child(1) .n{background:var(--brand-soft);color:var(--brand-text)}
+.step3:nth-child(2) .n{background:var(--sun-soft);color:var(--sun-ink)}
+.step3:nth-child(3) .n{background:var(--tert-soft);color:var(--tert-ink)}
+.step3 b{display:block;font-size:16px;margin-bottom:2px}
+.step3 span{font-size:14px;color:var(--muted);line-height:22px}
+
+/* ───────────── 2·3. 인증 공통 ───────────── */
+.auth{flex:1;display:grid;grid-template-columns:400px 1fr;min-height:0}
+.auth-side{background:var(--side);color:var(--side-ink);padding:32px;display:flex;flex-direction:column;gap:24px;position:relative;overflow:hidden}
+.auth-side::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.07);right:-80px;top:-60px}
+.auth-side .top-brand{padding:0}
+.auth-side .brand-sub{color:var(--side-sub)}
+.auth-side .coach-stack{margin-top:auto;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.auth-side .coach{width:150px;height:150px}
+.auth-side .bubble{color:var(--ink)}
+.auth-side .bubble::after{left:28px;bottom:-10px;transform:rotate(-45deg) skew(8deg,8deg)}
+.auth-side h2{font-size:30px;line-height:1.3;font-weight:800}
+.auth-side p{color:var(--side-sub);font-size:15px}
+.auth-main{padding:40px 56px;display:flex;justify-content:center;overflow:auto}
+.auth-form{width:min(480px,100%);display:flex;flex-direction:column;gap:20px}
+.auth-form h1{font-size:26px;line-height:34px}
+.auth-form .lead{color:var(--muted);margin-top:6px}
+
+/* 스텝퍼 */
+.stepper{display:flex;align-items:center;gap:0;list-style:none;padding:0;margin:0}
+.stepper li{display:flex;align-items:center;gap:8px;flex:1;font-size:13px;font-weight:600;color:var(--faint)}
+.stepper li:last-child{flex:none}
+.stepper .dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--fill);color:var(--faint);border:2px solid transparent;transition:all .3s var(--ease);flex:none}
+.stepper .bar{flex:1;height:4px;border-radius:4px;background:var(--fill);margin:0 10px;position:relative;overflow:hidden}
+.stepper .bar::after{content:"";position:absolute;inset:0;background:var(--brand);transform:scaleX(0);transform-origin:left;transition:transform .5s ease}
+.stepper li.done .bar::after{transform:scaleX(1)}
+.stepper li.cur{color:var(--ink)}
+.stepper li.cur .dot{background:var(--card);border-color:var(--brand);color:var(--brand-text);transform:scale(1.1);box-shadow:0 0 0 5px var(--brand-soft)}
+.stepper li.done .dot{background:var(--brand);color:var(--brand-ink)}
+.stepper .opt{color:var(--faint);font-weight:500}
+
+/* 동의 */
+.consent-all{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:2px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;font-size:16px;transition:border-color .15s,background .15s}
+.consent-all:hover{border-color:var(--line-strong)}
+.consent-all.on{border-color:var(--brand);background:var(--brand-soft)}
+.cbox{width:24px;height:24px;border-radius:8px;border:2px solid var(--line-strong);display:grid;place-items:center;flex:none;transition:all .2s var(--ease);background:var(--card)}
+.on>.cbox,.cbox.on{background:var(--brand);border-color:var(--brand);transform:scale(1.08)}
+.cbox svg{opacity:0;transition:opacity .15s}
+.on>.cbox svg,.cbox.on svg{opacity:1}
+.consent-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden}
+.consent-item{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-top:1px solid var(--line)}
+.consent-item:first-child{border-top:0}
+.consent-item .t{font-size:14px;font-weight:600}
+.consent-item .t em{font-style:normal;white-space:nowrap;font-size:12px;font-weight:700;margin-left:6px;padding:1px 6px;border-radius:6px}
+.req{background:var(--brand-soft);color:var(--brand-text)}
+.optl{background:var(--fill);color:var(--muted)}
+.consent-item .note{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:-6px}
+.seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--fill)}
+.seg button{border:0;background:transparent;font-size:13px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+.seg button[aria-pressed=true].yes{color:var(--brand-text)}
+.seg button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.linkbtn{border:0;background:none;color:var(--brand-text);font-weight:600;font-size:13px;cursor:pointer;padding:6px;border-radius:8px}
+.linkbtn:hover{text-decoration:underline}
+.linkbtn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+
+/* 인증 코드 */
+.verify-box{border:1.5px dashed var(--line-strong);border-radius:14px;padding:16px;background:var(--card);display:flex;flex-direction:column;gap:12px;animation:pop .3s var(--ease)}
+.otp{display:flex;gap:8px}
+.otp input{width:48px;height:56px;text-align:center;font-size:24px;font-weight:700;border-radius:12px;border:1.5px solid var(--line);background:var(--card);transition:all .15s}
+.otp input:focus-visible{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring);transform:translateY(-2px)}
+.otp input.filled{border-color:var(--brand);background:var(--brand-soft)}
+.otp.ok input{border-color:var(--good);background:var(--good-soft);color:var(--good-ink)}
+.otp.bad input{border-color:var(--alert);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.pw-check{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:13px;color:var(--faint)}
+.pw-check li{list-style:none;display:flex;align-items:center;gap:6px;transition:color .2s}
+.pw-check li::before{content:"";width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);flex:none;transition:all .2s var(--ease)}
+.pw-check li.ok{color:var(--good-ink)}
+.pw-check li.ok::before{background:var(--good) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;border-color:var(--good);transform:scale(1.1)}
+.pw-check ul{margin:0;padding:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.alert-box{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:21px}
+.alert-box.error{background:var(--alert-soft);color:var(--alert-ink)}
+.alert-box.info{background:var(--brand-soft);color:var(--brand-soft-ink)}
+.alert-box b{display:block}
+.substep{display:none;flex-direction:column;gap:18px}
+.substep.on{display:flex;animation:screenIn .3s var(--ease)}
+
+/* 소셜 */
+.divider{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--faint)}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.btn-discord{background:var(--chrome);color:var(--chrome-ink);box-shadow:0 4px 0 #000}
+.btn-discord:hover:not(:disabled){background:var(--discord-hover);transform:translateY(-1px)}
+.btn-discord img{width:20px;height:20px;filter:brightness(0) invert(1)}
+.social-row{display:flex;gap:8px;justify-content:center}
+.social-soon{position:relative;width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;cursor:pointer;opacity:.55}
+.social-soon img{width:22px;height:22px}
+.social-soon:hover{opacity:.8}
+.social-soon:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.social-soon span{position:absolute;bottom:-18px;font-size:10px;color:var(--faint);white-space:nowrap}
+.demo-switch{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--faint);padding:10px 12px;border-radius:12px;background:var(--card);border:1px dashed var(--line)}
+.demo-switch b{color:var(--muted);margin-right:4px}
+
+/* ───────────── 앱 셸 ───────────── */
+.app{flex:1;display:grid;grid-template-columns:200px 1fr;min-height:0}
+.side{background:var(--side);color:var(--side-ink);padding:20px 14px;display:flex;flex-direction:column;gap:18px}
+.side .top-brand{padding:4px 6px}
+.side .top-brand img{width:32px;height:32px}
+.side .brand-sub{color:var(--side-sub)}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--side-sub);padding:11px 12px;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;text-align:left;transition:background .15s}
+.nav button:hover{background:rgba(255,255,255,.1)}
+.nav button[aria-current=page]{background:var(--card);color:var(--brand-text)}
+.nav button:focus-visible{outline:3px solid var(--sun);outline-offset:1px}
+.nav .nav-live{display:block;margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--live-dot);box-shadow:0 0 0 0 var(--live-dot-glow);animation:pulse 1.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.side-goal{margin-top:auto;background:rgba(0,0,0,.16);border-radius:16px;padding:14px;font-size:13px}
+.side-goal b{font-size:20px;display:block;margin:2px 0 8px}
+.meter{height:10px;border-radius:10px;background:rgba(255,255,255,.2);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--sun);border-radius:10px;transition:width .6s ease}
+.me{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;border:0;background:transparent;color:var(--side-ink);cursor:pointer;width:100%;text-align:left;font-weight:600}
+.me:hover{background:rgba(255,255,255,.1)}
+.me .av{width:32px;height:32px;border-radius:50%;background:var(--sun);color:var(--on-sun);display:grid;place-items:center;font-weight:800}
+.main{padding:24px 28px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:20px}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-head h1{font-size:26px;line-height:34px}
+.page-head p{color:var(--muted);font-size:14px}
+
+/* 카메라 자리표시 */
+.cam{position:relative;border-radius:20px;background:radial-gradient(120% 90% at 50% 20%,var(--cam1),var(--cam2) 70%);overflow:hidden;aspect-ratio:4/3;color:var(--cam-ink);isolation:isolate}
+.cam .label-live{position:absolute;top:14px;left:14px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);background:rgba(0,0,0,.45);display:flex;gap:6px;align-items:center}
+.cam .label-live i{width:7px;height:7px;border-radius:50%;background:var(--alert-light)}
+.cam svg.sil{position:absolute;inset:0;width:100%;height:100%}
+.sil .person{transition:transform .6s var(--ease);transform-origin:200px 300px}
+.sil .joint{fill:var(--cam-ink)}
+.sil .guide{fill:none;stroke:rgba(255,255,255,.5);stroke-width:2;stroke-dasharray:6 6}
+.cam-frame{position:absolute;inset:0;border-radius:20px;border:6px solid transparent;transition:border-color .4s;pointer-events:none;z-index:3}
+.cam .cam-msg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;background:var(--cam-veil);z-index:2}
+.cam .cam-msg.on{display:flex}
+.cam .cam-msg b{font-size:20px}
+.cam .cam-msg span{color:var(--cam-text);font-size:14px;max-width:360px}
+
+/* ───────────── 4. 첫 설정 ───────────── */
+.setup{display:grid;grid-template-columns:1fr 340px;gap:22px;align-items:start}
+.setup-steps{display:flex;flex-direction:column;gap:6px}
+.sstep{display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;color:var(--faint);font-weight:600;transition:background .2s}
+.sstep .dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--fill);font-weight:800;flex:none;transition:all .3s var(--ease)}
+.sstep.cur{background:var(--brand-soft);color:var(--ink)}
+.sstep.cur .dot{background:var(--brand);color:var(--brand-ink);transform:scale(1.08)}
+.sstep.done{color:var(--good-ink)}
+.sstep.done .dot{background:var(--good);color:var(--card)}
+.sstep small{display:block;font-weight:500;font-size:12px;color:var(--muted)}
+.countdown{position:absolute;inset:0;display:none;place-items:center;z-index:4;pointer-events:none}
+.countdown.on{display:grid}
+.cd-ring{position:relative;width:220px;height:220px}
+.cd-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.cd-ring .num{position:absolute;inset:0;display:grid;place-items:center;font-size:120px;font-weight:800;color:var(--cam-ink);text-shadow:0 6px 30px rgba(0,0,0,.4)}
+.cd-ring .num.tick{animation:tick .9s var(--ease)}
+@keyframes tick{0%{transform:scale(1.6);opacity:0}30%{transform:scale(1);opacity:1}100%{transform:scale(.92)}}
+.capture-bar{position:absolute;left:24px;right:24px;bottom:22px;z-index:4;display:none;flex-direction:column;gap:8px}
+.capture-bar.on{display:flex}
+.capture-bar .t{font-weight:700;font-size:16px;display:flex;justify-content:space-between}
+.capture-bar .meter{height:12px;background:rgba(255,255,255,.18)}
+.capture-bar .meter i{background:var(--sun);transition:none}
+.checks{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.checks span{font-size:12px;font-weight:700;padding:5px 10px;border-radius:var(--r-pill);background:rgba(0,0,0,.45);color:var(--cam-text);display:flex;gap:6px;align-items:center;transition:all .3s var(--ease)}
+.checks span.ok{background:var(--good);color:var(--card);transform:scale(1.04)}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:6}
+.confetti i{position:absolute;top:-12px;width:10px;height:14px;border-radius:3px;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{transform:translateY(720px) rotate(720deg);opacity:.2}}
+
+/* ───────────── 5. 측정 ───────────── */
+.live{display:grid;grid-template-columns:1fr 320px;gap:22px;flex:1;min-height:0}
+.live>div{min-height:0}
+.status-banner{display:flex;align-items:center;gap:18px;padding:18px 22px;border-radius:22px;transition:background .4s,color .4s;position:relative;overflow:hidden}
+.status-banner .coach{width:84px;height:84px;border-radius:50%;transition:background .4s}
+[data-st=alert] .status-banner .coach{background:rgba(255,255,255,.22)}
+.status-banner h2{font-size:38px;line-height:1.15;font-weight:800;letter-spacing:-.03em}
+.status-banner p{font-size:16px;margin-top:4px;opacity:.9}
+.status-banner .st-ic{margin-left:auto;font-size:13px;font-weight:700;padding:6px 12px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--card) 72%,transparent);white-space:nowrap}
+[data-st=good] .status-banner{background:var(--good-soft);color:var(--good-ink)}
+[data-st=good] .cam-frame{border-color:var(--good)}
+[data-st=caution] .status-banner{background:var(--caution-soft);color:var(--caution-ink)}
+[data-st=caution] .cam-frame{border-color:var(--caution)}
+[data-st=alert] .status-banner{background:var(--alert);color:var(--alert-on)}
+[data-st=alert] .status-banner .st-ic{background:rgba(0,0,0,.2);color:var(--alert-on)}
+[data-st=alert] .cam-frame{border-color:var(--alert);animation:alertPulse 1.2s ease-in-out infinite}
+@keyframes alertPulse{50%{border-color:var(--alert-light)}}
+[data-st=recovering] .status-banner{background:var(--good-soft);color:var(--good-ink)}
+[data-st=recovering] .cam-frame{border-color:var(--good-light)}
+/* 측정 불가 = 중립 회색 / 연결 중 = 차분한 청회색 / 연결 끊김 = 어두운 띠 / 카메라 거부 = 회색 점선 테두리 / 기준 미등록 = 할 일 색 */
+[data-st=unknown] .status-banner{background:var(--unknown-soft);color:var(--unknown-ink)}
+[data-st=unknown] .cam-frame{border-color:var(--unknown-line);border-style:dashed}
+[data-st=connecting] .status-banner{background:var(--link-soft);color:var(--link-ink)}
+[data-st=connecting] .cam-frame{border-color:var(--link);border-style:dashed}
+[data-st=stalled] .status-banner{background:var(--stall);color:var(--stall-ink)}
+[data-st=stalled] .status-banner .st-ic{background:rgba(255,255,255,.14);color:var(--stall-ink)}
+[data-st=stalled] .cam-frame{border-color:var(--unknown-line);border-style:dashed}
+[data-st=denied] .status-banner{background:var(--card);color:var(--unknown-ink);outline:2px dashed var(--unknown-line);outline-offset:-2px}
+[data-st=denied] .status-banner .st-ic{background:var(--unknown-soft)}
+[data-st=nobase] .status-banner{background:var(--todo-soft);color:var(--todo-ink)}
+[data-st=nobase] .cam-frame{border-color:var(--todo)}
+.live-cam-wrap{display:flex;flex-direction:column;gap:14px;min-height:0}
+.live .cam{aspect-ratio:auto;flex:1;min-height:300px}
+.live-ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.live-ctrl .clock{font-weight:700;font-size:15px;margin-right:auto;display:flex;gap:8px;align-items:center;color:var(--muted)}
+.live-ctrl .clock b{color:var(--ink);font-size:18px}
+.score-card{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:18px}
+.live .card{padding:18px}
+.ring{position:relative;width:150px;height:150px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .val b{font-size:44px;line-height:48px;font-weight:800;letter-spacing:-.03em}
+.ring .val span{font-size:14px;color:var(--muted);margin-top:4px}
+.ring circle.prog{transition:stroke-dashoffset .8s ease,stroke .4s}
+.score-desc{font-size:12px;color:var(--muted);line-height:18px}
+.stat-list{display:flex;flex-direction:column;gap:0}
+.stat-list div{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+.stat-list div:first-child{border-top:0;padding-top:0}
+.stat-list b{color:var(--ink);font-size:18px}
+.streak{background:var(--sun-soft);border:0}
+.streak .big{display:flex;align-items:baseline;gap:8px;font-size:36px;font-weight:800;letter-spacing:-.03em;color:var(--sun-ink)}
+.streak .flame{width:30px;height:30px;align-self:center}
+.streak small{font-size:13px;color:var(--sun-ink);font-weight:600}
+.streak.paused .big{color:var(--unknown-ink)}
+.streak.paused .flame{filter:grayscale(1);opacity:.6}
+.streak.paused{background:var(--unknown-soft)}
+.streak.bump{animation:bump .5s var(--ease)}
+@keyframes bump{40%{transform:scale(1.04)}}
+.state-switch{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-radius:14px;background:var(--card);border:1px dashed var(--line-strong);align-items:center}
+.state-switch .lbl{font-size:12px;color:var(--faint);font-weight:700;margin-right:4px}
+.state-switch button{border:1px solid var(--line);background:var(--card);padding:6px 10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:6px;align-items:center}
+.state-switch button i{width:9px;height:9px;border-radius:50%}
+.state-switch button[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.state-switch button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.nudge{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:5;background:var(--card);color:var(--ink);border-radius:18px;padding:12px 16px 12px 12px;display:none;align-items:center;gap:12px;box-shadow:0 20px 40px -12px rgba(0,0,0,.55);width:min(440px,90%)}
+.nudge.on{display:flex;animation:nudgeIn .45s var(--ease)}
+@keyframes nudgeIn{from{transform:translate(-50%,30px);opacity:0}}
+.nudge .coach{width:56px;height:56px}
+.nudge b{display:block;font-size:17px}
+.nudge span{font-size:13px;color:var(--muted)}
+.hifive{position:absolute;inset:0;display:none;place-items:center;z-index:5;pointer-events:none}
+.hifive.on{display:grid}
+.hifive div{background:var(--good);color:var(--card);font-weight:800;font-size:26px;padding:14px 26px;border-radius:var(--r-pill);animation:hf 1.4s var(--ease) forwards;box-shadow:var(--shadow-pop)}
+@keyframes hf{0%{transform:scale(.3) rotate(-8deg);opacity:0}25%{transform:scale(1.08) rotate(3deg);opacity:1}70%{transform:scale(1);opacity:1}100%{transform:scale(.9) translateY(-20px);opacity:0}}
+.goal-mini{display:flex;flex-direction:column;gap:8px}
+.goal-mini .row{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.goal-mini .row b{color:var(--ink)}
+.goal-mini .meter{background:var(--fill);height:12px}
+.goal-mini .meter i{background:var(--brand)}
+
+/* ───────────── 6. 오늘 기록 ───────────── */
+.today{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start}
+.today-hero{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.today-hero .ring{width:188px;height:188px}
+.today-stats{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;width:100%}
+.today-stats div{background:var(--fill);border-radius:14px;padding:12px 6px}
+.today-stats b{display:block;font-size:19px;white-space:nowrap}
+.today-stats span{font-size:12px;color:var(--muted)}
+.coach-say{display:flex;gap:12px;align-items:center;background:var(--brand-soft);border-radius:16px;padding:12px 14px;text-align:left}
+.coach-say .coach{width:54px;height:54px}
+.coach-say p{font-size:14px;font-weight:600;color:var(--brand-soft-ink);line-height:21px}
+.chart{position:relative}
+.chart svg{width:100%;height:220px;display:block}
+.chart .bar{transition:opacity .15s,transform .2s var(--ease);transform-box:fill-box;transform-origin:bottom}
+.chart .hcol:hover .bar,.chart .hcol:focus .bar{transform:scaleY(1.04)}
+.chart .hcol{outline:none;cursor:pointer}
+.chart .hcol:focus-visible .hit{stroke:var(--brand);stroke-width:2}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--card);font-size:12px;padding:8px 10px;border-radius:10px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .12s;line-height:18px}
+.tip.on{opacity:1}
+.sess{display:flex;flex-direction:column}
+.sess-row{display:grid;grid-template-columns:44px 1fr auto auto;gap:14px;align-items:center;padding:12px 4px;border-top:1px solid var(--line)}
+.sess-row:first-child{border-top:0}
+.sess-row .mini{width:44px;height:44px}
+.sess-row b{font-size:15px}
+.sess-row .sub{font-size:13px;color:var(--muted)}
+.sess-row .pct{font-weight:700;font-size:16px}
+.badges{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.bdg{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:16px;background:var(--fill);font-size:12px;font-weight:600;color:var(--muted);cursor:default;transition:transform .2s var(--ease)}
+.bdg:hover{transform:translateY(-3px) rotate(-2deg)}
+.bdg .medal{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:800}
+.bdg.got{background:var(--sun-soft);color:var(--sun-ink)}
+.bdg.got .medal{background:var(--sun);color:var(--on-sun);box-shadow:0 4px 0 var(--sun-press)}
+.bdg.lock .medal{background:var(--line);color:var(--muted)}
+.right-col{display:flex;flex-direction:column;gap:22px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+
+/* ───────────── 반응형 ───────────── */
+@media (max-width:1100px){
+  .welcome{grid-template-columns:1fr;padding:8px 24px 32px}
+  .hero-blob{width:min(360px,80vw);height:280px}
+  .steps3{grid-template-columns:1fr;padding:0 24px 32px}
+  .auth{grid-template-columns:1fr}
+  .auth-side{padding:20px 24px;flex-direction:row;flex-wrap:wrap;align-items:center}
+  .auth-side .side-copy{display:none}
+  .auth-side .coach-stack{margin:0;flex-direction:row;align-items:center}
+  .auth-side .coach{width:72px;height:72px}
+  .auth-side .bubble::after{left:-10px;bottom:16px;transform:rotate(45deg) skew(8deg,8deg)}
+  .auth-main{padding:24px}
+  .app{grid-template-columns:1fr}
+  .side{flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px;gap:8px}
+  .side .top-brand .brand-sub,.side-goal,.side .me{display:none}
+  .nav{flex-direction:row;flex-wrap:wrap}
+  .nav button{padding:8px 10px;font-size:14px}
+  .setup,.live,.today,.two{grid-template-columns:1fr}
+  .stage{height:auto}
+  .screen{height:auto}
+  .main{overflow:visible}
+}
+@media (max-width:560px){
+  .stage{margin:0;border-radius:0}
+  .mock-hint{display:none}
+  .top-brand{padding:16px 20px}
+  .welcome h1{font-size:34px}
+  .welcome .lead{font-size:16px}
+  .hero-blob .bubble{right:-4px;top:-30px;max-width:200px;font-size:13px}
+  .hero-blob .coach{width:170px;height:170px}
+  .main{padding:16px}
+  .status-banner{flex-wrap:wrap;padding:14px}
+  .status-banner .coach{width:60px;height:60px}
+  .status-banner h2{font-size:26px}
+  .status-banner .st-ic{margin-left:0}
+  .grid2,.pw-check{grid-template-columns:1fr}
+  .otp input{width:40px;height:50px}
+  .stepper .txt{display:none}
+  .consent-item{grid-template-columns:1fr auto}
+  .consent-item .linkbtn{grid-column:2}
+  .badges{grid-template-columns:repeat(2,1fr)}
+  .today-stats b{font-size:17px}
+  .live .cam{min-height:260px}
+  .cd-ring{width:150px;height:150px}
+  .cd-ring .num{font-size:80px}
+  .auth-side .bubble{max-width:220px;font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═════════ 시안 화면 전환 바 (시안 전용, 앱에 들어가지 않음) ═════════ -->
+<header class="mock-bar">
+  <span class="tag">시안</span>
+  <span class="ttl">PoseGood · coach-soft — 「바로」 그대로, 눈 편한 배색</span>
+  <nav class="mock-tabs" role="tablist" aria-label="시안 화면 전환">
+    <button role="tab" data-go="s1" aria-selected="true">1 시작</button>
+    <button role="tab" data-go="s2" aria-selected="false">2 회원가입</button>
+    <button role="tab" data-go="s3" aria-selected="false">3 로그인</button>
+    <button role="tab" data-go="s4" aria-selected="false">4 첫 설정</button>
+    <button role="tab" data-go="s5" aria-selected="false">5 측정</button>
+    <button role="tab" data-go="s6" aria-selected="false">6 오늘 기록</button>
+  </nav>
+  <div class="mock-pal" role="group" aria-label="배색 선택">
+    <span class="lbl" aria-hidden="true">배색</span>
+    <button type="button" data-pal="sage" aria-pressed="true" style="--sw-a:#416b56;--sw-b:#f4f2ea"><i></i>세이지</button>
+    <button type="button" data-pal="warm" aria-pressed="false" style="--sw-a:#a9553a;--sw-b:#f7f1e7"><i></i>웜 크림</button>
+    <button type="button" data-pal="honey" aria-pressed="false" style="--sw-a:#d6a13a;--sw-b:#34302b"><i></i>허니</button>
+  </div>
+  <span class="mock-hint">←/→ 키로 화면 이동 · <span class="badge-prop">제안</span> = 새 기능</span>
+</header>
+
+<main class="stage" id="stage">
+
+<!-- ═════════ 1. 시작 ═════════ -->
+<section class="screen on" id="s1" aria-label="시작 화면">
+  <div class="top-brand">
+    <img src="../../../../frontend/public/branding/posegood-icon.svg" alt="">
+    <div><div class="brand-name">PoseGood</div><div class="brand-sub">바른자세 도우미</div></div>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost btn-sm" data-go="s3">로그인</button>
+  </div>
+  <div class="welcome">
+    <div>
+      <span class="chip" style="background:var(--brand-soft);color:var(--brand-text);margin-bottom:16px">웹캠만 있으면 돼요 · 영상은 보내지 않아요</span>
+      <h1 style="margin-top:14px">내 자세를 기억하고,<br><span class="hl">흐트러질 때만</span> 톡!</h1>
+      <p class="lead">편하게 앉은 내 자세를 3초 동안 기억해 두고,<br>그 자세에서 멀어지면 코치 바로가 가볍게 알려드려요.</p>
+      <div class="ctas">
+        <button class="btn btn-primary btn-lg" data-go="s2">시작하기
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="btn btn-sun btn-lg" data-go="s4" aria-describedby="trial-note">30초 바로 체험</button>
+        <span class="badge-prop" id="trial-note">제안 · 부스 체험 모드</span>
+      </div>
+      <p class="help" style="margin-top:12px">이미 계정이 있나요? <button class="linkbtn" data-go="s3">로그인</button></p>
+      <div class="trust">
+        <span class="chip"><i></i>관절 좌표만 사용</span>
+        <span class="chip"><i></i>카메라는 직접 켤 때만</span>
+        <span class="chip"><i style="background:var(--unknown)"></i>의료기기가 아닌 자세 돌아보기 도구</span>
+      </div>
+    </div>
+    <div class="hero-art">
+      <div class="hero-blob">
+        <span class="spark" style="left:30px;top:40px"></span>
+        <span class="spark" style="right:40px;bottom:50px;animation-delay:.8s;background:var(--card)"></span>
+        <span class="spark" style="left:60px;bottom:30px;animation-delay:1.4s;background:var(--tert)"></span>
+        <div class="coach" data-coach="wave" data-skin="sun" id="heroCoach"></div>
+        <div class="bubble pop" id="heroBubble">안녕! 나는 자세 코치 <b style="color:var(--brand-text)">바로</b>야.<small>나를 눌러 봐!</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="steps3">
+    <div class="step3"><div class="n">1</div><div><b>편하게 앉아 3초</b><span>얼굴과 양쪽 어깨가 보이게 앉으면 지금 자세를 기준으로 기억해요.</span></div></div>
+    <div class="step3"><div class="n">2</div><div><b>멀어지면 톡</b><span>기준 자세에서 3초 넘게 멀어지면 화면과 소리로 가볍게 알려요.</span></div></div>
+    <div class="step3"><div class="n">3</div><div><b>오늘 얼마나 바르게?</b><span>바른 자세 비율과 알림 횟수를 시간대별로 확인해요.</span></div></div>
+  </div>
+</section>
+
+<!-- ═════════ 2. 회원가입 ═════════ -->
+<section class="screen" id="s2" aria-label="회원가입">
+  <div class="auth">
+    <aside class="auth-side">
+      <div class="top-brand"><img src="../../../../frontend/public/branding/posegood-icon.svg" alt=""><div><div class="brand-name">PoseGood</div><div class="brand-sub">바른자세 도우미</div></div></div>
+      <div class="side-copy"><h2>1분이면 끝나요.<br>세 걸음만 같이 가요!</h2><p style="margin-top:8px">약관 동의 → 계정 정보 → 자세 등록(선택)</p></div>
+      <div class="coach-stack">
+        <div class="bubble" id="signupBubble">필수 항목만 동의하면 돼요.<small>선택 항목은 안 해도 괜찮아요.</small></div>
+        <div class="coach" data-coach="happy" data-skin="sun" id="signupCoach"></div>
+      </div>
+    </aside>
+    <div class="auth-main">
+      <form class="auth-form" id="signupForm" novalidate>
+        <ol class="stepper" id="signupStepper" aria-label="회원가입 진행">
+          <li class="cur" aria-current="step"><span class="dot">1</span><span class="txt">약관 동의</span><span class="bar"></span></li>
+          <li><span class="dot">2</span><span class="txt">계정 정보</span><span class="bar"></span></li>
+          <li><span class="dot">3</span><span class="txt">자세 등록 <span class="opt">(선택)</span></span></li>
+        </ol>
+
+        <!-- 1/3 약관 -->
+        <div class="substep on" data-sub="1">
+          <div><h1>약관 동의</h1><p class="lead">필수 항목에는 모두 동의하고, 선택 항목은 동의 여부를 골라 주세요.</p></div>
+          <div class="consent-all" role="checkbox" aria-checked="false" tabindex="0" id="consentAll"><span class="cbox"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3L12.5 5" fill="none" stroke="var(--brand-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>전체 동의</div>
+          <div class="consent-list" id="consentList"></div>
+          <p class="err" id="consentErr" hidden>필수 항목이라 동의해야 가입할 수 있어요.</p>
+          <div class="form-foot">
+            <button type="button" class="btn btn-ghost" data-go="s3">로그인으로 돌아가기</button>
+            <button type="button" class="btn btn-primary" id="toStep2" aria-disabled="true">다음</button>
+          </div>
+        </div>
+
+        <!-- 2/3 계정 -->
+        <div class="substep" data-sub="2">
+          <div><h1>계정 정보</h1><p class="lead">계정 서버에 가입해요. 이메일은 이 화면에서 바로 인증해요.</p></div>
+          <div class="field">
+            <label class="label" for="suEmail">이메일</label>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="suEmail" type="email" autocomplete="username" maxlength="254" placeholder="name@example.com" value="booth@posegood" aria-invalid="true" aria-describedby="suEmailMsg">
+              <button type="button" class="btn btn-outline" id="sendCode" style="flex:none">인증 코드 받기</button>
+            </div>
+            <p class="err" id="suEmailMsg">이메일 형식을 확인해 주세요. 예) name@example.com</p>
+          </div>
+          <div class="verify-box" id="verifyBox" hidden>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="label">6자리 인증 코드</span>
+              <span class="help num" id="otpTimer">메일을 보냈어요 · 다시 요청 <b>0:30</b></span>
+            </div>
+            <div class="otp" id="otp" role="group" aria-label="6자리 인증 코드">
+              <input inputmode="numeric" maxlength="1" aria-label="1번째 숫자" autocomplete="one-time-code"><input inputmode="numeric" maxlength="1" aria-label="2번째 숫자"><input inputmode="numeric" maxlength="1" aria-label="3번째 숫자"><input inputmode="numeric" maxlength="1" aria-label="4번째 숫자"><input inputmode="numeric" maxlength="1" aria-label="5번째 숫자"><input inputmode="numeric" maxlength="1" aria-label="6번째 숫자">
+            </div>
+            <p class="help" id="otpMsg">시연: <b>123456</b>을 넣으면 인증 완료, 다른 숫자는 오류 예시예요.</p>
+          </div>
+          <div class="field">
+            <label class="label" for="suPw">비밀번호</label>
+            <div class="input-wrap">
+              <input class="input" id="suPw" type="password" autocomplete="new-password" maxlength="72" value="posture1" aria-describedby="pwRules">
+              <button type="button" class="icon-btn suffix" data-eye="suPw" aria-label="비밀번호 보기"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+            <div class="pw-check" id="pwRules"><ul><li data-r="len">12자 이상</li></ul><ul><li data-r="byte">UTF-8 72바이트 이하</li></ul></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label class="label" for="suName">이름</label><input class="input" id="suName" autocomplete="name" value="바른이"></div>
+            <div class="field" id="ageField"><label class="label" for="suAge">나이 <span class="opt">선택 동의 시</span></label><input class="input" id="suAge" inputmode="numeric" placeholder="14~120"></div>
+          </div>
+          <div class="field" id="jobField"><label class="label" for="suJob">직업 <span class="opt">선택 동의 시</span></label><input class="input" id="suJob" placeholder="예) 학생"></div>
+          <div class="alert-box error" id="signupErr" hidden role="alert"><span><b>가입하지 못했어요</b>이메일 인증을 먼저 마쳐 주세요.</span></div>
+          <div class="form-foot">
+            <button type="button" class="btn btn-ghost" data-sub-go="1">이전</button>
+            <button type="button" class="btn btn-primary" id="signupSubmit">다음</button>
+          </div>
+        </div>
+
+        <!-- 3/3 자세 -->
+        <div class="substep" data-sub="3">
+          <div><h1>자세 등록 <span class="chip" style="font-size:12px;vertical-align:middle">선택</span></h1><p class="lead">지금 등록하지 않아도 돼요. 측정하기에서 등록한 자세가 없으면 그때 3초 동안 등록해요.</p></div>
+          <div class="card" style="display:flex;gap:16px;align-items:center;background:var(--brand-soft);border:0;box-shadow:none">
+            <div class="coach" data-coach="cheer" style="width:96px;height:96px"></div>
+            <div><b style="font-size:18px">가입 완료! 반가워요, 바른이님</b><p class="help" style="margin-top:4px">카메라를 켜고 편하게 앉으면 3초 만에 내 기준 자세가 생겨요.</p></div>
+          </div>
+          <button type="button" class="btn btn-primary btn-lg btn-block" data-go="s4">카메라 켜고 자세 등록하기</button>
+          <button type="button" class="btn btn-ghost btn-block" data-go="s6">카메라 없이 넘어가기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 3. 로그인 ═════════ -->
+<section class="screen" id="s3" aria-label="로그인">
+  <div class="auth">
+    <aside class="auth-side">
+      <div class="top-brand"><img src="../../../../frontend/public/branding/posegood-icon.svg" alt=""><div><div class="brand-name">PoseGood</div><div class="brand-sub">바른자세 도우미</div></div></div>
+      <div class="side-copy"><h2>다시 왔네요!<br>오늘도 같이 앉아 볼까요?</h2></div>
+      <div class="coach-stack">
+        <div class="bubble" id="loginBubble">이메일과 비밀번호만 넣어 줘.<small>카메라는 측정할 때만 켜요.</small></div>
+        <div class="coach" data-coach="wave" data-skin="sun" id="loginCoach"></div>
+      </div>
+    </aside>
+    <div class="auth-main">
+      <form class="auth-form" id="loginForm" novalidate>
+        <div><h1>로그인</h1><p class="lead">가입한 이메일과 비밀번호로 로그인해요.</p></div>
+        <div class="alert-box error" id="loginErr" hidden role="alert"><span><b>로그인하지 못했어요</b>이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.</span></div>
+        <div class="field">
+          <label class="label" for="liEmail">이메일</label>
+          <input class="input" id="liEmail" type="email" autocomplete="username" maxlength="254" placeholder="name@example.com" value="booth@posegood.kr">
+        </div>
+        <div class="field">
+          <div style="display:flex;justify-content:space-between;align-items:center"><label class="label" for="liPw">비밀번호</label><button type="button" class="linkbtn" id="forgotBtn">비밀번호 찾기</button></div>
+          <div class="input-wrap">
+            <input class="input" id="liPw" type="password" autocomplete="current-password" maxlength="72" value="wrong-password">
+            <button type="button" class="icon-btn suffix" data-eye="liPw" aria-label="비밀번호 보기"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <p class="help" id="capsHint" hidden>Caps Lock이 켜져 있어요.</p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="loginBtn">로그인</button>
+        <div class="divider">또는 다른 계정으로 로그인</div>
+        <button type="button" class="btn btn-discord btn-lg btn-block" id="discordBtn"><img src="../../../../frontend/public/branding/social/discord.svg" alt="">Discord로 로그인</button>
+        <div class="social-row" style="margin-bottom:12px">
+          <button type="button" class="social-soon" data-soon="카카오" aria-label="카카오 로그인 (준비 중)"><img src="../../../../frontend/public/branding/social/kakao.svg" alt=""><span>준비 중</span></button>
+          <button type="button" class="social-soon" data-soon="Google" aria-label="Google 로그인 (준비 중)"><img src="../../../../frontend/public/branding/social/google.svg" alt=""><span>준비 중</span></button>
+          <button type="button" class="social-soon" data-soon="GitHub" aria-label="GitHub 로그인 (준비 중)"><img src="../../../../frontend/public/branding/social/github.svg" alt=""><span>준비 중</span></button>
+        </div>
+        <p class="help" style="text-align:center">처음이에요? <button type="button" class="linkbtn" data-go="s2">회원가입</button></p>
+        <div class="demo-switch"><b>시연</b>로그인을 누르면 로딩 → 오류 예시. 비밀번호를 <code>posegood-booth</code>로 바꾸면 성공해 측정으로 이동해요.</div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 앱 셸 사이드바 템플릿(4~6 공통) ═════════ -->
+<template id="sideTpl">
+  <aside class="side">
+    <div class="top-brand"><img src="../../../../frontend/public/branding/posegood-icon.svg" alt=""><div><div class="brand-name" style="font-size:16px">PoseGood</div><div class="brand-sub">바른자세 도우미</div></div></div>
+    <nav class="nav" aria-label="주요 화면">
+      <button data-go="s5" data-nav="measure"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>측정하기<span class="nav-live" hidden></span></button>
+      <button data-go="s6" data-nav="today"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>오늘</button>
+      <button data-toast="기록(잔디·달력)은 이번 시안 범위 밖이에요. 현재 구조를 그대로 써요."><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>기록</button>
+      <button data-toast="설정은 이번 시안 범위 밖이에요."><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg>설정</button>
+    </nav>
+    <div class="side-goal">
+      <div style="display:flex;justify-content:space-between;align-items:center">오늘의 목표 <span class="badge-prop" style="font-size:10px">제안</span></div>
+      <b class="num"><span class="goalNow">42</span> / 60분</b>
+      <div class="meter"><i class="goalBar" style="width:70%"></i></div>
+      <div style="margin-top:6px;color:var(--side-sub)">바른 자세로 앉은 시간</div>
+    </div>
+    <button class="me" data-toast="계정 메뉴: 프로필 설정 · 로그아웃 (현재 구조 유지)"><span class="av">바</span>바른이</button>
+  </aside>
+</template>
+
+<!-- ═════════ 4. 첫 설정 ═════════ -->
+<section class="screen" id="s4" aria-label="첫 설정">
+  <div class="app">
+    <div data-side="measure"></div>
+    <div class="main">
+      <div class="page-head">
+        <div><h1>첫 설정 · 기준 자세 만들기</h1><p>카메라 연결 → 얼굴·어깨 확인 → 3초 기준 자세 등록</p></div>
+        <div class="tabs-list" role="tablist" aria-label="시연 상태">
+          <button role="tab" aria-selected="true" data-setup="perm">권한 안내</button>
+          <button role="tab" aria-selected="false" data-setup="denied">권한 거부</button>
+          <button role="tab" aria-selected="false" data-setup="align">위치 맞추기</button>
+          <button role="tab" aria-selected="false" data-setup="count">3초 등록</button>
+        </div>
+      </div>
+      <div class="setup">
+        <div class="cam" id="setupCam" style="aspect-ratio:4/3">
+          <span class="label-live" id="setupLive" hidden><i></i>카메라 켜짐 · 영상은 저장하지 않아요</span>
+          <svg class="sil" viewBox="0 0 400 300" aria-hidden="true" id="setupSil"></svg>
+          <div class="checks" id="setupChecks" hidden><span data-c="face">얼굴</span><span data-c="sl">왼쪽 어깨</span><span data-c="sr">오른쪽 어깨</span></div>
+          <div class="cam-msg on" id="permMsg">
+            <div class="coach" data-coach="wave" style="width:110px;height:110px"></div>
+            <b>카메라를 켜 주세요</b>
+            <span>얼굴과 양쪽 어깨가 보이면 준비가 시작돼요. 영상은 기기 밖으로 보내지 않고, 관절 좌표만 사용해요.</span>
+            <button class="btn btn-sun btn-lg" id="camOn" style="margin-top:6px">카메라 켜기</button>
+          </div>
+          <div class="cam-msg" id="deniedMsg">
+            <div class="coach" data-coach="unknown" style="width:96px;height:96px"></div>
+            <b>카메라 권한이 꺼져 있어요</b>
+            <span>사이트 권한에서 카메라를 허용한 뒤 「다시 연결」을 눌러 주세요. 기록은 카메라 없이도 볼 수 있어요.</span>
+            <button class="btn btn-outline" id="camRetry" style="color:var(--ink)">다시 연결</button>
+          </div>
+          <div class="countdown" id="countdown"><div class="cd-ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.18)" stroke-width="12"/><circle id="cdProg" cx="110" cy="110" r="96" fill="none" stroke="var(--sun)" stroke-width="12" stroke-linecap="round" stroke-dasharray="603" stroke-dashoffset="0"/></svg><div class="num" id="cdNum">3</div></div></div>
+          <div class="capture-bar" id="captureBar"><div class="t"><span>기준 자세를 기억하는 중</span><span class="num" id="capLeft">3초 남았어요</span></div><div class="meter"><i id="capFill" style="width:0%"></i></div></div>
+          <div class="confetti" id="confetti"></div>
+          <div class="cam-frame"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-head"><span class="card-title">준비 단계</span><span class="chip num" id="setupPct">0/3</span></div>
+            <div class="setup-steps" id="setupSteps">
+              <div class="sstep cur"><span class="dot">1</span><div>카메라 연결<small>카메라 켜기를 눌러요</small></div></div>
+              <div class="sstep"><span class="dot">2</span><div>얼굴·어깨 확인<small>점선은 거리에 맞춰 따라와요</small></div></div>
+              <div class="sstep"><span class="dot">3</span><div>기준 자세 등록<small>3초 뒤 시작해 3초 동안 기억</small></div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px">
+            <div class="coach-row">
+              <div class="coach" data-coach="happy" id="setupCoach" style="width:72px;height:72px"></div>
+              <div class="bubble" id="setupBubble" style="font-size:14px">준비됐으면 카메라 켜기!<small>억지로 꼿꼿할 필요 없어요. 평소처럼 편하게.</small></div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" id="setupStart" disabled data-go="s5">측정 시작</button>
+          <button class="btn btn-ghost btn-block" id="setupCancel">등록 취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 5. 측정 ═════════ -->
+<section class="screen" id="s5" aria-label="측정">
+  <div class="app" id="liveRoot" data-st="good">
+    <div data-side="measure"></div>
+    <div class="main">
+      <div class="state-switch" role="group" aria-label="시연: 측정 상태 바꾸기">
+        <span class="lbl">시연 상태</span>
+        <button data-st="good" aria-pressed="true"><i style="background:var(--good)"></i>정상</button>
+        <button data-st="caution" aria-pressed="false"><i style="background:var(--caution)"></i>흐트러지는 중</button>
+        <button data-st="alert" aria-pressed="false"><i style="background:var(--alert)"></i>흐트러짐 알림</button>
+        <button data-st="unknown" aria-pressed="false"><i style="background:var(--unknown)"></i>측정 불가</button>
+        <button data-st="connecting" aria-pressed="false"><i style="background:var(--link)"></i>연결 중</button>
+        <button data-st="stalled" aria-pressed="false"><i style="background:var(--stall)"></i>연결 끊김</button>
+        <button data-st="denied" aria-pressed="false"><i style="background:transparent;box-shadow:inset 0 0 0 2px var(--unknown)"></i>카메라 거부</button>
+        <button data-st="nobase" aria-pressed="false"><i style="background:var(--todo)"></i>기준 미등록</button>
+      </div>
+      <div class="live">
+        <div class="live-cam-wrap">
+          <div class="status-banner" role="status" aria-live="polite">
+            <div class="coach" data-coach="happy" id="liveCoach"></div>
+            <div><h2 id="stTitle">바른 자세예요</h2><p id="stDesc">이대로 쭉! 기준 자세와 비슷하게 앉아 있어요.</p></div>
+            <span class="st-ic" id="stTag">● 측정 중</span>
+          </div>
+          <div class="cam" id="liveCam">
+            <span class="label-live"><i></i>관절 표시 · 영상은 보내지 않아요</span>
+            <svg class="sil" viewBox="0 0 400 300" aria-hidden="true" id="liveSil"></svg>
+            <div class="cam-msg" id="liveMsg"><div class="coach" data-coach="unknown" style="width:90px;height:90px" id="liveMsgCoach"></div><b id="liveMsgT"></b><span id="liveMsgD"></span><button class="btn btn-outline" id="liveMsgBtn" style="color:var(--ink)" hidden></button></div>
+            <div class="nudge" id="nudge" role="alert"><div class="coach" data-coach="alert"></div><div><b>자세를 살짝 고쳐볼까요?</b><span>바른 자세로 돌아오면 사라져요.</span></div><button class="btn btn-sm btn-primary" id="fixBtn" style="margin-left:auto">고쳤어요</button></div>
+            <div class="hifive" id="hifive"><div>하이파이브! 다시 바르게 ✋</div></div>
+            <div class="confetti" id="liveConfetti"></div>
+            <div class="cam-frame"></div>
+          </div>
+          <div class="live-ctrl">
+            <span class="clock">측정 · <b class="num" id="clock">00:12:48</b></span>
+            <button class="btn btn-outline btn-sm" id="pauseBtn">잠시 쉬기</button>
+            <button class="icon-btn" id="soundBtn" aria-label="알림 소리 끄기" style="border:1px solid var(--line);background:var(--card)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path id="soundWave" d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></button>
+            <button class="btn btn-danger-soft btn-sm" data-go="s6">측정 종료</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <section class="card score-card" aria-label="자세 점수">
+            <div class="ring"><svg viewBox="0 0 176 176"><circle cx="88" cy="88" r="74" fill="none" stroke="var(--fill)" stroke-width="16"/><circle class="prog" id="scoreRing" cx="88" cy="88" r="74" fill="none" stroke="var(--good)" stroke-width="16" stroke-linecap="round" stroke-dasharray="465" stroke-dashoffset="60"/></svg><div class="val"><b class="num" id="scoreVal">87</b><span>자세 점수</span></div></div>
+            <p class="score-desc">내 기준 자세와 얼마나 비슷한지예요.<br>의학적 점수나 정확도가 아니에요.</p>
+          </section>
+          <section class="card streak" id="streakCard" aria-label="연속 바른 자세">
+            <div style="display:flex;justify-content:space-between;align-items:center"><small>연속 바른 자세</small><span class="badge-prop">제안</span></div>
+            <div class="big num"><svg class="flame" viewBox="0 0 24 24"><path d="M12 2c1 4 5 5.5 5 10.5A5 5 0 0 1 7 12.5C7 9.5 9 8 9 5.5c1.5 1 2 2.5 2 4C12.5 8 12 5 12 2z" fill="var(--flame)"/><path d="M12 13c.5 1.6 2.3 2.2 2.3 4a2.3 2.3 0 0 1-4.6 0c0-1.2.9-1.7 1-2.7.7.4 1 1 1.3-1.3z" fill="var(--flame-core)"/></svg><span id="streak">04:12</span></div>
+            <small id="streakNote">오늘 최고 <b class="num">14:32</b> · 흐트러짐 알림이 뜨면 다시 0부터</small>
+          </section>
+          <section class="card">
+            <div class="card-head" style="margin-bottom:8px"><span class="card-title">이번 측정</span></div>
+            <div class="stat-list">
+              <div>바른 자세 유지<b class="num" id="keepRate">82%</b></div>
+              <div>측정한 시간<b class="num" id="validTime">12분 31초</b></div>
+              <div>알림<b class="num" id="alertCount">2회</b></div>
+            </div>
+            <p class="help" style="margin-top:10px;font-size:12px;line-height:18px">3초 넘게 멀어지면 확정 · 3초 바르게 앉으면 복귀 · 같은 일은 60초 뒤 다시 알림</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 6. 오늘 기록 ═════════ -->
+<section class="screen" id="s6" aria-label="오늘 기록">
+  <div class="app">
+    <div data-side="today"></div>
+    <div class="main">
+      <div class="page-head">
+        <div><h1>오늘의 기록</h1><p>11월 24일 화요일 · 한국 시간 00시 기준</p></div>
+        <button class="btn btn-primary" data-go="s5">측정 시작</button>
+      </div>
+      <div class="today">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <section class="card today-hero" aria-label="오늘 요약">
+            <div class="ring"><svg viewBox="0 0 188 188"><circle cx="94" cy="94" r="80" fill="none" stroke="var(--fill)" stroke-width="16"/><circle class="prog" cx="94" cy="94" r="80" fill="none" stroke="var(--good)" stroke-width="16" stroke-linecap="round" stroke-dasharray="502.7" stroke-dashoffset="110.6" id="todayRing"/></svg><div class="val"><b class="num">78<small style="font-size:18px">%</small></b><span>바른 자세</span></div></div>
+            <div class="today-stats">
+              <div><b class="num">1시간 12분</b><span>측정</span></div>
+              <div><b class="num">6회</b><span>알림</span></div>
+              <div><b class="num">3회</b><span>세션</span></div>
+            </div>
+            <div class="coach-say"><div class="coach" data-coach="cheer"></div><p>오후 2시가 제일 바른 시간이었어요! 저녁엔 자주 기울었네요.</p></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><span class="card-title">작은 배지</span><span class="badge-prop">제안</span></div>
+            <div class="badges">
+              <div class="bdg got" tabindex="0" title="기준 자세를 처음 등록했어요"><span class="medal">1</span>첫 기준 자세</div>
+              <div class="bdg got" tabindex="0" title="연속 10분 바른 자세"><span class="medal">10</span>10분 연속</div>
+              <div class="bdg got" tabindex="0" title="알림 뒤 10초 안에 바르게"><span class="medal">⚡</span>빠른 복귀</div>
+              <div class="bdg lock" tabindex="0" title="3일 연속으로 측정하면 열려요"><span class="medal">3</span>3일 연속</div>
+            </div>
+          </section>
+        </div>
+        <div class="right-col">
+          <section class="card" aria-label="시간대 그래프">
+            <div class="card-head"><span class="card-title">시간대별 측정</span>
+              <div class="legend"><span><i style="background:var(--good)"></i>바른 자세</span><span><i style="background:var(--alert)"></i>흐트러짐</span><span><i style="background:var(--unknown-bar)"></i>측정 불가(집계 제외)</span></div></div>
+            <div class="chart" id="chart"><svg id="chartSvg" viewBox="0 0 720 220" role="img" aria-label="9시부터 22시까지 시간대별 측정 분. 14시가 가장 바른 자세 비율이 높아요."></svg><div class="tip" id="chartTip"></div></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><span class="card-title">최근 측정</span><span class="card-note">세션 3개</span></div>
+            <div class="sess" id="sessList"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- 동의 자세히 Dialog -->
+<div class="overlay" id="consentDlg" role="dialog" aria-modal="true" aria-labelledby="cdTitle" aria-describedby="cdDesc">
+  <div class="dialog">
+    <button class="icon-btn close" data-close aria-label="닫기"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h3 id="cdTitle">항목</h3>
+    <p class="desc" id="cdDesc">내용</p>
+    <dl class="dl" id="cdList"></dl>
+    <div class="dialog-foot"><button class="btn btn-outline" data-close>닫기</button><button class="btn btn-primary" id="cdAgree">동의</button></div>
+  </div>
+</div>
+<!-- 비밀번호 찾기 Dialog -->
+<div class="overlay" id="forgotDlg" role="dialog" aria-modal="true" aria-labelledby="fgTitle">
+  <div class="dialog">
+    <button class="icon-btn close" data-close aria-label="닫기"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h3 id="fgTitle">비밀번호 찾기</h3>
+    <p class="desc">가입한 이메일로 받은 링크로 본인을 확인해요.</p>
+    <div class="field" style="margin-top:16px"><label class="label" for="fgEmail">이메일</label><input class="input" id="fgEmail" type="email" placeholder="name@example.com"></div>
+    <p class="okmsg" id="fgOk" hidden style="margin-top:10px">가입된 이메일이라면 비밀번호 찾기 안내를 보내드려요. 메일의 링크를 열어 주세요.</p>
+    <div class="dialog-foot"><button class="btn btn-ghost" data-close>돌아가기</button><button class="btn btn-primary" id="fgSend">비밀번호 찾기 메일 받기</button></div>
+  </div>
+</div>
+<div class="toast-zone" id="toasts" aria-live="polite"></div>
+
+<script>
+/* ───────────── 유틸 ───────────── */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;$('#toasts').append(t);setTimeout(()=>t.remove(),2800)}
+const timers=new Set();
+function later(fn,ms){const id=setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id);return id}
+function clearLater(){timers.forEach(clearTimeout);timers.clear()}
+
+/* ───────────── 코치 「바로」 (단순 도형) ───────────── */
+function coachSVG(mood,skin){
+  const gray=mood==='unknown'||mood==='sleepy', sun=skin==='sun'&&!gray;
+  // 몸 색은 배색 토큰을 따른다(배색을 바꾸면 다시 그리지 않아도 바로 바뀜)
+  const body=gray?'var(--bot-gray)':sun?'var(--bot2)':'var(--bot)', bodyDark=gray?'var(--bot-gray-dark)':sun?'var(--bot2-dark)':'var(--bot-dark)';
+  const ant=gray?'var(--bot-gray-ant)':sun?'var(--bot2-ant)':'var(--bot-ant)';
+  let eyes, mouth, brows='', extra='', armL='M26 70 Q14 76 16 88', armR='M94 70 Q106 76 104 88';
+  switch(mood){
+    case 'happy': case 'wave':
+      eyes='<path d="M46 60q5-6 10 0M66 60q5-6 10 0" stroke="var(--bot-eye)" stroke-width="3.6" fill="none" stroke-linecap="round"/>';
+      mouth='<path d="M52 72q9 8 18 0" stroke="var(--bot-eye)" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
+      if(mood==='wave') armR='M94 68 Q108 56 106 42';
+      break;
+    case 'cheer':
+      eyes='<path d="M46 61q5-7 10 0M66 61q5-7 10 0" stroke="var(--bot-eye)" stroke-width="3.6" fill="none" stroke-linecap="round"/>';
+      mouth='<path d="M50 70q11 13 22 0z" fill="var(--bot-eye)"/><path d="M55 76q6 4 12 0" fill="var(--bot-cheek)"/>';
+      armL='M26 68 Q12 56 14 42'; armR='M94 68 Q108 56 106 42';
+      extra='<g fill="var(--sun)"><path d="M14 30l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M106 22l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z"/></g>';
+      break;
+    case 'caution':
+      eyes='<g class="blink"><circle cx="51" cy="60" r="4.2" fill="var(--bot-eye)"/><circle cx="71" cy="60" r="4.2" fill="var(--bot-eye)"/></g>';
+      mouth='<path d="M53 74q8-3 16 0" stroke="var(--bot-eye)" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
+      brows='<path d="M45 50l10 2M77 50l-10 2" stroke="var(--bot-eye)" stroke-width="3" stroke-linecap="round"/>';
+      break;
+    case 'alert':
+      eyes='<circle cx="51" cy="61" r="5" fill="var(--bot-eye)"/><circle cx="71" cy="61" r="5" fill="var(--bot-eye)"/><circle cx="52.5" cy="59.5" r="1.6" fill="var(--bot-face)"/><circle cx="72.5" cy="59.5" r="1.6" fill="var(--bot-face)"/>';
+      mouth='<ellipse cx="61" cy="76" rx="5" ry="6" fill="var(--bot-eye)"/>';
+      brows='<path d="M44 52l11-4M78 52l-11-4" stroke="var(--bot-eye)" stroke-width="3" stroke-linecap="round"/>';
+      extra='<path d="M100 36q4 8 0 12q-4-4 0-12z" fill="var(--bot-sweat)"/>';
+      armL='M26 70 Q16 64 20 54';
+      break;
+    case 'unknown': case 'sleepy':
+      eyes='<path d="M46 61h10M66 61h10" stroke="var(--bot-eye)" stroke-width="3.4" stroke-linecap="round"/>';
+      mouth='<path d="M55 74h12" stroke="var(--bot-eye)" stroke-width="3.2" stroke-linecap="round"/>';
+      extra='<g><circle cx="100" cy="30" r="13" fill="var(--bot-face)" stroke="var(--unknown-line)" stroke-width="2.5"/><text x="100" y="36" text-anchor="middle" font-size="17" font-weight="800" fill="var(--unknown-ink)" font-family="Pretendard,sans-serif">?</text></g>';
+      break;
+    default:
+      eyes='<g class="blink"><circle cx="51" cy="60" r="4.2" fill="var(--bot-eye)"/><circle cx="71" cy="60" r="4.2" fill="var(--bot-eye)"/></g>';
+      mouth='<path d="M54 72q7 5 14 0" stroke="var(--bot-eye)" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
+  }
+  return `<svg viewBox="0 0 120 120" aria-hidden="true"><ellipse cx="60" cy="112" rx="30" ry="5" fill="var(--bot-shadow)"/>
+  <g class="bob"><g class="tilt">
+    <g class="antenna"><path d="M60 28V12" stroke="${bodyDark}" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="10" r="7" fill="${ant}"/></g>
+    <path d="${armL}" stroke="${bodyDark}" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path class="arm-r" d="${armR}" stroke="${bodyDark}" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <rect x="24" y="26" width="72" height="82" rx="32" fill="${body}"/>
+    <rect x="25.5" y="27.5" width="69" height="79" rx="30.5" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="3"/>
+    <ellipse cx="61" cy="64" rx="27" ry="22" fill="var(--bot-face)"/>
+    <circle cx="41" cy="72" r="4.5" fill="var(--bot-cheek)" opacity="${gray?0:.8}"/><circle cx="81" cy="72" r="4.5" fill="var(--bot-cheek)" opacity="${gray?0:.8}"/>
+    ${brows}${eyes}${mouth}
+    <rect x="44" y="92" width="34" height="6" rx="3" fill="rgba(255,255,255,.28)"/>
+  </g></g>${extra}</svg>`;
+}
+function setCoach(el,mood){if(!el)return;el.dataset.mood=mood;el.innerHTML=coachSVG(mood,el.dataset.skin)}
+function initCoaches(root=document){$$('[data-coach]',root).forEach(el=>setCoach(el,el.dataset.coach))}
+
+/* ───────────── 실루엣 ───────────── */
+function silSVG(opts={}){
+  const c=opts.color||'var(--cam-ink)', g=opts.guide!==false;
+  return `${g?'<ellipse class="guide" cx="200" cy="112" rx="46" ry="56"/><path class="guide" d="M110 250 Q120 190 200 182 Q280 190 290 250"/>':''}
+  <g class="person" style="opacity:${opts.dim?.35:1}">
+    <path d="M96 300 Q104 206 200 196 Q296 206 304 300Z" fill="rgba(255,255,255,.10)"/>
+    <ellipse cx="200" cy="118" rx="40" ry="50" fill="rgba(255,255,255,.12)"/>
+    <g stroke="${c}" stroke-width="2.5" stroke-dasharray="4 5" opacity=".85"><path d="M132 214L268 214"/><path d="M200 140L200 214"/><path d="M186 104L214 104"/></g>
+    <circle class="joint" cx="186" cy="104" r="5" fill="${c}"/><circle class="joint" cx="214" cy="104" r="5" fill="${c}"/>
+    <circle class="joint" cx="200" cy="124" r="5" fill="${c}"/><circle class="joint" cx="172" cy="114" r="4" fill="${c}"/><circle class="joint" cx="228" cy="114" r="4" fill="${c}"/>
+    <circle class="joint" cx="132" cy="214" r="7" fill="${c}"/><circle class="joint" cx="268" cy="214" r="7" fill="${c}"/>
+  </g>`;
+}
+
+/* ───────────── 화면 전환 ───────────── */
+const order=['s1','s2','s3','s4','s5','s6'];
+let cur='s1';
+function go(id,{push=true}={}){
+  if(!order.includes(id))return;
+  clearLater(); stopLive();
+  cur=id;
+  $$('.screen').forEach(s=>s.classList.toggle('on',s.id===id));
+  $$('.mock-tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.go===id));
+  if(push) history.replaceState(null,'','#/'+id);
+  window.scrollTo({top:0});
+  if(id==='s4') setupState('perm');
+  if(id==='s5') startLive();
+  if(id==='s6') drawToday();
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]'); if(g){e.preventDefault();go(g.dataset.go);return}
+  const t=e.target.closest('[data-toast]'); if(t){toast(t.dataset.toast)}
+});
+document.addEventListener('keydown',e=>{
+  if($('.overlay.on')){if(e.key==='Escape')closeDlg();return}
+  const tag=(document.activeElement||{}).tagName;
+  if(tag==='INPUT')return;
+  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
+    if(document.activeElement&&document.activeElement.closest('.tabs-list,.seg,.state-switch'))return;
+    const i=order.indexOf(cur)+(e.key==='ArrowRight'?1:-1);
+    if(i>=0&&i<order.length){go(order[i]);const b=$(`.mock-tabs [data-go=${order[i]}]`);if(document.activeElement&&document.activeElement.closest('.mock-tabs'))b.focus()}
+  }
+});
+
+/* 사이드바 복제 */
+$$('[data-side]').forEach(slot=>{
+  const n=$('#sideTpl').content.firstElementChild.cloneNode(true);
+  const key=slot.dataset.side;
+  $$('.nav button',n).forEach(b=>{if(b.dataset.nav===key)b.setAttribute('aria-current','page')});
+  slot.replaceWith(n);
+});
+
+/* ───────────── 1. 웰컴 ───────────── */
+const heroLines=[['안녕! 나는 자세 코치 <b style="color:var(--brand-text)">바로</b>야.','나를 눌러 봐!'],['내 머리 위 더듬이 보여?','네가 기울면 나도 같이 기울어져.'],['3초면 네 자세를 기억할 수 있어.','30초면 직접 해볼 수 있어!'],['영상은 안 가져가.','관절 점 몇 개만 볼게.']];
+let heroI=0;
+$('#heroCoach').addEventListener('click',()=>{
+  heroI=(heroI+1)%heroLines.length;
+  const b=$('#heroBubble');b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');
+  b.innerHTML=`${heroLines[heroI][0]}<small>${heroLines[heroI][1]}</small>`;
+  setCoach($('#heroCoach'),heroI===1?'caution':'cheer');later(()=>setCoach($('#heroCoach'),'wave'),1200);
+});
+$('#heroCoach').setAttribute('role','button');$('#heroCoach').setAttribute('tabindex','0');$('#heroCoach').setAttribute('aria-label','코치 바로에게 말 걸기');
+$('#heroCoach').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.currentTarget.click()}});
+
+/* ───────────── 2. 회원가입 ───────────── */
+const CONSENTS=[
+  {id:'C6',title:'만 14세 이상이에요',req:true},
+  {id:'C1',title:'서비스 이용약관',req:true,desc:'PoseGood 이용 규칙. 의료기기가 아니며 자세를 돌아보도록 돕는 보조 도구예요.',items:'없음',keep:'이용하는 동안'},
+  {id:'C2',title:'회원가입 정보 수집·이용',req:true,desc:'로그인과 계정 관리',items:'이메일, 비밀번호(복원할 수 없는 형태로 저장), 이름',keep:'탈퇴 후 30일'},
+  {id:'C4',title:'카메라 관절 좌표 수집·이용',req:true,note:'영상·사진은 기기 밖으로 보내지 않아요.',desc:'자세 판정과 알림',items:'관절 9곳(코·눈·귀·입 양끝·어깨)의 화면 좌표와 시각',keep:'탈퇴 후 30일'},
+  {id:'C5',title:'측정 기록 저장',req:true,desc:'결과·기록·통계 화면',items:'측정 세션, 자세 이탈 기록, 알림 기록, 일별 통계, 등록한 자세',keep:'탈퇴 후 30일'},
+  {id:'C3',title:'선택 정보(나이·직업) 수집·이용',req:false,desc:'사용자 환경별 통계',items:'나이, 직업',keep:'탈퇴 후 30일'},
+];
+const consent={};
+function renderConsents(){
+  $('#consentList').innerHTML=CONSENTS.map(c=>`<div class="consent-item">
+    <span class="t">${c.title}<em class="${c.req?'req':'optl'}">${c.req?'필수':'선택'}</em></span>
+    <div class="seg" role="group" aria-label="${c.title} 동의 여부">
+      <button type="button" class="yes" data-c="${c.id}" data-v="1" aria-pressed="${consent[c.id]===true}">동의</button>
+      <button type="button" data-c="${c.id}" data-v="0" aria-pressed="${consent[c.id]===false}">비동의</button></div>
+    ${c.desc?`<button type="button" class="linkbtn" data-detail="${c.id}">자세히</button>`:'<span></span>'}
+    ${c.note?`<span class="note">${c.note}</span>`:''}</div>`).join('');
+  const allReq=CONSENTS.filter(c=>c.req).every(c=>consent[c.id]===true);
+  const allChosen=CONSENTS.every(c=>consent[c.id]!==undefined);
+  const all=CONSENTS.every(c=>consent[c.id]===true);
+  $('#consentAll').classList.toggle('on',all);$('#consentAll').setAttribute('aria-checked',all);
+  $('#toStep2').setAttribute('aria-disabled',!(allReq&&allChosen));
+  const refused=CONSENTS.some(c=>c.req&&consent[c.id]===false);
+  $('#consentErr').hidden=!refused;
+  const opt=consent.C3===true;
+  $('#ageField').style.display=opt?'':'none';$('#jobField').style.display=opt?'':'none';
+  if(refused) say('signup','worried','필수 항목이라 동의가 필요해요.','동의하지 않으면 가입할 수 없어요.');
+  else if(allReq&&allChosen) say('signup','cheer','좋아요, 준비 끝!','「다음」을 눌러 주세요.');
+}
+function say(which,mood,t,s){
+  const map={signup:['#signupCoach','#signupBubble'],login:['#loginCoach','#loginBubble'],setup:['#setupCoach','#setupBubble']}[which];
+  setCoach($(map[0]),mood==='worried'?'caution':mood);
+  const b=$(map[1]);b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');b.innerHTML=`${t}${s?`<small>${s}</small>`:''}`;
+}
+$('#consentList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-c]');if(b){consent[b.dataset.c]=b.dataset.v==='1';renderConsents();$(`[data-c=${b.dataset.c}][data-v="${b.dataset.v}"]`).focus();return}
+  const d=e.target.closest('[data-detail]');if(d)openConsent(d.dataset.detail,d);
+});
+function toggleAll(){const on=!CONSENTS.every(c=>consent[c.id]===true);CONSENTS.forEach(c=>consent[c.id]=on?true:undefined);if(!on)CONSENTS.forEach(c=>delete consent[c.id]);renderConsents();if(on)$('#toStep2').focus()}
+$('#consentAll').addEventListener('click',toggleAll);
+$('#consentAll').addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();toggleAll()}});
+$('#toStep2').addEventListener('click',()=>{
+  if($('#toStep2').getAttribute('aria-disabled')==='true'){
+    const missing=CONSENTS.filter(c=>consent[c.id]===undefined).length;
+    toast(missing?`아직 고르지 않은 항목이 ${missing}개 있어요.`:'필수 항목에 모두 동의해 주세요.');return}
+  subGo(2);
+});
+function subGo(n){
+  $$('.substep').forEach(s=>s.classList.toggle('on',s.dataset.sub==n));
+  $$('#signupStepper li').forEach((li,i)=>{li.className=i+1<n?'done':i+1===n?'cur':'';li.toggleAttribute('aria-current',i+1===n);if(i+1===n)li.setAttribute('aria-current','step')});
+  if(n===1) say('signup','happy','필수 항목만 동의하면 돼요.','선택 항목은 안 해도 괜찮아요.');
+  if(n===2){say('signup','happy','이메일부터 확인할게요.','인증 코드는 이 화면에서 바로 넣어요.');validateEmail()}
+  if(n===3){say('signup','cheer','가입 완료! 반가워요.','이제 3초만 같이 앉아 볼까요?');burst($('#signupForm'))}
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-sub-go]');if(b)subGo(+b.dataset.subGo)});
+
+/* 이메일·인증 */
+let verified=false, cool=0, coolT;
+function validateEmail(){
+  const v=$('#suEmail').value.trim(), ok=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v), m=$('#suEmailMsg');
+  $('#suEmail').setAttribute('aria-invalid',v&&!ok?'true':'false');
+  $('#suEmail').classList.toggle('ok',verified);
+  if(verified){m.className='okmsg';m.textContent='✓ 이메일 인증 완료';}
+  else if(v&&!ok){m.className='err';m.textContent='이메일 형식을 확인해 주세요. 예) name@example.com'}
+  else{m.className='help';m.textContent='인증 코드 6자리를 메일로 보내드려요.'}
+  $('#sendCode').disabled=!ok||cool>0||verified;
+  return ok;
+}
+$('#suEmail').addEventListener('input',()=>{verified=false;validateEmail()});
+$('#sendCode').addEventListener('click',()=>{
+  if(!validateEmail())return;
+  const b=$('#sendCode');b.innerHTML='<span class="spin"></span>보내는 중…';b.disabled=true;
+  later(()=>{b.textContent='다시 받기';$('#verifyBox').hidden=false;$$('#otp input')[0].focus();
+    say('signup','happy','메일함을 확인해 주세요!','6자리 코드를 넣으면 바로 확인돼요.');
+    cool=30;clearInterval(coolT);coolT=setInterval(()=>{cool--;$('#otpTimer').innerHTML=cool>0?`메일을 보냈어요 · 다시 요청 <b class="num">0:${String(cool).padStart(2,'0')}</b>`:'메일이 안 왔나요? 「다시 받기」를 눌러 주세요.';if(cool<=0)clearInterval(coolT);validateEmail()},1000);
+  },900);
+});
+$$('#otp input').forEach((inp,i,arr)=>{
+  inp.addEventListener('input',()=>{inp.value=inp.value.replace(/\D/g,'').slice(-1);inp.classList.toggle('filled',!!inp.value);if(inp.value&&arr[i+1])arr[i+1].focus();checkOtp()});
+  inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&arr[i-1]){arr[i-1].focus()}if(e.key==='ArrowLeft'&&arr[i-1])arr[i-1].focus();if(e.key==='ArrowRight'&&arr[i+1])arr[i+1].focus()});
+  inp.addEventListener('paste',e=>{const d=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);if(!d)return;e.preventDefault();arr.forEach((x,j)=>{x.value=d[j]||'';x.classList.toggle('filled',!!x.value)});checkOtp()});
+});
+function checkOtp(){
+  const code=$$('#otp input').map(i=>i.value).join(''),box=$('#otp'),m=$('#otpMsg');
+  box.classList.remove('ok','bad');
+  if(code.length<6){m.className='help';m.innerHTML='시연: <b>123456</b>을 넣으면 인증 완료, 다른 숫자는 오류 예시예요.';return}
+  m.className='help';m.innerHTML='<span class="spin" style="display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite;vertical-align:-1px"></span> 확인하는 중…';
+  later(()=>{
+    if(code==='123456'){box.classList.add('ok');verified=true;m.className='okmsg';m.textContent='이메일 인증이 완료됐어요.';$$('#otp input').forEach(i=>i.disabled=true);validateEmail();say('signup','cheer','인증 완료!','이제 비밀번호만 정하면 돼요.');$('#signupErr').hidden=true;clearInterval(coolT);later(()=>{$('#verifyBox').hidden=true;$('#sendCode').textContent='인증 완료'},900)}
+    else{void box.offsetWidth;box.classList.add('bad');m.className='err';m.textContent='인증 코드가 맞지 않아요. 메일의 6자리 숫자를 다시 확인해 주세요.';say('signup','worried','앗, 숫자가 달라요.','메일의 코드를 다시 봐 주세요.')}
+  },600);
+}
+/* 비밀번호 */
+function pwCheck(){
+  const v=$('#suPw').value,bytes=new TextEncoder().encode(v).length;
+  const len=v.length>=12, byte=bytes<=72&&bytes>0;
+  $('[data-r=len]').classList.toggle('ok',len);$('[data-r=byte]').classList.toggle('ok',byte);
+  $('#suPw').setAttribute('aria-invalid',v&&!len?'true':'false');$('#suPw').classList.toggle('ok',len&&byte);
+  return len&&byte;
+}
+$('#suPw').addEventListener('input',pwCheck);pwCheck();
+$('#signupSubmit').addEventListener('click',()=>{
+  const okE=validateEmail(), okP=pwCheck(), okN=$('#suName').value.trim().length>0;
+  let age=$('#suAge').value.trim(), okA=consent.C3!==true||!age||(/^\d+$/.test(age)&&+age>=14&&+age<=120);
+  $('#suAge').setAttribute('aria-invalid',!okA);
+  const err=$('#signupErr');
+  if(!okE||!okP||!okN||!okA){err.hidden=false;err.innerHTML=`<span><b>확인할 칸이 있어요</b>${[!okE&&'이메일 형식',!okP&&'비밀번호 12자 이상',!okN&&'이름',!okA&&'나이(14~120 정수)'].filter(Boolean).join(' · ')}을(를) 확인해 주세요.</span>`;say('signup','worried','빨간 칸만 고치면 돼요!','');($('[aria-invalid=true]',$('[data-sub="2"]'))||$('#suEmail')).focus();return}
+  if(!verified){err.hidden=false;err.innerHTML='<span><b>가입하지 못했어요</b>이메일 인증을 먼저 마쳐 주세요.</span>';$('#sendCode').focus();return}
+  err.hidden=true;const b=$('#signupSubmit');b.innerHTML='<span class="spin"></span>가입하는 중…';b.disabled=true;
+  $$('[data-sub="2"] .input').forEach(i=>i.disabled=true);
+  later(()=>{b.textContent='다음';b.disabled=false;$$('[data-sub="2"] .input').forEach(i=>{if(!i.closest('#otp'))i.disabled=false});subGo(3)},1100);
+});
+/* 비밀번호 보기 */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;const i=$('#'+b.dataset.eye);const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-label',show?'비밀번호 숨기기':'비밀번호 보기')});
+
+/* Dialog */
+let lastFocus=null;
+function openDlg(id,from){lastFocus=from||document.activeElement;const d=$('#'+id);d.classList.add('on');later(()=>($('input',d)||$('[data-close]',d)).focus(),30)}
+function closeDlg(){const d=$('.overlay.on');if(!d)return;d.classList.remove('on');if(lastFocus)lastFocus.focus()}
+$$('.overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o||e.target.closest('[data-close]'))closeDlg()});
+  o.addEventListener('keydown',e=>{if(e.key!=='Tab')return;const f=$$('button,input',o).filter(x=>!x.disabled&&x.offsetParent);const a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}})});
+let dlgConsent=null;
+function openConsent(id,from){const c=CONSENTS.find(x=>x.id===id);dlgConsent=id;$('#cdTitle').textContent=c.title;$('#cdDesc').textContent=c.note||(c.req?'필수 항목이에요. 동의하지 않으면 가입할 수 없어요.':'동의하지 않아도 불이익이 없어요.');$('#cdList').innerHTML=`<dt>항목</dt><dd>${c.items}</dd><dt>목적</dt><dd>${c.desc}</dd><dt>보관</dt><dd>${c.keep}</dd>`;openDlg('consentDlg',from)}
+$('#cdAgree').addEventListener('click',()=>{consent[dlgConsent]=true;closeDlg();renderConsents()});
+
+/* ───────────── 3. 로그인 ───────────── */
+$('#loginForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const b=$('#loginBtn'),err=$('#loginErr'),em=$('#liEmail'),pw=$('#liPw');
+  err.hidden=true;em.removeAttribute('aria-invalid');pw.removeAttribute('aria-invalid');
+  if(!em.value.trim()||!pw.value){err.hidden=false;err.innerHTML='<span><b>빈 칸이 있어요</b>이메일과 비밀번호를 입력해 주세요.</span>';(!em.value.trim()?em:pw).setAttribute('aria-invalid','true');(!em.value.trim()?em:pw).focus();return}
+  b.innerHTML='<span class="spin"></span>로그인하는 중…';b.disabled=true;em.disabled=pw.disabled=true;
+  say('login','happy','확인하고 있어요…','');
+  later(()=>{b.textContent='로그인';b.disabled=false;em.disabled=pw.disabled=false;
+    if(pw.value==='posegood-booth'){say('login','cheer','바른이님, 다시 오셨네요!','');later(()=>go('s5'),700)}
+    else{err.hidden=false;err.innerHTML='<span><b>로그인하지 못했어요</b>이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.</span>';pw.setAttribute('aria-invalid','true');pw.focus();pw.select();say('login','worried','비밀번호를 한 번 더 볼까요?','잊었다면 「비밀번호 찾기」가 있어요.')}
+  },1200);
+});
+$('#liPw').addEventListener('keyup',e=>{$('#capsHint').hidden=!(e.getModifierState&&e.getModifierState('CapsLock'))});
+$('#liPw').addEventListener('input',()=>$('#liPw').removeAttribute('aria-invalid'));
+$('#forgotBtn').addEventListener('click',e=>{$('#fgEmail').value=$('#liEmail').value;$('#fgOk').hidden=true;openDlg('forgotDlg',e.currentTarget)});
+$('#fgSend').addEventListener('click',()=>{const b=$('#fgSend');b.innerHTML='<span class="spin"></span>보내는 중…';b.disabled=true;later(()=>{b.textContent='30초 후 다시 요청';$('#fgOk').hidden=false},900)});
+$('#discordBtn').addEventListener('click',()=>{const b=$('#discordBtn');b.disabled=true;b.innerHTML='<span class="spin"></span>Discord로 이동하는 중…';later(()=>{b.disabled=false;b.innerHTML='<img src="../../../../frontend/public/branding/social/discord.svg" alt="">Discord로 로그인';toast('시안: 실제 앱은 Discord 인증 창으로 이동해요.')},1000)});
+$$('.social-soon').forEach(b=>b.addEventListener('click',()=>toast(`${b.dataset.soon} 로그인은 준비 중이에요. 지금은 이메일이나 Discord로 로그인해 주세요.`)));
+
+/* ───────────── 4. 첫 설정 ───────────── */
+function setStep(n,done){ // n: current(1..3), done: count done
+  $$('#setupSteps .sstep').forEach((s,i)=>{s.classList.toggle('done',i<done);s.classList.toggle('cur',i===n-1&&i>=done);$('.dot',s).textContent=i<done?'✓':i+1});
+  $('#setupPct').textContent=`${done}/3`;
+}
+function setupState(st){
+  clearLater();
+  $$('[data-setup]').forEach(b=>b.setAttribute('aria-selected',b.dataset.setup===st||(st==='done'&&b.dataset.setup==='count')||(st==='capture'&&b.dataset.setup==='count')));
+  const sil=$('#setupSil');
+  $('#permMsg').classList.toggle('on',st==='perm');$('#deniedMsg').classList.toggle('on',st==='denied');
+  $('#setupLive').hidden=['perm','denied'].includes(st);$('#setupChecks').hidden=['perm','denied'].includes(st);
+  $('#countdown').classList.remove('on');$('#captureBar').classList.remove('on');
+  $('#setupStart').disabled=st!=='done';
+  $('#setupCancel').hidden=!['count','capture'].includes(st);
+  if(st==='perm'){sil.innerHTML='';setStep(1,0);say('setup','happy','준비됐으면 카메라 켜기!','억지로 꼿꼿할 필요 없어요. 평소처럼 편하게.')}
+  if(st==='denied'){sil.innerHTML='';setStep(1,0);say('setup','unknown','카메라가 안 보여요.','권한을 허용하면 바로 이어서 할 수 있어요.')}
+  if(st==='align'){
+    sil.innerHTML=silSVG();setStep(2,1);
+    $$('#setupChecks span').forEach(s=>{s.classList.remove('ok');s.textContent=s.textContent.replace('✓ ','')});
+    const p=$('.person',sil);p.style.transform='translate(60px,40px) scale(.9)';
+    say('setup','happy','얼굴과 양쪽 어깨가 보이게 앉아 주세요.','점선은 거리에 맞춰 따라오니 억지로 맞추지 않아도 돼요.');
+    later(()=>{p.style.transform='translate(20px,10px)';tick('face')},700);
+    later(()=>{p.style.transform='none';tick('sl')},1400);
+    later(()=>{tick('sr');say('setup','cheer','얼굴과 양쪽 어깨가 잘 보여요!','곧 3초 등록을 시작해요.')},2000);
+    later(()=>setupState('count'),3200);
+  }
+  if(st==='count'){
+    sil.innerHTML=silSVG();setStep(3,2);$$('#setupChecks span').forEach(s=>{s.classList.add('ok');if(!s.textContent.startsWith('✓'))s.textContent='✓ '+s.textContent});
+    $('#countdown').classList.add('on');say('setup','happy','3초 뒤 기준 자세를 등록해요.','편하게 바로 앉아 화면을 봐 주세요.');
+    let n=3;const num=$('#cdNum'),prog=$('#cdProg');
+    const step=()=>{num.textContent=n;num.classList.remove('tick');void num.offsetWidth;num.classList.add('tick');prog.style.transition='none';prog.style.strokeDashoffset=0;void prog.offsetWidth;prog.style.transition='stroke-dashoffset 1s linear';prog.style.strokeDashoffset=603;
+      if(n>1){n--;later(step,1000)}else later(()=>setupState('capture'),1000)};
+    step();
+  }
+  if(st==='capture'){
+    sil.innerHTML=silSVG({color:'var(--sun)'});setStep(3,2);$('#captureBar').classList.add('on');
+    say('setup','happy','그대로 편하게 있어 주세요.','기준 자세를 기억하고 있어요. 영상은 저장하지 않아요.');
+    const t0=performance.now();const f=$('#capFill');
+    const run=()=>{const p=Math.min(1,(performance.now()-t0)/3000);f.style.width=(p*100)+'%';$('#capLeft').textContent=p<1?`${Math.ceil(3-p*3)}초 남았어요`:'저장하는 중…';if(p<1&&cur==='s4'&&$('#captureBar').classList.contains('on'))requestAnimationFrame(run);else if(p>=1)later(()=>setupState('done'),600)};
+    requestAnimationFrame(run);
+  }
+  if(st==='done'){
+    sil.innerHTML=silSVG({color:'var(--good-light)'});setStep(4,3);$('#setupStart').disabled=false;$('#setupStart').focus();
+    say('setup','cheer','기준 자세 등록 완료!','이제 이 자세와 비교해서 알려드려요.');burst($('#setupCam'));
+    $$('[data-setup]').forEach(b=>b.setAttribute('aria-selected',b.dataset.setup==='count'));
+  }
+}
+function tick(k){const s=$(`#setupChecks [data-c=${k}]`);s.classList.add('ok');s.textContent='✓ '+s.textContent}
+$$('[data-setup]').forEach(b=>b.addEventListener('click',()=>setupState(b.dataset.setup)));
+$('#camOn').addEventListener('click',()=>{const b=$('#camOn');b.innerHTML='<span class="spin"></span>카메라 준비 중…';b.disabled=true;later(()=>{b.textContent='카메라 켜기';b.disabled=false;setupState('align')},800)});
+$('#camRetry').addEventListener('click',()=>setupState('align'));
+$('#setupCancel').addEventListener('click',()=>{setupState('align');clearLater();say('setup','happy','등록을 취소했어요.','준비되면 다시 시작해요.');$$('[data-setup]').forEach(b=>b.setAttribute('aria-selected',b.dataset.setup==='align'))});
+
+function burst(host){
+  if(reduce)return;let c=$('.confetti',host);if(!c){c=document.createElement('div');c.className='confetti';host.style.position=host.style.position||'relative';host.append(c)}
+  const cols=['var(--brand)','var(--sun)','var(--tert)','var(--bot-cheek)','var(--good)'];
+  for(let i=0;i<40;i++){const p=document.createElement('i');p.style.left=Math.random()*100+'%';p.style.background=cols[i%cols.length];p.style.animationDelay=Math.random()*.4+'s';p.style.animationDuration=1.2+Math.random()*.9+'s';c.append(p);setTimeout(()=>p.remove(),2600)}
+}
+
+/* ───────────── 5. 측정 ───────────── */
+const ST={
+  good:{t:'바른 자세예요',d:'이대로 쭉! 기준 자세와 비슷하게 앉아 있어요.',tag:'● 측정 중',mood:'happy',score:[82,94],ring:'var(--good)',tilt:0},
+  caution:{t:'자세가 흐트러지고 있어요',d:'3초 넘게 이어지면 알려드려요.',tag:'● 지켜보는 중',mood:'caution',score:[58,70],ring:'var(--caution)',tilt:-9},
+  alert:{t:'자세가 흐트러졌어요',d:'바로가 같이 기울었어요. 기준 자세로 돌아와 볼까요?',tag:'알림',mood:'alert',score:[34,48],ring:'var(--alert)',tilt:-16},
+  recovering:{t:'좋아요, 그대로 있어 주세요',d:'바르게 앉으면 3초 뒤에 알림이 사라져요.',tag:'● 복귀 확인 중',mood:'happy',score:[70,80],ring:'var(--good)',tilt:-3},
+  unknown:{t:'자세를 확인할 수 없어요',d:'얼굴과 어깨가 보이지 않아요. 이 시간은 집계에서 빠져요.',tag:'집계 제외',mood:'unknown',score:null,ring:'var(--unknown)',msg:['얼굴과 어깨가 보이지 않아요','화면 안으로 돌아오면 바로 이어서 측정해요. 연속 기록은 멈춰 둘게요.'],dim:true},
+  connecting:{t:'서버에 연결하고 있어요',d:'잠시만 기다려 주세요.',tag:'연결 중',mood:'sleepy',score:null,ring:'var(--unknown)',msg:['연결하는 중이에요','서버의 첫 판정을 기다리고 있어요.'],spin:true},
+  stalled:{t:'분석을 잠시 멈췄어요',d:'서버에 문제가 생겨 잠시 분석을 멈췄어요. 측정은 계속돼요.',tag:'연결 끊김',mood:'unknown',score:null,ring:'var(--unknown)',msg:['서버 연결이 끊겼어요','사용자 잘못이 아니에요. 연결되면 자동으로 이어서 판정해요.'],dim:true},
+  denied:{t:'카메라 권한이 꺼져 있어요',d:'사이트 권한에서 카메라를 허용한 뒤 「다시 연결」을 눌러 주세요.',tag:'카메라 꺼짐',mood:'unknown',score:null,ring:'var(--unknown)',msg:['카메라 권한이 필요해요','기록은 카메라 없이도 볼 수 있어요.'],btn:['다시 연결',()=>setLive('connecting')],nosil:true},
+  nobase:{t:'기준 자세를 먼저 등록해요',d:'편하게 앉은 자세를 3초 동안 기억한 뒤 측정을 시작해요.',tag:'준비 필요',mood:'wave',score:null,ring:'var(--brand)',msg:['아직 기준 자세가 없어요','3초면 충분해요. 바로 만들어 볼까요?'],btn:['3초 등록하러 가기',()=>go('s4')],dim:true},
+};
+let live={st:'good',clock:768,valid:751,alerts:2,streak:252,best:872,goal:42*60,sound:true,paused:false,timer:null,last:'good',alertHold:null};
+const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const fmtClock=s=>`${String(Math.floor(s/3600)).padStart(2,'0')}:${fmt(s%3600)}`;
+const fmtKo=s=>`${Math.floor(s/60)}분 ${s%60}초`;
+let liveGood=616;
+function setLive(st,{user=false}={}){
+  const prev=live.st;
+  if(user&&prev==='alert'&&st==='good'){st='recovering';later(()=>{if(live.st==='recovering'){setLive('good');hiFive()}},1800)}
+  live.st=st;const S=ST[st];
+  $('#liveRoot').dataset.st=st;
+  $$('.state-switch button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===(st==='recovering'?'good':st)));
+  $('#stTitle').textContent=S.t;$('#stDesc').textContent=S.d;$('#stTag').textContent=S.tag;
+  setCoach($('#liveCoach'),S.mood);
+  const sil=$('#liveSil');sil.innerHTML=S.nosil?'':silSVG({guide:false,dim:S.dim,color:st==='alert'?'var(--alert-light)':st==='caution'?'var(--caution-light)':'var(--cam-ink)'});
+  const p=$('.person',sil);if(p)p.style.transform=`rotate(${S.tilt||0}deg) translateY(${S.tilt?Math.abs(S.tilt)*1.4:0}px)`;
+  const m=$('#liveMsg');m.classList.toggle('on',!!S.msg);
+  if(S.msg){$('#liveMsgT').textContent=S.msg[0];$('#liveMsgD').textContent=S.msg[1];setCoach($('#liveMsgCoach'),S.mood);const b=$('#liveMsgBtn');b.hidden=!S.btn;if(S.btn){b.textContent=S.btn[0];b.onclick=S.btn[1]}}
+  $('#nudge').classList.toggle('on',st==='alert');
+  if(st==='alert'&&prev!=='alert'){live.alerts++;live.streak=0;$('#alertCount').textContent=live.alerts+'회';if(live.sound)beep()}
+  const sv=$('#scoreVal'),ring=$('#scoreRing');
+  if(S.score){const v=Math.round(S.score[0]+Math.random()*(S.score[1]-S.score[0]));sv.textContent=v;ring.style.strokeDashoffset=465*(1-v/100);ring.style.stroke=S.ring}
+  else{sv.textContent='—';ring.style.strokeDashoffset=465;ring.style.stroke='transparent'}
+  const sc=$('#streakCard'),paused=!['good','recovering','caution'].includes(st)&&st!=='alert';
+  sc.classList.toggle('paused',paused);
+  $('#streakNote').innerHTML=paused?`측정 불가·연결 문제 동안은 <b>멈춤</b> · 초기화하지 않아요`:`오늘 최고 <b class="num">${fmt(live.best)}</b> · 흐트러짐 알림이 뜨면 다시 0부터`;
+  $('#streak').textContent=fmt(live.streak);
+  $$('.nav .nav-live').forEach(l=>l.hidden=false);
+}
+function hiFive(){if(reduce){toast('다시 바르게 앉았어요!');return}const h=$('#hifive');h.classList.remove('on');void h.offsetWidth;h.classList.add('on');setCoach($('#liveCoach'),'cheer');burst($('#liveCam'));later(()=>{h.classList.remove('on');if(live.st==='good')setCoach($('#liveCoach'),'happy')},1500)}
+function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.06,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+.35);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+.36)}catch(e){}}
+function startLive(){
+  setLive(live.st==='recovering'?'good':live.st);
+  clearInterval(live.timer);
+  live.timer=setInterval(()=>{
+    if(live.paused)return;
+    const s=live.st;
+    if(s==='denied'||s==='nobase'||s==='connecting')return;
+    live.clock++;$('#clock').textContent=fmtClock(live.clock);
+    if(s==='unknown'||s==='stalled')return;
+    live.valid++;
+    if(s==='good'||s==='recovering'){liveGood++;live.streak++;live.goal++;if(live.streak>live.best){live.best=live.streak}
+      if(live.streak%60===0){const c=$('#streakCard');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');toast(`연속 ${live.streak/60}분 바른 자세! 바로가 박수 쳐요`)}}
+    else if(s==='caution'){live.streak++}
+    $('#streak').textContent=fmt(live.streak);
+    if(!$('#streakCard').classList.contains('paused'))$('#streakNote').innerHTML=`오늘 최고 <b class="num">${fmt(live.best)}</b> · 흐트러짐 알림이 뜨면 다시 0부터`;
+    $('#validTime').textContent=fmtKo(live.valid);
+    $('#keepRate').textContent=Math.round(liveGood/live.valid*100)+'%';
+    const gm=Math.floor(live.goal/60);$$('.goalNow').forEach(x=>x.textContent=gm);$$('.goalBar').forEach(x=>x.style.width=Math.min(100,gm/60*100)+'%');
+  },1000);
+}
+function stopLive(){clearInterval(live.timer)}
+$$('.state-switch button').forEach(b=>b.addEventListener('click',()=>setLive(b.dataset.st,{user:true})));
+$('#fixBtn').addEventListener('click',()=>setLive('good',{user:true}));
+$('#pauseBtn').addEventListener('click',()=>{live.paused=!live.paused;const b=$('#pauseBtn');b.textContent=live.paused?'측정 재개':'잠시 쉬기';
+  if(live.paused){$('#stTitle').textContent='쉬는 중';$('#stDesc').textContent='쉬는 시간은 집계에서 빠져요. 다녀와서 「측정 재개」를 눌러 주세요.';$('#stTag').textContent='쉬는 중';setCoach($('#liveCoach'),'sleepy');$('#liveRoot').dataset.st='unknown'}else setLive(live.st)});
+$('#soundBtn').addEventListener('click',()=>{live.sound=!live.sound;$('#soundBtn').setAttribute('aria-label',live.sound?'알림 소리 끄기':'알림 소리 켜기');$('#soundWave').style.display=live.sound?'':'none';toast(live.sound?'알림 소리를 켰어요.':'알림 소리를 껐어요. 화면 알림은 그대로 보여요.')});
+
+/* ───────────── 6. 오늘 기록 ───────────── */
+const HOURS=[[9,0,0,0],[10,18,4,2],[11,22,3,1],[12,0,0,0],[13,10,2,3],[14,26,1,0],[15,12,5,1],[16,0,0,0],[17,0,0,0],[18,0,0,0],[19,6,6,2],[20,8,7,1],[21,0,0,0],[22,0,0,0]];
+const SESS=[{n:3,at:'20:05',min:'24분 10초',ev:4,pct:52},{n:2,at:'14:02',min:'31분 40초',ev:1,pct:93},{n:1,at:'10:12',min:'16분 30초',ev:1,pct:81}];
+let drawn=false;
+function drawToday(){
+  if(drawn)return;drawn=true;
+  const W=720,H=220,top=12,base=186,left=34,cw=(W-left-6)/HOURS.length,maxM=40,sc=(base-top)/maxM;
+  let g=`<g font-size="11" fill="var(--faint)">`;
+  [0,20,40].forEach(v=>{const y=base-v*sc;g+=`<line x1="${left}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" ${v?'stroke-dasharray="3 4"':''}/><text x="${left-8}" y="${y+4}" text-anchor="end">${v}분</text>`});
+  g+='</g>';
+  HOURS.forEach(([h,good,bad,unk],i)=>{
+    const x=left+i*cw+cw*.18,w=cw*.64;let y=base;let bars='';
+    [[good,'var(--good)'],[bad,'var(--alert)'],[unk,'var(--unknown-bar)']].forEach(([v,c],k)=>{if(!v)return;const hh=v*sc;y-=hh;bars+=`<rect class="bar" x="${x}" y="${y}" width="${w}" height="${hh-1.5}" rx="${k===0&&!bad&&!unk||k===2||(k===1&&!unk)?5:2}" fill="${c}"/>`});
+    if(!good&&!bad&&!unk)bars=`<rect x="${x}" y="${base-3}" width="${w}" height="3" rx="1.5" fill="var(--line)"/>`;
+    const tot=good+bad;const pct=tot?Math.round(good/tot*100):null;
+    g+=`<g class="hcol" tabindex="0" data-h="${h}" data-good="${good}" data-bad="${bad}" data-unk="${unk}" data-x="${x+w/2}" data-y="${y}" aria-label="${h}시 ${tot?`측정 ${tot}분, 바른 자세 ${pct}%`:'측정 없음'}"><rect class="hit" x="${left+i*cw}" y="${top}" width="${cw}" height="${base-top}" fill="transparent" rx="6"/>${bars}<text x="${x+w/2}" y="${base+18}" text-anchor="middle" font-size="12" fill="var(--muted)">${h}시</text></g>`;
+  });
+  $('#chartSvg').innerHTML=g;
+  const tip=$('#chartTip'),svg=$('#chartSvg');
+  const show=el=>{const r=svg.getBoundingClientRect(),k=r.width/W;const good=+el.dataset.good,bad=+el.dataset.bad,unk=+el.dataset.unk;
+    tip.innerHTML=good+bad?`<b>${el.dataset.h}시</b> · 측정 ${good+bad}분<br>바른 자세 ${Math.round(good/(good+bad)*100)}% · 흐트러짐 ${bad}분${unk?`<br>측정 불가 ${unk}분(집계 제외)`:''}`:`<b>${el.dataset.h}시</b> · 측정 없음`;
+    tip.style.left=(+el.dataset.x*k)+'px';tip.style.top=(Math.min(+el.dataset.y,base-10)*k)+'px';tip.classList.add('on')};
+  $$('.hcol').forEach(el=>{el.addEventListener('mouseenter',()=>show(el));el.addEventListener('focus',()=>show(el));el.addEventListener('mouseleave',()=>tip.classList.remove('on'));el.addEventListener('blur',()=>tip.classList.remove('on'))});
+  $('#sessList').innerHTML=SESS.map(s=>{const c=s.pct>=80?'var(--good)':s.pct>=60?'var(--caution)':'var(--alert)';const off=125.6*(1-s.pct/100);
+    return `<div class="sess-row"><svg class="mini" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="var(--fill)" stroke-width="6"/><circle cx="24" cy="24" r="20" fill="none" stroke="${c}" stroke-width="6" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="${off}" transform="rotate(-90 24 24)"/></svg>
+    <div><b>세션 ${s.n} · ${s.at}</b><div class="sub">${s.min} 측정 · 자세 경고 ${s.ev}번</div></div><span class="pct num">${s.pct}%</span><button class="icon-btn" aria-label="세션 ${s.n} 기록 상세 보기" data-toast="시안: 세션 상세는 현재 펼침 구조를 그대로 써요."><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button></div>`}).join('');
+  const r=$('#todayRing');if(!reduce){r.style.transition='none';r.style.strokeDashoffset=502.7;void r.getBoundingClientRect();r.style.transition='stroke-dashoffset 1.1s cubic-bezier(.34,1.2,.64,1)';r.style.strokeDashoffset=110.6}
+}
+
+/* ───────────── 배색 전환(시안 전용) ───────────── */
+const PALS=['sage','warm','honey'];
+function setPalette(p,{save=true}={}){
+  if(!PALS.includes(p))p='sage';
+  document.documentElement.dataset.palette=p;
+  $$('.mock-pal button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.pal===p));
+  if(save)try{localStorage.setItem('coach-soft-palette',p)}catch(e){}
+}
+$$('.mock-pal button').forEach(b=>b.addEventListener('click',()=>{setPalette(b.dataset.pal);toast({sage:'세이지 배색',warm:'웜 크림 배색',honey:'허니 배색'}[b.dataset.pal]+'으로 바꿨어요.')}));
+{const q=new URLSearchParams(location.search).get('pal');let saved=null;try{saved=localStorage.getItem('coach-soft-palette')}catch(e){}
+ setPalette(q||saved||'sage',{save:!!q});}
+
+/* ───────────── 시작 ───────────── */
+initCoaches();renderConsents();
+const start=(location.hash||'#/s1').replace(/^#\/?/,'');go(order.includes(start)?start:'s1',{push:false});
+window.addEventListener('hashchange',()=>{const h=location.hash.replace(/^#\/?/,'');if(order.includes(h)&&h!==cur)go(h,{push:false})});
+</script>
+</body>
+</html>

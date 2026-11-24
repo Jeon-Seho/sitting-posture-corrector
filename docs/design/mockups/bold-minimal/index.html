@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PoseGood · Bold Minimal 시안</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #fff;
+      --ink: #171b18;
+      --muted: #555e58;
+      --line: #dde4de;
+      --surface: #f5f7f5;
+      --primary: #18794e;
+      --press: #11633e;
+      --tint: #e8f5ee;
+      --error: #a12b36;
+      --error-bg: #fff1f1;
+      --stage: #191e1c;
+      --neutral: #535b57;
+      --neutral-bg: #eef0ee;
+      --radius: 18px;
+      --button-radius: 11px;
+      font: 16px/1.5 Pretendard, "Malgun Gothic", system-ui, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    [hidden] { display: none !important; }
+    h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
+    h1, h2, h3 { line-height: 1.12; letter-spacing: -.044em; }
+    p { overflow-wrap: anywhere; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; }
+    :focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+    h1[tabindex="-1"]:focus { outline: none; }
+    .wrap { width: min(100% - 104px, 1248px); margin-inline: auto; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    .mono { font-variant-numeric: tabular-nums; }
+    .fine { font-size: .875rem; color: var(--muted); }
+    .lead { color: var(--muted); font-size: 1.125rem; line-height: 1.55; }
+    .accent { color: var(--primary); }
+    .btn {
+      min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+      gap: 10px; padding: 9px 17px; border: 1px solid var(--line); border-radius: var(--button-radius);
+      background: var(--paper); color: var(--ink); font-weight: 650; text-decoration: none;
+    }
+    .btn:hover:not(:disabled) { background: var(--surface); border-color: #b8c5bc; }
+    .btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn.primary:hover:not(:disabled) { background: var(--press); border-color: var(--press); }
+    .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+    .btn.quiet:hover:not(:disabled) { border-color: transparent; color: var(--ink); }
+    .btn:disabled { color: #606a63; background: #e6ebe7; border-color: #e6ebe7; }
+    .btn.large { min-height: 54px; padding-inline: 21px; }
+    .btn.full { width: 100%; }
+    .btn.pressed, .btn[aria-pressed="true"] { background: var(--tint); color: var(--press); border-color: #a7cdb7; }
+    .btn[data-verified="true"]:disabled { background: var(--tint); color: var(--press); border-color: var(--tint); }
+    .btn[aria-busy="true"]::before, .spinner {
+      content: ""; width: 15px; height: 15px; border: 2px solid currentColor;
+      border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .arrow { font-size: 1.2em; line-height: 1; }
+    .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; width: fit-content; border-radius: 99px; padding: 5px 10px; background: var(--neutral-bg); color: var(--neutral); font-size: .8rem; font-weight: 700; }
+    .chip.good { color: var(--press); background: var(--tint); }
+    .dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: currentColor; }
+    .notice { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--muted); font-size: .9rem; }
+    .notice.error { border-color: #efc4c8; background: var(--error-bg); color: var(--error); }
+
+    .review { border-bottom: 1px solid var(--line); background: var(--surface); }
+    .review-inner { display: flex; min-height: 54px; align-items: center; gap: 24px; }
+    .review-label { flex: 0 0 auto; color: var(--muted); font-size: .8rem; font-weight: 700; letter-spacing: .025em; }
+    .tabs { display: flex; gap: 3px; padding: 3px; background: #e9eeea; border-radius: 10px; }
+    .tabs button { min-height: 34px; border: 0; border-radius: 7px; padding: 4px 14px; color: var(--muted); background: transparent; font-size: .83rem; font-weight: 650; }
+    .tabs button:hover { background: #f3f6f3; color: var(--ink); }
+    .tabs button[aria-selected="true"] { background: white; color: var(--ink); box-shadow: 0 1px 3px #171b181c; }
+    .mast { border-bottom: 1px solid var(--line); }
+    .mast-inner { min-height: 69px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: inline-flex; align-items: center; gap: 9px; padding: 5px 0; border: 0; background: transparent; color: var(--ink); font-size: 1.4rem; font-weight: 810; letter-spacing: -.048em; }
+    .brand img { width: 33px; height: 33px; }
+    .mast .btn { min-height: 36px; padding-block: 5px; font-size: .9rem; }
+    .page { min-width: 0; }
+    .page-footer { padding: 19px 0 25px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
+    .page-footer .chip { margin-right: 7px; }
+
+    .welcome { padding-top: 44px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 34px; align-items: center; }
+    .hero-copy { padding: 14px 0; }
+    .hero h1 { margin: 15px 0 21px; font-size: clamp(4rem, 7.1vw, 6.25rem); font-weight: 820; line-height: 1.03; letter-spacing: -.078em; }
+    .hero .lead { max-width: 23em; font-size: 1.22rem; word-break: keep-all; }
+    .hero .actions { margin-top: 28px; }
+    .hero .primary { min-width: 157px; }
+    .hero-art {
+      position: relative; min-height: 440px; height: 100%; display: grid; place-items: center; isolation: isolate;
+      overflow: hidden; border-radius: 26px; background: #eaf5ee;
+      background-image: radial-gradient(circle, #16643c20 1px, transparent 1.35px);
+      background-size: 18px 18px;
+    }
+    .hero-rings { position: absolute; inset: 10% auto auto 50%; width: 67%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; border: 1px solid #18794e25; box-shadow: 0 0 0 32px #18794e0c, 0 0 0 67px #18794e08; }
+    .hero-frame { position: absolute; inset: 11%; }
+    .corners {
+      pointer-events: none; color: inherit; --corner: 23px;
+      background: linear-gradient(currentColor, currentColor) top left / var(--corner) 2px,
+                  linear-gradient(currentColor, currentColor) top left / 2px var(--corner),
+                  linear-gradient(currentColor, currentColor) top right / var(--corner) 2px,
+                  linear-gradient(currentColor, currentColor) top right / 2px var(--corner),
+                  linear-gradient(currentColor, currentColor) bottom left / var(--corner) 2px,
+                  linear-gradient(currentColor, currentColor) bottom left / 2px var(--corner),
+                  linear-gradient(currentColor, currentColor) bottom right / var(--corner) 2px,
+                  linear-gradient(currentColor, currentColor) bottom right / 2px var(--corner);
+      background-repeat: no-repeat;
+    }
+    .hero-art .corners { color: var(--primary); }
+    .hero-mark { position: relative; width: clamp(165px, 19vw, 255px); aspect-ratio: 1; margin-top: -6%; color: var(--primary); }
+    .hero-mark .head { position: absolute; width: 26%; aspect-ratio: 1; top: 8%; left: 26%; border-radius: 50%; background: currentColor; }
+    .hero-mark .torso { position: absolute; left: 24%; top: 43%; width: 43%; height: 36%; border: solid currentColor; border-width: 0 0 clamp(22px, 3vw, 40px) clamp(22px, 3vw, 40px); border-radius: 17px 0 0 44px; }
+    .hero-mark .leg { position: absolute; left: 56%; top: 63%; width: 27%; height: 31%; border: solid currentColor; border-width: clamp(22px, 3vw, 40px) clamp(22px, 3vw, 40px) 0 0; border-radius: 0 38px 14px 0; }
+    .hero-mark .seat { position: absolute; left: 9%; top: 38%; width: 55%; height: 48%; border: dashed #18794e65; border-width: 0 0 1px 1px; border-bottom-left-radius: 33px; }
+    .hero-caption { position: absolute; right: 18px; bottom: 18px; background: white; padding: 9px 14px; color: var(--press); box-shadow: 0 4px 18px #0a462016; border-radius: 99px; font-size: .875rem; font-weight: 680; display: flex; align-items: center; gap: 8px; }
+    .how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; padding: 0; margin-block: 31px 33px; border-block: 1px solid var(--line); }
+    .how li { display: flex; gap: 15px; padding: 21px 17px 21px 0; }
+    .how li + li { border-left: 1px solid var(--line); padding-left: 21px; }
+    .how-number { color: var(--primary); font-weight: 800; font-size: 1.25rem; letter-spacing: -.045em; line-height: 1.15; }
+    .how h2 { font-size: 1.16rem; margin-bottom: 5px; }
+    .how p { font-size: .91rem; color: var(--muted); }
+
+    .auth-layout { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); align-items: start; gap: clamp(28px, 6vw, 88px); padding-block: 43px 50px; }
+    .auth-intro { border-top: 4px solid var(--primary); padding: 24px 0 0; }
+    .auth-intro h1 { font-size: clamp(2.75rem, 5.2vw, 4.65rem); margin: 0 0 14px; font-weight: 800; word-break: keep-all; }
+    .auth-intro .lead { max-width: 30ch; word-break: keep-all; }
+    .auth-intro .minor { margin-top: 23px; max-width: 32ch; }
+    .auth-card { padding: 24px; }
+    .auth-heading { font-size: 1.65rem; margin-bottom: 8px; }
+    .auth-card form, .dialog-fields { display: grid; gap: 15px; }
+    .auth-card .support { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; }
+    .field { display: grid; align-content: start; gap: 5px; min-width: 0; font-size: .92rem; font-weight: 650; }
+    .field > label { width: fit-content; }
+    .field input, .field select {
+      width: 100%; min-width: 0; min-height: 44px; border: 1px solid #bfc9c0; border-radius: var(--button-radius);
+      padding: 9px 12px; color: var(--ink); background: white; font-size: 1rem; font-weight: 450;
+    }
+    .field input::placeholder { color: #69756c; }
+    .field input[aria-invalid="true"] { border-color: var(--error); }
+    .field input[aria-invalid="true"]:focus-visible { outline-color: var(--error); }
+    .field-error { color: var(--error); font-size: .82rem; font-weight: 550; }
+    .field-error:empty { display: none; }
+    .field .fine { font-weight: 450; font-size: .8rem; }
+    .input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+    .optional-fields { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
+    .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .8rem; margin-block: 16px 12px; }
+    .divider::before, .divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+    .discord-icon { width: 19px; height: 19px; filter: grayscale(1) brightness(.46); }
+    .sample { margin-top: 17px; font-size: .88rem; }
+    .sample summary, .session-list summary { cursor: pointer; font-weight: 650; padding-block: 8px; }
+    .sample p { padding-block: 3px 6px; }
+    .sample code { overflow-wrap: anywhere; }
+    .consent-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; }
+    .consents { display: grid; gap: 0; border-top: 1px solid var(--line); }
+    .consent { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 9px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .consent-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1px 6px; }
+    .consent-title { font-size: .89rem; font-weight: 700; }
+    .consent-type { font-size: .75rem; color: var(--muted); }
+    .consent-more { border: 0; padding: 3px 5px; margin-left: -5px; background: transparent; color: var(--muted); text-decoration: underline; font-size: .76rem; min-height: 24px; }
+    .segmented { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: var(--surface); }
+    .segmented button { background: transparent; color: var(--muted); min-height: 34px; padding: 4px 8px; border: 1px solid transparent; border-radius: 7px; font-size: .8rem; white-space: nowrap; }
+    .segmented button:hover { background: #e8eee9; }
+    .segmented button[aria-pressed="true"] { border-color: #b6cabd; background: white; color: var(--press); font-weight: 700; }
+    .consent-error { grid-column: 1 / -1; font-size: .8rem; }
+    .verify { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: var(--surface); }
+    .verify-note { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; padding: 0; }
+    .progress li { min-width: 0; position: relative; padding: 10px 0 0; border-top: 3px solid var(--line); color: var(--muted); display: flex; align-items: baseline; gap: 6px; font-weight: 650; font-size: .9rem; }
+    .progress li[aria-current="step"] { color: var(--ink); border-color: var(--primary); }
+    .progress li.done { border-color: #95c5a9; color: var(--press); }
+    .progress-num { font-size: 1rem; font-weight: 800; }
+    .auth-progress { margin-bottom: 18px; }
+
+    .product { display: grid; grid-template-columns: 169px minmax(0, 1fr); gap: 30px; }
+    .side { display: flex; flex-direction: column; padding: 24px 16px 24px 0; border-right: 1px solid var(--line); }
+    [data-sidebar] { display: flex; }
+    [data-sidebar] .side { width: 100%; }
+    .side-nav { display: grid; gap: 4px; }
+    .side .btn { justify-content: flex-start; width: 100%; padding-inline: 11px; min-height: 42px; border-color: transparent; font-size: .91rem; }
+    .side .btn[aria-current="page"] { background: var(--tint); color: var(--press); }
+    .side-icon { text-align: center; min-width: 20px; font-size: 1.11em; }
+    .account-menu { margin-top: auto; }
+    .work { min-width: 0; padding-block: 26px 37px; }
+    .setup-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 13px; }
+    .setup-meta h2 { font-size: 1rem; letter-spacing: -.02em; }
+    .setup-grid { display: grid; grid-template-columns: minmax(0, .93fr) minmax(0, 1.07fr); gap: 24px; align-items: stretch; margin-top: 26px; }
+    .setup-copy { padding-block: 7px; display: flex; flex-direction: column; justify-content: center; align-items: start; min-width: 0; }
+    .setup-copy h1 { font-size: clamp(2.55rem, 4.3vw, 3.85rem); line-height: 1.05; font-weight: 810; margin: 10px 0 13px; word-break: keep-all; }
+    .setup-copy .lead { max-width: 22em; word-break: keep-all; }
+    .setup-copy .actions { margin-top: 20px; }
+    .setup-copy .notice { margin-top: 16px; }
+    .stage {
+      color: #bcc9c1; min-width: 0; position: relative; min-height: 330px; overflow: hidden; border-radius: 20px;
+      background: radial-gradient(ellipse at 50% 44%, #2c3932, var(--stage) 73%);
+      display: grid; place-items: center; isolation: isolate;
+    }
+    .stage::before { content: ""; position: absolute; z-index: -1; inset: 0; background-image: radial-gradient(circle, #e4f7e32d 1px, transparent 1.31px); background-size: 21px 21px; opacity: .5; }
+    .stage .corners { position: absolute; inset: 15%; opacity: .76; }
+    .stage-label { display: flex; align-items: center; gap: 7px; left: 14px; top: 14px; position: absolute; z-index: 2; border-radius: 100px; padding: 6px 10px; color: #f2f5f2; background: #111714; font-size: .76rem; }
+    .stage-bottom { position: absolute; z-index: 2; bottom: 14px; color: #e1e9e3; text-align: center; padding-inline: 10px; font-size: .8rem; }
+    .outline-person { position: absolute; width: 210px; max-width: 55%; height: 176px; color: #b8d4c3; }
+    .outline-person .head { position: absolute; top: 2%; left: 34%; width: 32%; height: 46%; border: 2px dashed currentColor; border-radius: 49%; background: #c5eed111; }
+    .outline-person .shoulders { position: absolute; top: 51%; width: 100%; height: 46%; border: 2px dashed currentColor; border-bottom: 0; border-radius: 48% 48% 0 0 / 55% 55% 0 0; background: linear-gradient(#c5eed11e, transparent); }
+    .joint { width: 9px; height: 9px; border-radius: 50%; position: absolute; z-index: 1; background: currentColor; }
+    .joint.face { left: calc(50% - 4px); top: 25%; }
+    .joint.left { left: 11%; top: 61%; }
+    .joint.right { right: 11%; top: 61%; }
+    .outline-person.guide { opacity: .45; }
+    .camera-off-symbol { position: relative; width: 66px; height: 47px; border: 2px solid #d3e0d7; border-radius: 10px; transform: translateX(-8px); }
+    .camera-off-symbol::after { content: ""; position: absolute; right: -22px; top: 7px; width: 21px; height: 29px; border: 2px solid #d3e0d7; border-left: 0; clip-path: polygon(0 32%, 100% 0%, 100% 100%, 0 68%); background: #d3e0d740; }
+    .timer { position: relative; z-index: 1; display: grid; width: 140px; aspect-ratio: 1; place-items: center; border-radius: 50%; background: conic-gradient(#a1d3b6 var(--sweep, 0%), #404e46 0); color: white; }
+    .timer::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: #161f1a; }
+    .timer b { position: relative; font-size: 4.7rem; line-height: 1; font-weight: 810; letter-spacing: -.07em; }
+    .timer .spinner { position: relative; width: 37px; height: 37px; }
+    .setup-demo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin-top: 13px; padding: 9px 0; }
+    .setup-demo .btn { min-height: 36px; font-size: .82rem; padding-block: 4px; }
+    .setup-demo .fine { flex-shrink: 0; }
+    .signup-setup { max-width: 1050px; margin: auto; padding-block: 26px 37px; }
+    .signup-setup .auth-progress { margin-bottom: 23px; }
+
+    .work-header { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 16px; }
+    .work-header h1 { font-size: clamp(2rem, 3.4vw, 3.2rem); font-weight: 800; }
+    .work-header p { margin-top: 4px; }
+    .measure-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+    .measure-grid .stage { min-height: 325px; }
+    .measure-status { min-width: 0; display: flex; flex-direction: column; padding: clamp(14px, 2.2vw, 24px); background: var(--tint); }
+    .measure-status[data-tone="alert"] { background: var(--error-bg); border-color: #efc4c8; }
+    .measure-status[data-tone="neutral"] { background: var(--neutral-bg); border-color: var(--line); }
+    .status-kicker { font-size: .8rem; font-weight: 700; color: var(--press); display: flex; align-items: center; gap: 7px; }
+    [data-tone="alert"] .status-kicker { color: var(--error); }
+    [data-tone="neutral"] .status-kicker { color: var(--neutral); }
+    .measure-status h2 { margin: 12px 0 7px; max-width: 11ch; font-size: clamp(1.85rem, 3.32vw, 3.25rem); font-weight: 810; word-break: keep-all; }
+    .measure-status .status-help { color: var(--muted); font-size: .93rem; }
+    .score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; margin-top: auto; padding-top: 14px; }
+    .score b { color: var(--press); font-size: 3.5rem; line-height: 1; letter-spacing: -.07em; }
+    [data-tone="alert"] .score b { color: var(--error); }
+    [data-tone="neutral"] .score b { color: var(--neutral); }
+    .score span { color: var(--muted); font-size: .87rem; font-weight: 650; }
+    .score-note { margin-top: 7px; font-size: .79rem; color: var(--muted); }
+    .numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 14px; }
+    .numbers > div { padding: 12px 16px; }
+    .numbers > div + div { border-left: 1px solid var(--line); }
+    .numbers dt { color: var(--muted); font-size: .82rem; }
+    .numbers dd { font-size: 1.25rem; line-height: 1.4; font-weight: 760; letter-spacing: -.035em; }
+    .measure-actions { margin-top: 13px; }
+    .demo-states { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 11px; padding-top: 10px; border-top: 1px dashed var(--line); }
+    .demo-states .fine { margin-right: 8px; font-weight: 650; }
+    .demo-states .btn { min-height: 34px; padding: 4px 9px; font-size: .81rem; }
+    .demo-states .btn[data-state="unknown"][aria-pressed="true"],
+    .demo-states .btn[data-state="connecting"][aria-pressed="true"],
+    .demo-states .btn[data-state="disconnected"][aria-pressed="true"],
+    .demo-states .btn[data-state="baseline"][aria-pressed="true"] { color: var(--neutral); background: var(--neutral-bg); border-color: #bbc3be; }
+    .demo-states .btn[data-state="alert"][aria-pressed="true"] { color: var(--error); background: var(--error-bg); border-color: #efc4c8; }
+
+    .record-dashboard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr); gap: 16px; }
+    .record-total, .timeline { padding: 18px 21px; }
+    .record-total h2, .timeline h2, .session-list h2 { font-size: 1.2rem; }
+    .record-total .total { display: block; margin: 2px 0 8px; color: var(--press); font-size: clamp(3.55rem, 7vw, 5.3rem); line-height: 1; font-weight: 810; letter-spacing: -.073em; }
+    .record-total .total small { font-size: .48em; margin-left: 3px; }
+    .record-kpis { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); padding-top: 10px; gap: 5px 12px; }
+    .record-kpis dt { font-size: .82rem; color: var(--muted); }
+    .record-kpis dd { font-size: 1.2rem; font-weight: 720; }
+    .timeline { display: flex; flex-direction: column; justify-content: center; }
+    .timeline figcaption .fine { margin-top: 4px; }
+    .day-plot { position: relative; margin: 16px 0 7px; height: 48px; border-radius: 8px; background: repeating-linear-gradient(to right, #d4e3d8 0 1px, transparent 1px 25%), var(--surface); border-right: 1px solid #d4e3d8; }
+    .day-plot span { position: absolute; top: 9px; height: 30px; left: var(--left); width: var(--duration); background: var(--primary); border-radius: 3px; }
+    .time-ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; }
+    .session-list { padding: 16px 21px 9px; margin-top: 15px; }
+    .session-list h2 { margin-bottom: 5px; }
+    .session-list details + details { border-top: 1px solid var(--line); }
+    .session-list summary { padding: 11px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; }
+    .session-list summary::-webkit-details-marker { display: none; }
+    .session-list summary::after { content: "+"; text-align: center; width: 20px; color: var(--primary); font-size: 1.25rem; }
+    .session-list details[open] summary::after { content: "−"; }
+    .session-list summary strong { margin-left: auto; }
+    .session-list details p { margin-bottom: 10px; }
+    .row-duration { display: block; }
+
+    dialog { width: min(100% - 28px, 455px); max-height: 90dvh; padding: 24px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: white; box-shadow: 0 20px 80px #16281b35; }
+    dialog::backdrop { background: #111b16a0; }
+    .dialog-top { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    .dialog-top h2 { font-size: 1.5rem; }
+    .dialog-top .btn { min-width: 34px; min-height: 34px; padding: 1px 8px; flex: 0 0 auto; margin: -5px -5px 0 0; }
+    .dialog-body { display: grid; gap: 14px; }
+    .dialog-body dl { display: grid; grid-template-columns: 4.25rem minmax(0, 1fr); gap: 8px; font-size: .9rem; }
+    .dialog-body dt { font-weight: 700; }
+
+    @media (max-width: 1080px) {
+      .wrap { width: calc(100% - 64px); }
+      .hero-art { min-height: 390px; }
+      .product { grid-template-columns: 132px minmax(0, 1fr); gap: 22px; }
+    }
+    @media (max-width: 760px) {
+      .wrap { width: calc(100% - 36px); }
+      .review-inner { flex-direction: column; align-items: stretch; gap: 3px; padding-block: 6px; }
+      .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .tabs button { padding-inline: 4px; }
+      .mast-inner { min-height: 56px; }
+      .brand { font-size: 1.2rem; }
+      .brand img { width: 29px; height: 29px; }
+      .welcome { padding-top: 19px; }
+      .hero, .auth-layout, .setup-grid, .measure-grid, .record-dashboard { grid-template-columns: minmax(0, 1fr); }
+      .hero { gap: 15px; }
+      .hero h1 { font-size: clamp(3.15rem, 13vw, 5.3rem); margin-block: 10px 15px; }
+      .hero .lead { font-size: 1.05rem; }
+      .hero .actions { margin-top: 19px; }
+      .hero-art { min-height: 275px; border-radius: 19px; }
+      .hero-rings { width: min(59%, 215px); }
+      .hero-mark { width: 166px; }
+      .how { grid-template-columns: minmax(0, 1fr); margin-block: 19px 23px; }
+      .how li, .how li + li { padding: 10px 0; border: 0; }
+      .how li + li { border-top: 1px solid var(--line); }
+      .auth-layout { gap: 17px; padding-block: 20px 30px; }
+      .auth-intro { padding-top: 12px; }
+      .auth-intro h1 { font-size: 2.65rem; margin-bottom: 8px; }
+      .auth-intro .lead, .setup-copy .lead { font-size: 1rem; }
+      .auth-intro .minor { margin-top: 10px; }
+      .auth-card { padding: 15px; }
+      .product { display: block; }
+      .side { border: 0; border-bottom: 1px solid var(--line); padding: 7px 0; flex-direction: row; align-items: center; gap: 3px; }
+      .side-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 1; gap: 2px; }
+      .side .btn { justify-content: center; min-height: 36px; padding: 3px; font-size: .8rem; }
+      .side-nav .side-icon { display: none; }
+      .account-menu { margin-top: 0; }
+      .account-menu .btn { padding-inline: 8px; }
+      .account-menu .side-icon { display: none; }
+      .work, .signup-setup { padding-block: 19px 25px; }
+      .setup-grid { gap: 14px; margin-top: 15px; }
+      .setup-copy { padding-block: 3px; }
+      .setup-copy h1 { font-size: clamp(2.35rem, 10.4vw, 3.4rem); margin: 7px 0 9px; }
+      .setup-copy .actions { margin-top: 13px; }
+      .stage, .measure-grid .stage { min-height: 245px; }
+      .stage .corners { inset: 16% 12%; }
+      .outline-person { transform: scale(.8); }
+      .measure-status { order: -1; }
+      .measure-status h2 { max-width: none; }
+      .score { padding-top: 10px; }
+      .score b { font-size: 2.8rem; }
+      .numbers > div { padding: 9px; }
+      .numbers dd { font-size: 1.05rem; }
+      .work-header { align-items: center; }
+      .work-header .btn { min-height: 36px; padding: 5px 8px; font-size: .83rem; }
+      .record-total, .timeline, .session-list { padding-inline: 14px; }
+    }
+    @media (max-width: 400px) {
+      .progress { gap: 7px; }
+      .progress li { font-size: .8rem; gap: 3px; }
+      .mast .btn { padding-inline: 8px; }
+      .consent { gap: 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="review">
+    <div class="wrap review-inner">
+      <p class="review-label" id="preview-label">시안 화면 전환</p>
+      <div class="tabs" role="tablist" aria-labelledby="preview-label">
+        <button type="button" role="tab" id="tab-welcome" aria-controls="welcome" aria-selected="true" data-tab="welcome">시작</button>
+        <button type="button" role="tab" id="tab-signup" aria-controls="signup" aria-selected="false" tabindex="-1" data-tab="signup">회원가입</button>
+        <button type="button" role="tab" id="tab-login" aria-controls="login" aria-selected="false" tabindex="-1" data-tab="login">로그인</button>
+        <button type="button" role="tab" id="tab-setup" aria-controls="setup" aria-selected="false" tabindex="-1" data-tab="setup">첫 설정</button>
+        <button type="button" role="tab" id="tab-measure" aria-controls="measure" aria-selected="false" tabindex="-1" data-tab="measure">측정</button>
+        <button type="button" role="tab" id="tab-records" aria-controls="records" aria-selected="false" tabindex="-1" data-tab="records">오늘 기록</button>
+      </div>
+    </div>
+  </header>
+  <div class="mast">
+    <div class="wrap mast-inner">
+      <button type="button" class="brand" data-go="welcome" aria-label="PoseGood 시작 화면">
+        <img src="../../../../frontend/public/branding/posegood-icon.svg" alt="" width="33" height="33">PoseGood
+      </button>
+      <div class="actions" id="mast-actions">
+        <button type="button" class="btn quiet" data-go="login">로그인</button>
+        <button type="button" class="btn" data-go="signup">회원가입 <span class="arrow" aria-hidden="true">↗</span></button>
+      </div>
+    </div>
+  </div>
+
+  <main class="wrap" id="main">
+    <section id="welcome" class="page welcome" role="tabpanel" aria-labelledby="tab-welcome">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="chip good"><span class="dot" aria-hidden="true"></span>나만의 자세 기준</span>
+          <h1 tabindex="-1">내 자세를<br>기억<span class="accent">해요.</span></h1>
+          <p class="lead">편하게 앉은 자세를 기억하고, 그 자세에서 벗어난 상태가 이어지면 알려드려요.</p>
+          <div class="actions">
+            <button type="button" class="btn primary large" data-go="signup">시작하기 <span class="arrow" aria-hidden="true">→</span></button>
+            <button type="button" class="btn quiet large" data-go="login">로그인</button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-rings"></div>
+          <div class="hero-frame corners"></div>
+          <div class="hero-mark"><i class="seat"></i><i class="head"></i><i class="torso"></i><i class="leg"></i></div>
+          <div class="hero-caption"><span class="dot"></span>기준 자세 인식 예시</div>
+        </div>
+      </div>
+      <ol class="how" aria-label="PoseGood 사용 순서">
+        <li><span class="how-number mono">01</span><div><h2>카메라 켜기</h2><p>얼굴과 양쪽 어깨가 보이게 앉아요.</p></div></li>
+        <li><span class="how-number mono">02</span><div><h2>내 자세 기억하기</h2><p>편하게 앉은 자세를 3초 동안 등록해요.</p></div></li>
+        <li><span class="how-number mono">03</span><div><h2>자세 변화 알아차리기</h2><p>변화가 이어지면 알림으로 알려드려요.</p></div></li>
+      </ol>
+      <footer class="page-footer"><span class="chip">제안</span>첫 방문 웰컴 화면 · 영상은 전송하거나 저장하지 않아요. PoseGood은 일상의 자세 변화를 알려드리는 비의료 서비스예요.</footer>
+    </section>
+
+    <section id="signup" class="page" role="tabpanel" aria-labelledby="tab-signup" hidden>
+      <div class="auth-layout" id="signup-layout">
+        <div class="auth-intro">
+          <h1 id="signup-title" tabindex="-1">이용에 동의해 주세요.</h1>
+          <p class="lead" id="signup-lead">필수 항목을 확인하고, 선택 정보는 제공할지 직접 정해 주세요.</p>
+          <p class="minor fine" id="signup-sample" hidden>시연에서는 예시 이메일과 비밀번호를 입력해 주세요.</p>
+        </div>
+        <div class="auth-card card">
+          <div id="signup-progress" class="auth-progress"></div>
+          <form id="consent-form" novalidate>
+            <div class="consent-top">
+              <h2 class="auth-heading">약관 동의</h2>
+              <button type="button" class="btn" id="agree-all" aria-pressed="false">전체 동의</button>
+            </div>
+            <div class="consents" id="consents"></div>
+            <p class="fine" id="consent-count" role="status">필수 동의 0/5 · 선택 여부 미선택</p>
+            <button type="submit" class="btn primary full" disabled>다음 <span class="arrow" aria-hidden="true">→</span></button>
+          </form>
+          <form id="signup-form" novalidate hidden>
+            <h2 class="auth-heading">계정 정보</h2>
+            <div class="field">
+              <label for="signup-email">이메일</label>
+              <div class="input-row">
+                <input id="signup-email" type="email" autocomplete="email" required maxlength="254" placeholder="name@example.com" aria-describedby="signup-email-error">
+                <button class="btn" id="request-code" type="button">코드 받기</button>
+              </div>
+              <span class="field-error" id="signup-email-error" aria-live="polite"></span>
+              <span class="fine verify-note"><span class="chip">제안</span>계정 정보에서 이메일도 인증해요.</span>
+            </div>
+            <div id="code-box" class="verify" hidden>
+              <div class="field">
+                <label for="signup-code">이메일 인증 코드</label>
+                <div class="input-row">
+                  <input id="signup-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required aria-describedby="signup-code-error code-note">
+                  <button class="btn" id="confirm-code" type="button">코드 확인</button>
+                </div>
+                <span class="field-error" id="signup-code-error" aria-live="polite"></span>
+              </div>
+            </div>
+            <p id="code-note" class="fine" role="status" hidden></p>
+            <div class="field">
+              <label for="signup-password">비밀번호</label>
+              <input id="signup-password" type="password" autocomplete="new-password" required aria-describedby="signup-password-note signup-password-error">
+              <span id="signup-password-note" class="fine">12자 이상 · 최대 72바이트</span>
+              <span class="field-error" id="signup-password-error" aria-live="polite"></span>
+            </div>
+            <div class="field">
+              <label for="signup-name">이름</label>
+              <input id="signup-name" autocomplete="name" required maxlength="30" aria-describedby="signup-name-error">
+              <span class="field-error" id="signup-name-error" aria-live="polite"></span>
+            </div>
+            <div class="optional-fields" id="optional-fields" hidden>
+              <div class="field"><label for="signup-age">나이 (선택)</label><input id="signup-age" type="number" inputmode="numeric" min="14" max="120" step="1" aria-describedby="signup-age-error"><span class="field-error" id="signup-age-error" aria-live="polite"></span></div>
+              <div class="field"><label for="signup-job">직업 (선택)</label><input id="signup-job" autocomplete="organization-title" maxlength="80"></div>
+            </div>
+            <button type="submit" class="btn primary full">다음 <span class="arrow" aria-hidden="true">→</span></button>
+          </form>
+          <div class="support">
+            <button type="button" id="signup-back" class="btn quiet" hidden>← 약관 동의</button>
+            <button type="button" class="btn quiet" data-go="login">로그인으로 돌아가기</button>
+          </div>
+        </div>
+      </div>
+      <div id="signup-setup" class="signup-setup" hidden></div>
+    </section>
+
+    <section id="login" class="page" role="tabpanel" aria-labelledby="tab-login" hidden>
+      <div class="auth-layout">
+        <div class="auth-intro">
+          <h1 tabindex="-1">다시 만나서<br>반가워요.</h1>
+          <p class="lead">가입한 이메일과 비밀번호로 로그인해 주세요.</p>
+          <p class="minor fine">카메라는 측정하기에서 직접 켜요. 저장된 기록은 카메라 없이도 볼 수 있어요.</p>
+        </div>
+        <div class="auth-card card">
+          <form id="login-form" novalidate>
+            <h2 class="auth-heading">로그인</h2>
+            <div class="field">
+              <label for="login-email">이메일</label>
+              <input id="login-email" type="email" autocomplete="username" required maxlength="254" placeholder="name@example.com" aria-describedby="login-email-error">
+              <span class="field-error" id="login-email-error" aria-live="polite"></span>
+            </div>
+            <div class="field">
+              <label for="login-password">비밀번호</label>
+              <input id="login-password" type="password" autocomplete="current-password" required aria-describedby="login-password-error">
+              <span class="field-error" id="login-password-error" aria-live="polite"></span>
+            </div>
+            <p id="login-error" class="notice error" role="alert" hidden></p>
+            <button type="submit" class="btn primary large full">로그인 <span class="arrow" aria-hidden="true">→</span></button>
+          </form>
+          <div class="support">
+            <button type="button" class="btn quiet" data-dialog="reset">비밀번호 찾기</button>
+            <button type="button" class="btn quiet" data-go="signup">회원가입</button>
+          </div>
+          <div class="divider">또는</div>
+          <button type="button" class="btn full" data-dialog="discord"><img class="discord-icon" src="../../../../frontend/public/branding/social/discord.svg" alt="" width="19" height="19">Discord로 로그인</button>
+          <details class="sample" id="login-sample">
+            <summary>시연용 로그인 정보</summary>
+            <p class="fine">이메일 <code>demo@example.com</code> · 비밀번호 <code>posegood-demo</code></p>
+            <p class="fine">다른 값으로 로그인하면 오류 상태를 볼 수 있어요.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup" class="page" role="tabpanel" aria-labelledby="tab-setup" hidden></section>
+
+    <section id="measure" class="page" role="tabpanel" aria-labelledby="tab-measure" hidden>
+      <div class="product">
+        <div data-sidebar="measure"></div>
+        <div class="work">
+          <header class="work-header">
+            <div><h1 tabindex="-1">측정하기</h1><p class="fine">합성 시연 · 이번 측정</p></div>
+            <button type="button" class="btn" id="skeleton-toggle" aria-pressed="true">관절 표시</button>
+          </header>
+          <div class="measure-grid">
+            <figure class="stage" aria-label="카메라 예시. 실제 영상 대신 얼굴과 어깨 윤곽을 표시합니다.">
+              <span class="stage-label mono" id="stage-live-label"><span class="dot" aria-hidden="true"></span>카메라 예시 · 08:42</span>
+              <div class="corners" aria-hidden="true"></div>
+              <div class="outline-person" id="live-person" aria-hidden="true"><i class="head"></i><i class="shoulders"></i><i class="joint face"></i><i class="joint left"></i><i class="joint right"></i></div>
+              <figcaption class="stage-bottom" id="stage-live-caption">영상 대신 관절 좌표로 자세를 확인해요</figcaption>
+            </figure>
+            <section class="measure-status card" id="live-status" data-tone="good" aria-label="실시간 측정 상태">
+              <div role="status" aria-atomic="true">
+                <p class="status-kicker"><span class="dot" aria-hidden="true"></span><span id="live-kicker">기준 범위</span></p>
+                <h2 id="live-title">바른 자세예요.</h2>
+                <p class="status-help" id="live-help">등록한 기준 자세의 범위에 있어요.</p>
+              </div>
+              <div class="score"><b class="mono" id="live-score">92</b><span>자세 점수</span></div>
+              <p class="score-note">개인 기준과 비교한 변화 점수예요.</p>
+            </section>
+          </div>
+          <dl class="numbers card mono">
+            <div><dt>기준 자세 유지 시간</dt><dd id="live-keep">6분 40초</dd></div>
+            <div><dt>유효 측정 시간</dt><dd id="live-valid">8분 30초</dd></div>
+            <div><dt>알림</dt><dd id="live-alerts">1회</dd></div>
+          </dl>
+          <div class="actions measure-actions">
+            <button type="button" class="btn primary" id="pause-measure">잠시 쉬기</button>
+            <button type="button" class="btn" data-dialog="result" id="end-measure">측정 종료</button>
+            <button type="button" class="btn" id="sound-toggle" aria-pressed="true">알림 소리</button>
+            <button type="button" class="btn quiet" id="live-recovery" data-go="setup" hidden>카메라 준비 다시 확인</button>
+          </div>
+          <div class="demo-states" role="group" aria-label="측정 상태 시연">
+            <span class="fine">상태 시연</span>
+            <button type="button" class="btn" data-state="good" aria-pressed="true">정상</button>
+            <button type="button" class="btn" data-state="alert" aria-pressed="false">흐트러짐 알림</button>
+            <button type="button" class="btn" data-state="unknown" aria-pressed="false">측정 불가</button>
+            <button type="button" class="btn" data-state="connecting" aria-pressed="false">연결 중</button>
+            <button type="button" class="btn" data-state="disconnected" aria-pressed="false">연결 끊김</button>
+            <button type="button" class="btn" data-state="baseline" aria-pressed="false">기준 미등록</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="records" class="page" role="tabpanel" aria-labelledby="tab-records" hidden>
+      <div class="product">
+        <div data-sidebar="records"></div>
+        <div class="work">
+          <header class="work-header">
+            <div><h1 tabindex="-1">오늘의 기록</h1><p class="fine">11월 24일 · 합성 시연 기록</p></div>
+            <button type="button" class="btn" data-dialog="calendar">달력 보기 <span class="arrow" aria-hidden="true">↗</span></button>
+          </header>
+          <div class="record-dashboard">
+            <section class="record-total card">
+              <h2>바른 자세 비율</h2>
+              <b class="total mono">82<small>%</small></b>
+              <dl class="record-kpis mono"><div><dt>유효 측정</dt><dd>1시간 30분</dd></div><div><dt>알림</dt><dd>4회</dd></div></dl>
+            </section>
+            <figure class="timeline card">
+              <figcaption><h2>측정 시간대</h2><p class="fine">한국 시간 · 짙은 구간에 측정했어요.</p></figcaption>
+              <div class="day-plot" role="img" aria-label="9시 10분부터 9시 40분, 12시 50분부터 13시 20분, 15시 30분부터 16시까지 측정">
+                <span style="--left:38.194%;--duration:2.083%"></span><span style="--left:53.472%;--duration:2.083%"></span><span style="--left:64.583%;--duration:2.083%"></span>
+              </div>
+              <div class="time-ticks mono" aria-hidden="true"><span>00시</span><span>06시</span><span>12시</span><span>18시</span><span>24시</span></div>
+            </figure>
+          </div>
+          <section class="session-list card" aria-labelledby="recent-heading">
+            <h2 id="recent-heading">최근 측정</h2>
+            <details><summary><span><span class="mono">15:30–16:00</span><span class="fine row-duration">30분 측정 · 알림 1회</span></span><strong class="mono" aria-label="바른 자세 88%">88%</strong></summary><p class="fine">기준 자세 유지 26분 24초 · 자세 이탈 1회</p></details>
+            <details><summary><span><span class="mono">12:50–13:20</span><span class="fine row-duration">30분 측정 · 알림 2회</span></span><strong class="mono" aria-label="바른 자세 76%">76%</strong></summary><p class="fine">기준 자세 유지 22분 48초 · 자세 이탈 2회</p></details>
+            <details><summary><span><span class="mono">09:10–09:40</span><span class="fine row-duration">30분 측정 · 알림 1회</span></span><strong class="mono" aria-label="바른 자세 82%">82%</strong></summary><p class="fine">기준 자세 유지 24분 36초 · 자세 이탈 1회</p></details>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <div class="dialog-top"><h2 id="dialog-title"></h2><button type="button" class="btn quiet" id="dialog-close" aria-label="닫기" autofocus>×</button></div>
+    <div id="dialog-body" class="dialog-body"></div>
+  </dialog>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const tabs = [...document.querySelectorAll("[data-tab]")];
+    const appPages = ["setup", "measure", "records"];
+    let page = "welcome";
+    let navigation = 0;
+    let signupStep = 1;
+    let setupRun = 0;
+    let setupFrame = 0;
+    let liveRun = 0;
+    let liveState = "good";
+    let soundOn = true;
+    let skeletonOn = true;
+
+    function progress(labels, step, name) {
+      return '<ol class="progress" aria-label="' + name + '">' + labels.map((label, index) => {
+        const number = index + 1;
+        const attributes = number === step ? ' aria-current="step"' : number < step ? ' class="done"' : "";
+        return '<li' + attributes + '><span class="progress-num mono" aria-hidden="true">' +
+          (number < step ? "✓" : "0" + number) + '</span><span>' + label + '</span></li>';
+      }).join("") + '</ol>';
+    }
+
+    function showPage(next, focusPanel = true) {
+      if (next !== page) {
+        navigation++;
+        stopSetupTimer();
+        liveRun++;
+      }
+      page = next;
+      for (const tab of tabs) {
+        const selected = tab.dataset.tab === next;
+        tab.setAttribute("aria-selected", selected);
+        tab.tabIndex = selected ? 0 : -1;
+        $(tab.dataset.tab).hidden = !selected;
+      }
+      $("mast-actions").hidden = appPages.includes(next) || (next === "signup" && signupStep === 3);
+      window.scrollTo(0, 0);
+      if (focusPanel) $(next).querySelector("h1:not([hidden])")?.focus({ preventScroll: true });
+    }
+
+    function visit(next, focusPanel = true) {
+      if (next === page && next === "signup" && signupStep === 3) return;
+      if (next === "signup") {
+        if (signupStep === 3) resetSignup();
+        renderSignup(signupStep);
+      }
+      if (next === "setup") renderSetup("off", false);
+      if (next === "measure") setLive("good");
+      showPage(next, false);
+      if (focusPanel) {
+        const heading = next === "signup" && signupStep === 3 ? $("setup-title") : $(next).querySelector("h1");
+        heading?.focus({ preventScroll: true });
+      }
+    }
+
+    for (const tab of tabs) tab.addEventListener("click", () => visit(tab.dataset.tab, false));
+    document.querySelector('[role="tablist"]').addEventListener("keydown", (event) => {
+      const index = tabs.indexOf(event.target);
+      const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 };
+      const offset = offsets[event.key];
+      if (index < 0 || (offset === undefined && !["Home", "End"].includes(event.key))) return;
+      event.preventDefault();
+      const next = event.key === "Home" ? tabs[0] :
+        event.key === "End" ? tabs.at(-1) : tabs[(index + offset + tabs.length) % tabs.length];
+      visit(next.dataset.tab, false);
+      next.focus();
+    });
+
+    function sidebar(active) {
+      const item = (label, icon, attribute, selected = false) =>
+        '<button class="btn quiet" type="button" ' + attribute +
+        (selected ? ' aria-current="page"' : '') + '><span aria-hidden="true" class="side-icon">' + icon + '</span>' + label + '</button>';
+      return '<aside class="side"><nav class="side-nav" aria-label="앱 메뉴">' +
+        item("측정하기", "◉", 'data-go="setup"', active === "measure") +
+        item("오늘", "▤", 'data-go="records"', active === "records") +
+        item("기록", "▦", 'data-dialog="calendar"') +
+        item("설정", "⚙", 'data-dialog="settings"') +
+        '</nav><div class="account-menu">' + item("계정", "◎", 'data-dialog="account"') + '</div></aside>';
+    }
+
+    for (const holder of document.querySelectorAll("[data-sidebar]")) holder.innerHTML = sidebar(holder.dataset.sidebar);
+
+    const consentItems = [
+      ["age", "만 14세 이상이에요", true],
+      ["terms", "서비스 이용약관", true, ["수집 항목 없음", "자세 변화 안내 서비스의 이용 조건", "서비스 이용 기간", "동의해야 가입할 수 있어요."]],
+      ["account", "회원가입 정보 수집·이용", true, ["이메일, 이름, 복원할 수 없는 형태의 비밀번호", "로그인과 계정 관리", "탈퇴 후 30일", "동의해야 가입할 수 있어요."]],
+      ["points", "카메라 관절 좌표 수집·이용", true, ["얼굴·어깨 관절 좌표와 시각", "기준 자세 등록과 자세 변화 안내", "탈퇴 후 30일", "동의해야 가입할 수 있어요. 영상은 전송하거나 저장하지 않아요."]],
+      ["records", "측정 기록 저장", true, ["측정 요약, 자세 이탈·알림 기록, 일별 통계, 등록한 자세", "결과와 기록 제공", "탈퇴 후 30일", "동의해야 가입할 수 있어요."]],
+      ["optional", "나이·직업 수집·이용", false, ["나이, 직업", "사용자 환경별 통계", "탈퇴 후 30일", "비동의해도 가입할 수 있고 나이와 직업을 입력하지 않아요."]],
+    ];
+    const choices = new Map();
+    $("consents").innerHTML = consentItems.map(([key, title, required, details]) =>
+      '<div class="consent"><div><div class="consent-header"><span class="consent-title" id="consent-' +
+      key + '">' + title + '</span><span class="consent-type">' + (required ? "(필수)" : "(선택)") +
+      '</span></div>' + (details ? '<button class="consent-more" type="button" aria-haspopup="dialog" aria-label="' +
+        title + ' 자세히" data-dialog="consent:' + key + '">자세히</button>' : "") +
+      '</div><div class="segmented" role="group" aria-labelledby="consent-' + key + '">' +
+      '<button type="button" data-consent="' + key + '" data-agree="true" aria-pressed="false">동의</button>' +
+      '<button type="button" data-consent="' + key + '" data-agree="false" aria-pressed="false">비동의</button></div>' +
+      (required ? '<p class="field-error consent-error" id="consent-error-' + key +
+        '" role="alert" hidden>필수 항목이라 동의해야 가입할 수 있어요.</p>' : "") + '</div>').join("");
+
+    const signupLabels = ["약관 동의", "계정 정보", "자세 등록 (선택)"];
+    const verified = { email: "", pending: "", resendAt: 0, timer: 0, busy: false, attempt: 0 };
+    const normalizeEmail = (input) => input.value.trim().toLowerCase();
+    const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+    function renderConsents() {
+      let accepted = 0;
+      for (const [key, , required] of consentItems) {
+        const value = choices.get(key);
+        for (const button of $("consents").querySelectorAll('[data-consent="' + key + '"]')) {
+          button.setAttribute("aria-pressed", value === (button.dataset.agree === "true"));
+        }
+        if (required) {
+          $("consent-error-" + key).hidden = value !== false;
+          if (value === true) accepted++;
+        }
+      }
+      const optional = choices.get("optional");
+      $("agree-all").setAttribute("aria-pressed", accepted === 5 && optional === true);
+      $("consent-count").textContent = "필수 동의 " + accepted + "/5 · 선택 " +
+        (optional === undefined ? "여부 미선택" : optional ? "동의" : "비동의");
+      $("consent-form").querySelector('[type="submit"]').disabled = accepted !== 5 || optional === undefined;
+    }
+
+    function renderSignup(step, focus = false) {
+      signupStep = step;
+      $("signup-layout").hidden = step === 3;
+      $("signup-setup").hidden = step !== 3;
+      if (step === 3) {
+        $("mast-actions").hidden = true;
+        renderSetup("off", true, focus);
+        return;
+      }
+      $("mast-actions").hidden = false;
+      $("signup-progress").innerHTML = progress(signupLabels, step, "회원가입 3단계");
+      $("signup-title").textContent = step === 1 ? "이용에 동의해 주세요." : "어떤 계정을 사용할까요?";
+      $("signup-lead").textContent = step === 1 ?
+        "필수 항목을 확인하고, 선택 정보는 제공할지 직접 정해 주세요." :
+        "이메일을 인증하고 로그인에 사용할 정보를 입력해 주세요.";
+      $("consent-form").hidden = step !== 1;
+      $("signup-form").hidden = step !== 2;
+      $("signup-back").hidden = step !== 2;
+      $("signup-sample").hidden = step !== 2;
+      $("optional-fields").hidden = choices.get("optional") !== true;
+      if ($("optional-fields").hidden) {
+        $("signup-age").value = "";
+        $("signup-job").value = "";
+        setError("signup-age", "");
+      }
+      if (focus) {
+        window.scrollTo(0, 0);
+        $("signup-title").focus({ preventScroll: true });
+      }
+    }
+
+    $("agree-all").addEventListener("click", () => {
+      for (const [key] of consentItems) choices.set(key, true);
+      renderConsents();
+      $("consent-form").querySelector('[type="submit"]').focus();
+    });
+    $("consents").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-consent]");
+      if (!button) return;
+      choices.set(button.dataset.consent, button.dataset.agree === "true");
+      renderConsents();
+    });
+    $("consent-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!event.submitter?.disabled) renderSignup(2, true);
+    });
+    $("signup-back").addEventListener("click", () => renderSignup(1, true));
+
+    function setError(id, message) {
+      const input = $(id);
+      $(id + "-error").textContent = message;
+      if (message) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+      return !message;
+    }
+
+    function checkEmail(id) {
+      const email = normalizeEmail($(id));
+      return setError(id, !email ? "이메일을 입력해 주세요." :
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "이메일 형식을 확인해 주세요. 예: name@example.com" : "");
+    }
+
+    function checkNewPassword(id) {
+      const value = $(id).value;
+      return setError(id, value.length < 12 ? "비밀번호를 12자 이상 입력해 주세요." :
+        new TextEncoder().encode(value).length > 72 ? "비밀번호를 72바이트 이하로 줄여 주세요." : "");
+    }
+
+    function checkName() {
+      return setError("signup-name", $("signup-name").value.trim() ? "" : "이름을 입력해 주세요.");
+    }
+
+    function checkAge() {
+      const age = $("signup-age");
+      if ($("optional-fields").hidden) return true;
+      return setError("signup-age", age.validity.valid ? "" : "나이는 14~120 사이의 정수로 입력해 주세요.");
+    }
+
+    const validators = {
+      "signup-email": () => checkEmail("signup-email"),
+      "signup-password": () => checkNewPassword("signup-password"),
+      "signup-name": checkName,
+      "signup-age": checkAge,
+      "login-email": () => checkEmail("login-email"),
+      "login-password": () => setError("login-password", $("login-password").value ? "" : "비밀번호를 입력해 주세요."),
+    };
+    for (const [id, validate] of Object.entries(validators)) {
+      $(id).addEventListener("blur", () => {
+        if ($(id).value || $(id).hasAttribute("aria-invalid") || $(id).validity.badInput) validate();
+      });
+      $(id).addEventListener("input", () => {
+        if ($(id).hasAttribute("aria-invalid")) validate();
+        if (id.startsWith("login-")) $("login-error").hidden = true;
+      });
+    }
+
+    function busy(button, on, label) {
+      button.disabled = on;
+      if (on) button.setAttribute("aria-busy", "true");
+      else button.removeAttribute("aria-busy");
+      if (label) button.textContent = label;
+    }
+
+    function showCodeNote(message) {
+      $("code-note").hidden = !message;
+      $("code-note").textContent = message;
+    }
+
+    function renderCodeButton() {
+      clearTimeout(verified.timer);
+      if (verified.busy) return;
+      const left = Math.ceil((verified.resendAt - Date.now()) / 1000);
+      const button = $("request-code");
+      button.dataset.verified = Boolean(verified.email);
+      if (verified.email) {
+        button.disabled = true;
+        button.textContent = "인증 완료";
+      } else if (left > 0) {
+        button.disabled = true;
+        button.textContent = left + "초 후 재요청";
+        verified.timer = setTimeout(renderCodeButton, 1000);
+      } else {
+        button.disabled = false;
+        button.textContent = verified.pending ? "코드 다시 받기" : "코드 받기";
+      }
+    }
+
+    function clearCode() {
+      verified.attempt++;
+      verified.email = "";
+      verified.pending = "";
+      verified.resendAt = 0;
+      verified.busy = false;
+      busy($("request-code"), false);
+      $("code-box").hidden = true;
+      $("signup-code").value = "";
+      setError("signup-code", "");
+      showCodeNote("");
+      renderCodeButton();
+    }
+
+    $("signup-email").addEventListener("input", clearCode);
+    $("request-code").addEventListener("click", async () => {
+      if (!checkEmail("signup-email")) { $("signup-email").focus(); return; }
+      const email = normalizeEmail($("signup-email"));
+      const attempt = ++verified.attempt;
+      const view = navigation;
+      verified.busy = true;
+      busy($("request-code"), true, "요청 중…");
+      await delay(550);
+      if (attempt !== verified.attempt) return;
+      verified.busy = false;
+      busy($("request-code"), false);
+      verified.pending = email;
+      verified.email = "";
+      verified.resendAt = Date.now() + 60000;
+      $("code-box").hidden = false;
+      $("signup-code").value = "";
+      setError("signup-email", "");
+      setError("signup-code", "");
+      showCodeNote("메일 발송 시연이에요. 시연 코드 123456을 입력해 주세요.");
+      renderCodeButton();
+      if (view === navigation && signupStep === 2) $("signup-code").focus();
+    });
+
+    $("signup-code").addEventListener("input", () => {
+      $("signup-code").value = $("signup-code").value.replace(/\D/g, "");
+      setError("signup-code", "");
+    });
+    $("signup-code").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        $("confirm-code").click();
+      }
+    });
+    $("confirm-code").addEventListener("click", () => {
+      const code = $("signup-code").value;
+      if (code.length !== 6 || code !== "123456") {
+        setError("signup-code", code.length !== 6 ? "코드를 6자리로 입력해 주세요." : "코드가 맞지 않아요. 다시 확인해 주세요.");
+        $("signup-code").focus();
+        return;
+      }
+      verified.email = verified.pending;
+      $("code-box").hidden = true;
+      showCodeNote("이메일이 확인됐어요. 비밀번호를 입력해 주세요.");
+      renderCodeButton();
+      setError("signup-email", "");
+      $("signup-password").focus();
+    });
+
+    $("signup-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const emailOk = checkEmail("signup-email");
+      const verifiedOk = emailOk && verified.email === normalizeEmail($("signup-email"));
+      const passwordOk = checkNewPassword("signup-password");
+      const nameOk = checkName();
+      const ageOk = checkAge();
+      if (emailOk && !verifiedOk) setError("signup-email", "이메일 인증을 완료해 주세요.");
+      if (![verifiedOk, passwordOk, nameOk, ageOk].every(Boolean)) {
+        event.target.querySelector('[aria-invalid="true"]')?.focus();
+        return;
+      }
+      const button = event.submitter;
+      const view = navigation;
+      const submittedEmail = verified.email;
+      busy(button, true, "가입하는 중…");
+      await delay(850);
+      busy(button, false, "다음 →");
+      if (view === navigation && signupStep === 2 && submittedEmail === verified.email) {
+        $("signup-password").value = "";
+        renderSignup(3, true);
+      }
+    });
+
+    function resetSignup() {
+      signupStep = 1;
+      choices.clear();
+      $("signup-form").reset();
+      for (const id of ["signup-email", "signup-password", "signup-name", "signup-age"]) setError(id, "");
+      clearCode();
+      renderConsents();
+      renderSignup(1);
+    }
+
+    $("login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const error = $("login-error");
+      error.hidden = true;
+      const emailOk = validators["login-email"]();
+      const passwordOk = validators["login-password"]();
+      if (!emailOk || !passwordOk) {
+        event.target.querySelector('[aria-invalid="true"]')?.focus();
+        return;
+      }
+      const button = event.submitter;
+      const email = normalizeEmail($("login-email"));
+      const password = $("login-password").value;
+      const view = navigation;
+      busy(button, true, "로그인하는 중…");
+      await delay(900);
+      busy(button, false, "로그인 →");
+      if (view !== navigation || email !== normalizeEmail($("login-email")) || password !== $("login-password").value) return;
+      if (email !== "demo@example.com" || password !== "posegood-demo") {
+        error.textContent = "이메일 또는 비밀번호가 맞지 않아요.";
+        error.hidden = false;
+        $("login-password").focus();
+        return;
+      }
+      $("login-password").value = "";
+      visit("setup");
+    });
+
+    const setupInfo = {
+      off: [1, "카메라 준비 전", "카메라를 켤까요?", "카메라 접근을 허용해 주세요. 영상은 이 기기에서 처리하고, 자세 확인에는 관절 좌표만 사용해요.", "카메라가 꺼져 있어요", "카메라 켜기"],
+      denied: [1, "카메라 권한 거부", "카메라를 허용해 주세요.", "브라우저의 사이트 권한에서 카메라를 허용한 뒤 다시 연결해 주세요.", "카메라 권한이 꺼져 있어요", "다시 연결"],
+      disconnected: [1, "카메라 연결 끊김", "카메라가 끊겼어요.", "카메라 연결을 확인한 뒤 다시 연결해 주세요.", "카메라 연결이 끊겼어요", "다시 연결"],
+      align: [2, "구도 확인 중", "얼굴과 어깨를 보여 주세요.", "화면에 얼굴과 양쪽 어깨가 들어오게 앉아 주세요. 얼굴과 어깨가 보이면 등록 준비가 시작돼요.", "얼굴과 양쪽 어깨가 화면 안에 들어오게 앉아요", ""],
+      prepare: [3, "등록 준비 중", "편한 자세로 앉아 주세요.", "3초 뒤 기준 자세를 등록해요. 편하게 앉은 자세를 그대로 유지해 주세요.", "등록 시작까지", ""],
+      capture: [3, "기준 등록 중", "그대로 있어 주세요.", "지금 앉은 자세를 3초 동안 기억하고 있어요.", "등록 완료까지", ""],
+      saving: [3, "저장 중", "기준 자세를 저장해요.", "이 자세를 이후 측정의 기준으로 사용해요.", "기준 자세 저장 중", ""],
+      done: [4, "기준 등록 완료", "기준 자세를 기억했어요.", "이제 등록한 자세와 비교해서 자세 변화가 이어지면 알려드려요.", "개인 기준 자세 등록 완료", "앱 시작"],
+    };
+
+    let signupSetup = false;
+    const setupLabels = ["카메라 권한", "카메라 위치", "기준 자세 등록"];
+
+    function renderSetup(state, optional = signupSetup, focus = false) {
+      signupSetup = optional;
+      const [step, status, title, description, caption, action] = setupInfo[state];
+      const timed = ["prepare", "capture", "saving"].includes(state);
+      const cameraOff = step === 1;
+      const stageArt = cameraOff ? '<div class="camera-off-symbol" aria-hidden="true"></div>' :
+        '<div class="outline-person' + (timed || state === "align" ? ' guide' : '') +
+        '" aria-hidden="true"><i class="head"></i><i class="shoulders"></i><i class="joint face"></i><i class="joint left"></i><i class="joint right"></i></div>';
+      const timing = !timed ? "" : '<div class="timer mono" id="countdown" aria-hidden="true">' +
+        (state === "saving" ? '<span class="spinner"></span>' : '<b id="count-number">3</b>') + '</div>' +
+        (state === "saving" ? "" : '<span class="sr-only" id="count-status" role="status">3초 남았어요</span>');
+      const actions =
+        (action && (state !== "done" || optional) ? '<button class="btn primary large" type="button" data-setup="' +
+          (state === "done" ? "finish" : "allow") + '">' + action + ' <span class="arrow" aria-hidden="true">→</span></button>' : '') +
+        (["prepare", "capture"].includes(state) ? '<button class="btn" type="button" data-setup="cancel">등록 취소</button>' : '') +
+        (state === "align" ? '<button class="btn" type="button" data-setup="off">카메라 끄기</button>' : '') +
+        (optional && state !== "done" && state !== "saving" ? '<button class="btn quiet" type="button" data-setup="skip">건너뛰기</button>' : '');
+      const work =
+        (optional ? '<div class="auth-progress">' + progress(signupLabels, 3, "회원가입 3단계") + '</div>' : '') +
+        '<div class="setup-meta"><h2>첫 설정</h2><span class="fine mono">' +
+          (step === 4 ? "3/3 완료" : step + " / 3") + '</span></div>' +
+        progress(setupLabels, step, "카메라와 자세 등록 단계") +
+        '<div class="setup-grid"><div class="setup-copy"><span class="chip' + (state === "done" ? ' good' : '') +
+        '"><span class="dot" aria-hidden="true"></span>' + status + '</span><h1 id="setup-title" tabindex="-1">' + title + '</h1>' +
+        '<p class="lead">' + description + '</p>' +
+        (actions ? '<div class="actions">' + actions + '</div>' : '') +
+        '</div><figure class="stage" aria-label="카메라 구도 안내 예시"><span class="stage-label">카메라 예시</span>' +
+        '<div class="corners" aria-hidden="true"></div>' + stageArt + timing +
+        '<figcaption class="stage-bottom">' + caption + '</figcaption></figure></div>' +
+        '<div class="setup-demo"><p class="fine">시연 조작 · 실제 카메라를 사용하지 않아요.</p><div class="actions">' +
+        (state === "align" ? '<button class="btn pressed" type="button" data-setup="align">얼굴·어깨 인식 시연</button>' : '') +
+        (state === "off" ? '<button class="btn" type="button" data-setup="denied">권한 거부 시연</button>' : '') +
+        (["align", "prepare", "capture"].includes(state) ? '<button class="btn" type="button" data-setup="disconnected">연결 끊김 시연</button>' : '') +
+        '</div></div>';
+      const target = $(optional ? "signup-setup" : "setup");
+      // Keep only one instance of the setup form and its IDs in the document.
+      $(optional ? "setup" : "signup-setup").replaceChildren();
+      target.innerHTML = optional ? work : '<div class="product">' + sidebar("measure") + '<div class="work">' + work + '</div></div>';
+      if (focus) $("setup-title").focus({ preventScroll: true });
+    }
+
+    function stopSetupTimer() {
+      setupRun++;
+      cancelAnimationFrame(setupFrame);
+    }
+
+    function startCountdown(state) {
+      renderSetup(state, signupSetup, true);
+      const ticket = setupRun;
+      const started = performance.now();
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let previous = 3;
+      function tick(now) {
+        if (ticket !== setupRun) return;
+        const elapsed = Math.max(0, Math.min((now - started) / 3000, 1));
+        const remaining = Math.max(1, Math.ceil(3 * (1 - elapsed)));
+        if (!reducedMotion) $("countdown").style.setProperty("--sweep", (elapsed * 100) + "%");
+        if (previous !== remaining) {
+          $("count-number").textContent = remaining;
+          $("count-status").textContent = remaining + "초 남았어요";
+          previous = remaining;
+        }
+        if (elapsed < 1) { setupFrame = requestAnimationFrame(tick); return; }
+        if (state === "prepare") { startCountdown("capture"); return; }
+        void saveSetup(ticket);
+      }
+      setupFrame = requestAnimationFrame(tick);
+    }
+
+    async function saveSetup(ticket) {
+      renderSetup("saving", signupSetup, true);
+      await delay(600);
+      if (ticket !== setupRun) return;
+      renderSetup("done", signupSetup, true);
+      if (signupSetup) return;
+      await delay(650);
+      if (ticket === setupRun) startMeasurement();
+    }
+
+    function changeSetup(action) {
+      stopSetupTimer();
+      if (action === "skip") {
+        resetSignup();
+        visit("setup");
+      } else if (action === "finish") {
+        resetSignup();
+        startMeasurement();
+      } else if (action === "align") {
+        startCountdown("prepare");
+      } else if (action === "allow" || action === "cancel") {
+        renderSetup("align", signupSetup, true);
+      } else {
+        renderSetup(action, signupSetup, true);
+      }
+    }
+
+    const sampleLive = {
+      good: ["good", "기준 범위", "바른 자세예요.", "등록한 기준 자세의 범위에 있어요.", "92", "6분 40초", "8분 30초", "1회", "08:42", "영상 대신 관절 좌표로 자세를 확인해요"],
+      alert: ["alert", "자세 흐트러짐 알림", "자세를 확인해 주세요.", "등록한 자세에서 벗어난 상태가 이어지고 있어요.", "58", "6분 40초", "8분 36초", "2회", "08:48", "카메라 연결됨"],
+      unknown: ["neutral", "측정 불가", "자세를 확인할 수 없어요.", "얼굴과 양쪽 어깨가 다시 보이면 측정을 이어가요.", "—", "6분 40초", "8분 36초", "2회", "08:53", "얼굴과 어깨를 찾고 있어요"],
+      connecting: ["neutral", "서버 연결 중", "연결하고 있어요.", "연결되면 개인 기준과 비교해 자세를 확인해요.", "—", "—", "—", "—", "", "연결 대기 중"],
+      disconnected: ["neutral", "연결 끊김", "카메라 연결이 끊겼어요.", "카메라를 확인하고 준비 화면에서 다시 연결해 주세요.", "—", "6분 40초", "8분 36초", "2회", "08:53", "카메라 연결 끊김"],
+      baseline: ["neutral", "기준 미등록", "기준 자세를 먼저 등록해요.", "카메라를 켜고 편하게 앉은 자세를 등록해 주세요.", "—", "—", "—", "—", "", "측정 시작 전"],
+      paused: ["neutral", "일시정지", "잠시 쉬는 중이에요.", "다시 앉으면 측정을 재개할 수 있어요.", "—", "6분 40초", "8분 30초", "1회", "08:42", "측정 일시정지"],
+    };
+
+    function setLive(state) {
+      liveState = state;
+      const [tone, kicker, title, help, score, keep, valid, alerts, time, caption] = sampleLive[state];
+      $("live-status").dataset.tone = tone;
+      for (const [id, value] of Object.entries({ kicker, title, help, score, keep, valid, alerts })) {
+        $("live-" + id).textContent = value;
+      }
+      $("stage-live-label").textContent = "카메라 예시" + (time ? " · " + time : "");
+      $("stage-live-caption").textContent = caption;
+      const unavailable = ["baseline", "disconnected", "connecting"].includes(state);
+      $("live-recovery").hidden = !["baseline", "disconnected"].includes(state);
+      $("live-person").hidden = unavailable;
+      $("live-person").classList.toggle("guide", ["unknown", "paused"].includes(state));
+      $("pause-measure").disabled = unavailable;
+      $("end-measure").disabled = ["baseline", "connecting"].includes(state);
+      $("pause-measure").textContent = state === "paused" ? "측정 재개" : "잠시 쉬기";
+      for (const button of $("measure").querySelectorAll("[data-state]")) {
+        button.setAttribute("aria-pressed", button.dataset.state === state);
+      }
+    }
+
+    async function startMeasurement() {
+      showPage("measure");
+      setLive("connecting");
+      const ticket = ++liveRun;
+      await delay(850);
+      if (ticket === liveRun) setLive("good");
+    }
+
+    $("pause-measure").addEventListener("click", () => {
+      liveRun++;
+      setLive(liveState === "paused" ? "good" : "paused");
+    });
+    $("skeleton-toggle").addEventListener("click", () => {
+      skeletonOn = !skeletonOn;
+      $("skeleton-toggle").setAttribute("aria-pressed", skeletonOn);
+      for (const joint of $("live-person").querySelectorAll(".joint")) joint.hidden = !skeletonOn;
+    });
+    function toggleSound() {
+      soundOn = !soundOn;
+      $("sound-toggle").setAttribute("aria-pressed", soundOn);
+      $("dialog-sound")?.setAttribute("aria-pressed", soundOn);
+    }
+    $("sound-toggle").addEventListener("click", toggleSound);
+
+    const dialog = $("dialog");
+    let dialogRun = 0;
+
+    function contentDialog(title, body) {
+      $("dialog-title").textContent = title;
+      $("dialog-body").innerHTML = body;
+      if (!dialog.open) dialog.showModal();
+      $("dialog-close").focus();
+    }
+
+    function openDialog(kind) {
+      if (kind.startsWith("consent:")) {
+        const item = consentItems.find(([key]) => key === kind.split(":")[1]);
+        const labels = ["수집 항목", "이용 목적", "보관 기간", "거부 안내"];
+        contentDialog(item[1], '<p id="dialog-description" class="fine">시연용 동의 내용 요약</p><dl>' +
+          item[3].map((value, index) => "<dt>" + labels[index] + "</dt><dd>" + value + "</dd>").join("") +
+          '</dl><div class="actions"><button class="btn primary" type="button" data-dialog-consent="' +
+          item[0] + '" data-agree="true">동의</button><button class="btn" type="button" data-dialog-consent="' +
+          item[0] + '" data-agree="false">비동의</button></div>');
+        return;
+      }
+      if (kind === "reset") {
+        contentDialog("비밀번호 찾기", '<p id="dialog-description" class="fine">가입한 이메일로 받은 링크에서 비밀번호를 재설정할 수 있어요.</p>' +
+          '<form class="dialog-fields" id="reset-form" novalidate><div class="field"><label for="reset-email">이메일</label>' +
+          '<input id="reset-email" type="email" required maxlength="254" autocomplete="email" placeholder="name@example.com" aria-describedby="reset-email-error">' +
+          '<span id="reset-email-error" class="field-error" aria-live="polite"></span></div>' +
+          '<button class="btn primary full" type="submit">비밀번호 찾기 메일 받기</button><p class="fine">메일 요청은 시연으로만 처리돼요.</p></form>');
+        $("reset-email").value = normalizeEmail($("login-email"));
+        $("reset-email").focus();
+        $("reset-email").addEventListener("input", () => {
+          if ($("reset-email").hasAttribute("aria-invalid")) checkEmail("reset-email");
+        });
+        $("reset-form").addEventListener("submit", async (event) => {
+          event.preventDefault();
+          if (!checkEmail("reset-email")) { $("reset-email").focus(); return; }
+          const ticket = ++dialogRun;
+          busy(event.submitter, true, "요청 중…");
+          await delay(650);
+          if (ticket !== dialogRun || !dialog.open) return;
+          contentDialog("메일을 확인해 주세요.", '<p id="dialog-description">가입된 이메일이라면 비밀번호 찾기 안내를 보내드려요. 메일의 링크를 열어 주세요.</p>' +
+            '<p class="fine">메일 발송 시연이 완료됐어요.</p><button class="btn primary" type="button" data-close-dialog>로그인으로 돌아가기</button>');
+        });
+        return;
+      }
+      if (kind === "discord") {
+        contentDialog("Discord로 로그인", '<p id="dialog-description">웹에서 Discord 로그인을 활성화하면 Discord의 인증 화면으로 이동해요.</p>' +
+          '<p class="fine">시연에서는 인증 성공 후 화면을 볼 수 있어요.</p>' +
+          '<button class="btn primary" type="button" data-go="setup">인증 후 화면 보기</button>');
+        return;
+      }
+      if (kind === "result") {
+        const [, , , , , keep, valid, alerts] = sampleLive[liveState];
+        contentDialog("측정 결과", '<p id="dialog-description" class="fine">방금 마친 측정의 시연 결과예요.</p>' +
+          '<dl><dt>기준 유지</dt><dd>' + keep + '</dd><dt>유효 측정</dt><dd>' + valid + '</dd><dt>알림</dt><dd>' + alerts + '</dd></dl>' +
+          '<div class="actions"><button class="btn" type="button" data-go="setup">다시 측정</button><button class="btn primary" type="button" data-go="records">오늘 기록 보기</button></div>');
+        return;
+      }
+      if (kind === "calendar") {
+        contentDialog("날짜별 기록", '<p id="dialog-description">날짜를 골라 지난 측정을 확인할 수 있어요. 이 시안에는 11월 24일 오늘 기록이 들어 있어요.</p>' +
+          '<button class="btn primary" type="button" data-go="records">오늘 기록 보기</button>');
+        return;
+      }
+      if (kind === "settings") {
+        contentDialog("설정", '<p id="dialog-description" class="fine">알림 소리와 카메라 준비를 확인할 수 있어요.</p><div class="actions">' +
+          '<button class="btn" id="dialog-sound" type="button" aria-pressed="' + soundOn + '">알림 소리</button>' +
+          '<button class="btn" type="button" data-go="setup">카메라 준비</button></div>');
+        $("dialog-sound").addEventListener("click", toggleSound);
+        return;
+      }
+      contentDialog("계정", '<p id="dialog-description">PoseGood 시연 계정</p>' +
+        '<button class="btn" type="button" data-go="login">로그아웃</button>');
+    }
+
+    $("dialog-close").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("cancel", () => { dialogRun++; });
+    dialog.addEventListener("close", () => { dialogRun++; });
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.go) {
+        if (dialog.open) dialog.close();
+        if (button.dataset.go === "setup" && page === "measure" && button.closest(".side")) {
+          $("measure").querySelector("h1").focus();
+          return;
+        }
+        visit(button.dataset.go);
+        return;
+      }
+      if (button.dataset.dialog) { openDialog(button.dataset.dialog); return; }
+      if (button.hasAttribute("data-close-dialog")) { dialog.close(); return; }
+      if (button.dataset.dialogConsent) {
+        choices.set(button.dataset.dialogConsent, button.dataset.agree === "true");
+        renderConsents();
+        dialog.close();
+        return;
+      }
+      if (button.dataset.setup) { changeSetup(button.dataset.setup); return; }
+      if (button.dataset.state) { liveRun++; setLive(button.dataset.state); }
+    });
+
+    renderConsents();
+    renderSignup(1);
+  </script>
+</body>
+</html>
