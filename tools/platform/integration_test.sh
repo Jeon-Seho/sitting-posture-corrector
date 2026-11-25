@@ -440,6 +440,13 @@ else
   elif echo "$RT_VIEW" | judge_expected; then pass "판정: 확정(8.0s) → 재알림(68.0s) → 복귀(78.0s, 지속 73.0s) → 세션 종료, event_id 1~4, 요약 일치"
   else fail "판정 결과" "$(echo "$RT_VIEW" | head -c 600) (기대: 확정 8000·재알림 68000·복귀 78000·종료, 붕괴 1·알림 2)"; fi
 
+  # (D-105) 판정기 정책 — session_started 없이 관측부터 받은 세션은 서비스 DB의 세션 정책으로(못 읽으면 기본 정책 + 횟수).
+  # 정상 흐름(시작 메시지 먼저)에서는 둘 다 늘지 않는다. 값은 api-server가 켜진 뒤 누적
+  JS="$(curl -s -m 5 "$API/judge/status")"
+  if echo "$JS" | grep -q '"policyFallbacks"'; then
+    pass "판정기 정책 계수 (D-105: DB $(echo "$JS" | grep -o '"policiesFromDb":[0-9]*' | cut -d: -f2) · 기본 정책으로 대체 $(echo "$JS" | grep -o '"policyFallbacks":[0-9]*' | cut -d: -f2))"
+  else fail "판정기 정책 계수" "/judge/status에 policyFallbacks 없음 — api-server가 D-105 전 판인지 확인"; fi
+
   # (D-37) 세션이 끝나면 Redis의 판정 상태 키를 지운다
   if [ -n "$RT_SID" ]; then
     RK1="$(docker exec redis redis-cli EXISTS "posture:judge:$RT_SID" 2>/dev/null)"

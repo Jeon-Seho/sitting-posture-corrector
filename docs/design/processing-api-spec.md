@@ -22,7 +22,7 @@
 
 | 메서드·경로 | 응답 |
 | --- | --- |
-| `GET /judge/status` | 진행 중 세션 수, 발행한 `decision`·`progress` 수, 건너뛴 관측(중복·이전 `sequence`) 수, 재시작 뒤 복원한 세션 수 |
+| `GET /judge/status` | 진행 중 세션 수, 발행한 `decision`·`progress` 수, 건너뛴 관측(중복·이전 `sequence`) 수, 재시작 뒤 복원한 세션 수, (D-105) `session_started` 없이 시작한 판정기가 서비스 DB의 세션 정책을 쓴 수 `policiesFromDb`·기본 정책으로 대체한 수 `policyFallbacks` |
 | `GET /judge/sessions/{session_id}` | 그 세션의 정책·요약(`total_ms`·`valid_ms`·`normal_ms`·`deviation_ms`·이탈·알림 횟수 등)·사건 목록. 진행 중이거나 최근 끝난 200개 안에서 찾는다. 없으면 404 |
 
 판정 상태는 Redis에 있어 처리 서비스가 다시 시작해도 이어지지만, 이 조회는 메모리 기준이라 재시작 직후에는 다음 메시지가 올 때까지 404일 수 있다.

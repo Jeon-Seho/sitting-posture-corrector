@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code session_started}: 정책으로 판정기를 만든다(이미 관측을 받은 세션이면 무시).</li>
  *   <li>{@code observation}: 판정기에 넣고 그 구간의 관측(D-57) → 나온 decision들 → progress 순으로 발행한다.
- *       시작 메시지 없이 온 세션은 기본 정책으로 만든다.</li>
+ *       시작 메시지 없이 온 세션(복원도 못 한 세션)은 서비스 DB의 그 세션 정책으로 만들고, 못 읽으면 기본 정책(D-105).</li>
  *   <li>{@code session_ended}: 최종 decision(끊김·session_ended)과 progress를 발행하고 판정기를 정리한다.</li>
  *   <li>입력이 timeout 동안 없는 세션은 만료: 진행 중 사건만 끊김(missing)으로 닫고 정리한다.</li>
  * </ul>
@@ -45,6 +45,7 @@ public class JudgeRegistry {
 	private final EpisodesSink sink;
 	private final JudgeStore store;
 	private final JudgePolicy defaultPolicy;
+	private final SessionPolicyLookup policies;
 	private final LongSupplier clock;
 	private final Map<String, Entry> sessions = new ConcurrentHashMap<>();
 	private final Map<String, Map<String, Object>> recentEnded = new LinkedHashMap<>(16, 0.75f, false) {
@@ -58,6 +59,8 @@ public class JudgeRegistry {
 	private final AtomicLong observations = new AtomicLong();
 	private final AtomicLong skipped = new AtomicLong();
 	private final AtomicLong restored = new AtomicLong();
+	private final AtomicLong policiesFromDb = new AtomicLong();
+	private final AtomicLong policyFallbacks = new AtomicLong();
 
 	private static final class Entry {
 		final SessionJudge judge;
@@ -75,6 +78,7 @@ public class JudgeRegistry {
 	public JudgeRegistry(
 		EpisodesSink sink,
 		JudgeStore store,
+		SessionPolicyLookup policies,
 		@Value("${judge.hold-seconds:3}")
 		double holdSeconds,
 		@Value("${judge.recovery-seconds:3}")
@@ -84,7 +88,7 @@ public class JudgeRegistry {
 		@Value("${judge.threshold:0.7}")
 		double threshold) {
 		this(sink, store, new JudgePolicy(Math.round(holdSeconds * 1000), Math.round(recoverySeconds * 1000),
-			Math.round(reminderSeconds * 1000), threshold), System::currentTimeMillis);
+			Math.round(reminderSeconds * 1000), threshold), policies, System::currentTimeMillis);
 	}
 
 	JudgeRegistry(EpisodesSink sink, JudgePolicy defaultPolicy, LongSupplier clock) {
@@ -92,9 +96,15 @@ public class JudgeRegistry {
 	}
 
 	JudgeRegistry(EpisodesSink sink, JudgeStore store, JudgePolicy defaultPolicy, LongSupplier clock) {
+		this(sink, store, defaultPolicy, SessionPolicyLookup.NONE, clock);
+	}
+
+	JudgeRegistry(EpisodesSink sink, JudgeStore store, JudgePolicy defaultPolicy, SessionPolicyLookup policies,
+		LongSupplier clock) {
 		this.sink = sink;
 		this.store = store;
 		this.defaultPolicy = defaultPolicy;
+		this.policies = policies;
 		this.clock = clock;
 	}
 
@@ -128,8 +138,8 @@ public class JudgeRegistry {
 			entry = restore(sessionId);
 		}
 		if (entry == null) {
-			log.info("session_started 없이 관측을 받음 — 기본 정책으로 판정 (sessionId={})", sessionId);
-			Entry created = new Entry(new SessionJudge(sessionId, defaultPolicy), userId, clock.getAsLong());
+			Entry created = new Entry(new SessionJudge(sessionId, policyWithoutStart(sessionId)), userId,
+				clock.getAsLong());
 			Entry prev = sessions.putIfAbsent(sessionId, created);
 			entry = prev != null ? prev : created;
 		}
@@ -203,6 +213,8 @@ public class JudgeRegistry {
 		status.put("skippedObservations", skipped.get());
 		status.put("restoredSessions", restored.get());
 		status.put("defaultPolicy", defaultPolicy.toString());
+		status.put("policiesFromDb", policiesFromDb.get());
+		status.put("policyFallbacks", policyFallbacks.get());
 		return status;
 	}
 
@@ -229,6 +241,29 @@ public class JudgeRegistry {
 			sink.publish(sessionId, uid, "progress", result.progress());
 			progresses.incrementAndGet();
 		}
+	}
+
+	/**
+	 * (D-105) 시작 메시지 없이(또는 복원 실패 뒤) 판정기를 만들 때의 정책 — 서비스 DB의 그 세션 정책,
+	 * 없거나 DB를 못 읽으면 기본 정책. 기본 정책으로 가면 사용자 설정과 다르게 판정되므로 warn·횟수를 남긴다.
+	 */
+	private JudgePolicy policyWithoutStart(String sessionId) {
+		try {
+			Optional<JudgePolicy> found = policies.find(sessionId);
+			if (found.isPresent()) {
+				policiesFromDb.incrementAndGet();
+				log.info("session_started 없이 관측을 받음 — 서비스 DB의 세션 정책으로 판정 (sessionId={}, policy={})",
+					sessionId, found.get());
+				return found.get();
+			}
+			log.warn("session_started 없이 관측을 받았고 서비스 DB에 세션 정책이 없음 — 기본 정책으로 판정 (sessionId={})",
+				sessionId);
+		} catch (RuntimeException exc) {
+			log.warn("session_started 없이 관측을 받았고 세션 정책을 읽지 못함 — 기본 정책으로 판정 (sessionId={}): {}",
+				sessionId, exc.getMessage());
+		}
+		policyFallbacks.incrementAndGet();
+		return defaultPolicy;
 	}
 
 	/** (D-37) 저장소에서 판정기를 되살려 등록한다. 없거나 복원할 수 없으면 null. */
