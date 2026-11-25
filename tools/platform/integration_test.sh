@@ -241,6 +241,9 @@ for pair in "posegood.auth.discord.client-secret:POSEGOOD_DISCORD_CLIENT_ID" "sp
     n="$(wc -c <"$SF" | tr -d ' ')"
     if [ -n "$on" ] && [ "$n" -eq 0 ]; then fail "비밀값 파일 $name" "기능을 켰는데($what) 파일이 비어 있음"
     elif [ -n "$on" ]; then pass "비밀값 파일 $name (기능 켬, ${n}바이트, 값은 출력 안 함)"
+    # (D-95) Secret은 넣었는데 .env Client ID가 빠지면 Discord 로그인이 소리 없이 꺼진다(11/16 서버에서 겪음)
+    elif [ "$key" = POSEGOOD_DISCORD_CLIENT_ID ] && [ "$n" -gt 0 ]; then
+      fail "비밀값 파일 $name" "파일에 Secret이 있는데 .env POSEGOOD_DISCORD_CLIENT_ID가 비어 Discord 로그인이 꺼져 있음 — Client ID를 넣고 io-api 다시 만들기(끌 생각이면 파일을 비운다)"
     else pass "비밀값 파일 $name (기능 꺼짐 — 파일만 확인)"; fi
   elif docker inspect io-api >/dev/null 2>&1; then
     fail "비밀값 파일 $name" "$SF 없음 — 빈 파일이라도 만든 뒤 io-api 다시 만들기(infra/README.md 입출구 서버)"
