@@ -306,4 +306,50 @@ class KafkaPipelineTest {
 		pipeline.finish(OWNER, SESSION, null); // 이미 끝났으면 다시 보내지도 표시하지도 않는다
 		verify(sessions, times(1)).release(OWNER, SESSION);
 	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void midnightRolloverEndsThePreviousSessionThenStartsTheNextOne() throws Exception {
+		// (D-104) session_ended(이전, 마지막 구간 끝) → 새 세션 행(SessionService) → session_started(새) 순서
+		UUID next = UUID.fromString("5d0b8f3a-1c2e-4a6b-9d7f-0e1a2b3c4d5e");
+		Instant midnight = Instant.parse("2026-11-10T15:00:00Z");
+		var nextSession = mock(LiveSession.class);
+		var nextRow = new SessionRepository.Stored(2, next, OWNER, POLICY, BASELINE_ID, true, midnight, null,
+			BigDecimal.ZERO, 0, 0);
+		when(nextSession.row()).thenReturn(nextRow);
+		when(nextSession.locked(any())).thenAnswer(call -> ((Supplier<?>)call.getArgument(0)).get());
+		when(sessions.require(OWNER, next)).thenReturn(nextSession);
+		when(sessions.openRealtime(OWNER, next)).thenReturn(new SessionService.Realtime(BASELINE, true, midnight));
+		var rolled = new SessionService.Rollover(null, STARTED.plusMillis(200), next, midnight, true);
+		when(sessions.followFromKafka(OWNER, SESSION, midnight, 1000L, 200L)).thenReturn(rolled);
+
+		pipeline.open(OWNER, SESSION);
+		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
+		pipeline.frames(OWNER, SESSION, interval(1, 100, 200), BASELINE);
+		assertEquals(rolled, pipeline.rollover(OWNER, SESSION, midnight, 1000L));
+
+		assertEquals(5, sent.size());
+		assertEquals("session_ended", message(3).get("kind").asString());
+		assertEquals(SESSION.toString(), sent.get(3).key());
+		assertEquals(200, message(3).get("body").get("end_ms").asLong());
+		assertEquals("session_started", message(4).get("kind").asString());
+		assertEquals(next.toString(), sent.get(4).key());
+		pipeline.finish(OWNER, SESSION, null); // 이전 세션은 다시 끝내지 않음
+		assertEquals(5, sent.size());
+	}
+
+	@Test
+	void rolloverThatCannotCreateTheNextSessionReportsThePreviousEnd() throws Exception {
+		// (D-104) 이전 세션은 넘겼는데 새 행을 못 만들면 PreviousEnded(종료 위치) — 핸들러가 closed(day_changed)
+		Instant midnight = Instant.parse("2026-11-10T15:00:00Z");
+		when(sessions.followFromKafka(OWNER, SESSION, midnight, 1000L, 100L))
+			.thenThrow(ApiError.limit("live session capacity reached"));
+		pipeline.open(OWNER, SESSION);
+		pipeline.frames(OWNER, SESSION, interval(0, 0, 100), BASELINE);
+		var failed = assertThrows(MeasurementPipeline.PreviousEnded.class,
+			() -> pipeline.rollover(OWNER, SESSION, midnight, 1000L));
+		assertEquals(100, failed.endMs());
+		assertEquals("session_ended", message(2).get("kind").asString());
+		verify(sessions).release(OWNER, SESSION);
+	}
 }

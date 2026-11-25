@@ -276,6 +276,43 @@ public class SessionService {
 			});
 	}
 
+	/**
+	 * (D-104) kafka 경로 자정 넘김의 세션 쪽. 이전 세션 종료({@code session_ended})는 파이프라인이 처리 서비스로 넘겼다 —
+	 * 여기서는 이전 세션을 끝난 것으로 표시하고(D-98), {@link #rollover}와 같은 행 복사로 자정에 시작하는 새 세션 행과
+	 * 메모리 세션을 만든다. 이 서버 엔진은 판정하지 않으므로 끝내거나 결과 테이블에 쓰지 않는다(저장은 처리 서비스).
+	 * 이전 세션 요약은 kafka로 받은 마지막 결과다(저장 전이라 최종 값이 아닐 수 있다 — 확정 기록은 R1).
+	 * {@code previousEndMs}는 이전 세션 기준 종료 위치다.
+	 */
+	public Rollover followFromKafka(long owner, UUID id, Instant midnight, long limitMs, long previousEndMs) {
+		var previous = require(owner, id);
+		return locks.withLock(
+			owner,
+			() -> {
+				previous.release();
+				var summary = results.latest(id)
+					.map(SessionResults.Snapshot::summary)
+					.orElseGet(() -> previous.locked(() -> previous.engine().view().summary()));
+				var nextId = UUID.randomUUID();
+				live.ensureRoom();
+				var row = tx.execute(
+					status -> {
+						sessions.insertFollowing(previous.row(), nextId, KstTime.of(midnight));
+						return sessions.find(nextId);
+					});
+				var policy = previous.engine().policy();
+				long limit = Math.min(maxSessionMs, limitMs);
+				var following = new LiveSession(row, new SessionEngine(nextId, policy, limit));
+				following.connected(true); // 같은 실시간 연결로 잇는다
+				live.add(following);
+				return new Rollover(
+					summary,
+					previous.row().startedAt().plusMillis(previousEndMs),
+					nextId,
+					row.startedAt(),
+					row.alertEnabled());
+			});
+	}
+
 	/** 입력 하나를 세션 잠금 안에서 처리한다. */
 	private void accept(LiveSession session, InferenceRequest request) {
 		String digest = fingerprint(request);

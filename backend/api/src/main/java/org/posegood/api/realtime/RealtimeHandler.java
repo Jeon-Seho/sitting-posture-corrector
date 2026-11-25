@@ -139,7 +139,7 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		this.helloTimeout = helloTimeout;
 		this.readyTimeout = readyTimeout;
 		// 자정 넘김은 API 안 판정(local)에만 묶여 있다. kafka 경로에서는 쓰지 않는다(가이드 11장 #3).
-		this.midnightRollover = midnightRollover && pipeline.local();
+		this.midnightRollover = midnightRollover; // (D-104) local·kafka 모두
 		this.clock = clock;
 		if (!pipeline.local()) {
 			timer.scheduleWithFixedDelay(this::checkStalled, 1, 1, TimeUnit.SECONDS);
@@ -345,7 +345,15 @@ public class RealtimeHandler extends TextWebSocketHandler {
 		long at = channel.cutMs;
 		SessionService.Rollover next;
 		try {
-			next = sessions.rollover(channel.owner, previous, channel.midnight, SessionEngine.DEFAULT_MAX_MS - at);
+			next = pipeline.rollover(channel.owner, previous, channel.midnight, SessionEngine.DEFAULT_MAX_MS - at);
+		} catch (MeasurementPipeline.PreviousEnded failed) {
+			// (D-104) kafka: 이전 세션은 넘겼는데 새 세션을 못 만들었다 — 앱은 자정 전까지 저장됐다고 안내하고 마친다
+			log.warn("realtime midnight rollover failed after the previous session ended: {}",
+				failed.getCause().getClass().getSimpleName());
+			channel.ended = true;
+			channel.endedAt = channel.realtime.startedAt().plusMillis(failed.endMs());
+			finishClosed(channel, DAY_CHANGED);
+			return false;
 		} catch (ApiError | DataAccessException failed) {
 			log.warn("realtime midnight rollover failed: {}", failed.getClass().getSimpleName());
 			if (channel.dayEnded) {

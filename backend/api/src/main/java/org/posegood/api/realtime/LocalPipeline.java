@@ -1,5 +1,6 @@
 package org.posegood.api.realtime;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.posegood.api.contract.FrameInterval;
@@ -36,5 +37,11 @@ final class LocalPipeline implements MeasurementPipeline {
 	@Override
 	public boolean local() {
 		return true;
+	}
+
+	/** 기존 local 자정 넘김 그대로 — 엔진이 이전 세션을 끝내 저장하고 새 세션을 만든다. */
+	@Override
+	public SessionService.Rollover rollover(long owner, UUID sessionId, Instant midnight, long limitMs) {
+		return sessions.rollover(owner, sessionId, midnight, limitMs);
 	}
 }

@@ -279,6 +279,26 @@ class SessionServiceTest {
 	}
 
 	@Test
+	void kafkaMidnightRolloverOnlyMarksThePreviousEndedAndCreatesTheFollowingRow() {
+		// (D-104) kafka: 이전 세션 판정·저장은 처리 서비스 몫 — 이 서버 엔진을 끝내거나 결과 테이블에 쓰지 않는다
+		var service = service(Duration.ZERO);
+		var latest = new SessionView.Summary(1500, 1500, 1500, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0.0, null, null);
+		service.useResults(id -> Optional.of(new SessionResults.Snapshot(2, latest, List.of(), false)));
+		var midnight = Instant.parse("2026-10-26T15:00:00Z");
+		when(repository.find(any(UUID.class))).thenAnswer(call -> new SessionRepository.Stored(2, call.getArgument(0),
+			OWNER, POLICY, BASELINE, true, midnight, null, null, 0, 0));
+
+		var result = service.followFromKafka(OWNER, ID, midnight, 1000, 2000);
+		assertEquals(latest, result.ended()); // kafka로 받은 마지막 요약
+		assertEquals(Instant.parse("2026-10-26T01:00:02Z"), result.endedAt()); // 시작 + 이전 세션 종료 위치
+		verify(repository, never()).close(any(), any());
+		verify(repository).insertFollowing(row(), result.sessionId(), KstTime.of(midnight));
+		assertEquals(midnight, result.startedAt());
+		assertFalse(service.get(OWNER, result.sessionId()).ended());
+		assertEquals(POLICY, service.get(OWNER, result.sessionId()).policy());
+	}
+
+	@Test
 	void sessionViewFallsBackToTheEndedSessionInTheDatabase() {
 		var service = service(Duration.ZERO);
 		feed(service, ID, interval(0, FrameInterval.Phase.running, true));

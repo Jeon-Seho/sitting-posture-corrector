@@ -1,5 +1,6 @@
 package org.posegood.api.realtime;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.posegood.api.contract.FrameInterval;
@@ -32,6 +33,27 @@ interface MeasurementPipeline {
 	 * 사건에서 알림 만들기를 핸들러가 한다. false(kafka)면 둘 다 하지 않는다(알림은 처리 서비스가 거른 것을 받는다).
 	 */
 	boolean local();
+
+	/**
+	 * KST 자정 넘김(BE-6 ① B안): 이전 세션을 마지막으로 받은 구간 끝에서 끝내고, 자정에 시작하는 새 세션을 만든다.
+	 * local은 API 안 판정 엔진이 끝내 저장하고(기존), kafka는 {@code session_ended}를 처리 서비스로 넘긴 뒤 새 세션의
+	 * {@code session_started}를 보낸다(D-104). 이전 세션을 끝냈는데 새 세션을 못 만들면 {@link PreviousEnded}.
+	 */
+	SessionService.Rollover rollover(long owner, UUID sessionId, Instant midnight, long limitMs);
+
+	/** (D-104) 이전 세션은 끝났는데 새 세션을 만들지 못했다. {@code endMs}는 이전 세션 기준 종료 위치. */
+	final class PreviousEnded extends RuntimeException {
+		private final long endMs;
+
+		PreviousEnded(long endMs, Throwable cause) {
+			super("previous session ended but the following session was not created", cause);
+			this.endMs = endMs;
+		}
+
+		long endMs() {
+			return endMs;
+		}
+	}
 
 	/** 받은 마지막 순번(세션 기준)과, 있으면 처리 직후의 진행 상황. */
 	record Accepted(long lastSequence, SessionService.Status progress) {

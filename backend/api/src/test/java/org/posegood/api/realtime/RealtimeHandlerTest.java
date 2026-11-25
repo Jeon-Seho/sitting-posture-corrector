@@ -449,6 +449,69 @@ class RealtimeHandlerTest {
 		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong());
 	}
 
+	/** (D-104) kafka 경로로 자정 넘김을 켠 서버. */
+	private MeasurementPipeline kafkaRolling(Clock clock) throws Exception {
+		handler.shutdown();
+		var pipeline = mock(MeasurementPipeline.class);
+		when(pipeline.local()).thenReturn(false);
+		when(pipeline.open(OWNER, SESSION)).thenReturn(new SessionService.Realtime(BASELINE, true, STARTED));
+		when(pipeline.frames(anyLong(), any(), any(FrameInterval.class), eq(BASELINE)))
+			.thenAnswer(call -> new MeasurementPipeline.Accepted(
+				((FrameInterval)call.getArgument(2)).sequence(), null));
+		handler = handler(Duration.ofSeconds(10), true, clock, pipeline);
+		return pipeline;
+	}
+
+	@Test
+	void kafkaMidnightRolloverContinuesInANewSessionOnTheSameConnection() throws Exception {
+		// (D-104, FE 요청 #6) kafka도 local과 같이 같은 연결에서 새 세션으로 잇는다. 이전 세션 종료·새 세션 시작은 파이프라인이
+		// Kafka로 넘기고(session_ended → session_started), 앱에는 session_rollover 하나(종료 decision은 처리 서비스 결과로 따로)
+		var pipeline = kafkaRolling(Clock.systemUTC());
+		when(pipeline.rollover(OWNER, SESSION, MIDNIGHT, SessionEngine.DEFAULT_MAX_MS - AT))
+			.thenReturn(
+				new SessionService.Rollover(SUMMARY, STARTED.plusMillis(SUMMARY.totalMs()), NEXT, MIDNIGHT, true));
+		var fake = connect(handler);
+		send(fake, example("ws-hello-measure.json"));
+		send(fake, features(42, AT - 1000, AT - 500));
+		send(fake, features(43, AT - 300, AT + 200)); // 자정에 걸친 구간 → 넘김, 이 구간은 버림
+		assertEquals(List.of("ready", "session_rollover"), fake.types());
+		same(example("ws-session-rollover.json"), fake.only("session_rollover"));
+		assertFalse(fake.closed.get());
+
+		var received = new ArrayList<FrameInterval>();
+		when(pipeline.frames(eq(OWNER), eq(NEXT), any(FrameInterval.class), eq(BASELINE)))
+			.thenAnswer(call -> {
+				received.add(call.getArgument(2));
+				return new MeasurementPipeline.Accepted(1, null);
+			});
+		send(fake, features(44, AT + 200, AT + 700));
+		var local = received.get(0);
+		assertEquals(List.of(1L, 200L, 700L), List.of(local.sequence(), local.startMs(), local.endMs()));
+
+		send(fake, example("ws-end.json").put("end_ms", AT + 1000));
+		verify(pipeline).finish(OWNER, NEXT, 1000L);
+		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), any());
+		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // local 엔진 넘김은 쓰지 않음
+	}
+
+	@Test
+	void kafkaRolloverThatCannotCreateTheNextSessionClosesWithDayChanged() throws Exception {
+		// (D-104) 이전 세션 session_ended는 넘겼는데 새 세션을 못 만들면 closed(day_changed), 종료 시각 = 시작 + 마지막 구간 끝
+		var pipeline = kafkaRolling(Clock.systemUTC());
+		when(pipeline.rollover(OWNER, SESSION, MIDNIGHT, SessionEngine.DEFAULT_MAX_MS - AT))
+			.thenThrow(
+				new MeasurementPipeline.PreviousEnded(AT - 500, ApiError.limit("live session capacity reached")));
+		var fake = connect(handler);
+		send(fake, example("ws-hello-measure.json"));
+		send(fake, features(42, AT - 1000, AT - 500));
+		send(fake, features(43, AT - 300, AT + 200));
+		assertEquals(List.of("ready", "closed"), fake.types());
+		var closed = fake.only("closed");
+		assertEquals("day_changed", closed.get("reason").asString());
+		assertEquals(STARTED.plusMillis(AT - 500), Instant.parse(closed.get("ended_at").asString()));
+		verify(pipeline, never()).finish(anyLong(), any(), any()); // 이전 세션은 넘김에서 이미 끝냄
+	}
+
 	@Test
 	void failedRolloverClosesWithDayChangedAndTheEndTime() throws Exception {
 		// 이전 세션은 끝나 저장됐지만 새 세션을 못 만들면(자리 없음 등) 닫는다. 앱은 새 S1부터 다시 시작한다.
@@ -539,7 +602,7 @@ class RealtimeHandlerTest {
 		assertTrue(fake.closed.get());
 		verify(pipeline, never()).finish(eq(OWNER), eq(SESSION), isNull()); // 끝난 세션은 끊김 종료를 다시 안 보냄
 		verify(sessions).disconnected(OWNER, SESSION); // 끝난 채널이어도 측정 중 표시는 내린다(D-98)
-		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // kafka는 자정 넘김 안 함
+		verify(sessions, never()).rollover(anyLong(), any(), any(), anyLong()); // local 엔진 넘김은 쓰지 않음(D-104)
 	}
 
 	/**

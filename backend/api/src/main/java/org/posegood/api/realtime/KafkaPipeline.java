@@ -25,6 +25,7 @@ import org.posegood.api.session.FrameFeatures;
 import org.posegood.api.session.SessionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
@@ -183,6 +184,37 @@ final class KafkaPipeline implements MeasurementPipeline, AutoCloseable {
 	@Override
 	public boolean local() {
 		return false;
+	}
+
+	/**
+	 * (D-104) kafka 자정 넘김: ① 이전 세션 {@code session_ended}(마지막 구간 끝 — 판정·저장은 처리 서비스) → ② 새 세션 행
+	 * (이전 세션의 사용자·기준 자세·정책·알림 복사, 자정 시작) → ③ 새 세션 {@code session_started}.
+	 * ①이 실패하면 아무것도 바뀌지 않은 채 503, ②③이 실패하면 {@link MeasurementPipeline.PreviousEnded}.
+	 */
+	@Override
+	public SessionService.Rollover rollover(long owner, UUID sessionId, Instant midnight, long limitMs) {
+		var state = live.get(sessionId);
+		if (state == null) {
+			throw ApiError.lost();
+		}
+		long end;
+		synchronized (state) {
+			if (state.ended) {
+				throw ApiError.ended();
+			}
+			end = state.lastEndMs;
+			send(sessionId, owner, "session_ended", new SessionEnded(end));
+			state.ended = true;
+			state.touched = clock.instant();
+		}
+		try {
+			var next = sessions.followFromKafka(owner, sessionId, midnight, limitMs, end);
+			open(owner, next.sessionId());
+			return next;
+		} catch (ApiError | DataAccessException failed) {
+			sessions.release(owner, sessionId); // 이전 세션은 넘겼으니 측정 중 표시를 내린다(D-98)
+			throw new MeasurementPipeline.PreviousEnded(end, failed);
+		}
 	}
 
 	/** 결과 구독({@link KafkaResults})을 이 파이프라인과 함께 닫는다. */
