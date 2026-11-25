@@ -238,12 +238,12 @@ def scenario(base, report, pipeline, legacy=False, account=None):
         check_unauthenticated(base)
     finally:
         # (D-88) R3는 서비스에서 쓰지 않는다 — 탈퇴 접수만 한다. 시험 계정의 세션 행·사건·알림은 Spark J3(30일 뒤)가 지운다
-        # (D-108) 고정 시험 계정은 탈퇴하지 않는다(다음 점검에도 쓴다)
-        if account:
-            return
-        status, _ = owner.call("/auth/account", "DELETE", {"password": PASSWORD})
-        if status != 204:
-            print(f"  참고: 시험 계정 탈퇴 접수 HTTP {status} — 계정·세션 행이 DB에 남음", flush=True)
+        # (D-108) 고정 시험 계정은 탈퇴하지 않는다(다음 점검에도 쓴다).
+        # finally 안에서 return하면 try의 예외가 사라져 main()이 FAIL로 세지 못한다 — 조건으로만 건너뛴다
+        if not account:
+            status, _ = owner.call("/auth/account", "DELETE", {"password": PASSWORD})
+            if status != 204:
+                print(f"  참고: 시험 계정 탈퇴 접수 HTTP {status} — 계정·세션 행이 DB에 남음", flush=True)
 
 
 def open_socket(base):

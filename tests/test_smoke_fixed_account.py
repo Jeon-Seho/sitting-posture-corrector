@@ -95,5 +95,43 @@ class FixedAccountScenarioTest(unittest.TestCase):
         self.assertEqual(seen[1], ("POST", "/auth/register"))
 
 
+class RealtimeFixedAccountErrorTest(unittest.TestCase):
+    """(D-108) 고정 시험 계정 모드에서도 측정 중 예외가 main()까지 올라가 FAIL로 세져야 한다."""
+
+    def setUp(self):
+        import ws_realtime_smoke as ws  # noqa: E402 — io_api_smoke와 같은 경로에서 읽는다
+        self.ws = ws
+
+    def run_scenario(self, account):
+        seen = []
+
+        def call(client, path, method="GET", body=None):
+            seen.append((method, path))
+            if path in ("/auth/login", "/auth/register"):
+                return 200, {"user_id": "u", "access_token": "t"}
+            if path == "/baselines":
+                return 200, {"baseline_id": "b"}
+            if path == "/workspace":
+                return 200, {"preferences": {"alerts_on": True}}
+            if path == "/auth/account":
+                return 204, None
+            return 200, {}
+
+        broken = mock.Mock(side_effect=RuntimeError("연결 끊김"))
+        with mock.patch.object(self.ws.Client, "call", call), mock.patch.object(self.ws.Client, "sign_in"), \
+                mock.patch.object(self.ws, "run_socket", broken), mock.patch("builtins.print"):
+            with self.assertRaises(RuntimeError):
+                self.ws.scenario("http://x", None, "local", account=account)
+        return seen
+
+    def test_fixed_account_keeps_the_error_and_does_not_close_the_account(self):
+        seen = self.run_scenario({"email": "a@b.c", "password": "pw"})
+        self.assertNotIn(("DELETE", "/auth/account"), seen)
+
+    def test_synthetic_account_keeps_the_error_and_closes_the_account(self):
+        seen = self.run_scenario(None)
+        self.assertIn(("DELETE", "/auth/account"), seen)
+
+
 if __name__ == "__main__":
     unittest.main()
