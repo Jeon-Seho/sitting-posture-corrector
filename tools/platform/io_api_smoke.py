@@ -11,6 +11,9 @@ API 명세: 저장소 docs/design/api-spec.md. 앱은 /api 접두사를 붙이�
 세션 삭제(S6)는 2026-10-28 API에서 지웠다(계획 0062, D-75). 여기서는 세션을 S1로 만들고 S4로 본다(열린 채).
 S3(REST 세션 종료)·R3(기록 삭제)는 실제 서비스에서 쓰지 않아 보지 않는다(D-88, PM 11/11). 세션 종료는 WebSocket이 한다.
 끝에서 계정을 탈퇴 접수한다(CLOSED) — 시험 계정의 세션 행까지 Spark J3(30일 뒤)가 지운다.
+(D-108) 서버가 가입 이메일 인증(6자리 코드)을 켜면 매회 가입할 수 없다 → --account-file(고정 시험 계정 JSON
+{"email", "password"}, 서버 infra/compose/secrets/it-test-account.json)을 주면 가입(A2) 대신 로그인하고 탈퇴(A7)는 하지 않는다.
+계정 이메일·비밀번호는 출력하지 않는다.
 표준 라이브러리만 쓴다(서버 PC에 jsonschema·requests가 없어도 된다).
 """
 
@@ -18,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+import time
 import uuid
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener
@@ -119,6 +123,53 @@ def signed_in(client):
     return check
 
 
+def skip(name, why):
+    """세지 않는 항목(고정 시험 계정이라 하지 않는 검사)."""
+    print(f"SKIP  {name} — {why}", flush=True)
+
+
+def load_account(path):
+    """(D-108) 고정 시험 계정 — JSON {"email": …, "password": …}. 없으면 None(매회 합성 계정 가입)."""
+    if not path:
+        return None
+    with open(path, encoding="utf-8") as source:
+        account = json.load(source)
+    if not isinstance(account, dict) or not account.get("email") or not account.get("password"):
+        raise SystemExit(f"{path}: email·password가 있는 JSON이어야 한다")
+    return account
+
+
+def register_body(email, password):
+    return {
+        "email": email, "password": password,
+        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
+        "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
+    }
+
+
+def use_test_policy(client):
+    """W2: 계정 설정을 시험 정책(POLICY)·알림 켜짐으로. S1은 계정 현재 정책과 같아야 하는데, 고정 시험 계정은
+    전에 누가 바꿨을 수 있다(D-108). 새 계정도 알림 기본값이 DB 판에 따라 달라 켠다."""
+    return client.call("/workspace", "PUT", {
+        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
+        "rules": {"holdSeconds": POLICY["hold_ms"] / 1000, "recoverSeconds": POLICY["recovery_ms"] / 1000,
+                  "realertSeconds": POLICY["reminder_ms"] // 1000, "threshold": POLICY["threshold"]},
+        "preferences": {"alerts_on": True},
+    })
+
+
+def create_session(client, path, body, wait_s=40):
+    """S1. 고정 시험 계정은 바로 앞 점검이 연결 없이 만든 세션이 30초(posegood.realtime.measurement-claim-grace)
+    동안 「측정 중」이라 409 MEASUREMENT_IN_PROGRESS가 날 수 있다 → 그동안만 기다렸다 다시(D-108)."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        status, view = client.call(path, "PUT", body)
+        code = view.get("code") if isinstance(view, dict) else None
+        if status != 409 or code != "MEASUREMENT_IN_PROGRESS" or time.monotonic() > deadline:
+            return status, view
+        time.sleep(3)
+
+
 def expect(name, result, status, check=None):
     """응답 상태(와 선택 검사)가 맞으면 PASS. 본문을 돌려준다."""
     got, body = result
@@ -138,18 +189,21 @@ def expect(name, result, status, check=None):
     return body
 
 
-def scenario(base):
+def scenario(base, account=None):
     owner = Client(base)
     expect("H1 GET /health (DB 연결)", owner.call("/health"), 200,
            lambda b: None if b.get("status") == "ok" else f"status={b.get('status')}")
 
     # --- 계정 (A2·A3·A4·A8, 토큰 로그인 ADR 0031) ---
-    email = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid"
-    user = expect("A2 가입 → access 토큰·로그인 유지 쿠키 (합성 시험 계정)", owner.call("/auth/register", "POST", {
-        "email": email, "password": PASSWORD,
-        "profile": {"name": "합성 사용자", "age": 30, "occupation": "합성 시험"},
-        "consents": [{"type": t, "document_version": "service-v2"} for t in CONSENTS],
-    }), 200, signed_in(owner))
+    if account:
+        email, password = account["email"], account["password"]
+        skip("A2 가입", "가입 이메일 인증이 켜진 서버 — 고정 시험 계정으로 로그인(D-108)")
+        user = expect("A3 로그인 → access 토큰·로그인 유지 쿠키 (고정 시험 계정)",
+                      owner.call("/auth/login", "POST", {"email": email, "password": password}), 200, signed_in(owner))
+    else:
+        email, password = f"test-it-{uuid.uuid4().hex[:12]}@example.invalid", PASSWORD
+        user = expect("A2 가입 → access 토큰·로그인 유지 쿠키 (합성 시험 계정)",
+                      owner.call("/auth/register", "POST", register_body(email, password)), 200, signed_in(owner))
     if user is None:
         return
     owner.sign_in(user)
@@ -160,7 +214,7 @@ def scenario(base):
     expect("토큰 없는 요청은 401", Client(base).call("/auth/me"), 401)
 
     device = Client(base)  # 다른 기기: A3 로그인 → 아래에서 A5 로그아웃
-    signed = expect("A3 로그인 (다른 기기)", device.call("/auth/login", "POST", {"email": email, "password": PASSWORD}),
+    signed = expect("A3 로그인 (다른 기기)", device.call("/auth/login", "POST", {"email": email, "password": password}),
                     200, signed_in(device))
     if signed is not None:
         device.sign_in(signed)
@@ -176,6 +230,8 @@ def scenario(base):
 
     # --- 설정·기준 자세 (W1, B1, B2) ---
     expect("W1 GET /workspace", owner.call("/workspace"), 200)
+    if account:
+        expect("W2 설정을 시험 정책으로 (고정 시험 계정)", use_test_policy(owner), 200)
     saved = expect("B1 기준 자세 등록 (관절 9개 평균 좌표)", owner.call("/baselines", "POST", {
         "registration_id": str(uuid.uuid4()),  # issued once per capture, repeated on retries (ADR 0028)
         "calibration_ms": 3000, "sample_count": 20, "landmarks": LANDMARKS,
@@ -189,7 +245,7 @@ def scenario(base):
     # --- 세션 (S1·S4) — 측정 입력·종료는 /realtime(ws_realtime_smoke.py) ---
     sid = str(uuid.uuid4())
     path = "/sessions/" + sid
-    expect("S1 세션 생성 (200 SessionView)", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}),
+    expect("S1 세션 생성 (200 SessionView)", create_session(owner, path, {"policy": POLICY, "baseline_id": baseline}),
            200, lambda b: None if b["last_sequence"] == -1 and not b["ended"] else "새 세션 상태 아님")
     expect("S1 같은 요청 재시도는 멱등", owner.call(path, "PUT", {"policy": POLICY, "baseline_id": baseline}), 200)
 
@@ -212,7 +268,10 @@ def scenario(base):
         expect("A5 로그아웃한 쿠키로 A8은 401", device.call("/auth/refresh", "POST"), 401)
 
     # --- 탈퇴 접수 (A7, 철회 없음 — 최종 삭제는 J3) ---
-    expect("A7 탈퇴 접수 (204)", owner.call("/auth/account", "DELETE", {"password": PASSWORD}), 204)
+    if account:
+        skip("A7 탈퇴 접수·탈퇴 뒤 401·403", "고정 시험 계정은 탈퇴하지 않음(D-108)")
+        return
+    expect("A7 탈퇴 접수 (204)", owner.call("/auth/account", "DELETE", {"password": password}), 204)
     expect("탈퇴 뒤 남은 access 토큰도 401", owner.call("/auth/me"), 401)
     again = Client(base)
     expect("탈퇴한 계정 로그인은 403 ACCOUNT_CLOSED",
@@ -223,9 +282,12 @@ def scenario(base):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", default="http://127.0.0.1:8090", help="io-api 주소 (기본 %(default)s)")
+    parser.add_argument("--account-file", default=None,
+                        help="(D-108) 고정 시험 계정 JSON {email, password} — 가입 이메일 인증이 켜진 서버용")
     args = parser.parse_args()
+    account = load_account(args.account_file)
     try:
-        scenario(args.base)
+        scenario(args.base, account)
     except (RuntimeError, URLError, OSError) as error:
         bad("입출구 서버 접속", repr(error))
     print(f"io-api REST: PASS {PASSED} / FAIL {FAILED}", flush=True)

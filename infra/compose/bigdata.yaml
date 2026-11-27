@@ -497,6 +497,11 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/frontend.Dockerfile
+      # (D-107) 화면의 메일 기능 스위치를 서버 io-api 설정과 같게 — 서버가 끈 기능을 화면이 부르거나 그 반대가 없게.
+      # 빌드할 때 굳으므로 .env를 바꾸면 web도 다시 빌드한다. Discord는 콜백이 운영 앱으로 돌아가 이 화면에서는 끈다(기본값)
+      args:
+        VITE_PASSWORD_RESET_ENABLED: ${POSEGOOD_PASSWORD_RESET_ENABLED:-false}
+        VITE_EMAIL_VERIFICATION_ENABLED: ${POSEGOOD_EMAIL_VERIFICATION_ENABLED:-false}
     image: posegood-frontend:local
     container_name: web
     restart: unless-stopped

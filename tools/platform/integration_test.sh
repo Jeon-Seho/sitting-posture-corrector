@@ -22,7 +22,7 @@
 #   3. Redis       : PING, SET/GET/TTL/DEL
 #   4. HDFS        : DataNode 수, safemode, 파일 put→cat→rm
 #   5. Spark       : Spark↔HDFS Parquet 왕복 (tests/hdfs_parquet_roundtrip.py, D-64)
-#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.7 준비(D-32·D-51·D-65·D-89)
+#   6. 서비스      : api-server liveness/readiness(DB·Redis), inference /health, 확정 서비스 DB V2.8 준비(D-32·D-51·D-65·D-89·D-103)
 #   7. (없음)      : 옛 posture.summary 경로 종단 시험(T-10)·posture-sink HDFS 적재는 옛 경로와 함께 지웠다(D-38, 10/21).
 #                    단계 번호는 문서·기록과 맞추려고 그대로 둔다. 종단 판정은 8단계(Kafka 판정)·11단계(저장)·12단계(WebSocket)
 #   8. Kafka 계약  : 시험용 입구 → posture.features → 추론 → posture.inference → 판정(D-22)
@@ -33,7 +33,7 @@
 #                    REST 점검 tools/platform/io_api_smoke.py(가입·로그인·토큰 갱신 → 기준 → 세션 생성·구간·종료·조회 → 기록 → 삭제
 #                    → 로그아웃 → 탈퇴, D-48·D-69 — 토큰 로그인 ADR 0031)
 #                    합성 시험 계정(test-it-*@example.invalid)은 탈퇴 접수 상태로 남고 J3가 30일 뒤 지운다.
-#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → 실시간 재생 → posture_service(V2.7)에
+#  11. 결과 저장    : (REPORT_TEST_FIXTURES_ENABLED=true일 때) 시험 계정·기준 자세·세션 행 → 실시간 재생 → posture_service(V2.8)에
 #                    세션 종료·이벤트·알림 저장 확인, 같은 decision 다시 넣기(멱등), 알림 토픽 2건(D-54), 시험 행 삭제(D-30·D-51). KEEP_D30=1이면 남김
 #  12. WebSocket   : (io-api가 있을 때) tools/platform/ws_realtime_smoke.py — 앱처럼 /realtime 왕복(D-57 3단계).
 #                    io-api의 POSEGOOD_REALTIME_PIPELINE(local·kafka)로 돌고, 13·14단계도 같은 값. --kafka면 12단계 앞에서 kafka로
@@ -80,6 +80,11 @@ envval() {
   grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 envor() { local v; v="$(envval "$1")"; echo "${v:-$2}"; }
+# (D-108) 가입 이메일 인증(6자리 코드)이 켜진 서버는 점검 도구가 매회 가입할 수 없다 → 고정 시험 계정으로 로그인하고 탈퇴하지 않는다.
+# 계정 파일은 JSON {"email": …, "password": …}(권한 600, Git 제외 secrets/ — 컨테이너에는 마운트하지 않음). 꺼져 있으면 지금처럼 매회 합성 가입.
+IT_ACCOUNT_FILE="infra/compose/secrets/it-test-account.json"
+ACCOPT=""
+[ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED)" = "true" ] && ACCOPT="--account-file $IT_ACCOUNT_FILE"
 API="${API_URL:-http://localhost:$(envor API_SERVER_HOST_PORT 8080)}"
 INFER="${INFERENCE_URL:-http://localhost:$(envor INFERENCE_HOST_PORT 8000)}"
 # 기대 프로젝트 이름: 환경변수로 줄 때만 비교한다(없으면 정보로만 출력).
@@ -123,6 +128,12 @@ fi
 if [ -f "$ENV_FILE" ]; then
   BAD="$(grep -E '^[A-Z0-9_]+(_SECONDS|_SIZE|_CONCURRENCY|_PORT)=' "$ENV_FILE" | grep -vE '^[A-Z0-9_]+=[0-9]+[[:space:]]*$' | cut -d= -f1 | tr '\n' ' ')"
   if [ -n "$BAD" ]; then fail ".env 숫자 값 형식" "숫자가 아닌 값: $BAD"; else pass ".env 숫자 값 형식"; fi
+  # (D-109) 같은 키가 두 번 있으면 마지막 줄이 쓰인다 — 앞 줄을 고쳐도 반영되지 않고, 정리하다 다른 값을 남기기 쉽다(11/24 서버 4개)
+  DUP="$(grep -oE '^[A-Z_][A-Z0-9_]*=' "$ENV_FILE" | tr -d = | sort | uniq -d | tr '\n' ' ')"
+  if [ -z "$DUP" ]; then pass ".env 키 중복 없음"; else fail ".env 키 중복" "${DUP}— 마지막 줄이 쓰인다. 쓰는 값만 한 줄 남기기"; fi
+  # (D-109) 지운 기능의 옛 키 — cep 판정기(D-38·D-53 → JUDGE_*), posture_app 접속(D-38 → SERVICE_DB_SCHEMA)
+  OLD="$(grep -oE '^(CEP_[A-Z0-9_]+|DB_NAME)=' "$ENV_FILE" | tr -d = | tr '\n' ' ')"
+  if [ -z "$OLD" ]; then pass ".env 옛 키 없음 (CEP_*·DB_NAME)"; else fail ".env 옛 키" "${OLD}— 더 읽지 않는 값. 지우기(JUDGE_*·SERVICE_DB_SCHEMA를 쓴다)"; fi
   if [ -n "$(tail -c1 "$ENV_FILE")" ]; then fail ".env 마지막 줄바꿈" "파일 끝에 줄바꿈이 없음 — echo >> .env 로 추가하면 앞 줄에 붙는다"; else pass ".env 마지막 줄바꿈"; fi
   # (D-24) 필수 값 — 실행 환경마다 다른 값(env.example 1·2장). 하나라도 없으면 compose도 시작하지 않는다(SERVER_LAN_IP·SERVICE_DB_SCHEMA)
   MISSING=""
@@ -175,12 +186,25 @@ if [ -f "$ENV_FILE" ]; then
     then pass ".env Discord 로그인 설정 (Client ID·Redirect https·APP_URL, 값은 출력 안 함)"
     else fail ".env Discord 로그인 설정" "POSEGOOD_DISCORD_REDIRECT_URI가 https://…/api/auth/social/discord/callback 이 아니거나 POSEGOOD_APP_URL 없음"; fi
   fi
-  if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED)" = "true" ]; then
+  # (D-103) 메일은 비밀번호 재설정(링크라 APP_URL도)과 가입 이메일 인증(#144, 6자리 코드) 둘 다 쓴다
+  RESET_ON="$(envval POSEGOOD_PASSWORD_RESET_ENABLED)"; VERIFY_ON="$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED)"
+  if [ "$RESET_ON" = "true" ] || [ "$VERIFY_ON" = "true" ]; then
     MISS=""
-    for k in POSEGOOD_APP_URL POSEGOOD_MAIL_HOST POSEGOOD_MAIL_USERNAME POSEGOOD_MAIL_FROM; do
+    for k in POSEGOOD_MAIL_HOST POSEGOOD_MAIL_USERNAME POSEGOOD_MAIL_FROM; do
       [ -z "$(envval "$k")" ] && MISS="$MISS $k"
     done
-    if [ -z "$MISS" ]; then pass ".env 비밀번호 재설정 메일 설정"; else fail ".env 비밀번호 재설정 메일 설정" "비어 있음:$MISS"; fi
+    [ "$RESET_ON" = "true" ] && [ -z "$(envval POSEGOOD_APP_URL)" ] && MISS="$MISS POSEGOOD_APP_URL"
+    if [ -z "$MISS" ]; then pass ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})"
+    else fail ".env 메일 설정 (재설정 ${RESET_ON:-false} · 가입 인증 ${VERIFY_ON:-false})" "비어 있음:$MISS"; fi
+  fi
+  # (D-108) 가입 인증이 켜지면 10·12·13·14단계 점검 도구는 고정 시험 계정으로 로그인한다(가입·탈퇴 검사는 SKIP)
+  if [ "$VERIFY_ON" = "true" ]; then
+    if python3 -c "import json,sys;d=json.load(open(sys.argv[1]));sys.exit(0 if isinstance(d,dict) and d.get('email') and d.get('password') else 1)" \
+        "$IT_ACCOUNT_FILE" 2>/dev/null; then
+      pass "고정 시험 계정 파일 (가입 인증 켜짐 — 점검 도구는 로그인, 값은 출력 안 함)"
+    else
+      fail "고정 시험 계정 파일" "$IT_ACCOUNT_FILE 없음·형식 다름 — {\"email\": …, \"password\": …} JSON, chmod 600 (D-108)"
+    fi
   fi
   if $DC config --quiet >>"$OUT/run.log" 2>&1; then pass "compose 설정 해석 (.env 값 치환)"
   else fail "compose 설정 해석" "$DC config 실패 — $OUT/run.log"; fi
@@ -202,16 +226,24 @@ else
   skip "JWT 서명 키 파일" "io-api 없음(compose --profile io를 쓰지 않음)"
 fi
 # (D-87) Discord Client Secret·SMTP 비밀번호 파일 — 기능을 꺼도 파일은 있어야 한다(빈 파일 가능, 없이 띄우면 폴더가 생김).
-# 켠 기능의 파일은 비어 있으면 안 된다(Client ID 있음 → client-secret, 재설정 true → spring.mail.password).
+# 켠 기능의 파일은 비어 있으면 안 된다(Client ID 있음 → client-secret, 재설정·가입 인증 true → spring.mail.password).
+# (D-103) 메일 비밀번호는 재설정이나 가입 이메일 인증 중 하나라도 켜면 필요하다.
 for pair in "posegood.auth.discord.client-secret:POSEGOOD_DISCORD_CLIENT_ID" "spring.mail.password:POSEGOOD_PASSWORD_RESET_ENABLED"; do
   name="${pair%%:*}"; key="${pair##*:}"; SF="infra/compose/secrets/$name"
-  on="$(envval "$key" 2>/dev/null || true)"; [ "$key" = POSEGOOD_PASSWORD_RESET_ENABLED ] && [ "$on" != "true" ] && on=""
+  on="$(envval "$key" 2>/dev/null || true)"; what="$key"
+  if [ "$key" = POSEGOOD_PASSWORD_RESET_ENABLED ]; then
+    what="POSEGOOD_PASSWORD_RESET_ENABLED 또는 POSEGOOD_EMAIL_VERIFICATION_ENABLED"
+    if [ "$on" = "true" ] || [ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED 2>/dev/null || true)" = "true" ]; then on="true"; else on=""; fi
+  fi
   if [ -d "$SF" ]; then
     fail "비밀값 파일 $name" "$SF 이 폴더임(파일 없이 io-api를 띄움) — rmdir 뒤 파일로 만들고 io-api 다시 만들기(infra/README.md 입출구 서버)"
   elif [ -f "$SF" ]; then
     n="$(wc -c <"$SF" | tr -d ' ')"
-    if [ -n "$on" ] && [ "$n" -eq 0 ]; then fail "비밀값 파일 $name" "기능을 켰는데($key) 파일이 비어 있음"
+    if [ -n "$on" ] && [ "$n" -eq 0 ]; then fail "비밀값 파일 $name" "기능을 켰는데($what) 파일이 비어 있음"
     elif [ -n "$on" ]; then pass "비밀값 파일 $name (기능 켬, ${n}바이트, 값은 출력 안 함)"
+    # (D-95) Secret은 넣었는데 .env Client ID가 빠지면 Discord 로그인이 소리 없이 꺼진다(11/16 서버에서 겪음)
+    elif [ "$key" = POSEGOOD_DISCORD_CLIENT_ID ] && [ "$n" -gt 0 ]; then
+      fail "비밀값 파일 $name" "파일에 Secret이 있는데 .env POSEGOOD_DISCORD_CLIENT_ID가 비어 Discord 로그인이 꺼져 있음 — Client ID를 넣고 io-api 다시 만들기(끌 생각이면 파일을 비운다)"
     else pass "비밀값 파일 $name (기능 꺼짐 — 파일만 확인)"; fi
   elif docker inspect io-api >/dev/null 2>&1; then
     fail "비밀값 파일 $name" "$SF 없음 — 빈 파일이라도 만든 뒤 io-api 다시 만들기(infra/README.md 입출구 서버)"
@@ -219,6 +251,21 @@ for pair in "posegood.auth.discord.client-secret:POSEGOOD_DISCORD_CLIENT_ID" "sp
     skip "비밀값 파일 $name" "io-api 없음(compose --profile io를 쓰지 않음)"
   fi
 done
+# (D-110) 메일을 쓰면(재설정·가입 인증) io-api와 같은 값으로 SMTP 로그인만 시험한다 — 메일은 보내지 않고 값은 출력하지 않는다.
+# 11/25 운영 메일 실패(Gmail 앱 비밀번호가 아닌 값)는 위 「파일 있음·비어 있지 않음」만으로는 못 잡았다.
+# 틀린 값으로 자주 로그인하면 메일 서버가 잠시 막을 수 있어, 값을 고치는 중에는 IT_SKIP_SMTP=1로 건너뛴다.
+if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED 2>/dev/null || true)" = "true" ] \
+    || [ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED 2>/dev/null || true)" = "true" ]; then
+  if [ "${IT_SKIP_SMTP:-0}" = "1" ]; then
+    skip "SMTP 로그인 (메일 켜짐)" "IT_SKIP_SMTP=1"
+  elif [ -s infra/compose/secrets/spring.mail.password ]; then
+    if SMTP_MSG="$(python3 -I tools/platform/smtp_login_check.py --env-file "$ENV_FILE" 2>&1)"; then
+      pass "SMTP 로그인 (메일 켜짐 — $SMTP_MSG)"
+    else
+      fail "SMTP 로그인 (메일 켜짐)" "$SMTP_MSG — 재설정·가입 인증 메일이 나가지 않음. 값을 고치고 io-api 다시 만들기(infra/README.md 입출구 서버)"
+    fi
+  fi  # 파일이 비었거나 없으면 바로 위 「비밀값 파일」이 이미 FAIL
+fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
 log "  compose 프로젝트: ${PROJ:-?} ($DC ps/down은 이 프로젝트 이름으로 동작)"
 if [ -n "$EXPECTED_PROJECT" ]; then
@@ -345,7 +392,7 @@ for comp in db redis; do
   if echo "$RD" | python3 -c "import json,sys;d=json.load(sys.stdin);sys.exit(0 if d['components']['$comp']['status']=='UP' else 1)" 2>/dev/null
   then pass "readiness: $comp UP"; else fail "readiness: $comp" "$RD"; fi
 done
-# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.7, D-89) — 판(V2.3~V2.6이면 적용할 migration, V2.6이면 017)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
+# (D-32·D-51·D-65) 확정 서비스 DB(posture_service V2.8, D-103 — #144) — 판(V2.7이면 적용할 migration 018·019)·필요한 테이블·판정 결과 컬럼·지운 컬럼 없음·
 # 기본 정책(값 4개)·계정 권한
 SDB="$(curl -s -m 15 "$API/store/service-db")"
 echo "서비스 DB: ${SDB:-응답 없음}" >>"$OUT/run.log"
@@ -518,7 +565,7 @@ else
     z="$(docker exec "$name" date +%z 2>/dev/null || echo '?')"
     if [ "$z" = "+0900" ]; then pass "$name 시간대 KST"; else fail "$name 시간대" "$z"; fi
   done
-  if python3 "$TOOLS/io_api_smoke.py" --base "$IO_API" >"$OUT/io-api.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$IO_API" $ACCOPT >"$OUT/io-api.log" 2>&1; then
     pass "io-api REST 점검 ($(tail -1 "$OUT/io-api.log"))"
   else
     fail "io-api REST 점검" "$(grep -m3 '^FAIL' "$OUT/io-api.log" | tr '\n' ' ')(상세 $OUT/io-api.log)"
@@ -679,7 +726,7 @@ elif [ ! -f "$TOOLS/ws_realtime_smoke.py" ]; then skip "실시간 WebSocket 왕�
 else
   PIPE="$(docker exec io-api printenv POSEGOOD_REALTIME_PIPELINE 2>/dev/null || true)"
   PIPE="${PIPE:-local}"
-  if python3 "$TOOLS/ws_realtime_smoke.py" --base "$IO_API" --report "$API" --pipeline "$PIPE" >"$OUT/ws-realtime.log" 2>&1; then
+  if python3 "$TOOLS/ws_realtime_smoke.py" --base "$IO_API" --report "$API" --pipeline "$PIPE" $ACCOPT >"$OUT/ws-realtime.log" 2>&1; then
     pass "WebSocket 왕복 [$PIPE] — 확정 8.0s·재알림 68.0s·회복 78.0s·종료 85.0s, 알림 2, closed(ended), DB 제외 구간 2 ($(tail -1 "$OUT/ws-realtime.log"))"
   else
     fail "WebSocket 왕복 [$PIPE]" "$(grep -m3 '^FAIL' "$OUT/ws-realtime.log" | tr '\n' ' ')(상세 $OUT/ws-realtime.log)"
@@ -709,13 +756,13 @@ else
   if [ -z "$b" ]; then pass "web 포트는 서버 PC 안(127.0.0.1)에만"; else fail "web 포트" "$b — .env WEB_BIND=127.0.0.1"; fi
   if curl -s -m 10 "$WEB/" | grep -qi '<div id="root"'; then pass "화면 $WEB/ (index.html)"
   else fail "화면 $WEB/" "index.html이 아님 (docker logs web)"; fi
-  if python3 "$TOOLS/io_api_smoke.py" --base "$WEB/api" >"$OUT/web-rest.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$WEB/api" $ACCOPT >"$OUT/web-rest.log" 2>&1; then
     pass "화면 경유 REST 점검 $WEB/api ($(tail -1 "$OUT/web-rest.log"))"
   else
     fail "화면 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/web-rest.log" | tr '\n' ' ')(상세 $OUT/web-rest.log)"
   fi
   if [ "$E2E" = 1 ]; then
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" \
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$WEB/api" --report "$API" --pipeline "${PIPE:-local}" $ACCOPT \
       >"$OUT/web-ws.log" 2>&1; then
       pass "화면 경유 WebSocket 왕복 /api/realtime ($(tail -1 "$OUT/web-ws.log"))"
     else
@@ -779,12 +826,12 @@ else
       pass "CORS 사전 확인 OPTIONS /api/auth/login (Origin $ORIG, credentials)"
     else fail "CORS 사전 확인" "허용 헤더 없음 — 끝 /·오타, docker exec io-api printenv POSEGOOD_CORS_ALLOWED_ORIGINS"; fi
   fi
-  if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" >"$OUT/public-rest.log" 2>&1; then
+  if python3 "$TOOLS/io_api_smoke.py" --base "$PUB/api" $ACCOPT >"$OUT/public-rest.log" 2>&1; then
     pass "터널 경유 REST 점검 $PUB/api ($(tail -1 "$OUT/public-rest.log"))"
   else fail "터널 경유 REST 점검" "$(grep -m3 '^FAIL' "$OUT/public-rest.log" | tr '\n' ' ')(상세 $OUT/public-rest.log — 403이면 Cloudflare 봇 차단·요청 제한 규칙)"; fi
   if [ "$E2E" = 1 ]; then
     WSO="$(envval POSEGOOD_REALTIME_ALLOWED_ORIGINS | cut -d, -f1)"
-    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} \
+    if python3 "$TOOLS/ws_realtime_smoke.py" --base "$PUB/api" --report "$API" ${WSO:+--origin "$WSO"} $ACCOPT \
       --pipeline "${PIPE:-local}" >"$OUT/public-ws.log" 2>&1; then
       pass "터널 경유 wss 왕복 /api/realtime (Origin ${WSO:-같은 출처}, $(tail -1 "$OUT/public-ws.log"))"
     else fail "터널 경유 wss 왕복" "$(grep -m3 '^FAIL' "$OUT/public-ws.log" | tr '\n' ' ')(상세 $OUT/public-ws.log)"; fi
