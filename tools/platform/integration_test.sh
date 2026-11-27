@@ -251,6 +251,21 @@ for pair in "posegood.auth.discord.client-secret:POSEGOOD_DISCORD_CLIENT_ID" "sp
     skip "비밀값 파일 $name" "io-api 없음(compose --profile io를 쓰지 않음)"
   fi
 done
+# (D-110) 메일을 쓰면(재설정·가입 인증) io-api와 같은 값으로 SMTP 로그인만 시험한다 — 메일은 보내지 않고 값은 출력하지 않는다.
+# 11/25 운영 메일 실패(Gmail 앱 비밀번호가 아닌 값)는 위 「파일 있음·비어 있지 않음」만으로는 못 잡았다.
+# 틀린 값으로 자주 로그인하면 메일 서버가 잠시 막을 수 있어, 값을 고치는 중에는 IT_SKIP_SMTP=1로 건너뛴다.
+if [ "$(envval POSEGOOD_PASSWORD_RESET_ENABLED 2>/dev/null || true)" = "true" ] \
+    || [ "$(envval POSEGOOD_EMAIL_VERIFICATION_ENABLED 2>/dev/null || true)" = "true" ]; then
+  if [ "${IT_SKIP_SMTP:-0}" = "1" ]; then
+    skip "SMTP 로그인 (메일 켜짐)" "IT_SKIP_SMTP=1"
+  elif [ -s infra/compose/secrets/spring.mail.password ]; then
+    if SMTP_MSG="$(python3 -I tools/platform/smtp_login_check.py --env-file "$ENV_FILE" 2>&1)"; then
+      pass "SMTP 로그인 (메일 켜짐 — $SMTP_MSG)"
+    else
+      fail "SMTP 로그인 (메일 켜짐)" "$SMTP_MSG — 재설정·가입 인증 메일이 나가지 않음. 값을 고치고 io-api 다시 만들기(infra/README.md 입출구 서버)"
+    fi
+  fi  # 파일이 비었거나 없으면 바로 위 「비밀값 파일」이 이미 FAIL
+fi
 PROJ="$(docker inspect kafka --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
 log "  compose 프로젝트: ${PROJ:-?} ($DC ps/down은 이 프로젝트 이름으로 동작)"
 if [ -n "$EXPECTED_PROJECT" ]; then
